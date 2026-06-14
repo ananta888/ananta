@@ -295,6 +295,16 @@ def worker_chat_rag_iterative(
             cfg.get("rag_iterative_catalog_chars") if cfg.get("rag_iterative_catalog_chars") is not None
             else getattr(_cfg_settings, "rag_iterative_catalog_chars", 20000)
         )))
+        _summarize_reads_cfg = cfg.get("rag_iterative_summarize_reads")
+        _summarize_reads = (
+            str(_summarize_reads_cfg).lower() not in {"false", "0", "off", "no", ""}
+            if _summarize_reads_cfg is not None
+            else bool(getattr(_cfg_settings, "rag_iterative_summarize_reads", False))
+        )
+        _summary_chars = max(200, min(2000, int(
+            cfg.get("rag_iterative_summary_chars") if cfg.get("rag_iterative_summary_chars") is not None
+            else getattr(_cfg_settings, "rag_iterative_summary_chars", 600)
+        )))
 
         # Load CodeCompass component catalog as codebase overview
         _catalog_section = ""
@@ -364,6 +374,9 @@ def worker_chat_rag_iterative(
             timeout=timeout_s,
             rec=rec,
             initial_files=available_files,
+            question=question,
+            summarize_reads=_summarize_reads,
+            max_summary_chars=_summary_chars,
         )
         trace["tool_loop"] = tl_trace
         trace["available_files"] = available_files

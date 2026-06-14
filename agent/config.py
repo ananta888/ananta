@@ -293,6 +293,8 @@ class Settings(BaseSettings):
     rag_iterative_symbol_expand_max: int = Field(default=0, validation_alias="RAG_ITERATIVE_SYMBOL_EXPAND_MAX")
     rag_iterative_catalog_chars: int = Field(default=20000, validation_alias="RAG_ITERATIVE_CATALOG_CHARS")
     rag_iterative_tool_chars_per_file: int = Field(default=20000, validation_alias="RAG_ITERATIVE_TOOL_CHARS_PER_FILE")
+    rag_iterative_summarize_reads: bool = Field(default=False, validation_alias="RAG_ITERATIVE_SUMMARIZE_READS")
+    rag_iterative_summary_chars: int = Field(default=600, validation_alias="RAG_ITERATIVE_SUMMARY_CHARS")
     codecompass_fts_enabled: bool = Field(default=False, validation_alias="CODECOMPASS_FTS_ENABLED")
     codecompass_vector_enabled: bool = Field(default=False, validation_alias="CODECOMPASS_VECTOR_ENABLED")
     codecompass_vector_index_path: str = Field(

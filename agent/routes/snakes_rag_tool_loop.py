@@ -153,6 +153,9 @@ def run_rag_chat_tool_loop(
     timeout: int = 180,
     rec: Any | None = None,
     initial_files: list[str] | None = None,
+    question: str = "",
+    summarize_reads: bool = False,
+    max_summary_chars: int = 600,
 ) -> tuple[str, dict[str, Any]]:
     """
     Agentic loop: send messages to LLM, handle tool calls, return final answer.
@@ -204,6 +207,37 @@ def run_rag_chat_tool_loop(
     llm_call_count = 0
     last_content = ""
     _already_read: dict[str, str] = {}  # path → content, to prevent re-reading the same file
+
+    def _summarize_file(path: str, content: str) -> str:
+        """Intermediate LLM call: extract question-relevant info from a file into a compact summary."""
+        if not question or len(content) < 800:
+            return content  # too short to bother summarizing
+        q = question[:300]
+        summary_prompt = (
+            f"Frage: {q}\n\n"
+            f"Datei: {path}\n"
+            f"```\n{content[:12000]}\n```\n\n"
+            f"Extrahiere AUSSCHLIESSLICH die Informationen aus dieser Datei, die zur Frage direkt relevant sind. "
+            f"Maximal {max_summary_chars} Zeichen. "
+            f"Falls nichts relevant: '[nicht relevant]'."
+        )
+        try:
+            import requests as _req
+            resp = _req.post(
+                endpoint,
+                json={"model": model or "auto", "messages": [{"role": "user", "content": summary_prompt}]},
+                headers=headers,
+                timeout=min(timeout, 60),
+            )
+            resp.raise_for_status()
+            summary = str(
+                ((resp.json().get("choices") or [{}])[0].get("message") or {}).get("content") or ""
+            ).strip()
+            if summary:
+                return f"[Zusammenfassung von {path}]\n{summary[:max_summary_chars]}"
+        except Exception as _exc:
+            _log.debug("summarize_file failed for %s: %s", path, _exc)
+        return content  # fallback: full content
 
     def _input_preview(msgs: list[dict], max_chars: int = 2000) -> str:
         """Short preview of the last 4 messages — for log entries only."""
@@ -455,6 +489,24 @@ def run_rag_chat_tool_loop(
                     )
                     if not result.startswith("[Fehler"):
                         _already_read[_req_path] = result
+                        if summarize_reads:
+                            _raw_chars = len(result)
+                            if rec:
+                                rec.event(
+                                    f"tool_call_{tool_call_count}_summarize",
+                                    f"Zusammenfasse: {_req_path}",
+                                    status="running",
+                                    details={"path": _req_path, "raw_chars": _raw_chars},
+                                )
+                            result = _summarize_file(_req_path, result)
+                            if rec:
+                                rec.event(
+                                    f"tool_call_{tool_call_count}_summarize",
+                                    f"Zusammengefasst: {_req_path} ({_raw_chars} → {len(result)} Zeichen)",
+                                    status="completed",
+                                    details={"path": _req_path, "raw_chars": _raw_chars, "summary_chars": len(result)},
+                                    output_preview=result,
+                                )
             else:
                 result = _dispatch_tool(
                     fn_name, args,

@@ -24,6 +24,7 @@ const PHASE_LABELS: Record<string, string> = {
   rag_iterative_synthesis_done: 'Synthese fertig',
   rag_iterative_tool_loop_start: 'Tool-Loop',
   rag_iterative_tool_loop_done: 'Tool-Loop fertig',
+  tool_call_summarize: 'Zusammenfassung',
   tool_loop_llm_1: 'LLM-Call 1',
   tool_loop_llm_2: 'LLM-Call 2',
   tool_loop_llm_3: 'LLM-Call 3',
