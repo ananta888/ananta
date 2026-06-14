@@ -784,9 +784,10 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                 rec.event("config_loaded", "Provider-Konfiguration geladen", status="completed",
                           details={"provider": provider, "model": model, "conversation_history_messages": len(conversation_history)})
 
-            # Resolve active session's system_prompt and ID
+            # Resolve active session's system_prompt, ID, and settings overrides
             _active_session_prompt: str | None = None
             _active_session_id: str = ""
+            _active_session_settings: dict = {}
             try:
                 from client_surfaces.operator_tui.config.user_config_manager import get_manager as _get_mgr2
                 _stored2 = _get_mgr2().load()
@@ -796,6 +797,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                     for _sess2 in (_stored2.get("chat_sessions") or []):
                         if str(_sess2.get("id") or "") == _active_sid2:
                             _active_session_prompt = str(_sess2.get("system_prompt") or "").strip() or None
+                            _active_session_settings = dict(_sess2.get("settings") or {})
                             break
             except Exception:
                 pass
@@ -819,6 +821,21 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                 from agent.routes.ai_snake_config import _current_config
                 from agent.services.retrieval_profile_service import _is_full_scan_intent, _is_rag_iterative_intent
                 _cfg = _current_config()
+                # Apply session-level setting overrides so they take precedence over global config.
+                # For ananta-settings: force disable RAG/code-analysis regardless of persisted values,
+                # since legacy persisted sessions may have rag_iterative from before the session existed.
+                if _active_session_id == "ananta-settings":
+                    _cfg = {
+                        **_cfg,
+                        "chat_architecture_analysis_mode": False,
+                        "chat_retrieval_profile": "none",
+                        "chat_use_codecompass": False,
+                        "chat_code_questions_repo_first": False,
+                        "chat_include_local_project": False,
+                        **({"chat_answer_chars": 3000} if not _cfg.get("chat_answer_chars") else {}),
+                    }
+                elif _active_session_settings:
+                    _cfg = {**_cfg, **_active_session_settings}
                 _answer_chars_limit = _chat_answer_chars_limit()
                 if _is_rag_iterative_intent(_cfg):
                     if rec:
@@ -1492,7 +1509,7 @@ def snake_ask():
 
         _eff_cfg = _current_config()
         _eff_cfg.update(dict(retrieval_config_overrides or {}))
-        # Resolve active session's system_prompt for injection into the LLM
+        # Resolve active session's system_prompt and apply session-level setting overrides
         _active_session_prompt: str | None = None
         try:
             from client_surfaces.operator_tui.config.user_config_manager import get_manager as _get_mgr
@@ -1503,6 +1520,15 @@ def snake_ask():
                     if str(_sess.get("id") or "") == _active_sid:
                         _active_session_prompt = str(_sess.get("system_prompt") or "").strip() or None
                         break
+            if _active_sid == "ananta-settings":
+                _eff_cfg = {
+                    **_eff_cfg,
+                    "chat_architecture_analysis_mode": False,
+                    "chat_retrieval_profile": "none",
+                    "chat_use_codecompass": False,
+                    "chat_code_questions_repo_first": False,
+                    "chat_include_local_project": False,
+                }
         except Exception:
             pass
         if _is_rag_iterative_intent(_eff_cfg):

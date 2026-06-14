@@ -458,6 +458,22 @@ def get_sessions(chat: dict[str, Any]) -> list[dict[str, Any]]:
             if "group" not in s:
                 s["group"] = ""
 
+    # Build index of built-in default sessions by ID for migration
+    _default_by_id = {str(d.get("id") or ""): d for d in DEFAULT_SESSIONS if d.get("id")}
+
+    # Re-sync settings of existing built-in sessions when DEFAULT_SESSIONS changes.
+    # User-customised sessions (not in DEFAULT_SESSIONS) are left untouched.
+    for s in sessions:
+        if not isinstance(s, dict):
+            continue
+        sid = str(s.get("id") or "")
+        if sid in _default_by_id:
+            canonical_settings = dict(_default_by_id[sid].get("settings") or {})
+            current_settings = dict(s.get("settings") or {})
+            if canonical_settings != current_settings:
+                s["settings"] = canonical_settings
+                _ensure_settings_delta(s)
+
     # Add missing built-in sessions (e.g. new architecture sessions)
     existing_ids = {str((s or {}).get("id") or "") for s in sessions}
     for default_sess in DEFAULT_SESSIONS:
