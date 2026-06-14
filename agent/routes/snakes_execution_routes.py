@@ -742,6 +742,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
         return
 
     def _runner() -> None:
+        nonlocal prompt
         rec = None
         store = None
         trace_id = None
