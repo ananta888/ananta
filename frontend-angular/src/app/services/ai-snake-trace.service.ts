@@ -51,6 +51,7 @@ export class AiSnakeTraceService implements OnDestroy {
 
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private sinceSeq = 0;
+  private resetAt = 0;
   private awaitingSub?: Subscription;
 
   constructor() {
@@ -73,6 +74,7 @@ export class AiSnakeTraceService implements OnDestroy {
 
   private onReplyStarted(): void {
     this.sinceSeq = 0;
+    this.resetAt = Date.now() / 1000;
     this.activeTraceId$.next(null);
     this.traceEvents$.next([]);
     this.stopPoll();
@@ -104,8 +106,8 @@ export class AiSnakeTraceService implements OnDestroy {
       next: (res) => {
         const latest = (res?.traces || [])[0];
         if (!latest) return;
-        const now = Date.now() / 1000;
-        if (now - (latest.created_at || 0) < 30) {
+        // Only accept traces created AFTER this session's reset (2s buffer for server lag)
+        if ((latest.created_at || 0) >= this.resetAt - 2) {
           this.activeTraceId$.next(latest.trace_id);
           this.traceMeta$.next(latest);
           this.traceStatus$.next(latest.status);

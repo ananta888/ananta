@@ -6,7 +6,7 @@ import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
 } from '@angular/core';
-import { CommonModule, AsyncPipe, DecimalPipe } from '@angular/common';
+import { CommonModule, AsyncPipe, DecimalPipe, KeyValuePipe } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { AiSnakeTraceService, AiSnakeTraceEvent, AiSnakeTraceMeta } from '../services/ai-snake-trace.service';
 import { AiSnakeChatService } from '../services/ai-snake-chat.service';
@@ -22,6 +22,8 @@ const PHASE_LABELS: Record<string, string> = {
   rag_iterative_completed: 'RAG fertig',
   rag_iterative_synthesis: 'Synthese läuft',
   rag_iterative_synthesis_done: 'Synthese fertig',
+  rag_iterative_tool_loop_start: 'Tool-Loop',
+  rag_iterative_tool_loop_done: 'Tool-Loop fertig',
   full_scan_detected: 'Full-Scan',
   full_scan_batch_started: 'Batch läuft',
   full_scan_batch_completed: 'Full-Scan fertig',
@@ -47,7 +49,7 @@ interface ChunkMeta { path: string; source_type: string; score: number; }
 @Component({
   selector: 'app-ai-snake-trace-viewer',
   standalone: true,
-  imports: [CommonModule, AsyncPipe, DecimalPipe],
+  imports: [CommonModule, AsyncPipe, DecimalPipe, KeyValuePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <div class="tv">
@@ -102,9 +104,10 @@ interface ChunkMeta { path: string; source_type: string; score: number; }
                [class.step-sel]="sel?.event_id === ev.event_id"
                [class.step-run]="ev.status === 'running'"
                [class.step-fail]="ev.status === 'failed'"
+               [class.step-tool]="isToolCall(ev.phase)"
                (click)="pick(ev)">
             <span class="step-dot" [class]="'dot-' + ev.status">{{ STATUS_DOT[ev.status] || '○' }}</span>
-            <span class="step-label">{{ PHASE_LABELS[ev.phase] || ev.title }}</span>
+            <span class="step-label">{{ stepLabel(ev) }}</span>
             @if (ev.duration_ms != null) {
               <span class="step-ms">{{ ev.duration_ms | number:'1.0-0' }}ms</span>
             }
@@ -181,6 +184,28 @@ interface ChunkMeta { path: string; source_type: string; score: number; }
             </div>
             @if (open.output) {
               <pre class="code-block">{{ outputPreviewText(sel) }}</pre>
+            }
+          </div>
+        }
+
+        <!-- ── Tool-Call Detail ── -->
+        @if (isToolCall(sel.phase)) {
+          <div class="tool-call-block">
+            <div class="tool-call-header">
+              <span class="tool-fn-badge">⚙ {{ toolCallName(sel) }}</span>
+              <span class="tool-result-size">{{ toolResultChars(sel) }} Zeichen Ergebnis</span>
+            </div>
+            @if (toolCallArgs(sel) | keyvalue; as argList) {
+              @if (argList.length) {
+                <div class="tool-args">
+                  @for (arg of argList; track arg.key) {
+                    <div class="tool-arg-row">
+                      <span class="tool-arg-key">{{ arg.key }}</span>
+                      <span class="tool-arg-val">{{ arg.value }}</span>
+                    </div>
+                  }
+                </div>
+              }
             }
           </div>
         }
@@ -303,6 +328,8 @@ interface ChunkMeta { path: string; source_type: string; score: number; }
     .dot-pending   { color: #1a2a40; }
     .step-label { flex: 1; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .step-ms { font-size: 9px; color: #2a4060; flex-shrink: 0; }
+    .step-tool { border-left: 2px solid #3a1a5a; }
+    .step-tool.step-sel { border-left-color: #7a3acc; background: #180a2a; }
 
     /* Detail panel */
     .tv-detail {
@@ -352,6 +379,22 @@ interface ChunkMeta { path: string; source_type: string; score: number; }
       white-space: pre-wrap; word-break: break-word; color: #7aaac8;
       max-height: 280px; overflow: auto; margin: 0; border-radius: 2px;
     }
+
+    /* Tool call */
+    .tool-call-block {
+      background: #10071e; border: 1px solid #3a1a5a; border-radius: 3px;
+      padding: 7px 9px; display: flex; flex-direction: column; gap: 5px;
+    }
+    .tool-call-header { display: flex; align-items: center; gap: 8px; }
+    .tool-fn-badge {
+      font-size: 10px; font-weight: 600; color: #c080ff;
+      background: #1e0a30; border: 1px solid #5a2a90; padding: 2px 7px; border-radius: 10px;
+    }
+    .tool-result-size { font-size: 9px; color: #5a3a7a; margin-left: auto; }
+    .tool-args { display: flex; flex-direction: column; gap: 2px; }
+    .tool-arg-row { display: flex; gap: 6px; align-items: baseline; }
+    .tool-arg-key { font-size: 9px; color: #7a4aaa; flex-shrink: 0; min-width: 50px; }
+    .tool-arg-val { font-size: 10px; color: #a070d0; font-family: monospace; word-break: break-all; }
 
     /* Wait */
     .tv-wait { padding: 20px; color: #2a4060; text-align: center; }
@@ -476,7 +519,10 @@ export class AiSnakeTraceViewerComponent implements OnInit, OnDestroy {
       || phase === 'llm_call_completed'
       || phase.startsWith('rag_iterative_batch_')
       || phase === 'rag_iterative_synthesis'
-      || phase === 'rag_iterative_synthesis_done';
+      || phase === 'rag_iterative_synthesis_done'
+      || phase === 'rag_iterative_tool_loop_start'
+      || phase === 'rag_iterative_tool_loop_done'
+      || phase.startsWith('tool_call_');
   }
 
   hasDetails(ev: AiSnakeTraceEvent): boolean {
@@ -504,5 +550,39 @@ export class AiSnakeTraceViewerComponent implements OnInit, OnDestroy {
     if (s < 60) return `${s}s`;
     if (s < 3600) return `${Math.floor(s / 60)}m`;
     return `${Math.floor(s / 3600)}h`;
+  }
+
+  isToolCall(phase: string): boolean {
+    return phase.startsWith('tool_call_');
+  }
+
+  stepLabel(ev: AiSnakeTraceEvent): string {
+    if (this.isToolCall(ev.phase)) {
+      const fn = (ev.details as Record<string, unknown>)?.['function'];
+      if (typeof fn === 'string') return fn;
+      return ev.title || ev.phase;
+    }
+    return PHASE_LABELS[ev.phase] || ev.title;
+  }
+
+  toolCallName(ev: AiSnakeTraceEvent): string {
+    const d = ev.details as Record<string, unknown>;
+    return typeof d?.['function'] === 'string' ? d['function'] as string : ev.phase;
+  }
+
+  toolCallArgs(ev: AiSnakeTraceEvent): Record<string, string> {
+    const d = ev.details as Record<string, unknown>;
+    const args = d?.['args'];
+    if (!args || typeof args !== 'object') return {};
+    const result: Record<string, string> = {};
+    for (const [k, v] of Object.entries(args as Record<string, unknown>)) {
+      result[k] = String(v);
+    }
+    return result;
+  }
+
+  toolResultChars(ev: AiSnakeTraceEvent): number {
+    const d = ev.details as Record<string, unknown>;
+    return typeof d?.['result_chars'] === 'number' ? d['result_chars'] as number : 0;
   }
 }
