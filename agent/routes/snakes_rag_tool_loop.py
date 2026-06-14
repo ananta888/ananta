@@ -11,6 +11,8 @@ import logging
 import pathlib as _pl
 from typing import Any
 
+from agent.utils import log_llm_entry
+
 _log = logging.getLogger(__name__)
 
 _CHAT_TOOLS = [
@@ -129,7 +131,7 @@ def run_rag_chat_tool_loop(
     provider: str,
     model: str | None,
     repo_root: _pl.Path,
-    max_tool_calls: int = 4,
+    max_tool_calls: int = 0,
     max_chars_per_file: int = 8000,
     timeout: int = 180,
     rec: Any | None = None,
@@ -154,10 +156,15 @@ def run_rag_chat_tool_loop(
 
     from agent.llm_integration import _runtime_api_key, _runtime_provider_urls
 
+    # 0 or negative = unlimited (capped at 50 to prevent infinite loops)
+    _effective_max = max_tool_calls if max_tool_calls > 0 else 50
+    max_tool_calls = _effective_max
+
     trace: dict[str, Any] = {
         "mode": "tool_loop",
         "tool_calls_made": 0,
         "tools_used": [],
+        "max_tool_calls_effective": max_tool_calls,
     }
 
     urls = _runtime_provider_urls()
@@ -213,6 +220,16 @@ def run_rag_chat_tool_loop(
                 input_preview=_input_preview(current_messages),
             )
 
+        _prompt_text = _input_preview(current_messages)
+        log_llm_entry(
+            event="llm_call_start",
+            provider=provider,
+            model=model or "auto",
+            prompt=_prompt_text,
+            tool_loop_call=llm_call_count,
+            history_len=len(current_messages),
+        )
+
         try:
             resp = requests.post(endpoint, json=payload, headers=headers, timeout=timeout)
             resp.raise_for_status()
@@ -220,6 +237,15 @@ def run_rag_chat_tool_loop(
         except Exception as exc:
             _log.warning("tool_loop: LLM call failed: %s", exc)
             trace["error"] = f"llm_call_failed: {exc}"
+            log_llm_entry(
+                event="llm_call_end",
+                provider=provider,
+                model=model or "auto",
+                success=False,
+                tool_loop_call=llm_call_count,
+                response="",
+                error=str(exc),
+            )
             if rec:
                 rec.event(
                     f"tool_loop_llm_{llm_call_count}_done",
@@ -240,6 +266,20 @@ def run_rag_chat_tool_loop(
         content = str(msg.get("content") or "").strip()
         tool_calls = list(msg.get("tool_calls") or [])
         last_content = content or last_content
+
+        _tc_names_log = [
+            str((tc.get("function") or {}).get("name") or "?") for tc in tool_calls
+        ]
+        log_llm_entry(
+            event="llm_call_end",
+            provider=provider,
+            model=model or "auto",
+            success=True,
+            tool_loop_call=llm_call_count,
+            finish_reason=finish_reason,
+            response=content[:2000] if content else (f"→ tool_calls: {_tc_names_log}" if _tc_names_log else ""),
+            tool_calls=_tc_names_log,
+        )
 
         if rec:
             tc_names = [

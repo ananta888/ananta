@@ -289,7 +289,7 @@ class Settings(BaseSettings):
     rag_full_budget_tokens: int = Field(default=64000, validation_alias="RAG_FULL_BUDGET_TOKENS")
     rag_iterative_import_depth: int = Field(default=0, validation_alias="RAG_ITERATIVE_IMPORT_DEPTH")
     rag_iterative_tool_calls_enabled: bool = Field(default=True, validation_alias="RAG_ITERATIVE_TOOL_CALLS_ENABLED")
-    rag_iterative_max_tool_calls: int = Field(default=4, validation_alias="RAG_ITERATIVE_MAX_TOOL_CALLS")
+    rag_iterative_max_tool_calls: int = Field(default=0, validation_alias="RAG_ITERATIVE_MAX_TOOL_CALLS")
     codecompass_fts_enabled: bool = Field(default=False, validation_alias="CODECOMPASS_FTS_ENABLED")
     codecompass_vector_enabled: bool = Field(default=False, validation_alias="CODECOMPASS_VECTOR_ENABLED")
     codecompass_vector_index_path: str = Field(

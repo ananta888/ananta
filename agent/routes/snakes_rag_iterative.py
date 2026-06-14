@@ -172,13 +172,24 @@ def worker_chat_rag_iterative(
         from agent.services.retrieval_profile_service import resolve_profile
 
         profile = resolve_profile(question, cfg, domain_hint=None, feature_flag=str(cfg.get("chat_retrieval_profile") or "auto"))
+        _rag_max = int(_cfg_settings.rag_max_chunks or 40)
+        _profile_dict = profile.as_dict()
+        # Override the profile's chunk_policy so env-configured quotas actually apply
+        _cp = dict(_profile_dict.get("chunk_policy") or {})
+        _cp["max_chunks"] = max(_rag_max, int(_cp.get("max_chunks") or 12))
+        _source_type_scale = {"repo": 2, "artifact": 3, "wiki": 6, "task_memory": 5}
+        _cp["max_per_source_type"] = {
+            k: max(v, _rag_max // _source_type_scale.get(k, 4))
+            for k, v in (_cp.get("max_per_source_type") or {"repo": 8, "artifact": 4}).items()
+        }
+        _profile_dict["chunk_policy"] = _cp
         bundle, _ = get_rag_service().build_execution_context(
             question,
             task_kind="research",
             retrieval_intent=profile.retrieval_intent or "chat_codecompass_overview",
             source_types=profile.source_types or None,
-            max_chunks=40,
-            retrieval_profile=profile.as_dict(),
+            max_chunks=_rag_max,
+            retrieval_profile=_profile_dict,
         )
         chunks = list(bundle.get("chunks") or [])
     except Exception as exc:
