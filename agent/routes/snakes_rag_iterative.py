@@ -19,7 +19,11 @@ import ast as _ast
 from agent.config import lookup_model_context_tokens, settings as _cfg_settings
 from agent.llm_integration import generate_text
 from agent.routes.ai_snake_config import _current_config
-from agent.services.rag_context_packer import build_rag_context_pack, format_packed_files_section
+from agent.services.rag_context_packer import (
+    build_rag_context_pack,
+    format_packed_files_section,
+    packed_file_memory_summary,
+)
 
 _log = logging.getLogger(__name__)
 
@@ -422,10 +426,7 @@ def worker_chat_rag_iterative(
             initial_evidence=[
                 {
                     "path": item.path,
-                    "summary": (
-                        f"Initialer CodeCompass-Treffer, {item.inclusion}, "
-                        f"{item.chars_included}/{item.chars_read} Zeichen im Prompt."
-                    ),
+                    "summary": packed_file_memory_summary(item, max_chars=_summary_chars),
                     "score": item.score,
                     "source": "initial_context",
                 }

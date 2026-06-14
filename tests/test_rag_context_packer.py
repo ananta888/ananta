@@ -31,3 +31,30 @@ def test_rag_context_packer_embeds_top_files_within_budget(tmp_path):
     assert "Bereits gelesene CodeCompass-Top-Treffer" in section
     assert "a.py" in section
     assert "b.py" in section
+
+
+def test_rag_context_packer_skips_generated_codecompass_outputs(tmp_path):
+    generated = tmp_path / "rag-helper" / "out" / "index_by_kind"
+    generated.mkdir(parents=True)
+    (generated / "typescript_folder_summary.jsonl").write_text("G" * 500, encoding="utf-8")
+    (tmp_path / "source.py").write_text("print('source')\n", encoding="utf-8")
+
+    pack = build_rag_context_pack(
+        chunks=[
+            {
+                "source": "rag-helper/out/index_by_kind/typescript_folder_summary.jsonl",
+                "score": 100.0,
+            },
+            {"source": "source.py", "score": 50.0},
+        ],
+        repo_root=tmp_path,
+        context_budget_chars=6000,
+        reserved_chars=1000,
+        max_chars_per_file=2000,
+        min_initial_files=1,
+        max_initial_files=2,
+    )
+
+    assert pack.included_paths == ["source.py"]
+    assert pack.candidate_files[0]["source"] == "rag-helper/out/index_by_kind/typescript_folder_summary.jsonl"
+    assert pack.candidate_files[0]["reason"] == "generated_codecompass_output"

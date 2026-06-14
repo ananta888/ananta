@@ -6,6 +6,17 @@ import pathlib as _pl
 from typing import Any
 
 
+_CODECOMPASS_GENERATED_PREFIXES = (
+    "rag-helper/out/",
+    "rag-helper/data/",
+)
+
+_CODECOMPASS_GENERATED_SUFFIXES = (
+    ".jsonl",
+    ".json",
+)
+
+
 @dataclass(frozen=True)
 class PackedRagFile:
     path: str
@@ -42,6 +53,14 @@ def _resolve_repo_file(repo_root: _pl.Path, source: str) -> _pl.Path | None:
     return None
 
 
+def should_skip_initial_pack(source: str) -> bool:
+    """Return True for generated/index data that should not be embedded as prompt body."""
+    normalized = source.strip().replace("\\", "/")
+    if any(normalized.startswith(prefix) for prefix in _CODECOMPASS_GENERATED_PREFIXES):
+        return normalized.endswith(_CODECOMPASS_GENERATED_SUFFIXES) or "/index_by_kind/" in normalized or "/details_by_kind/" in normalized
+    return False
+
+
 def build_rag_context_pack(
     *,
     chunks: list[dict[str, Any]],
@@ -75,6 +94,10 @@ def build_rag_context_pack(
 
         score = float(ch.get("score") or 0.0)
         candidate_info = {"source": source, "score": score}
+        if should_skip_initial_pack(source):
+            candidates.append({**candidate_info, "reason": "generated_codecompass_output"})
+            continue
+
         path = _resolve_repo_file(repo_root, source)
         if path is None:
             candidates.append({**candidate_info, "reason": "not_found"})
@@ -144,3 +167,15 @@ def format_packed_files_section(pack: RagContextPack) -> str:
         )
         blocks.append(f"{meta}\n```\n{item.content}\n```")
     return "\n\n".join(blocks)
+
+
+def packed_file_memory_summary(item: PackedRagFile, *, max_chars: int = 900) -> str:
+    """Return a compact deterministic memory entry for a packed initial file."""
+    excerpt = item.content.strip()
+    if len(excerpt) > max_chars:
+        excerpt = excerpt[:max_chars] + f"\n... [Auszug gekuerzt nach {max_chars} Zeichen]"
+    return (
+        f"Initialer CodeCompass-Treffer, {item.inclusion}, "
+        f"{item.chars_included}/{item.chars_read} Zeichen waren im ersten Prompt. "
+        f"Kurzauszug:\n{excerpt}"
+    )

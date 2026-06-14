@@ -294,6 +294,31 @@ def run_rag_chat_tool_loop(
         if path and path in _evidence:
             trace["evidence"] = list(_evidence.values())
 
+    def _compact_initial_packed_context() -> None:
+        """Remove bulky initial packed file bodies from follow-up LLM calls."""
+        if not _evidence:
+            return
+        marker = "=== Bereits gelesene CodeCompass-Top-Treffer ==="
+        next_marker = "=== Verfügbare Dateien"
+        replacement = (
+            "=== Bereits gelesene CodeCompass-Top-Treffer (kompakt) ===\n"
+            + _evidence_prompt()
+            + "\n\n"
+        )
+        for msg in current_messages:
+            if msg.get("role") != "user":
+                continue
+            content = str(msg.get("content") or "")
+            start = content.find(marker)
+            if start < 0:
+                continue
+            end = content.find(next_marker, start)
+            if end < 0:
+                end = start + len(marker)
+            msg["content"] = content[:start] + replacement + content[end:]
+            trace["initial_context_compacted_for_followups"] = True
+            return
+
     def _input_preview(msgs: list[dict], max_chars: int = 2000) -> str:
         """Short preview of the last 4 messages — for log entries only."""
         parts = []
@@ -593,6 +618,7 @@ def run_rag_chat_tool_loop(
                 "content": result,
             })
 
+        _compact_initial_packed_context()
         evidence_text = _evidence_prompt()
         if evidence_text and tool_calls and tool_call_count < max_tool_calls:
             current_messages.append({
