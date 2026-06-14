@@ -612,6 +612,20 @@ def run_rag_chat_tool_loop(
                 str((tc.get("function") or {}).get("name") or "?")
                 for tc in tool_calls
             ]
+            tc_details = []
+            for tc in tool_calls:
+                fn = tc.get("function") or {}
+                raw_args = str(fn.get("arguments") or "{}")
+                try:
+                    parsed_args = json.loads(raw_args)
+                except Exception:
+                    parsed_args = {"_raw": raw_args}
+                tc_details.append({
+                    "id": str(tc.get("id") or ""),
+                    "name": str(fn.get("name") or "?"),
+                    "arguments": parsed_args,
+                    "raw_arguments": raw_args[:2000],
+                })
             rec.event(
                 f"tool_loop_llm_{llm_call_count}_done",
                 f"{label} — {'Tool-Calls: ' + ', '.join(tc_names) if tc_names else 'Antwort erhalten'}",
@@ -619,9 +633,16 @@ def run_rag_chat_tool_loop(
                 details={
                     "finish_reason": finish_reason,
                     "tool_calls_requested": tc_names,
+                    "tool_call_details": tc_details,
                     "answer_chars": len(content),
                 },
-                output_preview=content if content else (f"→ Tool-Calls: {tc_names}" if tc_names else None),
+                output_preview=content if content else (
+                    "\n".join(
+                        f"→ Tool-Call: {item['name']}({item['raw_arguments']})"
+                        for item in tc_details
+                    )
+                    if tc_details else None
+                ),
             )
             if textual_tool_request:
                 rec.event(

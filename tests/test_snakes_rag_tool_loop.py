@@ -444,6 +444,64 @@ def test_tool_loop_records_textual_tool_request_trace_event(tmp_path, monkeypatc
     assert "[TOOL_REQUEST]" in event["output_preview"]
 
 
+def test_tool_loop_llm_done_trace_includes_tool_call_arguments(tmp_path, monkeypatch):
+    from agent.routes.snakes_rag_tool_loop import run_rag_chat_tool_loop
+
+    monkeypatch.setattr(
+        "agent.llm_integration._runtime_provider_urls",
+        lambda: {"lmstudio": "http://llm.test/v1"},
+    )
+    monkeypatch.setattr("agent.llm_integration._runtime_api_key", lambda _provider: "")
+    rec = _RecordingTrace()
+    calls = 0
+
+    def _fake_post(_endpoint, *, json=None, **_kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return _FakeResponse({
+                "choices": [{
+                    "finish_reason": "tool_calls",
+                    "message": {
+                        "content": "",
+                        "tool_calls": [{
+                            "id": "call_search_1",
+                            "function": {
+                                "name": "search_codebase",
+                                "arguments": '{"query": "agent/services/agent_registry_service.py", "max_results": 5}',
+                            },
+                        }],
+                    },
+                }]
+            })
+        return _FakeResponse({
+            "choices": [{
+                "finish_reason": "stop",
+                "message": {"content": "final answer"},
+            }]
+        })
+
+    monkeypatch.setattr("requests.post", _fake_post)
+
+    answer, trace = run_rag_chat_tool_loop(
+        messages=[{"role": "user", "content": "Frage: suche"}],
+        provider="lmstudio",
+        model="test-model",
+        repo_root=tmp_path,
+        max_tool_calls=1,
+        rec=rec,
+    )
+
+    done = next(item for item in rec.events if item["phase"] == "tool_loop_llm_1_done")
+    detail = done["details"]["tool_call_details"][0]
+    assert answer == "final answer"
+    assert trace["tool_calls_made"] == 1
+    assert detail["id"] == "call_search_1"
+    assert detail["name"] == "search_codebase"
+    assert detail["arguments"]["query"] == "agent/services/agent_registry_service.py"
+    assert "search_codebase" in done["output_preview"]
+
+
 def test_search_codebase_filters_generated_codecompass_outputs(tmp_path, monkeypatch):
     from agent.routes.snakes_rag_tool_loop import _tool_search_codebase
 
