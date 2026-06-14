@@ -251,7 +251,7 @@ class Settings(BaseSettings):
     rag_data_roots: str = Field(default="docs,data", validation_alias="RAG_DATA_ROOTS")
     rag_max_context_chars: int = Field(default=12000, validation_alias="RAG_MAX_CONTEXT_CHARS")
     rag_max_context_tokens: int = Field(default=3000, validation_alias="RAG_MAX_CONTEXT_TOKENS")
-    rag_max_chunks: int = Field(default=12, validation_alias="RAG_MAX_CHUNKS")
+    rag_max_chunks: int = Field(default=40, validation_alias="RAG_MAX_CHUNKS")
     rag_agentic_max_commands: int = Field(default=3, validation_alias="RAG_AGENTIC_MAX_COMMANDS")
     rag_agentic_timeout_seconds: int = Field(default=8, validation_alias="RAG_AGENTIC_TIMEOUT_SECONDS")
     rag_semantic_persist_dir: str = Field(default=".rag/llamaindex", validation_alias="RAG_SEMANTIC_PERSIST_DIR")
