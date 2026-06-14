@@ -202,7 +202,7 @@ def _current_config() -> dict[str, Any]:
     if active_id:
         for session in (stored.get("chat_sessions") or []):
             if str(session.get("id") or "") == active_id:
-                for k, v in (session.get("settings") or {}).items():
+                for k, v in (session.get("settings_delta") or {}).items():
                     if k in _SCHEMA_KEYS:
                         base[k] = v
                 break
