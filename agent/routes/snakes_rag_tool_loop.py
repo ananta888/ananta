@@ -205,6 +205,7 @@ def run_rag_chat_tool_loop(
     last_content = ""
 
     def _input_preview(msgs: list[dict], max_chars: int = 2000) -> str:
+        """Short preview of the last 4 messages — for log entries only."""
         parts = []
         for m in msgs[-4:]:
             role = str(m.get("role") or "")
@@ -212,6 +213,33 @@ def run_rag_chat_tool_loop(
             if content:
                 parts.append(f"[{role}]\n{content[:max_chars]}")
         return "\n\n---\n\n".join(parts)
+
+    def _full_prompt(msgs: list[dict], max_chars_per_msg: int = 10000) -> str:
+        """Format ALL messages as sent to the LLM — used for the trace viewer."""
+        parts = []
+        for i, m in enumerate(msgs):
+            role = str(m.get("role") or "")
+            content = str(m.get("content") or "")
+            # Assistant messages may carry tool_calls instead of text content
+            if not content and m.get("tool_calls"):
+                tc_names = [
+                    str((tc.get("function") or {}).get("name") or "?")
+                    for tc in m["tool_calls"]
+                ]
+                tc_args = [
+                    str((tc.get("function") or {}).get("arguments") or "")[:200]
+                    for tc in m["tool_calls"]
+                ]
+                content = "\n".join(
+                    f"→ tool_call: {name}({args})"
+                    for name, args in zip(tc_names, tc_args)
+                )
+            if content:
+                truncated = len(content) > max_chars_per_msg
+                snippet = content[:max_chars_per_msg]
+                suffix = f"\n... [{len(content):,} Zeichen gesamt, abgeschnitten nach {max_chars_per_msg:,}]" if truncated else ""
+                parts.append(f"[{role} #{i+1}]\n{snippet}{suffix}")
+        return "\n\n" + ("=" * 60) + "\n\n".join(parts)
 
     def _total_context_chars(msgs: list[dict]) -> int:
         return sum(len(str(m.get("content") or "")) for m in msgs)
@@ -294,14 +322,7 @@ def run_rag_chat_tool_loop(
         _prompt_text = _input_preview(current_messages)
 
         if rec:
-            # First call: show complete initial context (catalog + file list + instructions)
-            # Subsequent calls: short preview of the incremental messages only
-            if llm_call_count == 1:
-                _sys = str((current_messages[0] or {}).get("content") or "")
-                _usr = str((current_messages[-1] or {}).get("content") or "")
-                _trace_preview = f"[system]\n{_sys}\n\n---\n\n[user]\n{_usr}"
-            else:
-                _trace_preview = _input_preview(current_messages, max_chars=4000)
+            # Show ALL messages exactly as sent to the LLM (each capped at 10K chars)
             rec.event(
                 f"tool_loop_llm_{llm_call_count}",
                 label,
@@ -312,7 +333,7 @@ def run_rag_chat_tool_loop(
                     "use_tools": use_tools,
                     "context_chars": _ctx_chars,
                 },
-                input_preview=_trace_preview,
+                input_preview=_full_prompt(current_messages),
             )
 
         _log_kwargs: dict[str, Any] = dict(
