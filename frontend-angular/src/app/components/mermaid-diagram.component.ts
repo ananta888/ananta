@@ -26,7 +26,17 @@ async function ensureMermaid(): Promise<void> {
   template: `
     <div class="diagram-wrap" (click)="open()" title="Klicken zum Vergrößern">
       <div #host class="diagram-host"></div>
-      @if (err) { <div class="diagram-err">{{ err }}</div> }
+      @if (err) {
+        <div class="diagram-err">
+          <strong>Mermaid Render-Fehler:</strong> {{ err }}
+          <button class="raw-toggle" (click)="showRaw = !showRaw; $event.stopPropagation()">
+            {{ showRaw ? '▲ Rohtext' : '▼ Rohtext' }}
+          </button>
+          @if (showRaw) {
+            <pre class="raw-code">{{ code }}</pre>
+          }
+        </div>
+      }
       @if (!done && !err) { <div class="diagram-loading">Rendering…</div> }
       @if (done) { <span class="expand-hint">⤢</span> }
     </div>
@@ -55,6 +65,19 @@ async function ensureMermaid(): Promise<void> {
     }
     .diagram-wrap:hover .expand-hint { color: #7fffd4; }
 
+    .raw-toggle {
+      background: transparent; border: 1px solid #4a1a1a; color: #fb7185;
+      padding: 1px 6px; font-size: 10px; border-radius: 2px; cursor: pointer;
+      margin-left: 6px; font-family: inherit;
+    }
+    .raw-toggle:hover { background: #1a0a0a; }
+    .raw-code {
+      margin: 6px 0 0; padding: 6px; background: #0a0f1a;
+      border: 1px solid #1a1a30; border-radius: 3px;
+      font-size: 11px; font-family: monospace; white-space: pre;
+      overflow-x: auto; max-height: 200px; color: #6a8ab8;
+    }
+
     /* Lightbox */
     .lb-backdrop {
       position: fixed; inset: 0; z-index: 9999;
@@ -82,6 +105,7 @@ export class MermaidDiagramComponent implements AfterViewInit, OnDestroy {
   done = false;
   err = '';
   lightbox = false;
+  showRaw = false;
   safeSvg: SafeHtml = '';
 
   private sanitizer = inject(DomSanitizer);
