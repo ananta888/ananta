@@ -26,7 +26,7 @@ services:
   ai-agent-hub:
     image: ananta-backend-compose-test:local
     build:
-      context: .
+      context: ../..
       dockerfile: Dockerfile.quickstart-no-ollama
     ports: !reset []
     volumes:
@@ -56,7 +56,7 @@ services:
   ai-agent-alpha:
     image: ananta-backend-compose-test:local
     build:
-      context: .
+      context: ../..
       dockerfile: Dockerfile.quickstart-no-ollama
     ports: !reset []
     volumes:
@@ -80,7 +80,7 @@ services:
   ai-agent-beta:
     image: ananta-backend-compose-test:local
     build:
-      context: .
+      context: ../..
       dockerfile: Dockerfile.quickstart-no-ollama
     ports: !reset []
     volumes:
@@ -104,7 +104,7 @@ services:
   backend-test:
     image: ananta-backend-compose-test-gate:local
     build:
-      context: .
+      context: ../..
       dockerfile: Dockerfile.compose-test
     environment:
       PYTHONPATH: "/app"
@@ -128,7 +128,7 @@ services:
   backend-live-llm-test:
     image: ananta-backend-compose-test-gate:local
     build:
-      context: .
+      context: ../..
       dockerfile: Dockerfile.compose-test
     environment:
       PYTHONPATH: "/app"
@@ -243,8 +243,8 @@ services:
   android-e2e:
     profiles: ["android-runner"]
     build:
-      context: ./frontend-angular
-      dockerfile: docker/Dockerfile.android-e2e
+      context: ../../frontend-angular
+      dockerfile: ../../frontend-angular/docker/Dockerfile.android-e2e
     privileged: true
     devices:
       - /dev/kvm:/dev/kvm

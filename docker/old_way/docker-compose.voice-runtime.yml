@@ -1,7 +1,7 @@
 services:
   voice-runtime:
     build:
-      context: .
+      context: ../..
       dockerfile: Dockerfile.voice-runtime
     restart: unless-stopped
     environment:

@@ -1,33 +1,36 @@
-# Dev overlay: combines WSL2/Vulkan-backed Ollama with live code mounts for
-# Python hub/workers and the Angular frontend.
+# Dev overlay: NVIDIA RTX 3080 (CUDA) primary + Intel Iris Xe (Vulkan/D3D12) fallback.
+# Requires NVIDIA Container Toolkit: sudo nvidia-ctk runtime configure --runtime=docker
 #
 # Usage (full stack):
 #   docker compose \
 #     -f docker-compose.base.yml \
 #     -f docker-compose.yml \
-#     -f docker-compose.dev-vulkan-live.yml \
+#     -f docker-compose.dev-nvidia-live.yml \
 #     up --build
 #
 # Usage (lighter dev stack):
 #   docker compose \
 #     -f docker-compose.base.yml \
 #     -f docker-compose-lite.yml \
-#     -f docker-compose.dev-vulkan-live.yml \
+#     -f docker-compose.dev-nvidia-live.yml \
 #     up --build
 
 services:
   ollama:
     build:
-      context: .
+      context: ../..
       dockerfile: Dockerfile.ollama-wsl-amd
     image: ollama-wsl-amd:0.20.7-vulkan
     container_name: ollama
+    runtime: nvidia
     devices:
       - "/dev/dxg:/dev/dxg"
     environment:
+      # NVIDIA CUDA (RTX 3080) — Vulkan disabled to avoid multi-backend split crash
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      OLLAMA_VULKAN: "0"
       LD_LIBRARY_PATH: ${OLLAMA_WSL_LD_LIBRARY_PATH:-/usr/lib/wsl/lib:/usr/local/nvidia/lib:/usr/local/nvidia/lib64}
-      OLLAMA_VULKAN: "${OLLAMA_VULKAN:-1}"
-      VK_ICD_FILENAMES: ${OLLAMA_WSL_VK_ICD_FILENAMES:-/usr/share/vulkan/icd.d/dzn_icd.json}
     volumes:
       - ./.ollama:/root/.ollama
       - /mnt/c/Users/Public/lm-models:/models:ro
@@ -35,7 +38,7 @@ services:
 
   ai-agent-hub:
     environment:
-      FLASK_DEBUG: 1
+      FLASK_DEBUG: 0
       OLLAMA_URL: http://ollama:11434/api/generate
     volumes:
       - ./:/app
@@ -43,7 +46,7 @@ services:
 
   ai-agent-alpha:
     environment:
-      FLASK_DEBUG: 1
+      FLASK_DEBUG: 0
       OLLAMA_URL: http://ollama:11434/api/generate
     volumes:
       - ./:/app
@@ -51,7 +54,7 @@ services:
 
   ai-agent-beta:
     environment:
-      FLASK_DEBUG: 1
+      FLASK_DEBUG: 0
       OLLAMA_URL: http://ollama:11434/api/generate
     volumes:
       - ./:/app

@@ -76,7 +76,7 @@ services:
       start_period: 60s
 
   rendezvous:
-    build: ./public-rendezvous/rendezvous
+    build: ../../public-rendezvous/rendezvous
     restart: unless-stopped
     environment:
       OIDC_ISSUER: ${OIDC_ISSUER:-https://keycloak.ananta.de/realms/ananta}

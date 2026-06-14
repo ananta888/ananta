@@ -6,7 +6,7 @@
 services:
   evolver-bridge:
     build:
-      context: .
+      context: ../..
       dockerfile: Dockerfile.evolver-bridge
     working_dir: /opt/evolver-bridge
     environment:
@@ -45,7 +45,7 @@ services:
   backend-evolver-live-test:
     image: ananta-backend-compose-test:local
     build:
-      context: .
+      context: ../..
       dockerfile: Dockerfile.compose-test
     environment:
       PYTHONPATH: "/app"

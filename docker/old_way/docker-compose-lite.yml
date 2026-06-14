@@ -74,7 +74,7 @@ services:
 
   angular-frontend:
     build:
-      context: ./frontend-angular
+      context: ../../frontend-angular
     working_dir: /app
     extra_hosts:
       - "host.docker.internal:host-gateway"

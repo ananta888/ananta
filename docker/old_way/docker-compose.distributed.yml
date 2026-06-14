@@ -1,6 +1,6 @@
 services:
   ai-agent-gamma:
-    build: .
+    build: ../..
     restart: unless-stopped
     working_dir: /app
     extra_hosts:
@@ -25,7 +25,7 @@ services:
     command: python -m agent.ai_agent
 
   ai-agent-delta:
-    build: .
+    build: ../..
     restart: unless-stopped
     working_dir: /app
     extra_hosts:

@@ -13,7 +13,7 @@ services:
   ai-agent-hub:
     image: ananta-backend-compose-test:local
     build:
-      context: .
+      context: ../..
       dockerfile: Dockerfile.quickstart-no-ollama
     environment:
       ANANTA_QUICKSTART_MODE: "agent-only"
@@ -29,7 +29,7 @@ services:
   ai-agent-alpha:
     image: ananta-backend-compose-test:local
     build:
-      context: .
+      context: ../..
       dockerfile: Dockerfile.quickstart-no-ollama
     environment:
       ANANTA_QUICKSTART_MODE: "agent-only"
@@ -45,7 +45,7 @@ services:
   ai-agent-beta:
     image: ananta-backend-compose-test:local
     build:
-      context: .
+      context: ../..
       dockerfile: Dockerfile.quickstart-no-ollama
     environment:
       ANANTA_QUICKSTART_MODE: "agent-only"

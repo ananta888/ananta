@@ -40,7 +40,7 @@ services:
   evolver:
     image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
     build:
-      context: .
+      context: ../..
       dockerfile: Dockerfile.quickstart-no-ollama
     restart: unless-stopped
     environment:
@@ -60,7 +60,7 @@ services:
   ai-agent-deerflow:
     image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
     build:
-      context: .
+      context: ../..
       dockerfile: Dockerfile.quickstart-no-ollama
     restart: unless-stopped
     environment:
@@ -87,7 +87,7 @@ services:
   ai-agent-ml-intern:
     image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
     build:
-      context: .
+      context: ../..
       dockerfile: Dockerfile.quickstart-no-ollama
     restart: unless-stopped
     environment:

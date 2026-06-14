@@ -27,7 +27,7 @@ services:
       file: docker-compose.base.yml
       service: ollama
     build:
-      context: .
+      context: ../..
       dockerfile: Dockerfile.ollama-wsl-amd
     image: ollama-wsl-amd:0.20.7-vulkan
     container_name: ollama
@@ -73,7 +73,7 @@ services:
       service: ai-agent-hub
     image: ananta-backend-compose-test:local
     build:
-      context: .
+      context: ../..
       dockerfile: Dockerfile.quickstart-no-ollama
     ports: []
     volumes:
@@ -103,7 +103,7 @@ services:
       service: ai-agent-alpha
     image: ananta-backend-compose-test:local
     build:
-      context: .
+      context: ../..
       dockerfile: Dockerfile.quickstart-no-ollama
     ports: []
     volumes:
@@ -130,7 +130,7 @@ services:
       service: ai-agent-beta
     image: ananta-backend-compose-test:local
     build:
-      context: .
+      context: ../..
       dockerfile: Dockerfile.quickstart-no-ollama
     ports: []
     volumes:
@@ -154,7 +154,7 @@ services:
   backend-test:
     image: ananta-backend-compose-test-gate:local
     build:
-      context: .
+      context: ../..
       dockerfile: Dockerfile.compose-test
     environment:
       ANANTA_QUICKSTART_MODE: "agent-only"
@@ -179,7 +179,7 @@ services:
   backend-live-llm-test:
     image: ananta-backend-compose-test-gate:local
     build:
-      context: .
+      context: ../..
       dockerfile: Dockerfile.compose-test
     environment:
       ANANTA_QUICKSTART_MODE: "agent-only"

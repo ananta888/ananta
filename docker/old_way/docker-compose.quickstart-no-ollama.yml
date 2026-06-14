@@ -25,7 +25,7 @@ services:
   ai-agent-hub:
     image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
     build:
-      context: .
+      context: ../..
       dockerfile: Dockerfile.quickstart-no-ollama
     environment:
       ANANTA_QUICKSTART_MODE: ${ANANTA_QUICKSTART_MODE_HUB:-agent-only}
@@ -63,7 +63,7 @@ services:
   ai-agent-alpha:
     image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
     build:
-      context: .
+      context: ../..
       dockerfile: Dockerfile.quickstart-no-ollama
     environment:
       ANANTA_QUICKSTART_MODE: ${ANANTA_QUICKSTART_MODE_ALPHA:-agent-only}
@@ -93,7 +93,7 @@ services:
   ai-agent-beta:
     image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
     build:
-      context: .
+      context: ../..
       dockerfile: Dockerfile.quickstart-no-ollama
     environment:
       ANANTA_QUICKSTART_MODE: ${ANANTA_QUICKSTART_MODE_BETA:-agent-only}
@@ -123,7 +123,7 @@ services:
   angular-frontend:
     image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
     build:
-      context: .
+      context: ../..
       dockerfile: Dockerfile.quickstart-no-ollama
     working_dir: /app/frontend-angular
     environment:

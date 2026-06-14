@@ -41,11 +41,11 @@ RUN npm i -g "opencode-ai@${OPENCODE_AI_VERSION}" \
 WORKDIR /app
 
 # Kopiere Release-Lockdatei und installiere Python-Runtime-Pakete (Caching nutzen)
-COPY requirements.lock .
+COPY ../../requirements.lock .
 RUN pip install --no-cache-dir -r requirements.lock
 
 # Den Rest des Codes kopieren
-COPY . .
+COPY ../.. .
 
 # Default Environment (kann via docker-compose überschrieben werden)
 ENV PYTHONPATH=/app \

@@ -1,7 +1,7 @@
 services:
   ollama:
     build:
-      context: .
+      context: ../..
       dockerfile: Dockerfile.ollama-wsl-amd
     image: ollama-wsl-amd:0.20.7-vulkan
     container_name: ollama
