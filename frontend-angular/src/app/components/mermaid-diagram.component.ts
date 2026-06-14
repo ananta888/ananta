@@ -299,6 +299,12 @@ export class MermaidDiagramComponent implements AfterViewInit, OnDestroy {
     navigator.clipboard.writeText(this.editCode).catch(() => {});
   }
 
+  // ── Close lightbox ──
+
+  close(): void {
+    this.lightbox = false;
+  }
+
   // ── Retry to chat ──
 
   retryToChat(): void {
