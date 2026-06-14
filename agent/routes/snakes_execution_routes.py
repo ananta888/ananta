@@ -150,7 +150,8 @@ def _resolve_ai_snake_chat_provider() -> tuple[str, str | None, str | None]:
 
         if is_openai_url or is_openai_model:
             provider = "openai"
-            api_base = configured_api_base
+            if configured_api_base:
+                api_base = configured_api_base.rstrip("/") + "/chat/completions"
     except Exception:
         pass
     return provider, model, api_base

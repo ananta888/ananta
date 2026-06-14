@@ -210,7 +210,7 @@ def run_rag_chat_tool_loop(
         trace["error"] = f"no_url_for_provider:{provider}"
         return "", trace
 
-    endpoint = f"{base_url}/chat/completions"
+    endpoint = base_url if base_url.endswith("/chat/completions") else f"{base_url}/chat/completions"
     headers = {"Content-Type": "application/json"}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
