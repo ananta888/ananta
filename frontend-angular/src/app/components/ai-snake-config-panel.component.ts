@@ -56,6 +56,8 @@ const FIELDS: ConfigField[] = [
     options: ['0', '1', '2', '3', '4', '6', '8', '10', '20', '50'] },
   { key: 'rag_iterative_import_depth', label: 'RAG-Iterativ: Import-Tiefe', group: 'Kontext / RAG', type: 'choice',
     options: ['0', '1', '2', '3'] },
+  { key: 'rag_iterative_symbol_expand_max', label: 'RAG-Iterativ: Symbol-Graph Expansion (0=aus)', group: 'Kontext / RAG', type: 'choice',
+    options: ['0', '5', '10', '15', '20', '30'] },
   { key: 'chat_full_scan_source_only', label: 'Full-Scan: Nur Quellcode', group: 'Kontext / RAG', type: 'bool' },
   { key: 'chat_full_scan_max_batches', label: 'Full-Scan: Max. Batches', group: 'Kontext / RAG', type: 'choice',
     options: ['2', '4', '6', '8', '12', '16'] },

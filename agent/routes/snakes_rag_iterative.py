@@ -101,6 +101,72 @@ def _expand_python_imports(
 
     return added
 
+def _expand_via_symbol_graph(
+    file_entries: list[dict],
+    engine: Any,
+    repo_root: _pl.Path,
+    *,
+    max_extra: int,
+    seen_sources: set[str],
+    max_chars_per_file: int,
+) -> list[dict]:
+    """Expand file set by searching for distinctive symbols from found files in the orchestrator
+    symbol index — this follows method-call and cross-file-reference relationships."""
+    if max_extra <= 0:
+        return file_entries
+
+    sym_graph: dict[str, list[str]] = getattr(engine, "_symbol_graph", {})
+    if not sym_graph:
+        return file_entries
+
+    # Collect distinctive symbols: CamelCase class names or long underscore names (likely specific)
+    key_symbols: list[str] = []
+    for entry in file_entries:
+        for sym in sym_graph.get(entry["path"], []):
+            if (sym[0].isupper() and len(sym) >= 5) or (len(sym) >= 12 and "_" in sym):
+                key_symbols.append(sym)
+
+    if not key_symbols:
+        return file_entries
+
+    seen_sym: set[str] = set()
+    unique_syms: list[str] = []
+    for s in key_symbols:
+        if s.lower() not in seen_sym:
+            seen_sym.add(s.lower())
+            unique_syms.append(s)
+    unique_syms = unique_syms[:10]
+
+    _log.debug("symbol_graph_expand: searching %d symbols: %s", len(unique_syms), unique_syms[:5])
+
+    added = list(file_entries)
+    remaining = max_extra
+
+    for sym in unique_syms:
+        if remaining <= 0:
+            break
+        try:
+            results = engine.search(sym, top_k=5)
+        except Exception:
+            continue
+        for chunk in results:
+            if chunk.source in seen_sources or remaining <= 0:
+                continue
+            seen_sources.add(chunk.source)
+            candidate = repo_root / chunk.source
+            if not candidate.exists() or not candidate.is_file():
+                continue
+            try:
+                content = candidate.read_text(encoding="utf-8", errors="replace")[:max_chars_per_file]
+            except OSError:
+                continue
+            lang = candidate.suffix.lstrip(".") or "text"
+            added.append({"path": chunk.source, "lang": lang, "content": content})
+            remaining -= 1
+
+    return added
+
+
 _SYSTEM_PROMPT = (
     "Du bist AI-Snake im Ananta Hub.\n"
     "Regeln (streng):\n"
@@ -166,32 +232,22 @@ def worker_chat_rag_iterative(
     trace["model_context_tokens"] = model_context_tokens
     trace["max_input_tokens"] = max_input_tokens
 
-    # --- Step 1: RAG retrieval to find relevant file sources ---
+    # --- Step 1: RAG retrieval via live RepositoryMapEngine scan ---
+    repo_root = _pl.Path(getattr(_cfg_settings, "rag_repo_root", ".")).resolve()
+    _rag_max = int(_cfg_settings.rag_max_chunks or 40)
+    _engine: Any = None
     try:
-        from agent.services.rag_service import get_rag_service
-        from agent.services.retrieval_profile_service import resolve_profile
+        from agent.hybrid_orchestrator import RepositoryMapEngine
 
-        profile = resolve_profile(question, cfg, domain_hint=None, feature_flag=str(cfg.get("chat_retrieval_profile") or "auto"))
-        _rag_max = int(_cfg_settings.rag_max_chunks or 40)
-        _profile_dict = profile.as_dict()
-        # Override the profile's chunk_policy so env-configured quotas actually apply
-        _cp = dict(_profile_dict.get("chunk_policy") or {})
-        _cp["max_chunks"] = max(_rag_max, int(_cp.get("max_chunks") or 12))
-        _source_type_scale = {"repo": 2, "artifact": 3, "wiki": 6, "task_memory": 5}
-        _cp["max_per_source_type"] = {
-            k: max(v, _rag_max // _source_type_scale.get(k, 4))
-            for k, v in (_cp.get("max_per_source_type") or {"repo": 8, "artifact": 4}).items()
-        }
-        _profile_dict["chunk_policy"] = _cp
-        bundle, _ = get_rag_service().build_execution_context(
-            question,
-            task_kind="research",
-            retrieval_intent=profile.retrieval_intent or "chat_codecompass_overview",
-            source_types=profile.source_types or None,
-            max_chunks=_rag_max,
-            retrieval_profile=_profile_dict,
-        )
-        chunks = list(bundle.get("chunks") or [])
+        _engine = RepositoryMapEngine(repo_root)
+        raw_chunks = _engine.search(question, top_k=_rag_max)
+        chunks = [
+            {"source": ch.source, "metadata": {"file_path": ch.source}, "score": ch.score}
+            for ch in raw_chunks
+        ]
+        trace["retrieval_top_scores"] = [
+            {"source": ch.source, "score": round(ch.score, 2)} for ch in raw_chunks[:10]
+        ]
     except Exception as exc:
         _log.warning("rag_iterative: retrieval failed: %s", exc)
         trace["error"] = f"retrieval_failed: {exc}"
@@ -203,7 +259,6 @@ def worker_chat_rag_iterative(
         return "", trace
 
     # --- Step 2: Resolve full file paths and read complete content ---
-    repo_root = _pl.Path(getattr(_cfg_settings, "rag_repo_root", ".")).resolve()
     file_entries: list[dict[str, Any]] = []
     seen_sources: set[str] = set()
 
@@ -256,7 +311,29 @@ def worker_chat_rag_iterative(
         trace["import_expansion_added"] = len(file_entries) - before
         trace["files_after_expansion"] = len(file_entries)
 
-    # --- Step 2c: Tool-call loop (optional, replaces batch+synthesis when enabled) ---
+    # --- Step 2c: Symbol-graph expansion (follow method-call references, optional) ---
+    _sym_max = max(0, int(
+        cfg.get("rag_iterative_symbol_expand_max") if cfg.get("rag_iterative_symbol_expand_max") is not None
+        else _cfg_settings.rag_iterative_symbol_expand_max
+    ))
+    if _sym_max > 0 and _engine is not None:
+        _before_sym = len(file_entries)
+        try:
+            file_entries = _expand_via_symbol_graph(
+                file_entries,
+                _engine,
+                repo_root,
+                max_extra=_sym_max,
+                seen_sources=seen_sources,
+                max_chars_per_file=max_chars_per_file,
+            )
+            trace["symbol_expansion_added"] = len(file_entries) - _before_sym
+            trace["files_after_symbol_expansion"] = len(file_entries)
+        except Exception as _sym_exc:
+            _log.debug("symbol_graph_expand failed: %s", _sym_exc)
+            trace["symbol_expansion_error"] = str(_sym_exc)
+
+    # --- Step 2d: Tool-call loop (optional, replaces batch+synthesis when enabled) ---
     _tc_enabled_cfg = cfg.get("rag_iterative_tool_calls_enabled")
     if _tc_enabled_cfg is None:
         tool_calls_enabled = bool(_cfg_settings.rag_iterative_tool_calls_enabled)
