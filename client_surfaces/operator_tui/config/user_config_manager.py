@@ -280,7 +280,7 @@ def _sanitize_sessions(sessions: list[Any]) -> list[dict[str, Any]]:
         if not sid:
             continue
         clean: dict[str, Any] = {"id": sid}
-        for k in ("name", "system_prompt", "icon"):
+        for k in ("name", "system_prompt", "icon", "group"):
             v = item.get(k)
             if isinstance(v, str):
                 clean[k] = v
@@ -293,6 +293,9 @@ def _sanitize_sessions(sessions: list[Any]) -> list[dict[str, Any]]:
         raw_settings = item.get("settings")
         if isinstance(raw_settings, dict):
             clean["settings"] = _sanitize_session_settings(raw_settings)
+        raw_delta = item.get("settings_delta")
+        if isinstance(raw_delta, dict):
+            clean["settings_delta"] = _sanitize_session_settings(raw_delta)
         out.append(clean)
     return out
 

@@ -257,6 +257,7 @@ def worker_chat_rag_iterative(
     rec: Any | None = None,
     conversation_history: list[dict[str, str]] | None = None,
     cancel_event: Any | None = None,
+    system_prompt: str | None = None,
 ) -> tuple[str, dict[str, Any]]:
     """Iterative RAG: fetch relevant files, read fully, batch → LLM → synthesize."""
     trace: dict[str, Any] = {"mode": "rag_iterative"}
@@ -268,7 +269,8 @@ def worker_chat_rag_iterative(
         trace["error"] = "cancelled"
         return True
 
-    llm_history = [{"role": "system", "content": _SYSTEM_PROMPT}, *list(conversation_history or [])]
+    effective_system = (system_prompt.strip() if system_prompt and system_prompt.strip() else None) or _SYSTEM_PROMPT
+    llm_history = [{"role": "system", "content": effective_system}, *list(conversation_history or [])]
     trace["conversation_history_messages"] = len(conversation_history or [])
 
     cfg = _current_config()

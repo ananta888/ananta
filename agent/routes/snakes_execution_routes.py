@@ -1352,6 +1352,19 @@ def snake_ask():
 
         _eff_cfg = _current_config()
         _eff_cfg.update(dict(retrieval_config_overrides or {}))
+        # Resolve active session's system_prompt for injection into the LLM
+        _active_session_prompt: str | None = None
+        try:
+            from client_surfaces.operator_tui.config.user_config_manager import get_manager as _get_mgr
+            _stored = _get_mgr().load()
+            _active_sid = str(_stored.get("chat_active_session_id") or "").strip()
+            if _active_sid:
+                for _sess in (_stored.get("chat_sessions") or []):
+                    if str(_sess.get("id") or "") == _active_sid:
+                        _active_session_prompt = str(_sess.get("system_prompt") or "").strip() or None
+                        break
+        except Exception:
+            pass
         if _is_rag_iterative_intent(_eff_cfg):
             _cancel_keys = ["snake_ask"]
             _cancel_event = register_chat_cancel(_cancel_keys)
@@ -1362,6 +1375,7 @@ def snake_ask():
                     model=model,
                     limits=limits,
                     cancel_event=_cancel_event,
+                    system_prompt=_active_session_prompt,
                 )
             finally:
                 unregister_chat_cancel(_cancel_keys, _cancel_event)
