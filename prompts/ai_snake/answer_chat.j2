@@ -18,6 +18,13 @@ If you include a Mermaid diagram in answer_text, follow these rules strictly:
 - Every node referenced in an edge must be defined.
 - Every node ID must be unique; never reuse an ID for a different node.
 
+MERMAID_REPAIR:
+If the user provides a Mermaid error message and Mermaid code (for example "Parse error on line N ..." followed by a ```mermaid block), answer as follows:
+1. Analyze the Mermaid code for syntax errors.
+2. First output a corrected ```mermaid block with the fixed diagram.
+3. Follow with at most one short sentence explaining what was fixed.
+4. Use the same rules as MERMAID above: quoted labels, no semicolons, simple IDs.
+
 TASK:
 Answer the chat question with repository-grounded context references.
 

@@ -1,4 +1,4 @@
-import { Component, Input, OnChanges } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MermaidDiagramComponent } from './mermaid-diagram.component';
 
@@ -27,7 +27,7 @@ function parseSegments(text: string): Segment[] {
   template: `
     @for (seg of segments; track $index) {
       @if (seg.kind === 'mermaid') {
-        <app-mermaid-diagram [code]="seg.code" />
+        <app-mermaid-diagram [code]="seg.code" (retryRequest)="onRetry($event)" />
       } @else {
         <span class="text-seg">{{ seg.content }}</span>
       }
@@ -40,9 +40,14 @@ function parseSegments(text: string): Segment[] {
 })
 export class ChatMessageComponent implements OnChanges {
   @Input() text = '';
+  @Output() retryRequest = new EventEmitter<string>();
   segments: Segment[] = [];
 
   ngOnChanges(): void {
     this.segments = parseSegments(this.text);
+  }
+
+  onRetry(code: string): void {
+    this.retryRequest.emit(code);
   }
 }
