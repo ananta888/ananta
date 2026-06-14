@@ -27,6 +27,7 @@ export class AiSnakeConfigService implements OnDestroy {
   private saveQueue$ = new Subject<AiSnakeConfig>();
   private pendingPatch: AiSnakeConfig = {};
   private pollTimer: ReturnType<typeof setInterval> | null = null;
+  private loadVersion = 0;
 
   constructor() {
     this.saveQueue$.pipe(debounceTime(500)).subscribe(patch => this.flushPatch(patch));
@@ -52,10 +53,11 @@ export class AiSnakeConfigService implements OnDestroy {
   }
 
   load(): void {
+    const version = ++this.loadVersion;
     const url = this.hubUrl;
     if (!url) return;
     this.core.get<{ ok: boolean; config: AiSnakeConfig }>(`${url}/ai-snake/config`, url).subscribe({
-      next: r => { if (r?.config) this.config$.next(r.config); },
+      next: r => { if (r?.config && version === this.loadVersion) this.config$.next(r.config); },
       error: (err) => {
         if (err?.status === 401) {
           try { this.userAuth.refreshToken().subscribe({ error: () => {} }); } catch {}
@@ -63,7 +65,7 @@ export class AiSnakeConfigService implements OnDestroy {
       },
     });
     this.core.get<AiSnakeConfigOptions>(`${url}/ai-snake/config/options`, url).subscribe({
-      next: r => { if (r) this.options$.next(r); },
+      next: r => { if (r && version === this.loadVersion) this.options$.next(r); },
       error: () => {},
     });
   }
@@ -89,7 +91,7 @@ export class AiSnakeConfigService implements OnDestroy {
     if (!url || !Object.keys(patch).length) return;
     this.pendingPatch = {};
     this.core.patch<{ ok: boolean }>(`${url}/ai-snake/config`, patch, url).subscribe({
-      next: () => { void this.bridge.sendAction('settings.reload'); },
+      next: () => { this.load(); void this.bridge.sendAction('settings.reload'); },
       error: () => {},
     });
   }

@@ -1,6 +1,6 @@
 {
   "schema_version": "user_config.v1",
-  "updated": "2026-06-14T18:33:29Z",
+  "updated": "2026-06-14T18:49:07Z",
   "settings": {
     "chat_worker_mode": "propose",
     "chat_streaming": false,
@@ -152,8 +152,8 @@
         "system_prompt": "You are a focused code assistant for the Ananta project. When answering, prefer concrete file paths, function names, and code snippets from the workspace. Be direct and brief. Use German if the user writes in German.",
         "icon": "💻",
         "group": "",
-        "created_at": 1781460018.8934438,
-        "updated_at": 1781460018.8934438,
+        "created_at": 1781461545.8772666,
+        "updated_at": 1781461545.8772666,
         "settings": {
           "chat_backend": "ananta-worker",
           "chat_backend_model": "google/gemma-4-e4b",
@@ -192,8 +192,8 @@
         "system_prompt": "You are a writing coach. Help the user clarify their thinking, structure their arguments, and improve their prose. Do not reference code or project files unless explicitly asked. Respond in the language the user uses.",
         "icon": "✍️",
         "group": "",
-        "created_at": 1781460018.8934553,
-        "updated_at": 1781460018.8934553,
+        "created_at": 1781461545.8772774,
+        "updated_at": 1781461545.8772774,
         "settings": {
           "chat_backend": "lmstudio",
           "chat_backend_model": "google/gemma-4-e4b",
@@ -233,8 +233,8 @@
         "system_prompt": "You are a helpful, friendly AI assistant. Use the project's CodeCompass context when it seems relevant, but don't force it. Match the user's language and tone.",
         "icon": "💬",
         "group": "",
-        "created_at": 1781460018.8934653,
-        "updated_at": 1781460018.8934653,
+        "created_at": 1781461545.8772867,
+        "updated_at": 1781461545.877287,
         "settings": {
           "chat_backend": "ananta-worker",
           "chat_backend_model": "google/gemma-4-e4b",
@@ -271,8 +271,8 @@
         "system_prompt": "Du bist Architekt des Ananta-Projekts. Der Nutzer beschreibt welchen Teil des Systems er visualisieren will.\nAntworte IMMER mit einem Mermaid-Diagramm (flowchart TD oder graph LR).\nNutze ausschließlich reale Komponenten, Dateinamen und Module aus dem bereitgestellten Quellcode-Kontext.\nSchreibe genau EINE kurze Zeile Beschreibung vor dem Mermaid-Block. Kein weiterer Text danach.",
         "icon": "🏗️",
         "group": "Architektur",
-        "created_at": 1781460018.8934739,
-        "updated_at": 1781460018.893474,
+        "created_at": 1781461545.8772948,
+        "updated_at": 1781461545.8772948,
         "settings": {
           "chat_backend": "ananta-worker",
           "chat_backend_model": "google/gemma-4-e4b",
@@ -311,8 +311,8 @@
         "system_prompt": "Du bist Architekt. Der Nutzer nennt einen Bereich oder eine Komponente.\nAntworte IMMER mit einem Mermaid classDiagram.\nZeige Klassen, Interfaces, Vererbung und wichtige Methoden/Felder aus dem Quellcode-Kontext. Nutze reale Klassennamen.\nSchreibe genau EINE kurze Zeile Beschreibung vor dem Mermaid-Block. Kein weiterer Text danach.",
         "icon": "🔷",
         "group": "Architektur",
-        "created_at": 1781460018.8934817,
-        "updated_at": 1781460018.8934817,
+        "created_at": 1781461545.8773022,
+        "updated_at": 1781461545.8773022,
         "settings": {
           "chat_backend": "ananta-worker",
           "chat_backend_model": "google/gemma-4-e4b",
@@ -351,8 +351,8 @@
         "system_prompt": "Du bist Architekt. Der Nutzer beschreibt einen Ablauf oder Prozess.\nAntworte IMMER mit einem Mermaid sequenceDiagram.\nVerwende reale Komponenten, Services und Funktionen als Akteure. Zeige den tatsächlichen Ablauf aus dem Quellcode-Kontext.\nSchreibe genau EINE kurze Zeile Beschreibung vor dem Mermaid-Block. Kein weiterer Text danach.",
         "icon": "↔️",
         "group": "Architektur",
-        "created_at": 1781460018.8934891,
-        "updated_at": 1781460018.8934891,
+        "created_at": 1781461545.8773093,
+        "updated_at": 1781461545.8773093,
         "settings": {
           "chat_backend": "ananta-worker",
           "chat_backend_model": "google/gemma-4-e4b",
@@ -391,8 +391,8 @@
         "system_prompt": "Du bist Architekt. Der Nutzer nennt ein Modul oder eine Komponente.\nAntworte IMMER mit einem Mermaid graph LR Diagramm.\nZeige Import- und Abhängigkeitsbeziehungen zwischen Modulen. Nutze subgraph für Pakete/Namespaces. Verwende reale Datei- und Modulnamen.\nSchreibe genau EINE kurze Zeile Beschreibung vor dem Mermaid-Block. Kein weiterer Text danach.",
         "icon": "🔗",
         "group": "Architektur",
-        "created_at": 1781460018.8934963,
-        "updated_at": 1781460018.8934963,
+        "created_at": 1781461545.8773174,
+        "updated_at": 1781462242.4547644,
         "settings": {
           "chat_backend": "ananta-worker",
           "chat_backend_model": "google/gemma-4-e4b",
@@ -403,7 +403,7 @@
           "chat_code_questions_repo_first": true,
           "chat_architecture_analysis_mode": "rag_iterative",
           "chat_max_tokens": 4000,
-          "chat_answer_chars": 5000,
+          "chat_answer_chars": 1800,
           "chat_answer_overflow_policy": "allow",
           "chat_never_truncate_answers": true,
           "chat_context_chars": 4000,
@@ -419,10 +419,9 @@
         },
         "settings_delta": {
           "chat_architecture_analysis_mode": "rag_iterative",
-          "chat_retrieval_profile": "code_first",
-          "chat_answer_chars": 5000,
           "chat_use_codecompass": true,
-          "chat_code_questions_repo_first": true
+          "chat_code_questions_repo_first": true,
+          "chat_retrieval_profile": "code_first"
         }
       }
     ],
