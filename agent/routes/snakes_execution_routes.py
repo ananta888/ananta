@@ -1468,6 +1468,7 @@ def snake_ask():
     answer, worker_trace = _worker_propose(
         grounded_prompt,
         model,
+        provider=provider,
         limits=limits,
         retrieval_profile_trace=rag_trace.get("retrieval_profile") if isinstance(rag_trace.get("retrieval_profile"), dict) else None,
     )
@@ -1480,7 +1481,7 @@ def snake_ask():
         return jsonify(resp), 200
 
     try:
-        provider, _ = _resolve_ai_snake_chat_provider()
+        _, _, api_base = _resolve_ai_snake_chat_provider()
         timeout = min(int(getattr(settings, "http_timeout", 120) or 120), 180)
         raw = generate_text(
             prompt=_with_answer_budget_instruction(
@@ -1490,6 +1491,7 @@ def snake_ask():
             ),
             provider=provider,
             model=model,
+            base_url=api_base,
             history=[{"role": "system", "content": _SNAKE_CHAT_PROMPT}],
             max_output_tokens=limits.max_tokens,
             timeout=timeout,
