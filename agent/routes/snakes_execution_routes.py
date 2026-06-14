@@ -677,6 +677,20 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                 rec.event("config_loaded", "Provider-Konfiguration geladen", status="completed",
                           details={"provider": provider, "model": model, "conversation_history_messages": len(conversation_history)})
 
+            # Resolve active session's system_prompt
+            _active_session_prompt: str | None = None
+            try:
+                from client_surfaces.operator_tui.config.user_config_manager import get_manager as _get_mgr2
+                _stored2 = _get_mgr2().load()
+                _active_sid2 = str(_stored2.get("chat_active_session_id") or "").strip()
+                if _active_sid2:
+                    for _sess2 in (_stored2.get("chat_sessions") or []):
+                        if str(_sess2.get("id") or "") == _active_sid2:
+                            _active_session_prompt = str(_sess2.get("system_prompt") or "").strip() or None
+                            break
+            except Exception:
+                pass
+
             _answer_chars_limit = _chat_answer_chars_limit()
             try:
                 from agent.routes.ai_snake_config import _current_config
@@ -703,6 +717,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                             rec=rec,
                             conversation_history=conversation_history,
                             cancel_event=_cancel_event,
+                            system_prompt=_active_session_prompt,
                         )
                     finally:
                         unregister_chat_cancel(_cancel_keys, _cancel_event)
