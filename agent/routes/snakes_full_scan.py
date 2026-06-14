@@ -116,7 +116,7 @@ def worker_chat_full_scan(
         trace["error"] = "no_repo_root"
         return "", trace
 
-    exts = (".py",) if source_only else (".py", ".ts")
+    exts = (".py", ".jsonl") if source_only else (".py", ".ts", ".jsonl")
 
     all_files: list[_pl.Path] = []
     for ext in exts:

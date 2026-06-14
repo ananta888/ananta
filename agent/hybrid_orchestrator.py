@@ -71,6 +71,8 @@ class RepositoryMapEngine:
         ".cs",
         ".rb",
         ".php",
+        ".jsonl",
+        ".json",
     }
     TREE_SITTER_LANGUAGE_BY_EXT = {
         ".py": "python",
@@ -182,6 +184,33 @@ class RepositoryMapEngine:
 
         visit(tree.root_node, [])
         return symbols
+
+    @staticmethod
+    def _extract_symbols_jsonl(text: str) -> list[str]:
+        """Extract top-level keys and short string values from JSON/JSONL as symbols."""
+        import json as _json
+        symbols: list[str] = []
+        seen: set[str] = set()
+        for line in text.splitlines()[:30]:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            try:
+                obj = _json.loads(line)
+            except Exception:
+                continue
+            if not isinstance(obj, dict):
+                continue
+            for k, v in obj.items():
+                if k not in seen:
+                    seen.add(k)
+                    symbols.append(str(k))
+                if isinstance(v, str) and 2 < len(v) < 80 and v.strip() not in seen:
+                    seen.add(v.strip())
+                    symbols.append(v.strip())
+            if len(symbols) >= 80:
+                break
+        return symbols[:80]
 
     def _extract_symbols_regex(self, text: str) -> list[str]:
         patterns = [
@@ -318,7 +347,10 @@ class RepositoryMapEngine:
                 logging.debug(f"Failed reading source file '{file_path}': {e}")
                 self._symbol_graph.pop(rel, None)
                 continue
-            symbols = self._extract_symbols_tree_sitter(file_path, text) or self._extract_symbols_regex(text)
+            if file_path.suffix.lower() in {".jsonl", ".json"}:
+                symbols = self._extract_symbols_jsonl(text)
+            else:
+                symbols = self._extract_symbols_tree_sitter(file_path, text) or self._extract_symbols_regex(text)
             if symbols:
                 self._symbol_graph[rel] = symbols
             else:

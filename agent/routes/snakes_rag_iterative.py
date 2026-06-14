@@ -14,11 +14,92 @@ import pathlib as _pl
 from time import time as _time
 from typing import Any
 
+import ast as _ast
+
 from agent.config import lookup_model_context_tokens, settings as _cfg_settings
 from agent.llm_integration import generate_text
 from agent.routes.ai_snake_config import _current_config
 
 _log = logging.getLogger(__name__)
+
+
+def _expand_python_imports(
+    file_entries: list[dict],
+    repo_root: _pl.Path,
+    *,
+    depth: int,
+    max_chars_per_file: int,
+    seen_sources: set[str],
+) -> list[dict]:
+    """BFS import expansion: for each .py file in file_entries, follow local imports up to `depth` levels."""
+    if depth <= 0:
+        return file_entries
+
+    def _local_imports(path: _pl.Path) -> list[_pl.Path]:
+        try:
+            tree = _ast.parse(path.read_text(encoding="utf-8", errors="replace"), filename=str(path))
+        except Exception:
+            return []
+        candidates: list[_pl.Path] = []
+        for node in _ast.walk(tree):
+            if isinstance(node, _ast.Import):
+                for alias in node.names:
+                    mod_parts = alias.name.split(".")
+                    for n in range(len(mod_parts), 0, -1):
+                        candidate = repo_root.joinpath(*mod_parts[:n]).with_suffix(".py")
+                        if candidate.exists() and candidate.is_file():
+                            candidates.append(candidate)
+                            break
+                        pkg = repo_root.joinpath(*mod_parts[:n], "__init__.py")
+                        if pkg.exists():
+                            candidates.append(pkg)
+                            break
+            elif isinstance(node, _ast.ImportFrom):
+                if node.level and node.level > 0:
+                    # relative import — resolve from current file's package
+                    base = path.parent
+                    for _ in range(node.level - 1):
+                        base = base.parent
+                    if node.module:
+                        target = base.joinpath(*node.module.split(".")).with_suffix(".py")
+                        if target.exists():
+                            candidates.append(target)
+                elif node.module:
+                    mod_parts = node.module.split(".")
+                    for n in range(len(mod_parts), 0, -1):
+                        candidate = repo_root.joinpath(*mod_parts[:n]).with_suffix(".py")
+                        if candidate.exists() and candidate.is_file():
+                            candidates.append(candidate)
+                            break
+        return candidates
+
+    frontier = [
+        repo_root / e["path"]
+        for e in file_entries
+        if e["path"].endswith(".py")
+    ]
+    added = list(file_entries)
+
+    for _level in range(depth):
+        next_frontier: list[_pl.Path] = []
+        for py_file in frontier:
+            for dep in _local_imports(py_file):
+                rel = str(dep.relative_to(repo_root)) if dep.is_relative_to(repo_root) else str(dep)
+                if rel in seen_sources:
+                    continue
+                seen_sources.add(rel)
+                try:
+                    content = dep.read_text(encoding="utf-8", errors="replace")[:max_chars_per_file]
+                except OSError:
+                    continue
+                lang = dep.suffix.lstrip(".") or "text"
+                added.append({"path": rel, "lang": lang, "content": content})
+                next_frontier.append(dep)
+        frontier = next_frontier
+        if not frontier:
+            break
+
+    return added
 
 _SYSTEM_PROMPT = (
     "Du bist AI-Snake im Ananta Hub.\n"
@@ -146,6 +227,78 @@ def worker_chat_rag_iterative(
     if not file_entries:
         trace["error"] = "no_files_resolved"
         return "", trace
+
+    # --- Step 2b: Python import-graph expansion (optional) ---
+    import_depth = max(0, int(_cfg_settings.rag_iterative_import_depth))
+    if import_depth > 0:
+        before = len(file_entries)
+        file_entries = _expand_python_imports(
+            file_entries,
+            repo_root,
+            depth=import_depth,
+            max_chars_per_file=max_chars_per_file,
+            seen_sources=seen_sources,
+        )
+        trace["import_expansion_added"] = len(file_entries) - before
+        trace["files_after_expansion"] = len(file_entries)
+
+    # --- Step 2c: Tool-call loop (optional, replaces batch+synthesis when enabled) ---
+    tool_calls_enabled = bool(_cfg_settings.rag_iterative_tool_calls_enabled)
+    if tool_calls_enabled:
+        from agent.routes.snakes_rag_tool_loop import run_rag_chat_tool_loop
+
+        max_tool_calls = max(0, int(_cfg_settings.rag_iterative_max_tool_calls))
+        # Build context block from all resolved files (truncated to fit)
+        file_blocks = []
+        for e in file_entries:
+            file_blocks.append(f"### {e['path']}\n```{e['lang']}\n{e['content']}\n```")
+        context_text = "\n\n".join(file_blocks)
+
+        user_message = (
+            f"Frage: {question}\n\n"
+            + (f"{budget_instruction}\n\n" if budget_instruction else "")
+            + f"Initialer Kontext ({len(file_entries)} Datei(en) aus CodeCompass):\n\n"
+            + context_text
+            + "\n\nBeantworte die Frage. Falls du weitere Dateien benötigst, "
+            + "nutze die verfügbaren Tools (read_file, search_codebase)."
+        )
+
+        messages = list(llm_history) + [{"role": "user", "content": user_message}]
+
+        if rec:
+            rec.event(
+                "rag_iterative_tool_loop_start",
+                f"Tool-Loop: {len(file_entries)} Datei(en), max {max_tool_calls} Tool-Calls",
+                status="running",
+                details={
+                    "files": [e["path"] for e in file_entries],
+                    "max_tool_calls": max_tool_calls,
+                    "model": model,
+                    "provider": provider,
+                },
+            )
+
+        final_answer, tl_trace = run_rag_chat_tool_loop(
+            messages=messages,
+            provider=provider,
+            model=model,
+            repo_root=repo_root,
+            max_tool_calls=max_tool_calls,
+            max_chars_per_file=max_chars_per_file,
+            timeout=timeout_s,
+            rec=rec,
+        )
+        trace["tool_loop"] = tl_trace
+        trace["file_list"] = [e["path"] for e in file_entries]
+        if rec:
+            rec.event(
+                "rag_iterative_tool_loop_done",
+                f"Tool-Loop abgeschlossen ({tl_trace.get('tool_calls_made', 0)} Tool-Calls)",
+                status="completed" if final_answer else "failed",
+                details=tl_trace,
+                output_preview=final_answer[:500] if final_answer else None,
+            )
+        return final_answer, trace
 
     # --- Step 3: Estimate tokens and split into batches ---
     framing_overhead = 200  # system prompt + question + batch header
