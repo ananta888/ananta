@@ -24,6 +24,7 @@ from agent.services.rag_context_packer import (
     format_packed_files_section,
     packed_file_memory_summary,
 )
+from agent.services.snake_chat_cancellation import is_chat_cancelled
 
 _log = logging.getLogger(__name__)
 
@@ -218,9 +219,18 @@ def worker_chat_rag_iterative(
     limits: Any | None = None,
     rec: Any | None = None,
     conversation_history: list[dict[str, str]] | None = None,
+    cancel_event: Any | None = None,
 ) -> tuple[str, dict[str, Any]]:
     """Iterative RAG: fetch relevant files, read fully, batch → LLM → synthesize."""
     trace: dict[str, Any] = {"mode": "rag_iterative"}
+
+    def _cancelled() -> bool:
+        if not is_chat_cancelled(cancel_event):
+            return False
+        trace["cancelled"] = True
+        trace["error"] = "cancelled"
+        return True
+
     llm_history = [{"role": "system", "content": _SYSTEM_PROMPT}, *list(conversation_history or [])]
     trace["conversation_history_messages"] = len(conversation_history or [])
 
@@ -244,6 +254,8 @@ def worker_chat_rag_iterative(
     try:
         from agent.hybrid_orchestrator import RepositoryMapEngine
 
+        if _cancelled():
+            return "", trace
         _engine = RepositoryMapEngine(repo_root)
         raw_chunks = _engine.search(question, top_k=_rag_max)
         chunks = [
@@ -256,6 +268,9 @@ def worker_chat_rag_iterative(
     except Exception as exc:
         _log.warning("rag_iterative: retrieval failed: %s", exc)
         trace["error"] = f"retrieval_failed: {exc}"
+        return "", trace
+
+    if _cancelled():
         return "", trace
 
     # Filter out raw CodeCompass data files — large machine-readable JSONL/JSON blobs
@@ -434,6 +449,7 @@ def worker_chat_rag_iterative(
                 }
                 for item in _context_pack.included_files
             ],
+            cancel_event=cancel_event,
         )
         trace["tool_loop"] = tl_trace
         trace["available_files"] = available_files
@@ -456,6 +472,8 @@ def worker_chat_rag_iterative(
     seen_sources: set[str] = set()
 
     for ch in chunks:
+        if _cancelled():
+            return "", trace
         meta = dict((ch or {}).get("metadata") or {})
         source = str(meta.get("file_path") or meta.get("path") or ch.get("source") or "").strip()
         if not source or source in seen_sources:
@@ -563,6 +581,8 @@ def worker_chat_rag_iterative(
     batch_metas: list[dict] = []
 
     for i, batch in enumerate(batches, start=1):
+        if _cancelled():
+            return "", trace
         file_blocks = []
         for e in batch:
             file_blocks.append(f"### {e['path']}\n```{e['lang']}\n{e['content']}\n```")
@@ -604,6 +624,8 @@ def worker_chat_rag_iterative(
                 history=llm_history,
                 timeout=timeout_s,
             )
+            if _cancelled():
+                return "", trace
             text = str(raw or "").strip()
         except Exception as exc:
             _log.warning("rag_iterative batch %d failed: %s", i, exc)
@@ -666,6 +688,8 @@ def worker_chat_rag_iterative(
 
     t_syn = _time()
     try:
+        if _cancelled():
+            return "", trace
         raw = generate_text(
             prompt=synthesis_prompt,
             provider=provider,
@@ -673,6 +697,8 @@ def worker_chat_rag_iterative(
             history=llm_history,
             timeout=timeout_s,
         )
+        if _cancelled():
+            return "", trace
         final_answer = str(raw or "").strip()
     except Exception as exc:
         _log.warning("rag_iterative synthesis failed: %s", exc)

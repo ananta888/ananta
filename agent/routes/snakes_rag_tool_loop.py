@@ -12,6 +12,7 @@ import pathlib as _pl
 from typing import Any
 
 from agent.utils import log_llm_entry
+from agent.services.snake_chat_cancellation import is_chat_cancelled
 
 _log = logging.getLogger(__name__)
 
@@ -157,6 +158,7 @@ def run_rag_chat_tool_loop(
     summarize_reads: bool = False,
     max_summary_chars: int = 600,
     initial_evidence: list[dict[str, Any]] | None = None,
+    cancel_event: Any | None = None,
 ) -> tuple[str, dict[str, Any]]:
     """
     Agentic loop: send messages to LLM, handle tool calls, return final answer.
@@ -210,10 +212,22 @@ def run_rag_chat_tool_loop(
     llm_call_count = 0
     last_content = ""
     _already_read: dict[str, str] = {}  # path → content, to prevent re-reading the same file
+    _already_searched: set[str] = set()
     _evidence: dict[str, dict[str, Any]] = {}
+    search_call_count = 0
+    force_final_next = False
+
+    def _cancelled() -> bool:
+        if not is_chat_cancelled(cancel_event):
+            return False
+        trace["cancelled"] = True
+        trace["error"] = "cancelled"
+        return True
 
     def _summarize_file(path: str, content: str) -> str:
         """Intermediate LLM call: extract question-relevant info from a file into a compact summary."""
+        if _cancelled():
+            return "[Abgebrochen]"
         if not question or len(content) < 800:
             return content  # too short to bother summarizing
         q = question[:300]
@@ -234,6 +248,8 @@ def run_rag_chat_tool_loop(
                 timeout=min(timeout, 60),
             )
             resp.raise_for_status()
+            if _cancelled():
+                return "[Abgebrochen]"
             summary = str(
                 ((resp.json().get("choices") or [{}])[0].get("message") or {}).get("content") or ""
             ).strip()
@@ -258,6 +274,8 @@ def run_rag_chat_tool_loop(
 
     def _register_initial_evidence() -> None:
         for idx, item in enumerate(initial_evidence or [], 1):
+            if _cancelled():
+                return
             path = str(item.get("path") or "").strip()
             if not path:
                 continue
@@ -323,8 +341,8 @@ def run_rag_chat_tool_loop(
         next_marker = "=== Verfügbare Dateien"
         replacement = (
             "=== Bereits gelesene CodeCompass-Top-Treffer (kompakt) ===\n"
-            + _evidence_prompt()
-            + "\n\n"
+            "Die Volltexte wurden fuer Folgeaufrufe entfernt. "
+            "Nutze den aktuellen Recherche-Stand in der letzten User-Nachricht.\n\n"
         )
         for msg in current_messages:
             if msg.get("role") != "user":
@@ -339,6 +357,18 @@ def run_rag_chat_tool_loop(
             msg["content"] = content[:start] + replacement + content[end:]
             trace["initial_context_compacted_for_followups"] = True
             return
+
+    def _is_evidence_message(msg: dict[str, Any]) -> bool:
+        return (
+            msg.get("role") == "user"
+            and str(msg.get("content") or "").startswith("Recherche-Stand fuer die naechste LLM-Aktion:")
+        )
+
+    def _replace_or_append_evidence_message(evidence_text: str) -> None:
+        if not evidence_text:
+            return
+        current_messages[:] = [msg for msg in current_messages if not _is_evidence_message(msg)]
+        current_messages.append({"role": "user", "content": evidence_text})
 
     def _input_preview(msgs: list[dict], max_chars: int = 2000) -> str:
         """Short preview of the last 4 messages — for log entries only."""
@@ -435,7 +465,17 @@ def run_rag_chat_tool_loop(
         )
 
     for _iteration in range(max_tool_calls + 2):
-        use_tools = tool_call_count < max_tool_calls
+        if _cancelled():
+            if rec:
+                rec.event(
+                    "tool_loop_cancelled",
+                    "Tool-Loop abgebrochen",
+                    status="cancelled",
+                    details=trace,
+                )
+            return "", trace
+
+        use_tools = tool_call_count < max_tool_calls and not force_final_next
         llm_call_count += 1
         payload: dict[str, Any] = {
             "model": model or "auto",
@@ -486,6 +526,14 @@ def run_rag_chat_tool_loop(
         try:
             resp = requests.post(endpoint, json=payload, headers=headers, timeout=timeout)
             resp.raise_for_status()
+            if _cancelled():
+                if rec:
+                    rec.event(
+                        f"tool_loop_llm_{llm_call_count}_cancelled",
+                        f"{label} — abgebrochen",
+                        status="cancelled",
+                    )
+                return "", trace
             data = resp.json()
         except Exception as exc:
             _log.warning("tool_loop: LLM call failed: %s", exc)
@@ -562,7 +610,12 @@ def run_rag_chat_tool_loop(
             "tool_calls": tool_calls,
         })
 
+        iteration_read_calls = 0
+        iteration_search_calls = 0
+
         for tc in tool_calls:
+            if _cancelled():
+                return "", trace
             tool_call_count += 1
             tc_id = str(tc.get("id") or f"call_{tool_call_count}")
             fn = tc.get("function") or {}
@@ -575,6 +628,7 @@ def run_rag_chat_tool_loop(
 
             _log.debug("tool_loop: calling %s(%s)", fn_name, args)
             if fn_name == "read_file":
+                iteration_read_calls += 1
                 _req_path = str(args.get("path") or "").strip()
                 if _req_path in _already_read:
                     result = _already_read[_req_path]
@@ -605,6 +659,28 @@ def run_rag_chat_tool_loop(
                                 )
                         _already_read[_req_path] = result
                         _remember_file(_req_path, result, source="tool_read")
+            elif fn_name == "search_codebase":
+                iteration_search_calls += 1
+                search_call_count += 1
+                _query = str(args.get("query") or "").strip().lower()
+                if _query in _already_searched:
+                    result = (
+                        "[Suche bereits ausgefuehrt. Nutze die bestehende Evidenz, "
+                        "lies eine konkrete Datei aus der Trefferliste oder antworte abschliessend.]"
+                    )
+                elif search_call_count > 3:
+                    result = (
+                        "[Suchlimit erreicht. Nutze die vorhandene Dateiliste und Evidenz; "
+                        "lies bei Bedarf eine konkrete Datei oder antworte abschliessend.]"
+                    )
+                    force_final_next = True
+                else:
+                    _already_searched.add(_query)
+                    result = _dispatch_tool(
+                        fn_name, args,
+                        repo_root=repo_root,
+                        max_chars_per_file=max_chars_per_file,
+                    )
             else:
                 result = _dispatch_tool(
                     fn_name, args,
@@ -642,10 +718,7 @@ def run_rag_chat_tool_loop(
         _compact_initial_packed_context()
         evidence_text = _evidence_prompt()
         if evidence_text and tool_calls and tool_call_count < max_tool_calls:
-            current_messages.append({
-                "role": "user",
-                "content": evidence_text,
-            })
+            _replace_or_append_evidence_message(evidence_text)
             if rec:
                 rec.event(
                     "tool_loop_evidence_memory",
@@ -655,13 +728,13 @@ def run_rag_chat_tool_loop(
                     input_preview=evidence_text,
                 )
 
+        if iteration_search_calls and not iteration_read_calls and search_call_count >= 3:
+            force_final_next = True
+
         if tool_call_count >= max_tool_calls:
-            current_messages.append({
-                "role": "user",
-                "content": (
-                    _evidence_prompt()
-                    + "\n\nBitte gib jetzt deine abschliessende Antwort auf Basis aller gesammelten Informationen."
-                ),
-            })
+            _replace_or_append_evidence_message(
+                _evidence_prompt()
+                + "\n\nBitte gib jetzt deine abschliessende Antwort auf Basis aller gesammelten Informationen."
+            )
 
     return last_content, trace

@@ -17,6 +17,11 @@ from flask import Blueprint, current_app, has_app_context, jsonify, request
 from agent.config import settings
 from agent.llm_integration import generate_text
 from agent.services.rag_service import get_rag_service
+from agent.services.snake_chat_cancellation import (
+    cancel_chat,
+    register_chat_cancel,
+    unregister_chat_cancel,
+)
 
 from .snakes import (
     _MAX_CHAT_MSGS,
@@ -625,6 +630,7 @@ def _build_room_conversation_history(
     return history
 
 
+from .snakes_full_scan import _SCAN_CANCELS as _FULL_SCAN_CANCELS
 from .snakes_full_scan import worker_chat_full_scan as _worker_chat_full_scan
 from .snakes_rag_iterative import worker_chat_rag_iterative as _worker_chat_rag_iterative
 
@@ -682,20 +688,28 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                         rec.event("rag_iterative_detected", "RAG-Iterativ erkannt", status="running",
                                   summary="Iterative Datei-Analyse wird gestartet")
                     t0 = time.time()
-                    answer, scan_trace = _worker_chat_rag_iterative(
-                        prompt,
-                        provider=provider,
-                        model=model,
-                        limits=SnakeAskLimits(
-                            answer_chars=_answer_chars_limit,
-                            answer_overflow_policy=_answer_overflow_policy(),
-                            never_truncate_answers=_chat_never_truncate_answers(),
-                        ),
-                        rec=rec,
-                        conversation_history=conversation_history,
-                    )
+                    _cancel_keys = ["room"] + ([snake_id] if snake_id else [])
+                    _cancel_event = register_chat_cancel(_cancel_keys)
+                    try:
+                        answer, scan_trace = _worker_chat_rag_iterative(
+                            prompt,
+                            provider=provider,
+                            model=model,
+                            limits=SnakeAskLimits(
+                                answer_chars=_answer_chars_limit,
+                                answer_overflow_policy=_answer_overflow_policy(),
+                                never_truncate_answers=_chat_never_truncate_answers(),
+                            ),
+                            rec=rec,
+                            conversation_history=conversation_history,
+                            cancel_event=_cancel_event,
+                        )
+                    finally:
+                        unregister_chat_cancel(_cancel_keys, _cancel_event)
                     _tl = scan_trace.get("tool_loop") or {}
-                    if _tl or scan_trace.get("available_files"):
+                    if scan_trace.get("cancelled") or _tl.get("cancelled"):
+                        scan_summary = "rag_iterative: abgebrochen"
+                    elif _tl or scan_trace.get("available_files"):
                         _avail = scan_trace.get("available_files") or []
                         _tc_made = _tl.get("tool_calls_made", 0)
                         file_names = ", ".join(str(p).split("/")[-1] for p in _avail[:6])
@@ -712,11 +726,11 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                         scan_summary = f"rag_iterative: {batches_done} Batches, {files_found} Dateien" + (f" ({file_names})" if file_names else "")
                     if rec:
                         rec.event("rag_iterative_completed", "RAG-Iterativ abgeschlossen",
-                                  status="completed" if answer else "failed",
+                                  status="cancelled" if scan_trace.get("cancelled") or _tl.get("cancelled") else ("completed" if answer else "failed"),
                                   summary=scan_summary, duration_ms=(time.time() - t0) * 1000,
                                   details=scan_trace)
                     if not answer:
-                        answer = "RAG-Iterativ ergab keine Antwort."
+                        answer = "Anfrage abgebrochen." if scan_trace.get("cancelled") or _tl.get("cancelled") else "RAG-Iterativ ergab keine Antwort."
                     answer = _fit_answer_to_chars(
                         answer,
                         limit=_answer_chars_limit,
@@ -1156,16 +1170,22 @@ def chat_receive(snake_id: str):
 
 @snakes_bp.route("/snakes/<snake_id>/chat/cancel", methods=["POST"])
 def chat_cancel(snake_id: str):
-    """POST /snakes/<id>/chat/cancel -- Laufenden full_scan abbrechen."""
+    """POST /snakes/<id>/chat/cancel -- Laufenden AI-Snake-Chat abbrechen."""
     if not _verify_token(snake_id):
         return jsonify({"error": "Ung\u00fcltiger Token"}), 401
-    cancelled = False
-    for key in ("room", "snake_ask", snake_id):
+    keys = ("room", "snake_ask", snake_id)
+    cancelled_keys = cancel_chat(keys)
+    legacy_cancelled = False
+    for key in keys:
         event = _SCAN_CANCELS.get(key)
         if event:
             event.set()
-            cancelled = True
-    return jsonify({"ok": True, "cancelled": cancelled}), 200
+            legacy_cancelled = True
+        full_scan_event = _FULL_SCAN_CANCELS.get(key)
+        if full_scan_event:
+            full_scan_event.set()
+            legacy_cancelled = True
+    return jsonify({"ok": True, "cancelled": bool(cancelled_keys) or legacy_cancelled, "keys": cancelled_keys}), 200
 
 
 @snakes_bp.route("/snakes/<snake_id>/chat/ack", methods=["POST"])
@@ -1333,7 +1353,29 @@ def snake_ask():
         _eff_cfg = _current_config()
         _eff_cfg.update(dict(retrieval_config_overrides or {}))
         if _is_rag_iterative_intent(_eff_cfg):
-            answer, worker_trace = _worker_chat_rag_iterative(question, provider=provider, model=model, limits=limits)
+            _cancel_keys = ["snake_ask"]
+            _cancel_event = register_chat_cancel(_cancel_keys)
+            try:
+                answer, worker_trace = _worker_chat_rag_iterative(
+                    question,
+                    provider=provider,
+                    model=model,
+                    limits=limits,
+                    cancel_event=_cancel_event,
+                )
+            finally:
+                unregister_chat_cancel(_cancel_keys, _cancel_event)
+            if worker_trace.get("cancelled") or (worker_trace.get("tool_loop") or {}).get("cancelled"):
+                resp = {
+                    "answer": "Anfrage abgebrochen.",
+                    "path": "rag_iterative",
+                    "context_summary": "rag_iterative: abgebrochen",
+                    "cancelled": True,
+                    **domain_scope_info,
+                }
+                if debug:
+                    resp["trace"] = {"worker": worker_trace}
+                return jsonify(resp), 200
             if answer:
                 _tl = worker_trace.get("tool_loop") or {}
                 if _tl or worker_trace.get("available_files"):
