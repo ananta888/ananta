@@ -1,7 +1,7 @@
 import { Component, EventEmitter, Input, Output, inject, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule, AsyncPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subscription, filter, take } from 'rxjs';
+import { Subscription } from 'rxjs';
 import { AiSnakeChatService } from '../services/ai-snake-chat.service';
 import { AiSnakeConfigService } from '../services/ai-snake-config.service';
 import { OidcAuthService } from '../services/oidc-auth.service';
@@ -155,7 +155,7 @@ import { UiStateSyncService } from '../services/ui-state-sync.service';
           <!-- ── Chat-Auswahl: Combobox + Neu-Button ── -->
           <div class="chat-switcher">
             <select class="sess-select"
-                    [ngModel]="sessions.activeSessionId$ | async"
+                    [ngModel]="_snakeSessionId"
                     (ngModelChange)="switchSession($event)">
               @for (grp of sessionGroups(); track grp.name) {
                 @if (grp.name) {
@@ -185,16 +185,14 @@ import { UiStateSyncService } from '../services/ui-state-sync.service';
           }
 
           <!-- ── Aktive-Session-Info ── -->
-          @if (sessions.activeSessionId$ | async; as activeId) {
-            @if (activeSessionFor(activeId); as sess) {
-              <div class="session-bar">
-                <span class="sess-dot">●</span>
-                <span class="sess-name-label">{{ sess.name }}</span>
-                <span class="sess-meta">{{ sessBackend(sess) }}</span>
-                @if (sessCodeCompass(sess)) { <span class="sess-cc">CC</span> }
-                <span class="msg-count">{{ chatMessages().length }} Nachrichten</span>
-              </div>
-            }
+          @if (activeSessionFor(_snakeSessionId); as sess) {
+            <div class="session-bar">
+              <span class="sess-dot">●</span>
+              <span class="sess-name-label">{{ sess.name }}</span>
+              <span class="sess-meta">{{ sessBackend(sess) }}</span>
+              @if (sessCodeCompass(sess)) { <span class="sess-cc">CC</span> }
+              <span class="msg-count">{{ chatMessages().length }} Nachrichten</span>
+            </div>
           }
 
           <div class="messages" #messagesEl>
@@ -367,8 +365,9 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
 
   private historySub?: Subscription;
   private activeSub?: Subscription;
-  /** Tracks the session ID selected specifically in the snake panel, independently of the global ChatSessionsService. */
-  private _snakeSessionId = '';
+  /** Snake panel tracks its own session independently of the global ChatSessionsService.
+   *  Persisted in localStorage so reconnects keep the same session. Defaults to 'ananta-settings'. */
+  private _snakeSessionId: string = this.loadSnakeSession();
 
   @Input() tab: 'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated' = 'chat';
   @Output() tabChange = new EventEmitter<'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated'>();
@@ -390,12 +389,6 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
         this.uiSync.start();
       } else {
         this.uiSync.stop();
-      }
-    });
-    // Capture the active session ID as the snake panel's own session once sessions are loaded.
-    this.sessions.sessions$.pipe(filter(s => s.length > 0), take(1)).subscribe(() => {
-      if (!this._snakeSessionId) {
-        this._snakeSessionId = this.sessions.activeSessionId$.value || '';
       }
     });
   }
@@ -498,8 +491,15 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
     return !!s.settings?.['chat_use_codecompass'];
   }
 
+  private loadSnakeSession(): string {
+    try {
+      return localStorage.getItem('ananta.snake.session') || 'ananta-settings';
+    } catch { return 'ananta-settings'; }
+  }
+
   switchSession(id: string): void {
     this._snakeSessionId = id;
+    try { localStorage.setItem('ananta.snake.session', id); } catch {}
     this.sessions.activate(id);
   }
 

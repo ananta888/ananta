@@ -108,6 +108,10 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
     // Own snake (always present)
     this.spawnSnake('__own__', '', '#7fffd4', true, false);
 
+    // Guide snake — persistent orange companion, always visible alongside the own snake
+    this.guideSnake = this.spawnSnake('__guide__', '⚙️', '#ff8c00', false, false, true);
+    this.parkGuide();
+
     // Pair-dev participants → cursor-following snakes
     this.subs.push(
       this.share.state$.pipe(
@@ -163,7 +167,9 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     cancelAnimationFrame(this.rafId);
     this.subs.forEach(s => s.unsubscribe());
-    this.endGuide();
+    this.stopGuideSequence();
+    this.snakes = this.snakes.filter(s => s.id !== '__guide__');
+    this.guideSnake = null;
   }
 
   // ── Canvas ──────────────────────────────────────────────────────────────────
@@ -412,10 +418,22 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
   // ── Guided tour ─────────────────────────────────────────────────────────────
 
   private startGuide(steps: GuideStep[]): void {
-    this.endGuide();
+    this.stopGuideSequence();
     this.guideQueue = [...steps];
-    this.guideSnake = this.spawnSnake('__guide__', '⚙️', '#ffd700', false, false, true);
+    if (!this.guideSnake) {
+      this.guideSnake = this.spawnSnake('__guide__', '⚙️', '#ff8c00', false, false, true);
+    }
     this.advanceGuide();
+  }
+
+  /** Park the guide snake near the assistant button when idle. */
+  private parkGuide(): void {
+    if (!this.guideSnake) return;
+    const px = this.waypoint.resolve('assistant.snake-chat-btn');
+    this.guideSnake.goalX = px?.x ?? (window.innerWidth  - 90);
+    this.guideSnake.goalY = px?.y ?? (window.innerHeight - 90);
+    this.guideSnake.tx    = this.guideSnake.goalX;
+    this.guideSnake.ty    = this.guideSnake.goalY;
   }
 
   private advanceGuide(): void {
@@ -454,13 +472,15 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
     }, this.guidePendingDelay);
   }
 
+  /** Stop the current guide sequence but keep the snake visible — park it near the assistant button. */
   private endGuide(): void {
+    this.stopGuideSequence();
+    this.parkGuide();
+  }
+
+  private stopGuideSequence(): void {
     if (this.guideStepTimer)  { clearTimeout(this.guideStepTimer);  this.guideStepTimer  = null; }
     if (this.guideArriveTimer){ clearTimeout(this.guideArriveTimer); this.guideArriveTimer = null; }
-    if (this.guideSnake) {
-      this.snakes = this.snakes.filter(s => s.id !== '__guide__');
-      this.guideSnake = null;
-    }
     this.guideQueue         = [];
     this.guideBubbles       = [];
     this.guidePendingBubble = null;

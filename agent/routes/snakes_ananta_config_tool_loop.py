@@ -226,38 +226,20 @@ def _grep_ui_search(query: str) -> list[str]:
                 if lines:
                     results.append(f"[{f.name}]\n" + "\n".join(lines[:20]))
 
-    # Angular components with data-waypoints
+    # Angular components with data-waypoints — only extract waypoint lines, not code
     for f in sorted(angular_src.rglob("*.ts")):
         if "spec" in f.name or ".service." in f.name:
             continue
         text = f.read_text(encoding="utf-8", errors="replace")
         if "data-waypoint" in text and _score(text) > 1:
-            lines = [ln for ln in text.splitlines()
-                     if any(kw in ln.lower() for kw in keywords) or "data-waypoint" in ln]
-            if lines:
-                results.append(f"[{f.name}]\n" + "\n".join(lines[:15]))
-
-    # DB models and Pydantic models — for domain concept / field questions
-    for model_dir in [_REPO_ROOT / "agent" / "db_models", _REPO_ROOT / "agent" / "models"]:
-        if not model_dir.exists():
-            continue
-        for f in sorted(model_dir.glob("*.py")):
-            text = f.read_text(encoding="utf-8", errors="replace")
-            if _score(text) < 1:
-                continue
-            lines = [ln for ln in text.splitlines() if any(kw in ln.lower() for kw in keywords)]
-            if lines:
-                results.append(f"[agent/models/{f.name}]\n" + "\n".join(lines[:20]))
-
-    # Blueprint + team route files — for API field explanations
-    for route_name in ("blueprint_routes.py", "teams.py"):
-        route_file = _REPO_ROOT / "agent" / "routes" / route_name
-        if route_file.exists():
-            text = route_file.read_text(encoding="utf-8", errors="replace")
-            if _score(text) > 0:
-                lines = [ln for ln in text.splitlines() if any(kw in ln.lower() for kw in keywords)]
-                if lines:
-                    results.append(f"[routes/{route_name}]\n" + "\n".join(lines[:20]))
+            # Only include waypoint declarations and matching label/button text
+            lines = [ln.strip() for ln in text.splitlines()
+                     if "data-waypoint" in ln or (any(kw in ln.lower() for kw in keywords) and "waypoint" in text)]
+            wp_lines = [ln for ln in lines if "data-waypoint" in ln]
+            kw_lines = [ln for ln in lines if "data-waypoint" not in ln][:5]
+            combined = wp_lines[:10] + kw_lines
+            if combined:
+                results.append(f"[waypoints in {f.name}]\n" + "\n".join(combined))
 
     return results
 
