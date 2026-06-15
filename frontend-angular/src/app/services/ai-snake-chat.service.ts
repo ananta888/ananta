@@ -53,6 +53,7 @@ export class AiSnakeChatService implements OnDestroy {
   private messageCursor = '0';
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
+  private heartbeatFailCount = 0;
 
   getSnakeToken(): string { return this.snakeToken; }
 
@@ -217,12 +218,19 @@ export class AiSnakeChatService implements OnDestroy {
       {},
       { headers: this.withUserHeaders() },
     ).subscribe({
+      next: () => { this.heartbeatFailCount = 0; },
       error: (err) => {
         if (this.isSessionGoneError(err)) {
-          this.resetSessionState('Snake-Session abgelaufen. Bitte neu verbinden.');
+          this.heartbeatFailCount++;
+          // Require 3 consecutive failures before declaring the session gone.
+          // A single 403/404 may be a transient blip (server restart, brief 503).
+          if (this.heartbeatFailCount >= 3) {
+            this.heartbeatFailCount = 0;
+            this.resetSessionState('Snake-Session abgelaufen. Bitte neu verbinden.');
+          }
           return;
         }
-        this.error$.next('Heartbeat fehlgeschlagen');
+        this.heartbeatFailCount = 0;
       },
     });
   }
@@ -283,6 +291,7 @@ export class AiSnakeChatService implements OnDestroy {
     this.stopLoops();
     this.snakeToken = '';
     this.messageCursor = '0';
+    this.heartbeatFailCount = 0;
     this.snakeId$.next('');
     this.active$.next(false);
     this.participants$.next([]);

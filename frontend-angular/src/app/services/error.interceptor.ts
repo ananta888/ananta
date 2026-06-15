@@ -26,6 +26,20 @@ export class ErrorInterceptor implements HttpInterceptor {
           return throwError(() => error);
         }
 
+        // 403 on GET requests = background read / config check (e.g. /v1/models, chat/messages poll).
+        // These are not user-action failures; individual services handle them locally.
+        if (error.status === 403 && req.method === 'GET') {
+          (error as any).__anantaHandledByInterceptor = true;
+          return throwError(() => error);
+        }
+
+        // Snake-session endpoints (/snakes/...) handle 403/404 locally via isSessionGoneError
+        // and show contextual messages. A redundant global toast here is pure noise.
+        if (error.status === 403 && req.url.includes('/snakes/')) {
+          (error as any).__anantaHandledByInterceptor = true;
+          return throwError(() => error);
+        }
+
         let errorMessage = 'Ein Netzwerkfehler ist aufgetreten.';
         
         if (error.error instanceof ErrorEvent) {
