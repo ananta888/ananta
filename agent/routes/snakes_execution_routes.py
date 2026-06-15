@@ -619,31 +619,29 @@ _VISUAL_THROTTLE_S: float = 25.0  # minimum seconds between visual replies
 _VISUAL_SESSION_ID: str = "ananta-visual"  # tag for messages belonging to the visual snake session
 
 
-def _visual_session_log_deltas_only() -> bool:
-    """Read the predictive_guide_log_deltas_only flag from the active
-    ananta-visual session settings, defaulting to True if the session
-    can't be found or has no settings yet.
+def _visual_session_settings() -> dict:
+    """Read all predictive_guide_* settings from the ananta-visual session.
 
-    Reads the raw chat_sessions list from the manager directly so we get
-    the user's persisted value — going through get_sessions() would
-    re-add the built-in default 'ananta-visual' (with log_deltas_only
-    absent → True default) when the user has wiped the list.
-
-    Imports get_manager at module top (not inside the try) so the
-    conftest's monkeypatch on user_config_manager.get_manager takes
-    effect — same pattern used by _load_chat / _save_chat in chat.py."""
+    Falls back to _DEFAULT_SESSION_SETTINGS values when the session is missing
+    or a key is absent. Same read-path as _visual_session_log_deltas_only so
+    conftest monkeypatches on get_manager are picked up automatically."""
     from client_surfaces.operator_tui.config.user_config_manager import get_manager
+    from client_surfaces.operator_tui.chat_state import _DEFAULT_SESSION_SETTINGS
+    defaults = {k: v for k, v in _DEFAULT_SESSION_SETTINGS.items() if k.startswith("predictive_guide_")}
     try:
         sessions = get_manager().load().get("chat_sessions") or []
         sess = next(
             (s for s in sessions if str(s.get("id") or "") == _VISUAL_SESSION_ID),
             None,
         )
-        if not sess:
-            return True
-        return bool((sess.get("settings") or {}).get("predictive_guide_log_deltas_only", True))
+        stored = dict((sess or {}).get("settings") or {})
+        return {**defaults, **{k: v for k, v in stored.items() if k in defaults}}
     except Exception:
-        return True
+        return defaults
+
+
+def _visual_session_log_deltas_only() -> bool:
+    return bool(_visual_session_settings().get("predictive_guide_log_deltas_only", True))
 
 
 def _append_visual_user_tick(*, ui_snapshot: str) -> None:
@@ -685,37 +683,62 @@ def _append_visual_user_tick(*, ui_snapshot: str) -> None:
 
 
 def _spawn_visual_reply(ui_snapshot: str) -> None:
-    """Background: generate a short proactive guide response for the visual snake session.
-    Only fires when the UI snapshot has meaningfully changed and enough time has passed."""
+    """Background: generate a proactive guide response for the visual snake session.
+
+    When predictive_guide_enabled is False the call is a no-op.
+    When predictive_guide_multi_candidates > 1 the LLM is asked to produce
+    N alternative guide sequences and the answer is stored as:
+        <primary bubble text>
+        __CANDIDATES__: [{"label":"primary","bubble":"...","steps":[...]}, ...]
+    Single-candidate mode keeps the legacy __GUIDE__: format."""
     global _visual_last_snapshot, _visual_last_reply_at
     now = time.time()
     if ui_snapshot == _visual_last_snapshot:
         return
     if now - _visual_last_reply_at < _VISUAL_THROTTLE_S:
         return
+
+    pug = _visual_session_settings()
+    if not pug.get("predictive_guide_enabled", False):
+        return
+
     _visual_last_snapshot = ui_snapshot
     _visual_last_reply_at = now
 
+    n_candidates = max(1, min(5, int(pug.get("predictive_guide_multi_candidates", 3))))
     _log = logging.getLogger(__name__)
-    _log.info("ananta-visual: generating proactive guide for snapshot=%r", ui_snapshot[:80])
+    _log.info(
+        "ananta-visual: generating %d-candidate guide for snapshot=%r",
+        n_candidates, ui_snapshot[:80],
+    )
 
     try:
         from agent.routes.ai_snake_config import _current_config
         _cfg = _current_config()
-        provider = str(_cfg.get("chat_provider") or "openai")
         model    = str(_cfg.get("chat_model") or "gpt-4o-mini")
         api_base = str(_cfg.get("chat_api_base") or "")
         api_key  = str(_cfg.get("chat_api_key")  or "")
 
-        system_prompt = (
-            "Du bist die orangene Guide-Snake in der Ananta App — eine kleine KI-Schlange "
-            "die den User visuell durch die App führt.\n"
-            "Du bekommst den aktuellen UI-Zustand als kompakten Text.\n"
-            "Reagiere in 1-2 kurzen deutschen Sätzen auf das was der User gerade sieht.\n"
-            "Füge wenn sinnvoll __GUIDE__: Steps an (JSON, Format: {\"steps\":[{\"waypoint\":\"...\",\"bubble\":\"...\",\"delay_ms\":3000}]}).\n"
-            "Wenn der Zustand trivial/unklar ist, antworte mit leerem Text."
-        )
-        user_msg = f"Aktueller UI-Zustand des Users:\n{ui_snapshot}"
+        if n_candidates == 1:
+            system_prompt = (
+                "Du bist die orangene Guide-Snake in der Ananta App — eine kleine KI-Schlange "
+                "die den User visuell durch die App führt.\n"
+                "Du bekommst den aktuellen UI-Zustand als kompakten Text.\n"
+                "Reagiere in 1-2 kurzen deutschen Sätzen auf das was der User gerade sieht.\n"
+                'Füge wenn sinnvoll __GUIDE__: Steps an (JSON, Format: {"steps":[{"waypoint":"...","bubble":"...","delay_ms":3000}]}).\n'
+                "Wenn der Zustand trivial/unklar ist, antworte mit leerem Text."
+            )
+        else:
+            system_prompt = (
+                f"Du bist die orangene Guide-Snake in der Ananta App.\n"
+                f"Generiere genau {n_candidates} alternative Guide-Vorschläge für den aktuellen UI-Zustand.\n"
+                f"Antworte NUR mit folgendem JSON (kein weiterer Text davor oder danach):\n"
+                f'__CANDIDATES__: [{{"label":"primary","bubble":"<Guide-Satz auf Deutsch>",'
+                f'"steps":[{{"waypoint":"...","bubble":"...","delay_ms":3000}}]}},'
+                f'{{"label":"alt-1","bubble":"<Alternative>","steps":[]}}]\n'
+                f"Wenn der Zustand trivial ist, antworte mit: __CANDIDATES__: []"
+            )
+        user_msg = f"Aktueller UI-Zustand:\n{ui_snapshot}"
 
         import openai as _oai
         _client_kwargs: dict[str, Any] = {"api_key": api_key or "sk-no-key"}
@@ -728,7 +751,7 @@ def _spawn_visual_reply(ui_snapshot: str) -> None:
                 {"role": "system", "content": system_prompt},
                 {"role": "user",   "content": user_msg},
             ],
-            max_tokens=200,
+            max_tokens=400 if n_candidates > 1 else 200,
             temperature=0.4,
         )
         answer = (_resp.choices[0].message.content or "").strip()

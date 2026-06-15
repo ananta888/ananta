@@ -27,17 +27,15 @@ def _build_session(*, log_deltas_only: bool):
 
 @pytest.fixture
 def reset_visual_state():
-    """Reset module-global state in snakes_execution_routes between tests
-    so delta tracking doesn't leak across cases.
-
-    Note: tests/conftest.py::isolate_operator_tui_user_config is autouse
-    and patches the user_config_manager to use a per-test tmp dir, so
-    chat_sessions in user.json are isolated automatically."""
+    """Reset module-global state in snakes_execution_routes before AND after
+    each test so delta tracking doesn't leak into other test files."""
     import importlib
     ser = importlib.import_module("agent.routes.snakes_execution_routes")
     ser._visual_last_snapshot = ""
     ser._visual_last_reply_at = 0.0
-    return ser
+    yield ser
+    ser._visual_last_snapshot = ""
+    ser._visual_last_reply_at = 0.0
 
 
 # ── Persistence: delta alongside the raw tick ───────────────────────────────

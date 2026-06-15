@@ -1,7 +1,9 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subscription } from 'rxjs';
 import { AiSnakeConfigService } from '../services/ai-snake-config.service';
+import { ChatSessionsService } from '../services/chat-sessions.service';
 import { DomainScopeService } from '../features/codecompass-graph/services/domain-scope.service';
 import { DomainScopePanelComponent } from '../features/codecompass-graph/components/domain-scope-panel/domain-scope-panel.component';
 
@@ -110,6 +112,25 @@ const FIELDS: ConfigField[] = [
     options: ['20', '50', '100', '200', '500'] },
 ];
 
+const PUG_PRESET_QUIET = {
+  predictive_guide_enabled: true, predictive_guide_mode: 'quiet',
+  predictive_guide_dwell_ms: 3000, predictive_guide_min_confidence: 0.75,
+  predictive_guide_ttl_seconds: 10, predictive_guide_multi_candidates: 1,
+  predictive_guide_log_deltas_only: true,
+};
+const PUG_PRESET_BALANCED = {
+  predictive_guide_enabled: true, predictive_guide_mode: 'balanced',
+  predictive_guide_dwell_ms: 1500, predictive_guide_min_confidence: 0.55,
+  predictive_guide_ttl_seconds: 20, predictive_guide_multi_candidates: 3,
+  predictive_guide_log_deltas_only: true,
+};
+const PUG_PRESET_EAGER = {
+  predictive_guide_enabled: true, predictive_guide_mode: 'eager',
+  predictive_guide_dwell_ms: 500, predictive_guide_min_confidence: 0.35,
+  predictive_guide_ttl_seconds: 30, predictive_guide_multi_candidates: 4,
+  predictive_guide_log_deltas_only: false,
+};
+
 @Component({
   selector: 'app-ai-snake-config-panel',
   standalone: true,
@@ -189,6 +210,74 @@ const FIELDS: ConfigField[] = [
             <app-domain-scope-panel />
           }
         </div>
+        <!-- Predictive Guide (PUG) — session-scoped settings on ananta-visual -->
+        <div class="cfg-group">
+          <div class="cfg-group-title">Predictive Guide</div>
+          <!-- Preset buttons -->
+          <div class="cfg-row pug-presets">
+            <span class="cfg-label">Preset</span>
+            <div class="pug-preset-row">
+              @for (preset of pugPresets; track preset.key) {
+                <button class="pug-preset-btn"
+                  [class.active]="getPugStr('predictive_guide_mode') === preset.mode"
+                  (click)="applyPugPreset(preset.key)">{{ preset.label }}</button>
+              }
+            </div>
+          </div>
+          <!-- Individual settings -->
+          <div class="cfg-row">
+            <span class="cfg-label">Aktiv</span>
+            <label class="cfg-toggle">
+              <input type="checkbox" [checked]="getPugBool('predictive_guide_enabled')"
+                (change)="setPugBool('predictive_guide_enabled', $any($event.target).checked)">
+              <span class="cfg-toggle-track"></span>
+            </label>
+          </div>
+          <div class="cfg-row">
+            <span class="cfg-label">Hover-Dwell (ms)</span>
+            <select class="cfg-select" [value]="getPugStr('predictive_guide_dwell_ms')"
+              (change)="setPugNum('predictive_guide_dwell_ms', +$any($event.target).value)">
+              @for (opt of ['500','1000','1500','2000','3000','5000']; track opt) {
+                <option [value]="opt" [selected]="getPugStr('predictive_guide_dwell_ms') === opt">{{ opt }}</option>
+              }
+            </select>
+          </div>
+          <div class="cfg-row">
+            <span class="cfg-label">Min-Confidence</span>
+            <select class="cfg-select" [value]="getPugStr('predictive_guide_min_confidence')"
+              (change)="setPugNum('predictive_guide_min_confidence', +$any($event.target).value)">
+              @for (opt of ['0.1','0.2','0.35','0.45','0.55','0.65','0.75','0.9']; track opt) {
+                <option [value]="opt" [selected]="getPugStr('predictive_guide_min_confidence') === opt">{{ opt }}</option>
+              }
+            </select>
+          </div>
+          <div class="cfg-row">
+            <span class="cfg-label">TTL (s)</span>
+            <select class="cfg-select" [value]="getPugStr('predictive_guide_ttl_seconds')"
+              (change)="setPugNum('predictive_guide_ttl_seconds', +$any($event.target).value)">
+              @for (opt of ['5','10','20','30','45','60']; track opt) {
+                <option [value]="opt" [selected]="getPugStr('predictive_guide_ttl_seconds') === opt">{{ opt }}</option>
+              }
+            </select>
+          </div>
+          <div class="cfg-row">
+            <span class="cfg-label">Multi-Kandidaten</span>
+            <select class="cfg-select" [value]="getPugStr('predictive_guide_multi_candidates')"
+              (change)="setPugNum('predictive_guide_multi_candidates', +$any($event.target).value)">
+              @for (opt of ['1','2','3','4','5']; track opt) {
+                <option [value]="opt" [selected]="getPugStr('predictive_guide_multi_candidates') === opt">{{ opt }}</option>
+              }
+            </select>
+          </div>
+          <div class="cfg-row">
+            <span class="cfg-label">Nur Delta-Log</span>
+            <label class="cfg-toggle">
+              <input type="checkbox" [checked]="getPugBool('predictive_guide_log_deltas_only')"
+                (change)="setPugBool('predictive_guide_log_deltas_only', $any($event.target).checked)">
+              <span class="cfg-toggle-track"></span>
+            </label>
+          </div>
+        </div>
       </div>
     </div>
   `,
@@ -244,10 +333,19 @@ const FIELDS: ConfigField[] = [
       font-size: 11px; font-family: inherit; padding: 2px 8px; border-radius: 2px; cursor: pointer;
     }
     .cfg-scope-toggle:hover { border-color: #2a4d7a; }
+    .pug-presets { align-items: flex-start; padding-top: 6px; }
+    .pug-preset-row { display: flex; gap: 4px; flex-wrap: wrap; }
+    .pug-preset-btn {
+      background: #0f1c30; border: 1px solid #1a2d4a; color: #c8d8f8;
+      font-size: 10px; font-family: inherit; padding: 2px 8px; border-radius: 2px; cursor: pointer;
+    }
+    .pug-preset-btn:hover { border-color: #2a4d7a; }
+    .pug-preset-btn.active { border-color: #7fffd4; color: #7fffd4; }
   `],
 })
-export class AiSnakeConfigPanelComponent implements OnInit {
+export class AiSnakeConfigPanelComponent implements OnInit, OnDestroy {
   private svc = inject(AiSnakeConfigService);
+  private sessions = inject(ChatSessionsService);
   private domainScope = inject(DomainScopeService);
 
   search = '';
@@ -255,10 +353,22 @@ export class AiSnakeConfigPanelComponent implements OnInit {
   modelsList: string[] = [];
   modelsLoading = false;
   private _filtered: ConfigField[] = [...FIELDS];
+  private _sub?: Subscription;
+
+  readonly pugPresets = [
+    { key: 'quiet',    label: 'Quiet',    mode: 'quiet'    },
+    { key: 'balanced', label: 'Balanced', mode: 'balanced' },
+    { key: 'eager',    label: 'Eager',    mode: 'eager'    },
+  ];
 
   ngOnInit(): void {
     this.svc.load();
     this.loadModels();
+    this.sessions.load();
+  }
+
+  ngOnDestroy(): void {
+    this._sub?.unsubscribe();
   }
 
   loadModels(): void {
@@ -309,5 +419,44 @@ export class AiSnakeConfigPanelComponent implements OnInit {
 
   setStr(key: string, value: string): void {
     this.svc.updateField(key, value);
+  }
+
+  // ── Predictive Guide (PUG) — session-scoped on ananta-visual ──────────────
+
+  private get pugSettings(): Record<string, unknown> {
+    return this.sessions.sessions$.value.find(s => s.id === 'ananta-visual')?.settings ?? {};
+  }
+
+  getPugBool(key: string): boolean {
+    const v = this.pugSettings[key];
+    return v === undefined ? false : Boolean(v);
+  }
+
+  getPugStr(key: string): string {
+    const v = this.pugSettings[key];
+    return v === undefined ? '' : String(v);
+  }
+
+  setPugBool(key: string, value: boolean): void {
+    this.sessions.patchSetting('ananta-visual', key, value);
+    this.sessions.patchSetting('ananta-visual', 'predictive_guide_mode', 'custom');
+  }
+
+  setPugNum(key: string, value: number): void {
+    this.sessions.patchSetting('ananta-visual', key, value);
+    this.sessions.patchSetting('ananta-visual', 'predictive_guide_mode', 'custom');
+  }
+
+  applyPugPreset(presetKey: string): void {
+    const map: Record<string, Record<string, unknown>> = {
+      quiet:    PUG_PRESET_QUIET,
+      balanced: PUG_PRESET_BALANCED,
+      eager:    PUG_PRESET_EAGER,
+    };
+    const preset = map[presetKey];
+    if (!preset) return;
+    for (const [k, v] of Object.entries(preset)) {
+      this.sessions.patchSetting('ananta-visual', k, v);
+    }
   }
 }

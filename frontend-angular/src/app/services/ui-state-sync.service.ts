@@ -12,6 +12,7 @@ import { AiSnakeChatService } from './ai-snake-chat.service';
 import { AgentDirectoryService } from './agent-directory.service';
 import { SnakeGuideService, GuideStep } from './snake-guide.service';
 import { UiSnapshotService } from './ui-snapshot.service';
+import { PredictionGateService } from './prediction-gate.service';
 
 /** Static route → guide steps for proactive navigation hints. */
 const ROUTE_GUIDE_TIPS: Record<string, GuideStep[]> = {
@@ -52,10 +53,13 @@ export class UiStateSyncService implements OnDestroy {
   private http     = inject(HttpClient);
   private guide    = inject(SnakeGuideService);
   private snapshot = inject(UiSnapshotService);
+  private gate     = inject(PredictionGateService);
 
   private sub: Subscription | null = null;
   private lastRoute = '';
   private lastSnapshot = '';
+  private pendingSnapshot = '';
+  private dwellTimer: ReturnType<typeof setTimeout> | null = null;
 
   start(): void {
     if (this.sub) return;
@@ -63,11 +67,9 @@ export class UiStateSyncService implements OnDestroy {
       const snakeId = this.snake.snakeId$.value;
       const hubUrl  = this.dir.list().find(a => a.role === 'hub')?.url || '';
 
-      // ── DOM snapshot (compact text representation of visible UI) ──────────
-      // Delay slightly so Angular has finished rendering the new route
       const uiSnapshot = this.snapshot.capture();
 
-      // ── Stufe 2: push UI state + snapshot to backend ────────────────────────
+      // ── Push UI state + snapshot to backend ─────────────────────────────────
       if (snakeId && hubUrl) {
         const visible = this.getVisibleWaypoints();
         const token   = this.snake.getSnakeToken();
@@ -79,15 +81,19 @@ export class UiStateSyncService implements OnDestroy {
         ).subscribe({ error: () => {} });
       }
 
-      // ── Visual snake log tick: fire on EVERY state change where the snapshot
-      //    actually changed (not just route changes). The backend persists the
-      //    tick; the LLM-reply path has its own 25s throttle and is unaffected.
+      // ── Visual snake tick: PUG-gated or legacy unconditional ─────────────────
       if (snakeId && hubUrl && uiSnapshot && uiSnapshot !== this.lastSnapshot) {
-        this.lastSnapshot = uiSnapshot;
-        setTimeout(() => this.snake.sendUiContextTick(uiSnapshot), 700);
+        const pugEnabled = this.gate.getSettings().enabled;
+        if (pugEnabled) {
+          this.scheduleDwellTick(snakeId, hubUrl, uiSnapshot);
+        } else {
+          // Legacy: send every snapshot change after a short render delay
+          this.lastSnapshot = uiSnapshot;
+          setTimeout(() => this.snake.sendUiContextTick(uiSnapshot), 700);
+        }
       }
 
-      // ── Proactive guide: trigger snake tips on route change ─────────────────
+      // ── Proactive guide: static route tips on navigation change ─────────────
       const route = state.route.split('?')[0];
       if (route !== this.lastRoute) {
         this.lastRoute = route;
@@ -104,10 +110,33 @@ export class UiStateSyncService implements OnDestroy {
   }
 
   stop(): void {
+    if (this.dwellTimer) { clearTimeout(this.dwellTimer); this.dwellTimer = null; }
     this.sub?.unsubscribe();
     this.sub = null;
     this.lastRoute = '';
     this.lastSnapshot = '';
+    this.pendingSnapshot = '';
+  }
+
+  private scheduleDwellTick(snakeId: string, hubUrl: string, snapshot: string): void {
+    this.pendingSnapshot = snapshot;
+    if (this.dwellTimer) clearTimeout(this.dwellTimer);
+    const dwellMs = this.gate.getSettings().dwellMs;
+    this.dwellTimer = setTimeout(() => {
+      this.dwellTimer = null;
+      this.tryFireTick(snakeId, hubUrl);
+    }, dwellMs);
+  }
+
+  private tryFireTick(snakeId: string, hubUrl: string): void {
+    const snapshot = this.pendingSnapshot;
+    if (!snapshot) return;
+    const result = this.gate.evaluate(snapshot);
+    if (result && (result.level === 'CONFIRMED' || result.level === 'LIKELY')) {
+      this.lastSnapshot = snapshot;
+      this.gate.markSent(snapshot);
+      this.snake.sendUiContextTick(snapshot);
+    }
   }
 
   private tipsForRoute(route: string): GuideStep[] {

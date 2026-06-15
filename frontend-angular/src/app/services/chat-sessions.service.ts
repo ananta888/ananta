@@ -97,6 +97,24 @@ export class ChatSessionsService {
     });
   }
 
+  /** Patch a single session setting optimistically (no full reload; background sync). */
+  patchSetting(sessionId: string, key: string, value: unknown): void {
+    const updated = this.sessions$.value.map(s => {
+      if (s.id !== sessionId) return s;
+      return { ...s, settings: { ...(s.settings || {}), [key]: value } };
+    });
+    this.sessions$.next(updated);
+    const url = this.hubUrl;
+    if (!url) return;
+    this.core.patch<ChatSession>(
+      `${url}/api/chat/sessions/${sessionId}`,
+      { settings: { [key]: value } },
+      url,
+    ).subscribe({
+      error: err => this.error$.next(String(err?.message || 'Fehler beim Aktualisieren')),
+    });
+  }
+
   remove(sessionId: string): void {
     const url = this.hubUrl;
     if (!url) return;

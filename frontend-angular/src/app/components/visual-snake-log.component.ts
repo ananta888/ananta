@@ -10,6 +10,12 @@ import { CommonModule, AsyncPipe } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { ChatHistoryService, ChatHistoryMessage } from '../services/chat-history.service';
 
+interface GuideCandidate {
+  label: string;    // "primary", "alt-1", …
+  bubble: string;   // short guide sentence
+  steps: Array<{ waypoint: string; bubble: string; delay_ms: number }>;
+}
+
 interface UiTickEntry {
   id: string;
   ts: number;
@@ -18,7 +24,9 @@ interface UiTickEntry {
   snapshot: string;         // full compact snapshot
   preview: string;          // first 200 chars of the snapshot, formatted
   replyId?: string;         // id of the AI reply that followed, if any
-  replyText?: string;       // the AI's proactive guide reply
+  replyText?: string;       // primary bubble (stripped of __CANDIDATES__/__GUIDE__)
+  candidates?: GuideCandidate[];  // full multi-candidate list (when n_candidates > 1)
+  showCandidates?: boolean;       // UI toggle for the alternatives accordion
 }
 
 @Component({
@@ -41,6 +49,21 @@ interface UiTickEntry {
               <span class="vreply-label">🐍 Snake →</span>
               <span class="vreply-body">{{ e.replyText }}</span>
             </div>
+            @if (e.candidates && e.candidates.length > 1) {
+              <div class="vcand-toggle" (click)="e.showCandidates = !e.showCandidates">
+                {{ e.showCandidates ? '▲' : '▼' }} {{ e.candidates.length - 1 }} Alternativen
+              </div>
+              @if (e.showCandidates) {
+                <div class="vcand-list">
+                  @for (c of e.candidates.slice(1); track c.label) {
+                    <div class="vcand-item">
+                      <span class="vcand-label">{{ c.label }}</span>
+                      <span class="vcand-bubble">{{ c.bubble }}</span>
+                    </div>
+                  }
+                </div>
+              }
+            }
           </div>
         }
       </div>
@@ -73,6 +96,14 @@ interface UiTickEntry {
     .vreply { margin-top: 5px; padding-top: 5px; border-top: 1px dashed #2a4070; }
     .vreply-label { color: #d8c8a8; font-weight: 600; margin-right: 4px; }
     .vreply-body { color: #c8d8f8; }
+    .vcand-toggle {
+      margin-top: 4px; font-size: 10px; color: #6b8ab8; cursor: pointer; user-select: none;
+    }
+    .vcand-toggle:hover { color: #a8c7ff; }
+    .vcand-list { margin-top: 4px; padding-left: 8px; border-left: 2px solid #1a2d4a; }
+    .vcand-item { display: flex; gap: 6px; padding: 2px 0; font-size: 10px; color: #8aa8d8; }
+    .vcand-label { color: #4a6a9a; flex-shrink: 0; min-width: 40px; }
+    .vcand-bubble { color: #a8c7ff; }
     .empty { color: #6b8ab8; font-size: 11px; padding: 12px; text-align: center; line-height: 1.4; }
   `],
 })
@@ -127,7 +158,23 @@ export class VisualSnakeLogComponent implements OnInit, OnDestroy {
         };
       } else if (m.isAI && pendingTick) {
         pendingTick.replyId = m.id;
-        pendingTick.replyText = m.text;
+        const raw = m.text ?? '';
+        // Parse __CANDIDATES__: [...] (multi-candidate format)
+        if (raw.includes('__CANDIDATES__:')) {
+          try {
+            const json = raw.slice(raw.indexOf('__CANDIDATES__:') + '__CANDIDATES__:'.length).trim();
+            const candidates: GuideCandidate[] = JSON.parse(json);
+            if (candidates.length) {
+              pendingTick.candidates = candidates;
+              pendingTick.replyText = candidates[0].bubble;
+            }
+          } catch { pendingTick.replyText = raw; }
+        } else {
+          // Legacy __GUIDE__: format — strip the JSON suffix from the display text
+          pendingTick.replyText = raw.includes('__GUIDE__:')
+            ? raw.slice(0, raw.indexOf('__GUIDE__:')).trim()
+            : raw;
+        }
       }
     }
     if (pendingTick) ticks.push(pendingTick);
