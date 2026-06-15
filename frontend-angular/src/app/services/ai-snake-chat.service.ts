@@ -109,6 +109,7 @@ export class AiSnakeChatService implements OnDestroy {
     this.snakeId$.next(payload.id);
     this.active$.next(true);
     this.messageCursor = '0';
+    this.chatSessions.load(); // ensure PUG settings are in sessions$ before first tick
     this.startLoops();
   }
 

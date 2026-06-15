@@ -79,11 +79,24 @@ export class PredictionGateService {
   }
 
   /**
+   * Must be called immediately when a new snapshot is observed — BEFORE
+   * scheduling the dwell timer — so the dwell clock starts running in
+   * real time. If the snapshot changes again before the timer fires, the
+   * clock resets (correct: dwell means "stable for N ms").
+   */
+  notifyChange(snapshot: string, nowMs = Date.now()): void {
+    if (snapshot !== this.dwellSnapshot) {
+      this.dwellSince = nowMs;
+      this.dwellSnapshot = snapshot;
+    }
+  }
+
+  /**
    * Evaluate whether a tick should be sent for the given snapshot.
    *
+   * Call AFTER notifyChange() so the dwell clock is already running.
    * Returns null when any gate blocks (disabled, TTL, dwell not elapsed).
-   * Otherwise returns the IntentScore; caller fires tick when level is
-   * CONFIRMED or LIKELY.
+   * Returns IntentScore otherwise; caller fires tick when level is CONFIRMED or LIKELY.
    */
   evaluate(snapshot: string, nowMs = Date.now()): IntentScore | null {
     const cfg = this.getSettings();
@@ -92,12 +105,8 @@ export class PredictionGateService {
     // TTL gate
     if (nowMs - this.lastSentAt < cfg.ttlSeconds * 1000) return null;
 
-    // Dwell gate: track when this snapshot first appeared
-    if (snapshot !== this.dwellSnapshot) {
-      this.dwellSince = nowMs;
-      this.dwellSnapshot = snapshot;
-    }
-    const elapsed = nowMs - this.dwellSince;
+    // Dwell gate: use elapsed since notifyChange() set the clock
+    const elapsed = this.dwellSnapshot === snapshot ? (nowMs - this.dwellSince) : 0;
     if (elapsed < cfg.dwellMs) return null;
 
     return this.score(snapshot, this.prevSnapshot, elapsed, cfg.dwellMs, cfg.minConfidence);

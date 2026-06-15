@@ -85,6 +85,7 @@ export class UiStateSyncService implements OnDestroy {
       if (snakeId && hubUrl && uiSnapshot && uiSnapshot !== this.lastSnapshot) {
         const pugEnabled = this.gate.getSettings().enabled;
         if (pugEnabled) {
+          this.gate.notifyChange(uiSnapshot);   // start dwell clock immediately
           this.scheduleDwellTick(snakeId, hubUrl, uiSnapshot);
         } else {
           // Legacy: send every snapshot change after a short render delay
