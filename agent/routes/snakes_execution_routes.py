@@ -586,7 +586,7 @@ def _fit_answer_to_chars(
     return value[: max(0, safe_limit - len(marker))].rstrip() + marker
 
 
-def _append_room_ai_message(*, text: str) -> None:
+def _append_room_ai_message(*, text: str, session_id: str = "") -> None:
     if not text:
         return
     msg: dict[str, Any] = {
@@ -601,11 +601,73 @@ def _append_room_ai_message(*, text: str) -> None:
         "visibility": "room",
         "delivery_state": "received",
         "policy_decision_ref": None,
+        "session_id": session_id,
     }
     global _room_messages
     _room_messages.append(msg)
     if len(_room_messages) > _MAX_ROOM_MSGS:
         _room_messages = _room_messages[-_MAX_ROOM_MSGS:]
+
+
+# ── Visual snake session (ananta-visual) ───────────────────────────────────────
+_visual_last_snapshot: str = ""
+_visual_last_reply_at: float = 0.0
+_VISUAL_THROTTLE_S: float = 25.0  # minimum seconds between visual replies
+
+
+def _spawn_visual_reply(ui_snapshot: str) -> None:
+    """Background: generate a short proactive guide response for the visual snake session.
+    Only fires when the UI snapshot has meaningfully changed and enough time has passed."""
+    global _visual_last_snapshot, _visual_last_reply_at
+    now = time.time()
+    if ui_snapshot == _visual_last_snapshot:
+        return
+    if now - _visual_last_reply_at < _VISUAL_THROTTLE_S:
+        return
+    _visual_last_snapshot = ui_snapshot
+    _visual_last_reply_at = now
+
+    _log = logging.getLogger(__name__)
+    _log.info("ananta-visual: generating proactive guide for snapshot=%r", ui_snapshot[:80])
+
+    try:
+        from agent.routes.ai_snake_config import _current_config
+        _cfg = _current_config()
+        provider = str(_cfg.get("chat_provider") or "openai")
+        model    = str(_cfg.get("chat_model") or "gpt-4o-mini")
+        api_base = str(_cfg.get("chat_api_base") or "")
+        api_key  = str(_cfg.get("chat_api_key")  or "")
+
+        system_prompt = (
+            "Du bist die orangene Guide-Snake in der Ananta App — eine kleine KI-Schlange "
+            "die den User visuell durch die App führt.\n"
+            "Du bekommst den aktuellen UI-Zustand als kompakten Text.\n"
+            "Reagiere in 1-2 kurzen deutschen Sätzen auf das was der User gerade sieht.\n"
+            "Füge wenn sinnvoll __GUIDE__: Steps an (JSON, Format: {\"steps\":[{\"waypoint\":\"...\",\"bubble\":\"...\",\"delay_ms\":3000}]}).\n"
+            "Wenn der Zustand trivial/unklar ist, antworte mit leerem Text."
+        )
+        user_msg = f"Aktueller UI-Zustand des Users:\n{ui_snapshot}"
+
+        import openai as _oai
+        _client_kwargs: dict[str, Any] = {"api_key": api_key or "sk-no-key"}
+        if api_base:
+            _client_kwargs["base_url"] = api_base
+        _client = _oai.OpenAI(**_client_kwargs)
+        _resp = _client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user",   "content": user_msg},
+            ],
+            max_tokens=200,
+            temperature=0.4,
+        )
+        answer = (_resp.choices[0].message.content or "").strip()
+        if answer:
+            _append_room_ai_message(text=answer, session_id="ananta-visual")
+            _log.info("ananta-visual: reply appended (%d chars)", len(answer))
+    except Exception as exc:
+        logging.getLogger(__name__).warning("ananta-visual reply failed: %s", exc)
 
 
 def _build_room_conversation_history(
@@ -882,11 +944,13 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
                     _ui_route = _effective_ui_ctx.get("route", "?")
                     _ui_waypoints = ", ".join(_effective_ui_ctx.get("visible_waypoints") or []) or "(keine)"
                     _ui_surface = _effective_ui_ctx.get("active_surface", "")
+                    _ui_snapshot = str(_effective_ui_ctx.get("ui_snapshot") or "").strip()
                     _ui_ctx_block = (
                         f"[Aktueller UI-Kontext]\n"
-                        f"Route: {_ui_route}\n"
-                        + (f"Surface: {_ui_surface}\n" if _ui_surface else "")
-                        + f"Sichtbare Waypoints: {_ui_waypoints}\n\n"
+                        + (f"UI-Ansicht: {_ui_snapshot}\n" if _ui_snapshot else f"Route: {_ui_route}\n")
+                        + (f"Surface: {_ui_surface}\n" if _ui_surface and not _ui_snapshot else "")
+                        + (f"Waypoints: {_ui_waypoints}\n" if not _ui_snapshot else "")
+                        + "\n"
                     )
                     prompt = f"{_ui_ctx_block}[Aktuelle Ananta-Konfiguration]\n{_settings_ctx}\n\n[Nutzerfrage]\n{prompt}"
                 else:
@@ -959,7 +1023,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
                                   details=_cfg_trace)
                     if not _cfg_answer:
                         _cfg_answer = "Keine Antwort vom Konfigurations-Guide."
-                    _append_room_ai_message(text=f"{_cfg_answer}\n\n[{_cfg_summary}]{_guide_suffix}")
+                    _append_room_ai_message(text=f"{_cfg_answer}\n\n[{_cfg_summary}]{_guide_suffix}", session_id=_active_session_id)
                     if store and trace_id:
                         store.complete_trace(trace_id)
                     return
@@ -1022,7 +1086,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
                         overflow_policy=_answer_overflow_policy(),
                         never_truncate=_chat_never_truncate_answers(),
                     )
-                    _append_room_ai_message(text=f"{answer}\n\n[{scan_summary}]{_guide_suffix}")
+                    _append_room_ai_message(text=f"{answer}\n\n[{scan_summary}]{_guide_suffix}", session_id=_active_session_id)
                     if store and trace_id:
                         store.complete_trace(trace_id)
                     return
@@ -1073,7 +1137,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
                     if rec:
                         rec.event("answer_postprocessed", "Antwort aufbereitet", status="completed",
                                   summary=f"{len(answer)} Zeichen")
-                    _append_room_ai_message(text=f"{answer}\n\n[{scan_summary}]{_guide_suffix}")
+                    _append_room_ai_message(text=f"{answer}\n\n[{scan_summary}]{_guide_suffix}", session_id=_active_session_id)
                     if rec:
                         rec.event("chat_message_written", "Nachricht in Raum geschrieben", status="completed")
                     if store and trace_id:
@@ -1124,7 +1188,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
                 if rec:
                     rec.event("answer_postprocessed", "Anfrage ohne Kontext abgebrochen", status="skipped",
                               summary="Kein Kontext verf\u00fcgbar f\u00fcr konkrete Fragen")
-                _append_room_ai_message(text=f"Unklar, bitte Kontext pruefen.\n\n[{context_summary}]")
+                _append_room_ai_message(text=f"Unklar, bitte Kontext pruefen.\n\n[{context_summary}]", session_id=_active_session_id)
                 if rec:
                     rec.event("chat_message_written", "Hinweis in Raum geschrieben", status="completed")
                 if store and trace_id:
@@ -1188,7 +1252,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
                 rec.event("answer_postprocessed", "Antwort aufbereitet", status="completed",
                           summary=f"{len(text)} Zeichen, Kontext angeh\u00e4ngt")
 
-            _append_room_ai_message(text=f"{text}{_guide_suffix}")
+            _append_room_ai_message(text=f"{text}{_guide_suffix}", session_id=_active_session_id)
 
             if rec:
                 rec.event("chat_message_written", "Nachricht in Raum geschrieben", status="completed")
@@ -1204,7 +1268,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
                     store.complete_trace(trace_id, status="failed")
                 except Exception:
                     pass
-            _append_room_ai_message(text="AI-Snake Fehler: Antwort konnte nicht erzeugt werden.")
+            _append_room_ai_message(text="AI-Snake Fehler: Antwort konnte nicht erzeugt werden.", session_id=_active_session_id)
 
     thread = threading.Thread(target=_runner, name="snake-chat-reply", daemon=True)
     thread.start()
@@ -1391,6 +1455,22 @@ def chat_send(snake_id: str):
     if visibility == "local_only":
         return jsonify({"error": "local_only Nachrichten werden am Hub abgelehnt"}), 422
 
+    # UI-context tick from the visual snake frontend — update state + spawn proactive guide reply
+    if visibility == "system" and text.startswith("[ui-tick]"):
+        _ui_snap = str((ui_context or {}).get("ui_snapshot") or "").strip()[:500]
+        if snake_id and _ui_snap:
+            existing = _snake_ui_state.get(snake_id) or {}
+            _snake_ui_state[snake_id] = {
+                **existing,
+                "route": str((ui_context or {}).get("route") or existing.get("route") or ""),
+                "visible_waypoints": list((ui_context or {}).get("visible_waypoints") or existing.get("visible_waypoints") or [])[:30],
+                "ui_snapshot": _ui_snap,
+                "updated_at": time.time(),
+            }
+            import threading as _thr
+            _thr.Thread(target=_spawn_visual_reply, args=(_ui_snap,), daemon=True).start()
+        return jsonify({"ok": True, "id": str(body.get("id") or "")}), 202
+
     if channel_type not in _VALID_CHANNEL_TYPES:
         return jsonify({"error": f"ung\u00fcltiger channel_type: {channel_type}"}), 422
 
@@ -1498,10 +1578,12 @@ def snake_ui_state_push(snake_id: str):
     route = str(body.get("route") or "").strip()
     visible_waypoints = [str(w) for w in (body.get("visible_waypoints") or []) if w][:30]
     active_surface = str(body.get("active_surface") or "").strip()
+    ui_snapshot = str(body.get("ui_snapshot") or "").strip()[:500]
     _snake_ui_state[snake_id] = {
         "route": route,
         "visible_waypoints": visible_waypoints,
         "active_surface": active_surface,
+        "ui_snapshot": ui_snapshot,
         "updated_at": time.time(),
     }
     return jsonify({"ok": True})

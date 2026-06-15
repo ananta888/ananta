@@ -61,7 +61,7 @@ export class ChatHistoryService implements OnDestroy {
   }
 
   private onMessages(msgs: SnakeChatMessage[]): void {
-    const sessionId = this.sessions.activeSessionId$.value || 'default';
+    const fallbackSessionId = this.sessions.activeSessionId$.value || 'default';
     let changed = false;
     for (const m of msgs) {
       if (this.knownIds.has(m.id)) continue;
@@ -70,6 +70,7 @@ export class ChatHistoryService implements OnDestroy {
       let text = m.text ?? '';
       const guideIdx = text.indexOf(GUIDE_MARKER);
       if (guideIdx >= 0) {
+        // Guide steps are processed regardless of which session the message belongs to
         const guideJson = text.slice(guideIdx + GUIDE_MARKER.length);
         text = text.slice(0, guideIdx);
         try {
@@ -79,6 +80,9 @@ export class ChatHistoryService implements OnDestroy {
           }
         } catch { /* malformed guide JSON — skip */ }
       }
+
+      // Use session_id from message if present (e.g. ananta-visual), else active session
+      const sessionId = (m as any).session_id || fallbackSessionId;
 
       const entry: ChatHistoryMessage = {
         id: m.id,

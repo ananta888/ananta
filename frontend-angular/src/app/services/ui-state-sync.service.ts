@@ -11,6 +11,7 @@ import { SharedViewStateService } from './shared-view-state.service';
 import { AiSnakeChatService } from './ai-snake-chat.service';
 import { AgentDirectoryService } from './agent-directory.service';
 import { SnakeGuideService, GuideStep } from './snake-guide.service';
+import { UiSnapshotService } from './ui-snapshot.service';
 
 /** Static route → guide steps for proactive navigation hints. */
 const ROUTE_GUIDE_TIPS: Record<string, GuideStep[]> = {
@@ -45,14 +46,16 @@ const ROUTE_PREFIX_TIPS: Array<[string, GuideStep[]]> = [
 
 @Injectable({ providedIn: 'root' })
 export class UiStateSyncService implements OnDestroy {
-  private view   = inject(SharedViewStateService);
-  private snake  = inject(AiSnakeChatService);
-  private dir    = inject(AgentDirectoryService);
-  private http   = inject(HttpClient);
-  private guide  = inject(SnakeGuideService);
+  private view     = inject(SharedViewStateService);
+  private snake    = inject(AiSnakeChatService);
+  private dir      = inject(AgentDirectoryService);
+  private http     = inject(HttpClient);
+  private guide    = inject(SnakeGuideService);
+  private snapshot = inject(UiSnapshotService);
 
   private sub: Subscription | null = null;
   private lastRoute = '';
+  private lastSnapshot = '';
 
   start(): void {
     if (this.sub) return;
@@ -60,14 +63,18 @@ export class UiStateSyncService implements OnDestroy {
       const snakeId = this.snake.snakeId$.value;
       const hubUrl  = this.dir.list().find(a => a.role === 'hub')?.url || '';
 
-      // ── Stufe 2: push UI state to backend ──────────────────────────────────
+      // ── DOM snapshot (compact text representation of visible UI) ──────────
+      // Delay slightly so Angular has finished rendering the new route
+      const uiSnapshot = this.snapshot.capture();
+
+      // ── Stufe 2: push UI state + snapshot to backend ────────────────────────
       if (snakeId && hubUrl) {
         const visible = this.getVisibleWaypoints();
         const token   = this.snake.getSnakeToken();
         const headers = new HttpHeaders().set('Authorization', `Bearer ${token}`);
         this.http.put(
           `${hubUrl}/snakes/${encodeURIComponent(snakeId)}/ui-state`,
-          { route: state.route, active_surface: state.activeSurface, visible_waypoints: visible },
+          { route: state.route, active_surface: state.activeSurface, visible_waypoints: visible, ui_snapshot: uiSnapshot },
           { headers }
         ).subscribe({ error: () => {} });
       }
@@ -76,8 +83,14 @@ export class UiStateSyncService implements OnDestroy {
       const route = state.route.split('?')[0];
       if (route !== this.lastRoute) {
         this.lastRoute = route;
+        // Send a silent UI-context tick to the visual snake session so LLM knows where user is
+        setTimeout(() => {
+          const snap = this.snapshot.capture();
+          this.lastSnapshot = snap;
+          this.snake.sendUiContextTick(snap);
+        }, 700);
+
         if (this.guide.active$.value) {
-          // User navigated away during an active guide — replay remaining steps
           setTimeout(() => this.guide.replay(), 600);
         } else {
           const tips = this.tipsForRoute(route);

@@ -5,6 +5,7 @@ import { Router } from '@angular/router';
 import { AgentDirectoryService } from './agent-directory.service';
 import { UserAuthService } from './user-auth.service';
 import { ChatSessionsService } from './chat-sessions.service';
+import { UiSnapshotService } from './ui-snapshot.service';
 
 interface SnakeRegistration {
   id: string;
@@ -36,6 +37,7 @@ export class AiSnakeChatService implements OnDestroy {
   private auth = inject(UserAuthService);
   private router = inject(Router);
   private chatSessions = inject(ChatSessionsService);
+  private uiSnapshot = inject(UiSnapshotService);
 
   readonly active$ = new BehaviorSubject<boolean>(false);
   readonly snakeId$ = new BehaviorSubject<string>('');
@@ -130,7 +132,8 @@ export class AiSnakeChatService implements OnDestroy {
     this.awaitingReply$.next(true);
     const currentRoute = this.router.url;
     const visibleWaypoints = this.collectVisibleWaypoints();
-    const uiContext = { route: currentRoute, visible_waypoints: visibleWaypoints };
+    const uiSnap = this.uiSnapshot.capture();
+    const uiContext = { route: currentRoute, visible_waypoints: visibleWaypoints, ui_snapshot: uiSnap };
     const activeSessionId = snakePanelSessionId || this.chatSessions.activeSessionId$.value || '';
     this.http.post(
       `${base}/snakes/${encodeURIComponent(snakeId)}/chat/messages`,
@@ -150,6 +153,30 @@ export class AiSnakeChatService implements OnDestroy {
         this.error$.next('Senden fehlgeschlagen');
       },
     });
+  }
+
+  /** Silent UI-context tick — sends the compact DOM snapshot to the visual
+   *  snake session so the LLM has up-to-date view context without the user
+   *  having to type anything. Does not set awaitingReply$. */
+  sendUiContextTick(uiSnapshot: string): void {
+    const base = this.hubUrl();
+    const snakeId = this.snakeId$.value;
+    if (!base || !snakeId || !this.snakeToken || !uiSnapshot) return;
+    const id = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+    const currentRoute = this.router.url;
+    const visibleWaypoints = this.collectVisibleWaypoints();
+    this.http.post(
+      `${base}/snakes/${encodeURIComponent(snakeId)}/chat/messages`,
+      {
+        id,
+        channel_type: 'room',
+        visibility: 'system',
+        text: `[ui-tick] ${uiSnapshot}`,
+        ui_context: { route: currentRoute, visible_waypoints: visibleWaypoints, ui_snapshot: uiSnapshot },
+        session_id: 'ananta-visual',
+      },
+      { headers: this.withSnakeHeaders() },
+    ).subscribe({ error: () => {} });
   }
 
   cancelChat(): void {
