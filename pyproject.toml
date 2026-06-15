@@ -69,14 +69,14 @@ langchain = [
 langgraph = [
     # LangGraph rides on top of langchain-core. Installing the langgraph
     # extra pulls the matching core in, so users do not need both.
-    "langgraph>=0.2,<0.3",
+    "langgraph>=1.2.5,<1.3",
     "langchain-core>=0.3,<0.4",
 ]
 lc-lg = [
     # Convenience: install both adapters at once. Same upper bounds as
     # the individual extras — they share the same core.
     "langchain-core>=0.3,<0.4",
-    "langgraph>=0.2,<0.3",
+    "langgraph>=1.2.5,<1.3",
 ]
 
 [project.scripts]
