@@ -21,10 +21,10 @@ export class SnakeGuideService {
     this.play$.next(steps);
   }
 
-  /** Called by overlay to update remaining steps as each step is consumed. */
+  /** Called by overlay to update remaining steps as each step is consumed.
+   *  Does NOT touch active$ — the current step is still running even when queue is empty. */
   updateRemaining(steps: GuideStep[]): void {
     this._remainingSteps = steps;
-    if (steps.length === 0) this.active$.next(false);
   }
 
   /** Re-emit the remaining steps — used when user navigates to wrong page. */

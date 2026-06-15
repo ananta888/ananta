@@ -89,11 +89,39 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
   private guideBubbles: Bubble[] = [];
   private guideStepTimer: ReturnType<typeof setTimeout> | null = null;
   private guideArriveTimer: ReturnType<typeof setTimeout> | null = null;
+  private currentGuideWaypoint = '';
+  private wrongClickDebounce: ReturnType<typeof setTimeout> | null = null;
 
   // ── Lifecycle ───────────────────────────────────────────────────────────────
 
   @HostListener('window:resize')
   onResize(): void { this.initCanvas(); }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(e: MouseEvent): void {
+    if (!this.guide.active$.value || !this.currentGuideWaypoint) return;
+    // Find nearest ancestor (or self) with data-waypoint
+    let el = e.target as Element | null;
+    let clicked = '';
+    while (el && el !== document.body) {
+      const wp = el.getAttribute?.('data-waypoint');
+      if (wp) { clicked = wp; break; }
+      el = el.parentElement;
+    }
+    // If the user clicked on the right waypoint, do nothing
+    if (clicked === this.currentGuideWaypoint) return;
+    // Debounce: give Angular 700ms to navigate, then replay if guide still active
+    if (this.wrongClickDebounce) clearTimeout(this.wrongClickDebounce);
+    this.wrongClickDebounce = setTimeout(() => {
+      this.wrongClickDebounce = null;
+      if (!this.guide.active$.value) return;
+      if (this.guideSnake) {
+        this.guideBubbles.push({ text: '← psst, hier lang!', born: performance.now() });
+        if (this.guideBubbles.length > 3) this.guideBubbles.shift();
+      }
+      this.guide.replay();
+    }, 700);
+  }
 
   @HostListener('window:mousemove', ['$event'])
   onMouseMove(e: MouseEvent): void {
@@ -440,7 +468,8 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
   private advanceGuide(): void {
     if (!this.guideQueue.length) { this.guide.markDone(); this.endGuide(); return; }
     const step = this.guideQueue.shift()!;
-    this.guide.updateRemaining([...this.guideQueue]);;
+    this.currentGuideWaypoint = step.waypoint;
+    this.guide.updateRemaining([...this.guideQueue]);
     const pos = this.waypoint.resolve(step.waypoint);
     if (this.guideSnake) {
       const tx = pos?.x ?? (GOAL_MARGIN + Math.random() * (window.innerWidth  - GOAL_MARGIN * 2));
@@ -481,12 +510,14 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
   }
 
   private stopGuideSequence(): void {
-    if (this.guideStepTimer)  { clearTimeout(this.guideStepTimer);  this.guideStepTimer  = null; }
-    if (this.guideArriveTimer){ clearTimeout(this.guideArriveTimer); this.guideArriveTimer = null; }
-    this.guideQueue         = [];
-    this.guideBubbles       = [];
-    this.guidePendingBubble = null;
-    this.guideBubbleShown   = false;
+    if (this.guideStepTimer)    { clearTimeout(this.guideStepTimer);    this.guideStepTimer    = null; }
+    if (this.guideArriveTimer)  { clearTimeout(this.guideArriveTimer);  this.guideArriveTimer  = null; }
+    if (this.wrongClickDebounce){ clearTimeout(this.wrongClickDebounce); this.wrongClickDebounce = null; }
+    this.guideQueue            = [];
+    this.guideBubbles          = [];
+    this.guidePendingBubble    = null;
+    this.guideBubbleShown      = false;
+    this.currentGuideWaypoint  = '';
   }
 
   private drawGuideBubbles(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, head: Seg): void {
