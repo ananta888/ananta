@@ -477,6 +477,10 @@ def get_sessions(chat: dict[str, Any]) -> list[dict[str, Any]]:
             if canonical_settings != current_settings:
                 s["settings"] = canonical_settings
                 _ensure_settings_delta(s)
+            # Also sync system_prompt for built-in sessions so prompt changes take effect
+            canonical_prompt = str(_default_by_id[sid].get("system_prompt") or "")
+            if canonical_prompt and s.get("system_prompt") != canonical_prompt:
+                s["system_prompt"] = canonical_prompt
 
     # Add missing built-in sessions (e.g. new architecture sessions)
     existing_ids = {str((s or {}).get("id") or "") for s in sessions}
