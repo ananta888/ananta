@@ -1,0 +1,578 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "unified-ananta-tool-calling-registry",
+  "created": "2026-06-15",
+  "status": "todo",
+  "priority": "P0",
+  "title": "Unify ananta-worker tool calling registry for native OpenAI-compatible tools and prompt-JSON fallback",
+  "purpose": "Ananta soll fuer ananta-worker, SGPT/OpenAI-kompatible Backends, Ollama, LMStudio und spaetere Worker-Runtimes eine einzige autoritative Tool-Registry verwenden. CodeCompass/RagHelper-Tools duerfen nicht nur im promptbasierten ananta_worker_tool_loop sichtbar sein, sondern muessen aus derselben Registry sowohl als native OpenAI-kompatible Tool-Schemas als auch als kompakte Prompt-Fallback-Beschreibung erzeugt werden koennen.",
+  "problem_statement": "Aktuell existieren zwei Tool-Calling-Welten nebeneinander: 1) agent/common/sgpt_tool_loop.py nutzt agent/services/ananta_tool_registry_service.py und schreibt Tools als Textliste plus JSON-Protokoll in den Prompt. CodeCompass-Tools sind dort sichtbar. 2) agent/sgpt/handlers/handler.py nutzt natives OpenAI-kompatibles Tool Calling ueber tools=[...] und tool_choice=auto, zieht seine Schemas aber aus agent/sgpt/function.py und agent/tools.py. Diese alte Registry ist nicht mit der neuen AnantaToolRegistryService verdrahtet. Ausserdem scheint agent/tools.py kein gueltiges OpenAI-Tool-Schema zu liefern, waehrend agent/sgpt/function.py spaeter tool['function']['name'] erwartet. Dadurch sind CodeCompass/RagHelper-Tools im nativen Tool-Calling-Pfad nicht verlaesslich verfuegbar.",
+  "non_goals": [
+    "Keine Freigabe ungepruefter Schreib- oder Admin-Tools.",
+    "Keine direkte Ausfuehrung von Tool-Calls durch das LLM oder den LLM-Server.",
+    "Keine Umgehung des bestehenden Policy-Gates, Approval-Lifecycle oder Workspace-Scopes.",
+    "Keine harte Abhaengigkeit von OpenAI: Ollama, LMStudio und andere OpenAI-kompatible Server muessen fallbackfaehig bleiben.",
+    "Keine Vermischung von RagHelper als Index-/Analyse-Engine mit CodeCompass als agent-facing Tool-Schicht.",
+    "Kein automatisches Ausfuehren nativer Tool-Calls, wenn Backend-Faehigkeiten nicht sauber erkannt wurden."
+  ],
+  "current_code_findings": {
+    "prompt_json_worker_loop": {
+      "files": [
+        "agent/common/sgpt_tool_loop.py",
+        "agent/services/ananta_tool_registry_service.py",
+        "agent/services/ananta_tool_policy_service.py",
+        "agent/services/tools/__init__.py",
+        "agent/services/tools/codecompass_tools.py",
+        "agent/config_defaults.py"
+      ],
+      "observations": [
+        "run_ananta_worker_tool_loop() baut Tool-Instruktionen mit registry.describe_for_prompt(cfg.get('allowed_tools')).",
+        "build_tool_loop_instructions() schreibt das JSON-Protokoll und die verfuegbaren Tools in den Prompt.",
+        "parse_worker_tool_output() akzeptiert rohe JSON-Antworten oder fenced JSON und prueft kind/tool_name/arguments nur grob.",
+        "Policy-Pruefung laeuft nach dem Modelloutput ueber AnantaToolPolicyService.evaluate().",
+        "Ausfuehrung laeuft ueber execute_ananta_tool(), danach auf agent/services/tools/codecompass_tools.py.",
+        "ananta_worker_tool_loop.enabled ist im Default aktuell false; wenn er aus ist oder crasht, faellt _run_ananta_worker_iterative() auf den alten Kontext-Batch-Loop zurueck.",
+        "CodeCompass-Tools sind in AnantaToolRegistryService registriert und in ananta_worker_tool_loop.allowed_tools enthalten."
+      ]
+    },
+    "native_openai_compatible_tool_calling": {
+      "files": [
+        "agent/sgpt/app.py",
+        "agent/sgpt/handlers/handler.py",
+        "agent/sgpt/function.py",
+        "agent/sgpt/config.py",
+        "agent/tools.py"
+      ],
+      "observations": [
+        "agent/sgpt/app.py aktiviert function_schemas ueber get_openai_schemas(), wenn OPENAI_USE_FUNCTIONS=true ist.",
+        "OPENAI_USE_FUNCTIONS ist in agent/sgpt/config.py defaultmaessig true.",
+        "agent/sgpt/handlers/handler.py sendet native Tools ueber additional_kwargs['tools'] = functions, tool_choice='auto', parallel_tool_calls=False.",
+        "agent/sgpt/function.py laedt zuerst Funktionen aus OPENAI_FUNCTIONS_PATH und danach agent.tools.registry.",
+        "agent/sgpt/function.py erwartet beim Deduplizieren tool['function']['name'].",
+        "agent/tools.py liefert in get_tool_definitions() aktuell Objekte mit name/description/parameters, aber ohne type='function' und ohne function-Wrapper.",
+        "Die neue AnantaToolRegistryService wird im nativen SGPT-Pfad aktuell nicht als Quelle fuer Tools verwendet.",
+        "CodeCompass/RagHelper-Tools sind im nativen Tool-Calling-Pfad daher nicht verlaesslich als native Tools sichtbar."
+      ]
+    },
+    "rag_helper_codecompass_relationship": {
+      "files": [
+        "agent/services/rag_helper_index_service.py",
+        "agent/services/tools/codecompass_tools.py",
+        "agent/services/codecompass_context_service.py",
+        "agent/services/codecompass_context_planner_service.py",
+        "rag-helper/rag_helper/application/project_processor.py"
+      ],
+      "observations": [
+        "RagHelperIndexService laedt intern rag-helper und codecompass_rag und erzeugt Knowledge-Indizes.",
+        "CodeCompass-Tools sind agent-facing Runtime-Tools.",
+        "codecompass.search nutzt intern get_rag_helper_index_service().retrieve(...).",
+        "codecompass.plan_context nutzt get_codecompass_context_planner().plan_context(...).",
+        "Es gibt kein agent-facing Tool namens rag_helper.*; die externe Modelloberflaeche sollte daher codecompass.* bleiben."
+      ]
+    }
+  },
+  "target_architecture": {
+    "summary": "Eine zentrale Tool-Catalog-Schicht erzeugt aus AnantaToolRegistryService mehrere Darstellungen desselben Tool-Sets.",
+    "components": [
+      {
+        "name": "AnantaToolRegistryService",
+        "role": "Single source of truth fuer statische und dynamische Tools.",
+        "changes": [
+          "Bestehende ToolSpec beibehalten.",
+          "OpenAI-kompatible Tool-Schema-Ausgabe ergaenzen.",
+          "Prompt-Fallback-Ausgabe beibehalten, aber aus derselben normalisierten Schema-Quelle erzeugen.",
+          "Schema-Validierung fuer Argumente optional ergaenzen oder vorbereiten."
+        ]
+      },
+      {
+        "name": "ToolSchemaAdapter",
+        "new_file_suggestion": "agent/services/tool_schema_adapter_service.py",
+        "role": "Wandelt AnantaToolSpec in backend-spezifische Schemas um.",
+        "formats": [
+          "prompt_json_description",
+          "openai_chat_completions_tools",
+          "openai_responses_tools_optional_future",
+          "debug_registry_snapshot"
+        ]
+      },
+      {
+        "name": "ToolCallingModeResolver",
+        "new_file_suggestion": "agent/services/tool_calling_mode_service.py",
+        "role": "Entscheidet pro Backend/Provider, ob native tools oder prompt-json fallback verwendet werden.",
+        "modes": [
+          "native_openai_tools",
+          "prompt_json_protocol",
+          "disabled"
+        ]
+      },
+      {
+        "name": "UnifiedToolExecutor",
+        "new_file_suggestion": "agent/services/unified_tool_execution_service.py",
+        "role": "Fuehrt Tool-Calls aus nativen Tool-Calls und Prompt-JSON-Calls ueber denselben Policy-/Execution-Pfad aus.",
+        "requirements": [
+          "Immer Policy-Gate verwenden.",
+          "Immer allowed_tools beachten.",
+          "Immer mutation_mode beachten.",
+          "Immer ToolResult an LLM zurueckgeben.",
+          "Keine rohe Ausfuehrung durch agent.tools.registry fuer neue Worker-Tools."
+        ]
+      }
+    ],
+    "desired_flow_native": [
+      "Agent/Worker-Aufruf bestimmt allowed_tools und mutation_mode.",
+      "ToolSchemaAdapter erzeugt OpenAI-kompatible tools aus AnantaToolRegistryService.",
+      "LLM-Server erhaelt tools=[...] und tool_choice='auto'.",
+      "Modell liefert tool_calls.",
+      "Ananta parsed tool_calls.",
+      "UnifiedToolExecutor prueft Policy und fuehrt Tool deterministisch aus.",
+      "ToolResult wird als role='tool' oder als naechste Evidence-Nachricht zurueckgegeben.",
+      "Loop laeuft bis finaler Inhalt ohne ToolCall oder bis Limits erreicht sind."
+    ],
+    "desired_flow_prompt_fallback": [
+      "Agent/Worker-Aufruf bestimmt allowed_tools und mutation_mode.",
+      "ToolSchemaAdapter erzeugt kompakte Textbeschreibung aus denselben ToolSpecs.",
+      "build_tool_loop_instructions() verwendet diese Beschreibung.",
+      "Modell liefert JSON mit kind='tool_request'.",
+      "UnifiedToolExecutor prueft Policy und fuehrt Tool deterministisch aus.",
+      "ToolResult wird in die naechste Prompt-Iteration eingebettet.",
+      "Loop laeuft bis final_answer/cannot_continue/needs_approval oder Limits erreicht sind."
+    ]
+  },
+  "configuration_requirements": {
+    "new_or_updated_config_keys": {
+      "ananta_worker_tool_calling": {
+        "enabled": true,
+        "mode": "auto",
+        "native_backend_allowlist": [
+          "openai",
+          "lmstudio",
+          "ollama"
+        ],
+        "native_backend_denylist": [],
+        "fallback_mode": "prompt_json_protocol",
+        "require_policy_gate": true,
+        "parallel_tool_calls": false,
+        "max_tool_calls": 12,
+        "max_iterations": 6,
+        "max_tool_result_chars": 8000,
+        "max_invalid_outputs": 2,
+        "allowed_tools": "inherit_from_ananta_worker_tool_loop.allowed_tools"
+      },
+      "ananta_worker_tool_loop": {
+        "deprecation_note": "Bestehenden Block kurzfristig weiter unterstuetzen; mittelfristig durch ananta_worker_tool_calling ersetzen oder als prompt_json Unterblock weiterverwenden."
+      },
+      "sgpt_native_tools": {
+        "enabled": true,
+        "source": "ananta_tool_registry_service",
+        "legacy_agent_tools_enabled": false,
+        "legacy_agent_tools_compat_mode": "off_by_default",
+        "schema_validation": "strict"
+      }
+    },
+    "mode_semantics": {
+      "auto": "Native Tools verwenden, wenn Backend-Faehigkeit sicher erkannt wurde; sonst prompt_json_protocol.",
+      "native_openai_tools": "Native Tools erzwingen; bei fehlender Backend-Unterstuetzung kontrolliert abbrechen oder explizit fallback, je nach fallback_mode.",
+      "prompt_json_protocol": "Immer Textprotokoll im Prompt verwenden.",
+      "disabled": "Keine Tool-Calls, alter Batch-/Kontextpfad bleibt moeglich."
+    },
+    "backward_compatibility": [
+      "Bestehende ananta_worker_tool_loop.enabled Konfiguration weiter akzeptieren.",
+      "Wenn neuer Block fehlt, altes Verhalten exakt beibehalten.",
+      "OPENAI_USE_FUNCTIONS darf nicht mehr automatisch alte agent.tools Registry fuer ananta-worker aktivieren, solange sgpt_native_tools.legacy_agent_tools_enabled false ist.",
+      "Bestehende SGPT-Funktionen aus OPENAI_FUNCTIONS_PATH duerfen fuer normale sgpt-Nutzung optional erhalten bleiben, aber nicht still in ananta-worker CodeCompass-Kontexte gemischt werden."
+    ]
+  },
+  "tasks": [
+    {
+      "id": "UTCR-001",
+      "title": "Add OpenAI-compatible schema export to AnantaToolRegistryService",
+      "type": "implementation",
+      "files": [
+        "agent/services/ananta_tool_registry_service.py",
+        "tests/services/test_ananta_tool_registry_service.py"
+      ],
+      "details": [
+        "Neue Methode describe_for_openai_tools(allowed_tools=None, include_dynamic=False) implementieren.",
+        "Aus jeder AnantaToolSpec ein Objekt im Format {'type':'function','function':{'name':..., 'description':..., 'parameters':...}} erzeugen.",
+        "argument_schema muss OpenAI-kompatibel sein und mindestens type='object', properties und required enthalten.",
+        "Required-Handling einfuehren: Entweder ToolSpec um required_args erweitern oder default alle currently optional lassen und Tests entsprechend dokumentieren.",
+        "CATEGORY_BLOCKED niemals in native Schemas ausgeben.",
+        "allowed_tools muss identisch wirken wie bei describe_for_prompt().",
+        "Dynamische Tools nur bei include_dynamic=True und ohne Shadowing statischer Namen ausgeben."
+      ],
+      "acceptance_criteria": [
+        "describe_for_openai_tools(['codecompass.plan_context']) liefert genau ein Tool mit type='function'.",
+        "Das Tool hat function.name == 'codecompass.plan_context'.",
+        "function.parameters.properties enthaelt query, max_ranges, include_neighbors und task_kind.",
+        "CATEGORY_BLOCKED Tools wie git.push, secret.read und shell.run_unrestricted werden nie ausgegeben.",
+        "Bei allowed_tools=[] oder None werden alle nicht-blockierten statischen Tools ausgegeben, analog zur bestehenden Prompt-Beschreibung.",
+        "Bei allowed_tools=['repo.grep'] wird codecompass.plan_context nicht ausgegeben.",
+        "Bestehende describe_for_prompt()-Tests bleiben unveraendert gruen.",
+        "Kein Import von agent.tools.py in AnantaToolRegistryService."
+      ]
+    },
+    {
+      "id": "UTCR-002",
+      "title": "Create ToolSchemaAdapter for prompt and native schemas",
+      "type": "implementation",
+      "files": [
+        "agent/services/tool_schema_adapter_service.py",
+        "tests/services/test_tool_schema_adapter_service.py"
+      ],
+      "details": [
+        "Neuen Service einfuehren, der Registry-Snapshots in verschiedene Ausgabeformate wandelt.",
+        "Formate: prompt_json_description, openai_chat_completions_tools, debug_snapshot.",
+        "Prompt-Ausgabe darf intern describe_for_prompt() wiederverwenden.",
+        "OpenAI-Ausgabe darf intern describe_for_openai_tools() wiederverwenden.",
+        "Debug-Snapshot soll name, category, risk_class, execution_plane, source und argument property names enthalten, aber keine Secrets oder Implementierungen."
+      ],
+      "acceptance_criteria": [
+        "Adapter liefert fuer codecompass.search in prompt_json_description dieselbe kompakte Zeile wie bisher.",
+        "Adapter liefert fuer codecompass.search in openai_chat_completions_tools ein gueltiges natives Tool-Schema.",
+        "Debug-Snapshot markiert codecompass.* als source='static' und risk_class='read'.",
+        "Adapter kann allowed_tools filtern.",
+        "Adapter kann include_dynamic=false/true durchreichen.",
+        "Keine Duplikate bei Toolnamen."
+      ]
+    },
+    {
+      "id": "UTCR-003",
+      "title": "Fix or isolate legacy SGPT function schema path",
+      "type": "bugfix",
+      "files": [
+        "agent/sgpt/function.py",
+        "agent/tools.py",
+        "tests/sgpt/test_function_schema_loading.py"
+      ],
+      "details": [
+        "Aktuelles Schema-Mismatch beheben: agent/tools.py gibt name/description/parameters aus, agent/sgpt/function.py erwartet aber tool['function']['name'].",
+        "Entscheiden: entweder agent.tools.get_tool_definitions() auf OpenAI-Schemaformat migrieren oder in agent/sgpt/function.py beide Formate robust normalisieren.",
+        "Legacy agent.tools Registry darf nicht automatisch neue Ananta Worker Tools ersetzen.",
+        "Deduplizierung nach kanonischem Toolnamen implementieren.",
+        "Fehlerhafte Legacy-Tools duerfen nicht den kompletten SGPT-Start crashen; stattdessen Warnung/Audit/Debug."
+      ],
+      "acceptance_criteria": [
+        "get_openai_schemas() wirft keinen KeyError mehr, wenn agent.tools.registry Tools enthaelt.",
+        "Legacy-Tool create_template wird, falls legacy aktiviert ist, als type='function' Schema ausgegeben.",
+        "Deduplizierung funktioniert bei doppeltem Namen aus OPENAI_FUNCTIONS_PATH und agent.tools.registry.",
+        "Ein defektes Legacy-Tool wird uebersprungen und als Warnung markiert.",
+        "Tests belegen, dass CodeCompass nicht ueber agent.tools.py erwartet wird."
+      ]
+    },
+    {
+      "id": "UTCR-004",
+      "title": "Route SGPT native tools through AnantaToolRegistryService for ananta-worker",
+      "type": "implementation",
+      "files": [
+        "agent/sgpt/function.py",
+        "agent/sgpt/app.py",
+        "agent/sgpt/handlers/handler.py",
+        "agent/common/sgpt.py",
+        "tests/sgpt/test_native_ananta_tools.py"
+      ],
+      "details": [
+        "Fuer ananta-worker einen klaren Pfad schaffen, bei dem native Tool-Schemas aus AnantaToolRegistryService kommen.",
+        "Nicht blind alle SGPT-Funktionen in ananta-worker geben.",
+        "Konfigurierbare Quelle: sgpt_native_tools.source='ananta_tool_registry_service'.",
+        "Legacy OPENAI_FUNCTIONS_PATH nur fuer normale SGPT-Nutzung oder explizit aktivierte Kompatibilitaet.",
+        "Backend-Aufruf muss tools=[...] aus der neuen Registry erhalten, wenn native Mode aktiv ist.",
+        "Tool-Call-Antworten muessen danach nicht get_function(name), sondern UnifiedToolExecutor/execute_ananta_tool + Policy verwenden."
+      ],
+      "acceptance_criteria": [
+        "Bei Backend ananta-worker und native_openai_tools bekommt das Modell codecompass.plan_context als natives Tool-Schema.",
+        "Bei Backend ananta-worker bekommt das Modell keine create_template/update_config Legacy-Tools, ausser explizit erlaubt.",
+        "Native ToolCalls fuer codecompass.search werden ueber AnantaToolPolicyService.evaluate() geprueft.",
+        "Native ToolCalls fuer repo.write_file werden in read_only mutation_mode geblockt.",
+        "Native ToolCalls fuer codecompass.plan_context liefern ein ananta_tool_result.v1 Payload.",
+        "Bestehende normale sgpt --functions Nutzung bleibt in Legacy-Kompatibilitaet testbar."
+      ]
+    },
+    {
+      "id": "UTCR-005",
+      "title": "Introduce unified tool execution service for native and prompt-json calls",
+      "type": "implementation",
+      "files": [
+        "agent/services/unified_tool_execution_service.py",
+        "agent/common/sgpt_tool_loop.py",
+        "agent/sgpt/handlers/handler.py",
+        "tests/services/test_unified_tool_execution_service.py"
+      ],
+      "details": [
+        "Tool-Ausfuehrung aus prompt-json und nativen tool_calls auf einen Service ziehen.",
+        "Input: tool_name, arguments, allowed_tools, mutation_mode, task_id, goal_id, workspace_dir, tool_call_id.",
+        "Ablauf: Registry resolve -> Policy evaluate -> ggf. ApprovalRequest -> execute_ananta_tool -> ToolResult.",
+        "Policy-blocked und approval_required muessen als ToolResult zurueckgegeben werden.",
+        "Keine direkte Ausfuehrung ueber get_function(name) fuer neue Ananta Tools.",
+        "Audit-Events vereinheitlichen oder vorhandene Events weiterverwenden."
+      ],
+      "acceptance_criteria": [
+        "Prompt-JSON-Loop und nativer ToolCall-Pfad erzeugen fuer denselben codecompass.search Call strukturell gleiche ToolResults.",
+        "Policy-Blocked wird in beiden Pfaden gleich behandelt.",
+        "Approval-required wird in beiden Pfaden gleich behandelt und legt bei aktivem Approval-Lifecycle eine Pending Request an.",
+        "ToolResult enthaelt schema='ananta_tool_result.v1', tool_call_id, tool_name, status, evidence, warnings, error und policy_decision.",
+        "Workspace fehlt oder ungueltig wird fail-closed behandelt.",
+        "Max-result-chars Begrenzung bleibt erhalten."
+      ]
+    },
+    {
+      "id": "UTCR-006",
+      "title": "Add backend capability detection for native tool calling",
+      "type": "implementation",
+      "files": [
+        "agent/services/tool_calling_mode_service.py",
+        "agent/common/sgpt_helpers.py",
+        "agent/common/sgpt.py",
+        "tests/services/test_tool_calling_mode_service.py"
+      ],
+      "details": [
+        "Backend/Provider-Faehigkeit fuer native Tools bestimmen: openai, lmstudio, ollama, litellm, openrouter usw.",
+        "Nicht nur Providername vertrauen; optional Probe/Config-Flag unterstuetzen.",
+        "Konfiguration mode='auto|native_openai_tools|prompt_json_protocol|disabled'.",
+        "Bei auto: native nur verwenden, wenn Backend als kompatibel markiert ist.",
+        "Bei native erzwungen und Backend nicht kompatibel: kontrollierter Fehler oder fallback je nach fallback_mode.",
+        "Bei prompt_json_protocol: bisheriger sgpt_tool_loop bleibt massgeblich."
+      ],
+      "acceptance_criteria": [
+        "OpenAI Provider wird bei default config als native-faehig erkannt.",
+        "LMStudio kann per Config als native-faehig oder fallback-only markiert werden.",
+        "Ollama kann per Config als native-faehig oder fallback-only markiert werden, ohne Annahme, dass jedes Modell Tools sauber kann.",
+        "Auto-Modus faellt bei unbekanntem Backend auf prompt_json_protocol zurueck.",
+        "Mode-Entscheidung wird in Debug/Audit sichtbar gemacht.",
+        "Keine native tools werden geschickt, wenn mode='prompt_json_protocol'."
+      ]
+    },
+    {
+      "id": "UTCR-007",
+      "title": "Keep CodeCompass/RagHelper naming clean in tool schemas",
+      "type": "docs_and_schema",
+      "files": [
+        "agent/services/ananta_tool_registry_service.py",
+        "agent/services/tools/codecompass_tools.py",
+        "docs/contracts/ananta-worker-tool-loop.md",
+        "docs/ananta-worker-tool-calling-loop.md"
+      ],
+      "details": [
+        "Dokumentieren: rag-helper ist Index-/Analyse-Engine; codecompass.* ist die agent-facing Runtime-Tool-Schicht.",
+        "Keine neuen rag_helper.* Tools einfuehren, solange sie nur Alias fuer CodeCompass waeren.",
+        "Toolbeschreibungen klarer formulieren, damit Modelle verstehen, wann welches Tool zu verwenden ist.",
+        "Insbesondere plan_context als bevorzugten ersten Schritt fuer Brownfield-Coding markieren.",
+        "resolve_context als groesseres ContextPackage-Tool markieren.",
+        "search_symbols fuer gezielte Symbol-/Dateisuche markieren.",
+        "get_file_context fuer autoritative Originaldatei-Auszüge markieren."
+      ],
+      "acceptance_criteria": [
+        "Dokumentation enthaelt klares Diagramm: rag-helper -> Knowledge Index -> CodeCompass Tools -> ananta-worker.",
+        "Kein Modellprompt bewirbt rag_helper.* als Toolname.",
+        "Toolbeschreibung fuer codecompass.plan_context nennt LocationRefs und patch_targets.",
+        "Toolbeschreibung fuer codecompass.get_file_context nennt Originaldatei-Auszüge als autoritative Quelle.",
+        "Docs erklaeren native ToolCalls und prompt_json fallback als zwei Serialisierungen derselben Registry."
+      ]
+    },
+    {
+      "id": "UTCR-008",
+      "title": "Add diagnostics endpoint/report for effective tools sent to model",
+      "type": "diagnostics",
+      "files": [
+        "agent/routes/diagnostics_routes.py",
+        "agent/common/sgpt_tool_loop.py",
+        "agent/sgpt/handlers/handler.py",
+        "frontend-angular/src/app/components/settings.component.html",
+        "tests/routes/test_tool_calling_diagnostics.py"
+      ],
+      "details": [
+        "Bei jedem Worker-Run speichern, welche Tool-Calling-Mode-Entscheidung getroffen wurde.",
+        "Speichern, welche Toolnamen effektiv ans Modell gingen.",
+        "Speichern, ob als native tools oder prompt description.",
+        "Keine kompletten Prompts mit Secrets speichern.",
+        "Debug-Ansicht soll CodeCompass-Tools sichtbar machen."
+      ],
+      "acceptance_criteria": [
+        ".ananta/tool-loop-report.json oder neuer Report enthaelt tool_calling_mode.",
+        "Report enthaelt effective_allowed_tools.",
+        "Report enthaelt schema_format='openai_tools' oder 'prompt_json_description'.",
+        "Report enthaelt backend/provider/model, soweit vorhanden, ohne API-Key.",
+        "UI/Endpoint zeigt an, ob codecompass.plan_context dem Modell angeboten wurde.",
+        "Tests pruefen Redaction von env/API-Key Feldern."
+      ]
+    },
+    {
+      "id": "UTCR-009",
+      "title": "Harden parsing and validation of prompt-json tool requests",
+      "type": "security",
+      "files": [
+        "agent/common/sgpt_tool_loop.py",
+        "agent/services/ananta_tool_policy_service.py",
+        "tests/common/test_sgpt_tool_loop_parsing.py"
+      ],
+      "details": [
+        "Prompt-Fallback bleibt noetig, muss aber robuster werden.",
+        "JSON Parsing weiter erlauben fuer rohe und fenced JSON.",
+        "Argumente gegen ToolSpec.argument_schema validieren, mindestens Typ object und bekannte Properties pruefen.",
+        "Optional unknown args warnen oder blocken je nach strictness.",
+        "tool_name normalisieren, aber keine Alias-Halluzinationen fuer neue ananta_worker tools.",
+        "Invalid output Feedback an Modell kurz und strukturiert halten."
+      ],
+      "acceptance_criteria": [
+        "Nicht-JSON Antworten zaehlen als invalid_output und crashen nicht.",
+        "ToolRequest ohne tool_name wird abgelehnt.",
+        "ToolRequest mit arguments als String/List wird abgelehnt.",
+        "ToolRequest fuer unbekanntes Tool erzeugt policy_blocked ToolResult.",
+        "ToolRequest fuer codecompass.search ohne query erzeugt ToolResult error=query_required aus Toolimplementierung oder vorherige Schema-Validation.",
+        "Fenced JSON mit Zusatztext wird weiterhin akzeptiert, solange ein gueltiges JSON-Objekt extrahierbar ist.",
+        "Max invalid outputs fallback bleibt erhalten."
+      ]
+    },
+    {
+      "id": "UTCR-010",
+      "title": "Add full tests for all CodeCompass tool schema outputs",
+      "type": "tests",
+      "files": [
+        "tests/services/test_codecompass_tool_schemas.py",
+        "tests/common/test_ananta_worker_tool_loop_codecompass.py"
+      ],
+      "details": [
+        "Fuer jedes codecompass.* Tool Prompt-Zeile und natives Schema testen.",
+        "Testen, dass allowed_tools Filter wirkt.",
+        "Testen, dass blocked Tools fehlen.",
+        "Testen, dass Schema-Properties mit Registry uebereinstimmen.",
+        "Testen, dass ToolResult-Execution fuer read-only CodeCompass Tools mindestens mockbar ueber einheitlichen Executor laeuft."
+      ],
+      "acceptance_criteria": [
+        "codecompass.architecture_query hat native property question.",
+        "codecompass.expand_graph hat native properties node, seeds, depth, max_depth, limit, max_nodes.",
+        "codecompass.get_domain_map hat native properties domain_hint, include_files, include_edges, max_entries.",
+        "codecompass.get_file_context hat native properties paths, line_ranges, max_bytes_per_file, max_total_bytes, redaction_mode, reason.",
+        "codecompass.plan_context hat native properties query, max_ranges, include_neighbors, task_kind.",
+        "codecompass.resolve_context hat native properties query, task_kind, mode, working_files, domain_hint, domain_scope, max_tokens, max_files, include_original_files, include_jsonl_records, include_graph, llm_scope.",
+        "codecompass.search hat native properties query, limit.",
+        "codecompass.search_symbols hat native properties query, record_kinds, path_globs, domain_hint, limit.",
+        "Prompt-Beschreibung und natives Schema werden aus derselben Registry erzeugt."
+      ]
+    },
+    {
+      "id": "UTCR-011",
+      "title": "Migration plan for legacy agent.tools registry",
+      "type": "migration",
+      "files": [
+        "agent/tools.py",
+        "agent/sgpt/function.py",
+        "docs/migrations/unified-tool-registry.md"
+      ],
+      "details": [
+        "Inventar der alten agent.tools Registry erstellen.",
+        "Entscheiden, welche Tools in die neue AnantaToolRegistryService gehoeren.",
+        "Hub-/Admin-Tools wie create_template/update_config getrennt von Worker-CodeTools halten.",
+        "Legacy Registry nicht sofort loeschen, aber Nutzung klar konfigurieren.",
+        "Kompatibilitaetsmodus fuer existierende SGPT-CLI-Nutzung dokumentieren."
+      ],
+      "acceptance_criteria": [
+        "Dokument enthaelt Liste alter agent.tools Tools und Zielstatus: migrate, keep_legacy, remove, admin_only.",
+        "update_config wird nicht als normales ananta-worker Tool angeboten.",
+        "file_read/file_list/file_write Alttools werden nicht mit repo.read_file_range/repo.write_file verwechselt.",
+        "Legacy-Alias-Tabelle aus agent/tools.py wird nicht fuer neue codecompass.* Tools verwendet.",
+        "Tests belegen, dass ananta-worker Toolset und SGPT Legacy Toolset getrennt konfigurierbar sind."
+      ]
+    },
+    {
+      "id": "UTCR-012",
+      "title": "Documentation and examples for model-visible tool instructions",
+      "type": "documentation",
+      "files": [
+        "docs/contracts/ananta-worker-tool-loop.md",
+        "docs/operations/ananta-worker-tool-calling.md",
+        "docs/examples/ananta-worker-codecompass-native-tools.json",
+        "docs/examples/ananta-worker-codecompass-prompt-tools.md"
+      ],
+      "details": [
+        "Beispiel fuer native OpenAI tools Payload mit allen codecompass.* Tools dokumentieren.",
+        "Beispiel fuer Prompt-JSON-Fallback mit allen codecompass.* Toolzeilen dokumentieren.",
+        "Beispiel fuer Modellantwort tool_request dokumentieren.",
+        "Beispiel fuer ToolResult und anschliessende final_answer mit evidence_refs dokumentieren.",
+        "Deutlich sagen, dass das LLM Tools nie selbst ausfuehrt."
+      ],
+      "acceptance_criteria": [
+        "Docs zeigen exakt, was dem Modell bei native_openai_tools geschickt wird.",
+        "Docs zeigen exakt, was dem Modell bei prompt_json_protocol geschickt wird.",
+        "Docs enthalten CodeCompass plan_context als bevorzugten ersten Brownfield-Schritt.",
+        "Docs enthalten get_file_context als Schritt fuer autoritative Originaldatei-Ranges.",
+        "Docs erwaehnen, dass RagHelper intern ist und nicht als Toolname verwendet wird."
+      ]
+    }
+  ],
+  "global_acceptance_criteria": [
+    "Es gibt eine einzige autoritative Tool-Quelle fuer ananta-worker CodeTools: agent/services/ananta_tool_registry_service.py.",
+    "CodeCompass-Tools koennen aus dieser Quelle sowohl als Prompt-JSON-Beschreibung als auch als native OpenAI-kompatible tools erzeugt werden.",
+    "Der native Tool-Calling-Pfad verwendet fuer ananta-worker nicht mehr ungeprueft agent/tools.py.",
+    "Native ToolCalls und Prompt-JSON ToolRequests laufen ueber dasselbe Policy-Gate.",
+    "Native ToolCalls und Prompt-JSON ToolRequests laufen ueber denselben oder aequivalenten Execution-Service.",
+    "Alle codecompass.* Tools sind read-only und koennen in read_only mutation_mode ausgefuehrt werden.",
+    "Write-Tools bleiben in read_only mutation_mode geblockt.",
+    "Approval-required Tools erzeugen strukturierte Approval-Ergebnisse und werden nicht automatisch ausgefuehrt.",
+    "Bei Backends ohne sichere native Tool-Unterstuetzung funktioniert prompt_json_protocol weiter.",
+    "Bei aktiviertem Diagnostic-Report ist sichtbar, welche Tools dem Modell tatsaechlich angeboten wurden.",
+    "Bestehende Tests fuer sgpt_tool_loop, worker_runtime_execution_adapter, ananta_tool_policy_service und codecompass_tools bleiben gruen.",
+    "Neue Tests decken CodeCompass native schema, prompt schema, policy gate und execution result fuer mindestens codecompass.plan_context und codecompass.search ab."
+  ],
+  "suggested_test_matrix": [
+    {
+      "case": "prompt_json_codecompass_plan_context",
+      "mode": "prompt_json_protocol",
+      "backend": "ananta-worker",
+      "expected": "Modell sieht Textbeschreibung und JSON-Protokoll; tool_request wird geparst und ausgefuehrt."
+    },
+    {
+      "case": "native_codecompass_plan_context_openai",
+      "mode": "native_openai_tools",
+      "backend": "sgpt/openai-compatible",
+      "expected": "Modell bekommt tools=[...] mit codecompass.plan_context im OpenAI-Format."
+    },
+    {
+      "case": "auto_unknown_backend_fallback",
+      "mode": "auto",
+      "backend": "unknown-local",
+      "expected": "Kein natives tools=[...] Payload; fallback auf prompt_json_protocol."
+    },
+    {
+      "case": "read_only_blocks_write",
+      "mode": "native_openai_tools",
+      "tool": "repo.write_file",
+      "mutation_mode": "read_only",
+      "expected": "policy_blocked mit reason write_tool_not_allowed_in_mode:read_only."
+    },
+    {
+      "case": "allowed_tools_filter",
+      "allowed_tools": [
+        "codecompass.search"
+      ],
+      "expected": "codecompass.plan_context erscheint weder im nativen Schema noch in der Promptbeschreibung."
+    },
+    {
+      "case": "legacy_registry_does_not_leak",
+      "backend": "ananta-worker",
+      "expected": "create_template/update_config werden nicht als Worker-Tools angeboten."
+    }
+  ],
+  "implementation_order": [
+    "UTCR-001",
+    "UTCR-002",
+    "UTCR-003",
+    "UTCR-005",
+    "UTCR-006",
+    "UTCR-004",
+    "UTCR-010",
+    "UTCR-008",
+    "UTCR-009",
+    "UTCR-007",
+    "UTCR-011",
+    "UTCR-012"
+  ],
+  "risk_notes": [
+    "Native Tool Calling bei Ollama/LMStudio kann je nach Server-/Modellversion unterschiedlich gut funktionieren; deshalb auto-mode plus fallback zwingend.",
+    "OpenAI-kompatibles Schema muss exakt sein; falsche Schemaformate fuehren sonst zu schwer erkennbaren Runtime-Fehlern.",
+    "Legacy agent.tools enthaelt Hub/Admin-Tools; diese duerfen nicht versehentlich an Worker-Modelle geleakt werden.",
+    "CodeCompass/RagHelper liefert Kontext, aber Originaldateien bleiben fuer belastbare Codeaenderungen autoritativ.",
+    "Tool-Calling darf nicht zur Rechteausweitung gegenueber dem bisherigen Policy-Gate werden."
+  ]
+}

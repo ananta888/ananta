@@ -619,9 +619,41 @@ _VISUAL_THROTTLE_S: float = 25.0  # minimum seconds between visual replies
 _VISUAL_SESSION_ID: str = "ananta-visual"  # tag for messages belonging to the visual snake session
 
 
+def _visual_session_log_deltas_only() -> bool:
+    """Read the predictive_guide_log_deltas_only flag from the active
+    ananta-visual session settings, defaulting to True if the session
+    can't be found or has no settings yet.
+
+    Reads the raw chat_sessions list from the manager directly so we get
+    the user's persisted value — going through get_sessions() would
+    re-add the built-in default 'ananta-visual' (with log_deltas_only
+    absent → True default) when the user has wiped the list.
+
+    Imports get_manager at module top (not inside the try) so the
+    conftest's monkeypatch on user_config_manager.get_manager takes
+    effect — same pattern used by _load_chat / _save_chat in chat.py."""
+    from client_surfaces.operator_tui.config.user_config_manager import get_manager
+    try:
+        sessions = get_manager().load().get("chat_sessions") or []
+        sess = next(
+            (s for s in sessions if str(s.get("id") or "") == _VISUAL_SESSION_ID),
+            None,
+        )
+        if not sess:
+            return True
+        return bool((sess.get("settings") or {}).get("predictive_guide_log_deltas_only", True))
+    except Exception:
+        return True
+
+
 def _append_visual_user_tick(*, ui_snapshot: str) -> None:
     """Persist the incoming UI snapshot as a system message in the ananta-visual session
-    so the user can later review what the visual snake observed."""
+    so the user can later review what the visual snake observed.
+
+    When the session has predictive_guide_log_deltas_only=True, also append
+    a [ui-delta] system message containing the human-readable diff between
+    the previous and current snapshot."""
+    global _visual_last_snapshot
     text = f"[ui-tick] {ui_snapshot}" if ui_snapshot else "[ui-tick] (leer)"
     _append_room_ai_message(
         text=text,
@@ -630,6 +662,26 @@ def _append_visual_user_tick(*, ui_snapshot: str) -> None:
         sender_id="browser",
         ui_snapshot=ui_snapshot,
     )
+    # ── Delta log (optional, opt-in via session setting) ──────────────────
+    if not ui_snapshot:
+        return
+    log_deltas = _visual_session_log_deltas_only()
+    if log_deltas:
+        try:
+            from agent.services.snapshot_delta import diff_snapshots
+            delta = diff_snapshots(_visual_last_snapshot or "", ui_snapshot)
+            if not delta.is_empty():
+                delta_text = f"[ui-delta] {delta.as_compact_text()}"
+                _append_room_ai_message(
+                    text=delta_text,
+                    session_id=_VISUAL_SESSION_ID,
+                    visibility="system",
+                    sender_id="browser",
+                )
+        except Exception as exc:  # never let the delta path break the raw tick
+            logging.getLogger(__name__).debug("ananta-visual delta log failed: %s", exc)
+    # Track the most recent snapshot for next call
+    _visual_last_snapshot = ui_snapshot
 
 
 def _spawn_visual_reply(ui_snapshot: str) -> None:
