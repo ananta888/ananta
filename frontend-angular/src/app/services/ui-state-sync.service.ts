@@ -79,17 +79,18 @@ export class UiStateSyncService implements OnDestroy {
         ).subscribe({ error: () => {} });
       }
 
+      // ── Visual snake log tick: fire on EVERY state change where the snapshot
+      //    actually changed (not just route changes). The backend persists the
+      //    tick; the LLM-reply path has its own 25s throttle and is unaffected.
+      if (snakeId && hubUrl && uiSnapshot && uiSnapshot !== this.lastSnapshot) {
+        this.lastSnapshot = uiSnapshot;
+        setTimeout(() => this.snake.sendUiContextTick(uiSnapshot), 700);
+      }
+
       // ── Proactive guide: trigger snake tips on route change ─────────────────
       const route = state.route.split('?')[0];
       if (route !== this.lastRoute) {
         this.lastRoute = route;
-        // Send a silent UI-context tick to the visual snake session so LLM knows where user is
-        setTimeout(() => {
-          const snap = this.snapshot.capture();
-          this.lastSnapshot = snap;
-          this.snake.sendUiContextTick(snap);
-        }, 700);
-
         if (this.guide.active$.value) {
           setTimeout(() => this.guide.replay(), 600);
         } else {
@@ -106,6 +107,7 @@ export class UiStateSyncService implements OnDestroy {
     this.sub?.unsubscribe();
     this.sub = null;
     this.lastRoute = '';
+    this.lastSnapshot = '';
   }
 
   private tipsForRoute(route: string): GuideStep[] {
