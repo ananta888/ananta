@@ -18,6 +18,7 @@ import { ChatSessionsPanelComponent } from './chat-sessions-panel.component';
 import { ChatSessionsService, ChatSession } from '../services/chat-sessions.service';
 import { ChatHistoryService, ChatHistoryMessage } from '../services/chat-history.service';
 import { ChatMessageComponent } from './chat-message.component';
+import { UiStateSyncService } from '../services/ui-state-sync.service';
 
 @Component({
   selector: 'app-ai-snake-chat-panel',
@@ -350,6 +351,7 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
   readonly signaling = inject(WebrtcSignalingService);
   readonly sessions = inject(ChatSessionsService);
   readonly history = inject(ChatHistoryService);
+  private uiSync = inject(UiStateSyncService);
 
   name = 'web-ai-snake';
   role = 'viewer';
@@ -364,6 +366,7 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
   readonly keycloakPresets = [PUBLIC_KEYCLOAK_BASE_URL];
 
   private historySub?: Subscription;
+  private activeSub?: Subscription;
 
   @Input() tab: 'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated' = 'chat';
   @Output() tabChange = new EventEmitter<'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated'>();
@@ -380,10 +383,19 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.historySub = this.history.updated$.subscribe(() => {});
+    this.activeSub = this.svc.active$.subscribe(active => {
+      if (active) {
+        this.uiSync.start();
+      } else {
+        this.uiSync.stop();
+      }
+    });
   }
 
   ngOnDestroy(): void {
     this.historySub?.unsubscribe();
+    this.activeSub?.unsubscribe();
+    this.uiSync.stop();
   }
 
   chatMessages(): ChatHistoryMessage[] {
@@ -423,9 +435,11 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
 
   connect(): void {
     void this.svc.connect(this.name.trim() || 'web-ai-snake', this.role);
+    this.uiSync.start();
   }
 
   disconnect(): void {
+    this.uiSync.stop();
     this.svc.disconnect();
   }
 

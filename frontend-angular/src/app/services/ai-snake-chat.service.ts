@@ -1,6 +1,7 @@
 import { Injectable, OnDestroy, inject } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { Router } from '@angular/router';
 import { AgentDirectoryService } from './agent-directory.service';
 import { UserAuthService } from './user-auth.service';
 
@@ -32,6 +33,7 @@ export class AiSnakeChatService implements OnDestroy {
   private http = inject(HttpClient);
   private directory = inject(AgentDirectoryService);
   private auth = inject(UserAuthService);
+  private router = inject(Router);
 
   readonly active$ = new BehaviorSubject<boolean>(false);
   readonly snakeId$ = new BehaviorSubject<string>('');
@@ -45,8 +47,26 @@ export class AiSnakeChatService implements OnDestroy {
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
 
+  getSnakeToken(): string { return this.snakeToken; }
+
   private hubUrl(): string {
     return this.directory.list().find((a) => a.role === 'hub')?.url || '';
+  }
+
+  private collectVisibleWaypoints(): string[] {
+    const result: string[] = [];
+    try {
+      const els = document.querySelectorAll('[data-waypoint]');
+      for (const el of Array.from(els)) {
+        const rect = el.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0 && rect.top < window.innerHeight && rect.bottom > 0) {
+          const wp = el.getAttribute('data-waypoint');
+          if (wp) result.push(wp);
+        }
+        if (result.length >= 30) break;
+      }
+    } catch { /* ignore */ }
+    return result;
   }
 
   private withUserHeaders(headers?: HttpHeaders): HttpHeaders {
@@ -106,9 +126,12 @@ export class AiSnakeChatService implements OnDestroy {
     if (!base || !snakeId || !this.snakeToken || !content) return;
     const id = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
     this.awaitingReply$.next(true);
+    const currentRoute = this.router.url;
+    const visibleWaypoints = this.collectVisibleWaypoints();
+    const uiContext = { route: currentRoute, visible_waypoints: visibleWaypoints };
     this.http.post(
       `${base}/snakes/${encodeURIComponent(snakeId)}/chat/messages`,
-      { id, channel_type: 'room', visibility: 'room', text: content },
+      { id, channel_type: 'room', visibility: 'room', text: content, ui_context: uiContext },
       { headers: this.withSnakeHeaders() },
     ).subscribe({
       next: () => {

@@ -40,6 +40,10 @@ from .snakes import (
     snakes_bp,
 )
 
+# In-memory UI state pushed by the browser via PUT /snakes/<id>/ui-state.
+# Keyed by snake_id; used to enrich LLM prompts with current navigation context.
+_snake_ui_state: dict[str, dict] = {}
+
 _SNAKE_CHAT_PROMPT = (
     "Du bist AI-Snake im Ananta Hub.\n"
     "Regeln (streng):\n"
@@ -782,7 +786,7 @@ def _build_ui_guide(prompt: str) -> dict | None:
     return None
 
 
-def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None:
+def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_context: dict | None = None) -> None:
     prompt = str(user_text or "").strip()
     if not prompt:
         return
@@ -849,8 +853,22 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
             # Ananta-Settings session: enrich prompt with current settings context
             _original_prompt = prompt
             if _active_session_id == "ananta-settings":
+                # Resolve effective UI context: per-message > continuous push > empty
+                _effective_ui_ctx = (ui_context or {}) or (_snake_ui_state.get(snake_id or "") if snake_id else {}) or {}
                 _settings_ctx = _read_ananta_settings_summary()
-                prompt = f"[Aktuelle Ananta-Konfiguration]\n{_settings_ctx}\n\n[Nutzerfrage]\n{prompt}"
+                if _effective_ui_ctx:
+                    _ui_route = _effective_ui_ctx.get("route", "?")
+                    _ui_waypoints = ", ".join(_effective_ui_ctx.get("visible_waypoints") or []) or "(keine)"
+                    _ui_surface = _effective_ui_ctx.get("active_surface", "")
+                    _ui_ctx_block = (
+                        f"[Aktueller UI-Kontext]\n"
+                        f"Route: {_ui_route}\n"
+                        + (f"Surface: {_ui_surface}\n" if _ui_surface else "")
+                        + f"Sichtbare Waypoints: {_ui_waypoints}\n\n"
+                    )
+                    prompt = f"{_ui_ctx_block}[Aktuelle Ananta-Konfiguration]\n{_settings_ctx}\n\n[Nutzerfrage]\n{prompt}"
+                else:
+                    prompt = f"[Aktuelle Ananta-Konfiguration]\n{_settings_ctx}\n\n[Nutzerfrage]\n{prompt}"
 
             # Compute guide suffix for ananta-settings session (used below in all emit paths)
             import json as _json
@@ -1341,6 +1359,7 @@ def chat_send(snake_id: str):
     channel_type = str(body.get("channel_type") or "room")
     visibility = str(body.get("visibility") or "room")
     text = str(body.get("text") or "").strip()[:500]
+    ui_context = body.get("ui_context") or {}
 
     if not text:
         return jsonify({"error": "text erforderlich"}), 400
@@ -1372,7 +1391,7 @@ def chat_send(snake_id: str):
             _room_messages.append(msg)
             if len(_room_messages) > _MAX_ROOM_MSGS:
                 _room_messages = _room_messages[-_MAX_ROOM_MSGS:]
-            _spawn_ai_chat_reply(user_text=text, snake_id=snake_id)
+            _spawn_ai_chat_reply(user_text=text, snake_id=snake_id, ui_context=ui_context)
     elif channel_type == "direct":
         target_ids = msg["target_ids"]
         if not target_ids:
@@ -1444,6 +1463,24 @@ def chat_ack(snake_id: str):
     body: dict[str, Any] = request.get_json(force=True, silent=True) or {}
     message_ids: list[str] = [str(i) for i in (body.get("message_ids") or [])]
     return jsonify({"ok": True, "acked": len(message_ids)}), 200
+
+
+@snakes_bp.route("/snakes/<snake_id>/ui-state", methods=["PUT"])
+def snake_ui_state_push(snake_id: str):
+    """PUT /snakes/<id>/ui-state -- aktuellen UI-Zustand des Browsers speichern."""
+    if not _verify_token(snake_id):
+        return jsonify({"error": "Ung\u00fcltiger Token"}), 401
+    body: dict[str, Any] = request.get_json(force=True, silent=True) or {}
+    route = str(body.get("route") or "").strip()
+    visible_waypoints = [str(w) for w in (body.get("visible_waypoints") or []) if w][:30]
+    active_surface = str(body.get("active_surface") or "").strip()
+    _snake_ui_state[snake_id] = {
+        "route": route,
+        "visible_waypoints": visible_waypoints,
+        "active_surface": active_surface,
+        "updated_at": time.time(),
+    }
+    return jsonify({"ok": True})
 
 
 @snakes_bp.route("/worker-context", methods=["POST"])
