@@ -4,7 +4,7 @@ import { Injectable } from '@angular/core';
 export class UiWaypointService {
   resolve(name: string): { x: number; y: number } | null {
     try {
-      const el = document.querySelector(`[data-waypoint="${CSS.escape(name)}"]`);
+      const el = document.querySelector(`[data-waypoint="${name.replace(/"/g, '\\"')}"]`);
       if (!el) return null;
       const r = el.getBoundingClientRect();
       if (r.width === 0 && r.height === 0) return null;
