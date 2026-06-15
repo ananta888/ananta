@@ -586,7 +586,8 @@ def _fit_answer_to_chars(
     return value[: max(0, safe_limit - len(marker))].rstrip() + marker
 
 
-def _append_room_ai_message(*, text: str, session_id: str = "") -> None:
+def _append_room_ai_message(*, text: str, session_id: str = "", visibility: str = "room",
+                            sender_id: str = "ai-snake", ui_snapshot: str = "") -> None:
     if not text:
         return
     msg: dict[str, Any] = {
@@ -594,15 +595,17 @@ def _append_room_ai_message(*, text: str, session_id: str = "") -> None:
         "created_at": time.time(),
         "channel_id": "room:main",
         "channel_type": "room",
-        "sender_id": "ai-snake",
-        "sender_kind": "assistant",
+        "sender_id": sender_id,
+        "sender_kind": "assistant" if sender_id == "ai-snake" else "system",
         "target_ids": [],
         "text": text,
-        "visibility": "room",
+        "visibility": visibility,
         "delivery_state": "received",
         "policy_decision_ref": None,
         "session_id": session_id,
     }
+    if ui_snapshot:
+        msg["ui_snapshot"] = ui_snapshot[:500]
     global _room_messages
     _room_messages.append(msg)
     if len(_room_messages) > _MAX_ROOM_MSGS:
@@ -613,6 +616,20 @@ def _append_room_ai_message(*, text: str, session_id: str = "") -> None:
 _visual_last_snapshot: str = ""
 _visual_last_reply_at: float = 0.0
 _VISUAL_THROTTLE_S: float = 25.0  # minimum seconds between visual replies
+_VISUAL_SESSION_ID: str = "ananta-visual"  # tag for messages belonging to the visual snake session
+
+
+def _append_visual_user_tick(*, ui_snapshot: str) -> None:
+    """Persist the incoming UI snapshot as a system message in the ananta-visual session
+    so the user can later review what the visual snake observed."""
+    text = f"[ui-tick] {ui_snapshot}" if ui_snapshot else "[ui-tick] (leer)"
+    _append_room_ai_message(
+        text=text,
+        session_id=_VISUAL_SESSION_ID,
+        visibility="system",
+        sender_id="browser",
+        ui_snapshot=ui_snapshot,
+    )
 
 
 def _spawn_visual_reply(ui_snapshot: str) -> None:
@@ -664,7 +681,11 @@ def _spawn_visual_reply(ui_snapshot: str) -> None:
         )
         answer = (_resp.choices[0].message.content or "").strip()
         if answer:
-            _append_room_ai_message(text=answer, session_id="ananta-visual")
+            _append_room_ai_message(
+                text=answer,
+                session_id=_VISUAL_SESSION_ID,
+                visibility="room",
+            )
             _log.info("ananta-visual: reply appended (%d chars)", len(answer))
     except Exception as exc:
         logging.getLogger(__name__).warning("ananta-visual reply failed: %s", exc)
@@ -1467,6 +1488,8 @@ def chat_send(snake_id: str):
                 "ui_snapshot": _ui_snap,
                 "updated_at": time.time(),
             }
+            # Persist the incoming tick in the ananta-visual session for later analysis
+            _append_visual_user_tick(ui_snapshot=_ui_snap)
             import threading as _thr
             _thr.Thread(target=_spawn_visual_reply, args=(_ui_snap,), daemon=True).start()
         return jsonify({"ok": True, "id": str(body.get("id") or "")}), 202

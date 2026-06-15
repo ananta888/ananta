@@ -28,6 +28,9 @@ export interface SnakeChatMessage {
   text: string;
   created_at: number;
   channel_type: string;
+  session_id?: string;
+  visibility?: string;
+  ui_snapshot?: string;
 }
 
 @Injectable({ providedIn: 'root' })

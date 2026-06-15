@@ -82,7 +82,7 @@ export class ChatHistoryService implements OnDestroy {
       }
 
       // Use session_id from message if present (e.g. ananta-visual), else active session
-      const sessionId = (m as any).session_id || fallbackSessionId;
+      const sessionId = m.session_id || fallbackSessionId;
 
       const entry: ChatHistoryMessage = {
         id: m.id,
