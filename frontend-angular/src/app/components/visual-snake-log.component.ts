@@ -1,0 +1,137 @@
+/**
+ * VisualSnakeLogComponent — read-only timeline view for the ananta-visual
+ * chat session. Renders incoming [ui-tick] snapshots as compact cards and
+ * the visual guide's reply as a normal chat bubble, grouped chronologically.
+ *
+ * Used in the AI-Snake chat panel when the active session is ananta-visual.
+ */
+import { Component, inject, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { CommonModule, AsyncPipe } from '@angular/common';
+import { Subscription } from 'rxjs';
+import { ChatHistoryService, ChatHistoryMessage } from '../services/chat-history.service';
+
+interface UiTickEntry {
+  id: string;
+  ts: number;
+  text: string;            // full [ui-tick] ... text
+  route: string;            // first path-like token in the snapshot
+  snapshot: string;         // full compact snapshot
+  preview: string;          // first 200 chars of the snapshot, formatted
+  replyId?: string;         // id of the AI reply that followed, if any
+  replyText?: string;       // the AI's proactive guide reply
+}
+
+@Component({
+  selector: 'app-visual-snake-log',
+  standalone: true,
+  imports: [CommonModule, AsyncPipe],
+  template: `
+    <div class="vlog">
+      <div class="vlog-head">
+        <span>🐍 Visual Snake Log</span>
+        <button class="ghost" (click)="refresh()" title="Neu laden">↻</button>
+      </div>
+      <div class="vlist" *ngIf="entries.length; else emptyTpl">
+        @for (e of entries; track e.id) {
+          <div class="vitem" [class.has-reply]="!!e.replyId">
+            <div class="vtime">{{ formatTime(e.ts) }}</div>
+            <div class="vroute" *ngIf="e.route">📍 {{ e.route }}</div>
+            <div class="vsnap" [title]="e.snapshot">{{ e.preview }}</div>
+            <div class="vreply" *ngIf="e.replyText">
+              <span class="vreply-label">🐍 Snake →</span>
+              <span class="vreply-body">{{ e.replyText }}</span>
+            </div>
+          </div>
+        }
+      </div>
+      <ng-template #emptyTpl>
+        <div class="empty">
+          Noch keine UI-Ticks empfangen. Die visuelle Guide-Snake protokolliert hier
+          automatisch, was sie vom Frontend sieht und wie sie antwortet.
+        </div>
+      </ng-template>
+    </div>
+  `,
+  styles: [`
+    :host { display: block; height: 100%; }
+    .vlog { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+    .vlog-head {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 6px 10px; border-bottom: 1px solid #1a2d4a;
+      background: #0d1e34; font-size: 12px; font-weight: 600; color: #d8c8a8;
+    }
+    .ghost { background: transparent; border: 1px solid #2a4070; color: #7fffd4; padding: 1px 7px; border-radius: 2px; cursor: pointer; font-size: 11px; }
+    .vlist { overflow-y: auto; flex: 1; padding: 6px 10px; min-height: 0; }
+    .vitem {
+      background: #0f1c30; border: 1px solid #1a2d4a; border-left: 3px solid #3a5a8a;
+      border-radius: 3px; padding: 6px 8px; margin-bottom: 6px; font-size: 11px; line-height: 1.4;
+    }
+    .vitem.has-reply { border-left-color: #d8c8a8; }
+    .vtime { color: #6b8ab8; font-family: monospace; }
+    .vroute { color: #7fffd4; margin-top: 2px; }
+    .vsnap { color: #c8d8f8; margin-top: 3px; white-space: pre-wrap; word-break: break-word; max-height: 80px; overflow: hidden; }
+    .vreply { margin-top: 5px; padding-top: 5px; border-top: 1px dashed #2a4070; }
+    .vreply-label { color: #d8c8a8; font-weight: 600; margin-right: 4px; }
+    .vreply-body { color: #c8d8f8; }
+    .empty { color: #6b8ab8; font-size: 11px; padding: 12px; text-align: center; line-height: 1.4; }
+  `],
+})
+export class VisualSnakeLogComponent implements OnInit, OnDestroy {
+  private history = inject(ChatHistoryService);
+  private cdr = inject(ChangeDetectorRef);
+
+  entries: UiTickEntry[] = [];
+  private sub?: Subscription;
+
+  ngOnInit(): void {
+    this.sub = this.history.updated$.subscribe(() => {
+      this.rebuild();
+      this.cdr.markForCheck();
+    });
+    this.rebuild();
+  }
+
+  ngOnDestroy(): void {
+    this.sub?.unsubscribe();
+  }
+
+  refresh(): void {
+    this.rebuild();
+  }
+
+  formatTime(ts: number): string {
+    if (!ts) return '--:--';
+    // Backend stores seconds, frontend fallback uses ms — accept both
+    const ms = ts > 1e12 ? ts : ts * 1000;
+    const d = new Date(ms);
+    return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+
+  private rebuild(): void {
+    const msgs = this.history.getMessages('ananta-visual');
+    if (!msgs.length) { this.entries = []; return; }
+    const ticks: UiTickEntry[] = [];
+    let pendingTick: UiTickEntry | null = null;
+    for (const m of msgs) {
+      if (m.text?.startsWith('[ui-tick]')) {
+        if (pendingTick) ticks.push(pendingTick);
+        const snapshot = m.text.slice('[ui-tick]'.length).trim();
+        const route = snapshot.split(/\s|\|/)[0]?.trim() || '';
+        pendingTick = {
+          id: m.id,
+          ts: m.ts,
+          text: m.text,
+          route: route.startsWith('/') ? route : '',
+          snapshot,
+          preview: snapshot.length > 220 ? snapshot.slice(0, 220) + '…' : snapshot,
+        };
+      } else if (m.isAI && pendingTick) {
+        pendingTick.replyId = m.id;
+        pendingTick.replyText = m.text;
+      }
+    }
+    if (pendingTick) ticks.push(pendingTick);
+    // newest first
+    this.entries = ticks.slice().reverse();
+  }
+}

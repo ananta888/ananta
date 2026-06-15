@@ -19,11 +19,12 @@ import { ChatSessionsService, ChatSession } from '../services/chat-sessions.serv
 import { ChatHistoryService, ChatHistoryMessage } from '../services/chat-history.service';
 import { ChatMessageComponent } from './chat-message.component';
 import { UiStateSyncService } from '../services/ui-state-sync.service';
+import { VisualSnakeLogComponent } from './visual-snake-log.component';
 
 @Component({
   selector: 'app-ai-snake-chat-panel',
   standalone: true,
-  imports: [CommonModule, AsyncPipe, FormsModule, AiSnakeConfigPanelComponent, AiSnakeSharePanelComponent, AiSnakeTraceViewerComponent, ChatSessionsPanelComponent, ChatMessageComponent],
+  imports: [CommonModule, AsyncPipe, FormsModule, AiSnakeConfigPanelComponent, AiSnakeSharePanelComponent, AiSnakeTraceViewerComponent, ChatSessionsPanelComponent, ChatMessageComponent, VisualSnakeLogComponent],
   template: `
     <div class="snake-chat-panel">
       <div class="head">
@@ -196,19 +197,23 @@ import { UiStateSyncService } from '../services/ui-state-sync.service';
           }
 
           <div class="messages" #messagesEl>
-            @if (chatMessages().length === 0) {
-              <div class="no-msgs-hint">
-                Noch keine Nachrichten in diesem Chat.<br>
-                Schreib etwas unten um zu starten.
-              </div>
-            }
-            @for (m of chatMessages(); track m.id) {
-              <div class="msg" [class.msg-ai]="m.isAI">
-                <span class="msg-who">{{ m.isAI ? '🤖' : '👤' }}</span>
-                <span class="msg-body">
-                  <app-chat-message [text]="m.text" />
-                </span>
-              </div>
+            @if (isVisualLogSession()) {
+              <app-visual-snake-log />
+            } @else {
+              @if (chatMessages().length === 0) {
+                <div class="no-msgs-hint">
+                  Noch keine Nachrichten in diesem Chat.<br>
+                  Schreib etwas unten um zu starten.
+                </div>
+              }
+              @for (m of chatMessages(); track m.id) {
+                <div class="msg" [class.msg-ai]="m.isAI">
+                  <span class="msg-who">{{ m.isAI ? '🤖' : '👤' }}</span>
+                  <span class="msg-body">
+                    <app-chat-message [text]="m.text" />
+                  </span>
+                </div>
+              }
             }
             @if (svc.awaitingReply$ | async) {
               <div class="msg msg-ai typing">
@@ -427,6 +432,11 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
   isActiveSessionReadOnly(): boolean {
     const sid = this.sessions.activeSessionId$.value;
     return this.isSessionReadOnly(this.activeSessionFor(sid));
+  }
+
+  isVisualLogSession(): boolean {
+    const sid = this.sessions.activeSessionId$.value;
+    return sid === 'ananta-visual';
   }
 
   createChat(): void {
