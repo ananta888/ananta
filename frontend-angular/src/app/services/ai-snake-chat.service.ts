@@ -169,14 +169,17 @@ export class AiSnakeChatService implements OnDestroy {
 
   /** Log a region-explain event and trigger AI explanations.
    *  `steps` carries pixel coordinates + labels so the backend can construct
-   *  guide steps with AI-generated bubble texts using the original positions. */
+   *  guide steps with AI-generated bubble texts using the original positions.
+   *  Returns the request_id so callers can correlate late responses. */
   sendRegionExplainTick(
     summary: string,
     steps: Array<{ x: number; y: number; bubble: string; waypoint: string }>,
-  ): void {
+    requestId?: string,
+  ): string {
+    const rid = requestId ?? (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
     const base = this.hubUrl();
     const snakeId = this.snakeId$.value;
-    if (!base || !snakeId || !this.snakeToken || !steps.length) return;
+    if (!base || !snakeId || !this.snakeToken || !steps.length) return rid;
     const id = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
     const currentRoute = this.router.url;
     this.http.post(
@@ -190,11 +193,13 @@ export class AiSnakeChatService implements OnDestroy {
           route: currentRoute,
           ui_snapshot: summary,
           region_steps: steps,
+          request_id: rid,
         },
         session_id: 'ananta-visual',
       },
       { headers: this.withSnakeHeaders() },
     ).subscribe({ error: () => {} });
+    return rid;
   }
 
   private sendVisualSystemMessage(prefix: string, content: string): void {

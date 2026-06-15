@@ -102,6 +102,11 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
   // ── Region-select state ─────────────────────────────────────────────────────
   private regionStart: { x: number; y: number } | null = null;
   private regionCurrent: { x: number; y: number } | null = null;
+  currentRegionRequestId: string | null = null;
+  isPendingExplain = false;
+  /** Epoch ms when the last region-explain was sent — coordinates are viewport-relative
+   *  (clientX/clientY). After scroll, they may be wrong; 8 s TTL guards against that. */
+  private regionRequestedAt = 0;
 
   // ── Guided tour state ──────────────────────────────────────────────────────
   private guideSnake: SnakeState | null = null;
@@ -210,6 +215,13 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
     // Guided tour
     this.subs.push(
       this.guide.play$.subscribe(steps => this.startGuide(steps)),
+    );
+
+    // Clear pending indicator when guide becomes active
+    this.subs.push(
+      this.guide.active$.subscribe(active => {
+        if (active) this.isPendingExplain = false;
+      }),
     );
 
     this.rafId = requestAnimationFrame(() => this.loop());
@@ -360,6 +372,11 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
     ctx.clearRect(0, 0, c.width, c.height);
 
     this.drawRegionRect(ctx);
+    if (this.isPendingExplain && this.regionHits.length) {
+      const cx = this.regionHits.reduce((s, h) => s + h.cx, 0) / this.regionHits.length;
+      const cy = this.regionHits.reduce((s, h) => s + h.cy, 0) / this.regionHits.length;
+      this.drawPendingIndicator(ctx, cx, cy);
+    }
     for (const snake of this.snakes) this.drawSnake(ctx, snake);
     if (this.guideSnake) this.drawGuideBubbles(ctx, c, this.guideSnake.segs[0]);
   }
@@ -599,22 +616,48 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
       this.regionHitsClearTimer = null;
     }, 4000);
 
+    // Coordinates are clientX/clientY (viewport-relative). If the user scrolls
+    // between the request and the AI response, the positions may be wrong.
+    // stale_after_ms: 8000 — the fallback timer below enforces this TTL.
+    this.regionRequestedAt = Date.now();
+    this.isPendingExplain = true;
+
     // Request AI explanations — backend generates __GUIDE__: steps with real bubble texts.
     // The guide auto-plays when the response arrives via ChatHistoryService.
     const regionSummary = steps.map(s => s.bubble).join(' | ');
-    this.chat.sendRegionExplainTick(
+    const requestId = this.chat.sendRegionExplainTick(
       `${location.pathname} | ${regionSummary}`,
       steps.map(s => ({ x: s.x!, y: s.y!, bubble: s.bubble, waypoint: s.waypoint })),
     );
+    this.currentRegionRequestId = requestId;
+    this.guide.pendingRequestId$.next(requestId);
 
     // Fallback: play label-only guide if AI doesn't respond within 6 s
+    // The subscription + timer are always cleaned up to prevent leaks on repeated selections.
     const labelSteps = steps;
+    let cleanedUp = false;
+    const cleanup = (): void => {
+      if (cleanedUp) return;
+      cleanedUp = true;
+      clearTimeout(fallbackTimer);
+      sub.unsubscribe();
+    };
     const fallbackTimer = setTimeout(() => {
-      if (!this.guide.active$.value) this.guide.play(labelSteps);
+      cleanup();
+      this.isPendingExplain = false;
+      if (!this.guide.active$.value) {
+        this.guide.pendingRequestId$.next(null);
+        this.guide.play(labelSteps, { requestId: undefined, priority: 2 });
+      }
     }, 6000);
-    // Cancel fallback once guide starts (AI responded in time)
     const sub = this.guide.active$.subscribe(active => {
-      if (active) { clearTimeout(fallbackTimer); sub.unsubscribe(); }
+      if (active) {
+        cleanup();
+        this.isPendingExplain = false;
+        if (this.currentRegionRequestId === requestId) {
+          this.currentRegionRequestId = null;
+        }
+      }
     });
   }
 
@@ -622,6 +665,22 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
     this.regionStart   = null;
     this.regionCurrent = null;
     this.overlay.exitRegionMode();
+  }
+
+  private drawPendingIndicator(ctx: CanvasRenderingContext2D, cx: number, cy: number): void {
+    const t = performance.now() / 600;
+    const pulse = 0.5 + 0.5 * Math.sin(t * Math.PI * 2);
+    const r = 14 + pulse * 6;
+    ctx.globalAlpha = 0.55 + pulse * 0.3;
+    ctx.strokeStyle = '#7fffd4';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 0.12 + pulse * 0.08;
+    ctx.fillStyle = '#7fffd4';
+    ctx.fill();
+    ctx.globalAlpha = 1;
   }
 
   private drawRegionRect(ctx: CanvasRenderingContext2D): void {

@@ -37,7 +37,7 @@ export class UiSnapshotService {
       const foc = this.focused();
       if (foc) parts.push('focus:' + foc);
     } catch { /* never throw in draw loop */ }
-    return parts.join(' | ');
+    return parts.join(' | ').slice(0, 450);
   }
 
   // ── Extractors ──────────────────────────────────────────────────────────────
@@ -124,12 +124,15 @@ export class UiSnapshotService {
   }
 
   private focused(): string {
-    const el = document.activeElement as HTMLElement | null;
+    const el = document.activeElement as HTMLInputElement | null;
     if (!el || el === document.body || el === document.documentElement) return '';
     const tag = el.tagName.toLowerCase();
     if (tag !== 'input' && tag !== 'textarea' && tag !== 'select') return '';
     const placeholder = el.getAttribute('placeholder') || el.getAttribute('aria-label') || el.getAttribute('name') || '';
-    const val = ((el as HTMLInputElement).value || '').slice(0, 40);
+    const isSensitive = el.type === 'password'
+      || /password|token|key|secret/i.test(el.getAttribute('name') ?? '')
+      || /password|token|key|secret/i.test(el.getAttribute('autocomplete') ?? '');
+    const val = isSensitive ? '[***]' : (el.value || '').slice(0, 40);
     const label = placeholder ? `[${placeholder.slice(0, 20)}]` : '';
     return `${tag}${label}="${val}"`;
   }

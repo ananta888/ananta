@@ -76,7 +76,11 @@ export class ChatHistoryService implements OnDestroy {
         try {
           const guide = JSON.parse(guideJson);
           if (Array.isArray(guide?.steps) && guide.steps.length) {
-            this.guide.play(guide.steps);
+            const requestId: string | undefined = guide.request_id;
+            // Skip stale responses when the pending request_id no longer matches.
+            if (!requestId || this.guide.acceptGuideForRequest(requestId)) {
+              this.guide.play(guide.steps, { requestId, priority: 2 });
+            }
           }
         } catch { /* malformed guide JSON — skip */ }
       }

@@ -3,6 +3,19 @@ import { CommonModule, AsyncPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ChatSessionsService, ChatSession, CreateSessionPayload } from '../services/chat-sessions.service';
 
+const PUG_PRESETS = {
+  quiet:    { predictive_guide_dwell_ms: 5000, predictive_guide_min_confidence: 0.7,  predictive_guide_multi_candidates: 1 },
+  balanced: { predictive_guide_dwell_ms: 1500, predictive_guide_min_confidence: 0.55, predictive_guide_multi_candidates: 3 },
+  eager:    { predictive_guide_dwell_ms: 800,  predictive_guide_min_confidence: 0.35, predictive_guide_multi_candidates: 5 },
+} as const;
+
+const PUG_DESCRIPTIONS: Record<string, string> = {
+  quiet:    'dwell=5000ms, confidence=0.7, candidates=1 — Snake reagiert selten, nur bei klaren Änderungen',
+  balanced: 'dwell=1500ms, confidence=0.55, candidates=3 — Ausgewogenes Verhalten',
+  eager:    'dwell=800ms, confidence=0.35, candidates=5 — Snake reagiert häufig auf jede Änderung',
+  custom:   'Individuelle Einstellungen aktiv',
+};
+
 interface SessionGroup { name: string; sessions: ChatSession[]; }
 
 @Component({
@@ -156,6 +169,30 @@ interface SessionGroup { name: string; sessions: ChatSession[]; }
                     >{{ isOverride(s,'chat_include_wikipedia') ? '●' : '○' }}</span>
                   </label>
                 </div>
+
+                <!-- PUG Predictive-Guide Presets — only for ananta-visual session -->
+                @if (s.id === 'ananta-visual') {
+                  <div class="pug-section">
+                    <div class="pug-title">Predictive Guide (PUG)</div>
+                    <div class="pug-preset-bar">
+                      <button class="pug-btn" [class.active]="pugPreset(s)==='quiet'"    (click)="applyPugPreset(s,'quiet')">Quiet</button>
+                      <button class="pug-btn" [class.active]="pugPreset(s)==='balanced'" (click)="applyPugPreset(s,'balanced')">Balanced</button>
+                      <button class="pug-btn" [class.active]="pugPreset(s)==='eager'"    (click)="applyPugPreset(s,'eager')">Eager</button>
+                      @if (pugPreset(s)==='custom') {
+                        <span class="pug-custom">Custom</span>
+                      }
+                    </div>
+                    <div class="pug-desc">{{ pugDescription(s) }}</div>
+                    <div class="cfg-checkboxes" style="margin-top:4px">
+                      <label class="cfg-check">
+                        <input type="checkbox"
+                               [ngModel]="getBool(s,'predictive_guide_enabled')"
+                               (ngModelChange)="patchSetting(s,'predictive_guide_enabled',$event)" />
+                        PUG aktiv
+                      </label>
+                    </div>
+                  </div>
+                }
 
                 <!-- Group -->
                 <div class="cfg-row">
@@ -375,6 +412,22 @@ interface SessionGroup { name: string; sessions: ChatSession[]; }
     .create-btn:not(:disabled):hover { background: #183250; }
 
     .err { color: #fb7185; font-size: 11px; padding: 5px 10px; }
+
+    /* ── PUG preset section ── */
+    .pug-section {
+      background: #07111e; border: 1px solid #1a3050; border-radius: 3px;
+      padding: 7px 9px; display: flex; flex-direction: column; gap: 5px;
+    }
+    .pug-title { font-size: 10px; color: #3a7aaa; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
+    .pug-preset-bar { display: flex; gap: 4px; align-items: center; }
+    .pug-btn {
+      background: transparent; border: 1px solid #1a3050; color: #4a6a9a;
+      padding: 2px 8px; cursor: pointer; font-size: 10px; border-radius: 2px;
+    }
+    .pug-btn:hover { color: #c8d8f8; }
+    .pug-btn.active { color: #7fffd4; border-color: #2a6a7a; background: #0a2030; }
+    .pug-custom { font-size: 10px; color: #7a5a3a; border: 1px solid #3a2a1a; padding: 2px 6px; border-radius: 2px; }
+    .pug-desc { font-size: 10px; color: #4a6a8a; line-height: 1.5; }
   `],
 })
 export class ChatSessionsPanelComponent implements OnInit {
@@ -515,5 +568,26 @@ export class ChatSessionsPanelComponent implements OnInit {
     this.promptDebounce = setTimeout(() => {
       this.svc.update(s.id, { system_prompt: value });
     }, 600);
+  }
+
+  pugPreset(s: ChatSession): 'quiet' | 'balanced' | 'eager' | 'custom' {
+    for (const [name, vals] of Object.entries(PUG_PRESETS) as Array<[string, Record<string, unknown>]>) {
+      const matches = Object.entries(vals).every(([k, v]) => s.settings?.[k] === v || (!s.settings?.[k] && !v));
+      if (matches) return name as 'quiet' | 'balanced' | 'eager';
+    }
+    const hasPugSettings = Object.keys(s.settings || {}).some(k => k.startsWith('predictive_guide_dwell') || k.startsWith('predictive_guide_min'));
+    if (!hasPugSettings) return 'balanced'; // balanced is the default
+    return 'custom';
+  }
+
+  pugDescription(s: ChatSession): string {
+    return PUG_DESCRIPTIONS[this.pugPreset(s)] ?? '';
+  }
+
+  applyPugPreset(s: ChatSession, preset: 'quiet' | 'balanced' | 'eager'): void {
+    const vals = PUG_PRESETS[preset];
+    for (const [k, v] of Object.entries(vals)) {
+      this.svc.update(s.id, { settings: { [k]: v } });
+    }
   }
 }

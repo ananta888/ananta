@@ -1,0 +1,44 @@
+name: Visual Guide Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run Visual Guide test matrix
+        run: |
+          pytest \
+            tests/test_visual_guide_snapshot_state.py \
+            tests/test_visual_guide_state_isolation.py \
+            tests/test_visual_guide_rate_limit.py \
+            tests/test_visual_guide_privacy.py \
+            tests/test_snapshot_diff_api_integration.py \
+            tests/test_region_explain_validation.py \
+            -v
+
+  frontend-typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install frontend dependencies
+        run: cd frontend-angular && npm ci
+
+      - name: TypeScript type-check
+        run: cd frontend-angular && npx tsc --noEmit

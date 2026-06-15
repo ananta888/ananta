@@ -10,6 +10,7 @@ import sys
 import threading
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -614,10 +615,20 @@ def _append_room_ai_message(*, text: str, session_id: str = "", visibility: str 
 
 
 # ── Visual snake session (ananta-visual) ───────────────────────────────────────
-_visual_last_snapshot: str = ""
-_visual_last_reply_at: float = 0.0
+# VG-003: Per-snake state lives in agent.services.visual_guide.service._visual_state.
+# We re-export it here for backward compat with tests/monkeypatches that reference
+# _visual_state via this module.  The dict object is shared — mutations are reflected
+# in both places because Python dicts are reference types.
+def _get_visual_state_ref() -> dict:
+    """Lazy accessor that avoids a circular import at module init time."""
+    from agent.services.visual_guide.service import _visual_state as _vs
+    return _vs
+
 _VISUAL_THROTTLE_S: float = 25.0  # minimum seconds between visual replies
 _VISUAL_SESSION_ID: str = "ananta-visual"  # tag for messages belonging to the visual snake session
+
+# VG-053: ThreadPoolExecutor replaces daemon threads for visual guide calls
+_VISUAL_GUIDE_EXECUTOR = ThreadPoolExecutor(max_workers=4, thread_name_prefix="visual-guide")
 
 
 def _visual_session_settings() -> dict:
@@ -645,14 +656,15 @@ def _visual_session_log_deltas_only() -> bool:
     return bool(_visual_session_settings().get("predictive_guide_log_deltas_only", True))
 
 
-def _append_visual_user_tick(*, ui_snapshot: str) -> None:
+def _append_visual_user_tick(*, ui_snapshot: str, snake_id: str = "") -> None:
     """Persist the incoming UI snapshot as a system message in the ananta-visual session
     so the user can later review what the visual snake observed.
 
     When the session has predictive_guide_log_deltas_only=True, also append
     a [ui-delta] system message containing the human-readable diff between
-    the previous and current snapshot."""
-    global _visual_last_snapshot
+    the previous and current snapshot.
+
+    VG-003: snake_id scopes the delta_snapshot state per-snake."""
     text = f"[ui-tick] {ui_snapshot}" if ui_snapshot else "[ui-tick] (leer)"
     _append_room_ai_message(
         text=text,
@@ -666,9 +678,13 @@ def _append_visual_user_tick(*, ui_snapshot: str) -> None:
         return
     log_deltas = _visual_session_log_deltas_only()
     if log_deltas:
+        # Per-snake delta baseline (VG-003)
+        from agent.services.visual_guide.service import _get_visual_state
+        state = _get_visual_state(snake_id) if snake_id else None
+        prev_delta = (state["delta_snapshot"] if state else "") or ""
         try:
             from agent.services.snapshot_delta import diff_snapshots
-            delta = diff_snapshots(_visual_last_snapshot or "", ui_snapshot)
+            delta = diff_snapshots(prev_delta, ui_snapshot)
             if not delta.is_empty():
                 delta_text = f"[ui-delta] {delta.as_compact_text()}"
                 _append_room_ai_message(
@@ -679,12 +695,19 @@ def _append_visual_user_tick(*, ui_snapshot: str) -> None:
                 )
         except Exception as exc:  # never let the delta path break the raw tick
             logging.getLogger(__name__).debug("ananta-visual delta log failed: %s", exc)
-    # Track the most recent snapshot for next call
-    _visual_last_snapshot = ui_snapshot
+    # Update per-snake delta baseline — separate from reply-throttle key
+    if snake_id:
+        from agent.services.visual_guide.service import _get_visual_state
+        state = _get_visual_state(snake_id)
+        state["delta_snapshot"] = ui_snapshot
+        state["updated_at"] = time.time()
 
 
-def _spawn_visual_reply(ui_snapshot: str) -> None:
+def _spawn_visual_reply(ui_snapshot: str, snake_id: str = "") -> None:
     """Background: generate a proactive guide response for the visual snake session.
+
+    VG-003: snake_id scopes reply throttle state per-snake.
+    VG-010/011: delegates to VisualGuideService which uses ModelInvocationService.
 
     When predictive_guide_enabled is False the call is a no-op.
     When predictive_guide_multi_candidates > 1 the LLM is asked to produce
@@ -692,162 +715,28 @@ def _spawn_visual_reply(ui_snapshot: str) -> None:
         <primary bubble text>
         __CANDIDATES__: [{"label":"primary","bubble":"...","steps":[...]}, ...]
     Single-candidate mode keeps the legacy __GUIDE__: format."""
-    global _visual_last_snapshot, _visual_last_reply_at
-    now = time.time()
-    if ui_snapshot == _visual_last_snapshot:
-        return
-    if now - _visual_last_reply_at < _VISUAL_THROTTLE_S:
-        return
-
-    pug = _visual_session_settings()
-    if not pug.get("predictive_guide_enabled", False):
-        return
-
-    _visual_last_snapshot = ui_snapshot
-    _visual_last_reply_at = now
-
-    n_candidates = max(1, min(5, int(pug.get("predictive_guide_multi_candidates", 3))))
-    _log = logging.getLogger(__name__)
-    _log.info(
-        "ananta-visual: generating %d-candidate guide for snapshot=%r",
-        n_candidates, ui_snapshot[:80],
+    from agent.services.visual_guide.service import _visual_guide_service
+    _visual_guide_service.handle_ui_tick(
+        snake_id=snake_id,
+        ui_snapshot=ui_snapshot,
+        route="",
+        visible_waypoints=[],
     )
 
-    try:
-        from agent.routes.ai_snake_config import _current_config
-        _cfg = _current_config()
-        model    = str(_cfg.get("chat_model") or "gpt-4o-mini")
-        api_base = str(_cfg.get("chat_api_base") or "")
-        api_key  = str(_cfg.get("chat_api_key")  or "")
 
-        if n_candidates == 1:
-            system_prompt = (
-                "Du bist die orangene Guide-Snake in der Ananta App — eine kleine KI-Schlange "
-                "die den User visuell durch die App führt.\n"
-                "Du bekommst den aktuellen UI-Zustand als kompakten Text.\n"
-                "Reagiere in 1-2 kurzen deutschen Sätzen auf das was der User gerade sieht.\n"
-                'Füge wenn sinnvoll __GUIDE__: Steps an (JSON, Format: {"steps":[{"waypoint":"...","bubble":"...","delay_ms":3000}]}).\n'
-                "Wenn der Zustand trivial/unklar ist, antworte mit leerem Text."
-            )
-        else:
-            system_prompt = (
-                f"Du bist die orangene Guide-Snake in der Ananta App.\n"
-                f"Generiere genau {n_candidates} alternative Guide-Vorschläge für den aktuellen UI-Zustand.\n"
-                f"Antworte NUR mit folgendem JSON (kein weiterer Text davor oder danach):\n"
-                f'__CANDIDATES__: [{{"label":"primary","bubble":"<Guide-Satz auf Deutsch>",'
-                f'"steps":[{{"waypoint":"...","bubble":"...","delay_ms":3000}}]}},'
-                f'{{"label":"alt-1","bubble":"<Alternative>","steps":[]}}]\n'
-                f"Wenn der Zustand trivial ist, antworte mit: __CANDIDATES__: []"
-            )
-        user_msg = f"Aktueller UI-Zustand:\n{ui_snapshot}"
-
-        import openai as _oai
-        _client_kwargs: dict[str, Any] = {"api_key": api_key or "sk-no-key"}
-        if api_base:
-            _client_kwargs["base_url"] = api_base
-        _client = _oai.OpenAI(**_client_kwargs)
-        _resp = _client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user",   "content": user_msg},
-            ],
-            max_tokens=400 if n_candidates > 1 else 200,
-            temperature=0.4,
-        )
-        answer = (_resp.choices[0].message.content or "").strip()
-        if answer:
-            _append_room_ai_message(
-                text=answer,
-                session_id=_VISUAL_SESSION_ID,
-                visibility="room",
-            )
-            _log.info("ananta-visual: reply appended (%d chars)", len(answer))
-    except Exception as exc:
-        logging.getLogger(__name__).warning("ananta-visual reply failed: %s", exc)
-
-
-def _spawn_region_explain_reply(region_steps: list[dict], route: str) -> None:
+def _spawn_region_explain_reply(region_steps: list[dict], route: str, snake_id: str = "") -> None:
     """Background: generate AI explanations for each element the user selected.
 
+    VG-010/011: delegates to VisualGuideService which uses ModelInvocationService.
     Builds a __GUIDE__: response with the original pixel coordinates from
     region_steps and AI-generated bubble texts, so the client can play
     the guide with real explanations instead of raw element labels."""
-    if not region_steps:
-        return
-    _log = logging.getLogger(__name__)
-    try:
-        from agent.routes.ai_snake_config import _current_config
-        _cfg = _current_config()
-        model    = str(_cfg.get("chat_model") or "gpt-4o-mini")
-        api_base = str(_cfg.get("chat_api_base") or "")
-        api_key  = str(_cfg.get("chat_api_key")  or "")
-
-        labels = [str(s.get("bubble") or "") for s in region_steps if s.get("bubble")]
-        if not labels:
-            return
-
-        elements_list = "\n".join(f"{i+1}. {lbl}" for i, lbl in enumerate(labels))
-        system_prompt = (
-            "Du bist die orangene Guide-Snake in der Ananta App.\n"
-            "Der User hat eine Region auf der Seite markiert und möchte kurze Erklärungen.\n"
-            "Gib für jedes Element EINE kurze Erklärung auf Deutsch (max 12 Wörter).\n"
-            "Antworte NUR mit einem JSON-Array, genau so viele Einträge wie Elemente:\n"
-            '["Erklärung für Element 1", "Erklärung für Element 2", ...]'
-        )
-        user_msg = f"Seite: {route or '(unbekannt)'}\n\nAusgewählte Elemente:\n{elements_list}"
-
-        import openai as _oai
-        _client_kwargs: dict[str, Any] = {"api_key": api_key or "sk-no-key"}
-        if api_base:
-            _client_kwargs["base_url"] = api_base
-        _client = _oai.OpenAI(**_client_kwargs)
-        _resp = _client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user",   "content": user_msg},
-            ],
-            max_tokens=300,
-            temperature=0.3,
-        )
-        raw = (_resp.choices[0].message.content or "").strip()
-        # Extract JSON array from response (handle markdown fences)
-        import re as _re
-        json_match = _re.search(r'\[.*\]', raw, _re.DOTALL)
-        if not json_match:
-            _log.warning("region-explain: LLM returned no JSON array: %r", raw[:120])
-            return
-        explanations: list[str] = json.loads(json_match.group())
-        if not isinstance(explanations, list):
-            return
-
-        # Build guide steps: original pixel coordinates + AI explanation bubbles
-        guide_steps = []
-        for i, step in enumerate(region_steps):
-            bubble = explanations[i].strip() if i < len(explanations) else str(step.get("bubble") or "")
-            if not bubble:
-                continue
-            guide_steps.append({
-                "waypoint": str(step.get("waypoint") or "__region__"),
-                "bubble":   bubble[:100],
-                "delay_ms": 3500,
-                "x": float(step["x"]),
-                "y": float(step["y"]),
-            })
-
-        if not guide_steps:
-            return
-
-        guide_json = json.dumps({"steps": guide_steps})
-        _append_room_ai_message(
-            text=f"\n\n__GUIDE__:{guide_json}",
-            session_id=_VISUAL_SESSION_ID,
-            visibility="room",
-        )
-        _log.info("region-explain: guide reply with %d steps appended", len(guide_steps))
-    except Exception as exc:
-        logging.getLogger(__name__).warning("region-explain reply failed: %s", exc)
+    from agent.services.visual_guide.service import _visual_guide_service
+    _visual_guide_service.handle_region_explain(
+        snake_id=snake_id,
+        region_steps=region_steps,
+        route=route,
+    )
 
 
 def _build_room_conversation_history(
@@ -1648,9 +1537,9 @@ def chat_send(snake_id: str):
                 "updated_at": time.time(),
             }
             # Persist the incoming tick in the ananta-visual session for later analysis
-            _append_visual_user_tick(ui_snapshot=_ui_snap)
-            import threading as _thr
-            _thr.Thread(target=_spawn_visual_reply, args=(_ui_snap,), daemon=True).start()
+            _append_visual_user_tick(ui_snapshot=_ui_snap, snake_id=snake_id)
+            # VG-053: submit to ThreadPoolExecutor instead of daemon thread
+            _VISUAL_GUIDE_EXECUTOR.submit(_spawn_visual_reply, _ui_snap, snake_id)
         return jsonify({"ok": True, "id": str(body.get("id") or "")}), 202
 
     # Region-explain event: user drew a selection. Log it and spawn AI explanations.
@@ -1665,12 +1554,8 @@ def chat_send(snake_id: str):
         _region_steps = list((ui_context or {}).get("region_steps") or [])
         _region_route = str((ui_context or {}).get("route") or "").strip()
         if _region_steps:
-            import threading as _thr
-            _thr.Thread(
-                target=_spawn_region_explain_reply,
-                args=(_region_steps, _region_route),
-                daemon=True,
-            ).start()
+            # VG-053: submit to ThreadPoolExecutor instead of daemon thread
+            _VISUAL_GUIDE_EXECUTOR.submit(_spawn_region_explain_reply, _region_steps, _region_route, snake_id)
         return jsonify({"ok": True, "id": str(body.get("id") or "")}), 202
 
     if channel_type not in _VALID_CHANNEL_TYPES:

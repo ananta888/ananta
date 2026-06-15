@@ -20,15 +20,17 @@ interface UiTickEntry {
   id: string;
   ts: number;
   text: string;            // full [ui-tick] ... text
-  kind: 'tick' | 'explain';
+  kind: 'tick' | 'delta' | 'explain';
   route: string;            // first path-like token in the snapshot
   snapshot: string;         // full compact snapshot
-  preview: string;          // first 200 chars of the snapshot, formatted
+  preview: string;          // first 220 chars of the snapshot, formatted
   replyId?: string;         // id of the AI reply that followed, if any
   replyText?: string;       // primary bubble (stripped of __CANDIDATES__/__GUIDE__)
   candidates?: GuideCandidate[];  // full multi-candidate list (when n_candidates > 1)
   showCandidates?: boolean;       // UI toggle for the alternatives accordion
 }
+
+type FilterKind = 'all' | 'tick' | 'delta' | 'explain' | 'guide';
 
 @Component({
   selector: 'app-visual-snake-log',
@@ -37,20 +39,29 @@ interface UiTickEntry {
   template: `
     <div class="vlog">
       <div class="vlog-head">
-        <span>🐍 Visual Snake Log</span>
+        <span>Snake Log</span>
+        <div class="filter-bar">
+          <button class="fbtn" [class.active]="activeFilter==='all'"     (click)="setFilter('all')">Alle</button>
+          <button class="fbtn" [class.active]="activeFilter==='tick'"    (click)="setFilter('tick')">[ui-tick]</button>
+          <button class="fbtn" [class.active]="activeFilter==='delta'"   (click)="setFilter('delta')">[ui-delta]</button>
+          <button class="fbtn" [class.active]="activeFilter==='explain'" (click)="setFilter('explain')">[explain]</button>
+          <button class="fbtn" [class.active]="activeFilter==='guide'"   (click)="setFilter('guide')">Guide</button>
+        </div>
         <button class="ghost" (click)="refresh()" title="Neu laden">↻</button>
       </div>
-      <div class="vlist" *ngIf="entries.length; else emptyTpl">
-        @for (e of entries; track e.id) {
-          <div class="vitem" [class.has-reply]="!!e.replyId" [class.is-explain]="e.kind === 'explain'">
+      <div class="vlist" *ngIf="filteredEntries().length; else emptyTpl">
+        @for (e of filteredEntries(); track e.id) {
+          <div class="vitem" [class.has-reply]="!!e.replyId" [class.is-explain]="e.kind === 'explain'" [class.is-delta]="e.kind === 'delta'">
             <div class="vtime">
               {{ formatTime(e.ts) }}
-              <span class="vkind" *ngIf="e.kind === 'explain'">🔲 Erklären</span>
+              <span class="vkind" *ngIf="e.kind === 'explain'">Erklären</span>
+              <span class="vkind delta" *ngIf="e.kind === 'delta'">delta</span>
+              <button class="export-btn" (click)="downloadDebugExport(e)" title="Export">⬇</button>
             </div>
-            <div class="vroute" *ngIf="e.route">📍 {{ e.route }}</div>
-            <div class="vsnap" [title]="e.snapshot">{{ e.preview }}</div>
+            <div class="vroute" *ngIf="e.route">{{ e.route }}</div>
+            <div class="vsnap" [class.delta-snap]="e.kind === 'delta'" [title]="e.snapshot">{{ e.preview }}</div>
             <div class="vreply" *ngIf="e.replyText">
-              <span class="vreply-label">🐍 Snake →</span>
+              <span class="vreply-label">Snake →</span>
               <span class="vreply-body">{{ e.replyText }}</span>
             </div>
             @if (e.candidates && e.candidates.length > 1) {
@@ -73,7 +84,7 @@ interface UiTickEntry {
       </div>
       <ng-template #emptyTpl>
         <div class="empty">
-          Noch keine UI-Ticks empfangen. Die visuelle Guide-Snake protokolliert hier
+          Noch keine Einträge für diesen Filter. Die visuelle Guide-Snake protokolliert hier
           automatisch, was sie vom Frontend sieht und wie sie antwortet.
         </div>
       </ng-template>
@@ -84,27 +95,41 @@ interface UiTickEntry {
     .vlog { display: flex; flex-direction: column; height: 100%; min-height: 0; }
     .vlog-head {
       display: flex; justify-content: space-between; align-items: center;
-      padding: 6px 10px; border-bottom: 1px solid #1a2d4a;
+      padding: 4px 8px; border-bottom: 1px solid #1a2d4a;
       background: #0d1e34; font-size: 12px; font-weight: 600; color: #d8c8a8;
+      flex-wrap: wrap; gap: 4px;
     }
+    .filter-bar { display: flex; gap: 3px; }
+    .fbtn {
+      background: transparent; border: 1px solid #1a2d4a; color: #4a6a9a;
+      padding: 2px 6px; cursor: pointer; font-size: 10px; border-radius: 2px;
+    }
+    .fbtn.active { color: #7fffd4; border-color: #2a5a7a; background: #0a2030; }
+    .fbtn:hover:not(.active) { color: #c8d8f8; }
     .ghost { background: transparent; border: 1px solid #2a4070; color: #7fffd4; padding: 1px 7px; border-radius: 2px; cursor: pointer; font-size: 11px; }
     .vlist { overflow-y: auto; flex: 1; padding: 6px 10px; min-height: 0; }
     .vitem {
       background: #0f1c30; border: 1px solid #1a2d4a; border-left: 3px solid #3a5a8a;
-      border-radius: 3px; padding: 6px 8px; margin-bottom: 6px; font-size: 11px; line-height: 1.4;
+      border-radius: 3px; padding: 5px 7px; margin-bottom: 5px; font-size: 11px; line-height: 1.4;
     }
     .vitem.has-reply { border-left-color: #d8c8a8; }
     .vitem.is-explain { border-left-color: #7fffd4; background: #0d1e2c; }
+    .vitem.is-delta { border-left-color: #3a6a9a; background: #0c1828; }
     .vkind { margin-left: 6px; color: #7fffd4; font-size: 10px; font-weight: 600; }
-    .vtime { color: #6b8ab8; font-family: monospace; }
-    .vroute { color: #7fffd4; margin-top: 2px; }
+    .vkind.delta { color: #4a7aaa; }
+    .export-btn {
+      margin-left: auto; background: transparent; border: none; color: #2a4a6a;
+      cursor: pointer; font-size: 11px; padding: 0 2px;
+    }
+    .export-btn:hover { color: #7fffd4; }
+    .vtime { color: #6b8ab8; font-family: monospace; display: flex; align-items: center; gap: 4px; }
+    .vroute { color: #7fffd4; margin-top: 2px; font-size: 10px; }
     .vsnap { color: #c8d8f8; margin-top: 3px; white-space: pre-wrap; word-break: break-word; max-height: 80px; overflow: hidden; }
+    .vsnap.delta-snap { color: #6b8ab8; font-size: 10px; }
     .vreply { margin-top: 5px; padding-top: 5px; border-top: 1px dashed #2a4070; }
     .vreply-label { color: #d8c8a8; font-weight: 600; margin-right: 4px; }
     .vreply-body { color: #c8d8f8; }
-    .vcand-toggle {
-      margin-top: 4px; font-size: 10px; color: #6b8ab8; cursor: pointer; user-select: none;
-    }
+    .vcand-toggle { margin-top: 4px; font-size: 10px; color: #6b8ab8; cursor: pointer; user-select: none; }
     .vcand-toggle:hover { color: #a8c7ff; }
     .vcand-list { margin-top: 4px; padding-left: 8px; border-left: 2px solid #1a2d4a; }
     .vcand-item { display: flex; gap: 6px; padding: 2px 0; font-size: 10px; color: #8aa8d8; }
@@ -118,6 +143,7 @@ export class VisualSnakeLogComponent implements OnInit, OnDestroy {
   private cdr = inject(ChangeDetectorRef);
 
   entries: UiTickEntry[] = [];
+  activeFilter: FilterKind = 'all';
   private sub?: Subscription;
 
   ngOnInit(): void {
@@ -136,12 +162,34 @@ export class VisualSnakeLogComponent implements OnInit, OnDestroy {
     this.rebuild();
   }
 
+  setFilter(f: FilterKind): void {
+    this.activeFilter = f;
+  }
+
+  filteredEntries(): UiTickEntry[] {
+    if (this.activeFilter === 'all') return this.entries;
+    if (this.activeFilter === 'guide') return this.entries.filter(e => !!e.replyText);
+    return this.entries.filter(e => e.kind === this.activeFilter);
+  }
+
   formatTime(ts: number): string {
     if (!ts) return '--:--';
-    // Backend stores seconds, frontend fallback uses ms — accept both
     const ms = ts > 1e12 ? ts : ts * 1000;
     const d = new Date(ms);
     return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+
+  downloadDebugExport(entry: UiTickEntry): void {
+    const raw = JSON.stringify({ entry, timestamp: new Date().toISOString() }, null, 2);
+    // Redact API keys from export
+    const redacted = raw.replace(/sk-[A-Za-z0-9]+/g, 'sk-[REDACTED]');
+    const blob = new Blob([redacted], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `vg-debug-${entry.id.slice(0, 8)}-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   private rebuild(): void {
@@ -160,14 +208,21 @@ export class VisualSnakeLogComponent implements OnInit, OnDestroy {
           snapshot,
           preview: snapshot.length > 220 ? snapshot.slice(0, 220) + '…' : snapshot,
         };
+      } else if (m.text?.startsWith('[ui-delta]')) {
+        if (pendingTick) ticks.push(pendingTick);
+        const content = m.text.slice('[ui-delta]'.length).trim();
+        pendingTick = {
+          id: m.id, ts: m.ts, text: m.text, kind: 'delta',
+          route: '',
+          snapshot: content,
+          preview: content.length > 220 ? content.slice(0, 220) + '…' : content,
+        };
       } else if (m.text?.startsWith('[region-explain]')) {
         if (pendingTick) ticks.push(pendingTick);
         const content = m.text.slice('[region-explain]'.length).trim();
         const route = content.split('|')[0]?.trim() || '';
-        const elements = content.split('|').slice(1).map(s => s.trim()).filter(Boolean);
-        const preview = elements.length
-          ? elements.join('\n')
-          : content;
+        const elements = content.split('|').slice(1).map((s: string) => s.trim()).filter(Boolean);
+        const preview = elements.length ? elements.join('\n') : content;
         pendingTick = {
           id: m.id, ts: m.ts, text: m.text, kind: 'explain',
           route: route.startsWith('/') ? route : '',
@@ -177,7 +232,6 @@ export class VisualSnakeLogComponent implements OnInit, OnDestroy {
       } else if (m.isAI && pendingTick) {
         pendingTick.replyId = m.id;
         const raw = m.text ?? '';
-        // Parse __CANDIDATES__: [...] (multi-candidate format)
         if (raw.includes('__CANDIDATES__:')) {
           try {
             const json = raw.slice(raw.indexOf('__CANDIDATES__:') + '__CANDIDATES__:'.length).trim();
