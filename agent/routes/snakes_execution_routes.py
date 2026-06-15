@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import secrets
@@ -764,6 +765,89 @@ def _spawn_visual_reply(ui_snapshot: str) -> None:
             _log.info("ananta-visual: reply appended (%d chars)", len(answer))
     except Exception as exc:
         logging.getLogger(__name__).warning("ananta-visual reply failed: %s", exc)
+
+
+def _spawn_region_explain_reply(region_steps: list[dict], route: str) -> None:
+    """Background: generate AI explanations for each element the user selected.
+
+    Builds a __GUIDE__: response with the original pixel coordinates from
+    region_steps and AI-generated bubble texts, so the client can play
+    the guide with real explanations instead of raw element labels."""
+    if not region_steps:
+        return
+    _log = logging.getLogger(__name__)
+    try:
+        from agent.routes.ai_snake_config import _current_config
+        _cfg = _current_config()
+        model    = str(_cfg.get("chat_model") or "gpt-4o-mini")
+        api_base = str(_cfg.get("chat_api_base") or "")
+        api_key  = str(_cfg.get("chat_api_key")  or "")
+
+        labels = [str(s.get("bubble") or "") for s in region_steps if s.get("bubble")]
+        if not labels:
+            return
+
+        elements_list = "\n".join(f"{i+1}. {lbl}" for i, lbl in enumerate(labels))
+        system_prompt = (
+            "Du bist die orangene Guide-Snake in der Ananta App.\n"
+            "Der User hat eine Region auf der Seite markiert und möchte kurze Erklärungen.\n"
+            "Gib für jedes Element EINE kurze Erklärung auf Deutsch (max 12 Wörter).\n"
+            "Antworte NUR mit einem JSON-Array, genau so viele Einträge wie Elemente:\n"
+            '["Erklärung für Element 1", "Erklärung für Element 2", ...]'
+        )
+        user_msg = f"Seite: {route or '(unbekannt)'}\n\nAusgewählte Elemente:\n{elements_list}"
+
+        import openai as _oai
+        _client_kwargs: dict[str, Any] = {"api_key": api_key or "sk-no-key"}
+        if api_base:
+            _client_kwargs["base_url"] = api_base
+        _client = _oai.OpenAI(**_client_kwargs)
+        _resp = _client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user",   "content": user_msg},
+            ],
+            max_tokens=300,
+            temperature=0.3,
+        )
+        raw = (_resp.choices[0].message.content or "").strip()
+        # Extract JSON array from response (handle markdown fences)
+        import re as _re
+        json_match = _re.search(r'\[.*\]', raw, _re.DOTALL)
+        if not json_match:
+            _log.warning("region-explain: LLM returned no JSON array: %r", raw[:120])
+            return
+        explanations: list[str] = json.loads(json_match.group())
+        if not isinstance(explanations, list):
+            return
+
+        # Build guide steps: original pixel coordinates + AI explanation bubbles
+        guide_steps = []
+        for i, step in enumerate(region_steps):
+            bubble = explanations[i].strip() if i < len(explanations) else str(step.get("bubble") or "")
+            if not bubble:
+                continue
+            guide_steps.append({
+                "waypoint": str(step.get("waypoint") or "__region__"),
+                "bubble":   bubble[:100],
+                "delay_ms": 3500,
+                "x": float(step["x"]),
+                "y": float(step["y"]),
+            })
+
+        if not guide_steps:
+            return
+
+        guide_json = json.dumps({"steps": guide_steps})
+        _append_room_ai_message(
+            text=f"\n\n__GUIDE__:{guide_json}",
+            session_id=_VISUAL_SESSION_ID,
+            visibility="room",
+        )
+        _log.info("region-explain: guide reply with %d steps appended", len(guide_steps))
+    except Exception as exc:
+        logging.getLogger(__name__).warning("region-explain reply failed: %s", exc)
 
 
 def _build_room_conversation_history(
@@ -1569,8 +1653,8 @@ def chat_send(snake_id: str):
             _thr.Thread(target=_spawn_visual_reply, args=(_ui_snap,), daemon=True).start()
         return jsonify({"ok": True, "id": str(body.get("id") or "")}), 202
 
-    # Region-explain event: user drew a selection + triggered element-by-element guide.
-    # Log it in ananta-visual without spawning an AI reply (guide runs client-side).
+    # Region-explain event: user drew a selection. Log it and spawn AI explanations.
+    # The AI returns __GUIDE__: steps with original pixel coordinates + explanation bubbles.
     if visibility == "system" and text.startswith("[region-explain]"):
         _append_room_ai_message(
             text=text[:500],
@@ -1578,6 +1662,15 @@ def chat_send(snake_id: str):
             visibility="system",
             sender_id="browser",
         )
+        _region_steps = list((ui_context or {}).get("region_steps") or [])
+        _region_route = str((ui_context or {}).get("route") or "").strip()
+        if _region_steps:
+            import threading as _thr
+            _thr.Thread(
+                target=_spawn_region_explain_reply,
+                args=(_region_steps, _region_route),
+                daemon=True,
+            ).start()
         return jsonify({"ok": True, "id": str(body.get("id") or "")}), 202
 
     if channel_type not in _VALID_CHANNEL_TYPES:

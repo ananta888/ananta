@@ -591,19 +591,31 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
     this.overlay.exitRegionMode();
     if (!steps.length) return;
 
-    // Flash hit-circles briefly before guide starts
+    // Flash hit-circles until guide plays or AI response arrives (~4 s)
     this.regionHits = steps.map(s => ({ cx: s.x!, cy: s.y! }));
     if (this.regionHitsClearTimer) clearTimeout(this.regionHitsClearTimer);
     this.regionHitsClearTimer = setTimeout(() => {
       this.regionHits = [];
       this.regionHitsClearTimer = null;
-    }, 1200);
+    }, 4000);
 
-    // Log the explain request to Visual Snake Log so it's visible there
+    // Request AI explanations — backend generates __GUIDE__: steps with real bubble texts.
+    // The guide auto-plays when the response arrives via ChatHistoryService.
     const regionSummary = steps.map(s => s.bubble).join(' | ');
-    this.chat.sendRegionExplainTick(`${location.pathname} | ${regionSummary}`);
+    this.chat.sendRegionExplainTick(
+      `${location.pathname} | ${regionSummary}`,
+      steps.map(s => ({ x: s.x!, y: s.y!, bubble: s.bubble, waypoint: s.waypoint })),
+    );
 
-    this.guide.play(steps);
+    // Fallback: play label-only guide if AI doesn't respond within 6 s
+    const labelSteps = steps;
+    const fallbackTimer = setTimeout(() => {
+      if (!this.guide.active$.value) this.guide.play(labelSteps);
+    }, 6000);
+    // Cancel fallback once guide starts (AI responded in time)
+    const sub = this.guide.active$.subscribe(active => {
+      if (active) { clearTimeout(fallbackTimer); sub.unsubscribe(); }
+    });
   }
 
   onRegionCancel(): void {

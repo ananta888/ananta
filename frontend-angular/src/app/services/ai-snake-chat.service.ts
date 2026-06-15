@@ -167,10 +167,34 @@ export class AiSnakeChatService implements OnDestroy {
     this.sendVisualSystemMessage('[ui-tick]', uiSnapshot);
   }
 
-  /** Log a region-explain event (user drew selection → guide plays).
-   *  Stored in ananta-visual without triggering an AI reply. */
-  sendRegionExplainTick(summary: string): void {
-    this.sendVisualSystemMessage('[region-explain]', summary);
+  /** Log a region-explain event and trigger AI explanations.
+   *  `steps` carries pixel coordinates + labels so the backend can construct
+   *  guide steps with AI-generated bubble texts using the original positions. */
+  sendRegionExplainTick(
+    summary: string,
+    steps: Array<{ x: number; y: number; bubble: string; waypoint: string }>,
+  ): void {
+    const base = this.hubUrl();
+    const snakeId = this.snakeId$.value;
+    if (!base || !snakeId || !this.snakeToken || !steps.length) return;
+    const id = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+    const currentRoute = this.router.url;
+    this.http.post(
+      `${base}/snakes/${encodeURIComponent(snakeId)}/chat/messages`,
+      {
+        id,
+        channel_type: 'room',
+        visibility: 'system',
+        text: `[region-explain] ${summary}`,
+        ui_context: {
+          route: currentRoute,
+          ui_snapshot: summary,
+          region_steps: steps,
+        },
+        session_id: 'ananta-visual',
+      },
+      { headers: this.withSnakeHeaders() },
+    ).subscribe({ error: () => {} });
   }
 
   private sendVisualSystemMessage(prefix: string, content: string): void {
