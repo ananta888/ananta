@@ -1,0 +1,948 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "visual-guide-engine-v1",
+  "created": "2026-06-15",
+  "status": "todo",
+  "priority": "P0",
+  "purpose": "Aus den aktuellen Visual-Snake-, UI-Tick- und Region-Explain-Prototypen soll eine brauchbare, robuste Visual Guide Engine werden. Ziel ist nicht nur Bugfixing, sondern eine klare Architektur: Frontend beobachtet UI-Zustand, Backend bewertet Kontext deterministisch/LLM-gestützt, erzeugt nachvollziehbare Guide-Aktionen, loggt alles sauber und macht den Prozess im Tracking Viewer überprüfbar.",
+  "goal": "Der User kann in der Angular-App nachvollziehbar sehen, was die visuelle Snake sieht, warum sie eine Erklärung oder Guide-Aktion erzeugt, welche Quelle/Heuristik/LLM-Antwort dahintersteht, und kann UI-Regionen, Waypoints, Sessions und Predictive-Guide-Verhalten zuverlässig steuern.",
+  "non_goals": [
+    "Keine vollständige autonome UI-Steuerung ohne explizite Nutzerfreigabe.",
+    "Keine versteckte LLM-Entscheidung ohne Trace-Eintrag.",
+    "Kein Vermischen von UI-Guide, Chat-Session-Logik und Model-Routing in einer einzigen Route-Datei.",
+    "Keine Abhängigkeit davon, dass die App nur von einem Browser/Snake gleichzeitig benutzt wird."
+  ],
+  "current_findings": [
+    "ananta-visual ist als Read-only-Log-Session sinnvoll, aber Log, Reply-State und Delta-State sind noch vermischt.",
+    "Region-Explain ist als MVP gut, aber noch direkter Thread/OpenAI-Call ohne zentrale ModelInvocation, Timeout, Trace und robuste Validierung.",
+    "Snapshot-Diff-Service wurde angelegt, muss aber im App-Bootstrap registriert und mit echter Integration getestet werden.",
+    "Frontend-Fallback und Guide-Aktivierung brauchen klare Request/Response-Korrelation, sonst kann der falsche Guide starten oder Subscriptions bleiben hängen.",
+    "Das System braucht eine eigene Domäne: VisualGuideRequest, VisualGuideObservation, VisualGuideDecision, VisualGuideAction, VisualGuideTrace."
+  ],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "architecture_target": {
+    "backend_services": [
+      "agent/services/visual_guide/observation_service.py",
+      "agent/services/visual_guide/delta_service.py",
+      "agent/services/visual_guide/region_explain_service.py",
+      "agent/services/visual_guide/decision_service.py",
+      "agent/services/visual_guide/action_service.py",
+      "agent/services/visual_guide/trace_service.py"
+    ],
+    "backend_routes": [
+      "agent/routes/visual_guide_api.py",
+      "agent/routes/snapshot_diff_api.py"
+    ],
+    "frontend_services": [
+      "frontend-angular/src/app/services/ui-snapshot.service.ts",
+      "frontend-angular/src/app/services/ui-state-sync.service.ts",
+      "frontend-angular/src/app/services/visual-guide-client.service.ts",
+      "frontend-angular/src/app/services/snake-guide.service.ts",
+      "frontend-angular/src/app/services/visual-guide-trace.service.ts"
+    ],
+    "frontend_components": [
+      "frontend-angular/src/app/components/snake-overlay.component.ts",
+      "frontend-angular/src/app/components/visual-snake-log.component.ts",
+      "frontend-angular/src/app/components/ai-snake-trace-viewer.component.ts"
+    ],
+    "data_model": [
+      "VisualGuideRequest: request_id, snake_id, session_id, route, trigger_type, snapshot, region_steps, created_at",
+      "VisualGuideObservation: normalized snapshot, visible waypoints, selected elements, route, surface, confidence hints",
+      "VisualGuideDecision: strategy, confidence, reason, model_used, deterministic_sources, fallback_used",
+      "VisualGuideAction: guide steps, bubble texts, coordinates or waypoint ids, delays, ttl, priority",
+      "VisualGuideTrace: ordered events from request_received to action_rendered"
+    ]
+  },
+  "milestones": [
+    {
+      "id": "VG-M1",
+      "title": "Stabilisierung der aktuellen Visual-Snake/Region-Explain-Funktion",
+      "status": "todo",
+      "task_ids": [
+        "VG-001",
+        "VG-002",
+        "VG-003",
+        "VG-004",
+        "VG-005",
+        "VG-006"
+      ]
+    },
+    {
+      "id": "VG-M2",
+      "title": "Eigene Visual-Guide-Domäne und Backend-Service-Schicht",
+      "status": "todo",
+      "task_ids": [
+        "VG-010",
+        "VG-011",
+        "VG-012",
+        "VG-013",
+        "VG-014"
+      ]
+    },
+    {
+      "id": "VG-M3",
+      "title": "Frontend-Client, Korrelation, Fallbacks und Overlay-Robustheit",
+      "status": "todo",
+      "task_ids": [
+        "VG-020",
+        "VG-021",
+        "VG-022",
+        "VG-023",
+        "VG-024"
+      ]
+    },
+    {
+      "id": "VG-M4",
+      "title": "Tracking Viewer: beobachtbarer Schritt-für-Schritt-Prozess",
+      "status": "todo",
+      "task_ids": [
+        "VG-030",
+        "VG-031",
+        "VG-032",
+        "VG-033"
+      ]
+    },
+    {
+      "id": "VG-M5",
+      "title": "Predictive Guide sinnvoll machen: Regeln, Confidence, User-Control",
+      "status": "todo",
+      "task_ids": [
+        "VG-040",
+        "VG-041",
+        "VG-042",
+        "VG-043"
+      ]
+    },
+    {
+      "id": "VG-M6",
+      "title": "Tests, Load-Schutz und Sicherheitsgrenzen",
+      "status": "todo",
+      "task_ids": [
+        "VG-050",
+        "VG-051",
+        "VG-052",
+        "VG-053",
+        "VG-054"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "VG-001",
+      "title": "Fix: Snapshot-State für Delta und Reply trennen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "bugfix",
+      "progress_percent": 0,
+      "files": [
+        "agent/routes/snakes_execution_routes.py",
+        "tests/test_snapshot_delta_integration.py"
+      ],
+      "depends_on": [],
+      "details": "Der aktuelle globale _visual_last_snapshot erfüllt zwei Rollen gleichzeitig und blockiert dadurch wahrscheinlich den normalen Visual-Reply.",
+      "acceptance_criteria": [
+        "[ui-tick] speichert weiterhin raw snapshot und optional [ui-delta].",
+        "_spawn_visual_reply bricht nicht mehr ab, nur weil _append_visual_user_tick zuvor den Delta-Snapshot gesetzt hat.",
+        "Es existieren getrennte States für delta tracking und reply throttling, mindestens _visual_last_delta_snapshot und _visual_last_reply_snapshot oder keyed Varianten.",
+        "Test deckt ab: zwei unterschiedliche UI-Ticks erzeugen Delta und mindestens ein Visual-Reply-Spawn wird nicht durch Snapshot-State verhindert."
+      ]
+    },
+    {
+      "id": "VG-002",
+      "title": "Fix: Snapshot-Diff-Blueprint im App-Bootstrap registrieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "bugfix",
+      "progress_percent": 0,
+      "files": [
+        "agent/bootstrap/routes.py",
+        "agent/routes/snapshot_diff_api.py",
+        "tests/test_snapshot_delta_integration.py"
+      ],
+      "depends_on": [],
+      "details": "Der Endpoint existiert als Datei, war aber im Bootstrap nicht sichtbar registriert.",
+      "acceptance_criteria": [
+        "snapshot_diff_bp wird in register_blueprints(app) importiert und registriert.",
+        "Ein App-Integrationstest ruft POST /api/snapshot/diff über die echte App-Test-Client-Initialisierung auf, nicht nur über manuell erzeugte Flask-App.",
+        "Fehlende prev/curr Felder liefern 400; valide prev/curr liefern 200 mit lines, changed_paths, is_empty."
+      ]
+    },
+    {
+      "id": "VG-003",
+      "title": "Fix: Visual-State pro Snake/Session statt global speichern",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "bugfix",
+      "progress_percent": 0,
+      "files": [
+        "agent/routes/snakes_execution_routes.py",
+        "agent/services/visual_guide/state_store.py",
+        "tests/test_visual_guide_state_isolation.py"
+      ],
+      "depends_on": [],
+      "details": "Mehrere Browser/Snakes dürfen nicht gegeneinander Deltas oder Reply-Throttle beeinflussen.",
+      "acceptance_criteria": [
+        "Snapshot-/Reply-/Throttle-State ist nach snake_id und optional session_id getrennt.",
+        "Zwei verschiedene snake_id Werte erzeugen getrennte Deltas und beeinflussen sich nicht gegenseitig.",
+        "State hat eine TTL oder Größenbegrenzung, damit alte Snake-IDs nicht unbegrenzt Speicher belegen."
+      ]
+    },
+    {
+      "id": "VG-004",
+      "title": "Fix: Region-Step-Validierung pro Element einbauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "bugfix",
+      "progress_percent": 0,
+      "files": [
+        "agent/routes/snakes_execution_routes.py",
+        "agent/services/visual_guide/region_explain_service.py",
+        "tests/test_region_explain_service.py"
+      ],
+      "depends_on": [],
+      "details": "Der aktuelle Code castet float(step['x']) und float(step['y']) direkt; ein kaputter Step kann alles abbrechen.",
+      "acceptance_criteria": [
+        "Kaputte Steps ohne x/y/bubble werfen nicht die komplette Region-Erklärung weg.",
+        "x/y werden begrenzt und validiert; ungültige Werte werden geskippt.",
+        "Maximale Step-Anzahl ist konfigurierbar und default begrenzt, z.B. 12.",
+        "Test deckt gemischte valide/kaputte region_steps ab."
+      ]
+    },
+    {
+      "id": "VG-005",
+      "title": "Fix: Frontend-Fallback-Subscription sicher beenden",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "bugfix",
+      "progress_percent": 0,
+      "files": [
+        "frontend-angular/src/app/components/snake-overlay.component.ts",
+        "frontend-angular/src/app/services/snake-guide.service.ts"
+      ],
+      "depends_on": [],
+      "details": "Im aktuellen Code unsubscribed die Subscription nur bei active=true.",
+      "acceptance_criteria": [
+        "Fallback-Subscription wird immer beendet, auch wenn kein Guide startet.",
+        "Mehrfaches Region-Auswählen erzeugt keine wachsende Zahl offener Subscriptions.",
+        "Bestehender Fallback: wenn AI nicht rechtzeitig antwortet, wird Label-only Guide abgespielt."
+      ]
+    },
+    {
+      "id": "VG-006",
+      "title": "Fix: Direkte Region-Explain-AI-Antwort mit Request-ID korrelieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "bugfix",
+      "progress_percent": 0,
+      "files": [
+        "frontend-angular/src/app/services/ai-snake-chat.service.ts",
+        "frontend-angular/src/app/components/snake-overlay.component.ts",
+        "agent/routes/snakes_execution_routes.py"
+      ],
+      "depends_on": [],
+      "details": "Sonst kann eine verspätete AI-Antwort einen späteren Guide überschreiben oder abbrechen.",
+      "acceptance_criteria": [
+        "sendRegionExplainTick erzeugt request_id und sendet sie im ui_context.",
+        "Backend übernimmt request_id in Log/Trace und __GUIDE__ Payload.",
+        "Frontend startet AI-Guide nur für passende request_id; ältere Antworten werden ignoriert oder als stale markiert.",
+        "Fallback wird nur für denselben request_id gecancelt."
+      ]
+    },
+    {
+      "id": "VG-010",
+      "title": "VisualGuideService-Schicht aus snakes_execution_routes.py herausziehen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "architecture",
+      "progress_percent": 0,
+      "files": [
+        "agent/services/visual_guide/__init__.py",
+        "agent/services/visual_guide/service.py",
+        "agent/routes/snakes_execution_routes.py"
+      ],
+      "depends_on": [],
+      "details": "Die Route-Datei ist sonst wieder die Müllhalde für UI, LLM, Log, Threading und State.",
+      "acceptance_criteria": [
+        "snakes_execution_routes.py enthält nur noch Routing/HTTP-Parsing und delegiert Visual-Guide-Logik an Services.",
+        "Region-Explain, UI-Tick, Delta und Reply-Decision sind testbar ohne Flask-Request.",
+        "Service-API ist klar: handle_ui_tick(request), handle_region_explain(request).",
+        "Bestehende Tests werden angepasst und neue Unit-Tests decken Service-Logik direkt ab."
+      ]
+    },
+    {
+      "id": "VG-011",
+      "title": "Zentrale ModelInvocationService für Visual Guide verwenden",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "architecture",
+      "progress_percent": 0,
+      "files": [
+        "agent/services/model_invocation_service.py",
+        "agent/services/visual_guide/region_explain_service.py",
+        "agent/services/visual_guide/decision_service.py"
+      ],
+      "depends_on": [],
+      "details": "Region-Explain und Predictive Reply müssen dieselbe robuste Modellschicht nutzen wie der Rest.",
+      "acceptance_criteria": [
+        "Kein direkter openai.OpenAI(...).chat.completions.create in Visual-Guide-Services.",
+        "Timeout, Provider, Model, API-Base und API-Key laufen über bestehende Modellrouting-/Invocation-Schicht.",
+        "Trace enthält provider, model, timeout, token/output preview und Fehlerstatus.",
+        "Bei Model-Fehler wird sauberer fallback_decision erzeugt statt stiller Thread-Warnung."
+      ]
+    },
+    {
+      "id": "VG-012",
+      "title": "VisualGuideRequest/Action/Trace Datenklassen definieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "architecture",
+      "progress_percent": 0,
+      "files": [
+        "agent/services/visual_guide/models.py",
+        "tests/test_visual_guide_models.py"
+      ],
+      "depends_on": [],
+      "details": "Erst ein Datenmodell macht das System erklärbar und im Viewer sauber darstellbar.",
+      "acceptance_criteria": [
+        "Typed Dataclasses oder Pydantic-nahe Dict-Factories existieren für Request, Observation, Decision, Action, TraceEvent.",
+        "Jede Struktur hat to_dict/from_dict oder klare Serializer-Funktion.",
+        "Ungültige Eingangsdaten werden normalisiert und begrenzt.",
+        "Tests prüfen Minimal- und Maximalfälle."
+      ]
+    },
+    {
+      "id": "VG-013",
+      "title": "VisualGuideTraceStore integrieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "architecture",
+      "progress_percent": 0,
+      "files": [
+        "agent/services/visual_guide/trace_service.py",
+        "agent/routes/ai_snake_trace_store.py",
+        "frontend-angular/src/app/services/visual-guide-trace.service.ts"
+      ],
+      "depends_on": [],
+      "details": "Das ist der Kern für deinen gewünschten Tracking-Viewer-Modus.",
+      "acceptance_criteria": [
+        "Jeder UI-Tick/Region-Explain bekommt optional trace_id.",
+        "Trace-Events: request_received, snapshot_normalized, delta_computed, decision_started, model_invoked, action_generated, action_sent, fallback_used, error.",
+        "Trace kann vom bestehenden Trace Viewer gelesen werden oder über kompatible API exponiert werden.",
+        "Trace Preview begrenzt große Snapshots und LLM-Ausgaben."
+      ]
+    },
+    {
+      "id": "VG-014",
+      "title": "Snapshot-Diff und Region-Explain als reine Services testen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "architecture",
+      "progress_percent": 0,
+      "files": [
+        "agent/services/visual_guide/delta_service.py",
+        "agent/services/visual_guide/region_explain_service.py",
+        "tests/test_visual_guide_delta_service.py",
+        "tests/test_region_explain_service.py"
+      ],
+      "depends_on": [],
+      "details": "Damit wird die Funktion stabil statt nur durch End-to-End-Zufall grün.",
+      "acceptance_criteria": [
+        "Delta-Service ist unabhängig von Flask und Chat-Route testbar.",
+        "RegionExplainService nimmt normalized region_steps und LLM-Adapter entgegen.",
+        "Tests nutzen Fake-Model-Adapter und brauchen keine echte API.",
+        "Fehlerfälle: leere Steps, zu viele Steps, ungültiges JSON, weniger Erklärungen als Steps, mehr Erklärungen als Steps."
+      ]
+    },
+    {
+      "id": "VG-020",
+      "title": "Frontend VisualGuideClientService einführen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "frontend",
+      "progress_percent": 0,
+      "files": [
+        "frontend-angular/src/app/services/visual-guide-client.service.ts",
+        "frontend-angular/src/app/services/ai-snake-chat.service.ts"
+      ],
+      "depends_on": [],
+      "details": "Frontend braucht eine dedizierte API-Schicht für Visual Guide.",
+      "acceptance_criteria": [
+        "Region-Explain und UI-Tick laufen nicht mehr direkt über lose ChatService-Sondermethoden, sondern über VisualGuideClientService.",
+        "Service erzeugt request_id, kennt aktive snake/session, sendet ui_context standardisiert.",
+        "Fehler werden an einen Status-/Trace-Stream gemeldet statt komplett verschluckt.",
+        "Bestehende sendUiContextTick/sendRegionExplainTick bleiben optional als dünne Wrapper für Rückwärtskompatibilität."
+      ]
+    },
+    {
+      "id": "VG-021",
+      "title": "Guide-Aktionen nach Request-ID und Trigger-Typ routen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "frontend",
+      "progress_percent": 0,
+      "files": [
+        "frontend-angular/src/app/services/snake-guide.service.ts",
+        "frontend-angular/src/app/services/chat-history.service.ts",
+        "frontend-angular/src/app/components/snake-overlay.component.ts"
+      ],
+      "depends_on": [],
+      "details": "Sonst wird das Verhalten chaotisch sobald mehrere Guides kurz nacheinander entstehen.",
+      "acceptance_criteria": [
+        "__GUIDE__ Payload kann request_id, trigger_type und ttl enthalten.",
+        "SnakeGuideService ignoriert stale oder bereits erledigte Aktionen.",
+        "Region-Explain-Aktionen überschreiben nicht normale Predictive-Guide-Aktionen ohne Prioritätsregel.",
+        "Tests oder Component-Spec prüfen verspätete Antwort + neuer Request."
+      ]
+    },
+    {
+      "id": "VG-022",
+      "title": "Overlay-Koordinaten robust gegen Scroll/Resize machen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "frontend",
+      "progress_percent": 0,
+      "files": [
+        "frontend-angular/src/app/components/snake-overlay.component.ts",
+        "frontend-angular/src/app/services/ui-snapshot.service.ts"
+      ],
+      "depends_on": [],
+      "details": "Pixelkoordinaten sind praktisch, aber ohne Koordinatensystem/TTL schnell falsch.",
+      "acceptance_criteria": [
+        "Region-Step-Koordinaten werden eindeutig als viewport/client coordinates dokumentiert.",
+        "Bei Scroll/Resize zwischen Request und AI-Antwort wird entweder neu gemappt oder Antwort als stale/fallback markiert.",
+        "Guide kann waypoint bevorzugen und x/y nur als fallback nutzen.",
+        "Test/Manual-Acceptance: Region markieren, scrollen, Antwort kommt nicht falsch platziert."
+      ]
+    },
+    {
+      "id": "VG-023",
+      "title": "Region-Selection UX besser machen",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "type": "frontend",
+      "progress_percent": 0,
+      "files": [
+        "frontend-angular/src/app/components/snake-overlay.component.ts"
+      ],
+      "depends_on": [],
+      "details": "Momentan ist das eher technisch sichtbar, noch nicht wirklich benutzbar.",
+      "acceptance_criteria": [
+        "Während AI-Erklärung läuft, sieht User klaren Pending-Zustand.",
+        "Fallback wird sichtbar als 'lokale Labels' oder ähnliche Kennzeichnung.",
+        "Abbrechen während Pending verhindert spätere Guide-Wiedergabe.",
+        "Mehrfachauswahl nacheinander ist stabil."
+      ]
+    },
+    {
+      "id": "VG-024",
+      "title": "UI-Snapshot gezielter und weniger noisy machen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "frontend",
+      "progress_percent": 0,
+      "files": [
+        "frontend-angular/src/app/services/ui-snapshot.service.ts",
+        "frontend-angular/src/app/services/ui-state-sync.service.ts"
+      ],
+      "depends_on": [],
+      "details": "Schwache Modelle brauchen kompakte gute Signale; zu viel DOM-Text macht es schlechter.",
+      "acceptance_criteria": [
+        "Snapshot enthält stabile Waypoint-IDs, aktive Tabs, Dialoge, Fehlermeldungen, fokussierte Controls, aber keine unnötigen wechselnden Texte.",
+        "Sensitive Input-Werte werden standardmäßig nicht vollständig geloggt; Werte werden maskiert oder nur Typ/Länge gespeichert.",
+        "Snapshot-Länge ist konfigurierbar begrenzt.",
+        "Tests oder Snapshot-Golden-Files prüfen typische Seiten: Chats, Teams, Control Center."
+      ]
+    },
+    {
+      "id": "VG-030",
+      "title": "Tracking Viewer um Visual-Guide-Spuren erweitern",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "observability",
+      "progress_percent": 0,
+      "files": [
+        "frontend-angular/src/app/components/ai-snake-trace-viewer.component.ts",
+        "frontend-angular/src/app/services/visual-guide-trace.service.ts"
+      ],
+      "depends_on": [],
+      "details": "Das ist genau der Modus, den du wolltest: beim Denken zuschauen und zurückspringen können.",
+      "acceptance_criteria": [
+        "Viewer zeigt pro VisualGuideRequest eine Timeline.",
+        "Jeder Schritt ist anklickbar: Snapshot, Delta, Region-Steps, Prompt, Model-Antwort, erzeugte Guide-Aktion, Fallback.",
+        "Stale, timeout, fallback, success sind visuell unterscheidbar.",
+        "Der aktuell laufende Request wird live aktualisiert, alte Requests bleiben auswählbar."
+      ]
+    },
+    {
+      "id": "VG-031",
+      "title": "Visual Snake Log von Chat-Bubbles trennen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "observability",
+      "progress_percent": 0,
+      "files": [
+        "frontend-angular/src/app/components/visual-snake-log.component.ts",
+        "frontend-angular/src/app/components/ai-snake-chat-panel.component.ts"
+      ],
+      "depends_on": [],
+      "details": "Log-Session ist kein normaler Chat; die Darstellung muss das abbilden.",
+      "acceptance_criteria": [
+        "ananta-visual rendert als strukturierter Log/Timeline, nicht als normaler Chat.",
+        "[ui-tick], [ui-delta], [region-explain], __GUIDE__, model_reply werden typisiert dargestellt.",
+        "Raw-Ansicht bleibt optional verfügbar.",
+        "Filter: all, ui-tick, delta, region, guide, error."
+      ]
+    },
+    {
+      "id": "VG-032",
+      "title": "Backend-Trace-Events mit Frontend-Events zusammenführen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "observability",
+      "progress_percent": 0,
+      "files": [
+        "agent/services/visual_guide/trace_service.py",
+        "frontend-angular/src/app/services/visual-guide-trace.service.ts"
+      ],
+      "depends_on": [],
+      "details": "Nur Backend-Trace reicht nicht, weil viele relevante Dinge im Overlay passieren.",
+      "acceptance_criteria": [
+        "Frontend erzeugt client events: region_start, region_end, request_sent, fallback_started, guide_played.",
+        "Backend erzeugt server events: request_received, model_invoked, action_generated.",
+        "Trace Viewer sortiert beide Quellen nach timestamp/request_id.",
+        "Clock-Skew wird toleriert; Reihenfolge kann zusätzlich per sequence erzeugt werden."
+      ]
+    },
+    {
+      "id": "VG-033",
+      "title": "Debug-Export für Visual-Guide-Sessions",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "type": "observability",
+      "progress_percent": 0,
+      "files": [
+        "agent/routes/visual_guide_api.py",
+        "frontend-angular/src/app/components/ai-snake-trace-viewer.component.ts"
+      ],
+      "depends_on": [],
+      "details": "Erleichtert deine Arbeit mit Codex/OpenCode deutlich.",
+      "acceptance_criteria": [
+        "Ein einzelner VisualGuideRequest kann als JSON exportiert werden.",
+        "Export enthält keine API-Keys und keine ungefilterten Secrets.",
+        "Export ist geeignet, um ihn einem Coding Agenten zur Fehleranalyse zu geben."
+      ]
+    },
+    {
+      "id": "VG-040",
+      "title": "Predictive Guide als Policy-gesteuerte Decision Engine bauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "feature",
+      "progress_percent": 0,
+      "files": [
+        "agent/services/visual_guide/decision_service.py",
+        "client_surfaces/operator_tui/chat_state.py"
+      ],
+      "depends_on": [],
+      "details": "Aktuell existieren Settings, aber die Engine dahinter ist noch nicht sauber.",
+      "acceptance_criteria": [
+        "predictive_guide_enabled ist echter Master-Schalter: wenn false, keine proaktiven Model-Calls.",
+        "Decision Engine unterscheidet trigger_type: ui_tick, route_change, dwell, region_explain, manual_replay.",
+        "Confidence, dwell_ms, ttl_seconds, multi_candidates werden tatsächlich angewendet.",
+        "Trace erklärt, warum eine Guide-Aktion ausgelöst oder unterdrückt wurde."
+      ]
+    },
+    {
+      "id": "VG-041",
+      "title": "Deterministische Guide-Regeln vor LLM setzen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "feature",
+      "progress_percent": 0,
+      "files": [
+        "agent/services/visual_guide/rule_engine.py",
+        "docs/ananta-ui-guide.md",
+        "scripts/generate_ui_guide.py"
+      ],
+      "depends_on": [],
+      "details": "Tool-/Rule-first passt besser zu Ananta als bei jedem UI-Tick direkt Modell fragen.",
+      "acceptance_criteria": [
+        "Bekannte Waypoints/Routes können ohne LLM kurze Hilfe liefern.",
+        "LLM wird nur genutzt, wenn Regel nicht reicht oder explizit AI-Erklärung gewünscht ist.",
+        "Trace zeigt source=rule, source=llm oder source=fallback.",
+        "Regeln können aus docs/ananta-ui-guide.md oder generierter UI-Map gespeist werden."
+      ]
+    },
+    {
+      "id": "VG-042",
+      "title": "User-Control: Modi ruhig/balanced/eager/custom wirksam machen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "feature",
+      "progress_percent": 0,
+      "files": [
+        "frontend-angular/src/app/components/chat-sessions-panel.component.ts",
+        "client_surfaces/operator_tui/chat_state.py",
+        "agent/services/visual_guide/decision_service.py"
+      ],
+      "depends_on": [],
+      "details": "Settings ohne spürbare Wirkung machen das System schwer verstehbar.",
+      "acceptance_criteria": [
+        "Quiet/Balanced/Eager Presets ändern nachweislich dwell, confidence, candidates, logging und LLM-Frequenz.",
+        "Custom wird gesetzt, wenn einzelne Werte abweichen.",
+        "UI zeigt, was der Modus praktisch bedeutet.",
+        "Tests prüfen Preset-Anwendung und Backend-Interpretation."
+      ]
+    },
+    {
+      "id": "VG-043",
+      "title": "Guide-Aktionen priorisieren und abbrechen können",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "feature",
+      "progress_percent": 0,
+      "files": [
+        "frontend-angular/src/app/services/snake-guide.service.ts",
+        "agent/services/visual_guide/action_service.py"
+      ],
+      "depends_on": [],
+      "details": "Sonst fühlt sich die Schlange nervig und unkontrollierbar an.",
+      "acceptance_criteria": [
+        "Jede Guide-Aktion hat priority, ttl, request_id, trigger_type.",
+        "Neue manuelle Region-Explain-Aktion kann laufende predictive Aktion abbrechen.",
+        "User kann aktuell laufenden Guide abbrechen; spätere Antwort desselben request_id wird ignoriert.",
+        "Queue-Regeln sind dokumentiert."
+      ]
+    },
+    {
+      "id": "VG-050",
+      "title": "Testmatrix für Visual Guide definieren und automatisieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "testing",
+      "progress_percent": 0,
+      "files": [
+        "tests/test_visual_guide_state_isolation.py",
+        "tests/test_region_explain_service.py",
+        "tests/test_visual_guide_decision_service.py",
+        "frontend-angular/src/app/**/*.spec.ts"
+      ],
+      "depends_on": [],
+      "details": "Das Feature berührt Frontend, Backend, LLM und State; ohne Tests bleibt es Zufall.",
+      "acceptance_criteria": [
+        "Unit-Tests für State, Delta, Decision, RegionExplain.",
+        "Flask-Integrationstests für /api/snapshot/diff und Visual-Guide-Request-Endpunkte.",
+        "Frontend-Tests für Fallback, request_id correlation, subscription cleanup.",
+        "Mindestens ein E2E-ähnlicher Test simuliert: Region auswählen -> backend response -> guide plays."
+      ]
+    },
+    {
+      "id": "VG-051",
+      "title": "Rate-Limits, Debounce und Backpressure einbauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "safety",
+      "progress_percent": 0,
+      "files": [
+        "agent/services/visual_guide/decision_service.py",
+        "frontend-angular/src/app/services/ui-state-sync.service.ts"
+      ],
+      "depends_on": [],
+      "details": "Sonst kann das Ding Token verbrennen und nerven.",
+      "acceptance_criteria": [
+        "UI-Ticks werden frontendseitig dedupliziert/debounced.",
+        "Backend hat per snake_id Rate-Limit für LLM-basierte Visual-Guide-Calls.",
+        "Bei hoher Frequenz wird geloggt, aber nicht jedes Event ans Modell geschickt.",
+        "Trace zeigt suppressed_by_rate_limit."
+      ]
+    },
+    {
+      "id": "VG-052",
+      "title": "Datenschutz/Sicherheitsgrenzen für UI-Snapshots",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "safety",
+      "progress_percent": 0,
+      "files": [
+        "frontend-angular/src/app/services/ui-snapshot.service.ts",
+        "agent/services/visual_guide/observation_service.py"
+      ],
+      "depends_on": [],
+      "details": "Auch lokale Apps dürfen nicht blind UI-Inhalte an LLMs durchreichen.",
+      "acceptance_criteria": [
+        "Input-Felder werden nicht roh geloggt, außer explizit erlaubt.",
+        "Passwort/Token/API-Key-Felder werden immer maskiert.",
+        "Snapshot und Trace haben max length und redaction pass.",
+        "Tests prüfen typische sensitive selectors: password, token, api_key, authorization."
+      ]
+    },
+    {
+      "id": "VG-053",
+      "title": "Threading/Async sauber kontrollieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "safety",
+      "progress_percent": 0,
+      "files": [
+        "agent/services/visual_guide/service.py",
+        "agent/services/snake_chat_cancellation.py"
+      ],
+      "depends_on": [],
+      "details": "Direkte daemon threads sind für MVP ok, aber nicht für dauerhafte Nutzung.",
+      "acceptance_criteria": [
+        "Keine unkontrollierten daemon Threads für jede Region/Guidance-Anfrage ohne Limit.",
+        "Visual-Guide-Calls nutzen kontrollierten Executor oder bestehenden Cancellation-Mechanismus.",
+        "Timeout und max_concurrent_visual_guide_requests sind konfigurierbar.",
+        "Fehler landen im Trace statt nur im Log."
+      ]
+    },
+    {
+      "id": "VG-054",
+      "title": "CI/Statuschecks für Visual Guide aktivieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "testing",
+      "progress_percent": 0,
+      "files": [
+        ".github/workflows/*.yml",
+        "tests/",
+        "frontend-angular/"
+      ],
+      "depends_on": [],
+      "details": "Ohne CI weißt du nicht, ob spätere Commits die Schlange wieder kaputtmachen.",
+      "acceptance_criteria": [
+        "Backend-Tests für Visual Guide laufen in CI.",
+        "Frontend Unit-Tests/Typecheck laufen in CI oder dokumentiertem lokalen Testkommando.",
+        "Commit-Status zeigt grün/rot für relevante Tests.",
+        "README oder todo notes nennen exakte Testkommandos."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "VG-001",
+    "VG-002",
+    "VG-003",
+    "VG-006",
+    "VG-010",
+    "VG-011",
+    "VG-020",
+    "VG-021",
+    "VG-030",
+    "VG-040",
+    "VG-050",
+    "VG-051",
+    "VG-052"
+  ],
+  "tasks_status_summary": {
+    "total": 29,
+    "by_status": {
+      "todo": 29,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 15,
+      "P1": 12,
+      "P2": 2
+    },
+    "by_risk": {
+      "high": 8,
+      "medium": 19,
+      "low": 2
+    },
+    "critical_path": {
+      "total": 13,
+      "done": 0,
+      "remaining": 13
+    },
+    "milestones": {
+      "total": 6,
+      "todo": 6,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 29,
+    "by_type": {
+      "bugfix": {
+        "total": 6,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 6,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "architecture": {
+        "total": 5,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 5,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "frontend": {
+        "total": 5,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 5,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "observability": {
+        "total": 4,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 4,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "feature": {
+        "total": 4,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 4,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "testing": {
+        "total": 2,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "safety": {
+        "total": 3,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 3,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      }
+    }
+  },
+  "progress_summary": {
+    "state": "not_started",
+    "todo_remaining": 29,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "summary_notes": [
+    "Die aktuelle Implementierung ist ein sinnvoller Prototyp, aber noch keine belastbare Visual-Guide-Engine.",
+    "Erst Stabilisierung der bestehenden Bugs, dann Service-Schicht, dann Trace/Viewer, dann Predictive-Guide-Qualität.",
+    "Der zentrale Architekturwechsel ist: Visual Guide wird eigene Domäne, nicht Chat-Sonderfall.",
+    "LLM darf helfen, aber Entscheidungen, Rate-Limits, Fallbacks und Trace müssen deterministisch kontrolliert werden."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "target-outcome",
+      "title": "Zielzustand nach Umsetzung",
+      "items": [
+        "Visual Snake Log ist strukturierter Trace statt Chat-Müll.",
+        "Region-Explain liefert brauchbare, korrelierte, abbrechbare Erklär-Guides.",
+        "Predictive Guide ist abschaltbar, nachvollziehbar und nicht nervig.",
+        "Jeder Model-Call ist getraced, begrenzt und über zentrale ModelInvocation geführt.",
+        "Mehrere Browser/Snakes beeinflussen sich nicht gegenseitig."
+      ]
+    }
+  ]
+}
