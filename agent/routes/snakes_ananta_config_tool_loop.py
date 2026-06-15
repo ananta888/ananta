@@ -70,11 +70,13 @@ _CONFIG_TOOLS = [
         "function": {
             "name": "search_ui_docs",
             "description": (
-                "Search the Ananta UI guide and Angular source files using CodeCompass "
-                "semantic search plus keyword grep. "
-                "Use this when you need details about a specific UI area, component, route, "
-                "or waypoint that wasn't covered in the initial context "
-                "(e.g. 'worker pool settings', 'pair dev tab', 'chat backend select')."
+                "Search ALL Ananta documentation (docs/*.md), the UI guide, Angular source files, "
+                "and data models using CodeCompass semantic search plus keyword grep. "
+                "Call this for ANY of the following:\n"
+                "- UI areas, routes, components, waypoints (e.g. 'worker pool', 'pair dev tab')\n"
+                "- Domain concepts and API fields (e.g. 'Basis-Team-Typ', 'base_team_type_name', 'blueprint roles')\n"
+                "- How-to questions about features (e.g. 'wie Blueprint erstellen', 'Team instanziieren')\n"
+                "- Any term or concept you are not 100% certain about — ALWAYS search before answering."
             ),
             "parameters": {
                 "type": "object",
@@ -142,6 +144,19 @@ _CONFIG_TOOLS = [
             "description": (
                 "Return pending policy approval decisions from the Hub. "
                 "Shows what actions are waiting for human review."
+            ),
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_team_types",
+            "description": (
+                "Return all configured Team-Types (Basis-Team-Typen) from the Ananta Hub database. "
+                "Team types define the structure (allowed roles) for teams and blueprints. "
+                "A blueprint's 'base_team_type_name' references one of these types. "
+                "Call this when the user asks about 'Basis-Team-Typ', team types, or which team types exist."
             ),
             "parameters": {"type": "object", "properties": {}, "required": []},
         },
@@ -221,6 +236,28 @@ def _grep_ui_search(query: str) -> list[str]:
                      if any(kw in ln.lower() for kw in keywords) or "data-waypoint" in ln]
             if lines:
                 results.append(f"[{f.name}]\n" + "\n".join(lines[:15]))
+
+    # DB models and Pydantic models — for domain concept / field questions
+    for model_dir in [_REPO_ROOT / "agent" / "db_models", _REPO_ROOT / "agent" / "models"]:
+        if not model_dir.exists():
+            continue
+        for f in sorted(model_dir.glob("*.py")):
+            text = f.read_text(encoding="utf-8", errors="replace")
+            if _score(text) < 1:
+                continue
+            lines = [ln for ln in text.splitlines() if any(kw in ln.lower() for kw in keywords)]
+            if lines:
+                results.append(f"[agent/models/{f.name}]\n" + "\n".join(lines[:20]))
+
+    # Blueprint + team route files — for API field explanations
+    for route_name in ("blueprint_routes.py", "teams.py"):
+        route_file = _REPO_ROOT / "agent" / "routes" / route_name
+        if route_file.exists():
+            text = route_file.read_text(encoding="utf-8", errors="replace")
+            if _score(text) > 0:
+                lines = [ln for ln in text.splitlines() if any(kw in ln.lower() for kw in keywords)]
+                if lines:
+                    results.append(f"[routes/{route_name}]\n" + "\n".join(lines[:20]))
 
     return results
 
@@ -338,6 +375,26 @@ def _tool_get_hub_policies() -> str:
         return f"(Fehler beim Laden der Policies: {exc})"
 
 
+def _tool_get_team_types() -> str:
+    try:
+        from agent.services.repository_registry import get_repository_registry
+        reg = get_repository_registry()
+        team_types = reg.team_type_repo.get_all() or []
+        items = [{
+            "id": str(getattr(t, "id", "") or ""),
+            "name": str(getattr(t, "name", "") or ""),
+            "description": str(getattr(t, "description", "") or ""),
+        } for t in team_types]
+        info = (
+            "Team-Typen (Basis-Team-Typen) definieren die erlaubten Rollen für Teams und Blueprints. "
+            "Ein Blueprint referenziert einen Team-Typ über das Feld 'base_team_type_name'. "
+            "Teams, die aus einem Blueprint instanziiert werden, erhalten die Rollen-Struktur des verknüpften Team-Typs."
+        )
+        return json.dumps({"erklaerung": info, "team_types": items, "count": len(items)}, indent=2, ensure_ascii=False)
+    except Exception as exc:
+        return f"(Fehler beim Laden der Team-Typen: {exc})"
+
+
 def _tool_refresh_ui_guide() -> str:
     try:
         guide = ensure_ui_guide(force=True)
@@ -359,6 +416,8 @@ def _dispatch_tool(name: str, arguments: dict) -> str:
         return _tool_get_hub_sessions()
     if name == "get_hub_policies":
         return _tool_get_hub_policies()
+    if name == "get_team_types":
+        return _tool_get_team_types()
     if name == "refresh_ui_guide":
         return _tool_refresh_ui_guide()
     return f"(Unbekanntes Tool: {name})"
