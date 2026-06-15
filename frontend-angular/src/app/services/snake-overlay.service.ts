@@ -30,6 +30,9 @@ export class SnakeOverlayService {
   }
 
   private loadPref(): boolean {
-    try { return localStorage.getItem(LS_KEY) === 'true'; } catch { return false; }
+    try {
+      const stored = localStorage.getItem(LS_KEY);
+      return stored === null ? true : stored === 'true';
+    } catch { return true; }
   }
 }

@@ -209,18 +209,11 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
     this.snakes = this.snakes.filter(s => s.isOwn || !s.isPairDev || activeIds.has(s.id));
   }
 
-  private syncAiParticipants(participants: SnakeParticipant[]): void {
-    const ownSnakeId = this.chat.snakeId$.value;
-    for (const p of participants) {
-      if (p.id === ownSnakeId) continue;
-      const aiId = `ai:${p.id}`;
-      if (!this.snakes.find(s => s.id === aiId)) {
-        const color = /^#[0-9a-f]{6}$/i.test(p.color) ? p.color : colorForId(p.id);
-        this.spawnSnake(aiId, p.name || p.id, color, false, false);
-      }
-    }
-    const activeAiIds = new Set(participants.filter(p => p.id !== ownSnakeId).map(p => `ai:${p.id}`));
-    this.snakes = this.snakes.filter(s => s.isOwn || s.isPairDev || activeAiIds.has(s.id));
+  private syncAiParticipants(_participants: SnakeParticipant[]): void {
+    // AI room participants are not rendered as autonomous snakes — only the guide snake
+    // (spawned on-demand during __GUIDE__ steps) and the own cursor snake are shown.
+    // Pair-dev participant snakes (isPairDev) are unaffected by this.
+    this.snakes = this.snakes.filter(s => s.isOwn || s.isPairDev || s.isGuide);
   }
 
   // ── Physics ─────────────────────────────────────────────────────────────────

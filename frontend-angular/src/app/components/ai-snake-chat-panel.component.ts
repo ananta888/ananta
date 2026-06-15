@@ -1,7 +1,7 @@
 import { Component, EventEmitter, Input, Output, inject, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule, AsyncPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subscription } from 'rxjs';
+import { Subscription, filter, take } from 'rxjs';
 import { AiSnakeChatService } from '../services/ai-snake-chat.service';
 import { AiSnakeConfigService } from '../services/ai-snake-config.service';
 import { OidcAuthService } from '../services/oidc-auth.service';
@@ -367,6 +367,8 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
 
   private historySub?: Subscription;
   private activeSub?: Subscription;
+  /** Tracks the session ID selected specifically in the snake panel, independently of the global ChatSessionsService. */
+  private _snakeSessionId = '';
 
   @Input() tab: 'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated' = 'chat';
   @Output() tabChange = new EventEmitter<'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated'>();
@@ -388,6 +390,12 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
         this.uiSync.start();
       } else {
         this.uiSync.stop();
+      }
+    });
+    // Capture the active session ID as the snake panel's own session once sessions are loaded.
+    this.sessions.sessions$.pipe(filter(s => s.length > 0), take(1)).subscribe(() => {
+      if (!this._snakeSessionId) {
+        this._snakeSessionId = this.sessions.activeSessionId$.value || '';
       }
     });
   }
@@ -446,7 +454,7 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
   send(): void {
     const text = this.draft.trim();
     if (!text) return;
-    this.svc.sendRoomMessage(text);
+    this.svc.sendRoomMessage(text, this._snakeSessionId);
     this.draft = '';
   }
 
@@ -491,6 +499,7 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
   }
 
   switchSession(id: string): void {
+    this._snakeSessionId = id;
     this.sessions.activate(id);
   }
 

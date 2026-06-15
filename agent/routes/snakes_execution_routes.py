@@ -794,7 +794,7 @@ def _build_ui_guide(prompt: str) -> dict | None:
     return None
 
 
-def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_context: dict | None = None) -> None:
+def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_context: dict | None = None, client_session_id: str = "") -> None:
     prompt = str(user_text or "").strip()
     if not prompt:
         return
@@ -845,6 +845,23 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
                             break
             except Exception:
                 pass
+            # If the frontend sent an explicit session_id, use it directly (avoids user.json race conditions
+            # when the snake panel session and AI Chats page session diverge).
+            if client_session_id and client_session_id != _active_session_id:
+                _active_session_id = client_session_id
+                # Find settings for this session in user.json
+                try:
+                    for _sess2 in (_stored2.get("chat_sessions") or []):
+                        if str(_sess2.get("id") or "") == client_session_id:
+                            _active_session_settings = dict(_sess2.get("settings") or {})
+                            break
+                except Exception:
+                    pass
+            logging.getLogger(__name__).info(
+                "chat session resolved: active_session_id=%r client_session_id=%r",
+                _active_session_id, client_session_id,
+            )
+
             # For built-in sessions, always use the canonical system_prompt from DEFAULT_SESSIONS
             # so code changes to prompts take effect immediately without requiring user.json migration.
             try:
@@ -1368,6 +1385,8 @@ def chat_send(snake_id: str):
     visibility = str(body.get("visibility") or "room")
     text = str(body.get("text") or "").strip()[:500]
     ui_context = body.get("ui_context") or {}
+    # session_id sent by the frontend reflects the panel's active session, bypassing user.json race conditions
+    client_session_id = str(body.get("session_id") or "").strip()
 
     if not text:
         return jsonify({"error": "text erforderlich"}), 400
@@ -1399,7 +1418,7 @@ def chat_send(snake_id: str):
             _room_messages.append(msg)
             if len(_room_messages) > _MAX_ROOM_MSGS:
                 _room_messages = _room_messages[-_MAX_ROOM_MSGS:]
-            _spawn_ai_chat_reply(user_text=text, snake_id=snake_id, ui_context=ui_context)
+            _spawn_ai_chat_reply(user_text=text, snake_id=snake_id, ui_context=ui_context, client_session_id=client_session_id)
     elif channel_type == "direct":
         target_ids = msg["target_ids"]
         if not target_ids:

@@ -4,6 +4,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { AgentDirectoryService } from './agent-directory.service';
 import { UserAuthService } from './user-auth.service';
+import { ChatSessionsService } from './chat-sessions.service';
 
 interface SnakeRegistration {
   id: string;
@@ -34,6 +35,7 @@ export class AiSnakeChatService implements OnDestroy {
   private directory = inject(AgentDirectoryService);
   private auth = inject(UserAuthService);
   private router = inject(Router);
+  private chatSessions = inject(ChatSessionsService);
 
   readonly active$ = new BehaviorSubject<boolean>(false);
   readonly snakeId$ = new BehaviorSubject<string>('');
@@ -119,7 +121,7 @@ export class AiSnakeChatService implements OnDestroy {
     this.messages$.next([]);
   }
 
-  sendRoomMessage(text: string): void {
+  sendRoomMessage(text: string, snakePanelSessionId = ''): void {
     const base = this.hubUrl();
     const snakeId = this.snakeId$.value;
     const content = String(text || '').trim();
@@ -129,9 +131,10 @@ export class AiSnakeChatService implements OnDestroy {
     const currentRoute = this.router.url;
     const visibleWaypoints = this.collectVisibleWaypoints();
     const uiContext = { route: currentRoute, visible_waypoints: visibleWaypoints };
+    const activeSessionId = snakePanelSessionId || this.chatSessions.activeSessionId$.value || '';
     this.http.post(
       `${base}/snakes/${encodeURIComponent(snakeId)}/chat/messages`,
-      { id, channel_type: 'room', visibility: 'room', text: content, ui_context: uiContext },
+      { id, channel_type: 'room', visibility: 'room', text: content, ui_context: uiContext, session_id: activeSessionId },
       { headers: this.withSnakeHeaders() },
     ).subscribe({
       next: () => {
