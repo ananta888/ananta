@@ -64,18 +64,18 @@ langchain = [
     # surface into many sub-packages, we only need the core runtime
     # for the chain executor. Pull langchain-community only if a
     # community loader is actually configured in a chain descriptor.
-    "langchain-core>=0.3,<0.4",
+    "langchain-core>=1.4.7,<1.5",
 ]
 langgraph = [
     # LangGraph rides on top of langchain-core. Installing the langgraph
     # extra pulls the matching core in, so users do not need both.
     "langgraph>=0.2,<0.3",
-    "langchain-core>=0.3,<0.4",
+    "langchain-core>=1.4.7,<1.5",
 ]
 lc-lg = [
     # Convenience: install both adapters at once. Same upper bounds as
     # the individual extras — they share the same core.
-    "langchain-core>=0.3,<0.4",
+    "langchain-core>=1.4.7,<1.5",
     "langgraph>=0.2,<0.3",
 ]
 
