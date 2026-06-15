@@ -75,7 +75,6 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
   private mouseX = window.innerWidth  / 2;
   private mouseY = window.innerHeight / 2;
 
-  private bubbles: Bubble[] = [];
   private seenMsgIds = new Set<string>();
   private rafId = 0;
   private subs: Subscription[] = [];
@@ -163,7 +162,7 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
       }),
     );
 
-    // AI message bubbles (strip __GUIDE__ suffix so overlay bubble is clean)
+    // AI message bubbles → show on guide snake only (strip __GUIDE__ suffix)
     this.subs.push(
       this.chat.messages$.subscribe(msgs => {
         for (const m of msgs) {
@@ -178,8 +177,8 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
           if (gi >= 0) rawText = rawText.slice(0, gi);
           const text = rawText.replace(/\n/g, ' ').slice(0, 60) +
                        (rawText.length > 60 ? '…' : '');
-          this.bubbles.push({ text, born: performance.now() });
-          if (this.bubbles.length > 3) this.bubbles.shift();
+          this.guideBubbles.push({ text, born: performance.now() });
+          if (this.guideBubbles.length > 3) this.guideBubbles.shift();
         }
       }),
     );
@@ -338,9 +337,6 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
 
     for (const snake of this.snakes) this.drawSnake(ctx, snake);
 
-    const own = this.snakes.find(s => s.isOwn);
-    if (own) this.drawBubbles(ctx, c, own.segs[0]);
-
     if (this.guideSnake) this.drawGuideBubbles(ctx, c, this.guideSnake.segs[0]);
   }
 
@@ -404,41 +400,6 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
       ctx.fillText(snake.label, head.x, head.y - headR - 3);
     }
 
-    ctx.globalAlpha  = 1;
-    ctx.textAlign    = 'left';
-    ctx.textBaseline = 'alphabetic';
-  }
-
-  private drawBubbles(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, head: Seg): void {
-    // Newest bubble = highest index → most opaque; oldest = lowest index → most faded
-    const OPACITIES = [0.22, 0.52, 1.0];
-    for (let bi = 0; bi < this.bubbles.length; bi++) {
-      const b    = this.bubbles[bi];
-      const pos  = this.bubbles.length - 1 - bi; // 0 = newest
-      const fade = OPACITIES[Math.min(pos, OPACITIES.length - 1)] ?? 0.22;
-      ctx.font   = '11px monospace';
-      const tw   = ctx.measureText(b.text).width;
-      const bw   = tw + 18;
-      const bh   = 20;
-      const bx   = Math.max(bw / 2 + 6, Math.min(canvas.width - bw / 2 - 6, head.x));
-      const by   = Math.max(bh + 6, head.y - 32 - bi * 26);
-
-      ctx.globalAlpha = fade * 0.85;
-      ctx.fillStyle   = '#07111f';
-      this.rrect(ctx, bx - bw / 2, by - bh, bw, bh, 4);
-      ctx.fill();
-
-      ctx.globalAlpha = fade * 0.65;
-      ctx.strokeStyle = '#3affaa';
-      ctx.lineWidth   = 1;
-      ctx.stroke();
-
-      ctx.globalAlpha  = fade;
-      ctx.fillStyle    = '#a8e8c8';
-      ctx.textAlign    = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(b.text, bx, by - bh / 2, bw - 12);
-    }
     ctx.globalAlpha  = 1;
     ctx.textAlign    = 'left';
     ctx.textBaseline = 'alphabetic';
