@@ -722,7 +722,7 @@ _ANANTA_UI_GUIDE_MAP: list[tuple[list[str], list[dict]]] = [
     (
         ["chat session", "neue session", "new session", "konversation anlegen", "chat anlegen"],
         [
-            {"waypoint": "nav.chats", "bubble": "Zum Bereich 'AI Chats' navigieren", "delay_ms": 2500},
+            {"waypoint": "nav./chats", "bubble": "Zum Bereich 'AI Chats' navigieren", "delay_ms": 2500},
             {"waypoint": "chat.new-session", "bubble": "Mit '+' neue Chat-Session anlegen", "delay_ms": 3000},
             {"waypoint": "chat.settings-tab", "bubble": "Tab 'Einstellungen' öffnen", "delay_ms": 3000},
             {"waypoint": "chat.backend-select", "bubble": "Hier Backend auswählen (z.B. ananta-worker)", "delay_ms": 3500},
@@ -732,7 +732,7 @@ _ANANTA_UI_GUIDE_MAP: list[tuple[list[str], list[dict]]] = [
     (
         ["modell", "model", "provider", "llm", "openai", "lmstudio", "hermes", "backend wechseln", "backend ändern"],
         [
-            {"waypoint": "nav.chats", "bubble": "Zum Chat-Bereich navigieren", "delay_ms": 2000},
+            {"waypoint": "nav./chats", "bubble": "Zum Chat-Bereich navigieren", "delay_ms": 2000},
             {"waypoint": "chat.settings-tab", "bubble": "Einstellungen der aktiven Session öffnen", "delay_ms": 3000},
             {"waypoint": "chat.backend-select", "bubble": "Hier Backend/Modell für die Session wechseln", "delay_ms": 4000},
         ],
@@ -740,14 +740,13 @@ _ANANTA_UI_GUIDE_MAP: list[tuple[list[str], list[dict]]] = [
     (
         ["worker", "agent", "worker pool", "workerpool"],
         [
-            {"waypoint": "nav.control-center", "bubble": "Zum Control Center navigieren", "delay_ms": 2500},
-            {"waypoint": "cc.workers", "bubble": "Worker-Pool öffnen — hier alle Agenten", "delay_ms": 3500},
+            {"waypoint": "cc.workers", "bubble": "Control Center → Workers öffnen", "delay_ms": 3500},
         ],
     ),
     (
         ["blueprint erstell", "blueprint anleg", "neues blueprint", "blueprint creat", "blueprint bau"],
         [
-            {"waypoint": "nav.teams", "bubble": "Navigiere zu 'Teams & Blueprints' im Menü", "delay_ms": 3000},
+            {"waypoint": "nav./teams", "bubble": "Navigiere zu 'Teams & Blueprints' im Menü", "delay_ms": 3000},
             {"waypoint": "teams.tab-blueprints", "bubble": "Tab 'Blueprints' öffnen", "delay_ms": 2500},
             {"waypoint": "teams.blueprint-catalog", "bubble": "Hier siehst du den Blueprint-Katalog — wähle einen aus oder erstelle einen neuen", "delay_ms": 4000},
         ],
@@ -755,22 +754,20 @@ _ANANTA_UI_GUIDE_MAP: list[tuple[list[str], list[dict]]] = [
     (
         ["blueprint", "vorlage"],
         [
-            {"waypoint": "nav.teams", "bubble": "Blueprints findest du unter 'Teams & Blueprints'", "delay_ms": 3000},
+            {"waypoint": "nav./teams", "bubble": "Blueprints findest du unter 'Teams & Blueprints'", "delay_ms": 3000},
             {"waypoint": "teams.tab-blueprints", "bubble": "Tab 'Blueprints' öffnen", "delay_ms": 3000},
         ],
     ),
     (
         ["policy", "richtlinie", "approval", "genehmigung", "freigabe"],
         [
-            {"waypoint": "nav.control-center", "bubble": "Zum Control Center navigieren", "delay_ms": 2500},
-            {"waypoint": "cc.policies", "bubble": "Policy-Genehmigungen öffnen", "delay_ms": 3000},
+            {"waypoint": "cc.policies", "bubble": "Control Center → Policy-Genehmigungen öffnen", "delay_ms": 3000},
         ],
     ),
     (
         ["codecompass", "rag", "retrieval", "code compass"],
         [
-            {"waypoint": "nav.control-center", "bubble": "Zum Control Center navigieren", "delay_ms": 2500},
-            {"waypoint": "cc.codecompass", "bubble": "CodeCompass-Verwaltung öffnen", "delay_ms": 3000},
+            {"waypoint": "cc.codecompass", "bubble": "Control Center → CodeCompass-Verwaltung öffnen", "delay_ms": 3000},
             {"waypoint": "chat.retrieval-profile", "bubble": "Retrieval-Profil in Session-Einstellungen", "delay_ms": 3500},
         ],
     ),
@@ -962,7 +959,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
                                   details=_cfg_trace)
                     if not _cfg_answer:
                         _cfg_answer = "Keine Antwort vom Konfigurations-Guide."
-                    _append_room_ai_message(text=f"{_cfg_answer}{_guide_suffix}\n\n[{_cfg_summary}]")
+                    _append_room_ai_message(text=f"{_cfg_answer}\n\n[{_cfg_summary}]{_guide_suffix}")
                     if store and trace_id:
                         store.complete_trace(trace_id)
                     return
@@ -1025,7 +1022,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
                         overflow_policy=_answer_overflow_policy(),
                         never_truncate=_chat_never_truncate_answers(),
                     )
-                    _append_room_ai_message(text=f"{answer}{_guide_suffix}\n\n[{scan_summary}]")
+                    _append_room_ai_message(text=f"{answer}\n\n[{scan_summary}]{_guide_suffix}")
                     if store and trace_id:
                         store.complete_trace(trace_id)
                     return
@@ -1076,7 +1073,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
                     if rec:
                         rec.event("answer_postprocessed", "Antwort aufbereitet", status="completed",
                                   summary=f"{len(answer)} Zeichen")
-                    _append_room_ai_message(text=f"{answer}{_guide_suffix}\n\n[{scan_summary}]")
+                    _append_room_ai_message(text=f"{answer}\n\n[{scan_summary}]{_guide_suffix}")
                     if rec:
                         rec.event("chat_message_written", "Nachricht in Raum geschrieben", status="completed")
                     if store and trace_id:
