@@ -76,10 +76,14 @@ export class UiStateSyncService implements OnDestroy {
       const route = state.route.split('?')[0];
       if (route !== this.lastRoute) {
         this.lastRoute = route;
-        const tips = this.tipsForRoute(route);
-        if (tips.length) {
-          // Small delay so the new page has rendered its waypoints
-          setTimeout(() => this.guide.play(tips), 600);
+        if (this.guide.active$.value) {
+          // User navigated away during an active guide — replay remaining steps
+          setTimeout(() => this.guide.replay(), 600);
+        } else {
+          const tips = this.tipsForRoute(route);
+          if (tips.length) {
+            setTimeout(() => this.guide.play(tips), 600);
+          }
         }
       }
     });

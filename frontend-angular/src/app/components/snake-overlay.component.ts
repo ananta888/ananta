@@ -382,11 +382,12 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
   }
 
   private drawBubbles(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, head: Seg): void {
-    const now = performance.now();
-    this.bubbles = this.bubbles.filter(b => now - b.born < 4500);
+    // Newest bubble = highest index → most opaque; oldest = lowest index → most faded
+    const OPACITIES = [0.22, 0.52, 1.0];
     for (let bi = 0; bi < this.bubbles.length; bi++) {
       const b    = this.bubbles[bi];
-      const fade = Math.max(0, 1 - (now - b.born) / 4500);
+      const pos  = this.bubbles.length - 1 - bi; // 0 = newest
+      const fade = OPACITIES[Math.min(pos, OPACITIES.length - 1)] ?? 0.22;
       ctx.font   = '11px monospace';
       const tw   = ctx.measureText(b.text).width;
       const bw   = tw + 18;
@@ -437,8 +438,9 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
   }
 
   private advanceGuide(): void {
-    if (!this.guideQueue.length) { this.endGuide(); return; }
+    if (!this.guideQueue.length) { this.guide.markDone(); this.endGuide(); return; }
     const step = this.guideQueue.shift()!;
+    this.guide.updateRemaining([...this.guideQueue]);;
     const pos = this.waypoint.resolve(step.waypoint);
     if (this.guideSnake) {
       const tx = pos?.x ?? (GOAL_MARGIN + Math.random() * (window.innerWidth  - GOAL_MARGIN * 2));
@@ -463,7 +465,7 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
     this.guideBubbleShown = true;
     if (this.guideArriveTimer) { clearTimeout(this.guideArriveTimer); this.guideArriveTimer = null; }
     this.guideBubbles.push({ text: this.guidePendingBubble, born: performance.now() });
-    if (this.guideBubbles.length > 2) this.guideBubbles.shift();
+    if (this.guideBubbles.length > 3) this.guideBubbles.shift();
     if (this.guideStepTimer) clearTimeout(this.guideStepTimer);
     this.guideStepTimer = setTimeout(() => {
       this.guidePendingBubble = null;
@@ -488,11 +490,11 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
   }
 
   private drawGuideBubbles(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, head: Seg): void {
-    const now = performance.now();
-    this.guideBubbles = this.guideBubbles.filter(b => now - b.born < 5000);
+    const OPACITIES = [0.22, 0.52, 1.0];
     for (let bi = 0; bi < this.guideBubbles.length; bi++) {
       const b    = this.guideBubbles[bi];
-      const fade = Math.max(0, 1 - (now - b.born) / 5000);
+      const pos  = this.guideBubbles.length - 1 - bi; // 0 = newest
+      const fade = OPACITIES[Math.min(pos, OPACITIES.length - 1)] ?? 0.22;
       ctx.font   = '12px monospace';
       const tw   = ctx.measureText(b.text).width;
       const bw   = tw + 22;
