@@ -410,3 +410,105 @@ def test_participants_list(client):
     data = resp.get_json()
     ids = [p["id"] for p in data["participants"]]
     assert s1["id"] in ids
+
+
+# ── ananta-visual log session (read-only) ─────────────────────────────────────
+
+
+def test_ananta_visual_default_session_is_read_only():
+    """The built-in ananta-visual session must be seeded as a read-only log."""
+    from client_surfaces.operator_tui.chat_state import default_sessions
+    sessions = default_sessions()
+    visual = next((s for s in sessions if s.get("id") == "ananta-visual"), None)
+    assert visual is not None, "ananta-visual session must be in default_sessions()"
+    assert visual["group"] == "Konfiguration"
+    assert visual["settings"]["chat_read_only"] is True
+    assert visual["settings"]["chat_backend"] == "ananta-worker"
+
+
+def test_ananta_visual_session_is_added_to_legacy_state():
+    """Existing user.json state must have ananta-visual backfilled on load."""
+    from client_surfaces.operator_tui.chat_state import get_sessions
+    chat: dict = {}  # legacy / empty state
+    sessions = get_sessions(chat)
+    visual = next((s for s in sessions if s.get("id") == "ananta-visual"), None)
+    assert visual is not None
+
+
+def test_chat_read_only_default_is_false():
+    """Non-built-in sessions should not be read-only by default."""
+    from client_surfaces.operator_tui.chat_state import make_session
+    sess = make_session(session_id="my-custom", name="Custom")
+    assert sess["settings"]["chat_read_only"] is False
+
+
+def test_send_to_ananta_visual_session_is_rejected(client):
+    """User posts to the ananta-visual session must be rejected with 403.
+    Only the backend's [ui-tick] system path is allowed to write to it."""
+    s1 = _register(client, "VisualUser")
+    resp = client.post(
+        f"/snakes/{s1['id']}/chat/messages",
+        json={
+            "channel_type": "room",
+            "text": "Ich poste in den Visual-Log",
+            "visibility": "room",
+            "session_id": "ananta-visual",
+        },
+        headers={"Authorization": f"Bearer {s1['token']}"},
+    )
+    assert resp.status_code == 403
+    assert "Read-only" in resp.get_json().get("error", "")
+
+
+def test_ui_tick_to_ananta_visual_is_accepted_and_logged(client):
+    """The [ui-tick] system path must be accepted and append a system message
+    to _room_messages with session_id='ananta-visual'."""
+    from agent.routes.snakes import _room_messages
+    _room_messages.clear()
+    s1 = _register(client, "VisualSnake")
+    snapshot = "/teams | nav:Teams* | h:Blueprints | list:3"
+    resp = client.post(
+        f"/snakes/{s1['id']}/chat/messages",
+        json={
+            "channel_type": "room",
+            "text": f"[ui-tick] {snapshot}",
+            "visibility": "system",
+            "session_id": "ananta-visual",
+            "ui_context": {
+                "route": "/teams",
+                "visible_waypoints": ["nav./teams", "teams.tab-blueprints"],
+                "ui_snapshot": snapshot,
+            },
+        },
+        headers={"Authorization": f"Bearer {s1['token']}"},
+    )
+    assert resp.status_code == 202
+    # The tick should be persisted as a system message in the visual session
+    visual_msgs = [m for m in _room_messages if m.get("session_id") == "ananta-visual"]
+    assert len(visual_msgs) == 1
+    assert visual_msgs[0]["visibility"] == "system"
+    assert visual_msgs[0]["sender_id"] == "browser"
+    assert visual_msgs[0]["text"].startswith("[ui-tick]")
+    assert visual_msgs[0].get("ui_snapshot") == snapshot
+
+
+def test_append_room_ai_message_sets_visibility_and_sender():
+    """_append_room_ai_message must honour visibility/sender_id/ui_snapshot overrides."""
+    from agent.routes.snakes import _room_messages
+    from agent.routes.snakes_execution_routes import _append_room_ai_message
+    _room_messages.clear()
+    _append_room_ai_message(
+        text="hallo",
+        session_id="x",
+        visibility="system",
+        sender_id="browser",
+        ui_snapshot="snap",
+    )
+    assert len(_room_messages) == 1
+    m = _room_messages[0]
+    assert m["visibility"] == "system"
+    assert m["sender_id"] == "browser"
+    assert m["sender_kind"] == "system"
+    assert m["session_id"] == "x"
+    assert m["ui_snapshot"] == "snap"
+
