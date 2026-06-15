@@ -1,6 +1,6 @@
 {
   "schema_version": "user_config.v1",
-  "updated": "2026-06-15T16:03:13Z",
+  "updated": "2026-06-15T16:16:00Z",
   "settings": {
     "chat_backend_model": "gpt-4o-mini",
     "chat_full_scan_chars_per_file": 3500,
@@ -139,7 +139,7 @@
     "chat_max_tokens": 8000,
     "chat_use_history": true,
     "chat_embedding_model": "nomic-embed-text-v1.5",
-    "chat_active_session_id": "ananta-settings",
+    "chat_active_session_id": "ananta-visual",
     "chat_use_embedding_api": true,
     "chat_use_summary": true,
     "chat_source_pack_id": "ananta-dev-default",
@@ -154,7 +154,7 @@
         "icon": "🐍",
         "group": "K",
         "created_at": 1781522361.740698,
-        "updated_at": 1781539036.6187928,
+        "updated_at": 1781539789.6102185,
         "settings": {
           "chat_backend": "ananta-worker",
           "chat_backend_model": "google/gemma-4-e4b",
@@ -184,14 +184,15 @@
           "predictive_guide_dwell_ms": 1500,
           "predictive_guide_min_confidence": 0.55,
           "predictive_guide_ttl_seconds": 20,
-          "predictive_guide_multi_candidates": 3,
+          "predictive_guide_multi_candidates": 4,
           "predictive_guide_log_deltas_only": true
         },
         "settings_delta": {
           "predictive_guide_log_deltas_only": true,
           "predictive_guide_mode": "balanced",
           "predictive_guide_enabled": true,
-          "predictive_guide_multi_candidates": 3
+          "predictive_guide_multi_candidates": 4,
+          "predictive_guide_ttl_seconds": 20
         }
       },
       {

@@ -412,13 +412,11 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
   }
 
   chatMessages(): ChatHistoryMessage[] {
-    const sid = this.sessions.activeSessionId$.value || 'default';
-    return this.history.getMessages(sid);
+    return this.history.getMessages(this._snakeSessionId || 'default');
   }
 
   sendPlaceholder(): string {
-    const sid = this.sessions.activeSessionId$.value;
-    const sess = sid ? this.activeSessionFor(sid) : null;
+    const sess = this.activeSessionFor(this._snakeSessionId);
     if (sess && this.isSessionReadOnly(sess)) {
       return 'Read-only Log-Session — nur Backend schreibt hier';
     }
@@ -430,13 +428,11 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
   }
 
   isActiveSessionReadOnly(): boolean {
-    const sid = this.sessions.activeSessionId$.value;
-    return this.isSessionReadOnly(this.activeSessionFor(sid));
+    return this.isSessionReadOnly(this.activeSessionFor(this._snakeSessionId));
   }
 
   isVisualLogSession(): boolean {
-    const sid = this.sessions.activeSessionId$.value;
-    return sid === 'ananta-visual';
+    return this._snakeSessionId === 'ananta-visual';
   }
 
   createChat(): void {

@@ -42,7 +42,7 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
   snakeVisible = false;
   configPanelOpen = false;
   sharePanelOpen = false;
-  snakeChatPanelOpen = false;
+  snakeChatPanelOpen = false; // initialised in restoreDockState()
   snakeChatPanelTab: 'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated' = 'chat';
   private snakeDrawHandle: number | null = null;
 
@@ -586,6 +586,7 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
   private restoreDockState() {
     this.minimized = this.storage.restoreBoolean(this.dockStateStorageKey, true);
     this.hidden = this.storage.restoreBoolean(this.dockHiddenStorageKey, false);
+    this.snakeChatPanelOpen = this.storage.restoreBoolean('ananta.ai-snake.panel-open.v1', true);
   }
 
   private persistDockVisibility() {
@@ -809,6 +810,7 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
 
   toggleSnakeChatPanel(): void {
     this.snakeChatPanelOpen = !this.snakeChatPanelOpen;
+    this.storage.persistBoolean('ananta.ai-snake.panel-open.v1', this.snakeChatPanelOpen);
     if (this.snakeChatPanelOpen) {
       this.configPanelOpen = false;
       this.sharePanelOpen = false;
