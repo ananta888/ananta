@@ -184,6 +184,73 @@ _DEFAULT_SESSION_SETTINGS: dict[str, Any] = {
     "chat_include_wikipedia": False,
     "chat_include_task_memory": True,
     "chat_read_only": False,  # when True: session is a backend-managed log; user cannot post
+    # ── Predictive UI Guide (PUG) settings ────────────────────────────────
+    # When predictive_guide_enabled is True, the visual snake observes the
+    # DOM snapshot and proactively suggests guide steps. All 7 keys are
+    # tunable from the "Predictive Guide" tab in the Ananta-Konfig sidebar.
+    # The master toggle defaults to False — the user must opt in.
+    "predictive_guide_enabled": False,
+    "predictive_guide_mode": "balanced",   # "quiet" | "balanced" | "eager" | "custom"
+    "predictive_guide_dwell_ms": 1500,     # stability window before a prediction fires
+    "predictive_guide_min_confidence": 0.55,  # CONFIRMED threshold (0.0–1.0)
+    "predictive_guide_ttl_seconds": 20,    # prediction lifetime before it expires
+    "predictive_guide_multi_candidates": 3,  # 1–5 alternative DSL candidates per tick
+    "predictive_guide_log_deltas_only": True,  # log only changes between snapshots
+}
+
+
+#: Canonical list of every PUG setting key. Single source of truth for
+#: the frontend, the backend, the migration / preset helpers, and tests.
+PREDICTIVE_GUIDE_KEYS: tuple[str, ...] = (
+    "predictive_guide_enabled",
+    "predictive_guide_mode",
+    "predictive_guide_dwell_ms",
+    "predictive_guide_min_confidence",
+    "predictive_guide_ttl_seconds",
+    "predictive_guide_multi_candidates",
+    "predictive_guide_log_deltas_only",
+)
+
+
+# ── Predictive UI Guide presets ───────────────────────────────────────────────
+# Each preset is a full delta over _DEFAULT_SESSION_SETTINGS covering all 7
+# PUG keys. Selecting a preset overwrites all of them; users can then tweak
+# individual keys and the preset is reported as "custom".
+
+PRESET_PREDICTIVE_QUIET: dict[str, Any] = {
+    "predictive_guide_enabled": True,
+    "predictive_guide_mode": "quiet",
+    "predictive_guide_dwell_ms": 3000,         # 3s stability
+    "predictive_guide_min_confidence": 0.75,   # high bar
+    "predictive_guide_ttl_seconds": 10,        # short memory
+    "predictive_guide_multi_candidates": 1,    # primary only
+    "predictive_guide_log_deltas_only": True,
+}
+
+PRESET_PREDICTIVE_BALANCED: dict[str, Any] = {
+    "predictive_guide_enabled": True,
+    "predictive_guide_mode": "balanced",
+    "predictive_guide_dwell_ms": 1500,
+    "predictive_guide_min_confidence": 0.55,
+    "predictive_guide_ttl_seconds": 20,
+    "predictive_guide_multi_candidates": 3,
+    "predictive_guide_log_deltas_only": True,
+}
+
+PRESET_PREDICTIVE_EAGER: dict[str, Any] = {
+    "predictive_guide_enabled": True,
+    "predictive_guide_mode": "eager",
+    "predictive_guide_dwell_ms": 500,          # fast trigger
+    "predictive_guide_min_confidence": 0.35,   # low bar
+    "predictive_guide_ttl_seconds": 30,        # longer memory
+    "predictive_guide_multi_candidates": 4,    # show alternatives
+    "predictive_guide_log_deltas_only": False, # full snapshot
+}
+
+PREDICTIVE_PRESETS: dict[str, dict[str, Any]] = {
+    "quiet": PRESET_PREDICTIVE_QUIET,
+    "balanced": PRESET_PREDICTIVE_BALANCED,
+    "eager": PRESET_PREDICTIVE_EAGER,
 }
 
 # Built-in sessions — these are the templates the user gets out of the box.
@@ -495,12 +562,25 @@ def get_sessions(chat: dict[str, Any]) -> list[dict[str, Any]]:
 
     # Re-sync settings of existing built-in sessions when DEFAULT_SESSIONS changes.
     # User-customised sessions (not in DEFAULT_SESSIONS) are left untouched.
+    #
+    # For built-in sessions, we want the canonical defaults to be present,
+    # but the user's settings_delta overrides must win on every key the
+    # user actually touched.  Without this, any user-set value gets blown
+    # away on the next get_sessions() call.
     for s in sessions:
         if not isinstance(s, dict):
             continue
         sid = str(s.get("id") or "")
         if sid in _default_by_id:
-            canonical_settings = dict(_default_by_id[sid].get("settings") or {})
+            import copy as _copy
+            user_delta = dict(s.get("settings_delta") or {})
+            # Canonical = full defaults, with the built-in's known delta on top.
+            canonical_settings = _copy.deepcopy(_DEFAULT_SESSION_SETTINGS)
+            for k, v in (dict(_default_by_id[sid].get("settings") or {})).items():
+                canonical_settings[k] = v
+            # Re-apply user overrides so the user's value wins.
+            for k, v in user_delta.items():
+                canonical_settings[k] = v
             current_settings = dict(s.get("settings") or {})
             if canonical_settings != current_settings:
                 s["settings"] = canonical_settings
