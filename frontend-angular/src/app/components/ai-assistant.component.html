@@ -217,6 +217,10 @@
       .snake-chat-tab.active { color: #7fffd4; background: #173055; }
       .config-btn { color: #4a6a9a; border-color: #1a2d4a; }
       .config-btn:hover, .config-btn.active { color: #fbbf24; border-color: #7a5a10; background: #0f1e34; }
+      .region-btn { color: #4a6a9a; border-color: #1a2d4a; }
+      .region-btn:hover { color: #7fffd4; border-color: #2a4070; background: #0f1e34; }
+      .region-btn.active { color: #7fffd4; border-color: #7fffd4; background: #0a2a1a; animation: pulse-region 1s ease-in-out infinite; }
+      @keyframes pulse-region { 0%,100% { box-shadow: 0 0 0 0 rgba(127,255,212,0.4); } 50% { box-shadow: 0 0 0 4px rgba(127,255,212,0); } }
       .overlay-panel {
         position: absolute; inset: 38px 0 0 0; z-index: 10;
         display: flex; flex-direction: column; overflow: hidden;

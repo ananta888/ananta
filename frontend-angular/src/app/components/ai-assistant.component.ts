@@ -4,6 +4,7 @@ import { NavigationEnd, Router } from '@angular/router';
 import { filter, forkJoin } from 'rxjs';
 
 import { WindowBridgeService } from '../services/window-bridge.service';
+import { SnakeOverlayService } from '../services/snake-overlay.service';
 import { AiSnakeConfigPanelComponent } from './ai-snake-config-panel.component';
 import { AiSnakeSharePanelComponent } from './ai-snake-share-panel.component';
 import { AiSnakeChatPanelComponent } from './ai-snake-chat-panel.component';
@@ -37,6 +38,7 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
   private zone = inject(NgZone);
   private cdr = inject(ChangeDetectorRef);
   readonly bridge = inject(WindowBridgeService);
+  readonly snakeOverlay = inject(SnakeOverlayService);
 
   @ViewChild('snakeCanvas') private snakeCanvasRef?: ElementRef<HTMLCanvasElement>;
   snakeVisible = false;
@@ -816,6 +818,8 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
       this.sharePanelOpen = false;
     }
   }
+
+  toggleRegionMode(): void { this.snakeOverlay.toggleRegionMode(); }
 
   openSnakeChatPanelTab(tab: 'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated'): void {
     this.snakeChatPanelTab = tab;

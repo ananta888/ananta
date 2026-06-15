@@ -1,6 +1,7 @@
 import {
   Component, ElementRef, ViewChild, AfterViewInit, OnDestroy, HostListener, inject,
 } from '@angular/core';
+import { AsyncPipe } from '@angular/common';
 import { distinctUntilChanged, map, Subscription } from 'rxjs';
 import { AiSnakeChatService, SnakeParticipant } from '../services/ai-snake-chat.service';
 import { SnakeOverlayService } from '../services/snake-overlay.service';
@@ -53,17 +54,36 @@ interface Bubble { text: string; born: number; }
 @Component({
   selector: 'app-snake-overlay',
   standalone: true,
-  template: `<canvas #cvs></canvas>`,
+  imports: [AsyncPipe],
+  template: `
+    <canvas #cvs></canvas>
+    @if (overlayService.regionMode$ | async) {
+      <div class="region-capture"
+           (mousedown)="onRegionStart($event)"
+           (mousemove)="onRegionMove($event)"
+           (mouseup)="onRegionEnd($event)"
+           (mouseleave)="onRegionCancel()"
+           (keydown.escape)="onRegionCancel()">
+      </div>
+    }
+  `,
   styles: [`:host {
     position: fixed; inset: 0; pointer-events: none; z-index: 29999; display: block;
   }
-  canvas { display: block; width: 100%; height: 100%; }`],
+  canvas { display: block; width: 100%; height: 100%; position: absolute; inset: 0; }
+  .region-capture {
+    position: absolute; inset: 0;
+    pointer-events: all;
+    cursor: crosshair;
+    background: rgba(127,255,212,0.04);
+  }`],
 })
 export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
   @ViewChild('cvs') canvasRef!: ElementRef<HTMLCanvasElement>;
 
   private chat     = inject(AiSnakeChatService);
-  private overlay  = inject(SnakeOverlayService);
+  readonly overlayService = inject(SnakeOverlayService);
+  private get overlay() { return this.overlayService; }
   private share    = inject(ShareSessionService);
   private guide    = inject(SnakeGuideService);
   private waypoint = inject(UiWaypointService);
@@ -78,6 +98,10 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
   private seenMsgIds = new Set<string>();
   private rafId = 0;
   private subs: Subscription[] = [];
+
+  // ── Region-select state ─────────────────────────────────────────────────────
+  private regionStart: { x: number; y: number } | null = null;
+  private regionCurrent: { x: number; y: number } | null = null;
 
   // ── Guided tour state ──────────────────────────────────────────────────────
   private guideSnake: SnakeState | null = null;
@@ -335,8 +359,8 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
     const c = this.canvasRef.nativeElement;
     ctx.clearRect(0, 0, c.width, c.height);
 
+    this.drawRegionRect(ctx);
     for (const snake of this.snakes) this.drawSnake(ctx, snake);
-
     if (this.guideSnake) this.drawGuideBubbles(ctx, c, this.guideSnake.segs[0]);
   }
 
@@ -431,7 +455,10 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
     const step = this.guideQueue.shift()!;
     this.currentGuideWaypoint = step.waypoint;
     this.guide.updateRemaining([...this.guideQueue]);
-    const pos = this.waypoint.resolve(step.waypoint);
+    // Pixel coords from region-select override waypoint lookup
+    const pos = (step.x != null && step.y != null)
+      ? { x: step.x!, y: step.y! }
+      : this.waypoint.resolve(step.waypoint);
     if (this.guideSnake) {
       const tx = pos?.x ?? (GOAL_MARGIN + Math.random() * (window.innerWidth  - GOAL_MARGIN * 2));
       const ty = pos?.y ?? (GOAL_MARGIN + Math.random() * (window.innerHeight - GOAL_MARGIN * 2));
@@ -537,6 +564,185 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
     ctx.lineTo(x, y + r);
     ctx.quadraticCurveTo(x, y, x + r, y);
     ctx.closePath();
+  }
+
+  // ── Region selection ────────────────────────────────────────────────────────
+
+  /** Highlight circles drawn on canvas after collection, cleared when guide starts. */
+  private regionHits: Array<{ cx: number; cy: number }> = [];
+  private regionHitsClearTimer: ReturnType<typeof setTimeout> | null = null;
+
+  onRegionStart(e: MouseEvent): void {
+    this.regionStart   = { x: e.clientX, y: e.clientY };
+    this.regionCurrent = { x: e.clientX, y: e.clientY };
+  }
+
+  onRegionMove(e: MouseEvent): void {
+    if (!this.regionStart) return;
+    this.regionCurrent = { x: e.clientX, y: e.clientY };
+  }
+
+  onRegionEnd(e: MouseEvent): void {
+    if (!this.regionStart) return;
+    const end = { x: e.clientX, y: e.clientY };
+    const steps = this.collectRegionSteps(this.regionStart, end);
+    this.regionStart   = null;
+    this.regionCurrent = null;
+    this.overlay.exitRegionMode();
+    if (!steps.length) return;
+
+    // Flash hit-circles briefly before guide starts
+    this.regionHits = steps.map(s => ({ cx: s.x!, cy: s.y! }));
+    if (this.regionHitsClearTimer) clearTimeout(this.regionHitsClearTimer);
+    this.regionHitsClearTimer = setTimeout(() => {
+      this.regionHits = [];
+      this.regionHitsClearTimer = null;
+    }, 1200);
+
+    this.guide.play(steps);
+  }
+
+  onRegionCancel(): void {
+    this.regionStart   = null;
+    this.regionCurrent = null;
+    this.overlay.exitRegionMode();
+  }
+
+  private drawRegionRect(ctx: CanvasRenderingContext2D): void {
+    // Selection rectangle while dragging
+    if (this.regionStart && this.regionCurrent) {
+      const x = Math.min(this.regionStart.x, this.regionCurrent.x);
+      const y = Math.min(this.regionStart.y, this.regionCurrent.y);
+      const w = Math.abs(this.regionCurrent.x - this.regionStart.x);
+      const h = Math.abs(this.regionCurrent.y - this.regionStart.y);
+      if (w >= 2 && h >= 2) {
+        ctx.globalAlpha = 0.15;
+        ctx.fillStyle   = '#7fffd4';
+        ctx.fillRect(x, y, w, h);
+        ctx.globalAlpha = 0.85;
+        ctx.strokeStyle = '#7fffd4';
+        ctx.lineWidth   = 1.5;
+        ctx.setLineDash([5, 3]);
+        ctx.strokeRect(x, y, w, h);
+        ctx.setLineDash([]);
+      }
+    }
+
+    // Hit-circles: flash found elements after release
+    for (const h of this.regionHits) {
+      ctx.globalAlpha = 0.7;
+      ctx.strokeStyle = '#7fffd4';
+      ctx.lineWidth   = 2;
+      ctx.beginPath();
+      ctx.arc(h.cx, h.cy, 16, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 0.15;
+      ctx.fillStyle   = '#7fffd4';
+      ctx.fill();
+    }
+
+    ctx.globalAlpha = 1;
+  }
+
+  private collectRegionSteps(
+    a: { x: number; y: number },
+    b: { x: number; y: number },
+  ): import('../services/snake-guide.service').GuideStep[] {
+    const left   = Math.min(a.x, b.x);
+    const right  = Math.max(a.x, b.x);
+    const top    = Math.min(a.y, b.y);
+    const bottom = Math.max(a.y, b.y);
+    if (right - left < 8 || bottom - top < 8) return [];
+
+    // Root elements of UI chrome to exclude (snake panel, overlay itself)
+    const excludeRoots = Array.from(document.querySelectorAll(
+      'app-snake-overlay, app-ai-snake-chat-panel, app-ai-assistant',
+    ));
+
+    const QUERY = [
+      '[data-waypoint]',
+      'h1', 'h2', 'h3',
+      'button:not([disabled])',
+      '[role="tab"]',
+      '[role="menuitem"]',
+      'input:not([type="hidden"])',
+      'select',
+      'a[href]',
+      'th', 'td',
+    ].join(',');
+
+    type Hit = { cx: number; cy: number; bubble: string; waypoint: string };
+    const hits: Hit[] = [];
+    const seen = new Set<Element>();
+
+    for (const el of Array.from(document.querySelectorAll(QUERY))) {
+      if (seen.has(el)) continue;
+      // Skip elements inside the UI chrome
+      if (excludeRoots.some(root => root.contains(el))) continue;
+
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) continue;
+
+      // Key rule: element CENTER must be within the selection rectangle
+      const cx = (r.left + r.right)  / 2;
+      const cy = (r.top  + r.bottom) / 2;
+      if (cx < left || cx > right || cy < top || cy > bottom) continue;
+
+      // Skip hidden elements
+      const style = window.getComputedStyle(el);
+      if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') continue;
+
+      seen.add(el);
+
+      // Prevent parent from being added when a more-specific child is already in the set
+      // by skipping elements that contain an already-seen element
+      let hasSeenChild = false;
+      for (const s of seen) {
+        if (s !== el && el.contains(s)) { hasSeenChild = true; break; }
+      }
+      if (hasSeenChild) continue;
+
+      const bubble = this.labelForEl(el);
+      if (!bubble) continue;
+      hits.push({ cx, cy, bubble, waypoint: el.getAttribute('data-waypoint') || '' });
+    }
+
+    // Top-to-bottom, left-to-right; max 8 steps
+    hits.sort((a, b) => a.cy !== b.cy ? a.cy - b.cy : a.cx - b.cx);
+
+    return hits.slice(0, 8).map(h => ({
+      waypoint: h.waypoint || '__region__',
+      bubble:   h.bubble.slice(0, 80),
+      delay_ms: 2200,
+      x: h.cx,
+      y: h.cy,
+    }));
+  }
+
+  private labelForEl(el: Element): string {
+    const tag  = el.tagName.toLowerCase();
+    const aria = el.getAttribute('aria-label') || el.getAttribute('title') || '';
+    const ph   = (el as HTMLInputElement).placeholder || '';
+    // Use direct text only (not nested children's text) where possible
+    const directText = Array.from(el.childNodes)
+      .filter(n => n.nodeType === Node.TEXT_NODE)
+      .map(n => n.textContent?.trim() || '')
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const fullText = (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 60);
+    const text = directText || fullText;
+
+    if (tag === 'input')  return ph ? `Eingabe: ${ph}` : (aria || 'Eingabefeld');
+    if (tag === 'select') return `Auswahl: ${aria || text || 'Dropdown'}`;
+    if (tag === 'button') return (aria || text) ? `Button: ${aria || text}` : 'Schaltfläche';
+    if (tag === 'a')      return aria || text;
+    if (/^h[1-3]$/.test(tag)) return text || aria;
+    if (tag === 'th')     return `Spalte: ${text || aria}`;
+    if (tag === 'td')     return text || aria;
+    if (el.getAttribute('role') === 'tab')      return `Tab: ${aria || text}`;
+    if (el.getAttribute('role') === 'menuitem') return `Menü: ${aria || text}`;
+    return aria || text || el.getAttribute('data-waypoint') || '';
   }
 }
 

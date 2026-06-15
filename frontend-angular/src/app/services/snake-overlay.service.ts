@@ -29,6 +29,12 @@ export class SnakeOverlayService {
     try { localStorage.setItem(LS_KEY, String(next)); } catch {}
   }
 
+  /** Region-select mode: user draws a rect → guide snake explains elements inside. */
+  readonly regionMode$ = new BehaviorSubject<boolean>(false);
+
+  toggleRegionMode(): void { this.regionMode$.next(!this.regionMode$.value); }
+  exitRegionMode(): void   { this.regionMode$.next(false); }
+
   private loadPref(): boolean {
     try {
       const stored = localStorage.getItem(LS_KEY);

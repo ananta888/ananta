@@ -20,11 +20,12 @@ import { ChatHistoryService, ChatHistoryMessage } from '../services/chat-history
 import { ChatMessageComponent } from './chat-message.component';
 import { UiStateSyncService } from '../services/ui-state-sync.service';
 import { VisualSnakeLogComponent } from './visual-snake-log.component';
+import { SnakeOverlayService } from '../services/snake-overlay.service';
 
 @Component({
   selector: 'app-ai-snake-chat-panel',
   standalone: true,
-  imports: [CommonModule, AsyncPipe, FormsModule, AiSnakeConfigPanelComponent, AiSnakeSharePanelComponent, AiSnakeTraceViewerComponent, ChatSessionsPanelComponent, ChatMessageComponent, VisualSnakeLogComponent],
+  imports: [CommonModule, AsyncPipe, FormsModule, AiSnakeConfigPanelComponent, AiSnakeSharePanelComponent, AiSnakeTraceViewerComponent, ChatSessionsPanelComponent, ChatMessageComponent, VisualSnakeLogComponent ],
   template: `
     <div class="snake-chat-panel">
       <div class="head">
@@ -246,7 +247,12 @@ import { VisualSnakeLogComponent } from './visual-snake-log.component';
         <button [class.active]="tab==='login'" (click)="setTab('login')" data-waypoint="snake.tab-ai-snake">AI-Snake</button>
         <button [class.active]="tab==='pair'" (click)="setTab('pair')" data-waypoint="snake.tab-pair">Pair Dev</button>
         <button [class.active]="tab==='mode'" (click)="setTab('mode')" data-waypoint="snake.tab-mode">Modus</button>
-        <button [class.active]="tab==='settings'" (click)="setTab('settings')" data-waypoint="snake.tab-settings">Einstellungen</button>
+        <button [class.active]="tab==='settings'" (click)="setTab('settings')" data-waypoint="snake.tab-settings">Einstell.</button>
+        <button class="explain-btn"
+                [class.active]="(overlayService.regionMode$ | async)"
+                (click)="overlayService.toggleRegionMode()"
+                title="Bereich aufziehen — Snake erklärt Elemente im Bereich"
+                data-waypoint="snake.tab-explain">🔲 Erklären</button>
       </div>
       @if (svc.error$ | async; as e) {
         @if (e) { <div class="error">{{ e }}</div> }
@@ -351,6 +357,10 @@ import { VisualSnakeLogComponent } from './visual-snake-log.component';
     .bottom-tabs button.active { color: #7fffd4; border-color: #2a4070; background: #102238; }
     .trace-tab-btn { border-color: #1a3a2a; color: #3a8a6a; }
     .trace-tab-btn.active { color: #3accaa; border-color: #1a6a4a; background: #0a2018; }
+    .explain-btn { border-color: #2a4a2a; color: #4a9a6a; margin-left: auto; }
+    .explain-btn:hover { color: #7fffd4; border-color: #3a7a4a; }
+    .explain-btn.active { color: #7fffd4; border-color: #7fffd4; background: #0a2a1a; animation: pulse-exp 1s ease-in-out infinite; }
+    @keyframes pulse-exp { 0%,100% { box-shadow: 0 0 0 0 rgba(127,255,212,0.5); } 50% { box-shadow: 0 0 0 5px rgba(127,255,212,0); } }
     .error { color: #fb7185; font-size: 11px; padding: 6px 10px; border-top: 1px solid #4a1a1a; }
   `],
 })
@@ -361,6 +371,7 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
   readonly signaling = inject(WebrtcSignalingService);
   readonly sessions = inject(ChatSessionsService);
   readonly history = inject(ChatHistoryService);
+  readonly overlayService = inject(SnakeOverlayService);
   private uiSync = inject(UiStateSyncService);
 
   name = 'web-ai-snake';

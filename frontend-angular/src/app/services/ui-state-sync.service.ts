@@ -5,7 +5,7 @@
  */
 import { Injectable, inject, OnDestroy } from '@angular/core';
 import { Subscription } from 'rxjs';
-import { debounceTime, distinctUntilChanged, map } from 'rxjs/operators';
+import { debounceTime } from 'rxjs/operators';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { SharedViewStateService } from './shared-view-state.service';
 import { AiSnakeChatService } from './ai-snake-chat.service';
@@ -56,6 +56,7 @@ export class UiStateSyncService implements OnDestroy {
   private gate     = inject(PredictionGateService);
 
   private sub: Subscription | null = null;
+  private pollTimer: ReturnType<typeof setInterval> | null = null;
   private lastRoute = '';
   private lastSnapshot = '';
   private pendingSnapshot = '';
@@ -63,13 +64,13 @@ export class UiStateSyncService implements OnDestroy {
 
   start(): void {
     if (this.sub) return;
+
+    // Route subscription: push UI state on navigation + trigger static guide tips
     this.sub = this.view.state$.pipe(debounceTime(400)).subscribe(state => {
       const snakeId = this.snake.snakeId$.value;
       const hubUrl  = this.dir.list().find(a => a.role === 'hub')?.url || '';
-
       const uiSnapshot = this.snapshot.capture();
 
-      // ── Push UI state + snapshot to backend ─────────────────────────────────
       if (snakeId && hubUrl) {
         const visible = this.getVisibleWaypoints();
         const token   = this.snake.getSnakeToken();
@@ -81,20 +82,6 @@ export class UiStateSyncService implements OnDestroy {
         ).subscribe({ error: () => {} });
       }
 
-      // ── Visual snake tick: PUG-gated or legacy unconditional ─────────────────
-      if (snakeId && hubUrl && uiSnapshot && uiSnapshot !== this.lastSnapshot) {
-        const pugEnabled = this.gate.getSettings().enabled;
-        if (pugEnabled) {
-          this.gate.notifyChange(uiSnapshot);   // start dwell clock immediately
-          this.scheduleDwellTick(snakeId, hubUrl, uiSnapshot);
-        } else {
-          // Legacy: send every snapshot change after a short render delay
-          this.lastSnapshot = uiSnapshot;
-          setTimeout(() => this.snake.sendUiContextTick(uiSnapshot), 700);
-        }
-      }
-
-      // ── Proactive guide: static route tips on navigation change ─────────────
       const route = state.route.split('?')[0];
       if (route !== this.lastRoute) {
         this.lastRoute = route;
@@ -102,21 +89,43 @@ export class UiStateSyncService implements OnDestroy {
           setTimeout(() => this.guide.replay(), 600);
         } else {
           const tips = this.tipsForRoute(route);
-          if (tips.length) {
-            setTimeout(() => this.guide.play(tips), 600);
-          }
+          if (tips.length) setTimeout(() => this.guide.play(tips), 600);
         }
       }
     });
+
+    // Snapshot polling: detect DOM changes on the same page (click, focus, tab changes…)
+    // view$ only fires on route/surface transitions, so PUG ticks need their own clock.
+    this.pollSnapshot();
+    this.pollTimer = setInterval(() => this.pollSnapshot(), 1500);
   }
 
   stop(): void {
+    if (this.pollTimer)  { clearInterval(this.pollTimer); this.pollTimer = null; }
     if (this.dwellTimer) { clearTimeout(this.dwellTimer); this.dwellTimer = null; }
     this.sub?.unsubscribe();
     this.sub = null;
-    this.lastRoute = '';
+    this.lastRoute    = '';
     this.lastSnapshot = '';
     this.pendingSnapshot = '';
+  }
+
+  private pollSnapshot(): void {
+    const snakeId = this.snake.snakeId$.value;
+    const hubUrl  = this.dir.list().find(a => a.role === 'hub')?.url || '';
+    if (!snakeId || !hubUrl) return;
+
+    const uiSnapshot = this.snapshot.capture();
+    if (!uiSnapshot || uiSnapshot === this.lastSnapshot) return;
+
+    const pugEnabled = this.gate.getSettings().enabled;
+    if (pugEnabled) {
+      this.gate.notifyChange(uiSnapshot);
+      this.scheduleDwellTick(snakeId, hubUrl, uiSnapshot);
+    } else {
+      this.lastSnapshot = uiSnapshot;
+      this.snake.sendUiContextTick(uiSnapshot);
+    }
   }
 
   private scheduleDwellTick(snakeId: string, hubUrl: string, snapshot: string): void {

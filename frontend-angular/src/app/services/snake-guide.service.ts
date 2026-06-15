@@ -5,6 +5,9 @@ export interface GuideStep {
   waypoint: string;
   bubble: string;
   delay_ms?: number;
+  /** Pixel position override — when set, skips UiWaypointService.resolve() */
+  x?: number;
+  y?: number;
 }
 
 @Injectable({ providedIn: 'root' })
