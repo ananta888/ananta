@@ -1497,6 +1497,11 @@ def chat_send(snake_id: str):
     if channel_type not in _VALID_CHANNEL_TYPES:
         return jsonify({"error": f"ung\u00fcltiger channel_type: {channel_type}"}), 422
 
+    # Backend-side guard: the ananta-visual session is a read-only log. Only the
+    # backend's [ui-tick] / proactive guide paths are allowed to write to it.
+    if client_session_id == "ananta-visual" and not (visibility == "system" and text.startswith("[ui-tick]")):
+        return jsonify({"error": "ananta-visual ist eine Read-only-Log-Session"}), 403
+
     msg: dict[str, Any] = {
         "id": str(body.get("id") or str(uuid.uuid4())),
         "created_at": time.time(),

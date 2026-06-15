@@ -218,10 +218,16 @@ import { UiStateSyncService } from '../services/ui-state-sync.service';
             }
           </div>
           <div class="send">
+            @if (isActiveSessionReadOnly()) {
+              <div class="read-only-banner" data-waypoint="chat.read-only-banner">
+                🐍 Read-only Log-Session — wird ausschließlich vom Backend befüllt
+                (UI-Ticks &amp; Antworten der visuellen Guide-Snake).
+              </div>
+            }
             <input [(ngModel)]="draft" (keydown.enter)="send()"
                    [placeholder]="sendPlaceholder()"
-                   [disabled]="!!(svc.awaitingReply$ | async)" />
-            <button (click)="send()" [disabled]="!draft.trim() || !!(svc.awaitingReply$ | async)">Senden</button>
+                   [disabled]="!!(svc.awaitingReply$ | async) || isActiveSessionReadOnly()" />
+            <button (click)="send()" [disabled]="!draft.trim() || !!(svc.awaitingReply$ | async) || isActiveSessionReadOnly()">Senden</button>
             @if (svc.awaitingReply$ | async) {
               <button class="cancel-btn" (click)="cancelChat()">⏹</button>
             }
@@ -312,6 +318,7 @@ import { UiStateSyncService } from '../services/ui-state-sync.service';
     .typing .msg-body { color: #4a8a6a; animation: blink 1s infinite; }
     @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
     .send { border-top: 1px solid #1a2d4a; padding: 8px 10px; display: grid; grid-template-columns: 1fr auto auto; gap: 6px; }
+    .read-only-banner { grid-column: 1 / -1; background: #1a2540; border: 1px solid #3a5a8a; color: #d8c8a8; padding: 6px 10px; border-radius: 3px; font-size: 11px; line-height: 1.4; }
     .ghost { color: #6b8ab8; }
     .cancel-btn { color: #ff6b6b; border-color: #ff6b6b; background: #1a0a0a; }
     .divider { border: none; border-top: 1px solid #1a2d4a; margin: 6px 0; }
@@ -407,7 +414,19 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
   sendPlaceholder(): string {
     const sid = this.sessions.activeSessionId$.value;
     const sess = sid ? this.activeSessionFor(sid) : null;
+    if (sess && this.isSessionReadOnly(sess)) {
+      return 'Read-only Log-Session — nur Backend schreibt hier';
+    }
     return sess ? `Nachricht in "${sess.name}"…` : 'Nachricht senden…';
+  }
+
+  isSessionReadOnly(s: ChatSession | null | undefined): boolean {
+    return !!s?.settings?.['chat_read_only'];
+  }
+
+  isActiveSessionReadOnly(): boolean {
+    const sid = this.sessions.activeSessionId$.value;
+    return this.isSessionReadOnly(this.activeSessionFor(sid));
   }
 
   createChat(): void {
@@ -447,6 +466,7 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
   send(): void {
     const text = this.draft.trim();
     if (!text) return;
+    if (this.isActiveSessionReadOnly()) return;  // guard: never post to read-only log sessions
     this.svc.sendRoomMessage(text, this._snakeSessionId);
     this.draft = '';
   }

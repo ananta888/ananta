@@ -183,6 +183,7 @@ _DEFAULT_SESSION_SETTINGS: dict[str, Any] = {
     "chat_include_local_project": True,
     "chat_include_wikipedia": False,
     "chat_include_task_memory": True,
+    "chat_read_only": False,  # when True: session is a backend-managed log; user cannot post
 }
 
 # Built-in sessions — these are the templates the user gets out of the box.
@@ -279,6 +280,33 @@ DEFAULT_SESSIONS: list[dict[str, Any]] = [
             "chat_answer_chars": 3000,
             "chat_rag_top_k": 5,
             "chat_include_local_project": False,
+        },
+    },
+    {
+        # Read-only log session for the visual snake (ananta-visual).
+        # The user cannot post to this session directly — the backend writes
+        # [ui-tick] system messages and the proactive guide's reply into it
+        # so the user can review what the visual snake observed and answered.
+        "id": "ananta-visual",
+        "name": "Visual Snake Log",
+        "icon": "🐍",
+        "group": "Konfiguration",
+        "system_prompt": (
+            "Read-only Log-Session für die visuelle AI-Snake.\n"
+            "Eingehend: [ui-tick] System-Messages mit kompaktem UI-Snapshot der aktuellen App-Ansicht.\n"
+            "Ausgehend: Proaktive Antworten der Guide-Snake (max. 1-2 kurze deutsche Sätze + optional __GUIDE__ Steps).\n"
+            "Du kannst in dieser Session nicht direkt chatten — sie wird ausschließlich vom Backend befüllt."
+        ),
+        "settings": {
+            "chat_backend": "ananta-worker",
+            "chat_use_codecompass": False,
+            "chat_retrieval_profile": "none",
+            "chat_code_questions_repo_first": False,
+            "chat_architecture_analysis_mode": False,
+            "chat_answer_chars": 1000,
+            "chat_rag_top_k": 0,
+            "chat_include_local_project": False,
+            "chat_read_only": True,
         },
     },
     # ── Architektur-Gruppe ────────────────────────────────────────────────────
