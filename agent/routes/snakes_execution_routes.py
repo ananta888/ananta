@@ -833,6 +833,18 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None) -> None
                             break
             except Exception:
                 pass
+            # For built-in sessions, always use the canonical system_prompt from DEFAULT_SESSIONS
+            # so code changes to prompts take effect immediately without requiring user.json migration.
+            try:
+                from client_surfaces.operator_tui.chat_state import DEFAULT_SESSIONS as _DS2
+                for _ds in _DS2:
+                    if str(_ds.get("id") or "") == _active_session_id:
+                        _canonical_prompt = str(_ds.get("system_prompt") or "").strip()
+                        if _canonical_prompt:
+                            _active_session_prompt = _canonical_prompt
+                        break
+            except Exception:
+                pass
 
             # Ananta-Settings session: enrich prompt with current settings context
             _original_prompt = prompt
@@ -1590,6 +1602,7 @@ def snake_ask():
         _eff_cfg.update(dict(retrieval_config_overrides or {}))
         # Resolve active session's system_prompt and apply session-level setting overrides
         _active_session_prompt: str | None = None
+        _active_sid = ""
         try:
             from client_surfaces.operator_tui.config.user_config_manager import get_manager as _get_mgr
             _stored = _get_mgr().load()
@@ -1608,6 +1621,17 @@ def snake_ask():
                     "chat_code_questions_repo_first": False,
                     "chat_include_local_project": False,
                 }
+        except Exception:
+            pass
+        # Always override system_prompt for built-in sessions with the canonical DEFAULT_SESSIONS value
+        try:
+            from client_surfaces.operator_tui.chat_state import DEFAULT_SESSIONS as _DS
+            for _ds in _DS:
+                if str(_ds.get("id") or "") == _active_sid:
+                    _cp = str(_ds.get("system_prompt") or "").strip()
+                    if _cp:
+                        _active_session_prompt = _cp
+                    break
         except Exception:
             pass
         if _is_rag_iterative_intent(_eff_cfg):
