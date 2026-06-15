@@ -599,6 +599,10 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
       this.regionHitsClearTimer = null;
     }, 1200);
 
+    // Log the explain request to Visual Snake Log so it's visible there
+    const regionSummary = steps.map(s => s.bubble).join(' | ');
+    this.chat.sendRegionExplainTick(`${location.pathname} | ${regionSummary}`);
+
     this.guide.play(steps);
   }
 

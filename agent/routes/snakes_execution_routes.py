@@ -1569,12 +1569,26 @@ def chat_send(snake_id: str):
             _thr.Thread(target=_spawn_visual_reply, args=(_ui_snap,), daemon=True).start()
         return jsonify({"ok": True, "id": str(body.get("id") or "")}), 202
 
+    # Region-explain event: user drew a selection + triggered element-by-element guide.
+    # Log it in ananta-visual without spawning an AI reply (guide runs client-side).
+    if visibility == "system" and text.startswith("[region-explain]"):
+        _append_room_ai_message(
+            text=text[:500],
+            session_id=_VISUAL_SESSION_ID,
+            visibility="system",
+            sender_id="browser",
+        )
+        return jsonify({"ok": True, "id": str(body.get("id") or "")}), 202
+
     if channel_type not in _VALID_CHANNEL_TYPES:
         return jsonify({"error": f"ung\u00fcltiger channel_type: {channel_type}"}), 422
 
-    # Backend-side guard: the ananta-visual session is a read-only log. Only the
-    # backend's [ui-tick] / proactive guide paths are allowed to write to it.
-    if client_session_id == "ananta-visual" and not (visibility == "system" and text.startswith("[ui-tick]")):
+    # Backend-side guard: ananta-visual is a read-only log.
+    # Only browser-side [ui-tick] and [region-explain] system messages are allowed.
+    _allowed_visual = visibility == "system" and (
+        text.startswith("[ui-tick]") or text.startswith("[region-explain]")
+    )
+    if client_session_id == "ananta-visual" and not _allowed_visual:
         return jsonify({"error": "ananta-visual ist eine Read-only-Log-Session"}), 403
 
     msg: dict[str, Any] = {

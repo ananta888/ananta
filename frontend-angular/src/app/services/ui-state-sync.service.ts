@@ -61,6 +61,8 @@ export class UiStateSyncService implements OnDestroy {
   private lastSnapshot = '';
   private pendingSnapshot = '';
   private dwellTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Snapshot the current dwell timer was started for — prevents resetting when same snapshot arrives. */
+  private scheduledSnapshot = '';
 
   start(): void {
     if (this.sub) return;
@@ -105,9 +107,10 @@ export class UiStateSyncService implements OnDestroy {
     if (this.dwellTimer) { clearTimeout(this.dwellTimer); this.dwellTimer = null; }
     this.sub?.unsubscribe();
     this.sub = null;
-    this.lastRoute    = '';
-    this.lastSnapshot = '';
+    this.lastRoute       = '';
+    this.lastSnapshot    = '';
     this.pendingSnapshot = '';
+    this.scheduledSnapshot = '';
   }
 
   private pollSnapshot(): void {
@@ -130,10 +133,15 @@ export class UiStateSyncService implements OnDestroy {
 
   private scheduleDwellTick(snakeId: string, hubUrl: string, snapshot: string): void {
     this.pendingSnapshot = snapshot;
+    // Same snapshot + timer already running: don't reset — the dwell period is already counting.
+    // Resetting would push the fire-time forward indefinitely while the user is idle.
+    if (snapshot === this.scheduledSnapshot && this.dwellTimer) return;
+    this.scheduledSnapshot = snapshot;
     if (this.dwellTimer) clearTimeout(this.dwellTimer);
     const dwellMs = this.gate.getSettings().dwellMs;
     this.dwellTimer = setTimeout(() => {
       this.dwellTimer = null;
+      this.scheduledSnapshot = '';
       this.tryFireTick(snakeId, hubUrl);
     }, dwellMs);
   }

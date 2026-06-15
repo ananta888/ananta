@@ -20,6 +20,7 @@ interface UiTickEntry {
   id: string;
   ts: number;
   text: string;            // full [ui-tick] ... text
+  kind: 'tick' | 'explain';
   route: string;            // first path-like token in the snapshot
   snapshot: string;         // full compact snapshot
   preview: string;          // first 200 chars of the snapshot, formatted
@@ -41,8 +42,11 @@ interface UiTickEntry {
       </div>
       <div class="vlist" *ngIf="entries.length; else emptyTpl">
         @for (e of entries; track e.id) {
-          <div class="vitem" [class.has-reply]="!!e.replyId">
-            <div class="vtime">{{ formatTime(e.ts) }}</div>
+          <div class="vitem" [class.has-reply]="!!e.replyId" [class.is-explain]="e.kind === 'explain'">
+            <div class="vtime">
+              {{ formatTime(e.ts) }}
+              <span class="vkind" *ngIf="e.kind === 'explain'">🔲 Erklären</span>
+            </div>
             <div class="vroute" *ngIf="e.route">📍 {{ e.route }}</div>
             <div class="vsnap" [title]="e.snapshot">{{ e.preview }}</div>
             <div class="vreply" *ngIf="e.replyText">
@@ -90,6 +94,8 @@ interface UiTickEntry {
       border-radius: 3px; padding: 6px 8px; margin-bottom: 6px; font-size: 11px; line-height: 1.4;
     }
     .vitem.has-reply { border-left-color: #d8c8a8; }
+    .vitem.is-explain { border-left-color: #7fffd4; background: #0d1e2c; }
+    .vkind { margin-left: 6px; color: #7fffd4; font-size: 10px; font-weight: 600; }
     .vtime { color: #6b8ab8; font-family: monospace; }
     .vroute { color: #7fffd4; margin-top: 2px; }
     .vsnap { color: #c8d8f8; margin-top: 3px; white-space: pre-wrap; word-break: break-word; max-height: 80px; overflow: hidden; }
@@ -149,12 +155,24 @@ export class VisualSnakeLogComponent implements OnInit, OnDestroy {
         const snapshot = m.text.slice('[ui-tick]'.length).trim();
         const route = snapshot.split(/\s|\|/)[0]?.trim() || '';
         pendingTick = {
-          id: m.id,
-          ts: m.ts,
-          text: m.text,
+          id: m.id, ts: m.ts, text: m.text, kind: 'tick',
           route: route.startsWith('/') ? route : '',
           snapshot,
           preview: snapshot.length > 220 ? snapshot.slice(0, 220) + '…' : snapshot,
+        };
+      } else if (m.text?.startsWith('[region-explain]')) {
+        if (pendingTick) ticks.push(pendingTick);
+        const content = m.text.slice('[region-explain]'.length).trim();
+        const route = content.split('|')[0]?.trim() || '';
+        const elements = content.split('|').slice(1).map(s => s.trim()).filter(Boolean);
+        const preview = elements.length
+          ? elements.join('\n')
+          : content;
+        pendingTick = {
+          id: m.id, ts: m.ts, text: m.text, kind: 'explain',
+          route: route.startsWith('/') ? route : '',
+          snapshot: content,
+          preview: preview.slice(0, 220),
         };
       } else if (m.isAI && pendingTick) {
         pendingTick.replyId = m.id;
@@ -170,7 +188,6 @@ export class VisualSnakeLogComponent implements OnInit, OnDestroy {
             }
           } catch { pendingTick.replyText = raw; }
         } else {
-          // Legacy __GUIDE__: format — strip the JSON suffix from the display text
           pendingTick.replyText = raw.includes('__GUIDE__:')
             ? raw.slice(0, raw.indexOf('__GUIDE__:')).trim()
             : raw;
@@ -178,7 +195,6 @@ export class VisualSnakeLogComponent implements OnInit, OnDestroy {
       }
     }
     if (pendingTick) ticks.push(pendingTick);
-    // newest first
     this.entries = ticks.slice().reverse();
   }
 }

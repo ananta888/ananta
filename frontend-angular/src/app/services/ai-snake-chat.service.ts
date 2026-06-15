@@ -164,9 +164,19 @@ export class AiSnakeChatService implements OnDestroy {
    *  snake session so the LLM has up-to-date view context without the user
    *  having to type anything. Does not set awaitingReply$. */
   sendUiContextTick(uiSnapshot: string): void {
+    this.sendVisualSystemMessage('[ui-tick]', uiSnapshot);
+  }
+
+  /** Log a region-explain event (user drew selection → guide plays).
+   *  Stored in ananta-visual without triggering an AI reply. */
+  sendRegionExplainTick(summary: string): void {
+    this.sendVisualSystemMessage('[region-explain]', summary);
+  }
+
+  private sendVisualSystemMessage(prefix: string, content: string): void {
     const base = this.hubUrl();
     const snakeId = this.snakeId$.value;
-    if (!base || !snakeId || !this.snakeToken || !uiSnapshot) return;
+    if (!base || !snakeId || !this.snakeToken || !content) return;
     const id = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
     const currentRoute = this.router.url;
     const visibleWaypoints = this.collectVisibleWaypoints();
@@ -176,8 +186,8 @@ export class AiSnakeChatService implements OnDestroy {
         id,
         channel_type: 'room',
         visibility: 'system',
-        text: `[ui-tick] ${uiSnapshot}`,
-        ui_context: { route: currentRoute, visible_waypoints: visibleWaypoints, ui_snapshot: uiSnapshot },
+        text: `${prefix} ${content}`,
+        ui_context: { route: currentRoute, visible_waypoints: visibleWaypoints, ui_snapshot: content },
         session_id: 'ananta-visual',
       },
       { headers: this.withSnakeHeaders() },
