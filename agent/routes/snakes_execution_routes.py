@@ -745,10 +745,18 @@ _ANANTA_UI_GUIDE_MAP: list[tuple[list[str], list[dict]]] = [
         ],
     ),
     (
-        ["blueprint", "vorlage", "template"],
+        ["blueprint erstell", "blueprint anleg", "neues blueprint", "blueprint creat", "blueprint bau"],
         [
-            {"waypoint": "nav.control-center", "bubble": "Zum Control Center navigieren", "delay_ms": 2500},
-            {"waypoint": "cc.sessions", "bubble": "Sessions-Verwaltung öffnen", "delay_ms": 3000},
+            {"waypoint": "nav.teams", "bubble": "Navigiere zu 'Teams & Blueprints' im Menü", "delay_ms": 3000},
+            {"waypoint": "teams.tab-blueprints", "bubble": "Tab 'Blueprints' öffnen", "delay_ms": 2500},
+            {"waypoint": "teams.blueprint-catalog", "bubble": "Hier siehst du den Blueprint-Katalog — wähle einen aus oder erstelle einen neuen", "delay_ms": 4000},
+        ],
+    ),
+    (
+        ["blueprint", "vorlage"],
+        [
+            {"waypoint": "nav.teams", "bubble": "Blueprints findest du unter 'Teams & Blueprints'", "delay_ms": 3000},
+            {"waypoint": "teams.tab-blueprints", "bubble": "Tab 'Blueprints' öffnen", "delay_ms": 3000},
         ],
     ),
     (

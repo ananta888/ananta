@@ -31,8 +31,8 @@
       </div>
 
       <div class="tabs teams-tabs">
-        <button type="button" class="tab" [class.active]="currentTab === 'blueprints'" (click)="currentTab = 'blueprints'">Blueprints</button>
-        <button type="button" class="tab" [class.active]="currentTab === 'teams'" (click)="currentTab = 'teams'">Teams aus Blueprint</button>
+        <button type="button" class="tab" [class.active]="currentTab === 'blueprints'" (click)="currentTab = 'blueprints'" data-waypoint="teams.tab-blueprints">Blueprints</button>
+        <button type="button" class="tab" [class.active]="currentTab === 'teams'" (click)="currentTab = 'teams'" data-waypoint="teams.tab-instantiate">Teams aus Blueprint</button>
         @if (isAdmin && viewMode === 'admin') {
           <button type="button" class="tab" [class.active]="currentTab === 'advanced'" (click)="currentTab = 'advanced'">Advanced</button>
         }
@@ -48,9 +48,9 @@
         <div class="grid cols-2 teams-blueprint-grid">
           <div class="card card-primary teams-list-panel">
             <div class="row flex-between">
-              <h3 class="no-margin">Standard-Blueprint-Katalog</h3>
+              <h3 class="no-margin" data-waypoint="teams.blueprint-catalog">Standard-Blueprint-Katalog</h3>
               @if (isAdmin && viewMode === 'admin') {
-                <button class="btn-secondary btn-small" (click)="startNewBlueprint()" [disabled]="!isAdmin">Neu</button>
+                <button class="btn-secondary btn-small" (click)="startNewBlueprint()" [disabled]="!isAdmin" data-waypoint="teams.blueprint-new">Neu</button>
               }
             </div>
             <p class="muted no-margin">
