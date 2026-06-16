@@ -125,6 +125,110 @@ def apply_patch():
     })
 
 
+@config_graph_bp.post("/create-config-entry")
+def create_config_entry():
+    """Create a new configuration entry (path_rule or agent_profile).
+
+    Body
+    ----
+    { entry_type: "path_rule" | "agent_profile", data: { ... } }
+
+    Returns the refreshed config graph on success.
+    """
+    body = request.get_json(force=True, silent=True) or {}
+    entry_type = str(body.get("entry_type") or "")
+    data = dict(body.get("data") or {})
+
+    if entry_type not in ("path_rule", "agent_profile"):
+        return jsonify({"error": f"Unknown entry_type: {entry_type!r}"}), 400
+
+    try:
+        if entry_type == "path_rule":
+            _create_path_rule(data)
+        else:
+            _create_agent_profile(data)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        current_app.logger.exception("create_config_entry failed")
+        return jsonify({"error": f"Unexpected error: {exc}"}), 500
+
+    cfg = _get_user_config()
+    builder = get_config_graph_builder_service(user_config=cfg)
+    graph = builder.build()
+    return jsonify(graph.to_dict())
+
+
+def _create_path_rule(data: dict) -> None:
+    import json
+    from pathlib import Path
+
+    glob = str(data.get("path_glob") or "").strip()
+    if not glob:
+        raise ValueError("path_glob ist erforderlich")
+
+    root = Path(__file__).parents[2]
+    user_json_path = root / "user.json"
+    if not user_json_path.exists():
+        raise ValueError("user.json nicht gefunden")
+
+    config = json.loads(user_json_path.read_text(encoding="utf-8"))
+    rules: list = list(config.get("path_ai_modes") or [])
+
+    if any(isinstance(r, dict) and str(r.get("path_glob") or "") == glob for r in rules):
+        raise ValueError(f"Pfad-Muster '{glob}' existiert bereits")
+
+    new_rule: dict = {
+        "path_glob": glob,
+        "blocked_ai_modes": list(data.get("blocked_ai_modes") or []),
+        "allowed_ai_modes": list(data.get("allowed_ai_modes") or []),
+        "allow_free_text_generation": bool(data.get("allow_free_text_generation", True)),
+        "allow_code_generation": bool(data.get("allow_code_generation", True)),
+    }
+    if data.get("llm_scope"):
+        new_rule["llm_scope"] = str(data["llm_scope"])
+
+    rules.append(new_rule)
+    config["path_ai_modes"] = rules
+    user_json_path.write_text(
+        json.dumps(config, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+
+
+def _create_agent_profile(data: dict) -> None:
+    import json
+    from pathlib import Path
+
+    profile_id = str(data.get("profile_id") or "").strip()
+    if not profile_id:
+        raise ValueError("profile_id ist erforderlich")
+    if not profile_id.replace("_", "").replace("-", "").isalnum():
+        raise ValueError("profile_id darf nur Buchstaben, Ziffern, _ und - enthalten")
+
+    root = Path(__file__).parents[2]
+    profile_map_path = root / "docs/agent-profiles/profile-map.json"
+    if not profile_map_path.exists():
+        raise ValueError("profile-map.json nicht gefunden")
+
+    profile_map = json.loads(profile_map_path.read_text(encoding="utf-8"))
+    profiles: dict = dict(profile_map.get("profiles") or {})
+
+    if profile_id in profiles:
+        raise ValueError(f"Profil '{profile_id}' existiert bereits")
+
+    profiles[profile_id] = {
+        "primary_role": str(data.get("primary_role") or ""),
+        "activation": list(data.get("activation") or []),
+        "allowed_task_kinds": list(data.get("allowed_task_kinds") or []),
+        "code_change_policy": str(data.get("code_change_policy") or "allowed"),
+        "context_policy_hint": str(data.get("context_policy_hint") or ""),
+    }
+    profile_map["profiles"] = profiles
+    profile_map_path.write_text(
+        json.dumps(profile_map, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+
+
 def _parse_ops(raw: list) -> list[PatchOp] | None:
     ops: list[PatchOp] = []
     for item in raw:

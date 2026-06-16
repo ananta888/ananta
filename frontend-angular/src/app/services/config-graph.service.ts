@@ -8,11 +8,18 @@ import {
   PatchOp,
   ValidationResult,
 } from '../models/config-graph.model';
+import { AgentDirectoryService } from './agent-directory.service';
 
 @Injectable({ providedIn: 'root' })
 export class ConfigGraphService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = '/api/config-graph';
+  private readonly dir = inject(AgentDirectoryService);
+
+  private get baseUrl(): string {
+    const hub = this.dir.list().find(a => a.role === 'hub');
+    const origin = hub?.url ?? 'http://127.0.0.1:5000';
+    return `${origin}/api/config-graph`;
+  }
 
   getGraph(): Observable<ConfigGraph> {
     return this.http.get<ConfigGraph>(this.baseUrl);
@@ -35,5 +42,12 @@ export class ConfigGraphService {
       ops,
       approval_token: approvalToken ?? '',
     });
+  }
+
+  createConfigEntry(
+    entryType: 'agent_profile' | 'path_rule',
+    data: Record<string, unknown>,
+  ): Observable<ConfigGraph> {
+    return this.http.post<ConfigGraph>(`${this.baseUrl}/create-config-entry`, { entry_type: entryType, data });
   }
 }
