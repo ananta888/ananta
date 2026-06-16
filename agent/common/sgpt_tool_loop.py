@@ -83,11 +83,37 @@ def parse_worker_tool_output(text: str) -> dict[str, Any] | None:
     if kind not in _VALID_KINDS:
         return None
     if kind == KIND_TOOL_REQUEST:
-        if not str(payload.get("tool_name") or "").strip():
+        tool_name_val = str(payload.get("tool_name") or "").strip()
+        if not tool_name_val:
+            return None
+        # UTCR-009: reject tool_name strings that contain whitespace
+        if any(c.isspace() for c in tool_name_val):
             return None
         if not isinstance(payload.get("arguments", {}), dict):
             return None
     return payload
+
+
+def _validate_tool_arguments(spec: Any, arguments: dict[str, Any]) -> list[str]:
+    """UTCR-009: validate arguments dict against spec; return warning strings.
+
+    Only checks for unknown keys — missing required keys are left to the
+    executor so the LLM gets a meaningful error rather than a terse block.
+    Returns an empty list when everything is fine.
+    """
+    warnings: list[str] = []
+    if not isinstance(arguments, dict):
+        warnings.append("arguments_not_a_dict")
+        return warnings
+    if spec is None:
+        return warnings
+    known = set((getattr(spec, "argument_schema", {}) or {}).get("properties", {}).keys())
+    if not known:
+        return warnings
+    for key in arguments:
+        if key not in known:
+            warnings.append(f"unknown_argument:{key}")
+    return warnings
 
 
 def build_tool_loop_instructions(*, allowed_tools_description: str) -> str:
@@ -191,6 +217,9 @@ def run_ananta_worker_tool_loop(
     config: dict[str, Any] | None = None,
     mutation_mode: str = "read_only",
     task_id: str | None = None,
+    # UTCR-008: optional metadata for tool-loop-report.json
+    backend: str | None = None,
+    provider: str | None = None,
 ) -> tuple[int, str, str]:
     """AWTCL-010: run the hub-controlled tool loop and return (rc, out, err)."""
     cfg = dict(config or get_tool_loop_config())
@@ -244,6 +273,12 @@ def run_ananta_worker_tool_loop(
         try:
             report_path = pathlib.Path(workdir) / ".ananta" / "tool-loop-report.json"
             report_path.parent.mkdir(parents=True, exist_ok=True)
+            # UTCR-008: extended report with mode / backend / model metadata
+            effective_allowed = [
+                str(item or "").strip()
+                for item in (cfg.get("allowed_tools") or [])
+                if str(item or "").strip()
+            ]
             report_path.write_text(
                 json.dumps(
                     {
@@ -255,6 +290,13 @@ def run_ananta_worker_tool_loop(
                         "invalid_output_count": invalid_count,
                         "created_at": time.time(),
                         "iterations": report_iterations,
+                        # UTCR-008 additions
+                        "tool_calling_mode": "prompt_json_protocol",
+                        "schema_format": "prompt_json_description",
+                        "effective_allowed_tools": effective_allowed,
+                        "backend": str(backend or ""),
+                        "provider": str(provider or ""),
+                        "model": str(model or ""),
                     },
                     ensure_ascii=False,
                     indent=2,
@@ -352,6 +394,27 @@ def run_ananta_worker_tool_loop(
             AUDIT_WORKER_TOOL_REQUESTED,
         )
 
+        # UTCR-009: explicit registry check — defense-in-depth on top of policy gate.
+        # Uses the policy gate's decision when available (it already handles unknown tools);
+        # only falls back to a synthetic block when the policy gate somehow missed it.
+        if not decision.allowed and decision.reason.startswith("unknown_tool:"):
+            # Policy gate already caught it — fall through to the normal blocked path below.
+            pass
+        elif registry.get_tool(tool_name) is None and decision.allowed:
+            # Paranoid check: tool was somehow allowed by policy but not in registry.
+            from agent.services.tools._evidence import build_tool_result as _btr
+
+            unknown_result = _btr(
+                tool_name=tool_name,
+                tool_call_id=tool_call_id,
+                status="policy_blocked",
+                risk_class="unknown",
+                error=f"unknown_tool:{tool_name}",
+                policy_decision={"decision": "policy_blocked", "reason": f"unknown_tool:{tool_name}", "rule_id": "registry_check", "tool_name": tool_name},
+            )
+            tool_results.append(unknown_result)
+            continue
+
         _audit(AUDIT_WORKER_TOOL_REQUESTED, tool_name=tool_name, decision=decision.decision, risk=decision.risk_class)
         if not decision.allowed:
             blocked_action = (
@@ -382,6 +445,8 @@ def run_ananta_worker_tool_loop(
                     blocked_result["approval_request_id"] = request_id
             tool_results.append(blocked_result)
         else:
+            # UTCR-009: validate arguments and attach warnings to result
+            arg_warnings = _validate_tool_arguments(registry.get_tool(tool_name), arguments)
             result = execute_ananta_tool(
                 tool_name=tool_name,
                 arguments=arguments,
@@ -390,6 +455,9 @@ def run_ananta_worker_tool_loop(
                 config=cfg,
             )
             result["policy_decision"] = decision.as_dict()
+            if arg_warnings:
+                existing = list(result.get("warnings") or [])
+                result["warnings"] = sorted(set(existing) | set(arg_warnings))
             _audit(
                 AUDIT_WORKER_TOOL_COMPLETED,
                 tool_name=tool_name,

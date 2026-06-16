@@ -136,7 +136,7 @@ _REGISTRY: dict[str, AnantaToolSpec] = {
             "codecompass.plan_context",
             CATEGORY_READ_ONLY,
             RISK_READ,
-            "Plan bounded CodeCompass LocationRefs and patch target ranges.",
+            "Plan bounded CodeCompass LocationRefs and patch_targets for a query; returns location references and candidate patch ranges for subsequent resolve/patch steps.",
             {
                 "query": {"type": "string"},
                 "max_ranges": {"type": "integer"},
@@ -149,7 +149,7 @@ _REGISTRY: dict[str, AnantaToolSpec] = {
             "codecompass.resolve_context",
             CATEGORY_READ_ONLY,
             RISK_READ,
-            "Resolve a policy-bounded CodeCompass ContextPackage.",
+            "Resolve a policy-bounded CodeCompass ContextPackage containing ranked context chunks, file paths, and graph edges for the given query.",
             {
                 "query": {"type": "string"},
                 "task_kind": {"type": "string"},
@@ -207,7 +207,7 @@ _REGISTRY: dict[str, AnantaToolSpec] = {
             "codecompass.get_file_context",
             CATEGORY_READ_ONLY,
             RISK_READ,
-            "Read policy-checked original file excerpts for CodeCompass candidates.",
+            "Read authoritative original file excerpts for CodeCompass candidates; returns policy-checked, line-bounded file content for the requested paths.",
             {
                 "paths": {"type": "array"},
                 "line_ranges": {"type": "array"},
@@ -429,6 +429,75 @@ class AnantaToolRegistryService:
                 risk = str(row.get("risk_class") or "unknown")
                 lines.append(f"- `{name}` ({risk}, custom): {description} Arguments: {args or 'none'}")
         return "\n".join(lines)
+
+    def describe_for_openai_tools(
+        self,
+        allowed_tools: list[str] | None = None,
+        *,
+        include_dynamic: bool = False,
+    ) -> list[dict[str, Any]]:
+        """UTCR-001: Emit OpenAI-native tool schema for each non-BLOCKED spec.
+
+        Each entry follows the ``{"type": "function", "function": {...}}``
+        envelope required by the OpenAI chat-completions API.
+
+        ``allowed_tools`` filters exactly like ``describe_for_prompt()``.
+        CATEGORY_BLOCKED tools never appear. Dynamic tools are appended when
+        ``include_dynamic=True``; static names always shadow dynamic ones.
+        """
+        allowed = {str(item or "").strip() for item in (allowed_tools or []) if str(item or "").strip()}
+        seen: set[str] = set()
+        result: list[dict[str, Any]] = []
+
+        for spec in self.list_tools():
+            if spec.category == CATEGORY_BLOCKED:
+                continue
+            if allowed and spec.name not in allowed:
+                continue
+            if spec.name in seen:
+                continue
+            seen.add(spec.name)
+            props = dict((spec.argument_schema.get("properties") or {}))
+            result.append(
+                {
+                    "type": "function",
+                    "function": {
+                        "name": spec.name,
+                        "description": spec.description,
+                        "parameters": {
+                            "type": "object",
+                            "properties": props,
+                            "required": [],
+                        },
+                    },
+                }
+            )
+
+        if include_dynamic:
+            for row in self._dynamic_tool_rows():
+                name = str(row.get("name") or "")
+                if not name or name in seen:
+                    continue
+                if allowed and name not in allowed:
+                    continue
+                seen.add(name)
+                props = dict((row.get("argument_schema", {}).get("properties") or {}))
+                result.append(
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": name,
+                            "description": str(row.get("description") or ""),
+                            "parameters": {
+                                "type": "object",
+                                "properties": props,
+                                "required": [],
+                            },
+                        },
+                    }
+                )
+
+        return result
 
     def registry_snapshot(self, *, include_dynamic: bool = False) -> dict[str, Any]:
         tools = [dict(spec.as_dict(), source="static") for spec in self.list_tools()]
