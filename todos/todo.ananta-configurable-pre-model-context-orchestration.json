@@ -1,0 +1,313 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "ananta-configurable-pre-model-context-orchestration",
+  "created": "2026-06-16",
+  "status": "todo",
+  "priority": "P0",
+  "purpose": "Ananta soll Embeddings/RAG, CodeCompass-Graph, Domain-Maps, Policies und deterministische Tools als konfigurierbare Vorschicht vor Modellaufrufen nutzen koennen. Nichts davon darf hart verpflichtend sein. Je Surface, Backend, Profil, Task-Art und Kosten-/Sicherheitsmodus muss einstellbar sein, ob Preflight genutzt, empfohlen, erzwungen, uebersprungen oder nur getrackt wird.",
+  "goal": "Eine zentrale, aber optional nutzbare Pre-Model Context Orchestration einfuehren: Task klassifizieren, Kontextbedarf bewerten, CodeCompass/RAG/Graph abfragen, Kandidaten ranken, Policies anwenden, ContextPackage bauen/cachen, Trace erzeugen und danach je Konfiguration entweder deterministic-only antworten, Worker/LLM mit Kontext aufrufen, Worker/LLM ohne Kontext aufrufen oder den bisherigen Flow unveraendert lassen.",
+  "problem_statement": "Ananta besitzt bereits starke Bausteine: CodeCompass-Kontexttools, rag-helper Indexierung, Graph-Expansion, Domain-Maps, Tool-Registry, Tool-Policy und ai-snake-chat Kontextaufbau. Diese Bausteine sind aber noch nicht als einheitliche Framework-Schicht fuer alle Backends verfuegbar. Ai-snake-chat scheint laut Dokumentation bereits vor dem Backend-Aufruf RAG + CodeCompass-Kontext aufzubauen, aber diese Logik ist surface-spezifisch. Ziel ist nicht Zwang, sondern eine saubere, zentrale, konfigurierbare Orchestrierung, die bestehende Spezialflows abloesen oder ergaenzen kann.",
+  "current_state_assessment": {
+    "already_present": [
+      "CodeCompass ist als project map, search index, symbol graph und context navigation layer dokumentiert.",
+      "codecompass.resolve_context erzeugt ContextPackages mit candidate_files, context_files, symbols, graph_edges, domain_map, policy, denied_items, warnings, retrieval_trace und selection_trace.",
+      "codecompass.search und codecompass.search_symbols nutzen rag_helper_index_service.retrieve(...).",
+      "codecompass.expand_graph existiert und nutzt einen fertigen Graph-Store bzw. CodeCompass Graph Expansion.",
+      "codecompass.get_domain_map kombiniert Suche und optional Graph-Expansion zu einer Domain-/Subsystem-Karte.",
+      "Die Hub-seitige Tool-Registry kennt codecompass.* Tools als read-only Tools und lehnt unbekannte Tools deterministisch ab.",
+      "ai-snake-chat besitzt laut docs/operator-tui/ai-snake-chat-memory-codecompass-worker.md bereits eine surface-spezifische Vorschicht: ChatMixin holt RAG + CodeCompass Kontext vor dem Backend-Aufruf."
+    ],
+    "missing_or_incomplete": [
+      "Keine zentrale PreModelContextOrchestrator-Schicht, die von ai-snake-chat, ananta-worker, OpenCode, Hermes, Codex, Aider und spaeteren Backends gemeinsam genutzt werden kann.",
+      "Kein einheitlicher Modus fuer deterministic-only / prefer-deterministic / context-first / model-direct / disabled.",
+      "Kein zentraler No-LLM-Entscheider fuer einfache Such-, Navigations-, Graph-, Status- oder Dokumentationsfragen.",
+      "Kein einheitliches Ranking aus Embedding-Score, Symboltreffer, Graph-Distanz, Working-File-Bonus, Test-Bezug, Domain-Scope und Policy-Penalty.",
+      "Kein framework-weites ContextPackage-Caching mit repo_commit, index_manifest_hash, config_hash, task_hash und context_hash.",
+      "Ai-snake-chat nutzt Kontext bereits, aber nicht zwingend denselben zentralen Contract wie andere Worker/Adapter.",
+      "Tracking/Trace fuer Preflight, Ranking, Graph-Expansion, Denials, Cache-Hits und No-LLM-Entscheidung ist noch nicht als einheitliches Runtime-Event-Modell vorhanden."
+    ]
+  },
+  "non_goals": [
+    "Keine Pflichtpipeline fuer alle Modellaufrufe.",
+    "Keine Abschaffung bestehender direkter Worker-/LLM-Flows.",
+    "Keine Abschaffung der bestehenden codecompass.* Tools.",
+    "Kein ungeprueftes Durchreichen kompletter CodeCompass-JSONL-Dateien an Cloud-Modelle.",
+    "Kein LLM-Verbot: Modelle duerfen je Konfiguration weiterhin direkt genutzt werden.",
+    "Kein direkter Worker-zu-Worker-Kontextaustausch.",
+    "Kein Ersatz autoritativer Originaldateien durch RAG-Snippets bei Codeaenderungen, Reviews oder sicherheitsrelevanten Aussagen.",
+    "Keine neuen Schreibrechte durch die Preflight-Schicht. Sie bleibt read-only und darf hoechstens bestehende kontrollierte Write-Workflows vorbereiten."
+  ],
+  "architecture_principles": [
+    "Konfigurierbar statt verpflichtend.",
+    "Default soll konservativ und rueckwaertskompatibel sein: bestehende Flows laufen weiter, solange kein Profil den neuen Orchestrator aktiviert.",
+    "Der Hub darf Kontext, Budgets, Scope und Policy zentral vorbereiten; Worker duerfen je Modus aber weiterhin selbst codecompass.* Tools anfragen.",
+    "Jeder automatisch gewaehlte Kontext muss Provenance, Score, Reason und Policy-Status tragen.",
+    "ContextPackage ist ein versionierter Contract, nicht nur Prompt-Text.",
+    "Ai-snake-chat, ananta-worker und externe Adapter sollen dieselbe Orchestrierung nutzen koennen, muessen aber nicht.",
+    "No-LLM-Antworten muessen klar als deterministisch abgeleitet markiert werden und duerfen keine unbelegten Negativaussagen erzeugen.",
+    "Cache muss repo-/index-/config-sensitiv sein, damit kein alter Kontext als frisch ausgegeben wird.",
+    "Fehlender Index ist ein degradierter Zustand mit klarer Warnung, kein stiller Fallback in Halluzination."
+  ],
+  "configuration_model_target": {
+    "top_level_key": "pre_model_context",
+    "example": {
+      "enabled": false,
+      "mode": "disabled",
+      "surfaces": {
+        "ai_snake_chat": {
+          "enabled": true,
+          "mode": "prefer_context",
+          "reuse_existing_chat_context_flow": true,
+          "migrate_to_shared_orchestrator": true
+        },
+        "ananta_worker": {
+          "enabled": false,
+          "mode": "worker_decides"
+        },
+        "opencode": {
+          "enabled": false,
+          "mode": "disabled"
+        },
+        "hermes": {
+          "enabled": false,
+          "mode": "disabled"
+        }
+      },
+      "modes": [
+        "disabled",
+        "observe_only",
+        "worker_decides",
+        "prefer_context",
+        "context_first",
+        "prefer_deterministic",
+        "deterministic_only"
+      ],
+      "allow_no_llm_answers": true,
+      "allow_direct_llm_without_context": true,
+      "cache_enabled": true,
+      "trace_enabled": true
+    },
+    "mode_semantics": {
+      "disabled": "Orchestrator wird nicht genutzt. Bestehender Flow bleibt unveraendert.",
+      "observe_only": "Orchestrator berechnet hypothetischen Kontext und Trace, greift aber nicht in den Prompt/Worker-Aufruf ein.",
+      "worker_decides": "Worker bekommt Tool-Catalog und darf selbst codecompass.* anfragen. Kein automatischer Preflight.",
+      "prefer_context": "Hub baut Kontext vorab, faellt aber bei Fehlern auf bisherigen Flow zurueck.",
+      "context_first": "Hub baut Kontext vorab und uebergibt ContextPackage; direkter Modellaufruf ist erlaubt, wenn kein Kontext benoetigt wird oder Policy es erlaubt.",
+      "prefer_deterministic": "Hub versucht zuerst deterministic tools / CodeCompass / Graph; bei unzureichender Sicherheit wird LLM genutzt.",
+      "deterministic_only": "Kein LLM-Aufruf in diesem Pfad. Antwort nur aus deterministischen Tools, RAG/Graph/Dateien/Status. Bei Unsicherheit klares 'nicht belegbar' liefern."
+    }
+  },
+  "implementation_plan": [
+    {
+      "id": "APMCO-001",
+      "title": "Bestandsanalyse ai-snake-chat Kontextflow",
+      "tasks": [
+        "Pruefen, welche konkreten Dateien den dokumentierten Flow aus docs/operator-tui/ai-snake-chat-memory-codecompass-worker.md implementieren: ChatMixin, ChatPromptBuilder, chat_memory.py, ai_snake_config_view.py und Backend-Call-Pfade.",
+        "Klaeren, ob _rag_context_for_question und _chat_codecompass_context_for_question noch existieren, umbenannt wurden oder bereits teilweise migriert sind.",
+        "Dokumentieren, welche Settings aktuell wirklich wirken: chat_use_codecompass, chat_rag_top_k, chat_context_chars, chat_backend, chat_pass_memory_to_worker, chat_backend_fallback.",
+        "Einen Ist-Trace fuer eine typische Frage erzeugen: welche Kontextquellen wurden genutzt, wie gross war der Prompt, welches Backend wurde aufgerufen."
+      ],
+      "acceptance_criteria": [
+        "Es gibt eine kurze Markdown-Notiz unter docs/architecture oder docs/operator-tui mit Ist-Flow und echten Dateipfaden.",
+        "Mindestens ein Test oder Debug-Log belegt, ob ai-snake-chat CodeCompass/RAG vor dem Backend-Aufruf nutzt.",
+        "Unterschied zwischen vorhandener ai-snake-chat Surface-Logik und zukuenftigem Shared-Orchestrator ist klar dokumentiert."
+      ]
+    },
+    {
+      "id": "APMCO-002",
+      "title": "PreModelContextOrchestrator als optionalen Service einfuehren",
+      "tasks": [
+        "Neuen Service agent/services/pre_model_context_orchestrator.py erstellen.",
+        "Input-Contract definieren: surface, backend, task_text, task_kind, working_files, domain_hint, llm_scope, workspace_dir, user_config, budget.",
+        "Output-Contract definieren: decision, context_package, deterministic_answer, trace, warnings, denied_items, cache_status, recommended_backend_policy.",
+        "Orchestrator darf je Konfiguration disabled/observe_only/worker_decides/prefer_context/context_first/prefer_deterministic/deterministic_only ausfuehren.",
+        "Keine bestehende Route darf automatisch umgestellt werden, solange Config nicht aktiv ist."
+      ],
+      "acceptance_criteria": [
+        "Service ist isoliert testbar ohne echten LLM-Aufruf.",
+        "Default-Konfiguration veraendert bestehende Worker-/Chat-Flows nicht.",
+        "Bei mode=disabled wird exakt kein CodeCompass/RAG/Graph-Preflight ausgefuehrt.",
+        "Bei mode=observe_only wird ein Trace erzeugt, aber Prompt/Payload bleiben unveraendert.",
+        "Bei mode=prefer_context wird ein ContextPackage erzeugt und im Payload verfuegbar gemacht, Fehler fuehren zu sauberem Fallback."
+      ]
+    },
+    {
+      "id": "APMCO-003",
+      "title": "Task-Klassifikation und Kontextbedarf deterministisch abschaetzen",
+      "tasks": [
+        "Leichte heuristische Klassifikation ohne LLM implementieren: navigation, explanation, bugfix, implementation, test, architecture, security, config, generic_chat.",
+        "Pro Task-Art festlegen, welche Kontextquellen sinnvoll sind: repo.grep, codecompass.search_symbols, resolve_context, get_domain_map, expand_graph, get_file_context.",
+        "Config-Overrides pro Surface und Profil erlauben.",
+        "Security- und Codeaenderungsfragen standardmaessig nicht als belegte Antwort zulassen, wenn keine Evidence vorhanden ist."
+      ],
+      "acceptance_criteria": [
+        "Mindestens 20 Unit-Tests fuer Task-Klassifikation mit deutschen und englischen Prompts.",
+        "Generische Chatfragen koennen korrekt als 'kein Projektkontext notwendig' erkannt werden.",
+        "Code-/Security-Fragen ohne Evidence erzeugen Warnung 'context_evidence_missing' statt Halluzinationsantwort.",
+        "Task-Klassifikation kann komplett deaktiviert oder durch explizite task_kind ueberschrieben werden."
+      ]
+    },
+    {
+      "id": "APMCO-004",
+      "title": "Embedding + Graph + Regeln zu Ranking kombinieren",
+      "tasks": [
+        "CandidateScorer implementieren, der Hits aus rag_helper/CodeCompass normalisiert.",
+        "Scores kombinieren: embedding_score, symbol_match_score, graph_distance_score, working_file_bonus, domain_scope_bonus, test_relation_bonus, recency_or_commit_bonus, policy_penalty, sensitivity_penalty.",
+        "Ranking-Trace fuer jeden Kandidaten erzeugen.",
+        "Tie-breaking deterministisch machen: score desc, path asc, record_id asc.",
+        "Konfigurierbare Gewichte unter pre_model_context.ranking_weights einfuehren."
+      ],
+      "acceptance_criteria": [
+        "Gleicher Input + gleicher Index + gleiche Config ergibt gleiche Kandidatenreihenfolge.",
+        "Working files werden sichtbar bevorzugt, aber nicht blind als alleinige Wahrheit behandelt.",
+        "Graph-Nachbarn koennen Kandidaten erhoehen, wenn Relationstyp und Distanz passen.",
+        "Policy-denied Kandidaten erscheinen im Trace, aber nicht im ausgelieferten Kontextmaterial.",
+        "Ranking-Gewichte sind validiert und haben sinnvolle Defaults."
+      ]
+    },
+    {
+      "id": "APMCO-005",
+      "title": "No-LLM / deterministic answer path einfuehren",
+      "tasks": [
+        "Decision Engine implementieren, die einfache Such-/Navigationsfragen ohne LLM beantworten kann.",
+        "Unterstuetzte Antworttypen: file_list, grep_matches, symbol_locations, domain_map_summary, graph_neighbors, index_status, cannot_answer_without_context.",
+        "Antworten muessen Evidence-Refs enthalten und klar markieren, dass sie deterministisch erzeugt wurden.",
+        "Bei Unsicherheit keine negative Schlussfolgerung ziehen, sondern 'nicht belegbar mit aktuellem Kontext' ausgeben.",
+        "Konfiguration allow_no_llm_answers und deterministic_only beachten."
+      ],
+      "acceptance_criteria": [
+        "Frage 'wo wird X verwendet?' kann optional ohne LLM ueber grep/search_symbols beantwortet werden.",
+        "Frage 'erklaere die Architektur' nutzt weiterhin LLM, ausser deterministic_only ist aktiv.",
+        "No-LLM-Antworten enthalten Quellen/Pfade/Scores/Warnings.",
+        "Bei leerem CodeCompass-Ergebnis wird keine falsche Negativaussage erzeugt.",
+        "deterministic_only fuehrt garantiert zu keinem LLM-/externen Backend-Aufruf."
+      ]
+    },
+    {
+      "id": "APMCO-006",
+      "title": "ContextPackage Cache einfuehren",
+      "tasks": [
+        "Cache-Key definieren aus repo_commit_or_workspace_hash, knowledge_index_manifest_hash, task_hash, working_files_hash, config_hash, mode und surface.",
+        "Cache-Storage unter settings.data_dir mit TTL und max_size begrenzen.",
+        "Cache-Hit/Miss/Stale im Trace sichtbar machen.",
+        "Cache invalidieren bei neuem KnowledgeIndexRun, geaendertem Git-Status oder relevanten Config-Aenderungen.",
+        "Sensitive Inhalte nicht dauerhaft cachen, wenn Policy es verbietet."
+      ],
+      "acceptance_criteria": [
+        "Wiederholte gleiche Anfrage kann aus Cache bedient werden.",
+        "Geaenderter Commit oder manifest_hash erzeugt Cache-Miss.",
+        "Externe Cloud metadata-only Policy verhindert Caching von Originaldatei-Inhalten, falls so konfiguriert.",
+        "Cache ist abschaltbar.",
+        "Cache-Statistiken sind testbar und im Trace sichtbar."
+      ]
+    },
+    {
+      "id": "APMCO-007",
+      "title": "ai-snake-chat auf Shared-Orchestrator migrierbar machen",
+      "tasks": [
+        "Bestehende ai-snake-chat Kontextlogik nicht brechen.",
+        "Config-Schalter einfuehren: chat_pre_model_context_mode mit disabled/observe_only/reuse_existing/prefer_shared/shared_only.",
+        "Bei reuse_existing bleibt der vorhandene ChatMixin/PromptBuilder-Flow aktiv, wird aber in Shared Trace gespiegelt.",
+        "Bei prefer_shared nutzt ai-snake-chat PreModelContextOrchestrator und faellt bei Fehlern auf vorhandenen Flow zurueck.",
+        "Bei shared_only wird nur der neue Orchestrator genutzt, aber nur wenn explizit konfiguriert."
+      ],
+      "acceptance_criteria": [
+        "Default-Verhalten von ai-snake-chat bleibt rueckwaertskompatibel.",
+        "chat_use_codecompass=false verhindert CodeCompass-Kontext auch im Shared-Orchestrator fuer diese Surface.",
+        "chat_context_chars und chat_rag_top_k werden weiterhin respektiert oder sauber auf neue Budgetfelder gemappt.",
+        "Renderer Diagnostics oder Trace Viewer zeigen, welcher Kontextpfad aktiv war: existing_chat_context / shared_orchestrator / fallback.",
+        "E2E-Test fuer ai-snake-chat mit disabled, observe_only und prefer_shared."
+      ]
+    },
+    {
+      "id": "APMCO-008",
+      "title": "Worker und externe Adapter anbinden",
+      "tasks": [
+        "ananta-worker Payload um optionales pre_model_context Ergebnis erweitern.",
+        "OpenCode/Hermes/Codex/Aider Adapter koennen ContextPackage als strukturierten Vorspann oder als ToolResult/Attachment erhalten.",
+        "Adapter duerfen je Backend-Faehigkeit entscheiden: native tool-calling, prompt-json-protocol oder plain context handoff.",
+        "allow_direct_llm_without_context respektieren.",
+        "Worker duerfen weiterhin selbst codecompass.* Tools anfragen, wenn mode=worker_decides oder Tool-Catalog aktiv ist."
+      ],
+      "acceptance_criteria": [
+        "ananta-worker funktioniert unveraendert, wenn pre_model_context.enabled=false.",
+        "Bei prefer_context bekommt Worker ein ContextPackage ohne selbst danach fragen zu muessen.",
+        "Bei worker_decides bekommt Worker nur Tool-Catalog/Instructions und keinen automatischen Preflight-Kontext.",
+        "Externe Adapter loggen, ob Kontext uebergeben wurde und in welcher Form.",
+        "Keine Cloud-Weitergabe von Originaldateien bei metadata-only Policy."
+      ]
+    },
+    {
+      "id": "APMCO-009",
+      "title": "Trace-, Audit- und UI-Modell vereinheitlichen",
+      "tasks": [
+        "PreModelTrace Event-Modell definieren: started, config_resolved, task_classified, retrieval_started, retrieval_finished, graph_expanded, ranked, policy_filtered, cache_hit, cache_miss, decision, backend_called, fallback_used, finished.",
+        "Trace in ai-snake-chat Tracking Viewer integrieren.",
+        "Trace auch fuer Worker-/Adapter-Aufrufe im Hub abrufbar machen.",
+        "Denied items, warnings und budget usage sichtbar machen.",
+        "Trace darf keine Secrets oder unredacted Originaldateien leaken."
+      ],
+      "acceptance_criteria": [
+        "Jeder Orchestrator-Lauf erzeugt eine trace_id.",
+        "Trace zeigt aktive Konfiguration und finalen Modus.",
+        "UI kann vorherige Schritte ansehen, auch wenn Generation weitergelaufen ist.",
+        "Tool-Calls und CodeCompass-Abfragen sind mit Argumenten, gekuerzten Ergebnissen und Warnings sichtbar.",
+        "Redaction-Test stellt sicher, dass Secrets nicht im Trace landen."
+      ]
+    },
+    {
+      "id": "APMCO-010",
+      "title": "Tests, Fixtures und Regression-Schutz",
+      "tasks": [
+        "Unit-Tests fuer Config-Resolution, Mode-Semantik, Task-Klassifikation, Ranking, No-LLM-Decision, Cache und Policy-Filter schreiben.",
+        "Integrationstest mit kleinem Fixture-Repo fuer CodeCompass/RAG/Graph-Kontext bauen.",
+        "Regressionstest: existing ai-snake-chat Flow bleibt gleich, wenn shared orchestrator disabled ist.",
+        "Regressionstest: Tool-Registry lehnt unbekannte Tools weiter ab.",
+        "E2E-Test fuer prefer_context: ContextPackage wird erzeugt, Worker bekommt Kontext, Antwort enthaelt Evidence-Hinweise."
+      ],
+      "acceptance_criteria": [
+        "Alle neuen Tests laufen lokal ohne externen LLM-Key.",
+        "Mindestens ein Test beweist: deterministic_only ruft kein Modell und keinen externen Adapter auf.",
+        "Mindestens ein Test beweist: observe_only veraendert keinen Prompt/Payload.",
+        "Mindestens ein Test beweist: cache invalidiert bei manifest_hash-Aenderung.",
+        "Mindestens ein Test beweist: ai-snake-chat Default bleibt kompatibel."
+      ]
+    }
+  ],
+  "suggested_files": [
+    "agent/services/pre_model_context_orchestrator.py",
+    "agent/services/pre_model_context_config.py",
+    "agent/services/pre_model_context_ranking.py",
+    "agent/services/pre_model_context_cache.py",
+    "agent/services/pre_model_context_decision.py",
+    "agent/models.py",
+    "agent/routes/config/shared.py",
+    "client_surfaces/operator_tui/chat_mixin.py",
+    "client_surfaces/operator_tui/chat_prompt_builder.py",
+    "frontend-angular/src/app/components/ai-snake-trace-viewer.component.ts",
+    "frontend-angular/src/app/services/ai-snake-trace.service.ts",
+    "tests/unit/test_pre_model_context_orchestrator.py",
+    "tests/unit/test_pre_model_context_ranking.py",
+    "tests/e2e/test_tui_snake_chat_pre_model_context_flow_e2e.py"
+  ],
+  "definition_of_done": [
+    "PreModelContextOrchestrator existiert als zentraler Service, ist aber standardmaessig deaktiviert oder rueckwaertskompatibel konfiguriert.",
+    "Mindestens ai-snake-chat und ananta-worker koennen den Orchestrator optional nutzen.",
+    "Alle Modi disabled, observe_only, worker_decides, prefer_context, context_first, prefer_deterministic und deterministic_only sind dokumentiert und getestet.",
+    "No-LLM-Antworten sind moeglich, aber nur wenn konfiguriert und belegbar.",
+    "Kontext-Ranking nutzt Embedding/RAG, Graph und Regeln gemeinsam.",
+    "ContextPackage Cache ist vorhanden und invalidiert korrekt.",
+    "Trace/Tracking zeigt Preflight-Schritte, Entscheidungen, Warnings, Denials und Cache-Status.",
+    "Bestehende CodeCompass-Tools und ai-snake-chat Defaults bleiben kompatibel.",
+    "Keine neue Pflichtpipeline wurde eingefuehrt. Alles bleibt pro Surface/Backend/Profil steuerbar."
+  ],
+  "manual_review_notes": [
+    "Besonders pruefen, ob ai-snake-chat wirklich schon produktiv RAG + CodeCompass vor dem Backend-Aufruf nutzt oder ob die Doku dem Code voraus ist.",
+    "Nicht zu frueh alte ChatMixin-Logik entfernen. Erst Shared-Orchestrator parallel im observe_only/prefer_shared-Modus validieren.",
+    "Bei OpenCode/Hermes/Codex/Aider nicht davon ausgehen, dass native Tool-Calling vorhanden ist. Prompt-JSON-Protokoll und plain context handoff weiter unterstuetzen.",
+    "Policy-Frage hart halten: externe Cloud-Modelle bekommen nur das, was llm_scope/external_cloud_policy explizit erlaubt.",
+    "Dieser Track erweitert todo.codecompass-context-tool-provider.json, ersetzt ihn aber nicht."
+  ]
+}
