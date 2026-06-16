@@ -250,6 +250,7 @@ class CodeCompassContextService:
             ],
             "denied_items": denied_items,
             "warnings": payload_core["warnings"],
+            "derived_context_hints": self._get_derived_hints(candidates, task_kind=task_kind),
         }
 
     def search_symbols(
@@ -659,6 +660,24 @@ class CodeCompassContextService:
             return float(value)
         except (TypeError, ValueError):
             return None
+
+    def _get_derived_hints(
+        self, candidates: list[dict[str, Any]], *, task_kind: str | None = None
+    ) -> list[dict[str, Any]]:
+        """Return derived_context_hints for the given candidates.
+
+        Completely optional: if the hint service or store is unavailable,
+        returns [] — no existing behaviour changes.
+        """
+        try:
+            from agent.services.referenced_context_hint_service import (
+                get_referenced_context_hint_service,
+            )
+            svc = get_referenced_context_hint_service()
+            task = str(task_kind or "context_selection")
+            return svc.hints_for_candidates(candidates, task=task)
+        except Exception:
+            return []
 
 
 _codecompass_context_service = CodeCompassContextService()

@@ -1,6 +1,6 @@
 """ChatPromptBuilder — consolidated prompt construction with explicit context budget policy.
 
-Budget policy order: active_target → rolling_summary → recent_turns → codecompass → rag
+Budget policy order: active_target → rolling_summary → recent_turns → codecompass → rag → hints
 """
 from __future__ import annotations
 
@@ -31,6 +31,7 @@ class ChatPromptBuilder:
         context_budget: int = 3000,
         max_turns_chars: int = 1800,
         system_template: str = "",
+        derived_hints: list[dict] | None = None,
     ) -> None:
         self._question = str(question or "").strip()
         self._depth = str(depth or "overview")
@@ -38,6 +39,7 @@ class ChatPromptBuilder:
         self._budget = max(200, context_budget)
         self._max_turns_chars = max(100, max_turns_chars)
         self._system_template = system_template
+        self._derived_hints: list[dict] = list(derived_hints or [])
 
     def build(self) -> PromptBuildResult:
         sections: dict[str, str] = {}
@@ -68,6 +70,13 @@ class ChatPromptBuilder:
             joined = "\n".join(self._memory.rag_snippets)[:remaining]
             sections["rag"] = joined
             remaining -= len(joined)
+
+        # RCHCS-006: derived hints (after rag, before runtime_status)
+        if self._derived_hints and remaining > 80:
+            hints_text = self._format_hints(self._derived_hints, max_chars=min(remaining, 800))
+            if hints_text:
+                sections["hints"] = hints_text
+                remaining -= len(hints_text)
 
         if self._memory.runtime_status and remaining > 20:
             sections["runtime_status"] = self._memory.runtime_status[:remaining]
@@ -103,6 +112,7 @@ class ChatPromptBuilder:
                 "codecompass_refs": self._memory.codecompass_refs[:8],
                 "metadata": {"memory_version": "v2", **self._memory.metadata},
             },
+            "derived_context_hints": self._derived_hints[:6],
         }
 
         # CWFH-006: v3 handoff — candidate_files and context_files filled by caller
@@ -138,7 +148,7 @@ class ChatPromptBuilder:
         return "\n".join(parts)
 
     def _assemble_context(self, sections: dict[str, str]) -> str:
-        order = ["active_target", "rolling_summary", "recent_turns", "codecompass", "rag", "runtime_status"]
+        order = ["active_target", "rolling_summary", "recent_turns", "codecompass", "rag", "hints", "runtime_status"]
         parts: list[str] = []
         for key in order:
             if key in sections and sections[key]:
@@ -150,9 +160,28 @@ class ChatPromptBuilder:
                     parts.append(f"[Codekontext]\n{sections[key]}")
                 elif key == "rag":
                     parts.append(f"[Weitere Referenzen]\n{sections[key]}")
+                elif key == "hints":
+                    parts.append(sections[key])
                 else:
                     parts.append(sections[key])
         return "\n\n".join(parts)
+
+    def _format_hints(self, hints: list[dict], *, max_chars: int = 800) -> str:
+        lines: list[str] = ["[Abgeleitete Code-Hints — referenziert, nicht autoritativ]"]
+        total = len(lines[0])
+        for h in hints:
+            refs = ", ".join(h.get("source_paths") or [])
+            gen = str(h.get("generator_kind") or "?")
+            staleness = str(h.get("staleness_status") or "fresh")
+            title = str(h.get("title") or "")
+            summary = str(h.get("summary") or "")[:200]
+            staleness_note = f" [{staleness}]" if staleness != "fresh" else ""
+            line = f"• [{gen}]{staleness_note} {title} ({refs}): {summary}"
+            if total + len(line) + 1 > max_chars:
+                break
+            lines.append(line)
+            total += len(line) + 1
+        return "\n".join(lines) if len(lines) > 1 else ""
 
     def _build_system(self, context_text: str, depth_instruction: str, project_name: str) -> str:
         if self._system_template and "{context}" in self._system_template:
