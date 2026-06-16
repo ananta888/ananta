@@ -1,0 +1,333 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "ananta-restricted-transformer-inference-path-modes",
+  "created": "2026-06-16",
+  "status": "todo",
+  "priority": "P0",
+  "purpose": "Ananta soll pfadbezogen konfigurieren koennen, welche KI-Tiefe erlaubt ist: volle LLM-/Chat-Generierung, direkte LLM-Nutzung, Embedding-Modelle, CodeCompass/RAG/Graph oder echte nicht-generative Transformer-/Model-Inference ueber HuggingFace Transformers, sentence-transformers, ONNX Runtime oder PyTorch. Ziel ist nicht, LLM-Nutzung zu ersetzen, sondern fuer sensible Pfade eine kontrollierte Analyse-/Scoring-Schicht ohne freie Generierung bereitzustellen.",
+  "goal": "Eine Path-AI-Mode-Policy und Runtime-Schicht einfuehren, mit der bestimmte Repository-Pfade nur CodeCompass, echte Embedding-Modelle und optional restricted_transformer_inference nutzen duerfen. Restricted Transformer Inference nutzt echte Modellgewichte und echte Forward-Passes, aber keine freie Chat-Antwort, kein generatives Decoding, keine autonome Tool-Entscheidung und keine Codegenerierung.",
+  "problem_statement": "Ananta kann bereits direkte LLM-Aufrufe und separate Embedding-Modelle nutzen. Was fehlt, ist eine feinere pfadbezogene Steuerung fuer Zwischenmodi: Nicht nur 'LLM ja/nein' und nicht nur 'Embedding ja/nein', sondern 'echtes Modell als Analyse-/Scoring-Werkzeug'. Fuer sensible Pfade wie security, auth, payment, policies oder secrets soll z.B. CodeCompass + Embeddings + Transformer-Forward/Reranking erlaubt sein, waehrend freie generative Modellantworten, Codegenerierung oder externe Cloud-LLMs blockiert bleiben koennen.",
+  "core_distinction": {
+    "not_possible_or_not_useful": [
+      "Transformer-Schicht ohne Modellgewichte sinnvoll nutzen: eine Transformer-Architektur ohne trainierte Gewichte liefert keine brauchbaren Signale.",
+      "Beliebige LLM-Chatantwort als angeblich deterministische Analyse ausgeben."
+    ],
+    "wanted": [
+      "Echtes Modell mit Gewichten nutzen, aber nur kontrolliert fuer Embeddings, Hidden States, Logits, Klassifikation, Reranking, Similarity oder Scoring.",
+      "Kein freies generatives Decoding fuer sensible Pfade, sofern die Pfad-Policy es verbietet.",
+      "Modell-Inferenz als Mess-/Analysewerkzeug, nicht als handelnder Assistent."
+    ]
+  },
+  "target_modes": [
+    {
+      "id": "full_llm",
+      "description": "Normale generative LLM-/Chat-Nutzung inkl. freier Antwort, Planung oder Codevorschlag, soweit andere Policies es erlauben."
+    },
+    {
+      "id": "direct_llm",
+      "description": "Direkter Modellaufruf ist erlaubt, aber weiterhin ueber bestehende Backend-/Provider-Policies gesteuert."
+    },
+    {
+      "id": "embedding_only",
+      "description": "Nur Embedding-Modelle fuer Vektoren, Similarity, Retrieval und Clustering. Keine Generierung."
+    },
+    {
+      "id": "codecompass_only",
+      "description": "Nur CodeCompass/RAG/Graph/Dateien/Regeln. Keine Modell-Inferenz ausser vorhandene Indexdaten."
+    },
+    {
+      "id": "restricted_transformer_inference",
+      "description": "Echte Modell-Inferenz ohne freie Generierung: Encoder/Decoder Forward-Pass, Hidden States, Attention/Logits sofern verfuegbar, Klassifikation, Reranking und Scores."
+    },
+    {
+      "id": "deterministic_only",
+      "description": "Nur deterministische Tools wie grep, File-Read, Graph Traversal, Policies, Status. Kein Modellaufruf."
+    }
+  ],
+  "allowed_engines": {
+    "preferred": [
+      "sentence-transformers fuer Embeddings und Cross-Encoder/Reranking",
+      "HuggingFace Transformers fuer Encoder-only, sequence-classification, token-classification, causal/logit scoring und Zugriff auf Hidden States/Attention, sofern Modell und Config es erlauben",
+      "ONNX Runtime fuer schnelle, reproduzierbare lokale Inferenz von exportierten Encoder-/Classifier-/Reranker-Modellen",
+      "PyTorch fuer flexible lokale Inferenz und Zugriff auf Modell-Interna"
+    ],
+    "limited": [
+      "gguf/llama.cpp nur eingeschraenkt: gut fuer lokale Inferenz und teilweise Logprobs, aber Hidden States/Attention/saubere interne Feature-Extraktion sind je nach Binding/Server nicht immer verfuegbar",
+      "Ollama/LM Studio/OpenAI-kompatible Chat-APIs sind fuer diese Schicht nur begrenzt geeignet, wenn sie keine Hidden States, Attention, Logits oder strukturierte Scoring-Endpunkte bereitstellen"
+    ]
+  },
+  "path_policy_target": {
+    "config_key": "path_ai_modes",
+    "example": [
+      {
+        "path_glob": "src/security/**",
+        "allowed_ai_modes": [
+          "codecompass_only",
+          "embedding_only",
+          "restricted_transformer_inference",
+          "deterministic_only"
+        ],
+        "blocked_ai_modes": [
+          "full_llm",
+          "direct_llm",
+          "external_cloud_llm",
+          "chat_generation",
+          "code_generation"
+        ],
+        "allowed_model_engines": [
+          "sentence-transformers",
+          "huggingface-transformers",
+          "onnxruntime",
+          "pytorch"
+        ],
+        "allow_hidden_states": true,
+        "allow_logits": true,
+        "allow_attention": true,
+        "allow_free_text_generation": false,
+        "allow_tool_decision_from_model_text": false,
+        "max_input_chars": 12000,
+        "max_batch_size": 32,
+        "llm_scope": "local_only"
+      },
+      {
+        "path_glob": "docs/**",
+        "allowed_ai_modes": [
+          "full_llm",
+          "direct_llm",
+          "embedding_only",
+          "restricted_transformer_inference",
+          "codecompass_only"
+        ],
+        "allow_free_text_generation": true
+      },
+      {
+        "path_glob": "tests/**",
+        "allowed_ai_modes": [
+          "full_llm",
+          "embedding_only",
+          "restricted_transformer_inference",
+          "codecompass_only"
+        ],
+        "allow_code_generation": true,
+        "require_controlled_write_policy": true
+      }
+    ]
+  },
+  "restricted_inference_tasks": [
+    {
+      "id": "candidate_rerank",
+      "description": "Rerankt CodeCompass/RAG-Kandidaten mit Cross-Encoder oder Sequence-Classification-Modell.",
+      "input": "query + candidate excerpt/path/symbol metadata",
+      "output": "score 0..1 + reason_code + model_id + confidence",
+      "no_generation": true
+    },
+    {
+      "id": "task_classify",
+      "description": "Klassifiziert User-/Worker-Aufgabe in feste Labels wie bugfix, architecture, security, config, test, documentation, generic_chat.",
+      "input": "task text + optional surface/backend metadata",
+      "output": "fixed label + confidence",
+      "no_generation": true
+    },
+    {
+      "id": "path_domain_classify",
+      "description": "Ordnet Dateien/Pfade Domaenen oder Sensitivitaetsklassen zu.",
+      "input": "path + symbols + compact excerpt + CodeCompass metadata",
+      "output": "domain labels + sensitivity class + confidence",
+      "no_generation": true
+    },
+    {
+      "id": "risk_score",
+      "description": "Berechnet Risiko-/Sicherheitsnaehe fuer Kontext oder Aenderungsvorschlaege, ohne selbst Text oder Code zu erzeugen.",
+      "input": "diff metadata, path, symbols, policy markers, compact excerpt",
+      "output": "risk score + fixed risk category",
+      "no_generation": true
+    },
+    {
+      "id": "semantic_boundary_detection",
+      "description": "Erkennt, ob mehrere Dateien wahrscheinlich zu derselben fachlichen/technischen Boundary gehoeren.",
+      "input": "candidate set + graph edges + excerpts",
+      "output": "boundary id / cluster id / confidence",
+      "no_generation": true
+    },
+    {
+      "id": "logit_choice_score",
+      "description": "Nutzt Decoder-Modelle ohne freies Decoding, um feste Antwortoptionen oder Labels ueber Logits/Logprobs zu bewerten.",
+      "input": "prompt template + fixed answer choices",
+      "output": "choice scores only",
+      "no_generation": true
+    }
+  ],
+  "implementation_plan": [
+    {
+      "id": "RTIPM-001",
+      "title": "Ist-Zustand der Modell- und Embedding-Nutzung erfassen",
+      "tasks": [
+        "Alle vorhandenen direkten LLM-Adapter, Embedding-Adapter und CodeCompass/RAG-Nutzungen im Repo suchen und dokumentieren.",
+        "Pruefen, welche Embedding-Modelle aktuell wirklich genutzt werden und ueber welchen Adapter.",
+        "Pruefen, ob irgendwo bereits HuggingFace/sentence-transformers/ONNX/PyTorch genutzt oder vorbereitet ist.",
+        "Bestehende Provider wie Ollama/LM Studio/OpenAI-kompatible APIs danach bewerten, ob sie nur Chat/Completion oder auch Embeddings/Logprobs/Scoring liefern."
+      ],
+      "acceptance_criteria": [
+        "Es gibt eine kurze technische Bestandsnotiz mit echten Dateipfaden und Adapter-Namen.",
+        "Direkte LLM-Nutzung, Embedding-Nutzung und CodeCompass-Nutzung sind klar getrennt dokumentiert.",
+        "Es ist klar, welche Provider fuer restricted_transformer_inference geeignet, begrenzt geeignet oder ungeeignet sind."
+      ]
+    },
+    {
+      "id": "RTIPM-002",
+      "title": "PathAiModePolicy einfuehren",
+      "tasks": [
+        "Neuen Policy-Service fuer path_ai_modes bauen, z.B. agent/services/path_ai_mode_policy_service.py.",
+        "Glob-/Pfad-Matching deterministisch und priorisierbar machen: exact > deeper glob > broader glob > default.",
+        "Konfliktregeln definieren: block gewinnt gegen allow, ausser explizite higher-priority rule erlaubt es.",
+        "Policy-Ergebnis in bestehende Tool-/Context-/Worker-Policy integrieren.",
+        "Policy-Result muss erklaeren: matched_rule, allowed_modes, blocked_modes, reason_codes."
+      ],
+      "acceptance_criteria": [
+        "Unit-Tests fuer Pfad-Globs, Prioritaeten und Konflikte existieren.",
+        "src/security/** kann full_llm blockieren, waehrend docs/** full_llm erlaubt.",
+        "Policy-Entscheidung ist im Trace sichtbar.",
+        "Default ohne Konfiguration veraendert bestehendes Verhalten nicht."
+      ]
+    },
+    {
+      "id": "RTIPM-003",
+      "title": "RestrictedModelInferenceService bauen",
+      "tasks": [
+        "Neuen Service agent/services/restricted_model_inference_service.py einfuehren.",
+        "Klare Operationen statt freier Prompts definieren: embed, classify, rerank, score_choices, extract_features, risk_score.",
+        "Jede Operation hat strikt typisierte Inputs/Outputs und erlaubt keine freie generative Antwort als Ergebnis.",
+        "Adapter-Schnittstelle definieren fuer sentence-transformers, HuggingFace Transformers, ONNX Runtime und PyTorch.",
+        "Modell-Metadaten ausgeben: model_id, engine, device, revision/hash falls vorhanden, operation, latency_ms."
+      ],
+      "acceptance_criteria": [
+        "Service kann mit Mock-Modell ohne echte ML-Abhaengigkeiten getestet werden.",
+        "Keine Operation gibt freie Chatantworten zurueck.",
+        "Rerank-Operation liefert sortierbare Scores fuer Kandidaten.",
+        "Classify-Operation liefert nur feste Labels aus erlaubter Labelmenge.",
+        "score_choices liefert Scores nur fuer vorgegebene Choices."
+      ]
+    },
+    {
+      "id": "RTIPM-004",
+      "title": "Engine-Adapter implementieren",
+      "tasks": [
+        "SentenceTransformersAdapter fuer Embeddings und CrossEncoder-Reranking implementieren.",
+        "HuggingFaceTransformersAdapter fuer sequence-classification, token-classification, feature-extraction und optional causal logit scoring implementieren.",
+        "OnnxRuntimeAdapter fuer exportierte Embedding-/Classifier-/Reranker-Modelle implementieren.",
+        "PyTorchAdapter als flexibler lokaler Adapter fuer eigene Modelle/Fine-Tunes/Checkpoints vorsehen.",
+        "llama.cpp/gguf nur als limited adapter dokumentieren, falls Logprobs/Scoring verfuegbar sind; keine Abhaengigkeit darauf fuer Hidden States/Attention planen."
+      ],
+      "acceptance_criteria": [
+        "Adapter koennen optional installiert sein; fehlende Dependencies erzeugen degraded/unavailable statt Crash.",
+        "Jeder Adapter deklariert Capabilities: embeddings, hidden_states, attention, logits, classification, rerank.",
+        "Runtime waehlt nur Adapter, deren Capabilities zur Operation und PathAiModePolicy passen.",
+        "ONNX/PyTorch/HuggingFace sind lokal nutzbar, ohne externe Cloud-Calls."
+      ]
+    },
+    {
+      "id": "RTIPM-005",
+      "title": "CodeCompass/RAG Ranking um restricted inference erweitern",
+      "tasks": [
+        "Bestehenden CandidateScorer bzw. geplanten PreModelContextScorer so erweitern, dass CodeCompass/RAG-Kandidaten optional per restricted_transformer_inference rerankt werden.",
+        "Embedding-Score, Graph-Distanz, Symboltreffer und Modell-Rerank-Score getrennt speichern.",
+        "Finalscore deterministisch aus gewichteten Komponenten berechnen.",
+        "Reranking nur ausfuehren, wenn PathAiModePolicy und Config es erlauben.",
+        "Bei fehlendem Modell sauber auf Embedding/Graph/Regeln zurueckfallen."
+      ],
+      "acceptance_criteria": [
+        "Ranking-Trace zeigt getrennte Scores: embedding_score, graph_score, transformer_rerank_score, policy_penalty, final_score.",
+        "Bei sensiblen Pfaden kann Reranking erlaubt sein, waehrend full_llm blockiert bleibt.",
+        "Ohne restricted inference bleibt bestehendes Ranking nutzbar.",
+        "Gleicher Input und gleiches Modell ergeben reproduzierbare Reihenfolge innerhalb definierter Toleranz."
+      ]
+    },
+    {
+      "id": "RTIPM-006",
+      "title": "Generierung hart von Analyse-Inferenz trennen",
+      "tasks": [
+        "Zentrale AI mode checks einfuehren: allow_free_text_generation, allow_code_generation, allow_chat_completion, allow_tool_decision_from_model_text.",
+        "RestrictedModelInferenceService darf keine Chat-/Completion-Endpunkte nutzen, ausser fuer score_choices mit festen Choices und ohne freie Ausgabe.",
+        "Freie Modelltexte duerfen nicht als Tool-Entscheidung verwendet werden, wenn die Pfad-Policy dies blockiert.",
+        "Bei Decoder-Modellen nur Logits/Logprobs/Choice-Scoring erlauben, sofern Adapter das sauber unterstuetzt.",
+        "Audit-Events fuer blockierte Generierungsversuche erzeugen."
+      ],
+      "acceptance_criteria": [
+        "Test beweist: restricted_transformer_inference ruft keinen ChatCompletion-/Generate-Pfad auf.",
+        "Test beweist: full_llm fuer src/security/** wird blockiert, wenn Policy es verbietet.",
+        "Test beweist: score_choices mit festen Labels ist erlaubt, freie Textantwort aber nicht.",
+        "Blockierte Versuche erscheinen im Trace/Audit mit reason_code."
+      ]
+    },
+    {
+      "id": "RTIPM-007",
+      "title": "Konfiguration und UI/Trace sichtbar machen",
+      "tasks": [
+        "Config-Schema fuer path_ai_modes und restricted_model_inference Modelle ergaenzen.",
+        "Trace-Events fuer model_inference_started, model_inference_finished, model_inference_blocked, model_inference_degraded hinzufuegen.",
+        "Im ai-snake-chat Tracking Viewer sichtbar machen, ob CodeCompass, Embedding, restricted transformer inference oder full LLM genutzt wurde.",
+        "Model-ID, Engine, Device, Operation, Inputbudget, Outputtyp und Policy-Entscheidung anzeigen.",
+        "Sensitive Inputs im Trace kuerzen/redacten."
+      ],
+      "acceptance_criteria": [
+        "Ein Nutzer kann im Trace klar sehen: hier wurde echtes Modell-Inferenz-Reranking genutzt, aber kein freier LLM-Call.",
+        "Trace unterscheidet Embedding-Modell, restricted transformer inference und full_llm sichtbar.",
+        "Redaction verhindert Leaks von Secrets oder grossen Quelltexten.",
+        "Config-Fehler werden validiert und mit klarer Fehlermeldung ausgegeben."
+      ]
+    },
+    {
+      "id": "RTIPM-008",
+      "title": "Tests und Fixtures",
+      "tasks": [
+        "Unit-Tests fuer PathAiModePolicy, RestrictedModelInferenceService, Adapter-Capabilities und Mode-Checks schreiben.",
+        "Mock-Adapter fuer deterministic Scores bauen.",
+        "Kleines Fixture-Repo mit security/docs/tests Pfaden anlegen.",
+        "Integrationstest: security-Pfad erlaubt Rerank, blockiert full_llm.",
+        "Integrationstest: docs-Pfad erlaubt full_llm.",
+        "Integrationstest: fehlende ML-Dependency fuehrt zu degraded fallback, nicht Crash."
+      ],
+      "acceptance_criteria": [
+        "Alle Tests laufen ohne echten externen LLM-Key.",
+        "Mindestens ein Test nutzt Mock-Reranker und zeigt veraenderte Kandidatenreihenfolge.",
+        "Mindestens ein Test beweist harte Trennung zwischen restricted inference und generativer Antwort.",
+        "Mindestens ein Test beweist rueckwaertskompatibles Default-Verhalten."
+      ]
+    }
+  ],
+  "suggested_files": [
+    "agent/services/path_ai_mode_policy_service.py",
+    "agent/services/restricted_model_inference_service.py",
+    "agent/services/model_inference_adapters/__init__.py",
+    "agent/services/model_inference_adapters/sentence_transformers_adapter.py",
+    "agent/services/model_inference_adapters/huggingface_transformers_adapter.py",
+    "agent/services/model_inference_adapters/onnxruntime_adapter.py",
+    "agent/services/model_inference_adapters/pytorch_adapter.py",
+    "agent/services/pre_model_context_ranking.py",
+    "agent/routes/config/shared.py",
+    "agent/models.py",
+    "frontend-angular/src/app/components/ai-snake-trace-viewer.component.ts",
+    "tests/unit/test_path_ai_mode_policy_service.py",
+    "tests/unit/test_restricted_model_inference_service.py",
+    "tests/unit/test_restricted_inference_generation_boundary.py",
+    "tests/e2e/test_path_ai_modes_security_docs_flow.py"
+  ],
+  "definition_of_done": [
+    "Pfadbezogene AI-Modi sind konfigurierbar und validiert.",
+    "Restricted Transformer Inference nutzt echte Modell-Inferenz, aber keine freie Generierung.",
+    "HuggingFace Transformers, sentence-transformers, ONNX Runtime und PyTorch sind als Adapter-Zielarchitektur definiert; mindestens ein Adapter ist initial implementiert oder per Mock testbar vorbereitet.",
+    "CodeCompass/RAG-Kandidaten koennen optional per restricted inference gererankt oder klassifiziert werden.",
+    "Sensitive Pfade koennen full_llm/chat_generation/code_generation blockieren, waehrend Embeddings und restricted transformer inference erlaubt bleiben.",
+    "Trace/Audit unterscheidet klar zwischen deterministic tools, embeddings, restricted transformer inference und full LLM.",
+    "Bestehende direkte LLM- und Embedding-Nutzung bleibt rueckwaertskompatibel."
+  ],
+  "manual_review_notes": [
+    "Nicht als LLM-Ersatz verkaufen: direkte LLM-Nutzung bleibt weiterhin Teil von Ananta.",
+    "Nicht behaupten, eine Transformer-Schicht ohne Modellgewichte zu nutzen. Gemeint ist echte Modell-Inferenz ohne freie Generierung.",
+    "Ollama/LM Studio sind fuer diese Schicht nur dann geeignet, wenn sie konkrete Scoring-/Embedding-/Logprob-Funktionen liefern. Fuer Hidden States/Attention eher HuggingFace/PyTorch/ONNX planen.",
+    "Bei sicherheitskritischen Pfaden Blockierung von full_llm getrennt von Erlaubnis fuer restricted inference testen.",
+    "Dieses Todo ergaenzt todo.ananta-configurable-pre-model-context-orchestration.json und todo.codecompass-context-tool-provider.json."
+  ]
+}
