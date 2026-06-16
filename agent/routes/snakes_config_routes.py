@@ -21,6 +21,7 @@ from .snakes import (
     _snake_bound_to_auth,
     snakes_bp,
 )
+from .snake_event_broadcaster import drop_snake_queue
 
 
 @snakes_bp.route("/snakes", methods=["POST"])
@@ -95,6 +96,7 @@ def deregister_snake(snake_id: str):
     if not snake:
         return jsonify({"error": "Snake nicht gefunden"}), 404
     snake["active"] = False
+    drop_snake_queue(snake_id)
     return jsonify({"ok": True, "id": snake_id}), 200
 
 

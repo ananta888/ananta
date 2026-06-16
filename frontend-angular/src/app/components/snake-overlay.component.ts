@@ -9,6 +9,7 @@ import { ShareSessionService, ShareParticipant } from '../services/share-session
 import { WebrtcCursorService } from '../services/webrtc-cursor.service';
 import { SnakeGuideService, GuideStep } from '../services/snake-guide.service';
 import { UiWaypointService } from '../services/ui-waypoint.service';
+import { SnakeEventsService, Candidate } from '../services/snake-events.service';
 
 // ── Physics ──────────────────────────────────────────────────────────────────
 const NUM_SEGS    = 22;
@@ -66,6 +67,15 @@ interface Bubble { text: string; born: number; }
            (keydown.escape)="onRegionCancel()">
       </div>
     }
+    @for (c of candidateHotspots(); track c.index) {
+      <button class="candidate-hotspot"
+              [style.left.px]="c.x - 16"
+              [style.top.px]="c.y - 16"
+              [title]="c.title"
+              (click)="selectCandidate(c.index, c.candidate)">
+        {{ c.index + 1 }}
+      </button>
+    }
   `,
   styles: [`:host {
     position: fixed; inset: 0; pointer-events: none; z-index: 29999; display: block;
@@ -76,7 +86,21 @@ interface Bubble { text: string; born: number; }
     pointer-events: all;
     cursor: crosshair;
     background: rgba(127,255,212,0.04);
-  }`],
+  }
+  .candidate-hotspot {
+    position: absolute;
+    width: 32px; height: 32px; border-radius: 50%;
+    border: 2px solid #ffd700;
+    background: rgba(255, 140, 0, 0.85);
+    color: #fff;
+    font-size: 13px; font-weight: bold;
+    pointer-events: all;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 10px rgba(255, 140, 0, 0.6);
+    z-index: 30000;
+  }
+  .candidate-hotspot:hover { background: rgba(255, 165, 0, 1); transform: scale(1.1); }`],
 })
 export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
   @ViewChild('cvs') canvasRef!: ElementRef<HTMLCanvasElement>;
@@ -87,6 +111,7 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
   private share    = inject(ShareSessionService);
   private guide    = inject(SnakeGuideService);
   private waypoint = inject(UiWaypointService);
+  private events   = inject(SnakeEventsService);
   // Injecting activates the cursor-broadcast loop as a side-effect
   private _cursor  = inject(WebrtcCursorService);
 
@@ -119,6 +144,11 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
   private guideArriveTimer: ReturnType<typeof setTimeout> | null = null;
   private currentGuideWaypoint = '';
   private wrongClickDebounce: ReturnType<typeof setTimeout> | null = null;
+
+  // ── Multi-candidate selection ────────────────────────────────────────────────
+  private candidates: Candidate[] = [];
+  private candidateRequestId: string | null = null;
+  private candidateDismissTimer: ReturnType<typeof setTimeout> | null = null;
 
   // ── Lifecycle ───────────────────────────────────────────────────────────────
 
@@ -217,10 +247,31 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
       this.guide.play$.subscribe(steps => this.startGuide(steps)),
     );
 
+    // SSE-driven guide events (lower latency than polling)
+    this.subs.push(
+      this.events.guide$.subscribe(payload => {
+        if (Array.isArray(payload.steps) && payload.steps.length) {
+          this.guide.play(payload.steps, { requestId: payload.request_id, priority: payload.trigger_type === 'region_explain' ? 2 : 7 });
+        }
+      }),
+    );
+
+    // SSE-driven candidate lists — render hotspots for user selection
+    this.subs.push(
+      this.events.candidates$.subscribe(payload => {
+        if (Array.isArray(payload.candidates) && payload.candidates.length) {
+          this.showCandidates(payload.candidates, payload.request_id || null);
+        }
+      }),
+    );
+
     // Clear pending indicator when guide becomes active
     this.subs.push(
       this.guide.active$.subscribe(active => {
-        if (active) this.isPendingExplain = false;
+        if (active) {
+          this.isPendingExplain = false;
+          this.clearCandidates();
+        }
       }),
     );
 
@@ -231,6 +282,7 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
     cancelAnimationFrame(this.rafId);
     this.subs.forEach(s => s.unsubscribe());
     this.stopGuideSequence();
+    this.clearCandidates();
     this.snakes = this.snakes.filter(s => s.id !== '__guide__');
     this.guideSnake = null;
   }
@@ -523,6 +575,53 @@ export class SnakeOverlayComponent implements AfterViewInit, OnDestroy {
     this.guidePendingBubble    = null;
     this.guideBubbleShown      = false;
     this.currentGuideWaypoint  = '';
+  }
+
+  // ── Candidate selection ─────────────────────────────────────────────────────
+
+  private showCandidates(candidates: Candidate[], requestId: string | null): void {
+    this.candidates = candidates.slice(0, 5);
+    this.candidateRequestId = requestId;
+    if (this.candidateDismissTimer) clearTimeout(this.candidateDismissTimer);
+    this.candidateDismissTimer = setTimeout(() => this.clearCandidates(), 20000);
+  }
+
+  private clearCandidates(): void {
+    this.candidates = [];
+    this.candidateRequestId = null;
+    if (this.candidateDismissTimer) {
+      clearTimeout(this.candidateDismissTimer);
+      this.candidateDismissTimer = null;
+    }
+  }
+
+  private selectCandidate(index: number, candidate: Candidate): void {
+    if (!candidate?.steps?.length) return;
+    // Play immediately for lowest latency; also log the choice to the visual session.
+    this.guide.play(candidate.steps, { requestId: this.candidateRequestId || undefined, priority: 7 });
+    this.chat.sendRegionExplainTick(
+      `candidate:${index} | ${candidate.label} | ${candidate.bubble}`,
+      candidate.steps.map(s => ({ x: s.x ?? 0, y: s.y ?? 0, bubble: s.bubble, waypoint: s.waypoint })),
+      this.candidateRequestId || undefined,
+    );
+    this.clearCandidates();
+  }
+
+  /** Exposed to the template — resolves the first step of each candidate to a screen position. */
+  candidateHotspots(): Array<{ index: number; x: number; y: number; title: string; candidate: Candidate }> {
+    return this.candidates.map((c, idx) => {
+      const first = c.steps?.[0];
+      let pos = { x: 0, y: 0 };
+      if (first) {
+        if (first.x != null && first.y != null) {
+          pos = { x: first.x, y: first.y };
+        } else {
+          const resolved = this.waypoint.resolve(first.waypoint);
+          if (resolved) pos = resolved;
+        }
+      }
+      return { index: idx, x: pos.x, y: pos.y, title: `${c.label}: ${c.bubble}`, candidate: c };
+    }).filter(h => h.x > 0 && h.y > 0);
   }
 
   private drawGuideBubbles(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, head: Seg): void {

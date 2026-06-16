@@ -43,6 +43,11 @@ def _append_room_ai_message(**kwargs: Any) -> None:
     return _impl(**kwargs)
 
 
+def _broadcast_snake_event(snake_id: str, event_type: str, payload: dict[str, Any]) -> None:
+    from agent.routes.snake_event_broadcaster import broadcast_snake_event as _impl
+    _impl(snake_id, event_type, payload)
+
+
 # ── Rate limiting ──────────────────────────────────────────────────────────────
 _RATE_LIMIT_LLM_CALLS_PER_MINUTE = 4
 
@@ -192,6 +197,22 @@ class VisualGuideService:
                     text=answer, session_id=_self_mod._VISUAL_SESSION_ID, visibility="room",
                 )
                 _log.info("ananta-visual: reply appended (%d chars)", len(answer))
+
+                # SSE push: candidates (multi-candidate mode) or guide steps
+                candidates = self._parse_candidates(answer) if n_candidates > 1 else []
+                if candidates:
+                    _self_mod._broadcast_snake_event(
+                        snake_id, "candidates",
+                        {"request_id": request.request_id, "candidates": candidates},
+                    )
+                else:
+                    guide_steps = self._extract_guide_steps(answer)
+                    if guide_steps:
+                        _self_mod._broadcast_snake_event(
+                            snake_id, "guide",
+                            {"request_id": request.request_id, "trigger_type": "ui_tick", "steps": guide_steps},
+                        )
+
                 action = VisualGuideAction(
                     request_id=request.request_id,
                     trigger_type="ui_tick",
@@ -250,6 +271,10 @@ class VisualGuideService:
                     session_id=_self_mod._VISUAL_SESSION_ID,
                     visibility="room",
                 )
+                _self_mod._broadcast_snake_event(
+                    snake_id, "guide",
+                    {"request_id": request.request_id, "trigger_type": "region_explain", "steps": guide_steps},
+                )
                 action = VisualGuideAction(
                     request_id=request.request_id,
                     trigger_type="region_explain",
@@ -278,6 +303,10 @@ class VisualGuideService:
                 text=f"\n\n__GUIDE__:{guide_json}",
                 session_id=_self_mod._VISUAL_SESSION_ID,
                 visibility="room",
+            )
+            _self_mod._broadcast_snake_event(
+                snake_id, "guide",
+                {"request_id": request.request_id, "trigger_type": "region_explain", "steps": guide_steps},
             )
             _log.info("region-explain: guide reply with %d steps appended", len(guide_steps))
             action = VisualGuideAction(
@@ -496,6 +525,48 @@ class VisualGuideService:
                 "y": y,
             })
         return guide_steps
+
+    @staticmethod
+    def _extract_guide_steps(text: str) -> list[dict]:
+        """Parse __GUIDE__: JSON from an answer and return the steps list."""
+        marker = "__GUIDE__:"
+        idx = text.find(marker)
+        if idx < 0:
+            return []
+        raw = text[idx + len(marker):].strip()
+        # Stop at first newline after the JSON object so trailing text is ignored
+        nl = raw.find("\n")
+        if nl > 0:
+            raw = raw[:nl]
+        try:
+            parsed = json.loads(raw)
+            steps = list(parsed.get("steps") or [])
+            return [s for s in steps if isinstance(s, dict)]
+        except Exception:
+            return []
+
+    @staticmethod
+    def _parse_candidates(text: str) -> list[dict]:
+        """Parse __CANDIDATES__: JSON from an answer.
+
+        Expected shape: [{"label":"...","bubble":"...","steps":[...]}, ...]
+        Returns an empty list when the marker is missing or parsing fails.
+        """
+        marker = "__CANDIDATES__:"
+        idx = text.find(marker)
+        if idx < 0:
+            return []
+        raw = text[idx + len(marker):].strip()
+        nl = raw.find("\n")
+        if nl > 0:
+            raw = raw[:nl]
+        try:
+            parsed = json.loads(raw)
+            if not isinstance(parsed, list):
+                return []
+            return [c for c in parsed if isinstance(c, dict) and c.get("label")]
+        except Exception:
+            return []
 
 
 # ── Module-level singleton ────────────────────────────────────────────────────
