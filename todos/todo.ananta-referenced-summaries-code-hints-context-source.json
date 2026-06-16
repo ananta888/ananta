@@ -1,0 +1,302 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "ananta-referenced-summaries-code-hints-context-source",
+  "created": "2026-06-16",
+  "status": "todo",
+  "priority": "P0",
+  "purpose": "Zusammenfassungen, Code-Hints und kompakte Beschreibungen sollen in Ananta nicht als unreferenzierte Prompt-Deko behandelt werden, sondern als eigene, referenzierte Informationsquelle neben CodeCompass/RAG/Graph. Egal ob eine Beschreibung durch LLM, restricted transformer inference, Embeddings/Reranking oder deterministische Regeln erzeugt wurde: sie muss nachvollziehbar, versioniert, belegbar und gegen Originalquellen pruefbar sein.",
+  "goal": "Eine Referenced Summary and Code Hint Source einfuehren, die kompakte Beschreibungen von Quellcode, Domaenen, Dateien, Symbolen, Tests, Architekturbereichen und Runtime-Beobachtungen speichert. Jede Summary/jeder Hint muss Provenance, SourceRefs, Generator-Typ, Confidence, Validity-Bounds, Hashes und ggf. Staleness-Status enthalten. CodeCompass kann diese Informationen als zusaetzliche Context-Quelle nutzen, ohne sie mit autoritativem Originalcode zu verwechseln.",
+  "problem_statement": "CodeCompass liefert Projektkarte, Suchindex, Symbolgraph und Kontextnavigation. Fuer komplexe Projekte reichen rohe Dateien, JSONL-Records und Graphkanten aber nicht immer aus: es braucht kompakte, korrekte und wiederverwendbare Beschreibungen. Solche Beschreibungen koennen durch LLMs, deterministische Analyzer, Embedding-/Reranking-Schichten oder manuelle Hinweise entstehen. Ohne Referenzen werden sie jedoch riskant: sie koennen veralten, halluziniert sein oder spaeter als Wahrheit missverstanden werden. Deshalb brauchen Summaries/Hints einen eigenen Contract als belegbare Informationsquelle mit Rueckbindung an CodeCompass und Originaldateien.",
+  "core_principles": [
+    "Originalcode, Tests, Konfigurationen und explizit gelesene Artefakte bleiben autoritativ.",
+    "CodeCompass bleibt Projektkarte, Suchindex, Symbolgraph und Kontextnavigation.",
+    "Summaries und Code-Hints sind abgeleitete Informationsquellen, niemals alleinige Wahrheit fuer Codeaenderungen oder sicherheitsrelevante Aussagen.",
+    "Jede abgeleitete Beschreibung muss referenziert sein: Datei, Symbol, Zeilenbereich, Graphknoten, CodeCompass-Record, Commit/Manifest-Hash und Generator-Herkunft.",
+    "LLM-generierte und deterministisch erzeugte Hints nutzen denselben Contract, unterscheiden sich aber in generator.kind und confidence_policy.",
+    "Staleness muss sichtbar sein: wenn Originaldatei, Commit, Index oder Kontext-Hash sich aendert, darf die Summary nicht mehr still als frisch gelten.",
+    "Hints muessen kompakt sein, aber korrekt genug, um Kontextauswahl, Navigation und Erklaerung zu verbessern.",
+    "Bei Widerspruch gewinnt Originalquelle bzw. explizit neu gelesener Kontext."
+  ],
+  "target_artifact_types": [
+    {
+      "id": "file_summary",
+      "description": "Kompakte Beschreibung einer Datei: Zweck, wichtige Klassen/Funktionen, Abhaengigkeiten, Risiken, Tests."
+    },
+    {
+      "id": "symbol_hint",
+      "description": "Beschreibung eines Symbols: Klasse, Methode, Funktion, Interface, Komponente, API-Endpunkt."
+    },
+    {
+      "id": "domain_summary",
+      "description": "Beschreibung eines fachlichen/technischen Bereichs, z.B. auth, security, billing, rag-helper, worker-runtime."
+    },
+    {
+      "id": "graph_path_hint",
+      "description": "Beschreibung eines relevanten Pfades im CodeCompass-Graph: Aufrufkette, Dependency, Datenfluss, Policy-Pfad."
+    },
+    {
+      "id": "test_hint",
+      "description": "Beschreibung, welche Tests welchen Codebereich absichern und welche Luecken sichtbar sind."
+    },
+    {
+      "id": "architecture_hint",
+      "description": "Kompakte Architekturbeobachtung mit konkreten SourceRefs."
+    },
+    {
+      "id": "risk_hint",
+      "description": "Hinweis auf Risiko, Security-Relevanz, Sensitivitaet, Secrets, Policy-Boundary oder kritischen Datenfluss."
+    },
+    {
+      "id": "manual_note",
+      "description": "Vom Nutzer oder Entwickler manuell gesetzter Hinweis, ebenfalls referenziert und staleness-geprueft."
+    }
+  ],
+  "source_contract_target": {
+    "schema": "referenced_context_hint.v1",
+    "minimum_fields": [
+      "id",
+      "kind",
+      "title",
+      "summary",
+      "source_refs",
+      "codecompass_refs",
+      "generator",
+      "confidence",
+      "validity",
+      "hashes",
+      "created_at",
+      "updated_at",
+      "staleness_status",
+      "policy"
+    ],
+    "example": {
+      "id": "hint:file:agent/services/codecompass_context_service.py:abc123",
+      "kind": "file_summary",
+      "title": "CodeCompassContextService ContextPackage Builder",
+      "summary": "Erzeugt policy-bounded ContextPackages aus Query, Working Files, CodeCompass/RAG-Kandidaten, optionalem Graph und Domain Map. Originaldateien werden nur ueber get_file_context und mit Policy-/Budget-Pruefung materialisiert.",
+      "source_refs": [
+        {
+          "path": "agent/services/codecompass_context_service.py",
+          "line_start": 97,
+          "line_end": 255,
+          "role": "primary_source",
+          "sha256": "..."
+        }
+      ],
+      "codecompass_refs": [
+        {
+          "record_id": "cc:...",
+          "node_id": "file:agent/services/codecompass_context_service.py",
+          "manifest_hash": "...",
+          "relation_types": ["defines", "calls", "reads"]
+        }
+      ],
+      "generator": {
+        "kind": "llm|deterministic|restricted_transformer_inference|manual|hybrid",
+        "model_id": "optional",
+        "engine": "optional",
+        "prompt_hash": "optional",
+        "tool_version": "optional"
+      },
+      "confidence": {
+        "score": 0.84,
+        "method": "source_ref_coverage+generator_confidence+staleness",
+        "requires_human_review": false
+      },
+      "validity": {
+        "scope": "file|symbol|domain|graph_path|test|architecture",
+        "valid_for_tasks": ["navigation", "explanation", "context_selection"],
+        "not_valid_for": ["authoritative_code_review", "security_claim_without_original_source"]
+      },
+      "hashes": {
+        "source_hash": "...",
+        "context_hash": "...",
+        "summary_hash": "...",
+        "repo_commit": "optional",
+        "knowledge_index_manifest_hash": "..."
+      },
+      "staleness_status": "fresh|possibly_stale|stale|invalid",
+      "policy": {
+        "external_cloud_safe": false,
+        "contains_original_code_excerpt": false,
+        "sensitivity": "unknown|low|medium|high",
+        "redaction_status": "none|redacted|required"
+      }
+    }
+  },
+  "integration_targets": [
+    "CodeCompass search and resolve_context should be able to include referenced summaries/hints as additional evidence records.",
+    "RAG retrieval should index summaries/hints separately from original code snippets and mark them as derived records.",
+    "ContextPackage should expose derived_context_hints with source_refs and staleness_status.",
+    "PreModelContextOrchestrator should be able to use hints for candidate selection/ranking but must re-read original files when authoritative evidence is required.",
+    "Restricted transformer inference should be able to generate or validate hints without free text generation for restricted paths when configured.",
+    "ai-snake-chat Tracking Viewer should show whether an answer used original source, CodeCompass records, summaries, code hints or derived context."
+  ],
+  "implementation_plan": [
+    {
+      "id": "RCHCS-001",
+      "title": "Contract fuer referenzierte Summaries und Code-Hints definieren",
+      "tasks": [
+        "Schema referenced_context_hint.v1 als Pydantic-/TypedDict-/JSON-Contract definieren.",
+        "SourceRef, CodeCompassRef, GeneratorMetadata, ConfidenceMetadata, ValidityMetadata, HashMetadata, HintPolicyMetadata modellieren.",
+        "Unterscheiden zwischen original_source, codecompass_record, derived_hint, manual_note und runtime_observation.",
+        "Staleness-Status und Validity-Regeln verbindlich aufnehmen."
+      ],
+      "acceptance_criteria": [
+        "Jeder Hint kann eindeutig auf Originaldateien/Zeilen oder CodeCompass-Records zurueckgefuehrt werden.",
+        "Schema unterscheidet LLM-generiert, deterministisch, restricted_transformer_inference, manuell und hybrid.",
+        "Hints koennen als nicht autoritativ markiert werden.",
+        "Schema ist versioniert und in Tests validiert."
+      ]
+    },
+    {
+      "id": "RCHCS-002",
+      "title": "Storage und Indexierung fuer Hints bauen",
+      "tasks": [
+        "Speicherort unter settings.data_dir/knowledge_indices oder eigener derived_context_hints-Struktur definieren.",
+        "JSONL-Format fuer schnelle inkrementelle Speicherung vorsehen.",
+        "Optional Vektorindex fuer Hint-Summaries vorbereiten, getrennt von Originalcode-Embeddings.",
+        "Hints mit knowledge_index_id, manifest_hash, repo_commit und source_hash verbinden.",
+        "Lese-/Schreib-API fuer Hint Store bauen."
+      ],
+      "acceptance_criteria": [
+        "Hints koennen geschrieben, gelesen, nach path/symbol/domain gesucht und invalidiert werden.",
+        "Derived Hints sind als derived gekennzeichnet und werden nicht mit Originaldateien vermischt.",
+        "Index kann ohne LLM-Key aufgebaut und gelesen werden.",
+        "Staleness kann bei geaendertem source_hash/manifest_hash erkannt werden."
+      ]
+    },
+    {
+      "id": "RCHCS-003",
+      "title": "Generator-Pipeline fuer Summaries/Hints einfuehren",
+      "tasks": [
+        "Generator Interface definieren: deterministic, llm, restricted_transformer_inference, manual_import, hybrid.",
+        "Deterministische Generatoren fuer einfache Datei-/Symbolmetadaten bauen: path, symbols, imports, tests, graph-degree, known boundaries.",
+        "LLM-Generator optional nutzen, aber nur wenn Pfad-Policy und Provider-Policy es erlauben.",
+        "Restricted transformer inference fuer Klassifikation/Reranking/Validierung nutzbar machen, ohne freie Generierung zu erzwingen.",
+        "Jeder Generator muss GeneratorMetadata und Evidence Coverage liefern."
+      ],
+      "acceptance_criteria": [
+        "Mindestens ein deterministischer Hint-Generator funktioniert ohne Modell.",
+        "LLM-generierte Hints werden als llm markiert und enthalten prompt_hash/model_id, soweit verfuegbar.",
+        "Restricted-Inference-Hints koennen Scores/Labels liefern, ohne freie Chatantwort zu erzeugen.",
+        "Hints ohne ausreichende SourceRefs werden verworfen oder require_human_review=true markiert."
+      ]
+    },
+    {
+      "id": "RCHCS-004",
+      "title": "CodeCompass Integration als zusaetzliche Informationsquelle",
+      "tasks": [
+        "CodeCompassContextService.resolve_context um derived_context_hints erweitern.",
+        "search_symbols/get_domain_map/plan_context optional Hint-Treffer beruecksichtigen lassen.",
+        "Ranking getrennt halten: original_code_score, codecompass_record_score, derived_hint_score.",
+        "ContextPackage soll anzeigen, ob ein Kandidat durch Summary/Hint, CodeCompass, Embedding oder Graph gefunden wurde.",
+        "Bei authoritative mode muss CodeCompass Originaldateien nachladen statt nur Hint-Text zu liefern."
+      ],
+      "acceptance_criteria": [
+        "ContextPackage enthaelt derived_context_hints mit SourceRefs.",
+        "Ein Hint kann Candidate-Auswahl verbessern, ersetzt aber keine Originalquelle im authoritative mode.",
+        "Trace zeigt, ob Summary/Hint zur Auswahl beigetragen hat.",
+        "Bei stale Hint wird Warnung ausgegeben oder Hint ausgeschlossen, je Konfiguration."
+      ]
+    },
+    {
+      "id": "RCHCS-005",
+      "title": "Korrektheits- und Staleness-Regeln erzwingen",
+      "tasks": [
+        "source_hash, summary_hash und manifest_hash bei jedem Hint speichern.",
+        "Invalidierung bei geaenderten Dateien, neuem KnowledgeIndexRun oder geaendertem CodeCompass-Manifest implementieren.",
+        "Confidence aus SourceRef-Coverage, Generator-Art, Alter und Staleness berechnen.",
+        "Policy definieren: stale Hints duerfen nicht als Beleg fuer sicherheitsrelevante oder codeaendernde Aussagen verwendet werden.",
+        "Bei Widerspruch zwischen Hint und Originalquelle gewinnt Originalquelle."
+      ],
+      "acceptance_criteria": [
+        "Geaenderte Datei markiert betroffene Hints als stale/invalid.",
+        "Security- oder Code-Review-Antworten koennen stale Hints nicht als alleinige Evidence verwenden.",
+        "Confidence sinkt bei altem oder schwach belegtem Hint.",
+        "Tests decken fresh, possibly_stale, stale und invalid ab."
+      ]
+    },
+    {
+      "id": "RCHCS-006",
+      "title": "Prompt-/Context-Nutzung fuer Worker und ai-snake-chat sichtbar machen",
+      "tasks": [
+        "Worker payload und ai-snake-chat PromptBuilder um derived_context_hints erweitern.",
+        "Prompt-Text muss Hints klar als abgeleitete, referenzierte Zusammenfassungen markieren.",
+        "Tracking Viewer zeigt Quelle: original file, CodeCompass record, summary, code hint, manual note.",
+        "Antworten sollen Evidence-Pfade nennen koennen: 'laut Hint X, referenziert auf Datei Y Zeilen A-B'.",
+        "Fallback-Regel: wenn Hint reicht fuer Navigation, aber nicht fuer belastbare Aussage, soll Nachladen der Originalquelle empfohlen/ausgefuehrt werden."
+      ],
+      "acceptance_criteria": [
+        "ai-snake-chat kann anzeigen, ob Antwort auf Hint, CodeCompass oder Originaldatei basiert.",
+        "Worker bekommt Hints strukturiert, nicht nur als unmarkierten Prompt-Text.",
+        "Bei fehlender Originalevidence wird Antwort als 'nachladen empfohlen' markiert.",
+        "Keine unreferenzierten LLM-Summaries landen im ContextPackage."
+      ]
+    },
+    {
+      "id": "RCHCS-007",
+      "title": "Manuelle Hints und Entwicklerwissen unterstuetzen",
+      "tasks": [
+        "Manuelle Hinweise als manual_note aufnehmen, aber ebenfalls mit SourceRefs oder Scope/Validity versehen.",
+        "UI/CLI/API fuer manuelles Hinzufuegen oder Korrigieren von Hints vorbereiten.",
+        "Manuelle Hints mit owner, created_at, review_status und optional expiry versehen.",
+        "Manuelle Hints duerfen CodeCompass-Ranking verbessern, muessen aber bei Konflikt mit Code neu validiert werden."
+      ],
+      "acceptance_criteria": [
+        "Manuelle Hints koennen gespeichert und gesucht werden.",
+        "Manuelle Hints sind klar als manual gekennzeichnet.",
+        "Stale/expired manuelle Hints erzeugen Warnungen.",
+        "Keine manuelle Notiz wird ohne Scope/Validity als globale Wahrheit behandelt."
+      ]
+    },
+    {
+      "id": "RCHCS-008",
+      "title": "Tests und Fixtures",
+      "tasks": [
+        "Fixture-Repo mit Datei, Symbol, Test und Domain-Hints anlegen.",
+        "Unit-Tests fuer Schema, Store, Staleness, Confidence und Policy schreiben.",
+        "Integrationstest: CodeCompass resolve_context liefert Hint + Originalsource Candidate.",
+        "Integrationstest: stale Hint wird nicht als authoritative Evidence verwendet.",
+        "Integrationstest: deterministischer Generator erzeugt referenzierten Hint ohne LLM."
+      ],
+      "acceptance_criteria": [
+        "Alle Tests laufen ohne externen LLM-Key.",
+        "Mindestens ein Test beweist: unreferenzierter Hint wird abgelehnt.",
+        "Mindestens ein Test beweist: Hint kann Ranking verbessern.",
+        "Mindestens ein Test beweist: Originalquelle gewinnt bei Konflikt."
+      ]
+    }
+  ],
+  "suggested_files": [
+    "agent/models.py",
+    "agent/services/referenced_context_hint_service.py",
+    "agent/services/referenced_context_hint_store.py",
+    "agent/services/referenced_context_hint_generators.py",
+    "agent/services/codecompass_context_service.py",
+    "agent/services/pre_model_context_ranking.py",
+    "client_surfaces/operator_tui/chat_prompt_builder.py",
+    "frontend-angular/src/app/components/ai-snake-trace-viewer.component.ts",
+    "tests/unit/test_referenced_context_hint_schema.py",
+    "tests/unit/test_referenced_context_hint_store.py",
+    "tests/unit/test_referenced_context_hint_staleness.py",
+    "tests/e2e/test_codecompass_referenced_hints_context_flow.py"
+  ],
+  "definition_of_done": [
+    "Summaries und Code-Hints existieren als eigene referenzierte Informationsquelle.",
+    "Jeder Hint hat SourceRefs, CodeCompassRefs oder klaren manual Scope mit Validity-Regeln.",
+    "LLM-generierte, deterministische, restricted-inference und manuelle Hints nutzen denselben Contract.",
+    "CodeCompass kann Hints in resolve_context/search/ranking einbeziehen.",
+    "Hints koennen Kontext kompakter und korrekter beschreiben, ersetzen aber keine autoritative Originalquelle.",
+    "Staleness, Confidence und Policy sind sichtbar und getestet.",
+    "ai-snake-chat/Tracking Viewer zeigt, wann Hints genutzt wurden und worauf sie referenzieren."
+  ],
+  "manual_review_notes": [
+    "Sehr wichtig: keine unreferenzierten Summaries in Prompts kippen.",
+    "LLM-generierte Summaries muessen als abgeleitet markiert bleiben und duerfen nicht autoritativ werden.",
+    "Deterministische Hints sind nicht automatisch wahr; auch sie brauchen SourceRefs und Staleness-Pruefung.",
+    "Dieser Track ergaenzt CodeCompass, restricted transformer inference und pre-model context orchestration."
+  ]
+}
