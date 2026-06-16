@@ -1,10 +1,11 @@
 {
-  "$schema": "./todo.track.schema.json",
+  "$schema": "../todo.track.schema.json",
   "version": "1.0",
   "owner": "Peter Stuiber / Ananta",
   "track": "unified-ananta-tool-calling-registry",
   "created": "2026-06-15",
-  "status": "todo",
+  "completed": "2026-06-16",
+  "status": "done",
   "priority": "P0",
   "title": "Unify ananta-worker tool calling registry for native OpenAI-compatible tools and prompt-JSON fallback",
   "purpose": "Ananta soll fuer ananta-worker, SGPT/OpenAI-kompatible Backends, Ollama, LMStudio und spaetere Worker-Runtimes eine einzige autoritative Tool-Registry verwenden. CodeCompass/RagHelper-Tools duerfen nicht nur im promptbasierten ananta_worker_tool_loop sichtbar sein, sondern muessen aus derselben Registry sowohl als native OpenAI-kompatible Tool-Schemas als auch als kompakte Prompt-Fallback-Beschreibung erzeugt werden koennen.",
