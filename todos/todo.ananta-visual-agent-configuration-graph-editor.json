@@ -1,0 +1,299 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "ananta-visual-agent-configuration-graph-editor",
+  "created": "2026-06-16",
+  "status": "todo",
+  "priority": "P0",
+  "purpose": "Die komplexen Konfigurationsmoeglichkeiten von Ananta sollen nicht nur als JSON/YAML/Markdown editiert werden, sondern als visueller, bearbeitbarer Graph sichtbar werden. Der Graph soll Rollen, Agent-Profile, Templates, mehrstufige Taskflows, Agent-Konfigurationen, Backends, Modelle, Tools, Policies, Pfadregeln, CodeCompass/RAG-Kontext, restricted inference und Handoff-Beziehungen darstellen und bearbeitbar machen.",
+  "goal": "Einen Visual Configuration Graph Editor fuer Ananta bauen: Nutzer koennen sehen und bearbeiten, wie ein Task von Ziel/Template ueber Agent-Profil, Rollen, Subtasks, Worker/Backend-Auswahl, Tool-Catalog, Context-Policy, Path-AI-Modes, Modell-/Embedding-Konfiguration, Write-Policy und Verifikationsregeln laeuft. Der Editor validiert Aenderungen, erzeugt versionierte Konfigurationsartefakte und zeigt Runtime-Diagnostics/Effective Configuration an.",
+  "problem_statement": "Ananta hat nicht nur Rollen mit Templates. Es gibt bereits runtime-aktive Agent-Profile, lokale AGENTS.md Regeln, Profilauflösung, planning templates, mehrstufige Subtasks, Worker/Adapter, CodeCompass-Kontext, Tool-Registry, Path-/Policy-Ideen und unterschiedliche Modell-/Backend-Modi. Diese Struktur ist zu komplex, um sie dauerhaft nur in verstreuten JSON-, Markdown- und Python-Konstanten zu verwalten. Es braucht eine visuelle Graph-Sicht, in der man erkennt: welcher Task aktiviert welches Profil, welches Template erzeugt welche Schritte, welcher Agent/Worker nutzt welche Tools, welcher Kontext darf geladen werden und welche Policy begrenzt Modell- oder Schreibzugriff.",
+  "source_review": {
+    "observed_basis": [
+      {
+        "path": "docs/agent-profiles/README.md",
+        "finding": "Dokumentiert, dass ein globaler Agent zu vage/gefaehrlich ist und dass unterschiedliche Pfade/Profile genutzt werden. Profile sind runtime-aktiv ueber AgentProfileService, InstructionLayer, ContextBundle, ContextDelivery und OpenCode Workspaces."
+      },
+      {
+        "path": "docs/architecture/planning-template-inventory.md",
+        "finding": "Dokumentiert aktuelle planning templates, hardcoded GOAL_TEMPLATES, Resolution Order und mehrstufige Subtasks pro Template. Diese Templates sind ideale Graph-Knoten und Kanten."
+      },
+      {
+        "path": "docs/agent-profiles/profile-map.json",
+        "finding": "Soll als Mapping fuer AgentProfileLoader/Runtime dienen und ist zentrale Quelle fuer Profilaktivierung und Rollenregeln."
+      },
+      {
+        "path": "agent/services/agent_profile_service.py",
+        "finding": "Runtime-Loader fuer Profile; muss als Datenquelle/Validator fuer den Graph Editor angebunden werden."
+      },
+      {
+        "path": "agent/services/ananta_tool_registry_service.py",
+        "finding": "Tool-Registry mit Kategorien, Risk Classes, Schemas und Policy Requirements; muss als Tool-Subgraph angezeigt werden."
+      },
+      {
+        "path": "agent/services/codecompass_context_service.py",
+        "finding": "ContextPackage/CodeCompass-Konfiguration und Policies muessen als Context-Subgraph sichtbar werden."
+      }
+    ],
+    "current_gap": "Es gibt Dokumentation und runtime-aktive Einzelbausteine, aber keinen einheitlichen visuellen Effective-Configuration-Graph, keine sichere Bearbeitung, keine Validierung von Kanten/Policies und keine UI, um komplexe mehrstufige Agentenkonfigurationen zu verstehen."
+  },
+  "graph_model_target": {
+    "schema": "ananta_configuration_graph.v1",
+    "node_types": [
+      "surface",
+      "goal_template",
+      "task_kind",
+      "subtask_step",
+      "agent_profile",
+      "role",
+      "agent_instance",
+      "worker_backend",
+      "model_provider",
+      "model_profile",
+      "embedding_model",
+      "restricted_inference_model",
+      "tool",
+      "tool_group",
+      "policy",
+      "path_rule",
+      "context_source",
+      "codecompass_profile",
+      "rag_profile",
+      "artifact_rule",
+      "write_rule",
+      "verification_rule",
+      "handoff_rule",
+      "instruction_layer",
+      "runtime_override",
+      "trace_event"
+    ],
+    "edge_types": [
+      "activates",
+      "contains",
+      "inherits_from",
+      "overrides",
+      "uses_profile",
+      "uses_template",
+      "creates_subtask",
+      "assigned_to",
+      "may_call_tool",
+      "blocked_by_policy",
+      "requires_approval",
+      "uses_context_source",
+      "uses_model",
+      "uses_embedding_model",
+      "uses_restricted_inference",
+      "routes_to_backend",
+      "hands_off_to",
+      "depends_on",
+      "verifies_with",
+      "reads_path",
+      "writes_path",
+      "applies_to_path",
+      "emits_trace",
+      "effective_after_merge"
+    ],
+    "views": [
+      {
+        "id": "profile_activation_view",
+        "description": "Zeigt Surface/Task/Template -> AgentProfile -> AGENTS.md/InstructionLayer."
+      },
+      {
+        "id": "planning_flow_view",
+        "description": "Zeigt Goal Template -> Subtasks -> Rollen/Agenten -> Dependencies -> Verification."
+      },
+      {
+        "id": "agent_runtime_view",
+        "description": "Zeigt Agent Instance -> Backend -> Model Provider -> Tools -> Context Sources -> Policies."
+      },
+      {
+        "id": "policy_path_view",
+        "description": "Zeigt Pfadregeln, Path-AI-Modes, Tool- und Write-Policies pro Repo-Bereich."
+      },
+      {
+        "id": "context_pipeline_view",
+        "description": "Zeigt CodeCompass/RAG/Embeddings/Summaries/Hints/Restricted Inference als Kontextquellen und Grenzen."
+      },
+      {
+        "id": "effective_config_view",
+        "description": "Zeigt nach Merge/Inheritance/Overrides die tatsaechlich aktive Konfiguration fuer einen konkreten Task."
+      }
+    ]
+  },
+  "visual_editor_requirements": [
+    "Graph muss read-only und editierbar laufen koennen.",
+    "Editiermodus darf nur bekannte, validierte Node-/Edge-Typen erzeugen.",
+    "Jede Aenderung muss als Patch gegen konkrete Config-Dateien/Markdown/JSON abbildbar sein.",
+    "Effective Config muss vor dem Speichern berechnet und angezeigt werden.",
+    "Unsichere Aenderungen wie Tool-Freigaben, Write-Rechte, Cloud-LLM-Freigaben oder Policy-Abschwaechungen brauchen Warnung/Approval.",
+    "Graph muss Konfigurationskonflikte anzeigen: doppelte Overrides, widerspruechliche Pfadregeln, nicht existierende Profile, Tools ohne Policy, Modelle ohne Provider.",
+    "Graph muss Runtime-Traces ueberlagern koennen: welche Knoten/Kanten wurden bei einem konkreten Lauf wirklich genutzt."
+  ],
+  "implementation_plan": [
+    {
+      "id": "VACGE-001",
+      "title": "Config-Quellen inventarisieren und normalisieren",
+      "tasks": [
+        "Alle relevanten Konfigurationsquellen erfassen: docs/agent-profiles/profile-map.json, docs/agent-profiles/*/AGENTS.md, root AGENTS.md, planning templates, tool registry, model/provider config, CodeCompass/RAG config, path policies, worker/backend config.",
+        "Data Source Adapter definieren, die jede Quelle in Graph-Fragmente umwandeln.",
+        "Zwischen dokumentierten und runtime-aktiven Quellen unterscheiden.",
+        "Stale/hardcoded Quellen markieren, z.B. planning_utils GOAL_TEMPLATES, solange noch nicht katalogisiert."
+      ],
+      "acceptance_criteria": [
+        "Ein CLI/Service kann einen Graph-Snapshot aus den vorhandenen Quellen erzeugen.",
+        "Jeder Graph-Knoten verweist auf source_file/source_line oder runtime_source.",
+        "Runtime-active vs documentation-only ist sichtbar.",
+        "Fehlende oder widerspruechliche Quellen erzeugen Diagnostics statt Crash."
+      ]
+    },
+    {
+      "id": "VACGE-002",
+      "title": "AnantaConfigurationGraph Contract definieren",
+      "tasks": [
+        "Schema ananta_configuration_graph.v1 definieren: nodes, edges, views, diagnostics, source_refs, effective_config_refs.",
+        "NodeData je Typ definieren: AgentProfileNode, GoalTemplateNode, ToolNode, PolicyNode, ModelNode, ContextSourceNode, PathRuleNode, WorkerBackendNode.",
+        "EdgeData mit source, target, type, priority, condition, policy_effect, source_ref modellieren.",
+        "Graph-Diff/Patch-Format definieren: add_node, update_node, remove_node, add_edge, update_edge, remove_edge."
+      ],
+      "acceptance_criteria": [
+        "Graph-Schema ist versioniert und testbar validiert.",
+        "Knoten und Kanten koennen source refs tragen.",
+        "Graph-Diff kann vor dem Speichern validiert werden.",
+        "Unbekannte Node-/Edge-Typen werden abgelehnt."
+      ]
+    },
+    {
+      "id": "VACGE-003",
+      "title": "Effective Configuration Resolver bauen",
+      "tasks": [
+        "Resolver implementieren, der fuer konkrete Inputs surface, task_kind, template_id, profile_id, path, backend und mode die effektive Konfiguration berechnet.",
+        "Merge-Reihenfolge sichtbar machen: root AGENTS.md, active path AGENTS.md, profile, template, task/context bundle, response contract, runtime overrides.",
+        "Overrides markieren: allowed, suppressed, rejected, conflict.",
+        "Resultat als EffectiveConfigGraph/EffectiveConfigReport ausgeben."
+      ],
+      "acceptance_criteria": [
+        "Fuer ai-snake-chat kann der Resolver zeigen, welches Profil/AGENTS.md aktiv ist.",
+        "Fuer bug_fix/new_software_project kann der Resolver Template, Subtasks und Profil anzeigen.",
+        "Rejected/suppressed overrides werden sichtbar.",
+        "Resolver erzeugt reproduzierbare Ergebnisse ohne LLM."
+      ]
+    },
+    {
+      "id": "VACGE-004",
+      "title": "Backend-API fuer Graph lesen/validieren/speichern",
+      "tasks": [
+        "REST-Endpunkte bauen: GET /api/config-graph, POST /api/config-graph/effective, POST /api/config-graph/validate-patch, POST /api/config-graph/apply-patch.",
+        "Apply-Patch darf nur bekannte Config-Dateien aendern und muss atomar/auditierbar sein.",
+        "Dry-run und Preview-Modus bereitstellen.",
+        "Audit-Log fuer jede Konfigurationsaenderung erzeugen."
+      ],
+      "acceptance_criteria": [
+        "Graph kann aus UI geladen werden.",
+        "Patch-Validation erkennt unsichere/ungueltige Aenderungen.",
+        "Dry-run zeigt betroffene Dateien und Effective-Config-Auswirkung.",
+        "Apply-Patch schreibt nur nach erfolgreicher Validierung."
+      ]
+    },
+    {
+      "id": "VACGE-005",
+      "title": "Angular Graph Editor UI bauen",
+      "tasks": [
+        "Graph-Rendering-Komponente bauen, z.B. mit Angular + geeignetem Graph-Layout/Canvas/SVG-Renderer.",
+        "Views umschaltbar machen: Profile Activation, Planning Flow, Agent Runtime, Policy/Path, Context Pipeline, Effective Config.",
+        "Knoten auswählbar machen und Details/SourceRefs/Policies anzeigen.",
+        "Editiermodus mit Formularen fuer erlaubte Felder bauen.",
+        "Diff Preview und Validation Panel anzeigen.",
+        "Runtime Trace Overlay optional integrieren."
+      ],
+      "acceptance_criteria": [
+        "Nutzer kann Profile/Template/Agent/Tool/Policy-Knoten visuell sehen.",
+        "Nutzer kann einen konkreten Task simulieren und die Effective Config anzeigen.",
+        "Editieren erzeugt erst Patch Preview, nicht sofort unkontrollierte Dateiänderung.",
+        "Unsichere Aenderungen werden deutlich markiert.",
+        "UI bleibt bei grossen Graphen durch Filter/Suche/Collapse nutzbar."
+      ]
+    },
+    {
+      "id": "VACGE-006",
+      "title": "Mehrstufige Agenten-Varianten modellieren",
+      "tasks": [
+        "Subtask-Step-Knoten mit depends_on, assigned_role, required_context, allowed_tools, verification_rule modellieren.",
+        "Mehragenten-Flows wie Scrum/PO/SM/Dev, Planner->Worker->Reviewer, Diagnose->Patch->Test->Review als Graph-Varianten abbilden.",
+        "Handoff-Regeln zwischen Agenten/Backends modellieren, ohne Worker-zu-Worker-Direktkommunikation zu erlauben.",
+        "Agent-Konfigurationen versionieren: Rolle, Profil, Backend, Modell, Tools, Context-Policy, Output-Contract."
+      ],
+      "acceptance_criteria": [
+        "Ein mehrstufiger Flow kann als Graph angezeigt werden.",
+        "Jeder Schritt zeigt Agent/Rolle/Backend/Tools/Context/Verification.",
+        "Handoff laeuft konzeptionell ueber Hub, nicht als direkte Worker-Kante.",
+        "Varianten koennen verglichen werden: z.B. bug_fix lokal vs bug_fix mit OpenCode vs bug_fix mit restricted path policy."
+      ]
+    },
+    {
+      "id": "VACGE-007",
+      "title": "Policy- und Sicherheitsvalidierung integrieren",
+      "tasks": [
+        "Regeln definieren, welche Graph-Aenderungen besonders riskant sind: Tool-Freigaben, Write-Rechte, External-Cloud, full_llm fuer sensitive paths, Abschwaechung von root AGENTS.md, Entfernen von Approval-Gates.",
+        "Validator gegen ToolRegistry, PathAiModePolicy, CodeCompassContextPolicy und WritePolicy laufen lassen.",
+        "Risk Score fuer Config-Patches berechnen.",
+        "Approval-/Review-Flow fuer riskante Patches vorbereiten."
+      ],
+      "acceptance_criteria": [
+        "Graph Editor kann riskante Aenderungen erkennen und blockieren/warnen.",
+        "Root/non-overridable Regeln koennen nicht per UI abgeschwaecht werden.",
+        "Tool ohne Policy darf nicht aktiviert werden.",
+        "Sensitive path + full_llm Konflikt wird sichtbar."
+      ]
+    },
+    {
+      "id": "VACGE-008",
+      "title": "Tests und Fixtures",
+      "tasks": [
+        "Fixture-Konfiguration mit mehreren Profilen, Templates, Backends, Tools und Path Policies erstellen.",
+        "Unit-Tests fuer Graph Builder, Schema, Effective Resolver, Patch Validator und Security Rules schreiben.",
+        "Frontend-Komponententests fuer Graph Loading, Node Details, Patch Preview und Validation Panel schreiben.",
+        "E2E-Test: Nutzer oeffnet Graph, simuliert bug_fix Task, aendert erlaubten Parameter, sieht Diff, speichert Patch."
+      ],
+      "acceptance_criteria": [
+        "Tests laufen ohne externen LLM-Key.",
+        "Effective Config fuer bekannte Profile ist reproduzierbar.",
+        "Riskante Patches werden in Tests blockiert.",
+        "UI kann mindestens einen komplexen mehrstufigen Flow rendern."
+      ]
+    }
+  ],
+  "suggested_files": [
+    "agent/models.py",
+    "agent/services/config_graph_builder_service.py",
+    "agent/services/config_graph_effective_resolver.py",
+    "agent/services/config_graph_patch_service.py",
+    "agent/services/config_graph_validation_service.py",
+    "agent/routes/config_graph_routes.py",
+    "frontend-angular/src/app/components/config-graph-editor.component.ts",
+    "frontend-angular/src/app/components/config-graph-node-detail.component.ts",
+    "frontend-angular/src/app/services/config-graph-client.service.ts",
+    "frontend-angular/src/app/models/config-graph.model.ts",
+    "tests/unit/test_config_graph_builder_service.py",
+    "tests/unit/test_config_graph_effective_resolver.py",
+    "tests/unit/test_config_graph_patch_validation.py",
+    "tests/e2e/test_config_graph_editor_flow.py"
+  ],
+  "definition_of_done": [
+    "Ananta kann aus vorhandenen Profilen, Templates, Tool-Registry, Policies, Modellen und Context-Quellen einen visuellen Config-Graph erzeugen.",
+    "Graph kann pro View gefiltert werden: Profile, Planning, Runtime, Policy/Path, Context, Effective Config.",
+    "Ein konkreter Task kann simuliert werden, um die effektive Konfiguration zu sehen.",
+    "Graph ist in Angular sichtbar und Knoten sind auswählbar.",
+    "Bearbeitungen laufen ueber validierte Patches mit Preview, Dry-run und Audit.",
+    "Mehrstufige Agentenvarianten sind modellierbar und visualisierbar.",
+    "Sicherheitsrelevante Aenderungen werden erkannt und duerfen nicht unbemerkt gespeichert werden.",
+    "Bestehende runtime-aktive Profile und Templates bleiben rueckwaertskompatibel."
+  ],
+  "manual_review_notes": [
+    "Nicht als reinen Rollen-Editor bauen. Es geht um die gesamte Agenten-/Kontext-/Policy-/Backend-Konfiguration als Graph.",
+    "Nicht nur statische Doku anzeigen: Effective Runtime Configuration muss sichtbar sein.",
+    "Bearbeiten nie direkt als freie JSON-Textarea beginnen; zuerst graphbasiert + validierter Patch.",
+    "Root AGENTS.md und non-overridable InstructionLayer duerfen im UI sichtbar, aber nicht abschwaechbar sein.",
+    "Der Graph Editor soll spaeter auch die neuen Tracks path_ai_modes, restricted transformer inference und referenced summaries/code hints sichtbar machen."
+  ]
+}
