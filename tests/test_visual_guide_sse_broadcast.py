@@ -1,10 +1,12 @@
-"""Tests for VisualGuideService SSE broadcasting (Option B).
+"""Tests for VisualGuideService SSE broadcasting (Option B) and manual guide (Option A).
 
 Covers:
 - handle_ui_tick broadcasts a 'guide' event when the LLM answer contains __GUIDE__
 - handle_ui_tick broadcasts a 'candidates' event in multi-candidate mode
-- handle_region_explain broadcasts a 'guide' event
+- handle_region_explain broadcasts a 'guide' event with readable summary prefix
 - Candidate selection messages ([region-explain] candidate:N) are logged but do not spawn AI
+- handle_manual_guide broadcasts a 'guide' event and writes to ananta-visual session
+- handle_region_explain message includes human-readable prefix before __GUIDE__:
 """
 
 from __future__ import annotations
@@ -165,3 +167,136 @@ class TestCandidateSelectionLogging:
         assert mock_append.call_count == 1
         assert mock_append.call_args.kwargs["text"].startswith("[region-explain] candidate:")
         mock_submit.assert_not_called()
+
+
+class TestRegionExplainReadableSummary:
+    """handle_region_explain messages must include a human-readable prefix before __GUIDE__:."""
+
+    def test_llm_path_message_has_readable_prefix(self):
+        from agent.services.visual_guide.service import VisualGuideService
+
+        svc = VisualGuideService()
+        appended_texts: list[str] = []
+
+        with patch("agent.services.visual_guide.service._background_threads_disabled",
+                   return_value=False), \
+             patch("agent.services.visual_guide.service._append_room_ai_message",
+                   side_effect=lambda **kw: appended_texts.append(kw["text"])), \
+             patch("agent.services.visual_guide.service._broadcast_snake_event"):
+
+            with patch.object(svc, "_call_llm_for_region_explain",
+                               return_value=["Erklärung"]):
+                svc.handle_region_explain("snake-x", [
+                    {"bubble": "Button", "x": 50.0, "y": 80.0, "waypoint": "btn.save"},
+                ], "/settings")
+
+        assert len(appended_texts) == 1
+        text = appended_texts[0]
+        assert "__GUIDE__:" in text
+        assert text.index("__GUIDE__:") > 0, "readable prefix must precede __GUIDE__:"
+        assert "/settings" in text
+
+    def test_rule_path_message_has_readable_prefix(self):
+        from agent.services.visual_guide.service import VisualGuideService
+        from agent.services.visual_guide.rule_engine import RuleEngine
+
+        svc = VisualGuideService()
+        appended_texts: list[str] = []
+
+        with patch("agent.services.visual_guide.service._background_threads_disabled",
+                   return_value=False), \
+             patch("agent.services.visual_guide.service._append_room_ai_message",
+                   side_effect=lambda **kw: appended_texts.append(kw["text"])), \
+             patch("agent.services.visual_guide.service._broadcast_snake_event"), \
+             patch.object(RuleEngine, "lookup_region_step", return_value="Tipp für den Button"):
+
+            svc.handle_region_explain("snake-x", [
+                {"bubble": "Button", "x": 50.0, "y": 80.0, "waypoint": "btn.save"},
+            ], "/settings")
+
+        assert len(appended_texts) == 1
+        text = appended_texts[0]
+        assert "__GUIDE__:" in text
+        assert text.index("__GUIDE__:") > 0
+        assert "Regel" in text
+
+
+class TestHandleManualGuide:
+    """handle_manual_guide broadcasts a guide event and writes to ananta-visual."""
+
+    def test_broadcasts_guide_event_when_llm_returns_guide_steps(self):
+        from agent.services.visual_guide.service import VisualGuideService
+
+        svc = VisualGuideService()
+        broadcasts: list[tuple] = []
+        appended_texts: list[str] = []
+        llm_answer = 'Hier ist dein Guide.\n\n__GUIDE__:{"steps":[{"waypoint":"btn.ok","bubble":"Klick hier","delay_ms":2000}]}'
+
+        with patch("agent.services.visual_guide.service._background_threads_disabled",
+                   return_value=False), \
+             patch("agent.services.visual_guide.service._append_room_ai_message",
+                   side_effect=lambda **kw: appended_texts.append(kw["text"])), \
+             patch("agent.services.visual_guide.service._broadcast_snake_event",
+                   side_effect=lambda sid, et, pl: broadcasts.append((sid, et, pl))):
+
+            with patch.object(svc, "_call_llm_for_manual_guide", return_value=llm_answer):
+                svc.handle_manual_guide("snake-m", "Zeige mir den Speichern-Button", snapshot="", route="/page")
+
+        assert len(broadcasts) == 1
+        sid, etype, payload = broadcasts[0]
+        assert sid == "snake-m"
+        assert etype == "guide"
+        assert payload["trigger_type"] == "manual"
+        assert len(payload["steps"]) == 1
+
+        assert len(appended_texts) == 1
+        assert appended_texts[0] == llm_answer
+
+    def test_no_broadcast_when_llm_returns_no_guide_steps(self):
+        from agent.services.visual_guide.service import VisualGuideService
+
+        svc = VisualGuideService()
+        broadcasts: list[tuple] = []
+
+        with patch("agent.services.visual_guide.service._background_threads_disabled",
+                   return_value=False), \
+             patch("agent.services.visual_guide.service._append_room_ai_message"), \
+             patch("agent.services.visual_guide.service._broadcast_snake_event",
+                   side_effect=lambda sid, et, pl: broadcasts.append((sid, et, pl))):
+
+            with patch.object(svc, "_call_llm_for_manual_guide", return_value="Ich weiß es leider nicht."):
+                svc.handle_manual_guide("snake-m", "Unbekannter Intent", snapshot="", route="")
+
+        assert len(broadcasts) == 0
+
+    def test_empty_intent_is_noop(self):
+        from agent.services.visual_guide.service import VisualGuideService
+
+        svc = VisualGuideService()
+
+        with patch("agent.services.visual_guide.service._background_threads_disabled",
+                   return_value=False), \
+             patch("agent.services.visual_guide.service._append_room_ai_message") as mock_append:
+
+            svc.handle_manual_guide("snake-m", intent="")
+
+        mock_append.assert_not_called()
+
+    def test_rate_limited_guide_writes_message_to_visual_session(self):
+        from agent.services.visual_guide.service import VisualGuideService
+
+        svc = VisualGuideService()
+        appended: list[dict] = []
+
+        with patch("agent.services.visual_guide.service._background_threads_disabled",
+                   return_value=False), \
+             patch("agent.services.visual_guide.service._append_room_ai_message",
+                   side_effect=lambda **kw: appended.append(kw)):
+            # Exhaust rate limit
+            for _ in range(10):
+                svc._rate_limit_timestamps["snake-rl"] = [9e9] * 10
+            svc.handle_manual_guide("snake-rl", "Teste Rate-Limit", snapshot="", route="")
+
+        assert len(appended) == 1
+        assert "Rate-Limit" in appended[0]["text"]
+        assert appended[0]["session_id"] == "ananta-visual"

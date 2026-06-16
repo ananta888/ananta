@@ -936,6 +936,26 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
 
     def _runner() -> None:
         nonlocal prompt
+
+        # Handle /guide intent — bypass normal LLM, trigger visual guide
+        if prompt.startswith("/guide "):
+            _intent = prompt[7:].strip()
+            if _intent:
+                _eff_sess = client_session_id if client_session_id and client_session_id != "ananta-visual" else "ananta-settings"
+                _ui_ctx_now = _snake_ui_state.get(snake_id or "") or {}
+                _append_room_ai_message(
+                    text=f"Guide wird gestartet: {_intent[:100]}…",
+                    session_id=_eff_sess,
+                )
+                from agent.services.visual_guide.service import _visual_guide_service as _vgs
+                _vgs.handle_manual_guide(
+                    snake_id=snake_id or "",
+                    intent=_intent,
+                    snapshot=str(_ui_ctx_now.get("ui_snapshot") or ""),
+                    route=str(_ui_ctx_now.get("route") or ""),
+                )
+            return
+
         rec = None
         store = None
         trace_id = None
@@ -1029,6 +1049,14 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
                     prompt = f"{_ui_ctx_block}[Aktuelle Ananta-Konfiguration]\n{_settings_ctx}\n\n[Nutzerfrage]\n{prompt}"
                 else:
                     prompt = f"[Aktuelle Ananta-Konfiguration]\n{_settings_ctx}\n\n[Nutzerfrage]\n{prompt}"
+
+            elif _active_session_id and _active_session_id not in {"ananta-visual", ""}:
+                # Lightweight UI context for user-created sessions
+                _light_ui = (ui_context or {}) or (_snake_ui_state.get(snake_id or "") if snake_id else {}) or {}
+                if _light_ui:
+                    _light_hint = str(_light_ui.get("ui_snapshot") or _light_ui.get("route") or "").strip()
+                    if _light_hint:
+                        prompt = f"[UI-Kontext: {_light_hint[:100]}]\n\n{prompt}"
 
             # Compute guide suffix for ananta-settings session (used below in all emit paths)
             import json as _json

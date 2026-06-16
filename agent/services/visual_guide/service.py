@@ -266,8 +266,10 @@ class VisualGuideService:
             guide_steps = self._build_guide_steps(region_steps, [b or "" for b in rule_bubbles])
             if guide_steps:
                 guide_json = json.dumps({"steps": guide_steps})
+                _n = len(guide_steps)
+                _summary = f"Guide gestartet: {_n} {'Schritt' if _n == 1 else 'Schritte'} auf {route or '(unbekannt)'} (Regel)"
                 _self_mod._append_room_ai_message(
-                    text=f"\n\n__GUIDE__:{guide_json}",
+                    text=f"{_summary}\n\n__GUIDE__:{guide_json}",
                     session_id=_self_mod._VISUAL_SESSION_ID,
                     visibility="room",
                 )
@@ -299,8 +301,10 @@ class VisualGuideService:
                 return
 
             guide_json = json.dumps({"steps": guide_steps})
+            _n = len(guide_steps)
+            _summary = f"Guide gestartet: {_n} {'Schritt' if _n == 1 else 'Schritte'} auf {route or '(unbekannt)'}"
             _self_mod._append_room_ai_message(
-                text=f"\n\n__GUIDE__:{guide_json}",
+                text=f"{_summary}\n\n__GUIDE__:{guide_json}",
                 session_id=_self_mod._VISUAL_SESSION_ID,
                 visibility="room",
             )
@@ -544,6 +548,120 @@ class VisualGuideService:
             return [s for s in steps if isinstance(s, dict)]
         except Exception:
             return []
+
+    def handle_manual_guide(self, snake_id: str, intent: str, snapshot: str = "", route: str = "") -> None:
+        """Handle a /guide chat command — spawn a guide based on explicit user intent."""
+        import agent.services.visual_guide.service as _self_mod
+
+        if _self_mod._background_threads_disabled():
+            return
+        if not intent:
+            return
+
+        request = VisualGuideRequest(
+            snake_id=snake_id,
+            trigger_type="manual",
+            route=route,
+            snapshot=snapshot,
+        )
+        trace_id = self._trace_svc.start_trace(request)
+
+        if not self._check_rate_limit(snake_id):
+            _self_mod._append_room_ai_message(
+                text="Guide-Rate-Limit erreicht. Bitte kurz warten.",
+                session_id=_self_mod._VISUAL_SESSION_ID,
+                visibility="room",
+            )
+            self._trace_svc.emit(trace_id, "suppressed_by_rate_limit", {"reason": "rate_limit_exceeded"})
+            self._trace_svc.finish_trace(trace_id, success=False)
+            return
+
+        self._trace_svc.emit(trace_id, "model_invoked", {"strategy": "llm", "intent": intent[:80]})
+
+        try:
+            answer = self._call_llm_for_manual_guide(intent, snapshot, route)
+            if answer:
+                _self_mod._append_room_ai_message(
+                    text=answer,
+                    session_id=_self_mod._VISUAL_SESSION_ID,
+                    visibility="room",
+                )
+                guide_steps = self._extract_guide_steps(answer)
+                if guide_steps:
+                    _self_mod._broadcast_snake_event(
+                        snake_id, "guide",
+                        {"request_id": request.request_id, "trigger_type": "manual", "steps": guide_steps},
+                    )
+                action = VisualGuideAction(
+                    request_id=request.request_id,
+                    trigger_type="manual",
+                    priority=5,
+                    guide_steps=guide_steps if guide_steps else [],
+                )
+                self._trace_svc.emit(trace_id, "action_generated", {"chars": len(answer), "guide_steps": len(guide_steps)})
+                self._trace_svc.finish_trace(trace_id, success=True, action=action)
+            else:
+                self._trace_svc.finish_trace(trace_id, success=False)
+        except Exception as exc:
+            _log.warning("manual guide failed: %s", exc)
+            self._trace_svc.emit(trace_id, "error", {"error": str(exc)[:200]})
+            self._trace_svc.finish_trace(trace_id, success=False)
+
+    def _call_llm_for_manual_guide(self, intent: str, snapshot: str, route: str) -> str:
+        """Call LLM to generate guide steps for an explicit /guide intent."""
+        from agent.routes.ai_snake_config import _current_config
+        _cfg = _current_config()
+        model = str(_cfg.get("chat_model") or "gpt-4o-mini") or None
+
+        system_prompt = (
+            "Du bist die orangene Guide-Snake in der Ananta App.\n"
+            "Der User hat explizit einen Guide angefordert.\n"
+            "Antworte auf Deutsch: 1 einleitender Satz, danach __GUIDE__: Steps.\n"
+            'Format: __GUIDE__:{"steps":[{"waypoint":"...","bubble":"...","delay_ms":3000}]}\n'
+            "Wenn du keine passenden Schritte kennst, erkläre das ohne Guide-Steps."
+        )
+        ctx_parts = []
+        if snapshot:
+            ctx_parts.append(f"UI-Zustand: {snapshot[:300]}")
+        if route:
+            ctx_parts.append(f"Route: {route}")
+        ctx = "\n".join(ctx_parts) if ctx_parts else "(kein UI-Kontext)"
+        user_msg = f"Guide-Intent: {intent}\n\n{ctx}"
+
+        try:
+            from agent.services.model_invocation_service import ModelInvocationService
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_msg},
+            ]
+            response = ModelInvocationService._make_chat_call(messages, model=model, timeout=30)
+            choice = (response.get("choices") or [{}])[0]
+            return ((choice.get("message") or {}).get("content") or "").strip()
+        except Exception as exc:
+            _log.debug("ModelInvocationService failed for manual guide, falling back: %s", exc)
+            return self._call_openai_fallback_manual_guide(system_prompt, user_msg, _cfg)
+
+    def _call_openai_fallback_manual_guide(self, system_prompt: str, user_msg: str, cfg: dict) -> str:
+        """Direct openai fallback for manual guide when ModelInvocationService is unavailable."""
+        import openai as _oai
+        model = str(cfg.get("chat_model") or "gpt-4o-mini")
+        api_base = str(cfg.get("chat_api_base") or "")
+        api_key = str(cfg.get("chat_api_key") or "")
+
+        _client_kwargs: dict[str, Any] = {"api_key": api_key or "sk-no-key"}
+        if api_base:
+            _client_kwargs["base_url"] = api_base
+        _client = _oai.OpenAI(**_client_kwargs)
+        _resp = _client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_msg},
+            ],
+            max_tokens=300,
+            temperature=0.4,
+        )
+        return (_resp.choices[0].message.content or "").strip()
 
     @staticmethod
     def _parse_candidates(text: str) -> list[dict]:

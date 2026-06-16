@@ -13,6 +13,7 @@ export interface ChatHistoryMessage {
   text: string;
   ts: number;
   isAI: boolean;
+  hasGuide?: boolean;
 }
 
 const LS_KEY = 'ananta.chat.history.v2';
@@ -68,6 +69,7 @@ export class ChatHistoryService implements OnDestroy {
       this.knownIds.add(m.id);
 
       let text = m.text ?? '';
+      let hasGuide = false;
       const guideIdx = text.indexOf(GUIDE_MARKER);
       if (guideIdx >= 0) {
         // Guide steps are processed regardless of which session the message belongs to
@@ -76,6 +78,7 @@ export class ChatHistoryService implements OnDestroy {
         try {
           const guide = JSON.parse(guideJson);
           if (Array.isArray(guide?.steps) && guide.steps.length) {
+            hasGuide = true;
             const requestId: string | undefined = guide.request_id;
             // Skip stale responses when the pending request_id no longer matches.
             if (!requestId || this.guide.acceptGuideForRequest(requestId)) {
@@ -95,6 +98,7 @@ export class ChatHistoryService implements OnDestroy {
         text,
         ts: m.created_at || Date.now(),
         isAI: m.sender_id?.startsWith('ai') || m.sender_id?.startsWith('tutor') || m.sender_id?.includes('snake'),
+        hasGuide,
       };
       if (!this.store[sessionId]) this.store[sessionId] = [];
       this.store[sessionId].push(entry);

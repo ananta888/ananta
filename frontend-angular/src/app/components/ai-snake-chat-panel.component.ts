@@ -213,6 +213,9 @@ import { SnakeOverlayService } from '../services/snake-overlay.service';
                   <span class="msg-body">
                     <app-chat-message [text]="m.text" />
                   </span>
+                  @if (m.hasGuide) {
+                    <button class="guide-badge" (click)="setTab('trace')" title="Guide gespielt — Trace ansehen">📍</button>
+                  }
                 </div>
               }
             }
@@ -326,6 +329,8 @@ import { SnakeOverlayService } from '../services/snake-overlay.service';
     .msg-ai .msg-body { color: #b8d8b0; }
     .msg-who { flex-shrink: 0; font-size: 13px; }
     .msg-body { flex: 1; min-width: 0; white-space: pre-wrap; }
+    .guide-badge { background: none; border: none; cursor: pointer; font-size: 12px; padding: 0 2px; opacity: 0.55; flex-shrink: 0; line-height: 1; }
+    .guide-badge:hover { opacity: 1; }
     .typing .msg-body { color: #4a8a6a; animation: blink 1s infinite; }
     @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
     .send { border-top: 1px solid #1a2d4a; padding: 8px 10px; display: grid; grid-template-columns: 1fr auto auto; gap: 6px; }
