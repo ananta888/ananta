@@ -35,18 +35,55 @@ interface LayoutNode {
   node: ConfigGraphNode;
 }
 
+interface ViewMeta {
+  id: ViewId;
+  label: string;
+  color: string;
+  description: string;
+}
+
 const NODE_W = 160;
 const NODE_H = 44;
 const COL_GAP = 200;
 const ROW_GAP = 60;
 
-const VIEWS: { id: ViewId; label: string }[] = [
-  { id: VIEW_IDS.effectiveConfig, label: 'Effektive Konfiguration' },
-  { id: VIEW_IDS.profileActivation, label: 'Profil-Aktivierung' },
-  { id: VIEW_IDS.agentRuntime, label: 'Agent-Laufzeit' },
-  { id: VIEW_IDS.policyPath, label: 'Policy-Pfad' },
-  { id: VIEW_IDS.planningFlow, label: 'Planungs-Flow' },
-  { id: VIEW_IDS.contextPipeline, label: 'Kontext-Pipeline' },
+const VIEWS: ViewMeta[] = [
+  {
+    id: VIEW_IDS.effectiveConfig,
+    label: 'Effektive Konfiguration',
+    color: '#4A90D9',
+    description: 'Welche Nodes für eine Surface aktuell aktiv sind',
+  },
+  {
+    id: VIEW_IDS.profileActivation,
+    label: 'Profil-Aktivierung',
+    color: '#4CAF50',
+    description: 'Agenten-Profile und deren Aktivierungspfade',
+  },
+  {
+    id: VIEW_IDS.agentRuntime,
+    label: 'Agent-Laufzeit',
+    color: '#9C27B0',
+    description: 'Agenten-Instanzen, Worker und Laufzeit-Konfiguration',
+  },
+  {
+    id: VIEW_IDS.policyPath,
+    label: 'Policy-Pfad',
+    color: '#FF9800',
+    description: 'Policy-Knoten und deren Wirkungskette',
+  },
+  {
+    id: VIEW_IDS.planningFlow,
+    label: 'Planungs-Flow',
+    color: '#00BCD4',
+    description: 'Planung, Templates und Goal-Erstellung',
+  },
+  {
+    id: VIEW_IDS.contextPipeline,
+    label: 'Kontext-Pipeline',
+    color: '#CDDC39',
+    description: 'Kontext-Quellen, CodeCompass und RAG-Konfiguration',
+  },
 ];
 
 @Component({
@@ -56,257 +93,563 @@ const VIEWS: { id: ViewId; label: string }[] = [
   imports: [CommonModule, FormsModule, ConfigGraphNodeDetailComponent],
   template: `
     <div class="cge-root">
+
+      <!-- ── Header ────────────────────────────────────────────── -->
       <div class="cge-header">
-        <h2 class="cge-title">Visual Agent Configuration Graph</h2>
-
-        <div class="cge-controls">
-          <!-- View selector -->
-          <div class="view-tabs">
-            <button
-              *ngFor="let v of views"
-              class="view-tab"
-              [class.active]="activeView === v.id"
-              (click)="setView(v.id)"
-            >{{ v.label }}</button>
-          </div>
-
-          <!-- Effective config resolver -->
-          <div class="effective-bar">
-            <input [(ngModel)]="effectiveSurface" placeholder="Surface (z.B. ai_snake_chat)" class="eff-input" />
-            <input [(ngModel)]="effectiveTaskKind" placeholder="Task-Kind (optional)" class="eff-input" />
-            <input [(ngModel)]="effectivePath" placeholder="Pfad (optional)" class="eff-input" />
-            <button class="button-outline" (click)="resolveEffective()">Effektiv auflösen</button>
-          </div>
-
-          <div class="cge-actions">
-            <button class="button-outline" (click)="reload()">Aktualisieren</button>
+        <div class="cge-title-row">
+          <h2 class="cge-title">Visual Agent Configuration Graph</h2>
+          <div class="cge-header-actions">
+            <button class="button-outline" (click)="reload()">↻ Aktualisieren</button>
             <label class="edit-toggle">
               <input type="checkbox" [(ngModel)]="editMode" (ngModelChange)="cdr.markForCheck()" />
               Edit-Modus
             </label>
           </div>
         </div>
-      </div>
 
-      <!-- Diagnostics -->
-      <div *ngIf="(graph?.diagnostics?.length ?? 0) > 0" class="diag-bar">
-        <span *ngFor="let d of graph!.diagnostics" class="diag-item">⚠ {{ d }}</span>
-      </div>
-
-      <!-- Effective config panel -->
-      <div *ngIf="effectiveResult" class="effective-panel card">
-        <div class="effective-panel-header">
-          <strong>Effektive Konfiguration für: {{ effectiveResult.surface }}</strong>
-          <span *ngIf="effectiveResult.task_kind" class="badge">{{ effectiveResult.task_kind }}</span>
-          <span *ngIf="effectiveResult.path" class="badge">{{ effectiveResult.path }}</span>
-          <button (click)="effectiveResult = null; cdr.markForCheck()" class="close-btn">✕</button>
+        <div *ngIf="(graph?.diagnostics?.length ?? 0) > 0" class="diag-bar">
+          <span *ngFor="let d of graph!.diagnostics" class="diag-item">⚠ {{ d }}</span>
         </div>
-        <div class="effective-grid">
-          <div>
-            <div class="eff-label">Profil</div>
-            <div>{{ effectiveResult.agent_profile?.['profile_id'] ?? '—' }}</div>
+      </div>
+
+      <!-- ── Body: Sidebar + Canvas ─────────────────────────────── -->
+      <div class="cge-body">
+
+        <!-- Left sidebar -->
+        <div class="cge-sidebar">
+          <div class="sidebar-section-label">Ansichten</div>
+
+          <div class="view-cards">
+            <button
+              *ngFor="let v of views"
+              class="view-card"
+              [class.active]="activeView === v.id"
+              (click)="setView(v.id)"
+            >
+              <div class="view-card-dot" [style.background]="v.color"></div>
+              <div class="view-card-body">
+                <div class="view-card-title">{{ v.label }}</div>
+                <div class="view-card-desc">{{ v.description }}</div>
+                <div class="view-card-count" *ngIf="graph">
+                  <span class="count-badge" [style.background]="activeView === v.id ? v.color : undefined">
+                    {{ (graph.views[v.id] ?? []).length }} Nodes
+                  </span>
+                </div>
+              </div>
+            </button>
           </div>
-          <div>
-            <div class="eff-label">Template</div>
-            <div>{{ effectiveResult.goal_template?.['template_id'] ?? '—' }}</div>
+
+          <!-- Effective resolver -->
+          <div class="sidebar-divider"></div>
+          <div class="sidebar-section-label">Effektiv auflösen</div>
+          <div class="effective-form">
+            <input [(ngModel)]="effectiveSurface" placeholder="Surface (z.B. ai_snake_chat)" class="eff-input" />
+            <input [(ngModel)]="effectiveTaskKind" placeholder="Task-Kind (optional)" class="eff-input" />
+            <input [(ngModel)]="effectivePath" placeholder="Pfad (optional)" class="eff-input" />
+            <button class="button-outline full-width" (click)="resolveEffective()">Auflösen →</button>
           </div>
-          <div>
-            <div class="eff-label">Gesperrte Modi</div>
-            <div>
-              <span class="tag warn" *ngFor="let m of effectiveResult.effective_ai_modes_blocked">{{ m }}</span>
-              <span *ngIf="!effectiveResult.effective_ai_modes_blocked.length" class="muted">keine</span>
+
+          <!-- Footer stats -->
+          <div class="sidebar-footer" *ngIf="graph">
+            <span>{{ graph.node_count }} Nodes</span>
+            <span class="dot-sep">·</span>
+            <span>{{ graph.edge_count }} Edges</span>
+            <span *ngIf="graph.diagnostics.length" class="warn-inline">· {{ graph.diagnostics.length }} ⚠</span>
+          </div>
+        </div>
+
+        <!-- Main canvas area -->
+        <div class="cge-main">
+
+          <!-- View header bar -->
+          <div class="view-header" *ngIf="activeViewMeta">
+            <div class="view-header-dot" [style.background]="activeViewMeta.color"></div>
+            <div class="view-header-text">
+              <div class="view-header-title">{{ activeViewMeta.label }}</div>
+              <div class="view-header-desc">{{ activeViewMeta.description }}</div>
+            </div>
+            <div class="view-header-count" *ngIf="graph">
+              <span class="count-badge" [style.background]="activeViewMeta.color">
+                {{ visibleNodeIds.length }} / {{ graph.node_count }} Nodes
+              </span>
+              <span class="muted snap-id">{{ graph.snapshot_id }}</span>
             </div>
           </div>
-          <div>
-            <div class="eff-label">Erlaubte Modi</div>
-            <div>
-              <span class="tag ok" *ngFor="let m of effectiveResult.effective_ai_modes_allowed">{{ m }}</span>
-              <span *ngIf="!effectiveResult.effective_ai_modes_allowed.length" class="muted">alle</span>
+
+          <!-- Effective config result panel -->
+          <div *ngIf="effectiveResult" class="effective-panel card">
+            <div class="effective-panel-header">
+              <strong>Effektive Konfiguration: {{ effectiveResult.surface }}</strong>
+              <span *ngIf="effectiveResult.task_kind" class="badge">{{ effectiveResult.task_kind }}</span>
+              <span *ngIf="effectiveResult.path" class="badge">{{ effectiveResult.path }}</span>
+              <button (click)="effectiveResult = null; cdr.markForCheck()" class="close-btn">✕</button>
+            </div>
+            <div class="effective-grid">
+              <div>
+                <div class="eff-label">Profil</div>
+                <div>{{ effectiveResult.agent_profile?.['profile_id'] ?? '—' }}</div>
+              </div>
+              <div>
+                <div class="eff-label">Template</div>
+                <div>{{ effectiveResult.goal_template?.['template_id'] ?? '—' }}</div>
+              </div>
+              <div>
+                <div class="eff-label">Gesperrte Modi</div>
+                <div>
+                  <span class="tag warn" *ngFor="let m of effectiveResult.effective_ai_modes_blocked">{{ m }}</span>
+                  <span *ngIf="!effectiveResult.effective_ai_modes_blocked.length" class="muted">keine</span>
+                </div>
+              </div>
+              <div>
+                <div class="eff-label">Erlaubte Modi</div>
+                <div>
+                  <span class="tag ok" *ngFor="let m of effectiveResult.effective_ai_modes_allowed">{{ m }}</span>
+                  <span *ngIf="!effectiveResult.effective_ai_modes_allowed.length" class="muted">alle</span>
+                </div>
+              </div>
+              <div *ngIf="effectiveResult.warnings.length">
+                <div class="eff-label">Warnungen</div>
+                <ul class="warn-list">
+                  <li *ngFor="let w of effectiveResult.warnings">{{ w }}</li>
+                </ul>
+              </div>
+              <div>
+                <div class="eff-label">Merge-Trace</div>
+                <ol class="trace-list">
+                  <li *ngFor="let t of effectiveResult.merge_trace">{{ t['description'] }}</li>
+                </ol>
+              </div>
             </div>
           </div>
-          <div *ngIf="effectiveResult.warnings.length">
-            <div class="eff-label">Warnungen</div>
-            <ul class="warn-list">
-              <li *ngFor="let w of effectiveResult.warnings">{{ w }}</li>
+
+          <!-- Edit toolbar -->
+          <div *ngIf="editMode && pendingOps.length > 0" class="edit-toolbar card">
+            <span>{{ pendingOps.length }} ausstehende Änderung(en)</span>
+            <button class="button-outline" (click)="validatePatch()">Validieren</button>
+            <button
+              class="button-outline"
+              [disabled]="!lastValidation?.valid || lastValidation?.requires_approval"
+              (click)="applyPatch()"
+            >Anwenden</button>
+            <button class="button-outline danger" (click)="discardPatch()">Verwerfen</button>
+            <span *ngIf="lastValidation" class="risk-badge" [class]="'risk-' + lastValidation.risk_tier">
+              Risiko: {{ lastValidation.risk_tier }}
+            </span>
+            <span *ngIf="lastValidation?.requires_approval" class="warn-inline">Genehmigung erforderlich</span>
+            <ul *ngIf="lastValidation?.errors?.length" class="edit-errors">
+              <li *ngFor="let e of lastValidation!.errors">{{ e }}</li>
             </ul>
           </div>
-          <div>
-            <div class="eff-label">Merge-Trace</div>
-            <ol class="trace-list">
-              <li *ngFor="let t of effectiveResult.merge_trace">{{ t['description'] }}</li>
-            </ol>
-          </div>
-        </div>
-      </div>
 
-      <!-- Edit toolbar -->
-      <div *ngIf="editMode && pendingOps.length > 0" class="edit-toolbar card">
-        <span>{{ pendingOps.length }} ausstehende Änderungen</span>
-        <button class="button-outline" (click)="validatePatch()">Validieren</button>
-        <button
-          class="button-outline"
-          [disabled]="!lastValidation?.valid || lastValidation?.requires_approval"
-          (click)="applyPatch()"
-        >Anwenden</button>
-        <button class="button-outline danger" (click)="discardPatch()">Verwerfen</button>
-        <span *ngIf="lastValidation" class="risk-badge" [class]="'risk-' + lastValidation.risk_tier">
-          Risiko: {{ lastValidation.risk_tier }}
-        </span>
-        <span *ngIf="lastValidation?.requires_approval" class="warn-inline">Genehmigung erforderlich</span>
-        <ul *ngIf="lastValidation?.errors?.length" class="edit-errors">
-          <li *ngFor="let e of lastValidation!.errors">{{ e }}</li>
-        </ul>
-      </div>
-
-      <!-- SVG graph canvas -->
-      <div class="cge-canvas-wrap" *ngIf="!loading; else loadingTpl">
-        <svg
-          #svgEl
-          class="cge-svg"
-          [attr.width]="svgWidth"
-          [attr.height]="svgHeight"
-          (click)="onSvgClick($event)"
-        >
-          <defs>
-            <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-              <path d="M0,0 L0,6 L8,3 z" fill="#555" />
-            </marker>
-          </defs>
-
-          <!-- Edges -->
-          <g class="edges-layer">
-            <line
-              *ngFor="let edge of visibleEdges"
-              [attr.x1]="edgeX1(edge)"
-              [attr.y1]="edgeY1(edge)"
-              [attr.x2]="edgeX2(edge)"
-              [attr.y2]="edgeY2(edge)"
-              [class]="'edge edge-' + edge.edge_type"
-              stroke="#555"
-              stroke-width="1.5"
-              marker-end="url(#arrow)"
-            />
-          </g>
-
-          <!-- Nodes -->
-          <g class="nodes-layer">
-            <g
-              *ngFor="let ln of visibleLayoutNodes"
-              class="graph-node"
-              [class.selected]="selectedNode?.id === ln.id"
-              [class.stale]="ln.node.stale"
-              [class.inactive]="!ln.node.runtime_active"
-              (click)="selectNode($event, ln.node)"
-              style="cursor: pointer;"
+          <!-- SVG canvas -->
+          <div class="cge-canvas-wrap" *ngIf="!loading; else loadingTpl">
+            <svg
+              #svgEl
+              class="cge-svg"
+              [attr.width]="svgWidth"
+              [attr.height]="svgHeight"
+              (click)="onSvgClick($event)"
             >
-              <rect
-                [attr.x]="ln.x"
-                [attr.y]="ln.y"
-                [attr.width]="ln.w"
-                [attr.height]="ln.h"
-                rx="6"
-                [attr.fill]="nodeColor(ln.node.node_type)"
-                [attr.fill-opacity]="ln.node.runtime_active ? 0.85 : 0.35"
-                [attr.stroke]="selectedNode?.id === ln.id ? '#fff' : 'transparent'"
-                stroke-width="2"
-              />
-              <text
-                [attr.x]="ln.x + ln.w / 2"
-                [attr.y]="ln.y + ln.h / 2 - 4"
-                text-anchor="middle"
-                font-size="10"
-                fill="#fff"
-                font-weight="600"
-                style="pointer-events: none;"
-              >{{ ln.node.node_type }}</text>
-              <text
-                [attr.x]="ln.x + ln.w / 2"
-                [attr.y]="ln.y + ln.h / 2 + 10"
-                text-anchor="middle"
-                font-size="11"
-                fill="#fff"
-                style="pointer-events: none; dominant-baseline: middle;"
-              >{{ truncate(ln.node.label, 18) }}</text>
-              <!-- Diagnostic dot -->
-              <circle
-                *ngIf="ln.node.diagnostics.length > 0"
-                [attr.cx]="ln.x + ln.w - 6"
-                [attr.cy]="ln.y + 6"
-                r="5"
-                fill="#ff8f00"
-              />
-            </g>
-          </g>
-        </svg>
+              <defs>
+                <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                  <path d="M0,0 L0,6 L8,3 z" fill="#666" />
+                </marker>
+              </defs>
 
-        <div *ngIf="visibleLayoutNodes.length === 0" class="empty-view">
-          <p class="muted">Keine Nodes in dieser Ansicht.</p>
+              <g class="edges-layer">
+                <line
+                  *ngFor="let edge of visibleEdges"
+                  [attr.x1]="edgeX1(edge)"
+                  [attr.y1]="edgeY1(edge)"
+                  [attr.x2]="edgeX2(edge)"
+                  [attr.y2]="edgeY2(edge)"
+                  [class]="'edge edge-' + edge.edge_type"
+                  stroke="#555"
+                  stroke-width="1.5"
+                  marker-end="url(#arrow)"
+                />
+              </g>
+
+              <g class="nodes-layer">
+                <g
+                  *ngFor="let ln of visibleLayoutNodes"
+                  class="graph-node"
+                  [class.selected]="selectedNode?.id === ln.id"
+                  [class.stale]="ln.node.stale"
+                  [class.inactive]="!ln.node.runtime_active"
+                  (click)="selectNode($event, ln.node)"
+                  style="cursor: pointer;"
+                >
+                  <rect
+                    [attr.x]="ln.x"
+                    [attr.y]="ln.y"
+                    [attr.width]="ln.w"
+                    [attr.height]="ln.h"
+                    rx="6"
+                    [attr.fill]="nodeColor(ln.node.node_type)"
+                    [attr.fill-opacity]="ln.node.runtime_active ? 0.85 : 0.35"
+                    [attr.stroke]="selectedNode?.id === ln.id ? '#fff' : 'transparent'"
+                    stroke-width="2"
+                  />
+                  <text
+                    [attr.x]="ln.x + ln.w / 2"
+                    [attr.y]="ln.y + ln.h / 2 - 4"
+                    text-anchor="middle"
+                    font-size="10"
+                    fill="#fff"
+                    font-weight="600"
+                    style="pointer-events: none;"
+                  >{{ ln.node.node_type }}</text>
+                  <text
+                    [attr.x]="ln.x + ln.w / 2"
+                    [attr.y]="ln.y + ln.h / 2 + 10"
+                    text-anchor="middle"
+                    font-size="11"
+                    fill="#fff"
+                    style="pointer-events: none; dominant-baseline: middle;"
+                  >{{ truncate(ln.node.label, 18) }}</text>
+                  <circle
+                    *ngIf="ln.node.diagnostics.length > 0"
+                    [attr.cx]="ln.x + ln.w - 6"
+                    [attr.cy]="ln.y + 6"
+                    r="5"
+                    fill="#ff8f00"
+                  />
+                </g>
+              </g>
+            </svg>
+
+            <div *ngIf="visibleLayoutNodes.length === 0" class="empty-view">
+              <p class="muted">Keine Nodes in dieser Ansicht. Ggf. Effective-Config auflösen.</p>
+            </div>
+          </div>
+
+          <ng-template #loadingTpl>
+            <div class="loading-wrap">
+              <p class="muted">Graph wird geladen…</p>
+            </div>
+          </ng-template>
+
+          <!-- Node detail panel -->
+          <app-config-graph-node-detail
+            [node]="selectedNode"
+            [editMode]="editMode"
+            (closed)="selectedNode = null; cdr.markForCheck()"
+            (removeRequested)="queueRemoveNode($event)"
+          />
         </div>
-      </div>
-
-      <ng-template #loadingTpl>
-        <div class="loading-wrap">
-          <p class="muted">Graph wird geladen…</p>
-        </div>
-      </ng-template>
-
-      <!-- Node detail panel -->
-      <app-config-graph-node-detail
-        [node]="selectedNode"
-        [editMode]="editMode"
-        (closed)="selectedNode = null; cdr.markForCheck()"
-        (removeRequested)="queueRemoveNode($event)"
-      />
-
-      <!-- Footer stats -->
-      <div class="cge-footer" *ngIf="graph">
-        <span>{{ graph.node_count }} Nodes · {{ graph.edge_count }} Edges</span>
-        <span class="muted">Snapshot: {{ graph.snapshot_id }}</span>
-        <span *ngIf="graph.diagnostics.length" class="warn-inline">{{ graph.diagnostics.length }} Diagnose(n)</span>
       </div>
     </div>
   `,
   styles: [`
-    .cge-root { display: flex; flex-direction: column; gap: 12px; padding: 16px; height: 100%; box-sizing: border-box; }
-    .cge-header { display: flex; flex-direction: column; gap: 10px; }
-    .cge-title { margin: 0; font-size: 18px; }
-    .cge-controls { display: flex; flex-direction: column; gap: 8px; }
-    .view-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
-    .view-tab { padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border-color, #444); background: transparent; cursor: pointer; font-size: 12px; color: var(--text, #ccc); }
-    .view-tab.active { background: var(--primary, #4A90D9); color: #fff; border-color: transparent; }
-    .effective-bar { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-    .eff-input { width: 160px; }
-    .cge-actions { display: flex; gap: 8px; align-items: center; }
-    .edit-toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; }
-    .diag-bar { display: flex; gap: 8px; flex-wrap: wrap; background: #4a1a00; border-radius: 6px; padding: 8px 12px; }
+    /* ── Root ─────────────────────────────────────────────────── */
+    .cge-root {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      box-sizing: border-box;
+      font-size: 13px;
+      background: var(--bg, #111);
+      color: var(--text, #ddd);
+    }
+
+    /* ── Header ───────────────────────────────────────────────── */
+    .cge-header {
+      padding: 12px 16px 10px;
+      border-bottom: 1px solid var(--border-color, #2a2a2a);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .cge-title-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .cge-title {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+      flex: 1;
+    }
+    .cge-header-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .edit-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    /* ── Diag bar ─────────────────────────────────────────────── */
+    .diag-bar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      background: #2a1400;
+      border-radius: 6px;
+      padding: 6px 10px;
+    }
     .diag-item { font-size: 12px; color: #ffcc80; }
-    .effective-panel { padding: 12px; }
-    .effective-panel-header { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
-    .effective-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; font-size: 13px; }
-    .eff-label { color: var(--text-muted, #888); font-size: 11px; margin-bottom: 2px; }
-    .badge { background: var(--bg-input, #2a2a2a); border-radius: 10px; padding: 1px 8px; font-size: 11px; }
-    .tag { display: inline-block; border-radius: 3px; padding: 1px 6px; font-size: 11px; margin: 1px 2px; }
+
+    /* ── Body layout ─────────────────────────────────────────── */
+    .cge-body {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* ── Sidebar ──────────────────────────────────────────────── */
+    .cge-sidebar {
+      width: 230px;
+      min-width: 230px;
+      border-right: 1px solid var(--border-color, #2a2a2a);
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      overflow-y: auto;
+      background: var(--bg-sidebar, #161616);
+    }
+    .sidebar-section-label {
+      padding: 10px 12px 4px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--text-muted, #666);
+    }
+    .sidebar-divider {
+      border-top: 1px solid var(--border-color, #2a2a2a);
+      margin: 8px 0;
+    }
+    .sidebar-footer {
+      margin-top: auto;
+      padding: 10px 12px;
+      font-size: 11px;
+      color: var(--text-muted, #666);
+      border-top: 1px solid var(--border-color, #2a2a2a);
+    }
+    .dot-sep { margin: 0 3px; }
+
+    /* ── View cards ────────────────────────────────────────────── */
+    .view-cards {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      padding: 4px 8px;
+    }
+    .view-card {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 9px 10px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      background: transparent;
+      cursor: pointer;
+      color: var(--text, #ccc);
+      text-align: left;
+      width: 100%;
+      transition: background .12s, border-color .12s;
+    }
+    .view-card:hover {
+      background: var(--bg-hover, #1e1e1e);
+      border-color: var(--border-color, #333);
+    }
+    .view-card.active {
+      background: var(--bg-selected, #1a2a3a);
+      border-color: #4A90D9;
+    }
+    .view-card-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-top: 3px;
+    }
+    .view-card-body { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+    .view-card-title { font-size: 12px; font-weight: 600; line-height: 1.3; }
+    .view-card-desc { font-size: 10px; color: var(--text-muted, #888); line-height: 1.4; }
+    .view-card-count { margin-top: 3px; }
+    .count-badge {
+      display: inline-block;
+      font-size: 10px;
+      border-radius: 10px;
+      padding: 1px 7px;
+      background: var(--bg-badge, #2a2a2a);
+      color: #fff;
+      font-weight: 600;
+      opacity: .85;
+    }
+
+    /* ── Effective resolver form ──────────────────────────────── */
+    .effective-form {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      padding: 6px 10px 10px;
+    }
+    .eff-input {
+      width: 100%;
+      box-sizing: border-box;
+      font-size: 12px;
+      padding: 5px 8px;
+      border-radius: 5px;
+      border: 1px solid var(--border-color, #333);
+      background: var(--bg-input, #1e1e1e);
+      color: var(--text, #ccc);
+    }
+    .full-width { width: 100%; }
+
+    /* ── Main canvas area ────────────────────────────────────── */
+    .cge-main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    /* ── View header ──────────────────────────────────────────── */
+    .view-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border-color, #2a2a2a);
+      background: var(--bg-header, #161616);
+    }
+    .view-header-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .view-header-text { flex: 1; }
+    .view-header-title { font-size: 14px; font-weight: 600; }
+    .view-header-desc { font-size: 11px; color: var(--text-muted, #888); }
+    .view-header-count {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .snap-id { font-size: 10px; font-family: monospace; color: var(--text-muted, #666); }
+
+    /* ── Effective config result panel ────────────────────────── */
+    .effective-panel {
+      margin: 10px 12px 0;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color, #333);
+      background: var(--bg-card, #1a1a1a);
+    }
+    .effective-panel-header {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 10px;
+      font-size: 13px;
+    }
+    .effective-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px 20px;
+      font-size: 12px;
+    }
+    .eff-label { color: var(--text-muted, #888); font-size: 10px; margin-bottom: 2px; text-transform: uppercase; letter-spacing: .05em; }
+    .badge {
+      background: var(--bg-input, #2a2a2a);
+      border-radius: 10px;
+      padding: 1px 8px;
+      font-size: 11px;
+    }
+    .tag {
+      display: inline-block;
+      border-radius: 3px;
+      padding: 1px 6px;
+      font-size: 11px;
+      margin: 1px 2px;
+    }
     .tag.warn { background: #4a1a00; color: #ffcc80; }
-    .tag.ok { background: #1b5e20; color: #a5d6a7; }
+    .tag.ok { background: #1b3a20; color: #a5d6a7; }
     .warn-list, .trace-list { margin: 4px 0 0 16px; padding: 0; font-size: 12px; }
-    .close-btn { background: none; border: none; cursor: pointer; color: var(--text-muted, #888); font-size: 14px; margin-left: auto; }
-    .edit-toolbar { display: flex; align-items: center; gap: 10px; padding: 8px 12px; flex-wrap: wrap; }
+    .close-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-muted, #888);
+      font-size: 14px;
+      margin-left: auto;
+    }
+
+    /* ── Edit toolbar ─────────────────────────────────────────── */
+    .edit-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      margin: 8px 12px 0;
+      border-radius: 8px;
+      border: 1px solid var(--border-color, #333);
+      background: var(--bg-card, #1a1a1a);
+      flex-wrap: wrap;
+      font-size: 12px;
+    }
     .risk-badge { border-radius: 10px; padding: 2px 8px; font-size: 11px; }
-    .risk-low { background: #1b5e20; color: #a5d6a7; }
-    .risk-medium { background: #e65100; color: #fff; }
-    .risk-high { background: #b71c1c; color: #fff; }
-    .risk-critical { background: #4a0000; color: #ff8a80; }
+    .risk-low { background: #1b3a20; color: #a5d6a7; }
+    .risk-medium { background: #5a2500; color: #ffcc80; }
+    .risk-high { background: #5a0000; color: #ff8a80; }
+    .risk-critical { background: #3a0000; color: #ff5252; }
     .warn-inline { color: #ffcc80; font-size: 12px; }
     .edit-errors { color: #ff8a80; font-size: 12px; margin: 4px 0 0 0; padding: 0 0 0 16px; }
-    .cge-canvas-wrap { flex: 1; overflow: auto; border: 1px solid var(--border-color, #333); border-radius: 8px; background: var(--bg-canvas, #141414); }
+    button.danger { color: #ff8a80; border-color: #5a0000; }
+
+    /* ── SVG canvas ───────────────────────────────────────────── */
+    .cge-canvas-wrap {
+      flex: 1;
+      overflow: auto;
+      margin: 10px 12px 8px;
+      border: 1px solid var(--border-color, #2a2a2a);
+      border-radius: 8px;
+      background: var(--bg-canvas, #0e0e0e);
+    }
     .cge-svg { display: block; }
-    .graph-node.selected rect { stroke-width: 2; }
-    .graph-node.inactive { opacity: 0.45; }
+    .graph-node.selected rect { stroke: #fff !important; stroke-width: 2 !important; }
+    .graph-node.inactive { opacity: 0.4; }
     .graph-node.stale rect { stroke: #ff8f00 !important; stroke-width: 1.5 !important; stroke-dasharray: 4 3; }
-    .edge { opacity: 0.6; }
-    .empty-view { display: flex; justify-content: center; align-items: center; height: 300px; }
-    .loading-wrap { display: flex; justify-content: center; align-items: center; height: 300px; }
-    .cge-footer { display: flex; gap: 16px; font-size: 11px; color: var(--text-muted, #666); padding-top: 4px; }
+    .edge { opacity: 0.55; }
+    .empty-view {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 300px;
+    }
+    .loading-wrap {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 300px;
+    }
+
+    /* ── Utils ────────────────────────────────────────────────── */
+    .muted { color: var(--text-muted, #666); }
+    .card { border-radius: 8px; border: 1px solid var(--border-color, #333); background: var(--bg-card, #1a1a1a); }
+    .button-outline {
+      padding: 5px 12px;
+      border-radius: 5px;
+      border: 1px solid var(--border-color, #444);
+      background: transparent;
+      cursor: pointer;
+      color: var(--text, #ccc);
+      font-size: 12px;
+    }
+    .button-outline:hover { background: var(--bg-hover, #222); }
+    .button-outline:disabled { opacity: .4; cursor: default; }
   `],
 })
 export class ConfigGraphEditorComponent implements OnInit, AfterViewInit, OnDestroy {
@@ -325,20 +668,21 @@ export class ConfigGraphEditorComponent implements OnInit, AfterViewInit, OnDest
   selectedNode: ConfigGraphNode | null = null;
   editMode = false;
 
-  // Effective config resolver
   effectiveSurface = 'ai_snake_chat';
   effectiveTaskKind = '';
   effectivePath = '';
   effectiveResult: import('../models/config-graph.model').EffectiveConfig | null = null;
 
-  // Patch queue
   pendingOps: PatchOp[] = [];
   lastValidation: ValidationResult | null = null;
 
-  // Layout
   private layoutNodes: Map<string, LayoutNode> = new Map();
   svgWidth = 1200;
   svgHeight = 800;
+
+  get activeViewMeta(): ViewMeta | null {
+    return this.views.find(v => v.id === this.activeView) ?? null;
+  }
 
   ngOnInit(): void {
     this.reload();
@@ -407,10 +751,10 @@ export class ConfigGraphEditorComponent implements OnInit, AfterViewInit, OnDest
     ids.forEach((id, i) => {
       const col = i % cols;
       const row = Math.floor(i / cols);
-      const x = 20 + col * (NODE_W + COL_GAP);
-      const y = 20 + row * (NODE_H + ROW_GAP);
-      maxX = Math.max(maxX, x + NODE_W + 20);
-      maxY = Math.max(maxY, y + NODE_H + 20);
+      const x = 24 + col * (NODE_W + COL_GAP);
+      const y = 24 + row * (NODE_H + ROW_GAP);
+      maxX = Math.max(maxX, x + NODE_W + 24);
+      maxY = Math.max(maxY, y + NODE_H + 24);
       this.layoutNodes.set(id, {
         id,
         x,
@@ -460,8 +804,6 @@ export class ConfigGraphEditorComponent implements OnInit, AfterViewInit, OnDest
     return text.length > max ? text.slice(0, max - 1) + '…' : text;
   }
 
-  // ── Effective config ───────────────────────────────────────────────────────
-
   resolveEffective(): void {
     if (!this.effectiveSurface.trim()) return;
     this.svc.getEffectiveConfig({
@@ -471,7 +813,6 @@ export class ConfigGraphEditorComponent implements OnInit, AfterViewInit, OnDest
     }).pipe(takeUntil(this.destroy$)).subscribe({
       next: (ec) => {
         this.effectiveResult = ec;
-        // Highlight effective nodes in graph
         if (this.graph && ec.effective_node_ids.length) {
           this.activeView = VIEW_IDS.effectiveConfig;
           this.graph.views[VIEW_IDS.effectiveConfig] = ec.effective_node_ids;
@@ -481,8 +822,6 @@ export class ConfigGraphEditorComponent implements OnInit, AfterViewInit, OnDest
       },
     });
   }
-
-  // ── Patch queue ────────────────────────────────────────────────────────────
 
   queueRemoveNode(nodeId: string): void {
     this.pendingOps.push({ op: 'remove_node', target: nodeId, data: {} });
