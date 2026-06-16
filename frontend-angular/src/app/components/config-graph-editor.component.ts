@@ -333,10 +333,72 @@ const CLONE_DEFS: Record<string, CloneFormField[]> = {
                   </div>
                 </div>
 
+                <!-- ── BEHAVIOR DIMENSIONS (agent_profile only) ── -->
+                <ng-container *ngIf="selectedConfigItem.node_type === 'agent_profile' && behaviorDims(selectedConfigItem) as beh">
+                  <div class="detail-section">
+                    <div class="section-label">Verhaltens-Dimensionen</div>
+                    <div class="beh-grid">
+
+                      <!-- Execute contract -->
+                      <div class="beh-card" [class]="'beh-gate-' + beh.execute_contract.gate">
+                        <div class="beh-card-head">
+                          <span class="beh-icon">{{ beh.execute_contract.gate === 'blocked' ? '🔒' : beh.execute_contract.gate === 'explicit_approval_required' ? '⚠' : '✓' }}</span>
+                          <div>
+                            <div class="beh-card-title">Ausführungs-Vertrag</div>
+                            <div class="beh-card-value">{{ beh.execute_contract.label }}</div>
+                          </div>
+                        </div>
+                        <div class="beh-card-desc">{{ beh.execute_contract.description }}</div>
+                        <div class="beh-caps">
+                          <span class="beh-cap" [class.beh-cap-yes]="beh.execute_contract.can_write_files" [class.beh-cap-no]="!beh.execute_contract.can_write_files">
+                            {{ beh.execute_contract.can_write_files ? '✓' : '✗' }} Dateien schreiben
+                          </span>
+                          <span class="beh-cap" [class.beh-cap-yes]="beh.execute_contract.can_run_commands" [class.beh-cap-no]="!beh.execute_contract.can_run_commands">
+                            {{ beh.execute_contract.can_run_commands ? '✓' : '✗' }} Befehle ausführen
+                          </span>
+                        </div>
+                      </div>
+
+                      <!-- Context authority -->
+                      <div class="beh-card beh-card-context">
+                        <div class="beh-card-head">
+                          <span class="beh-icon">◈</span>
+                          <div>
+                            <div class="beh-card-title">Kontext-Autorität</div>
+                            <div class="beh-card-value">{{ beh.context_authority.label }}</div>
+                          </div>
+                        </div>
+                        <div class="beh-card-desc">{{ beh.context_authority.description }}</div>
+                        <div class="beh-sources">
+                          <span class="beh-source" *ngFor="let s of beh.context_authority.primary_sources">{{ s }}</span>
+                          <span class="beh-cc" [class.beh-cc-primary]="beh.context_authority.codecompass === 'primary'" [class.beh-cc-secondary]="beh.context_authority.codecompass === 'secondary'">
+                            CodeCompass: {{ beh.context_authority.codecompass }}
+                          </span>
+                        </div>
+                      </div>
+
+                      <!-- Must-not -->
+                      <div class="beh-card beh-card-mustnot" *ngIf="beh.must_not?.length">
+                        <div class="beh-card-head">
+                          <span class="beh-icon">🚫</span>
+                          <div>
+                            <div class="beh-card-title">Darf nicht</div>
+                            <div class="beh-card-value">{{ beh.scope_label }}</div>
+                          </div>
+                        </div>
+                        <ul class="beh-mustnot-list">
+                          <li *ngFor="let mn of beh.must_not">{{ mn }}</li>
+                        </ul>
+                      </div>
+
+                    </div>
+                  </div>
+                </ng-container>
+
                 <div class="detail-section">
                   <div class="section-label">Konfiguration</div>
                   <div class="detail-fields">
-                    <div *ngFor="let f of allFieldsFor(selectedConfigItem)" class="detail-field">
+                    <div *ngFor="let f of configFieldsFor(selectedConfigItem)" class="detail-field">
                       <span class="df-label">{{ f.label }}</span>
                       <span class="df-value" [class.df-empty]="f.value==='—'">{{ f.value }}</span>
                     </div>
@@ -639,6 +701,35 @@ const CLONE_DEFS: Record<string, CloneFormField[]> = {
     .edit-errors { color:#ff8a80; font-size:12px; margin:0; padding:0 0 0 14px; }
     button.danger { color:#ff8a80; }
 
+    /* ── Behavior dimensions ────────────────────────────────────── */
+    .beh-grid { display:flex; flex-direction:column; gap:8px; }
+    .beh-card { border-radius:8px; border:1px solid var(--border-color,#2a2a2a); padding:11px 13px; display:flex; flex-direction:column; gap:7px; }
+    .beh-card-head { display:flex; align-items:flex-start; gap:10px; }
+    .beh-icon { font-size:18px; flex-shrink:0; margin-top:1px; line-height:1; }
+    .beh-card-title { font-size:10px; text-transform:uppercase; letter-spacing:.07em; color:var(--text-muted,#777); margin-bottom:2px; }
+    .beh-card-value { font-size:13px; font-weight:700; color:var(--text,#ddd); }
+    .beh-card-desc { font-size:12px; color:var(--text-muted,#aaa); line-height:1.5; }
+    /* Gate-specific card tints */
+    .beh-gate-blocked { background:#1a0000; border-color:#4a0000; }
+    .beh-gate-explicit_approval_required { background:#1a1000; border-color:#4a3000; }
+    .beh-gate-hub_validated { background:#001a08; border-color:#004a18; }
+    .beh-card-context { background:#0d1a2a; border-color:#1a3a5a; }
+    .beh-card-mustnot { background:#1a0a00; border-color:#4a2000; }
+    /* Capability pills */
+    .beh-caps { display:flex; gap:6px; flex-wrap:wrap; }
+    .beh-cap { font-size:11px; border-radius:4px; padding:2px 8px; font-weight:600; }
+    .beh-cap-yes { background:#003a10; color:#66bb6a; }
+    .beh-cap-no  { background:#2a0000; color:#ef9a9a; }
+    /* Context sources */
+    .beh-sources { display:flex; gap:5px; flex-wrap:wrap; align-items:center; }
+    .beh-source { font-size:11px; background:var(--bg-input,#1e2a3a); border-radius:4px; padding:2px 7px; color:#90caf9; font-family:monospace; }
+    .beh-cc { font-size:11px; border-radius:4px; padding:2px 7px; font-weight:600; }
+    .beh-cc-primary   { background:#0d47a1; color:#fff; }
+    .beh-cc-secondary { background:#2a2a2a; color:#aaa; }
+    /* Must-not list */
+    .beh-mustnot-list { margin:0; padding-left:16px; display:flex; flex-direction:column; gap:4px; }
+    .beh-mustnot-list li { font-size:12px; color:#ef9a9a; line-height:1.4; }
+
     /* ── Shared utils ─────────────────────────────────────────── */
     .muted { color:var(--text-muted,#666); }
     .button-outline { padding:5px 11px; border-radius:5px; border:1px solid var(--border-color,#444); background:transparent; cursor:pointer; color:var(--text,#ccc); font-size:12px; }
@@ -851,6 +942,26 @@ export class ConfigGraphEditorComponent implements OnInit, AfterViewInit, OnDest
       return String(v);
     };
     return Object.entries(node.data as Record<string, unknown>).map(([k, v]) => ({ label: k, value: fmt(v) }));
+  }
+
+  configFieldsFor(node: ConfigGraphNode): { label: string; value: string }[] {
+    const SKIP = new Set(['behavior_dimensions', 'path_character', 'path_character_label', 'rule_character']);
+    const fmt = (v: unknown): string => {
+      if (Array.isArray(v)) return (v as string[]).join(', ') || '—';
+      if (v == null || v === '') return '—';
+      if (typeof v === 'object') return JSON.stringify(v);
+      return String(v);
+    };
+    return Object.entries(node.data as Record<string, unknown>)
+      .filter(([k]) => !SKIP.has(k))
+      .map(([k, v]) => ({ label: k, value: fmt(v) }));
+  }
+
+  behaviorDims(node: ConfigGraphNode): Record<string, any> | null {
+    const d = node.data as Record<string, unknown>;
+    const beh = d['behavior_dimensions'];
+    if (!beh || typeof beh !== 'object') return null;
+    return beh as Record<string, any>;
   }
 
   nodeTypeColor(nodeType: string): string {

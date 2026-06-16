@@ -168,6 +168,157 @@ def _classify_rule_character(blocked: list[str], allowed: list[str]) -> str:
     return "offen"
 
 
+# ── Behavioral dimensions ─────────────────────────────────────────────────────
+#
+# Structured annotations that explain WHAT an agent profile actually DOES at
+# runtime — beyond the raw policy strings.  Shown in the config graph detail
+# view so operators can understand the internal differences between profiles.
+#
+
+_EXECUTE_CONTRACT: dict[str, dict] = {
+    "none": {
+        "label": "Nur Lesen",
+        "description": (
+            "Keine Code-Änderungen möglich. Ausschließlich lesende Operationen. "
+            "Ausgabe als strukturierter Befund oder Erklärung."
+        ),
+        "gate": "blocked",
+        "can_write_files": False,
+        "can_run_commands": False,
+        "mechanism": "read_only",
+    },
+    "plan_only": {
+        "label": "Vorschlag + Freigabe",
+        "description": (
+            "Darf Aktionen nur als Plan vorschlagen, nie direkt ausführen. "
+            "Jeder Vorschlag muss Risiko-Level und Rollback-Plan enthalten. "
+            "Ausführung erfordert explizite Freigabe durch den Operator."
+        ),
+        "gate": "explicit_approval_required",
+        "can_write_files": False,
+        "can_run_commands": False,
+        "mechanism": "propose_only",
+    },
+    "via_hub_task_worker": {
+        "label": "Hub-Task-Worker",
+        "description": (
+            "Änderungen werden über den Hub-Task-Worker ausgeführt. "
+            "Der Hub validiert automatisch und serialisiert parallele Änderungen. "
+            "Kein direkter Dateizugriff durch den Agenten selbst."
+        ),
+        "gate": "hub_validated",
+        "can_write_files": True,
+        "can_run_commands": True,
+        "mechanism": "hub_worker",
+    },
+}
+
+_CONTEXT_AUTHORITY: dict[str, dict] = {
+    "diagnose": {
+        "label": "Diagnose-Kontext",
+        "description": (
+            "Logs, Config-Dateien und Kommando-Output sind die primäre Wahrheitsquelle. "
+            "CodeCompass wird nur für Projekt-Dateien verwendet, "
+            "nicht als Host-Wahrheit für laufende Systeme."
+        ),
+        "primary_sources": ["logs", "config_files", "command_output"],
+        "codecompass": "secondary",
+    },
+    "implement": {
+        "label": "Implementierungs-Kontext",
+        "description": (
+            "Source-Code und Test-Output sind autoritativ. "
+            "CodeCompass routet primär zu Kandidaten-Dateien für die Implementierung."
+        ),
+        "primary_sources": ["source_code", "test_output"],
+        "codecompass": "primary",
+    },
+    "analyse": {
+        "label": "Analyse-Kontext",
+        "description": (
+            "Alle Quellen werden lesend ausgewertet: Code, Logs, Git-History. "
+            "Ausgabe als strukturierter, evidenzbasierter Befund."
+        ),
+        "primary_sources": ["source_code", "logs", "git_history", "config_files"],
+        "codecompass": "primary",
+    },
+    "explain_navigate": {
+        "label": "Erklär-/Navigations-Kontext",
+        "description": (
+            "Navigation und Erklärung im bestehenden Code. "
+            "Keine Modifikationsabsicht — reiner Lesezugriff."
+        ),
+        "primary_sources": ["source_code", "codecompass"],
+        "codecompass": "primary",
+    },
+    "plan_only": {
+        "label": "Planungs-Kontext",
+        "description": "Nur Planungsaktivitäten ohne Ausführung.",
+        "primary_sources": ["source_code"],
+        "codecompass": "secondary",
+    },
+}
+
+_SCOPE_MUST_NOT: dict[str, list[str]] = {
+    PATH_CHARACTER_TEST: [
+        "Produktions-Logik ändern ohne explizite Freigabe",
+        "Fehlschlagende Tests löschen statt reparieren",
+        "Test-Fixtures ohne Begründung überschreiben",
+    ],
+    PATH_CHARACTER_ANALYSIS: [
+        "Code-Änderungen vorschlagen oder ausführen",
+        "Annahmen als Fakten ausgeben — nur evidenzbasierte Befunde",
+        "Externe Quellen ohne Verifikation zitieren",
+    ],
+    PATH_CHARACTER_OPS: [
+        "Destruktive Aktionen ohne explizite Freigabe ausführen",
+        "Dry-run-Schritt überspringen",
+        "Host-Logs/Config mit CodeCompass-Annahmen überschreiben",
+        "Risiko-Level im Plan weglassen",
+    ],
+    PATH_CHARACTER_MAINTENANCE: [
+        "Architektur-Umbau statt minimalem Patch",
+        "Nicht-autorisierte Dateien ändern",
+        "Verhalten ohne Test-Abdeckung ändern",
+    ],
+    PATH_CHARACTER_CREATIVE: [
+        "Bestehende Verträge brechen ohne Migration",
+        "Abhängigkeiten ohne Zustimmung hinzufügen",
+    ],
+    PATH_CHARACTER_EXPLAIN: [
+        "Code-Änderungen vornehmen",
+        "Interne Implementierungsdetails ohne Kontext preisgeben",
+    ],
+    PATH_CHARACTER_UNKNOWN: [],
+}
+
+
+def _build_behavior_dimensions(pdata: dict) -> dict:
+    """Derive structured behavioral annotations for an agent profile node."""
+    policy = str(pdata.get("code_change_policy") or "none")
+    hint = str(pdata.get("context_policy_hint") or "implement")
+    role = str(pdata.get("primary_role") or "")
+    profile_id = str(pdata.get("profile_id") or "")
+
+    character = _classify_profile_character(role, profile_id)
+
+    execute = dict(_EXECUTE_CONTRACT.get(policy, _EXECUTE_CONTRACT["none"]))
+    execute["policy"] = policy
+
+    context = dict(_CONTEXT_AUTHORITY.get(hint, _CONTEXT_AUTHORITY["implement"]))
+    context["hint"] = hint
+
+    must_not = _SCOPE_MUST_NOT.get(character, [])
+
+    return {
+        "execute_contract": execute,
+        "context_authority": context,
+        "must_not": must_not,
+        "scope": character,
+        "scope_label": PATH_CHARACTER_LABELS.get(character, "Allgemein"),
+    }
+
+
 # ── Data model ────────────────────────────────────────────────────────────────
 
 @dataclass
@@ -331,6 +482,8 @@ class ConfigGraphBuilderService:
             if agents_file and not agents_exists:
                 diags.append(f"agents_file not found: {agents_file}")
 
+            character = _classify_profile_character(pdata.get("primary_role") or "", profile_id)
+            pdata_with_id = {**pdata, "profile_id": profile_id}
             node = ConfigGraphNode(
                 id=node_id,
                 node_type=NODE_AGENT_PROFILE,
@@ -345,13 +498,9 @@ class ConfigGraphBuilderService:
                     "allowed_task_kinds": list(pdata.get("allowed_task_kinds") or []),
                     "code_change_policy": pdata.get("code_change_policy") or "",
                     "context_policy_hint": pdata.get("context_policy_hint") or "",
-                    "path_character": _classify_profile_character(
-                        pdata.get("primary_role") or "", profile_id
-                    ),
-                    "path_character_label": PATH_CHARACTER_LABELS.get(
-                        _classify_profile_character(pdata.get("primary_role") or "", profile_id),
-                        "Allgemein",
-                    ),
+                    "path_character": character,
+                    "path_character_label": PATH_CHARACTER_LABELS.get(character, "Allgemein"),
+                    "behavior_dimensions": _build_behavior_dimensions(pdata_with_id),
                 },
                 diagnostics=diags,
             )
