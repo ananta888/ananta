@@ -65,6 +65,29 @@ const VIEW_PRIMARY_TYPES: Partial<Record<ViewId, string[]>> = {
 
 const CLONEABLE = new Set(['agent_profile', 'path_rule']);
 
+const PATH_CHARACTER_STYLES: Record<string, { label: string; color: string; bg: string }> = {
+  test:        { label: 'Testpfad',        color: '#fff', bg: '#006064' },
+  analysis:    { label: 'Analysepfad',     color: '#fff', bg: '#4a148c' },
+  ops:         { label: 'Betriebspfad',    color: '#fff', bg: '#bf360c' },
+  maintenance: { label: 'Wartungspfad',    color: '#fff', bg: '#e65100' },
+  creative:    { label: 'Entwicklungspfad',color: '#fff', bg: '#1b5e20' },
+  explain:     { label: 'Erklärpfad',      color: '#fff', bg: '#0d47a1' },
+  unknown:     { label: 'Allgemein',       color: '#aaa', bg: '#2a2a2a' },
+  // rule characters
+  kein_vollstaendiges_llm: { label: 'Kein Full-LLM', color: '#fff', bg: '#5a0000' },
+  eingeschraenkt:          { label: 'Eingeschränkt',  color: '#fff', bg: '#3a2800' },
+  selektiv_erlaubt:        { label: 'Selektiv',       color: '#fff', bg: '#1a2a3a' },
+  offen:                   { label: 'Offen',          color: '#aaa', bg: '#2a2a2a' },
+};
+
+const POLICY_PATH_SUGGESTIONS = [
+  { glob: 'tests/**',          blocked: 'full_llm',              hint: 'Testdateien — LLM-Generierung einschränken' },
+  { glob: 'docs/**',           blocked: 'code_gen',              hint: 'Dokumentation — keine Code-Generierung' },
+  { glob: 'agent/routes/**',   blocked: 'full_llm',              hint: 'API-Routen — sicherheitskritisch' },
+  { glob: 'agent/bootstrap/**',blocked: 'full_llm,code_gen',     hint: 'Bootstrap — nur lesende KI-Unterstützung' },
+  { glob: '*.json',            blocked: 'free_text',             hint: 'Konfig-Dateien — kein Freitext' },
+];
+
 const CLONE_DEFS: Record<string, CloneFormField[]> = {
   agent_profile: [
     { key: 'profile_id',         label: 'Neue Profil-ID',             type: 'text',   hint: 'Eindeutig, nur Buchstaben/Ziffern/_/-' },
@@ -242,7 +265,9 @@ const CLONE_DEFS: Record<string, CloneFormField[]> = {
                   <div class="card-head">
                     <div class="card-dot" [style.background]="activeViewMeta?.color"></div>
                     <strong class="card-label" [title]="item.id">{{ item.label }}</strong>
-                    <span class="card-type">{{ item.node_type }}</span>
+                    <ng-container *ngIf="characterBadge(item) as badge">
+                      <span class="char-badge" [style.background]="badge.bg" [style.color]="badge.color">{{ badge.label }}</span>
+                    </ng-container>
                     <span *ngIf="!item.runtime_active" class="inactive-tag">inaktiv</span>
                   </div>
                   <div class="card-fields">
@@ -256,7 +281,27 @@ const CLONE_DEFS: Record<string, CloneFormField[]> = {
                   </div>
                   <div class="card-open-hint">Klicken zum Öffnen →</div>
                 </div>
-                <div *ngIf="configPanelItems.length === 0" class="cp-empty">
+
+                <!-- Policy-Pfad: empty state with suggestions -->
+                <div *ngIf="configPanelItems.length === 0 && activeView === VIEW_IDS.policyPath" class="policy-empty">
+                  <div class="policy-empty-head">
+                    <span class="policy-empty-icon">⚖</span>
+                    <div>
+                      <strong>Keine Pfad-Regeln konfiguriert</strong>
+                      <p class="muted">Alle Pfade sind offen — kein KI-Modus ist eingeschränkt. Typische Beispiele:</p>
+                    </div>
+                  </div>
+                  <div class="policy-suggestions">
+                    <div *ngFor="let s of policySuggestions" class="policy-suggestion" (click)="prefillSuggestion(s)">
+                      <div class="sug-glob">{{ s.glob }}</div>
+                      <div class="sug-blocked"><span class="char-badge" style="background:#5a0000;color:#fff">{{ s.blocked }}</span></div>
+                      <div class="sug-hint muted">{{ s.hint }}</div>
+                      <div class="sug-action">Als Vorlage →</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div *ngIf="configPanelItems.length === 0 && activeView !== VIEW_IDS.policyPath" class="cp-empty">
                   <p class="muted">Keine Einträge für diese Ansicht konfiguriert.</p>
                 </div>
               </div>
@@ -273,6 +318,9 @@ const CLONE_DEFS: Record<string, CloneFormField[]> = {
                     <h3 class="detail-title">{{ selectedConfigItem.label }}</h3>
                     <div class="detail-meta">
                       <span class="card-type">{{ selectedConfigItem.node_type }}</span>
+                      <ng-container *ngIf="characterBadge(selectedConfigItem) as badge">
+                        <span class="char-badge" [style.background]="badge.bg" [style.color]="badge.color">{{ badge.label }}</span>
+                      </ng-container>
                       <span *ngIf="!selectedConfigItem.runtime_active" class="inactive-tag">inaktiv</span>
                       <span class="detail-id muted">{{ selectedConfigItem.id }}</span>
                     </div>
@@ -517,6 +565,19 @@ const CLONE_DEFS: Record<string, CloneFormField[]> = {
     .cf-value.cf-empty { color:var(--text-muted,#555); }
     .card-diags { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px; }
     .card-open-hint { font-size:10px; color:var(--text-muted,#555); text-align:right; margin-top:2px; }
+    .char-badge { font-size:10px; border-radius:4px; padding:2px 7px; white-space:nowrap; font-weight:600; flex-shrink:0; }
+
+    /* Policy-Pfad empty state */
+    .policy-empty { padding:16px 14px; display:flex; flex-direction:column; gap:14px; }
+    .policy-empty-head { display:flex; gap:14px; align-items:flex-start; }
+    .policy-empty-icon { font-size:26px; flex-shrink:0; color:var(--text-muted,#555); }
+    .policy-empty-head p { margin:4px 0 0; font-size:12px; }
+    .policy-suggestions { display:flex; flex-direction:column; gap:5px; }
+    .policy-suggestion { display:grid; grid-template-columns:180px 160px 1fr auto; align-items:center; gap:8px; padding:8px 12px; border-radius:7px; border:1px solid var(--border-color,#2a2a2a); background:var(--bg-card,#1a1a1a); cursor:pointer; font-size:12px; }
+    .policy-suggestion:hover { border-color:var(--primary,#4A90D9); }
+    .sug-glob { font-family:monospace; font-size:12px; color:var(--text,#ddd); }
+    .sug-hint { font-size:11px; }
+    .sug-action { font-size:11px; color:var(--primary,#4A90D9); white-space:nowrap; }
 
     /* ── Detail view ─────────────────────────────────────────── */
     .config-detail { flex:1; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:14px; }
@@ -798,6 +859,25 @@ export class ConfigGraphEditorComponent implements OnInit, AfterViewInit, OnDest
 
   isCloneable(node: ConfigGraphNode): boolean {
     return CLONEABLE.has(node.node_type);
+  }
+
+  readonly policySuggestions = POLICY_PATH_SUGGESTIONS;
+
+  characterBadge(node: ConfigGraphNode): { label: string; color: string; bg: string } | null {
+    const d = node.data as Record<string, unknown>;
+    const key = (d['path_character'] ?? d['rule_character']) as string | undefined;
+    if (!key || key === 'unknown' || key === 'offen') return null;
+    return PATH_CHARACTER_STYLES[key] ?? null;
+  }
+
+  prefillSuggestion(s: { glob: string; blocked: string; hint: string }): void {
+    const fields = CLONE_DEFS['path_rule'] ?? [];
+    const values: Record<string, string> = {};
+    for (const f of fields) values[f.key] = f.type === 'select' && f.options?.length ? f.options[0] : '';
+    values['path_glob'] = s.glob;
+    values['blocked_ai_modes'] = s.blocked;
+    this.cloneState = { sourceNode: null, entryType: 'path_rule', fields, values, saving: false, error: null };
+    this.cdr.markForCheck();
   }
 
   // ── Clone / Create ─────────────────────────────────────────────────────────

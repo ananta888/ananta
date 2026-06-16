@@ -115,6 +115,58 @@ VIEW_IDS = {
     "effectiveConfig": VIEW_EFFECTIVE_CONFIG,
 }
 
+# ── Path-character classification ─────────────────────────────────────────────
+#
+# A "path character" describes the operational nature of a profile or rule —
+# independent of whether it uses LLM or deterministic processing.
+#
+PATH_CHARACTER_TEST        = "test"        # test design, TDD, coverage
+PATH_CHARACTER_ANALYSIS    = "analysis"    # repo analysis, review, diagnostics
+PATH_CHARACTER_OPS         = "ops"         # incident, admin repair
+PATH_CHARACTER_MAINTENANCE = "maintenance" # bug fix, patch, refactor
+PATH_CHARACTER_CREATIVE    = "creative"    # new project, feature, evolution
+PATH_CHARACTER_EXPLAIN     = "explain"     # explanation / chat surfaces
+PATH_CHARACTER_UNKNOWN     = "unknown"
+
+_ROLE_CHARACTER_RULES: list[tuple[tuple[str, ...], str]] = [
+    (("test", "tdd", "verify", "coverage"), PATH_CHARACTER_TEST),
+    (("analys", "review", "diag", "audit", "evidenc"), PATH_CHARACTER_ANALYSIS),
+    (("repair", "incident", "admin", "triage", "mitigation"), PATH_CHARACTER_OPS),
+    (("fix", "patch", "refactor", "behavior_preserv"), PATH_CHARACTER_MAINTENANCE),
+    (("explain", "chat", "explainer"), PATH_CHARACTER_EXPLAIN),  # before creative: "architecture_explainer"
+    (("project", "feature", "evolution", "architect", "implement", "bounded"), PATH_CHARACTER_CREATIVE),
+]
+
+PATH_CHARACTER_LABELS: dict[str, str] = {
+    PATH_CHARACTER_TEST:        "Testpfad",
+    PATH_CHARACTER_ANALYSIS:    "Analysepfad",
+    PATH_CHARACTER_OPS:         "Betriebspfad",
+    PATH_CHARACTER_MAINTENANCE: "Wartungspfad",
+    PATH_CHARACTER_CREATIVE:    "Entwicklungspfad",
+    PATH_CHARACTER_EXPLAIN:     "Erklärpfad",
+    PATH_CHARACTER_UNKNOWN:     "Allgemein",
+}
+
+
+def _classify_profile_character(role: str, profile_id: str) -> str:
+    """Infer path character from role name and profile id."""
+    text = (role + " " + profile_id).lower()
+    for keywords, character in _ROLE_CHARACTER_RULES:
+        if any(kw in text for kw in keywords):
+            return character
+    return PATH_CHARACTER_UNKNOWN
+
+
+def _classify_rule_character(blocked: list[str], allowed: list[str]) -> str:
+    """Classify a path rule by its AI-mode constraints."""
+    if "full_llm" in blocked:
+        return "kein_vollstaendiges_llm"
+    if blocked:
+        return "eingeschraenkt"
+    if allowed:
+        return "selektiv_erlaubt"
+    return "offen"
+
 
 # ── Data model ────────────────────────────────────────────────────────────────
 
@@ -293,6 +345,13 @@ class ConfigGraphBuilderService:
                     "allowed_task_kinds": list(pdata.get("allowed_task_kinds") or []),
                     "code_change_policy": pdata.get("code_change_policy") or "",
                     "context_policy_hint": pdata.get("context_policy_hint") or "",
+                    "path_character": _classify_profile_character(
+                        pdata.get("primary_role") or "", profile_id
+                    ),
+                    "path_character_label": PATH_CHARACTER_LABELS.get(
+                        _classify_profile_character(pdata.get("primary_role") or "", profile_id),
+                        "Allgemein",
+                    ),
                 },
                 diagnostics=diags,
             )
@@ -465,6 +524,7 @@ class ConfigGraphBuilderService:
                     "allow_code_generation": rule.get("allow_code_generation", True),
                     "llm_scope": str(rule.get("llm_scope") or ""),
                     "max_input_chars": int(rule.get("max_input_chars") or 0),
+                    "rule_character": _classify_rule_character(blocked, allowed),
                 },
             )
             if "full_llm" in blocked and not allowed:
