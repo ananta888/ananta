@@ -34,7 +34,7 @@ export class SettingsComponent implements OnInit {
   qgMinOutputChars = 8;
   qgCodingKeywordsText = 'code, implement, fix, refactor, bug, test, feature, endpoint';
   qgMarkersText = 'test, pytest, passed, success, lint, ok';
-  selectedSection: 'account' | 'llm' | 'quality' | 'system' = 'llm';
+  selectedSection: 'account' | 'llm' | 'quality' | 'system' | 'erweitert' = 'llm';
   providerCatalog: any = null;
   benchmarkConfig: any = null;
   benchmarkRetentionDays = 90;
@@ -72,7 +72,7 @@ export class SettingsComponent implements OnInit {
       localStorage.setItem('ananta.dark-mode', 'false');
     }
   }
-  setSection(section: 'account' | 'llm' | 'quality' | 'system') {
+  setSection(section: 'account' | 'llm' | 'quality' | 'system' | 'erweitert') {
     this.selectedSection = section;
   }
   load() {
@@ -99,6 +99,36 @@ export class SettingsComponent implements OnInit {
           sgpt_routing: this.normalizeSgptRouting(cfg?.sgpt_routing),
           approval_lifecycle: this.normalizeApprovalLifecycle(cfg?.approval_lifecycle),
           mutation_gate: this.normalizeMutationGate(cfg?.mutation_gate),
+          adaptive_model_routing_enabled: cfg?.adaptive_model_routing_enabled !== false,
+          adaptive_model_routing_min_samples: Number(cfg?.adaptive_model_routing_min_samples ?? 3),
+          adaptive_model_routing_top_k: Number(cfg?.adaptive_model_routing_top_k ?? 3),
+          routing_fallback_policy: this.normalizeObj(cfg?.routing_fallback_policy, { enabled: true, allow_static_providers: true, allow_local_backends: true, allow_remote_hubs: true, allow_stateful_cli: true, allow_stateless_generation: true, unavailable_action: 'mark_unavailable' }),
+          execution_fallback_policy: this.normalizeObj(cfg?.execution_fallback_policy, { allow_hub_worker_fallback: true, escalate_on_fallback_block: true, fallback_block_status: 'blocked', worker_404_hub_fallback_enabled: true, worker_task_sync_from_hub_enabled: true }),
+          autopilot_security_policies: this.normalizeAutopilotSecurityPolicies(cfg?.autopilot_security_policies),
+          planning: this.normalizeObj(cfg?.planning, { default_strategy: 'auto' }),
+          planning_policy: this.normalizeObj(cfg?.planning_policy, { delegated_planning_enabled: false, require_review: true, max_nodes: 8, max_depth: 8, timeout_seconds: 600, parallel_goal_planning_max_concurrency: 1 }),
+          goal_plan_limits: this.normalizeObj(cfg?.goal_plan_limits, { max_plan_nodes: 8, max_plan_depth: 8 }),
+          task_propose_timeout_seconds: Number(cfg?.task_propose_timeout_seconds ?? 300),
+          proposal_budget: this.normalizeObj(cfg?.proposal_budget, { max_total_seconds: 90, max_llm_calls: 2, max_strategy_attempts: 2, allow_parallel_strategy_race: false }),
+          ananta_worker_tool_loop: this.normalizeObj(cfg?.ananta_worker_tool_loop, { enabled: false, max_iterations: 6, max_tool_calls: 12, max_tool_result_chars: 8000 }),
+          ananta_worker_workspace_mutation: this.normalizeObj(cfg?.ananta_worker_workspace_mutation, { enabled: false, mutation_mode: 'read_only', max_diff_chars: 12000, max_write_file_bytes: 262144 }),
+          hub_direct_execution: this.normalizeObj(cfg?.hub_direct_execution, { enabled: false, direct_before_worker: true, fallback_to_worker: true, require_policy_gate: true, confidence_threshold: 0.8 }),
+          git_workspace: this.normalizeObj(cfg?.git_workspace, { enabled: false, remote_url: '', branch_strategy: 'goal', merge_strategy: 'squash', auto_commit: false }),
+          terminal_policy: this.normalizeObj(cfg?.terminal_policy, { enabled: false, allow_read: false, allow_interactive: false, require_admin: true, max_session_seconds: 1800, idle_timeout_seconds: 300 }),
+          evolution: this.normalizeObj(cfg?.evolution, { enabled: true, analyze_only: true, validate_allowed: true, apply_allowed: false, auto_triggers_enabled: false, manual_triggers_enabled: true, require_review_before_apply: true }),
+          local_ai: this.normalizeLocalAi(cfg?.local_ai),
+          memory_tree: this.normalizeObj(cfg?.memory_tree, { enabled: false, mode: 'safe_readonly', auto_ingest_knowledge_index: false, auto_ingest_result_memory: false, llm_summary_enabled: false }),
+          result_memory_policy: this.normalizeObj(cfg?.result_memory_policy, { enabled: true, create_followup_artifact: true, retrieval_document_max_chars: 2200, raw_history_max_chars: 12000, archive_raw_output: false }),
+          tool_output_compaction: this.normalizeObj(cfg?.tool_output_compaction, { enabled: true, fail_open: true, builtin_rules_enabled: true, max_input_chars_for_compaction: 4000, max_output_chars: 2000 }),
+          propose_policy: this.normalizeObj(cfg?.propose_policy, { context_compaction_enabled: true, context_compaction_required: false }),
+          workspace_context_policy: this.normalizeObj(cfg?.workspace_context_policy, { scope_mode: 'full', max_files: 200 }),
+          shell_command_policy: this.normalizeObj(cfg?.shell_command_policy, { enabled: true, allow_complex_shell_mode: false }),
+          execution_risk_policy: this.normalizeObj(cfg?.execution_risk_policy, { enabled: true, default_action: 'deny' }),
+          review_policy: this.normalizeObj(cfg?.review_policy, { enabled: true }),
+          remote_federation_policy: this.normalizeObj(cfg?.remote_federation_policy, { enabled: true, max_hops: 3, allow_artifact_access: false, allow_file_access: false }),
+          knowledge_context: this.normalizeKnowledgeContext(cfg?.knowledge_context),
+          hint_routing: this.normalizeObj(cfg?.hint_routing, { enabled: false, mode: 'compatibility' }),
+          goal_scoped_config_enabled: cfg?.goal_scoped_config_enabled !== false,
         };
         if (!this.config.codex_cli || typeof this.config.codex_cli !== 'object') {
           this.config.codex_cli = { target_provider: '', base_url: '', api_key_profile: '', prefer_lmstudio: true };
@@ -147,6 +177,29 @@ export class SettingsComponent implements OnInit {
     const routing = this.config?.sgpt_routing?.task_kind_backend || {};
     return Object.keys(routing).map(kind => ({ kind }));
   }
+  normalizeObj(raw: any, defaults: Record<string, any>): any {
+    if (!raw || typeof raw !== 'object') return { ...defaults };
+    return { ...defaults, ...raw };
+  }
+  normalizeLocalAi(raw: any): any {
+    const defaults = { enabled: false, provider: 'ollama', base_url: 'http://localhost:11434', model: '', api_key: '' };
+    if (!raw || typeof raw !== 'object') return defaults;
+    return { ...defaults, ...raw };
+  }
+  normalizeAutopilotSecurityPolicies(raw: any): any {
+    const defaults = {
+      allow_file_write: false, allow_shell_exec: false, allow_network_access: false,
+      allow_tool_use: true, allow_memory_write: false, max_auto_tasks: 10
+    };
+    if (!raw || typeof raw !== 'object') return defaults;
+    return { ...defaults, ...raw };
+  }
+  normalizeKnowledgeContext(raw: any): any {
+    const defaults = { enabled: false, max_chunks: 5, min_score: 0.6, inject_into_planning: true, inject_into_execution: true };
+    if (!raw || typeof raw !== 'object') return defaults;
+    return { ...defaults, ...raw };
+  }
+  workerParallelismOptions(): number[] { return [1, 2, 3, 4, 6, 8]; }
   getRuntimeProfileOptions(): string[] {
     const catalog = this.config?.runtime_profile_effective?.catalog;
     if (catalog && typeof catalog === 'object') {
@@ -307,6 +360,36 @@ export class SettingsComponent implements OnInit {
       sgpt_routing: this.normalizeSgptRouting(this.config?.sgpt_routing),
       approval_lifecycle: this.normalizeApprovalLifecycle(this.config?.approval_lifecycle),
       mutation_gate: this.normalizeMutationGate(this.config?.mutation_gate),
+      adaptive_model_routing_enabled: this.config?.adaptive_model_routing_enabled !== false,
+      adaptive_model_routing_min_samples: Number(this.config?.adaptive_model_routing_min_samples ?? 3),
+      adaptive_model_routing_top_k: Number(this.config?.adaptive_model_routing_top_k ?? 3),
+      routing_fallback_policy: this.normalizeObj(this.config?.routing_fallback_policy, { enabled: true, allow_static_providers: true, allow_local_backends: true, allow_remote_hubs: true, allow_stateful_cli: true, allow_stateless_generation: true, unavailable_action: 'mark_unavailable' }),
+      execution_fallback_policy: this.normalizeObj(this.config?.execution_fallback_policy, { allow_hub_worker_fallback: true, escalate_on_fallback_block: true, fallback_block_status: 'blocked', worker_404_hub_fallback_enabled: true, worker_task_sync_from_hub_enabled: true }),
+      autopilot_security_policies: this.normalizeAutopilotSecurityPolicies(this.config?.autopilot_security_policies),
+      planning: this.normalizeObj(this.config?.planning, { default_strategy: 'auto' }),
+      planning_policy: this.normalizeObj(this.config?.planning_policy, { delegated_planning_enabled: false, require_review: true, max_nodes: 8, max_depth: 8, timeout_seconds: 600, parallel_goal_planning_max_concurrency: 1 }),
+      goal_plan_limits: this.normalizeObj(this.config?.goal_plan_limits, { max_plan_nodes: 8, max_plan_depth: 8 }),
+      task_propose_timeout_seconds: Number(this.config?.task_propose_timeout_seconds ?? 300),
+      proposal_budget: this.normalizeObj(this.config?.proposal_budget, { max_total_seconds: 90, max_llm_calls: 2, max_strategy_attempts: 2, allow_parallel_strategy_race: false }),
+      ananta_worker_tool_loop: this.normalizeObj(this.config?.ananta_worker_tool_loop, { enabled: false, max_iterations: 6, max_tool_calls: 12, max_tool_result_chars: 8000 }),
+      ananta_worker_workspace_mutation: this.normalizeObj(this.config?.ananta_worker_workspace_mutation, { enabled: false, mutation_mode: 'read_only', max_diff_chars: 12000, max_write_file_bytes: 262144 }),
+      hub_direct_execution: this.normalizeObj(this.config?.hub_direct_execution, { enabled: false, direct_before_worker: true, fallback_to_worker: true, require_policy_gate: true, confidence_threshold: 0.8 }),
+      git_workspace: this.normalizeObj(this.config?.git_workspace, { enabled: false, remote_url: '', branch_strategy: 'goal', merge_strategy: 'squash', auto_commit: false }),
+      terminal_policy: this.normalizeObj(this.config?.terminal_policy, { enabled: false, allow_read: false, allow_interactive: false, require_admin: true, max_session_seconds: 1800, idle_timeout_seconds: 300 }),
+      evolution: this.normalizeObj(this.config?.evolution, { enabled: true, analyze_only: true, validate_allowed: true, apply_allowed: false, auto_triggers_enabled: false, manual_triggers_enabled: true, require_review_before_apply: true }),
+      local_ai: this.normalizeLocalAi(this.config?.local_ai),
+      memory_tree: this.normalizeObj(this.config?.memory_tree, { enabled: false, mode: 'safe_readonly', auto_ingest_knowledge_index: false, auto_ingest_result_memory: false, llm_summary_enabled: false }),
+      result_memory_policy: this.normalizeObj(this.config?.result_memory_policy, { enabled: true, create_followup_artifact: true, retrieval_document_max_chars: 2200, raw_history_max_chars: 12000, archive_raw_output: false }),
+      tool_output_compaction: this.normalizeObj(this.config?.tool_output_compaction, { enabled: true, fail_open: true, builtin_rules_enabled: true, max_input_chars_for_compaction: 4000, max_output_chars: 2000 }),
+      propose_policy: this.normalizeObj(this.config?.propose_policy, { context_compaction_enabled: true, context_compaction_required: false }),
+      workspace_context_policy: this.normalizeObj(this.config?.workspace_context_policy, { scope_mode: 'full', max_files: 200 }),
+      shell_command_policy: this.normalizeObj(this.config?.shell_command_policy, { enabled: true, allow_complex_shell_mode: false }),
+      execution_risk_policy: this.normalizeObj(this.config?.execution_risk_policy, { enabled: true, default_action: 'deny' }),
+      review_policy: this.normalizeObj(this.config?.review_policy, { enabled: true }),
+      remote_federation_policy: this.normalizeObj(this.config?.remote_federation_policy, { enabled: true, max_hops: 3, allow_artifact_access: false, allow_file_access: false }),
+      knowledge_context: this.normalizeKnowledgeContext(this.config?.knowledge_context),
+      hint_routing: this.normalizeObj(this.config?.hint_routing, { enabled: false, mode: 'compatibility' }),
+      goal_scoped_config_enabled: this.config?.goal_scoped_config_enabled !== false,
     };
     if (this.config?.codex_cli && typeof this.config.codex_cli === 'object') {
       this.config.codex_cli = {

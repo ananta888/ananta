@@ -14,6 +14,7 @@
       <button class="button-outline" [class.active-toggle]="selectedSection==='llm'" (click)="setSection('llm')">LLM und KI</button>
       <button class="button-outline" [class.active-toggle]="selectedSection==='quality'" (click)="setSection('quality')">Qualitaetsregeln</button>
       <button class="button-outline" [class.active-toggle]="selectedSection==='system'" (click)="setSection('system')">System</button>
+      <button class="button-outline" [class.active-toggle]="selectedSection==='erweitert'" (click)="setSection('erweitert')">Erweitert</button>
     </div>
     
     @if (selectedSection === 'account') {
@@ -1093,6 +1094,415 @@
           <div class="row mt-sm">
             <button (click)="saveRaw()" class="button-outline" [disabled]="configRawError">Roh-Daten Speichern</button>
           </div>
+        </div>
+        }
+        @if (selectedSection === 'erweitert') {
+        <div class="card">
+          <h3>Adaptives Modell-Routing</h3>
+          <p class="muted font-sm">Automatische Backend-Auswahl basierend auf Erfolgsrate.</p>
+          <label class="row gap-sm align-center mb-sm">
+            <input type="checkbox" [(ngModel)]="config.adaptive_model_routing_enabled">
+            Adaptives Routing aktiv
+          </label>
+          <div class="row gap-md flex-wrap">
+            <label class="col gap-xs">
+              <span class="font-sm">Min. Stichproben</span>
+              <input type="number" [(ngModel)]="config.adaptive_model_routing_min_samples" class="input-sm" min="1" max="50">
+            </label>
+            <label class="col gap-xs">
+              <span class="font-sm">Top-K Kandidaten</span>
+              <input type="number" [(ngModel)]="config.adaptive_model_routing_top_k" class="input-sm" min="1" max="10">
+            </label>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Routing-Fallback-Policy</h3>
+          <p class="muted font-sm">Welche Backend-Typen als Fallback erlaubt sind.</p>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.routing_fallback_policy.enabled"> Fallback aktiv</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.routing_fallback_policy.allow_static_providers"> Statische Provider erlaubt</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.routing_fallback_policy.allow_local_backends"> Lokale Backends erlaubt</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.routing_fallback_policy.allow_remote_hubs"> Remote-Hubs erlaubt</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.routing_fallback_policy.allow_stateful_cli"> Stateful CLI erlaubt</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.routing_fallback_policy.allow_stateless_generation"> Stateless Generation erlaubt</label>
+          <label class="col gap-xs mt-sm">
+            <span class="font-sm">Aktion bei nicht verfügbar</span>
+            <select [(ngModel)]="config.routing_fallback_policy.unavailable_action">
+              <option value="mark_unavailable">Als nicht verfügbar markieren</option>
+              <option value="error">Fehler auslösen</option>
+              <option value="skip">Überspringen</option>
+            </select>
+          </label>
+        </div>
+        <div class="card">
+          <h3>Ausführungs-Fallback-Policy</h3>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.execution_fallback_policy.allow_hub_worker_fallback"> Hub-Worker-Fallback erlaubt</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.execution_fallback_policy.escalate_on_fallback_block"> Eskalieren bei Blockierung</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.execution_fallback_policy.worker_404_hub_fallback_enabled"> Worker-404-Fallback auf Hub</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.execution_fallback_policy.worker_task_sync_from_hub_enabled"> Task-Sync vom Hub</label>
+          <label class="col gap-xs mt-sm">
+            <span class="font-sm">Fallback-Block-Status</span>
+            <select [(ngModel)]="config.execution_fallback_policy.fallback_block_status">
+              <option value="blocked">blocked</option>
+              <option value="failed">failed</option>
+              <option value="cancelled">cancelled</option>
+            </select>
+          </label>
+        </div>
+        <div class="card">
+          <h3>Autopilot-Sicherheitsrichtlinien</h3>
+          <p class="muted font-sm">Was der Autopilot ohne Bestätigung ausführen darf.</p>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.autopilot_security_policies.allow_tool_use"> Tool-Nutzung erlaubt</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.autopilot_security_policies.allow_file_write"> Datei-Schreiben erlaubt</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.autopilot_security_policies.allow_shell_exec"> Shell-Ausführung erlaubt</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.autopilot_security_policies.allow_network_access"> Netzwerk-Zugriff erlaubt</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.autopilot_security_policies.allow_memory_write"> Memory-Schreiben erlaubt</label>
+          <label class="col gap-xs mt-sm">
+            <span class="font-sm">Max. Auto-Tasks</span>
+            <input type="number" [(ngModel)]="config.autopilot_security_policies.max_auto_tasks" class="input-sm" min="1" max="100">
+          </label>
+        </div>
+        <div class="card">
+          <h3>Planung</h3>
+          <label class="col gap-xs mb-sm">
+            <span class="font-sm">Standard-Strategie</span>
+            <select [(ngModel)]="config.planning.default_strategy">
+              <option value="auto">auto</option>
+              <option value="sequential">sequential</option>
+              <option value="parallel">parallel</option>
+              <option value="delegated">delegated</option>
+            </select>
+          </label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.planning_policy.delegated_planning_enabled"> Delegiertes Planen aktiv</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.planning_policy.require_review"> Review vor Ausführung</label>
+          <div class="row gap-md flex-wrap mt-sm">
+            <label class="col gap-xs">
+              <span class="font-sm">Max. Plan-Knoten</span>
+              <input type="number" [(ngModel)]="config.planning_policy.max_nodes" class="input-sm" min="1" max="50">
+            </label>
+            <label class="col gap-xs">
+              <span class="font-sm">Max. Plan-Tiefe</span>
+              <input type="number" [(ngModel)]="config.planning_policy.max_depth" class="input-sm" min="1" max="20">
+            </label>
+            <label class="col gap-xs">
+              <span class="font-sm">Timeout (Sek.)</span>
+              <input type="number" [(ngModel)]="config.planning_policy.timeout_seconds" class="input-sm" min="30" max="3600">
+            </label>
+            <label class="col gap-xs">
+              <span class="font-sm">Parallele Planung (max.)</span>
+              <input type="number" [(ngModel)]="config.planning_policy.parallel_goal_planning_max_concurrency" class="input-sm" min="1" max="8">
+            </label>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Ziel-Plan-Limits</h3>
+          <div class="row gap-md flex-wrap">
+            <label class="col gap-xs">
+              <span class="font-sm">Max. Plan-Knoten</span>
+              <input type="number" [(ngModel)]="config.goal_plan_limits.max_plan_nodes" class="input-sm" min="1" max="100">
+            </label>
+            <label class="col gap-xs">
+              <span class="font-sm">Max. Plan-Tiefe</span>
+              <input type="number" [(ngModel)]="config.goal_plan_limits.max_plan_depth" class="input-sm" min="1" max="20">
+            </label>
+            <label class="col gap-xs">
+              <span class="font-sm">Task-Vorschlag Timeout (Sek.)</span>
+              <input type="number" [(ngModel)]="config.task_propose_timeout_seconds" class="input-sm" min="30" max="3600">
+            </label>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Proposal-Budget</h3>
+          <p class="muted font-sm">Ressourcenlimits für Task-Vorschläge.</p>
+          <div class="row gap-md flex-wrap">
+            <label class="col gap-xs">
+              <span class="font-sm">Max. Gesamtzeit (Sek.)</span>
+              <input type="number" [(ngModel)]="config.proposal_budget.max_total_seconds" class="input-sm" min="10" max="600">
+            </label>
+            <label class="col gap-xs">
+              <span class="font-sm">Max. LLM-Aufrufe</span>
+              <input type="number" [(ngModel)]="config.proposal_budget.max_llm_calls" class="input-sm" min="1" max="20">
+            </label>
+            <label class="col gap-xs">
+              <span class="font-sm">Max. Strategie-Versuche</span>
+              <input type="number" [(ngModel)]="config.proposal_budget.max_strategy_attempts" class="input-sm" min="1" max="10">
+            </label>
+          </div>
+          <label class="row gap-sm align-center mt-sm"><input type="checkbox" [(ngModel)]="config.proposal_budget.allow_parallel_strategy_race"> Paralleler Strategie-Race</label>
+        </div>
+        <div class="card">
+          <h3>Worker Tool-Loop</h3>
+          <p class="muted font-sm">Erlaubt dem Worker-Agenten iterativ Tools zu nutzen.</p>
+          <label class="row gap-sm align-center mb-sm"><input type="checkbox" [(ngModel)]="config.ananta_worker_tool_loop.enabled"> Tool-Loop aktiv</label>
+          <div class="row gap-md flex-wrap">
+            <label class="col gap-xs">
+              <span class="font-sm">Max. Iterationen</span>
+              <input type="number" [(ngModel)]="config.ananta_worker_tool_loop.max_iterations" class="input-sm" min="1" max="50">
+            </label>
+            <label class="col gap-xs">
+              <span class="font-sm">Max. Tool-Aufrufe</span>
+              <input type="number" [(ngModel)]="config.ananta_worker_tool_loop.max_tool_calls" class="input-sm" min="1" max="100">
+            </label>
+            <label class="col gap-xs">
+              <span class="font-sm">Max. Tool-Ergebnis-Zeichen</span>
+              <input type="number" [(ngModel)]="config.ananta_worker_tool_loop.max_tool_result_chars" class="input-sm" min="1000" max="50000">
+            </label>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Worker Workspace-Mutation</h3>
+          <p class="muted font-sm">Darf der Worker Dateien im Workspace schreiben?</p>
+          <label class="row gap-sm align-center mb-sm"><input type="checkbox" [(ngModel)]="config.ananta_worker_workspace_mutation.enabled"> Workspace-Mutation aktiv</label>
+          <label class="col gap-xs mb-sm">
+            <span class="font-sm">Mutations-Modus</span>
+            <select [(ngModel)]="config.ananta_worker_workspace_mutation.mutation_mode">
+              <option value="read_only">Nur lesen</option>
+              <option value="restricted">Eingeschränkt</option>
+              <option value="full">Vollständig</option>
+            </select>
+          </label>
+          <div class="row gap-md flex-wrap">
+            <label class="col gap-xs">
+              <span class="font-sm">Max. Diff-Zeichen</span>
+              <input type="number" [(ngModel)]="config.ananta_worker_workspace_mutation.max_diff_chars" class="input-sm" min="1000" max="100000">
+            </label>
+            <label class="col gap-xs">
+              <span class="font-sm">Max. Datei-Bytes</span>
+              <input type="number" [(ngModel)]="config.ananta_worker_workspace_mutation.max_write_file_bytes" class="input-sm" min="1024">
+            </label>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Hub-Direkte Ausführung</h3>
+          <p class="muted font-sm">Hub führt Tasks direkt aus ohne Worker-Delegation.</p>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.hub_direct_execution.enabled"> Direkte Ausführung aktiv</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.hub_direct_execution.direct_before_worker"> Direkt vor Worker versuchen</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.hub_direct_execution.fallback_to_worker"> Fallback auf Worker</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.hub_direct_execution.require_policy_gate"> Policy-Gate erforderlich</label>
+          <label class="col gap-xs mt-sm">
+            <span class="font-sm">Konfidenz-Schwellwert (0–1)</span>
+            <input type="number" [(ngModel)]="config.hub_direct_execution.confidence_threshold" class="input-sm" min="0" max="1" step="0.05">
+          </label>
+        </div>
+        <div class="card">
+          <h3>Git-Workspace</h3>
+          <p class="muted font-sm">Automatisches Git-Branching für Ziele.</p>
+          <label class="row gap-sm align-center mb-sm"><input type="checkbox" [(ngModel)]="config.git_workspace.enabled"> Git-Workspace aktiv</label>
+          <label class="col gap-xs mb-sm">
+            <span class="font-sm">Remote-URL</span>
+            <input type="text" [(ngModel)]="config.git_workspace.remote_url" placeholder="https://github.com/...">
+          </label>
+          <div class="row gap-md flex-wrap">
+            <label class="col gap-xs">
+              <span class="font-sm">Branch-Strategie</span>
+              <select [(ngModel)]="config.git_workspace.branch_strategy">
+                <option value="goal">Pro Ziel</option>
+                <option value="task">Pro Task</option>
+                <option value="none">Kein Branching</option>
+              </select>
+            </label>
+            <label class="col gap-xs">
+              <span class="font-sm">Merge-Strategie</span>
+              <select [(ngModel)]="config.git_workspace.merge_strategy">
+                <option value="squash">Squash</option>
+                <option value="merge">Merge</option>
+                <option value="rebase">Rebase</option>
+              </select>
+            </label>
+          </div>
+          <label class="row gap-sm align-center mt-sm"><input type="checkbox" [(ngModel)]="config.git_workspace.auto_commit"> Auto-Commit</label>
+        </div>
+        <div class="card">
+          <h3>Terminal-Policy</h3>
+          <p class="muted font-sm">Zugriff auf interaktive Terminal-Sessions.</p>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.terminal_policy.enabled"> Terminal aktiv</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.terminal_policy.allow_read"> Lesen erlaubt</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.terminal_policy.allow_interactive"> Interaktiv erlaubt</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.terminal_policy.require_admin"> Admin erforderlich</label>
+          <div class="row gap-md flex-wrap mt-sm">
+            <label class="col gap-xs">
+              <span class="font-sm">Max. Session (Sek.)</span>
+              <input type="number" [(ngModel)]="config.terminal_policy.max_session_seconds" class="input-sm" min="60" max="86400">
+            </label>
+            <label class="col gap-xs">
+              <span class="font-sm">Idle-Timeout (Sek.)</span>
+              <input type="number" [(ngModel)]="config.terminal_policy.idle_timeout_seconds" class="input-sm" min="30" max="3600">
+            </label>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Evolution (Selbstoptimierung)</h3>
+          <p class="muted font-sm">Automatische Konfigurationsverbesserung durch den Hub.</p>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.evolution.enabled"> Evolution aktiv</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.evolution.analyze_only"> Nur analysieren (kein Apply)</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.evolution.validate_allowed"> Validierung erlaubt</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.evolution.apply_allowed"> Anwenden erlaubt</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.evolution.auto_triggers_enabled"> Auto-Trigger aktiv</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.evolution.manual_triggers_enabled"> Manueller Trigger aktiv</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.evolution.require_review_before_apply"> Review vor Apply</label>
+        </div>
+        <div class="card">
+          <h3>Lokale KI (Local AI)</h3>
+          <p class="muted font-sm">Lokales LLM als Alternative zu Cloud-Providern.</p>
+          <label class="row gap-sm align-center mb-sm"><input type="checkbox" [(ngModel)]="config.local_ai.enabled"> Lokale KI aktiv</label>
+          <div class="row gap-md flex-wrap">
+            <label class="col gap-xs">
+              <span class="font-sm">Provider</span>
+              <select [(ngModel)]="config.local_ai.provider">
+                <option value="ollama">Ollama</option>
+                <option value="lmstudio">LMStudio</option>
+                <option value="llamacpp">llama.cpp</option>
+              </select>
+            </label>
+            <label class="col gap-xs">
+              <span class="font-sm">Base-URL</span>
+              <input type="text" [(ngModel)]="config.local_ai.base_url" placeholder="http://localhost:11434">
+            </label>
+            <label class="col gap-xs">
+              <span class="font-sm">Modell</span>
+              <input type="text" [(ngModel)]="config.local_ai.model" placeholder="llama3">
+            </label>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Memory-Tree</h3>
+          <p class="muted font-sm">Persistente Wissensbasis für den Hub.</p>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.memory_tree.enabled"> Memory-Tree aktiv</label>
+          <label class="col gap-xs mb-sm">
+            <span class="font-sm">Modus</span>
+            <select [(ngModel)]="config.memory_tree.mode">
+              <option value="safe_readonly">Nur lesen (sicher)</option>
+              <option value="read_write">Lesen und Schreiben</option>
+              <option value="full">Vollständig</option>
+            </select>
+          </label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.memory_tree.auto_ingest_knowledge_index"> Knowledge-Index auto-ingestieren</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.memory_tree.auto_ingest_result_memory"> Result-Memory auto-ingestieren</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.memory_tree.llm_summary_enabled"> LLM-Zusammenfassung aktiv</label>
+        </div>
+        <div class="card">
+          <h3>Result-Memory-Policy</h3>
+          <p class="muted font-sm">Wie Task-Ergebnisse gespeichert werden.</p>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.result_memory_policy.enabled"> Result-Memory aktiv</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.result_memory_policy.create_followup_artifact"> Follow-up-Artefakt erstellen</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.result_memory_policy.archive_raw_output"> Rohausgabe archivieren</label>
+          <div class="row gap-md flex-wrap mt-sm">
+            <label class="col gap-xs">
+              <span class="font-sm">Max. Retrieval-Zeichen</span>
+              <input type="number" [(ngModel)]="config.result_memory_policy.retrieval_document_max_chars" class="input-sm" min="500" max="10000">
+            </label>
+            <label class="col gap-xs">
+              <span class="font-sm">Max. Raw-History-Zeichen</span>
+              <input type="number" [(ngModel)]="config.result_memory_policy.raw_history_max_chars" class="input-sm" min="1000" max="50000">
+            </label>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Tool-Output-Komprimierung</h3>
+          <p class="muted font-sm">Lange Tool-Ausgaben werden vor der LLM-Übergabe gekürzt.</p>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.tool_output_compaction.enabled"> Komprimierung aktiv</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.tool_output_compaction.fail_open"> Bei Fehler: unkomprimiert senden</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.tool_output_compaction.builtin_rules_enabled"> Eingebaute Regeln aktiv</label>
+          <div class="row gap-md flex-wrap mt-sm">
+            <label class="col gap-xs">
+              <span class="font-sm">Max. Input-Zeichen für Komprimierung</span>
+              <input type="number" [(ngModel)]="config.tool_output_compaction.max_input_chars_for_compaction" class="input-sm" min="500" max="20000">
+            </label>
+            <label class="col gap-xs">
+              <span class="font-sm">Max. Output-Zeichen</span>
+              <input type="number" [(ngModel)]="config.tool_output_compaction.max_output_chars" class="input-sm" min="200" max="10000">
+            </label>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Shell-Command-Policy</h3>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.shell_command_policy.enabled"> Shell-Befehle aktiv</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.shell_command_policy.allow_complex_shell_mode"> Komplexe Shell-Befehle erlaubt</label>
+        </div>
+        <div class="card">
+          <h3>Execution-Risk-Policy</h3>
+          <p class="muted font-sm">Risikobeurteilung vor Ausführung gefährlicher Aktionen.</p>
+          <label class="row gap-sm align-center mb-sm"><input type="checkbox" [(ngModel)]="config.execution_risk_policy.enabled"> Risk-Policy aktiv</label>
+          <label class="col gap-xs">
+            <span class="font-sm">Standard-Aktion bei Risiko</span>
+            <select [(ngModel)]="config.execution_risk_policy.default_action">
+              <option value="deny">Ablehnen</option>
+              <option value="allow">Erlauben</option>
+              <option value="ask">Nachfragen</option>
+            </select>
+          </label>
+        </div>
+        <div class="card">
+          <h3>Review-Policy</h3>
+          <label class="row gap-sm align-center"><input type="checkbox" [(ngModel)]="config.review_policy.enabled"> Review-Policy aktiv</label>
+        </div>
+        <div class="card">
+          <h3>Remote-Federation-Policy</h3>
+          <p class="muted font-sm">Verbindung zu anderen Ananta-Hub-Instanzen.</p>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.remote_federation_policy.enabled"> Federation aktiv</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.remote_federation_policy.allow_artifact_access"> Artefakt-Zugriff erlaubt</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.remote_federation_policy.allow_file_access"> Datei-Zugriff erlaubt</label>
+          <label class="col gap-xs mt-sm">
+            <span class="font-sm">Max. Hops</span>
+            <input type="number" [(ngModel)]="config.remote_federation_policy.max_hops" class="input-sm" min="1" max="10">
+          </label>
+        </div>
+        <div class="card">
+          <h3>Knowledge-Context</h3>
+          <p class="muted font-sm">Wissensbasis-Chunks in Planung und Ausführung einbinden.</p>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.knowledge_context.enabled"> Knowledge-Context aktiv</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.knowledge_context.inject_into_planning"> In Planung einbinden</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.knowledge_context.inject_into_execution"> In Ausführung einbinden</label>
+          <div class="row gap-md flex-wrap mt-sm">
+            <label class="col gap-xs">
+              <span class="font-sm">Max. Chunks</span>
+              <input type="number" [(ngModel)]="config.knowledge_context.max_chunks" class="input-sm" min="1" max="50">
+            </label>
+            <label class="col gap-xs">
+              <span class="font-sm">Min. Score (0–1)</span>
+              <input type="number" [(ngModel)]="config.knowledge_context.min_score" class="input-sm" min="0" max="1" step="0.05">
+            </label>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Workspace-Context-Policy</h3>
+          <div class="row gap-md flex-wrap">
+            <label class="col gap-xs">
+              <span class="font-sm">Scope-Modus</span>
+              <select [(ngModel)]="config.workspace_context_policy.scope_mode">
+                <option value="full">Vollständig</option>
+                <option value="partial">Partiell</option>
+                <option value="minimal">Minimal</option>
+              </select>
+            </label>
+            <label class="col gap-xs">
+              <span class="font-sm">Max. Dateien</span>
+              <input type="number" [(ngModel)]="config.workspace_context_policy.max_files" class="input-sm" min="10" max="2000">
+            </label>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Propose-Policy</h3>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.propose_policy.context_compaction_enabled"> Kontext-Komprimierung aktiv</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.propose_policy.context_compaction_required"> Komprimierung erforderlich</label>
+        </div>
+        <div class="card">
+          <h3>Hint-Routing</h3>
+          <label class="row gap-sm align-center mb-sm"><input type="checkbox" [(ngModel)]="config.hint_routing.enabled"> Hint-Routing aktiv</label>
+          <label class="col gap-xs">
+            <span class="font-sm">Modus</span>
+            <select [(ngModel)]="config.hint_routing.mode">
+              <option value="compatibility">Kompatibilität</option>
+              <option value="strict">Strikt</option>
+              <option value="off">Aus</option>
+            </select>
+          </label>
+        </div>
+        <div class="card">
+          <h3>Ziel-Scoped-Konfiguration</h3>
+          <label class="row gap-sm align-center"><input type="checkbox" [(ngModel)]="config.goal_scoped_config_enabled"> Ziel-spezifische Konfiguration erlaubt</label>
+        </div>
+        <div class="row mt-lg">
+          <button (click)="save()" class="button-primary">Einstellungen speichern</button>
         </div>
         }
         @if (selectedSection === 'llm' && llmHistory && llmHistory.length > 0) {
