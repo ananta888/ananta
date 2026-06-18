@@ -1,0 +1,716 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "headroom-context-compression-adapter",
+  "created": "2026-06-18",
+  "status": "todo",
+  "priority": "P1",
+  "purpose": "Einen optionalen Headroom-aehnlichen Adapter fuer Ananta entwerfen und implementieren, der Tool-Outputs, RAG-/CodeCompass-Ergebnisse, Logs und alte Chat-Kontexte tokenbewusst verdichtet, ohne Originaldaten irreversibel zu verlieren.",
+  "goal": "Ananta kann vor LLM-Aufrufen strukturierte Kontextpakete ueber eine kontrollierte Compression-Schicht laufen lassen. Die Schicht kann entweder einen externen Headroom-Service/CLI/Library-Adapter verwenden oder eine eigene minimale interne Implementierung bereitstellen. Originale bleiben ueber Content-Hashes/CCR abrufbar, Kompression ist policy-gesteuert, messbar, abschaltbar und darf sicherheitskritische Code-/User-/Credential-Inhalte nicht unkontrolliert veraendern.",
+  "core_decision": "Headroom wird nicht blind als zentrale Abhaengigkeit eingebaut. Zuerst wird ein stabiler Ananta-Adapter-Contract definiert. Dahinter koennen externe Headroom-Integration, eigener SmartCompressor oder Passthrough laufen.",
+  "non_goals": [
+    "Keine globale automatische Kompression aller Prompts ohne Policy-Gates.",
+    "Keine Kompression von aktuellen User-Nachrichten.",
+    "Keine irreversible Loeschung von Tool-Outputs oder CodeCompass-Ergebnissen.",
+    "Keine Veraenderung von Code, Diffs, Patches oder Stacktraces bei Debug/Fix/Review-Aufgaben ohne explizite Freigabe.",
+    "Keine direkte Abhaengigkeit vom Headroom-Repo in Kernpfaden, wenn dadurch Ananta ohne Headroom nicht mehr lauffaehig waere.",
+    "Kein Speichern von Secrets, API Keys, Cookies oder Credentials in ungeschuetzten CCR-/Cache-Dateien.",
+    "Kein Ersatz fuer CodeCompass; CodeCompass bleibt Kontextquelle, der Adapter ist nur Budget-/Compression-/Retrieval-Schicht."
+  ],
+  "architecture_principles": [
+    "Adapter-first: Ananta definiert eine eigene CompressionAdapter-Schnittstelle.",
+    "Provider-neutral: Implementierungen koennen passthrough, internal_smart_compressor oder external_headroom sein.",
+    "Reversible-by-default: Komprimierte Inhalte enthalten Referenzen auf lokale Originale, wenn Inhalt gekuerzt wurde.",
+    "Policy-first: Routing, Inhaltstyp, Task-Typ, Sensitivitaet und Tokenbudget entscheiden, ob komprimiert wird.",
+    "Safe passthrough: Wenn Kompression unsicher, verlustreich, groesser oder fehlerhaft ist, wird Original bzw. geschuetzter Ausschnitt verwendet.",
+    "Auditierbar: Jeder Compression-Schritt erzeugt Messdaten, reason_code und optional Debug-Artefakt.",
+    "Hub-controlled: Worker duerfen Kompression anfragen, aber Hub/Controller entscheidet Policy, Limits und Zugriff auf Originale.",
+    "Budget-aware: Ergebnis wird gegen Zielbudget, Mindestqualitaet und Retrieverbarkeit geprueft.",
+    "Security-by-design: Secret-Redaction, Sensitivity-Labels und TTLs sind Bestandteil des Contracts."
+  ],
+  "integration_modes": [
+    {
+      "id": "disabled",
+      "description": "Adapter ist deaktiviert; alle Inhalte laufen unveraendert durch.",
+      "preferred_for": ["safe default", "CI", "debugging"]
+    },
+    {
+      "id": "passthrough_with_metrics",
+      "description": "Keine Kompression, aber Token-/Laengenmessung und Audit. Gut fuer Baseline-Vergleiche.",
+      "preferred_for": ["benchmark baseline", "migration", "production warmup"]
+    },
+    {
+      "id": "internal_smart_compressor",
+      "description": "Ananta-eigene deterministische/heuristische Kompression fuer JSON, Logs, Suchtreffer, RAG-Listen und historische Chatteile.",
+      "preferred_for": ["offline", "no external dependency", "security-sensitive setups"]
+    },
+    {
+      "id": "external_headroom",
+      "description": "Adapter delegiert an Headroom via CLI/HTTP/MCP/Library, sofern explizit konfiguriert und erlaubt.",
+      "preferred_for": ["evaluation", "token saving experiments", "agent tool output compression"]
+    }
+  ],
+  "target_config": {
+    "example": {
+      "context_compression": {
+        "enabled": true,
+        "mode": "passthrough_with_metrics",
+        "default_policy": "safe_auto",
+        "adapter": "ananta_context_compression",
+        "external_headroom": {
+          "enabled": false,
+          "transport": "cli",
+          "command": ["headroom"],
+          "base_url": null,
+          "mcp_server": null,
+          "timeout_seconds": 20
+        },
+        "ccr_store": {
+          "enabled": true,
+          "path": ".ananta/context-compression/ccr",
+          "ttl_hours": 72,
+          "max_bytes_per_item": 5242880,
+          "redact_secrets": true
+        },
+        "policies": {
+          "never_compress": ["current_user_message", "active_patch", "credential", "secret", "approval_prompt"],
+          "protect_when_task_intent": ["debug", "fix", "review", "security_audit", "test_failure"],
+          "compressible_content_types": ["tool_output", "json", "log", "search_results", "rag_results", "old_chat_summary", "codecompass_symbol_list"],
+          "max_input_tokens_before_considering": 1200,
+          "target_reduction_percent": 35,
+          "fallback_on_quality_risk": true
+        },
+        "observability": {
+          "emit_events": true,
+          "include_in_tracking_viewer": true,
+          "store_debug_samples": false
+        }
+      }
+    },
+    "required_keys": [
+      "enabled",
+      "mode",
+      "default_policy",
+      "ccr_store.enabled",
+      "policies.never_compress",
+      "policies.compressible_content_types"
+    ],
+    "optional_keys": [
+      "external_headroom.transport",
+      "external_headroom.command",
+      "external_headroom.base_url",
+      "external_headroom.mcp_server",
+      "ccr_store.ttl_hours",
+      "ccr_store.max_bytes_per_item",
+      "policies.target_reduction_percent",
+      "observability.include_in_tracking_viewer"
+    ]
+  },
+  "compression_contract": {
+    "input_object": {
+      "content_id": "optional upstream id",
+      "content_type": "tool_output|json|log|search_results|rag_results|code|diff|chat_history|other",
+      "task_intent": "planning|coding|debug|fix|review|security_audit|research|chat|unknown",
+      "sensitivity": "public|internal|private|secret|credential",
+      "source": "codecompass|rag_helper|tool_registry|worker|chat_history|provider",
+      "text_or_json": "payload",
+      "token_budget": "optional target budget",
+      "metadata": "additional provenance"
+    },
+    "output_object": {
+      "decision": "passthrough|compressed|blocked|failed_open_passthrough|failed_closed",
+      "reason_code": "stable machine-readable reason",
+      "compressed_text": "payload for LLM",
+      "original_ref": "ccr://sha256/... or null",
+      "token_estimate_before": 0,
+      "token_estimate_after": 0,
+      "reduction_percent": 0,
+      "warnings": []
+    }
+  },
+  "milestones": [
+    {
+      "id": "HCCA-M1",
+      "title": "Contract, Config und Baseline-Metriken",
+      "task_ids": ["HCCA-001", "HCCA-002", "HCCA-003", "HCCA-004"],
+      "status": "todo"
+    },
+    {
+      "id": "HCCA-M2",
+      "title": "CCR Store und sichere interne Compression",
+      "task_ids": ["HCCA-005", "HCCA-006", "HCCA-007", "HCCA-008"],
+      "status": "todo"
+    },
+    {
+      "id": "HCCA-M3",
+      "title": "Integration in CodeCompass, Tool-Calling und Worker-Kontext",
+      "task_ids": ["HCCA-009", "HCCA-010", "HCCA-011"],
+      "status": "todo"
+    },
+    {
+      "id": "HCCA-M4",
+      "title": "Optionaler externer Headroom-Adapter und Vergleichsmessung",
+      "task_ids": ["HCCA-012", "HCCA-013", "HCCA-014"],
+      "status": "todo"
+    },
+    {
+      "id": "HCCA-M5",
+      "title": "UI/Tracking, Docs und Produktionshaertung",
+      "task_ids": ["HCCA-015", "HCCA-016", "HCCA-017"],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "HCCA-001",
+      "title": "ContextCompressionAdapter Contract dokumentieren",
+      "type": "architecture-contract",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "docs/integrations/context-compression-adapter.md",
+        "agent/services/context_compression/README.md"
+      ],
+      "acceptance_criteria": [
+        "Dokumentation beschreibt Zweck, Non-Goals, Sicherheitsgrenzen und Abgrenzung zu CodeCompass/RAG Helper.",
+        "Input-/Output-Contract ist mit content_type, task_intent, sensitivity, source, token_budget und metadata beschrieben.",
+        "Entscheidungen passthrough, compressed, blocked, failed_open_passthrough und failed_closed sind definiert.",
+        "original_ref/CCR-Semantik ist dokumentiert.",
+        "Es ist klar beschrieben, dass Headroom optionaler Backend-Adapter ist und kein harter Kernbestandteil."
+      ],
+      "test_expectations": [
+        "Docs enthalten mindestens ein Beispiel fuer Tool-Output, CodeCompass-Ergebnis und Log-Kompression.",
+        "Docs enthalten Beispiele fuer blockierte Kompression bei Secrets und aktive Patches."
+      ]
+    },
+    {
+      "id": "HCCA-002",
+      "title": "Konfiguration fuer context_compression einfuehren",
+      "type": "configuration",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/config.py",
+        "config/*.json",
+        "tests/agent/test_context_compression_config.py"
+      ],
+      "acceptance_criteria": [
+        "Config unterstuetzt disabled, passthrough_with_metrics, internal_smart_compressor und external_headroom.",
+        "Safe Default ist disabled oder passthrough_with_metrics ohne Inhaltsveraenderung.",
+        "Policy-Listen never_compress, protect_when_task_intent und compressible_content_types sind konfigurierbar.",
+        "CCR Store Parameter path, ttl_hours, max_bytes_per_item und redact_secrets sind validierbar.",
+        "Fehlende oder widerspruechliche Config erzeugt klare Diagnose."
+      ],
+      "test_expectations": [
+        "Config-Test validiert Minimalconfig disabled.",
+        "Config-Test validiert passthrough_with_metrics mit Observability.",
+        "Config-Test lehnt external_headroom ohne transport/command/base_url/mcp_server ab.",
+        "Config-Test prueft, dass current_user_message und credential im Default nie komprimiert werden."
+      ]
+    },
+    {
+      "id": "HCCA-003",
+      "title": "TokenEstimator und Baseline-Metriken bauen",
+      "type": "measurement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/services/context_compression/token_estimator.py",
+        "agent/services/context_compression/metrics.py",
+        "tests/agent/services/context_compression/test_token_estimator.py"
+      ],
+      "acceptance_criteria": [
+        "TokenEstimator liefert stabile Schaetzwerte pro Provider/Modellfamilie oder generischen Fallback.",
+        "Metriken erfassen tokens_before, tokens_after, reduction_percent, latency_ms und decision.",
+        "Passthrough-with-metrics erzeugt dieselben Metriken ohne Payload-Aenderung.",
+        "Metriken sind fuer Tracking Viewer und Logs serialisierbar."
+      ],
+      "test_expectations": [
+        "Unit-Tests pruefen deterministische Schaetzung fuer kurze/lange Texte.",
+        "Tests pruefen reduction_percent und Edge Cases bei leerem Inhalt.",
+        "Tests pruefen, dass keine Provider-Abhaengigkeit zwingend geladen werden muss."
+      ]
+    },
+    {
+      "id": "HCCA-004",
+      "title": "CompressionPolicyEngine implementieren",
+      "type": "policy-engine",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/services/context_compression/policy.py",
+        "tests/agent/services/context_compression/test_policy.py"
+      ],
+      "acceptance_criteria": [
+        "PolicyEngine entscheidet pro Inhalt anhand content_type, task_intent, sensitivity, source, token_budget und Config.",
+        "User-Nachrichten, Credentials, Secrets, Approval-Prompts, aktive Patches und sicherheitskritische Debug-Kontexte werden standardmaessig nicht komprimiert.",
+        "Code wird nur komprimiert, wenn Task und Config dies explizit erlauben und kein Debug/Fix/Review-Kontext vorliegt.",
+        "Jede Entscheidung enthaelt einen stabilen reason_code.",
+        "Fehler in der Policy fuehren zu failed_closed bei sensitiven Daten und failed_open_passthrough bei unsensitiven Daten."
+      ],
+      "test_expectations": [
+        "Tests pruefen never_compress fuer current_user_message, credential und approval_prompt.",
+        "Tests pruefen Schutz bei task_intent=debug/fix/review/security_audit.",
+        "Tests pruefen erlaubte Kompression fuer grosse JSON-Tool-Outputs.",
+        "Tests pruefen reason_codes fuer alle wichtigen Entscheidungen."
+      ]
+    },
+    {
+      "id": "HCCA-005",
+      "title": "CCR Store fuer Original-Referenzen bauen",
+      "type": "storage",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/services/context_compression/ccr_store.py",
+        "tests/agent/services/context_compression/test_ccr_store.py"
+      ],
+      "acceptance_criteria": [
+        "CCR Store speichert Originale content-addressed per sha256 mit Metadaten, TTL und Sensitivity-Label.",
+        "original_ref im Format ccr://sha256/<hash> kann Originale kontrolliert abrufen.",
+        "Store erzwingt max_bytes_per_item und verweigert zu grosse Inhalte mit reason_code.",
+        "Secret-Redaction laeuft vor Speicherung, sofern Config dies verlangt.",
+        "Abruf prueft Policy/Sensitivity und gibt nicht blind alles an Worker frei."
+      ],
+      "test_expectations": [
+        "Unit-Test speichert und liest Original ueber Hash.",
+        "Unit-Test erkennt Hash-Kollision/Manipulation ueber Content-Hash-Pruefung.",
+        "Unit-Test prueft TTL-Ablauf.",
+        "Unit-Test prueft max_bytes_per_item und Secret-Redaction."
+      ]
+    },
+    {
+      "id": "HCCA-006",
+      "title": "SecretRedactor und SensitivityScanner einbauen",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/services/context_compression/redaction.py",
+        "tests/agent/services/context_compression/test_redaction.py"
+      ],
+      "acceptance_criteria": [
+        "Scanner erkennt typische API Keys, Bearer Tokens, Cookies, private Keys, Basic Auth, DB URLs und Session-Artefakte heuristisch.",
+        "Gefundene Secrets fuehren je nach Policy zu redacted, blocked oder passthrough ohne Speicherung.",
+        "Redaction ist deterministisch und markiert entfernte Stellen ohne den Secret-Wert zu loggen.",
+        "False-Positive-Risiko ist dokumentiert und Tests decken typische Beispiele ab.",
+        "Audit-Events enthalten nur Counts/Typen, keine Secret-Werte."
+      ],
+      "test_expectations": [
+        "Tests pruefen Bearer Token, GitHub Token, OpenAI-Key-artige Strings, PEM-Key und Cookie-Header.",
+        "Tests pruefen, dass Redaction keine Secrets in Logs/Metriken schreibt.",
+        "Tests pruefen blockierte Speicherung bei sensitivity=credential."
+      ]
+    },
+    {
+      "id": "HCCA-007",
+      "title": "Interne SmartCompressor-Strategien fuer JSON, Logs und Suchergebnisse bauen",
+      "type": "compression-engine",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/services/context_compression/internal_compressor.py",
+        "agent/services/context_compression/strategies/json_strategy.py",
+        "agent/services/context_compression/strategies/log_strategy.py",
+        "agent/services/context_compression/strategies/search_results_strategy.py",
+        "tests/agent/services/context_compression/test_internal_compressor.py"
+      ],
+      "acceptance_criteria": [
+        "JSON-Strategie erhaelt Schluesselstruktur, IDs, Pfade, Fehlercodes und relevante Werte; grosse Listen werden zusammengefasst und referenziert.",
+        "Log-Strategie behaltet erste/letzte relevante Zeilen, Errors, Warnings, Stacktrace-Koepfe und Haeufigkeiten.",
+        "Search-Result-Strategie gruppiert Treffer, dedupliziert, bewahrt Pfade/Symbole/Line-Ranges und Scores.",
+        "Wenn Kompression weniger als Zielreduktion erreicht oder Qualitaetsrisiko meldet, wird passthrough oder nur metrics genutzt.",
+        "Jede Strategie liefert warnings, preserved_fields und dropped_summary."
+      ],
+      "test_expectations": [
+        "Tests pruefen grosse JSON-Liste mit preserved ids/path/status.",
+        "Tests pruefen Logs mit Error/Warning/Traceback.",
+        "Tests pruefen Suchergebnisse mit Pfad- und Symbol-Erhalt.",
+        "Tests pruefen fallback, wenn komprimierter Text groesser als Original wird."
+      ]
+    },
+    {
+      "id": "HCCA-008",
+      "title": "Qualitaets- und Verlustschutz fuer Kompression einfuehren",
+      "type": "quality-gate",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/services/context_compression/quality_gate.py",
+        "tests/agent/services/context_compression/test_quality_gate.py"
+      ],
+      "acceptance_criteria": [
+        "QualityGate prueft Mindestfelder je content_type, Groessenreduktion, Warnungen, Originalreferenz und Policy-Konformitaet.",
+        "Bei CodeCompass-/RAG-Ergebnissen muessen source_id, file_path, symbol, line_range oder equivalent evidence erhalten bleiben, sofern vorhanden.",
+        "Bei Logs muessen Error-/Warning-Zeilen und Exitcodes erhalten bleiben.",
+        "Bei JSON muessen IDs, Typen, Status, Fehler und URLs/Pfade nach Regel erhalten bleiben.",
+        "Gate kann Ergebnis ablehnen und passthrough erzwingen."
+      ],
+      "test_expectations": [
+        "Tests pruefen Ablehnung bei fehlender Originalreferenz nach Kuerzung.",
+        "Tests pruefen Ablehnung, wenn CodeCompass line_range verloren geht.",
+        "Tests pruefen passthrough bei zu geringer Reduktion.",
+        "Tests pruefen erlaubte Kompression bei vollstaendigem Evidence-Erhalt."
+      ]
+    },
+    {
+      "id": "HCCA-009",
+      "title": "CodeCompass/RAG Helper Ergebnis-Handoff integrieren",
+      "type": "codecompass-integration",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/services/tools/codecompass.py",
+        "agent/services/rag_helper.py",
+        "agent/services/context_budget_service.py",
+        "tests/agent/services/test_codecompass_context_compression.py"
+      ],
+      "acceptance_criteria": [
+        "CodeCompass kann Ergebnisse optional als CompressionInput mit source=codecompass und content_type passend klassifizieren.",
+        "Symbol-/Graph-/File-Kontext behaltet Pfade, Symbole, Beziehungen und Line-Ranges.",
+        "Bei kleinen Ergebnissen wird nicht komprimiert, aber Messung kann aktiv sein.",
+        "Bei grossen Ergebnislisten wird verdichtet, dedupliziert und Original per CCR referenziert.",
+        "Modelle erhalten klare Hinweise, wie sie Originale bei Bedarf nachfordern koennen."
+      ],
+      "test_expectations": [
+        "Integrationstest mit grosser Symbol-Liste erzeugt kompaktes Ergebnis plus ccr:// Referenz.",
+        "Integrationstest mit kleinem File-Kontext bleibt passthrough.",
+        "Test prueft, dass Code-Snippets bei Debug/Fix-Aufgaben nicht gekuerzt werden."
+      ]
+    },
+    {
+      "id": "HCCA-010",
+      "title": "Tool-Output-Kompression in Tool-Calling-Pipeline anschliessen",
+      "type": "tool-calling-integration",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/services/tool_routing_service.py",
+        "worker/core/tool_registry.py",
+        "worker/core/ananta_worker_tool_loop.py",
+        "tests/agent/services/test_tool_output_context_compression.py"
+      ],
+      "acceptance_criteria": [
+        "Native Tool-Calling und Prompt-JSON-Fallback koennen Tool-Outputs vor Rueckgabe ans Modell ueber den Adapter schicken.",
+        "Komprimierte Tool-Outputs enthalten decision, reason_code, token stats und original_ref, ohne das Tool-Protokoll zu brechen.",
+        "Tools koennen content_type/sensitivity explizit setzen; sonst wird heuristisch klassifiziert.",
+        "Fehlerhafte Kompression darf Tool-Result nicht verlieren.",
+        "Worker koennen Originale nur ueber Hub-Policy nachfordern."
+      ],
+      "test_expectations": [
+        "Test fuer natives Tool-Calling mit grossem JSON-Output.",
+        "Test fuer Prompt-JSON-Fallback mit komprimiertem Tool-Result.",
+        "Test fuer failed compressor -> original passthrough.",
+        "Policy-Test blockiert Originalabruf bei sensitivity=secret."
+      ]
+    },
+    {
+      "id": "HCCA-011",
+      "title": "Chat-History und Rolling-Summary Budget-Schicht anbinden",
+      "type": "conversation-context",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/services/conversation_context_service.py",
+        "agent/services/summary_service.py",
+        "tests/agent/services/test_conversation_context_compression.py"
+      ],
+      "acceptance_criteria": [
+        "Alte Chat-Historie kann in budgetierte Summary-/Reference-Blöcke ueberfuehrt werden.",
+        "Aktuelle User-Nachricht und aktuelle Assistant-Aufgabe werden nie komprimiert.",
+        "Vorhandene Rolling-Summary-Logik wird nicht ersetzt, sondern budgetbewusst ergaenzt.",
+        "Komprimierte History-Teile bleiben ueber CCR/History-IDs nachvollziehbar.",
+        "System-/Developer-/Policy-Inhalte werden nicht mit normaler Chat-History vermischt."
+      ],
+      "test_expectations": [
+        "Test prueft, dass aktuelle User Message unveraendert bleibt.",
+        "Test prueft Summary alter Tool-Schritte mit Originalreferenz.",
+        "Test prueft, dass System/Policy-Inhalte ausgeschlossen bleiben."
+      ]
+    },
+    {
+      "id": "HCCA-012",
+      "title": "ExternalHeadroomAdapter als optionale Implementierung bauen",
+      "type": "external-adapter",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/services/context_compression/adapters/external_headroom_adapter.py",
+        "tests/agent/services/context_compression/test_external_headroom_adapter.py"
+      ],
+      "acceptance_criteria": [
+        "Adapter unterstuetzt mindestens CLI-Transport oder HTTP-Transport, ohne Headroom als harte Import-Abhaengigkeit vorauszusetzen.",
+        "Timeouts, Fehler, leere Antworten und ungueltige Antworten werden stabil in failed_open_passthrough/failed_closed gemappt.",
+        "External Adapter bekommt nur Inhalte, die PolicyEngine erlaubt hat.",
+        "Antworten werden in den Ananta CompressionOutput Contract normalisiert.",
+        "Originalspeicherung in Ananta-CCR bleibt auch bei externer Kompression kontrollierbar."
+      ],
+      "test_expectations": [
+        "Mock-Test fuer erfolgreichen CLI-Call.",
+        "Mock-Test fuer Timeout und Fehlercode.",
+        "Mock-Test fuer ungueltiges JSON/unerwartete Headroom-Antwort.",
+        "Test prueft, dass external_headroom disabled keine Calls ausloest."
+      ]
+    },
+    {
+      "id": "HCCA-013",
+      "title": "Benchmark-Harness fuer Tokenersparnis und Qualitaetsverlust bauen",
+      "type": "benchmarking",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "scripts/benchmark_context_compression.py",
+        "tests/fixtures/context_compression/*.json",
+        "docs/benchmarks/context-compression.md"
+      ],
+      "acceptance_criteria": [
+        "Benchmark vergleicht disabled, passthrough_with_metrics, internal_smart_compressor und external_headroom, sofern verfuegbar.",
+        "Fixtures enthalten CodeCompass-Ergebnis, Tool-JSON, Log, Search Results und Chat-History.",
+        "Benchmark misst token_before, token_after, reduction_percent, latency_ms, warnings und rejected_by_quality_gate.",
+        "Ergebnis wird als JSON und Markdown-Tabelle exportiert.",
+        "Benchmark laeuft ohne echten LLM-Provider."
+      ],
+      "test_expectations": [
+        "Smoke-Test startet Benchmark mit Fixtures.",
+        "Test prueft JSON-Exportstruktur.",
+        "Test prueft, dass fehlender externer Headroom sauber als skipped markiert wird."
+      ]
+    },
+    {
+      "id": "HCCA-014",
+      "title": "A/B Routing fuer reale Agentenlaeufe vorbereiten",
+      "type": "runtime-evaluation",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/services/context_budget_service.py",
+        "agent/services/model_routing_service.py",
+        "docs/experiments/context-compression-ab-tests.md"
+      ],
+      "acceptance_criteria": [
+        "Agentenlauf kann per Config mit compression_profile=off|metrics|internal|headroom gestartet werden.",
+        "A/B Ergebnis enthaelt Tokenersparnis, Laufzeit, Tool-Retrievals, Fehlerrate und subjektive Qualitaetsnotizen.",
+        "Keine automatische Aktivierung fuer alle Worker ohne explizite Blueprint-/Config-Freigabe.",
+        "A/B Routing kann pro Worker, Aufgabe, Tool oder Provider eingeschraenkt werden.",
+        "Abbruch/Fallback ist jederzeit moeglich."
+      ],
+      "test_expectations": [
+        "Config-Test fuer compression_profile je Worker.",
+        "Test prueft, dass Default nicht global komprimiert.",
+        "Mock-Agentenlauf erzeugt vergleichbare Metrics fuer off vs metrics."
+      ]
+    },
+    {
+      "id": "HCCA-015",
+      "title": "Tracking Viewer Events fuer Compression-Schritte ausgeben",
+      "type": "observability-ui",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/services/tracking_event_service.py",
+        "ai-snake-chat/src/app/**/tracking-viewer*",
+        "tests/agent/services/test_context_compression_tracking_events.py"
+      ],
+      "acceptance_criteria": [
+        "Jeder Compression-Schritt kann als Tracking-Event mit input_type, decision, reason_code, tokens_before/after, reduction und original_ref sichtbar werden.",
+        "UI zeigt komprimierte Ausgabe, Warnungen und Abrufhinweis, ohne Secrets anzuzeigen.",
+        "Vorherige Schritte bleiben auswählbar, aktueller Schritt wird live aktualisiert.",
+        "Debug-Samples sind standardmaessig aus und nur explizit aktivierbar.",
+        "Tracking Events brechen bestehende Chat-/Tool-Events nicht."
+      ],
+      "test_expectations": [
+        "Backend-Test prueft Event-Payload ohne Secret-Werte.",
+        "Frontend-Test oder Snapshot prueft Anzeige von decision/reduction/original_ref.",
+        "Test prueft deaktivierte Events bei observability.emit_events=false."
+      ]
+    },
+    {
+      "id": "HCCA-016",
+      "title": "Retrieval-Tool fuer CCR-Originale kontrolliert bereitstellen",
+      "type": "retrieval-tool",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "target_files": [
+        "agent/services/context_compression/retrieval_tool.py",
+        "worker/core/tool_registry.py",
+        "tests/agent/services/context_compression/test_retrieval_tool.py"
+      ],
+      "acceptance_criteria": [
+        "Tool context.retrieve_original kann ccr:// Referenzen abrufen, wenn Policy dies erlaubt.",
+        "Abruf kann begrenzt werden: full, range, matching_lines, json_path oder summary.",
+        "Jeder Abruf wird auditiert und dem Agentenlauf zugeordnet.",
+        "Sensible Inhalte koennen blockiert oder nur redacted geliefert werden.",
+        "Tool ist nicht direkt fuer beliebige Dateipfade oder Hashes ohne Laufkontext nutzbar."
+      ],
+      "test_expectations": [
+        "Test prueft erfolgreichen Abruf eines unsensitiven Originals.",
+        "Test prueft blockierten Abruf bei sensitivity=secret.",
+        "Test prueft range/json_path Abruf.",
+        "Test prueft Audit-Event fuer jeden Abruf."
+      ]
+    },
+    {
+      "id": "HCCA-017",
+      "title": "Dokumentation, Sicherheitscheckliste und Rollout-Plan fertigstellen",
+      "type": "docs-hardening",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "target_files": [
+        "docs/integrations/context-compression-adapter.md",
+        "docs/security/context-compression-threat-model.md",
+        "docs/benchmarks/context-compression.md"
+      ],
+      "acceptance_criteria": [
+        "Threat Model beschreibt Risiken: Secret Leakage, falsche Kompression, verlorene Evidence, Prompt Injection ueber komprimierte Tool-Outputs und unsicheren Originalabruf.",
+        "Rollout-Plan startet mit passthrough_with_metrics, dann interner Kompressor fuer nicht-sensitive Tool-Outputs, danach optional external_headroom Experiment.",
+        "Docs enthalten Konfig-Beispiele fuer safe default, dev benchmark und experimentelles external_headroom.",
+        "Bekannte Grenzen und Non-Goals sind klar beschrieben.",
+        "Akzeptanzkriterien fuer produktive Aktivierung sind dokumentiert."
+      ],
+      "test_expectations": [
+        "Docs verweisen auf Benchmark-Harness und relevante Config-Keys.",
+        "Security-Checkliste enthaelt konkrete Punkte fuer Secrets, TTL, CCR-Store und Policy-Gates.",
+        "Keine Doku empfiehlt globale unkontrollierte Kompression als Default."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "HCCA-001",
+    "HCCA-002",
+    "HCCA-003",
+    "HCCA-004",
+    "HCCA-005",
+    "HCCA-006",
+    "HCCA-008",
+    "HCCA-009",
+    "HCCA-010",
+    "HCCA-012",
+    "HCCA-013"
+  ],
+  "tasks_status_summary": {
+    "total": 17,
+    "by_status": {
+      "todo": 17,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 9,
+      "P1": 7,
+      "P2": 1
+    },
+    "by_risk": {
+      "low": 1,
+      "medium": 9,
+      "high": 7
+    },
+    "critical_path": {
+      "total": 11,
+      "done": 0,
+      "remaining": 11
+    },
+    "milestones": {
+      "total": 5,
+      "todo": 5,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 17,
+    "by_type": {
+      "architecture-contract": 1,
+      "configuration": 1,
+      "measurement": 1,
+      "policy-engine": 1,
+      "storage": 1,
+      "security": 1,
+      "compression-engine": 1,
+      "quality-gate": 1,
+      "codecompass-integration": 1,
+      "tool-calling-integration": 1,
+      "conversation-context": 1,
+      "external-adapter": 1,
+      "benchmarking": 1,
+      "runtime-evaluation": 1,
+      "observability-ui": 1,
+      "retrieval-tool": 1,
+      "docs-hardening": 1
+    }
+  },
+  "progress_summary": {
+    "state": "created",
+    "todo_remaining": 17,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "summary_notes": [
+    "Erst messen, dann aktivieren: passthrough_with_metrics ist der empfohlene Startmodus.",
+    "Die wichtigste Sicherheitsgrenze ist, dass Originale kontrolliert referenziert werden und nicht still verloren gehen.",
+    "External Headroom ist optionaler Adapter, nicht Kernabhaengigkeit.",
+    "Besonders kritisch sind CodeCompass-Evidence-Erhalt, Secrets, aktive Debug-/Fix-Kontexte und Worker-Originalabruf."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "target_state",
+      "title": "Zielzustand",
+      "items": [
+        "Ananta hat eine policy-gesteuerte ContextCompressionAdapter-Schicht.",
+        "Tool-Outputs, CodeCompass-Ergebnisse, Logs und alte History koennen budgetiert verdichtet werden.",
+        "Jede Kuerzung ist messbar, auditierbar und per CCR reversibel.",
+        "Headroom kann optional verglichen oder genutzt werden, ohne harte Kopplung."
+      ]
+    },
+    {
+      "summary_id": "recommended_first_iteration",
+      "title": "Empfohlene erste Iteration",
+      "items": [
+        "HCCA-001 bis HCCA-004 umsetzen: Contract, Config, TokenEstimator, PolicyEngine.",
+        "Dann HCCA-005 und HCCA-006: CCR Store und SecretRedaction.",
+        "Erst danach Tool-Output- und CodeCompass-Integration aktivieren.",
+        "External Headroom erst nach Benchmark-Harness testen."
+      ]
+    }
+  ]
+}
