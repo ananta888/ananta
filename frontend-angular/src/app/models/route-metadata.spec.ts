@@ -32,4 +32,14 @@ describe('route metadata', () => {
     expect(userPaths).not.toContain('/audit-log');
     expect(userPaths).toContain('/settings');
   });
+
+  it('shows the hub worker graph next to the config graph in advanced navigation', () => {
+    const configItems = buildNavGroups('admin', 'advanced')
+      .find(group => group.label === 'Konfiguration')?.items || [];
+    const paths = configItems.map(item => item.path);
+
+    expect(paths).toContain('/config-graph');
+    expect(paths).toContain('/hub-worker-graph');
+    expect(paths.indexOf('/hub-worker-graph')).toBe(paths.indexOf('/config-graph') + 1);
+  });
 });

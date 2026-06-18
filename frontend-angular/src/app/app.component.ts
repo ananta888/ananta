@@ -1,5 +1,5 @@
 import { Component, HostListener, OnInit, OnDestroy, inject } from '@angular/core';
-import { RouterLink, RouterOutlet, Router } from '@angular/router';
+import { RouterLink, RouterLinkActive, RouterOutlet, Router } from '@angular/router';
 import { Capacitor } from '@capacitor/core';
 import { NotificationsComponent } from './components/notifications.component';
 import { ToastComponent } from './components/toast.component';
@@ -20,7 +20,7 @@ import { SnakeOverlayComponent } from './components/snake-overlay.component';
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterLink, RouterOutlet, NotificationsComponent, ToastComponent, AsyncPipe, AiAssistantComponent, BreadcrumbComponent, SnakeOverlayComponent],
+  imports: [RouterLink, RouterLinkActive, RouterOutlet, NotificationsComponent, ToastComponent, AsyncPipe, AiAssistantComponent, BreadcrumbComponent, SnakeOverlayComponent],
   template: `
     <a class="skip-link" href="#main-content">Zum Inhalt springen</a>
     <app-notifications />
@@ -69,13 +69,27 @@ import { SnakeOverlayComponent } from './components/snake-overlay.component';
             [class.nav-open]="shell.mobileNavOpen()"
             aria-label="Hauptnavigation">
             @for (group of navGroups(user.role); track group.label) {
-              <span class="nav-group-label">{{ group.label }}</span>
-              @for (item of group.items; track item.path) {
-                <a [routerLink]="item.path" (click)="closeMobileNav()" [attr.data-waypoint]="'nav.' + item.path">{{ item.label }}</a>
-                @if (shell.mode() === 'advanced' && item.expertOnly) {
-                  <span class="nav-expert-label">Experte</span>
-                }
-              }
+              <details class="nav-menu-group">
+                <summary>
+                  <span>{{ group.label }}</span>
+                  <span class="nav-count">{{ group.items.length }}</span>
+                </summary>
+                <div class="nav-menu-panel">
+                  @for (item of group.items; track item.path) {
+                    <a
+                      [routerLink]="item.path"
+                      routerLinkActive="active"
+                      [routerLinkActiveOptions]="{ exact: true }"
+                      (click)="closeMobileNav()"
+                      [attr.data-waypoint]="'nav.' + item.path">
+                      <span>{{ item.label }}</span>
+                      @if (shell.mode() === 'advanced' && item.expertOnly) {
+                        <span class="nav-expert-label">Experte</span>
+                      }
+                    </a>
+                  }
+                </div>
+              </details>
             }
           </nav>
         }
@@ -88,13 +102,26 @@ import { SnakeOverlayComponent } from './components/snake-overlay.component';
         [class.open]="shell.mobileNavOpen()"
         aria-label="Hauptnavigation">
         @for (group of navGroups(headerUser?.role); track group.label) {
-          <span class="nav-group-label">{{ group.label }}</span>
-          @for (item of group.items; track item.path) {
-            <a [routerLink]="item.path" (click)="closeMobileNav()">{{ item.label }}</a>
-            @if (shell.mode() === 'advanced' && item.expertOnly) {
-              <span class="nav-expert-label">Experte</span>
-            }
-          }
+          <details class="nav-menu-group" open>
+            <summary>
+              <span>{{ group.label }}</span>
+              <span class="nav-count">{{ group.items.length }}</span>
+            </summary>
+            <div class="nav-menu-panel">
+              @for (item of group.items; track item.path) {
+                <a
+                  [routerLink]="item.path"
+                  routerLinkActive="active"
+                  [routerLinkActiveOptions]="{ exact: true }"
+                  (click)="closeMobileNav()">
+                  <span>{{ item.label }}</span>
+                  @if (shell.mode() === 'advanced' && item.expertOnly) {
+                    <span class="nav-expert-label">Experte</span>
+                  }
+                </a>
+              }
+            </div>
+          </details>
         }
       </nav>
       @if (shell.mobileNavOpen()) {
@@ -170,7 +197,85 @@ import { SnakeOverlayComponent } from './components/snake-overlay.component';
       display: none;
     }
     .app-nav {
-      gap: 10px;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      position: relative;
+      z-index: 50;
+    }
+    .nav-menu-group {
+      position: relative;
+    }
+    .nav-menu-group summary {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 32px;
+      padding: 5px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--card-bg);
+      color: var(--fg);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      list-style: none;
+      user-select: none;
+    }
+    .nav-menu-group summary::-webkit-details-marker {
+      display: none;
+    }
+    .nav-menu-group summary::after {
+      content: '▾';
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .nav-menu-group[open] summary {
+      border-color: var(--accent);
+    }
+    .nav-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--accent) 16%, transparent);
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 700;
+    }
+    .nav-menu-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-width: 220px;
+      padding: 7px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--card-bg);
+      box-shadow: 0 14px 32px rgba(0, 0, 0, 0.22);
+    }
+    .app-nav .nav-menu-panel {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+    }
+    .nav-menu-panel a {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 8px 9px;
+      border-radius: 6px;
+      color: var(--fg);
+      text-decoration: none;
+      font-size: 13px;
+      line-height: 1.25;
+    }
+    .nav-menu-panel a:hover,
+    .nav-menu-panel a.active {
+      background: color-mix(in srgb, var(--accent) 14%, transparent);
     }
     .android-fullscreen-menu {
       display: flex;
@@ -184,18 +289,20 @@ import { SnakeOverlayComponent } from './components/snake-overlay.component';
       overflow-y: auto;
       flex-direction: column;
       align-items: stretch;
-      gap: 8px;
+      gap: 10px;
       pointer-events: none;
     }
     .android-fullscreen-menu.open {
       transform: translateX(0);
       pointer-events: auto;
     }
-    .android-fullscreen-menu a {
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 10px 12px;
-      background: var(--card-bg);
+    .android-fullscreen-menu .nav-menu-group {
+      position: static;
+    }
+    .android-fullscreen-menu .nav-menu-panel {
+      margin-top: 6px;
+      box-shadow: none;
+      min-width: 0;
     }
     .mobile-nav-backdrop {
       display: none;
@@ -221,17 +328,10 @@ import { SnakeOverlayComponent } from './components/snake-overlay.component';
       line-height: 1;
       padding: 0 8px;
     }
-    .nav-group-label {
-      font-size: 11px;
-      opacity: 0.8;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
     .nav-expert-label {
+      flex: 0 0 auto;
       font-size: 10px;
       color: var(--muted);
-      margin-left: -8px;
-      margin-right: 4px;
     }
     .route-context {
       padding: 6px 16px;
@@ -250,16 +350,19 @@ import { SnakeOverlayComponent } from './components/snake-overlay.component';
         width: 100%;
         flex-direction: column;
         align-items: stretch;
-        gap: 4px;
+        gap: 8px;
       }
       .app-nav.nav-open {
         display: flex;
       }
-      .app-nav a {
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        padding: 8px 10px;
-        background: var(--card-bg);
+      .app-nav .nav-menu-group {
+        position: static;
+      }
+      .app-nav .nav-menu-panel {
+        position: static;
+        min-width: 0;
+        margin-top: 6px;
+        box-shadow: none;
       }
       .mobile-nav-backdrop.open {
         display: block;
