@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import time
 from typing import Any
@@ -402,7 +403,7 @@ class VisualGuideService:
         import openai as _oai
         model = str(cfg.get("chat_model") or "gpt-4o-mini")
         api_base = str(cfg.get("chat_api_base") or "")
-        api_key = str(cfg.get("chat_api_key") or "")
+        api_key = str(cfg.get("chat_api_key") or os.environ.get("OPENAI_API_KEY") or "")
 
         if n_candidates == 1:
             system_prompt = (
@@ -489,7 +490,7 @@ class VisualGuideService:
         import openai as _oai
         model = str(cfg.get("chat_model") or "gpt-4o-mini")
         api_base = str(cfg.get("chat_api_base") or "")
-        api_key = str(cfg.get("chat_api_key") or "")
+        api_key = str(cfg.get("chat_api_key") or os.environ.get("OPENAI_API_KEY") or "")
 
         _client_kwargs: dict[str, Any] = {"api_key": api_key or "sk-no-key"}
         if api_base:
@@ -646,7 +647,7 @@ class VisualGuideService:
         import openai as _oai
         model = str(cfg.get("chat_model") or "gpt-4o-mini")
         api_base = str(cfg.get("chat_api_base") or "")
-        api_key = str(cfg.get("chat_api_key") or "")
+        api_key = str(cfg.get("chat_api_key") or os.environ.get("OPENAI_API_KEY") or "")
 
         _client_kwargs: dict[str, Any] = {"api_key": api_key or "sk-no-key"}
         if api_base:
