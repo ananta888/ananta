@@ -577,6 +577,46 @@
         }
         @if (selectedSection === 'llm') {
         <div class="card">
+          <h3>Task-Routing (Backend pro Task-Art)</h3>
+          <p class="muted">Steuert, welches Execution-Backend fuer welchen Task-Typ verwendet wird. Research-Tasks koennen z.B. an Deerflow delegiert werden.</p>
+          <div class="grid cols-2 mt-md">
+            <label class="col-span-full">Standard-Backend (Fallback)
+              <select [(ngModel)]="config.sgpt_routing.default_backend">
+                @for (b of taskKindBackendOptions(); track b) {
+                  <option [value]="b">{{ b }}</option>
+                }
+              </select>
+            </label>
+          </div>
+          <table class="standard-table mt-md">
+            <thead>
+              <tr>
+                <th>Task-Art</th>
+                <th>Backend</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (entry of taskKindRoutingEntries(); track entry.kind) {
+                <tr>
+                  <td class="font-mono">{{ entry.kind }}</td>
+                  <td>
+                    <select [(ngModel)]="config.sgpt_routing.task_kind_backend[entry.kind]">
+                      @for (b of taskKindBackendOptions(); track b) {
+                        <option [value]="b">{{ b }}</option>
+                      }
+                    </select>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          <div class="row mt-lg">
+            <button (click)="save()">Speichern</button>
+          </div>
+        </div>
+        }
+        @if (selectedSection === 'llm') {
+        <div class="card">
           <h3>Evolution Provider Status</h3>
           <p class="muted">Zeigt den aktuellen Evolution-Modus, Provider-Gesundheit und Governance-Gates fuer Analyze, Validate und Apply. Die Hub-Orchestrierung bleibt unangetastet; hier wird nur Transparenz ueber den delegierten Evolutionspfad geschaffen.</p>
           <div class="grid cols-2">
@@ -953,6 +993,54 @@
           <div class="muted font-sm mt-md">
             Effektiv: runtime_profile={{ config.runtime_profile_effective?.effective || config.runtime_profile || '-' }}
             · governance_mode={{ config.governance_mode_effective?.effective || config.governance_mode || '-' }}
+          </div>
+          <div class="row mt-lg">
+            <button (click)="save()">Speichern</button>
+          </div>
+        </div>
+        }
+        @if (selectedSection === 'system') {
+        <div class="card">
+          <h3>Freigabe &amp; Human-in-the-Loop</h3>
+          <p class="muted">Steuert ob Tasks eine explizite Freigabe benoetigen und welche Aktionen immer manuell genehmigt werden muessen.</p>
+          <div class="grid cols-2 mt-md">
+            <label class="row gap-sm col-span-full">
+              <input type="checkbox" [(ngModel)]="config.approval_lifecycle.enabled" />
+              Approval Lifecycle aktivieren
+            </label>
+            <label class="row gap-sm">
+              <input type="checkbox" [(ngModel)]="config.approval_lifecycle.grant_one_shot" [disabled]="!config.approval_lifecycle.enabled" />
+              One-Shot Freigabe (einmalig pro Grant)
+            </label>
+            <label>Freigabe-TTL (Sekunden)
+              <input type="number" min="60" max="86400" [(ngModel)]="config.approval_lifecycle.default_ttl_seconds" [disabled]="!config.approval_lifecycle.enabled" />
+            </label>
+            <label class="row gap-sm col-span-full">
+              <input type="checkbox" [(ngModel)]="config.approval_lifecycle.goal_pre_approvals.enabled" [disabled]="!config.approval_lifecycle.enabled" />
+              Ziel-Vorab-Freigaben aktivieren (goal_pre_approvals)
+            </label>
+            <label>Vorab-Freigabe TTL (Sekunden)
+              <input type="number" min="60" max="86400" [(ngModel)]="config.approval_lifecycle.goal_pre_approvals.ttl_seconds" [disabled]="!config.approval_lifecycle.enabled || !config.approval_lifecycle.goal_pre_approvals.enabled" />
+            </label>
+          </div>
+          <div class="row mt-lg">
+            <button (click)="save()">Speichern</button>
+          </div>
+        </div>
+        }
+        @if (selectedSection === 'system') {
+        <div class="card">
+          <h3>Mutation Gate</h3>
+          <p class="muted">Globale Kontrolle ob schreibende Operationen (Mutationen) erlaubt sind.</p>
+          <div class="grid cols-2 mt-md">
+            <label class="row gap-sm">
+              <input type="checkbox" [(ngModel)]="config.mutation_gate.enabled" />
+              Mutation Gate aktiv
+            </label>
+            <label class="row gap-sm">
+              <input type="checkbox" [(ngModel)]="config.mutation_gate.global_deny_mutations" [disabled]="!config.mutation_gate.enabled" />
+              Alle Mutationen global sperren
+            </label>
           </div>
           <div class="row mt-lg">
             <button (click)="save()">Speichern</button>

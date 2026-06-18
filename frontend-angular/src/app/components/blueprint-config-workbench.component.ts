@@ -14,6 +14,7 @@ type BlueprintRoleForm = {
   template_id: string;
   sort_order: number;
   is_required: boolean;
+  preferred_backend: string;
   configText: string;
 };
 
@@ -126,6 +127,18 @@ type TemplateForm = {
                     <select [(ngModel)]="role.template_id" (ngModelChange)="syncTemplateSelection()">
                       <option value="">Kein Template</option>
                       <option *ngFor="let tpl of templates" [value]="tpl.id">{{ tpl.name }}</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>Bevorzugtes Backend</span>
+                    <select [(ngModel)]="role.preferred_backend">
+                      <option value="">Standard (Hub-Default)</option>
+                      <option value="ananta-worker">ananta-worker</option>
+                      <option value="deerflow">deerflow</option>
+                      <option value="codex">codex</option>
+                      <option value="opencode">opencode</option>
+                      <option value="aider">aider</option>
+                      <option value="sgpt">sgpt</option>
                     </select>
                   </label>
                   <label>
@@ -347,6 +360,7 @@ export class BlueprintConfigWorkbenchComponent implements OnInit {
         template_id: role.template_id || '',
         sort_order: Number(role.sort_order || 0),
         is_required: role.is_required !== false,
+        preferred_backend: String((role.config || {}).preferred_backend || ''),
         configText: this.toPrettyJson(role.config || {}),
       }));
     this.artifacts = [...(blueprint?.artifacts || [])]
@@ -388,6 +402,7 @@ export class BlueprintConfigWorkbenchComponent implements OnInit {
       template_id: '',
       sort_order: this.roles.length + 1,
       is_required: true,
+      preferred_backend: '',
       configText: '{}',
     });
   }
@@ -416,14 +431,22 @@ export class BlueprintConfigWorkbenchComponent implements OnInit {
       name: this.blueprintForm.name.trim(),
       description: this.blueprintForm.description || '',
       base_team_type_name: this.blueprintForm.base_team_type_name || null,
-      roles: this.roles.map(role => ({
-        name: role.name.trim(),
-        description: role.description || '',
-        template_id: role.template_id || null,
-        sort_order: Number(role.sort_order || 0),
-        is_required: role.is_required !== false,
-        config: this.parseJson(role.configText, {}),
-      })),
+      roles: this.roles.map(role => {
+        const config = this.parseJson(role.configText, {});
+        if (role.preferred_backend) {
+          config['preferred_backend'] = role.preferred_backend;
+        } else {
+          delete config['preferred_backend'];
+        }
+        return {
+          name: role.name.trim(),
+          description: role.description || '',
+          template_id: role.template_id || null,
+          sort_order: Number(role.sort_order || 0),
+          is_required: role.is_required !== false,
+          config,
+        };
+      }),
       artifacts: this.artifacts.map(artifact => ({
         kind: artifact.kind || 'task',
         title: artifact.title.trim(),

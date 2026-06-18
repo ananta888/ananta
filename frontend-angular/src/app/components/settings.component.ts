@@ -96,6 +96,9 @@ export class SettingsComponent implements OnInit {
           template_model_overrides: normalizeModelOverrideMapValue(cfg?.template_model_overrides),
           task_kind_model_overrides: normalizeModelOverrideMapValue(cfg?.task_kind_model_overrides),
           research_backend: normalizeResearchBackendConfigValue(cfg?.research_backend),
+          sgpt_routing: this.normalizeSgptRouting(cfg?.sgpt_routing),
+          approval_lifecycle: this.normalizeApprovalLifecycle(cfg?.approval_lifecycle),
+          mutation_gate: this.normalizeMutationGate(cfg?.mutation_gate),
         };
         if (!this.config.codex_cli || typeof this.config.codex_cli !== 'object') {
           this.config.codex_cli = { target_provider: '', base_url: '', api_key_profile: '', prefer_lmstudio: true };
@@ -119,6 +122,30 @@ export class SettingsComponent implements OnInit {
       },
       error: () => this.ns.error('Einstellungen konnten nicht geladen werden')
     });
+  }
+  normalizeSgptRouting(raw: any): any {
+    const defaults = {
+      default_backend: 'ananta-worker',
+      task_kind_backend: { coding: 'ananta-worker', analysis: 'ananta-worker', doc: 'ananta-worker', ops: 'ananta-worker', research: 'deerflow' },
+    };
+    if (!raw || typeof raw !== 'object') return defaults;
+    return { ...defaults, ...raw, task_kind_backend: { ...defaults.task_kind_backend, ...(raw.task_kind_backend || {}) } };
+  }
+  normalizeApprovalLifecycle(raw: any): any {
+    const defaults = { enabled: false, grant_one_shot: true, default_ttl_seconds: 3600, goal_pre_approvals: { enabled: false, ttl_seconds: 7200 } };
+    if (!raw || typeof raw !== 'object') return defaults;
+    return { ...defaults, ...raw, goal_pre_approvals: { ...defaults.goal_pre_approvals, ...(raw.goal_pre_approvals || {}) } };
+  }
+  normalizeMutationGate(raw: any): any {
+    if (!raw || typeof raw !== 'object') return { enabled: true, global_deny_mutations: false };
+    return { enabled: raw.enabled !== false, global_deny_mutations: !!raw.global_deny_mutations };
+  }
+  taskKindBackendOptions(): string[] {
+    return ['ananta-worker', 'deerflow', 'codex', 'opencode', 'aider', 'sgpt'];
+  }
+  taskKindRoutingEntries(): { kind: string }[] {
+    const routing = this.config?.sgpt_routing?.task_kind_backend || {};
+    return Object.keys(routing).map(kind => ({ kind }));
   }
   getRuntimeProfileOptions(): string[] {
     const catalog = this.config?.runtime_profile_effective?.catalog;
@@ -277,6 +304,9 @@ export class SettingsComponent implements OnInit {
       template_model_overrides: templateModelOverrides,
       task_kind_model_overrides: normalizeModelOverrideMapValue(this.config?.task_kind_model_overrides),
       research_backend: normalizeResearchBackendConfigValue(this.config?.research_backend),
+      sgpt_routing: this.normalizeSgptRouting(this.config?.sgpt_routing),
+      approval_lifecycle: this.normalizeApprovalLifecycle(this.config?.approval_lifecycle),
+      mutation_gate: this.normalizeMutationGate(this.config?.mutation_gate),
     };
     if (this.config?.codex_cli && typeof this.config.codex_cli === 'object') {
       this.config.codex_cli = {
