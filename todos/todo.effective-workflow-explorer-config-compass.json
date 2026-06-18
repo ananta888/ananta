@@ -1,0 +1,611 @@
+{
+  "schema": "ananta.todo.v1",
+  "id": "todo.effective-workflow-explorer-config-compass",
+  "title": "Effective Workflow Explorer / Ananta Config Compass",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "ananta-configuration-understanding",
+  "created": "2026-06-18",
+  "status": "todo",
+  "priority": "P0",
+  "motivation": "Ananta hat inzwischen viele maechtige, aber getrennte Konfigurationswelten: VACGE/Config-Graph, Hub-Worker-Graph, Blueprint-Workbench, Team Types, Roles, Templates, AGENTS.md, profile-map.json, user.json, path_ai_modes, Model-/Worker-Routing, Tool-Policies, CodeCompass/RAG und restricted inference. Dadurch sind zwar viele Kombinationen und Pfade moeglich, aber es fehlt eine zentrale, verstaendliche Antwort auf: Was passiert tatsaechlich, wenn ich fuer Pfad X Aufgabe Y starte?",
+  "problem_statement": "Der Nutzer verliert den Ueberblick, weil Bearbeitungsseiten existieren, aber keine erklaerende Meta-View. Aktuelle Editoren zeigen Ausschnitte: Blueprints, Worker, Graph-Nodes oder Roh-Konfig. Es fehlt eine durchgehende Effective-Workflow-Kette von Pfad und Aufgabe bis zu Blueprint, Rollen, Templates, Worker, Modell, Tools, Kontextquellen, Policies, Writes, Verifikation und finaler Runtime-Wirkung.",
+  "core_goal": "Eine zentrale Orientierungs- und Diagnoseansicht bauen, die fuer surface + path + task_kind deterministisch erklaert, welche Konfiguration wirklich greift, warum sie greift, aus welcher Quelle sie stammt, ob sie editierbar ist, was sie ueberschreibt und wo der Nutzer sie gezielt bearbeiten kann.",
+  "non_goals": [
+    "Kein weiterer isolierter CRUD-Editor als Selbstzweck.",
+    "Keine zweite Patch-/Persistenzlogik neben VACGE-Hardening.",
+    "Kein LLM zur Berechnung der effektiven Konfiguration verwenden.",
+    "Keine impliziten Freigaben oder stillen Fallbacks verstecken.",
+    "Keine Runtime-Statusdaten als persistente Konfiguration zurueckschreiben."
+  ],
+  "relationship_to_existing_editors": {
+    "config_graph_editor": {
+      "role": "Low-Level Expertenansicht fuer den gesamten Config-Graphen.",
+      "problem": "Zu generisch fuer schnelle Antwort auf 'was passiert wirklich?'.",
+      "integration": "Config Compass nutzt ConfigGraphBuilderService und EffectiveConfigResolver als eine Datenquelle."
+    },
+    "hub_worker_graph_editor": {
+      "role": "Zeigt Hub zentral und Worker/Taskflows/Routing drumherum.",
+      "problem": "Erklaert nicht vollstaendig Blueprint/Rollen/Templates/Path-Policies/Context/Model-Wirkung.",
+      "integration": "Config Compass nutzt HubWorkerGraphService fuer Worker-Auswahl, Routing und Fallback-Ketten."
+    },
+    "blueprint_config_workbench": {
+      "role": "Bearbeitet Blueprints, Rollen, Templates, Artefakte, Work-Profile und Bundles.",
+      "problem": "Ist eher Blueprint-CRUD und Template-Editor, keine Gesamterklaerung der Runtime-Kette.",
+      "integration": "Config Compass verlinkt von effektiven Blueprint-/Rollen-/Template-Nodes direkt in diese Workbench."
+    },
+    "vacge_persistence_hardening": {
+      "role": "Persistenz, Approval, Audit, Rollback fuer sichere Konfigurationsaenderungen.",
+      "integration": "Alle Aenderungen aus Config Compass duerfen nur ueber diese Infrastruktur laufen."
+    }
+  },
+  "target_user_questions": [
+    "Was passiert, wenn ich fuer diesen Pfad Repair starte?",
+    "Welcher Blueprint wird fuer neues Softwareprojekt verwendet?",
+    "Welche Rollen und Templates werden tatsaechlich aktiv?",
+    "Welcher Worker fuehrt welche Rolle aus?",
+    "Welches Modell wird genommen und warum?",
+    "Welche Tools darf der Worker wirklich benutzen?",
+    "Welche Context-Quellen werden geladen: CodeCompass, RAG, AGENTS.md, Pfadkontext?",
+    "Welche path_ai_modes oder Policies blockieren etwas?",
+    "Welche Konfiguration kommt aus user.json, profile-map.json, Hub API, Blueprint, Template oder AGENTS.md?",
+    "Wo kann ich diesen konkreten Wert bearbeiten?",
+    "Was ist readonly, was ist writable, was ist nur Runtime?",
+    "Warum wurde ein Fallback gewaehlt?",
+    "Welche impliziten Defaults sind aktiv und sollten explizit gemacht werden?",
+    "Welche Kombinationen sind moeglich und welche sind verboten?"
+  ],
+  "primary_user_flow": [
+    "Nutzer oeffnet 'Effective Workflow Explorer'.",
+    "Nutzer waehlt oder tippt einen Projektpfad.",
+    "Nutzer waehlt surface, z.B. ai_snake_chat, ananta_worker, opencode, hermes oder Custom.",
+    "Nutzer waehlt task_kind, z.B. repair, new_software_project, refactor, review, documentation oder custom.",
+    "Backend berechnet deterministisch die komplette effektive Workflow-Kette.",
+    "UI zeigt eine erklaerbare Flow-Ansicht von Pfad bis Runtime-Wirkung.",
+    "Jeder Knoten zeigt declared/effective/source/reason/writable/diagnostics.",
+    "Nutzer kann auf 'Bearbeiten' klicken und springt gezielt in Blueprint Workbench, Hub Worker Graph oder Config Graph.",
+    "Nach Aenderung kann der Nutzer dieselbe Anfrage erneut aufloesen und sieht Diff/Verhalten vorher-nachher."
+  ],
+  "backend": {
+    "new_service": {
+      "name": "EffectiveWorkflowResolver",
+      "path_suggestion": "agent/services/effective_workflow_resolver.py",
+      "description": "Deterministischer Resolver, der fuer surface + path + task_kind alle relevanten Konfigurationsquellen zusammenfuehrt und eine erklaerbare Effective-Workflow-Antwort erzeugt."
+    },
+    "new_route": {
+      "path_suggestion": "agent/routes/effective_workflow.py oder Erweiterung von agent/routes/config_graph.py",
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/api/effective-workflow/resolve",
+          "description": "Berechnet die vollstaendige effektive Workflow-Kette fuer surface/path/task_kind."
+        },
+        {
+          "method": "POST",
+          "path": "/api/effective-workflow/compare",
+          "description": "Vergleicht zwei Effective-Workflow-Aufloesungen, z.B. vor/nach Config-Aenderung oder zwei Pfade/Task-Kinds."
+        },
+        {
+          "method": "GET",
+          "path": "/api/effective-workflow/options",
+          "description": "Liefert bekannte surfaces, task_kinds, Pfad-Vorschlaege, Blueprints, Worker und Diagnose-Metadaten fuer UI-Autocomplete."
+        },
+        {
+          "method": "POST",
+          "path": "/api/effective-workflow/explain-node",
+          "description": "Liefert Detailerklaerung fuer eine Node im Effective Workflow inklusive SourceRefs, Overrides und Edit-Links."
+        }
+      ]
+    },
+    "input_schema": {
+      "surface": "string; z.B. ai_snake_chat, ananta_worker, opencode, hermes",
+      "path": "string; Projekt-/Dateipfad, optional aber empfohlen",
+      "task_kind": "string; repair, new_software_project, refactor, review, documentation, custom",
+      "mode": "optional string; explain_only, edit_preview, strict",
+      "include_readonly": "boolean; readonly/runtime nodes mitliefern",
+      "include_diagnostics": "boolean; Diagnostics und Warnings ausgeben",
+      "include_alternatives": "boolean; alternative erlaubte Worker/Templates/Modelle anzeigen"
+    },
+    "output_schema": {
+      "schema": "ananta.effective_workflow.v1",
+      "request": "echo der Eingabe",
+      "summary": "kurze menschenlesbare Zusammenfassung",
+      "status": "ok | warning | blocked | invalid",
+      "effective_chain": "geordnete Hauptkette der wirksamen Konfiguration",
+      "graph": "Nodes/Edges fuer UI-Darstellung",
+      "selected": {
+        "surface": "aufgeloeste Surface",
+        "path_rules": "wirksame path_ai_modes",
+        "instruction_layers": "AGENTS.md-Schichten in Merge-Reihenfolge",
+        "agent_profile": "wirksames Agent-Profil",
+        "blueprint": "wirksamer Blueprint, falls vorhanden",
+        "team_type": "wirksamer Teamtyp, falls vorhanden",
+        "roles": "aktive Rollen",
+        "templates": "verwendete Templates",
+        "taskflow": "wirksamer Taskflow",
+        "worker_routing": "Worker pro Rolle/Step",
+        "models": "Modell/Provider/Fallbacks",
+        "tools": "erlaubte/blockierte Tools",
+        "context_sources": "CodeCompass/RAG/AGENTS.md/Working files/etc.",
+        "write_policy": "Write- und Approval-Regeln",
+        "verification": "Verifier/Tests/Completion Criteria"
+      },
+      "alternatives": "erlaubte, aber nicht gewaehlte Alternativen",
+      "blocked": "blockierte Optionen mit Grund",
+      "warnings": "Warnungen, implizite Defaults, fehlende Quellen, Konflikte",
+      "explanation_trace": "Schritt-fuer-Schritt warum diese Konfig greift",
+      "edit_links": "Ziel-Editor und Entity-ID fuer gezieltes Bearbeiten",
+      "source_index": "alle beteiligten Quellen mit source_file/source_kind/source_pointer/writable"
+    }
+  },
+  "data_model": {
+    "node_types": [
+      "workflow_request",
+      "path",
+      "path_rule",
+      "surface",
+      "instruction_layer",
+      "agent_profile",
+      "blueprint",
+      "team_type",
+      "role",
+      "template",
+      "artifact",
+      "taskflow",
+      "taskflow_step",
+      "hub",
+      "worker_instance",
+      "worker_adapter",
+      "model_provider",
+      "model_profile",
+      "fallback_chain",
+      "tool_group",
+      "tool",
+      "context_source",
+      "codecompass_profile",
+      "rag_profile",
+      "restricted_inference",
+      "write_policy",
+      "approval_policy",
+      "verification_rule",
+      "diagnostic",
+      "effective_value",
+      "declared_value",
+      "override"
+    ],
+    "edge_types": [
+      "requested_for_path",
+      "uses_surface",
+      "matches_path_rule",
+      "applies_instruction_layer",
+      "activates_profile",
+      "selects_blueprint",
+      "uses_team_type",
+      "contains_role",
+      "role_uses_template",
+      "creates_taskflow",
+      "executes_step",
+      "routes_to_worker",
+      "worker_uses_model",
+      "falls_back_to",
+      "allows_tool",
+      "blocks_tool",
+      "uses_context_source",
+      "requires_approval",
+      "allows_write",
+      "blocks_write",
+      "verifies_with",
+      "overrides",
+      "derived_from",
+      "editable_in",
+      "blocked_by_policy",
+      "warning_for"
+    ],
+    "required_node_fields": [
+      "id",
+      "node_type",
+      "label",
+      "runtime_active",
+      "declared_value",
+      "effective_value",
+      "source_file",
+      "source_kind",
+      "source_pointer",
+      "writable",
+      "readonly_reason",
+      "reason",
+      "diagnostics",
+      "edit_target"
+    ],
+    "edit_target_shape": {
+      "editor": "config_graph | hub_worker_graph | blueprint_config | model_config | path_policy | readonly",
+      "route": "Angular route",
+      "entity_id": "ID im Ziel-Editor",
+      "source_ref": "persistente Quelle, falls writable"
+    }
+  },
+  "resolution_order": [
+    {
+      "step": 1,
+      "name": "Request normalisieren",
+      "description": "surface/path/task_kind validieren, Pfad normalisieren, bekannte Aliase aufloesen."
+    },
+    {
+      "step": 2,
+      "name": "Instruction Layers bestimmen",
+      "description": "Root AGENTS.md, pfadbezogene AGENTS.md und Profil-AGENTS.md in effektiver Merge-Reihenfolge bestimmen."
+    },
+    {
+      "step": 3,
+      "name": "Path Policies bestimmen",
+      "description": "path_ai_modes, Schreibrechte, LLM-Scope, blocked/allowed modes und max_input_chars fuer den Pfad berechnen."
+    },
+    {
+      "step": 4,
+      "name": "Agent Profile bestimmen",
+      "description": "Surface und Task-Kind auf Agent-Profil abbilden, ohne unsicheren Fallback auf erstes aktives Profil."
+    },
+    {
+      "step": 5,
+      "name": "Blueprint / Team / Rollen aufloesen",
+      "description": "Passenden Blueprint, Team Type, Rollen, Artefakte und WorkProfile bestimmen."
+    },
+    {
+      "step": 6,
+      "name": "Templates aufloesen",
+      "description": "Pro Rolle das effektive Template und Template-Quellen bestimmen."
+    },
+    {
+      "step": 7,
+      "name": "Taskflow bestimmen",
+      "description": "Mehrstufige Kette aus Planner/Developer/Reviewer/Verifier oder custom steps aufloesen."
+    },
+    {
+      "step": 8,
+      "name": "Hub-/Worker-Routing bestimmen",
+      "description": "Worker pro Task-Kind/Rolle/Step bestimmen, inklusive Fallbacks und blockierter Worker."
+    },
+    {
+      "step": 9,
+      "name": "Model-/Provider-Routing bestimmen",
+      "description": "Explizite Task-/Worker-Konfiguration vor globalem Default vor ENV-Fallback. Jede Entscheidung begruenden."
+    },
+    {
+      "step": 10,
+      "name": "Tool- und Kontextrechte bestimmen",
+      "description": "Erlaubte und blockierte Tools, CodeCompass, RAG, restricted inference, deterministic-only und sensible Quellen bestimmen."
+    },
+    {
+      "step": 11,
+      "name": "Write-/Approval-/Verification-Regeln bestimmen",
+      "description": "Schreibrechte, Approval Gates, Verifikationsregeln, Tests und Completion Criteria aufloesen."
+    },
+    {
+      "step": 12,
+      "name": "Diagnostics und Alternativen berechnen",
+      "description": "Konflikte, implizite Defaults, fehlende Quellen, readonly Runtime-Daten und alternative erlaubte Pfade ausgeben."
+    }
+  ],
+  "frontend": {
+    "new_component": {
+      "name": "EffectiveWorkflowExplorerComponent",
+      "path_suggestion": "frontend-angular/src/app/components/effective-workflow-explorer.component.ts",
+      "route": "/effective-workflow",
+      "navigation_area": "Configure",
+      "breadcrumb": "Effective Workflow"
+    },
+    "layout": [
+      "Oben: Eingabezeile fuer Pfad, Surface, Task-Kind, Resolve-Button, Compare-Button.",
+      "Links: Summary/Status/Warnings und Quellenindex.",
+      "Mitte: Flow-Graph von Request zu effektiver Runtime-Kette.",
+      "Rechts: Detailpanel fuer selektierte Node mit declared/effective/source/reason/edit-link.",
+      "Unten: Explanation Trace als chronologische Liste.",
+      "Advanced-Tab: Raw JSON des EffectiveWorkflowResult."
+    ],
+    "views": [
+      {
+        "id": "overview",
+        "title": "Uebersicht",
+        "description": "Kurze, menschenlesbare Kette: Pfad -> Aufgabe -> Blueprint -> Rollen/Templates -> Worker -> Modell -> Tools -> Policies."
+      },
+      {
+        "id": "flow_graph",
+        "title": "Flow-Graph",
+        "description": "Visuelle Node-/Edge-Darstellung der effektiven Kette."
+      },
+      {
+        "id": "source_trace",
+        "title": "Quellen & Overrides",
+        "description": "Welche Quelle liefert welchen Wert, was ueberschreibt was."
+      },
+      {
+        "id": "warnings",
+        "title": "Probleme & Defaults",
+        "description": "Konflikte, implizite Defaults, fehlende Konfiguration, blockierte Pfade."
+      },
+      {
+        "id": "alternatives",
+        "title": "Alternativen",
+        "description": "Andere erlaubte Worker, Blueprints, Modelle oder Tools und warum sie nicht gewaehlt wurden."
+      },
+      {
+        "id": "raw",
+        "title": "Rohdaten",
+        "description": "Raw JSON fuer Debugging und Tests."
+      }
+    ],
+    "node_detail_requirements": [
+      "Label und Typ der Node.",
+      "Declared value vs Effective value.",
+      "Quelle: source_file, source_kind, source_pointer.",
+      "Writable ja/nein plus readonly_reason.",
+      "Warum wurde dieser Wert gewaehlt?",
+      "Welche Werte wurden ueberschrieben?",
+      "Welche Diagnostics gibt es?",
+      "Button: Im passenden Editor bearbeiten.",
+      "Button: Source-Diff/Source anzeigen, falls moeglich.",
+      "Button: Wert explizit machen, wenn aktuell impliziter Default."
+    ]
+  },
+  "work_packages": [
+    {
+      "id": "EWF-001",
+      "title": "EffectiveWorkflowResolver Backend-Service bauen",
+      "priority": "P0",
+      "description": "Zentralen Resolver implementieren, der ConfigGraph, HubWorkerGraph, Blueprint APIs/Readmodels und User-Konfiguration zusammenfuehrt.",
+      "tasks": [
+        "Neue Dataclasses fuer EffectiveWorkflowResult, EffectiveWorkflowNode, EffectiveWorkflowEdge, ExplanationStep, SourceRef anlegen.",
+        "ConfigGraphBuilderService und EffectiveConfigResolver als erste Quelle integrieren.",
+        "HubWorkerGraphService integrieren fuer Worker, Routing und Fallbacks.",
+        "Blueprint-/Team-/Template-Readmodels integrieren, soweit im Hub verfuegbar.",
+        "PathRules und AGENTS.md-Layer in die Hauptkette einbauen.",
+        "Default-Deny bei fehlenden Zuordnungen erzwingen: unknown surface/profile/tool policy darf nicht still auf irgendwas fallen.",
+        "Alle Entscheidungen mit reason und source_ref versehen."
+      ],
+      "acceptance_criteria": [
+        "POST /api/effective-workflow/resolve liefert fuer path+surface+task_kind ein Ergebnis mit schema ananta.effective_workflow.v1.",
+        "Result enthaelt graph.nodes, graph.edges, explanation_trace, warnings, source_index und edit_links.",
+        "Unbekannte surface erzeugt blocked/invalid mit Diagnose statt Fallback-Profil.",
+        "Fehlende Tool-Policy erzeugt keine implizite Tool-Freigabe.",
+        "Jede ausgewaehlte Hauptentscheidung hat mindestens einen reason und eine source_ref oder readonly_reason."
+      ]
+    },
+    {
+      "id": "EWF-002",
+      "title": "Blueprint-/Role-/Template-Wirkung in Effective Workflow einbauen",
+      "priority": "P0",
+      "description": "Blueprint Workbench darf nicht isoliert bleiben. Der Effective Workflow muss zeigen, welcher Blueprint, welche Rollen und welche Templates wirklich aktiv sind.",
+      "tasks": [
+        "Blueprint-Auswahlregel definieren: task_kind/path/surface -> blueprint.",
+        "Team Type, Roles und Templates aus Hub API oder lokalen Readmodels laden.",
+        "Rollen-Reihenfolge, Pflichtrollen und Template-Zuordnung sichtbar machen.",
+        "Template-Inhalte nicht voll im Graph anzeigen, sondern als Detail/Preview mit SourceRef.",
+        "Artefakte und WorkProfile als Kontext/Output-Regeln darstellen.",
+        "EditLinks zur BlueprintConfigWorkbench erzeugen."
+      ],
+      "acceptance_criteria": [
+        "Effective Workflow zeigt Blueprint, Team Type, Rollen und Templates als eigene Nodes.",
+        "Jede Rolle zeigt template_id, required, sort_order und config effective/declarative.",
+        "Wenn kein Blueprint eindeutig passt, wird das als Warning oder blocked ausgegeben.",
+        "Klick auf Blueprint/Rolle/Template kann in Blueprint-Konfig springen."
+      ]
+    },
+    {
+      "id": "EWF-003",
+      "title": "Hub-/Worker-/Model-Routing erklaerbar machen",
+      "priority": "P0",
+      "description": "Der Nutzer muss sehen, welcher Worker und welches Modell fuer welchen Step benutzt wird und warum.",
+      "tasks": [
+        "hub_worker_routing, worker_runtime, opencode_runtime, hermes_worker_adapter und routing_fallback_policy auswerten.",
+        "Explizite Task-/Worker-Konfig vor globalem Default vor ENV-Fallback modellieren.",
+        "Fallback-Kette als eigene Nodes/Edges darstellen.",
+        "Timeout, Retry, max_context, backend/model/provider sichtbar machen.",
+        "Fehlende Worker-Konfig von bewusst deaktiviert unterscheiden.",
+        "EditLinks zum HubWorkerGraphEditor erzeugen."
+      ],
+      "acceptance_criteria": [
+        "Pro Taskflow-Step ist ein Worker oder ein blocked-Grund sichtbar.",
+        "Modell-/Provider-Auswahl zeigt Quelle und Override-Reihenfolge.",
+        "ENV-Fallbacks werden als implizit markiert und koennen als Warning erscheinen.",
+        "Inaktive Worker werden nicht still verwendet."
+      ]
+    },
+    {
+      "id": "EWF-004",
+      "title": "Tool-, Context- und Write-Policies integrieren",
+      "priority": "P0",
+      "description": "Die sicherheitsrelevante Wirkung muss sichtbar sein: Tools, Kontextquellen, Writes, Approval und Verification.",
+      "tasks": [
+        "ToolRegistry und Toolgruppen als erlaubte/blockierte Nodes integrieren.",
+        "CodeCompass, RAG, pre_model_context, restricted_inference und deterministic-only Modi darstellen.",
+        "path_ai_modes auf Tool-/Context-/LLM-Wirkung abbilden.",
+        "Write-Policies und Approval-Gates als eigene Nodes darstellen.",
+        "Verification Rules, Tests und Completion Criteria einbauen, soweit konfiguriert.",
+        "Explizite Default-Deny-Warnungen bei fehlender Policy ausgeben."
+      ],
+      "acceptance_criteria": [
+        "Tools sind in allowed, blocked und unknown/unconfigured getrennt.",
+        "Context Sources zeigen ob sie aktiv, blockiert oder nur readonly sind.",
+        "Write-Rechte fuer den Pfad sind sichtbar und begruendet.",
+        "High-risk Tool/Write/Policy-Konfigurationen sind im UI markiert."
+      ]
+    },
+    {
+      "id": "EWF-005",
+      "title": "Angular EffectiveWorkflowExplorerComponent bauen",
+      "priority": "P0",
+      "description": "Neue UI-Seite fuer Orientierung und Erklaerung bauen, nicht als weiterer isolierter CRUD-Editor.",
+      "tasks": [
+        "Route /effective-workflow in app.routes.ts eintragen.",
+        "Navigation unter Configure als 'Effective Workflow' anzeigen.",
+        "Formular fuer path/surface/task_kind bauen mit Autocomplete aus /options.",
+        "Resolve-Button ruft Backend auf und rendert Summary, Graph, Trace, Warnings und SourceIndex.",
+        "Node-Detailpanel mit declared/effective/source/reason/edit-link implementieren.",
+        "Graph-Layout mit Hauptkette horizontal und Nebeninfos einklappbar darstellen.",
+        "Raw JSON Tab fuer Debugging anbieten."
+      ],
+      "acceptance_criteria": [
+        "Nutzer kann mit 3 Eingaben eine komplette Wirkungskette sehen.",
+        "UI beantwortet sichtbar: was, warum, woher, wo bearbeiten.",
+        "Warnings sind nicht versteckt, sondern oben klar sichtbar.",
+        "Readonly, writable, runtime-only und implicit-default sind visuell unterscheidbar."
+      ]
+    },
+    {
+      "id": "EWF-006",
+      "title": "Compare- und Before/After-Modus implementieren",
+      "priority": "P1",
+      "description": "Der Nutzer soll Konfigurationen vergleichen koennen, z.B. vor/nach Aenderung oder repair vs new_software_project.",
+      "tasks": [
+        "POST /api/effective-workflow/compare implementieren.",
+        "Vergleich zweier Requests unterstuetzen: path/task_kind/surface A vs B.",
+        "Vergleich von aktuellem Result mit gespeicherter Snapshot-Datei optional vorbereiten.",
+        "UI zeigt Unterschiede in Blueprint, Worker, Modell, Tools, Context und Policies.",
+        "Changed/added/removed/blocked visuell markieren."
+      ],
+      "acceptance_criteria": [
+        "Compare zeigt Unterschiede zwischen zwei Task-Kinds fuer denselben Pfad.",
+        "Compare zeigt Unterschiede zwischen zwei Pfaden fuer dieselbe Aufgabe.",
+        "Unterschiede enthalten reason/source, nicht nur Wert-Diff."
+      ]
+    },
+    {
+      "id": "EWF-007",
+      "title": "Edit-Jump und 'Wert explizit machen' integrieren",
+      "priority": "P1",
+      "description": "Config Compass soll nicht alles selbst editieren, sondern gezielt in passende Editoren springen und implizite Defaults explizit persistierbar machen.",
+      "tasks": [
+        "EditLinks fuer Blueprint, Worker, PathRule, ModelProvider, ToolPolicy und AGENTS.md erzeugen.",
+        "UI-Button 'Im passenden Editor bearbeiten' implementieren.",
+        "UI-Button 'Impliziten Default explizit machen' vorbereiten.",
+        "Diese Aktionen muessen validate-patch/apply-patch/Persistenz/Audit verwenden.",
+        "Readonly-Runtime-Nodes duerfen keine Edit-Aktion anbieten."
+      ],
+      "acceptance_criteria": [
+        "Jeder writable Wert hat einen funktionierenden Ziel-Editor oder Patch-Pfad.",
+        "Implizite Defaults koennen gezielt als echte Config geschrieben werden.",
+        "Alle schreibenden Aktionen laufen ueber Approval/Audit/Rollback."
+      ]
+    },
+    {
+      "id": "EWF-008",
+      "title": "Diagnostics, Konflikte und Erklaertexte verbessern",
+      "priority": "P0",
+      "description": "Der Explorer muss nicht nur Daten anzeigen, sondern Probleme benennen und menschlich erklaeren.",
+      "tasks": [
+        "Severity-Modell einfuehren: info, warning, error, critical.",
+        "Konflikte erkennen: mehrere passende Blueprints, fehlende Worker, blockierte Tools, Modell-Fallback ohne explizite Config.",
+        "Implizite Defaults als eigene Warning-Kategorie darstellen.",
+        "Unklare oder unvollstaendige Config als actionable diagnostic ausgeben.",
+        "Erklaertexte kurz, direkt und technisch brauchbar formulieren."
+      ],
+      "acceptance_criteria": [
+        "Bei defekter/unklarer Konfig bekommt der Nutzer konkrete naechste Schritte.",
+        "Diagnostics enthalten source_ref und optional edit_target.",
+        "Critical Diagnostics verhindern false-ok Ergebnisse."
+      ]
+    },
+    {
+      "id": "EWF-009",
+      "title": "Persistierbare Snapshots und Audit-Verknuepfung",
+      "priority": "P1",
+      "description": "Effective Workflow Ergebnisse sollen fuer Debugging und spaetere Vergleiche snapshotbar sein.",
+      "tasks": [
+        "Optionalen Snapshot-Export als JSON implementieren.",
+        "Snapshot enthaelt request, result, source_index, timestamp und commit/config hash.",
+        "Audit-Events von Config-Aenderungen koennen mit Effective Workflow Snapshots verknuepft werden.",
+        "UI kann letzten Snapshot laden und vergleichen."
+      ],
+      "acceptance_criteria": [
+        "Snapshot kann lokal/als Artefakt gespeichert werden.",
+        "Snapshot-Vergleich zeigt fachliche Wirkung, nicht nur JSON-Diff.",
+        "Sensitive Daten werden im Snapshot redacted."
+      ]
+    },
+    {
+      "id": "EWF-010",
+      "title": "Tests, Fixtures und Regression-Guards",
+      "priority": "P0",
+      "description": "Die Orientierungslogik muss stabil bleiben, weil sie zum zentralen Verstaendniswerkzeug wird.",
+      "tasks": [
+        "Unit-Tests fuer EffectiveWorkflowResolver mit minimaler Config.",
+        "Fixture fuer repair: Pfad -> Blueprint -> Planner/Developer/Reviewer/Verifier -> Worker -> Modell -> Tools.",
+        "Fixture fuer new_software_project mit anderem Blueprint und Taskflow.",
+        "Fixture fuer unknown surface ohne Fallback.",
+        "Fixture fuer fehlende Tool-Policy mit Default-Deny.",
+        "Fixture fuer blockierte path_ai_modes.",
+        "API-Tests fuer /resolve, /compare und /options.",
+        "Frontend-Komponententests fuer Warnings, Node-Detail und EditLinks."
+      ],
+      "acceptance_criteria": [
+        "Mindestens 5 representative Workflow-Fixtures sind vorhanden.",
+        "Tests pruefen, dass keine impliziten Tool-Freigaben entstehen.",
+        "Tests pruefen, dass unknown surface nicht auf erstes Profil faellt.",
+        "Tests pruefen, dass source_ref/reason fuer Hauptentscheidungen vorhanden sind.",
+        "CI bricht bei fehlender Effective-Workflow-Erklaerung fuer zentrale Pfade."
+      ]
+    }
+  ],
+  "security_requirements": [
+    "Default-Deny bei fehlender Tool-, Worker-, Write- oder Profile-Konfiguration.",
+    "Keine automatische Auswahl des ersten aktiven Profils bei unknown surface.",
+    "Keine Secrets in EffectiveWorkflowResult, SourceIndex, Snapshots oder UI anzeigen.",
+    "Sensitive source refs nur als Pfad/Pointer, nicht mit geheimem Inhalt ausgeben.",
+    "Write-/Tool-/Network-Freigaben muessen als high-risk sichtbar sein.",
+    "Alle schreibenden Quick-Fixes muessen VACGE Approval/Audit/Rollback verwenden.",
+    "Runtime-only Felder sind readonly und koennen nicht persistiert werden.",
+    "LLM darf nicht zur Bestimmung der effektiven Konfiguration verwendet werden."
+  ],
+  "ui_copy_examples": [
+    {
+      "case": "implicit_model_default",
+      "message": "Modell kommt aus globalem Fallback, nicht aus task-spezifischer Konfiguration. Fuer reproduzierbares Verhalten explizit setzen."
+    },
+    {
+      "case": "missing_tool_policy",
+      "message": "Dieses Profil hat keine explizite Tool-Policy. Default-Deny aktiv: keine Tools erlaubt."
+    },
+    {
+      "case": "unknown_surface",
+      "message": "Surface ist unbekannt. Es wird kein Fallback-Profil gewaehlt. Bitte Surface oder Profil-Zuordnung konfigurieren."
+    },
+    {
+      "case": "path_rule_blocks_llm",
+      "message": "Pfadregel blockiert full_llm fuer diesen Pfad. Nur deterministische oder eingeschraenkte Kontextwege sind erlaubt."
+    },
+    {
+      "case": "worker_missing",
+      "message": "Routing zeigt auf Worker, aber die Worker-Konfiguration fehlt oder ist inaktiv."
+    }
+  ],
+  "suggested_navigation_restructure": {
+    "Configure": [
+      "Effective Workflow",
+      "Hub-/Worker-Graph",
+      "Blueprint-Konfig",
+      "Konfig-Graph",
+      "Modelle/Provider",
+      "Pfad-Policies",
+      "Tools",
+      "Kontext/RAG"
+    ],
+    "recommended_order": "Effective Workflow zuerst, weil es die Orientierungsschicht ist. Die anderen Seiten sind Ziel-Editoren."
+  },
+  "definition_of_done": [
+    "Fuer surface + path + task_kind kann eine vollstaendige Effective-Workflow-Kette berechnet werden.",
+    "Die Kette verbindet mindestens Path Rules, Instruction Layers, Agent Profile, Blueprint, Rollen, Templates, Worker, Modell, Tools, Context Sources und Policies.",
+    "Jede Hauptentscheidung hat reason, source_ref, declared/effective value und edit_target oder readonly_reason.",
+    "Unknown/fehlende Konfiguration wird nicht still gefallbackt, sondern als Warning/Error sichtbar.",
+    "Die Angular-UI beantwortet klar: was passiert, warum, woher kommt es, wo kann ich es bearbeiten.",
+    "Blueprint Workbench, HubWorkerGraph und VACGE sind als Ziel-Editoren verlinkt, nicht isolierte Inseln.",
+    "Compare-Modus kann zwei Effective-Workflow-Aufloesungen fachlich vergleichen.",
+    "Security-Defaults: Default-Deny, keine Secrets, keine LLM-basierte Resolverlogik.",
+    "Tests decken zentrale Pfade repair, new_software_project, refactor/review und Fehlerfaelle ab."
+  ],
+  "implementation_notes": [
+    "Zuerst read-only Resolver und UI bauen. Edit-Aktionen erst danach anschliessen.",
+    "Nicht versuchen, alle vorhandenen Konfigurationsformen sofort perfekt zu normalisieren. Lieber klare SourceRefs und Diagnostics ausgeben, wenn etwas noch nicht modelliert ist.",
+    "Die Ergebnisstruktur muss stabil versioniert sein, damit spaeter andere Tools/Agenten sie als Kontextquelle nutzen koennen.",
+    "Dieser Explorer sollte spaeter selbst als CodeCompass/Agent-Kontext dienen: 'erkläre mir die aktive Ananta-Konfiguration fuer diesen Task'.",
+    "Bei unvollstaendigen Daten immer ehrlich 'unknown/unconfigured' ausgeben statt plausible Werte zu erfinden."
+  ]
+}
