@@ -471,12 +471,20 @@ const CLONE_DEFS: Record<string, CloneFormField[]> = {
             <div *ngIf="editMode && pendingOps.length > 0" class="edit-toolbar">
               <span>{{ pendingOps.length }} Änderung(en)</span>
               <button class="button-outline" (click)="validatePatch()">Validieren</button>
-              <button class="button-outline" [disabled]="!lastValidation?.valid || lastValidation?.requires_approval" (click)="applyPatch()">Anwenden</button>
+              <input *ngIf="lastValidation?.requires_approval" [(ngModel)]="approvalToken" class="approval-input" placeholder="Approval-Token" />
+              <button class="button-outline" [disabled]="!lastValidation?.valid" (click)="applyPatch()">Anwenden</button>
               <button class="button-outline danger" (click)="discardPatch()">Verwerfen</button>
               <span *ngIf="lastValidation" class="risk-badge" [class]="'risk-' + lastValidation.risk_tier">{{ lastValidation.risk_tier }}</span>
               <ul *ngIf="lastValidation?.errors?.length" class="edit-errors">
                 <li *ngFor="let e of lastValidation!.errors">{{ e }}</li>
               </ul>
+            </div>
+            <div *ngIf="lastSourceDiffs.length" class="source-diff-panel">
+              <div class="source-diff-head">
+                <strong>Source-Diff</strong>
+                <button *ngIf="lastRollbackArtifact" class="button-outline" (click)="rollbackLastPatch()">Rollback</button>
+              </div>
+              <pre *ngFor="let diff of lastSourceDiffs">{{ diff }}</pre>
             </div>
             <div class="cge-canvas-wrap" *ngIf="!loading; else loadingTpl">
               <svg #svgEl class="cge-svg" [attr.width]="svgWidth" [attr.height]="svgHeight" (click)="onSvgClick($event)">
@@ -700,6 +708,10 @@ const CLONE_DEFS: Record<string, CloneFormField[]> = {
     .warn-inline { color:#ffcc80; font-size:12px; }
     .edit-errors { color:#ff8a80; font-size:12px; margin:0; padding:0 0 0 14px; }
     button.danger { color:#ff8a80; }
+    .approval-input { width:220px; background:var(--bg-input,#1e1e1e); color:var(--text,#ddd); border:1px solid var(--border-color,#333); border-radius:5px; padding:5px 8px; font-size:12px; }
+    .source-diff-panel { margin:8px 12px 0; border:1px solid var(--border-color,#333); border-radius:7px; background:var(--bg-card,#1a1a1a); padding:10px; max-height:220px; overflow:auto; font-size:12px; }
+    .source-diff-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
+    .source-diff-panel pre { white-space:pre-wrap; margin:0 0 8px; color:#c8d8e8; font-size:11px; }
 
     /* ── Behavior dimensions ────────────────────────────────────── */
     .beh-grid { display:flex; flex-direction:column; gap:8px; }
@@ -764,6 +776,9 @@ export class ConfigGraphEditorComponent implements OnInit, AfterViewInit, OnDest
 
   pendingOps: PatchOp[] = [];
   lastValidation: ValidationResult | null = null;
+  approvalToken = '';
+  lastSourceDiffs: string[] = [];
+  lastRollbackArtifact: Record<string, unknown> | null = null;
   cloneState: CloneFormState | null = null;
 
   private layoutNodes: Map<string, LayoutNode> = new Map();
@@ -1082,12 +1097,44 @@ export class ConfigGraphEditorComponent implements OnInit, AfterViewInit, OnDest
 
   applyPatch(): void {
     if (!this.pendingOps.length || !this.lastValidation?.valid) return;
-    this.svc.applyPatch(this.pendingOps).pipe(takeUntil(this.destroy$)).subscribe({
-      next: r => { this.graph = r.graph; this.pendingOps = []; this.lastValidation = null; this.selectedNode = null; this.computeLayout(); this.cdr.markForCheck(); },
+    this.svc.applyPatch(this.pendingOps, this.approvalToken).pipe(takeUntil(this.destroy$)).subscribe({
+      next: r => {
+        this.graph = r.graph;
+        this.pendingOps = [];
+        this.lastValidation = null;
+        this.approvalToken = '';
+        this.selectedNode = null;
+        this.lastSourceDiffs = (r.result.source_diffs ?? [])
+          .map(item => String((item as Record<string, unknown>)['diff'] ?? ''))
+          .filter(Boolean);
+        this.lastRollbackArtifact = r.result.rollback_artifact ?? null;
+        this.computeLayout();
+        this.cdr.markForCheck();
+      },
     });
   }
 
-  discardPatch(): void { this.pendingOps = []; this.lastValidation = null; this.cdr.markForCheck(); }
+  rollbackLastPatch(): void {
+    if (!this.lastRollbackArtifact) return;
+    this.svc.rollbackPatch(this.lastRollbackArtifact).pipe(takeUntil(this.destroy$)).subscribe({
+      next: r => {
+        this.graph = r.graph;
+        this.lastSourceDiffs = (r.result.source_diffs ?? [])
+          .map(item => String((item as Record<string, unknown>)['diff'] ?? ''))
+          .filter(Boolean);
+        this.lastRollbackArtifact = r.result.rollback_artifact ?? null;
+        this.computeLayout();
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  discardPatch(): void {
+    this.pendingOps = [];
+    this.lastValidation = null;
+    this.approvalToken = '';
+    this.cdr.markForCheck();
+  }
 
   // ── SVG / Layout ───────────────────────────────────────────────────────────
 

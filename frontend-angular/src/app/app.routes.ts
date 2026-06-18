@@ -24,6 +24,7 @@ export const routes: Routes = [
       { path: 'chats', data: { breadcrumb: 'AI Chats', area: 'Operate' }, loadComponent: () => import('./features/chat/chat-page.component').then(m => m.ChatPageComponent) },
       { path: 'help', data: { breadcrumb: 'Hilfe', area: 'General' }, loadComponent: () => import('./components/help.component').then(m => m.HelpComponent) },
       { path: 'config-graph', data: { breadcrumb: 'Konfig-Graph', area: 'Configure' }, loadComponent: () => import('./components/config-graph-editor.component').then(m => m.ConfigGraphEditorComponent) },
+      { path: 'hub-worker-graph', data: { breadcrumb: 'Hub-/Worker-Graph', area: 'Configure' }, loadComponent: () => import('./components/hub-worker-graph-editor.component').then(m => m.HubWorkerGraphEditorComponent) },
       ...controlPlaneRoutes,
       ...controlCenterRoutes,
       ...adminRoutes,

@@ -16,11 +16,19 @@ POST /api/config-graph/apply-patch
 """
 from __future__ import annotations
 
-from flask import Blueprint, current_app, jsonify, request
+import json
+import difflib
+from pathlib import Path
 
+from flask import Blueprint, jsonify, request
+
+from agent.common.audit import log_audit
+from agent.services.config_graph_approval_service import ConfigGraphApprovalService
 from agent.services.config_graph_builder_service import get_config_graph_builder_service
 from agent.services.config_graph_effective_resolver import EffectiveConfigResolver
 from agent.services.config_graph_patch_service import ConfigGraphPatchService, PatchOp
+from agent.services.config_graph_persistence_service import ConfigGraphPersistenceService
+from agent.services.hub_worker_graph_service import HubWorkerGraphService
 
 config_graph_bp = Blueprint("config_graph", __name__, url_prefix="/api/config-graph")
 
@@ -34,10 +42,25 @@ def _get_user_config() -> dict:
         return {}
 
 
+def _get_repo_root() -> Path:
+    return Path(__file__).parents[2]
+
+
+def _read_user_json_config() -> dict:
+    path = _get_repo_root() / "user.json"
+    if not path.exists():
+        return _get_user_config()
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return _get_user_config()
+    return payload if isinstance(payload, dict) else _get_user_config()
+
+
 @config_graph_bp.get("")
 def get_config_graph():
     """Build and return the full Ananta configuration graph."""
-    cfg = _get_user_config()
+    cfg = _read_user_json_config()
     builder = get_config_graph_builder_service(user_config=cfg)
     graph = builder.build()
     return jsonify(graph.to_dict())
@@ -54,12 +77,60 @@ def get_effective_config():
     if not surface:
         return jsonify({"error": "surface is required"}), 400
 
-    cfg = _get_user_config()
+    cfg = _read_user_json_config()
     builder = get_config_graph_builder_service(user_config=cfg)
     graph = builder.build()
     resolver = EffectiveConfigResolver(graph)
     effective = resolver.resolve(surface=surface, task_kind=task_kind, path=path)
     return jsonify(effective.to_dict())
+
+
+@config_graph_bp.get("/hub-worker")
+def get_hub_worker_graph():
+    """Return the hub-centered worker orchestration read model."""
+    path = str(request.args.get("path") or "").strip() or None
+    cfg = _read_user_json_config()
+    graph = HubWorkerGraphService().build(user_config=cfg, path=path)
+    return jsonify(graph)
+
+
+@config_graph_bp.post("/instruction-layer/diff")
+def diff_instruction_layer():
+    """Return a review diff for AGENTS.md-style instruction edits.
+
+    Instruction layers are intentionally not writable through generic
+    ``set_data`` patch operations.  This endpoint supports a separate review
+    flow by returning a diff only; applying the diff remains an explicit
+    operator-controlled source change.
+    """
+    body = request.get_json(force=True, silent=True) or {}
+    source_file = str(body.get("source_file") or "").strip()
+    proposed_content = body.get("content")
+    if not source_file or not isinstance(proposed_content, str):
+        return jsonify({"error": "source_file and content are required"}), 400
+    path = (_get_repo_root() / source_file).resolve()
+    try:
+        path.relative_to(_get_repo_root())
+    except ValueError:
+        return jsonify({"error": "source_file must stay inside repo root"}), 400
+    if path.name != "AGENTS.md":
+        return jsonify({"error": "Only AGENTS.md instruction layers are supported"}), 400
+    before = path.read_text(encoding="utf-8") if path.exists() else ""
+    diff_text = "".join(difflib.unified_diff(
+        before.splitlines(keepends=True),
+        proposed_content.splitlines(keepends=True),
+        fromfile=f"a/{source_file}",
+        tofile=f"b/{source_file}",
+    ))
+    return jsonify({
+        "valid": True,
+        "risk_tier": "critical",
+        "requires_approval": True,
+        "source_file": source_file,
+        "diff": diff_text,
+        "apply_supported": False,
+        "message": "Review-only diff generated; apply through explicit source review.",
+    })
 
 
 @config_graph_bp.post("/validate-patch")
@@ -74,7 +145,7 @@ def validate_patch():
     if ops is None:
         return jsonify({"error": "Invalid op format — each op requires op, target"}), 400
 
-    cfg = _get_user_config()
+    cfg = _read_user_json_config()
     builder = get_config_graph_builder_service(user_config=cfg)
     graph = builder.build()
 
@@ -101,7 +172,7 @@ def apply_patch():
     if ops is None:
         return jsonify({"error": "Invalid op format — each op requires op, target"}), 400
 
-    cfg = _get_user_config()
+    cfg = _read_user_json_config()
     builder = get_config_graph_builder_service(user_config=cfg)
     graph = builder.build()
 
@@ -112,17 +183,104 @@ def apply_patch():
         return jsonify({"error": "Patch validation failed", "details": val.to_dict()}), 422
 
     if val.requires_approval:
-        result = patch_svc.apply_approved(graph, ops, approval_token)
-    else:
-        result = patch_svc.apply(graph, ops, skip_validation=True)
+        approval = ConfigGraphApprovalService(
+            secret=str(cfg.get("vacge_approval_secret") or "")
+        ).validate(
+            ops=[op.to_dict() for op in ops],
+            risk_tier=val.risk_tier,
+            approval_token=approval_token,
+        )
+        if not approval.approved:
+            return jsonify({
+                "error": "Patch approval failed",
+                "details": {
+                    "approval": {
+                        "approved": approval.approved,
+                        "reason_code": approval.reason_code,
+                        "details": approval.details,
+                    },
+                    "validation": val.to_dict(),
+                },
+            }), 403
+
+    persistence = ConfigGraphPersistenceService(repo_root=_get_repo_root()).persist(graph, ops)
+    if not persistence.success:
+        return jsonify({"error": "Patch persistence failed", "details": persistence.to_dict()}), 422
+
+    result = patch_svc.apply(graph, ops, skip_validation=True)
+    result.source_diffs = [item.to_dict() for item in persistence.source_diffs]
+    result.rollback_artifact = persistence.rollback_artifact
 
     if not result.success:
         return jsonify({"error": "Patch apply failed", "details": result.to_dict()}), 422
 
+    log_audit("config_graph_patch_applied", {
+        "risk_tier": val.risk_tier,
+        "op_count": len(ops),
+        "source_files": [item.source_file for item in persistence.source_diffs],
+        "rollback_sources": len(persistence.rollback_artifact.get("sources") or []),
+    })
+
+    refreshed_cfg = _read_user_json_config()
+    refreshed_graph = get_config_graph_builder_service(user_config=refreshed_cfg).build()
+
     return jsonify({
         "result": result.to_dict(),
-        "graph": graph.to_dict(),
+        "graph": refreshed_graph.to_dict(),
     })
+
+
+@config_graph_bp.post("/rollback")
+def rollback_patch():
+    """Apply a rollback artifact previously returned by apply-patch."""
+    body = request.get_json(force=True, silent=True) or {}
+    artifact = body.get("rollback_artifact")
+    if not isinstance(artifact, dict):
+        return jsonify({"error": "rollback_artifact is required"}), 400
+
+    result = ConfigGraphPersistenceService(repo_root=_get_repo_root()).rollback(artifact)
+    if not result.success:
+        return jsonify({"error": "Rollback failed", "details": result.to_dict()}), 422
+
+    log_audit("config_graph_patch_rolled_back", {
+        "source_files": [item.source_file for item in result.source_diffs],
+        "source_count": len(result.source_diffs),
+    })
+    cfg = _read_user_json_config()
+    graph = get_config_graph_builder_service(user_config=cfg).build()
+    return jsonify({"result": result.to_dict(), "graph": graph.to_dict()})
+
+
+@config_graph_bp.post("/hub-worker/config")
+def update_hub_worker_config():
+    """Persist a writable Hub/Worker read-model node via VACGE persistence."""
+    body = request.get_json(force=True, silent=True) or {}
+    node_id = str(body.get("node_id") or "").strip()
+    data = body.get("data")
+    if not node_id or not isinstance(data, dict):
+        return jsonify({"error": "node_id and data object are required"}), 400
+
+    key = _hub_worker_config_key(node_id)
+    if key is None:
+        return jsonify({"error": f"node is readonly or unknown: {node_id}"}), 422
+
+    result = ConfigGraphPersistenceService(
+        repo_root=_get_repo_root()
+    ).persist_user_config_block(key=key, data=data)
+    if not result.success:
+        return jsonify({"error": "Patch persistence failed", "details": result.to_dict()}), 422
+
+    log_audit("hub_worker_config_updated", {
+        "node_id": node_id,
+        "config_key": key,
+        "source_files": [item.source_file for item in result.source_diffs],
+    })
+    cfg = _read_user_json_config()
+    graph = HubWorkerGraphService().build(
+        user_config=cfg,
+        path=str(body.get("path") or "").strip() or None,
+    )
+    return jsonify({"result": result.to_dict(), "graph": graph})
 
 
 @config_graph_bp.post("/create-config-entry")
@@ -142,91 +300,48 @@ def create_config_entry():
     if entry_type not in ("path_rule", "agent_profile"):
         return jsonify({"error": f"Unknown entry_type: {entry_type!r}"}), 400
 
-    try:
-        if entry_type == "path_rule":
-            _create_path_rule(data)
-        else:
-            _create_agent_profile(data)
-    except ValueError as exc:
-        return jsonify({"error": str(exc)}), 400
-    except Exception as exc:
-        current_app.logger.exception("create_config_entry failed")
-        return jsonify({"error": f"Unexpected error: {exc}"}), 500
+    node_id = str(data.get("profile_id") or data.get("path_glob") or entry_type)
+    op = PatchOp(
+        op="add_node",
+        target=f"{entry_type}::{node_id}",
+        data={
+            "id": f"{entry_type}::{node_id}",
+            "node_type": entry_type,
+            "label": node_id,
+            "data": data,
+        },
+    )
 
-    cfg = _get_user_config()
+    cfg = _read_user_json_config()
+    graph = get_config_graph_builder_service(user_config=cfg).build()
+    patch_svc = ConfigGraphPatchService()
+    val = patch_svc.validate(graph, [op])
+    if not val.valid:
+        return jsonify({"error": "Patch validation failed", "details": val.to_dict()}), 422
+    persistence = ConfigGraphPersistenceService(repo_root=_get_repo_root()).persist(graph, [op])
+    if not persistence.success:
+        return jsonify({"error": "Patch persistence failed", "details": persistence.to_dict()}), 422
+
+    log_audit("config_graph_entry_created", {
+        "entry_type": entry_type,
+        "risk_tier": val.risk_tier,
+        "source_files": [item.source_file for item in persistence.source_diffs],
+    })
+
+    cfg = _read_user_json_config()
     builder = get_config_graph_builder_service(user_config=cfg)
     graph = builder.build()
     return jsonify(graph.to_dict())
 
 
-def _create_path_rule(data: dict) -> None:
-    import json
-    from pathlib import Path
-
-    glob = str(data.get("path_glob") or "").strip()
-    if not glob:
-        raise ValueError("path_glob ist erforderlich")
-
-    root = Path(__file__).parents[2]
-    user_json_path = root / "user.json"
-    if not user_json_path.exists():
-        raise ValueError("user.json nicht gefunden")
-
-    config = json.loads(user_json_path.read_text(encoding="utf-8"))
-    rules: list = list(config.get("path_ai_modes") or [])
-
-    if any(isinstance(r, dict) and str(r.get("path_glob") or "") == glob for r in rules):
-        raise ValueError(f"Pfad-Muster '{glob}' existiert bereits")
-
-    new_rule: dict = {
-        "path_glob": glob,
-        "blocked_ai_modes": list(data.get("blocked_ai_modes") or []),
-        "allowed_ai_modes": list(data.get("allowed_ai_modes") or []),
-        "allow_free_text_generation": bool(data.get("allow_free_text_generation", True)),
-        "allow_code_generation": bool(data.get("allow_code_generation", True)),
+def _hub_worker_config_key(node_id: str) -> str | None:
+    mapping = {
+        "hub::ananta": "hub_worker_routing",
+        "worker_instance::ananta-worker": "worker_runtime",
+        "worker_instance::opencode": "opencode_runtime",
+        "worker_instance::hermes": "hermes_worker_adapter",
     }
-    if data.get("llm_scope"):
-        new_rule["llm_scope"] = str(data["llm_scope"])
-
-    rules.append(new_rule)
-    config["path_ai_modes"] = rules
-    user_json_path.write_text(
-        json.dumps(config, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
-
-
-def _create_agent_profile(data: dict) -> None:
-    import json
-    from pathlib import Path
-
-    profile_id = str(data.get("profile_id") or "").strip()
-    if not profile_id:
-        raise ValueError("profile_id ist erforderlich")
-    if not profile_id.replace("_", "").replace("-", "").isalnum():
-        raise ValueError("profile_id darf nur Buchstaben, Ziffern, _ und - enthalten")
-
-    root = Path(__file__).parents[2]
-    profile_map_path = root / "docs/agent-profiles/profile-map.json"
-    if not profile_map_path.exists():
-        raise ValueError("profile-map.json nicht gefunden")
-
-    profile_map = json.loads(profile_map_path.read_text(encoding="utf-8"))
-    profiles: dict = dict(profile_map.get("profiles") or {})
-
-    if profile_id in profiles:
-        raise ValueError(f"Profil '{profile_id}' existiert bereits")
-
-    profiles[profile_id] = {
-        "primary_role": str(data.get("primary_role") or ""),
-        "activation": list(data.get("activation") or []),
-        "allowed_task_kinds": list(data.get("allowed_task_kinds") or []),
-        "code_change_policy": str(data.get("code_change_policy") or "allowed"),
-        "context_policy_hint": str(data.get("context_policy_hint") or ""),
-    }
-    profile_map["profiles"] = profiles
-    profile_map_path.write_text(
-        json.dumps(profile_map, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
+    return mapping.get(node_id)
 
 
 def _parse_ops(raw: list) -> list[PatchOp] | None:

@@ -4,9 +4,14 @@ export interface ConfigGraphNode {
   label: string;
   source_file: string | null;
   source_line: number | null;
+  source_kind: string | null;
+  source_pointer: string | null;
+  writable: boolean;
   runtime_source: string | null;
   runtime_active: boolean;
   stale: boolean;
+  effective_value: unknown;
+  declared_value: unknown;
   data: Record<string, unknown>;
   diagnostics: string[];
 }
@@ -33,6 +38,37 @@ export interface ConfigGraph {
   edge_count: number;
 }
 
+export interface HubWorkerGraphNode {
+  id: string;
+  node_type: string;
+  label: string;
+  runtime_active: boolean;
+  source_file: string | null;
+  source_kind: string | null;
+  source_pointer: string | null;
+  writable: boolean;
+  data: Record<string, unknown>;
+  diagnostics: string[];
+}
+
+export interface HubWorkerGraphEdge {
+  source: string;
+  target: string;
+  edge_type: string;
+  label: string;
+  data: Record<string, unknown>;
+}
+
+export interface HubWorkerGraph {
+  schema: string;
+  path: string;
+  nodes: Record<string, HubWorkerGraphNode>;
+  edges: HubWorkerGraphEdge[];
+  diagnostics: string[];
+  node_count: number;
+  edge_count: number;
+}
+
 export interface EffectiveConfig {
   surface: string;
   task_kind: string | null;
@@ -43,6 +79,7 @@ export interface EffectiveConfig {
   effective_ai_modes_allowed: string[];
   effective_ai_modes_blocked: string[];
   tools_allowed: string[];
+  tool_policy_missing: boolean;
   policies_active: Array<Record<string, unknown>>;
   merge_trace: Array<Record<string, unknown>>;
   warnings: string[];
@@ -71,6 +108,8 @@ export interface ApplyPatchResult {
     skipped_ops: PatchOp[];
     errors: string[];
     new_snapshot_id: string;
+    source_diffs: Array<Record<string, unknown>>;
+    rollback_artifact: Record<string, unknown>;
   };
   graph: ConfigGraph;
 }

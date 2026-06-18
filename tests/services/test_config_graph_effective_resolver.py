@@ -89,9 +89,8 @@ def test_no_profile_match_adds_warning():
     graph = make_graph()
     resolver = EffectiveConfigResolver(graph)
     result = resolver.resolve(surface="unknown_surface_xyz")
-    # Should fall back to first active profile (no warning IF fallback found)
-    # or warn if completely not found
-    assert isinstance(result.warnings, list)
+    assert result.agent_profile is None
+    assert any("No agent profile matched" in warning for warning in result.warnings)
 
 
 def test_effective_node_ids_include_profile():
@@ -224,6 +223,15 @@ def test_tools_allowed_is_list():
     resolver = EffectiveConfigResolver(graph)
     result = resolver.resolve(surface="ai_snake_chat")
     assert isinstance(result.tools_allowed, list)
+
+
+def test_missing_tool_policy_defaults_to_no_tools_with_warning():
+    graph = make_graph()
+    resolver = EffectiveConfigResolver(graph)
+    result = resolver.resolve(surface="ai_snake_chat")
+    assert result.tools_allowed == []
+    assert result.tool_policy_missing is True
+    assert any("default-deny" in warning for warning in result.warnings)
 
 
 def test_tool_edges_respected():

@@ -51,6 +51,16 @@ NODE_HANDOFF_RULE = "handoff_rule"
 NODE_INSTRUCTION_LAYER = "instruction_layer"
 NODE_RUNTIME_OVERRIDE = "runtime_override"
 NODE_TRACE_EVENT = "trace_event"
+NODE_HUB = "hub"
+NODE_WORKER_INSTANCE = "worker_instance"
+NODE_WORKER_ADAPTER = "worker_adapter"
+NODE_TASKFLOW = "taskflow"
+NODE_TASKFLOW_STEP = "taskflow_step"
+NODE_TEMPLATE_VARIANT = "template_variant"
+NODE_ROUTING_RULE = "routing_rule"
+NODE_FALLBACK_CHAIN = "fallback_chain"
+NODE_PATH_CONFIG_BUNDLE = "path_config_bundle"
+NODE_CLONE_SOURCE = "clone_source"
 
 ALL_NODE_TYPES = frozenset({
     NODE_SURFACE, NODE_GOAL_TEMPLATE, NODE_TASK_KIND, NODE_SUBTASK_STEP,
@@ -60,6 +70,9 @@ ALL_NODE_TYPES = frozenset({
     NODE_PATH_RULE, NODE_CONTEXT_SOURCE, NODE_CODECOMPASS_PROFILE, NODE_RAG_PROFILE,
     NODE_ARTIFACT_RULE, NODE_WRITE_RULE, NODE_VERIFICATION_RULE, NODE_HANDOFF_RULE,
     NODE_INSTRUCTION_LAYER, NODE_RUNTIME_OVERRIDE, NODE_TRACE_EVENT,
+    NODE_HUB, NODE_WORKER_INSTANCE, NODE_WORKER_ADAPTER, NODE_TASKFLOW,
+    NODE_TASKFLOW_STEP, NODE_TEMPLATE_VARIANT, NODE_ROUTING_RULE,
+    NODE_FALLBACK_CHAIN, NODE_PATH_CONFIG_BUNDLE, NODE_CLONE_SOURCE,
 })
 
 # ── Edge types ────────────────────────────────────────────────────────────────
@@ -87,6 +100,16 @@ EDGE_WRITES_PATH = "writes_path"
 EDGE_APPLIES_TO_PATH = "applies_to_path"
 EDGE_EMITS_TRACE = "emits_trace"
 EDGE_EFFECTIVE_AFTER_MERGE = "effective_after_merge"
+EDGE_CONTROLS_WORKER = "controls_worker"
+EDGE_ROUTES_TASK_TO_WORKER = "routes_task_to_worker"
+EDGE_USES_TEMPLATE_VARIANT = "uses_template_variant"
+EDGE_EXECUTES_STEP = "executes_step"
+EDGE_HANDS_OFF_ARTIFACT_TO = "hands_off_artifact_to"
+EDGE_FALLS_BACK_TO = "falls_back_to"
+EDGE_CLONED_FROM = "cloned_from"
+EDGE_APPLIES_TO_PATH_BUNDLE = "applies_to_path_bundle"
+EDGE_USES_HUB_DEFAULT = "uses_hub_default"
+EDGE_OVERRIDES_HUB_DEFAULT = "overrides_hub_default"
 
 ALL_EDGE_TYPES = frozenset({
     EDGE_ACTIVATES, EDGE_CONTAINS, EDGE_INHERITS_FROM, EDGE_OVERRIDES,
@@ -96,6 +119,10 @@ ALL_EDGE_TYPES = frozenset({
     EDGE_USES_RESTRICTED_INFERENCE, EDGE_ROUTES_TO_BACKEND, EDGE_HANDS_OFF_TO,
     EDGE_DEPENDS_ON, EDGE_VERIFIES_WITH, EDGE_READS_PATH, EDGE_WRITES_PATH,
     EDGE_APPLIES_TO_PATH, EDGE_EMITS_TRACE, EDGE_EFFECTIVE_AFTER_MERGE,
+    EDGE_CONTROLS_WORKER, EDGE_ROUTES_TASK_TO_WORKER, EDGE_USES_TEMPLATE_VARIANT,
+    EDGE_EXECUTES_STEP, EDGE_HANDS_OFF_ARTIFACT_TO, EDGE_FALLS_BACK_TO,
+    EDGE_CLONED_FROM, EDGE_APPLIES_TO_PATH_BUNDLE, EDGE_USES_HUB_DEFAULT,
+    EDGE_OVERRIDES_HUB_DEFAULT,
 })
 
 # ── View IDs ──────────────────────────────────────────────────────────────────
@@ -328,9 +355,14 @@ class ConfigGraphNode:
     label: str
     source_file: str | None = None
     source_line: int | None = None
+    source_kind: str | None = None
+    source_pointer: str | None = None
+    writable: bool = False
     runtime_source: str | None = None
     runtime_active: bool = True
     stale: bool = False
+    effective_value: Any = None
+    declared_value: Any = None
     data: dict[str, Any] = field(default_factory=dict)
     diagnostics: list[str] = field(default_factory=list)
 
@@ -341,9 +373,14 @@ class ConfigGraphNode:
             "label": self.label,
             "source_file": self.source_file,
             "source_line": self.source_line,
+            "source_kind": self.source_kind,
+            "source_pointer": self.source_pointer,
+            "writable": self.writable,
             "runtime_source": self.runtime_source,
             "runtime_active": self.runtime_active,
             "stale": self.stale,
+            "effective_value": self.effective_value,
+            "declared_value": self.declared_value,
             "data": self.data,
             "diagnostics": self.diagnostics,
         }
@@ -489,7 +526,12 @@ class ConfigGraphBuilderService:
                 node_type=NODE_AGENT_PROFILE,
                 label=profile_id,
                 source_file=str(profile_map_path.relative_to(self._root)),
+                source_kind="profile_map",
+                source_pointer=f"/profiles/{profile_id}",
+                writable=True,
                 runtime_active=True,
+                declared_value=dict(pdata),
+                effective_value=dict(pdata),
                 data={
                     "profile_id": profile_id,
                     "agents_file": agents_file,
@@ -515,6 +557,9 @@ class ConfigGraphBuilderService:
                     node_type=NODE_INSTRUCTION_LAYER,
                     label=f"AGENTS.md ({profile_id})",
                     source_file=agents_file,
+                    source_kind="agents_md",
+                    source_pointer=None,
+                    writable=False,
                     runtime_active=True,
                     data={"profile_id": profile_id, "overridable": True},
                 )
@@ -664,7 +709,13 @@ class ConfigGraphBuilderService:
                 id=rule_id,
                 node_type=NODE_PATH_RULE,
                 label=glob,
+                source_file="user.json",
+                source_kind="user_config",
+                source_pointer=f"/path_ai_modes/{i}",
+                writable=True,
                 runtime_active=True,
+                declared_value=dict(rule),
+                effective_value=dict(rule),
                 data={
                     "path_glob": glob,
                     "blocked_ai_modes": blocked,
@@ -737,7 +788,13 @@ class ConfigGraphBuilderService:
             id=emb_id,
             node_type=NODE_EMBEDDING_MODEL,
             label=f"Embedding: {emb_provider}",
+            source_file="user.json",
+            source_kind="user_config",
+            source_pointer="/embedding_provider",
+            writable=True,
             runtime_active=True,
+            declared_value=dict(emb_cfg),
+            effective_value=dict(emb_cfg),
             data={
                 "provider": emb_provider,
                 "model": emb_cfg.get("model") or "",
@@ -756,6 +813,10 @@ class ConfigGraphBuilderService:
                 id=provider_id,
                 node_type=NODE_MODEL_PROVIDER,
                 label=f"Provider: {backend}",
+                source_file="user.json",
+                source_kind="user_config",
+                source_pointer="/chat_backend",
+                writable=True,
                 runtime_active=True,
                 data={"backend": backend},
             ))

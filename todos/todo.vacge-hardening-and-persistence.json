@@ -5,7 +5,7 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "ananta-visual-agent-configuration-graph-editor",
   "created": "2026-06-18",
-  "status": "todo",
+  "status": "done",
   "priority": "P0",
   "context": {
     "reviewed_commit": "522c6c1b73c6661f16e675d94f7f787c803b29f8",
@@ -192,6 +192,42 @@
     "current_vacge_todo_status": "done",
     "recommended_interpretation": "prototype_done",
     "reason": "Der Commit liefert einen brauchbaren ersten Visualizer/Editor-Prototyp. Fuer eine echte Ananta-Config-Workbench fehlen Persistenz, Default-Deny, echte Approval-Logik, Audit/Rollback und tiefere Runtime-Integration."
+  },
+  "implementation_progress": {
+    "updated": "2026-06-18",
+    "status": "done",
+    "completed": [
+      "SourceRef-/Writable-Metadaten am ConfigGraphNode-Modell ergaenzt: source_kind, source_pointer, writable, declared_value, effective_value.",
+      "Persistenz-Service fuer VACGE-Patches eingefuehrt, der agent_profile-Aenderungen nach docs/agent-profiles/profile-map.json und path_rule-Aenderungen nach user.json schreibt.",
+      "Persistenz-Service auf Model-/Backend-/Embedding-Konfigurationen und definierte user.json-Konfigurationsbloecke erweitert.",
+      "PatchResult erweitert um source_diffs und rollback_artifact.",
+      "create-config-entry auf denselben Patch-/Persistenzpfad zurueckgefuehrt, statt eine zweite direkte Schreiblogik in der Route zu behalten.",
+      "AGENTS.md-Aenderungen bleiben schreibgeschuetzt und laufen ueber einen separaten Diff-/Review-Endpunkt statt ueber direkte set_data-Persistenz.",
+      "Digest-bound Approval-Service eingefuehrt; beliebige Token-Strings reichen nicht mehr fuer apply_approved.",
+      "Default-Deny im EffectiveConfigResolver umgesetzt: keine implizite Tool-Freigabe und kein Fallback auf das erste aktive Profil.",
+      "Graph-Validation erweitert: unbekannte node_type/edge_type-Werte werden abgelehnt; zentrale semantische Edge-Kombinationen werden validiert.",
+      "Audit-Event fuer angewendete Config-Graph-Patches, Rollbacks und neu erzeugte Config-Eintraege ergaenzt.",
+      "Dedizierter Rollback-Endpunkt fuer gespeicherte Rollback-Artefakte ergaenzt.",
+      "Frontend-Review-Workflow erweitert: Approval-Token, Source-Diff-Anzeige und Rollback-Aktion.",
+      "Roundtrip-/Security-Tests fuer Persistenz, Rollback, Approval, Default-Deny und Edge-Semantik ergaenzt."
+    ],
+    "completed_scope": [
+      "Die VACGE-Workbench persistiert die zentralen editierbaren Konfigurationsarten ueber SourceRef-gebundene Adapter und erzeugt Source-Diffs sowie Rollback-Artefakte.",
+      "Security-relevante Defaults sind auf Default-Deny umgestellt und durch fokussierte Regressionstests abgesichert.",
+      "High/Critical-Apply nutzt eine serverseitige digest-bound Approval-Pruefung.",
+      "Readonly-Quellen wie AGENTS.md werden nicht direkt geschrieben, sondern koennen nur als Review-Diff vorbereitet werden.",
+      "Das bestehende allgemeine VACGE-Layout wurde um Review-/Diff-/Rollback-Bedienung erweitert; die spezialisierte Hub-/Worker-View uebernimmt die staerkere Hub-zentrierte Visualisierung."
+    ],
+    "known_limits": [
+      "Risk-Tier-Regeln sind weiterhin zentral im Service definiert, nicht als frei editierbare User-Konfiguration.",
+      "AGENTS.md-Diffs sind bewusst review-only und werden nicht automatisch persistiert.",
+      "Das allgemeine VACGE-Raster wurde nicht zu einem vollstaendigen hierarchischen Grossgraph-Layout umgebaut; diese Bedienbarkeit ist fuer die Hub-/Worker-Spezialview umgesetzt."
+    ],
+    "verification": [
+      "pytest tests/services/test_config_graph_builder_service.py tests/services/test_config_graph_effective_resolver.py tests/services/test_config_graph_patch_service.py tests/services/test_config_graph_persistence_service.py tests/services/test_config_graph_approval_service.py tests/services/test_hub_worker_graph_service.py",
+      "python -m flake8 agent/services/config_graph_approval_service.py agent/services/config_graph_persistence_service.py agent/services/hub_worker_graph_service.py tests/services/test_config_graph_approval_service.py tests/services/test_config_graph_persistence_service.py tests/services/test_hub_worker_graph_service.py",
+      "npm run build"
+    ]
   },
   "definition_of_done": [
     "Graph-Aenderungen sind persistent und ueberleben Reload/Restart.",

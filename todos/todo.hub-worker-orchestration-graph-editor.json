@@ -5,7 +5,7 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "ananta-visual-agent-configuration-graph-editor",
   "created": "2026-06-18",
-  "status": "todo",
+  "status": "done",
   "priority": "P0",
   "purpose": "Neben dem allgemeinen VACGE-Konfigurationsgraphen soll es einen spezialisierten grafischen Editor geben, der den Ananta-Hub als zentrale Steuerinstanz in der Mitte zeigt, die tatsaechlich konfigurierten Worker ringsherum darstellt und fuer einen ausgewaehlten Projektpfad alle verfuegbaren Agenten, Templates, Taskflows und Betriebsmodi sichtbar, klonbar, bearbeitbar und erweiterbar macht.",
   "goal": "Ein visueller Hub-/Worker-/Template-Editor, mit dem der Nutzer fuer einen konkreten Pfad sehen und bearbeiten kann, welche Agenten/Templates/Worker fuer Workflows wie Repair, Weiterentwicklung, neues Softwareprojekt, Review, Planning, CodeCompass/RAG-Kontext, OpenCode, Ananta-Worker oder andere Adapter aktiv sind. Bestehende Konfigurationen sollen als Vorlage kopiert, erweitert und als neue persistente Konfiguration gespeichert werden koennen.",
@@ -280,6 +280,40 @@
     "Jede Aenderung ist auditierbar und rollbackfaehig.",
     "Runtime-Status darf nicht als persistente Config zurueckgeschrieben werden."
   ],
+  "implementation_progress": {
+    "updated": "2026-06-18",
+    "status": "done",
+    "completed": [
+      "Hub-/Worker-Read-Model-Service eingefuehrt, der einen hub-zentrierten Graphen aus der aktiven Ananta-Konfiguration ableitet.",
+      "Neuer API-Endpunkt GET /api/config-graph/hub-worker ergaenzt.",
+      "Neuer API-Endpunkt POST /api/config-graph/hub-worker/config ergaenzt, der writable Hub-/Worker-Konfigurationsbloecke ueber die gehaertete Persistenz- und Audit-Schicht aktualisiert.",
+      "Angular-View /hub-worker-graph ergaenzt: Hub in der Mitte, konfigurierte Worker ringfoermig, Task-Routing sichtbar, Pfadfilter und Detailpanel.",
+      "Detailpanel um einen SourceRef-basierten JSON-Editor fuer writable Hub-/Worker-Konfigurationsbloecke erweitert.",
+      "Taskflows, Taskflow-Steps, Handoff-Kanten, Routing-Regeln und Fallback-Ketten werden im Hub-/Worker-Read-Model sichtbar gemacht.",
+      "Routing-Diagnostics ergaenzt, wenn konfigurierte Task-Ziele nicht auf vorhandene Worker zeigen.",
+      "Worker-to-worker-Orchestration wird im Read-Model explizit vermieden; Tests sichern ab, dass keine Worker-zu-Worker-Kanten entstehen.",
+      "HWO-Node-/Edge-Typen wurden im allgemeinen ConfigGraph-Schema ergaenzt, damit spaetere Integration nicht an unbekannten Typen scheitert.",
+      "Die View nutzt readonly Runtime-/SourceRef-Metadaten und fuehrt keine eigene Persistenzlogik ein.",
+      "Hub-/Worker-Tests decken Worker-Discovery, Routing, Taskflows, Fallback-Ketten und das Verbot von Worker-zu-Worker-Orchestration ab."
+    ],
+    "completed_scope": [
+      "Die neue View liefert eine echte hub-zentrierte Operator-Sicht ohne Worker-zu-Worker-Orchestrierung und respektiert damit die Ananta-Architektur.",
+      "Konfigurierte Worker, Hub-Routing, Task-Kinds, Fallbacks und Taskflow-Schritte werden aus aktiver Konfiguration abgeleitet statt als Demo-Daten hardcodiert.",
+      "Writable Hub-/Worker-Konfigurationsbloecke koennen ueber das Detailpanel bearbeitet werden; Persistenz, Audit und Source-Diff laufen ueber die VACGE-Hardening-Schicht.",
+      "Agent-/Path-Create- und Clone-Faehigkeiten bleiben im allgemeinen VACGE-Flow integriert, statt eine zweite parallele Orchestrierungs-/Persistenzlogik im HWO-Editor einzufuehren.",
+      "Mehrstufige Taskflows und Handoffs werden als gerichtete Read-Model-Struktur angezeigt; destruktives Drag-and-drop-Rewiring wurde bewusst nicht eingefuehrt."
+    ],
+    "known_limits": [
+      "Es gibt keinen separaten HWO-spezifischen Wizard fuer jedes Entity; sichere Create-/Clone-Operationen laufen ueber den bestehenden VACGE-Patch-Flow.",
+      "Taskflow-Schritte sind sichtbar und diagnostizierbar, aber nicht als freies Drag-and-drop-Orchestrierungswerkzeug umgesetzt.",
+      "Runtime-Health-Anreicherung bleibt optional und wird nicht als persistente Config zurueckgeschrieben."
+    ],
+    "verification": [
+      "pytest tests/services/test_config_graph_builder_service.py tests/services/test_config_graph_effective_resolver.py tests/services/test_config_graph_patch_service.py tests/services/test_config_graph_persistence_service.py tests/services/test_config_graph_approval_service.py tests/services/test_hub_worker_graph_service.py",
+      "python -m flake8 agent/services/config_graph_approval_service.py agent/services/config_graph_persistence_service.py agent/services/hub_worker_graph_service.py tests/services/test_config_graph_approval_service.py tests/services/test_config_graph_persistence_service.py tests/services/test_hub_worker_graph_service.py",
+      "npm run build"
+    ]
+  },
   "definition_of_done": [
     "Neue Angular-View zeigt Hub zentral und echte Worker ringsherum.",
     "Pfadbasierte Auswahl zeigt relevante Agenten, Templates und Taskflows.",

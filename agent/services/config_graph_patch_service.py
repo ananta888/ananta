@@ -17,11 +17,24 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from agent.services.config_graph_builder_service import (
+    ALL_EDGE_TYPES,
+    ALL_NODE_TYPES,
     ConfigGraph,
     ConfigGraphEdge,
+    EDGE_ASSIGNED_TO,
+    EDGE_BLOCKED_BY_POLICY,
+    EDGE_CONTAINS,
+    EDGE_MAY_CALL_TOOL,
+    EDGE_REQUIRES_APPROVAL,
+    EDGE_USES_PROFILE,
     NODE_INSTRUCTION_LAYER,
     NODE_PATH_RULE,
     NODE_POLICY,
+    NODE_AGENT_PROFILE,
+    NODE_ROLE,
+    NODE_SURFACE,
+    NODE_TOOL,
+    NODE_TOOL_GROUP,
 )
 
 # Risk tiers
@@ -72,6 +85,8 @@ class ApplyResult:
     skipped_ops: list[dict[str, Any]] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     new_snapshot_id: str = ""
+    source_diffs: list[dict[str, Any]] = field(default_factory=list)
+    rollback_artifact: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -80,6 +95,8 @@ class ApplyResult:
             "skipped_ops": self.skipped_ops,
             "errors": self.errors,
             "new_snapshot_id": self.new_snapshot_id,
+            "source_diffs": self.source_diffs,
+            "rollback_artifact": self.rollback_artifact,
         }
 
 
@@ -183,9 +200,21 @@ class ConfigGraphPatchService:
         self, graph: ConfigGraph, ops: list[PatchOp], approval_token: str
     ) -> ApplyResult:
         """Apply high/critical ops with an approval token (VACGE-007)."""
-        if not approval_token or len(approval_token) < 8:
+        val = self.validate(graph, ops)
+        if not val.valid:
             result = ApplyResult(success=False)
-            result.errors.append("Invalid or missing approval token")
+            result.errors.extend(val.errors)
+            return result
+        from agent.services.config_graph_approval_service import ConfigGraphApprovalService
+
+        approval = ConfigGraphApprovalService().validate(
+            ops=[op.to_dict() for op in ops],
+            risk_tier=val.risk_tier,
+            approval_token=approval_token,
+        )
+        if not approval.approved:
+            result = ApplyResult(success=False)
+            result.errors.append(f"Invalid approval token: {approval.reason_code}")
             return result
         return self.apply(graph, ops, skip_validation=True)
 
@@ -243,6 +272,18 @@ class ConfigGraphPatchService:
         if tgt not in graph.nodes:
             r.valid = False
             r.errors.append(f"op[{idx}] add_edge: target node '{tgt}' not found")
+        if etype not in ALL_EDGE_TYPES:
+            r.valid = False
+            r.errors.append(f"op[{idx}] add_edge: unknown edge_type '{etype}'")
+        if src in graph.nodes and tgt in graph.nodes and etype in ALL_EDGE_TYPES:
+            semantic_error = self._edge_semantic_error(
+                graph.nodes[src].node_type,
+                etype,
+                graph.nodes[tgt].node_type,
+            )
+            if semantic_error:
+                r.valid = False
+                r.errors.append(f"op[{idx}] add_edge: {semantic_error}")
         r.risk_tier = RISK_MEDIUM
         return r
 
@@ -290,6 +331,11 @@ class ConfigGraphPatchService:
         if not nid or not ntype:
             r.valid = False
             r.errors.append(f"op[{idx}] add_node: requires id and node_type in data")
+            return r
+        if ntype not in ALL_NODE_TYPES:
+            r.valid = False
+            r.errors.append(f"op[{idx}] add_node: unknown node_type '{ntype}'")
+            r.risk_tier = RISK_HIGH
             return r
         if nid in graph.nodes:
             r.warnings.append(f"op[{idx}] add_node: node '{nid}' already exists (will overwrite)")
@@ -348,3 +394,35 @@ class ConfigGraphPatchService:
     def _tier_score(tier: str) -> float:
         scores = {RISK_LOW: 0.1, RISK_MEDIUM: 0.35, RISK_HIGH: 0.7, RISK_CRITICAL: 1.0}
         return scores.get(tier, 0.0)
+
+    @staticmethod
+    def _edge_semantic_error(source_type: str, edge_type: str, target_type: str) -> str | None:
+        allowed = {
+            EDGE_CONTAINS: {
+                (NODE_AGENT_PROFILE, NODE_INSTRUCTION_LAYER),
+                (NODE_TOOL_GROUP, NODE_TOOL),
+            },
+            EDGE_USES_PROFILE: {(NODE_SURFACE, NODE_AGENT_PROFILE)},
+            EDGE_ASSIGNED_TO: {(NODE_AGENT_PROFILE, NODE_ROLE)},
+            EDGE_MAY_CALL_TOOL: {
+                (NODE_AGENT_PROFILE, NODE_TOOL),
+                (NODE_AGENT_PROFILE, NODE_TOOL_GROUP),
+            },
+            EDGE_REQUIRES_APPROVAL: {
+                (NODE_TOOL, NODE_POLICY),
+                (NODE_PATH_RULE, NODE_POLICY),
+            },
+            EDGE_BLOCKED_BY_POLICY: {
+                (NODE_AGENT_PROFILE, NODE_POLICY),
+                (NODE_PATH_RULE, NODE_POLICY),
+            },
+        }
+        allowed_pairs = allowed.get(edge_type)
+        if allowed_pairs is None:
+            return None
+        if (source_type, target_type) not in allowed_pairs:
+            return (
+                f"edge_type '{edge_type}' is not allowed from "
+                f"{source_type} to {target_type}"
+            )
+        return None

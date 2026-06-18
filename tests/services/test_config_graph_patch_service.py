@@ -131,6 +131,32 @@ def test_validate_add_edge_valid():
     assert result.risk_tier == RISK_MEDIUM
 
 
+def test_validate_add_edge_rejects_unknown_edge_type():
+    graph = make_graph()
+    svc = ConfigGraphPatchService()
+    result = svc.validate(graph, [
+        PatchOp(op="add_edge", target="e", data={
+            "source": "agent_profile::my_profile",
+            "target": "instruction_layer::root",
+            "edge_type": "teleports_to",
+        })
+    ])
+    assert result.valid is False
+
+
+def test_validate_add_edge_rejects_invalid_semantic_pair():
+    graph = make_graph()
+    svc = ConfigGraphPatchService()
+    result = svc.validate(graph, [
+        PatchOp(op="add_edge", target="e", data={
+            "source": "instruction_layer::root",
+            "target": "agent_profile::my_profile",
+            "edge_type": "uses_profile",
+        })
+    ])
+    assert result.valid is False
+
+
 def test_validate_add_edge_missing_source_fails():
     graph = make_graph()
     svc = ConfigGraphPatchService()
@@ -305,23 +331,30 @@ def test_apply_blocked_when_requires_approval():
     assert any("approval" in e.lower() for e in result.errors)
 
 
-def test_apply_approved_succeeds_with_valid_token():
+def test_apply_approved_succeeds_with_digest_bound_token(monkeypatch):
+    monkeypatch.setenv("ANANTA_VACGE_APPROVAL_SECRET", "test-secret")
     graph = make_graph()
     svc = ConfigGraphPatchService()
     ops = [PatchOp(op="add_node", target="t", data={
         "id": "tool::beta", "node_type": "tool", "label": "Beta",
     })]
-    result = svc.apply_approved(graph, ops, "tok12345")
+    from agent.services.config_graph_approval_service import ConfigGraphApprovalService
+    token = ConfigGraphApprovalService().expected_token(
+        ops=[op.to_dict() for op in ops],
+        risk_tier=svc.validate(graph, ops).risk_tier,
+    )
+    result = svc.apply_approved(graph, ops, token or "")
     assert result.success is True
 
 
-def test_apply_approved_fails_with_short_token():
+def test_apply_approved_fails_with_wrong_token(monkeypatch):
+    monkeypatch.setenv("ANANTA_VACGE_APPROVAL_SECRET", "test-secret")
     graph = make_graph()
     svc = ConfigGraphPatchService()
     ops = [PatchOp(op="add_node", target="t", data={
         "id": "tool::beta2", "node_type": "tool", "label": "Beta2",
     })]
-    result = svc.apply_approved(graph, ops, "short")
+    result = svc.apply_approved(graph, ops, "vacge:low:wrong")
     assert result.success is False
 
 

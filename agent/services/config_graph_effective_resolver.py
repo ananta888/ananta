@@ -52,6 +52,8 @@ class EffectiveConfig:
     effective_ai_modes_blocked: list[str] = field(default_factory=list)
     # Activated tools
     tools_allowed: list[str] = field(default_factory=list)
+    # Tool policy diagnostics
+    tool_policy_missing: bool = False
     # Active policies
     policies_active: list[dict[str, Any]] = field(default_factory=list)
     # Merge trace: which nodes contributed in which order
@@ -72,6 +74,7 @@ class EffectiveConfig:
             "effective_ai_modes_allowed": self.effective_ai_modes_allowed,
             "effective_ai_modes_blocked": self.effective_ai_modes_blocked,
             "tools_allowed": self.tools_allowed,
+            "tool_policy_missing": self.tool_policy_missing,
             "policies_active": self.policies_active,
             "merge_trace": self.merge_trace,
             "warnings": self.warnings,
@@ -150,6 +153,11 @@ class EffectiveConfigResolver:
 
             # Tools allowed via profile
             result.tools_allowed = self._collect_tools_for_profile(profile_node_id)
+            if not result.tools_allowed:
+                result.tool_policy_missing = True
+                result.warnings.append(
+                    f"No explicit tool policy for profile {profile_node_id!r}; default-deny applied"
+                )
 
         else:
             result.warnings.append(f"No agent profile matched for surface={surface!r}, task_kind={task_kind!r}")
@@ -219,11 +227,6 @@ class EffectiveConfigResolver:
             if kind_profile_id in self._graph.nodes:
                 return kind_profile_id
 
-        # First active profile (fallback)
-        for nid, node in self._graph.nodes.items():
-            if node.node_type == NODE_AGENT_PROFILE and node.runtime_active:
-                return nid
-
         return None
 
     def _collect_tools_for_profile(self, profile_node_id: str) -> list[str]:
@@ -233,12 +236,6 @@ class EffectiveConfigResolver:
                 tool_node = self._graph.nodes.get(edge.target)
                 if tool_node and tool_node.node_type == NODE_TOOL:
                     tools.append(tool_node.data.get("name") or tool_node.label)
-
-        if not tools:
-            # All active tools (no restriction on profile)
-            for nid, node in self._graph.nodes.items():
-                if node.node_type == NODE_TOOL and node.runtime_active:
-                    tools.append(node.data.get("name") or node.label)
 
         return sorted(set(tools))
 

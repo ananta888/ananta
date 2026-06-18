@@ -5,6 +5,7 @@ import {
   ApplyPatchResult,
   ConfigGraph,
   EffectiveConfig,
+  HubWorkerGraph,
   PatchOp,
   ValidationResult,
 } from '../models/config-graph.model';
@@ -23,6 +24,31 @@ export class ConfigGraphService {
 
   getGraph(): Observable<ConfigGraph> {
     return this.http.get<ConfigGraph>(this.baseUrl);
+  }
+
+  getHubWorkerGraph(path?: string | null): Observable<HubWorkerGraph> {
+    const query = path ? `?path=${encodeURIComponent(path)}` : '';
+    return this.http.get<HubWorkerGraph>(`${this.baseUrl}/hub-worker${query}`);
+  }
+
+  updateHubWorkerConfig(
+    nodeId: string,
+    data: Record<string, unknown>,
+    path?: string | null,
+  ): Observable<{ result: Record<string, unknown>; graph: HubWorkerGraph }> {
+    return this.http.post<{ result: Record<string, unknown>; graph: HubWorkerGraph }>(
+      `${this.baseUrl}/hub-worker/config`,
+      { node_id: nodeId, data, path: path ?? '' },
+    );
+  }
+
+  rollbackPatch(
+    rollbackArtifact: Record<string, unknown>,
+  ): Observable<ApplyPatchResult> {
+    return this.http.post<ApplyPatchResult>(
+      `${this.baseUrl}/rollback`,
+      { rollback_artifact: rollbackArtifact },
+    );
   }
 
   getEffectiveConfig(payload: {
