@@ -1,0 +1,205 @@
+{
+  "schema": "ananta.todo.v1",
+  "id": "todo.vacge-hardening-and-persistence",
+  "title": "VACGE Hardening, Persistenz und echte Config-Workbench",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "ananta-visual-agent-configuration-graph-editor",
+  "created": "2026-06-18",
+  "status": "todo",
+  "priority": "P0",
+  "context": {
+    "reviewed_commit": "522c6c1b73c6661f16e675d94f7f787c803b29f8",
+    "review_summary": "Der Visual Agent Configuration Graph Editor ist als erster Prototyp gut angelegt: GraphBuilder, EffectiveConfigResolver, PatchService, REST API und Angular-SVG-Editor sind vorhanden. Die groesste Luecke ist, dass Patch-Operationen aktuell primaer den In-Memory-Graph mutieren und nicht kontrolliert in die echten Konfigurationsartefakte zurueckschreiben. Zusaetzlich muessen Default-Deny, echte Approval-Pruefung, Audit, bessere Graph-Semantik und ein brauchbareres Layout nachgezogen werden.",
+    "main_risk": "Ohne Persistenz und harte Policy-Regeln wirkt der Editor wie eine visuelle Demo bzw. ein temporärer Graph-Editor, aber noch nicht wie eine sichere Konfigurations-Workbench fuer Ananta."
+  },
+  "goals": [
+    "Graph-Editor von einem Prototyp zu einer echten, sicheren Config-Workbench ausbauen.",
+    "Jede editierbare Graph-Aenderung muss nachvollziehbar, validiert, auditierbar und persistent sein.",
+    "Security-relevante Defaults muessen Default-Deny, Least-Privilege und explizite Freigaben erzwingen.",
+    "Der User muss visuell verstehen koennen, welche Config-Quelle welche Runtime-Wirkung hat."
+  ],
+  "findings": [
+    {
+      "id": "finding.persistence.missing",
+      "severity": "critical",
+      "title": "Patch-Apply mutiert vermutlich nur den In-Memory-Graph",
+      "details": "ConfigGraphPatchService fuehrt set_data/add_edge/remove_edge/remove_node/add_node auf dem aufgebauten ConfigGraph aus. Es gibt aber noch keine robuste Rueckschreibung nach profile-map.json, AGENTS.md, user/config, path_ai_modes, model routing oder Tool-Policy-Artefakte.",
+      "impact": "Nach einem Reload oder Neustart koennen Aenderungen verloren gehen. Ausserdem entsteht eine Scheinsicherheit, weil die sichtbare Graph-Aenderung nicht zwingend der echten Runtime-Konfiguration entspricht."
+    },
+    {
+      "id": "finding.approval.weak",
+      "severity": "critical",
+      "title": "Approval-Token ist keine echte Sicherheitspruefung",
+      "details": "High/Critical Patches brauchen zwar ein approval_token, aber die erkennbare Pruefung ist nur formal bzw. laengenbasiert. Das reicht nicht fuer sicherheitsrelevante Konfigurationsaenderungen.",
+      "impact": "Ein Frontend- oder API-Client koennte kritische Aenderungen ohne echte Autorisierung durchbekommen."
+    },
+    {
+      "id": "finding.tools.allow_all_fallback",
+      "severity": "high",
+      "title": "Fehlende Tool-Zuordnung fuehrt zu implizitem Allow-All",
+      "details": "EffectiveConfigResolver sammelt Tools ueber EDGE_MAY_CALL_TOOL. Wenn keine Tools fuer ein Profil verdrahtet sind, werden alle aktiven Tools erlaubt.",
+      "impact": "Das widerspricht Default-Deny und Least-Privilege. Ein unvollstaendig konfiguriertes Profil bekommt potentiell zu viele Werkzeuge."
+    },
+    {
+      "id": "finding.profile.fallback_first_active",
+      "severity": "high",
+      "title": "Unbekannte Surface kann auf erstes aktives Profil fallen",
+      "details": "Wenn kein direktes Profil gefunden wird, kann der Resolver auf das erste aktive Agent-Profil zurueckfallen.",
+      "impact": "Falsche Surface/Task-Kombinationen koennen versehentlich mit einem unpassenden Profil laufen. Besser waere: kein Match = keine aktive Runtime-Konfiguration plus Diagnose."
+    },
+    {
+      "id": "finding.edge.validation.weak",
+      "severity": "medium",
+      "title": "Edge-Semantik wird noch nicht streng genug validiert",
+      "details": "add_edge prueft Source/Target, aber es sollte auch geprueft werden, ob edge_type erlaubt ist und ob die Kombination aus source.node_type, edge_type und target.node_type semantisch zulaessig ist.",
+      "impact": "Der Graph kann strukturell gueltig, aber semantisch kaputt werden."
+    },
+    {
+      "id": "finding.layout.simple_grid",
+      "severity": "medium",
+      "title": "Angular-Graph-Layout ist nur ein einfaches Grid",
+      "details": "Das aktuelle SVG-Layout verteilt Nodes rasterartig. Fuer groessere Ananta-Konfigurationen fehlen Hierarchie, Gruppierung, Collapse/Expand, Filter und erkennbare Datenfluesse.",
+      "impact": "Der Editor wird bei echten Configs schnell unuebersichtlich."
+    },
+    {
+      "id": "finding.tests.integration_missing",
+      "severity": "medium",
+      "title": "Tests decken Persistenz- und Runtime-Roundtrip noch nicht ab",
+      "details": "Es gibt viele Unit-Tests fuer Builder, Resolver und PatchService. Es fehlen aber End-to-End Tests: Graph bauen, Patch anwenden, Quelle pruefen, neu laden, effektive Config pruefen.",
+      "impact": "Die wichtigste Eigenschaft einer Config-Workbench - dauerhafte, korrekte Runtime-Wirkung - ist noch nicht abgesichert."
+    }
+  ],
+  "work_packages": [
+    {
+      "id": "VACGE-HARDEN-001",
+      "title": "Persistenz-Schicht fuer Graph-Patches bauen",
+      "priority": "P0",
+      "description": "Graph-Patches duerfen nicht nur den Snapshot veraendern. Jede persistierbare Aenderung muss auf eine konkrete Config-Quelle abgebildet und dort kontrolliert geschrieben werden.",
+      "tasks": [
+        "SourceRef-Modell einfuehren: source_file, source_kind, json_pointer/yaml_pointer/markdown_section, writable flag.",
+        "Persistenz-Adapter fuer profile-map.json implementieren.",
+        "Persistenz-Adapter fuer user/config path_ai_modes implementieren.",
+        "Persistenz-Adapter fuer Model-/Backend-/Embedding-Konfiguration implementieren.",
+        "AGENTS.md-Aenderungen nicht direkt ueber set_data erlauben, sondern nur ueber separaten Diff-/Review-Flow.",
+        "Nicht persistierbare Runtime-Nodes klar als readonly markieren.",
+        "PatchResult muss sowohl Graph-Diff als auch Source-Diff enthalten."
+      ],
+      "acceptance_criteria": [
+        "Jede editierbare Node/Edge hat eine eindeutige persistente Quelle oder ist explizit readonly.",
+        "set_data auf agent_profile schreibt korrekt nach docs/agent-profiles/profile-map.json.",
+        "Aenderungen an path_rule schreiben korrekt in die aktive user/config-Struktur.",
+        "Nach apply-patch und anschliessendem GET /api/config-graph bleibt die Aenderung erhalten.",
+        "Vor dem Schreiben wird ein Backup oder versionierter Diff erzeugt.",
+        "Bei Schreibfehlern bleibt der vorherige Zustand erhalten."
+      ]
+    },
+    {
+      "id": "VACGE-HARDEN-002",
+      "title": "Default-Deny fuer Tool- und Profil-Rechte erzwingen",
+      "priority": "P0",
+      "description": "Keine implizite Tool-Freigabe, keine implizite Profil-Fallback-Auswahl fuer unbekannte Surfaces.",
+      "tasks": [
+        "Resolver so umbauen, dass fehlende Tool-Zuordnung nicht mehr alle Tools erlaubt.",
+        "Explizite Tool-Gruppen und einzelne Tools pro Profil modellieren.",
+        "Optionales all_tools nur fuer explizit markierte Admin-/Dev-Profile erlauben.",
+        "Fallback auf erstes aktives Profil entfernen oder nur im Debug-Modus erlauben.",
+        "Diagnosen fuer missing surface, missing profile, missing tool policy ausgeben."
+      ],
+      "acceptance_criteria": [
+        "Profil ohne Tool-Policy bekommt keine Tools und eine klare Warnung.",
+        "Unbekannte surface erzeugt kein zufaelliges Profil-Match.",
+        "all_tools ist nur ueber explizite Konfiguration moeglich.",
+        "Tests decken empty profile, unknown surface, explicit tools und explicit tool_group ab."
+      ]
+    },
+    {
+      "id": "VACGE-HARDEN-003",
+      "title": "Echte Approval-, Audit- und Rollback-Logik einfuehren",
+      "priority": "P0",
+      "description": "High/Critical Aenderungen muessen serverseitig autorisiert, nachvollziehbar protokolliert und rueckrollbar sein.",
+      "tasks": [
+        "Approval-Service einfuehren statt Laengenpruefung auf approval_token.",
+        "Risk-Tier-Regeln konfigurierbar machen.",
+        "AuditLog fuer alle Patches schreiben: user, timestamp, risk, ops, source_diff, result.",
+        "Rollback-Artefakt pro Patch erzeugen.",
+        "Critical Ops standardmaessig blockieren oder zweite explizite Freigabe verlangen."
+      ],
+      "acceptance_criteria": [
+        "High/Critical Patches koennen nicht mit beliebigem String freigegeben werden.",
+        "Jede angewendete Aenderung ist auditierbar.",
+        "Ein Patch kann anhand des gespeicherten Rollback-Artefakts rueckgaengig gemacht werden.",
+        "Frontend zeigt Risiko, Diff und Approval-Zustand klar an."
+      ]
+    },
+    {
+      "id": "VACGE-HARDEN-004",
+      "title": "Strenge Graph-Semantik und Schema-Validation",
+      "priority": "P1",
+      "description": "Der Graph soll nicht nur syntaktisch, sondern semantisch gueltig bleiben.",
+      "tasks": [
+        "Zentrales Graph-Schema fuer erlaubte Node-/Edge-Typ-Kombinationen definieren.",
+        "add_node und add_edge gegen dieses Schema validieren.",
+        "Doppelte Node-IDs, zyklische kritische Kanten und widerspruechliche Policies erkennen.",
+        "Severity-basierte Diagnostics einfuehren: info/warn/error/critical.",
+        "Schema-Versionierung fuer ananta_configuration_graph.v1 sauber dokumentieren."
+      ],
+      "acceptance_criteria": [
+        "Unbekannte edge_type wird abgelehnt.",
+        "Unzulaessige Kombinationen wie tool uses_profile role werden abgelehnt.",
+        "GraphBuilder erzeugt keine stillen kaputten Edges.",
+        "Frontend kann Diagnostics nach Severity filtern."
+      ]
+    },
+    {
+      "id": "VACGE-HARDEN-005",
+      "title": "Besseres UI fuer grosse Graphen",
+      "priority": "P1",
+      "description": "Das SVG-Grid reicht fuer kleine Demos, aber nicht fuer echte Ananta-Konfigurationsgraphen.",
+      "tasks": [
+        "Hierarchisches Layout nach Surface -> Profile -> Task -> Tools/Policies/Models bauen.",
+        "Collapse/Expand fuer Tool-Gruppen, Profile, Context-Pipeline und Policy-Gruppen einfuehren.",
+        "Suchfeld und Filter fuer Node-Typen, Risiko, Source-Datei und runtime_active einbauen.",
+        "Edge-Labels und Hover-Details anzeigen.",
+        "Effective-Config-Pfad im Graph hervorheben."
+      ],
+      "acceptance_criteria": [
+        "Graph mit mehr als 100 Nodes bleibt bedienbar.",
+        "Nutzer kann von einer Surface bis zu effektivem Modell/Tool/Policy-Pfad visuell folgen.",
+        "Readonly, stale, diagnostics und high-risk Nodes sind klar unterscheidbar.",
+        "Effective resolver hebt beteiligte Nodes und Edges hervor, ohne die View dauerhaft zu zerstoeren."
+      ]
+    },
+    {
+      "id": "VACGE-HARDEN-006",
+      "title": "End-to-End Tests fuer Config-Roundtrip",
+      "priority": "P1",
+      "description": "Die wichtigsten Workflows muessen als Integrationstests abgesichert werden.",
+      "tasks": [
+        "Test: profile-map laden, agent_profile aendern, Datei pruefen, Graph reload, effective config pruefen.",
+        "Test: path_ai_modes aendern, effective config fuer Pfad pruefen.",
+        "Test: high-risk patch ohne Approval wird abgelehnt.",
+        "Test: unbekannte Surface bekommt kein Fallback-Profil.",
+        "Test: Profil ohne Tool-Policy bekommt keine Tools."
+      ],
+      "acceptance_criteria": [
+        "Alle Persistenzadapter haben Roundtrip-Tests.",
+        "API-Tests decken validate-patch und apply-patch inklusive Fehlerfaelle ab.",
+        "Security-relevante Defaults sind durch Tests gegen Regression geschuetzt."
+      ]
+    }
+  ],
+  "recommended_status_change": {
+    "current_vacge_todo_status": "done",
+    "recommended_interpretation": "prototype_done",
+    "reason": "Der Commit liefert einen brauchbaren ersten Visualizer/Editor-Prototyp. Fuer eine echte Ananta-Config-Workbench fehlen Persistenz, Default-Deny, echte Approval-Logik, Audit/Rollback und tiefere Runtime-Integration."
+  },
+  "definition_of_done": [
+    "Graph-Aenderungen sind persistent und ueberleben Reload/Restart.",
+    "Keine impliziten Tool- oder Profil-Freigaben bei unvollstaendiger Konfiguration.",
+    "High/Critical Aenderungen brauchen echte serverseitige Autorisierung.",
+    "Jede Aenderung erzeugt Audit-Log, Source-Diff und Rollback-Information.",
+    "EffectiveConfigResolver bildet die echte Runtime-Wirkung ab, nicht nur eine ungefaehre Graph-Naeherung.",
+    "Frontend ist fuer grosse Graphen bedienbar und zeigt Risiko/Quelle/Wirkung klar an.",
+    "Integrationstests sichern Persistenz, Security-Defaults und API-Workflows ab."
+  ]
+}
