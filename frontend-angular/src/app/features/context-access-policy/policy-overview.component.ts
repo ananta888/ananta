@@ -22,13 +22,13 @@ import { PreviewDecisionComponent } from './preview-decision.component';
   ],
   template: `
     <div class="policy-overview-container">
-      <header class="header">
+      <div class="header">
         <h2>Context Access Policy Übersicht</h2>
         <div class="actions">
           <button class="btn btn-primary" (click)="editDraft()">Draft bearbeiten</button>
           <button class="btn btn-secondary" (click)="lint()">Prüfen (Lint)</button>
         </div>
-      </header>
+      </div>
 
       <div *ngIf="diagnostics$ | async as diag; else loading" class="dashboard">
         <div class="summary-cards">

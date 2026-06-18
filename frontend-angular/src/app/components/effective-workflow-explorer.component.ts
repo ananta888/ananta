@@ -16,7 +16,7 @@ import {
   imports: [CommonModule, FormsModule],
   template: `
     <div class="ew-root">
-      <header class="ew-header">
+      <div class="ew-header">
         <div>
           <h2>Effective Workflow</h2>
           <p>Surface, Pfad und Task-Art auf die wirksame Blueprint-, Profil-, Worker-, Tool- und Policy-Kette auflösen.</p>
@@ -25,7 +25,7 @@ import {
           <button class="secondary" (click)="reloadOptions()" [disabled]="loading">Aktualisieren</button>
           <button class="secondary" (click)="downloadSnapshot()" [disabled]="!result">Snapshot</button>
         </div>
-      </header>
+      </div>
 
       <section class="query-band">
         <label>

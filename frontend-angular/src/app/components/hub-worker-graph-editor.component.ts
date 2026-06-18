@@ -20,7 +20,7 @@ interface PositionedNode {
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="hwo-root">
-      <header class="hwo-header">
+      <div class="hwo-header">
         <div>
           <h2>Hub-/Worker-Orchestration</h2>
           <p>Hub-zentrierte Sicht auf konfigurierte Worker, Task-Routing und Runtime-Diagnosen.</p>
@@ -29,7 +29,7 @@ interface PositionedNode {
           <input [(ngModel)]="path" class="path-input" placeholder="Projektpfad filtern" (keyup.enter)="reload()" />
           <button class="btn" (click)="reload()" [disabled]="loading">Aktualisieren</button>
         </div>
-      </header>
+      </div>
 
       <div *ngIf="graph?.diagnostics?.length" class="diag-row">
         <span *ngFor="let item of graph!.diagnostics">{{ item }}</span>

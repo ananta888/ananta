@@ -39,7 +39,7 @@ type TemplateForm = {
   imports: [CommonModule, FormsModule],
   template: `
     <div class="bcw-root">
-      <header class="bcw-header">
+      <div class="bcw-header">
         <div>
           <h2>Blueprint-Konfiguration</h2>
           <p>Blueprint, Rollen, Templates, Artefakte, Work-Profile und Roh-Konfig gemeinsam bearbeiten.</p>
@@ -49,7 +49,7 @@ type TemplateForm = {
           <button (click)="saveBlueprintAndTemplates()" [disabled]="!selectedBlueprint || saving">Speichern</button>
           <button class="secondary" (click)="startClone()" [disabled]="!selectedBlueprint || saving">Klonen</button>
         </div>
-      </header>
+      </div>
 
       <div class="bcw-status error" *ngIf="error">{{ error }}</div>
       <div class="bcw-status" *ngIf="loading">Lade Blueprint-Konfiguration...</div>

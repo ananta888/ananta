@@ -67,7 +67,8 @@ import { SnakeOverlayComponent } from './components/snake-overlay.component';
             id="primary-navigation"
             class="row app-nav"
             [class.nav-open]="shell.mobileNavOpen()"
-            aria-label="Hauptnavigation">
+            aria-label="Hauptnavigation"
+            (click)="onNavClick($event)">
             @for (group of navGroups(user.role); track group.label) {
               <details class="nav-menu-group">
                 <summary>
@@ -260,6 +261,7 @@ import { SnakeOverlayComponent } from './components/snake-overlay.component';
       position: absolute;
       top: calc(100% + 6px);
       left: 0;
+      z-index: 10;
     }
     .nav-menu-panel a {
       display: flex;
@@ -448,6 +450,24 @@ export class AppComponent implements OnInit, OnDestroy {
 
   navGroups(role?: string | null) {
     return this.shell.navGroups(role);
+  }
+
+  onNavClick(event: Event) {
+    const summary = (event.target as Element).closest('summary');
+    if (!summary) return;
+    const clicked = summary.closest('details');
+    document.querySelectorAll('.app-nav details').forEach(el => {
+      if (el !== clicked) (el as HTMLDetailsElement).open = false;
+    });
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: Event) {
+    if (!(event.target as Element).closest('.app-nav')) {
+      document.querySelectorAll('.app-nav details[open]').forEach(el => {
+        (el as HTMLDetailsElement).open = false;
+      });
+    }
   }
 
   private _applyTuiAuthIfPresent(): void {
