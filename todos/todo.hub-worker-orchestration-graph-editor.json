@@ -1,0 +1,293 @@
+{
+  "schema": "ananta.todo.v1",
+  "id": "todo.hub-worker-orchestration-graph-editor",
+  "title": "Hub-/Worker-Orchestration Graph Editor",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "ananta-visual-agent-configuration-graph-editor",
+  "created": "2026-06-18",
+  "status": "todo",
+  "priority": "P0",
+  "purpose": "Neben dem allgemeinen VACGE-Konfigurationsgraphen soll es einen spezialisierten grafischen Editor geben, der den Ananta-Hub als zentrale Steuerinstanz in der Mitte zeigt, die tatsaechlich konfigurierten Worker ringsherum darstellt und fuer einen ausgewaehlten Projektpfad alle verfuegbaren Agenten, Templates, Taskflows und Betriebsmodi sichtbar, klonbar, bearbeitbar und erweiterbar macht.",
+  "goal": "Ein visueller Hub-/Worker-/Template-Editor, mit dem der Nutzer fuer einen konkreten Pfad sehen und bearbeiten kann, welche Agenten/Templates/Worker fuer Workflows wie Repair, Weiterentwicklung, neues Softwareprojekt, Review, Planning, CodeCompass/RAG-Kontext, OpenCode, Ananta-Worker oder andere Adapter aktiv sind. Bestehende Konfigurationen sollen als Vorlage kopiert, erweitert und als neue persistente Konfiguration gespeichert werden koennen.",
+  "relationship_to_vacge": {
+    "vacge": "Allgemeiner Konfigurationsgraph ueber Profile, Policies, Tools, Modelle, Path Rules und Effective Config.",
+    "this_editor": "Spezialisierte Operator-View fuer Hub in der Mitte, echte Worker aussen, konkrete Agent-/Template-/Taskflow-Konfigurationen pro Pfad und Workflow-Typ.",
+    "shared_infrastructure": [
+      "ConfigGraphBuilderService kann als Datenquelle dienen, muss aber um Hub/Worker/Template-Instanzen erweitert werden.",
+      "Patch-/Persistenz-/Approval-Mechanik aus VACGE-Hardening soll wiederverwendet werden.",
+      "SourceRef, Audit, Rollback und Default-Deny duerfen nicht doppelt gebaut werden."
+    ]
+  },
+  "core_concepts": [
+    {
+      "id": "hub_node",
+      "name": "Hub Node",
+      "description": "Zentrale Node in der Mitte der View. Zeigt Hub-Konfiguration, globale Defaults, Model-Routing-Fallbacks, Policy-Gates, verfügbare Worker-Registry, aktive Controller-Konfiguration und Diagnosezustand."
+    },
+    {
+      "id": "worker_ring",
+      "name": "Worker Ring",
+      "description": "Ring um den Hub mit allen tatsaechlich konfigurierten Worker-Instanzen: ananta-worker, opencode, hermes, codex-cli, claude-cli, webcrawler-adapter, ggf. weitere Adapter. Jeder Worker zeigt Status, Backend, Modell, Tool-Faehigkeiten, Pfad-Zugriff und erlaubte Task-Kinds."
+    },
+    {
+      "id": "path_context",
+      "name": "Pfad-Kontext",
+      "description": "Der Editor ist pfadbasiert. Fuer einen ausgewaehlten Pfad zeigt er nur die dort effektiven oder verfuegbaren Agenten/Templates/Policies/Worker. Beispiele: repair, Weiterentwicklung, neues Softwareprojekt, Review, Refactoring, Dokumentation, CodeCompass/RAG-only."
+    },
+    {
+      "id": "agent_template_cards",
+      "name": "Agent-/Template-Karten",
+      "description": "Agenten und Templates werden als editierbare Karten/Nodes angezeigt. Beim Anklicken oeffnet sich ein Detail-/Form-Editor mit allen relevanten Feldern und Quellreferenzen."
+    },
+    {
+      "id": "clone_from_existing",
+      "name": "Aus bestehender Vorlage erzeugen",
+      "description": "Ein existierender Agent, ein Template, ein Taskflow oder eine Worker-Konfiguration kann als Vorlage genommen, geklont, umbenannt, angepasst und als neue persistente Konfiguration gespeichert werden."
+    }
+  ],
+  "views": [
+    {
+      "id": "hub_worker_overview",
+      "title": "Hub + Worker Übersicht",
+      "description": "Hub in der Mitte, Worker ringfoermig aussen. Kanten zeigen Steuerung, Handoff, erlaubte Task-Kinds, Tool-Verfuegbarkeit und Modell-/Backend-Routing."
+    },
+    {
+      "id": "path_workflow_view",
+      "title": "Pfad-Workflow-View",
+      "description": "Fuer einen konkreten Pfad werden alle wirksamen Workflows angezeigt: Repair, Weiterentwicklung, neues Softwareprojekt, Review, Refactoring, Dokumentation usw."
+    },
+    {
+      "id": "template_library_view",
+      "title": "Template-Bibliothek",
+      "description": "Alle vorhandenen Templates und Agent-Profile als Bibliothek. Filter nach Task-Kind, Worker, Modell, Rolle, Risiko, Pfad, aktiv/inaktiv."
+    },
+    {
+      "id": "worker_config_detail_view",
+      "title": "Worker-Konfiguration",
+      "description": "Detailansicht pro Worker mit Backend, Modell, Tool-Policy, Pfadrechten, Kontextquellen, Timeout, Retry/Fallback, Prompt-/Template-Set und Runtime-Diagnostics."
+    },
+    {
+      "id": "taskflow_editor_view",
+      "title": "Taskflow-Editor",
+      "description": "Mehrstufige Workflows visuell bearbeiten: Planner -> Developer -> Reviewer -> Verifier, Handoff-Regeln, Artefaktregeln, Approval Gates und Completion Criteria."
+    }
+  ],
+  "required_features": [
+    {
+      "id": "HWO-001",
+      "title": "Hub-zentrierte Graph-View implementieren",
+      "priority": "P0",
+      "description": "Eine neue Angular-View zeigt den Hub als zentrale Node und alle tatsaechlich konfigurierten Worker als Ring darum.",
+      "acceptance_criteria": [
+        "Hub wird immer in der Mitte dargestellt.",
+        "Worker werden ringsherum angeordnet und gruppiert nach Typ/Adapter/Status.",
+        "Kanten zeigen Hub -> Worker Steuerbeziehungen, erlaubte Task-Kinds und Handoff-Beziehungen.",
+        "Inaktive oder fehlerhafte Worker werden sichtbar markiert.",
+        "Ein Klick auf Hub oder Worker oeffnet eine vollstaendige Detailkonfiguration."
+      ]
+    },
+    {
+      "id": "HWO-002",
+      "title": "Runtime-aktive Worker aus echter Konfiguration laden",
+      "priority": "P0",
+      "description": "Der Editor darf keine hardcodierten Demo-Worker anzeigen, sondern muss aus der aktiven Ananta-Konfiguration, Worker-Registry und Adapter-Konfiguration lesen.",
+      "acceptance_criteria": [
+        "ananta-worker, opencode, hermes und weitere Adapter werden nur angezeigt, wenn sie konfiguriert oder entdeckbar sind.",
+        "Jeder Worker zeigt runtime_active, source_file, source_ref und Diagnostics.",
+        "Fehlende Adapter-Konfiguration erzeugt Diagnose statt Fake-Node.",
+        "Worker-Status kann optional aus Runtime/Health-Endpoint angereichert werden."
+      ]
+    },
+    {
+      "id": "HWO-003",
+      "title": "Pfadbasierte Agent-/Template-Auswahl",
+      "priority": "P0",
+      "description": "Der Nutzer waehlt einen Projektpfad. Danach zeigt der Editor alle fuer diesen Pfad effektiven oder verfuegbaren Agenten, Templates und Taskflows.",
+      "acceptance_criteria": [
+        "Pfad-Eingabe mit Autocomplete fuer bekannte Projektpfade.",
+        "Effektive path_ai_modes, AGENTS.md-Schichten, Profile, Templates und Worker werden berechnet.",
+        "Repair, Weiterentwicklung, neues Softwareprojekt, Review, Refactoring und Dokumentation werden als Task-Kinds sichtbar, sofern vorhanden oder konfigurierbar.",
+        "Nicht erlaubte Task-Kinds werden sichtbar, aber blockiert/readonly markiert.",
+        "Der Nutzer sieht klar, warum ein Agent/Template fuer einen Pfad erlaubt oder blockiert ist."
+      ]
+    },
+    {
+      "id": "HWO-004",
+      "title": "Vollstaendiger Detail-Editor fuer Hub, Worker, Agenten und Templates",
+      "priority": "P0",
+      "description": "Beim Anklicken einer Node soll ein Detailformular erscheinen, das alle konfigurierbaren Felder zeigt und sicher persistieren kann.",
+      "editable_entities": [
+        "Hub defaults",
+        "Worker backend/model config",
+        "Agent profile",
+        "Task template",
+        "Taskflow steps",
+        "Tool groups",
+        "Context sources",
+        "Path rules",
+        "Timeout/retry/fallback settings",
+        "Prompt/template references",
+        "Approval/write/verification policies"
+      ],
+      "acceptance_criteria": [
+        "Jedes Feld zeigt Wert, Herkunft, Effective-Wert und Persistenzziel.",
+        "Readonly Runtime-Felder sind klar getrennt von editierbaren Config-Feldern.",
+        "Aenderungen laufen ueber validate-patch/apply-patch mit Risikoanzeige.",
+        "High/Critical Aenderungen brauchen echte Approval-Logik aus VACGE-Hardening.",
+        "Nach Speichern und Reload bleibt die Aenderung erhalten."
+      ]
+    },
+    {
+      "id": "HWO-005",
+      "title": "Bestehende Konfiguration als Vorlage klonen",
+      "priority": "P0",
+      "description": "Der Nutzer kann ein bestehendes Profil, Template, Worker-Setup oder einen ganzen Taskflow kopieren und daraus eine neue Variante erzeugen.",
+      "clone_targets": [
+        "Agent profile",
+        "Task template",
+        "Taskflow",
+        "Worker config",
+        "Hub routing preset",
+        "Path-specific configuration bundle"
+      ],
+      "acceptance_criteria": [
+        "UI-Aktion 'Als Vorlage verwenden' ist fuer passende Entities verfuegbar.",
+        "Beim Klonen werden neue IDs, Labels und SourceRefs sauber erzeugt.",
+        "Der Nutzer muss neue ID/Name/Scope/Pfadbindung setzen koennen.",
+        "Konflikte mit bestehenden IDs werden vor dem Speichern erkannt.",
+        "Geklonte Konfiguration wird persistent gespeichert und erscheint nach Reload als eigene Node."
+      ]
+    },
+    {
+      "id": "HWO-006",
+      "title": "Neue Agenten/Templates/Taskflows grafisch erzeugen",
+      "priority": "P0",
+      "description": "Neben Klonen muss auch die Neuanlage moeglich sein, allerdings gefuehrt und mit sicheren Defaults.",
+      "acceptance_criteria": [
+        "Wizard fuer neuen Agenten: Rolle, Zweck, erlaubte Task-Kinds, Worker, Tools, Modell, Kontextquellen, Pfadscope.",
+        "Wizard fuer neues Template: Task-Kind, Schritte, Rollen, Handoffs, Inputs/Outputs, Completion Criteria.",
+        "Wizard fuer neuen Taskflow: mehrstufige Kette aus Agenten/Worker/Verifiern.",
+        "Default ist restriktiv: keine Tools, keine Writes, keine externen Calls ohne explizite Freigabe.",
+        "Vor Anlage wird ein validierter Patch mit Diff angezeigt."
+      ]
+    },
+    {
+      "id": "HWO-007",
+      "title": "Taskflow-/Handoff-Beziehungen sichtbar und editierbar machen",
+      "priority": "P1",
+      "description": "Mehrstufige Prozesse muessen als Kette/Graph sichtbar sein, nicht nur als flache Config-Liste.",
+      "acceptance_criteria": [
+        "Schritte wie Planner -> Developer -> Reviewer -> Verifier werden als gerichteter Flow angezeigt.",
+        "Jede Kante zeigt Handoff-Regel, Artefaktuebergabe, Bedingungen und Fehlerstrategie.",
+        "Schritte koennen hinzugefuegt, entfernt, umgeordnet und deaktiviert werden.",
+        "Zyklen oder unerreichbare Schritte werden erkannt und als Fehler markiert.",
+        "Completion Criteria und Verification Rules sind pro Step editierbar."
+      ]
+    },
+    {
+      "id": "HWO-008",
+      "title": "Hub-Routing und Model-Fallbacks sichtbar machen",
+      "priority": "P1",
+      "description": "Der Editor soll zeigen, wie der Hub Worker, Provider, Modelle und Fallbacks tatsaechlich waehlt.",
+      "acceptance_criteria": [
+        "Pro Task-Kind/Pfad ist sichtbar, welcher Worker bevorzugt wird.",
+        "Model routing zeigt explizite Konfiguration vor ENV-Fallback.",
+        "Fallback-Ketten free -> cheap -> expensive oder lokal -> cloud werden als Kanten dargestellt.",
+        "Timeouts, Retry-Regeln und Max-Kontext werden sichtbar und editierbar.",
+        "Konflikte zwischen globalem Default und spezifischer Task-Konfiguration werden diagnostiziert."
+      ]
+    },
+    {
+      "id": "HWO-009",
+      "title": "Integration mit VACGE-Persistenz, Audit und Rollback",
+      "priority": "P0",
+      "description": "Der neue Editor darf keine zweite unsichere Patch-Logik bauen. Er muss die gleiche persistente Patch-, Approval-, Audit- und Rollback-Infrastruktur verwenden.",
+      "acceptance_criteria": [
+        "Alle Aenderungen laufen ueber denselben Patch-/Persistenz-Service wie VACGE.",
+        "Audit-Log enthaelt Editor-ID, Entity-Typ, Source-Diff, Risiko und User.",
+        "Rollback funktioniert fuer geklonte und neu erzeugte Konfigurationen.",
+        "Readonly Runtime-Daten koennen nicht aus Versehen persistiert werden."
+      ]
+    },
+    {
+      "id": "HWO-010",
+      "title": "Tests und Beispiel-Konfigurationen",
+      "priority": "P1",
+      "description": "Die wichtigsten Hub-/Worker-/Template-Workflows muessen testbar und mit Beispielconfigs nachvollziehbar sein.",
+      "acceptance_criteria": [
+        "Fixture fuer Hub mit mehreren Workern: ananta-worker, opencode, hermes.",
+        "Fixture fuer Pfad 'new software project' mit Planner/Developer/Reviewer-Flow.",
+        "Fixture fuer Repair-Flow mit CodeCompass/RAG-Kontext und eingeschraenkten Writes.",
+        "Test: bestehendes Template klonen, speichern, reload, effective config pruefen.",
+        "Test: neuer Agent mit Default-Deny wird erzeugt und hat keine Tools/Writes ohne explizite Freigabe.",
+        "Test: Hub-Routing zeigt task-spezifisches Modell vor ENV-Fallback."
+      ]
+    }
+  ],
+  "data_model_extensions": {
+    "new_node_types": [
+      "hub",
+      "worker_instance",
+      "worker_adapter",
+      "taskflow",
+      "taskflow_step",
+      "template_variant",
+      "routing_rule",
+      "fallback_chain",
+      "path_config_bundle",
+      "clone_source"
+    ],
+    "new_edge_types": [
+      "controls_worker",
+      "routes_task_to_worker",
+      "uses_template_variant",
+      "executes_step",
+      "hands_off_artifact_to",
+      "falls_back_to",
+      "cloned_from",
+      "applies_to_path_bundle",
+      "uses_hub_default",
+      "overrides_hub_default"
+    ],
+    "required_source_refs": [
+      "source_file",
+      "source_kind",
+      "source_pointer",
+      "writable",
+      "runtime_active",
+      "effective_value",
+      "declared_value"
+    ]
+  },
+  "ui_requirements": [
+    "Hub als feste zentrale Node mit Status- und Diagnose-Badges.",
+    "Worker als Ringlayout mit Gruppierung nach Adapter/Status.",
+    "Pfad-Selector oben in der View.",
+    "Task-Kind-Filter: Repair, Weiterentwicklung, neues Softwareprojekt, Review, Refactoring, Dokumentation, Custom.",
+    "Detailpanel rechts fuer vollstaendige Konfiguration.",
+    "Clone-/Create-/Delete-/Disable-Aktionen nur im Edit-Modus.",
+    "Diff-Preview vor Persistenz.",
+    "Risikoanzeige pro Aenderung.",
+    "Readonly/Runtime/Effective/Declared visuell trennen.",
+    "Suche nach Worker, Agent, Template, Modell, Tool und Pfad."
+  ],
+  "security_requirements": [
+    "Default-Deny fuer neue Agenten und Templates.",
+    "Keine impliziten Tools oder Write-Rechte beim Klonen.",
+    "Klonen von riskanten Profilen uebernimmt Rechte nur nach expliziter Bestaetigung.",
+    "High/Critical Aenderungen brauchen echte Approval-Logik.",
+    "Hub-globale Defaults duerfen nicht durch lokale Template-Edits unbemerkt ueberschrieben werden.",
+    "Jede Aenderung ist auditierbar und rollbackfaehig.",
+    "Runtime-Status darf nicht als persistente Config zurueckgeschrieben werden."
+  ],
+  "definition_of_done": [
+    "Neue Angular-View zeigt Hub zentral und echte Worker ringsherum.",
+    "Pfadbasierte Auswahl zeigt relevante Agenten, Templates und Taskflows.",
+    "Hub, Worker, Agenten, Templates und Taskflows sind per Detailpanel konfigurierbar, soweit ihre Quellen writable sind.",
+    "Bestehende Entities koennen als Vorlage geklont und als neue persistente Konfiguration gespeichert werden.",
+    "Neue Agenten/Templates/Taskflows koennen ueber sichere Wizards erzeugt werden.",
+    "Alle Aenderungen laufen ueber persistente Patch-, Approval-, Audit- und Rollback-Mechanik.",
+    "Default-Deny ist fuer neue und geklonte Konfigurationen erzwungen.",
+    "Roundtrip-Tests pruefen Clone/Create/Edit/Reload/EffectiveConfig."
+  ]
+}
