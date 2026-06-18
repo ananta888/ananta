@@ -8,6 +8,9 @@ export class HubTeamsApiClient {
   listBlueprints(baseUrl: string, token?: string): Observable<any[]> { return this.core.get<any[]>(`${baseUrl}/teams/blueprints`, baseUrl, token, false); }
   listBlueprintCatalog(baseUrl: string, token?: string): Observable<any> { return this.core.get<any>(`${baseUrl}/teams/blueprints/catalog`, baseUrl, token, false); }
   getBlueprint(baseUrl: string, id: string, token?: string): Observable<any> { return this.core.get<any>(`${baseUrl}/teams/blueprints/${id}`, baseUrl, token, false); }
+  getBlueprintWorkProfile(baseUrl: string, id: string, token?: string): Observable<any> { return this.core.get<any>(`${baseUrl}/teams/blueprints/${id}/work-profile`, baseUrl, token, false); }
+  exportBlueprintBundle(baseUrl: string, id: string, token?: string): Observable<any> { return this.core.get<any>(`${baseUrl}/teams/blueprints/${id}/bundle?mode=full`, baseUrl, token, false); }
+  importBlueprintBundle(baseUrl: string, body: any, token?: string): Observable<any> { return this.core.post(`${baseUrl}/teams/blueprints/import`, body, baseUrl, token); }
   createBlueprint(baseUrl: string, body: any, token?: string): Observable<any> { return this.core.post(`${baseUrl}/teams/blueprints`, body, baseUrl, token); }
   patchBlueprint(baseUrl: string, id: string, patch: any, token?: string): Observable<any> { return this.core.patch(`${baseUrl}/teams/blueprints/${id}`, patch, baseUrl, token); }
   deleteBlueprint(baseUrl: string, id: string, token?: string): Observable<any> { return this.core.delete(`${baseUrl}/teams/blueprints/${id}`, baseUrl, token); }
