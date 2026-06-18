@@ -53,6 +53,7 @@ export const APP_ROUTE_META: Record<string, AppRouteMeta> = {
   task: { label: 'Task Details', area: 'Operate' },
   goal: { label: 'Goal Details', area: 'Operate' },
   'context-access-policy': { label: 'Policy', area: 'Configure', navGroup: 'Konfiguration', navOrder: 36, adminOnly: true, expertOnly: true },
+  'effective-workflow': { label: 'Effective Workflow', area: 'Configure', navGroup: 'Konfiguration', navOrder: 36.5, expertOnly: true },
   'config-graph': { label: 'Konfig-Graph', area: 'Configure', navGroup: 'Konfiguration', navOrder: 37, expertOnly: true },
   'blueprint-config': { label: 'Blueprint-Konfig', area: 'Configure', navGroup: 'Konfiguration', navOrder: 37.5, expertOnly: true },
 };

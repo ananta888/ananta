@@ -5,8 +5,40 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "ananta-configuration-understanding",
   "created": "2026-06-18",
-  "status": "todo",
+  "status": "done",
   "priority": "P0",
+  "implementation_progress": {
+    "completed_at": "2026-06-18",
+    "completed_scope": [
+      "Read-only EffectiveWorkflowResolver als eigener Service implementiert.",
+      "API /api/effective-workflow/options, /resolve, /compare und /explain-node implementiert und registriert.",
+      "Resolver verbindet ConfigGraphBuilderService, EffectiveConfigResolver, HubWorkerGraphService, Blueprints und Templates in einer versionierten Effective-Workflow-Antwort.",
+      "Angular Effective Workflow Explorer unter /effective-workflow implementiert.",
+      "Navigation unter Konfiguration vor Konfig-Graph und Blueprint-Konfig ergaenzt.",
+      "UI zeigt Request, Summary, Status, Hauptkette, Graph-Nodes, Node-Detail mit declared/effective/source/reason, Diagnostics, SourceIndex, Edit-Links, Raw JSON und Snapshot-Download.",
+      "Compare-Modus fuer zwei surface/path/task_kind Requests implementiert.",
+      "Unknown surface wird blockiert statt auf ein beliebiges Profil gefallbackt.",
+      "Fehlende Tool-Policy wird als Default-Deny-Warning sichtbar.",
+      "Hub-Worker-Slice respektiert Hub-Control-Plane-Grenze und erzeugt keine Worker-zu-Worker-Orchestrierung."
+    ],
+    "verification": [
+      "python -m py_compile agent/services/effective_workflow_resolver.py agent/routes/effective_workflow.py agent/bootstrap/routes.py",
+      "pytest tests/services/test_effective_workflow_resolver.py tests/routes/test_effective_workflow_routes.py tests/services/test_config_graph_effective_resolver.py tests/services/test_hub_worker_graph_service.py",
+      "npm run build in frontend-angular"
+    ],
+    "known_limits": [
+      "Blueprint-Auswahl nutzt aktuell eine deterministische Heuristik ueber task_kind/surface gegen Namen, Beschreibungen, Rollen und Artefakte, weil noch keine explizite Blueprint-Routing-Konfiguration existiert.",
+      "Schreibende Quick-Fixes wie 'impliziten Default explizit machen' sind bewusst nicht eingebaut; sie muessen spaeter ueber VACGE validate-patch/apply-patch, Approval, Audit und Rollback laufen.",
+      "Snapshot ist als UI-JSON-Export umgesetzt, nicht als serverseitige persistente Audit-Verknuepfung.",
+      "CodeCompass/RAG/Modelle werden soweit angezeigt, wie sie bereits im ConfigGraph/HubWorkerGraph als Nodes modelliert sind; fehlende explizite Quellen bleiben Diagnostics statt erfundene Werte."
+    ],
+    "solid_architecture_check": [
+      "SRP: Resolver, API-Route, Angular API-Service und UI-Komponente sind getrennt.",
+      "DIP/OCP: Der Resolver konsumiert bestehende Read Models statt neue Persistenz oder neue Orchestrierung einzufuehren.",
+      "Hub-Worker-Architektur: Der Explorer liest Hub/Worker-Routing nur aus und delegiert keine Worker-Aufgaben.",
+      "Security: Default-Deny bleibt sichtbar, fehlende/unklare Konfiguration wird nicht als false-ok gemeldet."
+    ]
+  },
   "motivation": "Ananta hat inzwischen viele maechtige, aber getrennte Konfigurationswelten: VACGE/Config-Graph, Hub-Worker-Graph, Blueprint-Workbench, Team Types, Roles, Templates, AGENTS.md, profile-map.json, user.json, path_ai_modes, Model-/Worker-Routing, Tool-Policies, CodeCompass/RAG und restricted inference. Dadurch sind zwar viele Kombinationen und Pfade moeglich, aber es fehlt eine zentrale, verstaendliche Antwort auf: Was passiert tatsaechlich, wenn ich fuer Pfad X Aufgabe Y starte?",
   "problem_statement": "Der Nutzer verliert den Ueberblick, weil Bearbeitungsseiten existieren, aber keine erklaerende Meta-View. Aktuelle Editoren zeigen Ausschnitte: Blueprints, Worker, Graph-Nodes oder Roh-Konfig. Es fehlt eine durchgehende Effective-Workflow-Kette von Pfad und Aufgabe bis zu Blueprint, Rollen, Templates, Worker, Modell, Tools, Kontextquellen, Policies, Writes, Verifikation und finaler Runtime-Wirkung.",
   "core_goal": "Eine zentrale Orientierungs- und Diagnoseansicht bauen, die fuer surface + path + task_kind deterministisch erklaert, welche Konfiguration wirklich greift, warum sie greift, aus welcher Quelle sie stammt, ob sie editierbar ist, was sie ueberschreibt und wo der Nutzer sie gezielt bearbeiten kann.",

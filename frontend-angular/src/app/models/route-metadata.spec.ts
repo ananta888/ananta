@@ -33,13 +33,15 @@ describe('route metadata', () => {
     expect(userPaths).toContain('/settings');
   });
 
-  it('shows the blueprint config workbench next to the config graph in advanced navigation', () => {
+  it('shows the workflow and blueprint config workbenches next to the config graph in advanced navigation', () => {
     const configItems = buildNavGroups('admin', 'advanced')
       .find(group => group.label === 'Konfiguration')?.items || [];
     const paths = configItems.map(item => item.path);
 
+    expect(paths).toContain('/effective-workflow');
     expect(paths).toContain('/config-graph');
     expect(paths).toContain('/blueprint-config');
+    expect(paths.indexOf('/effective-workflow')).toBe(paths.indexOf('/config-graph') - 1);
     expect(paths.indexOf('/blueprint-config')).toBe(paths.indexOf('/config-graph') + 1);
   });
 });

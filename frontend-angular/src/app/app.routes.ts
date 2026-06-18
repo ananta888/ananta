@@ -23,6 +23,7 @@ export const routes: Routes = [
       { path: 'workspace', data: { breadcrumb: 'Arbeitsbereich', area: 'Operate' }, loadComponent: () => import('./components/personal-workspace.component').then(m => m.PersonalWorkspaceComponent) },
       { path: 'chats', data: { breadcrumb: 'AI Chats', area: 'Operate' }, loadComponent: () => import('./features/chat/chat-page.component').then(m => m.ChatPageComponent) },
       { path: 'help', data: { breadcrumb: 'Hilfe', area: 'General' }, loadComponent: () => import('./components/help.component').then(m => m.HelpComponent) },
+      { path: 'effective-workflow', data: { breadcrumb: 'Effective Workflow', area: 'Configure' }, loadComponent: () => import('./components/effective-workflow-explorer.component').then(m => m.EffectiveWorkflowExplorerComponent) },
       { path: 'config-graph', data: { breadcrumb: 'Konfig-Graph', area: 'Configure' }, loadComponent: () => import('./components/config-graph-editor.component').then(m => m.ConfigGraphEditorComponent) },
       { path: 'blueprint-config', data: { breadcrumb: 'Blueprint-Konfig', area: 'Configure' }, loadComponent: () => import('./components/blueprint-config-workbench.component').then(m => m.BlueprintConfigWorkbenchComponent) },
       { path: 'hub-worker-graph', data: { breadcrumb: 'Hub-/Worker-Graph', area: 'Configure' }, loadComponent: () => import('./components/hub-worker-graph-editor.component').then(m => m.HubWorkerGraphEditorComponent) },
