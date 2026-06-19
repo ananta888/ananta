@@ -523,6 +523,7 @@ class TaskExecutionService:
             effective_task=effective_task, guard_cfg=guard_cfg,
             pipeline=pipeline, _command_analysis=_command_analysis,
             _chain_preflight_deferred=_chain_preflight_deferred,
+            approval_policy_service=get_approval_policy_service(),
         )
         if isinstance(_preflight_result, LocalExecutionResult):
             return _preflight_result

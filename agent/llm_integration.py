@@ -503,16 +503,15 @@ def generate_text(
 
     runtime_default_provider = _runtime_default_provider()
     effective_base_url = str(base_url or "").strip() or None
-    provider_was_explicit = bool(str(provider or "").strip())
     provider_uses_runtime_url = not effective_base_url or _is_same_provider_url(p, effective_base_url, urls.get(p))
 
-    if p in {"lmstudio", "ollama"} and provider_uses_runtime_url and not provider_was_explicit:
+    if p in {"lmstudio", "ollama"} and provider_uses_runtime_url:
         probe_timeout = max(1, min(int(actual_timeout), _LOCAL_RUNTIME_PROBE_TIMEOUT_SECONDS))
         runtime_choice = resolve_preferred_local_runtime(p, urls, timeout=probe_timeout)
         selected_provider = str(runtime_choice.get("provider") or p).strip().lower() or p
         if selected_provider != p:
             p = selected_provider
-            if not model or (provider_was_explicit is False and selected_provider == "ollama"):
+            if selected_provider == "ollama":
                 m = _default_model_for_provider(selected_provider, m) or m
             effective_base_url = None
 

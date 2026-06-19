@@ -331,7 +331,7 @@ def run_llm_cli_command(
         normalized = str(value or "").strip() or None
         if not normalized or "/" in normalized:
             return normalized
-        provider = _get_runtime_default_provider()
+        provider = str(getattr(settings, "default_provider", "") or _get_runtime_default_provider()).strip().lower()
         if provider in {"openai", "anthropic", "gemini", "groq", "openrouter", "bedrock", "azure", "vertexai", "copilot"}:
             return f"{provider}/{normalized}"
         return normalized

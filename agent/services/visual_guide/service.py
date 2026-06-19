@@ -9,6 +9,7 @@ import re
 import time
 from typing import Any
 
+from agent.adapters import visual_guide_route_bridge as _route_bridge
 from agent.services.visual_guide.decision_service import VisualGuideDecisionService
 from agent.services.visual_guide.models import (
     VisualGuideAction,
@@ -30,23 +31,19 @@ _VISUAL_THROTTLE_S: float = 25.0
 # ── Bridge callables — patched by tests; delegated to snakes_execution_routes ─
 
 def _background_threads_disabled() -> bool:
-    from agent.routes.snakes_execution_routes import _background_threads_disabled as _impl
-    return _impl()
+    return _route_bridge.background_threads_disabled()
 
 
 def _visual_session_settings() -> dict:
-    from agent.routes.snakes_execution_routes import _visual_session_settings as _impl
-    return _impl()
+    return _route_bridge.visual_session_settings()
 
 
 def _append_room_ai_message(**kwargs: Any) -> None:
-    from agent.routes.snakes_execution_routes import _append_room_ai_message as _impl
-    return _impl(**kwargs)
+    return _route_bridge.append_room_ai_message(**kwargs)
 
 
 def _broadcast_snake_event(snake_id: str, event_type: str, payload: dict[str, Any]) -> None:
-    from agent.routes.snake_event_broadcaster import broadcast_snake_event as _impl
-    _impl(snake_id, event_type, payload)
+    _route_bridge.broadcast_snake_event(snake_id, event_type, payload)
 
 
 # ── Rate limiting ──────────────────────────────────────────────────────────────
@@ -353,8 +350,7 @@ class VisualGuideService:
 
     def _call_llm_for_ui_tick(self, snapshot: str, n_candidates: int, pug: dict) -> str:
         """Call LLM via ModelInvocationService to generate guide reply for ui_tick."""
-        from agent.routes.ai_snake_config import _current_config
-        _cfg = _current_config()
+        _cfg = _route_bridge.current_ai_snake_config()
         model = str(_cfg.get("chat_model") or "gpt-4o-mini") or None
 
         if n_candidates == 1:
@@ -436,8 +432,7 @@ class VisualGuideService:
 
     def _call_llm_for_region_explain(self, region_steps: list[dict], route: str) -> list[str]:
         """Call LLM via ModelInvocationService to get explanations for region steps."""
-        from agent.routes.ai_snake_config import _current_config
-        _cfg = _current_config()
+        _cfg = _route_bridge.current_ai_snake_config()
         model = str(_cfg.get("chat_model") or "gpt-4o-mini") or None
 
         labels = [str(s.get("bubble") or "") for s in region_steps if s.get("bubble")]
@@ -610,8 +605,7 @@ class VisualGuideService:
 
     def _call_llm_for_manual_guide(self, intent: str, snapshot: str, route: str) -> str:
         """Call LLM to generate guide steps for an explicit /guide intent."""
-        from agent.routes.ai_snake_config import _current_config
-        _cfg = _current_config()
+        _cfg = _route_bridge.current_ai_snake_config()
         model = str(_cfg.get("chat_model") or "gpt-4o-mini") or None
 
         system_prompt = (

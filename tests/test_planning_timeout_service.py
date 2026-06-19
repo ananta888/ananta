@@ -63,3 +63,11 @@ def test_timeout_service_singleflight_per_goal():
     assert svc._acquire("g1") is False
     svc._release("g1")
     assert svc._acquire("g1") is True
+
+
+def test_timeout_service_does_not_start_background_thread_in_testing_app():
+    svc = PlanningTimeoutService()
+    app = SimpleNamespace(testing=True, config={"AGENT_CONFIG": {"planning_policy": {}}})
+
+    assert svc.start_deadline_guard(goal_id="g1", timeout_s=300, app=app) is False
+    assert svc._active == {}

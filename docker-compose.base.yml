@@ -1,0 +1,172 @@
+x-agent-env: &agent-env
+  PYTHONPATH: /app
+  PYTHONUNBUFFERED: 1
+  FLASK_DEBUG: 0
+  INITIAL_ADMIN_USER: ${INITIAL_ADMIN_USER:-admin}
+  INITIAL_ADMIN_PASSWORD: "${INITIAL_ADMIN_PASSWORD:?Error: INITIAL_ADMIN_PASSWORD must be set in .env}"
+  OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434/api/generate}
+  OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5-coder:7b}
+  LMSTUDIO_URL: ${LMSTUDIO_URL:-http://192.168.56.1:1234/v1}
+  LMSTUDIO_API_MODE: ${LMSTUDIO_API_MODE:-chat}
+  LMSTUDIO_MAX_CONTEXT_TOKENS: ${LMSTUDIO_MAX_CONTEXT_TOKENS:-32768}
+  DEFAULT_PROVIDER: ${DEFAULT_PROVIDER:-ollama}
+  DEFAULT_MODEL: ${DEFAULT_MODEL:-qwen2.5-coder:7b}
+  SGPT_DEFAULT_MODEL: ${SGPT_DEFAULT_MODEL:-qwen2.5-coder:7b}
+  OPENCODE_DEFAULT_MODEL: ${OPENCODE_DEFAULT_MODEL:-qwen2.5-coder:7b}
+  HTTP_TIMEOUT: ${HTTP_TIMEOUT:-180}
+  COMMAND_TIMEOUT: ${COMMAND_TIMEOUT:-180}
+  ANANTA_RUNTIME_PROFILE: ${ANANTA_RUNTIME_PROFILE:-compose-safe}
+  REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+  # Keep JWT validation consistent across hub/workers in compose deployments.
+  SECRET_KEY: ${SECRET_KEY:-ananta-dev-shared-secret-change-me}
+  # Terminal session feature flags (disabled by default — enable explicitly for local-dev or production)
+  TERMINAL_FEATURE_ENABLED: ${TERMINAL_FEATURE_ENABLED:-false}
+  TERMINAL_WORKER_TARGET_ENABLED: ${TERMINAL_WORKER_TARGET_ENABLED:-true}
+  TERMINAL_HUB_TARGET_ENABLED: ${TERMINAL_HUB_TARGET_ENABLED:-false}
+  TERMINAL_HUB_AS_WORKER_TARGET_ENABLED: ${TERMINAL_HUB_AS_WORKER_TARGET_ENABLED:-false}
+  TERMINAL_IDLE_TIMEOUT_SECONDS: ${TERMINAL_IDLE_TIMEOUT_SECONDS:-900}
+  TERMINAL_MAX_LIFETIME_SECONDS: ${TERMINAL_MAX_LIFETIME_SECONDS:-14400}
+  TERMINAL_ATTACH_TOKEN_TTL_SECONDS: ${TERMINAL_ATTACH_TOKEN_TTL_SECONDS:-60}
+  TERMINAL_RECORDING_ENABLED_REMOTE: ${TERMINAL_RECORDING_ENABLED_REMOTE:-true}
+  TERMINAL_RECORDING_ENABLED_LOCAL_DEV: ${TERMINAL_RECORDING_ENABLED_LOCAL_DEV:-false}
+  # OIDC (disabled by default; set TERMINAL_OIDC_ENABLED=true and configure issuer/audience/client_id for production)
+  TERMINAL_OIDC_ENABLED: ${TERMINAL_OIDC_ENABLED:-false}
+
+x-agent-defaults: &agent-defaults
+  build: .
+  restart: unless-stopped
+  working_dir: /app
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  deploy:
+    resources:
+      limits:
+        cpus: '1.0'
+        memory: 1G
+      reservations:
+        memory: 256M
+  environment:
+    <<: *agent-env
+  healthcheck:
+    test: ["CMD-SHELL", "curl -f http://localhost:5000/health?basic=1 || exit 1"]
+    interval: 30s
+    timeout: 10s
+    retries: 5
+    start_period: 40s
+  command: >
+    sh -c "alembic upgrade head &&
+    exec python -m agent.ai_agent"
+
+services:
+  lmstudio-proxy:
+    image: alpine:3.23.4@sha256:5b10f432ef3da1b8d4c7eb6c487f2f5a8f096bc91145e68878dd4a5019afde11
+    restart: unless-stopped
+    profiles: ["llm"]
+    ports:
+      - "${LMSTUDIO_PROXY_PORT:-12340}:12340"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: >
+      sh -c "apk add --no-cache socat &&
+      exec socat TCP-LISTEN:12340,fork,reuseaddr TCP:192.168.56.1:1234"
+
+  angular-frontend:
+    build:
+      context: ../../frontend-angular
+    working_dir: /app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      E2E_ADMIN_USER: ${INITIAL_ADMIN_USER:-admin}
+      E2E_ADMIN_PASSWORD: "${INITIAL_ADMIN_PASSWORD:?Error: INITIAL_ADMIN_PASSWORD must be set in .env}"
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+    ports:
+      - "${FRONTEND_PORT:-4200}:4200"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"const http = require('http'); const options = { hostname: 'localhost', port: 4200, path: '/', method: 'GET', timeout: 2000 }; const req = http.request(options, (res) => { if (res.statusCode === 200) process.exit(0); else process.exit(1); }); req.on('error', () => process.exit(1)); req.end();\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    command: npx ng serve --host 0.0.0.0 --port 4200 --poll 2000 --disable-host-check
+
+  ai-agent-hub:
+    <<: *agent-defaults
+    environment:
+      <<: *agent-env
+      ROLE: hub
+      FLASK_RELOAD: ${HUB_FLASK_RELOAD:-1}
+      HUB_CAN_BE_WORKER: ${HUB_CAN_BE_WORKER:-0}
+      AGENT_NAME: hub
+      AGENT_TOKEN: ${AGENT_TOKEN_HUB}
+      AGENT_URL: http://ai-agent-hub:5000
+      AUTH_TEST_ENDPOINTS_ENABLED: ${AUTH_TEST_ENDPOINTS_ENABLED:-0}
+    volumes:
+      - .:/app
+      - ./data/hub:/app/data
+    ports:
+      - "${HUB_PORT:-5000}:5000"
+
+  ai-agent-alpha:
+    <<: *agent-defaults
+    command: python -m agent.ai_agent
+    environment:
+      <<: *agent-env
+      AGENT_NAME: alpha
+      AGENT_TOKEN: ${AGENT_TOKEN_ALPHA}
+      AGENT_URL: http://ai-agent-alpha:5000
+      HUB_URL: http://ai-agent-hub:5000
+    volumes:
+      - ./data/alpha:/app/data
+    ports:
+      - "${ALPHA_PORT:-5001}:5000"
+
+  ai-agent-beta:
+    <<: *agent-defaults
+    command: python -m agent.ai_agent
+    environment:
+      <<: *agent-env
+      AGENT_NAME: beta
+      AGENT_TOKEN: ${AGENT_TOKEN_BETA}
+      AGENT_URL: http://ai-agent-beta:5000
+      HUB_URL: http://ai-agent-hub:5000
+    volumes:
+      - ./data/beta:/app/data
+    ports:
+      - "${BETA_PORT:-5002}:5000"
+
+  ollama:
+    image: ollama/ollama:0.20.7@sha256:487324a9312240e3e122446f351b1f1e3f68d884ef854c246db2e08792440d94
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+#    runtime: nvidia
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      OLLAMA_NUM_PARALLEL: ${OLLAMA_NUM_PARALLEL:-2}
+      OLLAMA_MAX_LOADED_MODELS: ${OLLAMA_MAX_LOADED_MODELS:-1}
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-5m}
+    volumes:
+      - ./.ollama:/root/.ollama
+      - /mnt/c/Users/Public/lm-models:/models:ro
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+
+  autoimport:
+    image: ollama/ollama:0.20.7@sha256:487324a9312240e3e122446f351b1f1e3f68d884ef854c246db2e08792440d94
+    container_name: ollama-autoimport
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./autoimport-state:/state
+      - ./scripts/ollama-autoimport.sh:/usr/local/bin/ollama-autoimport.sh:ro
+    environment:
+      OLLAMA_NUM_CTX: ${OLLAMA_NUM_CTX:-4096}
+    entrypoint: ["/bin/sh", "/usr/local/bin/ollama-autoimport.sh"]

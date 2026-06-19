@@ -94,9 +94,7 @@ def worker_chat_full_scan(
         cfg_max_input_tokens = None
     budget_instruction = _answer_budget_instruction(limits)
 
-    model_context_tokens = lookup_model_context_tokens(model) or int(
-        _cfg_settings.lmstudio_max_context_tokens
-    )
+    model_context_tokens = lookup_model_context_tokens(model) or 4096
     if cfg_max_input_tokens and cfg_max_input_tokens > 0:
         effective_max_input_tokens = min(cfg_max_input_tokens, max(model_context_tokens - 256, 256))
     else:

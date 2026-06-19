@@ -49,9 +49,11 @@ def run_preflight_guards(
     pipeline: dict | None,
     _command_analysis: Any,
     _chain_preflight_deferred: bool,
+    approval_policy_service: Any | None = None,
 ) -> dict | None:
     _call_tool_name, _call_arguments = approval_call_identity(command=command, tool_calls=tool_calls)
-    approval_decision = get_approval_policy_service().evaluate(
+    approval_svc = approval_policy_service or get_approval_policy_service()
+    approval_decision = approval_svc.evaluate(
         command=command,
         tool_calls=tool_calls,
         task=effective_task,
@@ -553,5 +555,4 @@ def execute_tool_calls(
         )
 
     return output_parts, loop_signals, overall_exit_code
-
 

@@ -75,18 +75,11 @@ class FlexibleLLMNormalizationStrategy(ProposeStrategy):
                 effective_config=context.effective_config,
                 task_kind=str((context.task or {}).get("task_kind") or "").strip().lower() or None,
             )
-            llm_result = ModelInvocationService.invoke_result(
+            raw = ModelInvocationService.invoke(
                 prompt=context.base_prompt,
                 system_prompt=_get_json_system_prompt(),
                 timeout=timeout_seconds,
             )
-            raw = str(llm_result.get("content") or "")
-            llm_metadata = dict(llm_result.get("metadata") or {}) if isinstance(llm_result.get("metadata"), dict) else {}
-            llm_profile = [
-                entry
-                for entry in list((llm_metadata.get("llm_call_profile") or []))
-                if isinstance(entry, dict)
-            ]
         except LLMUnavailableError as exc:
             llm_profile = [entry for entry in list(getattr(exc, "llm_call_profile", []) or []) if isinstance(entry, dict)]
             return self._with_llm_profile(ProposeStrategyResult.declined(

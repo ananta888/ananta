@@ -917,11 +917,13 @@ class TestT044SecurityRegression:
 # ══════════════════════════════════════════════════════════════════════════════
 
 class TestT045DocsAndTrackUpdate:
+    def _todo_path(self):
+        from pathlib import Path
+        return Path(__file__).parents[1] / "todos" / "archiv" / "todo.ananta-worker-fixup.json"
+
     def test_todo_file_is_valid_json(self):
         import json
-        from pathlib import Path
-        todo_path = Path(__file__).parents[1] / "todo.ananta-worker-fixup.json"
-        data = json.loads(todo_path.read_text())
+        data = json.loads(self._todo_path().read_text())
         assert data.get("version") == 1
         assert data.get("track")
 
@@ -941,9 +943,7 @@ class TestT045DocsAndTrackUpdate:
 
     def test_all_t031_t040_marked_done(self):
         import json
-        from pathlib import Path
-        todo_path = Path(__file__).parents[1] / "todo.ananta-worker-fixup.json"
-        data = json.loads(todo_path.read_text())
+        data = json.loads(self._todo_path().read_text())
         targets = {f"AWF-T0{i}" for i in range(31, 46)}
         for task in data["tasks"]:
             if task["id"] in targets:

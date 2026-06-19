@@ -6,6 +6,8 @@ import logging
 import time
 from typing import TYPE_CHECKING
 
+from agent.adapters import visual_guide_route_bridge as _route_bridge
+
 if TYPE_CHECKING:
     from agent.services.visual_guide.models import VisualGuideAction, VisualGuideRequest
 
@@ -18,15 +20,13 @@ class VisualGuideTraceService:
     def start_trace(self, request: "VisualGuideRequest") -> str:
         """Creates a trace entry and returns the trace_id."""
         try:
-            from agent.routes.ai_snake_trace_store import get_trace_store
-            store = get_trace_store()
+            store = _route_bridge.get_trace_store()
             trace_id = store.new_trace(
                 snake_id=request.snake_id or None,
                 session_id="ananta-visual",
             )
             # Record the initial request_received event
-            from agent.routes.ai_snake_trace_store import TraceRecorder
-            rec = TraceRecorder(store, trace_id)
+            rec = _route_bridge.trace_recorder(store, trace_id)
             rec.event(
                 "request_received",
                 "VisualGuide request received",
@@ -44,9 +44,8 @@ class VisualGuideTraceService:
         if not trace_id:
             return
         try:
-            from agent.routes.ai_snake_trace_store import get_trace_store, TraceRecorder
-            store = get_trace_store()
-            rec = TraceRecorder(store, trace_id)
+            store = _route_bridge.get_trace_store()
+            rec = _route_bridge.trace_recorder(store, trace_id)
             rec.event(
                 event,
                 event.replace("_", " ").capitalize(),
@@ -67,9 +66,8 @@ class VisualGuideTraceService:
         if not trace_id:
             return
         try:
-            from agent.routes.ai_snake_trace_store import get_trace_store, TraceRecorder
-            store = get_trace_store()
-            rec = TraceRecorder(store, trace_id)
+            store = _route_bridge.get_trace_store()
+            rec = _route_bridge.trace_recorder(store, trace_id)
             status = "completed" if success else "failed"
             details: dict = {}
             if action is not None:

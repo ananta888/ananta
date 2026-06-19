@@ -9,6 +9,8 @@ import shutil
 import subprocess
 import tempfile
 
+from flask import current_app, has_app_context
+
 from agent.config import settings
 from agent.llm_integration import (
     _find_matching_lmstudio_candidate,
@@ -446,6 +448,10 @@ def _run_opencode_subprocess(
 def resolve_codex_runtime_config() -> dict:
     agent_cfg = _get_agent_config()
     provider_urls = _get_runtime_provider_urls()
+    if has_app_context() and "PROVIDER_URLS" in current_app.config:
+        explicit_provider_urls = current_app.config.get("PROVIDER_URLS") or {}
+        if isinstance(explicit_provider_urls, dict) and not explicit_provider_urls:
+            provider_urls = {}
     codex_cfg = agent_cfg.get("codex_cli") or {}
     if not isinstance(codex_cfg, dict):
         codex_cfg = {}
@@ -466,6 +472,9 @@ def resolve_codex_runtime_config() -> dict:
     elif prefer_lmstudio:
         base_url = _normalize_openai_base_url(provider_urls.get("lmstudio") or settings.lmstudio_url)
         base_url_source = "lmstudio_url"
+    elif provider_urls == {}:
+        base_url = None
+        base_url_source = None
     else:
         base_url = _resolve_openai_compatible_base_url()
         base_url_source = "default_provider"
@@ -484,14 +493,14 @@ def resolve_codex_runtime_config() -> dict:
             api_key = _resolve_profile_api_key(local_target.get("api_key_profile"))
             if api_key:
                 api_key_source = f"local_openai.{local_target['provider']}.api_key_profile"
+    is_local = _is_probably_local_base_url(base_url)
+    if not api_key and is_local:
+        api_key = "sk-no-key-needed"
+        api_key_source = "local_dummy"
     if not api_key:
         api_key = os.environ.get("OPENAI_API_KEY") or settings.openai_api_key
         if api_key:
             api_key_source = "openai_api_key"
-    if not api_key and _is_probably_local_base_url(base_url):
-        api_key = "sk-no-key-needed"
-        api_key_source = "local_dummy"
-    is_local = _is_probably_local_base_url(base_url)
     target_kind = "local_openai"
     if local_target and bool(local_target.get("remote_hub")):
         target_kind = "remote_ananta_hub"

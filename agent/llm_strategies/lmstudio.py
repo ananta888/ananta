@@ -242,9 +242,12 @@ class LMStudioStrategy(LLMStrategy):
                 if not usage:
                     try:
                         est_tokens = self._estimate_tokens(
-                            self._build_history_prompt(prompt, history) if not is_chat
-                            else "".join(str(m.get("content", "")) for m in (history or []) if isinstance(m, dict))
-                            + str(prompt or "")
+                            self._build_history_prompt(prompt, history)
+                            if not is_chat
+                            else "\n".join(
+                                [str(m.get("content", "")) for m in (history or []) if isinstance(m, dict)]
+                                + [str(prompt or "")]
+                            )
                         )
                     except Exception:
                         est_tokens = 0

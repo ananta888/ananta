@@ -1,11 +1,18 @@
 from __future__ import annotations
 
+import os
+
+import pytest
+
 from agent.ai_agent import create_app
 from agent.services.evolution import EvolutionContext, get_evolution_provider_registry
 from agent.services.evolution_service import EvolutionService
 
 
 def test_evolver_live_compose_provider_registered_and_analyze_works():
+    if os.environ.get("RUN_EVOLVER_LIVE_COMPOSE") != "1":
+        pytest.skip("requires RUN_EVOLVER_LIVE_COMPOSE=1 and a reachable Evolver compose service")
+
     app = create_app(agent="evolver-live-test")
 
     with app.app_context():

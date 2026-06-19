@@ -143,10 +143,12 @@ class ProposePolicyService:
         if provider != "lmstudio":
             return result
 
-        # LMStudio compatibility: avoid strict OpenAI JSON-schema/tool-call contracts first,
-        # because many local runtimes reject these response_format/tool constraints.
+        # LMStudio compatibility: avoid strict JSON-schema first, but still try
+        # native tool calls before free-form normalization so tool-capable local
+        # runtimes keep the same execution contract as other OpenAI-compatible
+        # providers.
         order = [str(s).strip() for s in list(result.get("strategy_order") or []) if str(s).strip()]
-        preferred = ["flexible_llm_normalization", "tool_calling_llm", "worker_strategy", "advisory_proposal", "human_review"]
+        preferred = ["tool_calling_llm", "flexible_llm_normalization", "worker_strategy", "advisory_proposal", "human_review"]
         normalized: list[str] = []
         for sid in preferred + order:
             if sid not in normalized:

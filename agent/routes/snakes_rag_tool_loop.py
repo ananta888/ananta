@@ -518,6 +518,13 @@ def run_rag_chat_tool_loop(
             except Exception:
                 pass
 
+        search_only_exhausted = (
+            max_search_calls > 0
+            and search_call_count >= max_search_calls
+            and not any(item.get("name") == "read_file" for item in trace.get("tools_used", []))
+        )
+        if search_only_exhausted:
+            force_final_next = True
         use_tools = (max_tool_calls == 0 or tool_call_count < max_tool_calls) and not force_final_next
         llm_call_count += 1
         payload: dict[str, Any] = {
@@ -780,6 +787,8 @@ def run_rag_chat_tool_loop(
                         "[Suche bereits ausgefuehrt. Nutze die bestehende Evidenz, "
                         "lies eine konkrete Datei aus der Trefferliste oder antworte abschliessend.]"
                     )
+                    if search_call_count >= 3:
+                        force_final_next = True
                 elif max_search_calls > 0 and search_call_count > max_search_calls:
                     result = (
                         "[Suchlimit erreicht. Nutze die vorhandene Dateiliste und Evidenz; "

@@ -80,6 +80,10 @@ class PlanningTimeoutService:
             from flask import current_app
 
             app_obj = current_app._get_current_object()
+        if bool(getattr(app_obj, "testing", False) or (getattr(app_obj, "config", {}) or {}).get("TESTING")):
+            planning_policy = ((getattr(app_obj, "config", {}) or {}).get("AGENT_CONFIG") or {}).get("planning_policy") or {}
+            if not bool(planning_policy.get("enable_deadline_guard_threads_in_tests", False)):
+                return False
         if not self._acquire(goal_id):
             return False
 

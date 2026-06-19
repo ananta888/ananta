@@ -422,8 +422,8 @@ def worker_chat_rag_iterative(
             max_lines_per_snippet=_symbol_max_lines,
         )
         _symbol_context_section = format_symbol_context_section(_symbol_snippets)
-        _pack_min_files = 2 if _symbol_snippets else _initial_min_files
-        _pack_max_files = 4 if _symbol_snippets else _initial_max_files
+        _pack_min_files = 0 if _symbol_snippets else _initial_min_files
+        _pack_max_files = 0 if _symbol_snippets else _initial_max_files
         _context_pack = build_rag_context_pack(
             chunks=chunks,
             repo_root=repo_root,
