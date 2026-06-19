@@ -14,8 +14,19 @@ def test_guardrail_block_history_uses_blocked_status(monkeypatch) -> None:
         calls["status"] = status
         calls["kwargs"] = kwargs
 
-    monkeypatch.setattr("agent.services.task_execution_service.get_task_runtime_service", lambda: SimpleNamespace(update_local_task_status=_fake_update))
-    monkeypatch.setattr("agent.services.task_execution_service.get_execution_audit_service", lambda: SimpleNamespace(emit=lambda **_k: None))
+    # The wrapper on TaskExecutionService delegates to the module-level helper in
+    # task_execution_result_handler. That helper resolves its runtime/audit
+    # dependencies through its own module bindings, so the patch targets must
+    # follow the delegation chain — patching the facade's module no longer
+    # affects the implementation.
+    monkeypatch.setattr(
+        "agent.services.task_execution_result_handler.get_task_runtime_service",
+        lambda: SimpleNamespace(update_local_task_status=_fake_update),
+    )
+    monkeypatch.setattr(
+        "agent.services.task_execution_result_handler.get_execution_audit_service",
+        lambda: SimpleNamespace(emit=lambda **_k: None),
+    )
     decision = SimpleNamespace(blocked_tools=["bash"], reasons=["policy_denied"], details={"rule": "x"})
     svc._append_guardrail_block_history(
         "task-1",

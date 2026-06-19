@@ -29,9 +29,13 @@ class _AuditCollector:
 def test_execute_local_step_blocks_unknown_high_risk_mutation_in_strict_mode() -> None:
     svc = TaskExecutionService()
     audit = _AuditCollector()
+    # execute_local_step delegates preflight (mutation gate, risk evaluation,
+    # audit emission) to task_execution_step_executor. The service-facade
+    # module no longer owns these lookups, so patches must target the executor
+    # module where the resolution actually happens.
     with (
-        patch("agent.services.task_execution_service.evaluate_execution_risk", side_effect=_allow_risk),
-        patch("agent.services.task_execution_service.get_execution_audit_service", return_value=audit),
+        patch("agent.services.task_execution_step_executor.evaluate_execution_risk", side_effect=_allow_risk),
+        patch("agent.services.task_execution_step_executor.get_execution_audit_service", return_value=audit),
     ):
         with pytest.raises(ToolGuardrailError):
             svc.execute_local_step(
@@ -52,8 +56,8 @@ def test_execute_local_step_blocks_when_global_deny_switch_enabled() -> None:
     svc = TaskExecutionService()
     audit = _AuditCollector()
     with (
-        patch("agent.services.task_execution_service.evaluate_execution_risk", side_effect=_allow_risk),
-        patch("agent.services.task_execution_service.get_execution_audit_service", return_value=audit),
+        patch("agent.services.task_execution_step_executor.evaluate_execution_risk", side_effect=_allow_risk),
+        patch("agent.services.task_execution_step_executor.get_execution_audit_service", return_value=audit),
     ):
         with pytest.raises(ToolGuardrailError):
             svc.execute_local_step(
