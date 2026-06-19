@@ -1,0 +1,206 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "rtipm-backend-adapters",
+  "created": "2026-06-19",
+  "status": "planned",
+  "priority": "P0",
+  "title": "RTIPM Backend Config und lokale Adapter fertigstellen",
+  "purpose": "Die vorhandene Restricted Transformer Inference Basis backendseitig fertigstellen: zentrale Config, Adapter Registry, echte optionale lokale Adapter, Service-Verdrahtung, sichere Defaults und Tests.",
+  "existing_basis": [
+    "agent/services/restricted_model_inference_service.py existiert.",
+    "agent/services/path_ai_mode_policy_service.py existiert.",
+    "agent/services/model_inference_adapters/__init__.py existiert.",
+    "agent/services/embedding_provider_config_service.py existiert mit local_hash Default.",
+    "MockInferenceAdapter existiert als deterministischer Fallback."
+  ],
+  "gaps": [
+    "restricted_inference hat noch keine eigene vollstaendige Config-Schicht.",
+    "Adapter Registry fehlt.",
+    "sentence-transformers Adapter fehlt oder ist nicht verdrahtet.",
+    "HuggingFace Transformers Adapter fehlt oder ist nicht verdrahtet.",
+    "ONNX Runtime Adapter fehlt oder ist nicht verdrahtet.",
+    "PyTorch Adapter fehlt oder ist nicht verdrahtet.",
+    "RestrictedModelInferenceService nutzt Config und Adapter Registry noch nicht vollstaendig."
+  ],
+  "rules": [
+    "Default bleibt offline und reproduzierbar.",
+    "Optionale ML-Dependencies duerfen beim Fehlen keinen App-Start verhindern.",
+    "Adapter liefern strukturierte Analysewerte: Labels, Scores, Vektoren, Choices oder Risk-Kategorien.",
+    "Path Policy wird vor jeder Modellanalyse geprueft.",
+    "Secrets werden nie serialisiert."
+  ],
+  "tasks": [
+    {
+      "id": "RTIPM-BE-001",
+      "title": "Ist-Zustand Backend abgleichen",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "Alle Dateien unter agent/services/model_inference_adapters sind geprueft.",
+        "Bestehende Tests fuer restricted_model_inference_service sind geprueft.",
+        "EmbeddingProviderConfigService und PathAiModePolicyService sind gegen diese TODO abgeglichen.",
+        "Vorhandene Funktionen werden nicht doppelt implementiert.",
+        "Ergebnis ist kurz in docs oder als Kommentar im PR dokumentiert."
+      ]
+    },
+    {
+      "id": "RTIPM-BE-002",
+      "title": "RestrictedInferenceConfigService einfuehren",
+      "status": "todo",
+      "priority": "P0",
+      "target_files": [
+        "agent/services/restricted_inference_config_service.py",
+        "tests/services/test_restricted_inference_config_service.py"
+      ],
+      "acceptance_criteria": [
+        "from_config({}) erzeugt sichere Defaults.",
+        "enabled, default_engine, default_model_id, device, allow_mock_fallback und allowed_engines sind modelliert.",
+        "models[] mit id, engine, model, revision, device, enabled, tasks und local_path ist modelliert.",
+        "tasks candidate_rerank, task_classify, path_domain_classify, risk_score, semantic_boundary_detection und choice_score sind konfigurierbar.",
+        "Diagnostics melden unknown_engine, disabled_model, missing_dependency, invalid_local_path und unsafe_external_call.",
+        "as_dict(redact_secrets=true) gibt keine Secrets aus.",
+        "Unit-Tests decken Defaults, gueltige Config, ungueltige Engine, deaktiviertes Modell und fehlende Dependency ab."
+      ]
+    },
+    {
+      "id": "RTIPM-BE-003",
+      "title": "Adapter Registry und Factory bauen",
+      "status": "todo",
+      "priority": "P0",
+      "target_files": [
+        "agent/services/model_inference_adapter_registry.py",
+        "tests/services/test_model_inference_adapter_registry.py"
+      ],
+      "acceptance_criteria": [
+        "Registry mappt engine Namen auf AdapterFactory.",
+        "mock ist immer ready.",
+        "sentence-transformers, huggingface-transformers, onnxruntime und pytorch werden lazy importiert.",
+        "Fehlende optionale Libraries liefern AdapterStatus unavailable oder degraded.",
+        "Factories bauen Adapter aus RestrictedInferenceModelConfig.",
+        "Adapter deklarieren Capabilities maschinenlesbar.",
+        "Tests simulieren fehlende Dependencies ohne echte Installation."
+      ]
+    },
+    {
+      "id": "RTIPM-BE-004",
+      "title": "SentenceTransformersAdapter implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "target_files": [
+        "agent/services/model_inference_adapters/sentence_transformers_adapter.py",
+        "tests/services/test_sentence_transformers_adapter.py"
+      ],
+      "acceptance_criteria": [
+        "Lazy Import fuer sentence_transformers ist vorhanden.",
+        "status() degradiert sauber bei fehlender Dependency.",
+        "embed(texts) liefert list[list[float]].",
+        "rerank(query,candidates) liefert sortierte RerankResult-Liste.",
+        "model_id, engine, device und latency sind diagnostizierbar.",
+        "max_input_chars und max_batch_size werden beachtet.",
+        "Tests laufen ohne echte Dependency per Skip oder Mock."
+      ]
+    },
+    {
+      "id": "RTIPM-BE-005",
+      "title": "HuggingFaceTransformersAdapter implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "target_files": [
+        "agent/services/model_inference_adapters/huggingface_transformers_adapter.py",
+        "tests/services/test_huggingface_transformers_adapter.py"
+      ],
+      "acceptance_criteria": [
+        "Lazy Imports fuer transformers und torch sind vorhanden.",
+        "classify(text, labels) akzeptiert nur feste Labels und liefert ClassificationResult.",
+        "score_choices(prompt, choices) akzeptiert nur vorgegebene Choices und liefert ChoiceScore-Liste.",
+        "extract_features(text) liefert FeatureVector.",
+        "allow_hidden_states, allow_logits und allow_attention werden beachtet.",
+        "AdapterStatus enthaelt model_id, engine, device, revision und capabilities.",
+        "Tests decken classify, score_choices, feature extraction und missing dependency ab."
+      ]
+    },
+    {
+      "id": "RTIPM-BE-006",
+      "title": "OnnxRuntimeAdapter implementieren",
+      "status": "todo",
+      "priority": "P2",
+      "target_files": [
+        "agent/services/model_inference_adapters/onnxruntime_adapter.py",
+        "tests/services/test_onnxruntime_adapter.py"
+      ],
+      "acceptance_criteria": [
+        "Lazy Import fuer onnxruntime ist vorhanden.",
+        "Nur lokale Modellpfade werden akzeptiert.",
+        "CPUExecutionProvider ist Default.",
+        "Capabilities werden aus Modell-Config oder Metadaten abgeleitet.",
+        "Fehlende Tokenizer- oder Preprocessing-Infos erzeugen klare Diagnostics.",
+        "Fehlende onnxruntime Dependency crasht nicht.",
+        "Tests decken unavailable, invalid path und minimalen Mock-Run ab."
+      ]
+    },
+    {
+      "id": "RTIPM-BE-007",
+      "title": "PyTorchAdapter implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "target_files": [
+        "agent/services/model_inference_adapters/pytorch_adapter.py",
+        "tests/services/test_pytorch_adapter.py"
+      ],
+      "acceptance_criteria": [
+        "Lazy Import fuer torch ist vorhanden.",
+        "Lokale Modellpfade und Checkpoints sind konfigurierbar.",
+        "torch.no_grad() oder torch.inference_mode() wird genutzt.",
+        "Capabilities kommen aus Config oder Modell-Metadaten.",
+        "Fehlerhafte Checkpoints degradieren sauber.",
+        "Device auto/cpu/cuda/mps ist robust oder sauber dokumentiert.",
+        "Tests decken missing torch, invalid checkpoint und erfolgreichen Mock-Adapter ab."
+      ]
+    },
+    {
+      "id": "RTIPM-BE-008",
+      "title": "RestrictedModelInferenceService mit Config verdrahten",
+      "status": "todo",
+      "priority": "P0",
+      "target_files": [
+        "agent/services/restricted_model_inference_service.py",
+        "tests/services/test_restricted_model_inference_service.py"
+      ],
+      "acceptance_criteria": [
+        "Service kann aus RestrictedInferenceConfigService und Adapter Registry initialisiert werden.",
+        "restricted_inference.enabled=false deaktiviert Operationen sauber.",
+        "Task disabled blockiert nur diese Task mit reason_code task_disabled.",
+        "allowed_model_engines aus PathAiModePolicy werden beachtet.",
+        "Mock fallback wird nur genutzt, wenn allow_mock_fallback=true ist.",
+        "Fallback erzeugt model_inference_degraded Audit Event.",
+        "Bestehende Mock-Tests bleiben kompatibel."
+      ]
+    },
+    {
+      "id": "RTIPM-BE-009",
+      "title": "Dependency Extras definieren",
+      "status": "todo",
+      "priority": "P1",
+      "target_files": [
+        "pyproject.toml",
+        "docs/architecture/restricted-transformer-inference.md"
+      ],
+      "acceptance_criteria": [
+        "Basisinstallation funktioniert ohne ML-Extras.",
+        "Extras fuer sentence-transformers, huggingface, onnxruntime, pytorch und all sind definiert oder dokumentiert.",
+        "Tests ohne Extras laufen mit Mock-Fallback.",
+        "Optionale Integrationstests skippen sauber, wenn Dependencies fehlen.",
+        "Doku erklaert CPU/GPU/CUDA/MPS Hinweise."
+      ]
+    }
+  ],
+  "definition_of_done": [
+    "ConfigService, Registry und Service-Verdrahtung sind getestet.",
+    "Alle optionalen Adapter degradieren sauber.",
+    "Mindestens ein echter lokaler Adapter kann optional genutzt werden.",
+    "Default-Verhalten bestehender Installationen bleibt kompatibel.",
+    "Keine Secrets werden serialisiert."
+  ]
+}
