@@ -42,8 +42,6 @@ def _matches_scope(entry: MemoryEntryDB, scope: Optional[str]) -> bool:
 
 class MemoryEntryRepository:
     def get_by_id(self, entry_id: str) -> Optional[MemoryEntryDB]:
-        if entry_id is None:
-            return None
         with Session(_engine()) as session:
             return session.get(MemoryEntryDB, entry_id)
 
