@@ -1,7 +1,7 @@
 {
   "id": "todo.temporal-workflow-backend-adapter",
   "title": "Temporal.io als optionales WorkflowBackend fuer Ananta integrieren",
-  "status": "planned",
+  "status": "completed",
   "priority": "high",
   "created": "2026-06-19",
   "last_reviewed": "2026-06-19",
@@ -73,7 +73,7 @@
     {
       "id": "TEMP-001",
       "title": "WorkflowBackend-Port einfuehren",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "description": "Eine generische Schnittstelle definieren, damit Ananta Workflows starten, stoppen, signalisieren und abfragen kann, ohne Temporal direkt im Hub-Code zu verdrahten.",
       "interface_methods": [
@@ -94,7 +94,7 @@
     {
       "id": "TEMP-002",
       "title": "Canonical WorkflowRequest und WorkflowStatus definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "description": "Ein neutrales Datenmodell definieren, das BlueprintWorkflowStepDB, VisualProcessGraph und kuenftige BPMN-Blueprints in ausfuehrbare Requests ueberfuehrt.",
       "model": {
@@ -123,7 +123,7 @@
     {
       "id": "TEMP-003",
       "title": "LocalWorkflowBackend als Default implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "description": "Vor Temporal ein lokales Backend bauen, das denselben Port nutzt und vorhandene Task-/Workflow-Status-/Event-Services wiederverwendet.",
       "acceptance_criteria": [
@@ -137,7 +137,7 @@
     {
       "id": "TEMP-004",
       "title": "Konfiguration fuer WorkflowBackend erweitern",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "description": "Zentrale Konfiguration um orchestration.backend und temporal Einstellungen erweitern.",
       "config_example": {
@@ -163,7 +163,7 @@
     {
       "id": "TEMP-005",
       "title": "Temporal Adapter als optionales Modul bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "description": "Temporal-Client und Worker-Integration getrennt vom Hub implementieren.",
       "implementation_notes": [
@@ -183,7 +183,7 @@
     {
       "id": "TEMP-006",
       "title": "Activity-Gateway mit Policy-Enforcement erzwingen",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "description": "Jede ausfuehrbare Activity muss vor dem Start ueber Hub-/Policy-Daten autorisiert werden. PolicyCheck ist kein optionaler Workflow-Schritt, sondern Gate vor Activity-Ausfuehrung.",
       "acceptance_criteria": [
@@ -198,7 +198,7 @@
     {
       "id": "TEMP-007",
       "title": "Standard-Workflow aus BlueprintWorkflowStepDB ausfuehrbar machen",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "description": "Mindestens ein bestehender Blueprint-Workflow soll ueber LocalWorkflowBackend und TemporalWorkflowBackend denselben WorkflowRequest nutzen.",
       "acceptance_criteria": [
@@ -212,7 +212,7 @@
     {
       "id": "TEMP-008",
       "title": "Idempotenz und Replay-Sicherheit absichern",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "description": "Temporal-Replay darf keine Seiteneffekte mehrfach ausloesen.",
       "acceptance_criteria": [
@@ -226,7 +226,7 @@
     {
       "id": "TEMP-009",
       "title": "Retry-, Timeout- und Cancel-Strategien definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "description": "Fuer jede Activity sichere Default-Werte definieren und konfigurierbar machen.",
       "defaults": {
@@ -248,7 +248,7 @@
     {
       "id": "TEMP-010",
       "title": "Human-in-the-loop Signals an bestehende Approval-/Gate-Schicht anbinden",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "description": "Workflows sollen an definierten Gates auf Benutzerfreigabe warten koennen.",
       "acceptance_criteria": [
@@ -262,7 +262,7 @@
     {
       "id": "TEMP-011",
       "title": "Tracking Viewer / WebUI anbinden",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "description": "Temporal-Workflow-Historie in Anantas bestehendem Tracking-/Dashboard-Konzept sichtbar machen.",
       "acceptance_criteria": [
@@ -277,7 +277,7 @@
     {
       "id": "TEMP-012",
       "title": "Docker Compose Profil fuer Temporal hinzufuegen",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "description": "Temporal lokal einfach startbar machen, aber nicht standardmaessig erzwingen.",
       "acceptance_criteria": [
@@ -291,7 +291,7 @@
     {
       "id": "TEMP-013",
       "title": "Tests und Crash-Simulationen",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "description": "Robustheit und Sicherheitsgrenzen muessen durch Tests belegt werden.",
       "test_cases": [
@@ -314,7 +314,7 @@
     {
       "id": "TEMP-014",
       "title": "Dokumentation erstellen",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "description": "Architektur und Betrieb knapp dokumentieren.",
       "docs": [
@@ -347,6 +347,28 @@
     "TEMP-013",
     "TEMP-014"
   ],
+  "implementation_result": {
+    "completed_on": "2026-06-19",
+    "source_files": [
+      "agent/services/workflow_backend.py",
+      "agent/services/local_workflow_backend.py",
+      "agent/services/temporal_workflow_backend.py",
+      "agent/services/workflow_backend_factory.py",
+      "agent/visual_process/blueprint_mapper.py",
+      "agent/routes/visual_process.py",
+      "docs/architecture/workflow-backend-interface.md",
+      "docs/architecture/workflow-security.md"
+    ],
+    "validation": [
+      "pytest -q tests/test_visual_process_bpmn_workflow.py",
+      "pytest -q tests/test_visual_process.py tests/test_visual_process_bpmn_workflow.py"
+    ],
+    "notes": [
+      "LocalWorkflowBackend bleibt Default und funktioniert ohne Temporal.",
+      "TemporalWorkflowBackend importiert temporalio lazy und startet bei vorhandener Runtime den konfigurierten Workflow-Typ.",
+      "Der Backend-Port vermeidet Temporal-Typen in Routes, Blueprint-Modellen und VisualProcess-Mappern."
+    ]
+  },
   "risks": [
     {
       "risk": "Temporal wird zu tief in den Hub eingebaut.",

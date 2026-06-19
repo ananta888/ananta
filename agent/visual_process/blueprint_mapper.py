@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Any
 
 from agent.visual_process.models import VisualProcessGraph, VisualProcessStep
+from agent.services.workflow_backend import WorkflowRequest, WorkflowStepRequest
 
 
 def graph_to_blueprint_steps(graph: VisualProcessGraph) -> list[dict[str, Any]]:
@@ -67,6 +68,56 @@ def graph_to_workflow_execution_request(
         "dry_run": dry_run,
         "requested_by": requested_by,
     }
+
+
+def graph_to_workflow_request(
+    graph: VisualProcessGraph,
+    *,
+    goal_id: str = "",
+    plan_id: str = "",
+    blueprint_id: str | None = None,
+    blueprint_version: str | None = None,
+    workflow_type: str = "custom",
+    policy_scope: dict[str, Any] | None = None,
+    allowed_tools: list[str] | None = None,
+    requested_by: str = "visual_process_designer",
+) -> WorkflowRequest:
+    """Compile a VisualProcessGraph into the neutral WorkflowBackend request."""
+    steps = []
+    for step in _topological_order(graph):
+        predecessors = [e.source for e in graph.edges_to(step.id) if not e.is_back_edge()]
+        step_scope = dict(policy_scope or {})
+        step_scope.update(dict(step.metadata.get("policy_scope") or step.metadata.get("policyScope") or {}))
+        steps.append(WorkflowStepRequest(
+            step_id=step.id,
+            title=step.label,
+            task_kind=step.kind,
+            role=step.role or step.agent_skill_profile_id or "default",
+            depends_on=tuple(predecessors),
+            gate=step.gate,
+            allowed_tools=tuple(str(v) for v in list(step.metadata.get("allowed_tools") or allowed_tools or [])),
+            policy_scope=step_scope,
+            input_artifacts=tuple(step.io.input_names()),
+            output_artifacts=tuple(step.io.output_names()),
+            metadata={
+                **dict(step.metadata or {}),
+                "agent_skill_profile_id": step.agent_skill_profile_id,
+                "policy_hints": list(step.policy_hints),
+            },
+        ))
+    return WorkflowRequest(
+        workflow_id=graph.id,
+        workflow_type=workflow_type,
+        goal_id=goal_id,
+        plan_id=plan_id,
+        blueprint_id=blueprint_id or graph.id,
+        blueprint_version=blueprint_version or graph.version,
+        steps=tuple(steps),
+        allowed_tools=tuple(str(v) for v in list(allowed_tools or [])),
+        policy_scope=dict(policy_scope or {}),
+        requested_by=requested_by,
+        metadata={"source": "visual_process_graph", **dict(graph.metadata or {})},
+    )
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────

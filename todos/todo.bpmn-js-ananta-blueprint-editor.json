@@ -1,7 +1,7 @@
 {
   "id": "todo.bpmn-js-ananta-blueprint-editor",
   "title": "BPMN-Editor als alternative Blueprint-Modellierungsoberflaeche fuer Ananta",
-  "status": "planned",
+  "status": "completed",
   "priority": "high",
   "created": "2026-06-19",
   "last_reviewed": "2026-06-19",
@@ -83,7 +83,7 @@
     {
       "id": "BPMN-001",
       "title": "Canonical Blueprint Contract gegen bestehenden VisualProcessGraph klaeren",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "description": "Vor bpmn-js den fachlichen Contract festlegen, indem VisualProcessGraph, graph_to_blueprint_steps und BlueprintWorkflowStepDB abgeglichen werden.",
       "acceptance_criteria": [
@@ -97,7 +97,7 @@
     {
       "id": "BPMN-002",
       "title": "BPMN Adapter als getrennten Mapper bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "description": "Ein isolierter Adapter uebersetzt BPMN XML in VisualProcessGraph und zurueck. Keine Mapping-Logik in Angular-Komponenten oder Hub-Routen verstecken.",
       "implementation_notes": [
@@ -116,7 +116,7 @@
     {
       "id": "BPMN-003",
       "title": "bpmn-js in Angular als Editor-Komponente integrieren",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "description": "Eine Angular-Komponente fuer bpmn-js Modeler ergaenzen, ohne den bestehenden VisualProcessEditor zu ersetzen.",
       "implementation_notes": [
@@ -137,7 +137,7 @@
     {
       "id": "BPMN-004",
       "title": "Ananta Properties Panel fuer BPMN Elemente",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "description": "Beim Anklicken eines BPMN Elements sollen Ananta-spezifische Eigenschaften als Formular bearbeitbar sein.",
       "properties": [
@@ -165,7 +165,7 @@
     {
       "id": "BPMN-005",
       "title": "Validierung an bestehende VisualProcessValidator-Schicht anbinden",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "description": "BPMN-Blueprints duerfen nur ueber den bestehenden Validator/Dry-Run Pfad in ausfuehrbare Daten ueberfuehrt werden.",
       "acceptance_criteria": [
@@ -180,7 +180,7 @@
     {
       "id": "BPMN-006",
       "title": "Blueprint Speicherung an bestehende Team-/Workflow-Blueprints anbinden",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "description": "Persistenz soll vorhandene TeamBlueprintDB/BlueprintWorkflowStepDB- und Bundle-Mechanik nutzen oder explizit adapterseitig darauf mappen.",
       "acceptance_criteria": [
@@ -194,7 +194,7 @@
     {
       "id": "BPMN-007",
       "title": "Blueprint zu neutralem WorkflowRequest kompilieren",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "description": "Aus validiertem VisualProcessGraph/BlueprintWorkflowStep soll ein neutraler WorkflowRequest entstehen, der vom spaeteren WorkflowBackend-Port verarbeitet wird.",
       "acceptance_criteria": [
@@ -208,7 +208,7 @@
     {
       "id": "BPMN-008",
       "title": "Visuelle Statusanzeige ueber workflow_status.v1",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "description": "Laufende oder vergangene Workflows sollen im BPMN/Blueprint Viewer ueber vorhandene Statusdaten markiert werden.",
       "acceptance_criteria": [
@@ -222,7 +222,7 @@
     {
       "id": "BPMN-009",
       "title": "Security Boundary dokumentieren",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "description": "Dokumentieren, dass BPMN nur modelliert und keine Rechte vergibt.",
       "acceptance_criteria": [
@@ -236,7 +236,7 @@
     {
       "id": "BPMN-010",
       "title": "Tests fuer Mapping, UI und Validierung",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "description": "Automatisierte Tests fuer BPMN Adapter, VisualProcess-Kompatibilitaet und UI-Laden ergaenzen.",
       "acceptance_criteria": [
@@ -261,6 +261,30 @@
     "BPMN-009",
     "BPMN-010"
   ],
+  "implementation_result": {
+    "completed_on": "2026-06-19",
+    "source_files": [
+      "agent/visual_process/bpmn_adapter.py",
+      "agent/routes/visual_process.py",
+      "frontend-angular/src/app/features/visual-process/bpmn-blueprint-editor.component.ts",
+      "frontend-angular/src/app/features/visual-process/visual-process-api.service.ts",
+      "frontend-angular/src/app/features/visual-process/visual-process.routes.ts",
+      "frontend-angular/src/app/features/visual-process/visual-process.routes.spec.ts",
+      "frontend-angular/src/types/bpmn-js.d.ts",
+      "frontend-angular/src/styles.css",
+      "docs/blueprints/bpmn-blueprint-editor.md"
+    ],
+    "validation": [
+      "pytest -q tests/test_visual_process_bpmn_workflow.py",
+      "npm run build",
+      "npm run test:unit -- src/app/features/visual-process/visual-process.routes.spec.ts"
+    ],
+    "notes": [
+      "bpmn-js ist als dynamisch geladene Lazy-Dependency eingebunden.",
+      "Der Editor ruft fuer Import, Graph-Kompilierung, WorkflowRequest und Workflow-Start die Hub-API auf.",
+      "Ananta-Eigenschaften werden vor dem Kompilieren auf den importierten VisualProcessGraph angewendet."
+    ]
+  },
   "risks": [
     {
       "risk": "BPMN XML wird zur zweiten Wahrheit neben VisualProcessGraph/BlueprintWorkflowStepDB.",

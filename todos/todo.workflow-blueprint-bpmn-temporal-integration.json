@@ -1,7 +1,7 @@
 {
   "id": "todo.workflow-blueprint-bpmn-temporal-integration",
   "title": "Einheitlicher Ananta Workflow-/Blueprint-Pfad mit BPMN-Editor und optionalem Temporal Backend",
-  "status": "planned",
+  "status": "completed",
   "priority": "critical",
   "created": "2026-06-19",
   "tags": [
@@ -402,6 +402,35 @@
     "Neue Tests decken BPMN Mapping, WorkflowBackend Port, Local Backend, Policy Denials und optional Temporal Adapter ab.",
     "Dokumentation erklaert klar die Grenzen zwischen UI, Blueprint, Hub, Backend und Worker."
   ],
+  "implementation_result": {
+    "completed_on": "2026-06-19",
+    "source_files": [
+      "agent/services/workflow_backend.py",
+      "agent/services/local_workflow_backend.py",
+      "agent/services/temporal_workflow_backend.py",
+      "agent/services/workflow_backend_factory.py",
+      "agent/visual_process/bpmn_adapter.py",
+      "agent/visual_process/blueprint_mapper.py",
+      "agent/routes/visual_process.py",
+      "frontend-angular/src/app/features/visual-process/bpmn-blueprint-editor.component.ts",
+      "frontend-angular/src/app/features/visual-process/visual-process-api.service.ts",
+      "frontend-angular/src/app/features/visual-process/visual-process.routes.ts",
+      "frontend-angular/src/styles.css",
+      "docs/architecture/workflow-backend-interface.md",
+      "docs/architecture/workflow-security.md",
+      "docs/blueprints/bpmn-blueprint-editor.md"
+    ],
+    "validation": [
+      "pytest -q tests/test_visual_process.py tests/test_visual_process_bpmn_workflow.py",
+      "npm run build",
+      "npm run test:unit -- src/app/features/visual-process/visual-process.routes.spec.ts"
+    ],
+    "notes": [
+      "Temporal bleibt optional und wird ueber ANANTA_ORCHESTRATION_BACKEND=temporal aktiviert.",
+      "Der Temporal-Adapter startet bei vorhandener SDK-/Server-Runtime den konfigurierten Workflow-Typ mit WorkflowRequest JSON; ohne Runtime liefert er degraded Status.",
+      "BPMN ist Import-/Export-/Editorformat; WorkflowRequest bleibt der neutrale Ausfuehrungsvertrag."
+    ]
+  },
   "solid_review": {
     "srp": "Editor, Mapper, Validator, Backend, Policy-Gateway und Status-Reader bleiben getrennte Module.",
     "ocp": "Neue Editor- und Backend-Varianten werden ueber Adapter/Ports ergaenzt.",

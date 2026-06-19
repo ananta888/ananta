@@ -28,6 +28,10 @@ export interface ValidationResult { valid: boolean; error_count: number; warning
 export interface SkillProfile { id: string; name: string; description: string; role: string; task_kinds: string[]; tags: string[]; }
 export interface PresetSummary { id: string; name: string; description: string; tags: string[]; }
 export interface DryRunResult { dry_run: boolean; validation: ValidationResult; policy_summary: Record<string, unknown>; blueprint: unknown; step_count: number; edge_count: number; }
+export interface BpmnImportResult { graph: VpGraph; warnings: string[]; validation: ValidationResult; }
+export interface BpmnExportResult { bpmn_xml: string; warnings: string[]; }
+export interface WorkflowRequestResult { workflow_request: Record<string, unknown>; validation: ValidationResult; errors: string[]; }
+export interface WorkflowStatus { schema: string; backend: string; workflow_id: string; status: string; steps?: unknown[]; events?: unknown[]; [key: string]: unknown; }
 
 @Injectable({ providedIn: 'root' })
 export class VisualProcessApiService {
@@ -67,5 +71,47 @@ export class VisualProcessApiService {
 
   policySummary(graph: VpGraph): Observable<{ summary: Record<string, unknown>; per_step: Record<string, string[]> }> {
     return this.http.post<any>(`${this.baseUrl}/api/visual-process/policy-summary`, graph);
+  }
+
+  importBpmn(bpmnXml: string): Observable<BpmnImportResult> {
+    return this.http.post<BpmnImportResult>(`${this.baseUrl}/api/visual-process/bpmn/import`, {
+      bpmn_xml: bpmnXml,
+    });
+  }
+
+  exportBpmn(graph: VpGraph): Observable<BpmnExportResult> {
+    return this.http.post<BpmnExportResult>(`${this.baseUrl}/api/visual-process/bpmn/export`, graph);
+  }
+
+  compileWorkflowRequest(graph: VpGraph, options: Record<string, unknown> = {}): Observable<WorkflowRequestResult> {
+    return this.http.post<WorkflowRequestResult>(`${this.baseUrl}/api/visual-process/workflow-request`, {
+      graph,
+      ...options,
+    });
+  }
+
+  startWorkflowFromGraph(graph: VpGraph, options: Record<string, unknown> = {}): Observable<WorkflowStatus> {
+    return this.http.post<WorkflowStatus>(`${this.baseUrl}/api/visual-process/workflow/start`, {
+      graph,
+      ...options,
+    });
+  }
+
+  getWorkflowStatus(workflowId: string): Observable<WorkflowStatus> {
+    return this.http.get<WorkflowStatus>(`${this.baseUrl}/api/visual-process/workflow/${encodeURIComponent(workflowId)}/status`);
+  }
+
+  cancelWorkflow(workflowId: string, reason = ''): Observable<WorkflowStatus> {
+    return this.http.post<WorkflowStatus>(
+      `${this.baseUrl}/api/visual-process/workflow/${encodeURIComponent(workflowId)}/cancel`,
+      { reason },
+    );
+  }
+
+  signalWorkflow(workflowId: string, name: string, payload: Record<string, unknown> = {}): Observable<WorkflowStatus> {
+    return this.http.post<WorkflowStatus>(
+      `${this.baseUrl}/api/visual-process/workflow/${encodeURIComponent(workflowId)}/signal`,
+      { name, payload, actor: 'visual_process_designer' },
+    );
   }
 }
