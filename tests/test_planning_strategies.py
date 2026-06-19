@@ -223,6 +223,15 @@ def test_llm_planning_strategy_new_project_prompt_allows_model_native_structure(
         )
 
     monkeypatch.setattr("agent.services.planning_strategies.parse_subtasks_with_diagnostics", _parse)
+    # Force English prompt lookup: this test asserts the presence of the
+    # EN-only "Markdown fences are acceptable" guidance from
+    # config/planning_prompts.default.json. The default profile resolves
+    # to prompt_language="de" when no LLM model is configured (global
+    # fallback), which yields the inline-fallback prompt in the full
+    # pytest run. Pin the language explicitly to keep the test stable.
+    planner._goal_effective_config = {
+        "planning_policy": {"prompt_language": "en"},
+    }
     with app.app_context():
         result = strategy.execute(
             planner,
