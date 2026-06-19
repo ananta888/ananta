@@ -132,8 +132,10 @@ VIEW_AGENT_RUNTIME = "agent_runtime_view"
 VIEW_POLICY_PATH = "policy_path_view"
 VIEW_CONTEXT_PIPELINE = "context_pipeline_view"
 VIEW_EFFECTIVE_CONFIG = "effective_config_view"
+VIEW_CONFIGURATION_OVERVIEW = "configuration_overview_view"
 
 VIEW_IDS = {
+    "configurationOverview": VIEW_CONFIGURATION_OVERVIEW,
     "profileActivation": VIEW_PROFILE_ACTIVATION,
     "planningFlow": VIEW_PLANNING_FLOW,
     "agentRuntime": VIEW_AGENT_RUNTIME,
@@ -928,10 +930,15 @@ class ConfigGraphBuilderService:
     def _build_views(self, graph: ConfigGraph) -> None:
         # Make sure all views exist
         for view_id in (
+            VIEW_CONFIGURATION_OVERVIEW,
             VIEW_PROFILE_ACTIVATION, VIEW_PLANNING_FLOW, VIEW_AGENT_RUNTIME,
             VIEW_POLICY_PATH, VIEW_CONTEXT_PIPELINE, VIEW_EFFECTIVE_CONFIG,
         ):
             graph.views.setdefault(view_id, [])
+
+        # configuration_overview_view: complete graph surface for discovery.
+        for nid in graph.nodes:
+            graph.add_to_view(VIEW_CONFIGURATION_OVERVIEW, nid)
 
         # effective_config_view: union of key nodes
         for nid in list(graph.nodes):

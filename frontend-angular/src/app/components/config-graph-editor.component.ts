@@ -40,13 +40,15 @@ interface CloneFormState {
   error: string | null;
 }
 interface ConnectedNode { node: ConfigGraphNode; direction: 'out' | 'in'; edgeType: string; }
+type GraphStatusFilter = 'all' | 'active' | 'inactive' | 'diagnostics' | 'stale';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const NODE_W = 160, NODE_H = 44, COL_GAP = 200, ROW_GAP = 60;
 
 const VIEWS: ViewMeta[] = [
-  { id: VIEW_IDS.effectiveConfig,  label: 'Effektive Konfiguration', color: '#4A90D9', description: 'Welche Nodes für eine Surface aktuell aktiv sind' },
+  { id: VIEW_IDS.configurationOverview, label: 'Gesamtübersicht', color: '#4A90D9', description: 'Alle Konfigurationsknoten und Beziehungen im Snapshot' },
+  { id: VIEW_IDS.effectiveConfig,  label: 'Effektive Konfiguration', color: '#1976D2', description: 'Welche Nodes für eine Surface aktuell aktiv sind' },
   { id: VIEW_IDS.profileActivation, label: 'Profil-Aktivierung',     color: '#4CAF50', description: 'Agenten-Profile und deren Aktivierungspfade' },
   { id: VIEW_IDS.agentRuntime,     label: 'Agent-Laufzeit',          color: '#9C27B0', description: 'Agenten-Instanzen, Worker und Laufzeit-Konfiguration' },
   { id: VIEW_IDS.policyPath,       label: 'Policy-Pfad',             color: '#FF9800', description: 'Pfad-Regeln und KI-Modus-Einschränkungen' },
@@ -55,6 +57,7 @@ const VIEWS: ViewMeta[] = [
 ];
 
 const VIEW_PRIMARY_TYPES: Partial<Record<ViewId, string[]>> = {
+  [VIEW_IDS.configurationOverview]: [],
   [VIEW_IDS.profileActivation]: ['agent_profile'],
   [VIEW_IDS.policyPath]:        ['path_rule'],
   [VIEW_IDS.planningFlow]:      ['goal_template'],
@@ -155,6 +158,36 @@ const CLONE_DEFS: Record<string, CloneFormField[]> = {
             </button>
           </div>
           <div class="sidebar-divider"></div>
+          <div class="sidebar-section-label">Graph filtern</div>
+          <div class="graph-filter-form">
+            <input
+              [(ngModel)]="graphSearchText"
+              (ngModelChange)="onGraphFilterChanged()"
+              placeholder="Suche nach Label, Typ, Datei..."
+              class="eff-input"
+            />
+            <select
+              [(ngModel)]="graphNodeType"
+              (ngModelChange)="onGraphFilterChanged()"
+              class="eff-input"
+            >
+              <option value="">Alle Node-Typen</option>
+              <option *ngFor="let t of availableNodeTypes" [value]="t">{{ t }}</option>
+            </select>
+            <select
+              [(ngModel)]="graphStatus"
+              (ngModelChange)="onGraphFilterChanged()"
+              class="eff-input"
+            >
+              <option value="all">Alle Status</option>
+              <option value="active">Nur aktiv</option>
+              <option value="inactive">Nur inaktiv</option>
+              <option value="diagnostics">Mit Diagnose</option>
+              <option value="stale">Veraltet</option>
+            </select>
+            <button *ngIf="hasGraphFilters" class="button-outline full-w" (click)="clearGraphSearchFilters()">Filter zurücksetzen</button>
+          </div>
+          <div class="sidebar-divider"></div>
           <div class="sidebar-section-label">Effektiv auflösen</div>
           <div class="effective-form">
             <input [(ngModel)]="effectiveSurface" placeholder="Surface (z.B. ai_snake_chat)" class="eff-input" />
@@ -182,8 +215,11 @@ const CLONE_DEFS: Record<string, CloneFormField[]> = {
               <span class="count-badge" [style.background]="activeViewMeta.color">
                 {{ visibleNodeIds.length }} / {{ graph.node_count }} Nodes
               </span>
+              <span *ngIf="hasGraphFilters" class="filter-badge" (click)="clearGraphSearchFilters()">
+                Suche aktiv x
+              </span>
               <span *ngIf="graphFilterIds" class="filter-badge" (click)="clearGraphFilter()">
-                Filter aktiv ✕
+                Fokus aktiv x
               </span>
               <span class="snap-id muted">{{ graph.snapshot_id }}</span>
             </div>
@@ -416,7 +452,7 @@ const CLONE_DEFS: Record<string, CloneFormField[]> = {
                       <div class="cn-dot" [style.background]="nodeTypeColor(cn.node.node_type)"></div>
                       <strong class="cn-label">{{ cn.node.label }}</strong>
                       <span class="card-type">{{ cn.node.node_type }}</span>
-                      <button *ngIf="isPrimaryTypeInView(cn.node)" class="button-outline cn-open-btn" (click)="selectConfigItem(cn.node)">Öffnen</button>
+                      <button class="button-outline cn-open-btn" (click)="selectConfigItem(cn.node)">Öffnen</button>
                     </div>
                   </div>
                 </div>
@@ -566,6 +602,7 @@ const CLONE_DEFS: Record<string, CloneFormField[]> = {
 
     /* Effective form */
     .effective-form { display:flex; flex-direction:column; gap:5px; padding:5px 9px 8px; }
+    .graph-filter-form { display:flex; flex-direction:column; gap:5px; padding:5px 9px 8px; }
     .eff-input { width:100%; box-sizing:border-box; font-size:12px; padding:5px 8px; border-radius:5px; border:1px solid var(--border-color,#333); background:var(--bg-input,#1e1e1e); color:var(--text,#ccc); }
     .full-w { width:100%; }
 
@@ -762,12 +799,15 @@ export class ConfigGraphEditorComponent implements OnInit, AfterViewInit, OnDest
 
   graph: ConfigGraph | null = null;
   loading = true;
-  activeView: ViewId = VIEW_IDS.profileActivation;
+  activeView: ViewId = VIEW_IDS.configurationOverview;
   selectedNode: ConfigGraphNode | null = null;
   selectedConfigItem: ConfigGraphNode | null = null;
   displayMode: 'config' | 'graph' = 'config';
   editMode = false;
   graphFilterIds: string[] | null = null;
+  graphSearchText = '';
+  graphNodeType = '';
+  graphStatus: GraphStatusFilter = 'all';
 
   effectiveSurface = 'ai_snake_chat';
   effectiveTaskKind = '';
@@ -791,12 +831,23 @@ export class ConfigGraphEditorComponent implements OnInit, AfterViewInit, OnDest
     return VIEWS.find(v => v.id === this.activeView) ?? null;
   }
 
+  get availableNodeTypes(): string[] {
+    if (!this.graph) return [];
+    return Array.from(new Set(Object.values(this.graph.nodes).map(n => n.node_type))).sort();
+  }
+
+  get hasGraphFilters(): boolean {
+    return Boolean(this.graphSearchText.trim() || this.graphNodeType || this.graphStatus !== 'all');
+  }
+
   get visibleNodeIds(): string[] {
     if (!this.graph) return [];
     const all = (this.graph.views[this.activeView] ?? []).filter(id => id in this.graph!.nodes);
-    if (!this.graphFilterIds) return all;
-    const fs = new Set(this.graphFilterIds);
-    return all.filter(id => fs.has(id));
+    const focusIds = this.graphFilterIds ? new Set(this.graphFilterIds) : null;
+    return all.filter(id => {
+      const node = this.graph!.nodes[id];
+      return (!focusIds || focusIds.has(id)) && this.matchesGraphFilters(node);
+    });
   }
 
   get visibleLayoutNodes(): LayoutNode[] {
@@ -811,11 +862,7 @@ export class ConfigGraphEditorComponent implements OnInit, AfterViewInit, OnDest
 
   get configPanelItems(): ConfigGraphNode[] {
     if (!this.graph) return [];
-    const primaryTypes = VIEW_PRIMARY_TYPES[this.activeView] ?? [];
-    return (this.graph.views[this.activeView] ?? [])
-      .filter(id => id in this.graph!.nodes)
-      .map(id => this.graph!.nodes[id])
-      .filter(n => primaryTypes.includes(n.node_type));
+    return this.visibleNodeIds.map(id => this.graph!.nodes[id]);
   }
 
   get creatableTypeForView(): 'agent_profile' | 'path_rule' | null {
@@ -888,6 +935,20 @@ export class ConfigGraphEditorComponent implements OnInit, AfterViewInit, OnDest
     this.cdr.markForCheck();
   }
 
+  onGraphFilterChanged(): void {
+    this.selectedNode = null;
+    this.selectedConfigItem = null;
+    this.computeLayout();
+    this.cdr.markForCheck();
+  }
+
+  clearGraphSearchFilters(): void {
+    this.graphSearchText = '';
+    this.graphNodeType = '';
+    this.graphStatus = 'all';
+    this.onGraphFilterChanged();
+  }
+
   // ── Config item selection ──────────────────────────────────────────────────
 
   selectConfigItem(node: ConfigGraphNode): void {
@@ -922,6 +983,29 @@ export class ConfigGraphEditorComponent implements OnInit, AfterViewInit, OnDest
   isPrimaryTypeInView(node: ConfigGraphNode): boolean {
     const types = VIEW_PRIMARY_TYPES[this.activeView] ?? [];
     return types.includes(node.node_type);
+  }
+
+  private matchesGraphFilters(node: ConfigGraphNode): boolean {
+    if (this.graphNodeType && node.node_type !== this.graphNodeType) return false;
+    if (this.graphStatus === 'active' && !node.runtime_active) return false;
+    if (this.graphStatus === 'inactive' && node.runtime_active) return false;
+    if (this.graphStatus === 'diagnostics' && node.diagnostics.length === 0) return false;
+    if (this.graphStatus === 'stale' && !node.stale) return false;
+
+    const query = this.graphSearchText.trim().toLowerCase();
+    if (!query) return true;
+    const haystack = [
+      node.id,
+      node.node_type,
+      node.label,
+      node.source_file ?? '',
+      node.runtime_source ?? '',
+      ...Object.entries(node.data as Record<string, unknown>).flatMap(([k, v]) => [
+        k,
+        Array.isArray(v) ? v.join(' ') : typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v ?? ''),
+      ]),
+    ].join(' ').toLowerCase();
+    return haystack.includes(query);
   }
 
   // ── Field helpers ──────────────────────────────────────────────────────────

@@ -32,6 +32,7 @@ from agent.services.config_graph_builder_service import (
     VIEW_IDS,
     VIEW_AGENT_RUNTIME,
     VIEW_CONTEXT_PIPELINE,
+    VIEW_CONFIGURATION_OVERVIEW,
     VIEW_EFFECTIVE_CONFIG,
     VIEW_PLANNING_FLOW,
     VIEW_POLICY_PATH,
@@ -303,10 +304,17 @@ def test_all_views_exist():
     tmp = make_temp_repo()
     graph = ConfigGraphBuilderService(repo_root=tmp).build()
     for view_id in (
+        VIEW_CONFIGURATION_OVERVIEW,
         VIEW_PROFILE_ACTIVATION, VIEW_PLANNING_FLOW, VIEW_AGENT_RUNTIME,
         VIEW_POLICY_PATH, VIEW_CONTEXT_PIPELINE, VIEW_EFFECTIVE_CONFIG,
     ):
         assert view_id in graph.views, f"view missing: {view_id}"
+
+
+def test_configuration_overview_view_contains_all_nodes():
+    tmp = make_temp_repo()
+    graph = ConfigGraphBuilderService(repo_root=tmp).build()
+    assert set(graph.views[VIEW_CONFIGURATION_OVERVIEW]) == set(graph.nodes)
 
 
 def test_effective_config_view_contains_active_nodes():

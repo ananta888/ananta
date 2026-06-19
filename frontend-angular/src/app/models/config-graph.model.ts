@@ -115,6 +115,7 @@ export interface ApplyPatchResult {
 }
 
 export const VIEW_IDS = {
+  configurationOverview: 'configuration_overview_view',
   profileActivation: 'profile_activation_view',
   planningFlow: 'planning_flow_view',
   agentRuntime: 'agent_runtime_view',
