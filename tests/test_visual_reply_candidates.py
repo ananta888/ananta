@@ -12,9 +12,17 @@ def reset_visual_state():
     ser = importlib.import_module("agent.routes.snakes_execution_routes")
     ser._visual_last_snapshot = ""
     ser._visual_last_reply_at = 0.0
+    import agent.services.visual_guide.service as vg_svc
+
+    vg_svc._visual_state.clear()
+    try:
+        vg_svc._visual_guide_service._decision_svc.reset()  # type: ignore[attr-defined]
+    except Exception:
+        pass
     yield ser
     ser._visual_last_snapshot = ""
     ser._visual_last_reply_at = 0.0
+    vg_svc._visual_state.clear()
 
 
 def _set_pug_settings(settings: dict) -> None:

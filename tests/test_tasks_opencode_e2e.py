@@ -1,7 +1,21 @@
 import json
+import os
 from unittest.mock import patch
 
+import pytest
 
+
+# This test exercises the full opencode routing path end-to-end and depends on
+# the local LMStudio/OpenCode runtime being reachable. It is not part of the
+# standard pytest run — guard it behind an opt-in env var so CI failures don't
+# surface on laptops that do not run the opencode stack.
+_RUN_E2E = os.environ.get("ANANTA_RUN_OPENCODE_E2E", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+@pytest.mark.skipif(
+    not _RUN_E2E,
+    reason="opencode e2e requires a reachable LMStudio/OpenCode runtime; set ANANTA_RUN_OPENCODE_E2E=1 to enable",
+)
 def test_task_e2e_solved_via_opencode_glm5_default(client, app, admin_auth_header):
     tid = "T-E2E-OPENCODE-GLM5"
 
