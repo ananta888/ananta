@@ -414,6 +414,32 @@ def isolate_operator_tui_user_config(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def reset_cli_trace_svc_cache():
+    """Reset the lazy _TRACE_SVC singleton in agent.cli.prompt_inspect_core.
+
+    Several CLI prompt-inspect commands lazily resolve their trace service
+    on first use and cache it for the rest of the process. Without a reset,
+    a test that patches ``get_prompt_trace_service`` only sees its mock on
+    the first invocation; subsequent tests in the same run resolve the
+    real cached singleton and observe the wrong data. Resetting the cache
+    before AND after each test guarantees deterministic behaviour.
+    """
+    try:
+        from agent.cli import prompt_inspect_core as _pic
+
+        _pic._reset_trace_svc_cache()
+    except Exception:
+        pass
+    yield
+    try:
+        from agent.cli import prompt_inspect_core as _pic
+
+        _pic._reset_trace_svc_cache()
+    except Exception:
+        pass
+
+
+@pytest.fixture(autouse=True)
 def ensure_state_ownership_matrix_file():
     """Keep ownership-matrix tests deterministic in clean CI environments."""
     matrix_path = Path("data/state_ownership_matrix.json")

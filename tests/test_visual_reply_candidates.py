@@ -135,22 +135,42 @@ def test_spawn_visual_reply_uses_candidates_prompt_for_n_gt_1(app, reset_visual_
 
     captured_prompts: list[str] = []
 
-    class FakeResp:
-        class choices:
-            class _msg:
-                content = '__CANDIDATES__: [{"label":"primary","bubble":"test","steps":[]}]'
-            choices = [type("C", (), {"message": _msg})()]
+    class FakeResponse:
+        status_code = 200
 
-    class FakeClient:
-        def __init__(self, **_): pass
-        class chat:
-            class completions:
-                @staticmethod
-                def create(*, model, messages, **_):
-                    captured_prompts.append(messages[0]["content"])
-                    return FakeResp
+        def __init__(self) -> None:
+            self._payload = {
+                "choices": [
+                    {
+                        "message": {
+                            "content": '__CANDIDATES__: [{"label":"primary","bubble":"test","steps":[]}]'
+                        }
+                    }
+                ]
+            }
 
-    monkeypatch.setattr("openai.OpenAI", FakeClient)
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict:
+            return self._payload
+
+    def _fake_post(url, json, headers=None, timeout=None, **_):
+        messages = (json or {}).get("messages") or []
+        if messages:
+            captured_prompts.append(messages[0].get("content") or "")
+        return FakeResponse()
+
+    # The visual-guide service early-returns when background threads are
+    # disabled (the default for the test runtime). Patch the bridge callable
+    # so the LLM path is actually exercised.
+    monkeypatch.setattr(
+        "agent.services.visual_guide.service._background_threads_disabled",
+        lambda: False,
+    )
+    import requests as _requests
+
+    monkeypatch.setattr(_requests, "post", _fake_post)
     monkeypatch.setattr(
         "agent.routes.snakes_execution_routes._append_room_ai_message",
         lambda **kwargs: None,
@@ -176,22 +196,35 @@ def test_spawn_visual_reply_uses_guide_prompt_for_single_candidate(app, reset_vi
 
     captured_prompts: list[str] = []
 
-    class FakeResp:
-        class choices:
-            class _msg:
-                content = "Hier ist ein Hinweis."
-            choices = [type("C", (), {"message": _msg})()]
+    class FakeResponse:
+        status_code = 200
 
-    class FakeClient:
-        def __init__(self, **_): pass
-        class chat:
-            class completions:
-                @staticmethod
-                def create(*, model, messages, **_):
-                    captured_prompts.append(messages[0]["content"])
-                    return FakeResp
+        def __init__(self) -> None:
+            self._payload = {
+                "choices": [
+                    {"message": {"content": "Hier ist ein Hinweis."}}
+                ]
+            }
 
-    monkeypatch.setattr("openai.OpenAI", FakeClient)
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict:
+            return self._payload
+
+    def _fake_post(url, json, headers=None, timeout=None, **_):
+        messages = (json or {}).get("messages") or []
+        if messages:
+            captured_prompts.append(messages[0].get("content") or "")
+        return FakeResponse()
+
+    monkeypatch.setattr(
+        "agent.services.visual_guide.service._background_threads_disabled",
+        lambda: False,
+    )
+    import requests as _requests
+
+    monkeypatch.setattr(_requests, "post", _fake_post)
     monkeypatch.setattr(
         "agent.routes.snakes_execution_routes._append_room_ai_message",
         lambda **kwargs: None,

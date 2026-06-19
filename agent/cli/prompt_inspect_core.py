@@ -7,12 +7,25 @@ from typing import Any
 
 _TRACE_SVC = None
 
+
 def _get_trace_svc():
     global _TRACE_SVC
     if _TRACE_SVC is None:
         from agent.services.prompt_trace_service import get_prompt_trace_service
         _TRACE_SVC = get_prompt_trace_service()
     return _TRACE_SVC
+
+
+def _reset_trace_svc_cache() -> None:
+    """Clear the cached trace-service singleton.
+
+    Intended for test teardown so that patches targeting
+    ``agent.services.prompt_trace_service.get_prompt_trace_service``
+    take effect on subsequent calls. Production CLI runs go through the
+    process lifetime where the cache stays valid.
+    """
+    global _TRACE_SVC
+    _TRACE_SVC = None
 
 def _api_request(method: str, path: str, *, params: dict | None = None, timeout: int = 30):
     from agent.cli_goals import _request

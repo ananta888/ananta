@@ -30,7 +30,10 @@ class _MissingBinaryShell:
 
 def test_missing_binary_shell_command_returns_needs_review():
     service = TaskExecutionService()
-    with patch("agent.services.task_execution_service.get_shell", return_value=_MissingBinaryShell()):
+    # _execute_shell_command_with_policy was extracted into
+    # task_execution_result_handler which resolves get_shell() from its own
+    # module bindings, so the patch target must follow the extraction.
+    with patch("agent.services.task_execution_result_handler.get_shell", return_value=_MissingBinaryShell()):
         result = service.execute_local_step(
             tid="T-URI-2",
             task={"worker_execution_context": {"allowed_tools": ["bash"]}},

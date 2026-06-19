@@ -13,6 +13,7 @@ EXPECTED_ARTIFACT_COUNTS = {
     "Security-Review": 4,
     "Release-Prep": 4,
     "Research-Evolution": 5,
+    "Story-Domain-Implementation": 5,
 }
 def test_seed_catalog_and_runtime_reconcile_keep_expected_names_and_artifact_counts(client) -> None:
     seed_map = get_seed_blueprint_catalog().as_seed_blueprint_map()
