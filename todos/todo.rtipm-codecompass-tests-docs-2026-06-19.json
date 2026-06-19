@@ -1,0 +1,259 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "rtipm-codecompass-tests-docs",
+  "created": "2026-06-19",
+  "status": "planned",
+  "priority": "P0",
+  "title": "RTIPM CodeCompass Integration, Tests und Dokumentation",
+  "purpose": "Restricted Inference als optionalen Zwischenschritt in CodeCompass/RAG-Kontextauswahl integrieren und mit Trace, Tests, Beispielen und Dokumentation absichern.",
+  "related_tracks": [
+    "rtipm-backend-adapters",
+    "rtipm-angular-configgraph"
+  ],
+  "tasks": [
+    {
+      "id": "RTIPM-CTD-001",
+      "title": "CodeCompass/RAG Ranking Ist-Zustand erfassen",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "Alle aktuellen CodeCompass Retrieval-Services sind gelistet.",
+        "Alle RAG-Index- und Embedding-Pfade sind gelistet.",
+        "Es ist klar, wo Kandidaten sortiert oder gefiltert werden.",
+        "Es ist klar, ob CandidateScoringService bereits existiert oder neu gebaut werden muss.",
+        "Bestehendes Verhalten ist durch Tests oder Snapshot dokumentiert."
+      ]
+    },
+    {
+      "id": "RTIPM-CTD-002",
+      "title": "CandidateScoringService einfuehren oder erweitern",
+      "status": "todo",
+      "priority": "P0",
+      "target_files": [
+        "agent/services/candidate_scoring_service.py",
+        "tests/services/test_candidate_scoring_service.py"
+      ],
+      "acceptance_criteria": [
+        "Service kann embedding_score, graph_score, symbol_score, transformer_rerank_score und policy_penalty getrennt verwalten.",
+        "Finalscore wird deterministisch aus konfigurierbaren Gewichten berechnet.",
+        "Fehlende Score-Komponenten haben definierte Defaults.",
+        "Tie-Breaking ist stabil und reproduzierbar.",
+        "Score Trace kann pro Kandidat serialisiert werden.",
+        "Tests pruefen Gewichtung, Defaults, Tie-Breaking und negative policy_penalty."
+      ]
+    },
+    {
+      "id": "RTIPM-CTD-003",
+      "title": "CodeCompass Ranking Config definieren",
+      "status": "todo",
+      "priority": "P0",
+      "target_files": [
+        "agent/services/codecompass_ranking_config_service.py",
+        "tests/services/test_codecompass_ranking_config_service.py"
+      ],
+      "acceptance_criteria": [
+        "Config key codecompass_ranking ist definiert.",
+        "restricted_inference_rerank_enabled ist default false.",
+        "score_weights fuer embedding_score, graph_score, symbol_score, transformer_rerank_score und policy_penalty sind konfigurierbar.",
+        "trace_scores ist konfigurierbar.",
+        "fallback_without_model ist konfigurierbar.",
+        "Ungueltige Gewichte werden diagnostiziert.",
+        "from_config({}) bleibt kompatibel und veraendert bestehendes Verhalten nicht."
+      ]
+    },
+    {
+      "id": "RTIPM-CTD-004",
+      "title": "Restricted Reranking in CodeCompass integrieren",
+      "status": "todo",
+      "priority": "P0",
+      "target_files": [
+        "agent/services/codecompass_vector_retrieval_service.py",
+        "agent/services/rag_index_embedding.py",
+        "agent/services/pre_model_context_orchestrator.py",
+        "tests/services/test_codecompass_restricted_rerank.py"
+      ],
+      "acceptance_criteria": [
+        "Ohne codecompass_ranking Config bleibt bestehendes Ranking unveraendert.",
+        "Reranking laeuft nur bei restricted_inference_rerank_enabled=true.",
+        "Reranking laeuft nur, wenn PathAiModePolicy es fuer den jeweiligen Pfad erlaubt.",
+        "Reranking nutzt RestrictedModelInferenceService.rerank().",
+        "Fehlendes Modell fuehrt zu Fallback, wenn fallback_without_model=true ist.",
+        "Fehlendes Modell erzeugt klare Diagnose, wenn fallback_without_model=false ist.",
+        "Tests decken disabled, enabled_mock, policy_blocked und missing_model ab."
+      ]
+    },
+    {
+      "id": "RTIPM-CTD-005",
+      "title": "Ranking Trace in Resultate aufnehmen",
+      "status": "todo",
+      "priority": "P1",
+      "target_files": [
+        "agent/services/candidate_scoring_service.py",
+        "agent/services/codecompass_context_service.py",
+        "agent/services/pre_model_context_orchestrator.py"
+      ],
+      "acceptance_criteria": [
+        "Jeder gerankte Kandidat kann optional seinen Score Trace enthalten.",
+        "Trace enthaelt alle Score-Komponenten und final_score.",
+        "Trace enthaelt policy_reason, model_id und engine, falls Reranking genutzt wurde.",
+        "Trace kann fuer UI/Debug gekuerzt werden.",
+        "Trace enthaelt keine kompletten grossen Dateiinhalte.",
+        "Tests pruefen Trace-Shape und gekuerzte Ausgabe."
+      ]
+    },
+    {
+      "id": "RTIPM-CTD-006",
+      "title": "AI Mode Enforcement fuer Kontextpipeline pruefen",
+      "status": "todo",
+      "priority": "P0",
+      "target_files": [
+        "agent/services/path_ai_mode_policy_service.py",
+        "agent/services/pre_model_context_orchestrator.py",
+        "tests/services/test_ai_mode_policy_enforcement.py"
+      ],
+      "acceptance_criteria": [
+        "deterministic_only blockiert Runtime-Modellanalyse.",
+        "codecompass_only erlaubt vorhandene Graph-, Index- und File-Daten.",
+        "codecompass_only alleine startet kein neues Modell-Reranking.",
+        "codecompass_only plus restricted_transformer_inference erlaubt Reranking.",
+        "embedding_only erlaubt Embedding-Pfade, aber keine generative Antwortlogik.",
+        "Reason Codes fuer blockierte Schritte sind im Trace sichtbar."
+      ]
+    },
+    {
+      "id": "RTIPM-CTD-007",
+      "title": "Audit Events fuer RTIPM und Ranking erweitern",
+      "status": "todo",
+      "priority": "P1",
+      "target_files": [
+        "agent/services/restricted_model_inference_service.py",
+        "agent/common/audit.py",
+        "agent/services/candidate_scoring_service.py"
+      ],
+      "acceptance_criteria": [
+        "model_inference_finished enthaelt operation, task_id, engine, model_id, path und latency_ms.",
+        "model_inference_blocked enthaelt reason_code und matched policy rule.",
+        "model_inference_degraded enthaelt fallback_used und reason_code.",
+        "Ranking Trace enthaelt Score-Komponenten pro Kandidat.",
+        "Auditdaten sind kompakt und enthalten keine grossen Dateiauszuege.",
+        "Tests pruefen success, blocked, degraded und ranking trace."
+      ]
+    },
+    {
+      "id": "RTIPM-CTD-008",
+      "title": "Strukturierte Ergebnisgrenze testen",
+      "status": "todo",
+      "priority": "P0",
+      "target_files": [
+        "tests/services/test_restricted_inference_generation_boundary.py"
+      ],
+      "acceptance_criteria": [
+        "validate_no_generation prueft alle Result-Typen.",
+        "Fake-Adapter mit no_generation=false wird blockiert.",
+        "score_choices ohne choices wird abgelehnt.",
+        "Alle Result-Typen behalten no_generation=true als Default.",
+        "Regressionstest stellt sicher, dass RTIPM-Ergebnisse strukturiert bleiben."
+      ]
+    },
+    {
+      "id": "RTIPM-CTD-009",
+      "title": "Backend Integrationstests ergaenzen",
+      "status": "todo",
+      "priority": "P0",
+      "target_files": [
+        "tests/integration/test_rtipm_codecompass_pipeline.py"
+      ],
+      "acceptance_criteria": [
+        "Test laeuft ohne optionale ML-Dependencies mit Mock-Fallback.",
+        "Test prueft Kontextkandidaten vor und nach Reranking.",
+        "Test prueft Policy-Blockade fuer einen Pfad.",
+        "Test prueft Fallback ohne Modell.",
+        "Test prueft Score Trace im Ergebnis.",
+        "Test prueft, dass bestehendes Ranking ohne Config unveraendert bleibt."
+      ]
+    },
+    {
+      "id": "RTIPM-CTD-010",
+      "title": "E2E Pfadregel ohne Full LLM",
+      "status": "todo",
+      "priority": "P0",
+      "target_files": [
+        "tests/e2e/test_rtipm_path_rule_no_full_llm.py"
+      ],
+      "acceptance_criteria": [
+        "E2E-Test laeuft mit Mock-Fallback.",
+        "Test beweist, dass Reranking stattfindet.",
+        "Test beweist, dass full_llm und direct_llm fuer den Pfad blockiert werden.",
+        "Test beweist, dass Kontext trotzdem ueber CodeCompass/RAG aufgebaut werden kann.",
+        "Finaler Kontext enthaelt getrennte Ranking-Scores.",
+        "Audit enthaelt passende finished, blocked oder degraded Events."
+      ]
+    },
+    {
+      "id": "RTIPM-CTD-011",
+      "title": "E2E Angular zu Backend Roundtrip",
+      "status": "todo",
+      "priority": "P1",
+      "target_files": [
+        "tests/e2e/test_config_graph_rtipm_roundtrip.py"
+      ],
+      "acceptance_criteria": [
+        "Patch Roundtrip speichert Arrays, Booleans und Zahlen korrekt.",
+        "Effective Config nach Reload enthaelt gesetzte Modes und Engines.",
+        "Backend Policy Resolve nutzt die neuen Werte.",
+        "CodeCompass Ranking nutzt die neue Config, wenn aktiviert.",
+        "Rollback stellt alten Zustand wieder her.",
+        "UI- und Backend-Test pruefen denselben JSON-Shape."
+      ]
+    },
+    {
+      "id": "RTIPM-CTD-012",
+      "title": "Beispielkonfigurationen erstellen",
+      "status": "todo",
+      "priority": "P2",
+      "target_files": [
+        "docs/examples/rtipm.user.example.json",
+        "docs/examples/rtipm.local-pytorch.example.json",
+        "docs/examples/rtipm.codecompass-rerank.example.json",
+        "docs/examples/rtipm.path-modes.example.json"
+      ],
+      "acceptance_criteria": [
+        "Alle Beispiele sind valides JSON.",
+        "Beispiele enthalten keine echten Zugangsdaten.",
+        "Pfadmodus-Beispiel zeigt mehrere path_ai_modes Regeln.",
+        "PyTorch-Beispiel nutzt lokale Pfade.",
+        "CodeCompass-Beispiel zeigt Mock-Fallback und Reranking.",
+        "Beispiele koennen von Tests geladen werden."
+      ]
+    },
+    {
+      "id": "RTIPM-CTD-013",
+      "title": "Architekturdokumentation aktualisieren",
+      "status": "todo",
+      "priority": "P1",
+      "target_files": [
+        "docs/architecture/restricted-transformer-inference.md",
+        "docs/architecture/codecompass-ranking.md",
+        "docs/architecture/config-graph-editor.md"
+      ],
+      "acceptance_criteria": [
+        "Doku beschreibt Config Keys path_ai_modes, embedding_provider, restricted_inference und codecompass_ranking.",
+        "Doku erklaert Mock-Fallback, lokale Adapter und optionale Dependencies.",
+        "Doku beschreibt Score-Komponenten und Ranking-Trace.",
+        "Doku erklaert Angular-Konfigurationsfluss.",
+        "Doku enthaelt Troubleshooting fuer fehlende ML-Dependencies.",
+        "Doku nennt die relevanten Tests."
+      ]
+    }
+  ],
+  "definition_of_done": [
+    "CodeCompass/RAG kann optional restricted inference zum Reranking nutzen.",
+    "Ranking bleibt ohne neue Config kompatibel.",
+    "Score Trace ist nachvollziehbar und kompakt.",
+    "PathAiModePolicy wird in der Kontextpipeline respektiert.",
+    "Backend-, Integration- und E2E-Tests decken die neuen Pfade ab.",
+    "Beispiele und Dokumentation sind aktuell."
+  ]
+}
