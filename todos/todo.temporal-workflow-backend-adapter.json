@@ -1,9 +1,11 @@
 {
   "id": "todo.temporal-workflow-backend-adapter",
-  "title": "Temporal.io als optionales Workflow-Backend für Ananta integrieren",
+  "title": "Temporal.io als optionales WorkflowBackend fuer Ananta integrieren",
   "status": "planned",
   "priority": "high",
   "created": "2026-06-19",
+  "last_reviewed": "2026-06-19",
+  "superseded_by_master_todo": "todos/todo.workflow-blueprint-bpmn-temporal-integration.json",
   "tags": [
     "temporal",
     "workflow",
@@ -12,209 +14,213 @@
     "worker",
     "durable-execution",
     "agent-runtime",
-    "audit-trail"
+    "audit-trail",
+    "workflow-backend"
   ],
-  "goal": "Temporal.io optional als robuste Durable-Workflow-Schicht unter dem Ananta-Hub nutzbar machen, ohne Hub-, Worker-, CodeCompass- oder Policy-Logik fest an Temporal zu koppeln.",
+  "goal": "Temporal.io optional als robuste Durable-Workflow-Schicht unter dem Ananta-Hub nutzbar machen, ohne Hub-, Worker-, CodeCompass-, Blueprint- oder Policy-Logik fest an Temporal zu koppeln.",
+  "current_source_alignment": {
+    "must_reuse": [
+      "agent/services/workflow_event_service.py",
+      "agent/services/workflow_status_service.py",
+      "agent/services/workflow_definition_service.py",
+      "agent/services/blueprint_planning_adapter.py",
+      "agent/services/planning_track_task_integration_service.py",
+      "agent/services/workflow_providers/mock_provider.py",
+      "agent/services/workflow_providers/n8n_provider.py",
+      "agent/services/workflow_providers/generic_webhook.py",
+      "agent/db_models/blueprints.py::BlueprintWorkflowStepDB",
+      "agent/routes/tasks/goals_query_routes.py::goal_workflow_status"
+    ],
+    "must_not_duplicate": [
+      "Keine zweite Status-/Event-Historie neben workflow_status.v1 und workflow_handoff.v1 aufbauen.",
+      "Keine Temporal-Typen in Planning-Service, Routes oder Blueprint-DB-Modelle leaken.",
+      "Keine Activity darf Tool-/Datei-/Netzwerkrechte aus Temporal heraus selbst erfinden.",
+      "Keine Worker-zu-Worker-Orchestrierung."
+    ],
+    "existing_test_anchors": [
+      "tests/test_workflow_event_service.py",
+      "tests/test_workflow_status_service.py",
+      "tests/test_workflow_definition_service.py",
+      "tests/test_blueprint_planning_adapter.py",
+      "tests/test_workflow_execution_adapter.py",
+      "tests/test_workflow_generic_webhook_provider.py",
+      "tests/test_workflow_n8n_provider.py",
+      "tests/smoke/test_workflow_integration_smoke.py"
+    ]
+  },
   "non_goals": [
     "Temporal ersetzt nicht den Ananta-Hub.",
     "Temporal ersetzt nicht CodeCompass.",
     "Temporal entscheidet keine Policies.",
-    "Temporal bekommt keine direkten, ungeprüften Tool-Rechte.",
-    "Keine harte Abhängigkeit von Temporal für einfache lokale Ausführung."
+    "Temporal bekommt keine direkten, ungeprueften Tool-Rechte.",
+    "Keine harte Abhaengigkeit von Temporal fuer lokale Ausfuehrung.",
+    "Keine Temporal-Engine fuer BPMN XML."
   ],
   "architecture": {
-    "concept": "Ananta bleibt fachlich führend. Temporal führt langlebige, wiederaufnehmbare Abläufe aus.",
+    "concept": "Ananta bleibt fachlich fuehrend. Temporal speichert und treibt langlebige Ablaufzustaende, aber der Hub entscheidet Planung, Routing, Policy und Delegation.",
     "mapping": {
-      "AnantaHub": "entscheidet, validiert Policies, erstellt Workflow-Aufträge",
-      "TemporalWorkflow": "persistenter Ablaufzustand für Plan/Run/Validate/Repair/Review",
-      "TemporalActivity": "ein einzelner robuster Ausführungsschritt",
-      "AnantaWorker": "führt konkrete Arbeit aus, z.B. OpenCode, ananta-worker, Webcrawler",
-      "CodeCompass": "liefert Kontext, Symbolsuche, Graph-/RAG-Daten",
-      "PolicyEngine": "prüft, welche Activities/Tools/Dateien/Scopes erlaubt sind"
+      "AnantaHub": "validiert Policies, erzeugt WorkflowRequest, delegiert Arbeit, bleibt Control Plane.",
+      "WorkflowBackend": "neutraler Port fuer start/status/cancel/signal/events.",
+      "LocalWorkflowBackend": "Default-Backend auf vorhandener Task-/Workflow-Status-Schicht.",
+      "TemporalWorkflowBackend": "Adapter, der WorkflowBackend implementiert.",
+      "TemporalWorkflow": "durabler Ablaufzustand ohne Ananta-Businesslogik.",
+      "TemporalActivity": "robuster Ausfuehrungsschritt, der nur hub-gepruefte Inputs bekommt.",
+      "AnantaWorker": "fuehrt konkrete delegierte Arbeit aus.",
+      "PolicyEngine": "prueft vor jeder ausfuehrbaren Aktivitaet Scope/Rechte."
     }
   },
   "tasks": [
     {
       "id": "TEMP-001",
-      "title": "Workflow-Backend-Abstraktion einführen",
+      "title": "WorkflowBackend-Port einfuehren",
       "status": "todo",
       "priority": "critical",
-      "description": "Eine generische Schnittstelle definieren, damit Ananta Workflows starten, stoppen, fortsetzen und abfragen kann, ohne Temporal direkt im Hub-Code zu verdrahten.",
-      "implementation_notes": [
-        "Interface z.B. WorkflowBackend oder OrchestrationBackend anlegen.",
-        "Methoden: startWorkflow, getWorkflowStatus, cancelWorkflow, signalWorkflow, listWorkflowEvents.",
-        "Default-Implementierung: InMemoryWorkflowBackend oder LocalProcessWorkflowBackend.",
-        "Temporal-Implementierung später als separater Adapter."
+      "description": "Eine generische Schnittstelle definieren, damit Ananta Workflows starten, stoppen, signalisieren und abfragen kann, ohne Temporal direkt im Hub-Code zu verdrahten.",
+      "interface_methods": [
+        "start_workflow(request)",
+        "get_workflow_status(workflow_id)",
+        "cancel_workflow(workflow_id, reason)",
+        "signal_workflow(workflow_id, signal)",
+        "list_workflow_events(workflow_id)"
       ],
       "acceptance_criteria": [
-        "Hub-Code hängt nur am Interface, nicht direkt an Temporal-Klassen.",
-        "Bestehende lokale Worker-Flows laufen ohne Temporal weiter.",
-        "Backend ist über zentrale config.json/env auswählbar.",
-        "Tests zeigen Wechsel zwischen local und temporal Backend."
+        "Port liegt in einem neutralen Modul, z.B. agent/services/workflow_backend.py oder agent/services/orchestration_backend.py.",
+        "Hub-/Route-Code haengt nur am Port, nicht an Temporal-Klassen.",
+        "Bestehende lokale Worker-/Blueprint-Flows laufen ohne Temporal weiter.",
+        "Default-Implementierung nutzt vorhandene workflow_status_service/workflow_event_service-Kontrakte.",
+        "Tests zeigen Wechsel zwischen local und einem Fake/Mock Backend."
       ]
     },
     {
       "id": "TEMP-002",
-      "title": "Canonical Workflow Model definieren",
+      "title": "Canonical WorkflowRequest und WorkflowStatus definieren",
       "status": "todo",
       "priority": "critical",
-      "description": "Ein neutrales Workflow-Datenmodell für Ananta definieren.",
+      "description": "Ein neutrales Datenmodell definieren, das BlueprintWorkflowStepDB, VisualProcessGraph und kuenftige BPMN-Blueprints in ausfuehrbare Requests ueberfuehrt.",
       "model": {
-        "workflowId": "string",
-        "workflowType": "repair | feature | review | analysis | new_project | custom",
-        "projectPath": "string",
-        "agentProfile": "string",
-        "allowedTools": "string[]",
-        "policyScope": "object",
-        "inputArtifacts": "ArtifactRef[]",
+        "workflow_id": "string",
+        "workflow_type": "repair | feature | review | analysis | new_project | custom",
+        "goal_id": "string",
+        "plan_id": "string",
+        "blueprint_id": "string",
+        "blueprint_version": "string",
         "steps": "WorkflowStep[]",
-        "status": "pending | running | waiting | failed | completed | cancelled",
-        "createdAt": "datetime",
-        "updatedAt": "datetime"
+        "allowed_tools": "string[]",
+        "policy_scope": "object",
+        "input_artifacts": "ArtifactRef[]",
+        "correlation_id": "string",
+        "status": "pending | running | waiting_for_approval | failed | completed | cancelled"
       },
       "acceptance_criteria": [
-        "Workflow-Aufträge sind serialisierbar.",
-        "Keine provider-spezifischen Temporal-Typen im Canonical Model.",
-        "Workflow-Status ist im WebUI/CLI darstellbar.",
-        "Jeder Schritt kann eindeutig auditiert werden."
+        "WorkflowRequest ist serialisierbar und enthaelt keine Temporal-Typen.",
+        "WorkflowStatus ist auf workflow_status.v1 abbildbar.",
+        "WorkflowEvents sind auf workflow_handoff.v1 oder eine dokumentierte Erweiterung abbildbar.",
+        "Jeder Schritt kann eindeutig auditiert werden.",
+        "Model prueft Default-Deny bei fehlendem policy_scope.",
+        "Unit Tests decken Serialisierung, Validierung und Redaction ab."
       ]
     },
     {
       "id": "TEMP-003",
-      "title": "Temporal Adapter als optionales Modul bauen",
+      "title": "LocalWorkflowBackend als Default implementieren",
       "status": "todo",
-      "priority": "high",
-      "description": "Temporal-Client und Worker-Integration als getrenntes Modul implementieren.",
-      "implementation_notes": [
-        "Modul z.B. integrations/temporal oder orchestration/temporal_adapter.",
-        "Adapter implementiert WorkflowBackend.",
-        "Temporal Namespace/TaskQueue konfigurierbar machen.",
-        "Keine direkte Businesslogik in Temporal-Workflows."
-      ],
+      "priority": "critical",
+      "description": "Vor Temporal ein lokales Backend bauen, das denselben Port nutzt und vorhandene Task-/Workflow-Status-/Event-Services wiederverwendet.",
       "acceptance_criteria": [
-        "Temporal kann per config aktiviert/deaktiviert werden.",
-        "Ohne laufenden Temporal-Server startet Ananta weiterhin im lokalen Modus.",
-        "Temporal-spezifische Fehler werden sauber gemeldet.",
-        "Adapter ist isoliert testbar."
+        "backend=local ist Default.",
+        "Start erzeugt nachvollziehbare Workflow-Status-/Handoff-Daten.",
+        "Cancel und Signal haben definierte lokale Semantik.",
+        "Bestehende tests/test_workflow_status_service.py und tests/test_workflow_event_service.py bleiben gruen.",
+        "Neue Tests pruefen LocalWorkflowBackend ohne externen Dienst."
       ]
     },
     {
       "id": "TEMP-004",
-      "title": "Standard-Workflows modellieren",
+      "title": "Konfiguration fuer WorkflowBackend erweitern",
       "status": "todo",
       "priority": "high",
-      "description": "Wichtige Ananta-Abläufe als robuste Workflows abbilden.",
-      "workflows": [
-        {
-          "name": "CodeRepairWorkflow",
-          "steps": [
-            "resolve_context",
-            "plan_changes",
-            "run_worker",
-            "validate_tests",
-            "repair_if_needed",
-            "summarize_result"
-          ]
-        },
-        {
-          "name": "FeatureImplementationWorkflow",
-          "steps": [
-            "load_project_policy",
-            "resolve_context",
-            "create_plan",
-            "run_worker",
-            "validate",
-            "review",
-            "prepare_commit_or_pr"
-          ]
-        },
-        {
-          "name": "CodeReviewWorkflow",
-          "steps": [
-            "collect_diff",
-            "resolve_context",
-            "analyze_risks",
-            "generate_findings",
-            "optional_fix_proposal"
-          ]
+      "description": "Zentrale Konfiguration um orchestration.backend und temporal Einstellungen erweitern.",
+      "config_example": {
+        "orchestration": {
+          "backend": "local",
+          "temporal": {
+            "enabled": false,
+            "address": "localhost:7233",
+            "namespace": "default",
+            "task_queue": "ananta-workflows",
+            "ui_url": "http://localhost:8233"
+          }
         }
-      ],
+      },
       "acceptance_criteria": [
-        "Mindestens ein Workflow läuft lokal und über Temporal identisch.",
-        "Workflow-Schritte sind einzeln im Tracking Viewer sichtbar.",
-        "Fehlschläge einzelner Activities führen nicht zum Verlust des Gesamtzustands.",
-        "Retry-Strategien sind pro Schritt konfigurierbar."
+        "backend=local bleibt Default.",
+        "backend=temporal aktiviert Temporal nur, wenn Adapter und Server verfuegbar sind.",
+        "Fehlkonfiguration wird verstaendlich gemeldet und faellt nicht still auf unsichere Defaults.",
+        "ENV Overrides sind dokumentiert.",
+        "Konfiguration ist im Config-Graph oder einer dokumentierten Diagnose sichtbar."
       ]
     },
     {
       "id": "TEMP-005",
-      "title": "Activities für Ananta-Komponenten definieren",
+      "title": "Temporal Adapter als optionales Modul bauen",
       "status": "todo",
       "priority": "high",
-      "description": "Konkrete Activities für CodeCompass, Worker, Validatoren und Webcrawler definieren.",
-      "activities": [
-        "ResolveContextActivity",
-        "PlanContextActivity",
-        "RunAnantaWorkerActivity",
-        "RunOpenCodeActivity",
-        "RunCodeCompassQueryActivity",
-        "RunValidationActivity",
-        "RunWebcrawlerActivity",
-        "SummarizeProgressActivity",
-        "PolicyCheckActivity"
+      "description": "Temporal-Client und Worker-Integration getrennt vom Hub implementieren.",
+      "implementation_notes": [
+        "Modul z.B. agent/services/workflow_backends/temporal_backend.py.",
+        "Adapter implementiert WorkflowBackend.",
+        "Temporal Namespace und Task Queue kommen aus config.",
+        "Temporal Workflows enthalten keine Ananta-Businesslogik, sondern rufen Activities mit geprueften Inputs."
       ],
       "acceptance_criteria": [
-        "Jede Activity hat klaren Input/Output.",
-        "Jede Activity prüft vor Ausführung den erlaubten Policy-Scope.",
-        "Tool-Aufrufe werden nicht direkt aus Temporal heraus ungeprüft gestartet.",
-        "Activity-Ergebnisse sind im Audit-Log sichtbar."
+        "Temporal kann per config aktiviert/deaktiviert werden.",
+        "Ohne laufenden Temporal-Server startet Ananta im lokalen Modus oder meldet sauber backend_unavailable, je nach config.",
+        "Temporal-spezifische Fehler werden strukturiert gemeldet.",
+        "Adapter ist isoliert testbar.",
+        "Keine Temporal Imports in Planning-Service oder Routes ausser Adapter-Fabrik."
       ]
     },
     {
       "id": "TEMP-006",
-      "title": "Policy-Enforcement vor jeder Activity erzwingen",
+      "title": "Activity-Gateway mit Policy-Enforcement erzwingen",
       "status": "todo",
       "priority": "critical",
-      "description": "Temporal darf keine Abkürzung an Anantas Sicherheitsmodell vorbei werden.",
+      "description": "Jede ausfuehrbare Activity muss vor dem Start ueber Hub-/Policy-Daten autorisiert werden. PolicyCheck ist kein optionaler Workflow-Schritt, sondern Gate vor Activity-Ausfuehrung.",
       "acceptance_criteria": [
         "Jede Activity bekommt nur explizit erlaubte Tool-/Datei-/Projekt-Scope-Informationen.",
         "Default-Deny gilt auch im Temporal-Modus.",
         "Nicht erlaubte Activity wird blockiert und auditiert.",
-        "Workflow-Replay darf keine neuen Berechtigungen erzeugen.",
-        "Tests prüfen verweigerte Tool-, Datei- und Pfadzugriffe."
+        "Workflow-Replay kann keine neuen Berechtigungen erzeugen.",
+        "Tests pruefen verweigerte Tool-, Datei- und Pfadzugriffe.",
+        "Activity-Inputs enthalten keine Secrets ausser explizit erlaubte, redigierbare References."
       ]
     },
     {
       "id": "TEMP-007",
-      "title": "Human-in-the-loop Signals einbauen",
+      "title": "Standard-Workflow aus BlueprintWorkflowStepDB ausfuehrbar machen",
       "status": "todo",
-      "priority": "medium",
-      "description": "Workflows sollen an definierten Punkten auf Benutzerfreigabe warten können.",
-      "examples": [
-        "Vor Commit warten",
-        "Vor PR-Erstellung warten",
-        "Vor destruktiven Dateiänderungen warten",
-        "Vor externem Webcrawler/API-Zugriff warten"
-      ],
+      "priority": "high",
+      "description": "Mindestens ein bestehender Blueprint-Workflow soll ueber LocalWorkflowBackend und TemporalWorkflowBackend denselben WorkflowRequest nutzen.",
       "acceptance_criteria": [
-        "Workflow kann Status waiting_for_approval setzen.",
-        "CLI/WebUI kann approve/reject senden.",
-        "Reject beendet oder verzweigt Workflow nachvollziehbar.",
-        "Wartezustand überlebt Neustart."
+        "Ein einfacher Analyse- oder Repair-Workflow aus BlueprintWorkflowStepDB kann in WorkflowRequest kompiliert werden.",
+        "Local Backend und Temporal Backend verwenden denselben Request.",
+        "Workflow-Schritte sind einzeln im Tracking Viewer sichtbar.",
+        "Fehlschlaege einzelner Activities verlieren den Gesamtzustand nicht.",
+        "Retry-Strategien sind pro Schritt konfigurierbar."
       ]
     },
     {
       "id": "TEMP-008",
-      "title": "Tracking Viewer / WebUI anbinden",
+      "title": "Idempotenz und Replay-Sicherheit absichern",
       "status": "todo",
-      "priority": "high",
-      "description": "Temporal-Workflow-Historie in Anantas bestehendem Tracking-/Dashboard-Konzept sichtbar machen.",
+      "priority": "critical",
+      "description": "Temporal-Replay darf keine Seiteneffekte mehrfach ausloesen.",
       "acceptance_criteria": [
-        "Workflow-Liste im UI sichtbar.",
-        "Aktueller Schritt sichtbar.",
-        "Vergangene Schritte mit Input/Output-Zusammenfassung sichtbar.",
-        "Fehler und Retries sichtbar.",
-        "Live-Updates über Polling oder Stream möglich."
+        "Dateiaenderungen, Commits, PRs und externe Calls haben eindeutige Operation-IDs.",
+        "Nicht-idempotente Aktionen werden vor Wiederholung erkannt oder geblockt.",
+        "Replay erzeugt keine neuen Tool-Calls.",
+        "Worker-Crash und Workflow-Replay sind in Tests simuliert.",
+        "Dedupe nutzt bestehende Event-/Audit-Korrelationen, soweit moeglich."
       ]
     },
     {
@@ -222,7 +228,7 @@
       "title": "Retry-, Timeout- und Cancel-Strategien definieren",
       "status": "todo",
       "priority": "high",
-      "description": "Für jede Activity müssen sichere Default-Werte existieren.",
+      "description": "Fuer jede Activity sichere Default-Werte definieren und konfigurierbar machen.",
       "defaults": {
         "context_resolution_timeout_seconds": 60,
         "worker_run_timeout_seconds": 1800,
@@ -233,60 +239,53 @@
       },
       "acceptance_criteria": [
         "Timeouts sind zentral konfigurierbar.",
-        "Lange Worker-Läufe hängen nicht unendlich.",
+        "Lange Worker-Laeufe haengen nicht unendlich.",
         "Cancel beendet laufende Subprozesse sauber.",
-        "Retries wiederholen keine nicht-idempotenten Aktionen ohne Schutz."
+        "Retries wiederholen keine nicht-idempotenten Aktionen ohne Schutz.",
+        "Timeout/Cancel-Ereignisse erscheinen in workflow_status.v1 oder einer dokumentierten Erweiterung."
       ]
     },
     {
       "id": "TEMP-010",
-      "title": "Idempotenz und Replay-Sicherheit prüfen",
+      "title": "Human-in-the-loop Signals an bestehende Approval-/Gate-Schicht anbinden",
       "status": "todo",
-      "priority": "critical",
-      "description": "Temporal-Replay darf keine Seiteneffekte mehrfach auslösen.",
+      "priority": "medium",
+      "description": "Workflows sollen an definierten Gates auf Benutzerfreigabe warten koennen.",
       "acceptance_criteria": [
-        "Dateiänderungen, Commits, PRs und externe Calls sind gegen doppelte Ausführung geschützt.",
-        "Nicht-idempotente Aktionen haben eindeutige Operation-IDs.",
-        "Replay erzeugt keine neuen Tool-Calls.",
-        "Tests simulieren Worker-Crash und Workflow-Replay."
+        "Workflow kann waiting_for_approval setzen.",
+        "CLI/WebUI kann approve/reject als Signal senden.",
+        "Reject beendet oder verzweigt Workflow nachvollziehbar.",
+        "Wartezustand ueberlebt Neustart im Temporal-Modus.",
+        "Lokaler Modus nutzt kompatible Status-/Gate-Daten."
       ]
     },
     {
       "id": "TEMP-011",
-      "title": "Docker Compose Profil für Temporal hinzufügen",
+      "title": "Tracking Viewer / WebUI anbinden",
       "status": "todo",
-      "priority": "medium",
-      "description": "Temporal lokal einfach startbar machen, aber nicht standardmäßig erzwingen.",
+      "priority": "high",
+      "description": "Temporal-Workflow-Historie in Anantas bestehendem Tracking-/Dashboard-Konzept sichtbar machen.",
       "acceptance_criteria": [
-        "docker-compose.temporal.yml oder Compose-Profil vorhanden.",
-        "Temporal UI optional verfügbar.",
-        "Ananta startet auch ohne Temporal-Profil.",
-        "README erklärt Minimalstart."
+        "Workflow-Liste im UI sichtbar.",
+        "Aktueller Schritt sichtbar.",
+        "Vergangene Schritte mit redigierter Input/Output-Zusammenfassung sichtbar.",
+        "Fehler, Retries, Cancel und Approval-Wartezustaende sichtbar.",
+        "Live-Updates ueber vorhandene Polling-/Stream-Muster moeglich.",
+        "Keine zweite, inkompatible Status-API entsteht."
       ]
     },
     {
       "id": "TEMP-012",
-      "title": "Konfiguration erweitern",
+      "title": "Docker Compose Profil fuer Temporal hinzufuegen",
       "status": "todo",
-      "priority": "high",
-      "description": "Zentrale config.json um Orchestration-Backend erweitern.",
-      "config_example": {
-        "orchestration": {
-          "backend": "local",
-          "temporal": {
-            "enabled": false,
-            "address": "localhost:7233",
-            "namespace": "default",
-            "taskQueue": "ananta-workflows",
-            "uiUrl": "http://localhost:8233"
-          }
-        }
-      },
+      "priority": "medium",
+      "description": "Temporal lokal einfach startbar machen, aber nicht standardmaessig erzwingen.",
       "acceptance_criteria": [
-        "backend=local bleibt Default.",
-        "backend=temporal aktiviert Temporal-Adapter.",
-        "ENV kann config überschreiben, aber nicht spezifische Workflow-Settings ungewollt überstimmen.",
-        "Fehlkonfiguration wird verständlich gemeldet."
+        "docker-compose.temporal.yml oder Compose-Profil vorhanden.",
+        "Temporal UI optional verfuegbar.",
+        "Ananta startet auch ohne Temporal-Profil.",
+        "README oder docs/orchestration/temporal-adapter.md erklaert Minimalstart.",
+        "CI muss nicht zwingend einen Temporal-Server starten, ausser in dedizierten Integrationstests."
       ]
     },
     {
@@ -294,21 +293,22 @@
       "title": "Tests und Crash-Simulationen",
       "status": "todo",
       "priority": "critical",
-      "description": "Robustheit muss durch Tests bewiesen werden.",
+      "description": "Robustheit und Sicherheitsgrenzen muessen durch Tests belegt werden.",
       "test_cases": [
         "Workflow startet und beendet erfolgreich.",
-        "Activity schlägt fehl und wird retried.",
-        "Worker-Prozess wird während Activity beendet.",
-        "Workflow wartet auf Approval und läuft danach weiter.",
+        "Activity schlaegt fehl und wird retried.",
+        "Worker-Prozess wird waehrend Activity beendet.",
+        "Workflow wartet auf Approval und laeuft danach weiter.",
         "Cancel beendet Workflow sauber.",
-        "Replay löst keine doppelten Seiteneffekte aus.",
+        "Replay loest keine doppelten Seiteneffekte aus.",
         "Policy verweigert verbotene Activity."
       ],
       "acceptance_criteria": [
-        "Automatisierte Tests vorhanden.",
-        "Mindestens eine Integrationstest-Variante mit Temporal.",
+        "Automatisierte Unit Tests fuer Port, Local Backend und Adapter-Fabrik vorhanden.",
+        "Mindestens eine optionale Integrationstest-Variante mit Temporal vorhanden oder dokumentiert geskippt.",
         "Lokales Backend wird separat getestet.",
-        "Crash-/Restart-Szenario ist dokumentiert."
+        "Crash-/Restart-Szenario ist dokumentiert.",
+        "Bestehende Workflow-Provider-Tests bleiben gruen."
       ]
     },
     {
@@ -318,79 +318,52 @@
       "priority": "medium",
       "description": "Architektur und Betrieb knapp dokumentieren.",
       "docs": [
-        "docs/orchestration/temporal-adapter.md",
         "docs/orchestration/workflow-backend-interface.md",
+        "docs/orchestration/temporal-adapter.md",
         "docs/orchestration/workflow-security.md"
       ],
       "acceptance_criteria": [
-        "Dokument erklärt klar: Temporal ist optionales Backend.",
-        "Mapping Hub/Workflow/Activity/Worker ist beschrieben.",
+        "Dokument erklaert klar: Temporal ist optionales Backend.",
+        "Mapping Hub/WorkflowBackend/TemporalWorkflow/Activity/Worker ist beschrieben.",
         "Sicherheitsgrenzen sind beschrieben.",
-        "Minimalbeispiel für lokalen Start vorhanden."
+        "Minimalbeispiel fuer lokalen Start vorhanden.",
+        "Dokument verweist auf BPMN-/Blueprint-Master-Todo."
       ]
     }
   ],
-  "milestones": [
-    {
-      "id": "M1",
-      "title": "Backend-Abstraktion",
-      "tasks": [
-        "TEMP-001",
-        "TEMP-002",
-        "TEMP-012"
-      ],
-      "definition_of_done": "Ananta kann Workflows über ein neutrales Interface lokal starten und statusmäßig verfolgen."
-    },
-    {
-      "id": "M2",
-      "title": "Temporal Proof of Concept",
-      "tasks": [
-        "TEMP-003",
-        "TEMP-004",
-        "TEMP-005",
-        "TEMP-011"
-      ],
-      "definition_of_done": "Ein einfacher Repair- oder Analyse-Workflow läuft über Temporal."
-    },
-    {
-      "id": "M3",
-      "title": "Security & Reliability",
-      "tasks": [
-        "TEMP-006",
-        "TEMP-009",
-        "TEMP-010",
-        "TEMP-013"
-      ],
-      "definition_of_done": "Policy, Retry, Timeout, Cancel und Replay-Sicherheit sind getestet."
-    },
-    {
-      "id": "M4",
-      "title": "UI & Bedienbarkeit",
-      "tasks": [
-        "TEMP-007",
-        "TEMP-008",
-        "TEMP-014"
-      ],
-      "definition_of_done": "Workflows sind im UI nachvollziehbar und können bei Bedarf freigegeben oder abgebrochen werden."
-    }
+  "recommended_implementation_order": [
+    "TEMP-001",
+    "TEMP-002",
+    "TEMP-003",
+    "TEMP-004",
+    "TEMP-005",
+    "TEMP-006",
+    "TEMP-007",
+    "TEMP-008",
+    "TEMP-009",
+    "TEMP-010",
+    "TEMP-011",
+    "TEMP-012",
+    "TEMP-013",
+    "TEMP-014"
   ],
   "risks": [
     {
       "risk": "Temporal wird zu tief in den Hub eingebaut.",
-      "mitigation": "Nur über WorkflowBackend-Interface anbinden."
+      "mitigation": "Nur ueber WorkflowBackend-Port und Adapter-Fabrik anbinden."
     },
     {
-      "risk": "Replay löst Seiteneffekte mehrfach aus.",
+      "risk": "Replay loest Seiteneffekte mehrfach aus.",
       "mitigation": "Idempotenz, Operation-IDs und Activity-Grenzen erzwingen."
     },
     {
       "risk": "Temporal umgeht Policy-Checks.",
-      "mitigation": "PolicyCheck vor jeder Activity zwingend machen."
+      "mitigation": "Policy-Enforcement vor jeder Activity als Adapter-Gateway erzwingen."
     },
     {
-      "risk": "Zu viel Komplexität zu früh.",
-      "mitigation": "Temporal nur optional, local Backend bleibt Default."
+      "risk": "Zu viel Komplexitaet zu frueh.",
+      "mitigation": "Local Backend bleibt Default und erster Zielpfad."
     }
   ],
-  "recommended_first_step": "Zuerst TEMP-001 und TEMP-002 umsetzen. Noch kein Temporal-Code im Hub, sondern nur die neutrale Workflow-Abstraktion schaffen."
+  "recommended_first_step": "TEMP-001 bis TEMP-003 umsetzen: neutraler WorkflowBackend-Port, Canonical WorkflowRequest und LocalWorkflowBackend. Noch kein Temporal-Code im Hub."
 }

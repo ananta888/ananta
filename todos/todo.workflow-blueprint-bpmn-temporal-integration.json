@@ -1,0 +1,412 @@
+{
+  "id": "todo.workflow-blueprint-bpmn-temporal-integration",
+  "title": "Einheitlicher Ananta Workflow-/Blueprint-Pfad mit BPMN-Editor und optionalem Temporal Backend",
+  "status": "planned",
+  "priority": "critical",
+  "created": "2026-06-19",
+  "tags": [
+    "workflow",
+    "blueprint",
+    "visual-process",
+    "bpmn-js",
+    "temporal",
+    "hub",
+    "worker",
+    "policy",
+    "architecture"
+  ],
+  "purpose": "Die bestehenden VisualProcess-, BlueprintWorkflowStep-, WorkflowStatus- und WorkflowProvider-Bausteine zu einem klaren, hub-kontrollierten Workflow-System weiterentwickeln. BPMN wird als alternative Modellierungsoberflaeche ergaenzt; Temporal wird als optionales Durable Backend unter einem neutralen WorkflowBackend-Port angebunden.",
+  "architecture_invariants": [
+    "Der Hub bleibt Control Plane und besitzt Planung, Routing, Policy, Task Queue und Workflow-Start.",
+    "Worker fuehren delegierte Arbeit aus und orchestrieren keine anderen Worker.",
+    "BPMN ist keine Runtime und keine Security Authority.",
+    "Temporal ist kein Ersatz fuer Hub, PolicyEngine, CodeCompass oder Worker.",
+    "WorkflowBackend ist ein Port; local bleibt Default, temporal ist optional.",
+    "Workflow-Status und Events muessen mit workflow_status.v1 und workflow_handoff.v1 kompatibel bleiben oder versioniert erweitert werden.",
+    "Alle ausfuehrbaren Actions bleiben default-deny, bis Hub/Policy sie explizit erlauben."
+  ],
+  "current_codebase_anchors": {
+    "visual_process": [
+      "agent/visual_process/models.py",
+      "agent/visual_process/validator.py",
+      "agent/visual_process/blueprint_mapper.py",
+      "agent/visual_process/context_assembly.py",
+      "agent/visual_process/presets.py",
+      "agent/routes/visual_process.py",
+      "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
+      "frontend-angular/src/app/features/visual-process/visual-process-api.service.ts"
+    ],
+    "blueprint_workflow": [
+      "agent/db_models/blueprints.py::BlueprintWorkflowStepDB",
+      "agent/services/workflow_definition_service.py",
+      "agent/services/team_blueprint_reconciliation_service.py",
+      "agent/services/blueprint_planning_adapter.py",
+      "agent/services/blueprint_migration_service.py",
+      "agent/services/blueprint_serializer.py"
+    ],
+    "workflow_status_and_events": [
+      "agent/services/workflow_status_service.py",
+      "agent/services/workflow_event_service.py",
+      "agent/routes/tasks/goals_query_routes.py::goal_workflow_status",
+      "agent/tui/workflow_status_view.py"
+    ],
+    "existing_workflow_provider_shims": [
+      "agent/services/workflow_providers/mock_provider.py",
+      "agent/services/workflow_providers/n8n_provider.py",
+      "agent/services/workflow_providers/generic_webhook.py"
+    ],
+    "test_anchors": [
+      "tests/test_visual_process.py",
+      "tests/test_workflow_definition_service.py",
+      "tests/test_blueprint_planning_adapter.py",
+      "tests/test_workflow_event_service.py",
+      "tests/test_workflow_status_service.py",
+      "tests/test_workflow_execution_adapter.py",
+      "tests/test_workflow_generic_webhook_provider.py",
+      "tests/test_workflow_n8n_provider.py",
+      "tests/smoke/test_workflow_integration_smoke.py",
+      "frontend-angular/tests/live-click-critical-paths.spec.ts"
+    ]
+  },
+  "non_goals": [
+    "Kein Big-Bang-Refactor der bestehenden Team-/Blueprint-/Task-Schicht.",
+    "Keine BPMN-Engine im ersten Schritt.",
+    "Keine direkte Temporal-Abhaengigkeit in Hub-Routes, Planning-Service oder Blueprint DB Models.",
+    "Keine neuen unverbundenen Status-/Event-APIs.",
+    "Keine impliziten Tool-, Datei-, Netzwerk- oder Secret-Rechte aus Diagrammen oder Temporal Activities.",
+    "Keine Worker-zu-Worker-Orchestrierung."
+  ],
+  "canonical_terms": {
+    "VisualProcessGraph": "Bestehender Designer-Kontrakt fuer grafische Prozessdefinitionen.",
+    "AgentProcessBlueprint": "Versionierter fachlicher Blueprint-Kontrakt, der VisualProcessGraph und BlueprintWorkflowStepDB zusammenfuehrt.",
+    "BlueprintWorkflowStep": "Persistierbare Hub-nahe Step-Zeile fuer Team-/Agent-Blueprints.",
+    "WorkflowRequest": "Neutraler, serialisierbarer Ausfuehrungsauftrag fuer WorkflowBackend.",
+    "WorkflowBackend": "Port fuer local/temporal/weitere Backends.",
+    "WorkflowStatus": "Read-Modell, kompatibel mit workflow_status.v1.",
+    "WorkflowEvent": "Audit-/Handoff-Ereignis, kompatibel mit workflow_handoff.v1."
+  },
+  "target_data_flow": [
+    "User modelliert Workflow im VisualProcessEditor oder BPMNEditor.",
+    "Editor erzeugt VisualProcessGraph plus optionale BPMN XML Darstellung.",
+    "VisualProcessValidator validiert Struktur, IO und Policy-Hints.",
+    "Blueprint Mapper erzeugt AgentProcessBlueprint/BlueprintWorkflowStep-kompatible Daten.",
+    "Hub speichert und versioniert Blueprint/Workflow-Steps.",
+    "Hub kompiliert validierten Blueprint in WorkflowRequest.",
+    "WorkflowBackend startet Request im local oder temporal Backend.",
+    "Activities/Steps bekommen nur hub-gepruefte Inputs und delegieren konkrete Arbeit an Worker.",
+    "Status und Events werden ueber workflow_status.v1/workflow_handoff.v1 sichtbar.",
+    "UI/TUI visualisieren denselben Status ohne eigene Orchestrierungslogik."
+  ],
+  "workstreams": [
+    {
+      "id": "WS-001",
+      "title": "Canonical Contract und Schema",
+      "priority": "critical",
+      "tasks": [
+        {
+          "id": "WS-001-001",
+          "title": "Ist-Kontrakte dokumentieren und abgleichen",
+          "acceptance_criteria": [
+            "Dokument listet Felder aus VisualProcessGraph, VisualProcessStep, BlueprintWorkflowStepDB, workflow_status.v1 und workflow_handoff.v1.",
+            "Dokument benennt ein kanonisches Feld je fachlicher Bedeutung.",
+            "Bestehende Felder werden nicht umbenannt oder entfernt.",
+            "Inkompatibilitaeten sind als Adapter-Aufgaben markiert."
+          ]
+        },
+        {
+          "id": "WS-001-002",
+          "title": "AgentProcessBlueprint v1 definieren",
+          "acceptance_criteria": [
+            "Schema ist versioniert.",
+            "Schema enthaelt id, name, version, nodes/steps, edges, roles, tools, policy_scope, artifacts und metadata.",
+            "Schema ist unabhaengig von BPMN XML.",
+            "Schema ist auf BlueprintWorkflowStepDB abbildbar.",
+            "Schema ist auf WorkflowRequest abbildbar.",
+            "Validierung erkennt fehlende AgentProfile, Tools, PolicyScope und isolierte Schritte."
+          ]
+        },
+        {
+          "id": "WS-001-003",
+          "title": "WorkflowRequest v1 definieren",
+          "acceptance_criteria": [
+            "WorkflowRequest enthaelt keine Temporal-Typen.",
+            "WorkflowRequest ist JSON-serialisierbar.",
+            "WorkflowRequest enthaelt Correlation IDs fuer Audit und Idempotenz.",
+            "WorkflowRequest erzwingt expliziten policy_scope.",
+            "WorkflowRequest kann aus BlueprintWorkflowStepDB und VisualProcessGraph erzeugt werden."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "WS-002",
+      "title": "Adapter und Mapping",
+      "priority": "critical",
+      "tasks": [
+        {
+          "id": "WS-002-001",
+          "title": "VisualProcessGraph zu AgentProcessBlueprint mappen",
+          "acceptance_criteria": [
+            "Bestehender graph_to_blueprint_steps Pfad bleibt kompatibel.",
+            "Mapping erhaelt IO, gates, checks, failure_policy, required_capabilities, produces, consumes und pattern_hints.",
+            "Tests in tests/test_visual_process.py werden erweitert oder neue Mapper-Tests ergaenzt.",
+            "Keine Mapping-Logik wandert in Angular-Komponenten."
+          ]
+        },
+        {
+          "id": "WS-002-002",
+          "title": "BPMN XML Adapter ergaenzen",
+          "acceptance_criteria": [
+            "BPMN StartEvent, EndEvent, ServiceTask, UserTask, ExclusiveGateway und SequenceFlow werden unterstuetzt.",
+            "Unsupported BPMN Elements erzeugen strukturierte Warnungen.",
+            "Ananta Extension Data roundtript verlustfrei.",
+            "BPMN XML bleibt Import-/Export-Format, nicht kanonische Wahrheit."
+          ]
+        },
+        {
+          "id": "WS-002-003",
+          "title": "BlueprintWorkflowStepDB Persistenzpfad verwenden",
+          "acceptance_criteria": [
+            "Persistierte Workflow-Steps nutzen vorhandene Repository-/Reconciliation-Pfade.",
+            "Unique Constraints fuer blueprint_id+step_id und blueprint_id+sort_order bleiben eingehalten.",
+            "Blueprint Bundle/Serializer-Pfade bleiben kompatibel.",
+            "Tests fuer Reconcile, Planning Adapter und Definition Service bleiben gruen."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "WS-003",
+      "title": "WorkflowBackend Port und Local Backend",
+      "priority": "critical",
+      "tasks": [
+        {
+          "id": "WS-003-001",
+          "title": "WorkflowBackend Interface einfuehren",
+          "acceptance_criteria": [
+            "Interface enthaelt start, status, cancel, signal und events.",
+            "Hub nutzt Interface statt konkrete Provider.",
+            "Bestehende workflow_providers bleiben als legacy/external provider shims dokumentiert oder adapterseitig eingebunden.",
+            "Tests nutzen Fake Backend fuer Port-Verhalten."
+          ]
+        },
+        {
+          "id": "WS-003-002",
+          "title": "LocalWorkflowBackend implementieren",
+          "acceptance_criteria": [
+            "Local Backend ist Default.",
+            "Local Backend nutzt workflow_event_service und workflow_status_service.",
+            "Start/Cancel/Signal erzeugen nachvollziehbare Events.",
+            "Keine externe Runtime ist erforderlich.",
+            "Unit Tests decken happy path, cancel und approval signal ab."
+          ]
+        },
+        {
+          "id": "WS-003-003",
+          "title": "Konfiguration und Diagnostik",
+          "acceptance_criteria": [
+            "orchestration.backend ist konfigurierbar.",
+            "local bleibt Default.",
+            "Fehlkonfiguration wird verstaendlich gemeldet.",
+            "Config-Graph oder Admin-Diagnose kann das aktive Backend anzeigen.",
+            "ENV Overrides sind dokumentiert."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "WS-004",
+      "title": "Temporal Backend",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "WS-004-001",
+          "title": "TemporalWorkflowBackend Adapter implementieren",
+          "acceptance_criteria": [
+            "Adapter implementiert WorkflowBackend.",
+            "Temporal Imports bleiben im Adapter-Modul.",
+            "Namespace, Address und Task Queue sind konfigurierbar.",
+            "Ohne Temporal Server bleibt local nutzbar.",
+            "Adapter-Fehler werden strukturiert und redigiert gemeldet."
+          ]
+        },
+        {
+          "id": "WS-004-002",
+          "title": "Temporal Activities mit Policy-Gateway",
+          "acceptance_criteria": [
+            "Jede Activity bekommt nur explizit erlaubte Inputs.",
+            "Policy-Gateway laeuft vor ausfuehrbarer Activity.",
+            "Default-Deny verhindert fehlende Tool-/Datei-/Netzwerkrechte.",
+            "Replay erzeugt keine neuen Berechtigungen.",
+            "Tests decken denied Activity und replay safety ab."
+          ]
+        },
+        {
+          "id": "WS-004-003",
+          "title": "Idempotenz, Retry, Timeout und Cancel",
+          "acceptance_criteria": [
+            "Nicht-idempotente Aktionen haben Operation IDs.",
+            "Retries wiederholen keine gefaehrlichen Aktionen ohne Dedupe.",
+            "Timeouts sind pro Step konfigurierbar.",
+            "Cancel beendet lokale Subprozesse sauber oder markiert Eskalation.",
+            "Crash-/Replay-Test ist vorhanden oder als optionaler Integrationstest dokumentiert."
+          ]
+        },
+        {
+          "id": "WS-004-004",
+          "title": "Temporal Compose Profil und Dokumentation",
+          "acceptance_criteria": [
+            "Temporal Compose Profil ist optional.",
+            "Temporal UI ist optional erreichbar.",
+            "Ananta startet ohne Profil.",
+            "docs/orchestration/temporal-adapter.md beschreibt Minimalstart und Grenzen."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "WS-005",
+      "title": "Angular UI",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "WS-005-001",
+          "title": "BPMN Editor lazy integrieren",
+          "acceptance_criteria": [
+            "bpmn-js Modeler laedt in Angular.",
+            "Komponente beeinflusst bestehende VisualProcessEditor Route nicht negativ.",
+            "Import/Export Buttons funktionieren.",
+            "Angular Build bleibt gruen.",
+            "Fokussierter UI-Test prueft Laden und Basisinteraktion."
+          ]
+        },
+        {
+          "id": "WS-005-002",
+          "title": "Ananta Properties Panel",
+          "acceptance_criteria": [
+            "Panel bearbeitet fachliche Step-/Policy-Felder.",
+            "Panel synchronisiert mit VisualProcessGraph/Sidecar.",
+            "Skill Profile kommen aus bestehender /api/visual-process/skill-profiles Route.",
+            "Validierungsfehler werden im Panel und Diagramm sichtbar."
+          ]
+        },
+        {
+          "id": "WS-005-003",
+          "title": "Workflow Status Viewer fuer Blueprint/BPMN",
+          "acceptance_criteria": [
+            "Viewer nutzt workflow_status.v1.",
+            "Aktive, blockierte, fehlgeschlagene, wartende und abgeschlossene Steps sind sichtbar.",
+            "Klick auf Step zeigt Handoff Events und redigierte Details.",
+            "Keine rohen Artifact-Payloads oder Secrets werden angezeigt."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "WS-006",
+      "title": "Security, Tests und Dokumentation",
+      "priority": "critical",
+      "tasks": [
+        {
+          "id": "WS-006-001",
+          "title": "Security Boundary dokumentieren",
+          "acceptance_criteria": [
+            "Dokument erklaert Hub als einzige Control Plane.",
+            "Dokument erklaert BPMN und Temporal als Adapter/View/Backend, nicht Policy Authority.",
+            "Default-Deny und Policy-Gateway sind beschrieben.",
+            "Worker-zu-Worker-Orchestrierung ist explizit ausgeschlossen."
+          ]
+        },
+        {
+          "id": "WS-006-002",
+          "title": "Regression Tests erweitern",
+          "acceptance_criteria": [
+            "Python Tests fuer Mapper, WorkflowRequest, Local Backend und Policy Denials vorhanden.",
+            "Angular Tests fuer BPMN Editor und Properties Panel vorhanden.",
+            "Optionaler Temporal Integrationstest ist markiert und dokumentiert.",
+            "Bestehende VisualProcess-, Blueprint- und Workflow-Status-Tests bleiben gruen."
+          ]
+        },
+        {
+          "id": "WS-006-003",
+          "title": "Operational Runbook",
+          "acceptance_criteria": [
+            "Runbook beschreibt local Backend Betrieb.",
+            "Runbook beschreibt Temporal optionalen Betrieb.",
+            "Runbook beschreibt Diagnose bei blocked/pending_approval/retry/cancel.",
+            "Runbook verweist auf Config und UI-Pfade."
+          ]
+        }
+      ]
+    }
+  ],
+  "recommended_phasing": [
+    {
+      "phase": "P1 Contract",
+      "tasks": [
+        "WS-001-001",
+        "WS-001-002",
+        "WS-001-003",
+        "WS-002-001"
+      ],
+      "definition_of_done": "Canonical Contract ist definiert und bestehende VisualProcess-/BlueprintWorkflowStep-Tests bleiben gruen."
+    },
+    {
+      "phase": "P2 Local Execution Port",
+      "tasks": [
+        "WS-003-001",
+        "WS-003-002",
+        "WS-003-003"
+      ],
+      "definition_of_done": "Hub kann WorkflowRequest ueber local Backend starten, statusmaessig verfolgen, abbrechen und signalisieren."
+    },
+    {
+      "phase": "P3 BPMN UI",
+      "tasks": [
+        "WS-002-002",
+        "WS-005-001",
+        "WS-005-002",
+        "WS-005-003"
+      ],
+      "definition_of_done": "BPMN ist als Editor/Import/Export fuer denselben fachlichen Contract nutzbar."
+    },
+    {
+      "phase": "P4 Temporal Optional",
+      "tasks": [
+        "WS-004-001",
+        "WS-004-002",
+        "WS-004-003",
+        "WS-004-004"
+      ],
+      "definition_of_done": "Ein einfacher Workflow laeuft optional ueber Temporal, ohne local Default oder Hub-Architektur zu brechen."
+    },
+    {
+      "phase": "P5 Hardening",
+      "tasks": [
+        "WS-006-001",
+        "WS-006-002",
+        "WS-006-003"
+      ],
+      "definition_of_done": "Security Boundary, Tests und Betrieb sind dokumentiert und pruefbar."
+    }
+  ],
+  "global_acceptance_criteria": [
+    "Hub bleibt zentrale Control Plane.",
+    "Worker orchestrieren keine Worker.",
+    "Local Backend ist Default und funktioniert ohne Temporal.",
+    "BPMN XML ist nicht kanonische Wahrheit.",
+    "Alle ausfuehrbaren Schritte laufen durch Hub-/Policy-Validierung.",
+    "WorkflowRequest enthaelt keine Temporal-Typen.",
+    "workflow_status.v1 und workflow_handoff.v1 bleiben kompatible Read-/Event-Kontrakte.",
+    "Bestehende Tests fuer VisualProcess, BlueprintPlanningAdapter, WorkflowDefinition, WorkflowEvent und WorkflowStatus bleiben gruen.",
+    "Neue Tests decken BPMN Mapping, WorkflowBackend Port, Local Backend, Policy Denials und optional Temporal Adapter ab.",
+    "Dokumentation erklaert klar die Grenzen zwischen UI, Blueprint, Hub, Backend und Worker."
+  ],
+  "solid_review": {
+    "srp": "Editor, Mapper, Validator, Backend, Policy-Gateway und Status-Reader bleiben getrennte Module.",
+    "ocp": "Neue Editor- und Backend-Varianten werden ueber Adapter/Ports ergaenzt.",
+    "lsp": "LocalWorkflowBackend und TemporalWorkflowBackend muessen denselben WorkflowBackend-Kontrakt erfuellen.",
+    "isp": "WorkflowBackend-Port bleibt klein; UI braucht eigene Read-APIs statt Backend-Interna.",
+    "dip": "Hub haengt an Abstraktionen, nicht an bpmn-js oder Temporal."
+  }
+}

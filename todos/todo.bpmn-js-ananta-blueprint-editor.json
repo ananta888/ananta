@@ -1,426 +1,283 @@
 {
   "id": "todo.bpmn-js-ananta-blueprint-editor",
-  "title": "BPMN-Blueprint-Editor im Angular-Frontend für Ananta",
+  "title": "BPMN-Editor als alternative Blueprint-Modellierungsoberflaeche fuer Ananta",
   "status": "planned",
   "priority": "high",
   "created": "2026-06-19",
+  "last_reviewed": "2026-06-19",
+  "superseded_by_master_todo": "todos/todo.workflow-blueprint-bpmn-temporal-integration.json",
   "tags": [
     "angular",
     "bpmn-js",
     "blueprint",
+    "visual-process",
     "workflow",
     "process-editor",
     "ananta-ui",
-    "agent-orchestration",
     "bpmn-xml"
   ],
-  "goal": "Im Angular-Frontend einen sichtbaren und bearbeitbaren Prozess-Blueprint-Editor auf Basis von bpmn-js einbauen. BPMN dient primär als visuelle Modellierungs- und Austauschschicht. Die eigentliche Ausführung bleibt bei Ananta Hub / WorkflowBackend.",
+  "goal": "Im Angular-Frontend eine bpmn-js-basierte Editor-/Import-/Export-Oberflaeche fuer Ananta Prozess-Blueprints ergaenzen. BPMN bleibt eine visuelle Modellierungs- und Austauschschicht. Die fachliche Wahrheit bleibt ein Ananta-eigenes Blueprint-/Workflow-Modell, das mit der bestehenden VisualProcess- und BlueprintWorkflowStep-Schicht kompatibel ist.",
+  "current_source_alignment": {
+    "must_reuse": [
+      "agent/visual_process/models.py",
+      "agent/visual_process/validator.py",
+      "agent/visual_process/blueprint_mapper.py",
+      "agent/visual_process/presets.py",
+      "agent/routes/visual_process.py",
+      "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
+      "frontend-angular/src/app/features/visual-process/visual-process-api.service.ts",
+      "agent/db_models/blueprints.py::BlueprintWorkflowStepDB",
+      "agent/services/workflow_definition_service.py",
+      "agent/services/blueprint_planning_adapter.py",
+      "agent/services/workflow_status_service.py",
+      "agent/services/workflow_event_service.py"
+    ],
+    "must_not_duplicate": [
+      "Kein zweites unverbundenes Blueprint-Format neben VisualProcessGraph und BlueprintWorkflowStepDB einfuehren.",
+      "Keine neue Runtime im Browser einfuehren.",
+      "Keine BPMN-Engine als fachliche Orchestrierungsautoritaet verwenden.",
+      "Keine Tool-/Worker-Rechte aus BPMN XML ableiten, ohne Hub-/Policy-Validierung."
+    ],
+    "existing_test_anchors": [
+      "tests/test_visual_process.py",
+      "tests/test_workflow_definition_service.py",
+      "tests/test_blueprint_planning_adapter.py",
+      "tests/test_workflow_status_service.py",
+      "frontend-angular/tests/live-click-critical-paths.spec.ts"
+    ]
+  },
   "core_decision": {
-    "bpmn_js": "Darstellung und Bearbeitung von BPMN-Diagrammen im Browser",
-    "ananta_blueprint_json": "eigene fachliche Wahrheit für Agenten, Rollen, Worker, Tools, Policies und Ausführungslogik",
-    "bpmn_xml": "optionaler Import/Export für Kompatibilität mit BPMN-Tools",
-    "runtime": "keine direkte BPMN-Engine im ersten Schritt"
+    "bpmn_js": "Browser-Editor fuer Diagramme, Import und Export.",
+    "visual_process_graph": "Bestehender fachlicher Editor-Kontrakt fuer Schritte, Kanten, IO, Policy-Hints und Dry-Run.",
+    "blueprint_workflow_steps": "Persistierbarer Hub-Kontrakt fuer Blueprint-Workflow-Schritte.",
+    "bpmn_xml": "Optionales Austauschformat mit Extension Elements oder separatem Sidecar JSON.",
+    "runtime": "Keine direkte BPMN-Runtime im ersten Schritt; Ausfuehrung bleibt Hub-gesteuert."
   },
   "non_goals": [
-    "Keine direkte Camunda/Flowable/jBPM Runtime im ersten Schritt",
-    "Keine Businesslogik im BPMN XML verstecken",
-    "BPMN ersetzt nicht die Ananta-Policy-Engine",
-    "BPMN ersetzt nicht WorkflowBackend/Temporal/local Backend",
-    "Keine freie Tool-Ausführung allein durch BPMN-Modell"
+    "Keine direkte Camunda/Flowable/jBPM Runtime im ersten Schritt.",
+    "Keine Businesslogik ausschliesslich im BPMN XML speichern.",
+    "BPMN ersetzt nicht Anantas Policy-Engine.",
+    "BPMN ersetzt nicht den Hub, WorkflowBackend oder lokale Worker-Flows.",
+    "Keine freie Tool-Ausfuehrung allein durch BPMN-Modell.",
+    "Keine Worker-zu-Worker-Orchestrierung."
   ],
   "architecture": {
     "layers": {
-      "Angular UI": "bpmn-js Editor/Viewer, Properties Panel, Blueprint-Formulare",
-      "Blueprint Adapter": "Mapping zwischen BPMN XML und Ananta Blueprint JSON",
-      "Ananta Blueprint JSON": "fachliche, versionierbare Prozessdefinition",
-      "Ananta Hub": "validiert, plant und startet Workflows",
-      "WorkflowBackend": "führt Workflows lokal, temporal oder später anders aus"
+      "Angular UI": "bpmn-js Modeler/Viewer plus schmales Ananta Properties Panel.",
+      "BPMN Adapter": "Mapping zwischen BPMN XML und VisualProcessGraph/Ananta Blueprint JSON.",
+      "VisualProcessGraph": "Bestehendes in-process Modell fuer Designer, Validator, Dry-Run und Mermaid Export.",
+      "BlueprintWorkflowStepDB": "Persistierte Hub-nahe Workflow-Schritte fuer Team-/Agent-Blueprints.",
+      "Ananta Hub": "Validiert, plant, materialisiert Tasks und startet Workflows.",
+      "WorkflowBackend": "Neutraler Ausfuehrungs-Port, spaeter local/temporal."
     },
     "data_flow": [
-      "User editiert BPMN Diagramm",
-      "UI erzeugt/aktualisiert Ananta Blueprint JSON",
-      "Blueprint wird validiert",
-      "Hub kann daraus ausführbare Workflow-Aufträge erzeugen",
-      "Optionaler Export nach BPMN 2.0 XML"
-    ]
-  },
-  "ananta_blueprint_json_example": {
-    "id": "blueprint.repair-with-review",
-    "name": "Repair mit Review und Freigabe",
-    "version": 1,
-    "type": "agent_process_blueprint",
-    "nodes": [
-      {
-        "id": "start",
-        "type": "start",
-        "label": "Start"
-      },
-      {
-        "id": "resolve-context",
-        "type": "tool_task",
-        "label": "CodeCompass Kontext laden",
-        "tool": "codecompass.resolve_context",
-        "policyScope": {
-          "readProjectFiles": true,
-          "writeProjectFiles": false
-        }
-      },
-      {
-        "id": "planner",
-        "type": "agent_task",
-        "label": "Planner erstellt Reparaturplan",
-        "agentProfile": "planner",
-        "allowedTools": [
-          "codecompass.search_symbols",
-          "codecompass.get_file_context"
-        ]
-      },
-      {
-        "id": "developer",
-        "type": "agent_task",
-        "label": "Developer Worker setzt Änderung um",
-        "agentProfile": "developer",
-        "worker": "ananta-worker",
-        "allowedTools": [
-          "filesystem.patch",
-          "test.run"
-        ]
-      },
-      {
-        "id": "review",
-        "type": "agent_task",
-        "label": "Reviewer prüft Ergebnis",
-        "agentProfile": "reviewer",
-        "allowedTools": [
-          "git.diff",
-          "test.run",
-          "codecompass.resolve_context"
-        ]
-      },
-      {
-        "id": "approval",
-        "type": "human_task",
-        "label": "Menschliche Freigabe"
-      },
-      {
-        "id": "end",
-        "type": "end",
-        "label": "Fertig"
-      }
-    ],
-    "edges": [
-      {
-        "from": "start",
-        "to": "resolve-context"
-      },
-      {
-        "from": "resolve-context",
-        "to": "planner"
-      },
-      {
-        "from": "planner",
-        "to": "developer"
-      },
-      {
-        "from": "developer",
-        "to": "review"
-      },
-      {
-        "from": "review",
-        "to": "approval"
-      },
-      {
-        "from": "approval",
-        "to": "end"
-      }
+      "User editiert BPMN Diagramm im Angular Editor.",
+      "BPMN Adapter erzeugt oder aktualisiert VisualProcessGraph.",
+      "VisualProcessValidator prueft Struktur, IO und Policy-Hints.",
+      "blueprint_mapper erzeugt BlueprintWorkflowStep-kompatible Daten.",
+      "Hub speichert/validiert Blueprint-Workflow-Schritte.",
+      "Optionaler Export nach BPMN 2.0 XML mit Kompatibilitaetsbericht."
     ]
   },
   "tasks": [
     {
       "id": "BPMN-001",
-      "title": "bpmn-js in Angular integrieren",
+      "title": "Canonical Blueprint Contract gegen bestehenden VisualProcessGraph klaeren",
       "status": "todo",
       "priority": "critical",
-      "description": "bpmn-js als Viewer/Editor-Komponente in das Angular-Frontend einbauen.",
-      "implementation_notes": [
-        "Neue Komponente z.B. BlueprintBpmnEditorComponent erstellen.",
-        "bpmn-js Modeler verwenden, nicht nur Viewer.",
-        "CSS für bpmn-js sauber global oder komponentennah einbinden.",
-        "Editor soll initial ein leeres Start-Ende-Diagramm laden können."
-      ],
+      "description": "Vor bpmn-js den fachlichen Contract festlegen, indem VisualProcessGraph, graph_to_blueprint_steps und BlueprintWorkflowStepDB abgeglichen werden.",
       "acceptance_criteria": [
-        "BPMN-Diagramm wird im Angular-Frontend korrekt gerendert.",
-        "User kann Nodes und Verbindungen bearbeiten.",
-        "Diagramm kann als BPMN XML exportiert werden.",
-        "Import eines vorhandenen BPMN XML ist möglich.",
-        "Keine Mermaid-Rohtext-Probleme; BPMN ist eigenständiger Editor."
+        "Dokument oder Schema benennt VisualProcessGraph als aktuellen Editor-Kontrakt.",
+        "Mapping-Tabelle VisualProcessStep -> BlueprintWorkflowStepDB existiert.",
+        "Bestehende Felder wie step_id, title, description, role_name, task_kind, depends_on, gate, checks, failure_policy, required_capabilities, produces, consumes und pattern_hints sind abgedeckt.",
+        "Nicht abgedeckte BPMN-/Blueprint-Felder sind explizit als future/unsupported markiert.",
+        "tests/test_visual_process.py und tests/test_workflow_definition_service.py bleiben gruen."
       ]
     },
     {
       "id": "BPMN-002",
-      "title": "Ananta Blueprint JSON Schema definieren",
+      "title": "BPMN Adapter als getrennten Mapper bauen",
       "status": "todo",
       "priority": "critical",
-      "description": "Ein eigenes JSON-Format definieren, das die fachliche Wahrheit für Ananta-Prozesse enthält.",
+      "description": "Ein isolierter Adapter uebersetzt BPMN XML in VisualProcessGraph und zurueck. Keine Mapping-Logik in Angular-Komponenten oder Hub-Routen verstecken.",
+      "implementation_notes": [
+        "Backend- oder shared TypeScript/Python-Grenze bewusst festlegen.",
+        "Unterstuetzte Elemente: StartEvent, EndEvent, ServiceTask, UserTask, ExclusiveGateway, SequenceFlow.",
+        "Ananta-Metadaten in Extension Elements oder Sidecar JSON roundtrip-faehig halten."
+      ],
       "acceptance_criteria": [
-        "Schema enthält Nodes, Edges, AgentProfile, Worker, Tools, Policies und Human Tasks.",
-        "Schema ist versioniert.",
-        "Schema ist unabhängig von BPMN XML nutzbar.",
-        "Schema kann validiert werden.",
-        "Fehlende oder ungültige Tool-/Policy-Angaben werden erkannt."
+        "Ein Start -> ServiceTask -> End BPMN XML erzeugt einen validen VisualProcessGraph.",
+        "Ein VisualProcessGraph kann in BPMN XML exportiert werden.",
+        "Roundtrip erhaelt Ananta-Metadaten fuer agent_skill_profile_id, io, gate, policy_hints und metadata.",
+        "Unsupported BPMN Elements erzeugen strukturierte Warnungen statt stillschweigendem Verlust.",
+        "Unit Tests fuer Import, Export und Roundtrip existieren."
       ]
     },
     {
       "id": "BPMN-003",
-      "title": "Mapping BPMN zu Ananta Blueprint JSON",
+      "title": "bpmn-js in Angular als Editor-Komponente integrieren",
       "status": "todo",
-      "priority": "critical",
-      "description": "Adapter bauen, der BPMN-Elemente auf Ananta-Blueprint-Knoten abbildet.",
-      "mapping": {
-        "bpmn:StartEvent": "type=start",
-        "bpmn:EndEvent": "type=end",
-        "bpmn:ServiceTask": "type=tool_task oder agent_task",
-        "bpmn:UserTask": "type=human_task",
-        "bpmn:ExclusiveGateway": "type=decision",
-        "bpmn:SequenceFlow": "edge"
-      },
+      "priority": "high",
+      "description": "Eine Angular-Komponente fuer bpmn-js Modeler ergaenzen, ohne den bestehenden VisualProcessEditor zu ersetzen.",
+      "implementation_notes": [
+        "Neue Route oder Tab im bestehenden visual-process Bereich bevorzugen.",
+        "bpmn-js nur lazy laden, damit Hauptbundle nicht unnoetig waechst.",
+        "CSS sauber in Angular einbinden.",
+        "Initialdiagramm Start -> End laden koennen."
+      ],
       "acceptance_criteria": [
-        "Ein einfaches BPMN-Diagramm kann in Blueprint JSON übersetzt werden.",
-        "Blueprint JSON kann wieder in BPMN XML zurückübersetzt werden.",
-        "Nicht unterstützte BPMN-Elemente werden sauber gemeldet.",
-        "Mapping verliert keine Ananta-spezifischen Metadaten."
+        "BPMN Diagramm rendert im Angular Frontend.",
+        "User kann Nodes und SequenceFlows bearbeiten.",
+        "Import und Export von BPMN XML sind in der UI erreichbar.",
+        "Editor bleibt funktionsfaehig, wenn der Hub nicht erreichbar ist, soweit lokale Bearbeitung betroffen ist.",
+        "Angular Build laeuft ohne neue Compiler-Fehler.",
+        "Ein fokussierter Angular Unit- oder Playwright-Test prueft, dass der Editor laedt."
       ]
     },
     {
       "id": "BPMN-004",
-      "title": "Ananta-spezifische Properties im Editor bearbeiten",
+      "title": "Ananta Properties Panel fuer BPMN Elemente",
       "status": "todo",
       "priority": "high",
-      "description": "Beim Anklicken eines BPMN-Elements sollen Ananta-spezifische Eigenschaften bearbeitbar sein.",
+      "description": "Beim Anklicken eines BPMN Elements sollen Ananta-spezifische Eigenschaften als Formular bearbeitbar sein.",
       "properties": [
-        "node.type",
-        "agentProfile",
-        "worker",
-        "allowedTools",
-        "policyScope",
-        "modelRouting",
-        "timeout",
-        "retryPolicy",
-        "requiresHumanApproval",
-        "inputArtifacts",
-        "outputArtifacts"
+        "step kind",
+        "role_name",
+        "agent_skill_profile_id",
+        "task_kind",
+        "gate",
+        "checks",
+        "failure_policy",
+        "required_capabilities",
+        "input/output artifacts",
+        "policy_hints",
+        "metadata"
       ],
       "acceptance_criteria": [
-        "Klick auf Node öffnet Properties Panel.",
-        "Änderungen aktualisieren Blueprint JSON.",
-        "Pflichtfelder werden validiert.",
-        "Tool-Auswahl kann aus vorhandener Tool-Registry gespeist werden.",
-        "Ungültige Kombinationen werden markiert."
+        "Klick auf BPMN Node synchronisiert Auswahl mit Properties Panel.",
+        "Aenderungen aktualisieren VisualProcessGraph oder Sidecar JSON deterministisch.",
+        "Pflichtfelder werden lokal validiert.",
+        "Skill-Profile koennen aus GET /api/visual-process/skill-profiles gespeist werden.",
+        "Ungueltige Kombinationen werden im Panel und im Diagramm sichtbar markiert.",
+        "Properties Panel bleibt schmal und ersetzt nicht den Hub-Validator."
       ]
     },
     {
       "id": "BPMN-005",
-      "title": "Blueprint Registry / Speicherung",
+      "title": "Validierung an bestehende VisualProcessValidator-Schicht anbinden",
       "status": "todo",
-      "priority": "high",
-      "description": "Blueprints sollen gespeichert, geladen, kopiert und versioniert werden können.",
+      "priority": "critical",
+      "description": "BPMN-Blueprints duerfen nur ueber den bestehenden Validator/Dry-Run Pfad in ausfuehrbare Daten ueberfuehrt werden.",
       "acceptance_criteria": [
-        "Blueprint kann unter Namen gespeichert werden.",
-        "Existierender Blueprint kann als Vorlage dupliziert werden.",
-        "Blueprint enthält Version und Änderungsdatum.",
-        "BPMN XML und Ananta JSON können gemeinsam gespeichert werden.",
-        "UI kann vorhandene Blueprints auflisten."
+        "BPMN Import ruft denselben Validator-Kontrakt wie POST /api/visual-process/validate auf.",
+        "Leeres Diagramm wird abgelehnt.",
+        "Agent/Service Task ohne ausfuehrbare Semantik wird abgelehnt oder als unsupported markiert.",
+        "PolicyScope ist explizit; fehlende Rechte bleiben default-deny.",
+        "Fehler sind als strukturierte ValidationIssue und im Diagramm sichtbar.",
+        "tests/test_visual_process.py enthaelt BPMN-nahe Validator-Faelle oder neue BPMN-Adapter-Tests decken sie ab."
       ]
     },
     {
       "id": "BPMN-006",
-      "title": "Validierung vor Ausführung",
+      "title": "Blueprint Speicherung an bestehende Team-/Workflow-Blueprints anbinden",
       "status": "todo",
-      "priority": "critical",
-      "description": "Ein Blueprint darf erst ausführbar sein, wenn Struktur, Policies und Tool-Rechte valide sind.",
+      "priority": "high",
+      "description": "Persistenz soll vorhandene TeamBlueprintDB/BlueprintWorkflowStepDB- und Bundle-Mechanik nutzen oder explizit adapterseitig darauf mappen.",
       "acceptance_criteria": [
-        "Jeder Pfad hat Start und Ende.",
-        "Keine isolierten Knoten.",
-        "Jede Agent Task hat ein AgentProfile.",
-        "Jede Tool Task hat ein erlaubtes Tool.",
-        "PolicyScope ist explizit, nicht implizit offen.",
-        "Default-Deny gilt bei fehlenden Rechten.",
-        "Fehler werden im Diagramm sichtbar markiert."
+        "Blueprint kann unter Namen gespeichert und geladen werden.",
+        "Persistierter Workflow landet in BlueprintWorkflowStepDB-kompatiblen Strukturen oder einem klar dokumentierten Vorstufen-Store.",
+        "BPMN XML und Sidecar/VisualProcessGraph werden versioniert gemeinsam gespeichert oder eindeutig referenziert.",
+        "Bestehende Blueprint Bundle/Export-Flows werden nicht gebrochen.",
+        "Tests fuer create/update/roundtrip verhindern Child-ID- oder sort_order-Drift."
       ]
     },
     {
       "id": "BPMN-007",
-      "title": "Blueprint zu ausführbarem Workflow-Auftrag kompilieren",
+      "title": "Blueprint zu neutralem WorkflowRequest kompilieren",
       "status": "todo",
       "priority": "high",
-      "description": "Aus einem validierten Blueprint soll ein neutraler Ananta WorkflowRequest entstehen.",
+      "description": "Aus validiertem VisualProcessGraph/BlueprintWorkflowStep soll ein neutraler WorkflowRequest entstehen, der vom spaeteren WorkflowBackend-Port verarbeitet wird.",
       "acceptance_criteria": [
-        "Blueprint kann in WorkflowRequest übersetzt werden.",
-        "WorkflowRequest ist unabhängig von BPMN.",
-        "Hub kann WorkflowRequest an local/temporal Backend übergeben.",
-        "Nicht ausführbare BPMN-Elemente werden vorher blockiert.",
-        "Kompilierung erzeugt Audit-Informationen."
+        "WorkflowRequest ist unabhaengig von BPMN XML.",
+        "WorkflowRequest referenziert Blueprint-ID, Version, Schritte, Policy-Scope, erlaubte Tools, Artefakte und Correlation IDs.",
+        "Hub kann den Request an das lokale Backend uebergeben.",
+        "Nicht ausfuehrbare BPMN Elemente blockieren die Kompilierung.",
+        "Kompilierung erzeugt Audit-/Trace-Informationen ohne sensible Payloads."
       ]
     },
     {
       "id": "BPMN-008",
-      "title": "Visuelle Statusanzeige für laufende Workflows",
+      "title": "Visuelle Statusanzeige ueber workflow_status.v1",
       "status": "todo",
       "priority": "medium",
-      "description": "Der BPMN-Editor/Viewer soll laufende oder vergangene Ausführungen visualisieren.",
+      "description": "Laufende oder vergangene Workflows sollen im BPMN/Blueprint Viewer ueber vorhandene Statusdaten markiert werden.",
       "acceptance_criteria": [
-        "Aktiver Node wird sichtbar markiert.",
-        "Erfolgreiche Nodes werden markiert.",
-        "Fehlgeschlagene Nodes werden markiert.",
-        "Retry-/Waiting-/Approval-Zustände sind sichtbar.",
-        "Klick auf Node zeigt Logs/Zusammenfassung/Toolcalls."
+        "UI nutzt GET /goals/<goal_id>/workflow-status oder den bestehenden workflow_status_service-Kontrakt.",
+        "Aktive, erfolgreiche, blockierte, fehlgeschlagene und pending_approval Schritte sind unterscheidbar.",
+        "Klick auf Node zeigt Status, Blocker, Handoff Events und redigierte Zusammenfassung.",
+        "Keine rohen Artifact-Payloads oder Secrets werden angezeigt.",
+        "Bestehende TUI/Workflow-Status-Tests bleiben gueltig."
       ]
     },
     {
       "id": "BPMN-009",
-      "title": "Import/Export BPMN 2.0 XML",
+      "title": "Security Boundary dokumentieren",
       "status": "todo",
-      "priority": "medium",
-      "description": "BPMN XML soll importiert und exportiert werden können, aber nicht die einzige Wahrheit sein.",
+      "priority": "critical",
+      "description": "Dokumentieren, dass BPMN nur modelliert und keine Rechte vergibt.",
       "acceptance_criteria": [
-        "Export erzeugt gültiges BPMN 2.0 XML.",
-        "Import lädt BPMN XML in den Editor.",
-        "Ananta-spezifische Daten werden über Extension Elements oder separates JSON erhalten.",
-        "Bei Import fremder BPMN-Dateien wird ein Kompatibilitätsbericht angezeigt.",
-        "Unsupported Elements werden nicht stillschweigend ignoriert."
+        "Dokument erklaert: Diagramm ist keine Security Authority.",
+        "Hub und PolicyEngine bleiben entscheidend.",
+        "Importiertes BPMN bekommt keine impliziten Tool-, Datei- oder Netzwerkrechte.",
+        "Human Approval ersetzt keine technische Policy-Pruefung.",
+        "Dokument verweist auf WorkflowBackend- und Temporal-Master-Todo."
       ]
     },
     {
       "id": "BPMN-010",
-      "title": "Blueprint-Vorlagen anlegen",
-      "status": "todo",
-      "priority": "medium",
-      "description": "Erste Standardprozesse als editierbare Templates bereitstellen.",
-      "templates": [
-        "simple-analysis",
-        "repair-with-review",
-        "feature-with-human-approval",
-        "new-software-project",
-        "codecompass-context-first",
-        "webcrawler-research-with-approval"
-      ],
-      "acceptance_criteria": [
-        "Templates sind im UI auswählbar.",
-        "Template kann als neuer Blueprint kopiert werden.",
-        "Templates enthalten sinnvolle Default-Policies.",
-        "Keine Vorlage gibt gefährliche Tools automatisch frei."
-      ]
-    },
-    {
-      "id": "BPMN-011",
-      "title": "Security Boundary dokumentieren",
-      "status": "todo",
-      "priority": "critical",
-      "description": "Klar dokumentieren, dass BPMN nur modelliert, aber keine Rechte vergibt.",
-      "acceptance_criteria": [
-        "Dokument erklärt: Diagramm ist kein Security-Authority.",
-        "Hub/PolicyEngine bleiben entscheidend.",
-        "Importiertes BPMN bekommt keine impliziten Rechte.",
-        "Jede ausführbare Aktion braucht explizite Policy-Freigabe.",
-        "Human Approval ersetzt keine technische Policy-Prüfung."
-      ]
-    },
-    {
-      "id": "BPMN-012",
-      "title": "Tests für Mapping und Validierung",
+      "title": "Tests fuer Mapping, UI und Validierung",
       "status": "todo",
       "priority": "high",
-      "description": "Automatisierte Tests für Blueprint JSON, BPMN Mapping und Validierung schreiben.",
-      "test_cases": [
-        "Leeres Diagramm wird abgelehnt.",
-        "Start-Ende-Diagramm ist strukturell gültig.",
-        "Agent Task ohne AgentProfile wird abgelehnt.",
-        "Tool Task mit nicht erlaubtem Tool wird abgelehnt.",
-        "BPMN XML Export/Import Roundtrip funktioniert.",
-        "Ananta-Metadaten bleiben erhalten.",
-        "Fremdes BPMN mit unsupported elements erzeugt Warnungen."
-      ],
+      "description": "Automatisierte Tests fuer BPMN Adapter, VisualProcess-Kompatibilitaet und UI-Laden ergaenzen.",
       "acceptance_criteria": [
-        "Unit Tests für Mapper vorhanden.",
-        "Unit Tests für Blueprint Validator vorhanden.",
-        "Mindestens ein UI-Test für Editor-Laden vorhanden.",
-        "Roundtrip-Test BPMN XML <-> Blueprint JSON vorhanden."
+        "Unit Tests fuer BPMN XML -> VisualProcessGraph vorhanden.",
+        "Unit Tests fuer VisualProcessGraph -> BPMN XML vorhanden.",
+        "Roundtrip-Test erhaelt Ananta-Metadaten.",
+        "Unsupported Elements erzeugen Warnungen.",
+        "Mindestens ein Angular Test prueft Editor-Laden und Properties-Synchronisation.",
+        "Angular Build und relevante Python-Tests laufen gruen."
       ]
     }
   ],
   "recommended_implementation_order": [
-    "BPMN-002",
     "BPMN-001",
+    "BPMN-002",
     "BPMN-003",
     "BPMN-004",
-    "BPMN-006",
     "BPMN-005",
+    "BPMN-006",
     "BPMN-007",
-    "BPMN-010",
     "BPMN-008",
     "BPMN-009",
-    "BPMN-011",
-    "BPMN-012"
-  ],
-  "milestones": [
-    {
-      "id": "M1",
-      "title": "Editor sichtbar",
-      "tasks": [
-        "BPMN-001",
-        "BPMN-002"
-      ],
-      "definition_of_done": "Angular kann BPMN anzeigen/bearbeiten und es existiert ein erstes Ananta Blueprint JSON Schema."
-    },
-    {
-      "id": "M2",
-      "title": "Mapping und Properties",
-      "tasks": [
-        "BPMN-003",
-        "BPMN-004",
-        "BPMN-006"
-      ],
-      "definition_of_done": "BPMN-Nodes können Ananta-spezifisch konfiguriert und validiert werden."
-    },
-    {
-      "id": "M3",
-      "title": "Blueprints produktiv nutzbar",
-      "tasks": [
-        "BPMN-005",
-        "BPMN-007",
-        "BPMN-010"
-      ],
-      "definition_of_done": "Blueprints können gespeichert, kopiert und in ausführbare WorkflowRequests kompiliert werden."
-    },
-    {
-      "id": "M4",
-      "title": "Rund und sicher",
-      "tasks": [
-        "BPMN-008",
-        "BPMN-009",
-        "BPMN-011",
-        "BPMN-012"
-      ],
-      "definition_of_done": "Statusanzeige, Import/Export, Security-Doku und Tests sind vorhanden."
-    }
+    "BPMN-010"
   ],
   "risks": [
     {
-      "risk": "BPMN XML wird zur zweiten Wahrheit neben Ananta JSON.",
-      "mitigation": "Ananta Blueprint JSON bleibt kanonisch. BPMN XML ist View-/Import-/Export-Format."
+      "risk": "BPMN XML wird zur zweiten Wahrheit neben VisualProcessGraph/BlueprintWorkflowStepDB.",
+      "mitigation": "VisualProcessGraph und BlueprintWorkflowStepDB bleiben kanonische Ananta-Kontrakte; BPMN XML ist Import-/Export-/View-Format."
     },
     {
-      "risk": "Importiertes BPMN könnte implizit gefährliche Aktionen erzeugen.",
-      "mitigation": "Default-Deny und explizite Policy-Validierung vor Ausführung."
+      "risk": "Importiertes BPMN erzeugt implizit gefaehrliche Aktionen.",
+      "mitigation": "Default-Deny und Hub-/Policy-Validierung vor jeder Kompilierung."
     },
     {
       "risk": "bpmn-js Properties Panel wird zu komplex.",
-      "mitigation": "Erst eigenes schmales Sidepanel bauen, später optional bpmn-js-properties-panel erweitern."
+      "mitigation": "Erst eigenes schmales Properties Panel, spaeter optional bpmn-js-properties-panel erweitern."
     },
     {
-      "risk": "Zu früher Einbau einer BPMN Runtime macht Ananta schwerfällig.",
-      "mitigation": "Erste Phase nur Editor + Blueprint-Adapter, keine Engine."
+      "risk": "Parallelentwicklung zum vorhandenen VisualProcessEditor.",
+      "mitigation": "BPMN als alternativen Editor fuer denselben fachlichen Contract bauen."
     }
   ],
-  "recommended_first_step": "Zuerst das Ananta Blueprint JSON Schema sauber definieren und dann bpmn-js als reine Editor-Komponente anbinden. Nicht mit Runtime/Engine anfangen."
+  "recommended_first_step": "BPMN-001 umsetzen: vorhandene VisualProcessGraph-, BlueprintWorkflowStepDB- und WorkflowStatus-Kontrakte dokumentiert abgleichen, bevor bpmn-js eingebaut wird."
 }
