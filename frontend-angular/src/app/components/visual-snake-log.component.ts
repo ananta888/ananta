@@ -6,7 +6,7 @@
  * Used in the AI-Snake chat panel when the active session is ananta-visual.
  */
 import { Component, inject, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule, AsyncPipe } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { ChatHistoryService, ChatHistoryMessage } from '../services/chat-history.service';
 
@@ -35,7 +35,7 @@ type FilterKind = 'all' | 'tick' | 'delta' | 'explain' | 'guide';
 @Component({
   selector: 'app-visual-snake-log',
   standalone: true,
-  imports: [CommonModule, AsyncPipe],
+  imports: [CommonModule],
   template: `
     <div class="vlog">
       <div class="vlog-head">
