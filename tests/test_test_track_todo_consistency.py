@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 TODO_PATH_CANDIDATES = (
     ROOT / "todo.json",
     ROOT / "todo_last.json",
+    ROOT / "todos" / "todo.rtipm-codecompass-tests-docs-2026-06-19.json",
 )
 
 
@@ -36,6 +37,21 @@ def test_current_todo_summary_is_consistent() -> None:
             "TEST-M6",
         }
         assert validate_todo_payload(payload) == []
+        return
+
+    if "tasks_status_summary" in payload:
+        assert validate_todo_payload(payload) == []
+        return
+
+    if "tasks" in payload:
+        tasks = payload.get("tasks")
+        assert isinstance(tasks, list)
+        assert tasks
+        for task in tasks:
+            assert isinstance(task, dict)
+            assert str(task.get("id") or "").strip()
+            assert str(task.get("status") or "").strip()
+            assert isinstance(task.get("acceptance_criteria") or [], list)
         return
 
     todos = payload.get("todos")

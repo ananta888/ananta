@@ -626,7 +626,11 @@ def test_provider_catalog_cache_has_bounded_size(client, admin_token):
     )
 
     config_routes._LMSTUDIO_CATALOG_CACHE.clear()
-    with patch("agent.routes.config._list_lmstudio_candidates", return_value=[]):
+    with (
+        patch("agent.routes.config._list_lmstudio_candidates", return_value=[]),
+        patch("agent.routes.config.shared._list_lmstudio_candidates", return_value=[]),
+        patch("agent.routes.config.providers.get_voice_provider_service", side_effect=RuntimeError("voice runtime unavailable")),
+    ):
         for i in range(config_routes._LMSTUDIO_CATALOG_CACHE_MAX_ENTRIES + 12):
             client.post(
                 "/config",

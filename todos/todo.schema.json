@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/todo.schema.json",
+  "title": "Ananta Category Todo Schema",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["version", "created", "updated", "project", "review_basis", "categories", "meta"],
+  "properties": {
+    "version": {
+      "anyOf": [
+        { "type": "integer" },
+        { "type": "string", "minLength": 1 }
+      ]
+    },
+    "created": { "type": "string", "minLength": 1 },
+    "updated": { "type": "string", "minLength": 1 },
+    "project": { "type": "string", "minLength": 1 },
+    "review_basis": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["reviewed_commit_range", "review_goal"]
+    },
+    "categories": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["name", "label", "items"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "label": { "type": "string", "minLength": 1 },
+          "items": { "type": "array" }
+        }
+      }
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["total_items", "by_status", "notes", "recommended_order"],
+      "properties": {
+        "total_items": { "type": "integer", "minimum": 0 },
+        "by_status": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["completed", "partial", "open"]
+        },
+        "notes": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "recommended_order": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

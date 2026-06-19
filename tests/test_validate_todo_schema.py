@@ -24,7 +24,7 @@ def test_detect_todo_format_task_track() -> None:
         ],
         "tasks_status_summary": {
             "total": 1,
-            "by_status": {"todo": 1, "in_progress": 0, "blocked": 0, "done": 0},
+            "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
             "progress_percent_done": 0.0,
             "by_priority": {"P0": 1, "P1": 0},
             "by_risk": {"low": 0, "high": 1},

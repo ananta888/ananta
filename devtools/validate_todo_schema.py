@@ -9,7 +9,9 @@ from jsonschema import Draft7Validator
 ROOT = Path(__file__).resolve().parents[1]
 TODO_PATH = ROOT / "todo.json"
 SCHEMA_PATH = ROOT / "todo.schema.json"
+SCHEMA_FALLBACK_PATH = ROOT / "todos" / "todo.schema.json"
 TRACK_SCHEMA_PATH = ROOT / "todo.track.schema.json"
+TRACK_SCHEMA_FALLBACK_PATH = ROOT / "todos" / "todo.track.schema.json"
 
 
 def detect_todo_format(todo_payload: dict[str, Any]) -> str:
@@ -19,7 +21,9 @@ def detect_todo_format(todo_payload: dict[str, Any]) -> str:
 
 
 def _schema_for_format(format_name: str) -> Path:
-    return TRACK_SCHEMA_PATH if format_name == "task_track" else SCHEMA_PATH
+    if format_name != "task_track":
+        return SCHEMA_PATH if SCHEMA_PATH.exists() else SCHEMA_FALLBACK_PATH
+    return TRACK_SCHEMA_PATH if TRACK_SCHEMA_PATH.exists() else TRACK_SCHEMA_FALLBACK_PATH
 
 
 def validate_todo_payload(todo_payload: dict[str, Any]) -> tuple[str, list[Any]]:
