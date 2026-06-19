@@ -8,7 +8,7 @@ from sqlmodel import SQLModel, create_engine
 # ---------------------------------------------------------------------------
 
 @pytest.fixture
-def store(tmp_path):
+def store(tmp_path, monkeypatch):
     from agent import db_models  # noqa: F401
     import agent.database as db_module
     import agent.services.memory_tree_store_service as store_module
@@ -17,16 +17,15 @@ def store(tmp_path):
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False})
     SQLModel.metadata.create_all(engine)
 
-    orig_db = db_module.engine
-    orig_mod = store_module._db_module.engine
-    db_module.engine = engine
-    store_module._db_module.engine = engine
+    # Use monkeypatch so the engine swap is always restored, even if a
+    # test body replaces the engine again or a sibling fixture rebinds
+    # the attribute. Direct attribute writes here have caused cross-file
+    # regressions in test_tasks_autopilot under the full pytest run.
+    monkeypatch.setattr(db_module, "engine", engine)
+    monkeypatch.setattr(store_module._db_module, "engine", engine)
 
     svc = MemoryTreeStoreService()
     yield svc
-
-    db_module.engine = orig_db
-    store_module._db_module.engine = orig_mod
 
 
 @pytest.fixture

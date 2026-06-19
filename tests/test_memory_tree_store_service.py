@@ -26,7 +26,7 @@ from agent.services.memory_vault_export_service import MemoryVaultExportService
 # ---------------------------------------------------------------------------
 
 @pytest.fixture
-def store(tmp_path):
+def store(tmp_path, monkeypatch):
     """In-memory SQLite store for tests — fully isolated per test."""
     from sqlmodel import SQLModel, create_engine
     from agent import db_models  # noqa: F401 — registers all tables
@@ -36,17 +36,16 @@ def store(tmp_path):
     test_engine = create_engine("sqlite://", connect_args={"check_same_thread": False})
     SQLModel.metadata.create_all(test_engine)
 
-    original = db_module.engine
-    db_module.engine = test_engine
-    # Also reset the module-level reference used by the service
-    original_mod = store_module._db_module.engine
-    store_module._db_module.engine = test_engine
+    # Use monkeypatch so the engine swap is restored even if the test
+    # itself reassigns db_module.engine or any submodule caches a
+    # reference. Without monkeypatch, direct attribute writes can leak
+    # into subsequent tests (see e.g. test_tasks_autopilot cross-file
+    # regressions in the full run).
+    monkeypatch.setattr(db_module, "engine", test_engine)
+    monkeypatch.setattr(store_module._db_module, "engine", test_engine)
 
     svc = MemoryTreeStoreService()
     yield svc
-
-    db_module.engine = original
-    store_module._db_module.engine = original_mod
 
 
 @pytest.fixture
