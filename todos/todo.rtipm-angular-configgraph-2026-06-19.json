@@ -1,0 +1,212 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "rtipm-angular-configgraph",
+  "created": "2026-06-19",
+  "status": "planned",
+  "priority": "P0",
+  "title": "RTIPM im Angular Config Graph Editor konfigurieren",
+  "purpose": "Die RTIPM-Konfiguration im Angular Config Graph Editor sichtbar, editierbar, validierbar und speicherbar machen.",
+  "related_tracks": [
+    "rtipm-backend-adapters"
+  ],
+  "tasks": [
+    {
+      "id": "RTIPM-ANG-001",
+      "title": "Ist-Zustand Angular und ConfigGraph pruefen",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "Vorhandene ConfigGraph Views sind dokumentiert.",
+        "Editierbare Node-Typen sind dokumentiert.",
+        "create-config-entry und apply-patch Flow sind abgeglichen.",
+        "Fehlende Persistence-Mappings sind gelistet."
+      ]
+    },
+    {
+      "id": "RTIPM-ANG-002",
+      "title": "PathAiModeRule UI vervollstaendigen",
+      "status": "todo",
+      "priority": "P0",
+      "target_files": [
+        "frontend-angular/src/app/components/config-graph-editor.component.ts",
+        "frontend-angular/src/app/components/config-graph-node-detail.component.ts"
+      ],
+      "acceptance_criteria": [
+        "allowed_ai_modes, blocked_ai_modes und allowed_model_engines werden als Arrays editiert.",
+        "allow_hidden_states, allow_logits und allow_attention sind editierbar.",
+        "allow_free_text_generation, allow_tool_decision_from_model_text und allow_code_generation sind editierbar.",
+        "require_controlled_write_policy ist editierbar.",
+        "max_input_chars, max_batch_size und priority sind numerisch validiert.",
+        "llm_scope ist editierbar.",
+        "Speichern erzeugt valides JSON."
+      ]
+    },
+    {
+      "id": "RTIPM-ANG-003",
+      "title": "Path Rule Presets ergaenzen",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Preset fuer sensible Source-Pfade existiert.",
+        "Preset fuer docs-Pfade existiert.",
+        "Preset fuer test-Pfade existiert.",
+        "Preset fuer Konfig-Dateien existiert.",
+        "Preset-Werte sind vor dem Speichern editierbar."
+      ]
+    },
+    {
+      "id": "RTIPM-ANG-004",
+      "title": "Embedding Provider Detailpanel bauen",
+      "status": "todo",
+      "priority": "P1",
+      "target_files": [
+        "frontend-angular/src/app/components/config-graph-node-detail.component.ts"
+      ],
+      "acceptance_criteria": [
+        "embedding_model::default ist als eigener Editor sichtbar.",
+        "provider ist als Select editierbar.",
+        "model, model_version, dimensions, base_url und timeout_seconds sind editierbar.",
+        "external_calls_allowed ist editierbar und default false.",
+        "allowed_base_urls ist als Liste editierbar.",
+        "index_rebuild_policy und diagnostics_enabled sind editierbar.",
+        "Diagnosezustand ready/degraded/blocked wird angezeigt."
+      ]
+    },
+    {
+      "id": "RTIPM-ANG-005",
+      "title": "Restricted Inference Model Editor bauen",
+      "status": "todo",
+      "priority": "P0",
+      "target_files": [
+        "frontend-angular/src/app/components/config-graph-editor.component.ts",
+        "frontend-angular/src/app/components/config-graph-node-detail.component.ts"
+      ],
+      "acceptance_criteria": [
+        "restricted_inference Config kann im UI angelegt werden, falls sie fehlt.",
+        "Modelle koennen hinzugefuegt, dupliziert, deaktiviert und geloescht werden.",
+        "Felder id, engine, model, revision, local_path, device, enabled und tasks sind editierbar.",
+        "Engine-Auswahl ist auf bekannte Engines begrenzt.",
+        "Task-Zuordnung wird als Array gespeichert."
+      ]
+    },
+    {
+      "id": "RTIPM-ANG-006",
+      "title": "Restricted Inference Task Editor bauen",
+      "status": "todo",
+      "priority": "P0",
+      "acceptance_criteria": [
+        "candidate_rerank Task ist editierbar.",
+        "task_classify Task ist editierbar.",
+        "path_domain_classify Task ist editierbar.",
+        "risk_score Task ist editierbar.",
+        "choice_score Task ist editierbar.",
+        "enabled, preferred_engine, fallback_to_deterministic, max_candidates, labels und weight sind je nach Task editierbar."
+      ]
+    },
+    {
+      "id": "RTIPM-ANG-007",
+      "title": "ConfigGraphBuilder fuer RTIPM erweitern",
+      "status": "todo",
+      "priority": "P0",
+      "target_files": [
+        "agent/services/config_graph_builder_service.py"
+      ],
+      "acceptance_criteria": [
+        "restricted_inference root config erscheint als Node.",
+        "restricted_inference.models erscheinen als restricted_inference_model Nodes.",
+        "restricted_inference.tasks erscheinen als Nodes oder strukturierte Detaildaten.",
+        "codecompass_ranking erscheint als eigener Node.",
+        "Edges zeigen Beziehungen Context Pipeline -> restricted inference -> model -> task.",
+        "Nodes enthalten source_file, source_pointer, writable, declared_value und effective_value."
+      ]
+    },
+    {
+      "id": "RTIPM-ANG-008",
+      "title": "ConfigGraph Persistence erweitern",
+      "status": "todo",
+      "priority": "P0",
+      "target_files": [
+        "agent/services/config_graph_persistence_service.py",
+        "agent/services/config_graph_patch_service.py"
+      ],
+      "acceptance_criteria": [
+        "embedding_model::default mappt auf /embedding_provider.",
+        "restricted_inference root mappt auf /restricted_inference.",
+        "restricted_inference_model::* mappt auf /restricted_inference/models/*.",
+        "restricted_inference_task::* mappt auf /restricted_inference/tasks/*.",
+        "codecompass_ranking mappt auf /codecompass_ranking.",
+        "source_diffs und rollback_artifact funktionieren."
+      ]
+    },
+    {
+      "id": "RTIPM-ANG-009",
+      "title": "Effective Config Resolver fuer RTIPM erweitern",
+      "status": "todo",
+      "priority": "P0",
+      "target_files": [
+        "agent/services/config_graph_effective_resolver.py"
+      ],
+      "acceptance_criteria": [
+        "Effective Config zeigt matched path rule und reason_codes.",
+        "Effective Config zeigt erlaubte und blockierte AI-Modi.",
+        "Effective Config zeigt allowed_model_engines.",
+        "Effective Config zeigt effektiven Embedding Provider.",
+        "Effective Config zeigt effektive restricted inference Tasks.",
+        "Angular Effective Panel zeigt diese Werte sichtbar an."
+      ]
+    },
+    {
+      "id": "RTIPM-ANG-010",
+      "title": "Status API und UI bauen",
+      "status": "todo",
+      "priority": "P1",
+      "target_files": [
+        "agent/routes/config_graph.py",
+        "frontend-angular/src/app/services/config-graph.service.ts"
+      ],
+      "acceptance_criteria": [
+        "Ein Status-Endpunkt fuer restricted inference existiert.",
+        "Response enthaelt adapters, engines, capabilities, models, diagnostics und config_hash.",
+        "Endpoint funktioniert auch ohne optionale ML-Dependencies.",
+        "UI zeigt ready/degraded/unavailable Badges."
+      ]
+    },
+    {
+      "id": "RTIPM-ANG-011",
+      "title": "CodeCompass Ranking UI bauen",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "restricted_inference_rerank_enabled ist editierbar.",
+        "Score-Gewichte fuer embedding_score, graph_score, symbol_score, transformer_rerank_score und policy_penalty sind editierbar.",
+        "Gewichte werden als Zahlen gespeichert.",
+        "trace_scores und fallback_without_model sind editierbar.",
+        "Presets deterministic-heavy, balanced und semantic-heavy sind verfuegbar."
+      ]
+    },
+    {
+      "id": "RTIPM-ANG-012",
+      "title": "Angular Tests ergaenzen",
+      "status": "todo",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Test erzeugt path_rule mit Arrays statt kommaseparierten Strings.",
+        "Test blockiert ungueltige numeric fields.",
+        "Test prueft Embedding Provider Editor.",
+        "Test prueft Restricted Inference Model Editor.",
+        "Test prueft Patch Preview.",
+        "Bestehende ConfigGraph Tests bleiben gruen."
+      ]
+    }
+  ],
+  "definition_of_done": [
+    "Operator kann path_ai_modes vollstaendig im UI bearbeiten.",
+    "Operator kann embedding_provider im UI bearbeiten.",
+    "Operator kann restricted_inference Modelle und Tasks im UI bearbeiten.",
+    "Operator kann codecompass_ranking im UI bearbeiten.",
+    "Effective View zeigt die tatsaechlich wirksame Konfiguration.",
+    "Persistenz, Source Diffs und Rollback funktionieren."
+  ]
+}
