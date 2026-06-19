@@ -7,7 +7,7 @@ from flask import Blueprint, jsonify, request
 
 from client_surfaces.operator_tui.chat_state import (
     get_sessions, get_session, add_session, update_session_settings,
-    delete_session, make_session, set_active_session,
+    delete_session, make_session, set_active_session, default_sessions,
 )
 from client_surfaces.operator_tui.config.user_config_manager import get_manager
 
@@ -19,9 +19,9 @@ chat_bp = Blueprint("chat_api", __name__, url_prefix="/api/chat")
 def _load_chat() -> dict[str, Any]:
     """Build a minimal chat dict from persisted user.json for session operations."""
     settings = get_manager().load()
-    sessions = settings.get("chat_sessions") or []
+    sessions = settings.get("chat_sessions") or default_sessions()[:3]
     active_id = settings.get("chat_active_session_id") or (sessions[0]["id"] if sessions else "")
-    return {"ai_sessions": sessions, "active_session_id": active_id, "channels": {}}
+    return {"ai_sessions": sessions, "active_session_id": active_id, "channels": {}, "_preserve_session_list": True}
 
 
 def _save_chat(chat: dict[str, Any]) -> None:

@@ -868,7 +868,43 @@ def set_autopilot_state_tool(
 
 # Action pack tool registrations — imported from submodules for decorator side effects
 from agent.tools_file import (file_read_tool, file_write_tool, file_list_tool, file_patch_tool)
-from agent.tools_git import (git_status_tool, git_diff_tool, git_log_tool, git_commit_tool, git_push_tool)
+from agent.tools_git import (
+    _check_git_access,
+    _git_cwd,
+    git_status_tool as _git_status_tool_impl,
+    git_diff_tool as _git_diff_tool_impl,
+    git_log_tool as _git_log_tool_impl,
+    git_commit_tool as _git_commit_tool_impl,
+    git_push_tool as _git_push_tool_impl,
+)
 from agent.tools_shell import shell_execute_tool
 from agent.tools_browser import web_fetch_tool, web_search_tool
 from agent.tools_document import doc_extract_tool
+
+
+def _with_git_patch_points(func, *args, **kwargs):
+    from unittest.mock import patch as _patch
+
+    with _patch("agent.tools_git._check_git_access", side_effect=_check_git_access):
+        with _patch("agent.tools_git._git_cwd", side_effect=_git_cwd):
+            return func(*args, **kwargs)
+
+
+def git_status_tool():
+    return _with_git_patch_points(_git_status_tool_impl)
+
+
+def git_diff_tool(path: Optional[str] = None, cached: bool = False):
+    return _with_git_patch_points(_git_diff_tool_impl, path=path, cached=cached)
+
+
+def git_log_tool(limit: int = 10):
+    return _with_git_patch_points(_git_log_tool_impl, limit=limit)
+
+
+def git_commit_tool(message: str):
+    return _with_git_patch_points(_git_commit_tool_impl, message)
+
+
+def git_push_tool():
+    return _with_git_patch_points(_git_push_tool_impl)

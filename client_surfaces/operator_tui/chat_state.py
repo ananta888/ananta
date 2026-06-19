@@ -590,33 +590,37 @@ def get_sessions(chat: dict[str, Any]) -> list[dict[str, Any]]:
             if canonical_prompt and s.get("system_prompt") != canonical_prompt:
                 s["system_prompt"] = canonical_prompt
 
-    # Add missing built-in sessions (e.g. new architecture sessions)
-    existing_ids = {str((s or {}).get("id") or "") for s in sessions}
-    for default_sess in DEFAULT_SESSIONS:
-        sess_id = str(default_sess.get("id") or "")
-        if sess_id and sess_id not in existing_ids:
-            sessions.append(make_session(
-                session_id=sess_id,
-                name=str(default_sess.get("name") or sess_id),
-                system_prompt=str(default_sess.get("system_prompt") or ""),
-                settings=dict(default_sess.get("settings") or {}),
-                icon=str(default_sess.get("icon") or "💬"),
-                group=str(default_sess.get("group") or ""),
-            ))
+    if bool(chat.get("_append_missing_default_sessions")) and not bool(chat.get("_preserve_session_list")):
+        # Add missing built-in sessions (e.g. new architecture sessions)
+        existing_ids = {str((s or {}).get("id") or "") for s in sessions}
+        for default_sess in DEFAULT_SESSIONS:
+            sess_id = str(default_sess.get("id") or "")
+            if sess_id and sess_id not in existing_ids:
+                sessions.append(make_session(
+                    session_id=sess_id,
+                    name=str(default_sess.get("name") or sess_id),
+                    system_prompt=str(default_sess.get("system_prompt") or ""),
+                    settings=dict(default_sess.get("settings") or {}),
+                    icon=str(default_sess.get("icon") or "💬"),
+                    group=str(default_sess.get("group") or ""),
+                ))
 
     chat["ai_sessions"] = sessions
     return sessions
 
 
 def get_session(chat: dict[str, Any], session_id: str) -> dict[str, Any] | None:
-    for s in get_sessions(chat):
+    raw_sessions = chat.get("ai_sessions")
+    sessions = raw_sessions if isinstance(raw_sessions, list) and raw_sessions else get_sessions(chat)
+    for s in sessions:
         if isinstance(s, dict) and str(s.get("id") or "") == str(session_id):
             return s
     return None
 
 
 def get_active_session(chat: dict[str, Any]) -> dict[str, Any] | None:
-    sessions = get_sessions(chat)
+    raw_sessions = chat.get("ai_sessions")
+    sessions = raw_sessions if isinstance(raw_sessions, list) and raw_sessions else get_sessions(chat)
     active_id = str(chat.get("active_session_id") or "")
     for s in sessions:
         if isinstance(s, dict) and str(s.get("id") or "") == active_id:
@@ -786,7 +790,8 @@ def delete_session(chat: dict[str, Any], session_id: str) -> bool:
     case so the UI can show a friendly "letzter session, nicht
     löschbar" message.
     """
-    sessions = get_sessions(chat)
+    raw_sessions = chat.get("ai_sessions")
+    sessions = raw_sessions if isinstance(raw_sessions, list) and raw_sessions else get_sessions(chat)
     target_id = str(session_id)
     if len(sessions) <= 1:
         return False
@@ -821,14 +826,34 @@ def set_active_session(chat: dict[str, Any], session_id: str) -> bool:
     Ensures the corresponding channel exists so the chat pipeline can
     immediately write to it."""
     target_id = str(session_id)
-    if get_session(chat, target_id) is None:
+    raw_sessions = chat.get("ai_sessions")
+    if isinstance(raw_sessions, list) and raw_sessions:
+        target_session = next(
+            (
+                session for session in raw_sessions
+                if isinstance(session, dict) and str(session.get("id") or "") == target_id
+            ),
+            None,
+        )
+    else:
+        target_session = get_session(chat, target_id)
+    if target_session is None:
         return False
     chat["active_session_id"] = target_id
     chat["active_channel"] = f"ai:{target_id}"
     # Make sure the channel exists — important when callers switch to
     # a session that was added after the initial ensure_session_channels
     # call (e.g. a freshly added custom session).
-    ensure_session_channels(chat)
+    previous_preserve = chat.get("_preserve_session_list", None)
+    had_preserve = "_preserve_session_list" in chat
+    chat["_preserve_session_list"] = True
+    try:
+        ensure_session_channels(chat)
+    finally:
+        if had_preserve:
+            chat["_preserve_session_list"] = previous_preserve
+        else:
+            chat.pop("_preserve_session_list", None)
     return True
 
 
@@ -877,7 +902,9 @@ def ensure_session_channels(chat: dict[str, Any]) -> None:
     if not isinstance(channels, dict):
         channels = {}
         chat["channels"] = channels
-    for session in get_sessions(chat):
+    raw_sessions = chat.get("ai_sessions")
+    sessions = raw_sessions if isinstance(raw_sessions, list) and raw_sessions else get_sessions(chat)
+    for session in sessions:
         if not isinstance(session, dict):
             continue
         sid = str(session.get("id") or "")

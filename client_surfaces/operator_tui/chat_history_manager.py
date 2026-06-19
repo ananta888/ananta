@@ -281,8 +281,16 @@ class ChatHistoryManagerMixin:
         if stripped == "/session" or stripped.startswith("/session "):
             _consume_buffer()
             arg = buf.strip()[len("/session"):].strip()
-            sessions = get_sessions(chat)
-            active = get_active_session(chat)
+            raw_sessions = chat.get("ai_sessions")
+            sessions = raw_sessions if isinstance(raw_sessions, list) and raw_sessions else get_sessions(chat)
+            active_id_value = str(chat.get("active_session_id") or "")
+            active = next(
+                (
+                    session for session in sessions
+                    if isinstance(session, dict) and str(session.get("id") or "") == active_id_value
+                ),
+                None,
+            ) or get_active_session(chat)
             active_id = str(active.get("id") or "") if isinstance(active, dict) else ""
             target_ch_id = ch_id or str(chat.get("active_channel") or "ai:tutor")
             ch_type = "ai"
@@ -343,7 +351,13 @@ class ChatHistoryManagerMixin:
                 if not rest:
                     status = "session delete: id fehlt"
                 else:
-                    target = get_session(chat, rest)
+                    target = next(
+                        (
+                            session for session in sessions
+                            if isinstance(session, dict) and str(session.get("id") or "") == rest
+                        ),
+                        None,
+                    ) or get_session(chat, rest)
                     if not target:
                         status = f"session delete: '{rest}' nicht gefunden"
                     elif len(sessions) <= 1:
