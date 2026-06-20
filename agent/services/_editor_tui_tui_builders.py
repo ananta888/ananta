@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from agent.services.editor_tui_surface_state import (
+from agent.services._editor_tui_utils import (
     _clean_text,
     _compact_task_item,
     _normalize_connection_profile,

@@ -3,7 +3,8 @@ from flask import Blueprint
 from agent.routes.tasks.auto_planner import auto_planner_bp, init_auto_planner
 from agent.routes.tasks.autopilot import autopilot_bp, init_autopilot
 from agent.routes.tasks.execution import execution_bp
-from agent.routes.tasks.goals import goals_bp
+from agent.routes.tasks.goals_blueprint import goals_bp
+import agent.routes.tasks.goals  # noqa: F401 — registers routes on goals_bp
 from agent.routes.tasks.logging import logging_bp
 from agent.routes.tasks.management import management_bp
 from agent.routes.tasks.orchestration import orchestration_bp

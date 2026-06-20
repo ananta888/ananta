@@ -1,6 +1,6 @@
 from flask import current_app
 
-from agent.tools import registry
+from agent.tools_registry import registry
 
 
 @registry.register(

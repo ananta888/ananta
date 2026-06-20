@@ -839,6 +839,7 @@ class ResearchBackendAdapter:
         if not record:
             return {"job_id": job_id, "provider": self.provider, "status": "not_found", "result": None}
         result = record.get("result") or {}
+        from agent.research_artifact import normalize_research_artifact
         artifact = normalize_research_artifact(
             result.get("stdout") or "",
             backend=self.provider,
@@ -933,6 +934,3 @@ def run_deerflow_command(
         temperature=temperature,
         provider="deerflow",
     )
-
-
-from agent.research_artifact import normalize_research_artifact

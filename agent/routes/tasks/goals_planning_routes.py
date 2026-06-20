@@ -14,7 +14,7 @@ from agent.planning_reason_codes import (
     PLANNING_BACKGROUND_TIMEOUT,
     PLANNING_SLOT_TIMEOUT,
 )
-from agent.routes.tasks.goals import goals_bp
+from agent.routes.tasks.goals_blueprint import goals_bp
 from agent.routes.tasks.goals_helpers import (
     _can_access_goal,
     _goal_service,
@@ -27,7 +27,7 @@ from agent.routes.tasks.goals_helpers import (
     _repos,
     _services,
 )
-import agent.routes.tasks.goals as _goals_mod
+import agent.routes.tasks.goals_blueprint as _goals_mod
 
 _PLANNING_LEASE_TTL_S = 90
 

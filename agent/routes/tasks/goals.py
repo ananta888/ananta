@@ -2,7 +2,7 @@ import threading
 import time
 from typing import Any
 
-from flask import Blueprint, current_app, g, request
+from flask import current_app, g, request
 
 from agent.auth import check_auth
 from agent.common.audit import log_audit
@@ -31,13 +31,12 @@ from agent.routes.tasks.goals_helpers import (
     _services,
 )
 
-goals_bp = Blueprint("tasks_goals", __name__)
-
-# Planning slot state kept here for test compatibility — tests access these
-# via `import agent.routes.tasks.goals as goals_mod` and set them directly.
-_PLANNING_SLOTS_LOCK = threading.Lock()
-_PLANNING_SLOTS: threading.Semaphore | None = None
-_PLANNING_SLOTS_CAPACITY: int = 0
+from agent.routes.tasks.goals_blueprint import (  # noqa: E402
+    goals_bp,
+    _PLANNING_SLOTS_LOCK,
+    _PLANNING_SLOTS,
+    _PLANNING_SLOTS_CAPACITY,
+)
 
 def _plan_quality_from_task_ids(*, task_ids: list[str], mode: str, planning_policy: dict[str, Any], team_id: str | None) -> tuple[bool, str]:
     if not task_ids:

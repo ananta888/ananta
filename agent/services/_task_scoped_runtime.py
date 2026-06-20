@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Callable
 from flask import current_app, has_app_context
 
 from agent.cli_backends.sgpt import SUPPORTED_CLI_BACKENDS, resolve_codex_runtime_config
-from agent.research_backend import normalize_research_artifact
+from agent.research_artifact import normalize_research_artifact
 from agent.runtime_policy import resolve_cli_backend, review_policy
 from agent.security_risk import (
     classify_command_risk,

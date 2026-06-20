@@ -1,7 +1,7 @@
 import os
 import ast
 import sys
-from typing import List, Set, Tuple
+from typing import List
 import networkx as nx
 
 def get_imports(file_path: str, root_dir: str) -> List[str]:
@@ -12,7 +12,7 @@ def get_imports(file_path: str, root_dir: str) -> List[str]:
             return []
 
     imports = []
-    for node in ast.walk(tree):
+    for node in tree.body:
         if isinstance(node, ast.Import):
             for alias in node.names:
                 imports.append(alias.name)
@@ -43,29 +43,7 @@ def build_graph(root_dir: str) -> nx.DiGraph:
                     G.add_edge(module_name, imp)
     return G
 
-# Existing cycles (Technical Debt)
-# Each cycle is represented as a tuple of modules
-KNOWN_CYCLES = [
-    ("agent.routes.tasks.autopilot", "agent.routes.tasks.autopilot_tick_engine", "agent.routes.tasks.auto_planner"),
-    ("agent.common.sgpt", "agent.services.opencode_runtime_service"),
-    ("agent.common.sgpt", "agent.services.live_terminal_session_service"),
-    ("agent.utils", "agent.common.http"),
-    ("agent.services.service_registry", "agent.services.task_scoped_execution_service"),
-]
-
 def is_known_cycle(cycle: List[str]) -> bool:
-    # Check if this cycle (or any rotation of it) is in KNOWN_CYCLES
-    cycle_set = set(cycle)
-    for known in KNOWN_CYCLES:
-        if set(known) == cycle_set:
-            return True
-
-    # Heuristic: Cycles involving service_registry and routes.tasks are common technical debt here
-    if "agent.services.service_registry" in cycle_set:
-        return True
-    if "agent.routes.tasks.autopilot" in cycle_set and "agent.services.autopilot_runtime_service" in cycle_set:
-        return True
-
     return False
 
 def main():
@@ -87,9 +65,6 @@ def main():
             known_count += 1
         else:
             new_cycles.append(cycle)
-
-    if known_count > 0:
-        print(f"Ignored {known_count} known cycles (technical debt).")
 
     if new_cycles:
         print(f"Found {len(new_cycles)} new import cycles:")

@@ -6,7 +6,7 @@ from agent.auth import check_auth
 from agent.common.audit import log_audit
 from agent.common.errors import api_response
 from agent.models import GoalPlanNodePatchRequest
-from agent.routes.tasks.goals import goals_bp
+from agent.routes.tasks.goals_blueprint import goals_bp
 from agent.routes.tasks.goals_helpers import (
     _can_access_goal,
     _current_username,

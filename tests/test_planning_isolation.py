@@ -200,12 +200,12 @@ class TestPlanningTimeoutSeparation:
         assert _normalize_planning_slot_capacity("garbage") == 1
 
     def test_acquire_and_release_slot(self):
-        from agent.routes.tasks.goals import _acquire_planning_slot, _release_planning_slot, _PLANNING_SLOTS_LOCK, _PLANNING_SLOTS
-        import agent.routes.tasks.goals as goals_mod
+        from agent.routes.tasks.goals import _acquire_planning_slot, _release_planning_slot, _PLANNING_SLOTS_LOCK
+        import agent.routes.tasks.goals_blueprint as goals_blueprint_mod
         # Reset to known state.
         with _PLANNING_SLOTS_LOCK:
-            goals_mod._PLANNING_SLOTS = None
-            goals_mod._PLANNING_SLOTS_CAPACITY = 0
+            goals_blueprint_mod._PLANNING_SLOTS = None
+            goals_blueprint_mod._PLANNING_SLOTS_CAPACITY = 0
 
         acquired, capacity = _acquire_planning_slot(timeout_s=1, capacity=2)
         assert acquired is True
@@ -377,11 +377,11 @@ class TestParallelGoalsSlotQueuing:
     def test_two_parallel_goals_respect_capacity_one(self):
         """With capacity=1, second acquire times out cleanly — first is not starved."""
         from agent.routes.tasks.goals import _acquire_planning_slot, _release_planning_slot, _PLANNING_SLOTS_LOCK
-        import agent.routes.tasks.goals as goals_mod
+        import agent.routes.tasks.goals_blueprint as goals_blueprint_mod
 
         with _PLANNING_SLOTS_LOCK:
-            goals_mod._PLANNING_SLOTS = None
-            goals_mod._PLANNING_SLOTS_CAPACITY = 0
+            goals_blueprint_mod._PLANNING_SLOTS = None
+            goals_blueprint_mod._PLANNING_SLOTS_CAPACITY = 0
 
         # First goal acquires the only slot.
         acquired1, cap1 = _acquire_planning_slot(timeout_s=1, capacity=1)

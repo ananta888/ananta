@@ -2,7 +2,7 @@ from typing import Optional
 
 from flask import current_app, g, has_request_context
 
-from agent.tools import registry
+from agent.tools_registry import registry
 
 
 def _check_git_access(operation: str = "read") -> tuple[bool, str]:

@@ -1,6 +1,6 @@
 from flask import current_app, g, has_request_context
 
-from agent.tools import registry
+from agent.tools_registry import registry
 
 
 def _check_file_access(path: str, operation: str = "read") -> tuple[bool, str]:

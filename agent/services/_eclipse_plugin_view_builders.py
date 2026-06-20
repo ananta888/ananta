@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from agent.services.eclipse_plugin_protocol import (
+from agent.services._eclipse_plugin_utils import (
     _clean_text,
     _compact_artifact,
     _compact_task,

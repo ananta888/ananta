@@ -24,7 +24,8 @@ from agent.models import (
     SgptSourceRequest,
 )
 from agent.pipeline_trace import append_stage, new_pipeline_trace
-from agent.research_backend import is_research_backend, normalize_research_artifact
+from agent.research_backend import is_research_backend
+from agent.research_artifact import normalize_research_artifact
 from agent.runtime_policy import build_trace_record, normalize_task_kind, resolve_cli_backend, resolve_lora_adapter_routing, runtime_routing_config
 from agent.services.cli_session_service import get_cli_session_service
 from agent.services.context_manager_service import get_context_manager_service as _get_context_manager_service

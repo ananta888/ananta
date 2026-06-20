@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from agent.services.worker_workspace_service import WorkerWorkspaceContext
+if TYPE_CHECKING:
+    from agent.services.worker_workspace_service import WorkerWorkspaceContext
 
 
 def _write_text(path: Path, content: str) -> None:
