@@ -11,12 +11,14 @@
  *    random IDs in the JSON)
  */
 import { describe, expect, it, beforeAll } from 'vitest';
-import { readFileSync, existsSync, readFileSync as readFileSyncNode } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
-import { join } from 'node:path';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ARTIFACT = '/home/krusty/ananta/artifacts/domain/pair-view-sync-budget.json';
-const SCRIPT = '/home/krusty/ananta/scripts/pair-view-sync-load-budget.mjs';
+const _ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
+const ARTIFACT = resolve(_ROOT, 'artifacts/domain/pair-view-sync-budget.json');
+const SCRIPT = resolve(_ROOT, 'scripts/pair-view-sync-load-budget.mjs');
 
 describe('Pair-View-Sync load budget (T13)', () => {
   beforeAll(() => {
@@ -66,7 +68,7 @@ describe('Pair-View-Sync load budget (T13)', () => {
   it('is reproducible: a second run with the same seed produces identical totals', () => {
     const before = JSON.parse(readFileSync(ARTIFACT, 'utf8'));
     execSync(`node ${SCRIPT}`, {
-      cwd: '/home/krusty/ananta',
+      cwd: _ROOT,
       env: { ...process.env, PAIR_BUDGET_SEED: String(before.inputs.seed) },
     });
     const after = JSON.parse(readFileSync(ARTIFACT, 'utf8'));

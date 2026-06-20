@@ -1,4 +1,4 @@
-import { TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { TestBed } from '@angular/core/testing';
 import { SnakeEventsService, type Candidate } from './snake-events.service';
 import { AiSnakeChatService } from './ai-snake-chat.service';
 import { AgentDirectoryService } from './agent-directory.service';
@@ -58,8 +58,8 @@ describe('SnakeEventsService', () => {
   });
 
   it('opens EventSource when snake becomes active', () => {
-    chat.active$.next(true);
     chat.snakeId$.next('snake-1');
+    chat.active$.next(true);
 
     expect(globalThis.EventSource).toHaveBeenCalledTimes(1);
     expect((globalThis.EventSource as any).mock.calls[0][0]).toContain('/snakes/snake-1/events/stream');
@@ -70,8 +70,8 @@ describe('SnakeEventsService', () => {
     const guideSpy = vi.fn();
     service.guide$.subscribe(guideSpy);
 
-    chat.active$.next(true);
     chat.snakeId$.next('snake-1');
+    chat.active$.next(true);
     const es = eventSourceMocks[0];
     es.onopen?.({} as Event);
     es.onmessage?.(new MessageEvent('message', {
@@ -85,8 +85,8 @@ describe('SnakeEventsService', () => {
     const candidateSpy = vi.fn();
     service.candidates$.subscribe(candidateSpy);
 
-    chat.active$.next(true);
     chat.snakeId$.next('snake-1');
+    chat.active$.next(true);
     const es = eventSourceMocks[0];
     const candidates: Candidate[] = [{ label: 'primary', bubble: 'Hauptvorschlag', steps: [] }];
     es.onmessage?.(new MessageEvent('message', {
@@ -96,26 +96,31 @@ describe('SnakeEventsService', () => {
     expect(candidateSpy).toHaveBeenCalledWith(expect.objectContaining({ request_id: 'r2', candidates }));
   });
 
-  it('reconnects with exponential backoff on error', fakeAsync(() => {
-    chat.active$.next(true);
-    chat.snakeId$.next('snake-1');
+  it('reconnects with exponential backoff on error', async () => {
+    vi.useFakeTimers();
+    try {
+      chat.snakeId$.next('snake-1');
+      chat.active$.next(true);
 
-    expect(eventSourceMocks).toHaveLength(1);
-    eventSourceMocks[0].onerror?.({} as Event);
+      expect(eventSourceMocks).toHaveLength(1);
+      eventSourceMocks[0].onerror?.({} as Event);
 
-    tick(1000);
-    expect(eventSourceMocks).toHaveLength(2);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(eventSourceMocks).toHaveLength(2);
 
-    eventSourceMocks[1].onerror?.({} as Event);
-    tick(2000);
-    expect(eventSourceMocks).toHaveLength(3);
+      eventSourceMocks[1].onerror?.({} as Event);
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(eventSourceMocks).toHaveLength(3);
 
-    service.disconnect();
-  }));
+      service.disconnect();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 
   it('closes EventSource on disconnect', () => {
-    chat.active$.next(true);
     chat.snakeId$.next('snake-1');
+    chat.active$.next(true);
     const es = eventSourceMocks[0];
     service.disconnect();
     expect(es.close).toHaveBeenCalled();
