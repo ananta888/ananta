@@ -51,6 +51,8 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 abstract class VoxtralOfflineAssetSupport extends VoxtralOfflineRuntimeSupport {
+    protected abstract RunnerProbe probeRunnerModelCompatibility(File runnerFile, File modelFile);
+
     protected void recordWav(File outFile, int sampleRate, int bufferSize, int maxSeconds) {
         int bytesWritten = 0;
         byte[] data = new byte[bufferSize];

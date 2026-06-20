@@ -51,6 +51,10 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 abstract class VoxtralOfflineRuntimeSupport extends VoxtralOfflineCore {
+    protected abstract void appendAudit(String decision, String action, String reason);
+    protected abstract boolean isRunnerCandidate(String baseName);
+    protected abstract String runnerLibraryPathExport(File runnerFile);
+
     protected List<String> buildRunnerCommand(File runnerFile, File modelFile, File audioFile) {
         return buildRunnerCommand(runnerFile, modelFile, audioFile, false);
     }

@@ -44,6 +44,8 @@ import java.util.zip.GZIPInputStream;
 import org.tukaani.xz.XZInputStream;
 
 abstract class PythonRuntimeProotSupport extends PythonRuntimeCore {
+    protected abstract String readProcessOutput(InputStream stream, int maxChars) throws IOException;
+
     protected boolean isPythonAvailable() {
         try {
             Class.forName("com.chaquo.python.Python");
