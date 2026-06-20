@@ -91,9 +91,29 @@ class ResultMemoryService:
         memory_tree_ingestion_service: Any = None,
         auto_ingest_tree: bool = False,
     ) -> None:
-        self._memory_entry_repo = memory_entry_repository if memory_entry_repository is not None else memory_entry_repo
+        # Capture the explicit override (or sentinel) so that test-DI works.
+        # The default case (``None``) defers to ``_memory_entry_repo`` which
+        # resolves ``agent.services.di.memory_entry_repo`` at call time.
+        # This eliminates the module-import-cache footgun: even if a test
+        # monkeypatches ``agent.services.di.memory_entry_repo`` AFTER this
+        # service is constructed, the call-time resolution sees the patch.
+        self._memory_entry_repository_override = memory_entry_repository
         self._memory_tree_ingestion_svc = memory_tree_ingestion_service
         self._auto_ingest_tree = auto_ingest_tree
+
+    @property
+    def _memory_entry_repo(self) -> Any:
+        """Call-time repository resolution.
+
+        SOLID: DIP — depend on the abstraction (the ``di`` module's
+        factory layer), not the module-level import cache. The factory
+        re-reads ``agent.services.di.memory_entry_repo`` on every call,
+        so test patches (and any future repository rebinding) are seen.
+        """
+        if self._memory_entry_repository_override is not None:
+            return self._memory_entry_repository_override
+        from agent.services.di import get_memory_entry_repository
+        return get_memory_entry_repository()
 
     def _compact_output(self, output: str) -> dict[str, object]:
         text = str(output or "").strip()
@@ -429,8 +449,27 @@ class ResultMemoryService:
         )
 
 
-result_memory_service = ResultMemoryService(memory_entry_repository=memory_entry_repo)
+# Lazy module-global service. Tests must call ``get_result_memory_service()``
+# so that the per-call ``ResultMemoryService()`` construction picks up any
+# monkeypatched ``agent.services.di.memory_entry_repo`` via the property
+# lookup. Do NOT cache the instance at import time — that would freeze the
+# repository reference and reintroduce the cross-file-order footgun.
+result_memory_service: Optional["ResultMemoryService"] = None
 
 
-def get_result_memory_service() -> ResultMemoryService:
-    return result_memory_service
+def get_result_memory_service() -> "ResultMemoryService":
+    """Return the per-process ``ResultMemoryService``.
+
+    A fresh instance is constructed on every call so the property-based
+    ``_memory_entry_repo`` lookup sees the *current* value of
+    ``agent.services.di.memory_entry_repo``. Tests can patch
+    ``agent.services.di.memory_entry_repo`` and the next call to
+    ``get_result_memory_service()`` will see it.
+
+    The previous module-level instance variable
+    (``result_memory_service = ResultMemoryService(...)``) was removed
+    because it captured the import-time singleton and made property
+    lookups resolve to a frozen reference. See plan:
+    ``docs/plans/2026-06-20-di-adapter-layer-cross-file-isolation.md``.
+    """
+    return ResultMemoryService()
