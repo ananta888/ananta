@@ -40,16 +40,22 @@ jobs:
       - name: Ensure Android SDK platform-35
         run: |
           sdk="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
-          if [ ! -d "$sdk/platforms/android-35" ]; then
-            manager=""
-            for candidate in \
-              "$sdk/cmdline-tools/latest/bin/sdkmanager" \
-              "$sdk/tools/bin/sdkmanager"; do
-              [ -x "$candidate" ] && manager="$candidate" && break
-            done
-            if [ -n "$manager" ]; then
-              yes | "$manager" --sdk_root="$sdk" "platforms;android-35" "build-tools;35.0.0" 2>&1 | tail -5
-            fi
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "sdk=$sdk"
+          ls "$sdk/platforms/" 2>/dev/null || echo "no platforms dir"
+          ls "$sdk/build-tools/" 2>/dev/null || echo "no build-tools dir"
+          manager=""
+          for candidate in \
+            "$sdk/cmdline-tools/latest/bin/sdkmanager" \
+            "$sdk/tools/bin/sdkmanager"; do
+            [ -x "$candidate" ] && manager="$candidate" && break
+          done
+          echo "sdkmanager=$manager"
+          need_install=0
+          [ -d "$sdk/platforms/android-35" ] || need_install=1
+          [ -d "$sdk/build-tools/35.0.0" ]  || need_install=1
+          if [ "$need_install" = "1" ] && [ -n "$manager" ]; then
+            yes | "$manager" --sdk_root="$sdk" "platforms;android-35" "build-tools;35.0.0" 2>&1 | tail -10
           fi
           echo "sdk.dir=$sdk" > android/local.properties
       - name: Install frontend dependencies
