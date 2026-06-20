@@ -22,6 +22,7 @@ import uuid
 from typing import Any, Callable
 
 from agent.common.sgpt_helpers import _get_agent_config
+from agent.cli_backends.context import default_context as _ctx
 
 log = logging.getLogger(__name__)
 
@@ -188,9 +189,7 @@ def register_pending_approval_request(
     stays visible in the workspace report either way).
     """
     try:
-        from agent.services.approval_request_service import get_approval_request_service
-
-        svc = get_approval_request_service()
+        svc = _ctx.approval_request_service
         if not svc.get_lifecycle_config().get("enabled"):
             return None
         request = svc.create_pending_request(
@@ -228,12 +227,9 @@ def run_ananta_worker_tool_loop(
 
         llm_runner = run_sgpt_command
 
-    from agent.services.ananta_tool_policy_service import get_ananta_tool_policy_service
-    from agent.services.ananta_tool_registry_service import get_ananta_tool_registry_service
+    registry = _ctx.ananta_tool_registry_service
+    policy = _ctx.ananta_tool_policy_service
     from agent.services.tools import execute_ananta_tool
-
-    registry = get_ananta_tool_registry_service()
-    policy = get_ananta_tool_policy_service()
     instructions = build_tool_loop_instructions(
         allowed_tools_description=registry.describe_for_prompt(cfg.get("allowed_tools"))
     )

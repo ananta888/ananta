@@ -10,6 +10,7 @@ from flask import has_app_context
 
 from agent.config import settings
 from agent.common.sgpt_helpers import _get_agent_config
+from agent.cli_backends.context import default_context as _ctx
 
 log = logging.getLogger(__name__)
 
@@ -622,7 +623,7 @@ def _run_architecture_full_scan(
     research_context: dict,
 ) -> tuple[int, str, str]:
     from agent.common.sgpt import run_sgpt_command
-    from agent.services.architecture_analysis_planner_service import get_architecture_analysis_planner
+
 
     profile = dict(research_context.get("retrieval_profile") or {})
     full_scan_enabled = bool(getattr(settings, "ananta_worker_full_scan_enabled", True))
@@ -650,7 +651,7 @@ def _run_architecture_full_scan(
     research_context = dict(research_context)
     research_context["retrieval_profile"] = profile
 
-    planner = get_architecture_analysis_planner()
+    planner = _ctx.architecture_analysis_planner
     plan = planner.build_plan(query=prompt, research_context=research_context, retrieval_profile=profile)
     rag_dir = pathlib.Path(workdir) / "rag_helper"
     plan_path = rag_dir / "architecture-plan.json"

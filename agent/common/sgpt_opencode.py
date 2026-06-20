@@ -12,6 +12,7 @@ import tempfile
 from flask import current_app, has_app_context
 
 from agent.config import settings
+from agent.cli_backends.context import default_context as _ctx
 from agent.llm_integration import (
     _find_matching_lmstudio_candidate,
     _find_matching_ollama_candidate,

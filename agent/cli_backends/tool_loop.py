@@ -1,4 +1,9 @@
-"""Re-export of agent.common.sgpt_tool_loop as agent.cli_backends.tool_loop."""
+"""Re-export of agent.common.sgpt_tool_loop as agent.cli_backends.tool_loop.
+
+In Welle 1, this re-exports from agent.common.sgpt_tool_loop (source of truth).
+In Welle 2, the source migrated the service imports through CliBackendContext.
+The shim is removed in Welle 3.
+"""
 from __future__ import annotations
 
 from agent.common.sgpt_tool_loop import (  # noqa: F401
