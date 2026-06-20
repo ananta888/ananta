@@ -52,7 +52,7 @@
     "@xterm/addon-fit": "0.10.0",
     "@xterm/xterm": "5.5.0",
     "3d-force-graph": "1.80.0",
-    "bpmn-js": "^18.18.0",
+    "bpmn-js": "18.18.0",
     "dompurify": "3.4.11",
     "marked": "14.1.4",
     "mermaid": "11.15.0",

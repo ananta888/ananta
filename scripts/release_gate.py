@@ -18,7 +18,7 @@ REQUIRED_FILES = [
     "README.md",
     "LICENSE",
     "AGENTS.md",
-    "Dockerfile",
+    "docker/old_way/Dockerfile",
     "frontend-angular/Dockerfile",
     "docker-compose.base.yml",
     "docker-compose.yml",
@@ -36,17 +36,17 @@ REQUIRED_FILES = [
 ]
 
 RELEASE_IMAGE_FILES = [
-    "Dockerfile",
-    "Dockerfile.compose-test",
-    "Dockerfile.evolver-bridge",
-    "Dockerfile.ollama-wsl-amd",
+    "docker/old_way/Dockerfile",
+    "docker/old_way/Dockerfile.compose-test",
+    "docker/old_way/Dockerfile.evolver-bridge",
+    "docker/old_way/Dockerfile.ollama-wsl-amd",
     "frontend-angular/Dockerfile",
     "docker-compose.base.yml",
     "docker-compose.yml",
     "docker-compose-lite.yml",
     "docker-compose.github-ci.yml",
     "docker-compose.ollama-wsl.yml",
-    "docker-compose.dev-vulkan-live.yml",
+    "docker/old_way/docker-compose.dev-vulkan-live.yml",
 ]
 
 RELEASE_CI_FILE = ".github/workflows/quality-and-docs.yml"
@@ -75,7 +75,7 @@ FORBIDDEN_RUNTIME_PATH_ALLOW_PREFIXES = (
     "artifacts/e2e/",
     "artifacts/test-gates/",
 )
-TODO_PATH_CANDIDATES = ("todo.json", "todo_last.json")
+TODO_PATH_CANDIDATES = ("todo.json", "todo_last.json", "todos/kritis/todo.kritis.json")
 
 PINNED_ACTIONS = {
     "actions/checkout": "34e114876b0b11c390a56381ad16ebd13914f8d5",
@@ -303,7 +303,7 @@ def check_image_pinning() -> CheckResult:
 
 def check_tool_pinning() -> CheckResult:
     problems = []
-    dockerfile = read_text("Dockerfile")
+    dockerfile = read_text("docker/old_way/Dockerfile")
     if "OPENCODE_AI_VERSION=1.14.18" not in dockerfile:
         problems.append("Dockerfile must pin OPENCODE_AI_VERSION=1.14.18")
     if "opencode-ai@${OPENCODE_AI_VERSION}" not in dockerfile:
@@ -333,8 +333,8 @@ def check_ci_release_paths() -> CheckResult:
 
 
 def check_apt_snapshots() -> CheckResult:
-    backend = read_text("Dockerfile")
-    ollama = read_text("Dockerfile.ollama-wsl-amd")
+    backend = read_text("docker/old_way/Dockerfile")
+    ollama = read_text("docker/old_way/Dockerfile.ollama-wsl-amd")
     problems = []
     if f"ARG DEBIAN_SNAPSHOT={APT_SNAPSHOT}" not in backend:
         problems.append("Dockerfile must pin DEBIAN_SNAPSHOT")
