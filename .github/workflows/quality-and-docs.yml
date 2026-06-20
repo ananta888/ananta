@@ -30,6 +30,8 @@ jobs:
         run: python scripts/check_pipeline.py --mode standard --skip-style --skip-types
 
       - name: Source file line limit gate
+        env:
+          PYTHONPATH: "."
         run: >
           python scripts/audit/source_file_line_count.py
           --threshold 1000
