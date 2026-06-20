@@ -89,22 +89,13 @@ jobs:
       - name: Build Angular + Capacitor sync
         run: npm run android:prepare
       - name: Gradle assemble debug APK
-        id: gradle
-        continue-on-error: true
         run: |
+          set -euo pipefail
           cd android
-          ./gradlew --no-daemon --stacktrace :app:assembleDebug 2>&1 | tee /tmp/gradle.log
-          echo "gradle_exit=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
-      - name: Surface Gradle error
-        if: steps.gradle.outputs.gradle_exit != '0'
-        run: |
-          echo "## Gradle BUILD FAILED" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          grep -E "^(FAILURE|> Task|Caused by|Exception|error:|SDK location)" /tmp/gradle.log \
-            | head -60 >> "$GITHUB_STEP_SUMMARY" || true
-          tail -30 /tmp/gradle.log >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          exit 1
+          ./gradlew --no-daemon \
+            -PanantaEnablePythonRuntime=false \
+            -PanantaEnableLlamaCppRuntime=false \
+            :app:assembleDebug
       - name: Verify and rename APK
         run: |
           set -euo pipefail
