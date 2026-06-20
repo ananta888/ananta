@@ -247,7 +247,8 @@ def test_snake_ask_propose_flow_with_lmstudio(monkeypatch) -> None:
     for line in prompt_text.split("\n")[:15]:
         print(f"    {line}")
     if prompt_text.count("\n") > 15:
-        print(f"    ... ({prompt_text.count('\n') - 15} more lines)")
+        extra_lines = prompt_text.count("\n") - 15
+        print(f"    ... ({extra_lines} more lines)")
 
     # 2. Sende an LMStudio (simuliert den Hub-Direct-Fallback)
     payload = {
@@ -495,7 +496,8 @@ def test_snake_chat_propose_flow_diagnostics(monkeypatch) -> None:
     for line in result.prompt_text.split("\n")[:10]:
         print(f"       {line}")
     if result.prompt_text.count("\n") > 10:
-        print(f"       ... ({result.prompt_text.count('\n') - 10} more lines)")
+        extra_lines = result.prompt_text.count("\n") - 10
+        print(f"       ... ({extra_lines} more lines)")
 
     # 5. Tatsächliche LMStudio-Antwort
     reply = _probe_lmstudio_chat(
@@ -511,11 +513,12 @@ def test_snake_chat_propose_flow_diagnostics(monkeypatch) -> None:
     print(f"       Format: asciinema v2 (newline-delimited JSON)")
     print(f"       Enthält: {result.included_sections}")
     print(f"       Frage + Antwort + Flow-Marker")
-    print(f"\n  {"=" * 70}")
+    separator = "=" * 70
+    print(f"\n  {separator}")
     print(f"  FAZIT: Der propose flow sammelt aktiv_target, rolling_summary,")
     print(f"  recent_turns, codecompass, rag und runtime_status als Kontext.")
     print(f"  Diese Informationen werden via /snake/ask an den Hub gesendet,")
     print(f"  der sie entweder an einen Worker oder direkt an LMStudio")
     print(f"  weiterleitet. Die Antwort wird in der TUI angezeigt und")
     print(f"  als .cast aufgezeichnet.")
-    print(f"  {"=" * 70}")
+    print(f"  {separator}")
