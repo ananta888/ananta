@@ -70,6 +70,8 @@ pytest==9.0.3
     #   pytest-cov
 pytest-cov==7.1.0
     # via -r requirements-dev.txt
+pytest-timeout==2.4.0
+    # via -r requirements-dev.txt
 ruff==0.15.11
     # via -r requirements-dev.txt
 typing-extensions==4.15.0

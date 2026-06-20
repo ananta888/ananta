@@ -3,6 +3,7 @@
 
 pytest
 pytest-cov
+pytest-timeout
 httpx
 flake8
 mypy
