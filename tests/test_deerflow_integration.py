@@ -122,7 +122,7 @@ def test_sgpt_execute_deerflow_backend_returns_research_artifact(client, admin_a
 
 def test_sgpt_backends_endpoint_includes_deerflow_preflight(client, admin_auth_header):
     with patch(
-        "agent.common.sgpt.get_research_backend_preflight",
+        "agent.cli_backends.sgpt.get_research_backend_preflight",
         return_value={
             "deerflow": {
                 "provider": "deerflow",
@@ -152,7 +152,7 @@ def test_sgpt_backends_endpoint_includes_deerflow_preflight(client, admin_auth_h
 
 def test_sgpt_backends_endpoint_includes_multiple_research_backends(client, admin_auth_header):
     with patch(
-        "agent.common.sgpt.get_research_backend_preflight",
+        "agent.cli_backends.sgpt.get_research_backend_preflight",
         return_value={
             "deerflow": {"provider": "deerflow", "configured": True, "binary_available": True, "mode": "cli"},
             "ananta_research": {

@@ -18,7 +18,7 @@ def test_resolve_codex_runtime_config_prefers_runtime_app_state_over_settings_de
             "openai": "https://api.openai.com/v1/chat/completions",
             "codex": "https://api.openai.com/v1/chat/completions",
         }
-        with patch("agent.common.sgpt.settings") as mock_settings:
+        with patch("agent.cli_backends.sgpt.settings") as mock_settings:
             mock_settings.default_provider = "openai"
             mock_settings.lmstudio_url = "http://127.0.0.1:1234/v1"
             mock_settings.openai_url = "https://wrong.example/v1/chat/completions"
@@ -47,7 +47,7 @@ def test_resolve_codex_runtime_config_supports_custom_local_openai_target(app):
             "llm_api_key_profiles": {"local-dev": {"api_key": "sk-local-vllm"}},
         }
         app.config["PROVIDER_URLS"] = {}
-        with patch("agent.common.sgpt.settings") as mock_settings:
+        with patch("agent.cli_backends.sgpt.settings") as mock_settings:
             mock_settings.default_provider = "openai"
             mock_settings.lmstudio_url = ""
             mock_settings.openai_url = "https://api.openai.com/v1/chat/completions"
@@ -78,7 +78,7 @@ def test_resolve_codex_runtime_config_marks_remote_ananta_target_kind(app):
             ],
         }
         app.config["PROVIDER_URLS"] = {}
-        with patch("agent.common.sgpt.settings") as mock_settings:
+        with patch("agent.cli_backends.sgpt.settings") as mock_settings:
             mock_settings.default_provider = "openai"
             mock_settings.lmstudio_url = ""
             mock_settings.openai_url = "https://api.openai.com/v1/chat/completions"
@@ -100,9 +100,9 @@ def test_run_codex_command_fails_closed_when_runtime_target_missing(app):
         app.config["AGENT_CONFIG"] = {"default_provider": "openai", "codex_cli": {"prefer_lmstudio": False}}
         app.config["PROVIDER_URLS"] = {}
         with (
-            patch("agent.common.sgpt.shutil.which", return_value=r"C:\tools\codex.cmd"),
-            patch("agent.common.sgpt.settings") as mock_settings,
-            patch("agent.common.sgpt.subprocess.run") as mock_run,
+            patch("agent.cli_backends.sgpt.shutil.which", return_value=r"C:\tools\codex.cmd"),
+            patch("agent.cli_backends.sgpt.settings") as mock_settings,
+            patch("agent.cli_backends.sgpt.subprocess.run") as mock_run,
         ):
             mock_settings.codex_path = "codex"
             mock_settings.codex_default_model = "gpt-5-codex"
@@ -140,9 +140,9 @@ def test_run_llm_cli_command_falls_back_from_codex_to_opencode_for_degraded_auto
             )
 
         with (
-            patch("agent.common.sgpt.settings") as mock_settings,
-            patch("agent.common.sgpt.run_codex_command", return_value=(-1, "", "codex unavailable")),
-            patch("agent.common.sgpt.run_opencode_command", return_value=(0, "ok via opencode", "")),
+            patch("agent.cli_backends.sgpt.settings") as mock_settings,
+            patch("agent.cli_backends.sgpt.run_codex_command", return_value=(-1, "", "codex unavailable")),
+            patch("agent.cli_backends.sgpt.run_opencode_command", return_value=(0, "ok via opencode", "")),
         ):
             mock_settings.sgpt_execution_backend = "codex"
 
@@ -186,9 +186,9 @@ def test_run_llm_cli_command_skips_cooldown_backend_when_alternative_is_availabl
         sgpt_mod._BACKEND_RUNTIME["codex"]["cooldown_until"] = time.time() + 30
 
         with (
-            patch("agent.common.sgpt.settings") as mock_settings,
-            patch("agent.common.sgpt.run_codex_command") as mock_codex,
-            patch("agent.common.sgpt.run_opencode_command", return_value=(0, "ok after cooldown skip", "")),
+            patch("agent.cli_backends.sgpt.settings") as mock_settings,
+            patch("agent.cli_backends.sgpt.run_codex_command") as mock_codex,
+            patch("agent.cli_backends.sgpt.run_opencode_command", return_value=(0, "ok after cooldown skip", "")),
         ):
             mock_settings.sgpt_execution_backend = "codex"
 
@@ -213,8 +213,8 @@ def test_run_llm_cli_command_prefixes_openai_provider_for_opencode_model():
     from agent.common import sgpt as sgpt_mod
 
     with (
-        patch("agent.common.sgpt.settings") as mock_settings,
-        patch("agent.common.sgpt.run_opencode_command", return_value=(0, "ok", "")) as mock_run_opencode,
+        patch("agent.cli_backends.sgpt.settings") as mock_settings,
+        patch("agent.cli_backends.sgpt.run_opencode_command", return_value=(0, "ok", "")) as mock_run_opencode,
     ):
         mock_settings.default_provider = "openai"
         rc, out, err, backend = sgpt_mod.run_llm_cli_command(

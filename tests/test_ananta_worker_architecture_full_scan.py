@@ -113,9 +113,9 @@ def test_full_scan_worker_writes_plan_summary_progress_and_diagram(tmp_path):
         return 0, "```mermaid\nflowchart TD\nSnakeRoute-->RagService\n```\n\nQuellen: agent/routes/snakes.py, agent/services/rag_service.py", ""
 
     with (
-        patch("agent.common.sgpt._resolve_repo_root", return_value=repo),
+        patch("agent.cli_backends.sgpt._resolve_repo_root", return_value=repo),
         patch("agent.cli_backends.architecture_scan._resolve_repo_root", return_value=repo),
-        patch("agent.common.sgpt.run_sgpt_command", side_effect=fake_run),
+        patch("agent.cli_backends.sgpt.run_sgpt_command", side_effect=fake_run),
     ):
         rc, out, err = _run_ananta_worker_iterative(
             "erstelle ein Mermaid Architekturdiagramm",
@@ -161,9 +161,9 @@ def test_full_scan_resume_skips_processed_batches(tmp_path):
         return 0, "final", ""
 
     with (
-        patch("agent.common.sgpt._resolve_repo_root", return_value=repo),
+        patch("agent.cli_backends.sgpt._resolve_repo_root", return_value=repo),
         patch("agent.cli_backends.architecture_scan._resolve_repo_root", return_value=repo),
-        patch("agent.common.sgpt.run_sgpt_command", side_effect=fake_run),
+        patch("agent.cli_backends.sgpt.run_sgpt_command", side_effect=fake_run),
     ):
         _run_ananta_worker_iterative("architekturdiagramm", str(workdir), options=[], timeout=30, model=None)
         first_batch_calls = calls["batch"]

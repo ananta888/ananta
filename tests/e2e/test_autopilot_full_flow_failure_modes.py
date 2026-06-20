@@ -33,7 +33,7 @@ _EXEC_POLICY = TaskExecutionPolicyContract(
 @pytest.fixture(autouse=True)
 def _block_sgpt():
     with patch(
-        "agent.common.sgpt.run_sgpt_command",
+        "agent.cli_backends.sgpt.run_sgpt_command",
         side_effect=RuntimeError("sgpt_blocked_in_AFF-E2E-T006"),
         create=True,
     ):

@@ -43,7 +43,7 @@ FIBONACCI_TOOL_CALLS = [
 @pytest.fixture(autouse=True)
 def _block_sgpt():
     """sgpt must never be called in this test module."""
-    with patch("agent.common.sgpt.run_sgpt_command",
+    with patch("agent.cli_backends.sgpt.run_sgpt_command",
                side_effect=RuntimeError("sgpt_blocked_in_AFR-T008"), create=True):
         yield
 

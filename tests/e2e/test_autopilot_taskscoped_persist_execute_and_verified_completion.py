@@ -29,7 +29,7 @@ TASK_ID = "T-AFF-TASKSCOPED-PERSIST-EXECUTE"
 def _block_sgpt():
     """sgpt must never be called in this full-flow regression test."""
     with patch(
-        "agent.common.sgpt.run_sgpt_command",
+        "agent.cli_backends.sgpt.run_sgpt_command",
         side_effect=RuntimeError("sgpt_blocked_in_taskscoped_persist_execute"),
         create=True,
     ):

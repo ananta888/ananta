@@ -83,7 +83,7 @@ class TestSgptBlockedDuringPropose:
             raise RuntimeError("sgpt_blocked: sgpt must not be called in default propose path")
 
         monkeypatch.setattr(
-            "agent.common.sgpt.run_sgpt_command",
+            "agent.cli_backends.sgpt.run_sgpt_command",
             _raise_if_sgpt,
             raising=False,
         )
@@ -124,7 +124,7 @@ class TestSgptBlockedDuringPropose:
             sgpt_reached.append(True)
             return "fake output"
 
-        monkeypatch.setattr("agent.common.sgpt.run_sgpt_command", fake_sgpt, raising=False)
+        monkeypatch.setattr("agent.cli_backends.sgpt.run_sgpt_command", fake_sgpt, raising=False)
         try:
             from agent.common.sgpt import run_sgpt_command
             run_sgpt_command("test")
