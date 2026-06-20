@@ -7,7 +7,7 @@ next worker action.
 import json
 import sys
 
-from agent.common.sgpt_workspace_mutation import run_ananta_worker_workspace_mutation
+from agent.cli_backends.workspace_mutation import run_ananta_worker_workspace_mutation
 from agent.services.worker_workspace_service import WorkerWorkspaceService
 
 

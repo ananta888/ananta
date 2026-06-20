@@ -5,7 +5,7 @@ import threading
 import time
 from typing import Any
 
-from agent.common.sgpt_architecture_scan import _resolve_repo_root
+from agent.cli_backends.architecture_scan import _resolve_repo_root
 from agent.config import lookup_model_context_tokens, settings as _cfg_settings
 from agent.llm_integration import generate_text
 from agent.routes.ai_snake_config import _current_config

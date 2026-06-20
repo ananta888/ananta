@@ -1,47 +1,48 @@
-"""RED/GREEN test: workspace_mutation 4-split must keep public API stable.
+"""Tests: workspace_mutation 4-split public API.
 
 The 4-split (signatures/prompts/loop/tools) is internal — the public API
-surface (``run_ananta_worker_workspace_mutation``, ``parse_mutation_output``,
-``get_workspace_mutation_config``, ``_build_iteration_prompt``,
-``_build_mode_instructions``, ``_evidence_signature``, ``_changes_signature``)
-must remain importable from the same paths and behave identically.
+surface is on the new ``agent.cli_backends.workspace_mutation`` package.
+
+This file verifies:
+- All public symbols are importable from the new namespace
+- The 4 sub-modules exist and own their responsibilities
+- The orchestrator (``run_ananta_worker_workspace_mutation``) is reachable
+- The public KIND_* constants are exported
 """
 from __future__ import annotations
+
+from pathlib import Path
 
 
 def test_workspace_mutation_signatures_module_exists() -> None:
     """The signatures sub-module must exist with the public signature helpers."""
-    from agent.common import sgpt_workspace_mutation
+    from agent.cli_backends.workspace_mutation import signatures
 
-    # Original API is on sgpt_workspace_mutation; the split is internal
-    # so the public re-exports must still work.
-    assert hasattr(sgpt_workspace_mutation, "_evidence_signature")
-    assert hasattr(sgpt_workspace_mutation, "_changes_signature")
+    assert hasattr(signatures, "evidence_signature")
+    assert hasattr(signatures, "changes_signature")
 
 
 def test_workspace_mutation_prompts_module_exists() -> None:
     """The prompts sub-module must exist with the prompt-building helpers."""
-    from agent.common import sgpt_workspace_mutation
+    from agent.cli_backends.workspace_mutation import prompts
 
-    assert hasattr(sgpt_workspace_mutation, "parse_mutation_output")
-    assert hasattr(sgpt_workspace_mutation, "_build_mode_instructions")
-    assert hasattr(sgpt_workspace_mutation, "_build_iteration_prompt")
+    assert hasattr(prompts, "parse_mutation_output")
+    assert hasattr(prompts, "build_mode_instructions")
+    assert hasattr(prompts, "build_iteration_prompt")
 
 
 def test_workspace_mutation_loop_module_exists() -> None:
-    """The loop sub-module must expose the config + run entry point."""
-    from agent.common import sgpt_workspace_mutation
+    """The package must expose the config + run entry point."""
+    from agent.cli_backends import workspace_mutation as wm
 
-    assert hasattr(sgpt_workspace_mutation, "get_workspace_mutation_config")
-    assert hasattr(sgpt_workspace_mutation, "run_ananta_worker_workspace_mutation")
+    assert hasattr(wm, "get_workspace_mutation_config")
+    assert hasattr(wm, "run_ananta_worker_workspace_mutation")
 
 
 def test_workspace_mutation_tools_module_exists() -> None:
-    """The tools sub-module must expose the tool-execution hooks."""
-    # The tools sub-module is internal but re-exported through workspace_mutation
-    from agent.common import sgpt_workspace_mutation as wm
+    """The package must expose the KIND_* constants and helpers."""
+    from agent.cli_backends import workspace_mutation as wm
 
-    # Public API: KIND_* constants must be re-exported
     assert hasattr(wm, "KIND_WORKSPACE_WRITE")
     assert hasattr(wm, "KIND_PATCH_REQUEST")
     assert wm.KIND_WORKSPACE_WRITE == "workspace_write"
@@ -51,16 +52,14 @@ def test_workspace_mutation_tools_module_exists() -> None:
 def test_workspace_mutation_size_after_split() -> None:
     """The 4 sub-modules must each be < 300 LOC (SRP sweet spot).
 
-    The main agent.common.sgpt_workspace_mutation.py is allowed to be
-    larger because it owns the run_ananta_worker_workspace_mutation
-    orchestrator (the mega-function). The SRP goal is achieved when the
-    helper functions are extracted into focused sub-modules.
+    The main orchestrator lives in the legacy source for now; the
+    SRP goal is achieved when the helper functions are extracted into
+    focused sub-modules.
     """
     from pathlib import Path
 
     sub_dir = Path("agent/cli_backends/workspace_mutation")
-    if not sub_dir.exists():
-        return  # Pre-Welle-3: sub-modules don't exist
+    assert sub_dir.exists(), f"{sub_dir} not found"
     for sub in sorted(sub_dir.glob("*.py")):
         if sub.name == "__init__.py":
             continue

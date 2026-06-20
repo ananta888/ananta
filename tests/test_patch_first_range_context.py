@@ -1,7 +1,7 @@
 import hashlib
 import json
 
-from agent.common.sgpt_workspace_mutation import run_ananta_worker_workspace_mutation
+from agent.cli_backends.workspace_mutation import run_ananta_worker_workspace_mutation
 from agent.services.tools.repo_tools import repo_grep, repo_read_file_range
 from agent.services.tools.workspace_mutation_tools import repo_apply_patch, repo_write_file
 

@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from agent.common.sgpt_tool_loop import (
+from agent.cli_backends.tool_loop import (
     KIND_FINAL_ANSWER,
     KIND_TOOL_REQUEST,
     parse_worker_tool_output,

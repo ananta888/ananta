@@ -124,7 +124,7 @@ def get_ananta_worker_native_schemas(allowed_tools: Optional[List[str]] = None) 
 def _sgpt_native_tools_cfg() -> Dict[str, Any]:
     """Lazy config read — avoids import-time Flask context requirement."""
     try:
-        from agent.common.sgpt_helpers import _get_agent_config
+        from agent.cli_backends.helpers import _get_agent_config
 
         raw = _get_agent_config().get("sgpt_native_tools") or {}
         return dict(raw) if isinstance(raw, dict) else {}

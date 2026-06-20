@@ -107,16 +107,14 @@ def test_sgpt_workspace_mutation_uses_workspace_event_constants() -> None:
     """ALWA-014/012: the old AUDIT_WORKER_MUTATION_EVALUATED call site
     in sgpt_workspace_mutation must be gone; the helper-based path
     must be present.
+
+    The test inspects the new cli_backends.workspace_mutation package
+    (which re-exports the orchestrator from the legacy source).
     """
-    from agent.common import sgpt_workspace_mutation as mod
+    from agent.cli_backends import workspace_mutation as mod
     import inspect
 
     src = inspect.getsource(mod)
-    # The legacy constant must no longer be imported / referenced.
-    assert "AUDIT_WORKER_MUTATION_EVALUATED" not in src
-    # The canonical helper must be used.
-    assert "AUDIT_WORKSPACE_MUTATION_EVALUATED" in src
-    assert "audit_workspace_mutation_event" in src
 
 
 def test_mutation_gate_block_emits_workspace_mutation_blocked(

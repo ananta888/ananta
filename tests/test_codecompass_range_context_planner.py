@@ -1,6 +1,6 @@
 import json
 
-from agent.common.sgpt_workspace_mutation import run_ananta_worker_workspace_mutation
+from agent.cli_backends.workspace_mutation import run_ananta_worker_workspace_mutation
 from agent.services.codecompass_context_planner_service import (
     SCHEMA_CONTEXT_BUNDLE,
     SCHEMA_LOCATION_REF,
