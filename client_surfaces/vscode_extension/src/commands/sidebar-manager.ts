@@ -2,10 +2,8 @@ import * as vscode from "vscode";
 import { AnantaBackendClient } from "../runtime/backendClient";
 import { AnantaSecretStore } from "../runtime/secretStore";
 import { resolveRuntimeSettings } from "../runtime/settings";
-import { RuntimeSettings } from "../runtime/types";
 import { buildCapabilitySnapshot, evaluateWorkflowCommand, evaluateCapabilityAction, WorkflowCommandId } from "../runtime/capabilityGate";
 import { sanitizeErrorMessage } from "../runtime/redaction";
-import { buildResultLinks } from "../runtime/resultLinks";
 import { AnantaStatusTreeProvider } from "../views/statusTreeProvider";
 import {
   GoalsTasksTreeProvider,
@@ -21,7 +19,6 @@ import {
   capabilityRef,
   workflowDefaultState,
   defaultCapabilityState,
-  asRecord,
   readString,
   readItems,
   firstRecord,
@@ -32,8 +29,7 @@ import {
   statusBarText,
   diagnosticSeverity,
   applyWorkflowContexts,
-  applyApprovalActionContexts,
-  WebFallbackArgs
+  applyApprovalActionContexts
 } from "./helpers";
 
 export interface SidebarManagerDeps {

@@ -1,15 +1,13 @@
 import * as vscode from "vscode";
 import { AnantaBackendClient, WorkflowRequestMetadata } from "../runtime/backendClient";
-import { WorkflowCommandId, WORKFLOW_COMMANDS } from "../runtime/capabilityGate";
+import { WorkflowCommandId } from "../runtime/capabilityGate";
 import { packageEditorContext, RawEditorContextInput } from "../runtime/contextCapture";
-import { sanitizeErrorMessage } from "../runtime/redaction";
 import { buildResultLinks } from "../runtime/resultLinks";
-import { GoalTaskRef, ArtifactRef } from "../views/sidebarProviders";
+import { GoalTaskRef } from "../views/sidebarProviders";
 import {
   COMMANDS,
   RuntimeClientContext,
   capabilityRef,
-  readString,
   extractTaskId,
   extractArtifactId,
   extractGoalId,

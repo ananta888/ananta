@@ -1,7 +1,6 @@
 import * as vscode from "vscode";
 import { ApprovalRef, ArtifactRef, AuditRef, RepairRef } from "../views/sidebarProviders";
 import {
-  COMMANDS,
   RuntimeClientContext,
   capabilityRef,
   asRecord,

@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import {
-  COMMANDS, capabilityRef, workflowDefaultState, defaultCapabilityState,
+  COMMANDS, capabilityRef, defaultCapabilityState,
   applyWorkflowContexts, applyApprovalActionContexts, WebFallbackArgs,
   openWebFallbackInternal, launchTuiCmd, storeTokenCmd, clearTokenCmd, checkHealthCmd
 } from "./commands/helpers";
