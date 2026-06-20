@@ -64,7 +64,7 @@ def test_sgpt_execute_rejects_unsupported_flags_for_opencode(client, admin_auth_
 
 def test_sgpt_execute_opencode_backend(client, admin_auth_header):
     with (
-        patch("agent.common.sgpt_opencode.shutil.which", return_value=r"C:\tools\opencode.cmd"),
+        patch("agent.cli_backends.opencode.shutil.which", return_value=r"C:\tools\opencode.cmd"),
         patch("subprocess.run") as mock_run,
     ):
         mock_result = MagicMock()
@@ -86,7 +86,7 @@ def test_sgpt_execute_opencode_backend(client, admin_auth_header):
 
 def test_sgpt_execute_codex_backend(client, admin_auth_header):
     with (
-        patch("agent.common.sgpt_opencode.shutil.which", return_value=r"C:\tools\codex.cmd"),
+        patch("agent.cli_backends.opencode.shutil.which", return_value=r"C:\tools\codex.cmd"),
         patch("subprocess.run") as mock_run,
     ):
         mock_result = MagicMock()
@@ -109,7 +109,7 @@ def test_sgpt_execute_codex_backend(client, admin_auth_header):
 
 def test_sgpt_execute_aider_backend(client, admin_auth_header):
     with (
-        patch("agent.common.sgpt_opencode.shutil.which", return_value=r"C:\tools\aider.exe"),
+        patch("agent.cli_backends.opencode.shutil.which", return_value=r"C:\tools\aider.exe"),
         patch("subprocess.run") as mock_run,
     ):
         mock_result = MagicMock()
@@ -132,7 +132,7 @@ def test_sgpt_execute_aider_backend(client, admin_auth_header):
 
 def test_sgpt_execute_mistral_code_backend(client, admin_auth_header):
     with (
-        patch("agent.common.sgpt_opencode.shutil.which", return_value=r"C:\tools\mistral-code.cmd"),
+        patch("agent.cli_backends.opencode.shutil.which", return_value=r"C:\tools\mistral-code.cmd"),
         patch("subprocess.run") as mock_run,
     ):
         mock_result = MagicMock()
@@ -244,7 +244,7 @@ def test_sgpt_backends_endpoint_includes_runtime_preflight_metadata(client, admi
             "candidate_count": 3,
             "candidates": [{"id": "qwen2.5-coder"}],
         },
-    ), patch("agent.cli_backends.routing.settings", _ms), patch("agent.cli_backends.helpers.settings", _ms), patch("agent.common.sgpt_opencode.settings", _ms):
+    ), patch("agent.cli_backends.routing.settings", _ms), patch("agent.cli_backends.helpers.settings", _ms), patch("agent.cli_backends.opencode.settings", _ms):
         response = client.get("/api/sgpt/backends", headers=admin_auth_header)
 
     assert response.status_code == 200
@@ -313,7 +313,7 @@ def test_sgpt_backends_endpoint_reports_invalid_lmstudio_runtime_metadata(client
             "candidate_count": 0,
             "candidates": [],
         },
-    ), patch("agent.cli_backends.routing.settings", _ms), patch("agent.cli_backends.helpers.settings", _ms), patch("agent.common.sgpt_opencode.settings", _ms):
+    ), patch("agent.cli_backends.routing.settings", _ms), patch("agent.cli_backends.helpers.settings", _ms), patch("agent.cli_backends.opencode.settings", _ms):
         response = client.get("/api/sgpt/backends", headers=admin_auth_header)
 
     assert response.status_code == 200
