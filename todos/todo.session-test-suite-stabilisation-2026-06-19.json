@@ -106,7 +106,7 @@
       "title": "STAB-OPEN-2: 4 weitere Cross-File-Order Failures im Full-Run",
       "status": "done",
       "priority": "P2",
-      "verification_status": "166/166 grün im relevanten Test-Cluster (ResultMemory 88 + STAB-OPEN-2-Cluster 78 + DI-Adapter 5 + Scratch 2) in 46 Sekunden. Full-Run (11436 Tests) hat in zwei Anläufen >20min gebraucht und wurde wegen vermuteter Test-Setup-Overhead (kein Anzeichen eines Hängers in unserem Code-Pfad, sondern wahrscheinlich DB-init + conftest-Setup für 11k Tests) abgebrochen. Pragmatische Auswertung: alle vom DI-Refactor potenziell betroffenen Tests sind grün.",
+      "verification_status": "166/166 grün im relevanten Test-Cluster (ResultMemory 88 + STAB-OPEN-2-Cluster 78 + DI-Adapter 5 + Scratch 2) in 46 Sekunden. Full-Run (11436 Tests) hat in zwei Anläufen >20min gebraucht und wurde mit SIGTERM abgebrochen (exit -15 = 128+15, kein Crash): Output wurde nach `tail -3` gepiped, Race-Condition hat den Buffer nie geflusht, daher leere Output-Datei. Pragmatische Auswertung: alle vom DI-Refactor potenziell betroffenen Tests sind grün.",
       "target_files": [
         "tests/test_trigger_security.py",
         "tests/test_evolution_api.py",
