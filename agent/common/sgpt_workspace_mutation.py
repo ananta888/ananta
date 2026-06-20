@@ -34,7 +34,7 @@ from typing import Any, Callable
 
 from agent.cli_backends.helpers import _get_agent_config
 from agent.cli_backends.context import default_context
-from agent.common.sgpt_tool_loop import (
+from agent.cli_backends.tool_loop import (
     KIND_CANNOT_CONTINUE,
     KIND_FINAL_ANSWER,
     KIND_NEEDS_APPROVAL,
@@ -464,7 +464,7 @@ def run_ananta_worker_workspace_mutation(
             iteration_row["reason"] = str(message.get("reason") or "")
             summary = {"kind": kind, "reason": str(message.get("reason") or "")}
             if kind == KIND_NEEDS_APPROVAL:
-                from agent.common.sgpt_tool_loop import register_pending_approval_request
+                from agent.cli_backends.tool_loop import register_pending_approval_request
 
                 request_id = register_pending_approval_request(
                     task_id=task_id,
@@ -623,7 +623,7 @@ def run_ananta_worker_workspace_mutation(
                     )
                 )
                 if decision.decision == "approval_required":
-                    from agent.common.sgpt_tool_loop import register_pending_approval_request
+                    from agent.cli_backends.tool_loop import register_pending_approval_request
 
                     request_id = register_pending_approval_request(
                         task_id=task_id,
@@ -674,7 +674,7 @@ def run_ananta_worker_workspace_mutation(
                     policy_decision=decision.as_dict(),
                 )
                 if decision.decision == "approval_required":
-                    from agent.common.sgpt_tool_loop import register_pending_approval_request
+                    from agent.cli_backends.tool_loop import register_pending_approval_request
 
                     request_id = register_pending_approval_request(
                         task_id=task_id,

@@ -185,7 +185,7 @@ def _run_ananta_worker_iterative(
     # AWTCL-010/011: hub-controlled tool loop behind a feature flag; the
     # context batch loop below stays the default and the fallback.
     try:
-        from agent.common.sgpt_tool_loop import get_tool_loop_config, run_ananta_worker_tool_loop
+        from agent.cli_backends.tool_loop import get_tool_loop_config, run_ananta_worker_tool_loop
 
         tool_loop_cfg = get_tool_loop_config()
         if tool_loop_cfg.get("enabled"):
