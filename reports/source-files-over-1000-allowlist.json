@@ -204,6 +204,27 @@
       "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
       "follow_up": "RFS-015",
       "expires": "2026-12-31"
+    },
+    {
+      "path": "agent/hybrid_orchestrator.py",
+      "line_count": 1376,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "client_surfaces/operator_tui/chat_state.py",
+      "line_count": 1232,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "frontend-angular/src/app/components/config-graph-editor.component.ts",
+      "line_count": 1259,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
     }
   ]
 }
