@@ -67,6 +67,15 @@ Run relevant checks before submitting changes, for example:
 - backend tests with `pytest`
 - backend linting with `python -m flake8 agent tests`
 - security lint with `ruff check agent/ --select=E,F,W,S603,S607`
+- shim-detector: `python scripts/check_cli_backend_shim_imports.py` (must exit 0)
+
+## LLM-CLI Backends
+
+New LLM-CLI backends (sgpt variants, opencode, codex, aider, mistral, ...)
+belong in `agent/cli_backends/`. The legacy paths in
+`agent/common/sgpt_*.py` are Source-of-Truth for the public API surface
+that `agent.cli_backends.*` re-exports; new code MUST import from the
+new namespace. The shim-detector (see above) flags violations.
 - frontend lint and tests where applicable
 
 ## Licensing of contributions

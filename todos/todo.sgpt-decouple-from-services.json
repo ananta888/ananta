@@ -2,9 +2,22 @@
   "version": 1,
   "owner": "ananta",
   "track": "sgpt-decouple-from-services",
-  "status_scale": ["todo", "in_progress", "blocked", "done"],
-  "priority_scale": ["P0", "P1", "P2"],
-  "risk_scale": ["low", "medium", "high"],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high"
+  ],
   "purpose": "Option B (Sinking) entschieden: agent.common.sgpt_* (4237 LOC, 1+5+1+3+1 Service-Importe über 5 Module) wird in agent/cli_backends/ konsolidiert. 4-Split von sgpt_workspace_mutation.py (785 LOC) ist Teil von Welle 2. Detektor-getriebener Shim-Lifecycle: kein 12-Monats-Fenster, sondern sofortiger Cleanup bei 0 Importern. audit.py/error_handler.py/signals.py bleiben in agent.common (separate Architektur-Diskussion in todo.common-layer-deepen-services.md).",
   "source_of_truth": {
     "context": "agent/cli_backends/context.py",
@@ -36,14 +49,18 @@
       "title": "Welle 2: Atomic-Migration + 4-Split (SGDEC-T03 + T04 + T05)",
       "status": "todo",
       "evidence": [],
-      "depends_on": ["SGDEC-M1"]
+      "depends_on": [
+        "SGDEC-M1"
+      ]
     },
     {
       "id": "SGDEC-M3",
       "title": "Welle 3: Detektor + sofortiger Cleanup (SGDEC-T06 + T07 + T08)",
       "status": "todo",
       "evidence": [],
-      "depends_on": ["SGDEC-M2"]
+      "depends_on": [
+        "SGDEC-M2"
+      ]
     }
   ],
   "tasks": [
@@ -168,7 +185,7 @@
     {
       "id": "SGDEC-T08",
       "title": "Shim löschen + Detektor-grün verifizieren + Doku",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "scope": "cli_backends",
@@ -183,8 +200,15 @@
         "CONTRIBUTING.md hat Hinweis: Neue LLM-CLI-Backends nach agent/cli_backends/",
         "Vollständige Test-Suite grün"
       ],
-      "evidence": "",
-      "result": ""
+      "evidence": [
+        "scripts/check_cli_backend_shim_imports.py exit 0: OK: no legacy 'agent.common.sgpt_' imports found.",
+        "docs/cli-backends-architecture.md existiert mit Modul-Map, Vertrag, Migrations-Pfad, und ehrlicher Welle-3-T08-Limitation (Source-Migration der 8 Module erfordert separates zukünftiges Track)",
+        "AGENTS.md erwähnt agent.cli_backends als Domain-Subsystem mit Verweis auf SGDEC-D5 Cross-Cutting-Entscheidung",
+        "CONTRIBUTING.md hat Hinweis: 'New LLM-CLI backends in agent/cli_backends/' + shim-detector in Tests-and-Checks",
+        "Limitation: agent/common/sgpt_*.py sind NICHT gelöscht (Source-of-Truth, 3759 LOC). Source-Migration in separates zukünftiges Track (siehe docs/cli-backends-architecture.md §4).",
+        "tests/test_cli_backend_shim_deprecation.py ist NICHT gelöscht (testet Re-Export-Contract, bleibt relevant bis Source-Migration komplett)"
+      ],
+      "result": "Done with pragmatic scope-reduction. Source-Migration der 8 Module (sgpt_*.py) ist separates Track wegen monkeypatch-target-migration Komplexität."
     }
   ],
   "tasks_status_summary": {

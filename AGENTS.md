@@ -150,6 +150,21 @@ These roles must remain clearly separated.
 
 ---
 
+# Domain Subsystems
+
+Ananta's code is organized into the following domain namespaces:
+
+- **`agent.routes.*`** — Flask blueprint route handlers (hub-side)
+- **`agent.services.*`** — Domain services (singletons, business logic)
+- **`agent.cli_backends.*`** — LLM-CLI backend subsystem (sgpt, opencode, codex, aider, mistral). Public-API-Layer; Source-of-Truth lebt in `agent.common.sgpt_*`. Service-Locator-Pattern via `agent.cli_backends.context.default_context`. Detector: `scripts/check_cli_backend_shim_imports.py`. Architektur: `docs/cli-backends-architecture.md`.
+- **`agent.common.audit` / `error_handler` / `signals`** — Cross-Cutting-Fassaden, bleiben in `agent.common.*` (kein Migrations-Ziel, siehe SGDEC-D5 in `docs/decouple-sgpt-from-services.md`)
+
+Neue LLM-CLI-Backends gehören in `agent/cli_backends/`. Production-Code
+importiert aus dem neuen Namespace — direkte `from agent.common.sgpt_X`
+Imports in Production-Code werden vom Detektor gemeldet.
+
+---
+
 # Security Principles
 
 When extending the system:
