@@ -24,24 +24,33 @@ class _ServiceProperty:
     Behaves like @property: getter on read, setter on assignment.
     The default getter is a callable that takes no args and returns the
     service handle.
+
+    IMPORTANT: the override is stored on the instance's __dict__ (not on
+    the descriptor itself). This keeps the override local to a single
+    CliBackendContext instance — a test that sets an override on a fresh
+    instance does not leak into the module-level ``default_context``.
     """
 
     def __init__(self, getter: Callable[[], Any]) -> None:
+        # Map: id(instance) -> overridden value, or _UNSET_SENTINEL.
+        # This keeps the override scoped to one instance and survives GC
+        # of the instance (the descriptor itself is class-level).
         self._getter = getter
-        self._value: Any = _UNSET
+        self._overrides: dict[int, Any] = {}
 
     def __get__(self, instance: Any, owner: Any) -> Any:
         if instance is None:
             return self
-        if self._value is _UNSET:
-            return self._getter()
-        return self._value
+        key = id(instance)
+        if key in self._overrides:
+            return self._overrides[key]
+        return self._getter()
 
     def __set__(self, instance: Any, value: Any) -> None:
-        self._value = value
+        self._overrides[id(instance)] = value
 
     def __delete__(self, instance: Any) -> None:
-        self._value = _UNSET
+        self._overrides.pop(id(instance), None)
 
 
 _UNSET = object()
