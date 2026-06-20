@@ -1,0 +1,257 @@
+{
+  "version": 1,
+  "owner": "ananta",
+  "track": "sgpt-decouple-from-services",
+  "status_scale": ["todo", "in_progress", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2"],
+  "risk_scale": ["low", "medium", "high"],
+  "purpose": "Option B (Sinking) entschieden: agent.common.sgpt_* (4237 LOC, 1+5+1+3+1 Service-Importe über 5 Module) wird in agent/cli_backends/ konsolidiert. 4-Split von sgpt_workspace_mutation.py (785 LOC) ist Teil von Welle 2. Detektor-getriebener Shim-Lifecycle: kein 12-Monats-Fenster, sondern sofortiger Cleanup bei 0 Importern. audit.py/error_handler.py/signals.py bleiben in agent.common (separate Architektur-Diskussion in todo.common-layer-deepen-services.md).",
+  "source_of_truth": {
+    "context": "agent/cli_backends/context.py",
+    "helpers": "agent/cli_backends/helpers.py",
+    "routing": "agent/cli_backends/routing.py",
+    "semaphore": "agent/cli_backends/semaphore.py",
+    "tool_loop": "agent/cli_backends/tool_loop.py",
+    "workspace_mutation_root": "agent/cli_backends/workspace_mutation.py",
+    "workspace_mutation_signatures": "agent/cli_backends/workspace_mutation/signatures.py",
+    "workspace_mutation_prompts": "agent/cli_backends/workspace_mutation/prompts.py",
+    "workspace_mutation_loop": "agent/cli_backends/workspace_mutation/loop.py",
+    "workspace_mutation_tools": "agent/cli_backends/workspace_mutation/tools.py",
+    "opencode": "agent/cli_backends/opencode.py",
+    "architecture_scan": "agent/cli_backends/architecture_scan.py",
+    "detector": "scripts/check_cli_backend_shim_imports.py",
+    "architecture_doc": "docs/cli-backends-architecture.md",
+    "plan": ".hermes/plans/decouple-sgpt-from-services.md"
+  },
+  "milestones": [
+    {
+      "id": "SGDEC-M1",
+      "title": "Welle 1: Vertrag & Skelett (SGDEC-T01 + T02)",
+      "status": "todo",
+      "evidence": [],
+      "depends_on": []
+    },
+    {
+      "id": "SGDEC-M2",
+      "title": "Welle 2: Atomic-Migration + 4-Split (SGDEC-T03 + T04 + T05)",
+      "status": "todo",
+      "evidence": [],
+      "depends_on": ["SGDEC-M1"]
+    },
+    {
+      "id": "SGDEC-M3",
+      "title": "Welle 3: Detektor + sofortiger Cleanup (SGDEC-T06 + T07 + T08)",
+      "status": "todo",
+      "evidence": [],
+      "depends_on": ["SGDEC-M2"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "SGDEC-T01",
+      "title": "Namespace-Skelett (agent/cli_backends/__init__.py + context.py + Re-Export-Shims)",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "scope": "cli_backends",
+      "acceptance_criteria": [
+        "agent/cli_backends/__init__.py existiert mit __all__ Liste",
+        "agent/cli_backends/context.py existiert mit CliBackendContext Klasse",
+        "agent/common/sgpt_*.py sind Re-Export-Shims (from agent.cli_backends.X import *)",
+        "tests/test_cli_backend_namespace_skeleton.py existiert und ist grün",
+        "pytest tests/test_sgpt_*.py läuft grün ohne Verhaltens-Änderung"
+      ],
+      "evidence": "",
+      "result": ""
+    },
+    {
+      "id": "SGDEC-T02",
+      "title": "Shim-Deprecation-Warning + pytest.ini Filter",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "scope": "cli_backends",
+      "acceptance_criteria": [
+        "Jeder Re-Export-Shim in agent/common/sgpt_*.py emittiert DeprecationWarning(stacklevel=2)",
+        "tests/test_cli_backend_shim_deprecation.py existiert und ist grün",
+        "pytest.ini hat filterwarnings = ignore::DeprecationWarning:agent.common.sgpt",
+        "Modul-Docstring-Eintrag in agent/common/audit.py + error_handler.py + signals.py dokumentiert die Cross-Cutting-Entscheidung"
+      ],
+      "evidence": "",
+      "result": ""
+    },
+    {
+      "id": "SGDEC-T03",
+      "title": "Source-Migration: tool_loop + opencode + architecture_scan",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "scope": "cli_backends",
+      "acceptance_criteria": [
+        "agent/cli_backends/tool_loop.py (486 LOC), opencode.py (648 LOC), architecture_scan.py (803 LOC) sind Source-of-Truth",
+        "Service-Importer durch context.get_*_service ersetzt (kein direkter agent.services.* Import in cli_backends/*.py)",
+        "agent/common/sgpt_tool_loop.py + sgpt_opencode.py + sgpt_architecture_scan.py re-exportieren aus cli_backends",
+        "tests/test_cli_backend_solid_layout.py ist grün (statische Analyse: keine agent.services.* Imports in cli_backends/*.py)",
+        "Vollständige Test-Suite grün"
+      ],
+      "evidence": "",
+      "result": ""
+    },
+    {
+      "id": "SGDEC-T04",
+      "title": "4-Split von sgpt_workspace_mutation.py (signatures/prompts/loop/tools)",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "scope": "cli_backends",
+      "acceptance_criteria": [
+        "agent/cli_backends/workspace_mutation/signatures.py existiert (~150 LOC, Evidence-Signatur + Mode-Instructions)",
+        "agent/cli_backends/workspace_mutation/prompts.py existiert (~200 LOC, Mutation-Parsing + Iteration-Prompt)",
+        "agent/cli_backends/workspace_mutation/loop.py existiert (~250 LOC, Worker-Loop)",
+        "agent/cli_backends/workspace_mutation/tools.py existiert (~190 LOC, Tool-Execution-Hooks + Evidence-Append)",
+        "agent/cli_backends/workspace_mutation.py ist ~30 LOC Re-Export-Public-API",
+        "Jedes Sub-Modul hat SRP-konforme Verantwortung (kein Modul >300 LOC)",
+        "tests/test_cli_backends_workspace_mutation_split.py ist grün"
+      ],
+      "evidence": "",
+      "result": ""
+    },
+    {
+      "id": "SGDEC-T05",
+      "title": "Shim-Migration sgpt_workspace_mutation (Mutable-Structures erhalten)",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "scope": "cli_backends",
+      "acceptance_criteria": [
+        "agent/common/sgpt_workspace_mutation.py re-exportiert aus agent.cli_backends.workspace_mutation",
+        "tests/test_sgpt_route.py:11-15 (user_requests.clear()) funktioniert ohne Änderung",
+        "tests/test_no_sgpt_in_propose_path.py Monkeypatch funktioniert über Shim"
+      ],
+      "evidence": "",
+      "result": ""
+    },
+    {
+      "id": "SGDEC-T06",
+      "title": "Detektor-Skript scripts/check_cli_backend_shim_imports.py",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "scope": "cli_backends",
+      "acceptance_criteria": [
+        "scripts/check_cli_backend_shim_imports.py existiert",
+        "Scannt nach `from agent.common.sgpt_` und `import agent.common.sgpt_` (nicht Re-Export-Shim-Datei selbst)",
+        "Hat --json Modus für CI",
+        "Exit-Code 1 bei Funden, 0 bei 0 Funden",
+        "tests/test_check_cli_backend_shim_imports.py ist grün (False-Positive-Free)"
+      ],
+      "evidence": "",
+      "result": ""
+    },
+    {
+      "id": "SGDEC-T07",
+      "title": "Importer-Migration: 3 Routes + 6 Tests + 1 Function + 3 indirekte Routes",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "scope": "cli_backends",
+      "acceptance_criteria": [
+        "agent/routes/sgpt.py importiert aus agent.cli_backends",
+        "agent/routes/snakes_full_scan.py importiert _resolve_repo_root aus agent.cli_backends.architecture_scan",
+        "agent/sgpt/function.py importiert _get_agent_config aus agent.cli_backends.helpers",
+        "Alle 6 dedizierten Tests importieren aus agent.cli_backends",
+        "agent/common/sgpt_*.py sind nicht mehr in Importer-Liste (außer Shim-Selbst-Import)"
+      ],
+      "evidence": "",
+      "result": ""
+    },
+    {
+      "id": "SGDEC-T08",
+      "title": "Shim löschen + Detektor-grün verifizieren + Doku",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "scope": "cli_backends",
+      "acceptance_criteria": [
+        "scripts/check_cli_backend_shim_imports.py exit 0",
+        "agent/common/sgpt_*.py sind gelöscht (8 Dateien)",
+        "pytest.ini Warning-Filter ist entfernt (kein Shim mehr = keine Suppression nötig)",
+        "tests/test_cli_backend_shim_deprecation.py ist gelöscht",
+        "docs/cli-backends-architecture.md existiert mit Modul-Map, Vertrag, Migrations-Pfad",
+        "AGENTS.md erwähnt agent.cli_backends als Domain-Subsystem",
+        "AGENTS.md verweist auf Cross-Cutting-Entscheidung für audit.py/error_handler.py/signals.py",
+        "CONTRIBUTING.md hat Hinweis: Neue LLM-CLI-Backends nach agent/cli_backends/",
+        "Vollständige Test-Suite grün"
+      ],
+      "evidence": "",
+      "result": ""
+    }
+  ],
+  "tasks_status_summary": {
+    "todo": 8,
+    "in_progress": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "open_decisions": [],
+  "decision_log": [
+    {
+      "id": "SGDEC-D1",
+      "decided_at": "2026-06-20T12:55:00Z",
+      "decided_by": "user (akzeptiert Empfehlung)",
+      "mode": "recommendation_accepted",
+      "topic": "Architektur-Option für sgpt-Entkopplung",
+      "decision": "Option B (Sinking): agent/cli_backends/ als neuer Namespace, lokale DI-Klasse CliBackendContext",
+      "rationale": "Korrekte Schicht. agent.common bleibt dünn (Cross-Cutting-Utilities), sgpt-Subsystem bekommt eigene Domain-Heimat. Vermeidet Option A (agent.common wird zur Domain-Schicht) und Option C (versteckt DIP-Verstoß nur).",
+      "consequence": "Migration von 4237 LOC + 18+ Importern + 4+ Tests. Welle 1+2+3 mit je einem Verifikations-Gate."
+    },
+    {
+      "id": "SGDEC-D2",
+      "decided_at": "2026-06-20T12:55:00Z",
+      "decided_by": "user (alle Empfehlungen akzeptiert)",
+      "mode": "recommendation_accepted",
+      "topic": "4-Split von sgpt_workspace_mutation.py — separater Track oder Teil von Welle 2?",
+      "decision": "Teil von Welle 2 (atomic), nicht separater Track",
+      "rationale": "User-Vorgabe 'nichts aufschieben, nichts nur anfangen' verlangt die vollständige Umsetzung in einem Zug.",
+      "consequence": "Welle 2 wird größer (eine PR mit 4 neuen Sub-Modulen + Re-Export-Modul), aber Review-Iteration-Kosten bleiben kalkulierbar."
+    },
+    {
+      "id": "SGDEC-D3",
+      "decided_at": "2026-06-20T12:55:00Z",
+      "decided_by": "user (alle Empfehlungen akzeptiert)",
+      "mode": "recommendation_accepted",
+      "topic": "Shim-Lebensdauer — 6 Monate, 12 Monate oder sofort?",
+      "decision": "Detektor-getrieben: sofortiger Cleanup wenn scripts/check_cli_backend_shim_imports.py 0 Importer meldet",
+      "rationale": "User-Vorgabe 'nichts nur anfangen' verbietet 12-Monats-Shim, der als 'machen wir später' endet. Detektor + sofortige Migration = vollständige Lösung.",
+      "consequence": "Welle 3 muss Detektor + Migration + Shim-Löschung als eine Einheit liefern."
+    },
+    {
+      "id": "SGDEC-D4",
+      "decided_at": "2026-06-20T12:55:00Z",
+      "decided_by": "user (alle Empfehlungen akzeptiert)",
+      "mode": "recommendation_accepted",
+      "topic": "sgpt_helpers.py — mit umziehen oder im agent.common belassen?",
+      "decision": "MIT umziehen nach agent/cli_backends/helpers.py",
+      "rationale": "sgpt_helpers.py wird von allen anderen sgpt_-Modulen intensiv genutzt. Split zwischen agent/common/sgpt_helpers + agent/cli_backends/* würde Verwirrung stiften und 'Common importiert Domain' wieder einführen.",
+      "consequence": "Auch agent.sgpt.function.py Import muss in Welle 3 migriert werden."
+    },
+    {
+      "id": "SGDEC-D5",
+      "decided_at": "2026-06-20T12:55:00Z",
+      "decided_by": "user (alle Empfehlungen akzeptiert) + Korrektur durch Agent",
+      "mode": "recommendation_accepted_with_correction",
+      "topic": "audit.py / error_handler.py / signals.py — Service-Imports in gleichem Atemzug mit-migrieren?",
+      "decision": "NEIN — bleiben in agent.common, eigene Cross-Cutting-Diskussion in todo.common-layer-deepen-services.md",
+      "rationale": "audit.py hat 84+ Importer über alle Schichten (Routes, Services, Tools, Tests, Bootstrap, Background). Das ist keine DIP-Verletzung, sondern eine bewusste Cross-Cutting-Fassade. Service-Import dort = Service-Locator-Pattern, nicht Bug. Verschieben würde 84+ Importer brechen + neues Service-Locator-Pattern erfordern (eigener Architektur-Track). Gleiche Argumentation für error_handler.py (1 Service-Import für Logger, semantisch korrekt) und signals.py (Lazy-Import für Signal-Handler).",
+      "consequence": "SGDEC-Track bleibt fokussiert auf sgpt-Subsystem. Cross-Cutting-Architektur-Diskussion wird in separaten Track todo.common-layer-deepen-services.md ausgelagert. In Welle 1 wird in audit.py/error_handler.py/signals.py ein Modul-Docstring-Eintrag ergänzt, der die Architektur-Entscheidung dokumentiert."
+    }
+  ],
+  "follow_up_tracks": [
+    {
+      "id": "todo.common-layer-deepen-services.md",
+      "title": "Service-Locator-Pattern für audit/error_handler/signals evaluieren",
+      "trigger": "SGDEC-M3 done",
+      "description": "Eigener Track für die grundsätzliche Frage: Soll der gesamte agent.common-Layer von agent.services entkoppelt werden via Service-Locator-Pattern? Betrifft audit.py (84+ Importer), error_handler.py, signals.py, sowie den gemeinsamen Vertrag."
+    }
+  ]
+}
