@@ -86,8 +86,21 @@ jobs:
           fi
           [ -s "$seed_dir/ubuntu-rootfs.version" ] || printf 'ci-placeholder-rootfs\n' > "$seed_dir/ubuntu-rootfs.version"
           [ -s "$seed_dir/ananta-workspace.version" ] || printf 'ci-placeholder-workspace\n' > "$seed_dir/ananta-workspace.version"
-      - name: Build delivery APK
-        run: bash scripts/build-android-delivery-apk.sh
+      - name: Build Angular + Capacitor sync
+        run: npm run android:prepare
+      - name: Gradle assemble debug APK
+        run: |
+          set -euo pipefail
+          cd android
+          ./gradlew --no-daemon --stacktrace :app:assembleDebug
+      - name: Verify and rename APK
+        run: |
+          set -euo pipefail
+          src="android/app/build/outputs/apk/debug/app-debug.apk"
+          out="android/app/build/outputs/apk/debug/ananta-delivery-proot-voxtral-debug.apk"
+          cp "$src" "$out"
+          unzip -l "$out" | grep 'assets/proot-seed/'
+          unzip -l "$out" | grep 'assets/voxtral-runner/voxtral-realtime'
       - name: Generate APK checksum
         run: sha256sum android/app/build/outputs/apk/debug/ananta-delivery-proot-voxtral-debug.apk > android/app/build/outputs/apk/debug/ananta-delivery-proot-voxtral-debug.apk.sha256
       - name: Generate wiki release verification report
