@@ -176,6 +176,10 @@
       "runtime_evidence": [
         ".github/workflows/quality-and-docs.yml",
         "client_surfaces/vscode_extension/package.json",
+        "client_surfaces/vscode_extension/src/commands/goal-commands.ts",
+        "client_surfaces/vscode_extension/src/commands/helpers.ts",
+        "client_surfaces/vscode_extension/src/commands/sidebar-manager.ts",
+        "client_surfaces/vscode_extension/src/commands/task-commands.ts",
         "client_surfaces/vscode_extension/src/runtime/backendClient.ts",
         "client_surfaces/vscode_extension/src/runtime/capabilityGate.ts",
         "client_surfaces/vscode_extension/src/runtime/contextCapture.ts",
