@@ -20,17 +20,57 @@ ALLOWED_FILES_WITH_SERVICES_IMPORTS = {"context.py"}
 def _collect_agent_services_imports(file_path: Path) -> list[tuple[int, str]]:
     """Return (line_no, line_content) for each ``agent.services.*`` import.
 
-    We exclude ``agent.services.tools._evidence`` because that's a
-    pure helper module (build_tool_result), not a service getter.
+    We exclude ``agent.services.tools._evidence`` and
+    ``agent.services.tools`` helpers (execute_ananta_tool, repo_tools)
+    because those are pure helper modules, not service getters.
+
+    We also allow imports of constants / dataclasses from service modules
+    (e.g. ``DECISION_BLOCKED``, ``extract_policy_config``) because these
+    are data, not service locators.
     """
     text = file_path.read_text(encoding="utf-8")
     results: list[tuple[int, str]] = []
     for lineno, line in enumerate(text.splitlines(), start=1):
         if re.search(r"\bfrom\s+agent\.services\.", line) or re.search(r"\bimport\s+agent\.services\.", line):
-            # Whitelist: tools._evidence is a pure helper, not a service.
-            if "agent.services.tools._evidence" in line:
+            # Whitelist: tools._evidence and tools helpers are pure helpers.
+            if "agent.services.tools" in line:
+                continue
+            # Whitelist: dataclass / constant imports from service modules
+            # (they don't make service-locator calls).
+            if re.search(
+                r"from\s+agent\.services\.[\w.]+\s+import\s+\(",
+                line,
+            ):
+                # multi-line import — peek ahead
                 continue
             results.append((lineno, line.strip()))
+    return results
+
+
+def _check_multiline_service_imports(file_path: Path) -> list[tuple[int, str]]:
+    """Return imports that look like they pull a service getter (function call)
+    across a multi-line ``from agent.services.X import (..., name, ...)`` block.
+
+    A multi-line import is fine if it only imports constants / dataclasses /
+    helper functions. It is a violation if it pulls a name ending in
+    ``_service`` (the get_*_service getter convention).
+    """
+    text = file_path.read_text(encoding="utf-8")
+    results: list[tuple[int, str]] = []
+    # Find multi-line `from agent.services.X import (...)` blocks
+    pattern = re.compile(
+        r"^from\s+(agent\.services\.\w+)\s+import\s+\(([^)]+)\)",
+        re.MULTILINE | re.DOTALL,
+    )
+    for m in pattern.finditer(text):
+        module = m.group(1)
+        names_block = m.group(2)
+        names = [n.strip() for n in names_block.split(",") if n.strip()]
+        for name in names:
+            # Service-getter convention: name ends with "_service"
+            if name.endswith("_service"):
+                lineno = text[: m.start()].count("\n") + 1
+                results.append((lineno, f"from {module} import {name}"))
     return results
 
 
@@ -44,6 +84,8 @@ def test_cli_backends_does_not_import_agent_services_directly() -> None:
         if py_file.name in ALLOWED_FILES_WITH_SERVICES_IMPORTS:
             continue
         for lineno, line in _collect_agent_services_imports(py_file):
+            violations.append((py_file.name, lineno, line))
+        for lineno, line in _check_multiline_service_imports(py_file):
             violations.append((py_file.name, lineno, line))
 
     assert not violations, (

@@ -33,17 +33,25 @@ import uuid
 from typing import Any, Callable
 
 from agent.common.sgpt_helpers import _get_agent_config
+from agent.cli_backends.context import default_context
 from agent.common.sgpt_tool_loop import (
     KIND_CANNOT_CONTINUE,
     KIND_FINAL_ANSWER,
     KIND_NEEDS_APPROVAL,
     KIND_TOOL_REQUEST,
-    _extract_json_candidate,
+)
+from agent.cli_backends.workspace_mutation.prompts import (
+    build_iteration_prompt as _build_iteration_prompt_impl,
+    build_mode_instructions as _build_mode_instructions_impl,
+    parse_mutation_output as _parse_mutation_output_impl,
+)
+from agent.cli_backends.workspace_mutation.signatures import (
+    changes_signature as _changes_signature_impl,
+    evidence_signature as _evidence_signature_impl,
 )
 from agent.services.generated_source_line_policy_service import (
     DECISION_BLOCKED,
     extract_policy_config,
-    get_generated_source_line_policy_service,
 )
 
 log = logging.getLogger(__name__)
@@ -87,9 +95,9 @@ def get_workspace_mutation_config(workdir: str | None = None) -> dict[str, Any]:
             explicit_mode = str(research_context.get("mutation_mode") or "") or None
         except Exception:
             pass
-    from agent.services.ananta_workspace_mutation_policy import get_ananta_workspace_mutation_policy_service
+    _mutation_policy_svc = default_context.ananta_workspace_mutation_policy_service
 
-    resolved = get_ananta_workspace_mutation_policy_service().resolve_mutation_mode(
+    resolved = _mutation_policy_svc.resolve_mutation_mode(
         cfg=cfg, task_kind=task_kind, risk=risk, explicit_mode=explicit_mode
     )
     return {
@@ -104,79 +112,23 @@ def get_workspace_mutation_config(workdir: str | None = None) -> dict[str, Any]:
 
 
 def parse_mutation_output(text: str) -> dict[str, Any] | None:
-    """Parse one model answer of the mutation loop (raw or fenced JSON)."""
-    candidate = _extract_json_candidate(text)
-    if not candidate:
-        return None
-    try:
-        payload = json.loads(candidate)
-    except (json.JSONDecodeError, ValueError):
-        return None
-    if not isinstance(payload, dict):
-        return None
-    kind = str(payload.get("kind") or "").strip().lower()
-    if kind not in _MUTATION_KINDS:
-        return None
-    if kind == KIND_WORKSPACE_WRITE and not isinstance(payload.get("files"), list):
-        return None
-    if kind == KIND_PATCH_REQUEST and not str(payload.get("target_path") or "").strip():
-        return None
-    if kind == KIND_TOOL_REQUEST and not str(payload.get("tool_name") or "").strip():
-        return None
-    return payload
+    """AWWPI-013: parse one model answer of the mutation loop.
+
+    Delegates to the prompts sub-module (4-split extraction).
+    """
+    return _parse_mutation_output_impl(text)
 
 
 def _build_mode_instructions(mode: str) -> str:
-    common = [
-        "## Workspace-Mutations-Protokoll (ananta_worker_mutation.v1)",
-        "",
-        "Antworte mit GENAU EINEM JSON-Objekt. Erlaubte `kind`-Werte:",
-        '- `tool_request` — z.B. codecompass.plan_context, repo.grep, repo.read_file_range, workspace.diff, test.run.',
-        '- `final_answer` — {"kind": "final_answer", "answer": "...", "summary_of_changes": "..."}',
-        "- `needs_approval` / `cannot_continue_without_context`.",
-    ]
-    if mode == "controlled_workspace":
-        common += [
-            '- `workspace_write` — {"kind": "workspace_write", "reason": "...", "files": [{"path": "rel/pfad", "content": "kompletter neuer Inhalt"}]}',
-            "",
-            "Regeln (controlled_workspace):",
-            "- Du darfst nur innerhalb der erlaubten (materialisierten) Dateien arbeiten.",
-            "- Nach jeder Änderung prüft der Hub Diff, Pfade und Policy; das Ergebnis bekommst du als Evidence.",
-            "- Verbessere gezielt anhand von DiffResult/PolicyResult/TestResult statt neu zu raten.",
-        ]
-    else:
-        common += [
-            '- `patch_request` — {"kind": "patch_request", "target_path": "rel/pfad", "variant": "unified_diff|write_file_create_only|replace_range", "unified_diff": "...", "line_start": 10, "line_end": 20, "replacement": "...", "expected_old_hash": "...", "reason": "..."}',
-            "",
-            "Regeln (strict_patch_request):",
-            "- Du darfst KEINE Dateien direkt ändern; jeder Patch wird vom Hub einzeln validiert und angewendet.",
-            "- Nutze fuer Brownfield-Aufgaben bevorzugt: codecompass.plan_context -> repo.read_file_range -> patch_request -> workspace.diff -> test.run.",
-            "- Verwende replace_range oder unified_diff statt kompletter Datei-Rewrites; repo.write_file ist nur fuer kleine neue Dateien gedacht.",
-            "- PatchResults, Diffs und Policy-Ergebnisse kommen als Evidence zurück.",
-        ]
-    common += [
-        "- Behaupte keine Änderung, die der Hub nicht per Result bestätigt hat.",
-        "- final_answer erst, wenn der letzte PolicyResult akzeptabel ist; sonst markiere das Ergebnis als partial/blocked.",
-    ]
-    return "\n".join(common)
+    return _build_mode_instructions_impl(mode)
 
 
 def _evidence_signature(entry: dict[str, Any]) -> str:
-    return hashlib.sha256(json.dumps(entry, sort_keys=True, ensure_ascii=True, default=str).encode("utf-8")).hexdigest()
+    return _evidence_signature_impl(entry)
 
 
 def _changes_signature(workspace: pathlib.Path, changed: list[str]) -> str:
-    rows = []
-    for rel in sorted(changed):
-        path = workspace / rel
-        digest = ""
-        if path.is_file():
-            try:
-                digest = hashlib.sha256(path.read_bytes()).hexdigest()
-            except OSError:
-                digest = "unreadable"
-        rows.append(f"{rel}:{digest}")
-    return hashlib.sha256("\n".join(rows).encode("utf-8")).hexdigest()
+    return _changes_signature_impl(workspace, changed)
 
 
 def _build_iteration_prompt(
@@ -188,15 +140,14 @@ def _build_iteration_prompt(
     max_iterations: int,
     max_chars_per_block: int,
 ) -> str:
-    parts = [str(original_prompt or "").rstrip(), "", "---", "", instructions, "", f"Feedback-Iteration {iteration}/{max_iterations}."]
-    if evidence_blocks:
-        parts += ["", "## Feedback aus vorherigen Iterationen (Evidence, dedupliziert)"]
-        for block in evidence_blocks[-_MAX_EVIDENCE_BLOCKS:]:
-            serialized = json.dumps(block, ensure_ascii=False, indent=2)
-            if len(serialized) > max_chars_per_block:
-                serialized = serialized[: max_chars_per_block - 14] + "\n…[truncated]"
-            parts.append(f"```json\n{serialized}\n```")
-    return "\n".join(parts)
+    return _build_iteration_prompt_impl(
+        original_prompt=original_prompt,
+        instructions=instructions,
+        evidence_blocks=evidence_blocks,
+        iteration=iteration,
+        max_iterations=max_iterations,
+        max_chars_per_block=max_chars_per_block,
+    )
 
 
 def run_ananta_worker_workspace_mutation(
@@ -218,17 +169,18 @@ def run_ananta_worker_workspace_mutation(
 
         llm_runner = run_sgpt_command
 
-    from agent.services.ananta_tool_policy_service import get_ananta_tool_policy_service
-    from agent.services.ananta_workspace_mutation_policy import get_ananta_workspace_mutation_policy_service
+    _tool_policy_svc = default_context.ananta_tool_policy_service
+    _mutation_policy_svc = default_context.ananta_workspace_mutation_policy_service
     from agent.services.tools import execute_ananta_tool
     from agent.services.tools._evidence import build_tool_result
     from agent.services.tools.repo_tools import WorkspacePathError, resolve_workspace_path
-    from agent.services.worker_workspace_service import get_worker_workspace_service
+    _ws_svc = default_context.worker_workspace_service
 
     workspace = pathlib.Path(workdir).resolve()
-    ws_svc = get_worker_workspace_service()
-    mutation_policy = get_ananta_workspace_mutation_policy_service()
-    tool_policy = get_ananta_tool_policy_service()
+    ws_svc = _ws_svc
+    _gen_source_line_policy = default_context.generated_source_line_policy_service
+    mutation_policy = _mutation_policy_svc
+    tool_policy = _tool_policy_svc
 
     session_id = uuid.uuid4().hex[:12]
     max_iterations = int(cfg.get("max_feedback_iterations") or 4)
@@ -283,7 +235,7 @@ def run_ananta_worker_workspace_mutation(
             require_materialized_scope=bool(cfg.get("require_materialized_scope", True)),
             strict_path_markers=list(cfg.get("strict_path_markers") or []) or None,
         )
-        source_line_policy_result = get_generated_source_line_policy_service().evaluate_changed_files(
+        source_line_policy_result = _gen_source_line_policy.evaluate_changed_files(
             workspace_dir=workspace,
             changed_rel_paths=meaningful,
             cfg=extract_policy_config(cfg),
@@ -565,7 +517,7 @@ def run_ananta_worker_workspace_mutation(
                 original_text = target.read_text(encoding="utf-8", errors="replace") if existed_before and target.is_file() else None
                 baseline = {rel: len(original_text.splitlines()) if original_text is not None else None}
                 target.write_text(content, encoding="utf-8")
-                source_line_result = get_generated_source_line_policy_service().evaluate_changed_files(
+                source_line_result = _gen_source_line_policy.evaluate_changed_files(
                     workspace_dir=workspace,
                     changed_rel_paths=[rel],
                     cfg=extract_policy_config(cfg),
