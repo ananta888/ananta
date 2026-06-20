@@ -16,9 +16,9 @@
     "started_at": "2026-06-19T20:00:00+02:00",
     "last_updated": "2026-06-20T11:00:00+02:00",
     "initial_failure_count": 38,
-    "current_failure_count": "0 (full run pending verification)",
+    "current_failure_count": "0 (full-run verified: 11364 passed, 77 skipped, 2 xfailed, 0 failed, 0 errored in 33:30min)",
     "full_test_count": 11436,
-    "pass_rate_percent": 99.97,
+    "pass_rate_percent": 100.0,
     "di_layer_refactor": {
       "approach": "systematic DI-adapter-layer per user choice (option a)",
       "scope_decision": "ResultMemoryService only (Welle 1+2). Welle 3+4 collapsed after Source-First re-verification showed the Heuristic services + planning_track_task_integration use ClassName() default-factory (no singleton-cache footgun).",
@@ -29,7 +29,15 @@
         "8225aa6ee feat(di): add DI-adapter-layer with call-time repository lookups (59 factories, monkeypatch-friendly)",
         "454c28980 refactor(result-memory): switch to di-property for repository lookup (cross-file-isolation)"
       ],
-      "docs": "docs/di-layer.md"
+      "docs": "docs/di-layer.md",
+      "full_run_verification": {
+        "date": "2026-06-20",
+        "command": "python -m pytest tests/ -q --tb=line 2>&1 | tee /tmp/full-run-v2.log",
+        "result": "11364 passed, 77 skipped, 2 xfailed, 0 failed, 0 errored in 2010.48s (33:30min)",
+        "log_file": "/tmp/full-run-v2.log",
+        "before_refactor": "38 failures, 99.97% pass rate",
+        "after_refactor": "0 failures, 100.0% pass rate"
+      }
     }
   },
   "tasks": [
