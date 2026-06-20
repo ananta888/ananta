@@ -527,7 +527,7 @@ class LiveTerminalSessionService:
         model: str | None = None,
         workdir: str | None = None,
     ) -> tuple[int, str, str]:
-        from agent.common.sgpt import resolve_opencode_runtime_config
+        from agent.cli_backends.sgpt import resolve_opencode_runtime_config
 
         opencode_bin = settings.opencode_path or "opencode"
         opencode_resolved = shutil.which(opencode_bin)

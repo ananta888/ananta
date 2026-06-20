@@ -1,59 +1,38 @@
-"""RED/GREEN test: agent.cli_backends/* must re-export all public symbols
-from agent.common.sgpt_*.
+"""Tests: agent.cli_backends.* public API surface.
 
-The Welle 1 contract: agent.cli_backends.* is the public API, agent.common.sgpt_*
-is the source of truth, and the cli_backends layer must re-export every
-public symbol (functions, constants, classes) from the source.
+These tests verify that the public API of the LLM-CLI backend subsystem
+is complete and stable. Each module must export the symbols that
+production code (and other tests) depend on.
 
-This is the "completeness of the public API" check. It is the Welle 1
-equivalent of the DeprecationWarning test (which would be premature: the
-agent.common.sgpt_* modules are still the source, not shims).
-
-Welle 3 (after source migration) will delete agent.common.sgpt_* and the
-shim layer becomes irrelevant.
+The legacy "re-export" tests (comparing agent.cli_backends.X to
+agent.common.sgpt_X) are gone because the legacy shim layer was
+removed in Welle 4 of the SGDEC migration. agent.common.sgpt_*.py
+no longer exists; agent.cli_backends.* is the source of truth.
 """
 from __future__ import annotations
 
-import inspect
+
+def test_cli_backends_sgpt_exposes_run_sgpt_command() -> None:
+    from agent.cli_backends import sgpt
+
+    assert hasattr(sgpt, "run_sgpt_command")
+    assert hasattr(sgpt, "run_llm_cli_command")
+    assert hasattr(sgpt, "_run_ananta_worker_iterative")
+    assert hasattr(sgpt, "get_cli_backend_capabilities")
+    assert hasattr(sgpt, "get_cli_backend_preflight")
+    assert hasattr(sgpt, "resolve_codex_runtime_config")
+    assert hasattr(sgpt, "resolve_opencode_runtime_config")
 
 
-def _get_module_public_symbols(module) -> set[str]:
-    """Return the set of public symbols defined in a module."""
-    return {
-        name
-        for name, obj in inspect.getmembers(module)
-        if not name.startswith("_") or name in inspect.getmembers(module, inspect.isclass)
-    }
-
-
-def test_cli_backends_sgpt_re_exports_run_sgpt_command() -> None:
-    from agent.cli_backends import sgpt as cli_sgpt
-    from agent.common import sgpt as common_sgpt
-
-    assert hasattr(cli_sgpt, "run_sgpt_command")
-    assert hasattr(common_sgpt, "run_sgpt_command")
-    assert cli_sgpt.run_sgpt_command is common_sgpt.run_sgpt_command
-
-
-def test_cli_backends_sgpt_re_exports_run_llm_cli_command() -> None:
-    from agent.cli_backends import sgpt as cli_sgpt
-    from agent.common import sgpt as common_sgpt
-
-    assert hasattr(cli_sgpt, "run_llm_cli_command")
-    assert cli_sgpt.run_llm_cli_command is common_sgpt.run_llm_cli_command
-
-
-def test_cli_backends_tool_loop_re_exports_run_ananta_worker_tool_loop() -> None:
+def test_cli_backends_tool_loop_exposes_run_ananta_worker_tool_loop() -> None:
     from agent.cli_backends import tool_loop
-    from agent.common import sgpt_tool_loop
 
     assert hasattr(tool_loop, "run_ananta_worker_tool_loop")
-    assert tool_loop.run_ananta_worker_tool_loop is sgpt_tool_loop.run_ananta_worker_tool_loop
+    assert hasattr(tool_loop, "parse_worker_tool_output")
 
 
-def test_cli_backends_tool_loop_re_exports_kind_constants() -> None:
+def test_cli_backends_tool_loop_exposes_kind_constants() -> None:
     from agent.cli_backends import tool_loop
-    from agent.common import sgpt_tool_loop
 
     for name in (
         "KIND_FINAL_ANSWER",
@@ -62,53 +41,85 @@ def test_cli_backends_tool_loop_re_exports_kind_constants() -> None:
         "KIND_CANNOT_CONTINUE",
     ):
         assert hasattr(tool_loop, name)
-        assert getattr(tool_loop, name) == getattr(sgpt_tool_loop, name)
+    assert tool_loop.KIND_FINAL_ANSWER == "final_answer"
+    assert tool_loop.KIND_TOOL_REQUEST == "tool_request"
 
 
-def test_cli_backends_workspace_mutation_re_exports_run_ananta_worker_workspace_mutation() -> None:
+def test_cli_backends_workspace_mutation_exposes_run_ananta_worker_workspace_mutation() -> None:
     from agent.cli_backends import workspace_mutation
-    from agent.common import sgpt_workspace_mutation
 
     assert hasattr(workspace_mutation, "run_ananta_worker_workspace_mutation")
-    assert (
-        workspace_mutation.run_ananta_worker_workspace_mutation
-        is sgpt_workspace_mutation.run_ananta_worker_workspace_mutation
-    )
+    assert hasattr(workspace_mutation, "parse_mutation_output")
+    assert hasattr(workspace_mutation, "build_iteration_prompt")
+    assert hasattr(workspace_mutation, "build_mode_instructions")
+    assert hasattr(workspace_mutation, "evidence_signature")
+    assert hasattr(workspace_mutation, "changes_signature")
 
 
-def test_cli_backends_architecture_scan_re_exports_resolve_repo_root() -> None:
+def test_cli_backends_architecture_scan_exposes_resolve_repo_root() -> None:
     from agent.cli_backends import architecture_scan
-    from agent.common import sgpt_architecture_scan
 
     assert hasattr(architecture_scan, "_resolve_repo_root")
-    assert architecture_scan._resolve_repo_root is sgpt_architecture_scan._resolve_repo_root
+    assert hasattr(architecture_scan, "_load_source_file_batches")
 
 
-def test_cli_backends_opencode_re_exports_run_opencode_command() -> None:
+def test_cli_backends_opencode_exposes_run_opencode_command() -> None:
     from agent.cli_backends import opencode
-    from agent.common import sgpt_opencode
 
     assert hasattr(opencode, "run_opencode_command")
-    assert opencode.run_opencode_command is sgpt_opencode.run_opencode_command
+    assert hasattr(opencode, "run_codex_command")
+    assert hasattr(opencode, "run_aider_command")
+    assert hasattr(opencode, "run_mistral_code_command")
 
 
-def test_cli_backends_routing_re_exports_supported_backends() -> None:
+def test_cli_backends_routing_exposes_supported_backends() -> None:
     from agent.cli_backends import routing
-    from agent.common import sgpt_backend_routing
 
     assert hasattr(routing, "SUPPORTED_CLI_BACKENDS")
-    assert routing.SUPPORTED_CLI_BACKENDS is sgpt_backend_routing.SUPPORTED_CLI_BACKENDS
+    assert hasattr(routing, "CLI_BACKEND_CAPABILITIES")
+    assert hasattr(routing, "get_cli_backend_capabilities")
 
 
-def test_cli_backends_helpers_re_exports_get_agent_config() -> None:
+def test_cli_backends_helpers_exposes_get_agent_config() -> None:
     from agent.cli_backends import helpers
-    from agent.common import sgpt_helpers
 
-    assert helpers._get_agent_config is sgpt_helpers._get_agent_config
+    assert hasattr(helpers, "_get_agent_config")
+    assert hasattr(helpers, "_get_runtime_provider_urls")
+    assert hasattr(helpers, "_normalize_openai_base_url")
+    assert hasattr(helpers, "_resolve_openai_compatible_base_url")
 
 
-def test_cli_backends_semaphore_re_exports_acquire_backend_permit() -> None:
+def test_cli_backends_semaphore_exposes_acquire_backend_permit() -> None:
     from agent.cli_backends import semaphore
-    from agent.common import sgpt_backend_semaphore
 
-    assert semaphore._acquire_backend_permit is sgpt_backend_semaphore._acquire_backend_permit
+    assert hasattr(semaphore, "_acquire_backend_permit")
+    assert hasattr(semaphore, "_resolve_backend_parallel_limit")
+    assert hasattr(semaphore, "_get_backend_semaphore")
+
+
+def test_agent_common_sgpt_namespace_removed() -> None:
+    """The legacy agent.common.sgpt_*.py shim layer is gone.
+
+    This test enforces the Welle-4 final state: agent.cli_backends.*
+    is the source of truth, the legacy shim layer is deleted.
+    """
+    import importlib
+
+    legacy_modules = [
+        "agent.common.sgpt",
+        "agent.common.sgpt_helpers",
+        "agent.common.sgpt_backend_semaphore",
+        "agent.common.sgpt_backend_routing",
+        "agent.common.sgpt_tool_loop",
+        "agent.common.sgpt_opencode",
+        "agent.common.sgpt_architecture_scan",
+        "agent.common.sgpt_workspace_mutation",
+    ]
+    for mod_name in legacy_modules:
+        try:
+            importlib.import_module(mod_name)
+            raise AssertionError(
+                f"{mod_name} still exists; it should have been deleted in Welle 4"
+            )
+        except ModuleNotFoundError:
+            pass  # expected

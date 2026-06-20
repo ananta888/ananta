@@ -223,7 +223,7 @@ def run_ananta_worker_tool_loop(
     """AWTCL-010: run the hub-controlled tool loop and return (rc, out, err)."""
     cfg = dict(config or get_tool_loop_config())
     if llm_runner is None:
-        from agent.common.sgpt import run_sgpt_command
+        from agent.cli_backends.sgpt import run_sgpt_command
 
         llm_runner = run_sgpt_command
 

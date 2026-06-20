@@ -111,7 +111,7 @@ class OpencodeRuntimeService:
 
     @classmethod
     def _build_server_config(cls, runtime_cfg: dict[str, Any]) -> tuple[dict[str, Any], str | None]:
-        from agent.common.sgpt import _build_opencode_theless_agent_config
+        from agent.cli_backends.sgpt import _build_opencode_theless_agent_config
 
         config = deepcopy(runtime_cfg.get("provider_config") or {})
         config.setdefault("$schema", "https://opencode.ai/config.json")
@@ -199,7 +199,7 @@ class OpencodeRuntimeService:
         return self._public_server_payload(payload)
 
     def ensure_session_runtime(self, session: dict, *, model: str | None = None) -> dict[str, Any]:
-        from agent.common.sgpt import resolve_opencode_runtime_config
+        from agent.cli_backends.sgpt import resolve_opencode_runtime_config
 
         runtime_cfg = resolve_opencode_runtime_config(model=model or session.get("model"))
         server = self._ensure_server(session, runtime_cfg)

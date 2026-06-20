@@ -17,7 +17,7 @@ from typing import Callable
 
 from flask import current_app
 
-from agent.common.sgpt import SUPPORTED_CLI_BACKENDS
+from agent.cli_backends.sgpt import SUPPORTED_CLI_BACKENDS
 from agent.common.utils.structured_action_utils import (
     extract_structured_action_fields,
     locally_repair_structured_action_output,

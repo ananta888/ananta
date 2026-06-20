@@ -31,8 +31,8 @@ import sys
 from pathlib import Path
 
 # Patterns that count as a violation. We grep for two patterns:
-# 1. `from agent.common.sgpt_X import ...`  (multi-line aware)
-# 2. `import agent.common.sgpt_X`           (whole-module import)
+# 1. `from agent.cli_backends.X import ...`  (multi-line aware)
+# 2. `import agent.cli_backends.X`           (whole-module import)
 # Both indicate the legacy namespace is still in use.
 VIOLATION_PATTERNS = [
     re.compile(r"^\s*from\s+agent\.common\.sgpt_[A-Za-z_][\w.]*\s+import\b"),
@@ -102,7 +102,7 @@ def main() -> int:
             print(f"  {rel}:{lineno}  {line}")
         print()
         print("Migrate these imports to the new namespace:")
-        print("  from agent.common.sgpt_X import Y")
+        print("  from agent.cli_backends.X import Y")
         print("  → from agent.cli_backends.X import Y")
         return 1
     else:

@@ -175,7 +175,7 @@ def _health_score(backend: str) -> int:
 
 
 def get_cli_backend_runtime_status() -> dict[str, dict]:
-    from agent.common.sgpt_opencode import resolve_codex_runtime_config, resolve_opencode_runtime_config
+    from agent.cli_backends.opencode import resolve_codex_runtime_config, resolve_opencode_runtime_config
 
     now = time.time()
     data: dict[str, dict] = {}
@@ -218,7 +218,7 @@ def get_cli_backend_runtime_status() -> dict[str, dict]:
 
 
 def get_cli_backend_preflight(*, runtime_scope: str = "full") -> dict[str, dict]:
-    from agent.common.sgpt_opencode import resolve_codex_runtime_config
+    from agent.cli_backends.opencode import resolve_codex_runtime_config
 
     scope = str(runtime_scope or "full").strip().lower() or "full"
     worker_scope = scope in {"worker", "worker_only", "execution"}

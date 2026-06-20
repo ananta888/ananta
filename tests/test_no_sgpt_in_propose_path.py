@@ -126,7 +126,7 @@ class TestSgptBlockedDuringPropose:
 
         monkeypatch.setattr("agent.cli_backends.sgpt.run_sgpt_command", fake_sgpt, raising=False)
         try:
-            from agent.common.sgpt import run_sgpt_command
+            from agent.cli_backends.sgpt import run_sgpt_command
             run_sgpt_command("test")
         except Exception:
             pass

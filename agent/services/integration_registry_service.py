@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from agent.common.sgpt import (
+from agent.cli_backends.sgpt import (
     SUPPORTED_CLI_BACKENDS,
     get_cli_backend_capabilities,
     get_cli_backend_preflight,

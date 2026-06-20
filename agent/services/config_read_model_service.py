@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import time
 
-from agent.common.sgpt import resolve_codex_runtime_config
+from agent.cli_backends.sgpt import resolve_codex_runtime_config
 from agent.research_backend import get_research_backend_preflight, resolve_research_backend_config
 from agent.runtime_profiles import resolve_runtime_profile
 from agent.governance_modes import resolve_governance_mode

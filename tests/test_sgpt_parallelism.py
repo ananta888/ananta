@@ -2,7 +2,7 @@ import subprocess
 import threading
 from unittest.mock import patch
 
-from agent.common import sgpt
+from agent.cli_backends import sgpt
 
 
 def _configured_limit(limit: int):

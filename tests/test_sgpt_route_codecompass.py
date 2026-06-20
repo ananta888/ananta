@@ -49,7 +49,7 @@ def _make_repo(tmp_path: pathlib.Path) -> pathlib.Path:
 
 class TestSourceFileBatchesPathOnly:
     def test_path_only_loads_file_beginning(self, tmp_path):
-        from agent.common.sgpt import _load_source_file_batches
+        from agent.cli_backends.sgpt import _load_source_file_batches
 
         repo = _make_repo(tmp_path)
         sample = repo / "sample.py"
@@ -69,7 +69,7 @@ class TestSourceFileBatchesPathOnly:
         assert block["end_line"] is None
 
     def test_path_traversal_blocked(self, tmp_path):
-        from agent.common.sgpt import _load_source_file_batches
+        from agent.cli_backends.sgpt import _load_source_file_batches
 
         repo = _make_repo(tmp_path)
         secret = tmp_path / "secret.txt"
@@ -83,7 +83,7 @@ class TestSourceFileBatchesPathOnly:
         assert batches == []
 
     def test_nonexistent_path_skipped(self, tmp_path):
-        from agent.common.sgpt import _load_source_file_batches
+        from agent.cli_backends.sgpt import _load_source_file_batches
 
         repo = _make_repo(tmp_path)
         workdir = _make_workdir(tmp_path / "ws", [{"path": "doesnotexist.py"}])
@@ -94,7 +94,7 @@ class TestSourceFileBatchesPathOnly:
         assert batches == []
 
     def test_empty_refs_falls_back_to_hub_context(self, tmp_path):
-        from agent.common.sgpt import _load_source_file_batches
+        from agent.cli_backends.sgpt import _load_source_file_batches
 
         repo = _make_repo(tmp_path)
         workdir = _make_workdir(tmp_path / "ws", [], hub_content="# Hub context\nsome content")
@@ -107,7 +107,7 @@ class TestSourceFileBatchesPathOnly:
         assert "Hub context" in batches[0][0]["content"]
 
     def test_invalid_json_research_context_falls_back_gracefully(self, tmp_path):
-        from agent.common.sgpt import _load_source_file_batches
+        from agent.cli_backends.sgpt import _load_source_file_batches
 
         repo = _make_repo(tmp_path)
         workdir = tmp_path / "ws"
@@ -126,7 +126,7 @@ class TestSourceFileBatchesPathOnly:
         assert batches[0][0]["source_kind"] == "hub_context"
 
     def test_missing_workdir_returns_empty(self, tmp_path):
-        from agent.common.sgpt import _load_source_file_batches
+        from agent.cli_backends.sgpt import _load_source_file_batches
 
         batches = _load_source_file_batches(str(tmp_path / "nonexistent"))
         assert batches == []
@@ -135,7 +135,7 @@ class TestSourceFileBatchesPathOnly:
 # CCSH-004: Line-range normalization
 class TestLineRangeNormalization:
     def test_start_line_end_line_loads_specific_range(self, tmp_path):
-        from agent.common.sgpt import _load_source_file_batches
+        from agent.cli_backends.sgpt import _load_source_file_batches
 
         repo = _make_repo(tmp_path)
         sample = repo / "sample.py"
@@ -155,7 +155,7 @@ class TestLineRangeNormalization:
         assert block["content"].count("# irrelevant header") == 0
 
     def test_line_start_alias_accepted(self, tmp_path):
-        from agent.common.sgpt import _load_source_file_batches
+        from agent.cli_backends.sgpt import _load_source_file_batches
 
         repo = _make_repo(tmp_path)
         sample = repo / "sample.py"
@@ -171,7 +171,7 @@ class TestLineRangeNormalization:
         assert "line5" in batches[0][0]["content"]
 
     def test_from_line_to_line_alias_accepted(self, tmp_path):
-        from agent.common.sgpt import _load_source_file_batches
+        from agent.cli_backends.sgpt import _load_source_file_batches
 
         repo = _make_repo(tmp_path)
         sample = repo / "sample.py"
@@ -186,7 +186,7 @@ class TestLineRangeNormalization:
         assert "L10" in batches[0][0]["content"]
 
     def test_invalid_line_range_falls_back_to_file_excerpt(self, tmp_path):
-        from agent.common.sgpt import _load_source_file_batches
+        from agent.cli_backends.sgpt import _load_source_file_batches
 
         repo = _make_repo(tmp_path)
         sample = repo / "sample.py"
@@ -205,7 +205,7 @@ class TestLineRangeNormalization:
 # CCSH-004/005: Snippet and chunk priority
 class TestSnippetAndChunkPriority:
     def test_snippet_used_when_path_missing(self, tmp_path):
-        from agent.common.sgpt import _load_source_file_batches
+        from agent.cli_backends.sgpt import _load_source_file_batches
 
         repo = _make_repo(tmp_path)
         workdir = _make_workdir(tmp_path / "ws", [{"snippet": "def my_func(): pass"}])
@@ -218,7 +218,7 @@ class TestSnippetAndChunkPriority:
         assert "def my_func" in batches[0][0]["content"]
 
     def test_chunks_in_ref_used_as_context_blocks(self, tmp_path):
-        from agent.common.sgpt import _load_source_file_batches
+        from agent.cli_backends.sgpt import _load_source_file_batches
 
         repo = _make_repo(tmp_path)
         chunks = [
@@ -239,7 +239,7 @@ class TestSnippetAndChunkPriority:
         assert "func_b" in contents
 
     def test_duplicate_blocks_deduplicated(self, tmp_path):
-        from agent.common.sgpt import _load_source_file_batches
+        from agent.cli_backends.sgpt import _load_source_file_batches
 
         repo = _make_repo(tmp_path)
         sample = repo / "sample.py"
@@ -256,7 +256,7 @@ class TestSnippetAndChunkPriority:
         assert paths.count("sample.py") == 1
 
     def test_blocks_sorted_by_score_descending(self, tmp_path):
-        from agent.common.sgpt import _load_source_file_batches
+        from agent.cli_backends.sgpt import _load_source_file_batches
 
         repo = _make_repo(tmp_path)
         for name in ("a.py", "b.py", "c.py"):
@@ -279,7 +279,7 @@ class TestSnippetAndChunkPriority:
 # CCSH-002: Prompt header visibility
 class TestPromptHeaders:
     def test_line_range_header_includes_line_numbers(self):
-        from agent.common.sgpt import _build_iteration_prompt
+        from agent.cli_backends.sgpt import _build_iteration_prompt
 
         batch = [{
             "rel_path": "agent/foo.py",
@@ -299,7 +299,7 @@ class TestPromptHeaders:
         assert "score=0.85" in prompt
 
     def test_file_excerpt_header_shows_source_kind(self):
-        from agent.common.sgpt import _build_iteration_prompt
+        from agent.cli_backends.sgpt import _build_iteration_prompt
 
         batch = [{
             "rel_path": "agent/bar.py",
@@ -317,7 +317,7 @@ class TestPromptHeaders:
         assert "### agent/bar.py [file_excerpt]" in prompt
 
     def test_hub_context_header(self):
-        from agent.common.sgpt import _build_iteration_prompt
+        from agent.cli_backends.sgpt import _build_iteration_prompt
 
         batch = [{
             "rel_path": "hub-context.md",
@@ -337,7 +337,7 @@ class TestPromptHeaders:
 # CCSH-011: E2E — relevant function far down in file is loaded, not file beginning
 class TestCodeCompassSnippetHandoff:
     def test_line_range_loads_deep_function_not_file_beginning(self, tmp_path):
-        from agent.common.sgpt import _load_source_file_batches
+        from agent.cli_backends.sgpt import _load_source_file_batches
 
         repo = _make_repo(tmp_path)
         sample = repo / "deep_func.py"
@@ -369,7 +369,7 @@ class TestCodeCompassSnippetHandoff:
 
     def test_single_batch_prompt_includes_header_annotation(self, tmp_path):
         """Single-batch path in _run_ananta_worker_iterative also uses annotated headers."""
-        from agent.common.sgpt import _load_source_file_batches, _format_block_header
+        from agent.cli_backends.sgpt import _load_source_file_batches, _format_block_header
 
         repo = _make_repo(tmp_path)
         sample = repo / "module.py"
@@ -386,7 +386,7 @@ class TestCodeCompassSnippetHandoff:
         assert "[file_excerpt]" in header
 
     def test_path_traversal_still_blocked_with_line_range(self, tmp_path):
-        from agent.common.sgpt import _load_source_file_batches
+        from agent.cli_backends.sgpt import _load_source_file_batches
 
         repo = _make_repo(tmp_path)
         secret = tmp_path / "secret.txt"
@@ -403,7 +403,7 @@ class TestCodeCompassSnippetHandoff:
 # CCSH-012: Backward compatibility regression tests
 class TestBackwardCompatibility:
     def test_path_only_still_works_after_refactor(self, tmp_path):
-        from agent.common.sgpt import _load_source_file_batches
+        from agent.cli_backends.sgpt import _load_source_file_batches
 
         repo = _make_repo(tmp_path)
         (repo / "legacy.py").write_text("x = 1\n", encoding="utf-8")
@@ -416,7 +416,7 @@ class TestBackwardCompatibility:
         assert batches[0][0]["source_kind"] == "file_excerpt"
 
     def test_empty_repo_scope_refs_falls_back_to_hub(self, tmp_path):
-        from agent.common.sgpt import _load_source_file_batches
+        from agent.cli_backends.sgpt import _load_source_file_batches
 
         repo = _make_repo(tmp_path)
         workdir = _make_workdir(tmp_path / "ws", [], hub_content="hub fallback")
@@ -427,7 +427,7 @@ class TestBackwardCompatibility:
         assert batches[0][0]["source_kind"] == "hub_context"
 
     def test_missing_research_context_json_uses_hub_fallback(self, tmp_path):
-        from agent.common.sgpt import _load_source_file_batches
+        from agent.cli_backends.sgpt import _load_source_file_batches
 
         repo = _make_repo(tmp_path)
         workdir = tmp_path / "ws"
@@ -442,7 +442,7 @@ class TestBackwardCompatibility:
         assert batches[0][0]["source_kind"] == "hub_context"
 
     def test_invalid_json_does_not_raise(self, tmp_path):
-        from agent.common.sgpt import _load_source_file_batches
+        from agent.cli_backends.sgpt import _load_source_file_batches
 
         repo = _make_repo(tmp_path)
         workdir = tmp_path / "ws"
@@ -459,7 +459,7 @@ class TestBackwardCompatibility:
 # CCSH-013: Budget guard
 class TestBudgetGuard:
     def test_max_files_cap_limits_loaded_blocks(self, tmp_path):
-        from agent.common.sgpt import _load_source_file_batches
+        from agent.cli_backends.sgpt import _load_source_file_batches
 
         repo = _make_repo(tmp_path)
         refs = []
@@ -477,7 +477,7 @@ class TestBudgetGuard:
         assert len(all_blocks) == 3
 
     def test_higher_score_blocks_survive_budget_cut(self, tmp_path):
-        from agent.common.sgpt import _load_source_file_batches
+        from agent.cli_backends.sgpt import _load_source_file_batches
 
         repo = _make_repo(tmp_path)
         # 3 files, different scores; budget = 2
@@ -507,7 +507,7 @@ class TestBudgetGuard:
 # CCSH-006: Config-driven line window
 class TestConfigDrivenContext:
     def test_context_lines_parameter_controls_window_size(self, tmp_path):
-        from agent.common.sgpt import _load_source_file_batches
+        from agent.cli_backends.sgpt import _load_source_file_batches
 
         repo = _make_repo(tmp_path)
         sample = repo / "sample.py"

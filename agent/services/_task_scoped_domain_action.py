@@ -413,7 +413,7 @@ from typing import Callable
 
 from flask import current_app
 
-from agent.common.sgpt import SUPPORTED_CLI_BACKENDS
+from agent.cli_backends.sgpt import SUPPORTED_CLI_BACKENDS
 from agent.common.utils.structured_action_utils import extract_structured_action_fields
 from agent.models import TaskStepExecuteRequest
 from agent.research_backend import is_research_backend
@@ -445,7 +445,7 @@ def propose_task_with_comparisons(
     resolve_task_propose_timeout: Callable,
 ) -> "TaskScopedRouteResponse":
     from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
-    from agent.common.sgpt import SUPPORTED_CLI_BACKENDS as _BACKENDS
+    from agent.cli_backends.sgpt import SUPPORTED_CLI_BACKENDS as _BACKENDS
     from agent.runtime_policy import resolve_cli_backend as _resolve_cli_backend_fn
     from agent.services._task_scoped_citation import build_flow_metrics_payload
     from agent.services._task_scoped_config_policy import normalize_temperature
@@ -454,7 +454,7 @@ def propose_task_with_comparisons(
 
     def resolve_cli_backend(task_kind, *, requested_backend, agent_cfg, required_capabilities):
         from flask import current_app as _ca
-        from agent.common.sgpt import SUPPORTED_CLI_BACKENDS as _sbs
+        from agent.cli_backends.sgpt import SUPPORTED_CLI_BACKENDS as _sbs
         backend, reason, _ = _resolve_cli_backend_fn(
             task_kind=task_kind,
             requested_backend=requested_backend,

@@ -77,7 +77,7 @@ def propose_single_task_step(
     research_specialization = derive_research_specialization(task, task_kind, required_capabilities)
 
     from agent.runtime_policy import resolve_cli_backend as _resolve_cli_backend_fn
-    from agent.common.sgpt import SUPPORTED_CLI_BACKENDS
+    from agent.cli_backends.sgpt import SUPPORTED_CLI_BACKENDS
     _cfg_for_backend = cfg if isinstance(cfg, dict) else (current_app.config.get("AGENT_CONFIG", {}) or {})
     effective_backend, routing_reason = (lambda: (lambda r: (r[0], r[1]))(_resolve_cli_backend_fn(
         task_kind=task_kind,

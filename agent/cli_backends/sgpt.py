@@ -164,7 +164,7 @@ def _run_ananta_worker_iterative(
     # the resolved mutation mode is not read_only. Falls back to the batch loop
     # on any setup error so existing behavior never breaks.
     try:
-        from agent.common.sgpt_workspace_mutation import (
+        from agent.cli_backends.workspace_mutation import (
             get_workspace_mutation_config,
             run_ananta_worker_workspace_mutation,
         )

@@ -1,4 +1,4 @@
-from agent.common.sgpt import get_cli_backend_preflight
+from agent.cli_backends.sgpt import get_cli_backend_preflight
 
 
 def test_worker_runtime_scope_skips_lmstudio_and_ollama_probes(monkeypatch):

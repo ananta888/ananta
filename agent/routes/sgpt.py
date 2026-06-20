@@ -7,7 +7,7 @@ from flask import Blueprint, current_app, g, request
 
 from agent.auth import check_auth
 from agent.common.errors import api_response
-from agent.common.sgpt import (
+from agent.cli_backends.sgpt import (
     SUPPORTED_CLI_BACKENDS,
     get_cli_backend_capabilities,
     normalize_backend_flags,

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from agent.common.sgpt import get_cli_backend_capabilities
+from agent.cli_backends.sgpt import get_cli_backend_capabilities
 
 VOICE_CAPABILITY_NAMES: tuple[str, ...] = (
     "audio_input",

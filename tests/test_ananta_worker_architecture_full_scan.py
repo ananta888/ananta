@@ -86,7 +86,7 @@ def test_full_scan_settings_have_safe_defaults():
 
 
 def test_full_scan_worker_writes_plan_summary_progress_and_diagram(tmp_path):
-    from agent.common.sgpt import _run_ananta_worker_iterative
+    from agent.cli_backends.sgpt import _run_ananta_worker_iterative
 
     repo = _make_repo(tmp_path)
     workdir = tmp_path / "ws"
@@ -141,7 +141,7 @@ def test_full_scan_worker_writes_plan_summary_progress_and_diagram(tmp_path):
 
 
 def test_full_scan_resume_skips_processed_batches(tmp_path):
-    from agent.common.sgpt import _run_ananta_worker_iterative
+    from agent.cli_backends.sgpt import _run_ananta_worker_iterative
 
     repo = _make_repo(tmp_path)
     workdir = tmp_path / "ws"

@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 
 
 def test_run_codex_command_injects_lmstudio_openai_compatible_env():
-    from agent.common.sgpt import run_codex_command
+    from agent.cli_backends.sgpt import run_codex_command
 
     from contextlib import contextmanager
     from types import SimpleNamespace as _NS
@@ -52,7 +52,7 @@ def test_run_codex_command_injects_lmstudio_openai_compatible_env():
 
 
 def test_run_codex_command_prefers_explicit_codex_cli_runtime_from_agent_config(app):
-    from agent.common.sgpt import run_codex_command
+    from agent.cli_backends.sgpt import run_codex_command
 
     with app.app_context():
         app.config["AGENT_CONFIG"] = {
@@ -95,7 +95,7 @@ def test_run_codex_command_prefers_explicit_codex_cli_runtime_from_agent_config(
 
 
 def test_resolve_codex_runtime_config_exposes_source_metadata_for_local_runtime(app):
-    from agent.common.sgpt import resolve_codex_runtime_config
+    from agent.cli_backends.sgpt import resolve_codex_runtime_config
 
     with app.app_context():
         app.config["AGENT_CONFIG"] = {
@@ -120,7 +120,7 @@ def test_resolve_codex_runtime_config_exposes_source_metadata_for_local_runtime(
 
 
 def test_resolve_codex_runtime_config_falls_back_to_openai_when_lmstudio_not_preferred():
-    from agent.common.sgpt import resolve_codex_runtime_config
+    from agent.cli_backends.sgpt import resolve_codex_runtime_config
 
     with (
         patch("agent.cli_backends.opencode.settings") as mock_settings,
@@ -146,7 +146,7 @@ def test_resolve_codex_runtime_config_falls_back_to_openai_when_lmstudio_not_pre
 
 
 def test_run_sgpt_command_prefers_runtime_openai_provider_config(app):
-    from agent.common.sgpt import run_sgpt_command
+    from agent.cli_backends.sgpt import run_sgpt_command
 
     with app.app_context():
         app.config["AGENT_CONFIG"] = {
@@ -189,7 +189,7 @@ def test_run_sgpt_command_prefers_runtime_openai_provider_config(app):
 
 
 def test_run_sgpt_command_uses_lmstudio_runtime_base_url(app):
-    from agent.common.sgpt import run_sgpt_command
+    from agent.cli_backends.sgpt import run_sgpt_command
 
     with app.app_context():
         app.config["AGENT_CONFIG"] = {
@@ -231,7 +231,7 @@ def test_run_sgpt_command_uses_lmstudio_runtime_base_url(app):
 
 
 def test_resolve_opencode_runtime_config_builds_ollama_openai_compatible_provider(app):
-    from agent.common.sgpt import resolve_opencode_runtime_config
+    from agent.cli_backends.sgpt import resolve_opencode_runtime_config
 
     with app.app_context():
         app.config["AGENT_CONFIG"] = {
@@ -259,7 +259,7 @@ def test_resolve_opencode_runtime_config_builds_ollama_openai_compatible_provide
 
 
 def test_resolve_opencode_runtime_config_prefixes_hosted_openai_model(app):
-    from agent.common.sgpt import resolve_opencode_runtime_config
+    from agent.cli_backends.sgpt import resolve_opencode_runtime_config
 
     with app.app_context():
         app.config["AGENT_CONFIG"] = {
@@ -286,7 +286,7 @@ def test_resolve_opencode_runtime_config_prefixes_hosted_openai_model(app):
 
 
 def test_run_opencode_command_writes_temp_provider_config_for_ollama(app):
-    from agent.common.sgpt import run_opencode_command
+    from agent.cli_backends.sgpt import run_opencode_command
 
     captured = {}
 
@@ -334,7 +334,7 @@ def test_run_opencode_command_writes_temp_provider_config_for_ollama(app):
 
 
 def test_resolve_opencode_runtime_config_respects_tool_mode_toolless(app):
-    from agent.common.sgpt import resolve_opencode_runtime_config
+    from agent.cli_backends.sgpt import resolve_opencode_runtime_config
 
     with app.app_context():
         app.config["AGENT_CONFIG"] = {
@@ -356,7 +356,7 @@ def test_resolve_opencode_runtime_config_respects_tool_mode_toolless(app):
 
 
 def test_resolve_opencode_runtime_config_forces_target_provider_over_lmstudio_prefixed_model(app):
-    from agent.common.sgpt import resolve_opencode_runtime_config
+    from agent.cli_backends.sgpt import resolve_opencode_runtime_config
 
     with app.app_context():
         app.config["AGENT_CONFIG"] = {
@@ -384,7 +384,7 @@ def test_resolve_opencode_runtime_config_forces_target_provider_over_lmstudio_pr
 
 
 def test_resolve_opencode_runtime_config_normalizes_legacy_ollama_model(app):
-    from agent.common.sgpt import resolve_opencode_runtime_config
+    from agent.cli_backends.sgpt import resolve_opencode_runtime_config
 
     with app.app_context():
         app.config["AGENT_CONFIG"] = {
@@ -405,7 +405,7 @@ def test_resolve_opencode_runtime_config_normalizes_legacy_ollama_model(app):
 
 
 def test_resolve_opencode_runtime_config_resolves_short_ollama_model_to_installed_tag(app):
-    from agent.common.sgpt import resolve_opencode_runtime_config
+    from agent.cli_backends.sgpt import resolve_opencode_runtime_config
 
     with app.app_context():
         app.config["AGENT_CONFIG"] = {
@@ -432,7 +432,7 @@ def test_resolve_opencode_runtime_config_resolves_short_ollama_model_to_installe
 
 
 def test_resolve_opencode_runtime_config_falls_back_to_settings_provider_urls(app):
-    from agent.common.sgpt import resolve_opencode_runtime_config
+    from agent.cli_backends.sgpt import resolve_opencode_runtime_config
 
     with app.app_context():
         app.config["AGENT_CONFIG"] = {
@@ -465,7 +465,7 @@ def test_resolve_opencode_runtime_config_falls_back_to_settings_provider_urls(ap
 
 
 def test_resolve_opencode_runtime_config_infers_local_provider_for_bare_opencode_model(app):
-    from agent.common.sgpt import resolve_opencode_runtime_config
+    from agent.cli_backends.sgpt import resolve_opencode_runtime_config
 
     with app.app_context():
         app.config["AGENT_CONFIG"] = {
@@ -496,7 +496,7 @@ def test_resolve_opencode_runtime_config_infers_local_provider_for_bare_opencode
 
 
 def test_resolve_opencode_runtime_config_builds_lmstudio_provider_for_inferred_local_model(app):
-    from agent.common.sgpt import resolve_opencode_runtime_config
+    from agent.cli_backends.sgpt import resolve_opencode_runtime_config
 
     with app.app_context():
         app.config["AGENT_CONFIG"] = {
@@ -527,7 +527,7 @@ def test_resolve_opencode_runtime_config_builds_lmstudio_provider_for_inferred_l
 
 
 def test_resolve_opencode_runtime_config_defaults_to_general_model_for_ollama(app):
-    from agent.common.sgpt import resolve_opencode_runtime_config
+    from agent.cli_backends.sgpt import resolve_opencode_runtime_config
 
     with app.app_context():
         app.config["AGENT_CONFIG"] = {
@@ -551,7 +551,7 @@ def test_resolve_opencode_runtime_config_defaults_to_general_model_for_ollama(ap
 
 
 def test_resolve_opencode_runtime_config_forces_toolless_ollama_in_backend_mode(app):
-    from agent.common.sgpt import resolve_opencode_runtime_config
+    from agent.cli_backends.sgpt import resolve_opencode_runtime_config
 
     with app.app_context():
         app.config["AGENT_CONFIG"] = {
@@ -588,7 +588,7 @@ def test_build_default_agent_config_prefers_ollama_opencode_model(monkeypatch):
 
 
 def test_run_opencode_command_passes_workdir_to_subprocess(app):
-    from agent.common.sgpt import run_opencode_command
+    from agent.cli_backends.sgpt import run_opencode_command
 
     captured: dict = {}
 
@@ -619,7 +619,7 @@ def test_run_opencode_command_passes_workdir_to_subprocess(app):
 
 
 def test_run_opencode_command_uses_native_runtime_session(app):
-    from agent.common.sgpt import run_opencode_command
+    from agent.cli_backends.sgpt import run_opencode_command
 
     session = {"id": "cli-1", "metadata": {"opencode_runtime": {"kind": "native_server", "native_session_id": "ses-1"}}}
     runtime_service = MagicMock()
@@ -638,7 +638,7 @@ def test_run_opencode_command_uses_native_runtime_session(app):
 
 
 def test_run_opencode_command_uses_live_terminal_session(app):
-    from agent.common.sgpt import run_opencode_command
+    from agent.cli_backends.sgpt import run_opencode_command
 
     session = {
         "id": "cli-1",
@@ -666,7 +666,7 @@ def test_run_opencode_command_uses_live_terminal_session(app):
 
 
 def test_run_opencode_command_uses_interactive_terminal_session(app):
-    from agent.common.sgpt import run_opencode_command
+    from agent.cli_backends.sgpt import run_opencode_command
 
     session = {
         "id": "cli-2",
@@ -729,7 +729,7 @@ def test_opencode_runtime_service_reuses_existing_server_without_deepcopying_pro
 
 
 def test_get_cli_backend_preflight_reports_cli_and_provider_diagnostics(app):
-    from agent.common.sgpt import get_cli_backend_preflight
+    from agent.cli_backends.sgpt import get_cli_backend_preflight
 
     with app.app_context():
         app.config["AGENT_CONFIG"] = {
@@ -775,7 +775,7 @@ def test_get_cli_backend_preflight_reports_cli_and_provider_diagnostics(app):
 
 
 def test_get_cli_backend_preflight_normalizes_lmstudio_models_url_input(app):
-    from agent.common.sgpt import get_cli_backend_preflight
+    from agent.cli_backends.sgpt import get_cli_backend_preflight
 
     with app.app_context():
         app.config["AGENT_CONFIG"] = {
@@ -815,7 +815,7 @@ def test_get_cli_backend_preflight_normalizes_lmstudio_models_url_input(app):
 
 
 def test_get_cli_backend_preflight_reports_not_configured_lmstudio_provider(app):
-    from agent.common.sgpt import get_cli_backend_preflight
+    from agent.cli_backends.sgpt import get_cli_backend_preflight
 
     with app.app_context():
         app.config["AGENT_CONFIG"] = {
@@ -852,7 +852,7 @@ def test_get_cli_backend_preflight_reports_not_configured_lmstudio_provider(app)
 
 
 def test_get_cli_backend_preflight_reports_invalid_lmstudio_url(app):
-    from agent.common.sgpt import get_cli_backend_preflight
+    from agent.cli_backends.sgpt import get_cli_backend_preflight
 
     with app.app_context():
         app.config["AGENT_CONFIG"] = {
@@ -893,7 +893,7 @@ def test_get_cli_backend_preflight_reports_invalid_lmstudio_url(app):
 
 
 def test_get_cli_backend_preflight_reports_reachable_runtime_without_models(app):
-    from agent.common.sgpt import get_cli_backend_preflight
+    from agent.cli_backends.sgpt import get_cli_backend_preflight
 
     with app.app_context():
         app.config["AGENT_CONFIG"] = {
@@ -934,7 +934,7 @@ def test_get_cli_backend_preflight_reports_reachable_runtime_without_models(app)
 
 
 def test_get_cli_backend_preflight_includes_ollama_activity_and_gpu_usage(app):
-    from agent.common.sgpt import get_cli_backend_preflight
+    from agent.cli_backends.sgpt import get_cli_backend_preflight
 
     with app.app_context():
         app.config["AGENT_CONFIG"] = {"default_provider": "ollama"}

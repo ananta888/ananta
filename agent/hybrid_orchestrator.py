@@ -12,7 +12,7 @@ from typing import Callable
 from agent.rag_query_normalizer import normalize_query_from_settings
 
 from agent.config import settings
-from agent.common.sgpt import run_llm_cli_command
+from agent.cli_backends.sgpt import run_llm_cli_command
 from agent.hybrid_context_orchestration import collect_context_chunks, serialize_context_result
 from agent.hybrid_context_support import (
     build_file_manifest,

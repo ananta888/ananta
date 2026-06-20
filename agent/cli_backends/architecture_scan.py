@@ -622,7 +622,7 @@ def _run_architecture_full_scan(
     model: str | None,
     research_context: dict,
 ) -> tuple[int, str, str]:
-    from agent.common.sgpt import run_sgpt_command
+    from agent.cli_backends.sgpt import run_sgpt_command
 
 
     profile = dict(research_context.get("retrieval_profile") or {})

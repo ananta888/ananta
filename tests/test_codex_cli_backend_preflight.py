@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 # Split from tests/test_codex_cli_backend.py to keep source files below 1000 lines.
 
 def test_resolve_codex_runtime_config_prefers_runtime_app_state_over_settings_defaults(app):
-    from agent.common.sgpt import resolve_codex_runtime_config
+    from agent.cli_backends.sgpt import resolve_codex_runtime_config
 
     with app.app_context():
         app.config["AGENT_CONFIG"] = {
@@ -32,7 +32,7 @@ def test_resolve_codex_runtime_config_prefers_runtime_app_state_over_settings_de
 
 
 def test_resolve_codex_runtime_config_supports_custom_local_openai_target(app):
-    from agent.common.sgpt import resolve_codex_runtime_config
+    from agent.cli_backends.sgpt import resolve_codex_runtime_config
 
     with app.app_context():
         app.config["AGENT_CONFIG"] = {
@@ -63,7 +63,7 @@ def test_resolve_codex_runtime_config_supports_custom_local_openai_target(app):
 
 
 def test_resolve_codex_runtime_config_marks_remote_ananta_target_kind(app):
-    from agent.common.sgpt import resolve_codex_runtime_config
+    from agent.cli_backends.sgpt import resolve_codex_runtime_config
 
     with app.app_context():
         app.config["AGENT_CONFIG"] = {
@@ -94,7 +94,7 @@ def test_resolve_codex_runtime_config_marks_remote_ananta_target_kind(app):
 
 
 def test_run_codex_command_fails_closed_when_runtime_target_missing(app):
-    from agent.common.sgpt import run_codex_command
+    from agent.cli_backends.sgpt import run_codex_command
 
     with app.app_context():
         app.config["AGENT_CONFIG"] = {"default_provider": "openai", "codex_cli": {"prefer_lmstudio": False}}
@@ -120,7 +120,7 @@ def test_run_codex_command_fails_closed_when_runtime_target_missing(app):
 
 
 def test_run_llm_cli_command_falls_back_from_codex_to_opencode_for_degraded_auto_mode():
-    from agent.common import sgpt as sgpt_mod
+    from agent.cli_backends import sgpt as sgpt_mod
 
     runtime_before = {name: dict(values) for name, values in sgpt_mod._BACKEND_RUNTIME.items()}
     try:
@@ -165,7 +165,7 @@ def test_run_llm_cli_command_falls_back_from_codex_to_opencode_for_degraded_auto
 
 
 def test_run_llm_cli_command_skips_cooldown_backend_when_alternative_is_available():
-    from agent.common import sgpt as sgpt_mod
+    from agent.cli_backends import sgpt as sgpt_mod
 
     runtime_before = {name: dict(values) for name, values in sgpt_mod._BACKEND_RUNTIME.items()}
     try:
@@ -210,7 +210,7 @@ def test_run_llm_cli_command_skips_cooldown_backend_when_alternative_is_availabl
 
 
 def test_run_llm_cli_command_prefixes_openai_provider_for_opencode_model():
-    from agent.common import sgpt as sgpt_mod
+    from agent.cli_backends import sgpt as sgpt_mod
 
     with (
         patch("agent.cli_backends.sgpt.settings") as mock_settings,

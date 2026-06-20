@@ -1,7 +1,7 @@
 from flask import Blueprint, current_app, g
 
 from agent.auth import check_auth
-from agent.common.sgpt import run_llm_cli_command
+from agent.cli_backends.sgpt import run_llm_cli_command
 from agent.common.errors import api_response
 from agent.llm_integration import _call_llm
 from agent.metrics import TASK_COMPLETED, TASK_FAILED

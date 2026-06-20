@@ -66,7 +66,7 @@ def run_external_backend_tool(
             policy_decision={"router_decision": decision},
         )
 
-    from agent.common.sgpt import run_llm_cli_command
+    from agent.cli_backends.sgpt import run_llm_cli_command
 
     guarded_prompt = f"{_PROPOSE_GUARD}\n\n{prompt}"
     rc, out, err, backend_used = run_llm_cli_command(

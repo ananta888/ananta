@@ -87,7 +87,7 @@ def get_workspace_mutation_config(workdir: str | None = None) -> dict[str, Any]:
     explicit_mode = None
     if workdir:
         try:
-            from agent.common.sgpt_architecture_scan import _read_research_context
+            from agent.cli_backends.architecture_scan import _read_research_context
 
             research_context = _read_research_context(workdir)
             task_kind = str(research_context.get("task_kind") or "") or None
@@ -165,7 +165,7 @@ def run_ananta_worker_workspace_mutation(
     cfg = dict(config or get_workspace_mutation_config(workdir))
     mode = str(cfg.get("resolved_mode") or "read_only")
     if llm_runner is None:
-        from agent.common.sgpt import run_sgpt_command
+        from agent.cli_backends.sgpt import run_sgpt_command
 
         llm_runner = run_sgpt_command
 
