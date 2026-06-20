@@ -57,7 +57,7 @@ class TestSourceFileBatchesPathOnly:
 
         workdir = _make_workdir(tmp_path / "ws", [{"path": "sample.py"}])
 
-        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
+        with patch("agent.cli_backends.architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir))
 
         assert len(batches) == 1
@@ -77,7 +77,7 @@ class TestSourceFileBatchesPathOnly:
 
         workdir = _make_workdir(tmp_path / "ws", [{"path": "../secret.txt"}])
 
-        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
+        with patch("agent.cli_backends.architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir))
 
         assert batches == []
@@ -88,7 +88,7 @@ class TestSourceFileBatchesPathOnly:
         repo = _make_repo(tmp_path)
         workdir = _make_workdir(tmp_path / "ws", [{"path": "doesnotexist.py"}])
 
-        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
+        with patch("agent.cli_backends.architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir))
 
         assert batches == []
@@ -99,7 +99,7 @@ class TestSourceFileBatchesPathOnly:
         repo = _make_repo(tmp_path)
         workdir = _make_workdir(tmp_path / "ws", [], hub_content="# Hub context\nsome content")
 
-        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
+        with patch("agent.cli_backends.architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir))
 
         assert len(batches) == 1
@@ -118,7 +118,7 @@ class TestSourceFileBatchesPathOnly:
         hub_dir.mkdir()
         (hub_dir / "hub-context.md").write_text("fallback content", encoding="utf-8")
 
-        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
+        with patch("agent.cli_backends.architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir))
 
         # Should gracefully fall back to hub-context.md
@@ -144,7 +144,7 @@ class TestLineRangeNormalization:
 
         workdir = _make_workdir(tmp_path / "ws", [{"path": "sample.py", "start_line": 21, "end_line": 22}])
 
-        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
+        with patch("agent.cli_backends.architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir), context_lines=0)
 
         assert len(batches) == 1
@@ -163,7 +163,7 @@ class TestLineRangeNormalization:
 
         workdir = _make_workdir(tmp_path / "ws", [{"path": "sample.py", "line_start": 5, "line_end": 7}])
 
-        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
+        with patch("agent.cli_backends.architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir), context_lines=0)
 
         assert len(batches) == 1
@@ -179,7 +179,7 @@ class TestLineRangeNormalization:
 
         workdir = _make_workdir(tmp_path / "ws", [{"path": "sample.py", "from_line": 10, "to_line": 12}])
 
-        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
+        with patch("agent.cli_backends.architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir), context_lines=0)
 
         assert batches[0][0]["source_kind"] == "line_range"
@@ -195,7 +195,7 @@ class TestLineRangeNormalization:
         # end < start — invalid
         workdir = _make_workdir(tmp_path / "ws", [{"path": "sample.py", "start_line": 10, "end_line": 5}])
 
-        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
+        with patch("agent.cli_backends.architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir))
 
         assert len(batches) == 1
@@ -210,7 +210,7 @@ class TestSnippetAndChunkPriority:
         repo = _make_repo(tmp_path)
         workdir = _make_workdir(tmp_path / "ws", [{"snippet": "def my_func(): pass"}])
 
-        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
+        with patch("agent.cli_backends.architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir))
 
         assert len(batches) == 1
@@ -227,7 +227,7 @@ class TestSnippetAndChunkPriority:
         ]
         workdir = _make_workdir(tmp_path / "ws", [{"path": "module.py", "chunks": chunks}])
 
-        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
+        with patch("agent.cli_backends.architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir), files_per_batch=5)
 
         # Chunks from ref used, not file-beginning fallback
@@ -248,7 +248,7 @@ class TestSnippetAndChunkPriority:
         # Same path twice → only one block
         workdir = _make_workdir(tmp_path / "ws", [{"path": "sample.py"}, {"path": "sample.py"}])
 
-        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
+        with patch("agent.cli_backends.architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir))
 
         all_blocks = [b for batch in batches for b in batch]
@@ -268,7 +268,7 @@ class TestSnippetAndChunkPriority:
             {"path": "c.py", "score": 0.6},
         ])
 
-        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
+        with patch("agent.cli_backends.architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir), files_per_batch=10)
 
         all_blocks = [b for batch in batches for b in batch]
@@ -357,7 +357,7 @@ class TestCodeCompassSnippetHandoff:
             "reason": "target function",
         }])
 
-        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
+        with patch("agent.cli_backends.architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir), context_lines=0, per_file_chars=4000)
 
         assert len(batches) == 1
@@ -377,7 +377,7 @@ class TestCodeCompassSnippetHandoff:
 
         workdir = _make_workdir(tmp_path / "ws", [{"path": "module.py"}])
 
-        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
+        with patch("agent.cli_backends.architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir))
 
         assert len(batches) == 1
@@ -394,7 +394,7 @@ class TestCodeCompassSnippetHandoff:
 
         workdir = _make_workdir(tmp_path / "ws", [{"path": "../secret.txt", "start_line": 1, "end_line": 1}])
 
-        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
+        with patch("agent.cli_backends.architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir))
 
         assert batches == []
@@ -409,7 +409,7 @@ class TestBackwardCompatibility:
         (repo / "legacy.py").write_text("x = 1\n", encoding="utf-8")
         workdir = _make_workdir(tmp_path / "ws", [{"path": "legacy.py"}])
 
-        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
+        with patch("agent.cli_backends.architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir))
 
         assert len(batches) == 1
@@ -421,7 +421,7 @@ class TestBackwardCompatibility:
         repo = _make_repo(tmp_path)
         workdir = _make_workdir(tmp_path / "ws", [], hub_content="hub fallback")
 
-        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
+        with patch("agent.cli_backends.architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir))
 
         assert batches[0][0]["source_kind"] == "hub_context"
@@ -436,7 +436,7 @@ class TestBackwardCompatibility:
         ananta_dir.mkdir()
         (ananta_dir / "hub-context.md").write_text("hub only", encoding="utf-8")
 
-        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
+        with patch("agent.cli_backends.architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir))
 
         assert batches[0][0]["source_kind"] == "hub_context"
@@ -449,7 +449,7 @@ class TestBackwardCompatibility:
         (workdir / "rag_helper").mkdir(parents=True)
         (workdir / "rag_helper" / "research-context.json").write_text("{{broken", encoding="utf-8")
 
-        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
+        with patch("agent.cli_backends.architecture_scan._resolve_repo_root", return_value=repo):
             # Must not raise
             batches = _load_source_file_batches(str(workdir))
 
@@ -470,7 +470,7 @@ class TestBudgetGuard:
 
         workdir = _make_workdir(tmp_path / "ws", refs)
 
-        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
+        with patch("agent.cli_backends.architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir), max_files=3)
 
         all_blocks = [b for batch in batches for b in batch]
@@ -492,7 +492,7 @@ class TestBudgetGuard:
         ]
         workdir = _make_workdir(tmp_path / "ws", refs)
 
-        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
+        with patch("agent.cli_backends.architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir), max_files=2)
 
         all_blocks = [b for batch in batches for b in batch]
@@ -516,7 +516,7 @@ class TestConfigDrivenContext:
 
         workdir = _make_workdir(tmp_path / "ws", [{"path": "sample.py", "start_line": 15, "end_line": 15}])
 
-        with patch("agent.common.sgpt_architecture_scan._resolve_repo_root", return_value=repo):
+        with patch("agent.cli_backends.architecture_scan._resolve_repo_root", return_value=repo):
             batches_narrow = _load_source_file_batches(str(workdir), context_lines=0)
             batches_wide = _load_source_file_batches(str(workdir), context_lines=3)
 
