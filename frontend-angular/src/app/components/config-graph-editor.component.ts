@@ -1,5 +1,4 @@
 import {
-  AfterViewInit,
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
@@ -786,7 +785,7 @@ const CLONE_DEFS: Record<string, CloneFormField[]> = {
     .button-outline:disabled { opacity:.4; cursor:default; }
   `],
 })
-export class ConfigGraphEditorComponent implements OnInit, AfterViewInit, OnDestroy {
+export class ConfigGraphEditorComponent implements OnInit, OnDestroy {
   private readonly svc = inject(ConfigGraphService);
   readonly cdr = inject(ChangeDetectorRef);
   private readonly destroy$ = new Subject<void>();
@@ -893,7 +892,6 @@ export class ConfigGraphEditorComponent implements OnInit, AfterViewInit, OnDest
   // ── Lifecycle ──────────────────────────────────────────────────────────────
 
   ngOnInit(): void { this.reload(); }
-  ngAfterViewInit(): void {}
   ngOnDestroy(): void { this.destroy$.next(); this.destroy$.complete(); }
 
   // ── Navigation ─────────────────────────────────────────────────────────────

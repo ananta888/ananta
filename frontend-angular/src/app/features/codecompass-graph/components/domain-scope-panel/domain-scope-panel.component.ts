@@ -15,7 +15,7 @@ import { DetectedDomain, ResolvedDomainScopePreview } from '../../models/domain-
   imports: [CommonModule],
   template: `
     <div class="domain-scope-panel">
-      @if (!(svc.scopeEnabled$ | async)) {
+      @if ((svc.scopeEnabled$ | async) === false) {
         <p class="hint">Runtime-Domain-Scope ist deaktiviert (CODECOMPASS_DOMAIN_SCOPE_ENABLED).
           Eine Auswahl wirkt dann nur als weicher Profil-Hinweis.</p>
       }

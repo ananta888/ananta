@@ -211,7 +211,7 @@ import { ChatMessageComponent } from '../../components/chat-message.component';
     <div class="tp-body">
       <app-ai-snake-trace-viewer />
     </div>
-    @if (!(traceSvc.activeTraceId$ | async)) {
+    @if ((traceSvc.activeTraceId$ | async) === null) {
       <div class="tp-hint">
         Schick eine Nachricht im Chat-Panel — der Ablauf erscheint hier in Echtzeit.
       </div>

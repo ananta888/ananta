@@ -120,7 +120,7 @@ interface ChunkMeta { path: string; source_type: string; score: number; }
                (click)="pick(ev)">
             <span class="step-dot" [class]="'dot-' + ev.status">{{ STATUS_DOT[ev.status] || '○' }}</span>
             <span class="step-label">{{ stepLabel(ev) }}</span>
-            @if (ev.duration_ms != null) {
+            @if (ev.duration_ms !== null) {
               <span class="step-ms">{{ ev.duration_ms | number:'1.0-0' }}ms</span>
             }
           </div>
@@ -135,7 +135,7 @@ interface ChunkMeta { path: string; source_type: string; score: number; }
         <div class="det-title">{{ sel.title }}</div>
         <div class="det-meta">
           <span class="badge-sm" [class]="'badge-' + sel.status">{{ sel.status }}</span>
-          @if (sel.duration_ms != null) {
+          @if (sel.duration_ms !== null) {
             <span class="det-dur">{{ sel.duration_ms | number:'1.0-0' }} ms</span>
           }
           @if (sel.redaction_applied) {

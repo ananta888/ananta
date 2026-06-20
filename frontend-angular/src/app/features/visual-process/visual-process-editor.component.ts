@@ -697,10 +697,6 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy {
     navigator.clipboard?.writeText(this.mermaidText()).then(() => this.statusMsg.set('Mermaid kopiert ✓'));
   }
 
-  // Called before showing the dialog
-  ngDoCheck(): void {
-    // noop — dialog managed via showMermaidDialog toggle + lazy loading
-  }
 
   // ── SVG helpers
   private clientToSvg(cx: number, cy: number): { svgX: number; svgY: number } {
