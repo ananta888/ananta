@@ -171,7 +171,7 @@ def test_validate_user_layer_payload_allows_normal_prompts():
 
 # --- CCARI-005: ananta-worker iteration prompt ---
 
-sgpt_module = importlib.import_module("agent.common.sgpt_architecture_scan")
+sgpt_module = importlib.import_module("agent.cli_backends.architecture_scan")
 
 
 def test_needs_codecompass_runtime_rules_false_for_empty():

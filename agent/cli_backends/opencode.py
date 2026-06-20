@@ -159,9 +159,7 @@ def resolve_opencode_runtime_config(model: str | None = None) -> dict[str, objec
     resolved_profile = None
     if target_profile:
         try:
-            from agent.services.model_invocation_service import ModelInvocationService
-
-            resolver = ModelInvocationService._get_resolver()
+            resolver = _ctx.model_invocation_service._get_resolver()
             resolved_profile = (getattr(resolver, "_by_id", {}) or {}).get(target_profile) if resolver is not None else None
             if resolved_profile is not None:
                 forced_target_provider = str(getattr(resolved_profile, "provider_id", "") or "").strip().lower() or forced_target_provider
@@ -331,9 +329,7 @@ def run_opencode_command(
         else {}
     )
     if session and str(runtime_meta.get("kind") or "").strip().lower() == "native_server":
-        from agent.services.opencode_runtime_service import get_opencode_runtime_service
-
-        return get_opencode_runtime_service().run_session_turn(
+        return _ctx.opencode_runtime_service.run_session_turn(
             session,
             prompt=prompt,
             timeout=timeout,
@@ -341,9 +337,7 @@ def run_opencode_command(
         )
     opencode_execution_mode = str(session_meta.get("opencode_execution_mode") or "").strip().lower()
     if session and opencode_execution_mode == "live_terminal":
-        from agent.services.live_terminal_session_service import get_live_terminal_session_service
-
-        return get_live_terminal_session_service().run_opencode_turn(
+        return _ctx.live_terminal_session_service.run_opencode_turn(
             session,
             prompt=prompt,
             timeout=timeout,
@@ -351,9 +345,7 @@ def run_opencode_command(
             workdir=workdir,
         )
     if session and opencode_execution_mode == "interactive_terminal":
-        from agent.services.live_terminal_session_service import get_live_terminal_session_service
-
-        terminal_service = get_live_terminal_session_service()
+        terminal_service = _ctx.live_terminal_session_service
         session_info = terminal_service.ensure_session_for_cli(session, workdir=workdir) or {}
         rc, out, err, command_label = _run_opencode_subprocess(
             prompt=prompt,
