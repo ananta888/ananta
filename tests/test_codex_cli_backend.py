@@ -824,8 +824,8 @@ def test_get_cli_backend_preflight_reports_not_configured_lmstudio_provider(app)
         }
         app.config["PROVIDER_URLS"] = {}
         with (
-            patch("agent.common.sgpt_backend_routing.shutil.which", return_value=None),
-            patch("agent.common.sgpt_backend_routing.settings") as mock_settings,
+            patch("agent.cli_backends.routing.shutil.which", return_value=None),
+            patch("agent.cli_backends.routing.settings") as mock_settings,
             patch("agent.cli_backends.helpers.settings") as mock_settings_h,
         ):
             mock_settings.codex_path = "codex"

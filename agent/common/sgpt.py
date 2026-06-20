@@ -25,7 +25,7 @@ from agent.common.sgpt_backend_semaphore import (
     _acquire_backend_permit,
     _get_backend_semaphore,
 )
-from agent.common.sgpt_backend_routing import (
+from agent.cli_backends.routing import (
     SUPPORTED_CLI_BACKENDS,
     CLI_BACKEND_INSTALL_HINTS,
     CLI_BACKEND_VERIFY_COMMANDS,
