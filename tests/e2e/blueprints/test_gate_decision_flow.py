@@ -49,25 +49,23 @@ def _ensure_tdd_blueprint(client, auth_header: dict) -> dict:
     return tdd
 
 
-def _create_real_goal(client, auth_header: dict, name: str) -> str:
-    """Create a real GoalDB row so the route's
-    ``_can_access_goal`` check passes. The e2e test
-    focuses on the human-decision endpoint, not the goal
-    creation flow."""
-    response = client.post(
-        "/goals",
-        json={
-            "goal": name,
-            "context": "WFG-025 e2e fixture goal",
-            "acceptance_criteria": [
-                "Refactor gate passes",
-                "Audit log records resolution",
-            ],
-        },
-        headers=auth_header,
-    )
-    assert response.status_code in (200, 201), response.data
-    return response.json["data"]["goal"]["id"]
+def _create_real_goal(name: str) -> str:
+    """Create a GoalDB row directly so the route's ``_can_access_goal``
+    check passes without triggering LLM-based planning (which hangs in CI
+    where no model is configured)."""
+    from sqlmodel import Session
+    from agent.database import engine
+    from agent.db_models import GoalDB
+    goal_id = str(uuid.uuid4())
+    with Session(engine) as session:
+        session.add(GoalDB(
+            id=goal_id,
+            goal=name,
+            status="created",
+            requested_by="admin",
+        ))
+        session.commit()
+    return goal_id
 
 
 def _build_gate_task(
@@ -184,9 +182,7 @@ def test_human_decision_endpoint_approves_gate(client) -> None:
     """
     admin_token = _login_admin(client)
     auth_header = {"Authorization": f"Bearer {admin_token}"}
-    goal_id = _create_real_goal(
-        client, auth_header, "WFG-025 approve"
-    )
+    goal_id = _create_real_goal("WFG-025 approve")
 
     gate = _build_gate_task(goal_id=goal_id)
     _persist_gate_task(gate)
@@ -218,9 +214,7 @@ def test_human_decision_endpoint_approves_gate(client) -> None:
 def test_human_decision_endpoint_rejects_gate(client) -> None:
     admin_token = _login_admin(client)
     auth_header = {"Authorization": f"Bearer {admin_token}"}
-    goal_id = _create_real_goal(
-        client, auth_header, "WFG-025 reject"
-    )
+    goal_id = _create_real_goal("WFG-025 reject")
 
     gate = _build_gate_task(goal_id=goal_id)
     _persist_gate_task(gate)
@@ -247,9 +241,7 @@ def test_human_decision_endpoint_rejects_gate(client) -> None:
 def test_human_decision_endpoint_rejects_invalid_outcome(client) -> None:
     admin_token = _login_admin(client)
     auth_header = {"Authorization": f"Bearer {admin_token}"}
-    goal_id = _create_real_goal(
-        client, auth_header, "WFG-025 invalid"
-    )
+    goal_id = _create_real_goal("WFG-025 invalid")
 
     gate = _build_gate_task(goal_id=goal_id)
     _persist_gate_task(gate)
