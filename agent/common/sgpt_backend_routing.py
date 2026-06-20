@@ -14,7 +14,7 @@ from agent.research_backend import (
     is_research_backend,
     resolve_research_backend_config,
 )
-from agent.common.sgpt_helpers import (
+from agent.cli_backends.helpers import (
     _classify_runtime_target,
     _get_agent_config,
     _get_runtime_default_provider,

@@ -244,7 +244,7 @@ def test_sgpt_backends_endpoint_includes_runtime_preflight_metadata(client, admi
             "candidate_count": 3,
             "candidates": [{"id": "qwen2.5-coder"}],
         },
-    ), patch("agent.common.sgpt_backend_routing.settings", _ms), patch("agent.common.sgpt_helpers.settings", _ms), patch("agent.common.sgpt_opencode.settings", _ms):
+    ), patch("agent.common.sgpt_backend_routing.settings", _ms), patch("agent.cli_backends.helpers.settings", _ms), patch("agent.common.sgpt_opencode.settings", _ms):
         response = client.get("/api/sgpt/backends", headers=admin_auth_header)
 
     assert response.status_code == 200
@@ -313,7 +313,7 @@ def test_sgpt_backends_endpoint_reports_invalid_lmstudio_runtime_metadata(client
             "candidate_count": 0,
             "candidates": [],
         },
-    ), patch("agent.common.sgpt_backend_routing.settings", _ms), patch("agent.common.sgpt_helpers.settings", _ms), patch("agent.common.sgpt_opencode.settings", _ms):
+    ), patch("agent.common.sgpt_backend_routing.settings", _ms), patch("agent.cli_backends.helpers.settings", _ms), patch("agent.common.sgpt_opencode.settings", _ms):
         response = client.get("/api/sgpt/backends", headers=admin_auth_header)
 
     assert response.status_code == 200

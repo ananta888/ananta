@@ -32,7 +32,7 @@ import time
 import uuid
 from typing import Any, Callable
 
-from agent.common.sgpt_helpers import _get_agent_config
+from agent.cli_backends.helpers import _get_agent_config
 from agent.cli_backends.context import default_context
 from agent.common.sgpt_tool_loop import (
     KIND_CANNOT_CONTINUE,

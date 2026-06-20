@@ -15,7 +15,7 @@ def test_run_codex_command_injects_lmstudio_openai_compatible_env():
     with (
         patch("agent.common.sgpt_opencode.shutil.which", return_value=r"C:\tools\codex.cmd"),
         patch("agent.common.sgpt_opencode.settings") as mock_settings,
-        patch("agent.common.sgpt_helpers.settings") as mock_settings_h,
+        patch("agent.cli_backends.helpers.settings") as mock_settings_h,
         patch("agent.common.sgpt_opencode.subprocess.run") as mock_run,
         patch("agent.common.sgpt_opencode._acquire_backend_permit", _fake_permit),
     ):
@@ -124,7 +124,7 @@ def test_resolve_codex_runtime_config_falls_back_to_openai_when_lmstudio_not_pre
 
     with (
         patch("agent.common.sgpt_opencode.settings") as mock_settings,
-        patch("agent.common.sgpt_helpers.settings") as mock_settings_h,
+        patch("agent.cli_backends.helpers.settings") as mock_settings_h,
     ):
         mock_settings.default_provider = "openai"
         mock_settings.lmstudio_url = "http://127.0.0.1:1234/v1"
@@ -442,7 +442,7 @@ def test_resolve_opencode_runtime_config_falls_back_to_settings_provider_urls(ap
         app.config["PROVIDER_URLS"] = {}
         with (
             patch("agent.common.sgpt_opencode.settings") as mock_settings,
-            patch("agent.common.sgpt_helpers.settings") as mock_settings_h,
+            patch("agent.cli_backends.helpers.settings") as mock_settings_h,
             patch(
                 "agent.common.sgpt_opencode.resolve_ollama_model",
                 return_value="bartowski-qwen2.5-coder-7b-instruct-gguf-qwen2.5-coder-7b-instruct-q4_k_s:latest",
@@ -826,7 +826,7 @@ def test_get_cli_backend_preflight_reports_not_configured_lmstudio_provider(app)
         with (
             patch("agent.common.sgpt_backend_routing.shutil.which", return_value=None),
             patch("agent.common.sgpt_backend_routing.settings") as mock_settings,
-            patch("agent.common.sgpt_helpers.settings") as mock_settings_h,
+            patch("agent.cli_backends.helpers.settings") as mock_settings_h,
         ):
             mock_settings.codex_path = "codex"
             mock_settings.opencode_path = "opencode"
