@@ -278,6 +278,8 @@ jobs:
             -vv \
             --durations=25 \
             --timeout=180 \
+            --tb=short \
+            --junitxml=test-results-${{ matrix.shard }}.xml \
             -m "not live_compose" \
             -k "not test_task_evolution_apply_endpoint_is_explicitly_policy_gated \
                 and not test_task_evolution_validate_and_apply_fail_closed_for_analyze_only_evolver \
@@ -305,3 +307,12 @@ jobs:
             --ignore=tests/test_tasks_opencode_e2e.py \
             --ignore=tests/test_triggers_e2e.py \
             --ignore=tests/test_worker_client_adapter.py
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: test-results-${{ matrix.shard }}
+          path: test-results-${{ matrix.shard }}.xml
+          retention-days: 3
+          if-no-files-found: ignore
