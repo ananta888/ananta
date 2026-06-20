@@ -302,51 +302,79 @@ wobei `_FakeRepo` ein minimaler Stub mit `.save(entry) -> entry` ist.
 
 ## Welle 3 — Heuristic Runtime Services
 
-### Task 3.1: `heuristic_selection_service.py` Property-Pattern
+### Befund: Welle 3 entfällt
 
-**Objective:** Gleicher Refactor wie 2.1 für `heuristic_selection_service.py:87`.
+**Source-First-Re-Verifikation hat ergeben, dass das ursprünglich identifizierte
+``self._X = module_global_X``-Pattern in den Heuristic-Services und
+``planning_track_task_integration_service`` KEIN Singleton-Cache-Problem
+darstellt, sondern ein normales Default-Factory-Pattern.**
 
-**Files:** Modify `agent/services/heuristic_runtime/heuristic_selection_service.py`
+Konkret:
 
-**Steps:** analog zu 2.1, 2.2, 2.3.
+```python
+# agent/services/heuristic_runtime/heuristic_tool.py:90
+self._trace_repo = trace_repo or DecisionTraceRepository()  # <- Klassenkonstruktor, kein Modul-Singleton
 
-**Commit:** `refactor(heuristic-selection): switch to di-property for lease repository`
+# agent/services/heuristic_runtime/heuristic_selection_service.py:87
+self._lease_repo = lease_repo or HeuristicLeaseRepository()  # <- dto
 
-### Task 3.2: `heuristic_tool.py` Property-Pattern
+# agent/services/heuristic_runtime/chat_decision_manager.py:51-52
+self._lease_repo = lease_repo or HeuristicLeaseRepository()
+self._trace_repo = trace_repo or DecisionTraceRepository()  # <- dto
 
-**Files:** Modify `agent/services/heuristic_runtime/heuristic_tool.py:90`
+# agent/services/heuristic_runtime/snake_decision_manager.py:136-137
+self._lease_repo = lease_repo or HeuristicLeaseRepository()
+self._trace_repo = trace_repo or DecisionTraceRepository()  # <- dto
 
-**Steps:** analog.
+# agent/services/planning_track_task_integration_service.py:80
+self._artifact_repo = goal_artifact_repository or GoalArtifactRepository()  # <- dto
+```
 
-**Commit:** `refactor(heuristic-tool): switch to di-property for trace repository`
+Im Gegensatz zu ``result_memory_service.py:94``:
+```python
+self._memory_entry_repo = memory_entry_repository if memory_entry_repository is not None else memory_entry_repo
+# ^^^^^ Modul-Level-Singleton-Cache (Import-time frozen)
+```
 
-### Task 3.3: `chat_decision_manager.py` + `snake_decision_manager.py`
+**Unterschied:** Die Heuristic-Services importieren ``DecisionTraceRepository``
+und ``HeuristicLeaseRepository`` als **Klassen** (nicht als Instanzen) und
+rufen den Konstruktor in ``__init__`` auf. Es gibt **keinen** Modul-Level-Singleton,
+dessen Referenz eingefroren werden könnte. Die ``or ClassName()``-Default-Factory
+erzeugt jedes Mal eine frische Instanz, wenn kein Override übergeben wird.
 
-**Files:** Modify `agent/services/heuristic_runtime/chat_decision_manager.py:51-52` + `agent/services/heuristic_runtime/snake_decision_manager.py:136-137`
+**Konsequenz:** Das DI-Layer-Refactoring-Pattern (Property-Lookup via
+``agent.services.di``) bringt hier keinen Nutzen — es gibt keine
+Aufrufzeit-Referenz aufzulösen, weil kein Modul-Singleton existiert.
 
-**Commit:** `refactor(heuristic-runtime): switch to di-property for lease and trace repos`
+**Verifikation:** Audit-Rezept für zukünftige Re-Verifikation:
+
+```bash
+# Findet Singleton-Cache (das Problem):
+grep -rn 'self\._[a-z_]\_repo\s*=\s*[a-z_]\_repo\b' agent/services/
+
+# Findet Default-Factory (kein Problem):
+grep -rn 'self\._[a-z_]\_repo\s*=\s*[a-z_]\+_repo or [A-Z]' agent/services/
+```
+
+Der erste Grep findet nur noch ``result_memory_service.py`` (via Property →
+nicht mehr als Cache, sondern als late-binding). Der zweite findet die
+Heuristic-Services — alle bestätigt als harmlos.
+
+**Tests dazu:** Null Tests in ``tests/`` monkeypatchen
+``DecisionTraceRepository`` oder ``HeuristicLeaseRepository``. Die Heuristic-
+Services sind nicht in STAB-OPEN-1 oder STAB-OPEN-2 enthalten.
+
+**Aktion:** Welle 3 + Welle 4 sind nicht erforderlich. Der systemweite
+DI-Layer ist durch Welle 1 + Welle 2 abgedeckt. Welle 5 schließt mit
+diesem Befund dokumentiert ab.
 
 ---
 
-## Welle 4 — Übrige 2 Services
+## Welle 4 — entfällt (siehe Welle 3 Befund)
 
-### Task 4.1: `planning_track_task_integration_service.py`
-
-**Files:** Modify `agent/services/planning_track_task_integration_service.py:80`
-
-**Commit:** `refactor(planning-track-task-integration): switch to di-property for goal artifact repo`
-
-### Task 4.2: Finaler Konsolidierungs-Check
-
-**Objective:** Grep über `agent/services/` für verbleibende `self._X = module_global_X`-Pattern.
-
-**Step 1:** `grep -rn 'self\._[a-z_]\_repo\s*=\s*[a-z_]\_repo' agent/services/` → 0 Treffer.
-
-**Step 2:** Falls Treffer: weitere Tasks anhängen.
-
-**Step 3:** Full-Run 3x zur Verifikation.
-
-**Commit:** `chore(di): final consolidation grep-check for module-global-self-X pattern`
+Welle 4 (``planning_track_task_integration_service.py`` Property-Pattern
+plus Grep-Verifikation) ist nach dem Welle-3-Befund obsolet. Der
+Grep-Audit ist trotzdem sinnvoll und wird in Welle 5 nachgeholt.
 
 ---
 
