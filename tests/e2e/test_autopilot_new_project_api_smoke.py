@@ -36,6 +36,22 @@ def _block_sgpt():
         yield
 
 
+@pytest.fixture(autouse=True)
+def _block_hub_llm():
+    # The planning context compactor calls hub_llm_service.generate_text before
+    # reaching invoke_with_tools. In CI (no lmstudio), _call_llm retries
+    # 3× with 45 s timeout = 180 s per test = pytest --timeout=180 kills every
+    # test before the mocked invoke_with_tools is ever reached.
+    # The compactor catches Exception and proceeds (context_compaction_required=False),
+    # so raising here is safe — the propose path continues to the strategy.
+    with patch(
+        "agent.services.hub_llm_service.generate_text",
+        side_effect=RuntimeError("hub_llm_blocked_in_AFF-E2E-T004"),
+        create=True,
+    ):
+        yield
+
+
 @pytest.fixture
 def smoke_task(app, admin_auth_header, client):
     """Create a new_software_project task via the task creation route."""

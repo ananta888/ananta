@@ -36,6 +36,21 @@ def _block_sgpt():
         yield
 
 
+@pytest.fixture(autouse=True)
+def _block_hub_llm():
+    # The planning context compactor calls hub_llm_service.generate_text before
+    # reaching invoke_with_tools. In CI (no lmstudio), _call_llm retries
+    # 3× with 45 s timeout = 180 s per test = pytest --timeout=180 kills every
+    # test before the mocked invoke_with_tools is ever reached.
+    # The compactor catches Exception and proceeds (context_compaction_required=False).
+    with patch(
+        "agent.services.hub_llm_service.generate_text",
+        side_effect=RuntimeError("hub_llm_blocked_in_taskscoped_persist_execute"),
+        create=True,
+    ):
+        yield
+
+
 def _tool_calls_for_workspace(workspace: Path) -> list[dict]:
     return [
         {
