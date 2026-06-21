@@ -229,7 +229,7 @@ def run_ananta_worker_tool_loop(
 
     registry = _ctx.ananta_tool_registry_service
     policy = _ctx.ananta_tool_policy_service
-    from agent.services.tools import execute_ananta_tool
+    execute_ananta_tool = _ctx.ananta_tool_executor
     instructions = build_tool_loop_instructions(
         allowed_tools_description=registry.describe_for_prompt(cfg.get("allowed_tools"))
     )
@@ -398,9 +398,7 @@ def run_ananta_worker_tool_loop(
             pass
         elif registry.get_tool(tool_name) is None and decision.allowed:
             # Paranoid check: tool was somehow allowed by policy but not in registry.
-            from agent.services.tools._evidence import build_tool_result as _btr
-
-            unknown_result = _btr(
+            unknown_result = _ctx.tool_result_builder(
                 tool_name=tool_name,
                 tool_call_id=tool_call_id,
                 status="policy_blocked",
@@ -419,9 +417,8 @@ def run_ananta_worker_tool_loop(
                 else AUDIT_WORKER_TOOL_BLOCKED
             )
             _audit(blocked_action, tool_name=tool_name, decision=decision.decision, risk=decision.risk_class, detail=decision.reason)
-            from agent.services.tools._evidence import build_tool_result
 
-            blocked_result = build_tool_result(
+            blocked_result = _ctx.tool_result_builder(
                 tool_name=tool_name,
                 tool_call_id=tool_call_id,
                 status=decision.decision,

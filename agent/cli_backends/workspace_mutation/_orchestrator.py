@@ -49,9 +49,13 @@ from agent.cli_backends.workspace_mutation.signatures import (
     changes_signature as _changes_signature_impl,
     evidence_signature as _evidence_signature_impl,
 )
-from agent.services.generated_source_line_policy_service import (
-    DECISION_BLOCKED,
+from agent.cli_backends.workspace_mutation.tools import (
+    build_tool_result,
+    execute_ananta_tool,
     extract_policy_config,
+    generated_source_decision_blocked,
+    resolve_workspace_path,
+    workspace_path_error_type,
 )
 
 log = logging.getLogger(__name__)
@@ -171,12 +175,11 @@ def run_ananta_worker_workspace_mutation(
 
     _tool_policy_svc = default_context.ananta_tool_policy_service
     _mutation_policy_svc = default_context.ananta_workspace_mutation_policy_service
-    from agent.services.tools import execute_ananta_tool
-    from agent.services.tools._evidence import build_tool_result
-    from agent.services.tools.repo_tools import WorkspacePathError, resolve_workspace_path
     _ws_svc = default_context.worker_workspace_service
 
     workspace = pathlib.Path(workdir).resolve()
+    WorkspacePathError = workspace_path_error_type()
+    decision_blocked = generated_source_decision_blocked()
     ws_svc = _ws_svc
     _gen_source_line_policy = default_context.generated_source_line_policy_service
     mutation_policy = _mutation_policy_svc
@@ -525,7 +528,7 @@ def run_ananta_worker_workspace_mutation(
                     context={"task_id": task_id},
                 ).as_dict()
                 source_line_write_results.append(source_line_result)
-                if source_line_result.get("status") == DECISION_BLOCKED:
+                if source_line_result.get("status") == decision_blocked:
                     if existed_before and original_text is not None:
                         target.write_text(original_text, encoding="utf-8")
                     else:

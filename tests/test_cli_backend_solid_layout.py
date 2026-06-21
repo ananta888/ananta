@@ -4,8 +4,8 @@ The DIP contract: the only place that knows about agent.services is
 ``context.py`` (the DI box). All other modules in agent.cli_backends
 must go through ``default_context.<service>``.
 
-Welle 2 verifies this is achievable; the actual migration of source
-modules' lazy imports is a separate concern tracked separately.
+The backend context is the only boundary allowed to know how service
+handles are resolved.
 """
 from __future__ import annotations
 
@@ -19,30 +19,11 @@ ALLOWED_FILES_WITH_SERVICES_IMPORTS = {"context.py"}
 
 def _collect_agent_services_imports(file_path: Path) -> list[tuple[int, str]]:
     """Return (line_no, line_content) for each ``agent.services.*`` import.
-
-    We exclude ``agent.services.tools._evidence`` and
-    ``agent.services.tools`` helpers (execute_ananta_tool, repo_tools)
-    because those are pure helper modules, not service getters.
-
-    We also allow imports of constants / dataclasses from service modules
-    (e.g. ``DECISION_BLOCKED``, ``extract_policy_config``) because these
-    are data, not service locators.
     """
     text = file_path.read_text(encoding="utf-8")
     results: list[tuple[int, str]] = []
     for lineno, line in enumerate(text.splitlines(), start=1):
         if re.search(r"\bfrom\s+agent\.services\.", line) or re.search(r"\bimport\s+agent\.services\.", line):
-            # Whitelist: tools._evidence and tools helpers are pure helpers.
-            if "agent.services.tools" in line:
-                continue
-            # Whitelist: dataclass / constant imports from service modules
-            # (they don't make service-locator calls).
-            if re.search(
-                r"from\s+agent\.services\.[\w.]+\s+import\s+\(",
-                line,
-            ):
-                # multi-line import — peek ahead
-                continue
             results.append((lineno, line.strip()))
     return results
 

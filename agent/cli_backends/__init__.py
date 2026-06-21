@@ -1,14 +1,11 @@
-"""agent.cli_backends — Public API re-export layer for the LLM-CLI backend subsystem.
+"""agent.cli_backends — LLM-CLI backend subsystem public API.
 
 This package is the **public API** for the LLM-CLI backend subsystem
-(sgpt, opencode, codex, aider, mistral). In Welle 1 of the SGDEC migration
-it re-exports symbols from ``agent.common.sgpt_*`` which remains the
-source of truth.
+(sgpt, opencode, codex, aider, mistral). It is also the source of truth
+for backend orchestration code after the SGDEC migration.
 
-Migration plan:
-- Welle 1: this package re-exports from agent.common.sgpt_*.
-- Welle 2: source-of-truth moves into agent.cli_backends.*, shims flip.
-- Welle 3: agent.common.sgpt_* shims deleted, this package is canonical.
+Service-owned dependencies are resolved through
+``agent.cli_backends.context.CliBackendContext``.
 
 See:
 - .hermes/plans/decouple-sgpt-from-services.md

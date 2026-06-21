@@ -15,9 +15,6 @@ Usage:
     python scripts/check_cli_backend_shim_imports.py
 
 The detector excludes:
-- ``agent/common/sgpt_*.py`` themselves (those are the source files
-  that the shim layer re-exports; in Welle 3 they ARE the shims that
-  will be deleted)
 - ``agent/cli_backends/`` (the new namespace; imports go the other way)
 - ``scripts/check_cli_backend_shim_imports.py`` (this file)
 - ``.venv``, ``node_modules``, ``__pycache__``, ``.git``, etc.
@@ -31,8 +28,9 @@ import sys
 from pathlib import Path
 
 # Patterns that count as a violation. We grep for two patterns:
-# 1. `from agent.cli_backends.X import ...`  (multi-line aware)
-# 2. `import agent.cli_backends.X`           (whole-module import)
+# 1. `from agent.common.sgpt_X import ...`
+# 2. `from agent.common import sgpt_X`
+# 3. `import agent.common.sgpt_X`
 # Both indicate the legacy namespace is still in use.
 VIOLATION_PATTERNS = [
     re.compile(r"^\s*from\s+agent\.common\.sgpt_[A-Za-z_][\w.]*\s+import\b"),
@@ -42,7 +40,6 @@ VIOLATION_PATTERNS = [
 
 # Paths to exclude from the scan.
 EXCLUDED_PATH_PARTS = {
-    "agent/common/",  # Source / shim files themselves
     "agent/cli_backends/",  # New namespace (imports go the other way)
     ".venv",
     "venv",
@@ -52,7 +49,6 @@ EXCLUDED_PATH_PARTS = {
     ".pytest_cache",
     ".claude/",  # Worktrees + caches, not part of the source tree
     "scripts/check_cli_backend_shim_imports.py",  # this file
-    "tests/test_cli_backend_shim_deprecation.py",  # tests the re-export contract; must import both paths
     "tests/fixtures/",
     "data/",
     "artifacts/",

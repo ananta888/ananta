@@ -94,6 +94,24 @@ class CliBackendContext:
     architecture_analysis_planner = _ServiceProperty(
         lambda: __import__("agent.services.architecture_analysis_planner_service", fromlist=["get_architecture_analysis_planner"]).get_architecture_analysis_planner()
     )
+    ananta_tool_executor = _ServiceProperty(
+        lambda: __import__("agent.services.tools", fromlist=["execute_ananta_tool"]).execute_ananta_tool
+    )
+    tool_result_builder = _ServiceProperty(
+        lambda: __import__("agent.services.tools._evidence", fromlist=["build_tool_result"]).build_tool_result
+    )
+    workspace_path_resolver = _ServiceProperty(
+        lambda: __import__("agent.services.tools.repo_tools", fromlist=["resolve_workspace_path"]).resolve_workspace_path
+    )
+    workspace_path_error_type = _ServiceProperty(
+        lambda: __import__("agent.services.tools.repo_tools", fromlist=["WorkspacePathError"]).WorkspacePathError
+    )
+    generated_source_line_policy_helpers = _ServiceProperty(
+        lambda: __import__(
+            "agent.services.generated_source_line_policy_service",
+            fromlist=["DECISION_BLOCKED", "extract_policy_config"],
+        )
+    )
 
 
 # Module-level singleton — tests monkeypatch the class or the instance.

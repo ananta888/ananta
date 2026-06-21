@@ -34,19 +34,26 @@ def test_workspace_mutation_prompts_module_exists() -> None:
 def test_workspace_mutation_loop_module_exists() -> None:
     """The package must expose the config + run entry point."""
     from agent.cli_backends import workspace_mutation as wm
+    from agent.cli_backends.workspace_mutation import loop
 
     assert hasattr(wm, "get_workspace_mutation_config")
     assert hasattr(wm, "run_ananta_worker_workspace_mutation")
+    assert hasattr(loop, "get_workspace_mutation_config")
+    assert hasattr(loop, "run_ananta_worker_workspace_mutation")
 
 
 def test_workspace_mutation_tools_module_exists() -> None:
     """The package must expose the KIND_* constants and helpers."""
     from agent.cli_backends import workspace_mutation as wm
+    from agent.cli_backends.workspace_mutation import tools
 
     assert hasattr(wm, "KIND_WORKSPACE_WRITE")
     assert hasattr(wm, "KIND_PATCH_REQUEST")
     assert wm.KIND_WORKSPACE_WRITE == "workspace_write"
     assert wm.KIND_PATCH_REQUEST == "patch_request"
+    assert hasattr(tools, "execute_ananta_tool")
+    assert hasattr(tools, "build_tool_result")
+    assert hasattr(tools, "resolve_workspace_path")
 
 
 def test_workspace_mutation_size_after_split() -> None:

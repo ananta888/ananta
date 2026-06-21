@@ -72,10 +72,9 @@ Run relevant checks before submitting changes, for example:
 ## LLM-CLI Backends
 
 New LLM-CLI backends (sgpt variants, opencode, codex, aider, mistral, ...)
-belong in `agent/cli_backends/`. The legacy paths in
-`agent/common/sgpt_*.py` are Source-of-Truth for the public API surface
-that `agent.cli_backends.*` re-exports; new code MUST import from the
-new namespace. The shim-detector (see above) flags violations.
+belong in `agent/cli_backends/`. `agent.cli_backends.*` is the source of
+truth for this subsystem; production code MUST import from that namespace.
+The shim-detector (see above) flags legacy `agent.common.sgpt_*` imports.
 - frontend lint and tests where applicable
 
 ## Licensing of contributions

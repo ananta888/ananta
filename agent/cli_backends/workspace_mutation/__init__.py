@@ -3,6 +3,8 @@
 The workspace-mutation loop is split into 4 sub-modules:
 - signatures: stable-hashing helpers for evidence + change-sets
 - prompts: parse_mutation_output, build_mode_instructions, build_iteration_prompt
+- loop: public config/run entry points
+- tools: service-boundary adapters for tool execution and policy helpers
 - _orchestrator: the run_ananta_worker_workspace_mutation mega-function
   (kept in a sub-module to keep the main __init__ thin)
 
@@ -11,9 +13,11 @@ so callers can use the package as a single import surface.
 """
 from __future__ import annotations
 
-from agent.cli_backends.workspace_mutation._orchestrator import (  # noqa: F401, E402
+from agent.cli_backends.workspace_mutation._orchestrator import (  # noqa: F401
     KIND_PATCH_REQUEST,
     KIND_WORKSPACE_WRITE,
+)
+from agent.cli_backends.workspace_mutation.loop import (  # noqa: F401, E402
     get_workspace_mutation_config,
     run_ananta_worker_workspace_mutation,
 )
