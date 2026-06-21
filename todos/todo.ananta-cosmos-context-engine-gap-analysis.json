@@ -1,0 +1,665 @@
+{
+  "id": "todo.ananta-cosmos-context-engine-gap-analysis",
+  "title": "Ananta/CodeCompass gegen Augment Cosmos und Context Engine strategisch vergleichen und Luecken schliessen",
+  "status": "open",
+  "priority": "critical",
+  "created": "2026-06-21",
+  "last_reviewed": "2026-06-21",
+  "tags": [
+    "ananta",
+    "codecompass",
+    "augment",
+    "cosmos",
+    "context-engine",
+    "agent-runtime",
+    "expert-registry",
+    "knowledge-graph",
+    "workflow-automation",
+    "sandbox",
+    "human-in-the-loop",
+    "replayable-runs",
+    "strategic-gap-analysis"
+  ],
+  "goal": "Ananta und CodeCompass bewusst gegen Augment Cosmos und die Augment Context Engine benchmarken. Ziel ist nicht blindes Nachbauen, sondern eine klare strategische Positionierung: Open-/Self-host-first, lokale Modelle, Default-Deny, erklaerbare Policy- und Hub-Orchestrierung, waehrend relevante Produktluecken wie Expert Registry, Agent Runtime, Sandboxes, Trigger, Replayability, Cross-Repo Knowledge Graph und Context Curation systematisch geschlossen werden.",
+  "relationship_to_existing_todos": {
+    "extends": [
+      "todos/todo.augment-auggie-codecompass-integration.json"
+    ],
+    "separation_reason": "Die bestehende Auggie-Todo beschreibt konkrete Adapter fuer Augment Context Provider, Auggie CLI Worker und Interactive Bridge. Diese Todo beschreibt die groessere strategische Luecke gegen Cosmos als Ananta-aehnliche Agentenplattform und gegen die Augment Context Engine als CodeCompass-aehnlichen Kontextlayer.",
+    "must_not_duplicate": [
+      "Auggie CLI Adapter-Details nicht erneut ausimplementieren.",
+      "MCP/codebase-retrieval Low-Level-Details nur referenzieren, nicht verdoppeln.",
+      "Security-/Sandbox-Basics aus der bestehenden Todo wiederverwenden und hier nur erweitern, wenn Cosmos-spezifische Anforderungen entstehen."
+    ]
+  },
+  "strategic_assessment": {
+    "summary": "Cosmos ist konzeptionell nicht nur Konkurrenz zu CodeCompass, sondern eher ein kommerzielles Ananta-aehnliches System: Agent Runtime, Context Engine, Experts, Trigger, Sandboxes, Shared File System, Integrationen und Governance. CodeCompass ist dagegen nur ein Teilbereich. Ananta muss sich daher bewusst als offenes, kontrollierbares, policyfaehiges Agenten-Betriebssystem positionieren.",
+    "likely_external_strengths": [
+      "Produktreife und UX fuer grosse Teams.",
+      "Starke Context Engine mit Live Knowledge Graph und Kontext-Kuration.",
+      "Fertige Experts fuer Triage, PR-Erstellung, Review, Risk Analysis und Testing.",
+      "Integration in GitHub, Jira, Slack, CI und Developer Workflows.",
+      "Sandboxing, Replayability, Audit und Enterprise Governance als Produktfeatures.",
+      "Team-/History-/IDE-Kontext als zusaetzliche Signale."
+    ],
+    "ananta_differentiation": [
+      "Self-host-first und optional voll lokal nutzbar.",
+      "Open-Source-orientierte Architektur statt Blackbox-SaaS.",
+      "Default-Deny als Grundprinzip, nicht als Enterprise-Option.",
+      "Hub entscheidet zentral; keine unkontrollierte Agenten-zu-Agenten-Orchestrierung.",
+      "Policy- und Rechtegraph explizit im Systemmodell.",
+      "Lokale Modelle, eigene Worker und austauschbare Provider.",
+      "Erklaerbarkeit und Debugbarkeit fuer Einzelentwickler und kleine Teams."
+    ]
+  },
+  "architecture_gap_map": {
+    "cosmos_like_capabilities": {
+      "agent_runtime": "Robuste Ausfuehrungsumgebung fuer Agentenlaeufe mit State, Artefakten, Fehlern, Wiederaufnahme, Abbruch und Audit.",
+      "expert_registry": "Wiederverwendbare Rollen/Templates fuer Dispatcher, PR Author, Reviewer, Risk Analyst, Tester usw.",
+      "trigger_automation": "Start von Workflows durch GitHub Events, Issues, PRs, CI-Status, Zeitplaene oder manuelle UI-Aktionen.",
+      "shared_file_system": "Kontrollierter Task-/Agenten-Arbeitsbereich mit Artefakten, Diffs, Logs und reproduzierbarem Zustand.",
+      "sandboxes": "Isolierte Ausfuehrung von Tests, Builds und schreibenden Agentenarbeiten.",
+      "human_in_the_loop": "Freigabe-Gates fuer risikoreiche Aktionen, Diffs, Deployments, PRs, externe Calls und Secrets.",
+      "replayable_runs": "Wiederholbare, auditierbare Laeufe mit gespeicherten Inputs, Kontextentscheidungen, Toolcalls, Artefakten und Ergebnissen.",
+      "governance": "RBAC, Policy, Audit Logs, SIEM/Export, Organisationsgrenzen und Rechtepruefung."
+    },
+    "context_engine_like_capabilities": {
+      "live_knowledge_graph": "Fortlaufend aktualisierter Graph aus Dateien, Symbolen, Funktionen, Services, APIs, Datenbanken, Events und Tests.",
+      "cross_repo_graph": "Beziehungen ueber mehrere Repositories und Services hinweg.",
+      "active_vs_deprecated_detection": "Erkennung aktiver, veralteter, toter oder riskanter Codepfade.",
+      "history_context": "Commits, PRs, Reviews, Issues und Designentscheidungen als Kontextsignal.",
+      "ide_activity_context": "Aktuelle Dateien, Cursor-/Arbeitskontext und Entwicklerfokus als Signal.",
+      "context_curation": "Retrieve, rank, compress, deduplicate, prioritize und evidence-basiert erklaeren.",
+      "confidence_evidence": "Jeder Kontexttreffer bekommt Quelle, Grund, Confidence, Freshness und Policy-Status."
+    }
+  },
+  "non_goals": [
+    "Cosmos nicht 1:1 kopieren.",
+    "Keine kommerzielle SaaS-Blackbox nachbauen.",
+    "Keine neue unkontrollierte Multi-Agenten-Kommunikation einfuehren.",
+    "Kein Ersatz fuer die bestehende Auggie-Adapter-Todo.",
+    "Keine automatische Remote-Indexierung sensibler Repositories.",
+    "Keine Agentenaktionen ohne Policy- und Approval-Gates."
+  ],
+  "tasks": [
+    {
+      "id": "COSMOS-000",
+      "title": "Strategisches Architekturpapier Ananta vs Cosmos schreiben",
+      "status": "open",
+      "priority": "critical",
+      "component": "strategy",
+      "description": "Ein klares internes Dokument erstellen, das Cosmos als kommerzielle Referenz einordnet und Anantas Positionierung dagegen schaerft.",
+      "suggested_files": [
+        "docs/architecture/ananta-vs-cosmos-gap-analysis.md",
+        "docs/architecture/codecompass-vs-context-engine.md"
+      ],
+      "acceptance_criteria": [
+        "Dokument beschreibt Cosmos nicht nur als CodeCompass-Konkurrenz, sondern als Ananta-aehnliche Agentenplattform.",
+        "Dokument trennt Context Engine, Agent Runtime, Experts, Trigger, Sandboxes, Governance und Integrationen sauber.",
+        "Dokument benennt Anantas Differenzierung: Open, Self-host, lokal, Default-Deny, erklaerbarer Policy-Graph.",
+        "Dokument enthaelt eine Priorisierung, welche Luecken kurzfristig, mittelfristig und langfristig geschlossen werden sollen.",
+        "Dokument vermeidet Marketing-Sprache und benennt realistisch, wo Augment wahrscheinlich staerker ist."
+      ]
+    },
+    {
+      "id": "COSMOS-001",
+      "title": "Expert Registry fuer Ananta definieren",
+      "status": "open",
+      "priority": "critical",
+      "component": "agent-runtime",
+      "description": "Eine Registry fuer wiederverwendbare Expert-/Worker-Templates definieren, analog zu Dispatcher, PR Author, Reviewer, Risk Analyst und Tester, aber policyfaehig und lokal/offen.",
+      "expert_examples": [
+        "work_dispatcher",
+        "code_context_analyst",
+        "pr_author",
+        "pair_reviewer",
+        "deep_code_reviewer",
+        "risk_analyst",
+        "test_runner",
+        "security_reviewer",
+        "documentation_writer",
+        "release_assistant"
+      ],
+      "acceptance_criteria": [
+        "ExpertDefinition enthaelt Name, Zweck, erlaubte Tools, erlaubte Pfade, Modellrouting, Kontextstrategie, Output-Vertrag und Approval-Regeln.",
+        "Experts koennen versioniert und als JSON/YAML/Blueprint gespeichert werden.",
+        "Expert Registry ist vom Hub abfragbar, aber Experts koennen keine eigenen Rechte erfinden.",
+        "Default-Experts laufen mit minimalen Rechten.",
+        "Ein Expert kann als Vorlage kopiert und projektspezifisch erweitert werden.",
+        "Tests pruefen Registrierung, Validierung, Versionierung und Policy-Vererbung."
+      ]
+    },
+    {
+      "id": "COSMOS-002",
+      "title": "Agent Runtime Modell gegen Cosmos-Anforderungen haerten",
+      "status": "open",
+      "priority": "critical",
+      "component": "agent-runtime",
+      "description": "Die bestehende Hub/Worker-Runtime so erweitern, dass Agentenlaeufe robuste Zustandsmodelle, Artefakte, Fehlerbehandlung, Wiederaufnahme und Abbruch unterstuetzen.",
+      "required_states": [
+        "created",
+        "queued",
+        "planning",
+        "waiting_for_context",
+        "waiting_for_approval",
+        "running",
+        "verifying",
+        "failed",
+        "cancelled",
+        "completed"
+      ],
+      "acceptance_criteria": [
+        "Jeder Agentenlauf hat stabile run_id, goal_id, correlation_id, expert_id und policy_scope_id.",
+        "Run-Zustand ist persistierbar und im Tracking sichtbar.",
+        "Abbruch und Timeout sind explizite Zustandsuebergaenge.",
+        "Wiederaufnahme ist nur bei idempotenten oder freigegebenen Schritten erlaubt.",
+        "Fehler speichern Ursache, betroffenen Schritt, Artefakte und naechste Optionen.",
+        "Tests pruefen State Machine, ungueltige Uebergaenge, Cancel und Retry."
+      ]
+    },
+    {
+      "id": "COSMOS-003",
+      "title": "Trigger- und Automation-System fuer Ananta definieren",
+      "status": "open",
+      "priority": "high",
+      "component": "automation",
+      "description": "Workflows sollen durch definierte Trigger gestartet werden koennen, ohne dass externe Integrationen direkt Agentenrechte bekommen.",
+      "trigger_sources": [
+        "manual_ui",
+        "cli_command",
+        "github_issue",
+        "github_pull_request",
+        "github_check_failed",
+        "scheduled_job",
+        "webhook",
+        "local_file_change",
+        "blueprint_event"
+      ],
+      "acceptance_criteria": [
+        "Trigger erzeugen nur neutrale TriggerEvents, keine direkten Worker-Aktionen.",
+        "Hub mappt TriggerEvents auf Blueprints/Experts nach Policy.",
+        "Jeder Trigger hat Rate-Limit, Scope und Audit-Kontext.",
+        "Externe Webhooks werden signiert/validiert oder abgelehnt.",
+        "Trigger koennen deaktiviert und pro Projekt konfiguriert werden.",
+        "Tests pruefen erlaubte, abgelehnte und mehrfach ausgelöste Trigger."
+      ]
+    },
+    {
+      "id": "COSMOS-004",
+      "title": "Shared Task File System als kontrolliertes Artefaktmodell bauen",
+      "status": "open",
+      "priority": "critical",
+      "component": "workspace",
+      "description": "Ein gemeinsames, aber kontrolliertes Task-Dateisystem fuer Agentenlaeufe definieren: Inputs, Kontextpakete, Diffs, Logs, Reports, Testausgaben und Freigaben.",
+      "artifact_types": [
+        "input_snapshot",
+        "context_bundle",
+        "worker_prompt",
+        "worker_output",
+        "diff_patch",
+        "test_report",
+        "review_report",
+        "risk_report",
+        "approval_record",
+        "final_summary"
+      ],
+      "acceptance_criteria": [
+        "Artefakte sind typisiert, versioniert und run_id-gebunden.",
+        "Artefakte haben Policy-Klassifikation wie public, internal, sensitive, secret_ref.",
+        "Secret-Inhalte werden nicht als normale Artefakte gespeichert.",
+        "Jeder Worker sieht nur erlaubte Artefakte.",
+        "Artefakte koennen fuer Replay und Debug exportiert werden.",
+        "Tests pruefen Zugriffskontrolle, Redaction und Artefakt-Lifecycle."
+      ]
+    },
+    {
+      "id": "COSMOS-005",
+      "title": "Sandbox-Abstraktion fuer Builds, Tests und Agentenarbeit definieren",
+      "status": "open",
+      "priority": "critical",
+      "component": "sandbox",
+      "description": "Eine Sandbox-Schicht definieren, damit Tests, Builds, externe CLIs und schreibende Agentenarbeit isoliert laufen koennen.",
+      "sandbox_backends": [
+        "local_process_restricted",
+        "docker_container",
+        "devcontainer",
+        "wsl_workspace",
+        "remote_dev_vm_optional"
+      ],
+      "acceptance_criteria": [
+        "SandboxBackend-Port enthaelt start, exec, copy_in, copy_out, diff, stop und cleanup.",
+        "Default ist lokal restriktiv oder deaktiviert, nicht automatisch privilegiert.",
+        "Netzwerk, Dateisystem, ENV und Ressourcenlimits sind konfigurierbar.",
+        "Docker/Devcontainer sind optionale Backends, keine harte Pflicht.",
+        "Jede Sandbox-Ausfuehrung wird auditiert.",
+        "Tests nutzen FakeSandbox und pruefen Policy-Verletzungen."
+      ]
+    },
+    {
+      "id": "COSMOS-006",
+      "title": "Human-in-the-loop Policy Gates systematisieren",
+      "status": "open",
+      "priority": "critical",
+      "component": "policy",
+      "description": "Freigabe-Gates fuer riskante Aktionen vereinheitlichen: Datei-Diffs, Git-Operationen, PRs, externe Calls, Secrets, Deployment und Loeschoperationen.",
+      "gate_types": [
+        "apply_diff",
+        "delete_file",
+        "run_network_tool",
+        "send_context_external",
+        "create_pull_request",
+        "merge_pull_request",
+        "rerun_ci",
+        "access_secret_ref",
+        "deploy_or_release"
+      ],
+      "acceptance_criteria": [
+        "Jedes Gate hat Risiko-Level, erforderliche Rolle, Begruendung, Artefakte und Ablaufdatum.",
+        "Freigabeentscheidung wird unveraenderlich auditiert.",
+        "Abgelehnte Gates blockieren die Aktion hart.",
+        "Gates koennen im UI/CLI beantwortet werden.",
+        "Policy kann pro Projekt strengere Gates verlangen.",
+        "Tests pruefen erlaubte, abgelehnte, abgelaufene und fehlende Approvals."
+      ]
+    },
+    {
+      "id": "COSMOS-007",
+      "title": "Replayable Runs fuer Agentenlaeufe einbauen",
+      "status": "open",
+      "priority": "critical",
+      "component": "audit",
+      "description": "Agentenlaeufe sollen spaeter reproduzierbar, inspizierbar und debugbar sein: Inputs, Kontextentscheidungen, Toolcalls, Outputs, Diffs, Tests und Freigaben.",
+      "acceptance_criteria": [
+        "ReplayRecord enthaelt Run-Metadaten, Expert-Version, Config-Snapshot, Policy-Snapshot und Kontextbundle-Referenzen.",
+        "Nicht-deterministische externe Antworten werden als Snapshot gespeichert oder als nicht-replayable markiert.",
+        "Replay kann ohne schreibende Side Effects im Dry-Run laufen.",
+        "Replay unterscheidet Analyse-Replay und Action-Replay mit separaten Approvals.",
+        "UI/CLI kann einen Run inspizieren und Replay-Voraussetzungen anzeigen.",
+        "Tests pruefen ReplayRecord-Schema und Dry-Run-Schutz."
+      ]
+    },
+    {
+      "id": "COSMOS-008",
+      "title": "CodeCompass Live Knowledge Graph roadmap definieren",
+      "status": "open",
+      "priority": "critical",
+      "component": "codecompass",
+      "description": "CodeCompass in Richtung Live Knowledge Graph weiterentwickeln: Dateien, Symbole, Funktionen, Imports, API-Endpunkte, Datenmodelle, Tests, Services und Domain-Beziehungen.",
+      "graph_nodes": [
+        "repository",
+        "module",
+        "file",
+        "class",
+        "function",
+        "method",
+        "api_endpoint",
+        "database_table",
+        "event_topic",
+        "config_key",
+        "test_case",
+        "domain_concept",
+        "policy_rule"
+      ],
+      "graph_edges": [
+        "imports",
+        "calls",
+        "implements",
+        "reads",
+        "writes",
+        "tests",
+        "configures",
+        "publishes",
+        "subscribes",
+        "owns_domain",
+        "requires_permission",
+        "deprecated_by"
+      ],
+      "acceptance_criteria": [
+        "Graph-Schema ist dokumentiert und versioniert.",
+        "Bestehende Domain Map und Funktionsgraph-Daten werden nicht verworfen, sondern migriert/angebunden.",
+        "Graph kann inkrementell aktualisiert werden.",
+        "Jede Kante hat Quelle, Confidence, Freshness und Evidence.",
+        "Graph-Abfragen sind im CodeCompass-Tooling nutzbar.",
+        "Tests pruefen Graph-Aufbau, Update und Query fuer ein kleines Fixture-Projekt."
+      ]
+    },
+    {
+      "id": "COSMOS-009",
+      "title": "Cross-Repo und Cross-Service Analyse fuer CodeCompass planen",
+      "status": "open",
+      "priority": "high",
+      "component": "codecompass",
+      "description": "CodeCompass soll langfristig Beziehungen ueber mehrere Repositories/Services darstellen koennen, ohne Projektgrenzen und Rechte aufzuweichen.",
+      "acceptance_criteria": [
+        "RepoBoundary-Modell definiert, welche Repos gemeinsam analysiert werden duerfen.",
+        "Cross-Repo-Kanten haben explizite Quelle und Permission-Status.",
+        "Fehlende Rechte erzeugen redigierte Platzhalter statt Datenleak.",
+        "Service-Beziehungen wie API, Event, DB oder Shared Library koennen modelliert werden.",
+        "Analyse funktioniert auch mit nur einem Repo ohne Mehrkosten.",
+        "Tests pruefen erlaubte und verweigerte Cross-Repo-Kanten."
+      ]
+    },
+    {
+      "id": "COSMOS-010",
+      "title": "Active-vs-Deprecated-Erkennung fuer CodeCompass entwerfen",
+      "status": "open",
+      "priority": "high",
+      "component": "codecompass",
+      "description": "Kontexttreffer sollen markieren koennen, ob Code aktiv genutzt, historisch, veraltet, tot, riskant oder unsicher ist.",
+      "signals": [
+        "call_graph_reachability",
+        "test_coverage_presence",
+        "recent_commits",
+        "runtime_config_reference",
+        "route_or_endpoint_reference",
+        "deprecation_annotations",
+        "docs_mentions",
+        "usage_in_build_or_ci",
+        "manual_override"
+      ],
+      "acceptance_criteria": [
+        "Statusmodell enthaelt active, likely_active, unknown, deprecated, dead_candidate, risky.",
+        "Status basiert auf Evidence und Confidence, nicht auf geratenen Aussagen.",
+        "Manuelle Overrides sind moeglich und auditierbar.",
+        "Context Ranking kann deprecated/dead_candidate abwerten.",
+        "UI/Report zeigt Warnungen fuer veraltete Treffer.",
+        "Tests pruefen mehrere Signale und widerspruechliche Evidence."
+      ]
+    },
+    {
+      "id": "COSMOS-011",
+      "title": "History Context aus Git, Issues und PRs anbinden",
+      "status": "open",
+      "priority": "high",
+      "component": "codecompass",
+      "description": "Commit-History, PRs, Reviews, Issues und Architekturentscheidungen sollen als Kontextsignal nutzbar werden, aber nie unkritisch fachliche Wahrheit ersetzen.",
+      "acceptance_criteria": [
+        "HistoryProvider-Port fuer Git/PR/Issue/ADR-Quellen definiert.",
+        "History-Treffer haben Datum, Autor, Quelle, betroffene Dateien und Confidence.",
+        "Veraltete History wird als alt markiert und nicht hoeher bewertet als aktueller Code.",
+        "Private/fehlende Berechtigungen werden respektiert.",
+        "History kann pro Projekt deaktiviert werden.",
+        "Tests pruefen Git-Commit-Fixtures und veraltete PR-Informationen."
+      ]
+    },
+    {
+      "id": "COSMOS-012",
+      "title": "IDE-/Arbeitskontext als optionales Signal modellieren",
+      "status": "open",
+      "priority": "medium",
+      "component": "developer-experience",
+      "description": "Aktuelle geoeffnete Dateien, Cursorbereich, aktive Branch und lokale Aenderungen koennen Kontext-Ranking verbessern, duerfen aber nicht automatisch Rechte erweitern.",
+      "acceptance_criteria": [
+        "WorkContext-Port definiert geoeffnete Dateien, aktive Datei, Selection, Branch und Dirty Files.",
+        "WorkContext ist optional und per Default lokal.",
+        "WorkContext erweitert Ranking, aber nicht allowed_paths.",
+        "Sensible lokale Aenderungen werden redigiert oder blockiert.",
+        "UI/CLI zeigt, wann Arbeitskontext verwendet wurde.",
+        "Tests pruefen Ranking-Effekt ohne Rechteausweitung."
+      ]
+    },
+    {
+      "id": "COSMOS-013",
+      "title": "Context Curation Pipeline fuer CodeCompass definieren",
+      "status": "open",
+      "priority": "critical",
+      "component": "codecompass",
+      "description": "Aus Trefferlisten soll eine kuratierte Kontextauswahl werden: retrieve, merge, deduplicate, rank, compress, explain, budget und evidence.",
+      "pipeline_steps": [
+        "retrieve_candidates",
+        "apply_policy_filter",
+        "deduplicate",
+        "rank_by_relevance",
+        "rank_by_freshness",
+        "rank_by_active_status",
+        "compress_snippets",
+        "attach_evidence",
+        "fit_context_budget",
+        "emit_trace"
+      ],
+      "acceptance_criteria": [
+        "Pipeline ist als explizite Schritte implementiert oder dokumentiert.",
+        "Jeder verworfene Treffer bekommt einen Grund.",
+        "Ranking ist nachvollziehbar und testbar.",
+        "Budget-Ueberschreitungen fuehren zu Kompression, nicht zu blindem Abschneiden ohne Trace.",
+        "Evidence und Confidence werden pro Treffer ausgegeben.",
+        "Tests pruefen Duplikate, Budget, Freshness und Policy-Filter."
+      ]
+    },
+    {
+      "id": "COSMOS-014",
+      "title": "Confidence/Evidence Modell fuer alle Kontexttreffer einfuehren",
+      "status": "open",
+      "priority": "high",
+      "component": "codecompass",
+      "description": "Jeder Kontexttreffer soll erklaeren, warum er relevant ist und wie sicher diese Einschaetzung ist.",
+      "acceptance_criteria": [
+        "ContextItem enthaelt evidence, confidence, freshness, provider, policy_status und reason.",
+        "Confidence ist kein LLM-Gefuehl allein, sondern aus Signalen ableitbar.",
+        "Unklare Treffer werden als uncertain markiert.",
+        "Antworten koennen Evidence-Zusammenfassung ausgeben.",
+        "Tests pruefen Confidence-Berechnung mit statischen Fixtures."
+      ]
+    },
+    {
+      "id": "COSMOS-015",
+      "title": "PR Author Expert Blueprint erstellen",
+      "status": "open",
+      "priority": "high",
+      "component": "experts",
+      "description": "Ein Expert, der aus einem genehmigten ChangeProposal einen PR-Entwurf mit Beschreibung, Teststatus und Risiko-Hinweisen erzeugt.",
+      "acceptance_criteria": [
+        "PR Author darf nur genehmigte ChangeProposals verwenden.",
+        "PR-Erstellung ist ein separates Approval-Gate.",
+        "PR-Body enthaelt Ziel, geaenderte Dateien, Tests, Risiken und offene Punkte.",
+        "Kein automatischer Merge.",
+        "GitHub-Integration ist optional und faellt auf Markdown-PR-Entwurf zurueck.",
+        "Tests pruefen PR-Body-Generierung ohne GitHub-Zugriff."
+      ]
+    },
+    {
+      "id": "COSMOS-016",
+      "title": "Deep Code Review Expert Blueprint erstellen",
+      "status": "open",
+      "priority": "high",
+      "component": "experts",
+      "description": "Ein Expert fuer tiefe Code-Reviews mit Fokus auf Architektur, Security, Tests, Regressionen und Policy-Verletzungen.",
+      "acceptance_criteria": [
+        "Review Expert bekommt Diff, Kontextbundle, relevante Tests und Policy-Scope.",
+        "Ausgabe trennt blocking, warning, suggestion und question.",
+        "Review kann keine Aenderungen direkt anwenden.",
+        "Security-Funde werden als risk_report Artefakt gespeichert.",
+        "Review verweist auf Evidence statt pauschaler Aussagen.",
+        "Tests pruefen Output-Vertrag und Severity-Klassifikation."
+      ]
+    },
+    {
+      "id": "COSMOS-017",
+      "title": "PR Risk Analysis Expert Blueprint erstellen",
+      "status": "open",
+      "priority": "high",
+      "component": "experts",
+      "description": "Ein Expert bewertet Risiko eines PRs/Changes anhand von betroffenen Modulen, Tests, Security-Relevanz, Runtime-Pfaden und Deploy-Auswirkungen.",
+      "risk_dimensions": [
+        "security",
+        "data_loss",
+        "api_breakage",
+        "test_gap",
+        "runtime_path_criticality",
+        "config_change",
+        "migration_or_schema_change",
+        "dependency_change",
+        "policy_change"
+      ],
+      "acceptance_criteria": [
+        "Risk Report enthaelt Score, Dimensionen, Evidence und empfohlene Verifikationen.",
+        "Policy-/Security-/CI-Dateien erhoehen Risiko automatisch.",
+        "Fehlende Tests werden als Risiko markiert, nicht geraten kompensiert.",
+        "Risk Expert darf keine Aenderung anwenden.",
+        "Tests pruefen Risiko-Regeln mit Fixture-Diffs."
+      ]
+    },
+    {
+      "id": "COSMOS-018",
+      "title": "Tester Expert Blueprint und Verifikationskette definieren",
+      "status": "open",
+      "priority": "high",
+      "component": "experts",
+      "description": "Ein Tester Expert waehlt passende Tests aus, laeuft sie in Sandbox/Task-Workspace und erstellt TestReport-Artefakte.",
+      "acceptance_criteria": [
+        "Tester darf Testbefehle vorschlagen, aber Ausfuehrung kommt aus Projektconfig/Policy.",
+        "Tests laufen in Sandbox oder kontrolliertem Workspace.",
+        "Testergebnis enthaelt Command, Dauer, Exit-Code, Logs-Auszug und Artefaktpfade.",
+        "Fehlgeschlagene Tests blockieren Apply/Merge-Gates je nach Policy.",
+        "Flaky/Timeout wird separat markiert.",
+        "Tests pruefen erfolgreiche, fehlgeschlagene und blockierte Testausfuehrung."
+      ]
+    },
+    {
+      "id": "COSMOS-019",
+      "title": "Work Dispatcher Expert fuer Aufgabenzerlegung definieren",
+      "status": "open",
+      "priority": "high",
+      "component": "experts",
+      "description": "Ein Dispatcher zerlegt Ziele in sichere Schritte, waehlt Experts/Worker und erzeugt einen pruefbaren Plan, aber fuehrt nichts direkt aus.",
+      "acceptance_criteria": [
+        "Dispatcher erzeugt Plan mit Schritten, Expert-Zuordnung, Kontextbedarf, Risiken und Gates.",
+        "Dispatcher kann keine Policies erweitern.",
+        "Plan ist im Tracking sichtbar und editierbar/freigebbar.",
+        "Unklare Ziele fuehren zu Analyse-/Frage-Schritten statt riskanter Ausfuehrung.",
+        "Tests pruefen Plan-Erzeugung und Policy-Grenzen."
+      ]
+    },
+    {
+      "id": "COSMOS-020",
+      "title": "Integrationsmatrix GitHub/Jira/Slack/CI fuer Ananta erstellen",
+      "status": "open",
+      "priority": "medium",
+      "component": "integrations",
+      "description": "Cosmos punktet stark ueber Integrationen. Ananta soll eine realistische Matrix definieren, was zuerst integriert wird und was bewusst optional bleibt.",
+      "integration_targets": [
+        "GitHub Issues",
+        "GitHub Pull Requests",
+        "GitHub Actions/CI",
+        "Jira Issues",
+        "Slack Notifications",
+        "Local Git",
+        "Generic Webhooks"
+      ],
+      "acceptance_criteria": [
+        "Matrix enthaelt Use Case, Datenrichtung, Rechtebedarf, Risiken und Prioritaet.",
+        "Jede Integration laeuft ueber neutrale Ports statt direkter Fachkopplung.",
+        "GitHub wird priorisiert, Jira/Slack bleiben optional.",
+        "CI-Logs werden nur mit expliziten Rechten gelesen.",
+        "Schreibaktionen wie Labels, Kommentare, PRs haben Gates.",
+        "Dokument benennt Offline-/Local-only-Fallbacks."
+      ]
+    },
+    {
+      "id": "COSMOS-021",
+      "title": "Governance- und Audit-Konzept gegen Enterprise-Features abgleichen",
+      "status": "open",
+      "priority": "high",
+      "component": "governance",
+      "description": "Ananta braucht keine Enterprise-SaaS-Kopie, aber klare Governance: Rollen, Rechte, Audit, Export, SIEM-kompatible Logs optional.",
+      "acceptance_criteria": [
+        "Governance-Modell enthaelt Rollen wie owner, maintainer, reviewer, operator, observer.",
+        "Jede Rolle hat Rechte auf Runs, Artefakte, Approvals, Config und Integrationen.",
+        "Audit-Events sind JSONL/exportierbar.",
+        "Sensible Felder werden redigiert.",
+        "Policy-Verletzungen werden als Security Events markiert.",
+        "Tests pruefen Rollenzugriff und Audit-Export-Schema."
+      ]
+    },
+    {
+      "id": "COSMOS-022",
+      "title": "Ananta Produktpositionierung fuer README/Website ableiten",
+      "status": "open",
+      "priority": "medium",
+      "component": "product",
+      "description": "Aus der Gap-Analyse eine klare, ehrliche Positionierung fuer README und Website ableiten.",
+      "positioning_points": [
+        "Open/self-host-first agent orchestration",
+        "Policy-first and default-deny",
+        "Local models and external providers both supported",
+        "Explainable CodeCompass graph",
+        "Human-approved changes by design",
+        "Not a blackbox coding SaaS"
+      ],
+      "acceptance_criteria": [
+        "README erklaert klar, was Ananta ist und was nicht.",
+        "CodeCompass wird als erklaerbarer Kontext-/Graph-Layer beschrieben.",
+        "Abgrenzung zu kommerziellen Tools bleibt sachlich und ohne Marken-Bashing.",
+        "Security-by-design ist prominent, aber konkret belegt.",
+        "Website/README verweisen auf aktuelle stabile/beta Releases, falls vorhanden."
+      ]
+    },
+    {
+      "id": "COSMOS-023",
+      "title": "Benchmark-Suite Ananta/CodeCompass vs externe Systeme erweitern",
+      "status": "open",
+      "priority": "high",
+      "component": "evaluation",
+      "description": "Die bestehende Augment-Benchmark-Idee auf Cosmos-aehnliche Workflows erweitern: Triage, Authoring, Review, Risk und Testing.",
+      "benchmark_workflows": [
+        "issue_to_plan",
+        "plan_to_change_proposal",
+        "change_to_pr_draft",
+        "diff_to_deep_review",
+        "diff_to_risk_report",
+        "diff_to_test_selection",
+        "failed_ci_to_root_cause"
+      ],
+      "acceptance_criteria": [
+        "Benchmark misst nicht nur Retrieval, sondern komplette Workflow-Qualitaet.",
+        "Jeder Workflow hat Gold-Expectations oder manuelle Bewertungsrubrik.",
+        "Metriken enthalten Laufzeit, Kosten, Kontexttreffer, Fehler, Approval-Bedarf und Testabdeckung.",
+        "Externe Systeme bleiben optional; Fake-/Local-Modus ist Standard.",
+        "Ergebnisse werden als JSON und Markdown-Report erzeugt."
+      ]
+    },
+    {
+      "id": "COSMOS-024",
+      "title": "Roadmap priorisieren: was wirklich zuerst gebaut wird",
+      "status": "open",
+      "priority": "critical",
+      "component": "planning",
+      "description": "Aus allen Luecken eine realistische Reihenfolge ableiten, damit Ananta nicht in Cosmos-Nachbau explodiert.",
+      "recommended_order": [
+        "Expert Registry minimal, aber sauber",
+        "Agent Runtime State Machine",
+        "Task Artifact Model",
+        "Human-in-the-loop Gates",
+        "CodeCompass Context Curation",
+        "Live Knowledge Graph Schema",
+        "PR Review/Risk/Test Experts",
+        "GitHub Trigger und PR Draft",
+        "Replayable Runs",
+        "Cross-Repo Graph"
+      ],
+      "acceptance_criteria": [
+        "Roadmap trennt Must-have, Should-have und Later.",
+        "Jeder Roadmap-Punkt hat Abhaengigkeiten und Risiken.",
+        "Keine Aufgabe setzt Cloud-Provider voraus.",
+        "Security/Policy wird nicht ans Ende geschoben.",
+        "Roadmap ist in kleine implementierbare Tickets aufteilbar."
+      ]
+    }
+  ],
+  "global_acceptance_criteria": [
+    "Es gibt eine klare schriftliche Abgrenzung: Auggie-Adapter-Todo fuer konkrete Augment-Anbindung, diese Todo fuer Cosmos/Context-Engine-Gap und Ananta-Roadmap.",
+    "Ananta wird nicht blind als Cosmos-Klon geplant, sondern als offenes, lokales, policyfaehiges Agentensystem positioniert.",
+    "CodeCompass-Roadmap enthaelt Live Knowledge Graph, Context Curation, Evidence/Confidence und Cross-Repo-Faehigkeit als explizite Themen.",
+    "Agent Runtime-Roadmap enthaelt Expert Registry, Task Artefacts, Sandboxes, Replayable Runs und Human-in-the-loop Gates.",
+    "Alle sicherheitsrelevanten Aktionen bleiben Default-Deny und approval-/policy-gesteuert.",
+    "Normale lokale Nutzung bleibt ohne Augment, Cosmos, SaaS oder externe Accounts moeglich.",
+    "Die Todo ist so konkret, dass daraus spaeter einzelne Implementierungs-Tickets abgeleitet werden koennen."
+  ],
+  "open_questions": [
+    "Welche Cosmos-Faehigkeiten sind fuer Ananta wirklich relevant und welche nur Enterprise-Produkt-Ballast?",
+    "Soll die Expert Registry zuerst JSON-basiert, DB-basiert oder Blueprint-basiert entstehen?",
+    "Wie viel Replayability ist kurzfristig realistisch, ohne die Runtime zu ueberfrachten?",
+    "Soll CodeCompass zuerst Live Knowledge Graph oder Context Curation verbessern?",
+    "Welche GitHub-Integration ist der erste konkrete End-to-End Use Case: PR Review, PR Draft oder Failed-CI Debugging?"
+  ]
+}
