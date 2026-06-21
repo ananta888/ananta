@@ -86,14 +86,13 @@ test.describe('Config + UI Control Hardening', () => {
     await commandTimeout.fill('44');
     await offlineTimeout.fill('45');
     await expect(systemSave).toBeEnabled();
+    const systemSaveResponse = page.waitForResponse((res) =>
+      res.url().includes('/config') &&
+      res.request().method() === 'POST' &&
+      res.status() === 200
+    );
     await systemSave.click();
-      const systemSaveResponse = page.waitForResponse((res) =>
-        res.url().includes('/config') &&
-        res.request().method() === 'POST' &&
-        res.status() === 200
-      );
-      await systemSave.click();
-      await systemSaveResponse;
+    await systemSaveResponse;
       await waitForConfigValue(
         request,
         hubUrl,

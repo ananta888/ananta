@@ -242,7 +242,7 @@ import { SnakeOverlayComponent } from './components/snake-overlay.component';
       height: 18px;
       border-radius: 999px;
       background: color-mix(in srgb, var(--accent) 16%, transparent);
-      color: var(--muted);
+      color: var(--fg);
       font-size: 10px;
       font-weight: 700;
     }

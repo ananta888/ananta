@@ -176,7 +176,7 @@ def _load() -> dict[str, Any]:
     return raw
 
 
-def _save(data: dict[str, Any]) -> None:
+def _save(data: dict[str, Any], *, clear_session_overrides: bool = False) -> None:
     p = _user_json_path()
     tmp = p.with_suffix(".json.tmp")
     try:
@@ -184,8 +184,22 @@ def _save(data: dict[str, Any]) -> None:
         # Write into the nested "settings" key if TUI format is present, otherwise flat
         if isinstance(raw.get("settings"), dict):
             raw["settings"].update(data)
+            settings_dict = raw["settings"]
         else:
             raw.update(data)
+            settings_dict = raw
+        # When patching the base config, remove the same keys from the active session's
+        # settings_delta so GET reflects the patched value rather than the stale override.
+        if clear_session_overrides:
+            active_id = str((settings_dict.get("chat_active_session_id") or "")).strip()
+            if active_id:
+                for session in (settings_dict.get("chat_sessions") or []):
+                    if str(session.get("id") or "") == active_id:
+                        delta = session.get("settings_delta")
+                        if isinstance(delta, dict):
+                            for k in data:
+                                delta.pop(k, None)
+                        break
         raw["_updated_at"] = time.time()
         tmp.write_text(json.dumps(raw, ensure_ascii=False, indent=2), encoding="utf-8")
         os.replace(tmp, p)
@@ -238,7 +252,7 @@ def patch_ai_snake_config():
             updates[key] = str(raw_value) if raw_value is not None else ""
     if not updates and rejected:
         return jsonify({"ok": False, "error": "no valid keys", "rejected": rejected}), 422
-    _save(updates)
+    _save(updates, clear_session_overrides=True)
     return jsonify({"ok": True, "saved": list(updates.keys()), "rejected": rejected})
 
 
