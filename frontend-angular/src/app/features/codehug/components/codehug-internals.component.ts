@@ -18,331 +18,399 @@ import {
   ChRoutingRuleReadModel,
   ChTestLayerReadModel,
   ChAgentRunReadModel,
-  ChAgentStepReadModel,
+  ChCliBackend,
 } from '../models/codehug.models';
-import { TopologyGraphComponent } from '../graph/topology-graph.component';
+import { CodeHugCanvasComponent } from '../graph/codehug-canvas.component';
 import { TraceViewComponent } from '../graph/trace-view.component';
 
 /**
- * CodeHugInternalsComponent — CH-014 Container.
+ * CodeHugInternalsComponent — CH-014 Internals-Ansicht.
  *
- * Zeigt in 3 Tabs:
- * 1. Topology: Hub/Worker-Graph + Routing-Regeln + Layer
- * 2. Trace: Laufzeiten der Agent-Runs (3-stufig)
- * 3. Config: Routing-Regeln + Layer editieren (write-armed erforderlich)
- *
- * Bpmn-js fuer Topology-Graph, eigener SVG-Renderer als Fallback.
+ * Drei Bereiche:
+ * 1. Canvas: interaktiver Node-Editor (Hub/Worker/Layer/Rules) mit Live-Run-Highlighting
+ * 2. Trace: Chronologische Laufzeitdaten der Agent-Runs
+ * 3. Konfiguration: Tabellarische Bearbeitung von Routing-Regeln und Test-Layern
  */
 @Component({
   selector: 'ch-internals',
   standalone: true,
-  imports: [DatePipe, FormsModule, TopologyGraphComponent, TraceViewComponent],
+  imports: [DatePipe, FormsModule, CodeHugCanvasComponent, TraceViewComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <section class="ch-internals">
-      <header class="ch-internals-head">
-        <h2 class="ch-internals-title">System Internals</h2>
-        <p class="ch-internals-lead">
-          Echte Hub/Worker-Topologie, Trace-Daten und Konfiguration.
-          Aenderungen erfordern Write-Modus.
-        </p>
-        <div class="ch-internals-status">
-          <span class="ch-mode" [attr.data-mode]="policy.writeMode()">
-            Modus: {{ policy.writeMode() === 'read-only' ? 'Read-only' : 'Write armed' }}
-          </span>
-          @if (!policy.writeModeActive() && policy.writeMode() === 'write-armed') {
-            <span class="ch-warn">Write-Modus abgelaufen.</span>
+    <section class="ch-int">
+
+      <!-- Compact header strip -->
+      <header class="ch-int-header">
+        <div class="ch-int-header-left">
+          <span class="ch-int-title">System Internals</span>
+
+          <nav class="ch-int-tabs" role="tablist">
+            <button type="button" role="tab"
+              [attr.aria-selected]="tab() === 'canvas'"
+              [class.active]="tab() === 'canvas'"
+              (click)="tab.set('canvas')">Canvas</button>
+            <button type="button" role="tab"
+              [attr.aria-selected]="tab() === 'trace'"
+              [class.active]="tab() === 'trace'"
+              (click)="tab.set('trace')">Trace</button>
+            <button type="button" role="tab"
+              [attr.aria-selected]="tab() === 'config'"
+              [class.active]="tab() === 'config'"
+              (click)="tab.set('config')">Konfiguration</button>
+          </nav>
+        </div>
+
+        <div class="ch-int-header-right">
+          <!-- Active run indicator -->
+          @if (activeRun(); as run) {
+            <span class="ch-int-run-pill" [attr.data-status]="run.status">
+              <span class="ch-int-run-dot"></span>
+              {{ run.actualCliBackend }} · {{ run.deterministicStepCount + run.llmStepCount }} Schritte
+            </span>
           }
-          <button
-            type="button"
-            class="ch-btn"
-            [class.ch-btn-primary]="policy.writeMode() === 'read-only'"
-            [class.ch-btn-secondary]="policy.writeMode() === 'write-armed'"
+
+          <!-- Topology summary -->
+          @if (topology(); as topo) {
+            <span class="ch-int-summary">
+              {{ topo.hubs.length }} Hub · {{ topo.workers.length }} Worker · {{ topo.activeLayers.length }} Layer
+            </span>
+          }
+
+          <!-- Write mode & actions -->
+          <span class="ch-int-mode" [attr.data-mode]="policy.writeMode()">
+            {{ policy.writeMode() === 'read-only' ? 'read-only' : 'write armed' }}
+          </span>
+          <button type="button" class="ch-int-btn"
             (click)="toggleWriteMode()">
-            {{ policy.writeMode() === 'read-only' ? 'Write-Modus aktivieren' : 'Write-Modus deaktivieren' }}
+            {{ policy.writeMode() === 'read-only' ? 'Arm' : 'Disarm' }}
           </button>
-          <button type="button" class="ch-btn ch-btn-secondary" (click)="refreshAll()">Aktualisieren</button>
+          <button type="button" class="ch-int-btn" (click)="refreshAll()">↺</button>
         </div>
       </header>
 
-      <nav class="ch-internals-tabs" role="tablist">
-        <button
-          type="button"
-          role="tab"
-          [attr.aria-selected]="tab() === 'topology'"
-          [class.active]="tab() === 'topology'"
-          (click)="tab.set('topology')">Topologie</button>
-        <button
-          type="button"
-          role="tab"
-          [attr.aria-selected]="tab() === 'trace'"
-          [class.active]="tab() === 'trace'"
-          (click)="tab.set('trace')">Trace</button>
-        <button
-          type="button"
-          role="tab"
-          [attr.aria-selected]="tab() === 'config'"
-          [class.active]="tab() === 'config'"
-          (click)="tab.set('config')">Konfiguration</button>
-      </nav>
-
-      <!-- Tab: Topologie -->
-      @if (tab() === 'topology') {
-        <section class="ch-tab" aria-label="Topologie">
-          @if (topology(); as topo) {
-            <div class="ch-topology-summary">
-              <span><strong>{{ topo.hubs.length }}</strong> Hub(s)</span>
-              <span><strong>{{ topo.workers.length }}</strong> Worker</span>
-              <span><strong>{{ topo.routingRules.length }}</strong> Routing-Regeln</span>
-              <span><strong>{{ topo.activeLayers.length }}</strong> aktive Layer</span>
-            </div>
-            <div class="ch-topology-graph-wrap">
-              <ch-topology-graph
-                [hubs]="topo.hubs"
-                [workers]="topo.workers"
-                [connections]="topo.connections"
-                [selectedWorkerId]="selectedWorkerId()"
-                (workerSelected)="selectedWorkerId.set($event)" />
-            </div>
-            @if (selectedWorker(); as w) {
-              <aside class="ch-worker-detail" aria-label="Worker-Detail">
-                <h4>Worker: {{ w.id }}</h4>
-                <dl>
-                  <dt>Typ</dt><dd>{{ w.type }}</dd>
-                  <dt>CLI-Backend</dt><dd>{{ w.cliBackend }} {{ w.cliBackend === 'deterministic' ? '(deterministisch)' : '' }}</dd>
-                  <dt>Modell</dt><dd>{{ w.model }}</dd>
-                  <dt>Provider</dt><dd>{{ w.llmProvider }}</dd>
-                  <dt>Capabilities</dt><dd>
-                    <ul class="ch-cap-list">
-                      @for (cap of w.capabilities; track cap) {
-                        <li class="ch-cap">{{ cap }}</li>
-                      }
-                    </ul>
-                  </dd>
-                  <dt>Health</dt><dd>{{ w.health }}</dd>
-                  <dt>Boundary</dt><dd>{{ w.boundary }}</dd>
-                  @if (w.lastHeartbeatAt) {
-                    <dt>Last Heartbeat</dt><dd>{{ w.lastHeartbeatAt | date: 'mediumTime' }}</dd>
-                  }
-                </dl>
-              </aside>
-            }
-          } @else if (topologyError(); as err) {
-            <p class="ch-error">Topologie konnte nicht geladen werden: {{ err }}</p>
-          } @else {
-            <p class="ch-muted">Topologie wird geladen…</p>
-          }
-        </section>
+      <!-- Error banner -->
+      @if (topologyError()) {
+        <div class="ch-int-error-banner">Topologie-Fehler: {{ topologyError() }}</div>
+      }
+      @if (configError()) {
+        <div class="ch-int-error-banner">{{ configError() }}</div>
+      }
+      @if (configSuccess()) {
+        <div class="ch-int-success-banner">Konfiguration gespeichert.</div>
       }
 
-      <!-- Tab: Trace -->
-      @if (tab() === 'trace') {
-        <section class="ch-tab" aria-label="Trace">
-          @if (runs().length === 0) {
-            <p class="ch-muted">Keine Agent-Runs verfuegbar.</p>
+      <!-- ───────── TAB: Canvas ───────── -->
+      @if (tab() === 'canvas') {
+        <div class="ch-int-canvas-wrap">
+          @if (topology(); as topo) {
+            <ch-canvas
+              [topology]="topo"
+              [activeRun]="activeRun()"
+              [writeModeActive]="policy.writeModeActive()"
+              (refreshRequested)="refreshAll()"
+              (layerToggled)="onCanvasLayerToggle($event)"
+              (ruleChanged)="onCanvasRuleChange($event)" />
+          } @else if (topologyError()) {
+            <div class="ch-int-canvas-empty">
+              <p>Topologie nicht verfuegbar.</p>
+              <button type="button" class="ch-int-btn" (click)="loadTopology()">Erneut laden</button>
+            </div>
           } @else {
-            <div class="ch-trace-runs">
-              <label>Run:
-                <select [value]="selectedRunId() ?? ''" (change)="onRunSelect($any($event.target).value)">
+            <div class="ch-int-canvas-empty">
+              <p class="ch-int-muted">Topologie wird geladen…</p>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- ───────── TAB: Trace ───────── -->
+      @if (tab() === 'trace') {
+        <section class="ch-int-tab" aria-label="Trace">
+          @if (runs().length === 0) {
+            <p class="ch-int-muted">Keine Agent-Runs vorhanden.</p>
+          } @else {
+            <div class="ch-int-trace-controls">
+              <label class="ch-int-label">
+                Run:
+                <select class="ch-int-select"
+                  [value]="selectedRunId() ?? ''"
+                  (change)="selectedRunId.set($any($event.target).value || null)">
                   @for (run of runs(); track run.id) {
-                    <option [value]="run.id">{{ run.id }} — {{ run.actualCliBackend }} ({{ run.startedAt | date: 'short' }})</option>
+                    <option [value]="run.id">
+                      {{ run.id.slice(0, 12) }} · {{ run.actualCliBackend }} · {{ run.status }} · {{ run.startedAt | date:'short' }}
+                    </option>
                   }
                 </select>
               </label>
             </div>
             @if (selectedRun(); as run) {
-              <div class="ch-trace-run-summary">
+              <div class="ch-int-run-meta">
                 <span><strong>{{ run.deterministicStepCount }}</strong> det</span>
                 <span><strong>{{ run.llmStepCount }}</strong> LLM</span>
                 <span>Backend: <strong>{{ run.actualCliBackend }}</strong></span>
                 <span>Modell: <strong>{{ run.actualModel }}</strong></span>
-                <span>Routing-Grund: <em>{{ run.routingReason }}</em></span>
+                <span>Status: <strong>{{ run.status }}</strong></span>
+                @if (run.routingReason) {
+                  <span class="ch-int-routing-reason">→ {{ run.routingReason }}</span>
+                }
+                @if (run.warnings.length > 0) {
+                  <span class="ch-int-warn">{{ run.warnings.length }} Warnung(en)</span>
+                }
               </div>
-              <ch-trace-view
-                [steps]="run.steps"
-                (stepSelected)="onStepSelected($event)" />
+              <ch-trace-view [steps]="run.steps" (stepSelected)="onStepSelected($event)" />
             }
           }
         </section>
       }
 
-      <!-- Tab: Konfiguration -->
+      <!-- ───────── TAB: Konfiguration ───────── -->
       @if (tab() === 'config') {
-        <section class="ch-tab" aria-label="Konfiguration">
+        <section class="ch-int-tab" aria-label="Konfiguration">
           @if (!policy.writeModeActive()) {
-            <p class="ch-warn">Aenderungen erfordern aktivierten Write-Modus.</p>
+            <p class="ch-int-warn">Aenderungen erfordern Write-Modus. Aktiviere ihn oben rechts.</p>
           }
 
-          <h4>Routing-Regeln</h4>
-          @if (routingRules().length === 0) {
-            <p class="ch-muted">Keine Routing-Regeln definiert.</p>
-          } @else {
-            <table class="ch-table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Beschreibung</th>
-                  <th>Backend</th>
-                  <th>Modell</th>
-                  <th>Prioritaet</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (rule of routingRules(); track rule.id) {
+          <!-- Routing rules -->
+          <div class="ch-int-config-section">
+            <h4 class="ch-int-section-title">Routing-Regeln</h4>
+            @if (routingRules().length === 0) {
+              <p class="ch-int-muted">Keine Routing-Regeln definiert.</p>
+            } @else {
+              <table class="ch-int-table">
+                <thead>
                   <tr>
-                    <td class="ch-mono">{{ rule.id }}</td>
-                    <td>{{ rule.description }}</td>
-                    <td>
-                      <select
-                        [disabled]="!policy.writeModeActive()"
-                        [value]="rule.selectedBackend"
-                        (change)="onRuleBackendChange(rule, $any($event.target).value)">
-                        <option value="sgpt">sgpt</option>
-                        <option value="opencode">opencode</option>
-                        <option value="codex">codex</option>
-                        <option value="claude_code">claude_code</option>
-                        <option value="aider">aider</option>
-                        <option value="mistral">mistral</option>
-                        <option value="deterministic">deterministic</option>
-                      </select>
-                    </td>
-                    <td class="ch-mono">{{ rule.selectedModel }}</td>
-                    <td>{{ rule.priority }}</td>
+                    <th>Prioritaet</th>
+                    <th>Beschreibung</th>
+                    <th>Backend</th>
+                    <th>Modell</th>
                   </tr>
-                }
-              </tbody>
-            </table>
-          }
-
-          <h4>Test-Layer</h4>
-          @if (layers().length === 0) {
-            <p class="ch-muted">Keine Layer konfiguriert.</p>
-          } @else {
-            <ul class="ch-layers">
-              @for (layer of layers(); track layer.id) {
-                <li class="ch-layer" [class.ch-layer-disabled]="!layer.enabled">
-                  <label class="ch-layer-toggle">
-                    <input
-                      type="checkbox"
-                      [disabled]="!policy.writeModeActive()"
-                      [checked]="layer.enabled"
-                      (change)="onLayerToggle(layer, $any($event.target).checked)" />
-                    <strong>{{ layer.name }}</strong>
-                    <span class="ch-layer-order">Order: {{ layer.order }}</span>
-                  </label>
-                  @if (layer.parameters && keyCount(layer.parameters) > 0) {
-                    <pre class="ch-layer-params">{{ stringify(layer.parameters) }}</pre>
+                </thead>
+                <tbody>
+                  @for (rule of routingRules(); track rule.id) {
+                    <tr>
+                      <td>{{ rule.priority }}</td>
+                      <td>{{ rule.description }}</td>
+                      <td>
+                        <select class="ch-int-select-sm"
+                          [disabled]="!policy.writeModeActive()"
+                          [value]="rule.selectedBackend"
+                          (change)="onRuleBackendChange(rule, $any($event.target).value)">
+                          <option value="sgpt">sgpt</option>
+                          <option value="opencode">opencode</option>
+                          <option value="codex">codex</option>
+                          <option value="claude_code">claude_code</option>
+                          <option value="aider">aider</option>
+                          <option value="mistral">mistral</option>
+                          <option value="deterministic">deterministic</option>
+                        </select>
+                      </td>
+                      <td class="ch-mono">{{ rule.selectedModel }}</td>
+                    </tr>
                   }
-                </li>
-              }
-            </ul>
-          }
-          @if (configError(); as err) {
-            <p class="ch-error">{{ err }}</p>
-          }
-          @if (configSuccess()) {
-            <p class="ch-success">Konfiguration aktualisiert.</p>
-          }
+                </tbody>
+              </table>
+            }
+          </div>
+
+          <!-- Test layers -->
+          <div class="ch-int-config-section">
+            <h4 class="ch-int-section-title">Test-Layer</h4>
+            @if (layers().length === 0) {
+              <p class="ch-int-muted">Keine Layer konfiguriert.</p>
+            } @else {
+              <ul class="ch-int-layers">
+                @for (layer of layers(); track layer.id) {
+                  <li class="ch-int-layer" [class.disabled]="!layer.enabled">
+                    <label class="ch-int-layer-label">
+                      <input type="checkbox"
+                        [disabled]="!policy.writeModeActive()"
+                        [checked]="layer.enabled"
+                        (change)="onLayerToggle(layer, $any($event.target).checked)" />
+                      <strong>{{ layer.name }}</strong>
+                      <span class="ch-int-layer-order">Order {{ layer.order }}</span>
+                    </label>
+                    @if (keyCount(layer.parameters) > 0) {
+                      <pre class="ch-int-params">{{ stringify(layer.parameters) }}</pre>
+                    }
+                  </li>
+                }
+              </ul>
+            }
+          </div>
         </section>
       }
     </section>
   `,
   styles: [`
-    :host { display: block; padding: 14px; }
-    .ch-internals-head { margin-bottom: 14px; }
-    .ch-internals-title { margin: 0 0 4px; font-size: 20px; }
-    .ch-internals-lead { margin: 0 0 10px; color: var(--muted); font-size: 12px; }
-    .ch-internals-status { display: flex; gap: 10px; align-items: center; font-size: 12px; }
-    .ch-mode {
-      padding: 3px 8px;
-      border-radius: 999px;
-      background: color-mix(in srgb, var(--accent) 12%, transparent);
-      font-weight: 600;
-    }
-    .ch-mode[data-mode="write-armed"] {
-      background: color-mix(in srgb, #f59e0b 30%, transparent);
-      color: #92400e;
-    }
-    .ch-warn { color: #92400e; font-size: 11px; }
-    .ch-error { color: #b91c1c; font-size: 12px; }
-    .ch-success { color: #065f46; font-size: 12px; }
-    .ch-muted { color: var(--muted); font-size: 12px; }
-    .ch-mono { font-family: var(--mono, ui-monospace, monospace); font-size: 11px; }
+    :host { display: block; height: 100%; }
 
-    .ch-btn {
-      padding: 4px 10px;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-      background: var(--bg);
-      color: var(--fg);
-      cursor: pointer;
-      font-size: 12px;
-    }
-    .ch-btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
-    .ch-btn-secondary { background: var(--card-bg); }
-
-    .ch-internals-tabs {
+    .ch-int {
       display: flex;
-      gap: 4px;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 12px;
+      flex-direction: column;
+      height: 100%;
+      min-height: 0;
     }
-    .ch-internals-tabs button {
+
+    /* Header */
+    .ch-int-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
       padding: 6px 12px;
+      border-bottom: 1px solid var(--border);
+      background: var(--card-bg);
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+    .ch-int-header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .ch-int-header-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .ch-int-title {
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    /* Tabs inside header */
+    .ch-int-tabs {
+      display: flex;
+      gap: 2px;
+    }
+    .ch-int-tabs button {
+      padding: 3px 9px;
       border: 1px solid var(--border);
-      border-bottom: none;
-      border-radius: 6px 6px 0 0;
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 11px;
+    }
+    .ch-int-tabs button.active {
+      background: color-mix(in srgb, var(--accent) 14%, transparent);
+      color: var(--accent);
+      font-weight: 600;
+      border-color: var(--accent);
+    }
+
+    /* Active run pill */
+    .ch-int-run-pill {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .ch-int-run-pill[data-status="running"] {
+      background: color-mix(in srgb, #3b82f6 14%, transparent);
+      border: 1px solid #3b82f6;
+      color: #1e40af;
+    }
+    .ch-int-run-pill[data-status="succeeded"] {
+      background: color-mix(in srgb, #22c55e 12%, transparent);
+      border: 1px solid #22c55e;
+      color: #14532d;
+    }
+    .ch-int-run-pill[data-status="failed"] {
+      background: color-mix(in srgb, #ef4444 10%, transparent);
+      border: 1px solid #ef4444;
+      color: #7f1d1d;
+    }
+    .ch-int-run-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .ch-int-run-pill[data-status="running"] .ch-int-run-dot {
+      animation: ch-int-pulse 1.4s ease-in-out infinite;
+    }
+    @keyframes ch-int-pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+
+    .ch-int-summary { font-size: 11px; color: var(--muted); }
+    .ch-int-mode {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--accent) 10%, transparent);
+    }
+    .ch-int-mode[data-mode="write-armed"] {
+      background: color-mix(in srgb, #f59e0b 20%, transparent);
+      color: #78350f;
+    }
+    .ch-int-btn {
+      padding: 3px 8px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
       background: var(--bg);
       color: var(--fg);
       cursor: pointer;
-      font-size: 12px;
+      font-size: 11px;
     }
-    .ch-internals-tabs button.active {
-      background: var(--card-bg);
-      font-weight: 600;
+    .ch-int-btn:hover { background: var(--card-bg); }
+
+    /* Error / success banners */
+    .ch-int-error-banner {
+      padding: 6px 12px;
+      background: color-mix(in srgb, #ef4444 10%, transparent);
+      border-bottom: 1px solid #fca5a5;
+      font-size: 12px;
+      color: #7f1d1d;
+      flex-shrink: 0;
+    }
+    .ch-int-success-banner {
+      padding: 5px 12px;
+      background: color-mix(in srgb, #22c55e 10%, transparent);
+      border-bottom: 1px solid #bbf7d0;
+      font-size: 12px;
+      color: #14532d;
+      flex-shrink: 0;
     }
 
-    .ch-tab { display: grid; gap: 12px; }
-    .ch-topology-summary {
-      display: flex;
-      gap: 14px;
-      font-size: 12px;
-      color: var(--muted);
-    }
-    .ch-topology-summary strong { color: var(--fg); }
-    .ch-topology-graph-wrap {
-      height: 420px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      overflow: hidden;
-      background: var(--card-bg);
-    }
-    .ch-worker-detail {
+    /* Canvas area — fills remaining space */
+    .ch-int-canvas-wrap {
+      flex: 1;
+      min-height: 0;
       padding: 10px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      background: var(--card-bg);
-      font-size: 12px;
     }
-    .ch-worker-detail h4 { margin: 0 0 8px; font-size: 13px; }
-    .ch-worker-detail dl {
-      display: grid;
-      grid-template-columns: max-content 1fr;
-      gap: 4px 12px;
-      margin: 0;
+    .ch-int-canvas-wrap > ch-canvas {
+      height: 100%;
     }
-    .ch-worker-detail dt { color: var(--muted); }
-    .ch-worker-detail dd { margin: 0; }
-    .ch-cap-list { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 4px; }
-    .ch-cap {
-      font-size: 10px;
-      padding: 1px 6px;
-      border-radius: 4px;
-      background: color-mix(in srgb, var(--accent) 18%, transparent);
+    .ch-int-canvas-empty {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 13px;
     }
 
-    .ch-trace-runs { display: flex; gap: 8px; align-items: center; font-size: 12px; }
-    .ch-trace-runs select {
+    /* Scrollable tab content */
+    .ch-int-tab {
+      flex: 1;
+      overflow: auto;
+      padding: 14px;
+      display: grid;
+      gap: 16px;
+      align-content: start;
+    }
+
+    /* Trace controls */
+    .ch-int-trace-controls { display: flex; gap: 8px; align-items: center; }
+    .ch-int-label { font-size: 12px; display: flex; align-items: center; gap: 6px; }
+    .ch-int-select, .ch-int-select-sm {
       padding: 3px 6px;
       border: 1px solid var(--border);
       border-radius: 4px;
@@ -350,65 +418,65 @@ import { TraceViewComponent } from '../graph/trace-view.component';
       color: var(--fg);
       font-size: 11px;
     }
-    .ch-trace-run-summary {
+    .ch-int-run-meta {
       display: flex;
       gap: 12px;
       font-size: 11px;
       color: var(--muted);
-      padding: 4px 0;
       flex-wrap: wrap;
+      padding: 4px 0;
     }
-    .ch-trace-run-summary strong { color: var(--fg); }
+    .ch-int-run-meta strong { color: var(--fg); }
+    .ch-int-routing-reason { font-style: italic; }
+    .ch-int-warn { color: #92400e; font-size: 11px; }
 
-    .ch-table {
+    /* Config section */
+    .ch-int-config-section { display: grid; gap: 8px; }
+    .ch-int-section-title { margin: 0; font-size: 13px; }
+    .ch-int-table {
       width: 100%;
       border-collapse: collapse;
       font-size: 11px;
     }
-    .ch-table th, .ch-table td {
-      padding: 4px 6px;
+    .ch-int-table th, .ch-int-table td {
+      padding: 5px 8px;
       border-bottom: 1px solid var(--border);
       text-align: left;
     }
-    .ch-table select {
-      padding: 2px 4px;
-      border: 1px solid var(--border);
-      border-radius: 3px;
-      background: var(--bg);
-      color: var(--fg);
-      font-size: 11px;
-    }
+    .ch-int-table th { color: var(--muted); font-weight: 500; }
+    .ch-mono { font-family: var(--mono, ui-monospace, monospace); font-size: 11px; }
 
-    .ch-layers { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
-    .ch-layer {
-      padding: 6px 10px;
+    .ch-int-layers { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+    .ch-int-layer {
+      padding: 7px 10px;
       border: 1px solid var(--border);
       border-radius: 6px;
       background: var(--card-bg);
     }
-    .ch-layer-disabled { opacity: 0.6; }
-    .ch-layer-toggle { display: flex; gap: 8px; align-items: center; font-size: 12px; cursor: pointer; }
-    .ch-layer-order { font-size: 10px; color: var(--muted); }
-    .ch-layer-params {
+    .ch-int-layer.disabled { opacity: 0.6; }
+    .ch-int-layer-label { display: flex; gap: 8px; align-items: center; font-size: 12px; cursor: pointer; }
+    .ch-int-layer-order { font-size: 10px; color: var(--muted); }
+    .ch-int-params {
       margin: 6px 0 0;
       padding: 4px 8px;
       background: var(--bg);
       border-radius: 4px;
       font-size: 10px;
-      max-height: 120px;
+      max-height: 100px;
       overflow: auto;
+      white-space: pre-wrap;
     }
-  `]
+    .ch-int-muted { color: var(--muted); font-size: 12px; margin: 0; }
+  `],
 })
 export class CodeHugInternalsComponent implements OnInit {
   readonly topologySvc = inject(TopologyService);
   readonly runsSvc = inject(AgentRunService);
   readonly policy = inject(PolicyService);
 
-  readonly tab = signal<'topology' | 'trace' | 'config'>('topology');
+  readonly tab = signal<'canvas' | 'trace' | 'config'>('canvas');
   readonly topology = signal<ChTopologyReadModel | null>(null);
   readonly topologyError = signal<string | null>(null);
-  readonly selectedWorkerId = signal<string | null>(null);
   readonly routingRules = signal<ChRoutingRuleReadModel[]>([]);
   readonly layers = signal<ChTestLayerReadModel[]>([]);
   readonly runs = signal<ChAgentRunReadModel[]>([]);
@@ -418,15 +486,13 @@ export class CodeHugInternalsComponent implements OnInit {
 
   readonly selectedRun = computed(() => {
     const id = this.selectedRunId();
-    if (!id) return null;
-    return this.runs().find(r => r.id === id) ?? null;
+    return id ? (this.runs().find(r => r.id === id) ?? null) : null;
   });
 
-  readonly selectedWorker = computed(() => {
-    const id = this.selectedWorkerId();
-    if (!id) return null;
-    return this.topology()?.workers.find(w => w.id === id) ?? null;
-  });
+  // The latest running run for canvas live-highlighting
+  readonly activeRun = computed((): ChAgentRunReadModel | null =>
+    this.runs().find(r => r.status === 'running') ?? this.runs()[0] ?? null
+  );
 
   ngOnInit(): void {
     this.refreshAll();
@@ -443,20 +509,13 @@ export class CodeHugInternalsComponent implements OnInit {
   refreshAll(): void {
     this.loadTopology();
     this.loadRuns();
-    if (this.tab() === 'config') {
-      this.loadConfig();
-    }
   }
 
   loadTopology(): void {
     this.topologySvc.getTopology().subscribe({
-      next: t => {
-        this.topology.set(t);
-        this.topologyError.set(null);
-      },
+      next: t => { this.topology.set(t); this.topologyError.set(null); },
       error: err => this.topologyError.set(err.message ?? 'Unbekannter Fehler'),
     });
-    // Routing + Layer separat laden (anderes endpoint)
     this.topologySvc.getRoutingRules().subscribe({
       next: rules => this.routingRules.set(rules),
       error: () => this.routingRules.set([]),
@@ -479,37 +538,30 @@ export class CodeHugInternalsComponent implements OnInit {
     });
   }
 
-  loadConfig(): void {
-    this.topologySvc.getRoutingRules().subscribe({
-      next: rules => this.routingRules.set(rules),
-      error: () => this.routingRules.set([]),
-    });
-    this.topologySvc.getTestLayers().subscribe({
-      next: layers => this.layers.set(layers),
-      error: () => this.layers.set([]),
-    });
-  }
-
-  onRunSelect(id: string): void {
-    this.selectedRunId.set(id || null);
-  }
-
   onStepSelected(stepId: string): void {
-    // Hook fuer CH-014 Folge-Tasks: highlight im Graph, scroll-to, etc.
-    // Hier: console-log als Platzhalter.
+    // Placeholder: future integration — highlight in canvas
     console.log('Step selected:', stepId);
+  }
+
+  // Canvas events
+  async onCanvasLayerToggle(event: { layer: ChTestLayerReadModel; enabled: boolean }): Promise<void> {
+    await this.onLayerToggle(event.layer, event.enabled);
+  }
+
+  async onCanvasRuleChange(event: { rule: ChRoutingRuleReadModel; newBackend: ChCliBackend }): Promise<void> {
+    await this.onRuleBackendChange(event.rule, event.newBackend);
   }
 
   async onRuleBackendChange(rule: ChRoutingRuleReadModel, newBackend: string): Promise<void> {
     if (!this.policy.ensureWriteModeValid()) {
-      this.configError.set('Write-Modus nicht aktiv. Aktiviere ihn zuerst.');
+      this.configError.set('Write-Modus nicht aktiv.');
       return;
     }
     this.configError.set(null);
     this.configSuccess.set(false);
     try {
       const updated = await firstValueFrom(
-        this.topologySvc.updateRoutingRule({ ...rule, selectedBackend: newBackend as any })
+        this.topologySvc.updateRoutingRule({ ...rule, selectedBackend: newBackend as ChCliBackend })
       );
       this.routingRules.update(rules => rules.map(r => r.id === updated.id ? updated : r));
       this.configSuccess.set(true);
@@ -520,7 +572,7 @@ export class CodeHugInternalsComponent implements OnInit {
 
   async onLayerToggle(layer: ChTestLayerReadModel, enabled: boolean): Promise<void> {
     if (!this.policy.ensureWriteModeValid()) {
-      this.configError.set('Write-Modus nicht aktiv. Aktiviere ihn zuerst.');
+      this.configError.set('Write-Modus nicht aktiv.');
       return;
     }
     this.configError.set(null);
@@ -529,7 +581,14 @@ export class CodeHugInternalsComponent implements OnInit {
       const updated = await firstValueFrom(
         this.topologySvc.updateTestLayer({ ...layer, enabled })
       );
-      this.layers.update(layers => layers.map(l => l.id === updated.id ? updated : l));
+      this.layers.update(ls => ls.map(l => l.id === updated.id ? updated : l));
+
+      // sync into topology so canvas reflects the change immediately
+      this.topology.update(t => t ? {
+        ...t,
+        activeLayers: t.activeLayers.map(l => l.id === updated.id ? updated : l),
+      } : t);
+
       this.configSuccess.set(true);
     } catch (err: any) {
       this.configError.set(err?.message ?? 'Layer konnte nicht aktualisiert werden');
@@ -537,11 +596,7 @@ export class CodeHugInternalsComponent implements OnInit {
   }
 
   stringify(v: unknown): string {
-    try {
-      return JSON.stringify(v, null, 2);
-    } catch {
-      return String(v);
-    }
+    try { return JSON.stringify(v, null, 2); } catch { return String(v); }
   }
 
   keyCount(obj: Record<string, unknown>): number {

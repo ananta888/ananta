@@ -27,7 +27,8 @@ src/app/features/codehug/
 │   ├── search-and-explain.component.ts     # CH-007
 │   └── ... (weitere Panel/Sidebar-Components)
 ├── graph/                            # Visualisierungen
-│   ├── topology-graph.component.ts  # SVG-Renderer (bpmn-js entfernt; Ziel: Canvas-Node-Editor)
+│   ├── codehug-canvas.component.ts  # SVG-Canvas-Node-Editor (Drag, Zoom, Pan, Inspector, Run-Highlighting)
+│   ├── topology-graph.component.ts  # Minimaler SVG-Fallback (schreibgeschützte Topologie-Übersicht)
 │   ├── dependency-graph.component.ts # SVG Force-Directed
 │   └── trace-view.component.ts        # 3-stufige Trace-View (simplified/details/raw)
 ├── services/
@@ -122,17 +123,24 @@ Drop ruft `state.toggleFile(file.path, true)` auf (inkl. sensitive-Confirm-Logik
 Limitierung: Sensitive-Confirm laeuft noch als `window.confirm` — Ziel ist eine eigene
 Modal-Komponente ohne Browser-Dialog.
 
-### Canvas-Node-Editor fuer Internals (offenes TODO)
+### Canvas-Node-Editor (implementiert in `graph/codehug-canvas.component.ts`)
 
-Die Internals-Ansicht (`/codehug/internals`) soll langfristig wie ein Grafikprogramm
-funktionieren:
-- Nodes: Hub, Worker (Ananta/OpenCode/SGPT/etc.), Policy-Layer, Test-Layer, Template-Schichten
-- Jeder Node ist positionierbar (Drag), konfigurierbar (Click => Config-Panel)
-- Bei laufendem Agent-Run: Farbkodierung zeigt wo der Run gerade ist
-- Klick auf aktiven Node => Status + Trace dieser Einheit
+Die Internals-Ansicht (`/codehug/internals`) zeigt die Topologie wie ein Grafikprogramm:
 
-Technische Richtung: Eigener SVG-Canvas in Angular (kein bpmn-js, kein D3 zwingend).
-Nodes als Signals, Positionen per drag-end persistiert via Hub-API.
+- **Node-Typen**: Hub (Amber), Worker-LLM (Blau), Worker-Det (Grau), Test-Layer (Grün, gestapelt),
+  Routing-Rule (Teal) — je mit Icon, Label, Sublabel, Badge
+- **Drag**: Jeder Node ist frei positionierbar via SVG-MouseDown/Move/Up (document-level)
+- **Inspector-Panel**: Click auf Node öffnet rechts einen Inspektor mit allen Feldern
+  — für Layer: Toggle enabled/disabled; für Routing-Rules: Backend-Selector
+- **Live-Highlighting**: Bei laufendem Agent-Run werden Worker per Glow-Filter markiert
+  (`active` = blau pulsierend, `completed` = grün, `failed` = rot)
+- **Pan/Zoom**: Hintergrund-Drag für Pan, Mausrad für Zoom; Toolbar mit Zoom±/Reset/Fit-Buttons
+- **SVG-Effekte**: Animierte Pulse-Ringe, Glow-Filter (feGaussianBlur), gestapelte Cards für Layer
+
+Offene Erweiterungen:
+- Position-Persistenz via Hub-API (aktuell nur in-memory per Session)
+- Policy-Layer als eigener Node-Typ (sobald `/api/codehug/policy/current` verfügbar)
+- Template-Nodes (ChTaskTemplateReadModel)
 
 ### API-Erwartungen gegenueber Hub
 
@@ -152,6 +160,8 @@ Alle Endpunkte unter `/api/codehug/`:
 
 - [ ] Sensitive-Confirm als eigene Modal-Komponente (statt `window.confirm`)
 - [ ] Multi-Agent-Orchestrierungs-UI (CH-006-003)
-- [ ] Canvas-Node-Editor fuer Internals-View (CH-008-003 / CH-014)
-- [ ] E2E-Mock-Backend fuer vollstaendige Agent-Flow-Tests (CH-012-004)
+- [x] Canvas-Node-Editor für Internals-View (CH-008-003 / CH-014) — implementiert in `graph/codehug-canvas.component.ts`
+- [ ] Canvas: Node-Position-Persistenz via Hub-API
+- [ ] Canvas: Policy-Layer + Template als eigene Node-Typen
+- [ ] E2E-Mock-Backend für vollstaendige Agent-Flow-Tests (CH-012-004)
 - [ ] Live-Apply Hub-Konfiguration (CH-014-005)
