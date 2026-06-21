@@ -7,7 +7,6 @@ import {
   signal,
   computed,
 } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { interval, Subscription } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
 
@@ -45,7 +44,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 @Component({
   selector: 'ch-internals',
   standalone: true,
-  imports: [DatePipe],
+  imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="ch-int">
