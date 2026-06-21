@@ -1,41 +1,140 @@
 {
   "todo_id": "codehug-angular-special-view",
-  "title": "CodeHug UI-Modul als Spezialansicht in der bestehenden Angular-App",
+  "title": "CodeHug UI-Modul als eigenstaendige Spezialansicht in der bestehenden Angular-App",
   "status": "planned",
   "priority": "high",
-  "goal": "Eine eigene CodeHug-Ansicht in der bestehenden Angular-App bauen, die Code-Verstehen, Kontextaufbau, Analyse, Refactoring-Vorbereitung und sichere Agenten-Interaktion visuell zugänglich macht.",
+  "scope": "v1_full_buildout",
+  "scope_note": "Vollstaendiger Ausbau in einer Version, keine MVP-Beschraenkung. Die fruehere non_goals_for_first_version-Liste ist aufgehoben; alle dort genannten Punkte sind Ziele der ersten Version.",
+  "goal": "Eine eigene CodeHug-Ansicht in der bestehenden Angular-App bauen, die Code-Verstehen, Kontextaufbau, Analyse, Refactoring-Vorbereitung und sichere Agenten-Interaktion visuell zugaenglich macht.",
   "positioning": {
-    "ananta": "Gesamtsystem, Hub/Worker-Orchestrierung, Policy, Agentensteuerung",
-    "code_compass": "Technische Kontext- und RAG-Engine fuer Code, Dateien, Symbole, Graphen und Domaenenwissen",
-    "codehug": "Freundliche UI-Spezialansicht fuer Entwickler, um Code zu verstehen, Kontextpakete zu bauen und KI-gestuetzte Aenderungen kontrolliert vorzubereiten"
+    "ananta": "Gesamtsystem, Hub/Worker-Orchestrierung, Policy, Agentensteuerung (Backend, bleibt Source-of-Truth fuer Policy-Enforcement)",
+    "code_compass": "Technische Kontext- und RAG-Engine fuer Code, Dateien, Symbole, Graphen und Domaenenwissen (Backend-Service, ueber Hub-API erreichbar)",
+    "codehug": "Eigenstaendige UI-Spezialansicht fuer Entwickler, um Code zu verstehen, Kontextpakete zu bauen und KI-gestuetzte Aenderungen kontrolliert vorzubereiten"
   },
   "core_idea": "CodeHug ist die menschliche Einstiegsschicht fuer CodeCompass. Es zeigt dem Nutzer, was die KI ueber ein Projekt weiss, welche Dateien/Symbole relevant sind, welche Kontextpakete gebaut wurden und welche Aenderungsvorschlaege sicher vorbereitet werden koennen.",
+  "confirmed_decisions": {
+    "ui_isolation": {
+      "value": "strikt eigenstaendig auf UI/UX-Seite",
+      "meaning": "Eigener Component-Tree, eigenes Layout, eigenes Look-and-Feel, eigene Types und Services. KEIN Component-Reuse aus features/codecompass-graph oder anderen bestehenden Features.",
+      "decided_at_step": "nach Rueckfrage zu 'strikt eigenstaendig'"
+    },
+    "backend_integration": {
+      "value": "strikt via Hub/Policy-API",
+      "meaning": "CodeHug nutzt ausschliesslich die bestehende Hub- und Policy-API fuer alle Backend-Aktionen. Hub bleibt Source-of-Truth fuer Policy-Enforcement. Kein direkter Zugriff auf CodeCompass-Internals."
+    },
+    "policy_edit_in_codehug": {
+      "value": "eigenes Policy-Edit-Panel in CodeHug",
+      "meaning": "CodeHug hat ein eigenes inline Policy-Edit-Panel fuer CodeHug-relevante Policies (Agent-Profile, Kontext-Pakete-Rechte, Sensitive-File-Regeln). Das Panel arbeitet ausschliesslich ueber die Hub-API; es dupliziert nicht die rule-editor-Logik aus features/context-access-policy, sondern konsumiert dieselbe API. Das rule-editor-Feature bleibt die allgemeine Policy-Verwaltung; CodeHug ist eine spezielle Sicht darauf fuer CodeHug-relevante Regeln."
+    },
+    "user_scope": {
+      "value": "solo_dev",
+      "meaning": "Zielgruppe: einzelner Entwickler am eigenen Rechner. UI-Dichte darf hoeher sein, Hinweise auf Mehrnutzer-Szenarien sind nicht noetig."
+    },
+    "reachability": {
+      "value": "voll_responsive",
+      "meaning": "CodeHug ist auf Desktop, Tablet und Handy erreichbar. 3-Spalter-Layout kollabiert auf Tablet/Handy zu Akkordeon/Tabs. Die responsive Variante ist kein nice-to-have, sondern Teil der Definition of Done."
+    },
+    "auth": {
+      "value": "app_login",
+      "meaning": "CodeHug nutzt denselben Login wie der Rest der App. Es gibt keine eigene CodeHug-Login-Maske. User-Identitaet kommt aus dem bestehenden App-Session-Mechanismus."
+    },
+    "backend_endpoints": {
+      "value": "alle_da",
+      "meaning": "Alle noetigen Endpoints (resolve_context, search_symbols, get_file_context, plan_context, Agent-Run start/status, Policy-Read/Write) existieren bereits im Backend. CodeHug muss nur anbinden, keine Backend-Erweiterung noetig."
+    },
+    "post_apply_flow": {
+      "value": "voll_agentenflow",
+      "meaning": "Nach expliziter Diff-Freigabe fuehrt CodeHug den vollstaendigen Agenten-Flow aus, inklusive File-Writes via Hub-API. Default ist Read-only; die Freigabe schaltet explizit auf Write-Modus um. Mehrstufiges Sicherheitsmodell: Vorschau -> Diff -> Policy-Check -> explizite Bestaetigung -> Apply -> Verifikation."
+    },
+    "graph_visualization": {
+      "value": "eigene_vis_via_api",
+      "meaning": "CodeHug hat einen eigenen Graph-Renderer, der Daten via Hub-/CodeCompass-API bezieht. KEINE Wiederverwendung der codecompass-graph-Komponente. Renderer wird als eigenstaendiges CodeHug-Modul gebaut, kann eine andere Visualisierungsbibliothek nutzen (z.B. 3d-force-graph, mermaid, oder eine eigene SVG/D3-Implementation)."
+    },
+    "context_package_persistence": {
+      "value": "backend",
+      "meaning": "Kontextpakete werden ueber die Backend-API persistiert (nicht localStorage). Persistenz pro Projekt, mit Versionierung. Auch Task-Vorlagen werden im Backend gespeichert."
+    },
+    "sensitive_files_handling": {
+      "value": "ja_isoliert",
+      "meaning": "CodeHug hat einen eigenen Storage-Namespace (ueber Backend-API) fuer CodeHug-spezifische Daten (Kontextpakete, Vorlagen, User-Prefs). Sensitive Files (.env, secrets, keys, credentials) werden erkannt, markiert und NICHT automatisch in Kontextpakete aufgenommen. Sensible Inhalte erfordern explizite Nutzer-Freigabe pro Datei und werden beim Export gewarnt/ausgeblendet."
+    },
+    "documentation_in_v1": {
+      "value": "alles_in_v1",
+      "meaning": "CH-013-001 (CodeHug README), CH-013-002 (Developer Notes), CH-011-001 (Kontextpakete speichern) und CH-011-002 (Task-Vorlagen) gehoeren alle in v1, nicht erst v2."
+    }
+  },
+  "structural_anchors": {
+    "feature_path": "src/app/features/codehug/",
+    "feature_subdirs": [
+      "components/",
+      "services/",
+      "models/",
+      "guards/",
+      "state/",
+      "graph/",
+      "policy-panel/",
+      "testing/"
+    ],
+    "route": "/codehug",
+    "route_mode": "lazy_loaded",
+    "menu_entry_label": "CodeHug",
+    "existing_features_to_integrate_with_routing_only": [
+      "features/context-access-policy (fuer allgemeine Policy-Bearbeitung; CodeHug hat eigenes Panel, das auf dieselbe API zugreift)",
+      "features/diff3 (fuer Diff-Darstellung, sofern sinnvoll; sonst eigene Diff-View in CodeHug)"
+    ],
+    "existing_features_NOT_to_reuse_components_from": [
+      "features/codecompass-graph (eigene Graph-Visualisierung in CodeHug)",
+      "alle anderen Features auf Component-Ebene"
+    ],
+    "tech_stack": {
+      "framework": "Angular 21 (standalone components, signals)",
+      "styling": "eigenes CSS in CodeHug-Modul, konsistent mit App-Theme aber nicht erzwungen",
+      "testing": "vitest (unit), playwright (e2e)"
+    }
+  },
   "epics": [
     {
       "id": "CH-001",
-      "title": "CodeHug-Routing und Navigation",
+      "title": "CodeHug-Routing, Modul-Struktur und Navigation",
       "priority": "high",
       "tasks": [
         {
           "id": "CH-001-001",
-          "title": "Neue Route /codehug anlegen",
-          "description": "Eine eigene Angular-Route fuer die CodeHug-Spezialansicht erstellen.",
+          "title": "Lazy-loaded Route /codehug anlegen",
+          "description": "Eine eigene Angular-Route fuer die CodeHug-Spezialansicht erstellen. Lazy Loading ist verpflichtend.",
           "acceptance_criteria": [
             "Route /codehug ist erreichbar",
-            "Navigationseintrag ist sichtbar",
+            "Lazy Loading ueber loadChildren oder loadComponent ist aktiv",
+            "Navigationseintrag 'CodeHug' ist in der bestehenden App-Nav sichtbar",
             "Ansicht laedt ohne Seiteneffekte auf bestehende Module",
-            "Lazy Loading wird verwendet, falls App-Struktur das vorsieht"
+            "Route respektiert bestehende Auth-Guards der App",
+            "Deep-Links auf /codehug/<sub-route> funktionieren"
           ]
         },
         {
           "id": "CH-001-002",
-          "title": "CodeHug als Modul oder Feature-Slice strukturieren",
-          "description": "CodeHug sauber als eigenes Angular-Feature kapseln.",
+          "title": "CodeHug als eigenstaendiges Feature-Modul strukturieren",
+          "description": "CodeHug wird als eigenstaendiges Feature unter src/app/features/codehug/ angelegt. Keine Vermischung mit bestehenden generischen Services oder Komponenten.",
           "acceptance_criteria": [
-            "CodeHug-Komponenten liegen in eigenem Feature-Bereich",
-            "Services sind getrennt von bestehenden generischen Services",
-            "Bestehende App-Struktur wird nicht vermischt",
-            "Importe bleiben nachvollziehbar"
+            "Feature-Pfad src/app/features/codehug/ existiert mit components/, services/, models/, guards/, state/, graph/, policy-panel/, testing/",
+            "Alle CodeHug-Komponenten, Services, Types liegen ausschliesslich in diesem Pfad",
+            "Kein Import aus features/codecompass-graph oder features/context-access-policy auf Komponenten-Ebene (nur API/Services, falls noetig)",
+            "CodeHug-Module haben eigene Standalone-Components mit eigenen Imports",
+            "Naming-Konvention folgt bestehender App-Konvention (Suffix Component, Service, etc.)",
+            "ESLint-/Lint-Regeln akzeptieren die Struktur"
+          ]
+        },
+        {
+          "id": "CH-001-003",
+          "title": "Responsive Layout-Grundgeruest bauen",
+          "description": "Layout-Vorlage fuer CodeHug mit 3 Spaalten auf Desktop, kollabierend auf Tablet/Handy.",
+          "acceptance_criteria": [
+            "3-Spalter-Layout (Projekt/Filter, Arbeitsbereich, Kontext/Status) auf Desktop >= 1024px",
+            "Auf Tablet (768-1023px) wird der Kontext-Bereich zu einem ausklappbaren Side-Panel",
+            "Auf Handy (<768px) wird zu Tab-Navigation oder Akkordeon kollabiert",
+            "Layout-Komponente ist eine standalone Component, wiederverwendbar fuer alle Sub-Views",
+            "Kein horizontaler Scroll auf Standard-Viewports",
+            "Touch-Targets mind. 44x44px auf Handy"
           ]
         }
       ]
@@ -50,10 +149,12 @@
           "title": "Projektuebersicht anzeigen",
           "description": "Zentrale Uebersicht fuer aktuelles Projekt, erkannte Dateien, Sprachen, Frameworks, Module und Analysezustand.",
           "acceptance_criteria": [
-            "Aktuelles Projekt wird angezeigt",
-            "Anzahl Dateien/Symbole/Module wird angezeigt",
+            "Aktuelles Projekt wird mit Namen, Pfad und Projekt-Metadaten angezeigt",
+            "Anzahl Dateien, Symbole, Module wird angezeigt",
             "Letzter Analysezeitpunkt wird angezeigt",
-            "Fehlerhafter oder fehlender Analysezustand wird verstaendlich angezeigt"
+            "Fehlender oder fehlgeschlagener Analysezustand wird verstaendlich erklaert",
+            "Empty-State (kein Projekt gewaehlt) ist sauber dargestellt",
+            "Loading- und Error-States sind explizit visualisiert"
           ]
         },
         {
@@ -61,10 +162,11 @@
           "title": "CodeCompass-Status anzeigen",
           "description": "Status der CodeCompass-Indexierung und Kontextdaten sichtbar machen.",
           "acceptance_criteria": [
-            "Indexstatus ist sichtbar",
-            "Fehlende oder veraltete Indexdaten werden markiert",
-            "Re-Indexierung kann angestossen werden, falls Backend vorhanden",
-            "UI bleibt nutzbar, auch wenn CodeCompass nicht erreichbar ist"
+            "Indexstatus (vollstaendig, teilweise, fehlend, laeuft) ist sichtbar",
+            "Veraltete Indexdaten werden mit Altersangabe markiert",
+            "Re-Indexierung kann ueber die Hub-API angestossen werden",
+            "UI bleibt voll funktionsfaehig (eingeschraenkt), wenn CodeCompass nicht erreichbar ist",
+            "Fortschrittsanzeige fuer laufende Re-Indexierung"
           ]
         }
       ]
@@ -79,33 +181,50 @@
           "title": "Dateien und Symbole fuer Kontextpaket auswaehlen",
           "description": "Nutzer kann Dateien, Klassen, Funktionen, Interfaces und relevante Artefakte zu einem Kontextpaket zusammenstellen.",
           "acceptance_criteria": [
-            "Dateien sind auswaehlbar",
-            "Symbole sind auswaehlbar",
+            "Dateien sind ueber Datei-Baum auswaehlbar",
+            "Symbole sind ueber Symbol-Liste oder Symbol-Graph auswaehlbar",
             "Auswahl kann hinzugefuegt und entfernt werden",
-            "Geschaetzte Kontextgroesse wird angezeigt",
-            "Paket kann benannt werden"
+            "Geschaetzte Kontextgroesse (Tokens oder Zeichen) wird in Echtzeit angezeigt",
+            "Paket kann benannt werden",
+            "Drag-and-Drop aus Datei-Baum in Paket-Bereich funktioniert",
+            "Sensitive Files (siehe CH-010-003) sind visuell markiert und erfordern explizite Bestaetigung"
           ]
         },
         {
           "id": "CH-003-002",
           "title": "Automatische Kontextvorschlaege anzeigen",
-          "description": "CodeCompass schlaegt relevante Dateien/Symbole basierend auf Aufgabe oder Suchbegriff vor.",
+          "description": "CodeCompass schlaegt relevante Dateien/Symbole basierend auf Aufgabe oder Suchbegriff vor. Vorschlaege kommen ueber die Hub-API (resolve_context, plan_context).",
           "acceptance_criteria": [
             "Nutzer kann eine Aufgabe/Beschreibung eingeben",
-            "CodeCompass-Vorschlaege werden angezeigt",
-            "Vorschlaege enthalten Begruendung oder Treffergrund",
-            "Nutzer kann Vorschlaege uebernehmen oder ablehnen"
+            "Vorschlaege werden ueber Hub-API (resolve_context oder plan_context) abgerufen",
+            "Vorschlaege werden mit Begruendung oder Treffergrund dargestellt",
+            "Nutzer kann einzelne Vorschlaege uebernehmen oder ablehnen",
+            "Loading-State waehrend API-Call sichtbar",
+            "Fehler-State bei nicht erreichbarer API sichtbar"
           ]
         },
         {
           "id": "CH-003-003",
-          "title": "Kontextpaket exportierbar machen",
-          "description": "Kontextpakete sollen fuer Agenten, Debugging oder manuelle Nutzung exportierbar sein.",
+          "title": "Kontextpaket als JSON exportieren",
+          "description": "Kontextpakete sollen fuer Agenten, Debugging oder manuelle Nutzung exportierbar sein. Export geht ueber die Hub-API.",
           "acceptance_criteria": [
             "Export als JSON moeglich",
-            "Export enthaelt Dateien/Symbole/Begruendungen",
-            "Export enthaelt Metadaten wie Projekt, Zeit, Aufgabe",
-            "Keine unnoetigen geheimen Daten werden exportiert"
+            "Export enthaelt Dateien, Symbole, Begruendungen, Abhaengigkeiten",
+            "Export enthaelt Metadaten wie Projekt, Zeit, Aufgabe, Agent-Profil, Version",
+            "Sensitive Inhalte werden vor Export gewarnt oder auf Wunsch ausgeschlossen",
+            "Export-Format ist dokumentiert und versioniert"
+          ]
+        },
+        {
+          "id": "CH-003-004",
+          "title": "Kontextpaket im Backend speichern und laden",
+          "description": "Persistierung von Kontextpaketen pro Projekt ueber die Hub-API.",
+          "acceptance_criteria": [
+            "Paket kann gespeichert werden",
+            "Paket kann pro Projekt geladen werden",
+            "Paket kann geloescht werden",
+            "Paket enthaelt Version und Projektbezug",
+            "Paket-Liste wird im Dashboard oder Builder-Bereich angezeigt"
           ]
         }
       ]
@@ -118,23 +237,28 @@
         {
           "id": "CH-004-001",
           "title": "Datei-/Symbol-Erklaerung anzeigen",
-          "description": "Fuer ausgewaehlte Dateien oder Symbole soll eine kurze, verstaendliche Erklaerung angezeigt werden.",
+          "description": "Fuer ausgewaehlte Dateien oder Symbole soll eine kurze, verstaendliche Erklaerung angezeigt werden. Erklaerung trennt deterministische Analyse (z.B. Typ, Signatur, Aufrufer-Anzahl) von KI-generierter Zusammenfassung.",
           "acceptance_criteria": [
             "Nutzer kann Datei oder Symbol auswaehlen",
-            "Erklaerung wird angezeigt",
-            "Erklaerung unterscheidet zwischen deterministischer Analyse und KI-generierter Zusammenfassung",
-            "Unsichere oder fehlende Analyse wird klar markiert"
+            "Deterministische Fakten (Signatur, Typ, Sichtbarkeit, Aufrufanzahl) werden klar abgesetzt dargestellt",
+            "KI-Zusammenfassung wird separat und klar gekennzeichnet dargestellt",
+            "Unsichere oder fehlende Analyse wird explizit markiert (kein 'sicherer Eindruck')",
+            "Quellen (welche Datei/Symbole fliessen ein) sind referenziert"
           ]
         },
         {
           "id": "CH-004-002",
-          "title": "Abhaengigkeiten und Aufrufe visualisieren",
-          "description": "Die wichtigsten Beziehungen eines Symbols oder Moduls grafisch anzeigen.",
+          "title": "Abhaengigkeiten und Aufrufe visualisieren (eigener CodeHug-Graph-Renderer)",
+          "description": "Die wichtigsten Beziehungen eines Symbols oder Moduls grafisch anzeigen. Renderer ist EIGENSTAENDIG in CodeHug gebaut, NICHT aus features/codecompass-graph uebernommen. Daten kommen via Hub-/CodeCompass-API.",
           "acceptance_criteria": [
-            "Eingehende Abhaengigkeiten werden angezeigt",
-            "Ausgehende Abhaengigkeiten werden angezeigt",
-            "Direkte Aufrufer/Aufgerufene werden angezeigt, soweit CodeCompass sie kennt",
-            "Graph bleibt bei grossen Projekten filterbar"
+            "Eigener Graph-Renderer unter src/app/features/codehug/graph/",
+            "Daten kommen ausschliesslich ueber Hub-API",
+            "Eingehende Abhaengigkeiten (Caller) werden angezeigt",
+            "Ausgehende Abhaengigkeiten (Callees) werden angezeigt",
+            "Direkte Aufrufer/Aufgerufene werden hervorgehoben",
+            "Graph bleibt bei grossen Projekten filterbar (Tiefe, Knotenanzahl, Domain-Filter)",
+            "Knoten-Klick oeffnet Detail-Panel ohne den Graph zu verlassen",
+            "Graph-Komponente exportiert eine wiederverwendbare API (Input: Knoten/Edges, Output: Selection-Events)"
           ]
         },
         {
@@ -142,28 +266,29 @@
           "title": "Domaenenkarte integrieren",
           "description": "Domain-Map aus CodeCompass in CodeHug sichtbar machen.",
           "acceptance_criteria": [
-            "Domaenenbereiche werden angezeigt",
+            "Domaenenbereiche werden als Baum oder Karte dargestellt",
             "Dateien/Symbole sind Domaenen zuordenbar",
-            "Nutzer kann nach Domaene filtern",
-            "Unklare Zuordnungen werden nicht als sicher dargestellt"
+            "Nutzer kann nach Domaene filtern (im Graph, in der Suche, im Kontext-Builder)",
+            "Unklare Zuordnungen (Confidence < Threshold) werden nicht als sicher dargestellt"
           ]
         }
       ]
     },
     {
       "id": "CH-005",
-      "title": "Refactoring- und Aenderungsmodus",
-      "priority": "high",
+      "title": "Refactoring- und Aenderungsmodus (vollstaendiger Agent-Flow)",
+      "priority": "very_high",
       "tasks": [
         {
           "id": "CH-005-001",
-          "title": "Aenderungsziel erfassen",
-          "description": "Nutzer kann beschreiben, was geaendert, repariert oder refaktoriert werden soll.",
+          "title": "Aenderungsziel und Risiko-Level erfassen",
+          "description": "Nutzer kann beschreiben, was geaendert, repariert oder refaktoriert werden soll. Aufgabe kann einem Kontextpaket zugeordnet werden.",
           "acceptance_criteria": [
             "Freitext-Aufgabe kann eingegeben werden",
-            "Aufgabe kann einem Kontextpaket zugeordnet werden",
-            "Risiko-Level der Aenderung kann gewaehlt werden",
-            "UI unterscheidet Analyse, Vorschlag und Ausfuehrung"
+            "Aufgabe kann einem gespeicherten Kontextpaket zugeordnet werden",
+            "Risiko-Level der Aenderung (low/medium/high) kann gewaehlt werden",
+            "Risiko-Level beeinflusst sichtbar den Freigabe-Workflow (hoeheres Level = strenger)",
+            "UI unterscheidet klar zwischen Analyse, Vorschlag, Freigabe und Ausfuehrung"
           ]
         },
         {
@@ -171,10 +296,11 @@
           "title": "Aenderungsvorschlaege anzeigen",
           "description": "Agenten- oder CodeCompass-Ergebnisse als nachvollziehbare Vorschlaege darstellen.",
           "acceptance_criteria": [
-            "Vorschlaege werden als Liste angezeigt",
-            "Betroffene Dateien werden angezeigt",
-            "Begruendung pro Aenderung wird angezeigt",
-            "Nutzer muss Aenderungen explizit bestaetigen"
+            "Vorschlaege werden als strukturierte Liste angezeigt",
+            "Betroffene Dateien werden mit Pfad und Begruendung pro Aenderung angezeigt",
+            "Verwendete Kontextpakete werden referenziert",
+            "Nutzer muss Aenderungen explizit bestaetigen, bevor sie angewendet werden",
+            "Vorschlaege mit unbekanntem Konfidenzgrad werden markiert"
           ]
         },
         {
@@ -182,10 +308,26 @@
           "title": "Diff-Vorschau integrieren",
           "description": "Geplante Aenderungen als Diff anzeigen, bevor sie angewendet werden.",
           "acceptance_criteria": [
-            "Diff pro Datei sichtbar",
+            "Diff pro Datei sichtbar (Hinzufuegungen rot, Entfernungen gruen, Kontext grau)",
             "Hinzufuegungen/Entfernungen sind klar erkennbar",
-            "Nutzer kann einzelne Dateien ablehnen",
-            "Keine automatische Anwendung ohne Freigabe"
+            "Nutzer kann einzelne Dateien ablehnen (Teilfreigabe)",
+            "Nutzer kann den gesamten Vorschlag ablehnen",
+            "Keine automatische Anwendung ohne explizite Freigabe",
+            "Diff-Komponente ist eigenstaendig testbar"
+          ]
+        },
+        {
+          "id": "CH-005-004",
+          "title": "Vollstaendiger Agent-Flow inkl. File-Write nach Freigabe",
+          "description": "Nach expliziter Freigabe fuehrt CodeHug den Agent-Flow ueber die Hub-API aus, inklusive File-Writes. Mehrstufiges Sicherheitsmodell mit Verifikation.",
+          "acceptance_criteria": [
+            "Freigabe erfordert aktiven Write-Modus (Default ist Read-only, siehe CH-010-001)",
+            "Freigabe umfasst eine Policy-Pruefung vor Apply (siehe CH-010-002)",
+            "Agent-Run wird ueber Hub-API gestartet, Status wird gepollt oder via Stream empfangen",
+            "Apply-Schritte (File-Writes) werden einzeln oder als Batch mit Fortschritt angezeigt",
+            "Verifikations-Schritt (z.B. Tests/Lint) wird nach Apply angestossen, wenn konfiguriert",
+            "Bei Fehler im Apply wird Rollback angeboten (sofern technisch moeglich)",
+            "Gesamter Flow (Vorschlag -> Diff -> Freigabe -> Apply -> Verifikation -> Ergebnis) ist als Workflow-Trace einsehbar"
           ]
         }
       ]
@@ -200,32 +342,37 @@
           "title": "Agentenprofil fuer CodeHug auswaehlen",
           "description": "Nutzer kann passende Agenten/Templates fuer Analyse, Review, Refactoring oder Testgenerierung auswaehlen.",
           "acceptance_criteria": [
-            "Verfuegbare Agentenprofile werden angezeigt",
-            "Profil beschreibt Zweck, Rechte und Modell",
-            "Nutzer kann ein Profil auswaehlen",
-            "Nicht erlaubte Agenten werden nicht angeboten"
+            "Verfuegbare Agentenprofile werden ueber die Hub-API geladen",
+            "Profil beschreibt Zweck, Rechte, Modell und zulaessige Pfade",
+            "Nutzer kann ein Profil auswaehlen und es einer Aufgabe zuordnen",
+            "Nicht erlaubte Profile werden fuer den aktuellen Nutzer nicht angeboten",
+            "Profil-Aenderung erfordert Policy-Re-Check vor naechstem Agent-Run"
           ]
         },
         {
           "id": "CH-006-002",
-          "title": "Agentenlauf sichtbar machen",
+          "title": "Agentenlauf sichtbar machen (Step-by-Step Trace)",
           "description": "Laufende oder abgeschlossene Agentenarbeit nachvollziehbar darstellen.",
           "acceptance_criteria": [
-            "Schritte des Agenten werden angezeigt",
-            "Tool Calls werden sichtbar",
-            "Verwendeter Kontext wird referenziert",
-            "Fehler und Abbrueche werden verstaendlich dargestellt"
+            "Schritte des Agenten werden in Reihenfolge angezeigt",
+            "Tool Calls werden mit Input und Output (gekuerzt) sichtbar",
+            "Verwendeter Kontext (Paket, Symbole, Dateien) wird referenziert",
+            "Laufzeit pro Schritt wird angezeigt",
+            "Fehler und Abbrueche werden mit Ursache und Retry-Option dargestellt",
+            "Trace bleibt nach Abschluss fuer spaetere Revision einsehbar"
           ]
         },
         {
           "id": "CH-006-003",
-          "title": "Sicherheitsgrenzen anzeigen",
-          "description": "CodeHug soll sichtbar machen, was ein Agent darf und was nicht.",
+          "title": "Multi-Agent-Orchestrierung in CodeHug",
+          "description": "CodeHug ermoeglicht es, mehrere Agenten hintereinander oder parallel mit unterschiedlichen Profilen auf ein Kontextpaket anzusetzen. Orchestrierung wird ueber die Hub-API gesteuert.",
           "acceptance_criteria": [
-            "Agentenrechte werden vor Start angezeigt",
-            "Dateizugriffe werden sichtbar",
-            "Schreibrechte sind klar markiert",
-            "Default-Deny-Verhalten wird UI-seitig respektiert"
+            "Mehrere Agenten-Profile koennen einer Aufgabe zugeordnet werden",
+            "Reihenfolge und Abhaengigkeiten koennen definiert werden",
+            "Ergebnisse eines Schritts werden automatisch in den Kontext des naechsten uebernommen",
+            "UI zeigt den Gesamtablauf aller Agenten, nicht nur einen",
+            "Abbruch eines Schrits fuehrt zu sichtbarem Fehler im Gesamtablauf",
+            "Ressourcen-Limits (Anzahl Agenten, Gesamtzeit) werden respektiert"
           ]
         }
       ]
@@ -238,12 +385,13 @@
         {
           "id": "CH-007-001",
           "title": "Semantische Codesuche integrieren",
-          "description": "Nutzer kann natuerlichsprachlich nach Codebereichen suchen.",
+          "description": "Nutzer kann natuerlichsprachlich nach Codebereichen suchen. Suche geht ueber Hub-/CodeCompass-API.",
           "acceptance_criteria": [
             "Suchfeld akzeptiert Freitext",
-            "Ergebnisse zeigen Dateien/Symbole",
-            "Treffergrund wird angezeigt",
-            "Ergebnisse koennen direkt ins Kontextpaket uebernommen werden"
+            "Ergebnisse zeigen Dateien und Symbole mit Treffer-Score",
+            "Treffergrund (welche Signale matchen) wird angezeigt",
+            "Ergebnisse koennen direkt ins Kontextpaket uebernommen werden",
+            "Filter nach Sprache, Domain und Datei-Typ moeglich"
           ]
         },
         {
@@ -251,79 +399,117 @@
           "title": "Fragen ans Projekt ermoeglichen",
           "description": "Nutzer kann Fragen zum Code stellen, CodeHug beantwortet sie mit referenziertem Kontext.",
           "acceptance_criteria": [
-            "Fragen koennen eingegeben werden",
-            "Antwort referenziert Dateien/Symbole",
-            "Antwort trennt Fakten aus Code von KI-Schlussfolgerungen",
-            "Unklare Antworten werden nicht als sicher verkauft"
+            "Fragen koennen im CodeHug-Chat-Bereich eingegeben werden",
+            "Antwort referenziert konkrete Dateien/Symbole mit Link",
+            "Antwort trennt Fakten aus Code von KI-Schlussfolgerungen sichtbar",
+            "Unklare Antworten werden mit Confidence-Anzeige dargestellt, nicht als sicher verkauft",
+            "Verlauf der Fragen wird pro Projekt persistiert"
           ]
         }
       ]
     },
     {
       "id": "CH-008",
-      "title": "UI/UX Design",
+      "title": "UI/UX Design und CodeHug-Layout",
       "priority": "medium",
       "tasks": [
         {
           "id": "CH-008-001",
-          "title": "CodeHug Layout definieren",
-          "description": "Spezialansicht mit drei Bereichen: Projekt/Navigation, Arbeitsbereich, Kontext/Agentenstatus.",
+          "title": "CodeHug Layout finalisieren (Desktop, Tablet, Handy)",
+          "description": "Spezialansicht mit drei Bereichen: Projekt/Navigation, Arbeitsbereich, Kontext/Agentenstatus. Layout muss responsive sein.",
           "acceptance_criteria": [
-            "Linke Spalte zeigt Projektstruktur oder Filter",
+            "Linke Spalte zeigt Projektstruktur, Filter, Domain-Auswahl",
             "Mitte zeigt Analyse, Graph, Diff oder Erklaerung",
-            "Rechte Spalte zeigt Kontextpaket und Agentenstatus",
-            "Layout funktioniert auf Desktop sinnvoll"
+            "Rechte Spalte zeigt Kontextpaket-Builder und Agenten-Status",
+            "Layout funktioniert auf Desktop >= 1024px, Tablet 768-1023px, Handy <768px",
+            "Tablet-Variante: rechte Spalte wird Side-Panel",
+            "Handy-Variante: Spalten werden zu Tabs oder Akkordeon",
+            "Layout reagiert auf Orientation-Wechsel"
           ]
         },
         {
           "id": "CH-008-002",
-          "title": "CodeHug Branding einbauen",
-          "description": "CodeHug soll visuell freundlich sein, aber nicht kindisch wirken.",
+          "title": "CodeHug Branding und eigenstaendiges Design-System",
+          "description": "CodeHug bekommt ein eigenes, freundliches Design, das nicht kindisch wirkt. Konsistent mit Ananta-App-Theme, aber eigenstaendig erkennbar.",
           "acceptance_criteria": [
-            "Name CodeHug wird in UI angezeigt",
-            "Kurzbeschreibung erklaert Zweck",
-            "Design passt zur bestehenden Angular-App",
-            "Keine harte Abkopplung vom Ananta-Branding"
+            "Name 'CodeHug' wird in UI sichtbar",
+            "Kurzbeschreibung erklaert Zweck (eine Zeile, ueberall verfuegbar)",
+            "Eigenes Logo/Mark auf der CodeHug-Seite",
+            "Design passt zur bestehenden Angular-App (Tokens, Typografie, Spacing) ohne Vermischung der Komponenten",
+            "Keine harte Abkopplung vom Ananta-Branding",
+            "Eigenes CSS-Scoping (entweder pro Component oder eigenes Stylesheet unter features/codehug/)",
+            "Light- und Dark-Mode werden respektiert"
+          ]
+        },
+        {
+          "id": "CH-008-003",
+          "title": "Visueller Graph-Editor (interaktiv)",
+          "description": "CodeHug hat einen visuell bearbeitbaren Graph. Nutzer kann Knoten verschieben, gruppieren, ausblenden und Annotationen hinterlassen.",
+          "acceptance_criteria": [
+            "Knoten koennen per Drag verschoben werden",
+            "Knoten koennen gruppiert werden",
+            "Knoten koennen ein-/ausgeblendet werden",
+            "Annotationen koennen an Knoten/Kanten geheftet werden",
+            "Layout-Zustand (Positionen, Filter, Annotationen) wird im Backend gespeichert",
+            "Undo/Redo fuer lokale Layout-Aenderungen"
           ]
         }
       ]
     },
     {
       "id": "CH-009",
-      "title": "Backend/API-Anbindung",
+      "title": "Backend-/Hub-API-Anbindung",
       "priority": "very_high",
       "tasks": [
         {
           "id": "CH-009-001",
-          "title": "CodeCompass API-Client erstellen",
-          "description": "Angular-Service fuer CodeCompass-Endpunkte bauen.",
+          "title": "CodeCompassService (Hub-API-Client) erstellen",
+          "description": "Eigenstaendiger Angular-Service, der die Hub-API fuer CodeCompass-Endpunkte kapselt.",
           "acceptance_criteria": [
-            "Service kapselt API-Aufrufe",
-            "Fehlerbehandlung ist vorhanden",
-            "Loading-States sind nutzbar",
-            "Keine Komponenten greifen direkt roh auf HTTP zu"
+            "Service liegt unter src/app/features/codehug/services/",
+            "Kapselt resolve_context, search_symbols, get_file_context, plan_context",
+            "Fehlerbehandlung mit typed Errors (kein rohes HTTP)",
+            "Loading-States sind via Signals/Observables nutzbar",
+            "Keine Komponente greift direkt auf HTTP zu",
+            "Service ist vollstaendig unit-getestet",
+            "Service respektiert bestehende Auth-Mechanismen der App"
           ]
         },
         {
           "id": "CH-009-002",
-          "title": "Endpoints fuer Kontextvorschlaege anbinden",
-          "description": "Frontend mit vorhandenen oder neuen Backend-Endpunkten fuer Kontextsuche verbinden.",
+          "title": "AgentRunService (Hub-API-Client) erstellen",
+          "description": "Service fuer Agent-Run-Start, Status-Poll/Stream, Ergebnis-Abruf, Abbruch.",
           "acceptance_criteria": [
-            "resolve_context ist nutzbar",
-            "search_symbols ist nutzbar",
-            "get_file_context ist nutzbar",
-            "plan_context ist nutzbar, falls vorhanden"
+            "Service startet Agent-Run ueber Hub-API",
+            "Status wird per Polling oder Stream empfangen",
+            "Ergebnis (Steps, Tool-Calls, Outputs) wird strukturiert zurueckgegeben",
+            "Abbruch ist moeglich und sauber behandelt",
+            "Fehlerfaelle (Timeout, Policy-Violation, Backend-Fehler) sind typed und behandelt",
+            "Service ist vollstaendig unit-getestet"
           ]
         },
         {
           "id": "CH-009-003",
-          "title": "Agentenlauf-API anbinden",
-          "description": "Start, Status und Ergebnis eines Agentenlaufs ueber UI steuerbar machen.",
+          "title": "ContextPackageService (Persistenz) erstellen",
+          "description": "Service fuer Kontextpaket-CRUD im Backend.",
           "acceptance_criteria": [
-            "Agentenlauf kann gestartet werden",
-            "Status kann abgefragt werden",
-            "Ergebnis wird angezeigt",
-            "Abbruch oder Fehler wird sauber behandelt"
+            "CRUD-Operationen ueber Hub-API",
+            "Versionierung pro Paket sichtbar",
+            "Projekt-Bezug wird mitgegeben",
+            "Sensitive-File-Handling ist integriert (siehe CH-010-003)",
+            "Service ist vollstaendig unit-getestet"
+          ]
+        },
+        {
+          "id": "CH-009-004",
+          "title": "PolicyService fuer CodeHug-Policies",
+          "description": "Service fuer das eigenstaendige Policy-Edit-Panel in CodeHug. Greift auf dieselbe Hub-API wie features/context-access-policy zu, ohne deren Komponenten zu duplizieren.",
+          "acceptance_criteria": [
+            "Liest Policy-Status (erlaubte Profile, Pfade, Aktionen) ueber Hub-API",
+            "Schreibt Policy-Aenderungen ueber Hub-API (mit Auth-Token der App)",
+            "Cached nicht stillschweigend; bei Aenderung wird re-read getriggert",
+            "Read-Only-Modus der App wird respektiert (Schreibversuche werden abgelehnt)",
+            "Service ist vollstaendig unit-getestet"
           ]
         }
       ]
@@ -335,35 +521,56 @@
       "tasks": [
         {
           "id": "CH-010-001",
-          "title": "Read-only Standardmodus",
-          "description": "CodeHug startet immer in einem sicheren Analysemodus ohne Schreibrechte.",
+          "title": "Read-only Standardmodus mit sichtbarem Status",
+          "description": "CodeHug startet immer in einem sicheren Analysemodus ohne Schreibrechte. Write-Modus muss explizit freigeschaltet werden.",
           "acceptance_criteria": [
             "Standardmodus ist read-only",
-            "Schreibaktionen muessen explizit aktiviert werden",
-            "UI zeigt aktuellen Modus sichtbar an",
-            "Agenten koennen nicht heimlich in Write-Modus wechseln"
+            "Schreibaktionen erfordern explizite Aktivierung des Write-Modus durch den Nutzer",
+            "Aktueller Modus (read-only / write-armed) ist in der UI persistent sichtbar",
+            "Agenten koennen nicht heimlich in Write-Modus wechseln",
+            "Modus-Wechsel loest Policy-Re-Check aus",
+            "Write-Modus wird nach Inaktivitaet (konfigurierbar, default 15min) zurueckgesetzt"
           ]
         },
         {
           "id": "CH-010-002",
-          "title": "Policy-Check vor Agentenstart",
-          "description": "Vor jedem Agentenlauf werden Rechte, Kontext und erlaubte Aktionen geprueft.",
+          "title": "Policy-Check vor jedem Agentenstart",
+          "description": "Vor jedem Agentenlauf werden Rechte, Kontext und erlaubte Aktionen geprueft. Pruefung laeuft ueber die Hub-API.",
           "acceptance_criteria": [
-            "Start prueft erlaubte Profile",
-            "Start prueft erlaubte Pfade",
-            "Start prueft erlaubte Aktionen",
-            "Fehlende Freigaben blockieren den Lauf"
+            "Start prueft erlaubte Profile fuer den Nutzer",
+            "Start prueft, ob alle Ziel-Pfade in der Policy erlaubt sind",
+            "Start prueft, ob alle geplanten Aktionen (write, execute, network) erlaubt sind",
+            "Start prueft Kontextgroesse gegen Policy-Limits",
+            "Fehlende Freigaben blockieren den Lauf mit klarer Fehlermeldung",
+            "Blockierte Laeufe werden im Trace geloggt"
           ]
         },
         {
           "id": "CH-010-003",
-          "title": "Sensitive Files markieren",
-          "description": "Dateien wie .env, secrets, keys oder Credentials muessen besonders behandelt werden.",
+          "title": "Sensitive Files erkennen und behandeln",
+          "description": "Dateien wie .env, secrets, keys, credentials, ssh-keys und PII-haltige Dateien muessen besonders behandelt werden.",
           "acceptance_criteria": [
-            "Sensitive Dateien werden markiert",
-            "Sensitive Dateien landen nicht automatisch im Kontext",
-            "Nutzer muss sensible Dateien bewusst freigeben",
-            "Export warnt bei sensiblen Inhalten"
+            "Sensitive Dateien werden anhand konfigurierbarer Musterliste erkannt",
+            "Sensitive Dateien landen NICHT automatisch im Kontextpaket",
+            "Nutzer muss sensitive Dateien bewusst pro Datei freigeben",
+            "Kontext-Builder warnt sichtbar beim Versuch, sensitive Dateien aufzunehmen",
+            "Export warnt vor sensiblen Inhalten und bietet expliziten Ausschluss an",
+            "Pattern-Liste kann pro Projekt ueberschrieben werden",
+            "Erkennung passiert clientseitig (schnell) UND serverseitig via Hub-API (authoritativ)"
+          ]
+        },
+        {
+          "id": "CH-010-004",
+          "title": "Eigenstaendiges Policy-Edit-Panel in CodeHug",
+          "description": "CodeHug hat ein eigenes inline Policy-Edit-Panel fuer CodeHug-relevante Policies. Greift auf dieselbe Hub-API wie features/context-access-policy zu.",
+          "acceptance_criteria": [
+            "Panel ist ueber einen Button in CodeHug erreichbar",
+            "Zeigt aktive Policies (Agent-Profile, Pfad-Regeln, Aktionen, Sensitive-Patterns)",
+            "Edit erlaubt Hinzufuegen/Aendern/Loeschen von Regeln",
+            "Aenderungen werden ueber Hub-API geschrieben",
+            "Bearbeitung erfordert Write-Modus-Aktivierung",
+            "Aenderungen werden im CodeHug-Trace sichtbar geloggt",
+            "Keine duplizierte Policy-Domain-Logik (API wird geteilt mit features/context-access-policy)"
           ]
         }
       ]
@@ -375,24 +582,39 @@
       "tasks": [
         {
           "id": "CH-011-001",
-          "title": "Kontextpakete speichern",
-          "description": "Nutzer kann wiederverwendbare Kontextpakete speichern.",
+          "title": "Kontextpakete im Backend speichern und laden",
+          "description": "Nutzer kann wiederverwendbare Kontextpakete speichern. Persistierung ueber die Hub-API.",
           "acceptance_criteria": [
             "Paket kann gespeichert werden",
             "Paket kann geladen werden",
             "Paket kann geloescht werden",
-            "Paket enthaelt Version/Projektbezug"
+            "Paket enthaelt Version und Projektbezug",
+            "Paket-Liste ist im Dashboard oder Builder sichtbar",
+            "Speicherung respektiert Sensitive-File-Regeln (CH-010-003)"
           ]
         },
         {
           "id": "CH-011-002",
-          "title": "Aufgaben-Vorlagen speichern",
+          "title": "Aufgaben-Vorlagen (Templates) speichern",
           "description": "Haeufige CodeHug-Aufgaben als Templates speichern.",
           "acceptance_criteria": [
-            "Template kann erstellt werden",
+            "Template kann erstellt werden (Freitext + optionale Kontextregeln)",
             "Template kann wiederverwendet werden",
             "Template kann einem Agentenprofil zugeordnet werden",
-            "Template kann Kontextregeln enthalten"
+            "Template kann Kontextregeln enthalten (z.B. 'immer diese 5 Symbole einbeziehen')",
+            "Template-Liste ist im Builder oder Dashboard sichtbar",
+            "Templates werden pro Nutzer persistiert"
+          ]
+        },
+        {
+          "id": "CH-011-003",
+          "title": "Layout- und UI-Praeferenzen pro Nutzer",
+          "description": "Persistente User-Praeferenzen fuer CodeHug (Theme-Variante, Default-Risiko-Level, Modus-Timeouts etc.).",
+          "acceptance_criteria": [
+            "Praeferenzen werden im Backend gespeichert (eigener Storage-Namespace fuer CodeHug)",
+            "Lokale Files werden nur gelesen, nie direkt geschrieben",
+            "Praeferenzen sind pro Nutzer portabel (nicht an einen Browser gebunden)",
+            "Defaults sind sinnvoll gewaehlt (siehe CH-010-001)"
           ]
         }
       ]
@@ -404,35 +626,53 @@
       "tasks": [
         {
           "id": "CH-012-001",
-          "title": "Unit Tests fuer Services",
+          "title": "Unit Tests fuer alle Services",
           "description": "API-Services und State-Logik testen.",
           "acceptance_criteria": [
-            "CodeCompassService ist getestet",
-            "AgentRunService ist getestet",
-            "ContextPackageService ist getestet",
-            "Fehlerfaelle sind abgedeckt"
+            "CodeCompassService ist vollstaendig unit-getestet (Erfolgs- und Fehlerfaelle)",
+            "AgentRunService ist vollstaendig unit-getestet",
+            "ContextPackageService ist vollstaendig unit-getestet",
+            "PolicyService ist vollstaendig unit-getestet",
+            "State-/Signal-Logik ist getestet",
+            "Coverage-Ziel: >= 80% fuer CodeHug-Services",
+            "Tests nutzen gemockte Hub-API (kein Echtnetz)"
           ]
         },
         {
           "id": "CH-012-002",
           "title": "Component Tests fuer Kernansichten",
-          "description": "Dashboard, Kontextpaket-Builder und Agentenstatus testen.",
+          "description": "Dashboard, Kontextpaket-Builder, Graph-Renderer, Diff-View und Agentenstatus testen.",
           "acceptance_criteria": [
-            "Dashboard rendert ohne Backenddaten",
+            "Dashboard rendert ohne Backenddaten (Empty-State)",
             "Kontextauswahl funktioniert",
-            "Agentenstatus zeigt Loading/Error/Success",
-            "Diff-Ansicht ist testbar"
+            "Graph-Renderer zeigt Knoten/Edges korrekt und reagiert auf Selection",
+            "Agentenstatus zeigt Loading/Error/Success-States",
+            "Diff-Ansicht ist testbar (Hinzufuegungen/Entfernungen sichtbar)",
+            "Policy-Edit-Panel ist testbar (Read-Only vs. Write-Modus)"
           ]
         },
         {
           "id": "CH-012-003",
           "title": "E2E-Test fuer Hauptworkflow",
-          "description": "End-to-End-Test: Projekt oeffnen, Kontext bauen, Agentenvorschlag anzeigen.",
+          "description": "End-to-End-Test: Projekt oeffnen, Kontext bauen, Agentenvorschlag anzeigen, Diff freigeben, Apply anstossen.",
           "acceptance_criteria": [
-            "Workflow laeuft automatisiert",
-            "Mock-Backend oder Testdaten vorhanden",
+            "Workflow laeuft automatisiert via Playwright",
+            "Mock-Backend oder Testdaten vorhanden (keine Echtnetz-Calls)",
             "Keine echten Schreibaktionen im Test",
-            "Fehlerzustaende sind pruefbar"
+            "Fehlerzustaende (Backend down, Policy blockiert) sind pruefbar",
+            "E2E laeuft im bestehenden e2e-Setup der App"
+          ]
+        },
+        {
+          "id": "CH-012-004",
+          "title": "E2E-Test fuer vollstaendigen Agent-Flow inkl. Apply",
+          "description": "End-to-End-Test des vollstaendigen Flows von Vorschlag bis Apply und Verifikation, mit Mock-Backend.",
+          "acceptance_criteria": [
+            "Mock-Backend simuliert Hub-API mit Write-Modus",
+            "Apply-Schritte werden sichtbar",
+            "Verifikations-Schritt wird angestossen",
+            "Rollback-Pfad ist testbar",
+            "Policy-Block wird getestet (Versuch ohne Write-Modus muss scheitern)"
           ]
         }
       ]
@@ -448,50 +688,56 @@
           "description": "Kurze technische und fachliche Erklaerung des Moduls.",
           "acceptance_criteria": [
             "Zweck von CodeHug ist erklaert",
-            "Abgrenzung zu Ananta und CodeCompass ist erklaert",
-            "Hauptworkflows sind beschrieben",
-            "Sicherheitsmodell ist kurz dokumentiert"
+            "Abgrenzung zu Ananta (Backend) und CodeCompass (Kontext-Engine) ist erklaert",
+            "Hauptworkflows sind beschrieben (mit Screenshots/Diagrammen falls sinnvoll)",
+            "Sicherheitsmodell ist kurz dokumentiert (Read-only Default, Write-Modus, Sensitive Files)",
+            "Voraussetzungen und Setup sind beschrieben"
           ]
         },
         {
           "id": "CH-013-002",
-          "title": "Developer Notes ergaenzen",
+          "title": "Developer Notes fuer spaetere Erweiterung",
           "description": "Hinweise fuer spaetere Erweiterung durch Entwickler oder Agenten.",
           "acceptance_criteria": [
-            "Komponentenstruktur ist dokumentiert",
-            "Services sind dokumentiert",
-            "API-Erwartungen sind dokumentiert",
-            "Offene TODOs sind referenziert"
+            "Komponentenstruktur ist dokumentiert (inkl. eigenstaendiger Graph-Renderer)",
+            "Services sind dokumentiert (welcher Service macht was, welche API-Endpunkte)",
+            "API-Erwartungen gegenueber Hub sind dokumentiert (mit Beispielen)",
+            "Offene TODOs sind referenziert (z.B. zukuenftige Graph-Layout-Algorithmen)",
+            "Konventionen fuer Naming, Styling, Tests sind festgehalten"
           ]
         }
       ]
     }
   ],
-  "suggested_initial_mvp": [
-    "Route /codehug",
-    "Projektuebersicht",
-    "CodeCompass-Status",
-    "Semantische Suche",
-    "Kontextpaket-Builder",
-    "Agentenprofil-Auswahl",
-    "Read-only Agentenlauf",
-    "Ergebnisanzeige mit referenziertem Kontext"
-  ],
-  "non_goals_for_first_version": [
-    "Automatisches Schreiben in Dateien ohne explizite Freigabe",
-    "Vollstaendiger visueller Graph-Editor",
-    "Komplexe Multi-Agent-Orchestrierung direkt in CodeHug",
-    "Eigenes Rechtesystem unabhaengig vom Ananta-Hub",
-    "Unkontrollierter Export sensibler Projektdateien"
-  ],
+  "scope_clarification_for_first_version": {
+    "note": "Diese Sektion ersetzt die vorherige non_goals_for_first_version-Liste. Alle dort genannten Punkte sind explizit Ziele der ersten Version.",
+    "in_scope": [
+      "Automatisches Schreiben in Dateien nach expliziter Freigabe (ueber Hub-API)",
+      "Vollstaendiger visueller Graph-Editor mit eigenem CodeHug-Renderer",
+      "Komplexe Multi-Agent-Orchestrierung direkt in CodeHug (gesteuert ueber Hub-API)",
+      "Eigenes Policy-Edit-Panel in CodeHug (arbeitet via Hub-API, dupliziert nicht die Komponenten aus features/context-access-policy)",
+      "Kontrollierter Export sensibler Projektdateien (mit expliziter Nutzer-Freigabe und Warnungen)"
+    ],
+    "explicitly_in_scope_for_v1": [
+      "Vollstaendige Persistenz von Kontextpaketen, Task-Vorlagen und User-Praeferenzen ueber die Hub-API",
+      "Vollstaendige Responsive-Variante (Desktop, Tablet, Handy)",
+      "Vollstaendige Unit- und E2E-Test-Coverage fuer alle Flows"
+    ]
+  },
   "definition_of_done": [
-    "CodeHug ist als eigene Spezialansicht in der Angular-App erreichbar",
-    "Nutzer kann Projektkontext suchen und zusammenstellen",
-    "CodeCompass-Informationen werden verstaendlich angezeigt",
+    "CodeHug ist als eigenstaendige Spezialansicht in der Angular-App unter /codehug erreichbar (lazy-loaded, eigener Component-Tree, kein Reuse aus features/codecompass-graph)",
+    "Nutzer kann Projektkontext suchen und Kontextpakete zusammenstellen (inkl. Drag-and-Drop, Sensitive-File-Handling)",
+    "Kontextpakete und Task-Vorlagen werden im Backend persistiert",
+    "CodeCompass-Informationen (Dateien, Symbole, Graph, Domain-Map) werden verstaendlich angezeigt - mit eigenem Graph-Renderer, nicht mit der bestehenden codecompass-graph-Komponente",
     "Agenten koennen im sicheren Read-only-Modus mit Kontext gestartet werden",
-    "Ergebnisse sind nachvollziehbar und referenzieren verwendete Dateien/Symbole",
-    "Schreibende Aktionen sind blockiert oder nur nach expliziter Freigabe moeglich",
-    "Kernservices und Hauptworkflow sind getestet",
-    "README und Developer Notes sind vorhanden"
+    "Nach expliziter Freigabe laeuft der vollstaendige Agent-Flow inklusive File-Writes via Hub-API",
+    "Ergebnisse sind nachvollziehbar (Step-by-Step-Trace mit Tool-Calls und Kontext-Referenzen)",
+    "Schreibende Aktionen sind blockiert oder nur nach expliziter Freigabe moeglich (Default-Deny, Write-Mode-Aktivierung mit Timeout)",
+    "Policy-Edit-Panel in CodeHug erlaubt Bearbeitung der CodeHug-relevanten Policies via Hub-API",
+    "Sensitive Files werden erkannt, markiert und erfordern explizite Freigabe",
+    "Layout funktioniert auf Desktop, Tablet und Handy",
+    "Kernservices und Hauptworkflows sind unit- und e2e-getestet (Coverage >= 80% fuer Services)",
+    "README und Developer Notes sind vorhanden",
+    "CodeHug nutzt keine fremden Komponenten aus anderen Features auf UI-Ebene; alle CodeHug-Komponenten liegen unter src/app/features/codehug/"
   ]
 }
