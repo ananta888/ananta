@@ -17,6 +17,7 @@ import {
   ChPlanContextResponse,
   ChServiceError,
   ChServiceErrorCode,
+  ChSymbolDetailReadModel,
 } from '../models/codehug.models';
 
 /**

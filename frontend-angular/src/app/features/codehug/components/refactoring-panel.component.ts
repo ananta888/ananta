@@ -10,7 +10,6 @@ import {
   signal,
   computed,
 } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { RefactoringService } from '../services/refactoring.service';
 import { PolicyService } from '../services/policy.service';
 import {
@@ -32,7 +31,7 @@ import {
 @Component({
   selector: 'ch-refactoring-panel',
   standalone: true,
-  imports: [DatePipe],
+  imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="ch-refactor">

@@ -74,7 +74,8 @@ export class TopologyGraphComponent implements AfterViewInit, OnChanges, OnDestr
   private modeler: any = null;
 
   ngAfterViewInit(): void {
-    void this.initModeler();
+    this.renderFallback();
+    this.loading.set(false);
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -91,40 +92,11 @@ export class TopologyGraphComponent implements AfterViewInit, OnChanges, OnDestr
     }
   }
 
-  private async initModeler(): Promise<void> {
-    try {
-      const modelerModule: any = await import('bpmn-js/lib/Modeler');
-      const Modeler = modelerModule.default;
-      this.modeler = new Modeler({
-        container: this.canvasRef.nativeElement,
-        keyboard: { bindTo: document.body },
-      });
-      await this.render();
-    } catch (err) {
-      // bpmn-js nicht verfuegbar — Fallback: einfache SVG-Liste
-      this.renderFallback();
-      this.loading.set(false);
-    }
-  }
-
   private async render(): Promise<void> {
-    if (!this.modeler) return;
-    const xml = this.buildBpmnXml();
-    try {
-      await this.modeler.importXML(xml);
-      await this.modeler.get('canvas').zoom('fit-viewport');
-      // Selection binding
-      const eventBus = this.modeler.get('eventBus');
-      eventBus.on('element.click', (e: any) => {
-        const id = e?.element?.id;
-        if (id && id.startsWith('worker_')) {
-          this.workerSelected.emit(id.substring('worker_'.length));
-        }
-      });
-      this.loading.set(false);
-    } catch (err) {
-      this.loading.set(false);
-    }
+    // bpmn-js wurde bewusst entfernt: Vite-Pre-Bundling kann den Sub-Path nicht
+    // resolven, und der SVG-Fallback deckt die Topologie-Anzeige voll ab.
+    // Falls spaeter bpmn-js benoetigt wird, muss es ueber optimizeDeps.include
+    // explizit vorgewermt werden — bis dahin kein dynamic import.
   }
 
   private renderFallback(): void {
