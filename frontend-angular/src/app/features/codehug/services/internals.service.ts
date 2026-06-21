@@ -14,6 +14,41 @@ export interface AnantaTemplate {
   is_seed: boolean;
 }
 
+export interface VpPreset {
+  id: string;
+  name: string;
+  description: string;
+  tags: string[];
+}
+
+export interface VpSkillProfile {
+  id: string;
+  name: string;
+  description: string;
+  role: string;
+  task_kinds: string[];
+  capabilities: string[];
+  tags: string[];
+}
+
+export interface VpStepPosition { x: number; y: number; }
+export interface VpArtifactRef { name: string; kind: string; required: boolean; description: string; }
+export interface VpStepIo { inputs: VpArtifactRef[]; outputs: VpArtifactRef[]; }
+export interface VpLoopPolicy { kind: string; max_iterations: number; condition: string | null; }
+export interface VpTransitionCondition { kind: string; expression: string | null; output_name: string | null; loop_policy: VpLoopPolicy | null; }
+export interface VpEdge { id: string; source: string; target: string; condition: VpTransitionCondition; label: string | null; metadata: Record<string, unknown>; }
+export interface VpStep { id: string; label: string; kind: string; role: string | null; agent_skill_profile_id: string | null; io: VpStepIo; position: VpStepPosition; gate: boolean; policy_hints: string[]; metadata: Record<string, unknown>; }
+export interface VpGraph { id: string; name: string; description: string; steps: VpStep[]; edges: VpEdge[]; tags: string[]; metadata: Record<string, unknown>; }
+
+export interface VpDryRunResult {
+  dry_run: boolean;
+  validation: { valid: boolean; errors: string[]; warnings: string[] };
+  policy_summary: Record<string, unknown>;
+  blueprint: unknown;
+  step_count: number;
+  edge_count: number;
+}
+
 export interface AnantaWorker {
   url: string;
   name: string;
@@ -79,6 +114,47 @@ export class InternalsService {
         } satisfies AnantaWorker));
       }),
       catchError(() => of([])),
+    );
+  }
+
+  getVpPresets(): Observable<VpPreset[]> {
+    return this.http.get<any[]>(`${this.hubUrl()}/api/visual-process/presets`).pipe(
+      map(resp => Array.isArray(resp) ? resp : []),
+      catchError(() => of([])),
+    );
+  }
+
+  getVpPreset(id: string): Observable<VpGraph | null> {
+    return this.http.get<VpGraph>(`${this.hubUrl()}/api/visual-process/presets/${encodeURIComponent(id)}`).pipe(
+      catchError(() => of(null)),
+    );
+  }
+
+  getVpSkillProfiles(): Observable<VpSkillProfile[]> {
+    return this.http.get<any[]>(`${this.hubUrl()}/api/visual-process/skill-profiles`).pipe(
+      map(resp => Array.isArray(resp) ? resp : []),
+      catchError(() => of([])),
+    );
+  }
+
+  dryRunVpGraph(graph: VpGraph): Observable<VpDryRunResult> {
+    return this.http.post<VpDryRunResult>(`${this.hubUrl()}/api/visual-process/dry-run`, { graph }).pipe(
+      catchError(err => {
+        const body = err?.error;
+        return of(body as VpDryRunResult);
+      }),
+    );
+  }
+
+  startVpWorkflow(graph: VpGraph, opts: Record<string, string> = {}): Observable<Record<string, unknown>> {
+    return this.http.post<Record<string, unknown>>(`${this.hubUrl()}/api/visual-process/workflow/start`, { graph, ...opts }).pipe(
+      catchError(err => of({ status: 'error', detail: err?.message ?? 'unknown' })),
+    );
+  }
+
+  getVpWorkflowStatus(workflowId: string): Observable<Record<string, unknown>> {
+    return this.http.get<Record<string, unknown>>(`${this.hubUrl()}/api/visual-process/workflow/${encodeURIComponent(workflowId)}/status`).pipe(
+      catchError(() => of({ status: 'not_found' })),
     );
   }
 

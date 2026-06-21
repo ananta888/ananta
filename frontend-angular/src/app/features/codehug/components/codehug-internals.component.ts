@@ -13,7 +13,7 @@ import {
 } from '@angular/core';
 import { interval, Subscription } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
-import { InternalsService, AnantaWorker, AutopilotStatus } from '../services/internals.service';
+import { InternalsService, AnantaWorker, AutopilotStatus, VpPreset, VpSkillProfile, VpGraph } from '../services/internals.service';
 import { DecimalPipe } from '@angular/common';
 
 // ─── Static Config Data (mirrored from Hub DB) ───────────────────────────────
@@ -95,18 +95,22 @@ const PLAYBOOKS: PlaybookDef[] = [
 // ─── Canvas Types ─────────────────────────────────────────────────────────────
 
 type NodeType = 'start' | 'planning' | 'task' | 'det' | 'gate' | 'review' | 'verification' | 'end';
-type EdgeCondition = 'always' | 'on_success' | 'on_failure';
+type EdgeCondition = 'always' | 'on_success' | 'on_failure' | 'back_edge';
 type Priority = 'High' | 'Medium' | 'Low';
 type RoutingMode = 'auto' | 'backend' | 'worker' | 'capability';
 type DetSubtype = 'script' | 'api-call' | 'regex-check' | 'git-op' | 'file-check';
 type GateSubtype = 'auto-verify' | 'human-approval' | 'test-run' | 'lint' | 'type-check';
 type FailAction = 'block' | 'continue' | 'rollback' | 'retry';
 
+// VP kind values for step classification
+const VP_KINDS = ['coding', 'analysis', 'run_tests', 'code_review', 'refactor', 'bugfix',
+  'research', 'llm_generate', 'goal_plan', 'deploy', 'spec', 'breakdown'] as const;
+
 interface StepRouting {
   mode: RoutingMode;
-  backend?: string;      // 'ananta' | 'opencode' | 'hermes' | 'sgpt' | 'claude' | 'lmstudio'
+  backend?: string;
   workerName?: string;
-  capability?: string;   // 'planner' | 'researcher' | 'coder' | 'reviewer' | 'tester'
+  capability?: string;
 }
 
 interface CanvasNode {
@@ -117,6 +121,10 @@ interface CanvasNode {
   title: string;
   subtitle?: string;
   role?: string;
+  // VP model fields
+  skillProfileId?: string;
+  vpKind?: string;
+  gate?: boolean;
   // Worker routing (task + det)
   routing?: StepRouting;
   // Deterministic step
@@ -152,6 +160,7 @@ interface CanvasEdge {
   to: string;
   condition: EdgeCondition;
   label?: string;
+  loopMaxIter?: number;
 }
 
 const NODE_W = 220;
@@ -160,7 +169,7 @@ const GAP_Y = 52;
 const CX = 300;
 
 const PRIORITY_COLOR: Record<Priority, string> = { High: '#ef4444', Medium: '#f59e0b', Low: '#22c55e' };
-const COND_COLOR: Record<EdgeCondition, string> = { always: '#9ca3af', on_success: '#22c55e', on_failure: '#ef4444' };
+const COND_COLOR: Record<EdgeCondition, string> = { always: '#9ca3af', on_success: '#22c55e', on_failure: '#ef4444', back_edge: '#7c3aed' };
 
 @Component({
   selector: 'ch-internals',
@@ -184,6 +193,15 @@ const COND_COLOR: Record<EdgeCondition, string> = { always: '#9ca3af', on_succes
       <select class="ch-sel" [value]="selectedPlaybook()"
         (change)="onPlaybookChange($any($event.target).value)">
         @for (p of PLAYBOOKS; track p.id) { <option [value]="p.id">{{ p.name }}</option> }
+      </select>
+    </div>
+    <div class="ch-bar-sep"></div>
+    <div class="ch-int-bg">
+      <label class="ch-lbl">VP-Preset</label>
+      <select class="ch-sel" [value]="selectedPresetId()"
+        (change)="onPresetChange($any($event.target).value)">
+        <option value="">— wählen —</option>
+        @for (p of vpPresets(); track p.id) { <option [value]="p.id">{{ p.name }}</option> }
       </select>
     </div>
     <div class="ch-bar-sep"></div>
@@ -292,6 +310,9 @@ const COND_COLOR: Record<EdgeCondition, string> = { always: '#9ca3af', on_succes
             <path d="M0,0 L0,6 L8,3 z" fill="#ef4444"/>
           </marker>
           <marker id="arr-sel" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#7c3aed"/>
+          </marker>
+          <marker id="arr-loop" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
             <path d="M0,0 L0,6 L8,3 z" fill="#7c3aed"/>
           </marker>
           <filter id="glow-b" x="-30%" y="-30%" width="160%" height="160%">
@@ -455,6 +476,22 @@ const COND_COLOR: Record<EdgeCondition, string> = { always: '#9ca3af', on_succes
               @for (r of currentRoles(); track r) { <option [value]="r">{{ r }}</option> }
             </select>
 
+            <label class="ch-fl">Skill-Profil (VP)</label>
+            <select class="ch-fsel" [value]="n.skillProfileId ?? ''"
+              (change)="patchNode(n.id, { skillProfileId: $any($event.target).value || undefined })">
+              <option value="">— Auto —</option>
+              @for (sp of skillProfiles(); track sp.id) {
+                <option [value]="sp.id">{{ sp.name }} ({{ sp.role }})</option>
+              }
+            </select>
+
+            <label class="ch-fl">VP Kind</label>
+            <select class="ch-fsel" [value]="n.vpKind ?? ''"
+              (change)="patchNode(n.id, { vpKind: $any($event.target).value || undefined })">
+              <option value="">— Auto (aus Typ) —</option>
+              @for (k of VP_KINDS; track k) { <option [value]="k">{{ k }}</option> }
+            </select>
+
             <label class="ch-fl">Worker-Routing</label>
             <select class="ch-fsel" [value]="n.routing?.mode ?? 'auto'"
               (change)="setRoutingMode(n.id, $any($event.target).value)">
@@ -583,6 +620,15 @@ const COND_COLOR: Record<EdgeCondition, string> = { always: '#9ca3af', on_succes
             </select>
           }
 
+          @if (n.type !== 'start' && n.type !== 'end') {
+            <label class="ch-fl">Human-Approval Gate</label>
+            <label class="ch-ftoggle">
+              <input type="checkbox" [checked]="n.gate ?? false"
+                (change)="patchNode(n.id, { gate: $any($event.target).checked })"/>
+              <span>{{ (n.gate ?? false) ? 'Ja (blockiert bis Freigabe)' : 'Nein' }}</span>
+            </label>
+          }
+
           <label class="ch-fl">Aktiv</label>
           <label class="ch-ftoggle">
             <input type="checkbox" [checked]="n.enabled"
@@ -630,7 +676,13 @@ const COND_COLOR: Record<EdgeCondition, string> = { always: '#9ca3af', on_succes
             <option value="always">Immer →</option>
             <option value="on_success">Nur bei Erfolg ✓</option>
             <option value="on_failure">Nur bei Fehler ✗</option>
+            <option value="back_edge">↩ Loop / Back-Edge</option>
           </select>
+          @if (e.condition === 'back_edge') {
+            <label class="ch-fl">Max. Iterationen</label>
+            <input type="number" class="ch-fi" min="1" max="20" [value]="e.loopMaxIter ?? 3"
+              (change)="patchEdge(e.id, { loopMaxIter: +$any($event.target).value })"/>
+          }
           <label class="ch-fl">Label</label>
           <input type="text" class="ch-fi" [value]="e.label ?? ''" placeholder="Optionales Label…"
             (change)="patchEdge(e.id, { label: $any($event.target).value })"/>
@@ -648,15 +700,24 @@ const COND_COLOR: Record<EdgeCondition, string> = { always: '#9ca3af', on_succes
           <p class="ch-muted">Knoten ziehen = verschieben.<br>»+« auf Pfeil = Schritt einfügen.<br>»Verbinden« = neue Verbindung ziehen.</p>
         </div>
         <div class="ch-goal-panel">
-          <div class="ch-goal-hd">Ziel starten</div>
-          <textarea class="ch-fta" placeholder="Ziel beschreiben…"
+          <div class="ch-goal-hd">Workflow starten</div>
+          <textarea class="ch-fta" placeholder="Ziel / Name des Workflows…"
             [value]="goalText()"
             (input)="goalText.set($any($event.target).value)"></textarea>
-          <button type="button" class="ch-start-btn"
+          <div class="ch-btn-row">
+            <button type="button" class="ch-dry-btn" (click)="dryRunWorkflow()">✓ Prüfen</button>
+            <button type="button" class="ch-start-btn"
+              [disabled]="!goalText().trim()"
+              (click)="startVpWorkflow()">▶ VP-Workflow starten</button>
+          </div>
+          <button type="button" class="ch-start-btn ch-start-btn-goal"
             [disabled]="!goalText().trim()"
-            (click)="submitGoal()">▶ An Ananta senden</button>
+            (click)="submitGoal()">▶ Classic Goal senden</button>
           @if (goalResult()) {
             <div class="ch-result" [class.ch-result-ok]="goalOk()">{{ goalResult() }}</div>
+          }
+          @if (workflowId()) {
+            <div class="ch-result ch-result-ok">Workflow: {{ workflowId() }}</div>
           }
         </div>
       }
@@ -799,6 +860,10 @@ const COND_COLOR: Record<EdgeCondition, string> = { always: '#9ca3af', on_succes
 .ch-result { font-size: 10px; padding: 3px 7px; border-radius: 4px; background: color-mix(in srgb, #ef4444 9%, transparent); color: #b91c1c; }
 .ch-result-ok { background: color-mix(in srgb, #22c55e 9%, transparent) !important; color: #15803d !important; }
 .ch-muted { color: var(--muted); font-size: 11px; margin: 0; }
+.ch-btn-row { display: flex; gap: 5px; }
+.ch-dry-btn { flex: 0 0 auto; padding: 5px 10px; border-radius: 5px; border: 1px solid var(--border); background: var(--bg); color: var(--fg); font-size: 12px; cursor: pointer; }
+.ch-dry-btn:hover { background: var(--card-bg); }
+.ch-start-btn-goal { background: color-mix(in srgb, var(--accent) 60%, transparent); font-size: 11px; padding: 4px 10px; }
   `],
 })
 export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestroy {
@@ -814,6 +879,14 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
   readonly NODE_STYLE = NODE_STYLE;
   readonly BACKENDS = BACKENDS;
   readonly CAPABILITIES = CAPABILITIES;
+  readonly VP_KINDS = VP_KINDS;
+
+  // ── VP API signals ────────────────────────────────────────────────────────
+  readonly vpPresets = signal<VpPreset[]>([]);
+  readonly skillProfiles = signal<VpSkillProfile[]>([]);
+  readonly selectedPresetId = signal('');
+  readonly workflowId = signal<string | null>(null);
+  readonly dryRunResult = signal<string | null>(null);
 
   // ── Live data ─────────────────────────────────────────────────────────────
   readonly workers = signal<AnantaWorker[]>([]);
@@ -866,6 +939,8 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
     this.buildCanvas('scrum', 'bug_fix');
     this.svc.getWorkers().subscribe(w => this.workers.set(w));
     this.svc.getAutopilotStatus().subscribe(s => this.autopilot.set(s));
+    this.svc.getVpPresets().subscribe(p => this.vpPresets.set(p));
+    this.svc.getVpSkillProfiles().subscribe(sp => this.skillProfiles.set(sp));
     this._pollSub = interval(3000).pipe(switchMap(() => this.svc.getAutopilotStatus()))
       .subscribe(s => this.autopilot.set(s));
   }
@@ -873,7 +948,7 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
   ngAfterViewInit(): void {}
   ngOnDestroy(): void { this._pollSub?.unsubscribe(); }
 
-  // ── Blueprint / Playbook ──────────────────────────────────────────────────
+  // ── Blueprint / Playbook / VP Preset ─────────────────────────────────────
 
   onBlueprintChange(id: string): void {
     this.selectedBlueprint.set(id);
@@ -883,6 +958,145 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
   onPlaybookChange(id: string): void {
     this.selectedPlaybook.set(id);
     this.buildCanvas(this.selectedBlueprint(), id);
+  }
+
+  onPresetChange(presetId: string): void {
+    this.selectedPresetId.set(presetId);
+    if (!presetId) return;
+    this.svc.getVpPreset(presetId).subscribe(graph => {
+      if (!graph) return;
+      this.loadFromVpGraph(graph);
+    });
+  }
+
+  loadFromVpGraph(graph: VpGraph): void {
+    let maxX = 0;
+    const nodes: CanvasNode[] = graph.steps.map(s => {
+      const x = s.position.x + 40;
+      const y = s.position.y + 40;
+      if (x > maxX) maxX = x;
+      const type = this.vpKindToNodeType(s.kind, s.gate);
+      return {
+        id: s.id, x, y, w: NODE_W, h: NODE_H,
+        type, title: s.label,
+        subtitle: s.io?.outputs?.map((o: any) => o.name).join(', ') || undefined,
+        role: s.role ?? undefined,
+        skillProfileId: s.agent_skill_profile_id ?? undefined,
+        vpKind: s.kind,
+        gate: s.gate,
+        enabled: true,
+        routing: { mode: 'auto' as RoutingMode },
+      };
+    });
+    const edges: CanvasEdge[] = graph.edges.map(e => ({
+      id: e.id, from: e.source, to: e.target,
+      condition: (e.condition.kind as EdgeCondition) ?? 'always',
+      label: e.label ?? undefined,
+      loopMaxIter: e.condition.loop_policy?.max_iterations ?? undefined,
+    }));
+    this.nodes.set(nodes);
+    this.edges.set(edges);
+    this.selectedNodeId.set(null);
+    this.selectedEdgeId.set(null);
+    this.workflowId.set(null);
+    this.dryRunResult.set(null);
+  }
+
+  private vpKindToNodeType(kind: string, gate: boolean): NodeType {
+    if (gate) return 'gate';
+    if (kind === 'goal_plan' || kind === 'spec' || kind === 'breakdown') return 'planning';
+    if (kind === 'run_tests' || kind === 'testing') return 'verification';
+    if (kind === 'code_review') return 'review';
+    return 'task';
+  }
+
+  private nodeKindFor(n: CanvasNode): string {
+    if (n.vpKind) return n.vpKind;
+    if (n.type === 'det') return 'run_tests';
+    if (n.type === 'gate') return 'approval';
+    if (n.type === 'review') return 'code_review';
+    if (n.type === 'planning') return 'goal_plan';
+    if (n.type === 'verification') return 'run_tests';
+    if (n.type === 'start' || n.type === 'end') return 'llm_generate';
+    return 'coding';
+  }
+
+  toVpGraph(): VpGraph {
+    const name = this.goalText().trim() || 'Canvas Workflow';
+    return {
+      id: `vp-canvas-${Date.now()}`,
+      name, description: name,
+      tags: [this.selectedBlueprint(), this.selectedPlaybook()],
+      metadata: {
+        security_level: this.selectedSecurity(),
+        blueprint: this.selectedBlueprint(),
+        playbook: this.selectedPlaybook(),
+      },
+      steps: this.nodes().map(n => ({
+        id: n.id, label: n.title,
+        kind: this.nodeKindFor(n),
+        role: n.role ?? null,
+        agent_skill_profile_id: n.skillProfileId ?? null,
+        gate: n.gate ?? false,
+        position: { x: n.x, y: n.y },
+        policy_hints: n.gate ? ['requires_approval'] : [],
+        io: { inputs: [], outputs: [] },
+        metadata: {
+          det_subtype: n.detSubtype ?? null,
+          det_command: n.detCommand ?? null,
+          det_expected: n.detExpectedResult ?? null,
+          fail_action: n.failAction ?? null,
+          routing: n.routing ?? null,
+        },
+      })),
+      edges: this.edges().map(e => ({
+        id: e.id, source: e.from, target: e.to,
+        label: e.label ?? null,
+        metadata: {},
+        condition: {
+          kind: e.condition,
+          expression: null, output_name: null,
+          loop_policy: e.condition === 'back_edge'
+            ? { kind: 'fixed', max_iterations: e.loopMaxIter ?? 3, condition: null, break_on_output: null }
+            : null,
+        },
+      })),
+    };
+  }
+
+  dryRunWorkflow(): void {
+    const graph = this.toVpGraph();
+    this.svc.dryRunVpGraph(graph).subscribe(result => {
+      const v = result?.validation;
+      if (!v) { this.goalResult.set('Dry-run: keine Antwort'); this.goalOk.set(false); return; }
+      if (v.valid) {
+        this.goalOk.set(true);
+        this.goalResult.set(`✓ Valide (${result.step_count} Schritte, ${result.edge_count} Kanten)`);
+      } else {
+        this.goalOk.set(false);
+        this.goalResult.set(`✗ Fehler: ${v.errors?.join(', ') ?? 'unbekannt'}`);
+      }
+    });
+  }
+
+  startVpWorkflow(): void {
+    const text = this.goalText().trim();
+    if (!text) return;
+    const graph = this.toVpGraph();
+    this.svc.startVpWorkflow(graph, {
+      requested_by: 'codehug_internals',
+      workflow_type: 'visual_process',
+    }).subscribe(result => {
+      const wid = (result as any)?.workflow_id ?? (result as any)?.id ?? null;
+      if (wid) {
+        this.workflowId.set(wid);
+        this.goalOk.set(true);
+        this.goalResult.set(`Workflow gestartet: ${wid}`);
+      } else {
+        this.goalOk.set(!!(result as any)?.status && (result as any)?.status !== 'error');
+        this.goalResult.set((result as any)?.status ?? 'Gestartet');
+      }
+    });
   }
 
   buildCanvas(blueprintId: string, playbookId: string): void {
@@ -1121,7 +1335,8 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
     this.nodes.update(ns => [...ns, {
       id: nid, x: mp.x - NODE_W / 2, y: mp.y - NODE_H / 2, w: NODE_W, h: NODE_H,
       type: 'task', title: 'Eingefügter Schritt', subtitle: '',
-      role: roles[taskCount % roles.length] ?? '', workerName: null, priority: 'Medium', enabled: true,
+      role: roles[taskCount % roles.length] ?? '', priority: 'Medium', enabled: true,
+      routing: { mode: 'auto' as RoutingMode },
     }]);
     this.edges.update(es => [
       ...es.filter(ed => ed.id !== edgeId),
@@ -1157,6 +1372,13 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
     const src = this.nodes().find(n => n.id === edge.from);
     const dst = this.nodes().find(n => n.id === edge.to);
     if (!src || !dst) return '';
+    if (edge.condition === 'back_edge') {
+      // Loop: goes left side of graph to target above source
+      const sx = src.x, sy = src.y + src.h / 2;
+      const tx = dst.x, ty = dst.y + dst.h / 2;
+      const lx = Math.min(sx, tx) - 60;
+      return `M ${sx} ${sy} C ${lx} ${sy}, ${lx} ${ty}, ${tx} ${ty}`;
+    }
     const sx = src.x + src.w / 2, sy = src.y + src.h;
     const tx = dst.x + dst.w / 2, ty = dst.y;
     const dy = Math.max(28, Math.abs(ty - sy) * 0.38);
@@ -1174,6 +1396,7 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
     if (selected) return '-sel';
     if (edge.condition === 'on_success') return '-ok';
     if (edge.condition === 'on_failure') return '-fail';
+    if (edge.condition === 'back_edge') return '-loop';
     return '';
   }
 
