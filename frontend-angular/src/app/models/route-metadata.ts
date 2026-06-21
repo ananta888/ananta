@@ -56,6 +56,7 @@ export const APP_ROUTE_META: Record<string, AppRouteMeta> = {
   'effective-workflow': { label: 'Effective Workflow', area: 'Configure', navGroup: 'Konfiguration', navOrder: 36.5, expertOnly: true },
   'config-graph': { label: 'Konfig-Graph', area: 'Configure', navGroup: 'Konfiguration', navOrder: 37, expertOnly: true },
   'blueprint-config': { label: 'Blueprint-Konfig', area: 'Configure', navGroup: 'Konfiguration', navOrder: 37.5, expertOnly: true },
+  codehug: { label: 'CodeHug', area: 'Operate', navGroup: 'Arbeiten', navOrder: 5, simpleNav: true },
 };
 
 export function routeDataFor(path: keyof typeof APP_ROUTE_META): { breadcrumb: string; area: AppRouteArea } {

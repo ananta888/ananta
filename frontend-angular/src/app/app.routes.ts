@@ -11,6 +11,7 @@ import { taskRoutes } from './features/tasks/task.routes';
 import { contextAccessPolicyRoutes } from './features/context-access-policy/context-access-policy.routes';
 import { visualProcessRoutes } from './features/visual-process/visual-process.routes';
 import { diff3Routes } from './features/diff3/diff3.routes';
+import { codeHugRoutes } from './features/codehug/codehug.routes';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
@@ -35,6 +36,7 @@ export const routes: Routes = [
       ...contextAccessPolicyRoutes,
       ...visualProcessRoutes,
       ...diff3Routes,
+      ...codeHugRoutes,
     ]
   },
   { path: '**', component: NotFoundComponent }

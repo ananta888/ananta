@@ -13,6 +13,7 @@ describe('route metadata', () => {
     const simplePaths = buildNavGroups('admin', 'simple').flatMap(group => group.items).map(item => item.path);
 
     expect(simplePaths).toEqual([
+      '/codehug',
       '/workspace',
       '/chats',
       '/board',
