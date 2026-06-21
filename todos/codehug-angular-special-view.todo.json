@@ -163,7 +163,8 @@
             "Touch-Targets mind. 44x44px auf Handy"
           ]
         }
-      ]
+      ],
+      "status": "done"
     },
     {
       "id": "CH-002",
@@ -195,7 +196,8 @@
             "Fortschrittsanzeige fuer laufende Re-Indexierung"
           ]
         }
-      ]
+      ],
+      "status": "done"
     },
     {
       "id": "CH-003",
@@ -253,7 +255,8 @@
             "Paket-Liste wird im Dashboard oder Builder-Bereich angezeigt"
           ]
         }
-      ]
+      ],
+      "status": "done"
     },
     {
       "id": "CH-004",
@@ -298,7 +301,8 @@
             "Unklare Zuordnungen (Confidence < Threshold) werden nicht als sicher dargestellt"
           ]
         }
-      ]
+      ],
+      "status": "done"
     },
     {
       "id": "CH-005",
@@ -356,7 +360,8 @@
             "Gesamter Flow (Vorschlag -> Diff -> Freigabe -> Apply -> Verifikation -> Ergebnis) ist als Workflow-Trace einsehbar"
           ]
         }
-      ]
+      ],
+      "status": "done"
     },
     {
       "id": "CH-006",
@@ -401,7 +406,8 @@
             "Ressourcen-Limits (Anzahl Agenten, Gesamtzeit) werden respektiert"
           ]
         }
-      ]
+      ],
+      "status": "done"
     },
     {
       "id": "CH-007",
@@ -432,7 +438,8 @@
             "Verlauf der Fragen wird pro Projekt persistiert"
           ]
         }
-      ]
+      ],
+      "status": "done"
     },
     {
       "id": "CH-008",
@@ -480,7 +487,8 @@
             "Undo/Redo fuer lokale Layout-Aenderungen"
           ]
         }
-      ]
+      ],
+      "status": "done"
     },
     {
       "id": "CH-009",
@@ -538,7 +546,8 @@
             "Service ist vollstaendig unit-getestet"
           ]
         }
-      ]
+      ],
+      "status": "done"
     },
     {
       "id": "CH-010",
@@ -599,7 +608,8 @@
             "Keine duplizierte Policy-Domain-Logik (API wird geteilt mit features/context-access-policy)"
           ]
         }
-      ]
+      ],
+      "status": "done"
     },
     {
       "id": "CH-011",
@@ -643,7 +653,8 @@
             "Defaults sind sinnvoll gewaehlt (siehe CH-010-001)"
           ]
         }
-      ]
+      ],
+      "status": "done"
     },
     {
       "id": "CH-012",
@@ -701,7 +712,8 @@
             "Policy-Block wird getestet (Versuch ohne Write-Modus muss scheitern)"
           ]
         }
-      ]
+      ],
+      "status": "done"
     },
     {
       "id": "CH-014",
@@ -794,7 +806,8 @@
             "Zusammenfassung pro Run: 'X deterministische Schritte, Y LLM-Aufrufe, Z ms Gesamtzeit'"
           ]
         }
-      ]
+      ],
+      "status": "done"
     },
     {
       "id": "CH-013",
@@ -825,7 +838,8 @@
             "Konventionen fuer Naming, Styling, Tests sind festgehalten"
           ]
         }
-      ]
+      ],
+      "status": "done"
     }
   ],
   "scope_clarification_for_first_version": {

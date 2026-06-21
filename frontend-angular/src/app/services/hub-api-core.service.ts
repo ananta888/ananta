@@ -80,6 +80,10 @@ export class HubApiCoreService {
     return this.unwrapResponse(this.http.delete<T>(url, this.getHeaders(baseUrl, token)).pipe(timeout(timeoutMs ?? this.timeoutMs)));
   }
 
+  put<T>(url: string, body: any, baseUrl: string, token?: string, timeoutMs?: number): Observable<T> {
+    return this.unwrapResponse(this.http.put<T>(url, body, this.getHeaders(baseUrl, token)).pipe(timeout(timeoutMs ?? this.timeoutMs)));
+  }
+
   cacheGet(baseUrl: string, key: string, ttlMs: number) {
     const entry = this.cache.get(`${baseUrl}|${key}`);
     if (!entry) return null;

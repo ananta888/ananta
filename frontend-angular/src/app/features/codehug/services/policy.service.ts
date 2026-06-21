@@ -1,5 +1,5 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
-import { Observable, throwError } from 'rxjs';
+import { Observable, throwError, of } from 'rxjs';
 import { catchError, map, tap } from 'rxjs/operators';
 
 import { HubApiCoreService } from '../../../services/hub-api-core.service';
@@ -10,6 +10,8 @@ import {
   ChPolicyUpdateRequest,
   ChServiceError,
   ChWriteMode,
+  ChAuditEntry,
+  ChToolRiskAssessment,
   DEFAULT_WRITE_MODE_TIMEOUT_MS,
 } from '../models/codehug.models';
 
@@ -155,8 +157,111 @@ export class PolicyService {
     const url = `${this.hubUrl()}/api/codehug/policy/check`;
     return this.hub.post<ChPolicyDecisionReadModel>(url, request, this.hubUrl()).pipe(
       map(d => this.normalizeDecision(d)),
+      tap(d => this.appendAudit({ kind: 'policy-check', action: request.actionType, decision: d.decision, reason: d.reason })),
       catchError(err => throwError(() => this.toChError(err, 'checkAction'))),
     );
+  }
+
+  /**
+   * Lokale Risiko-Einschaetzung fuer ein Tool (deterministisch).
+   * Wird VOR dem Tool-Call ausgefuehrt, um User-Warnung zu generieren
+   * oder Auto-Approve zu umgehen.
+   */
+  assessToolRisk(toolName: string, args?: Record<string, unknown>): ChToolRiskAssessment {
+    const sensitiveArgs = ['rm -rf', 'sudo ', 'format ', 'drop table', 'eval(', 'exec('];
+    const highRiskTools = ['shell_exec', 'write_file', 'delete_file', 'network_request', 'run_command'];
+    const mediumRiskTools = ['read_file', 'list_dir', 'search_symbols', 'search_files', 'http_get'];
+
+    const argStr = args ? JSON.stringify(args) : '';
+    const hasSensitive = sensitiveArgs.some(s => argStr.toLowerCase().includes(s.toLowerCase()));
+
+    let level: ChToolRiskAssessment['level'] = 'low';
+    const reasons: string[] = [];
+
+    if (highRiskTools.includes(toolName)) {
+      level = 'high';
+      reasons.push(`Tool ${toolName} kann Schreib- oder Netzwerk-Operationen ausfuehren.`);
+    } else if (mediumRiskTools.includes(toolName)) {
+      level = 'medium';
+      reasons.push(`Tool ${toolName} liest externe Ressourcen.`);
+    }
+
+    if (hasSensitive) {
+      level = 'critical';
+      reasons.push('Argumente enthalten potentiell destruktive Muster.');
+    }
+
+    const recommendation: ChToolRiskAssessment['recommendation'] =
+      level === 'critical' ? 'deny'
+      : level === 'high' ? 'require_approval'
+      : level === 'medium' ? 'warn'
+      : 'allow';
+
+    return { toolName, level, reasons, recommendation, assessedAt: Date.now() };
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Audit-Log (lokal, in-memory; in Produktion ueber Hub persistiert)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  private readonly audit = signal<ChAuditEntry[]>([]);
+  readonly auditLog = this.audit.asReadonly();
+  private readonly auditLimit = 500;
+
+  appendAudit(entry: Omit<ChAuditEntry, 'id' | 'ts'>): ChAuditEntry {
+    const full: ChAuditEntry = {
+      id: this.makeId('audit'),
+      ts: Date.now(),
+      ...entry,
+    };
+    this.audit.update(list => [full, ...list].slice(0, this.auditLimit));
+    return full;
+  }
+
+  clearAudit(): void {
+    this.audit.set([]);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Rate-Limit (lokal, Frontend-side; Backend hat eigene Quota)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  private readonly rateBuckets = new Map<string, { count: number; resetAt: number }>();
+  private readonly rateDefaultLimit = 60; // req/min
+  private readonly rateWindowMs = 60_000;
+
+  /**
+   * Prueft, ob ein neues Request fuer `key` innerhalb des aktuellen
+   * Fensters erlaubt ist. Liefert { allowed, remaining, resetInMs }.
+   */
+  checkRate(key: string, customLimit?: number): { allowed: boolean; remaining: number; resetInMs: number } {
+    const limit = customLimit ?? this.rateDefaultLimit;
+    const now = Date.now();
+    let bucket = this.rateBuckets.get(key);
+    if (!bucket || bucket.resetAt <= now) {
+      bucket = { count: 0, resetAt: now + this.rateWindowMs };
+      this.rateBuckets.set(key, bucket);
+    }
+    bucket.count++;
+    const allowed = bucket.count <= limit;
+    return {
+      allowed,
+      remaining: Math.max(0, limit - bucket.count),
+      resetInMs: bucket.resetAt - now,
+    };
+  }
+
+  resetRate(key?: string): void {
+    if (key) this.rateBuckets.delete(key);
+    else this.rateBuckets.clear();
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Internals
+  // ─────────────────────────────────────────────────────────────────────────
+
+  private makeId(prefix: string): string {
+    return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   }
 
   // ─────────────────────────────────────────────────────────────────────────

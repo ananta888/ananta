@@ -560,3 +560,280 @@ export interface ChPaginated<T> {
   offset: number;
   limit: number;
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// CH-005: Refactoring
+// ────────────────────────────────────────────────────────────────────────────
+
+export type ChRefactorKind =
+  | 'rename_symbol'
+  | 'extract_function'
+  | 'inline_function'
+  | 'move_to_module'
+  | 'convert_type'
+  | 'wrap_with_helper'
+  | 'optimize_imports';
+
+export interface ChRefactorProposalReadModel {
+  id: string;
+  kind: ChRefactorKind;
+  title: string;
+  description: string;
+  /** betroffene Dateien, Pfade relativ zum Workspace-Root */
+  affectedFiles: string[];
+  /** geaenderte Symbole / Bereiche */
+  affectedSymbols: string[];
+  /** deterministisch (rule-based) oder LLM-generiert */
+  generatedBy: 'deterministic' | 'llm';
+  /** Confidence (0-1), deterministische Vorschlaege >=0.9 */
+  confidence: number;
+  /** Layer-Kontext: nur sichtbar, wenn Layer-Set matcht */
+  layerSet?: string[];
+  createdAt: number;
+  status: 'open' | 'previewed' | 'applied' | 'dismissed' | 'failed';
+}
+
+export interface ChRefactorProposalInput {
+  workspacePath: string;
+  /** optional — einschraenken auf bestimmte Dateien */
+  files?: string[];
+  /** Refactoring-Kategorie (oder 'auto' = alle passenden) */
+  kind?: ChRefactorKind | 'auto';
+  /** Kontext-Paket (Symbol-Selektor o.ae.) */
+  selector?: {
+    symbolId?: string;
+    functionName?: string;
+    modulePath?: string;
+  };
+}
+
+export interface ChRefactorDiffHunk {
+  filePath: string;
+  oldStart: number;
+  oldLines: number;
+  newStart: number;
+  newLines: number;
+  unified: string;
+}
+
+export interface ChRefactorDiffReadModel {
+  proposalId: string;
+  hunks: ChRefactorDiffHunk[];
+  /** syntaktische Validierung des Ergebnisses (deterministisch) */
+  validation: {
+    syntaxOk: boolean;
+    typeCheckOk: boolean;
+    linterOk: boolean;
+    diagnostics: { severity: 'info' | 'warning' | 'error'; message: string; line?: number }[];
+  };
+  generatedAt: number;
+}
+
+export interface ChRefactorApplyResult {
+  proposalId: string;
+  status: 'applied' | 'failed' | 'rolled_back';
+  appliedFiles: string[];
+  testGate: {
+    ran: boolean;
+    passed: boolean;
+    failedLayer?: string;
+    diagnostics: string[];
+  };
+  message: string;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// CH-006: Custom Agent
+// ────────────────────────────────────────────────────────────────────────────
+
+export interface ChAgentDefinitionInput {
+  name: string;
+  description: string;
+  /** System prompt */
+  systemPrompt: string;
+  /** Optional vorgegebener Tool-Set */
+  tools?: string[];
+  /** Layer-Set (welche Test-Layer fuer Runs) */
+  layerSet?: string[];
+  /** Bevorzugtes Backend (oder 'auto' = Router entscheidet) */
+  preferredBackend?: 'sgpt' | 'opencode' | 'codex' | 'claude_code' | 'aider' | 'mistral' | 'auto';
+  /** Bevorzugtes Modell */
+  preferredModel?: string;
+  /** Capabilities / erlaubte Aktionen (read, write, exec, network, …) */
+  capabilities?: ('read' | 'write' | 'exec' | 'network' | 'policy-vote')[];
+  /** Temperatur 0-1 */
+  temperature?: number;
+  /** Maximale Tokens */
+  maxTokens?: number;
+  /** Tags */
+  tags?: string[];
+}
+
+export interface ChAgentDefinitionReadModel extends ChAgentDefinitionInput {
+  id: string;
+  createdAt: number;
+  updatedAt: number;
+  runCount: number;
+  lastRunAt: number | null;
+  author: string;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// CH-007: Search + Explain
+// ────────────────────────────────────────────────────────────────────────────
+
+export type ChSearchMode = 'fulltext' | 'symbol' | 'fuzzy' | 'hybrid';
+
+export interface ChSearchRequest {
+  query: string;
+  mode: ChSearchMode;
+  workspacePath?: string;
+  /** Optional — eingeschraenkter Symbol-Typ */
+  symbolKind?: 'function' | 'class' | 'method' | 'variable' | 'module';
+  /** Layer-Filter (CH-013-004) */
+  layerSet?: string[];
+  /** Treffer-Limit */
+  limit?: number;
+}
+
+export interface ChSearchResult {
+  symbolId: string;
+  name: string;
+  kind: 'function' | 'class' | 'method' | 'variable' | 'module' | 'file';
+  filePath: string;
+  line: number;
+  /** Match-Snippet (umgebender Code) */
+  snippet: string;
+  /** Welcher Match-Modus (fulltext/symbol/fuzzy) */
+  matchMode: ChSearchMode;
+  score: number;
+  /** Tags (Layer-Zugehoerigkeit) */
+  tags?: string[];
+}
+
+export type ChExplanationKind = 'heuristic' | 'llm' | 'hybrid';
+
+export interface ChExplanationReadModel {
+  symbolId: string;
+  kind: ChExplanationKind;
+  summary: string;
+  details: string[];
+  relatedSymbols: string[];
+  llmEnhanced: boolean;
+  /** Zeitpunkt der Erstellung */
+  generatedAt: number;
+}
+
+export interface ChSymbolCallerOrCallee {
+  id: string;
+  name: string;
+  filePath: string;
+  line: number;
+  kind: 'function' | 'class' | 'method' | 'variable' | 'module';
+}
+
+export interface ChSymbolDetailReadModel {
+  id: string;
+  name: string;
+  kind: 'function' | 'class' | 'method' | 'variable' | 'module';
+  filePath: string;
+  line: number;
+  signature: string;
+  documentation: string;
+  visibility: 'public' | 'private' | 'protected' | 'package';
+  isAsync: boolean;
+  isStatic: boolean;
+  decorators: string[];
+  parentSymbolId?: string;
+  /** Caller (was ruft MICH auf) */
+  callers: ChSymbolCallerOrCallee[];
+  /** Callee (was rufe ICH auf) */
+  callees: ChSymbolCallerOrCallee[];
+  /** Tests, die das Symbol referenzieren */
+  referencedByTests: string[];
+  /** Tags / Layer-Zugehoerigkeit */
+  tags: string[];
+  /** Sprache (typescript, python, …) */
+  language: string;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// CH-010: Security / Policy — Audit + Risk
+// ────────────────────────────────────────────────────────────────────────────
+
+export type ChAuditKind = 'policy-check' | 'write-armed' | 'write-disarmed' | 'tool-call' | 'approval' | 'denial';
+
+export interface ChAuditEntry {
+  id: string;
+  ts: number;
+  kind: ChAuditKind;
+  action: string;
+  decision?: 'allow' | 'deny' | 'require_approval' | 'warn';
+  reason?: string;
+  actor?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export type ChToolRiskLevel = 'low' | 'medium' | 'high' | 'critical';
+export type ChToolRiskRecommendation = 'allow' | 'warn' | 'require_approval' | 'deny';
+
+export interface ChToolRiskAssessment {
+  toolName: string;
+  level: ChToolRiskLevel;
+  reasons: string[];
+  recommendation: ChToolRiskRecommendation;
+  assessedAt: number;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// CH-011: Persistenz / Wiederverwendung
+// ────────────────────────────────────────────────────────────────────────────
+
+export interface ChWorkspaceInput {
+  name: string;
+  description?: string;
+  /** Pfad zum Quell-Verzeichnis (oder leer fuer konfigurationsfrei) */
+  rootPath?: string;
+  /** Default-Layer-Set fuer Runs */
+  layerSet?: string[];
+  /** Optionale Tags */
+  tags?: string[];
+}
+
+export interface ChWorkspaceReadModel extends ChWorkspaceInput {
+  id: string;
+  createdAt: number;
+  updatedAt: number;
+  /** Letzte Activity (z.B. letzter Run) */
+  lastActivityAt: number | null;
+  /** Anzahl enthaltener Snapshots */
+  snapshotCount: number;
+  /** Ersteller / Owner */
+  owner: string;
+}
+
+export interface ChContextSnapshotInput {
+  workspaceId: string;
+  name: string;
+  /** Beschreibung des Snapshot-Zwecks */
+  purpose?: string;
+  /** Symbol-IDs im Kontext */
+  symbolIds: string[];
+  /** Datei-IDs (relativ) */
+  fileIds: string[];
+  /** Layer-Set zum Zeitpunkt der Erstellung */
+  layerSet: string[];
+  /** Optional: Bezugnahme auf einen Run */
+  sourceRunId?: string;
+  /** Tags */
+  tags?: string[];
+}
+
+export interface ChContextSnapshotReadModel extends ChContextSnapshotInput {
+  id: string;
+  createdAt: number;
+  /** Version des Snapshots (auto-increment bei Aktualisierung) */
+  version: number;
+  /** Wer hat es erstellt */
+  author: string;
+}

@@ -1,5 +1,6 @@
-import { Component, ChangeDetectionStrategy, signal, HostListener } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { Component, ChangeDetectionStrategy, signal, HostListener, inject } from '@angular/core';
+import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { PolicyService } from '../services/policy.service';
 
 /**
  * CodeHug Shell — Layout-Wurzel fuer die CodeHug-Spezialansicht.
@@ -12,7 +13,7 @@ import { RouterOutlet } from '@angular/router';
 @Component({
   selector: 'ch-shell',
   standalone: true,
-  imports: [RouterOutlet],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section
@@ -23,8 +24,17 @@ import { RouterOutlet } from '@angular/router';
         <span class="codehug-brand">CodeHug</span>
         <span class="codehug-tagline">Code verstehen, Kontext bauen, Aenderungen sicher vorbereiten.</span>
         <div class="codehug-shell-spacer"></div>
-        <span class="codehug-shell-write-mode" [attr.data-mode]="writeMode()">
-          Modus: {{ writeMode() === 'read-only' ? 'Read-only' : 'Write armed' }}
+        <nav class="codehug-shell-nav" aria-label="CodeHug-Bereiche">
+          <a routerLink="/codehug" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Dashboard</a>
+          <a routerLink="/codehug/context" routerLinkActive="active">Kontext-Builder</a>
+          <a routerLink="/codehug/search" routerLinkActive="active">Suche</a>
+          <a routerLink="/codehug/refactoring" routerLinkActive="active">Refactoring</a>
+          <a routerLink="/codehug/agents" routerLinkActive="active">Agenten</a>
+          <a routerLink="/codehug/custom-agents" routerLinkActive="active">Custom</a>
+          <a routerLink="/codehug/internals" routerLinkActive="active">Internals</a>
+        </nav>
+        <span class="codehug-shell-write-mode" [attr.data-mode]="policy.writeMode()">
+          Modus: {{ policy.writeMode() === 'read-only' ? 'Read-only' : 'Write armed' }}
         </span>
         <button
           type="button"
@@ -161,6 +171,8 @@ export class CodeHugShellComponent {
   readonly rightCollapsed = signal(false);
   /** Wird vom CodeHugFacade gesetzt; hier default read-only. */
   readonly writeMode = signal<'read-only' | 'write-armed'>('read-only');
+  /** Single source of truth: PolicyService. */
+  readonly policy = inject(PolicyService);
 
   @HostListener('window:resize')
   onResize(): void {

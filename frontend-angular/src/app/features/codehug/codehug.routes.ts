@@ -15,7 +15,10 @@ export const codeHugRoutes: Routes = [
     children: [
       { path: '', pathMatch: 'full', loadComponent: () => import('./components/codehug-dashboard.component').then(m => m.CodeHugDashboardComponent) },
       { path: 'context', data: { breadcrumb: 'Kontext-Builder', area: 'Operate' }, loadComponent: () => import('./components/codehug-context-builder.component').then(m => m.CodeHugContextBuilderComponent) },
+      { path: 'search', data: { breadcrumb: 'Suche', area: 'Operate' }, loadComponent: () => import('./components/search-and-explain.component').then(m => m.SearchAndExplainComponent) },
+      { path: 'refactoring', data: { breadcrumb: 'Refactoring', area: 'Operate' }, loadComponent: () => import('./components/refactoring-panel.component').then(m => m.RefactoringPanelComponent) },
       { path: 'agents', data: { breadcrumb: 'Agenten', area: 'Operate' }, loadComponent: () => import('./components/codehug-agents.component').then(m => m.CodeHugAgentsComponent) },
+      { path: 'custom-agents', data: { breadcrumb: 'Custom Agents', area: 'Operate' }, loadComponent: () => import('./components/custom-agent-editor.component').then(m => m.CustomAgentEditorComponent) },
       { path: 'internals', data: { breadcrumb: 'System Internals', area: 'Operate' }, loadComponent: () => import('./components/codehug-internals.component').then(m => m.CodeHugInternalsComponent) },
     ],
   },

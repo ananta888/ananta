@@ -143,6 +143,21 @@ export class CodeCompassService {
   }
 
   /**
+   * Liefert Detail zu einem Symbol (Signatur, Doku, Caller, Callee).
+   * Backend-Endpoint: /api/codecompass/query (type=symbol_detail)
+   */
+  getSymbolDetail(symbolId: string): Observable<ChSymbolDetailReadModel> {
+    const params = new URLSearchParams({
+      type: 'symbol_detail',
+      seed: symbolId,
+    });
+    const url = `${this.hubUrl()}/api/codecompass/query?${params.toString()}`;
+    return this.hub.get<ChSymbolDetailReadModel>(url, this.hubUrl()).pipe(
+      catchError(err => throwError(() => this.toChError(err, 'getSymbolDetail'))),
+    );
+  }
+
+  /**
    * Plant Kontext-Gruppen fuer eine Aufgabe.
    * Backend-Endpoint: /api/codecompass/query (type=plan_context)
    */
