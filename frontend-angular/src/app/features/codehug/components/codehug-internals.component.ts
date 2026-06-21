@@ -170,7 +170,7 @@ const COND_COLOR: Record<EdgeCondition, string> = { always: '#9ca3af', on_succes
     </div>
     <div class="ch-bar-sep"></div>
     <button type="button" class="ch-btn" [class.ch-btn-on]="connectMode()"
-      (click)="connectMode.update(v => !v)" title="Verbinden-Modus">
+      (click)="toggleConnect()" title="Verbinden-Modus">
       {{ connectMode() ? '🔗 Ein' : '🔗 Verbinden' }}
     </button>
     <button type="button" class="ch-btn" (click)="addFreeNode()" title="Task-Schritt hinzufügen">+ Schritt</button>
@@ -815,6 +815,7 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
   zoomIn(): void { this.viewScale.update(s => Math.min(3, s * 1.15)); }
   zoomOut(): void { this.viewScale.update(s => Math.max(0.15, s * 0.87)); }
   resetView(): void { this.viewScale.set(1); this.viewTx.set(40); this.viewTy.set(20); }
+  toggleConnect(): void { this.connectMode.update(v => !v); if (!this.connectMode()) this.connectSource.set(null); }
   cancelConnect(): void { this.connectMode.set(false); this.connectSource.set(null); }
 
   // ── Node / Edge Operations ────────────────────────────────────────────────
