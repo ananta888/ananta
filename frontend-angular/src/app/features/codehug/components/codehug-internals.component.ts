@@ -1,625 +1,622 @@
 import {
+  AfterViewInit,
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
+  HostListener,
   OnDestroy,
   OnInit,
+  ViewChild,
+  computed,
   inject,
   signal,
-  computed,
 } from '@angular/core';
 import { interval, Subscription } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
+import { InternalsService, AnantaWorker, AutopilotStatus } from '../services/internals.service';
+import { DecimalPipe } from '@angular/common';
 
-import { InternalsService, AnantaTemplate, AnantaWorker, AutopilotStatus } from '../services/internals.service';
+// ─── Static Config Data (mirrored from Hub DB) ───────────────────────────────
 
-type FlowPhase = 'goal' | 'planning' | 'queue' | 'executing' | 'verification' | 'done';
-type PanelView = 'template' | 'worker' | 'flow-node' | null;
+interface BlueprintDef { id: string; name: string; roles: string[]; }
+interface PlaybookTask { id: string; title: string; description: string; priority: 'High' | 'Medium' | 'Low'; }
+interface PlaybookDef { id: string; name: string; tasks: PlaybookTask[]; }
 
-interface FlowNodeDef {
-  id: FlowPhase;
-  label: string;
-  sublabel: string;
-  x: number; y: number; w: number; h: number;
-  shape: 'rounded' | 'diamond' | 'hexagon';
-  color: string;
-  strokeColor: string;
-}
-
-const FLOW_NODES: FlowNodeDef[] = [
-  { id: 'goal',         label: 'Ziel',          sublabel: 'Goal-Beschreibung', x: 280, y: 20,  w: 160, h: 50, shape: 'hexagon', color: '#fef3c7', strokeColor: '#d97706' },
-  { id: 'planning',     label: 'Planung',        sublabel: 'LMStudio · Gemma',  x: 280, y: 110, w: 160, h: 50, shape: 'diamond', color: '#e0e7ff', strokeColor: '#4f46e5' },
-  { id: 'queue',        label: 'Task-Queue',     sublabel: 'Dispatching',       x: 280, y: 200, w: 160, h: 45, shape: 'rounded', color: '#f3f4f6', strokeColor: '#6b7280' },
-  { id: 'executing',    label: 'Ausführung',     sublabel: 'Worker-Pool',       x: 280, y: 285, w: 160, h: 50, shape: 'rounded', color: '#dbeafe', strokeColor: '#2563eb' },
-  { id: 'verification', label: 'Verifikation',   sublabel: 'Review · Test',     x: 280, y: 375, w: 160, h: 45, shape: 'rounded', color: '#d1fae5', strokeColor: '#059669' },
-  { id: 'done',         label: 'Fertig',         sublabel: 'Artefakte bereit',  x: 280, y: 460, w: 160, h: 40, shape: 'rounded', color: '#f0fdf4', strokeColor: '#16a34a' },
+const BLUEPRINTS: BlueprintDef[] = [
+  { id: 'scrum', name: 'Scrum', roles: ['Product Owner', 'Scrum Master', 'Developer'] },
+  { id: 'scrum-opencode', name: 'Scrum-OpenCode', roles: ['Product Owner', 'Scrum Master', 'Developer'] },
+  { id: 'kanban', name: 'Kanban', roles: ['Service Delivery Manager', 'Flow Manager', 'Developer'] },
+  { id: 'tdd', name: 'TDD', roles: ['Behavior Analyst', 'Test Driver', 'Refactor Verifier'] },
+  { id: 'code-repair', name: 'Code-Repair', roles: ['Repair Lead', 'Fix Engineer', 'QA Verifier'] },
+  { id: 'research', name: 'Research', roles: ['Research Lead', 'Source Analyst', 'Reviewer'] },
+  { id: 'security-review', name: 'Security-Review', roles: ['Security Lead', 'Security Analyst', 'Compliance Reviewer'] },
+  { id: 'release-prep', name: 'Release-Prep', roles: ['Release Manager', 'Verification Engineer', 'Operations Liaison'] },
+  { id: 'story-domain', name: 'Story-Domain', roles: ['Story Analyst', 'Domain Modeler', 'Implementation Coder', 'Verification Tester'] },
+  { id: 'research-evolution', name: 'Research-Evolution', roles: ['Research Lead', 'Evolution Strategist', 'Review Gate Owner'] },
 ];
 
-const CATEGORY_ICONS: Record<string, string> = {
-  scrum: '🔄', kanban: '📋', opencode: '⚡', system: '⚙',
-};
-const CATEGORY_LABELS: Record<string, string> = {
-  scrum: 'Scrum', kanban: 'Kanban', opencode: 'OpenCode Scrum', system: 'System',
-};
+const PLAYBOOKS: PlaybookDef[] = [
+  { id: 'bug_fix', name: 'Bug Fix', tasks: [
+    { id: 't1', title: 'Bug reproduzieren', description: 'Reproduktionsschritte dokumentieren', priority: 'High' },
+    { id: 't2', title: 'Root Cause Analyse', description: 'Ursache identifizieren', priority: 'High' },
+    { id: 't3', title: 'Fix implementieren', description: 'Korrektur umsetzen', priority: 'High' },
+    { id: 't4', title: 'Test schreiben', description: 'Unit/Integration-Test erstellen', priority: 'Medium' },
+    { id: 't5', title: 'Code Review', description: 'Fix zur Prüfung einreichen', priority: 'Medium' },
+  ]},
+  { id: 'feature', name: 'Feature', tasks: [
+    { id: 't1', title: 'Anforderungen definieren', description: 'Funktionale & nicht-funktionale Anforderungen', priority: 'High' },
+    { id: 't2', title: 'Design / Architektur', description: 'Technisches Design erstellen', priority: 'High' },
+    { id: 't3', title: 'Implementierung', description: 'Feature implementieren', priority: 'High' },
+    { id: 't4', title: 'Tests schreiben', description: 'Unit und Integration Tests', priority: 'Medium' },
+    { id: 't5', title: 'Dokumentation', description: 'Feature dokumentieren', priority: 'Low' },
+  ]},
+  { id: 'tdd', name: 'TDD', tasks: [
+    { id: 't1', title: 'Verhalten klären', description: 'Akzeptanzkriterien festhalten', priority: 'High' },
+    { id: 't2', title: 'Test zuerst', description: 'Test für Zielverhalten erstellen', priority: 'High' },
+    { id: 't3', title: 'Red-Phase', description: 'Test läuft fehl – Evidenz sichern', priority: 'High' },
+    { id: 't4', title: 'Minimaler Patch', description: 'Kleinste Änderung umsetzen', priority: 'High' },
+    { id: 't5', title: 'Green-Phase', description: 'Tests bestehen verifizieren', priority: 'High' },
+    { id: 't6', title: 'Refactoring', description: 'Qualität verbessern', priority: 'Medium' },
+    { id: 't7', title: 'Finale Verifikation', description: 'Abschluss + Approval-Gate', priority: 'Medium' },
+  ]},
+  { id: 'refactor', name: 'Refactoring', tasks: [
+    { id: 't1', title: 'Code-Analyse', description: 'Verbesserungspotenzial identifizieren', priority: 'Medium' },
+    { id: 't2', title: 'Refactoring-Plan', description: 'Schritte planen', priority: 'Medium' },
+    { id: 't3', title: 'Refactoring', description: 'Code umstrukturieren', priority: 'Medium' },
+    { id: 't4', title: 'Tests verifizieren', description: 'Alle Tests noch grün', priority: 'High' },
+  ]},
+  { id: 'test', name: 'Testing', tasks: [
+    { id: 't1', title: 'Test-Strategie', description: 'Strategie und Abdeckung definieren', priority: 'High' },
+    { id: 't2', title: 'Unit Tests', description: 'Unit Tests schreiben', priority: 'High' },
+    { id: 't3', title: 'Integration Tests', description: 'Integration Tests implementieren', priority: 'Medium' },
+    { id: 't4', title: 'Coverage-Report', description: 'Abdeckung analysieren', priority: 'Low' },
+  ]},
+  { id: 'architecture_review', name: 'Architektur-Review', tasks: [
+    { id: 't1', title: 'Struktur-Audit', description: 'Modulabhängigkeiten und Boundaries', priority: 'Medium' },
+    { id: 't2', title: 'SOLID Check', description: 'Engineering-Prinzipien untersuchen', priority: 'Medium' },
+    { id: 't3', title: 'Design-Docs', description: 'ADRs sichten oder erstellen', priority: 'Low' },
+    { id: 't4', title: 'Empfehlungsliste', description: 'Design-Verbesserungen vorschlagen', priority: 'Medium' },
+  ]},
+  { id: 'incident', name: 'Incident', tasks: [
+    { id: 't1', title: 'Systemstatus prüfen', description: 'Logs und Metriken sofort scannen', priority: 'High' },
+    { id: 't2', title: 'Eingrenzung', description: 'Betroffene Komponente identifizieren', priority: 'High' },
+    { id: 't3', title: 'Mitigation', description: 'Sofortmaßnahmen einleiten', priority: 'High' },
+    { id: 't4', title: 'Post-Mortem', description: 'Ursache dokumentieren', priority: 'Medium' },
+  ]},
+  { id: 'repo_analysis', name: 'Repo-Analyse', tasks: [
+    { id: 't1', title: 'Projektstruktur scannen', description: 'Ordnerstruktur auflisten', priority: 'High' },
+    { id: 't2', title: 'Abhängigkeiten prüfen', description: 'Bibliotheken auf Aktualität', priority: 'Medium' },
+    { id: 't3', title: 'Code-Qualität', description: 'Stichproben SOLID-Prinzipien', priority: 'Medium' },
+    { id: 't4', title: 'Sicherheits-Audit', description: 'Offensichtliche Lücken suchen', priority: 'High' },
+    { id: 't5', title: 'Analyse-Bericht', description: 'Strukturiertes Artefakt', priority: 'Medium' },
+  ]},
+];
+
+// ─── Canvas Types ─────────────────────────────────────────────────────────────
+
+type NodeType = 'start' | 'planning' | 'task' | 'gate' | 'verification' | 'end';
+type EdgeCondition = 'always' | 'on_success' | 'on_failure';
+type Priority = 'High' | 'Medium' | 'Low';
+
+interface CanvasNode {
+  id: string;
+  x: number; y: number;
+  w: number; h: number;
+  type: NodeType;
+  title: string;
+  subtitle?: string;
+  role?: string;
+  workerName?: string | null;
+  priority?: Priority;
+  enabled: boolean;
+}
+
+interface CanvasEdge {
+  id: string;
+  from: string;
+  to: string;
+  condition: EdgeCondition;
+  label?: string;
+}
+
+const NODE_W = 220;
+const NODE_H = 68;
+const GAP_Y = 52;
+const CX = 300;
+
+const PRIORITY_COLOR: Record<Priority, string> = { High: '#ef4444', Medium: '#f59e0b', Low: '#22c55e' };
+const COND_COLOR: Record<EdgeCondition, string> = { always: '#9ca3af', on_success: '#22c55e', on_failure: '#ef4444' };
 
 @Component({
   selector: 'ch-internals',
   standalone: true,
-  imports: [],
+  imports: [DecimalPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="ch-int">
+<div class="ch-int">
 
-      <!-- ── LEFT: Template Palette ───────────────────────── -->
-      <aside class="ch-int-palette" aria-label="Template-Palette">
-        <header class="ch-int-palette-head">
-          <span class="ch-int-palette-title">Templates</span>
-          <span class="ch-int-palette-count">{{ templates().length }}</span>
-        </header>
-
-        @for (cat of templateCategories(); track cat) {
-          <div class="ch-int-cat">
-            <div class="ch-int-cat-head">
-              <span>{{ getCatIcon(cat) }}</span>
-              <span>{{ getCatLabel(cat) }}</span>
-            </div>
-            @for (tpl of templatesByCategory(cat); track tpl.id) {
-              <button
-                type="button"
-                class="ch-int-tpl-card"
-                [class.selected]="selectedTemplate()?.id === tpl.id"
-                (click)="selectTemplate(tpl)">
-                <span class="ch-int-tpl-name">{{ shortName(tpl.name) }}</span>
-                <span class="ch-int-tpl-desc">{{ tpl.description }}</span>
-              </button>
-            }
-          </div>
-        }
-
-        @if (templates().length === 0) {
-          <p class="ch-int-muted" style="padding:10px 12px">Lade Templates…</p>
-        }
-      </aside>
-
-      <!-- ── CENTER: Flow Canvas ──────────────────────────── -->
-      <main class="ch-int-main">
-
-        <!-- Status bar -->
-        <div class="ch-int-statusbar">
-          <span class="ch-int-statusbar-title">Ananta Flow</span>
-
-          @if (autopilot().running) {
-            <span class="ch-int-running-badge">
-              <span class="ch-int-running-dot"></span>
-              Läuft · {{ autopilot().dispatched_count }} dispatched · {{ autopilot().completed_count }} done
-              @if (autopilot().failed_count > 0) {
-                · <span class="ch-int-fail-count">{{ autopilot().failed_count }} failed</span>
-              }
-            </span>
-            <span class="ch-int-level-badge" [attr.data-level]="autopilot().effective_security_policy?.level">
-              {{ autopilot().effective_security_policy?.level }}
-            </span>
-          } @else {
-            <span class="ch-int-idle-badge">Idle</span>
-          }
-
-          <div class="ch-int-statusbar-spacer"></div>
-          <button type="button" class="ch-int-refresh-btn" (click)="reload()">↺ Aktualisieren</button>
-        </div>
-
-        <!-- SVG Flow Diagram -->
-        <div class="ch-int-canvas-wrap">
-          <svg viewBox="0 0 720 540" class="ch-int-svg" xmlns="http://www.w3.org/2000/svg">
-
-            <defs>
-              <!-- Arrow marker -->
-              <marker id="ch-arrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
-                <path d="M0,0 L0,6 L8,3 z" fill="#9ca3af"/>
-              </marker>
-              <marker id="ch-arrow-active" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
-                <path d="M0,0 L0,6 L8,3 z" fill="#3b82f6"/>
-              </marker>
-
-              <!-- Glow filters -->
-              <filter id="glow-amber" x="-40%" y="-40%" width="180%" height="180%">
-                <feGaussianBlur stdDeviation="5" result="blur"/>
-                <feFlood flood-color="#f59e0b" flood-opacity="0.5" result="c"/>
-                <feComposite in="c" in2="blur" operator="in" result="g"/>
-                <feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge>
-              </filter>
-              <filter id="glow-blue" x="-40%" y="-40%" width="180%" height="180%">
-                <feGaussianBlur stdDeviation="5" result="blur"/>
-                <feFlood flood-color="#3b82f6" flood-opacity="0.5" result="c"/>
-                <feComposite in="c" in2="blur" operator="in" result="g"/>
-                <feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge>
-              </filter>
-              <filter id="glow-green" x="-40%" y="-40%" width="180%" height="180%">
-                <feGaussianBlur stdDeviation="4" result="blur"/>
-                <feFlood flood-color="#22c55e" flood-opacity="0.4" result="c"/>
-                <feComposite in="c" in2="blur" operator="in" result="g"/>
-                <feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge>
-              </filter>
-            </defs>
-
-            <!-- ─── Flow connector lines ─── -->
-            <!-- goal → planning -->
-            <line x1="360" y1="70" x2="360" y2="110" stroke="#d1d5db" stroke-width="1.5" marker-end="url(#ch-arrow)"/>
-            <!-- planning → queue -->
-            <line x1="360" y1="160" x2="360" y2="200" stroke="#d1d5db" stroke-width="1.5" marker-end="url(#ch-arrow)"/>
-            <!-- queue → executing -->
-            <line x1="360" y1="245" x2="360" y2="285" stroke="#d1d5db" stroke-width="1.5" marker-end="url(#ch-arrow)"/>
-            <!-- executing → verification -->
-            <line x1="360" y1="335" x2="360" y2="375" stroke="#d1d5db" stroke-width="1.5" marker-end="url(#ch-arrow)"/>
-            <!-- verification → done -->
-            <line x1="360" y1="420" x2="360" y2="460" stroke="#d1d5db" stroke-width="1.5" marker-end="url(#ch-arrow)"/>
-
-            <!-- ─── Worker side branches from "executing" ─── -->
-            @for (worker of workers(); track worker.name; let i = $index) {
-              @let wx = workerX(i, workers().length);
-              <!-- hub line out -->
-              <line
-                [attr.x1]="wx + 60" y1="248"
-                [attr.x2]="wx + 60" y2="270"
-                [attr.stroke]="workerActive(worker) ? '#3b82f6' : '#d1d5db'"
-                stroke-width="1.5"
-                [attr.marker-end]="workerActive(worker) ? 'url(#ch-arrow-active)' : 'url(#ch-arrow)'"/>
-
-              <!-- Worker node -->
-              <g class="ch-int-worker-node"
-                [attr.transform]="'translate(' + wx + ',270)'"
-                (click)="selectWorker(worker)">
-                <!-- glow if active -->
-                @if (workerActive(worker)) {
-                  <rect width="120" height="50" rx="8" fill="none" stroke="#3b82f6" stroke-width="2.5" opacity="0.6">
-                    <animate attributeName="opacity" values="0.6;0.15;0.6" dur="1.4s" repeatCount="indefinite"/>
-                  </rect>
-                }
-                <rect width="120" height="50" rx="8"
-                  [attr.fill]="workerActive(worker) ? '#dbeafe' : '#f9fafb'"
-                  [attr.stroke]="workerActive(worker) ? '#2563eb' : (worker.status === 'online' ? '#6b7280' : '#ef4444')"
-                  [attr.stroke-width]="selectedWorker()?.name === worker.name ? 2.5 : 1.5"/>
-                @if (selectedWorker()?.name === worker.name) {
-                  <rect width="120" height="50" rx="8" fill="none" stroke="#7c3aed" stroke-width="2.5"/>
-                }
-                <!-- status dot -->
-                <circle cx="108" cy="10" r="5"
-                  [attr.fill]="worker.status === 'online' ? '#22c55e' : worker.status === 'degraded' ? '#f59e0b' : '#ef4444'"/>
-                <text x="60" y="22" text-anchor="middle" font-size="11" font-weight="600" fill="#1f2937">{{ worker.name }}</text>
-                <text x="60" y="36" text-anchor="middle" font-size="9" fill="#6b7280">{{ worker.worker_roles.slice(0,3).join(' · ') }}</text>
-              </g>
-
-              <!-- line back to verification -->
-              <line
-                [attr.x1]="wx + 60" y1="320"
-                [attr.x2]="wx + 60" y2="342"
-                [attr.stroke]="workerActive(worker) ? '#3b82f6' : '#d1d5db'"
-                stroke-width="1.5"/>
-              <!-- connect to executing box -->
-              <line
-                [attr.x1]="wx + 60" y1="342"
-                x2="360" y2="342"
-                [attr.stroke]="workerActive(worker) ? '#3b82f6' : '#e5e7eb'"
-                stroke-width="1"/>
-            }
-
-            <!-- ─── Main flow nodes ─── -->
-            @for (node of flowNodes; track node.id) {
-              <g class="ch-int-flow-node"
-                [attr.transform]="'translate(' + node.x + ',' + node.y + ')'"
-                [attr.filter]="flowNodeFilter(node.id)"
-                (click)="selectFlowNode(node.id)">
-
-                @if (node.shape === 'hexagon') {
-                  <!-- Goal: hexagon path -->
-                  <polygon
-                    [attr.points]="hexPoints(node.w, node.h)"
-                    [attr.fill]="node.color"
-                    [attr.stroke]="selectedFlowNode() === node.id ? '#7c3aed' : node.strokeColor"
-                    [attr.stroke-width]="selectedFlowNode() === node.id ? 2.5 : 2"/>
-                } @else if (node.shape === 'diamond') {
-                  <!-- Planning: diamond -->
-                  <polygon
-                    [attr.points]="diamondPoints(node.w, node.h)"
-                    [attr.fill]="node.color"
-                    [attr.stroke]="selectedFlowNode() === node.id ? '#7c3aed' : node.strokeColor"
-                    [attr.stroke-width]="selectedFlowNode() === node.id ? 2.5 : 2"/>
-                } @else {
-                  <!-- Rounded rect -->
-                  <rect [attr.width]="node.w" [attr.height]="node.h" rx="8"
-                    [attr.fill]="node.color"
-                    [attr.stroke]="selectedFlowNode() === node.id ? '#7c3aed' : node.strokeColor"
-                    [attr.stroke-width]="selectedFlowNode() === node.id ? 2.5 : 1.5"/>
-                }
-
-                <!-- Pulse ring when active -->
-                @if (isFlowNodeActive(node.id)) {
-                  <rect [attr.width]="node.w" [attr.height]="node.h" rx="8"
-                    fill="none" stroke="#3b82f6" stroke-width="3" opacity="0.5">
-                    <animate attributeName="opacity" values="0.5;0.1;0.5" dur="1.4s" repeatCount="indefinite"/>
-                    <animate attributeName="stroke-width" values="3;7;3" dur="1.4s" repeatCount="indefinite"/>
-                  </rect>
-                }
-
-                <text [attr.x]="node.w / 2" [attr.y]="node.h / 2 - 5" text-anchor="middle"
-                  font-size="12" font-weight="600" fill="#1f2937">{{ node.label }}</text>
-                <text [attr.x]="node.w / 2" [attr.y]="node.h / 2 + 11" text-anchor="middle"
-                  font-size="9" fill="#6b7280">{{ node.sublabel }}</text>
-              </g>
-            }
-
-            <!-- Goal text if autopilot has one -->
-            @if (autopilot().goal) {
-              <text x="360" y="515" text-anchor="middle" font-size="10" fill="#6b7280">
-                Ziel: {{ truncate(autopilot().goal, 60) }}
-              </text>
-            }
-          </svg>
-        </div>
-      </main>
-
-      <!-- ── RIGHT: Inspector / Detail Panel ──────────────── -->
-      <aside class="ch-int-inspector" aria-label="Inspektor">
-        @if (selectedTemplate(); as tpl) {
-          <div class="ch-int-inspector-head">
-            <span class="ch-int-inspector-icon">{{ getCatIcon(tpl.category) }}</span>
-            <div>
-              <div class="ch-int-inspector-title">{{ tpl.name }}</div>
-              <div class="ch-int-inspector-sub">{{ getCatLabel(tpl.category) }}</div>
-            </div>
-            <button class="ch-int-inspector-close" (click)="clearSelection()">✕</button>
-          </div>
-          <div class="ch-int-inspector-body">
-            <p class="ch-int-inspector-desc">{{ tpl.description }}</p>
-            <div class="ch-int-inspector-section">Prompt-Vorschau</div>
-            <pre class="ch-int-prompt-preview">{{ tpl.prompt_template.slice(0, 400) }}{{ tpl.prompt_template.length > 400 ? '…' : '' }}</pre>
-          </div>
-        }
-
-        @if (selectedWorker(); as w) {
-          <div class="ch-int-inspector-head">
-            <span class="ch-int-inspector-icon">◈</span>
-            <div>
-              <div class="ch-int-inspector-title">{{ w.name }}</div>
-              <div class="ch-int-inspector-sub">Worker</div>
-            </div>
-            <button class="ch-int-inspector-close" (click)="clearSelection()">✕</button>
-          </div>
-          <div class="ch-int-inspector-body">
-            <dl class="ch-int-dl">
-              <dt>URL</dt><dd class="ch-mono">{{ w.url }}</dd>
-              <dt>Status</dt><dd><span class="ch-int-status-badge" [attr.data-s]="w.status">{{ w.status }}</span></dd>
-              <dt>Rollen</dt><dd>{{ w.worker_roles.join(', ') }}</dd>
-              <dt>Fähigkeiten</dt>
-              <dd class="ch-int-caps">
-                @for (c of w.capabilities; track c) {
-                  <span class="ch-int-cap">{{ c }}</span>
-                }
-              </dd>
-            </dl>
-            @if (workerActive(w)) {
-              <div class="ch-int-active-box">
-                <span class="ch-int-running-dot"></span> Aktiv: {{ autopilot().dispatched_count }} Tasks dispatched
-              </div>
-            }
-            @if (autopilot().circuit_breakers.failure_streak[w.url]) {
-              <div class="ch-int-warn-box">
-                ⚠ Fehler-Streak: {{ autopilot().circuit_breakers.failure_streak[w.url] }}
-              </div>
-            }
-          </div>
-        }
-
-        @if (selectedFlowNode(); as nodeId) {
-          @if (!selectedTemplate() && !selectedWorker()) {
-            <div class="ch-int-inspector-head">
-              <span class="ch-int-inspector-icon">{{ flowNodeIcon(nodeId) }}</span>
-              <div>
-                <div class="ch-int-inspector-title">{{ flowNodeLabel(nodeId) }}</div>
-                <div class="ch-int-inspector-sub">Ananta-Flow-Schritt</div>
-              </div>
-              <button class="ch-int-inspector-close" (click)="clearSelection()">✕</button>
-            </div>
-            <div class="ch-int-inspector-body">
-              <p class="ch-int-muted">{{ flowNodeDescription(nodeId) }}</p>
-              @if (isFlowNodeActive(nodeId)) {
-                <div class="ch-int-active-box">
-                  <span class="ch-int-running-dot"></span> Dieser Schritt ist gerade aktiv.
-                </div>
-              }
-              @if (nodeId === 'executing') {
-                <div class="ch-int-inspector-section">Workers</div>
-                @for (w of workers(); track w.name) {
-                  <button class="ch-int-tpl-card" (click)="selectWorker(w)">
-                    <span class="ch-int-tpl-name">{{ w.name }}</span>
-                    <span class="ch-int-tpl-desc">{{ w.status }} · {{ w.worker_roles.length }} Rollen</span>
-                  </button>
-                }
-              }
-            </div>
-          }
-        }
-
-        @if (!selectedTemplate() && !selectedWorker() && !selectedFlowNode()) {
-          <div class="ch-int-inspector-empty">
-            <p>Klicke einen Flow-Schritt oder Worker für Details.</p>
-            <p class="ch-int-muted">Templates links anklicken für Vorschau.</p>
-          </div>
-        }
-      </aside>
+  <!-- ── Top Config Bar ── -->
+  <div class="ch-int-bar">
+    <div class="ch-int-bg">
+      <label class="ch-lbl">Blueprint</label>
+      <select class="ch-sel" [value]="selectedBlueprint()"
+        (change)="onBlueprintChange($any($event.target).value)">
+        @for (b of BLUEPRINTS; track b.id) { <option [value]="b.id">{{ b.name }}</option> }
+      </select>
     </div>
+    <div class="ch-int-bg">
+      <label class="ch-lbl">Playbook</label>
+      <select class="ch-sel" [value]="selectedPlaybook()"
+        (change)="onPlaybookChange($any($event.target).value)">
+        @for (p of PLAYBOOKS; track p.id) { <option [value]="p.id">{{ p.name }}</option> }
+      </select>
+    </div>
+    <div class="ch-bar-sep"></div>
+    <div class="ch-int-bg">
+      <label class="ch-lbl">Security</label>
+      <select class="ch-sel" [value]="selectedSecurity()"
+        (change)="selectedSecurity.set($any($event.target).value)">
+        <option value="permissive">Permissive</option>
+        <option value="safe">Safe</option>
+        <option value="strict">Strict</option>
+      </select>
+    </div>
+    <div class="ch-int-bg">
+      <label class="ch-lbl">Workers</label>
+      <select class="ch-sel ch-sel-sm" [value]="maxConcurrency()"
+        (change)="maxConcurrency.set(+$any($event.target).value)">
+        <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+      </select>
+    </div>
+    <div class="ch-bar-sep"></div>
+    <button type="button" class="ch-btn" [class.ch-btn-on]="connectMode()"
+      (click)="connectMode.update(v => !v)" title="Verbinden-Modus">
+      {{ connectMode() ? '🔗 Ein' : '🔗 Verbinden' }}
+    </button>
+    <button type="button" class="ch-btn" (click)="addFreeNode()" title="Task-Schritt hinzufügen">+ Schritt</button>
+    <button type="button" class="ch-btn" (click)="addGateNode()" title="Verification-Gate hinzufügen">+ Gate</button>
+    <button type="button" class="ch-btn ch-btn-muted"
+      (click)="buildCanvas(selectedBlueprint(), selectedPlaybook())" title="Layout zurücksetzen">↺ Reset</button>
+    <div style="flex:1"></div>
+    @if (autopilot().running) {
+      <span class="ch-run-badge">
+        <span class="ch-dot-run"></span>
+        {{ autopilot().dispatched_count }} disp · {{ autopilot().completed_count }} done
+        @if (autopilot().failed_count > 0) { · <span style="color:#dc2626">{{ autopilot().failed_count }}✗</span> }
+      </span>
+    } @else {
+      <span class="ch-idle-badge">Idle</span>
+    }
+  </div>
+
+  <!-- ── Body ── -->
+  <div class="ch-int-body">
+
+    <!-- Left Palette -->
+    <aside class="ch-palette" [class.ch-palette-connect]="connectMode()">
+      <div class="ch-pal-hd">Workers</div>
+      @for (w of workers(); track w.name) {
+        <div class="ch-pal-w" [class.ch-pal-w-live]="workerIsActive(w)">
+          <span class="ch-pal-dot" [class.ch-pal-dot-on]="w.status === 'online'" [class.ch-pal-dot-off]="w.status !== 'online'"></span>
+          <span class="ch-pal-wname">{{ w.name }}</span>
+        </div>
+      }
+      @if (workers().length === 0) { <p class="ch-muted" style="padding:6px 8px">Keine Worker</p> }
+      <div class="ch-pal-div"></div>
+      <div class="ch-pal-hd">Rollen</div>
+      @for (r of currentRoles(); track r) { <div class="ch-pal-role">{{ r }}</div> }
+    </aside>
+
+    <!-- SVG Canvas -->
+    <main class="ch-canvas-wrap" (wheel)="onWheel($event)">
+      <div class="ch-zoom-ctrl">
+        <button type="button" (click)="zoomIn()">+</button>
+        <span>{{ viewScale() * 100 | number:'1.0-0' }}%</span>
+        <button type="button" (click)="zoomOut()">−</button>
+        <button type="button" (click)="resetView()">⊙</button>
+      </div>
+      @if (connectMode() && connectSource()) {
+        <div class="ch-connect-hint">
+          Ziel-Knoten anklicken — <button type="button" (click)="cancelConnect()">Abbrechen</button>
+        </div>
+      }
+
+      <svg #svgEl class="ch-svg"
+        [attr.data-connect]="connectMode() || null"
+        (mousedown)="onBgMouseDown($event)">
+        <defs>
+          <marker id="arr" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#9ca3af"/>
+          </marker>
+          <marker id="arr-ok" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#22c55e"/>
+          </marker>
+          <marker id="arr-fail" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#ef4444"/>
+          </marker>
+          <marker id="arr-sel" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#7c3aed"/>
+          </marker>
+          <filter id="glow-b" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="4" result="b"/>
+            <feFlood flood-color="#3b82f6" flood-opacity="0.45" result="c"/>
+            <feComposite in="c" in2="b" operator="in" result="g"/>
+            <feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <filter id="glow-p" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="3" result="b"/>
+            <feFlood flood-color="#7c3aed" flood-opacity="0.35" result="c"/>
+            <feComposite in="c" in2="b" operator="in" result="g"/>
+            <feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+        <rect class="ch-bg-rect" width="100%" height="100%" fill="transparent"/>
+
+        <g [attr.transform]="svgTransform()">
+
+          <!-- Edges -->
+          @for (edge of edges(); track edge.id) {
+            @let ep = edgePath(edge);
+            @let mp = edgeMidpoint(edge);
+            @let eSel = selectedEdgeId() === edge.id;
+            <g class="ch-edge" (click)="onEdgeClick($event, edge.id)">
+              <path [attr.d]="ep" stroke="transparent" stroke-width="12" fill="none" style="cursor:pointer"/>
+              <path [attr.d]="ep" fill="none"
+                [attr.stroke]="eSel ? '#7c3aed' : COND_COLOR[edge.condition]"
+                [attr.stroke-width]="eSel ? 2.5 : 1.5"
+                [attr.stroke-dasharray]="edge.condition === 'on_failure' ? '6,3' : null"
+                [attr.marker-end]="'url(#arr' + edgeMarkerSuffix(edge, eSel) + ')'"/>
+              @if (edge.label) {
+                <text [attr.x]="mp.x + 7" [attr.y]="mp.y - 4" font-size="9" fill="#6b7280">{{ edge.label }}</text>
+              }
+              <!-- Midpoint + button -->
+              <circle [attr.cx]="mp.x" [attr.cy]="mp.y" r="9"
+                class="ch-edge-mid"
+                fill="var(--card-bg)" stroke="#d1d5db" stroke-width="1.5"
+                (click)="insertOnEdge($event, edge.id)"/>
+              <text [attr.x]="mp.x" [attr.y]="mp.y + 4.5" text-anchor="middle"
+                font-size="13" fill="#9ca3af" pointer-events="none">+</text>
+            </g>
+          }
+
+          <!-- Nodes -->
+          @for (node of nodes(); track node.id) {
+            @let nSel = selectedNodeId() === node.id;
+            @let nAct = nodeIsActive(node);
+            @let nSrc = connectSource() === node.id;
+            <g [attr.transform]="'translate(' + node.x + ',' + node.y + ')'"
+              [attr.filter]="nAct ? 'url(#glow-b)' : (nSel ? 'url(#glow-p)' : null)"
+              class="ch-node"
+              [class.ch-node-off]="!node.enabled"
+              (mousedown)="onNodeMouseDown($event, node.id)"
+              (click)="onNodeClick($event, node.id)">
+
+              @if (node.type === 'start' || node.type === 'end') {
+                <rect [attr.width]="node.w" [attr.height]="node.h" rx="24"
+                  [attr.fill]="node.type === 'end' ? '#f0fdf4' : '#fef3c7'"
+                  [attr.stroke]="nSrc ? '#f59e0b' : (nSel ? '#7c3aed' : (node.type === 'end' ? '#16a34a' : '#d97706'))"
+                  [attr.stroke-width]="nSel || nSrc ? 2.5 : 1.5"/>
+              } @else if (node.type === 'planning' || node.type === 'verification') {
+                <rect [attr.width]="node.w" [attr.height]="node.h" rx="8"
+                  [attr.fill]="node.type === 'planning' ? '#e0e7ff' : '#d1fae5'"
+                  [attr.stroke]="nSrc ? '#f59e0b' : (nSel ? '#7c3aed' : (node.type === 'planning' ? '#4f46e5' : '#059669'))"
+                  [attr.stroke-width]="nSel || nSrc ? 2.5 : 2"/>
+              } @else if (node.type === 'gate') {
+                <rect [attr.width]="node.w" [attr.height]="node.h" rx="8"
+                  fill="#fffbeb"
+                  [attr.stroke]="nSrc ? '#f59e0b' : (nSel ? '#7c3aed' : '#d97706')"
+                  [attr.stroke-width]="nSel || nSrc ? 2.5 : 1.5"
+                  stroke-dasharray="5,3"/>
+              } @else {
+                <rect [attr.width]="node.w" [attr.height]="node.h" rx="8"
+                  [attr.fill]="!node.enabled ? '#f9fafb' : (nAct ? '#dbeafe' : 'white')"
+                  [attr.stroke]="nSrc ? '#f59e0b' : (nSel ? '#7c3aed' : '#d1d5db')"
+                  [attr.stroke-width]="nSel || nSrc ? 2.5 : 1.5"/>
+                @if (node.priority) {
+                  <rect x="0" y="0" width="4" [attr.height]="node.h" rx="2"
+                    [attr.fill]="PRIORITY_COLOR[node.priority]" opacity="0.7"/>
+                }
+              }
+
+              @if (nAct) {
+                <rect [attr.width]="node.w" [attr.height]="node.h" rx="8"
+                  fill="none" stroke="#3b82f6" stroke-width="3" opacity="0.4">
+                  <animate attributeName="opacity" values="0.4;0.08;0.4" dur="1.4s" repeatCount="indefinite"/>
+                  <animate attributeName="stroke-width" values="3;8;3" dur="1.4s" repeatCount="indefinite"/>
+                </rect>
+              }
+
+              <!-- Labels -->
+              <text [attr.x]="node.w/2"
+                [attr.y]="(node.type === 'task' || node.type === 'gate') && node.h >= 60 ? 22 : node.h/2 + 5"
+                text-anchor="middle" font-size="12" font-weight="600"
+                [attr.fill]="!node.enabled ? '#9ca3af' : '#111827'">{{ node.title }}</text>
+
+              @if ((node.type === 'task' || node.type === 'gate') && node.h >= 60) {
+                @if (node.role) {
+                  <text x="9" [attr.y]="node.h - 22" font-size="9" fill="#6b7280">{{ node.role }}</text>
+                }
+                @if (node.workerName) {
+                  <text [attr.x]="node.w - 9" [attr.y]="node.h - 22" text-anchor="end"
+                    font-size="9" fill="#374151">{{ node.workerName }}</text>
+                  <circle [attr.cx]="node.w - 9 + 5 + (node.workerName.length * 5.5)"
+                    [attr.cy]="node.h - 26" r="4"
+                    [attr.fill]="workerStatus(node.workerName) === 'online' ? '#22c55e' : '#9ca3af'"/>
+                }
+                @if (node.subtitle) {
+                  <text [attr.x]="node.w/2" [attr.y]="node.h - 8" text-anchor="middle"
+                    font-size="9" fill="#9ca3af">{{ node.subtitle.slice(0, 34) }}</text>
+                }
+              } @else if (node.subtitle) {
+                <text [attr.x]="node.w/2" [attr.y]="node.h/2 + 18" text-anchor="middle"
+                  font-size="9" fill="#6b7280">{{ node.subtitle }}</text>
+              }
+
+              @if (!node.enabled) {
+                <line x1="8" [attr.y1]="node.h/2" [attr.x2]="node.w - 8" [attr.y2]="node.h/2"
+                  stroke="#9ca3af" stroke-width="1.5" stroke-dasharray="4,2"/>
+              }
+            </g>
+          }
+
+        </g>
+      </svg>
+    </main>
+
+    <!-- Right Inspector -->
+    <aside class="ch-insp">
+      @if (selectedNode(); as n) {
+        <div class="ch-insp-head">
+          <span class="ch-insp-tag" [attr.data-t]="n.type">{{ n.type }}</span>
+          <button class="ch-insp-x" (click)="selectedNodeId.set(null)">✕</button>
+        </div>
+        <div class="ch-insp-body">
+          <label class="ch-fl">Titel</label>
+          <input type="text" class="ch-fi" [value]="n.title"
+            (change)="patchNode(n.id, { title: $any($event.target).value })"/>
+
+          @if (n.subtitle !== undefined && (n.type === 'task' || n.type === 'gate' || n.type === 'planning' || n.type === 'verification')) {
+            <label class="ch-fl">Beschreibung</label>
+            <textarea class="ch-fta" [value]="n.subtitle ?? ''"
+              (change)="patchNode(n.id, { subtitle: $any($event.target).value })"></textarea>
+          }
+
+          @if (n.type === 'task' || n.type === 'gate') {
+            <label class="ch-fl">Priorität</label>
+            <select class="ch-fsel" [value]="n.priority ?? 'Medium'"
+              (change)="patchNode(n.id, { priority: $any($event.target).value })">
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
+            </select>
+
+            <label class="ch-fl">Rolle</label>
+            <select class="ch-fsel" [value]="n.role ?? ''"
+              (change)="patchNode(n.id, { role: $any($event.target).value })">
+              <option value="">— keine —</option>
+              @for (r of currentRoles(); track r) { <option [value]="r">{{ r }}</option> }
+            </select>
+
+            <label class="ch-fl">Worker</label>
+            <select class="ch-fsel" [value]="n.workerName ?? ''"
+              (change)="patchNode(n.id, { workerName: $any($event.target).value || null })">
+              <option value="">— auto —</option>
+              @for (w of workers(); track w.name) {
+                <option [value]="w.name">{{ w.name }} ({{ w.status }})</option>
+              }
+            </select>
+          }
+
+          <label class="ch-fl">Aktiv</label>
+          <label class="ch-ftoggle">
+            <input type="checkbox" [checked]="n.enabled"
+              (change)="patchNode(n.id, { enabled: $any($event.target).checked })"/>
+            <span>{{ n.enabled ? 'Ja' : 'Deaktiviert' }}</span>
+          </label>
+
+          <label class="ch-fl">Größe (B × H)</label>
+          <div class="ch-frow">
+            <input type="number" class="ch-fnum" [value]="n.w" min="60"
+              (change)="patchNode(n.id, { w: +$any($event.target).value })"/>
+            <span class="ch-fdim">×</span>
+            <input type="number" class="ch-fnum" [value]="n.h" min="30"
+              (change)="patchNode(n.id, { h: +$any($event.target).value })"/>
+          </div>
+
+          <label class="ch-fl">Position (X, Y)</label>
+          <div class="ch-frow">
+            <input type="number" class="ch-fnum" [value]="n.x | number:'1.0-0'"
+              (change)="patchNode(n.id, { x: +$any($event.target).value })"/>
+            <span class="ch-fdim">,</span>
+            <input type="number" class="ch-fnum" [value]="n.y | number:'1.0-0'"
+              (change)="patchNode(n.id, { y: +$any($event.target).value })"/>
+          </div>
+
+          @if (nodeIsActive(n)) {
+            <div class="ch-active-badge"><span class="ch-dot-run"></span> Aktuell aktiv</div>
+          }
+
+          @if (n.type !== 'start' && n.type !== 'end') {
+            <button type="button" class="ch-del-btn" (click)="deleteNode(n.id)">✕ Schritt löschen</button>
+          }
+        </div>
+      }
+
+      @if (selectedEdge(); as e) {
+        <div class="ch-insp-head">
+          <span class="ch-insp-tag" data-t="edge">Pfeil</span>
+          <button class="ch-insp-x" (click)="selectedEdgeId.set(null)">✕</button>
+        </div>
+        <div class="ch-insp-body">
+          <label class="ch-fl">Bedingung</label>
+          <select class="ch-fsel" [value]="e.condition"
+            (change)="patchEdge(e.id, { condition: $any($event.target).value })">
+            <option value="always">Immer →</option>
+            <option value="on_success">Nur bei Erfolg ✓</option>
+            <option value="on_failure">Nur bei Fehler ✗</option>
+          </select>
+          <label class="ch-fl">Label</label>
+          <input type="text" class="ch-fi" [value]="e.label ?? ''" placeholder="Optionales Label…"
+            (change)="patchEdge(e.id, { label: $any($event.target).value })"/>
+          <label class="ch-fl">Von</label>
+          <div class="ch-fval">{{ nodeLabel(e.from) }}</div>
+          <label class="ch-fl">Nach</label>
+          <div class="ch-fval">{{ nodeLabel(e.to) }}</div>
+          <button type="button" class="ch-del-btn" (click)="deleteEdge(e.id)">✕ Pfeil löschen</button>
+        </div>
+      }
+
+      @if (!selectedNode() && !selectedEdge()) {
+        <div class="ch-insp-empty">
+          <p>Knoten oder Pfeil anklicken für Details.</p>
+          <p class="ch-muted">Knoten ziehen = verschieben.<br>»+« auf Pfeil = Schritt einfügen.<br>»Verbinden« = neue Verbindung ziehen.</p>
+        </div>
+        <div class="ch-goal-panel">
+          <div class="ch-goal-hd">Ziel starten</div>
+          <textarea class="ch-fta" placeholder="Ziel beschreiben…"
+            [value]="goalText()"
+            (input)="goalText.set($any($event.target).value)"></textarea>
+          <button type="button" class="ch-start-btn"
+            [disabled]="!goalText().trim()"
+            (click)="submitGoal()">▶ An Ananta senden</button>
+          @if (goalResult()) {
+            <div class="ch-result" [class.ch-result-ok]="goalOk()">{{ goalResult() }}</div>
+          }
+        </div>
+      }
+    </aside>
+  </div>
+</div>
   `,
   styles: [`
-    :host { display: flex; height: 100%; min-height: 0; }
+:host { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 
-    .ch-int {
-      display: grid;
-      grid-template-columns: 200px 1fr 240px;
-      height: 100%;
-      min-height: 600px;
-      overflow: hidden;
-    }
+.ch-int { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 
-    /* ── Left palette ── */
-    .ch-int-palette {
-      border-right: 1px solid var(--border);
-      overflow-y: auto;
-      background: var(--card-bg);
-    }
-    .ch-int-palette-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 12px 6px;
-      border-bottom: 1px solid var(--border);
-      position: sticky;
-      top: 0;
-      background: var(--card-bg);
-      z-index: 1;
-    }
-    .ch-int-palette-title { font-size: 12px; font-weight: 700; }
-    .ch-int-palette-count {
-      font-size: 10px;
-      padding: 1px 5px;
-      border-radius: 10px;
-      background: color-mix(in srgb, var(--accent) 15%, transparent);
-    }
+/* ── Top Bar ── */
+.ch-int-bar {
+  display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
+  padding: 5px 10px; border-bottom: 1px solid var(--border);
+  background: var(--card-bg); flex-shrink: 0; font-size: 11px;
+}
+.ch-int-bg { display: flex; align-items: center; gap: 4px; }
+.ch-lbl { font-size: 10px; color: var(--muted); white-space: nowrap; }
+.ch-sel {
+  padding: 3px 5px; border: 1px solid var(--border); border-radius: 5px;
+  background: var(--bg); color: var(--fg); font-size: 11px; cursor: pointer;
+}
+.ch-sel-sm { width: 50px; }
+.ch-bar-sep { width: 1px; height: 18px; background: var(--border); margin: 0 2px; }
+.ch-btn {
+  padding: 3px 8px; border: 1px solid var(--border); border-radius: 5px;
+  background: var(--bg); color: var(--fg); font-size: 11px; cursor: pointer;
+  white-space: nowrap;
+}
+.ch-btn:hover { background: var(--card-bg); }
+.ch-btn-on { background: color-mix(in srgb, #7c3aed 14%, transparent) !important; border-color: #7c3aed; color: #7c3aed; font-weight: 600; }
+.ch-btn-muted { color: var(--muted); }
+.ch-run-badge {
+  display: flex; align-items: center; gap: 5px; padding: 2px 8px;
+  border-radius: 999px; background: color-mix(in srgb, #3b82f6 12%, transparent);
+  border: 1px solid #3b82f6; color: #1e40af; font-weight: 600; font-size: 10px;
+}
+.ch-dot-run { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #3b82f6; animation: dp 1.4s infinite; }
+@keyframes dp { 0%,100%{opacity:1}50%{opacity:0.25} }
+.ch-idle-badge { font-size: 10px; color: var(--muted); padding: 2px 7px; border: 1px solid var(--border); border-radius: 999px; }
 
-    .ch-int-cat { padding: 6px 0 0; }
-    .ch-int-cat-head {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      padding: 4px 12px;
-      font-size: 10px;
-      font-weight: 700;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
+/* ── Body ── */
+.ch-int-body { display: grid; grid-template-columns: 150px 1fr 225px; flex: 1; min-height: 0; overflow: hidden; }
 
-    .ch-int-tpl-card {
-      display: block;
-      width: 100%;
-      text-align: left;
-      padding: 6px 12px;
-      border: none;
-      background: none;
-      cursor: pointer;
-      border-left: 2px solid transparent;
-      transition: background 0.1s, border-color 0.1s;
-    }
-    .ch-int-tpl-card:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
-    .ch-int-tpl-card.selected {
-      background: color-mix(in srgb, var(--accent) 14%, transparent);
-      border-left-color: var(--accent);
-    }
-    .ch-int-tpl-name { display: block; font-size: 11px; font-weight: 600; color: var(--fg); }
-    .ch-int-tpl-desc { display: block; font-size: 9px; color: var(--muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* ── Left Palette ── */
+.ch-palette { border-right: 1px solid var(--border); background: var(--card-bg); overflow-y: auto; }
+.ch-palette-connect { background: color-mix(in srgb, #7c3aed 5%, var(--card-bg)); }
+.ch-pal-hd { padding: 6px 8px 3px; font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; position: sticky; top: 0; background: inherit; }
+.ch-pal-w { display: flex; align-items: center; gap: 5px; padding: 3px 8px; font-size: 11px; }
+.ch-pal-w-live { background: color-mix(in srgb, #3b82f6 8%, transparent); }
+.ch-pal-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.ch-pal-dot-on { background: #22c55e; } .ch-pal-dot-off { background: #9ca3af; }
+.ch-pal-wname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; font-weight: 500; }
+.ch-pal-div { height: 1px; background: var(--border); margin: 4px 0; }
+.ch-pal-role { padding: 2px 8px; font-size: 9px; color: var(--muted); }
 
-    /* ── Center ── */
-    .ch-int-main {
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
-      overflow: hidden;
-    }
+/* ── Canvas ── */
+.ch-canvas-wrap {
+  position: relative; overflow: hidden; background: var(--bg);
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--border) 70%, transparent) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+.ch-svg { width: 100%; height: 100%; cursor: grab; display: block; }
+.ch-svg:active { cursor: grabbing; }
+.ch-svg[data-connect] { cursor: crosshair; }
+.ch-bg-rect { }
 
-    .ch-int-statusbar {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 12px;
-      border-bottom: 1px solid var(--border);
-      background: var(--card-bg);
-      font-size: 11px;
-      flex-shrink: 0;
-    }
-    .ch-int-statusbar-title { font-weight: 700; font-size: 12px; }
-    .ch-int-statusbar-spacer { flex: 1; }
+.ch-zoom-ctrl {
+  position: absolute; top: 8px; right: 8px; display: flex; align-items: center; gap: 3px;
+  background: var(--card-bg); border: 1px solid var(--border); border-radius: 6px;
+  padding: 2px 6px; font-size: 11px; z-index: 5;
+}
+.ch-zoom-ctrl button { padding: 0 4px; border: none; background: none; cursor: pointer; font-size: 14px; color: var(--fg); }
+.ch-zoom-ctrl button:hover { color: var(--accent); }
+.ch-connect-hint {
+  position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+  background: color-mix(in srgb, #7c3aed 12%, var(--card-bg)); border: 1px solid #7c3aed;
+  border-radius: 6px; padding: 4px 10px; font-size: 11px; color: #7c3aed; font-weight: 600; z-index: 5;
+}
+.ch-connect-hint button { background: none; border: none; cursor: pointer; color: inherit; text-decoration: underline; font-size: 11px; }
 
-    .ch-int-running-badge {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      padding: 2px 8px;
-      border-radius: 999px;
-      background: color-mix(in srgb, #3b82f6 12%, transparent);
-      border: 1px solid #3b82f6;
-      color: #1e40af;
-      font-weight: 600;
-    }
-    .ch-int-running-dot {
-      display: inline-block;
-      width: 6px; height: 6px;
-      border-radius: 50%;
-      background: #3b82f6;
-      animation: ch-pulse 1.4s ease-in-out infinite;
-    }
-    @keyframes ch-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
-    .ch-int-fail-count { color: #dc2626; font-weight: 700; }
-    .ch-int-idle-badge {
-      padding: 2px 8px;
-      border-radius: 999px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      color: var(--muted);
-      font-size: 10px;
-    }
-    .ch-int-level-badge {
-      padding: 1px 6px;
-      border-radius: 4px;
-      font-size: 10px;
-      background: color-mix(in srgb, #22c55e 12%, transparent);
-      border: 1px solid #22c55e;
-      color: #14532d;
-    }
-    .ch-int-level-badge[data-level="strict"] {
-      background: color-mix(in srgb, #f59e0b 12%, transparent);
-      border-color: #f59e0b;
-      color: #78350f;
-    }
+.ch-edge { cursor: pointer; }
+.ch-edge-mid { cursor: pointer; }
+.ch-edge-mid:hover { fill: color-mix(in srgb, var(--accent) 10%, white) !important; stroke: var(--accent) !important; }
+.ch-node { cursor: pointer; }
+.ch-node-off { opacity: 0.45; }
 
-    .ch-int-refresh-btn {
-      padding: 3px 8px;
-      border: 1px solid var(--border);
-      border-radius: 5px;
-      background: var(--bg);
-      color: var(--fg);
-      cursor: pointer;
-      font-size: 11px;
-    }
-    .ch-int-refresh-btn:hover { background: var(--card-bg); }
-
-    .ch-int-canvas-wrap {
-      flex: 1;
-      overflow: auto;
-      display: flex;
-      align-items: flex-start;
-      justify-content: center;
-      padding: 20px;
-      background: var(--bg);
-    }
-    .ch-int-svg {
-      width: 100%;
-      max-width: 720px;
-      min-height: 540px;
-    }
-    .ch-int-flow-node, .ch-int-worker-node { cursor: pointer; }
-    .ch-int-flow-node:hover rect, .ch-int-flow-node:hover polygon,
-    .ch-int-worker-node:hover rect { filter: brightness(0.96); }
-
-    /* ── Right inspector ── */
-    .ch-int-inspector {
-      border-left: 1px solid var(--border);
-      background: var(--card-bg);
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .ch-int-inspector-head {
-      display: flex;
-      align-items: flex-start;
-      gap: 8px;
-      padding: 10px 12px;
-      border-bottom: 1px solid var(--border);
-      position: sticky;
-      top: 0;
-      background: var(--card-bg);
-      z-index: 1;
-    }
-    .ch-int-inspector-icon { font-size: 18px; flex-shrink: 0; }
-    .ch-int-inspector-title { font-size: 12px; font-weight: 700; }
-    .ch-int-inspector-sub { font-size: 10px; color: var(--muted); }
-    .ch-int-inspector-close {
-      margin-left: auto;
-      background: none;
-      border: none;
-      cursor: pointer;
-      color: var(--muted);
-      font-size: 14px;
-      padding: 0 2px;
-    }
-    .ch-int-inspector-close:hover { color: var(--fg); }
-
-    .ch-int-inspector-body { padding: 10px 12px; display: flex; flex-direction: column; gap: 10px; }
-    .ch-int-inspector-section { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
-    .ch-int-inspector-desc { font-size: 11px; color: var(--muted); margin: 0; }
-
-    .ch-int-prompt-preview {
-      font-family: var(--mono, ui-monospace, monospace);
-      font-size: 9px;
-      background: var(--bg);
-      padding: 6px 8px;
-      border-radius: 4px;
-      overflow: auto;
-      max-height: 320px;
-      white-space: pre-wrap;
-      word-break: break-word;
-      margin: 0;
-    }
-
-    .ch-int-dl {
-      display: grid;
-      grid-template-columns: max-content 1fr;
-      gap: 4px 10px;
-      margin: 0;
-      font-size: 11px;
-    }
-    .ch-int-dl dt { color: var(--muted); font-weight: 500; }
-    .ch-int-dl dd { margin: 0; word-break: break-all; }
-    .ch-mono { font-family: var(--mono, ui-monospace, monospace); font-size: 10px; }
-
-    .ch-int-status-badge {
-      display: inline-block;
-      padding: 1px 6px;
-      border-radius: 999px;
-      font-size: 10px;
-      font-weight: 600;
-    }
-    .ch-int-status-badge[data-s="online"] { background: color-mix(in srgb, #22c55e 16%, transparent); color: #14532d; }
-    .ch-int-status-badge[data-s="offline"] { background: color-mix(in srgb, #ef4444 14%, transparent); color: #7f1d1d; }
-    .ch-int-status-badge[data-s="degraded"] { background: color-mix(in srgb, #f59e0b 16%, transparent); color: #78350f; }
-
-    .ch-int-caps { display: flex; flex-wrap: wrap; gap: 3px; }
-    .ch-int-cap { font-size: 9px; padding: 1px 5px; border-radius: 4px; background: color-mix(in srgb, var(--accent) 12%, transparent); }
-
-    .ch-int-active-box {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      padding: 6px 9px;
-      border-radius: 6px;
-      background: color-mix(in srgb, #3b82f6 10%, transparent);
-      border: 1px solid #3b82f6;
-      font-size: 11px;
-      color: #1e40af;
-      font-weight: 600;
-    }
-    .ch-int-warn-box {
-      padding: 6px 9px;
-      border-radius: 6px;
-      background: color-mix(in srgb, #ef4444 10%, transparent);
-      border: 1px solid #fca5a5;
-      font-size: 11px;
-      color: #7f1d1d;
-    }
-
-    .ch-int-inspector-empty {
-      padding: 20px 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      font-size: 12px;
-      color: var(--muted);
-      flex: 1;
-    }
-    .ch-int-muted { color: var(--muted); font-size: 11px; margin: 0; }
+/* ── Inspector ── */
+.ch-insp { border-left: 1px solid var(--border); background: var(--card-bg); overflow-y: auto; display: flex; flex-direction: column; }
+.ch-insp-head { display: flex; align-items: center; gap: 7px; padding: 7px 9px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--card-bg); z-index: 1; }
+.ch-insp-tag { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+.ch-insp-tag[data-t="start"],.ch-insp-tag[data-t="end"] { background: color-mix(in srgb, #22c55e 14%, transparent); color: #15803d; }
+.ch-insp-tag[data-t="planning"] { background: color-mix(in srgb, #4f46e5 14%, transparent); color: #4f46e5; }
+.ch-insp-tag[data-t="verification"] { background: color-mix(in srgb, #059669 14%, transparent); color: #059669; }
+.ch-insp-tag[data-t="gate"] { background: color-mix(in srgb, #d97706 14%, transparent); color: #d97706; }
+.ch-insp-tag[data-t="edge"] { background: color-mix(in srgb, #6b7280 14%, transparent); color: #6b7280; }
+.ch-insp-x { margin-left: auto; background: none; border: none; cursor: pointer; color: var(--muted); font-size: 13px; }
+.ch-insp-x:hover { color: var(--fg); }
+.ch-insp-body { padding: 9px; display: flex; flex-direction: column; gap: 5px; }
+.ch-fl { font-size: 9px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; margin-top: 3px; }
+.ch-fi { width: 100%; padding: 4px 6px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); font-size: 11px; box-sizing: border-box; }
+.ch-fta { width: 100%; padding: 4px 6px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); font-size: 10px; box-sizing: border-box; min-height: 52px; resize: vertical; }
+.ch-fsel { width: 100%; padding: 4px 6px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); font-size: 11px; box-sizing: border-box; }
+.ch-ftoggle { display: flex; align-items: center; gap: 5px; font-size: 11px; cursor: pointer; }
+.ch-frow { display: flex; align-items: center; gap: 4px; }
+.ch-fnum { width: 64px; padding: 4px 5px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); font-size: 11px; }
+.ch-fdim { color: var(--muted); font-size: 11px; }
+.ch-fval { font-size: 11px; padding: 3px 6px; background: var(--bg); border-radius: 4px; border: 1px solid var(--border); }
+.ch-active-badge { display: flex; align-items: center; gap: 6px; padding: 4px 7px; border-radius: 4px; background: color-mix(in srgb, #3b82f6 10%, transparent); border: 1px solid #3b82f6; font-size: 11px; color: #1e40af; font-weight: 600; }
+.ch-del-btn { margin-top: 6px; padding: 5px 10px; border: 1px solid color-mix(in srgb, #ef4444 35%, transparent); border-radius: 4px; background: color-mix(in srgb, #ef4444 8%, transparent); color: #b91c1c; font-size: 11px; cursor: pointer; width: 100%; }
+.ch-del-btn:hover { background: color-mix(in srgb, #ef4444 14%, transparent); }
+.ch-insp-empty { padding: 14px 10px; font-size: 12px; color: var(--muted); flex: 1; display: flex; flex-direction: column; gap: 7px; }
+.ch-goal-panel { padding: 9px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 5px; }
+.ch-goal-hd { font-size: 11px; font-weight: 700; }
+.ch-start-btn { padding: 5px 10px; border-radius: 5px; border: none; background: var(--accent); color: white; font-size: 12px; font-weight: 600; cursor: pointer; }
+.ch-start-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.ch-start-btn:not(:disabled):hover { filter: brightness(1.1); }
+.ch-result { font-size: 10px; padding: 3px 7px; border-radius: 4px; background: color-mix(in srgb, #ef4444 9%, transparent); color: #b91c1c; }
+.ch-result-ok { background: color-mix(in srgb, #22c55e 9%, transparent) !important; color: #15803d !important; }
+.ch-muted { color: var(--muted); font-size: 11px; margin: 0; }
   `],
 })
-export class CodeHugInternalsComponent implements OnInit, OnDestroy {
+export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestroy {
+  @ViewChild('svgEl') svgElRef!: ElementRef<SVGSVGElement>;
+
   private readonly svc = inject(InternalsService);
 
-  readonly templates = signal<AnantaTemplate[]>([]);
+  // ── Exposed statics for template ─────────────────────────────────────────
+  readonly BLUEPRINTS = BLUEPRINTS;
+  readonly PLAYBOOKS = PLAYBOOKS;
+  readonly PRIORITY_COLOR = PRIORITY_COLOR;
+  readonly COND_COLOR = COND_COLOR;
+
+  // ── Live data ─────────────────────────────────────────────────────────────
   readonly workers = signal<AnantaWorker[]>([]);
   readonly autopilot = signal<AutopilotStatus>({
     running: false, goal: '', team_id: '', started_at: null,
@@ -629,137 +626,346 @@ export class CodeHugInternalsComponent implements OnInit, OnDestroy {
     circuit_breakers: { open_workers: [], open_count: 0, failure_streak: {} },
   });
 
-  readonly selectedTemplate = signal<AnantaTemplate | null>(null);
-  readonly selectedWorker = signal<AnantaWorker | null>(null);
-  readonly selectedFlowNode = signal<FlowPhase | null>(null);
+  // ── Config ────────────────────────────────────────────────────────────────
+  readonly selectedBlueprint = signal('scrum');
+  readonly selectedPlaybook = signal('bug_fix');
+  readonly selectedSecurity = signal('safe');
+  readonly maxConcurrency = signal(1);
+  readonly goalText = signal('');
+  readonly goalResult = signal<string | null>(null);
+  readonly goalOk = signal(false);
 
-  readonly flowNodes = FLOW_NODES;
+  // ── Canvas state ──────────────────────────────────────────────────────────
+  readonly nodes = signal<CanvasNode[]>([]);
+  readonly edges = signal<CanvasEdge[]>([]);
+  readonly selectedNodeId = signal<string | null>(null);
+  readonly selectedEdgeId = signal<string | null>(null);
+  readonly viewTx = signal(40);
+  readonly viewTy = signal(20);
+  readonly viewScale = signal(1);
 
-  readonly templateCategories = computed((): AnantaTemplate['category'][] => {
-    const cats = new Set(this.templates().map(t => t.category));
-    return ['scrum', 'opencode', 'kanban', 'system'].filter(c => cats.has(c as any)) as AnantaTemplate['category'][];
-  });
+  readonly svgTransform = computed(() => `translate(${this.viewTx()},${this.viewTy()}) scale(${this.viewScale()})`);
+  readonly selectedNode = computed(() => this.nodes().find(n => n.id === this.selectedNodeId()) ?? null);
+  readonly selectedEdge = computed(() => this.edges().find(e => e.id === this.selectedEdgeId()) ?? null);
+  readonly currentRoles = computed(() => BLUEPRINTS.find(b => b.id === this.selectedBlueprint())?.roles ?? []);
 
-  private pollSub: Subscription | null = null;
+  // ── Connect mode ──────────────────────────────────────────────────────────
+  readonly connectMode = signal(false);
+  readonly connectSource = signal<string | null>(null);
+
+  // ── Drag state ────────────────────────────────────────────────────────────
+  private _dragging: { nodeId: string; ox: number; oy: number } | null = null;
+  private _panning: { mx: number; my: number; tx: number; ty: number } | null = null;
+  private _didDrag = false;
+  private _nodeSeq = 0;
+  private _edgeSeq = 0;
+  private _pollSub: Subscription | null = null;
+
+  // ── Lifecycle ─────────────────────────────────────────────────────────────
 
   ngOnInit(): void {
-    this.reload();
-    // Poll autopilot status every 3s
-    this.pollSub = interval(3000).pipe(
-      switchMap(() => this.svc.getAutopilotStatus()),
-    ).subscribe(status => this.autopilot.set(status));
-  }
-
-  ngOnDestroy(): void {
-    this.pollSub?.unsubscribe();
-  }
-
-  reload(): void {
-    this.svc.getTemplates().subscribe(t => this.templates.set(t));
+    this.buildCanvas('scrum', 'bug_fix');
     this.svc.getWorkers().subscribe(w => this.workers.set(w));
     this.svc.getAutopilotStatus().subscribe(s => this.autopilot.set(s));
+    this._pollSub = interval(3000).pipe(switchMap(() => this.svc.getAutopilotStatus()))
+      .subscribe(s => this.autopilot.set(s));
   }
 
-  selectTemplate(tpl: AnantaTemplate): void {
-    this.selectedWorker.set(null);
-    this.selectedFlowNode.set(null);
-    this.selectedTemplate.set(this.selectedTemplate()?.id === tpl.id ? null : tpl);
+  ngAfterViewInit(): void {}
+  ngOnDestroy(): void { this._pollSub?.unsubscribe(); }
+
+  // ── Blueprint / Playbook ──────────────────────────────────────────────────
+
+  onBlueprintChange(id: string): void {
+    this.selectedBlueprint.set(id);
+    this.buildCanvas(id, this.selectedPlaybook());
   }
 
-  selectWorker(w: AnantaWorker): void {
-    this.selectedTemplate.set(null);
-    this.selectedFlowNode.set(null);
-    this.selectedWorker.set(this.selectedWorker()?.name === w.name ? null : w);
+  onPlaybookChange(id: string): void {
+    this.selectedPlaybook.set(id);
+    this.buildCanvas(this.selectedBlueprint(), id);
   }
 
-  selectFlowNode(id: FlowPhase): void {
-    this.selectedTemplate.set(null);
-    this.selectedWorker.set(null);
-    this.selectedFlowNode.set(this.selectedFlowNode() === id ? null : id);
+  buildCanvas(blueprintId: string, playbookId: string): void {
+    const bp = BLUEPRINTS.find(b => b.id === blueprintId);
+    const pb = PLAYBOOKS.find(p => p.id === playbookId);
+    if (!bp || !pb) return;
+
+    const roles = bp.roles;
+    const nodes: CanvasNode[] = [];
+    const edges: CanvasEdge[] = [];
+    let y = 30;
+    const addEdge = (from: string, to: string, cond: EdgeCondition = 'always') =>
+      edges.push({ id: `e-${++this._edgeSeq}`, from, to, condition: cond });
+
+    nodes.push({ id: 'start', x: CX - 60, y, w: 120, h: 40, type: 'start', title: 'Ziel', enabled: true });
+    y += 40 + GAP_Y;
+
+    nodes.push({ id: 'plan', x: CX - 90, y, w: 180, h: 52, type: 'planning', title: 'Planung', subtitle: 'LMStudio · Gemma', enabled: true });
+    addEdge('start', 'plan');
+    y += 52 + GAP_Y;
+
+    let prev = 'plan';
+    pb.tasks.forEach((task, i) => {
+      const nid = `task-${++this._nodeSeq}`;
+      nodes.push({
+        id: nid, x: CX - NODE_W / 2, y, w: NODE_W, h: NODE_H, type: 'task',
+        title: task.title, subtitle: task.description,
+        role: roles[i % roles.length], workerName: null,
+        priority: task.priority, enabled: true,
+      });
+      addEdge(prev, nid);
+      prev = nid;
+      y += NODE_H + GAP_Y;
+    });
+
+    nodes.push({ id: 'verif', x: CX - 90, y, w: 180, h: 52, type: 'verification', title: 'Verifikation', subtitle: 'Review · Tests', enabled: true });
+    addEdge(prev, 'verif');
+    y += 52 + GAP_Y;
+
+    nodes.push({ id: 'end', x: CX - 60, y, w: 120, h: 40, type: 'end', title: 'Fertig', enabled: true });
+    addEdge('verif', 'end');
+
+    this.nodes.set(nodes);
+    this.edges.set(edges);
+    this.selectedNodeId.set(null);
+    this.selectedEdgeId.set(null);
+    this.connectMode.set(false);
+    this.connectSource.set(null);
   }
 
-  clearSelection(): void {
-    this.selectedTemplate.set(null);
-    this.selectedWorker.set(null);
-    this.selectedFlowNode.set(null);
-  }
+  // ── Interactions ──────────────────────────────────────────────────────────
 
-  templatesByCategory(cat: AnantaTemplate['category']): AnantaTemplate[] {
-    return this.templates().filter(t => t.category === cat);
-  }
-
-  getCatIcon(cat: string): string { return CATEGORY_ICONS[cat] ?? '📁'; }
-  getCatLabel(cat: string): string { return CATEGORY_LABELS[cat] ?? cat; }
-  shortName(name: string): string {
-    return name.replace(/^(Scrum|Kanban|OpenCode Scrum)\s*-\s*/i, '');
-  }
-
-  workerActive(w: AnantaWorker): boolean {
-    const ap = this.autopilot();
-    if (!ap.running) return false;
-    const openCircuit = ap.circuit_breakers?.open_workers ?? [];
-    return w.status === 'online' && !openCircuit.includes(w.url);
-  }
-
-  workerX(index: number, total: number): number {
-    const totalWidth = total * 120 + (total - 1) * 20;
-    const startX = (720 - totalWidth) / 2;
-    return startX + index * 140;
-  }
-
-  isFlowNodeActive(id: FlowPhase): boolean {
-    const ap = this.autopilot();
-    if (!ap.running) return false;
-    switch (id) {
-      case 'planning': return ap.dispatched_count === 0 && ap.tick_count > 0;
-      case 'queue': return ap.dispatched_count > 0 && ap.completed_count === 0;
-      case 'executing': return ap.dispatched_count > 0;
-      case 'verification': return ap.completed_count > 0 && ap.dispatched_count > 0;
-      default: return false;
+  onBgMouseDown(e: MouseEvent): void {
+    const tag = (e.target as SVGElement).tagName;
+    if (tag === 'svg' || (e.target as SVGElement).classList.contains('ch-bg-rect')) {
+      this._panning = { mx: e.clientX, my: e.clientY, tx: this.viewTx(), ty: this.viewTy() };
     }
   }
 
-  flowNodeFilter(id: FlowPhase): string | null {
-    if (!this.isFlowNodeActive(id)) return null;
-    if (id === 'planning') return 'url(#glow-amber)';
-    if (id === 'executing') return 'url(#glow-blue)';
-    if (id === 'verification') return 'url(#glow-green)';
-    return null;
+  onNodeMouseDown(e: MouseEvent, nodeId: string): void {
+    if (this.connectMode()) return;
+    e.stopPropagation();
+    const n = this.nodes().find(n => n.id === nodeId);
+    if (!n) return;
+    const p = this.toCanvas(e);
+    this._dragging = { nodeId, ox: p.x - n.x, oy: p.y - n.y };
+    this._didDrag = false;
   }
 
-  hexPoints(w: number, h: number): string {
-    const m = h / 4;
-    return `${m},0 ${w - m},0 ${w},${h / 2} ${w - m},${h} ${m},${h} 0,${h / 2}`;
+  onNodeClick(e: MouseEvent, nodeId: string): void {
+    if (this._didDrag) { this._didDrag = false; return; }
+    e.stopPropagation();
+    if (this.connectMode()) {
+      const src = this.connectSource();
+      if (!src) { this.connectSource.set(nodeId); return; }
+      if (src !== nodeId) {
+        this.edges.update(es => [...es, { id: `e-${++this._edgeSeq}`, from: src, to: nodeId, condition: 'always' }]);
+      }
+      this.connectSource.set(null);
+      this.connectMode.set(false);
+      return;
+    }
+    this.selectedEdgeId.set(null);
+    this.selectedNodeId.set(this.selectedNodeId() === nodeId ? null : nodeId);
   }
 
-  diamondPoints(w: number, h: number): string {
-    return `${w / 2},0 ${w},${h / 2} ${w / 2},${h} 0,${h / 2}`;
+  onEdgeClick(e: MouseEvent, edgeId: string): void {
+    e.stopPropagation();
+    if (this.connectMode()) return;
+    this.selectedNodeId.set(null);
+    this.selectedEdgeId.set(this.selectedEdgeId() === edgeId ? null : edgeId);
   }
 
-  flowNodeLabel(id: FlowPhase): string {
-    return FLOW_NODES.find(n => n.id === id)?.label ?? id;
+  @HostListener('document:mousemove', ['$event'])
+  onMouseMove(e: MouseEvent): void {
+    if (this._dragging) {
+      this._didDrag = true;
+      const p = this.toCanvas(e);
+      this.nodes.update(ns => ns.map(n =>
+        n.id === this._dragging!.nodeId
+          ? { ...n, x: Math.max(0, p.x - this._dragging!.ox), y: Math.max(0, p.y - this._dragging!.oy) }
+          : n
+      ));
+    }
+    if (this._panning) {
+      this.viewTx.set(this._panning.tx + e.clientX - this._panning.mx);
+      this.viewTy.set(this._panning.ty + e.clientY - this._panning.my);
+    }
   }
 
-  flowNodeIcon(id: FlowPhase): string {
-    const icons: Record<FlowPhase, string> = {
-      goal: '🎯', planning: '🧠', queue: '📥', executing: '⚡', verification: '✅', done: '🏁',
+  @HostListener('document:mouseup')
+  onMouseUp(): void {
+    this._dragging = null;
+    this._panning = null;
+  }
+
+  onWheel(e: WheelEvent): void {
+    e.preventDefault();
+    const old = this.viewScale();
+    const next = Math.max(0.15, Math.min(3, old * (e.deltaY > 0 ? 0.92 : 1.08)));
+    const rect = this.svgElRef.nativeElement.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    this.viewScale.set(next);
+    this.viewTx.set(mx - (mx - this.viewTx()) * (next / old));
+    this.viewTy.set(my - (my - this.viewTy()) * (next / old));
+  }
+
+  zoomIn(): void { this.viewScale.update(s => Math.min(3, s * 1.15)); }
+  zoomOut(): void { this.viewScale.update(s => Math.max(0.15, s * 0.87)); }
+  resetView(): void { this.viewScale.set(1); this.viewTx.set(40); this.viewTy.set(20); }
+  cancelConnect(): void { this.connectMode.set(false); this.connectSource.set(null); }
+
+  // ── Node / Edge Operations ────────────────────────────────────────────────
+
+  addFreeNode(): void {
+    const svg = this.svgElRef.nativeElement;
+    const cx = (svg.clientWidth / 2 - this.viewTx()) / this.viewScale();
+    const cy = (svg.clientHeight / 2 - this.viewTy()) / this.viewScale();
+    const roles = this.currentRoles();
+    const nid = `task-${++this._nodeSeq}`;
+    this.nodes.update(ns => [...ns, {
+      id: nid, x: cx - NODE_W / 2, y: cy - NODE_H / 2, w: NODE_W, h: NODE_H,
+      type: 'task', title: 'Neuer Schritt', subtitle: '',
+      role: roles[ns.filter(n => n.type === 'task').length % roles.length] ?? '',
+      workerName: null, priority: 'Medium', enabled: true,
+    }]);
+    this.selectedNodeId.set(nid);
+  }
+
+  addGateNode(): void {
+    const svg = this.svgElRef.nativeElement;
+    const cx = (svg.clientWidth / 2 - this.viewTx()) / this.viewScale();
+    const cy = (svg.clientHeight / 2 - this.viewTy()) / this.viewScale();
+    const nid = `gate-${++this._nodeSeq}`;
+    this.nodes.update(ns => [...ns, {
+      id: nid, x: cx - 120, y: cy - 30, w: 240, h: 52,
+      type: 'gate', title: 'Verification Gate', subtitle: 'Bedingung definieren',
+      priority: 'High', enabled: true,
+    }]);
+    this.selectedNodeId.set(nid);
+  }
+
+  insertOnEdge(e: MouseEvent, edgeId: string): void {
+    e.stopPropagation();
+    const edge = this.edges().find(ed => ed.id === edgeId);
+    if (!edge) return;
+    const mp = this.edgeMidpoint(edge);
+    const roles = this.currentRoles();
+    const taskCount = this.nodes().filter(n => n.type === 'task').length;
+    const nid = `task-${++this._nodeSeq}`;
+    const e1 = `e-${++this._edgeSeq}`;
+    const e2 = `e-${++this._edgeSeq}`;
+    this.nodes.update(ns => [...ns, {
+      id: nid, x: mp.x - NODE_W / 2, y: mp.y - NODE_H / 2, w: NODE_W, h: NODE_H,
+      type: 'task', title: 'Eingefügter Schritt', subtitle: '',
+      role: roles[taskCount % roles.length] ?? '', workerName: null, priority: 'Medium', enabled: true,
+    }]);
+    this.edges.update(es => [
+      ...es.filter(ed => ed.id !== edgeId),
+      { id: e1, from: edge.from, to: nid, condition: edge.condition },
+      { id: e2, from: nid, to: edge.to, condition: 'always' as EdgeCondition },
+    ]);
+    this.selectedNodeId.set(nid);
+    this.selectedEdgeId.set(null);
+  }
+
+  deleteNode(nodeId: string): void {
+    this.nodes.update(ns => ns.filter(n => n.id !== nodeId));
+    this.edges.update(es => es.filter(e => e.from !== nodeId && e.to !== nodeId));
+    this.selectedNodeId.set(null);
+  }
+
+  patchNode(id: string, patch: Partial<CanvasNode>): void {
+    this.nodes.update(ns => ns.map(n => n.id === id ? { ...n, ...patch } : n));
+  }
+
+  deleteEdge(edgeId: string): void {
+    this.edges.update(es => es.filter(e => e.id !== edgeId));
+    this.selectedEdgeId.set(null);
+  }
+
+  patchEdge(id: string, patch: Partial<CanvasEdge>): void {
+    this.edges.update(es => es.map(e => e.id === id ? { ...e, ...patch } : e));
+  }
+
+  // ── Geometry ──────────────────────────────────────────────────────────────
+
+  edgePath(edge: CanvasEdge): string {
+    const src = this.nodes().find(n => n.id === edge.from);
+    const dst = this.nodes().find(n => n.id === edge.to);
+    if (!src || !dst) return '';
+    const sx = src.x + src.w / 2, sy = src.y + src.h;
+    const tx = dst.x + dst.w / 2, ty = dst.y;
+    const dy = Math.max(28, Math.abs(ty - sy) * 0.38);
+    return `M ${sx} ${sy} C ${sx} ${sy + dy}, ${tx} ${ty - dy}, ${tx} ${ty}`;
+  }
+
+  edgeMidpoint(edge: CanvasEdge): { x: number; y: number } {
+    const src = this.nodes().find(n => n.id === edge.from);
+    const dst = this.nodes().find(n => n.id === edge.to);
+    if (!src || !dst) return { x: 0, y: 0 };
+    return { x: (src.x + src.w / 2 + dst.x + dst.w / 2) / 2, y: (src.y + src.h + dst.y) / 2 };
+  }
+
+  edgeMarkerSuffix(edge: CanvasEdge, selected: boolean): string {
+    if (selected) return '-sel';
+    if (edge.condition === 'on_success') return '-ok';
+    if (edge.condition === 'on_failure') return '-fail';
+    return '';
+  }
+
+  nodeLabel(nodeId: string): string {
+    return this.nodes().find(n => n.id === nodeId)?.title ?? nodeId;
+  }
+
+  // ── Live state ────────────────────────────────────────────────────────────
+
+  nodeIsActive(node: CanvasNode): boolean {
+    const ap = this.autopilot();
+    if (!ap.running) return false;
+    if (node.type === 'planning') return ap.dispatched_count === 0 && ap.tick_count > 0;
+    if (node.type === 'task') return ap.dispatched_count > 0 && ap.completed_count < ap.dispatched_count;
+    if (node.type === 'verification') return ap.completed_count > 0;
+    return false;
+  }
+
+  workerIsActive(w: AnantaWorker): boolean { return this.autopilot().running && w.status === 'online'; }
+  workerStatus(name: string): string { return this.workers().find(w => w.name === name)?.status ?? 'offline'; }
+
+  // ── Goal Submit ───────────────────────────────────────────────────────────
+
+  submitGoal(): void {
+    const text = this.goalText().trim();
+    if (!text) return;
+    fetch('http://127.0.0.1:5000/goals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        description: text,
+        security_level: this.selectedSecurity(),
+        config_profile: this.selectedBlueprint(),
+        playbook: this.selectedPlaybook(),
+      }),
+    }).then(r => {
+      if (r.ok) {
+        this.goalOk.set(true);
+        this.goalResult.set('Ziel gesendet.');
+        this.goalText.set('');
+      } else {
+        r.text().then(t => { this.goalOk.set(false); this.goalResult.set(`Fehler ${r.status}: ${t.slice(0, 80)}`); });
+      }
+    }).catch(err => { this.goalOk.set(false); this.goalResult.set(`Netzwerkfehler: ${err}`); });
+  }
+
+  // ── Private ───────────────────────────────────────────────────────────────
+
+  private toCanvas(e: MouseEvent): { x: number; y: number } {
+    const rect = this.svgElRef.nativeElement.getBoundingClientRect();
+    return {
+      x: (e.clientX - rect.left - this.viewTx()) / this.viewScale(),
+      y: (e.clientY - rect.top - this.viewTy()) / this.viewScale(),
     };
-    return icons[id] ?? '●';
-  }
-
-  flowNodeDescription(id: FlowPhase): string {
-    const desc: Record<FlowPhase, string> = {
-      goal: 'Das übergeordnete Ziel, das dem Ananta-System übergeben wird.',
-      planning: 'Der Hub plant das Ziel mit dem konfigurierten Planungsmodell (LMStudio / Gemma) in einzelne Tasks auf.',
-      queue: 'Geplante Tasks warten auf Dispatch an verfügbare Worker.',
-      executing: 'Worker führen Tasks aus: Recherche, Implementierung, Review — je nach ihren Rollen.',
-      verification: 'Fertige Tasks werden geprüft: Tests laufen, Diffs werden bewertet.',
-      done: 'Alle Tasks abgeschlossen, Artefakte sind bereit.',
-    };
-    return desc[id] ?? '';
-  }
-
-  truncate(s: string, n: number): string {
-    return s.length > n ? s.slice(0, n) + '…' : s;
   }
 }
