@@ -110,14 +110,14 @@ import { TraceViewComponent } from '../graph/trace-view.component';
               (refreshRequested)="refreshAll()"
               (layerToggled)="onCanvasLayerToggle($event)"
               (ruleChanged)="onCanvasRuleChange($event)" />
-          } @else if (topologyError()) {
-            <div class="ch-int-canvas-empty">
-              <p>Topologie nicht verfuegbar.</p>
-              <button type="button" class="ch-int-btn" (click)="loadTopology()">Erneut laden</button>
-            </div>
           } @else {
             <div class="ch-int-canvas-empty">
-              <p class="ch-int-muted">Topologie wird geladen…</p>
+              @if (topologyError()) {
+                <p>Hub nicht erreichbar: {{ topologyError() }}</p>
+              } @else {
+                <p class="ch-int-muted">Topologie wird geladen…</p>
+              }
+              <button type="button" class="ch-int-btn" (click)="loadTopology()">Aktualisieren</button>
             </div>
           }
         </div>
@@ -377,17 +377,19 @@ import { TraceViewComponent } from '../graph/trace-view.component';
       flex-shrink: 0;
     }
 
-    /* Canvas area — fills remaining space */
+    /* Canvas area — fills remaining space, min-height als Fallback wenn height-chain kollabiert */
     .ch-int-canvas-wrap {
       flex: 1;
-      min-height: 0;
+      min-height: 520px;
       padding: 10px;
     }
     .ch-int-canvas-wrap > ch-canvas {
+      display: block;
       height: 100%;
+      min-height: 500px;
     }
     .ch-int-canvas-empty {
-      height: 100%;
+      min-height: 300px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -473,6 +475,7 @@ export class CodeHugInternalsComponent implements OnInit {
   readonly topologySvc = inject(TopologyService);
   readonly runsSvc = inject(AgentRunService);
   readonly policy = inject(PolicyService);
+
 
   readonly tab = signal<'canvas' | 'trace' | 'config'>('canvas');
   readonly topology = signal<ChTopologyReadModel | null>(null);

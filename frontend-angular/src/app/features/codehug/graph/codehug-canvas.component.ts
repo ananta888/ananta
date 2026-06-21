@@ -567,13 +567,14 @@ function autoLayout(topology: ChTopologyReadModel): { nodes: ChCanvasNode[]; edg
     </div>
   `,
   styles: [`
-    :host { display: block; height: 100%; }
+    :host { display: block; height: 100%; min-height: 500px; }
 
     .ch-cv-root {
       display: grid;
       grid-template-rows: 36px 1fr;
       grid-template-columns: 1fr;
       height: 100%;
+      min-height: 500px;
       background: var(--bg);
       border: 1px solid var(--border);
       border-radius: 10px;

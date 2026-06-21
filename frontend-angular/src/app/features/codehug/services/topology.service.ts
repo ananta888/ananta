@@ -47,19 +47,27 @@ export class TopologyService {
    * Laedt die vollstaendige Topologie inkl. Worker, Routing-Regeln und Layer.
    */
   getTopology(): Observable<ChTopologyReadModel> {
-    const baseUrl = this.hubUrl();
+    let baseUrl: string;
+    try {
+      baseUrl = this.hubUrl();
+    } catch (err) {
+      return throwError(() => this.toChError(err, 'getTopology'));
+    }
+
     return this.cc.listWorkers(baseUrl).pipe(
       map(workersResp => {
-        const workers = workersResp.items ?? [];
-        const chWorkers = workers.map(w => this.normalizeWorker(w));
+        // Hub wraps responses in { data: { items, count }, status }
+        const payload = (workersResp as any)?.data ?? workersResp;
+        const rawItems: any[] = payload?.items ?? [];
+        const chWorkers = rawItems.map((w: any) => this.normalizeWorker(w));
         const hubs = this.detectHubs();
         const connections = this.inferConnections(hubs, chWorkers);
         return {
           hubs,
           workers: chWorkers,
           connections,
-          routingRules: [], // werden ueber getRoutingRules() separat geladen
-          activeLayers: [], // werden ueber getTestLayers() separat geladen
+          routingRules: [], // separat via getRoutingRules()
+          activeLayers: [], // separat via getTestLayers()
         };
       }),
       catchError(err => throwError(() => this.toChError(err, 'getTopology'))),
@@ -189,45 +197,65 @@ export class TopologyService {
     }));
   }
 
-  private normalizeWorker(w: CcWorkerReadModel): ChWorkerInstanceReadModel {
+  private normalizeWorker(w: any): ChWorkerInstanceReadModel {
+    const id = String(w.id ?? '');
+    const rawHealth = String(w.health ?? 'unknown').toLowerCase();
+    // Hub liefert "online"/"offline" – auf interne Typen mappen
+    const healthMap: Record<string, ChWorkerInstanceReadModel['health']> = {
+      online: 'healthy', healthy: 'healthy',
+      offline: 'unhealthy', unhealthy: 'unhealthy',
+      degraded: 'degraded',
+    };
+    const health = healthMap[rawHealth] ?? 'unknown';
+
+    const rawBoundary = String(w.boundary ?? w.runtime ?? 'unknown').toLowerCase();
+    const boundaryMap: Record<string, ChWorkerInstanceReadModel['boundary']> = {
+      'local-only': 'local-only', local: 'local-only',
+      'cloud-allowed': 'cloud-allowed', cloud: 'cloud-allowed',
+      remote: 'remote',
+    };
+    const boundary = boundaryMap[rawBoundary] ?? 'unknown';
+
     return {
-      id: w.id,
+      id,
       hubId: 'hub-1',
-      type: w.id.split(':')[0] ?? w.id,
+      type: w.worker_roles?.join(', ') ?? w.role ?? id,
       cliBackend: this.detectCliBackend(w),
-      model: this.detectModel(w),
+      model: w.model ?? w.preferred_model ?? 'unbekannt',
       llmProvider: this.detectProvider(w),
-      capabilities: w.capabilities ?? [],
-      health: (w.health as ChWorkerInstanceReadModel['health']) ?? 'unknown',
-      boundary: (w.boundary as ChWorkerInstanceReadModel['boundary']) ?? 'unknown',
-      registeredAt: 0,
-      lastHeartbeatAt: null,
+      capabilities: Array.isArray(w.capabilities) ? w.capabilities : [],
+      health,
+      boundary,
+      registeredAt: w.registered_at ? w.registered_at * 1000 : 0,
+      lastHeartbeatAt: w.last_seen ? Math.round(w.last_seen * 1000) : null,
     };
   }
 
-  private detectCliBackend(w: CcWorkerReadModel): ChWorkerInstanceReadModel['cliBackend'] {
+  private detectCliBackend(w: any): ChWorkerInstanceReadModel['cliBackend'] {
     const id = (w.id ?? '').toLowerCase();
-    if (id.includes('sgpt')) return 'sgpt';
-    if (id.includes('opencode')) return 'opencode';
-    if (id.includes('codex')) return 'codex';
-    if (id.includes('claude')) return 'claude_code';
-    if (id.includes('aider')) return 'aider';
-    if (id.includes('mistral')) return 'mistral';
-    if (id.includes('det') || id.includes('rule')) return 'deterministic';
+    const type = (w.type ?? w.role ?? '').toLowerCase();
+    const combined = `${id} ${type}`;
+    if (combined.includes('sgpt')) return 'sgpt';
+    if (combined.includes('opencode')) return 'opencode';
+    if (combined.includes('codex')) return 'codex';
+    if (combined.includes('claude')) return 'claude_code';
+    if (combined.includes('aider')) return 'aider';
+    if (combined.includes('mistral')) return 'mistral';
+    if (combined.includes('det') || combined.includes('rule')) return 'deterministic';
+    // Ananta-Worker = multi-role — als sgpt mappen (häufigster lokaler Backend)
+    if (combined.includes('ananta') || combined.includes('alpha') || combined.includes('beta')) return 'sgpt';
     return 'unknown';
   }
 
-  private detectModel(w: CcWorkerReadModel): string {
-    return 'unknown'; // Worker-Model kommt aus Session-Step-Daten
-  }
-
-  private detectProvider(w: CcWorkerReadModel): ChWorkerInstanceReadModel['llmProvider'] {
+  private detectProvider(w: any): ChWorkerInstanceReadModel['llmProvider'] {
     const id = (w.id ?? '').toLowerCase();
-    if (id.includes('ollama')) return 'ollama';
-    if (id.includes('lmstudio') || id.includes('lm-studio')) return 'lmstudio';
-    if (id.includes('openai')) return 'openai';
-    if (id.includes('anthropic') || id.includes('claude')) return 'anthropic';
-    if (id.includes('openrouter')) return 'openrouter';
+    const prov = (w.provider ?? w.llm_provider ?? '').toLowerCase();
+    const combined = `${id} ${prov}`;
+    if (combined.includes('ollama')) return 'ollama';
+    if (combined.includes('lmstudio') || combined.includes('lm-studio')) return 'lmstudio';
+    if (combined.includes('openai')) return 'openai';
+    if (combined.includes('anthropic') || combined.includes('claude')) return 'anthropic';
+    if (combined.includes('openrouter')) return 'openrouter';
     return 'none';
   }
 
