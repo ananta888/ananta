@@ -137,6 +137,14 @@ export class InternalsService {
     );
   }
 
+  runDetStep(subtype: string, command: string, expectedResult: string, timeoutSec = 10): Observable<Record<string, unknown>> {
+    return this.http.post<Record<string, unknown>>(`${this.hubUrl()}/api/deterministic/run`, {
+      subtype, command, expected_result: expectedResult, timeout: timeoutSec,
+    }).pipe(
+      catchError(err => of({ success: false, error: err?.message ?? 'network error', stdout: '', stderr: '' })),
+    );
+  }
+
   dryRunVpGraph(graph: VpGraph): Observable<VpDryRunResult> {
     return this.http.post<VpDryRunResult>(`${this.hubUrl()}/api/visual-process/dry-run`, { graph }).pipe(
       catchError(err => {

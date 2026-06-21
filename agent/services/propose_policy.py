@@ -236,6 +236,44 @@ _TASK_KIND_PRESETS: dict[str, dict[str, Any]] = {
         ],
         "requires_executable_step": False,
     },
+    # ── Deterministic task_kinds (VP canvas det steps) ────────────────────────
+    "run_tests": {
+        "strategy_order": [STRATEGY_DETERMINISTIC_HANDLER, STRATEGY_WORKER, STRATEGY_HUMAN_REVIEW],
+        "requires_executable_step": True,
+        "allow_deterministic_fallback": True,
+    },
+    "script": {
+        "strategy_order": [STRATEGY_DETERMINISTIC_HANDLER, STRATEGY_ADVISORY_PROPOSAL],
+        "requires_executable_step": True,
+        "allow_deterministic_fallback": True,
+    },
+    "git_op": {
+        "strategy_order": [STRATEGY_DETERMINISTIC_HANDLER, STRATEGY_ADVISORY_PROPOSAL],
+        "requires_executable_step": True,
+        "allow_deterministic_fallback": True,
+    },
+    "file_check": {
+        "strategy_order": [STRATEGY_DETERMINISTIC_HANDLER, STRATEGY_ADVISORY_PROPOSAL],
+        "requires_executable_step": False,
+        "allow_deterministic_fallback": True,
+    },
+    "regex_check": {
+        "strategy_order": [STRATEGY_DETERMINISTIC_HANDLER, STRATEGY_ADVISORY_PROPOSAL],
+        "requires_executable_step": False,
+        "allow_deterministic_fallback": True,
+    },
+    "approval": {
+        "strategy_order": [STRATEGY_HUMAN_REVIEW],
+        "requires_executable_step": False,
+    },
+    "fork": {
+        "strategy_order": [STRATEGY_DETERMINISTIC_HANDLER, STRATEGY_ADVISORY_PROPOSAL],
+        "requires_executable_step": False,
+    },
+    "join": {
+        "strategy_order": [STRATEGY_DETERMINISTIC_HANDLER, STRATEGY_ADVISORY_PROPOSAL],
+        "requires_executable_step": False,
+    },
 }
 
 

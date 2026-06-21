@@ -58,6 +58,7 @@ from agent.routes.effective_workflow import effective_workflow_bp
 from agent.routes.diff3 import diff3_bp
 from agent.routes.snapshot_diff_api import snapshot_diff_bp
 from agent.routes.visual_process import vp_bp
+from agent.routes.deterministic_run import det_run_bp
 from agent.ws_terminal import register_ws_terminal
 
 
@@ -118,6 +119,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(diff3_bp)
     app.register_blueprint(snapshot_diff_bp)
     app.register_blueprint(vp_bp)
+    app.register_blueprint(det_run_bp)
     register_ws_terminal(app)
 
 

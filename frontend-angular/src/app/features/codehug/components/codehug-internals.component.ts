@@ -14,7 +14,7 @@ import {
 import { interval, Subscription } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
 import { InternalsService, AnantaWorker, AutopilotStatus, VpPreset, VpSkillProfile, VpGraph } from '../services/internals.service';
-import { DecimalPipe } from '@angular/common';
+import { DecimalPipe, SlicePipe } from '@angular/common';
 
 // ─── Static Config Data (mirrored from Hub DB) ───────────────────────────────
 
@@ -188,7 +188,7 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
 @Component({
   selector: 'ch-internals',
   standalone: true,
-  imports: [DecimalPipe],
+  imports: [DecimalPipe, SlicePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <div class="ch-int">
@@ -603,6 +603,33 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
               placeholder="exit 0 / 200 OK / …"
               (change)="patchNode(n.id, { detExpectedResult: $any($event.target).value })"/>
 
+            <button type="button" class="ch-det-test-btn"
+              [disabled]="!n.detCommand || detRunning()"
+              (click)="runDetStep(n)">
+              {{ detRunning() ? '⏳ Läuft…' : '▶ Jetzt testen' }}
+            </button>
+            @if (detRunResult()) {
+              <div class="ch-det-result" [class.ch-det-ok]="detRunResult()?.['success']" [class.ch-det-fail]="!detRunResult()?.['success']">
+                <div class="ch-det-status">{{ detRunResult()?.['success'] ? '✓ OK' : '✗ Fehler' }}
+                  @if (detRunResult()?.['exit_code'] !== undefined) {
+                    · exit {{ detRunResult()?.['exit_code'] }}
+                  }
+                  @if (detRunResult()?.['duration_ms']) {
+                    · {{ detRunResult()?.['duration_ms'] }}ms
+                  }
+                  @if (detRunResult()?.['http_code']) {
+                    · HTTP {{ detRunResult()?.['http_code'] }}
+                  }
+                </div>
+                @if (detRunResult()?.['stdout']) {
+                  <pre class="ch-det-out">{{ detRunResult()?.['stdout'] | slice:0:300 }}</pre>
+                }
+                @if (detRunResult()?.['stderr']) {
+                  <pre class="ch-det-err">{{ detRunResult()?.['stderr'] | slice:0:200 }}</pre>
+                }
+              </div>
+            }
+
             <label class="ch-fl">Bei Fehler</label>
             <select class="ch-fsel" [value]="n.failAction ?? 'block'"
               (change)="patchNode(n.id, { failAction: $any($event.target).value })">
@@ -976,6 +1003,17 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
 .ch-dry-btn:hover { background: var(--card-bg); }
 .ch-start-btn-goal { background: color-mix(in srgb, var(--accent) 60%, transparent); font-size: 11px; padding: 4px 10px; }
 
+/* ── Det Step Test ── */
+.ch-det-test-btn { width: 100%; padding: 5px; border-radius: 5px; border: 1px solid #ca8a04; background: color-mix(in srgb, #fef9c3 50%, var(--bg)); color: #92400e; font-size: 11px; font-weight: 600; cursor: pointer; margin-top: 4px; }
+.ch-det-test-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.ch-det-test-btn:not(:disabled):hover { background: color-mix(in srgb, #fef9c3 80%, var(--bg)); }
+.ch-det-result { margin-top: 5px; border-radius: 4px; padding: 5px 6px; font-size: 10px; border: 1px solid; }
+.ch-det-ok   { border-color: #22c55e; background: color-mix(in srgb, #22c55e 8%, transparent); color: #15803d; }
+.ch-det-fail { border-color: #ef4444; background: color-mix(in srgb, #ef4444 8%, transparent); color: #b91c1c; }
+.ch-det-status { font-weight: 700; margin-bottom: 3px; }
+.ch-det-out, .ch-det-err { margin: 3px 0 0; padding: 3px 5px; border-radius: 3px; font-size: 9px; white-space: pre-wrap; word-break: break-all; background: rgba(0,0,0,0.04); max-height: 100px; overflow: auto; font-family: monospace; }
+.ch-det-err { color: #b91c1c; }
+
 /* ── I/O Artifact Editor ── */
 .ch-io-section { border: 1px solid var(--border); border-radius: 5px; padding: 6px; background: var(--bg); margin-top: 4px; }
 .ch-io-hd { display: flex; align-items: center; justify-content: space-between; font-size: 9px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 3px; }
@@ -1014,6 +1052,8 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
   readonly selectedPresetId = signal('');
   readonly workflowId = signal<string | null>(null);
   readonly dryRunResult = signal<string | null>(null);
+  readonly detRunResult = signal<Record<string, unknown> | null>(null);
+  readonly detRunning = signal(false);
 
   // ── Live data ─────────────────────────────────────────────────────────────
   readonly workers = signal<AnantaWorker[]>([]);
@@ -1198,6 +1238,20 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
         },
       })),
     };
+  }
+
+  runDetStep(node: CanvasNode): void {
+    if (!node.detCommand) return;
+    this.detRunning.set(true);
+    this.detRunResult.set(null);
+    this.svc.runDetStep(
+      node.detSubtype ?? 'script',
+      node.detCommand,
+      node.detExpectedResult ?? '',
+    ).subscribe(result => {
+      this.detRunResult.set(result);
+      this.detRunning.set(false);
+    });
   }
 
   dryRunWorkflow(): void {
