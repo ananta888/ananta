@@ -6,6 +6,7 @@ import { HubApiCoreService } from '../../../services/hub-api-core.service';
 import { AgentDirectoryService } from '../../../services/agent-directory.service';
 import {
   ChProjectReadModel,
+  ChFileReadModel,
   ChResolveContextRequest,
   ChResolveContextResponse,
   ChSearchSymbolsRequest,
@@ -44,6 +45,34 @@ export class CodeCompassService {
       throw new ChServiceError('not_found', 'Kein Hub-Agent im AgentDirectory registriert.');
     }
     return hub.url;
+  }
+
+  /**
+   * Listet alle Dateien fuer ein Projekt.
+   */
+  listFiles(projectId: string): Observable<ChFileReadModel[]> {
+    const url = `${this.hubUrl()}/api/codecompass/projects/${encodeURIComponent(projectId)}/files`;
+    return this.hub.get<{ files: any[] } | ChFileReadModel[]>(url, this.hubUrl()).pipe(
+      map(resp => {
+        const arr = Array.isArray(resp) ? resp : (resp.files ?? []);
+        return arr.map(f => this.normalizeFile(f));
+      }),
+      catchError(err => throwError(() => this.toChError(err, 'listFiles'))),
+    );
+  }
+
+  /**
+   * Listet alle bekannten Projekte.
+   */
+  listProjects(): Observable<ChProjectReadModel[]> {
+    const url = `${this.hubUrl()}/api/codecompass/projects`;
+    return this.hub.get<{ projects: any[] } | ChProjectReadModel[]>(url, this.hubUrl()).pipe(
+      map(resp => {
+        const arr = Array.isArray(resp) ? resp : (resp.projects ?? []);
+        return arr.map(p => this.normalizeProject(p));
+      }),
+      catchError(err => throwError(() => this.toChError(err, 'listProjects'))),
+    );
   }
 
   /**
