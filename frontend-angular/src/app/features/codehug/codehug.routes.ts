@@ -20,6 +20,7 @@ export const codeHugRoutes: Routes = [
       { path: 'agents', data: { breadcrumb: 'Agenten', area: 'Operate' }, loadComponent: () => import('./components/codehug-agents.component').then(m => m.CodeHugAgentsComponent) },
       { path: 'custom-agents', data: { breadcrumb: 'Custom Agents', area: 'Operate' }, loadComponent: () => import('./components/custom-agent-editor.component').then(m => m.CustomAgentEditorComponent) },
       { path: 'internals', data: { breadcrumb: 'System Internals', area: 'Operate' }, loadComponent: () => import('./components/codehug-internals.component').then(m => m.CodeHugInternalsComponent) },
+      { path: 'policy', data: { breadcrumb: 'Policy', area: 'Operate' }, loadComponent: () => import('./policy-panel/policy-panel.component').then(m => m.PolicyPanelComponent) },
     ],
   },
 ];

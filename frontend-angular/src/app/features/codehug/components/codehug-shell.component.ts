@@ -1,5 +1,5 @@
-import { Component, ChangeDetectionStrategy, signal, HostListener, inject } from '@angular/core';
-import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { Component, ChangeDetectionStrategy, signal, computed, HostListener, inject, OnDestroy } from '@angular/core';
+import { RouterOutlet, RouterLink, RouterLinkActive, ActivatedRoute } from '@angular/router';
 import { PolicyService } from '../services/policy.service';
 
 /**
@@ -13,7 +13,7 @@ import { PolicyService } from '../services/policy.service';
 @Component({
   selector: 'ch-shell',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, ActivatedRoute],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section
@@ -21,21 +21,57 @@ import { PolicyService } from '../services/policy.service';
       [attr.data-viewport]="viewport()"
       [attr.data-collapsed]="rightCollapsed() ? 'true' : 'false'">
       <header class="codehug-shell-header">
-        <span class="codehug-brand">CodeHug</span>
-        <span class="codehug-tagline">Code verstehen, Kontext bauen, Aenderungen sicher vorbereiten.</span>
-        <div class="codehug-shell-spacer"></div>
+        <a routerLink="/codehug" class="codehug-brand" aria-label="CodeHug Dashboard">
+          <span class="codehug-brand-icon" aria-hidden="true">⬡</span>
+          <span class="codehug-brand-text">CodeHug</span>
+        </a>
+
         <nav class="codehug-shell-nav" aria-label="CodeHug-Bereiche">
           <a routerLink="/codehug" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Dashboard</a>
-          <a routerLink="/codehug/context" routerLinkActive="active">Kontext-Builder</a>
+          <a routerLink="/codehug/context" routerLinkActive="active">Kontext</a>
           <a routerLink="/codehug/search" routerLinkActive="active">Suche</a>
           <a routerLink="/codehug/refactoring" routerLinkActive="active">Refactoring</a>
           <a routerLink="/codehug/agents" routerLinkActive="active">Agenten</a>
-          <a routerLink="/codehug/custom-agents" routerLinkActive="active">Custom</a>
           <a routerLink="/codehug/internals" routerLinkActive="active">Internals</a>
+          <a routerLink="/codehug/policy" routerLinkActive="active">Policy</a>
         </nav>
-        <span class="codehug-shell-write-mode" [attr.data-mode]="policy.writeMode()">
-          Modus: {{ policy.writeMode() === 'read-only' ? 'Read-only' : 'Write armed' }}
-        </span>
+
+        <div class="codehug-shell-spacer"></div>
+
+        <!-- Write-Mode Badge + Toggle -->
+        <div class="codehug-wm-cluster">
+          @if (writeModeExpiresIn() !== null) {
+            <span class="codehug-wm-timer">{{ writeModeExpiresIn() }}s</span>
+          }
+          <span
+            class="codehug-shell-write-mode"
+            data-testid="write-mode-badge"
+            [attr.data-mode]="policy.writeMode()">
+            @if (policy.writeMode() === 'read-only') {
+              <span class="codehug-wm-dot"></span> read-only
+            } @else {
+              <span class="codehug-wm-dot codehug-wm-dot-armed"></span> write-armed
+            }
+          </span>
+          @if (policy.writeMode() === 'read-only') {
+            <button
+              type="button"
+              class="codehug-wm-btn codehug-wm-btn-arm"
+              (click)="armWriteMode()"
+              title="Write-Modus aktivieren (15 min)">
+              Arm
+            </button>
+          } @else {
+            <button
+              type="button"
+              class="codehug-wm-btn codehug-wm-btn-disarm"
+              (click)="policy.disarmWriteMode()"
+              title="Write-Modus beenden">
+              Disarm
+            </button>
+          }
+        </div>
+
         <button
           type="button"
           class="codehug-shell-collapse"
@@ -43,7 +79,7 @@ import { PolicyService } from '../services/policy.service';
           [attr.aria-expanded]="!rightCollapsed()"
           aria-controls="codehug-right-panel"
           aria-label="Kontext-Bereich umschalten">
-          {{ rightCollapsed() ? '>' : '<' }}
+          {{ rightCollapsed() ? '▶' : '◀' }}
         </button>
       </header>
 
@@ -79,39 +115,127 @@ import { PolicyService } from '../services/policy.service';
     .codehug-shell-header {
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 10px 14px;
+      gap: 10px;
+      padding: 8px 14px;
       border-bottom: 1px solid var(--border);
       background: var(--card-bg);
       font-size: 13px;
+      min-height: 44px;
     }
-    .codehug-brand { font-weight: 700; letter-spacing: 0.5px; }
-    .codehug-tagline { color: var(--muted); font-size: 12px; }
-    .codehug-shell-spacer { flex: 1; }
-    .codehug-shell-write-mode[data-mode="read-only"] {
-      padding: 3px 8px;
-      border-radius: 999px;
-      background: color-mix(in srgb, var(--accent) 12%, transparent);
-      font-size: 11px;
+
+    /* Brand */
+    .codehug-brand {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+      color: inherit;
+    }
+    .codehug-brand-icon {
+      font-size: 18px;
+      color: var(--accent);
+      line-height: 1;
+    }
+    .codehug-brand-text {
+      font-weight: 700;
+      font-size: 14px;
+      letter-spacing: 0.3px;
+    }
+
+    /* Nav */
+    .codehug-shell-nav {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+    .codehug-shell-nav a {
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      text-decoration: none;
+      color: var(--muted);
+      transition: background 0.12s, color 0.12s;
+      white-space: nowrap;
+    }
+    .codehug-shell-nav a:hover { background: var(--bg); color: var(--fg); }
+    .codehug-shell-nav a.active {
+      background: color-mix(in srgb, var(--accent) 14%, transparent);
+      color: var(--accent);
       font-weight: 600;
     }
-    .codehug-shell-write-mode[data-mode="write-armed"] {
-      padding: 3px 8px;
-      border-radius: 999px;
-      background: color-mix(in srgb, #f59e0b 30%, transparent);
-      color: #92400e;
-      font-size: 11px;
-      font-weight: 700;
+
+    .codehug-shell-spacer { flex: 1; }
+
+    /* Write-mode cluster */
+    .codehug-wm-cluster {
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
+    .codehug-wm-timer {
+      font-size: 11px;
+      color: #f59e0b;
+      font-weight: 700;
+      min-width: 32px;
+      text-align: right;
+    }
+    .codehug-shell-write-mode {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      background: color-mix(in srgb, var(--accent) 10%, transparent);
+      border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    }
+    .codehug-shell-write-mode[data-mode="write-armed"] {
+      background: color-mix(in srgb, #f59e0b 22%, transparent);
+      border-color: #f59e0b;
+      color: #92400e;
+    }
+    .codehug-wm-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex-shrink: 0;
+    }
+    .codehug-wm-dot-armed {
+      background: #f59e0b;
+      box-shadow: 0 0 5px #f59e0b;
+      animation: ch-wm-pulse 1.6s ease-in-out infinite;
+    }
+    @keyframes ch-wm-pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
+    .codehug-wm-btn {
+      padding: 3px 9px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .codehug-wm-btn-arm {
+      background: color-mix(in srgb, #f59e0b 14%, transparent);
+      color: #78350f;
+      border-color: #f59e0b;
+    }
+    .codehug-wm-btn-arm:hover { background: color-mix(in srgb, #f59e0b 25%, transparent); }
+    .codehug-wm-btn-disarm {
+      background: var(--card-bg);
+      color: var(--muted);
+    }
+
     .codehug-shell-collapse {
-      padding: 4px 10px;
+      padding: 4px 9px;
       border: 1px solid var(--border);
       border-radius: 6px;
       background: var(--bg);
       color: var(--fg);
       cursor: pointer;
-      font-weight: 700;
+      font-size: 12px;
     }
+    .codehug-shell-collapse:hover { background: var(--card-bg); }
 
     .codehug-shell-grid {
       flex: 1;
@@ -166,25 +290,46 @@ import { PolicyService } from '../services/policy.service';
     }
   `]
 })
-export class CodeHugShellComponent {
+export class CodeHugShellComponent implements OnDestroy {
   readonly viewport = signal<'desktop' | 'tablet' | 'handy'>('desktop');
   readonly rightCollapsed = signal(false);
-  /** Wird vom CodeHugFacade gesetzt; hier default read-only. */
-  readonly writeMode = signal<'read-only' | 'write-armed'>('read-only');
-  /** Single source of truth: PolicyService. */
   readonly policy = inject(PolicyService);
+
+  readonly writeModeExpiresIn = computed(() => {
+    const exp = this.policy.writeModeExpiresAt();
+    if (!exp || this.policy.writeMode() === 'read-only') return null;
+    return Math.max(0, Math.round((exp - Date.now()) / 1000));
+  });
+
+  private _timerHandle: ReturnType<typeof setInterval> | null = null;
+  private _tick = signal(0);
+
+  constructor() {
+    this.detectViewport();
+    this._timerHandle = setInterval(() => {
+      if (this.policy.writeMode() === 'write-armed') {
+        this.policy.ensureWriteModeValid();
+        this._tick.update(n => n + 1);
+      }
+    }, 1000);
+  }
+
+  ngOnDestroy(): void {
+    if (this._timerHandle) clearInterval(this._timerHandle);
+  }
 
   @HostListener('window:resize')
   onResize(): void {
     this.detectViewport();
   }
 
-  ngOnInit(): void {
-    this.detectViewport();
-  }
-
   toggleRight(): void {
     this.rightCollapsed.update(v => !v);
+  }
+
+  armWriteMode(): void {
+    const ok = confirm('Write-Modus für 15 Minuten aktivieren?\nSchreibende Aktionen sind dann möglich.');
+    if (ok) this.policy.armWriteMode();
   }
 
   private detectViewport(): void {

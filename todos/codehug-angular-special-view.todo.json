@@ -1,7 +1,7 @@
 {
   "todo_id": "codehug-angular-special-view",
   "title": "CodeHug UI-Modul als eigenstaendige Spezialansicht in der bestehenden Angular-App",
-  "status": "planned",
+  "status": "in_progress",
   "priority": "high",
   "scope": "v1_full_buildout",
   "scope_note": "Vollstaendiger Ausbau in einer Version, keine MVP-Beschraenkung. Die fruehere non_goals_for_first_version-Liste ist aufgehoben; alle dort genannten Punkte sind Ziele der ersten Version.",
@@ -59,8 +59,8 @@
       "meaning": "CodeHug hat einen eigenen Storage-Namespace (ueber Backend-API) fuer CodeHug-spezifische Daten (Kontextpakete, Vorlagen, User-Prefs). Sensitive Files (.env, secrets, keys, credentials) werden erkannt, markiert und NICHT automatisch in Kontextpakete aufgenommen. Sensible Inhalte erfordern explizite Nutzer-Freigabe pro Datei und werden beim Export gewarnt/ausgeblendet."
     },
     "bpmn_js_integration": {
-      "value": "vorhanden_im_stack",
-      "meaning": "bpmn-js ist bereits in package.json und src/types/ deklariert. CodeHug verwendet es als Standard-Tool fuer Flow-Darstellung (Topologie, Layer, Trace). Integration via visual-process-feature."
+      "value": "entfernt_SVG_fallback",
+      "meaning": "bpmn-js wurde nach erstem Einbau (Commit 0af9310) wieder entfernt (Commit adc7e0a) — zu komplex für den aktuellen Use Case. topology-graph.component.ts nutzt jetzt einen eigenen SVG-Renderer. Neue Zielentscheidung: Canvas-basierter Node-Editor (wie ein Grafikprogramm) mit nativen SVG/D3-Elementen statt bpmn-js. Elemente (Policy-Layer, Test-Layer, Worker, Templates, Hub) werden als positionierbare Nodes auf einem Canvas dargestellt. Farbkodierung bei laufenden Runs."
     },
     "control_center_api_integration": {
       "value": "vorhanden",
@@ -256,7 +256,10 @@
           ]
         }
       ],
-      "status": "done"
+      "status": "in_progress",
+      "open_items": [
+        "CH-003-001: Drag-and-Drop (CDK) jetzt implementiert — sensitives Confirm-Dialog als window.alert, TODO: eigene Modal-Komponente"
+      ]
     },
     {
       "id": "CH-004",
@@ -361,7 +364,10 @@
           ]
         }
       ],
-      "status": "done"
+      "status": "in_progress",
+      "open_items": [
+        "CH-005-004: vollstaendiger Agent-Flow (Apply + Rollback + Verifikation) ist implementiert als Logik in RefactoringService — UI-seitig als Stub-Flow; vollstaendige E2E-Verifikation fehlt noch"
+      ]
     },
     {
       "id": "CH-006",
@@ -407,7 +413,10 @@
           ]
         }
       ],
-      "status": "done"
+      "status": "in_progress",
+      "open_items": [
+        "CH-006-003: Multi-Agent-Orchestrierung (parallele Agenten) ist API-seitig vorbereitet, UI zeigt nur Einzel-Agent-Flow; Orchestrierungs-UI fehlt noch"
+      ]
     },
     {
       "id": "CH-007",
@@ -488,7 +497,10 @@
           ]
         }
       ],
-      "status": "done"
+      "status": "in_progress",
+      "open_items": [
+        "CH-008-003: Visueller Graph-Editor (Knoten drag/drop/annotieren) fehlt — neue Zielentscheidung: Canvas-basierter Node-Editor fuer Internals-View (Policy-Layer, Test-Layer, Worker, Templates als positionierbare Nodes)"
+      ]
     },
     {
       "id": "CH-009",
@@ -609,7 +621,10 @@
           ]
         }
       ],
-      "status": "done"
+      "status": "in_progress",
+      "open_items": [
+        "CH-010-004: Policy-Panel-Komponente jetzt implementiert unter policy-panel/policy-panel.component.ts + Route /codehug/policy; Nav-Eintrag 'Policy' in Shell hinzugefuegt"
+      ]
     },
     {
       "id": "CH-011",
@@ -807,7 +822,10 @@
           ]
         }
       ],
-      "status": "done"
+      "status": "in_progress",
+      "open_items": [
+        "CH-012-003/004: E2E-Skeleton angelegt unter tests/codehug/codehug-main.e2e.ts — kein Mock-Backend, kein vollstaendiger Apply-Flow-Test; E2E-Coverage ist minimal"
+      ]
     },
     {
       "id": "CH-013",
@@ -839,7 +857,10 @@
           ]
         }
       ],
-      "status": "done"
+      "status": "in_progress",
+      "open_items": [
+        "CH-013-002: Developer Notes fehlen noch (geplant: Ergaenzung im README.md)"
+      ]
     }
   ],
   "scope_clarification_for_first_version": {

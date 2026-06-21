@@ -2,6 +2,13 @@ import { Component, ChangeDetectionStrategy, OnInit, inject, signal } from '@ang
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
+import {
+  CdkDrag,
+  CdkDragHandle,
+  CdkDropList,
+  CdkDragDrop,
+  DragDropModule,
+} from '@angular/cdk/drag-drop';
 
 import { CodeHugFacade } from '../state/codehug.facade';
 import { ContextBuilderState } from '../state/context-builder.state';
@@ -18,7 +25,7 @@ import { ChFileReadModel, ChSymbolReadModel } from '../models/codehug.models';
 @Component({
   selector: 'ch-context-builder',
   standalone: true,
-  imports: [DatePipe, FormsModule],
+  imports: [DatePipe, FormsModule, DragDropModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="ch-cb">
@@ -71,9 +78,12 @@ import { ChFileReadModel, ChSymbolReadModel } from '../models/codehug.models';
 
       <!-- Drei-Spalter -->
       <div class="ch-cb-grid">
-        <!-- Links: Datei-Baum -->
+        <!-- Links: Datei-Baum (Drag-Quelle) -->
         <section class="ch-cb-col" aria-labelledby="ch-cb-files-h">
-          <h4 id="ch-cb-files-h">Dateien</h4>
+          <h4 id="ch-cb-files-h">
+            Dateien
+            <span class="ch-cb-drag-hint">— ziehen zum Hinzufügen</span>
+          </h4>
           @if (state.loadingFiles()) {
             <p class="ch-muted">Lade Dateien…</p>
           } @else if (state.error(); as err) {
@@ -86,12 +96,23 @@ import { ChFileReadModel, ChSymbolReadModel } from '../models/codehug.models';
             @for (group of fileGroups(); track group.dir) {
               <details open class="ch-cb-dir">
                 <summary>{{ group.dir || '(root)' }} <span class="ch-cb-count">{{ group.files.length }}</span></summary>
-                <ul class="ch-cb-file-list">
+                <ul
+                  class="ch-cb-file-list"
+                  cdkDropList
+                  cdkDropListSortingDisabled
+                  [cdkDropListConnectedTo]="['ch-pkg-drop']"
+                  [cdkDropListData]="group.files">
                   @for (f of group.files; track f.path) {
                     <li
+                      cdkDrag
+                      [cdkDragData]="f"
                       class="ch-cb-file"
                       [class.ch-cb-file-selected]="isFileSelected(f.path)"
                       [class.ch-cb-file-sensitive]="isSensitive(f.path)">
+                      <div *cdkDragPreview class="ch-cb-drag-preview">
+                        <span class="ch-mono">{{ basename(f.path) }}</span>
+                        <span class="ch-cb-file-lang">{{ f.language }}</span>
+                      </div>
                       <label class="ch-cb-file-label">
                         <input
                           type="checkbox"
@@ -103,6 +124,7 @@ import { ChFileReadModel, ChSymbolReadModel } from '../models/codehug.models';
                           <span class="ch-cb-sensitive-badge" [title]="sensitivePattern(f.path)">sensitive</span>
                         }
                         <span class="ch-cb-file-lang">{{ f.language }}</span>
+                        <span class="ch-cb-drag-grip" cdkDragHandle title="Ziehen">⠿</span>
                       </label>
                       @if (isFileSelected(f.path)) {
                         <button
@@ -136,8 +158,18 @@ import { ChFileReadModel, ChSymbolReadModel } from '../models/codehug.models';
           }
         </section>
 
-        <!-- Mitte: Aufgaben-Details + gespeicherte Pakete -->
-        <section class="ch-cb-col" aria-labelledby="ch-cb-mid-h">
+        <!-- Mitte: Paket-Builder (Drop-Ziel) -->
+        <section
+          class="ch-cb-col ch-cb-col-pkg"
+          aria-labelledby="ch-cb-mid-h"
+          id="ch-pkg-drop"
+          cdkDropList
+          [cdkDropListData]="dropTarget"
+          (cdkDropListDropped)="onFileDrop($event)">
+          <h4 id="ch-cb-mid-h">
+            Paket
+            <span class="ch-cb-drag-hint">— Dateien hierhin ziehen</span>
+          </h4>
           <h4 id="ch-cb-mid-h">Paket</h4>
           <label class="ch-cb-label" for="ch-cb-name">Name</label>
           <input
@@ -365,6 +397,38 @@ import { ChFileReadModel, ChSymbolReadModel } from '../models/codehug.models';
     }
     .ch-cb-saved-meta { font-size: 10px; color: var(--muted); }
     .ch-mono { font-family: var(--mono, ui-monospace, monospace); font-size: 11px; }
+
+    /* Drag-and-drop */
+    .ch-cb-drag-hint { font-size: 10px; color: var(--muted); font-weight: 400; margin-left: 6px; }
+    .ch-cb-drag-grip {
+      cursor: grab;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1;
+      padding: 0 2px;
+      opacity: 0.5;
+    }
+    .ch-cb-drag-grip:hover { opacity: 1; }
+    .ch-cb-drag-preview {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: var(--card-bg);
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      font-size: 12px;
+    }
+    .cdk-drag-animating { transition: transform 250ms cubic-bezier(0, 0, 0.2, 1); }
+    .cdk-drop-list-dragging .ch-cb-file:not(.cdk-drag-placeholder) {
+      transition: transform 250ms cubic-bezier(0, 0, 0.2, 1);
+    }
+    .ch-cb-col-pkg.cdk-drop-list-receiving,
+    .ch-cb-col-pkg.cdk-drop-list-dragging {
+      background: color-mix(in srgb, var(--accent) 6%, var(--card-bg));
+      border-color: var(--accent);
+    }
   `]
 })
 export class CodeHugContextBuilderComponent implements OnInit {
@@ -375,6 +439,9 @@ export class CodeHugContextBuilderComponent implements OnInit {
   readonly saveError = signal<string | null>(null);
   readonly saveSuccess = signal(false);
 
+  /** Dummy-Array als Drop-Ziel für CDK (Dateien werden via Handler state übergeben). */
+  readonly dropTarget: ChFileReadModel[] = [];
+
   ngOnInit(): void {
     // Wenn das facade ein Projekt hat, uebernehme es in den builder-state
     const id = this.facade.currentProjectId();
@@ -382,6 +449,17 @@ export class CodeHugContextBuilderComponent implements OnInit {
       this.state.setProject(id);
     } else {
       this.facade.loadProjects();
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Drag-and-drop
+  // ─────────────────────────────────────────────────────────────────────────
+
+  onFileDrop(event: CdkDragDrop<ChFileReadModel[]>): void {
+    const file: ChFileReadModel = event.item.data;
+    if (!this.isFileSelected(file.path)) {
+      this.onFileToggle(file, true);
     }
   }
 
