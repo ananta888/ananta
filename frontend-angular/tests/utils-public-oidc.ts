@@ -3,7 +3,7 @@ import {
   PUBLIC_OIDC_CLIENT_ID as DEFAULT_PUBLIC_OIDC_CLIENT_ID,
   PUBLIC_OIDC_ISSUER as DEFAULT_PUBLIC_OIDC_ISSUER,
   PUBLIC_OIDC_REALM,
-} from '../src/app/config/public-oidc.config';
+} from '../src/app/services/public-ananta-endpoints';
 
 const PUBLIC_OIDC_ISSUER = process.env.E2E_OIDC_ISSUER || DEFAULT_PUBLIC_OIDC_ISSUER;
 const PUBLIC_OIDC_CLIENT_ID = process.env.E2E_OIDC_CLIENT_ID || DEFAULT_PUBLIC_OIDC_CLIENT_ID;
@@ -273,4 +273,12 @@ export async function loginViaPublicOidcUi(page: Page): Promise<void> {
     { timeout: 180_000 }
   ).toBeTruthy();
   await waitForPublicOidcAccessToken(page, 180_000);
+
+  // Do NOT use page.goto() here: the OIDC redirect uses the Docker hostname
+  // (angular-frontend:4200) but Playwright's baseURL uses the resolved IP.
+  // Both are different localStorage origins, so a page.goto() to the base URL
+  // would land on empty localStorage and the auth guard would redirect to /login.
+  // Instead, wait for Angular's router to naturally navigate after the callback.
+  await page.waitForURL(/\/(workspace|dashboard|help)(\/|$)/, { timeout: 60_000 }).catch(() => undefined);
+}
 

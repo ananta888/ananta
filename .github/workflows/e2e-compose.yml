@@ -120,6 +120,27 @@ jobs:
         run: |
           set -euo pipefail
           bash scripts/run_e2e_compose_shard.sh "${{ matrix.shard_name }}" "${{ matrix.specs }}"
+      - name: Dump compose service logs
+        if: failure()
+        run: |
+          echo "=== ai-agent-hub logs ===" >&2
+          docker compose \
+            -f docker-compose.base.yml \
+            -f docker-compose-lite.yml \
+            -f docker-compose.github-ci.yml \
+            logs --no-color --tail=80 ai-agent-hub 2>&1 | head -100 >&2 || true
+          echo "=== ai-agent-alpha logs ===" >&2
+          docker compose \
+            -f docker-compose.base.yml \
+            -f docker-compose-lite.yml \
+            -f docker-compose.github-ci.yml \
+            logs --no-color --tail=40 ai-agent-alpha 2>&1 | head -50 >&2 || true
+          echo "=== angular-frontend logs ===" >&2
+          docker compose \
+            -f docker-compose.base.yml \
+            -f docker-compose-lite.yml \
+            -f docker-compose.github-ci.yml \
+            logs --no-color --tail=40 angular-frontend 2>&1 | head -50 >&2 || true
       - name: Build failure summary
         if: always()
         working-directory: frontend-angular
