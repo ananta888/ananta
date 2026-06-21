@@ -94,8 +94,8 @@ const PLAYBOOKS: PlaybookDef[] = [
 
 // ─── Canvas Types ─────────────────────────────────────────────────────────────
 
-type NodeType = 'start' | 'planning' | 'task' | 'det' | 'gate' | 'review' | 'verification' | 'end';
-type EdgeCondition = 'always' | 'on_success' | 'on_failure' | 'back_edge';
+type NodeType = 'start' | 'planning' | 'task' | 'det' | 'gate' | 'review' | 'verification' | 'end' | 'fork' | 'join';
+type EdgeCondition = 'always' | 'on_success' | 'on_failure' | 'back_edge' | 'on_output';
 type Priority = 'High' | 'Medium' | 'Low';
 type RoutingMode = 'auto' | 'backend' | 'worker' | 'capability';
 type DetSubtype = 'script' | 'api-call' | 'regex-check' | 'git-op' | 'file-check';
@@ -113,6 +113,13 @@ interface StepRouting {
   capability?: string;
 }
 
+interface ArtifactSlot {
+  name: string;
+  kind: 'code' | 'text' | 'json' | 'report' | 'binary' | 'file';
+  required: boolean;
+  description: string;
+}
+
 interface CanvasNode {
   id: string;
   x: number; y: number;
@@ -121,6 +128,9 @@ interface CanvasNode {
   title: string;
   subtitle?: string;
   role?: string;
+  // Function Composition Pipeline I/O
+  inputs: ArtifactSlot[];
+  outputs: ArtifactSlot[];
   // VP model fields
   skillProfileId?: string;
   vpKind?: string;
@@ -152,6 +162,8 @@ const NODE_STYLE: Record<string, { fill: string; stroke: string; dash?: string }
   verification: { fill: '#d1fae5',  stroke: '#059669' },
   start:        { fill: '#fef3c7',  stroke: '#d97706' },
   end:          { fill: '#f0fdf4',  stroke: '#16a34a' },
+  fork:         { fill: '#fdf4ff',  stroke: '#a855f7' },
+  join:         { fill: '#f0f9ff',  stroke: '#0284c7' },
 };
 
 interface CanvasEdge {
@@ -161,6 +173,7 @@ interface CanvasEdge {
   condition: EdgeCondition;
   label?: string;
   loopMaxIter?: number;
+  outputName?: string;  // for on_output condition: which artifact triggers this edge
 }
 
 const NODE_W = 220;
@@ -169,7 +182,8 @@ const GAP_Y = 52;
 const CX = 300;
 
 const PRIORITY_COLOR: Record<Priority, string> = { High: '#ef4444', Medium: '#f59e0b', Low: '#22c55e' };
-const COND_COLOR: Record<EdgeCondition, string> = { always: '#9ca3af', on_success: '#22c55e', on_failure: '#ef4444', back_edge: '#7c3aed' };
+const COND_COLOR: Record<EdgeCondition, string> = { always: '#9ca3af', on_success: '#22c55e', on_failure: '#ef4444', back_edge: '#7c3aed', on_output: '#0284c7' };
+const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as const;
 
 @Component({
   selector: 'ch-internals',
@@ -230,6 +244,8 @@ const COND_COLOR: Record<EdgeCondition, string> = { always: '#9ca3af', on_succes
     <button type="button" class="ch-btn ch-btn-det"  (click)="addDetNode()"  title="Deterministischer Schritt">⚙ Det</button>
     <button type="button" class="ch-btn ch-btn-gate" (click)="addGateNode()" title="Verification-Gate">🚦 Gate</button>
     <button type="button" class="ch-btn ch-btn-rev"  (click)="addReviewNode()" title="Review-Checkpoint">👁 Review</button>
+    <button type="button" class="ch-btn ch-btn-fork" (click)="addForkNode()" title="Parallel Fork — mehrere Zweige parallel">⑂ Fork</button>
+    <button type="button" class="ch-btn ch-btn-join" (click)="addJoinNode()" title="Join — alle Zweige zusammenführen">⊕ Join</button>
     <button type="button" class="ch-btn ch-btn-muted"
       (click)="buildCanvas(selectedBlueprint(), selectedPlaybook())" title="Layout zurücksetzen">↺ Reset</button>
     <div style="flex:1"></div>
@@ -254,6 +270,8 @@ const COND_COLOR: Record<EdgeCondition, string> = { always: '#9ca3af', on_succes
       <button class="ch-pal-elem ch-pal-elem-det"  (click)="addDetNode()">⚙ Deterministisch</button>
       <button class="ch-pal-elem ch-pal-elem-gate" (click)="addGateNode()">🚦 Gate</button>
       <button class="ch-pal-elem ch-pal-elem-rev"  (click)="addReviewNode()">👁 Review</button>
+      <button class="ch-pal-elem ch-pal-elem-fork" (click)="addForkNode()">⑂ Fork (Parallel)</button>
+      <button class="ch-pal-elem ch-pal-elem-join" (click)="addJoinNode()">⊕ Join (Merge)</button>
 
       <div class="ch-pal-div"></div>
       <div class="ch-pal-hd">Backends</div>
@@ -369,12 +387,26 @@ const COND_COLOR: Record<EdgeCondition, string> = { always: '#9ca3af', on_succes
               (mousedown)="onNodeMouseDown($event, node.id)"
               (click)="onNodeClick($event, node.id)">
 
-              <!-- Node shape (unified via NODE_STYLE lookup) -->
+              <!-- Node shape -->
               @if (node.type === 'start' || node.type === 'end') {
                 <rect [attr.width]="node.w" [attr.height]="node.h" rx="24"
                   [attr.fill]="NODE_STYLE[node.type].fill"
                   [attr.stroke]="nSrc ? '#f59e0b' : (nSel ? '#7c3aed' : NODE_STYLE[node.type].stroke)"
                   [attr.stroke-width]="nSel || nSrc ? 2.5 : 1.5"/>
+              } @else if (node.type === 'fork') {
+                <!-- Diamond shape for Fork -->
+                <polygon [attr.points]="forkPoints(node)"
+                  [attr.fill]="nAct ? '#f5d0fe' : NODE_STYLE['fork'].fill"
+                  [attr.stroke]="nSrc ? '#f59e0b' : (nSel ? '#7c3aed' : NODE_STYLE['fork'].stroke)"
+                  [attr.stroke-width]="nSel || nSrc ? 2.5 : 1.5"/>
+                <text [attr.x]="node.w/2" [attr.y]="node.h/2 - 6" text-anchor="middle" font-size="12">⑂</text>
+              } @else if (node.type === 'join') {
+                <!-- Hexagon / wide-oval for Join -->
+                <rect [attr.width]="node.w" [attr.height]="node.h" rx="20"
+                  [attr.fill]="nAct ? '#bae6fd' : NODE_STYLE['join'].fill"
+                  [attr.stroke]="nSrc ? '#f59e0b' : (nSel ? '#7c3aed' : NODE_STYLE['join'].stroke)"
+                  [attr.stroke-width]="nSel || nSrc ? 2.5 : 2"/>
+                <text [attr.x]="node.w/2" [attr.y]="node.h/2 - 6" text-anchor="middle" font-size="12">⊕</text>
               } @else {
                 <rect [attr.width]="node.w" [attr.height]="node.h" rx="8"
                   [attr.fill]="!node.enabled ? '#f9fafb' : (nAct ? '#dbeafe' : (NODE_STYLE[node.type]?.fill ?? 'white'))"
@@ -386,15 +418,30 @@ const COND_COLOR: Record<EdgeCondition, string> = { always: '#9ca3af', on_succes
                   <rect x="0" y="0" width="4" [attr.height]="node.h" rx="2"
                     [attr.fill]="PRIORITY_COLOR[node.priority]" opacity="0.8"/>
                 }
+                <!-- I/O badge: shows output count -->
+                @if (node.outputs && node.outputs.length > 0) {
+                  <rect [attr.x]="node.w - 22" y="2" width="20" height="14" rx="3"
+                    fill="#ede9fe" stroke="#7c3aed" stroke-width="0.5"/>
+                  <text [attr.x]="node.w - 12" y="13" text-anchor="middle" font-size="8" fill="#6d28d9" font-weight="700">
+                    {{ node.outputs.length }}▶
+                  </text>
+                }
+                @if (node.inputs && node.inputs.length > 0) {
+                  <rect x="2" y="2" width="20" height="14" rx="3"
+                    fill="#ecfdf5" stroke="#059669" stroke-width="0.5"/>
+                  <text x="12" y="13" text-anchor="middle" font-size="8" fill="#065f46" font-weight="700">
+                    ▶{{ node.inputs.length }}
+                  </text>
+                }
                 <!-- Type icon -->
                 @if (node.type === 'det') { <text x="9" y="15" font-size="10">⚙</text> }
                 @else if (node.type === 'review') { <text x="9" y="15" font-size="10">👁</text> }
                 @else if (node.type === 'gate') { <text x="9" y="15" font-size="10">🚦</text> }
                 <!-- Routing badge -->
                 @if ((node.type === 'task' || node.type === 'det') && node.routing && node.routing.mode !== 'auto') {
-                  <rect [attr.x]="node.w - 2 - routingBadgeW(node)" y="2" [attr.width]="routingBadgeW(node)" height="14" rx="3"
+                  <rect [attr.x]="node.w - 2 - routingBadgeW(node)" y="18" [attr.width]="routingBadgeW(node)" height="14" rx="3"
                     fill="#eef2ff" stroke="#4f46e5" stroke-width="0.5"/>
-                  <text [attr.x]="node.w - 5" y="13" text-anchor="end" font-size="8" fill="#4f46e5" font-weight="600">
+                  <text [attr.x]="node.w - 5" y="29" text-anchor="end" font-size="8" fill="#4f46e5" font-weight="600">
                     {{ routingLabel(node) }}
                   </text>
                 }
@@ -408,11 +455,16 @@ const COND_COLOR: Record<EdgeCondition, string> = { always: '#9ca3af', on_succes
                 </rect>
               }
 
-              <!-- Labels -->
-              <text [attr.x]="node.w/2"
-                [attr.y]="isComplexNode(node) ? 22 : node.h/2 + 5"
-                text-anchor="middle" font-size="12" font-weight="600"
-                [attr.fill]="!node.enabled ? '#9ca3af' : '#111827'">{{ node.title }}</text>
+              <!-- Labels (skip for fork/join which show icon) -->
+              @if (node.type !== 'fork' && node.type !== 'join') {
+                <text [attr.x]="node.w/2"
+                  [attr.y]="isComplexNode(node) ? 28 : node.h/2 + 5"
+                  text-anchor="middle" font-size="12" font-weight="600"
+                  [attr.fill]="!node.enabled ? '#9ca3af' : '#111827'">{{ node.title }}</text>
+              } @else {
+                <text [attr.x]="node.w/2" [attr.y]="node.h/2 + 14"
+                  text-anchor="middle" font-size="9" fill="#6b7280">{{ node.title }}</text>
+              }
 
               @if (isComplexNode(node) && node.h >= 60) {
                 @if (node.role) {
@@ -629,6 +681,56 @@ const COND_COLOR: Record<EdgeCondition, string> = { always: '#9ca3af', on_succes
             </label>
           }
 
+          <!-- ─── Function Composition I/O ─── -->
+          @if (n.type !== 'start' && n.type !== 'end') {
+            <div class="ch-io-section">
+              <div class="ch-io-hd">
+                <span>▶ Inputs</span>
+                <button class="ch-io-add" (click)="addInput(n.id)">+</button>
+              </div>
+              @for (slot of n.inputs; track slot.name; let i = $index) {
+                <div class="ch-io-row">
+                  <input class="ch-io-name" type="text" [value]="slot.name"
+                    placeholder="name"
+                    (change)="patchSlot(n.id, 'inputs', i, { name: $any($event.target).value })"/>
+                  <select class="ch-io-kind"
+                    (change)="patchSlot(n.id, 'inputs', i, { kind: $any($event.target).value })">
+                    @for (k of ARTIFACT_KINDS; track k) {
+                      <option [value]="k" [attr.selected]="slot.kind === k ? '' : null">{{ k }}</option>
+                    }
+                  </select>
+                  <label class="ch-io-req">
+                    <input type="checkbox" [checked]="slot.required"
+                      (change)="patchSlot(n.id, 'inputs', i, { required: $any($event.target).checked })"/>
+                    req
+                  </label>
+                  <button class="ch-io-del" (click)="removeSlot(n.id, 'inputs', i)">✕</button>
+                </div>
+              }
+              @if (n.inputs.length === 0) { <div class="ch-io-empty">Keine Inputs</div> }
+
+              <div class="ch-io-hd" style="margin-top:5px">
+                <span>◀ Outputs</span>
+                <button class="ch-io-add" (click)="addOutput(n.id)">+</button>
+              </div>
+              @for (slot of n.outputs; track slot.name; let i = $index) {
+                <div class="ch-io-row">
+                  <input class="ch-io-name" type="text" [value]="slot.name"
+                    placeholder="name"
+                    (change)="patchSlot(n.id, 'outputs', i, { name: $any($event.target).value })"/>
+                  <select class="ch-io-kind"
+                    (change)="patchSlot(n.id, 'outputs', i, { kind: $any($event.target).value })">
+                    @for (k of ARTIFACT_KINDS; track k) {
+                      <option [value]="k" [attr.selected]="slot.kind === k ? '' : null">{{ k }}</option>
+                    }
+                  </select>
+                  <button class="ch-io-del" (click)="removeSlot(n.id, 'outputs', i)">✕</button>
+                </div>
+              }
+              @if (n.outputs.length === 0) { <div class="ch-io-empty">Keine Outputs</div> }
+            </div>
+          }
+
           <label class="ch-fl">Aktiv</label>
           <label class="ch-ftoggle">
             <input type="checkbox" [checked]="n.enabled"
@@ -677,11 +779,18 @@ const COND_COLOR: Record<EdgeCondition, string> = { always: '#9ca3af', on_succes
             <option value="on_success">Nur bei Erfolg ✓</option>
             <option value="on_failure">Nur bei Fehler ✗</option>
             <option value="back_edge">↩ Loop / Back-Edge</option>
+            <option value="on_output">📦 Wenn Artifact produziert</option>
           </select>
           @if (e.condition === 'back_edge') {
             <label class="ch-fl">Max. Iterationen</label>
             <input type="number" class="ch-fi" min="1" max="20" [value]="e.loopMaxIter ?? 3"
               (change)="patchEdge(e.id, { loopMaxIter: +$any($event.target).value })"/>
+          }
+          @if (e.condition === 'on_output') {
+            <label class="ch-fl">Artifact-Name (Output des Quell-Steps)</label>
+            <input type="text" class="ch-fi" [value]="e.outputName ?? ''"
+              placeholder="z.B. code_artifact, report, test_results"
+              (change)="patchEdge(e.id, { outputName: $any($event.target).value })"/>
           }
           <label class="ch-fl">Label</label>
           <input type="text" class="ch-fi" [value]="e.label ?? ''" placeholder="Optionales Label…"
@@ -756,6 +865,8 @@ const COND_COLOR: Record<EdgeCondition, string> = { always: '#9ca3af', on_succes
 .ch-btn-det  { border-color: #ca8a04; color: #92400e; background: color-mix(in srgb, #fef9c3 50%, var(--bg)); }
 .ch-btn-gate { border-color: #ea580c; color: #9a3412; background: color-mix(in srgb, #fff7ed 50%, var(--bg)); }
 .ch-btn-rev  { border-color: #9333ea; color: #6b21a8; background: color-mix(in srgb, #faf5ff 50%, var(--bg)); }
+.ch-btn-fork { border-color: #a855f7; color: #7e22ce; background: color-mix(in srgb, #fdf4ff 50%, var(--bg)); }
+.ch-btn-join { border-color: #0284c7; color: #0c4a6e; background: color-mix(in srgb, #f0f9ff 50%, var(--bg)); }
 .ch-run-badge {
   display: flex; align-items: center; gap: 5px; padding: 2px 8px;
   border-radius: 999px; background: color-mix(in srgb, #3b82f6 12%, transparent);
@@ -864,6 +975,21 @@ const COND_COLOR: Record<EdgeCondition, string> = { always: '#9ca3af', on_succes
 .ch-dry-btn { flex: 0 0 auto; padding: 5px 10px; border-radius: 5px; border: 1px solid var(--border); background: var(--bg); color: var(--fg); font-size: 12px; cursor: pointer; }
 .ch-dry-btn:hover { background: var(--card-bg); }
 .ch-start-btn-goal { background: color-mix(in srgb, var(--accent) 60%, transparent); font-size: 11px; padding: 4px 10px; }
+
+/* ── I/O Artifact Editor ── */
+.ch-io-section { border: 1px solid var(--border); border-radius: 5px; padding: 6px; background: var(--bg); margin-top: 4px; }
+.ch-io-hd { display: flex; align-items: center; justify-content: space-between; font-size: 9px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 3px; }
+.ch-io-add { padding: 1px 6px; border: 1px solid var(--border); border-radius: 3px; background: var(--card-bg); cursor: pointer; font-size: 12px; line-height: 1; color: var(--accent); }
+.ch-io-row { display: flex; gap: 3px; align-items: center; margin-bottom: 2px; }
+.ch-io-name { flex: 1; min-width: 0; padding: 2px 4px; border: 1px solid var(--border); border-radius: 3px; font-size: 10px; background: var(--bg); color: var(--fg); }
+.ch-io-kind { width: 58px; padding: 2px 2px; border: 1px solid var(--border); border-radius: 3px; font-size: 9px; background: var(--bg); color: var(--fg); }
+.ch-io-req { display: flex; align-items: center; gap: 2px; font-size: 9px; color: var(--muted); white-space: nowrap; cursor: pointer; }
+.ch-io-del { padding: 1px 5px; border: none; background: none; cursor: pointer; color: #ef4444; font-size: 11px; }
+.ch-io-empty { font-size: 9px; color: var(--muted); padding: 2px 0; }
+
+/* ── Palette Fork/Join ── */
+.ch-pal-elem-fork { border-left-color: #a855f7; }
+.ch-pal-elem-join { border-left-color: #0284c7; }
   `],
 })
 export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestroy {
@@ -880,6 +1006,7 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
   readonly BACKENDS = BACKENDS;
   readonly CAPABILITIES = CAPABILITIES;
   readonly VP_KINDS = VP_KINDS;
+  readonly ARTIFACT_KINDS = ARTIFACT_KINDS;
 
   // ── VP API signals ────────────────────────────────────────────────────────
   readonly vpPresets = signal<VpPreset[]>([]);
@@ -986,6 +1113,8 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
         gate: s.gate,
         enabled: true,
         routing: { mode: 'auto' as RoutingMode },
+        inputs: (s.io?.inputs ?? []).map((inp: any) => ({ name: inp.name, kind: inp.kind ?? 'text', required: inp.required ?? true, description: inp.description ?? '' })),
+        outputs: (s.io?.outputs ?? []).map((out: any) => ({ name: out.name, kind: out.kind ?? 'text', required: out.required ?? false, description: out.description ?? '' })),
       };
     });
     const edges: CanvasEdge[] = graph.edges.map(e => ({
@@ -1017,6 +1146,8 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
     if (n.type === 'review') return 'code_review';
     if (n.type === 'planning') return 'goal_plan';
     if (n.type === 'verification') return 'run_tests';
+    if (n.type === 'fork') return 'fork';
+    if (n.type === 'join') return 'join';
     if (n.type === 'start' || n.type === 'end') return 'llm_generate';
     return 'coding';
   }
@@ -1040,22 +1171,27 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
         gate: n.gate ?? false,
         position: { x: n.x, y: n.y },
         policy_hints: n.gate ? ['requires_approval'] : [],
-        io: { inputs: [], outputs: [] },
+        io: {
+          inputs: (n.inputs ?? []).map(s => ({ name: s.name, kind: s.kind, required: s.required, description: s.description })),
+          outputs: (n.outputs ?? []).map(s => ({ name: s.name, kind: s.kind, required: s.required, description: s.description })),
+        },
         metadata: {
           det_subtype: n.detSubtype ?? null,
           det_command: n.detCommand ?? null,
           det_expected: n.detExpectedResult ?? null,
           fail_action: n.failAction ?? null,
           routing: n.routing ?? null,
+          node_type: n.type,
         },
       })),
       edges: this.edges().map(e => ({
         id: e.id, source: e.from, target: e.to,
-        label: e.label ?? null,
+        label: e.outputName ? `📦 ${e.outputName}` : (e.label ?? null),
         metadata: {},
         condition: {
           kind: e.condition,
-          expression: null, output_name: null,
+          expression: null,
+          output_name: e.condition === 'on_output' ? (e.outputName ?? null) : null,
           loop_policy: e.condition === 'back_edge'
             ? { kind: 'fixed', max_iterations: e.loopMaxIter ?? 3, condition: null, break_on_output: null }
             : null,
@@ -1111,10 +1247,10 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
     const addEdge = (from: string, to: string, cond: EdgeCondition = 'always') =>
       edges.push({ id: `e-${++this._edgeSeq}`, from, to, condition: cond });
 
-    nodes.push({ id: 'start', x: CX - 60, y, w: 120, h: 40, type: 'start', title: 'Ziel', enabled: true });
+    nodes.push({ id: 'start', x: CX - 60, y, w: 120, h: 40, type: 'start', title: 'Ziel', enabled: true, inputs: [], outputs: [] });
     y += 40 + GAP_Y;
 
-    nodes.push({ id: 'plan', x: CX - 90, y, w: 180, h: 52, type: 'planning', title: 'Planung', subtitle: 'LMStudio · Gemma', enabled: true });
+    nodes.push({ id: 'plan', x: CX - 90, y, w: 180, h: 52, type: 'planning', title: 'Planung', subtitle: 'LMStudio · Gemma', enabled: true, inputs: [], outputs: [{ name: 'plan', kind: 'json' as const, required: false, description: '' }] });
     addEdge('start', 'plan');
     y += 52 + GAP_Y;
 
@@ -1127,17 +1263,18 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
         role: roles[i % roles.length],
         priority: task.priority, enabled: true,
         routing: { mode: 'auto' as RoutingMode },
+        inputs: [], outputs: [],
       });
       addEdge(prev, nid);
       prev = nid;
       y += NODE_H + GAP_Y;
     });
 
-    nodes.push({ id: 'verif', x: CX - 90, y, w: 180, h: 52, type: 'verification', title: 'Verifikation', subtitle: 'Review · Tests', enabled: true });
+    nodes.push({ id: 'verif', x: CX - 90, y, w: 180, h: 52, type: 'verification', title: 'Verifikation', subtitle: 'Review · Tests', enabled: true, inputs: [], outputs: [{ name: 'verification_report', kind: 'report' as const, required: false, description: '' }] });
     addEdge(prev, 'verif');
     y += 52 + GAP_Y;
 
-    nodes.push({ id: 'end', x: CX - 60, y, w: 120, h: 40, type: 'end', title: 'Fertig', enabled: true });
+    nodes.push({ id: 'end', x: CX - 60, y, w: 120, h: 40, type: 'end', title: 'Fertig', enabled: true, inputs: [], outputs: [] });
     addEdge('verif', 'end');
 
     this.nodes.set(nodes);
@@ -1244,6 +1381,7 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
       role: roles[ns.filter(n => n.type === 'task').length % roles.length] ?? '',
       priority: 'Medium', enabled: true,
       routing: { mode: 'auto' as RoutingMode },
+      inputs: [], outputs: [],
     }]);
     this.selectedNodeId.set(nid);
   }
@@ -1255,6 +1393,7 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
       id: nid, x: cx - 120, y: cy - 30, w: 240, h: 58,
       type: 'gate', title: 'Verification Gate', subtitle: '',
       gateSubtype: 'auto-verify', failAction: 'block', enabled: true,
+      inputs: [], outputs: [],
     }]);
     this.selectedNodeId.set(nid);
   }
@@ -1268,6 +1407,7 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
       detSubtype: 'script', detCommand: '', failAction: 'block',
       priority: 'Medium', enabled: true,
       routing: { mode: 'auto' },
+      inputs: [], outputs: [],
     }]);
     this.selectedNodeId.set(nid);
   }
@@ -1278,9 +1418,67 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
     this.nodes.update(ns => [...ns, {
       id: nid, x: cx - 120, y: cy - 30, w: 240, h: 58,
       type: 'review', title: 'Review / Freigabe', subtitle: '',
-      failAction: 'block', enabled: true,
+      failAction: 'block', enabled: true, inputs: [], outputs: [],
     }]);
     this.selectedNodeId.set(nid);
+  }
+
+  addForkNode(): void {
+    const { cx, cy } = this.viewCenter();
+    const nid = `fork-${++this._nodeSeq}`;
+    this.nodes.update(ns => [...ns, {
+      id: nid, x: cx - 50, y: cy - 30, w: 100, h: 60,
+      type: 'fork', title: 'Fork', enabled: true, inputs: [], outputs: [],
+    }]);
+    this.selectedNodeId.set(nid);
+  }
+
+  addJoinNode(): void {
+    const { cx, cy } = this.viewCenter();
+    const nid = `join-${++this._nodeSeq}`;
+    this.nodes.update(ns => [...ns, {
+      id: nid, x: cx - 60, y: cy - 22, w: 120, h: 44,
+      type: 'join', title: 'Join', enabled: true, inputs: [], outputs: [],
+    }]);
+    this.selectedNodeId.set(nid);
+  }
+
+  // ── I/O Artifact Slots ────────────────────────────────────────────────────
+
+  addInput(nodeId: string): void {
+    this.nodes.update(ns => ns.map(n => n.id === nodeId ? {
+      ...n, inputs: [...n.inputs, { name: `input_${n.inputs.length + 1}`, kind: 'text' as const, required: true, description: '' }]
+    } : n));
+  }
+
+  addOutput(nodeId: string): void {
+    this.nodes.update(ns => ns.map(n => n.id === nodeId ? {
+      ...n, outputs: [...n.outputs, { name: `output_${n.outputs.length + 1}`, kind: 'text' as const, required: false, description: '' }]
+    } : n));
+  }
+
+  patchSlot(nodeId: string, field: 'inputs' | 'outputs', index: number, patch: Partial<ArtifactSlot>): void {
+    this.nodes.update(ns => ns.map(n => {
+      if (n.id !== nodeId) return n;
+      const slots = [...n[field]];
+      slots[index] = { ...slots[index], ...patch };
+      return { ...n, [field]: slots };
+    }));
+  }
+
+  removeSlot(nodeId: string, field: 'inputs' | 'outputs', index: number): void {
+    this.nodes.update(ns => ns.map(n => {
+      if (n.id !== nodeId) return n;
+      const slots = n[field].filter((_, i) => i !== index);
+      return { ...n, [field]: slots };
+    }));
+  }
+
+  // ── Geometry ──────────────────────────────────────────────────────────────
+
+  forkPoints(node: CanvasNode): string {
+    const cx = node.w / 2, cy = node.h / 2;
+    return `${cx},0 ${node.w},${cy} ${cx},${node.h} 0,${cy}`;
   }
 
   setRoutingMode(nodeId: string, mode: RoutingMode): void {
@@ -1298,7 +1496,7 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   isComplexNode(node: CanvasNode): boolean {
-    return node.type === 'task' || node.type === 'det' || node.type === 'gate' || node.type === 'review';
+    return node.type === 'task' || node.type === 'det' || node.type === 'gate' || node.type === 'review' || node.type === 'fork' || node.type === 'join';
   }
 
   routingLabel(node: CanvasNode): string {
@@ -1337,6 +1535,7 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
       type: 'task', title: 'Eingefügter Schritt', subtitle: '',
       role: roles[taskCount % roles.length] ?? '', priority: 'Medium', enabled: true,
       routing: { mode: 'auto' as RoutingMode },
+      inputs: [], outputs: [],
     }]);
     this.edges.update(es => [
       ...es.filter(ed => ed.id !== edgeId),
