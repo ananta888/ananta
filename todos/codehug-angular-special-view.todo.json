@@ -58,6 +58,30 @@
       "value": "ja_isoliert",
       "meaning": "CodeHug hat einen eigenen Storage-Namespace (ueber Backend-API) fuer CodeHug-spezifische Daten (Kontextpakete, Vorlagen, User-Prefs). Sensitive Files (.env, secrets, keys, credentials) werden erkannt, markiert und NICHT automatisch in Kontextpakete aufgenommen. Sensible Inhalte erfordern explizite Nutzer-Freigabe pro Datei und werden beim Export gewarnt/ausgeblendet."
     },
+    "bpmn_js_integration": {
+      "value": "vorhanden_im_stack",
+      "meaning": "bpmn-js ist bereits in package.json und src/types/ deklariert. CodeHug verwendet es als Standard-Tool fuer Flow-Darstellung (Topologie, Layer, Trace). Integration via visual-process-feature."
+    },
+    "control_center_api_integration": {
+      "value": "vorhanden",
+      "meaning": "HubControlCenterApiClient und ControlCenterEventStreamService existieren bereits. CodeHug konsumiert dieselben APIs fuer Hub/Worker-Topologie und Trace-Daten."
+    },
+    "show_internals_pattern": {
+      "value": "auf_knopfdruck",
+      "meaning": "'Show Internals'-Button in der Agenten-Statusleiste. Nie alles auf einmal, aber alles auf bis zu 3 Ebenen abrufbar (Simplified / Details / Raw Trace)."
+    },
+    "ui_standard": {
+      "value": "camunda_bpmn_js",
+      "meaning": "Flow-Darstellung folgt etablierten Standards wie Camunda BPMN. bpmn-js ist bereits vorhanden und wird verwendet."
+    },
+    "display_depth": {
+      "value": "dreistufig_abrufbar",
+      "meaning": "Ebene 1 (default): Schrittliste mit Phase-Tag. Ebene 2: erweiterte Tool-Call-Details. Ebene 3: Rohdaten. Filter nach Hub/Worker/Backend/Layer immer moeglich."
+    },
+    "topology_display": {
+      "value": "echte_instanzen_und_pfade",
+      "meaning": "Angezeigt: Hub-Instanzen, Worker-Instanzen, cli_backend-Typ (sgpt/opencode/etc.), Modell (ollama/lmstudio/openai/etc.), deterministic vs LLM, Routing-Pfad und -Grund."
+    },
     "documentation_in_v1": {
       "value": "alles_in_v1",
       "meaning": "CH-013-001 (CodeHug README), CH-013-002 (Developer Notes), CH-011-001 (Kontextpakete speichern) und CH-011-002 (Task-Vorlagen) gehoeren alle in v1, nicht erst v2."
@@ -79,7 +103,9 @@
     "route_mode": "lazy_loaded",
     "menu_entry_label": "CodeHug",
     "existing_features_to_integrate_with_routing_only": [
-      "features/context-access-policy (fuer allgemeine Policy-Bearbeitung; CodeHug hat eigenes Panel, das auf dieselbe API zugreift)",
+      "features/visual-process (bpmn-js fuer Flow-Darstellung; Integration via API-Aufruf, nicht Component-Reuse)",
+      "features/control-center (HubControlCenterApiClient + EventStreamService; Integration via API, nicht Component-Reuse)",
+      "features/context-access-policy (fuer allgemeine Policy-Bearbeitung; CodeHug hat eigenes Panel, das auf dieselbe Hub-API zugreift)",
       "features/diff3 (fuer Diff-Darstellung, sofern sinnvoll; sonst eigene Diff-View in CodeHug)"
     ],
     "existing_features_NOT_to_reuse_components_from": [
@@ -678,6 +704,99 @@
       ]
     },
     {
+      "id": "CH-014",
+      "title": "Hub/Worker-Topologie und System-Internals",
+      "priority": "very_high",
+      "tasks": [
+        {
+          "id": "CH-014-001",
+          "title": "Hub/Worker-Topologie anzeigen (Show-Internals-Button)",
+          "description": "CodeHug zeigt auf Knopfdruck ('Show Internals') die reale Hub/Worker-Topologie an: welche Hub-Instanzen aktiv sind, welche Worker-Instanzen registriert, welche cli_backends (sgpt, opencode, etc.) auf welchem Worker laufen, mit welchem Modell (ollama/lmstudio/openai/etc.) und ob deterministic oder LLM. Anzeige als interaktive Topologie-Graph (nicht als Baum-Text). Standard: Camunda/bpmn-js fuer Flow-Darstellung, da bereits im Stack vorhanden.",
+          "acceptance_criteria": [
+            "'Show Internals'-Button ist in der Agenten-Statusleiste sichtbar",
+            "Button traegt explizit 'System Internals' oder aehnlich (kein verwirrendes Icon-only)",
+            "Topologie-Graph zeigt Hub-Node(s) und alle verbundenen Worker-Nodes",
+            "Jede Worker-Node zeigt: Instanz-ID, cli_backend (sgpt/opencode/etc.), LLM-Modell (oder 'deterministic')",
+            "Verbindungen (Hub -> Worker) zeigen Transport (HTTP/stdio/etc.) und Status",
+            "Farbkodierung: deterministische Worker anders als LLM-Worker",
+            "Graph ist mit bpmn-js oder aehnlichem Standard-Tool gerendert",
+            "Graph aktualisiert sich wenn Worker sich registrieren/abmelden (Polling oder WebSocket)",
+            "Klick auf Node zeigt Detail-Breakdown: Capabilities, Health, Boundaries"
+          ]
+        },
+        {
+          "id": "CH-014-002",
+          "title": "Echte Routing-Pfade und Backend-Detektion anzeigen",
+          "description": "Anzeigen welcher cli_backend (sgpt/opencode/etc.) tatsaechlich fuer eine Aufgabe gewaehlt wird und warum. Daten kommen aus hub_worker_graph_service und effective_workflow_resolver.",
+          "acceptance_criteria": [
+            "Angezeigt wird: ausgewaehltes cli_backend (z.B. 'opencode'), verwendetes Modell, Routing-Grund",
+            "Falls Routing einen anderen Backend erwartet als den gewaehlten -> Warnung",
+            "Unterschied zwischen 'konfigurierter Backend' und 'tatsaechlich genutzter Backend' ist sichtbar",
+            "Routing-Logik ist nachvollziehbar (kurze Erklaerung warum dieser Pfad)",
+            "CLI-Backend-Detektion (sgpt vs opencode vs andere) wird korrekt erkannt"
+          ]
+        },
+        {
+          "id": "CH-014-003",
+          "title": "Test-Layer-Struktur und Konfiguration anzeigen + editieren",
+          "description": "Test-Layer (rule-editor layers, instruction layers, config-graph) werden angezeigt und sind konfigurierbar. Layer-Reihenfolge, aktive/inaktive Layer, Layer-Parameter sind sichtbar und editierbar.",
+          "acceptance_criteria": [
+            "Aktive Layer werden als gestapeltes Diagramm (oder aehnlich) angezeigt",
+            "Layer-Reihenfolge ist visuell klar",
+            "Parameter pro Layer sind ein-/ausklappbar",
+            "Aenderungen werden via Hub-API geschrieben (kein direktes Datei-Schreiben)",
+            "'Edit Mode' erfordert aktiven Write-Modus in CodeHug (CH-010-001)",
+            "Gespeicherte Layer-Konfiguration wird beim naechsten Run verwendet",
+            "Konfigurations-Grafik nutzt bpmn-js oder aehnliches Standard-Tool"
+          ]
+        },
+        {
+          "id": "CH-014-004",
+          "title": "Log-Trace-Aufloesung: Schritte + Phasen + Rohdaten (Toggle)",
+          "description": "Log-Trace pro Agent-Run mit mehrstufiger Aufloesung. Ebene 1 (default): Schrittliste mit Phase-Tag (plan/det/llm/apply/verify). Ebene 2: erweiterte Ansicht mit Tool-Calls, Args, Outputs. Ebene 3: Rohdaten (stdout, stderr, Latenz). Filter nach Hub/Worker/Backend/Layer.",
+          "acceptance_criteria": [
+            "Toggle-Buttons: 'Simplified' / 'Details' / 'Raw Trace' — nie alles auf einmal, aber alles abrufbar",
+            "Schrittliste zeigt Phase (plan/det/llm/apply/verify), Duration, Worker/Hub-Node",
+            "Details-Ansicht zeigt Tool-Calls mit Input/Output (gekuerzt, expadierbar)",
+            "Raw-Trace zeigt vollstaendige Daten: args, stdout, stderr, latency, timestamps",
+            "Filter: nach Hub-Node, Worker-ID, Backend, Layer-Typ",
+            "Timeline/Gantt-Darstellung fuer parallele Worker-Schritte (wenn zutreffend)",
+            "Trace-Navigation: Springen zu Schritt, Vor/Zurueck",
+            "Trace wird aus ai_snake_trace_store via Hub-API bezogen",
+            "Export-Möglichkeit fuer Trace-Download"
+          ]
+        },
+        {
+          "id": "CH-014-005",
+          "title": "Anzeige + Edit + Live-Apply von Hub/Worker-Konfiguration",
+          "description": "CodeHug zeigt nicht nur die Topologie, sondern erlaubt auch Konfigurationsaenderungen die direkt auf den Hub geschrieben werden und das Systemverhalten live aendern. Aenderungen werden mit Policy-Check und Bestätigung geschützt.",
+          "acceptance_criteria": [
+            "Anzeige: Hub-Endpoints, Worker-Registrierungen, Routing-Regeln sind sichtbar",
+            "Edit: Worker-Konfiguration aendern (z.B. anderen Backend zuweisen, Modell tauschen)",
+            "Edit: Routing-Regeln aendern (z.B. sgpt vs opencode pro Aufgabe)",
+            "Edit: Layer-Aktivierung/Deaktivierung",
+            "Apply: 'Push to Hub' mit Bestätigungsdialog",
+            "Live-Apply erfordert Policy-Check (CH-010-002)",
+            "Aenderungen werden im Trace geloggt (wer hat was wann geaendert)",
+            "Rollback: letzte Konfiguration ist wiederherstellbar",
+            "Gefahr-Hinweis bei kritischen Aenderungen (z.B. Worker abschalten)"
+          ]
+        },
+        {
+          "id": "CH-014-006",
+          "title": "Deterministic vs. LLM-Darstellung visuell differenzieren",
+          "description": "Alle Bereiche in denen CodeHug deterministische vs. LLM-basierte Entscheidungen zeigt, sind visuell klar differenziert. Deterministic = kein LLM-Einsatz. LLM = Prompts, Responses, Modelle.",
+          "acceptance_criteria": [
+            "Deterministic-Schritte (z.B. Routing-Entscheidung, Policy-Check, Config-Resolve) tragen 'deterministic'-Badge",
+            "LLM-Schritte (Planung, Refactoring-Vorschlag, Review) zeigen Modell-Name und Provider",
+            "Gemischte Schritte (det -> llm -> det) zeigen Uebergaenge",
+            "Visuelle Differenzierung: deterministic = ein Style, LLM = anderer Style (z.B. Icon, Farbe)",
+            "Zusammenfassung pro Run: 'X deterministische Schritte, Y LLM-Aufrufe, Z ms Gesamtzeit'"
+          ]
+        }
+      ]
+    },
+    {
       "id": "CH-013",
       "title": "Dokumentation",
       "priority": "medium",
@@ -721,7 +840,13 @@
     "explicitly_in_scope_for_v1": [
       "Vollstaendige Persistenz von Kontextpaketen, Task-Vorlagen und User-Praeferenzen ueber die Hub-API",
       "Vollstaendige Responsive-Variante (Desktop, Tablet, Handy)",
-      "Vollstaendige Unit- und E2E-Test-Coverage fuer alle Flows"
+      "Vollstaendige Unit- und E2E-Test-Coverage fuer alle Flows",
+      "Hub/Worker-Topologie mit 'Show Internals'-Button: Hub-Instanzen, Worker, cli_backends, Modelle, deterministic vs LLM, Routing-Pfade",
+      "Dreistufiger Log-Trace (Simplified / Details / Raw) mit Filter und Timeline/Gantt",
+      "Visuelle Differenzierung deterministic vs LLM (Badges, Farben)",
+      "Anzeige + Edit + Live-Apply von Hub/Worker-Konfiguration via Hub-API (Worker-Konfiguration, Routing-Regeln, Layer)",
+      "bpmn-js als Darstellungs-Standard (bereits im Stack vorhanden)",
+      "Integration mit bestehenden APIs: HubControlCenterApiClient und EventStreamService (kein Component-Reuse)"
     ]
   },
   "definition_of_done": [
@@ -738,6 +863,11 @@
     "Layout funktioniert auf Desktop, Tablet und Handy",
     "Kernservices und Hauptworkflows sind unit- und e2e-getestet (Coverage >= 80% fuer Services)",
     "README und Developer Notes sind vorhanden",
-    "CodeHug nutzt keine fremden Komponenten aus anderen Features auf UI-Ebene; alle CodeHug-Komponenten liegen unter src/app/features/codehug/"
+    "CodeHug nutzt keine fremden Komponenten aus anderen Features auf UI-Ebene; alle CodeHug-Komponenten liegen unter src/app/features/codehug/",
+    "Auf Knopfdruck ('Show Internals') wird die Hub/Worker-Topologie angezeigt: Hub-Instanzen, Worker-Instanzen, cli_backend-Typ (sgpt/opencode/etc.), Modell, deterministic vs LLM, Routing-Pfad - mit bpmn-js als Standard-Darstellung",
+    "Trace-Anzeige bietet 3 Ebenen (Simplified / Details / Raw Trace), Filter nach Hub/Worker/Backend/Layer, und Timeline/Gantt fuer parallele Worker",
+    "Deterministic vs. LLM-Schritte sind visuell klar differenziert (Badges, Farben, Icons)",
+    "Topologie ist nicht nur anzeigbar, sondern auch editierbar - Aenderungen werden via Hub-API auf den Hub geschrieben und aendern das Systemverhalten live (mit Policy-Check und Bestätigung)",
+    "Worker-Konfiguration, Routing-Regeln und Layer-Struktur sind konfigurierbar und persistent"
   ]
 }
