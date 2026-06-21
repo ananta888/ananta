@@ -15,9 +15,13 @@ from typing import Any
 
 from agent.services.config_graph_builder_service import (
     NODE_AGENT_PROFILE,
+    NODE_CODECOMPASS_RANKING,
     NODE_EMBEDDING_MODEL,
     NODE_MODEL_PROVIDER,
     NODE_PATH_RULE,
+    NODE_RESTRICTED_INFERENCE_MODEL,
+    NODE_RESTRICTED_INFERENCE_ROOT,
+    NODE_RESTRICTED_INFERENCE_TASK,
     ConfigGraph,
 )
 from agent.services.config_graph_patch_service import PatchOp
@@ -155,6 +159,18 @@ class ConfigGraphPersistenceService:
                 staged,
             )
             return
+        if node.node_type == NODE_RESTRICTED_INFERENCE_ROOT:
+            self._stage_user_config_block_update("restricted_inference", op.data, staged)
+            return
+        if node.node_type == NODE_RESTRICTED_INFERENCE_MODEL:
+            self._stage_restricted_inference_model_update(node.data.get("id"), op.data, staged)
+            return
+        if node.node_type == NODE_RESTRICTED_INFERENCE_TASK:
+            self._stage_restricted_inference_task_update(node.data.get("id"), op.data, staged)
+            return
+        if node.node_type == NODE_CODECOMPASS_RANKING:
+            self._stage_user_config_block_update("codecompass_ranking", op.data, staged)
+            return
         raise ValueError(f"node type is not persistable: {node.node_type}")
 
     def _stage_add_node(
@@ -169,6 +185,12 @@ class ConfigGraphPersistenceService:
             return
         if node_type == NODE_PATH_RULE:
             self._stage_path_rule_create(data, staged)
+            return
+        if node_type == NODE_RESTRICTED_INFERENCE_MODEL:
+            self._stage_restricted_inference_model_create(data, staged)
+            return
+        if node_type == NODE_RESTRICTED_INFERENCE_TASK:
+            self._stage_restricted_inference_task_create(data, staged)
             return
         raise ValueError(f"node type is not persistable for add_node: {node_type}")
 
@@ -391,6 +413,8 @@ class ConfigGraphPersistenceService:
     ) -> None:
         if key not in {
             "embedding_provider",
+            "restricted_inference",
+            "codecompass_ranking",
             "worker_runtime",
             "opencode_runtime",
             "hermes_worker_adapter",
@@ -411,6 +435,90 @@ class ConfigGraphPersistenceService:
             "user_config",
             staged,
         )
+
+    def _stage_restricted_inference_model_update(
+        self,
+        model_id_raw: Any,
+        updates: dict[str, Any],
+        staged: dict[Path, tuple[str, str, str]],
+    ) -> None:
+        model_id = str(model_id_raw or updates.get("id") or "").strip()
+        if not model_id:
+            raise ValueError("restricted inference model update requires id")
+        config = self._load_json_staged(self._root / "user.json", "user_config", staged)
+        block = dict(config.get("restricted_inference") or {})
+        models = list(block.get("models") or [])
+        for index, model in enumerate(models):
+            if isinstance(model, dict) and str(model.get("id") or model.get("model") or "") == model_id:
+                model.update(self._clean_restricted_model_payload(updates))
+                models[index] = model
+                block["models"] = models
+                config["restricted_inference"] = block
+                self._store_json_staged(self._root / "user.json", config, "user_config", staged)
+                return
+        raise ValueError(f"restricted inference model not found in user.json: {model_id}")
+
+    def _stage_restricted_inference_model_create(
+        self,
+        data: dict[str, Any],
+        staged: dict[Path, tuple[str, str, str]],
+    ) -> None:
+        model = self._clean_restricted_model_payload(data)
+        model_id = str(model.get("id") or "").strip()
+        if not model_id:
+            raise ValueError("restricted inference model id is required")
+        config = self._load_json_staged(self._root / "user.json", "user_config", staged)
+        block = dict(config.get("restricted_inference") or {})
+        models = list(block.get("models") or [])
+        if any(isinstance(item, dict) and str(item.get("id") or "") == model_id for item in models):
+            raise ValueError(f"restricted inference model already exists: {model_id}")
+        model.setdefault("enabled", True)
+        model.setdefault("engine", "mock")
+        model.setdefault("tasks", [])
+        models.append(model)
+        block["models"] = models
+        config["restricted_inference"] = block
+        self._store_json_staged(self._root / "user.json", config, "user_config", staged)
+
+    def _stage_restricted_inference_task_update(
+        self,
+        task_id_raw: Any,
+        updates: dict[str, Any],
+        staged: dict[Path, tuple[str, str, str]],
+    ) -> None:
+        task_id = str(task_id_raw or updates.get("id") or "").strip()
+        if not task_id:
+            raise ValueError("restricted inference task update requires id")
+        config = self._load_json_staged(self._root / "user.json", "user_config", staged)
+        block = dict(config.get("restricted_inference") or {})
+        tasks = dict(block.get("tasks") or {})
+        current = dict(tasks.get(task_id) or {})
+        current.update(self._clean_restricted_task_payload(updates))
+        tasks[task_id] = current
+        block["tasks"] = tasks
+        config["restricted_inference"] = block
+        self._store_json_staged(self._root / "user.json", config, "user_config", staged)
+
+    def _stage_restricted_inference_task_create(
+        self,
+        data: dict[str, Any],
+        staged: dict[Path, tuple[str, str, str]],
+    ) -> None:
+        task_id = str(data.get("id") or "").strip()
+        if not task_id:
+            raise ValueError("restricted inference task id is required")
+        config = self._load_json_staged(self._root / "user.json", "user_config", staged)
+        block = dict(config.get("restricted_inference") or {})
+        tasks = dict(block.get("tasks") or {})
+        if task_id in tasks:
+            raise ValueError(f"restricted inference task already exists: {task_id}")
+        payload = self._clean_restricted_task_payload(data)
+        payload.setdefault("enabled", True)
+        payload.setdefault("preferred_engine", "mock")
+        tasks[task_id] = payload
+        block["tasks"] = tasks
+        config["restricted_inference"] = block
+        self._store_json_staged(self._root / "user.json", config, "user_config", staged)
 
     @staticmethod
     def _clean_profile_payload(data: dict[str, Any]) -> dict[str, Any]:
@@ -434,10 +542,33 @@ class ConfigGraphPersistenceService:
             "path_glob",
             "blocked_ai_modes",
             "allowed_ai_modes",
+            "allowed_model_engines",
+            "allow_hidden_states",
+            "allow_logits",
+            "allow_attention",
             "allow_free_text_generation",
+            "allow_tool_decision_from_model_text",
             "allow_code_generation",
+            "require_controlled_write_policy",
             "llm_scope",
             "max_input_chars",
+            "max_batch_size",
+            "priority",
+        }
+        return {key: data[key] for key in allowed if key in data}
+
+    @staticmethod
+    def _clean_restricted_model_payload(data: dict[str, Any]) -> dict[str, Any]:
+        allowed = {
+            "id", "engine", "model", "revision", "local_path", "device", "enabled", "tasks",
+        }
+        return {key: data[key] for key in allowed if key in data}
+
+    @staticmethod
+    def _clean_restricted_task_payload(data: dict[str, Any]) -> dict[str, Any]:
+        allowed = {
+            "enabled", "preferred_engine", "fallback_to_deterministic",
+            "max_candidates", "labels", "weight",
         }
         return {key: data[key] for key in allowed if key in data}
 

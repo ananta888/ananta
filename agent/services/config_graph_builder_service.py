@@ -36,7 +36,10 @@ NODE_WORKER_BACKEND = "worker_backend"
 NODE_MODEL_PROVIDER = "model_provider"
 NODE_MODEL_PROFILE = "model_profile"
 NODE_EMBEDDING_MODEL = "embedding_model"
+NODE_RESTRICTED_INFERENCE_ROOT = "restricted_inference"
 NODE_RESTRICTED_INFERENCE_MODEL = "restricted_inference_model"
+NODE_RESTRICTED_INFERENCE_TASK = "restricted_inference_task"
+NODE_CODECOMPASS_RANKING = "codecompass_ranking"
 NODE_TOOL = "tool"
 NODE_TOOL_GROUP = "tool_group"
 NODE_POLICY = "policy"
@@ -66,7 +69,9 @@ ALL_NODE_TYPES = frozenset({
     NODE_SURFACE, NODE_GOAL_TEMPLATE, NODE_TASK_KIND, NODE_SUBTASK_STEP,
     NODE_AGENT_PROFILE, NODE_ROLE, NODE_AGENT_INSTANCE, NODE_WORKER_BACKEND,
     NODE_MODEL_PROVIDER, NODE_MODEL_PROFILE, NODE_EMBEDDING_MODEL,
-    NODE_RESTRICTED_INFERENCE_MODEL, NODE_TOOL, NODE_TOOL_GROUP, NODE_POLICY,
+    NODE_RESTRICTED_INFERENCE_ROOT, NODE_RESTRICTED_INFERENCE_MODEL,
+    NODE_RESTRICTED_INFERENCE_TASK, NODE_CODECOMPASS_RANKING,
+    NODE_TOOL, NODE_TOOL_GROUP, NODE_POLICY,
     NODE_PATH_RULE, NODE_CONTEXT_SOURCE, NODE_CODECOMPASS_PROFILE, NODE_RAG_PROFILE,
     NODE_ARTIFACT_RULE, NODE_WRITE_RULE, NODE_VERIFICATION_RULE, NODE_HANDOFF_RULE,
     NODE_INSTRUCTION_LAYER, NODE_RUNTIME_OVERRIDE, NODE_TRACE_EVENT,
@@ -722,10 +727,18 @@ class ConfigGraphBuilderService:
                     "path_glob": glob,
                     "blocked_ai_modes": blocked,
                     "allowed_ai_modes": allowed,
+                    "allowed_model_engines": list(rule.get("allowed_model_engines") or []),
+                    "allow_hidden_states": bool(rule.get("allow_hidden_states", True)),
+                    "allow_logits": bool(rule.get("allow_logits", True)),
+                    "allow_attention": bool(rule.get("allow_attention", True)),
                     "allow_free_text_generation": rule.get("allow_free_text_generation", True),
+                    "allow_tool_decision_from_model_text": bool(rule.get("allow_tool_decision_from_model_text", True)),
                     "allow_code_generation": rule.get("allow_code_generation", True),
+                    "require_controlled_write_policy": bool(rule.get("require_controlled_write_policy", False)),
                     "llm_scope": str(rule.get("llm_scope") or ""),
                     "max_input_chars": int(rule.get("max_input_chars") or 0),
+                    "max_batch_size": int(rule.get("max_batch_size") or 0),
+                    "priority": int(rule.get("priority") or 0),
                     "rule_character": _classify_rule_character(blocked, allowed),
                 },
             )
@@ -762,7 +775,7 @@ class ConfigGraphBuilderService:
              "agent/services/rag_helper_index_service.py"),
             ("pre_model_context", "Pre-Model Context Orchestrator", NODE_CONTEXT_SOURCE,
              "agent/services/pre_model_context_orchestrator.py"),
-            ("restricted_inference", "Restricted Transformer Inference", NODE_RESTRICTED_INFERENCE_MODEL,
+            ("restricted_inference", "Restricted Transformer Inference", NODE_CONTEXT_SOURCE,
              "agent/services/restricted_model_inference_service.py"),
         ]
         for sid, label, ntype, ref in sources:
@@ -805,6 +818,8 @@ class ConfigGraphBuilderService:
         ))
         graph.add_to_view(VIEW_CONTEXT_PIPELINE, emb_id)
         graph.add_to_view(VIEW_AGENT_RUNTIME, emb_id)
+        self._add_restricted_inference(graph)
+        self._add_codecompass_ranking(graph)
 
         # Backend model provider
         backend = str(self._config.get("chat_backend") or
@@ -823,6 +838,132 @@ class ConfigGraphBuilderService:
                 data={"backend": backend},
             ))
         graph.add_to_view(VIEW_AGENT_RUNTIME, provider_id)
+
+    def _add_restricted_inference(self, graph: ConfigGraph) -> None:
+        raw = dict(self._config.get("restricted_inference") or {})
+        root_id = "restricted_inference::root"
+        graph.add_node(ConfigGraphNode(
+            id=root_id,
+            node_type=NODE_RESTRICTED_INFERENCE_ROOT,
+            label="Restricted Inference",
+            source_file="user.json",
+            source_kind="user_config",
+            source_pointer="/restricted_inference",
+            writable=True,
+            runtime_active=bool(raw.get("enabled", True)),
+            declared_value=dict(raw),
+            effective_value=dict(raw),
+            data={
+                "enabled": bool(raw.get("enabled", True)),
+                "default_engine": str(raw.get("default_engine") or "mock"),
+                "default_model_id": str(raw.get("default_model_id") or "mock-default"),
+                "device": str(raw.get("device") or "cpu"),
+                "allow_mock_fallback": bool(raw.get("allow_mock_fallback", True)),
+                "allowed_engines": list(raw.get("allowed_engines") or [
+                    "mock", "sentence-transformers", "huggingface-transformers", "onnxruntime", "pytorch",
+                ]),
+            },
+        ))
+        graph.add_to_view(VIEW_CONTEXT_PIPELINE, root_id)
+        graph.add_to_view(VIEW_EFFECTIVE_CONFIG, root_id)
+
+        context_id = "context_source::restricted_inference"
+        if context_id in graph.nodes:
+            graph.add_edge(ConfigGraphEdge(
+                source=context_id,
+                target=root_id,
+                edge_type=EDGE_USES_RESTRICTED_INFERENCE,
+            ))
+
+        models = list(raw.get("models") or [])
+        for index, model_raw in enumerate(models):
+            if not isinstance(model_raw, dict):
+                continue
+            mid = str(model_raw.get("id") or model_raw.get("model") or f"model_{index}")
+            node_id = f"restricted_inference_model::{mid}"
+            graph.add_node(ConfigGraphNode(
+                id=node_id,
+                node_type=NODE_RESTRICTED_INFERENCE_MODEL,
+                label=f"Restricted Model: {mid}",
+                source_file="user.json",
+                source_kind="user_config",
+                source_pointer=f"/restricted_inference/models/{index}",
+                writable=True,
+                runtime_active=bool(model_raw.get("enabled", True)),
+                declared_value=dict(model_raw),
+                effective_value=dict(model_raw),
+                data={
+                    "id": mid,
+                    "engine": str(model_raw.get("engine") or "mock"),
+                    "model": str(model_raw.get("model") or ""),
+                    "revision": str(model_raw.get("revision") or ""),
+                    "local_path": str(model_raw.get("local_path") or ""),
+                    "device": str(model_raw.get("device") or raw.get("device") or "cpu"),
+                    "enabled": bool(model_raw.get("enabled", True)),
+                    "tasks": list(model_raw.get("tasks") or []),
+                },
+            ))
+            graph.add_edge(ConfigGraphEdge(source=root_id, target=node_id, edge_type=EDGE_USES_MODEL))
+            graph.add_to_view(VIEW_CONTEXT_PIPELINE, node_id)
+            graph.add_to_view(VIEW_EFFECTIVE_CONFIG, node_id)
+
+        tasks = raw.get("tasks") if isinstance(raw.get("tasks"), dict) else {}
+        for task_id, task_raw in sorted(tasks.items()):
+            if not isinstance(task_raw, dict):
+                continue
+            node_id = f"restricted_inference_task::{task_id}"
+            graph.add_node(ConfigGraphNode(
+                id=node_id,
+                node_type=NODE_RESTRICTED_INFERENCE_TASK,
+                label=f"Restricted Task: {task_id}",
+                source_file="user.json",
+                source_kind="user_config",
+                source_pointer=f"/restricted_inference/tasks/{task_id}",
+                writable=True,
+                runtime_active=bool(task_raw.get("enabled", True)),
+                declared_value=dict(task_raw),
+                effective_value=dict(task_raw),
+                data={"id": task_id, **dict(task_raw)},
+            ))
+            graph.add_edge(ConfigGraphEdge(source=root_id, target=node_id, edge_type=EDGE_CONTAINS))
+            graph.add_to_view(VIEW_CONTEXT_PIPELINE, node_id)
+            graph.add_to_view(VIEW_EFFECTIVE_CONFIG, node_id)
+
+    def _add_codecompass_ranking(self, graph: ConfigGraph) -> None:
+        raw = dict(self._config.get("codecompass_ranking") or {})
+        node_id = "codecompass_ranking::default"
+        graph.add_node(ConfigGraphNode(
+            id=node_id,
+            node_type=NODE_CODECOMPASS_RANKING,
+            label="CodeCompass Ranking",
+            source_file="user.json",
+            source_kind="user_config",
+            source_pointer="/codecompass_ranking",
+            writable=True,
+            runtime_active=True,
+            declared_value=dict(raw),
+            effective_value=dict(raw),
+            data={
+                "restricted_inference_rerank_enabled": bool(raw.get("restricted_inference_rerank_enabled", False)),
+                "score_weights": dict(raw.get("score_weights") or {}),
+                "trace_scores": bool(raw.get("trace_scores", False)),
+                "fallback_without_model": bool(raw.get("fallback_without_model", True)),
+            },
+        ))
+        graph.add_to_view(VIEW_CONTEXT_PIPELINE, node_id)
+        graph.add_to_view(VIEW_EFFECTIVE_CONFIG, node_id)
+        if "context_source::codecompass" in graph.nodes:
+            graph.add_edge(ConfigGraphEdge(
+                source="context_source::codecompass",
+                target=node_id,
+                edge_type=EDGE_USES_CONTEXT_SOURCE,
+            ))
+        if "restricted_inference::root" in graph.nodes:
+            graph.add_edge(ConfigGraphEdge(
+                source=node_id,
+                target="restricted_inference::root",
+                edge_type=EDGE_USES_RESTRICTED_INFERENCE,
+            ))
 
     # ── Planning templates ────────────────────────────────────────────────────
 
@@ -946,7 +1087,9 @@ class ConfigGraphBuilderService:
             if node.runtime_active and node.node_type in (
                 NODE_AGENT_PROFILE, NODE_INSTRUCTION_LAYER, NODE_TOOL_GROUP,
                 NODE_PATH_RULE, NODE_CONTEXT_SOURCE, NODE_EMBEDDING_MODEL,
-                NODE_MODEL_PROVIDER,
+                NODE_MODEL_PROVIDER, NODE_RESTRICTED_INFERENCE_ROOT,
+                NODE_RESTRICTED_INFERENCE_MODEL, NODE_RESTRICTED_INFERENCE_TASK,
+                NODE_CODECOMPASS_RANKING,
             ):
                 graph.add_to_view(VIEW_EFFECTIVE_CONFIG, nid)
 

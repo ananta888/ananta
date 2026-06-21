@@ -1,10 +1,10 @@
 {
-  "$schema": "./todo.track.schema.json",
+  "$schema": "../todo.track.schema.json",
   "version": "1.0",
   "owner": "Peter Stuiber / Ananta",
   "track": "rtipm-backend-adapters",
   "created": "2026-06-19",
-  "status": "planned",
+  "status": "done",
   "priority": "P0",
   "title": "RTIPM Backend Config und lokale Adapter fertigstellen",
   "purpose": "Die vorhandene Restricted Transformer Inference Basis backendseitig fertigstellen: zentrale Config, Adapter Registry, echte optionale lokale Adapter, Service-Verdrahtung, sichere Defaults und Tests.",
@@ -35,7 +35,7 @@
     {
       "id": "RTIPM-BE-001",
       "title": "Ist-Zustand Backend abgleichen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "acceptance_criteria": [
         "Alle Dateien unter agent/services/model_inference_adapters sind geprueft.",
@@ -48,7 +48,7 @@
     {
       "id": "RTIPM-BE-002",
       "title": "RestrictedInferenceConfigService einfuehren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "target_files": [
         "agent/services/restricted_inference_config_service.py",
@@ -67,7 +67,7 @@
     {
       "id": "RTIPM-BE-003",
       "title": "Adapter Registry und Factory bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "target_files": [
         "agent/services/model_inference_adapter_registry.py",
@@ -86,7 +86,7 @@
     {
       "id": "RTIPM-BE-004",
       "title": "SentenceTransformersAdapter implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "target_files": [
         "agent/services/model_inference_adapters/sentence_transformers_adapter.py",
@@ -105,7 +105,7 @@
     {
       "id": "RTIPM-BE-005",
       "title": "HuggingFaceTransformersAdapter implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "target_files": [
         "agent/services/model_inference_adapters/huggingface_transformers_adapter.py",
@@ -124,7 +124,7 @@
     {
       "id": "RTIPM-BE-006",
       "title": "OnnxRuntimeAdapter implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "target_files": [
         "agent/services/model_inference_adapters/onnxruntime_adapter.py",
@@ -143,7 +143,7 @@
     {
       "id": "RTIPM-BE-007",
       "title": "PyTorchAdapter implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "target_files": [
         "agent/services/model_inference_adapters/pytorch_adapter.py",
@@ -162,7 +162,7 @@
     {
       "id": "RTIPM-BE-008",
       "title": "RestrictedModelInferenceService mit Config verdrahten",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "target_files": [
         "agent/services/restricted_model_inference_service.py",
@@ -181,7 +181,7 @@
     {
       "id": "RTIPM-BE-009",
       "title": "Dependency Extras definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "target_files": [
         "pyproject.toml",

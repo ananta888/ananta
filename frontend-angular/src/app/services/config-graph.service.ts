@@ -7,6 +7,7 @@ import {
   EffectiveConfig,
   HubWorkerGraph,
   PatchOp,
+  RestrictedInferenceStatus,
   ValidationResult,
 } from '../models/config-graph.model';
 import { AgentDirectoryService } from './agent-directory.service';
@@ -29,6 +30,10 @@ export class ConfigGraphService {
   getHubWorkerGraph(path?: string | null): Observable<HubWorkerGraph> {
     const query = path ? `?path=${encodeURIComponent(path)}` : '';
     return this.http.get<HubWorkerGraph>(`${this.baseUrl}/hub-worker${query}`);
+  }
+
+  getRestrictedInferenceStatus(): Observable<RestrictedInferenceStatus> {
+    return this.http.get<RestrictedInferenceStatus>(`${this.baseUrl}/restricted-inference/status`);
   }
 
   updateHubWorkerConfig(
@@ -71,7 +76,7 @@ export class ConfigGraphService {
   }
 
   createConfigEntry(
-    entryType: 'agent_profile' | 'path_rule',
+    entryType: 'agent_profile' | 'path_rule' | 'restricted_inference_model' | 'restricted_inference_task',
     data: Record<string, unknown>,
   ): Observable<ConfigGraph> {
     return this.http.post<ConfigGraph>(`${this.baseUrl}/create-config-entry`, { entry_type: entryType, data });

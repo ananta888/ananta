@@ -19,11 +19,15 @@ from agent.services.config_graph_builder_service import (
     EDGE_INHERITS_FROM,
     EDGE_USES_PROFILE,
     NODE_AGENT_PROFILE,
+    NODE_CODECOMPASS_RANKING,
     NODE_EMBEDDING_MODEL,
     NODE_GOAL_TEMPLATE,
     NODE_INSTRUCTION_LAYER,
     NODE_MODEL_PROVIDER,
     NODE_PATH_RULE,
+    NODE_RESTRICTED_INFERENCE_MODEL,
+    NODE_RESTRICTED_INFERENCE_ROOT,
+    NODE_RESTRICTED_INFERENCE_TASK,
     NODE_ROLE,
     NODE_SURFACE,
     NODE_TASK_KIND,
@@ -240,6 +244,38 @@ def test_no_path_rules_adds_diagnostic():
     tmp = make_temp_repo()
     graph = ConfigGraphBuilderService(repo_root=tmp).build()
     assert any("path_ai_modes" in d for d in graph.diagnostics)
+
+
+def test_rtipm_nodes_added_from_config():
+    tmp = make_temp_repo()
+    cfg = {
+        "restricted_inference": {
+            "enabled": True,
+            "models": [
+                {
+                    "id": "mock-reranker",
+                    "engine": "mock",
+                    "model": "mock-deterministic-v1",
+                    "tasks": ["candidate_rerank"],
+                }
+            ],
+            "tasks": {
+                "candidate_rerank": {"enabled": True, "preferred_engine": "mock"}
+            },
+        },
+        "codecompass_ranking": {
+            "restricted_inference_rerank_enabled": True,
+            "trace_scores": True,
+        },
+    }
+
+    graph = ConfigGraphBuilderService(repo_root=tmp, user_config=cfg).build()
+
+    assert graph.nodes["restricted_inference::root"].node_type == NODE_RESTRICTED_INFERENCE_ROOT
+    assert graph.nodes["restricted_inference_model::mock-reranker"].node_type == NODE_RESTRICTED_INFERENCE_MODEL
+    assert graph.nodes["restricted_inference_task::candidate_rerank"].node_type == NODE_RESTRICTED_INFERENCE_TASK
+    assert graph.nodes["codecompass_ranking::default"].node_type == NODE_CODECOMPASS_RANKING
+    assert graph.nodes["restricted_inference::root"].source_pointer == "/restricted_inference"
 
 
 def test_path_rule_in_policy_view():

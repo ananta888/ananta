@@ -1,0 +1,28 @@
+{
+  "path_ai_modes": [
+    {
+      "path_glob": "agent/services/**",
+      "allowed_ai_modes": ["codecompass_only", "embedding_only", "restricted_transformer_inference", "deterministic_only"],
+      "blocked_ai_modes": ["full_llm", "direct_llm", "chat_generation", "code_generation"],
+      "allowed_model_engines": ["mock", "pytorch", "onnxruntime"],
+      "allow_hidden_states": false,
+      "allow_logits": false,
+      "allow_attention": false,
+      "allow_free_text_generation": false,
+      "allow_tool_decision_from_model_text": false,
+      "allow_code_generation": false,
+      "require_controlled_write_policy": true,
+      "max_input_chars": 12000,
+      "max_batch_size": 16,
+      "llm_scope": "local_only",
+      "priority": 100
+    },
+    {
+      "path_glob": "docs/**",
+      "allowed_ai_modes": ["codecompass_only", "embedding_only", "restricted_transformer_inference"],
+      "blocked_ai_modes": ["code_generation"],
+      "allow_free_text_generation": true,
+      "priority": 20
+    }
+  ]
+}

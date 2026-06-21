@@ -33,6 +33,10 @@ class ScoredCandidate:
     recency_bonus: float = 0.0
     policy_penalty: float = 0.0       # negative value when policy flags candidate
     sensitivity_penalty: float = 0.0  # negative value for sensitive paths
+    transformer_rerank_score: float = 0.0
+    transformer_model_id: str = ""
+    transformer_engine: str = ""
+    score_trace: dict[str, Any] = field(default_factory=dict)
 
     # Derived
     final_score: float = 0.0
@@ -71,6 +75,10 @@ class ScoredCandidate:
             recency_bonus=self.recency_bonus,
             policy_penalty=self.policy_penalty,
             sensitivity_penalty=self.sensitivity_penalty,
+            transformer_rerank_score=self.transformer_rerank_score,
+            transformer_model_id=self.transformer_model_id,
+            transformer_engine=self.transformer_engine,
+            score_trace=dict(self.score_trace),
             final_score=round(max(0.0, min(1.0, score)), 6),
             policy_denied=self.policy_denied,
             reason=self.reason,

@@ -79,6 +79,27 @@ lc-lg = [
     "langchain-core>=0.3,<0.4",
     "langgraph>=0.2,<0.3",
 ]
+rtipm-sentence-transformers = [
+    "sentence-transformers>=3,<4",
+]
+rtipm-huggingface = [
+    "transformers>=4.40,<5",
+    "torch>=2.2",
+]
+rtipm-onnxruntime = [
+    "onnxruntime>=1.17,<2",
+    "transformers>=4.40,<5",
+]
+rtipm-pytorch = [
+    "torch>=2.2",
+    "transformers>=4.40,<5",
+]
+rtipm-all = [
+    "sentence-transformers>=3,<4",
+    "transformers>=4.40,<5",
+    "torch>=2.2",
+    "onnxruntime>=1.17,<2",
+]
 
 [project.scripts]
 ananta = "agent.cli.main:main"

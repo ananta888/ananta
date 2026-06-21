@@ -47,6 +47,15 @@ from agent.services.path_ai_mode_policy_service import (
     PathAiModePolicyService,
     get_path_ai_mode_policy_service,
 )
+from agent.services.restricted_inference_config_service import (
+    TASK_CANDIDATE_RERANK,
+    TASK_CHOICE_SCORE,
+    TASK_CLASSIFY,
+    TASK_PATH_DOMAIN_CLASSIFY,
+    TASK_RISK_SCORE,
+    RestrictedInferenceConfig,
+    RestrictedInferenceConfigService,
+)
 
 log = logging.getLogger(__name__)
 
@@ -72,6 +81,15 @@ _OP_TO_CAP: dict[str, str] = {
     OP_RISK_SCORE: CAP_CLASSIFICATION,
 }
 
+_OP_TO_TASK: dict[str, str] = {
+    OP_EMBED: TASK_CANDIDATE_RERANK,
+    OP_CLASSIFY: TASK_CLASSIFY,
+    OP_RERANK: TASK_CANDIDATE_RERANK,
+    OP_SCORE_CHOICES: TASK_CHOICE_SCORE,
+    OP_EXTRACT_FEATURES: TASK_PATH_DOMAIN_CLASSIFY,
+    OP_RISK_SCORE: TASK_RISK_SCORE,
+}
+
 
 # ── Audit event ───────────────────────────────────────────────────────────────
 
@@ -80,11 +98,14 @@ class InferenceAuditEvent:
     event_id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     event: str = ""
     operation: str = ""
+    task_id: str = ""
     adapter_engine: str = ""
     model_id: str = ""
     path: str = ""
     latency_ms: float = 0.0
     reason_code: str = ""
+    fallback_used: bool = False
+    matched_rule: str = ""
     ts: float = field(default_factory=time.time)
 
     def to_dict(self) -> dict[str, Any]:
@@ -92,11 +113,15 @@ class InferenceAuditEvent:
             "event_id": self.event_id,
             "event": self.event,
             "operation": self.operation,
+            "task_id": self.task_id,
+            "engine": self.adapter_engine,
             "adapter_engine": self.adapter_engine,
             "model_id": self.model_id,
             "path": self.path,
             "latency_ms": round(self.latency_ms, 2),
             "reason_code": self.reason_code,
+            "fallback_used": self.fallback_used,
+            "matched_rule": self.matched_rule,
             "ts": self.ts,
         }
 
@@ -216,10 +241,20 @@ class RestrictedModelInferenceService:
         adapters: list[BaseInferenceAdapter] | None = None,
         policy_service: PathAiModePolicyService | None = None,
         use_mock_fallback: bool = True,
+        config: RestrictedInferenceConfig | None = None,
+        config_service: RestrictedInferenceConfigService | None = None,
+        adapter_registry: Any | None = None,
     ) -> None:
-        self._adapters: list[BaseInferenceAdapter] = list(adapters or [])
+        self._config = config or (config_service.resolve() if config_service else None)
+        self._registry = adapter_registry
+        configured_adapters: list[BaseInferenceAdapter] = []
+        if self._config and self._registry:
+            configured_adapters = self._registry.build_many(self._config.models)
+        self._adapters: list[BaseInferenceAdapter] = list(adapters or configured_adapters)
         self._policy = policy_service or get_path_ai_mode_policy_service()
-        self._mock = MockInferenceAdapter() if use_mock_fallback else None
+        allow_fallback = self._config.allow_mock_fallback if self._config else use_mock_fallback
+        self._enabled = self._config.enabled if self._config else True
+        self._mock = MockInferenceAdapter() if allow_fallback else None
         self._audit_log: list[InferenceAuditEvent] = []
 
     def add_adapter(self, adapter: BaseInferenceAdapter) -> None:
@@ -237,8 +272,9 @@ class RestrictedModelInferenceService:
     # ── Gated operations ──────────────────────────────────────────────────────
 
     def embed(self, texts: list[str], *, path: str = "") -> list[list[float]]:
+        self._check_enabled(OP_EMBED, path)
         self._check_policy(path, OP_EMBED)
-        adapter = self._pick(OP_EMBED)
+        adapter = self._pick(OP_EMBED, path)
         t0 = time.time()
         result = adapter.embed(texts)
         self._audit(OP_EMBED, adapter, path, (time.time() - t0) * 1000, "ok")
@@ -247,8 +283,9 @@ class RestrictedModelInferenceService:
     def classify(
         self, text: str, labels: list[str], *, path: str = ""
     ) -> ClassificationResult:
+        self._check_enabled(OP_CLASSIFY, path)
         self._check_policy(path, OP_CLASSIFY)
-        adapter = self._pick(OP_CLASSIFY)
+        adapter = self._pick(OP_CLASSIFY, path)
         t0 = time.time()
         result = adapter.classify(text, labels)
         self._audit(OP_CLASSIFY, adapter, path, (time.time() - t0) * 1000, "ok")
@@ -257,8 +294,9 @@ class RestrictedModelInferenceService:
     def rerank(
         self, query: str, candidates: list[dict[str, Any]], *, path: str = ""
     ) -> list[RerankResult]:
+        self._check_enabled(OP_RERANK, path)
         self._check_policy(path, OP_RERANK)
-        adapter = self._pick(OP_RERANK)
+        adapter = self._pick(OP_RERANK, path)
         t0 = time.time()
         result = adapter.rerank(query, candidates)
         self._audit(OP_RERANK, adapter, path, (time.time() - t0) * 1000, "ok")
@@ -269,8 +307,9 @@ class RestrictedModelInferenceService:
     ) -> list[ChoiceScore]:
         if not choices:
             raise ValueError("score_choices requires at least one choice")
+        self._check_enabled(OP_SCORE_CHOICES, path)
         self._check_policy(path, OP_SCORE_CHOICES)
-        adapter = self._pick(OP_SCORE_CHOICES)
+        adapter = self._pick(OP_SCORE_CHOICES, path)
         t0 = time.time()
         result = adapter.score_choices(prompt, choices)
         self._audit(OP_SCORE_CHOICES, adapter, path, (time.time() - t0) * 1000, "ok")
@@ -278,8 +317,9 @@ class RestrictedModelInferenceService:
         return result
 
     def extract_features(self, text: str, *, path: str = "") -> FeatureVector:
+        self._check_enabled(OP_EXTRACT_FEATURES, path)
         self._check_policy(path, OP_EXTRACT_FEATURES)
-        adapter = self._pick(OP_EXTRACT_FEATURES)
+        adapter = self._pick(OP_EXTRACT_FEATURES, path)
         t0 = time.time()
         result = adapter.extract_features(text)
         self._audit(OP_EXTRACT_FEATURES, adapter, path, (time.time() - t0) * 1000, "ok")
@@ -288,8 +328,9 @@ class RestrictedModelInferenceService:
     def risk_score(
         self, input_dict: dict[str, Any], *, path: str = ""
     ) -> RiskScoreResult:
+        self._check_enabled(OP_RISK_SCORE, path)
         self._check_policy(path, OP_RISK_SCORE)
-        adapter = self._pick(OP_RISK_SCORE)
+        adapter = self._pick(OP_RISK_SCORE, path)
         t0 = time.time()
         result = adapter.risk_score(input_dict)
         self._audit(OP_RISK_SCORE, adapter, path, (time.time() - t0) * 1000, "ok")
@@ -302,20 +343,44 @@ class RestrictedModelInferenceService:
             return
         policy = self._policy.resolve(path)
         if not policy.is_mode_allowed(AI_MODE_RESTRICTED_TRANSFORMER):
-            self._audit_blocked(op, path, "policy_blocked_restricted_transformer")
+            self._audit_blocked(
+                op,
+                path,
+                "policy_blocked_restricted_transformer",
+                policy.matched_rule.path_glob if policy.matched_rule else "",
+            )
             raise self.InferenceBlockedError(
                 f"restricted_transformer_inference blocked for path={path!r} "
                 f"by policy rule={policy.matched_rule}"
             )
 
-    def _pick(self, op: str) -> BaseInferenceAdapter:
+    def _check_enabled(self, op: str, path: str) -> None:
+        if not self._enabled:
+            self._audit_blocked(op, path, "restricted_inference_disabled")
+            raise self.InferenceBlockedError("restricted_inference is disabled")
+        task_id = _OP_TO_TASK.get(op)
+        if self._config and task_id:
+            task = self._config.tasks.get(task_id)
+            if task and not task.enabled:
+                self._audit_blocked(op, path, "task_disabled")
+                raise self.InferenceBlockedError(f"restricted inference task disabled: {task_id}")
+
+    def _pick(self, op: str, path: str = "") -> BaseInferenceAdapter:
         cap = _OP_TO_CAP.get(op, "")
+        allowed_engines: set[str] | None = None
+        if path:
+            policy = self._policy.resolve(path)
+            if policy.allowed_model_engines:
+                allowed_engines = set(policy.allowed_model_engines)
         for adapter in self._adapters:
             st = adapter.status()
+            if allowed_engines and st.engine not in allowed_engines:
+                continue
             if st.status == "ready" and st.has_capability(cap):
                 return adapter
         if self._mock:
             log.debug("RestrictedModelInferenceService: using mock fallback for op=%s", op)
+            self._audit_degraded(op, path, "mock_fallback_used")
             return self._mock
         raise self.NoDegradedFallbackError(
             f"No adapter available for operation={op!r} and mock fallback is disabled"
@@ -328,6 +393,7 @@ class RestrictedModelInferenceService:
         ev = InferenceAuditEvent(
             event="model_inference_finished",
             operation=op,
+            task_id=_OP_TO_TASK.get(op, ""),
             adapter_engine=st.engine,
             model_id=st.model_id,
             path=path,
@@ -336,18 +402,33 @@ class RestrictedModelInferenceService:
         )
         self._audit_log.append(ev)
 
-    def _audit_blocked(self, op: str, path: str, reason: str) -> None:
+    def _audit_blocked(self, op: str, path: str, reason: str, matched_rule: str = "") -> None:
         ev = InferenceAuditEvent(
             event="model_inference_blocked",
             operation=op,
+            task_id=_OP_TO_TASK.get(op, ""),
             path=path,
             reason_code=reason,
+            matched_rule=matched_rule,
         )
         self._audit_log.append(ev)
         log.warning(
             "RestrictedModelInferenceService: inference blocked op=%s path=%r reason=%s",
             op, path, reason,
         )
+
+    def _audit_degraded(self, op: str, path: str, reason: str) -> None:
+        ev = InferenceAuditEvent(
+            event="model_inference_degraded",
+            operation=op,
+            task_id=_OP_TO_TASK.get(op, ""),
+            adapter_engine="mock",
+            model_id=MockInferenceAdapter.MODEL_ID,
+            path=path,
+            reason_code=reason,
+            fallback_used=True,
+        )
+        self._audit_log.append(ev)
 
 
 # ── Validation helper ─────────────────────────────────────────────────────────

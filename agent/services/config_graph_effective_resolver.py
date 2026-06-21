@@ -24,10 +24,14 @@ from agent.services.config_graph_builder_service import (
     EDGE_USES_PROFILE,
     EDGE_USES_TEMPLATE,
     NODE_AGENT_PROFILE,
+    NODE_CODECOMPASS_RANKING,
+    NODE_EMBEDDING_MODEL,
     NODE_GOAL_TEMPLATE,
     NODE_INSTRUCTION_LAYER,
     NODE_PATH_RULE,
     NODE_POLICY,
+    NODE_RESTRICTED_INFERENCE_ROOT,
+    NODE_RESTRICTED_INFERENCE_TASK,
     NODE_TOOL,
     NODE_TOOL_GROUP,
 )
@@ -50,6 +54,12 @@ class EffectiveConfig:
     # Effective AI modes (allowed/blocked) for path
     effective_ai_modes_allowed: list[str] = field(default_factory=list)
     effective_ai_modes_blocked: list[str] = field(default_factory=list)
+    allowed_model_engines: list[str] = field(default_factory=list)
+    matched_path_rule: dict[str, Any] | None = None
+    reason_codes: list[str] = field(default_factory=list)
+    effective_embedding_provider: dict[str, Any] | None = None
+    effective_restricted_inference_tasks: dict[str, Any] = field(default_factory=dict)
+    effective_codecompass_ranking: dict[str, Any] | None = None
     # Activated tools
     tools_allowed: list[str] = field(default_factory=list)
     # Tool policy diagnostics
@@ -73,6 +83,12 @@ class EffectiveConfig:
             "goal_template": self.goal_template,
             "effective_ai_modes_allowed": self.effective_ai_modes_allowed,
             "effective_ai_modes_blocked": self.effective_ai_modes_blocked,
+            "allowed_model_engines": self.allowed_model_engines,
+            "matched_path_rule": self.matched_path_rule,
+            "reason_codes": self.reason_codes,
+            "effective_embedding_provider": self.effective_embedding_provider,
+            "effective_restricted_inference_tasks": self.effective_restricted_inference_tasks,
+            "effective_codecompass_ranking": self.effective_codecompass_ranking,
             "tools_allowed": self.tools_allowed,
             "tool_policy_missing": self.tool_policy_missing,
             "policies_active": self.policies_active,
@@ -197,6 +213,10 @@ class EffectiveConfigResolver:
                         all_allowed = (all_allowed & allowed) if all_allowed is not None else allowed
                 result.effective_ai_modes_blocked = sorted(all_blocked)
                 result.effective_ai_modes_allowed = sorted(all_allowed or set())
+                winner = path_rules[0]
+                result.matched_path_rule = winner
+                result.allowed_model_engines = sorted(winner.get("allowed_model_engines") or [])
+                result.reason_codes = [f"matched_glob:{winner.get('path_glob')}"]
                 if all_blocked and not (all_allowed or set()) - all_blocked:
                     result.warnings.append(
                         f"Path {path!r} has all modes blocked — only deterministic ops available"
@@ -204,6 +224,9 @@ class EffectiveConfigResolver:
 
         # 5. Active policies
         result.policies_active = self._collect_policies(profile_node_id)
+        result.effective_embedding_provider = self._collect_single_node_data(NODE_EMBEDDING_MODEL)
+        result.effective_codecompass_ranking = self._collect_single_node_data(NODE_CODECOMPASS_RANKING)
+        result.effective_restricted_inference_tasks = self._collect_restricted_tasks()
 
         return result
 
@@ -251,7 +274,25 @@ class EffectiveConfigResolver:
                 glob.endswith("/**") and norm.startswith(glob[:-3])
             ):
                 matched.append({"node_id": nid, **node.data})
+        matched.sort(key=lambda item: int(item.get("priority") or 0), reverse=True)
         return matched
+
+    def _collect_single_node_data(self, node_type: str) -> dict[str, Any] | None:
+        for nid, node in self._graph.nodes.items():
+            if node.node_type == node_type and node.runtime_active:
+                return {"node_id": nid, **node.data}
+        return None
+
+    def _collect_restricted_tasks(self) -> dict[str, Any]:
+        tasks: dict[str, Any] = {}
+        root = self._collect_single_node_data(NODE_RESTRICTED_INFERENCE_ROOT)
+        if root is not None:
+            tasks["_root"] = root
+        for nid, node in self._graph.nodes.items():
+            if node.node_type == NODE_RESTRICTED_INFERENCE_TASK:
+                task_id = str(node.data.get("id") or nid.rsplit("::", 1)[-1])
+                tasks[task_id] = {"node_id": nid, **node.data}
+        return tasks
 
     def _collect_policies(self, profile_node_id: str | None) -> list[dict[str, Any]]:
         policies: list[dict[str, Any]] = []

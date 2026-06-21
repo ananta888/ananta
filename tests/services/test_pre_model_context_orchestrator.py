@@ -25,6 +25,8 @@ from agent.services.pre_model_context_config import (
     MODE_PREFER_DETERMINISTIC,
     MODE_WORKER_DECIDES,
 )
+from agent.services.path_ai_mode_policy_service import PathAiModePolicyService, PathAiModeRule
+from agent.services.restricted_model_inference_service import MockInferenceAdapter, RestrictedModelInferenceService
 
 
 def _cfg(mode: str = "disabled", *, surface: str = "", surface_mode: str = "") -> dict:
@@ -129,6 +131,76 @@ class TestPreferContextMode:
         event_names = [e.event for e in result.trace.events]
         assert "config_resolved" in event_names
         assert "task_classified" in event_names
+
+    def test_prefer_context_can_apply_restricted_rerank_with_trace(self):
+        svc = RestrictedModelInferenceService(
+            adapters=[MockInferenceAdapter()],
+            policy_service=PathAiModePolicyService(),
+            use_mock_fallback=False,
+        )
+        orc = PreModelContextOrchestrator(
+            retrieve_fn=lambda _t, _d, _w, _b: [
+                {"path": "b.py", "record_id": "b", "excerpt": "logging", "embedding_score": 0.9},
+                {"path": "a.py", "record_id": "a", "excerpt": "authentication", "embedding_score": 0.1},
+            ],
+            restricted_inference_service=svc,
+        )
+
+        result = orc.orchestrate(
+            task_text="authentication",
+            user_config={
+                "pre_model_context": {"enabled": True, "mode": MODE_PREFER_CONTEXT},
+                "codecompass_ranking": {
+                    "restricted_inference_rerank_enabled": True,
+                    "trace_scores": True,
+                    "score_weights": {
+                        "embedding_score": 0.0,
+                        "graph_score": 0.0,
+                        "symbol_score": 0.0,
+                        "transformer_rerank_score": 1.0,
+                        "policy_penalty": -0.2,
+                    },
+                },
+            },
+        )
+
+        assert result.decision == DECISION_USE_CONTEXT
+        assert result.context_package is not None
+        payload = result.context_package.to_dict()["candidates"][0]
+        assert "score_trace" in payload
+        assert payload["transformer_engine"] == "mock"
+
+    def test_restricted_rerank_policy_blocked_falls_back(self):
+        policy = PathAiModePolicyService(rules=[
+            PathAiModeRule.from_raw({
+                "path_glob": "src/**",
+                "blocked_ai_modes": ["restricted_transformer_inference"],
+            })
+        ])
+        svc = RestrictedModelInferenceService(
+            adapters=[MockInferenceAdapter()],
+            policy_service=policy,
+            use_mock_fallback=False,
+        )
+        orc = PreModelContextOrchestrator(
+            retrieve_fn=lambda _t, _d, _w, _b: [
+                {"path": "src/a.py", "record_id": "a", "excerpt": "auth", "embedding_score": 0.9},
+            ],
+            restricted_inference_service=svc,
+            path_policy_service=policy,
+        )
+
+        result = orc.orchestrate(
+            task_text="auth",
+            user_config={
+                "pre_model_context": {"enabled": True, "mode": MODE_PREFER_CONTEXT},
+                "codecompass_ranking": {"restricted_inference_rerank_enabled": True},
+            },
+        )
+
+        assert result.decision == DECISION_USE_CONTEXT
+        assert result.trace is not None
+        assert any(event.event == "restricted_rerank_policy_blocked" for event in result.trace.events)
 
 
 class TestDeterministicOnlyMode:

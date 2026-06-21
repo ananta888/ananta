@@ -94,6 +94,44 @@ def get_hub_worker_graph():
     return jsonify(graph)
 
 
+@config_graph_bp.get("/restricted-inference/status")
+def get_restricted_inference_status():
+    """Return restricted inference config, adapter and diagnostic status."""
+    cfg = _read_user_json_config()
+    from agent.services.model_inference_adapter_registry import get_model_inference_adapter_registry
+    from agent.services.restricted_inference_config_service import RestrictedInferenceConfigService
+
+    config_service = RestrictedInferenceConfigService(global_config=cfg)
+    restricted_cfg = config_service.resolve()
+    registry = get_model_inference_adapter_registry()
+    statuses = registry.statuses(restricted_cfg.models)
+    dependency_status = {
+        status.engine: status.status
+        for status in statuses
+    }
+    diagnostics = config_service.diagnostics(dependency_status=dependency_status)
+    return jsonify({
+        "adapters": [
+            {
+                "name": status.name,
+                "engine": status.engine,
+                "status": status.status,
+                "capabilities": sorted(status.capabilities),
+                "model_id": status.model_id,
+                "device": status.device,
+                "revision": status.revision,
+                "error": status.error,
+            }
+            for status in statuses
+        ],
+        "engines": registry.engines(),
+        "capabilities": registry.capabilities(),
+        "models": [model.as_dict(redact_secrets=True) for model in restricted_cfg.models],
+        "diagnostics": [item.as_dict() for item in diagnostics],
+        "config_hash": restricted_cfg.config_hash(),
+    })
+
+
 @config_graph_bp.post("/instruction-layer/diff")
 def diff_instruction_layer():
     """Return a review diff for AGENTS.md-style instruction edits.
@@ -289,7 +327,7 @@ def create_config_entry():
 
     Body
     ----
-    { entry_type: "path_rule" | "agent_profile", data: { ... } }
+    { entry_type: "path_rule" | "agent_profile" | "restricted_inference_model" | "restricted_inference_task", data: { ... } }
 
     Returns the refreshed config graph on success.
     """
@@ -297,10 +335,10 @@ def create_config_entry():
     entry_type = str(body.get("entry_type") or "")
     data = dict(body.get("data") or {})
 
-    if entry_type not in ("path_rule", "agent_profile"):
+    if entry_type not in ("path_rule", "agent_profile", "restricted_inference_model", "restricted_inference_task"):
         return jsonify({"error": f"Unknown entry_type: {entry_type!r}"}), 400
 
-    node_id = str(data.get("profile_id") or data.get("path_glob") or entry_type)
+    node_id = str(data.get("profile_id") or data.get("path_glob") or data.get("id") or entry_type)
     op = PatchOp(
         op="add_node",
         target=f"{entry_type}::{node_id}",

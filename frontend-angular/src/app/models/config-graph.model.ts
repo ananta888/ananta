@@ -78,12 +78,27 @@ export interface EffectiveConfig {
   goal_template: Record<string, unknown> | null;
   effective_ai_modes_allowed: string[];
   effective_ai_modes_blocked: string[];
+  allowed_model_engines: string[];
+  matched_path_rule: Record<string, unknown> | null;
+  reason_codes: string[];
+  effective_embedding_provider: Record<string, unknown> | null;
+  effective_restricted_inference_tasks: Record<string, unknown>;
+  effective_codecompass_ranking: Record<string, unknown> | null;
   tools_allowed: string[];
   tool_policy_missing: boolean;
   policies_active: Array<Record<string, unknown>>;
   merge_trace: Array<Record<string, unknown>>;
   warnings: string[];
   effective_node_ids: string[];
+}
+
+export interface RestrictedInferenceStatus {
+  adapters: Array<Record<string, unknown>>;
+  engines: string[];
+  capabilities: Record<string, string[]>;
+  models: Array<Record<string, unknown>>;
+  diagnostics: Array<Record<string, unknown>>;
+  config_hash: string;
 }
 
 export interface PatchOp {
@@ -144,7 +159,10 @@ export const NODE_TYPE_COLORS: Record<string, string> = {
   rag_profile: '#4527A0',
   embedding_model: '#283593',
   model_provider: '#1A237E',
+  restricted_inference: '#6A1B9A',
   restricted_inference_model: '#880E4F',
+  restricted_inference_task: '#AD1457',
+  codecompass_ranking: '#0277BD',
   worker_backend: '#1B5E20',
   model_profile: '#0D47A1',
   default: '#616161',

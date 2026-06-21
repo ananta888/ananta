@@ -32,7 +32,8 @@ interface ViewMeta { id: ViewId; label: string; color: string; description: stri
 interface CloneFormField { key: string; label: string; type: 'text' | 'select'; options?: string[]; hint?: string; }
 interface CloneFormState {
   sourceNode: ConfigGraphNode | null;
-  entryType: 'agent_profile' | 'path_rule';
+  entryType: 'agent_profile' | 'path_rule' | 'restricted_inference_model' | 'restricted_inference_task';
+  mode: 'create' | 'clone' | 'edit';
   fields: CloneFormField[];
   values: Record<string, string>;
   saving: boolean;
@@ -61,11 +62,11 @@ const VIEW_PRIMARY_TYPES: Partial<Record<ViewId, string[]>> = {
   [VIEW_IDS.policyPath]:        ['path_rule'],
   [VIEW_IDS.planningFlow]:      ['goal_template'],
   [VIEW_IDS.agentRuntime]:      ['model_provider', 'tool_group'],
-  [VIEW_IDS.contextPipeline]:   ['context_source', 'codecompass_profile', 'rag_profile', 'embedding_model', 'restricted_inference_model'],
-  [VIEW_IDS.effectiveConfig]:   ['agent_profile', 'path_rule', 'goal_template', 'model_provider'],
+  [VIEW_IDS.contextPipeline]:   ['context_source', 'codecompass_profile', 'rag_profile', 'embedding_model', 'restricted_inference', 'restricted_inference_model', 'restricted_inference_task', 'codecompass_ranking'],
+  [VIEW_IDS.effectiveConfig]:   ['agent_profile', 'path_rule', 'goal_template', 'model_provider', 'embedding_model', 'restricted_inference', 'restricted_inference_model', 'restricted_inference_task', 'codecompass_ranking'],
 };
 
-const CLONEABLE = new Set(['agent_profile', 'path_rule']);
+const CLONEABLE = new Set(['agent_profile', 'path_rule', 'restricted_inference_model', 'restricted_inference_task']);
 
 const PATH_CHARACTER_STYLES: Record<string, { label: string; color: string; bg: string }> = {
   test:        { label: 'Testpfad',        color: '#fff', bg: '#006064' },
@@ -85,9 +86,10 @@ const PATH_CHARACTER_STYLES: Record<string, { label: string; color: string; bg: 
 const POLICY_PATH_SUGGESTIONS = [
   { glob: 'tests/**',          blocked: 'full_llm',              hint: 'Testdateien — LLM-Generierung einschränken' },
   { glob: 'docs/**',           blocked: 'code_gen',              hint: 'Dokumentation — keine Code-Generierung' },
+  { glob: 'agent/services/**',  blocked: 'full_llm,direct_llm',  hint: 'Sensible Source-Pfade — nur eingeschränkte Analyse' },
   { glob: 'agent/routes/**',   blocked: 'full_llm',              hint: 'API-Routen — sicherheitskritisch' },
   { glob: 'agent/bootstrap/**',blocked: 'full_llm,code_gen',     hint: 'Bootstrap — nur lesende KI-Unterstützung' },
-  { glob: '*.json',            blocked: 'free_text',             hint: 'Konfig-Dateien — kein Freitext' },
+  { glob: '*.json',            blocked: 'free_text,code_generation', hint: 'Konfig-Dateien — kein Freitext' },
 ];
 
 const CLONE_DEFS: Record<string, CloneFormField[]> = {
@@ -103,8 +105,67 @@ const CLONE_DEFS: Record<string, CloneFormField[]> = {
     { key: 'path_glob',                  label: 'Pfad-Muster (Glob)',      type: 'text',   hint: 'z.B. agent/routes/** oder src/security/**' },
     { key: 'blocked_ai_modes',           label: 'Gesperrte KI-Modi',       type: 'text',   hint: 'Kommagetrennt: full_llm, restricted, code_gen' },
     { key: 'allowed_ai_modes',           label: 'Explizit erlaubte Modi',   type: 'text',   hint: 'Leer lassen = alle erlaubt (außer gesperrte)' },
+    { key: 'allowed_model_engines',       label: 'Erlaubte Model-Engines',  type: 'text',   hint: 'Kommagetrennt: mock, pytorch, onnxruntime' },
+    { key: 'allow_hidden_states',         label: 'Hidden States',           type: 'select', options: ['true', 'false'] },
+    { key: 'allow_logits',                label: 'Logits',                  type: 'select', options: ['true', 'false'] },
+    { key: 'allow_attention',             label: 'Attention',               type: 'select', options: ['true', 'false'] },
     { key: 'allow_free_text_generation', label: 'Freitext-Generierung',     type: 'select', options: ['true', 'false'] },
+    { key: 'allow_tool_decision_from_model_text', label: 'Tool-Entscheidung aus Modelltext', type: 'select', options: ['true', 'false'] },
     { key: 'allow_code_generation',      label: 'Code-Generierung',         type: 'select', options: ['true', 'false'] },
+    { key: 'require_controlled_write_policy', label: 'Controlled Write Policy', type: 'select', options: ['false', 'true'] },
+    { key: 'llm_scope',                   label: 'LLM-Scope',               type: 'text' },
+    { key: 'max_input_chars',             label: 'Max Input Chars',         type: 'text' },
+    { key: 'max_batch_size',              label: 'Max Batch Size',          type: 'text' },
+    { key: 'priority',                    label: 'Priorität',               type: 'text' },
+  ],
+  restricted_inference_model: [
+    { key: 'id',         label: 'Model-ID',       type: 'text' },
+    { key: 'engine',     label: 'Engine',         type: 'select', options: ['mock', 'sentence-transformers', 'huggingface-transformers', 'onnxruntime', 'pytorch'] },
+    { key: 'model',      label: 'Modell',         type: 'text' },
+    { key: 'revision',   label: 'Revision',       type: 'text' },
+    { key: 'local_path', label: 'Lokaler Pfad',   type: 'text' },
+    { key: 'device',     label: 'Device',         type: 'select', options: ['cpu', 'auto', 'cuda', 'mps'] },
+    { key: 'enabled',    label: 'Aktiv',          type: 'select', options: ['true', 'false'] },
+    { key: 'tasks',      label: 'Tasks',          type: 'text', hint: 'Kommagetrennt: candidate_rerank, task_classify, risk_score' },
+  ],
+  restricted_inference_task: [
+    { key: 'id',                        label: 'Task-ID',               type: 'text' },
+    { key: 'enabled',                   label: 'Aktiv',                 type: 'select', options: ['true', 'false'] },
+    { key: 'preferred_engine',          label: 'Preferred Engine',      type: 'select', options: ['mock', 'sentence-transformers', 'huggingface-transformers', 'onnxruntime', 'pytorch'] },
+    { key: 'fallback_to_deterministic', label: 'Deterministischer Fallback', type: 'select', options: ['true', 'false'] },
+    { key: 'max_candidates',            label: 'Max Candidates',        type: 'text' },
+    { key: 'labels',                    label: 'Labels',                type: 'text' },
+    { key: 'weight',                    label: 'Gewicht',               type: 'text' },
+  ],
+  embedding_model: [
+    { key: 'provider',               label: 'Provider',              type: 'select', options: ['local_hash', 'local', 'hash', 'fake', 'openai_compatible'] },
+    { key: 'model',                  label: 'Modell',                type: 'text' },
+    { key: 'model_version',          label: 'Modell-Version',        type: 'text' },
+    { key: 'dimensions',             label: 'Dimensionen',           type: 'text' },
+    { key: 'base_url',               label: 'Base URL',              type: 'text' },
+    { key: 'timeout_seconds',        label: 'Timeout Sekunden',      type: 'text' },
+    { key: 'external_calls_allowed', label: 'Externe Calls erlaubt', type: 'select', options: ['false', 'true'] },
+    { key: 'allowed_base_urls',      label: 'Erlaubte Base URLs',    type: 'text' },
+    { key: 'index_rebuild_policy',   label: 'Index Rebuild Policy',  type: 'select', options: ['on_change', 'manual', 'never'] },
+    { key: 'diagnostics_enabled',    label: 'Diagnostics',           type: 'select', options: ['true', 'false'] },
+  ],
+  restricted_inference: [
+    { key: 'enabled',             label: 'Aktiv',              type: 'select', options: ['true', 'false'] },
+    { key: 'default_engine',      label: 'Default Engine',     type: 'select', options: ['mock', 'sentence-transformers', 'huggingface-transformers', 'onnxruntime', 'pytorch'] },
+    { key: 'default_model_id',    label: 'Default Model-ID',   type: 'text' },
+    { key: 'device',              label: 'Device',             type: 'select', options: ['cpu', 'auto', 'cuda', 'mps'] },
+    { key: 'allow_mock_fallback', label: 'Mock-Fallback',      type: 'select', options: ['true', 'false'] },
+    { key: 'allowed_engines',     label: 'Erlaubte Engines',   type: 'text' },
+  ],
+  codecompass_ranking: [
+    { key: 'restricted_inference_rerank_enabled', label: 'RTIPM-Rerank', type: 'select', options: ['false', 'true'] },
+    { key: 'embedding_score',                    label: 'Gewicht Embedding', type: 'text' },
+    { key: 'graph_score',                        label: 'Gewicht Graph', type: 'text' },
+    { key: 'symbol_score',                       label: 'Gewicht Symbol', type: 'text' },
+    { key: 'transformer_rerank_score',           label: 'Gewicht Transformer', type: 'text' },
+    { key: 'policy_penalty',                     label: 'Policy Penalty', type: 'text' },
+    { key: 'trace_scores',                       label: 'Trace Scores', type: 'select', options: ['false', 'true'] },
+    { key: 'fallback_without_model',             label: 'Fallback ohne Modell', type: 'select', options: ['true', 'false'] },
   ],
 };
 
@@ -286,7 +347,7 @@ const CLONE_DEFS: Record<string, CloneFormField[]> = {
                 <button class="breadcrumb-back" (click)="cancelClone()">← Zurück</button>
                 <span class="breadcrumb-sep">/</span>
                 <span class="breadcrumb-label">
-                  {{ cloneState.sourceNode ? 'Klonen: ' + cloneState.sourceNode.label : 'Neu: ' + cloneState.entryType }}
+                  {{ cloneState.mode === 'edit' && cloneState.sourceNode ? 'Bearbeiten: ' + cloneState.sourceNode.label : cloneState.sourceNode ? 'Klonen: ' + cloneState.sourceNode.label : 'Neu: ' + cloneState.entryType }}
                 </span>
               </div>
 
@@ -361,6 +422,9 @@ const CLONE_DEFS: Record<string, CloneFormField[]> = {
                     </div>
                   </div>
                   <div class="detail-head-actions">
+                    <button *ngIf="isEditableConfigNode(selectedConfigItem)" class="button-outline" (click)="startEdit(selectedConfigItem)">
+                      Bearbeiten
+                    </button>
                     <button *ngIf="isCloneable(selectedConfigItem)" class="button-outline" (click)="startClone(selectedConfigItem)">
                       ⎘ Klonen & anpassen
                     </button>
@@ -473,7 +537,7 @@ const CLONE_DEFS: Record<string, CloneFormField[]> = {
                   <div *ngFor="let f of cloneState.fields" class="cf-field">
                     <label class="cf-field-label">
                       {{ f.label }}
-                      <span *ngIf="f.key==='profile_id' || f.key==='path_glob'" class="required-mark">*</span>
+                      <span *ngIf="f.key==='profile_id' || f.key==='path_glob' || f.key==='id'" class="required-mark">*</span>
                     </label>
                     <select *ngIf="f.type==='select'" [(ngModel)]="cloneState.values[f.key]" class="cf-input">
                       <option *ngFor="let o of f.options" [value]="o">{{ o }}</option>
@@ -485,7 +549,7 @@ const CLONE_DEFS: Record<string, CloneFormField[]> = {
                 <div *ngIf="cloneState.error" class="cf-error">{{ cloneState.error }}</div>
                 <div class="cf-actions">
                   <button class="button-primary" (click)="saveClone()" [disabled]="cloneState.saving">
-                    {{ cloneState.saving ? 'Wird gespeichert…' : 'Speichern' }}
+                    {{ cloneState.saving ? 'Wird gespeichert…' : cloneState.mode === 'edit' ? 'Änderung vormerken' : 'Speichern' }}
                   </button>
                   <button class="button-outline" (click)="cancelClone()">Abbrechen</button>
                 </div>
@@ -864,10 +928,12 @@ export class ConfigGraphEditorComponent implements OnInit, OnDestroy {
     return this.visibleNodeIds.map(id => this.graph!.nodes[id]);
   }
 
-  get creatableTypeForView(): 'agent_profile' | 'path_rule' | null {
+  get creatableTypeForView(): 'agent_profile' | 'path_rule' | 'restricted_inference_model' | 'restricted_inference_task' | null {
     const types = VIEW_PRIMARY_TYPES[this.activeView] ?? [];
     if (types.includes('agent_profile')) return 'agent_profile';
     if (types.includes('path_rule')) return 'path_rule';
+    if (types.includes('restricted_inference_model')) return 'restricted_inference_model';
+    if (types.includes('restricted_inference_task')) return 'restricted_inference_task';
     return null;
   }
 
@@ -1069,6 +1135,10 @@ export class ConfigGraphEditorComponent implements OnInit, OnDestroy {
     return CLONEABLE.has(node.node_type);
   }
 
+  isEditableConfigNode(node: ConfigGraphNode): boolean {
+    return node.writable && Boolean(CLONE_DEFS[node.node_type]);
+  }
+
   readonly policySuggestions = POLICY_PATH_SUGGESTIONS;
 
   characterBadge(node: ConfigGraphNode): { label: string; color: string; bg: string } | null {
@@ -1084,14 +1154,14 @@ export class ConfigGraphEditorComponent implements OnInit, OnDestroy {
     for (const f of fields) values[f.key] = f.type === 'select' && f.options?.length ? f.options[0] : '';
     values['path_glob'] = s.glob;
     values['blocked_ai_modes'] = s.blocked;
-    this.cloneState = { sourceNode: null, entryType: 'path_rule', fields, values, saving: false, error: null };
+    this.cloneState = { sourceNode: null, entryType: 'path_rule', mode: 'create', fields, values, saving: false, error: null };
     this.cdr.markForCheck();
   }
 
   // ── Clone / Create ─────────────────────────────────────────────────────────
 
   startClone(source: ConfigGraphNode): void {
-    const entryType = source.node_type as 'agent_profile' | 'path_rule';
+    const entryType = source.node_type as 'agent_profile' | 'path_rule' | 'restricted_inference_model' | 'restricted_inference_task';
     const fields = CLONE_DEFS[entryType] ?? [];
     const values: Record<string, string> = {};
     const d = source.data as Record<string, unknown>;
@@ -1101,7 +1171,17 @@ export class ConfigGraphEditorComponent implements OnInit, OnDestroy {
     }
     if (entryType === 'agent_profile') values['profile_id'] = '';
     if (entryType === 'path_rule') values['path_glob'] = '';
-    this.cloneState = { sourceNode: source, entryType, fields, values, saving: false, error: null };
+    if (entryType === 'restricted_inference_model') values['id'] = '';
+    if (entryType === 'restricted_inference_task') values['id'] = '';
+    this.cloneState = { sourceNode: source, entryType, mode: 'clone', fields, values, saving: false, error: null };
+    this.cdr.markForCheck();
+  }
+
+  startEdit(source: ConfigGraphNode): void {
+    const entryType = source.node_type as CloneFormState['entryType'];
+    const fields = CLONE_DEFS[entryType] ?? [];
+    const values = this.formValuesForNode(source, fields);
+    this.cloneState = { sourceNode: source, entryType, mode: 'edit', fields, values, saving: false, error: null };
     this.cdr.markForCheck();
   }
 
@@ -1111,19 +1191,21 @@ export class ConfigGraphEditorComponent implements OnInit, OnDestroy {
     const fields = CLONE_DEFS[entryType] ?? [];
     const values: Record<string, string> = {};
     for (const f of fields) values[f.key] = f.type === 'select' && f.options?.length ? f.options[0] : '';
-    this.cloneState = { sourceNode: null, entryType, fields, values, saving: false, error: null };
+    this.cloneState = { sourceNode: null, entryType, mode: 'create', fields, values, saving: false, error: null };
     this.cdr.markForCheck();
   }
 
   saveClone(): void {
     if (!this.cloneState) return;
-    const { entryType, values } = this.cloneState;
-    const data: Record<string, unknown> = { ...values };
-    for (const k of ['activation', 'allowed_task_kinds', 'blocked_ai_modes', 'allowed_ai_modes']) {
-      data[k] = String(data[k] ?? '').split(',').map((s: string) => s.trim()).filter(Boolean);
-    }
-    for (const k of ['allow_free_text_generation', 'allow_code_generation']) {
-      data[k] = data[k] !== 'false';
+    const { entryType, values, sourceNode, mode } = this.cloneState;
+    const data: Record<string, unknown> = this.normalizedFormData(entryType, values);
+    if (mode === 'edit' && sourceNode) {
+      this.pendingOps.push({ op: 'set_data', target: sourceNode.id, data });
+      this.lastValidation = null;
+      this.cloneState = null;
+      this.selectedConfigItem = { ...sourceNode, data: { ...sourceNode.data, ...data } };
+      this.cdr.markForCheck();
+      return;
     }
     this.cloneState.saving = true;
     this.cloneState.error = null;
@@ -1141,6 +1223,72 @@ export class ConfigGraphEditorComponent implements OnInit, OnDestroy {
         this.cdr.markForCheck();
       },
     });
+  }
+
+  private normalizedFormData(entryType: string, values: Record<string, string>): Record<string, unknown> {
+    const data: Record<string, unknown> = { ...values };
+    for (const k of ['activation', 'allowed_task_kinds', 'blocked_ai_modes', 'allowed_ai_modes', 'allowed_model_engines', 'tasks', 'labels']) {
+      data[k] = String(data[k] ?? '').split(',').map((s: string) => s.trim()).filter(Boolean);
+    }
+    for (const k of ['allowed_base_urls', 'allowed_engines']) {
+      if (k in data) data[k] = String(data[k] ?? '').split(',').map((s: string) => s.trim()).filter(Boolean);
+    }
+    for (const k of [
+      'allow_hidden_states',
+      'allow_logits',
+      'allow_attention',
+      'allow_free_text_generation',
+      'allow_tool_decision_from_model_text',
+      'allow_code_generation',
+      'require_controlled_write_policy',
+      'enabled',
+      'fallback_to_deterministic',
+      'external_calls_allowed',
+      'diagnostics_enabled',
+      'restricted_inference_rerank_enabled',
+      'trace_scores',
+      'fallback_without_model',
+      'allow_mock_fallback',
+    ]) {
+      if (k in data) data[k] = data[k] !== 'false';
+    }
+    for (const k of ['max_input_chars', 'max_batch_size', 'priority', 'max_candidates', 'dimensions', 'timeout_seconds']) {
+      if (!(k in data)) continue;
+      const parsed = Number.parseInt(String(data[k] ?? '0'), 10);
+      data[k] = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+    }
+    for (const k of ['weight']) {
+      if (!(k in data)) continue;
+      const parsed = Number.parseFloat(String(data[k] ?? '1'));
+      data[k] = Number.isFinite(parsed) ? parsed : 1;
+    }
+    if (entryType === 'codecompass_ranking') {
+      const scoreKeys = ['embedding_score', 'graph_score', 'symbol_score', 'transformer_rerank_score', 'policy_penalty'];
+      const scoreWeights: Record<string, number> = {};
+      for (const key of scoreKeys) {
+        const parsed = Number.parseFloat(String(data[key] ?? '0'));
+        scoreWeights[key] = Number.isFinite(parsed) ? parsed : 0;
+        delete data[key];
+      }
+      data['score_weights'] = scoreWeights;
+    }
+    return data;
+  }
+
+  private formValuesForNode(node: ConfigGraphNode, fields: CloneFormField[]): Record<string, string> {
+    const values: Record<string, string> = {};
+    const data = node.data as Record<string, unknown>;
+    const weights = (data['score_weights'] && typeof data['score_weights'] === 'object')
+      ? data['score_weights'] as Record<string, unknown>
+      : {};
+    for (const field of fields) {
+      const raw = field.key in weights ? weights[field.key] : data[field.key];
+      values[field.key] = Array.isArray(raw) ? raw.join(', ') : String(raw ?? '');
+      if (!values[field.key] && field.type === 'select' && field.options?.length) {
+        values[field.key] = field.options[0];
+      }
+    }
+    return values;
   }
 
   cancelClone(): void { this.cloneState = null; this.cdr.markForCheck(); }

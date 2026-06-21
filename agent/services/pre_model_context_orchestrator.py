@@ -57,6 +57,14 @@ from agent.services.pre_model_context_decision import (
     DeterministicDecisionEngine,
 )
 from agent.services.pre_model_context_ranking import CandidateScorer, ScoredCandidate
+from agent.services.codecompass_ranking_config_service import CodeCompassRankingConfig
+from agent.services.candidate_scoring_service import CandidateScoringService
+from agent.services.path_ai_mode_policy_service import (
+    AI_MODE_CODECOMPASS_ONLY,
+    AI_MODE_RESTRICTED_TRANSFORMER,
+    PathAiModePolicyService,
+)
+from agent.services.restricted_model_inference_service import RestrictedModelInferenceService
 
 log = logging.getLogger(__name__)
 
@@ -196,10 +204,14 @@ class PreModelContextOrchestrator:
         retrieve_fn: Callable[[str, str, str, int], list[dict[str, Any]]] | None = None,
         index_status_fn: Callable[[], dict[str, Any]] | None = None,
         cache: ContextPackageCache | None = None,
+        restricted_inference_service: RestrictedModelInferenceService | None = None,
+        path_policy_service: PathAiModePolicyService | None = None,
     ) -> None:
         self._retrieve = retrieve_fn or _noop_retrieve
         self._index_status = index_status_fn or _noop_index_status
         self._cache = cache
+        self._restricted_inference = restricted_inference_service
+        self._path_policy = path_policy_service or PathAiModePolicyService()
 
     def orchestrate(
         self,
@@ -305,6 +317,7 @@ class PreModelContextOrchestrator:
                 surface=surface,
                 mode=effective_mode,
                 trace=trace,
+                user_config=user_config,
             )
             trace.decision = DECISION_PASS_THROUGH
             trace.duration_ms = (time.time() - t0) * 1000
@@ -355,6 +368,7 @@ class PreModelContextOrchestrator:
                 surface=surface,
                 mode=effective_mode,
                 trace=trace,
+                user_config=user_config,
             )
             # Cache store
             if cfg.cache_enabled and self._cache and pkg:
@@ -442,6 +456,7 @@ class PreModelContextOrchestrator:
         surface: str,
         mode: str,
         trace: PreModelTrace,
+        user_config: dict[str, Any] | None = None,
     ) -> tuple[list[ScoredCandidate], ContextPackage | None]:
         try:
             raw = self._retrieve(task_text, domain_hint, workspace_dir, budget)
@@ -455,6 +470,13 @@ class PreModelContextOrchestrator:
 
         scorer = CandidateScorer(working_files=working_files)
         scored = scorer.score_all(raw)
+        ranking_cfg = CodeCompassRankingConfig.from_config(user_config)
+        scored = self._maybe_restricted_rerank(
+            task_text=task_text,
+            scored=scored,
+            ranking_cfg=ranking_cfg,
+            trace=trace,
+        )
         denied = [c for c in scored if c.policy_denied]
         allowed = [c for c in scored if not c.policy_denied]
         trace.ranked_count = len(scored)
@@ -475,11 +497,111 @@ class PreModelContextOrchestrator:
         )
         return allowed, pkg
 
+    def _maybe_restricted_rerank(
+        self,
+        *,
+        task_text: str,
+        scored: list[ScoredCandidate],
+        ranking_cfg: CodeCompassRankingConfig,
+        trace: PreModelTrace,
+    ) -> list[ScoredCandidate]:
+        if not ranking_cfg.restricted_inference_rerank_enabled:
+            return scored
+        if not scored:
+            return scored
+        if self._restricted_inference is None:
+            trace.add("restricted_rerank_unavailable", reason="missing_service")
+            if ranking_cfg.fallback_without_model:
+                trace.fallback_used = True
+                trace.warnings.append("restricted_rerank_fallback")
+                return scored
+            trace.warnings.append("restricted_rerank_missing_model")
+            return []
+
+        allowed: list[ScoredCandidate] = []
+        blocked: list[ScoredCandidate] = []
+        for candidate in scored:
+            policy = self._path_policy.resolve(candidate.path)
+            if policy.is_mode_allowed(AI_MODE_CODECOMPASS_ONLY) and policy.is_mode_allowed(AI_MODE_RESTRICTED_TRANSFORMER):
+                allowed.append(candidate)
+            else:
+                blocked.append(candidate)
+        if blocked:
+            trace.add("restricted_rerank_policy_blocked", count=len(blocked))
+        if not allowed:
+            return scored if ranking_cfg.fallback_without_model else []
+
+        try:
+            candidates = [
+                {"path": c.path, "record_id": c.record_id, "excerpt": c.excerpt}
+                for c in allowed
+            ]
+            reranked = self._restricted_inference.rerank(task_text, candidates)
+        except Exception as exc:
+            trace.add("restricted_rerank_error", message=str(exc))
+            if ranking_cfg.fallback_without_model:
+                trace.fallback_used = True
+                trace.warnings.append("restricted_rerank_fallback")
+                return scored
+            trace.warnings.append("restricted_rerank_failed")
+            return []
+
+        transformer_scores = {
+            item.record_id or item.path: {
+                "score": item.score,
+                "model_id": item.model_id,
+                "engine": item.engine,
+            }
+            for item in reranked
+        }
+        raw_candidates = [_candidate_dict(c) for c in scored]
+        ranked = CandidateScoringService(config=ranking_cfg).rank(
+            raw_candidates,
+            transformer_scores=transformer_scores,
+        )
+        by_key = {item.record_id or item.path: item for item in ranked}
+        updated: list[ScoredCandidate] = []
+        for candidate in scored:
+            key = candidate.record_id or candidate.path
+            ranked_candidate = by_key.get(key)
+            if ranked_candidate is None:
+                updated.append(candidate)
+                continue
+            trace_payload = ranked_candidate.trace.as_dict() if ranking_cfg.trace_scores else {}
+            updated.append(ScoredCandidate(
+                path=candidate.path,
+                record_id=candidate.record_id,
+                excerpt=candidate.excerpt,
+                symbols=candidate.symbols,
+                embedding_score=candidate.embedding_score,
+                symbol_match_score=candidate.symbol_match_score,
+                graph_distance_score=candidate.graph_distance_score,
+                working_file_bonus=candidate.working_file_bonus,
+                domain_scope_bonus=candidate.domain_scope_bonus,
+                test_relation_bonus=candidate.test_relation_bonus,
+                recency_bonus=candidate.recency_bonus,
+                policy_penalty=candidate.policy_penalty,
+                sensitivity_penalty=candidate.sensitivity_penalty,
+                transformer_rerank_score=ranked_candidate.trace.transformer_rerank_score,
+                transformer_model_id=ranked_candidate.trace.model_id,
+                transformer_engine=ranked_candidate.trace.engine,
+                score_trace=trace_payload,
+                final_score=ranked_candidate.final_score,
+                policy_denied=candidate.policy_denied,
+                reason=candidate.reason,
+                domain=candidate.domain,
+                sensitivity_class=candidate.sensitivity_class,
+                graph_edges=candidate.graph_edges,
+            ))
+        updated.sort(key=lambda item: (-item.final_score, item.path, item.record_id))
+        trace.add("restricted_rerank_finished", count=len(reranked))
+        return updated
+
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _candidate_dict(c: ScoredCandidate) -> dict[str, Any]:
-    return {
+    payload = {
         "path": c.path,
         "record_id": c.record_id,
         "excerpt": c.excerpt,
@@ -493,6 +615,9 @@ def _candidate_dict(c: ScoredCandidate) -> dict[str, Any]:
         "recency_bonus": c.recency_bonus,
         "policy_penalty": c.policy_penalty,
         "sensitivity_penalty": c.sensitivity_penalty,
+        "transformer_rerank_score": c.transformer_rerank_score,
+        "transformer_model_id": c.transformer_model_id,
+        "transformer_engine": c.transformer_engine,
         "final_score": c.final_score,
         "policy_denied": c.policy_denied,
         "reason": c.reason,
@@ -500,6 +625,9 @@ def _candidate_dict(c: ScoredCandidate) -> dict[str, Any]:
         "sensitivity_class": c.sensitivity_class,
         "graph_edges": c.graph_edges,
     }
+    if c.score_trace:
+        payload["score_trace"] = c.score_trace
+    return payload
 
 
 def _candidate_raw(c: ScoredCandidate) -> dict[str, Any]:

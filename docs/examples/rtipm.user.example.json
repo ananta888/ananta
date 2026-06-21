@@ -1,0 +1,19 @@
+{
+  "restricted_inference": {
+    "enabled": true,
+    "default_engine": "mock",
+    "default_model_id": "mock-default",
+    "device": "cpu",
+    "allow_mock_fallback": true,
+    "allowed_engines": ["mock"],
+    "models": [
+      {
+        "id": "mock-default",
+        "engine": "mock",
+        "model": "mock-deterministic-v1",
+        "enabled": true,
+        "tasks": ["candidate_rerank", "task_classify", "path_domain_classify", "risk_score", "choice_score"]
+      }
+    ]
+  }
+}

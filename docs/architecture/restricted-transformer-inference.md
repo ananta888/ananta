@@ -17,7 +17,7 @@
 
 **Embedding-Modell aktuell:** Default ist `local_hash` (deterministischer Hash-Fingerprint, kein echtes ML-Modell). Externe Embedding-Provider (OpenAI-kompatibel) sind optionale Konfiguration mit `external_calls_allowed=False` als Default.
 
-**HuggingFace / sentence-transformers / ONNX / PyTorch:** *Noch nicht im Repo vorhanden* als direkte Abhängigkeit. Die neuen RTIPM-Adapter setzen das als optionale Dependencies um.
+**HuggingFace / sentence-transformers / ONNX / PyTorch:** Adapter sind im Repo vorhanden, bleiben aber optionale Dependencies. Die Basisinstallation startet ohne diese Pakete; fehlende Libraries erscheinen als `degraded`/`unavailable` in Diagnostics.
 
 ### Provider-Bewertung für restricted_transformer_inference
 
@@ -39,6 +39,8 @@
 | Datei | Rolle |
 |---|---|
 | `agent/services/path_ai_mode_policy_service.py` | Glob-basierte pfadbezogene AI-Mode-Policy |
+| `agent/services/restricted_inference_config_service.py` | Normalisierte `restricted_inference` Config, sichere Defaults, Diagnostics |
+| `agent/services/model_inference_adapter_registry.py` | Lazy Adapter Registry und Factory |
 | `agent/services/restricted_model_inference_service.py` | Hauptservice: gated ops, audit log, mock fallback |
 | `agent/services/model_inference_adapters/__init__.py` | Base-Adapter, Capabilities, Result-Typen |
 | `agent/services/model_inference_adapters/sentence_transformers_adapter.py` | sentence-transformers Embedding + CrossEncoder |
@@ -118,8 +120,79 @@ Alle Ergebnistypen (`ClassificationResult`, `RerankResult`, `ChoiceScore`, `Feat
 | `semantic_boundary_detection` | `rerank()` | candidate set + graph edges | cluster scores |
 | `logit_choice_score` | `score_choices()` | prompt + fixed choices | per-choice scores |
 
+### restricted_inference Config
+
+```json
+{
+  "restricted_inference": {
+    "enabled": true,
+    "default_engine": "mock",
+    "default_model_id": "mock-default",
+    "device": "cpu",
+    "allow_mock_fallback": true,
+    "allowed_engines": ["mock", "sentence-transformers", "huggingface-transformers", "onnxruntime", "pytorch"],
+    "models": [
+      {
+        "id": "mock-default",
+        "engine": "mock",
+        "model": "mock-deterministic-v1",
+        "enabled": true,
+        "tasks": ["candidate_rerank", "task_classify", "path_domain_classify", "risk_score", "choice_score"]
+      }
+    ],
+    "tasks": {
+      "candidate_rerank": {
+        "enabled": true,
+        "preferred_engine": "mock",
+        "fallback_to_deterministic": true,
+        "max_candidates": 20,
+        "weight": 1.0
+      }
+    }
+  }
+}
+```
+
+### Optional Dependencies
+
+Install only the required backend:
+
+| Extra | Installs | Notes |
+|---|---|---|
+| `rtipm-sentence-transformers` | `sentence-transformers` | Embeddings and CrossEncoder reranking |
+| `rtipm-huggingface` | `transformers`, `torch` | Classification, choice scoring, features |
+| `rtipm-onnxruntime` | `onnxruntime`, `transformers` | Local ONNX files, CPU default |
+| `rtipm-pytorch` | `torch`, `transformers` | Local HF/PyTorch models |
+| `rtipm-all` | all of the above | Workstation/dev convenience |
+
+CPU is the default device. CUDA/MPS must be selected explicitly in model config and should be paired with local paths for reproducible deployments.
+
+### CodeCompass Ranking
+
+`codecompass_ranking` controls optional reranking:
+
+```json
+{
+  "codecompass_ranking": {
+    "restricted_inference_rerank_enabled": false,
+    "score_weights": {
+      "embedding_score": 0.45,
+      "graph_score": 0.2,
+      "symbol_score": 0.2,
+      "transformer_rerank_score": 0.0,
+      "policy_penalty": -0.2
+    },
+    "trace_scores": false,
+    "fallback_without_model": true
+  }
+}
+```
+
+Default is disabled, so existing CodeCompass ranking remains unchanged unless the operator opts in.
+
 ### Backward-Kompatibilität
 
 - Ohne `path_ai_modes` in Config: alle Modi erlaubt; kein bestehendes Verhalten ändert sich
 - `PathAiModePolicyService.from_config({})` → alle Pfade erlaubt
 - `RestrictedModelInferenceService(use_mock_fallback=True)` → keine ML-Abhängigkeit nötig für Tests
+- `codecompass_ranking.restricted_inference_rerank_enabled=false` → bestehendes Ranking bleibt unverändert

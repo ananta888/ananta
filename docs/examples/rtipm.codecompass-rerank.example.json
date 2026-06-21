@@ -1,0 +1,29 @@
+{
+  "codecompass_ranking": {
+    "restricted_inference_rerank_enabled": true,
+    "score_weights": {
+      "embedding_score": 0.35,
+      "graph_score": 0.2,
+      "symbol_score": 0.2,
+      "transformer_rerank_score": 0.25,
+      "policy_penalty": -0.25
+    },
+    "trace_scores": true,
+    "fallback_without_model": true
+  },
+  "restricted_inference": {
+    "enabled": true,
+    "default_engine": "mock",
+    "allow_mock_fallback": true,
+    "allowed_engines": ["mock"],
+    "models": [
+      {
+        "id": "mock-reranker",
+        "engine": "mock",
+        "model": "mock-deterministic-v1",
+        "enabled": true,
+        "tasks": ["candidate_rerank"]
+      }
+    ]
+  }
+}

@@ -1,10 +1,10 @@
 {
-  "$schema": "./todo.track.schema.json",
+  "$schema": "../todo.track.schema.json",
   "version": "1.0",
   "owner": "Peter Stuiber / Ananta",
   "track": "rtipm-codecompass-tests-docs",
   "created": "2026-06-19",
-  "status": "planned",
+  "status": "done",
   "priority": "P0",
   "title": "RTIPM CodeCompass Integration, Tests und Dokumentation",
   "purpose": "Restricted Inference als optionalen Zwischenschritt in CodeCompass/RAG-Kontextauswahl integrieren und mit Trace, Tests, Beispielen und Dokumentation absichern.",
@@ -16,7 +16,7 @@
     {
       "id": "RTIPM-CTD-001",
       "title": "CodeCompass/RAG Ranking Ist-Zustand erfassen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "acceptance_criteria": [
         "Alle aktuellen CodeCompass Retrieval-Services sind gelistet.",
@@ -29,7 +29,7 @@
     {
       "id": "RTIPM-CTD-002",
       "title": "CandidateScoringService einfuehren oder erweitern",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "target_files": [
         "agent/services/candidate_scoring_service.py",
@@ -47,7 +47,7 @@
     {
       "id": "RTIPM-CTD-003",
       "title": "CodeCompass Ranking Config definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "target_files": [
         "agent/services/codecompass_ranking_config_service.py",
@@ -66,7 +66,7 @@
     {
       "id": "RTIPM-CTD-004",
       "title": "Restricted Reranking in CodeCompass integrieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "target_files": [
         "agent/services/codecompass_vector_retrieval_service.py",
@@ -87,7 +87,7 @@
     {
       "id": "RTIPM-CTD-005",
       "title": "Ranking Trace in Resultate aufnehmen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "target_files": [
         "agent/services/candidate_scoring_service.py",
@@ -106,7 +106,7 @@
     {
       "id": "RTIPM-CTD-006",
       "title": "AI Mode Enforcement fuer Kontextpipeline pruefen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "target_files": [
         "agent/services/path_ai_mode_policy_service.py",
@@ -125,7 +125,7 @@
     {
       "id": "RTIPM-CTD-007",
       "title": "Audit Events fuer RTIPM und Ranking erweitern",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "target_files": [
         "agent/services/restricted_model_inference_service.py",
@@ -144,7 +144,7 @@
     {
       "id": "RTIPM-CTD-008",
       "title": "Strukturierte Ergebnisgrenze testen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "target_files": [
         "tests/services/test_restricted_inference_generation_boundary.py"
@@ -160,7 +160,7 @@
     {
       "id": "RTIPM-CTD-009",
       "title": "Backend Integrationstests ergaenzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "target_files": [
         "tests/integration/test_rtipm_codecompass_pipeline.py"
@@ -177,7 +177,7 @@
     {
       "id": "RTIPM-CTD-010",
       "title": "E2E Pfadregel ohne Full LLM",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "target_files": [
         "tests/e2e/test_rtipm_path_rule_no_full_llm.py"
@@ -194,7 +194,7 @@
     {
       "id": "RTIPM-CTD-011",
       "title": "E2E Angular zu Backend Roundtrip",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "target_files": [
         "tests/e2e/test_config_graph_rtipm_roundtrip.py"
@@ -211,7 +211,7 @@
     {
       "id": "RTIPM-CTD-012",
       "title": "Beispielkonfigurationen erstellen",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "target_files": [
         "docs/examples/rtipm.user.example.json",
@@ -231,7 +231,7 @@
     {
       "id": "RTIPM-CTD-013",
       "title": "Architekturdokumentation aktualisieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "target_files": [
         "docs/architecture/restricted-transformer-inference.md",

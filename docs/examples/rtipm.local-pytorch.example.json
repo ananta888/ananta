@@ -1,0 +1,21 @@
+{
+  "restricted_inference": {
+    "enabled": true,
+    "default_engine": "pytorch",
+    "default_model_id": "local-feature-model",
+    "device": "cpu",
+    "allow_mock_fallback": true,
+    "allowed_engines": ["pytorch", "mock"],
+    "models": [
+      {
+        "id": "local-feature-model",
+        "engine": "pytorch",
+        "model": "local-feature-model",
+        "local_path": "/opt/ananta/models/local-feature-model",
+        "device": "cpu",
+        "enabled": true,
+        "tasks": ["candidate_rerank", "task_classify", "risk_score"]
+      }
+    ]
+  }
+}
