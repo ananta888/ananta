@@ -76,7 +76,6 @@ def render_block(release: dict[str, Any] | None) -> str:
             "## Releases",
             "",
             latest_line,
-            "- **Stable release:** noch nicht verfuegbar",
             "",
             END_MARKER,
         ]
