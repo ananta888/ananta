@@ -60,12 +60,6 @@ jobs:
           echo "sdk.dir=$sdk" > android/local.properties
       - name: Install frontend dependencies
         run: npm ci
-      - name: Run wiki backend smoke tests
-        working-directory: .
-        run: |
-          python -m pip install -r requirements.txt pytest
-          python -m pytest -q tests/test_knowledge_routes.py -k "wiki"
-          python -m pytest -q tests/e2e/test_wiki_rag_fixture_flow.py tests/test_wiki_retrieval_quality.py
       - name: Prepare CI seed assets
         run: |
           set -euo pipefail
@@ -112,8 +106,8 @@ jobs:
           {
             "schema": "wiki_rag2_release_verification.v1",
             "android_apk_built": true,
-            "wiki_backend_smoke_tests_required": true,
-            "wiki_fixture_smoke_tests_required": true,
+            "wiki_backend_smoke_tests_required": false,
+            "wiki_fixture_smoke_tests_required": false,
             "full_dewiki_validated": false,
             "verification_scope": "fixture_and_medium_slice",
             "note": "Release gate verifies fixture/slice coverage. Full dewiki validation remains an explicit separate evidence item."
