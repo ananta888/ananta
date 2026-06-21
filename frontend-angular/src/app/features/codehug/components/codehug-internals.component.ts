@@ -94,9 +94,20 @@ const PLAYBOOKS: PlaybookDef[] = [
 
 // ─── Canvas Types ─────────────────────────────────────────────────────────────
 
-type NodeType = 'start' | 'planning' | 'task' | 'gate' | 'verification' | 'end';
+type NodeType = 'start' | 'planning' | 'task' | 'det' | 'gate' | 'review' | 'verification' | 'end';
 type EdgeCondition = 'always' | 'on_success' | 'on_failure';
 type Priority = 'High' | 'Medium' | 'Low';
+type RoutingMode = 'auto' | 'backend' | 'worker' | 'capability';
+type DetSubtype = 'script' | 'api-call' | 'regex-check' | 'git-op' | 'file-check';
+type GateSubtype = 'auto-verify' | 'human-approval' | 'test-run' | 'lint' | 'type-check';
+type FailAction = 'block' | 'continue' | 'rollback' | 'retry';
+
+interface StepRouting {
+  mode: RoutingMode;
+  backend?: string;      // 'ananta' | 'opencode' | 'hermes' | 'sgpt' | 'claude' | 'lmstudio'
+  workerName?: string;
+  capability?: string;   // 'planner' | 'researcher' | 'coder' | 'reviewer' | 'tester'
+}
 
 interface CanvasNode {
   id: string;
@@ -106,10 +117,34 @@ interface CanvasNode {
   title: string;
   subtitle?: string;
   role?: string;
-  workerName?: string | null;
+  // Worker routing (task + det)
+  routing?: StepRouting;
+  // Deterministic step
+  detSubtype?: DetSubtype;
+  detCommand?: string;
+  detExpectedResult?: string;
+  failAction?: FailAction;
+  // Gate
+  gateSubtype?: GateSubtype;
+  gateTimeout?: number;
+  // General
   priority?: Priority;
   enabled: boolean;
 }
+
+const BACKENDS = ['ananta', 'opencode', 'hermes', 'sgpt', 'claude', 'lmstudio', 'ollama'] as const;
+const CAPABILITIES = ['planner', 'researcher', 'coder', 'reviewer', 'tester'] as const;
+
+const NODE_STYLE: Record<string, { fill: string; stroke: string; dash?: string }> = {
+  task:         { fill: 'white',    stroke: '#d1d5db' },
+  det:          { fill: '#fefce8',  stroke: '#ca8a04', dash: '5,3' },
+  gate:         { fill: '#fff7ed',  stroke: '#ea580c', dash: '5,3' },
+  review:       { fill: '#faf5ff',  stroke: '#9333ea' },
+  planning:     { fill: '#e0e7ff',  stroke: '#4f46e5' },
+  verification: { fill: '#d1fae5',  stroke: '#059669' },
+  start:        { fill: '#fef3c7',  stroke: '#d97706' },
+  end:          { fill: '#f0fdf4',  stroke: '#16a34a' },
+};
 
 interface CanvasEdge {
   id: string;
@@ -173,8 +208,10 @@ const COND_COLOR: Record<EdgeCondition, string> = { always: '#9ca3af', on_succes
       (click)="toggleConnect()" title="Verbinden-Modus">
       {{ connectMode() ? '🔗 Ein' : '🔗 Verbinden' }}
     </button>
-    <button type="button" class="ch-btn" (click)="addFreeNode()" title="Task-Schritt hinzufügen">+ Schritt</button>
-    <button type="button" class="ch-btn" (click)="addGateNode()" title="Verification-Gate hinzufügen">+ Gate</button>
+    <button type="button" class="ch-btn ch-btn-task" (click)="addFreeNode()" title="LLM-Task hinzufügen">💬 Task</button>
+    <button type="button" class="ch-btn ch-btn-det"  (click)="addDetNode()"  title="Deterministischer Schritt">⚙ Det</button>
+    <button type="button" class="ch-btn ch-btn-gate" (click)="addGateNode()" title="Verification-Gate">🚦 Gate</button>
+    <button type="button" class="ch-btn ch-btn-rev"  (click)="addReviewNode()" title="Review-Checkpoint">👁 Review</button>
     <button type="button" class="ch-btn ch-btn-muted"
       (click)="buildCanvas(selectedBlueprint(), selectedPlaybook())" title="Layout zurücksetzen">↺ Reset</button>
     <div style="flex:1"></div>
@@ -194,16 +231,36 @@ const COND_COLOR: Record<EdgeCondition, string> = { always: '#9ca3af', on_succes
 
     <!-- Left Palette -->
     <aside class="ch-palette" [class.ch-palette-connect]="connectMode()">
-      <div class="ch-pal-hd">Workers</div>
+      <div class="ch-pal-hd">Elemente</div>
+      <button class="ch-pal-elem ch-pal-elem-task" (click)="addFreeNode()">💬 LLM Task</button>
+      <button class="ch-pal-elem ch-pal-elem-det"  (click)="addDetNode()">⚙ Deterministisch</button>
+      <button class="ch-pal-elem ch-pal-elem-gate" (click)="addGateNode()">🚦 Gate</button>
+      <button class="ch-pal-elem ch-pal-elem-rev"  (click)="addReviewNode()">👁 Review</button>
+
+      <div class="ch-pal-div"></div>
+      <div class="ch-pal-hd">Backends</div>
+      @for (b of BACKENDS; track b) {
+        <div class="ch-pal-backend">
+          <span class="ch-pal-backend-dot"></span>
+          <span>{{ b }}</span>
+        </div>
+      }
+
+      <div class="ch-pal-div"></div>
+      <div class="ch-pal-hd">Workers (Live)</div>
       @for (w of workers(); track w.name) {
         <div class="ch-pal-w" [class.ch-pal-w-live]="workerIsActive(w)">
           <span class="ch-pal-dot" [class.ch-pal-dot-on]="w.status === 'online'" [class.ch-pal-dot-off]="w.status !== 'online'"></span>
-          <span class="ch-pal-wname">{{ w.name }}</span>
+          <div class="ch-pal-winfo">
+            <span class="ch-pal-wname">{{ w.name }}</span>
+            <span class="ch-pal-wcaps">{{ w.worker_roles.join(' · ') }}</span>
+          </div>
         </div>
       }
       @if (workers().length === 0) { <p class="ch-muted" style="padding:6px 8px">Keine Worker</p> }
+
       <div class="ch-pal-div"></div>
-      <div class="ch-pal-hd">Rollen</div>
+      <div class="ch-pal-hd">Blueprint-Rollen</div>
       @for (r of currentRoles(); track r) { <div class="ch-pal-role">{{ r }}</div> }
     </aside>
 
@@ -291,30 +348,34 @@ const COND_COLOR: Record<EdgeCondition, string> = { always: '#9ca3af', on_succes
               (mousedown)="onNodeMouseDown($event, node.id)"
               (click)="onNodeClick($event, node.id)">
 
+              <!-- Node shape (unified via NODE_STYLE lookup) -->
               @if (node.type === 'start' || node.type === 'end') {
                 <rect [attr.width]="node.w" [attr.height]="node.h" rx="24"
-                  [attr.fill]="node.type === 'end' ? '#f0fdf4' : '#fef3c7'"
-                  [attr.stroke]="nSrc ? '#f59e0b' : (nSel ? '#7c3aed' : (node.type === 'end' ? '#16a34a' : '#d97706'))"
+                  [attr.fill]="NODE_STYLE[node.type].fill"
+                  [attr.stroke]="nSrc ? '#f59e0b' : (nSel ? '#7c3aed' : NODE_STYLE[node.type].stroke)"
                   [attr.stroke-width]="nSel || nSrc ? 2.5 : 1.5"/>
-              } @else if (node.type === 'planning' || node.type === 'verification') {
-                <rect [attr.width]="node.w" [attr.height]="node.h" rx="8"
-                  [attr.fill]="node.type === 'planning' ? '#e0e7ff' : '#d1fae5'"
-                  [attr.stroke]="nSrc ? '#f59e0b' : (nSel ? '#7c3aed' : (node.type === 'planning' ? '#4f46e5' : '#059669'))"
-                  [attr.stroke-width]="nSel || nSrc ? 2.5 : 2"/>
-              } @else if (node.type === 'gate') {
-                <rect [attr.width]="node.w" [attr.height]="node.h" rx="8"
-                  fill="#fffbeb"
-                  [attr.stroke]="nSrc ? '#f59e0b' : (nSel ? '#7c3aed' : '#d97706')"
-                  [attr.stroke-width]="nSel || nSrc ? 2.5 : 1.5"
-                  stroke-dasharray="5,3"/>
               } @else {
                 <rect [attr.width]="node.w" [attr.height]="node.h" rx="8"
-                  [attr.fill]="!node.enabled ? '#f9fafb' : (nAct ? '#dbeafe' : 'white')"
-                  [attr.stroke]="nSrc ? '#f59e0b' : (nSel ? '#7c3aed' : '#d1d5db')"
-                  [attr.stroke-width]="nSel || nSrc ? 2.5 : 1.5"/>
-                @if (node.priority) {
+                  [attr.fill]="!node.enabled ? '#f9fafb' : (nAct ? '#dbeafe' : (NODE_STYLE[node.type]?.fill ?? 'white'))"
+                  [attr.stroke]="nSrc ? '#f59e0b' : (nSel ? '#7c3aed' : (NODE_STYLE[node.type]?.stroke ?? '#d1d5db'))"
+                  [attr.stroke-width]="nSel || nSrc ? 2.5 : (node.type === 'planning' || node.type === 'verification' ? 2 : 1.5)"
+                  [attr.stroke-dasharray]="NODE_STYLE[node.type]?.dash ?? null"/>
+                <!-- Priority bar -->
+                @if ((node.type === 'task' || node.type === 'det') && node.priority) {
                   <rect x="0" y="0" width="4" [attr.height]="node.h" rx="2"
-                    [attr.fill]="PRIORITY_COLOR[node.priority]" opacity="0.7"/>
+                    [attr.fill]="PRIORITY_COLOR[node.priority]" opacity="0.8"/>
+                }
+                <!-- Type icon -->
+                @if (node.type === 'det') { <text x="9" y="15" font-size="10">⚙</text> }
+                @else if (node.type === 'review') { <text x="9" y="15" font-size="10">👁</text> }
+                @else if (node.type === 'gate') { <text x="9" y="15" font-size="10">🚦</text> }
+                <!-- Routing badge -->
+                @if ((node.type === 'task' || node.type === 'det') && node.routing && node.routing.mode !== 'auto') {
+                  <rect [attr.x]="node.w - 2 - routingBadgeW(node)" y="2" [attr.width]="routingBadgeW(node)" height="14" rx="3"
+                    fill="#eef2ff" stroke="#4f46e5" stroke-width="0.5"/>
+                  <text [attr.x]="node.w - 5" y="13" text-anchor="end" font-size="8" fill="#4f46e5" font-weight="600">
+                    {{ routingLabel(node) }}
+                  </text>
                 }
               }
 
@@ -328,24 +389,20 @@ const COND_COLOR: Record<EdgeCondition, string> = { always: '#9ca3af', on_succes
 
               <!-- Labels -->
               <text [attr.x]="node.w/2"
-                [attr.y]="(node.type === 'task' || node.type === 'gate') && node.h >= 60 ? 22 : node.h/2 + 5"
+                [attr.y]="isComplexNode(node) ? 22 : node.h/2 + 5"
                 text-anchor="middle" font-size="12" font-weight="600"
                 [attr.fill]="!node.enabled ? '#9ca3af' : '#111827'">{{ node.title }}</text>
 
-              @if ((node.type === 'task' || node.type === 'gate') && node.h >= 60) {
+              @if (isComplexNode(node) && node.h >= 60) {
                 @if (node.role) {
                   <text x="9" [attr.y]="node.h - 22" font-size="9" fill="#6b7280">{{ node.role }}</text>
                 }
-                @if (node.workerName) {
-                  <text [attr.x]="node.w - 9" [attr.y]="node.h - 22" text-anchor="end"
-                    font-size="9" fill="#374151">{{ node.workerName }}</text>
-                  <circle [attr.cx]="node.w - 9 + 5 + (node.workerName.length * 5.5)"
-                    [attr.cy]="node.h - 26" r="4"
-                    [attr.fill]="workerStatus(node.workerName) === 'online' ? '#22c55e' : '#9ca3af'"/>
+                @if (node.type === 'det' && node.detSubtype) {
+                  <text [attr.x]="node.w - 9" [attr.y]="node.h - 22" text-anchor="end" font-size="9" fill="#92400e">{{ node.detSubtype }}</text>
                 }
                 @if (node.subtitle) {
                   <text [attr.x]="node.w/2" [attr.y]="node.h - 8" text-anchor="middle"
-                    font-size="9" fill="#9ca3af">{{ node.subtitle.slice(0, 34) }}</text>
+                    font-size="9" fill="#9ca3af">{{ node.subtitle.slice(0, 36) }}</text>
                 }
               } @else if (node.subtitle) {
                 <text [attr.x]="node.w/2" [attr.y]="node.h/2 + 18" text-anchor="middle"
@@ -375,13 +432,14 @@ const COND_COLOR: Record<EdgeCondition, string> = { always: '#9ca3af', on_succes
           <input type="text" class="ch-fi" [value]="n.title"
             (change)="patchNode(n.id, { title: $any($event.target).value })"/>
 
-          @if (n.subtitle !== undefined && (n.type === 'task' || n.type === 'gate' || n.type === 'planning' || n.type === 'verification')) {
+          @if (n.subtitle !== undefined && (n.type === 'task' || n.type === 'det' || n.type === 'gate' || n.type === 'review' || n.type === 'planning' || n.type === 'verification')) {
             <label class="ch-fl">Beschreibung</label>
             <textarea class="ch-fta" [value]="n.subtitle ?? ''"
               (change)="patchNode(n.id, { subtitle: $any($event.target).value })"></textarea>
           }
 
-          @if (n.type === 'task' || n.type === 'gate') {
+          <!-- ─── LLM Task config ─── -->
+          @if (n.type === 'task') {
             <label class="ch-fl">Priorität</label>
             <select class="ch-fsel" [value]="n.priority ?? 'Medium'"
               (change)="patchNode(n.id, { priority: $any($event.target).value })">
@@ -390,20 +448,138 @@ const COND_COLOR: Record<EdgeCondition, string> = { always: '#9ca3af', on_succes
               <option value="Low">Low</option>
             </select>
 
-            <label class="ch-fl">Rolle</label>
+            <label class="ch-fl">Rolle (Blueprint)</label>
             <select class="ch-fsel" [value]="n.role ?? ''"
               (change)="patchNode(n.id, { role: $any($event.target).value })">
               <option value="">— keine —</option>
               @for (r of currentRoles(); track r) { <option [value]="r">{{ r }}</option> }
             </select>
 
-            <label class="ch-fl">Worker</label>
-            <select class="ch-fsel" [value]="n.workerName ?? ''"
-              (change)="patchNode(n.id, { workerName: $any($event.target).value || null })">
-              <option value="">— auto —</option>
-              @for (w of workers(); track w.name) {
-                <option [value]="w.name">{{ w.name }} ({{ w.status }})</option>
-              }
+            <label class="ch-fl">Worker-Routing</label>
+            <select class="ch-fsel" [value]="n.routing?.mode ?? 'auto'"
+              (change)="setRoutingMode(n.id, $any($event.target).value)">
+              <option value="auto">Auto (beliebiger Worker)</option>
+              <option value="backend">Nach Backend (Typ)</option>
+              <option value="worker">Explizit (bestimmter Worker)</option>
+              <option value="capability">Nach Fähigkeit</option>
+            </select>
+            @if (n.routing?.mode === 'backend') {
+              <select class="ch-fsel" [value]="n.routing?.backend ?? 'ananta'"
+                (change)="patchRouting(n.id, { backend: $any($event.target).value })">
+                @for (b of BACKENDS; track b) { <option [value]="b">{{ b }}</option> }
+              </select>
+            }
+            @if (n.routing?.mode === 'worker') {
+              <select class="ch-fsel" [value]="n.routing?.workerName ?? ''"
+                (change)="patchRouting(n.id, { workerName: $any($event.target).value })">
+                <option value="">— wählen —</option>
+                @for (w of workers(); track w.name) {
+                  <option [value]="w.name">{{ w.name }} ({{ w.status }})</option>
+                }
+              </select>
+            }
+            @if (n.routing?.mode === 'capability') {
+              <select class="ch-fsel" [value]="n.routing?.capability ?? 'coder'"
+                (change)="patchRouting(n.id, { capability: $any($event.target).value })">
+                @for (c of CAPABILITIES; track c) { <option [value]="c">{{ c }}</option> }
+              </select>
+            }
+          }
+
+          <!-- ─── Deterministic step config ─── -->
+          @if (n.type === 'det') {
+            <label class="ch-fl">Priorität</label>
+            <select class="ch-fsel" [value]="n.priority ?? 'Medium'"
+              (change)="patchNode(n.id, { priority: $any($event.target).value })">
+              <option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option>
+            </select>
+
+            <label class="ch-fl">Schritt-Typ</label>
+            <select class="ch-fsel" [value]="n.detSubtype ?? 'script'"
+              (change)="patchNode(n.id, { detSubtype: $any($event.target).value })">
+              <option value="script">Shell-Script / Befehl</option>
+              <option value="api-call">API-Aufruf (HTTP)</option>
+              <option value="regex-check">Regex-Prüfung</option>
+              <option value="git-op">Git-Operation</option>
+              <option value="file-check">Datei-Check</option>
+            </select>
+
+            <label class="ch-fl">{{ n.detSubtype === 'api-call' ? 'URL' : n.detSubtype === 'regex-check' ? 'Regex-Pattern' : 'Befehl / Script' }}</label>
+            <input type="text" class="ch-fi" [value]="n.detCommand ?? ''"
+              placeholder="{{ n.detSubtype === 'api-call' ? 'https://...' : n.detSubtype === 'regex-check' ? '^OK.*' : 'npm test' }}"
+              (change)="patchNode(n.id, { detCommand: $any($event.target).value })"/>
+
+            <label class="ch-fl">Erwartetes Ergebnis (optional)</label>
+            <input type="text" class="ch-fi" [value]="n.detExpectedResult ?? ''"
+              placeholder="exit 0 / 200 OK / …"
+              (change)="patchNode(n.id, { detExpectedResult: $any($event.target).value })"/>
+
+            <label class="ch-fl">Bei Fehler</label>
+            <select class="ch-fsel" [value]="n.failAction ?? 'block'"
+              (change)="patchNode(n.id, { failAction: $any($event.target).value })">
+              <option value="block">Blockieren (Flow stoppt)</option>
+              <option value="continue">Weiter (ignorieren)</option>
+              <option value="rollback">Rollback</option>
+              <option value="retry">Erneut versuchen</option>
+            </select>
+
+            <label class="ch-fl">Worker-Routing</label>
+            <select class="ch-fsel" [value]="n.routing?.mode ?? 'auto'"
+              (change)="setRoutingMode(n.id, $any($event.target).value)">
+              <option value="auto">Auto</option>
+              <option value="backend">Backend-Typ</option>
+              <option value="worker">Expliziter Worker</option>
+            </select>
+            @if (n.routing?.mode === 'backend') {
+              <select class="ch-fsel" [value]="n.routing?.backend ?? 'ananta'"
+                (change)="patchRouting(n.id, { backend: $any($event.target).value })">
+                @for (b of BACKENDS; track b) { <option [value]="b">{{ b }}</option> }
+              </select>
+            }
+            @if (n.routing?.mode === 'worker') {
+              <select class="ch-fsel" [value]="n.routing?.workerName ?? ''"
+                (change)="patchRouting(n.id, { workerName: $any($event.target).value })">
+                @for (w of workers(); track w.name) { <option [value]="w.name">{{ w.name }}</option> }
+              </select>
+            }
+          }
+
+          <!-- ─── Gate config ─── -->
+          @if (n.type === 'gate') {
+            <label class="ch-fl">Gate-Typ</label>
+            <select class="ch-fsel" [value]="n.gateSubtype ?? 'auto-verify'"
+              (change)="patchNode(n.id, { gateSubtype: $any($event.target).value })">
+              <option value="auto-verify">Auto-Verifikation</option>
+              <option value="human-approval">Manuelle Freigabe</option>
+              <option value="test-run">Test-Ausführung</option>
+              <option value="lint">Lint-Prüfung</option>
+              <option value="type-check">Type-Check</option>
+            </select>
+            <label class="ch-fl">Timeout (Sekunden)</label>
+            <input type="number" class="ch-fi" [value]="n.gateTimeout ?? 60"
+              (change)="patchNode(n.id, { gateTimeout: +$any($event.target).value })"/>
+            <label class="ch-fl">Bei Fehler</label>
+            <select class="ch-fsel" [value]="n.failAction ?? 'block'"
+              (change)="patchNode(n.id, { failAction: $any($event.target).value })">
+              <option value="block">Blockieren</option>
+              <option value="continue">Weiter</option>
+              <option value="rollback">Rollback</option>
+            </select>
+          }
+
+          <!-- ─── Review config ─── -->
+          @if (n.type === 'review') {
+            <label class="ch-fl">Reviewer-Rolle</label>
+            <select class="ch-fsel" [value]="n.role ?? ''"
+              (change)="patchNode(n.id, { role: $any($event.target).value })">
+              <option value="">— alle —</option>
+              @for (r of currentRoles(); track r) { <option [value]="r">{{ r }}</option> }
+            </select>
+            <label class="ch-fl">Bei Ablehnung</label>
+            <select class="ch-fsel" [value]="n.failAction ?? 'block'"
+              (change)="patchNode(n.id, { failAction: $any($event.target).value })">
+              <option value="block">Blockieren</option>
+              <option value="rollback">Rollback zu vorherigem Schritt</option>
             </select>
           }
 
@@ -513,8 +689,12 @@ const COND_COLOR: Record<EdgeCondition, string> = { always: '#9ca3af', on_succes
   white-space: nowrap;
 }
 .ch-btn:hover { background: var(--card-bg); }
-.ch-btn-on { background: color-mix(in srgb, #7c3aed 14%, transparent) !important; border-color: #7c3aed; color: #7c3aed; font-weight: 600; }
+.ch-btn-on   { background: color-mix(in srgb, #7c3aed 14%, transparent) !important; border-color: #7c3aed; color: #7c3aed; font-weight: 600; }
 .ch-btn-muted { color: var(--muted); }
+.ch-btn-task { border-color: #d1d5db; }
+.ch-btn-det  { border-color: #ca8a04; color: #92400e; background: color-mix(in srgb, #fef9c3 50%, var(--bg)); }
+.ch-btn-gate { border-color: #ea580c; color: #9a3412; background: color-mix(in srgb, #fff7ed 50%, var(--bg)); }
+.ch-btn-rev  { border-color: #9333ea; color: #6b21a8; background: color-mix(in srgb, #faf5ff 50%, var(--bg)); }
 .ch-run-badge {
   display: flex; align-items: center; gap: 5px; padding: 2px 8px;
   border-radius: 999px; background: color-mix(in srgb, #3b82f6 12%, transparent);
@@ -538,6 +718,20 @@ const COND_COLOR: Record<EdgeCondition, string> = { always: '#9ca3af', on_succes
 .ch-pal-wname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; font-weight: 500; }
 .ch-pal-div { height: 1px; background: var(--border); margin: 4px 0; }
 .ch-pal-role { padding: 2px 8px; font-size: 9px; color: var(--muted); }
+.ch-pal-elem {
+  display: block; width: 100%; text-align: left; padding: 4px 8px;
+  border: none; border-left: 3px solid transparent; background: none; cursor: pointer; font-size: 11px; color: var(--fg);
+}
+.ch-pal-elem:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.ch-pal-elem-task { border-left-color: #d1d5db; }
+.ch-pal-elem-det  { border-left-color: #ca8a04; }
+.ch-pal-elem-gate { border-left-color: #ea580c; }
+.ch-pal-elem-rev  { border-left-color: #9333ea; }
+.ch-pal-backend { display: flex; align-items: center; gap: 5px; padding: 2px 8px; font-size: 10px; color: var(--muted); }
+.ch-pal-backend-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: #d1d5db; flex-shrink: 0; }
+.ch-pal-winfo { display: flex; flex-direction: column; min-width: 0; }
+.ch-pal-wname { font-size: 10px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ch-pal-wcaps { font-size: 8px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ── Canvas ── */
 .ch-canvas-wrap {
@@ -577,8 +771,10 @@ const COND_COLOR: Record<EdgeCondition, string> = { always: '#9ca3af', on_succes
 .ch-insp-tag[data-t="start"],.ch-insp-tag[data-t="end"] { background: color-mix(in srgb, #22c55e 14%, transparent); color: #15803d; }
 .ch-insp-tag[data-t="planning"] { background: color-mix(in srgb, #4f46e5 14%, transparent); color: #4f46e5; }
 .ch-insp-tag[data-t="verification"] { background: color-mix(in srgb, #059669 14%, transparent); color: #059669; }
-.ch-insp-tag[data-t="gate"] { background: color-mix(in srgb, #d97706 14%, transparent); color: #d97706; }
-.ch-insp-tag[data-t="edge"] { background: color-mix(in srgb, #6b7280 14%, transparent); color: #6b7280; }
+.ch-insp-tag[data-t="gate"]   { background: color-mix(in srgb, #ea580c 14%, transparent); color: #9a3412; }
+.ch-insp-tag[data-t="det"]    { background: color-mix(in srgb, #ca8a04 14%, transparent); color: #92400e; }
+.ch-insp-tag[data-t="review"] { background: color-mix(in srgb, #9333ea 14%, transparent); color: #6b21a8; }
+.ch-insp-tag[data-t="edge"]   { background: color-mix(in srgb, #6b7280 14%, transparent); color: #6b7280; }
 .ch-insp-x { margin-left: auto; background: none; border: none; cursor: pointer; color: var(--muted); font-size: 13px; }
 .ch-insp-x:hover { color: var(--fg); }
 .ch-insp-body { padding: 9px; display: flex; flex-direction: column; gap: 5px; }
@@ -615,6 +811,9 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
   readonly PLAYBOOKS = PLAYBOOKS;
   readonly PRIORITY_COLOR = PRIORITY_COLOR;
   readonly COND_COLOR = COND_COLOR;
+  readonly NODE_STYLE = NODE_STYLE;
+  readonly BACKENDS = BACKENDS;
+  readonly CAPABILITIES = CAPABILITIES;
 
   // ── Live data ─────────────────────────────────────────────────────────────
   readonly workers = signal<AnantaWorker[]>([]);
@@ -711,8 +910,9 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
       nodes.push({
         id: nid, x: CX - NODE_W / 2, y, w: NODE_W, h: NODE_H, type: 'task',
         title: task.title, subtitle: task.description,
-        role: roles[i % roles.length], workerName: null,
+        role: roles[i % roles.length],
         priority: task.priority, enabled: true,
+        routing: { mode: 'auto' as RoutingMode },
       });
       addEdge(prev, nid);
       prev = nid;
@@ -821,31 +1021,91 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
   // ── Node / Edge Operations ────────────────────────────────────────────────
 
   addFreeNode(): void {
-    const svg = this.svgElRef.nativeElement;
-    const cx = (svg.clientWidth / 2 - this.viewTx()) / this.viewScale();
-    const cy = (svg.clientHeight / 2 - this.viewTy()) / this.viewScale();
+    const { cx, cy } = this.viewCenter();
     const roles = this.currentRoles();
     const nid = `task-${++this._nodeSeq}`;
     this.nodes.update(ns => [...ns, {
       id: nid, x: cx - NODE_W / 2, y: cy - NODE_H / 2, w: NODE_W, h: NODE_H,
       type: 'task', title: 'Neuer Schritt', subtitle: '',
       role: roles[ns.filter(n => n.type === 'task').length % roles.length] ?? '',
-      workerName: null, priority: 'Medium', enabled: true,
+      priority: 'Medium', enabled: true,
+      routing: { mode: 'auto' as RoutingMode },
     }]);
     this.selectedNodeId.set(nid);
   }
 
   addGateNode(): void {
-    const svg = this.svgElRef.nativeElement;
-    const cx = (svg.clientWidth / 2 - this.viewTx()) / this.viewScale();
-    const cy = (svg.clientHeight / 2 - this.viewTy()) / this.viewScale();
+    const { cx, cy } = this.viewCenter();
     const nid = `gate-${++this._nodeSeq}`;
     this.nodes.update(ns => [...ns, {
-      id: nid, x: cx - 120, y: cy - 30, w: 240, h: 52,
-      type: 'gate', title: 'Verification Gate', subtitle: 'Bedingung definieren',
-      priority: 'High', enabled: true,
+      id: nid, x: cx - 120, y: cy - 30, w: 240, h: 58,
+      type: 'gate', title: 'Verification Gate', subtitle: '',
+      gateSubtype: 'auto-verify', failAction: 'block', enabled: true,
     }]);
     this.selectedNodeId.set(nid);
+  }
+
+  addDetNode(): void {
+    const { cx, cy } = this.viewCenter();
+    const nid = `det-${++this._nodeSeq}`;
+    this.nodes.update(ns => [...ns, {
+      id: nid, x: cx - NODE_W / 2, y: cy - NODE_H / 2, w: NODE_W, h: NODE_H,
+      type: 'det', title: 'Deterministischer Schritt', subtitle: '',
+      detSubtype: 'script', detCommand: '', failAction: 'block',
+      priority: 'Medium', enabled: true,
+      routing: { mode: 'auto' },
+    }]);
+    this.selectedNodeId.set(nid);
+  }
+
+  addReviewNode(): void {
+    const { cx, cy } = this.viewCenter();
+    const nid = `rev-${++this._nodeSeq}`;
+    this.nodes.update(ns => [...ns, {
+      id: nid, x: cx - 120, y: cy - 30, w: 240, h: 58,
+      type: 'review', title: 'Review / Freigabe', subtitle: '',
+      failAction: 'block', enabled: true,
+    }]);
+    this.selectedNodeId.set(nid);
+  }
+
+  setRoutingMode(nodeId: string, mode: RoutingMode): void {
+    this.nodes.update(ns => ns.map(n => n.id === nodeId
+      ? { ...n, routing: { mode, backend: 'ananta', capability: 'coder', workerName: '' } }
+      : n
+    ));
+  }
+
+  patchRouting(nodeId: string, patch: Partial<StepRouting>): void {
+    this.nodes.update(ns => ns.map(n => n.id === nodeId
+      ? { ...n, routing: { ...(n.routing ?? { mode: 'auto' as RoutingMode }), ...patch } }
+      : n
+    ));
+  }
+
+  isComplexNode(node: CanvasNode): boolean {
+    return node.type === 'task' || node.type === 'det' || node.type === 'gate' || node.type === 'review';
+  }
+
+  routingLabel(node: CanvasNode): string {
+    const r = node.routing;
+    if (!r || r.mode === 'auto') return '';
+    if (r.mode === 'backend') return r.backend ?? '';
+    if (r.mode === 'worker') return r.workerName?.split('-').pop() ?? '';
+    if (r.mode === 'capability') return r.capability ?? '';
+    return '';
+  }
+
+  routingBadgeW(node: CanvasNode): number {
+    return this.routingLabel(node).length * 5.5 + 10;
+  }
+
+  private viewCenter(): { cx: number; cy: number } {
+    const svg = this.svgElRef.nativeElement;
+    return {
+      cx: (svg.clientWidth / 2 - this.viewTx()) / this.viewScale(),
+      cy: (svg.clientHeight / 2 - this.viewTy()) / this.viewScale(),
+    };
   }
 
   insertOnEdge(e: MouseEvent, edgeId: string): void {
