@@ -21,6 +21,7 @@ from agent.services.app_runtime_service import build_base_app_config, initialize
 from agent.services.repository_registry import initialize_repository_registry
 from agent.services.service_registry import initialize_core_services
 from agent.services.deterministic_repair_handler import DeterministicRepairHandler
+from agent.services.run_tests_handler import register_run_tests_handler
 from agent.services.task_handler_registry import register_task_handler
 from worker.core.template_propose_handler import TemplateProposeHandler
 from agent.utils import read_json
@@ -125,6 +126,7 @@ def create_app(agent: str = "default", *, testing: bool = False) -> Flask:
         run_startup_phase("background_services", start_background_services, app)
 
     run_startup_phase("deterministic_repair_handler", _register_deterministic_repair_handler, app)
+    run_startup_phase("run_tests_handler", register_run_tests_handler, app)
     run_startup_phase("template_propose_handler", _register_template_propose_handler, app)
 
     if not testing:

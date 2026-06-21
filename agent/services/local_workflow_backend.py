@@ -61,12 +61,24 @@ class LocalWorkflowBackend:
                 for step in request.steps
             },
         )
+        if state.status == "running":
+            first_ready = next((step for step in request.steps if not step.gate), None)
+            if first_ready is not None:
+                state.step_status[first_ready.step_id] = "running"
         state.events.append(workflow_backend_event(
             workflow_id=request.workflow_id,
             event_type="workflow_started",
             status=state.status,
             details={"step_count": len(request.steps), "correlation_id": request.correlation_id},
         ))
+        active_step = next((sid for sid, status in state.step_status.items() if status == "running"), "")
+        if active_step:
+            state.events.append(workflow_backend_event(
+                workflow_id=request.workflow_id,
+                event_type="step_started",
+                status="running",
+                details={"step_id": active_step},
+            ))
         self._runs[request.workflow_id] = state
         return self.get_workflow_status(request.workflow_id)
 
@@ -98,6 +110,7 @@ class LocalWorkflowBackend:
             "workflow_request_schema": request.to_dict().get("schema"),
             "workflow_id": request.workflow_id,
             "status": state.status,
+            "steps": [_status_step_dict(step, state.step_status.get(step.step_id, "pending")) for step in request.steps],
             "correlation_id": request.correlation_id,
             "created_at": state.created_at,
             "updated_at": state.updated_at,

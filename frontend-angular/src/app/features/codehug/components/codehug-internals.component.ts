@@ -118,6 +118,8 @@ interface ArtifactSlot {
   kind: 'code' | 'text' | 'json' | 'report' | 'binary' | 'file';
   required: boolean;
   description: string;
+  producedByStepId?: string;
+  producedByOutputName?: string;
 }
 
 interface CanvasNode {
@@ -174,6 +176,12 @@ interface CanvasEdge {
   label?: string;
   loopMaxIter?: number;
   outputName?: string;  // for on_output condition: which artifact triggers this edge
+  bindings?: ArtifactBinding[];
+}
+
+interface ArtifactBinding {
+  outputName: string;
+  inputName: string;
 }
 
 const NODE_W = 220;
@@ -364,6 +372,8 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
                 [attr.marker-end]="'url(#arr' + edgeMarkerSuffix(edge, eSel) + ')'"/>
               @if (edge.label) {
                 <text [attr.x]="mp.x + 7" [attr.y]="mp.y - 4" font-size="9" fill="#6b7280">{{ edge.label }}</text>
+              } @else if (edgeBindingLabel(edge)) {
+                <text [attr.x]="mp.x + 7" [attr.y]="mp.y - 4" font-size="9" fill="#0284c7">{{ edgeBindingLabel(edge) }}</text>
               }
               <!-- Midpoint + button -->
               <circle [attr.cx]="mp.x" [attr.cy]="mp.y" r="9"
@@ -733,6 +743,11 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
                   </label>
                   <button class="ch-io-del" (click)="removeSlot(n.id, 'inputs', i)">✕</button>
                 </div>
+                @if (slot.producedByStepId) {
+                  <div class="ch-io-source">
+                    von {{ nodeLabel(slot.producedByStepId) }}.{{ slot.producedByOutputName ?? slot.name }}
+                  </div>
+                }
               }
               @if (n.inputs.length === 0) { <div class="ch-io-empty">Keine Inputs</div> }
 
@@ -819,6 +834,27 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
               placeholder="z.B. code_artifact, report, test_results"
               (change)="patchEdge(e.id, { outputName: $any($event.target).value })"/>
           }
+          <label class="ch-fl">Artifact-Bindung</label>
+          <div class="ch-bind-list">
+            @for (binding of e.bindings ?? []; track binding.outputName + ':' + binding.inputName) {
+              <div class="ch-bind-row">
+                <span>{{ nodeLabel(e.from) }}.{{ binding.outputName }}</span>
+                <span>→</span>
+                <span>{{ nodeLabel(e.to) }}.{{ binding.inputName }}</span>
+                <button type="button" class="ch-io-del" (click)="removeArtifactBinding(e.id, binding)">✕</button>
+              </div>
+            }
+            @if (!(e.bindings ?? []).length) {
+              <div class="ch-io-empty">Keine Bindung</div>
+            }
+            <select class="ch-fsel" [value]="availableBindingOptions(e)[0]?.value ?? ''"
+              (change)="addArtifactBinding(e.id, $any($event.target).value)">
+              <option value="">— Output → Input wählen —</option>
+              @for (opt of availableBindingOptions(e); track opt.value) {
+                <option [value]="opt.value">{{ opt.label }}</option>
+              }
+            </select>
+          </div>
           <label class="ch-fl">Label</label>
           <input type="text" class="ch-fi" [value]="e.label ?? ''" placeholder="Optionales Label…"
             (change)="patchEdge(e.id, { label: $any($event.target).value })"/>
@@ -854,6 +890,21 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
           }
           @if (workflowId()) {
             <div class="ch-result ch-result-ok">Workflow: {{ workflowId() }}</div>
+          }
+          @if (workflowStatus(); as ws) {
+            <div class="ch-wf-status">
+              <div class="ch-wf-status-hd">Status: {{ ws['status'] ?? 'unknown' }}</div>
+              @if (activeWorkflowStepId()) {
+                <div>Aktiv: {{ nodeLabel(activeWorkflowStepId() ?? '') }}</div>
+              }
+              @if (workflowEvents().length) {
+                <div class="ch-wf-events">
+                  @for (ev of workflowEvents().slice(-3); track ev['event_id'] ?? ev['timestamp']) {
+                    <div>{{ ev['event_type'] ?? 'event' }} · {{ ev['status'] ?? '' }}</div>
+                  }
+                </div>
+              }
+            </div>
           }
         </div>
       }
@@ -1024,6 +1075,13 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
 .ch-io-req { display: flex; align-items: center; gap: 2px; font-size: 9px; color: var(--muted); white-space: nowrap; cursor: pointer; }
 .ch-io-del { padding: 1px 5px; border: none; background: none; cursor: pointer; color: #ef4444; font-size: 11px; }
 .ch-io-empty { font-size: 9px; color: var(--muted); padding: 2px 0; }
+.ch-io-source { margin: -1px 0 3px 2px; font-size: 9px; color: #0284c7; }
+.ch-bind-list { display: flex; flex-direction: column; gap: 4px; }
+.ch-bind-row { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto; align-items: center; gap: 4px; font-size: 9px; color: var(--muted); }
+.ch-bind-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ch-wf-status { margin-top: 8px; border: 1px solid var(--border); border-radius: 5px; padding: 6px; font-size: 10px; color: var(--muted); background: var(--card-bg); }
+.ch-wf-status-hd { font-weight: 700; color: var(--fg); margin-bottom: 3px; }
+.ch-wf-events { margin-top: 4px; display: flex; flex-direction: column; gap: 2px; }
 
 /* ── Palette Fork/Join ── */
 .ch-pal-elem-fork { border-left-color: #a855f7; }
@@ -1051,6 +1109,8 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
   readonly skillProfiles = signal<VpSkillProfile[]>([]);
   readonly selectedPresetId = signal('');
   readonly workflowId = signal<string | null>(null);
+  readonly workflowStatus = signal<Record<string, unknown> | null>(null);
+  readonly workflowEvents = signal<Record<string, unknown>[]>([]);
   readonly dryRunResult = signal<string | null>(null);
   readonly detRunResult = signal<Record<string, unknown> | null>(null);
   readonly detRunning = signal(false);
@@ -1099,6 +1159,7 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
   private _nodeSeq = 0;
   private _edgeSeq = 0;
   private _pollSub: Subscription | null = null;
+  private _workflowPollSub: Subscription | null = null;
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -1113,7 +1174,10 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   ngAfterViewInit(): void {}
-  ngOnDestroy(): void { this._pollSub?.unsubscribe(); }
+  ngOnDestroy(): void {
+    this._pollSub?.unsubscribe();
+    this._workflowPollSub?.unsubscribe();
+  }
 
   // ── Blueprint / Playbook / VP Preset ─────────────────────────────────────
 
@@ -1153,7 +1217,14 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
         gate: s.gate,
         enabled: true,
         routing: { mode: 'auto' as RoutingMode },
-        inputs: (s.io?.inputs ?? []).map((inp: any) => ({ name: inp.name, kind: inp.kind ?? 'text', required: inp.required ?? true, description: inp.description ?? '' })),
+        inputs: (s.io?.inputs ?? []).map((inp: any) => ({
+          name: inp.name,
+          kind: inp.kind ?? 'text',
+          required: inp.required ?? true,
+          description: inp.description ?? '',
+          producedByStepId: inp.produced_by_step ?? undefined,
+          producedByOutputName: inp.produced_by_output ?? undefined,
+        })),
         outputs: (s.io?.outputs ?? []).map((out: any) => ({ name: out.name, kind: out.kind ?? 'text', required: out.required ?? false, description: out.description ?? '' })),
       };
     });
@@ -1162,12 +1233,19 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
       condition: (e.condition.kind as EdgeCondition) ?? 'always',
       label: e.label ?? undefined,
       loopMaxIter: e.condition.loop_policy?.max_iterations ?? undefined,
+      outputName: e.condition.output_name ?? undefined,
+      bindings: Array.isArray(e.metadata?.['artifact_bindings']) ? (e.metadata['artifact_bindings'] as any[]).map(b => ({
+        outputName: String(b.output_name ?? b.outputName ?? ''),
+        inputName: String(b.input_name ?? b.inputName ?? ''),
+      })).filter(b => b.outputName && b.inputName) : [],
     }));
     this.nodes.set(nodes);
     this.edges.set(edges);
     this.selectedNodeId.set(null);
     this.selectedEdgeId.set(null);
     this.workflowId.set(null);
+    this.workflowStatus.set(null);
+    this.workflowEvents.set([]);
     this.dryRunResult.set(null);
   }
 
@@ -1193,6 +1271,7 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   toVpGraph(): VpGraph {
+    this.syncInputBindings();
     const name = this.goalText().trim() || 'Canvas Workflow';
     return {
       id: `vp-canvas-${Date.now()}`,
@@ -1212,7 +1291,14 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
         position: { x: n.x, y: n.y },
         policy_hints: n.gate ? ['requires_approval'] : [],
         io: {
-          inputs: (n.inputs ?? []).map(s => ({ name: s.name, kind: s.kind, required: s.required, description: s.description })),
+          inputs: (n.inputs ?? []).map(s => ({
+            name: s.name,
+            kind: s.kind,
+            required: s.required,
+            description: s.description,
+            produced_by_step: s.producedByStepId ?? null,
+            produced_by_output: s.producedByOutputName ?? null,
+          })),
           outputs: (n.outputs ?? []).map(s => ({ name: s.name, kind: s.kind, required: s.required, description: s.description })),
         },
         metadata: {
@@ -1226,8 +1312,13 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
       })),
       edges: this.edges().map(e => ({
         id: e.id, source: e.from, target: e.to,
-        label: e.outputName ? `📦 ${e.outputName}` : (e.label ?? null),
-        metadata: {},
+        label: this.edgeBindingLabel(e) || (e.outputName ? `📦 ${e.outputName}` : (e.label ?? null)),
+        metadata: {
+          artifact_bindings: (e.bindings ?? []).map(b => ({
+            output_name: b.outputName,
+            input_name: b.inputName,
+          })),
+        },
         condition: {
           kind: e.condition,
           expression: null,
@@ -1280,6 +1371,7 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
       const wid = (result as any)?.workflow_id ?? (result as any)?.id ?? null;
       if (wid) {
         this.workflowId.set(wid);
+        this.startWorkflowPolling(wid);
         this.goalOk.set(true);
         this.goalResult.set(`Workflow gestartet: ${wid}`);
       } else {
@@ -1505,6 +1597,54 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
     } : n));
   }
 
+  addArtifactBinding(edgeId: string, raw: string): void {
+    if (!raw) return;
+    const [outputName, inputName] = raw.split('=>');
+    if (!outputName || !inputName) return;
+    this.edges.update(es => es.map(e => {
+      if (e.id !== edgeId) return e;
+      const bindings = [...(e.bindings ?? [])];
+      if (!bindings.some(b => b.outputName === outputName && b.inputName === inputName)) {
+        bindings.push({ outputName, inputName });
+      }
+      return { ...e, bindings, outputName: e.outputName ?? outputName };
+    }));
+    this.syncInputBindings();
+  }
+
+  removeArtifactBinding(edgeId: string, binding: ArtifactBinding): void {
+    this.edges.update(es => es.map(e => e.id === edgeId
+      ? { ...e, bindings: (e.bindings ?? []).filter(b => b.outputName !== binding.outputName || b.inputName !== binding.inputName) }
+      : e
+    ));
+    this.syncInputBindings();
+  }
+
+  availableBindingOptions(edge: CanvasEdge): { value: string; label: string }[] {
+    const src = this.nodes().find(n => n.id === edge.from);
+    const dst = this.nodes().find(n => n.id === edge.to);
+    if (!src || !dst) return [];
+    const existing = new Set((edge.bindings ?? []).map(b => `${b.outputName}=>${b.inputName}`));
+    const options: { value: string; label: string }[] = [];
+    for (const out of src.outputs ?? []) {
+      for (const inp of dst.inputs ?? []) {
+        if (inp.kind !== out.kind && inp.kind !== 'text' && out.kind !== 'text') continue;
+        const value = `${out.name}=>${inp.name}`;
+        if (!existing.has(value)) {
+          options.push({ value, label: `${out.name} → ${inp.name}` });
+        }
+      }
+    }
+    return options;
+  }
+
+  edgeBindingLabel(edge: CanvasEdge): string {
+    const bindings = edge.bindings ?? [];
+    if (!bindings.length) return '';
+    if (bindings.length === 1) return `📦 ${bindings[0].outputName}`;
+    return `📦 ${bindings.length} artifacts`;
+  }
+
   addOutput(nodeId: string): void {
     this.nodes.update(ns => ns.map(n => n.id === nodeId ? {
       ...n, outputs: [...n.outputs, { name: `output_${n.outputs.length + 1}`, kind: 'text' as const, required: false, description: '' }]
@@ -1660,6 +1800,8 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
   // ── Live state ────────────────────────────────────────────────────────────
 
   nodeIsActive(node: CanvasNode): boolean {
+    const activeStep = this.activeWorkflowStepId();
+    if (activeStep) return node.id === activeStep;
     const ap = this.autopilot();
     if (!ap.running) return false;
     if (node.type === 'planning') return ap.dispatched_count === 0 && ap.tick_count > 0;
@@ -1670,6 +1812,23 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
 
   workerIsActive(w: AnantaWorker): boolean { return this.autopilot().running && w.status === 'online'; }
   workerStatus(name: string): string { return this.workers().find(w => w.name === name)?.status ?? 'offline'; }
+
+  activeWorkflowStepId(): string | null {
+    const status = this.workflowStatus();
+    const steps = Array.isArray(status?.['steps']) ? status?.['steps'] as Record<string, unknown>[] : [];
+    const active = steps.find(s => ['running', 'waiting_for_approval'].includes(String(s['status'] ?? '')));
+    return String(active?.['step_id'] ?? active?.['id'] ?? '') || null;
+  }
+
+  private startWorkflowPolling(workflowId: string): void {
+    this._workflowPollSub?.unsubscribe();
+    const load = () => {
+      this.svc.getVpWorkflowStatus(workflowId).subscribe(status => this.workflowStatus.set(status));
+      this.svc.getVpWorkflowEvents(workflowId).subscribe(events => this.workflowEvents.set(events));
+    };
+    load();
+    this._workflowPollSub = interval(2000).subscribe(() => load());
+  }
 
   // ── Goal Submit ───────────────────────────────────────────────────────────
 
@@ -1704,5 +1863,25 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
       x: (e.clientX - rect.left - this.viewTx()) / this.viewScale(),
       y: (e.clientY - rect.top - this.viewTy()) / this.viewScale(),
     };
+  }
+
+  private syncInputBindings(): void {
+    const bindingByTarget = new Map<string, ArtifactBinding & { sourceId: string }>();
+    for (const edge of this.edges()) {
+      for (const binding of edge.bindings ?? []) {
+        bindingByTarget.set(`${edge.to}:${binding.inputName}`, { ...binding, sourceId: edge.from });
+      }
+    }
+    this.nodes.update(ns => ns.map(n => ({
+      ...n,
+      inputs: n.inputs.map(inp => {
+        const binding = bindingByTarget.get(`${n.id}:${inp.name}`);
+        return {
+          ...inp,
+          producedByStepId: binding?.sourceId,
+          producedByOutputName: binding?.outputName,
+        };
+      }),
+    })));
   }
 }

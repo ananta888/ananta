@@ -320,6 +320,12 @@ class TestRunTestsHandler:
         p = RunTestsHandler().propose(task={"test_runner_profile": "node"})
         assert "npm test" in p["command"]
 
+    def test_propose_uses_canvas_det_command_metadata(self):
+        from agent.services.run_tests_handler import RunTestsHandler
+        p = RunTestsHandler().propose(task={"metadata": {"det_command": "pytest tests/test_task_engine.py"}})
+        assert p["command"] == "pytest tests/test_task_engine.py"
+        assert p["tool_calls"][0]["name"] == "run_tests"
+
     def test_blocked_unknown_command(self):
         from agent.services.run_tests_handler import RunTestsHandler
         r = RunTestsHandler().execute(task={"command": "rm -rf /", "test_runner_profile": "default"})
@@ -347,6 +353,14 @@ class TestRunTestsHandler:
         from agent.services.run_tests_handler import RunTestsHandler
         r = RunTestsHandler().execute(task={"command": "pytest nonexistent_test_xyz123.py"})
         assert r["exit_code"] != 0  # exits non-zero when no tests collected
+
+    def test_create_app_registers_run_tests_handler(self):
+        from agent.ai_agent import create_app
+        from agent.services.task_handler_registry import get_task_handler_registry
+
+        app = create_app(testing=True)
+        with app.app_context():
+            assert get_task_handler_registry().resolve("run_tests") is not None
 
 
 # ── TaskEnginePipelineTrace (te-008) ──────────────────────────────────────────

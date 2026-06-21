@@ -32,7 +32,14 @@ export interface VpSkillProfile {
 }
 
 export interface VpStepPosition { x: number; y: number; }
-export interface VpArtifactRef { name: string; kind: string; required: boolean; description: string; }
+export interface VpArtifactRef {
+  name: string;
+  kind: string;
+  required: boolean;
+  description: string;
+  produced_by_step?: string | null;
+  produced_by_output?: string | null;
+}
 export interface VpStepIo { inputs: VpArtifactRef[]; outputs: VpArtifactRef[]; }
 export interface VpLoopPolicy { kind: string; max_iterations: number; condition: string | null; }
 export interface VpTransitionCondition { kind: string; expression: string | null; output_name: string | null; loop_policy: VpLoopPolicy | null; }
@@ -163,6 +170,13 @@ export class InternalsService {
   getVpWorkflowStatus(workflowId: string): Observable<Record<string, unknown>> {
     return this.http.get<Record<string, unknown>>(`${this.hubUrl()}/api/visual-process/workflow/${encodeURIComponent(workflowId)}/status`).pipe(
       catchError(() => of({ status: 'not_found' })),
+    );
+  }
+
+  getVpWorkflowEvents(workflowId: string): Observable<Record<string, unknown>[]> {
+    return this.http.get<{ events: Record<string, unknown>[] }>(`${this.hubUrl()}/api/visual-process/workflow/${encodeURIComponent(workflowId)}/events`).pipe(
+      map(resp => Array.isArray(resp?.events) ? resp.events : []),
+      catchError(() => of([])),
     );
   }
 

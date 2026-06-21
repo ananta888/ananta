@@ -100,6 +100,27 @@ def test_local_workflow_backend_models_start_signal_and_cancel():
     assert cancelled["status"] == "cancelled"
 
 
+def test_local_workflow_backend_exposes_active_running_step():
+    from agent.services.local_workflow_backend import LocalWorkflowBackend
+    from agent.visual_process.models import VisualProcessGraph, VisualProcessStep
+    from agent.visual_process.blueprint_mapper import graph_to_workflow_request
+
+    graph = VisualProcessGraph(
+        id="wf-active",
+        name="Active workflow",
+        steps=[
+            VisualProcessStep(id="plan", label="Plan", kind="goal_plan"),
+            VisualProcessStep(id="build", label="Build", kind="coding"),
+        ],
+    )
+    workflow = graph_to_workflow_request(graph, policy_scope={"source": "test"})
+    status = LocalWorkflowBackend().start_workflow(workflow)
+
+    assert status["status"] == "running"
+    assert status["steps"][0]["status"] == "running"
+    assert any(event["event_type"] == "step_started" for event in status["events"])
+
+
 def test_visual_process_bpmn_and_workflow_routes():
     from flask import Flask
     from agent.routes.visual_process import vp_bp

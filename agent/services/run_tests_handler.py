@@ -89,9 +89,10 @@ class RunTestsHandler:
 
     def propose(self, **kwargs: Any) -> dict[str, Any]:
         task = kwargs.get("task") or {}
+        metadata = task.get("metadata") or {}
         profile_name = task.get("test_runner_profile") or DEFAULT_PROFILE
         profile = _resolve_profile(profile_name)
-        cmd = task.get("command") or profile.default_command
+        cmd = task.get("command") or metadata.get("det_command") or profile.default_command
         cwd = task.get("cwd") or "."
         return {
             "proposal_id": "run_tests-proposal",
@@ -105,9 +106,10 @@ class RunTestsHandler:
 
     def execute(self, **kwargs: Any) -> dict[str, Any]:
         task = kwargs.get("task") or {}
+        metadata = task.get("metadata") or {}
         profile_name = task.get("test_runner_profile") or DEFAULT_PROFILE
         profile = _resolve_profile(profile_name)
-        cmd = (task.get("command") or profile.default_command).strip()
+        cmd = (task.get("command") or metadata.get("det_command") or profile.default_command).strip()
         cwd = task.get("cwd") or "."
         extra_args: list[str] = task.get("extra_args") or []
 
