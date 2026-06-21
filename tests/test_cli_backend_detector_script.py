@@ -16,7 +16,8 @@ import subprocess
 from pathlib import Path
 
 
-DETECTOR_PATH = Path("scripts/check_cli_backend_shim_imports.py")
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+DETECTOR_PATH = _REPO_ROOT / "scripts" / "check_cli_backend_shim_imports.py"
 
 
 def test_detector_script_exists() -> None:
@@ -30,7 +31,7 @@ def test_detector_is_runnable() -> None:
         ["python", str(DETECTOR_PATH)],
         capture_output=True,
         text=True,
-        cwd="/home/krusty/ananta",
+        cwd=str(_REPO_ROOT),
     )
     # Detector must not crash — exit code 0 (clean) or 1 (violations) is OK
     assert result.returncode in (0, 1), (
@@ -51,7 +52,7 @@ def test_detector_exit_code_zero_after_migration() -> None:
         ["python", str(DETECTOR_PATH)],
         capture_output=True,
         text=True,
-        cwd="/home/krusty/ananta",
+        cwd=str(_REPO_ROOT),
     )
     # In Welle 3 final state: 0 violations → exit 0
     assert result.returncode == 0, (
