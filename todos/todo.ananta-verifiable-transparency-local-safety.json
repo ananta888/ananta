@@ -1,0 +1,292 @@
+{
+  "id": "todo.ananta-verifiable-transparency-local-safety",
+  "title": "Ananta als lokal pruefbares, transparentes und policyfaehiges Agentensystem schaerfen",
+  "status": "open",
+  "priority": "critical",
+  "created": "2026-06-21",
+  "last_reviewed": "2026-06-21",
+  "tags": [
+    "ananta",
+    "transparency",
+    "local-first",
+    "safety",
+    "policy",
+    "default-deny",
+    "audit",
+    "verifiability",
+    "trustless",
+    "open-source",
+    "reproducibility"
+  ],
+  "goal": "Anantas wichtigste Differenzierung gegen proprietaere Agentenplattformen klar herausarbeiten und technisch absichern: keine Vertrauensforderung, sondern lokale Pruefbarkeit. Jede relevante Entscheidung, jeder Kontextzugriff, jede Policy-Grenze, jeder Toolcall und jede Dateiaenderung soll fuer Nutzer nachvollziehbar, auditierbar und reproduzierbar sein.",
+  "relationship_to_existing_todos": {
+    "extends": [
+      "todos/todo.ananta-cosmos-context-engine-gap-analysis.json",
+      "todos/todo.augment-auggie-codecompass-integration.json"
+    ],
+    "reason": "Cosmos/Augment sind vermutlich stark bei Context Engine und Enterprise-Agentenplattform. Anantas schaerfster Vorteil liegt nicht in blindem Feature-Wettrennen, sondern in Transparenz, lokaler Kontrolle, Default-Deny und pruefbarer Delegation."
+  },
+  "positioning_claim": {
+    "short": "Nicht vertrauen. Pruefen.",
+    "long": "Ananta soll ein lokales, transparentes Agenten-Betriebssystem fuer Softwarearbeit sein. Der Nutzer muss nicht glauben, dass der Agent sicher handelt, sondern kann sehen und pruefen, welcher Kontext gelesen wurde, warum ein Worker ausgewaehlt wurde, welche Rechte galten, welche Tools erlaubt waren und welche Aenderungen vorgeschlagen wurden.",
+    "anti_claims": [
+      "Nicht: Blackbox Coding SaaS.",
+      "Nicht: Agent bekommt pauschal Repo- und Toolzugriff.",
+      "Nicht: Sicherheit nur als Enterprise-Feature.",
+      "Nicht: Cloud-Kontext als unsichtbare Wahrheit.",
+      "Nicht: Worker duerfen Rechte oder Kontext selbst erfinden."
+    ]
+  },
+  "core_principles": [
+    {
+      "id": "P1",
+      "name": "Local-first",
+      "description": "Normale Nutzung muss lokal und ohne externen Provider moeglich bleiben. Externe Provider sind Adapter, nicht Grundlage."
+    },
+    {
+      "id": "P2",
+      "name": "Verifiable by default",
+      "description": "Jede relevante Agentenentscheidung erzeugt nachvollziehbare Evidence, Trace und Audit-Daten."
+    },
+    {
+      "id": "P3",
+      "name": "Default-Deny",
+      "description": "Fehlende Rechte bedeuten Blockade, nicht implizite Erlaubnis."
+    },
+    {
+      "id": "P4",
+      "name": "Explicit Delegation",
+      "description": "Der Hub delegiert bewusst an Worker/Experts; Worker bekommen nur Aufgabe, Kontext und Rechte, die fuer diesen Schritt noetig sind."
+    },
+    {
+      "id": "P5",
+      "name": "No hidden authority",
+      "description": "Kein Modell, Provider oder Worker ist autoritative Quelle fuer Codeaenderungen, Policies oder Freigaben."
+    },
+    {
+      "id": "P6",
+      "name": "Human-approved impact",
+      "description": "Aktionen mit realem Effekt wie Datei-Aenderungen, Git-Operationen, PRs, Deployments oder externe Calls brauchen explizite Gates."
+    }
+  ],
+  "tasks": [
+    {
+      "id": "TRANS-001",
+      "title": "Transparenz-Manifest fuer README und Architektur schreiben",
+      "status": "open",
+      "priority": "critical",
+      "component": "documentation",
+      "description": "Ein kurzes, hartes Manifest formulieren: Ananta verlangt kein Vertrauen, sondern macht Agentenarbeit lokal pruefbar.",
+      "suggested_files": [
+        "docs/architecture/transparency-and-local-safety.md",
+        "README.md"
+      ],
+      "acceptance_criteria": [
+        "Manifest enthaelt die Kernaussage 'Nicht vertrauen, pruefen'.",
+        "Manifest erklaert Local-first, Default-Deny, explizite Delegation und pruefbare Traces.",
+        "README beschreibt Ananta nicht als groesseres Cosmos, sondern als transparente Alternative fuer kontrollierte Agentenarbeit.",
+        "Abgrenzung zu proprietaeren Systemen bleibt sachlich und technisch, nicht polemisch.",
+        "Dokument nennt konkrete pruefbare Artefakte: PolicySnapshot, ContextTrace, ToolCallLog, DiffProposal, ApprovalRecord, ReplayRecord."
+      ]
+    },
+    {
+      "id": "TRANS-002",
+      "title": "PolicySnapshot fuer jeden Run einfuehren",
+      "status": "open",
+      "priority": "critical",
+      "component": "policy",
+      "description": "Jeder Agentenlauf soll exakt speichern, welche Rechte, Pfade, Tools, Provider, Modelle und Gates zum Startzeitpunkt galten.",
+      "schema_fields": [
+        "run_id",
+        "policy_scope_id",
+        "allowed_paths",
+        "denied_paths",
+        "allowed_tools",
+        "denied_tools",
+        "allowed_providers",
+        "model_policy",
+        "network_policy",
+        "write_policy",
+        "approval_gates",
+        "created_at",
+        "config_hash"
+      ],
+      "acceptance_criteria": [
+        "Jeder Run verweist auf genau einen PolicySnapshot.",
+        "PolicySnapshot ist unveraenderlich oder versioniert append-only gespeichert.",
+        "Worker duerfen PolicySnapshot lesen, aber nicht veraendern.",
+        "Fehlender PolicySnapshot blockiert Worker-Ausfuehrung.",
+        "Snapshot kann als JSON exportiert und im UI/CLI angezeigt werden.",
+        "Tests pruefen Erstellung, Serialisierung, Hash und Blockade bei fehlendem Snapshot."
+      ]
+    },
+    {
+      "id": "TRANS-003",
+      "title": "ContextTrace fuer CodeCompass und externe Provider erzwingen",
+      "status": "open",
+      "priority": "critical",
+      "component": "codecompass",
+      "description": "Jede Kontextauswahl muss erklaeren, welche Query, welcher Provider, welcher Treffer, welche Policy und welcher Auswahlgrund beteiligt war.",
+      "schema_fields": [
+        "run_id",
+        "tool_call_id",
+        "query",
+        "provider",
+        "retrieved_candidates",
+        "selected_items",
+        "discarded_items",
+        "discard_reasons",
+        "policy_decisions",
+        "budget_decisions",
+        "confidence",
+        "evidence"
+      ],
+      "acceptance_criteria": [
+        "codecompass.resolve_context und plan_context erzeugen ContextTrace-Daten.",
+        "Verworfene Treffer haben Gruende wie denied_path, duplicate, stale, low_score, over_budget.",
+        "Externe Provider wie Augment werden klar als externe Evidence markiert.",
+        "ContextTrace kann ohne Quellcode-Leak in Kurzform angezeigt werden.",
+        "Tests pruefen ausgewaehlte, verworfene und blockierte Treffer."
+      ]
+    },
+    {
+      "id": "TRANS-004",
+      "title": "ToolCallLog als pruefbaren Ausfuehrungsnachweis standardisieren",
+      "status": "open",
+      "priority": "critical",
+      "component": "audit",
+      "description": "Jeder Toolcall braucht strukturierte Logs mit Input-Hash, Output-Hash, Policy-Entscheidung, Dauer, Status und Redaction-Informationen.",
+      "acceptance_criteria": [
+        "Jeder Toolcall hat tool_call_id, run_id, worker_id, tool_name und timestamp.",
+        "Inputs und Outputs werden gehasht; sensible Inhalte werden redigiert oder referenziert.",
+        "Policy-Entscheidung ist im ToolCallLog sichtbar.",
+        "Fehler und Timeouts werden strukturiert protokolliert.",
+        "Log kann als JSONL exportiert werden.",
+        "Tests pruefen Logging fuer Erfolg, Fehler, Timeout und blockierte Calls."
+      ]
+    },
+    {
+      "id": "TRANS-005",
+      "title": "DelegationTrace fuer Hub-zu-Worker Entscheidungen bauen",
+      "status": "open",
+      "priority": "critical",
+      "component": "orchestration",
+      "description": "Ananta soll sichtbar machen, warum ein Worker/Expert fuer eine Aufgabe gewaehlt wurde und welche Grenzen er bekommen hat.",
+      "acceptance_criteria": [
+        "DelegationTrace enthaelt Ziel, gewaehlten Expert/Worker, Alternativen, Auswahlgrund und PolicyScope.",
+        "Nicht gewaehlte Worker koennen mit Gruenden wie missing_capability, denied_provider, too_risky, unavailable dokumentiert werden.",
+        "Worker erhalten nur explizit zugewiesene Tools und Kontextpakete.",
+        "DelegationTrace erscheint im Tracking Viewer oder CLI.",
+        "Tests pruefen Worker-Auswahl, abgelehnte Delegation und minimale Rechte."
+      ]
+    },
+    {
+      "id": "TRANS-006",
+      "title": "DiffProposal als einzige erlaubte Schreib-Vorstufe erzwingen",
+      "status": "open",
+      "priority": "critical",
+      "component": "change-management",
+      "description": "Agenten duerfen Aenderungen nur als pruefbares DiffProposal erzeugen. Anwendung ins echte Repository ist ein separater Gate-Schritt.",
+      "acceptance_criteria": [
+        "Schreibende Worker laufen in Task-Workspace oder Sandbox.",
+        "Jede Aenderung wird als DiffProposal mit Dateien, Hunks, Risiko und Ursprung gespeichert.",
+        "Direkte Mutation im echten Repo wird blockiert.",
+        "Apply braucht ApprovalRecord und PolicyCheck.",
+        "DiffProposal kann vor Apply lokal inspiziert werden.",
+        "Tests pruefen direkte Mutation, erlaubtes Proposal und blockierten Apply."
+      ]
+    },
+    {
+      "id": "TRANS-007",
+      "title": "Trustless Run Report fuer Nutzer erzeugen",
+      "status": "open",
+      "priority": "high",
+      "component": "reporting",
+      "description": "Nach jedem Run soll ein Bericht entstehen, der ohne Vertrauen in das Modell zeigt, was passiert ist.",
+      "report_sections": [
+        "goal",
+        "selected_expert_or_worker",
+        "policy_snapshot_summary",
+        "context_sources",
+        "tool_calls",
+        "blocked_actions",
+        "diffs_or_artifacts",
+        "approval_gates",
+        "test_results",
+        "final_result",
+        "open_risks"
+      ],
+      "acceptance_criteria": [
+        "Report kann als Markdown und JSON erzeugt werden.",
+        "Report unterscheidet Modellbehauptungen und belegte Evidence.",
+        "Report zeigt blockierte Aktionen explizit.",
+        "Report enthaelt keine Secrets.",
+        "Report verweist auf exportierbare Trace-Artefakte.",
+        "Tests pruefen Report-Erzeugung fuer Analyse-Run und ChangeProposal-Run."
+      ]
+    },
+    {
+      "id": "TRANS-008",
+      "title": "Local-only Modus als Produktfeature definieren",
+      "status": "open",
+      "priority": "critical",
+      "component": "config",
+      "description": "Ein harter Modus, in dem keine externen Provider, keine Cloud-Modelle, keine Remote-Indexierung und keine Netzwerktools erlaubt sind.",
+      "config_example": {
+        "safety_mode": "local_only",
+        "network": "deny_all",
+        "external_providers": false,
+        "remote_context": false,
+        "models": "local_only",
+        "write_requires_approval": true
+      },
+      "acceptance_criteria": [
+        "local_only blockiert externe Modellprovider und externe Context Provider hart.",
+        "Netzwerktools sind in local_only standardmaessig nicht verfuegbar.",
+        "Ollama/LM Studio/lokale Worker bleiben erlaubt, wenn explizit konfiguriert.",
+        "UI/CLI zeigt local_only sichtbar an.",
+        "Versuchte externe Nutzung erzeugt Audit-Event und Blockade.",
+        "Tests pruefen Blockade fuer externe Provider, Netzwerk und Remote Context."
+      ]
+    },
+    {
+      "id": "TRANS-009",
+      "title": "Public Verification Bundle fuer Open-Source-Nutzer definieren",
+      "status": "open",
+      "priority": "medium",
+      "component": "export",
+      "description": "Nutzer sollen einen Run so exportieren koennen, dass andere ihn pruefen koennen, ohne Secrets oder private Codeinhalte offenzulegen.",
+      "acceptance_criteria": [
+        "Verification Bundle enthaelt Config-Hash, PolicySnapshot, Trace-Metadaten, ToolCall-Hashes, Diff-Hashes und Report.",
+        "Private Inhalte werden redigiert oder nur als Hash referenziert.",
+        "Bundle kann optional interne Details enthalten, wenn Nutzer es freigibt.",
+        "README erklaert, wie Dritte ein Bundle lesen und pruefen koennen.",
+        "Tests pruefen Export ohne Secrets und stabile Hashes."
+      ]
+    },
+    {
+      "id": "TRANS-010",
+      "title": "UI/Tracking Viewer auf Pruefbarkeit ausrichten",
+      "status": "open",
+      "priority": "high",
+      "component": "ui-tracking",
+      "description": "Der Tracking Viewer soll nicht nur Fortschritt zeigen, sondern Pruefbarkeit: Kontext, Policy, Delegation, Toolcalls, Diffs und Approvals.",
+      "acceptance_criteria": [
+        "Tracking Viewer zeigt pro Schritt ContextTrace, DelegationTrace und ToolCallLog-Referenzen.",
+        "Policy-Blockaden werden sichtbar und verstaendlich dargestellt.",
+        "DiffProposal und ApprovalRecord sind klickbar/verknuepft.",
+        "External Provider werden klar markiert.",
+        "Local-only Status ist sichtbar.",
+        "UI zeigt Evidence getrennt von Modelltext."
+      ]
+    }
+  ],
+  "global_acceptance_criteria": [
+    "Ananta kann als transparentes, lokales und pruefbares Agentensystem beschrieben werden, ohne Marketing-Behauptungen ohne technische Artefakte.",
+    "Jeder relevante Run erzeugt PolicySnapshot, ContextTrace, DelegationTrace, ToolCallLog und optional DiffProposal/ApprovalRecord.",
+    "Local-only Modus blockiert externe Provider und Netzwerkzugriffe hart.",
+    "Nutzer koennen sehen, warum ein Kontext verwendet, ein Worker gewaehlt oder eine Aktion blockiert wurde.",
+    "Transparenz ist nicht nur Dokumentation, sondern technisch durch Tests und exportierbare Artefakte abgesichert.",
+    "Keine Komponente verlangt blindes Vertrauen in Modell, Provider oder Worker."
+  ]
+}
