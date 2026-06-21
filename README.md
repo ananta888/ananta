@@ -2,7 +2,6 @@
 
 [![Quality And Docs](https://github.com/ananta888/ananta/actions/workflows/quality-and-docs.yml/badge.svg)](https://github.com/ananta888/ananta/actions/workflows/quality-and-docs.yml)
 [![Backend Isolated Flows](https://github.com/ananta888/ananta/actions/workflows/backend-isolated-flows.yml/badge.svg)](https://github.com/ananta888/ananta/actions/workflows/backend-isolated-flows.yml)
-[![Live LLM Smoke](https://github.com/ananta888/ananta/actions/workflows/live-llm-smoke.yml/badge.svg)](https://github.com/ananta888/ananta/actions/workflows/live-llm-smoke.yml)
 
 @Sponsored by www.ananta.de
 
