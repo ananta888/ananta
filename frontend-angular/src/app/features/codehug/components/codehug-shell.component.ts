@@ -1,5 +1,5 @@
 import { Component, ChangeDetectionStrategy, signal, computed, HostListener, inject, OnDestroy } from '@angular/core';
-import { RouterOutlet, RouterLink, RouterLinkActive, ActivatedRoute } from '@angular/router';
+import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { PolicyService } from '../services/policy.service';
 
 /**
@@ -13,7 +13,7 @@ import { PolicyService } from '../services/policy.service';
 @Component({
   selector: 'ch-shell',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, ActivatedRoute],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section
