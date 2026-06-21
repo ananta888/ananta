@@ -132,24 +132,24 @@ def split_group(files: list[tuple[str, int]], shard_prefix: str, shard_count: in
 
 
 def build_shards(file_counts: dict[str, int], shard_count: int) -> list[dict[str, object]]:
-    if shard_count != 14:
-        raise SystemExit("This resolver currently expects --shard-count 14.")
+    if shard_count != 18:
+        raise SystemExit("This resolver currently expects --shard-count 18.")
 
     categorized: dict[str, list[tuple[str, int]]] = defaultdict(list)
     for file_path, count in file_counts.items():
         categorized[classify_file(file_path)].append((file_path, count))
 
     shard_entries: list[dict[str, object]] = []
-    shard_entries.extend(split_group(categorized.pop("core-contracts", []), "core-contracts", 4, 0))
-    shard_entries.extend(split_group(categorized.pop("e2e", []), "e2e", 2, 4))
-    shard_entries.extend(split_group(categorized.pop("client-surfaces", []), "client-surfaces", 1, 6))
-    shard_entries.extend(split_group(categorized.pop("operator-tui", []), "operator-tui", 1, 7))
-    shard_entries.extend(split_group(categorized.pop("worker", []), "worker", 1, 8))
-    shard_entries.extend(split_group(categorized.pop("llm-interceptor", []), "llm-interceptor", 1, 9))
-    shard_entries.extend(split_group(categorized.pop("heuristic-runtime", []), "heuristic-runtime", 1, 10))
-    shard_entries.extend(split_group(categorized.pop("smoke-cli", []), "smoke-cli", 1, 11))
-    shard_entries.extend(split_group(categorized.pop("cli", []), "cli", 1, 12))
-    shard_entries.extend(split_group(categorized.pop("benchmarks", []), "benchmarks", 1, 13))
+    shard_entries.extend(split_group(categorized.pop("core-contracts", []), "core-contracts", 8, 0))
+    shard_entries.extend(split_group(categorized.pop("e2e", []), "e2e", 2, 8))
+    shard_entries.extend(split_group(categorized.pop("client-surfaces", []), "client-surfaces", 1, 10))
+    shard_entries.extend(split_group(categorized.pop("operator-tui", []), "operator-tui", 1, 11))
+    shard_entries.extend(split_group(categorized.pop("worker", []), "worker", 1, 12))
+    shard_entries.extend(split_group(categorized.pop("llm-interceptor", []), "llm-interceptor", 1, 13))
+    shard_entries.extend(split_group(categorized.pop("heuristic-runtime", []), "heuristic-runtime", 1, 14))
+    shard_entries.extend(split_group(categorized.pop("smoke-cli", []), "smoke-cli", 1, 15))
+    shard_entries.extend(split_group(categorized.pop("cli", []), "cli", 1, 16))
+    shard_entries.extend(split_group(categorized.pop("benchmarks", []), "benchmarks", 1, 17))
 
     if categorized:
         remaining = ", ".join(sorted(categorized))
