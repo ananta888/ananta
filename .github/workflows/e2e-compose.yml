@@ -18,7 +18,34 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  build-compose-images:
+    if: github.event_name != 'pull_request' || github.event.label.name == 'full-ci'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+      - name: Build cached backend compose image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+        with:
+          context: .
+          file: Dockerfile.quickstart-no-ollama
+          tags: ananta-backend-compose-test:local
+          load: false
+          cache-from: type=gha,scope=compose-backend
+          cache-to: type=gha,scope=compose-backend,mode=max
+      - name: Build cached frontend compose image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+        with:
+          context: frontend-angular
+          file: frontend-angular/Dockerfile
+          tags: ananta-frontend-compose-test:local
+          load: false
+          cache-from: type=gha,scope=compose-frontend
+          cache-to: type=gha,scope=compose-frontend,mode=max
+
   e2e-compose:
+    needs: build-compose-images
     if: github.event_name != 'pull_request' || github.event.label.name == 'full-ci'
     strategy:
       fail-fast: false
@@ -63,7 +90,7 @@ jobs:
         with:
           node-version: "20.19.5"
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
-      - name: Build cached backend compose image
+      - name: Load cached backend compose image
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
         with:
           context: .
@@ -71,8 +98,8 @@ jobs:
           tags: ananta-backend-compose-test:local
           load: true
           cache-from: type=gha,scope=compose-backend
-          cache-to: type=gha,scope=compose-backend,mode=max
-      - name: Build cached frontend compose image
+          cache-to: ""
+      - name: Load cached frontend compose image
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
         with:
           context: frontend-angular
@@ -80,7 +107,7 @@ jobs:
           tags: ananta-frontend-compose-test:local
           load: true
           cache-from: type=gha,scope=compose-frontend
-          cache-to: type=gha,scope=compose-frontend,mode=max
+          cache-to: ""
       - name: Start compose stack
         run: >
           docker compose
