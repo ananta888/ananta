@@ -1,0 +1,1072 @@
+{
+  "id": "todo.codecompass-turboquant-vector-quantization-transformer-layer",
+  "title": "CodeCompass TurboQuant-inspirierte Vektorquantisierung und Transformer-Zwischenschicht als deterministische Ananta-Pipeline",
+  "version": "1.0",
+  "created": "2026-06-22",
+  "updated": "2026-06-22",
+  "project": "Ananta / CodeCompass",
+  "status": "open",
+  "priority": "high",
+  "tags": [
+    "ananta",
+    "codecompass",
+    "vector-retrieval",
+    "quantization",
+    "turboquant",
+    "transformer-layer",
+    "local-first",
+    "deterministic-pipeline",
+    "rag",
+    "kv-cache",
+    "embeddings",
+    "audit",
+    "benchmark"
+  ],
+  "review_basis": {
+    "reviewed_commit_range": "current repository state around 7eabc8779acb2d1f800501ce22e7663788d37adf",
+    "review_goal": "Pruefen, ob und wie TurboQuant-aehnliche Vektorquantisierung realistisch in Ananta/CodeCompass integrierbar ist, ohne das System in eine Blackbox-LLM-Abhaengigkeit zu ziehen.",
+    "user_intent": "Der Nutzer moechte nicht nur Speicheroptimierung, sondern eine Ananta-kompatible Architektur: einzelne Transformer-/Embedding-Schichten als Werkzeug verwenden, danach deterministisch, policy-geprueft und auditierbar weiterarbeiten.",
+    "paper_basis": {
+      "paper": "TurboQuant: Online Vector Quantization with Near-optimal Distortion Rate",
+      "arxiv": "2504.19874",
+      "key_claims_used_for_this_todo": [
+        "Datenoblivious online vector quantization fuer hochdimensionale Vektoren.",
+        "Random Rotation vor Scalar Quantization.",
+        "MSE-orientierte Quantisierung und separater inner-product-orientierter Korrekturpfad.",
+        "Nahe am informationstheoretischen Lower Bound, im Paper ca. Faktor 2.7.",
+        "Praktische Motivation: KV-Cache-Quantisierung und Vector Search."
+      ],
+      "important_limitations": [
+        "Nicht 1:1 als Produktionscode uebernehmen, sondern erst als isolierter experimenteller QuantizationProvider.",
+        "KV-Cache-Resultate aus dem Paper beweisen nicht automatisch bessere CodeCompass-Retrievalqualitaet.",
+        "Ananta braucht reproduzierbare, deterministische und policy-faehige Artefakte; reine Modellmagie ist kein Akzeptanzkriterium."
+      ]
+    }
+  },
+  "feasibility_assessment": {
+    "short_answer": "Ja, realistisch als experimentelle Ananta-Komponente. Nicht realistisch als schneller Direktimport des Papers ohne Benchmark-, Audit- und Fallback-Schicht.",
+    "why_realistic": [
+      "CodeCompass besitzt bereits einen JSON-basierten VectorStore mit EmbeddingProvider-Abstraktion.",
+      "Der VectorStore speichert aktuell float-Vektoren direkt; dort kann eine Quantization-Schicht sauber vor Speicherung/Suche eingeschoben werden.",
+      "Hybrid Retrieval behandelt Vektoren bereits nur als fuzzy semantic signal; exakte Repository-/Symbol-Signale koennen weiter Vorrang behalten.",
+      "Anantas Default-Deny/Trace-Ansatz passt gut zu expliziten QuantizationProfiles und reproduzierbaren Index-State-Hashes."
+    ],
+    "main_risks": [
+      "Quantisierte Cosine-Similarity kann Ranking verschieben und relevante Treffer verlieren.",
+      "TurboQuant_prod fuer Inner Products ist mathematisch deutlich anspruchsvoller als einfache int8/4bit-Quantisierung.",
+      "Random Rotation muss deterministisch seedbar und plattformstabil sein, sonst werden Indexe nicht reproduzierbar.",
+      "Zu fruehe Optimierung kann CodeCompass verkomplizieren, bevor echte Bottlenecks gemessen sind."
+    ],
+    "recommended_strategy": [
+      "Phase 1: einfache, sichere QuantizationProvider-Abstraktion mit off/int8/float16/symmetric4bit und Benchmarks.",
+      "Phase 2: TurboQuant_mse-inspirierter ExperimentalProvider fuer Vektorindex-Speicher.",
+      "Phase 3: Inner-product/TurboQuant_prod nur als Forschungszweig, erst nach stabiler Metrik.",
+      "Phase 4: Transformer-Zwischenschicht als expliziter FeatureExtractor, getrennt von LLM-Generation und mit deterministischem Downstream."
+    ]
+  },
+  "existing_code_observations": [
+    {
+      "area": "CodeCompass Vector Retrieval",
+      "observation": "docs/worker/codecompass-vector-retrieval.md beschreibt embedding.json -> CodeCompassVectorRetrievalService -> CodeCompassVectorStore -> HybridOrchestrator.",
+      "impact": "Quantisierung gehoert in diese Kette zwischen EmbeddingProvider-Ausgabe und VectorStore-Speicherung bzw. vor Search-Ranking."
+    },
+    {
+      "area": "VectorStore",
+      "observation": "worker/retrieval/codecompass_vector_store.py speichert Vektoren aktuell als list[float] in JSON und nutzt Cosine Similarity in Python.",
+      "impact": "Erster sauberer Hook: entries koennen quantized_vector plus quantization_metadata statt oder neben vector speichern."
+    },
+    {
+      "area": "Provider Policy",
+      "observation": "Dokumentation verlangt Default-Deny fuer externe Provider und keine Secrets in Diagnostics.",
+      "impact": "QuantizationProfile und TransformerFeatureProvider muessen dieselbe Policy-/Diagnostics-Disziplin einhalten."
+    },
+    {
+      "area": "Tests",
+      "observation": "tests/test_codecompass_vector_store.py prueft bereits rebuild, refresh, provider hash und dass Secrets nicht im State landen.",
+      "impact": "Neue Tests sollten State-Hash, Profilwechsel, Ranking-Stabilitaet und Secret-Freiheit fuer QuantizationProfile ergaenzen."
+    }
+  ],
+  "architecture_decision": {
+    "decision": "Quantisierung wird nicht in den EmbeddingProvider eingebrannt, sondern als eigene VectorEncoding-Schicht nach dem EmbeddingProvider und vor dem VectorStore eingefuehrt.",
+    "reasoning": [
+      "EmbeddingProvider bleibt fuer Modell-/Provider-Auswahl verantwortlich.",
+      "VectorEncoding/QuantizationProvider wird fuer Speicherung, De-/Quantisierung und Ranking-Fidelity verantwortlich.",
+      "HybridOrchestrator bleibt fuer Kontextauswahl und Gewichtung verantwortlich.",
+      "So bleibt Ananta modular, testbar und policy-faehig."
+    ],
+    "proposed_pipeline": [
+      "CodeCompass embedding.json",
+      "EmbeddingTextBuilder",
+      "EmbeddingProvider oder TransformerFeatureProvider",
+      "VectorEncodingProfile",
+      "QuantizationProvider",
+      "CodeCompassVectorStore",
+      "VectorSearchEngine",
+      "HybridOrchestrator rerank",
+      "ContextTrace / RetrievalDiagnostics",
+      "PromptContext oder deterministischer Weiterverarbeitungsschritt"
+    ],
+    "non_goals": [
+      "Kein automatisches Ersetzen aller LLM-Aufrufe.",
+      "Kein Cloud-Zwang.",
+      "Kein ungepruefter TurboQuant-Produktionsmodus.",
+      "Kein Ranking-Override gegen exakte Symbol-/Pfadtreffer ohne klare Konfiguration."
+    ]
+  },
+  "configuration_contract": {
+    "target_files": [
+      "agent/config.py",
+      ".env.example",
+      "docker-compose.yml",
+      "docs/worker/codecompass-vector-retrieval.md",
+      "docs/architecture/codecompass-vector-encoding.md"
+    ],
+    "environment_variables": [
+      {
+        "name": "CODECOMPASS_VECTOR_ENCODING_MODE",
+        "type": "enum",
+        "allowed_values": [
+          "off",
+          "float32",
+          "float16",
+          "int8",
+          "symmetric4bit",
+          "turboquant_mse_experimental",
+          "turboquant_prod_experimental"
+        ],
+        "default": "off"
+      },
+      {
+        "name": "CODECOMPASS_VECTOR_ENCODING_STORE_ORIGINAL",
+        "type": "bool",
+        "default": false
+      },
+      {
+        "name": "CODECOMPASS_VECTOR_ENCODING_SEED",
+        "type": "int",
+        "default": 888
+      },
+      {
+        "name": "CODECOMPASS_VECTOR_ENCODING_BLOCK_SIZE",
+        "type": "int",
+        "default": 0,
+        "meaning": "0 bedeutet full vector; >0 erlaubt blockweise Rotation/Quantisierung"
+      },
+      {
+        "name": "CODECOMPASS_VECTOR_ENCODING_TARGET_BITS",
+        "type": "float",
+        "default": 8.0
+      },
+      {
+        "name": "CODECOMPASS_VECTOR_ENCODING_MIN_RECALL_AT_10",
+        "type": "float",
+        "default": 0.95
+      },
+      {
+        "name": "CODECOMPASS_VECTOR_ENCODING_MAX_SCORE_DRIFT",
+        "type": "float",
+        "default": 0.05
+      },
+      {
+        "name": "CODECOMPASS_TRANSFORMER_FEATURE_MODE",
+        "type": "enum",
+        "allowed_values": [
+          "off",
+          "embedding_provider",
+          "hidden_state_experimental",
+          "attention_probe_experimental"
+        ],
+        "default": "off"
+      },
+      {
+        "name": "CODECOMPASS_TRANSFORMER_FEATURE_LAYER",
+        "type": "string",
+        "default": ""
+      },
+      {
+        "name": "CODECOMPASS_TRANSFORMER_FEATURE_LOCAL_ONLY",
+        "type": "bool",
+        "default": true
+      },
+      {
+        "name": "CODECOMPASS_VECTOR_BENCHMARK_DATASET",
+        "type": "string",
+        "default": "tests/fixtures/codecompass_vector_benchmark"
+      }
+    ]
+  },
+  "definition_of_done": [
+    "Quantisierung ist optional und per Default deaktiviert.",
+    "Bestehende VectorStore-Tests laufen unveraendert mit CODECOMPASS_VECTOR_ENCODING_MODE=off.",
+    "Mindestens int8 und float16 sind produktionsnah implementiert; TurboQuant-Modi sind klar als experimental markiert.",
+    "QuantizationProfile ist im VectorStore-State enthalten und loest bei Aenderung einen deterministischen Rebuild aus.",
+    "Diagnosen zeigen Encoding-Modus, Bits, Seed, Dimensions, Entry Count, Speicherersparnis und Qualitaetsmetriken ohne Secrets.",
+    "Benchmarks vergleichen unquantisiert vs. quantisiert mit Recall@k, MRR/NDCG, Score-Drift, Indexgroesse und Suchzeit.",
+    "UI/CLI zeigt QuantizationProfile und warnt bei experimentellen Modi.",
+    "Es gibt einen Fallback auf unquantisierte Suche, wenn Qualitaets-Gates verletzt werden.",
+    "Transformer-Zwischenschicht ist als FeatureExtractor getrennt von LLM-Generation dokumentiert und policy-gated.",
+    "Ein Mermaid-Architekturdiagramm zeigt den Datenfluss Embedding/Transformer -> Quantization -> Deterministic Retrieval."
+  ],
+  "categories": [
+    {
+      "name": "research-and-design",
+      "label": "Research, Architektur und mathematische Eingrenzung",
+      "items": [
+        {
+          "id": "TQ-001",
+          "title": "TurboQuant-Paper technisch fuer Ananta einordnen",
+          "status": "open",
+          "priority": "P0",
+          "type": "research",
+          "component": "docs",
+          "risk": "medium",
+          "description": "Das Paper nicht als Markt-/Aktien-News behandeln, sondern konkret auf CodeCompass-Vektorindex, Transformer-Zwischenschichten und deterministische Weiterverarbeitung mappen.",
+          "target_files": [
+            "docs/research/turboquant-for-codecompass.md"
+          ],
+          "acceptance_criteria": [
+            "Dokument erklaert MSE-Quantisierung, Inner-Product-Bias, Random Rotation und QJL-Residual-Korrektur auf Deutsch.",
+            "Dokument trennt klar TurboQuant_mse, TurboQuant_prod, normale int8/4bit-Quantisierung und KV-Cache-Quantisierung.",
+            "Dokument benennt, welche Teile fuer CodeCompass sofort relevant sind: Embedding-Index, Vector Search, Speicherformat, Ranking-Drift.",
+            "Dokument benennt, welche Teile nicht sofort relevant sind: echter KV-Cache im LLM-Serving, GPU-Kernel-Optimierung, Training.",
+            "Dokument enthaelt eine realistische Entscheidung: zuerst VectorStore-Quantisierung, danach TransformerFeatureProvider, danach experimenteller TurboQuant-Modus."
+          ],
+          "test_expectations": [
+            "Keine automatisierten Tests noetig; Review-Kriterium ist fachliche Nachvollziehbarkeit und klare Nicht-Ziele."
+          ]
+        },
+        {
+          "id": "TQ-002",
+          "title": "VectorEncoding-Architekturentscheidung schreiben",
+          "status": "open",
+          "priority": "P0",
+          "type": "architecture",
+          "component": "codecompass",
+          "risk": "medium",
+          "dependencies": [
+            "TQ-001"
+          ],
+          "target_files": [
+            "docs/architecture/codecompass-vector-encoding.md"
+          ],
+          "acceptance_criteria": [
+            "ADR beschreibt VectorEncoding als eigene Schicht zwischen EmbeddingProvider und CodeCompassVectorStore.",
+            "ADR erklaert, warum Quantisierung nicht in EmbeddingProvider, HybridOrchestrator oder UI vermischt wird.",
+            "ADR definiert stabile Interfaces: VectorEncoder, VectorDecoder, QuantizationProfile, EncodedVector, VectorEncodingDiagnostics.",
+            "ADR legt fest, dass off/float32 das rueckwaertskompatible Default-Verhalten bleibt.",
+            "ADR legt fest, dass experimentelle Modi niemals automatisch produktiv aktiviert werden."
+          ],
+          "test_expectations": [
+            "Architekturreview prueft, dass jede spaetere Implementierungsaufgabe auf diese ADR referenzieren kann."
+          ]
+        },
+        {
+          "id": "TQ-003",
+          "title": "Qualitaetsmetriken fuer CodeCompass-Retrieval definieren",
+          "status": "open",
+          "priority": "P0",
+          "type": "benchmark-design",
+          "component": "retrieval",
+          "risk": "high",
+          "target_files": [
+            "docs/worker/codecompass-vector-retrieval.md",
+            "tests/benchmarks/codecompass_worker/**"
+          ],
+          "acceptance_criteria": [
+            "Metriken definieren Recall@1, Recall@5, Recall@10, MRR, NDCG, Score-Drift und Ranking-Instabilitaet.",
+            "Metriken vergleichen immer gegen unquantisierten float32-Index als Baseline.",
+            "Metriken unterscheiden Query-Typen: Symbolname, fachliche Beschreibung, Mixed DE/EN, Datei-/Pfad-nahe Query, refactoring-intent.",
+            "Qualitaetsgates sind konfigurierbar: minimaler Recall@10 und maximaler Score-Drift.",
+            "Metriken sind reproduzierbar mit festem Seed."
+          ],
+          "test_expectations": [
+            "Benchmark-Test kann mit kleinem Fixture lokal laufen.",
+            "Benchmark-Ausgabe enthaelt maschinenlesbares JSON fuer CI und menschenlesbare Kurzfassung."
+          ]
+        },
+        {
+          "id": "TQ-004",
+          "title": "Realistische Scope-Grenze gegen echten LLM-KV-Cache ziehen",
+          "status": "open",
+          "priority": "P1",
+          "type": "safety-design",
+          "component": "architecture",
+          "risk": "medium",
+          "target_files": [
+            "docs/architecture/codecompass-vector-encoding.md"
+          ],
+          "acceptance_criteria": [
+            "Dokument macht klar: Ananta implementiert zuerst CodeCompass-Indexquantisierung, nicht den KV-Cache eines fremden LLM-Servers.",
+            "Dokument beschreibt spaetere Adapter-Moeglichkeit fuer lokale Inference-Engines nur als Zukunftspfad.",
+            "Keine TODO-Aufgabe verlangt GPU-Kernel, vLLM-Patch oder Ollama-Interna als Voraussetzung.",
+            "Risiko falscher Erwartung wird explizit dokumentiert."
+          ],
+          "test_expectations": [
+            "Review bestaetigt, dass die erste Implementierung ohne Aenderung an Ollama/LM Studio/vLLM funktioniert."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "backend-vector-encoding",
+      "label": "Backend: VectorEncodingProvider und Speicherformat",
+      "items": [
+        {
+          "id": "TQ-005",
+          "title": "VectorEncodingProfile-Datentyp einfuehren",
+          "status": "open",
+          "priority": "P0",
+          "type": "backend-model",
+          "component": "worker.retrieval",
+          "risk": "medium",
+          "dependencies": [
+            "TQ-002"
+          ],
+          "target_files": [
+            "worker/retrieval/vector_encoding.py",
+            "tests/test_codecompass_vector_encoding.py"
+          ],
+          "acceptance_criteria": [
+            "VectorEncodingProfile enthaelt mode, target_bits, seed, dimensions, block_size, store_original, algorithm_version und experimental flag.",
+            "Profile kann stabil zu JSON serialisiert werden.",
+            "Profile erzeugt einen stabilen config_hash, der in VectorStore-State eingeht.",
+            "ungueltige Werte werden sichtbar abgelehnt statt still fallback zu erzeugen.",
+            "mode=off und mode=float32 sind funktional identisch zum bisherigen Verhalten."
+          ],
+          "test_expectations": [
+            "Unit-Test prueft Defaultprofil.",
+            "Unit-Test prueft Hash-Aenderung bei mode/seed/target_bits.",
+            "Unit-Test prueft Validation fuer negative Bits, negative Dimensions und unbekannten Mode."
+          ]
+        },
+        {
+          "id": "TQ-006",
+          "title": "VectorEncoder/VectorDecoder Interface bauen",
+          "status": "open",
+          "priority": "P0",
+          "type": "backend-interface",
+          "component": "worker.retrieval",
+          "risk": "medium",
+          "dependencies": [
+            "TQ-005"
+          ],
+          "target_files": [
+            "worker/retrieval/vector_encoding.py",
+            "tests/test_codecompass_vector_encoding.py"
+          ],
+          "acceptance_criteria": [
+            "Interface bietet encode(vector) -> EncodedVector und decode(encoded) -> list[float].",
+            "EncodedVector enthaelt encoding_mode, dimensions, payload, scale/offset falls noetig, checksum und diagnostics.",
+            "Encoder kann Batch-Encoding fuer rebuild() nutzen.",
+            "Decoder ist deterministisch und ohne externen Provider nutzbar.",
+            "Fehlerhafte Payloads erzeugen strukturierte Fehler mit reason, nicht nackte Tracebacks."
+          ],
+          "test_expectations": [
+            "Roundtrip-Test fuer float32/off.",
+            "Checksum-Test erkennt manipulierte Payload.",
+            "Batch-Test bewahrt Reihenfolge und Dimensionen."
+          ]
+        },
+        {
+          "id": "TQ-007",
+          "title": "float16 und int8 Encoder als sichere Baseline implementieren",
+          "status": "open",
+          "priority": "P0",
+          "type": "backend-feature",
+          "component": "worker.retrieval",
+          "risk": "medium",
+          "dependencies": [
+            "TQ-006"
+          ],
+          "target_files": [
+            "worker/retrieval/vector_encoding.py",
+            "tests/test_codecompass_vector_encoding.py"
+          ],
+          "acceptance_criteria": [
+            "float16 speichert kompakter als float32 und rekonstruiert fuer Suche deterministisch.",
+            "int8 nutzt symmetrische Quantisierung mit dokumentierter scale pro Vektor oder pro Block.",
+            "Nulllvektoren und sehr kleine Normen werden robust behandelt.",
+            "NaN/Inf werden abgefangen und fuehren zu validem Fehlerstatus.",
+            "Diagnostics enthalten bytes_original, bytes_encoded, compression_ratio und max_abs_error."
+          ],
+          "test_expectations": [
+            "Unit-Test prueft bekannte Beispielvektoren.",
+            "Unit-Test prueft Nullvektor.",
+            "Unit-Test prueft Ranking auf kleinem Fixture bleibt grob stabil gegen float32."
+          ]
+        },
+        {
+          "id": "TQ-008",
+          "title": "symmetric4bit Encoder experimentell implementieren",
+          "status": "open",
+          "priority": "P1",
+          "type": "backend-feature",
+          "component": "worker.retrieval",
+          "risk": "high",
+          "dependencies": [
+            "TQ-007"
+          ],
+          "target_files": [
+            "worker/retrieval/vector_encoding.py",
+            "tests/test_codecompass_vector_encoding.py"
+          ],
+          "acceptance_criteria": [
+            "4bit-Modus ist klar als experimental markiert.",
+            "Payload packt zwei 4bit-Werte pro Byte oder dokumentiert bewusst, wenn zunaechst einfacheres JSON-Format genutzt wird.",
+            "Skalierung ist pro Vektor oder pro Block konfigurierbar.",
+            "Store-State enthaelt algorithm_version fuer spaetere Formatmigration.",
+            "Bei Qualitaetsgate-Verletzung kann der Suchpfad automatisch auf float32-Index fallbacken, falls vorhanden."
+          ],
+          "test_expectations": [
+            "Unit-Test prueft Pack/Unpack.",
+            "Unit-Test prueft deterministische Rekonstruktion.",
+            "Benchmark-Fixture prueft Recall@10 gegen float32."
+          ]
+        },
+        {
+          "id": "TQ-009",
+          "title": "CodeCompassVectorStore um EncodedVector erweitern",
+          "status": "open",
+          "priority": "P0",
+          "type": "backend-refactor",
+          "component": "worker.retrieval",
+          "risk": "high",
+          "dependencies": [
+            "TQ-006",
+            "TQ-007"
+          ],
+          "target_files": [
+            "worker/retrieval/codecompass_vector_store.py",
+            "tests/test_codecompass_vector_store.py"
+          ],
+          "acceptance_criteria": [
+            "rebuild() kann optional VectorEncoder entgegennehmen.",
+            "Bei mode=off bleibt gespeichertes JSON rueckwaertskompatibel mit bisherigem vector-Feld.",
+            "Bei aktivem Encoding enthaelt jeder Entry encoded_vector und optional kein raw vector.",
+            "load() kann alte und neue Indexformate lesen.",
+            "search_by_vector() dekodiert nur so viel wie noetig und bleibt deterministisch.",
+            "State enthaelt vector_encoding_profile und vector_encoding_config_hash.",
+            "Aenderung des Encoding-Profils fuehrt zu refresh reason vector_encoding_changed."
+          ],
+          "test_expectations": [
+            "Bestehende VectorStore-Tests laufen ohne Anpassung bei mode=off.",
+            "Neuer Test prueft Rebuild mit int8.",
+            "Neuer Test prueft Refresh-Rebuild bei Encoding-Hash-Aenderung.",
+            "Neuer Test prueft alte Indexdatei ohne encoded_vector bleibt lesbar."
+          ]
+        },
+        {
+          "id": "TQ-010",
+          "title": "VectorEncoding in Diagnostics und ContextTrace aufnehmen",
+          "status": "open",
+          "priority": "P1",
+          "type": "backend-observability",
+          "component": "audit",
+          "risk": "medium",
+          "dependencies": [
+            "TQ-009"
+          ],
+          "target_files": [
+            "worker/retrieval/codecompass_vector_store.py",
+            "agent/services/tools/codecompass_tools.py",
+            "docs/contracts/codecompass-output-manifest.md"
+          ],
+          "acceptance_criteria": [
+            "retrieval_diagnostics.codecompass_vector zeigt encoding_mode, dimensions, entry_count, compression_ratio und quality_gate_status.",
+            "Diagnostics enthalten keine raw vectors und keine full chunk payloads.",
+            "ContextTrace dokumentiert, wenn ein Treffer aus quantisiertem Index stammt.",
+            "Bei Fallback auf float32 wird reason sichtbar.",
+            "UI/CLI kann die Diagnosen anzeigen, ohne interne Payloads zu leaken."
+          ],
+          "test_expectations": [
+            "Unit-Test prueft Diagnostics fuer off und int8.",
+            "Unit-Test prueft, dass keine raw vectors in Diagnostics auftauchen.",
+            "Integrationstest prueft ContextTrace enthaelt vector_encoding_summary."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "turboquant-experimental",
+      "label": "TurboQuant-inspirierte Experimentalprovider",
+      "items": [
+        {
+          "id": "TQ-011",
+          "title": "Random-Rotation-Komponente deterministisch bauen",
+          "status": "open",
+          "priority": "P1",
+          "type": "backend-research-implementation",
+          "component": "worker.retrieval",
+          "risk": "high",
+          "dependencies": [
+            "TQ-006"
+          ],
+          "target_files": [
+            "worker/retrieval/turboquant_encoding.py",
+            "tests/test_turboquant_encoding.py"
+          ],
+          "acceptance_criteria": [
+            "Rotation ist deterministisch aus seed, dimensions, block_size und algorithm_version ableitbar.",
+            "Implementierung nutzt speicherschonende Orthogonal-/Hadamard-nahe Rotation oder dokumentiert fuer PoC bewusst einfache Matrixrotation.",
+            "Rotation kann forward und inverse anwenden.",
+            "Normerhaltung wird in Tests innerhalb Toleranz geprueft.",
+            "Plattformstabilitaet wird durch feste dtype-/Rundungsregeln dokumentiert."
+          ],
+          "test_expectations": [
+            "Test prueft gleicher Seed -> gleiche Rotation.",
+            "Test prueft anderer Seed -> andere Rotation.",
+            "Test prueft inverse(forward(x)) naeherungsweise x.",
+            "Test prueft Dimensionen, die nicht Potenz von 2 sind."
+          ]
+        },
+        {
+          "id": "TQ-012",
+          "title": "TurboQuant_mse ExperimentalEncoder als PoC implementieren",
+          "status": "open",
+          "priority": "P1",
+          "type": "backend-research-implementation",
+          "component": "worker.retrieval",
+          "risk": "high",
+          "dependencies": [
+            "TQ-011"
+          ],
+          "target_files": [
+            "worker/retrieval/turboquant_encoding.py",
+            "tests/test_turboquant_encoding.py"
+          ],
+          "acceptance_criteria": [
+            "Encoder ist nur ueber mode=turboquant_mse_experimental aktivierbar.",
+            "Encoder rotiert Vektor, quantisiert Koordinaten mit vorberechneten skalaren Codebooks und speichert Indices plus Norm/Scale-Metadaten.",
+            "Codebooks sind versioniert und fuer 1, 2, 3, 4, 8 Bit dokumentiert.",
+            "Decode rekonstruiert in Ursprungsraum.",
+            "Diagnostics enthalten distortion_estimate und experimental_warning.",
+            "Implementierung faellt bei ungueltigen Dimensionen/Bitbreiten sauber zurueck oder blockiert sichtbar."
+          ],
+          "test_expectations": [
+            "Roundtrip-Test fuer kleine Vektoren und mehrere Bitbreiten.",
+            "MSE-Test zeigt sinkenden Fehler bei hoeherer Bitbreite.",
+            "Determinismus-Test prueft identische Payload bei gleichem Seed.",
+            "Test prueft experimental_warning ist gesetzt."
+          ]
+        },
+        {
+          "id": "TQ-013",
+          "title": "TurboQuant_prod nur als separaten Forschungszweig vorbereiten",
+          "status": "open",
+          "priority": "P2",
+          "type": "research-spike",
+          "component": "worker.retrieval",
+          "risk": "high",
+          "dependencies": [
+            "TQ-012"
+          ],
+          "target_files": [
+            "docs/research/turboquant-prod-inner-product.md",
+            "worker/retrieval/turboquant_encoding.py"
+          ],
+          "acceptance_criteria": [
+            "Dokument erklaert, warum MSE-optimierte Quantisierung fuer Inner Products Bias erzeugen kann.",
+            "Dokument beschreibt QJL-Residual-Korrektur als optionalen zweiten Schritt.",
+            "Keine produktive Aktivierung ohne separaten Benchmark gegen Cosine/Inner-Product-Ranking.",
+            "Implementierung kann zunaechst Stub/NotImplemented bleiben, wenn Dokument und Tests klar blockieren.",
+            "Mode turboquant_prod_experimental darf nie stillschweigend wie mse laufen."
+          ],
+          "test_expectations": [
+            "Test prueft, dass turboquant_prod_experimental ohne Implementierung kontrolliert blockiert.",
+            "Spaeterer Test prueft unbiasedness nur mit statistischem Test und festem Seed."
+          ]
+        },
+        {
+          "id": "TQ-014",
+          "title": "Quantization-Fallback-Policy einbauen",
+          "status": "open",
+          "priority": "P0",
+          "type": "safety-feature",
+          "component": "retrieval",
+          "risk": "high",
+          "dependencies": [
+            "TQ-003",
+            "TQ-009"
+          ],
+          "target_files": [
+            "worker/retrieval/codecompass_vector_store.py",
+            "worker/retrieval/codecompass_budgeting.py",
+            "tests/test_codecompass_vector_quantization_policy.py"
+          ],
+          "acceptance_criteria": [
+            "Wenn Qualitaetsgate verletzt ist, wird quantisierter Index nicht als alleinige Quelle verwendet.",
+            "Fallback-Strategien sind konfigurierbar: block, fallback_float32, warn_only.",
+            "Default fuer experimental modes ist block oder fallback_float32, nicht warn_only.",
+            "Blocked/Fallback wird in Diagnostics und ContextTrace sichtbar.",
+            "HybridOrchestrator darf quantisierte Treffer niedriger gewichten, wenn Profil unsicher ist."
+          ],
+          "test_expectations": [
+            "Test prueft block bei verletztem Recall-Gate.",
+            "Test prueft fallback_float32, wenn float32-Index vorhanden.",
+            "Test prueft Diagnostics mit reason quality_gate_failed."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "transformer-feature-layer",
+      "label": "Transformer-Zwischenschicht ohne vollstaendige LLM-Generation",
+      "items": [
+        {
+          "id": "TQ-015",
+          "title": "TransformerFeatureProvider als getrennte Abstraktion entwerfen",
+          "status": "open",
+          "priority": "P1",
+          "type": "architecture",
+          "component": "agent.services",
+          "risk": "high",
+          "dependencies": [
+            "TQ-002"
+          ],
+          "target_files": [
+            "docs/architecture/transformer-feature-provider.md",
+            "agent/services/transformer_feature_provider.py"
+          ],
+          "acceptance_criteria": [
+            "Provider ist klar getrennt von ChatCompletion/LLM-Generation.",
+            "Provider liefert Feature-Vektoren, Hidden-State-Summaries oder Attention-Probes, aber keine freien Textantworten.",
+            "Provider hat Policy-Gates fuer local_only, allowed_base_urls, model_name, layer_selector und max_input_tokens.",
+            "Provider gibt reproduzierbare Metadaten aus: model_version, layer, pooling, dimensions, input_hash.",
+            "Provider kann komplett deaktiviert werden, ohne bestehende CodeCompass-Pfade zu brechen."
+          ],
+          "test_expectations": [
+            "Unit-Test prueft disabled mode.",
+            "Unit-Test prueft Policy blockiert externe URL bei local_only=true.",
+            "Unit-Test prueft Metadaten enthalten keine Rohtexte oder Secrets."
+          ]
+        },
+        {
+          "id": "TQ-016",
+          "title": "Deterministische Weiterverarbeitung nach TransformerFeatureProvider definieren",
+          "status": "open",
+          "priority": "P1",
+          "type": "backend-design",
+          "component": "orchestration",
+          "risk": "medium",
+          "dependencies": [
+            "TQ-015"
+          ],
+          "target_files": [
+            "docs/architecture/transformer-feature-provider.md",
+            "docs/architecture/codecompass-vector-encoding.md"
+          ],
+          "acceptance_criteria": [
+            "Pipeline beschreibt klar: Transformer erzeugt nur Features/Scores; Entscheidung laeuft ueber deterministische Regeln.",
+            "Downstream-Regeln fuer Routing, Clustering, Domain-Scope, Similarity-Schwellen und Top-k sind konfigurierbar.",
+            "Keine freie Modellantwort darf Policy, Allowed Paths oder Approval-Gates ersetzen.",
+            "Trace zeigt Modellfeature, deterministischen Score und finale Entscheidung getrennt.",
+            "Abweichungen zwischen Modellscore und exaktem Repositorysignal werden sichtbar gemacht."
+          ],
+          "test_expectations": [
+            "Unit-Test fuer deterministische Score-Kombination.",
+            "Test prueft, dass fehlendes Feature nicht zu globalem Zugriff fuehrt.",
+            "Test prueft stabile Reihenfolge bei gleichen Scores."
+          ]
+        },
+        {
+          "id": "TQ-017",
+          "title": "Hidden-State/Embedding-Profil fuer CodeCompass experimentell anschliessen",
+          "status": "open",
+          "priority": "P2",
+          "type": "backend-experiment",
+          "component": "codecompass",
+          "risk": "high",
+          "dependencies": [
+            "TQ-015",
+            "TQ-016"
+          ],
+          "target_files": [
+            "worker/retrieval/embedding_provider.py",
+            "agent/services/embedding_provider_config_service.py",
+            "tests/test_epc_integration.py"
+          ],
+          "acceptance_criteria": [
+            "Ein experimental Profil kann lokale Modellfeatures statt normaler Embeddings erzeugen.",
+            "Profil ist nur aktiv, wenn CODECOMPASS_TRANSFORMER_FEATURE_MODE != off.",
+            "Input-Texte werden ueber bestehende EmbeddingTextBuilder-Profile erzeugt, nicht ad hoc im Provider zusammengebaut.",
+            "Index-State unterscheidet normales Embeddingmodell und TransformerFeatureProvider eindeutig.",
+            "Provider-Config-Hash erfasst Layer/Pooling/Model-Version."
+          ],
+          "test_expectations": [
+            "FakeTransformerFeatureProvider fuer Tests.",
+            "Integrationstest prueft Index-Rebuild bei Layerwechsel.",
+            "Test prueft fallback auf normalen EmbeddingProvider, wenn FeatureProvider disabled ist."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "configuration-ui-cli",
+      "label": "Konfiguration, UI, TUI und grafische Sichtbarkeit",
+      "items": [
+        {
+          "id": "TQ-018",
+          "title": "Settings in agent/config.py und .env.example aufnehmen",
+          "status": "open",
+          "priority": "P0",
+          "type": "backend-config",
+          "component": "configuration",
+          "risk": "medium",
+          "dependencies": [
+            "TQ-005"
+          ],
+          "target_files": [
+            "agent/config.py",
+            ".env.example",
+            "docker-compose.yml"
+          ],
+          "acceptance_criteria": [
+            "Alle CODECOMPASS_VECTOR_ENCODING_* Variablen sind in agent/config.py validiert.",
+            "Defaults deaktivieren Quantisierung und TransformerFeatureProvider.",
+            ".env.example dokumentiert sichere Defaultwerte.",
+            "docker-compose.yml enthaelt keine experimentellen Modi als Default.",
+            "Ungueltige Env-Werte erzeugen sichtbaren Konfigurationsfehler."
+          ],
+          "test_expectations": [
+            "Settings-Test prueft Defaults.",
+            "Settings-Test prueft Override fuer mode, seed und target_bits.",
+            "Settings-Test prueft invalid mode wird abgelehnt."
+          ]
+        },
+        {
+          "id": "TQ-019",
+          "title": "Angular/Web Dashboard fuer VectorEncodingProfile erweitern",
+          "status": "open",
+          "priority": "P1",
+          "type": "frontend-feature",
+          "component": "angular-web-ui",
+          "risk": "medium",
+          "dependencies": [
+            "TQ-010",
+            "TQ-018"
+          ],
+          "target_files": [
+            "web/**",
+            "frontend/**",
+            "ai-snake-chat/**"
+          ],
+          "acceptance_criteria": [
+            "Dashboard zeigt aktiven Encoding-Modus, Compression Ratio, Entry Count, Dimensions und Quality-Gate-Status.",
+            "Experimentelle Modi werden optisch und textlich klar als experimentell markiert.",
+            "UI erlaubt nur erlaubte Modi aus Backend-Metadata, keine freien Strings.",
+            "Aenderungen erzeugen Config-Diff und brauchen Approval, falls sie experimentelle Modi aktivieren.",
+            "Bei Fallback/Blockade zeigt UI den konkreten reason."
+          ],
+          "test_expectations": [
+            "Frontend-Test prueft Anzeige fuer off/int8/experimental.",
+            "Frontend-Test prueft unknown mode wird nicht editierbar.",
+            "E2E-Test prueft Config-Diff vor Aktivierung."
+          ]
+        },
+        {
+          "id": "TQ-020",
+          "title": "Hermes/TUI Anzeige fuer Quantization und TransformerFeatureProvider ergaenzen",
+          "status": "open",
+          "priority": "P2",
+          "type": "tui-feature",
+          "component": "hermes-tui",
+          "risk": "medium",
+          "dependencies": [
+            "TQ-010"
+          ],
+          "target_files": [
+            "hermes/**",
+            "tui/**",
+            "docs/**"
+          ],
+          "acceptance_criteria": [
+            "TUI zeigt kompakte Statuszeile fuer CodeCompassVectorEncoding.",
+            "TUI zeigt Warnung bei experimental mode.",
+            "TUI kann Diagnostics fuer letzten Retrieval-Run oeffnen.",
+            "TUI zeigt, ob TransformerFeatureProvider off/local/external-blocked ist.",
+            "Keine raw vectors oder Secrets werden in TUI dargestellt."
+          ],
+          "test_expectations": [
+            "Snapshot-/Golden-Test fuer Statusausgabe.",
+            "Test prueft Redaction in Diagnostics."
+          ]
+        },
+        {
+          "id": "TQ-021",
+          "title": "Mermaid Architekturdiagramm fuer grafischen Teil erstellen",
+          "status": "open",
+          "priority": "P1",
+          "type": "documentation-diagram",
+          "component": "architecture",
+          "risk": "low",
+          "dependencies": [
+            "TQ-002",
+            "TQ-015"
+          ],
+          "target_files": [
+            "architektur/uml/codecompass-vector-encoding-transformer-pipeline.mmd",
+            "docs/architecture/codecompass-vector-encoding.md"
+          ],
+          "acceptance_criteria": [
+            "Diagramm zeigt CodeCompass embedding.json, EmbeddingProvider, TransformerFeatureProvider, VectorEncodingProvider, VectorStore, HybridOrchestrator, ContextTrace und UI.",
+            "Diagramm markiert Policy-Gates und Default-Deny-Grenzen.",
+            "Diagramm zeigt Fallback von quantisiertem Index auf float32/Baseline.",
+            "Diagramm unterscheidet lokale Provider und externe Provider sichtbar.",
+            "Dokumentation verlinkt das Diagramm."
+          ],
+          "test_expectations": [
+            "Mermaid-Datei ist syntaktisch renderbar.",
+            "Optionaler CI-Check oder Docs-Preview rendert ohne Fehler."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "benchmarks-and-tests",
+      "label": "Benchmarks, Regressionstests und CI-Gates",
+      "items": [
+        {
+          "id": "TQ-022",
+          "title": "Kleines reproduzierbares CodeCompass Retrieval-Fixture bauen",
+          "status": "open",
+          "priority": "P0",
+          "type": "test-fixture",
+          "component": "tests",
+          "risk": "medium",
+          "dependencies": [
+            "TQ-003"
+          ],
+          "target_files": [
+            "tests/fixtures/codecompass_vector_benchmark/**",
+            "tests/benchmarks/codecompass_worker/**"
+          ],
+          "acceptance_criteria": [
+            "Fixture enthaelt mehrere kleine Code-/Dokumentationsbeispiele mit erwarteten relevanten Treffern.",
+            "Fixture deckt Java, Python, Config, README und Architekturtext ab.",
+            "Queries enthalten DE, EN und gemischte Entwickler-Sprache.",
+            "Erwartete Treffer sind als Ground Truth dokumentiert.",
+            "Fixture ist klein genug fuer lokale CI."
+          ],
+          "test_expectations": [
+            "Benchmark laeuft ohne externen Provider mit FakeEmbeddingProvider/local_hash.",
+            "Benchmark kann optional mit realem lokalen Provider laufen, ist aber nicht CI-pflichtig."
+          ]
+        },
+        {
+          "id": "TQ-023",
+          "title": "Quantization Benchmark Runner schreiben",
+          "status": "open",
+          "priority": "P0",
+          "type": "benchmark",
+          "component": "tests",
+          "risk": "medium",
+          "dependencies": [
+            "TQ-009",
+            "TQ-022"
+          ],
+          "target_files": [
+            "tests/benchmarks/codecompass_worker/test_codecompass_vector_quantization_benchmark.py",
+            "scripts/benchmark_codecompass_vector_encoding.py"
+          ],
+          "acceptance_criteria": [
+            "Runner vergleicht float32/off, float16, int8, symmetric4bit und spaeter turboquant_mse_experimental.",
+            "Runner misst Indexgroesse, Buildzeit, Suchzeit, Recall@k, MRR/NDCG und Score-Drift.",
+            "Runner gibt JSON und Markdown-Summary aus.",
+            "Runner kann mit Seed reproduzierbar ausgefuehrt werden.",
+            "Runner bricht CI nicht hart bei optionalen experimentellen Modi, solange diese explizit als experimental markiert sind."
+          ],
+          "test_expectations": [
+            "CI-Test nutzt Mini-Fixture und prueft Output-Schema.",
+            "Benchmark darf markiert sein, damit schwere Messungen lokal/optional laufen."
+          ]
+        },
+        {
+          "id": "TQ-024",
+          "title": "Regressionstest fuer Hybrid Ranking Stabilitaet",
+          "status": "open",
+          "priority": "P1",
+          "type": "integration-test",
+          "component": "retrieval",
+          "risk": "high",
+          "dependencies": [
+            "TQ-014",
+            "TQ-023"
+          ],
+          "target_files": [
+            "tests/test_worker_codecompass_vector_channel.py",
+            "tests/benchmarks/codecompass_worker/**"
+          ],
+          "acceptance_criteria": [
+            "Quantisierte Treffer duerfen exakte Symbol-/Pfadtreffer nicht ungewollt verdraengen.",
+            "Bei gleicher Datei werden Cross-Engine-Signals weiterhin dedupliziert.",
+            "Domain Scope wird vor und nach Vector Search eingehalten.",
+            "Leerer/ungueltiger Scope faellt nicht auf globale Suche zurueck.",
+            "Ranking-Unterschiede werden als Drift berichtet."
+          ],
+          "test_expectations": [
+            "Integrationstest mit allowed_read_paths.",
+            "Test prueft denied path wird trotz hoher Vector Similarity nicht ausgegeben.",
+            "Test prueft exact match bleibt vor nur-semantischem Treffer, sofern Gewichtung Default bleibt."
+          ]
+        },
+        {
+          "id": "TQ-025",
+          "title": "Security- und Secret-Redaction-Tests erweitern",
+          "status": "open",
+          "priority": "P0",
+          "type": "security-test",
+          "component": "security",
+          "risk": "high",
+          "dependencies": [
+            "TQ-010",
+            "TQ-018"
+          ],
+          "target_files": [
+            "tests/test_codecompass_vector_provider_policy.py",
+            "tests/test_codecompass_vector_store.py"
+          ],
+          "acceptance_criteria": [
+            "VectorEncodingDiagnostics enthalten keine API Keys, Authorization Header oder full raw chunks.",
+            "Quantized payloads werden nicht in normalen Run Reports ausgeschrieben.",
+            "TransformerFeatureProvider darf keine Rohtexte in Config-State oder Diagnostics persistieren.",
+            "Externe Provider bleiben default-deny.",
+            "Policy-Verletzungen erzeugen blockierte ToolCall/ContextTrace-Eintraege."
+          ],
+          "test_expectations": [
+            "Tests injizieren fake api_key und Authorization und pruefen Abwesenheit im State.",
+            "Tests pruefen Redaction in Markdown/JSON Report.",
+            "Tests pruefen local_only blockiert externe Base URL."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docs-and-rollout",
+      "label": "Dokumentation, Migration und Rollout",
+      "items": [
+        {
+          "id": "TQ-026",
+          "title": "Index-Migration und Rueckwaertskompatibilitaet dokumentieren",
+          "status": "open",
+          "priority": "P1",
+          "type": "migration-docs",
+          "component": "docs",
+          "risk": "medium",
+          "dependencies": [
+            "TQ-009"
+          ],
+          "target_files": [
+            "docs/worker/codecompass-vector-retrieval.md",
+            "docs/architecture/codecompass-vector-encoding.md"
+          ],
+          "acceptance_criteria": [
+            "Dokument beschreibt alte Indexstruktur mit vector und neue Struktur mit encoded_vector.",
+            "Dokument beschreibt, wann Rebuild noetig ist.",
+            "Dokument beschreibt, wie Nutzer Quantisierung deaktivieren und Index neu aufbauen.",
+            "Dokument beschreibt algorithm_version und moegliche Formatmigration.",
+            "Dokument beschreibt, dass store_original=false der sichere Default gegen Speicherwachstum ist."
+          ],
+          "test_expectations": [
+            "Manueller Review prueft Dokumentation gegen Implementierung."
+          ]
+        },
+        {
+          "id": "TQ-027",
+          "title": "README-Kurzabschnitt fuer CodeCompass Vector Encoding ergaenzen",
+          "status": "open",
+          "priority": "P2",
+          "type": "documentation",
+          "component": "readme",
+          "risk": "low",
+          "dependencies": [
+            "TQ-018",
+            "TQ-023"
+          ],
+          "target_files": [
+            "README.md",
+            "docs/codecompass.md"
+          ],
+          "acceptance_criteria": [
+            "README erklaert kurz: optional, local-first, default off, experimentelle TurboQuant-Modi.",
+            "README verspricht keine unrealistischen KV-Cache- oder Aktienmarkt-Wunder.",
+            "README verweist auf Detaildokumentation und Benchmark-Script.",
+            "README nennt sichere Beispielkonfiguration fuer int8.",
+            "README nennt Warnung fuer experimental modes."
+          ],
+          "test_expectations": [
+            "Markdown-Linkcheck findet keine kaputten relativen Links."
+          ]
+        },
+        {
+          "id": "TQ-028",
+          "title": "Rollout-Plan fuer schrittweise Aktivierung festlegen",
+          "status": "open",
+          "priority": "P1",
+          "type": "release-planning",
+          "component": "release",
+          "risk": "medium",
+          "dependencies": [
+            "TQ-023",
+            "TQ-025",
+            "TQ-026"
+          ],
+          "target_files": [
+            "docs/release/codecompass-vector-encoding-rollout.md"
+          ],
+          "acceptance_criteria": [
+            "Rollout startet mit off als Default und int8 als opt-in.",
+            "float16/int8 duerfen erst nach Benchmark-Gate als recommended experimental markiert werden.",
+            "symmetric4bit und turboquant_mse_experimental bleiben research/experimental bis stabile Ergebnisse vorliegen.",
+            "Rollback-Schritte sind dokumentiert.",
+            "Release Notes enthalten bekannte Risiken und Messwerte."
+          ],
+          "test_expectations": [
+            "Release-Checklist enthaelt Benchmark, Security Tests, Docs und UI-Anzeige."
+          ]
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "total_items": 28,
+    "by_status": {
+      "completed": 0,
+      "partial": 0,
+      "open": 28
+    },
+    "notes": [
+      "Diese TODO-Datei ist bewusst gross, weil sie Forschung, Architektur, Implementierung, Tests, UI und Rollout trennt.",
+      "Der realistische erste Schritt ist nicht TurboQuant_prod, sondern eine saubere VectorEncoding-Schicht mit off/float32/float16/int8.",
+      "TurboQuant_mse kann danach als ExperimentalProvider eingebaut werden.",
+      "Transformer-Zwischenschicht ist fachlich passend zu Ananta, muss aber hart von freier LLM-Generation getrennt bleiben.",
+      "Alle experimentellen Modi muessen Default-Deny, Trace, Fallback und Benchmark-Gates respektieren."
+    ],
+    "recommended_order": [
+      "TQ-001",
+      "TQ-002",
+      "TQ-003",
+      "TQ-005",
+      "TQ-006",
+      "TQ-007",
+      "TQ-009",
+      "TQ-018",
+      "TQ-022",
+      "TQ-023",
+      "TQ-014",
+      "TQ-025",
+      "TQ-010",
+      "TQ-021",
+      "TQ-011",
+      "TQ-012",
+      "TQ-015",
+      "TQ-016",
+      "TQ-017",
+      "TQ-019",
+      "TQ-020",
+      "TQ-026",
+      "TQ-027",
+      "TQ-028",
+      "TQ-013"
+    ]
+  }
+}
