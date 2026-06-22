@@ -11,6 +11,10 @@ from worker.retrieval.embedding_text_builder import (
     build_embedding_texts_batch,
     build_query_embedding_text,
 )
+from worker.retrieval.vector_encoding import (
+    VectorEncoder,
+    VectorEncodingProfile,
+)
 
 
 def _cosine_similarity(left: list[float], right: list[float]) -> float:
@@ -58,28 +62,45 @@ class CodeCompassVectorStore:
         manifest_hash: str,
         embedding_provider_config_hash: str = "",
         embedding_text_profile: str = CODECOMPASS_EMBEDDING_TEXT_PROFILE,
+        vector_encoder: VectorEncoder | None = None,
     ) -> dict[str, Any]:
+        encoder = vector_encoder or VectorEncoder(VectorEncodingProfile.disabled())
         texts = build_embedding_texts_batch(list(documents or []))
         vectors = embedding_provider.embed_texts(texts)
         entries: list[dict[str, Any]] = []
+        encoded_bytes = 0
+        original_bytes = 0
+        max_abs_error = 0.0
         for doc, vector in zip(list(documents or []), vectors, strict=False):
-            entries.append(
-                {
-                    "record_id": str(doc.get("record_id") or ""),
-                    "kind": str(doc.get("kind") or ""),
-                    "file": str(doc.get("file") or ""),
-                    "parent_id": str(doc.get("parent_id") or ""),
-                    "role_labels": [str(item) for item in list(doc.get("role_labels") or []) if str(item).strip()],
-                    "importance_score": float(doc.get("importance_score") or 0.0),
-                    "source_scope": str(doc.get("source_scope") or "repo"),
-                    "profile_name": str(doc.get("profile_name") or "default"),
-                    "source_manifest_hash": str(doc.get("manifest_hash") or manifest_hash or ""),
-                    "embedding_text": str(doc.get("embedding_text") or ""),
-                    "vector": [float(item) for item in list(vector or [])],
-                }
-            )
+            raw_vector = [float(item) for item in list(vector or [])]
+            encoded = encoder.encode(raw_vector)
+            original_bytes += int(encoded.diagnostics.get("bytes_original_float32") or len(raw_vector) * 4)
+            encoded_bytes += int(encoded.diagnostics.get("bytes_encoded_payload") or 0)
+            max_abs_error = max(max_abs_error, float(encoded.diagnostics.get("max_abs_error") or 0.0))
+            entry = {
+                "record_id": str(doc.get("record_id") or ""),
+                "kind": str(doc.get("kind") or ""),
+                "file": str(doc.get("file") or ""),
+                "parent_id": str(doc.get("parent_id") or ""),
+                "role_labels": [str(item) for item in list(doc.get("role_labels") or []) if str(item).strip()],
+                "importance_score": float(doc.get("importance_score") or 0.0),
+                "source_scope": str(doc.get("source_scope") or "repo"),
+                "profile_name": str(doc.get("profile_name") or "default"),
+                "source_manifest_hash": str(doc.get("manifest_hash") or manifest_hash or ""),
+                "embedding_text": str(doc.get("embedding_text") or ""),
+            }
+            if encoder.profile.enabled:
+                entry["encoded_vector"] = encoded.as_dict()
+                if encoder.profile.store_original:
+                    entry["vector"] = raw_vector
+            else:
+                entry["vector"] = raw_vector
+                entry["encoded_vector"] = encoded.as_dict()
+            entries.append(entry)
+        compression_ratio = round(float(original_bytes) / float(max(1, encoded_bytes)), 4) if original_bytes else 1.0
+        encoding_profile = encoder.profile.as_dict()
         state = {
-            "schema": "codecompass_vector_index.v1",
+            "schema": "codecompass_vector_index.v2",
             "retrieval_cache_state": str(retrieval_cache_state or ""),
             "manifest_hash": str(manifest_hash or ""),
             "embedding_provider": str(getattr(embedding_provider, "provider_id", "unknown") or "unknown"),
@@ -88,6 +109,10 @@ class CodeCompassVectorStore:
             "embedding_provider_config_hash": str(embedding_provider_config_hash or ""),
             "embedding_text_profile": str(embedding_text_profile or CODECOMPASS_EMBEDDING_TEXT_PROFILE),
             "entry_count": len(entries),
+            "vector_encoding_profile": encoding_profile,
+            "vector_encoding_config_hash": encoder.profile.config_hash(),
+            "vector_encoding_compression_ratio": compression_ratio,
+            "vector_encoding_max_abs_error": max_abs_error,
         }
         self.save(state=state, entries=entries)
         return {
@@ -108,7 +133,9 @@ class CodeCompassVectorStore:
         manifest_hash: str,
         embedding_provider_config_hash: str = "",
         embedding_text_profile: str = CODECOMPASS_EMBEDDING_TEXT_PROFILE,
+        vector_encoder: VectorEncoder | None = None,
     ) -> dict[str, Any]:
+        encoder = vector_encoder or VectorEncoder(VectorEncodingProfile.disabled())
         current = self.load()
         state = dict(current.get("state") or {})
         reason = self._refresh_reason(
@@ -118,6 +145,7 @@ class CodeCompassVectorStore:
             embedding_provider=embedding_provider,
             embedding_provider_config_hash=embedding_provider_config_hash,
             embedding_text_profile=embedding_text_profile,
+            vector_encoding_config_hash=encoder.profile.config_hash(),
         )
         if reason == "unchanged":
             return {
@@ -135,6 +163,7 @@ class CodeCompassVectorStore:
             manifest_hash=manifest_hash,
             embedding_provider_config_hash=embedding_provider_config_hash,
             embedding_text_profile=embedding_text_profile,
+            vector_encoder=encoder,
         )
         return {**result, "reason": reason}
 
@@ -147,6 +176,7 @@ class CodeCompassVectorStore:
         embedding_provider: EmbeddingProvider,
         embedding_provider_config_hash: str,
         embedding_text_profile: str,
+        vector_encoding_config_hash: str = "",
     ) -> str:
         if not state:
             return "missing_index"
@@ -166,10 +196,14 @@ class CodeCompassVectorStore:
             embedding_text_profile or CODECOMPASS_EMBEDDING_TEXT_PROFILE
         ):
             return "embedding_text_profile_changed"
+        stored_encoding = str(state.get("vector_encoding_config_hash") or VectorEncodingProfile.disabled().config_hash())
+        if stored_encoding != str(vector_encoding_config_hash or VectorEncodingProfile.disabled().config_hash()):
+            return "vector_encoding_changed"
         return "unchanged"
 
     @staticmethod
     def _state_diagnostics(state: dict[str, Any]) -> dict[str, Any]:
+        profile = dict(state.get("vector_encoding_profile") or VectorEncodingProfile.disabled().as_dict())
         return {
             "entry_count": int(state.get("entry_count") or 0),
             "provider": str(state.get("embedding_provider") or ""),
@@ -178,16 +212,47 @@ class CodeCompassVectorStore:
             "manifest_hash": str(state.get("manifest_hash") or ""),
             "embedding_text_profile": str(state.get("embedding_text_profile") or ""),
             "embedding_provider_config_hash": str(state.get("embedding_provider_config_hash") or ""),
+            "vector_encoding": {
+                "mode": str(profile.get("mode") or "off"),
+                "experimental": bool(profile.get("experimental") or False),
+                "target_bits": float(profile.get("target_bits") or 32.0),
+                "seed": int(profile.get("seed") or 0),
+                "config_hash": str(state.get("vector_encoding_config_hash") or ""),
+                "compression_ratio_vs_float32": float(state.get("vector_encoding_compression_ratio") or 1.0),
+                "max_abs_error": float(state.get("vector_encoding_max_abs_error") or 0.0),
+            },
         }
 
-    def search_by_vector(self, *, query_vector: list[float], top_k: int = 10) -> list[dict[str, Any]]:
+    @staticmethod
+    def _entry_vector(entry: dict[str, Any], encoder: VectorEncoder) -> list[float]:
+        if "vector" in entry:
+            return [float(item) for item in list(entry.get("vector") or [])]
+        encoded = entry.get("encoded_vector")
+        if isinstance(encoded, dict):
+            return encoder.decode(encoded)
+        return []
+
+    def search_by_vector(
+        self,
+        *,
+        query_vector: list[float],
+        top_k: int = 10,
+        vector_encoder: VectorEncoder | None = None,
+    ) -> list[dict[str, Any]]:
         loaded = self.load()
+        state = dict(loaded.get("state") or {})
+        profile_data = dict(state.get("vector_encoding_profile") or {})
+        encoder = vector_encoder or VectorEncoder(VectorEncodingProfile.from_config(profile_data))
         entries = [dict(item) for item in list(loaded.get("entries") or []) if isinstance(item, dict)]
         ranked: list[dict[str, Any]] = []
         for entry in entries:
-            vector = [float(item) for item in list(entry.get("vector") or [])]
+            vector = self._entry_vector(entry, encoder)
             score = _cosine_similarity(query_vector, vector)
-            ranked.append({**entry, "vector_score": score, "score": score})
+            metadata = dict(entry.get("metadata") or {})
+            metadata["vector_encoding_mode"] = encoder.profile.mode
+            if encoder.profile.experimental:
+                metadata["vector_encoding_experimental"] = "true"
+            ranked.append({**entry, "metadata": metadata, "vector_score": score, "score": score})
         ranked.sort(key=lambda item: float(item.get("score") or 0.0), reverse=True)
         return ranked[: max(1, int(top_k))]
 
@@ -197,7 +262,8 @@ class CodeCompassVectorStore:
         query: str,
         embedding_provider: EmbeddingProvider,
         top_k: int = 10,
+        vector_encoder: VectorEncoder | None = None,
     ) -> list[dict[str, Any]]:
         vectors = embedding_provider.embed_texts([build_query_embedding_text(str(query or ""))])
         query_vector = [float(item) for item in list(vectors[0] if vectors else [])]
-        return self.search_by_vector(query_vector=query_vector, top_k=top_k)
+        return self.search_by_vector(query_vector=query_vector, top_k=top_k, vector_encoder=vector_encoder)
