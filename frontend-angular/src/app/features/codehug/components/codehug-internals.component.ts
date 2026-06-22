@@ -15,6 +15,7 @@ import { interval, Subscription } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
 import { InternalsService, AnantaWorker, AutopilotStatus, VpPreset, VpSkillProfile, VpGraph } from '../services/internals.service';
 import { DecimalPipe, SlicePipe } from '@angular/common';
+import { GraphViewerComponent } from '../../codecompass-graph/components/graph-viewer/graph-viewer.component';
 
 // ─── Static Config Data (mirrored from Hub DB) ───────────────────────────────
 
@@ -196,12 +197,33 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
 @Component({
   selector: 'ch-internals',
   standalone: true,
-  imports: [DecimalPipe, SlicePipe],
+  imports: [DecimalPipe, SlicePipe, GraphViewerComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <div class="ch-int">
 
-  <!-- ── Top Config Bar ── -->
+  <!-- ── Tab Switcher ── -->
+  <div class="ch-tabs">
+    <button type="button" class="ch-tab" [class.ch-tab-on]="activeTab() === 'graph'" (click)="activeTab.set('graph')">📊 Quellgraph</button>
+    <button type="button" class="ch-tab" [class.ch-tab-on]="activeTab() === 'vp'"    (click)="activeTab.set('vp')">⚙ VP Editor</button>
+    @if (activeTab() === 'graph') {
+      <div class="ch-tab-spacer"></div>
+      @if (ccIndexes().length > 0) {
+        <label class="ch-lbl" style="margin-left:8px">Index</label>
+        <select class="ch-sel" [value]="ccSelectedId()"
+          (change)="loadCCGraph($any($event.target).value)">
+          @for (ix of ccIndexes(); track ix.id) {
+            <option [value]="ix.id">{{ ix.source_scope || ix.id }}</option>
+          }
+        </select>
+      }
+      @if (ccLoading()) { <span class="ch-lbl" style="color:var(--muted);margin-left:8px">Lädt…</span> }
+      @if (ccError()) { <span class="ch-lbl" style="color:#ef4444;margin-left:8px">{{ ccError() }}</span> }
+    }
+  </div>
+
+  <!-- ── Top Config Bar (VP only) ── -->
+  @if (activeTab() === 'vp') {
   <div class="ch-int-bar">
     <div class="ch-int-bg">
       <label class="ch-lbl">Blueprint</label>
@@ -276,7 +298,21 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
       <span class="ch-idle-badge">Idle</span>
     }
   </div>
+  } <!-- /vp bar -->
 
+  <!-- ── Quellgraph View ── -->
+  @if (activeTab() === 'graph') {
+    <div class="ch-graph-wrap">
+      @if (ccRawGraph()) {
+        <app-graph-viewer [rawGraphData]="ccRawGraph()" />
+      } @else if (!ccLoading() && !ccError()) {
+        <div class="ch-graph-empty">Kein Index verfügbar — bitte oben einen Knowledge-Index wählen.</div>
+      }
+    </div>
+  }
+
+  <!-- ── VP Body ── -->
+  @if (activeTab() === 'vp') {
   <!-- ── Body ── -->
   <div class="ch-int-body">
 
@@ -907,12 +943,43 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
       }
     </aside>
   </div>
+  } <!-- /vp body -->
+
 </div>
   `,
   styles: [`
 :host { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 
 .ch-int { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+
+/* ── Tabs ── */
+.ch-tabs {
+  display: flex; align-items: center; gap: 2px;
+  padding: 4px 8px; border-bottom: 1px solid var(--border);
+  background: var(--card-bg); flex-shrink: 0;
+}
+.ch-tab {
+  padding: 4px 12px; border: 1px solid transparent; border-radius: 5px;
+  background: none; color: var(--muted); font-size: 12px; cursor: pointer;
+  white-space: nowrap;
+}
+.ch-tab:hover { background: var(--bg); color: var(--fg); }
+.ch-tab-on {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  color: var(--accent); font-weight: 600;
+}
+.ch-tab-spacer { flex: 1; }
+
+/* ── Quellgraph ── */
+.ch-graph-wrap {
+  flex: 1; min-height: 0; display: flex; flex-direction: column;
+  overflow: hidden; padding: 8px;
+}
+.ch-graph-empty {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  font-size: 13px; color: var(--muted);
+}
 
 /* ── Top Bar ── */
 .ch-int-bar {
@@ -1147,6 +1214,14 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
   readonly selectedEdge = computed(() => this.edges().find(e => e.id === this.selectedEdgeId()) ?? null);
   readonly currentRoles = computed(() => BLUEPRINTS.find(b => b.id === this.selectedBlueprint())?.roles ?? []);
 
+  // ── Tab / Quellgraph ──────────────────────────────────────────────────────
+  readonly activeTab = signal<'vp' | 'graph'>('graph');
+  readonly ccIndexes = signal<any[]>([]);
+  readonly ccSelectedId = signal('');
+  readonly ccRawGraph = signal<any>(null);
+  readonly ccLoading = signal(false);
+  readonly ccError = signal('');
+
   // ── Connect mode ──────────────────────────────────────────────────────────
   readonly connectMode = signal(false);
   readonly connectSource = signal<string | null>(null);
@@ -1168,6 +1243,10 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
     this.svc.getAutopilotStatus().subscribe(s => this.autopilot.set(s));
     this.svc.getVpPresets().subscribe(p => this.vpPresets.set(p));
     this.svc.getVpSkillProfiles().subscribe(sp => this.skillProfiles.set(sp));
+    this.svc.listKnowledgeIndexes().subscribe(items => {
+      this.ccIndexes.set(items);
+      if (items.length > 0) this.loadCCGraph(items[0].id);
+    });
     this._pollSub = interval(3000).pipe(switchMap(() => this.svc.getAutopilotStatus()))
       .subscribe(s => this.autopilot.set(s));
   }
@@ -1176,6 +1255,27 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
   ngOnDestroy(): void {
     this._pollSub?.unsubscribe();
     this._workflowPollSub?.unsubscribe();
+  }
+
+  // ── Quellgraph ────────────────────────────────────────────────────────────
+
+  loadCCGraph(id: string): void {
+    if (!id) return;
+    this.ccSelectedId.set(id);
+    this.ccLoading.set(true);
+    this.ccError.set('');
+    this.ccRawGraph.set(null);
+    this.svc.getCodeCompassGraph(id).subscribe({
+      next: data => {
+        this.ccLoading.set(false);
+        if (data) { this.ccRawGraph.set(data); }
+        else { this.ccError.set('Graph nicht verfügbar'); }
+      },
+      error: () => {
+        this.ccLoading.set(false);
+        this.ccError.set('Fehler beim Laden');
+      },
+    });
   }
 
   // ── Blueprint / Playbook / VP Preset ─────────────────────────────────────

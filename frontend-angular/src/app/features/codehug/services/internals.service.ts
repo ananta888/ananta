@@ -187,6 +187,22 @@ export class InternalsService {
     );
   }
 
+  listKnowledgeIndexes(): Observable<any[]> {
+    return this.http.get<any>(`${this.hubUrl()}/api/knowledge/indexes`).pipe(
+      map(r => Array.isArray(r?.data?.items) ? r.data.items : []),
+      catchError(() => of([])),
+    );
+  }
+
+  getCodeCompassGraph(knowledgeIndexId: string): Observable<any> {
+    return this.http.get<any>(
+      `${this.hubUrl()}/api/codecompass/graph?knowledge_index_id=${encodeURIComponent(knowledgeIndexId)}`,
+    ).pipe(
+      map(r => r?.data ?? null),
+      catchError(() => of(null)),
+    );
+  }
+
   private normalizeTemplate(t: any): AnantaTemplate {
     const name: string = t.name ?? '';
     let category: AnantaTemplate['category'] = 'system';
