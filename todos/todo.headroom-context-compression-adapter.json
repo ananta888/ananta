@@ -1,10 +1,10 @@
 {
-  "$schema": "../todo.track.schema.json",
+  "$schema": "todo.track.schema.json",
   "version": "1.0",
   "owner": "Peter Stuiber / Ananta",
   "track": "headroom-context-compression-adapter",
   "created": "2026-06-18",
-  "status": "todo",
+  "status": "done",
   "priority": "P1",
   "purpose": "Einen optionalen Headroom-aehnlichen Adapter fuer Ananta entwerfen und implementieren, der Tool-Outputs, RAG-/CodeCompass-Ergebnisse, Logs und alte Chat-Kontexte tokenbewusst verdichtet, ohne Originaldaten irreversibel zu verlieren.",
   "goal": "Ananta kann vor LLM-Aufrufen strukturierte Kontextpakete ueber eine kontrollierte Compression-Schicht laufen lassen. Die Schicht kann entweder einen externen Headroom-Service/CLI/Library-Adapter verwenden oder eine eigene minimale interne Implementierung bereitstellen. Originale bleiben ueber Content-Hashes/CCR abrufbar, Kompression ist policy-gesteuert, messbar, abschaltbar und darf sicherheitskritische Code-/User-/Credential-Inhalte nicht unkontrolliert veraendern.",
@@ -33,22 +33,38 @@
     {
       "id": "disabled",
       "description": "Adapter ist deaktiviert; alle Inhalte laufen unveraendert durch.",
-      "preferred_for": ["safe default", "CI", "debugging"]
+      "preferred_for": [
+        "safe default",
+        "CI",
+        "debugging"
+      ]
     },
     {
       "id": "passthrough_with_metrics",
       "description": "Keine Kompression, aber Token-/Laengenmessung und Audit. Gut fuer Baseline-Vergleiche.",
-      "preferred_for": ["benchmark baseline", "migration", "production warmup"]
+      "preferred_for": [
+        "benchmark baseline",
+        "migration",
+        "production warmup"
+      ]
     },
     {
       "id": "internal_smart_compressor",
       "description": "Ananta-eigene deterministische/heuristische Kompression fuer JSON, Logs, Suchtreffer, RAG-Listen und historische Chatteile.",
-      "preferred_for": ["offline", "no external dependency", "security-sensitive setups"]
+      "preferred_for": [
+        "offline",
+        "no external dependency",
+        "security-sensitive setups"
+      ]
     },
     {
       "id": "external_headroom",
       "description": "Adapter delegiert an Headroom via CLI/HTTP/MCP/Library, sofern explizit konfiguriert und erlaubt.",
-      "preferred_for": ["evaluation", "token saving experiments", "agent tool output compression"]
+      "preferred_for": [
+        "evaluation",
+        "token saving experiments",
+        "agent tool output compression"
+      ]
     }
   ],
   "target_config": {
@@ -61,7 +77,9 @@
         "external_headroom": {
           "enabled": false,
           "transport": "cli",
-          "command": ["headroom"],
+          "command": [
+            "headroom"
+          ],
           "base_url": null,
           "mcp_server": null,
           "timeout_seconds": 20
@@ -74,9 +92,29 @@
           "redact_secrets": true
         },
         "policies": {
-          "never_compress": ["current_user_message", "active_patch", "credential", "secret", "approval_prompt"],
-          "protect_when_task_intent": ["debug", "fix", "review", "security_audit", "test_failure"],
-          "compressible_content_types": ["tool_output", "json", "log", "search_results", "rag_results", "old_chat_summary", "codecompass_symbol_list"],
+          "never_compress": [
+            "current_user_message",
+            "active_patch",
+            "credential",
+            "secret",
+            "approval_prompt"
+          ],
+          "protect_when_task_intent": [
+            "debug",
+            "fix",
+            "review",
+            "security_audit",
+            "test_failure"
+          ],
+          "compressible_content_types": [
+            "tool_output",
+            "json",
+            "log",
+            "search_results",
+            "rag_results",
+            "old_chat_summary",
+            "codecompass_symbol_list"
+          ],
           "max_input_tokens_before_considering": 1200,
           "target_reduction_percent": 35,
           "fallback_on_quality_risk": true
@@ -133,32 +171,54 @@
     {
       "id": "HCCA-M1",
       "title": "Contract, Config und Baseline-Metriken",
-      "task_ids": ["HCCA-001", "HCCA-002", "HCCA-003", "HCCA-004"],
-      "status": "todo"
+      "task_ids": [
+        "HCCA-001",
+        "HCCA-002",
+        "HCCA-003",
+        "HCCA-004"
+      ],
+      "status": "done"
     },
     {
       "id": "HCCA-M2",
       "title": "CCR Store und sichere interne Compression",
-      "task_ids": ["HCCA-005", "HCCA-006", "HCCA-007", "HCCA-008"],
-      "status": "todo"
+      "task_ids": [
+        "HCCA-005",
+        "HCCA-006",
+        "HCCA-007",
+        "HCCA-008"
+      ],
+      "status": "done"
     },
     {
       "id": "HCCA-M3",
       "title": "Integration in CodeCompass, Tool-Calling und Worker-Kontext",
-      "task_ids": ["HCCA-009", "HCCA-010", "HCCA-011"],
-      "status": "todo"
+      "task_ids": [
+        "HCCA-009",
+        "HCCA-010",
+        "HCCA-011"
+      ],
+      "status": "done"
     },
     {
       "id": "HCCA-M4",
       "title": "Optionaler externer Headroom-Adapter und Vergleichsmessung",
-      "task_ids": ["HCCA-012", "HCCA-013", "HCCA-014"],
-      "status": "todo"
+      "task_ids": [
+        "HCCA-012",
+        "HCCA-013",
+        "HCCA-014"
+      ],
+      "status": "done"
     },
     {
       "id": "HCCA-M5",
       "title": "UI/Tracking, Docs und Produktionshaertung",
-      "task_ids": ["HCCA-015", "HCCA-016", "HCCA-017"],
-      "status": "todo"
+      "task_ids": [
+        "HCCA-015",
+        "HCCA-016",
+        "HCCA-017"
+      ],
+      "status": "done"
     }
   ],
   "tasks": [
@@ -166,7 +226,7 @@
       "id": "HCCA-001",
       "title": "ContextCompressionAdapter Contract dokumentieren",
       "type": "architecture-contract",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "progress_percent": 0,
@@ -184,13 +244,14 @@
       "test_expectations": [
         "Docs enthalten mindestens ein Beispiel fuer Tool-Output, CodeCompass-Ergebnis und Log-Kompression.",
         "Docs enthalten Beispiele fuer blockierte Kompression bei Secrets und aktive Patches."
-      ]
+      ],
+      "completed": "2026-06-22"
     },
     {
       "id": "HCCA-002",
       "title": "Konfiguration fuer context_compression einfuehren",
       "type": "configuration",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "progress_percent": 0,
@@ -211,13 +272,14 @@
         "Config-Test validiert passthrough_with_metrics mit Observability.",
         "Config-Test lehnt external_headroom ohne transport/command/base_url/mcp_server ab.",
         "Config-Test prueft, dass current_user_message und credential im Default nie komprimiert werden."
-      ]
+      ],
+      "completed": "2026-06-22"
     },
     {
       "id": "HCCA-003",
       "title": "TokenEstimator und Baseline-Metriken bauen",
       "type": "measurement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "low",
       "progress_percent": 0,
@@ -236,13 +298,14 @@
         "Unit-Tests pruefen deterministische Schaetzung fuer kurze/lange Texte.",
         "Tests pruefen reduction_percent und Edge Cases bei leerem Inhalt.",
         "Tests pruefen, dass keine Provider-Abhaengigkeit zwingend geladen werden muss."
-      ]
+      ],
+      "completed": "2026-06-22"
     },
     {
       "id": "HCCA-004",
       "title": "CompressionPolicyEngine implementieren",
       "type": "policy-engine",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
@@ -262,13 +325,14 @@
         "Tests pruefen Schutz bei task_intent=debug/fix/review/security_audit.",
         "Tests pruefen erlaubte Kompression fuer grosse JSON-Tool-Outputs.",
         "Tests pruefen reason_codes fuer alle wichtigen Entscheidungen."
-      ]
+      ],
+      "completed": "2026-06-22"
     },
     {
       "id": "HCCA-005",
       "title": "CCR Store fuer Original-Referenzen bauen",
       "type": "storage",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
@@ -288,13 +352,14 @@
         "Unit-Test erkennt Hash-Kollision/Manipulation ueber Content-Hash-Pruefung.",
         "Unit-Test prueft TTL-Ablauf.",
         "Unit-Test prueft max_bytes_per_item und Secret-Redaction."
-      ]
+      ],
+      "completed": "2026-06-22"
     },
     {
       "id": "HCCA-006",
       "title": "SecretRedactor und SensitivityScanner einbauen",
       "type": "security",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
@@ -313,13 +378,14 @@
         "Tests pruefen Bearer Token, GitHub Token, OpenAI-Key-artige Strings, PEM-Key und Cookie-Header.",
         "Tests pruefen, dass Redaction keine Secrets in Logs/Metriken schreibt.",
         "Tests pruefen blockierte Speicherung bei sensitivity=credential."
-      ]
+      ],
+      "completed": "2026-06-22"
     },
     {
       "id": "HCCA-007",
       "title": "Interne SmartCompressor-Strategien fuer JSON, Logs und Suchergebnisse bauen",
       "type": "compression-engine",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "progress_percent": 0,
@@ -342,13 +408,14 @@
         "Tests pruefen Logs mit Error/Warning/Traceback.",
         "Tests pruefen Suchergebnisse mit Pfad- und Symbol-Erhalt.",
         "Tests pruefen fallback, wenn komprimierter Text groesser als Original wird."
-      ]
+      ],
+      "completed": "2026-06-22"
     },
     {
       "id": "HCCA-008",
       "title": "Qualitaets- und Verlustschutz fuer Kompression einfuehren",
       "type": "quality-gate",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
@@ -368,13 +435,14 @@
         "Tests pruefen Ablehnung, wenn CodeCompass line_range verloren geht.",
         "Tests pruefen passthrough bei zu geringer Reduktion.",
         "Tests pruefen erlaubte Kompression bei vollstaendigem Evidence-Erhalt."
-      ]
+      ],
+      "completed": "2026-06-22"
     },
     {
       "id": "HCCA-009",
       "title": "CodeCompass/RAG Helper Ergebnis-Handoff integrieren",
       "type": "codecompass-integration",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
@@ -395,13 +463,14 @@
         "Integrationstest mit grosser Symbol-Liste erzeugt kompaktes Ergebnis plus ccr:// Referenz.",
         "Integrationstest mit kleinem File-Kontext bleibt passthrough.",
         "Test prueft, dass Code-Snippets bei Debug/Fix-Aufgaben nicht gekuerzt werden."
-      ]
+      ],
+      "completed": "2026-06-22"
     },
     {
       "id": "HCCA-010",
       "title": "Tool-Output-Kompression in Tool-Calling-Pipeline anschliessen",
       "type": "tool-calling-integration",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
@@ -423,13 +492,14 @@
         "Test fuer Prompt-JSON-Fallback mit komprimiertem Tool-Result.",
         "Test fuer failed compressor -> original passthrough.",
         "Policy-Test blockiert Originalabruf bei sensitivity=secret."
-      ]
+      ],
+      "completed": "2026-06-22"
     },
     {
       "id": "HCCA-011",
       "title": "Chat-History und Rolling-Summary Budget-Schicht anbinden",
       "type": "conversation-context",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "progress_percent": 0,
@@ -449,13 +519,14 @@
         "Test prueft, dass aktuelle User Message unveraendert bleibt.",
         "Test prueft Summary alter Tool-Schritte mit Originalreferenz.",
         "Test prueft, dass System/Policy-Inhalte ausgeschlossen bleiben."
-      ]
+      ],
+      "completed": "2026-06-22"
     },
     {
       "id": "HCCA-012",
       "title": "ExternalHeadroomAdapter als optionale Implementierung bauen",
       "type": "external-adapter",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "progress_percent": 0,
@@ -475,13 +546,14 @@
         "Mock-Test fuer Timeout und Fehlercode.",
         "Mock-Test fuer ungueltiges JSON/unerwartete Headroom-Antwort.",
         "Test prueft, dass external_headroom disabled keine Calls ausloest."
-      ]
+      ],
+      "completed": "2026-06-22"
     },
     {
       "id": "HCCA-013",
       "title": "Benchmark-Harness fuer Tokenersparnis und Qualitaetsverlust bauen",
       "type": "benchmarking",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "progress_percent": 0,
@@ -501,13 +573,14 @@
         "Smoke-Test startet Benchmark mit Fixtures.",
         "Test prueft JSON-Exportstruktur.",
         "Test prueft, dass fehlender externer Headroom sauber als skipped markiert wird."
-      ]
+      ],
+      "completed": "2026-06-22"
     },
     {
       "id": "HCCA-014",
       "title": "A/B Routing fuer reale Agentenlaeufe vorbereiten",
       "type": "runtime-evaluation",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "progress_percent": 0,
@@ -527,13 +600,14 @@
         "Config-Test fuer compression_profile je Worker.",
         "Test prueft, dass Default nicht global komprimiert.",
         "Mock-Agentenlauf erzeugt vergleichbare Metrics fuer off vs metrics."
-      ]
+      ],
+      "completed": "2026-06-22"
     },
     {
       "id": "HCCA-015",
       "title": "Tracking Viewer Events fuer Compression-Schritte ausgeben",
       "type": "observability-ui",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "progress_percent": 0,
@@ -553,13 +627,14 @@
         "Backend-Test prueft Event-Payload ohne Secret-Werte.",
         "Frontend-Test oder Snapshot prueft Anzeige von decision/reduction/original_ref.",
         "Test prueft deaktivierte Events bei observability.emit_events=false."
-      ]
+      ],
+      "completed": "2026-06-22"
     },
     {
       "id": "HCCA-016",
       "title": "Retrieval-Tool fuer CCR-Originale kontrolliert bereitstellen",
       "type": "retrieval-tool",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "progress_percent": 0,
@@ -580,13 +655,14 @@
         "Test prueft blockierten Abruf bei sensitivity=secret.",
         "Test prueft range/json_path Abruf.",
         "Test prueft Audit-Event fuer jeden Abruf."
-      ]
+      ],
+      "completed": "2026-06-22"
     },
     {
       "id": "HCCA-017",
       "title": "Dokumentation, Sicherheitscheckliste und Rollout-Plan fertigstellen",
       "type": "docs-hardening",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "progress_percent": 0,
@@ -606,7 +682,8 @@
         "Docs verweisen auf Benchmark-Harness und relevante Config-Keys.",
         "Security-Checkliste enthaelt konkrete Punkte fuer Secrets, TTL, CCR-Store und Policy-Gates.",
         "Keine Doku empfiehlt globale unkontrollierte Kompression als Default."
-      ]
+      ],
+      "completed": "2026-06-22"
     }
   ],
   "critical_path_tasks": [
@@ -678,12 +755,10 @@
     }
   },
   "progress_summary": {
-    "state": "created",
-    "todo_remaining": 17,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 0,
-    "blocked": 0,
-    "done": 0
+    "done": 17
   },
   "summary_notes": [
     "Erst messen, dann aktivieren: passthrough_with_metrics ist der empfohlene Startmodus.",

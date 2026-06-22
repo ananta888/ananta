@@ -1235,6 +1235,32 @@ class HybridOrchestrator:
             )
         self.context_manager = ContextManager(policy_version="v1")
 
+        # HCCA-009: optional context compression adapter
+        self._compression_adapter = None
+        compression_cfg = dict(getattr(settings, "global_config", None) or {}).get("context_compression", {})
+        if compression_cfg.get("enabled"):
+            try:
+                from agent.services.context_compression import build_compression_adapter
+                self._compression_adapter = build_compression_adapter(compression_cfg)
+            except Exception:
+                pass  # compression is always optional, degrade gracefully
+
+    def _compress_context_text(
+        self, content: str, content_type: str = "rag_results", task_intent: str = ""
+    ) -> str:
+        """HCCA-010/011: Apply optional context compression to assembled context text."""
+        if self._compression_adapter is None or not self._compression_adapter.is_enabled():
+            return content
+        try:
+            from agent.services.context_compression import CompressionRequest
+            req = CompressionRequest(
+                content=content, content_type=content_type, task_intent=task_intent
+            )
+            result = self._compression_adapter.compress(req)
+            return result.content
+        except Exception:
+            return content  # always safe passthrough on any error
+
     def _redact(self, text: str) -> str:
         if not self.redact_sensitive:
             return text
@@ -1361,6 +1387,10 @@ class HybridOrchestrator:
             result["context_text"] = (
                 f"{banner}\n\n{result['context_text']}" if result["context_text"] else banner
             )
+        # HCCA-011: apply optional compression to the final assembled context text
+        result["context_text"] = self._compress_context_text(
+            result["context_text"], content_type="rag_results", task_intent=""
+        )
         return result
 
     def _retrieval_diagnostics(self) -> dict[str, object]:

@@ -1,0 +1,117 @@
+%%{init: {"theme": "base", "themeVariables": {
+  "primaryColor": "#1e40af",
+  "primaryTextColor": "#ffffff",
+  "primaryBorderColor": "#1e3a8a",
+  "lineColor": "#374151",
+  "secondaryColor": "#f3f4f6",
+  "tertiaryColor": "#ecfdf5",
+  "background": "#ffffff",
+  "mainBkg": "#dbeafe",
+  "nodeBorder": "#1e3a8a",
+  "clusterBkg": "#f8fafc",
+  "titleColor": "#111827",
+  "edgeLabelBackground": "#f9fafb"
+}}}%%
+flowchart TD
+    %% ── Inputs ───────────────────────────────────────────────────────────────
+    Q([query / tool_output / RAG result / log]):::input
+
+    %% ── Core pipeline ────────────────────────────────────────────────────────
+    CA[ContextAssembly\nbuilds context window]:::core
+    CR[CompressionRequest\ncontent · content_type\ntask_intent · budget_tokens\nsensitivity_label]:::core
+
+    %% ── Policy Engine ────────────────────────────────────────────────────────
+    PE{PolicyEngine\ngate sequence}:::security
+
+    GATE_NEVER["Gate 2: NEVER list\ncurrent_user_message\nactive_patch · credential\nsecret · approval_prompt"]:::security
+    GATE_SENS["Gate 3: sensitivity_label=secret"]:::security
+    GATE_INTENT["Gate 4: task_intent protected\ndebug · fix · review\nsecurity_audit · test_failure"]:::security
+    GATE_TYPE["Gate 5: content_type\nnot in compressible list"]:::security
+    GATE_THRESH["Gate 6: below token threshold\n(< 1200 est. tokens)"]:::security
+    GATE_MODE["Gate 7: mode=passthrough_with_metrics"]:::security
+
+    PT_GATE([passthrough\nreason logged]):::passthrough
+
+    %% ── Security layer ───────────────────────────────────────────────────────
+    SR[SecretRedactor\nscans 11 secret patterns\nredacts before storage]:::securitynode
+
+    %% ── A/B Router ───────────────────────────────────────────────────────────
+    ABR{ABRouter\nsha256(seed:content_id)\n% bucket routing}:::optional
+
+    %% ── Adapter implementations ──────────────────────────────────────────────
+    SC[SmartCompressor\nananta_smart_compressor\nJSON · log · search · generic\nstrategies — no LLM calls]:::core
+
+    EH[ExternalHeadroomAdapter\nCLI subprocess or HTTP POST\nlocal process only]:::optional
+
+    %% ── Quality Gate ─────────────────────────────────────────────────────────
+    QG{QualityGuard\nnot_empty · length_ratio\nmin_reduction\nerror_lines_preserved\njson_valid\nno_new_secrets}:::security
+
+    PT_QUALITY([passthrough fallback\nreason: fallback_on_risk]):::passthrough
+
+    %% ── CCR Store ────────────────────────────────────────────────────────────
+    CCRS[(CCRStore\nlocal filesystem only\nSHA-256 content-addressed\nTTL 72h · max 5 MiB/entry\nSecretRedactor ran first)]:::storage
+
+    %% ── Result ───────────────────────────────────────────────────────────────
+    RES[CompressionResult\ncontent · decision · reason_code\nccr_ref · token_before · token_after\nquality_score · adapter_used]:::core
+
+    LLM([LLM Context Window]):::output
+
+    %% ── Side channels ────────────────────────────────────────────────────────
+    TRACK[/CompressionTracker\nemits CompressionEvent\nring buffer · JSON log\nananta.compression logger/]:::optional
+
+    %% ── Retrieval path ───────────────────────────────────────────────────────
+    RTOOL[CCRRetrievalTool\naudit-checked · type-filtered\nreturns original on demand]:::storage
+
+    %% ── Flow ─────────────────────────────────────────────────────────────────
+    Q --> CA
+    CA --> CR
+    CR --> PE
+
+    PE --> GATE_NEVER
+    GATE_NEVER -- blocked --> PT_GATE
+    GATE_NEVER -- pass --> GATE_SENS
+    GATE_SENS -- blocked --> PT_GATE
+    GATE_SENS -- pass --> GATE_INTENT
+    GATE_INTENT -- blocked --> PT_GATE
+    GATE_INTENT -- pass --> GATE_TYPE
+    GATE_TYPE -- blocked --> PT_GATE
+    GATE_TYPE -- pass --> GATE_THRESH
+    GATE_THRESH -- below threshold --> PT_GATE
+    GATE_THRESH -- pass --> GATE_MODE
+    GATE_MODE -- passthrough_with_metrics --> PT_GATE
+
+    GATE_MODE -- compress / compress_aggressive --> ABR
+
+    ABR -- lane A passthrough --> PT_GATE
+    ABR -- lane B --> SR
+
+    SR --> SC
+    SC -.-> |optional| EH
+
+    SC --> QG
+    EH --> QG
+
+    QG -- score < min_quality_score --> PT_QUALITY
+    QG -- quality_ok --> CCRS
+
+    CCRS -- store original redacted copy --> CCRS
+    CCRS --> RES
+
+    PT_GATE --> RES
+    PT_QUALITY --> RES
+
+    RES --> LLM
+    RES --> TRACK
+
+    CCRS -- ref in CompressionResult --> RTOOL
+    RTOOL -- retrieve original --> LLM
+
+    %% ── Styles ───────────────────────────────────────────────────────────────
+    classDef core        fill:#dbeafe,stroke:#1e40af,color:#1e3a8a,font-weight:bold
+    classDef input       fill:#eff6ff,stroke:#93c5fd,color:#1e3a8a
+    classDef output      fill:#eff6ff,stroke:#93c5fd,color:#1e3a8a
+    classDef security    fill:#fee2e2,stroke:#b91c1c,color:#7f1d1d,font-weight:bold
+    classDef securitynode fill:#fecaca,stroke:#b91c1c,color:#7f1d1d
+    classDef passthrough fill:#fef9c3,stroke:#ca8a04,color:#713f12
+    classDef optional    fill:#f3f4f6,stroke:#6b7280,color:#374151,stroke-dasharray:5 5
+    classDef storage     fill:#d1fae5,stroke:#059669,color:#065f46,font-weight:bold
