@@ -1,5 +1,6 @@
 import { Component, ChangeDetectionStrategy, signal, computed, HostListener, inject, OnDestroy } from '@angular/core';
-import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
+import { filter } from 'rxjs';
 import { PolicyService } from '../services/policy.service';
 
 /**
@@ -18,6 +19,7 @@ import { PolicyService } from '../services/policy.service';
   template: `
     <section
       class="codehug-shell"
+      [class.codehug-shell-full]="isFullLayout()"
       [attr.data-viewport]="viewport()"
       [attr.data-collapsed]="rightCollapsed() ? 'true' : 'false'">
       <header class="codehug-shell-header">
@@ -243,11 +245,15 @@ import { PolicyService } from '../services/policy.service';
       gap: 1px;
       min-height: 0;
       grid-template-columns: 240px 1fr 320px;
+      grid-auto-rows: minmax(0, 1fr);
     }
-    .codehug-col { min-width: 0; min-height: 0; overflow: auto; background: var(--bg); }
-    .codehug-col-left, .codehug-col-right { border-right: 1px solid var(--border); padding: 12px; }
+    .codehug-col { min-width: 0; min-height: 0; overflow: hidden; background: var(--bg); }
+    .codehug-col-left, .codehug-col-right { border-right: 1px solid var(--border); padding: 12px; overflow: auto; }
     .codehug-col-right { border-right: none; border-left: 1px solid var(--border); }
     .codehug-col-right-collapsed { display: none; }
+    .codehug-shell-full .codehug-col-left,
+    .codehug-shell-full .codehug-col-right { display: none; }
+    .codehug-shell-full .codehug-shell-grid { grid-template-columns: 1fr; }
 
     /* Tablet: 2 Spalten, rechte Spalte als Side-Panel */
     @media (max-width: 1023px) and (min-width: 768px) {
@@ -294,6 +300,10 @@ export class CodeHugShellComponent implements OnDestroy {
   readonly viewport = signal<'desktop' | 'tablet' | 'handy'>('desktop');
   readonly rightCollapsed = signal(false);
   readonly policy = inject(PolicyService);
+  private readonly router = inject(Router);
+
+  readonly currentUrl = signal(this.router.url);
+  readonly isFullLayout = computed(() => this.currentUrl().includes('/codehug/internals'));
 
   readonly writeModeExpiresIn = computed(() => {
     const exp = this.policy.writeModeExpiresAt();
@@ -303,6 +313,9 @@ export class CodeHugShellComponent implements OnDestroy {
 
   private _timerHandle: ReturnType<typeof setInterval> | null = null;
   private _tick = signal(0);
+  private _routerSub = this.router.events
+    .pipe(filter(e => e instanceof NavigationEnd))
+    .subscribe(() => this.currentUrl.set(this.router.url));
 
   constructor() {
     this.detectViewport();
@@ -316,6 +329,7 @@ export class CodeHugShellComponent implements OnDestroy {
 
   ngOnDestroy(): void {
     if (this._timerHandle) clearInterval(this._timerHandle);
+    this._routerSub.unsubscribe();
   }
 
   @HostListener('window:resize')

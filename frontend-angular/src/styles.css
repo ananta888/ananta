@@ -56,24 +56,30 @@ html, body {
   transition: background-color 0.3s, color 0.3s;
 }
 
-a { color: var(--accent); text-decoration: none; }
-
-header {
+app-root {
   display: flex;
-  gap: 16px;
-  align-items: center;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  background: var(--header-bg);
-  backdrop-filter: blur(6px);
-  z-index: 200;
+  flex-direction: column;
+  height: 100%;
 }
 
+a { color: var(--accent); text-decoration: none; }
+
+/* Header styling is now fully managed by app.component.ts component styles */
 header h1 { font-size: 18px; margin: 0; }
 
-main { padding: 16px; }
+main {
+  padding: 16px;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+main.main-flush {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
 
 button, input, select, textarea {
   background: var(--input-bg);

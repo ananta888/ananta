@@ -26,75 +26,75 @@ import { SnakeOverlayComponent } from './components/snake-overlay.component';
     <app-notifications />
     <app-toast />
     <header class="app-header">
-      <div class="row app-header-top">
-        <div class="row app-header-title">
+      <div class="app-hrow-top">
+        <!-- Links: Brand + Breadcrumbs -->
+        <div class="app-hleft">
           @if (isAndroidNative && headerUser) {
-            <button
-              class="secondary android-drawer-toggle"
+            <button class="secondary android-drawer-toggle"
               (click)="shell.toggleMobileNav()"
               [attr.aria-expanded]="shell.mobileNavOpen()"
               aria-controls="primary-navigation"
-              aria-label="Menue oeffnen">
-              ☰
-            </button>
+              aria-label="Menue oeffnen">☰</button>
           }
-          <h1>Ananta - Agent Control</h1>
+          <img src="/assets/ananta.svg" alt="Ananta" class="app-logo" />
+          @if (headerUser) { <app-breadcrumb /> }
         </div>
-        @if (headerUser; as user) {
-          <div class="row app-header-user">
-            <span class="muted" style="font-size: 14px;">{{ user.sub }} ({{ user.role }})</span>
+        <!-- Mitte: Nav-Gruppen -->
+        @if (headerUser) {
+          @if (!isAndroidNative) {
+            <nav
+              id="primary-navigation"
+              class="app-nav"
+              [class.nav-open]="shell.mobileNavOpen()"
+              aria-label="Hauptnavigation"
+              (click)="onNavClick($event)">
+              @for (group of navGroups(headerUser.role); track group.label) {
+                <details class="nav-menu-group">
+                  <summary>
+                    <span>{{ group.label }}</span>
+                    <span class="nav-count">{{ group.items.length }}</span>
+                  </summary>
+                  <div class="nav-menu-panel">
+                    @for (item of group.items; track item.path) {
+                      <a
+                        [routerLink]="item.path"
+                        routerLinkActive="active"
+                        [routerLinkActiveOptions]="{ exact: true }"
+                        (click)="closeMobileNav()">
+                        <span>{{ item.label }}</span>
+                        @if (shell.mode() === 'advanced' && item.expertOnly) {
+                          <span class="nav-expert-label">Experte</span>
+                        }
+                      </a>
+                    }
+                  </div>
+                </details>
+              }
+            </nav>
+          }
+        }
+        <!-- Rechts: User-Controls -->
+        @if (headerUser) {
+          <div class="app-hright">
             @if (!isAndroidNative) {
-              <button class="secondary mobile-nav-toggle" (click)="shell.toggleMobileNav()" [attr.aria-expanded]="shell.mobileNavOpen()" aria-controls="primary-navigation" aria-label="Navigation umschalten">
-                {{ shell.mobileNavOpen() ? 'Menue schliessen' : 'Menue' }}
-              </button>
+              <button class="secondary app-hbtn mobile-nav-toggle"
+                (click)="shell.toggleMobileNav()"
+                [attr.aria-expanded]="shell.mobileNavOpen()"
+                aria-controls="primary-navigation"
+                aria-label="Navigation">☰</button>
             }
-            <button (click)="toggleDarkMode()" class="secondary" style="padding: 4px 8px; font-size: 12px;" title="Darstellung umschalten">
-              {{ shell.darkMode() ? 'Hell' : 'Dunkel' }}
+            <button (click)="toggleDarkMode()" class="secondary app-hbtn" title="Darstellung">
+              {{ shell.darkMode() ? '☀' : '🌙' }}
             </button>
-            <button (click)="toggleMode()" class="secondary" style="padding: 4px 8px; font-size: 12px;" title="Navigationstiefe umschalten">
+            <button (click)="toggleMode()" class="secondary app-hbtn" title="Modus">
               {{ shell.mode() === 'simple' ? 'Experte' : 'Einfach' }}
             </button>
-            <button (click)="snakeOverlay.toggle()" class="secondary snake-toggle"
-                    [class.snake-on]="snakeOverlay.visible$ | async"
-                    style="padding: 4px 8px; font-size: 12px;" title="AI-Snake Overlay ein/aus">🐍</button>
-            <button (click)="onLogout()" class="secondary" style="padding: 4px 8px; font-size: 12px;" aria-label="Logout">Abmelden</button>
+            <button (click)="snakeOverlay.toggle()" class="secondary app-hbtn snake-toggle"
+              [class.snake-on]="snakeOverlay.visible$ | async" title="AI-Snake">🐍</button>
+            <button (click)="onLogout()" class="secondary app-hbtn" aria-label="Logout">Abmelden</button>
           </div>
         }
       </div>
-      @if (headerUser; as user) {
-        @if (!isAndroidNative) {
-          <nav
-            id="primary-navigation"
-            class="row app-nav"
-            [class.nav-open]="shell.mobileNavOpen()"
-            aria-label="Hauptnavigation"
-            (click)="onNavClick($event)">
-            @for (group of navGroups(user.role); track group.label) {
-              <details class="nav-menu-group">
-                <summary>
-                  <span>{{ group.label }}</span>
-                  <span class="nav-count">{{ group.items.length }}</span>
-                </summary>
-                <div class="nav-menu-panel">
-                  @for (item of group.items; track item.path) {
-                    <a
-                      [routerLink]="item.path"
-                      routerLinkActive="active"
-                      [routerLinkActiveOptions]="{ exact: true }"
-                      (click)="closeMobileNav()"
-                      [attr.data-waypoint]="'nav.' + item.path">
-                      <span>{{ item.label }}</span>
-                      @if (shell.mode() === 'advanced' && item.expertOnly) {
-                        <span class="nav-expert-label">Experte</span>
-                      }
-                    </a>
-                  }
-                </div>
-              </details>
-            }
-          </nav>
-        }
-      }
     </header>
     @if (isAndroidNative) {
       <nav
@@ -140,15 +140,7 @@ import { SnakeOverlayComponent } from './components/snake-overlay.component';
         {{ shell.mobileNavOpen() ? '×' : '☰' }}
       </button>
     }
-    @if (headerUser) {
-      <app-breadcrumb />
-    }
-    <div class="route-context muted">
-      Bereich: {{ shell.area() }} | Modus: {{ shell.mode() === 'simple' ? 'Einfach' : 'Experte' }} | Route: {{ shell.routeUrl() }}
-      @if (mobile.isNative) { | Mobile: native }
-      @if ((mobile.online$ | async) === false) { | Offline-Modus aktiv }
-    </div>
-    <main id="main-content" tabindex="-1">
+    <main id="main-content" [class.main-flush]="isFullscreenRoute" tabindex="-1">
       <router-outlet />
     </main>
     @if (headerUser) {
@@ -160,230 +152,132 @@ import { SnakeOverlayComponent } from './components/snake-overlay.component';
   `,
   styles: [`
     .skip-link {
-      position: fixed;
-      left: 12px;
-      top: 8px;
-      transform: translateY(-160%);
-      z-index: 1000;
-      background: var(--fg);
-      color: var(--bg);
-      padding: 8px 10px;
-      border-radius: 6px;
+      position: fixed; left: 12px; top: 8px; transform: translateY(-160%);
+      z-index: 1000; background: var(--fg); color: var(--bg);
+      padding: 8px 10px; border-radius: 6px;
     }
-    .skip-link:focus {
-      transform: translateY(0);
+    .skip-link:focus { transform: translateY(0); }
+
+    /* ── Header ── */
+    .app-header {
+      display: flex; flex-direction: column; gap: 0;
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; background: var(--header-bg);
+      backdrop-filter: blur(6px); z-index: 200;
     }
-    .app-header-top {
-      justify-content: space-between;
-      align-items: center;
-      width: 100%;
+    .app-hrow-top {
+      display: flex; align-items: center; gap: 8px;
+      padding: 4px 12px; min-height: 38px; flex-shrink: 0;
     }
-    .app-header-title {
-      align-items: center;
-      gap: 8px;
+    .app-hleft {
+      flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0;
     }
-    .android-drawer-toggle {
-      min-width: 30px;
-      height: 30px;
-      padding: 0;
-      line-height: 1;
-      border-radius: 6px;
-      font-size: 14px;
+    .app-hright {
+      flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: 5px; flex-shrink: 0;
     }
-    .app-header-user {
-      gap: 12px;
-      align-items: center;
-    }
-    .mobile-nav-toggle {
-      display: none;
-    }
+    .app-logo { height: 28px; width: 28px; object-fit: contain; flex-shrink: 0; border-radius: 4px; }
+    .app-hspace { flex: 1; }
+    .app-hbtn { padding: 3px 7px !important; font-size: 11px !important; white-space: nowrap; }
+    .mobile-nav-toggle { display: none; }
+    .android-drawer-toggle { min-width: 28px; height: 28px; padding: 0; line-height: 1; border-radius: 6px; font-size: 14px; }
+
+    /* ── Nav groups (in der Mitte der Top-Zeile) ── */
     .app-nav {
-      gap: 8px;
-      align-items: center;
-      flex-wrap: wrap;
-      position: relative;
-      z-index: 50;
+      display: flex; align-items: center; gap: 5px; flex-wrap: nowrap;
+      flex-shrink: 0;
     }
-    .nav-menu-group {
-      position: relative;
-    }
+    .nav-menu-group { position: relative; }
     .nav-menu-group summary {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      min-height: 32px;
-      padding: 5px 10px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: var(--card-bg);
-      color: var(--fg);
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 600;
-      list-style: none;
-      user-select: none;
+      display: flex; align-items: center; gap: 5px; min-height: 26px;
+      padding: 3px 8px; border: 1px solid var(--border); border-radius: 6px;
+      background: var(--card-bg); color: var(--fg); cursor: pointer;
+      font-size: 12px; font-weight: 600; list-style: none; user-select: none; white-space: nowrap;
     }
-    .nav-menu-group summary::-webkit-details-marker {
-      display: none;
-    }
-    .nav-menu-group summary::after {
-      content: '▾';
-      color: var(--muted);
-      font-size: 11px;
-    }
-    .nav-menu-group[open] summary {
-      border-color: var(--accent);
-    }
+    .nav-menu-group summary::-webkit-details-marker { display: none; }
+    .nav-menu-group summary::after { content: '▾'; color: var(--muted); font-size: 10px; }
+    .nav-menu-group[open] summary { border-color: var(--accent); }
     .nav-count {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 18px;
-      height: 18px;
-      border-radius: 999px;
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 16px; height: 16px; border-radius: 999px;
       background: color-mix(in srgb, var(--accent) 16%, transparent);
-      color: var(--fg);
-      font-size: 10px;
-      font-weight: 700;
+      color: var(--fg); font-size: 9px; font-weight: 700;
     }
     .nav-menu-panel {
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-      min-width: 220px;
-      padding: 7px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: var(--card-bg);
-      box-shadow: 0 14px 32px rgba(0, 0, 0, 0.22);
-    }
-    .app-nav .nav-menu-panel {
-      position: absolute;
-      top: calc(100% + 6px);
-      left: 0;
-      z-index: 10;
+      display: flex; flex-direction: column; gap: 2px;
+      min-width: 200px; padding: 5px; border: 1px solid var(--border);
+      border-radius: 7px; background: var(--card-bg); box-shadow: 0 12px 28px rgba(0,0,0,0.2);
+      position: absolute; top: calc(100% + 4px); left: 0; z-index: 100;
     }
     .nav-menu-panel a {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 8px 9px;
-      border-radius: 6px;
-      color: var(--fg);
-      text-decoration: none;
-      font-size: 13px;
-      line-height: 1.25;
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 6px 8px; border-radius: 5px; color: var(--fg);
+      text-decoration: none; font-size: 12px;
     }
-    .nav-menu-panel a:hover,
-    .nav-menu-panel a.active {
-      background: color-mix(in srgb, var(--accent) 14%, transparent);
-    }
+    .nav-menu-panel a:hover, .nav-menu-panel a.active { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+    .nav-expert-label { flex: 0 0 auto; font-size: 9px; color: var(--muted); }
+
+    /* ── Android nav (unchanged) ── */
     .android-fullscreen-menu {
-      display: flex;
-      position: fixed;
-      inset: 0;
-      transform: translateX(-108%);
-      transition: transform 180ms ease;
-      z-index: 20020;
-      background: var(--card-bg);
-      padding: 64px 14px 18px;
-      overflow-y: auto;
-      flex-direction: column;
-      align-items: stretch;
-      gap: 10px;
-      pointer-events: none;
+      display: flex; position: fixed; inset: 0; transform: translateX(-108%);
+      transition: transform 180ms ease; z-index: 20020; background: var(--card-bg);
+      padding: 64px 14px 18px; overflow-y: auto; flex-direction: column;
+      align-items: stretch; gap: 10px; pointer-events: none;
     }
-    .android-fullscreen-menu.open {
-      transform: translateX(0);
-      pointer-events: auto;
+    .android-fullscreen-menu.open { transform: translateX(0); pointer-events: auto; }
+    .android-fullscreen-menu .nav-menu-group { position: static; }
+    .android-fullscreen-menu .nav-menu-panel { margin-top: 6px; box-shadow: none; min-width: 0; }
+    .nav-menu-group { position: relative; }
+    .nav-menu-group summary {
+      display: flex; align-items: center; gap: 7px; min-height: 32px;
+      padding: 5px 10px; border: 1px solid var(--border); border-radius: 8px;
+      background: var(--card-bg); color: var(--fg); cursor: pointer;
+      font-size: 13px; font-weight: 600; list-style: none; user-select: none;
     }
-    .android-fullscreen-menu .nav-menu-group {
-      position: static;
+    .nav-menu-group summary::-webkit-details-marker { display: none; }
+    .nav-menu-group summary::after { content: '▾'; color: var(--muted); font-size: 11px; }
+    .nav-count {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 18px; height: 18px; border-radius: 999px;
+      background: color-mix(in srgb, var(--accent) 16%, transparent);
+      color: var(--fg); font-size: 10px; font-weight: 700;
     }
-    .android-fullscreen-menu .nav-menu-panel {
-      margin-top: 6px;
-      box-shadow: none;
-      min-width: 0;
+    .nav-menu-panel {
+      display: flex; flex-direction: column; gap: 3px;
+      min-width: 220px; padding: 7px; border: 1px solid var(--border);
+      border-radius: 8px; background: var(--card-bg); box-shadow: 0 14px 32px rgba(0,0,0,0.22);
     }
-    .mobile-nav-backdrop {
-      display: none;
+    .nav-menu-panel a {
+      display: flex; align-items: center; gap: 12px; padding: 8px 9px;
+      border-radius: 6px; color: var(--fg); text-decoration: none; font-size: 13px;
     }
+    .nav-menu-panel a:hover, .nav-menu-panel a.active { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+    .mobile-nav-backdrop { display: none; }
     .android-edge-toggle {
-      position: fixed;
-      left: 0;
-      top: 50%;
-      transform: translateY(-50%);
-      z-index: 20030;
-      min-width: 28px;
-      height: 52px;
-      border-top-right-radius: 8px;
-      border-bottom-right-radius: 8px;
-      border-top-left-radius: 0;
-      border-bottom-left-radius: 0;
-      border: 1px solid var(--border);
-      border-left: none;
-      background: var(--accent);
-      color: #fff;
-      font-size: 14px;
-      font-weight: 700;
-      line-height: 1;
-      padding: 0 8px;
-    }
-    .nav-expert-label {
-      flex: 0 0 auto;
-      font-size: 10px;
-      color: var(--muted);
-    }
-    .route-context {
-      padding: 6px 16px;
-      border-bottom: 1px solid var(--border);
-      font-size: 12px;
-    }
-    @media (max-width: 900px) {
-      .app-header h1 {
-        font-size: 17px;
-      }
-      .mobile-nav-toggle {
-        display: inline-block;
-      }
-      .app-nav {
-        display: none;
-        width: 100%;
-        flex-direction: column;
-        align-items: stretch;
-        gap: 8px;
-      }
-      .app-nav.nav-open {
-        display: flex;
-      }
-      .app-nav .nav-menu-group {
-        position: static;
-      }
-      .app-nav .nav-menu-panel {
-        position: static;
-        min-width: 0;
-        margin-top: 6px;
-        box-shadow: none;
-      }
-      .mobile-nav-backdrop.open {
-        display: block;
-        position: fixed;
-        inset: 0;
-        z-index: 20010;
-        background: rgba(2, 6, 23, 0.35);
-      }
-      main {
-        padding-bottom: 84px;
-      }
-    }
-    @media (min-width: 901px) {
-      .android-edge-toggle {
-        display: none;
-      }
+      position: fixed; left: 0; top: 50%; transform: translateY(-50%);
+      z-index: 20030; min-width: 28px; height: 52px;
+      border-top-right-radius: 8px; border-bottom-right-radius: 8px;
+      border-top-left-radius: 0; border-bottom-left-radius: 0;
+      border: 1px solid var(--border); border-left: none;
+      background: var(--accent); color: #fff; font-size: 14px; font-weight: 700; line-height: 1; padding: 0 8px;
     }
     .snake-toggle { transition: box-shadow 0.2s; }
     .snake-toggle.snake-on { box-shadow: 0 0 6px 1px #3affaa44; outline: 1px solid #3affaa88; }
+
+    @media (max-width: 900px) {
+      .mobile-nav-toggle { display: inline-flex !important; }
+      .app-nav { display: none; }
+      .app-nav.nav-open {
+        display: flex; flex-direction: column; align-items: stretch;
+        position: absolute; top: 100%; left: 0; right: 0;
+        background: var(--header-bg); border-bottom: 1px solid var(--border);
+        padding: 6px 12px; gap: 4px; z-index: 300;
+      }
+      .app-nav.nav-open .nav-menu-group { position: static; }
+      .app-nav.nav-open .nav-menu-panel { position: static; margin-top: 4px; box-shadow: none; min-width: 0; }
+      .mobile-nav-backdrop.open { display: block; position: fixed; inset: 0; z-index: 20010; background: rgba(2,6,23,0.35); }
+      main { padding-bottom: 84px; }
+    }
+    @media (min-width: 901px) { .android-edge-toggle { display: none; } }
   `]
 })
 export class AppComponent implements OnInit, OnDestroy {
@@ -450,6 +344,10 @@ export class AppComponent implements OnInit, OnDestroy {
 
   navGroups(role?: string | null) {
     return this.shell.navGroups(role);
+  }
+
+  get isFullscreenRoute(): boolean {
+    return this.shell.routeUrl().startsWith('/codehug');
   }
 
   onNavClick(event: Event) {

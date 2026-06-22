@@ -242,6 +242,15 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
         (change)="maxConcurrency.set(+$any($event.target).value)">
         <option value="1">1</option><option value="2">2</option><option value="3">3</option>
       </select>
+      <span class="ch-wdots">
+        @for (w of workers(); track w.name) {
+          <span class="ch-pal-dot"
+            [class.ch-pal-dot-on]="w.status === 'online'"
+            [class.ch-pal-dot-off]="w.status !== 'online'"
+            [title]="w.name + ' · ' + w.worker_roles.join(', ')"></span>
+        }
+        @if (workers().length === 0) { <span class="ch-wdots-none">–</span> }
+      </span>
     </div>
     <div class="ch-bar-sep"></div>
     <button type="button" class="ch-btn" [class.ch-btn-on]="connectMode()"
@@ -275,37 +284,20 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
     <aside class="ch-palette" [class.ch-palette-connect]="connectMode()">
       <div class="ch-pal-hd">Elemente</div>
       <button class="ch-pal-elem ch-pal-elem-task" (click)="addFreeNode()">💬 LLM Task</button>
-      <button class="ch-pal-elem ch-pal-elem-det"  (click)="addDetNode()">⚙ Deterministisch</button>
+      <button class="ch-pal-elem ch-pal-elem-det"  (click)="addDetNode()">⚙ Det</button>
       <button class="ch-pal-elem ch-pal-elem-gate" (click)="addGateNode()">🚦 Gate</button>
       <button class="ch-pal-elem ch-pal-elem-rev"  (click)="addReviewNode()">👁 Review</button>
-      <button class="ch-pal-elem ch-pal-elem-fork" (click)="addForkNode()">⑂ Fork (Parallel)</button>
-      <button class="ch-pal-elem ch-pal-elem-join" (click)="addJoinNode()">⊕ Join (Merge)</button>
-
+      <button class="ch-pal-elem ch-pal-elem-fork" (click)="addForkNode()">⑂ Fork</button>
+      <button class="ch-pal-elem ch-pal-elem-join" (click)="addJoinNode()">⊕ Join</button>
       <div class="ch-pal-div"></div>
-      <div class="ch-pal-hd">Backends</div>
-      @for (b of BACKENDS; track b) {
-        <div class="ch-pal-backend">
-          <span class="ch-pal-backend-dot"></span>
-          <span>{{ b }}</span>
-        </div>
-      }
-
-      <div class="ch-pal-div"></div>
-      <div class="ch-pal-hd">Workers (Live)</div>
+      <div class="ch-pal-hd">Workers</div>
       @for (w of workers(); track w.name) {
         <div class="ch-pal-w" [class.ch-pal-w-live]="workerIsActive(w)">
-          <span class="ch-pal-dot" [class.ch-pal-dot-on]="w.status === 'online'" [class.ch-pal-dot-off]="w.status !== 'online'"></span>
-          <div class="ch-pal-winfo">
-            <span class="ch-pal-wname">{{ w.name }}</span>
-            <span class="ch-pal-wcaps">{{ w.worker_roles.join(' · ') }}</span>
-          </div>
+          <span class="ch-pal-dot" [class.ch-pal-dot-on]="w.status === 'online'" [class.ch-pal-dot-off]="w.status !== 'online'" [title]="w.name"></span>
+          <span class="ch-pal-wname">{{ w.name }}</span>
         </div>
       }
-      @if (workers().length === 0) { <p class="ch-muted" style="padding:6px 8px">Keine Worker</p> }
-
-      <div class="ch-pal-div"></div>
-      <div class="ch-pal-hd">Blueprint-Rollen</div>
-      @for (r of currentRoles(); track r) { <div class="ch-pal-role">{{ r }}</div> }
+      @if (workers().length === 0) { <p class="ch-muted" style="padding:4px 8px;font-size:10px">–</p> }
     </aside>
 
     <!-- SVG Canvas -->
@@ -935,6 +927,8 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
   background: var(--bg); color: var(--fg); font-size: 11px; cursor: pointer;
 }
 .ch-sel-sm { width: 50px; }
+.ch-wdots { display: flex; align-items: center; gap: 3px; margin-left: 4px; }
+.ch-wdots-none { font-size: 9px; color: var(--muted); }
 .ch-bar-sep { width: 1px; height: 18px; background: var(--border); margin: 0 2px; }
 .ch-btn {
   padding: 3px 8px; border: 1px solid var(--border); border-radius: 5px;
@@ -960,7 +954,7 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
 .ch-idle-badge { font-size: 10px; color: var(--muted); padding: 2px 7px; border: 1px solid var(--border); border-radius: 999px; }
 
 /* ── Body ── */
-.ch-int-body { display: grid; grid-template-columns: 150px 1fr 225px; flex: 1; min-height: 0; overflow: hidden; }
+.ch-int-body { display: grid; grid-template-columns: 140px 1fr 225px; grid-auto-rows: minmax(0, 1fr); flex: 1; min-height: 0; overflow: hidden; }
 
 /* ── Left Palette ── */
 .ch-palette { border-right: 1px solid var(--border); background: var(--card-bg); overflow-y: auto; }
