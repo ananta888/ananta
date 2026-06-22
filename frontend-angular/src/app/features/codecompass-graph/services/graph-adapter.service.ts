@@ -87,11 +87,15 @@ export class GraphAdapterService {
       ? (raw.node_type as GraphNodeKind)
       : 'unknown';
     const { file, name, content, record_id, ...rest } = attrs;
+    const fileStr = String(file ?? '');
+    const fallbackLabel = fileStr
+      ? fileStr.split('/').pop() ?? raw.node_id
+      : raw.node_id;
     return {
       id: raw.node_id,
       kind,
-      label: String(name ?? raw.node_id),
-      file: String(file ?? ''),
+      label: String(name || '') || fallbackLabel,
+      file: fileStr,
       content: String(content ?? ''),
       recordId: String(record_id ?? ''),
       metadata: rest,

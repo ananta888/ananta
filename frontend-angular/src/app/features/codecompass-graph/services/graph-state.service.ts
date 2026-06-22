@@ -12,11 +12,20 @@ export class GraphStateService {
   readonly filter = signal<GraphFilter>({ ...EMPTY_FILTER });
   readonly graph = signal<GenericGraphModel | null>(null);
 
+  readonly focusNodeId = signal<string | null>(null);
+  readonly focusHopDepth = signal(1);
+
   readonly filteredNodes = computed(() => {
     const g = this.graph();
     if (!g) return [];
     const f = this.filter();
-    return g.nodes.filter(n => this._matchesFilter(n, f));
+    let nodes = g.nodes.filter(n => this._matchesFilter(n, f));
+    const fid = this.focusNodeId();
+    if (fid) {
+      const inFocus = this._bfsIds(g, fid, this.focusHopDepth());
+      nodes = nodes.filter(n => inFocus.has(n.id));
+    }
+    return nodes;
   });
 
   readonly filteredEdges = computed(() => {
@@ -34,6 +43,7 @@ export class GraphStateService {
     this.graph.set(graph);
     this.selectedNode.set(null);
     this.selectedEdge.set(null);
+    this.focusNodeId.set(null);
   }
 
   setViewMode(mode: GraphViewMode): void {
@@ -48,6 +58,11 @@ export class GraphStateService {
   selectEdge(edge: GraphEdge | null): void {
     this.selectedEdge.set(edge);
     this.selectedNode.set(null);
+  }
+
+  setFocus(nodeId: string | null, hops = 1): void {
+    this.focusNodeId.set(nodeId);
+    this.focusHopDepth.set(hops);
   }
 
   updateFilter(patch: Partial<GraphFilter>): void {
@@ -74,5 +89,28 @@ export class GraphStateService {
       }
     }
     return true;
+  }
+
+  private _bfsIds(g: GenericGraphModel, startId: string, hops: number): Set<string> {
+    const adj = new Map<string, string[]>();
+    for (const e of g.edges) {
+      if (!adj.has(e.source)) adj.set(e.source, []);
+      if (!adj.has(e.target)) adj.set(e.target, []);
+      adj.get(e.source)!.push(e.target);
+      adj.get(e.target)!.push(e.source);
+    }
+    const visited = new Set<string>([startId]);
+    let frontier = [startId];
+    for (let h = 0; h < hops; h++) {
+      const next: string[] = [];
+      for (const id of frontier) {
+        for (const nb of adj.get(id) ?? []) {
+          if (!visited.has(nb)) { visited.add(nb); next.push(nb); }
+        }
+      }
+      frontier = next;
+      if (!frontier.length) break;
+    }
+    return visited;
   }
 }

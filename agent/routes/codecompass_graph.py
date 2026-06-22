@@ -235,6 +235,76 @@ def _rag_out_paths(settings):
     )
 
 
+_name_index_cache: dict[str, str] | None = None
+
+
+def _get_name_index(out_dir: Path) -> dict[str, str]:
+    """Build node_id → human-readable name from index_by_kind files. Cached after first load."""
+    global _name_index_cache
+    if _name_index_cache is not None:
+        return _name_index_cache
+
+    names: dict[str, str] = {}
+    ik = out_dir / "index_by_kind"
+
+    def _read_jsonl(path: Path):
+        if not path.exists():
+            return
+        with path.open(encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    yield json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+
+    # ── Python: functions and classes/methods in python_file.jsonl ───────────
+    for node in _read_jsonl(ik / "python_file.jsonl"):
+        raw_id = str(node.get("id") or "")
+        parts = raw_id.split(":")
+        if len(parts) < 2:
+            continue
+        fhash = parts[-1]
+        for fn in node.get("functions") or []:
+            if fn.get("name") and fn.get("line") is not None:
+                names[f"python_function:{fhash}:{fn['line']}"] = fn["name"]
+        for cls in node.get("classes") or []:
+            if cls.get("name") and cls.get("line") is not None:
+                names[f"python_class:{fhash}:{cls['line']}"] = cls["name"]
+            for method in cls.get("methods") or []:
+                if method.get("name") and method.get("line") is not None:
+                    names[f"python_method:{fhash}:{method['line']}"] = method["name"]
+
+    # ── TypeScript: symbols in typescript_file.jsonl ─────────────────────────
+    _TS_KIND_MAP = {
+        "function": "typescript_function", "class": "typescript_class",
+        "interface": "typescript_interface", "method": "typescript_method",
+        "const": "typescript_const", "type": "typescript_type",
+        "enum": "typescript_enum", "constructor": "typescript_constructor",
+    }
+    for node in _read_jsonl(ik / "typescript_file.jsonl"):
+        raw_id = str(node.get("id") or "")
+        parts = raw_id.split(":")
+        if len(parts) < 2:
+            continue
+        fhash = parts[-1]
+        for sym in node.get("symbols") or []:
+            ts_kind = _TS_KIND_MAP.get(str(sym.get("kind") or ""))
+            if ts_kind and sym.get("name") and sym.get("line") is not None:
+                names[f"{ts_kind}:{fhash}:{sym['line']}"] = sym["name"]
+
+    # ── Java: type names and method signatures in java_type.jsonl ────────────
+    for node in _read_jsonl(ik / "java_type.jsonl"):
+        raw_id = str(node.get("id") or "")
+        if node.get("name"):
+            names[raw_id] = node["name"]
+
+    _name_index_cache = names
+    return names
+
+
 def _load_nodes_jsonl(nodes_path: Path) -> dict[str, dict]:
     result: dict[str, dict] = {}
     with nodes_path.open(encoding="utf-8") as f:
@@ -373,6 +443,7 @@ def get_self_graph():
         max_nodes = _DEFAULT_MAX_NODES
 
     nodes_path, edges_path = _rag_out_paths(settings)
+    name_index = _get_name_index(nodes_path.parent)
     if not nodes_path.exists():
         return api_response(data={
             "schema": "domain_graph_artifact.v1",
@@ -464,7 +535,7 @@ def get_self_graph():
             "node_type": str(n.get("kind") or "unknown"),
             "attributes": {
                 "file": str(n.get("file") or ""),
-                "name": str(n["id"]).split(":")[-1] if ":" in str(n["id"]) else str(n["id"]),
+                "name": name_index.get(str(n["id"])) or str(n.get("name") or ""),
                 "content": "",
                 "record_id": str(n["id"]),
                 "importance_score": float(n.get("importance_score") or 0.0),
