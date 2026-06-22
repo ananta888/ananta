@@ -48,11 +48,11 @@ import { GraphEdge, GraphNode, GenericGraphModel } from '../../models/graph.mode
     }
   `,
   styles: [`
-    :host { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+    :host { display: flex; flex-direction: column; flex: 1; min-height: 0; padding: .5rem; box-sizing: border-box; }
     .sgv-layout { display: flex; gap: 1rem; flex: 1; min-height: 0; overflow: hidden; }
     .sgv-col { display: flex; flex-direction: column; flex: 1; min-width: 240px; min-height: 0; }
     h4 { margin: 0 0 .4rem; font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; color: #555; flex-shrink: 0; }
-    .sgv-scroll { flex: 1; min-height: 0; }
+    .sgv-scroll { flex: 1; min-height: 0; height: 100%; }
     .sgv-row { display: flex; align-items: center; gap: .4rem; padding: 3px 6px; border-radius: 4px; cursor: pointer; font-size: .8rem; height: 26px; box-sizing: border-box; overflow: hidden; }
     .sgv-row:hover { background: #f0f4ff; }
     .sgv-row.selected { background: #dbeafe; }

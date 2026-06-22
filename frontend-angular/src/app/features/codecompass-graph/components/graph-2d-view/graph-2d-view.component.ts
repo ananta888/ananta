@@ -56,8 +56,8 @@ function yieldFrame(): Promise<void> {
     <div #cyContainer class="cy-container" [style.visibility]="showGraph ? 'visible' : 'hidden'"></div>
   `,
   styles: [`
-    :host { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; position: relative; }
-    .cy-container { flex: 1; width: 100%; min-height: 0; }
+    :host { display: flex; flex-direction: column; flex: 1; min-height: 0; position: relative; }
+    .cy-container { flex: 1; min-height: 0; overflow: hidden; }
     .status-msg { color: #888; padding: .75rem; font-style: italic; margin: 0; flex-shrink: 0; }
     .error-msg { color: #c00; }
     .render-warn {
@@ -354,10 +354,13 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
       });
 
       this.progress = 100;
+      this.showGraph = true;
       this.cdr.detectChanges();
       await yieldFrame();
 
-      this.showGraph = true;
+      // Tell Cytoscape the actual container size after it becomes visible
+      this.cy.resize();
+      this.cy.fit(undefined, 40);
     } catch (err) {
       this.error = `Renderer-Fehler: ${(err as Error).message ?? err}`;
     } finally {
