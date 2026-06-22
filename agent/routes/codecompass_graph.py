@@ -252,6 +252,29 @@ def _load_nodes_jsonl(nodes_path: Path) -> dict[str, dict]:
     return result
 
 
+# Tier 0: structural skeleton (files + summaries)
+# Tier 1: type definitions (classes, interfaces, enums)
+# Tier 2: implementations (functions, methods, constructors)
+# Tier 3: details (imports, tags, entries, sections)
+_NODE_KIND_TIER: dict[str, int] = {
+    "python_module_summary": 0, "typescript_folder_summary": 0, "java_module_summary": 0,
+    "python_file": 0, "typescript_file": 0, "java_file": 0,
+    "md_file": 0, "yaml_file": 0, "xml_file": 0, "properties_file": 0,
+    "python_class": 1, "typescript_class": 1, "typescript_interface": 1,
+    "typescript_type": 1, "typescript_enum": 1, "java_type": 1,
+    "python_function": 2, "python_method": 2,
+    "typescript_function": 2, "typescript_method": 2,
+    "typescript_const": 2, "typescript_constructor": 2,
+    "java_method": 2, "java_constructor": 2,
+    "java_method_detail": 2, "java_constructor_detail": 2,
+    "python_import": 3, "typescript_import": 3,
+    "md_section": 3, "xml_tag": 3, "xml_node_detail": 3,
+    "yaml_entry": 3, "properties_entry": 3,
+}
+_DEFAULT_TIER = 3
+_DEFAULT_MAX_NODES = 3000
+
+
 def _domain_to_file_prefix(domain: str) -> str:
     """Convert a domain key to the file-path prefix used for filtering.
 
@@ -323,21 +346,31 @@ def get_self_graph_domains():
 @codecompass_graph_bp.route("/api/codecompass/self-graph", methods=["GET"])
 @check_auth
 def get_self_graph():
-    """Serve Ananta's own rag-helper/out JSONL graph scoped to a domain and BFS depth.
+    """Serve Ananta's own rag-helper/out JSONL graph with tiered kind-based depth + hard cap.
 
-    ?domain=agent     — top-level dir prefix (default: agent). Use 'all' for full graph.
-    ?depth=2          — BFS hops from anchor nodes (default: 2, 0 = anchors only).
-    ?kind=python_file — optional extra kind filter.
+    ?domain=agent.routes  — module area key (default: agent.routes). 'all' for everything.
+    ?depth=1              — kind tier depth (default: 1).
+                           0 = files+summaries only (~fast)
+                           1 = + classes/types
+                           2 = + functions/methods
+                           3 = + imports/details (all)
+    ?max_nodes=3000       — hard cap on output nodes (default: 3000, 0 = no cap).
+    ?kind=python_file     — optional extra single-kind filter.
     """
     from agent.config import settings
 
-    domain_filter = str(request.args.get("domain") or "agent").strip()
-    raw_depth = str(request.args.get("depth") or "2").strip()
+    domain_filter = str(request.args.get("domain") or "agent.routes").strip()
+    raw_depth = str(request.args.get("depth") or "1").strip()
     kind_filter = str(request.args.get("kind") or "").strip().lower() or None
+    raw_max = str(request.args.get("max_nodes") or str(_DEFAULT_MAX_NODES)).strip()
     try:
-        bfs_depth = max(0, min(int(raw_depth), 6))
+        tier_depth = max(0, min(int(raw_depth), 3))
     except ValueError:
-        bfs_depth = 2
+        tier_depth = 1
+    try:
+        max_nodes = int(raw_max)
+    except ValueError:
+        max_nodes = _DEFAULT_MAX_NODES
 
     nodes_path, edges_path = _rag_out_paths(settings)
     if not nodes_path.exists():
@@ -353,7 +386,7 @@ def get_self_graph():
     # ── 1. Load all nodes ────────────────────────────────────────────────────
     all_nodes_by_id = _load_nodes_jsonl(nodes_path)
 
-    # ── 2. Filter to domain (file-path prefix match) ─────────────────────────
+    # ── 2. Filter to domain (file-path prefix) ───────────────────────────────
     file_prefix = _domain_to_file_prefix(domain_filter)
     if not file_prefix:
         scoped = list(all_nodes_by_id.values())
@@ -363,12 +396,38 @@ def get_self_graph():
             if str(n.get("file") or "").replace("\\", "/").startswith(file_prefix)
         ]
 
+    domain_total = len(scoped)
+
+    # ── 3. Tier filter (kind-based depth) ────────────────────────────────────
+    scoped = [
+        n for n in scoped
+        if _NODE_KIND_TIER.get(str(n.get("kind") or ""), _DEFAULT_TIER) <= tier_depth
+    ]
     if kind_filter:
         scoped = [n for n in scoped if str(n.get("kind") or "").lower() == kind_filter]
 
-    # ── 3. Load edges for the whole graph (needed for BFS) ───────────────────
-    adj: dict[str, list[tuple[str, dict]]] = {}  # node_id → [(neighbour_id, edge)]
-    all_edges_raw: list[dict] = []
+    tier_total = len(scoped)
+
+    # ── 4. Hard cap — priority: lower tier first, then importance_score ───────
+    warnings: list[str] = []
+    capped = False
+    if max_nodes > 0 and len(scoped) > max_nodes:
+        scoped.sort(key=lambda n: (
+            _NODE_KIND_TIER.get(str(n.get("kind") or ""), _DEFAULT_TIER),
+            -float(n.get("importance_score") or 0.0),
+        ))
+        scoped = scoped[:max_nodes]
+        capped = True
+        warnings.append(
+            f"cap_applied: showing {max_nodes} of {tier_total} nodes "
+            f"(domain has {domain_total} total — raise depth or max_nodes to see more)"
+        )
+
+    # ── 5. Build selected id set ─────────────────────────────────────────────
+    selected_ids: set[str] = {str(n["id"]) for n in scoped}
+
+    # ── 6. Load only edges between selected nodes (no full adjacency needed) ──
+    raw_edges = []
     if edges_path.exists():
         with edges_path.open(encoding="utf-8") as f:
             for line in f:
@@ -381,55 +440,29 @@ def get_self_graph():
                     continue
                 src = str(edge.get("source") or "")
                 tgt = str(edge.get("target") or "")
-                if not src or not tgt:
-                    continue
-                all_edges_raw.append(edge)
-                adj.setdefault(src, []).append((tgt, edge))
-                adj.setdefault(tgt, []).append((src, edge))
+                if src in selected_ids and tgt in selected_ids:
+                    raw_edges.append({
+                        "source_id": src,
+                        "target_id": tgt,
+                        "relation": str(edge.get("type") or edge.get("kind") or "related"),
+                        "attributes": {"confidence": 1.0},
+                    })
 
-    # ── 4. BFS expansion from scoped seeds ───────────────────────────────────
-    selected_ids: set[str] = {str(n["id"]) for n in scoped}
-    frontier = set(selected_ids)
-    for _ in range(bfs_depth):
-        next_frontier: set[str] = set()
-        for nid in frontier:
-            for neighbour_id, _ in adj.get(nid, []):
-                if neighbour_id not in selected_ids:
-                    selected_ids.add(neighbour_id)
-                    next_frontier.add(neighbour_id)
-        frontier = next_frontier
-        if not frontier:
-            break
-
-    # ── 5. Build output ──────────────────────────────────────────────────────
-    raw_nodes = []
-    for nid in selected_ids:
-        n = all_nodes_by_id.get(nid)
-        if not n:
-            continue
-        raw_nodes.append({
-            "node_id": nid,
+    # ── 7. Build output nodes ─────────────────────────────────────────────────
+    raw_nodes = [
+        {
+            "node_id": str(n["id"]),
             "node_type": str(n.get("kind") or "unknown"),
             "attributes": {
                 "file": str(n.get("file") or ""),
-                "name": nid.split(":")[-1] if ":" in nid else nid,
+                "name": str(n["id"]).split(":")[-1] if ":" in str(n["id"]) else str(n["id"]),
                 "content": "",
-                "record_id": nid,
+                "record_id": str(n["id"]),
                 "importance_score": float(n.get("importance_score") or 0.0),
             },
-        })
-
-    raw_edges = []
-    for edge in all_edges_raw:
-        src = str(edge.get("source") or "")
-        tgt = str(edge.get("target") or "")
-        if src in selected_ids and tgt in selected_ids:
-            raw_edges.append({
-                "source_id": src,
-                "target_id": tgt,
-                "relation": str(edge.get("type") or edge.get("kind") or "related"),
-                "attributes": {"confidence": 1.0},
-            })
+        }
+        for n in scoped
+    ]
 
     return api_response(data={
         "schema": "domain_graph_artifact.v1",
@@ -441,10 +474,14 @@ def get_self_graph():
             "node_count": len(raw_nodes),
             "edge_count": len(raw_edges),
             "domain": domain_filter,
-            "depth": bfs_depth,
+            "depth": tier_depth,
+            "domain_total_nodes": domain_total,
+            "tier_total_nodes": tier_total,
+            "capped": capped,
+            "max_nodes": max_nodes if max_nodes > 0 else None,
             "total_nodes_available": len(all_nodes_by_id),
         },
-        "warnings": [],
+        "warnings": warnings,
     })
 
 

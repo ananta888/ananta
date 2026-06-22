@@ -215,15 +215,18 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
           <option [value]="d.domain">{{ d.display_name }}{{ d.file_count > 0 ? ' (' + d.file_count + ')' : '' }}</option>
         }
       </select>
-      <label class="ch-lbl" style="margin-left:8px">Tiefe</label>
+      <label class="ch-lbl" style="margin-left:8px" title="0=Dateien, 1=+Klassen, 2=+Funktionen, 3=alles">Tiefe</label>
       <select class="ch-sel" style="width:52px" [value]="ccDepth()"
         (change)="ccDepth.set(+$any($event.target).value); loadSelfGraph()">
         <option value="0">0</option>
         <option value="1">1</option>
         <option value="2">2</option>
         <option value="3">3</option>
-        <option value="4">4</option>
       </select>
+      <label class="ch-lbl" style="margin-left:8px" title="Max. Nodes (0 = unbegrenzt)">Max</label>
+      <input type="number" class="ch-sel" style="width:64px" min="0" step="500"
+        [value]="ccMaxNodes()"
+        (change)="ccMaxNodes.set(+$any($event.target).value); loadSelfGraph()" />
       @if (ccLoading()) { <span class="ch-lbl" style="color:var(--muted);margin-left:8px">Lädt…</span> }
       @if (ccError()) { <span class="ch-lbl" style="color:#ef4444;margin-left:8px">{{ ccError() }}</span> }
     }
@@ -309,11 +312,23 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
 
   <!-- ── Quellgraph View ── -->
   @if (activeTab() === 'graph') {
+    @if (ccMeta()) {
+      <div class="ch-graph-info">
+        <span>{{ ccMeta()!['node_count'] }} Nodes · {{ ccMeta()!['edge_count'] }} Edges</span>
+        @if (ccMeta()!['capped']) {
+          <span class="ch-cap-warn">
+            ⚠ Cap: {{ ccMeta()!['node_count'] }}/{{ ccMeta()!['tier_total_nodes'] }} — erhöhe Tiefe oder Max für mehr
+          </span>
+        } @else {
+          <span class="ch-graph-hint">{{ ccMeta()!['domain_total_nodes'] }} Nodes im Modul</span>
+        }
+      </div>
+    }
     <div class="ch-graph-wrap">
       @if (ccRawGraph()) {
         <app-graph-viewer [rawGraphData]="ccRawGraph()" />
       } @else if (!ccLoading() && !ccError()) {
-        <div class="ch-graph-empty">Kein Index verfügbar — bitte oben einen Knowledge-Index wählen.</div>
+        <div class="ch-graph-empty">Lade Modul-Graph…</div>
       }
     </div>
   }
@@ -979,6 +994,16 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
 .ch-tab-spacer { flex: 1; }
 
 /* ── Quellgraph ── */
+.ch-graph-info {
+  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+  padding: 3px 10px; border-bottom: 1px solid var(--border);
+  background: var(--card-bg); font-size: 11px; color: var(--muted);
+}
+.ch-cap-warn {
+  color: #b45309; background: color-mix(in srgb, #fef3c7 70%, transparent);
+  border: 1px solid #fbbf24; border-radius: 4px; padding: 1px 7px; font-weight: 600;
+}
+.ch-graph-hint { color: var(--muted); font-size: 10px; }
 .ch-graph-wrap {
   flex: 1; min-height: 0; display: flex; flex-direction: column;
   overflow: hidden; padding: 8px;
@@ -1230,7 +1255,9 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
   readonly ccError = signal('');
   readonly ccDomains = signal<{domain: string; display_name: string; file_count: number; kind: string}[]>([]);
   readonly ccDomain = signal('agent.routes');
-  readonly ccDepth = signal(1);
+  readonly ccDepth = signal(2);
+  readonly ccMaxNodes = signal(3000);
+  readonly ccMeta = signal<Record<string, unknown> | null>(null);
 
   // ── Connect mode ──────────────────────────────────────────────────────────
   readonly connectMode = signal(false);
@@ -1299,11 +1326,13 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
     this.ccLoading.set(true);
     this.ccError.set('');
     this.ccRawGraph.set(null);
-    this.svc.getSelfGraph(this.ccDomain(), this.ccDepth()).subscribe({
+    this.svc.getSelfGraph(this.ccDomain(), this.ccDepth(), this.ccMaxNodes()).subscribe({
       next: data => {
         this.ccLoading.set(false);
-        if (data) { this.ccRawGraph.set(data); }
-        else { this.ccError.set('Self-Graph nicht verfügbar'); }
+        if (data) {
+          this.ccRawGraph.set(data);
+          this.ccMeta.set((data as any)?.metadata ?? null);
+        } else { this.ccError.set('Self-Graph nicht verfügbar'); }
       },
       error: () => {
         this.ccLoading.set(false);
