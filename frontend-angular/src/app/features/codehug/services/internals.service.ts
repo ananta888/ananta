@@ -210,10 +210,11 @@ export class InternalsService {
     );
   }
 
-  getSelfGraph(domain = 'agent.routes', detailLevel = 2, maxNodes = 0, maxEdges = 0): Observable<any> {
+  getSelfGraph(domain = 'agent.routes', detailLevel = 2, graphDepth = 0, maxNodes = 0, maxEdges = 0): Observable<any> {
     const params = new URLSearchParams({
       domain,
       detail_level: String(detailLevel),
+      graph_depth: String(graphDepth),
       max_nodes: String(maxNodes),
       max_edges: String(maxEdges),
     });

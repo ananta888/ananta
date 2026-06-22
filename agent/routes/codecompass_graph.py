@@ -235,6 +235,27 @@ def _rag_out_paths(settings):
     )
 
 
+def _read_jsonl(path: Path):
+    if not path.exists():
+        return
+    with path.open(encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                yield json.loads(line)
+            except json.JSONDecodeError:
+                continue
+
+
+def _python_module_from_file(file_path: str) -> str:
+    normalized = file_path.replace("\\", "/")
+    if not normalized.endswith(".py"):
+        return ""
+    return normalized[:-3].replace("/", ".")
+
+
 _name_index_cache: dict[str, str] | None = None
 
 
@@ -246,19 +267,6 @@ def _get_name_index(out_dir: Path) -> dict[str, str]:
 
     names: dict[str, str] = {}
     ik = out_dir / "index_by_kind"
-
-    def _read_jsonl(path: Path):
-        if not path.exists():
-            return
-        with path.open(encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    yield json.loads(line)
-                except json.JSONDecodeError:
-                    continue
 
     # ── Python: functions and classes/methods in python_file.jsonl ───────────
     for node in _read_jsonl(ik / "python_file.jsonl"):
@@ -497,6 +505,7 @@ def get_self_graph():
                            2 = + functions/methods
                            3 = + imports/details (all)
                            Legacy alias: depth.
+    ?graph_depth=0        — graph hop depth from domain root nodes (default: 0 = no graph-depth filter).
     ?max_nodes=0          — optional cap on output nodes (default: 0 = no cap).
     ?max_edges=0          — optional cap on output edges (default: 0 = no cap).
     ?kind=python_file     — optional extra single-kind filter.
@@ -505,6 +514,7 @@ def get_self_graph():
 
     domain_filter = str(request.args.get("domain") or "agent.routes").strip()
     raw_detail_level = str(request.args.get("detail_level") or request.args.get("depth") or "1").strip()
+    raw_graph_depth = str(request.args.get("graph_depth") or "0").strip()
     kind_filter = str(request.args.get("kind") or "").strip().lower() or None
     raw_max_nodes = str(request.args.get("max_nodes") or str(_DEFAULT_MAX_NODES)).strip()
     raw_max_edges = str(request.args.get("max_edges") or str(_DEFAULT_MAX_EDGES)).strip()
@@ -512,6 +522,10 @@ def get_self_graph():
         detail_level = max(0, min(int(raw_detail_level), 3))
     except ValueError:
         detail_level = 1
+    try:
+        graph_depth = max(0, int(raw_graph_depth))
+    except ValueError:
+        graph_depth = 0
     try:
         max_nodes = int(raw_max_nodes)
     except ValueError:
@@ -556,6 +570,47 @@ def get_self_graph():
     if kind_filter:
         scoped = [n for n in scoped if str(n.get("kind") or "").lower() == kind_filter]
 
+    scoped_file_ids = {
+        str(n["id"]) for n in scoped
+        if str(n.get("kind") or "") == "python_file"
+    }
+    symbol_by_module_name: dict[tuple[str, str], str] = {}
+    for node_id, node in all_nodes_by_id.items():
+        kind = str(node.get("kind") or "")
+        if kind not in {"python_function", "python_method", "python_class"}:
+            continue
+        module = _python_module_from_file(str(node.get("file") or ""))
+        name = name_index.get(node_id) or str(node.get("name") or "")
+        if module and name:
+            symbol_by_module_name[(module, name)] = node_id
+
+    resolved_import_edges: list[dict] = []
+    resolved_import_node_ids: set[str] = set()
+    for detail in _read_jsonl(nodes_path.parent / "details.jsonl") or []:
+        if str(detail.get("kind") or "") != "python_import":
+            continue
+        source_id = str(detail.get("parent_id") or "")
+        if source_id not in scoped_file_ids:
+            continue
+        module = str(detail.get("module") or "")
+        if not module:
+            continue
+        for imported_name in detail.get("names") or []:
+            target_id = symbol_by_module_name.get((module, str(imported_name)))
+            if not target_id:
+                continue
+            resolved_import_node_ids.add(target_id)
+            resolved_import_edges.append({
+                "source_id": source_id,
+                "target_id": target_id,
+                "relation": "imports_symbol",
+                "attributes": {"confidence": 1.0, "module": module, "name": str(imported_name)},
+            })
+    for node_id in resolved_import_node_ids:
+        node = all_nodes_by_id.get(node_id)
+        if node and node not in scoped:
+            scoped.append(node)
+
     tier_total = len(scoped)
 
     # ── 4. Load edges between scoped nodes; compute degree for cap ordering ────
@@ -583,6 +638,50 @@ def get_self_graph():
                         "relation": str(edge.get("type") or edge.get("kind") or "related"),
                         "attributes": {"confidence": 1.0},
                     })
+    all_internal_edges.extend(resolved_import_edges)
+    for edge in resolved_import_edges:
+        src = edge["source_id"]
+        tgt = edge["target_id"]
+        node_degree[src] = node_degree.get(src, 0) + 1
+        node_degree[tgt] = node_degree.get(tgt, 0) + 1
+
+    graph_depth_total = len(scoped)
+    graph_depth_filtered = False
+    if graph_depth > 0:
+        root_ids = {
+            str(n["id"]) for n in scoped
+            if _NODE_KIND_TIER.get(str(n.get("kind") or ""), _DEFAULT_TIER) == 0
+        }
+        if root_ids:
+            adjacency: dict[str, set[str]] = {nid: set() for nid in scoped_ids_full}
+            for edge in all_internal_edges:
+                src = edge["source_id"]
+                tgt = edge["target_id"]
+                adjacency.setdefault(src, set()).add(tgt)
+                adjacency.setdefault(tgt, set()).add(src)
+
+            visited = set(root_ids)
+            frontier = set(root_ids)
+            for _ in range(graph_depth):
+                next_frontier: set[str] = set()
+                for node_id in frontier:
+                    next_frontier.update(adjacency.get(node_id, set()) - visited)
+                visited.update(next_frontier)
+                frontier = next_frontier
+                if not frontier:
+                    break
+
+            scoped = [n for n in scoped if str(n["id"]) in visited]
+            scoped_ids_full = {str(n["id"]) for n in scoped}
+            node_degree = {nid: 0 for nid in scoped_ids_full}
+            all_internal_edges = [
+                e for e in all_internal_edges
+                if e["source_id"] in scoped_ids_full and e["target_id"] in scoped_ids_full
+            ]
+            for edge in all_internal_edges:
+                node_degree[edge["source_id"]] = node_degree.get(edge["source_id"], 0) + 1
+                node_degree[edge["target_id"]] = node_degree.get(edge["target_id"], 0) + 1
+            graph_depth_filtered = len(scoped) < graph_depth_total
 
     # ── 5. Optional node cap — priority: lower tier, then degree DESC, then importance ─
     warnings: list[str] = []
@@ -645,6 +744,9 @@ def get_self_graph():
             "domain": domain_filter,
             "detail_level": detail_level,
             "depth": detail_level,
+            "graph_depth": graph_depth,
+            "graph_depth_filtered": graph_depth_filtered,
+            "graph_depth_total_nodes": graph_depth_total,
             "domain_total_nodes": domain_total,
             "tier_total_nodes": tier_total,
             "capped": capped,

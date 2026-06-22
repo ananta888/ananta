@@ -223,6 +223,10 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
         <option value="2">+ Funktionen</option>
         <option value="3">+ Details</option>
       </select>
+      <label class="ch-lbl" style="margin-left:8px" title="Globale Graph-Hop-Tiefe ab Dateien/Summaries (0 = kompletter geladener Graph)">Tiefe</label>
+      <input type="number" class="ch-sel" style="width:52px" min="0" max="12" step="1"
+        [value]="ccGraphDepth()"
+        (change)="ccGraphDepth.set(+$any($event.target).value); loadSelfGraph()" />
       <label class="ch-lbl" style="margin-left:8px" title="Max. Nodes (0 = unbegrenzt)">Max Nodes</label>
       <input type="number" class="ch-sel" style="width:64px" min="0" step="500"
         [value]="ccMaxNodes()"
@@ -1262,6 +1266,7 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
   readonly ccDomains = signal<{domain: string; display_name: string; file_count: number; kind: string; depth?: number; parent_domain?: string}[]>([]);
   readonly ccDomain = signal('agent.routes');
   readonly ccDetailLevel = signal(2);
+  readonly ccGraphDepth = signal(0);
   readonly ccMaxNodes = signal(0);
   readonly ccMaxEdges = signal(0);
   readonly ccMeta = signal<Record<string, unknown> | null>(null);
@@ -1333,7 +1338,13 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
     this.ccLoading.set(true);
     this.ccError.set('');
     this.ccRawGraph.set(null);
-    this.svc.getSelfGraph(this.ccDomain(), this.ccDetailLevel(), this.ccMaxNodes(), this.ccMaxEdges()).subscribe({
+    this.svc.getSelfGraph(
+      this.ccDomain(),
+      this.ccDetailLevel(),
+      this.ccGraphDepth(),
+      this.ccMaxNodes(),
+      this.ccMaxEdges(),
+    ).subscribe({
       next: data => {
         this.ccLoading.set(false);
         if (data) {
