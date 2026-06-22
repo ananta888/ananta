@@ -1,0 +1,538 @@
+{
+  "id": "todo.run-control-interventions-approvals-branching-ui-tui",
+  "title": "Run-Control-Layer: Pause/Resume, Instruction-Injection, Approval-Gates, Branch-Auswahl und Operator-UIs",
+  "status": "open",
+  "priority": "high",
+  "created_at": "2026-06-22",
+  "updated_at": "2026-06-22",
+  "summary": {
+    "short": "Ananta soll lange, weitgehend automatisch laufende Arbeiten steuerbar machen: nicht durch staendiges Nachfragen, sondern durch sichtbare Zwischenergebnisse, deterministische Run-Kommandos, sichere Approval-Gates, optionale Branch-Auswahl und Human-in-the-loop als Eingriffspunkt.",
+    "problem": "Es existieren bereits Task-Interventionen und ein Approval-Lifecycle, aber die Bedienung ist noch nicht als einheitlicher Run-Control-Layer ueber Backend, Angular-Weboberflaechen und Operator-TUI modelliert. Laufende Arbeiten koennen beobachtet werden, aber Eingriffe wie 'ab naechster Iteration diese Anweisung beachten', 'nur Branch B weiterverfolgen' oder 'Approval Gate mit Diff/Scope entscheiden' sind noch nicht durchgaengig als API-, Status-, UI- und Audit-Kontrakt vorhanden.",
+    "goal": "Ein hub-owned, deterministischer Run-Control-Layer, der bestehende Task-Pause/Resume/Cancel/Retry und den vorhandenen Approval-Lifecycle wiederverwendet, aber um Run-Commands, Instruction-Injection, Branch-/Variant-Auswahl, Gate-Read-Models und konsistente Oberflaechen in Angular und TUI erweitert.",
+    "non_goals": [
+      "Kein direkter User/UI-Zugriff auf Worker ohne Hub-Policy.",
+      "Keine ungepruefte Chat-Nachricht mitten in einen Worker-Prozess injizieren.",
+      "Keine LLM-basierte Entscheidung, ob ein kritischer Side Effect erlaubt ist.",
+      "Keine Umgehung bestehender Approval- und Audit-Mechanismen.",
+      "Kein Rewrite der gesamten Task-Engine als Voraussetzung. Die Umsetzung soll inkrementell auf aktuellem Code aufbauen."
+    ]
+  },
+  "current_source_alignment": {
+    "backend_existing": [
+      {
+        "path": "agent/routes/tasks/management.py",
+        "finding": "Task-Level-Endpunkte fuer pause/resume/cancel/retry existieren bereits: POST /tasks/<tid>/pause, /resume, /cancel, /retry. Diese nutzen _intervene_task(...).",
+        "impact": "Nicht neu erfinden; als Basis fuer Run-Control verwenden und in Facade/UI/TUI sichtbar machen."
+      },
+      {
+        "path": "agent/services/task_admin_service.py",
+        "finding": "TaskAdminService.intervene_task prueft Statusuebergaenge, setzt manual_override_until, schreibt task_intervention Events und Audit; cancel wird optional an assigned_agent_url /tasks/<id>/cancel forwarded.",
+        "impact": "Gute Basis, aber noch task-zentriert und ohne RunCommand-Domain, Instruction-Injection oder Branch-Auswahl."
+      },
+      {
+        "path": "agent/services/task_state_machine_service.py",
+        "finding": "Deterministische Transition-Regeln fuer pause/resume/cancel/retry/approve/request_review usw. existieren; manual_override_active blockiert Autopilot-Dispatch.",
+        "impact": "Run-Control muss diese Transition-Regeln nutzen oder formal erweitern, nicht parallel neue Statuslogik bauen."
+      },
+      {
+        "path": "agent/routes/approvals.py",
+        "finding": "Persistent Approval API existiert: GET /api/approvals, GET /api/approvals/<id>, POST /api/approvals/<id>/decision mit granted/denied.",
+        "impact": "Approval-Gates sind teilweise vorhanden; es fehlt die enge Einbettung in Run-/Task-Detail-Ansichten, Gate-Queue, Diff-/Scope-Preview und Operator-Kommandos."
+      },
+      {
+        "path": "agent/services/approval_request_service.py",
+        "finding": "ApprovalRequestService ist digest-bound, payload-sicher, auditiert pending/granted/denied/expired/superseded/consumed und redispatched Tasks nach grant.",
+        "impact": "Das neue Gate-System soll diesen Lifecycle verwenden und nur dort erweitern, wo Run-/Branch-Kontext fehlt."
+      },
+      {
+        "path": "agent/routes/deterministic_run.py",
+        "finding": "Es gibt /api/deterministic/run fuer direkte deterministische Schritte mit Shell/API/Regex/File/Python-Untertypen, Blocklist und Sandbox-Workdir.",
+        "impact": "Nicht mit Run-Control verwechseln: diese Route fuehrt einen einzelnen deterministischen Step aus, ist aber kein langlebiger Run-Control-Statuslayer."
+      }
+    ],
+    "angular_existing": [
+      {
+        "path": "frontend-angular/src/app/app.routes.ts",
+        "finding": "Mehrere grafische Oberflaechen existieren bereits: workspace, control-center, admin, system, tasks, visual-process, config-graph, blueprint-config, hub-worker-graph, codehug.",
+        "impact": "Run-Control darf nicht nur im Task-Detail landen; mindestens Workspace/Dashboard, Board, Task-Detail, Goal-Detail und grafische Prozess-/Graph-Views brauchen passende Einstiege."
+      },
+      {
+        "path": "frontend-angular/src/app/features/tasks/task.routes.ts",
+        "finding": "Task-UI hat Board, Archived, Graph, Task-Detail und Goal-Detail Routen.",
+        "impact": "Task- und Goal-nahe Run-Control-Funktionen muessen in diesen Views sichtbar sein."
+      },
+      {
+        "path": "frontend-angular/src/app/components/task-detail.component.ts/html",
+        "finding": "Task-Detail kann Task laden, Logs streamen, Vorschlaege holen, Multi-LLM-Vergleich anzeigen, Tool-Calls anzeigen, Proposal reviewen und ausfuehren.",
+        "impact": "Beste Zielstelle fuer Eingriffspanel: Pause/Resume/Cancel, Instruction-Injection, Gate-Liste, Branch-Auswahl, Timeline und Run-Command-Historie."
+      },
+      {
+        "path": "frontend-angular/src/app/features/tasks/task-management.facade.ts und services/hub-tasks-api.client.ts",
+        "finding": "Facade/API-Client kapseln viele Task-Operationen, aber pause/resume/cancel/retry und Approvals sind noch nicht als high-level Frontend-Methoden sichtbar.",
+        "impact": "Frontend braucht dedizierte Methoden fuer RunCommand/TaskIntervention/Approvals, nicht rohe URLs in Components."
+      }
+    ],
+    "tui_existing": [
+      {
+        "path": "docs/decisions/ADR-operator-tui-client-surface.md",
+        "finding": "Operator-TUI ist akzeptiert als additive Client Surface. Der Hub bleibt Owner von Orchestration, Policy, Queue State, Mutation Approval und Audit. Risky Actions brauchen explizite Confirmation und Backend-Validation.",
+        "impact": "Run-Control passt genau in diesen Rahmen: TUI darf Kommandos anbieten, aber nur an Hub-APIs dispatchen."
+      },
+      {
+        "path": "client_surfaces/operator_tui/commands.py",
+        "finding": "Operator-TUI hat Colon-Command-Dispatch, Sections, Focus/Mode-Steuerung, Help, Config, Visual, Goal, Artifact, Plan, AI usw.",
+        "impact": "Neue Commands wie :run pause, :run resume, :run inject, :approval list/grant/deny, :branch select koennen hier sauber als Dispatch-Kommandos ergaenzt werden."
+      }
+    ]
+  },
+  "design_principles": [
+    "Hub owns all run-control mutations. UI und TUI sind nur Client Surfaces.",
+    "Read/Observe/Plan darf weiterlaufen; externe, irreversible, destruktive, finanzielle oder security-relevante Side Effects laufen ueber Gates.",
+    "Eingriffe werden als Events und Commands modelliert, nicht als unsichtbare Prompt-Manipulation.",
+    "Instruction-Injection wirkt standardmaessig erst ab der naechsten sicheren Iterationsgrenze.",
+    "Branching zeigt Alternativen parallel an; Auswahl reduziert den Suchraum, ohne unkontrollierte Worker-Kommunikation zu erzeugen.",
+    "Alle Kommandos sind idempotent oder haben command_id/idempotency_key.",
+    "Jede Mutation erzeugt Audit-Events und ist im Run-/Task-Read-Model sichtbar.",
+    "Der bestehende ApprovalRequestService bleibt Quelle der Wahrheit fuer Approval-Lifecycle."
+  ],
+  "target_user_experience": {
+    "web": [
+      "Nutzer sieht im Workspace/Dashboard aktive Runs/Goals/Tasks mit Status, letzter Aktivitaet, aktuell blockierenden Gates und naechster geplanter Aktion.",
+      "Im Task-Detail gibt es ein Run-Control-Panel mit Pause, Resume, Cancel, Retry, Inject Instruction, Approval Queue, Branch/Variant Selection und Event-Timeline.",
+      "Im Board sind Cards mit Mini-Aktionen und Badges fuer paused, pending_approval, user_intervention_pending, branch_selection_pending sichtbar.",
+      "In Graph-/Visual-Process-Views sind Gates, pausierte Teilbaeume, aktive Branches und verworfene Branches visuell unterscheidbar.",
+      "Der Nutzer kann waehrend langer Arbeit eine Anweisung erfassen, ohne den Worker hart zu stoppen; der Hub uebernimmt sie an der naechsten sicheren Grenze."
+    ],
+    "tui": [
+      "Operator-TUI zeigt aktive Runs/Tasks und pending approvals in eigenen Sections oder Detail-Panes.",
+      "Colon-Commands ermoeglichen schnelle Eingriffe: :run pause <id>, :run resume <id> [--instruction ...], :run inject <id> ..., :approval list, :approval grant <id>, :approval deny <id> --reason ..., :branch select <run/task> <branch>.",
+      "Riskante TUI-Aktionen zeigen eine Bestaetigungsansicht mit Backend-validiertem Scope, nicht nur ein lokales 'Are you sure?'.",
+      "TUI bleibt Client Surface; sie baut keine eigene Orchestrierung und keinen direkten Worker-Pfad."
+    ]
+  },
+  "domain_model": {
+    "run_command": {
+      "fields": [
+        "command_id",
+        "run_id",
+        "goal_id",
+        "task_id",
+        "type",
+        "payload",
+        "requested_by",
+        "requested_at",
+        "effective_at",
+        "status",
+        "result",
+        "idempotency_key",
+        "audit_ref"
+      ],
+      "types": [
+        "pause_run",
+        "resume_run",
+        "cancel_run",
+        "retry_run_or_task",
+        "inject_instruction",
+        "select_branch",
+        "approve_gate",
+        "deny_gate"
+      ],
+      "statuses": [
+        "accepted",
+        "rejected_by_policy",
+        "pending_safe_point",
+        "applied",
+        "superseded",
+        "failed"
+      ]
+    },
+    "run_status": {
+      "canonical_values": [
+        "created",
+        "planning",
+        "running",
+        "pausing",
+        "paused",
+        "waiting_for_approval",
+        "waiting_for_branch_selection",
+        "applying_intervention",
+        "cancelling",
+        "cancelled",
+        "completed",
+        "failed"
+      ],
+      "mapping_note": "Run-Status darf bestehende Task-Statuses nicht ersetzen; er aggregiert Goal/Task/Approval/Branch-Status. Task-Status bleibt fuer Task-Queue massgeblich."
+    },
+    "instruction_injection": {
+      "default_mode": "next_iteration_instruction",
+      "allowed_modes": [
+        "next_iteration_instruction",
+        "pause_then_apply",
+        "context_note_only"
+      ],
+      "security": [
+        "Text wird als operator_instruction mit actor, timestamp und scope gespeichert.",
+        "Instruction ueberschreibt keine Policies und keine AGENTS.md/Config-Hard-Limits.",
+        "Instruction wird in Prompt/Context sichtbar markiert und auditierbar referenziert."
+      ]
+    },
+    "branch_selection": {
+      "branch_types": [
+        "llm_comparison_variant",
+        "planner_variant",
+        "implementation_strategy",
+        "repair_strategy",
+        "security_hardened_variant"
+      ],
+      "selection_effect": "Nicht gewaehlte Branches werden pausiert, verworfen oder als later_review markiert. Der Hub entscheidet deterministisch anhand command payload und Policy."
+    }
+  },
+  "implementation_plan": [
+    {
+      "id": "RC-001",
+      "title": "Ist-Zustand absichern und API-Inventar pruefen",
+      "area": "analysis",
+      "tasks": [
+        "Route-Inventar fuer /tasks/<id>/pause|resume|cancel|retry, /api/approvals und /api/deterministic/run aktualisieren.",
+        "Tests oder Contract-Checks ergaenzen, die bestaetigen, dass Task-Interventionen weiterhin ueber TaskAdminService laufen.",
+        "Pruefen, ob bestehende route aliases die Intervention-Endpunkte bereits abdecken und dokumentieren.",
+        "Aktuelle Angular-Views erfassen, in denen Run-Control sinnvoll sichtbar sein muss: Workspace/Dashboard, Board, Task-Detail, Goal-Detail, Task-Graph, Visual-Process, Control-Center.",
+        "Operator-TUI Sections/Commands erfassen, die um Run-Control erweitert werden."
+      ],
+      "acceptance_criteria": [
+        "Ein Entwickler kann aus docs/route-inventory.json oder API-Doku die vorhandenen Task-Interventionen und Approval-Endpunkte finden.",
+        "Keine bestehende Task-Intervention wird durch neue Run-Control-Arbeit entfernt oder semantisch gebrochen.",
+        "Die Abgrenzung zwischen deterministischem Single-Step-Run und langlebigem Run-Control ist dokumentiert."
+      ]
+    },
+    {
+      "id": "RC-010",
+      "title": "Backend Run-Control Domain und Service einfuehren",
+      "area": "backend",
+      "tasks": [
+        "Neuen Service agent/services/run_control_service.py einfuehren.",
+        "RunCommand-Modell als SQLModel oder persistentes Repository-Modell definieren; falls noch kein RunDB existiert, zunaechst goal_id/task_id scoped halten.",
+        "RunCommand-Typen pause_run, resume_run, cancel_run, retry_run_or_task, inject_instruction, select_branch, approve_gate, deny_gate definieren.",
+        "Idempotency-Key Pflicht fuer mutierende Befehle einfuehren oder serverseitig deterministisch erzeugen.",
+        "RunCommand-Service nutzt fuer task-bezogene pause/resume/cancel/retry intern TaskAdminService.intervene_task.",
+        "RunCommand-Service darf Approval-Entscheidungen nur ueber ApprovalRequestService.decide_request ausfuehren.",
+        "RunCommand-Service schreibt Audit-Events fuer accepted/rejected/applied/failed/superseded.",
+        "Manual override / safe point Semantik definieren: laufende Worker sollen an Iterationsgrenzen neue Commands lesen."
+      ],
+      "acceptance_criteria": [
+        "Pause/Resume/Cancel/Retry funktionieren ueber neuen RunCommand-Service und liefern denselben Task-Endzustand wie bestehende Endpunkte.",
+        "Doppelte idempotency_key Requests erzeugen keine doppelten Statuswechsel oder mehrfachen Audit-Events.",
+        "Policy-Fehler liefern stabile Fehlercodes, z. B. invalid_transition, approval_not_found, command_rejected_by_policy.",
+        "Alle Command-Ergebnisse enthalten command_id, status, affected task_id/goal_id/run_id und audit metadata ohne raw secret/prompt leak."
+      ]
+    },
+    {
+      "id": "RC-020",
+      "title": "Run-Control API-Routen ergaenzen",
+      "area": "backend_api",
+      "tasks": [
+        "Neue Blueprint-Datei agent/routes/run_control.py anlegen und in agent/bootstrap/routes.py registrieren.",
+        "POST /api/runs/<run_id>/commands fuer generische RunCommands anbieten.",
+        "POST /tasks/<task_id>/commands als task-scoped Alias anbieten, damit bestehende Task-UI einfach migrieren kann.",
+        "GET /api/runs/<run_id>/control-state oder /tasks/<task_id>/control-state fuer Read-Model einfuehren.",
+        "GET /api/runs/active-control-state fuer Dashboard/Workspace einfuehren.",
+        "Bestehende /tasks/<id>/pause|resume|cancel|retry nicht entfernen; intern optional auf RunControlService delegieren.",
+        "OpenAPI/Swagger-Kommentare fuer alle neuen Routen ergaenzen.",
+        "Auth/RBAC: read duerfen normale Nutzer je Scope, mutierende RunCommands brauchen passende Rechte; Approval-Entscheidungen brauchen write_approvals/admin gemaess bestehender UI-Logik."
+      ],
+      "acceptance_criteria": [
+        "API kann pause/resume/cancel/retry/inject/select_branch/approve/deny ueber einen einheitlichen Command-Kontrakt annehmen.",
+        "Bestehende Endpunkte bleiben backward compatible und Tests laufen weiter.",
+        "Read-Model zeigt task_status, run_status, pending_commands, active_instruction, pending_approvals, branches und last_events.",
+        "Unautorisierte Mutationen werden mit 401/403 abgelehnt und auditiert, ohne Statusaenderung."
+      ]
+    },
+    {
+      "id": "RC-030",
+      "title": "Instruction-Injection sicher speichern und anwenden",
+      "area": "backend_worker_loop",
+      "tasks": [
+        "Persistenz fuer operator_instructions pro task_id/goal_id/run_id einfuehren.",
+        "Payload begrenzen: max length, keine binary payloads, keine versteckten attachments.",
+        "Instruction-Klassen definieren: correction, constraint, preference, branch_hint, stop_condition.",
+        "Worker/Planner-Kontext so erweitern, dass aktive operator_instructions sichtbar und priorisiert, aber unter Policies einsortiert werden.",
+        "Safe-point Handling: laufende Iteration nicht hart unterbrechen; naechster Planner/Worker-Handoff uebernimmt neue Instruction.",
+        "Supersede/Resolve Mechanik: neuere Instruction kann alte ersetzen oder als additive Einschränkung gelten.",
+        "Audit und Timeline Events fuer injection_created, injection_applied, injection_superseded."
+      ],
+      "acceptance_criteria": [
+        "Eine waehrend eines laufenden Tasks injizierte Anweisung erscheint im Task-Control-State und spaeter im Worker-Kontext als operator_instruction.",
+        "Injection kann keinen Approval-Gate, keine Tool-Policy und keine Workspace-Scope-Policy aushebeln.",
+        "Bei paused Task wird Instruction gespeichert und beim resume sichtbar angewendet.",
+        "Tests decken Injection in running, paused, completed/cancelled und unauthorized Faellen ab."
+      ]
+    },
+    {
+      "id": "RC-040",
+      "title": "Approval-Gates als Run-Control integrieren",
+      "area": "backend_approval",
+      "tasks": [
+        "ApprovalRequestService Read-Model um run_id/branch_id falls vorhanden erweitern, ohne Digest-Bindung zu brechen.",
+        "Control-State soll pending approvals aus /api/approvals?task_id=... und ?goal_id=... aggregieren.",
+        "Gate-Preview definieren: tool_name, risk_class, k_class, scope_summary, digest_prefix, target_fingerprint_prefix, has_content_payload, expires_at, affected task/goal/run.",
+        "Optionalen sicheren Diff-/Payload-Preview-Endpunkt pruefen, der content_artifact_ref nur fuer berechtigte Nutzer und weiterhin hash-verifiziert ausgibt.",
+        "approve_gate/deny_gate RunCommands delegieren an ApprovalRequestService.decide_request.",
+        "Nach granted muss Redispatch/Taskstatus wie bestehend funktionieren; keine zweite Redispatch-Logik bauen.",
+        "UI-Texte fuer 'Gate wartet', 'Gate abgelehnt', 'Gate abgelaufen', 'Gate freigegeben' vereinheitlichen."
+      ],
+      "acceptance_criteria": [
+        "Pending Approval erscheint gleichzeitig in /api/approvals und im Task/Run-Control-State.",
+        "Grant/Deny ueber neue RunCommand-API fuehrt denselben ApprovalRequestService-Lifecycle aus wie POST /api/approvals/<id>/decision.",
+        "Denied Gate kann optional eine Instruction/Fallback-Anweisung speichern, z. B. 'Alternative ohne config.ts suchen'.",
+        "Raw content/prompt/secrets landen nicht im scope_summary und nicht im Audit-Log."
+      ]
+    },
+    {
+      "id": "RC-050",
+      "title": "Branch-/Variant-Auswahl modellieren",
+      "area": "backend_planning",
+      "tasks": [
+        "Branch/Variant-Modell einfuehren fuer Multi-LLM-Vergleich, Planner-Alternativen und Reparaturstrategien.",
+        "Bestehende last_proposal.comparisons aus Task-Detail als erste Quelle fuer branch candidates mappen.",
+        "Branch statuses definieren: proposed, active, selected, paused, rejected, superseded, completed.",
+        "select_branch Command implementieren: Auswahl speichert selected_branch_id und markiert Alternativen policy-konform.",
+        "Worker/Planner-Kontext erhaelt selected_branch als harte Ausfuehrungsvorgabe fuer naechste Iteration.",
+        "Branch-Auswahl darf keine ungepruefte externe Aktion ausloesen; Side Effects bleiben approval-pflichtig.",
+        "Branch Events in Timeline/Control-State aufnehmen."
+      ],
+      "acceptance_criteria": [
+        "Multi-LLM-Vergleich im Task-Detail kann als Branch-Liste im Control-State dargestellt werden.",
+        "Nutzer kann einen Branch auswaehlen; danach ist genau ein Branch selected/active oder ein klarer Fehler wird geliefert.",
+        "Nicht gewaehlte Branches bleiben nachvollziehbar und werden nicht still geloescht.",
+        "Tests pruefen select_branch fuer gueltige, ungueltige, bereits superseded und unauthorized Branches."
+      ]
+    },
+    {
+      "id": "RC-060",
+      "title": "Angular API-Clients und Facade erweitern",
+      "area": "frontend_angular_services",
+      "tasks": [
+        "HubTasksApiClient um pauseTask, resumeTask, cancelTask, retryTask fuer bestehende Endpunkte ergaenzen.",
+        "Neuen HubRunControlApiClient oder Erweiterung in HubTasksApiClient fuer sendRunCommand/getControlState/listActiveControlStates anlegen.",
+        "TaskManagementFacade um taskIntervention(...), injectInstruction(...), selectBranch(...), listTaskApprovals(...), decideApproval(...) erweitern.",
+        "Dedizierte Types/Interfaces fuer RunCommand, RunControlState, ApprovalGateSummary, BranchCandidate anlegen.",
+        "Fehlerbehandlung mit NotificationService und ns.fromApiError vereinheitlichen.",
+        "Polling/SSE-Refresh so nutzen, dass Control-State nach Command sofort und danach periodisch aktualisiert wird."
+      ],
+      "acceptance_criteria": [
+        "Angular baut ohne TypeScript-Fehler.",
+        "Keine Component ruft neue Run-Control-Routen direkt per HttpClient/URL-String auf; alles geht ueber Client+Facade.",
+        "Bestehende Task-Detail-Funktionen propose/execute/review bleiben unveraendert nutzbar.",
+        "Unit-Tests fuer API-Client URL/Method/Payload der neuen Kommandos existieren."
+      ]
+    },
+    {
+      "id": "RC-070",
+      "title": "Task-Detail Run-Control-Panel in Angular bauen",
+      "area": "frontend_angular_task_detail",
+      "tasks": [
+        "Neue Komponente RunControlPanelComponent oder integrierter Tab im Task-Detail anlegen.",
+        "Buttons fuer Pause, Resume, Cancel, Retry anzeigen; Button-Verfuegbarkeit aus Control-State und Task-Status ableiten.",
+        "Instruction-Injection-Formular mit Mode-Auswahl und Vorschau anzeigen.",
+        "Pending Approval Gates mit Grant/Deny, Reason-Feld, Scope Summary, Risiko-Badge und Ablaufzeit anzeigen.",
+        "Branch/Variant-Auswahl aus comparisons/branch candidates anzeigen; Auswahl per select_branch Command.",
+        "Command-Historie/Timeline: command type, actor, status, result, timestamp.",
+        "Accessibility: Buttons haben aria-label, busy state, disabled reason, keyboard navigierbar.",
+        "UI zeigt klar: Eingriff wird ueber Hub angewendet, nicht direkt an Worker geschickt."
+      ],
+      "acceptance_criteria": [
+        "Ein laufender Task kann im Task-Detail pausiert, resumed, cancelled und retried werden, sofern Statusmaschine es erlaubt.",
+        "Injection kann eingegeben werden und erscheint danach im Control-State/Timeline.",
+        "Pending Approval kann aus dem Panel granted/denied werden; UI aktualisiert Status ohne kompletten Seitenreload erzwingen zu muessen.",
+        "Branch-Auswahl aus Multi-LLM-Vergleich ist sichtbar und erzeugt ein select_branch Command.",
+        "Bei invalid_transition zeigt die UI den aktuellen Status und blockiert nicht still."
+      ]
+    },
+    {
+      "id": "RC-080",
+      "title": "Board, Workspace/Dashboard und Graph-Views anbinden",
+      "area": "frontend_angular_surfaces",
+      "tasks": [
+        "Board Cards um Badges fuer paused, pending_approval, intervention_pending, branch_selection_pending erweitern.",
+        "Board Quick-Actions fuer Pause/Resume/Cancel optional hinter Overflow-Menue anzeigen.",
+        "Workspace/Dashboard aktive Run-Control-Queue anzeigen: aktive Runs, Gates, pausierte Tasks, offene Branch-Entscheidungen.",
+        "Goal-Detail soll goal-scoped Control-State anzeigen inklusive Pending Approvals und aktiver Instructions.",
+        "Task-Graph/Visual-Process Views sollen Gate-Knoten, pausierte Teilbaeume und selected/rejected Branches visuell markieren.",
+        "Config-Graph/Hub-Worker-Graph duerfen Control-State lesen, aber keine Worker-direkten Mutationen einfuehren.",
+        "Control-Center bekommt globale Operator-Warteschlange fuer alles, was menschliche Entscheidung braucht."
+      ],
+      "acceptance_criteria": [
+        "Nutzer sieht bereits im Board/Dashboard, dass ein Task nicht 'haengt', sondern z. B. auf Approval oder Branch-Auswahl wartet.",
+        "Von jedem Badge fuehrt ein klarer Weg in Task-Detail oder Control-Center.",
+        "Graphische Views unterscheiden aktive, pausierte, blockierte und verworfene Branches ohne Status nur textuell zu verstecken.",
+        "Keine UI bietet eine Mutation an, die das Backend spaeter nicht validiert."
+      ]
+    },
+    {
+      "id": "RC-090",
+      "title": "Operator-TUI Run-Control-Kommandos und Panels",
+      "area": "operator_tui",
+      "tasks": [
+        "Operator-TUI Sections um Run-Control oder Approvals erweitern; alternativ Tasks-Detail-Pane erweitern.",
+        "commands.py um Dispatch fuer :run pause/resume/cancel/retry/inject/status ergaenzen.",
+        "commands.py um :approval list/grant/deny/status ergaenzen.",
+        "commands.py um :branch list/select/reject ergaenzen.",
+        "Lokale Command-Validation implementieren: required args, IDs, reason text, confirmation needed.",
+        "Mutierende TUI-Kommandos dispatchen nur an Hub-API, niemals an Worker direkt.",
+        "Riskante Aktionen zeigen Confirmation-Pane mit Backend-Control-State oder Approval-Gate-Preview.",
+        "Renderer zeigt pending gates, branch candidates und command results im Detail-Pane.",
+        "TUI Help aktualisieren: ? run, ? approval, ? branch."
+      ],
+      "acceptance_criteria": [
+        ":run pause <task-or-run-id> erzeugt denselben Backend-Status wie Web-UI Pause.",
+        ":run inject <id> <text> speichert eine operator_instruction und zeigt command_id/status.",
+        ":approval grant <approval_id> nutzt Backend-Validation und scheitert sauber bei expired/already_decided.",
+        ":branch select <id> <branch_id> markiert Branch im Backend und aktualisiert die TUI-Anzeige.",
+        "TUI-Tests oder Playback-Fixtures decken mindestens status, pause/resume, approval list und invalid command ab."
+      ]
+    },
+    {
+      "id": "RC-100",
+      "title": "Worker-/Autopilot-Safe-Point Integration",
+      "area": "orchestration",
+      "tasks": [
+        "Autopilot/Dispatcher pruefen, wo manual_override_active bereits beruecksichtigt wird.",
+        "Worker-Schleifen/Task-Execution so erweitern, dass pause/cancel/injection an sicheren Grenzen geprueft werden.",
+        "Cancel-Forwarding an Worker robuster machen: Timeout, Retry, sichtbares Ergebnis, aber Hub-Status bleibt Quelle der Wahrheit.",
+        "Bei pause soll laufender externer Prozess nicht unkontrolliert weiter side effects ausfuehren; klare Semantik dokumentieren: cooperative pause vs hard cancel.",
+        "Resume mit optionaler instruction muss zuerst Instruction persistieren, dann Statusuebergang anwenden.",
+        "Long-running Jobs sollen heartbeats/last_safe_point_at melden, damit UI erkennt, ob Eingriff schon angewendet wurde."
+      ],
+      "acceptance_criteria": [
+        "Pause verhindert neuen Autopilot-Dispatch und wird im Worker-Kontext spaetestens am naechsten safe point sichtbar.",
+        "Cancel versucht Worker-forwarding, zeigt aber auch Fehler transparent, falls Worker nicht erreichbar ist.",
+        "Resume nach Pause fuehrt nicht zu doppeltem Dispatch.",
+        "Logs/Timeline zeigen, wann ein Command requested, accepted und applied wurde."
+      ]
+    },
+    {
+      "id": "RC-110",
+      "title": "Audit, Governance und Security-Hardening",
+      "area": "security",
+      "tasks": [
+        "Audit-Event-Typen fuer run_command_created, run_command_applied, run_command_rejected, operator_instruction_created, branch_selected definieren.",
+        "RBAC-Matrix dokumentieren: wer darf lesen, pausieren, abbrechen, injizieren, approval entscheiden, branch waehlen.",
+        "Prompt-/Secret-Leak-Regeln fuer Instruction- und Approval-Payloads testen.",
+        "Deny-by-default fuer unbekannte Command-Typen.",
+        "Rate Limits fuer mutierende RunCommands ergaenzen.",
+        "Alle externen Side-Effect-Kommandos bleiben approval-/policypflichtig; Injection darf dies nicht herabstufen.",
+        "Security Regression Tests fuer unauthorized approval decision, command replay, stale branch selection und invalid transition."
+      ],
+      "acceptance_criteria": [
+        "Jede Mutation ist einem Actor zuordenbar.",
+        "Unbekannte oder unautorisierte Kommandos erzeugen keine Statusaenderung.",
+        "Replay gleicher idempotency_key ist sicher.",
+        "Audit-Logs enthalten keine raw prompts, Secrets oder grosse Content-Payloads."
+      ]
+    },
+    {
+      "id": "RC-120",
+      "title": "Dokumentation und Produkt-Sprache",
+      "area": "docs",
+      "tasks": [
+        "docs/run-control.md schreiben: Konzept, Statusmodell, API, UI, TUI, Beispiele.",
+        "README/Kern-Use-Cases um steuerbare Langlaeufer-Arbeit ergaenzen.",
+        "docs/golden-path-ui.md um Beispiel erweitern: langer Task laeuft, Nutzer injiziert Korrektur, Approval Gate wird entschieden, Branch B wird gewaehlt.",
+        "docs/tui-user-operator-guide.md um :run/:approval/:branch Commands erweitern.",
+        "Security-Doku um Human-in-the-loop als Gate statt allgemeine Nachfragemechanik ergaenzen.",
+        "API-Beispiele mit curl fuer pause/resume/inject/approve/select_branch bereitstellen."
+      ],
+      "acceptance_criteria": [
+        "Ein neuer Nutzer versteht, dass Ananta nicht staendig nachfragen soll, sondern Annahmen/Branches/Gates sichtbar macht.",
+        "Docs beschreiben klar den Unterschied zwischen harmlosen Annahmen, transparenten Alternativen und kritischen Side-Effect-Gates.",
+        "TUI und Web-Dokumentation zeigen dieselben Backend-Kommandos, keine widerspruechlichen Wege."
+      ]
+    },
+    {
+      "id": "RC-130",
+      "title": "End-to-End Tests und Demo-Flows",
+      "area": "tests",
+      "tasks": [
+        "Backend Unit Tests fuer RunControlService schreiben.",
+        "API Tests fuer /api/runs/<id>/commands und /tasks/<id>/commands schreiben.",
+        "Approval E2E: pending request -> grant -> redispatch; pending -> deny mit reason -> no redispatch.",
+        "Instruction E2E: running task -> inject -> safe point -> context contains instruction.",
+        "Branch E2E: multi comparison -> branch candidates -> select branch -> selected branch im naechsten proposal/execute.",
+        "Angular Component Tests fuer RunControlPanel und Board Badges.",
+        "TUI Playback/Fixture fuer :run status, :run pause, :approval list, invalid command.",
+        "Regression: bestehende Task pause/resume/cancel/retry Endpunkte bleiben gruen."
+      ],
+      "acceptance_criteria": [
+        "Backend-, Angular- und TUI-Tests laufen lokal und in CI.",
+        "Mindestens ein Demo-Flow zeigt lange automatische Arbeit mit menschlichem Eingriff ohne kompletten Neustart.",
+        "Tests belegen, dass UI/TUI keine Policy umgeht, sondern nur Hub-Commands ausloest."
+      ]
+    }
+  ],
+  "suggested_api_examples": {
+    "task_pause_existing": {
+      "method": "POST",
+      "path": "/tasks/{task_id}/pause",
+      "status": "existing"
+    },
+    "task_resume_existing": {
+      "method": "POST",
+      "path": "/tasks/{task_id}/resume",
+      "status": "existing"
+    },
+    "task_cancel_existing": {
+      "method": "POST",
+      "path": "/tasks/{task_id}/cancel",
+      "status": "existing"
+    },
+    "task_command_new": {
+      "method": "POST",
+      "path": "/tasks/{task_id}/commands",
+      "body": {
+        "command_id": "client-generated-uuid-or-null",
+        "idempotency_key": "operator-session-123:task-456:pause:1",
+        "type": "inject_instruction",
+        "payload": {
+          "mode": "next_iteration_instruction",
+          "text": "Keine React-Loesung, Angular weiterverwenden.",
+          "instruction_class": "constraint"
+        }
+      }
+    },
+    "approval_decision_existing": {
+      "method": "POST",
+      "path": "/api/approvals/{request_id}/decision",
+      "body": {
+        "decision": "granted",
+        "reason": "Operator reviewed diff and scope."
+      },
+      "status": "existing"
+    },
+    "branch_select_new": {
+      "method": "POST",
+      "path": "/tasks/{task_id}/commands",
+      "body": {
+        "type": "select_branch",
+        "payload": {
+          "branch_id": "security_hardened_solution",
+          "reason": "Prefer deterministic/security-hardened implementation."
+        }
+      }
+    }
+  },
+  "definition_of_done": [
+    "Backend bietet einen einheitlichen, getesteten RunCommand-Kontrakt und nutzt bestehende TaskAdminService-/ApprovalRequestService-Logik statt sie zu duplizieren.",
+    "Laufende Tasks/Runs koennen pausiert, resumed, cancelled, mit Instructions versehen, ueber Gates entschieden und per Branch-Auswahl gesteuert werden.",
+    "Angular zeigt Run-Control mindestens in Task-Detail, Board und einem zentralen Dashboard/Control-Center sichtbar an; Graph-/Visual-Views zeigen Status/Branches/Gates nachvollziehbar.",
+    "Operator-TUI bietet aequivalente read/control Commands und bestaetigt riskante Mutationen ueber Backend-validierte Gate-Informationen.",
+    "Alle Mutationen sind auditiert, RBAC-validiert, idempotent oder replay-sicher und umgehen keine Policies.",
+    "Dokumentation erklaert den Unterschied zwischen automatischem Weiterarbeiten, transparenten Annahmen/Branches und Human-in-the-loop Gates."
+  ],
+  "risk_notes": [
+    "Task-Level Pause existiert bereits, ist aber cooperative und statusbasiert; fuer harte Prozessunterbrechung braucht es eigene Worker-/Runtime-Semantik.",
+    "Instruction-Injection kann zu Prompt-Konflikten fuehren; deshalb als operator_instruction mit klarer Prioritaet unter Policy/Config modellieren.",
+    "Branch-Auswahl darf nicht nur UI-seitig erfolgen; sie muss im Backend persistiert werden, sonst ist sie nicht reproduzierbar.",
+    "Approval-Gates duerfen keine raw Payloads in UI/Audit leaken; bestehende digest/content_artifact_ref-Logik ist beizubehalten.",
+    "Mehrere Oberflaechen muessen dieselbe API nutzen, sonst entstehen widerspruechliche Kontrollpfade."
+  ]
+}
