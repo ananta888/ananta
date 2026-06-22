@@ -7,6 +7,7 @@ import { CommonModule } from '@angular/common';
 import type { Core, NodeSingular, EdgeSingular } from 'cytoscape';
 import { GenericGraphModel, GraphEdge, GraphNode } from '../../models/graph.model';
 import { GraphLayoutMode } from '../../models/graph-layout-mode';
+import { graphEdgeColor } from '../../models/graph-edge-style';
 
 const KIND_COLORS: Record<string, string> = {
   java_type: '#3b82f6', java_method: '#10b981', java_file: '#1d4ed8',
@@ -421,6 +422,7 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
           id: `e${i}`, originalId: e.id,
           source, target,
           label: e.edgeType,
+          color: graphEdgeColor(e.edgeType),
         },
       });
     }
@@ -462,8 +464,8 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
             selector: 'edge',
             style: {
               'width': 2,
-              'line-color': '#475569',
-              'target-arrow-color': '#475569',
+              'line-color': 'data(color)',
+              'target-arrow-color': 'data(color)',
               'target-arrow-shape': 'triangle',
               'curve-style': 'bezier',
               'opacity': 0.85,

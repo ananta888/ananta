@@ -40,18 +40,33 @@ export type GraphNodeKind =
   | 'unknown';
 
 export type GraphEdgeType =
+  | 'bean_factory_method'
   | 'calls_probable_target'
-  | 'injects_dependency'
-  | 'field_type_uses'
-  | 'extends'
-  | 'implements'
   | 'child_of_type'
   | 'child_of_file'
+  | 'contains_entry'
+  | 'contains_method'
+  | 'contains_section'
+  | 'contains_symbol'
+  | 'contains_type'
+  | 'controller_endpoint_declares'
+  | 'declares_constructor'
   | 'declares_method'
   | 'declares_bean'
+  | 'extends'
+  | 'field_type_uses'
+  | 'generic_type_uses'
+  | 'implements'
+  | 'imports_module'
+  | 'imports_symbol'
+  | 'injects_dependency'
   | 'transactional_boundary'
   | 'jpa_relation'
+  | 'method_param_type_uses'
+  | 'method_return_type_uses'
   | 'parent_child'
+  | 'returns'
+  | 'uses_type'
   | 'related';
 
 export interface GraphNode {

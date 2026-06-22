@@ -6,6 +6,7 @@ import {
 import { CommonModule } from '@angular/common';
 import type { ForceGraph3DInstance } from '3d-force-graph';
 import { GenericGraphModel, GraphEdge, GraphNode } from '../../models/graph.model';
+import { graphEdgeColor } from '../../models/graph-edge-style';
 
 const KIND_COLORS: Record<string, string> = {
   java_type:   '#3b82f6',
@@ -159,7 +160,7 @@ export class Graph3dViewComponent implements OnChanges, AfterViewInit, OnDestroy
       .nodeColor((n: any) => this._nodeColor(n['id'] as string))
       .nodeOpacity(nodeId ? 0.9 : 0.75)
       .linkColor((l: any) => {
-        if (!this._focalId) return '#94a3b8';
+        if (!this._focalId) return l['color'] as string ?? '#94a3b8';
         const src = typeof l['source'] === 'object' ? l['source']?.id : l['source'];
         const tgt = typeof l['target'] === 'object' ? l['target']?.id : l['target'];
         return src === this._focalId || tgt === this._focalId ? '#38bdf8' : 'rgba(148,163,184,0.12)';
@@ -318,6 +319,7 @@ export class Graph3dViewComponent implements OnChanges, AfterViewInit, OnDestroy
       }));
       const gLinks = edges.map(e => ({
         id: e.id, source: e.source, target: e.target, label: e.edgeType,
+        color: graphEdgeColor(e.edgeType),
       }));
 
       const el = this.containerRef.nativeElement;
@@ -332,7 +334,7 @@ export class Graph3dViewComponent implements OnChanges, AfterViewInit, OnDestroy
         .nodeVal((n: any) => n['value'] as number)
         .nodeRelSize(4.2)
         .linkLabel((l: any) => l['label'] as string)
-        .linkColor(() => '#94a3b8')
+        .linkColor((l: any) => l['color'] as string ?? '#94a3b8')
         .linkWidth(1)
         .linkOpacity(0.6)
         .warmupTicks(60)
