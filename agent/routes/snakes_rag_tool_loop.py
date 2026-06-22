@@ -720,7 +720,7 @@ def run_rag_chat_tool_loop(
 
         if not tool_calls or finish_reason == "stop" or not use_tools:
             trace["final_finish_reason"] = finish_reason
-            return content, trace
+            return content or last_non_tool_content, trace
 
         # Add assistant message with tool_calls to history
         current_messages.append({
