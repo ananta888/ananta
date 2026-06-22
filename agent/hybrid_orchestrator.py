@@ -1211,6 +1211,13 @@ class HybridOrchestrator:
                 except Exception:
                     pass  # degrade gracefully — prefilter skipped if unavailable
 
+            vector_encoding_config = {
+                "mode": getattr(settings, "codecompass_vector_encoding_mode", "off"),
+                "target_bits": getattr(settings, "codecompass_vector_encoding_target_bits", 32.0),
+                "seed": getattr(settings, "codecompass_vector_encoding_seed", 888),
+                "block_size": getattr(settings, "codecompass_vector_encoding_block_size", 0),
+                "store_original": getattr(settings, "codecompass_vector_encoding_store_original", False),
+            }
             self.codecompass_vector_service = CodeCompassVectorRetrievalService(
                 repo_root=self.repo_root,
                 embedding_records_path=settings.codecompass_vector_embedding_records_path,
@@ -1221,6 +1228,10 @@ class HybridOrchestrator:
                 fail_mode=settings.codecompass_vector_fail_mode,
                 restricted_inference_service=restricted_inference,
                 strategy_config=strategy_cfg,
+                vector_encoding_config=vector_encoding_config,
+                vector_encoding_fallback_policy=getattr(
+                    settings, "codecompass_vector_encoding_fallback_policy", "fallback_float32"
+                ),
             )
         self.context_manager = ContextManager(policy_version="v1")
 

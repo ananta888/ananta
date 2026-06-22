@@ -356,6 +356,65 @@ class Settings(BaseSettings):
         default=2, validation_alias="CODECOMPASS_SCOPE_MAX_EXTERNAL_REFERENCE_CHUNKS"
     )
 
+    # VectorEncoding settings (TQ-018 / VEC-DELTA-004)
+    codecompass_vector_encoding_mode: str = Field(
+        default="off",
+        validation_alias="CODECOMPASS_VECTOR_ENCODING_MODE",
+    )
+    codecompass_vector_encoding_target_bits: float = Field(
+        default=32.0,
+        validation_alias="CODECOMPASS_VECTOR_ENCODING_TARGET_BITS",
+    )
+    codecompass_vector_encoding_seed: int = Field(
+        default=888,
+        validation_alias="CODECOMPASS_VECTOR_ENCODING_SEED",
+    )
+    codecompass_vector_encoding_block_size: int = Field(
+        default=0,
+        validation_alias="CODECOMPASS_VECTOR_ENCODING_BLOCK_SIZE",
+    )
+    codecompass_vector_encoding_store_original: bool = Field(
+        default=False,
+        validation_alias="CODECOMPASS_VECTOR_ENCODING_STORE_ORIGINAL",
+    )
+    # Quantization fallback policy (TQ-014)
+    # Values: block | fallback_float32 | warn_only
+    codecompass_vector_encoding_fallback_policy: str = Field(
+        default="fallback_float32",
+        validation_alias="CODECOMPASS_VECTOR_ENCODING_FALLBACK_POLICY",
+    )
+    # TransformerFeatureProvider settings (TQ-015 / TQ-018)
+    # Values: disabled | observe_only | context_first
+    codecompass_transformer_feature_mode: str = Field(
+        default="disabled",
+        validation_alias="CODECOMPASS_TRANSFORMER_FEATURE_MODE",
+    )
+    codecompass_transformer_feature_model: str = Field(
+        default="",
+        validation_alias="CODECOMPASS_TRANSFORMER_FEATURE_MODEL",
+    )
+    codecompass_transformer_feature_local_only: bool = Field(
+        default=True,
+        validation_alias="CODECOMPASS_TRANSFORMER_FEATURE_LOCAL_ONLY",
+    )
+    codecompass_transformer_feature_max_input_tokens: int = Field(
+        default=512,
+        validation_alias="CODECOMPASS_TRANSFORMER_FEATURE_MAX_INPUT_TOKENS",
+    )
+    # AgentFeatureProvider policy gates (AGENT-FEATURE-004)
+    codecompass_agent_feature_enabled: bool = Field(
+        default=False,
+        validation_alias="CODECOMPASS_AGENT_FEATURE_ENABLED",
+    )
+    codecompass_agent_feature_external_calls_allowed: bool = Field(
+        default=False,
+        validation_alias="CODECOMPASS_AGENT_FEATURE_EXTERNAL_CALLS_ALLOWED",
+    )
+    codecompass_agent_feature_allowed_provider_ids: str = Field(
+        default="",
+        validation_alias="CODECOMPASS_AGENT_FEATURE_ALLOWED_PROVIDER_IDS",
+    )
+
     # Database
     database_url: Optional[str] = Field(default=None, validation_alias="DATABASE_URL")
 

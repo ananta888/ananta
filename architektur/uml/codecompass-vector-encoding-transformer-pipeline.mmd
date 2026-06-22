@@ -1,0 +1,76 @@
+flowchart LR
+    %% ── Source ──────────────────────────────────────────────
+    SRC["CodeCompass\nembedding.json\n(records)"]
+
+    %% ── Providers ───────────────────────────────────────────
+    EP["EmbeddingProvider\n(local or API)"]
+    TFP["TransformerFeatureProvider\n[optional]"]
+    PG1{{"Policy Gate\nlocal_only\nallowed_base_urls\nmax_input_tokens"}}
+
+    %% ── Encoding ────────────────────────────────────────────
+    VEP["VectorEncodingProfile\nmode / seed / target_bits\nconfig_hash"]
+    VE["VectorEncoder\noff | float32 | float16\nint8 | 4bit | turboquant_mse_exp"]
+
+    %% ── Store ───────────────────────────────────────────────
+    VS["CodeCompassVectorStore\nencoded_vector + diagnostics\nalgorithm_version"]
+
+    %% ── Fallback ────────────────────────────────────────────
+    FB["float32 Baseline Index\n[fallback]"]
+
+    %% ── Search ──────────────────────────────────────────────
+    VSE["VectorSearchEngine\ncosine_similarity\ndomain_scope_filter"]
+
+    %% ── Orchestration ───────────────────────────────────────
+    HO["HybridOrchestrator\ndeterministic rerank\nexact > fuzzy"]
+
+    %% ── Output ──────────────────────────────────────────────
+    CT["ContextTrace\nmodel_feature | score | decision"]
+    PC["PromptContext"]
+
+    %% ── Flows ───────────────────────────────────────────────
+    SRC --> EP
+    SRC --> TFP
+
+    TFP --> PG1
+    PG1 -->|"allowed"| VEP
+    PG1 -->|"blocked"| CT
+
+    EP --> VEP
+    VEP --> VE
+    VE --> VS
+    VS -->|"encoding_changed → rebuild"| VS
+    VS -.->|"fallback"| FB
+
+    VS --> VSE
+    FB --> VSE
+    VSE --> HO
+    HO --> CT
+    CT --> PC
+
+    %% ── Styles ──────────────────────────────────────────────
+    classDef local    fill:#d4edda,stroke:#28a745,color:#000
+    classDef external fill:#fff3cd,stroke:#ffc107,color:#000
+    classDef gate     fill:#f8d7da,stroke:#dc3545,color:#000
+    classDef store    fill:#cce5ff,stroke:#004085,color:#000
+    classDef exp      fill:#e2d9f3,stroke:#6f42c1,color:#000
+    classDef out      fill:#f1f3f4,stroke:#6c757d,color:#000
+
+    class EP,TFP local
+    class PG1 gate
+    class VEP,VE store
+    class VS,FB store
+    class VSE,HO out
+    class CT,PC out
+
+    %% ── Annotations (as notes via subgraph) ─────────────────
+    subgraph LEGEND["Legend"]
+        direction TB
+        L1["Green border = local provider"]
+        L2["Red border = Policy Gate (Default-Deny)"]
+        L3["Blue border = store / encoding layer"]
+        L4["Dashed arrow = fallback path"]
+        L5["[optional] = disabled by default"]
+        L6["turboquant_mse_exp = experimental mode"]
+    end
+
+    style LEGEND fill:#fafafa,stroke:#aaa,color:#333,font-size:11px

@@ -215,7 +215,7 @@
         {
           "id": "TQ-001",
           "title": "TurboQuant-Paper technisch fuer Ananta einordnen",
-          "status": "open",
+          "status": "done",
           "priority": "P0",
           "type": "research",
           "component": "docs",
@@ -233,12 +233,13 @@
           ],
           "test_expectations": [
             "Keine automatisierten Tests noetig; Review-Kriterium ist fachliche Nachvollziehbarkeit und klare Nicht-Ziele."
-          ]
+          ],
+          "completed": "2026-06-22"
         },
         {
           "id": "TQ-002",
           "title": "VectorEncoding-Architekturentscheidung schreiben",
-          "status": "open",
+          "status": "done",
           "priority": "P0",
           "type": "architecture",
           "component": "codecompass",
@@ -258,12 +259,13 @@
           ],
           "test_expectations": [
             "Architekturreview prueft, dass jede spaetere Implementierungsaufgabe auf diese ADR referenzieren kann."
-          ]
+          ],
+          "completed": "2026-06-22"
         },
         {
           "id": "TQ-003",
           "title": "Qualitaetsmetriken fuer CodeCompass-Retrieval definieren",
-          "status": "open",
+          "status": "done",
           "priority": "P0",
           "type": "benchmark-design",
           "component": "retrieval",
@@ -282,12 +284,13 @@
           "test_expectations": [
             "Benchmark-Test kann mit kleinem Fixture lokal laufen.",
             "Benchmark-Ausgabe enthaelt maschinenlesbares JSON fuer CI und menschenlesbare Kurzfassung."
-          ]
+          ],
+          "completed": "2026-06-22"
         },
         {
           "id": "TQ-004",
           "title": "Realistische Scope-Grenze gegen echten LLM-KV-Cache ziehen",
-          "status": "open",
+          "status": "done",
           "priority": "P1",
           "type": "safety-design",
           "component": "architecture",
@@ -303,7 +306,8 @@
           ],
           "test_expectations": [
             "Review bestaetigt, dass die erste Implementierung ohne Aenderung an Ollama/LM Studio/vLLM funktioniert."
-          ]
+          ],
+          "completed": "2026-06-22"
         }
       ]
     },
@@ -314,7 +318,7 @@
         {
           "id": "TQ-005",
           "title": "VectorEncodingProfile-Datentyp einfuehren",
-          "status": "open",
+          "status": "done",
           "priority": "P0",
           "type": "backend-model",
           "component": "worker.retrieval",
@@ -337,12 +341,13 @@
             "Unit-Test prueft Defaultprofil.",
             "Unit-Test prueft Hash-Aenderung bei mode/seed/target_bits.",
             "Unit-Test prueft Validation fuer negative Bits, negative Dimensions und unbekannten Mode."
-          ]
+          ],
+          "completed": "2026-06-22"
         },
         {
           "id": "TQ-006",
           "title": "VectorEncoder/VectorDecoder Interface bauen",
-          "status": "open",
+          "status": "done",
           "priority": "P0",
           "type": "backend-interface",
           "component": "worker.retrieval",
@@ -365,12 +370,13 @@
             "Roundtrip-Test fuer float32/off.",
             "Checksum-Test erkennt manipulierte Payload.",
             "Batch-Test bewahrt Reihenfolge und Dimensionen."
-          ]
+          ],
+          "completed": "2026-06-22"
         },
         {
           "id": "TQ-007",
           "title": "float16 und int8 Encoder als sichere Baseline implementieren",
-          "status": "open",
+          "status": "done",
           "priority": "P0",
           "type": "backend-feature",
           "component": "worker.retrieval",
@@ -393,12 +399,13 @@
             "Unit-Test prueft bekannte Beispielvektoren.",
             "Unit-Test prueft Nullvektor.",
             "Unit-Test prueft Ranking auf kleinem Fixture bleibt grob stabil gegen float32."
-          ]
+          ],
+          "completed": "2026-06-22"
         },
         {
           "id": "TQ-008",
           "title": "symmetric4bit Encoder experimentell implementieren",
-          "status": "open",
+          "status": "done",
           "priority": "P1",
           "type": "backend-feature",
           "component": "worker.retrieval",
@@ -421,12 +428,13 @@
             "Unit-Test prueft Pack/Unpack.",
             "Unit-Test prueft deterministische Rekonstruktion.",
             "Benchmark-Fixture prueft Recall@10 gegen float32."
-          ]
+          ],
+          "completed": "2026-06-22"
         },
         {
           "id": "TQ-009",
           "title": "CodeCompassVectorStore um EncodedVector erweitern",
-          "status": "open",
+          "status": "done",
           "priority": "P0",
           "type": "backend-refactor",
           "component": "worker.retrieval",
@@ -453,12 +461,13 @@
             "Neuer Test prueft Rebuild mit int8.",
             "Neuer Test prueft Refresh-Rebuild bei Encoding-Hash-Aenderung.",
             "Neuer Test prueft alte Indexdatei ohne encoded_vector bleibt lesbar."
-          ]
+          ],
+          "completed": "2026-06-22"
         },
         {
           "id": "TQ-010",
           "title": "VectorEncoding in Diagnostics und ContextTrace aufnehmen",
-          "status": "open",
+          "status": "done",
           "priority": "P1",
           "type": "backend-observability",
           "component": "audit",
@@ -482,7 +491,8 @@
             "Unit-Test prueft Diagnostics fuer off und int8.",
             "Unit-Test prueft, dass keine raw vectors in Diagnostics auftauchen.",
             "Integrationstest prueft ContextTrace enthaelt vector_encoding_summary."
-          ]
+          ],
+          "completed": "2026-06-22"
         }
       ]
     },
@@ -493,7 +503,7 @@
         {
           "id": "TQ-011",
           "title": "Random-Rotation-Komponente deterministisch bauen",
-          "status": "open",
+          "status": "done",
           "priority": "P1",
           "type": "backend-research-implementation",
           "component": "worker.retrieval",
@@ -517,12 +527,13 @@
             "Test prueft anderer Seed -> andere Rotation.",
             "Test prueft inverse(forward(x)) naeherungsweise x.",
             "Test prueft Dimensionen, die nicht Potenz von 2 sind."
-          ]
+          ],
+          "completed": "2026-06-22"
         },
         {
           "id": "TQ-012",
           "title": "TurboQuant_mse ExperimentalEncoder als PoC implementieren",
-          "status": "open",
+          "status": "done",
           "priority": "P1",
           "type": "backend-research-implementation",
           "component": "worker.retrieval",
@@ -547,12 +558,13 @@
             "MSE-Test zeigt sinkenden Fehler bei hoeherer Bitbreite.",
             "Determinismus-Test prueft identische Payload bei gleichem Seed.",
             "Test prueft experimental_warning ist gesetzt."
-          ]
+          ],
+          "completed": "2026-06-22"
         },
         {
           "id": "TQ-013",
           "title": "TurboQuant_prod nur als separaten Forschungszweig vorbereiten",
-          "status": "open",
+          "status": "done",
           "priority": "P2",
           "type": "research-spike",
           "component": "worker.retrieval",
@@ -574,12 +586,13 @@
           "test_expectations": [
             "Test prueft, dass turboquant_prod_experimental ohne Implementierung kontrolliert blockiert.",
             "Spaeterer Test prueft unbiasedness nur mit statistischem Test und festem Seed."
-          ]
+          ],
+          "completed": "2026-06-22"
         },
         {
           "id": "TQ-014",
           "title": "Quantization-Fallback-Policy einbauen",
-          "status": "open",
+          "status": "done",
           "priority": "P0",
           "type": "safety-feature",
           "component": "retrieval",
@@ -604,7 +617,8 @@
             "Test prueft block bei verletztem Recall-Gate.",
             "Test prueft fallback_float32, wenn float32-Index vorhanden.",
             "Test prueft Diagnostics mit reason quality_gate_failed."
-          ]
+          ],
+          "completed": "2026-06-22"
         }
       ]
     },
@@ -615,7 +629,7 @@
         {
           "id": "TQ-015",
           "title": "TransformerFeatureProvider als getrennte Abstraktion entwerfen",
-          "status": "open",
+          "status": "done",
           "priority": "P1",
           "type": "architecture",
           "component": "agent.services",
@@ -638,12 +652,13 @@
             "Unit-Test prueft disabled mode.",
             "Unit-Test prueft Policy blockiert externe URL bei local_only=true.",
             "Unit-Test prueft Metadaten enthalten keine Rohtexte oder Secrets."
-          ]
+          ],
+          "completed": "2026-06-22"
         },
         {
           "id": "TQ-016",
           "title": "Deterministische Weiterverarbeitung nach TransformerFeatureProvider definieren",
-          "status": "open",
+          "status": "done",
           "priority": "P1",
           "type": "backend-design",
           "component": "orchestration",
@@ -666,12 +681,13 @@
             "Unit-Test fuer deterministische Score-Kombination.",
             "Test prueft, dass fehlendes Feature nicht zu globalem Zugriff fuehrt.",
             "Test prueft stabile Reihenfolge bei gleichen Scores."
-          ]
+          ],
+          "completed": "2026-06-22"
         },
         {
           "id": "TQ-017",
           "title": "Hidden-State/Embedding-Profil fuer CodeCompass experimentell anschliessen",
-          "status": "open",
+          "status": "done",
           "priority": "P2",
           "type": "backend-experiment",
           "component": "codecompass",
@@ -696,7 +712,8 @@
             "FakeTransformerFeatureProvider fuer Tests.",
             "Integrationstest prueft Index-Rebuild bei Layerwechsel.",
             "Test prueft fallback auf normalen EmbeddingProvider, wenn FeatureProvider disabled ist."
-          ]
+          ],
+          "completed": "2026-06-22"
         }
       ]
     },
@@ -707,7 +724,7 @@
         {
           "id": "TQ-018",
           "title": "Settings in agent/config.py und .env.example aufnehmen",
-          "status": "open",
+          "status": "done",
           "priority": "P0",
           "type": "backend-config",
           "component": "configuration",
@@ -731,12 +748,13 @@
             "Settings-Test prueft Defaults.",
             "Settings-Test prueft Override fuer mode, seed und target_bits.",
             "Settings-Test prueft invalid mode wird abgelehnt."
-          ]
+          ],
+          "completed": "2026-06-22"
         },
         {
           "id": "TQ-019",
           "title": "Angular/Web Dashboard fuer VectorEncodingProfile erweitern",
-          "status": "open",
+          "status": "done",
           "priority": "P1",
           "type": "frontend-feature",
           "component": "angular-web-ui",
@@ -761,12 +779,13 @@
             "Frontend-Test prueft Anzeige fuer off/int8/experimental.",
             "Frontend-Test prueft unknown mode wird nicht editierbar.",
             "E2E-Test prueft Config-Diff vor Aktivierung."
-          ]
+          ],
+          "completed": "2026-06-22"
         },
         {
           "id": "TQ-020",
           "title": "Hermes/TUI Anzeige fuer Quantization und TransformerFeatureProvider ergaenzen",
-          "status": "open",
+          "status": "done",
           "priority": "P2",
           "type": "tui-feature",
           "component": "hermes-tui",
@@ -789,12 +808,13 @@
           "test_expectations": [
             "Snapshot-/Golden-Test fuer Statusausgabe.",
             "Test prueft Redaction in Diagnostics."
-          ]
+          ],
+          "completed": "2026-06-22"
         },
         {
           "id": "TQ-021",
           "title": "Mermaid Architekturdiagramm fuer grafischen Teil erstellen",
-          "status": "open",
+          "status": "done",
           "priority": "P1",
           "type": "documentation-diagram",
           "component": "architecture",
@@ -817,7 +837,8 @@
           "test_expectations": [
             "Mermaid-Datei ist syntaktisch renderbar.",
             "Optionaler CI-Check oder Docs-Preview rendert ohne Fehler."
-          ]
+          ],
+          "completed": "2026-06-22"
         }
       ]
     },
@@ -828,7 +849,7 @@
         {
           "id": "TQ-022",
           "title": "Kleines reproduzierbares CodeCompass Retrieval-Fixture bauen",
-          "status": "open",
+          "status": "done",
           "priority": "P0",
           "type": "test-fixture",
           "component": "tests",
@@ -850,12 +871,13 @@
           "test_expectations": [
             "Benchmark laeuft ohne externen Provider mit FakeEmbeddingProvider/local_hash.",
             "Benchmark kann optional mit realem lokalen Provider laufen, ist aber nicht CI-pflichtig."
-          ]
+          ],
+          "completed": "2026-06-22"
         },
         {
           "id": "TQ-023",
           "title": "Quantization Benchmark Runner schreiben",
-          "status": "open",
+          "status": "done",
           "priority": "P0",
           "type": "benchmark",
           "component": "tests",
@@ -878,12 +900,13 @@
           "test_expectations": [
             "CI-Test nutzt Mini-Fixture und prueft Output-Schema.",
             "Benchmark darf markiert sein, damit schwere Messungen lokal/optional laufen."
-          ]
+          ],
+          "completed": "2026-06-22"
         },
         {
           "id": "TQ-024",
           "title": "Regressionstest fuer Hybrid Ranking Stabilitaet",
-          "status": "open",
+          "status": "done",
           "priority": "P1",
           "type": "integration-test",
           "component": "retrieval",
@@ -907,12 +930,13 @@
             "Integrationstest mit allowed_read_paths.",
             "Test prueft denied path wird trotz hoher Vector Similarity nicht ausgegeben.",
             "Test prueft exact match bleibt vor nur-semantischem Treffer, sofern Gewichtung Default bleibt."
-          ]
+          ],
+          "completed": "2026-06-22"
         },
         {
           "id": "TQ-025",
           "title": "Security- und Secret-Redaction-Tests erweitern",
-          "status": "open",
+          "status": "done",
           "priority": "P0",
           "type": "security-test",
           "component": "security",
@@ -936,7 +960,8 @@
             "Tests injizieren fake api_key und Authorization und pruefen Abwesenheit im State.",
             "Tests pruefen Redaction in Markdown/JSON Report.",
             "Tests pruefen local_only blockiert externe Base URL."
-          ]
+          ],
+          "completed": "2026-06-22"
         }
       ]
     },
@@ -947,7 +972,7 @@
         {
           "id": "TQ-026",
           "title": "Index-Migration und Rueckwaertskompatibilitaet dokumentieren",
-          "status": "open",
+          "status": "done",
           "priority": "P1",
           "type": "migration-docs",
           "component": "docs",
@@ -968,12 +993,13 @@
           ],
           "test_expectations": [
             "Manueller Review prueft Dokumentation gegen Implementierung."
-          ]
+          ],
+          "completed": "2026-06-22"
         },
         {
           "id": "TQ-027",
           "title": "README-Kurzabschnitt fuer CodeCompass Vector Encoding ergaenzen",
-          "status": "open",
+          "status": "done",
           "priority": "P2",
           "type": "documentation",
           "component": "readme",
@@ -995,12 +1021,13 @@
           ],
           "test_expectations": [
             "Markdown-Linkcheck findet keine kaputten relativen Links."
-          ]
+          ],
+          "completed": "2026-06-22"
         },
         {
           "id": "TQ-028",
           "title": "Rollout-Plan fuer schrittweise Aktivierung festlegen",
-          "status": "open",
+          "status": "done",
           "priority": "P1",
           "type": "release-planning",
           "component": "release",
@@ -1022,7 +1049,8 @@
           ],
           "test_expectations": [
             "Release-Checklist enthaelt Benchmark, Security Tests, Docs und UI-Anzeige."
-          ]
+          ],
+          "completed": "2026-06-22"
         }
       ]
     }

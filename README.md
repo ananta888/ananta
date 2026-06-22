@@ -237,3 +237,32 @@ Provider auf **OpenAI API**:
 ```bash
 DEFAULT_PROVIDER=openai OPENAI_API_KEY=<SECRET> OPENAI_URL=https://api.openai.com/v1/chat/completions docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.single-image-fullstack.yml up -d --build
 ```
+
+## CodeCompass Vector Encoding
+
+Ananta komprimiert den Embedding-Index des CodeCompass optional mit verlustbehafteter Quantisierung — transparent, auditierbar und ohne externe Abhängigkeiten.
+
+| Modus | Kompression | Max-Fehler | Status |
+|---|---|---|---|
+| `off` / `float32` | 1× | 0 | Standard |
+| `float16` | 2× | ~0.0002 | stabil |
+| `int8` | 4× | ~0.004 | stabil |
+| `symmetric4bit` | 8× | ~0.07 | experimentell |
+| `turboquant_mse_experimental` | 8× | ~0.07 | Forschung |
+
+**Aktivieren** (`.env` oder Umgebungsvariable):
+
+```bash
+CODECOMPASS_VECTOR_ENCODING_MODE=int8
+CODECOMPASS_VECTOR_ENCODING_FALLBACK_POLICY=fallback_float32
+```
+
+**Demo** (keine API, kein Netz):
+
+```bash
+python scripts/demo_vector_encoding.py
+```
+
+**Qualitätsmetriken und Rollout-Regeln**: `docs/worker/codecompass-vector-quantization-metrics.md`  
+**Architektur**: `docs/architecture/transformer-feature-provider.md`, `docs/architecture/agent-feature-provider.md`  
+**Forschung**: `docs/research/turboquant-for-codecompass.md`

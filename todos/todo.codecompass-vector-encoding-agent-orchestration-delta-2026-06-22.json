@@ -119,7 +119,7 @@
         {
           "id": "VEC-DELTA-001",
           "title": "Bestehende Tests lokal/CI ausfuehren und Fehler fixen",
-          "status": "open",
+          "status": "done",
           "priority": "P0",
           "type": "validation",
           "component": "tests",
@@ -135,12 +135,13 @@
             "Bestehende Tests brechen nicht durch neues Index-Schema v2.",
             "Falls strikte Linter laufen, werden Import-Reihenfolge und Typfehler korrigiert.",
             "Fehler werden nicht durch Abschalten der Tests versteckt."
-          ]
+          ],
+          "completed": "2026-06-22"
         },
         {
           "id": "VEC-DELTA-002",
           "title": "VectorEncoding Secret-/Payload-Redaction pruefen",
-          "status": "open",
+          "status": "done",
           "priority": "P0",
           "type": "security-test",
           "component": "security",
@@ -157,12 +158,13 @@
             "encoded_vector payload wird nicht in normalen Run Reports voll ausgeschrieben.",
             "State enthaelt nur Profil/Hash/Kompressionsdaten, keine Secrets.",
             "Test injiziert fake secret strings in Metadaten und prueft, dass sie nicht in Diagnostics landen."
-          ]
+          ],
+          "completed": "2026-06-22"
         },
         {
           "id": "VEC-DELTA-003",
           "title": "Store-Kompatibilitaet fuer alte Index-Dateien absichern",
-          "status": "open",
+          "status": "done",
           "priority": "P1",
           "type": "regression-test",
           "component": "worker.retrieval",
@@ -177,7 +179,8 @@
             "Search auf v1-Index funktioniert weiterhin.",
             "Refresh mit aktivem VectorEncoding migriert/rebuildet auf v2.",
             "Fehlende vector_encoding_profile im State fuehrt nicht zu Crash."
-          ]
+          ],
+          "completed": "2026-06-22"
         }
       ]
     },
@@ -188,7 +191,7 @@
         {
           "id": "VEC-DELTA-004",
           "title": "VectorEncoding Settings in agent/config.py aufnehmen",
-          "status": "open",
+          "status": "done",
           "priority": "P0",
           "type": "backend-config",
           "component": "configuration",
@@ -210,12 +213,13 @@
             "Experimentelle Modi sind nicht Default.",
             ".env.example dokumentiert int8 als sichere Demo-Option und 4bit/TurboQuant als experimental.",
             "Ungueltige Modi werden sichtbar abgelehnt oder in Tests als Fehler erkannt."
-          ]
+          ],
+          "completed": "2026-06-22"
         },
         {
           "id": "VEC-DELTA-005",
           "title": "CodeCompassVectorRetrievalService in kleinen Patches mit VectorEncoding verdrahten",
-          "status": "open",
+          "status": "done",
           "priority": "P0",
           "type": "backend-integration",
           "component": "agent.services.codecompass_vector_retrieval_service",
@@ -235,12 +239,13 @@
             "Bei VectorEncodingError wird fail_mode=degraded_empty respektiert und reason=vector_encoding_failed gesetzt.",
             "Integrationstest beweist: CODECOMPASS_VECTOR_ENCODING_MODE=int8 fuehrt zu encoded_vector im Index."
           ],
-          "implementation_note": "Falls GitHub-Connector grosse Updates blockiert, Datei lokal oder in mehreren sehr kleinen Patches aendern: erst Imports, dann __init__ parameter, dann refresh-Aufruf, dann diagnostics."
+          "implementation_note": "Falls GitHub-Connector grosse Updates blockiert, Datei lokal oder in mehreren sehr kleinen Patches aendern: erst Imports, dann __init__ parameter, dann refresh-Aufruf, dann diagnostics.",
+          "completed": "2026-06-22"
         },
         {
           "id": "VEC-DELTA-006",
           "title": "HybridOrchestrator Diagnostics sichtbar durchreichen",
-          "status": "open",
+          "status": "done",
           "priority": "P1",
           "type": "observability",
           "component": "agent.hybrid_orchestrator",
@@ -258,7 +263,8 @@
             "ContextChunk metadata enthaelt vector_encoding_mode fuer CodeCompass-Vektortreffer.",
             "Exakte Repository-Map-Treffer bleiben per Default hoeher gewichtet als unsichere fuzzy vector signals.",
             "Tests pruefen, dass Domain Scope nicht durch quantisierte Vektortreffer umgangen wird."
-          ]
+          ],
+          "completed": "2026-06-22"
         }
       ]
     },
@@ -269,7 +275,7 @@
         {
           "id": "AGENT-FEATURE-001",
           "title": "AgentFeatureProvider Interface definieren",
-          "status": "open",
+          "status": "done",
           "priority": "P0",
           "type": "architecture-backend",
           "component": "agent-orchestration",
@@ -283,12 +289,13 @@
             "Jeder Provider muss PolicyScope, allowed_paths, max_input_chars und no_write_mode akzeptieren.",
             "Provider duerfen keine Datei-/Tool-Aenderungen ausfuehren, solange sie im FeatureProvider-Modus laufen.",
             "Fehler werden als degraded/blocked Diagnostics gemeldet, nicht als freie Modellinterpretation."
-          ]
+          ],
+          "completed": "2026-06-22"
         },
         {
           "id": "AGENT-FEATURE-002",
           "title": "OpenCode/Codex/Claude-CLI als AgentFeatureProvider-Adapter vorbereiten",
-          "status": "open",
+          "status": "done",
           "priority": "P1",
           "type": "adapter-design",
           "component": "worker-adapters",
@@ -306,12 +313,13 @@
             "Adapterausgaben werden als JSON-Schema validiert: no free-form authority.",
             "Fehlerhafte JSON-Ausgaben werden verworfen oder repariert, aber nicht ungeprueft als Wahrheit genutzt.",
             "Jeder Adapter erzeugt AgentFeatureTrace mit input_hash, output_hash, provider_id, elapsed_ms und policy_decision."
-          ]
+          ],
+          "completed": "2026-06-22"
         },
         {
           "id": "AGENT-FEATURE-003",
           "title": "AgentFeatureProvider an VectorEncoding und CodeCompass anschliessen",
-          "status": "open",
+          "status": "done",
           "priority": "P1",
           "type": "backend-integration",
           "component": "codecompass",
@@ -330,12 +338,13 @@
             "VectorEncoding wird auf Agentenfeatures genauso angewendet wie auf normale Embeddings.",
             "HybridOrchestrator behandelt Agentenfeatures als fuzzy/secondary signal, nicht als exakte Autoritaet.",
             "ContextTrace zeigt, welcher AI-Agent welches Feature erzeugt hat."
-          ]
+          ],
+          "completed": "2026-06-22"
         },
         {
           "id": "AGENT-FEATURE-004",
           "title": "Approval- und Policy-Gates fuer AgentFeatureProvider erzwingen",
-          "status": "open",
+          "status": "done",
           "priority": "P0",
           "type": "security-policy",
           "component": "policy",
@@ -353,7 +362,8 @@
             "Allowed paths werden vor Kontextuebergabe und nach Ergebnisrueckgabe geprueft.",
             "Ein Agent darf keine Rechte oder neuen Pfade durch seine Antwort erfinden.",
             "Tests pruefen blockierte externe Provider, denied paths und no-write enforcement."
-          ]
+          ],
+          "completed": "2026-06-22"
         }
       ]
     },
@@ -364,7 +374,7 @@
         {
           "id": "DEMO-001",
           "title": "Kleines Demo-Script fuer VectorEncoding schreiben",
-          "status": "open",
+          "status": "done",
           "priority": "P0",
           "type": "demo-script",
           "component": "scripts",
@@ -380,12 +390,13 @@
             "Script benoetigt keinen externen Provider und laeuft local-first.",
             "Output enthaelt einen kurzen Claim, der direkt in Bewerbung/README nutzbar ist.",
             "Script ist kurz genug, damit GitHub-Connector/CI es nicht blockiert."
-          ]
+          ],
+          "completed": "2026-06-22"
         },
         {
           "id": "DEMO-002",
           "title": "README Showcase-Abschnitt ergaenzen",
-          "status": "open",
+          "status": "done",
           "priority": "P0",
           "type": "documentation-marketing",
           "component": "readme",
@@ -403,12 +414,13 @@
             "Abschnitt enthaelt einen Copy-Paste Demo-Befehl.",
             "Abschnitt uebertreibt nicht: experimental bleibt experimental.",
             "Abschnitt formuliert den Vorteil klar: lokale Pruefbarkeit, Policy, Determinismus, Trace, komprimierte Modellfeatures."
-          ]
+          ],
+          "completed": "2026-06-22"
         },
         {
           "id": "DEMO-003",
           "title": "Architekturdiagramm fuer grossen Wurf anlegen",
-          "status": "open",
+          "status": "done",
           "priority": "P1",
           "type": "diagram",
           "component": "architecture",
@@ -426,7 +438,8 @@
             "Diagramm markiert read-only FeatureProvider-Modus getrennt von Worker-Ausfuehrung.",
             "Diagramm zeigt ContextTrace und Diagnostics als eigene Artefakte.",
             "Mermaid rendert ohne Syntaxfehler."
-          ]
+          ],
+          "completed": "2026-06-22"
         }
       ]
     }

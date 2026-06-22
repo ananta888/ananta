@@ -17,6 +17,7 @@ from worker.retrieval.codecompass_embedding_loader import load_codecompass_embed
 from worker.retrieval.codecompass_vector_engine import CodeCompassVectorEngine
 from worker.retrieval.codecompass_vector_store import CodeCompassVectorStore
 from worker.retrieval.embedding_text_builder import CODECOMPASS_EMBEDDING_TEXT_PROFILE
+from worker.retrieval.vector_encoding import VectorEncoder, VectorEncodingProfile
 
 if TYPE_CHECKING:
     from agent.services.restricted_model_inference_service import RestrictedModelInferenceService
@@ -47,6 +48,8 @@ class CodeCompassVectorRetrievalService:
         fail_mode: str = "degraded_empty",
         restricted_inference_service: "RestrictedModelInferenceService | None" = None,
         strategy_config: RetrievalStrategyConfig | None = None,
+        vector_encoding_config: dict[str, Any] | None = None,
+        vector_encoding_fallback_policy: str = "fallback_float32",
     ) -> None:
         self.repo_root = Path(repo_root).resolve()
         self.embedding_records_path = self._resolve_path(embedding_records_path)
@@ -57,6 +60,8 @@ class CodeCompassVectorRetrievalService:
         self.fail_mode = str(fail_mode or "degraded_empty")
         self._restricted_inference = restricted_inference_service
         self._strategy_config: RetrievalStrategyConfig = strategy_config or RetrievalStrategyConfig()
+        self._vector_encoder = VectorEncoder(VectorEncodingProfile.from_config(vector_encoding_config))
+        self._vector_encoding_fallback_policy = str(vector_encoding_fallback_policy or "fallback_float32")
         self._last_diagnostic: dict[str, Any] = {"status": "not_run", "reason": "not_run"}
 
     def _resolve_path(self, value: str | Path) -> Path:
@@ -79,6 +84,7 @@ class CodeCompassVectorRetrievalService:
                 manifest_hash=str(manifest.get("manifest_hash") or ""),
                 embedding_provider_config_hash=provider_cfg.config_hash(),
                 embedding_text_profile=self.embedding_text_profile,
+                vector_encoder=self._vector_encoder,
             )
             engine = CodeCompassVectorEngine(store=self.store, embedding_provider=provider)
             effective_top_k = self._strategy_config.effective_top_k(top_k)
@@ -104,6 +110,7 @@ class CodeCompassVectorRetrievalService:
                 log.debug("semantic_prefilter requested but no restricted_inference_service configured; skipping")
                 rows = rows[:top_k]
 
+            refresh_diag = refresh.get("diagnostics", {})
             self._last_diagnostic = {
                 "status": "ready",
                 "reason": refresh.get("reason", "ok"),
@@ -111,8 +118,17 @@ class CodeCompassVectorRetrievalService:
                 "retrieval_strategy": self._strategy_config.strategy,
                 "prefilter_applied": prefilter_applied,
                 "load": load_diagnostics,
-                "refresh": refresh.get("diagnostics", {}),
+                "refresh": refresh_diag,
                 "engine": engine.last_diagnostic(),
+                "vector_encoding": {
+                    "mode": self._vector_encoder.profile.mode,
+                    "enabled": self._vector_encoder.profile.enabled,
+                    "experimental": self._vector_encoder.profile.experimental,
+                    "profile_hash": self._vector_encoder.profile.config_hash(),
+                    "fallback_policy": self._vector_encoding_fallback_policy,
+                    "compression_ratio": refresh_diag.get("vector_encoding_compression_ratio"),
+                    "max_abs_error": refresh_diag.get("vector_encoding_max_abs_error"),
+                },
             }
             return rows
         except Exception as exc:

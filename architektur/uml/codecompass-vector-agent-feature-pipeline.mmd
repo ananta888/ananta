@@ -1,0 +1,111 @@
+flowchart TD
+    %% ── Sources ─────────────────────────────────────────────
+    REPO["CodeCompass\nrecords / embedding.json"]
+
+    %% ── Local Providers ─────────────────────────────────────
+    EP["EmbeddingProvider\n(local)"]
+    TFP["TransformerFeatureProvider\n[optional, local-only by default]"]
+    LOCAL_MODEL["Local Inference Model\ne.g. Ollama / llama.cpp"]
+
+    %% ── External Agent Adapters ─────────────────────────────
+    EXT_AGENTS["External AI Agents\nOpenCode | Codex | Claude-CLI"]
+    AFP["AgentFeatureProvider\n[read-only / analyze-only mode]"]
+
+    %% ── Policy and Approval Gates ───────────────────────────
+    PG_LOCAL{{"Policy Gate\nlocal_only=true\nno_write_mode=true\nmax_input_chars"}}
+    PG_EXT{{"Approval Gate\nexternal_calls_allowed\nallowed_provider_ids\nno_write_mode=true"}}
+
+    %% ── Schema Validation ───────────────────────────────────
+    SCHEMA["Schema Validation\nAgentFeatureOutput\nmalformed → discard"]
+
+    %% ── Encoding ────────────────────────────────────────────
+    VEP["VectorEncodingProfile\nmode / seed / config_hash"]
+    VE["VectorEncoder"]
+
+    %% ── Store ───────────────────────────────────────────────
+    VS["CodeCompassVectorStore\nsource_scope:\nrepo | transformer_feature | agent_feature"]
+
+    %% ── Search and Orchestration ────────────────────────────
+    VSE["VectorSearchEngine\ncosine similarity\ndomain scope filter"]
+    HO["HybridOrchestrator\nexact repo signals > transformer features > agent features\ndeterministic rerank"]
+
+    %% ── Output Artifacts ────────────────────────────────────
+    CT["ContextTrace\ninput_hash | output_hash\nprovider_id | policy_decision\nmodel_feature | det_score | final_decision"]
+    DIAG["Diagnostics\ncompression_ratio\nmax_abs_error\nexperimental flag"]
+    PC["PromptContext"]
+
+    %% ── Flows: repo path ────────────────────────────────────
+    REPO --> EP
+    EP --> VEP
+
+    %% ── Flows: local transformer path ───────────────────────
+    REPO --> TFP
+    TFP --> LOCAL_MODEL
+    LOCAL_MODEL --> PG_LOCAL
+    PG_LOCAL -->|"allowed"| VEP
+    PG_LOCAL -->|"blocked"| CT
+
+    %% ── Flows: external agent path ──────────────────────────
+    EXT_AGENTS --> AFP
+    AFP --> PG_EXT
+    PG_EXT -->|"allowed"| SCHEMA
+    PG_EXT -->|"blocked"| CT
+    SCHEMA -->|"valid"| VEP
+    SCHEMA -->|"malformed → discard"| CT
+
+    %% ── Flows: encoding → store → search ────────────────────
+    VEP --> VE
+    VE --> VS
+    VS --> VSE
+    VSE --> HO
+    HO --> CT
+    HO --> PC
+    VE --> DIAG
+    CT --> DIAG
+
+    %% ── Styles ──────────────────────────────────────────────
+    classDef local     fill:#d4edda,stroke:#28a745,color:#000
+    classDef external  fill:#fff3cd,stroke:#ffc107,color:#000
+    classDef gate      fill:#f8d7da,stroke:#dc3545,color:#000
+    classDef store     fill:#cce5ff,stroke:#004085,color:#000
+    classDef readonly  fill:#e2d9f3,stroke:#6f42c1,color:#000,stroke-dasharray:4 2
+    classDef artifact  fill:#f1f3f4,stroke:#6c757d,color:#000
+
+    class EP,TFP,LOCAL_MODEL local
+    class EXT_AGENTS,AFP external
+    class PG_LOCAL,PG_EXT gate
+    class SCHEMA readonly
+    class VEP,VE,VS,VSE store
+    class HO artifact
+    class CT,DIAG,PC artifact
+    class REPO artifact
+
+    %% ── Subgraph: read-only FeatureProvider boundary ────────
+    subgraph FP_MODE["FeatureProvider Mode (read-only boundary)"]
+        direction LR
+        AFP
+        PG_EXT
+        SCHEMA
+    end
+
+    subgraph LOCAL_MODE["Local Provider Mode"]
+        direction LR
+        TFP
+        LOCAL_MODEL
+        PG_LOCAL
+    end
+
+    %% ── Legend ──────────────────────────────────────────────
+    subgraph LEGEND["Legend"]
+        direction TB
+        LG1["Green = local provider / model"]
+        LG2["Yellow = external agent adapter"]
+        LG3["Red = Policy/Approval Gate (Default-Deny)"]
+        LG4["Blue = encoding / store / search layer"]
+        LG5["Dashed border = read-only FeatureProvider mode"]
+        LG6["Agents deliver signals — Ananta decides"]
+    end
+
+    style FP_MODE fill:#fffde7,stroke:#f0a500,color:#333
+    style LOCAL_MODE fill:#e8f5e9,stroke:#43a047,color:#333
+    style LEGEND fill:#fafafa,stroke:#aaa,color:#333,font-size:11px
