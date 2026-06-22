@@ -21,6 +21,8 @@ import { GraphNode, GraphEdge } from '../../models/graph.model';
             <button class="close-btn" (click)="closed.emit()">✕</button>
           </div>
           <dl class="detail-list">
+            <dt>Name</dt>
+            <dd class="copyable" (click)="copyText(selectedNode.label)" title="Click to copy">{{ selectedNode.label }}</dd>
             @if (selectedNode.file) {
               <dt>File</dt>
               <dd class="copyable" (click)="copyText(selectedNode.file)" title="Click to copy">{{ selectedNode.file }}</dd>
