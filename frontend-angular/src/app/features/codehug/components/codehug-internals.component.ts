@@ -215,18 +215,22 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
           <option [value]="d.domain">{{ domainOptionLabel(d) }}</option>
         }
       </select>
-      <label class="ch-lbl" style="margin-left:8px" title="0=Dateien, 1=+Klassen, 2=+Funktionen, 3=alles">Tiefe</label>
-      <select class="ch-sel" style="width:52px" [value]="ccDepth()"
-        (change)="ccDepth.set(+$any($event.target).value); loadSelfGraph()">
-        <option value="0">0</option>
-        <option value="1">1</option>
-        <option value="2">2</option>
-        <option value="3">3</option>
+      <label class="ch-lbl" style="margin-left:8px" title="Welche Node-Arten geladen werden; echte Hop-Tiefe gibt es nach Node-Auswahl im Fokus.">Detailgrad</label>
+      <select class="ch-sel" style="width:116px" [value]="ccDetailLevel()"
+        (change)="ccDetailLevel.set(+$any($event.target).value); loadSelfGraph()">
+        <option value="0">Dateien</option>
+        <option value="1">+ Typen</option>
+        <option value="2">+ Funktionen</option>
+        <option value="3">+ Details</option>
       </select>
-      <label class="ch-lbl" style="margin-left:8px" title="Max. Nodes (0 = unbegrenzt)">Max</label>
+      <label class="ch-lbl" style="margin-left:8px" title="Max. Nodes (0 = unbegrenzt)">Max Nodes</label>
       <input type="number" class="ch-sel" style="width:64px" min="0" step="500"
         [value]="ccMaxNodes()"
         (change)="ccMaxNodes.set(+$any($event.target).value); loadSelfGraph()" />
+      <label class="ch-lbl" style="margin-left:8px" title="Max. Edges (0 = unbegrenzt)">Max Edges</label>
+      <input type="number" class="ch-sel" style="width:64px" min="0" step="500"
+        [value]="ccMaxEdges()"
+        (change)="ccMaxEdges.set(+$any($event.target).value); loadSelfGraph()" />
       @if (ccLoading()) { <span class="ch-lbl" style="color:var(--muted);margin-left:8px">Lädt…</span> }
       @if (ccError()) { <span class="ch-lbl" style="color:#ef4444;margin-left:8px">{{ ccError() }}</span> }
     }
@@ -315,9 +319,11 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
     @if (ccMeta()) {
       <div class="ch-graph-info">
         <span>{{ ccMeta()!['node_count'] }} Nodes · {{ ccMeta()!['edge_count'] }} Edges</span>
-        @if (ccMeta()!['capped']) {
+        @if (ccMeta()!['capped'] || ccMeta()!['edge_capped']) {
           <span class="ch-cap-warn">
-            ⚠ Cap: {{ ccMeta()!['node_count'] }}/{{ ccMeta()!['tier_total_nodes'] }} — erhöhe Tiefe oder Max für mehr
+            ⚠ Cap: {{ ccMeta()!['node_count'] }}/{{ ccMeta()!['tier_total_nodes'] }} Nodes,
+            {{ ccMeta()!['edge_count'] }}/{{ ccMeta()!['pre_edge_cap_edge_count'] || ccMeta()!['pre_cap_edge_count'] }} Edges
+            — erhöhe Max Nodes/Edges für mehr
           </span>
         } @else {
           <span class="ch-graph-hint">{{ ccMeta()!['domain_total_nodes'] }} Nodes im Modul</span>
@@ -1255,8 +1261,9 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
   readonly ccError = signal('');
   readonly ccDomains = signal<{domain: string; display_name: string; file_count: number; kind: string; depth?: number; parent_domain?: string}[]>([]);
   readonly ccDomain = signal('agent.routes');
-  readonly ccDepth = signal(2);
-  readonly ccMaxNodes = signal(3000);
+  readonly ccDetailLevel = signal(2);
+  readonly ccMaxNodes = signal(0);
+  readonly ccMaxEdges = signal(0);
   readonly ccMeta = signal<Record<string, unknown> | null>(null);
 
   // ── Connect mode ──────────────────────────────────────────────────────────
@@ -1326,7 +1333,7 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
     this.ccLoading.set(true);
     this.ccError.set('');
     this.ccRawGraph.set(null);
-    this.svc.getSelfGraph(this.ccDomain(), this.ccDepth(), this.ccMaxNodes()).subscribe({
+    this.svc.getSelfGraph(this.ccDomain(), this.ccDetailLevel(), this.ccMaxNodes(), this.ccMaxEdges()).subscribe({
       next: data => {
         this.ccLoading.set(false);
         if (data) {

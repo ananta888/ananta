@@ -13,7 +13,7 @@ export class GraphStateService {
   readonly graph = signal<GenericGraphModel | null>(null);
 
   readonly focusNodeId = signal<string | null>(null);
-  readonly focusHopDepth = signal(1);
+  readonly focusHopDepth = signal(0);
 
   readonly filteredNodes = computed(() => {
     const g = this.graph();
@@ -44,6 +44,7 @@ export class GraphStateService {
     this.selectedNode.set(null);
     this.selectedEdge.set(null);
     this.focusNodeId.set(null);
+    this.focusHopDepth.set(0);
   }
 
   setViewMode(mode: GraphViewMode): void {
@@ -60,9 +61,10 @@ export class GraphStateService {
     this.selectedNode.set(null);
   }
 
-  setFocus(nodeId: string | null, hops = 1): void {
-    this.focusNodeId.set(nodeId);
-    this.focusHopDepth.set(hops);
+  setFocus(nodeId: string | null, hops = 0): void {
+    const depth = Math.max(0, Math.floor(hops));
+    this.focusHopDepth.set(depth);
+    this.focusNodeId.set(nodeId && depth > 0 ? nodeId : null);
   }
 
   updateFilter(patch: Partial<GraphFilter>): void {

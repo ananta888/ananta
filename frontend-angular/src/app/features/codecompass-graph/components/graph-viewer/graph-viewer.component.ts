@@ -81,7 +81,7 @@ import { Graph3dViewComponent } from '../graph-3d-view/graph-3d-view.component';
               [focusHopDepth]="state.focusHopDepth()"
               (closed)="state.clearSelection()"
               (focusRequested)="state.setFocus(state.selectedNode()!.id, $event)"
-              (focusCleared)="state.setFocus(null)"
+              (focusCleared)="state.setFocus(null, 0)"
             />
           </div>
         }

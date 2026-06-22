@@ -8,6 +8,28 @@ function buildGraph(): GenericGraphModel {
   return TestBed.inject(GraphAdapterService).fromDomainArtifact(MOCK_DOMAIN_GRAPH_ARTIFACT);
 }
 
+function chainGraph(): GenericGraphModel {
+  const nodes = ['a', 'b', 'c', 'd'].map(id => ({
+    id,
+    kind: 'python_function' as const,
+    label: id,
+    file: `${id}.py`,
+    content: '',
+    recordId: id,
+    metadata: {},
+  }));
+  return {
+    nodes,
+    edges: [
+      { id: 'ab', source: 'a', target: 'b', edgeType: 'parent_child', confidence: 1, metadata: {} },
+      { id: 'bc', source: 'b', target: 'c', edgeType: 'parent_child', confidence: 1, metadata: {} },
+      { id: 'cd', source: 'c', target: 'd', edgeType: 'parent_child', confidence: 1, metadata: {} },
+    ],
+    metadata: { sourceRef: 'test', sourceKind: 'test', nodeCount: nodes.length, edgeCount: 3 },
+    warnings: [],
+  };
+}
+
 describe('GraphStateService', () => {
   let svc: GraphStateService;
 
@@ -103,5 +125,29 @@ describe('GraphStateService', () => {
     svc.updateFilter({ nodeKindFilter: ['config'] });
     svc.resetFilter();
     expect(svc.filteredNodes().length).toBe(20);
+  });
+
+  it('focus depth 0 clears focus and keeps the full graph visible', () => {
+    const g = chainGraph();
+    svc.setGraph(g);
+    svc.setFocus('a', 2);
+    expect(svc.filteredNodes().map(n => n.id)).toEqual(['a', 'b', 'c']);
+
+    svc.setFocus('a', 0);
+
+    expect(svc.focusNodeId()).toBeNull();
+    expect(svc.focusHopDepth()).toBe(0);
+    expect(svc.filteredNodes().map(n => n.id)).toEqual(['a', 'b', 'c', 'd']);
+  });
+
+  it('focus depth follows graph hops from the selected node', () => {
+    const g = chainGraph();
+    svc.setGraph(g);
+
+    svc.setFocus('a', 1);
+    expect(svc.filteredNodes().map(n => n.id)).toEqual(['a', 'b']);
+
+    svc.setFocus('a', 2);
+    expect(svc.filteredNodes().map(n => n.id)).toEqual(['a', 'b', 'c']);
   });
 });

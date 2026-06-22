@@ -342,7 +342,8 @@ _NODE_KIND_TIER: dict[str, int] = {
     "yaml_entry": 3, "properties_entry": 3,
 }
 _DEFAULT_TIER = 3
-_DEFAULT_MAX_NODES = 3000
+_DEFAULT_MAX_NODES = 0
+_DEFAULT_MAX_EDGES = 0
 
 
 def _domain_parts_from_file(file_path: str) -> list[str]:
@@ -487,31 +488,38 @@ def get_self_graph_domains():
 @codecompass_graph_bp.route("/api/codecompass/self-graph", methods=["GET"])
 @check_auth
 def get_self_graph():
-    """Serve Ananta's own rag-helper/out JSONL graph with tiered kind-based depth + hard cap.
+    """Serve Ananta's own rag-helper/out JSONL graph with kind detail levels + optional caps.
 
     ?domain=agent.routes  — module area key (default: agent.routes). 'all' for everything.
-    ?depth=1              — kind tier depth (default: 1).
+    ?detail_level=1       — node detail level (default: 1).
                            0 = files+summaries only (~fast)
                            1 = + classes/types
                            2 = + functions/methods
                            3 = + imports/details (all)
-    ?max_nodes=3000       — hard cap on output nodes (default: 3000, 0 = no cap).
+                           Legacy alias: depth.
+    ?max_nodes=0          — optional cap on output nodes (default: 0 = no cap).
+    ?max_edges=0          — optional cap on output edges (default: 0 = no cap).
     ?kind=python_file     — optional extra single-kind filter.
     """
     from agent.config import settings
 
     domain_filter = str(request.args.get("domain") or "agent.routes").strip()
-    raw_depth = str(request.args.get("depth") or "1").strip()
+    raw_detail_level = str(request.args.get("detail_level") or request.args.get("depth") or "1").strip()
     kind_filter = str(request.args.get("kind") or "").strip().lower() or None
-    raw_max = str(request.args.get("max_nodes") or str(_DEFAULT_MAX_NODES)).strip()
+    raw_max_nodes = str(request.args.get("max_nodes") or str(_DEFAULT_MAX_NODES)).strip()
+    raw_max_edges = str(request.args.get("max_edges") or str(_DEFAULT_MAX_EDGES)).strip()
     try:
-        tier_depth = max(0, min(int(raw_depth), 3))
+        detail_level = max(0, min(int(raw_detail_level), 3))
     except ValueError:
-        tier_depth = 1
+        detail_level = 1
     try:
-        max_nodes = int(raw_max)
+        max_nodes = int(raw_max_nodes)
     except ValueError:
         max_nodes = _DEFAULT_MAX_NODES
+    try:
+        max_edges = int(raw_max_edges)
+    except ValueError:
+        max_edges = _DEFAULT_MAX_EDGES
 
     nodes_path, edges_path = _rag_out_paths(settings)
     name_index = _get_name_index(nodes_path.parent)
@@ -540,10 +548,10 @@ def get_self_graph():
 
     domain_total = len(scoped)
 
-    # ── 3. Tier filter (kind-based depth) ────────────────────────────────────
+    # ── 3. Detail-level filter (kind tiers, not graph traversal hops) ────────
     scoped = [
         n for n in scoped
-        if _NODE_KIND_TIER.get(str(n.get("kind") or ""), _DEFAULT_TIER) <= tier_depth
+        if _NODE_KIND_TIER.get(str(n.get("kind") or ""), _DEFAULT_TIER) <= detail_level
     ]
     if kind_filter:
         scoped = [n for n in scoped if str(n.get("kind") or "").lower() == kind_filter]
@@ -576,7 +584,7 @@ def get_self_graph():
                         "attributes": {"confidence": 1.0},
                     })
 
-    # ── 5. Hard cap — priority: lower tier, then degree DESC, then importance ─
+    # ── 5. Optional node cap — priority: lower tier, then degree DESC, then importance ─
     warnings: list[str] = []
     capped = False
     if max_nodes > 0 and len(scoped) > max_nodes:
@@ -589,7 +597,7 @@ def get_self_graph():
         capped = True
         warnings.append(
             f"cap_applied: showing {max_nodes} of {tier_total} nodes "
-            f"(domain has {domain_total} total — raise depth or max_nodes to see more)"
+            f"(domain has {domain_total} total — raise detail_level or max_nodes to see more)"
         )
 
     # ── 6. Filter edges to final selected node set ────────────────────────────
@@ -598,6 +606,15 @@ def get_self_graph():
         e for e in all_internal_edges
         if e["source_id"] in selected_ids and e["target_id"] in selected_ids
     ]
+    pre_edge_cap_count = len(raw_edges)
+    edge_capped = False
+    if max_edges > 0 and len(raw_edges) > max_edges:
+        raw_edges = raw_edges[:max_edges]
+        edge_capped = True
+        warnings.append(
+            f"edge_cap_applied: showing {max_edges} of {pre_edge_cap_count} edges "
+            f"(raise max_edges to see more)"
+        )
 
     # ── 7. Format output ─────────────────────────────────────────────────────
     raw_nodes = [
@@ -626,13 +643,17 @@ def get_self_graph():
             "node_count": len(raw_nodes),
             "edge_count": len(raw_edges),
             "domain": domain_filter,
-            "depth": tier_depth,
+            "detail_level": detail_level,
+            "depth": detail_level,
             "domain_total_nodes": domain_total,
             "tier_total_nodes": tier_total,
             "capped": capped,
+            "edge_capped": edge_capped,
             "max_nodes": max_nodes if max_nodes > 0 else None,
+            "max_edges": max_edges if max_edges > 0 else None,
             "total_nodes_available": len(all_nodes_by_id),
             "pre_cap_edge_count": len(all_internal_edges),
+            "pre_edge_cap_edge_count": pre_edge_cap_count,
         },
         "warnings": warnings,
     })

@@ -53,4 +53,19 @@ describe('GraphDetailPanelComponent', () => {
     expect(component.localHops).toBe(2);
     expect(emitted).toEqual([]);
   });
+
+  it('allows hop depth 0 and emits it when focus is active', () => {
+    fixture.componentRef.setInput('selectedNode', selectedNode);
+    fixture.componentRef.setInput('focusActive', true);
+    fixture.componentRef.setInput('focusHopDepth', 1);
+    fixture.detectChanges();
+
+    const emitted: number[] = [];
+    component.focusRequested.subscribe(depth => emitted.push(depth));
+
+    component.decHops();
+
+    expect(component.localHops).toBe(0);
+    expect(emitted).toEqual([0]);
+  });
 });

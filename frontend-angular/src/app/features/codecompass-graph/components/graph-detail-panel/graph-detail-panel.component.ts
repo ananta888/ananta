@@ -45,16 +45,16 @@ import { GraphNode, GraphEdge } from '../../models/graph.model';
         <!-- Focus controls -->
         <div class="focus-section">
           <div class="focus-row">
-            <span class="focus-label">Verbindungstiefe</span>
+            <span class="focus-label">Hop-Tiefe</span>
             <div class="hop-stepper">
-              <button class="hop-btn" (click)="decHops()" [disabled]="localHops <= 1">−</button>
+              <button class="hop-btn" (click)="decHops()" [disabled]="localHops <= 0">−</button>
               <span class="hop-val">{{ localHops }}</span>
               <button class="hop-btn" (click)="incHops()" [disabled]="localHops >= 6">+</button>
             </div>
           </div>
           <div class="focus-btns">
             <button class="btn-focus" (click)="focusRequested.emit(localHops)">
-              Nur diesen Knoten
+              Anwenden
             </button>
             @if (focusActive) {
               <button class="btn-clear-focus" (click)="focusCleared.emit()">
@@ -64,6 +64,8 @@ import { GraphNode, GraphEdge } from '../../models/graph.model';
           </div>
           @if (focusActive) {
             <p class="focus-hint">Zeigt {{ selectedNode.label }} + {{ localHops }}-Hop-Nachbarn</p>
+          } @else {
+            <p class="focus-hint">0 zeigt den kompletten geladenen Graph</p>
           }
         </div>
       }
@@ -138,13 +140,13 @@ export class GraphDetailPanelComponent implements OnChanges {
   @Input() selectedNode: GraphNode | null = null;
   @Input() selectedEdge: GraphEdge | null = null;
   @Input() focusActive = false;
-  @Input() focusHopDepth = 1;
+  @Input() focusHopDepth = 0;
 
   @Output() closed = new EventEmitter<void>();
   @Output() focusRequested = new EventEmitter<number>();
   @Output() focusCleared = new EventEmitter<void>();
 
-  localHops = 1;
+  localHops = 0;
 
   ngOnChanges(): void {
     this.localHops = this.focusHopDepth;
@@ -157,7 +159,7 @@ export class GraphDetailPanelComponent implements OnChanges {
   }
 
   decHops(): void {
-    if (this.localHops <= 1) return;
+    if (this.localHops <= 0) return;
     this.localHops--;
     this.emitFocusDepthIfActive();
   }

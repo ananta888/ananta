@@ -210,8 +210,13 @@ export class InternalsService {
     );
   }
 
-  getSelfGraph(domain = 'agent.routes', depth = 2, maxNodes = 3000): Observable<any> {
-    const params = new URLSearchParams({ domain, depth: String(depth), max_nodes: String(maxNodes) });
+  getSelfGraph(domain = 'agent.routes', detailLevel = 2, maxNodes = 0, maxEdges = 0): Observable<any> {
+    const params = new URLSearchParams({
+      domain,
+      detail_level: String(detailLevel),
+      max_nodes: String(maxNodes),
+      max_edges: String(maxEdges),
+    });
     return this.http.get<any>(`${this.hubUrl()}/api/codecompass/self-graph?${params}`).pipe(
       map(r => r?.data ?? null),
       catchError(() => of(null)),
