@@ -120,7 +120,7 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
     const thread: ChatThread = {
       id: `thread-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       title: `Chat ${index}`,
-      history: [{ role: 'assistant', content: 'Hallo. Ich bin AI Snake.' }],
+      history: [],
       updatedAt: Date.now(),
     };
     this.chatThreads = [...this.chatThreads, thread];
@@ -755,7 +755,7 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
       {
         id: 'thread-default',
         title: 'Chat 1',
-        history: this.chatHistory.length ? this.chatHistory : [{ role: 'assistant', content: 'Hallo. Ich bin AI Snake.' }],
+        history: this.chatHistory.length ? this.chatHistory : [],
         updatedAt: Date.now(),
       },
     ];
@@ -768,7 +768,7 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
         {
           id: 'thread-default',
           title: 'Chat 1',
-          history: [{ role: 'assistant', content: 'Hallo. Ich bin AI Snake.' }],
+          history: [],
           updatedAt: Date.now(),
         },
       ];

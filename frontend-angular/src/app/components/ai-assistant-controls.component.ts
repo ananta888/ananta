@@ -22,41 +22,6 @@ import { AssistantRuntimeContext, CliBackend } from './ai-assistant.types';
         <button class="cancel-btn" (click)="retryLast.emit()">Retry last</button>
       }
     </div>
-    <label class="hybrid-toggle">
-      <input
-        type="checkbox"
-        data-testid="assistant-hybrid-toggle"
-        aria-label="Hybrid Context"
-        [ngModel]="useHybridContext"
-        (ngModelChange)="useHybridContextChange.emit($event)"
-        [disabled]="busy">
-      Hybrid Context (Aider + Vibe + LlamaIndex)
-    </label>
-    <div class="muted context-info">Route: {{ runtimeContext.route }} | User: {{ runtimeContext.userName || 'n/a' }} ({{ runtimeContext.userRole || 'n/a' }}) | Agents: {{ runtimeContext.agents.length }} | Teams: {{ runtimeContext.teamsCount }} | Templates: {{ runtimeContext.templatesCount }}</div>
-    <div class="row quick-actions-row">
-      <button class="mini-btn" (click)="refreshContext.emit()">Refresh Context</button>
-      @for (qa of quickActions; track qa.label) {
-        <button class="mini-btn" (click)="quickAction.emit(qa.prompt)" [disabled]="busy">{{ qa.label }}</button>
-      }
-    </div>
-    <label class="hybrid-toggle">
-      CLI Backend:
-      <select [ngModel]="cliBackend" (ngModelChange)="cliBackendChange.emit($event)" [disabled]="busy">
-        @for (backend of availableCliBackends; track backend) {
-          <option [value]="backend">{{ backendLabel(backend) }}</option>
-        }
-      </select>
-    </label>
-    @if (selectedCliRuntime) {
-      <div class="muted context-info">
-        Runtime: {{ selectedCliRuntime?.binary_available ? 'binary ok' : 'binary missing' }} |
-        Health: {{ selectedCliRuntime?.health_score ?? 'n/a' }}
-        @if (selectedCliRuntime?.target_base_url) {
-          | Target: {{ selectedCliRuntime?.target_is_local ? 'local' : 'remote' }} ({{ selectedCliRuntime?.target_base_url }})
-        }
-      </div>
-    }
-    <div class="muted context-info">Actions require admin rights and confirmation.</div>
   `,
   styles: [`
     .input-area { display: flex; gap: 5px; }

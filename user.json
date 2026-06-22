@@ -1,6 +1,6 @@
 {
   "schema_version": "user_config.v1",
-  "updated": "2026-06-22T08:31:54Z",
+  "updated": "2026-06-22T08:34:36Z",
   "settings": {
     "chat_streaming": false,
     "chat_worker_mode": "propose",
