@@ -91,7 +91,7 @@ import { Graph3dViewComponent } from '../graph-3d-view/graph-3d-view.component';
     :host { display: flex; flex-direction: column; flex: 1; min-height: 0; }
     .gv-shell { display: flex; flex-direction: column; flex: 1; min-height: 0; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; }
     .gv-body { display: flex; flex: 1; min-height: 0; overflow: hidden; }
-    .gv-renderer { flex: 1; min-height: 0; overflow: hidden; }
+    .gv-renderer { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
     .gv-detail { width: 320px; border-left: 1px solid #e2e8f0; overflow-y: auto; background: #fafafa; flex-shrink: 0; }
     .gv-warnings { padding: .5rem .75rem; background: #fef9c3; border-top: 1px solid #fde68a; flex-shrink: 0; }
     .warning-msg { margin: 0; font-size: .8rem; color: #92400e; }

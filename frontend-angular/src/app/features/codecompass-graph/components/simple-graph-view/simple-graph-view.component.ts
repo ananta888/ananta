@@ -48,7 +48,7 @@ import { GraphEdge, GraphNode, GenericGraphModel } from '../../models/graph.mode
     }
   `,
   styles: [`
-    :host { display: flex; flex-direction: column; flex: 1; min-height: 0; padding: .5rem; box-sizing: border-box; }
+    :host { display: flex; flex-direction: column; flex: 1; width: 100%; height: 100%; min-height: 0; padding: .5rem; box-sizing: border-box; }
     .sgv-layout { display: flex; gap: 1rem; flex: 1; min-height: 0; overflow: hidden; }
     .sgv-col { display: flex; flex-direction: column; flex: 1; min-width: 240px; min-height: 0; }
     h4 { margin: 0 0 .4rem; font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; color: #555; flex-shrink: 0; }

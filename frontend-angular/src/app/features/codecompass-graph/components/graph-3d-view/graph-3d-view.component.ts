@@ -48,8 +48,8 @@ function hasWebGL(): boolean {
     ></div>
   `,
   styles: [`
-    :host { display: block; width: 100%; height: 100%; min-height: 500px; }
-    .fg3d-container { width: 100%; height: 100%; min-height: 500px; }
+    :host { display: flex; flex-direction: column; flex: 1; width: 100%; height: 100%; min-height: 0; }
+    .fg3d-container { flex: 1; width: 100%; height: 100%; min-height: 0; }
     .fallback-msg { padding: 1.5rem; color: #555; line-height: 1.6; }
     .fallback-msg p { margin: 0 0 .5rem; }
     .error-msg { color: #c00; padding: .75rem; }

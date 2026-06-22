@@ -408,26 +408,10 @@ def get_self_graph():
 
     tier_total = len(scoped)
 
-    # ── 4. Hard cap — priority: lower tier first, then importance_score ───────
-    warnings: list[str] = []
-    capped = False
-    if max_nodes > 0 and len(scoped) > max_nodes:
-        scoped.sort(key=lambda n: (
-            _NODE_KIND_TIER.get(str(n.get("kind") or ""), _DEFAULT_TIER),
-            -float(n.get("importance_score") or 0.0),
-        ))
-        scoped = scoped[:max_nodes]
-        capped = True
-        warnings.append(
-            f"cap_applied: showing {max_nodes} of {tier_total} nodes "
-            f"(domain has {domain_total} total — raise depth or max_nodes to see more)"
-        )
-
-    # ── 5. Build selected id set ─────────────────────────────────────────────
-    selected_ids: set[str] = {str(n["id"]) for n in scoped}
-
-    # ── 6. Load only edges between selected nodes (no full adjacency needed) ──
-    raw_edges = []
+    # ── 4. Load edges between scoped nodes; compute degree for cap ordering ────
+    scoped_ids_full: set[str] = {str(n["id"]) for n in scoped}
+    node_degree: dict[str, int] = {nid: 0 for nid in scoped_ids_full}
+    all_internal_edges: list[dict] = []
     if edges_path.exists():
         with edges_path.open(encoding="utf-8") as f:
             for line in f:
@@ -440,15 +424,40 @@ def get_self_graph():
                     continue
                 src = str(edge.get("source") or "")
                 tgt = str(edge.get("target") or "")
-                if src in selected_ids and tgt in selected_ids:
-                    raw_edges.append({
+                if src in scoped_ids_full and tgt in scoped_ids_full:
+                    node_degree[src] = node_degree.get(src, 0) + 1
+                    node_degree[tgt] = node_degree.get(tgt, 0) + 1
+                    all_internal_edges.append({
                         "source_id": src,
                         "target_id": tgt,
                         "relation": str(edge.get("type") or edge.get("kind") or "related"),
                         "attributes": {"confidence": 1.0},
                     })
 
-    # ── 7. Build output nodes ─────────────────────────────────────────────────
+    # ── 5. Hard cap — priority: lower tier, then degree DESC, then importance ─
+    warnings: list[str] = []
+    capped = False
+    if max_nodes > 0 and len(scoped) > max_nodes:
+        scoped.sort(key=lambda n: (
+            _NODE_KIND_TIER.get(str(n.get("kind") or ""), _DEFAULT_TIER),
+            -node_degree.get(str(n["id"]), 0),
+            -float(n.get("importance_score") or 0.0),
+        ))
+        scoped = scoped[:max_nodes]
+        capped = True
+        warnings.append(
+            f"cap_applied: showing {max_nodes} of {tier_total} nodes "
+            f"(domain has {domain_total} total — raise depth or max_nodes to see more)"
+        )
+
+    # ── 6. Filter edges to final selected node set ────────────────────────────
+    selected_ids: set[str] = {str(n["id"]) for n in scoped}
+    raw_edges = [
+        e for e in all_internal_edges
+        if e["source_id"] in selected_ids and e["target_id"] in selected_ids
+    ]
+
+    # ── 7. Format output ─────────────────────────────────────────────────────
     raw_nodes = [
         {
             "node_id": str(n["id"]),
@@ -480,6 +489,7 @@ def get_self_graph():
             "capped": capped,
             "max_nodes": max_nodes if max_nodes > 0 else None,
             "total_nodes_available": len(all_nodes_by_id),
+            "pre_cap_edge_count": len(all_internal_edges),
         },
         "warnings": warnings,
     })

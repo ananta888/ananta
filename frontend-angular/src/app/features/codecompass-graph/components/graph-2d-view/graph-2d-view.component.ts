@@ -1,6 +1,6 @@
 import {
   Component, Input, Output, EventEmitter,
-  ElementRef, ViewChild, OnChanges, OnDestroy,
+  ElementRef, ViewChild, OnChanges, SimpleChanges, OnDestroy,
   ChangeDetectionStrategy, ChangeDetectorRef, inject,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -56,8 +56,8 @@ function yieldFrame(): Promise<void> {
     <div #cyContainer class="cy-container" [style.visibility]="showGraph ? 'visible' : 'hidden'"></div>
   `,
   styles: [`
-    :host { display: flex; flex-direction: column; flex: 1; min-height: 0; position: relative; }
-    .cy-container { flex: 1; min-height: 0; overflow: hidden; }
+    :host { display: flex; flex-direction: column; flex: 1; width: 100%; height: 100%; min-height: 0; position: relative; }
+    .cy-container { flex: 1; width: 100%; height: 100%; min-height: 0; overflow: hidden; }
     .status-msg { color: #888; padding: .75rem; font-style: italic; margin: 0; flex-shrink: 0; }
     .error-msg { color: #c00; }
     .render-warn {
@@ -99,8 +99,29 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
   private _cancelled = false;
   private readonly cdr = inject(ChangeDetectorRef);
 
-  ngOnChanges(): void {
-    this._cancelled = true; // cancel any in-progress render
+  ngOnChanges(changes: SimpleChanges): void {
+    const gc = changes['graph'];
+    // If only selectedNode/selectedEdge changed, just update highlight — don't re-render
+    if (!gc) {
+      if (this.cy) {
+        if (this.selectedNode) this._applyHighlight(this.selectedNode.id);
+        else this._clearHighlight();
+      }
+      return;
+    }
+
+    // If the graph wrapper changed but the actual nodes array is the same reference, skip re-render
+    const prev = gc.previousValue as GenericGraphModel | null;
+    const curr = gc.currentValue as GenericGraphModel | null;
+    if (prev && curr && prev.nodes === curr.nodes && prev.edges === curr.edges) {
+      if (this.cy) {
+        if (this.selectedNode) this._applyHighlight(this.selectedNode.id);
+        else this._clearHighlight();
+      }
+      return;
+    }
+
+    this._cancelled = true;
     this.cy?.destroy();
     this.cy = null;
     this.showGraph = false;
@@ -123,8 +144,24 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
     this._cancelled = false;
     this.cdr.detectChanges();
 
-    // Yield so loading state renders before we block
     setTimeout(() => this._render(), 16);
+  }
+
+  private _applyHighlight(nodeId: string): void {
+    if (!this.cy) return;
+    this._clearHighlight();
+    const focal = this.cy.getElementById(nodeId);
+    if (!focal.length) return;
+    const connectedEdges = focal.connectedEdges();
+    const neighbours = connectedEdges.connectedNodes().not(focal);
+    this.cy.elements().addClass('dimmed');
+    focal.removeClass('dimmed').addClass('focal');
+    neighbours.removeClass('dimmed').addClass('neighbour');
+    connectedEdges.removeClass('dimmed').addClass('active-edge');
+  }
+
+  private _clearHighlight(): void {
+    this.cy?.elements().removeClass('focal neighbour dimmed active-edge');
   }
 
   ngOnDestroy(): void {
@@ -246,7 +283,7 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
               'width': nodeSize, 'height': nodeSize,
               'text-wrap': 'ellipsis', 'text-max-width': `${nodeSize - 4}px`,
               'transition-property': 'opacity, border-width, border-color, width, height',
-              'transition-duration': '150ms' as any,
+              'transition-duration': 150 as any,
             } as any,
           },
           {
@@ -256,7 +293,7 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
               'target-arrow-color': '#cbd5e1', 'target-arrow-shape': 'triangle',
               'curve-style': 'haystack', 'opacity': 0.5,
               'transition-property': 'opacity, line-color, width',
-              'transition-duration': '150ms' as any,
+              'transition-duration': 150 as any,
             } as any,
           },
           // ── Dimmed (everything not in focus) ──────────────────────────────
@@ -314,38 +351,16 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
         userPanningEnabled: true,
       });
 
-      // ── Highlight helpers ──────────────────────────────────────────────────
-      const cy = this.cy;
-
-      const clearHighlight = () => {
-        cy.elements().removeClass('focal neighbour dimmed active-edge');
-      };
-
-      const applyHighlight = (nodeId: string) => {
-        clearHighlight();
-        const focal = cy.getElementById(nodeId);
-        if (!focal.length) return;
-
-        const connectedEdges = focal.connectedEdges();
-        const neighbours = connectedEdges.connectedNodes().not(focal);
-
-        // Dim everything first, then selectively un-dim
-        cy.elements().addClass('dimmed');
-        focal.removeClass('dimmed').addClass('focal');
-        neighbours.removeClass('dimmed').addClass('neighbour');
-        connectedEdges.removeClass('dimmed').addClass('active-edge');
-      };
-
+      // ── Event handlers ────────────────────────────────────────────────────
       this.cy.on('tap', 'node', (evt) => {
         const cyNode = evt.target as NodeSingular;
-        applyHighlight(cyNode.id());
+        this._applyHighlight(cyNode.id());
         const node = this.nodeMap.get(cyNode.id());
         if (node) this.nodeSelected.emit(node);
       });
 
-      // Click on background → clear highlight
       this.cy.on('tap', (evt) => {
-        if (evt.target === cy) clearHighlight();
+        if (evt.target === this.cy) this._clearHighlight();
       });
 
       this.cy.on('tap', 'edge', (evt) => {
