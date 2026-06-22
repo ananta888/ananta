@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { GraphFilter } from '../../models/graph-filter.model';
 import { GraphNodeKind, GraphEdgeType } from '../../models/graph.model';
 import { GraphViewMode, GRAPH_VIEW_MODES, GRAPH_VIEW_MODE_LABELS } from '../../models/graph-view-mode';
+import { GraphLayoutMode, GRAPH_LAYOUT_MODES, GRAPH_LAYOUT_MODE_LABELS } from '../../models/graph-layout-mode';
 import { ALL_NODE_KINDS, ALL_EDGE_TYPES } from '../../models/graph-filter.model';
 
 @Component({
@@ -34,6 +35,21 @@ import { ALL_NODE_KINDS, ALL_EDGE_TYPES } from '../../models/graph-filter.model'
           (ngModelChange)="onSearch($event)"
         />
       </div>
+
+      @if (activeMode === '2d') {
+        <div class="toolbar-group">
+          <label class="filter-label">Layout:</label>
+          <select
+            class="layout-select"
+            [ngModel]="layoutMode"
+            (ngModelChange)="layoutModeChange.emit($event)"
+          >
+            @for (mode of layoutModes; track mode) {
+              <option [value]="mode">{{ layoutModeLabels[mode] }}</option>
+            }
+          </select>
+        </div>
+      }
 
       <div class="toolbar-group">
         <label class="filter-label">Kind:</label>
@@ -74,6 +90,7 @@ import { ALL_NODE_KINDS, ALL_EDGE_TYPES } from '../../models/graph-filter.model'
     .mode-btn { padding: 3px 10px; border: 1px solid #cbd5e1; background: #fff; border-radius: 4px; cursor: pointer; font-size: .8rem; }
     .mode-btn.active { background: #3b82f6; color: #fff; border-color: #3b82f6; }
     .search-input { padding: 3px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: .85rem; width: 180px; }
+    .layout-select { font-size: .8rem; border: 1px solid #cbd5e1; border-radius: 4px; padding: 3px 6px; background: #fff; }
     .filter-label { font-size: .8rem; color: #555; white-space: nowrap; }
     .filter-select { font-size: .8rem; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 4px; height: 60px; }
     .reset-btn { padding: 3px 8px; border: 1px solid #f87171; background: #fff; color: #b91c1c; border-radius: 4px; cursor: pointer; font-size: .8rem; }
@@ -81,15 +98,19 @@ import { ALL_NODE_KINDS, ALL_EDGE_TYPES } from '../../models/graph-filter.model'
 })
 export class GraphToolbarComponent {
   @Input() activeMode: GraphViewMode = 'simple';
+  @Input() layoutMode: GraphLayoutMode = 'tier';
   @Input() filter: GraphFilter = { searchText: '', nodeKindFilter: [], edgeTypeFilter: [] };
   @Input() webglAvailable = true;
 
   @Output() viewModeChange = new EventEmitter<GraphViewMode>();
+  @Output() layoutModeChange = new EventEmitter<GraphLayoutMode>();
   @Output() filterChange = new EventEmitter<Partial<GraphFilter>>();
   @Output() filterReset = new EventEmitter<void>();
 
   readonly viewModes = GRAPH_VIEW_MODES;
   readonly modeLabels = GRAPH_VIEW_MODE_LABELS;
+  readonly layoutModes = GRAPH_LAYOUT_MODES;
+  readonly layoutModeLabels = GRAPH_LAYOUT_MODE_LABELS;
   readonly allNodeKinds = ALL_NODE_KINDS;
   readonly allEdgeTypes = ALL_EDGE_TYPES;
 

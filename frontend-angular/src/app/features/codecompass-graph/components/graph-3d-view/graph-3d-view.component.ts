@@ -10,6 +10,16 @@ import { GenericGraphModel, GraphEdge, GraphNode } from '../../models/graph.mode
 const KIND_COLORS: Record<string, string> = {
   java_type:   '#3b82f6',
   java_method: '#10b981',
+  java_file:   '#1d4ed8',
+  python_file: '#f59e0b',
+  python_class: '#d97706',
+  python_function: '#92400e',
+  python_method: '#78350f',
+  python_import: '#a16207',
+  typescript_file: '#0284c7',
+  typescript_class: '#0369a1',
+  typescript_function: '#075985',
+  typescript_import: '#0e7490',
   config:      '#f59e0b',
   xml_tag:     '#8b5cf6',
   unknown:     '#94a3b8',
@@ -158,6 +168,17 @@ export class Graph3dViewComponent implements OnChanges, OnDestroy {
     return 'rgba(100,116,139,0.25)';
   }
 
+  private _domainLevel(node: GraphNode): number {
+    const raw = Number(node.metadata?.['domain_level'] ?? 0);
+    return Number.isFinite(raw) ? Math.max(0, raw) : 0;
+  }
+
+  private _nodeVal(node: GraphNode): number {
+    const level = Math.min(this._domainLevel(node), 5);
+    const tierBoost = node.kind.endsWith('_file') || node.kind.endsWith('_summary') ? 1.2 : 1;
+    return Math.max(0.8, (4.8 - level * 0.55) * tierBoost);
+  }
+
   private _cappedGraph(): { nodes: GraphNode[]; edges: GraphEdge[] } {
     if (!this.graph) return { nodes: [], edges: [] };
     if (this.graph.nodes.length <= RENDER_CAP) {
@@ -237,6 +258,9 @@ export class Graph3dViewComponent implements OnChanges, OnDestroy {
 
       const gNodes = nodes.map(n => ({
         id: n.id, label: n.label, kind: n.kind,
+        domain: String(n.metadata?.['domain_path'] ?? ''),
+        domainLevel: this._domainLevel(n),
+        value: this._nodeVal(n),
         color: KIND_COLORS[n.kind] ?? KIND_COLORS['unknown'],
       }));
       const gLinks = edges.map(e => ({
@@ -250,9 +274,10 @@ export class Graph3dViewComponent implements OnChanges, OnDestroy {
       this.fg = new ForceGraph3D(el, { controlType: 'orbit' })
         .width(w).height(h)
         .backgroundColor('#0f172a')
-        .nodeLabel((n: any) => n['label'] as string)
+        .nodeLabel((n: any) => `${n['label']}${n['domain'] ? ` · ${n['domain']}` : ''}`)
         .nodeColor((n: any) => this._nodeColor(n['id'] as string))
-        .nodeRelSize(4)
+        .nodeVal((n: any) => n['value'] as number)
+        .nodeRelSize(3.5)
         .linkLabel((l: any) => l['label'] as string)
         .linkColor(() => '#94a3b8')
         .linkWidth(1)

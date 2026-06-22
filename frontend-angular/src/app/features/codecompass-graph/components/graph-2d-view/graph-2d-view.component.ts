@@ -6,6 +6,7 @@ import {
 import { CommonModule } from '@angular/common';
 import type { Core, NodeSingular, EdgeSingular } from 'cytoscape';
 import { GenericGraphModel, GraphEdge, GraphNode } from '../../models/graph.model';
+import { GraphLayoutMode } from '../../models/graph-layout-mode';
 
 const KIND_COLORS: Record<string, string> = {
   java_type: '#3b82f6', java_method: '#10b981', java_file: '#1d4ed8',
@@ -85,6 +86,7 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
   @ViewChild('cyContainer', { static: true }) cyContainer!: ElementRef<HTMLElement>;
 
   @Input() graph: GenericGraphModel | null = null;
+  @Input() layoutMode: GraphLayoutMode = 'tier';
   @Input() selectedNode: GraphNode | null = null;
   @Input() selectedEdge: GraphEdge | null = null;
 
@@ -106,8 +108,9 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
 
   ngOnChanges(changes: SimpleChanges): void {
     const gc = changes['graph'];
+    const lc = changes['layoutMode'];
     // If only selectedNode/selectedEdge changed, just update highlight — don't re-render
-    if (!gc) {
+    if (!gc && !lc) {
       if (this.cy) {
         if (this.selectedNode) this._applyHighlight(this.selectedNode.id);
         else this._clearHighlight();
@@ -118,7 +121,7 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
     // If the graph wrapper changed but the actual nodes array is the same reference, skip re-render
     const prev = gc.previousValue as GenericGraphModel | null;
     const curr = gc.currentValue as GenericGraphModel | null;
-    if (prev && curr && prev.nodes === curr.nodes && prev.edges === curr.edges) {
+    if (!lc && prev && curr && prev.nodes === curr.nodes && prev.edges === curr.edges) {
       if (this.cy) {
         if (this.selectedNode) this._applyHighlight(this.selectedNode.id);
         else this._clearHighlight();
@@ -169,6 +172,122 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
     this.cy?.elements().removeClass('focal neighbour dimmed active-edge');
   }
 
+  private _domainKey(node: GraphNode): string {
+    const explicit = String(node.metadata?.['domain_path'] ?? '');
+    if (explicit) return explicit;
+    const file = node.file || node.label || 'unknown';
+    const parts = file.replace(/\\/g, '/').split('/').filter(Boolean);
+    return parts.slice(0, Math.min(parts.length - 1, 3)).join('/') || 'unknown';
+  }
+
+  private _degreeMap(edges: GraphEdge[]): Map<string, number> {
+    const degree = new Map<string, number>();
+    for (const e of edges) {
+      degree.set(e.source, (degree.get(e.source) ?? 0) + 1);
+      degree.set(e.target, (degree.get(e.target) ?? 0) + 1);
+    }
+    return degree;
+  }
+
+  private async _positionsByTier(nodes: GraphNode[]): Promise<Map<string, { x: number; y: number }>> {
+    const byTier = new Map<number, GraphNode[]>();
+    for (const n of nodes) {
+      const t = KIND_TIER[n.kind] ?? 4;
+      if (!byTier.has(t)) byTier.set(t, []);
+      byTier.get(t)!.push(n);
+    }
+
+    const positions = new Map<string, { x: number; y: number }>();
+    const tiers = [...byTier.keys()].sort((a, b) => a - b);
+    let yOffset = 0;
+    for (const tier of tiers) {
+      if (this._cancelled) return positions;
+      const tierNodes = byTier.get(tier)!;
+      const cols = Math.min(Math.ceil(Math.sqrt(tierNodes.length * 3)), 40);
+      for (let i = 0; i < tierNodes.length; i += CHUNK) {
+        if (this._cancelled) return positions;
+        const batch = tierNodes.slice(i, i + CHUNK);
+        for (let j = 0; j < batch.length; j++) {
+          const idx = i + j;
+          positions.set(batch[j].id, {
+            x: (idx % cols) * GAP_X,
+            y: yOffset + Math.floor(idx / cols) * GAP_Y,
+          });
+        }
+        this.progress = Math.round((positions.size / nodes.length) * 55);
+        this.cdr.detectChanges();
+        await yieldFrame();
+      }
+      yOffset += (Math.ceil(tierNodes.length / cols) + 1) * GAP_Y;
+    }
+    return positions;
+  }
+
+  private async _positionsByDomain(nodes: GraphNode[]): Promise<Map<string, { x: number; y: number }>> {
+    const groups = new Map<string, GraphNode[]>();
+    for (const node of nodes) {
+      const key = this._domainKey(node);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(node);
+    }
+
+    const positions = new Map<string, { x: number; y: number }>();
+    const orderedGroups = [...groups.entries()].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
+    const groupCols = Math.max(1, Math.ceil(Math.sqrt(orderedGroups.length)));
+    const blockWidth = GAP_X * 8;
+    const blockHeight = GAP_Y * 4;
+    for (let groupIndex = 0; groupIndex < orderedGroups.length; groupIndex++) {
+      if (this._cancelled) return positions;
+      const [, groupNodes] = orderedGroups[groupIndex];
+      groupNodes.sort((a, b) => (KIND_TIER[a.kind] ?? 4) - (KIND_TIER[b.kind] ?? 4) || a.label.localeCompare(b.label));
+      const baseX = (groupIndex % groupCols) * blockWidth;
+      const baseY = Math.floor(groupIndex / groupCols) * blockHeight;
+      const cols = Math.min(Math.ceil(Math.sqrt(groupNodes.length * 2)), 8);
+      for (let i = 0; i < groupNodes.length; i++) {
+        positions.set(groupNodes[i].id, {
+          x: baseX + (i % cols) * GAP_X,
+          y: baseY + Math.floor(i / cols) * (GAP_Y * 0.75),
+        });
+      }
+      this.progress = Math.round((positions.size / nodes.length) * 55);
+      this.cdr.detectChanges();
+      await yieldFrame();
+    }
+    return positions;
+  }
+
+  private async _positionsRadial(nodes: GraphNode[], edges: GraphEdge[]): Promise<Map<string, { x: number; y: number }>> {
+    const degree = this._degreeMap(edges);
+    const byTier = new Map<number, GraphNode[]>();
+    for (const node of [...nodes].sort((a, b) => (degree.get(b.id) ?? 0) - (degree.get(a.id) ?? 0))) {
+      const tier = KIND_TIER[node.kind] ?? 4;
+      if (!byTier.has(tier)) byTier.set(tier, []);
+      byTier.get(tier)!.push(node);
+    }
+
+    const positions = new Map<string, { x: number; y: number }>();
+    const tiers = [...byTier.keys()].sort((a, b) => a - b);
+    for (const tier of tiers) {
+      if (this._cancelled) return positions;
+      const ring = byTier.get(tier)!;
+      const radius = 120 + tier * 190 + Math.max(0, ring.length - 12) * 2;
+      for (let i = 0; i < ring.length; i++) {
+        const angle = (Math.PI * 2 * i) / Math.max(1, ring.length);
+        positions.set(ring[i].id, { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius });
+      }
+      this.progress = Math.round((positions.size / nodes.length) * 55);
+      this.cdr.detectChanges();
+      await yieldFrame();
+    }
+    return positions;
+  }
+
+  private _nodeSize(node: GraphNode, defaultSize: number): number {
+    const domainLevel = Number(node.metadata?.['domain_level'] ?? 0);
+    const scale = Math.max(0.55, 1 - Math.min(domainLevel, 4) * 0.1);
+    return Math.round(defaultSize * scale);
+  }
+
   ngOnDestroy(): void {
     this._cancelled = true;
     this.cy?.destroy();
@@ -184,11 +303,7 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
     // ── Frontend-Cap (Sicherheitsnetz für sehr große Graphs) ────────────────
     if (nodes.length > RENDER_CAP) {
       // Sort by tier + degree (degree = number of edges to other visible nodes)
-      const deg = new Map<string, number>();
-      for (const e of edges) {
-        deg.set(e.source, (deg.get(e.source) ?? 0) + 1);
-        deg.set(e.target, (deg.get(e.target) ?? 0) + 1);
-      }
+      const deg = this._degreeMap(edges);
       const sorted = [...nodes].sort((a, b) =>
         (KIND_TIER[a.kind] ?? 4) - (KIND_TIER[b.kind] ?? 4) ||
         (deg.get(b.id) ?? 0) - (deg.get(a.id) ?? 0)
@@ -206,40 +321,11 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
     this.cdr.detectChanges();
     await yieldFrame();
 
-    // Group by tier → each tier gets its own rows in the grid
-    const byTier = new Map<number, GraphNode[]>();
-    for (const n of nodes) {
-      const t = KIND_TIER[n.kind] ?? 4;
-      if (!byTier.has(t)) byTier.set(t, []);
-      byTier.get(t)!.push(n);
-    }
-
-    const positions = new Map<string, { x: number; y: number }>();
-    const tiers = [...byTier.keys()].sort((a, b) => a - b);
-    let yOffset = 0;
-
-    for (const tier of tiers) {
-      if (this._cancelled) return;
-      const tierNodes = byTier.get(tier)!;
-      const COLS = Math.min(Math.ceil(Math.sqrt(tierNodes.length * 3)), 40);
-
-      for (let i = 0; i < tierNodes.length; i += CHUNK) {
-        if (this._cancelled) return;
-        const batch = tierNodes.slice(i, i + CHUNK);
-        for (let j = 0; j < batch.length; j++) {
-          const idx = i + j;
-          positions.set(batch[j].id, {
-            x: (idx % COLS) * GAP_X,
-            y: yOffset + Math.floor(idx / COLS) * GAP_Y,
-          });
-        }
-        this.progress = Math.round((positions.size / nodes.length) * 55);
-        this.cdr.detectChanges();
-        await yieldFrame();
-      }
-
-      yOffset += (Math.ceil(tierNodes.length / COLS) + 1) * GAP_Y;
-    }
+    const positions = this.layoutMode === 'domain'
+      ? await this._positionsByDomain(nodes)
+      : this.layoutMode === 'radial'
+        ? await this._positionsRadial(nodes, edges)
+        : await this._positionsByTier(nodes);
 
     if (this._cancelled) return;
 
@@ -249,6 +335,7 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
     this.cdr.detectChanges();
     await yieldFrame();
 
+    const nodeSize = nodes.length > 400 ? 18 : 36;
     const elements: unknown[] = [];
     for (let i = 0; i < nodes.length; i += CHUNK) {
       if (this._cancelled) return;
@@ -258,7 +345,8 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
         elements.push({
           data: {
             id: cyId(n.id), originalId: n.id,
-            label: n.label, kind: n.kind,
+            label: n.label, kind: n.kind, size: this._nodeSize(n, nodeSize),
+            domain: this._domainKey(n),
             color: KIND_COLORS[n.kind] ?? KIND_COLORS['unknown'],
           },
           position: pos,
@@ -291,7 +379,6 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
       const cytoscape = (await import('cytoscape')).default;
       if (this._cancelled) return;
 
-      const nodeSize = nodes.length > 400 ? 18 : 36;
       const showLabels = nodes.length <= 400;
 
       this.cy = cytoscape({
@@ -307,7 +394,7 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
               'color': '#fff',
               'text-valign': 'center', 'text-halign': 'center',
               'font-size': '9px', 'font-weight': '500',
-              'width': nodeSize, 'height': nodeSize,
+              'width': 'data(size)', 'height': 'data(size)',
               'text-wrap': 'ellipsis', 'text-max-width': `${nodeSize - 4}px`,
               'transition-property': 'opacity, border-width, border-color, width, height',
               'transition-duration': 150 as any,

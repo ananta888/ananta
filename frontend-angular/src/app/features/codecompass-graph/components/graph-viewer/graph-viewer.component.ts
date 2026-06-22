@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 
 import { GenericGraphModel, GraphNode, GraphEdge } from '../../models/graph.model';
 import { GraphViewMode } from '../../models/graph-view-mode';
+import { GraphLayoutMode } from '../../models/graph-layout-mode';
 import { GraphFilter } from '../../models/graph-filter.model';
 import { GraphStateService } from '../../services/graph-state.service';
 import { GraphAdapterService } from '../../services/graph-adapter.service';
@@ -28,9 +29,11 @@ import { Graph3dViewComponent } from '../graph-3d-view/graph-3d-view.component';
     <div class="gv-shell">
       <app-graph-toolbar
         [activeMode]="state.viewMode()"
+        [layoutMode]="layoutMode"
         [filter]="state.filter()"
         [webglAvailable]="webglAvailable"
         (viewModeChange)="setViewMode($event)"
+        (layoutModeChange)="layoutMode = $event"
         (filterChange)="state.updateFilter($event)"
         (filterReset)="state.resetFilter()"
       />
@@ -41,6 +44,7 @@ import { Graph3dViewComponent } from '../graph-3d-view/graph-3d-view.component';
             @case ('simple') {
               <app-simple-graph-view
                 [graph]="filteredGraph()"
+                [layoutMode]="layoutMode"
                 [selectedNode]="state.selectedNode()"
                 [selectedEdge]="state.selectedEdge()"
                 (nodeSelected)="state.selectNode($event)"
@@ -110,6 +114,7 @@ export class GraphViewerComponent implements OnChanges, OnInit {
 
   graph: GenericGraphModel | null = null;
   webglAvailable = true;
+  layoutMode: GraphLayoutMode = 'tier';
 
   ngOnInit(): void {
     try {
