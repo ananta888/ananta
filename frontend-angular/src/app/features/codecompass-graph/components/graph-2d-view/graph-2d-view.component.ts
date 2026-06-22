@@ -110,17 +110,21 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
     const gc = changes['graph'];
     const lc = changes['layoutMode'];
     // If only selectedNode/selectedEdge changed, just update highlight — don't re-render
-    if (!gc && !lc) {
-      if (this.cy) {
-        if (this.selectedNode) this._applyHighlight(this.selectedNode.id);
-        else this._clearHighlight();
+    if (!gc) {
+      if (lc) {
+        // Layout mode changed; rebuild positions with the current graph.
+      } else {
+        if (this.cy) {
+          if (this.selectedNode) this._applyHighlight(this.selectedNode.id);
+          else this._clearHighlight();
+        }
+        return;
       }
-      return;
     }
 
     // If the graph wrapper changed but the actual nodes array is the same reference, skip re-render
-    const prev = gc.previousValue as GenericGraphModel | null;
-    const curr = gc.currentValue as GenericGraphModel | null;
+    const prev = gc?.previousValue as GenericGraphModel | null;
+    const curr = gc?.currentValue as GenericGraphModel | null;
     if (!lc && prev && curr && prev.nodes === curr.nodes && prev.edges === curr.edges) {
       if (this.cy) {
         if (this.selectedNode) this._applyHighlight(this.selectedNode.id);

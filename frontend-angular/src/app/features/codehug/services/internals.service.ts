@@ -203,7 +203,7 @@ export class InternalsService {
     );
   }
 
-  getSelfGraphDomains(): Observable<{domain: string; display_name: string; file_count: number; kind: string}[]> {
+  getSelfGraphDomains(): Observable<{domain: string; display_name: string; file_count: number; kind: string; depth?: number; parent_domain?: string}[]> {
     return this.http.get<any>(`${this.hubUrl()}/api/codecompass/self-graph/domains`).pipe(
       map(r => Array.isArray(r?.data?.domains) ? r.data.domains : []),
       catchError(() => of([])),

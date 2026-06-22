@@ -38,6 +38,24 @@ describe('GraphToolbarComponent', () => {
     expect(emitted).toBe('2d');
   });
 
+  it('shows and emits 2d layout mode changes only in 2d mode', async () => {
+    expect(fixture.nativeElement.querySelector('.layout-select')).toBeNull();
+
+    component.activeMode = '2d';
+    fixture.detectChanges();
+
+    let emitted: string | null = null;
+    component.layoutModeChange.subscribe(mode => (emitted = mode));
+    const select = fixture.nativeElement.querySelector('.layout-select') as HTMLSelectElement;
+    expect(select).toBeTruthy();
+    select.value = 'domain';
+    select.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(emitted).toBe('domain');
+  });
+
   it('emits filterChange with searchText on input', async () => {
     let emitted: Partial<GraphFilter> | null = null;
     component.filterChange.subscribe((f: Partial<GraphFilter>) => (emitted = f));

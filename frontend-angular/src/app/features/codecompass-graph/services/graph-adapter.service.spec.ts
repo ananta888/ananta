@@ -100,4 +100,25 @@ describe('GraphAdapterService', () => {
     const model = svc.fromDomainArtifact(raw);
     expect(model.edges[0].id).toBe('a|b|extends');
   });
+
+  it('keeps optional domain hierarchy metadata on nodes', () => {
+    const raw = {
+      nodes: [{
+        node_id: 'a',
+        node_type: 'python_file',
+        attributes: {
+          name: 'pair_groups.py',
+          file: 'agent/routes/pair_groups.py',
+          domain_path: 'agent.routes.pair_groups',
+          domain_level: 1,
+        },
+      }],
+      edges: [],
+    };
+
+    const model = svc.fromDomainArtifact(raw);
+
+    expect(model.nodes[0].metadata['domain_path']).toBe('agent.routes.pair_groups');
+    expect(model.nodes[0].metadata['domain_level']).toBe(1);
+  });
 });

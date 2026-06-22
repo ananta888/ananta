@@ -212,7 +212,7 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
       <select class="ch-sel" style="max-width:220px" [value]="ccDomain()"
         (change)="ccDomain.set($any($event.target).value); loadSelfGraph()">
         @for (d of ccDomains(); track d.domain) {
-          <option [value]="d.domain">{{ d.display_name }}{{ d.file_count > 0 ? ' (' + d.file_count + ')' : '' }}</option>
+          <option [value]="d.domain">{{ domainOptionLabel(d) }}</option>
         }
       </select>
       <label class="ch-lbl" style="margin-left:8px" title="0=Dateien, 1=+Klassen, 2=+Funktionen, 3=alles">Tiefe</label>
@@ -1253,7 +1253,7 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
   readonly ccRawGraph = signal<any>(null);
   readonly ccLoading = signal(false);
   readonly ccError = signal('');
-  readonly ccDomains = signal<{domain: string; display_name: string; file_count: number; kind: string}[]>([]);
+  readonly ccDomains = signal<{domain: string; display_name: string; file_count: number; kind: string; depth?: number; parent_domain?: string}[]>([]);
   readonly ccDomain = signal('agent.routes');
   readonly ccDepth = signal(2);
   readonly ccMaxNodes = signal(3000);
@@ -1339,6 +1339,12 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
         this.ccError.set('Fehler beim Laden des Self-Graphs');
       },
     });
+  }
+
+  domainOptionLabel(domain: {display_name: string; file_count: number; depth?: number}): string {
+    const depth = Math.min(Math.max(domain.depth ?? 0, 0), 4);
+    const indent = depth > 0 ? `${'--'.repeat(depth)} ` : '';
+    return `${indent}${domain.display_name}${domain.file_count > 0 ? ` (${domain.file_count})` : ''}`;
   }
 
   // ── Blueprint / Playbook / VP Preset ─────────────────────────────────────
