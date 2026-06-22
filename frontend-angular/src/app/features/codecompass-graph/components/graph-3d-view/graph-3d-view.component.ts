@@ -280,9 +280,6 @@ export class Graph3dViewComponent implements OnChanges, OnDestroy {
       (this.fg.d3Force('charge') as any)?.strength(-20);
       (this.fg.d3Force('link') as any)?.distance(25);
 
-      // Zoom to fit after warmup ticks have settled the layout
-      setTimeout(() => this.fg?.zoomToFit(600, 40), 200);
-
     } catch (err) {
       this.error = `Failed to load 3D renderer: ${(err as Error).message ?? err}`;
     } finally {
