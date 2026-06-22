@@ -176,9 +176,18 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
     let nodes = this.graph.nodes;
     let edges = this.graph.edges;
 
-    // ── Cap ──────────────────────────────────────────────────────────────────
+    // ── Frontend-Cap (Sicherheitsnetz für sehr große Graphs) ────────────────
     if (nodes.length > RENDER_CAP) {
-      const sorted = [...nodes].sort((a, b) => (KIND_TIER[a.kind] ?? 4) - (KIND_TIER[b.kind] ?? 4));
+      // Sort by tier + degree (degree = number of edges to other visible nodes)
+      const deg = new Map<string, number>();
+      for (const e of edges) {
+        deg.set(e.source, (deg.get(e.source) ?? 0) + 1);
+        deg.set(e.target, (deg.get(e.target) ?? 0) + 1);
+      }
+      const sorted = [...nodes].sort((a, b) =>
+        (KIND_TIER[a.kind] ?? 4) - (KIND_TIER[b.kind] ?? 4) ||
+        (deg.get(b.id) ?? 0) - (deg.get(a.id) ?? 0)
+      );
       nodes = sorted.slice(0, RENDER_CAP);
       const kept = new Set(nodes.map(n => n.id));
       edges = edges.filter(e => kept.has(e.source) && kept.has(e.target));
@@ -289,9 +298,12 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
           {
             selector: 'edge',
             style: {
-              'width': 1, 'line-color': '#cbd5e1',
-              'target-arrow-color': '#cbd5e1', 'target-arrow-shape': 'triangle',
-              'curve-style': 'haystack', 'opacity': 0.5,
+              'width': 1.5,
+              'line-color': '#94a3b8',
+              'target-arrow-color': '#94a3b8',
+              'target-arrow-shape': 'triangle',
+              'curve-style': 'bezier',
+              'opacity': 0.6,
               'transition-property': 'opacity, line-color, width',
               'transition-duration': 150 as any,
             } as any,
