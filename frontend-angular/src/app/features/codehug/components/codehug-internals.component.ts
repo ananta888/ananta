@@ -316,9 +316,14 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
         <button type="button" (click)="zoomOut()">−</button>
         <button type="button" (click)="resetView()">⊙</button>
       </div>
-      @if (connectMode() && connectSource()) {
+      @if (connectMode()) {
         <div class="ch-connect-hint">
-          Ziel-Knoten anklicken — <button type="button" (click)="cancelConnect()">Abbrechen</button>
+          @if (connectSource()) {
+            🎯 Ziel-Knoten anklicken —
+          } @else {
+            🔗 Verbinden-Modus aktiv · Quell-Knoten anklicken —
+          }
+          <button type="button" (click)="cancelConnect()">Abbrechen (Esc)</button>
         </div>
       }
 
@@ -1459,8 +1464,7 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
       if (src !== nodeId) {
         this.edges.update(es => [...es, { id: `e-${++this._edgeSeq}`, from: src, to: nodeId, condition: 'always' }]);
       }
-      this.connectSource.set(null);
-      this.connectMode.set(false);
+      this.connectSource.set(null); // stay in connect mode for next edge
       return;
     }
     this.selectedEdgeId.set(null);
@@ -1489,6 +1493,11 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
       this.viewTx.set(this._panning.tx + e.clientX - this._panning.mx);
       this.viewTy.set(this._panning.ty + e.clientY - this._panning.my);
     }
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  onKeyDown(e: KeyboardEvent): void {
+    if (e.key === 'Escape' && this.connectMode()) { this.cancelConnect(); }
   }
 
   @HostListener('document:mouseup')
