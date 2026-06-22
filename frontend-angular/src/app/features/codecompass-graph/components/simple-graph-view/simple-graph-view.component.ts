@@ -53,10 +53,11 @@ import { GraphEdge, GraphNode, GenericGraphModel } from '../../models/graph.mode
     }
   `,
   styles: [`
-    .sgv-layout { display: flex; gap: 1.5rem; flex-wrap: wrap; }
-    .sgv-nodes, .sgv-edges { flex: 1; min-width: 240px; }
-    h4 { margin: 0 0 .5rem; font-size: .85rem; text-transform: uppercase; letter-spacing: .05em; color: #555; }
-    ul { list-style: none; margin: 0; padding: 0; }
+    :host { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+    .sgv-layout { display: flex; gap: 1.5rem; flex: 1; min-height: 0; overflow: hidden; }
+    .sgv-nodes, .sgv-edges { display: flex; flex-direction: column; flex: 1; min-width: 240px; min-height: 0; }
+    h4 { margin: 0 0 .5rem; font-size: .85rem; text-transform: uppercase; letter-spacing: .05em; color: #555; flex-shrink: 0; }
+    ul { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; min-height: 0; }
     li { display: flex; align-items: baseline; gap: .4rem; padding: 3px 6px; border-radius: 4px; cursor: pointer; font-size: .875rem; }
     li:hover { background: #f0f4ff; }
     li.selected { background: #dbeafe; }
