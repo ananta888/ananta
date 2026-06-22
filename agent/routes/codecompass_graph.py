@@ -345,6 +345,45 @@ _DEFAULT_TIER = 3
 _DEFAULT_MAX_NODES = 3000
 
 
+def _domain_parts_from_file(file_path: str) -> list[str]:
+    normalized = file_path.replace("\\", "/").strip("/")
+    if not normalized:
+        return []
+    parts = normalized.split("/")
+    if parts[-1].endswith(".py"):
+        parts[-1] = parts[-1][:-3]
+    elif "." in parts[-1]:
+        parts[-1] = parts[-1].rsplit(".", 1)[0]
+    return [p for p in parts if p]
+
+
+def _domain_id_from_parts(parts: list[str], source_kind: str) -> str:
+    if source_kind == "typescript":
+        return f"ts:{'/'.join(parts)}"
+    return ".".join(parts)
+
+
+def _domain_metadata_for_node(file_path: str, selected_domain: str) -> dict[str, object]:
+    parts = _domain_parts_from_file(file_path)
+    if not parts:
+        return {"domain_path": "", "domain_level": 0, "domain_parent": "", "domain_leaf": ""}
+
+    source_kind = "typescript" if selected_domain.startswith("ts:") or file_path.startswith("frontend-angular/") else "python"
+    selected_prefix = _domain_to_file_prefix(selected_domain)
+    selected_parts = _domain_parts_from_file(selected_prefix)
+    rel_parts = parts[len(selected_parts):] if selected_parts and parts[:len(selected_parts)] == selected_parts else parts
+    rel_parts = rel_parts or parts[-1:]
+    domain_parts = parts[:len(parts) - len(rel_parts) + min(len(rel_parts), 3)]
+    domain_path = _domain_id_from_parts(domain_parts, source_kind)
+    parent_path = _domain_id_from_parts(domain_parts[:-1], source_kind) if len(domain_parts) > 1 else ""
+    return {
+        "domain_path": domain_path,
+        "domain_level": max(0, len(domain_parts) - len(selected_parts)),
+        "domain_parent": parent_path,
+        "domain_leaf": domain_parts[-1],
+    }
+
+
 def _domain_to_file_prefix(domain: str) -> str:
     """Convert a domain key to the file-path prefix used for filtering.
 
@@ -368,9 +407,32 @@ def get_self_graph_domains():
     if not nodes_path.exists():
         return api_response(data={"domains": [], "warnings": ["graph_nodes.jsonl not found"]})
 
-    python_modules: list[dict] = []
-    ts_folders: list[dict] = []
+    domains_by_id: dict[str, dict] = {}
     out_dir = nodes_path.parent
+
+    def _upsert_domain(domain: str, display_name: str, kind: str, file_count: int, depth: int):
+        if not domain:
+            return
+        existing = domains_by_id.get(domain)
+        if existing:
+            existing["file_count"] = max(int(existing.get("file_count") or 0), file_count)
+            existing["depth"] = min(int(existing.get("depth") or depth), depth)
+            return
+        parent = ""
+        if domain.startswith("ts:"):
+            path = domain[3:]
+            parent_path = "/".join(path.split("/")[:-1])
+            parent = f"ts:{parent_path}" if parent_path else ""
+        elif "." in domain:
+            parent = domain.rsplit(".", 1)[0]
+        domains_by_id[domain] = {
+            "domain": domain,
+            "display_name": display_name,
+            "file_count": file_count,
+            "kind": kind,
+            "depth": depth,
+            "parent_domain": parent,
+        }
 
     # Detail files have full metadata (module_area, files[], summary{})
     py_detail = out_dir / "index_by_kind" / "python_module_summary.jsonl"
@@ -395,21 +457,30 @@ def get_self_graph_domains():
         if not area:
             return
         fc = (node.get("summary") or {}).get("file_count") or len(node.get("files") or [])
-        python_modules.append({"domain": area, "display_name": area, "file_count": fc, "kind": "python_module"})
+        _upsert_domain(area, area, "python_module", fc, area.count("."))
+        for file_name in node.get("files") or []:
+            parts = _domain_parts_from_file(str(file_name))
+            for idx in range(2, min(len(parts), 5) + 1):
+                child = ".".join(parts[:idx])
+                _upsert_domain(child, child, "python_module", 1, child.count("."))
 
     def _extract_ts(node):
         folder = str(node.get("folder") or node.get("file") or "")
         if not folder:
             return
         fc = (node.get("summary") or {}).get("file_count") or len(node.get("files") or [])
-        ts_folders.append({"domain": f"ts:{folder}", "display_name": f"ts: {folder}", "file_count": fc, "kind": "typescript_folder"})
+        domain = f"ts:{folder}"
+        _upsert_domain(domain, f"ts: {folder}", "typescript_folder", fc, folder.count("/"))
+        for file_name in node.get("files") or []:
+            parts = _domain_parts_from_file(str(file_name))
+            for idx in range(2, min(len(parts), 5) + 1):
+                child_path = "/".join(parts[:idx])
+                _upsert_domain(f"ts:{child_path}", f"ts: {child_path}", "typescript_folder", 1, child_path.count("/"))
 
     _read_detail(py_detail, _extract_python)
     _read_detail(ts_detail, _extract_ts)
 
-    python_modules.sort(key=lambda x: (-x["file_count"], x["domain"]))
-    ts_folders.sort(key=lambda x: (-x["file_count"], x["domain"]))
-    domains = python_modules + ts_folders
+    domains = sorted(domains_by_id.values(), key=lambda x: (x["kind"], x["depth"], -x["file_count"], x["domain"]))
     return api_response(data={"domains": domains})
 
 
@@ -539,6 +610,7 @@ def get_self_graph():
                 "content": "",
                 "record_id": str(n["id"]),
                 "importance_score": float(n.get("importance_score") or 0.0),
+                **_domain_metadata_for_node(str(n.get("file") or ""), domain_filter),
             },
         }
         for n in scoped
