@@ -1,0 +1,463 @@
+{
+  "id": "todo.codecompass-vector-encoding-agent-orchestration-delta-2026-06-22",
+  "title": "Delta: CodeCompass VectorEncoding, TurboQuant-Seam und andere AI-Agenten als kontrollierte Feature-/Worker-Provider fertig integrieren",
+  "version": "1.0",
+  "created": "2026-06-22",
+  "updated": "2026-06-22",
+  "project": "Ananta / CodeCompass",
+  "status": "open",
+  "priority": "critical",
+  "tags": [
+    "ananta",
+    "codecompass",
+    "vector-encoding",
+    "turboquant",
+    "ai-agents",
+    "worker-orchestration",
+    "transformer-feature-provider",
+    "deterministic-pipeline",
+    "local-first",
+    "audit",
+    "bewerbungs-demo"
+  ],
+  "extends": [
+    "todos/feature/todo.codecompass-turboquant-vector-quantization-transformer-layer.json"
+  ],
+  "review_basis": {
+    "reviewed_commit_range": "2c20fae7d948cf8b291a15b215a506a2b08899c0..56ebaa8d1f926c2de5a93b90a51ab1c3bb03a9a5",
+    "review_goal": "Den bereits begonnenen grossen Wurf in eine klare Restarbeitsliste ueberfuehren: Code ist teilweise implementiert, Service-/Config-/Agenten-Orchestrierung fehlt noch.",
+    "context": "Nach Diskussion um Google TurboQuant und Anantas Ansatz, Transformer-/Embedding-Schichten als Werkzeug zu nutzen und danach deterministisch weiterzuarbeiten, wurde bereits ein echter VectorEncoding-Kern eingebaut. Diese Delta-TODO dokumentiert den Ist-Stand und die notwendigen Schritte bis zur bewerbungsfaehigen Demo."
+  },
+  "current_state": {
+    "implemented": [
+      {
+        "id": "DONE-001",
+        "title": "VectorEncodingProfile und VectorEncoder angelegt",
+        "commit": "08077bebd431da2fe81cd0555bc14d1c04ac0c43",
+        "files": [
+          "worker/retrieval/vector_encoding.py"
+        ],
+        "notes": [
+          "Unterstuetzt off, float32, float16, int8, symmetric4bit und turboquant_mse_experimental.",
+          "Profile erzeugen stabilen config_hash.",
+          "EncodedVector enthaelt Payload, Metadaten und Diagnostics.",
+          "turboquant_mse_experimental ist bewusst als ehrlicher TurboQuant-inspirierter Seam umgesetzt, nicht als falsche Behauptung einer vollstaendigen TurboQuant-prod-Implementierung."
+        ]
+      },
+      {
+        "id": "DONE-002",
+        "title": "CodeCompassVectorStore auf encoded_vector und Index-Schema v2 erweitert",
+        "commit": "08292da14fab7c96b2ef515336e271a527897260",
+        "files": [
+          "worker/retrieval/codecompass_vector_store.py"
+        ],
+        "notes": [
+          "Store kann vector_encoder in rebuild/refresh/search verwenden.",
+          "State enthaelt vector_encoding_profile, vector_encoding_config_hash, compression_ratio und max_abs_error.",
+          "refresh erkennt vector_encoding_changed und rebuildet deterministisch.",
+          "Altes raw vector Verhalten bleibt bei mode=off kompatibel."
+        ]
+      },
+      {
+        "id": "DONE-003",
+        "title": "Unit- und Store-Tests fuer VectorEncoding angelegt",
+        "commit": "ff89ea61c23924a757419094338f0f8a732abeb6",
+        "files": [
+          "tests/test_codecompass_vector_encoding.py"
+        ],
+        "notes": [
+          "Tests fuer Profilhash, invalid mode, int8 Roundtrip, 4bit Experimental, TurboQuant-Seam und VectorStore-Rebuild.",
+          "Test fuer Refresh-Rebuild bei Encoding-Wechsel vorhanden."
+        ]
+      },
+      {
+        "id": "DONE-004",
+        "title": "Architektur-Dokumentation fuer CodeCompass VectorEncoding angelegt",
+        "commit": "56ebaa8d1f926c2de5a93b90a51ab1c3bb03a9a5",
+        "files": [
+          "docs/architecture/codecompass-vector-encoding.md"
+        ],
+        "notes": [
+          "Erklaert Modell-/Agentenfeatures als Signal, nicht als Autoritaet.",
+          "Dokumentiert Pipeline von CodeCompass records bis HybridOrchestrator und Diagnostics.",
+          "Enthaelt bewerbungsfaehigen Claim."
+        ]
+      }
+    ],
+    "blocked_or_incomplete": [
+      {
+        "id": "BLOCKED-001",
+        "title": "CodeCompassVectorRetrievalService Wiring wurde noch nicht geschrieben",
+        "reason": "GitHub-Connector-Safetyfilter blockierte den grossen Komplett-Update-Payload fuer agent/services/codecompass_vector_retrieval_service.py.",
+        "impact": "VectorEncoding ist im Store-Kern vorhanden, aber noch nicht sauber ueber den normalen CodeCompassVectorRetrievalService per Settings aktivierbar.",
+        "workaround": "Service in kleinen Patches oder lokal ueber CLI/Branch patchen."
+      },
+      {
+        "id": "BLOCKED-002",
+        "title": "Demo-Script wurde noch nicht geschrieben",
+        "reason": "GitHub-Connector-Safetyfilter blockierte den Demo-Script-Payload.",
+        "impact": "Feature ist code-/testseitig sichtbar, aber noch nicht als schneller Bewerbungs-/Showcase-Befehl praesentierbar.",
+        "workaround": "Sehr kleines Script oder README-Demo zuerst, danach erweitern."
+      },
+      {
+        "id": "INCOMPLETE-001",
+        "title": "Andere AI-Agenten sind noch nicht als FeatureProvider/WorkerProvider in diese Pipeline integriert",
+        "impact": "Der eigentliche grosse Ananta-Claim ist angelegt, aber noch nicht voll ausgespielt: externe/lokale Agenten liefern Features/Analysen, Ananta kontrolliert Policy, Kontext, Encoding, Trace und deterministische Entscheidung."
+      }
+    ]
+  },
+  "positioning_claim": {
+    "short": "AI-Agenten liefern Signale. Ananta entscheidet kontrolliert.",
+    "bewerbung": "Ananta kann lokale und externe AI-Agenten als kontrollierte Worker oder Feature-Provider nutzen, deren Ergebnisse als auditierbare, komprimierte und deterministisch weiterverarbeitete Signale in CodeCompass landen. Modelle ersetzen dabei nicht Policy, Scope, Approval oder Ranking.",
+    "technical": "EmbeddingProvider, TransformerFeatureProvider und AgentFeatureProvider muessen alle ueber dieselbe VectorEncoding-/Diagnostics-/Policy-Schicht laufen, bevor HybridOrchestrator oder Worker-Ausfuehrung daraus Entscheidungen ableiten."
+  },
+  "categories": [
+    {
+      "name": "finish-vector-encoding-core",
+      "label": "Bestehenden VectorEncoding-Kern fertig hart machen",
+      "items": [
+        {
+          "id": "VEC-DELTA-001",
+          "title": "Bestehende Tests lokal/CI ausfuehren und Fehler fixen",
+          "status": "open",
+          "priority": "P0",
+          "type": "validation",
+          "component": "tests",
+          "target_files": [
+            "worker/retrieval/vector_encoding.py",
+            "worker/retrieval/codecompass_vector_store.py",
+            "tests/test_codecompass_vector_encoding.py",
+            "tests/test_codecompass_vector_store.py"
+          ],
+          "acceptance_criteria": [
+            "pytest tests/test_codecompass_vector_encoding.py laeuft gruen.",
+            "pytest tests/test_codecompass_vector_store.py laeuft weiterhin gruen.",
+            "Bestehende Tests brechen nicht durch neues Index-Schema v2.",
+            "Falls strikte Linter laufen, werden Import-Reihenfolge und Typfehler korrigiert.",
+            "Fehler werden nicht durch Abschalten der Tests versteckt."
+          ]
+        },
+        {
+          "id": "VEC-DELTA-002",
+          "title": "VectorEncoding Secret-/Payload-Redaction pruefen",
+          "status": "open",
+          "priority": "P0",
+          "type": "security-test",
+          "component": "security",
+          "dependencies": [
+            "VEC-DELTA-001"
+          ],
+          "target_files": [
+            "tests/test_codecompass_vector_encoding.py",
+            "tests/test_codecompass_vector_provider_policy.py"
+          ],
+          "acceptance_criteria": [
+            "Diagnostics enthalten keine raw vectors als komplette Listen.",
+            "Diagnostics enthalten keine API Keys, Authorization Header oder Prompt-Rohtexte.",
+            "encoded_vector payload wird nicht in normalen Run Reports voll ausgeschrieben.",
+            "State enthaelt nur Profil/Hash/Kompressionsdaten, keine Secrets.",
+            "Test injiziert fake secret strings in Metadaten und prueft, dass sie nicht in Diagnostics landen."
+          ]
+        },
+        {
+          "id": "VEC-DELTA-003",
+          "title": "Store-Kompatibilitaet fuer alte Index-Dateien absichern",
+          "status": "open",
+          "priority": "P1",
+          "type": "regression-test",
+          "component": "worker.retrieval",
+          "dependencies": [
+            "VEC-DELTA-001"
+          ],
+          "target_files": [
+            "tests/test_codecompass_vector_store.py"
+          ],
+          "acceptance_criteria": [
+            "Test laedt manuell erzeugten v1-Index mit raw vector ohne encoded_vector.",
+            "Search auf v1-Index funktioniert weiterhin.",
+            "Refresh mit aktivem VectorEncoding migriert/rebuildet auf v2.",
+            "Fehlende vector_encoding_profile im State fuehrt nicht zu Crash."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "service-config-wiring",
+      "label": "Service-, Settings- und Runtime-Wiring",
+      "items": [
+        {
+          "id": "VEC-DELTA-004",
+          "title": "VectorEncoding Settings in agent/config.py aufnehmen",
+          "status": "open",
+          "priority": "P0",
+          "type": "backend-config",
+          "component": "configuration",
+          "target_files": [
+            "agent/config.py",
+            ".env.example",
+            "docker-compose.yml"
+          ],
+          "settings": [
+            "CODECOMPASS_VECTOR_ENCODING_MODE",
+            "CODECOMPASS_VECTOR_ENCODING_TARGET_BITS",
+            "CODECOMPASS_VECTOR_ENCODING_SEED",
+            "CODECOMPASS_VECTOR_ENCODING_BLOCK_SIZE",
+            "CODECOMPASS_VECTOR_ENCODING_STORE_ORIGINAL"
+          ],
+          "acceptance_criteria": [
+            "agent/config.py enthaelt alle Settings mit sicheren Defaults: mode=off, target_bits=32, seed=888, block_size=0, store_original=false.",
+            "Erlaubte Modi sind off, float32, float16, int8, symmetric4bit, turboquant_mse_experimental.",
+            "Experimentelle Modi sind nicht Default.",
+            ".env.example dokumentiert int8 als sichere Demo-Option und 4bit/TurboQuant als experimental.",
+            "Ungueltige Modi werden sichtbar abgelehnt oder in Tests als Fehler erkannt."
+          ]
+        },
+        {
+          "id": "VEC-DELTA-005",
+          "title": "CodeCompassVectorRetrievalService in kleinen Patches mit VectorEncoding verdrahten",
+          "status": "open",
+          "priority": "P0",
+          "type": "backend-integration",
+          "component": "agent.services.codecompass_vector_retrieval_service",
+          "dependencies": [
+            "VEC-DELTA-004"
+          ],
+          "target_files": [
+            "agent/services/codecompass_vector_retrieval_service.py",
+            "tests/test_worker_codecompass_vector_channel.py",
+            "tests/test_epc_integration.py"
+          ],
+          "acceptance_criteria": [
+            "Service erstellt VectorEncoder aus Settings oder explizitem vector_encoding_config.",
+            "Service uebergibt vector_encoder an store.refresh(...).",
+            "Service-Suche nutzt Index-State, damit encoded_vector korrekt dekodiert wird.",
+            "last_diagnostic() enthaelt vector_encoding aus refresh diagnostics.",
+            "Bei VectorEncodingError wird fail_mode=degraded_empty respektiert und reason=vector_encoding_failed gesetzt.",
+            "Integrationstest beweist: CODECOMPASS_VECTOR_ENCODING_MODE=int8 fuehrt zu encoded_vector im Index."
+          ],
+          "implementation_note": "Falls GitHub-Connector grosse Updates blockiert, Datei lokal oder in mehreren sehr kleinen Patches aendern: erst Imports, dann __init__ parameter, dann refresh-Aufruf, dann diagnostics."
+        },
+        {
+          "id": "VEC-DELTA-006",
+          "title": "HybridOrchestrator Diagnostics sichtbar durchreichen",
+          "status": "open",
+          "priority": "P1",
+          "type": "observability",
+          "component": "agent.hybrid_orchestrator",
+          "dependencies": [
+            "VEC-DELTA-005"
+          ],
+          "target_files": [
+            "agent/hybrid_orchestrator.py",
+            "agent/hybrid_context_orchestration.py",
+            "tests/test_worker_codecompass_vector_channel.py"
+          ],
+          "acceptance_criteria": [
+            "Hybrid-Orchestrierung zeigt im retrieval_diagnostics.codecompass_vector den Encoding-Modus.",
+            "Experimentelle Modi werden in Diagnostics als experimental=true markiert.",
+            "ContextChunk metadata enthaelt vector_encoding_mode fuer CodeCompass-Vektortreffer.",
+            "Exakte Repository-Map-Treffer bleiben per Default hoeher gewichtet als unsichere fuzzy vector signals.",
+            "Tests pruefen, dass Domain Scope nicht durch quantisierte Vektortreffer umgangen wird."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "other-ai-agents-as-controlled-providers",
+      "label": "Andere AI-Agenten als kontrollierte Feature-/Worker-Provider",
+      "items": [
+        {
+          "id": "AGENT-FEATURE-001",
+          "title": "AgentFeatureProvider Interface definieren",
+          "status": "open",
+          "priority": "P0",
+          "type": "architecture-backend",
+          "component": "agent-orchestration",
+          "target_files": [
+            "agent/services/agent_feature_provider.py",
+            "docs/architecture/agent-feature-provider.md"
+          ],
+          "acceptance_criteria": [
+            "Interface trennt freie Agentenantworten von strukturierten Feature-Signalen.",
+            "FeatureProvider liefert nur strukturierte Outputs: feature_text, feature_vector optional, confidence, evidence_refs, provider_id, model_or_agent_version.",
+            "Jeder Provider muss PolicyScope, allowed_paths, max_input_chars und no_write_mode akzeptieren.",
+            "Provider duerfen keine Datei-/Tool-Aenderungen ausfuehren, solange sie im FeatureProvider-Modus laufen.",
+            "Fehler werden als degraded/blocked Diagnostics gemeldet, nicht als freie Modellinterpretation."
+          ]
+        },
+        {
+          "id": "AGENT-FEATURE-002",
+          "title": "OpenCode/Codex/Claude-CLI als AgentFeatureProvider-Adapter vorbereiten",
+          "status": "open",
+          "priority": "P1",
+          "type": "adapter-design",
+          "component": "worker-adapters",
+          "dependencies": [
+            "AGENT-FEATURE-001"
+          ],
+          "target_files": [
+            "agent/services/agent_feature_provider.py",
+            "worker/**",
+            "docs/architecture/agent-feature-provider.md"
+          ],
+          "acceptance_criteria": [
+            "Adapter laufen in read-only/analyze-only Modus.",
+            "Adapter bekommen nur explizit uebergebene Kontextpakete, keine globale Repo-Freiheit.",
+            "Adapterausgaben werden als JSON-Schema validiert: no free-form authority.",
+            "Fehlerhafte JSON-Ausgaben werden verworfen oder repariert, aber nicht ungeprueft als Wahrheit genutzt.",
+            "Jeder Adapter erzeugt AgentFeatureTrace mit input_hash, output_hash, provider_id, elapsed_ms und policy_decision."
+          ]
+        },
+        {
+          "id": "AGENT-FEATURE-003",
+          "title": "AgentFeatureProvider an VectorEncoding und CodeCompass anschliessen",
+          "status": "open",
+          "priority": "P1",
+          "type": "backend-integration",
+          "component": "codecompass",
+          "dependencies": [
+            "AGENT-FEATURE-001",
+            "VEC-DELTA-005"
+          ],
+          "target_files": [
+            "agent/services/agent_feature_provider.py",
+            "worker/retrieval/codecompass_embedding_loader.py",
+            "worker/retrieval/codecompass_vector_store.py"
+          ],
+          "acceptance_criteria": [
+            "AgentFeatureProvider kann zusaetzliche embedding_text Records fuer CodeCompass erzeugen.",
+            "Diese Records werden klar als source_scope=agent_feature oder provider_scope markiert.",
+            "VectorEncoding wird auf Agentenfeatures genauso angewendet wie auf normale Embeddings.",
+            "HybridOrchestrator behandelt Agentenfeatures als fuzzy/secondary signal, nicht als exakte Autoritaet.",
+            "ContextTrace zeigt, welcher AI-Agent welches Feature erzeugt hat."
+          ]
+        },
+        {
+          "id": "AGENT-FEATURE-004",
+          "title": "Approval- und Policy-Gates fuer AgentFeatureProvider erzwingen",
+          "status": "open",
+          "priority": "P0",
+          "type": "security-policy",
+          "component": "policy",
+          "dependencies": [
+            "AGENT-FEATURE-001"
+          ],
+          "target_files": [
+            "agent/**/policy*.py",
+            "agent/services/agent_feature_provider.py",
+            "tests/**/test_*policy*.py"
+          ],
+          "acceptance_criteria": [
+            "FeatureProvider-Modus ist default read-only und no-write.",
+            "Externe Agenten/Provider brauchen explizite Freigabe wie external_calls_allowed oder allowed_provider_ids.",
+            "Allowed paths werden vor Kontextuebergabe und nach Ergebnisrueckgabe geprueft.",
+            "Ein Agent darf keine Rechte oder neuen Pfade durch seine Antwort erfinden.",
+            "Tests pruefen blockierte externe Provider, denied paths und no-write enforcement."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "demo-and-marketing-proof",
+      "label": "Bewerbungsfaehige Demo und sichtbarer grosser Wurf",
+      "items": [
+        {
+          "id": "DEMO-001",
+          "title": "Kleines Demo-Script fuer VectorEncoding schreiben",
+          "status": "open",
+          "priority": "P0",
+          "type": "demo-script",
+          "component": "scripts",
+          "dependencies": [
+            "VEC-DELTA-001"
+          ],
+          "target_files": [
+            "scripts/demo_codecompass_vector_encoding.py"
+          ],
+          "acceptance_criteria": [
+            "Script baut Mini-CodeCompass-Index mit off, float16, int8 und turboquant_mse_experimental.",
+            "Script gibt JSON mit Compression Ratio, Top-Treffern und Encoding Diagnostics aus.",
+            "Script benoetigt keinen externen Provider und laeuft local-first.",
+            "Output enthaelt einen kurzen Claim, der direkt in Bewerbung/README nutzbar ist.",
+            "Script ist kurz genug, damit GitHub-Connector/CI es nicht blockiert."
+          ]
+        },
+        {
+          "id": "DEMO-002",
+          "title": "README Showcase-Abschnitt ergaenzen",
+          "status": "open",
+          "priority": "P0",
+          "type": "documentation-marketing",
+          "component": "readme",
+          "dependencies": [
+            "DEMO-001",
+            "VEC-DELTA-005"
+          ],
+          "target_files": [
+            "README.md",
+            "docs/codecompass.md"
+          ],
+          "acceptance_criteria": [
+            "README beschreibt Ananta als kontrollierende Agenten-/Kontextplattform, nicht nur als Chatbot/RAG.",
+            "Abschnitt nennt VectorEncoding, TurboQuant-inspirierten Experimental-Seam und andere AI-Agenten als kontrollierte Signalquellen.",
+            "Abschnitt enthaelt einen Copy-Paste Demo-Befehl.",
+            "Abschnitt uebertreibt nicht: experimental bleibt experimental.",
+            "Abschnitt formuliert den Vorteil klar: lokale Pruefbarkeit, Policy, Determinismus, Trace, komprimierte Modellfeatures."
+          ]
+        },
+        {
+          "id": "DEMO-003",
+          "title": "Architekturdiagramm fuer grossen Wurf anlegen",
+          "status": "open",
+          "priority": "P1",
+          "type": "diagram",
+          "component": "architecture",
+          "dependencies": [
+            "AGENT-FEATURE-001",
+            "VEC-DELTA-005"
+          ],
+          "target_files": [
+            "architektur/uml/codecompass-vector-agent-feature-pipeline.mmd",
+            "docs/architecture/codecompass-vector-encoding.md"
+          ],
+          "acceptance_criteria": [
+            "Diagramm zeigt lokale Modelle, externe AI-Agenten, TransformerFeatureProvider, AgentFeatureProvider, VectorEncoding, CodeCompassVectorStore, HybridOrchestrator, PolicyGate und ApprovalGate.",
+            "Diagramm macht sichtbar: Agenten liefern Signale, Ananta entscheidet.",
+            "Diagramm markiert read-only FeatureProvider-Modus getrennt von Worker-Ausfuehrung.",
+            "Diagramm zeigt ContextTrace und Diagnostics als eigene Artefakte.",
+            "Mermaid rendert ohne Syntaxfehler."
+          ]
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "total_items": 15,
+    "by_status": {
+      "completed": 4,
+      "partial": 0,
+      "open": 15
+    },
+    "notes": [
+      "Diese Delta-TODO ersetzt nicht die grosse TurboQuant-TODO, sondern konkretisiert den aktuellen Implementierungsstand und die naechsten notwendigen Schritte.",
+      "Der wichtigste kurzfristige Blocker ist Service-/Config-Wiring, nicht der VectorEncoding-Kern selbst.",
+      "Der groessere Ananta-Claim entsteht durch AgentFeatureProvider: andere AI-Agenten werden als kontrollierte Signallieferanten eingebunden, nicht als unkontrollierte Autoritaeten.",
+      "Bewerbungsfaehig wird das Feature erst mit Demo-Script, README-Abschnitt und sichtbaren Diagnostics."
+    ],
+    "recommended_order": [
+      "VEC-DELTA-001",
+      "VEC-DELTA-004",
+      "VEC-DELTA-005",
+      "VEC-DELTA-006",
+      "DEMO-001",
+      "DEMO-002",
+      "AGENT-FEATURE-001",
+      "AGENT-FEATURE-004",
+      "AGENT-FEATURE-002",
+      "AGENT-FEATURE-003",
+      "DEMO-003",
+      "VEC-DELTA-002",
+      "VEC-DELTA-003"
+    ]
+  }
+}
