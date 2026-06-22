@@ -56,7 +56,7 @@ function yieldFrame(): Promise<void> {
     <div #cyContainer class="cy-container" [style.visibility]="showGraph ? 'visible' : 'hidden'"></div>
   `,
   styles: [`
-    :host { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; }
+    :host { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; position: relative; }
     .cy-container { flex: 1; width: 100%; min-height: 0; }
     .status-msg { color: #888; padding: .75rem; font-style: italic; margin: 0; flex-shrink: 0; }
     .error-msg { color: #c00; }
@@ -115,13 +115,13 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
 
     if (!this.graph || this.graph.nodes.length === 0) {
       this.loading = false;
-      this.cdr.markForCheck();
+      this.cdr.detectChanges();
       return;
     }
 
     this.loading = true;
     this._cancelled = false;
-    this.cdr.markForCheck();
+    this.cdr.detectChanges();
 
     // Yield so loading state renders before we block
     setTimeout(() => this._render(), 16);
@@ -146,13 +146,14 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
       const kept = new Set(nodes.map(n => n.id));
       edges = edges.filter(e => kept.has(e.source) && kept.has(e.target));
       this.renderWarning = `2D-Ansicht zeigt ${RENDER_CAP} von ${this.graph.nodes.length} Nodes — Simple-List für alle`;
-      this.cdr.markForCheck();
+      this.cdr.detectChanges();
     }
 
     // ── Phase 1: Positionen berechnen (chunked, O(n)) ─────────────────────
     this.phase = `Positionen berechnen… (${nodes.length} Nodes)`;
-    this.progress = 0;
-    this.cdr.markForCheck();
+    this.progress = 5;
+    this.cdr.detectChanges();
+    await yieldFrame();
 
     // Group by tier → each tier gets its own rows in the grid
     const byTier = new Map<number, GraphNode[]>();
@@ -182,7 +183,7 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
           });
         }
         this.progress = Math.round((positions.size / nodes.length) * 55);
-        this.cdr.markForCheck();
+        this.cdr.detectChanges();
         await yieldFrame();
       }
 
@@ -194,7 +195,7 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
     // ── Phase 2: Elemente aufbauen ────────────────────────────────────────
     this.phase = 'Elemente vorbereiten…';
     this.progress = 60;
-    this.cdr.markForCheck();
+    this.cdr.detectChanges();
     await yieldFrame();
 
     const elements: unknown[] = [];
@@ -206,7 +207,7 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
         elements.push({ data: { id: n.id, label: n.label, kind: n.kind, color: KIND_COLORS[n.kind] ?? KIND_COLORS['unknown'] }, position: pos });
       }
       this.progress = 60 + Math.round((i / nodes.length) * 15);
-      this.cdr.markForCheck();
+      this.cdr.detectChanges();
       await yieldFrame();
     }
 
@@ -219,59 +220,141 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
     // ── Phase 3: Cytoscape initialisieren (preset = sofort) ───────────────
     this.phase = 'Graph rendern…';
     this.progress = 80;
-    this.cdr.markForCheck();
+    this.cdr.detectChanges();
     await yieldFrame();
 
     try {
       const cytoscape = (await import('cytoscape')).default;
       if (this._cancelled) return;
 
+      const nodeSize = nodes.length > 400 ? 18 : 36;
+      const showLabels = nodes.length <= 400;
+
       this.cy = cytoscape({
         container: this.cyContainer.nativeElement,
         elements: elements as any,
         style: [
+          // ── Base ──────────────────────────────────────────────────────────
           {
             selector: 'node',
             style: {
               'background-color': 'data(color)',
-              'label': nodes.length > 400 ? '' : 'data(label)',
+              'label': showLabels ? 'data(label)' : '',
               'color': '#fff',
-              'text-valign': 'center',
-              'text-halign': 'center',
-              'font-size': '9px',
-              'width': nodes.length > 400 ? 18 : 36,
-              'height': nodes.length > 400 ? 18 : 36,
-              'text-wrap': 'ellipsis',
-              'text-max-width': '32px',
+              'text-valign': 'center', 'text-halign': 'center',
+              'font-size': '9px', 'font-weight': '500',
+              'width': nodeSize, 'height': nodeSize,
+              'text-wrap': 'ellipsis', 'text-max-width': `${nodeSize - 4}px`,
+              'transition-property': 'opacity, border-width, border-color, width, height',
+              'transition-duration': '150ms' as any,
             } as any,
           },
-          { selector: 'node:selected', style: { 'border-width': 3, 'border-color': '#f59e0b' } as any },
           {
             selector: 'edge',
             style: {
               'width': 1, 'line-color': '#cbd5e1',
               'target-arrow-color': '#cbd5e1', 'target-arrow-shape': 'triangle',
-              'curve-style': 'haystack',
+              'curve-style': 'haystack', 'opacity': 0.5,
+              'transition-property': 'opacity, line-color, width',
+              'transition-duration': '150ms' as any,
             } as any,
           },
-          { selector: 'edge:selected', style: { 'line-color': '#3b82f6', 'target-arrow-color': '#3b82f6' } as any },
+          // ── Dimmed (everything not in focus) ──────────────────────────────
+          {
+            selector: 'node.dimmed',
+            style: { 'opacity': 0.12 } as any,
+          },
+          {
+            selector: 'edge.dimmed',
+            style: { 'opacity': 0.04 } as any,
+          },
+          // ── Neighbour ─────────────────────────────────────────────────────
+          {
+            selector: 'node.neighbour',
+            style: {
+              'border-width': 2,
+              'border-color': '#38bdf8',   // sky-400
+              'opacity': 1,
+              'label': 'data(label)',
+              'font-size': '9px',
+              'width': nodeSize * 1.15,
+              'height': nodeSize * 1.15,
+            } as any,
+          },
+          {
+            selector: 'edge.active-edge',
+            style: {
+              'opacity': 1, 'width': 2.5,
+              'line-color': '#38bdf8',
+              'target-arrow-color': '#38bdf8',
+            } as any,
+          },
+          // ── Selected (focal node) ─────────────────────────────────────────
+          {
+            selector: 'node.focal',
+            style: {
+              'border-width': 4,
+              'border-color': '#f59e0b',   // amber
+              'border-style': 'solid',
+              'background-color': 'data(color)',
+              'opacity': 1,
+              'label': 'data(label)',
+              'font-size': '10px', 'font-weight': '700',
+              'color': '#fff',
+              'width': nodeSize * 1.4,
+              'height': nodeSize * 1.4,
+              'text-outline-color': '#000',
+              'text-outline-width': '1px' as any,
+              'z-index': 999,
+            } as any,
+          },
         ],
         layout: { name: 'preset' } as any,
         userZoomingEnabled: true,
         userPanningEnabled: true,
       });
 
+      // ── Highlight helpers ──────────────────────────────────────────────────
+      const cy = this.cy;
+
+      const clearHighlight = () => {
+        cy.elements().removeClass('focal neighbour dimmed active-edge');
+      };
+
+      const applyHighlight = (nodeId: string) => {
+        clearHighlight();
+        const focal = cy.getElementById(nodeId);
+        if (!focal.length) return;
+
+        const connectedEdges = focal.connectedEdges();
+        const neighbours = connectedEdges.connectedNodes().not(focal);
+
+        // Dim everything first, then selectively un-dim
+        cy.elements().addClass('dimmed');
+        focal.removeClass('dimmed').addClass('focal');
+        neighbours.removeClass('dimmed').addClass('neighbour');
+        connectedEdges.removeClass('dimmed').addClass('active-edge');
+      };
+
       this.cy.on('tap', 'node', (evt) => {
-        const node = this.nodeMap.get((evt.target as NodeSingular).id());
+        const cyNode = evt.target as NodeSingular;
+        applyHighlight(cyNode.id());
+        const node = this.nodeMap.get(cyNode.id());
         if (node) this.nodeSelected.emit(node);
       });
+
+      // Click on background → clear highlight
+      this.cy.on('tap', (evt) => {
+        if (evt.target === cy) clearHighlight();
+      });
+
       this.cy.on('tap', 'edge', (evt) => {
         const edge = this.edgeMap.get((evt.target as EdgeSingular).id());
         if (edge) this.edgeSelected.emit(edge);
       });
 
       this.progress = 100;
-      this.cdr.markForCheck();
+      this.cdr.detectChanges();
       await yieldFrame();
 
       this.showGraph = true;
@@ -280,7 +363,7 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
     } finally {
       if (!this._cancelled) {
         this.loading = false;
-        this.cdr.markForCheck();
+        this.cdr.detectChanges();
       }
     }
   }
