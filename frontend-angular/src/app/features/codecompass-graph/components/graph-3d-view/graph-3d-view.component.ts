@@ -83,18 +83,27 @@ export class Graph3dViewComponent implements OnChanges, OnDestroy {
   private edgeMap = new Map<string, GraphEdge>();
   private _focalId: string | null = null;
   private _neighbourIds = new Set<string>();
+  private _capAnchorId: string | null = null;
 
   ngOnChanges(changes: SimpleChanges): void {
     const gc = changes['graph'];
 
-    // Only selection changed — update highlight without rebuild
+    // Only selection changed — update highlight, unless the large-graph cap needs a new anchor.
     if (!gc) {
+      if (this._shouldRebuildForCapAnchor()) {
+        this._render();
+        return;
+      }
       this._updateHighlight(this.selectedNode?.id ?? null);
       return;
     }
     const prev = gc.previousValue as GenericGraphModel | null;
     const curr = gc.currentValue as GenericGraphModel | null;
     if (prev && curr && prev.nodes === curr.nodes && prev.edges === curr.edges) {
+      if (this._shouldRebuildForCapAnchor()) {
+        this._render();
+        return;
+      }
       this._updateHighlight(this.selectedNode?.id ?? null);
       return;
     }
@@ -106,6 +115,11 @@ export class Graph3dViewComponent implements OnChanges, OnDestroy {
     this._focalId = null;
     this._neighbourIds.clear();
     this._render();
+  }
+
+  private _shouldRebuildForCapAnchor(): boolean {
+    if (!this.graph || this.graph.nodes.length <= RENDER_CAP) return false;
+    return (this.selectedNode?.id ?? null) !== this._capAnchorId;
   }
 
   private _updateHighlight(nodeId: string | null): void {
@@ -147,18 +161,43 @@ export class Graph3dViewComponent implements OnChanges, OnDestroy {
   private _cappedGraph(): { nodes: GraphNode[]; edges: GraphEdge[] } {
     if (!this.graph) return { nodes: [], edges: [] };
     if (this.graph.nodes.length <= RENDER_CAP) {
+      this._capAnchorId = null;
       return { nodes: this.graph.nodes, edges: this.graph.edges };
     }
 
+    this._capAnchorId = this.selectedNode?.id ?? null;
     const degree = new Map<string, number>();
+    const neighbours = new Map<string, Set<string>>();
     for (const edge of this.graph.edges) {
       degree.set(edge.source, (degree.get(edge.source) ?? 0) + 1);
       degree.set(edge.target, (degree.get(edge.target) ?? 0) + 1);
+      if (!neighbours.has(edge.source)) neighbours.set(edge.source, new Set());
+      if (!neighbours.has(edge.target)) neighbours.set(edge.target, new Set());
+      neighbours.get(edge.source)!.add(edge.target);
+      neighbours.get(edge.target)!.add(edge.source);
     }
 
-    const nodes = [...this.graph.nodes]
+    const selected = new Map<string, GraphNode>();
+    const byId = new Map(this.graph.nodes.map(node => [node.id, node]));
+    if (this._capAnchorId) {
+      const anchor = byId.get(this._capAnchorId);
+      if (anchor) selected.set(anchor.id, anchor);
+      for (const neighbourId of neighbours.get(this._capAnchorId) ?? []) {
+        const neighbour = byId.get(neighbourId);
+        if (neighbour && selected.size < RENDER_CAP) {
+          selected.set(neighbour.id, neighbour);
+        }
+      }
+    }
+
+    const rankedNodes = [...this.graph.nodes]
       .sort((a, b) => (degree.get(b.id) ?? 0) - (degree.get(a.id) ?? 0))
-      .slice(0, RENDER_CAP);
+    for (const node of rankedNodes) {
+      if (selected.size >= RENDER_CAP) break;
+      selected.set(node.id, node);
+    }
+
+    const nodes = [...selected.values()];
     const kept = new Set(nodes.map(node => node.id));
     const edges = this.graph.edges.filter(edge => kept.has(edge.source) && kept.has(edge.target));
     return { nodes, edges };

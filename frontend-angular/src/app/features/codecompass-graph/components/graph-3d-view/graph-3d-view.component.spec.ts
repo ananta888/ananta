@@ -65,4 +65,56 @@ describe('Graph3dViewComponent', () => {
     fixture.detectChanges();
     expect(() => fixture.destroy()).not.toThrow();
   });
+
+  it('keeps the selected node neighbourhood when applying the large graph cap', () => {
+    const anchor = {
+      id: 'pair-file',
+      kind: 'python_file' as const,
+      label: 'pair_groups.py',
+      file: 'agent/routes/pair_groups.py',
+      content: '',
+      recordId: 'pair-file',
+      metadata: {},
+    };
+    const neighbour = {
+      id: 'pair-function',
+      kind: 'python_function' as const,
+      label: 'list_pair_groups',
+      file: 'agent/routes/pair_groups.py',
+      content: '',
+      recordId: 'pair-function',
+      metadata: {},
+    };
+    const fillerNodes = Array.from({ length: 501 }, (_, i) => ({
+      id: `filler-${i}`,
+      kind: 'python_function' as const,
+      label: `filler-${i}`,
+      file: `agent/routes/filler_${i}.py`,
+      content: '',
+      recordId: `filler-${i}`,
+      metadata: {},
+    }));
+    component.graph = {
+      nodes: [anchor, neighbour, ...fillerNodes],
+      edges: [
+        {
+          id: 'pair-file|pair-function|contains_symbol',
+          source: anchor.id,
+          target: neighbour.id,
+          edgeType: 'parent_child',
+          confidence: 1,
+          metadata: {},
+        },
+      ],
+      metadata: { sourceRef: 'test', sourceKind: 'test', nodeCount: 503, edgeCount: 1 },
+      warnings: [],
+    };
+    component.selectedNode = anchor;
+
+    const capped = (component as any)._cappedGraph();
+
+    expect(capped.nodes.map((node: any) => node.id)).toContain(anchor.id);
+    expect(capped.nodes.map((node: any) => node.id)).toContain(neighbour.id);
+    expect(capped.edges).toEqual([component.graph.edges[0]]);
+  });
 });
