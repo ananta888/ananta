@@ -30,8 +30,6 @@ const DOMAIN_COLORS = [
   '#facc15', '#f472b6', '#818cf8', '#2dd4bf', '#fb923c',
 ];
 
-const RENDER_CAP = 500;
-
 function hasWebGL(): boolean {
   try {
     const canvas = document.createElement('canvas');
@@ -86,6 +84,8 @@ export class Graph3dViewComponent implements OnChanges, AfterViewInit, OnDestroy
   @Input() graph: GenericGraphModel | null = null;
   @Input() selectedNode: GraphNode | null = null;
   @Input() selectedEdge: GraphEdge | null = null;
+  @Input() nodeRenderLimit: number | null = null;
+  @Input() edgeRenderLimit: number | null = null;
 
   @Output() nodeSelected = new EventEmitter<GraphNode>();
   @Output() edgeSelected = new EventEmitter<GraphEdge>();
@@ -104,20 +104,20 @@ export class Graph3dViewComponent implements OnChanges, AfterViewInit, OnDestroy
   private edgeMap = new Map<string, GraphEdge>();
   private _focalId: string | null = null;
   private _neighbourIds = new Set<string>();
-  private _capAnchorId: string | null = null;
   private resizeObserver: ResizeObserver | null = null;
 
   ngOnChanges(changes: SimpleChanges): void {
     const gc = changes['graph'];
+    const limitChanged = !!changes['nodeRenderLimit'] || !!changes['edgeRenderLimit'];
 
     // Only selection changed: update highlight without rebuilding the WebGL scene.
-    if (!gc) {
+    if (!gc && !limitChanged) {
       this._updateHighlight(this.selectedNode?.id ?? null);
       return;
     }
     const prev = gc.previousValue as GenericGraphModel | null;
     const curr = gc.currentValue as GenericGraphModel | null;
-    if (prev && curr && prev.nodes === curr.nodes && prev.edges === curr.edges) {
+    if (!limitChanged && prev && curr && prev.nodes === curr.nodes && prev.edges === curr.edges) {
       this._updateHighlight(this.selectedNode?.id ?? null);
       return;
     }
@@ -206,14 +206,23 @@ export class Graph3dViewComponent implements OnChanges, AfterViewInit, OnDestroy
     return Math.max(0.9, (6.2 - level * 0.95) * tierBoost);
   }
 
-  private _cappedGraph(): { nodes: GraphNode[]; edges: GraphEdge[] } {
+  private _normalisedLimit(value: number | null): number | null {
+    if (value === null || value === undefined) return null;
+    if (!Number.isFinite(value) || value <= 0) return null;
+    return Math.floor(value);
+  }
+
+  private _limitedGraph(): { nodes: GraphNode[]; edges: GraphEdge[] } {
     if (!this.graph) return { nodes: [], edges: [] };
-    if (this.graph.nodes.length <= RENDER_CAP) {
-      this._capAnchorId = null;
+    const nodeLimit = this._normalisedLimit(this.nodeRenderLimit);
+    const edgeLimit = this._normalisedLimit(this.edgeRenderLimit);
+    if (
+      (!nodeLimit || this.graph.nodes.length <= nodeLimit) &&
+      (!edgeLimit || this.graph.edges.length <= edgeLimit)
+    ) {
       return { nodes: this.graph.nodes, edges: this.graph.edges };
     }
 
-    this._capAnchorId = this.selectedNode?.id ?? null;
     const degree = new Map<string, number>();
     const neighbours = new Map<string, Set<string>>();
     for (const edge of this.graph.edges) {
@@ -225,29 +234,44 @@ export class Graph3dViewComponent implements OnChanges, AfterViewInit, OnDestroy
       neighbours.get(edge.target)!.add(edge.source);
     }
 
-    const selected = new Map<string, GraphNode>();
+    let nodes = this.graph.nodes;
     const byId = new Map(this.graph.nodes.map(node => [node.id, node]));
-    if (this._capAnchorId) {
-      const anchor = byId.get(this._capAnchorId);
-      if (anchor) selected.set(anchor.id, anchor);
-      for (const neighbourId of neighbours.get(this._capAnchorId) ?? []) {
-        const neighbour = byId.get(neighbourId);
-        if (neighbour && selected.size < RENDER_CAP) {
-          selected.set(neighbour.id, neighbour);
+
+    if (nodeLimit && this.graph.nodes.length > nodeLimit) {
+      const selected = new Map<string, GraphNode>();
+      const anchorId = this.selectedNode?.id ?? null;
+      if (anchorId) {
+        const anchor = byId.get(anchorId);
+        if (anchor) selected.set(anchor.id, anchor);
+        for (const neighbourId of neighbours.get(anchorId) ?? []) {
+          const neighbour = byId.get(neighbourId);
+          if (neighbour && selected.size < nodeLimit) {
+            selected.set(neighbour.id, neighbour);
+          }
         }
       }
+
+      const rankedNodes = [...this.graph.nodes]
+        .sort((a, b) => (degree.get(b.id) ?? 0) - (degree.get(a.id) ?? 0));
+      for (const node of rankedNodes) {
+        if (selected.size >= nodeLimit) break;
+        selected.set(node.id, node);
+      }
+      nodes = [...selected.values()];
     }
 
-    const rankedNodes = [...this.graph.nodes]
-      .sort((a, b) => (degree.get(b.id) ?? 0) - (degree.get(a.id) ?? 0))
-    for (const node of rankedNodes) {
-      if (selected.size >= RENDER_CAP) break;
-      selected.set(node.id, node);
-    }
-
-    const nodes = [...selected.values()];
     const kept = new Set(nodes.map(node => node.id));
-    const edges = this.graph.edges.filter(edge => kept.has(edge.source) && kept.has(edge.target));
+    let edges = this.graph.edges.filter(edge => kept.has(edge.source) && kept.has(edge.target));
+    if (edgeLimit && edges.length > edgeLimit) {
+      const focalId = this.selectedNode?.id ?? null;
+      edges = [...edges]
+        .sort((a, b) => {
+          const aFocal = focalId && (a.source === focalId || a.target === focalId) ? 1 : 0;
+          const bFocal = focalId && (b.source === focalId || b.target === focalId) ? 1 : 0;
+          return bFocal - aFocal;
+        })
+        .slice(0, edgeLimit);
+    }
     return { nodes, edges };
   }
 
@@ -283,7 +307,7 @@ export class Graph3dViewComponent implements OnChanges, AfterViewInit, OnDestroy
     try {
       const { default: ForceGraph3D } = await import('3d-force-graph');
 
-      const { nodes, edges } = this._cappedGraph();
+      const { nodes, edges } = this._limitedGraph();
 
       const gNodes = nodes.map(n => ({
         id: n.id, label: n.label, kind: n.kind,

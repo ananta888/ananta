@@ -66,7 +66,29 @@ describe('Graph3dViewComponent', () => {
     expect(() => fixture.destroy()).not.toThrow();
   });
 
-  it('keeps the selected node neighbourhood when applying the large graph cap', () => {
+  it('renders every node by default without applying an implicit cap', () => {
+    const nodes = Array.from({ length: 1600 }, (_, i) => ({
+      id: `node-${i}`,
+      kind: 'python_function' as const,
+      label: `node-${i}`,
+      file: `agent/routes/file_${i}.py`,
+      content: '',
+      recordId: `node-${i}`,
+      metadata: {},
+    }));
+    component.graph = {
+      nodes,
+      edges: [],
+      metadata: { sourceRef: 'test', sourceKind: 'test', nodeCount: nodes.length, edgeCount: 0 },
+      warnings: [],
+    };
+
+    const limited = (component as any)._limitedGraph();
+
+    expect(limited.nodes.length).toBe(nodes.length);
+  });
+
+  it('keeps the selected node neighbourhood when an explicit node render limit is set', () => {
     const anchor = {
       id: 'pair-file',
       kind: 'python_file' as const,
@@ -110,11 +132,59 @@ describe('Graph3dViewComponent', () => {
       warnings: [],
     };
     component.selectedNode = anchor;
+    component.nodeRenderLimit = 500;
 
-    const capped = (component as any)._cappedGraph();
+    const capped = (component as any)._limitedGraph();
 
     expect(capped.nodes.map((node: any) => node.id)).toContain(anchor.id);
     expect(capped.nodes.map((node: any) => node.id)).toContain(neighbour.id);
     expect(capped.edges).toEqual([component.graph.edges[0]]);
+  });
+
+  it('applies explicit edge render limits independently from nodes', () => {
+    const nodes = [
+      {
+        id: 'a',
+        kind: 'python_file' as const,
+        label: 'a.py',
+        file: 'a.py',
+        content: '',
+        recordId: 'a',
+        metadata: {},
+      },
+      {
+        id: 'b',
+        kind: 'python_function' as const,
+        label: 'b',
+        file: 'a.py',
+        content: '',
+        recordId: 'b',
+        metadata: {},
+      },
+      {
+        id: 'c',
+        kind: 'python_function' as const,
+        label: 'c',
+        file: 'a.py',
+        content: '',
+        recordId: 'c',
+        metadata: {},
+      },
+    ];
+    component.graph = {
+      nodes,
+      edges: [
+        { id: 'ab', source: 'a', target: 'b', edgeType: 'parent_child', confidence: 1, metadata: {} },
+        { id: 'ac', source: 'a', target: 'c', edgeType: 'parent_child', confidence: 1, metadata: {} },
+      ],
+      metadata: { sourceRef: 'test', sourceKind: 'test', nodeCount: 3, edgeCount: 2 },
+      warnings: [],
+    };
+    component.edgeRenderLimit = 1;
+
+    const limited = (component as any)._limitedGraph();
+
+    expect(limited.nodes.length).toBe(3);
+    expect(limited.edges.length).toBe(1);
   });
 });

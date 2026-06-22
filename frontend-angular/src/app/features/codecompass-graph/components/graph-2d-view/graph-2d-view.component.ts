@@ -29,7 +29,6 @@ const KIND_TIER: Record<string, number> = {
   typescript_const: 3, typescript_constructor: 3, java_method: 3, java_constructor: 3,
 };
 
-const RENDER_CAP = 800;
 const CHUNK = 300;
 const GAP_X = 110;
 const GAP_Y = 160;
@@ -89,6 +88,8 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
   @Input() layoutMode: GraphLayoutMode = 'tier';
   @Input() selectedNode: GraphNode | null = null;
   @Input() selectedEdge: GraphEdge | null = null;
+  @Input() nodeRenderLimit: number | null = null;
+  @Input() edgeRenderLimit: number | null = null;
 
   @Output() nodeSelected = new EventEmitter<GraphNode>();
   @Output() edgeSelected = new EventEmitter<GraphEdge>();
@@ -110,9 +111,10 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
   ngOnChanges(changes: SimpleChanges): void {
     const gc = changes['graph'];
     const lc = changes['layoutMode'];
+    const limitChanged = !!changes['nodeRenderLimit'] || !!changes['edgeRenderLimit'];
     // If only selectedNode/selectedEdge changed, just update highlight — don't re-render
     if (!gc) {
-      if (lc) {
+      if (lc || limitChanged) {
         // Layout mode changed; rebuild positions with the current graph.
       } else {
         if (this.cy) {
@@ -126,7 +128,7 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
     // If the graph wrapper changed but the actual nodes array is the same reference, skip re-render
     const prev = gc?.previousValue as GenericGraphModel | null;
     const curr = gc?.currentValue as GenericGraphModel | null;
-    if (!lc && prev && curr && prev.nodes === curr.nodes && prev.edges === curr.edges) {
+    if (!lc && !limitChanged && prev && curr && prev.nodes === curr.nodes && prev.edges === curr.edges) {
       if (this.cy) {
         if (this.selectedNode) this._applyHighlight(this.selectedNode.id);
         else this._clearHighlight();
@@ -317,6 +319,39 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
     return Math.round(defaultSize * scale);
   }
 
+  private _normalisedLimit(value: number | null): number | null {
+    if (value === null || value === undefined) return null;
+    if (!Number.isFinite(value) || value <= 0) return null;
+    return Math.floor(value);
+  }
+
+  private _limitedGraph(nodes: GraphNode[], edges: GraphEdge[]): { nodes: GraphNode[]; edges: GraphEdge[] } {
+    const nodeLimit = this._normalisedLimit(this.nodeRenderLimit);
+    const edgeLimit = this._normalisedLimit(this.edgeRenderLimit);
+    this.renderWarning = '';
+
+    if (nodeLimit && nodes.length > nodeLimit) {
+      const deg = this._degreeMap(edges);
+      nodes = [...nodes]
+        .sort((a, b) =>
+          (KIND_TIER[a.kind] ?? 4) - (KIND_TIER[b.kind] ?? 4) ||
+          (deg.get(b.id) ?? 0) - (deg.get(a.id) ?? 0)
+        )
+        .slice(0, nodeLimit);
+      const kept = new Set(nodes.map(n => n.id));
+      edges = edges.filter(e => kept.has(e.source) && kept.has(e.target));
+      this.renderWarning = `2D-Ansicht zeigt ${nodes.length} von ${this.graph?.nodes.length ?? nodes.length} Nodes`;
+    }
+
+    if (edgeLimit && edges.length > edgeLimit) {
+      edges = edges.slice(0, edgeLimit);
+      const prefix = this.renderWarning ? `${this.renderWarning}; ` : '';
+      this.renderWarning = `${prefix}${edges.length} von ${this.graph?.edges.length ?? edges.length} Edges`;
+    }
+
+    return { nodes, edges };
+  }
+
   ngOnDestroy(): void {
     this._cancelled = true;
     this.cy?.destroy();
@@ -329,20 +364,8 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
     let nodes = this.graph.nodes;
     let edges = this.graph.edges;
 
-    // ── Frontend-Cap (Sicherheitsnetz für sehr große Graphs) ────────────────
-    if (nodes.length > RENDER_CAP) {
-      // Sort by tier + degree (degree = number of edges to other visible nodes)
-      const deg = this._degreeMap(edges);
-      const sorted = [...nodes].sort((a, b) =>
-        (KIND_TIER[a.kind] ?? 4) - (KIND_TIER[b.kind] ?? 4) ||
-        (deg.get(b.id) ?? 0) - (deg.get(a.id) ?? 0)
-      );
-      nodes = sorted.slice(0, RENDER_CAP);
-      const kept = new Set(nodes.map(n => n.id));
-      edges = edges.filter(e => kept.has(e.source) && kept.has(e.target));
-      this.renderWarning = `2D-Ansicht zeigt ${RENDER_CAP} von ${this.graph.nodes.length} Nodes — Simple-List für alle`;
-      this.cdr.detectChanges();
-    }
+    ({ nodes, edges } = this._limitedGraph(nodes, edges));
+    this.cdr.detectChanges();
 
     // ── Phase 1: Positionen berechnen (chunked, O(n)) ─────────────────────
     this.phase = `Positionen berechnen… (${nodes.length} Nodes)`;
