@@ -227,23 +227,119 @@ def architecture_query():
     return api_response(data=result)
 
 
+def _rag_out_paths(settings):
+    repo_root = Path(getattr(settings, "rag_repo_root", ".")).resolve()
+    return (
+        repo_root / "rag-helper" / "out" / "graph_nodes.jsonl",
+        repo_root / "rag-helper" / "out" / "graph_edges.jsonl",
+    )
+
+
+def _load_nodes_jsonl(nodes_path: Path) -> dict[str, dict]:
+    result: dict[str, dict] = {}
+    with nodes_path.open(encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                node = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            nid = str(node.get("id") or "")
+            if nid:
+                result[nid] = node
+    return result
+
+
+def _domain_to_file_prefix(domain: str) -> str:
+    """Convert a domain key to the file-path prefix used for filtering.
+
+    Python module areas use dots (e.g. 'agent.routes') → 'agent/routes'.
+    TypeScript folders are prefixed with 'ts:' (e.g. 'ts:src/app') → 'src/app'.
+    'all' → '' (no filtering).
+    """
+    if domain == "all":
+        return ""
+    if domain.startswith("ts:"):
+        return domain[3:]
+    return domain.replace(".", "/")
+
+
+@codecompass_graph_bp.route("/api/codecompass/self-graph/domains", methods=["GET"])
+@check_auth
+def get_self_graph_domains():
+    """Return semantic module domains derived from *_module_summary and folder_summary nodes."""
+    from agent.config import settings
+    nodes_path, _ = _rag_out_paths(settings)
+    if not nodes_path.exists():
+        return api_response(data={"domains": [], "warnings": ["graph_nodes.jsonl not found"]})
+
+    python_modules: list[dict] = []
+    ts_folders: list[dict] = []
+    out_dir = nodes_path.parent
+
+    # Detail files have full metadata (module_area, files[], summary{})
+    py_detail = out_dir / "index_by_kind" / "python_module_summary.jsonl"
+    ts_detail = out_dir / "index_by_kind" / "typescript_folder_summary.jsonl"
+
+    def _read_detail(path: Path, extract):
+        if not path.exists():
+            return
+        with path.open(encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    node = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                extract(node)
+
+    def _extract_python(node):
+        area = str(node.get("module_area") or node.get("file") or "")
+        if not area:
+            return
+        fc = (node.get("summary") or {}).get("file_count") or len(node.get("files") or [])
+        python_modules.append({"domain": area, "display_name": area, "file_count": fc, "kind": "python_module"})
+
+    def _extract_ts(node):
+        folder = str(node.get("folder") or node.get("file") or "")
+        if not folder:
+            return
+        fc = (node.get("summary") or {}).get("file_count") or len(node.get("files") or [])
+        ts_folders.append({"domain": f"ts:{folder}", "display_name": f"ts: {folder}", "file_count": fc, "kind": "typescript_folder"})
+
+    _read_detail(py_detail, _extract_python)
+    _read_detail(ts_detail, _extract_ts)
+
+    python_modules.sort(key=lambda x: (-x["file_count"], x["domain"]))
+    ts_folders.sort(key=lambda x: (-x["file_count"], x["domain"]))
+    domains = python_modules + ts_folders
+    return api_response(data={"domains": domains})
+
+
 @codecompass_graph_bp.route("/api/codecompass/self-graph", methods=["GET"])
 @check_auth
 def get_self_graph():
-    """Serve Ananta's own rag-helper/out JSONL graph without a registered knowledge index."""
+    """Serve Ananta's own rag-helper/out JSONL graph scoped to a domain and BFS depth.
+
+    ?domain=agent     — top-level dir prefix (default: agent). Use 'all' for full graph.
+    ?depth=2          — BFS hops from anchor nodes (default: 2, 0 = anchors only).
+    ?kind=python_file — optional extra kind filter.
+    """
     from agent.config import settings
 
-    raw_limit = str(request.args.get("limit") or "500").strip()
-    try:
-        limit = max(10, min(int(raw_limit), 2000))
-    except ValueError:
-        limit = 500
+    domain_filter = str(request.args.get("domain") or "agent").strip()
+    raw_depth = str(request.args.get("depth") or "2").strip()
     kind_filter = str(request.args.get("kind") or "").strip().lower() or None
+    try:
+        bfs_depth = max(0, min(int(raw_depth), 6))
+    except ValueError:
+        bfs_depth = 2
 
-    repo_root = Path(getattr(settings, "rag_repo_root", ".")).resolve()
-    nodes_path = repo_root / "rag-helper" / "out" / "graph_nodes.jsonl"
-    edges_path = repo_root / "rag-helper" / "out" / "graph_edges.jsonl"
-
+    nodes_path, edges_path = _rag_out_paths(settings)
     if not nodes_path.exists():
         return api_response(data={
             "schema": "domain_graph_artifact.v1",
@@ -254,27 +350,63 @@ def get_self_graph():
             "warnings": ["rag-helper/out/graph_nodes.jsonl not found"],
         })
 
-    all_nodes: list[dict] = []
-    with nodes_path.open(encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                node = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if kind_filter and str(node.get("kind") or "").lower() != kind_filter:
-                continue
-            all_nodes.append(node)
+    # ── 1. Load all nodes ────────────────────────────────────────────────────
+    all_nodes_by_id = _load_nodes_jsonl(nodes_path)
 
-    all_nodes.sort(key=lambda n: float(n.get("importance_score") or 0.0), reverse=True)
-    selected = all_nodes[:limit]
-    selected_ids = {str(n["id"]) for n in selected}
+    # ── 2. Filter to domain (file-path prefix match) ─────────────────────────
+    file_prefix = _domain_to_file_prefix(domain_filter)
+    if not file_prefix:
+        scoped = list(all_nodes_by_id.values())
+    else:
+        scoped = [
+            n for n in all_nodes_by_id.values()
+            if str(n.get("file") or "").replace("\\", "/").startswith(file_prefix)
+        ]
 
+    if kind_filter:
+        scoped = [n for n in scoped if str(n.get("kind") or "").lower() == kind_filter]
+
+    # ── 3. Load edges for the whole graph (needed for BFS) ───────────────────
+    adj: dict[str, list[tuple[str, dict]]] = {}  # node_id → [(neighbour_id, edge)]
+    all_edges_raw: list[dict] = []
+    if edges_path.exists():
+        with edges_path.open(encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    edge = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                src = str(edge.get("source") or "")
+                tgt = str(edge.get("target") or "")
+                if not src or not tgt:
+                    continue
+                all_edges_raw.append(edge)
+                adj.setdefault(src, []).append((tgt, edge))
+                adj.setdefault(tgt, []).append((src, edge))
+
+    # ── 4. BFS expansion from scoped seeds ───────────────────────────────────
+    selected_ids: set[str] = {str(n["id"]) for n in scoped}
+    frontier = set(selected_ids)
+    for _ in range(bfs_depth):
+        next_frontier: set[str] = set()
+        for nid in frontier:
+            for neighbour_id, _ in adj.get(nid, []):
+                if neighbour_id not in selected_ids:
+                    selected_ids.add(neighbour_id)
+                    next_frontier.add(neighbour_id)
+        frontier = next_frontier
+        if not frontier:
+            break
+
+    # ── 5. Build output ──────────────────────────────────────────────────────
     raw_nodes = []
-    for n in selected:
-        nid = str(n.get("id") or "")
+    for nid in selected_ids:
+        n = all_nodes_by_id.get(nid)
+        if not n:
+            continue
         raw_nodes.append({
             "node_id": nid,
             "node_type": str(n.get("kind") or "unknown"),
@@ -288,37 +420,29 @@ def get_self_graph():
         })
 
     raw_edges = []
-    if edges_path.exists():
-        with edges_path.open(encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    edge = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                src = str(edge.get("source") or "")
-                tgt = str(edge.get("target") or "")
-                if src in selected_ids and tgt in selected_ids:
-                    raw_edges.append({
-                        "source_id": src,
-                        "target_id": tgt,
-                        "relation": str(edge.get("type") or edge.get("kind") or "related"),
-                        "attributes": {"confidence": 1.0},
-                    })
+    for edge in all_edges_raw:
+        src = str(edge.get("source") or "")
+        tgt = str(edge.get("target") or "")
+        if src in selected_ids and tgt in selected_ids:
+            raw_edges.append({
+                "source_id": src,
+                "target_id": tgt,
+                "relation": str(edge.get("type") or edge.get("kind") or "related"),
+                "attributes": {"confidence": 1.0},
+            })
 
     return api_response(data={
         "schema": "domain_graph_artifact.v1",
         "source_kind": "ananta_self_graph",
-        "source_ref": "ananta",
+        "source_ref": f"ananta:{domain_filter}",
         "nodes": raw_nodes,
         "edges": raw_edges,
         "metadata": {
             "node_count": len(raw_nodes),
             "edge_count": len(raw_edges),
-            "total_nodes_available": len(all_nodes),
-            "limit": limit,
+            "domain": domain_filter,
+            "depth": bfs_depth,
+            "total_nodes_available": len(all_nodes_by_id),
         },
         "warnings": [],
     })

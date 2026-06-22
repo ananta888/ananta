@@ -208,17 +208,22 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
     <button type="button" class="ch-tab" [class.ch-tab-on]="activeTab() === 'vp'"    (click)="activeTab.set('vp')">⚙ VP Editor</button>
     @if (activeTab() === 'graph') {
       <div class="ch-tab-spacer"></div>
-      @if (ccIndexes().length > 0) {
-        <label class="ch-lbl" style="margin-left:8px">Index</label>
-        <select class="ch-sel" [value]="ccSelectedId()"
-          (change)="loadCCGraph($any($event.target).value)">
-          @for (ix of ccIndexes(); track ix.id) {
-            <option [value]="ix.id">{{ ix.source_scope || ix.id }}</option>
-          }
-        </select>
-      } @else if (ccSelectedId() === 'ananta') {
-        <span class="ch-lbl" style="margin-left:8px;color:var(--accent);font-weight:600">Ananta (self)</span>
-      }
+      <label class="ch-lbl" style="margin-left:8px">Modul</label>
+      <select class="ch-sel" style="max-width:220px" [value]="ccDomain()"
+        (change)="ccDomain.set($any($event.target).value); loadSelfGraph()">
+        @for (d of ccDomains(); track d.domain) {
+          <option [value]="d.domain">{{ d.display_name }}{{ d.file_count > 0 ? ' (' + d.file_count + ')' : '' }}</option>
+        }
+      </select>
+      <label class="ch-lbl" style="margin-left:8px">Tiefe</label>
+      <select class="ch-sel" style="width:52px" [value]="ccDepth()"
+        (change)="ccDepth.set(+$any($event.target).value); loadSelfGraph()">
+        <option value="0">0</option>
+        <option value="1">1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+      </select>
       @if (ccLoading()) { <span class="ch-lbl" style="color:var(--muted);margin-left:8px">Lädt…</span> }
       @if (ccError()) { <span class="ch-lbl" style="color:#ef4444;margin-left:8px">{{ ccError() }}</span> }
     }
@@ -1223,6 +1228,9 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
   readonly ccRawGraph = signal<any>(null);
   readonly ccLoading = signal(false);
   readonly ccError = signal('');
+  readonly ccDomains = signal<{domain: string; display_name: string; file_count: number; kind: string}[]>([]);
+  readonly ccDomain = signal('agent.routes');
+  readonly ccDepth = signal(1);
 
   // ── Connect mode ──────────────────────────────────────────────────────────
   readonly connectMode = signal(false);
@@ -1245,13 +1253,15 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
     this.svc.getAutopilotStatus().subscribe(s => this.autopilot.set(s));
     this.svc.getVpPresets().subscribe(p => this.vpPresets.set(p));
     this.svc.getVpSkillProfiles().subscribe(sp => this.skillProfiles.set(sp));
-    this.svc.listKnowledgeIndexes().subscribe(items => {
-      this.ccIndexes.set(items);
-      if (items.length > 0) {
-        this.loadCCGraph(items[0].id);
-      } else {
-        this.loadSelfGraph();
-      }
+    this.svc.getSelfGraphDomains().subscribe(domains => {
+      this.ccDomains.set(domains);
+      // pick a good default: prefer agent.routes → agent → first with files
+      const best = domains.find(d => d.domain === 'agent.routes')
+        ?? domains.find(d => d.domain === 'agent')
+        ?? domains.find(d => d.file_count > 0)
+        ?? domains[0];
+      if (best) this.ccDomain.set(best.domain);
+      this.loadSelfGraph();
     });
     this._pollSub = interval(3000).pipe(switchMap(() => this.svc.getAutopilotStatus()))
       .subscribe(s => this.autopilot.set(s));
@@ -1289,7 +1299,7 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
     this.ccLoading.set(true);
     this.ccError.set('');
     this.ccRawGraph.set(null);
-    this.svc.getSelfGraph().subscribe({
+    this.svc.getSelfGraph(this.ccDomain(), this.ccDepth()).subscribe({
       next: data => {
         this.ccLoading.set(false);
         if (data) { this.ccRawGraph.set(data); }

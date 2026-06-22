@@ -203,8 +203,16 @@ export class InternalsService {
     );
   }
 
-  getSelfGraph(limit = 500): Observable<any> {
-    return this.http.get<any>(`${this.hubUrl()}/api/codecompass/self-graph?limit=${limit}`).pipe(
+  getSelfGraphDomains(): Observable<{domain: string; display_name: string; file_count: number; kind: string}[]> {
+    return this.http.get<any>(`${this.hubUrl()}/api/codecompass/self-graph/domains`).pipe(
+      map(r => Array.isArray(r?.data?.domains) ? r.data.domains : []),
+      catchError(() => of([])),
+    );
+  }
+
+  getSelfGraph(domain = 'agent', depth = 2): Observable<any> {
+    const params = new URLSearchParams({ domain, depth: String(depth) });
+    return this.http.get<any>(`${this.hubUrl()}/api/codecompass/self-graph?${params}`).pipe(
       map(r => r?.data ?? null),
       catchError(() => of(null)),
     );
