@@ -32,6 +32,11 @@ function yieldFrame(): Promise<void> {
   return new Promise(r => setTimeout(r, 0));
 }
 
+// Cytoscape uses IDs in CSS selectors (#id). Colons, slashes etc. break parsing.
+function cyId(id: string): string {
+  return 'c' + id.replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
 @Component({
   standalone: true,
   selector: 'app-graph-2d-view',
@@ -150,7 +155,7 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
   private _applyHighlight(nodeId: string): void {
     if (!this.cy) return;
     this._clearHighlight();
-    const focal = this.cy.getElementById(nodeId);
+    const focal = this.cy.getElementById(cyId(nodeId));
     if (!focal.length) return;
     const connectedEdges = focal.connectedEdges();
     const neighbours = connectedEdges.connectedNodes().not(focal);
@@ -250,7 +255,14 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
       const batch = nodes.slice(i, i + CHUNK);
       for (const n of batch) {
         const pos = positions.get(n.id) ?? { x: 0, y: 0 };
-        elements.push({ data: { id: n.id, label: n.label, kind: n.kind, color: KIND_COLORS[n.kind] ?? KIND_COLORS['unknown'] }, position: pos });
+        elements.push({
+          data: {
+            id: cyId(n.id), originalId: n.id,
+            label: n.label, kind: n.kind,
+            color: KIND_COLORS[n.kind] ?? KIND_COLORS['unknown'],
+          },
+          position: pos,
+        });
       }
       this.progress = 60 + Math.round((i / nodes.length) * 15);
       this.cdr.detectChanges();
@@ -258,7 +270,13 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
     }
 
     for (const e of edges) {
-      elements.push({ data: { id: e.id, source: e.source, target: e.target, label: e.edgeType } });
+      elements.push({
+        data: {
+          id: cyId(e.id), originalId: e.id,
+          source: cyId(e.source), target: cyId(e.target),
+          label: e.edgeType,
+        },
+      });
     }
 
     if (this._cancelled) return;
@@ -366,8 +384,9 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
       // ── Event handlers ────────────────────────────────────────────────────
       this.cy.on('tap', 'node', (evt) => {
         const cyNode = evt.target as NodeSingular;
-        this._applyHighlight(cyNode.id());
-        const node = this.nodeMap.get(cyNode.id());
+        const originalId: string = cyNode.data('originalId');
+        this._applyHighlight(originalId);
+        const node = this.nodeMap.get(originalId);
         if (node) this.nodeSelected.emit(node);
       });
 
@@ -376,7 +395,8 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
       });
 
       this.cy.on('tap', 'edge', (evt) => {
-        const edge = this.edgeMap.get((evt.target as EdgeSingular).id());
+        const originalId: string = (evt.target as EdgeSingular).data('originalId');
+        const edge = this.edgeMap.get(originalId);
         if (edge) this.edgeSelected.emit(edge);
       });
 
