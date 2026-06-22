@@ -15,11 +15,13 @@ import { ALL_NODE_KINDS, ALL_EDGE_TYPES } from '../../models/graph-filter.model'
     <div class="toolbar">
       <div class="toolbar-group">
         @for (mode of viewModes; track mode) {
-          <button
-            class="mode-btn"
-            [class.active]="activeMode === mode"
-            (click)="viewModeChange.emit(mode)"
-          >{{ modeLabels[mode] }}</button>
+          @if (mode !== '3d' || webglAvailable) {
+            <button
+              class="mode-btn"
+              [class.active]="activeMode === mode"
+              (click)="viewModeChange.emit(mode)"
+            >{{ modeLabels[mode] }}</button>
+          }
         }
       </div>
 
@@ -80,6 +82,7 @@ import { ALL_NODE_KINDS, ALL_EDGE_TYPES } from '../../models/graph-filter.model'
 export class GraphToolbarComponent {
   @Input() activeMode: GraphViewMode = 'simple';
   @Input() filter: GraphFilter = { searchText: '', nodeKindFilter: [], edgeTypeFilter: [] };
+  @Input() webglAvailable = true;
 
   @Output() viewModeChange = new EventEmitter<GraphViewMode>();
   @Output() filterChange = new EventEmitter<Partial<GraphFilter>>();

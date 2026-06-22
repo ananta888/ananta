@@ -1,4 +1,4 @@
-import { Component, Input, OnChanges, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, Input, OnChanges, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 import { GenericGraphModel, GraphNode, GraphEdge } from '../../models/graph.model';
@@ -29,7 +29,8 @@ import { Graph3dViewComponent } from '../graph-3d-view/graph-3d-view.component';
       <app-graph-toolbar
         [activeMode]="state.viewMode()"
         [filter]="state.filter()"
-        (viewModeChange)="state.setViewMode($event)"
+        [webglAvailable]="webglAvailable"
+        (viewModeChange)="setViewMode($event)"
         (filterChange)="state.updateFilter($event)"
         (filterReset)="state.resetFilter()"
       />
@@ -101,13 +102,31 @@ import { Graph3dViewComponent } from '../graph-3d-view/graph-3d-view.component';
     .warning-msg { margin: 0; font-size: .8rem; color: #92400e; }
   `],
 })
-export class GraphViewerComponent implements OnChanges {
+export class GraphViewerComponent implements OnChanges, OnInit {
   @Input() rawGraphData: unknown = null;
 
   readonly state = inject(GraphStateService);
   private readonly adapter = inject(GraphAdapterService);
 
   graph: GenericGraphModel | null = null;
+  webglAvailable = true;
+
+  ngOnInit(): void {
+    try {
+      const c = document.createElement('canvas');
+      this.webglAvailable = !!(c.getContext('webgl') || c.getContext('experimental-webgl'));
+    } catch {
+      this.webglAvailable = false;
+    }
+    if (!this.webglAvailable && this.state.viewMode() === '3d') {
+      this.state.setViewMode('2d');
+    }
+  }
+
+  setViewMode(mode: import('../../models/graph-view-mode').GraphViewMode): void {
+    if (mode === '3d' && !this.webglAvailable) return;
+    this.state.setViewMode(mode);
+  }
 
   ngOnChanges(): void {
     if (this.rawGraphData) {

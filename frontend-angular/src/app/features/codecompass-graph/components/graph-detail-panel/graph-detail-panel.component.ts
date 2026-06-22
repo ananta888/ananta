@@ -147,13 +147,26 @@ export class GraphDetailPanelComponent implements OnChanges {
   localHops = 1;
 
   ngOnChanges(): void {
-    if (!this.focusActive) {
-      this.localHops = this.focusHopDepth;
-    }
+    this.localHops = this.focusHopDepth;
   }
 
-  incHops(): void { if (this.localHops < 6) this.localHops++; }
-  decHops(): void { if (this.localHops > 1) this.localHops--; }
+  incHops(): void {
+    if (this.localHops >= 6) return;
+    this.localHops++;
+    this.emitFocusDepthIfActive();
+  }
+
+  decHops(): void {
+    if (this.localHops <= 1) return;
+    this.localHops--;
+    this.emitFocusDepthIfActive();
+  }
+
+  private emitFocusDepthIfActive(): void {
+    if (this.focusActive) {
+      this.focusRequested.emit(this.localHops);
+    }
+  }
 
   extraMeta(meta: Record<string, unknown>): Array<{ key: string; value: string }> {
     return Object.entries(meta ?? {})

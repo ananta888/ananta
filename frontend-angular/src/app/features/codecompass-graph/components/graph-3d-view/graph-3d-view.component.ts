@@ -1,6 +1,7 @@
 import {
   Component, Input, Output, EventEmitter,
-  ElementRef, ViewChild, OnChanges, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef, inject,
+  ElementRef, ViewChild, OnChanges, SimpleChanges, OnDestroy,
+  ChangeDetectionStrategy, ChangeDetectorRef, inject,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import type { ForceGraph3DInstance } from '3d-force-graph';
@@ -13,6 +14,8 @@ const KIND_COLORS: Record<string, string> = {
   xml_tag:     '#8b5cf6',
   unknown:     '#94a3b8',
 };
+
+const RENDER_CAP = 500;
 
 function hasWebGL(): boolean {
   try {
@@ -78,13 +81,87 @@ export class Graph3dViewComponent implements OnChanges, OnDestroy {
   private fg: ForceGraph3DInstance | null = null;
   private nodeMap = new Map<string, GraphNode>();
   private edgeMap = new Map<string, GraphEdge>();
+  private _focalId: string | null = null;
+  private _neighbourIds = new Set<string>();
 
-  ngOnChanges(): void {
+  ngOnChanges(changes: SimpleChanges): void {
+    const gc = changes['graph'];
+
+    // Only selection changed — update highlight without rebuild
+    if (!gc) {
+      this._updateHighlight(this.selectedNode?.id ?? null);
+      return;
+    }
+    const prev = gc.previousValue as GenericGraphModel | null;
+    const curr = gc.currentValue as GenericGraphModel | null;
+    if (prev && curr && prev.nodes === curr.nodes && prev.edges === curr.edges) {
+      this._updateHighlight(this.selectedNode?.id ?? null);
+      return;
+    }
+
     this.nodeMap.clear();
     this.edgeMap.clear();
     this.graph?.nodes.forEach(n => this.nodeMap.set(n.id, n));
     this.graph?.edges.forEach(e => this.edgeMap.set(e.id, e));
+    this._focalId = null;
+    this._neighbourIds.clear();
     this._render();
+  }
+
+  private _updateHighlight(nodeId: string | null): void {
+    this._focalId = nodeId;
+    this._neighbourIds.clear();
+    if (nodeId && this.graph) {
+      for (const e of this.graph.edges) {
+        if (e.source === nodeId) this._neighbourIds.add(e.target);
+        if (e.target === nodeId) this._neighbourIds.add(e.source);
+      }
+    }
+    if (!this.fg) return;
+    this.fg
+      .nodeColor((n: any) => this._nodeColor(n['id'] as string))
+      .nodeOpacity(nodeId ? 0.9 : 0.75)
+      .linkColor((l: any) => {
+        if (!this._focalId) return '#94a3b8';
+        const src = typeof l['source'] === 'object' ? l['source']?.id : l['source'];
+        const tgt = typeof l['target'] === 'object' ? l['target']?.id : l['target'];
+        return src === this._focalId || tgt === this._focalId ? '#38bdf8' : 'rgba(148,163,184,0.12)';
+      })
+      .linkWidth((l: any) => {
+        if (!this._focalId) return 1;
+        const src = typeof l['source'] === 'object' ? l['source']?.id : l['source'];
+        const tgt = typeof l['target'] === 'object' ? l['target']?.id : l['target'];
+        return src === this._focalId || tgt === this._focalId ? 2.5 : 0.5;
+      });
+  }
+
+  private _nodeColor(id: string): string {
+    const kind = this.nodeMap.get(id)?.kind ?? 'unknown';
+    const base = KIND_COLORS[kind] ?? KIND_COLORS['unknown'];
+    if (!this._focalId) return base;
+    if (id === this._focalId) return '#f59e0b';
+    if (this._neighbourIds.has(id)) return '#38bdf8';
+    return 'rgba(100,116,139,0.25)';
+  }
+
+  private _cappedGraph(): { nodes: GraphNode[]; edges: GraphEdge[] } {
+    if (!this.graph) return { nodes: [], edges: [] };
+    if (this.graph.nodes.length <= RENDER_CAP) {
+      return { nodes: this.graph.nodes, edges: this.graph.edges };
+    }
+
+    const degree = new Map<string, number>();
+    for (const edge of this.graph.edges) {
+      degree.set(edge.source, (degree.get(edge.source) ?? 0) + 1);
+      degree.set(edge.target, (degree.get(edge.target) ?? 0) + 1);
+    }
+
+    const nodes = [...this.graph.nodes]
+      .sort((a, b) => (degree.get(b.id) ?? 0) - (degree.get(a.id) ?? 0))
+      .slice(0, RENDER_CAP);
+    const kept = new Set(nodes.map(node => node.id));
+    const edges = this.graph.edges.filter(edge => kept.has(edge.source) && kept.has(edge.target));
+    return { nodes, edges };
   }
 
   ngOnDestroy(): void {
@@ -107,28 +184,24 @@ export class Graph3dViewComponent implements OnChanges, OnDestroy {
 
     if (!hasWebGL()) {
       this.webglUnavailable = true;
-      this.cdr.markForCheck();
+      this.cdr.detectChanges();
       return;
     }
 
     this.loading = true;
-    this.cdr.markForCheck();
+    this.cdr.detectChanges();
 
     try {
       const { default: ForceGraph3D } = await import('3d-force-graph');
 
-      const nodes = this.graph.nodes.map(n => ({
-        id:    n.id,
-        label: n.label,
-        kind:  n.kind,
+      const { nodes, edges } = this._cappedGraph();
+
+      const gNodes = nodes.map(n => ({
+        id: n.id, label: n.label, kind: n.kind,
         color: KIND_COLORS[n.kind] ?? KIND_COLORS['unknown'],
       }));
-
-      const links = this.graph.edges.map(e => ({
-        id:     e.id,
-        source: e.source,
-        target: e.target,
-        label:  e.edgeType,
+      const gLinks = edges.map(e => ({
+        id: e.id, source: e.source, target: e.target, label: e.edgeType,
       }));
 
       const el = this.containerRef.nativeElement;
@@ -136,28 +209,46 @@ export class Graph3dViewComponent implements OnChanges, OnDestroy {
       const h = el.clientHeight || 500;
 
       this.fg = new ForceGraph3D(el, { controlType: 'orbit' })
-        .width(w)
-        .height(h)
+        .width(w).height(h)
         .backgroundColor('#0f172a')
         .nodeLabel((n: any) => n['label'] as string)
-        .nodeColor((n: any) => n['color'] as string)
+        .nodeColor((n: any) => this._nodeColor(n['id'] as string))
+        .nodeRelSize(4)
         .linkLabel((l: any) => l['label'] as string)
         .linkColor(() => '#94a3b8')
+        .linkWidth(1)
+        .linkOpacity(0.6)
+        .warmupTicks(60)
+        .cooldownTime(6000)
+        .d3AlphaDecay(0.05)
+        .d3VelocityDecay(0.4)
         .onNodeClick((node: any) => {
-          const gNode = this.nodeMap.get(node['id'] as string);
+          const id = node['id'] as string;
+          this._updateHighlight(this._focalId === id ? null : id);
+          const gNode = this.nodeMap.get(id);
           if (gNode) this.nodeSelected.emit(gNode);
         })
         .onLinkClick((link: any) => {
           const gEdge = this.edgeMap.get(link['id'] as string);
           if (gEdge) this.edgeSelected.emit(gEdge);
         })
-        .graphData({ nodes, links });
+        .onBackgroundClick(() => {
+          this._updateHighlight(null);
+        })
+        .graphData({ nodes: gNodes, links: gLinks });
+
+      // Compact layout: reduce repulsion + shorten links
+      (this.fg.d3Force('charge') as any)?.strength(-20);
+      (this.fg.d3Force('link') as any)?.distance(25);
+
+      // Zoom to fit after warmup ticks have settled the layout
+      setTimeout(() => this.fg?.zoomToFit(600, 40), 200);
 
     } catch (err) {
       this.error = `Failed to load 3D renderer: ${(err as Error).message ?? err}`;
     } finally {
       this.loading = false;
-      this.cdr.markForCheck();
+      this.cdr.detectChanges();
     }
   }
 }
