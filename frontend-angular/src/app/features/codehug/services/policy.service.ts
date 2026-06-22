@@ -13,6 +13,7 @@ import {
   ChAuditEntry,
   ChToolRiskAssessment,
   DEFAULT_WRITE_MODE_TIMEOUT_MS,
+  DEFAULT_SENSITIVE_FILE_PATTERNS,
 } from '../models/codehug.models';
 
 /**
@@ -103,8 +104,30 @@ export class PolicyService {
     return this.hub.get<ChPolicySnapshotReadModel>(url, this.hubUrl()).pipe(
       tap(snap => { this.currentSnapshot = this.normalizeSnapshot(snap); }),
       map(snap => this.normalizeSnapshot(snap)),
-      catchError(err => throwError(() => this.toChError(err, 'loadCurrentSnapshot'))),
+      catchError(() => {
+        const def = this._defaultSnapshot();
+        this.currentSnapshot = def;
+        return of(def);
+      }),
     );
+  }
+
+  private _defaultSnapshot(): ChPolicySnapshotReadModel {
+    return {
+      id: 'local-default',
+      policyVersion: '1',
+      riskLevel: 'low',
+      allowedTools: [],
+      deniedTools: [],
+      allowedPaths: ['/home/krusty/ananta'],
+      deniedPaths: [],
+      sensitiveFilePatterns: [...DEFAULT_SENSITIVE_FILE_PATTERNS],
+      cloudAllowed: false,
+      runtimeBoundary: 'local-only',
+      requiresHumanApproval: false,
+      approvalReason: null,
+      createdAt: Date.now(),
+    };
   }
 
   /** Liefert die letzte geladene Snapshot (synchrone Variante, kein API-Call). */

@@ -26,14 +26,26 @@ interface RawDomainGraphArtifact {
 }
 
 const KNOWN_NODE_KINDS = new Set<string>([
-  'java_method', 'java_type', 'config', 'xml_tag', 'unknown',
+  'java_constructor', 'java_constructor_detail', 'java_file', 'java_method',
+  'java_method_detail', 'java_module_summary', 'java_type',
+  'md_file', 'md_section',
+  'properties_entry', 'properties_file',
+  'python_class', 'python_file', 'python_function', 'python_import',
+  'python_method', 'python_module_summary',
+  'typescript_class', 'typescript_const', 'typescript_constructor',
+  'typescript_enum', 'typescript_file', 'typescript_folder_summary',
+  'typescript_function', 'typescript_import', 'typescript_interface',
+  'typescript_method', 'typescript_type',
+  'xml_file', 'xml_node_detail', 'xml_tag',
+  'yaml_entry', 'yaml_file',
+  'config', 'unknown',
 ]);
 
 const KNOWN_EDGE_TYPES = new Set<string>([
   'calls_probable_target', 'injects_dependency', 'field_type_uses',
   'extends', 'implements', 'child_of_type', 'child_of_file',
   'declares_method', 'declares_bean', 'transactional_boundary',
-  'jpa_relation', 'related',
+  'jpa_relation', 'parent_child', 'related',
 ]);
 
 @Injectable({ providedIn: 'root' })

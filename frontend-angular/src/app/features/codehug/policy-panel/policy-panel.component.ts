@@ -6,7 +6,7 @@ import {
   signal,
   computed,
 } from '@angular/core';
-import { DatePipe } from '@angular/common';
+import { DatePipe, UpperCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 
@@ -27,7 +27,7 @@ import {
 @Component({
   selector: 'ch-policy-panel',
   standalone: true,
-  imports: [DatePipe, FormsModule],
+  imports: [DatePipe, FormsModule, UpperCasePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="ch-pp">

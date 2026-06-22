@@ -216,6 +216,8 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
             <option [value]="ix.id">{{ ix.source_scope || ix.id }}</option>
           }
         </select>
+      } @else if (ccSelectedId() === 'ananta') {
+        <span class="ch-lbl" style="margin-left:8px;color:var(--accent);font-weight:600">Ananta (self)</span>
       }
       @if (ccLoading()) { <span class="ch-lbl" style="color:var(--muted);margin-left:8px">Lädt…</span> }
       @if (ccError()) { <span class="ch-lbl" style="color:#ef4444;margin-left:8px">{{ ccError() }}</span> }
@@ -1245,7 +1247,11 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
     this.svc.getVpSkillProfiles().subscribe(sp => this.skillProfiles.set(sp));
     this.svc.listKnowledgeIndexes().subscribe(items => {
       this.ccIndexes.set(items);
-      if (items.length > 0) this.loadCCGraph(items[0].id);
+      if (items.length > 0) {
+        this.loadCCGraph(items[0].id);
+      } else {
+        this.loadSelfGraph();
+      }
     });
     this._pollSub = interval(3000).pipe(switchMap(() => this.svc.getAutopilotStatus()))
       .subscribe(s => this.autopilot.set(s));
@@ -1274,6 +1280,24 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
       error: () => {
         this.ccLoading.set(false);
         this.ccError.set('Fehler beim Laden');
+      },
+    });
+  }
+
+  loadSelfGraph(): void {
+    this.ccSelectedId.set('ananta');
+    this.ccLoading.set(true);
+    this.ccError.set('');
+    this.ccRawGraph.set(null);
+    this.svc.getSelfGraph().subscribe({
+      next: data => {
+        this.ccLoading.set(false);
+        if (data) { this.ccRawGraph.set(data); }
+        else { this.ccError.set('Self-Graph nicht verfügbar'); }
+      },
+      error: () => {
+        this.ccLoading.set(false);
+        this.ccError.set('Fehler beim Laden des Self-Graphs');
       },
     });
   }

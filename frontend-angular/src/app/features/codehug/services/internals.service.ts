@@ -203,6 +203,13 @@ export class InternalsService {
     );
   }
 
+  getSelfGraph(limit = 500): Observable<any> {
+    return this.http.get<any>(`${this.hubUrl()}/api/codecompass/self-graph?limit=${limit}`).pipe(
+      map(r => r?.data ?? null),
+      catchError(() => of(null)),
+    );
+  }
+
   private normalizeTemplate(t: any): AnantaTemplate {
     const name: string = t.name ?? '';
     let category: AnantaTemplate['category'] = 'system';

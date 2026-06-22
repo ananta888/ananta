@@ -4,9 +4,11 @@ GET /api/codecompass/graph?knowledge_index_id=<id>
 GET /api/codecompass/graph/node/<node_id>?knowledge_index_id=<id>
 GET /api/codecompass/graph/expand?knowledge_index_id=<id>&seed=<node_id>&profile=<name>
 GET /api/codecompass/query?knowledge_index_id=<id>&type=<query_type>&seed=<symbol-or-node-id>&field=<optional>&depth=<optional>&direction=<optional>
+GET /api/codecompass/self-graph?limit=<n>&kind=<filter>  — Ananta self-graph from rag-helper/out JSONL
 """
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
@@ -223,6 +225,103 @@ def architecture_query():
     )
     result.setdefault("metadata", {})["knowledge_index_id"] = knowledge_index_id
     return api_response(data=result)
+
+
+@codecompass_graph_bp.route("/api/codecompass/self-graph", methods=["GET"])
+@check_auth
+def get_self_graph():
+    """Serve Ananta's own rag-helper/out JSONL graph without a registered knowledge index."""
+    from agent.config import settings
+
+    raw_limit = str(request.args.get("limit") or "500").strip()
+    try:
+        limit = max(10, min(int(raw_limit), 2000))
+    except ValueError:
+        limit = 500
+    kind_filter = str(request.args.get("kind") or "").strip().lower() or None
+
+    repo_root = Path(getattr(settings, "rag_repo_root", ".")).resolve()
+    nodes_path = repo_root / "rag-helper" / "out" / "graph_nodes.jsonl"
+    edges_path = repo_root / "rag-helper" / "out" / "graph_edges.jsonl"
+
+    if not nodes_path.exists():
+        return api_response(data={
+            "schema": "domain_graph_artifact.v1",
+            "source_kind": "ananta_self_graph",
+            "source_ref": "ananta",
+            "nodes": [], "edges": [],
+            "metadata": {"node_count": 0, "edge_count": 0},
+            "warnings": ["rag-helper/out/graph_nodes.jsonl not found"],
+        })
+
+    all_nodes: list[dict] = []
+    with nodes_path.open(encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                node = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if kind_filter and str(node.get("kind") or "").lower() != kind_filter:
+                continue
+            all_nodes.append(node)
+
+    all_nodes.sort(key=lambda n: float(n.get("importance_score") or 0.0), reverse=True)
+    selected = all_nodes[:limit]
+    selected_ids = {str(n["id"]) for n in selected}
+
+    raw_nodes = []
+    for n in selected:
+        nid = str(n.get("id") or "")
+        raw_nodes.append({
+            "node_id": nid,
+            "node_type": str(n.get("kind") or "unknown"),
+            "attributes": {
+                "file": str(n.get("file") or ""),
+                "name": nid.split(":")[-1] if ":" in nid else nid,
+                "content": "",
+                "record_id": nid,
+                "importance_score": float(n.get("importance_score") or 0.0),
+            },
+        })
+
+    raw_edges = []
+    if edges_path.exists():
+        with edges_path.open(encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    edge = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                src = str(edge.get("source") or "")
+                tgt = str(edge.get("target") or "")
+                if src in selected_ids and tgt in selected_ids:
+                    raw_edges.append({
+                        "source_id": src,
+                        "target_id": tgt,
+                        "relation": str(edge.get("type") or edge.get("kind") or "related"),
+                        "attributes": {"confidence": 1.0},
+                    })
+
+    return api_response(data={
+        "schema": "domain_graph_artifact.v1",
+        "source_kind": "ananta_self_graph",
+        "source_ref": "ananta",
+        "nodes": raw_nodes,
+        "edges": raw_edges,
+        "metadata": {
+            "node_count": len(raw_nodes),
+            "edge_count": len(raw_edges),
+            "total_nodes_available": len(all_nodes),
+            "limit": limit,
+        },
+        "warnings": [],
+    })
 
 
 def _edges_from_paths(paths: list[dict]) -> list[dict]:
