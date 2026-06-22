@@ -188,7 +188,7 @@ export class InternalsService {
   }
 
   listKnowledgeIndexes(): Observable<any[]> {
-    return this.http.get<any>(`${this.hubUrl()}/api/knowledge/indexes`).pipe(
+    return this.http.get<any>(`${this.hubUrl()}/knowledge/indexes`).pipe(
       map(r => Array.isArray(r?.data?.items) ? r.data.items : []),
       catchError(() => of([])),
     );
