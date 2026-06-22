@@ -33,6 +33,23 @@ describe('GraphAdapterService', () => {
     expect(e.confidence).toBe(1.0);
   });
 
+  it('preserves self-graph semantic edge types for styling and filtering', () => {
+    const raw = {
+      nodes: [
+        { node_id: 'a', node_type: 'python_file', attributes: { name: 'quality_gates.py' } },
+        { node_id: 'b', node_type: 'python_function', attributes: { name: 'evaluate_quality_gates' } },
+      ],
+      edges: [
+        { source_id: 'a', target_id: 'b', relation: 'imports_symbol', attributes: {} },
+        { source_id: 'a', target_id: 'b', relation: 'contains_symbol', attributes: {} },
+      ],
+    };
+
+    const model = svc.fromDomainArtifact(raw);
+
+    expect(model.edges.map(e => e.edgeType)).toEqual(['imports_symbol', 'contains_symbol']);
+  });
+
   it('maps unknown node_type to "unknown"', () => {
     const raw = {
       nodes: [{ node_id: 'x1', node_type: 'not_a_real_type', attributes: { name: 'X' } }],

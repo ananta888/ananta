@@ -166,7 +166,7 @@ export class Graph3dViewComponent implements OnChanges, AfterViewInit, OnDestroy
         return src === this._focalId || tgt === this._focalId ? '#38bdf8' : 'rgba(148,163,184,0.12)';
       })
       .linkWidth((l: any) => {
-        if (!this._focalId) return 1;
+        if (!this._focalId) return 1.35;
         const src = typeof l['source'] === 'object' ? l['source']?.id : l['source'];
         const tgt = typeof l['target'] === 'object' ? l['target']?.id : l['target'];
         return src === this._focalId || tgt === this._focalId ? 2.5 : 0.5;
@@ -335,8 +335,8 @@ export class Graph3dViewComponent implements OnChanges, AfterViewInit, OnDestroy
         .nodeRelSize(4.2)
         .linkLabel((l: any) => l['label'] as string)
         .linkColor((l: any) => l['color'] as string ?? '#94a3b8')
-        .linkWidth(1)
-        .linkOpacity(0.6)
+        .linkWidth(1.35)
+        .linkOpacity(0.85)
         .warmupTicks(60)
         .cooldownTime(6000)
         .d3AlphaDecay(0.05)
