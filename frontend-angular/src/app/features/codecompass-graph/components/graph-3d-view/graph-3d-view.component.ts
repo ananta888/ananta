@@ -1,6 +1,6 @@
 import {
   Component, Input, Output, EventEmitter,
-  ElementRef, ViewChild, OnChanges, SimpleChanges, OnDestroy,
+  ElementRef, ViewChild, OnChanges, SimpleChanges, AfterViewInit, OnDestroy,
   ChangeDetectionStrategy, ChangeDetectorRef, inject,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -24,6 +24,11 @@ const KIND_COLORS: Record<string, string> = {
   xml_tag:     '#8b5cf6',
   unknown:     '#94a3b8',
 };
+
+const DOMAIN_COLORS = [
+  '#60a5fa', '#34d399', '#f87171', '#c084fc', '#22d3ee',
+  '#facc15', '#f472b6', '#818cf8', '#2dd4bf', '#fb923c',
+];
 
 const RENDER_CAP = 500;
 
@@ -49,27 +54,33 @@ function hasWebGL(): boolean {
       </div>
     } @else if (error) {
       <p class="error-msg">{{ error }}</p>
-    } @else if (loading) {
-      <p class="status-msg">Loading 3D renderer…</p>
     } @else if (!graph || graph.nodes.length === 0) {
       <p class="status-msg">No nodes to display.</p>
+    }
+    @if (loading && graph && graph.nodes.length > 0) {
+      <p class="status-msg overlay-msg">Loading 3D renderer…</p>
     }
     <div
       #container
       class="fg3d-container"
-      [style.display]="showCanvas ? 'block' : 'none'"
+      [style.visibility]="showCanvas ? 'visible' : 'hidden'"
     ></div>
   `,
   styles: [`
-    :host { display: flex; flex-direction: column; flex: 1; width: 100%; height: 100%; min-height: 0; }
-    .fg3d-container { flex: 1; width: 100%; height: 100%; min-height: 0; }
+    :host { display: flex; flex: 1; width: 100%; height: 100%; min-height: 0; position: relative; overflow: hidden; }
+    .fg3d-container { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; overflow: hidden; background: #0f172a; }
     .fallback-msg { padding: 1.5rem; color: #555; line-height: 1.6; }
     .fallback-msg p { margin: 0 0 .5rem; }
-    .error-msg { color: #c00; padding: .75rem; }
-    .status-msg { color: #888; padding: .75rem; font-style: italic; }
+    .error-msg { color: #c00; padding: .75rem; position: relative; z-index: 2; }
+    .status-msg { color: #888; padding: .75rem; font-style: italic; position: relative; z-index: 2; }
+    .overlay-msg {
+      position: absolute; top: .5rem; left: .5rem; z-index: 3; margin: 0;
+      background: rgba(15, 23, 42, .78); color: #e2e8f0; border-radius: 4px;
+      padding: .35rem .5rem; font-size: .8rem;
+    }
   `],
 })
-export class Graph3dViewComponent implements OnChanges, OnDestroy {
+export class Graph3dViewComponent implements OnChanges, AfterViewInit, OnDestroy {
   @ViewChild('container', { static: true }) containerRef!: ElementRef<HTMLElement>;
 
   @Input() graph: GenericGraphModel | null = null;
@@ -84,7 +95,7 @@ export class Graph3dViewComponent implements OnChanges, OnDestroy {
   webglUnavailable = false;
 
   get showCanvas(): boolean {
-    return !this.webglUnavailable && !this.error && !this.loading && !!this.graph && this.graph.nodes.length > 0;
+    return !this.webglUnavailable && !this.error && !!this.graph && this.graph.nodes.length > 0;
   }
 
   private cdr = inject(ChangeDetectorRef);
@@ -94,26 +105,19 @@ export class Graph3dViewComponent implements OnChanges, OnDestroy {
   private _focalId: string | null = null;
   private _neighbourIds = new Set<string>();
   private _capAnchorId: string | null = null;
+  private resizeObserver: ResizeObserver | null = null;
 
   ngOnChanges(changes: SimpleChanges): void {
     const gc = changes['graph'];
 
-    // Only selection changed — update highlight, unless the large-graph cap needs a new anchor.
+    // Only selection changed: update highlight without rebuilding the WebGL scene.
     if (!gc) {
-      if (this._shouldRebuildForCapAnchor()) {
-        this._render();
-        return;
-      }
       this._updateHighlight(this.selectedNode?.id ?? null);
       return;
     }
     const prev = gc.previousValue as GenericGraphModel | null;
     const curr = gc.currentValue as GenericGraphModel | null;
     if (prev && curr && prev.nodes === curr.nodes && prev.edges === curr.edges) {
-      if (this._shouldRebuildForCapAnchor()) {
-        this._render();
-        return;
-      }
       this._updateHighlight(this.selectedNode?.id ?? null);
       return;
     }
@@ -127,9 +131,18 @@ export class Graph3dViewComponent implements OnChanges, OnDestroy {
     this._render();
   }
 
-  private _shouldRebuildForCapAnchor(): boolean {
-    if (!this.graph || this.graph.nodes.length <= RENDER_CAP) return false;
-    return (this.selectedNode?.id ?? null) !== this._capAnchorId;
+  ngAfterViewInit(): void {
+    if (typeof ResizeObserver === 'undefined') return;
+    this.resizeObserver = new ResizeObserver(() => this._resizeToContainer());
+    this.resizeObserver.observe(this.containerRef.nativeElement);
+  }
+
+  private _resizeToContainer(): void {
+    if (!this.fg) return;
+    const el = this.containerRef.nativeElement;
+    const width = Math.max(1, el.clientWidth || el.getBoundingClientRect().width || 800);
+    const height = Math.max(1, el.clientHeight || el.getBoundingClientRect().height || 500);
+    this.fg.width(width).height(height);
   }
 
   private _updateHighlight(nodeId: string | null): void {
@@ -160,12 +173,26 @@ export class Graph3dViewComponent implements OnChanges, OnDestroy {
   }
 
   private _nodeColor(id: string): string {
-    const kind = this.nodeMap.get(id)?.kind ?? 'unknown';
-    const base = KIND_COLORS[kind] ?? KIND_COLORS['unknown'];
+    const node = this.nodeMap.get(id);
+    const base = node ? this._domainColor(node) : KIND_COLORS['unknown'];
     if (!this._focalId) return base;
     if (id === this._focalId) return '#f59e0b';
     if (this._neighbourIds.has(id)) return '#38bdf8';
     return 'rgba(100,116,139,0.25)';
+  }
+
+  private _hash(value: string): number {
+    let hash = 0;
+    for (let i = 0; i < value.length; i++) {
+      hash = ((hash << 5) - hash + value.charCodeAt(i)) | 0;
+    }
+    return Math.abs(hash);
+  }
+
+  private _domainColor(node: GraphNode): string {
+    const domain = String(node.metadata?.['domain_path'] ?? '');
+    if (!domain) return KIND_COLORS[node.kind] ?? KIND_COLORS['unknown'];
+    return DOMAIN_COLORS[this._hash(domain) % DOMAIN_COLORS.length];
   }
 
   private _domainLevel(node: GraphNode): number {
@@ -175,8 +202,8 @@ export class Graph3dViewComponent implements OnChanges, OnDestroy {
 
   private _nodeVal(node: GraphNode): number {
     const level = Math.min(this._domainLevel(node), 5);
-    const tierBoost = node.kind.endsWith('_file') || node.kind.endsWith('_summary') ? 1.2 : 1;
-    return Math.max(0.8, (4.8 - level * 0.55) * tierBoost);
+    const tierBoost = node.kind.endsWith('_file') || node.kind.endsWith('_summary') ? 1.25 : 1;
+    return Math.max(0.9, (6.2 - level * 0.95) * tierBoost);
   }
 
   private _cappedGraph(): { nodes: GraphNode[]; edges: GraphEdge[] } {
@@ -225,6 +252,8 @@ export class Graph3dViewComponent implements OnChanges, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
     this._destroy();
   }
 
@@ -261,15 +290,15 @@ export class Graph3dViewComponent implements OnChanges, OnDestroy {
         domain: String(n.metadata?.['domain_path'] ?? ''),
         domainLevel: this._domainLevel(n),
         value: this._nodeVal(n),
-        color: KIND_COLORS[n.kind] ?? KIND_COLORS['unknown'],
+        color: this._domainColor(n),
       }));
       const gLinks = edges.map(e => ({
         id: e.id, source: e.source, target: e.target, label: e.edgeType,
       }));
 
       const el = this.containerRef.nativeElement;
-      const w = el.clientWidth  || 800;
-      const h = el.clientHeight || 500;
+      const w = Math.max(1, el.clientWidth || el.getBoundingClientRect().width || 800);
+      const h = Math.max(1, el.clientHeight || el.getBoundingClientRect().height || 500);
 
       this.fg = new ForceGraph3D(el, { controlType: 'orbit' })
         .width(w).height(h)
@@ -277,7 +306,7 @@ export class Graph3dViewComponent implements OnChanges, OnDestroy {
         .nodeLabel((n: any) => `${n['label']}${n['domain'] ? ` · ${n['domain']}` : ''}`)
         .nodeColor((n: any) => this._nodeColor(n['id'] as string))
         .nodeVal((n: any) => n['value'] as number)
-        .nodeRelSize(3.5)
+        .nodeRelSize(4.2)
         .linkLabel((l: any) => l['label'] as string)
         .linkColor(() => '#94a3b8')
         .linkWidth(1)
@@ -304,6 +333,7 @@ export class Graph3dViewComponent implements OnChanges, OnDestroy {
       // Compact layout: reduce repulsion + shorten links
       (this.fg.d3Force('charge') as any)?.strength(-20);
       (this.fg.d3Force('link') as any)?.distance(25);
+      this._resizeToContainer();
 
     } catch (err) {
       this.error = `Failed to load 3D renderer: ${(err as Error).message ?? err}`;

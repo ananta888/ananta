@@ -16,6 +16,11 @@ const KIND_COLORS: Record<string, string> = {
   config: '#a16207', xml_tag: '#8b5cf6', md_file: '#6b7280', unknown: '#94a3b8',
 };
 
+const DOMAIN_COLORS = [
+  '#2563eb', '#16a34a', '#dc2626', '#9333ea', '#0891b2',
+  '#ca8a04', '#db2777', '#4f46e5', '#059669', '#ea580c',
+];
+
 const KIND_TIER: Record<string, number> = {
   python_module_summary: 0, typescript_folder_summary: 0, java_module_summary: 0,
   python_file: 1, typescript_file: 1, java_file: 1, md_file: 1, yaml_file: 1, xml_file: 1,
@@ -31,11 +36,6 @@ const GAP_Y = 160;
 
 function yieldFrame(): Promise<void> {
   return new Promise(r => setTimeout(r, 0));
-}
-
-// Cytoscape uses IDs in CSS selectors (#id). Colons, slashes etc. break parsing.
-function cyId(id: string): string {
-  return 'c' + id.replace(/[^a-zA-Z0-9_-]/g, '_');
 }
 
 @Component({
@@ -103,6 +103,7 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
   private cy: Core | null = null;
   private nodeMap = new Map<string, GraphNode>();
   private edgeMap = new Map<string, GraphEdge>();
+  private cyNodeIdByOriginal = new Map<string, string>();
   private _cancelled = false;
   private readonly cdr = inject(ChangeDetectorRef);
 
@@ -143,6 +144,7 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
 
     this.nodeMap.clear();
     this.edgeMap.clear();
+    this.cyNodeIdByOriginal.clear();
     this.graph?.nodes.forEach(n => this.nodeMap.set(n.id, n));
     this.graph?.edges.forEach(e => this.edgeMap.set(e.id, e));
 
@@ -162,7 +164,9 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
   private _applyHighlight(nodeId: string): void {
     if (!this.cy) return;
     this._clearHighlight();
-    const focal = this.cy.getElementById(cyId(nodeId));
+    const cyNodeId = this.cyNodeIdByOriginal.get(nodeId);
+    if (!cyNodeId) return;
+    const focal = this.cy.getElementById(cyNodeId);
     if (!focal.length) return;
     const connectedEdges = focal.connectedEdges();
     const neighbours = connectedEdges.connectedNodes().not(focal);
@@ -182,6 +186,27 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
     const file = node.file || node.label || 'unknown';
     const parts = file.replace(/\\/g, '/').split('/').filter(Boolean);
     return parts.slice(0, Math.min(parts.length - 1, 3)).join('/') || 'unknown';
+  }
+
+  private _domainLevel(node: GraphNode): number {
+    const raw = Number(node.metadata?.['domain_level'] ?? 0);
+    return Number.isFinite(raw) ? Math.max(0, raw) : 0;
+  }
+
+  private _hash(value: string): number {
+    let hash = 0;
+    for (let i = 0; i < value.length; i++) {
+      hash = ((hash << 5) - hash + value.charCodeAt(i)) | 0;
+    }
+    return Math.abs(hash);
+  }
+
+  private _nodeColor(node: GraphNode): string {
+    if (this.layoutMode !== 'domain') {
+      return KIND_COLORS[node.kind] ?? KIND_COLORS['unknown'];
+    }
+    const key = this._domainKey(node);
+    return DOMAIN_COLORS[this._hash(key) % DOMAIN_COLORS.length];
   }
 
   private _degreeMap(edges: GraphEdge[]): Map<string, number> {
@@ -287,8 +312,8 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
   }
 
   private _nodeSize(node: GraphNode, defaultSize: number): number {
-    const domainLevel = Number(node.metadata?.['domain_level'] ?? 0);
-    const scale = Math.max(0.55, 1 - Math.min(domainLevel, 4) * 0.1);
+    const domainLevel = this._domainLevel(node);
+    const scale = Math.max(0.45, 1 - Math.min(domainLevel, 5) * 0.16);
     return Math.round(defaultSize * scale);
   }
 
@@ -346,12 +371,14 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
       const batch = nodes.slice(i, i + CHUNK);
       for (const n of batch) {
         const pos = positions.get(n.id) ?? { x: 0, y: 0 };
+        const cyNodeId = `n${this.cyNodeIdByOriginal.size}`;
+        this.cyNodeIdByOriginal.set(n.id, cyNodeId);
         elements.push({
           data: {
-            id: cyId(n.id), originalId: n.id,
+            id: cyNodeId, originalId: n.id,
             label: n.label, kind: n.kind, size: this._nodeSize(n, nodeSize),
             domain: this._domainKey(n),
-            color: KIND_COLORS[n.kind] ?? KIND_COLORS['unknown'],
+            color: this._nodeColor(n),
           },
           position: pos,
         });
@@ -361,11 +388,15 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
       await yieldFrame();
     }
 
-    for (const e of edges) {
+    for (let i = 0; i < edges.length; i++) {
+      const e = edges[i];
+      const source = this.cyNodeIdByOriginal.get(e.source);
+      const target = this.cyNodeIdByOriginal.get(e.target);
+      if (!source || !target) continue;
       elements.push({
         data: {
-          id: cyId(e.id), originalId: e.id,
-          source: cyId(e.source), target: cyId(e.target),
+          id: `e${i}`, originalId: e.id,
+          source, target,
           label: e.edgeType,
         },
       });
@@ -407,12 +438,12 @@ export class Graph2dViewComponent implements OnChanges, OnDestroy {
           {
             selector: 'edge',
             style: {
-              'width': 1.5,
-              'line-color': '#94a3b8',
-              'target-arrow-color': '#94a3b8',
+              'width': 2,
+              'line-color': '#475569',
+              'target-arrow-color': '#475569',
               'target-arrow-shape': 'triangle',
               'curve-style': 'bezier',
-              'opacity': 0.6,
+              'opacity': 0.85,
               'transition-property': 'opacity, line-color, width',
               'transition-duration': 150 as any,
             } as any,

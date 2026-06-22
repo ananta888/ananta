@@ -44,7 +44,6 @@ import { Graph3dViewComponent } from '../graph-3d-view/graph-3d-view.component';
             @case ('simple') {
               <app-simple-graph-view
                 [graph]="filteredGraph()"
-                [layoutMode]="layoutMode"
                 [selectedNode]="state.selectedNode()"
                 [selectedEdge]="state.selectedEdge()"
                 (nodeSelected)="state.selectNode($event)"
@@ -54,6 +53,7 @@ import { Graph3dViewComponent } from '../graph-3d-view/graph-3d-view.component';
             @case ('2d') {
               <app-graph-2d-view
                 [graph]="filteredGraph()"
+                [layoutMode]="layoutMode"
                 [selectedNode]="state.selectedNode()"
                 [selectedEdge]="state.selectedEdge()"
                 (nodeSelected)="state.selectNode($event)"
