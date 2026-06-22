@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
+import re
 from pathlib import Path
 from typing import Any
+
+_log = logging.getLogger(__name__)
 
 from jsonschema import Draft202012Validator
 
@@ -54,7 +58,73 @@ def _mock_ai_response(*, mode: str, envelope: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-_AI_RESPONSE_GENERATOR = _mock_ai_response
+def _llm_ai_response(*, mode: str, envelope: dict[str, Any]) -> dict[str, Any]:
+    """Real LLM call via the agent's generate_text infrastructure; falls back to mock on any error."""
+    try:
+        from agent.llm_integration import generate_text
+    except ImportError:
+        return _mock_ai_response(mode=mode, envelope=envelope)
+
+    rendered = render_ai_diff_prompt(mode=mode, context_envelope=envelope)
+    system_msg = (
+        "You are a code review assistant. Analyze the provided diff and respond with "
+        "ONLY a valid JSON object. No markdown fences, no explanation — raw JSON only.\n"
+        "Required fields: schema (string), status (string), artifact_type (string), "
+        "summary (string), findings (array of strings), risks (array of strings), "
+        "suggested_tests (array of strings), patch_suggestions (array of strings), "
+        "source_refs (array of strings)."
+    )
+    try:
+        raw = generate_text(
+            prompt=rendered,
+            history=[{"role": "system", "content": system_msg}],
+            timeout=180,
+        )
+        text = str(raw or "").strip()
+        if not text:
+            raise ValueError("empty_response")
+
+        # Extract JSON: try direct parse, then markdown fence, then first {...}
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError:
+            m = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
+            if m:
+                parsed = json.loads(m.group(1))
+            else:
+                start = text.find("{")
+                if start >= 0:
+                    parsed = json.loads(text[start:])
+                else:
+                    raise ValueError("no_json_found")
+
+        # Ensure all required fields exist
+        parsed.setdefault("schema", "ai_diff_response.v1")
+        parsed.setdefault("status", "success")
+        parsed.setdefault("artifact_type", mode)
+        parsed.setdefault("findings", [])
+        parsed.setdefault("risks", [])
+        parsed.setdefault("suggested_tests", [])
+        parsed.setdefault("patch_suggestions", [])
+        parsed.setdefault("source_refs", [])
+        if "summary" not in parsed:
+            parsed["summary"] = str(
+                parsed.get("message") or parsed.get("description") or f"{mode} analysis"
+            )
+        # Coerce list fields to list[str]
+        for key in ("findings", "risks", "suggested_tests", "patch_suggestions", "source_refs"):
+            val = parsed.get(key)
+            if not isinstance(val, list):
+                parsed[key] = [str(val)] if val else []
+
+        return parsed
+
+    except Exception as exc:
+        _log.warning("diff3 LLM call failed for mode=%s, using mock fallback: %s", mode, exc)
+        return _mock_ai_response(mode=mode, envelope=envelope)
+
+
+_AI_RESPONSE_GENERATOR = _llm_ai_response
 
 
 def _artifact_type_for_mode(mode: str) -> str:

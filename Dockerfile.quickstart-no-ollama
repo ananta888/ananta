@@ -40,6 +40,7 @@ RUN printf 'Acquire::Check-Valid-Until "false";\n' > /etc/apt/apt.conf.d/99snaps
     iputils-ping \
     traceroute \
     tmux \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # Node 20.19.5 aus dem offiziellen Frontend-Runtime-Image uebernehmen.
@@ -54,6 +55,9 @@ RUN npm i -g "opencode-ai@${OPENCODE_AI_VERSION}" \
     && npm cache clean --force
 
 WORKDIR /app
+
+# Allow git to read the /app volume (owned by host UID 1000) from root inside the container.
+RUN git config --global --add safe.directory /app
 
 # Kopiere Release-Lockdatei und installiere Python-Runtime-Pakete (Caching nutzen)
 COPY requirements.lock .

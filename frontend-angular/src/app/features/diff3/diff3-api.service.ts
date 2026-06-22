@@ -5,7 +5,7 @@ import { AgentDirectoryService } from '../../services/agent-directory.service';
 
 export type PanelId = 'A' | 'B' | 'C';
 export type AiMode = 'review' | 'explain' | 'risk' | 'tests' | 'patch' | 'chat';
-export type LayoutMode = 'equal' | 'left-wide' | 'right-wide' | 'focus-a' | 'focus-b' | 'focus-c';
+export type LayoutMode = 'equal' | 'left-wide' | 'right-wide' | 'focus' | 'compact' | 'focus-a' | 'focus-b' | 'focus-c';
 export type SourceKind = 'current_diff' | 'output_artifact' | 'ai' | 'empty';
 
 export interface DiffSourceRef {
@@ -69,6 +69,20 @@ export interface Diff3Session {
     sync_scroll?: boolean;
     [key: string]: unknown;
   };
+}
+
+export interface PanelContent {
+  ok: boolean;
+  content_type?: string;
+  patch?: string;
+  text?: string;
+  left_text?: string;
+  right_text?: string;
+  left_ref?: string;
+  right_ref?: string;
+  reason_code?: string;
+  source_kind?: string;
+  display_name?: string;
 }
 
 export interface AiRunResult {
@@ -147,6 +161,12 @@ export class Diff3ApiService {
   setAiMode(sessionId: string, mode: AiMode): Observable<Diff3Session> {
     return this.http.put<Diff3Session>(
       `${this.base}/api/diff3/sessions/${sessionId}/ai/mode`, { mode }
+    );
+  }
+
+  getPanelContent(sessionId: string, panelId: PanelId): Observable<PanelContent> {
+    return this.http.get<PanelContent>(
+      `${this.base}/api/diff3/sessions/${sessionId}/panels/${panelId}/content`
     );
   }
 }

@@ -1,7 +1,9 @@
 """Flask API for the Three-Way Flex Diff / AI Mode (T01)."""
 from __future__ import annotations
 
+import logging
 import uuid
+from pathlib import Path
 from flask import Blueprint, jsonify, request
 
 from client_surfaces.operator_tui.diff.ai_diff_dispatch import dispatch_ai_diff_request
@@ -18,6 +20,19 @@ from client_surfaces.operator_tui.diff.three_way_diff_state import (
     set_panel_state,
     validate_three_way_diff_session,
 )
+
+_log = logging.getLogger(__name__)
+
+
+def _repo_root() -> Path:
+    try:
+        from agent.config import settings as _s
+        rr = getattr(_s, "rag_repo_root", None)
+        if rr:
+            return Path(str(rr)).resolve()
+    except Exception:
+        pass
+    return Path(".").resolve()
 
 diff3_bp = Blueprint("diff3", __name__)
 
@@ -56,6 +71,20 @@ def create_session():
         )
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
+
+    # Auto-populate panel A with the current git diff
+    try:
+        source_left = build_current_diff_source_ref(path_filter="")
+        session = set_panel_state(
+            session,
+            panel_id="A",
+            panel_type="diff",
+            source_left=source_left,
+            source_right=None,
+            render_mode="unified",
+        )
+    except Exception as exc:
+        _log.debug("diff3: could not auto-populate panel A: %s", exc)
 
     _SESSIONS[session_id] = session
     return jsonify(session), 201
@@ -281,6 +310,38 @@ def run_ai(session_id: str):
         "session": session,
         "ai_result": result,
     })
+
+
+# ── Panel content resolution ─────────────────────────────────────────────────
+
+@diff3_bp.route("/api/diff3/sessions/<session_id>/panels/<panel_id>/content", methods=["GET"])
+def get_panel_content(session_id: str, panel_id: str):
+    """Resolve a panel's source_left to its actual content via DiffSourceResolver."""
+    session = _SESSIONS.get(session_id)
+    if not session:
+        return jsonify({"error": "session_not_found"}), 404
+    pid = panel_id.upper()
+    if pid not in _VALID_PANEL_IDS:
+        return jsonify({"error": "invalid_panel_id"}), 400
+
+    panels = list(session.get("panels") or [])
+    panel = next((p for p in panels if p.get("panel_id") == pid), None)
+    if not panel:
+        return jsonify({"ok": False, "reason_code": "panel_not_found"}), 200
+
+    source_ref = panel.get("source_left")
+    if not source_ref:
+        return jsonify({"ok": False, "reason_code": "no_source"}), 200
+
+    try:
+        from client_surfaces.operator_tui.diff.diff_source_resolver import DiffSourceResolver
+        resolver = DiffSourceResolver(repo_root=_repo_root())
+        result = resolver.resolve(source_ref, goal_id=session.get("goal_id"))
+    except Exception as exc:
+        _log.warning("diff3: content resolve failed for %s/%s: %s", session_id, pid, exc)
+        result = {"ok": False, "reason_code": f"resolver_error: {exc}"}
+
+    return jsonify(result)
 
 
 @diff3_bp.route("/api/diff3/sessions/<session_id>/ai/mode", methods=["PUT"])
