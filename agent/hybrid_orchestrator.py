@@ -1191,6 +1191,25 @@ class HybridOrchestrator:
             from agent.services.codecompass_vector_retrieval_service import (
                 CodeCompassVectorRetrievalService,
             )
+            from agent.services.codecompass_ranking_config_service import (
+                CodeCompassRankingConfigService,
+            )
+
+            ranking_cfg = CodeCompassRankingConfigService(
+                global_config=getattr(settings, "global_config", None) or {},
+            ).resolve()
+            strategy_cfg = ranking_cfg.to_strategy_config()
+
+            # Wire the restricted inference service when a transformer strategy is configured.
+            restricted_inference = None
+            if strategy_cfg.wants_prefilter():
+                try:
+                    from agent.services.restricted_model_inference_service import (
+                        RestrictedModelInferenceService,
+                    )
+                    restricted_inference = RestrictedModelInferenceService()
+                except Exception:
+                    pass  # degrade gracefully — prefilter skipped if unavailable
 
             self.codecompass_vector_service = CodeCompassVectorRetrievalService(
                 repo_root=self.repo_root,
@@ -1200,6 +1219,8 @@ class HybridOrchestrator:
                 provider_config={"provider": "local_hash", "model_version": "hash-v1", "dimensions": 12},
                 embedding_text_profile=settings.codecompass_vector_embedding_text_profile,
                 fail_mode=settings.codecompass_vector_fail_mode,
+                restricted_inference_service=restricted_inference,
+                strategy_config=strategy_cfg,
             )
         self.context_manager = ContextManager(policy_version="v1")
 

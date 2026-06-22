@@ -1,17 +1,27 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from agent.services.embedding_provider_config_service import (
     EmbeddingProviderConfigService,
     build_embedding_provider_from_config,
 )
+from agent.services.codecompass_retrieval_strategy import (
+    RetrievalStrategyConfig,
+    apply_semantic_prefilter,
+)
 from worker.retrieval.codecompass_embedding_loader import load_codecompass_embedding_documents
 from worker.retrieval.codecompass_vector_engine import CodeCompassVectorEngine
 from worker.retrieval.codecompass_vector_store import CodeCompassVectorStore
 from worker.retrieval.embedding_text_builder import CODECOMPASS_EMBEDDING_TEXT_PROFILE
+
+if TYPE_CHECKING:
+    from agent.services.restricted_model_inference_service import RestrictedModelInferenceService
+
+log = logging.getLogger(__name__)
 
 
 class CodeCompassVectorRetrievalService:
@@ -19,6 +29,10 @@ class CodeCompassVectorRetrievalService:
 
     The service owns file loading, provider resolution and index refresh. The
     worker package still owns embedding/vector execution.
+
+    Optional ``restricted_inference_service`` and ``strategy_config`` enable
+    the semantic pre-filter and other retrieval strategies (see
+    ``codecompass_retrieval_strategy.py``).
     """
 
     def __init__(
@@ -31,6 +45,8 @@ class CodeCompassVectorRetrievalService:
         provider_config: dict[str, Any] | None = None,
         embedding_text_profile: str = CODECOMPASS_EMBEDDING_TEXT_PROFILE,
         fail_mode: str = "degraded_empty",
+        restricted_inference_service: "RestrictedModelInferenceService | None" = None,
+        strategy_config: RetrievalStrategyConfig | None = None,
     ) -> None:
         self.repo_root = Path(repo_root).resolve()
         self.embedding_records_path = self._resolve_path(embedding_records_path)
@@ -39,6 +55,8 @@ class CodeCompassVectorRetrievalService:
         self.provider_config = dict(provider_config or {})
         self.embedding_text_profile = str(embedding_text_profile or CODECOMPASS_EMBEDDING_TEXT_PROFILE)
         self.fail_mode = str(fail_mode or "degraded_empty")
+        self._restricted_inference = restricted_inference_service
+        self._strategy_config: RetrievalStrategyConfig = strategy_config or RetrievalStrategyConfig()
         self._last_diagnostic: dict[str, Any] = {"status": "not_run", "reason": "not_run"}
 
     def _resolve_path(self, value: str | Path) -> Path:
@@ -63,12 +81,35 @@ class CodeCompassVectorRetrievalService:
                 embedding_text_profile=self.embedding_text_profile,
             )
             engine = CodeCompassVectorEngine(store=self.store, embedding_provider=provider)
-            rows = engine.search(query=query, top_k=max(1, int(top_k)), retrieval_intent="fuzzy_semantic")
+            effective_top_k = self._strategy_config.effective_top_k(top_k)
+            rows = engine.search(query=query, top_k=effective_top_k, retrieval_intent="fuzzy_semantic")
             rows = self._filter_allowed_paths(rows, allowed_paths)
+
+            prefilter_applied = False
+            if self._strategy_config.wants_prefilter() and self._restricted_inference is not None:
+                before = len(rows)
+                rows = apply_semantic_prefilter(
+                    rows,
+                    query,
+                    restricted_inference=self._restricted_inference,
+                    config=self._strategy_config,
+                    requested_top_k=top_k,
+                )
+                prefilter_applied = True
+                log.debug(
+                    "semantic_prefilter: %d → %d candidates (strategy=%s)",
+                    before, len(rows), self._strategy_config.strategy,
+                )
+            elif self._strategy_config.wants_prefilter() and self._restricted_inference is None:
+                log.debug("semantic_prefilter requested but no restricted_inference_service configured; skipping")
+                rows = rows[:top_k]
+
             self._last_diagnostic = {
                 "status": "ready",
                 "reason": refresh.get("reason", "ok"),
                 "candidate_count": len(rows),
+                "retrieval_strategy": self._strategy_config.strategy,
+                "prefilter_applied": prefilter_applied,
                 "load": load_diagnostics,
                 "refresh": refresh.get("diagnostics", {}),
                 "engine": engine.last_diagnostic(),
