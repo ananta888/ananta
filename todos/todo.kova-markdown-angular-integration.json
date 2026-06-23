@@ -1,0 +1,516 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": 1,
+  "owner": "ananta",
+  "track": "kova_markdown_angular_integration",
+  "purpose": "Integrate a Kova-style Markdown presentation workflow into the existing Ananta Angular app so Markdown files can be edited, previewed as slides, rendered safely, and later exported through a controlled backend/export path.",
+  "goal": "Add a first-class Markdown slide mode to the Angular app using the already available marked, mermaid, DOMPurify, and Angular 21 stack, while keeping security, offline use, CodeCompass context, Android compatibility, and Ananta policy boundaries intact.",
+  "status_scale": ["todo", "in_progress", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "program_success_criteria": [
+    "Users can create, open, edit, and preview Markdown slide decks inside frontend-angular without leaving the Ananta UI.",
+    "Slides are split deterministically by horizontal slide separators and rendered with safe HTML sanitization.",
+    "Mermaid diagrams render inside slides using the existing mermaid dependency.",
+    "Rendered Markdown is sanitized with DOMPurify and never allows unsafe script execution, inline event handlers, or untrusted iframe/script injection.",
+    "The feature works in desktop browser mode and remains compatible with the Capacitor/Android build path.",
+    "Slide decks can be stored as artifacts/workspace files and are addressable by CodeCompass/Ananta context workflows.",
+    "Export support is designed as a backend/worker action, not as an uncontrolled browser-only privileged operation.",
+    "Unit and E2E tests cover parsing, preview, security sanitization, Mermaid rendering, routing, and basic persistence."
+  ],
+  "assumptions": [
+    "The target app is frontend-angular in repository ananta888/ananta.",
+    "frontend-angular already has marked, mermaid, DOMPurify, Angular Router, Forms, Playwright, and Vitest available.",
+    "Kova compatibility is initially interpreted as Kova-style Markdown slide authoring, not a full clone of every Kova runtime/export feature.",
+    "Native PDF/PPTX export should be delegated to a controlled backend/worker/export pipeline in a later milestone."
+  ],
+  "milestones": [
+    {"id": "KM-M1", "title": "Markdown Slide Core", "status": "todo", "task_ids": ["KM-T001", "KM-T002", "KM-T003", "KM-T004"]},
+    {"id": "KM-M2", "title": "Angular UI Integration", "status": "todo", "task_ids": ["KM-T005", "KM-T006", "KM-T007", "KM-T008"]},
+    {"id": "KM-M3", "title": "Safe Rendering And Mermaid", "status": "todo", "task_ids": ["KM-T009", "KM-T010", "KM-T011", "KM-T012"]},
+    {"id": "KM-M4", "title": "Artifacts And CodeCompass", "status": "todo", "task_ids": ["KM-T013", "KM-T014", "KM-T015", "KM-T016"]},
+    {"id": "KM-M5", "title": "Export Contract", "status": "todo", "task_ids": ["KM-T017", "KM-T018", "KM-T019", "KM-T020"]},
+    {"id": "KM-M6", "title": "Tests And Documentation", "status": "todo", "task_ids": ["KM-T021", "KM-T022", "KM-T023", "KM-T024"]}
+  ],
+  "critical_path_tasks": ["KM-T001", "KM-T002", "KM-T005", "KM-T009", "KM-T013", "KM-T017", "KM-T021"],
+  "tasks": [
+    {
+      "id": "KM-T001",
+      "title": "Define Markdown slide parser contract",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "milestone": "KM-M1",
+      "description": "Create a deterministic parser contract for Kova-style Markdown decks. The parser must split slides on standalone horizontal separators and preserve source positions for later editor navigation.",
+      "implementation_notes": [
+        "Add a frontend service such as src/app/markdown-slides/markdown-slide-parser.service.ts.",
+        "Support slide separators using a line containing only --- with optional surrounding whitespace.",
+        "Do not split YAML frontmatter at the top of the document as a slide unless it is followed by content and a second separator.",
+        "Return slide index, raw markdown, title guess, lineStart, lineEnd, and parse warnings."
+      ],
+      "acceptance_criteria": [
+        "A deck with three sections separated by standalone --- returns exactly three slides.",
+        "A YAML frontmatter block at the beginning is parsed as deck metadata and not rendered as the first slide.",
+        "Separators inside fenced code blocks are ignored.",
+        "Each slide exposes stable lineStart and lineEnd values for editor navigation.",
+        "Parser returns warnings for empty slides but does not crash."
+      ]
+    },
+    {
+      "id": "KM-T002",
+      "title": "Add deck metadata model",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "milestone": "KM-M1",
+      "description": "Introduce typed models for deck metadata, slides, render options, export options, and diagnostics.",
+      "implementation_notes": [
+        "Add markdown-slide.models.ts.",
+        "Include fields for title, author, theme, aspectRatio, createdAt, updatedAt, sourcePath, deckId, and diagnostics.",
+        "Keep model independent from concrete storage implementation."
+      ],
+      "acceptance_criteria": [
+        "Models compile under strict TypeScript.",
+        "No component depends on untyped any for core deck state.",
+        "Metadata can be absent without breaking preview."
+      ]
+    },
+    {
+      "id": "KM-T003",
+      "title": "Create sample Ananta deck",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "milestone": "KM-M1",
+      "description": "Add a small sample Markdown deck that demonstrates Ananta, CodeCompass, Mermaid, code blocks, and slide separators.",
+      "implementation_notes": [
+        "Place sample under frontend-angular/src/assets/sample-decks/ananta-kova-demo.md or equivalent asset path.",
+        "Include at least one Mermaid graph showing Hub -> Worker -> CodeCompass.",
+        "Include one code block containing --- to prove parser ignores fenced separators."
+      ],
+      "acceptance_criteria": [
+        "Sample deck loads in development build.",
+        "Sample deck renders at least five slides.",
+        "Mermaid example is visible in preview after rendering."
+      ]
+    },
+    {
+      "id": "KM-T004",
+      "title": "Add local deck state service",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone": "KM-M1",
+      "description": "Create an Angular service managing current deck state, selected slide, dirty flag, diagnostics, and import/export text operations.",
+      "implementation_notes": [
+        "Use signals or RxJS consistently with the surrounding app style.",
+        "Keep persistence adapter separate so Android/native storage can be added later.",
+        "Expose loadMarkdown, updateMarkdown, selectSlide, nextSlide, previousSlide, resetDeck."
+      ],
+      "acceptance_criteria": [
+        "Changing source markdown updates slide list deterministically.",
+        "Navigation does not exceed first/last slide boundaries.",
+        "Dirty state is updated only after user edits."
+      ]
+    },
+    {
+      "id": "KM-T005",
+      "title": "Add Markdown Slides route",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "milestone": "KM-M2",
+      "description": "Register a new route for the Markdown slide workflow inside the Angular app navigation.",
+      "implementation_notes": [
+        "Suggested route: /markdown-slides or /kova-markdown.",
+        "Use standalone component style if the app already follows that pattern.",
+        "Add visible navigation entry near developer/artifact tools, not hidden in unrelated runtime pages."
+      ],
+      "acceptance_criteria": [
+        "Route opens without console errors.",
+        "Route is reachable from main navigation.",
+        "Deep-link reload works in dev server mode.",
+        "Route does not break existing /voxtral-offline, /python-runtime, or /llama-runtime routes."
+      ]
+    },
+    {
+      "id": "KM-T006",
+      "title": "Implement split editor and preview layout",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "milestone": "KM-M2",
+      "description": "Build the main UI with Markdown editor, slide preview, slide list, and compact toolbar.",
+      "implementation_notes": [
+        "Use a textarea first unless the app already has a preferred editor widget.",
+        "Toolbar actions: load sample, new deck, previous slide, next slide, copy markdown, download markdown.",
+        "Preview should show one selected slide by default, with optional full deck mode later."
+      ],
+      "acceptance_criteria": [
+        "User can edit Markdown and see preview update.",
+        "User can navigate between slides using toolbar buttons.",
+        "Slide list shows slide numbers and title guesses.",
+        "Layout remains usable on narrow Android-width screens."
+      ]
+    },
+    {
+      "id": "KM-T007",
+      "title": "Add keyboard navigation",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "milestone": "KM-M2",
+      "description": "Support keyboard-based slide navigation without breaking text editing.",
+      "implementation_notes": [
+        "ArrowLeft/ArrowRight navigate only when focus is not inside editor textarea/input.",
+        "PageUp/PageDown may navigate slides globally.",
+        "Escape returns focus from preview controls to the editor or outer container."
+      ],
+      "acceptance_criteria": [
+        "Arrow keys inside textarea move cursor and do not switch slides.",
+        "Arrow keys in preview area navigate slides.",
+        "Keyboard navigation is covered by at least one E2E test."
+      ]
+    },
+    {
+      "id": "KM-T008",
+      "title": "Add responsive presentation mode",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone": "KM-M2",
+      "description": "Add a fullscreen-like presentation mode that hides editor chrome and shows slide navigation controls.",
+      "implementation_notes": [
+        "Prefer CSS fullscreen layout first; browser Fullscreen API can be optional.",
+        "Support 16:9 default and allow aspect ratio from metadata later.",
+        "Do not require network access."
+      ],
+      "acceptance_criteria": [
+        "Presentation mode shows selected slide centered with stable aspect ratio.",
+        "User can leave presentation mode reliably.",
+        "Presentation mode works in Chromium Playwright E2E."
+      ]
+    },
+    {
+      "id": "KM-T009",
+      "title": "Implement safe Markdown renderer",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "milestone": "KM-M3",
+      "description": "Render Markdown using marked and sanitize output using DOMPurify before binding to Angular templates.",
+      "implementation_notes": [
+        "Create markdown-renderer.service.ts.",
+        "Configure marked without raw unsafe extensions at first.",
+        "Sanitize HTML with DOMPurify and use Angular SafeHtml only after sanitization.",
+        "Block script tags, event attributes, javascript: URLs, unsafe iframes, and unknown embedded objects."
+      ],
+      "acceptance_criteria": [
+        "# Heading renders as heading.",
+        "Code fences render as pre/code.",
+        "A script tag is removed from rendered output.",
+        "An onclick attribute is removed from rendered output.",
+        "A javascript: link is removed or neutralized.",
+        "Renderer has unit tests for allowed and blocked HTML."
+      ]
+    },
+    {
+      "id": "KM-T010",
+      "title": "Render Mermaid diagrams safely",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "milestone": "KM-M3",
+      "description": "Detect Mermaid code fences and render them after Markdown sanitization through a controlled Mermaid service.",
+      "implementation_notes": [
+        "Use mermaid dependency already present in package.json.",
+        "Initialize Mermaid with securityLevel strict unless a stronger app-wide policy exists.",
+        "Render each diagram into a generated container with stable IDs.",
+        "Handle Mermaid parse errors as visible diagnostics, not uncaught exceptions."
+      ],
+      "acceptance_criteria": [
+        "A graph TD example renders as SVG in preview.",
+        "Invalid Mermaid syntax displays a non-fatal diagnostic.",
+        "Mermaid rendering does not execute arbitrary scripts or external links.",
+        "Multiple diagrams on one slide render with unique IDs."
+      ]
+    },
+    {
+      "id": "KM-T011",
+      "title": "Add theme abstraction",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone": "KM-M3",
+      "description": "Introduce a minimal theme abstraction for Kova-like deck themes without coupling presentation content to app global CSS.",
+      "implementation_notes": [
+        "Start with built-in themes: ananta-default, dark-console, clean-docs.",
+        "Allow deck frontmatter theme selection.",
+        "Expose CSS variables for background, foreground, accent, code background, slide padding."
+      ],
+      "acceptance_criteria": [
+        "Changing theme in metadata changes slide preview style.",
+        "Theme CSS is scoped to slide preview and does not alter the full Angular app shell.",
+        "Unknown theme falls back to ananta-default with a warning."
+      ]
+    },
+    {
+      "id": "KM-T012",
+      "title": "Add diagnostics panel",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "milestone": "KM-M3",
+      "description": "Show parse, render, Mermaid, and security diagnostics in a compact panel.",
+      "implementation_notes": [
+        "Group diagnostics by severity: info, warning, error.",
+        "Diagnostics should link to slide index and source line when available.",
+        "Do not block editing on diagnostics."
+      ],
+      "acceptance_criteria": [
+        "Empty slides show warnings.",
+        "Invalid Mermaid shows an error linked to the slide.",
+        "Sanitized unsafe content produces a security warning without rendering unsafe content."
+      ]
+    },
+    {
+      "id": "KM-T013",
+      "title": "Define deck artifact contract",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "milestone": "KM-M4",
+      "description": "Define how Markdown decks are represented as Ananta artifacts/workspace files so they can be loaded, saved, tracked, and referenced by CodeCompass.",
+      "implementation_notes": [
+        "Suggested artifact type: markdown_slide_deck.",
+        "Include sourcePath, contentHash, metadata, slideCount, diagnostics summary, createdBy, updatedBy.",
+        "Keep content as .md text file; generated render/export artifacts should be separate."
+      ],
+      "acceptance_criteria": [
+        "Artifact contract is documented in docs or a typed frontend model.",
+        "Deck source remains plain Markdown and is not stored only as generated HTML.",
+        "Contract supports provenance and later export outputs."
+      ]
+    },
+    {
+      "id": "KM-T014",
+      "title": "Add local browser persistence adapter",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone": "KM-M4",
+      "description": "Provide initial persistence for draft decks in browser local storage or IndexedDB while keeping a clean adapter boundary for backend/workspace storage later.",
+      "implementation_notes": [
+        "Prefer localStorage only for a minimal first step; IndexedDB if the app already uses it elsewhere.",
+        "Persist last edited deck and selected slide.",
+        "Never persist rendered sanitized HTML as source of truth."
+      ],
+      "acceptance_criteria": [
+        "Reloading the route restores the last draft deck.",
+        "User can reset local draft state.",
+        "Corrupt stored state is ignored with a diagnostic and does not crash the app."
+      ]
+    },
+    {
+      "id": "KM-T015",
+      "title": "Prepare workspace file adapter",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone": "KM-M4",
+      "description": "Design and stub a workspace-backed adapter for loading/saving .md decks through existing Ananta APIs or future file/artifact APIs.",
+      "implementation_notes": [
+        "Do not fake backend behavior in production code.",
+        "Expose interface only if backend endpoint does not yet exist.",
+        "Add TODO links to backend artifact/file service if missing."
+      ],
+      "acceptance_criteria": [
+        "Frontend service interface separates local persistence from workspace persistence.",
+        "Missing backend support is represented as disabled UI with clear explanation.",
+        "No hardcoded local machine paths are used."
+      ]
+    },
+    {
+      "id": "KM-T016",
+      "title": "Integrate CodeCompass context handoff",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "milestone": "KM-M4",
+      "description": "Make Markdown decks usable as context artifacts for Ananta/CodeCompass workflows so a deck can be generated from project context or used as explainable output.",
+      "implementation_notes": [
+        "Add UI action placeholders: create deck from current context, explain current deck, attach deck to run.",
+        "Keep all actions routed through Hub/API policy boundaries.",
+        "Do not let the frontend call arbitrary repo/file paths outside allowed workspace APIs."
+      ],
+      "acceptance_criteria": [
+        "Deck can expose metadata suitable for CodeCompass indexing.",
+        "UI actions are disabled or guarded when backend support is absent.",
+        "Policy boundary is documented in task notes or code comments."
+      ]
+    },
+    {
+      "id": "KM-T017",
+      "title": "Define export job API contract",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "milestone": "KM-M5",
+      "description": "Define backend/worker contract for exporting Markdown decks to PDF/PPTX/HTML without granting uncontrolled browser or shell execution.",
+      "implementation_notes": [
+        "Suggested endpoint/action: create_export_job(deckArtifactId, format, theme, options).",
+        "Export formats: html first, pdf second, pptx later.",
+        "Track job id, status, logs, outputArtifactId, warnings, error.",
+        "All export jobs must pass Hub policy checks."
+      ],
+      "acceptance_criteria": [
+        "Contract includes allowed formats and validation errors.",
+        "Export job is asynchronous/status-based from UI perspective.",
+        "Contract prevents arbitrary command injection via file paths, theme names, or export options.",
+        "Export outputs are represented as artifacts with provenance."
+      ]
+    },
+    {
+      "id": "KM-T018",
+      "title": "Add export UI placeholder",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "milestone": "KM-M5",
+      "description": "Add export controls in the UI that are wired to capability detection and remain disabled until backend support exists.",
+      "implementation_notes": [
+        "Show HTML/PDF/PPTX options, but only enable supported formats.",
+        "Display job status and last output artifact when available.",
+        "Avoid pretending export succeeded if no backend exists."
+      ],
+      "acceptance_criteria": [
+        "Unsupported export buttons are disabled with clear tooltip/help text.",
+        "Supported export action calls only the configured export service.",
+        "UI shows export failure diagnostics without losing deck content."
+      ]
+    },
+    {
+      "id": "KM-T019",
+      "title": "Evaluate Kova CLI compatibility path",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "milestone": "KM-M5",
+      "description": "Evaluate whether Kova CLI or a compatible renderer can be called by a controlled worker for export, and document security/runtime tradeoffs.",
+      "implementation_notes": [
+        "Check licensing, runtime dependencies, offline behavior, and reproducible build constraints before adding it.",
+        "Prefer containerized or restricted worker execution for external renderer tools.",
+        "Do not add large binary/runtime dependencies to Angular app bundle."
+      ],
+      "acceptance_criteria": [
+        "Decision document states whether to use Kova directly, emulate enough compatibility, or use another export engine.",
+        "Security risks and dependency size are explicitly assessed.",
+        "Android delivery impact is assessed before implementation."
+      ]
+    },
+    {
+      "id": "KM-T020",
+      "title": "Add export artifact provenance",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone": "KM-M5",
+      "description": "Ensure generated HTML/PDF/PPTX exports include provenance metadata linking back to source deck, hash, renderer, and timestamp.",
+      "implementation_notes": [
+        "For HTML export, embed metadata comment or JSON script of type application/json only if safe.",
+        "For PDF/PPTX, store provenance in companion artifact metadata if embedded metadata is not reliable.",
+        "Include source content hash, renderer version, theme, export options."
+      ],
+      "acceptance_criteria": [
+        "Every export output can be traced to a source deck hash.",
+        "Changing the source deck changes the source hash in metadata.",
+        "Provenance survives artifact listing and download workflow."
+      ]
+    },
+    {
+      "id": "KM-T021",
+      "title": "Add parser and renderer unit tests",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "milestone": "KM-M6",
+      "description": "Cover parser, metadata, sanitization, diagnostics, and renderer behavior with Vitest unit tests.",
+      "implementation_notes": [
+        "Add tests near services or in existing frontend-angular test structure.",
+        "Include malicious Markdown fixtures.",
+        "Include Mermaid placeholder/render invocation tests."
+      ],
+      "acceptance_criteria": [
+        "npm run test:unit passes.",
+        "Tests cover slide splitting with code fences and frontmatter.",
+        "Tests prove unsafe HTML is sanitized.",
+        "Tests cover invalid Mermaid diagnostics."
+      ]
+    },
+    {
+      "id": "KM-T022",
+      "title": "Add Playwright E2E coverage",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "milestone": "KM-M6",
+      "description": "Add E2E tests for the Markdown slide route, editing workflow, sample load, navigation, presentation mode, and basic security behavior.",
+      "implementation_notes": [
+        "Place spec under frontend-angular/tests/markdown-slides.spec.ts or equivalent.",
+        "Use stable data-testid attributes in UI.",
+        "Keep tests compatible with test:e2e:lite."
+      ],
+      "acceptance_criteria": [
+        "npm run test:e2e:lite includes or can include the Markdown slide smoke test.",
+        "E2E opens route, loads sample, navigates slides, edits text, and sees preview update.",
+        "E2E verifies script content is not executable/rendered as unsafe DOM."
+      ]
+    },
+    {
+      "id": "KM-T023",
+      "title": "Document user workflow",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "milestone": "KM-M6",
+      "description": "Document how to use the Markdown slide mode, supported syntax, limitations, and planned export behavior.",
+      "implementation_notes": [
+        "Update frontend-angular/README.md with a short section.",
+        "Add docs/markdown-slides.md for details.",
+        "Explain that full Kova export compatibility is tracked separately until backend export is implemented."
+      ],
+      "acceptance_criteria": [
+        "README links to detailed docs.",
+        "Docs show a minimal deck example with --- separators and Mermaid.",
+        "Docs mention security restrictions and unsupported raw HTML behavior."
+      ]
+    },
+    {
+      "id": "KM-T024",
+      "title": "Run build and Android compatibility checks",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "milestone": "KM-M6",
+      "description": "Verify the integration does not break normal Angular build, E2E flow, or Android preparation path.",
+      "implementation_notes": [
+        "Run npm run build in frontend-angular.",
+        "Run npm run test:unit.",
+        "Run relevant Playwright smoke/lite tests.",
+        "Run npm run android:prepare when Android toolchain is available."
+      ],
+      "acceptance_criteria": [
+        "npm run build succeeds.",
+        "npm run test:unit succeeds.",
+        "Relevant E2E smoke test succeeds.",
+        "No new dependency bloats the Angular bundle unnecessarily.",
+        "Android build path is either verified or explicitly documented as blocked by environment/toolchain, not by code."
+      ]
+    }
+  ],
+  "notes": [
+    "This track intentionally starts with in-app Markdown slide authoring and preview, because frontend-angular already contains marked, mermaid, and DOMPurify.",
+    "Full PDF/PPTX export should not be implemented as arbitrary client-side shell behavior. Route it through Hub/worker policy and artifact provenance.",
+    "The implementation should stay compatible with Ananta's central hub/security model and must not introduce worker-to-worker orchestration."
+  ]
+}
