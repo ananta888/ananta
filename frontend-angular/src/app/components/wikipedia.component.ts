@@ -106,6 +106,36 @@ import { AdminFacade } from '../features/admin/admin.facade';
             }
           </div>
         }
+        @if ((diskState.codecompass_outputs ?? []).length > 0) {
+          <div style="margin-top:10px">
+            <div class="muted font-sm" style="margin-bottom:4px;font-weight:600">③ CodeCompass-Outputs</div>
+            @for (cc of diskState.codecompass_outputs ?? []; track cc.run_id) {
+              <div style="padding:6px 8px;background:var(--bg-subtle,#f8f8f8);border-radius:6px;margin-bottom:4px;font-size:12px">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                  <span style="color:#7c3aed;font-weight:600">Run {{ cc.run_id.slice(0,8) }}</span>
+                  <span class="muted">Profil: {{ cc.manifest?.profile_name ?? '–' }}</span>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px">
+                  @for (fname of ['index.jsonl','details.jsonl','graph_nodes.jsonl','graph_edges.jsonl']; track fname) {
+                    @if (cc.files[fname]) {
+                      <span style="color:var(--muted,#888)">
+                        {{ fname }}: <strong style="color:inherit">{{ fmtBytes(cc.files[fname].size_bytes) }}</strong>
+                      </span>
+                    }
+                  }
+                </div>
+                @if (cc.manifest) {
+                  <div class="muted" style="margin-top:4px">
+                    {{ cc.manifest.index_record_count | number }} Chunks ·
+                    {{ cc.manifest.node_count | number }} Knoten ·
+                    {{ cc.manifest.relation_record_count | number }} Edges
+                    ({{ cc.manifest.link_edge_count | number }} Wiki-Links)
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        }
       }
     </div>
 
@@ -373,7 +403,7 @@ export class WikipediaComponent implements OnDestroy {
   wikiImportJob: any = null;
   wikiJobControlBusy = false;
   allJobs: any[] = [];
-  diskState: { files: any[]; checkpoints: any[] } | null = null;
+  diskState: { files: any[]; checkpoints: any[]; codecompass_outputs?: any[] } | null = null;
   private wikiImportPollTimer: ReturnType<typeof setTimeout> | null = null;
 
   readonly wikiPhaseLabels: Record<string, string> = {

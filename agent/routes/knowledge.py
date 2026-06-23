@@ -509,6 +509,44 @@ def wiki_disk_state():
                 kind = "other"
             files.append({**info, "kind": kind})
 
+    # CodeCompass output files from knowledge_indices/wiki/
+    cc_outputs: list[dict] = []
+    ki_wiki_dir = Path(settings.data_dir) / "knowledge_indices" / "wiki"
+    if ki_wiki_dir.exists():
+        import json as _json_cc
+        for index_dir in sorted(ki_wiki_dir.iterdir()):
+            if not index_dir.is_dir():
+                continue
+            for run_dir in sorted(index_dir.iterdir(), reverse=True):
+                if not run_dir.is_dir():
+                    continue
+                run_files = {}
+                manifest = {}
+                for rf in sorted(run_dir.iterdir()):
+                    if rf.name == "manifest.json":
+                        try:
+                            manifest = _json_cc.loads(rf.read_text(encoding="utf-8"))
+                        except Exception:
+                            pass
+                        continue
+                    info = _file_info(rf)
+                    if info:
+                        run_files[rf.name] = info
+                if run_files:
+                    cc_outputs.append({
+                        "index_id": index_dir.name,
+                        "run_id": run_dir.name,
+                        "files": run_files,
+                        "manifest": {
+                            "index_record_count": manifest.get("index_record_count"),
+                            "node_count": manifest.get("node_count"),
+                            "relation_record_count": manifest.get("relation_record_count"),
+                            "link_edge_count": manifest.get("link_edge_count"),
+                            "profile_name": manifest.get("profile_name"),
+                            "generated_at": manifest.get("generated_at"),
+                        } if manifest else None,
+                    })
+
     checkpoints = []
     if checkpoint_dir.exists():
         import json as _json
@@ -519,7 +557,7 @@ def wiki_disk_state():
             except Exception:
                 pass
 
-    return api_response(data={"files": files, "checkpoints": checkpoints})
+    return api_response(data={"files": files, "checkpoints": checkpoints, "codecompass_outputs": cc_outputs})
 
 
 @knowledge_bp.route("/knowledge/wiki/presets", methods=["GET"])
