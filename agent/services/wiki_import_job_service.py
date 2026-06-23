@@ -49,10 +49,13 @@ class WikiImportJobService:
             logger.exception("wiki_import_job_service: failed to load jobs from disk")
 
     def _flush(self) -> None:
+        # Snapshot inside lock, write outside — don't hold the lock during slow disk I/O.
+        with self._lock:
+            snapshot = dict(self._jobs)
         try:
             _JOBS_FILE.parent.mkdir(parents=True, exist_ok=True)
             tmp = _JOBS_FILE.with_suffix(".tmp")
-            tmp.write_text(json.dumps(self._jobs, ensure_ascii=False, default=str), encoding="utf-8")
+            tmp.write_text(json.dumps(snapshot, ensure_ascii=False, default=str), encoding="utf-8")
             tmp.replace(_JOBS_FILE)
         except Exception:
             logger.exception("wiki_import_job_service: failed to flush jobs to disk")
@@ -65,7 +68,7 @@ class WikiImportJobService:
     def _save(self, payload: dict[str, Any]) -> dict[str, Any]:
         with self._lock:
             self._jobs[str(payload["job_id"])] = payload
-            self._flush()
+        self._flush()
         return payload
 
     def retry_interrupted_job(self, job_id: str) -> dict[str, Any] | None:
@@ -77,11 +80,12 @@ class WikiImportJobService:
             job = {**job, "status": "queued", "phase": "queued", "progress_percent": 0,
                    "error": None, "finished_at": None, "started_at": None}
             self._jobs[job_id] = job
-            self._flush()
+        self._flush()
         self._executor.submit(self._run_job, job_id=job_id)
         return self.get_job(job_id)
 
     def pause_job(self, job_id: str) -> dict[str, Any] | None:
+        needs_flush = False
         with self._lock:
             job = self._jobs.get(job_id)
             if not job:
@@ -91,8 +95,11 @@ class WikiImportJobService:
                 job["status"] = "paused"
                 job["pause_requested"] = True
                 self._jobs[job_id] = job
-                self._flush()
-            return dict(self._jobs[job_id])
+                needs_flush = True
+            result = dict(self._jobs[job_id])
+        if needs_flush:
+            self._flush()
+        return result
 
     def resume_job(self, job_id: str) -> dict[str, Any] | None:
         with self._lock:
