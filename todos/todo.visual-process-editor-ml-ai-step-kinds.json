@@ -1,0 +1,553 @@
+{
+  "id": "todo.visual-process-editor-ml-ai-step-kinds",
+  "title": "VP Editor — ML/AI Step-Arten: Transformer-Encoding, Evolver, RAG, TurboQuant und Worker-Alignment",
+  "version": "1.0",
+  "created": "2026-06-24",
+  "updated": "2026-06-24",
+  "project": "Ananta / Visual Process Designer",
+  "status": "open",
+  "priority": "high",
+  "tags": [
+    "visual-process",
+    "ml-pipeline",
+    "transformer-encoding",
+    "vector-encoding",
+    "turboquant",
+    "evolver",
+    "rag",
+    "retrieval",
+    "reranker",
+    "worker-alignment",
+    "step-kinds"
+  ],
+  "review_basis": {
+    "reviewed_commit_range": "HEAD",
+    "review_goal": "Die VP Editor TASK_KINDS-Liste auf reale Ananta-Komponenten ausrichten und fehlende ML/AI-Pipelines als Step-Arten modellieren: Transformer-only Encoding, TurboQuant, RAG, Reranker, Evolver.",
+    "context": "Die aktuellen TASK_KINDS im VP Editor sind ['coding','analysis','run_tests','code_review','llm_generate','goal_plan','deploy','research','read_file','grep_search','refactor']. Diese sind nicht auf die echten Worker-Dispatching-Mechanismen abgebildet. Der Worker kennt task_kinds wie patch_apply, patch_propose, plan_only, shell_execute, fork, join, approval (in hermes_adapter_config.py, det_command_handler.py). Ananta hat zudem reife ML-Komponenten die gar nicht als VP Step-Arten auftauchen: VectorEncodingProfile+VectorEncoder (worker/retrieval/vector_encoding.py), TurboQuantMseEncoder (turboquant_encoding.py), EmbeddingProvider Protocol (embedding_provider.py), RetrievalService mit Channels dense/lexical/symbol/codecompass_* (retrieval_contract.py), Reranker (reranker.py), EvolutionService+PlanningPromptEvolverService (agent/services/evolution/)."
+  },
+  "current_state": {
+    "real_worker_task_kinds": {
+      "note": "Diese task_kinds sind in der Worker-Infrastruktur tatsaechlich registriert und dispatchbar.",
+      "mutation": ["patch_apply", "command_execute", "shell_execute", "shell_execution", "service_mutation", "config_mutation", "workspace_mutation", "file_mutation"],
+      "llm_readonly": ["plan_only", "review", "summarize", "patch_propose", "research_limited"],
+      "deterministic": ["run_tests", "script", "git_op", "file_check", "regex_check"],
+      "control_flow": ["fork", "join", "approval"],
+      "source": "worker/core/hermes_adapter_config.py, worker/core/det_command_handler.py"
+    },
+    "vp_editor_task_kinds": {
+      "note": "Diese sind im VP Editor (visual-process-editor.component.ts TASK_KINDS Array) — haben aber keine direkte Entsprechung im Worker-Dispatch.",
+      "list": ["coding", "analysis", "run_tests", "code_review", "llm_generate", "goal_plan", "deploy", "research", "read_file", "grep_search", "refactor"],
+      "aligned": ["run_tests"],
+      "misaligned": ["coding (nicht patch_apply/patch_propose)", "analysis (nicht review/research_limited)", "deploy (kein echter Worker-Handler)", "research (nahe research_limited)", "llm_generate (nahe summarize)"],
+      "missing_entirely": ["patch_apply", "patch_propose", "shell_execute", "plan_only", "summarize", "fork", "join", "approval", "vector_encode", "rag_retrieve", "rerank", "turboquant_encode", "evolve_prompt", "evolve_project", "embed_chunk", "cluster"]
+    },
+    "ml_components_in_codebase": [
+      "EmbeddingProvider (Protocol): embed_texts(texts) -> list[list[float]] — worker/retrieval/embedding_provider.py",
+      "VectorEncodingProfile: modes off/float32/float16/int8/symmetric4bit/turboquant_mse_experimental — worker/retrieval/vector_encoding.py",
+      "VectorEncoder: encode(vector) -> EncodedVector — worker/retrieval/vector_encoding.py",
+      "TurboQuantMseEncoder: PoC-Klasse, formalisiert TurboQuant-Quantisierung — worker/retrieval/turboquant_encoding.py",
+      "TurboQuantProdStub: research stub, raise NotImplementedError — worker/retrieval/turboquant_encoding.py",
+      "QuantizationFallbackPolicy: strukturierte Fallback-Logik — worker/retrieval/turboquant_encoding.py",
+      "Reranker: rerank(query, candidates) -> ranked_candidates mit token-overlap-Boost — worker/retrieval/reranker.py",
+      "RetrievalContract: Channels dense/lexical/symbol/codecompass_fts/codecompass_vector/codecompass_graph — worker/retrieval/retrieval_contract.py",
+      "RetrievalService: query + channel routing + fallback — worker/retrieval/retrieval_service.py",
+      "EvolutionService: analyze/propose/validate/apply + EvolutionProviderRegistry — agent/services/evolution_service.py",
+      "PlanningPromptEvolverService: evolve_from_run(), _should_evolve(), _mutate_template() — agent/services/planning_prompt_evolver_service.py",
+      "EvolutionTriggerType: MANUAL/VERIFICATION_FAILURE/ERROR_THRESHOLD/PERIODIC_REVIEW/POLICY_REQUEST",
+      "EvolutionCapability: ANALYZE/PROPOSE/VALIDATE/APPLY/RISK_SCORING/REVIEW_HINTS"
+    ]
+  },
+  "categories": [
+    {
+      "name": "worker_alignment",
+      "label": "VPWRK — Worker-Alignment: TASK_KINDS an echte Worker-Dispatch-Arten angleichen",
+      "description": "Die VP Editor TASK_KINDS-Konstante in visual-process-editor.component.ts und die KNOWN_TASK_KINDS in skill_profiles.py/policy_hints.py richten sich nicht nach dem was der Worker tatsaechlich kann. Das fuehrt dazu, dass ein gestarteter Workflow step_kinds enthaelt, fuer die kein Handler existiert.",
+      "items": [
+        {
+          "id": "VPWRK-001",
+          "title": "Kanonische task_kind-Liste als Backend-Quelle definieren",
+          "status": "open",
+          "priority": "critical",
+          "files": [
+            "agent/visual_process/models.py",
+            "agent/visual_process/policy_hints.py",
+            "agent/visual_process/skill_profiles.py",
+            "worker/core/hermes_adapter_config.py",
+            "worker/core/det_command_handler.py"
+          ],
+          "description": "Eine zentrale Wahrheitsquelle fuer alle gueltigen task_kinds anlegen. Zwei Gruppen: (A) Worker-dispatchbare Kinds (aus hermes_adapter_config + det_command_handler), (B) ML/AI-spezifische Kinds (neue). Das Backend-Modell soll diese Liste kennen und validieren.",
+          "tasks": [
+            "Neue Datei agent/visual_process/task_kind_registry.py: WORKER_TASK_KINDS = {'patch_apply','patch_propose','command_execute','shell_execute','plan_only','review','summarize','research_limited','run_tests','script','git_op','file_check','regex_check','fork','join','approval'}",
+            "ML_TASK_KINDS = {'vector_encode','turboquant_encode','embed_chunk','rag_retrieve','rerank','cluster','evolve_prompt','evolve_project'} (neue, VP-eigene)",
+            "LEGACY_MAP = {'coding': 'patch_propose', 'analysis': 'review', 'code_review': 'review', 'llm_generate': 'summarize', 'deploy': 'shell_execute', 'research': 'research_limited', 'refactor': 'patch_apply'} — Mapping alter VP-Kinds auf echte Worker-Kinds",
+            "ALL_TASK_KINDS = WORKER_TASK_KINDS | ML_TASK_KINDS",
+            "GET /api/visual-process/task-kinds: gibt Liste mit {id, label, group, description, dispatch_capable: bool} zurueck",
+            "VisualProcessValidator: Warning wenn step.kind in LEGACY_MAP (code='legacy_task_kind', message='... verwende stattdessen ...')"
+          ],
+          "acceptance_criteria": [
+            "GET /api/visual-process/task-kinds antwortet mit JSON-Array; jedes Element hat id, label, group ('worker'/'ml'/'control_flow'), dispatch_capable (bool)",
+            "VisualProcessValidator gibt Warning code='legacy_task_kind' fuer step.kind='coding' und schlaegt patch_propose vor",
+            "VPWRK-001 ist Voraussetzung fuer alle anderen VPWRK-Tasks"
+          ]
+        },
+        {
+          "id": "VPWRK-002",
+          "title": "Frontend: TASK_KINDS-Array durch dynamisch geladene Liste ersetzen",
+          "status": "open",
+          "priority": "high",
+          "files": [
+            "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
+            "frontend-angular/src/app/features/visual-process/visual-process-api.service.ts"
+          ],
+          "description": "Die hardkodierte Konstante TASK_KINDS in visual-process-editor.component.ts (Zeile 17) durch dynamisch vom Backend geladene Liste ersetzen. Sortierung nach Gruppe: control_flow oben, dann worker, dann ml.",
+          "tasks": [
+            "VisualProcessApiService: listTaskKinds(): Observable<{id: string; label: string; group: string; dispatch_capable: boolean}[]> -> GET /api/visual-process/task-kinds",
+            "Editor: taskKinds = signal<any[]>([]); in ngOnInit: api.listTaskKinds().subscribe(k => taskKinds.set(k))",
+            "Step-Inspector-Dropdown: @for (k of taskKinds(); track k.id) { <option [value]='k.id'>{{ k.label }} @if (!k.dispatch_capable) { (ML) }</option> }",
+            "Gruppen-Trennlinie im Dropdown via <optgroup> wenn Browser unterstuetzt",
+            "Fallback: wenn listTaskKinds() fehlschlaegt, FALLBACK_KINDS = ['patch_propose','plan_only','review','run_tests','shell_execute','fork','join','approval','vector_encode','rag_retrieve','evolve_prompt'] verwenden"
+          ],
+          "acceptance_criteria": [
+            "Nach ngOnInit: Step-Kind-Dropdown zeigt alle Backend-definierten Kinds geordnet nach Gruppe",
+            "Kinds mit dispatch_capable=false haben visuellen Hinweis '(ML)' im Dropdown",
+            "Bei Offline-Backend: FALLBACK_KINDS wird gezeigt, kein Fehler",
+            "Altes Preset mit kind='coding' wird mit Warning angezeigt, Step bleibt editierbar"
+          ]
+        },
+        {
+          "id": "VPWRK-003",
+          "title": "Policy-Hints und Skill-Profile fuer echte Worker-Kinds anpassen",
+          "status": "open",
+          "priority": "high",
+          "files": [
+            "agent/visual_process/policy_hints.py",
+            "agent/visual_process/skill_profiles.py"
+          ],
+          "description": "_KIND_HINTS in policy_hints.py kennt 'coding', 'deploy' etc. — die echten Worker-Kinds (patch_apply, shell_execute etc.) fehlen komplett. Skill-Profile task_kinds stimmen ebenfalls nicht.",
+          "tasks": [
+            "policy_hints.py _KIND_HINTS: patch_apply -> [HINT_WRITES_FILES, HINT_LLM_CALL], patch_propose -> [HINT_LLM_CALL, HINT_READ_ONLY], shell_execute -> [HINT_SHELL_EXEC, HINT_HIGH_RISK], command_execute -> [HINT_SHELL_EXEC, HINT_HIGH_RISK], plan_only -> [HINT_LLM_CALL, HINT_READ_ONLY], summarize -> [HINT_LLM_CALL], review -> [HINT_LLM_CALL, HINT_READ_ONLY], research_limited -> [HINT_READ_ONLY, HINT_LLM_CALL], fork -> [], join -> [], approval -> [HINT_REQUIRES_APPROVAL]",
+            "Neue Hints: HINT_VECTOR_OP = 'vector_operation', HINT_ML_INFERENCE = 'ml_inference', HINT_QUANTIZATION = 'quantization'",
+            "skill_profiles.py: coder.task_kinds = ['patch_apply', 'patch_propose', 'refactor']; analyst.task_kinds = ['review', 'research_limited', 'summarize']; tester.task_kinds = ['run_tests', 'script', 'file_check']; devops.task_kinds = ['shell_execute', 'git_op', 'script']; planner.task_kinds = ['plan_only', 'summarize']",
+            "Neues Profil: ml_engineer mit task_kinds=['vector_encode','turboquant_encode','embed_chunk','rag_retrieve','rerank','cluster'] und HINT_ML_INFERENCE",
+            "Neues Profil: evolver_agent mit task_kinds=['evolve_prompt','evolve_project'] und allowed_tools=['read_file','list_files','grep_search','git_diff']"
+          ],
+          "acceptance_criteria": [
+            "GET /api/visual-process/skill-profiles gibt 'ml_engineer' und 'evolver_agent' zurueck",
+            "POST /policy-summary mit step kind='shell_execute': per_step enthaelt ['high_risk','shell_exec']",
+            "POST /policy-summary mit step kind='patch_apply': per_step enthaelt ['writes_files','llm_call']",
+            "POST /dry-run mit fork/join Steps: kein 'unbekannter kind'-Fehler"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "transformer_encoding",
+      "label": "VPENC — Transformer Encoding: Embedding ohne LLM-Generation",
+      "description": "Nur die Transformerschicht verwenden heisst: kein Prompt/Completion-Zyklus, nur embed_texts() des EmbeddingProvider aufrufen. Das ergibt einen deterministischen Vektorraum-Step. Ananta hat das in worker/retrieval/embedding_provider.py und vector_encoding.py vollstaendig implementiert, aber keinen VP-Step dafuer.",
+      "items": [
+        {
+          "id": "VPENC-001",
+          "title": "Step-Art vector_encode: EmbeddingProvider als VP-Step",
+          "status": "open",
+          "priority": "high",
+          "files": [
+            "agent/visual_process/models.py",
+            "agent/visual_process/task_kind_registry.py",
+            "agent/visual_process/policy_hints.py",
+            "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
+          ],
+          "description": "vector_encode Step ruft EmbeddingProvider.embed_texts() auf. Input: text-Artifacts (Liste von Strings). Output: vector-Artifacts (EncodedVector). Kein LLM-Call, kein Prompt. Deterministisch bei gleichem Provider und Input.",
+          "tasks": [
+            "task_kind_registry.py: ML_TASK_KINDS enthaelt 'vector_encode'; label='Vektor-Encoding', dispatch_capable=False (weil kein Worker-Handler, wird direkt vom VP-Execution-Layer aufgerufen)",
+            "Neues ArtifactKind 'vector' zu models.py ArtifactKind hinzufuegen (aktuell: file/json/text/code/report/dataset/image/audio/binary/unknown)",
+            "policy_hints.py: 'vector_encode' -> [HINT_ML_INFERENCE, HINT_READ_ONLY]",
+            "VP Step-Inspector: wenn kind='vector_encode' -> Meta-Feld 'embedding_model' (Freitext, z.B. 'nomic-embed-text') und 'encoding_mode' (Dropdown: off/float32/float16/int8/symmetric4bit/turboquant_mse_experimental — aus VectorEncodingProfile)",
+            "Diese Meta-Felder werden in VpStep.metadata gespeichert: metadata.embedding_model, metadata.encoding_mode"
+          ],
+          "acceptance_criteria": [
+            "Step-Kind-Dropdown zeigt 'Vektor-Encoding (ML)' in Gruppe 'ml'",
+            "Wenn vector_encode selected: Inspector zeigt embedding_model-Feld und encoding_mode-Dropdown",
+            "encoding_mode-Werte entsprechen VectorEncodingProfile._ALLOWED_MODES: off/float32/float16/int8/symmetric4bit/turboquant_mse_experimental",
+            "Input-Artifact kann kind='text' oder kind='code' sein; Output-Artifact kind='vector' (neu)",
+            "POST /validate mit vector_encode Step gibt kein 'unbekannter kind'-Fehler"
+          ]
+        },
+        {
+          "id": "VPENC-002",
+          "title": "Step-Art turboquant_encode: TurboQuant-Quantisierung als expliziter Step",
+          "status": "open",
+          "priority": "medium",
+          "files": [
+            "agent/visual_process/task_kind_registry.py",
+            "agent/visual_process/policy_hints.py",
+            "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
+          ],
+          "description": "Separater Step der einen vorhandenen float32-Vektor mittels TurboQuantMseEncoder auf niedrigere Bitzahl komprimiert. Input: vector-Artifact (float32). Output: vector-Artifact (quantized). Kann nach vector_encode geschaltet werden (encode -> turboquant_encode -> store).",
+          "tasks": [
+            "task_kind_registry.py: ML_TASK_KINDS enthaelt 'turboquant_encode'; label='TurboQuant Komprimierung', dispatch_capable=False",
+            "policy_hints.py: 'turboquant_encode' -> [HINT_ML_INFERENCE, HINT_QUANTIZATION, HINT_READ_ONLY]",
+            "Step-Inspector: wenn kind='turboquant_encode': Feld 'target_bits' (Number, default 4), 'block_size' (Number, default 0=auto), 'store_original' (Checkbox). Diese landen in metadata.",
+            "Preset: 'Embed + Quantize Pipeline': [vector_encode] -always-> [turboquant_encode] mit target_bits=4"
+          ],
+          "acceptance_criteria": [
+            "Step-Inspector zeigt target_bits, block_size, store_original wenn kind='turboquant_encode'",
+            "Preset 'Embed + Quantize Pipeline' ist in /api/visual-process/presets geladen",
+            "Input des turboquant_encode-Steps muss kind='vector' sein — DataflowValidator gibt Warning wenn anderer kind"
+          ]
+        },
+        {
+          "id": "VPENC-003",
+          "title": "Step-Art embed_chunk: Chunking + Embedding fuer Index-Aufbau",
+          "status": "open",
+          "priority": "medium",
+          "files": [
+            "agent/visual_process/task_kind_registry.py",
+            "worker/retrieval/chunking.py",
+            "worker/retrieval/index_builder.py"
+          ],
+          "description": "Kombination aus chunking.py (Text in Chunks aufteilen) + embedding_provider.embed_texts() fuer jeden Chunk. Input: file/text-Artifact. Output: dataset-Artifact (Liste von {text, vector, metadata}-Eintraegen). Wird fuer Index-Aufbau-Pipelines benoetigt.",
+          "tasks": [
+            "task_kind_registry.py: 'embed_chunk'; label='Chunk + Einbetten', dispatch_capable=False",
+            "Step-Inspector: chunk_size (Number, default 512), chunk_overlap (Number, default 64), embedding_model (Text)",
+            "DataflowValidator: Output-Artifact sollte kind='dataset' sein — Warning wenn nicht",
+            "Preset 'Wissensindex aufbauen': [embed_chunk] -always-> [turboquant_encode] -always-> [script (index_builder)]"
+          ],
+          "acceptance_criteria": [
+            "Inspector zeigt chunk_size, chunk_overlap, embedding_model wenn kind='embed_chunk'",
+            "Output-Artifact kind='dataset' erzeugt kein DataflowValidator-Warning",
+            "Preset 'Wissensindex aufbauen' in /presets erreichbar"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "rag_pipeline",
+      "label": "VPRAG — RAG-Pipeline: Retrieve, Rerank, Generate als separate Steps",
+      "description": "Ananta hat eine vollstaendige RAG-Infrastruktur: RetrievalService mit Channels (dense/lexical/symbol/codecompass_*), Reranker (token-overlap-Boost), QueryRewrite. Aktuell kein VP-Step dafuer — ein llm_generate Step macht alles undifferenziert.",
+      "items": [
+        {
+          "id": "VPRAG-001",
+          "title": "Step-Art rag_retrieve: Retrieval-Step mit Channel-Konfiguration",
+          "status": "open",
+          "priority": "high",
+          "files": [
+            "agent/visual_process/task_kind_registry.py",
+            "agent/visual_process/policy_hints.py",
+            "worker/retrieval/retrieval_contract.py",
+            "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
+          ],
+          "description": "rag_retrieve Step ruft RetrievalService auf. Input: text-Artifact (query). Output: dataset-Artifact (candidates: [{text, score, source}]). Channels aus VALID_CHANNELS: dense/lexical/symbol/codecompass_fts/codecompass_vector/codecompass_graph.",
+          "tasks": [
+            "task_kind_registry.py: 'rag_retrieve'; label='RAG Abruf', dispatch_capable=False",
+            "policy_hints.py: 'rag_retrieve' -> [HINT_READ_ONLY, HINT_ML_INFERENCE]",
+            "Step-Inspector wenn kind='rag_retrieve': multi-select Checkboxen fuer channels (dense/lexical/symbol/codecompass_fts/codecompass_vector/codecompass_graph), top_k (Number, default 20), fallback_order (Comma-separated)",
+            "Diese Werte in metadata.channels, metadata.top_k, metadata.fallback_order",
+            "Preset 'RAG-Pipeline': [rag_retrieve] -always-> [rerank] -always-> [summarize]"
+          ],
+          "acceptance_criteria": [
+            "Inspector zeigt Channel-Checkboxen und top_k wenn kind='rag_retrieve'",
+            "Default: channels=['dense','lexical'] entsprechend DEFAULT_FALLBACK_ORDER aus retrieval_contract.py",
+            "Wenn codecompass_vector gewaehlt: Warning im Inspector 'erfordert aktiven CodeCompass-Index'",
+            "Preset 'RAG-Pipeline' in /presets erreichbar"
+          ]
+        },
+        {
+          "id": "VPRAG-002",
+          "title": "Step-Art rerank: Reranker-Step nach Retrieval",
+          "status": "open",
+          "priority": "medium",
+          "files": [
+            "agent/visual_process/task_kind_registry.py",
+            "worker/retrieval/reranker.py"
+          ],
+          "description": "rerank Step wendet Reranker.rerank() an. Input: dataset-Artifact (candidates), text-Artifact (original query). Output: dataset-Artifact (reranked candidates). Reranker nutzt token-overlap-Boost (weight konfigurierbar). Cross-encoder nicht implementiert (TurboQuantProdStub-Pattern: NotImplementedError fuer echten Neural Reranker).",
+          "tasks": [
+            "task_kind_registry.py: 'rerank'; label='Reranking', dispatch_capable=False",
+            "Step-Inspector wenn kind='rerank': reranker_weight (Float, default 0.15) und reranker_type (Dropdown: token_overlap / neural_stub). neural_stub zeigt Hinweis 'Nicht produktionsreif (NotImplementedError)'",
+            "policy_hints.py: 'rerank' -> [HINT_READ_ONLY, HINT_ML_INFERENCE]",
+            "DataflowValidator: rerank-Step sollte 2 Inputs haben (query + candidates) — Warning wenn nur 1"
+          ],
+          "acceptance_criteria": [
+            "reranker_type='neural_stub' zeigt deutlichen Hinweis im Inspector",
+            "reranker_weight=0.15 entspricht Reranker(weight=0.15) Default in reranker.py",
+            "Output-Artifact kind='dataset' mit zusaetzlichem Feld final_score (implizit durch Reranker.rerank())"
+          ]
+        },
+        {
+          "id": "VPRAG-003",
+          "title": "Step-Art query_rewrite: Query-Verbesserung vor dem Retrieval",
+          "status": "open",
+          "priority": "low",
+          "files": [
+            "agent/visual_process/task_kind_registry.py",
+            "worker/retrieval/query_rewrite.py"
+          ],
+          "description": "Optionaler erster Schritt in RAG-Pipeline: normalisiert und verbessert die Suchanfrage bevor rag_retrieve ausgefuehrt wird. Entspricht worker/retrieval/query_rewrite.py.",
+          "tasks": [
+            "task_kind_registry.py: 'query_rewrite'; label='Query-Optimierung', dispatch_capable=False",
+            "policy_hints.py: 'query_rewrite' -> [HINT_LLM_CALL, HINT_READ_ONLY]",
+            "Preset 'RAG-Pipeline' erweitern: [query_rewrite] -always-> [rag_retrieve] -always-> [rerank] -always-> [summarize]"
+          ],
+          "acceptance_criteria": [
+            "Step-Kind 'query_rewrite' im Dropdown verfuegbar",
+            "Input: text (query), Output: text (rewritten_query)",
+            "Im erweiterten RAG-Preset korrekt vor rag_retrieve geschaltet"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "evolver",
+      "label": "VPEVOL — Evolver: Prompt- und Projekt-Evolution als VP-Steps",
+      "description": "Ananta hat eine produktionsreife Evolver-Infrastruktur: EvolutionService (analyze/propose/validate/apply), PlanningPromptEvolverService (evolve_from_run mit _should_evolve-Trigger-Logik), EvolutionTriggerType (MANUAL/VERIFICATION_FAILURE/ERROR_THRESHOLD/PERIODIC_REVIEW/POLICY_REQUEST). Kein VP-Step dafuer.",
+      "items": [
+        {
+          "id": "VPEVOL-001",
+          "title": "Step-Art evolve_prompt: Prompt-Evolver als VP-Schritt",
+          "status": "open",
+          "priority": "high",
+          "files": [
+            "agent/visual_process/task_kind_registry.py",
+            "agent/visual_process/policy_hints.py",
+            "agent/services/planning_prompt_evolver_service.py",
+            "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
+          ],
+          "description": "evolve_prompt Step ruft PlanningPromptEvolverService.evolve_from_run() auf. Input: run-Telemetrie-Artifact (json), aktueller Prompt-Template (text). Output: evolviierter Prompt (text) + Aenderungsprotokoll (report). Deterministisch reproduzierbar wenn gleiche Trigger-Reasons.",
+          "tasks": [
+            "task_kind_registry.py: 'evolve_prompt'; label='Prompt Evolver', dispatch_capable=False",
+            "policy_hints.py: 'evolve_prompt' -> [HINT_LLM_CALL, HINT_WRITES_FILES] — der Evolver schreibt neue PlanningPromptVersionDB-Eintraege",
+            "Neues Hint HINT_SELF_MODIFYING = 'self_modifying' fuer evolve_prompt und evolve_project",
+            "Step-Inspector wenn kind='evolve_prompt': trigger_type (Dropdown: manual/verification_failure/error_threshold/periodic_review/policy_request — aus EvolutionTriggerType Enum), analyze_only (Checkbox, default true), output_format (Dropdown: json/markdown/yaml)",
+            "metadata.trigger_type, metadata.analyze_only, metadata.output_format speichern",
+            "Preset 'Self-Improving Planning Loop': [plan_only] -on_failure-> [evolve_prompt] -back_edge(max_iter=5)-> [plan_only]"
+          ],
+          "acceptance_criteria": [
+            "Inspector zeigt trigger_type-Dropdown mit allen 5 EvolutionTriggerType-Werten wenn kind='evolve_prompt'",
+            "analyze_only=true (Default) bedeutet kein Schreiben in DB — nur Vorschlag",
+            "Policy-Hint 'self_modifying' erscheint in policy_summary wenn evolve_prompt Step vorhanden",
+            "Preset 'Self-Improving Planning Loop' in /presets mit korrekter back_edge",
+            "DataflowValidator: Input 'run_telemetry' (kind=json) ist required; Warning wenn fehlt"
+          ]
+        },
+        {
+          "id": "VPEVOL-002",
+          "title": "Step-Art evolve_project: Projekt-Evolution via EvolutionService",
+          "status": "open",
+          "priority": "medium",
+          "files": [
+            "agent/visual_process/task_kind_registry.py",
+            "agent/services/evolution_service.py",
+            "agent/services/evolution/models.py"
+          ],
+          "description": "evolve_project Step ruft EvolutionService.propose() oder .apply() auf (je nach analyze_only). Input: EvolutionContext als json. Output: EvolutionResult als json. Entspricht dem CLI-Ziel 'evolve-project' (agent/cli_goals_mutation.py).",
+          "tasks": [
+            "task_kind_registry.py: 'evolve_project'; label='Projekt-Evolver', dispatch_capable=False",
+            "policy_hints.py: 'evolve_project' -> [HINT_LLM_CALL, HINT_SELF_MODIFYING, HINT_HIGH_RISK]",
+            "Step-Inspector wenn kind='evolve_project': analyze_only (Checkbox, default true — entspricht EvolutionPolicy.analyze_only), trigger_type (Dropdown: alle EvolutionTriggerType-Werte), apply_allowed (Checkbox, default false — entspricht EvolutionPolicy.apply_allowed)",
+            "Warning im Inspector wenn apply_allowed=true: 'Schreibt direkt in Produktions-Code. gate=true empfohlen.'",
+            "Wenn apply_allowed=true und step.gate=false: DataflowValidator gibt Warning code='high_risk_no_gate'"
+          ],
+          "acceptance_criteria": [
+            "Inspector zeigt apply_allowed-Checkbox mit Warnung wenn kind='evolve_project'",
+            "apply_allowed=true + gate=false → Validation Warning 'high_risk_no_gate'",
+            "policy_summary.has_high_risk=true wenn evolve_project im Graphen",
+            "policy_summary.requires_approval=true wenn apply_allowed=true"
+          ]
+        },
+        {
+          "id": "VPEVOL-003",
+          "title": "Evolver-Feedback-Loop: back_edge mit EvolutionTrigger",
+          "status": "open",
+          "priority": "medium",
+          "files": [
+            "agent/visual_process/models.py",
+            "agent/visual_process/presets.py"
+          ],
+          "description": "Eine Schleife aus [task] -on_failure-> [evolve_prompt] -back_edge(while, condition)-> [task] modelliert den Selbstverbesserungs-Loop den PlanningPromptEvolverService in planning_service.py automatisch ausfuehrt. Als Preset demonstrieren.",
+          "tasks": [
+            "Neues Preset preset_self_improving_planner(): [plan_only(s1)] -on_failure-> [evolve_prompt(s2, trigger_type=verification_failure)] -back_edge(kind=while, condition='output.evolved==True', max_iter=3)-> [plan_only(s1)]",
+            "Kommentar im Code: 'Spiegelt planning_service.py._maybe_evolve_prompt() als expliziten VP-Graph'",
+            "LoopPolicy.condition='output.evolved==True' — entspricht dem evolved-Flag in PlanningPromptEvolverService.evolve_from_run()-Return"
+          ],
+          "acceptance_criteria": [
+            "Preset 'Self-Improving Planner' in GET /presets geladen",
+            "Graph hat 2 Steps, 2 Forward-Kanten (on_failure), 1 back_edge mit while-Condition",
+            "POST /validate: kein Fehler (back_edge + while + condition='output.evolved==True' ist valide)",
+            "POST /dry-run: policy_summary zeigt requires_approval=False (kein gate), has_llm_calls=True"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "cluster_step",
+      "label": "VPCLUS — Cluster-Step: Graph-Clustering als VP-Step",
+      "description": "Ananta nutzt Leiden-Algorithmus fuer Wiki-Domain-Clustering (wiki_article_graph_service.py build_domains mode='clusters'). Es gibt keinen VP-Step der Clustering als expliziten ML-Step modelliert.",
+      "items": [
+        {
+          "id": "VPCLUS-001",
+          "title": "Step-Art cluster: Graph-Clustering mit konfiguriertem Algorithmus",
+          "status": "open",
+          "priority": "low",
+          "files": [
+            "agent/visual_process/task_kind_registry.py",
+            "agent/visual_process/policy_hints.py"
+          ],
+          "description": "cluster Step nimmt einen Graphen (dataset-Artifact mit nodes/edges) und gibt cluster-Zuweisungen aus (dataset-Artifact mit {node_id, cluster_id}). Algorithmus konfigurierbar.",
+          "tasks": [
+            "task_kind_registry.py: 'cluster'; label='Graph-Clustering', dispatch_capable=False",
+            "policy_hints.py: 'cluster' -> [HINT_ML_INFERENCE, HINT_READ_ONLY]",
+            "Step-Inspector wenn kind='cluster': algorithm (Dropdown: leiden/louvain/kmeans), resolution (Float, default 1.0 fuer Leiden), min_cluster_size (Int, default 5)",
+            "Input: dataset (nodes/edges), Output: dataset (cluster assignments)"
+          ],
+          "acceptance_criteria": [
+            "Inspector zeigt algorithm-Dropdown mit leiden/louvain/kmeans",
+            "leiden ist der Default (entspricht wiki_article_graph_service.py build_domains mode='clusters')",
+            "Preset 'Wiki-Domain-Entdeckung': [rag_retrieve] -always-> [cluster] -always-> [summarize]"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "control_flow_alignment",
+      "label": "VPCF — Control-Flow Steps: fork, join, approval im Editor sichtbar machen",
+      "description": "der Worker-DetermHandler registriert task_kinds 'fork', 'join', 'approval' (det_command_handler.py Zeile 1 Kommentar). Diese sind echte dispatchbare Kinds, fehlen aber in TASK_KINDS des Editors. VPPAR-001 aus dem anderen TODO hat 'parallel' als Naeherung — die echten fork/join/approval kinds sind praeziser.",
+      "items": [
+        {
+          "id": "VPCF-001",
+          "title": "Step-Arten fork, join, approval im VP Editor",
+          "status": "open",
+          "priority": "high",
+          "files": [
+            "agent/visual_process/task_kind_registry.py",
+            "agent/visual_process/policy_hints.py",
+            "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
+          ],
+          "description": "fork, join, approval sind echte dispatch_capable=True Kinds (det_command_handler.py). Im Editor fehlen sie. approval entspricht dem gate=true-Muster, ist aber expliziter als Step-Art.",
+          "tasks": [
+            "task_kind_registry.py: WORKER_TASK_KINDS enthaelt 'fork', 'join', 'approval'; dispatch_capable=True fuer alle drei",
+            "policy_hints.py: fork -> [], join -> [], approval -> [HINT_REQUIRES_APPROVAL]",
+            "SVG-Template: fork-Step als Raute (wie VPPAR-001), join-Step als gefuellte Raute, approval-Step mit Schloss-Icon plus gruener Umrandung",
+            "GraphValidator: wenn fork-Step exakt 1 ausgehende Kante hat -> Warning; wenn join-Step exakt 1 eingehende Kante hat -> Warning",
+            "GraphValidator: wenn approval-Step ohne gate=true -> Info 'approval kind impliziert gate; setze gate=true fuer explizite Freigabe'"
+          ],
+          "acceptance_criteria": [
+            "fork/join/approval erscheinen in Dropdown in Gruppe 'control_flow' ganz oben",
+            "fork rendert als Raute, join als gefuellte Raute im SVG-Canvas",
+            "approval-Step: Schloss-Icon (bereits vorhanden fuer gate=true), gruener stroke",
+            "POST /validate mit fork + 1 ausgehender Kante -> Warning code='fork_single_outgoing'"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "presets_ml",
+      "label": "VPPRE-ML — Neue ML/AI-Presets",
+      "description": "Die aktuellen 4 Presets (Code Review, TDD, Research, Deploy) sind alle Software-Engineering-Workflows. Neue Presets fuer ML-Pipelines fehlen.",
+      "items": [
+        {
+          "id": "VPPRE-001",
+          "title": "Preset: Vollstaendige RAG-Pipeline",
+          "status": "open",
+          "priority": "medium",
+          "files": [
+            "agent/visual_process/presets.py"
+          ],
+          "description": "query_rewrite -> rag_retrieve -> rerank -> summarize. Zeigt die vier RAG-Stufen als separate Steps mit Artifact-Flow.",
+          "tasks": [
+            "def preset_rag_pipeline() in presets.py mit Steps: s1=query_rewrite, s2=rag_retrieve, s3=rerank, s4=summarize",
+            "Artifacts: query(text) -> rewritten_query(text) -> candidates(dataset) -> reranked(dataset) -> answer(text)",
+            "Kanten: s1->s2 always, s2->s3 always, s3->s4 always",
+            "Meta: channels=['dense','lexical'], top_k=20, reranker_weight=0.15 in step-Metadaten"
+          ],
+          "acceptance_criteria": [
+            "GET /api/visual-process/presets gibt 'preset-rag-pipeline' zurueck",
+            "Laden des Presets: 4 Steps, 3 Kanten, Artifact-Chain vollstaendig",
+            "POST /validate des Presets: valid=true, 0 errors"
+          ]
+        },
+        {
+          "id": "VPPRE-002",
+          "title": "Preset: Wissensindex-Aufbau-Pipeline",
+          "status": "open",
+          "priority": "medium",
+          "files": [
+            "agent/visual_process/presets.py"
+          ],
+          "description": "embed_chunk -> turboquant_encode -> script (index_store). Zeigt wie ein Wissensindex aus Rohdaten gebaut wird.",
+          "tasks": [
+            "def preset_knowledge_index_pipeline() in presets.py",
+            "Steps: s1=embed_chunk (chunk_size=512, embedding_model='nomic-embed-text'), s2=turboquant_encode (target_bits=4), s3=script (index_store aufrufen)",
+            "Artifacts: raw_documents(dataset) -> chunks_with_vectors(dataset) -> quantized_vectors(dataset) -> index_done(report)"
+          ],
+          "acceptance_criteria": [
+            "GET /presets gibt 'preset-knowledge-index' zurueck",
+            "POST /validate: valid=true",
+            "TurboQuant target_bits=4 in step s2 metadata"
+          ]
+        },
+        {
+          "id": "VPPRE-003",
+          "title": "Preset: Self-Improving Agent Loop",
+          "status": "open",
+          "priority": "medium",
+          "files": [
+            "agent/visual_process/presets.py"
+          ],
+          "description": "plan_only -> patch_propose -> run_tests -on_failure-> evolve_prompt -back_edge(while,max_iter=3)-> plan_only. Modelliert den Lernzyklus aus planning_service.py + PlanningPromptEvolverService als expliziten VP-Graphen.",
+          "tasks": [
+            "def preset_self_improving_agent() in presets.py",
+            "Steps: s1=plan_only, s2=patch_propose (coder-Profil), s3=run_tests, s4=evolve_prompt (trigger=verification_failure, analyze_only=True)",
+            "Kanten: s1->s2 always, s2->s3 always, s3->s4 on_failure, s4->s1 back_edge(kind=while, condition='output.evolved==True', max_iter=3)",
+            "Kommentar: 'Spiegel von planning_service._maybe_evolve_prompt + controlled_worker_loop'"
+          ],
+          "acceptance_criteria": [
+            "GET /presets gibt 'preset-self-improving-agent' zurueck",
+            "POST /validate: valid=true (while-Loop mit condition ist valide per LoopPolicy model_validator)",
+            "policy_summary: has_llm_calls=True (plan_only, patch_propose, evolve_prompt sind alle llm_call)"
+          ]
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "total_items": 16,
+    "by_status": {
+      "completed": 0,
+      "partial": 0,
+      "open": 16
+    },
+    "notes": [
+      "VPWRK-001 (task_kind_registry.py) ist Voraussetzung fuer ALLE anderen Tasks in diesem TODO.",
+      "VPWRK-002 setzt VPWRK-001 voraus.",
+      "VPWRK-003 setzt VPWRK-001 voraus.",
+      "VPENC-001 setzt VPWRK-001 voraus und fuehrt ArtifactKind 'vector' ein — DataflowValidator in validator.py muss diesen neuen Kind kennen.",
+      "VPRAG-001 setzt VPENC-001 voraus (vector als Artifact-Kind).",
+      "VPEVOL-001 und VPEVOL-002 koennen parallel nach VPWRK-001 entwickelt werden.",
+      "VPCF-001 ist unabhaengig und kann parallel zu allem anderen entwickelt werden.",
+      "VPCLUS-001 und VPPRE-* koennen erst nach den Step-Art-Tasks implementiert werden.",
+      "Dieses TODO ergaenzt todo.visual-process-editor-completion.json (UI-Luecken) — die beiden haben unterschiedliche Schwerpunkte.",
+      "Der 'evolver' in Ananta ist KEIN evolutionaerer Algorithmus (keine genetischen Operatoren, keine Fitness-Funktion) sondern ein LLM-basierter Prompt-Optimierer der auf Telemetrie-Signalen reagiert.",
+      "TurboQuantProdStub wirft NotImplementedError — turboquant_encode Step markiert im Inspector als 'experimentell'.",
+      "Transformer-Layer-only = EmbeddingProvider.embed_texts() — kein Prompt, kein Completion, nur Encoder. Das ist der Kern-Unterschied zu llm_generate."
+    ],
+    "recommended_order": [
+      "VPWRK-001",
+      "VPWRK-002",
+      "VPWRK-003",
+      "VPCF-001",
+      "VPENC-001",
+      "VPEVOL-001",
+      "VPRAG-001",
+      "VPRAG-002",
+      "VPENC-002",
+      "VPENC-003",
+      "VPEVOL-002",
+      "VPEVOL-003",
+      "VPRAG-003",
+      "VPCLUS-001",
+      "VPPRE-001",
+      "VPPRE-002",
+      "VPPRE-003"
+    ]
+  }
+}

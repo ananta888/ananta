@@ -1,0 +1,666 @@
+{
+  "id": "todo.visual-process-editor-completion",
+  "title": "Visual Process Editor — Fehlende Features, Execution, Persistenz und UI-Lücken",
+  "version": "1.0",
+  "created": "2026-06-24",
+  "updated": "2026-06-24",
+  "project": "Ananta / Visual Process Designer",
+  "status": "open",
+  "priority": "high",
+  "tags": [
+    "visual-process",
+    "vp-editor",
+    "execution",
+    "persistenz",
+    "gate-approval",
+    "bpmn",
+    "artifact-dataflow",
+    "policy-hints",
+    "angular",
+    "python"
+  ],
+  "review_basis": {
+    "reviewed_commit_range": "HEAD",
+    "review_goal": "Alle Lücken zwischen dem aktuellen VPE-Stand und einem vollständig nutzbaren Workflow-Designer dokumentieren — inkl. Persistenz, Execution-Loop, Gate-Approvals, Loop-Bedingungen, Artifact-Typprüfung, Policy-Hint-Feedback, BPMN-UI und kleineren UI-Lücken.",
+    "context": "Der VP Editor hat ein solides Datenmodell (VisualProcessGraph, VisualProcessStep, VisualProcessEdge in agent/visual_process/models.py), vollständige Backend-Validierung (GraphValidator + DataflowValidator in validator.py), Dry-Run, Policy-Hints und Blueprint-Mapper. Das Frontend (visual-process-editor.component.ts) deckt SVG-Canvas, Step-Inspector, Edge-Inspector, Skill-Library und Presets ab. Folgende Bereiche fehlen aber komplett oder teilweise."
+  },
+  "current_state": {
+    "implemented": [
+      "SVG-Canvas mit Drag-Drop, Pan/Zoom (visual-process-editor.component.ts)",
+      "Step-Inspector: label, kind (11 Arten), role, skill_profile, gate, inputs/outputs",
+      "Edge-Inspector: label, condition.kind (6 Arten), max_iterations für back_edge, expression-String",
+      "GraphValidator + DataflowValidator (agent/visual_process/validator.py)",
+      "Dry-Run endpoint + Frontend-Button (POST /api/visual-process/dry-run)",
+      "Mermaid-Export (Dialog mit Kopieren-Button)",
+      "Policy-Hints Engine: annotate_graph(), policy_summary() (policy_hints.py)",
+      "Blueprint-Mapper: graph_to_blueprint_dict(), graph_to_workflow_request() (blueprint_mapper.py)",
+      "VisualProcessApiService: listPresets, listSkillProfiles, validate, dryRun, mermaid, importBpmn, exportBpmn, compileWorkflowRequest, startWorkflowFromGraph, getWorkflowStatus, cancelWorkflow, signalWorkflow — alles fertig, aber nicht alle Methoden vom Editor genutzt",
+      "4 Presets (Code Review, TDD Loop, Research & Report, Deploy Pipeline) inkl. back_edge-Schleifen",
+      "6 eingebaute Skill-Profile (coder, analyst, tester, planner, reviewer, devops)"
+    ],
+    "not_implemented": [
+      "Persistenz: VpGraph wird nur im Angular-Signal gehalten, kein Speichern/Laden",
+      "Execution-Dashboard: kein Start-Button, kein Polling von getWorkflowStatus(), kein Live-Step-Status",
+      "Gate-Approval: gate=true Flag im Modell, aber kein Approve/Reject-Button im laufenden Workflow",
+      "Loop: nur max_iterations editierbar; loop_policy.kind (none/fixed/while/until), condition, break_on_output fehlen",
+      "Artifact-Typprüfung: DataflowValidator prüft nur Namen, nicht ArtifactKind-Kompatibilität",
+      "Expression-Syntax: expression-String wird gespeichert aber nie syntaktisch geprüft",
+      "Policy-Hints Feedback: Backend-Annotation (annotate_graph) wird nie für die UI-Nodes abgefragt",
+      "on_output-Kante: condition.output_name hat kein UI-Eingabefeld im Edge-Inspector",
+      "BPMN Import/Export UI: importBpmn()/exportBpmn() in ApiService vorhanden, aber kein UI",
+      "Parallele Gateways: kind='parallel' weder in TASK_KINDS noch im Validator behandelt",
+      "Graph-Metadaten UI: description und tags von VpGraph haben kein Eingabefeld im Editor",
+      "Step-Beschreibung: VpStep.metadata.description wird in graph_to_blueprint_steps() genutzt, aber kein UI",
+      "Auto-Layout: neue Schritte werden per Math.random() platziert, kein DAG-Layout",
+      "Blueprint speichern: Dry-Run gibt blueprint-Dict zurück, aber kein 'Als Blueprint speichern'-Button"
+    ]
+  },
+  "categories": [
+    {
+      "name": "persistenz",
+      "label": "VPPERS — Persistenz: Speichern und Laden von VpGraphs",
+      "description": "Aktuell lebt der VpGraph nur im Angular-Signal graph() in visual-process-editor.component.ts. Nach einem Page-Reload ist alles weg. Es gibt keinen Backend-Endpunkt zum Speichern, keine DB-Tabelle, keine Lade-UI.",
+      "items": [
+        {
+          "id": "VPPERS-001",
+          "title": "Backend-Endpunkte: VpGraph CRUD",
+          "status": "open",
+          "priority": "critical",
+          "files": [
+            "agent/routes/visual_process.py",
+            "agent/visual_process/models.py"
+          ],
+          "description": "Neue Routen zum Persistieren von VisualProcessGraph-Instanzen. Da VisualProcessGraph ein Pydantic-Modell ohne SQLModel-Anbindung ist (Kommentar in models.py: 'persistence is handled separately via JSON blobs or a future migration'), werden die Graphen als JSON-Blobs in einer neuen SQLite/PostgreSQL-Tabelle oder als JSON-Datei gespeichert.",
+          "tasks": [
+            "POST /api/visual-process/graphs — neuen Graph speichern; body: VisualProcessGraph.model_dump(); antwortet mit {id, saved: true}",
+            "GET  /api/visual-process/graphs — Liste aller gespeicherten Graphen: [{id, name, description, tags, updated}]",
+            "GET  /api/visual-process/graphs/<graph_id> — Graph laden; antwortet mit VisualProcessGraph.model_dump()",
+            "PUT  /api/visual-process/graphs/<graph_id> — Graph überschreiben",
+            "DELETE /api/visual-process/graphs/<graph_id> — Graph löschen"
+          ],
+          "acceptance_criteria": [
+            "POST /graphs mit gültigem VisualProcessGraph-Body antwortet 200 und {id, saved: true}; Graph kann mit GET /graphs/<id> zurückgeladen werden und ist byte-identisch (model_dump gleichwertig)",
+            "GET /graphs gibt eine sortierte Liste zurück (neueste zuerst)",
+            "PUT /graphs/<id> mit neuer version überschreibt korrekt; vorherige Version nicht mehr abrufbar (kein Versionshistorie in v1)",
+            "DELETE /graphs/<id> gibt 204; GET /graphs/<id> danach gibt 404",
+            "Speicherort: JSON-Blob in ananta_db Tabelle visual_process_graphs(id TEXT PK, name TEXT, json TEXT, tags TEXT, created_at TEXT, updated_at TEXT) — oder alternativ JSON-Dateien in $ANANTA_DATA/visual_process/ (je nach bestehender DB-Infrastruktur)",
+            "Beim Start des Hub-Servers werden gespeicherte Graphen NICHT in-memory geladen — lazy on demand"
+          ]
+        },
+        {
+          "id": "VPPERS-002",
+          "title": "Frontend: Speichern-Button und Laden-Dropdown",
+          "status": "open",
+          "priority": "critical",
+          "files": [
+            "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
+            "frontend-angular/src/app/features/visual-process/visual-process-api.service.ts"
+          ],
+          "description": "Neue API-Methoden in VisualProcessApiService (analog zu listPresets/getPreset), neuer Button in der Toolbar des Editors. Der aktuelle 'Preset ▾'-Dropdown soll um einen 'Gespeichert ▾'-Dropdown ergänzt werden.",
+          "tasks": [
+            "VisualProcessApiService: saveGraph(graph: VpGraph): Observable<{id, saved}> → POST /api/visual-process/graphs",
+            "VisualProcessApiService: listSavedGraphs(): Observable<{id, name, description, tags}[]> → GET /api/visual-process/graphs",
+            "VisualProcessApiService: loadSavedGraph(id): Observable<VpGraph> → GET /api/visual-process/graphs/<id>",
+            "Editor-Toolbar: Button '💾 Speichern' — ruft saveGraph(graph()) auf, zeigt statusMsg 'Gespeichert ✓'",
+            "Editor-Toolbar: Dropdown 'Geladen ▾' (analog loadPresetMenu) — zeigt listSavedGraphs()-Ergebnis, Klick lädt via loadSavedGraph()"
+          ],
+          "acceptance_criteria": [
+            "Klick auf '💾 Speichern' → POST wird ausgelöst → statusMsg zeigt 'Gespeichert ✓' mit dem Graph-Namen",
+            "Dropdown 'Geladen ▾' listet alle gespeicherten Graphen mit Name und Datum; Klick ersetzt graph() Signal",
+            "Kein Datenverlust: Nach Laden eines gespeicherten Graphen sind alle Schritte, Kanten, I/O-Contracts und Policy-Hints erhalten",
+            "Keine Kollision mit Preset-Menü (loadPresetMenu): beide Menus sind unabhängige Booleans"
+          ]
+        },
+        {
+          "id": "VPPERS-003",
+          "title": "Auto-Save-Indikator (optional, nach VPPERS-001+002)",
+          "status": "open",
+          "priority": "low",
+          "files": [
+            "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
+          ],
+          "description": "Ungespeicherte Änderungen mit '●' in der Titelzeile markieren (wie klassische Editoren). Kein Auto-Save, nur Indikator.",
+          "tasks": [
+            "Signal isDirty = signal(false); wird true bei jeder graph.update()-Mutation",
+            "Nach erfolgreichem Speichern isDirty.set(false)",
+            "Titelzeile zeigt '●' Präfix wenn isDirty()"
+          ],
+          "acceptance_criteria": [
+            "Nach '+Schritt' oder Kante zeichnen erscheint '●' im Titel",
+            "Nach '💾 Speichern' verschwindet der '●'",
+            "Browser-beforeunload-Warning wenn isDirty() (optional, darf auch weggelassen werden)"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "execution",
+      "label": "VPEXEC — Execution Dashboard: Live-Workflow-Status im Editor",
+      "description": "VisualProcessApiService hat startWorkflowFromGraph(), getWorkflowStatus() und cancelWorkflow() — aber der Editor (visual-process-editor.component.ts) nutzt diese Methoden gar nicht. Es gibt keinen 'Start'-Button, kein Polling und kein Live-Feedback auf den Nodes (obwohl step.run_state im Template als farbiger Kreis gerendert würde, wenn es gesetzt wäre).",
+      "items": [
+        {
+          "id": "VPEXEC-001",
+          "title": "Start-Workflow-Button in Editor-Toolbar",
+          "status": "open",
+          "priority": "high",
+          "files": [
+            "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
+          ],
+          "description": "Neuer Button '▶ Starten' in der Toolbar. Erst aktiv wenn validationResult()?.valid === true. Ruft api.startWorkflowFromGraph(graph()) auf und speichert die workflow_id im Signal.",
+          "tasks": [
+            "Signal activeWorkflowId = signal<string | null>(null)",
+            "Signal workflowStatus = signal<WorkflowStatus | null>(null)",
+            "Button '▶ Starten': disabled wenn !validationResult()?.valid || activeWorkflowId(); Klick: ruft startWorkflowFromGraph() auf, setzt activeWorkflowId(result.workflow_id)",
+            "Button '⏹ Abbrechen': nur sichtbar wenn activeWorkflowId(); ruft cancelWorkflow(activeWorkflowId()) auf"
+          ],
+          "acceptance_criteria": [
+            "'▶ Starten' ist disabled ohne vorherige Validierung oder wenn Workflow bereits läuft",
+            "Nach Klick: statusMsg zeigt 'Workflow gestartet (id: …)'",
+            "activeWorkflowId wird gesetzt und löst Polling (VPEXEC-002) aus",
+            "Bei Fehler (HTTP 4xx/5xx): statusMsg zeigt Fehlerdetail aus error.error.detail"
+          ]
+        },
+        {
+          "id": "VPEXEC-002",
+          "title": "Status-Polling und run_state auf Nodes",
+          "status": "open",
+          "priority": "high",
+          "files": [
+            "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
+          ],
+          "description": "Solange activeWorkflowId() gesetzt ist, alle 3 Sekunden GET /workflow/<id>/status aufrufen und das Ergebnis in workflowStatus() schreiben. Die step-Statuses aus dem Ergebnis (falls das Backend sie liefert) zurück in das graph()-Signal schreiben, damit die run_state-Kreise im SVG aufleuchten. Polling stoppt wenn status in ['done', 'failed', 'cancelled'].",
+          "tasks": [
+            "private _pollHandle: ReturnType<typeof setInterval> | null = null",
+            "Methode startPolling(): setzt Interval auf 3000ms → ruft api.getWorkflowStatus(activeWorkflowId()) auf → schreibt workflowStatus.set(result)",
+            "Bei Ergebnis: falls result.steps als Array von {step_id, run_state} vorhanden → graph.update() um run_state pro Step zu patchen",
+            "Polling stoppen wenn result.status in ['done', 'failed', 'cancelled'] → clearInterval, activeWorkflowId.set(null)",
+            "ngOnDestroy: clearInterval falls noch aktiv"
+          ],
+          "acceptance_criteria": [
+            "Sobald Workflow gestartet, erscheinen farbige Punkte auf den Step-Nodes (SVG: <circle cx=130 cy=10 r=5 fill=...> — existiert bereits im Template bei run_state)",
+            "Farben: runStateColor() existiert bereits: done=#55efc4, running=#fdcb6e, failed=#ff7675, pending=#636e72",
+            "Wenn Backend keine step-Statuses liefert (leeres steps-Array), zeigen Nodes kein run_state — kein Fehler",
+            "Bei workflow status='failed': statusMsg zeigt 'Workflow fehlgeschlagen'; bei 'done': 'Workflow abgeschlossen ✓'",
+            "Polling stoppt spätestens nach 10 Minuten (Safety-Timeout) auch wenn kein terminaler Status kommt"
+          ]
+        },
+        {
+          "id": "VPEXEC-003",
+          "title": "Event-Log-Panel im Dry-Run-Dialog oder separatem Bereich",
+          "status": "open",
+          "priority": "medium",
+          "files": [
+            "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
+            "frontend-angular/src/app/features/visual-process/visual-process-api.service.ts"
+          ],
+          "description": "VisualProcessApiService hat noch keine getWorkflowEvents()-Methode, obwohl GET /workflow/<id>/events im Backend existiert (routes/visual_process.py:231). Events als scrollbare Liste im Status-Bereich anzeigen.",
+          "tasks": [
+            "VisualProcessApiService: getWorkflowEvents(workflowId: string): Observable<Record<string, unknown>[]> → GET /api/visual-process/workflow/<id>/events",
+            "Signal workflowEvents = signal<any[]>([]); beim Polling mit befüllen",
+            "Im Dry-Run-Dialog (oder separatem Overlay): scrollbare Event-Liste, neueste oben"
+          ],
+          "acceptance_criteria": [
+            "getWorkflowEvents() gibt leere Liste zurück wenn keine Events vorhanden — kein Fehler",
+            "Events werden in chronologischer Reihenfolge angezeigt (oder umgekehrt, konfigurierbar)",
+            "Event-Einträge zeigen mindestens: timestamp, event_type, message/detail"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "gate_approval",
+      "label": "VPGATE — Gate-Approval Flow: manuelle Freigabe-Schritte",
+      "description": "Das Modell unterstützt gate=true (VisualProcessStep.gate) und _build_checks() gibt {approval_required: true} zurück. signalWorkflow() in VisualProcessApiService ist implementiert (POST /workflow/<id>/signal). Aber: wenn ein Workflow an einem Gate-Step wartet, gibt es keine UI um zu genehmigen oder abzulehnen.",
+      "items": [
+        {
+          "id": "VPGATE-001",
+          "title": "Gate-Step erkennen und Approve/Reject-UI zeigen",
+          "status": "open",
+          "priority": "high",
+          "files": [
+            "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
+          ],
+          "description": "Wenn workflowStatus() einen Step mit run_state='awaiting_approval' oder einem ähnlichen Status enthält UND dieser Step gate=true hat, Approve/Reject-Buttons anzeigen.",
+          "tasks": [
+            "Signal gateStepId = computed(() => { const steps = workflowStatus()?.steps as any[]; return steps?.find(s => s.run_state === 'awaiting_approval' && graph().steps.find(gs => gs.id === s.step_id)?.gate)?.step_id ?? null; })",
+            "Im Status-Bereich (unterhalb Canvas oder als Overlay): wenn gateStepId() gesetzt → Banner mit Gate-Step-Label + Buttons Genehmigen / Ablehnen",
+            "Klick '✓ Genehmigen': ruft api.signalWorkflow(activeWorkflowId(), 'approve', {step_id: gateStepId()}) auf",
+            "Klick '✗ Ablehnen': ruft api.signalWorkflow(activeWorkflowId(), 'reject', {step_id: gateStepId()}) auf"
+          ],
+          "acceptance_criteria": [
+            "Approve/Reject-Banner erscheint nur wenn gateStepId() !== null",
+            "Step-Label des wartenden Gate-Steps wird korrekt angezeigt (via graph().steps.find())",
+            "Nach Signal: statusMsg zeigt 'Gate genehmigt ✓' resp. 'Gate abgelehnt'; Polling läuft weiter",
+            "Wenn kein Gate-Step wartet: Banner nicht sichtbar",
+            "Bei Fehler beim Signal: statusMsg zeigt Fehlerdetail"
+          ]
+        },
+        {
+          "id": "VPGATE-002",
+          "title": "Gate-Step visuell im Canvas hervorheben",
+          "status": "open",
+          "priority": "medium",
+          "files": [
+            "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
+          ],
+          "description": "Ein Step mit gate=true wird bereits mit 🔒-Icon angezeigt (Template: @if (step.gate) { <text>🔒</text> }). Wenn dieser Step im Execution-Zustand 'awaiting_approval' ist, soll er pulsieren oder eine andersfarbige Umrandung haben.",
+          "tasks": [
+            "CSS-Klasse .awaiting-gate auf .vpe-node-g wenn step.id === gateStepId()",
+            ".awaiting-gate .vpe-node-rect: stroke: #fdcb6e; stroke-width: 3; animation: gatePulse 1s ease-in-out infinite alternate",
+            "@keyframes gatePulse: 0% { stroke-opacity: 1 } 100% { stroke-opacity: 0.3 }"
+          ],
+          "acceptance_criteria": [
+            "Gate-Step mit awaiting_approval pulsiert in gelb (#fdcb6e)",
+            "Kein Pulsieren wenn Step nicht in awaiting_approval",
+            "Andere Steps nicht beeinflusst"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "loop_edges",
+      "label": "VPLOOP — Loop-Kanten: while/until/break_on_output im Edge-Inspector",
+      "description": "LoopPolicy in models.py hat kind (none/fixed/while/until), max_iterations, condition und break_on_output. Der Edge-Inspector zeigt aber nur max_iterations (fest auf kind='fixed'). Die anderen Loop-Modi haben kein UI.",
+      "items": [
+        {
+          "id": "VPLOOP-001",
+          "title": "Loop-Kind-Selektor im Edge-Inspector für back_edge",
+          "status": "open",
+          "priority": "medium",
+          "files": [
+            "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
+          ],
+          "description": "Wenn selectedEdge().condition.kind === 'back_edge', soll der Inspector neben max_iterations auch kind (none/fixed/while/until), condition-String und break_on_output-String anzeigen. Momentan zeigt setLoopIterations() immer kind='fixed' fest.",
+          "tasks": [
+            "Im Edge-Inspector @if (back_edge)-Block: zusätzliches <select> für loop_policy.kind mit Optionen ['none','fixed','while','until']",
+            "@if (kind === 'while' || kind === 'until'): <input> für loop_policy.condition (Python-Ausdruck, z.B. 'output.score > 0.8')",
+            "@if: <input> für loop_policy.break_on_output (Artifact-Name, dessen Vorhandensein die Schleife bricht)",
+            "Methode setLoopPolicy(field: 'kind'|'condition'|'break_on_output'|'max_iterations', value) statt nur setLoopIterations()",
+            "Backend-Validierung: LoopPolicy model_validator wirft ValueError wenn kind in ('while','until') und condition leer — Frontend zeigt Fehler inline"
+          ],
+          "acceptance_criteria": [
+            "Wählt man kind='while' erscheint Condition-Eingabefeld; bei kind='fixed' nur max_iterations",
+            "Setzt man kind='none' verschwindet max_iterations-Feld und condition-Feld",
+            "Validierung: leere condition bei while/until → rotes Inline-Label 'Bedingung erforderlich'",
+            "break_on_output ist immer optional; bei leerem Wert wird null gesendet",
+            "Änderungen via setLoopPolicy() aktualisieren das edges-Array korrekt ohne den Rest der Kante zu verlieren",
+            "POST /validate mit loop_policy.kind='while' und leerem condition gibt HTTP 422 mit code='invalid_loop_policy'"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "artifact_type",
+      "label": "VPTYPE — Artifact-Typprüfung: kind-Mismatch zwischen Steps erkennen",
+      "description": "DataflowValidator._compute_available() in validator.py baut ein dict[str, set[str]] auf, wobei der set[str] nur Artifact-Namen enthält (keine Kinds). Wenn Step A 'code' als ArtifactKind='report' produziert und Step B 'code' als ArtifactKind='code' erwartet, wird kein Fehler gemeldet, obwohl die Kinds nicht übereinstimmen.",
+      "items": [
+        {
+          "id": "VPTYPE-001",
+          "title": "DataflowValidator: kind-Kompatibilität prüfen",
+          "status": "open",
+          "priority": "medium",
+          "files": [
+            "agent/visual_process/validator.py"
+          ],
+          "description": "_compute_available() muss statt set[str] ein dict[str, str] (name → kind) oder set[tuple[str,str]] zurückgeben, damit der Vergleich mit inp.kind möglich ist.",
+          "tasks": [
+            "_compute_available() gibt dict[str, dict[str, str]] zurück: {step_id: {artifact_name: artifact_kind}}",
+            "Im validate()-Loop: wenn inp.name im available-Pool aber inp.kind != pool_kind → neues ValidationIssue(severity='warning', code='artifact_kind_mismatch', message=f'Step {step.label!r} erwartet {inp.name!r} als {inp.kind!r}, Vorgänger liefert es aber als {pool_kind!r}', step_id=..., artifact_name=...)",
+            "Severity bleibt 'warning' (nicht 'error') — kind-Mismatch kann manchmal gewollt sein (z.B. 'text' ist oft kompatibel mit 'code')"
+          ],
+          "acceptance_criteria": [
+            "POST /api/visual-process/validate mit Step A output kind='report' und Step B input kind='code' selber Name → response.issues enthält Issue mit code='artifact_kind_mismatch', severity='warning'",
+            "Post /validate mit gleichen Kinds → kein artifact_kind_mismatch-Issue",
+            "Bestehende error-Codes (unsatisfied_input, dangling_edge_source etc.) weiterhin korrekt",
+            "DataflowValidator._compute_available() gibt keine Rückkompatiblitätsprobleme: alle anderen Caller (context_assembly.py, blueprint_mapper.py) nutzen _compute_available() nicht direkt"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "expression_edges",
+      "label": "VPEXPR — Expression-Kanten: Syntax-Check für condition.expression",
+      "description": "TransitionCondition model_validator in models.py prüft nur ob expression nicht leer ist (wenn kind='expression'). Der Ausdruck selbst (z.B. 'output.score > 0.8') wird nie syntaktisch geprüft. Im Frontend gibt es ein Freitext-Input dafür.",
+      "items": [
+        {
+          "id": "VPEXPR-001",
+          "title": "Backend: Python-AST-Syntax-Check für expression-Strings",
+          "status": "open",
+          "priority": "low",
+          "files": [
+            "agent/visual_process/validator.py"
+          ],
+          "description": "Im GraphValidator.validate() (oder als separater Check) alle Kanten mit kind='expression' durch ast.parse() schicken. Fehler als 'warning' (nicht 'error') melden, da Runtime-Evaluierung noch nicht implementiert ist.",
+          "tasks": [
+            "In GraphValidator.validate(): for edge in graph.edges: if edge.condition.kind == 'expression': try: ast.parse(edge.condition.expression or '', mode='eval') except SyntaxError as e: issues.append(ValidationIssue(severity='warning', code='expression_syntax_error', message=f'Kanten-Ausdruck Syntaxfehler: {e}', edge_id=edge.id))",
+            "import ast hinzufügen"
+          ],
+          "acceptance_criteria": [
+            "POST /validate mit expression='output.score > 0.8' → kein Syntax-Warning",
+            "POST /validate mit expression='output.score >' (unvollständig) → ValidationIssue code='expression_syntax_error', severity='warning'",
+            "expression='lambda x: x' → kein Fehler (valid Python in eval-mode?? check) — falls SyntaxError, warning",
+            "Leere expression bei kind='expression' → weiterhin 'error' (bestehender model_validator)"
+          ]
+        },
+        {
+          "id": "VPEXPR-002",
+          "title": "Frontend: Syntax-Fehler inline anzeigen",
+          "status": "open",
+          "priority": "low",
+          "files": [
+            "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
+          ],
+          "description": "Wenn validationResult() ein Issue mit code='expression_syntax_error' und edge_id === selectedEdge().id enthält, roten Hinweis unter dem expression-Input anzeigen.",
+          "tasks": [
+            "Computed: expressionError = computed(() => validationResult()?.issues?.find(i => i.code === 'expression_syntax_error' && i.edge_id === selectedEdge()?.id)?.message ?? null)",
+            "@if (expressionError()): <div class='vpe-inline-err'>{{ expressionError() }}</div> unter dem expression-Input"
+          ],
+          "acceptance_criteria": [
+            "Nach Validierung mit ungültigem Ausdruck erscheint roter Text unter dem Input-Feld",
+            "Kein Fehler wenn kein syntax_error für diese Kante vorhanden"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "policy_hints_feedback",
+      "label": "VPHINT — Policy-Hints Auto-Feedback: Backend-Annotation in die UI zurückgeben",
+      "description": "annotate_graph() in policy_hints.py ergänzt Steps automatisch mit Hints basierend auf step.kind (z.B. kind='deploy' → ['requires_approval','mutates_production','high_risk']). Die API POST /policy-summary gibt per_step: {step_id: [hints]} zurück. Der Editor ruft das aber NIE ab — Hints werden nur angezeigt wenn sie schon im Step-Objekt stehen (z.B. aus Presets). Nach dem Ändern eines Step-Kinds werden Hints nicht aktualisiert.",
+      "items": [
+        {
+          "id": "VPHINT-001",
+          "title": "Auto-Annotierung nach Kind-Änderung",
+          "status": "open",
+          "priority": "medium",
+          "files": [
+            "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
+            "frontend-angular/src/app/features/visual-process/visual-process-api.service.ts"
+          ],
+          "description": "Nach jeder Änderung von step.kind im Inspector api.policySummary(graph()) aufrufen und per_step-Ergebnis in graph()-Steps zurückschreiben. policySummary() ist bereits in VisualProcessApiService implementiert.",
+          "tasks": [
+            "Methode refreshPolicyHints(): ruft api.policySummary(graph()) auf; bei Erfolg: graph.update(g => ({ ...g, steps: g.steps.map(s => ({ ...s, policy_hints: result.per_step[s.id] ?? s.policy_hints })) }))",
+            "In mutateStep(): wenn das gemutierte Feld 'kind' ist → setTimeout(() => refreshPolicyHints(), 200) (debounced, nicht bei jedem Tastendruck)",
+            "Beim Laden eines Presets: refreshPolicyHints() nach loadPreset() aufrufen"
+          ],
+          "acceptance_criteria": [
+            "Wenn Step-Kind auf 'deploy' geändert: nach max. 500ms erscheinen Hint-Chips 'requires_approval', 'mutates_production', 'high_risk' im Inspector",
+            "Wenn Step-Kind auf 'analysis' geändert: Hint-Chips zeigen nur 'read_only'",
+            "Kein HTTP-Fehler wenn policySummary() fehlschlägt — Fallback: bestehende policy_hints bleiben",
+            "Beim Laden eines Presets sind Hints sofort korrekt (nicht erst nach Benutzerinteraktion)"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "on_output_edge",
+      "label": "VPEDGE — on_output-Kante: output_name-Feld im Edge-Inspector",
+      "description": "TransitionCondition.output_name wird benötigt wenn condition.kind === 'on_output' (Kante aktiviert wenn ein bestimmtes Artifact produziert wurde). Im Frontend-Edge-Inspector gibt es kein Eingabefeld dafür. Das Feld steht im Modell (visual-process-api.service.ts: TransitionCondition.output_name?: string) aber fehlt im Template.",
+      "items": [
+        {
+          "id": "VPEDGE-001",
+          "title": "output_name-Eingabefeld im Edge-Inspector",
+          "status": "open",
+          "priority": "medium",
+          "files": [
+            "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
+          ],
+          "description": "Direkt unter dem condition.kind-Selektor, analog zum expression-Input.",
+          "tasks": [
+            "@if (selectedEdge()!.condition.kind === 'on_output'): <label class='vpe-label'>Artifact-Name <input class='vpe-input' [(ngModel)]=\"selectedEdge()!.condition.output_name\" placeholder=\"z.B. test_results\" /></label>",
+            "Methode setOutputName(val: string): analog zu setLoopIterations() — immutable update des edges-Arrays"
+          ],
+          "acceptance_criteria": [
+            "Edge-Inspector zeigt output_name-Feld wenn und nur wenn condition.kind === 'on_output'",
+            "Feld ist mit [(ngModel)] gebunden — Änderungen werden sofort im graph()-Signal reflektiert",
+            "POST /validate mit on_output-Kante ohne output_name → HTTP 422 (backend model_validator: 'output_name required for kind=on_output')"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "bpmn_ui",
+      "label": "VPBPMN — BPMN Import/Export UI",
+      "description": "importBpmn() und exportBpmn() sind in VisualProcessApiService implementiert und vollständig von der API bedient. Im Editor (visual-process-editor.component.ts) werden sie aber nicht genutzt. Es gibt keinen Import-Button und keinen Export-Button.",
+      "items": [
+        {
+          "id": "VPBPMN-001",
+          "title": "BPMN-Export-Button",
+          "status": "open",
+          "priority": "low",
+          "files": [
+            "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
+          ],
+          "description": "Neuer Button 'BPMN ↓' in der Toolbar. Ruft api.exportBpmn(graph()) auf und startet einen Browser-Download der XML-Datei.",
+          "tasks": [
+            "Methode exportBpmn(): api.exportBpmn(graph()).subscribe(result => { const blob = new Blob([result.bpmn_xml], {type:'application/xml'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = graph().name + '.bpmn'; a.click(); URL.revokeObjectURL(url); if (result.warnings?.length) statusMsg.set('BPMN exportiert (Warnungen: ' + result.warnings.join(', ') + ')'); else statusMsg.set('BPMN exportiert ✓'); })",
+            "Button in Toolbar neben 'Mermaid'"
+          ],
+          "acceptance_criteria": [
+            "Klick auf 'BPMN ↓' startet Browser-Download von '<GraphName>.bpmn'",
+            "Datei enthält valides BPMN XML (namespace 'http://www.omg.org/spec/BPMN/20100524/MODEL')",
+            "Bei Validierungsfehler des Graphen: HTTP 422 → statusMsg zeigt Fehler, kein Download",
+            "Warnungen aus result.warnings werden in statusMsg angezeigt"
+          ]
+        },
+        {
+          "id": "VPBPMN-002",
+          "title": "BPMN-Import-Button",
+          "status": "open",
+          "priority": "low",
+          "files": [
+            "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
+          ],
+          "description": "Neuer Button 'BPMN ↑' oder 'Importieren' mit verstecktem <input type=file>. Liest die .bpmn-Datei, schickt XML an api.importBpmn() und ersetzt graph() mit dem Ergebnis.",
+          "tasks": [
+            "<input type='file' #bpmnFileInput accept='.bpmn,.xml' hidden (change)='onBpmnFile($event)' />",
+            "Button 'BPMN ↑': ruft bpmnFileInput.click() auf",
+            "Methode onBpmnFile(event): liest File als Text → api.importBpmn(xml).subscribe(result => { graph.set(result.graph); validationResult.set(result.validation); statusMsg.set('BPMN importiert: ' + result.graph.steps.length + ' Schritte'); })"
+          ],
+          "acceptance_criteria": [
+            "Klick → Datei-Dialog öffnet sich mit Filter .bpmn/.xml",
+            "Nach Auswahl einer validen BPMN-Datei: graph() wird ersetzt, Step-Anzahl in statusMsg angezeigt",
+            "Warnungen aus result.warnings in statusMsg angehängt",
+            "Bei invalid_bpmn (HTTP 400): statusMsg zeigt Fehlerdetail"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "parallel_gateway",
+      "label": "VPPAR — Parallele Gateways: Fork/Join im Editor",
+      "description": "bpmn_adapter.py mappt parallelGateway auf kind='parallel', aber: (1) 'parallel' ist nicht in TASK_KINDS-Konstante im Editor, (2) GraphValidator hat keine Prüfung für Fork/Join-Semantik, (3) graph_to_workflow_request() überträgt parallel-Steps ohne besondere Handhabung.",
+      "items": [
+        {
+          "id": "VPPAR-001",
+          "title": "kind='parallel' als Gateway-Typ im Editor unterstützen",
+          "status": "open",
+          "priority": "low",
+          "files": [
+            "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
+            "agent/visual_process/validator.py",
+            "agent/visual_process/policy_hints.py"
+          ],
+          "description": "Mindest-Unterstützung: parallel als wählbaren kind-Wert und visuelle Unterscheidung (Raute statt Rechteck).",
+          "tasks": [
+            "TASK_KINDS-Array in editor: 'parallel' hinzufügen (nach 'refactor')",
+            "nodeColor() in editor: kind='parallel' → '#00b894' (grün-blau)",
+            "SVG-Template: @if (step.kind === 'parallel'): Rauten-Form statt Rechteck (alternativ: kleines Symbol ⑃ in node-kind-Text)",
+            "policy_hints.py: _KIND_HINTS['parallel'] = [] (keine besonderen Hints)",
+            "GraphValidator: Warnung wenn parallel-Step nur 1 ausgehende Kante hat ('parallel gateway with single outgoing edge is pointless')"
+          ],
+          "acceptance_criteria": [
+            "Im Step-Kind-Dropdown erscheint 'parallel' als Option",
+            "Step mit kind='parallel' wird in anderem Grün gerendert",
+            "POST /validate mit parallel-Step und nur 1 ausgehender Kante → Warning code='parallel_single_outgoing'",
+            "BPMN-Import mit parallelGateway: Step wird korrekt als kind='parallel' importiert"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "graph_metadata_ui",
+      "label": "VPUI — Fehlende UI-Felder: Description, Tags, Step-Beschreibung",
+      "description": "VpGraph.description und VpGraph.tags existieren im Modell und werden von graph_to_blueprint_dict() genutzt, haben aber kein Eingabefeld im Editor. VpStep.metadata.description wird von graph_to_blueprint_steps() als 'description' in den Blueprint übernommen, hat aber auch kein UI.",
+      "items": [
+        {
+          "id": "VPUI-001",
+          "title": "Graph-Description und Tags in Toolbar/Inspector",
+          "status": "open",
+          "priority": "medium",
+          "files": [
+            "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
+          ],
+          "description": "Unterhalb des Prozessname-Inputs in der Toolbar ein aufklappbarer Bereich 'Graph-Details' mit description (Textarea) und tags (Komma-separierter Input).",
+          "tasks": [
+            "boolean showGraphDetails = false;",
+            "Button '⚙' neben Prozessname-Input; Toggle showGraphDetails",
+            "@if (showGraphDetails): <div class='vpe-graph-meta'><textarea [(ngModel)]=\"graph().description\" placeholder='Beschreibung…'></textarea><input [(ngModel)]=\"graphTagsInput\" placeholder='tags, komma-getrennt' (change)='setTags($event)' /></div>",
+            "Methode setTags(val: string): graph.update(g => ({...g, tags: val.split(',').map(t => t.trim()).filter(Boolean)}))",
+            "Computed graphTagsInput = computed(() => graph().tags.join(', '))"
+          ],
+          "acceptance_criteria": [
+            "Klick auf '⚙': Description-Textarea und Tags-Input erscheinen",
+            "Eingabe in Description → graph().description wird aktualisiert",
+            "Eingabe 'code, review, pipeline' → graph().tags === ['code','review','pipeline']",
+            "graph_to_blueprint_dict() nutzt graph.description und graph.tags — korrekt befüllt wenn UI genutzt"
+          ]
+        },
+        {
+          "id": "VPUI-002",
+          "title": "Step-Beschreibung im Step-Inspector",
+          "status": "open",
+          "priority": "medium",
+          "files": [
+            "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
+          ],
+          "description": "VpStep.metadata.description wird in graph_to_blueprint_steps() als 'description' in den Blueprint-Step übernommen (blueprint_mapper.py:29: 'description': step.metadata.get('description') or ''). Kein UI dafür.",
+          "tasks": [
+            "Im Step-Inspector unterhalb 'Rolle': <label class='vpe-label'>Beschreibung <textarea class='vpe-input' [(ngModel)]=\"stepDescription()\" (ngModelChange)='setStepDescription($event)'></textarea></label>",
+            "Computed stepDescription = computed(() => (selectedStep()?.metadata?.['description'] as string) ?? '')",
+            "Methode setStepDescription(val: string): mutateStep(selectedStep()!.id, s => { s.metadata = {...(s.metadata ?? {}), description: val} })"
+          ],
+          "acceptance_criteria": [
+            "Textarea zeigt vorhandene metadata.description (z.B. aus geladenem Preset wenn gesetzt)",
+            "Eingabe wird via mutateStep() ins graph()-Signal geschrieben",
+            "graph_to_blueprint_steps() gibt die Beschreibung im 'description'-Feld aus"
+          ]
+        },
+        {
+          "id": "VPUI-003",
+          "title": "Mermaid-Dialog: Download-Button und TUI-Ansicht",
+          "status": "open",
+          "priority": "low",
+          "files": [
+            "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
+          ],
+          "description": "api.mermaid() wird mit include_tui: true aufgerufen (visual-process-api.service.ts:68) und gibt auch result.tui zurück, aber der Dialog zeigt nur result.mermaid und hat nur 'Kopieren'. Kein Download, kein TUI-Tab.",
+          "tasks": [
+            "Signal mermaidTuiText = signal<string>(''); wird beim Mermaid-Fetch mit result.tui gesetzt",
+            "Im Mermaid-Dialog: zwei Tabs 'Mermaid' / 'TUI-Text' oder zwei <pre>-Blöcke übereinander",
+            "Button 'Herunterladen': Blob-Download von '<GraphName>.md' mit dem Mermaid-Text"
+          ],
+          "acceptance_criteria": [
+            "TUI-Text (ASCII-Flussdiagramm aus mermaid_export.py) wird im Dialog angezeigt",
+            "Download-Button erzeugt .md-Datei mit Mermaid-Code-Block",
+            "Kopieren-Button bleibt erhalten"
+          ]
+        },
+        {
+          "id": "VPUI-004",
+          "title": "Auto-Layout: DAG-Topo-Sort-basierte Positionierung",
+          "status": "open",
+          "priority": "medium",
+          "files": [
+            "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
+          ],
+          "description": "Neue Schritte werden per Math.random() bei x=60..360, y=80..280 platziert. Bei Presets liegen die Schritte bereits korrekt (hartcodiert in presets.py). Ein 'Auto-Layout'-Button soll alle Schritte in topologischer Ordnung links-rechts anordnen.",
+          "tasks": [
+            "Methode autoLayout(): führt dasselbe Kahn-Algorithmus wie _topological_order() im Frontend durch; ordnet Steps in Spalten an (Spalte = topologische Tiefe); x = spalte * (NODE_W + 60); y = position_in_spalte * (NODE_H + 40) + 40",
+            "Button 'Auto-Layout' in Toolbar-Gruppe",
+            "back_edges werden in topological_order ignoriert (wie im Blueprint-Mapper)"
+          ],
+          "acceptance_criteria": [
+            "Klick auf 'Auto-Layout': Steps ordnen sich in topologisch korrekter links-rechts-Reihenfolge",
+            "Kanten kreuzen sich weniger (minimum layout, nicht optimal, aber besser als random)",
+            "Steps eines Preset nach Auto-Layout: Entry-Steps ganz links, terminale Steps ganz rechts",
+            "Kein Fehler wenn Graph leer oder nur ein Step"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "blueprint_save",
+      "label": "VPBLUEPR — Als Blueprint speichern: Dry-Run-Ergebnis in Blueprint-Katalog schreiben",
+      "description": "POST /dry-run gibt ein blueprint-Dict zurück (aus graph_to_blueprint_dict()). Dieses Dict hat genau das Format des Blueprint-Katalogs. Es gibt keinen Button um dieses Blueprint in den Katalog zu speichern.",
+      "items": [
+        {
+          "id": "VPBLUEPR-001",
+          "title": "Blueprint-Speicher-Button nach erfolgreichem Dry-Run",
+          "status": "open",
+          "priority": "medium",
+          "files": [
+            "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
+            "frontend-angular/src/app/features/visual-process/visual-process-api.service.ts",
+            "agent/routes/visual_process.py"
+          ],
+          "description": "Im Dry-Run-Dialog: wenn dryRunResult()?.validation.valid === true und blueprint !== null, Button 'Als Blueprint speichern' anzeigen. Dieser ruft einen neuen Endpunkt POST /api/visual-process/save-blueprint auf.",
+          "tasks": [
+            "Backend: POST /api/visual-process/save-blueprint — body: {graph: VpGraph}; führt Dry-Run intern durch, speichert blueprint-Dict im Blueprint-Katalog (je nach vorhandener Infrastruktur: BlueprintService oder JSON-Datei in $ANANTA_DATA/blueprints/)",
+            "VisualProcessApiService: saveAsBlueprint(graph: VpGraph): Observable<{blueprint_id: string, saved: boolean}> → POST /api/visual-process/save-blueprint",
+            "Im Dry-Run-Dialog: @if (dryRunResult()?.validation?.valid && dryRunResult()?.blueprint): <button (click)='saveAsBlueprint()'>Als Blueprint speichern</button>",
+            "Methode saveAsBlueprint(): api.saveAsBlueprint(graph()) → statusMsg zeigt 'Blueprint gespeichert (id: …)'"
+          ],
+          "acceptance_criteria": [
+            "Button erscheint nur bei valid Dry-Run-Ergebnis",
+            "POST /save-blueprint antwortet {blueprint_id: graph.id, saved: true}",
+            "Blueprint kann nachher über bestehende Blueprint-API abgerufen werden",
+            "Bei Fehler: statusMsg zeigt Fehlerdetail; kein Crash"
+          ]
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "total_items": 22,
+    "by_status": {
+      "completed": 0,
+      "partial": 0,
+      "open": 22
+    },
+    "notes": [
+      "Alle Acceptance-Kriterien beziehen sich auf den Stand des Quellcodes zum Zeitpunkt der Erstellung (2026-06-24).",
+      "VPPERS-001 ist Voraussetzung für VPPERS-002 und VPPERS-003.",
+      "VPEXEC-001 ist Voraussetzung für VPEXEC-002 und VPEXEC-003.",
+      "VPEXEC-001/002 und VPGATE-001/002 können parallel entwickelt werden sobald VPEXEC-001 fertig ist.",
+      "VPTYPE-001 ist rein Backend, kein Frontend erforderlich — API-Response ändert sich (mehr warnings).",
+      "VPHINT-001 setzt voraus dass policySummary() in VisualProcessApiService bereits vorhanden ist (ist es: visual-process-api.service.ts:72).",
+      "VPBPMN-001 und VPBPMN-002 sind unabhängig voneinander.",
+      "VPUI-004 (Auto-Layout) erfordert kein Backend, nur Frontend-Algorithmus.",
+      "VPBLUEPR-001 erfordert Kenntnis der bestehenden Blueprint-Katalog-Infrastruktur (unklar ob bereits vorhanden)."
+    ],
+    "recommended_order": [
+      "VPPERS-001",
+      "VPPERS-002",
+      "VPEXEC-001",
+      "VPEXEC-002",
+      "VPGATE-001",
+      "VPHINT-001",
+      "VPEDGE-001",
+      "VPLOOP-001",
+      "VPTYPE-001",
+      "VPUI-001",
+      "VPUI-002",
+      "VPUI-004",
+      "VPEXPR-001",
+      "VPEXPR-002",
+      "VPBPMN-001",
+      "VPBPMN-002",
+      "VPPAR-001",
+      "VPUI-003",
+      "VPBLUEPR-001",
+      "VPPERS-003",
+      "VPGATE-002",
+      "VPEXEC-003"
+    ]
+  }
+}
