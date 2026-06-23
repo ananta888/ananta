@@ -212,19 +212,10 @@ class WikiImportJobService:
                             "import_report": {k: v for k, v in report.items() if k != "records"}})
                 return
 
-            # Stream-load compact records from disk for indexing (records list is empty when write_jsonl_cache=True)
+            # Pass file path directly — no in-memory load (records list is empty when write_jsonl_cache=True)
             jsonl_cache  = report.get("jsonl_cache_path") or ""
             links_cache  = report.get("links_cache_path") or ""
-            index_records: list[dict] = list(report.get("records") or [])
-            if not index_records and jsonl_cache and Path(jsonl_cache).exists():
-                with Path(jsonl_cache).open("r", encoding="utf-8") as fh:
-                    for line in fh:
-                        line = line.strip()
-                        if line:
-                            try:
-                                index_records.append(json.loads(line))
-                            except json.JSONDecodeError:
-                                pass
+            in_memory    = list(report.get("records") or [])
 
             current = self.get_job(job_id) or {}
             self._save({**current, "status": "running", "phase": "index", "progress_percent": 75,
@@ -238,7 +229,8 @@ class WikiImportJobService:
             index_obj, run = self._index.index_source_records(
                 source_scope="wiki",
                 source_id=str(report.get("source_id") or ""),
-                records=index_records,
+                records=in_memory,
+                records_path=Path(jsonl_cache) if jsonl_cache and not in_memory else None,
                 created_by=current.get("created_by"),
                 profile_name=request.get("profile_name"),
                 source_metadata=source_metadata,

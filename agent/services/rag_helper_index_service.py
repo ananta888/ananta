@@ -753,23 +753,37 @@ class RagHelperIndexService:
         source_metadata: dict[str, Any] | None = None,
         codecompass_prerender: bool = False,
         links_path=None,
+        records_path=None,
     ) -> tuple[KnowledgeIndexDB, KnowledgeIndexRunDB]:
+        from pathlib import Path as _Path
         normalized_scope = self._normalize_source_scope(source_scope)
         normalized_source_id = str(source_id or "").strip()
         if not normalized_source_id:
             raise ValueError("source_id_required")
-        if not records:
-            raise ValueError("source_records_required")
-        if any(not isinstance(record, dict) for record in records):
-            raise ValueError("invalid_source_records")
-        normalized_records = [dict(record) for record in records]
-        if normalized_scope == "wiki":
-            normalized_records = chunk_wiki_records(
-                source_id=normalized_source_id,
-                records=normalized_records,
-            )
-        if not normalized_records:
-            raise ValueError("source_records_empty_after_normalization")
+
+        # Streaming path: wiki+codecompass with a JSONL file → skip in-memory load
+        _records_path = _Path(records_path) if records_path else None
+        _streaming = (
+            normalized_scope == "wiki"
+            and codecompass_prerender
+            and _records_path is not None
+            and _records_path.exists()
+        )
+        if _streaming:
+            normalized_records = []
+        else:
+            if not records:
+                raise ValueError("source_records_required")
+            if any(not isinstance(record, dict) for record in records):
+                raise ValueError("invalid_source_records")
+            normalized_records = [dict(record) for record in records]
+            if normalized_scope == "wiki":
+                normalized_records = chunk_wiki_records(
+                    source_id=normalized_source_id,
+                    records=normalized_records,
+                )
+            if not normalized_records:
+                raise ValueError("source_records_empty_after_normalization")
 
         profile = self._resolve_profile(profile_name, None)
         index_artifact_id = normalized_source_id if normalized_scope == "artifact" else None
@@ -832,7 +846,8 @@ class RagHelperIndexService:
             source_files.discard("")
             if normalized_scope == "wiki" and codecompass_prerender:
                 manifest = index_wiki_records_with_codecompass(
-                    records=normalized_records,
+                    records=normalized_records if not _streaming else None,
+                    records_path=_records_path if _streaming else None,
                     output_dir=output_dir,
                     profile=profile,
                     links_path=links_path,
@@ -841,9 +856,9 @@ class RagHelperIndexService:
                     **manifest,
                     "chunking": {
                         "source_scope": normalized_scope,
-                        "input_record_count": len(records),
-                        "normalized_record_count": len(normalized_records),
-                        "strategy": "wiki_sentence_chunks+wiki_streaming_codecompass_prerender",
+                        "input_record_count": len(records) if not _streaming else 0,
+                        "normalized_record_count": len(normalized_records) if not _streaming else manifest.get("index_record_count", 0),
+                        "strategy": "wiki_streaming_codecompass_prerender" if _streaming else "wiki_sentence_chunks+wiki_streaming_codecompass_prerender",
                     },
                 }
             else:

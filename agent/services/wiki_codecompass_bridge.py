@@ -18,10 +18,29 @@ class WikiCodeCompassBridge:
       graph_edges.jsonl — structural edges (contains_*) + inter-article wiki-links
     """
 
+    def _iter_records(
+        self,
+        records: list[dict[str, Any]] | None,
+        records_path: Path | None,
+    ):
+        if records_path and records_path.exists():
+            with records_path.open("r", encoding="utf-8") as fh:
+                for line in fh:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        yield json.loads(line)
+                    except json.JSONDecodeError:
+                        pass
+        else:
+            yield from (records or [])
+
     def build_outputs(
         self,
         *,
-        records: list[dict[str, Any]],
+        records: list[dict[str, Any]] | None = None,
+        records_path: Path | None = None,
         output_dir: Path,
         include_graph: bool = True,
         links_path: Path | None = None,
@@ -61,7 +80,7 @@ class WikiCodeCompassBridge:
                 edge_count += 1
 
             # ── Records → index + details + structural nodes/edges ──────────
-            for record in records:
+            for record in self._iter_records(records, records_path):
                 if str(record.get("kind") or "") != "wiki_section_chunk":
                     continue
 

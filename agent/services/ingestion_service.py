@@ -756,6 +756,42 @@ class IngestionService:
             local_compressed = None
             local_extracted = wiki_corpus_dir / safe_name
 
+        # Fast-path: if normalized.jsonl already exists, skip download and extraction entirely.
+        # Infer corpus path from the compressed/extracted path without actually downloading.
+        _pre_corpus = local_compressed or local_extracted
+        _pre_jsonl  = _pre_corpus.parent / (_pre_corpus.name + ".normalized.jsonl")
+        _pre_links  = _pre_corpus.parent / (_pre_corpus.name + ".links.jsonl")
+        if _pre_jsonl.exists() and _pre_jsonl.stat().st_size > 0:
+            logger.info(
+                "import_wiki_jsonl_from_url: pre-check JSONL cache hit %s — skipping download/extraction",
+                _pre_jsonl.name,
+            )
+            normalized_source_id = str(source_id or "").strip() or _pre_corpus.stem
+            checkpoint = self._wiki_checkpoint_service.load(
+                source_id=normalized_source_id,
+                corpus_path=str(_pre_corpus),
+                index_path=None,
+            ) or {}
+            return {
+                "source_scope": "wiki",
+                "source_id": normalized_source_id,
+                "corpus_path": str(_pre_corpus),
+                "jsonl_cache_path": str(_pre_jsonl),
+                "links_cache_path": str(_pre_links) if _pre_links.exists() else None,
+                "records": [],
+                "issues": [],
+                "stats": {
+                    "page_count":   checkpoint.get("page_count", 0),
+                    "doc_count":    checkpoint.get("doc_count", 0),
+                    "record_count": checkpoint.get("normalized_records", 0),
+                    "link_count":   checkpoint.get("link_count", 0),
+                },
+                "deterministic_order": "parse_order_compact_filtered",
+                "format": "jsonl_cache",
+                "cache_hit": True,
+                "download": {"url": url, "skipped": True},
+            }
+
         download_report = self._download_with_resume(
             url=url,
             destination=local_compressed or local_extracted,
@@ -803,25 +839,40 @@ class IngestionService:
                 "stored_path": str(local_index_path),
                 "compressed_path": str(local_index_compressed) if safe_index_name.endswith(".bz2") else None,
             }
-        # If a completed normalized JSONL cache exists alongside the corpus, use it directly
-        # instead of re-parsing the raw BZ2 (which takes hours).
+        # If a completed normalized JSONL cache exists alongside the corpus, return paths directly
+        # without loading 7.5 GB into RAM — the indexing layer reads it streaming.
         jsonl_cache_candidate = local_corpus.parent / (local_corpus.name + ".normalized.jsonl")
+        links_cache_candidate = local_corpus.parent / (local_corpus.name + ".links.jsonl")
         if jsonl_cache_candidate.exists() and jsonl_cache_candidate.stat().st_size > 0:
             logger.info(
-                "import_wiki_jsonl_from_url: JSONL cache hit %s (%d bytes) — skipping XML parse",
+                "import_wiki_jsonl_from_url: JSONL cache hit %s (%d bytes) — returning paths, skipping XML parse",
                 jsonl_cache_candidate.name,
                 jsonl_cache_candidate.stat().st_size,
             )
-            report = self.import_wiki_corpus(
-                corpus_path=str(jsonl_cache_candidate),
-                index_path=None,
-                source_id=source_id,
-                default_language=default_language,
-                strict=strict,
-                import_format="jsonl",
-                progress_callback=progress_callback,
-                cancel_check=cancel_check,
-            )
+            normalized_source_id = str(source_id or "").strip() or local_corpus.stem
+            checkpoint = self._wiki_checkpoint_service.load(
+                source_id=normalized_source_id,
+                corpus_path=str(local_corpus),
+                index_path=str(local_index_path) if local_index_path else None,
+            ) or {}
+            report = {
+                "source_scope": "wiki",
+                "source_id": normalized_source_id,
+                "corpus_path": str(local_corpus),
+                "jsonl_cache_path": str(jsonl_cache_candidate),
+                "links_cache_path": str(links_cache_candidate) if links_cache_candidate.exists() else None,
+                "records": [],
+                "issues": [],
+                "stats": {
+                    "page_count":    checkpoint.get("page_count", 0),
+                    "doc_count":     checkpoint.get("doc_count", 0),
+                    "record_count":  checkpoint.get("normalized_records", 0),
+                    "link_count":    checkpoint.get("link_count", 0),
+                },
+                "deterministic_order": "parse_order_compact_filtered",
+                "format": "jsonl_cache",
+                "cache_hit": True,
+            }
         else:
             report = self.import_wiki_corpus(
                 corpus_path=str(local_corpus),

@@ -124,15 +124,17 @@ def materialize_wiki_markdown_corpus(records: list[dict[str, Any]], *, root: Pat
 
 def index_wiki_records_with_codecompass(
     *,
-    records: list[dict[str, Any]],
+    records=None,
+    records_path=None,
     output_dir: Path,
     profile: dict[str, Any],
     links_path=None,
 ) -> dict[str, Any]:
     include_graph = str(profile.get("limits", {}).get("graph_export_mode") or "off").strip().lower() != "off"
     bridge = WikiCodeCompassBridge()
-    manifest = bridge.build_outputs(records=records, output_dir=output_dir,
-                                    include_graph=include_graph, links_path=links_path)
+    manifest = bridge.build_outputs(records=records, records_path=records_path,
+                                    output_dir=output_dir, include_graph=include_graph,
+                                    links_path=links_path)
     return {
         **manifest,
         "profile_name": profile.get("name"),
