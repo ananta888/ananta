@@ -37,6 +37,9 @@ export type GraphNodeKind =
   | 'yaml_entry'
   | 'yaml_file'
   | 'config'
+  | 'wiki_article'
+  | 'wiki_section'
+  | 'wiki_chunk'
   | 'unknown';
 
 export type GraphEdgeType =

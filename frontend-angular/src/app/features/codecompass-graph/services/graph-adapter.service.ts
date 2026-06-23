@@ -38,7 +38,9 @@ const KNOWN_NODE_KINDS = new Set<string>([
   'typescript_method', 'typescript_type',
   'xml_file', 'xml_node_detail', 'xml_tag',
   'yaml_entry', 'yaml_file',
-  'config', 'unknown',
+  'config',
+  'wiki_article', 'wiki_section', 'wiki_chunk',
+  'unknown',
 ]);
 
 const KNOWN_EDGE_TYPES = new Set<string>([

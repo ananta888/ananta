@@ -9,6 +9,7 @@ import { GraphAdapterService } from '../../services/graph-adapter.service';
 import { GraphToolbarComponent } from '../graph-toolbar/graph-toolbar.component';
 import { GraphDetailPanelComponent } from '../graph-detail-panel/graph-detail-panel.component';
 import { FileDiffPanelComponent } from '../file-diff-panel/file-diff-panel.component';
+import { WikiArticlePanelComponent } from '../wiki-article-panel/wiki-article-panel.component';
 import { SimpleGraphViewComponent } from '../simple-graph-view/simple-graph-view.component';
 import { Graph2dViewComponent } from '../graph-2d-view/graph-2d-view.component';
 import { Graph3dViewComponent } from '../graph-3d-view/graph-3d-view.component';
@@ -22,6 +23,7 @@ import { Graph3dViewComponent } from '../graph-3d-view/graph-3d-view.component';
     GraphToolbarComponent,
     GraphDetailPanelComponent,
     FileDiffPanelComponent,
+    WikiArticlePanelComponent,
     SimpleGraphViewComponent,
     Graph2dViewComponent,
     Graph3dViewComponent,
@@ -80,6 +82,14 @@ import { Graph3dViewComponent } from '../graph-3d-view/graph-3d-view.component';
               (closed)="diff3File.set(null)"
             />
           </div>
+        } @else if (wikiNode()) {
+          <div class="gv-diff3">
+            <app-wiki-article-panel
+              [nodeId]="wikiNode()!.id"
+              [title]="wikiNode()!.label"
+              (closed)="wikiNode.set(null)"
+            />
+          </div>
         } @else if (state.selectedNode() || state.selectedEdge()) {
           <div class="gv-detail">
             <app-graph-detail-panel
@@ -91,6 +101,7 @@ import { Graph3dViewComponent } from '../graph-3d-view/graph-3d-view.component';
               (focusRequested)="state.setFocus(state.selectedNode()!.id, $event)"
               (focusCleared)="state.setFocus(null, 0)"
               (diff3Requested)="openDiff3()"
+              (wikiArticleRequested)="openWikiArticle()"
             />
           </div>
         }
@@ -124,6 +135,7 @@ export class GraphViewerComponent implements OnChanges, OnInit {
   private readonly router  = inject(Router);
 
   readonly diff3File = signal<string | null>(null);
+  readonly wikiNode  = signal<{id: string; label: string} | null>(null);
 
   graph: GenericGraphModel | null = null;
   webglAvailable = true;
@@ -165,7 +177,15 @@ export class GraphViewerComponent implements OnChanges, OnInit {
 
   openDiff3(): void {
     const file = this.state.selectedNode()?.file;
-    if (file) this.diff3File.set(file);
+    if (file) { this.wikiNode.set(null); this.diff3File.set(file); }
+  }
+
+  openWikiArticle(): void {
+    const node = this.state.selectedNode();
+    if (node?.kind === 'wiki_article') {
+      this.diff3File.set(null);
+      this.wikiNode.set({ id: node.id, label: node.label });
+    }
   }
 
   filteredGraph(): GenericGraphModel | null {

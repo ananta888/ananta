@@ -42,10 +42,15 @@ import { GraphNode, GraphEdge } from '../../models/graph.model';
           </dl>
         </div>
 
-        <!-- Diff3 shortcut -->
+        <!-- Diff3 / Wiki shortcut -->
         @if (selectedNode.file) {
           <div class="diff3-section">
             <button class="btn-diff3" (click)="diff3Requested.emit()">⬡ Im 3er Diff öffnen</button>
+          </div>
+        }
+        @if (selectedNode.kind === 'wiki_article') {
+          <div class="diff3-section">
+            <button class="btn-diff3" (click)="wikiArticleRequested.emit()">⬡ Artikel anzeigen</button>
           </div>
         }
 
@@ -162,6 +167,7 @@ export class GraphDetailPanelComponent implements OnChanges {
   @Output() focusRequested = new EventEmitter<number>();
   @Output() focusCleared = new EventEmitter<void>();
   @Output() diff3Requested = new EventEmitter<void>();
+  @Output() wikiArticleRequested = new EventEmitter<void>();
 
   localHops = 0;
 
