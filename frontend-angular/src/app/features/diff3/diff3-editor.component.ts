@@ -1,5 +1,6 @@
 import {
   Component, OnInit, OnDestroy, inject, signal, computed, ChangeDetectionStrategy,
+  ViewChild, ElementRef,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -12,7 +13,8 @@ import {
   AiDiffResponse, PanelContent,
 } from './diff3-api.service';
 
-type PanelSetup = 'empty' | 'current_diff' | 'output_artifact' | 'ai' | 'file_content';
+type PanelSetup = 'empty' | 'current_diff' | 'output_artifact' | 'ai' | 'file_content' | 'local_file';
+interface LocalFile { name: string; lines: string[]; }
 
 interface DiffLine { text: string; cls: string; }
 
@@ -34,6 +36,9 @@ const LAYOUT_LABELS: Record<LayoutMode, string> = {
   imports: [CommonModule, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+<input #fileInputA type="file" class="file-input-hidden" (change)="onFileInputChange($event, 'A')">
+<input #fileInputB type="file" class="file-input-hidden" (change)="onFileInputChange($event, 'B')">
+<input #fileInputC type="file" class="file-input-hidden" (change)="onFileInputChange($event, 'C')">
 <div class="diff3-root" [attr.data-layout]="session()?.layout_mode ?? 'equal'">
 
   <!-- ── Toolbar ── -->
@@ -71,24 +76,31 @@ const LAYOUT_LABELS: Record<LayoutMode, string> = {
     <div class="diff3-panel"
          *ngFor="let pid of panelIds"
          [class.active]="session()!.active_panel === pid"
+         [class.drag-over]="dragOverPanel() === pid"
          [attr.data-panel]="pid"
-         (click)="onPanelClick(pid)">
+         (click)="onPanelClick(pid)"
+         (dragover)="onDragOver($event, pid)"
+         (dragleave)="onDragLeave($event, pid)"
+         (drop)="onDrop($event, pid)">
 
       <!-- Panel header -->
       <div class="panel-header">
         <span class="panel-label">Panel {{ pid }}</span>
         <span class="panel-type">{{ getPanelType(pid) }}</span>
         <div class="panel-controls">
+          <button class="btn-xs btn-open" title="Lokale Datei öffnen"
+                  (click)="$event.stopPropagation(); triggerFileOpen(pid)">📂</button>
           <button class="btn-xs btn-reload" title="Neu laden"
                   [disabled]="panelLoadings()[pid]"
-                  *ngIf="getPanelSetup(pid) !== 'empty' && getPanelSetup(pid) !== 'ai'"
+                  *ngIf="getPanelSetup(pid) !== 'empty' && getPanelSetup(pid) !== 'ai' && getPanelSetup(pid) !== 'local_file'"
                   (click)="$event.stopPropagation(); fetchPanelContent(pid)">↺</button>
           <select class="panel-select" [ngModel]="getPanelSetup(pid)"
                   (ngModelChange)="onPanelSetupChange(pid, $event)"
                   (click)="$event.stopPropagation()">
             <option value="empty">Leer</option>
             <option value="current_diff">Git Diff</option>
-            <option value="file_content">Dateiinhalt</option>
+            <option value="file_content">Pfad eingeben</option>
+            <option value="local_file">Lokale Datei</option>
             <option value="output_artifact">Artifact</option>
             <option value="ai">AI</option>
           </select>
@@ -150,9 +162,36 @@ const LAYOUT_LABELS: Record<LayoutMode, string> = {
       <div class="panel-body">
         <ng-container [ngSwitch]="getPanelSetup(pid)">
 
-          <div *ngSwitchCase="'empty'" class="panel-empty">
-            Kein Inhalt. Wähle eine Quelle oben.
+          <div *ngSwitchCase="'empty'" class="panel-drop-zone">
+            <div class="drop-zone-inner">
+              <span class="drop-icon">⬡</span>
+              <span>Datei hier hinziehen</span>
+              <span class="drop-hint">oder 📂 oben klicken</span>
+            </div>
           </div>
+
+          <ng-container *ngSwitchCase="'local_file'">
+            <ng-container *ngIf="localFiles()[pid] as lf; else localFileEmpty">
+              <div class="diff-meta">
+                <span>{{ lf.name }}</span>
+                <span class="diff-stat">{{ lf.lines.length }} Zeilen</span>
+                <button class="btn-xs btn-close-local" title="Datei entfernen"
+                        (click)="$event.stopPropagation(); clearLocalFile(pid)">✕</button>
+              </div>
+              <div class="diff-preview">
+                <div *ngFor="let line of lf.lines; let i = index" class="diff-line ln-normal">{{ line }}</div>
+              </div>
+            </ng-container>
+            <ng-template #localFileEmpty>
+              <div class="panel-drop-zone">
+                <div class="drop-zone-inner">
+                  <span class="drop-icon">⬡</span>
+                  <span>Datei hier hinziehen</span>
+                  <span class="drop-hint">oder 📂 oben klicken</span>
+                </div>
+              </div>
+            </ng-template>
+          </ng-container>
 
           <ng-container *ngSwitchCase="'file_content'">
             <div class="panel-loading-bar" *ngIf="panelLoadings()[pid]">Lade…</div>
@@ -396,9 +435,38 @@ const LAYOUT_LABELS: Record<LayoutMode, string> = {
     .ai-list li { margin-bottom: 2px; }
     .ai-list-risk li { color: #ff7b72; }
     .ai-idle-hint { color: #8b949e; font-size: 12px; text-align: center; padding: 24px 0; }
+
+    /* Drag & drop */
+    .file-input-hidden { display: none; }
+    .btn-open {
+      padding: 2px 6px; font-size: 13px; line-height: 1;
+      border-radius: 3px; border: 1px solid #30363d;
+      background: #21262d; color: #8b949e; cursor: pointer;
+    }
+    .btn-open:hover { background: #30363d; color: #e6edf3; }
+    .diff3-panel.drag-over { outline: 2px dashed #388bfd; outline-offset: -2px; }
+    .panel-drop-zone {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      min-height: 0; pointer-events: none;
+    }
+    .drop-zone-inner {
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      color: #3d444d; font-size: 12px; user-select: none;
+    }
+    .drop-icon { font-size: 28px; opacity: .4; }
+    .drop-hint { font-size: 11px; color: #30363d; }
+    .btn-close-local {
+      margin-left: auto; padding: 1px 5px; background: transparent;
+      border: 1px solid #30363d; color: #8b949e; cursor: pointer; border-radius: 3px; font-size: 11px;
+    }
+    .btn-close-local:hover { background: #3d1f1f; color: #ff7b72; border-color: #6f1919; }
   `],
 })
 export class Diff3EditorComponent implements OnInit, OnDestroy {
+  @ViewChild('fileInputA') private fileInputA!: ElementRef<HTMLInputElement>;
+  @ViewChild('fileInputB') private fileInputB!: ElementRef<HTMLInputElement>;
+  @ViewChild('fileInputC') private fileInputC!: ElementRef<HTMLInputElement>;
+
   private api      = inject(Diff3ApiService);
   private route    = inject(ActivatedRoute);
   private location = inject(Location);
@@ -424,6 +492,9 @@ export class Diff3EditorComponent implements OnInit, OnDestroy {
   readonly filterInputs: Record<PanelId, string>     = { A: '', B: '', C: '' };
   readonly filePathInputs: Record<PanelId, string>   = { A: '', B: '', C: '' };
   readonly renderModeInputs: Record<PanelId, string> = { A: 'unified', B: 'unified', C: 'unified' };
+
+  readonly localFiles    = signal<Record<PanelId, LocalFile | null>>({ A: null, B: null, C: null });
+  readonly dragOverPanel = signal<PanelId | null>(null);
 
   private _panelSetups: Record<PanelId, PanelSetup> = { A: 'current_diff', B: 'empty', C: 'empty' };
 
@@ -460,10 +531,68 @@ export class Diff3EditorComponent implements OnInit, OnDestroy {
     this.location.back();
   }
 
+  // ── Local file (drag & drop / open button) ───────────────────────────────────
+
+  triggerFileOpen(pid: PanelId): void {
+    const map: Record<PanelId, ElementRef<HTMLInputElement>> = {
+      A: this.fileInputA, B: this.fileInputB, C: this.fileInputC,
+    };
+    this._panelSetups[pid] = 'local_file';
+    map[pid].nativeElement.value = '';
+    map[pid].nativeElement.click();
+  }
+
+  onFileInputChange(event: Event, pid: PanelId): void {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (file) this._readLocalFile(pid, file);
+  }
+
+  onDragOver(event: DragEvent, pid: PanelId): void {
+    if (!event.dataTransfer?.types.includes('Files')) return;
+    event.preventDefault();
+    event.stopPropagation();
+    this.dragOverPanel.set(pid);
+  }
+
+  onDragLeave(event: DragEvent, pid: PanelId): void {
+    const rel = event.relatedTarget as Node | null;
+    const panel = (event.currentTarget as HTMLElement);
+    if (!rel || !panel.contains(rel)) {
+      if (this.dragOverPanel() === pid) this.dragOverPanel.set(null);
+    }
+  }
+
+  onDrop(event: DragEvent, pid: PanelId): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.dragOverPanel.set(null);
+    const file = event.dataTransfer?.files?.[0];
+    if (!file) return;
+    this._panelSetups[pid] = 'local_file';
+    this._readLocalFile(pid, file);
+  }
+
+  clearLocalFile(pid: PanelId): void {
+    this.localFiles.update(m => ({ ...m, [pid]: null }));
+  }
+
+  private _readLocalFile(pid: PanelId, file: File): void {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = reader.result as string;
+      this.localFiles.update(m => ({
+        ...m,
+        [pid]: { name: file.name, lines: text.split('\n') },
+      }));
+    };
+    reader.readAsText(file);
+  }
+
   // ── Session ─────────────────────────────────────────────────────────────────
 
   newSession(goalId?: string): void {
     this.panelContents.set({ A: null, B: null, C: null });
+    this.localFiles.set({ A: null, B: null, C: null });
     this._panelSetups = { A: 'current_diff', B: 'empty', C: 'empty' };
     this.aiResponse.set(null);
     this._createAndInitSession(goalId);
@@ -569,10 +698,11 @@ export class Diff3EditorComponent implements OnInit, OnDestroy {
           error: e => this.error.set(String(e)),
         });
     } else if (setup === 'file_content') {
-      // only load immediately if a path is already set
       if (this.filePathInputs[pid].trim()) {
         this.onFileContentEnter(pid);
       }
+    } else if (setup === 'local_file') {
+      // nothing to load — user will drag or click open
     } else if (setup === 'ai') {
       this.api.updatePanel(s.session_id, pid, { source_kind: 'ai', ai_mode: this.aiMode() })
         .pipe(takeUntil(this.destroy$))
