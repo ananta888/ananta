@@ -70,7 +70,8 @@ export type GraphEdgeType =
   | 'parent_child'
   | 'returns'
   | 'uses_type'
-  | 'related';
+  | 'related'
+  | 'wiki_link';
 
 export interface GraphNode {
   id: string;

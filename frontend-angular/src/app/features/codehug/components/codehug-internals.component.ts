@@ -247,6 +247,73 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
         <input type="number" class="ch-sel" style="width:64px" min="0" step="500"
           [value]="ccMaxEdges()"
           (change)="ccMaxEdges.set(+$any($event.target).value); loadSelfGraph()" />
+      } @else if (wgStatus()?.status === 'ready') {
+        <!-- ── Wiki toolbar controls ── -->
+        <span class="ch-bar-sep" style="margin-left:8px"></span>
+        <!-- Hubs -->
+        @if (wgDomainModeStatusFor('hubs') === 'ready' && wgHubDomains().length > 0) {
+          <select class="ch-sel ch-wg-dd" title="Hub-Artikel"
+            (change)="wgSelectDomainItem('hubs', $any($event.target).value); $any($event.target).selectedIndex = 0">
+            <option value="">Hub-Artikel…</option>
+            @for (d of wgHubDomains(); track d.id) {
+              <option [value]="d.id">{{ d.label }}</option>
+            }
+          </select>
+        } @else if (wgDomainModeStatusFor('hubs') === 'building') {
+          <span class="ch-lbl muted ch-wg-dd-hint"><span class="ch-dot-run"></span> Hubs…</span>
+        } @else {
+          <button class="ch-btn ch-btn-xs" (click)="wgBuildDomainMode('hubs')">+ Hub-Artikel</button>
+        }
+        <!-- Kategorien -->
+        @if (wgDomainModeStatusFor('categories') === 'ready' && wgCategoryDomains().length > 0) {
+          <select class="ch-sel ch-wg-dd" title="Kategorien"
+            (change)="wgSelectDomainItem('categories', $any($event.target).value); $any($event.target).selectedIndex = 0">
+            <option value="">Kategorien…</option>
+            @for (d of wgCategoryDomains(); track d.id) {
+              <option [value]="d.id">{{ d.label }}</option>
+            }
+          </select>
+        } @else if (wgDomainModeStatusFor('categories') === 'building') {
+          <span class="ch-lbl muted ch-wg-dd-hint"><span class="ch-dot-run"></span> Kategorien…</span>
+        } @else {
+          <button class="ch-btn ch-btn-xs" (click)="wgBuildDomainMode('categories')">+ Kategorien</button>
+        }
+        <!-- Cluster -->
+        @if (wgDomainModeStatusFor('clusters') === 'ready' && wgClusterDomains().length > 0) {
+          <select class="ch-sel ch-wg-dd" title="Cluster"
+            (change)="wgSelectDomainItem('clusters', $any($event.target).value); $any($event.target).selectedIndex = 0">
+            <option value="">Cluster…</option>
+            @for (d of wgClusterDomains(); track d.id) {
+              <option [value]="d.id">{{ d.label }}</option>
+            }
+          </select>
+        } @else if (wgDomainModeStatusFor('clusters') === 'building') {
+          <span class="ch-lbl muted ch-wg-dd-hint"><span class="ch-dot-run"></span> Cluster…</span>
+        } @else {
+          <button class="ch-btn ch-btn-xs" (click)="wgBuildDomainMode('clusters')">+ Cluster</button>
+        }
+        <!-- Search -->
+        <div class="ch-wg-search-wrap" style="position:relative;margin-left:6px">
+          <input type="search" class="ch-sel ch-wg-dd-search" placeholder="Artikel suchen…"
+            [value]="wgSearchQuery()"
+            (input)="wgSearch($any($event.target).value)" />
+          @if (wgSearchResults().length > 0) {
+            <div class="ch-wg-tb-results">
+              @for (r of wgSearchResults(); track r.slug) {
+                <button class="ch-wg-tb-result" (click)="wgExpand(r.slug, r.title)">{{ r.title }}</button>
+              }
+            </div>
+          }
+        </div>
+      } @else if (wgStatus()?.status === 'not_built') {
+        <span class="ch-bar-sep" style="margin-left:8px"></span>
+        <button class="ch-btn" style="font-size:12px" (click)="wgBuild()">SQLite-Index aufbauen</button>
+        <span class="ch-lbl muted" style="margin-left:4px;font-size:11px">(~60–90 Min.)</span>
+      } @else if (wgStatus()?.status === 'building') {
+        <span class="ch-bar-sep" style="margin-left:8px"></span>
+        <span class="ch-lbl muted"><span class="ch-dot-run"></span> Baut SQLite-Index…
+          @if (wgStatus()?.article_count) { {{ wgStatus()?.article_count | number }} Artikel }
+        </span>
       }
       @if (ccLoading()) { <span class="ch-lbl" style="color:var(--muted);margin-left:8px">Lädt…</span> }
       @if (ccError()) { <span class="ch-lbl" style="color:#ef4444;margin-left:8px">{{ ccError() }}</span> }
@@ -351,140 +418,30 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
       @if (ccRawGraph() && (ccRawGraph().nodes?.length > 0 || ccRawGraph().entities?.length > 0)) {
         <app-graph-viewer [rawGraphData]="ccRawGraph()" />
       } @else if (!ccLoading() && ccGraphMode() !== 'self') {
-        <!-- Wiki graph explorer -->
-        @let selIdx = ccSelectedIndex();
-        <div class="ch-wg-panel">
-          <!-- Header -->
-          <div class="ch-wg-header">
-            <span class="ch-wg-title">{{ indexLabel(selIdx) }}</span>
-            @if (selIdx?.index_metadata?.manifest_summary; as ms) {
-              <span class="ch-wg-stat">{{ ms.index_record_count | number }} Chunks · {{ ms.relation_record_count | number }} Kanten</span>
-            }
-          </div>
-
-          <!-- Build status -->
-          @if (wgStatus(); as st) {
-            @if (st.status === 'not_built') {
-              <div class="ch-wg-build-box">
-                <p class="muted" style="font-size:13px;margin:0 0 10px">
-                  Für interaktive Exploration wird ein Artikelgraph-Index benötigt
-                  (~2,9 M Artikel + 65 M Kanten → SQLite, einmalig ca. 60–90 Min.).
-                </p>
-                <button class="ch-btn" style="font-size:12px" (click)="wgBuild()">Index aufbauen</button>
-              </div>
-            } @else if (st.status === 'building') {
-              <div class="ch-wg-build-box">
-                <span class="ch-dot-run" style="display:inline-block;margin-right:6px"></span>
-                <span style="font-size:13px">Baut Index auf…
-                  @if (st.phase) { <span class="muted">({{ st.phase }})</span> }
-                  @if (st.article_count) { · {{ st.article_count | number }} Artikel }
-                  @if (st.edge_count)    { · {{ st.edge_count | number }} Kanten }
-                </span>
-              </div>
-            } @else if (st.status === 'error') {
-              <div class="ch-wg-build-box" style="color:#dc2626;font-size:13px">
-                Fehler: {{ st.error }}
-                <button class="ch-btn" style="margin-left:8px;font-size:11px" (click)="wgBuild(true)">Erneut versuchen</button>
-              </div>
-            } @else if (st.status === 'ready') {
-              <!-- Search box -->
-              <div class="ch-wg-search-row">
-                <input class="ch-wg-search-input" type="search" placeholder="Artikel suchen…"
-                  [value]="wgSearchQuery()"
-                  (input)="wgSearch($any($event.target).value)" />
-                @if (wgSearchLoading()) {
-                  <span class="ch-lbl muted" style="margin-left:8px">Suche…</span>
-                }
-              </div>
-              @if (wgSearchResults().length > 0) {
-                <div class="ch-wg-results">
-                  @for (r of wgSearchResults(); track r.slug) {
-                    <button class="ch-wg-result-item"
-                      [class.ch-wg-result-active]="wgExpandedSlug() === r.slug"
-                      (click)="wgExpand(r.slug, r.title)">
-                      {{ r.title }}
-                    </button>
-                  }
-                </div>
-              } @else if (wgSearchQuery() && !wgSearchLoading()) {
-                <div class="ch-wg-noresult">Kein Artikel gefunden.</div>
-              } @else if (!wgSearchQuery()) {
-                <div class="ch-wg-hint muted">
-                  {{ st.article_count | number }} Artikel · {{ st.edge_count | number }} Kanten geladen —
-                  Artikel suchen um Nachbarschafts-Graph anzuzeigen.
-                </div>
-              }
-
-              <!-- ── Domain Modes ── -->
-              <div class="ch-wg-domain-section">
-                <div class="ch-wg-domain-hd">Domänen</div>
-                <div class="ch-wg-domain-tabs">
-                  @for (dm of [['hubs','Hub-Artikel'],['categories','Kategorien'],['clusters','Cluster']]; track dm[0]) {
-                    @let dmStatus = wgDomainModeStatusFor(dm[0]);
-                    <div class="ch-wg-domain-tab-wrap">
-                      <button class="ch-wg-domain-tab"
-                        [class.ch-wg-domain-tab-active]="wgDomainMode() === dm[0]"
-                        [class.ch-wg-domain-tab-disabled]="dmStatus === 'not_built'"
-                        [disabled]="dmStatus === 'building'"
-                        (click)="dmStatus === 'ready' ? wgSelectDomainMode(dm[0]) : null">
-                        {{ dm[1] }}
-                        @if (dmStatus === 'building') {
-                          <span class="ch-dot-run" style="margin-left:4px"></span>
-                        } @else if (dmStatus === 'ready') {
-                          <span class="ch-wg-domain-tab-ok">✓</span>
-                        }
-                      </button>
-                      @if (dmStatus === 'not_built' || dmStatus === 'error') {
-                        <button class="ch-wg-domain-build-btn"
-                          (click)="wgBuildDomainMode(dm[0])">
-                          Aufbauen
-                        </button>
-                      }
-                    </div>
-                  }
-                </div>
-
-                @if (wgDomainMode()) {
-                  @let selModeStatus = wgDomainModeStatusFor(wgDomainMode());
-                  @if (selModeStatus === 'building') {
-                    <div class="ch-wg-domain-building">
-                      <span class="ch-dot-run"></span>
-                      <span style="margin-left:6px;font-size:12px">Domänen werden aufgebaut…</span>
-                    </div>
-                  } @else if (selModeStatus === 'ready' && wgDomains().length > 0) {
-                    <div class="ch-wg-domain-list">
-                      @for (dom of wgDomains(); track dom.id) {
-                        <button class="ch-wg-domain-item"
-                          [class.ch-wg-domain-item-active]="wgSelectedDomain() === dom.id"
-                          (click)="wgSelectDomain(dom.id)">
-                          <span class="ch-wg-domain-label">{{ dom.label }}</span>
-                          <span class="ch-wg-domain-chip">{{ dom.article_count | number }}</span>
-                        </button>
-                      }
-                    </div>
-                  } @else if (selModeStatus === 'error') {
-                    <div class="ch-wg-noresult">Fehler beim Aufbauen der Domänen.</div>
-                  }
-
-                  @if (wgSelectedDomain() && wgDomainArticles().length > 0) {
-                    <div class="ch-wg-domain-articles">
-                      <div class="ch-wg-domain-articles-hd">Artikel in Domäne</div>
-                      @for (art of wgDomainArticles(); track art.slug) {
-                        <button class="ch-wg-result-item"
-                          [class.ch-wg-result-active]="wgExpandedSlug() === art.slug"
-                          (click)="wgExpand(art.slug, art.title)">
-                          {{ art.title }}
-                        </button>
-                      }
-                    </div>
-                  } @else if (wgSelectedDomain() && wgDomainArticles().length === 0) {
-                    <div class="ch-wg-noresult">Keine Artikel gefunden.</div>
-                  }
-                }
-              </div>
-            }
+        <!-- Wiki empty / loading state -->
+        <div class="ch-wg-empty-state">
+          @if (!wgStatus()) {
+            <span class="muted">Lade Status…</span>
+          } @else if (wgStatus()?.status === 'not_built') {
+            <p class="muted" style="margin:0 0 12px;font-size:13px">
+              Für interaktive Exploration wird ein SQLite-Artikelgraph-Index benötigt
+              (~2,9 M Artikel + 65 M Kanten, einmalig ca. 60–90 Min.).
+            </p>
+            <button class="ch-btn" (click)="wgBuild()">Index aufbauen</button>
+          } @else if (wgStatus()?.status === 'building') {
+            <span class="ch-dot-run"></span>
+            <span style="margin-left:8px;font-size:13px">Baut SQLite-Index auf…
+              @if (wgStatus()?.article_count) { · {{ wgStatus()?.article_count | number }} Artikel }
+              @if (wgStatus()?.edge_count)    { · {{ wgStatus()?.edge_count | number }} Kanten }
+            </span>
+          } @else if (wgStatus()?.status === 'error') {
+            <span style="color:#dc2626;font-size:13px">Fehler: {{ wgStatus()?.error }}</span>
+            <button class="ch-btn" style="margin-left:8px" (click)="wgBuild(true)">Erneut versuchen</button>
           } @else {
-            <div class="muted" style="padding:16px;font-size:13px">Lade Status…</div>
+            <span class="muted" style="font-size:13px">
+              {{ wgStatus()?.article_count | number }} Artikel ·
+              {{ wgStatus()?.edge_count | number }} Kanten — Domäne wählen oder Artikel suchen.
+            </span>
           }
         </div>
       } @else if (!ccLoading() && !ccError()) {
@@ -1172,7 +1129,29 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
   flex: 1; display: flex; align-items: center; justify-content: center;
   font-size: 13px; color: var(--muted);
 }
-/* ── Wiki Graph Explorer ── */
+/* ── Wiki toolbar controls ── */
+.ch-wg-dd { max-width: 160px; margin-left: 4px; }
+.ch-wg-dd-hint { margin-left: 6px; font-size: 11px; }
+.ch-wg-dd-search { min-width: 160px; max-width: 220px; }
+.ch-btn-xs { font-size: 11px; padding: 2px 8px; margin-left: 4px; }
+.ch-wg-search-wrap { position: relative; display: inline-flex; }
+.ch-wg-tb-results {
+  position: absolute; top: 100%; left: 0; z-index: 100; min-width: 240px; max-width: 360px;
+  max-height: 280px; overflow-y: auto; background: var(--card-bg, #fff);
+  border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,.12);
+  display: flex; flex-direction: column;
+}
+.ch-wg-tb-result {
+  text-align: left; padding: 6px 10px; font-size: 12px; background: none; border: none;
+  cursor: pointer; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ch-wg-tb-result:hover { background: var(--hover-bg, #f5f5f5); }
+/* ── Wiki empty state ── */
+.ch-wg-empty-state {
+  flex: 1; display: flex; align-items: center; justify-content: center; flex-direction: column;
+  gap: 10px; padding: 32px; text-align: center;
+}
+/* ── Wiki Graph Explorer (legacy panel styles kept for refs) ── */
 .ch-wg-panel {
   flex: 1; display: flex; flex-direction: column; min-height: 0;
   padding: 12px; gap: 10px; overflow-y: auto;
@@ -1538,11 +1517,10 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
   private _wgSearchSub: Subscription | null = null;
 
   // ── Wiki Domain Modes ──────────────────────────────────────────────────────
-  readonly wgDomainMode = signal<'hubs' | 'categories' | 'clusters' | ''>('');
-  readonly wgDomainStatus = signal<any>(null);
-  readonly wgDomains = signal<any[]>([]);
-  readonly wgDomainArticles = signal<any[]>([]);
-  readonly wgSelectedDomain = signal('');
+  readonly wgDomainStatus    = signal<any>(null);
+  readonly wgHubDomains      = signal<any[]>([]);
+  readonly wgCategoryDomains = signal<any[]>([]);
+  readonly wgClusterDomains  = signal<any[]>([]);
   private _wgDomainPollTimer: ReturnType<typeof setTimeout> | null = null;
 
   // ── Connect mode ──────────────────────────────────────────────────────────
@@ -1664,11 +1642,10 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
     this.wgSearchResults.set([]);
     this.wgSearchQuery.set('');
     this.wgExpandedSlug.set('');
-    this.wgDomainMode.set('');
     this.wgDomainStatus.set(null);
-    this.wgDomains.set([]);
-    this.wgDomainArticles.set([]);
-    this.wgSelectedDomain.set('');
+    this.wgHubDomains.set([]);
+    this.wgCategoryDomains.set([]);
+    this.wgClusterDomains.set([]);
     if (this._wgDomainPollTimer !== null) {
       clearTimeout(this._wgDomainPollTimer);
       this._wgDomainPollTimer = null;
@@ -1685,8 +1662,10 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
     this.svc.getWikiGraphStatus(indexId).subscribe(s => {
       this.wgStatus.set(s);
       if (s?.status === 'ready') {
-        // Load domain build status so tabs show correct state
-        this.svc.getWikiDomainStatus(indexId).subscribe(ds => this.wgDomainStatus.set(ds));
+        this.svc.getWikiDomainStatus(indexId).subscribe(ds => {
+          this.wgDomainStatus.set(ds);
+          this._loadReadyDomainLists(indexId, ds);
+        });
       }
     });
     this._wgSearchSub = this._wgSearch$.pipe(
@@ -1702,6 +1681,15 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
     });
   }
 
+  private _loadReadyDomainLists(indexId: string, domainStatus: any): void {
+    if (domainStatus?.hubs?.status === 'ready')
+      this.svc.getWikiDomains(indexId, 'hubs').subscribe(d => this.wgHubDomains.set(d));
+    if (domainStatus?.categories?.status === 'ready')
+      this.svc.getWikiDomains(indexId, 'categories').subscribe(d => this.wgCategoryDomains.set(d));
+    if (domainStatus?.clusters?.status === 'ready')
+      this.svc.getWikiDomains(indexId, 'clusters').subscribe(d => this.wgClusterDomains.set(d));
+  }
+
   wgSearch(q: string): void {
     this.wgSearchQuery.set(q);
     if (!q) {
@@ -1711,10 +1699,12 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
     this._wgSearch$.next(q);
   }
 
-  wgExpand(slug: string, title: string): void {
+  wgExpand(slug: string, _title?: string): void {
     const indexId = this.ccGraphMode();
     if (indexId === 'self') return;
     this.wgExpandedSlug.set(slug);
+    this.wgSearchResults.set([]);
+    this.wgSearchQuery.set('');
     this.ccLoading.set(true);
     this.ccError.set('');
     this.svc.expandWikiArticle(indexId, slug).subscribe({
@@ -1726,6 +1716,37 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
           this.ccMeta.set(data.metadata ?? null);
         } else {
           this.ccError.set('Keine Nachbarn gefunden');
+        }
+      },
+      error: () => { if (this.ccGraphMode() !== indexId) return; this.ccLoading.set(false); this.ccError.set('Fehler beim Laden'); },
+    });
+  }
+
+  wgSelectDomainItem(mode: string, domainId: string): void {
+    if (!domainId) return;
+    const indexId = this.ccGraphMode();
+    if (indexId === 'self') return;
+    if (mode === 'hubs') {
+      // Hubs = individual article → expand neighborhood
+      const hub = this.wgHubDomains().find(d => d.id === domainId);
+      this.wgExpand(domainId, hub?.label);
+    } else {
+      this._loadDomainGraph(indexId, mode, domainId);
+    }
+  }
+
+  private _loadDomainGraph(indexId: string, mode: string, domainId: string): void {
+    this.ccLoading.set(true);
+    this.ccError.set('');
+    this.svc.getWikiDomainGraph(indexId, mode, domainId).subscribe({
+      next: data => {
+        if (this.ccGraphMode() !== indexId) return;
+        this.ccLoading.set(false);
+        if (data?.nodes?.length > 0) {
+          this.ccRawGraph.set(data);
+          this.ccMeta.set(data.metadata ?? null);
+        } else {
+          this.ccError.set('Keine Artikel in dieser Domäne');
         }
       },
       error: () => { if (this.ccGraphMode() !== indexId) return; this.ccLoading.set(false); this.ccError.set('Fehler beim Laden'); },
@@ -1755,51 +1776,14 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
 
   // ── Wiki Domain Mode Methods ───────────────────────────────────────────────
 
-  wgSelectDomainMode(mode: string): void {
-    const indexId = this.ccGraphMode();
-    if (indexId === 'self') return;
-    this.wgDomainMode.set(mode as 'hubs' | 'categories' | 'clusters');
-    this.wgSelectedDomain.set('');
-    this.wgDomainArticles.set([]);
-    this.wgDomains.set([]);
-
-    // Load status and domains if ready
-    this.svc.getWikiDomainStatus(indexId).subscribe(status => {
-      this.wgDomainStatus.set(status);
-      const modeStatus = status?.[mode];
-      if (modeStatus?.status === 'ready') {
-        this.svc.getWikiDomains(indexId, mode).subscribe(domains => this.wgDomains.set(domains));
-      } else if (modeStatus?.status === 'building') {
-        this._pollDomainStatus(indexId, mode);
-      }
-    });
-  }
 
   wgBuildDomainMode(mode: string, corpusPath?: string): void {
     const indexId = this.ccGraphMode();
     if (indexId === 'self') return;
-    this.wgDomainMode.set(mode as 'hubs' | 'categories' | 'clusters');
-    this.wgDomains.set([]);
-    this.wgDomainArticles.set([]);
-    this.wgSelectedDomain.set('');
-
-    // Update local status optimistically
     const currentStatus = this.wgDomainStatus() ?? {};
     this.wgDomainStatus.set({ ...currentStatus, [mode]: { status: 'building' } });
-
     this.svc.buildWikiDomains(indexId, mode, corpusPath).subscribe(() => {
       this._pollDomainStatus(indexId, mode);
-    });
-  }
-
-  wgSelectDomain(domainId: string): void {
-    const indexId = this.ccGraphMode();
-    const mode = this.wgDomainMode();
-    if (!indexId || indexId === 'self' || !mode) return;
-    this.wgSelectedDomain.set(domainId);
-    this.wgDomainArticles.set([]);
-    this.svc.getWikiDomainArticles(indexId, mode, domainId).subscribe(articles => {
-      this.wgDomainArticles.set(articles);
     });
   }
 
@@ -1820,9 +1804,11 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
           this._wgDomainPollTimer = setTimeout(tick, 5000);
         } else if (modeStatus?.status === 'ready') {
           this._wgDomainPollTimer = null;
-          if (this.wgDomainMode() === mode) {
-            this.svc.getWikiDomains(indexId, mode).subscribe(domains => this.wgDomains.set(domains));
-          }
+          this.svc.getWikiDomains(indexId, mode).subscribe(domains => {
+            if (mode === 'hubs')       this.wgHubDomains.set(domains);
+            if (mode === 'categories') this.wgCategoryDomains.set(domains);
+            if (mode === 'clusters')   this.wgClusterDomains.set(domains);
+          });
         }
       });
     };

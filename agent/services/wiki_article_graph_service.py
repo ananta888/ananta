@@ -473,6 +473,105 @@ def get_domain_articles(output_dir: Path, mode: str, domain_id: str, limit: int 
     return []
 
 
+def get_domain_graph(output_dir: Path, mode: str, domain_id: str, limit: int = 100) -> dict:
+    """Return all articles of a domain plus intra-domain edges as domain_graph_artifact.v1.
+
+    mode=hubs:      domain_id = hub slug  → hub article + its outgoing neighbors (expand-style)
+    mode=categories: domain_id = category → all articles in that category
+    mode=clusters:   domain_id = hub_slug → all articles in that BFS cluster
+    """
+    db = _db_path(output_dir)
+    empty = {"schema": "domain_graph_artifact.v1", "source_kind": f"wiki_{mode}",
+             "source_ref": domain_id, "nodes": [], "edges": [],
+             "metadata": {"domain": domain_id, "mode": mode, "node_count": 0, "edge_count": 0},
+             "warnings": []}
+    if not db.exists():
+        empty["warnings"] = ["index not built"]
+        return empty
+    try:
+        with sqlite3.connect(f"file:{db}?mode=ro", uri=True, timeout=30) as con:
+            if mode == "hubs":
+                # The "hub" IS an article — expand its neighborhood
+                center = con.execute("SELECT slug, title, in_degree FROM articles WHERE slug = ?",
+                                     (domain_id,)).fetchone()
+                if not center:
+                    return empty
+                neighbors = con.execute(
+                    """SELECT DISTINCT a.slug, a.title, a.in_degree
+                       FROM edges e JOIN articles a ON a.slug = e.to_slug
+                       WHERE e.from_slug = ?
+                       ORDER BY a.in_degree DESC LIMIT ?""",
+                    (domain_id, limit - 1),
+                ).fetchall()
+                rows = [center] + [r for r in neighbors if r[0] != domain_id]
+            elif mode == "categories":
+                if not _table_exists(con, "article_categories"):
+                    empty["warnings"] = ["categories not built"]
+                    return empty
+                rows = con.execute(
+                    """SELECT a.slug, a.title, a.in_degree
+                       FROM article_categories ac JOIN articles a ON a.slug = ac.slug
+                       WHERE ac.category = ? ORDER BY a.in_degree DESC LIMIT ?""",
+                    (domain_id, limit),
+                ).fetchall()
+            elif mode == "clusters":
+                if not _table_exists(con, "article_clusters"):
+                    empty["warnings"] = ["clusters not built"]
+                    return empty
+                rows = con.execute(
+                    """SELECT a.slug, a.title, a.in_degree
+                       FROM article_clusters ac JOIN articles a ON a.slug = ac.slug
+                       WHERE ac.hub_slug = ? ORDER BY a.in_degree DESC LIMIT ?""",
+                    (domain_id, limit),
+                ).fetchall()
+            else:
+                empty["warnings"] = [f"unknown mode: {mode}"]
+                return empty
+
+            if not rows:
+                return empty
+
+            slug_set = {r[0] for r in rows}
+            placeholders = ",".join(["?"] * len(slug_set))
+            slug_list = list(slug_set)
+            edge_rows = con.execute(
+                f"""SELECT from_slug, to_slug FROM edges
+                    WHERE from_slug IN ({placeholders}) AND to_slug IN ({placeholders})
+                    LIMIT 5000""",
+                slug_list + slug_list,
+            ).fetchall()
+
+            nodes = [
+                {"node_id": f"article:{r[0]}", "node_type": "wiki_article",
+                 "attributes": {"name": r[1], "in_degree": r[2]}}
+                for r in rows
+            ]
+            edges = [
+                {"source_id": f"article:{r[0]}", "target_id": f"article:{r[1]}",
+                 "relation": "wiki_link", "attributes": {}}
+                for r in edge_rows if r[0] != r[1]
+            ]
+            return {
+                "schema": "domain_graph_artifact.v1",
+                "source_kind": f"wiki_{mode}",
+                "source_ref": domain_id,
+                "nodes": nodes,
+                "edges": edges,
+                "metadata": {"domain": domain_id, "mode": mode,
+                             "node_count": len(nodes), "edge_count": len(edges)},
+                "warnings": [],
+            }
+    except Exception as exc:
+        logger.warning("wiki_article_graph_service: get_domain_graph error: %s", exc)
+        empty["warnings"] = [str(exc)]
+        return empty
+
+
+def _table_exists(con: sqlite3.Connection, name: str) -> bool:
+    row = con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)).fetchone()
+    return row is not None
+
+
 # ── Internal Build Functions ──────────────────────────────────────────────────
 
 def _build_hubs(output_dir: Path, status_key: str) -> None:

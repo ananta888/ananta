@@ -72,6 +72,7 @@ const KNOWN_EDGE_TYPES = new Set<string>([
   'returns',
   'uses_type',
   'related',
+  'wiki_link',
 ]);
 
 @Injectable({ providedIn: 'root' })

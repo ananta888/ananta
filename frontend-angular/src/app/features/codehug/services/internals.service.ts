@@ -264,6 +264,14 @@ export class InternalsService {
     );
   }
 
+  getWikiDomainGraph(indexId: string, mode: string, domain: string, limit = 100): Observable<any> {
+    const params = new URLSearchParams({ index_id: indexId, mode, domain, limit: String(limit) });
+    return this.http.get<any>(`${this.hubUrl()}/api/wiki-graph/domain-graph?${params}`).pipe(
+      map(r => r?.data ?? null),
+      catchError(() => of(null)),
+    );
+  }
+
   getWikiDomainArticles(indexId: string, mode: string, domain: string, limit = 50): Observable<any[]> {
     const params = new URLSearchParams({ index_id: indexId, mode, domain, limit: String(limit) });
     return this.http.get<any>(`${this.hubUrl()}/api/wiki-graph/domain-articles?${params}`).pipe(

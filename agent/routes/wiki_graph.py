@@ -156,6 +156,22 @@ def wiki_graph_domains():
     return api_response(data={"domains": domains, "mode": mode, "count": len(domains)})
 
 
+@wiki_graph_bp.route("/api/wiki-graph/domain-graph", methods=["GET"])
+@check_auth
+def wiki_graph_domain_graph():
+    index_id = str(request.args.get("index_id") or "").strip()
+    mode = str(request.args.get("mode") or "").strip()
+    domain = str(request.args.get("domain") or "").strip()
+    limit = max(10, min(int(request.args.get("limit") or 100), 500))
+    if mode not in ("hubs", "categories", "clusters"):
+        raise BadRequestError("mode must be one of: hubs, categories, clusters")
+    if not domain:
+        raise BadRequestError("domain required")
+    output_dir = _resolve_output_dir(index_id)
+    graph = _svc.get_domain_graph(output_dir, mode, domain, limit=limit)
+    return api_response(data=graph)
+
+
 @wiki_graph_bp.route("/api/wiki-graph/domain-articles", methods=["GET"])
 @check_auth
 def wiki_graph_domain_articles():
