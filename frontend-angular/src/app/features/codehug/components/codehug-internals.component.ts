@@ -416,7 +416,7 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
     }
     <div class="ch-graph-wrap">
       @if (ccRawGraph() && (ccRawGraph().nodes?.length > 0 || ccRawGraph().entities?.length > 0)) {
-        <app-graph-viewer [rawGraphData]="ccRawGraph()" />
+        <app-graph-viewer [rawGraphData]="ccRawGraph()" [wikiIndexId]="ccGraphMode() !== 'self' ? ccGraphMode() : ''" />
       } @else if (!ccLoading() && ccGraphMode() !== 'self') {
         <!-- Wiki empty / loading state -->
         <div class="ch-wg-empty-state">

@@ -156,6 +156,48 @@ def wiki_graph_domains():
     return api_response(data={"domains": domains, "mode": mode, "count": len(domains)})
 
 
+@wiki_graph_bp.route("/api/wiki-graph/content-status", methods=["GET"])
+@check_auth
+def wiki_graph_content_status():
+    index_id = str(request.args.get("index_id") or "").strip()
+    output_dir = _resolve_output_dir(index_id)
+    return api_response(data=_svc.get_content_status(output_dir))
+
+
+@wiki_graph_bp.route("/api/wiki-graph/build-content", methods=["POST"])
+@check_auth
+def wiki_graph_build_content():
+    import threading as _threading
+    body = request.get_json(silent=True) or {}
+    index_id = str(body.get("index_id") or "").strip()
+    force = bool(body.get("force", False))
+    output_dir = _resolve_output_dir(index_id)
+    current = _svc.get_content_status(output_dir)
+    if current.get("status") == "building" and not force:
+        return api_response(data={"started": False, "status": current})
+    t = _threading.Thread(
+        target=_svc.build_content_index,
+        args=(output_dir,),
+        kwargs={"force": force},
+        daemon=True,
+        name="wiki-content-index-build",
+    )
+    t.start()
+    return api_response(data={"started": True, "status": "building"})
+
+
+@wiki_graph_bp.route("/api/wiki-graph/article-content", methods=["GET"])
+@check_auth
+def wiki_graph_article_content():
+    index_id = str(request.args.get("index_id") or "").strip()
+    slug = str(request.args.get("slug") or "").strip()
+    if not slug:
+        raise BadRequestError("slug required")
+    output_dir = _resolve_output_dir(index_id)
+    result = _svc.get_article_content(output_dir, slug)
+    return api_response(data=result)
+
+
 @wiki_graph_bp.route("/api/wiki-graph/domain-graph", methods=["GET"])
 @check_auth
 def wiki_graph_domain_graph():

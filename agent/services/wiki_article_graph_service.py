@@ -27,6 +27,8 @@ _LOCK = threading.Lock()
 _BUILD_STATUS: dict[str, dict[str, Any]] = {}
 _DOMAIN_BUILD_STATUS: dict[str, dict[str, Any]] = {}  # key = f"{output_dir}:{mode}"
 _DOMAIN_LOCK = threading.Lock()
+_CONTENT_LOCK = threading.Lock()
+_CONTENT_BUILD_STATUS: dict[str, dict[str, Any]] = {}  # key = str(output_dir)
 
 
 def _db_path(output_dir: Path) -> Path:
@@ -574,6 +576,134 @@ def get_domain_graph(output_dir: Path, mode: str, domain_id: str, limit: int = 1
 def _table_exists(con: sqlite3.Connection, name: str) -> bool:
     row = con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)).fetchone()
     return row is not None
+
+
+# ── Article Content Index ─────────────────────────────────────────────────────
+
+def get_content_status(output_dir: Path) -> dict[str, Any]:
+    key = str(output_dir)
+    with _CONTENT_LOCK:
+        cached = _CONTENT_BUILD_STATUS.get(key)
+    if cached and cached.get("status") == "building":
+        return dict(cached)
+    db = _db_path(output_dir)
+    if not db.exists():
+        return {"status": "not_built", "reason": "main index not built"}
+    try:
+        with sqlite3.connect(f"file:{db}?mode=ro", uri=True, timeout=5) as con:
+            if not _table_exists(con, "article_intro"):
+                return {"status": "not_built"}
+            count = con.execute("SELECT COUNT(*) FROM article_intro").fetchone()[0]
+            return {"status": "ready", "count": count}
+    except Exception as exc:
+        return {"status": "error", "error": str(exc)}
+
+
+def get_article_content(output_dir: Path, slug: str) -> dict[str, Any]:
+    db = _db_path(output_dir)
+    if not db.exists():
+        return {"status": "not_built"}
+    try:
+        with sqlite3.connect(f"file:{db}?mode=ro", uri=True, timeout=10) as con:
+            if not _table_exists(con, "article_intro"):
+                return {"status": "not_built"}
+            row = con.execute(
+                "SELECT title, intro FROM article_intro WHERE slug = ?", (slug,)
+            ).fetchone()
+            if not row:
+                return {"status": "not_found", "slug": slug}
+            return {"status": "found", "slug": slug, "title": row[0], "intro": row[1]}
+    except Exception as exc:
+        logger.warning("wiki_article_graph_service: get_article_content error: %s", exc)
+        return {"status": "error", "error": str(exc)}
+
+
+def build_content_index(output_dir: Path, *, force: bool = False) -> None:
+    """Scan details.jsonl and store the first text chunk per article in article_intro table."""
+    key = str(output_dir)
+    db = _db_path(output_dir)
+    details_path = output_dir / "details.jsonl"
+
+    if not db.exists():
+        with _CONTENT_LOCK:
+            _CONTENT_BUILD_STATUS[key] = {"status": "error", "error": "main index not built"}
+        return
+    if not details_path.exists():
+        with _CONTENT_LOCK:
+            _CONTENT_BUILD_STATUS[key] = {"status": "error", "error": "details.jsonl not found"}
+        return
+
+    with _CONTENT_LOCK:
+        if _CONTENT_BUILD_STATUS.get(key, {}).get("status") == "building" and not force:
+            return
+        _CONTENT_BUILD_STATUS[key] = {"status": "building", "phase": "scanning", "count": 0}
+
+    logger.info("wiki_article_graph_service: building article_intro from %s", details_path.name)
+    try:
+        with sqlite3.connect(str(db), timeout=300) as con:
+            con.execute("PRAGMA journal_mode=WAL")
+            con.execute("PRAGMA synchronous=NORMAL")
+            if force:
+                con.execute("DROP TABLE IF EXISTS article_intro")
+            con.execute("""
+                CREATE TABLE IF NOT EXISTS article_intro (
+                    slug TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    intro TEXT NOT NULL
+                )
+            """)
+
+        seen: set[str] = set()
+        buf: list[tuple[str, str, str]] = []
+        total = 0
+        BATCH = 5000
+
+        def _flush() -> None:
+            nonlocal total
+            with sqlite3.connect(str(db), timeout=60) as _con:
+                _con.execute("PRAGMA journal_mode=WAL")
+                _con.execute("BEGIN")
+                _con.executemany("INSERT OR IGNORE INTO article_intro(slug, title, intro) VALUES (?,?,?)", buf)
+                _con.execute("COMMIT")
+            total += len(buf)
+            buf.clear()
+            with _CONTENT_LOCK:
+                _CONTENT_BUILD_STATUS[key] = {"status": "building", "phase": "scanning", "count": total}
+
+        with details_path.open("r", encoding="utf-8") as fh:
+            for raw in fh:
+                raw = raw.strip()
+                if not raw:
+                    continue
+                try:
+                    obj = json.loads(raw)
+                except Exception:
+                    continue
+                if obj.get("kind") != "wiki_detail":
+                    continue
+                article_id = str(obj.get("wiki_article_id") or "")
+                slug = article_id[len("article:"):] if article_id.startswith("article:") else article_id
+                if not slug or slug in seen:
+                    continue
+                seen.add(slug)
+                title = str(obj.get("article_title") or slug)
+                section = str(obj.get("section_title") or "")
+                content = str(obj.get("content") or "")[:1800]
+                intro = f"{section}\n\n{content}".strip() if section else content
+                buf.append((slug, title, intro))
+                if len(buf) >= BATCH:
+                    _flush()
+
+        if buf:
+            _flush()
+
+        logger.info("wiki_article_graph_service: article_intro done — %d articles", total)
+        with _CONTENT_LOCK:
+            _CONTENT_BUILD_STATUS[key] = {"status": "ready", "count": total}
+    except Exception as exc:
+        logger.error("wiki_article_graph_service: build_content_index error: %s", exc)
+        with _CONTENT_LOCK:
+            _CONTENT_BUILD_STATUS[key] = {"status": "error", "error": str(exc)}
 
 
 # ── Internal Build Functions ──────────────────────────────────────────────────

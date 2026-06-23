@@ -264,6 +264,28 @@ export class InternalsService {
     );
   }
 
+  getWikiContentStatus(indexId: string): Observable<any> {
+    return this.http.get<any>(`${this.hubUrl()}/api/wiki-graph/content-status?index_id=${encodeURIComponent(indexId)}`).pipe(
+      map(r => r?.data ?? null),
+      catchError(() => of(null)),
+    );
+  }
+
+  buildWikiContent(indexId: string, force = false): Observable<any> {
+    return this.http.post<any>(`${this.hubUrl()}/api/wiki-graph/build-content`, { index_id: indexId, force }).pipe(
+      map(r => r?.data ?? null),
+      catchError(() => of(null)),
+    );
+  }
+
+  getWikiArticleContent(indexId: string, slug: string): Observable<any> {
+    const params = new URLSearchParams({ index_id: indexId, slug });
+    return this.http.get<any>(`${this.hubUrl()}/api/wiki-graph/article-content?${params}`).pipe(
+      map(r => r?.data ?? null),
+      catchError(() => of(null)),
+    );
+  }
+
   getWikiDomainGraph(indexId: string, mode: string, domain: string, limit = 100): Observable<any> {
     const params = new URLSearchParams({ index_id: indexId, mode, domain, limit: String(limit) });
     return this.http.get<any>(`${this.hubUrl()}/api/wiki-graph/domain-graph?${params}`).pipe(

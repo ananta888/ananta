@@ -87,6 +87,7 @@ import { Graph3dViewComponent } from '../graph-3d-view/graph-3d-view.component';
             <app-wiki-article-panel
               [nodeId]="wikiNode()!.id"
               [title]="wikiNode()!.label"
+              [indexId]="wikiIndexId"
               (closed)="wikiNode.set(null)"
             />
           </div>
@@ -129,6 +130,7 @@ import { Graph3dViewComponent } from '../graph-3d-view/graph-3d-view.component';
 })
 export class GraphViewerComponent implements OnChanges, OnInit {
   @Input() rawGraphData: unknown = null;
+  @Input() wikiIndexId = '';
 
   readonly state = inject(GraphStateService);
   private readonly adapter = inject(GraphAdapterService);
