@@ -1477,6 +1477,7 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
       this.ccMaxEdges(),
     ).subscribe({
       next: data => {
+        if (this.ccGraphMode() !== 'self') return;
         this.ccLoading.set(false);
         if (data) {
           this.ccRawGraph.set(data);
@@ -1484,6 +1485,7 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
         } else { this.ccError.set('Self-Graph nicht verfügbar'); }
       },
       error: () => {
+        if (this.ccGraphMode() !== 'self') return;
         this.ccLoading.set(false);
         this.ccError.set('Fehler beim Laden des Self-Graphs');
       },
@@ -1554,6 +1556,7 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
     this.ccError.set('');
     this.svc.expandWikiArticle(indexId, slug).subscribe({
       next: data => {
+        if (this.ccGraphMode() !== indexId) return;
         this.ccLoading.set(false);
         if (data?.nodes?.length > 0) {
           this.ccRawGraph.set(data);
@@ -1562,7 +1565,7 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
           this.ccError.set('Keine Nachbarn gefunden');
         }
       },
-      error: () => { this.ccLoading.set(false); this.ccError.set('Fehler beim Laden'); },
+      error: () => { if (this.ccGraphMode() !== indexId) return; this.ccLoading.set(false); this.ccError.set('Fehler beim Laden'); },
     });
   }
 
