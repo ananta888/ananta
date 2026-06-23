@@ -489,29 +489,33 @@ def get_domain_graph(output_dir: Path, mode: str, domain_id: str, limit: int = 1
         empty["warnings"] = ["index not built"]
         return empty
     try:
+        # articles table only has (slug, title) — in_degree computed via subquery
+        _ideg = "(SELECT COUNT(*) FROM edges e WHERE e.to_slug = a.slug)"
         with sqlite3.connect(f"file:{db}?mode=ro", uri=True, timeout=30) as con:
             if mode == "hubs":
                 # The "hub" IS an article — expand its neighborhood
-                center = con.execute("SELECT slug, title, in_degree FROM articles WHERE slug = ?",
-                                     (domain_id,)).fetchone()
+                center = con.execute(
+                    f"SELECT slug, title, {_ideg} FROM articles a WHERE a.slug = ?",
+                    (domain_id,),
+                ).fetchone()
                 if not center:
                     return empty
                 neighbors = con.execute(
-                    """SELECT DISTINCT a.slug, a.title, a.in_degree
-                       FROM edges e JOIN articles a ON a.slug = e.to_slug
-                       WHERE e.from_slug = ?
-                       ORDER BY a.in_degree DESC LIMIT ?""",
-                    (domain_id, limit - 1),
+                    f"""SELECT DISTINCT a.slug, a.title, {_ideg}
+                        FROM edges e JOIN articles a ON a.slug = e.to_slug
+                        WHERE e.from_slug = ? AND a.slug != ?
+                        ORDER BY 3 DESC LIMIT ?""",
+                    (domain_id, domain_id, limit - 1),
                 ).fetchall()
-                rows = [center] + [r for r in neighbors if r[0] != domain_id]
+                rows = [center] + list(neighbors)
             elif mode == "categories":
                 if not _table_exists(con, "article_categories"):
                     empty["warnings"] = ["categories not built"]
                     return empty
                 rows = con.execute(
-                    """SELECT a.slug, a.title, a.in_degree
-                       FROM article_categories ac JOIN articles a ON a.slug = ac.slug
-                       WHERE ac.category = ? ORDER BY a.in_degree DESC LIMIT ?""",
+                    f"""SELECT a.slug, a.title, {_ideg}
+                        FROM article_categories ac JOIN articles a ON a.slug = ac.slug
+                        WHERE ac.category = ? ORDER BY 3 DESC LIMIT ?""",
                     (domain_id, limit),
                 ).fetchall()
             elif mode == "clusters":
@@ -519,9 +523,9 @@ def get_domain_graph(output_dir: Path, mode: str, domain_id: str, limit: int = 1
                     empty["warnings"] = ["clusters not built"]
                     return empty
                 rows = con.execute(
-                    """SELECT a.slug, a.title, a.in_degree
-                       FROM article_clusters ac JOIN articles a ON a.slug = ac.slug
-                       WHERE ac.hub_slug = ? ORDER BY a.in_degree DESC LIMIT ?""",
+                    f"""SELECT a.slug, a.title, {_ideg}
+                        FROM article_clusters ac JOIN articles a ON a.slug = ac.slug
+                        WHERE ac.hub_slug = ? ORDER BY 3 DESC LIMIT ?""",
                     (domain_id, limit),
                 ).fetchall()
             else:
