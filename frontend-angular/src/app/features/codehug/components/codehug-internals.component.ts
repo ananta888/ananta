@@ -1507,6 +1507,8 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
     this.ccGraphMode.set(value);
     this.ccMeta.set(null);
     this.ccRawGraph.set(null);
+    this.ccLoading.set(false);
+    this.ccError.set('');
     this.wgStatus.set(null);
     this.wgSearchResults.set([]);
     this.wgSearchQuery.set('');
@@ -1514,7 +1516,6 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
     if (value === 'self') {
       this.loadSelfGraph();
     } else {
-      this.loadCCGraph(value);
       this._initWikiGraphExplorer(value);
     }
   }
@@ -1537,6 +1538,10 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
 
   wgSearch(q: string): void {
     this.wgSearchQuery.set(q);
+    if (!q) {
+      this.ccRawGraph.set(null);
+      this.wgExpandedSlug.set('');
+    }
     this._wgSearch$.next(q);
   }
 
