@@ -414,6 +414,74 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
                   Artikel suchen um Nachbarschafts-Graph anzuzeigen.
                 </div>
               }
+
+              <!-- ── Domain Modes ── -->
+              <div class="ch-wg-domain-section">
+                <div class="ch-wg-domain-hd">Domänen</div>
+                <div class="ch-wg-domain-tabs">
+                  @for (dm of [['hubs','Hub-Artikel'],['categories','Kategorien'],['clusters','Cluster']]; track dm[0]) {
+                    @let dmStatus = wgDomainModeStatusFor(dm[0]);
+                    <div class="ch-wg-domain-tab-wrap">
+                      <button class="ch-wg-domain-tab"
+                        [class.ch-wg-domain-tab-active]="wgDomainMode() === dm[0]"
+                        [class.ch-wg-domain-tab-disabled]="dmStatus === 'not_built'"
+                        [disabled]="dmStatus === 'building'"
+                        (click)="dmStatus === 'ready' ? wgSelectDomainMode(dm[0]) : null">
+                        {{ dm[1] }}
+                        @if (dmStatus === 'building') {
+                          <span class="ch-dot-run" style="margin-left:4px"></span>
+                        } @else if (dmStatus === 'ready') {
+                          <span class="ch-wg-domain-tab-ok">✓</span>
+                        }
+                      </button>
+                      @if (dmStatus === 'not_built' || dmStatus === 'error') {
+                        <button class="ch-wg-domain-build-btn"
+                          (click)="wgBuildDomainMode(dm[0])">
+                          Aufbauen
+                        </button>
+                      }
+                    </div>
+                  }
+                </div>
+
+                @if (wgDomainMode()) {
+                  @let selModeStatus = wgDomainModeStatusFor(wgDomainMode());
+                  @if (selModeStatus === 'building') {
+                    <div class="ch-wg-domain-building">
+                      <span class="ch-dot-run"></span>
+                      <span style="margin-left:6px;font-size:12px">Domänen werden aufgebaut…</span>
+                    </div>
+                  } @else if (selModeStatus === 'ready' && wgDomains().length > 0) {
+                    <div class="ch-wg-domain-list">
+                      @for (dom of wgDomains(); track dom.id) {
+                        <button class="ch-wg-domain-item"
+                          [class.ch-wg-domain-item-active]="wgSelectedDomain() === dom.id"
+                          (click)="wgSelectDomain(dom.id)">
+                          <span class="ch-wg-domain-label">{{ dom.label }}</span>
+                          <span class="ch-wg-domain-chip">{{ dom.article_count | number }}</span>
+                        </button>
+                      }
+                    </div>
+                  } @else if (selModeStatus === 'error') {
+                    <div class="ch-wg-noresult">Fehler beim Aufbauen der Domänen.</div>
+                  }
+
+                  @if (wgSelectedDomain() && wgDomainArticles().length > 0) {
+                    <div class="ch-wg-domain-articles">
+                      <div class="ch-wg-domain-articles-hd">Artikel in Domäne</div>
+                      @for (art of wgDomainArticles(); track art.slug) {
+                        <button class="ch-wg-result-item"
+                          [class.ch-wg-result-active]="wgExpandedSlug() === art.slug"
+                          (click)="wgExpand(art.slug, art.title)">
+                          {{ art.title }}
+                        </button>
+                      }
+                    </div>
+                  } @else if (wgSelectedDomain() && wgDomainArticles().length === 0) {
+                    <div class="ch-wg-noresult">Keine Artikel gefunden.</div>
+                  }
+                }
+              </div>
             }
           } @else {
             <div class="muted" style="padding:16px;font-size:13px">Lade Status…</div>
@@ -1141,6 +1209,75 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
 .ch-wg-noresult { font-size: 13px; color: var(--muted); padding: 4px 2px; }
 .ch-wg-hint { font-size: 12px; padding: 8px 0; }
 
+/* ── Wiki Domain Modes ── */
+.ch-wg-domain-section {
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 12px; background: var(--bg-subtle,#f8f8f8); display: flex; flex-direction: column; gap: 8px;
+}
+.ch-wg-domain-hd {
+  font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;
+}
+.ch-wg-domain-tabs {
+  display: flex; gap: 6px; flex-wrap: wrap;
+}
+.ch-wg-domain-tab-wrap {
+  display: flex; align-items: center; gap: 4px;
+}
+.ch-wg-domain-tab {
+  padding: 4px 10px; border-radius: 5px; border: 1px solid var(--border);
+  background: var(--bg); color: var(--fg); font-size: 11px; cursor: pointer;
+  display: flex; align-items: center; gap: 4px; white-space: nowrap;
+  transition: background .1s;
+}
+.ch-wg-domain-tab:hover:not([disabled]) { background: var(--card-bg); }
+.ch-wg-domain-tab-active {
+  background: color-mix(in srgb, var(--accent, #6366f1) 14%, transparent) !important;
+  border-color: var(--accent, #6366f1); color: var(--accent, #6366f1); font-weight: 600;
+}
+.ch-wg-domain-tab-disabled { color: var(--muted); opacity: 0.7; cursor: default; }
+.ch-wg-domain-tab-ok { color: #22c55e; font-size: 10px; }
+.ch-wg-domain-build-btn {
+  padding: 2px 7px; border-radius: 4px; border: 1px solid var(--border);
+  background: var(--card-bg); color: var(--muted); font-size: 10px; cursor: pointer;
+  white-space: nowrap;
+}
+.ch-wg-domain-build-btn:hover { color: var(--fg); border-color: var(--accent, #6366f1); }
+.ch-wg-domain-building {
+  display: flex; align-items: center; padding: 6px 0; font-size: 12px; color: var(--muted);
+}
+.ch-wg-domain-list {
+  display: flex; flex-direction: column; gap: 2px;
+  max-height: 200px; overflow-y: auto;
+  border: 1px solid var(--border); border-radius: 6px; padding: 4px;
+  background: var(--bg);
+}
+.ch-wg-domain-item {
+  display: flex; align-items: center; justify-content: space-between;
+  text-align: left; padding: 4px 8px; border-radius: 4px; font-size: 12px;
+  background: transparent; border: none; cursor: pointer; color: var(--text);
+  transition: background .1s; gap: 8px;
+}
+.ch-wg-domain-item:hover { background: var(--bg-subtle,#f0f0f0); }
+.ch-wg-domain-item-active {
+  background: color-mix(in srgb, var(--primary,#6366f1) 12%, transparent); font-weight: 600;
+}
+.ch-wg-domain-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ch-wg-domain-chip {
+  flex-shrink: 0; font-size: 10px; padding: 1px 6px; border-radius: 999px;
+  background: color-mix(in srgb, var(--accent,#6366f1) 12%, transparent);
+  color: var(--muted); white-space: nowrap;
+}
+.ch-wg-domain-articles {
+  display: flex; flex-direction: column; gap: 2px;
+  max-height: 200px; overflow-y: auto;
+  border: 1px solid var(--border); border-radius: 6px; padding: 4px;
+  background: var(--bg);
+}
+.ch-wg-domain-articles-hd {
+  font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase;
+  letter-spacing: 0.4px; padding: 2px 6px 4px;
+}
+
 /* ── Top Bar ── */
 .ch-int-bar {
   display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
@@ -1400,6 +1537,14 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
   private _wgSearch$ = new Subject<string>();
   private _wgSearchSub: Subscription | null = null;
 
+  // ── Wiki Domain Modes ──────────────────────────────────────────────────────
+  readonly wgDomainMode = signal<'hubs' | 'categories' | 'clusters' | ''>('');
+  readonly wgDomainStatus = signal<any>(null);
+  readonly wgDomains = signal<any[]>([]);
+  readonly wgDomainArticles = signal<any[]>([]);
+  readonly wgSelectedDomain = signal('');
+  private _wgDomainPollTimer: ReturnType<typeof setTimeout> | null = null;
+
   // ── Connect mode ──────────────────────────────────────────────────────────
   readonly connectMode = signal(false);
   readonly connectSource = signal<string | null>(null);
@@ -1441,6 +1586,9 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
     this._pollSub?.unsubscribe();
     this._workflowPollSub?.unsubscribe();
     this._wgSearchSub?.unsubscribe();
+    if (this._wgDomainPollTimer !== null) {
+      clearTimeout(this._wgDomainPollTimer);
+    }
   }
 
   // ── Quellgraph ────────────────────────────────────────────────────────────
@@ -1516,6 +1664,15 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
     this.wgSearchResults.set([]);
     this.wgSearchQuery.set('');
     this.wgExpandedSlug.set('');
+    this.wgDomainMode.set('');
+    this.wgDomainStatus.set(null);
+    this.wgDomains.set([]);
+    this.wgDomainArticles.set([]);
+    this.wgSelectedDomain.set('');
+    if (this._wgDomainPollTimer !== null) {
+      clearTimeout(this._wgDomainPollTimer);
+      this._wgDomainPollTimer = null;
+    }
     if (value === 'self') {
       this.loadSelfGraph();
     } else {
@@ -1525,7 +1682,13 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
 
   private _initWikiGraphExplorer(indexId: string): void {
     this._wgSearchSub?.unsubscribe();
-    this.svc.getWikiGraphStatus(indexId).subscribe(s => this.wgStatus.set(s));
+    this.svc.getWikiGraphStatus(indexId).subscribe(s => {
+      this.wgStatus.set(s);
+      if (s?.status === 'ready') {
+        // Load domain build status so tabs show correct state
+        this.svc.getWikiDomainStatus(indexId).subscribe(ds => this.wgDomainStatus.set(ds));
+      }
+    });
     this._wgSearchSub = this._wgSearch$.pipe(
       debounceTime(300),
       distinctUntilChanged(),
@@ -1588,6 +1751,82 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
       });
     };
     setTimeout(tick, 3000);
+  }
+
+  // ── Wiki Domain Mode Methods ───────────────────────────────────────────────
+
+  wgSelectDomainMode(mode: string): void {
+    const indexId = this.ccGraphMode();
+    if (indexId === 'self') return;
+    this.wgDomainMode.set(mode as 'hubs' | 'categories' | 'clusters');
+    this.wgSelectedDomain.set('');
+    this.wgDomainArticles.set([]);
+    this.wgDomains.set([]);
+
+    // Load status and domains if ready
+    this.svc.getWikiDomainStatus(indexId).subscribe(status => {
+      this.wgDomainStatus.set(status);
+      const modeStatus = status?.[mode];
+      if (modeStatus?.status === 'ready') {
+        this.svc.getWikiDomains(indexId, mode).subscribe(domains => this.wgDomains.set(domains));
+      } else if (modeStatus?.status === 'building') {
+        this._pollDomainStatus(indexId, mode);
+      }
+    });
+  }
+
+  wgBuildDomainMode(mode: string, corpusPath?: string): void {
+    const indexId = this.ccGraphMode();
+    if (indexId === 'self') return;
+    this.wgDomainMode.set(mode as 'hubs' | 'categories' | 'clusters');
+    this.wgDomains.set([]);
+    this.wgDomainArticles.set([]);
+    this.wgSelectedDomain.set('');
+
+    // Update local status optimistically
+    const currentStatus = this.wgDomainStatus() ?? {};
+    this.wgDomainStatus.set({ ...currentStatus, [mode]: { status: 'building' } });
+
+    this.svc.buildWikiDomains(indexId, mode, corpusPath).subscribe(() => {
+      this._pollDomainStatus(indexId, mode);
+    });
+  }
+
+  wgSelectDomain(domainId: string): void {
+    const indexId = this.ccGraphMode();
+    const mode = this.wgDomainMode();
+    if (!indexId || indexId === 'self' || !mode) return;
+    this.wgSelectedDomain.set(domainId);
+    this.wgDomainArticles.set([]);
+    this.svc.getWikiDomainArticles(indexId, mode, domainId).subscribe(articles => {
+      this.wgDomainArticles.set(articles);
+    });
+  }
+
+  wgDomainModeStatusFor(mode: string): string {
+    return this.wgDomainStatus()?.[mode]?.status ?? 'not_built';
+  }
+
+  private _pollDomainStatus(indexId: string, mode: string): void {
+    if (this._wgDomainPollTimer !== null) {
+      clearTimeout(this._wgDomainPollTimer);
+      this._wgDomainPollTimer = null;
+    }
+    const tick = () => {
+      this.svc.getWikiDomainStatus(indexId).subscribe(status => {
+        this.wgDomainStatus.set(status);
+        const modeStatus = status?.[mode];
+        if (modeStatus?.status === 'building') {
+          this._wgDomainPollTimer = setTimeout(tick, 5000);
+        } else if (modeStatus?.status === 'ready') {
+          this._wgDomainPollTimer = null;
+          if (this.wgDomainMode() === mode) {
+            this.svc.getWikiDomains(indexId, mode).subscribe(domains => this.wgDomains.set(domains));
+          }
+        }
+      });
+    };
+    this._wgDomainPollTimer = setTimeout(tick, 3000);
   }
 
   // ── Blueprint / Playbook / VP Preset ─────────────────────────────────────

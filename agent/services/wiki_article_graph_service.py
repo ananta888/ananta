@@ -11,8 +11,10 @@ The database lives next to the JSONL files:
 """
 from __future__ import annotations
 
+import bz2
 import json
 import logging
+import re
 import sqlite3
 import threading
 import time
@@ -23,6 +25,8 @@ logger = logging.getLogger(__name__)
 
 _LOCK = threading.Lock()
 _BUILD_STATUS: dict[str, dict[str, Any]] = {}
+_DOMAIN_BUILD_STATUS: dict[str, dict[str, Any]] = {}  # key = f"{output_dir}:{mode}"
+_DOMAIN_LOCK = threading.Lock()
 
 
 def _db_path(output_dir: Path) -> Path:
@@ -319,3 +323,420 @@ def _article_node(slug: str, title: str, *, seed: bool) -> dict:
 def _set_status(key: str, status: dict) -> None:
     with _LOCK:
         _BUILD_STATUS[key] = status
+
+
+# ── Domain Mode Functions ─────────────────────────────────────────────────────
+
+def _set_domain_status(key: str, status: dict) -> None:
+    with _DOMAIN_LOCK:
+        _DOMAIN_BUILD_STATUS[key] = dict(status)
+
+
+def _get_domain_status_cached(key: str) -> dict | None:
+    with _DOMAIN_LOCK:
+        return dict(_DOMAIN_BUILD_STATUS[key]) if key in _DOMAIN_BUILD_STATUS else None
+
+
+def get_domain_build_status(output_dir: Path) -> dict:
+    """Returns status for all three domain modes."""
+    db = _db_path(output_dir)
+    result = {}
+    for mode in ("hubs", "categories", "clusters"):
+        key = f"{output_dir}:{mode}"
+        cached = _get_domain_status_cached(key)
+        if cached and cached.get("status") in ("building", "error"):
+            result[mode] = cached
+            continue
+        # Check SQLite for table presence
+        if not db.exists():
+            result[mode] = {"status": "not_built"}
+            continue
+        try:
+            with sqlite3.connect(str(db), timeout=5) as con:
+                if mode == "hubs":
+                    count = con.execute("SELECT COUNT(*) FROM hubs").fetchone()[0]
+                    result[mode] = {"status": "ready", "count": count} if count > 0 else {"status": "not_built"}
+                elif mode == "categories":
+                    count = con.execute("SELECT COUNT(*) FROM top_categories").fetchone()[0]
+                    result[mode] = {"status": "ready", "count": count} if count > 0 else {"status": "not_built"}
+                elif mode == "clusters":
+                    count = con.execute("SELECT COUNT(*) FROM top_clusters").fetchone()[0]
+                    result[mode] = {"status": "ready", "count": count} if count > 0 else {"status": "not_built"}
+        except sqlite3.OperationalError:
+            result[mode] = {"status": "not_built"}
+        except Exception as exc:
+            result[mode] = {"status": "error", "error": str(exc)}
+    return result
+
+
+def build_domains(output_dir: Path, mode: str, corpus_path: Path | None = None) -> None:
+    """Background thread entry point. Calls _build_hubs, _build_categories, or _build_clusters."""
+    key = f"{output_dir}:{mode}"
+    _set_domain_status(key, {"status": "building", "started_at": time.time()})
+    try:
+        if mode == "hubs":
+            _build_hubs(output_dir, key)
+        elif mode == "categories":
+            if corpus_path is None:
+                _set_domain_status(key, {"status": "error", "error": "corpus_path required for categories build"})
+                return
+            _build_categories(output_dir, key, corpus_path)
+        elif mode == "clusters":
+            _build_clusters(output_dir, key)
+        else:
+            _set_domain_status(key, {"status": "error", "error": f"unknown mode: {mode}"})
+    except Exception as exc:
+        logger.exception("wiki_article_graph_service: domain build failed for mode=%s", mode)
+        _set_domain_status(key, {"status": "error", "error": str(exc)})
+
+
+def get_domains(output_dir: Path, mode: str, limit: int = 100) -> list[dict]:
+    """Return domain list for selected mode.
+    hubs: [{id: slug, label: title, article_count: in_degree}]
+    categories: [{id: category, label: category, article_count: n}]
+    clusters: [{id: hub_slug, label: hub_title, article_count: n}]
+    """
+    db = _db_path(output_dir)
+    if not db.exists():
+        return []
+    try:
+        with sqlite3.connect(str(db), timeout=10) as con:
+            if mode == "hubs":
+                rows = con.execute(
+                    "SELECT slug, title, in_degree FROM hubs ORDER BY rank ASC LIMIT ?", (limit,)
+                ).fetchall()
+                return [{"id": r[0], "label": r[1], "article_count": r[2]} for r in rows]
+            elif mode == "categories":
+                rows = con.execute(
+                    "SELECT category, article_count FROM top_categories ORDER BY article_count DESC LIMIT ?", (limit,)
+                ).fetchall()
+                return [{"id": r[0], "label": r[0], "article_count": r[1]} for r in rows]
+            elif mode == "clusters":
+                rows = con.execute(
+                    "SELECT hub_slug, hub_title, article_count FROM top_clusters ORDER BY article_count DESC LIMIT ?", (limit,)
+                ).fetchall()
+                return [{"id": r[0], "label": r[1], "article_count": r[2]} for r in rows]
+    except Exception as exc:
+        logger.warning("wiki_article_graph_service: get_domains error: %s", exc)
+    return []
+
+
+def get_domain_articles(output_dir: Path, mode: str, domain_id: str, limit: int = 50) -> list[dict]:
+    """Return top articles for a domain sorted by in_degree desc.
+    Returns [{slug, title, in_degree}]
+    """
+    db = _db_path(output_dir)
+    if not db.exists():
+        return []
+    try:
+        with sqlite3.connect(str(db), timeout=10) as con:
+            if mode == "hubs":
+                # Articles that directly link TO the hub article
+                rows = con.execute(
+                    """SELECT a.slug, a.title,
+                              (SELECT COUNT(*) FROM edges e2 WHERE e2.to_slug = a.slug) AS in_degree
+                       FROM edges e
+                       JOIN articles a ON a.slug = e.from_slug
+                       WHERE e.to_slug = ?
+                       GROUP BY a.slug
+                       ORDER BY in_degree DESC
+                       LIMIT ?""",
+                    (domain_id, limit),
+                ).fetchall()
+                return [{"slug": r[0], "title": r[1], "in_degree": r[2]} for r in rows]
+            elif mode == "categories":
+                rows = con.execute(
+                    """SELECT a.slug, a.title,
+                              (SELECT COUNT(*) FROM edges e WHERE e.to_slug = a.slug) AS in_degree
+                       FROM article_categories ac
+                       JOIN articles a ON a.slug = ac.slug
+                       WHERE ac.category = ?
+                       ORDER BY in_degree DESC
+                       LIMIT ?""",
+                    (domain_id, limit),
+                ).fetchall()
+                return [{"slug": r[0], "title": r[1], "in_degree": r[2]} for r in rows]
+            elif mode == "clusters":
+                rows = con.execute(
+                    """SELECT a.slug, a.title,
+                              (SELECT COUNT(*) FROM edges e WHERE e.to_slug = a.slug) AS in_degree
+                       FROM article_clusters ac
+                       JOIN articles a ON a.slug = ac.slug
+                       WHERE ac.hub_slug = ?
+                       ORDER BY in_degree DESC
+                       LIMIT ?""",
+                    (domain_id, limit),
+                ).fetchall()
+                return [{"slug": r[0], "title": r[1], "in_degree": r[2]} for r in rows]
+    except Exception as exc:
+        logger.warning("wiki_article_graph_service: get_domain_articles error: %s", exc)
+    return []
+
+
+# ── Internal Build Functions ──────────────────────────────────────────────────
+
+def _build_hubs(output_dir: Path, status_key: str) -> None:
+    """Build hubs table: top articles by incoming link count."""
+    db = _db_path(output_dir)
+    _set_domain_status(status_key, {"status": "building", "phase": "computing_in_degree"})
+    logger.info("wiki_article_graph_service: building hubs table")
+    with sqlite3.connect(str(db), timeout=60) as con:
+        con.execute("PRAGMA journal_mode=WAL")
+        con.execute("PRAGMA synchronous=NORMAL")
+        con.execute("DROP TABLE IF EXISTS hubs")
+        con.execute("""
+            CREATE TABLE hubs (
+                rank INTEGER NOT NULL,
+                slug TEXT NOT NULL,
+                title TEXT NOT NULL,
+                in_degree INTEGER NOT NULL
+            )
+        """)
+        con.execute("""
+            INSERT INTO hubs(rank, slug, title, in_degree)
+            SELECT ROW_NUMBER() OVER (ORDER BY cnt DESC) as rank,
+                   e.to_slug,
+                   COALESCE(a.title, e.to_slug) as title,
+                   e.cnt as in_degree
+            FROM (
+                SELECT to_slug, COUNT(*) as cnt
+                FROM edges
+                GROUP BY to_slug
+                ORDER BY cnt DESC
+                LIMIT 100
+            ) e
+            LEFT JOIN articles a ON a.slug = e.to_slug
+        """)
+        count = con.execute("SELECT COUNT(*) FROM hubs").fetchone()[0]
+    logger.info("wiki_article_graph_service: hubs table built with %d entries", count)
+    _set_domain_status(status_key, {"status": "ready", "count": count})
+
+
+def _slug_normalize(name: str) -> str:
+    """Normalize a Wikipedia title/category name to the slug format used in articles table."""
+    # Replace spaces with underscores, lowercase first char like MediaWiki does
+    s = name.strip().replace(" ", "_")
+    if s:
+        s = s[0].upper() + s[1:]
+    return s
+
+
+def _build_categories(output_dir: Path, status_key: str, corpus_path: Path) -> None:
+    """Stream BZ2 dump, extract Kategorie links, store in article_categories and top_categories."""
+    db = _db_path(output_dir)
+    logger.info("wiki_article_graph_service: building categories from %s", corpus_path)
+    _set_domain_status(status_key, {"status": "building", "phase": "streaming_bz2", "articles_processed": 0})
+
+    # Load known slugs into a set for fast membership check
+    _set_domain_status(status_key, {"status": "building", "phase": "loading_slugs"})
+    with sqlite3.connect(str(db), timeout=60) as con:
+        con.execute("PRAGMA journal_mode=WAL")
+        con.execute("PRAGMA synchronous=NORMAL")
+        con.execute("DROP TABLE IF EXISTS article_categories")
+        con.execute("DROP TABLE IF EXISTS top_categories")
+        con.execute("""
+            CREATE TABLE article_categories (
+                slug TEXT NOT NULL,
+                category TEXT NOT NULL
+            )
+        """)
+        con.execute("CREATE INDEX IF NOT EXISTS idx_ac_slug ON article_categories(slug)")
+        con.execute("CREATE INDEX IF NOT EXISTS idx_ac_cat ON article_categories(category)")
+        known_slugs: set[str] = set(
+            row[0] for row in con.execute("SELECT slug FROM articles").fetchall()
+        )
+
+    logger.info("wiki_article_graph_service: loaded %d known slugs", len(known_slugs))
+    _set_domain_status(status_key, {"status": "building", "phase": "streaming_bz2", "known_slugs": len(known_slugs)})
+
+    title_re = re.compile(r"<title>(.*?)</title>")
+    cat_re = re.compile(r"\[\[Kategorie:([^\|\]]+)")
+
+    current_title: str = ""
+    current_slug: str = ""
+    buf: list[tuple[str, str]] = []
+    articles_processed = 0
+    cat_pairs = 0
+    BATCH = 5000
+
+    def _flush(con_inner: sqlite3.Connection) -> None:
+        nonlocal cat_pairs
+        if buf:
+            con_inner.executemany(
+                "INSERT INTO article_categories(slug, category) VALUES (?,?)", buf
+            )
+            cat_pairs += len(buf)
+            buf.clear()
+
+    with sqlite3.connect(str(db), timeout=300) as con:
+        con.execute("PRAGMA journal_mode=WAL")
+        con.execute("PRAGMA synchronous=NORMAL")
+        with bz2.open(str(corpus_path), "rt", encoding="utf-8", errors="replace") as fh:
+            in_text = False
+            text_buf: list[str] = []
+            for line in fh:
+                if "<title>" in line:
+                    m = title_re.search(line)
+                    if m:
+                        current_title = m.group(1)
+                        current_slug = _slug_normalize(current_title)
+                        in_text = False
+                        text_buf = []
+                elif "<text" in line:
+                    in_text = True
+                    text_buf.append(line)
+                elif "</text>" in line:
+                    if in_text:
+                        text_buf.append(line)
+                        full_text = "".join(text_buf)
+                        if current_slug in known_slugs:
+                            for m in cat_re.finditer(full_text):
+                                cat_name = m.group(1).strip()
+                                if cat_name:
+                                    buf.append((current_slug, cat_name))
+                        articles_processed += 1
+                        if articles_processed % 100_000 == 0:
+                            con.execute("BEGIN")
+                            _flush(con)
+                            con.execute("COMMIT")
+                            _set_domain_status(status_key, {
+                                "status": "building", "phase": "streaming_bz2",
+                                "articles_processed": articles_processed,
+                                "category_pairs": cat_pairs,
+                            })
+                            logger.info("wiki_article_graph_service: categories %d articles, %d pairs", articles_processed, cat_pairs)
+                        in_text = False
+                        text_buf = []
+                elif in_text:
+                    text_buf.append(line)
+
+            # Final flush
+            con.execute("BEGIN")
+            _flush(con)
+            con.execute("COMMIT")
+
+    # Build top_categories
+    _set_domain_status(status_key, {"status": "building", "phase": "aggregating"})
+    with sqlite3.connect(str(db), timeout=120) as con:
+        con.execute("PRAGMA journal_mode=WAL")
+        con.execute("""
+            CREATE TABLE top_categories AS
+            SELECT category, COUNT(*) as article_count
+            FROM article_categories
+            GROUP BY category
+            HAVING COUNT(*) >= 5
+            ORDER BY article_count DESC
+        """)
+        con.execute("CREATE UNIQUE INDEX idx_top_cat ON top_categories(category)")
+        top_count = con.execute("SELECT COUNT(*) FROM top_categories").fetchone()[0]
+
+    logger.info("wiki_article_graph_service: categories done — %d top categories", top_count)
+    _set_domain_status(status_key, {"status": "ready", "count": top_count, "category_pairs": cat_pairs})
+
+
+def _build_clusters(output_dir: Path, status_key: str) -> None:
+    """Multi-source BFS from top 40 hub articles, assign each article to a cluster."""
+    db = _db_path(output_dir)
+    logger.info("wiki_article_graph_service: building clusters")
+    _set_domain_status(status_key, {"status": "building", "phase": "loading_hubs"})
+
+    with sqlite3.connect(str(db), timeout=60) as con:
+        hub_rows = con.execute(
+            "SELECT slug, title FROM hubs ORDER BY rank ASC LIMIT 40"
+        ).fetchall()
+
+    if not hub_rows:
+        _set_domain_status(status_key, {"status": "error", "error": "hubs table empty — build hubs first"})
+        return
+
+    hub_slugs = [r[0] for r in hub_rows]
+    hub_titles = {r[0]: r[1] for r in hub_rows}
+
+    # assignment: slug -> (hub_slug, hub_title, hop_distance)
+    assignment: dict[str, tuple[str, str, int]] = {}
+    for slug in hub_slugs:
+        assignment[slug] = (slug, hub_titles[slug], 0)
+
+    frontier: set[str] = set(hub_slugs)
+    hop = 0
+    BATCH_SIZE = 5000
+    total_assigned = len(frontier)
+
+    logger.info("wiki_article_graph_service: BFS starting with %d seeds", len(frontier))
+
+    with sqlite3.connect(str(db), timeout=600) as con:
+        con.execute("PRAGMA journal_mode=WAL")
+        con.execute("PRAGMA synchronous=NORMAL")
+        con.execute("PRAGMA cache_size=-131072")
+
+        while frontier:
+            hop += 1
+            _set_domain_status(status_key, {
+                "status": "building", "phase": "bfs",
+                "hop": hop, "frontier_size": len(frontier),
+                "total_assigned": total_assigned,
+            })
+            if hop % 5 == 0:
+                logger.info("wiki_article_graph_service: BFS hop %d, frontier=%d, assigned=%d",
+                            hop, len(frontier), total_assigned)
+
+            frontier_list = list(frontier)
+            next_frontier: set[str] = set()
+
+            for i in range(0, len(frontier_list), BATCH_SIZE):
+                batch = frontier_list[i:i + BATCH_SIZE]
+                placeholders = ",".join("?" * len(batch))
+                rows = con.execute(
+                    f"SELECT from_slug, to_slug FROM edges WHERE from_slug IN ({placeholders})",
+                    batch,
+                ).fetchall()
+                for from_slug, to_slug in rows:
+                    if to_slug not in assignment:
+                        # Inherit hub from the parent
+                        parent_hub, parent_title, _ = assignment[from_slug]
+                        assignment[to_slug] = (parent_hub, parent_title, hop)
+                        next_frontier.add(to_slug)
+                        total_assigned += 1
+
+            frontier = next_frontier
+
+    # Insert results
+    _set_domain_status(status_key, {"status": "building", "phase": "inserting", "total_assigned": total_assigned})
+    logger.info("wiki_article_graph_service: BFS done — %d articles assigned", total_assigned)
+
+    with sqlite3.connect(str(db), timeout=300) as con:
+        con.execute("PRAGMA journal_mode=WAL")
+        con.execute("PRAGMA synchronous=NORMAL")
+        con.execute("DROP TABLE IF EXISTS article_clusters")
+        con.execute("DROP TABLE IF EXISTS top_clusters")
+        con.execute("""
+            CREATE TABLE article_clusters (
+                slug TEXT PRIMARY KEY,
+                hub_slug TEXT NOT NULL,
+                hub_title TEXT NOT NULL,
+                hop_distance INTEGER NOT NULL
+            )
+        """)
+        BATCH = 10000
+        items = list(assignment.items())
+        for i in range(0, len(items), BATCH):
+            chunk = items[i:i + BATCH]
+            con.execute("BEGIN")
+            con.executemany(
+                "INSERT OR REPLACE INTO article_clusters(slug, hub_slug, hub_title, hop_distance) VALUES (?,?,?,?)",
+                [(slug, hub_slug, hub_title, hop_dist) for slug, (hub_slug, hub_title, hop_dist) in chunk],
+            )
+            con.execute("COMMIT")
+
+        con.execute("""
+            CREATE TABLE top_clusters AS
+            SELECT hub_slug, hub_title, COUNT(*) as article_count
+            FROM article_clusters
+            GROUP BY hub_slug
+            ORDER BY article_count DESC
+        """)
+        con.execute("CREATE UNIQUE INDEX idx_top_cl ON top_clusters(hub_slug)")
+        top_count = con.execute("SELECT COUNT(*) FROM top_clusters").fetchone()[0]
+
+    logger.info("wiki_article_graph_service: clusters done — %d clusters", top_count)
+    _set_domain_status(status_key, {"status": "ready", "count": top_count, "total_assigned": total_assigned})

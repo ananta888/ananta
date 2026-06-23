@@ -4,6 +4,10 @@ GET  /api/wiki-graph/status?index_id=<knowledge_index_id>
 POST /api/wiki-graph/build        body: {"index_id": "...", "force": false}
 GET  /api/wiki-graph/search?index_id=...&q=...&limit=20
 GET  /api/wiki-graph/expand?index_id=...&slug=...&max_neighbors=40
+GET  /api/wiki-graph/domain-status?index_id=...
+POST /api/wiki-graph/build-domains  body: {index_id, mode, corpus_path?}
+GET  /api/wiki-graph/domains?index_id=...&mode=...&limit=100
+GET  /api/wiki-graph/domain-articles?index_id=...&mode=...&domain=...&limit=50
 """
 from __future__ import annotations
 
@@ -87,3 +91,82 @@ def wiki_graph_expand():
     output_dir = _resolve_output_dir(index_id)
     graph = _svc.expand_article(output_dir, slug, max_neighbors=max_neighbors)
     return api_response(data=graph)
+
+
+@wiki_graph_bp.route("/api/wiki-graph/domain-status", methods=["GET"])
+@check_auth
+def wiki_graph_domain_status():
+    index_id = str(request.args.get("index_id") or "").strip()
+    output_dir = _resolve_output_dir(index_id)
+    status = _svc.get_domain_build_status(output_dir)
+    return api_response(data=status)
+
+
+@wiki_graph_bp.route("/api/wiki-graph/build-domains", methods=["POST"])
+@check_auth
+def wiki_graph_build_domains():
+    from pathlib import Path as _Path
+    body = request.get_json(silent=True) or {}
+    index_id = str(body.get("index_id") or "").strip()
+    mode = str(body.get("mode") or "").strip()
+    if mode not in ("hubs", "categories", "clusters"):
+        raise BadRequestError("mode must be one of: hubs, categories, clusters")
+    output_dir = _resolve_output_dir(index_id)
+
+    corpus_path = None
+    if mode == "categories":
+        cp = str(body.get("corpus_path") or "").strip()
+        if not cp:
+            # Try to derive from index metadata
+            repo = get_repository_registry().knowledge_index_repo
+            idx = repo.get_by_id(index_id)
+            links_cache = str((idx.index_metadata or {}).get("links_cache") or "").strip()
+            if links_cache and links_cache.endswith(".links.jsonl"):
+                cp = links_cache[: -len(".links.jsonl")]
+            if not cp:
+                raise BadRequestError("corpus_path required for categories build")
+        corpus_path = _Path(cp)
+
+    # Check if already building
+    import threading as _threading
+    current = _svc.get_domain_build_status(output_dir)
+    if current.get(mode, {}).get("status") == "building":
+        return api_response(data={"started": False, "status": "already_building"})
+
+    t = _threading.Thread(
+        target=_svc.build_domains,
+        args=(output_dir, mode, corpus_path),
+        daemon=True,
+        name=f"wiki-domain-build-{mode}",
+    )
+    t.start()
+    return api_response(data={"started": True, "mode": mode, "status": "building"})
+
+
+@wiki_graph_bp.route("/api/wiki-graph/domains", methods=["GET"])
+@check_auth
+def wiki_graph_domains():
+    index_id = str(request.args.get("index_id") or "").strip()
+    mode = str(request.args.get("mode") or "").strip()
+    if mode not in ("hubs", "categories", "clusters"):
+        raise BadRequestError("mode must be one of: hubs, categories, clusters")
+    limit = max(1, min(int(request.args.get("limit") or 100), 500))
+    output_dir = _resolve_output_dir(index_id)
+    domains = _svc.get_domains(output_dir, mode, limit=limit)
+    return api_response(data={"domains": domains, "mode": mode, "count": len(domains)})
+
+
+@wiki_graph_bp.route("/api/wiki-graph/domain-articles", methods=["GET"])
+@check_auth
+def wiki_graph_domain_articles():
+    index_id = str(request.args.get("index_id") or "").strip()
+    mode = str(request.args.get("mode") or "").strip()
+    domain = str(request.args.get("domain") or "").strip()
+    if mode not in ("hubs", "categories", "clusters"):
+        raise BadRequestError("mode must be one of: hubs, categories, clusters")
+    if not domain:
+        raise BadRequestError("domain required")
+    limit = max(1, min(int(request.args.get("limit") or 50), 200))
+    output_dir = _resolve_output_dir(index_id)
+    articles = _svc.get_domain_articles(output_dir, mode, domain, limit=limit)
+    return api_response(data={"articles": articles, "domain": domain, "mode": mode, "count": len(articles)})

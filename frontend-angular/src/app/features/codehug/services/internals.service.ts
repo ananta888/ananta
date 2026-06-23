@@ -240,6 +240,38 @@ export class InternalsService {
     );
   }
 
+  getWikiDomainStatus(indexId: string): Observable<any> {
+    return this.http.get<any>(`${this.hubUrl()}/api/wiki-graph/domain-status?index_id=${encodeURIComponent(indexId)}`).pipe(
+      map(r => r?.data ?? null),
+      catchError(() => of(null)),
+    );
+  }
+
+  buildWikiDomains(indexId: string, mode: string, corpusPath?: string): Observable<any> {
+    const body: any = { index_id: indexId, mode };
+    if (corpusPath) body['corpus_path'] = corpusPath;
+    return this.http.post<any>(`${this.hubUrl()}/api/wiki-graph/build-domains`, body).pipe(
+      map(r => r?.data ?? null),
+      catchError(() => of(null)),
+    );
+  }
+
+  getWikiDomains(indexId: string, mode: string, limit = 100): Observable<any[]> {
+    const params = new URLSearchParams({ index_id: indexId, mode, limit: String(limit) });
+    return this.http.get<any>(`${this.hubUrl()}/api/wiki-graph/domains?${params}`).pipe(
+      map(r => Array.isArray(r?.data?.domains) ? r.data.domains : []),
+      catchError(() => of([])),
+    );
+  }
+
+  getWikiDomainArticles(indexId: string, mode: string, domain: string, limit = 50): Observable<any[]> {
+    const params = new URLSearchParams({ index_id: indexId, mode, domain, limit: String(limit) });
+    return this.http.get<any>(`${this.hubUrl()}/api/wiki-graph/domain-articles?${params}`).pipe(
+      map(r => Array.isArray(r?.data?.articles) ? r.data.articles : []),
+      catchError(() => of([])),
+    );
+  }
+
   getSelfGraph(domain = 'agent.routes', detailLevel = 2, graphDepth = 0, maxNodes = 0, maxEdges = 0): Observable<any> {
     const params = new URLSearchParams({
       domain,
