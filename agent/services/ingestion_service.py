@@ -8,6 +8,7 @@ import logging
 import re
 import shutil
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -646,7 +647,24 @@ class IngestionService:
         response_headers: dict[str, Any] = {}
         restarted_without_range = False
         storage_issue = None
-        with urllib.request.urlopen(request, timeout=45) as response:
+        try:
+            _response_ctx = urllib.request.urlopen(request, timeout=45)
+        except urllib.error.HTTPError as http_err:
+            if http_err.code == 416 and existing_bytes > 0:
+                # 416 Range Not Satisfiable: the local file already covers the full content —
+                # the previous download completed but the process was killed before the job finished.
+                logger.info("_download_with_resume: 416 for %s — local file (%d bytes) is complete, reusing", url, existing_bytes)
+                return {
+                    "bytes": int(existing_bytes),
+                    "status_code": 416,
+                    "requested_range": True,
+                    "resumed": False,
+                    "already_complete": True,
+                    "headers": {},
+                    "storage_issue": None,
+                }
+            raise
+        with _response_ctx as response:
             status = int(getattr(response, "status", 200) or 200)
             headers = getattr(response, "headers", {}) or {}
             response_headers = {
