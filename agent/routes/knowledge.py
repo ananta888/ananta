@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import time
+from pathlib import Path
 
 from flask import Blueprint, g, request
+
+from agent.config import settings
 
 from agent.auth import check_auth
 from agent.common.audit import log_audit
@@ -460,6 +463,61 @@ def retry_interrupted_wiki_import_job(job_id: str):
     if job is None:
         raise NotFoundError("wiki_import_job_not_found_or_not_interrupted")
     return api_response(data={"job": job})
+
+
+@knowledge_bp.route("/knowledge/wiki/disk-state", methods=["GET"])
+@check_auth
+def wiki_disk_state():
+    """Returns the real on-disk state of wiki import files — independent of any job."""
+    wiki_dir = Path(settings.data_dir) / "wiki_corpora"
+    checkpoint_dir = Path(settings.data_dir) / "wiki_checkpoints"
+
+    def _file_info(p: Path) -> dict | None:
+        if not p.exists():
+            return None
+        stat = p.stat()
+        return {"path": p.name, "size_bytes": stat.st_size, "mtime": stat.st_mtime}
+
+    files = []
+    if wiki_dir.exists():
+        for f in sorted(wiki_dir.iterdir()):
+            info = _file_info(f)
+            if info is None:
+                continue
+            name = f.name
+            if name.endswith(".partial.links.jsonl"):
+                kind = "partial_links_jsonl"
+            elif name.endswith(".links.jsonl"):
+                kind = "links_jsonl"
+            elif name.endswith(".partial.jsonl"):
+                kind = "partial_jsonl"
+            elif name.endswith(".compact.jsonl"):
+                kind = "compact_jsonl"
+            elif name.endswith(".normalized.jsonl"):
+                kind = "normalized_jsonl"
+            elif name.endswith(".xml.bz2") or name.endswith(".xml.gz"):
+                kind = "corpus_compressed"
+            elif name.endswith(".xml"):
+                kind = "corpus_xml"
+            elif name.endswith(".txt.bz2"):
+                kind = "index_compressed"
+            elif name.endswith(".txt"):
+                kind = "index_txt"
+            else:
+                kind = "other"
+            files.append({**info, "kind": kind})
+
+    checkpoints = []
+    if checkpoint_dir.exists():
+        import json as _json
+        for f in sorted(checkpoint_dir.glob("*.json")):
+            try:
+                data = _json.loads(f.read_text(encoding="utf-8"))
+                checkpoints.append({"file": f.name, **data})
+            except Exception:
+                pass
+
+    return api_response(data={"files": files, "checkpoints": checkpoints})
 
 
 @knowledge_bp.route("/knowledge/wiki/presets", methods=["GET"])

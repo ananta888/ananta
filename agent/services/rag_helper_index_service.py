@@ -752,6 +752,7 @@ class RagHelperIndexService:
         profile_name: str | None = None,
         source_metadata: dict[str, Any] | None = None,
         codecompass_prerender: bool = False,
+        links_path=None,
     ) -> tuple[KnowledgeIndexDB, KnowledgeIndexRunDB]:
         normalized_scope = self._normalize_source_scope(source_scope)
         normalized_source_id = str(source_id or "").strip()
@@ -834,6 +835,7 @@ class RagHelperIndexService:
                     records=normalized_records,
                     output_dir=output_dir,
                     profile=profile,
+                    links_path=links_path,
                 )
                 manifest = {
                     **manifest,

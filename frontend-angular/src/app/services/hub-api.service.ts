@@ -199,6 +199,9 @@ export class HubApiService {
   retryInterruptedWikiImportJob(baseUrl: string, jobId: string, token?: string): Observable<any> {
     return this.knowledge.retryInterruptedWikiImportJob(baseUrl, jobId, token);
   }
+  getWikiDiskState(baseUrl: string, token?: string): Observable<any> {
+    return this.knowledge.getWikiDiskState(baseUrl, token);
+  }
   searchWiki(baseUrl: string, payload: { query: string; top_k?: number }, token?: string): Observable<any> {
     return this.knowledge.searchWiki(baseUrl, payload, token);
   }

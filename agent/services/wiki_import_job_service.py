@@ -160,16 +160,18 @@ class WikiImportJobService:
             current = self.get_job(job_id)
             return bool(current and current.get("cancel_requested"))
 
+        import math
+
         def _on_parse_progress(items_done: int, records_done: int) -> None:
-            # Log-scale progress 15→70%: feels responsive early, slows near end
-            import math
             _ESTIMATE = 2_700_000
             ratio = min(1.0, items_done / _ESTIMATE)
-            log_pct = int(math.log1p(ratio * (math.e - 1)) * 55)  # 0..55
-            pct = 15 + log_pct
+            pct = 15 + int(math.log1p(ratio * (math.e - 1)) * 55)
             current = self.get_job(job_id) or {}
             self._save({**current, "progress_percent": pct,
                         "parse_items_done": items_done, "parse_records_done": records_done})
+
+        _max_chunks = int(request.get("max_chunks_per_article") or 3)
+        _min_chars  = int(request.get("min_content_chars") or 300)
 
         try:
             if _is_cancelled():
@@ -184,6 +186,8 @@ class WikiImportJobService:
                     strict=bool(request.get("strict", False)),
                     cancel_check=_is_cancelled,
                     progress_callback=_on_parse_progress,
+                    max_chunks_per_article=_max_chunks,
+                    min_content_chars=_min_chars,
                 )
             else:
                 report = self._ingestion.import_wiki_corpus(
@@ -195,68 +199,51 @@ class WikiImportJobService:
                     import_format=request.get("import_format"),
                     cancel_check=_is_cancelled,
                     progress_callback=_on_parse_progress,
+                    max_chunks_per_article=_max_chunks,
+                    min_content_chars=_min_chars,
                 )
             current = self.get_job(job_id) or {}
             if bool(current.get("cancel_requested")):
-                self._save({**current, "status": "cancelled", "phase": "cancelled", "progress_percent": 100, "import_report": report, "finished_at": time.time()})
+                self._save({**current, "status": "cancelled", "phase": "cancelled", "progress_percent": 100,
+                            "import_report": {k: v for k, v in report.items() if k != "records"}, "finished_at": time.time()})
                 return
             if bool(current.get("pause_requested")):
-                self._save({**current, "status": "paused", "phase": "paused_after_import", "progress_percent": 55, "import_report": report})
+                self._save({**current, "status": "paused", "phase": "paused_after_import", "progress_percent": 74,
+                            "import_report": {k: v for k, v in report.items() if k != "records"}})
                 return
 
-            # --- Compact phase: filter to max 3 chunks/article, min 200 chars ---
-            jsonl_cache = str(report.get("jsonl_cache_path") or "")
-            compact_records: list[dict] = []
-            if jsonl_cache and Path(jsonl_cache).exists():
-                compact_path = Path(jsonl_cache).parent / (Path(jsonl_cache).stem + ".compact.jsonl")
-                self._save({**current, "status": "running", "phase": "compact",
-                            "progress_percent": 71,
-                            "import_report": {k: v for k, v in report.items() if k != "records"}})
-
-                def _on_compact_progress(total: int, kept: int) -> None:
-                    pct = 71 + min(3, int(3 * total / max(1, report.get("stats", {}).get("processed_items", total))))
-                    c = self.get_job(job_id) or {}
-                    self._save({**c, "compact_total": total, "compact_kept": kept})
-
-                compact_stats = compact_wiki_jsonl(
-                    source_path=Path(jsonl_cache),
-                    dest_path=compact_path,
-                    max_chunks_per_article=request.get("max_chunks_per_article", 3),
-                    min_content_chars=request.get("min_content_chars", 200),
-                    progress_callback=_on_compact_progress,
-                )
-                logger.info("wiki compact: %s", compact_stats)
-                # stream-load compact JSONL for indexing
-                with compact_path.open("r", encoding="utf-8") as fh:
+            # Stream-load compact records from disk for indexing (records list is empty when write_jsonl_cache=True)
+            jsonl_cache  = report.get("jsonl_cache_path") or ""
+            links_cache  = report.get("links_cache_path") or ""
+            index_records: list[dict] = list(report.get("records") or [])
+            if not index_records and jsonl_cache and Path(jsonl_cache).exists():
+                with Path(jsonl_cache).open("r", encoding="utf-8") as fh:
                     for line in fh:
                         line = line.strip()
                         if line:
                             try:
-                                compact_records.append(json.loads(line))
+                                index_records.append(json.loads(line))
                             except json.JSONDecodeError:
                                 pass
-            else:
-                compact_records = list(report.get("records") or [])
-                compact_stats = {"kept": len(compact_records), "total": len(compact_records), "articles": 0}
 
             current = self.get_job(job_id) or {}
             self._save({**current, "status": "running", "phase": "index", "progress_percent": 75,
-                        "compact_stats": compact_stats,
                         "import_report": {k: v for k, v in report.items() if k != "records"}})
             source_metadata = {
                 **dict(request.get("source_metadata") or {}),
                 "issues": list(report.get("issues") or []),
                 "import_stats": dict(report.get("stats") or {}),
-                "compact_stats": compact_stats,
+                "links_cache": links_cache,
             }
             index_obj, run = self._index.index_source_records(
                 source_scope="wiki",
                 source_id=str(report.get("source_id") or ""),
-                records=compact_records,
+                records=index_records,
                 created_by=current.get("created_by"),
                 profile_name=request.get("profile_name"),
                 source_metadata=source_metadata,
                 codecompass_prerender=bool(request.get("codecompass_prerender", False)),
+                links_path=Path(links_cache) if links_cache else None,
             )
             self._save(
                 {

@@ -1,12 +1,22 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
+logger = logging.getLogger(__name__)
+
 
 class WikiCodeCompassBridge:
-    """Stream-like JSONL bridge for wiki records without per-article markdown files."""
+    """Stream-writes CodeCompass JSONL outputs from wiki records.
+
+    Produces four files:
+      index.jsonl       — compact chunk records for RAG retrieval
+      details.jsonl     — full content per chunk (article, section, text)
+      graph_nodes.jsonl — article / section / chunk nodes
+      graph_edges.jsonl — structural edges (contains_*) + inter-article wiki-links
+    """
 
     def build_outputs(
         self,
@@ -14,89 +24,137 @@ class WikiCodeCompassBridge:
         records: list[dict[str, Any]],
         output_dir: Path,
         include_graph: bool = True,
+        links_path: Path | None = None,
     ) -> dict[str, Any]:
         output_dir.mkdir(parents=True, exist_ok=True)
-        index_path = output_dir / "index.jsonl"
-        details_path = output_dir / "details.jsonl"
+        index_path       = output_dir / "index.jsonl"
+        details_path     = output_dir / "details.jsonl"
         graph_nodes_path = output_dir / "graph_nodes.jsonl"
         graph_edges_path = output_dir / "graph_edges.jsonl"
 
-        index_rows: list[str] = []
-        detail_rows: list[str] = []
-        node_rows: list[str] = []
-        edge_rows: list[str] = []
+        index_count = detail_count = node_count = edge_count = 0
         seen_nodes: set[str] = set()
 
-        for record in records:
-            kind = str(record.get("kind") or "")
-            if kind != "wiki_section_chunk":
-                continue
-            payload = dict(record)
-            index_rows.append(json.dumps(payload, ensure_ascii=True, sort_keys=True))
-            detail_rows.append(
-                json.dumps(
-                    {
-                        "kind": "wiki_detail",
-                        "wiki_article_id": payload.get("wiki_article_id"),
-                        "article_title": payload.get("article_title"),
-                        "section_title": payload.get("section_title"),
-                        "chunk_id": payload.get("chunk_id"),
-                        "content": payload.get("content"),
-                    },
-                    ensure_ascii=True,
-                    sort_keys=True,
-                )
-            )
-            if not include_graph:
-                continue
-            article_node = f"article:{payload.get('wiki_article_id') or payload.get('article_title')}"
-            section_node = f"section:{payload.get('wiki_article_id')}:{payload.get('section_title')}"
-            chunk_node = f"chunk:{payload.get('chunk_id')}"
-            for node_id, node_kind, title in (
-                (article_node, "wiki_article", payload.get("article_title")),
-                (section_node, "wiki_section", payload.get("section_title")),
-                (chunk_node, "wiki_chunk", payload.get("chunk_id")),
-            ):
+        with (
+            index_path.open("w", encoding="utf-8")       as idx_fh,
+            details_path.open("w", encoding="utf-8")     as det_fh,
+            graph_nodes_path.open("w", encoding="utf-8") as node_fh,
+            graph_edges_path.open("w", encoding="utf-8") as edge_fh,
+        ):
+            def _write_node(node_id: str, kind: str, title: str, extra: dict | None = None) -> None:
+                nonlocal node_count
                 if node_id in seen_nodes:
-                    continue
+                    return
                 seen_nodes.add(node_id)
-                node_rows.append(
-                    json.dumps(
-                        {"node_id": node_id, "kind": node_kind, "title": title},
-                        ensure_ascii=True,
-                        sort_keys=True,
-                    )
-                )
-            edge_rows.append(
-                json.dumps({"from": article_node, "to": section_node, "relation": "contains_section"}, ensure_ascii=True, sort_keys=True)
-            )
-            edge_rows.append(
-                json.dumps({"from": section_node, "to": chunk_node, "relation": "contains_chunk"}, ensure_ascii=True, sort_keys=True)
-            )
+                node_fh.write(json.dumps(
+                    {"node_id": node_id, "kind": kind, "title": title, **(extra or {})},
+                    ensure_ascii=False,
+                ) + "\n")
+                node_count += 1
 
-        index_path.write_text("\n".join(index_rows) + ("\n" if index_rows else ""), encoding="utf-8")
-        details_path.write_text("\n".join(detail_rows) + ("\n" if detail_rows else ""), encoding="utf-8")
-        if include_graph:
-            graph_nodes_path.write_text("\n".join(node_rows) + ("\n" if node_rows else ""), encoding="utf-8")
-            graph_edges_path.write_text("\n".join(edge_rows) + ("\n" if edge_rows else ""), encoding="utf-8")
+            def _write_edge(from_id: str, to_id: str, relation: str) -> None:
+                nonlocal edge_count
+                edge_fh.write(json.dumps(
+                    {"from": from_id, "to": to_id, "relation": relation},
+                    ensure_ascii=False,
+                ) + "\n")
+                edge_count += 1
+
+            # ── Records → index + details + structural nodes/edges ──────────
+            for record in records:
+                if str(record.get("kind") or "") != "wiki_section_chunk":
+                    continue
+
+                article_title   = str(record.get("article_title") or "")
+                section_title   = str(record.get("section_title") or "")
+                chunk_id        = str(record.get("chunk_id") or "")
+                wiki_article_id = str(record.get("wiki_article_id") or article_title)
+
+                # index record (all fields except heavy ones already stripped upstream)
+                idx_fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+                index_count += 1
+
+                # detail record (content for retrieval display)
+                det_fh.write(json.dumps({
+                    "kind":            "wiki_detail",
+                    "wiki_article_id": wiki_article_id,
+                    "article_title":   article_title,
+                    "section_title":   section_title,
+                    "chunk_id":        chunk_id,
+                    "content":         record.get("content"),
+                    "language":        record.get("language"),
+                }, ensure_ascii=False) + "\n")
+                detail_count += 1
+
+                if not include_graph:
+                    continue
+
+                article_node = f"article:{wiki_article_id}"
+                section_node = f"section:{wiki_article_id}:{section_title}"
+                chunk_node   = f"chunk:{chunk_id}"
+
+                _write_node(article_node, "wiki_article", article_title)
+                _write_node(section_node, "wiki_section", section_title,
+                            {"article_node": article_node})
+                _write_node(chunk_node,   "wiki_chunk",   chunk_id,
+                            {"section_node": section_node})
+
+                _write_edge(article_node, section_node, "contains_section")
+                _write_edge(section_node, chunk_node,   "contains_chunk")
+
+            # ── Inter-article link edges from links file ─────────────────────
+            link_edge_count = 0
+            if include_graph and links_path and links_path.exists():
+                logger.info("wiki_codecompass_bridge: reading link edges from %s", links_path.name)
+                with links_path.open("r", encoding="utf-8") as lf:
+                    for line in lf:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            ldata = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
+                        from_title = str(ldata.get("from") or "")
+                        if not from_title:
+                            continue
+                        from_node = f"article:{from_title}"
+                        if from_node not in seen_nodes:
+                            continue
+                        to_list = ldata.get("to") or []
+                        if isinstance(to_list, str):
+                            to_list = [to_list]
+                        for to_title in to_list:
+                            to_title = str(to_title or "").strip()
+                            if not to_title:
+                                continue
+                            to_node = f"article:{to_title}"
+                            if to_node in seen_nodes:
+                                _write_edge(from_node, to_node, "wiki_link")
+                                link_edge_count += 1
+
+                logger.info("wiki_codecompass_bridge: %d wiki_link edges written", link_edge_count)
+                edge_count += link_edge_count
+
+        logger.info(
+            "wiki_codecompass_bridge: index=%d detail=%d nodes=%d edges=%d (structural=%d link=%d)",
+            index_count, detail_count, node_count, edge_count,
+            edge_count - link_edge_count, link_edge_count,
+        )
 
         return {
             "source_scope": "wiki",
-            "index_record_count": len(index_rows),
-            "detail_record_count": len(detail_rows),
-            "relation_record_count": len(edge_rows),
-            "file_count": 1,
+            "index_record_count":    index_count,
+            "detail_record_count":   detail_count,
+            "node_count":            node_count,
+            "relation_record_count": edge_count,
+            "link_edge_count":       link_edge_count,
+            "file_count": 4,
             "partitioned_outputs": {
-                "index": str(index_path),
-                "details": str(details_path),
-                **(
-                    {
-                        "graph_nodes": str(graph_nodes_path),
-                        "graph_edges": str(graph_edges_path),
-                    }
-                    if include_graph
-                    else {}
-                ),
+                "index":       str(index_path),
+                "details":     str(details_path),
+                "graph_nodes": str(graph_nodes_path),
+                "graph_edges": str(graph_edges_path),
             },
-            "chunking": {"strategy": "wiki_streaming_codecompass_prerender"},
+            "chunking": {"strategy": "wiki_inline_compact_codecompass"},
         }

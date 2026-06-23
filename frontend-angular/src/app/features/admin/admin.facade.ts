@@ -40,6 +40,7 @@ export class AdminFacade {
   resumeWikiImportJob(baseUrl: string, jobId: string, token?: string) { return this.hubApi.resumeWikiImportJob(baseUrl, jobId, token); }
   cancelWikiImportJob(baseUrl: string, jobId: string, token?: string) { return this.hubApi.cancelWikiImportJob(baseUrl, jobId, token); }
   retryInterruptedWikiImportJob(baseUrl: string, jobId: string, token?: string) { return this.hubApi.retryInterruptedWikiImportJob(baseUrl, jobId, token); }
+  getWikiDiskState(baseUrl: string, token?: string) { return this.hubApi.getWikiDiskState(baseUrl, token); }
   searchWiki(baseUrl: string, payload: { query: string; top_k?: number }, token?: string) { return this.hubApi.searchWiki(baseUrl, payload, token); }
 
   listTeams(baseUrl: string, token?: string) { return this.hubApi.listTeams(baseUrl, token); }

@@ -47,6 +47,10 @@ export class HubKnowledgeApiClient {
     return this.core.get<any>(`${baseUrl}/knowledge/wiki/import-jobs`, baseUrl, token, true, 30000);
   }
 
+  getWikiDiskState(baseUrl: string, token?: string): Observable<any> {
+    return this.core.get<any>(`${baseUrl}/knowledge/wiki/disk-state`, baseUrl, token, false, 30000);
+  }
+
   getWikiImportJob(baseUrl: string, jobId: string, token?: string): Observable<any> {
     return this.core.get<any>(`${baseUrl}/knowledge/wiki/import-jobs/${encodeURIComponent(jobId)}`, baseUrl, token, true, 120000);
   }

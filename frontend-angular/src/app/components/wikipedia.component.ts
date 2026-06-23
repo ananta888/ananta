@@ -56,6 +56,59 @@ import { AdminFacade } from '../features/admin/admin.facade';
     .danger { color: #dc2626; }
   `],
   template: `
+    <!-- ── Disk-Status ─────────────────────────────────────────────────────── -->
+    <div class="card" style="margin-bottom:12px">
+      <div class="row space-between" style="margin-bottom:8px">
+        <strong>Disk-Stand (unabhängig von Jobs)</strong>
+        <button class="secondary" style="font-size:11px;padding:3px 10px" (click)="loadDiskState()">↻</button>
+      </div>
+      @if (!diskState) {
+        <div class="muted font-sm">Lade…</div>
+      } @else if (diskState.files.length === 0) {
+        <div class="muted font-sm">Keine Wiki-Dateien auf Disk.</div>
+      } @else {
+        <table style="width:100%;font-size:12px;border-collapse:collapse">
+          <thead>
+            <tr style="color:var(--muted,#888);text-align:left">
+              <th style="padding:3px 8px">Phase</th>
+              <th style="padding:3px 8px">Datei</th>
+              <th style="padding:3px 8px;text-align:right">Größe</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (f of diskState.files; track f.path) {
+              <tr style="border-top:1px solid var(--border,#eee)">
+                <td style="padding:4px 8px;white-space:nowrap">
+                  <span [style.color]="f.kind === 'partial_jsonl' ? '#d97706'
+                                     : f.kind === 'compact_jsonl' ? '#7c3aed'
+                                     : f.kind === 'normalized_jsonl' ? '#16a34a'
+                                     : 'inherit'">
+                    {{ diskFileLabel(f.kind) }}
+                  </span>
+                </td>
+                <td style="padding:4px 8px;color:var(--muted,#888);word-break:break-all">{{ f.path }}</td>
+                <td style="padding:4px 8px;text-align:right;white-space:nowrap;font-weight:600">
+                  {{ fmtBytes(f.size_bytes) }}
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        @if (diskState.checkpoints.length > 0) {
+          <div class="muted font-sm mt-sm" style="padding:6px 8px;background:var(--bg-subtle,#f8f8f8);border-radius:6px">
+            @for (cp of diskState.checkpoints; track cp.file) {
+              <span>
+                Checkpoint: {{ cp.processed_items | number }} Items /
+                {{ cp.normalized_records | number }} Records
+                @if (cp.phase === 'completed') { <span style="color:#16a34a">✓ fertig</span> }
+                @else { <span style="color:#d97706">({{ cp.phase }})</span> }
+              </span>
+            }
+          </div>
+        }
+      }
+    </div>
+
     @if (hasActiveJob() && !wikiImportJobId) {
       <div class="card" style="border-color:#f59e0b; background:color-mix(in srgb,#fef3c7 60%,var(--card-bg))">
         <div class="row space-between">
@@ -320,6 +373,7 @@ export class WikipediaComponent implements OnDestroy {
   wikiImportJob: any = null;
   wikiJobControlBusy = false;
   allJobs: any[] = [];
+  diskState: { files: any[]; checkpoints: any[] } | null = null;
   private wikiImportPollTimer: ReturnType<typeof setTimeout> | null = null;
 
   readonly wikiPhaseLabels: Record<string, string> = {
@@ -339,6 +393,7 @@ export class WikipediaComponent implements OnDestroy {
     this.loadWikiPresets();
     this.loadProfiles();
     this.loadAllJobs();
+    this.loadDiskState();
   }
 
   hasActiveJob(): boolean {
@@ -623,6 +678,36 @@ export class WikipediaComponent implements OnDestroy {
     this.wikiImportJob   = null;
     this.wikiImportJobId = '';
     this.importWiki();
+  }
+
+  loadDiskState(): void {
+    if (!this.hub) return;
+    this.hubApi.getWikiDiskState(this.hub.url).subscribe({
+      next: (r) => { this.diskState = r || null; },
+      error: () => {},
+    });
+  }
+
+  fmtBytes(bytes: number): string {
+    if (bytes == null) return '?';
+    if (bytes >= 1e9) return (bytes / 1e9).toFixed(1) + ' GB';
+    if (bytes >= 1e6) return (bytes / 1e6).toFixed(0) + ' MB';
+    return (bytes / 1e3).toFixed(0) + ' KB';
+  }
+
+  diskFileLabel(kind: string): string {
+    const map: Record<string, string> = {
+      corpus_compressed:    '① Dump (BZ2)',
+      index_compressed:     '① Index (BZ2)',
+      index_txt:            '① Index',
+      partial_jsonl:        '② Parse läuft…',
+      normalized_jsonl:     '② Parse fertig ✓',
+      partial_links_jsonl:  '② Links (laufend)',
+      links_jsonl:          '② Links fertig ✓',
+      compact_jsonl:        '③ Kompakt-JSONL',
+      other:                'Sonstiges',
+    };
+    return map[kind] || kind;
   }
 
   retryInterrupted(): void {

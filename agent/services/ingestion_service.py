@@ -277,6 +277,8 @@ class IngestionService:
         import_format: str | None = None,
         progress_callback=None,
         cancel_check=None,
+        max_chunks_per_article: int = 3,
+        min_content_chars: int = 300,
     ) -> dict[str, object]:
         path = Path(str(corpus_path or "").strip()).expanduser().resolve()
         detected_format = self._infer_wiki_format(corpus_path=path, import_format=import_format)
@@ -296,10 +298,16 @@ class IngestionService:
                 strict=strict,
                 progress_callback=progress_callback,
                 cancel_check=cancel_check,
+                max_chunks_per_article=max_chunks_per_article,
+                min_content_chars=min_content_chars,
             )
         if detected_format == "zim":
             raise ValueError("wiki_zim_import_not_supported")
         raise ValueError("wiki_corpus_unknown_format")
+
+    # Fields stripped from records before writing to save space.
+    # Links are extracted separately to the links file; categories go to nodes.
+    _RECORD_STRIP_FIELDS = frozenset({"links", "categories", "import_metadata"})
 
     def import_wiki_xml(
         self,
@@ -312,6 +320,8 @@ class IngestionService:
         write_jsonl_cache: bool = True,
         progress_callback=None,
         cancel_check=None,
+        max_chunks_per_article: int = 3,
+        min_content_chars: int = 300,
     ) -> dict[str, object]:
         path = Path(str(corpus_path or "").strip()).expanduser().resolve()
         if not path.exists():
@@ -323,40 +333,56 @@ class IngestionService:
             raise ValueError("wiki_multistream_index_not_found")
         normalized_source_id = str(source_id or "").strip() or Path(path.stem).stem
 
-        # Persistent streaming cache paths
-        partial_cache_path = path.parent / (path.name + ".partial.jsonl")
-        final_cache_path   = path.parent / (path.name + ".normalized.jsonl")
+        # Output file paths (all co-located with corpus)
+        partial_cache_path  = path.parent / (path.name + ".partial.jsonl")
+        partial_links_path  = path.parent / (path.name + ".partial.links.jsonl")
+        final_cache_path    = path.parent / (path.name + ".normalized.jsonl")
+        final_links_path    = path.parent / (path.name + ".links.jsonl")
 
-        # Load checkpoint to determine resume position
+        # Load checkpoint for resume
         checkpoint = self._wiki_checkpoint_service.load(
             source_id=normalized_source_id,
             corpus_path=str(path),
             index_path=str(resolved_index_path) if resolved_index_path else None,
         ) or {}
         resume_from_item = 0
+        # Rebuild per-article chunk counts from existing partial file when resuming
+        chunks_per_article: dict[str, int] = {}
         if write_jsonl_cache and partial_cache_path.exists():
             prior_items = int(checkpoint.get("processed_items") or 0)
             if prior_items > 0:
                 resume_from_item = prior_items
-                logger.info(
-                    "import_wiki_xml: resuming from item %d (partial cache %s)",
-                    resume_from_item, partial_cache_path.name,
-                )
+                logger.info("import_wiki_xml: resuming from item %d — scanning partial cache for chunk counts", resume_from_item)
+                with partial_cache_path.open("r", encoding="utf-8") as _fh:
+                    for _line in _fh:
+                        _line = _line.strip()
+                        if _line:
+                            try:
+                                _r = json.loads(_line)
+                                _t = str(_r.get("article_title") or "")
+                                chunks_per_article[_t] = chunks_per_article.get(_t, 0) + 1
+                            except json.JSONDecodeError:
+                                pass
+                logger.info("import_wiki_xml: resume — %d articles already have chunks", len(chunks_per_article))
             else:
                 partial_cache_path.unlink(missing_ok=True)
+                partial_links_path.unlink(missing_ok=True)
 
         issues: list[dict] = []
-        page_count  = int(checkpoint.get("page_count") or 0) if resume_from_item else 0
-        doc_count   = int(checkpoint.get("doc_count")  or 0) if resume_from_item else 0
-        item_ordinal  = 0
-        record_count  = int(checkpoint.get("normalized_records") or 0) if resume_from_item else 0
+        page_count   = int(checkpoint.get("page_count")  or 0) if resume_from_item else 0
+        doc_count    = int(checkpoint.get("doc_count")   or 0) if resume_from_item else 0
+        item_ordinal = 0
+        record_count = int(checkpoint.get("normalized_records") or 0) if resume_from_item else 0
+        link_count   = int(checkpoint.get("link_count")  or 0) if resume_from_item else 0
 
-        cache_fh = None
+        cache_fh = links_fh = None
         if write_jsonl_cache:
             partial_cache_path.parent.mkdir(parents=True, exist_ok=True)
-            cache_fh = partial_cache_path.open("a" if resume_from_item > 0 else "w", encoding="utf-8")
+            open_mode = "a" if resume_from_item > 0 else "w"
+            cache_fh = partial_cache_path.open(open_mode, encoding="utf-8")
+            links_fh = partial_links_path.open(open_mode, encoding="utf-8")
 
-        in_memory_records: list[dict] = []  # only used when write_jsonl_cache=False
+        in_memory_records: list[dict] = []
 
         try:
             for item in self._wiki_parser.iter_items(corpus_path=path, index_path=resolved_index_path):
@@ -367,7 +393,6 @@ class IngestionService:
                 elif item_kind == "doc":
                     doc_count += 1
 
-                # Skip items already written in a previous run
                 if item_ordinal <= resume_from_item:
                     continue
 
@@ -383,18 +408,47 @@ class IngestionService:
                     issues.append(issue)
                     if strict:
                         raise ValueError("wiki_corpus_invalid_record")
-                if normalized_batch:
+
+                for rec in (normalized_batch or []):
+                    title   = str(rec.get("article_title") or "")
+                    content = str(rec.get("content") or "")
+
+                    # Inline compact filter: skip short content and over-quota chunks
+                    if len(content) < min_content_chars:
+                        continue
+                    if chunks_per_article.get(title, 0) >= max_chunks_per_article:
+                        continue
+                    chunks_per_article[title] = chunks_per_article.get(title, 0) + 1
+
+                    # Write inter-article links compact (one line per article, max 60 targets)
+                    if links_fh and chunks_per_article[title] == 1:
+                        raw_links = rec.get("links") or []
+                        targets = []
+                        for lt in raw_links:
+                            lt = str(lt or "").strip()
+                            if lt and lt != title:
+                                targets.append(lt)
+                                if len(targets) >= 60:
+                                    break
+                        if targets:
+                            links_fh.write(json.dumps({"from": title, "to": targets}, ensure_ascii=False) + "\n")
+                            link_count += len(targets)
+
+                    # Strip bulky fields from stored record
+                    slim = {k: v for k, v in rec.items() if k not in self._RECORD_STRIP_FIELDS}
+
                     if cache_fh:
-                        for rec in normalized_batch:
-                            cache_fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
-                        record_count += len(normalized_batch)
+                        cache_fh.write(json.dumps(slim, ensure_ascii=False) + "\n")
+                        record_count += 1
                     else:
-                        in_memory_records.extend(normalized_batch)
+                        in_memory_records.append(slim)
                         record_count = len(in_memory_records)
 
                 if item_ordinal % 500 == 0:
                     if cache_fh:
                         cache_fh.flush()
+                    if links_fh:
+                        links_fh.flush()
                     if cancel_check and cancel_check():
                         raise ValueError("wiki_download_cancelled")
                     if progress_callback:
@@ -407,6 +461,7 @@ class IngestionService:
                             "phase": "normalizing",
                             "processed_items": item_ordinal,
                             "normalized_records": record_count,
+                            "link_count": link_count,
                             "page_count": page_count,
                             "doc_count": doc_count,
                             "issues": len(issues),
@@ -416,18 +471,17 @@ class IngestionService:
         except Exception:
             if cache_fh:
                 cache_fh.close()
+            if links_fh:
+                links_fh.close()
             raise
 
         if cache_fh:
             cache_fh.close()
-            cache_fh = None
+            links_fh.close()
             partial_cache_path.rename(final_cache_path)
-            # Stream-load from disk for indexing phase
-            records = self._load_jsonl_for_indexing(final_cache_path)
-        else:
-            records = sort_wiki_records(in_memory_records)
+            partial_links_path.rename(final_links_path)
 
-        if not records:
+        if not record_count:
             raise ValueError("wiki_corpus_no_valid_records")
 
         stats = build_wiki_import_stats(
@@ -435,7 +489,7 @@ class IngestionService:
             input_docs=doc_count,
             processed_items=item_ordinal,
             issues=issues,
-            normalized_records=len(records),
+            normalized_records=record_count,
         )
         self._wiki_checkpoint_service.save(
             source_id=normalized_source_id,
@@ -444,7 +498,8 @@ class IngestionService:
             checkpoint={
                 "phase": "completed",
                 "processed_items": item_ordinal,
-                "normalized_records": len(records),
+                "normalized_records": record_count,
+                "link_count": link_count,
                 "page_count": page_count,
                 "doc_count": doc_count,
                 "issues": len(issues),
@@ -457,10 +512,11 @@ class IngestionService:
             "corpus_path": str(path),
             "index_path": str(resolved_index_path) if resolved_index_path else None,
             "jsonl_cache_path": str(final_cache_path) if write_jsonl_cache else None,
-            "records": records,
+            "links_cache_path": str(final_links_path) if write_jsonl_cache else None,
+            "records": in_memory_records if not write_jsonl_cache else [],
             "issues": issues,
             "stats": stats,
-            "deterministic_order": "file_ordinal",
+            "deterministic_order": "parse_order_compact_filtered",
             "format": "xml",
             "multistream_index": {
                 "enabled": resolved_index_path is not None,
@@ -623,6 +679,8 @@ class IngestionService:
         max_download_bytes: int = 20 * 1024 * 1024 * 1024,
         cancel_check=None,
         progress_callback=None,
+        max_chunks_per_article: int = 3,
+        min_content_chars: int = 300,
     ) -> dict[str, object]:
         url = str(corpus_url or "").strip()
         if not url:
@@ -718,6 +776,8 @@ class IngestionService:
                 import_format=None,
                 progress_callback=progress_callback,
                 cancel_check=cancel_check,
+                max_chunks_per_article=max_chunks_per_article,
+                min_content_chars=min_content_chars,
             )
         report["download"] = {
             "url": url,
