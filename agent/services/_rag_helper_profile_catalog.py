@@ -119,6 +119,25 @@ INTERNAL_PROFILE_CATALOG = {
             "include_xml_node_details": False,
         },
     },
+    "wiki_graph": {
+        "label": "Wiki Graph",
+        "description": "Wiki-Import mit vollständigem Graph-Export (Artikel-Knoten + Inter-Artikel-Links).",
+        "limits": {
+            "max_workers": 1,
+            "embedding_text_mode": "compact",
+            "retrieval_output_mode": "both",
+            "graph_export_mode": "jsonl",
+            "benchmark_mode": "off",
+            "duplicate_detection_mode": "off",
+            "specialized_chunker_mode": "off",
+            "output_bundle_mode": "off",
+        },
+        "options": {
+            "include_code_snippets": False,
+            "exclude_trivial_methods": False,
+            "include_xml_node_details": False,
+        },
+    },
     "subtask_config_integration": {
         "label": "Subtask Config Integration",
         "description": "Zielt auf XML-, Konfigurations- und Integrationskanten fuer runtime-nahe Subtasks.",

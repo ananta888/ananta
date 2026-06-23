@@ -233,13 +233,15 @@ class WikiImportJobService:
                 "import_stats": dict(report.get("stats") or {}),
                 "links_cache": links_cache,
             }
+            # Default wiki imports to "wiki_graph" profile so graph nodes+edges are included
+            _profile_name = request.get("profile_name") or "wiki_graph"
             index_obj, run = self._index.index_source_records(
                 source_scope="wiki",
                 source_id=str(report.get("source_id") or ""),
                 records=in_memory,
                 records_path=Path(jsonl_cache) if jsonl_cache and not in_memory else None,
                 created_by=current.get("created_by"),
-                profile_name=request.get("profile_name"),
+                profile_name=_profile_name,
                 source_metadata=source_metadata,
                 codecompass_prerender=bool(request.get("codecompass_prerender", False)),
                 links_path=Path(links_cache) if links_cache else None,
