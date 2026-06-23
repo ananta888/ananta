@@ -182,31 +182,75 @@
         </div>
       }
       @if (wikiImportJobId || wikiImportJob) {
-        <div class="artifact-meta mt-sm">
-          <span class="artifact-pill">Job: {{ wikiImportJobId || wikiImportJob?.job_id || 'n/a' }}</span>
-          <span class="artifact-pill">Status: {{ wikiImportJob?.status || (wikiImportBusy ? 'running' : 'unknown') }}</span>
-          <span class="artifact-pill">Phase: {{ wikiImportJob?.phase || (wikiImportBusy ? 'indexing' : 'n/a') }}</span>
-          <span class="artifact-pill">{{ wikiImportJob?.progress_percent ?? (wikiImportBusy ? 10 : 0) }}%</span>
-        </div>
-        <div class="artifact-upload-row mt-sm">
-          @if (canPauseWikiJob()) {
-            <button class="secondary" (click)="pauseWikiJob()" [disabled]="wikiJobControlBusy">Pausieren</button>
-          }
-          @if (canResumeWikiJob()) {
-            <button class="secondary" (click)="resumeWikiJob()" [disabled]="wikiJobControlBusy">Fortsetzen</button>
-          }
-          @if (canCancelWikiJob()) {
-            <button class="secondary" (click)="cancelWikiJob()" [disabled]="wikiJobControlBusy">Abbrechen</button>
-          }
-          @if (canRetryWikiImport()) {
-            <button (click)="retryWikiImport()">Erneut versuchen</button>
-          }
-        </div>
-        @if (wikiJobStatus() === 'failed') {
-          <div class="muted font-sm mt-sm">
-            Fehler: {{ wikiImportJob?.error || 'unbekannter Fehler' }}
+        <div class="wiki-job-card mt-sm">
+          <div class="wiki-job-header">
+            <span class="wiki-job-phase">{{ wikiPhaseLabel() }}</span>
+            <span class="artifact-pill">{{ wikiProgressPercent() }}%</span>
+            <span class="muted font-sm">Job: {{ wikiImportJobId || wikiImportJob?.job_id }}</span>
           </div>
-        }
+
+          <div class="wiki-progress-bar">
+            <div class="wiki-progress-fill"
+                 [style.width.%]="wikiProgressPercent()"
+                 [class.wiki-progress-done]="wikiJobStatus() === 'completed'"
+                 [class.wiki-progress-fail]="wikiJobStatus() === 'failed' || wikiJobStatus() === 'cancelled'">
+            </div>
+          </div>
+
+          <div class="wiki-steps mt-sm">
+            <div class="wiki-step" [class.active]="wikiImportJob?.phase === 'download_parse_normalize'"
+                                   [class.done]="wikiProgressPercent() >= 75 || wikiJobStatus() === 'completed'">
+              <span class="wiki-step-icon">①</span>
+              <span>Download &amp; Parse</span>
+              @if (wikiImportJob?.phase === 'download_parse_normalize') {
+                <span class="muted font-sm">&nbsp;— läuft…</span>
+              }
+            </div>
+            <div class="wiki-step" [class.active]="wikiImportJob?.phase === 'index'"
+                                   [class.done]="wikiJobStatus() === 'completed'">
+              <span class="wiki-step-icon">②</span>
+              <span>CodeCompass-Indexierung</span>
+              @if (wikiImportJob?.phase === 'index') {
+                <span class="muted font-sm">&nbsp;— läuft…</span>
+              }
+            </div>
+            <div class="wiki-step" [class.done]="wikiJobStatus() === 'completed'">
+              <span class="wiki-step-icon">③</span>
+              <span>Bereit für RAG</span>
+            </div>
+          </div>
+
+          @if (wikiImportStats()) {
+            <div class="artifact-meta mt-sm">
+              <span class="artifact-pill">Source: {{ wikiImportStats()!.source_id || wikiSourceId }}</span>
+              <span class="artifact-pill">Records: {{ wikiImportStats()!.records }}</span>
+              @if (wikiImportStats()!.issues > 0) {
+                <span class="artifact-pill">Issues: {{ wikiImportStats()!.issues }}</span>
+              }
+            </div>
+          }
+
+          <div class="artifact-upload-row mt-sm">
+            @if (canPauseWikiJob()) {
+              <button class="secondary" (click)="pauseWikiJob()" [disabled]="wikiJobControlBusy">Pausieren</button>
+            }
+            @if (canResumeWikiJob()) {
+              <button class="secondary" (click)="resumeWikiJob()" [disabled]="wikiJobControlBusy">Fortsetzen</button>
+            }
+            @if (canCancelWikiJob()) {
+              <button class="secondary" (click)="cancelWikiJob()" [disabled]="wikiJobControlBusy">Abbrechen</button>
+            }
+            @if (canRetryWikiImport()) {
+              <button (click)="retryWikiImport()">Erneut versuchen</button>
+            }
+          </div>
+
+          @if (wikiJobStatus() === 'failed') {
+            <div class="muted font-sm mt-sm danger">
+              Fehler: {{ wikiImportJob?.error || 'unbekannter Fehler' }}
+            </div>
+          }
+        </div>
       }
     </div>
 

@@ -119,6 +119,36 @@ export class ArtifactsComponent implements OnDestroy {
   wikiImportJob: any = null;
   wikiJobControlBusy = false;
   private wikiImportPollTimer: ReturnType<typeof setTimeout> | null = null;
+
+  readonly wikiPhaseLabels: Record<string, string> = {
+    queued:                   'In Warteschlange…',
+    download_parse_normalize: 'Download & Parse läuft (kann Stunden dauern bei großem Dump)…',
+    index:                    'CodeCompass-Indexierung läuft…',
+    paused_after_import:      'Pausiert (nach Download)',
+    paused:                   'Pausiert',
+    completed:                'Abgeschlossen',
+    failed:                   'Fehlgeschlagen',
+    cancelled:                'Abgebrochen',
+  };
+
+  wikiPhaseLabel(): string {
+    const phase = String(this.wikiImportJob?.phase || this.wikiJobStatus() || '').toLowerCase();
+    return this.wikiPhaseLabels[phase] || phase || '…';
+  }
+
+  wikiProgressPercent(): number {
+    return Number(this.wikiImportJob?.progress_percent ?? (this.wikiImportBusy ? 5 : 0));
+  }
+
+  wikiImportStats(): { records: number; issues: number; source_id: string } | null {
+    const r = this.wikiImportJob?.import_report;
+    if (!r) return null;
+    return {
+      records: Number(r?.stats?.normalized_records || r?.stats?.records_total || 0),
+      issues:  Number(r?.issues?.length || 0),
+      source_id: String(r?.source_id || ''),
+    };
+  }
   artifactFlowReadModel: any = null;
   loadingArtifactFlow = false;
   selectedWorkspaceRunKey = '';
