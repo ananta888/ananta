@@ -325,6 +325,7 @@ export class WikipediaComponent implements OnDestroy {
   readonly wikiPhaseLabels: Record<string, string> = {
     queued:                   'In Warteschlange…',
     download_parse_normalize: 'Download & Parse läuft (kann Stunden dauern)…',
+    compact:                  'Kompaktierung — unwichtige Chunks werden gefiltert…',
     index:                    'CodeCompass-Indexierung läuft…',
     paused_after_import:      'Pausiert (nach Download)',
     paused:                   'Pausiert',
