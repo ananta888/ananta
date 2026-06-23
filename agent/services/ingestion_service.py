@@ -447,7 +447,7 @@ class IngestionService:
                     if cancel_check and cancel_check():
                         raise ValueError("wiki_download_cancelled")
                     _save_checkpoint()
-                    if write_jsonl_cache and item_ordinal % 10_000 < 500:
+                    if write_jsonl_cache and item_ordinal > resume_from_item and item_ordinal % 50_000 == 0:
                         try:
                             chunks_cache_path.write_text(
                                 json.dumps({"at_item": item_ordinal, "chunks": chunks_per_article}, ensure_ascii=False),
