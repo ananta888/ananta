@@ -62,7 +62,6 @@ const LAYOUT_LABELS: Record<LayoutMode, string> = {
     </div>
 
     <div class="toolbar-right">
-      <button class="btn-sm btn-ghost" (click)="newSession()" [disabled]="loading()">Neu</button>
       <button class="btn-close" title="Zurück" (click)="goBack()">✕</button>
     </div>
   </div>
@@ -594,6 +593,11 @@ export class Diff3EditorComponent implements OnInit, OnDestroy {
     this.panelContents.set({ A: null, B: null, C: null });
     this.localFiles.set({ A: null, B: null, C: null });
     this._panelSetups = { A: 'current_diff', B: 'empty', C: 'empty' };
+    (['A', 'B', 'C'] as PanelId[]).forEach(p => {
+      this.filterInputs[p] = '';
+      this.filePathInputs[p] = '';
+      this.artifactInputs[p] = '';
+    });
     this.aiResponse.set(null);
     this._createAndInitSession(goalId);
   }

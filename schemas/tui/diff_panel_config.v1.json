@@ -27,7 +27,8 @@
         "files_only",
         "hunks_only",
         "ai_chat",
-        "ai_review"
+        "ai_review",
+        "full_file"
       ]
     },
     "title_template": {
