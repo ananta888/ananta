@@ -208,33 +208,46 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
     <button type="button" class="ch-tab" [class.ch-tab-on]="activeTab() === 'vp'"    (click)="activeTab.set('vp')">⚙ VP Editor</button>
     @if (activeTab() === 'graph') {
       <div class="ch-tab-spacer"></div>
-      <label class="ch-lbl" style="margin-left:8px">Modul</label>
-      <select class="ch-sel" style="max-width:220px" [value]="ccDomain()"
-        (change)="ccDomain.set($any($event.target).value); loadSelfGraph()">
-        @for (d of ccDomains(); track d.domain) {
-          <option [value]="d.domain">{{ domainOptionLabel(d) }}</option>
+      <label class="ch-lbl" style="margin-left:8px">Quelle</label>
+      <select class="ch-sel" style="max-width:200px" [value]="ccGraphMode()"
+        (change)="onGraphSourceChange($any($event.target).value)">
+        <option value="self">Ananta (Codebase)</option>
+        @if (ccIndexes().length > 0) {
+          <option disabled>──────────────</option>
+          @for (idx of ccIndexes(); track idx.id) {
+            <option [value]="idx.id">{{ indexLabel(idx) }}</option>
+          }
         }
       </select>
-      <label class="ch-lbl" style="margin-left:8px" title="Welche Node-Arten geladen werden; echte Hop-Tiefe gibt es nach Node-Auswahl im Fokus.">Detailgrad</label>
-      <select class="ch-sel" style="width:116px" [value]="ccDetailLevel()"
-        (change)="ccDetailLevel.set(+$any($event.target).value); loadSelfGraph()">
-        <option value="0">Dateien</option>
-        <option value="1">+ Typen</option>
-        <option value="2">+ Funktionen</option>
-        <option value="3">+ Details</option>
-      </select>
-      <label class="ch-lbl" style="margin-left:8px" title="Globale Graph-Hop-Tiefe ab Dateien/Summaries (0 = kompletter geladener Graph)">Tiefe</label>
-      <input type="number" class="ch-sel" style="width:52px" min="0" max="12" step="1"
-        [value]="ccGraphDepth()"
-        (change)="ccGraphDepth.set(+$any($event.target).value); loadSelfGraph()" />
-      <label class="ch-lbl" style="margin-left:8px" title="Max. Nodes (0 = unbegrenzt)">Max Nodes</label>
-      <input type="number" class="ch-sel" style="width:64px" min="0" step="500"
-        [value]="ccMaxNodes()"
-        (change)="ccMaxNodes.set(+$any($event.target).value); loadSelfGraph()" />
-      <label class="ch-lbl" style="margin-left:8px" title="Max. Edges (0 = unbegrenzt)">Max Edges</label>
-      <input type="number" class="ch-sel" style="width:64px" min="0" step="500"
-        [value]="ccMaxEdges()"
-        (change)="ccMaxEdges.set(+$any($event.target).value); loadSelfGraph()" />
+      @if (ccGraphMode() === 'self') {
+        <label class="ch-lbl" style="margin-left:8px">Modul</label>
+        <select class="ch-sel" style="max-width:200px" [value]="ccDomain()"
+          (change)="ccDomain.set($any($event.target).value); loadSelfGraph()">
+          @for (d of ccDomains(); track d.domain) {
+            <option [value]="d.domain">{{ domainOptionLabel(d) }}</option>
+          }
+        </select>
+        <label class="ch-lbl" style="margin-left:8px" title="Welche Node-Arten geladen werden">Detailgrad</label>
+        <select class="ch-sel" style="width:116px" [value]="ccDetailLevel()"
+          (change)="ccDetailLevel.set(+$any($event.target).value); loadSelfGraph()">
+          <option value="0">Dateien</option>
+          <option value="1">+ Typen</option>
+          <option value="2">+ Funktionen</option>
+          <option value="3">+ Details</option>
+        </select>
+        <label class="ch-lbl" style="margin-left:8px" title="Globale Graph-Hop-Tiefe (0 = komplett)">Tiefe</label>
+        <input type="number" class="ch-sel" style="width:52px" min="0" max="12" step="1"
+          [value]="ccGraphDepth()"
+          (change)="ccGraphDepth.set(+$any($event.target).value); loadSelfGraph()" />
+        <label class="ch-lbl" style="margin-left:8px" title="Max. Nodes (0 = unbegrenzt)">Max Nodes</label>
+        <input type="number" class="ch-sel" style="width:64px" min="0" step="500"
+          [value]="ccMaxNodes()"
+          (change)="ccMaxNodes.set(+$any($event.target).value); loadSelfGraph()" />
+        <label class="ch-lbl" style="margin-left:8px" title="Max. Edges (0 = unbegrenzt)">Max Edges</label>
+        <input type="number" class="ch-sel" style="width:64px" min="0" step="500"
+          [value]="ccMaxEdges()"
+          (change)="ccMaxEdges.set(+$any($event.target).value); loadSelfGraph()" />
+      }
       @if (ccLoading()) { <span class="ch-lbl" style="color:var(--muted);margin-left:8px">Lädt…</span> }
       @if (ccError()) { <span class="ch-lbl" style="color:#ef4444;margin-left:8px">{{ ccError() }}</span> }
     }
@@ -335,8 +348,26 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
       </div>
     }
     <div class="ch-graph-wrap">
-      @if (ccRawGraph()) {
+      @if (ccRawGraph() && (ccRawGraph().nodes?.length > 0 || ccRawGraph().entities?.length > 0)) {
         <app-graph-viewer [rawGraphData]="ccRawGraph()" />
+      } @else if (!ccLoading() && ccGraphMode() !== 'self') {
+        <!-- Knowledge-Index selected but no interactive graph available -->
+        @let selIdx = ccIndexes().find(i => i.id === ccGraphMode());
+        <div class="ch-graph-ki-info">
+          <div style="font-size:18px;margin-bottom:12px">
+            {{ indexLabel(selIdx) }}
+          </div>
+          @if (selIdx?.index_metadata?.manifest_summary; as ms) {
+            <div class="ch-ki-stat-grid">
+              <div class="ch-ki-stat"><span class="ch-ki-num">{{ ms.index_record_count | number }}</span><span class="ch-ki-lbl">Chunks</span></div>
+              <div class="ch-ki-stat"><span class="ch-ki-num">{{ ms.relation_record_count | number }}</span><span class="ch-ki-lbl">Edges</span></div>
+            </div>
+          }
+          <div class="muted" style="font-size:12px;margin-top:16px;max-width:380px;text-align:center;line-height:1.6">
+            Graph mit {{ (selIdx?.index_metadata?.manifest_summary?.relation_record_count ?? 0) | number }} Edges —
+            interaktive Exploration via Suche (in Arbeit).
+          </div>
+        </div>
       } @else if (!ccLoading() && !ccError()) {
         <div class="ch-graph-empty">Lade Modul-Graph…</div>
       }
@@ -1022,6 +1053,18 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
   flex: 1; display: flex; align-items: center; justify-content: center;
   font-size: 13px; color: var(--muted);
 }
+.ch-graph-ki-info {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-size: 14px; color: var(--text);
+}
+.ch-ki-stat-grid {
+  display: flex; gap: 32px; margin-top: 8px;
+}
+.ch-ki-stat {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.ch-ki-num { font-size: 22px; font-weight: 700; color: var(--primary, #6366f1); }
+.ch-ki-lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
 
 /* ── Top Bar ── */
 .ch-int-bar {
@@ -1260,6 +1303,7 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
   readonly activeTab = signal<'vp' | 'graph'>('graph');
   readonly ccIndexes = signal<any[]>([]);
   readonly ccSelectedId = signal('');
+  readonly ccGraphMode = signal<string>('self');
   readonly ccRawGraph = signal<any>(null);
   readonly ccLoading = signal(false);
   readonly ccError = signal('');
@@ -1302,6 +1346,7 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
       if (best) this.ccDomain.set(best.domain);
       this.loadSelfGraph();
     });
+    this.svc.listKnowledgeIndexes().subscribe(items => this.ccIndexes.set(items));
     this._pollSub = interval(3000).pipe(switchMap(() => this.svc.getAutopilotStatus()))
       .subscribe(s => this.autopilot.set(s));
   }
@@ -1363,6 +1408,24 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
     const depth = Math.min(Math.max(domain.depth ?? 0, 0), 4);
     const indent = depth > 0 ? `${'--'.repeat(depth)} ` : '';
     return `${indent}${domain.display_name}${domain.file_count > 0 ? ` (${domain.file_count})` : ''}`;
+  }
+
+  indexLabel(idx: any): string {
+    const scope: string = idx?.source_scope ?? '';
+    const sourceId: string = idx?.index_metadata?.source_id ?? idx?.collection_id ?? idx?.id ?? '?';
+    const scopePrefix: Record<string, string> = { wiki: 'Wiki', artifact: 'Artefakt' };
+    const label = sourceId.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).replace(/Dewiki.*/, 'DE').trim();
+    return `${scopePrefix[scope] ?? scope}: ${label}`;
+  }
+
+  onGraphSourceChange(value: string): void {
+    this.ccGraphMode.set(value);
+    this.ccMeta.set(null);
+    if (value === 'self') {
+      this.loadSelfGraph();
+    } else {
+      this.loadCCGraph(value);
+    }
   }
 
   // ── Blueprint / Playbook / VP Preset ─────────────────────────────────────
