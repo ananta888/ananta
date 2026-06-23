@@ -2,10 +2,16 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+
+def _slug(value: str) -> str:
+    normalized = re.sub(r"[^a-z0-9]+", "-", str(value or "").strip().lower()).strip("-")
+    return normalized or "wiki-article"
 
 
 class WikiCodeCompassBridge:
@@ -137,7 +143,7 @@ class WikiCodeCompassBridge:
                         from_title = str(ldata.get("from") or "")
                         if not from_title:
                             continue
-                        from_node = f"article:{from_title}"
+                        from_node = f"article:{_slug(from_title)}"
                         if from_node not in seen_nodes:
                             continue
                         to_list = ldata.get("to") or []
@@ -147,7 +153,7 @@ class WikiCodeCompassBridge:
                             to_title = str(to_title or "").strip()
                             if not to_title:
                                 continue
-                            to_node = f"article:{to_title}"
+                            to_node = f"article:{_slug(to_title)}"
                             if to_node in seen_nodes:
                                 _write_edge(from_node, to_node, "wiki_link")
                                 link_edge_count += 1
