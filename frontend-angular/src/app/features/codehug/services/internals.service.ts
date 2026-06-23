@@ -210,6 +210,36 @@ export class InternalsService {
     );
   }
 
+  getWikiGraphStatus(indexId: string): Observable<any> {
+    return this.http.get<any>(`${this.hubUrl()}/api/wiki-graph/status?index_id=${encodeURIComponent(indexId)}`).pipe(
+      map(r => r?.data ?? null),
+      catchError(() => of(null)),
+    );
+  }
+
+  triggerWikiGraphBuild(indexId: string, force = false): Observable<any> {
+    return this.http.post<any>(`${this.hubUrl()}/api/wiki-graph/build`, { index_id: indexId, force }).pipe(
+      map(r => r?.data ?? null),
+      catchError(() => of(null)),
+    );
+  }
+
+  searchWikiArticles(indexId: string, query: string, limit = 20): Observable<{slug: string; title: string}[]> {
+    const params = new URLSearchParams({ index_id: indexId, q: query, limit: String(limit) });
+    return this.http.get<any>(`${this.hubUrl()}/api/wiki-graph/search?${params}`).pipe(
+      map(r => Array.isArray(r?.data?.results) ? r.data.results : []),
+      catchError(() => of([])),
+    );
+  }
+
+  expandWikiArticle(indexId: string, slug: string, maxNeighbors = 40): Observable<any> {
+    const params = new URLSearchParams({ index_id: indexId, slug, max_neighbors: String(maxNeighbors) });
+    return this.http.get<any>(`${this.hubUrl()}/api/wiki-graph/expand?${params}`).pipe(
+      map(r => r?.data ?? null),
+      catchError(() => of(null)),
+    );
+  }
+
   getSelfGraph(domain = 'agent.routes', detailLevel = 2, graphDepth = 0, maxNodes = 0, maxEdges = 0): Observable<any> {
     const params = new URLSearchParams({
       domain,

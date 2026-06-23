@@ -11,8 +11,8 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { interval, Subscription } from 'rxjs';
-import { switchMap } from 'rxjs/operators';
+import { interval, Subject, Subscription } from 'rxjs';
+import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
 import { InternalsService, AnantaWorker, AutopilotStatus, VpPreset, VpSkillProfile, VpGraph } from '../services/internals.service';
 import { DecimalPipe, SlicePipe } from '@angular/common';
 import { GraphViewerComponent } from '../../codecompass-graph/components/graph-viewer/graph-viewer.component';
@@ -351,22 +351,73 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
       @if (ccRawGraph() && (ccRawGraph().nodes?.length > 0 || ccRawGraph().entities?.length > 0)) {
         <app-graph-viewer [rawGraphData]="ccRawGraph()" />
       } @else if (!ccLoading() && ccGraphMode() !== 'self') {
-        <!-- Knowledge-Index selected but no interactive graph available -->
+        <!-- Wiki graph explorer -->
         @let selIdx = ccIndexes().find(i => i.id === ccGraphMode());
-        <div class="ch-graph-ki-info">
-          <div style="font-size:18px;margin-bottom:12px">
-            {{ indexLabel(selIdx) }}
+        <div class="ch-wg-panel">
+          <!-- Header -->
+          <div class="ch-wg-header">
+            <span class="ch-wg-title">{{ indexLabel(selIdx) }}</span>
+            @if (selIdx?.index_metadata?.manifest_summary; as ms) {
+              <span class="ch-wg-stat">{{ ms.index_record_count | number }} Chunks · {{ ms.relation_record_count | number }} Kanten</span>
+            }
           </div>
-          @if (selIdx?.index_metadata?.manifest_summary; as ms) {
-            <div class="ch-ki-stat-grid">
-              <div class="ch-ki-stat"><span class="ch-ki-num">{{ ms.index_record_count | number }}</span><span class="ch-ki-lbl">Chunks</span></div>
-              <div class="ch-ki-stat"><span class="ch-ki-num">{{ ms.relation_record_count | number }}</span><span class="ch-ki-lbl">Edges</span></div>
-            </div>
+
+          <!-- Build status -->
+          @if (wgStatus(); as st) {
+            @if (st.status === 'not_built') {
+              <div class="ch-wg-build-box">
+                <p class="muted" style="font-size:13px;margin:0 0 10px">
+                  Für interaktive Exploration wird ein Artikelgraph-Index benötigt
+                  (~2,9 M Artikel + 65 M Kanten → SQLite, einmalig ca. 60–90 Min.).
+                </p>
+                <button class="ch-btn" style="font-size:12px" (click)="wgBuild()">Index aufbauen</button>
+              </div>
+            } @else if (st.status === 'building') {
+              <div class="ch-wg-build-box">
+                <span class="ch-dot-run" style="display:inline-block;margin-right:6px"></span>
+                <span style="font-size:13px">Baut Index auf…
+                  @if (st.phase) { <span class="muted">({{ st.phase }})</span> }
+                  @if (st.article_count) { · {{ st.article_count | number }} Artikel }
+                  @if (st.edge_count)    { · {{ st.edge_count | number }} Kanten }
+                </span>
+              </div>
+            } @else if (st.status === 'error') {
+              <div class="ch-wg-build-box" style="color:#dc2626;font-size:13px">
+                Fehler: {{ st.error }}
+                <button class="ch-btn" style="margin-left:8px;font-size:11px" (click)="wgBuild(true)">Erneut versuchen</button>
+              </div>
+            } @else if (st.status === 'ready') {
+              <!-- Search box -->
+              <div class="ch-wg-search-row">
+                <input class="ch-wg-search-input" type="search" placeholder="Artikel suchen…"
+                  [value]="wgSearchQuery()"
+                  (input)="wgSearch($any($event.target).value)" />
+                @if (wgSearchLoading()) {
+                  <span class="ch-lbl muted" style="margin-left:8px">Suche…</span>
+                }
+              </div>
+              @if (wgSearchResults().length > 0) {
+                <div class="ch-wg-results">
+                  @for (r of wgSearchResults(); track r.slug) {
+                    <button class="ch-wg-result-item"
+                      [class.ch-wg-result-active]="wgExpandedSlug() === r.slug"
+                      (click)="wgExpand(r.slug, r.title)">
+                      {{ r.title }}
+                    </button>
+                  }
+                </div>
+              } @else if (wgSearchQuery() && !wgSearchLoading()) {
+                <div class="ch-wg-noresult">Kein Artikel gefunden.</div>
+              } @else if (!wgSearchQuery()) {
+                <div class="ch-wg-hint muted">
+                  {{ st.article_count | number }} Artikel · {{ st.edge_count | number }} Kanten geladen —
+                  Artikel suchen um Nachbarschafts-Graph anzuzeigen.
+                </div>
+              }
+            }
+          } @else {
+            <div class="muted" style="padding:16px;font-size:13px">Lade Status…</div>
           }
-          <div class="muted" style="font-size:12px;margin-top:16px;max-width:380px;text-align:center;line-height:1.6">
-            Graph mit {{ (selIdx?.index_metadata?.manifest_summary?.relation_record_count ?? 0) | number }} Edges —
-            interaktive Exploration via Suche (in Arbeit).
-          </div>
         </div>
       } @else if (!ccLoading() && !ccError()) {
         <div class="ch-graph-empty">Lade Modul-Graph…</div>
@@ -1053,18 +1104,42 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
   flex: 1; display: flex; align-items: center; justify-content: center;
   font-size: 13px; color: var(--muted);
 }
-.ch-graph-ki-info {
-  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  font-size: 14px; color: var(--text);
+/* ── Wiki Graph Explorer ── */
+.ch-wg-panel {
+  flex: 1; display: flex; flex-direction: column; min-height: 0;
+  padding: 12px; gap: 10px; overflow-y: auto;
 }
-.ch-ki-stat-grid {
-  display: flex; gap: 32px; margin-top: 8px;
+.ch-wg-header {
+  display: flex; align-items: baseline; gap: 12px;
 }
-.ch-ki-stat {
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
+.ch-wg-title { font-size: 15px; font-weight: 600; }
+.ch-wg-stat  { font-size: 12px; color: var(--muted); }
+.ch-wg-build-box {
+  padding: 12px 14px; background: var(--bg-subtle,#f8f8f8);
+  border-radius: 8px; border: 1px solid var(--border);
 }
-.ch-ki-num { font-size: 22px; font-weight: 700; color: var(--primary, #6366f1); }
-.ch-ki-lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.ch-wg-search-row {
+  display: flex; align-items: center; gap: 8px;
+}
+.ch-wg-search-input {
+  flex: 1; padding: 6px 10px; border-radius: 6px;
+  border: 1px solid var(--border); font-size: 13px;
+  background: var(--input-bg, #fff); color: var(--text);
+}
+.ch-wg-results {
+  display: flex; flex-direction: column; gap: 2px;
+  max-height: 220px; overflow-y: auto;
+  border: 1px solid var(--border); border-radius: 6px; padding: 4px;
+}
+.ch-wg-result-item {
+  text-align: left; padding: 5px 10px; border-radius: 4px; font-size: 13px;
+  background: transparent; border: none; cursor: pointer; color: var(--text);
+  transition: background .1s;
+}
+.ch-wg-result-item:hover { background: var(--bg-subtle,#f0f0f0); }
+.ch-wg-result-active { background: color-mix(in srgb,var(--primary,#6366f1) 12%,transparent); font-weight:600; }
+.ch-wg-noresult { font-size: 13px; color: var(--muted); padding: 4px 2px; }
+.ch-wg-hint { font-size: 12px; padding: 8px 0; }
 
 /* ── Top Bar ── */
 .ch-int-bar {
@@ -1315,6 +1390,15 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
   readonly ccMaxEdges = signal(0);
   readonly ccMeta = signal<Record<string, unknown> | null>(null);
 
+  // ── Wiki Graph Explorer ────────────────────────────────────────────────────
+  readonly wgStatus = signal<any>(null);
+  readonly wgSearchQuery = signal('');
+  readonly wgSearchResults = signal<{slug: string; title: string}[]>([]);
+  readonly wgSearchLoading = signal(false);
+  readonly wgExpandedSlug = signal('');
+  private _wgSearch$ = new Subject<string>();
+  private _wgSearchSub: Subscription | null = null;
+
   // ── Connect mode ──────────────────────────────────────────────────────────
   readonly connectMode = signal(false);
   readonly connectSource = signal<string | null>(null);
@@ -1355,6 +1439,7 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
   ngOnDestroy(): void {
     this._pollSub?.unsubscribe();
     this._workflowPollSub?.unsubscribe();
+    this._wgSearchSub?.unsubscribe();
   }
 
   // ── Quellgraph ────────────────────────────────────────────────────────────
@@ -1421,11 +1506,79 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
   onGraphSourceChange(value: string): void {
     this.ccGraphMode.set(value);
     this.ccMeta.set(null);
+    this.ccRawGraph.set(null);
+    this.wgStatus.set(null);
+    this.wgSearchResults.set([]);
+    this.wgSearchQuery.set('');
+    this.wgExpandedSlug.set('');
     if (value === 'self') {
       this.loadSelfGraph();
     } else {
       this.loadCCGraph(value);
+      this._initWikiGraphExplorer(value);
     }
+  }
+
+  private _initWikiGraphExplorer(indexId: string): void {
+    this._wgSearchSub?.unsubscribe();
+    this.svc.getWikiGraphStatus(indexId).subscribe(s => this.wgStatus.set(s));
+    this._wgSearchSub = this._wgSearch$.pipe(
+      debounceTime(300),
+      distinctUntilChanged(),
+    ).subscribe(q => {
+      if (!q) { this.wgSearchResults.set([]); this.wgSearchLoading.set(false); return; }
+      this.wgSearchLoading.set(true);
+      this.svc.searchWikiArticles(indexId, q).subscribe(r => {
+        this.wgSearchResults.set(r);
+        this.wgSearchLoading.set(false);
+      });
+    });
+  }
+
+  wgSearch(q: string): void {
+    this.wgSearchQuery.set(q);
+    this._wgSearch$.next(q);
+  }
+
+  wgExpand(slug: string, title: string): void {
+    const indexId = this.ccGraphMode();
+    if (indexId === 'self') return;
+    this.wgExpandedSlug.set(slug);
+    this.ccLoading.set(true);
+    this.ccError.set('');
+    this.svc.expandWikiArticle(indexId, slug).subscribe({
+      next: data => {
+        this.ccLoading.set(false);
+        if (data?.nodes?.length > 0) {
+          this.ccRawGraph.set(data);
+          this.ccMeta.set(data.metadata ?? null);
+        } else {
+          this.ccError.set('Keine Nachbarn gefunden');
+        }
+      },
+      error: () => { this.ccLoading.set(false); this.ccError.set('Fehler beim Laden'); },
+    });
+  }
+
+  wgBuild(force = false): void {
+    const indexId = this.ccGraphMode();
+    if (indexId === 'self') return;
+    this.wgStatus.set({ status: 'building' });
+    this.svc.triggerWikiGraphBuild(indexId, force).subscribe(() => {
+      this._pollWgStatus(indexId);
+    });
+  }
+
+  private _pollWgStatus(indexId: string): void {
+    const tick = () => {
+      this.svc.getWikiGraphStatus(indexId).subscribe(s => {
+        this.wgStatus.set(s);
+        if (s?.status === 'building') {
+          setTimeout(tick, 5000);
+        }
+      });
+    };
+    setTimeout(tick, 3000);
   }
 
   // ── Blueprint / Playbook / VP Preset ─────────────────────────────────────
