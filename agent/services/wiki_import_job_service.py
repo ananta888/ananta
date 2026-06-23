@@ -1,13 +1,21 @@
 from __future__ import annotations
 
+import json
+import logging
 import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from typing import Any
 
+from agent.config import settings
 from agent.services.ingestion_service import get_ingestion_service
 from agent.services.rag_helper_index_service import get_rag_helper_index_service
+
+logger = logging.getLogger(__name__)
+
+_JOBS_FILE = Path(settings.data_dir) / "wiki_import_jobs.json"
 
 
 class WikiImportJobService:
@@ -19,6 +27,34 @@ class WikiImportJobService:
         self._executor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="wiki-import")
         self._lock = threading.Lock()
         self._jobs: dict[str, dict[str, Any]] = {}
+        self._load_jobs()
+
+    def _load_jobs(self) -> None:
+        try:
+            if _JOBS_FILE.exists():
+                data = json.loads(_JOBS_FILE.read_text(encoding="utf-8"))
+                jobs = data if isinstance(data, dict) else {}
+                interrupted: list[str] = []
+                for job_id, job in jobs.items():
+                    if job.get("status") in {"running", "queued"}:
+                        job = {**job, "status": "interrupted", "phase": "interrupted",
+                               "error": "Hub wurde neu gestartet — Import unterbrochen", "finished_at": time.time()}
+                        interrupted.append(job_id[:8])
+                    self._jobs[job_id] = job
+                if interrupted:
+                    logger.warning("wiki_import_job_service: %d interrupted jobs on startup: %s", len(interrupted), interrupted)
+                logger.info("wiki_import_job_service: loaded %d jobs from disk", len(self._jobs))
+        except Exception:
+            logger.exception("wiki_import_job_service: failed to load jobs from disk")
+
+    def _flush(self) -> None:
+        try:
+            _JOBS_FILE.parent.mkdir(parents=True, exist_ok=True)
+            tmp = _JOBS_FILE.with_suffix(".tmp")
+            tmp.write_text(json.dumps(self._jobs, ensure_ascii=False, default=str), encoding="utf-8")
+            tmp.replace(_JOBS_FILE)
+        except Exception:
+            logger.exception("wiki_import_job_service: failed to flush jobs to disk")
 
     def get_job(self, job_id: str) -> dict[str, Any] | None:
         with self._lock:
@@ -28,7 +64,21 @@ class WikiImportJobService:
     def _save(self, payload: dict[str, Any]) -> dict[str, Any]:
         with self._lock:
             self._jobs[str(payload["job_id"])] = payload
+            self._flush()
         return payload
+
+    def retry_interrupted_job(self, job_id: str) -> dict[str, Any] | None:
+        """Re-submits an interrupted job (hub was restarted mid-run). Resumes from checkpoint."""
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if not job or job.get("status") != "interrupted":
+                return None
+            job = {**job, "status": "queued", "phase": "queued", "progress_percent": 0,
+                   "error": None, "finished_at": None, "started_at": None}
+            self._jobs[job_id] = job
+            self._flush()
+        self._executor.submit(self._run_job, job_id=job_id)
+        return self.get_job(job_id)
 
     def pause_job(self, job_id: str) -> dict[str, Any] | None:
         with self._lock:
@@ -40,6 +90,7 @@ class WikiImportJobService:
                 job["status"] = "paused"
                 job["pause_requested"] = True
                 self._jobs[job_id] = job
+                self._flush()
             return dict(self._jobs[job_id])
 
     def resume_job(self, job_id: str) -> dict[str, Any] | None:

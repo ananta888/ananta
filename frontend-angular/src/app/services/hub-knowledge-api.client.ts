@@ -63,6 +63,10 @@ export class HubKnowledgeApiClient {
     return this.core.post<any>(`${baseUrl}/knowledge/wiki/import-jobs/${encodeURIComponent(jobId)}/cancel`, {}, baseUrl, token, false, 30000);
   }
 
+  retryInterruptedWikiImportJob(baseUrl: string, jobId: string, token?: string): Observable<any> {
+    return this.core.post<any>(`${baseUrl}/knowledge/wiki/import-jobs/${encodeURIComponent(jobId)}/retry-interrupted`, {}, baseUrl, token, false, 30000);
+  }
+
   searchWiki(baseUrl: string, payload: { query: string; top_k?: number }, token?: string): Observable<any> {
     return this.core.post<any>(`${baseUrl}/knowledge/wiki/search`, payload, baseUrl, token, false, 60000);
   }

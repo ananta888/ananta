@@ -453,6 +453,15 @@ def cancel_wiki_import_job(job_id: str):
     return api_response(data={"job": job})
 
 
+@knowledge_bp.route("/knowledge/wiki/import-jobs/<job_id>/retry-interrupted", methods=["POST"])
+@check_auth
+def retry_interrupted_wiki_import_job(job_id: str):
+    job = get_wiki_import_job_service().retry_interrupted_job(job_id)
+    if job is None:
+        raise NotFoundError("wiki_import_job_not_found_or_not_interrupted")
+    return api_response(data={"job": job})
+
+
 @knowledge_bp.route("/knowledge/wiki/presets", methods=["GET"])
 @check_auth
 def list_wiki_import_presets():

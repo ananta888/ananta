@@ -196,6 +196,9 @@ export class HubApiService {
   cancelWikiImportJob(baseUrl: string, jobId: string, token?: string): Observable<any> {
     return this.knowledge.cancelWikiImportJob(baseUrl, jobId, token);
   }
+  retryInterruptedWikiImportJob(baseUrl: string, jobId: string, token?: string): Observable<any> {
+    return this.knowledge.retryInterruptedWikiImportJob(baseUrl, jobId, token);
+  }
   searchWiki(baseUrl: string, payload: { query: string; top_k?: number }, token?: string): Observable<any> {
     return this.knowledge.searchWiki(baseUrl, payload, token);
   }

@@ -219,11 +219,21 @@ import { AdminFacade } from '../features/admin/admin.facade';
             @if (canRetryWikiImport()) {
               <button (click)="retryWikiImport()">Erneut versuchen</button>
             }
+            @if (wikiJobStatus() === 'interrupted') {
+              <button (click)="retryInterrupted()" [disabled]="wikiJobControlBusy">
+                ↩ Fortsetzen (nach Neustart)
+              </button>
+            }
           </div>
 
           @if (wikiJobStatus() === 'failed') {
             <div class="muted font-sm mt-sm danger">
               Fehler: {{ wikiImportJob?.error || 'unbekannter Fehler' }}
+            </div>
+          }
+          @if (wikiJobStatus() === 'interrupted') {
+            <div class="muted font-sm mt-sm warn">
+              Hub wurde neu gestartet — Import unterbrochen. Klicke "Fortsetzen" um vom letzten Checkpoint weiterzumachen.
             </div>
           }
         </div>
@@ -351,10 +361,13 @@ export class WikipediaComponent implements OnDestroy {
         this.allJobs = Array.isArray(r?.jobs) ? r.jobs : [];
         // auto-resume polling for a running/queued job that we don't know about yet
         const active = this.activeBlockingJob();
-        if (active && !this.wikiImportJobId) {
-          this.wikiImportJobId = String(active.job_id || '');
-          this.wikiImportJob   = active;
-          const s = String(active.status || '').toLowerCase();
+        // also pick up the most recent interrupted job so user sees the resume button
+        const interrupted = !active && this.allJobs.find(j => String(j?.status || '').toLowerCase() === 'interrupted');
+        const target = active || interrupted || null;
+        if (target && !this.wikiImportJobId) {
+          this.wikiImportJobId = String(target.job_id || '');
+          this.wikiImportJob   = target;
+          const s = String(target.status || '').toLowerCase();
           if (s === 'running' || s === 'queued') {
             this.wikiImportBusy = true;
             this.startWikiImportPolling(this.wikiImportJobId);
@@ -609,5 +622,19 @@ export class WikipediaComponent implements OnDestroy {
     this.wikiImportJob   = null;
     this.wikiImportJobId = '';
     this.importWiki();
+  }
+
+  retryInterrupted(): void {
+    if (!this.hub || !this.wikiImportJobId) return;
+    this.wikiJobControlBusy = true;
+    this.hubApi.retryInterruptedWikiImportJob(this.hub.url, this.wikiImportJobId).subscribe({
+      next: (r) => {
+        this.wikiImportJob = r?.job || this.wikiImportJob;
+        this.wikiJobControlBusy = false;
+        this.wikiImportBusy = true;
+        this.startWikiImportPolling(this.wikiImportJobId);
+      },
+      error: (e) => { this.ns.error(this.ns.fromApiError(e, 'Fortsetzen fehlgeschlagen')); this.wikiJobControlBusy = false; },
+    });
   }
 }
