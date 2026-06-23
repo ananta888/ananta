@@ -1,14 +1,14 @@
-import { Component, Input, OnChanges, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, Input, OnChanges, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 
 import { GenericGraphModel, GraphNode, GraphEdge } from '../../models/graph.model';
-import { GraphViewMode } from '../../models/graph-view-mode';
 import { GraphLayoutMode } from '../../models/graph-layout-mode';
-import { GraphFilter } from '../../models/graph-filter.model';
 import { GraphStateService } from '../../services/graph-state.service';
 import { GraphAdapterService } from '../../services/graph-adapter.service';
 import { GraphToolbarComponent } from '../graph-toolbar/graph-toolbar.component';
 import { GraphDetailPanelComponent } from '../graph-detail-panel/graph-detail-panel.component';
+import { FileDiffPanelComponent } from '../file-diff-panel/file-diff-panel.component';
 import { SimpleGraphViewComponent } from '../simple-graph-view/simple-graph-view.component';
 import { Graph2dViewComponent } from '../graph-2d-view/graph-2d-view.component';
 import { Graph3dViewComponent } from '../graph-3d-view/graph-3d-view.component';
@@ -21,6 +21,7 @@ import { Graph3dViewComponent } from '../graph-3d-view/graph-3d-view.component';
     CommonModule,
     GraphToolbarComponent,
     GraphDetailPanelComponent,
+    FileDiffPanelComponent,
     SimpleGraphViewComponent,
     Graph2dViewComponent,
     Graph3dViewComponent,
@@ -46,7 +47,7 @@ import { Graph3dViewComponent } from '../graph-3d-view/graph-3d-view.component';
                 [graph]="filteredGraph()"
                 [selectedNode]="state.selectedNode()"
                 [selectedEdge]="state.selectedEdge()"
-                (nodeSelected)="state.selectNode($event)"
+                (nodeSelected)="onNodeSelectedSimple($event)"
                 (edgeSelected)="state.selectEdge($event)"
               />
             }
@@ -72,7 +73,14 @@ import { Graph3dViewComponent } from '../graph-3d-view/graph-3d-view.component';
           }
         </div>
 
-        @if (state.selectedNode() || state.selectedEdge()) {
+        @if (diff3File()) {
+          <div class="gv-diff3">
+            <app-file-diff-panel
+              [filePath]="diff3File()!"
+              (closed)="diff3File.set(null)"
+            />
+          </div>
+        } @else if (state.selectedNode() || state.selectedEdge()) {
           <div class="gv-detail">
             <app-graph-detail-panel
               [selectedNode]="state.selectedNode()"
@@ -82,6 +90,7 @@ import { Graph3dViewComponent } from '../graph-3d-view/graph-3d-view.component';
               (closed)="state.clearSelection()"
               (focusRequested)="state.setFocus(state.selectedNode()!.id, $event)"
               (focusCleared)="state.setFocus(null, 0)"
+              (diff3Requested)="openDiff3()"
             />
           </div>
         }
@@ -102,6 +111,7 @@ import { Graph3dViewComponent } from '../graph-3d-view/graph-3d-view.component';
     .gv-body { display: flex; flex: 1; min-height: 0; overflow: hidden; }
     .gv-renderer { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
     .gv-detail { width: 320px; border-left: 1px solid #e2e8f0; overflow-y: auto; background: #fafafa; flex-shrink: 0; }
+    .gv-diff3 { width: 480px; border-left: 1px solid #30363d; flex-shrink: 0; overflow: hidden; display: flex; flex-direction: column; }
     .gv-warnings { padding: .5rem .75rem; background: #fef9c3; border-top: 1px solid #fde68a; flex-shrink: 0; }
     .warning-msg { margin: 0; font-size: .8rem; color: #92400e; }
   `],
@@ -111,6 +121,9 @@ export class GraphViewerComponent implements OnChanges, OnInit {
 
   readonly state = inject(GraphStateService);
   private readonly adapter = inject(GraphAdapterService);
+  private readonly router  = inject(Router);
+
+  readonly diff3File = signal<string | null>(null);
 
   graph: GenericGraphModel | null = null;
   webglAvailable = true;
@@ -141,6 +154,18 @@ export class GraphViewerComponent implements OnChanges, OnInit {
       this.graph = null;
       this.state.setGraph({ nodes: [], edges: [], metadata: { sourceRef: '', sourceKind: '', nodeCount: 0, edgeCount: 0 }, warnings: [] });
     }
+  }
+
+  onNodeSelectedSimple(node: GraphNode): void {
+    this.state.selectNode(node);
+    if (node.file) {
+      this.router.navigate(['/diff3'], { queryParams: { file: node.file } });
+    }
+  }
+
+  openDiff3(): void {
+    const file = this.state.selectedNode()?.file;
+    if (file) this.diff3File.set(file);
   }
 
   filteredGraph(): GenericGraphModel | null {

@@ -93,6 +93,17 @@ def build_current_diff_source_ref(*, source_ref_id: str = "current-diff", path_f
     )
 
 
+def build_file_view_source_ref(*, path: str, source_ref_id: str | None = None) -> dict[str, Any]:
+    """Source ref that resolves to the full working-tree content of a file."""
+    clean = path.strip().lstrip("/")
+    return build_diff_source_ref(
+        source_ref_id=source_ref_id or f"file-{clean}",
+        source_kind="file_path",
+        display_name=clean,
+        locator={"path": clean, "view_mode": "full"},
+    )
+
+
 def build_output_artifact_source_ref(*, output_artifact_id: str, goal_id: str | None = None) -> dict[str, Any]:
     locator: dict[str, Any] = {"output_artifact_id": str(output_artifact_id)}
     if str(goal_id or "").strip():

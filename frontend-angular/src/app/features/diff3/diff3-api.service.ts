@@ -6,7 +6,7 @@ import { AgentDirectoryService } from '../../services/agent-directory.service';
 export type PanelId = 'A' | 'B' | 'C';
 export type AiMode = 'review' | 'explain' | 'risk' | 'tests' | 'patch' | 'chat';
 export type LayoutMode = 'equal' | 'left-wide' | 'right-wide' | 'focus' | 'compact' | 'focus-a' | 'focus-b' | 'focus-c';
-export type SourceKind = 'current_diff' | 'output_artifact' | 'ai' | 'empty';
+export type SourceKind = 'current_diff' | 'output_artifact' | 'ai' | 'empty' | 'file_content';
 
 export interface DiffSourceRef {
   schema: string;
@@ -127,6 +127,7 @@ export class Diff3ApiService {
     goal_id?: string;
     ai_mode?: AiMode;
     path_filter?: string;
+    path?: string;
   }): Observable<Diff3Session> {
     return this.http.put<Diff3Session>(
       `${this.base}/api/diff3/sessions/${sessionId}/panels/${panelId}`, body

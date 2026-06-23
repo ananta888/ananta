@@ -4,6 +4,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
+import { Location } from '@angular/common';
 import { Subject, switchMap } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import {
@@ -11,7 +12,7 @@ import {
   AiDiffResponse, PanelContent,
 } from './diff3-api.service';
 
-type PanelSetup = 'empty' | 'current_diff' | 'output_artifact' | 'ai';
+type PanelSetup = 'empty' | 'current_diff' | 'output_artifact' | 'ai' | 'file_content';
 
 interface DiffLine { text: string; cls: string; }
 
@@ -57,6 +58,7 @@ const LAYOUT_LABELS: Record<LayoutMode, string> = {
 
     <div class="toolbar-right">
       <button class="btn-sm btn-ghost" (click)="newSession()" [disabled]="loading()">Neu</button>
+      <button class="btn-close" title="Zurück" (click)="goBack()">✕</button>
     </div>
   </div>
 
@@ -86,6 +88,7 @@ const LAYOUT_LABELS: Record<LayoutMode, string> = {
                   (click)="$event.stopPropagation()">
             <option value="empty">Leer</option>
             <option value="current_diff">Git Diff</option>
+            <option value="file_content">Dateiinhalt</option>
             <option value="output_artifact">Artifact</option>
             <option value="ai">AI</option>
           </select>
@@ -102,6 +105,15 @@ const LAYOUT_LABELS: Record<LayoutMode, string> = {
                  (ngModelChange)="artifactInputs[pid] = $event"
                  (keydown.enter)="onArtifactEnter(pid)">
           <button class="btn-xs" (click)="onArtifactEnter(pid)">Laden</button>
+        </div>
+
+        <div *ngSwitchCase="'file_content'" class="panel-source-input" (click)="$event.stopPropagation()">
+          <input class="source-input" type="text"
+                 placeholder="Dateipfad (relativ zum Repo-Root)…"
+                 [ngModel]="filePathInputs[pid]"
+                 (ngModelChange)="filePathInputs[pid] = $event"
+                 (keydown.enter)="onFileContentEnter(pid)">
+          <button class="btn-xs" (click)="onFileContentEnter(pid)">Laden</button>
         </div>
 
         <div *ngSwitchCase="'current_diff'" class="panel-source-input" (click)="$event.stopPropagation()">
@@ -141,6 +153,24 @@ const LAYOUT_LABELS: Record<LayoutMode, string> = {
           <div *ngSwitchCase="'empty'" class="panel-empty">
             Kein Inhalt. Wähle eine Quelle oben.
           </div>
+
+          <ng-container *ngSwitchCase="'file_content'">
+            <div class="panel-loading-bar" *ngIf="panelLoadings()[pid]">Lade…</div>
+            <ng-container *ngIf="!panelLoadings()[pid]">
+              <div class="diff-meta" *ngIf="panelContents()[pid] as c">
+                <span>{{ c.ok ? getPanelSourceLabel(pid) : ('Fehler: ' + c.reason_code) }}</span>
+                <span *ngIf="c.ok && c.text" class="diff-stat">{{ c.text!.split('\n').length }} Zeilen</span>
+              </div>
+              <div class="diff-preview" *ngIf="panelContents()[pid] as c">
+                <ng-container *ngIf="c.ok && c.text; else noFileContent">
+                  <div *ngFor="let line of getFileLines(pid)" class="diff-line ln-normal">{{ line }}</div>
+                </ng-container>
+                <ng-template #noFileContent>
+                  <div class="panel-empty">{{ c.ok ? 'Datei ist leer.' : ('Fehler: ' + c.reason_code) }}</div>
+                </ng-template>
+              </div>
+            </ng-container>
+          </ng-container>
 
           <ng-container *ngSwitchCase="'current_diff'">
             <div class="panel-loading-bar" *ngIf="panelLoadings()[pid]">Lade…</div>
@@ -240,6 +270,12 @@ const LAYOUT_LABELS: Record<LayoutMode, string> = {
     .btn-sm:hover:not(:disabled) { background: #30363d; }
     .btn-sm:disabled, .btn-xs:disabled { opacity: 0.4; cursor: not-allowed; }
     .btn-ghost { background: transparent; }
+    .btn-close {
+      width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
+      border-radius: 4px; border: 1px solid #30363d; background: transparent;
+      color: #8b949e; cursor: pointer; font-size: 15px; line-height: 1; padding: 0;
+    }
+    .btn-close:hover { background: #3d1f1f; color: #ff7b72; border-color: #6f1919; }
     .diff3-error {
       padding: 6px 12px; background: #3d1f1f; color: #ff7b72;
       border-bottom: 1px solid #6f1919; font-size: 12px; flex-shrink: 0;
@@ -363,8 +399,9 @@ const LAYOUT_LABELS: Record<LayoutMode, string> = {
   `],
 })
 export class Diff3EditorComponent implements OnInit, OnDestroy {
-  private api     = inject(Diff3ApiService);
-  private route   = inject(ActivatedRoute);
+  private api      = inject(Diff3ApiService);
+  private route    = inject(ActivatedRoute);
+  private location = inject(Location);
   private destroy$ = new Subject<void>();
 
   readonly session     = signal<Diff3Session | null>(null);
@@ -385,6 +422,7 @@ export class Diff3EditorComponent implements OnInit, OnDestroy {
 
   readonly artifactInputs: Record<PanelId, string>   = { A: '', B: '', C: '' };
   readonly filterInputs: Record<PanelId, string>     = { A: '', B: '', C: '' };
+  readonly filePathInputs: Record<PanelId, string>   = { A: '', B: '', C: '' };
   readonly renderModeInputs: Record<PanelId, string> = { A: 'unified', B: 'unified', C: 'unified' };
 
   private _panelSetups: Record<PanelId, PanelSetup> = { A: 'current_diff', B: 'empty', C: 'empty' };
@@ -407,13 +445,19 @@ export class Diff3EditorComponent implements OnInit, OnDestroy {
   // ── Lifecycle ───────────────────────────────────────────────────────────────
 
   ngOnInit(): void {
-    const goalId = this.route.snapshot.queryParamMap.get('goal') ?? undefined;
-    this._createAndInitSession(goalId);
+    const params   = this.route.snapshot.queryParamMap;
+    const goalId   = params.get('goal') ?? undefined;
+    const filePath = params.get('file') ?? undefined;
+    this._createAndInitSession(goalId, filePath);
   }
 
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  goBack(): void {
+    this.location.back();
   }
 
   // ── Session ─────────────────────────────────────────────────────────────────
@@ -425,17 +469,38 @@ export class Diff3EditorComponent implements OnInit, OnDestroy {
     this._createAndInitSession(goalId);
   }
 
-  private _createAndInitSession(goalId?: string): void {
+  private _createAndInitSession(goalId?: string, filePath?: string): void {
     this.loading.set(true);
     this.error.set('');
-    // Backend already pre-populates panel A with current_diff; we just fetch its content.
     this.api.createSession(goalId)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: s => {
           this.session.set(s);
           this.loading.set(false);
-          this.fetchPanelContent('A');
+          if (filePath) {
+            // Panel A = Git Diff für die Datei, Panel B = vollständiger Dateiinhalt
+            this.filterInputs['A'] = filePath;
+            this.filePathInputs['B'] = filePath;
+            this._panelSetups = { A: 'current_diff', B: 'file_content', C: 'empty' };
+            this.api.updatePanel(s.session_id, 'A', {
+              source_kind: 'current_diff',
+              path_filter: filePath,
+              render_mode: this.renderModeInputs['A'],
+            }).pipe(takeUntil(this.destroy$))
+              .subscribe({
+                next: upd => { this.session.set(upd); this.fetchPanelContent('A'); },
+                error: e  => this.error.set(String(e)),
+              });
+            this.api.updatePanel(s.session_id, 'B', { source_kind: 'file_content', path: filePath })
+              .pipe(takeUntil(this.destroy$))
+              .subscribe({
+                next: upd => { this.session.set(upd); this.fetchPanelContent('B'); },
+                error: e  => this.error.set(String(e)),
+              });
+          } else {
+            this.fetchPanelContent('A');
+          }
         },
         error: e => { this.error.set(`Session-Fehler: ${e.message ?? e}`); this.loading.set(false); },
       });
@@ -503,11 +568,28 @@ export class Diff3EditorComponent implements OnInit, OnDestroy {
           next: upd => { this.session.set(upd); this.fetchPanelContent(pid); },
           error: e => this.error.set(String(e)),
         });
+    } else if (setup === 'file_content') {
+      // only load immediately if a path is already set
+      if (this.filePathInputs[pid].trim()) {
+        this.onFileContentEnter(pid);
+      }
     } else if (setup === 'ai') {
       this.api.updatePanel(s.session_id, pid, { source_kind: 'ai', ai_mode: this.aiMode() })
         .pipe(takeUntil(this.destroy$))
         .subscribe({ next: upd => this.session.set(upd), error: e => this.error.set(String(e)) });
     }
+  }
+
+  onFileContentEnter(pid: PanelId): void {
+    const s = this.session();
+    const path = this.filePathInputs[pid].trim();
+    if (!s || !path) return;
+    this.api.updatePanel(s.session_id, pid, { source_kind: 'file_content', path })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: upd => { this.session.set(upd); this.fetchPanelContent(pid); },
+        error: e => this.error.set(String(e)),
+      });
   }
 
   onCurrentDiffEnter(pid: PanelId): void {
@@ -578,6 +660,12 @@ export class Diff3EditorComponent implements OnInit, OnDestroy {
     const src = this._panel(pid)?.source_left;
     if (!src) return '–';
     return src.display_name ?? src.source_kind ?? '–';
+  }
+
+  getFileLines(pid: PanelId): string[] {
+    const c = this.panelContents()[pid];
+    if (!c?.ok || !c.text) return [];
+    return c.text.split('\n');
   }
 
   getDiffLines(pid: PanelId): DiffLine[] {

@@ -13,6 +13,7 @@ from client_surfaces.operator_tui.diff.ai_diff_panel_state import (
 )
 from client_surfaces.operator_tui.diff.diff_sources import (
     build_current_diff_source_ref,
+    build_file_view_source_ref,
     build_output_artifact_source_ref,
 )
 from client_surfaces.operator_tui.diff.three_way_diff_state import (
@@ -138,6 +139,13 @@ def update_panel(session_id: str, panel_id: str):
             path_filter=str(body.get("path_filter") or "")
         )
         panel_type = "diff"
+    elif source_kind == "file_content":
+        file_path = str(body.get("path") or body.get("path_filter") or "").strip()
+        if not file_path:
+            return jsonify({"error": "path required for file_content"}), 400
+        source_left = build_file_view_source_ref(path=file_path)
+        panel_type = "file_view"
+        render_mode = "full_file"
     elif source_kind == "output_artifact":
         output_id = str(body.get("output_artifact_id") or "").strip()
         if not output_id:

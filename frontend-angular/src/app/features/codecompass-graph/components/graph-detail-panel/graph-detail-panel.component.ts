@@ -42,6 +42,13 @@ import { GraphNode, GraphEdge } from '../../models/graph.model';
           </dl>
         </div>
 
+        <!-- Diff3 shortcut -->
+        @if (selectedNode.file) {
+          <div class="diff3-section">
+            <button class="btn-diff3" (click)="diff3Requested.emit()">⬡ Im 3er Diff öffnen</button>
+          </div>
+        }
+
         <!-- Focus controls -->
         <div class="focus-section">
           <div class="focus-row">
@@ -109,6 +116,15 @@ import { GraphNode, GraphEdge } from '../../models/graph.model';
     .copyable:hover { color: #1d4ed8; }
     .mono { font-family: monospace; font-size: .8rem; }
 
+    /* Diff3 shortcut */
+    .diff3-section { border-top: 1px solid #e2e8f0; padding-top: .5rem; margin-bottom: .25rem; }
+    .btn-diff3 {
+      width: 100%; padding: 5px 10px; border-radius: 5px; border: 1px solid #0284c7;
+      background: #e0f2fe; color: #0369a1; font-size: .78rem; font-weight: 600;
+      cursor: pointer; text-align: left;
+    }
+    .btn-diff3:hover { background: #bae6fd; }
+
     /* Focus controls */
     .focus-section { border-top: 1px solid #e2e8f0; padding-top: .65rem; display: flex; flex-direction: column; gap: .5rem; }
     .focus-row { display: flex; align-items: center; justify-content: space-between; }
@@ -145,6 +161,7 @@ export class GraphDetailPanelComponent implements OnChanges {
   @Output() closed = new EventEmitter<void>();
   @Output() focusRequested = new EventEmitter<number>();
   @Output() focusCleared = new EventEmitter<void>();
+  @Output() diff3Requested = new EventEmitter<void>();
 
   localHops = 0;
 

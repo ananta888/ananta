@@ -77,6 +77,19 @@ class DiffSourceResolver:
         rel_path = str(locator.get("path") or "").strip()
         if not rel_path:
             return {"ok": False, "reason_code": "path_required"}
+
+        # view_mode="full" → return just the working-tree content, no HEAD comparison
+        if str(locator.get("view_mode") or "") == "full":
+            worktree_file = self._repo_root / rel_path
+            if not worktree_file.exists():
+                return {"ok": False, "reason_code": "source_not_found"}
+            return {
+                "ok": True,
+                "content_type": "text",
+                "path": rel_path,
+                "text": _read_file(worktree_file),
+            }
+
         against = str(locator.get("against") or "HEAD")
         worktree_file = self._repo_root / rel_path
         code, old_text, _ = _run_git(["show", f"{against}:{rel_path}"], cwd=self._repo_root)
