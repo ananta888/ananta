@@ -275,6 +275,8 @@ class IngestionService:
         default_language: str = "en",
         strict: bool = False,
         import_format: str | None = None,
+        progress_callback=None,
+        cancel_check=None,
     ) -> dict[str, object]:
         path = Path(str(corpus_path or "").strip()).expanduser().resolve()
         detected_format = self._infer_wiki_format(corpus_path=path, import_format=import_format)
@@ -292,6 +294,8 @@ class IngestionService:
                 source_id=source_id,
                 default_language=default_language,
                 strict=strict,
+                progress_callback=progress_callback,
+                cancel_check=cancel_check,
             )
         if detected_format == "zim":
             raise ValueError("wiki_zim_import_not_supported")
@@ -306,6 +310,8 @@ class IngestionService:
         default_language: str = "en",
         strict: bool = False,
         write_jsonl_cache: bool = True,
+        progress_callback=None,
+        cancel_check=None,
     ) -> dict[str, object]:
         path = Path(str(corpus_path or "").strip()).expanduser().resolve()
         if not path.exists():
@@ -353,6 +359,10 @@ class IngestionService:
             if normalized_batch:
                 records.extend(normalized_batch)
             if item_ordinal % 500 == 0:
+                if cancel_check and cancel_check():
+                    raise ValueError("wiki_download_cancelled")
+                if progress_callback:
+                    progress_callback(item_ordinal, len(records))
                 self._wiki_checkpoint_service.save(
                     source_id=normalized_source_id,
                     corpus_path=str(path),
@@ -548,6 +558,7 @@ class IngestionService:
         strict: bool = False,
         max_download_bytes: int = 20 * 1024 * 1024 * 1024,
         cancel_check=None,
+        progress_callback=None,
     ) -> dict[str, object]:
         url = str(corpus_url or "").strip()
         if not url:
@@ -621,6 +632,8 @@ class IngestionService:
             default_language=default_language,
             strict=strict,
             import_format=None,
+            progress_callback=progress_callback,
+            cancel_check=cancel_check,
         )
         report["download"] = {
             "url": url,

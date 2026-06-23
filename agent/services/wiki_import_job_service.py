@@ -108,6 +108,15 @@ class WikiImportJobService:
             current = self.get_job(job_id)
             return bool(current and current.get("cancel_requested"))
 
+        # DE Wikipedia ~2.7M articles; rough estimate for 15%→70% progress band
+        _PARSE_TOTAL_ESTIMATE = 2_700_000
+
+        def _on_parse_progress(items_done: int, records_done: int) -> None:
+            pct = 15 + min(55, int((items_done / _PARSE_TOTAL_ESTIMATE) * 55))
+            current = self.get_job(job_id) or {}
+            self._save({**current, "progress_percent": pct,
+                        "parse_items_done": items_done, "parse_records_done": records_done})
+
         try:
             if _is_cancelled():
                 self._save({**self.get_job(job_id), "status": "cancelled", "phase": "cancelled", "progress_percent": 100, "finished_at": time.time()})
@@ -120,6 +129,7 @@ class WikiImportJobService:
                     default_language=request.get("language", "en"),
                     strict=bool(request.get("strict", False)),
                     cancel_check=_is_cancelled,
+                    progress_callback=_on_parse_progress,
                 )
             else:
                 report = self._ingestion.import_wiki_corpus(
@@ -129,6 +139,8 @@ class WikiImportJobService:
                     default_language=request.get("language", "en"),
                     strict=bool(request.get("strict", False)),
                     import_format=request.get("import_format"),
+                    cancel_check=_is_cancelled,
+                    progress_callback=_on_parse_progress,
                 )
             current = self.get_job(job_id) or {}
             if bool(current.get("cancel_requested")):

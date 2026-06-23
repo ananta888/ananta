@@ -174,7 +174,11 @@ import { AdminFacade } from '../features/admin/admin.facade';
               <span class="wiki-step-icon">①</span>
               <span>Download &amp; Parse</span>
               @if (wikiImportJob?.phase === 'download_parse_normalize') {
-                <span class="muted font-sm">&nbsp;— läuft…</span>
+                @if (wikiImportJob?.parse_items_done) {
+                  <span class="muted font-sm">&nbsp;— {{ wikiImportJob.parse_items_done | number }} Artikel verarbeitet</span>
+                } @else {
+                  <span class="muted font-sm">&nbsp;— läuft…</span>
+                }
               }
             </div>
             <div class="wiki-step"
