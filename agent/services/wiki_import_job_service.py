@@ -93,15 +93,24 @@ class WikiImportJobService:
         self._executor.submit(self._run_job, job_id=job_id)
         return self.get_job(job_id) or {}
 
+    def list_jobs(self) -> list[dict[str, Any]]:
+        with self._lock:
+            return sorted(self._jobs.values(), key=lambda j: float(j.get("created_at") or 0), reverse=True)
+
     def _run_job(self, *, job_id: str) -> None:
         job = self.get_job(job_id)
         if not job:
             return
         request = dict(job.get("request") or {})
         self._save({**job, "status": "running", "phase": "download_parse_normalize", "progress_percent": 15, "started_at": time.time()})
+
+        def _is_cancelled() -> bool:
+            current = self.get_job(job_id)
+            return bool(current and current.get("cancel_requested"))
+
         try:
-            if request.get("cancel_requested"):
-                self._save({**job, "status": "cancelled", "phase": "cancelled", "progress_percent": 100, "finished_at": time.time()})
+            if _is_cancelled():
+                self._save({**self.get_job(job_id), "status": "cancelled", "phase": "cancelled", "progress_percent": 100, "finished_at": time.time()})
                 return
             if bool(job.get("from_url")):
                 report = self._ingestion.import_wiki_jsonl_from_url(
@@ -110,6 +119,7 @@ class WikiImportJobService:
                     source_id=request.get("source_id"),
                     default_language=request.get("language", "en"),
                     strict=bool(request.get("strict", False)),
+                    cancel_check=_is_cancelled,
                 )
             else:
                 report = self._ingestion.import_wiki_corpus(
@@ -154,13 +164,14 @@ class WikiImportJobService:
                 }
             )
         except Exception as exc:
+            cancelled = "wiki_download_cancelled" in str(exc)
             self._save(
                 {
                     **(self.get_job(job_id) or {"job_id": job_id}),
-                    "status": "failed",
-                    "phase": "failed",
+                    "status": "cancelled" if cancelled else "failed",
+                    "phase": "cancelled" if cancelled else "failed",
                     "progress_percent": 100,
-                    "error": str(exc),
+                    "error": None if cancelled else str(exc),
                     "finished_at": time.time(),
                 }
             )

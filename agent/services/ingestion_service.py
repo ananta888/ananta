@@ -546,6 +546,7 @@ class IngestionService:
         default_language: str = "en",
         strict: bool = False,
         max_download_bytes: int = 20 * 1024 * 1024 * 1024,
+        cancel_check=None,
     ) -> dict[str, object]:
         url = str(corpus_url or "").strip()
         if not url:
@@ -569,6 +570,7 @@ class IngestionService:
             url=url,
             destination=local_compressed or local_extracted,
             max_download_bytes=max_download_bytes,
+            cancel_check=cancel_check,
         )
 
         lower_safe_name = safe_name.lower()
@@ -599,6 +601,7 @@ class IngestionService:
                 url=str(index_url).strip(),
                 destination=local_index_compressed,
                 max_download_bytes=512 * 1024 * 1024,
+                cancel_check=cancel_check,
             )
             if safe_index_name.endswith(".bz2"):
                 with bz2.open(local_index_compressed, "rb") as source:
@@ -628,7 +631,7 @@ class IngestionService:
         }
         return report
 
-    def _download_with_resume(self, *, url: str, destination: Path, max_download_bytes: int) -> dict[str, Any]:
+    def _download_with_resume(self, *, url: str, destination: Path, max_download_bytes: int, cancel_check=None) -> dict[str, Any]:
         destination.parent.mkdir(parents=True, exist_ok=True)
         existing_bytes = destination.stat().st_size if destination.exists() else 0
         request = urllib.request.Request(url)
@@ -673,6 +676,8 @@ class IngestionService:
                 raise ValueError("wiki_storage_insufficient")
             with destination.open(mode) as output:
                 while True:
+                    if cancel_check and cancel_check():
+                        raise ValueError("wiki_download_cancelled")
                     chunk = response.read(1024 * 256)
                     if not chunk:
                         break

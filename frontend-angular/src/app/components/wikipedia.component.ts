@@ -56,7 +56,22 @@ import { AdminFacade } from '../features/admin/admin.facade';
     .danger { color: #dc2626; }
   `],
   template: `
-    <div class="card">
+    @if (hasActiveJob() && !wikiImportJobId) {
+      <div class="card" style="border-color:#f59e0b; background:color-mix(in srgb,#fef3c7 60%,var(--card-bg))">
+        <div class="row space-between">
+          <div>
+            <strong>Ein Import läuft bereits</strong>
+            <div class="muted font-sm mt-5">Job {{ activeBlockingJob()?.job_id }} — {{ jobPhaseLabel(activeBlockingJob()) }}</div>
+          </div>
+          <div class="row">
+            <button class="secondary" (click)="loadAllJobs()">Aktualisieren</button>
+            <button class="secondary danger" (click)="cancelOtherJob(activeBlockingJob()?.job_id)">Abbrechen</button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <div class="card mt-md">
       <div class="row space-between">
         <div>
           <h2 class="no-margin">Wikipedia</h2>
@@ -290,6 +305,7 @@ export class WikipediaComponent implements OnDestroy {
   wikiImportJobId = '';
   wikiImportJob: any = null;
   wikiJobControlBusy = false;
+  allJobs: any[] = [];
   private wikiImportPollTimer: ReturnType<typeof setTimeout> | null = null;
 
   readonly wikiPhaseLabels: Record<string, string> = {
@@ -307,6 +323,55 @@ export class WikipediaComponent implements OnDestroy {
     this.applyWikiPresets([]);
     this.loadWikiPresets();
     this.loadProfiles();
+    this.loadAllJobs();
+  }
+
+  hasActiveJob(): boolean {
+    return this.allJobs.some((j) => {
+      const s = String(j?.status || '').toLowerCase();
+      return s === 'running' || s === 'queued';
+    });
+  }
+
+  activeBlockingJob(): any | null {
+    return this.allJobs.find((j) => {
+      const s = String(j?.status || '').toLowerCase();
+      return s === 'running' || s === 'queued';
+    }) || null;
+  }
+
+  loadAllJobs(): void {
+    if (!this.hub) return;
+    this.hubApi.listWikiImportJobs(this.hub.url).subscribe({
+      next: (r) => {
+        this.allJobs = Array.isArray(r?.jobs) ? r.jobs : [];
+        // auto-resume polling for a running/queued job that we don't know about yet
+        const active = this.activeBlockingJob();
+        if (active && !this.wikiImportJobId) {
+          this.wikiImportJobId = String(active.job_id || '');
+          this.wikiImportJob   = active;
+          const s = String(active.status || '').toLowerCase();
+          if (s === 'running' || s === 'queued') {
+            this.wikiImportBusy = true;
+            this.startWikiImportPolling(this.wikiImportJobId);
+          }
+        }
+      },
+      error: () => {},
+    });
+  }
+
+  cancelOtherJob(jobId: string): void {
+    if (!this.hub || !jobId) return;
+    this.hubApi.cancelWikiImportJob(this.hub.url, jobId).subscribe({
+      next: () => { this.ns.success('Job abgebrochen'); this.loadAllJobs(); },
+      error: (e) => this.ns.error(this.ns.fromApiError(e, 'Abbrechen fehlgeschlagen')),
+    });
+  }
+
+  jobPhaseLabel(job: any): string {
+    const phase = String(job?.phase || job?.status || '').toLowerCase();
+    return this.wikiPhaseLabels[phase] || phase || '…';
   }
 
   ngOnDestroy(): void {

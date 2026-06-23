@@ -181,6 +181,9 @@ export class HubApiService {
   importWikiFromUrl(baseUrl: string, payload: any, token?: string): Observable<any> {
     return this.knowledge.importWikiFromUrl(baseUrl, payload, token);
   }
+  listWikiImportJobs(baseUrl: string, token?: string): Observable<any> {
+    return this.knowledge.listWikiImportJobs(baseUrl, token);
+  }
   getWikiImportJob(baseUrl: string, jobId: string, token?: string): Observable<any> {
     return this.knowledge.getWikiImportJob(baseUrl, jobId, token);
   }

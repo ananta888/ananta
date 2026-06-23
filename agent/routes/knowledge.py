@@ -404,6 +404,13 @@ def get_knowledge_index_job(job_id: str):
     return api_response(data={"job": job})
 
 
+@knowledge_bp.route("/knowledge/wiki/import-jobs", methods=["GET"])
+@check_auth
+def list_wiki_import_jobs():
+    jobs = get_wiki_import_job_service().list_jobs()
+    return api_response(data={"jobs": jobs})
+
+
 @knowledge_bp.route("/knowledge/wiki/import-jobs/<job_id>", methods=["GET"])
 @check_auth
 def get_wiki_import_job(job_id: str):

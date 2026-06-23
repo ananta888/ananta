@@ -34,6 +34,7 @@ export class AdminFacade {
   indexKnowledgeCollection(baseUrl: string, collectionId: string, body?: any, token?: string) { return this.hubApi.indexKnowledgeCollection(baseUrl, collectionId, body, token); }
   searchKnowledgeCollection(baseUrl: string, collectionId: string, payload: { query: string; top_k?: number }, token?: string) { return this.hubApi.searchKnowledgeCollection(baseUrl, collectionId, payload, token); }
   importWikiFromUrl(baseUrl: string, payload: any, token?: string) { return this.hubApi.importWikiFromUrl(baseUrl, payload, token); }
+  listWikiImportJobs(baseUrl: string, token?: string) { return this.hubApi.listWikiImportJobs(baseUrl, token); }
   getWikiImportJob(baseUrl: string, jobId: string, token?: string) { return this.hubApi.getWikiImportJob(baseUrl, jobId, token); }
   pauseWikiImportJob(baseUrl: string, jobId: string, token?: string) { return this.hubApi.pauseWikiImportJob(baseUrl, jobId, token); }
   resumeWikiImportJob(baseUrl: string, jobId: string, token?: string) { return this.hubApi.resumeWikiImportJob(baseUrl, jobId, token); }
