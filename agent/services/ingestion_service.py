@@ -322,65 +322,114 @@ class IngestionService:
         if resolved_index_path is not None and not resolved_index_path.exists():
             raise ValueError("wiki_multistream_index_not_found")
         normalized_source_id = str(source_id or "").strip() or Path(path.stem).stem
-        records: list[dict] = []
-        issues: list[dict] = []
-        page_count = 0
-        doc_count = 0
-        item_ordinal = 0
+
+        # Persistent streaming cache paths
+        partial_cache_path = path.parent / (path.name + ".partial.jsonl")
+        final_cache_path   = path.parent / (path.name + ".normalized.jsonl")
+
+        # Load checkpoint to determine resume position
         checkpoint = self._wiki_checkpoint_service.load(
             source_id=normalized_source_id,
             corpus_path=str(path),
             index_path=str(resolved_index_path) if resolved_index_path else None,
         ) or {}
-        if checkpoint.get("phase") == "completed":
-            logger.info(
-                "Wiki import checkpoint indicates prior completion",
-                extra={"source_id": normalized_source_id, "corpus_path": str(path)},
-            )
-        for item in self._wiki_parser.iter_items(corpus_path=path, index_path=resolved_index_path):
-            item_ordinal += 1
-            item_kind = str(item.get("kind") or "").strip().lower()
-            if item_kind == "page":
-                page_count += 1
-            elif item_kind == "doc":
-                doc_count += 1
-            normalized_batch, issue = self._wiki_normalizer.normalize_item(
-                item=item,
-                source_path=path,
-                source_id=normalized_source_id,
-                ordinal=item_ordinal,
-                default_language=default_language,
-                source_format="xml",
-            )
-            if issue:
-                issues.append(issue)
-                if strict:
-                    raise ValueError("wiki_corpus_invalid_record")
-            if normalized_batch:
-                records.extend(normalized_batch)
-            if item_ordinal % 500 == 0:
-                if cancel_check and cancel_check():
-                    raise ValueError("wiki_download_cancelled")
-                if progress_callback:
-                    progress_callback(item_ordinal, len(records))
-                self._wiki_checkpoint_service.save(
-                    source_id=normalized_source_id,
-                    corpus_path=str(path),
-                    index_path=str(resolved_index_path) if resolved_index_path else None,
-                    checkpoint={
-                        "phase": "normalizing",
-                        "processed_items": item_ordinal,
-                        "normalized_records": len(records),
-                        "issues": len(issues),
-                    },
+        resume_from_item = 0
+        if write_jsonl_cache and partial_cache_path.exists():
+            prior_items = int(checkpoint.get("processed_items") or 0)
+            if prior_items > 0:
+                resume_from_item = prior_items
+                logger.info(
+                    "import_wiki_xml: resuming from item %d (partial cache %s)",
+                    resume_from_item, partial_cache_path.name,
                 )
-        records = sort_wiki_records(records)
+            else:
+                partial_cache_path.unlink(missing_ok=True)
+
+        issues: list[dict] = []
+        page_count  = int(checkpoint.get("page_count") or 0) if resume_from_item else 0
+        doc_count   = int(checkpoint.get("doc_count")  or 0) if resume_from_item else 0
+        item_ordinal  = 0
+        record_count  = int(checkpoint.get("normalized_records") or 0) if resume_from_item else 0
+
+        cache_fh = None
+        if write_jsonl_cache:
+            partial_cache_path.parent.mkdir(parents=True, exist_ok=True)
+            cache_fh = partial_cache_path.open("a" if resume_from_item > 0 else "w", encoding="utf-8")
+
+        in_memory_records: list[dict] = []  # only used when write_jsonl_cache=False
+
+        try:
+            for item in self._wiki_parser.iter_items(corpus_path=path, index_path=resolved_index_path):
+                item_ordinal += 1
+                item_kind = str(item.get("kind") or "").strip().lower()
+                if item_kind == "page":
+                    page_count += 1
+                elif item_kind == "doc":
+                    doc_count += 1
+
+                # Skip items already written in a previous run
+                if item_ordinal <= resume_from_item:
+                    continue
+
+                normalized_batch, issue = self._wiki_normalizer.normalize_item(
+                    item=item,
+                    source_path=path,
+                    source_id=normalized_source_id,
+                    ordinal=item_ordinal,
+                    default_language=default_language,
+                    source_format="xml",
+                )
+                if issue:
+                    issues.append(issue)
+                    if strict:
+                        raise ValueError("wiki_corpus_invalid_record")
+                if normalized_batch:
+                    if cache_fh:
+                        for rec in normalized_batch:
+                            cache_fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+                        record_count += len(normalized_batch)
+                    else:
+                        in_memory_records.extend(normalized_batch)
+                        record_count = len(in_memory_records)
+
+                if item_ordinal % 500 == 0:
+                    if cache_fh:
+                        cache_fh.flush()
+                    if cancel_check and cancel_check():
+                        raise ValueError("wiki_download_cancelled")
+                    if progress_callback:
+                        progress_callback(item_ordinal, record_count)
+                    self._wiki_checkpoint_service.save(
+                        source_id=normalized_source_id,
+                        corpus_path=str(path),
+                        index_path=str(resolved_index_path) if resolved_index_path else None,
+                        checkpoint={
+                            "phase": "normalizing",
+                            "processed_items": item_ordinal,
+                            "normalized_records": record_count,
+                            "page_count": page_count,
+                            "doc_count": doc_count,
+                            "issues": len(issues),
+                        },
+                    )
+
+        except Exception:
+            if cache_fh:
+                cache_fh.close()
+            raise
+
+        if cache_fh:
+            cache_fh.close()
+            cache_fh = None
+            partial_cache_path.rename(final_cache_path)
+            # Stream-load from disk for indexing phase
+            records = self._load_jsonl_for_indexing(final_cache_path)
+        else:
+            records = sort_wiki_records(in_memory_records)
+
         if not records:
             raise ValueError("wiki_corpus_no_valid_records")
-        jsonl_cache_path = None
-        if write_jsonl_cache:
-            jsonl_cache_path = path.with_suffix(path.suffix + ".normalized.jsonl")
-            write_wiki_jsonl_cache(records=records, cache_path=jsonl_cache_path)
+
         stats = build_wiki_import_stats(
             input_pages=page_count,
             input_docs=doc_count,
@@ -396,6 +445,8 @@ class IngestionService:
                 "phase": "completed",
                 "processed_items": item_ordinal,
                 "normalized_records": len(records),
+                "page_count": page_count,
+                "doc_count": doc_count,
                 "issues": len(issues),
                 "index_path": str(resolved_index_path) if resolved_index_path else None,
             },
@@ -405,17 +456,30 @@ class IngestionService:
             "source_id": normalized_source_id,
             "corpus_path": str(path),
             "index_path": str(resolved_index_path) if resolved_index_path else None,
-            "jsonl_cache_path": str(jsonl_cache_path) if jsonl_cache_path else None,
+            "jsonl_cache_path": str(final_cache_path) if write_jsonl_cache else None,
             "records": records,
             "issues": issues,
             "stats": stats,
-            "deterministic_order": "article_section_file_chunk_ordinal",
+            "deterministic_order": "file_ordinal",
             "format": "xml",
             "multistream_index": {
                 "enabled": resolved_index_path is not None,
                 "path": str(resolved_index_path) if resolved_index_path else None,
             },
         }
+
+    def _load_jsonl_for_indexing(self, path: Path) -> list[dict]:
+        """Stream-reads a JSONL file line by line to avoid one big string allocation."""
+        records = []
+        with path.open("r", encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if line:
+                    try:
+                        records.append(json.loads(line))
+                    except json.JSONDecodeError:
+                        pass
+        return records
 
     def _normalize_wiki_record(
         self,
@@ -625,16 +689,36 @@ class IngestionService:
                 "stored_path": str(local_index_path),
                 "compressed_path": str(local_index_compressed) if safe_index_name.endswith(".bz2") else None,
             }
-        report = self.import_wiki_corpus(
-            corpus_path=str(local_corpus),
-            index_path=str(local_index_path) if local_index_path else None,
-            source_id=source_id,
-            default_language=default_language,
-            strict=strict,
-            import_format=None,
-            progress_callback=progress_callback,
-            cancel_check=cancel_check,
-        )
+        # If a completed normalized JSONL cache exists alongside the corpus, use it directly
+        # instead of re-parsing the raw BZ2 (which takes hours).
+        jsonl_cache_candidate = local_corpus.parent / (local_corpus.name + ".normalized.jsonl")
+        if jsonl_cache_candidate.exists() and jsonl_cache_candidate.stat().st_size > 0:
+            logger.info(
+                "import_wiki_jsonl_from_url: JSONL cache hit %s (%d bytes) — skipping XML parse",
+                jsonl_cache_candidate.name,
+                jsonl_cache_candidate.stat().st_size,
+            )
+            report = self.import_wiki_corpus(
+                corpus_path=str(jsonl_cache_candidate),
+                index_path=None,
+                source_id=source_id,
+                default_language=default_language,
+                strict=strict,
+                import_format="jsonl",
+                progress_callback=progress_callback,
+                cancel_check=cancel_check,
+            )
+        else:
+            report = self.import_wiki_corpus(
+                corpus_path=str(local_corpus),
+                index_path=str(local_index_path) if local_index_path else None,
+                source_id=source_id,
+                default_language=default_language,
+                strict=strict,
+                import_format=None,
+                progress_callback=progress_callback,
+                cancel_check=cancel_check,
+            )
         report["download"] = {
             "url": url,
             **download_report,
