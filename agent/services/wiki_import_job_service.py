@@ -108,11 +108,13 @@ class WikiImportJobService:
             current = self.get_job(job_id)
             return bool(current and current.get("cancel_requested"))
 
-        # DE Wikipedia ~2.7M articles; rough estimate for 15%→70% progress band
-        _PARSE_TOTAL_ESTIMATE = 2_700_000
-
         def _on_parse_progress(items_done: int, records_done: int) -> None:
-            pct = 15 + min(55, int((items_done / _PARSE_TOTAL_ESTIMATE) * 55))
+            # Log-scale progress 15→70%: feels responsive early, slows near end
+            import math
+            _ESTIMATE = 2_700_000
+            ratio = min(1.0, items_done / _ESTIMATE)
+            log_pct = int(math.log1p(ratio * (math.e - 1)) * 55)  # 0..55
+            pct = 15 + log_pct
             current = self.get_job(job_id) or {}
             self._save({**current, "progress_percent": pct,
                         "parse_items_done": items_done, "parse_records_done": records_done})

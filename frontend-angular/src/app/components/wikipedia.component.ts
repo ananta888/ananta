@@ -525,10 +525,12 @@ export class WikipediaComponent implements OnDestroy {
             const err = String(this.wikiImportJob?.error || '').trim();
             this.ns.error(err ? `Import fehlgeschlagen: ${err}` : 'Import fehlgeschlagen');
           } else {
-            this.wikiImportPollTimer = setTimeout(poll, 2000);
+            const phase = String(this.wikiImportJob?.phase || '').toLowerCase();
+            const interval = phase === 'download_parse_normalize' ? 5000 : 3000;
+            this.wikiImportPollTimer = setTimeout(poll, interval);
           }
         },
-        error: () => { this.wikiImportPollTimer = setTimeout(poll, 4000); },
+        error: () => { this.wikiImportPollTimer = setTimeout(poll, 5000); },
       });
     };
     this.wikiImportPollTimer = setTimeout(poll, 800);
