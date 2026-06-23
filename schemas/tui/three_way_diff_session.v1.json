@@ -49,7 +49,7 @@
           },
           "panel_type": {
             "type": "string",
-            "enum": ["diff", "file", "artifact", "ai_review", "ai_explain", "ai_patch", "empty"]
+            "enum": ["diff", "file", "file_view", "artifact", "ai_review", "ai_explain", "ai_patch", "empty"]
           },
           "source_left": {
             "type": ["object", "null"]

@@ -46,4 +46,20 @@ export class HubKnowledgeApiClient {
   getWikiImportJob(baseUrl: string, jobId: string, token?: string): Observable<any> {
     return this.core.get<any>(`${baseUrl}/knowledge/wiki/import-jobs/${encodeURIComponent(jobId)}`, baseUrl, token, true, 120000);
   }
+
+  pauseWikiImportJob(baseUrl: string, jobId: string, token?: string): Observable<any> {
+    return this.core.post<any>(`${baseUrl}/knowledge/wiki/import-jobs/${encodeURIComponent(jobId)}/pause`, {}, baseUrl, token, false, 30000);
+  }
+
+  resumeWikiImportJob(baseUrl: string, jobId: string, token?: string): Observable<any> {
+    return this.core.post<any>(`${baseUrl}/knowledge/wiki/import-jobs/${encodeURIComponent(jobId)}/resume`, {}, baseUrl, token, false, 30000);
+  }
+
+  cancelWikiImportJob(baseUrl: string, jobId: string, token?: string): Observable<any> {
+    return this.core.post<any>(`${baseUrl}/knowledge/wiki/import-jobs/${encodeURIComponent(jobId)}/cancel`, {}, baseUrl, token, false, 30000);
+  }
+
+  searchWiki(baseUrl: string, payload: { query: string; top_k?: number }, token?: string): Observable<any> {
+    return this.core.post<any>(`${baseUrl}/knowledge/wiki/search`, payload, baseUrl, token, false, 60000);
+  }
 }

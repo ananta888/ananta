@@ -282,7 +282,7 @@ class Settings(BaseSettings):
     rag_source_repo_enabled: bool = Field(default=True, validation_alias="RAG_SOURCE_REPO_ENABLED")
     rag_source_artifact_enabled: bool = Field(default=True, validation_alias="RAG_SOURCE_ARTIFACT_ENABLED")
     rag_source_task_memory_enabled: bool = Field(default=True, validation_alias="RAG_SOURCE_TASK_MEMORY_ENABLED")
-    rag_source_wiki_enabled: bool = Field(default=False, validation_alias="RAG_SOURCE_WIKI_ENABLED")
+    rag_source_wiki_enabled: bool = Field(default=True, validation_alias="RAG_SOURCE_WIKI_ENABLED")
     rag_default_window_profile: str = Field(default="standard_32k", validation_alias="RAG_DEFAULT_WINDOW_PROFILE")
     rag_compact_budget_tokens: int = Field(default=12000, validation_alias="RAG_COMPACT_BUDGET_TOKENS")
     rag_standard_budget_tokens: int = Field(default=32000, validation_alias="RAG_STANDARD_BUDGET_TOKENS")
@@ -298,6 +298,10 @@ class Settings(BaseSettings):
     rag_iterative_summary_chars: int = Field(default=600, validation_alias="RAG_ITERATIVE_SUMMARY_CHARS")
     rag_iterative_initial_min_files: int = Field(default=3, validation_alias="RAG_ITERATIVE_INITIAL_MIN_FILES")
     rag_iterative_initial_max_files: int = Field(default=8, validation_alias="RAG_ITERATIVE_INITIAL_MAX_FILES")
+    codecompass_wiki_index_path: str = Field(
+        default="",
+        validation_alias="CODECOMPASS_WIKI_INDEX_PATH",
+    )
     codecompass_fts_enabled: bool = Field(default=False, validation_alias="CODECOMPASS_FTS_ENABLED")
     codecompass_vector_enabled: bool = Field(default=False, validation_alias="CODECOMPASS_VECTOR_ENABLED")
     codecompass_vector_index_path: str = Field(

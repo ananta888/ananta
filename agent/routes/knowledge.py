@@ -715,6 +715,41 @@ def search_knowledge_collection(collection_id: str):
     )
 
 
+@knowledge_bp.route("/knowledge/wiki/search", methods=["POST"])
+@check_auth
+def search_wiki():
+    """Direct wiki search without requiring a collection.
+
+    Body:
+      query: str
+      top_k: int  (default 10)
+    """
+    body = request.get_json(silent=True) or {}
+    query = str(body.get("query") or "").strip()
+    if not query:
+        raise BadRequestError("query_required")
+    top_k = max(1, min(int(body.get("top_k") or 10), 50))
+    from agent.services.retrieval_source_contract import source_scopes_for_types
+    source_scopes = source_scopes_for_types({"wiki"})
+    chunks = get_knowledge_index_retrieval_service().search(
+        query, top_k=top_k, source_scopes=source_scopes
+    )
+    return api_response(data={
+        "query": query,
+        "top_k": top_k,
+        "chunks": [
+            {
+                "engine": chunk.engine,
+                "source": chunk.source,
+                "content": chunk.content,
+                "score": round(chunk.score, 3),
+                "metadata": chunk.metadata,
+            }
+            for chunk in chunks
+        ],
+    })
+
+
 @knowledge_bp.route("/knowledge/retrieval-preflight", methods=["GET"])
 @check_auth
 def get_knowledge_retrieval_preflight():

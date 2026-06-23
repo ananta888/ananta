@@ -117,9 +117,7 @@ export class ArtifactsComponent implements OnDestroy {
   wikiImportResult: any = null;
   wikiImportJobId = '';
   wikiImportJob: any = null;
-  wikiNetworkPolicy = 'unknown';
-  wikiBatteryPolicy = 'unknown';
-  wikiStorageSignal = 'unknown';
+  wikiJobControlBusy = false;
   private wikiImportPollTimer: ReturnType<typeof setTimeout> | null = null;
   artifactFlowReadModel: any = null;
   loadingArtifactFlow = false;
@@ -384,6 +382,72 @@ export class ArtifactsComponent implements OnDestroy {
         this.ns.error(this.ns.fromApiError(error, 'Wikipedia-Import fehlgeschlagen'));
       },
     });
+  }
+
+  wikiJobStatus(): string {
+    return String(this.wikiImportJob?.status || '').trim().toLowerCase();
+  }
+
+  canPauseWikiJob(): boolean {
+    return !!this.wikiImportJobId && this.wikiJobStatus() === 'running' && !this.wikiJobControlBusy;
+  }
+
+  canResumeWikiJob(): boolean {
+    return !!this.wikiImportJobId && this.wikiJobStatus() === 'paused' && !this.wikiJobControlBusy;
+  }
+
+  canCancelWikiJob(): boolean {
+    const s = this.wikiJobStatus();
+    return !!this.wikiImportJobId && (s === 'running' || s === 'paused') && !this.wikiJobControlBusy;
+  }
+
+  canRetryWikiImport(): boolean {
+    const s = this.wikiJobStatus();
+    return !this.wikiImportBusy && (s === 'failed' || s === 'cancelled');
+  }
+
+  pauseWikiJob(): void {
+    if (!this.hub || !this.wikiImportJobId) return;
+    this.wikiJobControlBusy = true;
+    this.hubApi.pauseWikiImportJob(this.hub.url, this.wikiImportJobId).subscribe({
+      next: (r) => { this.wikiImportJob = r?.job || this.wikiImportJob; this.wikiJobControlBusy = false; },
+      error: (e) => { this.ns.error(this.ns.fromApiError(e, 'Pause fehlgeschlagen')); this.wikiJobControlBusy = false; },
+    });
+  }
+
+  resumeWikiJob(): void {
+    if (!this.hub || !this.wikiImportJobId) return;
+    this.wikiJobControlBusy = true;
+    this.hubApi.resumeWikiImportJob(this.hub.url, this.wikiImportJobId).subscribe({
+      next: (r) => {
+        this.wikiImportJob = r?.job || this.wikiImportJob;
+        this.wikiJobControlBusy = false;
+        this.wikiImportBusy = true;
+        this.startWikiImportPolling(this.wikiImportJobId);
+      },
+      error: (e) => { this.ns.error(this.ns.fromApiError(e, 'Fortsetzen fehlgeschlagen')); this.wikiJobControlBusy = false; },
+    });
+  }
+
+  cancelWikiJob(): void {
+    if (!this.hub || !this.wikiImportJobId) return;
+    this.wikiJobControlBusy = true;
+    this.hubApi.cancelWikiImportJob(this.hub.url, this.wikiImportJobId).subscribe({
+      next: (r) => {
+        this.wikiImportJob = r?.job || this.wikiImportJob;
+        this.wikiJobControlBusy = false;
+        this.wikiImportBusy = false;
+        this.stopWikiImportPolling();
+      },
+      error: (e) => { this.ns.error(this.ns.fromApiError(e, 'Abbrechen fehlgeschlagen')); this.wikiJobControlBusy = false; },
+    });
+  }
+
+  retryWikiImport(): void {
+    this.wikiImportJob = null;
+    this.wikiImportJobId = '';
+    this.wikiImportResult = null;
+    this.importWiki();
   }
 
   private startWikiImportPolling(jobId: string): void {

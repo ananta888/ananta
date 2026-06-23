@@ -184,6 +184,18 @@ export class HubApiService {
   getWikiImportJob(baseUrl: string, jobId: string, token?: string): Observable<any> {
     return this.knowledge.getWikiImportJob(baseUrl, jobId, token);
   }
+  pauseWikiImportJob(baseUrl: string, jobId: string, token?: string): Observable<any> {
+    return this.knowledge.pauseWikiImportJob(baseUrl, jobId, token);
+  }
+  resumeWikiImportJob(baseUrl: string, jobId: string, token?: string): Observable<any> {
+    return this.knowledge.resumeWikiImportJob(baseUrl, jobId, token);
+  }
+  cancelWikiImportJob(baseUrl: string, jobId: string, token?: string): Observable<any> {
+    return this.knowledge.cancelWikiImportJob(baseUrl, jobId, token);
+  }
+  searchWiki(baseUrl: string, payload: { query: string; top_k?: number }, token?: string): Observable<any> {
+    return this.knowledge.searchWiki(baseUrl, payload, token);
+  }
 
   streamSystemEvents(baseUrl: string, token?: string): Observable<any> { return this.system.streamSystemEvents(baseUrl, token); }
   getSystemHealth(baseUrl: string, token?: string): Observable<any> { return this.system.getHealth(baseUrl, token); }
