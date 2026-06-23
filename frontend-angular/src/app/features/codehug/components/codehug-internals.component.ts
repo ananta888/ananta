@@ -352,7 +352,7 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
         <app-graph-viewer [rawGraphData]="ccRawGraph()" />
       } @else if (!ccLoading() && ccGraphMode() !== 'self') {
         <!-- Wiki graph explorer -->
-        @let selIdx = ccIndexes().find(i => i.id === ccGraphMode());
+        @let selIdx = ccSelectedIndex();
         <div class="ch-wg-panel">
           <!-- Header -->
           <div class="ch-wg-header">
@@ -1389,6 +1389,7 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
   readonly ccMaxNodes = signal(0);
   readonly ccMaxEdges = signal(0);
   readonly ccMeta = signal<Record<string, unknown> | null>(null);
+  readonly ccSelectedIndex = computed(() => this.ccIndexes().find(i => i.id === this.ccGraphMode()) ?? null);
 
   // ── Wiki Graph Explorer ────────────────────────────────────────────────────
   readonly wgStatus = signal<any>(null);
