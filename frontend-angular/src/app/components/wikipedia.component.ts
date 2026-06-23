@@ -272,9 +272,9 @@ import { AdminFacade } from '../features/admin/admin.facade';
             @if (canRetryWikiImport()) {
               <button (click)="retryWikiImport()">Erneut versuchen</button>
             }
-            @if (wikiJobStatus() === 'interrupted') {
+            @if (wikiJobStatus() === 'interrupted' || wikiJobStatus() === 'failed') {
               <button (click)="retryInterrupted()" [disabled]="wikiJobControlBusy">
-                ↩ Fortsetzen (nach Neustart)
+                ↩ Fortsetzen (Checkpoint)
               </button>
             }
           </div>
@@ -417,8 +417,8 @@ export class WikipediaComponent implements OnDestroy {
         this.allJobs = Array.isArray(r?.jobs) ? r.jobs : [];
         // auto-resume polling for a running/queued job that we don't know about yet
         const active = this.activeBlockingJob();
-        // also pick up the most recent interrupted job so user sees the resume button
-        const interrupted = !active && this.allJobs.find(j => String(j?.status || '').toLowerCase() === 'interrupted');
+        // also pick up the most recent interrupted/failed job so user sees the resume button
+        const interrupted = !active && this.allJobs.find(j => ['interrupted', 'failed'].includes(String(j?.status || '').toLowerCase()));
         const target = active || interrupted || null;
         if (target && !this.wikiImportJobId) {
           this.wikiImportJobId = String(target.job_id || '');

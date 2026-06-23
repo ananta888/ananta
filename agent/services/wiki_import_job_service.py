@@ -69,10 +69,10 @@ class WikiImportJobService:
         return payload
 
     def retry_interrupted_job(self, job_id: str) -> dict[str, Any] | None:
-        """Re-submits an interrupted job (hub was restarted mid-run). Resumes from checkpoint."""
+        """Re-submits an interrupted or failed job. Resumes from checkpoint if available."""
         with self._lock:
             job = self._jobs.get(job_id)
-            if not job or job.get("status") != "interrupted":
+            if not job or job.get("status") not in {"interrupted", "failed"}:
                 return None
             job = {**job, "status": "queued", "phase": "queued", "progress_percent": 0,
                    "error": None, "finished_at": None, "started_at": None}

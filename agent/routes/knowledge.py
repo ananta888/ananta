@@ -485,7 +485,9 @@ def wiki_disk_state():
             if info is None:
                 continue
             name = f.name
-            if name.endswith(".partial.links.jsonl"):
+            if name.endswith(".partial.chunks_cache.json"):
+                kind = "chunks_cache"
+            elif name.endswith(".partial.links.jsonl"):
                 kind = "partial_links_jsonl"
             elif name.endswith(".links.jsonl"):
                 kind = "links_jsonl"

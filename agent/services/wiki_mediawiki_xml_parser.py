@@ -38,7 +38,9 @@ class MediaWikiXmlDumpParser:
                     continue
         return sorted(offsets)
 
-    def _iter_multistream_pages(self, *, corpus_path: Path, index_path: Path) -> Iterable[dict[str, Any]]:
+    def _iter_multistream_pages(
+        self, *, corpus_path: Path, index_path: Path, resume_block_index: int = 0
+    ) -> Iterable[dict[str, Any]]:
         offsets = self._read_offsets(index_path)
         if not offsets:
             raise ValueError("wiki_multistream_index_empty")
@@ -46,8 +48,13 @@ class MediaWikiXmlDumpParser:
         offsets = [offset for offset in offsets if 0 <= offset < file_size]
         if not offsets:
             raise ValueError("wiki_multistream_index_no_valid_offsets")
+        start = max(0, resume_block_index)
+        if start > 0:
+            logger.info("wiki_parser: fast-seeking to block %d / %d (skipping %d blocks)", start, len(offsets), start)
         with corpus_path.open("rb") as source:
             for position, offset in enumerate(offsets):
+                if position < start:
+                    continue  # fast-skip without decompression
                 next_offset = offsets[position + 1] if position + 1 < len(offsets) else file_size
                 if next_offset <= offset:
                     continue
@@ -64,12 +71,15 @@ class MediaWikiXmlDumpParser:
                     )
                     continue
                 wrapped = b"<mediawiki>" + xml_fragment + b"</mediawiki>"
-                context = ET.iterparse(BytesIO(wrapped), events=("end",))
-                for _event, elem in context:
-                    if _tag_local_name(elem.tag) != "page":
-                        continue
-                    yield self._parse_page(elem)
-                    elem.clear()
+                try:
+                    context = ET.iterparse(BytesIO(wrapped), events=("end",))
+                    for _event, elem in context:
+                        if _tag_local_name(elem.tag) != "page":
+                            continue
+                        yield position, self._parse_page(elem)
+                        elem.clear()
+                except ET.ParseError as exc:
+                    logger.warning("Wiki multistream block has invalid XML (skipping block at offset %d): %s", offset, exc)
 
     def _parse_page(self, elem) -> dict[str, Any]:
         redirect = elem.find(".//{*}redirect")
@@ -90,9 +100,18 @@ class MediaWikiXmlDumpParser:
             "text": str(elem.findtext("./abstract") or elem.findtext("./text") or "").strip(),
         }
 
+    def iter_pages_with_block(
+        self, *, corpus_path: Path, index_path: Path, resume_block_index: int = 0
+    ) -> Iterable[tuple[int, dict[str, Any]]]:
+        """Yields (block_index, page_dict) for multistream; supports fast-seek via resume_block_index."""
+        yield from self._iter_multistream_pages(
+            corpus_path=corpus_path, index_path=index_path, resume_block_index=resume_block_index
+        )
+
     def iter_items(self, *, corpus_path: Path, index_path: Path | None = None) -> Iterable[dict[str, Any]]:
         if index_path is not None:
-            yield from self._iter_multistream_pages(corpus_path=corpus_path, index_path=index_path)
+            for _block_idx, page in self._iter_multistream_pages(corpus_path=corpus_path, index_path=index_path):
+                yield page
             return
         if corpus_path.name.endswith(".bz2"):
             raw_stream = bz2.open(corpus_path, "rb")
