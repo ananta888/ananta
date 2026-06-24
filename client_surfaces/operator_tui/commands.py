@@ -87,6 +87,7 @@ from client_surfaces.operator_tui.commands_goal import handle_goal_command, hand
 from client_surfaces.operator_tui.commands_ai import handle_ai_command, _resolve_chat_ask_timeout_seconds
 from client_surfaces.operator_tui.commands_rag import handle_rag_command, handle_te_command, handle_sim_command, handle_tutorial_command, handle_tutorials_command, handle_snakes_command, handle_msg_command
 from client_surfaces.operator_tui.commands_chat import handle_chat_command, handle_notes_command, handle_channels_command, handle_ai_context_command
+from client_surfaces.operator_tui.commands_run_control import handle_run_command, handle_approval_command, handle_branch_command
 
 def _now_iso() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
@@ -447,6 +448,15 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
     if command == "ai" and args and args[0].lower() == "context":
         return handle_ai_context_command(args, state)
 
+    # ── run-control ───────────────────────────────────────────────────────────
+    if command == "run":
+        return handle_run_command(args, state)
+    # ── approval ──────────────────────────────────────────────────────────────
+    if command == "approval":
+        return handle_approval_command(args, state)
+    # ── branch ────────────────────────────────────────────────────────────────
+    if command == "branch":
+        return handle_branch_command(args, state)
     if command == "share":
         return _handle_share_command(args, state)
     if command == "oidc":

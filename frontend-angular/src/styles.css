@@ -1595,3 +1595,11 @@ body.dark-mode .teams-team-card {
 .usage-info { font-size: 11px; margin-top: 4px; }
 .prompt-preview { white-space: pre-wrap; font-size: 12px; background: #f4f4f4; padding: 8px; }
 .details-mt-8 { margin-top: 8px; }
+
+/* Run-Control board badges (RC-080) */
+.board-rc-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.rc-badge { font-size: 0.72rem; padding: 1px 6px; border-radius: 3px; font-weight: 500; white-space: nowrap; text-decoration: none; }
+.rc-badge-paused { background: #d29922; color: #fff; }
+.rc-badge-approval { background: #e36209; color: #fff; }
+.rc-badge-intervention { background: #0969da; color: #fff; }
+.rc-badge-branch { background: #6e40c9; color: #fff; }

@@ -112,6 +112,17 @@ import { DecisionExplanationComponent, NextStepsComponent, NextStepAction } from
                       @if (t.priority) {
                         <span class="muted font-sm">{{t.priority}}</span>
                       }
+                      <div class="board-rc-badges">
+                        @if (normalizeTaskStatus(t.status) === 'paused') {
+                          <span class="rc-badge rc-badge-paused" title="Task pausiert">⏸ Pausiert</span>
+                        }
+                        @if (t.status === 'pending_approval' || t.status === 'blocked_pending_approval') {
+                          <a [routerLink]="['/task', t.id]" [queryParams]="{tab:'run-control'}" class="rc-badge rc-badge-approval" title="Approval Gate ausstehend">🔐 Approval</a>
+                        }
+                        @if (t.manual_override_active) {
+                          <span class="rc-badge rc-badge-intervention" title="Operator-Eingriff aktiv">✏ Eingriff</span>
+                        }
+                      </div>
                     </div>
                   }
                   @if (!tasksBy(col.id).length) {

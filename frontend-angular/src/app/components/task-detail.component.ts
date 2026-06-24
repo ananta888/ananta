@@ -14,6 +14,7 @@ import { TerminalComponent } from './terminal.component';
 import { UiSkeletonComponent } from './ui-skeleton.component';
 import { decisionExplanation, safetyBoundaryExplanation, userFacingTerm } from '../models/user-facing-language';
 import { DecisionExplanationComponent, NextStepAction, NextStepsComponent } from '../shared/ui/display';
+import { RunControlPanelComponent } from '../features/run-control/run-control-panel.component';
 
 @Component({
   standalone: true,
@@ -27,6 +28,7 @@ import { DecisionExplanationComponent, NextStepAction, NextStepsComponent } from
     UiSkeletonComponent,
     DecisionExplanationComponent,
     NextStepsComponent,
+    RunControlPanelComponent,
   ],
   styleUrls: ['./task-detail.component.css'],
   templateUrl: './task-detail.component.html'

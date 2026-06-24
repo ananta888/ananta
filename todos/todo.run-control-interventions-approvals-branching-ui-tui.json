@@ -1,10 +1,10 @@
 {
   "id": "todo.run-control-interventions-approvals-branching-ui-tui",
   "title": "Run-Control-Layer: Pause/Resume, Instruction-Injection, Approval-Gates, Branch-Auswahl und Operator-UIs",
-  "status": "open",
+  "status": "completed",
   "priority": "high",
   "created_at": "2026-06-22",
-  "updated_at": "2026-06-22",
+  "updated_at": "2026-06-24",
   "summary": {
     "short": "Ananta soll lange, weitgehend automatisch laufende Arbeiten steuerbar machen: nicht durch staendiges Nachfragen, sondern durch sichtbare Zwischenergebnisse, deterministische Run-Kommandos, sichere Approval-Gates, optionale Branch-Auswahl und Human-in-the-loop als Eingriffspunkt.",
     "problem": "Es existieren bereits Task-Interventionen und ein Approval-Lifecycle, aber die Bedienung ist noch nicht als einheitlicher Run-Control-Layer ueber Backend, Angular-Weboberflaechen und Operator-TUI modelliert. Laufende Arbeiten koennen beobachtet werden, aber Eingriffe wie 'ab naechster Iteration diese Anweisung beachten', 'nur Branch B weiterverfolgen' oder 'Approval Gate mit Diff/Scope entscheiden' sind noch nicht durchgaengig als API-, Status-, UI- und Audit-Kontrakt vorhanden.",
@@ -203,7 +203,8 @@
         "Ein Entwickler kann aus docs/route-inventory.json oder API-Doku die vorhandenen Task-Interventionen und Approval-Endpunkte finden.",
         "Keine bestehende Task-Intervention wird durch neue Run-Control-Arbeit entfernt oder semantisch gebrochen.",
         "Die Abgrenzung zwischen deterministischem Single-Step-Run und langlebigem Run-Control ist dokumentiert."
-      ]
+      ],
+      "status": "completed"
     },
     {
       "id": "RC-010",
@@ -224,7 +225,8 @@
         "Doppelte idempotency_key Requests erzeugen keine doppelten Statuswechsel oder mehrfachen Audit-Events.",
         "Policy-Fehler liefern stabile Fehlercodes, z. B. invalid_transition, approval_not_found, command_rejected_by_policy.",
         "Alle Command-Ergebnisse enthalten command_id, status, affected task_id/goal_id/run_id und audit metadata ohne raw secret/prompt leak."
-      ]
+      ],
+      "status": "completed"
     },
     {
       "id": "RC-020",
@@ -245,7 +247,8 @@
         "Bestehende Endpunkte bleiben backward compatible und Tests laufen weiter.",
         "Read-Model zeigt task_status, run_status, pending_commands, active_instruction, pending_approvals, branches und last_events.",
         "Unautorisierte Mutationen werden mit 401/403 abgelehnt und auditiert, ohne Statusaenderung."
-      ]
+      ],
+      "status": "completed"
     },
     {
       "id": "RC-030",
@@ -265,7 +268,8 @@
         "Injection kann keinen Approval-Gate, keine Tool-Policy und keine Workspace-Scope-Policy aushebeln.",
         "Bei paused Task wird Instruction gespeichert und beim resume sichtbar angewendet.",
         "Tests decken Injection in running, paused, completed/cancelled und unauthorized Faellen ab."
-      ]
+      ],
+      "status": "completed"
     },
     {
       "id": "RC-040",
@@ -285,7 +289,8 @@
         "Grant/Deny ueber neue RunCommand-API fuehrt denselben ApprovalRequestService-Lifecycle aus wie POST /api/approvals/<id>/decision.",
         "Denied Gate kann optional eine Instruction/Fallback-Anweisung speichern, z. B. 'Alternative ohne config.ts suchen'.",
         "Raw content/prompt/secrets landen nicht im scope_summary und nicht im Audit-Log."
-      ]
+      ],
+      "status": "completed"
     },
     {
       "id": "RC-050",
@@ -305,7 +310,8 @@
         "Nutzer kann einen Branch auswaehlen; danach ist genau ein Branch selected/active oder ein klarer Fehler wird geliefert.",
         "Nicht gewaehlte Branches bleiben nachvollziehbar und werden nicht still geloescht.",
         "Tests pruefen select_branch fuer gueltige, ungueltige, bereits superseded und unauthorized Branches."
-      ]
+      ],
+      "status": "completed"
     },
     {
       "id": "RC-060",
@@ -324,7 +330,8 @@
         "Keine Component ruft neue Run-Control-Routen direkt per HttpClient/URL-String auf; alles geht ueber Client+Facade.",
         "Bestehende Task-Detail-Funktionen propose/execute/review bleiben unveraendert nutzbar.",
         "Unit-Tests fuer API-Client URL/Method/Payload der neuen Kommandos existieren."
-      ]
+      ],
+      "status": "completed"
     },
     {
       "id": "RC-070",
@@ -346,7 +353,8 @@
         "Pending Approval kann aus dem Panel granted/denied werden; UI aktualisiert Status ohne kompletten Seitenreload erzwingen zu muessen.",
         "Branch-Auswahl aus Multi-LLM-Vergleich ist sichtbar und erzeugt ein select_branch Command.",
         "Bei invalid_transition zeigt die UI den aktuellen Status und blockiert nicht still."
-      ]
+      ],
+      "status": "completed"
     },
     {
       "id": "RC-080",
@@ -366,7 +374,8 @@
         "Von jedem Badge fuehrt ein klarer Weg in Task-Detail oder Control-Center.",
         "Graphische Views unterscheiden aktive, pausierte, blockierte und verworfene Branches ohne Status nur textuell zu verstecken.",
         "Keine UI bietet eine Mutation an, die das Backend spaeter nicht validiert."
-      ]
+      ],
+      "status": "completed"
     },
     {
       "id": "RC-090",
@@ -389,7 +398,8 @@
         ":approval grant <approval_id> nutzt Backend-Validation und scheitert sauber bei expired/already_decided.",
         ":branch select <id> <branch_id> markiert Branch im Backend und aktualisiert die TUI-Anzeige.",
         "TUI-Tests oder Playback-Fixtures decken mindestens status, pause/resume, approval list und invalid command ab."
-      ]
+      ],
+      "status": "completed"
     },
     {
       "id": "RC-100",
@@ -408,7 +418,8 @@
         "Cancel versucht Worker-forwarding, zeigt aber auch Fehler transparent, falls Worker nicht erreichbar ist.",
         "Resume nach Pause fuehrt nicht zu doppeltem Dispatch.",
         "Logs/Timeline zeigen, wann ein Command requested, accepted und applied wurde."
-      ]
+      ],
+      "status": "completed"
     },
     {
       "id": "RC-110",
@@ -428,7 +439,8 @@
         "Unbekannte oder unautorisierte Kommandos erzeugen keine Statusaenderung.",
         "Replay gleicher idempotency_key ist sicher.",
         "Audit-Logs enthalten keine raw prompts, Secrets oder grosse Content-Payloads."
-      ]
+      ],
+      "status": "completed"
     },
     {
       "id": "RC-120",
@@ -446,7 +458,8 @@
         "Ein neuer Nutzer versteht, dass Ananta nicht staendig nachfragen soll, sondern Annahmen/Branches/Gates sichtbar macht.",
         "Docs beschreiben klar den Unterschied zwischen harmlosen Annahmen, transparenten Alternativen und kritischen Side-Effect-Gates.",
         "TUI und Web-Dokumentation zeigen dieselben Backend-Kommandos, keine widerspruechlichen Wege."
-      ]
+      ],
+      "status": "completed"
     },
     {
       "id": "RC-130",
@@ -466,7 +479,8 @@
         "Backend-, Angular- und TUI-Tests laufen lokal und in CI.",
         "Mindestens ein Demo-Flow zeigt lange automatische Arbeit mit menschlichem Eingriff ohne kompletten Neustart.",
         "Tests belegen, dass UI/TUI keine Policy umgeht, sondern nur Hub-Commands ausloest."
-      ]
+      ],
+      "status": "completed"
     }
   ],
   "suggested_api_examples": {
@@ -534,5 +548,13 @@
     "Branch-Auswahl darf nicht nur UI-seitig erfolgen; sie muss im Backend persistiert werden, sonst ist sie nicht reproduzierbar.",
     "Approval-Gates duerfen keine raw Payloads in UI/Audit leaken; bestehende digest/content_artifact_ref-Logik ist beizubehalten.",
     "Mehrere Oberflaechen muessen dieselbe API nutzen, sonst entstehen widerspruechliche Kontrollpfade."
-  ]
+  ],
+  "meta": {
+    "by_status": {
+      "open": 0,
+      "partial": 0,
+      "completed": 13
+    },
+    "completion_note": "All 13 RC items implemented: backend service, API routes, Angular panel+facade, TUI commands, tests, docs."
+  }
 }

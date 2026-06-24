@@ -1,15 +1,24 @@
 import { Injectable, inject } from '@angular/core';
+import { Observable } from 'rxjs';
 
 import { UiAsyncState } from '../../models/ui-async-state';
 import { HubApiService } from '../../services/hub-api.service';
 import { HubLiveStateService, TaskLogStreamState } from '../../services/hub-live-state.service';
 import { HubTaskCollectionStateService } from '../../services/hub-task-collection-state.service';
+import {
+  HubRunControlApiService,
+  RunCommandRequest,
+  RunControlState,
+} from '../../services/hub-run-control-api.service';
+import { ApprovalsApiService } from '../../services/approvals-api.service';
 
 @Injectable({ providedIn: 'root' })
 export class TaskManagementFacade {
   private hubApi = inject(HubApiService);
   private liveState = inject(HubLiveStateService);
   private taskCollection = inject(HubTaskCollectionStateService);
+  private runControl = inject(HubRunControlApiService);
+  private approvalsApi = inject(ApprovalsApiService);
 
   connectTaskCollection(hubUrl: string | undefined | null, pollMs?: number): void {
     this.taskCollection.connect(hubUrl, pollMs);
@@ -215,5 +224,72 @@ export class TaskManagementFacade {
 
   cleanupArchivedTasks(hubUrl: string, body: any, token?: string) {
     return this.hubApi.cleanupArchivedTasks(hubUrl, body, token);
+  }
+
+  // ── Run-Control (RC-060) ──────────────────────────────────────────────────────
+
+  taskIntervention(hubUrl: string, taskId: string, cmd: RunCommandRequest, token?: string) {
+    return this.runControl.sendTaskCommand(hubUrl, taskId, cmd, token);
+  }
+
+  pauseTask(hubUrl: string, taskId: string, token?: string) {
+    return this.runControl.pauseTask(hubUrl, taskId, token);
+  }
+
+  resumeTask(hubUrl: string, taskId: string, instruction?: string, token?: string) {
+    return this.runControl.resumeTask(hubUrl, taskId, instruction, token);
+  }
+
+  cancelTask(hubUrl: string, taskId: string, token?: string) {
+    return this.runControl.cancelTask(hubUrl, taskId, token);
+  }
+
+  retryTask(hubUrl: string, taskId: string, token?: string) {
+    return this.runControl.retryTask(hubUrl, taskId, token);
+  }
+
+  injectInstruction(
+    hubUrl: string,
+    taskId: string,
+    text: string,
+    mode?: string,
+    instructionClass?: string,
+    token?: string,
+  ): Observable<any> {
+    return this.runControl.injectInstruction(hubUrl, taskId, text, mode, instructionClass, token);
+  }
+
+  selectBranch(hubUrl: string, taskId: string, branchId: string, reason?: string, token?: string): Observable<any> {
+    return this.runControl.selectBranch(hubUrl, taskId, branchId, reason, token);
+  }
+
+  listTaskApprovals(hubUrl: string, taskId: string, token?: string): Observable<any> {
+    return this.approvalsApi.listRequests(hubUrl, 'pending', token);
+  }
+
+  decideApproval(
+    hubUrl: string,
+    taskId: string,
+    approvalId: string,
+    decision: 'granted' | 'denied',
+    reason?: string,
+    token?: string,
+  ): Observable<any> {
+    if (decision === 'granted') {
+      return this.runControl.approveGate(hubUrl, taskId, approvalId, reason, token);
+    }
+    return this.runControl.denyGate(hubUrl, taskId, approvalId, reason ?? '', token);
+  }
+
+  getTaskControlState(hubUrl: string, taskId: string, goalId?: string, token?: string): Observable<{ status: string; control_state: RunControlState }> {
+    return this.runControl.getTaskControlState(hubUrl, taskId, goalId, token);
+  }
+
+  getAllActiveControlStates(hubUrl: string, limit = 50, token?: string): Observable<{ status: string; control_states: RunControlState[]; count: number }> {
+    return this.runControl.getAllActiveControlStates(hubUrl, limit, token);
+  }
+
+  listTaskBranches(hubUrl: string, taskId: string, token?: string): Observable<any> {
+    return this.runControl.listTaskBranches(hubUrl, taskId, token);
   }
 }

@@ -17,6 +17,9 @@
       <button class="tab-btn" [class.active]="activeTab === 'details'" (click)="setTab('details')">Details</button>
       <button class="tab-btn" [class.active]="activeTab === 'interact'" (click)="setTab('interact')">Interaktion</button>
       <button class="tab-btn" [class.active]="activeTab === 'context'" (click)="setTab('context')">Kontext & Review</button>
+      <button class="tab-btn" [class.active]="activeTab === 'run-control'" (click)="setTab('run-control')" aria-label="Run-Control: Pause, Resume, Injection, Gates">
+        Steuerung
+      </button>
       <button class="tab-btn" [class.active]="activeTab === 'logs'" (click)="setTab('logs')">Logs</button>
     </div>
 
@@ -595,6 +598,18 @@
             </div>
           }
         </div>
+      </div>
+    }
+
+    @if (activeTab === 'run-control' && task) {
+      <div class="card">
+        <h3>Run-Control</h3>
+        <p class="muted" style="font-size:0.82rem">Pause, Resume, Cancel, Retry, Instruction-Injection, Approval-Gates und Branch-Auswahl — alle Eingriffe gehen über den Hub.</p>
+        <app-run-control-panel
+          [taskId]="tid"
+          [goalId]="task?.goal_id"
+          [hubUrl]="hub?.url">
+        </app-run-control-panel>
       </div>
     }
 
