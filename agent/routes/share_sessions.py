@@ -119,7 +119,7 @@ def list_share_sessions():
         return jsonify({"error": "not_authenticated"}), 401
     service = get_share_session_service()
     items = service.list_sessions_for_owner(user_id)
-    return jsonify({"ok": True, "data": {"items": items}}), 200
+    return jsonify({"ok": True, "sessions": items, "data": {"items": items}}), 200
 
 
 @share_sessions_bp.route("/share-sessions/joined", methods=["GET"])
@@ -130,7 +130,7 @@ def list_joined_share_sessions():
         return jsonify({"error": "not_authenticated"}), 401
     service = get_share_session_service()
     items = service.list_sessions_as_participant(user_id)
-    return jsonify({"ok": True, "data": {"items": items}}), 200
+    return jsonify({"ok": True, "sessions": items, "data": {"items": items}}), 200
 
 
 @share_sessions_bp.route("/share-sessions/join-by-code", methods=["POST"])
@@ -303,6 +303,49 @@ def join_share_session(session_id: str):
     return jsonify({"ok": True, "data": participant}), 201
 
 
+@share_sessions_bp.route("/share-sessions/<session_id>/participants/join", methods=["POST"])
+@check_user_auth
+def join_share_session_participant(session_id: str):
+    """Compatibility join endpoint for hub-relay clients that already know the session id."""
+    user_id = _current_user_id()
+    if not user_id:
+        return jsonify({"error": "not_authenticated"}), 401
+    body: dict[str, Any] = request.get_json(force=True, silent=True) or {}
+    service = get_share_session_service()
+    session_item = service.get_session(session_id)
+    if not isinstance(session_item, dict):
+        return jsonify({"error": "session_not_found"}), 404
+    if not _is_session_active(session_item):
+        return jsonify({"error": "session_not_active"}), 403
+    device_id = str(body.get("device_id") or _current_device_id() or f"web-{user_id[:16]}").strip()
+    invite_code = str(body.get("invite_code") or session_item.get("invite_code") or "").strip()
+    fingerprint = str(body.get("public_key_fingerprint") or "").strip()
+    joined = service.join_session(
+        session_id=session_id,
+        user_id=user_id,
+        device_id=device_id,
+        public_key_fingerprint=fingerprint,
+        invite_code=invite_code,
+    )
+    if not joined.ok:
+        if joined.reason == "session_not_found":
+            return jsonify({"error": joined.reason}), 404
+        if joined.reason in {"invalid_invite", "session_revoked", "session_expired"}:
+            return jsonify({"error": joined.reason}), 403
+        return jsonify({"error": joined.reason or "join_failed"}), 400
+    participant = dict(joined.participant or {})
+    _participant_last_seen[str(participant.get("id") or "")] = time.time()
+    audit_participant_joined(
+        session_id=session_id,
+        participant_id=str(participant.get("id") or ""),
+        user_id=user_id,
+        device_id=str(participant.get("device_id") or ""),
+        public_key_fingerprint=str(participant.get("public_key_fingerprint") or ""),
+        permissions=dict(participant.get("permissions") or {}),
+    )
+    return jsonify({"ok": True, "participant": participant, "data": participant}), 201
+
+
 @share_sessions_bp.route("/share-sessions/<session_id>/permissions", methods=["PATCH"])
 @check_user_auth
 def patch_share_session_permissions(session_id: str):
@@ -428,6 +471,8 @@ def poll_view_payload(session_id: str):
     if not _is_active_participant(session_id=session_id, user_id=user_id, session_item=session_item):
         return jsonify({"error": "not_a_participant"}), 403
     since = str(request.args.get("since") or "").strip()
+    if since == "0":
+        since = ""
     frames = list(_view_queues.get(session_id) or [])
     if since:
         # Gibt nur Frames zurück, die nach dem gegebenen message_id kommen
@@ -456,6 +501,8 @@ def poll_view_payload(session_id: str):
     return jsonify({
         "ok": True,
         "view_messages": view_messages,
+        "messages": view_messages,
+        "payloads": view_messages,
         "view_cursor": last_id or "",
         "data": {"frames": frames[-10:]},
     }), 200

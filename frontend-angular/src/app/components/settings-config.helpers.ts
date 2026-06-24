@@ -439,6 +439,10 @@ export function createDefaultSettingsConfig(): any {
   return {
     runtime_profile: 'local-dev',
     governance_mode: 'balanced',
+    log_level: 'INFO',
+    agent_offline_timeout: 30,
+    http_timeout: 30,
+    command_timeout: 120,
     hub_copilot: normalizeHubCopilotConfigValue(undefined),
     context_bundle_policy: normalizeContextBundlePolicyConfigValue(undefined),
     artifact_flow: normalizeArtifactFlowConfigValue(undefined),
@@ -486,4 +490,3 @@ export function createDefaultSettingsConfig(): any {
     goal_scoped_config_enabled: true,
   };
 }
-

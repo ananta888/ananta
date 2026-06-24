@@ -91,6 +91,7 @@ import { SnakeOverlayComponent } from './components/snake-overlay.component';
             </button>
             <button (click)="snakeOverlay.toggle()" class="secondary app-hbtn snake-toggle"
               [class.snake-on]="snakeOverlay.visible$ | async" title="AI-Snake">🐍</button>
+            <span class="app-header-user">{{ headerUser.sub }} ({{ headerUser.role }})</span>
             <button (click)="onLogout()" class="secondary app-hbtn" aria-label="Logout">Abmelden</button>
           </div>
         }
@@ -178,6 +179,7 @@ import { SnakeOverlayComponent } from './components/snake-overlay.component';
     .app-logo { height: 28px; width: 28px; object-fit: contain; flex-shrink: 0; border-radius: 4px; }
     .app-hspace { flex: 1; }
     .app-hbtn { padding: 3px 7px !important; font-size: 11px !important; white-space: nowrap; }
+    .app-header-user { font-size: 11px; color: var(--muted); white-space: nowrap; }
     .mobile-nav-toggle { display: none; }
     .android-drawer-toggle { min-width: 28px; height: 28px; padding: 0; line-height: 1; border-radius: 6px; font-size: 14px; }
 

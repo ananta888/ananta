@@ -52,6 +52,7 @@ export class SettingsComponent implements OnInit {
   templateModelOverridesError = '';
   researchBackendStatus: any = null;
   evolutionProviderStatus: any = null;
+  private systemFormDirty = false;
   ngOnInit() {
     this.auth.user$.subscribe(user => {
       this.isAdmin = user?.role === 'admin';
@@ -84,9 +85,12 @@ export class SettingsComponent implements OnInit {
     if (!this.hub) return;
     this.system.getConfig(this.hub.url).subscribe({
       next: cfg => {
-        this.config = {
+        const loadedConfig = {
           ...createDefaultSettingsConfig(),
           ...(cfg && typeof cfg === 'object' ? cfg : {}),
+          agent_offline_timeout: Number(cfg?.agent_offline_timeout ?? 30),
+          http_timeout: Number(cfg?.http_timeout ?? 30),
+          command_timeout: Number(cfg?.command_timeout ?? 120),
           hub_copilot: normalizeHubCopilotConfigValue(cfg?.hub_copilot),
           context_bundle_policy: normalizeContextBundlePolicyConfigValue(cfg?.context_bundle_policy),
           artifact_flow: normalizeArtifactFlowConfigValue(cfg?.artifact_flow),
@@ -130,6 +134,13 @@ export class SettingsComponent implements OnInit {
           hint_routing: this.normalizeObj(cfg?.hint_routing, { enabled: false, mode: 'compatibility' }),
           goal_scoped_config_enabled: cfg?.goal_scoped_config_enabled !== false,
         };
+        if (this.systemFormDirty) {
+          loadedConfig.log_level = this.config?.log_level ?? loadedConfig.log_level;
+          loadedConfig.agent_offline_timeout = this.config?.agent_offline_timeout ?? loadedConfig.agent_offline_timeout;
+          loadedConfig.http_timeout = this.config?.http_timeout ?? loadedConfig.http_timeout;
+          loadedConfig.command_timeout = this.config?.command_timeout ?? loadedConfig.command_timeout;
+        }
+        this.config = loadedConfig;
         if (!this.config.codex_cli || typeof this.config.codex_cli !== 'object') {
           this.config.codex_cli = { target_provider: '', base_url: '', api_key_profile: '', prefer_lmstudio: true };
         } else {
@@ -152,6 +163,9 @@ export class SettingsComponent implements OnInit {
       },
       error: () => this.ns.error('Einstellungen konnten nicht geladen werden')
     });
+  }
+  markSystemFormDirty() {
+    this.systemFormDirty = true;
   }
   normalizeSgptRouting(raw: any): any {
     const defaults = {
@@ -348,6 +362,9 @@ export class SettingsComponent implements OnInit {
     }
     this.config = {
       ...(this.config && typeof this.config === 'object' ? this.config : {}),
+      agent_offline_timeout: Number(this.config?.agent_offline_timeout ?? 30),
+      http_timeout: Number(this.config?.http_timeout ?? 30),
+      command_timeout: Number(this.config?.command_timeout ?? 120),
       hub_copilot: normalizeHubCopilotConfigValue(this.config?.hub_copilot),
       context_bundle_policy: normalizeContextBundlePolicyConfigValue(this.config?.context_bundle_policy),
       artifact_flow: normalizeArtifactFlowConfigValue(this.config?.artifact_flow),
@@ -404,6 +421,7 @@ export class SettingsComponent implements OnInit {
     this.system.setConfig(this.hub.url, this.config).subscribe({
       next: () => {
         this.ns.success('Einstellungen gespeichert');
+        this.systemFormDirty = false;
         this.load();
         this.loadResearchBackendStatus();
         this.loadEvolutionProviderStatus();

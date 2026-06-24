@@ -938,7 +938,7 @@
           <h3>System Parameter</h3>
           <div class="grid cols-2">
             <label>Log Level
-              <select [(ngModel)]="config.log_level">
+              <select [(ngModel)]="config.log_level" (ngModelChange)="markSystemFormDirty()">
                 <option value="DEBUG">DEBUG</option>
                 <option value="INFO">INFO</option>
                 <option value="WARNING">WARNING</option>
@@ -946,7 +946,7 @@
               </select>
             </label>
             <label>Agent Offline Timeout (s)
-              <input type="number" [(ngModel)]="config.agent_offline_timeout" min="10" [class.input-error]="config.agent_offline_timeout < 10">
+              <input type="number" [(ngModel)]="config.agent_offline_timeout" (ngModelChange)="markSystemFormDirty()" min="10" [class.input-error]="config.agent_offline_timeout < 10">
               @if (config.agent_offline_timeout < 10) {
                 <span class="error-text">Mindestens 10 Sekunden</span>
               }
@@ -954,13 +954,13 @@
           </div>
           <div class="grid cols-2 mt-lg">
             <label>HTTP Timeout (s)
-              <input type="number" [(ngModel)]="config.http_timeout" min="1" [class.input-error]="config.http_timeout < 1">
+              <input type="number" [(ngModel)]="config.http_timeout" (ngModelChange)="markSystemFormDirty()" min="1" [class.input-error]="config.http_timeout < 1">
               @if (config.http_timeout < 1) {
                 <span class="error-text">Mindestens 1 Sekunde</span>
               }
             </label>
             <label>Command Timeout (s)
-              <input type="number" [(ngModel)]="config.command_timeout" min="1" [class.input-error]="config.command_timeout < 1">
+              <input type="number" [(ngModel)]="config.command_timeout" (ngModelChange)="markSystemFormDirty()" min="1" [class.input-error]="config.command_timeout < 1">
               @if (config.command_timeout < 1) {
                 <span class="error-text">Mindestens 1 Sekunde</span>
               }
