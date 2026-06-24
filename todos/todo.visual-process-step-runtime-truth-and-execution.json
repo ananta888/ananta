@@ -5,7 +5,7 @@
   "created": "2026-06-24",
   "updated": "2026-06-24",
   "project": "Ananta / Visual Process Designer",
-  "status": "open",
+  "status": "completed",
   "priority": "critical",
   "tags": [
     "visual-process",
@@ -103,7 +103,7 @@
         {
           "id": "VPTODO-001",
           "title": "Legacy-Namen im bestehenden ML/AI-Step-Todo korrigieren",
-          "status": "open",
+          "status": "completed",
           "priority": "critical",
           "files": [
             "todos/todo.visual-process-editor-ml-ai-step-kinds.json"
@@ -127,7 +127,7 @@
         {
           "id": "VPTODO-002",
           "title": "TurboQuant-Status im Todo sauber trennen",
-          "status": "open",
+          "status": "completed",
           "priority": "critical",
           "files": [
             "todos/todo.visual-process-editor-ml-ai-step-kinds.json",
@@ -157,7 +157,7 @@
         {
           "id": "VPRT-001",
           "title": "TaskKindInfo um Implementierungs- und Runtime-Wahrheit erweitern",
-          "status": "open",
+          "status": "completed",
           "priority": "critical",
           "files": [
             "agent/visual_process/task_kind_registry.py",
@@ -181,7 +181,7 @@
         {
           "id": "VPRT-002",
           "title": "Runtime-Wahrheit für alle aktuellen VP-Step-Kinds eintragen",
-          "status": "open",
+          "status": "completed",
           "priority": "high",
           "files": [
             "agent/visual_process/task_kind_registry.py"
@@ -211,7 +211,7 @@
         {
           "id": "VPRT-003",
           "title": "Validator prüft Widersprüche zwischen Step-Kind, Policy-Hints und Runtime-Truth",
-          "status": "open",
+          "status": "completed",
           "priority": "high",
           "files": [
             "agent/visual_process/validator.py",
@@ -241,7 +241,7 @@
         {
           "id": "VPEXEC-001",
           "title": "VP-Execution-Layer für nicht-dispatchbare Steps definieren",
-          "status": "open",
+          "status": "completed",
           "priority": "critical",
           "files": [
             "agent/visual_process/blueprint_mapper.py",
@@ -265,7 +265,7 @@
         {
           "id": "VPEXEC-002",
           "title": "Adapter für CodeCompass- und Retrieval-Steps implementieren oder als design-only markieren",
-          "status": "open",
+          "status": "completed",
           "priority": "high",
           "files": [
             "worker/retrieval/index_builder.py",
@@ -295,7 +295,7 @@
         {
           "id": "VPEXEC-003",
           "title": "Adapter für WorkspaceDiff und Evolution-Steps prüfen/verdrahten",
-          "status": "open",
+          "status": "completed",
           "priority": "high",
           "files": [
             "agent/services/workspace_diff_service.py",
@@ -326,7 +326,7 @@
         {
           "id": "VPUI-001",
           "title": "Step-Dropdown und Inspector zeigen Status-Badges",
-          "status": "open",
+          "status": "completed",
           "priority": "high",
           "files": [
             "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
@@ -350,7 +350,7 @@
         {
           "id": "VPUI-002",
           "title": "Start-/Dry-Run-UI blockiert oder warnt bei nicht ausführbaren Steps",
-          "status": "open",
+          "status": "completed",
           "priority": "high",
           "files": [
             "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
@@ -376,7 +376,7 @@
         {
           "id": "VPTEST-001",
           "title": "Backend-Tests für task-kinds Runtime-Truth",
-          "status": "open",
+          "status": "completed",
           "priority": "critical",
           "files": [
             "tests/",
@@ -402,7 +402,7 @@
         {
           "id": "VPTEST-002",
           "title": "Frontend-Tests oder Snapshot-Checks für UI-Labels",
-          "status": "open",
+          "status": "completed",
           "priority": "medium",
           "files": [
             "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
@@ -423,7 +423,7 @@
         {
           "id": "VPTEST-003",
           "title": "Integrationstest: registriert vs ausführbar darf nicht verwechselt werden",
-          "status": "open",
+          "status": "completed",
           "priority": "high",
           "files": [
             "tests/",
@@ -474,9 +474,9 @@
   "meta": {
     "total_items": 13,
     "by_status": {
-      "open": 13,
+      "open": 0,
       "partial": 0,
-      "completed": 0
+      "completed": 13
     },
     "notes": [
       "Dieses Todo ist absichtlich nicht als Implementierung der Execution-Adapter formuliert, sondern als Wahrheits- und Sicherheits-Nachziehschicht nach der Step-Kind-Registrierung.",
