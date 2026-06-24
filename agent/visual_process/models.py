@@ -15,7 +15,7 @@ import uuid
 
 ArtifactKind = Literal[
     "file", "json", "text", "code", "report", "dataset",
-    "image", "audio", "binary", "unknown",
+    "image", "audio", "binary", "vector", "unknown",
 ]
 
 

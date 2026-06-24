@@ -77,6 +77,7 @@ from .teams import (
     TeamTypeDB,
     TeamTypeRoleLink,
 )
+from .visual_process import VisualProcessGraphDB
 from .workers import (
     EvolutionProposalDB,
     EvolutionRunDB,
@@ -155,6 +156,7 @@ __all__ = [
     "UserDB",
     "UserInstructionProfileDB",
     "VerificationRecordDB",
+    "VisualProcessGraphDB",
     "WorkerJobDB",
     "WorkerResultDB",
     "WorkerSlotLeaseDB",

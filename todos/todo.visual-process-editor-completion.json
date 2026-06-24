@@ -5,7 +5,7 @@
   "created": "2026-06-24",
   "updated": "2026-06-24",
   "project": "Ananta / Visual Process Designer",
-  "status": "open",
+  "status": "completed",
   "priority": "high",
   "tags": [
     "visual-process",
@@ -64,7 +64,7 @@
         {
           "id": "VPPERS-001",
           "title": "Backend-Endpunkte: VpGraph CRUD",
-          "status": "open",
+          "status": "completed",
           "priority": "critical",
           "files": [
             "agent/routes/visual_process.py",
@@ -90,7 +90,7 @@
         {
           "id": "VPPERS-002",
           "title": "Frontend: Speichern-Button und Laden-Dropdown",
-          "status": "open",
+          "status": "completed",
           "priority": "critical",
           "files": [
             "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
@@ -114,7 +114,7 @@
         {
           "id": "VPPERS-003",
           "title": "Auto-Save-Indikator (optional, nach VPPERS-001+002)",
-          "status": "open",
+          "status": "completed",
           "priority": "low",
           "files": [
             "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
@@ -141,7 +141,7 @@
         {
           "id": "VPEXEC-001",
           "title": "Start-Workflow-Button in Editor-Toolbar",
-          "status": "open",
+          "status": "completed",
           "priority": "high",
           "files": [
             "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
@@ -163,7 +163,7 @@
         {
           "id": "VPEXEC-002",
           "title": "Status-Polling und run_state auf Nodes",
-          "status": "open",
+          "status": "completed",
           "priority": "high",
           "files": [
             "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
@@ -187,7 +187,7 @@
         {
           "id": "VPEXEC-003",
           "title": "Event-Log-Panel im Dry-Run-Dialog oder separatem Bereich",
-          "status": "open",
+          "status": "completed",
           "priority": "medium",
           "files": [
             "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
@@ -215,7 +215,7 @@
         {
           "id": "VPGATE-001",
           "title": "Gate-Step erkennen und Approve/Reject-UI zeigen",
-          "status": "open",
+          "status": "completed",
           "priority": "high",
           "files": [
             "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
@@ -238,7 +238,7 @@
         {
           "id": "VPGATE-002",
           "title": "Gate-Step visuell im Canvas hervorheben",
-          "status": "open",
+          "status": "completed",
           "priority": "medium",
           "files": [
             "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
@@ -265,7 +265,7 @@
         {
           "id": "VPLOOP-001",
           "title": "Loop-Kind-Selektor im Edge-Inspector für back_edge",
-          "status": "open",
+          "status": "completed",
           "priority": "medium",
           "files": [
             "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
@@ -297,7 +297,7 @@
         {
           "id": "VPTYPE-001",
           "title": "DataflowValidator: kind-Kompatibilität prüfen",
-          "status": "open",
+          "status": "completed",
           "priority": "medium",
           "files": [
             "agent/visual_process/validator.py"
@@ -325,7 +325,7 @@
         {
           "id": "VPEXPR-001",
           "title": "Backend: Python-AST-Syntax-Check für expression-Strings",
-          "status": "open",
+          "status": "completed",
           "priority": "low",
           "files": [
             "agent/visual_process/validator.py"
@@ -345,7 +345,7 @@
         {
           "id": "VPEXPR-002",
           "title": "Frontend: Syntax-Fehler inline anzeigen",
-          "status": "open",
+          "status": "completed",
           "priority": "low",
           "files": [
             "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
@@ -370,7 +370,7 @@
         {
           "id": "VPHINT-001",
           "title": "Auto-Annotierung nach Kind-Änderung",
-          "status": "open",
+          "status": "completed",
           "priority": "medium",
           "files": [
             "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
@@ -399,7 +399,7 @@
         {
           "id": "VPEDGE-001",
           "title": "output_name-Eingabefeld im Edge-Inspector",
-          "status": "open",
+          "status": "completed",
           "priority": "medium",
           "files": [
             "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
@@ -425,7 +425,7 @@
         {
           "id": "VPBPMN-001",
           "title": "BPMN-Export-Button",
-          "status": "open",
+          "status": "completed",
           "priority": "low",
           "files": [
             "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
@@ -445,7 +445,7 @@
         {
           "id": "VPBPMN-002",
           "title": "BPMN-Import-Button",
-          "status": "open",
+          "status": "completed",
           "priority": "low",
           "files": [
             "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
@@ -473,7 +473,7 @@
         {
           "id": "VPPAR-001",
           "title": "kind='parallel' als Gateway-Typ im Editor unterstützen",
-          "status": "open",
+          "status": "completed",
           "priority": "low",
           "files": [
             "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
@@ -505,7 +505,7 @@
         {
           "id": "VPUI-001",
           "title": "Graph-Description und Tags in Toolbar/Inspector",
-          "status": "open",
+          "status": "completed",
           "priority": "medium",
           "files": [
             "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
@@ -528,7 +528,7 @@
         {
           "id": "VPUI-002",
           "title": "Step-Beschreibung im Step-Inspector",
-          "status": "open",
+          "status": "completed",
           "priority": "medium",
           "files": [
             "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
@@ -548,7 +548,7 @@
         {
           "id": "VPUI-003",
           "title": "Mermaid-Dialog: Download-Button und TUI-Ansicht",
-          "status": "open",
+          "status": "completed",
           "priority": "low",
           "files": [
             "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
@@ -568,7 +568,7 @@
         {
           "id": "VPUI-004",
           "title": "Auto-Layout: DAG-Topo-Sort-basierte Positionierung",
-          "status": "open",
+          "status": "completed",
           "priority": "medium",
           "files": [
             "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
@@ -596,7 +596,7 @@
         {
           "id": "VPBLUEPR-001",
           "title": "Blueprint-Speicher-Button nach erfolgreichem Dry-Run",
-          "status": "open",
+          "status": "completed",
           "priority": "medium",
           "files": [
             "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
@@ -623,9 +623,9 @@
   "meta": {
     "total_items": 22,
     "by_status": {
-      "completed": 0,
+      "completed": 22,
       "partial": 0,
-      "open": 22
+      "open": 0
     },
     "notes": [
       "Alle Acceptance-Kriterien beziehen sich auf den Stand des Quellcodes zum Zeitpunkt der Erstellung (2026-06-24).",

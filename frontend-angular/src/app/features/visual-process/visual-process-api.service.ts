@@ -5,7 +5,7 @@ import { AgentDirectoryService } from '../../services/agent-directory.service';
 
 export interface ArtifactRef { name: string; kind: string; required: boolean; description?: string; }
 export interface StepIOContract { inputs: ArtifactRef[]; outputs: ArtifactRef[]; }
-export interface LoopPolicy { kind: string; max_iterations: number; condition?: string; }
+export interface LoopPolicy { kind: string; max_iterations: number; condition?: string; break_on_output?: string; }
 export interface TransitionCondition { kind: string; expression?: string; output_name?: string; loop_policy?: LoopPolicy; }
 export interface StepPosition { x: number; y: number; }
 export interface VpStep {
@@ -23,7 +23,7 @@ export interface VpGraph {
   id: string; name: string; description: string; version: string;
   steps: VpStep[]; edges: VpEdge[]; tags: string[]; metadata?: Record<string, unknown>;
 }
-export interface ValidationIssue { severity: string; code: string; message: string; step_id?: string; edge_id?: string; }
+export interface ValidationIssue { severity: string; code: string; message: string; step_id?: string; edge_id?: string; artifact_name?: string; }
 export interface ValidationResult { valid: boolean; error_count: number; warning_count: number; issues: ValidationIssue[]; }
 export interface SkillProfile { id: string; name: string; description: string; role: string; task_kinds: string[]; tags: string[]; }
 export interface PresetSummary { id: string; name: string; description: string; tags: string[]; }
@@ -32,6 +32,8 @@ export interface BpmnImportResult { graph: VpGraph; warnings: string[]; validati
 export interface BpmnExportResult { bpmn_xml: string; warnings: string[]; }
 export interface WorkflowRequestResult { workflow_request: Record<string, unknown>; validation: ValidationResult; errors: string[]; }
 export interface WorkflowStatus { schema: string; backend: string; workflow_id: string; status: string; steps?: unknown[]; events?: unknown[]; [key: string]: unknown; }
+export interface TaskKindInfo { id: string; label: string; group: string; dispatch_capable: boolean; description: string; }
+export interface SavedGraphSummary { id: string; name: string; description: string; tags: string[]; updated_at: number; created_at: number; }
 
 @Injectable({ providedIn: 'root' })
 export class VisualProcessApiService {
@@ -42,6 +44,8 @@ export class VisualProcessApiService {
     return this.dir.list().find(a => a.role === 'hub')?.url ?? '';
   }
 
+  // ── Presets ─────────────────────────────────────────────────────────────────
+
   listPresets(): Observable<PresetSummary[]> {
     return this.http.get<PresetSummary[]>(`${this.baseUrl}/api/visual-process/presets`);
   }
@@ -50,9 +54,19 @@ export class VisualProcessApiService {
     return this.http.get<VpGraph>(`${this.baseUrl}/api/visual-process/presets/${id}`);
   }
 
+  // ── Skill profiles ───────────────────────────────────────────────────────────
+
   listSkillProfiles(): Observable<SkillProfile[]> {
     return this.http.get<SkillProfile[]>(`${this.baseUrl}/api/visual-process/skill-profiles`);
   }
+
+  // ── Task kinds (VPWRK-001) ──────────────────────────────────────────────────
+
+  listTaskKinds(): Observable<TaskKindInfo[]> {
+    return this.http.get<TaskKindInfo[]>(`${this.baseUrl}/api/visual-process/task-kinds`);
+  }
+
+  // ── Validation ───────────────────────────────────────────────────────────────
 
   validate(graph: VpGraph): Observable<ValidationResult> {
     return this.http.post<ValidationResult>(`${this.baseUrl}/api/visual-process/validate`, graph);
@@ -62,6 +76,8 @@ export class VisualProcessApiService {
     return this.http.post<DryRunResult>(`${this.baseUrl}/api/visual-process/dry-run`, graph);
   }
 
+  // ── Mermaid ──────────────────────────────────────────────────────────────────
+
   mermaid(graph: VpGraph, direction: 'LR' | 'TD' = 'LR'): Observable<{ mermaid: string; tui?: string }> {
     return this.http.post<{ mermaid: string; tui?: string }>(
       `${this.baseUrl}/api/visual-process/mermaid`,
@@ -69,32 +85,30 @@ export class VisualProcessApiService {
     );
   }
 
+  // ── Policy ───────────────────────────────────────────────────────────────────
+
   policySummary(graph: VpGraph): Observable<{ summary: Record<string, unknown>; per_step: Record<string, string[]> }> {
     return this.http.post<any>(`${this.baseUrl}/api/visual-process/policy-summary`, graph);
   }
 
+  // ── BPMN ─────────────────────────────────────────────────────────────────────
+
   importBpmn(bpmnXml: string): Observable<BpmnImportResult> {
-    return this.http.post<BpmnImportResult>(`${this.baseUrl}/api/visual-process/bpmn/import`, {
-      bpmn_xml: bpmnXml,
-    });
+    return this.http.post<BpmnImportResult>(`${this.baseUrl}/api/visual-process/bpmn/import`, { bpmn_xml: bpmnXml });
   }
 
   exportBpmn(graph: VpGraph): Observable<BpmnExportResult> {
     return this.http.post<BpmnExportResult>(`${this.baseUrl}/api/visual-process/bpmn/export`, graph);
   }
 
+  // ── Workflow ─────────────────────────────────────────────────────────────────
+
   compileWorkflowRequest(graph: VpGraph, options: Record<string, unknown> = {}): Observable<WorkflowRequestResult> {
-    return this.http.post<WorkflowRequestResult>(`${this.baseUrl}/api/visual-process/workflow-request`, {
-      graph,
-      ...options,
-    });
+    return this.http.post<WorkflowRequestResult>(`${this.baseUrl}/api/visual-process/workflow-request`, { graph, ...options });
   }
 
   startWorkflowFromGraph(graph: VpGraph, options: Record<string, unknown> = {}): Observable<WorkflowStatus> {
-    return this.http.post<WorkflowStatus>(`${this.baseUrl}/api/visual-process/workflow/start`, {
-      graph,
-      ...options,
-    });
+    return this.http.post<WorkflowStatus>(`${this.baseUrl}/api/visual-process/workflow/start`, { graph, ...options });
   }
 
   getWorkflowStatus(workflowId: string): Observable<WorkflowStatus> {
@@ -113,5 +127,35 @@ export class VisualProcessApiService {
       `${this.baseUrl}/api/visual-process/workflow/${encodeURIComponent(workflowId)}/signal`,
       { name, payload, actor: 'visual_process_designer' },
     );
+  }
+
+  getWorkflowEvents(workflowId: string): Observable<{ events: Record<string, unknown>[] }> {
+    return this.http.get<{ events: Record<string, unknown>[] }>(
+      `${this.baseUrl}/api/visual-process/workflow/${encodeURIComponent(workflowId)}/events`,
+    );
+  }
+
+  // ── Graph persistence (VPPERS-001) ───────────────────────────────────────────
+
+  saveGraph(graph: VpGraph): Observable<{ id: string; saved: boolean }> {
+    return this.http.post<{ id: string; saved: boolean }>(`${this.baseUrl}/api/visual-process/graphs`, graph);
+  }
+
+  listSavedGraphs(): Observable<SavedGraphSummary[]> {
+    return this.http.get<SavedGraphSummary[]>(`${this.baseUrl}/api/visual-process/graphs`);
+  }
+
+  loadSavedGraph(id: string): Observable<VpGraph> {
+    return this.http.get<VpGraph>(`${this.baseUrl}/api/visual-process/graphs/${encodeURIComponent(id)}`);
+  }
+
+  deleteSavedGraph(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/api/visual-process/graphs/${encodeURIComponent(id)}`);
+  }
+
+  // ── Blueprint (VPBLUEPR-001) ─────────────────────────────────────────────────
+
+  saveAsBlueprint(graph: VpGraph): Observable<{ blueprint_id: string; saved: boolean }> {
+    return this.http.post<{ blueprint_id: string; saved: boolean }>(`${this.baseUrl}/api/visual-process/save-blueprint`, graph);
   }
 }

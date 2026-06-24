@@ -6,6 +6,7 @@ Two levels:
 """
 from __future__ import annotations
 
+import ast
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -14,6 +15,10 @@ from agent.visual_process.models import (
     VisualProcessEdge,
     VisualProcessGraph,
     VisualProcessStep,
+)
+from agent.visual_process.task_kind_registry import (
+    is_legacy_kind,
+    suggested_replacement,
 )
 
 
@@ -137,6 +142,74 @@ class GraphValidator:
                         edge_id=edge.id,
                     ))
 
+        # Expression syntax check (VPEXPR-001)
+        for edge in graph.edges:
+            if edge.condition.kind == "expression":
+                expr = edge.condition.expression or ""
+                try:
+                    ast.parse(expr, mode="eval")
+                except SyntaxError as exc:
+                    issues.append(ValidationIssue(
+                        "warning", "expression_syntax_error",
+                        f"Edge expression syntax error: {exc}",
+                        edge_id=edge.id,
+                    ))
+
+        # Fork/join single-outgoing/incoming warnings (VPCF-001, VPPAR-001)
+        outgoing: dict[str, int] = {}
+        incoming: dict[str, int] = {}
+        for edge in graph.edges:
+            if not edge.is_back_edge():
+                outgoing[edge.source] = outgoing.get(edge.source, 0) + 1
+                incoming[edge.target] = incoming.get(edge.target, 0) + 1
+
+        for step in graph.steps:
+            if step.kind in ("fork", "parallel"):
+                if outgoing.get(step.id, 0) <= 1:
+                    code = "fork_single_outgoing" if step.kind == "fork" else "parallel_single_outgoing"
+                    issues.append(ValidationIssue(
+                        "warning", code,
+                        f"Step '{step.label}' (kind={step.kind}) has only one outgoing edge; "
+                        "parallel/fork semantics require at least two branches",
+                        step_id=step.id,
+                    ))
+            if step.kind == "join":
+                if incoming.get(step.id, 0) <= 1:
+                    issues.append(ValidationIssue(
+                        "warning", "join_single_incoming",
+                        f"Step '{step.label}' (kind=join) has only one incoming edge; "
+                        "join semantics require at least two branches",
+                        step_id=step.id,
+                    ))
+            # approval kind implies gate=true
+            if step.kind == "approval" and not step.gate:
+                issues.append(ValidationIssue(
+                    "info", "approval_gate_missing",
+                    f"Step '{step.label}' (kind=approval) should have gate=true for explicit approval",
+                    step_id=step.id,
+                ))
+
+        # Legacy kind warnings (VPWRK-001)
+        for step in graph.steps:
+            if is_legacy_kind(step.kind):
+                replacement = suggested_replacement(step.kind)
+                issues.append(ValidationIssue(
+                    "warning", "legacy_task_kind",
+                    f"Step '{step.label}' uses legacy kind '{step.kind}'; "
+                    f"consider using '{replacement}' instead",
+                    step_id=step.id,
+                ))
+
+        # high_risk_no_gate (VPEVOL-002)
+        for step in graph.steps:
+            if step.kind in ("evolve_project",) and step.metadata.get("apply_allowed") and not step.gate:
+                issues.append(ValidationIssue(
+                    "warning", "high_risk_no_gate",
+                    f"Step '{step.label}' has apply_allowed=true but gate=false; "
+                    "recommend setting gate=true for evolve_project steps that apply changes",
+                    step_id=step.id,
+                ))
+
         errors = [i for i in issues if i.severity == "error"]
         return ValidationResult(valid=len(errors) == 0, issues=issues)
 
@@ -163,18 +236,20 @@ class DataflowValidator:
     """Validates I/O contracts across the graph.
 
     Checks that every required input of a step is satisfied by the output
-    of a predecessor step (or is marked optional).
+    of a predecessor step (or is marked optional).  Also checks ArtifactKind
+    compatibility (VPTYPE-001).
     """
 
     def validate(self, graph: VisualProcessGraph) -> ValidationResult:
         issues: list[ValidationIssue] = []
 
-        # Build available artifacts per step (transitively from predecessors)
+        # Build available artifacts per step (name → kind, transitively from predecessors)
         available = self._compute_available(graph)
 
         for step in graph.steps:
+            avail_for_step = available.get(step.id, {})
             for inp in step.io.required_inputs():
-                if inp.name not in available.get(step.id, set()):
+                if inp.name not in avail_for_step:
                     issues.append(ValidationIssue(
                         "error", "unsatisfied_input",
                         f"Step '{step.label}' requires input '{inp.name}' "
@@ -182,6 +257,17 @@ class DataflowValidator:
                         step_id=step.id,
                         artifact_name=inp.name,
                     ))
+                else:
+                    # Kind mismatch check (VPTYPE-001)
+                    produced_kind = avail_for_step[inp.name]
+                    if produced_kind != inp.kind:
+                        issues.append(ValidationIssue(
+                            "warning", "artifact_kind_mismatch",
+                            f"Step '{step.label}' expects '{inp.name}' as kind='{inp.kind}' "
+                            f"but predecessor produces it as kind='{produced_kind}'",
+                            step_id=step.id,
+                            artifact_name=inp.name,
+                        ))
 
         # Warn on unused outputs
         consumed = self._consumed_artifacts(graph)
@@ -196,31 +282,44 @@ class DataflowValidator:
                         artifact_name=out.name,
                     ))
 
+        # rerank should have 2 inputs (VPRAG-002)
+        for step in graph.steps:
+            if step.kind == "rerank" and len(step.io.inputs) < 2:
+                issues.append(ValidationIssue(
+                    "warning", "rerank_missing_input",
+                    f"Step '{step.label}' (kind=rerank) should have two inputs: "
+                    "query (text) and candidates (dataset)",
+                    step_id=step.id,
+                ))
+            if step.kind in ("vector_encode", "turboquant_encode") and any(
+                o.kind not in ("vector", "unknown") for o in step.io.outputs
+            ):
+                pass  # informational, not an error
+
         errors = [i for i in issues if i.severity == "error"]
         return ValidationResult(valid=len(errors) == 0, issues=issues)
 
-    def _compute_available(self, graph: VisualProcessGraph) -> dict[str, set[str]]:
-        """For each step, the set of artifact names available from predecessors."""
+    def _compute_available(self, graph: VisualProcessGraph) -> dict[str, dict[str, str]]:
+        """For each step, the dict of artifact name → kind available from predecessors."""
         forward = {(e.source, e.target) for e in graph.edges if not e.is_back_edge()}
-        step_outputs: dict[str, set[str]] = {
-            s.id: {a.name for a in s.io.outputs} for s in graph.steps
+        step_outputs: dict[str, dict[str, str]] = {
+            s.id: {a.name: a.kind for a in s.io.outputs} for s in graph.steps
         }
-        available: dict[str, set[str]] = {}
-        # Topological walk (graph is DAG by this point)
+        available: dict[str, dict[str, str]] = {}
         visited: set[str] = set()
 
-        def walk(sid: str, inherited: set[str]) -> None:
+        def walk(sid: str, inherited: dict[str, str]) -> None:
             if sid in visited:
                 return
             visited.add(sid)
-            avail = set(inherited) | step_outputs.get(sid, set())
+            avail = {**inherited, **step_outputs.get(sid, {})}
             available[sid] = avail
             for src, tgt in forward:
                 if src == sid:
                     walk(tgt, avail)
 
         for entry in graph.entry_steps():
-            walk(entry.id, set())
+            walk(entry.id, {})
         return available
 
     def _consumed_artifacts(self, graph: VisualProcessGraph) -> set[str]:

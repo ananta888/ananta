@@ -2,9 +2,6 @@
 
 Classifies each step in a graph with policy hints such as
 'requires_approval', 'read_only', 'mutates_production', 'high_risk'.
-
-The hints are stored on VisualProcessStep.policy_hints and surfaced
-in the graph editor and the API validate response.
 """
 from __future__ import annotations
 
@@ -24,15 +21,19 @@ HINT_NETWORK_EGRESS     = "network_egress"
 HINT_LLM_CALL           = "llm_call"
 HINT_WRITES_FILES       = "writes_files"
 HINT_RUNS_TESTS         = "runs_tests"
+HINT_VECTOR_OP          = "vector_operation"
+HINT_ML_INFERENCE       = "ml_inference"
+HINT_QUANTIZATION       = "quantization"
+HINT_SELF_MODIFYING     = "self_modifying"
 
 
 # ── Kind → hint rules ─────────────────────────────────────────────────────────
 
 _KIND_HINTS: dict[str, list[str]] = {
+    # Legacy kinds (kept for backward compat)
     "deploy":       [HINT_REQUIRES_APPROVAL, HINT_MUTATES_PRODUCTION, HINT_HIGH_RISK],
     "infra":        [HINT_REQUIRES_APPROVAL, HINT_HIGH_RISK, HINT_SHELL_EXEC],
     "ci":           [HINT_SHELL_EXEC, HINT_RUNS_TESTS],
-    "run_tests":    [HINT_RUNS_TESTS],
     "coding":       [HINT_WRITES_FILES, HINT_LLM_CALL],
     "refactor":     [HINT_WRITES_FILES, HINT_LLM_CALL],
     "bugfix":       [HINT_WRITES_FILES, HINT_LLM_CALL],
@@ -47,6 +48,38 @@ _KIND_HINTS: dict[str, list[str]] = {
     "list_files":   [HINT_READ_ONLY],
     "git_status":   [HINT_READ_ONLY],
     "git_diff":     [HINT_READ_ONLY],
+    # Worker – mutation
+    "patch_apply":     [HINT_WRITES_FILES, HINT_LLM_CALL],
+    "patch_propose":   [HINT_LLM_CALL, HINT_READ_ONLY],
+    "command_execute": [HINT_SHELL_EXEC, HINT_HIGH_RISK],
+    "shell_execute":   [HINT_SHELL_EXEC, HINT_HIGH_RISK],
+    "shell_execution": [HINT_SHELL_EXEC, HINT_HIGH_RISK],
+    # Worker – LLM readonly
+    "plan_only":        [HINT_LLM_CALL, HINT_READ_ONLY],
+    "review":           [HINT_LLM_CALL, HINT_READ_ONLY],
+    "summarize":        [HINT_LLM_CALL],
+    "research_limited": [HINT_READ_ONLY, HINT_LLM_CALL],
+    # Worker – deterministic
+    "run_tests":   [HINT_RUNS_TESTS],
+    "script":      [],
+    "git_op":      [],
+    "file_check":  [HINT_READ_ONLY],
+    "regex_check": [HINT_READ_ONLY],
+    # Control flow
+    "fork":     [],
+    "join":     [],
+    "approval": [HINT_REQUIRES_APPROVAL],
+    "parallel": [],
+    # ML / AI
+    "vector_encode":     [HINT_ML_INFERENCE, HINT_READ_ONLY],
+    "turboquant_encode": [HINT_ML_INFERENCE, HINT_QUANTIZATION, HINT_READ_ONLY],
+    "embed_chunk":       [HINT_ML_INFERENCE, HINT_READ_ONLY],
+    "rag_retrieve":      [HINT_READ_ONLY, HINT_ML_INFERENCE],
+    "rerank":            [HINT_READ_ONLY, HINT_ML_INFERENCE],
+    "query_rewrite":     [HINT_LLM_CALL, HINT_READ_ONLY],
+    "cluster":           [HINT_ML_INFERENCE, HINT_READ_ONLY],
+    "evolve_prompt":     [HINT_LLM_CALL, HINT_WRITES_FILES, HINT_SELF_MODIFYING],
+    "evolve_project":    [HINT_LLM_CALL, HINT_SELF_MODIFYING, HINT_HIGH_RISK],
 }
 
 
@@ -55,6 +88,9 @@ def classify_step(step: VisualProcessStep) -> list[str]:
     hints: set[str] = set(step.policy_hints)
     hints.update(_KIND_HINTS.get(step.kind, []))
     if step.gate:
+        hints.add(HINT_REQUIRES_APPROVAL)
+    # evolve_project with apply_allowed escalates to requires_approval
+    if step.kind == "evolve_project" and step.metadata.get("apply_allowed"):
         hints.add(HINT_REQUIRES_APPROVAL)
     return sorted(hints)
 
@@ -88,4 +124,7 @@ def policy_summary(graph: VisualProcessGraph) -> dict[str, Any]:
         "has_llm_calls": HINT_LLM_CALL in all_hints,
         "has_shell_exec": HINT_SHELL_EXEC in all_hints,
         "mutates_production": HINT_MUTATES_PRODUCTION in all_hints,
+        "has_ml_inference": HINT_ML_INFERENCE in all_hints,
+        "has_self_modifying": HINT_SELF_MODIFYING in all_hints,
+        "has_high_risk": HINT_HIGH_RISK in all_hints,
     }

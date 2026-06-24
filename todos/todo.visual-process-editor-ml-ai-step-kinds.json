@@ -5,7 +5,7 @@
   "created": "2026-06-24",
   "updated": "2026-06-24",
   "project": "Ananta / Visual Process Designer",
-  "status": "open",
+  "status": "completed",
   "priority": "high",
   "tags": [
     "visual-process",
@@ -28,18 +28,80 @@
   "current_state": {
     "real_worker_task_kinds": {
       "note": "Diese task_kinds sind in der Worker-Infrastruktur tatsaechlich registriert und dispatchbar.",
-      "mutation": ["patch_apply", "command_execute", "shell_execute", "shell_execution", "service_mutation", "config_mutation", "workspace_mutation", "file_mutation"],
-      "llm_readonly": ["plan_only", "review", "summarize", "patch_propose", "research_limited"],
-      "deterministic": ["run_tests", "script", "git_op", "file_check", "regex_check"],
-      "control_flow": ["fork", "join", "approval"],
+      "mutation": [
+        "patch_apply",
+        "command_execute",
+        "shell_execute",
+        "shell_execution",
+        "service_mutation",
+        "config_mutation",
+        "workspace_mutation",
+        "file_mutation"
+      ],
+      "llm_readonly": [
+        "plan_only",
+        "review",
+        "summarize",
+        "patch_propose",
+        "research_limited"
+      ],
+      "deterministic": [
+        "run_tests",
+        "script",
+        "git_op",
+        "file_check",
+        "regex_check"
+      ],
+      "control_flow": [
+        "fork",
+        "join",
+        "approval"
+      ],
       "source": "worker/core/hermes_adapter_config.py, worker/core/det_command_handler.py"
     },
     "vp_editor_task_kinds": {
       "note": "Diese sind im VP Editor (visual-process-editor.component.ts TASK_KINDS Array) — haben aber keine direkte Entsprechung im Worker-Dispatch.",
-      "list": ["coding", "analysis", "run_tests", "code_review", "llm_generate", "goal_plan", "deploy", "research", "read_file", "grep_search", "refactor"],
-      "aligned": ["run_tests"],
-      "misaligned": ["coding (nicht patch_apply/patch_propose)", "analysis (nicht review/research_limited)", "deploy (kein echter Worker-Handler)", "research (nahe research_limited)", "llm_generate (nahe summarize)"],
-      "missing_entirely": ["patch_apply", "patch_propose", "shell_execute", "plan_only", "summarize", "fork", "join", "approval", "vector_encode", "rag_retrieve", "rerank", "turboquant_encode", "evolve_prompt", "evolve_project", "embed_chunk", "cluster"]
+      "list": [
+        "coding",
+        "analysis",
+        "run_tests",
+        "code_review",
+        "llm_generate",
+        "goal_plan",
+        "deploy",
+        "research",
+        "read_file",
+        "grep_search",
+        "refactor"
+      ],
+      "aligned": [
+        "run_tests"
+      ],
+      "misaligned": [
+        "coding (nicht patch_apply/patch_propose)",
+        "analysis (nicht review/research_limited)",
+        "deploy (kein echter Worker-Handler)",
+        "research (nahe research_limited)",
+        "llm_generate (nahe summarize)"
+      ],
+      "missing_entirely": [
+        "patch_apply",
+        "patch_propose",
+        "shell_execute",
+        "plan_only",
+        "summarize",
+        "fork",
+        "join",
+        "approval",
+        "vector_encode",
+        "rag_retrieve",
+        "rerank",
+        "turboquant_encode",
+        "evolve_prompt",
+        "evolve_project",
+        "embed_chunk",
+        "cluster"
+      ]
     },
     "ml_components_in_codebase": [
       "EmbeddingProvider (Protocol): embed_texts(texts) -> list[list[float]] — worker/retrieval/embedding_provider.py",
@@ -66,7 +128,7 @@
         {
           "id": "VPWRK-001",
           "title": "Kanonische task_kind-Liste als Backend-Quelle definieren",
-          "status": "open",
+          "status": "completed",
           "priority": "critical",
           "files": [
             "agent/visual_process/models.py",
@@ -93,7 +155,7 @@
         {
           "id": "VPWRK-002",
           "title": "Frontend: TASK_KINDS-Array durch dynamisch geladene Liste ersetzen",
-          "status": "open",
+          "status": "completed",
           "priority": "high",
           "files": [
             "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
@@ -117,7 +179,7 @@
         {
           "id": "VPWRK-003",
           "title": "Policy-Hints und Skill-Profile fuer echte Worker-Kinds anpassen",
-          "status": "open",
+          "status": "completed",
           "priority": "high",
           "files": [
             "agent/visual_process/policy_hints.py",
@@ -148,7 +210,7 @@
         {
           "id": "VPENC-001",
           "title": "Step-Art vector_encode: EmbeddingProvider als VP-Step",
-          "status": "open",
+          "status": "completed",
           "priority": "high",
           "files": [
             "agent/visual_process/models.py",
@@ -175,7 +237,7 @@
         {
           "id": "VPENC-002",
           "title": "Step-Art turboquant_encode: TurboQuant-Quantisierung als expliziter Step",
-          "status": "open",
+          "status": "completed",
           "priority": "medium",
           "files": [
             "agent/visual_process/task_kind_registry.py",
@@ -198,7 +260,7 @@
         {
           "id": "VPENC-003",
           "title": "Step-Art embed_chunk: Chunking + Embedding fuer Index-Aufbau",
-          "status": "open",
+          "status": "completed",
           "priority": "medium",
           "files": [
             "agent/visual_process/task_kind_registry.py",
@@ -228,7 +290,7 @@
         {
           "id": "VPRAG-001",
           "title": "Step-Art rag_retrieve: Retrieval-Step mit Channel-Konfiguration",
-          "status": "open",
+          "status": "completed",
           "priority": "high",
           "files": [
             "agent/visual_process/task_kind_registry.py",
@@ -254,7 +316,7 @@
         {
           "id": "VPRAG-002",
           "title": "Step-Art rerank: Reranker-Step nach Retrieval",
-          "status": "open",
+          "status": "completed",
           "priority": "medium",
           "files": [
             "agent/visual_process/task_kind_registry.py",
@@ -276,7 +338,7 @@
         {
           "id": "VPRAG-003",
           "title": "Step-Art query_rewrite: Query-Verbesserung vor dem Retrieval",
-          "status": "open",
+          "status": "completed",
           "priority": "low",
           "files": [
             "agent/visual_process/task_kind_registry.py",
@@ -304,7 +366,7 @@
         {
           "id": "VPEVOL-001",
           "title": "Step-Art evolve_prompt: Prompt-Evolver als VP-Schritt",
-          "status": "open",
+          "status": "completed",
           "priority": "high",
           "files": [
             "agent/visual_process/task_kind_registry.py",
@@ -332,7 +394,7 @@
         {
           "id": "VPEVOL-002",
           "title": "Step-Art evolve_project: Projekt-Evolution via EvolutionService",
-          "status": "open",
+          "status": "completed",
           "priority": "medium",
           "files": [
             "agent/visual_process/task_kind_registry.py",
@@ -357,7 +419,7 @@
         {
           "id": "VPEVOL-003",
           "title": "Evolver-Feedback-Loop: back_edge mit EvolutionTrigger",
-          "status": "open",
+          "status": "completed",
           "priority": "medium",
           "files": [
             "agent/visual_process/models.py",
@@ -386,7 +448,7 @@
         {
           "id": "VPCLUS-001",
           "title": "Step-Art cluster: Graph-Clustering mit konfiguriertem Algorithmus",
-          "status": "open",
+          "status": "completed",
           "priority": "low",
           "files": [
             "agent/visual_process/task_kind_registry.py",
@@ -415,7 +477,7 @@
         {
           "id": "VPCF-001",
           "title": "Step-Arten fork, join, approval im VP Editor",
-          "status": "open",
+          "status": "completed",
           "priority": "high",
           "files": [
             "agent/visual_process/task_kind_registry.py",
@@ -447,7 +509,7 @@
         {
           "id": "VPPRE-001",
           "title": "Preset: Vollstaendige RAG-Pipeline",
-          "status": "open",
+          "status": "completed",
           "priority": "medium",
           "files": [
             "agent/visual_process/presets.py"
@@ -468,7 +530,7 @@
         {
           "id": "VPPRE-002",
           "title": "Preset: Wissensindex-Aufbau-Pipeline",
-          "status": "open",
+          "status": "completed",
           "priority": "medium",
           "files": [
             "agent/visual_process/presets.py"
@@ -488,7 +550,7 @@
         {
           "id": "VPPRE-003",
           "title": "Preset: Self-Improving Agent Loop",
-          "status": "open",
+          "status": "completed",
           "priority": "medium",
           "files": [
             "agent/visual_process/presets.py"
@@ -512,9 +574,9 @@
   "meta": {
     "total_items": 16,
     "by_status": {
-      "completed": 0,
+      "completed": 17,
       "partial": 0,
-      "open": 16
+      "open": 0
     },
     "notes": [
       "VPWRK-001 (task_kind_registry.py) ist Voraussetzung fuer ALLE anderen Tasks in diesem TODO.",
