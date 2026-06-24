@@ -642,7 +642,11 @@ class E2EHarness:
             if not candidate.is_file() or candidate.name.startswith("."):
                 continue
             relative_path = candidate.relative_to(fixture_root).as_posix()
-            index_entries.append({"path": relative_path, "content": candidate.read_text(encoding="utf-8")})
+            try:
+                content = candidate.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                continue
+            index_entries.append({"path": relative_path, "content": content})
 
         tokens = {token for token in re.findall(r"[a-zA-Z0-9_]+", query.lower()) if len(token) >= 2}
         ranked: list[tuple[int, dict[str, str]]] = []

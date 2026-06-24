@@ -310,10 +310,10 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
   const passwordCandidates = username === ADMIN_USERNAME ? adminPasswordCandidates(password) : [password];
 
   if (USE_EXISTING_SERVICES && username === ADMIN_USERNAME) {
-    if (!canUseAgentToken(HUB_AGENT_TOKEN)) {
+    const token = await getAccessToken(username, password).catch(() => {
+      if (canUseAgentToken(HUB_AGENT_TOKEN)) return HUB_AGENT_TOKEN;
       throw new Error('Login fallback requested but HUB agent token is a placeholder');
-    }
-    const token = await getAccessToken(username, password).catch(() => HUB_AGENT_TOKEN);
+    });
     await page.evaluate(({ hubUrl, alphaUrl, betaUrl, hubToken, alphaToken, betaToken, token }) => {
       localStorage.setItem('ananta.agents.v1', JSON.stringify([
         { name: 'hub', url: hubUrl, token: hubToken, role: 'hub' },

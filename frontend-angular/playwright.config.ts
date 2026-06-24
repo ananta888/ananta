@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 import { execSync } from 'child_process';
+import fs from 'fs';
+import os from 'os';
 import path from 'path';
 
 delete process.env.NO_COLOR;
@@ -33,7 +35,21 @@ const reuseExistingServer = process.env.E2E_REUSE_SERVER === '1';
 const compactReporter = process.env.E2E_REPORTER_MODE === 'compact';
 const isLiveLlmRun = process.env.RUN_LIVE_LLM_TESTS === '1';
 const retainEvidenceArtifacts = process.env.E2E_RETAIN_EVIDENCE_ARTIFACTS === '1';
-const resultsDir = process.env.E2E_RESULTS_DIR?.trim() || 'test-results';
+function resolveResultsDir(): string {
+  const configured = process.env.E2E_RESULTS_DIR?.trim();
+  if (configured) return configured;
+  const defaultDir = 'test-results';
+  try {
+    fs.mkdirSync(defaultDir, { recursive: true });
+    const probe = path.join(defaultDir, `.write-probe-${process.pid}`);
+    fs.writeFileSync(probe, 'ok');
+    fs.unlinkSync(probe);
+    return defaultDir;
+  } catch {
+    return path.join(os.tmpdir(), `ananta-frontend-e2e-results-${typeof process.getuid === 'function' ? process.getuid() : 'user'}`);
+  }
+}
+const resultsDir = resolveResultsDir();
 const webServerTimeoutMs = Number(process.env.E2E_WEBSERVER_TIMEOUT_MS || (isLiveLlmRun ? '90000' : '120000'));
 const testTimeoutMs = Number(process.env.E2E_TEST_TIMEOUT_MS || (isLiveLlmRun ? '120000' : '60000'));
 const expectTimeoutMs = Number(process.env.E2E_EXPECT_TIMEOUT_MS || '15000');

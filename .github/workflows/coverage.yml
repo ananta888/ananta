@@ -36,7 +36,7 @@ jobs:
         id: resolve
         run: |
           set -euo pipefail
-          python scripts/resolve_backend_coverage_shards.py --shard-count 18 > backend-coverage-matrix.json
+          python scripts/resolve_backend_coverage_shards.py --shard-count 14 > backend-coverage-matrix.json
           echo "matrix<<EOF" >> "$GITHUB_OUTPUT"
           cat backend-coverage-matrix.json >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"

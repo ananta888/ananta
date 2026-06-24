@@ -222,6 +222,8 @@ class RetrievalService:
             profile_st = list(retrieval_profile.get("source_types") or [])
             if profile_st:
                 effective_source_types_override = profile_st
+        if effective_source_types_override is None:
+            effective_source_types_override = ["repo", "artifact", "task_memory"]
 
         orchestrator = self.get_orchestrator()
         source_policy = source_selection_policy(effective_source_types_override)

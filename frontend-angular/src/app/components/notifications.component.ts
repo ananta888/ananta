@@ -58,7 +58,7 @@ type ActiveNotification = Notification & { timeoutId?: ReturnType<typeof setTime
       animation: slideIn 0.3s ease-out;
       position: relative;
       overflow: hidden;
-      pointer-events: auto;
+      pointer-events: none;
     }
     .notification-header {
       display: flex;
@@ -70,6 +70,11 @@ type ActiveNotification = Notification & { timeoutId?: ReturnType<typeof setTime
       margin-bottom: 4px;
     }
     .notification-title { opacity: 0.9; }
+    .notification-header,
+    .notification-message,
+    .notification-progress {
+      pointer-events: none;
+    }
     .notification-message {
       font-size: 14px;
       overflow-wrap: anywhere;

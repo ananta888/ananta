@@ -181,5 +181,5 @@ class WikiCodeCompassBridge:
                 "graph_nodes": str(graph_nodes_path),
                 "graph_edges": str(graph_edges_path),
             },
-            "chunking": {"strategy": "wiki_inline_compact_codecompass"},
+            "chunking": {"strategy": "wiki_streaming_codecompass_prerender"},
         }

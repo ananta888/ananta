@@ -35,8 +35,15 @@ export class ArtifactsComponent implements OnInit {
   extractBusy   = false;
   indexBusy     = false;
   previewBusy   = false;
+  uploadBusy    = false;
   artifactRagStatus:  any = null;
   artifactRagPreview: any = null;
+  selectedFile: File | null = null;
+  collectionName = '';
+  knowledgeCollections: any[] = [];
+  selectedCollectionId: string | null = null;
+  loadingCollections = false;
+  collectionIndexBusy = false;
 
   // ── profiles ─────────────────────────────────────────────────────────────────
   knowledgeProfiles: any[] = [];
@@ -60,6 +67,7 @@ export class ArtifactsComponent implements OnInit {
   ngOnInit(): void {
     this.refresh();
     this.loadProfiles();
+    this.loadCollections();
     this.loadArtifactFlow();
   }
 
@@ -105,6 +113,74 @@ export class ArtifactsComponent implements OnInit {
       error: (e) => this.ns.error(this.ns.fromApiError(e, 'Artefakte konnten nicht geladen werden')),
     });
     this.loadArtifactFlow();
+  }
+
+  loadCollections(): void {
+    if (!this.hub) return;
+    this.loadingCollections = true;
+    this.hubApi.listKnowledgeCollections(this.hub.url).pipe(
+      finalize(() => { this.loadingCollections = false; }),
+    ).subscribe({
+      next: (items) => {
+        this.knowledgeCollections = Array.isArray(items) ? items : [];
+        if (!this.selectedCollectionId && this.knowledgeCollections.length) {
+          this.selectedCollectionId = String(this.knowledgeCollections[0]?.id || '') || null;
+        }
+      },
+      error: () => { this.knowledgeCollections = []; this.selectedCollectionId = null; },
+    });
+  }
+
+  onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement | null;
+    this.selectedFile = input?.files?.[0] || null;
+  }
+
+  knowledgeCollectionNames(artifact: any): string[] {
+    const links = Array.isArray(artifact?.knowledge_links) ? artifact.knowledge_links : [];
+    const names: string[] = [];
+    const seen = new Set<string>();
+    for (const link of links) {
+      const name = String(link?.link_metadata?.collection_name || link?.collection_name || '').trim();
+      if (!name || seen.has(name)) continue;
+      seen.add(name);
+      names.push(name);
+    }
+    return names;
+  }
+
+  upload(): void {
+    if (!this.hub || !this.selectedFile) return;
+    const file = this.selectedFile;
+    const collectionName = this.collectionName.trim() || undefined;
+    this.uploadBusy = true;
+    this.hubApi.uploadArtifact(this.hub.url, file, collectionName).pipe(
+      finalize(() => { this.uploadBusy = false; }),
+    ).subscribe({
+      next: (payload) => {
+        this.ns.success('Artefakt hochgeladen');
+        this.refresh();
+        this.loadCollections();
+        const artifactId = String(payload?.artifact?.id || '').trim();
+        if (artifactId) {
+          this.selectArtifact(artifactId);
+        }
+      },
+      error: (e) => this.ns.error(this.ns.fromApiError(e, 'Artefakt-Upload fehlgeschlagen')),
+    });
+  }
+
+  indexSelectedCollection(): void {
+    if (!this.hub || !this.selectedCollectionId) return;
+    this.collectionIndexBusy = true;
+    this.hubApi.indexKnowledgeCollection(this.hub.url, this.selectedCollectionId, {
+      profile_name: this.selectedArtifactProfileName || 'default',
+    }).pipe(
+      finalize(() => { this.collectionIndexBusy = false; }),
+    ).subscribe({
+      next: () => this.ns.success('Collection indexiert'),
+      error: (e) => this.ns.error(this.ns.fromApiError(e, 'Collection-Index fehlgeschlagen')),
+    });
   }
 
   selectArtifact(artifactId: string): void {

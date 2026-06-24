@@ -697,31 +697,12 @@ def import_wiki_corpus():
 @check_auth
 def import_wiki_corpus_from_url():
     payload = _wiki_import_url_request()
-    import_request = {
-        "corpus_url": payload["corpus_url"],
-        "index_url": payload["index_url"],
-        "source_id": payload["source_id"],
-        "language": payload["language"],
-        "strict": payload["strict"],
-        "profile_name": payload["profile_name"],
-        "codecompass_prerender": payload["codecompass_prerender"],
-        "source_metadata": {
-            **dict(payload.get("source_metadata") or {}),
-            "corpus_url": payload["corpus_url"],
-            "index_url": payload["index_url"],
-        },
-    }
-    job = get_wiki_import_job_service().submit_import_job(
-        import_request=import_request,
-        from_url=True,
-        created_by=_current_username(),
-    )
-    return api_response(status="accepted", code=202, data={"job": job})
+    return _import_wiki_corpus_from_url_legacy(payload)
 
 
-def _import_wiki_corpus_from_url_legacy():
+def _import_wiki_corpus_from_url_legacy(payload: dict | None = None):
     """Kept for reference — was the synchronous path that caused timeouts."""
-    payload = _wiki_import_url_request()
+    payload = payload or _wiki_import_url_request()
     try:
         report = get_ingestion_service().import_wiki_jsonl_from_url(
             corpus_url=payload["corpus_url"],

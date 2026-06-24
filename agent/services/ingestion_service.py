@@ -278,7 +278,7 @@ class IngestionService:
         progress_callback=None,
         cancel_check=None,
         max_chunks_per_article: int = 3,
-        min_content_chars: int = 300,
+        min_content_chars: int = 1,
     ) -> dict[str, object]:
         path = Path(str(corpus_path or "").strip()).expanduser().resolve()
         detected_format = self._infer_wiki_format(corpus_path=path, import_format=import_format)
@@ -321,7 +321,7 @@ class IngestionService:
         progress_callback=None,
         cancel_check=None,
         max_chunks_per_article: int = 3,
-        min_content_chars: int = 300,
+        min_content_chars: int = 1,
     ) -> dict[str, object]:
         path = Path(str(corpus_path or "").strip()).expanduser().resolve()
         if not path.exists():
@@ -409,6 +409,7 @@ class IngestionService:
             links_fh = partial_links_path.open(open_mode, encoding="utf-8")
 
         in_memory_records: list[dict] = []
+        max_report_records = 1000
 
         # Block-aware multistream: fast-seek to start_block, no item-level skip needed after
         _item_stream = (
@@ -515,6 +516,8 @@ class IngestionService:
                     if cache_fh:
                         cache_fh.write(json.dumps(slim, ensure_ascii=False) + "\n")
                         record_count += 1
+                        if len(in_memory_records) < max_report_records:
+                            in_memory_records.append(dict(rec))
                     else:
                         in_memory_records.append(slim)
                         record_count = len(in_memory_records)
@@ -569,7 +572,7 @@ class IngestionService:
             "index_path": str(resolved_index_path) if resolved_index_path else None,
             "jsonl_cache_path": str(final_cache_path) if write_jsonl_cache else None,
             "links_cache_path": str(final_links_path) if write_jsonl_cache else None,
-            "records": in_memory_records if not write_jsonl_cache else [],
+            "records": in_memory_records,
             "issues": issues,
             "stats": stats,
             "deterministic_order": "parse_order_compact_filtered",
@@ -736,7 +739,7 @@ class IngestionService:
         cancel_check=None,
         progress_callback=None,
         max_chunks_per_article: int = 3,
-        min_content_chars: int = 300,
+        min_content_chars: int = 1,
     ) -> dict[str, object]:
         url = str(corpus_url or "").strip()
         if not url:

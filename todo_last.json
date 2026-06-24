@@ -1,0 +1,68 @@
+{
+  "$schema": "todos/todo.track.schema.json",
+  "version": 1,
+  "owner": "ananta",
+  "track": "current-test-track-consistency-fixture",
+  "purpose": "Deterministic root todo source used by tests/test_test_track_todo_consistency.py.",
+  "goal": "Keep the todo consistency validator covered without depending on runtime-generated todo dumps.",
+  "status_scale": ["todo", "in_progress", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "milestones": [
+    {
+      "id": "CONS-M1",
+      "title": "Consistency Fixture",
+      "task_ids": ["CONS-T001"],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "CONS-T001",
+      "title": "Keep todo consistency validator fixture valid",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "acceptance_criteria": [
+        "validate_todo_payload reports no counter drift for this fixture.",
+        "The fixture remains deterministic and does not contain runtime timestamps or environment-specific paths."
+      ]
+    }
+  ],
+  "critical_path_tasks": ["CONS-T001"],
+  "tasks_status_summary": {
+    "total": 1,
+    "by_status": {
+      "todo": 1,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0.0,
+    "by_priority": {
+      "P0": 0,
+      "P1": 1,
+      "P2": 0,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 1,
+      "medium": 0,
+      "high": 0,
+      "critical": 0
+    },
+    "critical_path": {
+      "total": 1,
+      "done": 0,
+      "remaining": 1
+    },
+    "milestones": {
+      "total": 1,
+      "todo": 1,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  }
+}

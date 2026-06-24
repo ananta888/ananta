@@ -47,12 +47,7 @@ export class TopologyService {
    * Laedt die vollstaendige Topologie inkl. Worker, Routing-Regeln und Layer.
    */
   getTopology(): Observable<ChTopologyReadModel> {
-    let baseUrl: string;
-    try {
-      baseUrl = this.hubUrl();
-    } catch (err) {
-      return throwError(() => this.toChError(err, 'getTopology'));
-    }
+    const baseUrl = this.hubUrl();
 
     return this.cc.listWorkers(baseUrl).pipe(
       map(workersResp => {

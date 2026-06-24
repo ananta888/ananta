@@ -1,9 +1,43 @@
     <div class="row title-row">
       <div>
-        <h2>Ergebnisse</h2>
+        <h2>Ergebnisse & Wissen</h2>
         <p class="muted title-muted">{{ term('artifact').technicalLabel }} bedeutet hier: {{ term('artifact').hint }}</p>
       </div>
       <button class="secondary" (click)="refresh()" [disabled]="loadingList">Aktualisieren</button>
+    </div>
+
+    <div class="card mt-md">
+      <div class="row space-between">
+        <div>
+          <h3 class="no-margin">Artefakt hochladen</h3>
+          <p class="muted title-muted">Dateien als Ergebnis ablegen und optional einer Wissens-Collection zuordnen.</p>
+        </div>
+      </div>
+      <div class="row gap-md mt-sm">
+        <input
+          data-testid="artifact-collection-input"
+          [(ngModel)]="collectionName"
+          placeholder="Collection"
+          aria-label="Collection" />
+        <input
+          data-testid="artifact-file-input"
+          type="file"
+          (change)="onFileSelected($event)"
+          aria-label="Artifact-Datei" />
+        <button
+          data-testid="artifact-upload-btn"
+          class="primary"
+          (click)="upload()"
+          [disabled]="uploadBusy || !selectedFile">
+          Hochladen
+        </button>
+        <button
+          class="secondary"
+          (click)="indexSelectedCollection()"
+          [disabled]="collectionIndexBusy || !selectedCollectionId">
+          Collection indexieren
+        </button>
+      </div>
     </div>
 
     <div class="card mt-md">

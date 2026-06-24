@@ -1,13 +1,12 @@
 import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, OnChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ScrollingModule } from '@angular/cdk/scrolling';
 import { GraphEdge, GraphNode, GenericGraphModel } from '../../models/graph.model';
 
 @Component({
   standalone: true,
   selector: 'app-simple-graph-view',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, ScrollingModule],
+  imports: [CommonModule],
   template: `
     @if (!graph || graph.nodes.length === 0) {
       <p class="empty-msg">No nodes to display.</p>
@@ -15,9 +14,9 @@ import { GraphEdge, GraphNode, GenericGraphModel } from '../../models/graph.mode
       <div class="sgv-layout">
         <section class="sgv-col">
           <h4>Nodes ({{ graph.nodes.length }})</h4>
-          <cdk-virtual-scroll-viewport itemSize="26" class="sgv-scroll">
-            <div *cdkVirtualFor="let node of graph.nodes; trackBy: trackNode"
-              class="sgv-row"
+          <div class="sgv-scroll">
+            <div *ngFor="let node of graph.nodes; trackBy: trackNode"
+              class="sgv-row sgv-node"
               [class.selected]="selectedNode?.id === node.id"
               (click)="nodeSelected.emit(node)">
               <span class="badge kind">{{ node.kind }}</span>
@@ -26,14 +25,14 @@ import { GraphEdge, GraphNode, GenericGraphModel } from '../../models/graph.mode
                 <span class="file muted">{{ node.file }}</span>
               }
             </div>
-          </cdk-virtual-scroll-viewport>
+          </div>
         </section>
 
         <section class="sgv-col">
           <h4>Edges ({{ graph.edges.length }})</h4>
-          <cdk-virtual-scroll-viewport itemSize="26" class="sgv-scroll">
-            <div *cdkVirtualFor="let edge of graph.edges; trackBy: trackEdge"
-              class="sgv-row"
+          <div class="sgv-scroll">
+            <div *ngFor="let edge of graph.edges; trackBy: trackEdge"
+              class="sgv-row sgv-edge"
               [class.selected]="selectedEdge?.id === edge.id"
               (click)="edgeSelected.emit(edge)">
               <span class="badge etype">{{ edge.edgeType }}</span>
@@ -42,7 +41,7 @@ import { GraphEdge, GraphNode, GenericGraphModel } from '../../models/graph.mode
                 <span class="muted conf">{{ (edge.confidence * 100).toFixed(0) }}%</span>
               }
             </div>
-          </cdk-virtual-scroll-viewport>
+          </div>
         </section>
       </div>
     }
@@ -52,7 +51,7 @@ import { GraphEdge, GraphNode, GenericGraphModel } from '../../models/graph.mode
     .sgv-layout { display: flex; gap: 1rem; flex: 1; min-height: 0; overflow: hidden; }
     .sgv-col { display: flex; flex-direction: column; flex: 1; min-width: 240px; min-height: 0; }
     h4 { margin: 0 0 .4rem; font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; color: #555; flex-shrink: 0; }
-    .sgv-scroll { flex: 1; min-height: 0; height: 100%; }
+    .sgv-scroll { flex: 1; min-height: 0; height: 100%; overflow: auto; }
     .sgv-row { display: flex; align-items: center; gap: .4rem; padding: 3px 6px; border-radius: 4px; cursor: pointer; font-size: .8rem; height: 26px; box-sizing: border-box; overflow: hidden; }
     .sgv-row:hover { background: #f0f4ff; }
     .sgv-row.selected { background: #dbeafe; }
