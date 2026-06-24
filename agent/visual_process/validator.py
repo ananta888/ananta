@@ -200,13 +200,76 @@ class GraphValidator:
                     step_id=step.id,
                 ))
 
-        # high_risk_no_gate (VPEVOL-002)
+        # high_risk_no_gate — evolve_project with apply_allowed OR evolution_apply without gate
         for step in graph.steps:
-            if step.kind in ("evolve_project",) and step.metadata.get("apply_allowed") and not step.gate:
+            if step.kind == "evolve_project" and step.metadata.get("apply_allowed") and not step.gate:
                 issues.append(ValidationIssue(
                     "warning", "high_risk_no_gate",
                     f"Step '{step.label}' has apply_allowed=true but gate=false; "
                     "recommend setting gate=true for evolve_project steps that apply changes",
+                    step_id=step.id,
+                ))
+            if step.kind == "evolution_apply" and not step.gate:
+                issues.append(ValidationIssue(
+                    "error", "evolution_apply_requires_gate",
+                    f"Step '{step.label}' (kind=evolution_apply) must have gate=true — "
+                    "EvolutionService.apply() modifies the codebase via MutationGateService",
+                    step_id=step.id,
+                ))
+
+        # turboquant_mse experimental warning
+        for step in graph.steps:
+            if step.kind == "turboquant_mse":
+                issues.append(ValidationIssue(
+                    "info", "turboquant_mse_experimental",
+                    f"Step '{step.label}' uses TurboQuantMseEncoder (TQ-012 PoC). "
+                    "Not production-grade. TQ-013 ProdStub is NotImplementedError.",
+                    step_id=step.id,
+                ))
+
+        # domain_cluster accuracy note
+        for step in graph.steps:
+            if step.kind == "domain_cluster":
+                issues.append(ValidationIssue(
+                    "info", "domain_cluster_deterministic",
+                    f"Step '{step.label}': domain_cluster uses deterministic signal-based clustering "
+                    "(path/package/graph cohesion). Leiden/Louvain/KMeans are NOT implemented in production.",
+                    step_id=step.id,
+                ))
+
+        # embed_api requires provider config
+        for step in graph.steps:
+            if step.kind == "embed_api":
+                provider = step.metadata.get("provider", "")
+                if provider in ("openai", "openai_compatible") and not step.metadata.get("base_url"):
+                    issues.append(ValidationIssue(
+                        "warning", "embed_api_missing_base_url",
+                        f"Step '{step.label}' (kind=embed_api) uses provider='{provider}' "
+                        "but no base_url is configured in metadata",
+                        step_id=step.id,
+                    ))
+
+        # codecompass_index_build should precede vector/fts search in same graph
+        cc_kinds = {"codecompass_vector_search", "codecompass_fts_search", "codecompass_graph_expand"}
+        cc_search_steps = [s for s in graph.steps if s.kind in cc_kinds]
+        if cc_search_steps and not any(s.kind == "codecompass_index_build" for s in graph.steps):
+            for step in cc_search_steps:
+                issues.append(ValidationIssue(
+                    "info", "codecompass_no_index_step",
+                    f"Step '{step.label}' (kind={step.kind}) uses CodeCompass but no "
+                    "codecompass_index_build step is present. Index must exist beforehand.",
+                    step_id=step.id,
+                ))
+
+        # evolution_validate should follow evolution_analyze (useful order hint)
+        ev_apply = [s for s in graph.steps if s.kind == "evolution_apply"]
+        ev_validate = [s for s in graph.steps if s.kind == "evolution_validate"]
+        if ev_apply and not ev_validate:
+            for step in ev_apply:
+                issues.append(ValidationIssue(
+                    "info", "evolution_apply_without_validate",
+                    f"Step '{step.label}' (kind=evolution_apply) without a preceding "
+                    "evolution_validate step. Recommend: analyze → validate → (gate) → apply",
                     step_id=step.id,
                 ))
 
@@ -291,10 +354,28 @@ class DataflowValidator:
                     "query (text) and candidates (dataset)",
                     step_id=step.id,
                 ))
-            if step.kind in ("vector_encode", "turboquant_encode") and any(
-                o.kind not in ("vector", "unknown") for o in step.io.outputs
-            ):
-                pass  # informational, not an error
+
+        # turboquant_mse: output should declare kind="vector"
+        for step in graph.steps:
+            if step.kind == "turboquant_mse" and step.io.outputs:
+                non_vector = [o for o in step.io.outputs if o.kind not in ("vector", "dataset", "unknown")]
+                if non_vector:
+                    issues.append(ValidationIssue(
+                        "info", "turboquant_output_kind",
+                        f"Step '{step.label}': turboquant_mse outputs should use kind='vector' or 'dataset'",
+                        step_id=step.id,
+                    ))
+
+        # codecompass_vector_search / fts_search: should output dataset
+        for step in graph.steps:
+            if step.kind in ("codecompass_vector_search", "codecompass_fts_search") and step.io.outputs:
+                non_dataset = [o for o in step.io.outputs if o.kind not in ("dataset", "json", "unknown")]
+                if non_dataset:
+                    issues.append(ValidationIssue(
+                        "info", "codecompass_search_output_kind",
+                        f"Step '{step.label}': CodeCompass search outputs should use kind='dataset' or 'json'",
+                        step_id=step.id,
+                    ))
 
         errors = [i for i in issues if i.severity == "error"]
         return ValidationResult(valid=len(errors) == 0, issues=issues)

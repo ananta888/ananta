@@ -25,6 +25,9 @@ HINT_VECTOR_OP          = "vector_operation"
 HINT_ML_INFERENCE       = "ml_inference"
 HINT_QUANTIZATION       = "quantization"
 HINT_SELF_MODIFYING     = "self_modifying"
+HINT_RETRIEVAL          = "retrieval"
+HINT_INDEX_WRITE        = "index_write"
+HINT_EVOLUTION          = "evolution"
 
 
 # ── Kind → hint rules ─────────────────────────────────────────────────────────
@@ -70,16 +73,45 @@ _KIND_HINTS: dict[str, list[str]] = {
     "join":     [],
     "approval": [HINT_REQUIRES_APPROVAL],
     "parallel": [],
-    # ML / AI
-    "vector_encode":     [HINT_ML_INFERENCE, HINT_READ_ONLY],
-    "turboquant_encode": [HINT_ML_INFERENCE, HINT_QUANTIZATION, HINT_READ_ONLY],
-    "embed_chunk":       [HINT_ML_INFERENCE, HINT_READ_ONLY],
-    "rag_retrieve":      [HINT_READ_ONLY, HINT_ML_INFERENCE],
-    "rerank":            [HINT_READ_ONLY, HINT_ML_INFERENCE],
-    "query_rewrite":     [HINT_LLM_CALL, HINT_READ_ONLY],
-    "cluster":           [HINT_ML_INFERENCE, HINT_READ_ONLY],
-    "evolve_prompt":     [HINT_LLM_CALL, HINT_WRITES_FILES, HINT_SELF_MODIFYING],
-    "evolve_project":    [HINT_LLM_CALL, HINT_SELF_MODIFYING, HINT_HIGH_RISK],
+    # Worker – workspace diff (WorkspaceDiffService — deterministic, fully implemented)
+    "workspace_snapshot": [HINT_READ_ONLY],
+    "workspace_diff":     [HINT_READ_ONLY, HINT_WRITES_FILES],  # writes manifest, not source
+
+    # Retrieval / CodeCompass (19 modules — fully implemented)
+    "codecompass_index_build":    [HINT_INDEX_WRITE, HINT_RETRIEVAL],
+    "codecompass_vector_search":  [HINT_READ_ONLY, HINT_RETRIEVAL],
+    "codecompass_fts_search":     [HINT_READ_ONLY, HINT_RETRIEVAL],
+    "codecompass_graph_expand":   [HINT_READ_ONLY, HINT_RETRIEVAL],
+
+    # ML – Embedding (HTTP API or hash — no local PyTorch)
+    "embed_api":   [HINT_VECTOR_OP, HINT_NETWORK_EGRESS, HINT_READ_ONLY],
+    "embed_chunk": [HINT_VECTOR_OP, HINT_NETWORK_EGRESS, HINT_READ_ONLY],
+
+    # ML – TurboQuant (TQ-011/012 implemented; TQ-013 ProdStub = NotImplementedError)
+    "sign_rotation":  [HINT_VECTOR_OP, HINT_READ_ONLY],
+    "turboquant_mse": [HINT_VECTOR_OP, HINT_QUANTIZATION, HINT_READ_ONLY],
+
+    # ML – RAG
+    "rag_retrieve":  [HINT_READ_ONLY, HINT_RETRIEVAL],
+    "rerank":        [HINT_READ_ONLY, HINT_RETRIEVAL],
+    "query_rewrite": [HINT_READ_ONLY],  # rule-based synonym expansion, no LLM, no network
+
+    # ML – Evolution (EvolutionService — fully implemented)
+    "evolution_analyze":  [HINT_LLM_CALL, HINT_EVOLUTION, HINT_READ_ONLY],
+    "evolution_validate": [HINT_EVOLUTION, HINT_READ_ONLY],
+    "evolution_apply":    [HINT_LLM_CALL, HINT_EVOLUTION, HINT_WRITES_FILES, HINT_SELF_MODIFYING, HINT_REQUIRES_APPROVAL],
+
+    # ML – Prompt / Project Evolution
+    "evolve_prompt":  [HINT_LLM_CALL, HINT_WRITES_FILES, HINT_SELF_MODIFYING],
+    "evolve_project": [HINT_LLM_CALL, HINT_SELF_MODIFYING, HINT_HIGH_RISK],
+
+    # ML – Clustering (deterministisch, rag-helper — Leiden/Louvain nicht in prod)
+    "domain_cluster": [HINT_READ_ONLY],
+
+    # Backward-compat (old unified kinds)
+    "vector_encode":     [HINT_VECTOR_OP, HINT_NETWORK_EGRESS, HINT_READ_ONLY],
+    "turboquant_encode": [HINT_VECTOR_OP, HINT_QUANTIZATION, HINT_READ_ONLY],
+    "cluster":           [HINT_READ_ONLY],
 }
 
 

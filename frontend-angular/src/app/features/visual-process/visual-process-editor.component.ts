@@ -16,17 +16,33 @@ import {
 const NODE_W = 140;
 const NODE_H = 52;
 const FALLBACK_KINDS: TaskKindInfo[] = [
-  { id: 'patch_propose', label: 'Patch Vorschlagen', group: 'worker', dispatch_capable: true, description: '' },
-  { id: 'plan_only',     label: 'Planen (LLM)',      group: 'worker', dispatch_capable: true, description: '' },
-  { id: 'review',        label: 'Review (LLM)',       group: 'worker', dispatch_capable: true, description: '' },
-  { id: 'run_tests',     label: 'Tests Ausführen',    group: 'worker', dispatch_capable: true, description: '' },
-  { id: 'shell_execute', label: 'Shell Ausführen',    group: 'worker', dispatch_capable: true, description: '' },
-  { id: 'fork',          label: 'Fork (Parallel)',    group: 'control_flow', dispatch_capable: true, description: '' },
-  { id: 'join',          label: 'Join (Sync)',        group: 'control_flow', dispatch_capable: true, description: '' },
-  { id: 'approval',      label: 'Approval Gate',      group: 'control_flow', dispatch_capable: true, description: '' },
-  { id: 'vector_encode', label: 'Vektor-Encoding',    group: 'ml',     dispatch_capable: false, description: '' },
-  { id: 'rag_retrieve',  label: 'RAG Abruf',          group: 'ml',     dispatch_capable: false, description: '' },
-  { id: 'evolve_prompt', label: 'Prompt Evolver',     group: 'ml',     dispatch_capable: false, description: '' },
+  { id: 'patch_propose',   label: 'Patch Vorschlagen',    group: 'worker',       dispatch_capable: true,  description: '' },
+  { id: 'plan_only',       label: 'Planen (LLM)',          group: 'worker',       dispatch_capable: true,  description: '' },
+  { id: 'review',          label: 'Review (LLM)',           group: 'worker',       dispatch_capable: true,  description: '' },
+  { id: 'run_tests',       label: 'Tests Ausführen',        group: 'worker',       dispatch_capable: true,  description: '' },
+  { id: 'shell_execute',   label: 'Shell Ausführen',        group: 'worker',       dispatch_capable: true,  description: '' },
+  { id: 'workspace_snapshot', label: 'Workspace Snapshot', group: 'worker',       dispatch_capable: true,  description: '' },
+  { id: 'workspace_diff',    label: 'Workspace Diff',      group: 'worker',       dispatch_capable: true,  description: '' },
+  { id: 'fork',            label: 'Fork (Parallel)',        group: 'control_flow', dispatch_capable: true,  description: '' },
+  { id: 'join',            label: 'Join (Sync)',            group: 'control_flow', dispatch_capable: true,  description: '' },
+  { id: 'approval',        label: 'Approval Gate',          group: 'control_flow', dispatch_capable: true,  description: '' },
+  { id: 'codecompass_index_build',   label: 'CC: Index',   group: 'retrieval',    dispatch_capable: false, description: '' },
+  { id: 'codecompass_vector_search', label: 'CC: Vector',  group: 'retrieval',    dispatch_capable: false, description: '' },
+  { id: 'codecompass_fts_search',    label: 'CC: FTS',     group: 'retrieval',    dispatch_capable: false, description: '' },
+  { id: 'codecompass_graph_expand',  label: 'CC: Graph',   group: 'retrieval',    dispatch_capable: false, description: '' },
+  { id: 'embed_api',       label: 'Embedding API',          group: 'ml',           dispatch_capable: false, description: '' },
+  { id: 'embed_chunk',     label: 'Chunk + Einbetten',      group: 'ml',           dispatch_capable: false, description: '' },
+  { id: 'turboquant_mse',  label: 'TurboQuant MSE (PoC)',   group: 'ml',           dispatch_capable: false, description: '' },
+  { id: 'sign_rotation',   label: 'Sign-Rotation (TQ-011)', group: 'ml',           dispatch_capable: false, description: '' },
+  { id: 'rag_retrieve',    label: 'RAG Abruf',              group: 'ml',           dispatch_capable: false, description: '' },
+  { id: 'rerank',          label: 'Reranking',              group: 'ml',           dispatch_capable: false, description: '' },
+  { id: 'query_rewrite',   label: 'Query-Erweiterung',      group: 'ml',           dispatch_capable: false, description: '' },
+  { id: 'evolution_analyze',  label: 'Evolution: Analyse',  group: 'ml',           dispatch_capable: false, description: '' },
+  { id: 'evolution_validate', label: 'Evolution: Prüfen',   group: 'ml',           dispatch_capable: false, description: '' },
+  { id: 'evolution_apply',    label: 'Evolution: Anwenden', group: 'ml',           dispatch_capable: false, description: '' },
+  { id: 'evolve_prompt',   label: 'Prompt Evolver',         group: 'ml',           dispatch_capable: false, description: '' },
+  { id: 'evolve_project',  label: 'Projekt-Evolver',        group: 'ml',           dispatch_capable: false, description: '' },
+  { id: 'domain_cluster',  label: 'Domain-Clustering',      group: 'ml',           dispatch_capable: false, description: '' },
 ];
 
 const ENCODING_MODES = ['off', 'float32', 'float16', 'int8', 'symmetric4bit', 'turboquant_mse_experimental'];
@@ -46,15 +62,33 @@ function emptyGraph(): VpGraph {
 function hintColor(hints: string[]): string {
   if (hints.includes('high_risk') || hints.includes('mutates_production')) return '#ff6b6b';
   if (hints.includes('requires_approval')) return '#fdcb6e';
+  if (hints.includes('evolution') || hints.includes('self_modifying')) return '#e84393';
+  if (hints.includes('index_write')) return '#6c5ce7';
+  if (hints.includes('retrieval')) return '#a29bfe';
+  if (hints.includes('vector_operation') || hints.includes('quantization')) return '#00b894';
+  if (hints.includes('ml_inference')) return '#00cec9';
   if (hints.includes('read_only')) return '#74b9ff';
-  if (hints.includes('ml_inference') || hints.includes('vector_operation')) return '#00b894';
-  if (hints.includes('self_modifying')) return '#e84393';
-  return '#a29bfe';
+  return '#636e72';
 }
+
+const RETRIEVAL_KINDS = new Set([
+  'codecompass_index_build', 'codecompass_vector_search',
+  'codecompass_fts_search', 'codecompass_graph_expand',
+]);
+const EVOLUTION_KINDS = new Set([
+  'evolution_analyze', 'evolution_validate', 'evolution_apply',
+  'evolve_prompt', 'evolve_project',
+]);
+const WORKSPACE_KINDS = new Set(['workspace_snapshot', 'workspace_diff']);
 
 function nodeKindColor(kind: string): string {
   if (kind === 'fork' || kind === 'join' || kind === 'parallel') return '#00b894';
   if (kind === 'approval') return '#55efc4';
+  if (RETRIEVAL_KINDS.has(kind)) return '#6c5ce7';
+  if (EVOLUTION_KINDS.has(kind)) return '#e84393';
+  if (WORKSPACE_KINDS.has(kind)) return '#b2bec3';
+  if (kind === 'turboquant_mse' || kind === 'sign_rotation') return '#00b894';
+  if (kind === 'embed_api' || kind === 'embed_chunk') return '#00cec9';
   return '';
 }
 
@@ -276,40 +310,45 @@ function nodeKindColor(kind: string): string {
         </label>
 
         <!-- Kind-specific meta fields -->
-        @if (selectedStep()!.kind === 'vector_encode') {
+
+        <!-- embed_api: HTTP-API oder lokal-hash — KEIN lokaler PyTorch/Transformer -->
+        @if (selectedStep()!.kind === 'embed_api' || selectedStep()!.kind === 'vector_encode') {
           <div class="vpe-meta-section">
-            <label class="vpe-label">Embedding-Modell
-              <input class="vpe-input" [ngModel]="stepMeta('embedding_model')"
-                     (ngModelChange)="setStepMeta('embedding_model', $event)" placeholder="z.B. nomic-embed-text" />
-            </label>
-            <label class="vpe-label">Encoding-Modus
-              <select class="vpe-input" [ngModel]="stepMeta('encoding_mode') || 'float32'"
-                      (ngModelChange)="setStepMeta('encoding_mode', $event)">
-                @for (m of encodingModes; track m) { <option [value]="m">{{ m }}</option> }
+            <div class="vpe-info-note">ℹ Embedding via HTTP-API (OpenAI-kompatibel), lokalem Hash oder Fake. Kein lokaler PyTorch/Transformer im Production-Code.</div>
+            <label class="vpe-label">Provider
+              <select class="vpe-input" [ngModel]="stepMeta('provider') || 'hash'"
+                      (ngModelChange)="setStepMeta('provider', $event)">
+                <option value="hash">local_hash (deterministisch, 12 dims)</option>
+                <option value="fake">fake (Test-only, 8 dims)</option>
+                <option value="openai_compatible">openai_compatible (HTTP API)</option>
               </select>
             </label>
+            @if (stepMeta('provider') === 'openai_compatible') {
+              <label class="vpe-label">Base-URL
+                <input class="vpe-input" [ngModel]="stepMeta('base_url')"
+                       (ngModelChange)="setStepMeta('base_url', $event)" placeholder="http://localhost:11434" />
+              </label>
+              <label class="vpe-label">Modell
+                <input class="vpe-input" [ngModel]="stepMeta('model') || 'text-embedding-3-small'"
+                       (ngModelChange)="setStepMeta('model', $event)" />
+              </label>
+              <label class="vpe-label">Dimensionen
+                <input class="vpe-input" type="number" min="1"
+                       [ngModel]="stepMeta('dimensions') ?? 1536"
+                       (ngModelChange)="setStepMeta('dimensions', +$event)" />
+              </label>
+            }
+            @if (stepMeta('provider') === 'hash') {
+              <label class="vpe-label">Dimensionen (hash)
+                <input class="vpe-input" type="number" min="4" max="128"
+                       [ngModel]="stepMeta('dimensions') ?? 12"
+                       (ngModelChange)="setStepMeta('dimensions', +$event)" />
+              </label>
+            }
           </div>
         }
-        @if (selectedStep()!.kind === 'turboquant_encode') {
-          <div class="vpe-meta-section">
-            <label class="vpe-label">Target Bits
-              <input class="vpe-input" type="number" min="1" max="8"
-                     [ngModel]="stepMeta('target_bits') ?? 4"
-                     (ngModelChange)="setStepMeta('target_bits', +$event)" />
-            </label>
-            <label class="vpe-label">Block Size (0 = auto)
-              <input class="vpe-input" type="number" min="0"
-                     [ngModel]="stepMeta('block_size') ?? 0"
-                     (ngModelChange)="setStepMeta('block_size', +$event)" />
-            </label>
-            <label class="vpe-label vpe-checkbox">
-              <input type="checkbox" [ngModel]="stepMeta('store_original') ?? false"
-                     (ngModelChange)="setStepMeta('store_original', $event)" />
-              Original behalten
-            </label>
-            <div class="vpe-warn-note">⚠ TurboQuantProdStub: Experimentell (NotImplementedError in Prod)</div>
-          </div>
-        }
+
+        <!-- embed_chunk: index_builder chunking + embed_api per chunk -->
         @if (selectedStep()!.kind === 'embed_chunk') {
           <div class="vpe-meta-section">
             <label class="vpe-label">Chunk-Größe (Tokens)
@@ -322,22 +361,65 @@ function nodeKindColor(kind: string): string {
                      [ngModel]="stepMeta('chunk_overlap') ?? 64"
                      (ngModelChange)="setStepMeta('chunk_overlap', +$event)" />
             </label>
-            <label class="vpe-label">Embedding-Modell
+            <label class="vpe-label">Provider
+              <select class="vpe-input" [ngModel]="stepMeta('provider') || 'hash'"
+                      (ngModelChange)="setStepMeta('provider', $event)">
+                <option value="hash">local_hash</option>
+                <option value="openai_compatible">openai_compatible (HTTP)</option>
+              </select>
+            </label>
+            <label class="vpe-label">Embedding-Modell (für openai_compatible)
               <input class="vpe-input" [ngModel]="stepMeta('embedding_model')"
-                     (ngModelChange)="setStepMeta('embedding_model', $event)" placeholder="z.B. nomic-embed-text" />
+                     (ngModelChange)="setStepMeta('embedding_model', $event)" placeholder="nomic-embed-text" />
             </label>
           </div>
         }
+
+        <!-- sign_rotation: TQ-011 DeterministicSignRotation — selbst-invers, kein NotImplementedError -->
+        @if (selectedStep()!.kind === 'sign_rotation') {
+          <div class="vpe-meta-section">
+            <div class="vpe-info-note">ℹ TQ-011: DeterministicSignRotation — SHA256-basierter Per-Dimension Vorzeichenflip. Selbst-invers. Vollständig implementiert.</div>
+            <label class="vpe-label">Seed (für reproduzierbare Rotation)
+              <input class="vpe-input" type="number" min="0"
+                     [ngModel]="stepMeta('seed') ?? 888"
+                     (ngModelChange)="setStepMeta('seed', +$event)" />
+            </label>
+          </div>
+        }
+
+        <!-- turboquant_mse: TQ-012 PoC — IMPLEMENTIERT (nicht NotImplementedError) -->
+        @if (selectedStep()!.kind === 'turboquant_mse' || selectedStep()!.kind === 'turboquant_encode') {
+          <div class="vpe-meta-section">
+            <div class="vpe-info-note">ℹ TQ-012 TurboQuantMseEncoder: sign-rotate + symmetric 4-bit scalar quant. PoC — komprimiert funktioniert. TQ-013 ProdStub = NotImplementedError (nicht dieser Step).</div>
+            <label class="vpe-label">Seed (Sign-Rotation)
+              <input class="vpe-input" type="number" min="0"
+                     [ngModel]="stepMeta('seed') ?? 888"
+                     (ngModelChange)="setStepMeta('seed', +$event)" />
+            </label>
+            <label class="vpe-label">Levels (Quantisierungs-Stufen, Standard: 7 für 4-bit)
+              <input class="vpe-input" type="number" min="1" max="15"
+                     [ngModel]="stepMeta('levels') ?? 7"
+                     (ngModelChange)="setStepMeta('levels', +$event)" />
+            </label>
+            <label class="vpe-label vpe-checkbox">
+              <input type="checkbox" [ngModel]="!!stepMeta('store_original')"
+                     (ngModelChange)="setStepMeta('store_original', $event)" />
+              Original float32 behalten (für Fallback-Policy)
+            </label>
+          </div>
+        }
+
+        <!-- rag_retrieve: HybridRetrievalService mit 6 Channels -->
         @if (selectedStep()!.kind === 'rag_retrieve') {
           <div class="vpe-meta-section">
-            <div class="vpe-label">Channels
+            <div class="vpe-label">Channels (HybridRetrievalService)
               @for (ch of ragChannels; track ch) {
                 <label class="vpe-checkbox" style="margin:2px 0">
                   <input type="checkbox" [ngModel]="isChannelSelected(ch)"
                          (ngModelChange)="toggleChannel(ch, $event)" />
                   {{ ch }}
                   @if (ch.startsWith('codecompass')) {
-                    <span class="vpe-warn-note" style="display:inline;margin-left:4px">⚠ erfordert aktiven Index</span>
+                    <span class="vpe-info-note" style="display:inline;margin-left:4px">→ erfordert aktiven CC-Index</span>
                   }
                 </label>
               }
@@ -349,49 +431,196 @@ function nodeKindColor(kind: string): string {
             </label>
           </div>
         }
+
+        <!-- rerank: Token-Overlap Boost — KEIN neurales Modell -->
         @if (selectedStep()!.kind === 'rerank') {
           <div class="vpe-meta-section">
+            <div class="vpe-info-note">ℹ Reranker: Token-Overlap Boost. Neural Stub = NotImplementedError.</div>
             <label class="vpe-label">Reranker-Typ
               <select class="vpe-input" [ngModel]="stepMeta('reranker_type') || 'token_overlap'"
                       (ngModelChange)="setStepMeta('reranker_type', $event)">
-                <option value="token_overlap">Token Overlap</option>
-                <option value="neural_stub">Neural (Stub — nicht produktionsreif)</option>
+                <option value="token_overlap">Token Overlap ✓ (implementiert)</option>
+                <option value="neural_stub">Neural Stub ✗ (NotImplementedError)</option>
               </select>
             </label>
-            <label class="vpe-label">Reranker-Gewicht
+            <label class="vpe-label">Gewicht (0.0–1.0)
               <input class="vpe-input" type="number" min="0" max="1" step="0.01"
                      [ngModel]="stepMeta('reranker_weight') ?? 0.15"
                      (ngModelChange)="setStepMeta('reranker_weight', +$event)" />
             </label>
             @if (stepMeta('reranker_type') === 'neural_stub') {
-              <div class="vpe-warn-note">⚠ Neural Reranker nicht produktionsreif (NotImplementedError)</div>
+              <div class="vpe-warn-note">⚠ Neural Reranker = NotImplementedError — verwende token_overlap</div>
             }
           </div>
         }
-        @if (selectedStep()!.kind === 'cluster') {
+
+        <!-- query_rewrite: nur Synonym-Expansion, kein LLM -->
+        @if (selectedStep()!.kind === 'query_rewrite') {
           <div class="vpe-meta-section">
-            <label class="vpe-label">Algorithmus
-              <select class="vpe-input" [ngModel]="stepMeta('algorithm') || 'leiden'"
-                      (ngModelChange)="setStepMeta('algorithm', $event)">
-                <option value="leiden">Leiden</option>
-                <option value="louvain">Louvain</option>
-                <option value="kmeans">KMeans</option>
-              </select>
-            </label>
-            <label class="vpe-label">Resolution
-              <input class="vpe-input" type="number" min="0.1" step="0.1"
-                     [ngModel]="stepMeta('resolution') ?? 1.0"
-                     (ngModelChange)="setStepMeta('resolution', +$event)" />
-            </label>
-            <label class="vpe-label">Min. Cluster-Größe
+            <div class="vpe-info-note">ℹ Nur regelbasierte Synonym-Expansion (bug→defect/failure, fix→repair/resolve…). Kein LLM-Rewriting, kein Netzwerk-Egress.</div>
+          </div>
+        }
+
+        <!-- domain_cluster: deterministisch — Leiden/Louvain NICHT im Production-Code -->
+        @if (selectedStep()!.kind === 'domain_cluster' || selectedStep()!.kind === 'cluster') {
+          <div class="vpe-meta-section">
+            <div class="vpe-warn-note">⚠ Leiden/Louvain/KMeans existieren NICHT im Production-Code. Nur deterministisches Signal-Clustering (Pfad/Paket/Graph-Kohäsion, rag-helper).</div>
+            <label class="vpe-label">Min. Domain-Größe
               <input class="vpe-input" type="number" min="1"
-                     [ngModel]="stepMeta('min_cluster_size') ?? 5"
-                     (ngModelChange)="setStepMeta('min_cluster_size', +$event)" />
+                     [ngModel]="stepMeta('min_domain_size') ?? 3"
+                     (ngModelChange)="setStepMeta('min_domain_size', +$event)" />
             </label>
           </div>
         }
+
+        <!-- workspace_snapshot / workspace_diff: WorkspaceDiffService — deterministisch -->
+        @if (selectedStep()!.kind === 'workspace_snapshot') {
+          <div class="vpe-meta-section">
+            <div class="vpe-info-note">ℹ WorkspaceDiffService.take_snapshot(): erstellt SHA256-Hash-Map aller Dateien. Deterministisch, kein LLM.</div>
+            <label class="vpe-label">Workspace-Root (optional)
+              <input class="vpe-input" [ngModel]="stepMeta('workspace_root') || '.'"
+                     (ngModelChange)="setStepMeta('workspace_root', $event)" placeholder="." />
+            </label>
+          </div>
+        }
+        @if (selectedStep()!.kind === 'workspace_diff') {
+          <div class="vpe-meta-section">
+            <div class="vpe-info-note">ℹ WorkspaceDiffService.compute_diff() + synthesize_manifest(): erzeugt artifact_manifest.v1 aus FileChangeSet.</div>
+            <label class="vpe-label">Workspace-Root
+              <input class="vpe-input" [ngModel]="stepMeta('workspace_root') || '.'"
+                     (ngModelChange)="setStepMeta('workspace_root', $event)" placeholder="." />
+            </label>
+          </div>
+        }
+
+        <!-- CodeCompass Steps — alle 19 Module vollständig implementiert -->
+        @if (selectedStep()!.kind === 'codecompass_index_build') {
+          <div class="vpe-meta-section">
+            <div class="vpe-info-note">ℹ index_builder.py: Delta-Erkennung (changed/deleted/renamed) → Chunking → Embedding → SQLite-Speicherung.</div>
+            <label class="vpe-label vpe-checkbox">
+              <input type="checkbox" [ngModel]="stepMeta('incremental') !== false"
+                     (ngModelChange)="setStepMeta('incremental', $event)" />
+              Inkrementell (Delta-Build statt Full-Rebuild)
+            </label>
+            <label class="vpe-label">Provider
+              <select class="vpe-input" [ngModel]="stepMeta('provider') || 'hash'"
+                      (ngModelChange)="setStepMeta('provider', $event)">
+                <option value="hash">local_hash</option>
+                <option value="openai_compatible">openai_compatible (HTTP)</option>
+              </select>
+            </label>
+          </div>
+        }
+        @if (selectedStep()!.kind === 'codecompass_vector_search') {
+          <div class="vpe-meta-section">
+            <div class="vpe-info-note">ℹ codecompass_vector_engine: Semantische Suche mit task_kind/intent-Gewichtung. Vollständig implementiert.</div>
+            <label class="vpe-label">Top-K
+              <input class="vpe-input" type="number" min="1"
+                     [ngModel]="stepMeta('top_k') ?? 20"
+                     (ngModelChange)="setStepMeta('top_k', +$event)" />
+            </label>
+            <label class="vpe-label">Task-Kind-Hint (für Gewichtung)
+              <select class="vpe-input" [ngModel]="stepMeta('task_kind_hint') || ''"
+                      (ngModelChange)="setStepMeta('task_kind_hint', $event)">
+                <option value="">— keins —</option>
+                <option value="bugfix">bugfix (×1.0)</option>
+                <option value="refactor">refactor (×1.1)</option>
+                <option value="architecture">architecture (×1.2)</option>
+                <option value="config">config (×1.05)</option>
+              </select>
+            </label>
+            <label class="vpe-label">Retrieval-Intent
+              <select class="vpe-input" [ngModel]="stepMeta('retrieval_intent') || 'fuzzy_semantic'"
+                      (ngModelChange)="setStepMeta('retrieval_intent', $event)">
+                <option value="fuzzy_semantic">fuzzy_semantic (×1.2)</option>
+                <option value="architecture">architecture (×1.15)</option>
+                <option value="exact_symbol">exact_symbol (×0.9)</option>
+                <option value="config_lookup">config_lookup</option>
+              </select>
+            </label>
+          </div>
+        }
+        @if (selectedStep()!.kind === 'codecompass_fts_search') {
+          <div class="vpe-meta-section">
+            <div class="vpe-info-note">ℹ codecompass_fts_engine: BM25 Full-Text-Search mit task_kind/intent-Gewichtung. Vollständig implementiert.</div>
+            <label class="vpe-label">Top-K
+              <input class="vpe-input" type="number" min="1"
+                     [ngModel]="stepMeta('top_k') ?? 20"
+                     (ngModelChange)="setStepMeta('top_k', +$event)" />
+            </label>
+            <label class="vpe-label">Task-Kind-Hint
+              <select class="vpe-input" [ngModel]="stepMeta('task_kind_hint') || ''"
+                      (ngModelChange)="setStepMeta('task_kind_hint', $event)">
+                <option value="">— keins —</option>
+                <option value="bugfix">bugfix (×1.25)</option>
+                <option value="refactor">refactor (×1.15)</option>
+                <option value="architecture">architecture (×1.05)</option>
+              </select>
+            </label>
+            <label class="vpe-label">Retrieval-Intent
+              <select class="vpe-input" [ngModel]="stepMeta('retrieval_intent') || 'exact_symbol'"
+                      (ngModelChange)="setStepMeta('retrieval_intent', $event)">
+                <option value="exact_symbol">exact_symbol (×1.25)</option>
+                <option value="config_lookup">config_lookup (×1.15)</option>
+                <option value="fuzzy_semantic">fuzzy_semantic</option>
+              </select>
+            </label>
+          </div>
+        }
+        @if (selectedStep()!.kind === 'codecompass_graph_expand') {
+          <div class="vpe-meta-section">
+            <div class="vpe-info-note">ℹ codecompass_graph_expansion: Nachbarschafts-Expansion von Seed-Knoten im SQLite-Graph-Store.</div>
+            <label class="vpe-label">Max. Knoten (Expansion-Limit)
+              <input class="vpe-input" type="number" min="1" max="200"
+                     [ngModel]="stepMeta('max_nodes') ?? 50"
+                     (ngModelChange)="setStepMeta('max_nodes', +$event)" />
+            </label>
+          </div>
+        }
+
+        <!-- Evolution Steps (EvolutionService — vollständig implementiert) -->
+        @if (selectedStep()!.kind === 'evolution_analyze') {
+          <div class="vpe-meta-section">
+            <div class="vpe-info-note">ℹ EvolutionService.analyze(): Kontext → EvolutionProposal(s). Persistiert EvolutionRunDB + EvolutionProposalDB.</div>
+            <label class="vpe-label">Provider-Name
+              <input class="vpe-input" [ngModel]="stepMeta('provider_name') || 'default'"
+                     (ngModelChange)="setStepMeta('provider_name', $event)" />
+            </label>
+            <label class="vpe-label">Trigger-Typ
+              <select class="vpe-input" [ngModel]="stepMeta('trigger_type') || 'manual'"
+                      (ngModelChange)="setStepMeta('trigger_type', $event)">
+                <option value="manual">MANUAL</option>
+                <option value="verification_failure">VERIFICATION_FAILURE</option>
+                <option value="error_threshold">ERROR_THRESHOLD</option>
+                <option value="periodic_review">PERIODIC_REVIEW</option>
+                <option value="policy_request">POLICY_REQUEST</option>
+              </select>
+            </label>
+          </div>
+        }
+        @if (selectedStep()!.kind === 'evolution_validate') {
+          <div class="vpe-meta-section">
+            <div class="vpe-info-note">ℹ EvolutionService.validate(): Validiert Proposal ohne Anwendung (dry validation pass).</div>
+            <label class="vpe-label">Provider-Name
+              <input class="vpe-input" [ngModel]="stepMeta('provider_name') || 'default'"
+                     (ngModelChange)="setStepMeta('provider_name', $event)" />
+            </label>
+          </div>
+        }
+        @if (selectedStep()!.kind === 'evolution_apply') {
+          <div class="vpe-meta-section">
+            <div class="vpe-warn-note">⚠ EvolutionService.apply() via MutationGateService — schreibt Änderungen. gate=true ist Pflicht (wird vom Validator erzwungen).</div>
+            <label class="vpe-label">Provider-Name
+              <input class="vpe-input" [ngModel]="stepMeta('provider_name') || 'default'"
+                     (ngModelChange)="setStepMeta('provider_name', $event)" />
+            </label>
+          </div>
+        }
+
+        <!-- evolve_prompt / evolve_project (bestehende Kinds) -->
         @if (selectedStep()!.kind === 'evolve_prompt') {
           <div class="vpe-meta-section">
+            <div class="vpe-info-note">ℹ PlanningPromptEvolverService.evolve_from_run(): optimiert User/Repair-Prompt-Templates anhand von Fehler-Triggern (parse_failed, low confidence etc.).</div>
             <label class="vpe-label">Trigger-Typ
               <select class="vpe-input" [ngModel]="stepMeta('trigger_type') || 'manual'"
                       (ngModelChange)="setStepMeta('trigger_type', $event)">
@@ -440,7 +669,7 @@ function nodeKindColor(kind: string): string {
               apply_allowed (Schreibt Produktions-Code!)
             </label>
             @if (stepMeta('apply_allowed')) {
-              <div class="vpe-warn-note">⚠ apply_allowed=true schreibt direkt in Code. gate=true empfohlen.</div>
+              <div class="vpe-warn-note">⚠ apply_allowed=true schreibt direkt in Code. Empfehle evolution_apply-Step mit gate=true stattdessen.</div>
             }
           </div>
         }
@@ -736,6 +965,7 @@ function nodeKindColor(kind: string): string {
 .vpe-meta-section { background: #0f3460; border-radius: 4px; padding: 6px 8px; margin: 4px 0; }
 .vpe-inline-err { color: #ff7675; font-size: 10px; margin-top: 2px; }
 .vpe-warn-note { color: #fdcb6e; font-size: 10px; margin-top: 2px; }
+.vpe-info-note { color: #74b9ff; font-size: 10px; margin-top: 2px; line-height: 1.3; }
 
 /* library */
 .vpe-library { padding: 6px; flex: 1 1 0; overflow-y: auto; }
@@ -848,7 +1078,7 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy {
     for (const k of this.taskKindList()) {
       (groups[k.group] ??= []).push(k);
     }
-    const order = ['control_flow', 'worker', 'ml'];
+    const order = ['control_flow', 'worker', 'retrieval', 'ml'];
     return order.filter(g => groups[g]).map(g => ({ group: g, kinds: groups[g] }));
   });
 

@@ -101,23 +101,73 @@ _BUILTIN_PROFILES: list[AgentSkillProfile] = [
     AgentSkillProfile(
         id="ml_engineer",
         name="ML Engineer Agent",
-        description="Handles vector encoding, RAG pipelines, and quantization steps.",
+        description=(
+            "Handles embedding (HTTP API/hash), RAG pipelines, TurboQuant PoC (TQ-012), "
+            "CodeCompass retrieval, and domain clustering."
+        ),
         role="ml_engineer",
         task_kinds=[
-            "vector_encode", "turboquant_encode", "embed_chunk",
-            "rag_retrieve", "rerank", "query_rewrite", "cluster",
+            # Embedding
+            "embed_api", "embed_chunk",
+            # TurboQuant (TQ-011/012 only — TQ-013 NotImplementedError)
+            "sign_rotation", "turboquant_mse",
+            # RAG
+            "rag_retrieve", "rerank", "query_rewrite",
+            # Domain clustering (deterministic signal-based)
+            "domain_cluster",
+            # Legacy aliases
+            "vector_encode", "turboquant_encode", "cluster",
         ],
         capabilities=["ml_inference", "vector_operation", "read_only"],
         allowed_tools=["read_file", "list_files", "grep_search"],
-        tags=["ml", "embeddings", "retrieval"],
+        tags=["ml", "embeddings", "retrieval", "rag"],
+    ),
+    AgentSkillProfile(
+        id="retrieval_engineer",
+        name="Retrieval / CodeCompass Agent",
+        description=(
+            "Builds and queries CodeCompass indices (19 modules, all fully implemented): "
+            "vector search, BM25 FTS, graph expansion, delta index builds."
+        ),
+        role="retrieval_engineer",
+        task_kinds=[
+            "codecompass_index_build",
+            "codecompass_vector_search",
+            "codecompass_fts_search",
+            "codecompass_graph_expand",
+            # May also do RAG retrieval
+            "rag_retrieve", "rerank",
+        ],
+        capabilities=["read_only", "retrieval", "index_write"],
+        allowed_tools=["read_file", "list_files", "grep_search"],
+        tags=["retrieval", "codecompass", "search"],
+    ),
+    AgentSkillProfile(
+        id="workspace_agent",
+        name="Workspace Agent",
+        description=(
+            "Snapshot and diff workspace files via WorkspaceDiffService "
+            "(take_snapshot, compute_diff, synthesize_manifest). Deterministic, no LLM."
+        ),
+        role="workspace",
+        task_kinds=["workspace_snapshot", "workspace_diff"],
+        capabilities=["read_only"],
+        allowed_tools=["read_file", "list_files"],
+        tags=["workspace", "diff", "deterministic"],
     ),
     AgentSkillProfile(
         id="evolver_agent",
         name="Evolver Agent",
-        description="Evolves prompts and project structure using run telemetry and EvolutionService.",
+        description=(
+            "Full evolution pipeline: evolution_analyze → evolution_validate → evolution_apply "
+            "via EvolutionService, plus PlanningPromptEvolverService for prompt-level evolution."
+        ),
         role="evolver",
-        task_kinds=["evolve_prompt", "evolve_project"],
-        capabilities=["self_modifying", "llm_generate"],
+        task_kinds=[
+            "evolution_analyze", "evolution_validate", "evolution_apply",
+            "evolve_prompt", "evolve_project",
+        ],
+        capabilities=["self_modifying", "llm_generate", "evolution"],
         allowed_tools=["read_file", "list_files", "grep_search", "git_diff"],
         tags=["evolution", "self-improving"],
     ),

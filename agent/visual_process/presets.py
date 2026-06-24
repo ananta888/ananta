@@ -221,15 +221,15 @@ def preset_knowledge_index_pipeline() -> VisualProcessGraph:
                   outputs=[ArtifactRef(name="chunks_with_vectors", kind="dataset")],
                   x=0, y=0,
                   metadata={"chunk_size": 512, "chunk_overlap": 64, "embedding_model": "nomic-embed-text"}),
-            _step("s2", "TurboQuant komprimieren", "turboquant_encode", "ml_engineer",
+            _step("s2", "TurboQuant 4-bit (TQ-012 PoC)", "turboquant_mse", "ml_engineer",
                   skill_profile="ml_engineer",
                   inputs=[ArtifactRef(name="chunks_with_vectors", kind="dataset", required=True)],
-                  outputs=[ArtifactRef(name="quantized_vectors", kind="dataset")],
+                  outputs=[ArtifactRef(name="quantized_vectors", kind="vector")],
                   x=240, y=0,
-                  metadata={"target_bits": 4, "block_size": 0, "store_original": False}),
+                  metadata={"seed": 888, "levels": 7, "store_original": False}),
             _step("s3", "Index speichern", "script", "devops",
                   skill_profile="devops",
-                  inputs=[ArtifactRef(name="quantized_vectors", kind="dataset", required=True)],
+                  inputs=[ArtifactRef(name="quantized_vectors", kind="vector", required=True)],
                   outputs=[ArtifactRef(name="index_done", kind="report")],
                   x=480, y=0),
         ],
@@ -282,6 +282,145 @@ def preset_self_improving_agent() -> VisualProcessGraph:
     )
 
 
+def preset_evolution_pipeline() -> VisualProcessGraph:
+    """Vollständige EvolutionService-Pipeline: analyze → validate → (gate) → apply."""
+    analysis_out = ArtifactRef(name="proposals", kind="json")
+    validated_out = ArtifactRef(name="validated_proposal", kind="json")
+    return VisualProcessGraph(
+        id="preset-evolution-pipeline",
+        name="Evolution Pipeline",
+        description=(
+            "Vollständige EvolutionService-Pipeline: Kontext analysieren, "
+            "Proposal validieren, dann mit Gate-Freigabe anwenden."
+        ),
+        tags=["evolution", "self-improving", "gate"],
+        steps=[
+            _step("s1", "Evolution analysieren", "evolution_analyze", "evolver",
+                  skill_profile="evolver_agent",
+                  inputs=[ArtifactRef(name="context", kind="json", required=False)],
+                  outputs=[analysis_out],
+                  x=0, y=0,
+                  metadata={"trigger_type": "manual", "analyze_only": True}),
+            _step("s2", "Proposal validieren", "evolution_validate", "evolver",
+                  skill_profile="evolver_agent",
+                  inputs=[ArtifactRef(name="proposals", kind="json", required=True)],
+                  outputs=[validated_out],
+                  x=240, y=0),
+            _step("s3", "Änderungen anwenden", "evolution_apply", "evolver",
+                  skill_profile="evolver_agent",
+                  inputs=[ArtifactRef(name="validated_proposal", kind="json", required=True)],
+                  outputs=[ArtifactRef(name="apply_result", kind="report")],
+                  x=480, y=0, gate=True,
+                  policy_hints=["requires_approval", "self_modifying", "evolution"]),
+        ],
+        edges=[
+            _edge("e1", "s1", "s2"),
+            _edge("e2", "s2", "s3", kind="on_success"),
+        ],
+    )
+
+
+def preset_codecompass_search_pipeline() -> VisualProcessGraph:
+    """CodeCompass Suche: index_build → vector_search + fts_search → rerank → summarize."""
+    vector_out  = ArtifactRef(name="vector_candidates", kind="dataset")
+    fts_out     = ArtifactRef(name="fts_candidates",    kind="dataset")
+    reranked    = ArtifactRef(name="reranked",          kind="dataset")
+    answer      = ArtifactRef(name="answer",            kind="text")
+    return VisualProcessGraph(
+        id="preset-codecompass-search",
+        name="CodeCompass Suche",
+        description=(
+            "CodeCompass-Pipeline: Delta-Index aufbauen, "
+            "semantische + FTS-Suche parallel, dann reranken und zusammenfassen."
+        ),
+        tags=["codecompass", "retrieval", "search", "rag"],
+        steps=[
+            _step("s1", "CC: Index aufbauen", "codecompass_index_build", "retrieval_engineer",
+                  skill_profile="retrieval_engineer",
+                  inputs=[ArtifactRef(name="workspace_root", kind="text", required=False)],
+                  outputs=[ArtifactRef(name="index_ready", kind="report")],
+                  x=0, y=0,
+                  metadata={"incremental": True}),
+            _step("s2", "CC: Semantische Suche", "codecompass_vector_search", "retrieval_engineer",
+                  skill_profile="retrieval_engineer",
+                  inputs=[ArtifactRef(name="query", kind="text", required=False)],
+                  outputs=[vector_out],
+                  x=240, y=-60,
+                  metadata={"top_k": 20, "retrieval_intent": "fuzzy_semantic"}),
+            _step("s3", "CC: Full-Text Suche", "codecompass_fts_search", "retrieval_engineer",
+                  skill_profile="retrieval_engineer",
+                  inputs=[ArtifactRef(name="query", kind="text", required=False)],
+                  outputs=[fts_out],
+                  x=240, y=60,
+                  metadata={"top_k": 20, "retrieval_intent": "exact_symbol"}),
+            _step("s4", "Merge + Reranking", "rerank", "retrieval_engineer",
+                  skill_profile="retrieval_engineer",
+                  inputs=[
+                      ArtifactRef(name="vector_candidates", kind="dataset", required=False),
+                      ArtifactRef(name="fts_candidates",    kind="dataset", required=False),
+                  ],
+                  outputs=[reranked],
+                  x=480, y=0,
+                  metadata={"reranker_weight": 0.15, "reranker_type": "token_overlap"}),
+            _step("s5", "Zusammenfassen", "summarize", "analyst",
+                  skill_profile="analyst",
+                  inputs=[ArtifactRef(name="reranked", kind="dataset", required=True)],
+                  outputs=[answer],
+                  x=720, y=0),
+        ],
+        edges=[
+            _edge("e1", "s1", "s2"),
+            _edge("e2", "s1", "s3"),
+            _edge("e3", "s2", "s4"),
+            _edge("e4", "s3", "s4"),
+            _edge("e5", "s4", "s5"),
+        ],
+    )
+
+
+def preset_workspace_snapshot_and_diff() -> VisualProcessGraph:
+    """workspace_snapshot → patch_apply → workspace_diff → review (Änderungen sichtbar machen)."""
+    snapshot_out = ArtifactRef(name="before_snapshot", kind="json")
+    patch_out    = ArtifactRef(name="patch",           kind="code")
+    diff_out     = ArtifactRef(name="change_manifest", kind="json")
+    return VisualProcessGraph(
+        id="preset-workspace-snapshot-diff",
+        name="Workspace Diff Pipeline",
+        description=(
+            "Snapshot vor Änderung → Patch anwenden → Diff berechnen → "
+            "artifact_manifest.v1 erzeugen → Review der Änderungen."
+        ),
+        tags=["workspace", "diff", "patch", "audit"],
+        steps=[
+            _step("s1", "Snapshot (vorher)", "workspace_snapshot", "workspace",
+                  skill_profile="workspace_agent",
+                  outputs=[snapshot_out],
+                  x=0, y=0),
+            _step("s2", "Patch anwenden", "patch_apply", "developer",
+                  skill_profile="coder",
+                  inputs=[ArtifactRef(name="before_snapshot", kind="json", required=False)],
+                  outputs=[patch_out],
+                  x=220, y=0,
+                  policy_hints=["writes_files"]),
+            _step("s3", "Workspace Diff", "workspace_diff", "workspace",
+                  skill_profile="workspace_agent",
+                  inputs=[ArtifactRef(name="patch", kind="code", required=True)],
+                  outputs=[diff_out],
+                  x=440, y=0),
+            _step("s4", "Änderungs-Review", "review", "reviewer",
+                  skill_profile="reviewer",
+                  inputs=[ArtifactRef(name="change_manifest", kind="json", required=True)],
+                  outputs=[ArtifactRef(name="review_report", kind="report")],
+                  x=660, y=0),
+        ],
+        edges=[
+            _edge("e1", "s1", "s2"),
+            _edge("e2", "s2", "s3"),
+            _edge("e3", "s3", "s4"),
+        ],
+    )
+
+
 def preset_self_improving_planner() -> VisualProcessGraph:
     """Minimal evolver feedback loop (VPEVOL-003)."""
     return VisualProcessGraph(
@@ -320,6 +459,9 @@ def _load() -> None:
         preset_research_and_report, preset_deploy_pipeline,
         preset_rag_pipeline, preset_knowledge_index_pipeline,
         preset_self_improving_agent, preset_self_improving_planner,
+        preset_evolution_pipeline,
+        preset_codecompass_search_pipeline,
+        preset_workspace_snapshot_and_diff,
     ]:
         g = fn()
         _PRESETS[g.id] = g
