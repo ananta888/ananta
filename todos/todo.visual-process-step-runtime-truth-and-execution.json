@@ -1,0 +1,489 @@
+{
+  "id": "todo.visual-process-step-runtime-truth-and-execution",
+  "title": "VP Editor — Step Runtime Truth, Canonical Names und echte Ausführbarkeit",
+  "version": "1.0",
+  "created": "2026-06-24",
+  "updated": "2026-06-24",
+  "project": "Ananta / Visual Process Designer",
+  "status": "open",
+  "priority": "critical",
+  "tags": [
+    "visual-process",
+    "runtime-truth",
+    "step-metadata",
+    "execution-layer",
+    "codecompass",
+    "turboquant",
+    "policy",
+    "tests",
+    "worker-alignment"
+  ],
+  "context": {
+    "reason": "Nach dem Push der neuen Visual-Process-Step-Kinds sind die Backend-Registry und das Frontend deutlich besser an den realen Code angepasst. Es bleiben aber Restpunkte: alte Todo-Texte nutzen noch legacy Namen, der Status von TurboQuant muss sauber getrennt werden, und nicht-dispatchbare ML/Retrieval-Steps sind im Editor sichtbar, aber ihre echte Runtime-Ausführung ist nicht eindeutig modelliert.",
+    "source_files_observed": [
+      "agent/visual_process/task_kind_registry.py",
+      "agent/visual_process/policy_hints.py",
+      "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
+      "worker/retrieval/turboquant_encoding.py",
+      "todos/todo.visual-process-editor-ml-ai-step-kinds.json"
+    ],
+    "current_facts": [
+      "vector_encode ist legacy und wird in task_kind_registry.py auf embed_api gemappt.",
+      "turboquant_encode ist legacy und wird in task_kind_registry.py auf turboquant_mse gemappt.",
+      "cluster ist legacy und wird in task_kind_registry.py auf domain_cluster gemappt.",
+      "sign_rotation ist der produktive deterministische TQ-011 Sign-Flip.",
+      "turboquant_mse ist ein funktionierender experimenteller PoC: sign-rotate + symmetric 4-bit scalar quantization.",
+      "TurboQuantProdStub / full TurboQuant production ist weiterhin nicht implementiert und darf nicht als produktiv verkauft werden.",
+      "CodeCompass-, Evolution-, Workspace- und ML-Steps sind registriert, aber viele haben dispatch_capable=false. Damit ist Sichtbarkeit nicht automatisch Runtime-Ausführung."
+    ]
+  },
+  "goals": [
+    "VP-Editor und API sollen nicht nur Step-Namen kennen, sondern auch deren Implementierungswahrheit ausdrücken.",
+    "Legacy-Namen sollen kontrolliert migriert werden und nicht mehr in neuen Todos, Presets oder UI-Labels als primäre Namen auftauchen.",
+    "Jeder Step soll klar als production, experimental, stub, test-only oder design-only erkennbar sein.",
+    "Nicht-dispatchbare Steps sollen entweder über einen VP-Execution-Layer ausführbar werden oder explizit als nicht ausführbar/design-only markiert sein.",
+    "Tests sollen verhindern, dass irreführende Labels wie Transformer-Encoder, Leiden/Louvain oder LLM Query Rewrite wieder auftauchen."
+  ],
+  "canonical_renames": {
+    "vector_encode": "embed_api",
+    "turboquant_encode": "turboquant_mse",
+    "cluster": "domain_cluster"
+  },
+  "runtime_truth_model": {
+    "implementation_status_allowed_values": [
+      "production",
+      "experimental",
+      "stub",
+      "test_only",
+      "design_only",
+      "unknown"
+    ],
+    "implementation_state_allowed_values": [
+      "wired_and_executable",
+      "registered_only",
+      "implemented_not_exposed",
+      "exposed_not_wired",
+      "legacy_alias",
+      "not_implemented"
+    ],
+    "side_effects_allowed_values": [
+      "none",
+      "read_workspace",
+      "write_manifest",
+      "write_index",
+      "write_database",
+      "write_files",
+      "apply_patch",
+      "shell_execution",
+      "network_egress"
+    ],
+    "required_fields_per_step_kind": [
+      "id",
+      "label",
+      "group",
+      "description",
+      "dispatch_capable",
+      "implementation_status",
+      "implementation_state",
+      "backend_service",
+      "deterministic",
+      "uses_llm",
+      "uses_network",
+      "side_effects",
+      "risk_level",
+      "legacy_aliases",
+      "requires_approval"
+    ]
+  },
+  "categories": [
+    {
+      "name": "todo_cleanup",
+      "label": "VPTODO — bestehende Todo-Texte auf kanonische Namen und Fakten korrigieren",
+      "items": [
+        {
+          "id": "VPTODO-001",
+          "title": "Legacy-Namen im bestehenden ML/AI-Step-Todo korrigieren",
+          "status": "open",
+          "priority": "critical",
+          "files": [
+            "todos/todo.visual-process-editor-ml-ai-step-kinds.json"
+          ],
+          "tasks": [
+            "Alle primären Verwendungen von vector_encode durch embed_api ersetzen, außer in expliziten legacy_alias/LEGACY_MAP-Kontexten.",
+            "Alle primären Verwendungen von turboquant_encode durch turboquant_mse ersetzen, außer in expliziten legacy_alias/LEGACY_MAP-Kontexten.",
+            "Alle primären Verwendungen von cluster durch domain_cluster ersetzen, außer in expliziten legacy_alias/LEGACY_MAP-Kontexten.",
+            "Titel/Review-Goal von 'Transformer-Encoding' auf 'Embedding API / Vector Encoding' ändern.",
+            "query_rewrite überall als regelbasierte Synonym-Expansion ohne LLM beschreiben.",
+            "Domain-Clustering überall als deterministisches Signal-Clustering beschreiben; Leiden/Louvain/KMeans nur als explizit nicht implementiert erwähnen.",
+            "Meta-Zähler korrigieren: total_items und by_status müssen zur tatsächlichen Item-Liste passen."
+          ],
+          "acceptance_criteria": [
+            "Das Todo nutzt embed_api, turboquant_mse und domain_cluster als kanonische Namen.",
+            "Legacy-Namen erscheinen nur noch in einem klar benannten Abschnitt legacy_aliases / migration_notes.",
+            "Keine Beschreibung behauptet lokale Transformer-Modelle, Leiden/Louvain/KMeans oder LLM-basiertes Query-Rewrite im Production-Code.",
+            "JSON bleibt valide und maschinenlesbar."
+          ]
+        },
+        {
+          "id": "VPTODO-002",
+          "title": "TurboQuant-Status im Todo sauber trennen",
+          "status": "open",
+          "priority": "critical",
+          "files": [
+            "todos/todo.visual-process-editor-ml-ai-step-kinds.json",
+            "worker/retrieval/turboquant_encoding.py",
+            "docs/architecture/codecompass-turboquant-scope.md"
+          ],
+          "tasks": [
+            "sign_rotation als production markieren: DeterministicSignRotation, SHA256-basierter Per-Dimension-Vorzeichenflip, selbst-invers.",
+            "turboquant_mse als experimental markieren: funktionierender PoC mit sign-rotate + symmetric 4-bit scalar quantization.",
+            "TurboQuantProdStub / full TurboQuant prod als stub/not_implemented markieren.",
+            "Im VP-Editor Label und Beschreibung eindeutig machen: 'TurboQuant MSE (PoC)' statt generisch 'TurboQuant'.",
+            "Keine UI/Docs dürfen suggerieren, dass full TurboQuant aus dem Paper produktiv implementiert ist."
+          ],
+          "acceptance_criteria": [
+            "task_kind_registry.py beschreibt sign_rotation als production oder äquivalent klar produktiv.",
+            "task_kind_registry.py beschreibt turboquant_mse als experimentellen PoC, nicht als Stub und nicht als full production TurboQuant.",
+            "Eine Suche nach 'turboquant_encode' findet nur Legacy-/Migration-Kontexte.",
+            "Eine Suche nach 'TurboQuantProdStub' macht klar: NotImplementedError / research stub."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "runtime_truth_registry",
+      "label": "VPRT — Runtime-Truth-Metadata in task_kind_registry.py",
+      "items": [
+        {
+          "id": "VPRT-001",
+          "title": "TaskKindInfo um Implementierungs- und Runtime-Wahrheit erweitern",
+          "status": "open",
+          "priority": "critical",
+          "files": [
+            "agent/visual_process/task_kind_registry.py",
+            "agent/visual_process/api.py",
+            "frontend-angular/src/app/features/visual-process/visual-process-api.service.ts"
+          ],
+          "tasks": [
+            "TaskKindInfo TypedDict erweitern um implementation_status, implementation_state, backend_service, deterministic, uses_llm, uses_network, side_effects, risk_level, legacy_aliases, requires_approval.",
+            "GET /api/visual-process/task-kinds liefert diese Felder für jeden Step mit aus.",
+            "Für legacy kinds optional separate endpoint/Mapping-Info anbieten oder im Validator als suggested_replacement sichtbar machen.",
+            "Frontend-Typ TaskKindInfo entsprechend erweitern.",
+            "Fallback-Kinds im Frontend ebenfalls mit Minimal-Metadata versehen, damit UI bei Backend-Ausfall keine falsche Sicherheit suggeriert."
+          ],
+          "acceptance_criteria": [
+            "GET /api/visual-process/task-kinds enthält für jeden Step implementation_status und implementation_state.",
+            "Kein Step hat unknown, außer das ist explizit begründet und im Test erlaubt.",
+            "Frontend kompiliert mit erweitertem TaskKindInfo-Typ.",
+            "Alte Clients, die nur id/label/group/dispatch_capable lesen, brechen nicht."
+          ]
+        },
+        {
+          "id": "VPRT-002",
+          "title": "Runtime-Wahrheit für alle aktuellen VP-Step-Kinds eintragen",
+          "status": "open",
+          "priority": "high",
+          "files": [
+            "agent/visual_process/task_kind_registry.py"
+          ],
+          "tasks": [
+            "patch_apply: production, wired_and_executable, uses_llm je nach Backend-Kontext prüfen, side_effects apply_patch/write_files, requires_approval abhängig von Gate/Policy.",
+            "patch_propose: production, wired_and_executable, uses_llm=true, side_effects none/read_workspace.",
+            "shell_execute/command_execute: production, wired_and_executable, deterministic=false/unknown je nach Command, side_effects shell_execution, risk high.",
+            "workspace_snapshot: production, wired_and_executable oder registered_only nach realer Verdrahtung prüfen, deterministic=true, side_effects read_workspace.",
+            "workspace_diff: production, wired_and_executable oder registered_only nach realer Verdrahtung prüfen, deterministic=true, side_effects read_workspace/write_manifest.",
+            "embed_api: production, implementation_state nach VP-Ausführung prüfen, deterministic provider-abhängig, uses_network abhängig vom Provider, backend_service OpenAICompatibleEmbeddingProvider/HashEmbeddingProvider/FakeProvider.",
+            "sign_rotation: production, deterministic=true, uses_llm=false, uses_network=false, side_effects none.",
+            "turboquant_mse: experimental, deterministic=true, uses_llm=false, uses_network=false, side_effects none.",
+            "rag_retrieve/rerank/query_rewrite: Status und side_effects entsprechend RetrievalService/Reranker/query_rewrite.py eintragen.",
+            "codecompass_index_build: production, side_effects write_index, implementation_state nach realer VP-Verdrahtung prüfen.",
+            "codecompass_vector_search/codecompass_fts_search/codecompass_graph_expand: production, read-only retrieval, implementation_state nach VP-Verdrahtung prüfen.",
+            "evolution_analyze/evolution_validate/evolution_apply/evolve_prompt/evolve_project: LLM/Self-Modifying/Risk/Approval korrekt eintragen.",
+            "domain_cluster: production oder experimental nach realem rag-helper Stand prüfen, deterministic=true, keine Leiden/Louvain/KMeans-Behauptung."
+          ],
+          "acceptance_criteria": [
+            "Alle in ALL_TASK_KINDS enthaltenen Steps haben vollständige Runtime-Truth-Felder.",
+            "Policy-Hints und Runtime-Truth widersprechen sich nicht: z.B. query_rewrite hat uses_llm=false und keinen llm_call Hint.",
+            "risk_level ist bei shell_execute/evolution_apply/evolve_project mindestens high oder kritisch begründet.",
+            "turboquant_mse ist experimental, aber nicht not_implemented."
+          ]
+        },
+        {
+          "id": "VPRT-003",
+          "title": "Validator prüft Widersprüche zwischen Step-Kind, Policy-Hints und Runtime-Truth",
+          "status": "open",
+          "priority": "high",
+          "files": [
+            "agent/visual_process/validator.py",
+            "agent/visual_process/policy_hints.py",
+            "agent/visual_process/task_kind_registry.py"
+          ],
+          "tasks": [
+            "Validator-Warning erzeugen, wenn implementation_state in ['registered_only','exposed_not_wired','not_implemented'] und der Graph ausführbar gestartet werden soll.",
+            "Validator-Error oder High-Risk-Warning erzeugen, wenn requires_approval=true aber Step kein Gate/Approval-Edge hat.",
+            "Warnen, wenn Step uses_network=true aber Policy/Environment Netzwerk-Egress verbietet.",
+            "Warnen, wenn Step side_effects write_files/apply_patch/shell_execution hat und kein Approval-Gate vorhanden ist.",
+            "Legacy-Step-Warning mit suggested_replacement beibehalten und auf neue canonical_renames aktualisieren."
+          ],
+          "acceptance_criteria": [
+            "Graph mit legacy kind='vector_encode' erhält Warning mit suggested_replacement='embed_api'.",
+            "Graph mit evolution_apply ohne Gate erhält high_risk_no_gate oder äquivalente Warning.",
+            "Graph mit not_implemented Step kann nicht als ausführbarer Workflow valid=true ohne Warnung durchlaufen.",
+            "query_rewrite erzeugt keine LLM- oder Network-Warnung."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "execution_layer",
+      "label": "VPEXEC — echte Ausführung nicht-dispatchbarer ML/Retrieval-Steps klären",
+      "items": [
+        {
+          "id": "VPEXEC-001",
+          "title": "VP-Execution-Layer für nicht-dispatchbare Steps definieren",
+          "status": "open",
+          "priority": "critical",
+          "files": [
+            "agent/visual_process/blueprint_mapper.py",
+            "agent/visual_process/api.py",
+            "agent/services/workflow_backend.py",
+            "agent/services/workflow_backend_factory.py"
+          ],
+          "tasks": [
+            "Entscheiden und dokumentieren: nicht-dispatchbare Steps werden entweder vom VP-Execution-Layer direkt ausgeführt oder bleiben design-only.",
+            "Für direkt ausführbare Steps Interface definieren: execute_step(step, artifacts, context) -> StepExecutionResult.",
+            "StepExecutionResult mit status, outputs, diagnostics, warnings, duration_ms, backend_service modellieren.",
+            "Blueprint-/Workflow-Mapping darf registered_only/design_only Steps nicht stillschweigend als ausführbar behandeln.",
+            "Dry-Run muss pro Step anzeigen: executable=true/false und warum."
+          ],
+          "acceptance_criteria": [
+            "POST /dry-run zeigt für jeden Step executable und execution_reason.",
+            "Ein Graph mit nur design-only Steps kann nicht per Start-Button als Runtime-Workflow gestartet werden, ohne klare Warnung.",
+            "dispatch_capable=false ist nicht mehr mehrdeutig: Runtime-Metadata erklärt, ob VP direkt ausführen kann oder nicht."
+          ]
+        },
+        {
+          "id": "VPEXEC-002",
+          "title": "Adapter für CodeCompass- und Retrieval-Steps implementieren oder als design-only markieren",
+          "status": "open",
+          "priority": "high",
+          "files": [
+            "worker/retrieval/index_builder.py",
+            "worker/retrieval/codecompass_vector_engine.py",
+            "worker/retrieval/codecompass_fts_engine.py",
+            "worker/retrieval/codecompass_graph_expansion.py",
+            "worker/retrieval/retrieval_service.py",
+            "worker/retrieval/reranker.py",
+            "worker/retrieval/query_rewrite.py"
+          ],
+          "tasks": [
+            "codecompass_index_build Adapter: Input workspace/path/config, Output index/report, side_effect write_index.",
+            "codecompass_vector_search Adapter: Input query/vector config, Output candidates dataset.",
+            "codecompass_fts_search Adapter: Input query, Output candidates dataset.",
+            "codecompass_graph_expand Adapter: Input seed nodes/candidates, Output expanded candidates/subgraph.",
+            "rag_retrieve Adapter: Input query + channels/top_k, Output candidates.",
+            "rerank Adapter: Input query + candidates, Output reranked candidates.",
+            "query_rewrite Adapter: Input query, Output expanded query/synonyms, no LLM.",
+            "Wenn Adapter nicht sofort gebaut werden: implementation_state='registered_only' und executable=false im Dry-Run."
+          ],
+          "acceptance_criteria": [
+            "Für jeden Retrieval/CodeCompass-Step ist entweder ein Adapter vorhanden oder design-only/registered_only klar sichtbar.",
+            "Dry-Run verschweigt nicht, wenn ein Step nur im Editor modelliert, aber nicht ausführbar ist.",
+            "query_rewrite bleibt deterministisch/read-only ohne Netzwerk."
+          ]
+        },
+        {
+          "id": "VPEXEC-003",
+          "title": "Adapter für WorkspaceDiff und Evolution-Steps prüfen/verdrahten",
+          "status": "open",
+          "priority": "high",
+          "files": [
+            "agent/services/workspace_diff_service.py",
+            "agent/services/evolution_service.py",
+            "agent/services/planning_prompt_evolver_service.py",
+            "agent/visual_process/blueprint_mapper.py"
+          ],
+          "tasks": [
+            "workspace_snapshot Adapter auf WorkspaceDiffService.take_before_snapshot/take_after_snapshot oder aktuelle Service-API abstimmen.",
+            "workspace_diff Adapter auf compute_diff + synthesize_manifest abstimmen.",
+            "evolution_analyze Adapter auf EvolutionService.analyze verdrahten.",
+            "evolution_validate Adapter auf EvolutionService.validate verdrahten.",
+            "evolution_apply Adapter auf EvolutionService.apply verdrahten und zwingend Gate/Approval erzwingen.",
+            "evolve_prompt/evolve_project Legacy/Grob-Steps entweder behalten oder zugunsten der feineren Evolution-Steps als high-level/preset-only markieren."
+          ],
+          "acceptance_criteria": [
+            "workspace_snapshot/workspace_diff sind entweder ausführbar oder klar registered_only markiert.",
+            "evolution_apply ohne Approval wird im Validator blockiert oder mindestens kritisch gewarnt.",
+            "evolution_analyze und evolution_validate können read-only/dry-run laufen, sofern der Service verfügbar ist."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "frontend_truth_ui",
+      "label": "VPUI — Runtime-Wahrheit im Editor sichtbar machen",
+      "items": [
+        {
+          "id": "VPUI-001",
+          "title": "Step-Dropdown und Inspector zeigen Status-Badges",
+          "status": "open",
+          "priority": "high",
+          "files": [
+            "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
+            "frontend-angular/src/app/features/visual-process/visual-process-api.service.ts"
+          ],
+          "tasks": [
+            "Im Step-Dropdown Badge anzeigen: production / experimental / stub / design-only.",
+            "Im Inspector Felder anzeigen: executable, implementation_state, backend_service, uses_llm, uses_network, side_effects.",
+            "Experimental Steps visuell markieren, aber nicht wie Fehler behandeln.",
+            "Stub/not_implemented Steps deutlich blockieren oder mit Warnhinweis versehen.",
+            "Legacy Steps im Inspector mit suggested replacement und Migrationsbutton anzeigen."
+          ],
+          "acceptance_criteria": [
+            "turboquant_mse zeigt Badge experimental/PoC.",
+            "sign_rotation zeigt production/deterministic.",
+            "query_rewrite zeigt uses_llm=false und deterministic/rule-based.",
+            "domain_cluster zeigt keine Leiden/Louvain/KMeans-Angabe.",
+            "Legacy vector_encode zeigt Migration zu embed_api."
+          ]
+        },
+        {
+          "id": "VPUI-002",
+          "title": "Start-/Dry-Run-UI blockiert oder warnt bei nicht ausführbaren Steps",
+          "status": "open",
+          "priority": "high",
+          "files": [
+            "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
+          ],
+          "tasks": [
+            "Start-Button deaktivieren oder Warn-Dialog anzeigen, wenn Graph Steps mit executable=false enthält.",
+            "Dry-Run-Ausgabe pro Step um executable/execution_reason erweitern.",
+            "High-risk Steps mit fehlendem Approval im Graph hervorheben.",
+            "Design-only Graphen dürfen gespeichert/exportiert werden, aber nicht stillschweigend gestartet werden."
+          ],
+          "acceptance_criteria": [
+            "Graph mit registered_only codecompass_* Step zeigt klare Warnung vor Start.",
+            "Graph mit evolution_apply ohne Approval zeigt High-Risk-Hinweis im Canvas/Inspector.",
+            "Speichern bleibt möglich, Starten ist abhängig von Runtime-Truth."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "tests_and_regressions",
+      "label": "VPTEST — Tests gegen falsche Behauptungen und Runtime-Widersprüche",
+      "items": [
+        {
+          "id": "VPTEST-001",
+          "title": "Backend-Tests für task-kinds Runtime-Truth",
+          "status": "open",
+          "priority": "critical",
+          "files": [
+            "tests/",
+            "agent/visual_process/task_kind_registry.py",
+            "agent/visual_process/policy_hints.py",
+            "agent/visual_process/validator.py"
+          ],
+          "tasks": [
+            "Test: /api/visual-process/task-kinds liefert alle Pflichtfelder aus runtime_truth_model.",
+            "Test: embed_api ist kanonisch, vector_encode nur Legacy-Replacement.",
+            "Test: turboquant_mse ist experimental und nicht not_implemented.",
+            "Test: sign_rotation ist production/deterministic/uses_llm=false/uses_network=false.",
+            "Test: query_rewrite hat uses_llm=false und keinen HINT_LLM_CALL.",
+            "Test: domain_cluster Beschreibung enthält nicht Leiden, Louvain oder KMeans als implementierte Algorithmen.",
+            "Test: evolution_apply benötigt Approval/Gate-Warnung."
+          ],
+          "acceptance_criteria": [
+            "Alle Tests laufen lokal und im GitHub Workflow.",
+            "Ein Rückfall auf irreführende Labels schlägt im Test fehl.",
+            "Policy-Hints und Runtime-Truth sind konsistent."
+          ]
+        },
+        {
+          "id": "VPTEST-002",
+          "title": "Frontend-Tests oder Snapshot-Checks für UI-Labels",
+          "status": "open",
+          "priority": "medium",
+          "files": [
+            "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
+          ],
+          "tasks": [
+            "Test/Snapshot: Step-Dropdown enthält Embedding API, nicht Transformer-Encoder.",
+            "Test/Snapshot: Step-Dropdown enthält TurboQuant MSE (PoC), nicht generisch produktives TurboQuant.",
+            "Test/Snapshot: Domain-Clustering Beschreibung verweist auf deterministisches Signal-Clustering.",
+            "Test/Snapshot: query_rewrite Label/Beschreibung sagt Query-Erweiterung/Synonym-Expansion, nicht LLM-Rewrite.",
+            "Test/Snapshot: experimental/stub/design-only Badges werden gerendert, sobald Backend-Metadata verfügbar ist."
+          ],
+          "acceptance_criteria": [
+            "Frontend-Test schlägt fehl, wenn alte falsche Labels wieder eingeführt werden.",
+            "Fallback-Kinds enthalten ebenfalls keine irreführenden Legacy-Labels.",
+            "UI zeigt Status-Badges aus Runtime-Truth-Metadata."
+          ]
+        },
+        {
+          "id": "VPTEST-003",
+          "title": "Integrationstest: registriert vs ausführbar darf nicht verwechselt werden",
+          "status": "open",
+          "priority": "high",
+          "files": [
+            "tests/",
+            "agent/visual_process/api.py",
+            "agent/visual_process/blueprint_mapper.py",
+            "agent/services/workflow_backend.py"
+          ],
+          "tasks": [
+            "Testgraph mit einem registered_only Step erzeugen.",
+            "POST /validate muss Warning liefern.",
+            "POST /dry-run muss executable=false für diesen Step liefern.",
+            "POST /workflow/start darf den Graph nicht stillschweigend starten oder muss klare Blockierungsdiagnose liefern.",
+            "Testgraph mit production/wired Step bleibt startbar."
+          ],
+          "acceptance_criteria": [
+            "Sichtbarkeit im Editor reicht nicht als Ausführbarkeitsgarantie.",
+            "Dry-Run ist die verbindliche Vorab-Aussage zur Runtime-Ausführung.",
+            "Start-Endpoint verhält sich konsistent mit Dry-Run."
+          ]
+        }
+      ]
+    }
+  ],
+  "definition_of_done": [
+    "Alle bestehenden VP-Todos verwenden kanonische Namen oder klar markierte Legacy-Aliase.",
+    "task_kind_registry.py liefert Runtime-Truth-Metadata für jeden Step.",
+    "Frontend zeigt Runtime-Truth sichtbar an und warnt bei registered_only/design_only/not_implemented.",
+    "Dry-Run unterscheidet sichtbar zwischen registriert, ausführbar und design-only.",
+    "TurboQuant ist korrekt getrennt: sign_rotation production, turboquant_mse experimental PoC, TurboQuantProdStub not implemented.",
+    "Regressionstests verhindern falsche Behauptungen zu Transformer-Encoding, Leiden/Louvain/KMeans, LLM Query Rewrite und full TurboQuant production.",
+    "JSON aller Todo-Dateien bleibt valide."
+  ],
+  "recommended_order": [
+    "VPTODO-001",
+    "VPTODO-002",
+    "VPRT-001",
+    "VPRT-002",
+    "VPRT-003",
+    "VPEXEC-001",
+    "VPEXEC-002",
+    "VPEXEC-003",
+    "VPUI-001",
+    "VPUI-002",
+    "VPTEST-001",
+    "VPTEST-003",
+    "VPTEST-002"
+  ],
+  "meta": {
+    "total_items": 13,
+    "by_status": {
+      "open": 13,
+      "partial": 0,
+      "completed": 0
+    },
+    "notes": [
+      "Dieses Todo ist absichtlich nicht als Implementierung der Execution-Adapter formuliert, sondern als Wahrheits- und Sicherheits-Nachziehschicht nach der Step-Kind-Registrierung.",
+      "Der wichtigste Punkt ist die Trennung von sichtbar/registriert/executable.",
+      "Ein Step mit dispatch_capable=false kann trotzdem VP-executable sein, wenn ein eigener VP-Execution-Adapter existiert. Ohne Adapter muss er registered_only oder design_only sein.",
+      "Legacy-Namen bleiben für Migration erlaubt, dürfen aber nicht mehr als primäre Produktbegriffe auftauchen.",
+      "TurboQuantMseEncoder funktioniert als PoC; nur full TurboQuant production bleibt Stub/Research."
+    ]
+  }
+}
