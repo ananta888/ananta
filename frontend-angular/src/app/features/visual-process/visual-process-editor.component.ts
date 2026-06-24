@@ -9,40 +9,40 @@ import {
   VisualProcessApiService,
   VpGraph, VpStep, VpEdge, ArtifactRef,
   ValidationResult, DryRunResult, SkillProfile, PresetSummary,
-  TaskKindInfo, SavedGraphSummary, WorkflowStatus,
+  TaskKindInfo, SavedGraphSummary, WorkflowStatus, StepExecutionPlan,
 } from './visual-process-api.service';
 
 // ── constants ─────────────────────────────────────────────────────────────────
 const NODE_W = 140;
 const NODE_H = 52;
 const FALLBACK_KINDS: TaskKindInfo[] = [
-  { id: 'patch_propose',   label: 'Patch Vorschlagen',    group: 'worker',       dispatch_capable: true,  description: '' },
-  { id: 'plan_only',       label: 'Planen (LLM)',          group: 'worker',       dispatch_capable: true,  description: '' },
-  { id: 'review',          label: 'Review (LLM)',           group: 'worker',       dispatch_capable: true,  description: '' },
-  { id: 'run_tests',       label: 'Tests Ausführen',        group: 'worker',       dispatch_capable: true,  description: '' },
-  { id: 'shell_execute',   label: 'Shell Ausführen',        group: 'worker',       dispatch_capable: true,  description: '' },
-  { id: 'workspace_snapshot', label: 'Workspace Snapshot', group: 'worker',       dispatch_capable: true,  description: '' },
-  { id: 'workspace_diff',    label: 'Workspace Diff',      group: 'worker',       dispatch_capable: true,  description: '' },
-  { id: 'fork',            label: 'Fork (Parallel)',        group: 'control_flow', dispatch_capable: true,  description: '' },
-  { id: 'join',            label: 'Join (Sync)',            group: 'control_flow', dispatch_capable: true,  description: '' },
-  { id: 'approval',        label: 'Approval Gate',          group: 'control_flow', dispatch_capable: true,  description: '' },
-  { id: 'codecompass_index_build',   label: 'CC: Index',   group: 'retrieval',    dispatch_capable: false, description: '' },
-  { id: 'codecompass_vector_search', label: 'CC: Vector',  group: 'retrieval',    dispatch_capable: false, description: '' },
-  { id: 'codecompass_fts_search',    label: 'CC: FTS',     group: 'retrieval',    dispatch_capable: false, description: '' },
-  { id: 'codecompass_graph_expand',  label: 'CC: Graph',   group: 'retrieval',    dispatch_capable: false, description: '' },
-  { id: 'embed_api',       label: 'Embedding API',          group: 'ml',           dispatch_capable: false, description: '' },
-  { id: 'embed_chunk',     label: 'Chunk + Einbetten',      group: 'ml',           dispatch_capable: false, description: '' },
-  { id: 'turboquant_mse',  label: 'TurboQuant MSE (PoC)',   group: 'ml',           dispatch_capable: false, description: '' },
-  { id: 'sign_rotation',   label: 'Sign-Rotation (TQ-011)', group: 'ml',           dispatch_capable: false, description: '' },
-  { id: 'rag_retrieve',    label: 'RAG Abruf',              group: 'ml',           dispatch_capable: false, description: '' },
-  { id: 'rerank',          label: 'Reranking',              group: 'ml',           dispatch_capable: false, description: '' },
-  { id: 'query_rewrite',   label: 'Query-Erweiterung',      group: 'ml',           dispatch_capable: false, description: '' },
-  { id: 'evolution_analyze',  label: 'Evolution: Analyse',  group: 'ml',           dispatch_capable: false, description: '' },
-  { id: 'evolution_validate', label: 'Evolution: Prüfen',   group: 'ml',           dispatch_capable: false, description: '' },
-  { id: 'evolution_apply',    label: 'Evolution: Anwenden', group: 'ml',           dispatch_capable: false, description: '' },
-  { id: 'evolve_prompt',   label: 'Prompt Evolver',         group: 'ml',           dispatch_capable: false, description: '' },
-  { id: 'evolve_project',  label: 'Projekt-Evolver',        group: 'ml',           dispatch_capable: false, description: '' },
-  { id: 'domain_cluster',  label: 'Domain-Clustering',      group: 'ml',           dispatch_capable: false, description: '' },
+  { id: 'patch_propose',   label: 'Patch Vorschlagen',    group: 'worker',       dispatch_capable: true,  description: '', implementation_status: 'production', implementation_state: 'wired_and_executable', risk_level: 'low',    uses_llm: true,  uses_network: false, side_effects: [] },
+  { id: 'plan_only',       label: 'Planen (LLM)',          group: 'worker',       dispatch_capable: true,  description: '', implementation_status: 'production', implementation_state: 'wired_and_executable', risk_level: 'low',    uses_llm: true,  uses_network: false, side_effects: [] },
+  { id: 'review',          label: 'Review (LLM)',           group: 'worker',       dispatch_capable: true,  description: '', implementation_status: 'production', implementation_state: 'wired_and_executable', risk_level: 'none',   uses_llm: true,  uses_network: false, side_effects: [] },
+  { id: 'run_tests',       label: 'Tests Ausführen',        group: 'worker',       dispatch_capable: true,  description: '', implementation_status: 'production', implementation_state: 'wired_and_executable', risk_level: 'low',    uses_llm: false, uses_network: false, side_effects: ['shell_execution'] },
+  { id: 'shell_execute',   label: 'Shell Ausführen',        group: 'worker',       dispatch_capable: true,  description: '', implementation_status: 'production', implementation_state: 'wired_and_executable', risk_level: 'high',   uses_llm: false, uses_network: false, side_effects: ['shell_execution'] },
+  { id: 'workspace_snapshot', label: 'Workspace Snapshot', group: 'worker',       dispatch_capable: true,  description: '', implementation_status: 'production', implementation_state: 'wired_and_executable', risk_level: 'none',   uses_llm: false, uses_network: false, side_effects: ['read_workspace'] },
+  { id: 'workspace_diff',    label: 'Workspace Diff',      group: 'worker',       dispatch_capable: true,  description: '', implementation_status: 'production', implementation_state: 'wired_and_executable', risk_level: 'low',    uses_llm: false, uses_network: false, side_effects: ['read_workspace', 'write_manifest'] },
+  { id: 'fork',            label: 'Fork (Parallel)',        group: 'control_flow', dispatch_capable: true,  description: '', implementation_status: 'production', implementation_state: 'wired_and_executable', risk_level: 'low',    uses_llm: false, uses_network: false, side_effects: [] },
+  { id: 'join',            label: 'Join (Sync)',            group: 'control_flow', dispatch_capable: true,  description: '', implementation_status: 'production', implementation_state: 'wired_and_executable', risk_level: 'low',    uses_llm: false, uses_network: false, side_effects: [] },
+  { id: 'approval',        label: 'Approval Gate',          group: 'control_flow', dispatch_capable: true,  description: '', implementation_status: 'production', implementation_state: 'wired_and_executable', risk_level: 'low',    uses_llm: false, uses_network: false, side_effects: [], requires_approval: true },
+  { id: 'codecompass_index_build',   label: 'CC: Index aufbauen', group: 'retrieval', dispatch_capable: false, description: '', implementation_status: 'production', implementation_state: 'registered_only', risk_level: 'low',  uses_llm: false, uses_network: false, side_effects: ['write_index'] },
+  { id: 'codecompass_vector_search', label: 'CC: Semantic Search', group: 'retrieval', dispatch_capable: false, description: '', implementation_status: 'production', implementation_state: 'registered_only', risk_level: 'none', uses_llm: false, uses_network: false, side_effects: [] },
+  { id: 'codecompass_fts_search',    label: 'CC: Full-Text Search', group: 'retrieval', dispatch_capable: false, description: '', implementation_status: 'production', implementation_state: 'registered_only', risk_level: 'none', uses_llm: false, uses_network: false, side_effects: [] },
+  { id: 'codecompass_graph_expand',  label: 'CC: Graph-Expansion', group: 'retrieval', dispatch_capable: false, description: '', implementation_status: 'production', implementation_state: 'registered_only', risk_level: 'none', uses_llm: false, uses_network: false, side_effects: [] },
+  { id: 'embed_api',       label: 'Embedding API',          group: 'ml',           dispatch_capable: false, description: '', implementation_status: 'production',     implementation_state: 'wired_and_executable', risk_level: 'none',     uses_llm: false, uses_network: true,  side_effects: ['network_egress'] },
+  { id: 'embed_chunk',     label: 'Chunk + Einbetten',      group: 'ml',           dispatch_capable: false, description: '', implementation_status: 'production',     implementation_state: 'wired_and_executable', risk_level: 'none',     uses_llm: false, uses_network: true,  side_effects: ['read_workspace', 'network_egress'] },
+  { id: 'turboquant_mse',  label: 'TurboQuant MSE (experimentell)', group: 'ml',   dispatch_capable: false, description: '', implementation_status: 'experimental',   implementation_state: 'wired_and_executable', risk_level: 'none',     uses_llm: false, uses_network: false, side_effects: [] },
+  { id: 'sign_rotation',   label: 'Sign-Rotation (TQ-011)', group: 'ml',           dispatch_capable: false, description: '', implementation_status: 'production',     implementation_state: 'wired_and_executable', risk_level: 'none',     uses_llm: false, uses_network: false, side_effects: [], deterministic: true },
+  { id: 'rag_retrieve',    label: 'RAG Abruf',              group: 'ml',           dispatch_capable: false, description: '', implementation_status: 'production',     implementation_state: 'wired_and_executable', risk_level: 'none',     uses_llm: false, uses_network: false, side_effects: [] },
+  { id: 'rerank',          label: 'Reranking',              group: 'ml',           dispatch_capable: false, description: '', implementation_status: 'production',     implementation_state: 'wired_and_executable', risk_level: 'none',     uses_llm: false, uses_network: false, side_effects: [], deterministic: true },
+  { id: 'query_rewrite',   label: 'Query-Erweiterung',      group: 'ml',           dispatch_capable: false, description: '', implementation_status: 'production',     implementation_state: 'wired_and_executable', risk_level: 'none',     uses_llm: false, uses_network: false, side_effects: [], deterministic: true },
+  { id: 'evolution_analyze',  label: 'Evolution: Analysieren', group: 'ml',        dispatch_capable: false, description: '', implementation_status: 'production',     implementation_state: 'registered_only',     risk_level: 'medium',   uses_llm: true,  uses_network: false, side_effects: ['write_database'] },
+  { id: 'evolution_validate', label: 'Evolution: Validieren',  group: 'ml',        dispatch_capable: false, description: '', implementation_status: 'production',     implementation_state: 'registered_only',     risk_level: 'low',      uses_llm: false, uses_network: false, side_effects: [] },
+  { id: 'evolution_apply',    label: 'Evolution: Anwenden',    group: 'ml',        dispatch_capable: false, description: '', implementation_status: 'production',     implementation_state: 'registered_only',     risk_level: 'high',     uses_llm: true,  uses_network: false, side_effects: ['write_files', 'write_database'], requires_approval: true },
+  { id: 'evolve_prompt',   label: 'Prompt Evolver',         group: 'ml',           dispatch_capable: false, description: '', implementation_status: 'production',     implementation_state: 'registered_only',     risk_level: 'medium',   uses_llm: true,  uses_network: false, side_effects: ['write_database'] },
+  { id: 'evolve_project',  label: 'Projekt-Evolver',        group: 'ml',           dispatch_capable: false, description: '', implementation_status: 'production',     implementation_state: 'registered_only',     risk_level: 'critical', uses_llm: true,  uses_network: false, side_effects: ['write_files', 'write_database'], requires_approval: true },
+  { id: 'domain_cluster',  label: 'Domain-Clustering',      group: 'ml',           dispatch_capable: false, description: '', implementation_status: 'production',     implementation_state: 'registered_only',     risk_level: 'none',     uses_llm: false, uses_network: false, side_effects: [], deterministic: true },
 ];
 
 const ENCODING_MODES = ['off', 'float32', 'float16', 'int8', 'symmetric4bit', 'turboquant_mse_experimental'];
@@ -153,7 +153,10 @@ function nodeKindColor(kind: string): string {
   </div>
 
   <div class="vpe-tb-group">
-    <button class="vpe-btn success" [disabled]="!canStartWorkflow()" (click)="startWorkflow()" title="Workflow starten">▶ Starten</button>
+    <button class="vpe-btn success" [disabled]="!canStartWorkflow()" (click)="startWorkflow()"
+            [title]="hasNonExecutableSteps() ? '⚠ Graph enthält nicht ausführbare Steps (registered_only) — Dry-Run für Details' : 'Workflow starten'">
+      ▶ Starten@if (hasNonExecutableSteps()) { ⚠}
+    </button>
     @if (activeWorkflowId()) {
       <button class="vpe-btn danger" (click)="cancelWorkflow()">⏹ Abbrechen</button>
     }
@@ -280,7 +283,7 @@ function nodeKindColor(kind: string): string {
             @for (g of kindGroups(); track g.group) {
               <optgroup [label]="g.group">
                 @for (k of g.kinds; track k.id) {
-                  <option [value]="k.id">{{ k.label }}@if (!k.dispatch_capable){ (ML)}</option>
+                  <option [value]="k.id">{{ k.label }}{{ kindOptionSuffix(k) }}</option>
                 }
               </optgroup>
             }
@@ -308,6 +311,51 @@ function nodeKindColor(kind: string): string {
                  (ngModelChange)="mutateSelectedStep(s => s.gate = $event)" />
           Gate (Freigabe erforderlich)
         </label>
+
+        <!-- Runtime-Truth Inspector (VPUI-001) -->
+        @if (selectedStepKindInfo()) {
+          <div class="vpe-rt-panel">
+            <div class="vpe-rt-row">
+              <span class="vpe-rt-badge" [class]="'vpe-badge-' + (selectedStepKindInfo()!.implementation_status || 'unknown')">
+                {{ selectedStepKindInfo()!.implementation_status || '?' }}
+              </span>
+              @if ((selectedStepKindInfo()!.implementation_state || '') !== 'wired_and_executable') {
+                <span class="vpe-rt-badge vpe-badge-not-exec" title="{{ selectedStepKindInfo()!.implementation_state }}">
+                  nicht ausführbar
+                </span>
+              }
+              @if (selectedStepKindInfo()!.uses_llm) {
+                <span class="vpe-rt-badge vpe-badge-llm" title="Ruft LLM API auf">LLM</span>
+              }
+              @if (selectedStepKindInfo()!.uses_network) {
+                <span class="vpe-rt-badge vpe-badge-net" title="Macht Netzwerk-Anfragen">Net</span>
+              }
+              @if (selectedStepKindInfo()!.deterministic) {
+                <span class="vpe-rt-badge vpe-badge-det" title="Deterministisch">det</span>
+              }
+            </div>
+            @if (selectedStepKindInfo()!.backend_service) {
+              <div class="vpe-rt-detail">
+                <span class="vpe-rt-key">Backend:</span> {{ selectedStepKindInfo()!.backend_service }}
+              </div>
+            }
+            @if ((selectedStepKindInfo()!.side_effects || []).length > 0) {
+              <div class="vpe-rt-detail">
+                <span class="vpe-rt-key">Side-Effects:</span> {{ (selectedStepKindInfo()!.side_effects || []).join(', ') }}
+              </div>
+            }
+            @if (selectedStepKindInfo()!.risk_level && selectedStepKindInfo()!.risk_level !== 'none') {
+              <div class="vpe-rt-detail vpe-rt-risk-{{ selectedStepKindInfo()!.risk_level }}">
+                <span class="vpe-rt-key">Risiko:</span> {{ selectedStepKindInfo()!.risk_level }}
+              </div>
+            }
+            @if ((selectedStepKindInfo()!.legacy_aliases || []).length > 0) {
+              <div class="vpe-rt-detail" style="opacity:0.7;font-size:10px">
+                Legacy-Namen: {{ (selectedStepKindInfo()!.legacy_aliases || []).join(', ') }}
+              </div>
+            }
+          </div>
+        }
 
         <!-- Kind-specific meta fields -->
 
@@ -852,6 +900,44 @@ function nodeKindColor(kind: string): string {
     <div class="vpe-dialog" (click)="$event.stopPropagation()">
       <div class="vpe-dialog-title">Dry-Run Ergebnis</div>
       <pre class="vpe-pre">{{ dryRunSummary() }}</pre>
+
+      <!-- Step Execution Plan (VPUI-002) -->
+      @if ((dryRunResult()!.step_execution_plan || []).length > 0) {
+        <div class="vpe-dialog-section">
+          <div class="vpe-dialog-subtitle">Step Execution Plan</div>
+          @if ((dryRunResult()!.non_executable_count || 0) > 0) {
+            <div class="vpe-warn-banner">
+              ⚠ {{ dryRunResult()!.non_executable_count }} Step(s) sind nicht ausführbar (registered_only / kein VP-Adapter).
+              Der Graph kann gespeichert, aber nicht vollständig gestartet werden.
+            </div>
+          }
+          <table class="vpe-exec-table">
+            <thead>
+              <tr><th>Step</th><th>Mode</th><th>Status</th><th>Risk</th></tr>
+            </thead>
+            <tbody>
+              @for (p of dryRunResult()!.step_execution_plan || []; track p.step_id) {
+                <tr [class.vpe-exec-not-exec]="!p.executable">
+                  <td>{{ p.step_label }}<br><span style="font-size:10px;opacity:0.6">{{ p.kind }}</span></td>
+                  <td>{{ p.execution_mode }}</td>
+                  <td>
+                    <span class="vpe-rt-badge" [class]="'vpe-badge-' + (p.implementation_status || 'unknown')">
+                      {{ p.implementation_status }}
+                    </span>
+                    @if (!p.executable) {
+                      <span class="vpe-rt-badge vpe-badge-not-exec">kein Adapter</span>
+                    }
+                  </td>
+                  <td [class.vpe-risk-high]="p.risk_level === 'high' || p.risk_level === 'critical'">
+                    {{ p.risk_level }}
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         @if (dryRunResult()!.validation?.valid && dryRunResult()!.blueprint) {
           <button class="vpe-btn success" (click)="saveAsBlueprintFromDryRun()">Als Blueprint speichern</button>
@@ -1000,6 +1086,37 @@ function nodeKindColor(kind: string): string {
 .vpe-tabs { display: flex; gap: 4px; }
 .vpe-tab { padding: 4px 10px; border-radius: 4px 4px 0 0; border: 1px solid #555; background: #2d3436; color: #aaa; cursor: pointer; font-size: 12px; }
 .vpe-tab.active { background: #0f3460; color: #eee; border-bottom-color: #0f3460; }
+
+/* Runtime-Truth badges (VPUI-001) */
+.vpe-rt-panel { background: #0f3460; border-radius: 4px; padding: 6px 8px; margin: 4px 0 8px; }
+.vpe-rt-row { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 4px; }
+.vpe-rt-badge { display: inline-block; border-radius: 3px; font-size: 9px; font-weight: 700; padding: 1px 5px; text-transform: uppercase; letter-spacing: 0.04em; }
+.vpe-badge-production     { background: #00b894; color: #fff; }
+.vpe-badge-experimental   { background: #fdcb6e; color: #2d3436; }
+.vpe-badge-stub           { background: #e17055; color: #fff; }
+.vpe-badge-not_implemented{ background: #d63031; color: #fff; }
+.vpe-badge-design_only    { background: #b2bec3; color: #2d3436; }
+.vpe-badge-unknown        { background: #636e72; color: #eee; }
+.vpe-badge-not-exec       { background: #e17055; color: #fff; }
+.vpe-badge-llm            { background: #a29bfe; color: #2d3436; }
+.vpe-badge-net            { background: #0984e3; color: #fff; }
+.vpe-badge-det            { background: #2d3436; color: #74b9ff; border: 1px solid #74b9ff; }
+.vpe-rt-detail { font-size: 10px; color: #b2bec3; margin-top: 2px; }
+.vpe-rt-key { color: #74b9ff; font-weight: 600; }
+.vpe-rt-risk-high     { color: #e17055 !important; }
+.vpe-rt-risk-critical { color: #d63031 !important; font-weight: 700; }
+.vpe-rt-risk-medium   { color: #fdcb6e !important; }
+
+/* Execution plan table (VPUI-002) */
+.vpe-dialog-section { margin-top: 8px; }
+.vpe-dialog-subtitle { font-size: 12px; font-weight: 700; color: #74b9ff; margin-bottom: 6px; }
+.vpe-warn-banner { background: #2d1b00; border: 1px solid #fdcb6e; border-radius: 4px; padding: 6px 10px; color: #fdcb6e; font-size: 11px; margin-bottom: 6px; }
+.vpe-exec-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.vpe-exec-table th { text-align: left; padding: 4px 6px; border-bottom: 1px solid #636e72; color: #74b9ff; font-size: 10px; }
+.vpe-exec-table td { padding: 4px 6px; border-bottom: 1px solid #2d3436; vertical-align: top; }
+.vpe-exec-not-exec td { opacity: 0.75; }
+.vpe-exec-not-exec td:first-child { color: #e17055; }
+.vpe-risk-high { color: #e17055; font-weight: 700; }
   `],
 })
 export class VisualProcessEditorComponent implements OnInit, OnDestroy {
@@ -1117,11 +1234,40 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy {
       errors: r.validation.error_count,
       warnings: r.validation.warning_count,
       step_count: r.step_count,
+      non_executable_count: r.non_executable_count ?? 0,
       policy: r.policy_summary,
     }, null, 2);
   });
 
-  canStartWorkflow = computed(() => !!this.validationResult()?.valid && !this.activeWorkflowId());
+  selectedStepKindInfo = computed<TaskKindInfo | null>(() => {
+    const step = this.selectedStep();
+    if (!step) return null;
+    return this.taskKindList().find(k => k.id === step.kind) ?? null;
+  });
+
+  hasNonExecutableSteps = computed(() => {
+    const plan = this.dryRunResult()?.step_execution_plan;
+    if (plan) return plan.some(p => !p.executable);
+    return false;
+  });
+
+  canStartWorkflow = computed(() => {
+    if (!this.validationResult()?.valid) return false;
+    if (this.activeWorkflowId()) return false;
+    return true;
+  });
+
+  kindOptionSuffix(k: TaskKindInfo): string {
+    const status = k.implementation_status;
+    if (status === 'experimental') return ' [exp]';
+    if (status === 'stub' || status === 'not_implemented') return ' [stub]';
+    if (status === 'design_only') return ' [design]';
+    const state = k.implementation_state;
+    if (state === 'registered_only') return ' [reg]';
+    if (!k.dispatch_capable && state === 'wired_and_executable') return ' (ML)';
+    if (!k.dispatch_capable) return ' (ML)';
+    return '';
+  }
 
   // ── lifecycle ──────────────────────────────────────────────────────────────
   ngOnInit(): void {

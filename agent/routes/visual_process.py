@@ -44,6 +44,7 @@ from agent.visual_process.policy_hints import annotate_graph, policy_summary
 from agent.visual_process.presets import get_preset, list_presets
 from agent.visual_process.skill_profiles import get_skill_profile_registry
 from agent.visual_process.task_kind_registry import list_task_kinds
+from agent.visual_process.step_executor import get_step_executor
 from agent.visual_process.validator import VisualProcessValidator
 
 vp_bp = Blueprint("visual_process", __name__, url_prefix="/api/visual-process")
@@ -142,6 +143,10 @@ def dry_run():
     if validation.valid:
         blueprint = graph_to_blueprint_dict(annotated)
 
+    executor = get_step_executor()
+    step_execution_plan = [p.as_dict() for p in executor.execution_plan(graph.steps)]
+    non_executable = [p for p in step_execution_plan if not p["executable"]]
+
     return jsonify({
         "dry_run": True,
         "validation": validation.as_dict(),
@@ -149,6 +154,8 @@ def dry_run():
         "blueprint": blueprint,
         "step_count": len(graph.steps),
         "edge_count": len(graph.edges),
+        "step_execution_plan": step_execution_plan,
+        "non_executable_count": len(non_executable),
     }), 200
 
 

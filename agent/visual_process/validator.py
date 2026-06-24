@@ -17,6 +17,7 @@ from agent.visual_process.models import (
     VisualProcessStep,
 )
 from agent.visual_process.task_kind_registry import (
+    get_task_kind_info,
     is_legacy_kind,
     suggested_replacement,
 )
@@ -275,8 +276,75 @@ class GraphValidator:
                     step_id=step.id,
                 ))
 
+        # VPRT-003: Runtime-Truth consistency checks
+        self._check_runtime_truth(graph, issues)
+
         errors = [i for i in issues if i.severity == "error"]
         return ValidationResult(valid=len(errors) == 0, issues=issues)
+
+    @staticmethod
+    def _check_runtime_truth(graph: VisualProcessGraph, issues: list[ValidationIssue]) -> None:
+        """VPRT-003: Validate consistency between step kinds, policy hints, and runtime truth."""
+        non_executable_states = {"registered_only", "not_implemented", "design_only", "exposed_not_wired"}
+        for step in graph.steps:
+            info = get_task_kind_info(step.kind)
+            if info is None:
+                continue
+
+            impl_state: str = info.get("implementation_state", "unknown")
+            impl_status: str = info.get("implementation_status", "unknown")
+            backend: str = info.get("backend_service", "")
+            uses_network: bool = bool(info.get("uses_network", False))
+
+            # Steps with registered_only / not_implemented in an executable graph
+            if impl_state in non_executable_states and not info.get("dispatch_capable", False):
+                issues.append(ValidationIssue(
+                    "warning", "step_not_executable",
+                    f"Step '{step.label}' (kind={step.kind}) hat implementation_state='{impl_state}'. "
+                    f"Der Step ist im Editor sichtbar, aber ohne VP-Execution-Adapter nicht ausführbar. "
+                    f"Backend: {backend}",
+                    step_id=step.id,
+                ))
+
+            # requires_approval in registry but no gate on step
+            if info.get("requires_approval", False) and not step.gate:
+                # evolution_apply already has a hard error, skip duplicate
+                if step.kind != "evolution_apply":
+                    issues.append(ValidationIssue(
+                        "warning", "requires_approval_no_gate",
+                        f"Step '{step.label}' (kind={step.kind}) erfordert laut Registry "
+                        "zwingend Approval (requires_approval=true), hat aber gate=false.",
+                        step_id=step.id,
+                    ))
+
+            # uses_network=true — inform user
+            if uses_network:
+                issues.append(ValidationIssue(
+                    "info", "step_uses_network",
+                    f"Step '{step.label}' (kind={step.kind}) macht Netzwerk-Anfragen "
+                    f"(uses_network=true, backend={backend}). "
+                    "Stell sicher, dass Netzwerk-Egress in deiner Umgebung erlaubt ist.",
+                    step_id=step.id,
+                ))
+
+            # stub/not_implemented status — hard warning
+            if impl_status in ("stub", "not_implemented"):
+                issues.append(ValidationIssue(
+                    "warning", "step_is_stub",
+                    f"Step '{step.label}' (kind={step.kind}) hat implementation_status='{impl_status}'. "
+                    "Dieser Step ist ein Stub (NotImplementedError) und nicht ausführbar.",
+                    step_id=step.id,
+                ))
+
+            # high/critical risk without approval gate
+            risk = info.get("risk_level", "none")
+            if risk in ("high", "critical") and not step.gate and step.kind not in ("shell_execute", "command_execute", "run_tests", "patch_apply", "script", "git_op"):
+                issues.append(ValidationIssue(
+                    "info", "high_risk_step_no_gate",
+                    f"Step '{step.label}' (kind={step.kind}) hat risk_level='{risk}' aber gate=false. "
+                    "Erwäge gate=true für kritische Steps.",
+                    step_id=step.id,
+                ))
 
     @staticmethod
     def _reachable(graph: VisualProcessGraph) -> set[str]:

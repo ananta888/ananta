@@ -1,6 +1,6 @@
 {
   "id": "todo.visual-process-editor-ml-ai-step-kinds",
-  "title": "VP Editor — ML/AI Step-Arten: Transformer-Encoding, Evolver, RAG, TurboQuant und Worker-Alignment",
+  "title": "VP Editor — ML/AI Step-Arten: Embedding API, Evolver, RAG, TurboQuant und Worker-Alignment",
   "version": "1.0",
   "created": "2026-06-24",
   "updated": "2026-06-24",
@@ -93,14 +93,14 @@
         "fork",
         "join",
         "approval",
-        "vector_encode",
+        "embed_api",
         "rag_retrieve",
         "rerank",
-        "turboquant_encode",
+        "turboquant_mse",
         "evolve_prompt",
         "evolve_project",
         "embed_chunk",
-        "cluster"
+        "domain_cluster"
       ]
     },
     "ml_components_in_codebase": [
@@ -140,7 +140,7 @@
           "description": "Eine zentrale Wahrheitsquelle fuer alle gueltigen task_kinds anlegen. Zwei Gruppen: (A) Worker-dispatchbare Kinds (aus hermes_adapter_config + det_command_handler), (B) ML/AI-spezifische Kinds (neue). Das Backend-Modell soll diese Liste kennen und validieren.",
           "tasks": [
             "Neue Datei agent/visual_process/task_kind_registry.py: WORKER_TASK_KINDS = {'patch_apply','patch_propose','command_execute','shell_execute','plan_only','review','summarize','research_limited','run_tests','script','git_op','file_check','regex_check','fork','join','approval'}",
-            "ML_TASK_KINDS = {'vector_encode','turboquant_encode','embed_chunk','rag_retrieve','rerank','cluster','evolve_prompt','evolve_project'} (neue, VP-eigene)",
+            "ML_TASK_KINDS = {'embed_api','turboquant_mse','embed_chunk','rag_retrieve','rerank','domain_cluster','evolve_prompt','evolve_project'} (kanonisch; legacy: vector_encode→embed_api, turboquant_encode→turboquant_mse, cluster→domain_cluster)",
             "LEGACY_MAP = {'coding': 'patch_propose', 'analysis': 'review', 'code_review': 'review', 'llm_generate': 'summarize', 'deploy': 'shell_execute', 'research': 'research_limited', 'refactor': 'patch_apply'} — Mapping alter VP-Kinds auf echte Worker-Kinds",
             "ALL_TASK_KINDS = WORKER_TASK_KINDS | ML_TASK_KINDS",
             "GET /api/visual-process/task-kinds: gibt Liste mit {id, label, group, description, dispatch_capable: bool} zurueck",
@@ -167,7 +167,7 @@
             "Editor: taskKinds = signal<any[]>([]); in ngOnInit: api.listTaskKinds().subscribe(k => taskKinds.set(k))",
             "Step-Inspector-Dropdown: @for (k of taskKinds(); track k.id) { <option [value]='k.id'>{{ k.label }} @if (!k.dispatch_capable) { (ML) }</option> }",
             "Gruppen-Trennlinie im Dropdown via <optgroup> wenn Browser unterstuetzt",
-            "Fallback: wenn listTaskKinds() fehlschlaegt, FALLBACK_KINDS = ['patch_propose','plan_only','review','run_tests','shell_execute','fork','join','approval','vector_encode','rag_retrieve','evolve_prompt'] verwenden"
+            "Fallback: wenn listTaskKinds() fehlschlaegt, FALLBACK_KINDS = ['patch_propose','plan_only','review','run_tests','shell_execute','fork','join','approval','embed_api','rag_retrieve','evolve_prompt'] verwenden"
           ],
           "acceptance_criteria": [
             "Nach ngOnInit: Step-Kind-Dropdown zeigt alle Backend-definierten Kinds geordnet nach Gruppe",
@@ -190,7 +190,7 @@
             "policy_hints.py _KIND_HINTS: patch_apply -> [HINT_WRITES_FILES, HINT_LLM_CALL], patch_propose -> [HINT_LLM_CALL, HINT_READ_ONLY], shell_execute -> [HINT_SHELL_EXEC, HINT_HIGH_RISK], command_execute -> [HINT_SHELL_EXEC, HINT_HIGH_RISK], plan_only -> [HINT_LLM_CALL, HINT_READ_ONLY], summarize -> [HINT_LLM_CALL], review -> [HINT_LLM_CALL, HINT_READ_ONLY], research_limited -> [HINT_READ_ONLY, HINT_LLM_CALL], fork -> [], join -> [], approval -> [HINT_REQUIRES_APPROVAL]",
             "Neue Hints: HINT_VECTOR_OP = 'vector_operation', HINT_ML_INFERENCE = 'ml_inference', HINT_QUANTIZATION = 'quantization'",
             "skill_profiles.py: coder.task_kinds = ['patch_apply', 'patch_propose', 'refactor']; analyst.task_kinds = ['review', 'research_limited', 'summarize']; tester.task_kinds = ['run_tests', 'script', 'file_check']; devops.task_kinds = ['shell_execute', 'git_op', 'script']; planner.task_kinds = ['plan_only', 'summarize']",
-            "Neues Profil: ml_engineer mit task_kinds=['vector_encode','turboquant_encode','embed_chunk','rag_retrieve','rerank','cluster'] und HINT_ML_INFERENCE",
+            "Neues Profil: ml_engineer mit task_kinds=['embed_api','turboquant_mse','embed_chunk','rag_retrieve','rerank','cluster'] und HINT_ML_INFERENCE",
             "Neues Profil: evolver_agent mit task_kinds=['evolve_prompt','evolve_project'] und allowed_tools=['read_file','list_files','grep_search','git_diff']"
           ],
           "acceptance_criteria": [
@@ -209,7 +209,7 @@
       "items": [
         {
           "id": "VPENC-001",
-          "title": "Step-Art vector_encode: EmbeddingProvider als VP-Step",
+          "title": "Step-Art embed_api (ehem. vector_encode): EmbeddingProvider als VP-Step",
           "status": "completed",
           "priority": "high",
           "files": [
@@ -218,25 +218,25 @@
             "agent/visual_process/policy_hints.py",
             "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
           ],
-          "description": "vector_encode Step ruft EmbeddingProvider.embed_texts() auf. Input: text-Artifacts (Liste von Strings). Output: vector-Artifacts (EncodedVector). Kein LLM-Call, kein Prompt. Deterministisch bei gleichem Provider und Input.",
+          "description": "embed_api Step ruft EmbeddingProvider.embed_texts() auf. Input: text-Artifacts (Liste von Strings). Output: vector-Artifacts (EncodedVector). Kein LLM-Call, kein Prompt. Deterministisch bei gleichem Provider und Input.",
           "tasks": [
-            "task_kind_registry.py: ML_TASK_KINDS enthaelt 'vector_encode'; label='Vektor-Encoding', dispatch_capable=False (weil kein Worker-Handler, wird direkt vom VP-Execution-Layer aufgerufen)",
+            "task_kind_registry.py: ML_TASK_KINDS enthaelt 'embed_api'; label='Vektor-Encoding', dispatch_capable=False (weil kein Worker-Handler, wird direkt vom VP-Execution-Layer aufgerufen)",
             "Neues ArtifactKind 'vector' zu models.py ArtifactKind hinzufuegen (aktuell: file/json/text/code/report/dataset/image/audio/binary/unknown)",
-            "policy_hints.py: 'vector_encode' -> [HINT_ML_INFERENCE, HINT_READ_ONLY]",
-            "VP Step-Inspector: wenn kind='vector_encode' -> Meta-Feld 'embedding_model' (Freitext, z.B. 'nomic-embed-text') und 'encoding_mode' (Dropdown: off/float32/float16/int8/symmetric4bit/turboquant_mse_experimental — aus VectorEncodingProfile)",
+            "policy_hints.py: 'embed_api' -> [HINT_ML_INFERENCE, HINT_READ_ONLY]",
+            "VP Step-Inspector: wenn kind='embed_api' -> Meta-Feld 'embedding_model' (Freitext, z.B. 'nomic-embed-text') und 'encoding_mode' (Dropdown: off/float32/float16/int8/symmetric4bit/turboquant_mse_experimental — aus VectorEncodingProfile)",
             "Diese Meta-Felder werden in VpStep.metadata gespeichert: metadata.embedding_model, metadata.encoding_mode"
           ],
           "acceptance_criteria": [
             "Step-Kind-Dropdown zeigt 'Vektor-Encoding (ML)' in Gruppe 'ml'",
-            "Wenn vector_encode selected: Inspector zeigt embedding_model-Feld und encoding_mode-Dropdown",
+            "Wenn embed_api selected: Inspector zeigt embedding_model-Feld und encoding_mode-Dropdown",
             "encoding_mode-Werte entsprechen VectorEncodingProfile._ALLOWED_MODES: off/float32/float16/int8/symmetric4bit/turboquant_mse_experimental",
             "Input-Artifact kann kind='text' oder kind='code' sein; Output-Artifact kind='vector' (neu)",
-            "POST /validate mit vector_encode Step gibt kein 'unbekannter kind'-Fehler"
+            "POST /validate mit embed_api Step gibt kein 'unbekannter kind'-Fehler"
           ]
         },
         {
           "id": "VPENC-002",
-          "title": "Step-Art turboquant_encode: TurboQuant-Quantisierung als expliziter Step",
+          "title": "Step-Art turboquant_mse (ehem. turboquant_encode): TurboQuant-Quantisierung als expliziter Step",
           "status": "completed",
           "priority": "medium",
           "files": [
@@ -244,17 +244,17 @@
             "agent/visual_process/policy_hints.py",
             "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
           ],
-          "description": "Separater Step der einen vorhandenen float32-Vektor mittels TurboQuantMseEncoder auf niedrigere Bitzahl komprimiert. Input: vector-Artifact (float32). Output: vector-Artifact (quantized). Kann nach vector_encode geschaltet werden (encode -> turboquant_encode -> store).",
+          "description": "Separater Step der einen vorhandenen float32-Vektor mittels TurboQuantMseEncoder auf niedrigere Bitzahl komprimiert. Input: vector-Artifact (float32). Output: vector-Artifact (quantized). Kann nach embed_api geschaltet werden (embed_api -> turboquant_mse -> store).",
           "tasks": [
-            "task_kind_registry.py: ML_TASK_KINDS enthaelt 'turboquant_encode'; label='TurboQuant Komprimierung', dispatch_capable=False",
-            "policy_hints.py: 'turboquant_encode' -> [HINT_ML_INFERENCE, HINT_QUANTIZATION, HINT_READ_ONLY]",
-            "Step-Inspector: wenn kind='turboquant_encode': Feld 'target_bits' (Number, default 4), 'block_size' (Number, default 0=auto), 'store_original' (Checkbox). Diese landen in metadata.",
-            "Preset: 'Embed + Quantize Pipeline': [vector_encode] -always-> [turboquant_encode] mit target_bits=4"
+            "task_kind_registry.py: ML_TASK_KINDS enthaelt 'turboquant_mse'; label='TurboQuant Komprimierung', dispatch_capable=False",
+            "policy_hints.py: 'turboquant_mse' -> [HINT_ML_INFERENCE, HINT_QUANTIZATION, HINT_READ_ONLY]",
+            "Step-Inspector: wenn kind='turboquant_mse': Feld 'target_bits' (Number, default 4), 'block_size' (Number, default 0=auto), 'store_original' (Checkbox). Diese landen in metadata.",
+            "Preset: 'Embed + Quantize Pipeline': [embed_api] -always-> [turboquant_mse] mit target_bits=4"
           ],
           "acceptance_criteria": [
-            "Step-Inspector zeigt target_bits, block_size, store_original wenn kind='turboquant_encode'",
+            "Step-Inspector zeigt target_bits, block_size, store_original wenn kind='turboquant_mse'",
             "Preset 'Embed + Quantize Pipeline' ist in /api/visual-process/presets geladen",
-            "Input des turboquant_encode-Steps muss kind='vector' sein — DataflowValidator gibt Warning wenn anderer kind"
+            "Input des turboquant_mse-Steps muss kind='vector' sein — DataflowValidator gibt Warning wenn anderer kind"
           ]
         },
         {
@@ -272,7 +272,7 @@
             "task_kind_registry.py: 'embed_chunk'; label='Chunk + Einbetten', dispatch_capable=False",
             "Step-Inspector: chunk_size (Number, default 512), chunk_overlap (Number, default 64), embedding_model (Text)",
             "DataflowValidator: Output-Artifact sollte kind='dataset' sein — Warning wenn nicht",
-            "Preset 'Wissensindex aufbauen': [embed_chunk] -always-> [turboquant_encode] -always-> [script (index_builder)]"
+            "Preset 'Wissensindex aufbauen': [embed_chunk] -always-> [turboquant_mse] -always-> [script (index_builder)]"
           ],
           "acceptance_criteria": [
             "Inspector zeigt chunk_size, chunk_overlap, embedding_model wenn kind='embed_chunk'",
@@ -535,10 +535,10 @@
           "files": [
             "agent/visual_process/presets.py"
           ],
-          "description": "embed_chunk -> turboquant_encode -> script (index_store). Zeigt wie ein Wissensindex aus Rohdaten gebaut wird.",
+          "description": "embed_chunk -> turboquant_mse -> script (index_store). Zeigt wie ein Wissensindex aus Rohdaten gebaut wird.",
           "tasks": [
             "def preset_knowledge_index_pipeline() in presets.py",
-            "Steps: s1=embed_chunk (chunk_size=512, embedding_model='nomic-embed-text'), s2=turboquant_encode (target_bits=4), s3=script (index_store aufrufen)",
+            "Steps: s1=embed_chunk (chunk_size=512, embedding_model='nomic-embed-text'), s2=turboquant_mse (target_bits=4), s3=script (index_store aufrufen)",
             "Artifacts: raw_documents(dataset) -> chunks_with_vectors(dataset) -> quantized_vectors(dataset) -> index_done(report)"
           ],
           "acceptance_criteria": [
@@ -589,7 +589,7 @@
       "VPCLUS-001 und VPPRE-* koennen erst nach den Step-Art-Tasks implementiert werden.",
       "Dieses TODO ergaenzt todo.visual-process-editor-completion.json (UI-Luecken) — die beiden haben unterschiedliche Schwerpunkte.",
       "Der 'evolver' in Ananta ist KEIN evolutionaerer Algorithmus (keine genetischen Operatoren, keine Fitness-Funktion) sondern ein LLM-basierter Prompt-Optimierer der auf Telemetrie-Signalen reagiert.",
-      "TurboQuantProdStub wirft NotImplementedError — turboquant_encode Step markiert im Inspector als 'experimentell'.",
+      "TurboQuantProdStub wirft NotImplementedError — turboquant_mse Step markiert im Inspector als 'experimentell'.",
       "Transformer-Layer-only = EmbeddingProvider.embed_texts() — kein Prompt, kein Completion, nur Encoder. Das ist der Kern-Unterschied zu llm_generate."
     ],
     "recommended_order": [
@@ -611,5 +611,17 @@
       "VPPRE-002",
       "VPPRE-003"
     ]
-  }
+  },
+  "canonical_renames": {
+    "vector_encode": "embed_api",
+    "turboquant_encode": "turboquant_mse",
+    "cluster": "domain_cluster"
+  },
+  "migration_notes": [
+    "vector_encode ist legacy — kanonischer Name ist embed_api (OpenAICompatibleEmbeddingProvider/HashEmbeddingProvider, kein lokaler PyTorch)",
+    "turboquant_encode ist legacy — kanonischer Name ist turboquant_mse (TQ-012 TurboQuantMseEncoder, experimentell aber funktionierend)",
+    "cluster ist legacy — kanonischer Name ist domain_cluster (deterministisches Signal-Clustering, kein Leiden/Louvain/KMeans im Production-Code)",
+    "query_rewrite ist regelbasierte Synonym-Expansion (bug→defect, fix→repair…) — KEIN LLM-Rewriting",
+    "TurboQuantProdStub (TQ-013) wirft NotImplementedError — separater Stub, nicht turboquant_mse"
+  ]
 }

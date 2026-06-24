@@ -27,12 +27,43 @@ export interface ValidationIssue { severity: string; code: string; message: stri
 export interface ValidationResult { valid: boolean; error_count: number; warning_count: number; issues: ValidationIssue[]; }
 export interface SkillProfile { id: string; name: string; description: string; role: string; task_kinds: string[]; tags: string[]; }
 export interface PresetSummary { id: string; name: string; description: string; tags: string[]; }
-export interface DryRunResult { dry_run: boolean; validation: ValidationResult; policy_summary: Record<string, unknown>; blueprint: unknown; step_count: number; edge_count: number; }
+export interface DryRunResult {
+  dry_run: boolean; validation: ValidationResult; policy_summary: Record<string, unknown>;
+  blueprint: unknown; step_count: number; edge_count: number;
+  step_execution_plan?: StepExecutionPlan[];
+  non_executable_count?: number;
+}
 export interface BpmnImportResult { graph: VpGraph; warnings: string[]; validation: ValidationResult; }
 export interface BpmnExportResult { bpmn_xml: string; warnings: string[]; }
 export interface WorkflowRequestResult { workflow_request: Record<string, unknown>; validation: ValidationResult; errors: string[]; }
 export interface WorkflowStatus { schema: string; backend: string; workflow_id: string; status: string; steps?: unknown[]; events?: unknown[]; [key: string]: unknown; }
-export interface TaskKindInfo { id: string; label: string; group: string; dispatch_capable: boolean; description: string; }
+export interface TaskKindInfo {
+  id: string; label: string; group: string; dispatch_capable: boolean; description: string;
+  // Runtime-Truth (VPRT-001) — populated from backend, may be absent in fallback
+  implementation_status?: string;   // "production"|"experimental"|"stub"|"test_only"|"design_only"|"unknown"
+  implementation_state?: string;    // "wired_and_executable"|"registered_only"|"not_implemented"|...
+  backend_service?: string;
+  deterministic?: boolean;
+  uses_llm?: boolean;
+  uses_network?: boolean;
+  side_effects?: string[];
+  risk_level?: string;              // "none"|"low"|"medium"|"high"|"critical"
+  legacy_aliases?: string[];
+  requires_approval?: boolean;
+}
+export interface StepExecutionPlan {
+  step_id: string; step_label: string; kind: string;
+  executable: boolean;
+  execution_mode: string;           // "worker_dispatch"|"vp_adapter"|"not_executable"
+  execution_reason: string;
+  implementation_state: string;
+  implementation_status: string;
+  backend_service: string;
+  uses_llm: boolean; uses_network: boolean;
+  side_effects: string[];
+  risk_level: string;
+  requires_approval: boolean;
+}
 export interface SavedGraphSummary { id: string; name: string; description: string; tags: string[]; updated_at: number; created_at: number; }
 
 @Injectable({ providedIn: 'root' })
