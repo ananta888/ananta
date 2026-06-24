@@ -387,10 +387,10 @@ function nodeKindColor(kind: string): string {
           </div>
         }
 
-        <!-- turboquant_mse: TQ-012 PoC — IMPLEMENTIERT (nicht NotImplementedError) -->
+        <!-- turboquant_mse: TQ-012 — funktionierender experimenteller Encoder -->
         @if (selectedStep()!.kind === 'turboquant_mse' || selectedStep()!.kind === 'turboquant_encode') {
           <div class="vpe-meta-section">
-            <div class="vpe-info-note">ℹ TQ-012 TurboQuantMseEncoder: sign-rotate + symmetric 4-bit scalar quant. PoC — komprimiert funktioniert. TQ-013 ProdStub = NotImplementedError (nicht dieser Step).</div>
+            <div class="vpe-info-note">ℹ TurboQuantMseEncoder (TQ-012): sign-rotate + 4-bit scalar quant + Decode funktioniert. Experimentell — kein Produktions-Codebook. TQ-013 ProdStub ist ein separater, unbenutzter Stub und nicht Teil dieses Steps.</div>
             <label class="vpe-label">Seed (Sign-Rotation)
               <input class="vpe-input" type="number" min="0"
                      [ngModel]="stepMeta('seed') ?? 888"

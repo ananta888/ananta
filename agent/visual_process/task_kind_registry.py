@@ -165,10 +165,11 @@ _KIND_INFO: dict[str, TaskKindInfo] = {
         "description": "DeterministicSignRotation: SHA256-basierter Per-Dimension Vorzeichenflip. Selbst-invers. Verwendet als Vorstufe vor Quantisierung.",
     },
     "turboquant_mse": {
-        "id": "turboquant_mse", "label": "TurboQuant MSE (TQ-012 PoC)",
+        "id": "turboquant_mse", "label": "TurboQuant MSE (experimentell)",
         "group": "ml", "dispatch_capable": False,
-        "description": "4-bit Vektorkomprimierung: sign-rotate + symmetric scalar quant (TurboQuantMseEncoder). "
-                       "PoC, experimentell. TQ-013 ProdStub = NotImplementedError (nicht verwendbar).",
+        "description": "Funktionierender experimenteller 4-bit Encoder (TQ-012 TurboQuantMseEncoder): "
+                       "DeterministicSignRotation + symmetric scalar quant + Decode. "
+                       "Kein Produktions-Codebook (TQ-013 ProdStub = separater, nicht verwendbarer Stub).",
     },
 
     # ── ML – RAG ───────────────────────────────────────────────────────────────

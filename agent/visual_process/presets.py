@@ -221,7 +221,7 @@ def preset_knowledge_index_pipeline() -> VisualProcessGraph:
                   outputs=[ArtifactRef(name="chunks_with_vectors", kind="dataset")],
                   x=0, y=0,
                   metadata={"chunk_size": 512, "chunk_overlap": 64, "embedding_model": "nomic-embed-text"}),
-            _step("s2", "TurboQuant 4-bit (TQ-012 PoC)", "turboquant_mse", "ml_engineer",
+            _step("s2", "TurboQuant MSE (experimentell)", "turboquant_mse", "ml_engineer",
                   skill_profile="ml_engineer",
                   inputs=[ArtifactRef(name="chunks_with_vectors", kind="dataset", required=True)],
                   outputs=[ArtifactRef(name="quantized_vectors", kind="vector")],

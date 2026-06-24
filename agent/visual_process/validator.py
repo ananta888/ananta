@@ -217,13 +217,15 @@ class GraphValidator:
                     step_id=step.id,
                 ))
 
-        # turboquant_mse experimental warning
+        # turboquant_mse: funktionierender experimenteller Encoder — nur Hinweis, kein Warning
         for step in graph.steps:
             if step.kind == "turboquant_mse":
                 issues.append(ValidationIssue(
                     "info", "turboquant_mse_experimental",
-                    f"Step '{step.label}' uses TurboQuantMseEncoder (TQ-012 PoC). "
-                    "Not production-grade. TQ-013 ProdStub is NotImplementedError.",
+                    f"Step '{step.label}' verwendet TurboQuantMseEncoder (TQ-012): "
+                    "sign-rotation + 4-bit scalar quant, encode/decode funktioniert. "
+                    "Experimentell (kein Produktions-Codebook). TQ-013 ProdStub ist ein separater, "
+                    "unbenutzter Stub und betrifft diesen Step nicht.",
                     step_id=step.id,
                 ))
 
