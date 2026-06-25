@@ -275,7 +275,7 @@ function nodeKindColor(kind: string): string {
 
         <label class="vpe-label">Label
           <input class="vpe-input" [ngModel]="selectedStep()!.label"
-                 (ngModelChange)="mutateSelectedStep(s => s.label = $event)" />
+                 (ngModelChange)="setStepLabel($event)" />
         </label>
         <label class="vpe-label">Typ
           <select class="vpe-input" [ngModel]="selectedStep()!.kind"
@@ -291,11 +291,11 @@ function nodeKindColor(kind: string): string {
         </label>
         <label class="vpe-label">Rolle
           <input class="vpe-input" [ngModel]="selectedStep()!.role"
-                 (ngModelChange)="mutateSelectedStep(s => s.role = $event)" placeholder="z.B. developer" />
+                 (ngModelChange)="setStepRole($event)" placeholder="z.B. developer" />
         </label>
         <label class="vpe-label">Skill-Profil
           <select class="vpe-input" [ngModel]="selectedStep()!.agent_skill_profile_id"
-                  (ngModelChange)="mutateSelectedStep(s => s.agent_skill_profile_id = $event)">
+                  (ngModelChange)="setStepSkillProfile($event)">
             <option value="">— keins —</option>
             @for (p of skillProfiles(); track p.id) {
               <option [value]="p.id">{{ p.name }}</option>
@@ -308,7 +308,7 @@ function nodeKindColor(kind: string): string {
         </label>
         <label class="vpe-label vpe-checkbox">
           <input type="checkbox" [ngModel]="selectedStep()!.gate"
-                 (ngModelChange)="mutateSelectedStep(s => s.gate = $event)" />
+                 (ngModelChange)="setStepGate($event)" />
           Gate (Freigabe erforderlich)
         </label>
 
@@ -775,11 +775,11 @@ function nodeKindColor(kind: string): string {
         <div class="vpe-panel-title">Kante</div>
         <label class="vpe-label">Label
           <input class="vpe-input" [ngModel]="selectedEdge()!.label"
-                 (ngModelChange)="mutateEdge(e => e.label = $event || undefined)" placeholder="optional" />
+                 (ngModelChange)="setEdgeLabel($event)" placeholder="optional" />
         </label>
         <label class="vpe-label">Bedingung
           <select class="vpe-input" [ngModel]="selectedEdge()!.condition.kind"
-                  (ngModelChange)="mutateEdge(e => e.condition.kind = $event)">
+                  (ngModelChange)="setEdgeConditionKind($event)">
             @for (k of edgeKinds; track k) { <option [value]="k">{{ k }}</option> }
           </select>
         </label>
@@ -825,7 +825,7 @@ function nodeKindColor(kind: string): string {
         @if (selectedEdge()!.condition.kind === 'expression') {
           <label class="vpe-label">Ausdruck
             <input class="vpe-input" [ngModel]="selectedEdge()!.condition.expression"
-                   (ngModelChange)="mutateEdge(e => e.condition.expression = $event)"
+                   (ngModelChange)="setEdgeExpression($event)"
                    placeholder="z.B. output.score > 0.8" />
           </label>
           @if (expressionError()) {
@@ -836,7 +836,7 @@ function nodeKindColor(kind: string): string {
         @if (selectedEdge()!.condition.kind === 'on_output') {
           <label class="vpe-label">Artifact-Name
             <input class="vpe-input" [ngModel]="selectedEdge()!.condition.output_name"
-                   (ngModelChange)="mutateEdge(e => e.condition.output_name = $event)"
+                   (ngModelChange)="setEdgeOutputName($event)"
                    placeholder="z.B. test_results" />
           </label>
         }
@@ -1469,6 +1469,13 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy {
     });
   }
 
+  setStepLabel(val: string): void { this.mutateSelectedStep(s => s.label = val); }
+  setStepRole(val: string): void { this.mutateSelectedStep(s => s.role = val); }
+  setStepSkillProfile(val: string): void {
+    this.mutateSelectedStep(s => s.agent_skill_profile_id = val);
+  }
+  setStepGate(val: boolean): void { this.mutateSelectedStep(s => s.gate = val); }
+
   isChannelSelected(ch: string): boolean {
     const channels = this.stepMeta('channels') as string[] | null;
     return channels ? channels.includes(ch) : ch === 'dense' || ch === 'lexical';
@@ -1503,6 +1510,19 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy {
       }
       (e.condition.loop_policy as any)[field] = value;
     });
+  }
+
+  setEdgeLabel(val: string): void {
+    this.mutateEdge(e => e.label = val || undefined);
+  }
+  setEdgeConditionKind(val: string): void {
+    this.mutateEdge(e => e.condition.kind = val as any);
+  }
+  setEdgeExpression(val: string): void {
+    this.mutateEdge(e => e.condition.expression = val);
+  }
+  setEdgeOutputName(val: string): void {
+    this.mutateEdge(e => e.condition.output_name = val);
   }
 
   // ── io helpers ─────────────────────────────────────────────────────────────
