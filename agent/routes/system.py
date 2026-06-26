@@ -1,4 +1,3 @@
-import concurrent.futures
 import json
 import os
 import threading
@@ -297,7 +296,7 @@ def readiness_check():
       200:
         description: Agent ist bereit
       503:
-        description: Agent oder AbhÃ¤ngigkeiten nicht bereit
+        description: Agent oder Abhängigkeiten nicht bereit
     """
     results = {}
     is_ready = True
@@ -306,13 +305,28 @@ def readiness_check():
     runtime_provider = str(runtime_cfg.get("default_provider") or settings.default_provider or "").strip().lower()
     provider_urls = dict(current_app.config.get("PROVIDER_URLS", {}) or {})
 
+    # Readiness-Probes müssen schnell sein: ein hängender LLM darf /ready
+    # nicht für Minuten blockieren. Pro Probe max. 5s, danach gilt der
+    # Check als unstable und /ready antwortet mit 503 statt Timeout.
+    readiness_timeout = int(min(float(settings.http_timeout or 60), 5.0))
+
     def _check_hub():
+        # Self-check: Hub ruft sich nicht selbst. Per Definition ist der
+        # Hub erreichbar, sobald dieser Request hier ankommt.
+        # Agent-Name kann "hub" (ROLE=hub) oder "ananta-hub" (Container-Name) sein.
+        if str(agent_name or "").strip().lower() in {"hub", "ananta-hub"}:
+            return "hub", {
+                "status": "ok",
+                "latency": 0.0,
+                "code": 200,
+                "url": "self",
+                "note": "hub skips self-probe to avoid deadlock",
+            }
+
         base = (settings.hub_url or "http://localhost:5000").rstrip("/")
         candidates = [f"{base}/health"]
 
         # Fallbacks: robust gegen fehlerhafte/hostseitige HUB_URL Werte in Containern.
-        if agent_name == "hub":
-            candidates.append("http://localhost:5000/health")
         if "localhost" in base:
             candidates.append("http://ai-agent-hub:5000/health")
 
@@ -325,7 +339,7 @@ def readiness_check():
             checked.append(url)
             try:
                 start = time.time()
-                res = http_client.get(url, timeout=settings.http_timeout, return_response=True, silent=True)
+                res = http_client.get(url, timeout=readiness_timeout, return_response=True, silent=True)
                 if res is not None:
                     return "hub", {
                         "status": "ok" if res.status_code < 500 else "unstable",
@@ -347,7 +361,7 @@ def readiness_check():
         if provider == "lmstudio":
             from agent.llm_integration import probe_lmstudio_runtime
 
-            probe = probe_lmstudio_runtime(url, timeout=settings.http_timeout)
+            probe = probe_lmstudio_runtime(url, timeout=readiness_timeout)
             if probe["ok"]:
                 return "llm", {
                     "provider": provider,
@@ -362,6 +376,8 @@ def readiness_check():
             message = f"No response from LLM provider {provider}"
             if probe.get("status") == "invalid_url":
                 message = f"Invalid LM Studio base URL: {url}"
+            elif probe.get("status") == "timeout":
+                message = f"LLM provider {provider} probe timed out after {readiness_timeout}s"
             elif probe.get("models_url"):
                 message = f"No response from LM Studio models endpoint {probe.get('models_url')}"
             return "llm", {
@@ -376,7 +392,7 @@ def readiness_check():
 
         try:
             start = time.time()
-            res = http_client.get(url, timeout=settings.http_timeout, return_response=True, silent=True)
+            res = http_client.get(url, timeout=readiness_timeout, return_response=True, silent=True)
             if res:
                 return "llm", {
                     "provider": provider,
@@ -389,14 +405,18 @@ def readiness_check():
         except Exception as e:
             return "llm", {"status": "error", "message": str(e)}
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-        futures = [executor.submit(_check_hub), executor.submit(_check_llm)]
-        for future in concurrent.futures.as_completed(futures):
-            key, result = future.result()
-            if result:
-                results[key] = result
-                if result.get("status") == "error":
-                    is_ready = False
+    # Sequenziell statt ThreadPoolExecutor: ein hängender Probe darf den
+    # Gunicorn-Worker nicht blockieren. Mit readiness_timeout = 5s ist
+    # worst-case-Antwortzeit 2 * 5s + etwas Overhead (~10s).
+    for check in (_check_hub, _check_llm):
+        try:
+            key, result = check()
+        except Exception as e:  # pragma: no cover - defensive
+            key, result = ("probe", {"status": "error", "message": str(e)})
+        if result:
+            results[key] = result
+            if result.get("status") == "error":
+                is_ready = False
 
     return api_response(
         data={"ready": is_ready, "checks": results},
