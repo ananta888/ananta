@@ -506,5 +506,516 @@
         "must_not_contain": ["if (true) return;"]
       }
     ]
+  },
+  {
+    "pattern_id": "mermaid.class",
+    "version": "1.0.0",
+    "category": "diagram_notation",
+    "language": "mermaid",
+    "title": "Render Mermaid UML Class Diagram (UML2-conformant)",
+    "description": "Renders a Mermaid `classDiagram` block from a structured class/relationship payload. Uses UML2 notation: visibility (`+`/`-`/`#`/`~`), stereotypes (`<<interface>>`), abstract members (`{abstract}`), multiplicity on association ends, and the canonical UML relationship arrows (`<|--` inheritance, `*--` composition, `o--` aggregation, `-->` association, `..|>` realization, `..>` dependency, `--` plain link). Output is deterministic and round-trippable through any Mermaid 10.x renderer.",
+    "risk_level": "low",
+    "tags": ["uml", "class", "mermaid", "diagram"],
+    "parameters": [
+      {"name": "diagram_title", "type": "string", "required": false, "description": "Optional diagram title shown above the diagram block.", "default": ""},
+      {"name": "classes", "type": "glob_list", "required": true, "description": "List of class definitions. Each entry is a JSON-encoded dict with `name`, optional `stereotype` (e.g. \"interface\", \"abstract\"), optional `fields` list of `name:type`, optional `methods` list of `name(args):type`. The renderer parses each entry."},
+      {"name": "relationships", "type": "glob_list", "required": false, "description": "List of JSON-encoded relationship dicts with keys: `type` (inheritance|composition|aggregation|association|realization|dependency|link), `from`, `to`, optional `from_label`, `to_label` (for multiplicity), optional `label`.", "default": []},
+      {"name": "direction", "type": "enum", "required": false, "description": "Diagram direction.", "enum_values": ["TB", "BT", "LR", "RL"], "default": "TB"}
+    ],
+    "required_artifacts": ["mermaid_source"],
+    "steps": [
+      {"order": 1, "name": "validate_classes", "description": "Each class entry must parse as JSON with a non-empty `name`. Names must match `^[A-Za-z_][A-Za-z0-9_]*$`. Duplicates are rejected.", "input": "classes", "output": "validated class list", "control": "abort-on-invalid"},
+      {"order": 2, "name": "validate_relationships", "description": "Each relationship must reference an existing class. Unknown arrow type is rejected.", "input": "relationships, validated class list", "output": "validated relationship list", "control": "abort-on-invalid"},
+      {"order": 3, "name": "render_classes", "description": "Emit `classDiagram` header, optional direction, optional title, then one `class <Name>{ <<stereotype>> field:type method(args):type }` block per class. Visibility markers (+/-/#/~) are prepended automatically for non-public members when the class carries the stereotype `interface` (methods are abstract by default).", "input": "validated class list", "output": "class block lines", "control": "deterministic"},
+      {"order": 4, "name": "render_relationships", "description": "Emit one relationship per line using the canonical arrow forms. Multiplicity labels are wrapped in quotes.", "input": "validated relationship list", "output": "relationship lines", "control": "loop"},
+      {"order": 5, "name": "emit_diagram", "description": "Join blocks with newlines and return the final Mermaid source.", "input": "class block lines, relationship lines", "output": "mermaid source", "control": "deterministic"}
+    ],
+    "invariants": [
+      "Output is byte-deterministic for identical inputs (class/relationship ordering is preserved as supplied).",
+      "Every relationship references a class declared in `classes`.",
+      "Output parses with Mermaid 10.x classDiagram grammar."
+    ],
+    "acceptance_gates": [
+      "Output starts with `classDiagram`",
+      "Output contains one `class <Name>` block per class",
+      "Output contains one canonical arrow per relationship",
+      "No relationship references an unknown class"
+    ],
+    "examples": [
+      {
+        "name": "order_strategy_uml",
+        "inputs": {
+          "diagram_title": "Order Strategy",
+          "direction": "LR",
+          "classes": [
+            "{\"name\": \"OrderStrategy\", \"stereotype\": \"interface\", \"methods\": [\"calculate(order: Order): Money\"]}",
+            "{\"name\": \"StandardPricing\", \"methods\": [\"calculate(order: Order): Money\"]}",
+            "{\"name\": \"DiscountedPricing\", \"methods\": [\"calculate(order: Order): Money\"]}",
+            "{\"name\": \"Order\", \"fields\": [\"total: Money\", \"items: List<Item>\"]}",
+            "{\"name\": \"OrderContext\", \"fields\": [\"strategy: OrderStrategy\"]}"
+          ],
+          "relationships": [
+            "{\"type\": \"realization\", \"from\": \"StandardPricing\", \"to\": \"OrderStrategy\"}",
+            "{\"type\": \"realization\", \"from\": \"DiscountedPricing\", \"to\": \"OrderStrategy\"}",
+            "{\"type\": \"association\", \"from\": \"OrderContext\", \"to\": \"OrderStrategy\", \"from_label\": \"1\", \"to_label\": \"1\"}",
+            "{\"type\": \"aggregation\", \"from\": \"Order\", \"to\": \"OrderContext\", \"from_label\": \"1\", \"to_label\": \"1..*\"}"
+          ]
+        },
+        "must_contain": ["classDiagram", "class OrderStrategy", "<<interface>>", "StandardPricing ..|> OrderStrategy", "\"1\" --> \"1\"", "o--"],
+        "must_not_contain": ["```", "flowchart", "sequenceDiagram"]
+      }
+    ]
+  },
+  {
+    "pattern_id": "mermaid.sequence",
+    "version": "1.0.0",
+    "category": "diagram_notation",
+    "language": "mermaid",
+    "title": "Render Mermaid UML Sequence Diagram",
+    "description": "Renders a Mermaid `sequenceDiagram` block from a structured participant/message/fragment payload. Supports typed lifelines (participant/actor), activation (`+`/`-`), sync/async/return messages, and combined fragments (`alt`, `par`, `loop`, `opt`, `critical`). Output is deterministic.",
+    "risk_level": "low",
+    "tags": ["uml", "sequence", "mermaid", "diagram"],
+    "parameters": [
+      {"name": "diagram_title", "type": "string", "required": false, "description": "Optional diagram title.", "default": ""},
+      {"name": "participants", "type": "glob_list", "required": true, "description": "List of JSON-encoded participant dicts with `id`, `label`, and optional `kind` (participant|actor|boundary|control|entity|database)."},
+      {"name": "messages", "type": "glob_list", "required": true, "description": "List of JSON-encoded message dicts with `from`, `to`, `text`, optional `type` (sync|async|return) and optional `activate` (bool)."},
+      {"name": "fragments", "type": "glob_list", "required": false, "description": "List of JSON-encoded fragment dicts with `type` (alt|par|loop|opt|critical), `label`, optional `condition`, and `messages` (nested message list, possibly with further nested fragments for branches).", "default": []},
+      {"name": "autonumber", "type": "boolean", "required": false, "description": "If true, prepend `autonumber` directive.", "default": false}
+    ],
+    "required_artifacts": ["mermaid_source"],
+    "steps": [
+      {"order": 1, "name": "validate_participants", "description": "Each participant must have a unique non-empty id matching `^[A-Za-z_][A-Za-z0-9_]*$`. Label is optional but must be a string if present.", "input": "participants", "output": "validated participant list", "control": "abort-on-invalid"},
+      {"order": 2, "name": "validate_messages", "description": "Every message `from`/`to` must reference a known participant id.", "input": "messages, validated participant list", "output": "validated message list", "control": "abort-on-invalid"},
+      {"order": 3, "name": "validate_fragments", "description": "Fragments must use a supported type and have a label. Nested fragments are validated recursively.", "input": "fragments, validated participant list", "output": "validated fragment tree", "control": "abort-on-invalid"},
+      {"order": 4, "name": "render_participants", "description": "Emit `sequenceDiagram` header, optional autonumber, then one `participant <id> as <label>` or `actor <id> as <label>` per participant, in declared order.", "input": "validated participant list", "output": "participant lines", "control": "loop"},
+      {"order": 5, "name": "render_messages", "description": "Emit message lines using the arrow form for the message type (`->>` sync, `--)` async, `-->>` return, `-->` reply). Activation is encoded by surrounding activate/deactivate pairs.", "input": "validated message list", "output": "message lines", "control": "loop"},
+      {"order": 6, "name": "render_fragments", "description": "Emit combined-fragment blocks (alt/par/loop/opt/critical) wrapping their inner message lists and nested fragments. Branches of `alt` are emitted as `else <condition>` lines.", "input": "validated fragment tree", "output": "fragment lines", "control": "recursive"},
+      {"order": 7, "name": "emit_diagram", "description": "Join sections with newlines and return the final source.", "input": "participant lines, message lines, fragment lines", "output": "mermaid source", "control": "deterministic"}
+    ],
+    "invariants": [
+      "Output is byte-deterministic for identical inputs.",
+      "Every message references a known participant.",
+      "Nested fragments are properly opened and closed (balanced `alt`/`end`, `par`/`end`, etc.)."
+    ],
+    "acceptance_gates": [
+      "Output starts with `sequenceDiagram`",
+      "Output contains one participant declaration per input participant",
+      "Output contains one message arrow per input message",
+      "Fragment open/close markers are balanced"
+    ],
+    "examples": [
+      {
+        "name": "checkout_flow",
+        "inputs": {
+          "diagram_title": "Checkout Flow",
+          "autonumber": true,
+          "participants": [
+            "{\"id\": \"User\", \"kind\": \"actor\", \"label\": \"Customer\"}",
+            "{\"id\": \"CheckoutUI\", \"kind\": \"boundary\", \"label\": \"Checkout UI\"}",
+            "{\"id\": \"OrderService\", \"kind\": \"control\", \"label\": \"Order Service\"}",
+            "{\"id\": \"PaymentGateway\", \"kind\": \"entity\", \"label\": \"Payment Gateway\"}"
+          ],
+          "messages": [
+            "{\"from\": \"User\", \"to\": \"CheckoutUI\", \"text\": \"submit cart\", \"type\": \"sync\", \"activate\": true}",
+            "{\"from\": \"CheckoutUI\", \"to\": \"OrderService\", \"text\": \"createOrder\", \"type\": \"sync\", \"activate\": true}",
+            "{\"from\": \"OrderService\", \"to\": \"PaymentGateway\", \"text\": \"charge\", \"type\": \"async\", \"activate\": true}",
+            "{\"from\": \"PaymentGateway\", \"to\": \"OrderService\", \"text\": \"receipt\", \"type\": \"return\"}",
+            "{\"from\": \"OrderService\", \"to\": \"CheckoutUI\", \"text\": \"orderId\", \"type\": \"return\"}"
+          ],
+          "fragments": [
+            "{\"type\": \"alt\", \"label\": \"payment status\", \"branches\": [{\"condition\": \"approved\", \"messages\": [{\"from\": \"CheckoutUI\", \"to\": \"User\", \"text\": \"show confirmation\", \"type\": \"sync\"}]}, {\"condition\": \"declined\", \"messages\": [{\"from\": \"CheckoutUI\", \"to\": \"User\", \"text\": \"show error\", \"type\": \"sync\"}]}]}"
+          ]
+        },
+        "must_contain": ["sequenceDiagram", "actor User as Customer", "participant CheckoutUI as Checkout UI", "autonumber", "User->>CheckoutUI: submit cart", "activate CheckoutUI", "alt payment status", "else declined"],
+        "must_not_contain": ["```", "classDiagram", "flowchart"]
+      }
+    ]
+  },
+  {
+    "pattern_id": "mermaid.state",
+    "version": "1.0.0",
+    "category": "diagram_notation",
+    "language": "mermaid",
+    "title": "Render Mermaid UML State Machine Diagram",
+    "description": "Renders a Mermaid `stateDiagram-v2` block from a structured state/transition payload. Supports initial pseudostate (`[*] -->`), final pseudostate (`-->[*]`), simple states, composite states with nested substates, transitions with optional `event` and `guard` labels. Output is deterministic.",
+    "risk_level": "low",
+    "tags": ["uml", "state", "state-machine", "mermaid", "diagram"],
+    "parameters": [
+      {"name": "diagram_title", "type": "string", "required": false, "description": "Optional diagram title.", "default": ""},
+      {"name": "states", "type": "glob_list", "required": true, "description": "List of JSON-encoded state dicts with `id` and optional `label`. A state with `nested` (list of nested state ids) becomes a composite state."},
+      {"name": "transitions", "type": "glob_list", "required": true, "description": "List of JSON-encoded transition dicts with `from`, `to`, optional `event`, optional `guard`. Use `from = \"[*]\"` for the initial pseudostate and `to = \"[*]\"` for the final pseudostate."},
+      {"name": "direction", "type": "enum", "required": false, "description": "Diagram direction.", "enum_values": ["TB", "BT", "LR", "RL"], "default": "TB"}
+    ],
+    "required_artifacts": ["mermaid_source"],
+    "steps": [
+      {"order": 1, "name": "validate_states", "description": "Each state id must match `^[A-Za-z_][A-Za-z0-9_]*$` and be unique. Composite states declare a non-empty `nested` list of known child state ids.", "input": "states", "output": "validated state list", "control": "abort-on-invalid"},
+      {"order": 2, "name": "validate_transitions", "description": "Every transition `from` and `to` must reference a known state id or the initial/final pseudostate marker `[*]`. Duplicate transitions are rejected.", "input": "transitions, validated state list", "output": "validated transition list", "control": "abort-on-invalid"},
+      {"order": 3, "name": "render_states", "description": "Emit `stateDiagram-v2` header, optional direction, then one `state \"<label>\" as <id>` per named state. Composite states emit a nested block with their substates.", "input": "validated state list", "output": "state lines", "control": "loop"},
+      {"order": 4, "name": "render_transitions", "description": "Emit one `<from> --> <to> : <event> [<guard>]` line per transition. The pseudostate `[*]` is preserved verbatim.", "input": "validated transition list", "output": "transition lines", "control": "loop"},
+      {"order": 5, "name": "emit_diagram", "description": "Join sections with newlines and return the final source.", "input": "state lines, transition lines", "output": "mermaid source", "control": "deterministic"}
+    ],
+    "invariants": [
+      "Output is byte-deterministic for identical inputs.",
+      "Every transition references a known state or the pseudostate marker.",
+      "Composite state nesting is properly closed."
+    ],
+    "acceptance_gates": [
+      "Output starts with `stateDiagram-v2`",
+      "Output contains at least one initial transition containing `[*] -->`",
+      "Output contains one transition line per input transition",
+      "Composite state blocks are balanced"
+    ],
+    "examples": [
+      {
+        "name": "order_lifecycle",
+        "inputs": {
+          "diagram_title": "Order Lifecycle",
+          "direction": "LR",
+          "states": [
+            "{\"id\": \"Draft\", \"label\": \"Draft\"}",
+            "{\"id\": \"Submitted\", \"label\": \"Submitted\"}",
+            "{\"id\": \"Paid\", \"label\": \"Paid\"}",
+            "{\"id\": \"Shipped\", \"label\": \"Shipped\"}",
+            "{\"id\": \"Delivered\", \"label\": \"Delivered\"}",
+            "{\"id\": \"Cancelled\", \"label\": \"Cancelled\"}"
+          ],
+          "transitions": [
+            "{\"from\": \"[*]\", \"to\": \"Draft\"}",
+            "{\"from\": \"Draft\", \"to\": \"Submitted\", \"event\": \"submit\"}",
+            "{\"from\": \"Submitted\", \"to\": \"Paid\", \"event\": \"paymentReceived\"}",
+            "{\"from\": \"Paid\", \"to\": \"Shipped\", \"event\": \"dispatch\"}",
+            "{\"from\": \"Shipped\", \"to\": \"Delivered\", \"event\": \"delivered\"}",
+            "{\"from\": \"Submitted\", \"to\": \"Cancelled\", \"event\": \"cancel\", \"guard\": \"before payment\"}"
+          ]
+        },
+        "must_contain": ["stateDiagram-v2", "[*] --> Draft", "Draft --> Submitted : submit", "Submitted --> Cancelled : cancel [before payment]"],
+        "must_not_contain": ["```", "classDiagram", "sequenceDiagram"]
+      }
+    ]
+  },
+  {
+    "pattern_id": "mermaid.usecase",
+    "version": "1.0.0",
+    "category": "diagram_notation",
+    "language": "mermaid",
+    "title": "Render Mermaid Use-Case Diagram",
+    "description": "Renders a Mermaid `flowchart` block emulating the UML2 use-case view: actors as stadium-shaped nodes, the system as a subgraph boundary, use-cases as ellipses, with `<<include>>` and `<<extend>>` dependencies as dashed arrows. Output is deterministic.",
+    "risk_level": "low",
+    "tags": ["uml", "use-case", "mermaid", "diagram"],
+    "parameters": [
+      {"name": "diagram_title", "type": "string", "required": false, "description": "Optional diagram title.", "default": ""},
+      {"name": "system_name", "type": "string", "required": true, "description": "Name of the system boundary."},
+      {"name": "actors", "type": "glob_list", "required": true, "description": "List of JSON-encoded actor dicts with `id`, `label`."},
+      {"name": "use_cases", "type": "glob_list", "required": true, "description": "List of JSON-encoded use-case dicts with `id`, `label`."},
+      {"name": "associations", "type": "glob_list", "required": false, "description": "List of JSON-encoded association dicts: `{\"actor\": \"...\", \"use_case\": \"...\"}`.", "default": []},
+      {"name": "includes", "type": "glob_list", "required": false, "description": "List of JSON-encoded `<<include>>` dicts: `{\"from\": \"...\", \"to\": \"...\"}`.", "default": []},
+      {"name": "extends", "type": "glob_list", "required": false, "description": "List of JSON-encoded `<<extend>>` dicts: `{\"from\": \"...\", \"to\": \"...\"}`.", "default": []},
+      {"name": "direction", "type": "enum", "required": false, "description": "Diagram direction.", "enum_values": ["TB", "BT", "LR", "RL"], "default": "LR"}
+    ],
+    "required_artifacts": ["mermaid_source"],
+    "steps": [
+      {"order": 1, "name": "validate_actors", "description": "Each actor id must match `^[A-Za-z_][A-Za-z0-9_]*$` and be unique.", "input": "actors", "output": "validated actor list", "control": "abort-on-invalid"},
+      {"order": 2, "name": "validate_use_cases", "description": "Each use-case id must be a valid identifier and unique.", "input": "use_cases", "output": "validated use-case list", "control": "abort-on-invalid"},
+      {"order": 3, "name": "validate_links", "description": "Associations, includes and extends must reference known actors and use-cases.", "input": "associations, includes, extends, validated actor list, validated use-case list", "output": "validated link lists", "control": "abort-on-invalid"},
+      {"order": 4, "name": "render_actors", "description": "Emit `flowchart <direction>` header, then each actor as a stadium node `id([\"label\"])`.", "input": "validated actor list", "output": "actor lines", "control": "loop"},
+      {"order": 5, "name": "render_system", "description": "Emit a `subgraph <System>` boundary containing all use-case nodes shaped as ellipses `id([(\"label\")])`.", "input": "system_name, validated use-case list", "output": "system subgraph", "control": "deterministic"},
+      {"order": 6, "name": "render_links", "description": "Emit plain solid arrows for associations, dashed arrows with `<<include>>` and `<<extend>>` labels.", "input": "validated link lists", "output": "link lines", "control": "loop"},
+      {"order": 7, "name": "emit_diagram", "description": "Join sections with newlines and return the final source.", "input": "actor lines, system subgraph, link lines", "output": "mermaid source", "control": "deterministic"}
+    ],
+    "invariants": [
+      "Output is byte-deterministic for identical inputs.",
+      "Every association/includes/extends references a known actor or use-case.",
+      "System subgraph is properly opened and closed."
+    ],
+    "acceptance_gates": [
+      "Output starts with `flowchart`",
+      "Output contains a `subgraph` block named after `system_name`",
+      "Output contains one stadium node per actor and one ellipse per use-case",
+      "Includes/extends carry the corresponding stereotype label"
+    ],
+    "examples": [
+      {
+        "name": "library_usecase",
+        "inputs": {
+          "system_name": "Library",
+          "actors": [
+            "{\"id\": \"Member\", \"label\": \"Member\"}",
+            "{\"id\": \"Librarian\", \"label\": \"Librarian\"}"
+          ],
+          "use_cases": [
+            "{\"id\": \"BorrowBook\", \"label\": \"Borrow Book\"}",
+            "{\"id\": \"ReturnBook\", \"label\": \"Return Book\"}",
+            "{\"id\": \"SearchCatalog\", \"label\": \"Search Catalog\"}",
+            "{\"id\": \"ManageInventory\", \"label\": \"Manage Inventory\"}"
+          ],
+          "associations": [
+            "{\"actor\": \"Member\", \"use_case\": \"BorrowBook\"}",
+            "{\"actor\": \"Member\", \"use_case\": \"ReturnBook\"}",
+            "{\"actor\": \"Member\", \"use_case\": \"SearchCatalog\"}",
+            "{\"actor\": \"Librarian\", \"use_case\": \"ManageInventory\"}"
+          ],
+          "includes": [
+            "{\"from\": \"BorrowBook\", \"to\": \"SearchCatalog\"}"
+          ],
+          "extends": [
+            "{\"from\": \"BorrowBook\", \"to\": \"ManageInventory\"}"
+          ]
+        },
+        "must_contain": ["flowchart LR", "Member([\"Member\"])", "subgraph Library", "BorrowBook", "Member --> BorrowBook", "BorrowBook -.-> SearchCatalog : <<include>>", "BorrowBook -.-> ManageInventory : <<extend>>"],
+        "must_not_contain": ["```", "classDiagram", "sequenceDiagram"]
+      }
+    ]
+  },
+  {
+    "pattern_id": "mermaid.activity",
+    "version": "1.0.0",
+    "category": "diagram_notation",
+    "language": "mermaid",
+    "title": "Render Mermaid Activity Diagram",
+    "description": "Renders a Mermaid `flowchart` block emulating UML2 activity notation: initial node, action nodes, decision diamonds, fork/join bars, and final node. Output is deterministic.",
+    "risk_level": "low",
+    "tags": ["uml", "activity", "mermaid", "diagram"],
+    "parameters": [
+      {"name": "diagram_title", "type": "string", "required": false, "description": "Optional diagram title.", "default": ""},
+      {"name": "nodes", "type": "glob_list", "required": true, "description": "List of JSON-encoded node dicts with `id`, `label`, `shape` (action|decision|fork|join|initial|final|merge)."},
+      {"name": "edges", "type": "glob_list", "required": true, "description": "List of JSON-encoded edge dicts with `from`, `to`, optional `label`. Edges from decision nodes use `label` as the branch condition (e.g. `[yes]`, `[no]`)."},
+      {"name": "direction", "type": "enum", "required": false, "description": "Diagram direction.", "enum_values": ["TB", "BT", "LR", "RL"], "default": "TB"}
+    ],
+    "required_artifacts": ["mermaid_source"],
+    "steps": [
+      {"order": 1, "name": "validate_nodes", "description": "Each node id must match `^[A-Za-z_][A-Za-z0-9_]*$` and be unique. Shape must be one of action|decision|fork|join|initial|final|merge.", "input": "nodes", "output": "validated node list", "control": "abort-on-invalid"},
+      {"order": 2, "name": "validate_edges", "description": "Every edge `from`/`to` must reference a known node id.", "input": "edges, validated node list", "output": "validated edge list", "control": "abort-on-invalid"},
+      {"order": 3, "name": "render_nodes", "description": "Emit `flowchart <direction>` header, then render each node using the appropriate Mermaid shape: `id([\"label\"])` for fork/join bars, `id{{\"label\"}}` for decision diamonds, `id((\"label\"))` for initial/final circles, `id[\"label\"]` for actions, `id>\"label\"]` for merge.", "input": "validated node list", "output": "node lines", "control": "loop"},
+      {"order": 4, "name": "render_edges", "description": "Emit one `<from> -->|<label>| <to>` line per edge. Edge labels from decision nodes use `|condition|` syntax.", "input": "validated edge list", "output": "edge lines", "control": "loop"},
+      {"order": 5, "name": "emit_diagram", "description": "Join sections with newlines and return the final source.", "input": "node lines, edge lines", "output": "mermaid source", "control": "deterministic"}
+    ],
+    "invariants": [
+      "Output is byte-deterministic for identical inputs.",
+      "Every edge references a known node.",
+      "Exactly one initial node and at least one final node exist."
+    ],
+    "acceptance_gates": [
+      "Output starts with `flowchart`",
+      "Output contains at least one initial node circle",
+      "Output contains at least one final node circle",
+      "Output contains one edge line per input edge"
+    ],
+    "examples": [
+      {
+        "name": "order_fulfillment",
+        "inputs": {
+          "diagram_title": "Order Fulfillment",
+          "direction": "TB",
+          "nodes": [
+            "{\"id\": \"Start\", \"shape\": \"initial\", \"label\": \"\"}",
+            "{\"id\": \"Receive\", \"shape\": \"action\", \"label\": \"Receive Order\"}",
+            "{\"id\": \"InStock\", \"shape\": \"decision\", \"label\": \"In Stock?\"}",
+            "{\"id\": \"Ship\", \"shape\": \"action\", \"label\": \"Ship\"}",
+            "{\"id\": \"Backorder\", \"shape\": \"action\", \"label\": \"Backorder\"}",
+            "{\"id\": \"Notify\", \"shape\": \"action\", \"label\": \"Notify Customer\"}",
+            "{\"id\": \"Done\", \"shape\": \"final\", \"label\": \"\"}"
+          ],
+          "edges": [
+            "{\"from\": \"Start\", \"to\": \"Receive\"}",
+            "{\"from\": \"Receive\", \"to\": \"InStock\"}",
+            "{\"from\": \"InStock\", \"to\": \"Ship\", \"label\": \"yes\"}",
+            "{\"from\": \"InStock\", \"to\": \"Backorder\", \"label\": \"no\"}",
+            "{\"from\": \"Ship\", \"to\": \"Notify\"}",
+            "{\"from\": \"Backorder\", \"to\": \"Notify\"}",
+            "{\"from\": \"Notify\", \"to\": \"Done\"}"
+          ]
+        },
+        "must_contain": ["flowchart TB", "Start(((", "InStock{\"In Stock?\"}", "InStock -->|yes| Ship", "InStock -->|no| Backorder", "Done((("],
+        "must_not_contain": ["```", "classDiagram", "sequenceDiagram"]
+      }
+    ]
+  },
+  {
+    "pattern_id": "bpmn.process",
+    "version": "1.0.0",
+    "category": "diagram_notation",
+    "language": "bpmn",
+    "title": "Render BPMN 2.0 Process Diagram (single process)",
+    "description": "Renders a deterministic BPMN 2.0 XML document for a single process: start/end events, tasks (user/service/script/manual task variants), exclusive/inclusive/parallel gateways, and sequence flows. Output conforms to the OMG BPMN 2.0 `bpmn:definitions` namespace `http://www.omg.org/spec/BPMN/20100524/MODEL` and parses with any compliant BPMN engine (Camunda, bpmn.io, etc.).",
+    "risk_level": "low",
+    "tags": ["bpmn", "process", "diagram"],
+    "parameters": [
+      {"name": "definitions_id", "type": "string", "required": true, "description": "Identifier of the bpmn:definitions root (e.g. `Definitions_1`)."},
+      {"name": "process_id", "type": "string", "required": true, "description": "Identifier of the bpmn:process (e.g. `Process_OrderFulfillment`)."},
+      {"name": "process_name", "type": "string", "required": false, "description": "Human-readable process name.", "default": ""},
+      {"name": "elements", "type": "glob_list", "required": true, "description": "List of JSON-encoded flow element dicts. Supported types: `startEvent`, `endEvent`, `userTask`, `serviceTask`, `scriptTask`, `manualTask`, `exclusiveGateway`, `inclusiveGateway`, `parallelGateway`. Each element carries `id`, optional `name`, plus type-specific fields."},
+      {"name": "flows", "type": "glob_list", "required": true, "description": "List of JSON-encoded sequence flow dicts with `id`, `sourceRef`, `targetRef`, optional `name`, optional `conditionExpression` (for exclusive gateway outgoing flows)."}
+    ],
+    "required_artifacts": ["bpmn_xml"],
+    "steps": [
+      {"order": 1, "name": "validate_elements", "description": "Every element id must be unique and match `^[A-Za-z_][A-Za-z0-9_]*$`. Exactly one `startEvent` is required. Each element must declare its required type-specific fields.", "input": "elements", "output": "validated element list", "control": "abort-on-invalid"},
+      {"order": 2, "name": "validate_flows", "description": "Every flow's `sourceRef` and `targetRef` must reference a known element id. Duplicate flow ids are rejected.", "input": "flows, validated element list", "output": "validated flow list", "control": "abort-on-invalid"},
+      {"order": 3, "name": "render_definitions", "description": "Emit `<?xml version=\"1.0\" encoding=\"UTF-8\"?>`, then `<bpmn:definitions id=\"...\" xmlns:bpmn=\"http://www.omg.org/spec/BPMN/20100524/MODEL\" xmlns:bpmndi=\"http://www.omg.org/spec/BPMN/20100524/DI\" targetNamespace=\"http://bpmn.io/schema/bpmn\">`.", "input": "definitions_id", "output": "definitions header", "control": "deterministic"},
+      {"order": 4, "name": "render_process", "description": "Emit `<bpmn:process id=\"...\" name=\"...\" isExecutable=\"true\">` followed by element blocks and sequence flows, then `</bpmn:process>`.", "input": "process_id, process_name, validated element list, validated flow list", "output": "process block", "control": "deterministic"},
+      {"order": 5, "name": "render_diagram", "description": "Emit a minimal `<bpmndi:BPMNDiagram>` with one `<bpmndi:BPMNPlane>` and one `<bpmndi:BPMNShape>`/`<bpmndi:BPMNEdge>` per element and flow, all positioned on a deterministic 100x100 grid in declaration order. This keeps the file openable in any BPMN modelling tool.", "input": "validated element list, validated flow list", "output": "diagram block", "control": "deterministic"},
+      {"order": 6, "name": "finalize", "description": "Close the definitions and return the full XML string.", "input": "definitions header, process block, diagram block", "output": "bpmn xml", "control": "deterministic"}
+    ],
+    "invariants": [
+      "Output is byte-deterministic for identical inputs.",
+      "Output parses as well-formed XML.",
+      "Every flow `sourceRef`/`targetRef` references an element declared in `elements`.",
+      "Exactly one `startEvent` exists."
+    ],
+    "acceptance_gates": [
+      "Output starts with `<?xml`",
+      "Output contains a single `bpmn:process` element",
+      "Output contains one `bpmn:startEvent`, one `bpmn:endEvent` minimum",
+      "Output contains one `bpmn:sequenceFlow` per input flow",
+      "Output validates against the BPMN 2.0 XSD when parsed"
+    ],
+    "examples": [
+      {
+        "name": "order_fulfillment",
+        "inputs": {
+          "definitions_id": "Definitions_1",
+          "process_id": "Process_OrderFulfillment",
+          "process_name": "Order Fulfillment",
+          "elements": [
+            "{\"type\": \"startEvent\", \"id\": \"StartEvent_1\", \"name\": \"Order Received\"}",
+            "{\"type\": \"userTask\", \"id\": \"Task_Pick\", \"name\": \"Pick Items\"}",
+            "{\"type\": \"exclusiveGateway\", \"id\": \"Gateway_Stock\", \"name\": \"Stock Available?\"}",
+            "{\"type\": \"serviceTask\", \"id\": \"Task_Ship\", \"name\": \"Ship Order\"}",
+            "{\"type\": \"serviceTask\", \"id\": \"Task_Backorder\", \"name\": \"Create Backorder\"}",
+            "{\"type\": \"endEvent\", \"id\": \"EndEvent_Shipped\", \"name\": \"Shipped\"}",
+            "{\"type\": \"endEvent\", \"id\": \"EndEvent_Backorder\", \"name\": \"Backordered\"}"
+          ],
+          "flows": [
+            "{\"id\": \"Flow_1\", \"sourceRef\": \"StartEvent_1\", \"targetRef\": \"Task_Pick\"}",
+            "{\"id\": \"Flow_2\", \"sourceRef\": \"Task_Pick\", \"targetRef\": \"Gateway_Stock\"}",
+            "{\"id\": \"Flow_3\", \"sourceRef\": \"Gateway_Stock\", \"targetRef\": \"Task_Ship\", \"conditionExpression\": \"${stockAvailable}\"}",
+            "{\"id\": \"Flow_4\", \"sourceRef\": \"Gateway_Stock\", \"targetRef\": \"Task_Backorder\", \"conditionExpression\": \"${!stockAvailable}\"}",
+            "{\"id\": \"Flow_5\", \"sourceRef\": \"Task_Ship\", \"targetRef\": \"EndEvent_Shipped\"}",
+            "{\"id\": \"Flow_6\", \"sourceRef\": \"Task_Backorder\", \"targetRef\": \"EndEvent_Backorder\"}"
+          ]
+        },
+        "must_contain": ["<?xml version=\"1.0\" encoding=\"UTF-8\"?>", "xmlns:bpmn=\"http://www.omg.org/spec/BPMN/20100524/MODEL\"", "<bpmn:process id=\"Process_OrderFulfillment\"", "<bpmn:startEvent id=\"StartEvent_1\"", "<bpmn:userTask id=\"Task_Pick\"", "<bpmn:exclusiveGateway id=\"Gateway_Stock\"", "<bpmn:sequenceFlow id=\"Flow_1\" sourceRef=\"StartEvent_1\" targetRef=\"Task_Pick\""],
+        "must_not_contain": ["<<>>", "<!--", "bpmn:error"]
+      }
+    ]
+  },
+  {
+    "pattern_id": "bpmn.pool_lane",
+    "version": "1.0.0",
+    "category": "diagram_notation",
+    "language": "bpmn",
+    "title": "Render BPMN 2.0 Process with Pool and Lanes",
+    "description": "Renders a BPMN 2.0 XML document for a single process wrapped in a `bpmn:laneSet` containing one or more `bpmn:lane`s. Each lane assigns flow elements via `flowNodeRef`. Output conforms to the OMG BPMN 2.0 namespace and parses with compliant engines.",
+    "risk_level": "low",
+    "tags": ["bpmn", "pool", "lane", "diagram"],
+    "parameters": [
+      {"name": "definitions_id", "type": "string", "required": true, "description": "Definitions root id."},
+      {"name": "process_id", "type": "string", "required": true, "description": "Process id."},
+      {"name": "process_name", "type": "string", "required": false, "description": "Process name.", "default": ""},
+      {"name": "elements", "type": "glob_list", "required": true, "description": "List of flow elements (same shape as `bpmn.process`)."},
+      {"name": "flows", "type": "glob_list", "required": true, "description": "List of sequence flows (same shape as `bpmn.process`)."},
+      {"name": "lanes", "type": "glob_list", "required": true, "description": "List of JSON-encoded lane dicts with `id`, `name`, and `flow_node_refs` (list of element ids assigned to this lane). Lanes are emitted in declared order; each flow element must be assigned to exactly one lane."}
+    ],
+    "required_artifacts": ["bpmn_xml"],
+    "steps": [
+      {"order": 1, "name": "validate_elements", "description": "Validate elements (same rules as `bpmn.process`).", "input": "elements", "output": "validated element list", "control": "abort-on-invalid"},
+      {"order": 2, "name": "validate_lanes", "description": "Each lane id must be unique. The union of all `flow_node_refs` across lanes must cover exactly the set of element ids (no orphans, no duplicates).", "input": "lanes, validated element list", "output": "validated lane list", "control": "abort-on-invalid"},
+      {"order": 3, "name": "validate_flows", "description": "Validate flows against the validated elements.", "input": "flows, validated element list", "output": "validated flow list", "control": "abort-on-invalid"},
+      {"order": 4, "name": "render_process", "description": "Emit definitions, then process, then a `bpmn:laneSet` with the lanes and their `flowNodeRef`s.", "input": "validated element list, validated flow list, validated lane list", "output": "process block", "control": "deterministic"},
+      {"order": 5, "name": "render_diagram", "description": "Emit a minimal BPMN-DI block laying out elements horizontally lane-by-lane.", "input": "validated element list, validated flow list, validated lane list", "output": "diagram block", "control": "deterministic"},
+      {"order": 6, "name": "finalize", "description": "Close definitions and return the XML string.", "input": "process block, diagram block", "output": "bpmn xml", "control": "deterministic"}
+    ],
+    "invariants": [
+      "Output is byte-deterministic for identical inputs.",
+      "Output parses as well-formed XML.",
+      "The set of element ids equals the set of `flow_node_refs` across all lanes."
+    ],
+    "acceptance_gates": [
+      "Output starts with `<?xml`",
+      "Output contains exactly one `bpmn:laneSet`",
+      "Output contains one `bpmn:lane` per input lane",
+      "Every element id appears in exactly one lane's `flowNodeRef`"
+    ],
+    "examples": [
+      {
+        "name": "procurement_lanes",
+        "inputs": {
+          "definitions_id": "Definitions_1",
+          "process_id": "Process_Procurement",
+          "process_name": "Procurement",
+          "elements": [
+            "{\"type\": \"startEvent\", \"id\": \"StartEvent_1\", \"name\": \"Request\"}",
+            "{\"type\": \"userTask\", \"id\": \"Task_Review\", \"name\": \"Review Request\"}",
+            "{\"type\": \"serviceTask\", \"id\": \"Task_Approve\", \"name\": \"Approve\"}",
+            "{\"type\": \"userTask\", \"id\": \"Task_ReceiveGoods\", \"name\": \"Receive Goods\"}",
+            "{\"type\": \"endEvent\", \"id\": \"EndEvent_1\", \"name\": \"Done\"}"
+          ],
+          "flows": [
+            "{\"id\": \"Flow_1\", \"sourceRef\": \"StartEvent_1\", \"targetRef\": \"Task_Review\"}",
+            "{\"id\": \"Flow_2\", \"sourceRef\": \"Task_Review\", \"targetRef\": \"Task_Approve\"}",
+            "{\"id\": \"Flow_3\", \"sourceRef\": \"Task_Approve\", \"targetRef\": \"Task_ReceiveGoods\"}",
+            "{\"id\": \"Flow_4\", \"sourceRef\": \"Task_ReceiveGoods\", \"targetRef\": \"EndEvent_1\"}"
+          ],
+          "lanes": [
+            "{\"id\": \"Lane_Requester\", \"name\": \"Requester\", \"flow_node_refs\": [\"StartEvent_1\", \"Task_ReceiveGoods\"]}",
+            "{\"id\": \"Lane_Procurement\", \"name\": \"Procurement\", \"flow_node_refs\": [\"Task_Review\", \"Task_Approve\", \"EndEvent_1\"]}"
+          ]
+        },
+        "must_contain": ["bpmn:laneSet", "<bpmn:lane id=\"Lane_Requester\" name=\"Requester\">", "bpmn:flowNodeRef>StartEvent_1", "<bpmn:lane id=\"Lane_Procurement\" name=\"Procurement\">"],
+        "must_not_contain": ["<<>>", "<!--", "bpmn:error"]
+      }
+    ]
+  },
+  {
+    "pattern_id": "bpmn.collaboration",
+    "version": "1.0.0",
+    "category": "diagram_notation",
+    "language": "bpmn",
+    "title": "Render BPMN 2.0 Collaboration (multi-pool with message flows)",
+    "description": "Renders a BPMN 2.0 `bpmn:collaboration` containing two or more `bpmn:participant` (pool) processes and one or more `bpmn:messageFlow`s between them. Each participant embeds its own process with the same element/flow shapes as `bpmn.process`. Output conforms to the OMG BPMN 2.0 namespace.",
+    "risk_level": "low",
+    "tags": ["bpmn", "collaboration", "pool", "message-flow", "diagram"],
+    "parameters": [
+      {"name": "definitions_id", "type": "string", "required": true, "description": "Definitions root id."},
+      {"name": "participants", "type": "glob_list", "required": true, "description": "List of JSON-encoded participant dicts with `id`, `name`, `process_id`, `process_name`, `elements` (list), `flows` (list), optional `lanes` (list, same shape as `bpmn.pool_lane`). Each participant must reference a unique process id."},
+      {"name": "message_flows", "type": "glob_list", "required": false, "description": "List of JSON-encoded message flow dicts with `id`, `name`, `source_ref` (participant id), `target_ref` (participant id). Source/target must reference declared participants.", "default": []}
+    ],
+    "required_artifacts": ["bpmn_xml"],
+    "steps": [
+      {"order": 1, "name": "validate_participants", "description": "Each participant id and process_id must be unique. Each participant must carry at least one startEvent and one endEvent across its elements.", "input": "participants", "output": "validated participant list", "control": "abort-on-invalid"},
+      {"order": 2, "name": "validate_message_flows", "description": "Every message flow references declared participants; duplicate message flow ids are rejected.", "input": "message_flows, validated participant list", "output": "validated message-flow list", "control": "abort-on-invalid"},
+      {"order": 3, "name": "render_processes", "description": "Emit one `bpmn:process` per participant (with optional laneSet), in declared order.", "input": "validated participant list", "output": "process blocks", "control": "loop"},
+      {"order": 4, "name": "render_collaboration", "description": "Emit `<bpmn:collaboration id=\"Collaboration_1\">` containing one `bpmn:participant` per participant process and the `bpmn:messageFlow`s.", "input": "validated participant list, validated message-flow list", "output": "collaboration block", "control": "deterministic"},
+      {"order": 5, "name": "render_diagram", "description": "Emit a minimal BPMN-DI block laying out each participant as a horizontal pool with its internal elements and message flows as edges.", "input": "validated participant list, validated message-flow list", "output": "diagram block", "control": "deterministic"},
+      {"order": 6, "name": "finalize", "description": "Wrap everything in `bpmn:definitions` and return the XML string.", "input": "process blocks, collaboration block, diagram block", "output": "bpmn xml", "control": "deterministic"}
+    ],
+    "invariants": [
+      "Output is byte-deterministic for identical inputs.",
+      "Output parses as well-formed XML.",
+      "Every participant id is referenced by its process and at most one message flow endpoint per side."
+    ],
+    "acceptance_gates": [
+      "Output starts with `<?xml`",
+      "Output contains exactly one `bpmn:collaboration`",
+      "Output contains one `bpmn:participant` per input participant",
+      "Output contains one `bpmn:messageFlow` per input message flow"
+    ],
+    "examples": [
+      {
+        "name": "order_to_warehouse",
+        "inputs": {
+          "definitions_id": "Definitions_1",
+          "participants": [
+            "{\"id\": \"Participant_Customer\", \"name\": \"Customer\", \"process_id\": \"Process_Customer\", \"process_name\": \"Customer Process\", \"elements\": [{\"type\": \"startEvent\", \"id\": \"CSE_1\", \"name\": \"Place Order\"}, {\"type\": \"userTask\", \"id\": \"CT_1\", \"name\": \"Confirm Receipt\"}, {\"type\": \"endEvent\", \"id\": \"CEE_1\", \"name\": \"Done\"}], \"flows\": [{\"id\": \"CF_1\", \"sourceRef\": \"CSE_1\", \"targetRef\": \"CT_1\"}, {\"id\": \"CF_2\", \"sourceRef\": \"CT_1\", \"targetRef\": \"CEE_1\"}]}",
+            "{\"id\": \"Participant_Warehouse\", \"name\": \"Warehouse\", \"process_id\": \"Process_Warehouse\", \"process_name\": \"Warehouse Process\", \"elements\": [{\"type\": \"startEvent\", \"id\": \"WSE_1\", \"name\": \"Order Received\"}, {\"type\": \"serviceTask\", \"id\": \"WT_1\", \"name\": \"Ship\"}, {\"type\": \"endEvent\", \"id\": \"WEE_1\", \"name\": \"Shipped\"}], \"flows\": [{\"id\": \"WF_1\", \"sourceRef\": \"WSE_1\", \"targetRef\": \"WT_1\"}, {\"id\": \"WF_2\", \"sourceRef\": \"WT_1\", \"targetRef\": \"WEE_1\"}]}"
+          ],
+          "message_flows": [
+            "{\"id\": \"MF_1\", \"name\": \"order\", \"source_ref\": \"Participant_Customer\", \"target_ref\": \"Participant_Warehouse\"}",
+            "{\"id\": \"MF_2\", \"name\": \"shipment notice\", \"source_ref\": \"Participant_Warehouse\", \"target_ref\": \"Participant_Customer\"}"
+          ]
+        },
+        "must_contain": ["<bpmn:collaboration id=\"Collaboration_1\">", "<bpmn:participant id=\"Participant_Customer\"", "<bpmn:participant id=\"Participant_Warehouse\"", "<bpmn:messageFlow id=\"MF_1\"", "<bpmn:process id=\"Process_Customer\""],
+        "must_not_contain": ["<<>>", "<!--", "bpmn:error"]
+      }
+    ]
   }
 ]

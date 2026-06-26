@@ -35,16 +35,19 @@
         "workflow_emit",
         "test_template",
         "tooling_recipe",
-        "control_policy"
+        "control_policy",
+        "diagram_notation"
       ]
     },
     "language": {
       "type": "string",
-      "description": "Programming language of the pattern. Use 'agnostic' for language-independent, 'null' if not applicable.",
+      "description": "Pattern language: a programming language, or 'mermaid' / 'bpmn' for diagram notation patterns, or 'agnostic' / 'null' for language-independent ones.",
       "enum": [
         "java",
         "python",
         "typescript",
+        "mermaid",
+        "bpmn",
         "agnostic",
         "null"
       ]

@@ -60,6 +60,18 @@ DEFAULT_ALLOWLIST: dict[str, set[str]] = {
     "control_policy": {
         "java.default_deny_gate",
     },
+    "diagram_mermaid": {
+        "mermaid.class",
+        "mermaid.sequence",
+        "mermaid.state",
+        "mermaid.usecase",
+        "mermaid.activity",
+    },
+    "diagram_bpmn": {
+        "bpmn.process",
+        "bpmn.pool_lane",
+        "bpmn.collaboration",
+    },
     "other": set(),
 }
 
@@ -71,6 +83,26 @@ RISKY_PATTERN_IDS: set[str] = {
     "singleton_guarded",
     "java.default_deny_gate",
 }
+
+
+# Diagram notation patterns are pure generators (string in -> string out)
+# and never carry risk: they cannot mutate state, cannot grant
+# privileges, cannot escape the workspace. Keeping them in the same
+# risk classification as code patterns would force unnecessary
+# opt-in friction. List them explicitly so the policy has a clear,
+# auditable answer to "is this safe?".
+NOTATION_PATTERN_IDS: frozenset[str] = frozenset({
+    "mermaid.class", "mermaid.sequence", "mermaid.state",
+    "mermaid.usecase", "mermaid.activity",
+    "bpmn.process", "bpmn.pool_lane", "bpmn.collaboration",
+})
+
+
+# Short helper so tests and callers can answer the question
+# "is this a diagram-notation pattern?" without depending on
+# internal category strings.
+def is_notation_pattern(pattern_id: Optional[str]) -> bool:
+    return bool(pattern_id) and pattern_id in NOTATION_PATTERN_IDS
 
 
 @dataclass(frozen=True)
@@ -198,6 +230,14 @@ class PatternSelectionPolicy:
             )
 
         risk_level = "high" if pattern_id in self._risky else "medium"
+        # Notation patterns are pure generators (string in -> string out)
+        # and cannot grant privileges or mutate state. Classify them as
+        # `low` so workers can use them without raising unnecessary
+        # risk alarms. This matches the explicit NOTATION_PATTERN_IDS
+        # set; the catalogue is the source of truth for risk
+        # classification, not a generic heuristic.
+        if pattern_id in NOTATION_PATTERN_IDS:
+            risk_level = "low"
         return PolicyDecision(
             allowed=True,
             blocked_reason=None,

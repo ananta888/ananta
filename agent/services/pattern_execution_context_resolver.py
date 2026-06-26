@@ -43,6 +43,12 @@ from agent.services.pattern_template_renderer import (
     RenderManifest,
     TemplateFile,
 )
+from agent.services.notation_renderer import (
+    NotationArtifact,
+    NotationRenderError,
+    NotationRenderer,
+    get_notation_renderer,
+)
 
 
 @dataclass(frozen=True)
@@ -54,6 +60,10 @@ class PatternExecutionContext:
     pattern_proposal: dict[str, Any] = field(default_factory=dict)
     render_manifest: Optional[dict[str, Any]] = None
     manifest_sha256: Optional[str] = None
+    # Notation patterns emit a single source file with stable sha256
+    # and bytes_written. Code patterns leave these None (their hash
+    # surface lives in render_manifest).
+    notation_artifact: Optional[dict[str, Any]] = None
     blocked_reason: Optional[str] = None
     risk_level: str = "low"
     warnings: list[str] = field(default_factory=list)
@@ -65,6 +75,7 @@ class PatternExecutionContext:
             "pattern_proposal": dict(self.pattern_proposal),
             "render_manifest": dict(self.render_manifest) if self.render_manifest is not None else None,
             "manifest_sha256": self.manifest_sha256,
+            "notation_artifact": dict(self.notation_artifact) if self.notation_artifact is not None else None,
             "blocked_reason": self.blocked_reason,
             "risk_level": self.risk_level,
             "warnings": list(self.warnings),
@@ -86,10 +97,12 @@ class PatternExecutionContextResolver:
         policy: Optional[PatternSelectionPolicy] = None,
         normalizer: Optional[PatternProposalNormalizer] = None,
         renderer: Optional[PatternTemplateRenderer] = None,
+        notation_renderer: Optional[NotationRenderer] = None,
     ) -> None:
         self._policy = policy or get_pattern_selection_policy()
         self._normalizer = normalizer or get_pattern_proposal_normalizer()
         self._renderer = renderer or PatternTemplateRenderer()
+        self._notation_renderer = notation_renderer or get_notation_renderer()
         self._registry = get_registry()
 
     # --- public surface -----------------------------------------------
@@ -100,6 +113,7 @@ class PatternExecutionContextResolver:
         raw_proposal: dict[str, Any] | None,
         templates: Iterable[TemplateFile] | None = None,
         target_root: str | None = None,
+        output_filename: str | None = None,
     ) -> PatternExecutionContext:
         """Resolve a raw proposal into a PatternExecutionContext.
 
@@ -107,11 +121,15 @@ class PatternExecutionContextResolver:
             raw_proposal: the raw ``pattern_plan`` from worker
                 metadata, or None.
             templates: optional iterable of TemplateFile for
-                deterministic rendering. When None, the resolver
-                does NOT render (it only normalizes + audits).
+                deterministic rendering. Used by code-pattern plans.
+                Ignored for notation patterns (which have no file
+                templates).
             target_root: optional directory to write rendered
                 files to. When set, the resolver actually calls
                 the renderer with on-disk output.
+            output_filename: optional explicit filename for notation
+                patterns (defaults to the renderer-internal name, e.g.
+                ``diagram.mmd`` / ``process.bpmn``).
 
         Returns:
             A :class:`PatternExecutionContext` with stable
@@ -128,15 +146,72 @@ class PatternExecutionContextResolver:
         warnings: list[str] = []
         manifest_dict: Optional[dict[str, Any]] = None
         manifest_sha: Optional[str] = None
+        notation_artifact_dict: Optional[dict[str, Any]] = None
 
         if not proposal.accepted:
             return self._finalize(
                 proposal=proposal,
                 manifest_dict=None,
                 manifest_sha=None,
+                notation_artifact_dict=None,
                 warnings=warnings,
             )
 
+        # Dispatch: notation patterns go through NotationRenderer,
+        # code patterns through PatternTemplateRenderer. The category
+        # from the catalogue entry is the source of truth — it is the
+        # only field that distinguishes a notation pattern from a code
+        # pattern with a structural payload.
+        catalogue_entry = (
+            self._registry.get(proposal.pattern_id) if proposal.pattern_id else None
+        )
+        is_notation = (
+            isinstance(catalogue_entry, dict)
+            and catalogue_entry.get("category") == "diagram_notation"
+        )
+
+        if is_notation:
+            if target_root is not None:
+                try:
+                    notation_artifact: NotationArtifact = (
+                        self._notation_renderer.render(
+                            pattern_plan={
+                                "pattern_id": proposal.pattern_id,
+                                "language": proposal.language,
+                                "parameters": proposal.parameters_provided,
+                            },
+                            target_root=target_root,
+                        )
+                    )
+                    notation_artifact_dict = notation_artifact.to_dict()
+                    manifest_sha = notation_artifact.manifest_sha256
+                except NotationRenderError as exc:
+                    blocked_proposal = PatternProposal(
+                        accepted=False,
+                        pattern_id=proposal.pattern_id,
+                        task_kind=proposal.task_kind,
+                        language=proposal.language,
+                        parameters_provided=proposal.parameters_provided,
+                        blocked_reason=f"notation render failed: {exc}",
+                        risk_level=proposal.risk_level,
+                        audit=proposal.audit,
+                    )
+                    return self._finalize(
+                        proposal=blocked_proposal,
+                        manifest_dict=None,
+                        manifest_sha=None,
+                        notation_artifact_dict=None,
+                        warnings=warnings,
+                    )
+            return self._finalize(
+                proposal=proposal,
+                manifest_dict=None,
+                manifest_sha=manifest_sha,
+                notation_artifact_dict=notation_artifact_dict,
+                warnings=warnings,
+            )
+
+        # Code-pattern path (unchanged).
         if templates is not None:
             try:
                 manifest: RenderManifest = self._renderer.render(
@@ -170,6 +245,7 @@ class PatternExecutionContextResolver:
                     proposal=blocked_proposal,
                     manifest_dict=None,
                     manifest_sha=None,
+                    notation_artifact_dict=None,
                     warnings=warnings,
                 )
 
@@ -177,6 +253,7 @@ class PatternExecutionContextResolver:
             proposal=proposal,
             manifest_dict=manifest_dict,
             manifest_sha=manifest_sha,
+            notation_artifact_dict=notation_artifact_dict,
             warnings=warnings,
         )
 
@@ -188,6 +265,7 @@ class PatternExecutionContextResolver:
         proposal: PatternProposal,
         manifest_dict: Optional[dict[str, Any]],
         manifest_sha: Optional[str],
+        notation_artifact_dict: Optional[dict[str, Any]],
         warnings: list[str],
     ) -> PatternExecutionContext:
         payload = {
@@ -199,6 +277,11 @@ class PatternExecutionContextResolver:
             "blocked_reason": proposal.blocked_reason,
             "risk_level": proposal.risk_level,
             "manifest_sha256": manifest_sha,
+            "notation_sha256": (
+                notation_artifact_dict.get("sha256")
+                if notation_artifact_dict
+                else None
+            ),
         }
         # Stable hash: sort_keys gives byte-identical input -> output.
         encoded = json.dumps(payload, sort_keys=True, default=str).encode("utf-8")
@@ -209,6 +292,7 @@ class PatternExecutionContextResolver:
             pattern_proposal=proposal.to_metadata(),
             render_manifest=manifest_dict,
             manifest_sha256=manifest_sha,
+            notation_artifact=notation_artifact_dict,
             blocked_reason=payload["blocked_reason"],
             risk_level=proposal.risk_level,
             warnings=warnings,

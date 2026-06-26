@@ -47,6 +47,7 @@ def prepare_opencode_context_files(
     context_text_char_limit: int | None = None,
     research_prompt_char_limit: int | None = None,
     pattern_hints: dict | None = None,
+    notation_hints: dict | None = None,
 ) -> dict:
     workspace_dir = workspace_context.workspace_dir
     bundle_dir = workspace_dir / ".ananta"
@@ -281,6 +282,56 @@ def prepare_opencode_context_files(
             str(manifest.get("pattern_allowed_path") or ""),
         ]
 
+    if isinstance(notation_hints, dict) and notation_hints:
+        notation_dir = bundle_dir / "notation"
+        notation_dir.mkdir(parents=True, exist_ok=True)
+        contract_path = notation_dir / "notation-selection-contract.json"
+        _write_json(contract_path, {
+            "schema": "notation_selection_contract.v1",
+            "allowed_notations": list(notation_hints.get("allowed_notations") or []),
+            "preferred_notations": list(notation_hints.get("preferred_notations") or []),
+            "forbid_notations": list(notation_hints.get("forbid_notations") or []),
+            "default_notation": str(notation_hints.get("default_notation") or ""),
+            "task_kind": str(notation_hints.get("task_kind") or "diagram"),
+        })
+        _record(contract_path, key="notation_selection_contract_path")
+        allowed_md_lines = [
+            "# Allowed Diagram Notations",
+            "",
+            "Use ONLY the notation pattern IDs listed here when proposing a notation pattern_plan.",
+            "Patterns not in this list will be rejected by the hub validator.",
+            "",
+        ]
+        allowed = list(notation_hints.get("allowed_notations") or [])
+        if allowed:
+            allowed_md_lines.append("## Allowed")
+            for nid in allowed:
+                allowed_md_lines.append(f"- `{nid}`")
+            allowed_md_lines.append("")
+        preferred = list(notation_hints.get("preferred_notations") or [])
+        if preferred:
+            allowed_md_lines.append("## Preferred (subset of allowed)")
+            for nid in preferred:
+                allowed_md_lines.append(f"- `{nid}`")
+            allowed_md_lines.append("")
+        forbidden = list(notation_hints.get("forbid_notations") or [])
+        if forbidden:
+            allowed_md_lines.append("## Forbidden")
+            for nid in forbidden:
+                allowed_md_lines.append(f"- `{nid}` — must NOT be used")
+            allowed_md_lines.append("")
+        default = notation_hints.get("default_notation")
+        if isinstance(default, str) and default:
+            allowed_md_lines.append(f"**Default notation:** `{default}`")
+            allowed_md_lines.append("")
+        allowed_path = notation_dir / "allowed-notations.md"
+        _write_text(allowed_path, "\n".join(allowed_md_lines).strip() + "\n")
+        _record(allowed_path, key="notation_allowed_path")
+        manifest["notation_context_paths"] = [
+            str(manifest.get("notation_selection_contract_path") or ""),
+            str(manifest.get("notation_allowed_path") or ""),
+        ]
+
     context_index = bundle_dir / "context-index.md"
     index_lines = [
         "# OpenCode Workspace Context",
@@ -299,6 +350,8 @@ def prepare_opencode_context_files(
         "output_schema_path",
         "pattern_selection_contract_path",
         "pattern_allowed_path",
+        "notation_selection_contract_path",
+        "notation_allowed_path",
     ]
     if include_response_contract:
         preferred_keys.append("response_contract_path")
@@ -320,6 +373,7 @@ def prepare_ananta_worker_context_files(
     context_text: str | None = None,
     research_context: dict | None = None,
     mutation_mode: str = "read_only",
+    notation_hints: dict | None = None,
 ) -> dict:
     manifest = prepare_opencode_context_files(
         task=task,
@@ -331,6 +385,7 @@ def prepare_ananta_worker_context_files(
         tool_definitions=None,
         research_context=research_context,
         include_response_contract=False,
+        notation_hints=notation_hints,
     )
     mode = str(mutation_mode or "read_only").strip().lower()
     contract_lines = [
