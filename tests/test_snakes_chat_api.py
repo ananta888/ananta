@@ -166,6 +166,42 @@ def test_room_conversation_history_filters_by_session_id(client):
     ]
 
 
+def test_light_ui_context_is_disabled_for_architecture_templates(client):
+    import agent.routes.snakes_execution_routes as ser
+
+    del client
+
+    assert ser._should_include_light_ui_context(
+        active_session_id="arch-overview",
+        active_session_group="Architektur",
+        active_session_settings={"chat_architecture_analysis_mode": "rag_iterative"},
+    ) is False
+
+
+def test_light_ui_context_can_be_disabled_per_session(client):
+    import agent.routes.snakes_execution_routes as ser
+
+    del client
+
+    assert ser._should_include_light_ui_context(
+        active_session_id="custom",
+        active_session_group="",
+        active_session_settings={"chat_include_ui_context": False},
+    ) is False
+
+
+def test_light_ui_context_still_allowed_for_plain_custom_session(client):
+    import agent.routes.snakes_execution_routes as ser
+
+    del client
+
+    assert ser._should_include_light_ui_context(
+        active_session_id="custom",
+        active_session_group="",
+        active_session_settings={},
+    ) is True
+
+
 def test_append_room_ai_message_does_not_apply_hidden_storage_cut(client):
     import agent.routes.snakes_execution_routes as ser
     from agent.routes.snakes import _room_messages
