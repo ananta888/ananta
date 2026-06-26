@@ -44,7 +44,7 @@
           }
           @if (snakeChatPanelOpen) {
             <div class="overlay-panel">
-              <app-ai-snake-chat-panel [tab]="snakeChatPanelTab" (tabChange)="snakeChatPanelTab = $event" />
+              <app-ai-snake-chat-panel [tab]="snakeChatPanelTab" (tabChange)="onSnakeChatTabChange($event)" />
             </div>
           }
           <div class="content" [class.hidden]="configPanelOpen || sharePanelOpen || snakeChatPanelOpen">

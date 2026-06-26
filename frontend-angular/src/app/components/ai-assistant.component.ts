@@ -45,7 +45,7 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
   configPanelOpen = false;
   sharePanelOpen = false;
   snakeChatPanelOpen = false; // initialised in restoreDockState()
-  snakeChatPanelTab: 'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated' = 'chat';
+  snakeChatPanelTab: 'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated' = 'login';
   private snakeDrawHandle: number | null = null;
 
   minimized = true;
@@ -588,7 +588,15 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
   private restoreDockState() {
     this.minimized = this.storage.restoreBoolean(this.dockStateStorageKey, true);
     this.hidden = this.storage.restoreBoolean(this.dockHiddenStorageKey, false);
-    this.snakeChatPanelOpen = this.storage.restoreBoolean('ananta.ai-snake.panel-open.v1', false);
+    // Migrate: old code stored false here; force open on first load after upgrade.
+    const storedOpen = localStorage.getItem('ananta.ai-snake.panel-open.v1');
+    if (storedOpen === 'false') localStorage.removeItem('ananta.ai-snake.panel-open.v1');
+    this.snakeChatPanelOpen = this.storage.restoreBoolean('ananta.ai-snake.panel-open.v1', true);
+    const savedTab = this.storage.restoreJson<string>('ananta.ai-snake.panel-tab.v1', '');
+    const validTabs = ['chat', 'sessions', 'trace', 'login', 'pair', 'mode', 'settings'];
+    if (savedTab && validTabs.includes(savedTab)) {
+      this.snakeChatPanelTab = savedTab as typeof this.snakeChatPanelTab;
+    }
   }
 
   private persistDockVisibility() {
@@ -729,6 +737,7 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
             const rawHistory = Array.isArray(thread?.history) ? thread.history : [];
             const history = rawHistory
               .filter((message: any) => (message?.role === 'user' || message?.role === 'assistant') && typeof message?.content === 'string')
+              .filter((message: any) => message.content !== 'Hallo. Ich bin AI Snake.')
               .map((message: any) => ({ role: message.role, content: message.content } as ChatMessage))
               .slice(-40);
             const id = String(thread?.id || '').trim();
@@ -821,9 +830,15 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
 
   toggleRegionMode(): void { this.snakeOverlay.toggleRegionMode(); }
 
-  openSnakeChatPanelTab(tab: 'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated'): void {
+  onSnakeChatTabChange(tab: 'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated'): void {
     this.snakeChatPanelTab = tab;
+    this.storage.persistJson('ananta.ai-snake.panel-tab.v1', tab);
+  }
+
+  openSnakeChatPanelTab(tab: 'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated'): void {
+    this.onSnakeChatTabChange(tab);
     this.snakeChatPanelOpen = true;
+    this.storage.persistBoolean('ananta.ai-snake.panel-open.v1', true);
     this.configPanelOpen = false;
     this.sharePanelOpen = false;
   }
