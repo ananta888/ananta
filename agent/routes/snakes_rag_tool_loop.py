@@ -331,6 +331,15 @@ def run_rag_chat_tool_loop(
         }
         trace["evidence"] = list(_evidence.values())
 
+    def _cache_read_result(requested_path: str, result: str, *, source: str) -> None:
+        _already_read[requested_path] = result
+        remembered_path = requested_path
+        corrected = re.match(r"^\[Pfad automatisch korrigiert: .*? -> ([^\]]+)\]", result)
+        if corrected:
+            remembered_path = corrected.group(1).strip()
+            _already_read[remembered_path] = result
+        _remember_file(remembered_path, result, source=source)
+
     def _register_initial_evidence() -> None:
         for idx, item in enumerate(initial_evidence or [], 1):
             if _cancelled():
@@ -753,8 +762,7 @@ def run_rag_chat_tool_loop(
                             if not result.startswith("[Fehler"):
                                 if summarize_reads:
                                     result = _summarize_file(_req_path, result)
-                                _already_read[_req_path] = result
-                                _remember_file(_req_path, result, source="textual_read")
+                                _cache_read_result(_req_path, result, source="textual_read")
                     elif fn_name == "search_codebase":
                         search_call_count += 1
                         _query = str(args.get("query") or "").strip().lower()
@@ -897,8 +905,7 @@ def run_rag_chat_tool_loop(
                                     details={"path": _req_path, "raw_chars": _raw_chars, "summary_chars": len(result)},
                                     output_preview=result,
                                 )
-                        _already_read[_req_path] = result
-                        _remember_file(_req_path, result, source="tool_read")
+                        _cache_read_result(_req_path, result, source="tool_read")
             elif fn_name == "search_codebase":
                 iteration_search_calls += 1
                 search_call_count += 1

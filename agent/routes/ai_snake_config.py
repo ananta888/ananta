@@ -117,7 +117,7 @@ _DEFAULTS: dict[str, Any] = {
     "rag_iterative_symbol_expand_max": 0,
     "rag_iterative_catalog_chars": 20000,
     "rag_iterative_tool_chars_per_file": 20000,
-    "rag_iterative_summarize_reads": False,
+    "rag_iterative_summarize_reads": True,
     "rag_iterative_summary_chars": 600,
     "rag_iterative_initial_min_files": 3,
     "rag_iterative_initial_max_files": 8,

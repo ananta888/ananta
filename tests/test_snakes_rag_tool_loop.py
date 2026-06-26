@@ -144,6 +144,80 @@ def test_tool_loop_continues_after_ambiguous_path_hint_when_unlimited(tmp_path, 
     assert len(posted_payloads) == 3
 
 
+def test_tool_loop_caches_auto_corrected_path_alias(tmp_path, monkeypatch):
+    source = tmp_path / "worker" / "retrieval" / "codecompass_architecture_query.py"
+    source.parent.mkdir(parents=True)
+    source.write_text("AUTO_CORRECTED_CONTENT = True\n", encoding="utf-8")
+
+    from agent.routes.snakes_rag_tool_loop import run_rag_chat_tool_loop
+
+    monkeypatch.setattr(
+        "agent.llm_integration._runtime_provider_urls",
+        lambda: {"lmstudio": "http://llm.test/v1"},
+    )
+    monkeypatch.setattr("agent.llm_integration._runtime_api_key", lambda _provider: "")
+
+    posted_payloads: list[dict] = []
+
+    def _fake_post(_endpoint, *, json=None, **_kwargs):
+        posted_payloads.append(copy.deepcopy(dict(json or {})))
+        if len(posted_payloads) == 1:
+            return _FakeResponse({
+                "choices": [{
+                    "finish_reason": "tool_calls",
+                    "message": {
+                        "content": "",
+                        "tool_calls": [{
+                            "id": "call_1",
+                            "function": {
+                                "name": "read_file",
+                                "arguments": '{"path": "agent/services/tools/codecompass_architecture_query.py"}',
+                            },
+                        }],
+                    },
+                }]
+            })
+        if len(posted_payloads) == 2:
+            return _FakeResponse({
+                "choices": [{
+                    "finish_reason": "tool_calls",
+                    "message": {
+                        "content": "",
+                        "tool_calls": [{
+                            "id": "call_2",
+                            "function": {
+                                "name": "read_file",
+                                "arguments": '{"path": "worker/retrieval/codecompass_architecture_query.py"}',
+                            },
+                        }],
+                    },
+                }]
+            })
+        return _FakeResponse({
+            "choices": [{
+                "finish_reason": "stop",
+                "message": {"content": "final answer"},
+            }]
+        })
+
+    monkeypatch.setattr("requests.post", _fake_post)
+
+    answer, trace = run_rag_chat_tool_loop(
+        messages=[{"role": "user", "content": "Frage: codecompass"}],
+        provider="lmstudio",
+        model="test-model",
+        repo_root=tmp_path,
+        max_tool_calls=0,
+        max_chars_per_file=5000,
+    )
+
+    assert answer == "final answer"
+    assert trace["tool_calls_made"] == 2
+    assert trace["tools_used"][0]["result_chars"] == trace["tools_used"][1]["result_chars"]
+    assert trace["evidence"][0]["path"] == "worker/retrieval/codecompass_architecture_query.py"
+    assert len(trace["evidence"]) == 1
+
+
 def test_tool_loop_adds_evidence_memory_to_followup_llm_call(tmp_path, monkeypatch):
     source = tmp_path / "agent" / "example.py"
     source.parent.mkdir()
