@@ -245,6 +245,10 @@ def run_rag_chat_tool_loop(
             return True
         if re.search(r'"tool_calls"\s*:', value):
             return True
+        # Models that don't support native tool-calling (e.g. phi-3.5-mini) write
+        # function calls as Python-style text: [read_file('path')] or [search_codebase('q')]
+        if re.search(r'\[(?:read_file|search_codebase)\s*\(', value):
+            return True
         return False
 
     def _summarize_file(path: str, content: str) -> str:
