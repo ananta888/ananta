@@ -196,6 +196,7 @@ def run_rag_chat_tool_loop(
     trace: dict[str, Any] = {
         "mode": "tool_loop",
         "tool_calls_made": 0,
+        "textual_tool_calls_detected": 0,
         "tools_used": [],
         "evidence": [],
         "max_tool_calls_effective": max_tool_calls if max_tool_calls > 0 else "unlimited",
@@ -250,6 +251,22 @@ def run_rag_chat_tool_loop(
         if re.search(r'\[(?:read_file|search_codebase)\s*\(', value):
             return True
         return False
+
+    def _parse_textual_tool_calls(text: str) -> list[dict[str, Any]]:
+        """Extract [read_file('path')] / [search_codebase('q')] calls from model text."""
+        calls: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for m in re.finditer(r'\[read_file\s*\(\s*[\'"]([^\'"]+)[\'"]\s*\)\]', text):
+            key = f"read_file:{m.group(1)}"
+            if key not in seen:
+                seen.add(key)
+                calls.append({"name": "read_file", "args": {"path": m.group(1)}})
+        for m in re.finditer(r'\[search_codebase\s*\(\s*[\'"]([^\'"]+)[\'"]\s*\)\]', text):
+            key = f"search_codebase:{m.group(1)}"
+            if key not in seen:
+                seen.add(key)
+                calls.append({"name": "search_codebase", "args": {"query": m.group(1)}})
+        return calls
 
     def _summarize_file(path: str, content: str) -> str:
         """Intermediate LLM call: extract question-relevant info from a file into a compact summary."""
@@ -695,10 +712,94 @@ def run_rag_chat_tool_loop(
                 )
 
         if (not tool_calls or finish_reason == "stop" or not use_tools) and textual_tool_request:
+            trace["textual_tool_calls_detected"] = trace.get("textual_tool_calls_detected", 0) + 1
+
+            # Try to parse and execute the textual tool calls (fallback for models without
+            # native function-calling support, e.g. phi-3.5-mini).
+            parsed_calls = _parse_textual_tool_calls(content) if use_tools else []
+
+            if parsed_calls:
+                current_messages.append({"role": "assistant", "content": content})
+                result_parts: list[str] = []
+                for call in parsed_calls:
+                    if _cancelled():
+                        return "", trace
+                    tool_call_count += 1
+                    fn_name = call["name"]
+                    args = call["args"]
+
+                    if fn_name == "read_file":
+                        _req_path = str(args.get("path") or "").strip()
+                        if _req_path in _already_read:
+                            result = _already_read[_req_path]
+                        else:
+                            result = _dispatch_tool(fn_name, args, repo_root=repo_root, max_chars_per_file=max_chars_per_file)
+                            if not result.startswith("[Fehler"):
+                                if summarize_reads:
+                                    result = _summarize_file(_req_path, result)
+                                _already_read[_req_path] = result
+                                _remember_file(_req_path, result, source="textual_read")
+                    elif fn_name == "search_codebase":
+                        search_call_count += 1
+                        _query = str(args.get("query") or "").strip().lower()
+                        if _query in _already_searched:
+                            result = (
+                                "[Suche bereits ausgefuehrt. Nutze die bestehende Evidenz, "
+                                "lies eine konkrete Datei aus der Trefferliste oder antworte abschliessend.]"
+                            )
+                        elif max_search_calls > 0 and search_call_count > max_search_calls:
+                            result = (
+                                "[Suchlimit erreicht. Nutze die vorhandene Dateiliste und Evidenz; "
+                                "lies bei Bedarf eine konkrete Datei oder antworte abschliessend.]"
+                            )
+                            force_final_next = True
+                        else:
+                            _already_searched.add(_query)
+                            result = _dispatch_tool(fn_name, args, repo_root=repo_root, max_chars_per_file=max_chars_per_file)
+                    else:
+                        result = _dispatch_tool(fn_name, args, repo_root=repo_root, max_chars_per_file=max_chars_per_file)
+
+                    trace["tools_used"].append({
+                        "iteration": _iteration,
+                        "name": fn_name,
+                        "args": {k: str(v)[:120] for k, v in args.items()},
+                        "result_chars": len(result),
+                        "source": "textual",
+                    })
+                    trace["tool_calls_made"] = tool_call_count
+
+                    first_arg = str(list(args.values())[0])[:80] if args else ""
+                    result_parts.append(
+                        f"[Tool-Ergebnis: {fn_name}({first_arg!r})]\n{result}\n[/Tool-Ergebnis]"
+                    )
+
+                    if rec:
+                        rec.event(
+                            f"tool_call_{tool_call_count}",
+                            f"Tool (textuell): {fn_name}({', '.join(f'{k}={v!r}' for k, v in list(args.items())[:2])})",
+                            status="completed",
+                            details={"function": fn_name, "args": args, "result_chars": len(result), "source": "textual"},
+                            output_preview=result[:500] if result else None,
+                        )
+
+                current_messages.append({
+                    "role": "user",
+                    "content": (
+                        "\n\n".join(result_parts)
+                        + "\n\nBitte beantworte jetzt die Frage auf Basis dieser Ergebnisse und des vorhandenen Kontexts."
+                    ),
+                })
+                _compact_initial_packed_context()
+                evidence_text = _evidence_prompt()
+                if evidence_text:
+                    _replace_or_append_evidence_message(evidence_text)
+                continue
+
+            # No parseable calls or use_tools=False — single repair attempt, then bail
             trace["rejected_final_tool_request"] = True
             trace["rejected_final_tool_request_preview"] = content[:500]
             final_repair_attempts += 1
-            if final_repair_attempts <= 2:
+            if final_repair_attempts <= 1:
                 force_final_next = True
                 current_messages.append({
                     "role": "user",

@@ -582,7 +582,11 @@ def worker_chat_rag_iterative(
         if rec:
             rec.event(
                 "rag_iterative_tool_loop_done",
-                "Tool-Loop abgeschlossen ({} Tool-Calls)".format(tl_trace.get("tool_calls_made", 0)),
+                "Tool-Loop abgeschlossen ({} Tool-Calls{})".format(
+                    tl_trace.get("tool_calls_made", 0),
+                    ", {} textuell".format(tl_trace["textual_tool_calls_detected"])
+                    if tl_trace.get("textual_tool_calls_detected") else "",
+                ),
                 status="completed" if final_answer else "failed",
                 details=tl_trace,
                 output_preview=final_answer[:500] if final_answer else None,
