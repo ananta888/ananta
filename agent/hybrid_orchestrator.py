@@ -1165,6 +1165,7 @@ class HybridOrchestrator:
         redact_sensitive: bool = True,
         codecompass_vector_enabled: bool | None = None,
         codecompass_vector_service: object | None = None,
+        global_config: dict | None = None,
     ) -> None:
         self.repo_root = Path(repo_root).resolve()
         self.data_roots = data_roots or [self.repo_root / "docs", self.repo_root / "data"]
@@ -1182,6 +1183,7 @@ class HybridOrchestrator:
         )
         self.semantic_engine = SemanticSearchEngine(self.data_roots, persist_dir=persist_dir)
         self.codecompass_vector_service = codecompass_vector_service
+        self._global_config: dict = dict(global_config or {})
         vector_enabled = (
             bool(settings.codecompass_vector_enabled)
             if codecompass_vector_enabled is None
@@ -1195,23 +1197,8 @@ class HybridOrchestrator:
                 CodeCompassRankingConfigService,
             )
 
-            _user_json_cfg: dict = {}
-            try:
-                import json as _json
-                _user_json_path = self.repo_root / "user.json"
-                if _user_json_path.exists():
-                    _user_json_cfg = _json.loads(_user_json_path.read_text(encoding="utf-8"))
-            except Exception:
-                pass
-            _global_cfg = dict(getattr(settings, "global_config", None) or _user_json_cfg)
-            # Bridge top-level chat_retrieval_strategy into codecompass_ranking when not
-            # already configured explicitly via Config Graph.
-            if "chat_retrieval_strategy" in _user_json_cfg and "codecompass_ranking" not in _global_cfg:
-                _global_cfg["codecompass_ranking"] = {
-                    "retrieval_strategy": _user_json_cfg["chat_retrieval_strategy"]
-                }
             ranking_cfg = CodeCompassRankingConfigService(
-                global_config=_global_cfg,
+                global_config=self._global_config,
             ).resolve()
             strategy_cfg = ranking_cfg.to_strategy_config()
 

@@ -44,7 +44,12 @@ class CodeCompassRankingConfig:
 
     @classmethod
     def from_config(cls, config: dict[str, Any] | None) -> "CodeCompassRankingConfig":
-        raw = dict((config or {}).get("codecompass_ranking") or {})
+        top = dict(config or {})
+        raw = dict(top.get("codecompass_ranking") or {})
+        # Bridge top-level chat_retrieval_strategy into codecompass_ranking when not
+        # configured explicitly via Config Graph (avoids file I/O in the orchestrator).
+        if not raw.get("retrieval_strategy") and top.get("chat_retrieval_strategy"):
+            raw["retrieval_strategy"] = top["chat_retrieval_strategy"]
         weights = dict(DEFAULT_SCORE_WEIGHTS)
         for key, value in dict(raw.get("score_weights") or {}).items():
             if key not in weights:
@@ -54,9 +59,9 @@ class CodeCompassRankingConfig:
             except (TypeError, ValueError):
                 continue
 
-        strategy = str(raw.get("retrieval_strategy") or STRATEGY_DIRECT)
+        strategy = str(raw.get("retrieval_strategy") or STRATEGY_SEMANTIC_PREFILTER)
         if strategy not in ALL_STRATEGIES:
-            strategy = STRATEGY_DIRECT
+            strategy = STRATEGY_SEMANTIC_PREFILTER
 
         # Auto-enable restricted reranking and adjust weights for strategies that need it.
         from agent.services.codecompass_retrieval_strategy import POSTRANK_STRATEGIES

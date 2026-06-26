@@ -4,6 +4,7 @@ from pathlib import Path
 
 from agent.config import settings
 from agent.hybrid_orchestrator import ContextChunk, HybridOrchestrator
+from agent.services.user_config_service import get_user_config_service
 from agent.metrics import KNOWLEDGE_RETRIEVAL_CHUNKS, RAG_RETRIEVAL_TASK_KIND_TOTAL
 from agent.repository import memory_entry_repo as default_memory_entry_repo
 from agent.services.knowledge_index_retrieval_service import get_knowledge_index_retrieval_service
@@ -87,6 +88,7 @@ class RetrievalService:
         repo_root = Path(settings.rag_repo_root).resolve()
         data_roots = [repo_root / p.strip() for p in settings.rag_data_roots.split(",") if p.strip()]
         persist_dir = repo_root / settings.rag_semantic_persist_dir
+        global_config = get_user_config_service(repo_root).config
         return HybridOrchestrator(
             repo_root=repo_root,
             data_roots=data_roots,
@@ -97,6 +99,7 @@ class RetrievalService:
             agentic_timeout_seconds=settings.rag_agentic_timeout_seconds,
             semantic_persist_dir=persist_dir,
             redact_sensitive=settings.rag_redact_sensitive,
+            global_config=global_config,
         )
 
     def get_source_preflight(self) -> dict[str, object]:
