@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from agent.services.restricted_inference_config_service import (
     ENGINE_MOCK,
+    ENGINE_SENTENCE_TRANSFORMERS,
     RestrictedInferenceConfigService,
     TASK_CANDIDATE_RERANK,
 )
@@ -45,6 +46,28 @@ def test_valid_config_models_tasks_and_redacts_secrets() -> None:
     payload = cfg.as_dict(redact_secrets=True)
     assert payload["models"][0]["api_token"] == "<redacted>"
     assert payload["tasks"]["candidate_rerank"]["max_candidates"] == 8
+
+
+def test_explicit_sentence_transformers_config_bridges_embedding_options() -> None:
+    cfg = RestrictedInferenceConfigService.from_config({
+        "embedding_model_id": "intfloat/multilingual-e5-small",
+        "embedding_lang_detect": True,
+        "embedding_lang_model_de": "deepset/gbert-base",
+        "embedding_lang_model_en": "all-MiniLM-L6-v2",
+        "restricted_inference": {
+            "default_engine": ENGINE_SENTENCE_TRANSFORMERS,
+        },
+    })
+
+    assert cfg.default_engine == ENGINE_SENTENCE_TRANSFORMERS
+    assert cfg.default_model_id == "intfloat/multilingual-e5-small"
+    assert cfg.models[0].engine == ENGINE_SENTENCE_TRANSFORMERS
+    assert cfg.models[0].options["lang_detect"] is True
+    assert cfg.models[0].options["lang_model_map"] == {
+        "de": "deepset/gbert-base",
+        "en": "all-MiniLM-L6-v2",
+        "*": "intfloat/multilingual-e5-small",
+    }
 
 
 def test_diagnostics_report_unknown_engine_disabled_model_and_missing_dependency() -> None:

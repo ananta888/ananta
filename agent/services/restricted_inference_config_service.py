@@ -266,20 +266,37 @@ class RestrictedInferenceConfigService:
 
     def resolve(self) -> RestrictedInferenceConfig:
         raw = dict(self._global_config.get("restricted_inference") or {})
+        has_explicit_restricted_config = isinstance(self._global_config.get("restricted_inference"), dict)
         allowed_engines = [
             str(item) for item in (raw.get("allowed_engines") or sorted(KNOWN_ENGINES))
         ]
         top = self._global_config
-        # Bridge top-level embedding_* keys into restricted_inference when not set explicitly.
-        if not raw.get("default_model_id") and top.get("embedding_model_id"):
-            raw["default_model_id"] = top["embedding_model_id"]
-        for opt_key in ("lang_detect", "lang_model_de", "lang_model_en"):
-            top_key = f"embedding_{opt_key}"
-            if top_key in top and opt_key not in raw:
-                raw[opt_key] = top[top_key]
+        default_engine = str(raw.get("default_engine") or ENGINE_MOCK)
 
-        default_engine = str(raw.get("default_engine") or ENGINE_SENTENCE_TRANSFORMERS)
-        default_model_id = str(raw.get("default_model_id") or "paraphrase-multilingual-MiniLM-L12-v2")
+        # Bridge top-level embedding_* keys only when restricted inference is
+        # explicitly configured for a real embedding backend. Empty config must
+        # keep deterministic mock defaults for reproducible local/test runs.
+        if (
+            has_explicit_restricted_config
+            and default_engine == ENGINE_SENTENCE_TRANSFORMERS
+            and not raw.get("default_model_id")
+            and top.get("embedding_model_id")
+        ):
+            raw["default_model_id"] = top["embedding_model_id"]
+        if has_explicit_restricted_config and default_engine == ENGINE_SENTENCE_TRANSFORMERS:
+            for opt_key in ("lang_detect", "lang_model_de", "lang_model_en"):
+                top_key = f"embedding_{opt_key}"
+                if top_key in top and opt_key not in raw:
+                    raw[opt_key] = top[top_key]
+
+        default_model_id = str(
+            raw.get("default_model_id")
+            or (
+                "paraphrase-multilingual-MiniLM-L12-v2"
+                if default_engine == ENGINE_SENTENCE_TRANSFORMERS
+                else "mock-default"
+            )
+        )
         device = str(raw.get("device") or "cpu")
 
         # Build lang_model_map from flat keys or nested dict.

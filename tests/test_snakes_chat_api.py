@@ -120,6 +120,52 @@ def test_room_conversation_history_excludes_current_turn(client):
     ]
 
 
+def test_room_conversation_history_filters_by_session_id(client):
+    import agent.routes.snakes_execution_routes as ser
+    from agent.routes.snakes import _room_messages
+
+    s1 = _register(client, "SessionContextSnake")
+    _room_messages.extend(
+        [
+            {
+                "sender_id": s1["id"],
+                "sender_kind": "user",
+                "text": "Frage in A",
+                "session_id": "session-a",
+            },
+            {
+                "sender_id": "ai-snake",
+                "sender_kind": "assistant",
+                "text": "Antwort in A",
+                "session_id": "session-a",
+            },
+            {
+                "sender_id": s1["id"],
+                "sender_kind": "user",
+                "text": "Frage in B",
+                "session_id": "session-b",
+            },
+            {
+                "sender_id": s1["id"],
+                "sender_kind": "user",
+                "text": "Folgefrage in A",
+                "session_id": "session-a",
+            },
+        ]
+    )
+
+    history = ser._build_room_conversation_history(
+        snake_id=s1["id"],
+        current_text="Folgefrage in A",
+        session_id="session-a",
+    )
+
+    assert history == [
+        {"role": "user", "content": "Frage in A"},
+        {"role": "assistant", "content": "Antwort in A"},
+    ]
+
+
 def test_append_room_ai_message_does_not_apply_hidden_storage_cut(client):
     import agent.routes.snakes_execution_routes as ser
     from agent.routes.snakes import _room_messages
@@ -359,6 +405,47 @@ def test_receive_room_messages(client):
     assert "greetings" in texts
 
 
+def test_room_message_persists_client_session_id(client):
+    from agent.routes.snakes import _room_messages
+
+    s1 = _register(client, "SessionSender")
+    resp = client.post(
+        f"/snakes/{s1['id']}/chat/messages",
+        json={
+            "channel_type": "room",
+            "text": "session scoped",
+            "visibility": "room",
+            "session_id": "session-a",
+        },
+        headers={"Authorization": f"Bearer {s1['token']}"},
+    )
+
+    assert resp.status_code == 202
+    assert _room_messages[-1]["session_id"] == "session-a"
+
+
+def test_receive_room_messages_can_filter_by_session_id(client):
+    s1 = _register(client, "ScopedSender")
+    s2 = _register(client, "ScopedReceiver")
+    for sid, text in (("session-a", "only a"), ("session-b", "only b")):
+        client.post(
+            f"/snakes/{s1['id']}/chat/messages",
+            json={
+                "channel_type": "room",
+                "text": text,
+                "visibility": "room",
+                "session_id": sid,
+            },
+            headers={"Authorization": f"Bearer {s1['token']}"},
+        )
+
+    resp = client.get(f"/snakes/{s2['id']}/chat/messages?session_id=session-a")
+    assert resp.status_code == 200
+    texts = [m["text"] for m in resp.get_json().get("messages", [])]
+    assert "only a" in texts
+    assert "only b" not in texts
+
+
 def test_receive_without_duplicates(client):
     s1 = _register(client, "Karl")
     s2 = _register(client, "Laura")
@@ -511,4 +598,3 @@ def test_append_room_ai_message_sets_visibility_and_sender():
     assert m["sender_kind"] == "system"
     assert m["session_id"] == "x"
     assert m["ui_snapshot"] == "snap"
-

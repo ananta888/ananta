@@ -753,13 +753,17 @@ def _build_room_conversation_history(
     *,
     snake_id: str | None,
     current_text: str,
+    session_id: str = "",
     max_messages: int = 8,
 ) -> list[dict[str, str]]:
     """Return recent room messages before the current user turn for LLM history."""
     current = str(current_text or "").strip()
+    requested_session_id = str(session_id or "").strip()
     current_idx: int | None = None
     for idx in range(len(_room_messages) - 1, -1, -1):
         msg = _room_messages[idx]
+        if requested_session_id and str(msg.get("session_id") or "") != requested_session_id:
+            continue
         if (
             str(msg.get("sender_id") or "") == str(snake_id or "")
             and str(msg.get("sender_kind") or "") == "user"
@@ -769,6 +773,11 @@ def _build_room_conversation_history(
             break
 
     prior_messages = _room_messages[:current_idx] if current_idx is not None else list(_room_messages)
+    if requested_session_id:
+        prior_messages = [
+            msg for msg in prior_messages
+            if str(msg.get("session_id") or "") == requested_session_id
+        ]
     history: list[dict[str, str]] = []
     for msg in prior_messages[-max(1, int(max_messages)) :]:
         text = str(msg.get("text") or "").strip()
@@ -981,7 +990,11 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
                 )
 
             provider, model, api_base = _resolve_ai_snake_chat_provider()
-            conversation_history = _build_room_conversation_history(snake_id=snake_id, current_text=prompt)
+            conversation_history = _build_room_conversation_history(
+                snake_id=snake_id,
+                current_text=prompt,
+                session_id=client_session_id,
+            )
             if rec:
                 rec.event("config_loaded", "Provider-Konfiguration geladen", status="completed",
                           details={"provider": provider, "model": model, "conversation_history_messages": len(conversation_history)})
@@ -1630,6 +1643,7 @@ def chat_send(snake_id: str):
         "visibility": visibility,
         "delivery_state": "received",
         "policy_decision_ref": None,
+        "session_id": client_session_id,
     }
 
     if channel_type == "room":
@@ -1668,9 +1682,18 @@ def chat_receive(snake_id: str):
 
     since_str = request.args.get("since", "")
     since: float = float(since_str) if since_str else 0.0
+    requested_session_id = str(request.args.get("session_id") or "").strip()
 
     direct = [m for m in _chat_messages.get(snake_id, []) if float(m.get("created_at") or 0) > since]
-    room = [m for m in _room_messages if float(m.get("created_at") or 0) > since and m.get("sender_id") != snake_id]
+    room = [
+        m for m in _room_messages
+        if float(m.get("created_at") or 0) > since
+        and m.get("sender_id") != snake_id
+        and (
+            not requested_session_id
+            or str(m.get("session_id") or "") == requested_session_id
+        )
+    ]
 
     all_msgs = sorted(direct + room, key=lambda m: float(m.get("created_at") or 0))
 

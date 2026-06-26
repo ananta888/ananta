@@ -9,11 +9,14 @@
 - **AI Chats** → `/chats`
 - **Arbeitsbereich** → `/workspace`
 - **Aufgaben** → `/board`
+- **CodeHug** → `/codehug`
 - **Ergebnisse** → `/artifacts`
 - **Hilfe** → `/help`
 - **LLM Runtime** → `/llama-runtime`
 - **Vorlagen** → `/templates`
 - **Voxtral Offline** → `/voxtral-offline`
+- **Wikipedia** → `/wikipedia` _Experte_
+- **Wissen** → `/knowledge` _Experte_
 
 ### Automatisierung
 - **Auto-Planner** → `/auto-planner` _Experte_
@@ -28,6 +31,7 @@
 - **Operationen** → `/operations` _Experte_
 - **Sources** → `/sources` _Experte_
 - **Strategy Game Demo** → `/strategy-game-demo` _Experte_
+- **Three-Way Diff** → `/diff3` _Experte_
 - **Worker Loop Diagnostik** → `/worker-loop-diagnostics` _Experte_
 - **Worker Pool** → `/worker-pool` _Experte_
 
@@ -35,8 +39,11 @@
 - **Admin-Diagnose** → `/admin-diagnostics` _Experte, Admin_
 - **Audit-Logs** → `/audit-log` _Experte, Admin_
 - **Benutzerverwaltung** → `/user-management` _Experte, Admin_
+- **Blueprint-Konfig** → `/blueprint-config` _Experte_
+- **Effective Workflow** → `/effective-workflow` _Experte_
 - **Einstellungen** → `/settings` _Experte_
 - **Instruction Layers** → `/instruction-layers` _Experte_
+- **Konfig-Graph** → `/config-graph` _Experte_
 - **Mobile Shell** → `/mobile-shell` _Experte_
 - **Policy** → `/context-access-policy` _Experte, Admin_
 - **Python Runtime** → `/python-runtime` _Experte_
@@ -80,21 +87,26 @@ Diese Bezeichner identifizieren konkrete Schaltflächen/Bereiche in der Oberflä
   - `chat.backend-select` — Backend
   - `chat.messages-tab` — Nachrichten ({{ messageCount() }})
   - `chat.new-session` — ＋
+  - `chat.read-only-banner` — 🐍 Read-only Log-Session — wird ausschließli
   - `chat.retrieval-profile` — Retrieval-Profil
   - `chat.settings-tab` — Einstellungen
   - `chat.system-prompt` — System-Prompt
 
-**nav.**
-  - `nav.` — (dynamisch)
-
 **snake.**
   - `snake.tab-ai-snake` — AI-Snake
   - `snake.tab-chat` — Chat
+  - `snake.tab-explain` — 🔲 Erklären
   - `snake.tab-mode` — Modus
   - `snake.tab-pair` — Pair Dev
   - `snake.tab-sessions` — Sessions
-  - `snake.tab-settings` — Einstellungen
+  - `snake.tab-settings` — Einstell.
   - `snake.tab-trace` — Trace
+
+**teams.**
+  - `teams.blueprint-catalog` — Standard-Blueprint-Katalog
+  - `teams.blueprint-new` — Neu
+  - `teams.tab-blueprints` — Blueprints
+  - `teams.tab-instantiate` — Teams aus Blueprint
 
 ## Chat-Sessions (Typen)
 
@@ -110,7 +122,8 @@ Diese Bezeichner identifizieren konkrete Schaltflächen/Bereiche in der Oberflä
 - 🔗 **Abhängigkeiten** (`arch-deps`): Du bist Architekt. Der Nutzer nennt ein Modul oder eine Komponente. Antworte IMMER mit einem Mermaid graph LR Diagramm. …
 
 ### Konfiguration
-- ⚙️ **Ananta-Konfig** (`ananta-settings`): Du bist UI-Konfigurations-Guide für Ananta. Deine einzige Aufgabe: erkläre dem Nutzer SCHRITT FÜR SCHRITT, welche Menüpu…
+- ⚙️ **Ananta-Konfig** (`ananta-settings`): Du bist UI- und Konfigurations-Guide für Ananta. Du hast Zugriff auf Tools, die du aktiv nutzen sollst.  TOOL-REGELN (WI…
+- 🐍 **Visual Snake Log** (`ananta-visual`): Read-only Log-Session für die visuelle AI-Snake. Eingehend: [ui-tick] System-Messages mit kompaktem UI-Snapshot der aktu…
 
 ## Feature-Dokumentation (docs/)
 
@@ -204,6 +217,8 @@ Folgende Dokumentationsdateien beschreiben die wichtigsten Features:
   - `GET /api/codecompass/graph/expand`
   - `GET /api/codecompass/graph/node/<node_id>`
   - `GET /api/codecompass/query`
+  - `GET /api/codecompass/self-graph`
+  - `GET /api/codecompass/self-graph/domains`
 
 **context_policy.py**
   - `GET /api/context-policy/policies`
@@ -243,6 +258,7 @@ Folgende Dokumentationsdateien beschreiben die wichtigsten Features:
   - `PUT /api/diff3/sessions/<session_id>/focus`
   - `PUT /api/diff3/sessions/<session_id>/layout`
   - `PUT /api/diff3/sessions/<session_id>/panels/<panel_id>`
+  - `GET /api/diff3/sessions/<session_id>/panels/<panel_id>/content`
   - `PUT /api/diff3/sessions/<session_id>/sync`
 
 **freecad_client_surface.py**
@@ -295,6 +311,11 @@ Folgende Dokumentationsdateien beschreiben die wichtigsten Features:
   - `GET /snakes/<snake_id>/chat/traces`
   - `GET /snakes/<snake_id>/chat/traces/<trace_id>`
   - `GET /snakes/<snake_id>/chat/traces/<trace_id>/events`
+  - `GET /snakes/<snake_id>/events/stream`
+  - `PUT /snakes/<snake_id>/ui-state`
+
+**snapshot_diff_api.py**
+  - `POST /api/snapshot/diff`
 
 **teams.py**
   - `PATCH /teams/<team_id>`
@@ -312,3 +333,17 @@ Folgende Dokumentationsdateien beschreiben die wichtigsten Features:
   - `GET /teams/types/<type_id>/roles`
   - `PATCH /teams/types/<type_id>/roles/<role_id>`
   - `DELETE /teams/types/<type_id>/roles/<role_id>`
+
+**wiki_graph.py**
+  - `GET /api/wiki-graph/article-content`
+  - `POST /api/wiki-graph/build`
+  - `POST /api/wiki-graph/build-content`
+  - `POST /api/wiki-graph/build-domains`
+  - `GET /api/wiki-graph/content-status`
+  - `GET /api/wiki-graph/domain-articles`
+  - `GET /api/wiki-graph/domain-graph`
+  - `GET /api/wiki-graph/domain-status`
+  - `GET /api/wiki-graph/domains`
+  - `GET /api/wiki-graph/expand`
+  - `GET /api/wiki-graph/search`
+  - `GET /api/wiki-graph/status`

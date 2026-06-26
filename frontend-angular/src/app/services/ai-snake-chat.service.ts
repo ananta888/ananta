@@ -1,5 +1,5 @@
 import { Injectable, OnDestroy, inject } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, Subscription } from 'rxjs';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { AgentDirectoryService } from './agent-directory.service';
@@ -54,6 +54,13 @@ export class AiSnakeChatService implements OnDestroy {
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private heartbeatFailCount = 0;
+  private activeSessionSub: Subscription;
+
+  constructor() {
+    this.activeSessionSub = this.chatSessions.activeSessionId$.subscribe(() => {
+      this.messageCursor = '0';
+    });
+  }
 
   getSnakeToken(): string { return this.snakeToken; }
 
@@ -296,8 +303,11 @@ export class AiSnakeChatService implements OnDestroy {
     const base = this.hubUrl();
     const snakeId = this.snakeId$.value;
     if (!base || !snakeId) return;
+    const activeSessionId = this.chatSessions.activeSessionId$.value || '';
+    const params = new URLSearchParams({ since: this.messageCursor });
+    if (activeSessionId) params.set('session_id', activeSessionId);
     this.http.get<{ messages: SnakeChatMessage[]; cursor: string }>(
-      `${base}/snakes/${encodeURIComponent(snakeId)}/chat/messages?since=${encodeURIComponent(this.messageCursor)}`,
+      `${base}/snakes/${encodeURIComponent(snakeId)}/chat/messages?${params.toString()}`,
       { headers: this.withUserHeaders() },
     ).subscribe({
       next: (res) => {
@@ -340,6 +350,7 @@ export class AiSnakeChatService implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.activeSessionSub.unsubscribe();
     this.stopLoops();
   }
 }
