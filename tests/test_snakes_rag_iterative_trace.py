@@ -120,6 +120,65 @@ def test_rag_iterative_tool_mode_filters_generated_codecompass_outputs(tmp_path,
     assert trace["available_files"] == ["agent/codecompass_context.py"]
 
 
+def test_rag_iterative_followup_retrieval_uses_conversation_history(tmp_path, monkeypatch):
+    source = tmp_path / "agent" / "codecompass_context.py"
+    source.parent.mkdir()
+    source.write_text("def explain_codecompass():\n    return 'source'\n", encoding="utf-8")
+
+    from agent.routes import snakes_rag_iterative as mod
+
+    monkeypatch.setattr(
+        mod,
+        "_current_config",
+        lambda: {
+            "chat_full_scan_chars_per_file": 20_000,
+            "rag_iterative_tool_calls_enabled": True,
+            "rag_iterative_initial_min_files": 1,
+            "rag_iterative_initial_max_files": 2,
+        },
+    )
+    monkeypatch.setattr(mod._cfg_settings, "rag_repo_root", str(tmp_path), raising=False)
+    monkeypatch.setattr(mod, "lookup_model_context_tokens", lambda _model: 16_000)
+
+    class _Chunk:
+        source = "agent/codecompass_context.py"
+        score = 90.0
+
+    captured_search_queries: list[str] = []
+
+    class _FakeRepositoryMapEngine:
+        def __init__(self, _repo_root):
+            pass
+
+        def search(self, query, **_kwargs):
+            captured_search_queries.append(str(query))
+            return [_Chunk()] if "CodeCompass" in str(query) else []
+
+    captured: dict = {}
+
+    def _fake_tool_loop(**kwargs):
+        captured.update(kwargs)
+        return "activity diagram", {"tool_calls_made": 0}
+
+    monkeypatch.setattr("agent.hybrid_orchestrator.RepositoryMapEngine", _FakeRepositoryMapEngine)
+    monkeypatch.setattr("agent.routes.snakes_rag_tool_loop.run_rag_chat_tool_loop", _fake_tool_loop)
+
+    answer, trace = mod.worker_chat_rag_iterative(
+        "bitte als aktivitätsdiagramm mir darstellen",
+        conversation_history=[
+            {"role": "user", "content": "erkläre mir den codecompass"},
+            {"role": "assistant", "content": "CodeCompass nutzt codecompass_tools.py fuer Kontext und Symbolsuche."},
+        ],
+    )
+
+    assert answer == "activity diagram"
+    assert trace["retrieval_query_includes_history"] is True
+    assert trace["rag_chunks_found"] == 1
+    assert "bitte als aktivitätsdiagramm" in captured_search_queries[0]
+    assert "CodeCompass nutzt codecompass_tools.py" in captured_search_queries[0]
+    assert captured["initial_files"] == ["agent/codecompass_context.py"]
+
+
 def test_rag_iterative_tool_mode_prefers_symbol_context_over_full_files(tmp_path, monkeypatch):
     source = tmp_path / "agent" / "codecompass_context.py"
     source.parent.mkdir()

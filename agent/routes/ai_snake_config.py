@@ -188,19 +188,59 @@ _BOOL_KEYS = frozenset(k for k, v in _DEFAULTS.items() if isinstance(v, bool))
 
 
 def _user_json_path() -> Path:
-    return Path(os.environ.get("ANANTA_USER_JSON", "user.json")).resolve()
+    explicit = os.environ.get("ANANTA_USER_JSON")
+    if explicit:
+        return Path(explicit).resolve()
+    cwd = Path.cwd().resolve()
+    if (cwd / ".git").exists() and (cwd / "user.json").exists():
+        return cwd / "data" / "user.json"
+    return (cwd / "user.json").resolve()
+
+
+def _seed_user_json_path() -> Path | None:
+    explicit = os.environ.get("ANANTA_USER_JSON")
+    if explicit:
+        return None
+    cwd = Path.cwd().resolve()
+    seed = cwd / "user.json"
+    runtime = _user_json_path()
+    if seed.exists() and seed.resolve() != runtime.resolve():
+        return seed
+    return None
 
 
 def _load_raw() -> dict[str, Any]:
     """Read the raw file content without schema interpretation."""
-    p = _user_json_path()
-    if not p.exists():
+    paths = [p for p in (_seed_user_json_path(), _user_json_path()) if p is not None and p.exists()]
+    if not paths:
         return {}
-    try:
-        data = json.loads(p.read_text(encoding="utf-8"))
-        return data if isinstance(data, dict) else {}
-    except Exception:
-        return {}
+    merged: dict[str, Any] = {}
+    merged_settings: dict[str, Any] = {}
+    saw_settings = False
+    last_updated: Any = None
+    last_runtime_updated: Any = None
+    for p in paths:
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+            if not isinstance(data, dict):
+                continue
+        except Exception:
+            continue
+        settings = data.get("settings")
+        if isinstance(settings, dict):
+            saw_settings = True
+            merged_settings.update(settings)
+            last_updated = data.get("updated", last_updated)
+            last_runtime_updated = data.get("_updated_at", last_runtime_updated)
+        else:
+            merged.update(data)
+    if saw_settings:
+        merged["settings"] = merged_settings
+        if last_updated is not None:
+            merged["updated"] = last_updated
+        if last_runtime_updated is not None:
+            merged["_updated_at"] = last_runtime_updated
+    return merged
 
 
 def _load() -> dict[str, Any]:
@@ -237,6 +277,7 @@ def _save(data: dict[str, Any], *, clear_session_overrides: bool = False) -> Non
                                 delta.pop(k, None)
                         break
         raw["_updated_at"] = time.time()
+        p.parent.mkdir(parents=True, exist_ok=True)
         tmp.write_text(json.dumps(raw, ensure_ascii=False, indent=2), encoding="utf-8")
         os.replace(tmp, p)
     except Exception:

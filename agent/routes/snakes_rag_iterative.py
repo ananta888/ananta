@@ -248,6 +248,32 @@ def _answer_budget_instruction(limits: Any | None) -> str:
     )
 
 
+def _build_followup_retrieval_query(
+    question: str,
+    conversation_history: list[dict[str, str]] | None,
+    *,
+    max_history_chars: int = 2400,
+) -> str:
+    """Build a retrieval-only query that preserves follow-up context."""
+    current = str(question or "").strip()
+    history = list(conversation_history or [])
+    if not current or not history:
+        return current
+    parts = [current]
+    used = 0
+    for msg in reversed(history[-4:]):
+        content = str(msg.get("content") or "").strip()
+        if not content:
+            continue
+        remaining = max_history_chars - used
+        if remaining <= 0:
+            break
+        snippet = content[:remaining]
+        used += len(snippet)
+        parts.append(snippet)
+    return "\n\n".join(parts)
+
+
 def worker_chat_rag_iterative(
     question: str,
     *,
@@ -272,6 +298,8 @@ def worker_chat_rag_iterative(
     effective_system = (system_prompt.strip() if system_prompt and system_prompt.strip() else None) or _SYSTEM_PROMPT
     llm_history = [{"role": "system", "content": effective_system}, *list(conversation_history or [])]
     trace["conversation_history_messages"] = len(conversation_history or [])
+    retrieval_question = _build_followup_retrieval_query(question, conversation_history)
+    trace["retrieval_query_includes_history"] = retrieval_question != str(question or "").strip()
 
     cfg = _current_config()
     budget_instruction = _answer_budget_instruction(limits)
@@ -296,7 +324,7 @@ def worker_chat_rag_iterative(
         if _cancelled():
             return "", trace
         _engine = RepositoryMapEngine(repo_root)
-        raw_chunks = _engine.search(question, top_k=_rag_max)
+        raw_chunks = _engine.search(retrieval_question, top_k=_rag_max)
         chunks = [
             {"source": ch.source, "metadata": {"file_path": ch.source}, "score": ch.score}
             for ch in raw_chunks
@@ -416,7 +444,7 @@ def worker_chat_rag_iterative(
         )
         _symbol_snippets = build_codecompass_symbol_context(
             repo_root=repo_root,
-            query=question,
+            query=retrieval_question,
             ranked_sources=chunks,
             max_snippets=_symbol_max_snippets,
             max_lines_per_snippet=_symbol_max_lines,

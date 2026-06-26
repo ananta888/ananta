@@ -154,7 +154,13 @@ def global_config_path() -> Path:
 
 def project_config_path(cwd: Path | None = None) -> Path:
     base = (cwd or Path.cwd()).resolve()
+    if (base / ".git").exists() and (base / "user.json").exists():
+        return base / "data" / "user.json"
     return base / "user.json"
+
+
+def project_seed_config_path(cwd: Path | None = None) -> Path:
+    return (cwd or Path.cwd()).resolve() / "user.json"
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -316,6 +322,7 @@ class UserConfigManager:
     def __init__(self, *, cwd: Path | None = None) -> None:
         self._cwd = (cwd or Path.cwd()).resolve()
         self._global_path = global_config_path()
+        self._project_seed_path = project_seed_config_path(self._cwd)
         self._project_path = project_config_path(self._cwd)
         self._cache: dict[str, Any] = {}
         self._dirty: bool = False
@@ -326,6 +333,9 @@ class UserConfigManager:
         """Return merged settings: defaults → global → project."""
         merged: dict[str, Any] = dict(_DEFAULTS)
         merged.update(_read_json(self._global_path))
+        project_seed_path = getattr(self, "_project_seed_path", self._project_path)
+        if project_seed_path != self._project_path:
+            merged.update(_read_json(project_seed_path))
         merged.update(_read_json(self._project_path))
         self._cache = merged
         self._dirty = False
@@ -410,8 +420,10 @@ class UserConfigManager:
     def diagnostics(self) -> dict[str, Any]:
         return {
             "global_path": str(self._global_path),
+            "project_seed_path": str(getattr(self, "_project_seed_path", self._project_path)),
             "project_path": str(self._project_path),
             "global_exists": self._global_path.exists(),
+            "project_seed_exists": getattr(self, "_project_seed_path", self._project_path).exists(),
             "project_exists": self._project_path.exists(),
             "cache_keys": len(self._cache),
             "schema_version": SCHEMA_VERSION,

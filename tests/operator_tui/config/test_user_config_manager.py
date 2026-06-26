@@ -41,6 +41,18 @@ def test_project_config_path(tmp_path):
     assert p == tmp_path / "user.json"
 
 
+def test_project_config_path_uses_runtime_data_file_for_repo_seed(tmp_path):
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "user.json").write_text(
+        json.dumps({"schema_version": SCHEMA_VERSION, "settings": {"chat_backend": "seed"}}),
+        encoding="utf-8",
+    )
+
+    p = project_config_path(tmp_path)
+
+    assert p == tmp_path / "data" / "user.json"
+
+
 # ── Load with defaults ────────────────────────────────────────────────────────
 
 def test_load_returns_defaults_when_no_files(tmp_path):
@@ -79,6 +91,33 @@ def test_load_merges_global_then_project(tmp_path):
     assert settings["chat_backend"] == "opencode"
 
 
+def test_load_reads_repo_seed_then_runtime_project_config(tmp_path):
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "user.json").write_text(
+        json.dumps({"schema_version": SCHEMA_VERSION, "settings": {"chat_backend": "seed", "chat_history_turns": 3}}),
+        encoding="utf-8",
+    )
+    runtime = tmp_path / "data" / "user.json"
+    runtime.parent.mkdir()
+    runtime.write_text(
+        json.dumps({"schema_version": SCHEMA_VERSION, "settings": {"chat_backend": "runtime"}}),
+        encoding="utf-8",
+    )
+
+    mgr = UserConfigManager.__new__(UserConfigManager)
+    mgr._cwd = tmp_path.resolve()
+    mgr._global_path = tmp_path / "home" / ".anana" / "user.json"
+    mgr._project_seed_path = tmp_path / "user.json"
+    mgr._project_path = runtime
+    mgr._cache = {}
+    mgr._dirty = False
+
+    settings = mgr.load()
+
+    assert settings["chat_backend"] == "runtime"
+    assert settings["chat_history_turns"] == 3
+
+
 def test_load_tolerates_corrupted_file(tmp_path):
     (tmp_path / "user.json").write_text("NOT VALID JSON", encoding="utf-8")
     mgr = UserConfigManager(cwd=tmp_path)
@@ -105,6 +144,30 @@ def test_save_writes_project_file(tmp_path):
     data = json.loads(project_file.read_text())
     assert data["settings"]["chat_backend"] == "lmstudio"
     assert data["schema_version"] == SCHEMA_VERSION
+
+
+def test_save_does_not_modify_repo_seed_user_json(tmp_path):
+    (tmp_path / ".git").mkdir()
+    seed = tmp_path / "user.json"
+    seed.write_text(
+        json.dumps({"schema_version": SCHEMA_VERSION, "settings": {"chat_backend": "seed"}}),
+        encoding="utf-8",
+    )
+    before = seed.read_text(encoding="utf-8")
+
+    mgr = UserConfigManager.__new__(UserConfigManager)
+    mgr._cwd = tmp_path.resolve()
+    mgr._global_path = tmp_path / "home" / ".anana" / "user.json"
+    mgr._project_seed_path = seed
+    mgr._project_path = tmp_path / "data" / "user.json"
+    mgr._cache = {}
+    mgr._dirty = False
+    mgr.save({"chat_backend": "runtime"})
+
+    assert seed.read_text(encoding="utf-8") == before
+    runtime = tmp_path / "data" / "user.json"
+    assert runtime.exists()
+    assert json.loads(runtime.read_text(encoding="utf-8"))["settings"]["chat_backend"] == "runtime"
 
 
 def test_save_does_not_leave_tmp_file(tmp_path):
