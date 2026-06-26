@@ -38,6 +38,8 @@ services:
       HUB_URL: http://ai-agent-hub:5000
       DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}"
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+    ports:
+      - "${ALPHA_PORT:-5001}:5000"
     volumes:
       - ../../:/app:rw
       - ../../project-workspaces:/project-workspaces:rw
@@ -64,6 +66,8 @@ services:
       HUB_URL: http://ai-agent-hub:5000
       DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}"
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+    ports:
+      - "${BETA_PORT:-5002}:5000"
     volumes:
       - ../../:/app:rw
       - ../../project-workspaces:/project-workspaces:rw
