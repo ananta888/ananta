@@ -1195,8 +1195,23 @@ class HybridOrchestrator:
                 CodeCompassRankingConfigService,
             )
 
+            _user_json_cfg: dict = {}
+            try:
+                import json as _json
+                _user_json_path = self.repo_root / "user.json"
+                if _user_json_path.exists():
+                    _user_json_cfg = _json.loads(_user_json_path.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+            _global_cfg = dict(getattr(settings, "global_config", None) or _user_json_cfg)
+            # Bridge top-level chat_retrieval_strategy into codecompass_ranking when not
+            # already configured explicitly via Config Graph.
+            if "chat_retrieval_strategy" in _user_json_cfg and "codecompass_ranking" not in _global_cfg:
+                _global_cfg["codecompass_ranking"] = {
+                    "retrieval_strategy": _user_json_cfg["chat_retrieval_strategy"]
+                }
             ranking_cfg = CodeCompassRankingConfigService(
-                global_config=getattr(settings, "global_config", None) or {},
+                global_config=_global_cfg,
             ).resolve()
             strategy_cfg = ranking_cfg.to_strategy_config()
 

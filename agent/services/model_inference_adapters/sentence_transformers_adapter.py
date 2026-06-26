@@ -83,9 +83,9 @@ class SentenceTransformersAdapter(BaseInferenceAdapter):
 
     def status(self) -> AdapterStatus:
         st = "ready" if self._ready else "degraded"
-        caps = frozenset({CAP_EMBEDDINGS}) if (self._ready and not self._ce_model) else (
-            frozenset({CAP_EMBEDDINGS, CAP_RERANK}) if (self._ready and self._ce_model) else frozenset()
-        )
+        # CAP_RERANK is available even without a CrossEncoder: _rerank_via_embedding() provides
+        # cosine-similarity reranking using the embedding model alone.
+        caps = frozenset({CAP_EMBEDDINGS, CAP_RERANK}) if self._ready else frozenset()
         return AdapterStatus(
             name="sentence_transformers",
             engine=_ENGINE,

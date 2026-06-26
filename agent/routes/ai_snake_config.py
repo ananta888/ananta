@@ -29,6 +29,8 @@ _SCHEMA_KEYS: frozenset[str] = frozenset({
     "chat_retrieval_profile", "chat_retrieval_domain_hint", "chat_code_questions_repo_first",
     "chat_architecture_analysis_mode", "chat_codecompass_trigger_mode",
     "chat_include_task_memory",
+    # Retrieval strategy for CodeCompass semantic prefilter
+    "chat_retrieval_strategy",
     # Full-scan chat budget
     "chat_full_scan_source_only", "chat_full_scan_max_batches", "chat_full_scan_files_per_batch",
     "chat_full_scan_parallel_batches", "chat_full_scan_timeout_s",
@@ -83,6 +85,7 @@ _DEFAULTS: dict[str, Any] = {
     "chat_retrieval_domain_hint": "",
     "chat_codecompass_trigger_mode": "auto",
     "chat_code_questions_repo_first": False,
+    "chat_retrieval_strategy": "semantic_prefilter",
     "chat_include_task_memory": True,
     "chat_architecture_analysis_mode": "auto",
     "chat_full_scan_source_only": True,
@@ -137,6 +140,7 @@ _OPTIONS: dict[str, list[str]] = {
     "input_history_max_entries": ["20", "50", "100", "200", "500"],
     "chat_retrieval_profile": ["auto", "repo_first", "docs_first", "legacy"],
     "chat_codecompass_trigger_mode": ["auto", "force_codecompass", "force_repo_first", "disabled"],
+    "chat_retrieval_strategy": ["semantic_prefilter", "direct", "transformer_rerank", "hybrid"],
     "chat_architecture_analysis_mode": ["auto", "rag_iterative", "standard", "full_scan", "off"],
     "chat_full_scan_max_batches": ["2", "4", "6", "8", "12", "16"],
     "chat_full_scan_files_per_batch": ["1", "2", "3", "5", "8"],

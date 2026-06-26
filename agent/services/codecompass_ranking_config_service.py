@@ -6,6 +6,7 @@ from typing import Any
 
 from agent.services.codecompass_retrieval_strategy import (
     STRATEGY_DIRECT,
+    STRATEGY_SEMANTIC_PREFILTER,
     ALL_STRATEGIES,
     RetrievalStrategyConfig,
 )
@@ -31,12 +32,12 @@ TRANSFORMER_RERANK_WEIGHTS = {
 
 @dataclass(frozen=True)
 class CodeCompassRankingConfig:
-    restricted_inference_rerank_enabled: bool = False
+    restricted_inference_rerank_enabled: bool = True
     score_weights: dict[str, float] = field(default_factory=lambda: dict(DEFAULT_SCORE_WEIGHTS))
     trace_scores: bool = False
     fallback_without_model: bool = True
     # ── Retrieval strategy ────────────────────────────────────────────────────
-    retrieval_strategy: str = STRATEGY_DIRECT
+    retrieval_strategy: str = STRATEGY_SEMANTIC_PREFILTER
     semantic_prefilter_threshold: float = 0.25
     semantic_prefilter_top_k_multiplier: int = 2
     semantic_prefilter_min_results: int = 1

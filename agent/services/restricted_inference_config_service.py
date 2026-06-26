@@ -269,18 +269,24 @@ class RestrictedInferenceConfigService:
         allowed_engines = [
             str(item) for item in (raw.get("allowed_engines") or sorted(KNOWN_ENGINES))
         ]
-        default_engine = str(raw.get("default_engine") or ENGINE_MOCK)
-        default_model_id = str(raw.get("default_model_id") or "mock-default")
+        default_engine = str(raw.get("default_engine") or ENGINE_SENTENCE_TRANSFORMERS)
+        default_model_id = str(raw.get("default_model_id") or "all-MiniLM-L6-v2")
         device = str(raw.get("device") or "cpu")
 
         raw_models = raw.get("models")
         if isinstance(raw_models, list) and raw_models:
             models = [RestrictedInferenceModelConfig.from_raw(item) for item in raw_models if isinstance(item, dict)]
         else:
+            if default_engine == ENGINE_MOCK:
+                model_name = "mock-deterministic-v1"
+            elif default_engine == ENGINE_SENTENCE_TRANSFORMERS:
+                model_name = default_model_id
+            else:
+                model_name = default_model_id
             models = [RestrictedInferenceModelConfig(
                 id=default_model_id,
                 engine=default_engine,
-                model="mock-deterministic-v1" if default_engine == ENGINE_MOCK else default_model_id,
+                model=model_name,
                 device=device,
                 tasks=sorted(KNOWN_TASKS),
             )]
