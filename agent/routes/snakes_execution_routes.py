@@ -941,6 +941,24 @@ def _build_ui_guide(prompt: str) -> dict | None:
     return None
 
 
+def _should_include_light_ui_context(
+    *,
+    active_session_id: str,
+    active_session_group: str = "",
+    active_session_settings: dict[str, Any] | None = None,
+) -> bool:
+    """Whether a normal chat session should receive the lightweight UI hint."""
+    sid = str(active_session_id or "").strip()
+    if not sid or sid in {"ananta-settings", "ananta-visual"}:
+        return False
+    settings = dict(active_session_settings or {})
+    if settings.get("chat_include_ui_context") is False:
+        return False
+    if str(active_session_group or "").strip().lower() == "architektur":
+        return False
+    return True
+
+
 def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_context: dict | None = None, client_session_id: str = "") -> None:
     prompt = str(user_text or "").strip()
     if not prompt:
@@ -1002,6 +1020,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
             # Resolve active session's system_prompt, ID, and settings overrides
             _active_session_prompt: str | None = None
             _active_session_id: str = ""
+            _active_session_group: str = ""
             _active_session_settings: dict = {}
             try:
                 from client_surfaces.operator_tui.config.user_config_manager import get_manager as _get_mgr2
@@ -1012,6 +1031,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
                     for _sess2 in (_stored2.get("chat_sessions") or []):
                         if str(_sess2.get("id") or "") == _active_sid2:
                             _active_session_prompt = str(_sess2.get("system_prompt") or "").strip() or None
+                            _active_session_group = str(_sess2.get("group") or "").strip()
                             _active_session_settings = dict(_sess2.get("settings") or {})
                             break
             except Exception:
@@ -1024,6 +1044,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
                 try:
                     for _sess2 in (_stored2.get("chat_sessions") or []):
                         if str(_sess2.get("id") or "") == client_session_id:
+                            _active_session_group = str(_sess2.get("group") or "").strip()
                             _active_session_settings = dict(_sess2.get("settings") or {})
                             break
                 except Exception:
@@ -1039,6 +1060,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
                 from client_surfaces.operator_tui.chat_state import DEFAULT_SESSIONS as _DS2
                 for _ds in _DS2:
                     if str(_ds.get("id") or "") == _active_session_id:
+                        _active_session_group = str(_ds.get("group") or _active_session_group or "").strip()
                         _canonical_prompt = str(_ds.get("system_prompt") or "").strip()
                         if _canonical_prompt:
                             _active_session_prompt = _canonical_prompt
@@ -1068,8 +1090,12 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
                 else:
                     prompt = f"[Aktuelle Ananta-Konfiguration]\n{_settings_ctx}\n\n[Nutzerfrage]\n{prompt}"
 
-            elif _active_session_id and _active_session_id not in {"ananta-visual", ""}:
-                # Lightweight UI context for user-created sessions
+            elif _should_include_light_ui_context(
+                active_session_id=_active_session_id,
+                active_session_group=_active_session_group,
+                active_session_settings=_active_session_settings,
+            ):
+                # Lightweight UI context for sessions that explicitly benefit from UI state.
                 _light_ui = (ui_context or {}) or (_snake_ui_state.get(snake_id or "") if snake_id else {}) or {}
                 if _light_ui:
                     _light_hint = str(_light_ui.get("ui_snapshot") or _light_ui.get("route") or "").strip()
