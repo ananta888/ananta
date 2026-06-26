@@ -146,7 +146,7 @@ export class AiSnakeChatService implements OnDestroy {
       { headers: this.withSnakeHeaders() },
     ).subscribe({
       next: () => {
-        const own: SnakeChatMessage = { id, sender_id: snakeId, text: content, created_at: Date.now() / 1000, channel_type: 'room' };
+        const own: SnakeChatMessage = { id, sender_id: snakeId, text: content, created_at: Date.now() / 1000, channel_type: 'room', session_id: activeSessionId };
         this.messages$.next([...this.messages$.value, own].slice(-300));
       },
       error: (err) => {

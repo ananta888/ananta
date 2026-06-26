@@ -408,6 +408,10 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
     this.cfg.load();
     this.restoreRuntimeEndpoints();
     this.sessions.load();
+    // Sync localStorage session into ChatSessionsService so fallback session_id is correct
+    if (this._snakeSessionId && this._snakeSessionId !== 'ananta-settings') {
+      this.sessions.activeSessionId$.next(this._snakeSessionId);
+    }
   }
 
   ngOnInit(): void {
