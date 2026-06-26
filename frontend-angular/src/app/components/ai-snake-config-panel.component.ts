@@ -118,6 +118,12 @@ const FIELDS: ConfigField[] = [
     options: ['paraphrase-multilingual-MiniLM-L12-v2', 'deepset/gbert-base', 'intfloat/multilingual-e5-small'] },
   { key: 'embedding_lang_model_en', label: 'Modell für Englisch', group: 'Embedding / Reranking', type: 'choice',
     options: ['all-MiniLM-L6-v2', 'paraphrase-multilingual-MiniLM-L12-v2', 'intfloat/multilingual-e5-small'] },
+  // Query-Reform / Intent-Extraktion
+  { key: 'query_reform_mode', label: 'Query-Reform Modus', group: 'Query-Reform', type: 'choice',
+    options: ['off', 'regex', 'regex_embed', 'llm'] },
+  { key: 'query_reform_llm_backend', label: 'LLM Backend (Modus: llm)', group: 'Query-Reform', type: 'choice',
+    options: ['ananta-worker', 'opencode', 'lmstudio', 'hermes'] },
+  { key: 'query_reform_llm_model', label: 'LLM Modell (Modus: llm)', group: 'Query-Reform', type: 'text' },
 ];
 
 const PUG_PRESET_QUIET = {

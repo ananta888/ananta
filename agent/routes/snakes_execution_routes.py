@@ -287,8 +287,13 @@ def _build_grounded_snake_prompt(
         # CCRDS-014: resolve runtime domain scope from domain_hint
         domain_scope = _resolve_domain_scope_for_chat(domain_hint)
 
+        # QIE-001: Phase 0 — extract clean search intent before CodeCompass
+        from agent.services.query_intent_extractor import extract_query_intent
+        _qi = extract_query_intent(prompt, cfg)
+        _search_query = _qi.search_query
+
         bundle, grounded = get_rag_service().build_execution_context(
-            prompt,
+            _search_query,
             task_kind="research",
             retrieval_intent=profile.retrieval_intent or "chat_codecompass_overview",
             source_types=profile.source_types or None,

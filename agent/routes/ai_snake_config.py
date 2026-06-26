@@ -34,6 +34,8 @@ _SCHEMA_KEYS: frozenset[str] = frozenset({
     # Embedding / Spracherkennung
     "embedding_model_id", "embedding_lang_detect",
     "embedding_lang_model_de", "embedding_lang_model_en",
+    # Query-Reform / Intent-Extraktion
+    "query_reform_mode", "query_reform_llm_backend", "query_reform_llm_model",
     # Full-scan chat budget
     "chat_full_scan_source_only", "chat_full_scan_max_batches", "chat_full_scan_files_per_batch",
     "chat_full_scan_parallel_batches", "chat_full_scan_timeout_s",
@@ -94,6 +96,10 @@ _DEFAULTS: dict[str, Any] = {
     "embedding_lang_detect": False,
     "embedding_lang_model_de": "paraphrase-multilingual-MiniLM-L12-v2",
     "embedding_lang_model_en": "all-MiniLM-L6-v2",
+    # Query-Reform / Intent-Extraktion
+    "query_reform_mode": "off",
+    "query_reform_llm_backend": "ananta-worker",
+    "query_reform_llm_model": "",
     "chat_include_task_memory": True,
     "chat_architecture_analysis_mode": "auto",
     "chat_full_scan_source_only": True,
@@ -165,6 +171,8 @@ _OPTIONS: dict[str, list[str]] = {
         "paraphrase-multilingual-MiniLM-L12-v2",
         "intfloat/multilingual-e5-small",
     ],
+    "query_reform_mode": ["off", "regex", "regex_embed", "llm"],
+    "query_reform_llm_backend": ["ananta-worker", "opencode", "lmstudio", "hermes"],
     "chat_architecture_analysis_mode": ["auto", "rag_iterative", "standard", "full_scan", "off"],
     "chat_full_scan_max_batches": ["2", "4", "6", "8", "12", "16"],
     "chat_full_scan_files_per_batch": ["1", "2", "3", "5", "8"],
