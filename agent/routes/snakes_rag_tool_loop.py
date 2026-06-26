@@ -18,6 +18,8 @@ from agent.services.rag_context_packer import should_skip_initial_pack
 
 _log = logging.getLogger(__name__)
 
+_UNLIMITED_TOOL_LOOP_MAX_ITERATIONS = 24
+
 _CHAT_TOOLS = [
     {
         "type": "function",
@@ -94,6 +96,16 @@ def _tool_read_file(path: str, repo_root: _pl.Path, max_chars: int) -> str:
                         break
         except Exception:
             pass
+        if len(candidates) == 1:
+            resolved = _resolve_file(candidates[0], repo_root)
+            if resolved is not None:
+                try:
+                    content = resolved.read_text(encoding="utf-8", errors="replace")
+                    if len(content) > max_chars:
+                        content = content[:max_chars] + f"\n... [abgeschnitten nach {max_chars} Zeichen]"
+                    return f"[Pfad automatisch korrigiert: {path} -> {candidates[0]}]\n{content}"
+                except OSError as exc:
+                    return f"[Fehler beim Lesen: {exc}]"
         hint = (
             f"\n[Korrekter Pfad: nutze read_file('{candidates[0]}') — "
             f"Datei gefunden unter: {', '.join(candidates)}]"
@@ -514,7 +526,11 @@ def run_rag_chat_tool_loop(
             ) or "(keine Dateien)",
         )
 
-    for _iteration in range(max_tool_calls + 2):
+    # ``max_tool_calls == 0`` means no configured tool-call limit. Keep a
+    # defensive iteration cap so ambiguous-path hints can be resolved without
+    # risking an infinite LLM/tool loop.
+    _max_iterations = max_tool_calls + 2 if max_tool_calls > 0 else _UNLIMITED_TOOL_LOOP_MAX_ITERATIONS
+    for _iteration in range(_max_iterations):
         if _cancelled():
             if rec:
                 rec.event(

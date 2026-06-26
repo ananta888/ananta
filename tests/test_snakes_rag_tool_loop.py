@@ -23,6 +23,127 @@ class _RecordingTrace:
         self.events.append({"phase": phase, "title": title, **kwargs})
 
 
+def test_tool_read_file_auto_corrects_unique_missing_path(tmp_path):
+    source = tmp_path / "worker" / "retrieval" / "codecompass_architecture_query.py"
+    source.parent.mkdir(parents=True)
+    source.write_text("def run_architecture_query():\n    return 'ok'\n", encoding="utf-8")
+
+    from agent.routes.snakes_rag_tool_loop import _tool_read_file
+
+    result = _tool_read_file(
+        "agent/services/tools/codecompass_architecture_query.py",
+        tmp_path,
+        max_chars=5000,
+    )
+
+    assert result.startswith(
+        "[Pfad automatisch korrigiert: "
+        "agent/services/tools/codecompass_architecture_query.py -> "
+        "worker/retrieval/codecompass_architecture_query.py]"
+    )
+    assert "def run_architecture_query" in result
+
+
+def test_tool_read_file_keeps_hint_for_ambiguous_missing_path(tmp_path):
+    first = tmp_path / "agent" / "same.py"
+    second = tmp_path / "worker" / "same.py"
+    first.parent.mkdir(parents=True)
+    second.parent.mkdir(parents=True)
+    first.write_text("FIRST = True\n", encoding="utf-8")
+    second.write_text("SECOND = True\n", encoding="utf-8")
+
+    from agent.routes.snakes_rag_tool_loop import _tool_read_file
+
+    result = _tool_read_file("missing/same.py", tmp_path, max_chars=5000)
+
+    assert result.startswith("[Fehler: Datei nicht gefunden: missing/same.py]")
+    assert "Korrekter Pfad" in result
+    assert "FIRST = True" not in result
+    assert "SECOND = True" not in result
+
+
+def test_tool_loop_continues_after_ambiguous_path_hint_when_unlimited(tmp_path, monkeypatch):
+    first = tmp_path / "agent" / "same.py"
+    second = tmp_path / "worker" / "same.py"
+    first.parent.mkdir(parents=True)
+    second.parent.mkdir(parents=True)
+    first.write_text("FIRST = True\n", encoding="utf-8")
+    second.write_text("SECOND = True\n", encoding="utf-8")
+
+    from agent.routes.snakes_rag_tool_loop import run_rag_chat_tool_loop
+
+    monkeypatch.setattr(
+        "agent.llm_integration._runtime_provider_urls",
+        lambda: {"lmstudio": "http://llm.test/v1"},
+    )
+    monkeypatch.setattr("agent.llm_integration._runtime_api_key", lambda _provider: "")
+
+    posted_payloads: list[dict] = []
+
+    def _fake_post(_endpoint, *, json=None, **_kwargs):
+        posted_payloads.append(copy.deepcopy(dict(json or {})))
+        if len(posted_payloads) == 1:
+            return _FakeResponse({
+                "choices": [{
+                    "finish_reason": "tool_calls",
+                    "message": {
+                        "content": "",
+                        "tool_calls": [{
+                            "id": "call_1",
+                            "function": {
+                                "name": "read_file",
+                                "arguments": '{"path": "missing/same.py"}',
+                            },
+                        }],
+                    },
+                }]
+            })
+        if len(posted_payloads) == 2:
+            prompt = "\n".join(
+                str(msg.get("content") or "") for msg in posted_payloads[-1]["messages"]
+            )
+            assert "Datei nicht gefunden: missing/same.py" in prompt
+            assert "agent/same.py" in prompt
+            assert "worker/same.py" in prompt
+            return _FakeResponse({
+                "choices": [{
+                    "finish_reason": "tool_calls",
+                    "message": {
+                        "content": "",
+                        "tool_calls": [{
+                            "id": "call_2",
+                            "function": {
+                                "name": "read_file",
+                                "arguments": '{"path": "worker/same.py"}',
+                            },
+                        }],
+                    },
+                }]
+            })
+        return _FakeResponse({
+            "choices": [{
+                "finish_reason": "stop",
+                "message": {"content": "final answer after choosing worker/same.py"},
+            }]
+        })
+
+    monkeypatch.setattr("requests.post", _fake_post)
+
+    answer, trace = run_rag_chat_tool_loop(
+        messages=[{"role": "user", "content": "Frage: was ist in same.py?"}],
+        provider="lmstudio",
+        model="test-model",
+        repo_root=tmp_path,
+        max_tool_calls=0,
+        max_chars_per_file=5000,
+        question="was ist in same.py?",
+    )
+
+    assert answer == "final answer after choosing worker/same.py"
+    assert trace["tool_calls_made"] == 2
+    assert len(posted_payloads) == 3
+
+
 def test_tool_loop_adds_evidence_memory_to_followup_llm_call(tmp_path, monkeypatch):
     source = tmp_path / "agent" / "example.py"
     source.parent.mkdir()
