@@ -256,6 +256,7 @@ def test_snake_ask_forwards_v2_limits_to_worker(client, monkeypatch):
     captured: dict[str, object] = {}
 
     monkeypatch.setattr(rps, "_is_full_scan_intent", lambda *a, **kw: False)
+    monkeypatch.setattr(rps, "_is_rag_iterative_intent", lambda *a, **kw: False)
     monkeypatch.setattr(ser, "_pick_worker_for_ask", lambda: ("http://worker.test", "tok"))
     monkeypatch.setattr(ser, "_resolve_lmstudio_model_for_worker", lambda model: model)
     monkeypatch.setattr(ser, "_resolve_ai_snake_chat_provider", lambda: ("lmstudio", "hub-model", None))
@@ -305,6 +306,7 @@ def test_snake_ask_applies_limits_to_hub_fallback(client, monkeypatch):
     captured_calls: list[dict[str, object]] = []
 
     monkeypatch.setattr(rps, "_is_full_scan_intent", lambda *a, **kw: False)
+    monkeypatch.setattr(rps, "_is_rag_iterative_intent", lambda *a, **kw: False)
     monkeypatch.setattr(ser, "_worker_propose", lambda *args, **kwargs: ("", {"error": "test"}))
     monkeypatch.setattr(ser, "_resolve_ai_snake_chat_provider", lambda: ("lmstudio", "hub-model", None))
 
@@ -344,6 +346,7 @@ def test_snake_ask_summarizes_overlong_hub_answer_before_truncating(client, monk
     calls: list[dict[str, object]] = []
 
     monkeypatch.setattr(rps, "_is_full_scan_intent", lambda *a, **kw: False)
+    monkeypatch.setattr(rps, "_is_rag_iterative_intent", lambda *a, **kw: False)
     monkeypatch.setattr(ser, "_worker_propose", lambda *args, **kwargs: ("", {"error": "test"}))
     monkeypatch.setattr(ser, "_resolve_ai_snake_chat_provider", lambda: ("lmstudio", "hub-model", None))
 
