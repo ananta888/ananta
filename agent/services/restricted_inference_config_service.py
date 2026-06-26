@@ -269,9 +269,30 @@ class RestrictedInferenceConfigService:
         allowed_engines = [
             str(item) for item in (raw.get("allowed_engines") or sorted(KNOWN_ENGINES))
         ]
+        top = self._global_config
+        # Bridge top-level embedding_* keys into restricted_inference when not set explicitly.
+        if not raw.get("default_model_id") and top.get("embedding_model_id"):
+            raw["default_model_id"] = top["embedding_model_id"]
+        for opt_key in ("lang_detect", "lang_model_de", "lang_model_en"):
+            top_key = f"embedding_{opt_key}"
+            if top_key in top and opt_key not in raw:
+                raw[opt_key] = top[top_key]
+
         default_engine = str(raw.get("default_engine") or ENGINE_SENTENCE_TRANSFORMERS)
-        default_model_id = str(raw.get("default_model_id") or "all-MiniLM-L6-v2")
+        default_model_id = str(raw.get("default_model_id") or "paraphrase-multilingual-MiniLM-L12-v2")
         device = str(raw.get("device") or "cpu")
+
+        # Build lang_model_map from flat keys or nested dict.
+        lang_detect = bool(raw.get("lang_detect", False))
+        raw_lang_map = raw.get("lang_model_map")
+        if isinstance(raw_lang_map, dict):
+            lang_model_map: dict[str, str] = {str(k): str(v) for k, v in raw_lang_map.items()}
+        else:
+            lang_model_map = {
+                "de": str(raw.get("lang_model_de") or "paraphrase-multilingual-MiniLM-L12-v2"),
+                "en": str(raw.get("lang_model_en") or "all-MiniLM-L6-v2"),
+                "*": default_model_id,
+            }
 
         raw_models = raw.get("models")
         if isinstance(raw_models, list) and raw_models:
@@ -283,12 +304,14 @@ class RestrictedInferenceConfigService:
                 model_name = default_model_id
             else:
                 model_name = default_model_id
+            extra_options: dict[str, Any] = {"lang_detect": lang_detect, "lang_model_map": lang_model_map}
             models = [RestrictedInferenceModelConfig(
                 id=default_model_id,
                 engine=default_engine,
                 model=model_name,
                 device=device,
                 tasks=sorted(KNOWN_TASKS),
+                options=extra_options,
             )]
 
         raw_tasks = raw.get("tasks") if isinstance(raw.get("tasks"), dict) else {}

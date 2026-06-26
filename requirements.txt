@@ -41,3 +41,5 @@ pypdf
 python-docx
 openpyxl
 python-pptx
+sentence-transformers
+langdetect

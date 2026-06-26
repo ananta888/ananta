@@ -132,6 +132,14 @@ def get_restricted_inference_status():
     })
 
 
+@config_graph_bp.post("/restricted-inference/reload")
+def reload_restricted_inference():
+    """Reset the restricted inference service singleton so it reinitialises on next use."""
+    from agent.services.restricted_model_inference_service import reset_restricted_model_inference_service
+    reset_restricted_model_inference_service(None)
+    return jsonify({"ok": True, "message": "Restricted inference service reset. Next request will reinitialise."})
+
+
 @config_graph_bp.post("/instruction-layer/diff")
 def diff_instruction_layer():
     """Return a review diff for AGENTS.md-style instruction edits.

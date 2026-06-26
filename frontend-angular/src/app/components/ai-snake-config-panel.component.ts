@@ -110,6 +110,14 @@ const FIELDS: ConfigField[] = [
   { key: 'input_history_command_enabled', label: 'Befehle speichern', group: 'Input-Verlauf', type: 'bool' },
   { key: 'input_history_max_entries', label: 'Max. Einträge', group: 'Input-Verlauf', type: 'choice',
     options: ['20', '50', '100', '200', '500'] },
+  // Embedding / Reranking
+  { key: 'embedding_model_id', label: 'Embedding-Modell', group: 'Embedding / Reranking', type: 'choice',
+    options: ['paraphrase-multilingual-MiniLM-L12-v2', 'all-MiniLM-L6-v2', 'deepset/gbert-base', 'intfloat/multilingual-e5-small'] },
+  { key: 'embedding_lang_detect', label: 'Sprach-Erkennung (langdetect)', group: 'Embedding / Reranking', type: 'bool' },
+  { key: 'embedding_lang_model_de', label: 'Modell für Deutsch', group: 'Embedding / Reranking', type: 'choice',
+    options: ['paraphrase-multilingual-MiniLM-L12-v2', 'deepset/gbert-base', 'intfloat/multilingual-e5-small'] },
+  { key: 'embedding_lang_model_en', label: 'Modell für Englisch', group: 'Embedding / Reranking', type: 'choice',
+    options: ['all-MiniLM-L6-v2', 'paraphrase-multilingual-MiniLM-L12-v2', 'intfloat/multilingual-e5-small'] },
 ];
 
 const PUG_PRESET_QUIET = {

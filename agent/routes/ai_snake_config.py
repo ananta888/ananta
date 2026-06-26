@@ -31,6 +31,9 @@ _SCHEMA_KEYS: frozenset[str] = frozenset({
     "chat_include_task_memory",
     # Retrieval strategy for CodeCompass semantic prefilter
     "chat_retrieval_strategy",
+    # Embedding / Spracherkennung
+    "embedding_model_id", "embedding_lang_detect",
+    "embedding_lang_model_de", "embedding_lang_model_en",
     # Full-scan chat budget
     "chat_full_scan_source_only", "chat_full_scan_max_batches", "chat_full_scan_files_per_batch",
     "chat_full_scan_parallel_batches", "chat_full_scan_timeout_s",
@@ -86,6 +89,11 @@ _DEFAULTS: dict[str, Any] = {
     "chat_codecompass_trigger_mode": "auto",
     "chat_code_questions_repo_first": False,
     "chat_retrieval_strategy": "semantic_prefilter",
+    # Embedding / Spracherkennung
+    "embedding_model_id": "paraphrase-multilingual-MiniLM-L12-v2",
+    "embedding_lang_detect": False,
+    "embedding_lang_model_de": "paraphrase-multilingual-MiniLM-L12-v2",
+    "embedding_lang_model_en": "all-MiniLM-L6-v2",
     "chat_include_task_memory": True,
     "chat_architecture_analysis_mode": "auto",
     "chat_full_scan_source_only": True,
@@ -141,6 +149,22 @@ _OPTIONS: dict[str, list[str]] = {
     "chat_retrieval_profile": ["auto", "repo_first", "docs_first", "legacy"],
     "chat_codecompass_trigger_mode": ["auto", "force_codecompass", "force_repo_first", "disabled"],
     "chat_retrieval_strategy": ["semantic_prefilter", "direct", "transformer_rerank", "hybrid"],
+    "embedding_model_id": [
+        "paraphrase-multilingual-MiniLM-L12-v2",
+        "all-MiniLM-L6-v2",
+        "deepset/gbert-base",
+        "intfloat/multilingual-e5-small",
+    ],
+    "embedding_lang_model_de": [
+        "paraphrase-multilingual-MiniLM-L12-v2",
+        "deepset/gbert-base",
+        "intfloat/multilingual-e5-small",
+    ],
+    "embedding_lang_model_en": [
+        "all-MiniLM-L6-v2",
+        "paraphrase-multilingual-MiniLM-L12-v2",
+        "intfloat/multilingual-e5-small",
+    ],
     "chat_architecture_analysis_mode": ["auto", "rag_iterative", "standard", "full_scan", "off"],
     "chat_full_scan_max_batches": ["2", "4", "6", "8", "12", "16"],
     "chat_full_scan_files_per_batch": ["1", "2", "3", "5", "8"],

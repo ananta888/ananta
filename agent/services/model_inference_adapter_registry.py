@@ -159,10 +159,14 @@ def _build_sentence_transformers(model: RestrictedInferenceModelConfig) -> BaseI
         SentenceTransformersAdapter,
     )
 
+    raw_map = model.options.get("lang_model_map")
+    lang_model_map = dict(raw_map) if isinstance(raw_map, dict) else None
     return SentenceTransformersAdapter(
         embedding_model=model.local_path or model.model,
         cross_encoder_model=model.options.get("cross_encoder_model"),
         device=model.device,
+        lang_detect=bool(model.options.get("lang_detect", False)),
+        lang_model_map=lang_model_map,
     )
 
 
