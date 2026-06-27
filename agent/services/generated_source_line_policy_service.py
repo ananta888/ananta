@@ -55,6 +55,7 @@ EXCLUDED_DIR_PARTS = {
     "data",
     "project-workspaces",
     "autoimport-state",
+    "android",
 }
 EXCLUDED_PREFIXES = (
     ".claude/worktrees/",

@@ -225,6 +225,41 @@
       "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
       "follow_up": "RFS-015",
       "expires": "2026-12-31"
+    },
+    {
+      "path": "agent/services/config_graph_builder_service.py",
+      "line_count": 1102,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "agent/services/notation_renderer.py",
+      "line_count": 1501,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "frontend-angular/src/app/features/codehug/components/codehug-internals.component.ts",
+      "line_count": 2525,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "frontend-angular/src/app/features/codehug/graph/codehug-canvas.component.ts",
+      "line_count": 1099,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
+      "line_count": 1935,
+      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
     }
   ]
 }
