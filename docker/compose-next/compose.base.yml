@@ -92,3 +92,10 @@ services:
       PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
     ports:
       - "${FRONTEND_PORT:-4200}:4200"
+    # Mount the host frontend-angular source so ng serve picks up local edits.
+    # node_modules + .angular cache come from named volumes so the host
+    # bind-mount does not wipe the npm install baked into the image.
+    volumes:
+      - ../../frontend-angular:/app/frontend-angular:rw
+      - frontend-node-modules:/app/frontend-angular/node_modules
+      - frontend-angular-cache:/app/frontend-angular/.angular
