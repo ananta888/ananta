@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { VoxtralOfflineService } from './voxtral-offline.service';
 
 export type AgentCapability = 'text_generation' | 'speech_to_text' | 'embedding';
@@ -32,7 +32,7 @@ export interface RemoteFallbackExecutor {
 export class MobileAgentRuntimeAdapterService {
   private remoteFallbackExecutor?: RemoteFallbackExecutor;
 
-  constructor(private readonly voxtral: VoxtralOfflineService) {}
+  private readonly voxtral = inject(VoxtralOfflineService);
 
   configureRemoteFallback(executor: RemoteFallbackExecutor | undefined): void {
     this.remoteFallbackExecutor = executor;

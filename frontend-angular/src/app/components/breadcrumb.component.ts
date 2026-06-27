@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { Router, NavigationEnd, ActivatedRoute } from '@angular/router';
 
 import { RouterModule } from '@angular/router';
@@ -97,10 +97,8 @@ interface Breadcrumb {
 export class BreadcrumbComponent implements OnInit {
   breadcrumbs: Breadcrumb[] = [];
 
-  constructor(
-    private router: Router,
-    private activatedRoute: ActivatedRoute
-  ) {}
+  private readonly router = inject(Router);
+  private readonly activatedRoute = inject(ActivatedRoute);
 
   ngOnInit(): void {
     this.router.events

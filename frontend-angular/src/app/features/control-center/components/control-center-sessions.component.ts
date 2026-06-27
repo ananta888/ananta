@@ -39,7 +39,7 @@ import { ControlCenterStateFacade } from '../services/control-center-state.facad
 })
 export class ControlCenterSessionsComponent implements OnInit, OnDestroy {
   readonly state = inject(ControlCenterStateFacade);
-  constructor(public stream: ControlCenterEventStreamService) {}
+  readonly stream = inject(ControlCenterEventStreamService);
 
   sessions: CcAgentSession[] = [];
 

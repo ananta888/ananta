@@ -1,4 +1,4 @@
-import { AfterViewChecked, Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
+import { AfterViewChecked, Component, ElementRef, EventEmitter, Input, Output, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { marked } from 'marked';
@@ -212,7 +212,7 @@ export class AiAssistantMessageListComponent implements AfterViewChecked {
 
   @ViewChild('chatBox') private chatBox?: ElementRef;
 
-  constructor(private readonly domain: AiAssistantDomainService) {}
+  private readonly domain = inject(AiAssistantDomainService);
 
   ngAfterViewChecked(): void {
     if (this.chatBox) {
