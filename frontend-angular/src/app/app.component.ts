@@ -1,4 +1,4 @@
-import { Component, HostListener, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, HostListener, OnInit, OnDestroy, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet, Router } from '@angular/router';
 import { Capacitor } from '@capacitor/core';
 import { NotificationsComponent } from './components/notifications.component';
@@ -21,6 +21,7 @@ import { SecurityStorageBannerComponent } from './components/security-storage-ba
 @Component({
   selector: 'app-root',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterLink, RouterLinkActive, RouterOutlet, NotificationsComponent, ToastComponent, AsyncPipe, AiAssistantComponent, BreadcrumbComponent, SnakeOverlayComponent, SecurityStorageBannerComponent],
   template: `
     <a class="skip-link" href="#main-content">Zum Inhalt springen</a>
@@ -304,7 +305,22 @@ export class AppComponent implements OnInit, OnDestroy {
   private readonly swipeTriggerPx = 72;
   private readonly verticalTolerancePx = 44;
 
-  get isAndroidNative(): boolean {
+  // Signals backing the template so OnPush change-detection stays consistent
+  private readonly _userPayload = signal<unknown>(null);
+  private readonly _isLoggedIn = signal<boolean>(false);
+  readonly headerUser = computed(() => {
+    const user = this._userPayload();
+    if (user && typeof user === 'object') {
+      const u = user as Record<string, unknown>;
+      const sub = String(u['sub'] || u['username'] || u['preferred_username'] || '').trim() || 'angemeldet';
+      const role = String(u['role'] || '').trim() || 'user';
+      return { sub, role };
+    }
+    if (this._isLoggedIn()) return { sub: 'angemeldet', role: 'user' };
+    return null;
+  });
+
+get isAndroidNative(): boolean {
     return this.mobile.isNative && Capacitor.getPlatform() === 'android';
   }
 
@@ -319,6 +335,13 @@ export class AppComponent implements OnInit, OnDestroy {
       } else {
         this.system.disconnectSystemEvents();
       }
+    });
+    // Keep signals in sync with auth state — fixes NG0100 with OnPush
+    this._userPayload.set(this.auth.userPayload);
+    this._isLoggedIn.set(this.auth.isLoggedIn());
+    this.authSub = this.auth.token$.subscribe(() => {
+      this._userPayload.set(this.auth.userPayload);
+      this._isLoggedIn.set(this.auth.isLoggedIn());
     });
   }
 
@@ -487,18 +510,5 @@ export class AppComponent implements OnInit, OnDestroy {
   private resetSwipeTracking(): void {
     this.trackingOpenSwipe = false;
     this.trackingCloseSwipe = false;
-  }
-
-  get headerUser(): { sub: string; role: string } | null {
-    const user = this.auth.userPayload;
-    if (user && typeof user === 'object') {
-      const sub = String((user as any).sub || (user as any).username || (user as any).preferred_username || '').trim() || 'angemeldet';
-      const role = String((user as any).role || '').trim() || 'user';
-      return { sub, role };
-    }
-    if (this.auth.isLoggedIn()) {
-      return { sub: 'angemeldet', role: 'user' };
-    }
-    return null;
   }
 }
