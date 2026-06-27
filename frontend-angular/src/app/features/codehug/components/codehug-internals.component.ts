@@ -1,5 +1,4 @@
 import {
-  AfterViewInit,
   ChangeDetectionStrategy,
   Component,
   ElementRef,
@@ -1430,7 +1429,7 @@ const ARTIFACT_KINDS = ['code', 'text', 'json', 'report', 'binary', 'file'] as c
 .ch-pal-elem-join { border-left-color: #0284c7; }
   `],
 })
-export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestroy {
+export class CodeHugInternalsComponent implements OnInit, OnDestroy {
   @ViewChild('svgEl') svgElRef!: ElementRef<SVGSVGElement>;
 
   private readonly svc = inject(InternalsService);
@@ -1559,7 +1558,6 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
       .subscribe(s => this.autopilot.set(s));
   }
 
-  ngAfterViewInit(): void {}
   ngOnDestroy(): void {
     this._pollSub?.unsubscribe();
     this._workflowPollSub?.unsubscribe();

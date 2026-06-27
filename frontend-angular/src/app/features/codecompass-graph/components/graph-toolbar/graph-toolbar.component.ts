@@ -1,7 +1,7 @@
 import {
-  Component, Input, Output, EventEmitter, OnChanges, ChangeDetectionStrategy, signal, computed,
+  Component, Input, Output, EventEmitter, ChangeDetectionStrategy, signal, computed,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { GraphFilter } from '../../models/graph-filter.model';
 import { GraphNodeKind, GraphEdgeType } from '../../models/graph.model';
@@ -53,7 +53,7 @@ const NODE_GROUPS: NodeGroup[] = [
   standalone: true,
   selector: 'app-graph-toolbar',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   template: `
     <div class="toolbar">
 
@@ -256,7 +256,7 @@ const NODE_GROUPS: NodeGroup[] = [
     .reset-btn { padding: 3px 8px; border: 1px solid #f87171; background: #fff; color: #b91c1c; border-radius: 4px; cursor: pointer; font-size: .8rem; }
   `],
 })
-export class GraphToolbarComponent implements OnChanges {
+export class GraphToolbarComponent {
   @Input() activeMode: GraphViewMode = 'simple';
   @Input() layoutMode: GraphLayoutMode = 'tier';
   @Input() filter: GraphFilter = { searchText: '', nodeKindFilter: [], edgeTypeFilter: [] };
@@ -293,9 +293,7 @@ export class GraphToolbarComponent implements OnChanges {
     return `${shown}/${ALL_NODE_KINDS.length}`;
   });
 
-  ngOnChanges(): void {
-    // panels stay open across filter changes — nothing to sync
-  }
+  // panels stay open across filter changes — no ngOnChanges sync needed
 
   // ── Edge helpers ─────────────────────────────────────────────────────────────
 

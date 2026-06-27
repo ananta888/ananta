@@ -6,7 +6,6 @@ import {
   EventEmitter,
   Input,
   OnChanges,
-  OnDestroy,
   Output,
   SimpleChanges,
   ViewChild,
@@ -50,7 +49,7 @@ import { ChWorkerInstanceReadModel, ChHubInstanceReadModel, ChTopologyConnection
     }
   `]
 })
-export class TopologyGraphComponent implements AfterViewInit, OnChanges, OnDestroy {
+export class TopologyGraphComponent implements AfterViewInit, OnChanges {
   @ViewChild('canvas', { static: true }) canvasRef!: ElementRef<HTMLDivElement>;
 
   @Input() hubs: ChHubInstanceReadModel[] = [];
@@ -72,8 +71,6 @@ export class TopologyGraphComponent implements AfterViewInit, OnChanges, OnDestr
       this.renderSvg();
     }
   }
-
-  ngOnDestroy(): void { /* nothing to tear down */ }
 
   private renderSvg(): void {
     const host = this.canvasRef.nativeElement;
