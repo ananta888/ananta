@@ -50,3 +50,5 @@ volumes:
   hub-data:
   alpha-data:
   beta-data:
+  frontend-node-modules:
+  frontend-angular-cache:
