@@ -214,6 +214,12 @@ class Settings(BaseSettings):
     oidc_jwks_cache_seconds: int = Field(default=3600, validation_alias="OIDC_JWKS_CACHE_SECONDS")
     # Erlaubte Signaturalgorithmen — RS256 ist der OIDC-Default.
     oidc_allowed_algorithms: str = Field(default="RS256", validation_alias="OIDC_ALLOWED_ALGORITHMS")
+    # Self-Registration am Keycloak-IdP opt-in zulassen.  Default-deny.
+    # Aktivierung erfordert zusätzlich, dass die Keycloak-Realm
+    # `registrationAllowed=true` gesetzt hat (Realm-Einstellung, nicht
+    # im Hub-Code steuerbar).  Siehe `docs/identity-architecture.md`,
+    # Sektion "Self-Registration am IdP".
+    oidc_registration_allowed: bool = Field(default=False, validation_alias="OIDC_REGISTRATION_ALLOWED")
 
     # Initial User
     initial_admin_user: str = Field(default="admin", validation_alias="INITIAL_ADMIN_USER")

@@ -35,6 +35,7 @@ class OidcConfig:
     client_id: str
     jwks_cache_seconds: int
     allowed_algorithms: tuple[str, ...]
+    registration_allowed: bool
 
 
 def _load() -> OidcConfig:
@@ -49,6 +50,7 @@ def _load() -> OidcConfig:
         client_id=str(settings.oidc_client_id or "").strip(),
         jwks_cache_seconds=int(settings.oidc_jwks_cache_seconds or 3600),
         allowed_algorithms=algos,
+        registration_allowed=bool(settings.oidc_registration_allowed),
     )
 
 

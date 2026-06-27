@@ -19,6 +19,7 @@ def _config() -> OidcConfig:
         client_id="ananta-web",
         jwks_cache_seconds=60,
         allowed_algorithms=("RS256",),
+        registration_allowed=False,
     )
 
 

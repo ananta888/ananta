@@ -81,6 +81,10 @@ def get_network_profile(profile_id: str):
         "hub_link_enabled": link_enabled,
         # Backward-compatible alias for clients introduced during Welle 4.
         "bridge_active": link_enabled,
+        # Self-Registration am IdP: nur sichtbar wenn OIDC configured UND
+        # die env-Var OIDC_REGISTRATION_ALLOWED=true gesetzt ist.
+        # Default-deny wenn OIDC nicht konfiguriert.
+        "registration_allowed": bool(oidc_is_configured() and get_oidc_config().registration_allowed),
     }
 
     return jsonify({
