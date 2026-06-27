@@ -1,11 +1,18 @@
+import { TestBed } from '@angular/core/testing';
 import { MobileAgentRuntimeAdapterService } from './mobile-agent-runtime-adapter.service';
+import { VoxtralOfflineService } from './voxtral-offline.service';
 
 describe('MobileAgentRuntimeAdapterService', () => {
   const build = () => {
     const voxtral = {
       transcribe: vi.fn(async () => ({ transcript: 'ok' })),
-    } as any;
-    const service = new MobileAgentRuntimeAdapterService(voxtral);
+    } as unknown as VoxtralOfflineService;
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: VoxtralOfflineService, useValue: voxtral },
+      ],
+    });
+    const service = TestBed.inject(MobileAgentRuntimeAdapterService);
     return { service, voxtral };
   };
 

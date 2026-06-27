@@ -16,7 +16,7 @@ describe('dashboard quick goal flow', () => {
     component.nextSteps = [nextStep];
     component.textChange.subscribe(value => seen['text'] = value);
     component.selectPreset.subscribe(value => seen['preset'] = value);
-    component.submit.subscribe(() => seen['submit'] = true);
+    component.submitRequested.subscribe(() => seen['submit'] = true);
     component.openGoal.subscribe(value => seen['goal'] = value);
     component.openBoard.subscribe(() => seen['board'] = true);
     component.selectNextStep.subscribe(value => seen['step'] = value);
@@ -24,7 +24,7 @@ describe('dashboard quick goal flow', () => {
 
     component.textChange.emit('Neue Aufgabe');
     component.selectPreset.emit('review');
-    component.submit.emit();
+    component.submitRequested.emit();
     component.openGoal.emit('goal-1');
     component.openBoard.emit();
     component.selectNextStep.emit(nextStep);

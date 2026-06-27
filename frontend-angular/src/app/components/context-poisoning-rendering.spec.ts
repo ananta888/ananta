@@ -1,10 +1,15 @@
+import { TestBed } from '@angular/core/testing';
 import { AiAssistantDomainService } from './ai-assistant-domain.service';
 import { AiAssistantMessageListComponent } from './ai-assistant-message-list.component';
 import { ArtifactsComponent } from './artifacts.component';
 
 describe('context poisoning rendering guardrails', () => {
   function messageList(): AiAssistantMessageListComponent {
-    const component = new AiAssistantMessageListComponent(new AiAssistantDomainService());
+    TestBed.configureTestingModule({
+      providers: [{ provide: AiAssistantDomainService, useValue: {} }],
+    });
+    const fixture = TestBed.createComponent(AiAssistantMessageListComponent);
+    const component = fixture.componentInstance;
     component.chatHistory = [];
     component.busy = false;
     return component;

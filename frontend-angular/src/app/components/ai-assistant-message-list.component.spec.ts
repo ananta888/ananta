@@ -1,9 +1,11 @@
+import { TestBed } from '@angular/core/testing';
 import { AiAssistantMessageListComponent } from './ai-assistant-message-list.component';
 import { AiAssistantDomainService } from './ai-assistant-domain.service';
 
 describe('AiAssistantMessageListComponent', () => {
   function createComponent(): AiAssistantMessageListComponent & { [key: string]: any } {
-    const cmp = new AiAssistantMessageListComponent(new AiAssistantDomainService()) as AiAssistantMessageListComponent & {
+    const fixture = TestBed.createComponent(AiAssistantMessageListComponent);
+    const cmp = fixture.componentInstance as AiAssistantMessageListComponent & {
       [key: string]: any;
     };
     cmp.chatHistory = [];

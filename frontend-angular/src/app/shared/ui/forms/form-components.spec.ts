@@ -43,12 +43,12 @@ describe('shared form components', () => {
     cmp.activeIndex = 0;
     cmp.next.subscribe(() => events.push('next'));
     cmp.previous.subscribe(() => events.push('previous'));
-    cmp.submit.subscribe(() => events.push('submit'));
+    cmp.submitRequested.subscribe(() => events.push('submit'));
     cmp.stepSelect.subscribe(index => events.push(`step:${index}`));
 
     cmp.next.emit();
     cmp.previous.emit();
-    cmp.submit.emit();
+    cmp.submitRequested.emit();
     cmp.stepSelect.emit(1);
 
     expect(events).toEqual(['next', 'previous', 'submit', 'step:1']);
