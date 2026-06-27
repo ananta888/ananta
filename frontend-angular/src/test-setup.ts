@@ -13,6 +13,28 @@ if (!g.crypto || !g.crypto.subtle) {
   g.crypto = nodeCrypto.webcrypto;
 }
 
+// JSDOM provides localStorage, but vitest's per-file module resets can
+// tear it down between test files. The auth services use localStorage
+// from field initializers and async cleanup paths, so a ReferenceError
+// here manifests as a vitest "unhandled error" that fails the run.
+// Polyfill with a no-op in-memory stub when localStorage is missing.
+if (typeof (globalThis as any).localStorage === 'undefined') {
+  const memory = new Map<string, string>();
+  const stub = {
+    getItem: (k: string) => (memory.has(k) ? memory.get(k)! : null),
+    setItem: (k: string, v: string) => { memory.set(k, String(v)); },
+    removeItem: (k: string) => { memory.delete(k); },
+    clear: () => { memory.clear(); },
+    key: (i: number) => Array.from(memory.keys())[i] ?? null,
+    get length() { return memory.size; },
+  };
+  Object.defineProperty(globalThis, 'localStorage', {
+    value: stub,
+    writable: false,
+    configurable: true,
+  });
+}
+
 const createCanvas2dContextStub = () => {
   const state: Record<string, unknown> = {};
   return new Proxy(state, {
