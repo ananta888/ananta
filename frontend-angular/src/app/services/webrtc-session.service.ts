@@ -193,10 +193,10 @@ export class WebrtcSessionService {
     const event: AuditEvent = { ts: Date.now() / 1000, type, session_id: this.sessionId, detail };
     this.auditLog.push(event);
     if (this.auditLog.length > 200) this.auditLog.shift();
-
-    const url = this.hubUrl;
-    if (url) {
-      this.core.post(`${url}/api/audit/webrtc`, event, url).subscribe({ error: () => {} });
-    }
+    // Audit events stay in-memory only (this.auditLog). The Hub has no
+    // /api/audit/webrtc endpoint — sending the POST would surface a 404
+    // in the console and trip the auth interceptor's refresh logic.
+    // If a future Hub version exposes such an endpoint, wire it up here.
+    void event;
   }
 }
