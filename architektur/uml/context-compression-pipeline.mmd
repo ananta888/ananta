@@ -36,7 +36,7 @@ flowchart TD
     SR[SecretRedactor\nscans 11 secret patterns\nredacts before storage]:::securitynode
 
     %% ── A/B Router ───────────────────────────────────────────────────────────
-    ABR{ABRouter\nsha256(seed:content_id)\n% bucket routing}:::optional
+    ABR{"ABRouter\nsha256(seed:content_id)\nbucket routing"}:::optional
 
     %% ── Adapter implementations ──────────────────────────────────────────────
     SC[SmartCompressor\nananta_smart_compressor\nJSON · log · search · generic\nstrategies — no LLM calls]:::core
