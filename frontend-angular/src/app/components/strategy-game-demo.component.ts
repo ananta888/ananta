@@ -1,4 +1,4 @@
-import { CommonModule } from '@angular/common';
+
 import { Component } from '@angular/core';
 
 import { DEMO_GAME_MAP, GameMapUiContract, GameMapTerritoryView } from '../features/strategy-game/game-map.contract';
@@ -6,7 +6,7 @@ import { DEMO_GAME_MAP, GameMapUiContract, GameMapTerritoryView } from '../featu
 @Component({
   standalone: true,
   selector: 'app-strategy-game-demo',
-  imports: [CommonModule],
+  imports: [],
   template: `
     <section class="card strategy-demo">
       <h2>{{ map.title }}</h2>

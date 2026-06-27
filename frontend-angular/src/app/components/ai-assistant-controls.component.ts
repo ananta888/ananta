@@ -1,5 +1,5 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 
 import { AssistantRuntimeContext, CliBackend } from './ai-assistant.types';
@@ -7,7 +7,7 @@ import { AssistantRuntimeContext, CliBackend } from './ai-assistant.types';
 @Component({
   standalone: true,
   selector: 'app-ai-assistant-controls',
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   template: `
     <div class="input-area">
       <input

@@ -16,46 +16,52 @@ import { catchError } from 'rxjs/operators';
         <button class="btn btn-sm btn-outline-primary" (click)="loadVersions()">Aktualisieren</button>
       </div>
       <div class="card-body p-0">
-        <div *ngIf="policies$ | async as policies; else loading" class="table-responsive">
-          <table class="table table-hover mb-0">
-            <thead class="table-light">
-              <tr>
-                <th>Version</th>
-                <th>Status</th>
-                <th>Erstellt</th>
-                <th>Aktionen</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let p of policies" [class.table-active]="p.validation_state === 'active'">
-                <td>v{{ p.version }}</td>
-                <td>
-                  <span class="badge" [ngClass]="getStatusClass(p.validation_state)">
-                    {{ p.validation_state }}
-                  </span>
-                </td>
-                <td>{{ p.created_at | date:'short' }}</td>
-                <td>
-                  <button class="btn btn-sm btn-link" (click)="viewPolicy(p)">Ansehen</button>
-                  <button class="btn btn-sm btn-link" 
-                          *ngIf="p.validation_state !== 'active'" 
-                          (click)="activatePolicy(p)">Aktivieren</button>
-                </td>
-              </tr>
-              <tr *ngIf="policies.length === 0">
-                <td colspan="4" class="text-center py-3 text-muted">Keine Versionen gefunden.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <ng-template #loading>
+        @if (policies$ | async; as policies) {
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Version</th>
+                  <th>Status</th>
+                  <th>Erstellt</th>
+                  <th>Aktionen</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (p of policies; track p) {
+                  <tr [class.table-active]="p.validation_state === 'active'">
+                    <td>v{{ p.version }}</td>
+                    <td>
+                      <span class="badge" [ngClass]="getStatusClass(p.validation_state)">
+                        {{ p.validation_state }}
+                      </span>
+                    </td>
+                    <td>{{ p.created_at | date:'short' }}</td>
+                    <td>
+                      <button class="btn btn-sm btn-link" (click)="viewPolicy(p)">Ansehen</button>
+                      @if (p.validation_state !== 'active') {
+                        <button class="btn btn-sm btn-link"
+                        (click)="activatePolicy(p)">Aktivieren</button>
+                      }
+                    </td>
+                  </tr>
+                }
+                @if (policies.length === 0) {
+                  <tr>
+                    <td colspan="4" class="text-center py-3 text-muted">Keine Versionen gefunden.</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
           <div class="text-center py-4">
             <div class="spinner-border text-primary" role="status"></div>
           </div>
-        </ng-template>
+        }
       </div>
     </div>
-  `,
+    `,
   styles: [`
     .version-list-container { margin-top: 20px; }
     .badge-active { background-color: #28a745; }

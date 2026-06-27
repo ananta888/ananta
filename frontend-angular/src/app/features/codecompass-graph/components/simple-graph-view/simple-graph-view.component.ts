@@ -1,12 +1,12 @@
 import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, OnChanges } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { GraphEdge, GraphNode, GenericGraphModel } from '../../models/graph.model';
 
 @Component({
   standalone: true,
   selector: 'app-simple-graph-view',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule],
+  imports: [],
   template: `
     @if (!graph || graph.nodes.length === 0) {
       <p class="empty-msg">No nodes to display.</p>
@@ -15,37 +15,41 @@ import { GraphEdge, GraphNode, GenericGraphModel } from '../../models/graph.mode
         <section class="sgv-col">
           <h4>Nodes ({{ graph.nodes.length }})</h4>
           <div class="sgv-scroll">
-            <div *ngFor="let node of graph.nodes; trackBy: trackNode"
-              class="sgv-row sgv-node"
-              [class.selected]="selectedNode?.id === node.id"
-              (click)="nodeSelected.emit(node)">
-              <span class="badge kind">{{ node.kind }}</span>
-              <span class="label">{{ node.label }}</span>
-              @if (node.file) {
-                <span class="file muted">{{ node.file }}</span>
-              }
-            </div>
+            @for (node of graph.nodes; track trackNode($index, node)) {
+              <div
+                class="sgv-row sgv-node"
+                [class.selected]="selectedNode?.id === node.id"
+                (click)="nodeSelected.emit(node)">
+                <span class="badge kind">{{ node.kind }}</span>
+                <span class="label">{{ node.label }}</span>
+                @if (node.file) {
+                  <span class="file muted">{{ node.file }}</span>
+                }
+              </div>
+            }
           </div>
         </section>
-
+    
         <section class="sgv-col">
           <h4>Edges ({{ graph.edges.length }})</h4>
           <div class="sgv-scroll">
-            <div *ngFor="let edge of graph.edges; trackBy: trackEdge"
-              class="sgv-row sgv-edge"
-              [class.selected]="selectedEdge?.id === edge.id"
-              (click)="edgeSelected.emit(edge)">
-              <span class="badge etype">{{ edge.edgeType }}</span>
-              <span class="label">{{ srcLabel(edge) }} → {{ tgtLabel(edge) }}</span>
-              @if (edge.confidence < 1) {
-                <span class="muted conf">{{ (edge.confidence * 100).toFixed(0) }}%</span>
-              }
-            </div>
+            @for (edge of graph.edges; track trackEdge($index, edge)) {
+              <div
+                class="sgv-row sgv-edge"
+                [class.selected]="selectedEdge?.id === edge.id"
+                (click)="edgeSelected.emit(edge)">
+                <span class="badge etype">{{ edge.edgeType }}</span>
+                <span class="label">{{ srcLabel(edge) }} → {{ tgtLabel(edge) }}</span>
+                @if (edge.confidence < 1) {
+                  <span class="muted conf">{{ (edge.confidence * 100).toFixed(0) }}%</span>
+                }
+              </div>
+            }
           </div>
         </section>
       </div>
     }
-  `,
+    `,
   styles: [`
     :host { display: flex; flex-direction: column; flex: 1; width: 100%; height: 100%; min-height: 0; padding: .5rem; box-sizing: border-box; }
     .sgv-layout { display: flex; gap: 1rem; flex: 1; min-height: 0; overflow: hidden; }

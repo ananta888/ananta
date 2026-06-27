@@ -1,4 +1,4 @@
-import { CommonModule } from '@angular/common';
+
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, inject } from '@angular/core';
 
@@ -23,7 +23,7 @@ type SourcePackItem = {
 @Component({
   standalone: true,
   selector: 'app-sources',
-  imports: [CommonModule],
+  imports: [],
   template: `
     <section class="card sources-page">
       <div class="sources-head">

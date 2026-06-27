@@ -9,7 +9,7 @@ import { ContextAccessPolicyApiService } from '../../services/context-access-pol
   template: `
     <div class="global-dashboard p-4">
       <h3 class="mb-4">Globales Daten-Grenzschutz Dashboard (T022)</h3>
-      
+    
       <div class="row g-4 mb-4">
         <div class="col-md-3">
           <div class="card bg-primary text-white shadow-sm h-100">
@@ -44,7 +44,7 @@ import { ContextAccessPolicyApiService } from '../../services/context-access-pol
           </div>
         </div>
       </div>
-
+    
       <div class="card shadow-sm">
         <div class="card-header bg-white">
           <h5 class="mb-0">Projekt-Status Übersicht</h5>
@@ -61,33 +61,39 @@ import { ContextAccessPolicyApiService } from '../../services/context-access-pol
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let p of projectStats">
-                <td><strong>{{ p.name }}</strong></td>
-                <td>
-                   <span class="badge" [ngClass]="p.policyActive ? 'bg-success' : 'bg-secondary'">
-                     {{ p.policyActive ? 'Aktiv' : 'Inaktiv' }}
-                   </span>
-                   <small class="ms-1 text-muted">v{{ p.version }}</small>
-                </td>
-                <td>
-                   <span class="badge" [ngClass]="getRiskClass(p.riskLevel)">
-                     {{ p.riskLevel | uppercase }}
-                   </span>
-                </td>
-                <td>
-                   <span *ngIf="p.violations > 0" class="badge bg-danger rounded-pill">{{ p.violations }}</span>
-                   <span *ngIf="p.violations === 0" class="text-success small"><i class="bi bi-check-circle"></i></span>
-                </td>
-                <td>
-                   <button class="btn btn-sm btn-outline-primary">Konfigurieren</button>
-                </td>
-              </tr>
+              @for (p of projectStats; track p) {
+                <tr>
+                  <td><strong>{{ p.name }}</strong></td>
+                  <td>
+                    <span class="badge" [ngClass]="p.policyActive ? 'bg-success' : 'bg-secondary'">
+                      {{ p.policyActive ? 'Aktiv' : 'Inaktiv' }}
+                    </span>
+                    <small class="ms-1 text-muted">v{{ p.version }}</small>
+                  </td>
+                  <td>
+                    <span class="badge" [ngClass]="getRiskClass(p.riskLevel)">
+                      {{ p.riskLevel | uppercase }}
+                    </span>
+                  </td>
+                  <td>
+                    @if (p.violations > 0) {
+                      <span class="badge bg-danger rounded-pill">{{ p.violations }}</span>
+                    }
+                    @if (p.violations === 0) {
+                      <span class="text-success small"><i class="bi bi-check-circle"></i></span>
+                    }
+                  </td>
+                  <td>
+                    <button class="btn btn-sm btn-outline-primary">Konfigurieren</button>
+                  </td>
+                </tr>
+              }
             </tbody>
           </table>
         </div>
       </div>
     </div>
-  `,
+    `,
   styles: []
 })
 export class GlobalPolicyDashboardComponent {

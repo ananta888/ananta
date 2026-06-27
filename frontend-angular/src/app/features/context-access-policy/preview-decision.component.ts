@@ -18,7 +18,7 @@ import { ContextBlockAccessDecision, DestinationContextPreview, ModelScope } fro
           <label class="form-label">Quell-Metadaten (Simuliert)</label>
           <textarea class="form-control form-control-sm font-monospace" [(ngModel)]="sourceMetadataJson" rows="3"></textarea>
         </div>
-
+    
         <div class="row g-2 mb-3">
           <div class="col-md-6">
             <label class="form-label small">Worker Kind</label>
@@ -27,23 +27,29 @@ import { ContextBlockAccessDecision, DestinationContextPreview, ModelScope } fro
           <div class="col-md-6">
             <label class="form-label small">Model Scope</label>
             <select class="form-select form-select-sm" [(ngModel)]="destination.model_scope">
-              <option *ngFor="let s of modelScopes" [value]="s">{{ s }}</option>
+              @for (s of modelScopes; track s) {
+                <option [value]="s">{{ s }}</option>
+              }
             </select>
           </div>
         </div>
-
+    
         <button class="btn btn-sm btn-info w-100" (click)="preview()">Entscheidung prüfen</button>
-
-        <div *ngIf="decision" class="mt-3 p-2 rounded" [ngClass]="getDecisionClass(decision.decision)">
-          <div class="d-flex justify-content-between">
-            <strong>{{ decision.decision | uppercase }}</strong>
-            <small>{{ decision.reason_code }}</small>
+    
+        @if (decision) {
+          <div class="mt-3 p-2 rounded" [ngClass]="getDecisionClass(decision.decision)">
+            <div class="d-flex justify-content-between">
+              <strong>{{ decision.decision | uppercase }}</strong>
+              <small>{{ decision.reason_code }}</small>
+            </div>
+            @if (decision.reason_detail) {
+              <p class="mb-0 small">{{ decision.reason_detail }}</p>
+            }
           </div>
-          <p class="mb-0 small" *ngIf="decision.reason_detail">{{ decision.reason_detail }}</p>
-        </div>
+        }
       </div>
     </div>
-  `,
+    `,
   styles: []
 })
 export class PreviewDecisionComponent {

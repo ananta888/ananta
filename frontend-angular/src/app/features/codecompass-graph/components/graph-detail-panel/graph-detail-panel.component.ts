@@ -1,12 +1,12 @@
 import { Component, Input, Output, EventEmitter, OnChanges, ChangeDetectionStrategy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { GraphNode, GraphEdge } from '../../models/graph.model';
 
 @Component({
   standalone: true,
   selector: 'app-graph-detail-panel',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule],
+  imports: [],
   template: `
     <div class="panel">
       @if (!selectedNode && !selectedEdge) {

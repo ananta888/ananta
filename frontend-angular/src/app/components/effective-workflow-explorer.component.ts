@@ -26,7 +26,7 @@ import {
           <button class="secondary" (click)="downloadSnapshot()" [disabled]="!result">Snapshot</button>
         </div>
       </div>
-
+    
       <section class="query-band">
         <label>
           <span>Surface</span>
@@ -45,150 +45,175 @@ import {
           <button class="secondary" (click)="swapCompare()" [disabled]="!result">Vergleich übernehmen</button>
         </div>
       </section>
-
+    
       <datalist id="ew-surfaces">
-        <option *ngFor="let item of options?.surfaces || []" [value]="item"></option>
+        @for (item of options?.surfaces || []; track item) {
+          <option [value]="item"></option>
+        }
       </datalist>
       <datalist id="ew-task-kinds">
-        <option *ngFor="let item of options?.task_kinds || []" [value]="item"></option>
+        @for (item of options?.task_kinds || []; track item) {
+          <option [value]="item"></option>
+        }
       </datalist>
       <datalist id="ew-paths">
-        <option *ngFor="let item of options?.path_suggestions || []" [value]="item"></option>
+        @for (item of options?.path_suggestions || []; track item) {
+          <option [value]="item"></option>
+        }
       </datalist>
-
-      <div class="status error" *ngIf="error">{{ error }}</div>
-      <div class="status" *ngIf="loading">Lade wirksame Workflow-Konfiguration...</div>
-
-      <main class="ew-layout" *ngIf="result">
-        <section class="summary-strip" [class.warning]="result.status === 'warning'" [class.blocked]="result.status === 'blocked'">
-          <strong>{{ result.status | uppercase }}</strong>
-          <span>{{ result.summary }}</span>
-        </section>
-
-        <aside class="left-pane">
-          <div class="pane-head">Wirksame Kette</div>
-          <button
-            class="chain-node"
-            *ngFor="let node of result.effective_chain"
-            [class.active]="node.id === selectedNodeId"
-            [class.readonly]="!node.writable"
-            (click)="selectNode(node.id)">
-            <span class="node-type">{{ node.node_type }}</span>
-            <strong>{{ node.label }}</strong>
-            <small>{{ node.source_file || node.source_kind || 'derived' }}</small>
-          </button>
-
-          <div class="pane-head spaced">Edit-Ziele</div>
-          <a
-            class="edit-link"
-            *ngFor="let link of result.edit_links"
-            [href]="asString(link['route'])">
-            <span>{{ link['label'] }}</span>
-            <small>{{ link['editor'] }} · {{ link['writable'] ? 'schreibbar' : 'read-only' }}</small>
-          </a>
-        </aside>
-
-        <section class="center-pane">
-          <div class="section-row">
-            <article>
-              <h3>Auswahl</h3>
-              <dl class="kv">
-                <div><dt>Profil</dt><dd>{{ profileLabel() }}</dd></div>
-                <div><dt>Blueprint</dt><dd>{{ blueprintLabel() }}</dd></div>
-                <div><dt>Teamtyp</dt><dd>{{ asString(result.selected['team_type']) || '-' }}</dd></div>
-                <div><dt>Worker</dt><dd>{{ selectedCount('worker_routing') }}</dd></div>
-                <div><dt>Tools</dt><dd>{{ toolsLabel() }}</dd></div>
-                <div><dt>Write Policy</dt><dd>{{ writePolicyLabel() }}</dd></div>
-              </dl>
-            </article>
-
-            <article *ngIf="result.warnings.length || result.blocked.length">
-              <h3>Diagnostik</h3>
-              <ul class="diag-list">
-                <li *ngFor="let item of result.blocked" class="blocked">{{ item['code'] }}: {{ item['message'] }}</li>
-                <li *ngFor="let item of result.warnings">{{ item['code'] }}: {{ item['message'] }}</li>
-              </ul>
-            </article>
-          </div>
-
-          <article class="node-detail" *ngIf="selectedNode() as node">
-            <div class="detail-head">
-              <div>
-                <span class="node-type">{{ node.node_type }}</span>
-                <h3>{{ node.label }}</h3>
-              </div>
-              <button class="secondary" (click)="explainSelectedNode()">Node erklären</button>
-            </div>
-            <dl class="kv">
-              <div><dt>Quelle</dt><dd>{{ sourceLabel(node) }}</dd></div>
-              <div><dt>Schreibbar</dt><dd>{{ node.writable ? 'ja' : node.readonly_reason || 'nein' }}</dd></div>
-              <div><dt>Grund</dt><dd>{{ node.reason || '-' }}</dd></div>
-            </dl>
-            <div class="value-grid">
-              <div>
-                <h4>Deklariert</h4>
-                <pre>{{ node.declared_value | json }}</pre>
-              </div>
-              <div>
-                <h4>Wirksam</h4>
-                <pre>{{ node.effective_value | json }}</pre>
-              </div>
-            </div>
-          </article>
-
-          <article *ngIf="nodeExplanation">
-            <h3>Node-Erklärung</h3>
-            <pre>{{ nodeExplanation | json }}</pre>
-          </article>
-
-          <article>
-            <h3>Graph</h3>
-            <div class="graph-list">
+    
+      @if (error) {
+        <div class="status error">{{ error }}</div>
+      }
+      @if (loading) {
+        <div class="status">Lade wirksame Workflow-Konfiguration...</div>
+      }
+    
+      @if (result) {
+        <main class="ew-layout">
+          <section class="summary-strip" [class.warning]="result.status === 'warning'" [class.blocked]="result.status === 'blocked'">
+            <strong>{{ result.status | uppercase }}</strong>
+            <span>{{ result.summary }}</span>
+          </section>
+          <aside class="left-pane">
+            <div class="pane-head">Wirksame Kette</div>
+            @for (node of result.effective_chain; track node) {
               <button
-                *ngFor="let node of graphNodes()"
+                class="chain-node"
                 [class.active]="node.id === selectedNodeId"
+                [class.readonly]="!node.writable"
                 (click)="selectNode(node.id)">
                 <span class="node-type">{{ node.node_type }}</span>
-                {{ node.label }}
+                <strong>{{ node.label }}</strong>
+                <small>{{ node.source_file || node.source_kind || 'derived' }}</small>
               </button>
+            }
+            <div class="pane-head spaced">Edit-Ziele</div>
+            @for (link of result.edit_links; track link) {
+              <a
+                class="edit-link"
+                [href]="asString(link['route'])">
+                <span>{{ link['label'] }}</span>
+                <small>{{ link['editor'] }} · {{ link['writable'] ? 'schreibbar' : 'read-only' }}</small>
+              </a>
+            }
+          </aside>
+          <section class="center-pane">
+            <div class="section-row">
+              <article>
+                <h3>Auswahl</h3>
+                <dl class="kv">
+                  <div><dt>Profil</dt><dd>{{ profileLabel() }}</dd></div>
+                  <div><dt>Blueprint</dt><dd>{{ blueprintLabel() }}</dd></div>
+                  <div><dt>Teamtyp</dt><dd>{{ asString(result.selected['team_type']) || '-' }}</dd></div>
+                  <div><dt>Worker</dt><dd>{{ selectedCount('worker_routing') }}</dd></div>
+                  <div><dt>Tools</dt><dd>{{ toolsLabel() }}</dd></div>
+                  <div><dt>Write Policy</dt><dd>{{ writePolicyLabel() }}</dd></div>
+                </dl>
+              </article>
+              @if (result.warnings.length || result.blocked.length) {
+                <article>
+                  <h3>Diagnostik</h3>
+                  <ul class="diag-list">
+                    @for (item of result.blocked; track item) {
+                      <li class="blocked">{{ item['code'] }}: {{ item['message'] }}</li>
+                    }
+                    @for (item of result.warnings; track item) {
+                      <li>{{ item['code'] }}: {{ item['message'] }}</li>
+                    }
+                  </ul>
+                </article>
+              }
             </div>
-          </article>
-
-          <article>
-            <h3>Raw JSON</h3>
-            <pre>{{ result | json }}</pre>
-          </article>
+            @if (selectedNode(); as node) {
+              <article class="node-detail">
+                <div class="detail-head">
+                  <div>
+                    <span class="node-type">{{ node.node_type }}</span>
+                    <h3>{{ node.label }}</h3>
+                  </div>
+                  <button class="secondary" (click)="explainSelectedNode()">Node erklären</button>
+                </div>
+                <dl class="kv">
+                  <div><dt>Quelle</dt><dd>{{ sourceLabel(node) }}</dd></div>
+                  <div><dt>Schreibbar</dt><dd>{{ node.writable ? 'ja' : node.readonly_reason || 'nein' }}</dd></div>
+                  <div><dt>Grund</dt><dd>{{ node.reason || '-' }}</dd></div>
+                </dl>
+                <div class="value-grid">
+                  <div>
+                    <h4>Deklariert</h4>
+                    <pre>{{ node.declared_value | json }}</pre>
+                  </div>
+                  <div>
+                    <h4>Wirksam</h4>
+                    <pre>{{ node.effective_value | json }}</pre>
+                  </div>
+                </div>
+              </article>
+            }
+            @if (nodeExplanation) {
+              <article>
+                <h3>Node-Erklärung</h3>
+                <pre>{{ nodeExplanation | json }}</pre>
+              </article>
+            }
+            <article>
+              <h3>Graph</h3>
+              <div class="graph-list">
+                @for (node of graphNodes(); track node) {
+                  <button
+                    [class.active]="node.id === selectedNodeId"
+                    (click)="selectNode(node.id)">
+                    <span class="node-type">{{ node.node_type }}</span>
+                    {{ node.label }}
+                  </button>
+                }
+              </div>
+            </article>
+            <article>
+              <h3>Raw JSON</h3>
+              <pre>{{ result | json }}</pre>
+            </article>
+          </section>
+          <aside class="right-pane">
+            <div class="pane-head">Quellen</div>
+            @for (item of result.source_index; track item) {
+              <div class="source-item">
+                <strong>{{ item['label'] }}</strong>
+                <span>{{ item['source_file'] || item['source_kind'] }}</span>
+                <small>{{ item['source_pointer'] }}</small>
+              </div>
+            }
+            <div class="pane-head spaced">Trace</div>
+            @for (item of result.explanation_trace; track item) {
+              <div class="trace-item">
+                <strong>#{{ item['step'] }} {{ item['node_id'] }}</strong>
+                <span>{{ item['message'] }}</span>
+              </div>
+            }
+          </aside>
+        </main>
+      }
+    
+      @if (compareBase) {
+        <section class="compare-panel">
+          <div class="compare-head">
+            <strong>Vergleich gegen aktuelle Auswahl</strong>
+            <button class="secondary" (click)="compare()" [disabled]="loading || !surface.trim()">Vergleichen</button>
+          </div>
+          @if (compareResult) {
+            <pre>{{ compareResult | json }}</pre>
+          }
         </section>
-
-        <aside class="right-pane">
-          <div class="pane-head">Quellen</div>
-          <div class="source-item" *ngFor="let item of result.source_index">
-            <strong>{{ item['label'] }}</strong>
-            <span>{{ item['source_file'] || item['source_kind'] }}</span>
-            <small>{{ item['source_pointer'] }}</small>
-          </div>
-
-          <div class="pane-head spaced">Trace</div>
-          <div class="trace-item" *ngFor="let item of result.explanation_trace">
-            <strong>#{{ item['step'] }} {{ item['node_id'] }}</strong>
-            <span>{{ item['message'] }}</span>
-          </div>
-        </aside>
-      </main>
-
-      <section class="compare-panel" *ngIf="compareBase">
-        <div class="compare-head">
-          <strong>Vergleich gegen aktuelle Auswahl</strong>
-          <button class="secondary" (click)="compare()" [disabled]="loading || !surface.trim()">Vergleichen</button>
-        </div>
-        <pre *ngIf="compareResult">{{ compareResult | json }}</pre>
-      </section>
-
-      <section class="empty" *ngIf="!result && !loading">
-        Surface auswählen und auflösen, um die wirksame Konfigurationskette zu sehen.
-      </section>
+      }
+    
+      @if (!result && !loading) {
+        <section class="empty">
+          Surface auswählen und auflösen, um die wirksame Konfigurationskette zu sehen.
+        </section>
+      }
     </div>
-  `,
+    `,
   styles: [`
     .ew-root { min-height:calc(100vh - 150px); background:var(--bg); color:var(--fg); }
     .ew-header { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; padding:18px 22px; border-bottom:1px solid var(--border); }

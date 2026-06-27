@@ -51,171 +51,191 @@ type TemplateForm = {
           <button class="secondary" (click)="startClone()" [disabled]="!selectedBlueprint || saving">Klonen</button>
         </div>
       </div>
-
-      <div class="bcw-status error" *ngIf="error">{{ error }}</div>
-      <div class="bcw-status" *ngIf="loading">Lade Blueprint-Konfiguration...</div>
-
-      <div class="bcw-layout" *ngIf="!loading">
-        <aside class="blueprint-list">
-          <label>
-            <span>Blueprints</span>
-            <input [(ngModel)]="filterText" placeholder="Suchen..." />
-          </label>
-          <button
-            *ngFor="let blueprint of filteredBlueprints()"
-            class="blueprint-item"
-            [class.active]="blueprint.id === selectedBlueprintId"
-            (click)="selectBlueprint(blueprint.id)">
-            <strong>{{ blueprint.name }}</strong>
-            <small>{{ blueprint.roles?.length || 0 }} Rollen · {{ blueprint.artifacts?.length || 0 }} Artefakte</small>
-          </button>
-        </aside>
-
-        <main class="workbench-main" *ngIf="selectedBlueprint; else emptyState">
-          <section class="summary-band">
-            <div>
-              <label>Name</label>
-              <input [(ngModel)]="blueprintForm.name" />
-            </div>
-            <div>
-              <label>Basis-Teamtyp</label>
-              <input [(ngModel)]="blueprintForm.base_team_type_name" placeholder="optional" />
-            </div>
-            <div class="summary-wide">
-              <label>Beschreibung</label>
-              <textarea rows="2" [(ngModel)]="blueprintForm.description"></textarea>
-            </div>
-          </section>
-
-          <section class="clone-panel" *ngIf="cloneOpen">
-            <div>
-              <label>Neue Blueprint-Variante</label>
-              <input [(ngModel)]="cloneName" placeholder="z.B. Repair Blueprint - FreeCAD" />
-            </div>
-            <label class="checkbox-row">
-              <input type="checkbox" [(ngModel)]="cloneTemplates" />
-              Zugehörige Templates als eigene bearbeitbare Kopien klonen
+    
+      @if (error) {
+        <div class="bcw-status error">{{ error }}</div>
+      }
+      @if (loading) {
+        <div class="bcw-status">Lade Blueprint-Konfiguration...</div>
+      }
+    
+      @if (!loading) {
+        <div class="bcw-layout">
+          <aside class="blueprint-list">
+            <label>
+              <span>Blueprints</span>
+              <input [(ngModel)]="filterText" placeholder="Suchen..." />
             </label>
-            <div class="row-actions">
-              <button (click)="cloneBlueprint()" [disabled]="saving || !cloneName.trim()">Klon speichern</button>
-              <button class="secondary" (click)="cloneOpen = false">Abbrechen</button>
-            </div>
-          </section>
-
-          <nav class="tabs">
-            <button [class.active]="activeTab === 'roles'" (click)="activeTab = 'roles'">Rollen + Templates</button>
-            <button [class.active]="activeTab === 'artifacts'" (click)="activeTab = 'artifacts'">Artefakte</button>
-            <button [class.active]="activeTab === 'profile'" (click)="activeTab = 'profile'">Work-Profile</button>
-            <button [class.active]="activeTab === 'raw'" (click)="activeTab = 'raw'">Roh-Konfig</button>
-          </nav>
-
-          <section class="tab-panel" *ngIf="activeTab === 'roles'">
-            <div class="section-head">
-              <h3>Rollen und zugehörige Templates</h3>
-              <button class="secondary" (click)="addRole()">Rolle hinzufügen</button>
-            </div>
-            <div class="role-grid">
-              <article class="role-card" *ngFor="let role of roles; let index = index">
-                <div class="role-head">
-                  <input [(ngModel)]="role.name" placeholder="Rollenname" />
-                  <button class="danger" (click)="removeRole(index)">Entfernen</button>
+            @for (blueprint of filteredBlueprints(); track blueprint) {
+              <button
+                class="blueprint-item"
+                [class.active]="blueprint.id === selectedBlueprintId"
+                (click)="selectBlueprint(blueprint.id)">
+                <strong>{{ blueprint.name }}</strong>
+                <small>{{ blueprint.roles?.length || 0 }} Rollen · {{ blueprint.artifacts?.length || 0 }} Artefakte</small>
+              </button>
+            }
+          </aside>
+          @if (selectedBlueprint) {
+            <main class="workbench-main">
+              <section class="summary-band">
+                <div>
+                  <label>Name</label>
+                  <input [(ngModel)]="blueprintForm.name" />
                 </div>
-                <textarea rows="2" [(ngModel)]="role.description" placeholder="Rollenbeschreibung"></textarea>
-                <div class="role-controls">
-                  <label>
-                    <span>Template</span>
-                    <select [(ngModel)]="role.template_id" (ngModelChange)="syncTemplateSelection()">
-                      <option value="">Kein Template</option>
-                      <option *ngFor="let tpl of templates" [value]="tpl.id">{{ tpl.name }}</option>
-                    </select>
-                  </label>
-                  <label>
-                    <span>Bevorzugtes Backend</span>
-                    <select [(ngModel)]="role.preferred_backend">
-                      <option value="">Standard (Hub-Default)</option>
-                      <option value="ananta-worker">ananta-worker</option>
-                      <option value="deerflow">deerflow</option>
-                      <option value="codex">codex</option>
-                      <option value="opencode">opencode</option>
-                      <option value="aider">aider</option>
-                      <option value="sgpt">sgpt</option>
-                    </select>
-                  </label>
-                  <label>
-                    <span>Sortierung</span>
-                    <input type="number" [(ngModel)]="role.sort_order" />
-                  </label>
+                <div>
+                  <label>Basis-Teamtyp</label>
+                  <input [(ngModel)]="blueprintForm.base_team_type_name" placeholder="optional" />
+                </div>
+                <div class="summary-wide">
+                  <label>Beschreibung</label>
+                  <textarea rows="2" [(ngModel)]="blueprintForm.description"></textarea>
+                </div>
+              </section>
+              @if (cloneOpen) {
+                <section class="clone-panel">
+                  <div>
+                    <label>Neue Blueprint-Variante</label>
+                    <input [(ngModel)]="cloneName" placeholder="z.B. Repair Blueprint - FreeCAD" />
+                  </div>
                   <label class="checkbox-row">
-                    <input type="checkbox" [(ngModel)]="role.is_required" />
-                    Pflichtrolle
+                    <input type="checkbox" [(ngModel)]="cloneTemplates" />
+                    Zugehörige Templates als eigene bearbeitbare Kopien klonen
                   </label>
-                </div>
-                <label>
-                  <span>Rollen-Konfig JSON</span>
-                  <textarea rows="7" [(ngModel)]="role.configText"></textarea>
-                </label>
-              </article>
-            </div>
-
-            <div class="template-editor" *ngIf="templateForms.length">
-              <h3>Zugehörige Template-Inhalte</h3>
-              <article class="template-card" *ngFor="let tpl of templateForms">
-                <div class="template-head">
-                  <input [(ngModel)]="tpl.name" (ngModelChange)="tpl.dirty = true" />
-                  <span>{{ rolesUsingTemplate(tpl.id).join(', ') }}</span>
-                </div>
-                <input [(ngModel)]="tpl.description" (ngModelChange)="tpl.dirty = true" placeholder="Template-Beschreibung" />
-                <textarea rows="12" [(ngModel)]="tpl.prompt_template" (ngModelChange)="tpl.dirty = true"></textarea>
-              </article>
-            </div>
-          </section>
-
-          <section class="tab-panel" *ngIf="activeTab === 'artifacts'">
-            <div class="section-head">
-              <h3>Blueprint-Artefakte</h3>
-              <button class="secondary" (click)="addArtifact()">Artefakt hinzufügen</button>
-            </div>
-            <article class="artifact-card" *ngFor="let artifact of artifacts; let index = index">
-              <div class="artifact-row">
-                <select [(ngModel)]="artifact.kind">
-                  <option value="task">Task</option>
-                  <option value="policy">Policy</option>
-                </select>
-                <input [(ngModel)]="artifact.title" placeholder="Titel" />
-                <input type="number" [(ngModel)]="artifact.sort_order" />
-                <button class="danger" (click)="removeArtifact(index)">Entfernen</button>
-              </div>
-              <textarea rows="2" [(ngModel)]="artifact.description" placeholder="Beschreibung"></textarea>
-              <label>
-                <span>Payload JSON</span>
-                <textarea rows="6" [(ngModel)]="artifact.payloadText"></textarea>
-              </label>
-            </article>
-          </section>
-
-          <section class="tab-panel profile-panel" *ngIf="activeTab === 'profile'">
-            <div>
-              <h3>Work-Profile</h3>
-              <pre>{{ workProfile | json }}</pre>
-            </div>
-            <div>
-              <h3>Bundle</h3>
-              <pre>{{ bundle | json }}</pre>
-            </div>
-          </section>
-
-          <section class="tab-panel raw-panel" *ngIf="activeTab === 'raw'">
-            <h3>Gesamte bearbeitete Blueprint-Konfig</h3>
-            <pre>{{ buildBlueprintPayload() | json }}</pre>
-          </section>
-        </main>
-      </div>
-
-      <ng-template #emptyState>
-        <main class="empty-state">Blueprint auswählen, um die vollständige Konfiguration zu bearbeiten.</main>
-      </ng-template>
+                  <div class="row-actions">
+                    <button (click)="cloneBlueprint()" [disabled]="saving || !cloneName.trim()">Klon speichern</button>
+                    <button class="secondary" (click)="cloneOpen = false">Abbrechen</button>
+                  </div>
+                </section>
+              }
+              <nav class="tabs">
+                <button [class.active]="activeTab === 'roles'" (click)="activeTab = 'roles'">Rollen + Templates</button>
+                <button [class.active]="activeTab === 'artifacts'" (click)="activeTab = 'artifacts'">Artefakte</button>
+                <button [class.active]="activeTab === 'profile'" (click)="activeTab = 'profile'">Work-Profile</button>
+                <button [class.active]="activeTab === 'raw'" (click)="activeTab = 'raw'">Roh-Konfig</button>
+              </nav>
+              @if (activeTab === 'roles') {
+                <section class="tab-panel">
+                  <div class="section-head">
+                    <h3>Rollen und zugehörige Templates</h3>
+                    <button class="secondary" (click)="addRole()">Rolle hinzufügen</button>
+                  </div>
+                  <div class="role-grid">
+                    @for (role of roles; track role; let index = $index) {
+                      <article class="role-card">
+                        <div class="role-head">
+                          <input [(ngModel)]="role.name" placeholder="Rollenname" />
+                          <button class="danger" (click)="removeRole(index)">Entfernen</button>
+                        </div>
+                        <textarea rows="2" [(ngModel)]="role.description" placeholder="Rollenbeschreibung"></textarea>
+                        <div class="role-controls">
+                          <label>
+                            <span>Template</span>
+                            <select [(ngModel)]="role.template_id" (ngModelChange)="syncTemplateSelection()">
+                              <option value="">Kein Template</option>
+                              @for (tpl of templates; track tpl) {
+                                <option [value]="tpl.id">{{ tpl.name }}</option>
+                              }
+                            </select>
+                          </label>
+                          <label>
+                            <span>Bevorzugtes Backend</span>
+                            <select [(ngModel)]="role.preferred_backend">
+                              <option value="">Standard (Hub-Default)</option>
+                              <option value="ananta-worker">ananta-worker</option>
+                              <option value="deerflow">deerflow</option>
+                              <option value="codex">codex</option>
+                              <option value="opencode">opencode</option>
+                              <option value="aider">aider</option>
+                              <option value="sgpt">sgpt</option>
+                            </select>
+                          </label>
+                          <label>
+                            <span>Sortierung</span>
+                            <input type="number" [(ngModel)]="role.sort_order" />
+                          </label>
+                          <label class="checkbox-row">
+                            <input type="checkbox" [(ngModel)]="role.is_required" />
+                            Pflichtrolle
+                          </label>
+                        </div>
+                        <label>
+                          <span>Rollen-Konfig JSON</span>
+                          <textarea rows="7" [(ngModel)]="role.configText"></textarea>
+                        </label>
+                      </article>
+                    }
+                  </div>
+                  @if (templateForms.length) {
+                    <div class="template-editor">
+                      <h3>Zugehörige Template-Inhalte</h3>
+                      @for (tpl of templateForms; track tpl) {
+                        <article class="template-card">
+                          <div class="template-head">
+                            <input [(ngModel)]="tpl.name" (ngModelChange)="tpl.dirty = true" />
+                            <span>{{ rolesUsingTemplate(tpl.id).join(', ') }}</span>
+                          </div>
+                          <input [(ngModel)]="tpl.description" (ngModelChange)="tpl.dirty = true" placeholder="Template-Beschreibung" />
+                          <textarea rows="12" [(ngModel)]="tpl.prompt_template" (ngModelChange)="tpl.dirty = true"></textarea>
+                        </article>
+                      }
+                    </div>
+                  }
+                </section>
+              }
+              @if (activeTab === 'artifacts') {
+                <section class="tab-panel">
+                  <div class="section-head">
+                    <h3>Blueprint-Artefakte</h3>
+                    <button class="secondary" (click)="addArtifact()">Artefakt hinzufügen</button>
+                  </div>
+                  @for (artifact of artifacts; track artifact; let index = $index) {
+                    <article class="artifact-card">
+                      <div class="artifact-row">
+                        <select [(ngModel)]="artifact.kind">
+                          <option value="task">Task</option>
+                          <option value="policy">Policy</option>
+                        </select>
+                        <input [(ngModel)]="artifact.title" placeholder="Titel" />
+                        <input type="number" [(ngModel)]="artifact.sort_order" />
+                        <button class="danger" (click)="removeArtifact(index)">Entfernen</button>
+                      </div>
+                      <textarea rows="2" [(ngModel)]="artifact.description" placeholder="Beschreibung"></textarea>
+                      <label>
+                        <span>Payload JSON</span>
+                        <textarea rows="6" [(ngModel)]="artifact.payloadText"></textarea>
+                      </label>
+                    </article>
+                  }
+                </section>
+              }
+              @if (activeTab === 'profile') {
+                <section class="tab-panel profile-panel">
+                  <div>
+                    <h3>Work-Profile</h3>
+                    <pre>{{ workProfile | json }}</pre>
+                  </div>
+                  <div>
+                    <h3>Bundle</h3>
+                    <pre>{{ bundle | json }}</pre>
+                  </div>
+                </section>
+              }
+              @if (activeTab === 'raw') {
+                <section class="tab-panel raw-panel">
+                  <h3>Gesamte bearbeitete Blueprint-Konfig</h3>
+                  <pre>{{ buildBlueprintPayload() | json }}</pre>
+                </section>
+              }
+            </main>
+          } @else {
+            <main class="empty-state">Blueprint auswählen, um die vollständige Konfiguration zu bearbeiten.</main>
+          }
+        </div>
+      }
+    
     </div>
-  `,
+    `,
   styles: [`
     .bcw-root { min-height: calc(100vh - 150px); background: var(--bg); color: var(--fg); }
     .bcw-header { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; padding:18px 22px; border-bottom:1px solid var(--border); }

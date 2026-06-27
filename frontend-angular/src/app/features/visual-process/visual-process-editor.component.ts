@@ -2,7 +2,7 @@ import {
   Component, OnInit, OnDestroy, inject,
   signal, computed, HostListener, ViewChild, ElementRef,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import {
@@ -95,7 +95,7 @@ function nodeKindColor(kind: string): string {
 @Component({
   standalone: true,
   selector: 'app-visual-process-editor',
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   template: `
 <!-- hidden BPMN file input (VPBPMN-002) -->
 <input type="file" #bpmnFileInput accept=".bpmn,.xml" hidden (change)="onBpmnFile($event)" />

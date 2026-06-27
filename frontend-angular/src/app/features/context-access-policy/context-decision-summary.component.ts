@@ -20,26 +20,30 @@ import { ContextBlockAccessDecision } from '../../models/context-access-policy.m
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let d of decisions">
-              <td class="small">{{ d.source_ref }}</td>
-              <td>
-                <span class="badge bg-light text-dark border">{{ d.effective_sensitivity }}</span>
-              </td>
-              <td>
-                <span class="badge" [ngClass]="getDecisionClass(d.decision)">
-                  {{ d.decision }}
-                </span>
-              </td>
-              <td class="small text-muted">{{ d.reason_code }}</td>
-            </tr>
-            <tr *ngIf="decisions.length === 0">
-              <td colspan="4" class="text-center text-muted">Keine Kontext-Entscheidungen protokolliert.</td>
-            </tr>
+            @for (d of decisions; track d) {
+              <tr>
+                <td class="small">{{ d.source_ref }}</td>
+                <td>
+                  <span class="badge bg-light text-dark border">{{ d.effective_sensitivity }}</span>
+                </td>
+                <td>
+                  <span class="badge" [ngClass]="getDecisionClass(d.decision)">
+                    {{ d.decision }}
+                  </span>
+                </td>
+                <td class="small text-muted">{{ d.reason_code }}</td>
+              </tr>
+            }
+            @if (decisions.length === 0) {
+              <tr>
+                <td colspan="4" class="text-center text-muted">Keine Kontext-Entscheidungen protokolliert.</td>
+              </tr>
+            }
           </tbody>
         </table>
       </div>
     </div>
-  `,
+    `,
   styles: [`
     .context-decision-summary { border-top: 1px solid #dee2e6; padding-top: 15px; }
   `]

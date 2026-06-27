@@ -1,5 +1,5 @@
 import { Component, OnInit, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 
 import { AgentDirectoryService } from '../../services/agent-directory.service';
@@ -18,7 +18,7 @@ const ROLE_CHANGE_ACTIONS = new Set([
 @Component({
   standalone: true,
   selector: 'app-role-audit',
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   template: `
     <div class="card">
       <div class="row flex-between">

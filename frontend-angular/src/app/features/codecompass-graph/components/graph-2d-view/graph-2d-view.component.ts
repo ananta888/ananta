@@ -3,7 +3,7 @@ import {
   ElementRef, ViewChild, OnChanges, SimpleChanges, OnDestroy,
   ChangeDetectionStrategy, ChangeDetectorRef, inject,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import type { Core, NodeSingular, EdgeSingular } from 'cytoscape';
 import { GenericGraphModel, GraphEdge, GraphNode } from '../../models/graph.model';
 import { GraphLayoutMode } from '../../models/graph-layout-mode';
@@ -42,7 +42,7 @@ function yieldFrame(): Promise<void> {
   standalone: true,
   selector: 'app-graph-2d-view',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule],
+  imports: [],
   template: `
     @if (renderWarning) {
       <div class="render-warn">{{ renderWarning }}</div>

@@ -7,14 +7,14 @@ import {
   Output,
   inject,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { TerminalTarget, TerminalApiService } from '../services/terminal-api.service';
 
 @Component({
   standalone: true,
   selector: 'app-terminal-targets',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule],
+  imports: [],
   styles: [`
     .target-list { display: flex; flex-direction: column; gap: 8px; }
     .target-card {
@@ -60,47 +60,55 @@ import { TerminalTarget, TerminalApiService } from '../services/terminal-api.ser
   `],
   template: `
     <div class="target-list">
-      <div *ngIf="highRiskTargets.length > 0" class="hub-warning">
-        ⚠ Hub and Hub-as-Worker terminal access is HIGH RISK — requires explicit permission and provides direct control over the orchestration plane.
-      </div>
-
-      <div *ngIf="!targets || targets.length === 0" style="color: var(--text-secondary); font-size: 13px; padding: 8px 0;">
-        No terminal-capable targets available. Enable TERMINAL_FEATURE_ENABLED on the Hub.
-      </div>
-
-      <div *ngFor="let t of targets" class="target-card" [class.high-risk]="isHighRisk(t)" [class.worker]="!isHighRisk(t)">
-        <div style="flex: 1; min-width: 0;">
-          <div class="target-type">
-            {{ t.target_type }}
-            <span *ngIf="isHighRisk(t)" class="risk-badge">HIGH RISK</span>
-          </div>
-          <div class="target-id">{{ t.target_display_name || t.target_id }}</div>
-          <div *ngIf="t.health" style="font-size: 11px; color: var(--text-secondary);">health: {{ t.health }}</div>
+      @if (highRiskTargets.length > 0) {
+        <div class="hub-warning">
+          ⚠ Hub and Hub-as-Worker terminal access is HIGH RISK — requires explicit permission and provides direct control over the orchestration plane.
         </div>
-
-        <div class="target-actions">
-          <ng-container *ngIf="confirmingTarget !== t.target_id; else confirmBlock">
-            <button
-              [disabled]="!t.capabilities?.create || creating === t.target_id"
-              (click)="onCreateClick(t)"
-              title="{{ !t.capabilities?.create ? 'No permission to create session' : 'Create terminal session' }}">
-              {{ creating === t.target_id ? 'Creating…' : 'Open Terminal' }}
-            </button>
-          </ng-container>
-          <ng-template #confirmBlock>
-            <div class="confirmation-dialog">
-              <p><strong>⚠ HIGH RISK:</strong> Opening a {{ confirmingTarget === 'hub' ? 'Hub' : 'Hub-as-Worker' }} terminal gives direct access to the orchestration runtime.</p>
-              <p>Continue only if explicitly authorized.</p>
-              <div style="display: flex; gap: 8px; margin-top: 8px;">
-                <button (click)="confirmCreate(t)">Confirm — Open Terminal</button>
-                <button (click)="confirmingTarget = null">Cancel</button>
-              </div>
+      }
+    
+      @if (!targets || targets.length === 0) {
+        <div style="color: var(--text-secondary); font-size: 13px; padding: 8px 0;">
+          No terminal-capable targets available. Enable TERMINAL_FEATURE_ENABLED on the Hub.
+        </div>
+      }
+    
+      @for (t of targets; track t) {
+        <div class="target-card" [class.high-risk]="isHighRisk(t)" [class.worker]="!isHighRisk(t)">
+          <div style="flex: 1; min-width: 0;">
+            <div class="target-type">
+              {{ t.target_type }}
+              @if (isHighRisk(t)) {
+                <span class="risk-badge">HIGH RISK</span>
+              }
             </div>
-          </ng-template>
+            <div class="target-id">{{ t.target_display_name || t.target_id }}</div>
+            @if (t.health) {
+              <div style="font-size: 11px; color: var(--text-secondary);">health: {{ t.health }}</div>
+            }
+          </div>
+          <div class="target-actions">
+            @if (confirmingTarget !== t.target_id) {
+              <button
+                [disabled]="!t.capabilities?.create || creating === t.target_id"
+                (click)="onCreateClick(t)"
+                title="{{ !t.capabilities?.create ? 'No permission to create session' : 'Create terminal session' }}">
+                {{ creating === t.target_id ? 'Creating…' : 'Open Terminal' }}
+              </button>
+            } @else {
+              <div class="confirmation-dialog">
+                <p><strong>⚠ HIGH RISK:</strong> Opening a {{ confirmingTarget === 'hub' ? 'Hub' : 'Hub-as-Worker' }} terminal gives direct access to the orchestration runtime.</p>
+                <p>Continue only if explicitly authorized.</p>
+                <div style="display: flex; gap: 8px; margin-top: 8px;">
+                  <button (click)="confirmCreate(t)">Confirm — Open Terminal</button>
+                  <button (click)="confirmingTarget = null">Cancel</button>
+                </div>
+              </div>
+            }
+          </div>
         </div>
-      </div>
+      }
     </div>
-  `,
+    `,
 })
 export class TerminalTargetsComponent {
   @Input() targets: TerminalTarget[] = [];

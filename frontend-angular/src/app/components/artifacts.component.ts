@@ -1,5 +1,5 @@
 import { Component, OnInit, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs';
 
@@ -14,7 +14,7 @@ import { SummaryMetric, SummaryPanelComponent, TableShellComponent } from '../sh
 @Component({
   standalone: true,
   selector: 'app-artifacts',
-  imports: [CommonModule, FormsModule, UiSkeletonComponent, SummaryPanelComponent, TableShellComponent],
+  imports: [FormsModule, UiSkeletonComponent, SummaryPanelComponent, TableShellComponent],
   styleUrls: ['./artifacts.component.css'],
   templateUrl: './artifacts.component.html',
 })

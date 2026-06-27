@@ -8,7 +8,7 @@ import {
   ViewChild,
   inject,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { Subject, takeUntil } from 'rxjs';
 
@@ -176,10 +176,10 @@ const CLONE_DEFS: Record<string, CloneFormField[]> = {
   standalone: true,
   selector: 'app-config-graph-editor',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, ConfigGraphNodeDetailComponent],
+  imports: [FormsModule, ConfigGraphNodeDetailComponent],
   template: `
     <div class="cge-root">
-
+    
       <!-- Header -->
       <div class="cge-header">
         <div class="cge-title-row">
@@ -190,33 +190,43 @@ const CLONE_DEFS: Record<string, CloneFormField[]> = {
               <button class="mode-btn" [class.active]="displayMode==='graph'"  (click)="setDisplayMode('graph')">◈ Graph</button>
             </div>
             <button class="button-outline" (click)="reload()">↻ Aktualisieren</button>
-            <label *ngIf="displayMode==='graph'" class="edit-toggle">
-              <input type="checkbox" [(ngModel)]="editMode" (ngModelChange)="cdr.markForCheck()" /> Edit-Modus
-            </label>
+            @if (displayMode==='graph') {
+              <label class="edit-toggle">
+                <input type="checkbox" [(ngModel)]="editMode" (ngModelChange)="cdr.markForCheck()" /> Edit-Modus
+              </label>
+            }
           </div>
         </div>
-        <div *ngIf="(graph?.diagnostics?.length ?? 0) > 0" class="diag-bar">
-          <span *ngFor="let d of graph!.diagnostics" class="diag-item">⚠ {{ d }}</span>
-        </div>
+        @if ((graph?.diagnostics?.length ?? 0) > 0) {
+          <div class="diag-bar">
+            @for (d of graph!.diagnostics; track d) {
+              <span class="diag-item">⚠ {{ d }}</span>
+            }
+          </div>
+        }
       </div>
-
+    
       <!-- Body -->
       <div class="cge-body">
-
+    
         <!-- Sidebar -->
         <div class="cge-sidebar">
           <div class="sidebar-section-label">Ansichten</div>
           <div class="view-cards">
-            <button *ngFor="let v of views" class="view-card" [class.active]="activeView===v.id" (click)="setView(v.id)">
-              <div class="vcard-dot" [style.background]="v.color"></div>
-              <div class="vcard-body">
-                <div class="vcard-title">{{ v.label }}</div>
-                <div class="vcard-desc">{{ v.description }}</div>
-                <span class="count-badge" [style.background]="activeView===v.id ? v.color : undefined" *ngIf="graph">
-                  {{ (graph.views[v.id] ?? []).length }} Nodes
-                </span>
-              </div>
-            </button>
+            @for (v of views; track v) {
+              <button class="view-card" [class.active]="activeView===v.id" (click)="setView(v.id)">
+                <div class="vcard-dot" [style.background]="v.color"></div>
+                <div class="vcard-body">
+                  <div class="vcard-title">{{ v.label }}</div>
+                  <div class="vcard-desc">{{ v.description }}</div>
+                  @if (graph) {
+                    <span class="count-badge" [style.background]="activeView===v.id ? v.color : undefined">
+                      {{ (graph.views[v.id] ?? []).length }} Nodes
+                    </span>
+                  }
+                </div>
+              </button>
+            }
           </div>
           <div class="sidebar-divider"></div>
           <div class="sidebar-section-label">Graph filtern</div>
@@ -226,27 +236,31 @@ const CLONE_DEFS: Record<string, CloneFormField[]> = {
               (ngModelChange)="onGraphFilterChanged()"
               placeholder="Suche nach Label, Typ, Datei..."
               class="eff-input"
-            />
+              />
             <select
               [(ngModel)]="graphNodeType"
               (ngModelChange)="onGraphFilterChanged()"
               class="eff-input"
-            >
+              >
               <option value="">Alle Node-Typen</option>
-              <option *ngFor="let t of availableNodeTypes" [value]="t">{{ t }}</option>
+              @for (t of availableNodeTypes; track t) {
+                <option [value]="t">{{ t }}</option>
+              }
             </select>
             <select
               [(ngModel)]="graphStatus"
               (ngModelChange)="onGraphFilterChanged()"
               class="eff-input"
-            >
+              >
               <option value="all">Alle Status</option>
               <option value="active">Nur aktiv</option>
               <option value="inactive">Nur inaktiv</option>
               <option value="diagnostics">Mit Diagnose</option>
               <option value="stale">Veraltet</option>
             </select>
-            <button *ngIf="hasGraphFilters" class="button-outline full-w" (click)="clearGraphSearchFilters()">Filter zurücksetzen</button>
+            @if (hasGraphFilters) {
+              <button class="button-outline full-w" (click)="clearGraphSearchFilters()">Filter zurücksetzen</button>
+            }
           </div>
           <div class="sidebar-divider"></div>
           <div class="sidebar-section-label">Effektiv auflösen</div>
@@ -256,382 +270,496 @@ const CLONE_DEFS: Record<string, CloneFormField[]> = {
             <input [(ngModel)]="effectivePath" placeholder="Pfad (optional)" class="eff-input" />
             <button class="button-outline full-w" (click)="resolveEffective()">Auflösen →</button>
           </div>
-          <div class="sidebar-footer" *ngIf="graph">
-            <span>{{ graph.node_count }} Nodes · {{ graph.edge_count }} Edges</span>
-            <span *ngIf="graph.diagnostics.length" class="warn-inline"> · {{ graph.diagnostics.length }} ⚠</span>
-          </div>
+          @if (graph) {
+            <div class="sidebar-footer">
+              <span>{{ graph.node_count }} Nodes · {{ graph.edge_count }} Edges</span>
+              @if (graph.diagnostics.length) {
+                <span class="warn-inline"> · {{ graph.diagnostics.length }} ⚠</span>
+              }
+            </div>
+          }
         </div>
-
+    
         <!-- Main -->
         <div class="cge-main">
-
+    
           <!-- View header -->
-          <div class="view-header" *ngIf="activeViewMeta">
-            <div class="vhdot" [style.background]="activeViewMeta.color"></div>
-            <div class="vh-text">
-              <div class="vh-title">{{ activeViewMeta.label }}</div>
-              <div class="vh-desc">{{ activeViewMeta.description }}</div>
+          @if (activeViewMeta) {
+            <div class="view-header">
+              <div class="vhdot" [style.background]="activeViewMeta.color"></div>
+              <div class="vh-text">
+                <div class="vh-title">{{ activeViewMeta.label }}</div>
+                <div class="vh-desc">{{ activeViewMeta.description }}</div>
+              </div>
+              @if (graph) {
+                <div class="vh-right">
+                  <span class="count-badge" [style.background]="activeViewMeta.color">
+                    {{ visibleNodeIds.length }} / {{ graph.node_count }} Nodes
+                  </span>
+                  @if (hasGraphFilters) {
+                    <span class="filter-badge" (click)="clearGraphSearchFilters()">
+                      Suche aktiv x
+                    </span>
+                  }
+                  @if (graphFilterIds) {
+                    <span class="filter-badge" (click)="clearGraphFilter()">
+                      Fokus aktiv x
+                    </span>
+                  }
+                  <span class="snap-id muted">{{ graph.snapshot_id }}</span>
+                </div>
+              }
             </div>
-            <div class="vh-right" *ngIf="graph">
-              <span class="count-badge" [style.background]="activeViewMeta.color">
-                {{ visibleNodeIds.length }} / {{ graph.node_count }} Nodes
-              </span>
-              <span *ngIf="hasGraphFilters" class="filter-badge" (click)="clearGraphSearchFilters()">
-                Suche aktiv x
-              </span>
-              <span *ngIf="graphFilterIds" class="filter-badge" (click)="clearGraphFilter()">
-                Fokus aktiv x
-              </span>
-              <span class="snap-id muted">{{ graph.snapshot_id }}</span>
-            </div>
-          </div>
-
+          }
+    
           <!-- ══════════ CONFIG MODE ══════════ -->
-          <ng-container *ngIf="displayMode === 'config'">
-
+          @if (displayMode === 'config') {
             <!-- Effective result -->
-            <div *ngIf="effectiveResult" class="effective-panel">
-              <div class="ep-header">
-                <strong>Effektiv: {{ effectiveResult.surface }}</strong>
-                <span *ngIf="effectiveResult.task_kind" class="badge">{{ effectiveResult.task_kind }}</span>
-                <span *ngIf="effectiveResult.path" class="badge">{{ effectiveResult.path }}</span>
-                <button (click)="effectiveResult = null; cdr.markForCheck()" class="close-btn">✕</button>
+            @if (effectiveResult) {
+              <div class="effective-panel">
+                <div class="ep-header">
+                  <strong>Effektiv: {{ effectiveResult.surface }}</strong>
+                  @if (effectiveResult.task_kind) {
+                    <span class="badge">{{ effectiveResult.task_kind }}</span>
+                  }
+                  @if (effectiveResult.path) {
+                    <span class="badge">{{ effectiveResult.path }}</span>
+                  }
+                  <button (click)="effectiveResult = null; cdr.markForCheck()" class="close-btn">✕</button>
+                </div>
+                <div class="ep-grid">
+                  <div><div class="eff-label">Profil</div>{{ effectiveResult.agent_profile?.['profile_id'] ?? '—' }}</div>
+                  <div><div class="eff-label">Template</div>{{ effectiveResult.goal_template?.['template_id'] ?? '—' }}</div>
+                  <div>
+                    <div class="eff-label">Gesperrte Modi</div>
+                    @for (m of effectiveResult.effective_ai_modes_blocked; track m) {
+                      <span class="tag warn">{{ m }}</span>
+                    }
+                    @if (!effectiveResult.effective_ai_modes_blocked.length) {
+                      <span class="muted">keine</span>
+                    }
+                  </div>
+                  <div>
+                    <div class="eff-label">Erlaubte Modi</div>
+                    @for (m of effectiveResult.effective_ai_modes_allowed; track m) {
+                      <span class="tag ok">{{ m }}</span>
+                    }
+                    @if (!effectiveResult.effective_ai_modes_allowed.length) {
+                      <span class="muted">alle</span>
+                    }
+                  </div>
+                  @if (effectiveResult.warnings.length) {
+                    <div class="ep-span2">
+                      <div class="eff-label">Warnungen</div>
+                      <ul class="warn-list">@for (w of effectiveResult.warnings; track w) {
+                        <li>{{ w }}</li>
+                      }</ul>
+                    </div>
+                  }
+                </div>
               </div>
-              <div class="ep-grid">
-                <div><div class="eff-label">Profil</div>{{ effectiveResult.agent_profile?.['profile_id'] ?? '—' }}</div>
-                <div><div class="eff-label">Template</div>{{ effectiveResult.goal_template?.['template_id'] ?? '—' }}</div>
-                <div>
-                  <div class="eff-label">Gesperrte Modi</div>
-                  <span class="tag warn" *ngFor="let m of effectiveResult.effective_ai_modes_blocked">{{ m }}</span>
-                  <span *ngIf="!effectiveResult.effective_ai_modes_blocked.length" class="muted">keine</span>
-                </div>
-                <div>
-                  <div class="eff-label">Erlaubte Modi</div>
-                  <span class="tag ok" *ngFor="let m of effectiveResult.effective_ai_modes_allowed">{{ m }}</span>
-                  <span *ngIf="!effectiveResult.effective_ai_modes_allowed.length" class="muted">alle</span>
-                </div>
-                <div *ngIf="effectiveResult.warnings.length" class="ep-span2">
-                  <div class="eff-label">Warnungen</div>
-                  <ul class="warn-list"><li *ngFor="let w of effectiveResult.warnings">{{ w }}</li></ul>
-                </div>
-              </div>
-            </div>
-
+            }
             <!-- effectiveConfig empty hint -->
-            <div *ngIf="activeView === VIEW_IDS.effectiveConfig && !effectiveResult" class="config-hint">
-              <div class="config-hint-icon">◈</div>
-              <div>
-                <strong>Effektive Konfiguration auflösen</strong>
-                <p class="muted">Surface und optionalen Task-Kind in der Sidebar eingeben und "Auflösen" klicken.</p>
+            @if (activeView === VIEW_IDS.effectiveConfig && !effectiveResult) {
+              <div class="config-hint">
+                <div class="config-hint-icon">◈</div>
+                <div>
+                  <strong>Effektive Konfiguration auflösen</strong>
+                  <p class="muted">Surface und optionalen Task-Kind in der Sidebar eingeben und "Auflösen" klicken.</p>
+                </div>
               </div>
-            </div>
-
+            }
             <!-- Config panel -->
-            <div *ngIf="activeView !== VIEW_IDS.effectiveConfig || effectiveResult" class="config-panel">
-
-              <!-- Breadcrumb (detail mode) -->
-              <div *ngIf="selectedConfigItem && !cloneState" class="cp-breadcrumb">
-                <button class="breadcrumb-back" (click)="clearItemSelection()">← Übersicht</button>
-                <span class="breadcrumb-sep">/</span>
-                <span class="breadcrumb-dot" [style.background]="activeViewMeta?.color"></span>
-                <span class="breadcrumb-label">{{ selectedConfigItem.label }}</span>
-              </div>
-
-              <!-- Overview header -->
-              <div *ngIf="!selectedConfigItem && !cloneState" class="cp-header">
-                <span class="cp-count">{{ configPanelItems.length }} {{ activeViewMeta?.label }}-Einträge</span>
-                <button *ngIf="creatableTypeForView" class="button-outline" (click)="startNewEntry()">+ Neu erstellen</button>
-              </div>
-
-              <!-- Clone form header (breadcrumb variant) -->
-              <div *ngIf="cloneState" class="cp-breadcrumb">
-                <button class="breadcrumb-back" (click)="cancelClone()">← Zurück</button>
-                <span class="breadcrumb-sep">/</span>
-                <span class="breadcrumb-label">
-                  {{ cloneState.mode === 'edit' && cloneState.sourceNode ? 'Bearbeiten: ' + cloneState.sourceNode.label : cloneState.sourceNode ? 'Klonen: ' + cloneState.sourceNode.label : 'Neu: ' + cloneState.entryType }}
-                </span>
-              </div>
-
-              <!-- ── OVERVIEW: card grid ── -->
-              <div class="config-cards" *ngIf="!selectedConfigItem && !cloneState && !loading">
-                <div *ngFor="let item of configPanelItems"
-                  class="config-card selectable"
-                  [class.card-inactive]="!item.runtime_active"
-                  [class.card-has-diags]="item.diagnostics.length > 0"
-                  (click)="selectConfigItem(item)">
-                  <div class="card-head">
-                    <div class="card-dot" [style.background]="activeViewMeta?.color"></div>
-                    <strong class="card-label" [title]="item.id">{{ item.label }}</strong>
-                    <ng-container *ngIf="characterBadge(item) as badge">
-                      <span class="char-badge" [style.background]="badge.bg" [style.color]="badge.color">{{ badge.label }}</span>
-                    </ng-container>
-                    <span *ngIf="!item.runtime_active" class="inactive-tag">inaktiv</span>
+            @if (activeView !== VIEW_IDS.effectiveConfig || effectiveResult) {
+              <div class="config-panel">
+                <!-- Breadcrumb (detail mode) -->
+                @if (selectedConfigItem && !cloneState) {
+                  <div class="cp-breadcrumb">
+                    <button class="breadcrumb-back" (click)="clearItemSelection()">← Übersicht</button>
+                    <span class="breadcrumb-sep">/</span>
+                    <span class="breadcrumb-dot" [style.background]="activeViewMeta?.color"></span>
+                    <span class="breadcrumb-label">{{ selectedConfigItem.label }}</span>
                   </div>
-                  <div class="card-fields">
-                    <div *ngFor="let f of keyFieldsFor(item)" class="card-field">
-                      <span class="cf-label">{{ f.label }}</span>
-                      <span class="cf-value" [class.cf-empty]="!f.value || f.value==='—'">{{ f.value }}</span>
-                    </div>
+                }
+                <!-- Overview header -->
+                @if (!selectedConfigItem && !cloneState) {
+                  <div class="cp-header">
+                    <span class="cp-count">{{ configPanelItems.length }} {{ activeViewMeta?.label }}-Einträge</span>
+                    @if (creatableTypeForView) {
+                      <button class="button-outline" (click)="startNewEntry()">+ Neu erstellen</button>
+                    }
                   </div>
-                  <div *ngIf="item.diagnostics.length > 0" class="card-diags">
-                    <span *ngFor="let d of item.diagnostics" class="diag-item">⚠ {{ d }}</span>
+                }
+                <!-- Clone form header (breadcrumb variant) -->
+                @if (cloneState) {
+                  <div class="cp-breadcrumb">
+                    <button class="breadcrumb-back" (click)="cancelClone()">← Zurück</button>
+                    <span class="breadcrumb-sep">/</span>
+                    <span class="breadcrumb-label">
+                      {{ cloneState.mode === 'edit' && cloneState.sourceNode ? 'Bearbeiten: ' + cloneState.sourceNode.label : cloneState.sourceNode ? 'Klonen: ' + cloneState.sourceNode.label : 'Neu: ' + cloneState.entryType }}
+                    </span>
                   </div>
-                  <div class="card-open-hint">Klicken zum Öffnen →</div>
-                </div>
-
-                <!-- Policy-Pfad: empty state with suggestions -->
-                <div *ngIf="configPanelItems.length === 0 && activeView === VIEW_IDS.policyPath" class="policy-empty">
-                  <div class="policy-empty-head">
-                    <span class="policy-empty-icon">⚖</span>
-                    <div>
-                      <strong>Keine Pfad-Regeln konfiguriert</strong>
-                      <p class="muted">Alle Pfade sind offen — kein KI-Modus ist eingeschränkt. Typische Beispiele:</p>
-                    </div>
-                  </div>
-                  <div class="policy-suggestions">
-                    <div *ngFor="let s of policySuggestions" class="policy-suggestion" (click)="prefillSuggestion(s)">
-                      <div class="sug-glob">{{ s.glob }}</div>
-                      <div class="sug-blocked"><span class="char-badge" style="background:#5a0000;color:#fff">{{ s.blocked }}</span></div>
-                      <div class="sug-hint muted">{{ s.hint }}</div>
-                      <div class="sug-action">Als Vorlage →</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div *ngIf="configPanelItems.length === 0 && activeView !== VIEW_IDS.policyPath" class="cp-empty">
-                  <p class="muted">Keine Einträge für diese Ansicht konfiguriert.</p>
-                </div>
-              </div>
-
-              <div *ngIf="loading && !selectedConfigItem && !cloneState" class="loading-wrap">
-                <p class="muted">Wird geladen…</p>
-              </div>
-
-              <!-- ── DETAIL VIEW ── -->
-              <div class="config-detail" *ngIf="selectedConfigItem && !cloneState">
-                <div class="detail-head">
-                  <div class="detail-type-dot" [style.background]="activeViewMeta?.color"></div>
-                  <div class="detail-head-text">
-                    <h3 class="detail-title">{{ selectedConfigItem.label }}</h3>
-                    <div class="detail-meta">
-                      <span class="card-type">{{ selectedConfigItem.node_type }}</span>
-                      <ng-container *ngIf="characterBadge(selectedConfigItem) as badge">
-                        <span class="char-badge" [style.background]="badge.bg" [style.color]="badge.color">{{ badge.label }}</span>
-                      </ng-container>
-                      <span *ngIf="!selectedConfigItem.runtime_active" class="inactive-tag">inaktiv</span>
-                      <span class="detail-id muted">{{ selectedConfigItem.id }}</span>
-                    </div>
-                  </div>
-                  <div class="detail-head-actions">
-                    <button *ngIf="isEditableConfigNode(selectedConfigItem)" class="button-outline" (click)="startEdit(selectedConfigItem)">
-                      Bearbeiten
-                    </button>
-                    <button *ngIf="isCloneable(selectedConfigItem)" class="button-outline" (click)="startClone(selectedConfigItem)">
-                      ⎘ Klonen & anpassen
-                    </button>
-                    <button class="button-outline" (click)="showInGraph(selectedConfigItem)">Im Graph zeigen</button>
-                  </div>
-                </div>
-
-                <!-- ── BEHAVIOR DIMENSIONS (agent_profile only) ── -->
-                <ng-container *ngIf="selectedConfigItem.node_type === 'agent_profile' && behaviorDims(selectedConfigItem) as beh">
-                  <div class="detail-section">
-                    <div class="section-label">Verhaltens-Dimensionen</div>
-                    <div class="beh-grid">
-
-                      <!-- Execute contract -->
-                      <div class="beh-card" [class]="'beh-gate-' + beh.execute_contract.gate">
-                        <div class="beh-card-head">
-                          <span class="beh-icon">{{ beh.execute_contract.gate === 'blocked' ? '🔒' : beh.execute_contract.gate === 'explicit_approval_required' ? '⚠' : '✓' }}</span>
+                }
+                <!-- ── OVERVIEW: card grid ── -->
+                @if (!selectedConfigItem && !cloneState && !loading) {
+                  <div class="config-cards">
+                    @for (item of configPanelItems; track item) {
+                      <div
+                        class="config-card selectable"
+                        [class.card-inactive]="!item.runtime_active"
+                        [class.card-has-diags]="item.diagnostics.length > 0"
+                        (click)="selectConfigItem(item)">
+                        <div class="card-head">
+                          <div class="card-dot" [style.background]="activeViewMeta?.color"></div>
+                          <strong class="card-label" [title]="item.id">{{ item.label }}</strong>
+                          @if (characterBadge(item); as badge) {
+                            <span class="char-badge" [style.background]="badge.bg" [style.color]="badge.color">{{ badge.label }}</span>
+                          }
+                          @if (!item.runtime_active) {
+                            <span class="inactive-tag">inaktiv</span>
+                          }
+                        </div>
+                        <div class="card-fields">
+                          @for (f of keyFieldsFor(item); track f) {
+                            <div class="card-field">
+                              <span class="cf-label">{{ f.label }}</span>
+                              <span class="cf-value" [class.cf-empty]="!f.value || f.value==='—'">{{ f.value }}</span>
+                            </div>
+                          }
+                        </div>
+                        @if (item.diagnostics.length > 0) {
+                          <div class="card-diags">
+                            @for (d of item.diagnostics; track d) {
+                              <span class="diag-item">⚠ {{ d }}</span>
+                            }
+                          </div>
+                        }
+                        <div class="card-open-hint">Klicken zum Öffnen →</div>
+                      </div>
+                    }
+                    <!-- Policy-Pfad: empty state with suggestions -->
+                    @if (configPanelItems.length === 0 && activeView === VIEW_IDS.policyPath) {
+                      <div class="policy-empty">
+                        <div class="policy-empty-head">
+                          <span class="policy-empty-icon">⚖</span>
                           <div>
-                            <div class="beh-card-title">Ausführungs-Vertrag</div>
-                            <div class="beh-card-value">{{ beh.execute_contract.label }}</div>
+                            <strong>Keine Pfad-Regeln konfiguriert</strong>
+                            <p class="muted">Alle Pfade sind offen — kein KI-Modus ist eingeschränkt. Typische Beispiele:</p>
                           </div>
                         </div>
-                        <div class="beh-card-desc">{{ beh.execute_contract.description }}</div>
-                        <div class="beh-caps">
-                          <span class="beh-cap" [class.beh-cap-yes]="beh.execute_contract.can_write_files" [class.beh-cap-no]="!beh.execute_contract.can_write_files">
-                            {{ beh.execute_contract.can_write_files ? '✓' : '✗' }} Dateien schreiben
-                          </span>
-                          <span class="beh-cap" [class.beh-cap-yes]="beh.execute_contract.can_run_commands" [class.beh-cap-no]="!beh.execute_contract.can_run_commands">
-                            {{ beh.execute_contract.can_run_commands ? '✓' : '✗' }} Befehle ausführen
-                          </span>
+                        <div class="policy-suggestions">
+                          @for (s of policySuggestions; track s) {
+                            <div class="policy-suggestion" (click)="prefillSuggestion(s)">
+                              <div class="sug-glob">{{ s.glob }}</div>
+                              <div class="sug-blocked"><span class="char-badge" style="background:#5a0000;color:#fff">{{ s.blocked }}</span></div>
+                              <div class="sug-hint muted">{{ s.hint }}</div>
+                              <div class="sug-action">Als Vorlage →</div>
+                            </div>
+                          }
                         </div>
                       </div>
-
-                      <!-- Context authority -->
-                      <div class="beh-card beh-card-context">
-                        <div class="beh-card-head">
-                          <span class="beh-icon">◈</span>
-                          <div>
-                            <div class="beh-card-title">Kontext-Autorität</div>
-                            <div class="beh-card-value">{{ beh.context_authority.label }}</div>
+                    }
+                    @if (configPanelItems.length === 0 && activeView !== VIEW_IDS.policyPath) {
+                      <div class="cp-empty">
+                        <p class="muted">Keine Einträge für diese Ansicht konfiguriert.</p>
+                      </div>
+                    }
+                  </div>
+                }
+                @if (loading && !selectedConfigItem && !cloneState) {
+                  <div class="loading-wrap">
+                    <p class="muted">Wird geladen…</p>
+                  </div>
+                }
+                <!-- ── DETAIL VIEW ── -->
+                @if (selectedConfigItem && !cloneState) {
+                  <div class="config-detail">
+                    <div class="detail-head">
+                      <div class="detail-type-dot" [style.background]="activeViewMeta?.color"></div>
+                      <div class="detail-head-text">
+                        <h3 class="detail-title">{{ selectedConfigItem.label }}</h3>
+                        <div class="detail-meta">
+                          <span class="card-type">{{ selectedConfigItem.node_type }}</span>
+                          @if (characterBadge(selectedConfigItem); as badge) {
+                            <span class="char-badge" [style.background]="badge.bg" [style.color]="badge.color">{{ badge.label }}</span>
+                          }
+                          @if (!selectedConfigItem.runtime_active) {
+                            <span class="inactive-tag">inaktiv</span>
+                          }
+                          <span class="detail-id muted">{{ selectedConfigItem.id }}</span>
+                        </div>
+                      </div>
+                      <div class="detail-head-actions">
+                        @if (isEditableConfigNode(selectedConfigItem)) {
+                          <button class="button-outline" (click)="startEdit(selectedConfigItem)">
+                            Bearbeiten
+                          </button>
+                        }
+                        @if (isCloneable(selectedConfigItem)) {
+                          <button class="button-outline" (click)="startClone(selectedConfigItem)">
+                            ⎘ Klonen & anpassen
+                          </button>
+                        }
+                        <button class="button-outline" (click)="showInGraph(selectedConfigItem)">Im Graph zeigen</button>
+                      </div>
+                    </div>
+                    <!-- ── BEHAVIOR DIMENSIONS (agent_profile only) ── -->
+                    @if (selectedConfigItem.node_type === 'agent_profile' && behaviorDims(selectedConfigItem); as beh) {
+                      <div class="detail-section">
+                        <div class="section-label">Verhaltens-Dimensionen</div>
+                        <div class="beh-grid">
+                          <!-- Execute contract -->
+                          <div class="beh-card" [class]="'beh-gate-' + beh.execute_contract.gate">
+                            <div class="beh-card-head">
+                              <span class="beh-icon">{{ beh.execute_contract.gate === 'blocked' ? '🔒' : beh.execute_contract.gate === 'explicit_approval_required' ? '⚠' : '✓' }}</span>
+                              <div>
+                                <div class="beh-card-title">Ausführungs-Vertrag</div>
+                                <div class="beh-card-value">{{ beh.execute_contract.label }}</div>
+                              </div>
+                            </div>
+                            <div class="beh-card-desc">{{ beh.execute_contract.description }}</div>
+                            <div class="beh-caps">
+                              <span class="beh-cap" [class.beh-cap-yes]="beh.execute_contract.can_write_files" [class.beh-cap-no]="!beh.execute_contract.can_write_files">
+                                {{ beh.execute_contract.can_write_files ? '✓' : '✗' }} Dateien schreiben
+                              </span>
+                              <span class="beh-cap" [class.beh-cap-yes]="beh.execute_contract.can_run_commands" [class.beh-cap-no]="!beh.execute_contract.can_run_commands">
+                                {{ beh.execute_contract.can_run_commands ? '✓' : '✗' }} Befehle ausführen
+                              </span>
+                            </div>
                           </div>
-                        </div>
-                        <div class="beh-card-desc">{{ beh.context_authority.description }}</div>
-                        <div class="beh-sources">
-                          <span class="beh-source" *ngFor="let s of beh.context_authority.primary_sources">{{ s }}</span>
-                          <span class="beh-cc" [class.beh-cc-primary]="beh.context_authority.codecompass === 'primary'" [class.beh-cc-secondary]="beh.context_authority.codecompass === 'secondary'">
-                            CodeCompass: {{ beh.context_authority.codecompass }}
-                          </span>
-                        </div>
-                      </div>
-
-                      <!-- Must-not -->
-                      <div class="beh-card beh-card-mustnot" *ngIf="beh.must_not?.length">
-                        <div class="beh-card-head">
-                          <span class="beh-icon">🚫</span>
-                          <div>
-                            <div class="beh-card-title">Darf nicht</div>
-                            <div class="beh-card-value">{{ beh.scope_label }}</div>
+                          <!-- Context authority -->
+                          <div class="beh-card beh-card-context">
+                            <div class="beh-card-head">
+                              <span class="beh-icon">◈</span>
+                              <div>
+                                <div class="beh-card-title">Kontext-Autorität</div>
+                                <div class="beh-card-value">{{ beh.context_authority.label }}</div>
+                              </div>
+                            </div>
+                            <div class="beh-card-desc">{{ beh.context_authority.description }}</div>
+                            <div class="beh-sources">
+                              @for (s of beh.context_authority.primary_sources; track s) {
+                                <span class="beh-source">{{ s }}</span>
+                              }
+                              <span class="beh-cc" [class.beh-cc-primary]="beh.context_authority.codecompass === 'primary'" [class.beh-cc-secondary]="beh.context_authority.codecompass === 'secondary'">
+                                CodeCompass: {{ beh.context_authority.codecompass }}
+                              </span>
+                            </div>
                           </div>
+                          <!-- Must-not -->
+                          @if (beh.must_not?.length) {
+                            <div class="beh-card beh-card-mustnot">
+                              <div class="beh-card-head">
+                                <span class="beh-icon">🚫</span>
+                                <div>
+                                  <div class="beh-card-title">Darf nicht</div>
+                                  <div class="beh-card-value">{{ beh.scope_label }}</div>
+                                </div>
+                              </div>
+                              <ul class="beh-mustnot-list">
+                                @for (mn of beh.must_not; track mn) {
+                                  <li>{{ mn }}</li>
+                                }
+                              </ul>
+                            </div>
+                          }
                         </div>
-                        <ul class="beh-mustnot-list">
-                          <li *ngFor="let mn of beh.must_not">{{ mn }}</li>
-                        </ul>
                       </div>
-
+                    }
+                    <div class="detail-section">
+                      <div class="section-label">Konfiguration</div>
+                      <div class="detail-fields">
+                        @for (f of configFieldsFor(selectedConfigItem); track f) {
+                          <div class="detail-field">
+                            <span class="df-label">{{ f.label }}</span>
+                            <span class="df-value" [class.df-empty]="f.value==='—'">{{ f.value }}</span>
+                          </div>
+                        }
+                      </div>
+                    </div>
+                    @if (connectedNodes.length > 0) {
+                      <div class="detail-section">
+                        <div class="section-label">Verbundene Nodes ({{ connectedNodes.length }})</div>
+                        <div class="connected-list">
+                          @for (cn of connectedNodes; track cn) {
+                            <div class="connected-node">
+                              <span class="cn-dir" [class.cn-out]="cn.direction==='out'" [class.cn-in]="cn.direction==='in'">
+                                {{ cn.direction === 'out' ? '→' : '←' }}
+                              </span>
+                              <span class="cn-edge-type">{{ cn.edgeType }}</span>
+                              <div class="cn-dot" [style.background]="nodeTypeColor(cn.node.node_type)"></div>
+                              <strong class="cn-label">{{ cn.node.label }}</strong>
+                              <span class="card-type">{{ cn.node.node_type }}</span>
+                              <button class="button-outline cn-open-btn" (click)="selectConfigItem(cn.node)">Öffnen</button>
+                            </div>
+                          }
+                        </div>
+                      </div>
+                    }
+                    @if (selectedConfigItem.diagnostics.length > 0) {
+                      <div class="detail-section">
+                        <div class="section-label">Diagnosen</div>
+                        <div class="card-diags">
+                          @for (d of selectedConfigItem.diagnostics; track d) {
+                            <span class="diag-item">⚠ {{ d }}</span>
+                          }
+                        </div>
+                      </div>
+                    }
+                  </div>
+                }
+                <!-- ── CLONE / CREATE FORM ── -->
+                @if (cloneState) {
+                  <div class="clone-form">
+                    @if (cloneState.sourceNode) {
+                      <div class="cf-source-hint">
+                        Vorausgefüllt aus: <em>{{ cloneState.sourceNode.label }}</em> — Felder anpassen und speichern.
+                      </div>
+                    }
+                    <div class="cf-fields">
+                      @for (f of cloneState.fields; track f) {
+                        <div class="cf-field">
+                          <label class="cf-field-label">
+                            {{ f.label }}
+                            @if (f.key==='profile_id' || f.key==='path_glob' || f.key==='id') {
+                              <span class="required-mark">*</span>
+                            }
+                          </label>
+                          @if (f.type==='select') {
+                            <select [(ngModel)]="cloneState.values[f.key]" class="cf-input">
+                              @for (o of f.options; track o) {
+                                <option [value]="o">{{ o }}</option>
+                              }
+                            </select>
+                          }
+                          @if (f.type==='text') {
+                            <input [(ngModel)]="cloneState.values[f.key]" class="cf-input" />
+                          }
+                          @if (f.hint) {
+                            <div class="cf-hint">{{ f.hint }}</div>
+                          }
+                        </div>
+                      }
+                    </div>
+                    @if (cloneState.error) {
+                      <div class="cf-error">{{ cloneState.error }}</div>
+                    }
+                    <div class="cf-actions">
+                      <button class="button-primary" (click)="saveClone()" [disabled]="cloneState.saving">
+                        {{ cloneState.saving ? 'Wird gespeichert…' : cloneState.mode === 'edit' ? 'Änderung vormerken' : 'Speichern' }}
+                      </button>
+                      <button class="button-outline" (click)="cancelClone()">Abbrechen</button>
                     </div>
                   </div>
-                </ng-container>
-
-                <div class="detail-section">
-                  <div class="section-label">Konfiguration</div>
-                  <div class="detail-fields">
-                    <div *ngFor="let f of configFieldsFor(selectedConfigItem)" class="detail-field">
-                      <span class="df-label">{{ f.label }}</span>
-                      <span class="df-value" [class.df-empty]="f.value==='—'">{{ f.value }}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="detail-section" *ngIf="connectedNodes.length > 0">
-                  <div class="section-label">Verbundene Nodes ({{ connectedNodes.length }})</div>
-                  <div class="connected-list">
-                    <div *ngFor="let cn of connectedNodes" class="connected-node">
-                      <span class="cn-dir" [class.cn-out]="cn.direction==='out'" [class.cn-in]="cn.direction==='in'">
-                        {{ cn.direction === 'out' ? '→' : '←' }}
-                      </span>
-                      <span class="cn-edge-type">{{ cn.edgeType }}</span>
-                      <div class="cn-dot" [style.background]="nodeTypeColor(cn.node.node_type)"></div>
-                      <strong class="cn-label">{{ cn.node.label }}</strong>
-                      <span class="card-type">{{ cn.node.node_type }}</span>
-                      <button class="button-outline cn-open-btn" (click)="selectConfigItem(cn.node)">Öffnen</button>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="detail-section" *ngIf="selectedConfigItem.diagnostics.length > 0">
-                  <div class="section-label">Diagnosen</div>
-                  <div class="card-diags">
-                    <span *ngFor="let d of selectedConfigItem.diagnostics" class="diag-item">⚠ {{ d }}</span>
-                  </div>
-                </div>
+                }
               </div>
-
-              <!-- ── CLONE / CREATE FORM ── -->
-              <div *ngIf="cloneState" class="clone-form">
-                <div *ngIf="cloneState.sourceNode" class="cf-source-hint">
-                  Vorausgefüllt aus: <em>{{ cloneState.sourceNode.label }}</em> — Felder anpassen und speichern.
-                </div>
-                <div class="cf-fields">
-                  <div *ngFor="let f of cloneState.fields" class="cf-field">
-                    <label class="cf-field-label">
-                      {{ f.label }}
-                      <span *ngIf="f.key==='profile_id' || f.key==='path_glob' || f.key==='id'" class="required-mark">*</span>
-                    </label>
-                    <select *ngIf="f.type==='select'" [(ngModel)]="cloneState.values[f.key]" class="cf-input">
-                      <option *ngFor="let o of f.options" [value]="o">{{ o }}</option>
-                    </select>
-                    <input *ngIf="f.type==='text'" [(ngModel)]="cloneState.values[f.key]" class="cf-input" />
-                    <div *ngIf="f.hint" class="cf-hint">{{ f.hint }}</div>
-                  </div>
-                </div>
-                <div *ngIf="cloneState.error" class="cf-error">{{ cloneState.error }}</div>
-                <div class="cf-actions">
-                  <button class="button-primary" (click)="saveClone()" [disabled]="cloneState.saving">
-                    {{ cloneState.saving ? 'Wird gespeichert…' : cloneState.mode === 'edit' ? 'Änderung vormerken' : 'Speichern' }}
-                  </button>
-                  <button class="button-outline" (click)="cancelClone()">Abbrechen</button>
-                </div>
-              </div>
-
-            </div>
-          </ng-container>
-
+            }
+          }
+    
           <!-- ══════════ GRAPH MODE ══════════ -->
-          <ng-container *ngIf="displayMode === 'graph'">
-            <div *ngIf="effectiveResult" class="effective-panel">
-              <div class="ep-header">
-                <strong>Effektiv: {{ effectiveResult.surface }}</strong>
-                <span *ngIf="effectiveResult.task_kind" class="badge">{{ effectiveResult.task_kind }}</span>
-                <button (click)="effectiveResult = null; cdr.markForCheck()" class="close-btn">✕</button>
+          @if (displayMode === 'graph') {
+            @if (effectiveResult) {
+              <div class="effective-panel">
+                <div class="ep-header">
+                  <strong>Effektiv: {{ effectiveResult.surface }}</strong>
+                  @if (effectiveResult.task_kind) {
+                    <span class="badge">{{ effectiveResult.task_kind }}</span>
+                  }
+                  <button (click)="effectiveResult = null; cdr.markForCheck()" class="close-btn">✕</button>
+                </div>
               </div>
-            </div>
-            <div *ngIf="editMode && pendingOps.length > 0" class="edit-toolbar">
-              <span>{{ pendingOps.length }} Änderung(en)</span>
-              <button class="button-outline" (click)="validatePatch()">Validieren</button>
-              <input *ngIf="lastValidation?.requires_approval" [(ngModel)]="approvalToken" class="approval-input" placeholder="Approval-Token" />
-              <button class="button-outline" [disabled]="!lastValidation?.valid" (click)="applyPatch()">Anwenden</button>
-              <button class="button-outline danger" (click)="discardPatch()">Verwerfen</button>
-              <span *ngIf="lastValidation" class="risk-badge" [class]="'risk-' + lastValidation.risk_tier">{{ lastValidation.risk_tier }}</span>
-              <ul *ngIf="lastValidation?.errors?.length" class="edit-errors">
-                <li *ngFor="let e of lastValidation!.errors">{{ e }}</li>
-              </ul>
-            </div>
-            <div *ngIf="lastSourceDiffs.length" class="source-diff-panel">
-              <div class="source-diff-head">
-                <strong>Source-Diff</strong>
-                <button *ngIf="lastRollbackArtifact" class="button-outline" (click)="rollbackLastPatch()">Rollback</button>
+            }
+            @if (editMode && pendingOps.length > 0) {
+              <div class="edit-toolbar">
+                <span>{{ pendingOps.length }} Änderung(en)</span>
+                <button class="button-outline" (click)="validatePatch()">Validieren</button>
+                @if (lastValidation?.requires_approval) {
+                  <input [(ngModel)]="approvalToken" class="approval-input" placeholder="Approval-Token" />
+                }
+                <button class="button-outline" [disabled]="!lastValidation?.valid" (click)="applyPatch()">Anwenden</button>
+                <button class="button-outline danger" (click)="discardPatch()">Verwerfen</button>
+                @if (lastValidation) {
+                  <span class="risk-badge" [class]="'risk-' + lastValidation.risk_tier">{{ lastValidation.risk_tier }}</span>
+                }
+                @if (lastValidation?.errors?.length) {
+                  <ul class="edit-errors">
+                    @for (e of lastValidation!.errors; track e) {
+                      <li>{{ e }}</li>
+                    }
+                  </ul>
+                }
               </div>
-              <pre *ngFor="let diff of lastSourceDiffs">{{ diff }}</pre>
-            </div>
-            <div class="cge-canvas-wrap" *ngIf="!loading; else loadingTpl">
-              <svg #svgEl class="cge-svg" [attr.width]="svgWidth" [attr.height]="svgHeight" (click)="onSvgClick($event)">
-                <defs>
-                  <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-                    <path d="M0,0 L0,6 L8,3 z" fill="#666" />
-                  </marker>
-                </defs>
-                <g class="edges-layer">
-                  <line *ngFor="let edge of visibleEdges"
-                    [attr.x1]="edgeX1(edge)" [attr.y1]="edgeY1(edge)"
-                    [attr.x2]="edgeX2(edge)" [attr.y2]="edgeY2(edge)"
-                    stroke="#555" stroke-width="1.5" marker-end="url(#arrow)" />
-                </g>
-                <g class="nodes-layer">
-                  <g *ngFor="let ln of visibleLayoutNodes"
-                    class="graph-node"
-                    [class.selected]="selectedNode?.id === ln.id"
-                    [class.stale]="ln.node.stale"
-                    [class.inactive]="!ln.node.runtime_active"
-                    (click)="selectNode($event, ln.node)"
-                    style="cursor:pointer">
-                    <rect [attr.x]="ln.x" [attr.y]="ln.y" [attr.width]="ln.w" [attr.height]="ln.h"
-                      rx="6" [attr.fill]="nodeColor(ln.node.node_type)"
-                      [attr.fill-opacity]="ln.node.runtime_active ? 0.85 : 0.35"
-                      [attr.stroke]="selectedNode?.id===ln.id ? '#fff' : 'transparent'" stroke-width="2" />
-                    <text [attr.x]="ln.x+ln.w/2" [attr.y]="ln.y+ln.h/2-4"
-                      text-anchor="middle" font-size="10" fill="#fff" font-weight="600" style="pointer-events:none">{{ ln.node.node_type }}</text>
-                    <text [attr.x]="ln.x+ln.w/2" [attr.y]="ln.y+ln.h/2+10"
-                      text-anchor="middle" font-size="11" fill="#fff" style="pointer-events:none;dominant-baseline:middle">{{ truncate(ln.node.label,18) }}</text>
-                    <circle *ngIf="ln.node.diagnostics.length>0" [attr.cx]="ln.x+ln.w-6" [attr.cy]="ln.y+6" r="5" fill="#ff8f00" />
+            }
+            @if (lastSourceDiffs.length) {
+              <div class="source-diff-panel">
+                <div class="source-diff-head">
+                  <strong>Source-Diff</strong>
+                  @if (lastRollbackArtifact) {
+                    <button class="button-outline" (click)="rollbackLastPatch()">Rollback</button>
+                  }
+                </div>
+                @for (diff of lastSourceDiffs; track diff) {
+                  <pre>{{ diff }}</pre>
+                }
+              </div>
+            }
+            @if (!loading) {
+              <div class="cge-canvas-wrap">
+                <svg #svgEl class="cge-svg" [attr.width]="svgWidth" [attr.height]="svgHeight" (click)="onSvgClick($event)">
+                  <defs>
+                    <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                      <path d="M0,0 L0,6 L8,3 z" fill="#666" />
+                    </marker>
+                  </defs>
+                  <g class="edges-layer">
+                    @for (edge of visibleEdges; track edge) {
+                      <line
+                        [attr.x1]="edgeX1(edge)" [attr.y1]="edgeY1(edge)"
+                        [attr.x2]="edgeX2(edge)" [attr.y2]="edgeY2(edge)"
+                        stroke="#555" stroke-width="1.5" marker-end="url(#arrow)" />
+                    }
                   </g>
-                </g>
-              </svg>
-              <div *ngIf="visibleLayoutNodes.length===0" class="empty-view"><p class="muted">Keine Nodes in dieser Ansicht.</p></div>
-            </div>
-            <ng-template #loadingTpl><div class="loading-wrap"><p class="muted">Graph wird geladen…</p></div></ng-template>
+                  <g class="nodes-layer">
+                    @for (ln of visibleLayoutNodes; track ln) {
+                      <g
+                        class="graph-node"
+                        [class.selected]="selectedNode?.id === ln.id"
+                        [class.stale]="ln.node.stale"
+                        [class.inactive]="!ln.node.runtime_active"
+                        (click)="selectNode($event, ln.node)"
+                        style="cursor:pointer">
+                        <rect [attr.x]="ln.x" [attr.y]="ln.y" [attr.width]="ln.w" [attr.height]="ln.h"
+                          rx="6" [attr.fill]="nodeColor(ln.node.node_type)"
+                          [attr.fill-opacity]="ln.node.runtime_active ? 0.85 : 0.35"
+                          [attr.stroke]="selectedNode?.id===ln.id ? '#fff' : 'transparent'" stroke-width="2" />
+                        <text [attr.x]="ln.x+ln.w/2" [attr.y]="ln.y+ln.h/2-4"
+                        text-anchor="middle" font-size="10" fill="#fff" font-weight="600" style="pointer-events:none">{{ ln.node.node_type }}</text>
+                        <text [attr.x]="ln.x+ln.w/2" [attr.y]="ln.y+ln.h/2+10"
+                        text-anchor="middle" font-size="11" fill="#fff" style="pointer-events:none;dominant-baseline:middle">{{ truncate(ln.node.label,18) }}</text>
+                        @if (ln.node.diagnostics.length>0) {
+                          <circle [attr.cx]="ln.x+ln.w-6" [attr.cy]="ln.y+6" r="5" fill="#ff8f00" />
+                        }
+                      </g>
+                    }
+                  </g>
+                </svg>
+                @if (visibleLayoutNodes.length===0) {
+                  <div class="empty-view"><p class="muted">Keine Nodes in dieser Ansicht.</p></div>
+                }
+              </div>
+            } @else {
+              <div class="loading-wrap"><p class="muted">Graph wird geladen…</p></div>
+            }
             <app-config-graph-node-detail
               [node]="selectedNode" [editMode]="editMode"
               (closed)="selectedNode=null; cdr.markForCheck()"
               (removeRequested)="queueRemoveNode($event)" />
-          </ng-container>
-
+          }
+    
         </div>
       </div>
     </div>
-  `,
+    `,
   styles: [`
     /* ── Root / Header ─────────────────────────────────────── */
     .cge-root { display:flex; flex-direction:column; height:100%; box-sizing:border-box; font-size:13px; background:var(--bg,#111); color:var(--text,#ddd); }

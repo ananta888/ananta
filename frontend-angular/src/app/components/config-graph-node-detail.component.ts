@@ -5,80 +5,94 @@ import {
   Input,
   Output,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { ConfigGraphNode, nodeColor } from '../models/config-graph.model';
 
 @Component({
   standalone: true,
   selector: 'app-config-graph-node-detail',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule],
+  imports: [],
   template: `
-    <div class="node-detail-panel" *ngIf="node">
-      <div class="node-detail-header" [style.border-left-color]="nodeColor(node.node_type)">
-        <span class="node-type-badge" [style.background]="nodeColor(node.node_type)">
-          {{ node.node_type }}
-        </span>
-        <span class="node-label">{{ node.label }}</span>
-        <button class="close-btn" (click)="closed.emit()">✕</button>
-      </div>
-
-      <div class="node-detail-body">
-        <div class="detail-row" *ngIf="node.source_file">
-          <span class="detail-key">Quelldatei</span>
-          <code class="detail-value">{{ node.source_file }}</code>
-        </div>
-        <div class="detail-row" *ngIf="node.runtime_source">
-          <span class="detail-key">Laufzeit-Quelle</span>
-          <span class="detail-value">{{ node.runtime_source }}</span>
-        </div>
-
-        <div class="detail-row">
-          <span class="detail-key">Aktiv</span>
-          <span class="detail-value badge" [class.badge-ok]="node.runtime_active" [class.badge-warn]="!node.runtime_active">
-            {{ node.runtime_active ? 'ja' : 'nein' }}
+    @if (node) {
+      <div class="node-detail-panel">
+        <div class="node-detail-header" [style.border-left-color]="nodeColor(node.node_type)">
+          <span class="node-type-badge" [style.background]="nodeColor(node.node_type)">
+            {{ node.node_type }}
           </span>
+          <span class="node-label">{{ node.label }}</span>
+          <button class="close-btn" (click)="closed.emit()">✕</button>
         </div>
-
-        <div class="detail-row" *ngIf="node.stale">
-          <span class="detail-key">Veraltet</span>
-          <span class="detail-value badge badge-warn">ggf. veraltet</span>
-        </div>
-
-        <div *ngIf="node.diagnostics.length > 0" class="diagnostics-block">
-          <div class="detail-key">Diagnose</div>
-          <ul class="diag-list">
-            <li *ngFor="let d of node.diagnostics">{{ d }}</li>
-          </ul>
-        </div>
-
-        <div *ngIf="dataEntries.length > 0" class="data-section">
-          <div class="detail-key">Daten</div>
-          <table class="data-table">
-            <tr *ngFor="let entry of dataEntries">
-              <td class="data-key">{{ entry[0] }}</td>
-              <td class="data-val">
-                <ng-container *ngIf="isArray(entry[1]); else scalar">
-                  <span class="tag" *ngFor="let t of asArray(entry[1])">{{ t }}</span>
-                </ng-container>
-                <ng-template #scalar>{{ entry[1] }}</ng-template>
-              </td>
-            </tr>
-          </table>
-        </div>
-
-        <div class="node-id-row">
-          <code class="muted">{{ node.id }}</code>
-        </div>
-
-        <div class="action-row" *ngIf="editMode">
-          <button class="button-outline danger" (click)="removeRequested.emit(node.id)">
-            Node entfernen
-          </button>
+        <div class="node-detail-body">
+          @if (node.source_file) {
+            <div class="detail-row">
+              <span class="detail-key">Quelldatei</span>
+              <code class="detail-value">{{ node.source_file }}</code>
+            </div>
+          }
+          @if (node.runtime_source) {
+            <div class="detail-row">
+              <span class="detail-key">Laufzeit-Quelle</span>
+              <span class="detail-value">{{ node.runtime_source }}</span>
+            </div>
+          }
+          <div class="detail-row">
+            <span class="detail-key">Aktiv</span>
+            <span class="detail-value badge" [class.badge-ok]="node.runtime_active" [class.badge-warn]="!node.runtime_active">
+              {{ node.runtime_active ? 'ja' : 'nein' }}
+            </span>
+          </div>
+          @if (node.stale) {
+            <div class="detail-row">
+              <span class="detail-key">Veraltet</span>
+              <span class="detail-value badge badge-warn">ggf. veraltet</span>
+            </div>
+          }
+          @if (node.diagnostics.length > 0) {
+            <div class="diagnostics-block">
+              <div class="detail-key">Diagnose</div>
+              <ul class="diag-list">
+                @for (d of node.diagnostics; track d) {
+                  <li>{{ d }}</li>
+                }
+              </ul>
+            </div>
+          }
+          @if (dataEntries.length > 0) {
+            <div class="data-section">
+              <div class="detail-key">Daten</div>
+              <table class="data-table">
+                @for (entry of dataEntries; track entry) {
+                  <tr>
+                    <td class="data-key">{{ entry[0] }}</td>
+                    <td class="data-val">
+                      @if (isArray(entry[1])) {
+                        @for (t of asArray(entry[1]); track t) {
+                          <span class="tag">{{ t }}</span>
+                        }
+                      } @else {
+                        {{ entry[1] }}
+                      }
+                    </td>
+                  </tr>
+                }
+              </table>
+            </div>
+          }
+          <div class="node-id-row">
+            <code class="muted">{{ node.id }}</code>
+          </div>
+          @if (editMode) {
+            <div class="action-row">
+              <button class="button-outline danger" (click)="removeRequested.emit(node.id)">
+                Node entfernen
+              </button>
+            </div>
+          }
         </div>
       </div>
-    </div>
-  `,
+    }
+    `,
   styles: [`
     .node-detail-panel {
       position: fixed;

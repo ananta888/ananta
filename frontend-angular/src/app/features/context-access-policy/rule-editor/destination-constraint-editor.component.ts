@@ -1,5 +1,5 @@
 import { Component, EventEmitter, Input, OnInit, Output, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { WorkerRuntimeCandidateApiService } from '../../../services/worker-runtime-candidate-api.service';
 import { WorkerRuntimeCandidate, RuntimeTarget } from '../../../models/worker-runtime-target.model';
@@ -9,7 +9,7 @@ import { catchError, map } from 'rxjs/operators';
 @Component({
   selector: 'app-destination-constraint-editor',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   template: `
     <div class="destination-editor card shadow-sm mb-3">
       <div class="card-header bg-light">
@@ -20,68 +20,82 @@ import { catchError, map } from 'rxjs/operators';
           <div class="col-md-6">
             <label class="form-label fw-bold small">Erlaubte Worker-Typen</label>
             <div class="d-flex flex-wrap gap-2">
-              <div *ngFor="let kind of allWorkerKinds" class="form-check">
-                <input class="form-check-input" type="checkbox" 
-                       [id]="'worker-' + kind"
-                       [checked]="allowedWorkerKinds.includes(kind)"
-                       (change)="toggleWorkerKind(kind)">
-                <label class="form-check-label small" [for]="'worker-' + kind">
-                  {{ kind }}
-                  <i *ngIf="kind === 'remote_worker'" class="bi bi-cloud text-warning ms-1" title="Externer/Cloud Worker"></i>
-                </label>
-              </div>
+              @for (kind of allWorkerKinds; track kind) {
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox"
+                    [id]="'worker-' + kind"
+                    [checked]="allowedWorkerKinds.includes(kind)"
+                    (change)="toggleWorkerKind(kind)">
+                  <label class="form-check-label small" [for]="'worker-' + kind">
+                    {{ kind }}
+                    @if (kind === 'remote_worker') {
+                      <i class="bi bi-cloud text-warning ms-1" title="Externer/Cloud Worker"></i>
+                    }
+                  </label>
+                </div>
+              }
             </div>
           </div>
-
+    
           <div class="col-md-6">
             <label class="form-label fw-bold small">Erlaubte Runtime-Umgebungen</label>
             <div class="d-flex flex-wrap gap-2">
-              <div *ngFor="let kind of allRuntimeKinds" class="form-check">
-                <input class="form-check-input" type="checkbox" 
-                       [id]="'runtime-' + kind"
-                       [checked]="allowedRuntimeKinds.includes(kind)"
-                       (change)="toggleRuntimeKind(kind)">
-                <label class="form-check-label small" [for]="'runtime-' + kind">
-                  {{ kind }}
-                  <i *ngIf="kind === 'cloud_worker'" class="bi bi-cloud text-warning ms-1" title="Cloud Runtime"></i>
-                </label>
-              </div>
+              @for (kind of allRuntimeKinds; track kind) {
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox"
+                    [id]="'runtime-' + kind"
+                    [checked]="allowedRuntimeKinds.includes(kind)"
+                    (change)="toggleRuntimeKind(kind)">
+                  <label class="form-check-label small" [for]="'runtime-' + kind">
+                    {{ kind }}
+                    @if (kind === 'cloud_worker') {
+                      <i class="bi bi-cloud text-warning ms-1" title="Cloud Runtime"></i>
+                    }
+                  </label>
+                </div>
+              }
             </div>
           </div>
         </div>
-
+    
         <hr>
-
-        <div class="row g-3">
-          <div class="col-md-6">
-            <label class="form-label fw-bold small">Required Capabilities (T016)</label>
-            <div class="d-flex flex-wrap gap-2">
-              <div *ngFor="let cap of allCapabilities" class="form-check">
-                <input class="form-check-input" type="checkbox" 
-                       [id]="'cap-' + cap"
-                       [checked]="destinationCapabilities.includes(cap)"
-                       (change)="toggleCapability(cap)">
-                <label class="form-check-label small" [for]="'cap-' + cap">{{ cap }}</label>
+    
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-bold small">Required Capabilities (T016)</label>
+              <div class="d-flex flex-wrap gap-2">
+                @for (cap of allCapabilities; track cap) {
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox"
+                      [id]="'cap-' + cap"
+                      [checked]="destinationCapabilities.includes(cap)"
+                      (change)="toggleCapability(cap)">
+                    <label class="form-check-label small" [for]="'cap-' + cap">{{ cap }}</label>
+                  </div>
+                }
               </div>
             </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold small">Spezifische Worker-Instanzen</label>
+              <select class="form-select form-select-sm" multiple [(ngModel)]="allowedWorkerIds" (change)="emit()">
+                @for (w of workerCandidates; track w) {
+                  <option [value]="w.id">
+                    {{ w.display_name }} ({{ w.kind }})
+                  </option>
+                }
+              </select>
+            </div>
           </div>
-          <div class="col-md-6">
-             <label class="form-label fw-bold small">Spezifische Worker-Instanzen</label>
-             <select class="form-select form-select-sm" multiple [(ngModel)]="allowedWorkerIds" (change)="emit()">
-               <option *ngFor="let w of workerCandidates" [value]="w.id">
-                 {{ w.display_name }} ({{ w.kind }})
-               </option>
-             </select>
-          </div>
-        </div>
-
-        <div *ngIf="hasRiskyDestinations" class="alert alert-warning mt-3 mb-0 p-2 small">
-          <i class="bi bi-exclamation-triangle-fill me-1"></i>
-          <strong>Cloud/Externe Ziele aktiv:</strong> Diese Regel erlaubt den Versand an Ziele außerhalb der lokalen Kontrolle.
+    
+          @if (hasRiskyDestinations) {
+            <div class="alert alert-warning mt-3 mb-0 p-2 small">
+              <i class="bi bi-exclamation-triangle-fill me-1"></i>
+              <strong>Cloud/Externe Ziele aktiv:</strong> Diese Regel erlaubt den Versand an Ziele außerhalb der lokalen Kontrolle.
+            </div>
+          }
         </div>
       </div>
-    </div>
-  `,
+    `,
   styles: [`
     .gap-2 { gap: 0.5rem; }
     .destination-editor { border-left: 4px solid #0dcaf0; }

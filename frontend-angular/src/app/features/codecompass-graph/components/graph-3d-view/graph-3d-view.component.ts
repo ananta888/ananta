@@ -3,7 +3,7 @@ import {
   ElementRef, ViewChild, OnChanges, SimpleChanges, AfterViewInit, OnDestroy,
   ChangeDetectionStrategy, ChangeDetectorRef, inject,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import type { ForceGraph3DInstance } from '3d-force-graph';
 import { GenericGraphModel, GraphEdge, GraphNode } from '../../models/graph.model';
 import { graphEdgeColor } from '../../models/graph-edge-style';
@@ -44,7 +44,7 @@ function hasWebGL(): boolean {
   standalone: true,
   selector: 'app-graph-3d-view',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule],
+  imports: [],
   template: `
     @if (webglUnavailable) {
       <div class="fallback-msg">

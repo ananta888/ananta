@@ -1,5 +1,5 @@
 import { Component, AfterViewInit, ElementRef, OnDestroy, OnInit, ViewChild, effect, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 
 import { AgentDirectoryService } from '../services/agent-directory.service';
@@ -11,7 +11,7 @@ import { TaskManagementFacade } from '../features/tasks/task-management.facade';
 @Component({
   standalone: true,
   selector: 'app-task-graph',
-  imports: [CommonModule, FormsModule, UiSkeletonComponent],
+  imports: [FormsModule, UiSkeletonComponent],
   template: `
     <div class="row" style="justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">
       <h2>Task Abhaengigkeits-Graph</h2>

@@ -1,5 +1,5 @@
 import { Component, Input, OnChanges, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { Router } from '@angular/router';
 
 import { GenericGraphModel, GraphNode, GraphEdge } from '../../models/graph.model';
@@ -19,15 +19,14 @@ import { Graph3dViewComponent } from '../graph-3d-view/graph-3d-view.component';
   selector: 'app-graph-viewer',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    CommonModule,
     GraphToolbarComponent,
     GraphDetailPanelComponent,
     FileDiffPanelComponent,
     WikiArticlePanelComponent,
     SimpleGraphViewComponent,
     Graph2dViewComponent,
-    Graph3dViewComponent,
-  ],
+    Graph3dViewComponent
+],
   template: `
     <div class="gv-shell">
       <app-graph-toolbar

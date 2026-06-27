@@ -1,5 +1,5 @@
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
-import { AsyncPipe, DatePipe, NgFor, NgIf } from '@angular/common';
+import { AsyncPipe, DatePipe } from '@angular/common';
 import { CcAgentSession } from '../models/control-center.models';
 import { StatusChipComponent } from './status-chip.component';
 import { ControlCenterToolTimelineComponent } from './control-center-tool-timeline.component';
@@ -11,26 +11,30 @@ import { ControlCenterStateFacade } from '../services/control-center-state.facad
 @Component({
   standalone: true,
   selector: 'app-control-center-sessions',
-  imports: [NgFor, NgIf, AsyncPipe, DatePipe, StatusChipComponent, ControlCenterToolTimelineComponent, ControlCenterSecurityInspectorComponent, ControlCenterVerificationPanelComponent],
+  imports: [AsyncPipe, DatePipe, StatusChipComponent, ControlCenterToolTimelineComponent, ControlCenterSecurityInspectorComponent, ControlCenterVerificationPanelComponent],
   template: `
     <h2>Sessions</h2>
     <p class="muted">Event Stream: <app-status-chip [label]="(stream.state$ | async) || 'disconnected'" [tone]="streamTone((stream.state$ | async) || 'disconnected')" /></p>
     <p class="muted">Letztes Event: {{ (stream.lastHeartbeatAt$ | async) ? ((stream.lastHeartbeatAt$ | async)! | date:'HH:mm:ss') : 'n/a' }}</p>
     <div class="grid">
-      <article class="session" *ngFor="let s of sessions">
-        <header>
-          <strong>{{ s.id }}</strong>
-          <app-status-chip [label]="s.status" [tone]="sessionTone(s.status)" />
-        </header>
-        <p class="muted">Worker: {{ s.workerId }} ({{ s.workerType }}) · Runtime: {{ s.runtime }} · Modell: {{ s.model }}</p>
-        <p class="muted">Policy {{ s.policySnapshot.policyVersion }} · Risk: {{ s.policySnapshot.riskLevel }}</p>
-        <app-control-center-tool-timeline [items]="s.toolCalls"></app-control-center-tool-timeline>
-        <app-control-center-security-inspector [policy]="s.policySnapshot"></app-control-center-security-inspector>
-        <app-control-center-verification-panel [verification]="verificationFor(s.taskId)"></app-control-center-verification-panel>
-      </article>
+      @for (s of sessions; track s) {
+        <article class="session">
+          <header>
+            <strong>{{ s.id }}</strong>
+            <app-status-chip [label]="s.status" [tone]="sessionTone(s.status)" />
+          </header>
+          <p class="muted">Worker: {{ s.workerId }} ({{ s.workerType }}) · Runtime: {{ s.runtime }} · Modell: {{ s.model }}</p>
+          <p class="muted">Policy {{ s.policySnapshot.policyVersion }} · Risk: {{ s.policySnapshot.riskLevel }}</p>
+          <app-control-center-tool-timeline [items]="s.toolCalls"></app-control-center-tool-timeline>
+          <app-control-center-security-inspector [policy]="s.policySnapshot"></app-control-center-security-inspector>
+          <app-control-center-verification-panel [verification]="verificationFor(s.taskId)"></app-control-center-verification-panel>
+        </article>
+      }
     </div>
-    <p *ngIf="!sessions.length" class="muted">Keine Sessions gefunden.</p>
-  `,
+    @if (!sessions.length) {
+      <p class="muted">Keine Sessions gefunden.</p>
+    }
+    `,
   styles: [`.grid{display:grid;grid-template-columns:repeat(2,minmax(280px,1fr));gap:10px}.session{border:1px solid #1f2937;border-radius:10px;padding:10px;background:#0f172a}header{display:flex;justify-content:space-between}.muted{color:#94a3b8;font-size:12px}@media (max-width:900px){.grid{grid-template-columns:1fr}}`]
 })
 export class ControlCenterSessionsComponent implements OnInit, OnDestroy {

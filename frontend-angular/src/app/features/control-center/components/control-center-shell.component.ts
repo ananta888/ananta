@@ -1,4 +1,4 @@
-import { AsyncPipe, NgFor } from '@angular/common';
+import { AsyncPipe } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { RouterLink, RouterOutlet } from '@angular/router';
 import { ControlCenterStateFacade } from '../services/control-center-state.facade';
@@ -6,22 +6,23 @@ import { ControlCenterStateFacade } from '../services/control-center-state.facad
 @Component({
   standalone: true,
   selector: 'app-control-center-shell',
-  imports: [RouterOutlet, RouterLink, AsyncPipe, NgFor],
+  imports: [RouterOutlet, RouterLink, AsyncPipe],
   template: `
     <section class="cc-shell">
       <aside class="cc-left">
         <h3>Control Center</h3>
         <label class="muted">Projekt</label>
         <div class="project-list">
-          <button
-            type="button"
-            *ngFor="let p of (state.projects$ | async) || []"
-            class="project-btn"
-            [class.project-btn--active]="(state.selectedProjectId$ | async) === p.id"
-            (click)="state.selectProject(p.id)"
-          >
-            {{ p.name || p.id }}
-          </button>
+          @for (p of (state.projects$ | async) || []; track p) {
+            <button
+              type="button"
+              class="project-btn"
+              [class.project-btn--active]="(state.selectedProjectId$ | async) === p.id"
+              (click)="state.selectProject(p.id)"
+              >
+              {{ p.name || p.id }}
+            </button>
+          }
         </div>
         <nav>
           <a routerLink="dashboard" data-waypoint="cc.dashboard">Dashboard</a>
@@ -39,7 +40,7 @@ import { ControlCenterStateFacade } from '../services/control-center-state.facad
         <p class="muted">Worker, Modell, Runtime, erlaubte/verweigerte Tools und Pfade.</p>
       </aside>
     </section>
-  `,
+    `,
   styles: [`
     .cc-shell { display:grid; grid-template-columns: 220px 1fr 280px; gap:12px; min-height: calc(100vh - 120px); }
     .cc-left,.cc-center,.cc-right{ border:1px solid #1f2937; border-radius:12px; background:#0b1220; color:#e5e7eb; padding:12px; }

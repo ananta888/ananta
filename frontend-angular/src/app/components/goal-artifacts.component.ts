@@ -1,4 +1,4 @@
-import { CommonModule } from '@angular/common';
+
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, inject } from '@angular/core';
 
@@ -75,7 +75,7 @@ export function buildProvenanceRows(usages: SourceUsage[], outputs: OutputArtifa
 @Component({
   standalone: true,
   selector: 'app-goal-artifacts',
-  imports: [CommonModule],
+  imports: [],
   template: `
     <section class="card goal-artifacts-page">
       <div class="head">

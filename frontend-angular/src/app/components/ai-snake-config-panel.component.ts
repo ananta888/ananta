@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { AiSnakeConfigService } from '../services/ai-snake-config.service';
@@ -148,7 +148,7 @@ const PUG_PRESET_EAGER = {
 @Component({
   selector: 'app-ai-snake-config-panel',
   standalone: true,
-  imports: [CommonModule, FormsModule, DomainScopePanelComponent],
+  imports: [FormsModule, DomainScopePanelComponent],
   template: `
     <div class="cfg-panel">
       <div class="cfg-header">

@@ -12,7 +12,7 @@
  * and PairViewSyncService.
  */
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 
@@ -31,7 +31,7 @@ interface CreateFormState {
 @Component({
   selector: 'app-pair-view-sync-panel',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
   <section class="pair-panel" role="dialog" aria-label="Pair-Dev View-Sync">

@@ -1,5 +1,5 @@
 import { Component, OnInit, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 
 import { AdminFacade } from './admin.facade';
 import { AgentDirectoryService } from '../../services/agent-directory.service';
@@ -15,7 +15,7 @@ interface DiagnosticEntry {
 @Component({
   standalone: true,
   selector: 'app-admin-diagnostics',
-  imports: [CommonModule],
+  imports: [],
   template: `
     <div class="card">
       <div class="row flex-between">

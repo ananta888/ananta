@@ -2,7 +2,7 @@ import {
   Component, Input, Output, EventEmitter, AfterViewInit, ViewChild, ElementRef,
   OnDestroy, inject,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
@@ -37,7 +37,7 @@ function normalizeMermaidForRetry(code: string): string {
 @Component({
   standalone: true,
   selector: 'app-mermaid-diagram',
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   template: `
     <div class="diagram-wrap" (click)="onWrapClick()">
       <div #host class="diagram-host"></div>

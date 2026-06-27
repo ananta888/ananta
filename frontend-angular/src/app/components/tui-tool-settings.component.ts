@@ -1,5 +1,5 @@
 import { Component, OnInit, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 
 import { TuiToolsService, TuiToolProfile, FiletypeRule } from '../services/tui-tools.service';
@@ -9,7 +9,7 @@ import { UserAuthService } from '../services/user-auth.service';
 @Component({
   standalone: true,
   selector: 'app-tui-tool-settings',
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   template: `
     <section class="tui-settings-panel">
       <h3>TUI Tools &amp; Editor Settings</h3>

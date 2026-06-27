@@ -12,47 +12,59 @@ import { ContextAccessRule, Sensitivity } from '../../models/context-access-poli
         <h6>Regeln (Precedence)</h6>
         <button class="btn btn-sm btn-outline-success" (click)="addRule()">+ Regel hinzufügen</button>
       </div>
-
+    
       <div class="list-group">
-        <div *ngFor="let rule of rules; let i = index" 
-             class="list-group-item list-group-item-action d-flex align-items-center gap-3 p-3">
-          <div class="handle text-muted" title="Drag to reorder">
-            <i class="bi bi-grip-vertical"></i>
-          </div>
-          
-          <div class="flex-grow-1">
-            <div class="d-flex justify-content-between align-items-center">
-              <span class="fw-bold">{{ rule.id || 'Unbenannte Regel' }}</span>
-              <span class="badge" [ngClass]="getSensitivityBadgeClass(rule.sensitivity)">
-                {{ rule.sensitivity }}
-              </span>
+        @for (rule of rules; track rule; let i = $index) {
+          <div
+            class="list-group-item list-group-item-action d-flex align-items-center gap-3 p-3">
+            <div class="handle text-muted" title="Drag to reorder">
+              <i class="bi bi-grip-vertical"></i>
             </div>
-            <p class="mb-1 small text-secondary">{{ rule.description || 'Keine Beschreibung' }}</p>
-            <div class="d-flex gap-2 mt-1">
-              <span class="badge rounded-pill bg-light text-dark border small" *ngIf="rule.read_allowed">Read</span>
-              <span class="badge rounded-pill bg-light text-dark border small" *ngIf="rule.write_allowed">Write</span>
-              <span class="badge rounded-pill bg-light text-dark border small" *ngIf="rule.send_allowed">Send</span>
-              <span class="badge rounded-pill bg-info text-white small" *ngIf="rule.redaction_required" title="Schwärzung erforderlich">
-                <i class="bi bi-shield-lock me-1"></i>Redact
-              </span>
-              <span class="badge rounded-pill bg-info text-white small" *ngIf="rule.summarization_allowed" title="Zusammenfassung erlaubt">
-                <i class="bi bi-file-earmark-zip me-1"></i>Summary
-              </span>
+            <div class="flex-grow-1">
+              <div class="d-flex justify-content-between align-items-center">
+                <span class="fw-bold">{{ rule.id || 'Unbenannte Regel' }}</span>
+                <span class="badge" [ngClass]="getSensitivityBadgeClass(rule.sensitivity)">
+                  {{ rule.sensitivity }}
+                </span>
+              </div>
+              <p class="mb-1 small text-secondary">{{ rule.description || 'Keine Beschreibung' }}</p>
+              <div class="d-flex gap-2 mt-1">
+                @if (rule.read_allowed) {
+                  <span class="badge rounded-pill bg-light text-dark border small">Read</span>
+                }
+                @if (rule.write_allowed) {
+                  <span class="badge rounded-pill bg-light text-dark border small">Write</span>
+                }
+                @if (rule.send_allowed) {
+                  <span class="badge rounded-pill bg-light text-dark border small">Send</span>
+                }
+                @if (rule.redaction_required) {
+                  <span class="badge rounded-pill bg-info text-white small" title="Schwärzung erforderlich">
+                    <i class="bi bi-shield-lock me-1"></i>Redact
+                  </span>
+                }
+                @if (rule.summarization_allowed) {
+                  <span class="badge rounded-pill bg-info text-white small" title="Zusammenfassung erlaubt">
+                    <i class="bi bi-file-earmark-zip me-1"></i>Summary
+                  </span>
+                }
+              </div>
+            </div>
+            <div class="actions">
+              <button class="btn btn-sm btn-link" (click)="editRule(rule)">Edit</button>
+              <button class="btn btn-sm btn-link text-danger" (click)="removeRule(i)">Del</button>
             </div>
           </div>
-
-          <div class="actions">
-            <button class="btn btn-sm btn-link" (click)="editRule(rule)">Edit</button>
-            <button class="btn btn-sm btn-link text-danger" (click)="removeRule(i)">Del</button>
+        }
+    
+        @if (rules.length === 0) {
+          <div class="list-group-item text-center py-4 text-muted">
+            Keine Regeln definiert.
           </div>
-        </div>
-
-        <div *ngIf="rules.length === 0" class="list-group-item text-center py-4 text-muted">
-          Keine Regeln definiert.
-        </div>
+        }
       </div>
     </div>
-  `,
+    `,
   styles: [`
     .handle { cursor: grab; font-size: 1.2rem; }
     .gap-3 { gap: 1rem; }

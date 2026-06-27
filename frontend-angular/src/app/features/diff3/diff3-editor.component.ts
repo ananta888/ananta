@@ -2,7 +2,7 @@ import {
   Component, OnInit, OnDestroy, inject, signal, computed, ChangeDetectionStrategy,
   ViewChild, ElementRef,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { Location } from '@angular/common';
@@ -33,7 +33,7 @@ const LAYOUT_LABELS: Record<LayoutMode, string> = {
 @Component({
   selector: 'app-diff3-editor',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <input #fileInputA type="file" class="file-input-hidden" (change)="onFileInputChange($event, 'A')">
@@ -45,18 +45,22 @@ const LAYOUT_LABELS: Record<LayoutMode, string> = {
   <div class="diff3-toolbar">
     <div class="toolbar-left">
       <span class="diff3-title">Three-Way Flex Diff</span>
-      <span class="session-id" *ngIf="session()">{{ session()!.session_id }}</span>
+      @if (session()) {
+        <span class="session-id">{{ session()!.session_id }}</span>
+      }
     </div>
 
     <div class="toolbar-center">
       <select class="toolbar-select" [ngModel]="session()?.layout_mode" (ngModelChange)="onLayoutChange($event)"
-              [disabled]="!session()">
-        <option *ngFor="let lm of layoutModes" [value]="lm">{{ layoutLabels[lm] }}</option>
+        [disabled]="!session()">
+        @for (lm of layoutModes; track lm) {
+          <option [value]="lm">{{ layoutLabels[lm] }}</option>
+        }
       </select>
 
       <label class="toolbar-toggle">
         <input type="checkbox" [ngModel]="syncScroll()" (ngModelChange)="onSyncToggle($event)"
-               [disabled]="!session()">
+          [disabled]="!session()">
         Sync
       </label>
     </div>
@@ -67,221 +71,281 @@ const LAYOUT_LABELS: Record<LayoutMode, string> = {
   </div>
 
   <!-- ── Error bar ── -->
-  <div class="diff3-error" *ngIf="error()">{{ error() }}</div>
-  <div class="diff3-loading" *ngIf="loading() && !session()">Lade Session…</div>
+  @if (error()) {
+    <div class="diff3-error">{{ error() }}</div>
+  }
+  @if (loading() && !session()) {
+    <div class="diff3-loading">Lade Session…</div>
+  }
 
   <!-- ── Three panels ── -->
-  <div class="diff3-panels" *ngIf="session()">
-    <div class="diff3-panel"
-         *ngFor="let pid of panelIds"
-         [class.active]="session()!.active_panel === pid"
-         [class.drag-over]="dragOverPanel() === pid"
-         [attr.data-panel]="pid"
-         (click)="onPanelClick(pid)"
-         (dragover)="onDragOver($event, pid)"
-         (dragleave)="onDragLeave($event, pid)"
-         (drop)="onDrop($event, pid)">
-
-      <!-- Panel header -->
-      <div class="panel-header">
-        <span class="panel-label">Panel {{ pid }}</span>
-        <span class="panel-type">{{ getPanelType(pid) }}</span>
-        <div class="panel-controls">
-          <button class="btn-xs btn-open" title="Lokale Datei öffnen"
-                  (click)="$event.stopPropagation(); triggerFileOpen(pid)">📂</button>
-          <button class="btn-xs btn-reload" title="Neu laden"
+  @if (session()) {
+    <div class="diff3-panels">
+      @for (pid of panelIds; track pid) {
+        <div class="diff3-panel"
+          [class.active]="session()!.active_panel === pid"
+          [class.drag-over]="dragOverPanel() === pid"
+          [attr.data-panel]="pid"
+          (click)="onPanelClick(pid)"
+          (dragover)="onDragOver($event, pid)"
+          (dragleave)="onDragLeave($event, pid)"
+          (drop)="onDrop($event, pid)">
+          <!-- Panel header -->
+          <div class="panel-header">
+            <span class="panel-label">Panel {{ pid }}</span>
+            <span class="panel-type">{{ getPanelType(pid) }}</span>
+            <div class="panel-controls">
+              <button class="btn-xs btn-open" title="Lokale Datei öffnen"
+              (click)="$event.stopPropagation(); triggerFileOpen(pid)">📂</button>
+              @if (getPanelSetup(pid) !== 'empty' && getPanelSetup(pid) !== 'ai' && getPanelSetup(pid) !== 'local_file') {
+                <button class="btn-xs btn-reload" title="Neu laden"
                   [disabled]="panelLoadings()[pid]"
-                  *ngIf="getPanelSetup(pid) !== 'empty' && getPanelSetup(pid) !== 'ai' && getPanelSetup(pid) !== 'local_file'"
-                  (click)="$event.stopPropagation(); fetchPanelContent(pid)">↺</button>
-          <select class="panel-select" [ngModel]="getPanelSetup(pid)"
-                  (ngModelChange)="onPanelSetupChange(pid, $event)"
-                  (click)="$event.stopPropagation()">
-            <option value="empty">Leer</option>
-            <option value="current_diff">Git Diff</option>
-            <option value="file_content">Pfad eingeben</option>
-            <option value="local_file">Lokale Datei</option>
-            <option value="output_artifact">Artifact</option>
-            <option value="ai">AI</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- Source inputs -->
-      <ng-container [ngSwitch]="getPanelSetup(pid)">
-
-        <div *ngSwitchCase="'output_artifact'" class="panel-source-input" (click)="$event.stopPropagation()">
-          <input class="source-input" type="text"
-                 placeholder="Output-Artifact-ID…"
-                 [ngModel]="artifactInputs[pid]"
-                 (ngModelChange)="artifactInputs[pid] = $event"
-                 (keydown.enter)="onArtifactEnter(pid)">
-          <button class="btn-xs" (click)="onArtifactEnter(pid)">Laden</button>
-        </div>
-
-        <div *ngSwitchCase="'file_content'" class="panel-source-input" (click)="$event.stopPropagation()">
-          <input class="source-input" type="text"
-                 placeholder="Dateipfad (relativ zum Repo-Root)…"
-                 [ngModel]="filePathInputs[pid]"
-                 (ngModelChange)="filePathInputs[pid] = $event"
-                 (keydown.enter)="onFileContentEnter(pid)">
-          <button class="btn-xs" (click)="onFileContentEnter(pid)">Laden</button>
-        </div>
-
-        <div *ngSwitchCase="'current_diff'" class="panel-source-input" (click)="$event.stopPropagation()">
-          <input class="source-input" type="text"
-                 placeholder="Pfad-Filter (optional)"
-                 [ngModel]="filterInputs[pid]"
-                 (ngModelChange)="filterInputs[pid] = $event"
-                 (keydown.enter)="onCurrentDiffEnter(pid)">
-          <select class="panel-select-sm" [ngModel]="renderModeInputs[pid]"
+                (click)="$event.stopPropagation(); fetchPanelContent(pid)">↺</button>
+              }
+              <select class="panel-select" [ngModel]="getPanelSetup(pid)"
+                (ngModelChange)="onPanelSetupChange(pid, $event)"
+                (click)="$event.stopPropagation()">
+                <option value="empty">Leer</option>
+                <option value="current_diff">Git Diff</option>
+                <option value="file_content">Pfad eingeben</option>
+                <option value="local_file">Lokale Datei</option>
+                <option value="output_artifact">Artifact</option>
+                <option value="ai">AI</option>
+              </select>
+            </div>
+          </div>
+          <!-- Source inputs -->
+          @switch (getPanelSetup(pid)) {
+            @case ('output_artifact') {
+              <div class="panel-source-input" (click)="$event.stopPropagation()">
+                <input class="source-input" type="text"
+                  placeholder="Output-Artifact-ID…"
+                  [ngModel]="artifactInputs[pid]"
+                  (ngModelChange)="artifactInputs[pid] = $event"
+                  (keydown.enter)="onArtifactEnter(pid)">
+                <button class="btn-xs" (click)="onArtifactEnter(pid)">Laden</button>
+              </div>
+            }
+            @case ('file_content') {
+              <div class="panel-source-input" (click)="$event.stopPropagation()">
+                <input class="source-input" type="text"
+                  placeholder="Dateipfad (relativ zum Repo-Root)…"
+                  [ngModel]="filePathInputs[pid]"
+                  (ngModelChange)="filePathInputs[pid] = $event"
+                  (keydown.enter)="onFileContentEnter(pid)">
+                <button class="btn-xs" (click)="onFileContentEnter(pid)">Laden</button>
+              </div>
+            }
+            @case ('current_diff') {
+              <div class="panel-source-input" (click)="$event.stopPropagation()">
+                <input class="source-input" type="text"
+                  placeholder="Pfad-Filter (optional)"
+                  [ngModel]="filterInputs[pid]"
+                  (ngModelChange)="filterInputs[pid] = $event"
+                  (keydown.enter)="onCurrentDiffEnter(pid)">
+                <select class="panel-select-sm" [ngModel]="renderModeInputs[pid]"
                   (ngModelChange)="renderModeInputs[pid] = $event">
-            <option value="unified">Unified</option>
-            <option value="summary">Summary</option>
-          </select>
-          <button class="btn-xs" (click)="onCurrentDiffEnter(pid)">Setzen</button>
-        </div>
-
-        <div *ngSwitchCase="'ai'" class="panel-ai-controls" (click)="$event.stopPropagation()">
-          <div class="ai-mode-tabs">
-            <button *ngFor="let m of aiModes"
-                    class="ai-mode-tab"
-                    [class.active]="aiMode() === m"
-                    (click)="onAiModeSelect(m)">
-              {{ aiModeLabels[m] }}
-            </button>
-          </div>
-          <button class="btn-run" [disabled]="aiRunning()" (click)="onRunAi()">
-            {{ aiRunning() ? 'Läuft…' : '▶ Run AI' }}
-          </button>
-        </div>
-
-      </ng-container>
-
-      <!-- Panel body -->
-      <div class="panel-body">
-        <ng-container [ngSwitch]="getPanelSetup(pid)">
-
-          <div *ngSwitchCase="'empty'" class="panel-drop-zone">
-            <div class="drop-zone-inner">
-              <span class="drop-icon">⬡</span>
-              <span>Datei hier hinziehen</span>
-              <span class="drop-hint">oder 📂 oben klicken</span>
-            </div>
-          </div>
-
-          <ng-container *ngSwitchCase="'local_file'">
-            <ng-container *ngIf="localFiles()[pid] as lf; else localFileEmpty">
-              <div class="diff-meta">
-                <span>{{ lf.name }}</span>
-                <span class="diff-stat">{{ lf.lines.length }} Zeilen</span>
-                <button class="btn-xs btn-close-local" title="Datei entfernen"
-                        (click)="$event.stopPropagation(); clearLocalFile(pid)">✕</button>
+                  <option value="unified">Unified</option>
+                  <option value="summary">Summary</option>
+                </select>
+                <button class="btn-xs" (click)="onCurrentDiffEnter(pid)">Setzen</button>
               </div>
-              <div class="diff-preview">
-                <div *ngFor="let line of lf.lines; let i = index" class="diff-line ln-normal">{{ line }}</div>
-              </div>
-            </ng-container>
-            <ng-template #localFileEmpty>
-              <div class="panel-drop-zone">
-                <div class="drop-zone-inner">
-                  <span class="drop-icon">⬡</span>
-                  <span>Datei hier hinziehen</span>
-                  <span class="drop-hint">oder 📂 oben klicken</span>
+            }
+            @case ('ai') {
+              <div class="panel-ai-controls" (click)="$event.stopPropagation()">
+                <div class="ai-mode-tabs">
+                  @for (m of aiModes; track m) {
+                    <button
+                      class="ai-mode-tab"
+                      [class.active]="aiMode() === m"
+                      (click)="onAiModeSelect(m)">
+                      {{ aiModeLabels[m] }}
+                    </button>
+                  }
                 </div>
+                <button class="btn-run" [disabled]="aiRunning()" (click)="onRunAi()">
+                  {{ aiRunning() ? 'Läuft…' : '▶ Run AI' }}
+                </button>
               </div>
-            </ng-template>
-          </ng-container>
-
-          <ng-container *ngSwitchCase="'file_content'">
-            <div class="panel-loading-bar" *ngIf="panelLoadings()[pid]">Lade…</div>
-            <ng-container *ngIf="!panelLoadings()[pid]">
-              <div class="diff-meta" *ngIf="panelContents()[pid] as c">
-                <span>{{ c.ok ? getPanelSourceLabel(pid) : ('Fehler: ' + c.reason_code) }}</span>
-                <span *ngIf="c.ok && c.text" class="diff-stat">{{ c.text!.split('\n').length }} Zeilen</span>
-              </div>
-              <div class="diff-preview" *ngIf="panelContents()[pid] as c">
-                <ng-container *ngIf="c.ok && c.text; else noFileContent">
-                  <div *ngFor="let line of getFileLines(pid)" class="diff-line ln-normal">{{ line }}</div>
-                </ng-container>
-                <ng-template #noFileContent>
-                  <div class="panel-empty">{{ c.ok ? 'Datei ist leer.' : ('Fehler: ' + c.reason_code) }}</div>
-                </ng-template>
-              </div>
-            </ng-container>
-          </ng-container>
-
-          <ng-container *ngSwitchCase="'current_diff'">
-            <div class="panel-loading-bar" *ngIf="panelLoadings()[pid]">Lade…</div>
-            <ng-container *ngIf="!panelLoadings()[pid]">
-              <div class="diff-meta" *ngIf="panelContents()[pid] as c">
-                <span>{{ c.ok ? getPanelSourceLabel(pid) : ('Fehler: ' + c.reason_code) }}</span>
-                <span *ngIf="c.ok">{{ getPanelRenderMode(pid) }}</span>
-                <span *ngIf="c.patch" class="diff-stat">{{ diffStats(c.patch) }}</span>
-              </div>
-              <div class="diff-preview" *ngIf="getDiffLines(pid) as lines">
-                <div *ngFor="let line of lines" [class]="'diff-line ' + line.cls">{{ line.text }}</div>
-                <div *ngIf="lines.length === 0" class="panel-empty">Kein Diff (Working Tree sauber oder kein Filter-Treffer).</div>
-              </div>
-            </ng-container>
-          </ng-container>
-
-          <ng-container *ngSwitchCase="'output_artifact'">
-            <div class="panel-loading-bar" *ngIf="panelLoadings()[pid]">Lade…</div>
-            <ng-container *ngIf="!panelLoadings()[pid]">
-              <div class="diff-meta" *ngIf="panelContents()[pid] as c">
-                <span>{{ c.ok ? ('Artifact: ' + getPanelSourceLabel(pid)) : ('Fehler: ' + c.reason_code) }}</span>
-              </div>
-              <div class="diff-preview" *ngIf="getDiffLines(pid) as lines">
-                <div *ngFor="let line of lines" [class]="'diff-line ' + line.cls">{{ line.text }}</div>
-                <div *ngIf="lines.length === 0" class="panel-empty">Kein Inhalt.</div>
-              </div>
-            </ng-container>
-          </ng-container>
-
-          <div *ngSwitchCase="'ai'" class="panel-ai-content">
-            <div class="ai-status-bar" *ngIf="aiStatus() !== 'idle'" [attr.data-status]="aiStatus()">
-              {{ aiStatusLabel() }}
-            </div>
-            <ng-container *ngIf="aiResponse()">
-              <div class="ai-summary">{{ aiResponse()!.summary }}</div>
-              <div class="ai-section" *ngIf="aiResponse()!.findings.length">
-                <div class="ai-section-title">Findings</div>
-                <ul class="ai-list">
-                  <li *ngFor="let f of aiResponse()!.findings">{{ f }}</li>
-                </ul>
-              </div>
-              <div class="ai-section" *ngIf="aiResponse()!.risks.length">
-                <div class="ai-section-title">Risks</div>
-                <ul class="ai-list ai-list-risk">
-                  <li *ngFor="let r of aiResponse()!.risks">{{ r }}</li>
-                </ul>
-              </div>
-              <div class="ai-section" *ngIf="aiResponse()!.suggested_tests.length">
-                <div class="ai-section-title">Suggested Tests</div>
-                <ul class="ai-list">
-                  <li *ngFor="let t of aiResponse()!.suggested_tests">{{ t }}</li>
-                </ul>
-              </div>
-              <div class="ai-section" *ngIf="aiResponse()!.patch_suggestions.length">
-                <div class="ai-section-title">Patch</div>
-                <div class="diff-preview">
-                  <div *ngFor="let line of patchLines()" [class]="'diff-line ' + line.cls">{{ line.text }}</div>
+            }
+          }
+          <!-- Panel body -->
+          <div class="panel-body">
+            @switch (getPanelSetup(pid)) {
+              @case ('empty') {
+                <div class="panel-drop-zone">
+                  <div class="drop-zone-inner">
+                    <span class="drop-icon">⬡</span>
+                    <span>Datei hier hinziehen</span>
+                    <span class="drop-hint">oder 📂 oben klicken</span>
+                  </div>
                 </div>
-              </div>
-            </ng-container>
-            <div class="ai-idle-hint" *ngIf="aiStatus() === 'idle' && !aiResponse()">
-              Wähle einen Modus und klicke "▶ Run AI"
-            </div>
+              }
+              @case ('local_file') {
+                @if (localFiles()[pid]; as lf) {
+                  <div class="diff-meta">
+                    <span>{{ lf.name }}</span>
+                    <span class="diff-stat">{{ lf.lines.length }} Zeilen</span>
+                    <button class="btn-xs btn-close-local" title="Datei entfernen"
+                    (click)="$event.stopPropagation(); clearLocalFile(pid)">✕</button>
+                  </div>
+                  <div class="diff-preview">
+                    @for (line of lf.lines; track line; let i = $index) {
+                      <div class="diff-line ln-normal">{{ line }}</div>
+                    }
+                  </div>
+                } @else {
+                  <div class="panel-drop-zone">
+                    <div class="drop-zone-inner">
+                      <span class="drop-icon">⬡</span>
+                      <span>Datei hier hinziehen</span>
+                      <span class="drop-hint">oder 📂 oben klicken</span>
+                    </div>
+                  </div>
+                }
+              }
+              @case ('file_content') {
+                @if (panelLoadings()[pid]) {
+                  <div class="panel-loading-bar">Lade…</div>
+                }
+                @if (!panelLoadings()[pid]) {
+                  @if (panelContents()[pid]; as c) {
+                    <div class="diff-meta">
+                      <span>{{ c.ok ? getPanelSourceLabel(pid) : ('Fehler: ' + c.reason_code) }}</span>
+                      @if (c.ok && c.text) {
+                        <span class="diff-stat">{{ c.text!.split('\n').length }} Zeilen</span>
+                      }
+                    </div>
+                  }
+                  @if (panelContents()[pid]; as c) {
+                    <div class="diff-preview">
+                      @if (c.ok && c.text) {
+                        @for (line of getFileLines(pid); track line) {
+                          <div class="diff-line ln-normal">{{ line }}</div>
+                        }
+                      } @else {
+                        <div class="panel-empty">{{ c.ok ? 'Datei ist leer.' : ('Fehler: ' + c.reason_code) }}</div>
+                      }
+                    </div>
+                  }
+                }
+              }
+              @case ('current_diff') {
+                @if (panelLoadings()[pid]) {
+                  <div class="panel-loading-bar">Lade…</div>
+                }
+                @if (!panelLoadings()[pid]) {
+                  @if (panelContents()[pid]; as c) {
+                    <div class="diff-meta">
+                      <span>{{ c.ok ? getPanelSourceLabel(pid) : ('Fehler: ' + c.reason_code) }}</span>
+                      @if (c.ok) {
+                        <span>{{ getPanelRenderMode(pid) }}</span>
+                      }
+                      @if (c.patch) {
+                        <span class="diff-stat">{{ diffStats(c.patch) }}</span>
+                      }
+                    </div>
+                  }
+                  @if (getDiffLines(pid); as lines) {
+                    <div class="diff-preview">
+                      @for (line of lines; track line) {
+                        <div [class]="'diff-line ' + line.cls">{{ line.text }}</div>
+                      }
+                      @if (lines.length === 0) {
+                        <div class="panel-empty">Kein Diff (Working Tree sauber oder kein Filter-Treffer).</div>
+                      }
+                    </div>
+                  }
+                }
+              }
+              @case ('output_artifact') {
+                @if (panelLoadings()[pid]) {
+                  <div class="panel-loading-bar">Lade…</div>
+                }
+                @if (!panelLoadings()[pid]) {
+                  @if (panelContents()[pid]; as c) {
+                    <div class="diff-meta">
+                      <span>{{ c.ok ? ('Artifact: ' + getPanelSourceLabel(pid)) : ('Fehler: ' + c.reason_code) }}</span>
+                    </div>
+                  }
+                  @if (getDiffLines(pid); as lines) {
+                    <div class="diff-preview">
+                      @for (line of lines; track line) {
+                        <div [class]="'diff-line ' + line.cls">{{ line.text }}</div>
+                      }
+                      @if (lines.length === 0) {
+                        <div class="panel-empty">Kein Inhalt.</div>
+                      }
+                    </div>
+                  }
+                }
+              }
+              @case ('ai') {
+                <div class="panel-ai-content">
+                  @if (aiStatus() !== 'idle') {
+                    <div class="ai-status-bar" [attr.data-status]="aiStatus()">
+                      {{ aiStatusLabel() }}
+                    </div>
+                  }
+                  @if (aiResponse()) {
+                    <div class="ai-summary">{{ aiResponse()!.summary }}</div>
+                    @if (aiResponse()!.findings.length) {
+                      <div class="ai-section">
+                        <div class="ai-section-title">Findings</div>
+                        <ul class="ai-list">
+                          @for (f of aiResponse()!.findings; track f) {
+                            <li>{{ f }}</li>
+                          }
+                        </ul>
+                      </div>
+                    }
+                    @if (aiResponse()!.risks.length) {
+                      <div class="ai-section">
+                        <div class="ai-section-title">Risks</div>
+                        <ul class="ai-list ai-list-risk">
+                          @for (r of aiResponse()!.risks; track r) {
+                            <li>{{ r }}</li>
+                          }
+                        </ul>
+                      </div>
+                    }
+                    @if (aiResponse()!.suggested_tests.length) {
+                      <div class="ai-section">
+                        <div class="ai-section-title">Suggested Tests</div>
+                        <ul class="ai-list">
+                          @for (t of aiResponse()!.suggested_tests; track t) {
+                            <li>{{ t }}</li>
+                          }
+                        </ul>
+                      </div>
+                    }
+                    @if (aiResponse()!.patch_suggestions.length) {
+                      <div class="ai-section">
+                        <div class="ai-section-title">Patch</div>
+                        <div class="diff-preview">
+                          @for (line of patchLines(); track line) {
+                            <div [class]="'diff-line ' + line.cls">{{ line.text }}</div>
+                          }
+                        </div>
+                      </div>
+                    }
+                  }
+                  @if (aiStatus() === 'idle' && !aiResponse()) {
+                    <div class="ai-idle-hint">
+                      Wähle einen Modus und klicke "▶ Run AI"
+                    </div>
+                  }
+                </div>
+              }
+            }
           </div>
-
-        </ng-container>
-      </div>
-
+        </div>
+      }
     </div>
-  </div>
+  }
 
 </div>
-  `,
+`,
   styles: [`
     .diff3-root {
       display: flex; flex-direction: column; height: 100%; min-height: 0;

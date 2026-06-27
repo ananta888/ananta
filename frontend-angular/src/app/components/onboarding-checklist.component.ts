@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 
 import { recommendBlueprint } from '../shared/blueprint-recommendation';
@@ -7,7 +7,7 @@ import { recommendBlueprint } from '../shared/blueprint-recommendation';
 @Component({
   standalone: true,
   selector: 'app-onboarding-checklist',
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   template: `
     <div class="card">
       <h3>Erste Schritte</h3>

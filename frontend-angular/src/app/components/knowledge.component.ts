@@ -1,5 +1,5 @@
 import { Component, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs';
 
@@ -11,7 +11,7 @@ import { AdminFacade } from '../features/admin/admin.facade';
 @Component({
   standalone: true,
   selector: 'app-knowledge',
-  imports: [CommonModule, FormsModule, UiSkeletonComponent],
+  imports: [FormsModule, UiSkeletonComponent],
   styles: [`
     .card { border: 1px solid var(--border); border-radius: 12px; padding: 18px; background: var(--card-bg); }
     .card + .card { margin-top: 16px; }

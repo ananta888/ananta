@@ -7,14 +7,14 @@ import {
   Output,
   inject,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { TerminalSession, TerminalApiService } from '../services/terminal-api.service';
 
 @Component({
   standalone: true,
   selector: 'app-terminal-session-list',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule],
+  imports: [],
   styles: [`
     .session-table { width: 100%; border-collapse: collapse; font-size: 13px; }
     .session-table th {
@@ -60,55 +60,65 @@ import { TerminalSession, TerminalApiService } from '../services/terminal-api.se
     button.action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
   `],
   template: `
-    <div *ngIf="!sessions || sessions.length === 0" class="empty-state">
-      No active terminal sessions.
-    </div>
-
-    <table *ngIf="sessions && sessions.length > 0" class="session-table">
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Target</th>
-          <th>Status</th>
-          <th>User</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let s of sessions">
-          <td>
-            <span class="type-badge" [class]="'type-' + s.target_type">{{ s.target_type }}</span>
-            <span *ngIf="isHighRisk(s)" class="risk-high" title="Hub access is high risk">⚠</span>
-          </td>
-          <td>
-            <span style="font-family: monospace; font-size: 12px;">{{ s.target_display_name || s.target_id }}</span>
-            <span *ngIf="s.read_only" class="readonly-tag">[read-only]</span>
-          </td>
-          <td>
-            <span class="status-badge" [class]="'status-' + s.status">{{ s.status }}</span>
-          </td>
-          <td style="font-size: 12px; color: var(--text-secondary);">{{ s.created_by_username || '—' }}</td>
-          <td>
-            <button
-              class="action-btn"
-              [disabled]="!canAttach(s) || attaching === s.id"
-              (click)="onAttach(s)"
-              title="{{ !canAttach(s) ? 'Cannot attach to this session' : 'Open in browser terminal' }}">
-              {{ attaching === s.id ? 'Attaching…' : 'Attach' }}
-            </button>
-            <button
-              class="action-btn"
-              [disabled]="!canKill(s) || killing === s.id"
-              (click)="onKill(s)"
-              title="{{ !canKill(s) ? 'Cannot kill this session' : 'Kill session' }}"
-              style="color: #c0392b;">
-              {{ killing === s.id ? 'Killing…' : 'Kill' }}
-            </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  `,
+    @if (!sessions || sessions.length === 0) {
+      <div class="empty-state">
+        No active terminal sessions.
+      </div>
+    }
+    
+    @if (sessions && sessions.length > 0) {
+      <table class="session-table">
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Target</th>
+            <th>Status</th>
+            <th>User</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (s of sessions; track s) {
+            <tr>
+              <td>
+                <span class="type-badge" [class]="'type-' + s.target_type">{{ s.target_type }}</span>
+                @if (isHighRisk(s)) {
+                  <span class="risk-high" title="Hub access is high risk">⚠</span>
+                }
+              </td>
+              <td>
+                <span style="font-family: monospace; font-size: 12px;">{{ s.target_display_name || s.target_id }}</span>
+                @if (s.read_only) {
+                  <span class="readonly-tag">[read-only]</span>
+                }
+              </td>
+              <td>
+                <span class="status-badge" [class]="'status-' + s.status">{{ s.status }}</span>
+              </td>
+              <td style="font-size: 12px; color: var(--text-secondary);">{{ s.created_by_username || '—' }}</td>
+              <td>
+                <button
+                  class="action-btn"
+                  [disabled]="!canAttach(s) || attaching === s.id"
+                  (click)="onAttach(s)"
+                  title="{{ !canAttach(s) ? 'Cannot attach to this session' : 'Open in browser terminal' }}">
+                  {{ attaching === s.id ? 'Attaching…' : 'Attach' }}
+                </button>
+                <button
+                  class="action-btn"
+                  [disabled]="!canKill(s) || killing === s.id"
+                  (click)="onKill(s)"
+                  title="{{ !canKill(s) ? 'Cannot kill this session' : 'Kill session' }}"
+                  style="color: #c0392b;">
+                  {{ killing === s.id ? 'Killing…' : 'Kill' }}
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+    `,
 })
 export class TerminalSessionListComponent {
   @Input() sessions: TerminalSession[] = [];

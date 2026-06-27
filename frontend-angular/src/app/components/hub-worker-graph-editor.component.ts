@@ -30,113 +30,140 @@ interface PositionedNode {
           <button class="btn" (click)="reload()" [disabled]="loading">Aktualisieren</button>
         </div>
       </div>
-
-      <div *ngIf="graph?.diagnostics?.length" class="diag-row">
-        <span *ngFor="let item of graph!.diagnostics">{{ item }}</span>
-      </div>
-
-      <main class="hwo-shell" *ngIf="graph && !loading">
-        <section class="graph-band">
-          <svg class="graph-svg" viewBox="0 0 960 620" role="img" aria-label="Hub Worker Graph">
-            <defs>
-              <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
-                <path d="M0,0 L0,6 L9,3 z" fill="#7c91ad"></path>
-              </marker>
-            </defs>
-
-            <g *ngFor="let edge of visibleEdges()">
-              <line
-                [attr.x1]="point(edge.source)?.x"
-                [attr.y1]="point(edge.source)?.y"
-                [attr.x2]="point(edge.target)?.x"
-                [attr.y2]="point(edge.target)?.y"
-                class="edge-line"
-                marker-end="url(#arrow)"
-              ></line>
-              <text
-                *ngIf="edge.label"
-                [attr.x]="edgeLabelX(edge)"
-                [attr.y]="edgeLabelY(edge)"
-                class="edge-label"
-              >{{ edge.label }}</text>
-            </g>
-
-            <g
-              *ngFor="let item of layout"
-              class="node"
-              [class.selected]="selected?.id === item.node.id"
-              [class.inactive]="!item.node.runtime_active"
-              (click)="select(item.node)"
-            >
-              <circle [attr.cx]="item.x" [attr.cy]="item.y" [attr.r]="item.r" [attr.fill]="nodeFill(item.node)"></circle>
-              <text [attr.x]="item.x" [attr.y]="item.y - 3" class="node-title">{{ item.node.label }}</text>
-              <text [attr.x]="item.x" [attr.y]="item.y + 15" class="node-sub">{{ item.node.node_type }}</text>
-            </g>
-          </svg>
-        </section>
-
-        <aside class="detail-panel" *ngIf="selected">
-          <div class="detail-head">
-            <span class="type-pill">{{ selected.node_type }}</span>
-            <button class="icon-btn" (click)="selected = null; cdr.markForCheck()" title="Schließen">x</button>
-          </div>
-          <h3>{{ selected.label }}</h3>
-          <dl>
-            <div><dt>Status</dt><dd>{{ selected.runtime_active ? 'aktiv' : 'inaktiv' }}</dd></div>
-            <div><dt>Quelle</dt><dd>{{ selected.source_file || 'runtime' }}</dd></div>
-            <div><dt>Pointer</dt><dd>{{ selected.source_pointer || '-' }}</dd></div>
-            <div><dt>Schreibbar</dt><dd>{{ selected.writable ? 'ja' : 'readonly' }}</dd></div>
-          </dl>
-          <div *ngIf="selected.diagnostics.length" class="diag-box">
-            <strong>Diagnosen</strong>
-            <ul><li *ngFor="let item of selected.diagnostics">{{ item }}</li></ul>
-          </div>
-          <div class="json-block">
-            <strong>Konfiguration</strong>
-            <pre>{{ selected.data | json }}</pre>
-          </div>
-          <div *ngIf="selected.writable" class="edit-block">
-            <strong>Konfiguration bearbeiten</strong>
-            <textarea [(ngModel)]="editJson" class="edit-json"></textarea>
-            <div *ngIf="editError" class="edit-error">{{ editError }}</div>
-            <div *ngIf="lastSourceDiffs.length" class="diff-box">
-              <strong>Source-Diff</strong>
-              <pre *ngFor="let diff of lastSourceDiffs">{{ diff }}</pre>
+    
+      @if (graph?.diagnostics?.length) {
+        <div class="diag-row">
+          @for (item of graph!.diagnostics; track item) {
+            <span>{{ item }}</span>
+          }
+        </div>
+      }
+    
+      @if (graph && !loading) {
+        <main class="hwo-shell">
+          <section class="graph-band">
+            <svg class="graph-svg" viewBox="0 0 960 620" role="img" aria-label="Hub Worker Graph">
+              <defs>
+                <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+                  <path d="M0,0 L0,6 L9,3 z" fill="#7c91ad"></path>
+                </marker>
+              </defs>
+              @for (edge of visibleEdges(); track edge) {
+                <g>
+                  <line
+                    [attr.x1]="point(edge.source)?.x"
+                    [attr.y1]="point(edge.source)?.y"
+                    [attr.x2]="point(edge.target)?.x"
+                    [attr.y2]="point(edge.target)?.y"
+                    class="edge-line"
+                    marker-end="url(#arrow)"
+                  ></line>
+                  @if (edge.label) {
+                    <text
+                      [attr.x]="edgeLabelX(edge)"
+                      [attr.y]="edgeLabelY(edge)"
+                      class="edge-label"
+                    >{{ edge.label }}</text>
+                  }
+                </g>
+              }
+              @for (item of layout; track item) {
+                <g
+                  class="node"
+                  [class.selected]="selected?.id === item.node.id"
+                  [class.inactive]="!item.node.runtime_active"
+                  (click)="select(item.node)"
+                  >
+                  <circle [attr.cx]="item.x" [attr.cy]="item.y" [attr.r]="item.r" [attr.fill]="nodeFill(item.node)"></circle>
+                  <text [attr.x]="item.x" [attr.y]="item.y - 3" class="node-title">{{ item.node.label }}</text>
+                  <text [attr.x]="item.x" [attr.y]="item.y + 15" class="node-sub">{{ item.node.node_type }}</text>
+                </g>
+              }
+            </svg>
+          </section>
+          @if (selected) {
+            <aside class="detail-panel">
+              <div class="detail-head">
+                <span class="type-pill">{{ selected.node_type }}</span>
+                <button class="icon-btn" (click)="selected = null; cdr.markForCheck()" title="Schließen">x</button>
+              </div>
+              <h3>{{ selected.label }}</h3>
+              <dl>
+                <div><dt>Status</dt><dd>{{ selected.runtime_active ? 'aktiv' : 'inaktiv' }}</dd></div>
+                <div><dt>Quelle</dt><dd>{{ selected.source_file || 'runtime' }}</dd></div>
+                <div><dt>Pointer</dt><dd>{{ selected.source_pointer || '-' }}</dd></div>
+                <div><dt>Schreibbar</dt><dd>{{ selected.writable ? 'ja' : 'readonly' }}</dd></div>
+              </dl>
+              @if (selected.diagnostics.length) {
+                <div class="diag-box">
+                  <strong>Diagnosen</strong>
+                  <ul>@for (item of selected.diagnostics; track item) {
+                    <li>{{ item }}</li>
+                  }</ul>
+                </div>
+              }
+              <div class="json-block">
+                <strong>Konfiguration</strong>
+                <pre>{{ selected.data | json }}</pre>
+              </div>
+              @if (selected.writable) {
+                <div class="edit-block">
+                  <strong>Konfiguration bearbeiten</strong>
+                  <textarea [(ngModel)]="editJson" class="edit-json"></textarea>
+                  @if (editError) {
+                    <div class="edit-error">{{ editError }}</div>
+                  }
+                  @if (lastSourceDiffs.length) {
+                    <div class="diff-box">
+                      <strong>Source-Diff</strong>
+                      @for (diff of lastSourceDiffs; track diff) {
+                        <pre>{{ diff }}</pre>
+                      }
+                    </div>
+                  }
+                  <button class="btn" (click)="saveSelectedConfig()" [disabled]="saving">
+                    {{ saving ? 'Speichern...' : 'Speichern' }}
+                  </button>
+                </div>
+              }
+            </aside>
+          }
+          <aside class="inventory-panel">
+            <div class="metric-row">
+              <div><strong>{{ graph.node_count }}</strong><span>Nodes</span></div>
+              <div><strong>{{ graph.edge_count }}</strong><span>Edges</span></div>
             </div>
-            <button class="btn" (click)="saveSelectedConfig()" [disabled]="saving">
-              {{ saving ? 'Speichern...' : 'Speichern' }}
-            </button>
-          </div>
-        </aside>
-
-        <aside class="inventory-panel">
-          <div class="metric-row">
-            <div><strong>{{ graph.node_count }}</strong><span>Nodes</span></div>
-            <div><strong>{{ graph.edge_count }}</strong><span>Edges</span></div>
-          </div>
-          <h3>Worker</h3>
-          <button
-            *ngFor="let worker of workers()"
-            class="worker-row"
-            [class.selected]="selected?.id === worker.id"
-            (click)="select(worker)"
-          >
-            <span class="status-dot" [class.off]="!worker.runtime_active"></span>
-            <span>{{ worker.label }}</span>
-            <small>{{ worker.diagnostics.length ? worker.diagnostics[0] : 'konfiguriert' }}</small>
-          </button>
-          <h3>Task-Routing</h3>
-          <div class="route-row" *ngFor="let edge of taskRoutes()">
-            <span>{{ edge.data['task_kind'] || edge.label }}</span>
-            <strong>{{ edge.data['preferred_worker'] || edge.label }}</strong>
-          </div>
-        </aside>
-      </main>
-
-      <div class="loading" *ngIf="loading">Lade Hub-/Worker-Graph...</div>
-      <div class="error" *ngIf="error">{{ error }}</div>
+            <h3>Worker</h3>
+            @for (worker of workers(); track worker) {
+              <button
+                class="worker-row"
+                [class.selected]="selected?.id === worker.id"
+                (click)="select(worker)"
+                >
+                <span class="status-dot" [class.off]="!worker.runtime_active"></span>
+                <span>{{ worker.label }}</span>
+                <small>{{ worker.diagnostics.length ? worker.diagnostics[0] : 'konfiguriert' }}</small>
+              </button>
+            }
+            <h3>Task-Routing</h3>
+            @for (edge of taskRoutes(); track edge) {
+              <div class="route-row">
+                <span>{{ edge.data['task_kind'] || edge.label }}</span>
+                <strong>{{ edge.data['preferred_worker'] || edge.label }}</strong>
+              </div>
+            }
+          </aside>
+        </main>
+      }
+    
+      @if (loading) {
+        <div class="loading">Lade Hub-/Worker-Graph...</div>
+      }
+      @if (error) {
+        <div class="error">{{ error }}</div>
+      }
     </div>
-  `,
+    `,
   styles: [`
     .hwo-root { min-height: calc(100vh - 70px); background: #0b1118; color: #d7e2ef; padding: 18px; }
     .hwo-header { display:flex; justify-content:space-between; align-items:flex-start; gap:18px; margin-bottom:14px; }

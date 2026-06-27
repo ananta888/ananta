@@ -1,4 +1,4 @@
-import { CommonModule } from '@angular/common';
+
 import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -28,7 +28,7 @@ interface OverlayPreset {
 @Component({
   standalone: true,
   selector: 'app-instruction-layers-workbench',
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink],
   template: `
     <div class="container pb-lg">
       <div class="row space-between">

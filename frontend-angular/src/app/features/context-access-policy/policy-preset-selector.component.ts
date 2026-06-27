@@ -16,33 +16,42 @@ import { catchError } from 'rxjs/operators';
       </div>
       <div class="card-body">
         <p class="text-muted">Wählen Sie eine Vorlage als Basis für Ihre Richtlinie.</p>
-        
-        <div *ngIf="templates$ | async as templates; else loading" class="list-group">
-          <button *ngFor="let tpl of templates" 
-                  type="button" 
-                  class="list-group-item list-group-item-action flex-column align-items-start"
-                  (click)="selectPreset(tpl)">
-            <div class="d-flex w-100 justify-content-between">
-              <h6 class="mb-1">{{ tpl.name }}</h6>
-              <small class="badge" [ngClass]="getRiskClass(tpl.risk_level)">{{ tpl.risk_level }}</small>
-            </div>
-            <p class="mb-1 small text-secondary">{{ tpl.description }}</p>
-            <div class="mt-2">
-              <span class="badge rounded-pill bg-light text-dark border me-1" *ngIf="!tpl.cloud_allowed">No Cloud</span>
-              <span class="badge rounded-pill bg-info text-white me-1" *ngIf="tpl.cloud_allowed">Cloud Allowed</span>
-              <span class="badge rounded-pill bg-danger text-white me-1" *ngIf="tpl.risk_level === 'high' || tpl.risk_level === 'critical'">Risky</span>
-            </div>
-          </button>
-        </div>
-
-        <ng-template #loading>
+    
+        @if (templates$ | async; as templates) {
+          <div class="list-group">
+            @for (tpl of templates; track tpl) {
+              <button
+                type="button"
+                class="list-group-item list-group-item-action flex-column align-items-start"
+                (click)="selectPreset(tpl)">
+                <div class="d-flex w-100 justify-content-between">
+                  <h6 class="mb-1">{{ tpl.name }}</h6>
+                  <small class="badge" [ngClass]="getRiskClass(tpl.risk_level)">{{ tpl.risk_level }}</small>
+                </div>
+                <p class="mb-1 small text-secondary">{{ tpl.description }}</p>
+                <div class="mt-2">
+                  @if (!tpl.cloud_allowed) {
+                    <span class="badge rounded-pill bg-light text-dark border me-1">No Cloud</span>
+                  }
+                  @if (tpl.cloud_allowed) {
+                    <span class="badge rounded-pill bg-info text-white me-1">Cloud Allowed</span>
+                  }
+                  @if (tpl.risk_level === 'high' || tpl.risk_level === 'critical') {
+                    <span class="badge rounded-pill bg-danger text-white me-1">Risky</span>
+                  }
+                </div>
+              </button>
+            }
+          </div>
+        } @else {
           <div class="text-center py-3">
             <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
           </div>
-        </ng-template>
+        }
+    
       </div>
     </div>
-  `,
+    `,
   styles: [`
     .preset-selector-container { max-width: 500px; }
     .badge-low { background-color: #28a745; }

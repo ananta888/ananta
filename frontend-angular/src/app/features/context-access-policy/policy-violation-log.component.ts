@@ -25,28 +25,32 @@ import { ContextAccessPolicyApiService } from '../../services/context-access-pol
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let v of violations" class="small">
-                <td>{{ v.timestamp | date:'short' }}</td>
-                <td><code class="text-truncate d-inline-block" style="max-width: 150px;" [title]="v.source_ref">{{ v.source_ref }}</code></td>
-                <td>{{ v.worker_kind }} ({{ v.model_scope }})</td>
-                <td>
-                  <span class="badge bg-danger-subtle text-danger border border-danger-subtle">
-                    {{ v.reason_code }}
-                  </span>
-                </td>
-                <td>
-                  <button class="btn btn-xs btn-outline-primary py-0" (click)="viewDetails(v)">Details</button>
-                </td>
-              </tr>
-              <tr *ngIf="violations.length === 0">
-                <td colspan="5" class="text-center py-4 text-muted">Keine Verstöße in diesem Zeitraum.</td>
-              </tr>
+              @for (v of violations; track v) {
+                <tr class="small">
+                  <td>{{ v.timestamp | date:'short' }}</td>
+                  <td><code class="text-truncate d-inline-block" style="max-width: 150px;" [title]="v.source_ref">{{ v.source_ref }}</code></td>
+                  <td>{{ v.worker_kind }} ({{ v.model_scope }})</td>
+                  <td>
+                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle">
+                      {{ v.reason_code }}
+                    </span>
+                  </td>
+                  <td>
+                    <button class="btn btn-xs btn-outline-primary py-0" (click)="viewDetails(v)">Details</button>
+                  </td>
+                </tr>
+              }
+              @if (violations.length === 0) {
+                <tr>
+                  <td colspan="5" class="text-center py-4 text-muted">Keine Verstöße in diesem Zeitraum.</td>
+                </tr>
+              }
             </tbody>
           </table>
         </div>
       </div>
     </div>
-  `,
+    `,
   styles: [`
     .btn-xs { font-size: 0.75rem; padding: 0.1rem 0.3rem; }
   `]

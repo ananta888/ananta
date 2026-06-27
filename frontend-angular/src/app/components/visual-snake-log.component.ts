@@ -6,7 +6,7 @@
  * Used in the AI-Snake chat panel when the active session is ananta-visual.
  */
 import { Component, inject, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { Subscription } from 'rxjs';
 import { ChatHistoryService, ChatHistoryMessage } from '../services/chat-history.service';
 
@@ -35,7 +35,7 @@ type FilterKind = 'all' | 'tick' | 'delta' | 'explain' | 'guide';
 @Component({
   selector: 'app-visual-snake-log',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   template: `
     <div class="vlog">
       <div class="vlog-head">
@@ -49,47 +49,56 @@ type FilterKind = 'all' | 'tick' | 'delta' | 'explain' | 'guide';
         </div>
         <button class="ghost" (click)="refresh()" title="Neu laden">↻</button>
       </div>
-      <div class="vlist" *ngIf="filteredEntries().length; else emptyTpl">
-        @for (e of filteredEntries(); track e.id) {
-          <div class="vitem" [class.has-reply]="!!e.replyId" [class.is-explain]="e.kind === 'explain'" [class.is-delta]="e.kind === 'delta'">
-            <div class="vtime">
-              {{ formatTime(e.ts) }}
-              <span class="vkind" *ngIf="e.kind === 'explain'">Erklären</span>
-              <span class="vkind delta" *ngIf="e.kind === 'delta'">delta</span>
-              <button class="export-btn" (click)="downloadDebugExport(e)" title="Export">⬇</button>
-            </div>
-            <div class="vroute" *ngIf="e.route">{{ e.route }}</div>
-            <div class="vsnap" [class.delta-snap]="e.kind === 'delta'" [title]="e.snapshot">{{ e.preview }}</div>
-            <div class="vreply" *ngIf="e.replyText">
-              <span class="vreply-label">Snake →</span>
-              <span class="vreply-body">{{ e.replyText }}</span>
-            </div>
-            @if (e.candidates && e.candidates.length > 1) {
-              <div class="vcand-toggle" (click)="e.showCandidates = !e.showCandidates">
-                {{ e.showCandidates ? '▲' : '▼' }} {{ e.candidates.length - 1 }} Alternativen
+      @if (filteredEntries().length) {
+        <div class="vlist">
+          @for (e of filteredEntries(); track e.id) {
+            <div class="vitem" [class.has-reply]="!!e.replyId" [class.is-explain]="e.kind === 'explain'" [class.is-delta]="e.kind === 'delta'">
+              <div class="vtime">
+                {{ formatTime(e.ts) }}
+                @if (e.kind === 'explain') {
+                  <span class="vkind">Erklären</span>
+                }
+                @if (e.kind === 'delta') {
+                  <span class="vkind delta">delta</span>
+                }
+                <button class="export-btn" (click)="downloadDebugExport(e)" title="Export">⬇</button>
               </div>
-              @if (e.showCandidates) {
-                <div class="vcand-list">
-                  @for (c of e.candidates.slice(1); track c.label) {
-                    <div class="vcand-item">
-                      <span class="vcand-label">{{ c.label }}</span>
-                      <span class="vcand-bubble">{{ c.bubble }}</span>
-                    </div>
-                  }
+              @if (e.route) {
+                <div class="vroute">{{ e.route }}</div>
+              }
+              <div class="vsnap" [class.delta-snap]="e.kind === 'delta'" [title]="e.snapshot">{{ e.preview }}</div>
+              @if (e.replyText) {
+                <div class="vreply">
+                  <span class="vreply-label">Snake →</span>
+                  <span class="vreply-body">{{ e.replyText }}</span>
                 </div>
               }
-            }
-          </div>
-        }
-      </div>
-      <ng-template #emptyTpl>
+              @if (e.candidates && e.candidates.length > 1) {
+                <div class="vcand-toggle" (click)="e.showCandidates = !e.showCandidates">
+                  {{ e.showCandidates ? '▲' : '▼' }} {{ e.candidates.length - 1 }} Alternativen
+                </div>
+                @if (e.showCandidates) {
+                  <div class="vcand-list">
+                    @for (c of e.candidates.slice(1); track c.label) {
+                      <div class="vcand-item">
+                        <span class="vcand-label">{{ c.label }}</span>
+                        <span class="vcand-bubble">{{ c.bubble }}</span>
+                      </div>
+                    }
+                  </div>
+                }
+              }
+            </div>
+          }
+        </div>
+      } @else {
         <div class="empty">
           Noch keine Einträge für diesen Filter. Die visuelle Guide-Snake protokolliert hier
           automatisch, was sie vom Frontend sieht und wie sie antwortet.
         </div>
-      </ng-template>
+      }
     </div>
-  `,
+    `,
   styles: [`
     :host { display: block; height: 100%; }
     .vlog { display: flex; flex-direction: column; height: 100%; min-height: 0; }

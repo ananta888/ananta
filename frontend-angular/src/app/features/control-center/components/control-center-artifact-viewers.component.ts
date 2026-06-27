@@ -1,5 +1,5 @@
 import { Component, Input, OnDestroy, OnInit, inject } from '@angular/core';
-import { NgFor, NgIf } from '@angular/common';
+
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
@@ -19,14 +19,18 @@ export interface CcArtifact {
 @Component({
   standalone: true,
   selector: 'app-control-center-markdown-mermaid-viewer',
-  imports: [NgIf],
+  imports: [],
   template: `
-    <div *ngIf="type==='markdown'" class="viewer prose" [innerHTML]="safeMarkdown"></div>
-    <div *ngIf="type==='mermaid'" class="viewer mermaid-box">
-      <pre>{{ mermaidSource }}</pre>
-      <p class="muted">Mermaid-Preview-Fallback: bei Renderfehler bleibt nur der Quelltext sichtbar.</p>
-    </div>
-  `,
+    @if (type==='markdown') {
+      <div class="viewer prose" [innerHTML]="safeMarkdown"></div>
+    }
+    @if (type==='mermaid') {
+      <div class="viewer mermaid-box">
+        <pre>{{ mermaidSource }}</pre>
+        <p class="muted">Mermaid-Preview-Fallback: bei Renderfehler bleibt nur der Quelltext sichtbar.</p>
+      </div>
+    }
+    `,
   styles: [`.viewer{border:1px solid #1f2937;border-radius:8px;padding:10px;background:#0f172a}.prose :where(h1,h2,h3){color:#e5e7eb}.prose{color:#d1d5db}.mermaid-box pre{white-space:pre-wrap}.muted{color:#94a3b8;font-size:12px}`]
 })
 export class ControlCenterMarkdownMermaidViewerComponent {
@@ -55,12 +59,16 @@ export class ControlCenterMarkdownMermaidViewerComponent {
       <button (click)="mode='unified'" [class.active]="mode==='unified'">Unified</button>
       <button (click)="mode='split'" [class.active]="mode==='split'">Side-by-side</button>
     </div>
-    <pre class="diff" *ngIf="mode==='unified'">{{ diff }}</pre>
-    <div class="split" *ngIf="mode==='split'">
-      <pre>{{ left }}</pre>
-      <pre>{{ right }}</pre>
-    </div>
-  `,
+    @if (mode==='unified') {
+      <pre class="diff">{{ diff }}</pre>
+    }
+    @if (mode==='split') {
+      <div class="split">
+        <pre>{{ left }}</pre>
+        <pre>{{ right }}</pre>
+      </div>
+    }
+    `,
   styles: [`.switcher{display:flex;gap:8px;margin-bottom:8px}.switcher button.active{font-weight:700}.diff,.split pre{border:1px solid #1f2937;border-radius:8px;padding:8px;background:#111827;white-space:pre-wrap}.split{display:grid;grid-template-columns:1fr 1fr;gap:8px}@media (max-width:900px){.split{grid-template-columns:1fr}}`]
 })
 export class ControlCenterDiffViewerComponent {
@@ -73,7 +81,7 @@ export class ControlCenterDiffViewerComponent {
 @Component({
   standalone: true,
   selector: 'app-control-center-artifact-browser',
-  imports: [NgFor, NgIf, FormsModule, ControlCenterMarkdownMermaidViewerComponent, ControlCenterDiffViewerComponent],
+  imports: [FormsModule, ControlCenterMarkdownMermaidViewerComponent, ControlCenterDiffViewerComponent],
   template: `
     <h2>Artifacts</h2>
     <div class="filters">
@@ -95,16 +103,26 @@ export class ControlCenterDiffViewerComponent {
     </div>
     <div class="grid">
       <aside class="list">
-        <button *ngFor="let a of filteredArtifacts" (click)="select(a.id)" [class.active]="a.id===selectedId">{{ a.title }} <small>({{ a.type }})</small></button>
+        @for (a of filteredArtifacts; track a) {
+          <button (click)="select(a.id)" [class.active]="a.id===selectedId">{{ a.title }} <small>({{ a.type }})</small></button>
+        }
       </aside>
-      <section class="view" *ngIf="selected as a">
-        <h3>{{ a.title }}</h3>
-        <app-control-center-markdown-mermaid-viewer *ngIf="a.type==='markdown' || a.type==='mermaid'" [type]="a.type" [source]="a.content" />
-        <app-control-center-diff-viewer *ngIf="a.type==='diff'" [diff]="a.content" />
-        <pre *ngIf="a.type==='json' || a.type==='log' || a.type==='text'" class="raw">{{ a.content }}</pre>
-      </section>
+      @if (selected; as a) {
+        <section class="view">
+          <h3>{{ a.title }}</h3>
+          @if (a.type==='markdown' || a.type==='mermaid') {
+            <app-control-center-markdown-mermaid-viewer [type]="a.type" [source]="a.content" />
+          }
+          @if (a.type==='diff') {
+            <app-control-center-diff-viewer [diff]="a.content" />
+          }
+          @if (a.type==='json' || a.type==='log' || a.type==='text') {
+            <pre class="raw">{{ a.content }}</pre>
+          }
+        </section>
+      }
     </div>
-  `,
+    `,
   styles: [`.filters{display:grid;grid-template-columns:repeat(5,minmax(120px,1fr));gap:8px;margin-bottom:10px}.filters input,.filters select{background:#111827;color:#e5e7eb;border:1px solid #374151;border-radius:6px;padding:6px}.grid{display:grid;grid-template-columns:280px 1fr;gap:10px}.list{display:flex;flex-direction:column;gap:6px}.list button{border:1px solid #1f2937;background:#0f172a;color:#e5e7eb;border-radius:8px;padding:8px;text-align:left}.list button.active{border-color:#2563eb}.raw{border:1px solid #1f2937;border-radius:8px;padding:10px;background:#111827;white-space:pre-wrap}@media (max-width:900px){.filters{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr}}`]
 })
 export class ControlCenterArtifactBrowserComponent implements OnInit {

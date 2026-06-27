@@ -29,81 +29,84 @@ import { PreviewDecisionComponent } from './preview-decision.component';
           <button class="btn btn-secondary" (click)="lint()">Prüfen (Lint)</button>
         </div>
       </div>
-
-      <div *ngIf="diagnostics$ | async as diag; else loading" class="dashboard">
-        <div class="summary-cards">
-          <div class="card shadow-sm">
-            <div class="card-body">
-              <h5 class="card-title">Aktive Policy</h5>
-              <p class="card-text">ID: {{ diag.active_policy_id }}</p>
-              <p class="card-text">Version: {{ diag.active_policy_version }}</p>
-              <span class="badge" [ngClass]="diag.bypass_mode_active ? 'bg-danger' : 'bg-success'">
-                {{ diag.bypass_mode_active ? 'Bypass Aktiv' : 'Enforcement Aktiv' }}
-              </span>
+    
+      @if (diagnostics$ | async; as diag) {
+        <div class="dashboard">
+          <div class="summary-cards">
+            <div class="card shadow-sm">
+              <div class="card-body">
+                <h5 class="card-title">Aktive Policy</h5>
+                <p class="card-text">ID: {{ diag.active_policy_id }}</p>
+                <p class="card-text">Version: {{ diag.active_policy_version }}</p>
+                <span class="badge" [ngClass]="diag.bypass_mode_active ? 'bg-danger' : 'bg-success'">
+                  {{ diag.bypass_mode_active ? 'Bypass Aktiv' : 'Enforcement Aktiv' }}
+                </span>
+              </div>
+            </div>
+            <div class="card shadow-sm">
+              <div class="card-body">
+                <h5 class="card-title">Cloud & Externe Worker</h5>
+                <p class="card-text">Cloud Worker: {{ diag.configured_cloud_workers }}</p>
+                <p class="card-text">Externe Worker: {{ diag.configured_external_workers }}</p>
+              </div>
+            </div>
+            <div class="card shadow-sm">
+              <div class="card-body">
+                <h5 class="card-title">Abgelehnte Anfragen (Recent)</h5>
+                <ul class="list-unstyled">
+                  @for (denial of diag.recent_denials; track denial) {
+                    <li>
+                      <span class="badge bg-warning text-dark">{{ denial.reason_code }}</span>: {{ denial.count }}
+                    </li>
+                  }
+                  @if (diag.recent_denials.length === 0) {
+                    <li>Keine Ablehnungen</li>
+                  }
+                </ul>
+              </div>
             </div>
           </div>
-
-          <div class="card shadow-sm">
-            <div class="card-body">
-              <h5 class="card-title">Cloud & Externe Worker</h5>
-              <p class="card-text">Cloud Worker: {{ diag.configured_cloud_workers }}</p>
-              <p class="card-text">Externe Worker: {{ diag.configured_external_workers }}</p>
+          <div class="row mt-4">
+            <div class="col-md-6">
+              <app-policy-preset-selector [baseUrl]="baseUrl" (presetSelected)="onPresetSelected($event)"></app-policy-preset-selector>
+            </div>
+            <div class="col-md-6">
+              <app-preview-decision [baseUrl]="baseUrl"></app-preview-decision>
             </div>
           </div>
-
-          <div class="card shadow-sm">
-            <div class="card-body">
-              <h5 class="card-title">Abgelehnte Anfragen (Recent)</h5>
-              <ul class="list-unstyled">
-                <li *ngFor="let denial of diag.recent_denials">
-                  <span class="badge bg-warning text-dark">{{ denial.reason_code }}</span>: {{ denial.count }}
-                </li>
-                <li *ngIf="diag.recent_denials.length === 0">Keine Ablehnungen</li>
-              </ul>
+          <div class="row mt-4">
+            <div class="col-12">
+              <app-policy-lint-panel [lintResult]="diag.lint_status"></app-policy-lint-panel>
             </div>
           </div>
-        </div>
-
-        <div class="row mt-4">
-          <div class="col-md-6">
-            <app-policy-preset-selector [baseUrl]="baseUrl" (presetSelected)="onPresetSelected($event)"></app-policy-preset-selector>
+          <div class="row mt-4">
+            <div class="col-12">
+              <app-policy-version-list [baseUrl]="baseUrl" [projectId]="projectId"></app-policy-version-list>
+            </div>
           </div>
-          <div class="col-md-6">
-            <app-preview-decision [baseUrl]="baseUrl"></app-preview-decision>
-          </div>
-        </div>
-
-        <div class="row mt-4">
-          <div class="col-12">
-            <app-policy-lint-panel [lintResult]="diag.lint_status"></app-policy-lint-panel>
-          </div>
-        </div>
-
-        <div class="row mt-4">
-          <div class="col-12">
-            <app-policy-version-list [baseUrl]="baseUrl" [projectId]="projectId"></app-policy-version-list>
+          <div class="alerts mt-4">
+            @if (diag.has_default_policy_fallback) {
+              <div class="alert alert-warning">
+                <strong>Warnung:</strong> Fallback-Policy ist aktiv. Keine projektspezifische Richtlinie konfiguriert.
+              </div>
+            }
+            @if (diag.last_decision_error) {
+              <div class="alert alert-danger">
+                Letzter Fehler: {{ diag.last_decision_error }}
+              </div>
+            }
           </div>
         </div>
-
-        <div class="alerts mt-4">
-          <div *ngIf="diag.has_default_policy_fallback" class="alert alert-warning">
-            <strong>Warnung:</strong> Fallback-Policy ist aktiv. Keine projektspezifische Richtlinie konfiguriert.
-          </div>
-          <div *ngIf="diag.last_decision_error" class="alert alert-danger">
-            Letzter Fehler: {{ diag.last_decision_error }}
-          </div>
-        </div>
-      </div>
-
-      <ng-template #loading>
+      } @else {
         <div class="text-center mt-5">
           <div class="spinner-border text-primary" role="status">
             <span class="visually-hidden">Lade Diagnose-Daten...</span>
           </div>
         </div>
-      </ng-template>
+      }
+    
     </div>
-  `,
+    `,
   styles: [`
     .policy-overview-container { padding: 20px; }
     .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }

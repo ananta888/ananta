@@ -1,5 +1,5 @@
 import { Component, Input, Output, EventEmitter, OnChanges } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { MermaidDiagramComponent } from './mermaid-diagram.component';
 
 interface TextSeg { kind: 'text'; content: string; }
@@ -23,7 +23,7 @@ function parseSegments(text: string): Segment[] {
 @Component({
   standalone: true,
   selector: 'app-chat-message',
-  imports: [CommonModule, MermaidDiagramComponent],
+  imports: [MermaidDiagramComponent],
   template: `
     @for (seg of segments; track $index) {
       @if (seg.kind === 'mermaid') {

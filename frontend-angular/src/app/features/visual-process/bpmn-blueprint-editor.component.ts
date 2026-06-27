@@ -7,7 +7,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 
 import {
@@ -76,7 +76,7 @@ const STARTER_XML = `<?xml version="1.0" encoding="UTF-8"?>
 @Component({
   standalone: true,
   selector: 'app-bpmn-blueprint-editor',
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   template: `
 <section class="bpmn-shell">
   <div class="bpmn-toolbar">

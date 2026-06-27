@@ -1,12 +1,12 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { ToolOverrideEditorComponent } from './tool-override-editor.component';
 
 @Component({
   selector: 'app-access-permission-editor',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToolOverrideEditorComponent],
+  imports: [FormsModule, ToolOverrideEditorComponent],
   template: `
     <div class="permission-editor card shadow-sm mb-3">
       <div class="card-header bg-light">
@@ -32,12 +32,16 @@ import { ToolOverrideEditorComponent } from './tool-override-editor.component';
             <div class="form-check form-switch p-2 border rounded" [class.bg-light]="write_allowed" [class.border-warning]="write_allowed">
               <input class="form-check-input ms-0 me-2" type="checkbox" id="write_allowed" [(ngModel)]="write_allowed" (change)="emit()">
               <label class="form-check-label fw-bold" for="write_allowed">Schreiben erlaubt</label>
-              <p class="small text-muted mb-0 text-danger" *ngIf="write_allowed">Gefahr: Modifikation möglich!</p>
-              <p class="small text-muted mb-0" *ngIf="!write_allowed">Nur Lesezugriff.</p>
+              @if (write_allowed) {
+                <p class="small text-muted mb-0 text-danger">Gefahr: Modifikation möglich!</p>
+              }
+              @if (!write_allowed) {
+                <p class="small text-muted mb-0">Nur Lesezugriff.</p>
+              }
             </div>
           </div>
         </div>
-
+    
         <div class="mt-3 row g-3">
           <div class="col-md-6">
             <div class="form-check form-switch p-2 border rounded">
@@ -52,24 +56,26 @@ import { ToolOverrideEditorComponent } from './tool-override-editor.component';
             </div>
           </div>
         </div>
-
-        <div class="mt-3 p-2 bg-light rounded" *ngIf="write_allowed">
-          <div class="form-check">
-            <input class="form-check-input" type="checkbox" id="approval_required" [(ngModel)]="approval_required" (change)="emit()">
-            <label class="form-check-label" for="approval_required">
-              Manuelle Freigabe für Schreibzugriff erforderlich
-            </label>
+    
+        @if (write_allowed) {
+          <div class="mt-3 p-2 bg-light rounded">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="approval_required" [(ngModel)]="approval_required" (change)="emit()">
+              <label class="form-check-label" for="approval_required">
+                Manuelle Freigabe für Schreibzugriff erforderlich
+              </label>
+            </div>
           </div>
-        </div>
-
+        }
+    
         <!-- T017: Tool Overrides -->
-        <app-tool-override-editor 
-          [overrides]="tool_overrides" 
+        <app-tool-override-editor
+          [overrides]="tool_overrides"
           (changed)="onToolOverridesChanged($event)">
         </app-tool-override-editor>
       </div>
     </div>
-  `,
+    `,
   styles: [`
     .form-switch .form-check-input { width: 2.5em; height: 1.25em; }
   `]

@@ -1,5 +1,5 @@
 import { ChangeDetectorRef, Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { NavigationEnd, Router } from '@angular/router';
 import { filter, forkJoin } from 'rxjs';
 
@@ -23,7 +23,7 @@ import { AssistantRuntimeContext, ChatMessage, ChatThread, CliBackend, ContextSo
 @Component({
   standalone: true,
   selector: 'app-ai-assistant',
-  imports: [CommonModule, AiAssistantMessageListComponent, AiAssistantControlsComponent, AiSnakeConfigPanelComponent, AiSnakeSharePanelComponent, AiSnakeChatPanelComponent],
+  imports: [AiAssistantMessageListComponent, AiAssistantControlsComponent, AiSnakeConfigPanelComponent, AiSnakeSharePanelComponent, AiSnakeChatPanelComponent],
   templateUrl: './ai-assistant.component.html'
 })
 export class AiAssistantComponent implements OnInit, OnDestroy {

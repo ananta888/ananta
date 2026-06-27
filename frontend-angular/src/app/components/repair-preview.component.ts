@@ -1,5 +1,5 @@
 import { Component, Input, Output, EventEmitter, inject, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { HubApiService } from '../services/hub-api.service';
 import { AgentDirectoryService } from '../services/agent-directory.service';
@@ -7,7 +7,7 @@ import { AgentDirectoryService } from '../services/agent-directory.service';
 @Component({
   standalone: true,
   selector: 'app-repair-preview',
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   template: `
     <div class="card">
       <h3>Worker & Runtime Selektion</h3>

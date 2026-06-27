@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { Router, NavigationEnd, ActivatedRoute } from '@angular/router';
-import { CommonModule } from '@angular/common';
+
 import { RouterModule } from '@angular/router';
 import { filter, distinctUntilChanged } from 'rxjs/operators';
 import { APP_ROUTE_META } from '../models/route-metadata';
@@ -13,27 +13,35 @@ interface Breadcrumb {
 @Component({
   selector: 'app-breadcrumb',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [RouterModule],
   template: `
-    <nav class="breadcrumb-nav" aria-label="Breadcrumb" *ngIf="breadcrumbs.length > 0">
-      <ol class="breadcrumb-list">
-        <li class="breadcrumb-item">
-          <a [routerLink]="['/dashboard']" class="breadcrumb-link">
-            <span aria-label="Home">🏠</span>
-          </a>
-        </li>
-        <li *ngFor="let breadcrumb of breadcrumbs; let last = last" class="breadcrumb-item">
-          <span class="breadcrumb-separator" aria-hidden="true">/</span>
-          <a *ngIf="!last" [routerLink]="breadcrumb.url" class="breadcrumb-link">
-            {{ breadcrumb.label }}
-          </a>
-          <span *ngIf="last" class="breadcrumb-current" aria-current="page">
-            {{ breadcrumb.label }}
-          </span>
-        </li>
-      </ol>
-    </nav>
-  `,
+    @if (breadcrumbs.length > 0) {
+      <nav class="breadcrumb-nav" aria-label="Breadcrumb">
+        <ol class="breadcrumb-list">
+          <li class="breadcrumb-item">
+            <a [routerLink]="['/dashboard']" class="breadcrumb-link">
+              <span aria-label="Home">🏠</span>
+            </a>
+          </li>
+          @for (breadcrumb of breadcrumbs; track breadcrumb; let last = $last) {
+            <li class="breadcrumb-item">
+              <span class="breadcrumb-separator" aria-hidden="true">/</span>
+              @if (!last) {
+                <a [routerLink]="breadcrumb.url" class="breadcrumb-link">
+                  {{ breadcrumb.label }}
+                </a>
+              }
+              @if (last) {
+                <span class="breadcrumb-current" aria-current="page">
+                  {{ breadcrumb.label }}
+                </span>
+              }
+            </li>
+          }
+        </ol>
+      </nav>
+    }
+    `,
   styles: [`
     .breadcrumb-nav {
       padding: 0.75rem 1rem;

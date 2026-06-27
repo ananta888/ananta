@@ -1,5 +1,5 @@
 import { ChangeDetectorRef, Component, OnInit, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 
 import { AgentDirectoryService } from '../services/agent-directory.service';
@@ -11,7 +11,7 @@ import { DecisionExplanationComponent, NextStepAction, NextStepsComponent, Safet
 @Component({
   standalone: true,
   selector: 'app-auto-planner',
-  imports: [CommonModule, FormsModule, DecisionExplanationComponent, NextStepsComponent, SafetyNoticeComponent],
+  imports: [FormsModule, DecisionExplanationComponent, NextStepsComponent, SafetyNoticeComponent],
   styles: [`
     .ap-subtitle { margin-top: 4px; }
     .ap-grid-top { margin-top: 12px; }
@@ -54,7 +54,7 @@ import { DecisionExplanationComponent, NextStepAction, NextStepsComponent, Safet
     <div class="card">
       <h3>Goal Workspace</h3>
       <p class="muted ap-subtitle">Goal-first Einstieg mit sicheren Defaults. Advanced- und Governance-Drilldowns sind additive Optionen.</p>
-
+    
       @if (status) {
         <div class="grid cols-4 ap-grid-top">
           <div class="card ap-muted-card">
@@ -75,7 +75,7 @@ import { DecisionExplanationComponent, NextStepAction, NextStepsComponent, Safet
           </div>
         </div>
       }
-
+    
       <div class="card ap-section">
         <h4 class="ap-section-title" data-testid="auto-planner-config-title">Konfiguration</h4>
         <div class="grid cols-3 ap-grid">
@@ -110,7 +110,7 @@ import { DecisionExplanationComponent, NextStepAction, NextStepsComponent, Safet
         </div>
         <button class="ap-save-btn" data-testid="auto-planner-config-save" (click)="saveConfig()" [disabled]="saving">Speichern</button>
       </div>
-
+    
       <div class="ap-detail-grid">
         <div class="ap-stack">
           <div class="card ap-section">
@@ -126,14 +126,14 @@ import { DecisionExplanationComponent, NextStepAction, NextStepsComponent, Safet
                 {{ advancedMode ? 'Advanced verbergen' : 'Advanced zeigen' }}
               </button>
             </div>
-
+    
             <div class="ap-goal-area">
               <label>
                 Goal-Beschreibung
                 <textarea class="ap-goal-input" data-testid="auto-planner-goal-input" [(ngModel)]="goalForm.goal" rows="3" placeholder="z.B. Fuehre ein Goal-first Release mit nachvollziehbarer Planung ein"></textarea>
               </label>
             </div>
-
+    
             <div class="grid cols-2 ap-grid">
               <label>
                 Kontext (optional)
@@ -149,7 +149,7 @@ import { DecisionExplanationComponent, NextStepAction, NextStepsComponent, Safet
                 </select>
               </label>
             </div>
-
+    
             @if (advancedMode) {
               <div class="grid cols-2 ap-grid" data-testid="goal-advanced-fields">
                 <label>
@@ -180,7 +180,7 @@ import { DecisionExplanationComponent, NextStepAction, NextStepsComponent, Safet
                 }
               </div>
             }
-
+    
             <div class="row ap-actions">
               <button data-testid="auto-planner-goal-plan" (click)="planGoal()" [disabled]="planning || !goalForm.goal?.trim()">
                 {{ planning ? 'Plane...' : 'Goal planen' }}
@@ -190,7 +190,7 @@ import { DecisionExplanationComponent, NextStepAction, NextStepsComponent, Safet
                 Tasks sofort erstellen
               </label>
             </div>
-
+    
             @if (planningResult) {
               <div class="ap-result" data-testid="goal-submit-result">
                 <h4 class="ap-result-title">Goal angelegt</h4>
@@ -201,19 +201,21 @@ import { DecisionExplanationComponent, NextStepAction, NextStepsComponent, Safet
                   <app-decision-explanation kind="routing" title="Warum Routing sichtbar bleibt"></app-decision-explanation>
                   <app-decision-explanation kind="verification"></app-decision-explanation>
                 </div>
-                <div class="ap-subtask-list" *ngIf="planningResult.subtasks?.length">
-                  @for (st of planningResult.subtasks; track $index; let i = $index) {
-                    <div class="ap-subtask-item">
-                      <strong>{{ i + 1 }}. {{ st.title || st.description }}</strong>
-                      <span class="muted ap-subtask-prio">{{ st.priority }}</span>
-                    </div>
-                  }
-                </div>
+                @if (planningResult.subtasks?.length) {
+                  <div class="ap-subtask-list">
+                    @for (st of planningResult.subtasks; track $index; let i = $index) {
+                      <div class="ap-subtask-item">
+                        <strong>{{ i + 1 }}. {{ st.title || st.description }}</strong>
+                        <span class="muted ap-subtask-prio">{{ st.priority }}</span>
+                      </div>
+                    }
+                  </div>
+                }
                 <app-next-steps class="block mt-sm" [steps]="autoPlannerNextSteps()"></app-next-steps>
               </div>
             }
           </div>
-
+    
           @if (selectedGoalDetail) {
             <div class="card ap-section" data-testid="goal-detail-panel">
               <div class="ap-kicker">Goal Detail</div>
@@ -223,7 +225,7 @@ import { DecisionExplanationComponent, NextStepAction, NextStepsComponent, Safet
               </div>
               <app-safety-notice class="block mt-sm" title="Hinweis" message="Wenn ein Goal blockiert oder review-required ist: Timeline und Settings helfen, den Grund und naechste Schritte zu sehen."></app-safety-notice>
               <app-next-steps class="block mt-sm" [steps]="goalDetailNextSteps()"></app-next-steps>
-
+    
               <div class="ap-mini-list">
                 <div class="ap-mini-card ap-artifact" data-testid="goal-artifact-summary">
                   <div class="ap-kicker">Artifact-First Result</div>
@@ -232,7 +234,7 @@ import { DecisionExplanationComponent, NextStepAction, NextStepsComponent, Safet
                     {{ selectedGoalDetail.artifacts?.headline_artifact?.preview || 'Noch kein Ergebnisartefakt vorhanden.' }}
                   </div>
                 </div>
-
+    
                 <div class="ap-mini-card" data-testid="goal-plan-panel">
                   <div class="ap-kicker">Plan</div>
                   @if (selectedGoalDetail.plan?.nodes?.length) {
@@ -264,7 +266,7 @@ import { DecisionExplanationComponent, NextStepAction, NextStepsComponent, Safet
             </div>
           }
         </div>
-
+    
         <div class="ap-stack">
           @if (isAdmin) {
             <div class="card ap-section">
@@ -279,7 +281,7 @@ import { DecisionExplanationComponent, NextStepAction, NextStepsComponent, Safet
               </div>
             </div>
           }
-
+    
           <div class="card ap-section">
             <h4 class="ap-section-title">Goals</h4>
             <div class="ap-recent-list" data-testid="goal-list">
@@ -294,7 +296,7 @@ import { DecisionExplanationComponent, NextStepAction, NextStepsComponent, Safet
               }
             </div>
           </div>
-
+    
           @if (isAdmin && showAdminDrilldown && selectedGoalDetail?.governance) {
             <div class="card ap-section" data-testid="goal-governance-panel">
               <h4 class="ap-section-title">Governance</h4>
@@ -309,16 +311,18 @@ import { DecisionExplanationComponent, NextStepAction, NextStepsComponent, Safet
                   <strong>{{ selectedGoalDetail.governance.verification?.passed || 0 }} bestanden</strong>
                   <div class="ap-detail-meta">Total {{ selectedGoalDetail.governance.verification?.total || 0 }}, escalated {{ selectedGoalDetail.governance.verification?.escalated || 0 }}</div>
                 </div>
-                <div class="ap-mini-card" *ngIf="selectedGoalDetail.governance.summary">
-                  <div class="ap-kicker">Sichtbarkeit</div>
-                  <div class="ap-detail-meta">
-                    {{ selectedGoalDetail.governance.summary.detail_level || 'full' }} · visible={{ selectedGoalDetail.governance.summary.governance_visible }}
+                @if (selectedGoalDetail.governance.summary) {
+                  <div class="ap-mini-card">
+                    <div class="ap-kicker">Sichtbarkeit</div>
+                    <div class="ap-detail-meta">
+                      {{ selectedGoalDetail.governance.summary.detail_level || 'full' }} · visible={{ selectedGoalDetail.governance.summary.governance_visible }}
+                    </div>
                   </div>
-                </div>
+                }
               </div>
             </div>
           }
-
+    
           @if (isAdmin && showAdminDrilldown && selectedGoalDetail?.tasks?.length) {
             <div class="card ap-section" data-testid="goal-trace-panel">
               <h4 class="ap-section-title">Tasks und Trace</h4>
@@ -335,7 +339,7 @@ import { DecisionExplanationComponent, NextStepAction, NextStepsComponent, Safet
         </div>
       </div>
     </div>
-  `
+    `
 })
 export class AutoPlannerComponent implements OnInit {
   private cdr = inject(ChangeDetectorRef);

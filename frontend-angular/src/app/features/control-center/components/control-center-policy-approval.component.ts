@@ -1,6 +1,6 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { AsyncPipe, DatePipe, NgFor, NgIf } from '@angular/common';
+import { AsyncPipe, DatePipe } from '@angular/common';
 import { StatusChipComponent } from './status-chip.component';
 import { ControlCenterStateFacade } from '../services/control-center-state.facade';
 import { ApprovalsApiService } from '../../../services/approvals-api.service';
@@ -36,74 +36,93 @@ interface ApprovalRequestRow {
 @Component({
   standalone: true,
   selector: 'app-control-center-policy-approval',
-  imports: [NgFor, NgIf, FormsModule, StatusChipComponent, AsyncPipe, DatePipe],
+  imports: [FormsModule, StatusChipComponent, AsyncPipe, DatePipe],
   template: `
     <h2>Policies & Approvals</h2>
     <div class="grid">
       <section class="panel">
         <h4>Decision Log</h4>
-        <div class="row" *ngFor="let d of decisions">
-          <div>
-            <strong>{{ d.actionId }}</strong>
-            <p class="muted">{{ d.reason }} · Rules: {{ d.matchedRuleIds.join(', ') || 'n/a' }}</p>
+        @for (d of decisions; track d) {
+          <div class="row">
+            <div>
+              <strong>{{ d.actionId }}</strong>
+              <p class="muted">{{ d.reason }} · Rules: {{ d.matchedRuleIds.join(', ') || 'n/a' }}</p>
+            </div>
+            <app-status-chip [label]="d.decision" [tone]="tone(d.decision)" />
           </div>
-          <app-status-chip [label]="d.decision" [tone]="tone(d.decision)" />
-        </div>
+        }
       </section>
-
+    
       <section class="panel" style="grid-column: 1 / -1;">
         <h4>Pending ApprovalRequests (digest-gebunden)</h4>
         <div class="row" style="justify-content:flex-start; gap:8px; border-bottom:none;">
           <button (click)="loadApprovalRequests()">Aktualisieren</button>
         </div>
-        <div class="row" *ngFor="let r of approvalRequests">
-          <div>
-            <strong>{{ r.tool_name }}</strong>
-            <span class="muted"> · Digest {{ r.digest_prefix }}…</span>
-            <p class="muted">
-              Task: {{ r.task_id || '—' }} · Goal: {{ r.goal_id || '—' }} · Risiko: {{ r.risk_class }}
-              · Governance: {{ r.governance_mode }}
-              · läuft ab: {{ r.expires_at ? (r.expires_at * 1000 | date:'short') : '—' }}
-            </p>
-            <p class="muted" *ngIf="r.scope_summary && r.scope_summary['reason_code']">Grund: {{ r.scope_summary['reason_code'] }}</p>
+        @for (r of approvalRequests; track r) {
+          <div class="row">
+            <div>
+              <strong>{{ r.tool_name }}</strong>
+              <span class="muted"> · Digest {{ r.digest_prefix }}…</span>
+              <p class="muted">
+                Task: {{ r.task_id || '—' }} · Goal: {{ r.goal_id || '—' }} · Risiko: {{ r.risk_class }}
+                · Governance: {{ r.governance_mode }}
+                · läuft ab: {{ r.expires_at ? (r.expires_at * 1000 | date:'short') : '—' }}
+              </p>
+              @if (r.scope_summary && r.scope_summary['reason_code']) {
+                <p class="muted">Grund: {{ r.scope_summary['reason_code'] }}</p>
+              }
+            </div>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <app-status-chip [label]="r.status" [tone]="r.status === 'pending' ? 'warn' : 'neutral'" />
+              <button (click)="decideRequest(r, 'granted')" [disabled]="r.status !== 'pending'">Grant</button>
+              <button (click)="decideRequest(r, 'denied')" [disabled]="r.status !== 'pending'">Deny</button>
+            </div>
           </div>
-          <div style="display:flex; gap:6px; align-items:center;">
-            <app-status-chip [label]="r.status" [tone]="r.status === 'pending' ? 'warn' : 'neutral'" />
-            <button (click)="decideRequest(r, 'granted')" [disabled]="r.status !== 'pending'">Grant</button>
-            <button (click)="decideRequest(r, 'denied')" [disabled]="r.status !== 'pending'">Deny</button>
-          </div>
-        </div>
-        <p class="muted" *ngIf="!approvalRequests.length">Keine pending ApprovalRequests.</p>
-        <p class="muted" *ngIf="approvalResultMessage">{{ approvalResultMessage }}</p>
+        }
+        @if (!approvalRequests.length) {
+          <p class="muted">Keine pending ApprovalRequests.</p>
+        }
+        @if (approvalResultMessage) {
+          <p class="muted">{{ approvalResultMessage }}</p>
+        }
         <p class="muted">Ein Grant gilt nur für exakt diesen Call (arguments_digest); Argumente werden nie roh angezeigt.</p>
       </section>
-
+    
       <section class="panel">
         <h4>Approval Gate</h4>
         <label>Session
           <select [(ngModel)]="selectedSessionId" (ngModelChange)="state.loadPolicyDecisions(selectedSessionId)">
-            <option *ngFor="let s of (state.sessions$ | async) || []" [value]="s.id">{{ s.id }}</option>
+            @for (s of (state.sessions$ | async) || []; track s) {
+              <option [value]="s.id">{{ s.id }}</option>
+            }
           </select>
         </label>
-        <div *ngIf="pendingRows.length; else noPending">
-          <label>Pending Action
-            <select [(ngModel)]="selectedPendingId">
-              <option *ngFor="let p of pendingRows" [value]="p.id">
-                {{ p.actionId }} · {{ p.reason }} · {{ p.toolCallId || p.id }}
-              </option>
-            </select>
-          </label>
-          <button (click)="approveSelected()" [disabled]="!selectedPendingId">Narrow Approval senden</button>
-        </div>
-        <ng-template #noPending>
+        @if (pendingRows.length) {
+          <div>
+            <label>Pending Action
+              <select [(ngModel)]="selectedPendingId">
+                @for (p of pendingRows; track p) {
+                  <option [value]="p.id">
+                    {{ p.actionId }} · {{ p.reason }} · {{ p.toolCallId || p.id }}
+                  </option>
+                }
+              </select>
+            </label>
+            <button (click)="approveSelected()" [disabled]="!selectedPendingId">Narrow Approval senden</button>
+          </div>
+        } @else {
           <p class="muted">Keine pending approvals für diese Session.</p>
-        </ng-template>
+        }
         <p class="muted">Es wird nur die konkrete Aktion freigegeben, keine Wildcard.</p>
-        <p class="muted" *ngIf="resultMessage">{{ resultMessage }}</p>
-        <pre *ngIf="lastPayload" class="raw">{{ lastPayload }}</pre>
+        @if (resultMessage) {
+          <p class="muted">{{ resultMessage }}</p>
+        }
+        @if (lastPayload) {
+          <pre class="raw">{{ lastPayload }}</pre>
+        }
       </section>
     </div>
-  `,
+    `,
   styles: [`.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.panel{border:1px solid #1f2937;border-radius:10px;padding:10px;background:#0f172a}.row{display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid #1f2937;padding:6px 0}.muted{color:#94a3b8;font-size:12px}label{display:flex;flex-direction:column;gap:4px;margin:6px 0}input,select{background:#111827;color:#e5e7eb;border:1px solid #374151;border-radius:6px;padding:6px}.raw{background:#111827;border:1px solid #1f2937;border-radius:8px;padding:8px;white-space:pre-wrap}@media (max-width:900px){.grid{grid-template-columns:1fr}}`]
 })
 export class ControlCenterPolicyApprovalComponent implements OnInit {

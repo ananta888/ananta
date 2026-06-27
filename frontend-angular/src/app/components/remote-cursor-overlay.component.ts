@@ -11,7 +11,7 @@
  *    interaction-blocking
  */
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { Subscription } from 'rxjs';
 
 import { PairViewSyncService, PeerCursor } from '../services/pair-view-sync.service';
@@ -19,7 +19,7 @@ import { PairViewSyncService, PeerCursor } from '../services/pair-view-sync.serv
 @Component({
   selector: 'app-remote-cursor-overlay',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
   @if (sync.cursorOverlayEnabled) {

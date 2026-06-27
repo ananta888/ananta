@@ -113,11 +113,11 @@ interface ChunkMeta { path: string; source_type: string; score: number; }
       <div class="tv-steps">
         @for (ev of events; track ev.event_id) {
           <div class="step"
-               [class.step-sel]="sel?.event_id === ev.event_id"
-               [class.step-run]="ev.status === 'running'"
-               [class.step-fail]="ev.status === 'failed'"
-               [class.step-tool]="isToolCall(ev.phase)"
-               (click)="pick(ev)">
+            [class.step-sel]="sel?.event_id === ev.event_id"
+            [class.step-run]="ev.status === 'running'"
+            [class.step-fail]="ev.status === 'failed'"
+            [class.step-tool]="isToolCall(ev.phase)"
+            (click)="pick(ev)">
             <span class="step-dot" [class]="'dot-' + ev.status">{{ STATUS_DOT[ev.status] || '○' }}</span>
             <span class="step-label">{{ stepLabel(ev) }}</span>
             @if (ev.duration_ms !== null) {
@@ -128,127 +128,120 @@ interface ChunkMeta { path: string; source_type: string; score: number; }
       </div>
 
       <!-- Detail rechts -->
-      <div class="tv-detail" *ngIf="sel">
-
-        <!-- Phasen-Header -->
-        <div class="det-phase">{{ sel.phase }}</div>
-        <div class="det-title">{{ sel.title }}</div>
-        <div class="det-meta">
-          <span class="badge-sm" [class]="'badge-' + sel.status">{{ sel.status }}</span>
-          @if (sel.duration_ms !== null) {
-            <span class="det-dur">{{ sel.duration_ms | number:'1.0-0' }} ms</span>
+      @if (sel) {
+        <div class="tv-detail">
+          <!-- Phasen-Header -->
+          <div class="det-phase">{{ sel.phase }}</div>
+          <div class="det-title">{{ sel.title }}</div>
+          <div class="det-meta">
+            <span class="badge-sm" [class]="'badge-' + sel.status">{{ sel.status }}</span>
+            @if (sel.duration_ms !== null) {
+              <span class="det-dur">{{ sel.duration_ms | number:'1.0-0' }} ms</span>
+            }
+            @if (sel.redaction_applied) {
+              <span class="det-redact">🔒 gekürzt</span>
+            }
+          </div>
+          @if (sel.summary) {
+            <div class="det-summary">{{ sel.summary }}</div>
           }
-          @if (sel.redaction_applied) {
-            <span class="det-redact">🔒 gekürzt</span>
+          @if (sel.error) {
+            <div class="det-error">{{ sel.error }}</div>
           }
-        </div>
-
-        @if (sel.summary) {
-          <div class="det-summary">{{ sel.summary }}</div>
-        }
-        @if (sel.error) {
-          <div class="det-error">{{ sel.error }}</div>
-        }
-
-        <!-- ── Dateiliste (codecompass_retrieval_completed) ── -->
-        @if (sel.phase === 'codecompass_retrieval_completed' && chunks(sel).length) {
-          <div class="section">
-            <div class="sec-head" (click)="toggle('files')">
-              <span class="sec-arrow">{{ open.files ? '▼' : '▶' }}</span>
-              <span class="sec-name">Abgerufene Dateien</span>
-              <span class="sec-cnt">{{ chunks(sel).length }}</span>
-            </div>
-            @if (open.files) {
-              <div class="file-list">
-                @for (c of chunks(sel); track c.path) {
-                  <div class="file-row">
-                    <span class="file-type" [class]="'ft-' + c.source_type">{{ c.source_type }}</span>
-                    <span class="file-path">{{ c.path }}</span>
-                    <span class="file-score">{{ c.score | number:'1.2-3' }}</span>
-                  </div>
-                }
+          <!-- ── Dateiliste (codecompass_retrieval_completed) ── -->
+          @if (sel.phase === 'codecompass_retrieval_completed' && chunks(sel).length) {
+            <div class="section">
+              <div class="sec-head" (click)="toggle('files')">
+                <span class="sec-arrow">{{ open.files ? '▼' : '▶' }}</span>
+                <span class="sec-name">Abgerufene Dateien</span>
+                <span class="sec-cnt">{{ chunks(sel).length }}</span>
               </div>
-            }
-          </div>
-        }
-
-        <!-- ── Input / Prompt ── -->
-        @if (inputPreviewText(sel)) {
-          <div class="section">
-            <div class="sec-head" (click)="toggle('prompt')">
-              <span class="sec-arrow">{{ open.prompt ? '▼' : '▶' }}</span>
-              <span class="sec-name">{{ inputPreviewTitle(sel) }}</span>
-              <span class="sec-cnt">{{ inputPreviewLen(sel) }} Zeichen</span>
-            </div>
-            @if (open.prompt) {
-              <pre class="code-block">{{ inputPreviewText(sel) }}</pre>
-            }
-          </div>
-        }
-
-        <!-- ── Output / Antwort ── -->
-        @if (outputPreviewText(sel)) {
-          <div class="section">
-            <div class="sec-head" (click)="toggle('output')">
-              <span class="sec-arrow">{{ open.output ? '▼' : '▶' }}</span>
-              <span class="sec-name">{{ outputPreviewTitle(sel) }}</span>
-              <span class="sec-cnt">{{ outputPreviewLen(sel) }} Zeichen</span>
-            </div>
-            @if (open.output) {
-              <pre class="code-block">{{ outputPreviewText(sel) }}</pre>
-            }
-          </div>
-        }
-
-        <!-- ── Tool-Call Detail ── -->
-        @if (isToolCall(sel.phase)) {
-          <div class="tool-call-block">
-            <div class="tool-call-header">
-              <span class="tool-fn-badge">⚙ {{ toolCallName(sel) }}</span>
-              <span class="tool-result-size">{{ toolResultChars(sel) }} Zeichen Ergebnis</span>
-            </div>
-            @if (toolCallArgs(sel) | keyvalue; as argList) {
-              @if (argList.length) {
-                <div class="tool-args">
-                  @for (arg of argList; track arg.key) {
-                    <div class="tool-arg-row">
-                      <span class="tool-arg-key">{{ arg.key }}</span>
-                      <span class="tool-arg-val">{{ arg.value }}</span>
+              @if (open.files) {
+                <div class="file-list">
+                  @for (c of chunks(sel); track c.path) {
+                    <div class="file-row">
+                      <span class="file-type" [class]="'ft-' + c.source_type">{{ c.source_type }}</span>
+                      <span class="file-path">{{ c.path }}</span>
+                      <span class="file-score">{{ c.score | number:'1.2-3' }}</span>
                     </div>
                   }
                 </div>
               }
-            }
-          </div>
-        }
-
-        <!-- ── Details (generisch) ── -->
-        @if (hasDetails(sel)) {
-          <div class="section">
-            <div class="sec-head" (click)="toggle('details')">
-              <span class="sec-arrow">{{ open.details ? '▼' : '▶' }}</span>
-              <span class="sec-name">Details</span>
             </div>
-            @if (open.details) {
-              <pre class="code-block">{{ fmt(detailsWithoutChunks(sel)) }}</pre>
-            }
-          </div>
-        }
-
-        <!-- ── Full-Scan Dateien ── -->
-        @if (sel.phase === 'full_scan_batch_completed') {
-          <div class="section">
-            <div class="sec-head" (click)="toggle('details')">
-              <span class="sec-arrow">{{ open.details ? '▼' : '▶' }}</span>
-              <span class="sec-name">Scan-Info</span>
+          }
+          <!-- ── Input / Prompt ── -->
+          @if (inputPreviewText(sel)) {
+            <div class="section">
+              <div class="sec-head" (click)="toggle('prompt')">
+                <span class="sec-arrow">{{ open.prompt ? '▼' : '▶' }}</span>
+                <span class="sec-name">{{ inputPreviewTitle(sel) }}</span>
+                <span class="sec-cnt">{{ inputPreviewLen(sel) }} Zeichen</span>
+              </div>
+              @if (open.prompt) {
+                <pre class="code-block">{{ inputPreviewText(sel) }}</pre>
+              }
             </div>
-            @if (open.details) {
-              <pre class="code-block">{{ fmt(sel.details) }}</pre>
-            }
-          </div>
-        }
-
-      </div>
+          }
+          <!-- ── Output / Antwort ── -->
+          @if (outputPreviewText(sel)) {
+            <div class="section">
+              <div class="sec-head" (click)="toggle('output')">
+                <span class="sec-arrow">{{ open.output ? '▼' : '▶' }}</span>
+                <span class="sec-name">{{ outputPreviewTitle(sel) }}</span>
+                <span class="sec-cnt">{{ outputPreviewLen(sel) }} Zeichen</span>
+              </div>
+              @if (open.output) {
+                <pre class="code-block">{{ outputPreviewText(sel) }}</pre>
+              }
+            </div>
+          }
+          <!-- ── Tool-Call Detail ── -->
+          @if (isToolCall(sel.phase)) {
+            <div class="tool-call-block">
+              <div class="tool-call-header">
+                <span class="tool-fn-badge">⚙ {{ toolCallName(sel) }}</span>
+                <span class="tool-result-size">{{ toolResultChars(sel) }} Zeichen Ergebnis</span>
+              </div>
+              @if (toolCallArgs(sel) | keyvalue; as argList) {
+                @if (argList.length) {
+                  <div class="tool-args">
+                    @for (arg of argList; track arg.key) {
+                      <div class="tool-arg-row">
+                        <span class="tool-arg-key">{{ arg.key }}</span>
+                        <span class="tool-arg-val">{{ arg.value }}</span>
+                      </div>
+                    }
+                  </div>
+                }
+              }
+            </div>
+          }
+          <!-- ── Details (generisch) ── -->
+          @if (hasDetails(sel)) {
+            <div class="section">
+              <div class="sec-head" (click)="toggle('details')">
+                <span class="sec-arrow">{{ open.details ? '▼' : '▶' }}</span>
+                <span class="sec-name">Details</span>
+              </div>
+              @if (open.details) {
+                <pre class="code-block">{{ fmt(detailsWithoutChunks(sel)) }}</pre>
+              }
+            </div>
+          }
+          <!-- ── Full-Scan Dateien ── -->
+          @if (sel.phase === 'full_scan_batch_completed') {
+            <div class="section">
+              <div class="sec-head" (click)="toggle('details')">
+                <span class="sec-arrow">{{ open.details ? '▼' : '▶' }}</span>
+                <span class="sec-name">Scan-Info</span>
+              </div>
+              @if (open.details) {
+                <pre class="code-block">{{ fmt(sel.details) }}</pre>
+              }
+            </div>
+          }
+        </div>
+      }
     </div>
   }
 
@@ -257,7 +250,7 @@ interface ChunkMeta { path: string; source_type: string; score: number; }
   }
 
 </div>
-  `,
+`,
   styles: [`
     :host { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 

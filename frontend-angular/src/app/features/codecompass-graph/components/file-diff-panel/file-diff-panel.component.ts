@@ -2,7 +2,7 @@ import {
   Component, Input, Output, EventEmitter, OnInit, OnChanges, OnDestroy,
   ChangeDetectionStrategy, inject, signal,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { Router } from '@angular/router';
@@ -23,7 +23,7 @@ function diffLineClass(line: string): string {
   standalone: true,
   selector: 'app-file-diff-panel',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule],
+  imports: [],
   template: `
     <div class="fdp-root">
       <div class="fdp-header">

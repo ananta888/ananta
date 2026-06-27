@@ -2,7 +2,7 @@ import {
   Component, Input, OnInit, OnDestroy, inject,
   signal, computed
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { Subscription, interval } from 'rxjs';
 import { switchMap, startWith } from 'rxjs/operators';
@@ -22,7 +22,7 @@ import {
 @Component({
   standalone: true,
   selector: 'app-run-control-panel',
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   template: `
 <div class="rc-panel">
 

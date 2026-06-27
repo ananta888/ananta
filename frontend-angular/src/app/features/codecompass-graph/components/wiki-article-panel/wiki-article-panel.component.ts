@@ -2,14 +2,14 @@ import {
   Component, Input, Output, EventEmitter, OnChanges,
   ChangeDetectionStrategy, inject, signal,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { InternalsService } from '../../../../features/codehug/services/internals.service';
 
 @Component({
   standalone: true,
   selector: 'app-wiki-article-panel',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule],
+  imports: [],
   template: `
     <div class="wap-root">
       <div class="wap-header">

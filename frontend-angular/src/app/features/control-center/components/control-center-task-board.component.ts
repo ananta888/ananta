@@ -1,5 +1,5 @@
 import { Component, OnInit, inject } from '@angular/core';
-import { AsyncPipe, NgFor, NgIf } from '@angular/common';
+import { AsyncPipe } from '@angular/common';
 import { CcTaskCard, CcTaskStatus } from '../models/control-center.models';
 import { StatusChipComponent } from './status-chip.component';
 import { ControlCenterStateFacade } from '../services/control-center-state.facade';
@@ -7,26 +7,36 @@ import { ControlCenterStateFacade } from '../services/control-center-state.facad
 @Component({
   standalone: true,
   selector: 'app-control-center-task-board',
-  imports: [NgFor, NgIf, StatusChipComponent, AsyncPipe],
+  imports: [StatusChipComponent, AsyncPipe],
   template: `
     <h2>Task Board</h2>
-    <p *ngIf="state.loading$ | async" class="muted">Lade Tasks ...</p>
+    @if (state.loading$ | async) {
+      <p class="muted">Lade Tasks ...</p>
+    }
     <div class="board">
-      <section class="col" *ngFor="let col of cols">
-        <h3>{{ col }}</h3>
-        <article class="card" *ngFor="let t of byStatus(col)">
-          <strong>{{ t.title }}</strong>
-          <div class="meta">
-            <app-status-chip [label]="t.riskLevel" [tone]="riskTone(t.riskLevel)" />
-            <app-status-chip [label]="t.verificationSummary?.status || 'not_run'" [tone]="verificationTone(t.verificationSummary?.status || 'not_run')" />
-          </div>
-          <div class="muted">Worker: {{ t.assignedWorkerId || 'n/a' }} · Modell: {{ t.preferredModel || 'n/a' }}</div>
-        </article>
-        <p *ngIf="!byStatus(col).length" class="muted">Keine Eintraege</p>
-      </section>
+      @for (col of cols; track col) {
+        <section class="col">
+          <h3>{{ col }}</h3>
+          @for (t of byStatus(col); track t) {
+            <article class="card">
+              <strong>{{ t.title }}</strong>
+              <div class="meta">
+                <app-status-chip [label]="t.riskLevel" [tone]="riskTone(t.riskLevel)" />
+                <app-status-chip [label]="t.verificationSummary?.status || 'not_run'" [tone]="verificationTone(t.verificationSummary?.status || 'not_run')" />
+              </div>
+              <div class="muted">Worker: {{ t.assignedWorkerId || 'n/a' }} · Modell: {{ t.preferredModel || 'n/a' }}</div>
+            </article>
+          }
+          @if (!byStatus(col).length) {
+            <p class="muted">Keine Eintraege</p>
+          }
+        </section>
+      }
     </div>
-    <p *ngIf="!(tasks.length) && (state.loading$ | async) === false" class="muted">Keine Tasks im ausgewaehlten Projekt.</p>
-  `,
+    @if (!(tasks.length) && (state.loading$ | async) === false) {
+      <p class="muted">Keine Tasks im ausgewaehlten Projekt.</p>
+    }
+    `,
   styles: [`
     .board{display:grid; grid-template-columns: repeat(4,minmax(180px,1fr)); gap:10px;}
     .col{border:1px dashed #334155; border-radius:10px; padding:8px; background:#0f172a;}
