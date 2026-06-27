@@ -46,6 +46,8 @@ dependencies = [
     "python-docx",
     "openpyxl",
     "python-pptx",
+    "sentence-transformers",
+    "langdetect",
 ]
 
 [project.optional-dependencies]
