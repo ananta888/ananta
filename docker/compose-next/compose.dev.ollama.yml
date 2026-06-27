@@ -165,3 +165,4 @@ volumes:
   postgres-data:
   redis-data:
   frontend-node-modules:
+  frontend-angular-cache:
