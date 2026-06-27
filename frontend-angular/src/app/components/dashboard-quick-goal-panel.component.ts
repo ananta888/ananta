@@ -76,7 +76,7 @@ export interface QuickGoalExpectation {
           />
         </app-form-field>
       </div>
-      <button type="button" (click)="submit.emit()" [disabled]="busy || !text.trim()" aria-label="Goal planen und Tasks generieren">
+      <button type="button" (click)="submitRequested.emit()" [disabled]="busy || !text.trim()" aria-label="Goal planen und Tasks generieren">
         @if (busy) {
           Plane...
         } @else {
@@ -134,7 +134,7 @@ export class DashboardQuickGoalPanelComponent {
   @Output() textChange = new EventEmitter<string>();
   @Output() dismissHint = new EventEmitter<void>();
   @Output() selectPreset = new EventEmitter<string>();
-  @Output() submit = new EventEmitter<void>();
+  @Output() submitRequested = new EventEmitter<void>();
   @Output() openGoal = new EventEmitter<string>();
   @Output() openBoard = new EventEmitter<void>();
   @Output() selectNextStep = new EventEmitter<NextStepAction>();

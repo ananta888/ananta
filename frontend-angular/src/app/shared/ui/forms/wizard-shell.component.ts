@@ -50,7 +50,7 @@ export interface WizardStep {
         @if (!isLastStep()) {
           <button type="button" (click)="next.emit()" [disabled]="!canContinue || busy">{{ nextLabel }}</button>
         } @else {
-          <button type="button" (click)="submit.emit()" [disabled]="!canContinue || busy">{{ busy ? busyLabel : submitLabel }}</button>
+          <button type="button" (click)="submitRequested.emit()" [disabled]="!canContinue || busy">{{ busy ? busyLabel : submitLabel }}</button>
         }
       </div>
     </section>
@@ -70,7 +70,7 @@ export class WizardShellComponent {
   @Output() stepSelect = new EventEmitter<number>();
   @Output() previous = new EventEmitter<void>();
   @Output() next = new EventEmitter<void>();
-  @Output() submit = new EventEmitter<void>();
+  @Output() submitRequested = new EventEmitter<void>();
 
   activeStep(): WizardStep | null {
     return this.steps[this.activeIndex] || null;

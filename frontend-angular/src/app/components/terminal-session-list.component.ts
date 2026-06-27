@@ -127,7 +127,7 @@ export class TerminalSessionListComponent {
 
   @Output() attachRequested = new EventEmitter<{ sessionId: string; attachToken: string }>();
   @Output() sessionKilled = new EventEmitter<string>();
-  @Output() error = new EventEmitter<string>();
+  @Output() errorOccurred = new EventEmitter<string>();
 
   private api = inject(TerminalApiService);
   private cdr = inject(ChangeDetectorRef);
@@ -153,7 +153,7 @@ export class TerminalSessionListComponent {
       next: (resp: any) => {
         const attachToken = resp?.data?.attach_token;
         if (!attachToken) {
-          this.error.emit('attach_token_failed');
+          this.errorOccurred.emit('attach_token_failed');
         } else {
           this.attachRequested.emit({ sessionId: s.id, attachToken });
         }
@@ -161,7 +161,7 @@ export class TerminalSessionListComponent {
         this.cdr.markForCheck();
       },
       error: () => {
-        this.error.emit('attach_token_error');
+        this.errorOccurred.emit('attach_token_error');
         this.attaching = null;
         this.cdr.markForCheck();
       },
@@ -178,7 +178,7 @@ export class TerminalSessionListComponent {
         this.cdr.markForCheck();
       },
       error: () => {
-        this.error.emit('kill_session_error');
+        this.errorOccurred.emit('kill_session_error');
         this.killing = null;
         this.cdr.markForCheck();
       },

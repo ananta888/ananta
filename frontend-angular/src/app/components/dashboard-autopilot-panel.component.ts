@@ -55,7 +55,7 @@ export interface AutopilotStartPayload {
       </div>
 
       <div class="row gap-sm mt-md">
-        <button (click)="start.emit()" [disabled]="busy" aria-label="Autopilot starten">Start</button>
+        <button (click)="startRequested.emit()" [disabled]="busy" aria-label="Autopilot starten">Start</button>
         <button class="secondary" (click)="stop.emit()" [disabled]="busy" aria-label="Autopilot stoppen">Stop</button>
         <button class="secondary" (click)="tick.emit()" [disabled]="busy" aria-label="Autopilot manuell ticken">Tick now</button>
         <button class="secondary" (click)="refresh.emit()" [disabled]="busy" aria-label="Autopilot Status aktualisieren">Refresh status</button>
@@ -94,7 +94,7 @@ export class DashboardAutopilotPanelComponent {
   @Input() securityLevel: AutopilotSecurityLevel = 'safe';
   @Output() securityLevelChange = new EventEmitter<AutopilotSecurityLevel>();
 
-  @Output() start = new EventEmitter<void>();
+  @Output() startRequested = new EventEmitter<void>();
   @Output() stop = new EventEmitter<void>();
   @Output() tick = new EventEmitter<void>();
   @Output() refresh = new EventEmitter<void>();

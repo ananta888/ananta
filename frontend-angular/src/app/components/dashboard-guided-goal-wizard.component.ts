@@ -60,7 +60,7 @@ interface GoalWizardStep {
         (stepSelect)="goToGoalWizardStep($event)"
         (previous)="previousGoalWizardStep()"
         (next)="nextGoalWizardStep()"
-        (submit)="submitGuidedGoal()"
+        (submitRequested)="submitGuidedGoal()"
       >
         <button wizard-actions class="secondary btn-small" type="button" (click)="setGoalMode(null)">Zurueck</button>
           @if (activeGoalWizardStep().id === 'goal') {

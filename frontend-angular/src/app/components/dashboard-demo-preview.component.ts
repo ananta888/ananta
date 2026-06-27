@@ -28,7 +28,7 @@ export interface DemoPreviewExample {
             Beispiele sind read-only und bleiben vom echten Arbeitsmodus getrennt.
           </p>
         </div>
-        <button class="secondary btn-small" type="button" (click)="close.emit()">Schliessen</button>
+        <button class="secondary btn-small" type="button" (click)="closeRequested.emit()">Schliessen</button>
       </div>
       @if (loading) {
         <app-ui-skeleton [count]="3" [columns]="3" [lineCount]="3" lineClass="skeleton line"></app-ui-skeleton>
@@ -90,7 +90,7 @@ export class DashboardDemoPreviewComponent {
   @Input() error = '';
   @Input() busy = false;
 
-  @Output() close = new EventEmitter<void>();
+  @Output() closeRequested = new EventEmitter<void>();
   @Output() retry = new EventEmitter<void>();
   @Output() startExample = new EventEmitter<DemoPreviewExample>();
 }

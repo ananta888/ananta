@@ -116,7 +116,7 @@ export class TerminalTargetsComponent {
   @Input() token?: string;
 
   @Output() sessionCreated = new EventEmitter<{ sessionId: string; attachToken: string }>();
-  @Output() error = new EventEmitter<string>();
+  @Output() errorOccurred = new EventEmitter<string>();
 
   private api = inject(TerminalApiService);
   private cdr = inject(ChangeDetectorRef);
@@ -155,7 +155,7 @@ export class TerminalTargetsComponent {
       next: (resp: any) => {
         const sessionId = resp?.data?.session?.id;
         if (!sessionId) {
-          this.error.emit(resp?.data?.reason_code || 'session_create_failed');
+          this.errorOccurred.emit(resp?.data?.reason_code || 'session_create_failed');
           this.creating = null;
           this.cdr.markForCheck();
           return;
@@ -164,7 +164,7 @@ export class TerminalTargetsComponent {
           next: (tokenResp: any) => {
             const attachToken = tokenResp?.data?.attach_token;
             if (!attachToken) {
-              this.error.emit('attach_token_failed');
+              this.errorOccurred.emit('attach_token_failed');
             } else {
               this.sessionCreated.emit({ sessionId, attachToken });
             }
@@ -172,14 +172,14 @@ export class TerminalTargetsComponent {
             this.cdr.markForCheck();
           },
           error: (err: any) => {
-            this.error.emit('attach_token_error');
+            this.errorOccurred.emit('attach_token_error');
             this.creating = null;
             this.cdr.markForCheck();
           },
         });
       },
       error: (err: any) => {
-        this.error.emit('session_create_error');
+        this.errorOccurred.emit('session_create_error');
         this.creating = null;
         this.cdr.markForCheck();
       },
