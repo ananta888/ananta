@@ -11,9 +11,8 @@ import { WebrtcSignalingService } from '../webrtc-signaling.service';
  * IdentityRegistry — owns the three IdentitySources (hub, oidc, signaling-derivation)
  * and exposes a unified status observable that downstream services can subscribe to.
  *
- * When ANY of hub/oidc goes absent (logout, expired, session-revoked), the
- * registry forces a hardDisconnect on the WebRTC signaling service so that
- * no peer connection can carry credentials from a revoked identity.
+ * WebRTC follows only the OIDC sphere. Hub logout must not tear down an
+ * otherwise valid Pair/WebRTC session.
  *
  * Single source of truth for "is the user authenticated at all?":
  *   registry.isAuthenticated$  emits true iff hub.status==='ready' OR oidc.status==='ready'
@@ -68,14 +67,11 @@ export class IdentityRegistry implements OnDestroy {
       },
     };
 
-    // Watch hub and oidc for "gone" → hardDisconnect signaling
+    // Hub and Pair identities are independent. Track Hub state, but do not
+    // disconnect WebRTC when only the Hub session ends.
     this.subscriptions.add(
       this.hub.snapshot$.subscribe((snap) => {
-        const next = snap.status;
-        if (this.lastHubStatus !== 'absent' && next === 'absent') {
-          this.signalingSvc.hardDisconnect();
-        }
-        this.lastHubStatus = next;
+        this.lastHubStatus = snap.status;
       }),
     );
 

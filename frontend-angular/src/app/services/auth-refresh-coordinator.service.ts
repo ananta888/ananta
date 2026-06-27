@@ -4,14 +4,10 @@ import { BehaviorSubject, Observable, firstValueFrom, throwError } from 'rxjs';
 import { catchError, filter, switchMap, take } from 'rxjs/operators';
 
 import { UserAuthService } from './user-auth.service';
-import { OidcAuthService } from './oidc-auth.service';
-import { ProfileStateService } from './profile-state.service';
 
 @Injectable({ providedIn: 'root' })
 export class AuthRefreshCoordinator {
   private userAuth = inject(UserAuthService);
-  private oidc = inject(OidcAuthService);
-  private profileState = inject(ProfileStateService);
 
   /**
    * Welle 6: emits when a 401 could not be recovered by any refresh
@@ -33,13 +29,7 @@ export class AuthRefreshCoordinator {
         const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
         const expiry = Number(payload.exp) * 1000;
         if (expiry - Date.now() < 60_000) {
-          if (this.profileState.bridgeActive) {
-            // Refresh happens inside userAuth.refreshToken() which
-            // dispatches to the OIDC token endpoint when bridge is active.
-            await firstValueFrom(this.userAuth.refreshToken());
-          } else {
-            await this.oidc.silentRefresh();
-          }
+          await firstValueFrom(this.userAuth.refreshToken());
         }
       } catch { /* ignore */ }
     }, 30_000);
@@ -67,7 +57,7 @@ export class AuthRefreshCoordinator {
           this.isRefreshing = false;
           // Welle 6: refresh failed → tell the UI to show the login mask.
           // Which mask depends on which sphere is active.
-          this.authRequired$.next(this.profileState.bridgeActive ? 'oidc' : 'hub');
+          this.requireAuthentication('hub');
           this.userAuth.logout();
           return throwError(() => err);
         }),
@@ -79,5 +69,9 @@ export class AuthRefreshCoordinator {
       take(1),
       switchMap(token => next.handle(applyToken(request, token))),
     );
+  }
+
+  requireAuthentication(sphere: 'hub' | 'oidc'): void {
+    this.authRequired$.next(sphere);
   }
 }

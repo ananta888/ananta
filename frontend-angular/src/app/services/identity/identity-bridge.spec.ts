@@ -11,7 +11,12 @@ describe('IdentityBridge', () => {
     TestBed.resetTestingModule();
   });
 
-  function build(profileId: string, hubUrl: string | null, bridgeActive = false) {
+  function build(
+    profileId: string,
+    hubUrl: string | null,
+    bridgeActive = false,
+    pairEnabled = profileId === 'public-ananta',
+  ) {
     TestBed.configureTestingModule({
       providers: [
         IdentityBridge,
@@ -21,10 +26,12 @@ describe('IdentityBridge', () => {
             current: {
               profile_id: profileId,
               oidc: {
-                issuer: 'https://issuer.test',
-                client_id: 'client',
+                issuer: pairEnabled ? 'https://issuer.test' : '',
+                client_id: pairEnabled ? 'client' : '',
                 audience: 'ananta-hub',
                 pkce_required: true,
+                enabled: pairEnabled,
+                hub_link_enabled: bridgeActive,
                 bridge_active: bridgeActive,
               },
             },
@@ -43,7 +50,7 @@ describe('IdentityBridge', () => {
 
   describe('findApplicableRules', () => {
     it('returns the public-ananta rule when profile matches and hub is present', () => {
-      build('public-ananta', 'http://hub.test');
+      build('public-ananta', 'http://hub.test', true);
       const rules = bridge.findApplicableRules('oidc');
       expect(rules).toHaveLength(1);
       expect(rules[0].id).toBe('public-ananta.oidc-to-hub');
@@ -89,11 +96,11 @@ describe('IdentityBridge', () => {
   });
 
   describe('mode / showOidcLogin / showHubDirectLogin', () => {
-    it('public-ananta with hub → oidc-bridge', () => {
+    it('public-ananta without account linking keeps both logins independent', () => {
       build('public-ananta', 'http://hub.test');
-      expect(bridge.mode()).toBe('oidc-bridge');
+      expect(bridge.mode()).toBe('hub-direct');
       expect(bridge.showOidcLogin).toBe(true);
-      expect(bridge.showHubDirectLogin).toBe(false);
+      expect(bridge.showHubDirectLogin).toBe(true);
     });
 
     it('local profile → hub-direct', () => {
@@ -103,20 +110,20 @@ describe('IdentityBridge', () => {
       expect(bridge.showHubDirectLogin).toBe(true);
     });
 
-    it('public-ananta without hub → hub-direct (fallback)', () => {
+    it('Pair login remains available without a Hub', () => {
       build('public-ananta', null);
       expect(bridge.mode()).toBe('hub-direct');
-      expect(bridge.showOidcLogin).toBe(false);
+      expect(bridge.showOidcLogin).toBe(true);
       expect(bridge.showHubDirectLogin).toBe(true);
     });
 
     it('Welle 4: bridge_active=true on local profile → oidc-bridge', () => {
       // Hub has explicitly enabled OIDC SSO Bridge. Even though the
       // profile is "local", the SSO flag wins.
-      build('local', 'http://hub.test', true);
+      build('local', 'http://hub.test', true, true);
       expect(bridge.mode()).toBe('oidc-bridge');
       expect(bridge.showOidcLogin).toBe(true);
-      expect(bridge.showHubDirectLogin).toBe(false);
+      expect(bridge.showHubDirectLogin).toBe(true);
     });
 
     it('Welle 4: public-ananta with bridge_active=true → oidc-bridge (and Hub values are authoritative)', () => {

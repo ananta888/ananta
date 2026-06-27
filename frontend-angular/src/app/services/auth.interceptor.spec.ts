@@ -5,6 +5,7 @@ import { firstValueFrom, of, throwError } from 'rxjs';
 import { AgentDirectoryService } from './agent-directory.service';
 import { AuthInterceptor } from './auth.interceptor';
 import { UserAuthService } from './user-auth.service';
+import { AuthRefreshCoordinator } from './auth-refresh-coordinator.service';
 
 describe('AuthInterceptor', () => {
   let directory: { list: ReturnType<typeof vi.fn> };
@@ -95,5 +96,23 @@ describe('AuthInterceptor', () => {
 
     expect(userAuth.refreshToken).toHaveBeenCalledTimes(1);
     expect(userAuth.logout).toHaveBeenCalledTimes(1);
+  });
+
+  it('requests Hub login when an uncredentialed worker rejects the request', async () => {
+    directory.list.mockReturnValue([
+      { name: 'hub', role: 'hub', url: 'http://hub:5000', token: 'hub-secret' },
+      { name: 'worker', role: 'worker', url: 'http://worker:5001' },
+    ]);
+    const coordinator = TestBed.inject(AuthRefreshCoordinator);
+    const handler: HttpHandler = {
+      handle: () => throwError(() => new HttpErrorResponse({ status: 401 })),
+    };
+
+    await expect(firstValueFrom(
+      interceptor().intercept(new HttpRequest('GET', 'http://worker:5001/tasks'), handler),
+    )).rejects.toBeTruthy();
+
+    expect(coordinator.authRequired$.value).toBe('hub');
+    expect(userAuth.refreshToken).not.toHaveBeenCalled();
   });
 });

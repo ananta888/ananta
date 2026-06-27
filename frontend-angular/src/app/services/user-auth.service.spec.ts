@@ -5,7 +5,6 @@ import { IDBFactory } from 'fake-indexeddb';
 import { UserAuthService } from './user-auth.service';
 import { SecureTokenStorage } from './secure-token-storage.service';
 import { AgentDirectoryService } from './agent-directory.service';
-import { ProfileStateService } from './profile-state.service';
 import { HttpClient } from '@angular/common/http';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
@@ -29,14 +28,6 @@ describe('UserAuthService — storage migration (Task 0.2)', () => {
         {
           provide: AgentDirectoryService,
           useValue: { list: () => [] },
-        },
-        {
-          provide: ProfileStateService,
-          useValue: {
-            bridgeActive: false,
-            oidcIssuer: '',
-            oidcClientId: '',
-          },
         },
       ],
     });

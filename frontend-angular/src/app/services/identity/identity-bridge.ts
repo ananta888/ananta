@@ -34,42 +34,41 @@ export class IdentityBridge {
     };
     return {
       activeProfile: this.profiles.current?.profile_id ?? '',
+      hubLinkEnabled:
+        this.profiles.current?.oidc?.hub_link_enabled === true
+        || this.profiles.current?.oidc?.bridge_active === true,
       hubUrl,
     };
   }
 
   /**
-   * Login mode based on the active network profile.
-   *   - 'oidc-bridge'   OIDC + bridge to hub  (e.g. public-ananta OR
-   *                     Hub-OIDC-Settings enabled, see network-profile.service)
-   *   - 'hub-direct'    direct hub login       (e.g. local / enterprise)
-   *
-   * Welle 4: The profile's `oidc.bridge_active` flag is the source of truth
-   * for whether the Hub has explicitly opted into the SSO bridge (set
-   * server-side based on OIDC_ENABLED + required fields). Profile_id alone
-   * is no longer enough — a 'public-ananta' profile with `bridge_active=false`
-   * means the Hub is in legacy mode and the frontend must show the Hub-direct
-   * login form.
+   * Whether optional linked-account exchange is configured.
+   * This does not choose which login form is visible: Hub and Pair login
+   * remain independent and may both be shown.
    */
   mode(): 'oidc-bridge' | 'hub-direct' {
     const profile = this.profiles.current;
-    const ctx = this.buildContext();
-    if (profile?.oidc?.bridge_active === true) {
-      return 'oidc-bridge';
-    }
-    if (ctx.activeProfile === 'public-ananta' && ctx.hubUrl().length > 0) {
+    if (
+      profile?.oidc?.hub_link_enabled === true
+      || profile?.oidc?.bridge_active === true
+    ) {
       return 'oidc-bridge';
     }
     return 'hub-direct';
   }
 
-  /** Whether the Keycloak/OIDC button should be shown in the login UI. */
+  /** Pair/WebRTC login is independent from Hub login. */
   get showOidcLogin(): boolean {
-    return this.mode() === 'oidc-bridge';
+    const oidc = this.profiles.current?.oidc;
+    return oidc?.enabled === true || Boolean(oidc?.issuer && oidc?.client_id);
   }
 
-  /** Whether username+password (Hub-direct) login should be shown. */
+  /** Hub login is always available and remains the worker access authority. */
   get showHubDirectLogin(): boolean {
-    return this.mode() === 'hub-direct';
+    return true;
+  }
+
+  get hubLinkEnabled(): boolean {
+    return this.mode() === 'oidc-bridge';
   }
 }

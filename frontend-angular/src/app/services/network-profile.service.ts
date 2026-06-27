@@ -1,9 +1,8 @@
 /** T17: Loads network profile from Hub API. */
 import { Injectable, inject } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, firstValueFrom } from 'rxjs';
 import { HubApiCoreService } from './hub-api-core.service';
 import { AgentDirectoryService } from './agent-directory.service';
-import { ProfileStateService } from './profile-state.service';
 import {
   PUBLIC_OIDC_CLIENT_ID,
   PUBLIC_OIDC_ISSUER,
@@ -21,6 +20,7 @@ export interface NetworkProfile {
     audience: string;
     pkce_required: boolean;
     enabled?: boolean;
+    hub_link_enabled?: boolean;
     bridge_active?: boolean;
   };
   rendezvous: { base_url: string; signaling_url: string; transport_order: string[] };
@@ -34,7 +34,15 @@ export interface NetworkProfile {
 const FALLBACK: NetworkProfile = {
   profile_id: 'public-ananta',
   label: 'Public Ananta (fallback)',
-  oidc: { issuer: PUBLIC_OIDC_ISSUER, client_id: PUBLIC_OIDC_CLIENT_ID, audience: 'ananta-hub', pkce_required: true, bridge_active: false },
+  oidc: {
+    issuer: PUBLIC_OIDC_ISSUER,
+    client_id: PUBLIC_OIDC_CLIENT_ID,
+    audience: 'ananta-hub',
+    pkce_required: true,
+    enabled: true,
+    hub_link_enabled: false,
+    bridge_active: false,
+  },
   rendezvous: { base_url: PUBLIC_WEBRTC_BASE_URL, signaling_url: PUBLIC_WEBRTC_SIGNALING_URL, transport_order: ['webrtc', 'hub_relay'] },
   ice_servers: [{ urls: PUBLIC_WEBRTC_STUN_URL }],
   require_e2e_payload_encryption: true,
@@ -47,7 +55,6 @@ const FALLBACK: NetworkProfile = {
 export class NetworkProfileService {
   private core = inject(HubApiCoreService);
   private dir = inject(AgentDirectoryService);
-  private state = inject(ProfileStateService);
 
   readonly profile$ = new BehaviorSubject<NetworkProfile>(FALLBACK);
 
@@ -55,34 +62,19 @@ export class NetworkProfileService {
     return this.dir.list().find(a => a.role === 'hub')?.url ?? '';
   }
 
-  load(profileId = 'public-ananta'): void {
+  async load(profileId = 'public-ananta'): Promise<void> {
     const url = this.hubUrl;
     if (!url) return;
-    this.core.get<{ ok: boolean; profile: NetworkProfile }>(
-      `${url}/api/network-profiles/${profileId}`, url
-    ).subscribe({
-      next: r => {
-        if (r?.profile) {
-          this.profile$.next(r.profile);
-          // Mirror into the cycle-free ProfileStateService so other
-          // services (UserAuthService) can read bridge_active without
-          // pulling HubApiCoreService → UserAuthService.
-          this.state.setProfile({
-            profile_id: r.profile.profile_id,
-            oidc: r.profile.oidc
-              ? {
-                  issuer: r.profile.oidc.issuer,
-                  client_id: r.profile.oidc.client_id,
-                  audience: r.profile.oidc.audience,
-                  pkce_required: r.profile.oidc.pkce_required,
-                  bridge_active: r.profile.oidc.bridge_active,
-                }
-              : undefined,
-          });
-        }
-      },
-      error: () => {},
-    });
+    try {
+      const r = await firstValueFrom(this.core.get<{ ok: boolean; profile: NetworkProfile }>(
+        `${url}/api/network-profiles/${profileId}`, url
+      ));
+      if (!r?.profile) return;
+      this.profile$.next(r.profile);
+    } catch {
+      // The public fallback remains usable when the protected profile
+      // endpoint is unavailable before Hub login.
+    }
   }
 
   get current(): NetworkProfile { return this.profile$.value; }

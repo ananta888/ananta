@@ -1,5 +1,5 @@
 import { Injectable, OnDestroy, inject } from '@angular/core';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { BehaviorSubject, Observable, Subscription } from 'rxjs';
 import type { IdentitySnapshot, IdentitySource } from './identity.types';
 import {
   buildSnapshot,
@@ -31,7 +31,22 @@ export class OidcIdentitySource implements IdentitySource, OnDestroy {
 
   private readonly auth = inject(UserAuthService);
   private readonly oidc = inject(OidcAuthService);
+  private readonly tokenSubscription: Subscription;
   private refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+  constructor() {
+    this.tokenSubscription = this.auth.oidcToken$.subscribe((token) => {
+      if (!token) {
+        if (this._snapshot$.value.status !== 'absent') {
+          this._snapshot$.next(buildSnapshot({ status: 'absent' }));
+        }
+        return;
+      }
+      if (this._snapshot$.value.token === token) return;
+      this._snapshot$.next(snapshotFromJwt(token, undefined, 'oidc'));
+      this.scheduleRefresh();
+    });
+  }
 
   get current(): IdentitySnapshot {
     return this._snapshot$.value;
@@ -67,7 +82,16 @@ export class OidcIdentitySource implements IdentitySource, OnDestroy {
         this._snapshot$.next(
           buildSnapshot({ status: 'expired', error: 'oidc refresh failed' }),
         );
+        return;
       }
+      const accessToken = this.auth.oidcAccessTokenValue;
+      if (!accessToken) {
+        this._snapshot$.next(buildSnapshot({ status: 'expired', error: 'oidc token missing' }));
+        return;
+      }
+      const refreshToken = await this.auth.getOidcRefreshToken();
+      this._snapshot$.next(snapshotFromJwt(accessToken, refreshToken ?? undefined, 'oidc'));
+      this.scheduleRefresh();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'oidc refresh failed';
       this._snapshot$.next(buildSnapshot({ status: 'expired', error: msg }));
@@ -100,6 +124,7 @@ export class OidcIdentitySource implements IdentitySource, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.tokenSubscription.unsubscribe();
     if (this.refreshTimer) {
       clearTimeout(this.refreshTimer);
       this.refreshTimer = null;

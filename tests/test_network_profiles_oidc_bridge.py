@@ -96,11 +96,11 @@ def test_disabled_oidc_passes_through_json_values(monkeypatch):
         _clear_test_profile()
 
 
-def test_enabled_oidc_injects_hub_values(monkeypatch):
+def test_enabled_oidc_exposes_link_capability_without_overwriting_pair_provider(monkeypatch):
     saved = _set_oidc(
         oidc_enabled=True,
-        oidc_issuer_url="https://keycloak.example/realms/ananta",
-        oidc_jwks_url="https://keycloak.example/realms/ananta/protocol/openid-connect/certs",
+        oidc_issuer_url="https://keycloak.ananta.de/realms/ananta",
+        oidc_jwks_url="https://keycloak.ananta.de/realms/ananta/protocol/openid-connect/certs",
         oidc_audience="ananta-hub",
         oidc_client_id="ananta-frontend",
     )
@@ -118,8 +118,9 @@ def test_enabled_oidc_injects_hub_values(monkeypatch):
             oidc = body["profile"]["oidc"]
             assert oidc["enabled"] is True
             assert oidc["bridge_active"] is True
-            assert oidc["issuer"] == "https://keycloak.example/realms/ananta"
-            assert oidc["client_id"] == "ananta-frontend"
+            assert oidc["hub_link_enabled"] is True
+            assert oidc["issuer"] == "https://keycloak.ananta.de/realms/ananta"
+            assert oidc["client_id"] == "ananta-tui"
             assert oidc["audience"] == "ananta-hub"
             assert oidc["pkce_required"] is True
     finally:

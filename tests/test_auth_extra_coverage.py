@@ -136,6 +136,32 @@ def test_check_user_auth_invalid(app):
         assert "Invalid token" in response.get_json()["message"]
 
 
+def test_check_user_auth_keeps_hub_and_oidc_token_domains_separate(app, monkeypatch):
+    @app.route("/hub-user-auth")
+    @check_user_auth
+    def hub_user_auth_route():
+        return "ok"
+
+    monkeypatch.setattr(settings, "oidc_enabled", True)
+    monkeypatch.setattr(settings, "oidc_issuer_url", "https://issuer.example")
+    monkeypatch.setattr(settings, "oidc_jwks_url", "https://issuer.example/jwks")
+    monkeypatch.setattr(settings, "oidc_audience", "ananta-hub")
+    monkeypatch.setattr(settings, "oidc_client_id", "ananta-web")
+    hub_token = jwt.encode(
+        {"sub": "hub-user", "exp": time.time() + 60},
+        settings.secret_key,
+        algorithm="HS256",
+    )
+
+    with app.test_client() as client:
+        response = client.get(
+            "/hub-user-auth",
+            headers={"Authorization": f"Bearer {hub_token}"},
+        )
+
+    assert response.status_code == 200
+
+
 def test_check_auth_warns_for_weak_user_secret(app, caplog):
     app.config["AGENT_TOKEN"] = "test-agent-token-that-is-at-least-32-bytes!"
 

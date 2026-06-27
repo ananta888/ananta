@@ -1,11 +1,9 @@
 """OIDC token validation against a configured JWKS endpoint.
 
-When `oidc_enabled=True`, the Hub stops validating user tokens with
-its own `secret_key` and instead treats incoming Bearer tokens as
-OIDC access tokens issued by the configured provider (typically
-Keycloak). The token's signature is verified against the provider's
-JWKS endpoint, and the standard OIDC claims (`iss`, `aud`, `exp`,
-`nbf`, `iat`) are checked.
+Used only by explicit account-link and token-exchange endpoints. Normal Hub
+routes continue to validate Hub-issued JWTs. The external token's signature
+is verified against the provider's JWKS endpoint, and the standard claims
+(`iss`, `aud`, `exp`, `nbf`, `iat`) are checked.
 
 Default-deny: if any required claim is missing or invalid, validation
 returns None. The caller MUST treat None as "unauthenticated" — never

@@ -73,6 +73,13 @@ export class AuthInterceptor implements HttpInterceptor {
             (retryRequest, token) => this.addTokenHeader(retryRequest, token),
           );
         }
+        if (
+          error instanceof HttpErrorResponse &&
+          error.status === 401 &&
+          target.kind === 'passthrough_no_credentials'
+        ) {
+          this.refreshCoordinator.requireAuthentication('hub');
+        }
         return throwError(() => error);
       }),
     );

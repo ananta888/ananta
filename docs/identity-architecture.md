@@ -1,145 +1,78 @@
-# Identity Architecture (3-Spheres Model)
+# Identity Architecture
 
-Ananta v3.1+ uses a **three-sphere identity model** with **explicit bridge
-rules** instead of a single monolithic "User" concept.
+Ananta has two independent user identities and one derived signaling
+identity. They must not be collapsed into one bearer-token domain.
 
-## Spheres
+| Sphere | Authority | Token use |
+|---|---|---|
+| `hub` | Ananta Hub login | Hub APIs; the Hub owns worker authorization and delegation |
+| `oidc` | `keycloak.ananta.de` via OIDC/PKCE | Pair Dev and `webrtc.ananta.de` |
+| `signaling` | Derived from `oidc` | WebRTC signaling |
 
-| Sphere    | Source                | Storage                              | Used for                                  |
-|-----------|----------------------|--------------------------------------|-------------------------------------------|
-| `hub`     | Direct hub login     | `ananta.user.token` + encrypted RT   | Hub-API calls, worker routing             |
-| `oidc`    | Keycloak (OIDC/PKCE) | `ananta.oidc.access_token` + enc RT  | Public-ananta profile, signaling nonce    |
-| `signaling` | derived from OIDC   | (none — pure function of OIDC)       | WebRTC signaling auth via OIDC nonce      |
+Workers do not accept a browser's Hub or Keycloak user token as an implicit
+fallback. Browser operations targeting workers flow through the Hub, which
+owns worker credentials and routing.
 
-## Storage Layout
+## Independent login
 
-All identity keys live under the `ananta.<sphere>.<field>` namespace.
-The full layout is defined in `frontend-angular/src/app/services/identity/identity-storage-layout.ts`.
+The default login page exposes both login methods:
 
-Refresh tokens are **always** encrypted with AES-GCM in IndexedDB before
-being written to localStorage. The access token is stored in plain localStorage
-because it is short-lived (≤ 1 hour) and required on every API call.
+- username/password establishes only a Hub session;
+- Keycloak establishes only a Pair/WebRTC session.
 
-## Identity Sources
+Logging out from the Hub does not terminate an active Pair/WebRTC session.
+Logging out from Keycloak disconnects WebRTC but does not invalidate the Hub
+session. “Log out all” clears both.
 
-Each sphere is represented by an `IdentitySource`:
+Hub access tokens and refresh tokens use:
 
-- `HubIdentitySource` — `frontend-angular/src/app/services/identity/hub-identity-source.ts`
-- `OidcIdentitySource` — `frontend-angular/src/app/services/identity/oidc-identity-source.ts`
-- `signaling` — derived source owned by `IdentityRegistry`
+- `ananta.user.token`
+- encrypted `ananta.hub.refresh_token`
 
-Each source emits an `IdentitySnapshot` with status `absent | authenticating | ready | expired`.
+OIDC access tokens and refresh tokens use:
 
-## Bridge Rules
+- `ananta.oidc.access_token`
+- encrypted `ananta.oidc.refresh_token`
 
-Cross-sphere token exchange is **declarative**. The single rule today:
+The refresh paths are deliberately separate. `UserAuthService.refreshToken()`
+only calls the Hub. `OidcAuthService.refreshFromStorage()` only calls the OIDC
+provider.
 
-- `public-ananta.oidc-to-hub` — exchanges an OIDC access token for a Hub access
-  token via `POST {hub}/auth/oidc/exchange`.
+## Optional account linking and SSO
 
-Rules are in `frontend-angular/src/app/services/identity/identity-bridge.config.ts`.
-`IdentityBridge.mode()` returns `'oidc-bridge'` (rule active) or `'hub-direct'`
-(direct hub login), which the LoginComponent uses to show only the relevant UI.
+Account linking is opt-in and default-deny. Configure `OIDC_ENABLED=true` plus
+`OIDC_ISSUER_URL`, `OIDC_JWKS_URL`, `OIDC_AUDIENCE`, and `OIDC_CLIENT_ID`.
+The configured issuer must match the Pair profile issuer.
 
-## IdentityRegistry
+Linking requires both active identities:
 
-`IdentityRegistry` owns all three sources and:
+1. the user authenticates to an existing Hub account;
+2. the user authenticates to Keycloak;
+3. the user explicitly selects “Hub- und Keycloak-Konto verknüpfen”;
+4. `POST /auth/oidc/link` validates the OIDC token and persists the unique
+   `(issuer, subject) → Hub username` mapping.
 
-- `restoreAllFromStorage()` — restores snapshots from storage at app boot
-- `isAuthenticated$` — observable combining hub + oidc ready-status
-- `logoutAll()` — logs out every sphere and hard-disconnects WebRTC
-- When hub or oidc transitions to `absent`, the registry forces
-  `WebrtcSignalingService.hardDisconnect()` so no peer connection carries
-  credentials from a revoked identity.
+On later Keycloak logins, `POST /auth/oidc/exchange` may issue a normal
+Hub-signed access/refresh-token pair only when this mapping exists. The Hub
+continues to accept only Hub-signed JWTs on `@check_user_auth` endpoints.
+Unlinked or invalid OIDC identities never fall back to an automatically
+created Hub account.
+
+`GET /auth/oidc/link` reports link status and `DELETE /auth/oidc/link` removes
+the current Hub user's link.
+
+## Network profile contract
+
+`oidc.enabled` means Pair/WebRTC login is available.
+`oidc.hub_link_enabled` means explicit Hub account linking is configured.
+`oidc.bridge_active` remains as a temporary compatibility alias for older
+frontends. Hub-link configuration never overwrites the Pair profile's issuer
+or client ID.
 
 ## Lifecycle
 
-1. `main.ts` registers `identityRestoreInitializer` (APP_INITIALIZER)
-2. On app boot → `IdentityRegistry.restoreAllFromStorage()` runs synchronously
-   for both hub and oidc
-3. `identityGuard` (CanActivateFn on every protected route) checks
-   `registry.isAuthenticated` — redirects to `/login` if absent
-4. Login flow: store tokens via `HubIdentitySource.onAuthenticated` /
-   `OidcIdentitySource.onAuthenticated`. The proactive-refresh timer starts
-   60s before `exp`.
-5. `IdentityRegistry.logoutAll()` clears all spheres + signaling
-
-## Hard Disconnect
-
-`WebrtcSignalingService.hardDisconnect()` is **irreversible**:
-
-- Cancels reconnect timer
-- Kills Hub-Relay poll
-- Closes WebSocket with code 1000 / reason `identity revoked`
-- Clears sessionId, signalingUrl, useHubRelay flag
-- Idempotent — safe to call twice
-
-This is wired in `IdentityRegistry` so that when hub OR oidc becomes absent,
-WebRTC is torn down immediately.
-
-## OnPush & NG0100
-
-`AppComponent` uses `ChangeDetectionStrategy.OnPush`. To avoid NG0100 on auth
-state changes, `headerUser` is a `computed` signal backed by `_userPayload`
-and `_isLoggedIn` signals. A `token$` subscription in `ngOnInit` keeps these
-signals in sync with `UserAuthService`.
-
-## Test Coverage
-
-| Layer        | Tests | File                                      |
-|--------------|-------|-------------------------------------------|
-| Types        | 7     | `identity.types.spec.ts`                  |
-| Snapshot     | 18    | `identity-snapshot.spec.ts`               |
-| Storage      | 7     | `identity-storage-layout.spec.ts`         |
-| Hub source   | 11    | `hub-identity-source.spec.ts`             |
-| OIDC source  | 9     | `oidc-identity-source.spec.ts`            |
-| Bridge       | 10    | `identity-bridge.spec.ts`                 |
-| Registry     | 13    | `identity-registry.spec.ts`               |
-| Guard        | 3     | `identity.guard.spec.ts`                  |
-| Initializer  | 3     | `identity-restore.initializer.spec.ts`    |
-| Signaling    | 6     | `webrtc-signaling.service.spec.ts`        |
-
-**Total: 87 identity-related unit tests, all green.**
-
-## Default Behaviour on 401 (no SSO Bridge configured)
-
-Without an active bridge rule (`identity-bridge.config.ts` empty, or
-`oidc.enabled = false` in the profile), **each sphere requires its own login**:
-
-| Sphere    | 401 from Hub on hub-sphere endpoint | UI behaviour               |
-|-----------|-------------------------------------|----------------------------|
-| `hub`     | Yes                                 | Show Hub login mask        |
-| `oidc`    | Yes                                 | Show OIDC login mask       |
-| `signaling` | Yes (derived, falls through)     | Show OIDC login mask       |
-
-**Silent fallbacks are forbidden by policy** (see AGENTS.md: default-deny,
-no implicit trust between components). The auth interceptor MUST show a
-login mask on 401 — never retry with empty/stale tokens.
-
-This explains the historical "401 UNAUTHORIZED on `/share-sessions`"
-message: when the user is on a profile where OIDC is enabled but Hub
-login has not happened yet, Hub rejects the request and the frontend
-shows the Hub login mask. After login the share-panel works.
-
-## Enabling the Hub↔OIDC SSO Bridge (opt-in)
-
-The bridge is **opt-in** and must be configured explicitly. Two required
-steps:
-
-1. **Profile config** — set `oidc.enabled = true` in `profiles.yaml`
-   together with `oidc.issuer_url`, `oidc.client_id`, `oidc.audience`.
-2. **Frontend** — declare the bridge rule in `identity-bridge.config.ts`
-   (`oidc-to-hub` → `POST {hub}/auth/oidc/exchange`).
-
-Only then will a single Keycloak login produce both the OIDC token
-(for webrtc.ananta.de) and the Hub JWT (for `/share-sessions` etc.).
-
-## Migration Notes
-
-- Public-ananta profile: users authenticate via Keycloak → bridge exchange → Hub JWT.
-  RT is stored encrypted; OIDC RT and Hub RT live in **separate** keys
-  (no collision with the legacy single-key model).
-- Local/enterprise profile: users log in directly to the Hub. OIDC flow is
-  not shown in the UI for these profiles.
-- Existing `UserAuthService.token$` consumers continue to work — Hub's
-  ready snapshot drives the same BehaviorSubject.
+At application startup the identity initializer restores both token stores and
+loads the active network profile. The route guard allows the application when
+either identity is ready. A Hub-protected action that receives 401 routes to
+`/login?sphere=hub`; Pair/WebRTC auth failures route to
+`/login?sphere=oidc`.

@@ -5,6 +5,7 @@ import json
 import os
 import time
 from pathlib import Path
+
 from flask import Blueprint, jsonify
 
 from agent.auth import check_auth
@@ -63,30 +64,24 @@ def get_network_profile(profile_id: str):
             del entry["credential_mode"]
         ice_servers.append(entry)
 
-    # Wenn die Hub-OIDC-SSO-Bridge aktiviert ist (OIDC_ENABLED=true +
-    # alle required Felder gesetzt), injizieren wir die echten
-    # Hub-OIDC-Werte ins Profil. So bekommt das Frontend die korrekten
-    # Issuer/Client/Audience-Werte OHNE dass der Profil-JSON angepasst
-    # werden muss. Wenn die Bridge nicht aktiv ist, lassen wir die
-    # JSON-Werte unangetastet (Default-Deny).
+    # Pair/WebRTC OIDC and Hub account linking are separate capabilities.
+    # The profile owns the Pair provider.  Hub linking is an opt-in feature
+    # and must not overwrite that provider or turn OIDC into Hub auth.
     oidc_block = dict(profile.get("oidc", {}))
+    pair_enabled = bool(oidc_block.get("issuer") and oidc_block.get("client_id"))
+    link_enabled = False
     if oidc_is_configured():
         oidc_cfg = get_oidc_config()
-        oidc_block = {
-            **oidc_block,
-            "enabled": True,
-            "issuer": oidc_cfg.issuer_url,
-            "client_id": oidc_cfg.client_id,
-            "audience": oidc_cfg.audience,
-            "pkce_required": True,
-            "bridge_active": True,
-        }
-    else:
-        oidc_block = {
-            **oidc_block,
-            "enabled": bool(oidc_block.get("enabled", False)),
-            "bridge_active": False,
-        }
+        link_enabled = pair_enabled and oidc_cfg.issuer_url.rstrip("/") == str(
+            oidc_block.get("issuer") or ""
+        ).rstrip("/")
+    oidc_block = {
+        **oidc_block,
+        "enabled": pair_enabled,
+        "hub_link_enabled": link_enabled,
+        # Backward-compatible alias for clients introduced during Welle 4.
+        "bridge_active": link_enabled,
+    }
 
     return jsonify({
         "ok": True,
@@ -96,7 +91,9 @@ def get_network_profile(profile_id: str):
             "oidc": oidc_block,
             "rendezvous": profile.get("rendezvous", {}),
             "ice_servers": ice_servers,
-            "require_e2e_payload_encryption": profile.get("rendezvous", {}).get("require_e2e_payload_encryption", False),
+            "require_e2e_payload_encryption": profile.get("rendezvous", {}).get(
+                "require_e2e_payload_encryption", False
+            ),
             "signaling_url": profile.get("rendezvous", {}).get("signaling_url", ""),
             "transport_order": profile.get("rendezvous", {}).get("transport_order", ["hub_relay"]),
             "warning": profile.get("warning", ""),

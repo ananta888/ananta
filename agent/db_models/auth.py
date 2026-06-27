@@ -20,6 +20,21 @@ class UserDB(SQLModel, table=True):
     lockout_until: Optional[float] = Field(default=None)
 
 
+class OidcIdentityLinkDB(SQLModel, table=True):
+    """Explicit link between an external OIDC subject and a Hub account."""
+
+    __tablename__ = "oidc_identity_links"
+    __table_args__ = (
+        sa.UniqueConstraint("issuer", "subject", name="uq_oidc_identity_links_issuer_subject"),
+        sa.UniqueConstraint("username", "issuer", name="uq_oidc_identity_links_username_issuer"),
+    )
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    username: str = Field(index=True, foreign_key="users.username")
+    issuer: str = Field(index=True)
+    subject: str = Field(index=True)
+    created_at: float = Field(default_factory=time.time)
+
+
 class UserInstructionProfileDB(SQLModel, table=True):
     __tablename__ = "user_instruction_profiles"
     __table_args__ = (sa.UniqueConstraint("owner_username", "name", name="uq_user_instruction_profiles_owner_name"),)

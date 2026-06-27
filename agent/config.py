@@ -200,11 +200,10 @@ class Settings(BaseSettings):
     auth_mfa_backup_code_count: int = Field(default=10, validation_alias="AUTH_MFA_BACKUP_CODE_COUNT")
     auth_test_endpoints_enabled: bool = Field(default=False, validation_alias="AUTH_TEST_ENDPOINTS_ENABLED")
 
-    # OIDC / SSO Bridge (opt-in, default off — see docs/identity-architecture.md)
-    # Wenn oidc.enabled=False verhält sich der Hub exakt wie bisher
-    # (eigener User-JWT, secret_key signed). Wenn True, validiert der Hub
-    # User-Tokens gegen den JWKS-Endpoint des konfigurierten OIDC-Providers
-    # (z.B. Keycloak) und der eigene User-Login wird deaktiviert.
+    # Optional Hub↔OIDC account linking (default off).
+    # Hub endpoints always require Hub-issued JWTs.  When this feature is
+    # configured, a validated OIDC identity can be explicitly linked to an
+    # existing Hub account and exchanged for a Hub session on later logins.
     oidc_enabled: bool = Field(default=False, validation_alias="OIDC_ENABLED")
     oidc_issuer_url: str = Field(default="", validation_alias="OIDC_ISSUER_URL")
     oidc_jwks_url: str = Field(default="", validation_alias="OIDC_JWKS_URL")

@@ -4,7 +4,7 @@
  */
 import { Injectable, inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { firstValueFrom, map } from 'rxjs';
+import { map } from 'rxjs';
 import { AgentDirectoryService } from './agent-directory.service';
 import { NetworkProfileService } from './network-profile.service';
 import { UserAuthService } from './user-auth.service';
@@ -44,7 +44,7 @@ export class OidcAuthService {
   private _meta: OidcMeta | null = null;
   private _sessionNonce = '';
 
-  readonly loggedIn$ = this.userAuth.token$.pipe(map(t => !!t));
+  readonly loggedIn$ = this.userAuth.oidcToken$.pipe(map(t => !!t));
 
   get sessionNonce(): string { return this._sessionNonce; }
   get hasNonce(): boolean { return !!this._sessionNonce; }
@@ -59,10 +59,6 @@ export class OidcAuthService {
 
   private get hubUrl(): string {
     return this.dir.list().find((agent) => agent.role === 'hub')?.url || '';
-  }
-
-  private get usesBackendOidcBroker(): boolean {
-    return this.profiles.current.profile_id === 'public-ananta';
   }
 
   get currentUsername(): string {
@@ -117,15 +113,7 @@ export class OidcAuthService {
 
   // ── T12: PKCE Authorization redirect ────────────────────────────────
 
-  async startLogin(redirectPath = '/'): Promise<void> {
-    if (this.usesBackendOidcBroker) {
-      const hubUrl = this.hubUrl;
-      if (!hubUrl) throw new Error('Hub URL is not configured for backend OIDC login');
-      const params = new URLSearchParams({ redirect_path: redirectPath || '/' });
-      location.href = `${hubUrl.replace(/\/$/, '')}/auth/oidc/login?${params}`;
-      return;
-    }
-
+  async startLogin(redirectPath = '/', linkHub = false): Promise<void> {
     const authEndpoint = `${this.issuer.replace(/\/$/, '')}/protocol/openid-connect/auth`;
     const verifier = this.randomB64Url(48);
     const state = this.randomB64Url(16);
@@ -133,7 +121,7 @@ export class OidcAuthService {
     const challenge = await this.sha256B64Url(verifier);
     const redirectUri = `${location.origin}/oidc-callback`;
 
-    sessionStorage.setItem(SS_PKCE_KEY, JSON.stringify({ verifier, state, nonce, redirectPath }));
+    sessionStorage.setItem(SS_PKCE_KEY, JSON.stringify({ verifier, state, nonce, redirectPath, linkHub }));
     sessionStorage.setItem(SS_NONCE_KEY, nonce);
 
     const params = new URLSearchParams({
@@ -159,8 +147,8 @@ export class OidcAuthService {
 
     const stored = sessionStorage.getItem(SS_PKCE_KEY);
     if (!stored) return false;
-    const { verifier, state: storedState, nonce, redirectPath } = JSON.parse(stored) as {
-      verifier: string; state: string; nonce: string; redirectPath: string;
+    const { verifier, state: storedState, nonce, redirectPath, linkHub } = JSON.parse(stored) as {
+      verifier: string; state: string; nonce: string; redirectPath: string; linkHub?: boolean;
     };
     if (state !== storedState) return false;
     sessionStorage.removeItem(SS_PKCE_KEY);
@@ -186,34 +174,11 @@ export class OidcAuthService {
 
     this._sessionNonce = nonce;
     this.userAuth.setOidcAccessToken(tokens.access_token);
-
-    const isPublicProfile = this.profiles.current.profile_id === 'public-ananta';
-    if (isPublicProfile) {
-      const hubUrl = this.hubUrl;
-      if (!hubUrl) throw new Error('Hub URL is not configured for public OIDC token exchange');
-      const exchangeUrl = `${hubUrl.replace(/\/$/, '')}/auth/oidc/exchange`;
-      const exchangeResponse = await fetch(exchangeUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          id_token: tokens.id_token,
-          oidc_access_token: tokens.access_token,
-          redirect_path: redirectPath || '/',
-        }),
-      });
-      if (!exchangeResponse.ok) return false;
-      const exchangePayload = await exchangeResponse.json() as any;
-      const exchangeData = exchangePayload?.data || exchangePayload;
-      const appAccessToken = String(exchangeData?.access_token || '').trim();
-      if (!appAccessToken) return false;
-      this.userAuth.setTokens(appAccessToken, exchangeData?.refresh_token || null);
-      this.userAuth.setOidcAccessToken(String(exchangeData?.oidc_access_token || tokens.access_token || '').trim());
-      this.router.navigateByUrl(String(exchangeData?.redirect_path || redirectPath || '/'));
-      return true;
+    await this.userAuth.setOidcRefreshToken(tokens.refresh_token ?? null);
+    if (linkHub) {
+      await this.linkCurrentHubIdentity(tokens.access_token);
     }
-
-    this.userAuth.setTokens(tokens.access_token, tokens.refresh_token);
+    await this.tryRestoreLinkedHubSession(tokens.access_token);
     this.router.navigateByUrl(redirectPath || '/');
     return true;
   }
@@ -310,8 +275,8 @@ export class OidcAuthService {
     localStorage.setItem('oidc.popup.nonce', nonce);
     this._sessionNonce = nonce;
     // setTokens writes to localStorage → fires storage event in parent window
-    this.userAuth.setTokens(tokens.access_token, tokens.refresh_token);
     this.userAuth.setOidcAccessToken(tokens.access_token);
+    await this.userAuth.setOidcRefreshToken(tokens.refresh_token ?? null);
     return true;
   }
 
@@ -322,14 +287,6 @@ export class OidcAuthService {
    * Returns true on success, false on failure (logs nothing — caller decides).
    */
   async refreshFromStorage(): Promise<boolean> {
-    if (this.usesBackendOidcBroker) {
-      try {
-        await firstValueFrom(this.userAuth.refreshToken());
-        return true;
-      } catch {
-        return false;
-      }
-    }
     const refreshToken = await this.userAuth.getOidcRefreshToken();
     if (!refreshToken) return false;
     try {
@@ -344,10 +301,15 @@ export class OidcAuthService {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: body.toString(),
       });
-      if (!r.ok) { this.userAuth.logout(); return false; }
+      if (!r.ok) {
+        this.userAuth.setOidcAccessToken(null);
+        await this.userAuth.setOidcRefreshToken(null);
+        return false;
+      }
       const tokens = await r.json();
       this.userAuth.setOidcAccessToken(tokens.access_token);
       await this.userAuth.setOidcRefreshToken(tokens.refresh_token ?? refreshToken);
+      await this.tryRestoreLinkedHubSession(tokens.access_token);
       return true;
     } catch {
       return false;
@@ -355,51 +317,14 @@ export class OidcAuthService {
   }
 
   async silentRefresh(): Promise<boolean> {
-    if (this.usesBackendOidcBroker) {
-      try {
-        await firstValueFrom(this.userAuth.refreshToken());
-        return true;
-      } catch {
-        return false;
-      }
-    }
-
-    const refreshToken = this.userAuth.refreshTokenValue;
-    if (!refreshToken) return false;
-    try {
-      const tokenEndpoint = `${this.issuer.replace(/\/$/, '')}/protocol/openid-connect/token`;
-      const body = new URLSearchParams({
-        grant_type: 'refresh_token',
-        client_id: this.clientId,
-        refresh_token: refreshToken,
-      });
-      const r = await fetch(tokenEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: body.toString(),
-      });
-      if (!r.ok) { this.userAuth.logout(); return false; }
-      const tokens = await r.json();
-      this.userAuth.setTokens(tokens.access_token, tokens.refresh_token ?? refreshToken);
-      this.userAuth.setOidcAccessToken(tokens.access_token);
-      return true;
-    } catch {
-      return false;
-    }
+    return this.refreshFromStorage();
   }
 
   // ── T14: Keycloak end-session ────────────────────────────────────────
 
   async logout(): Promise<void> {
-    if (this.usesBackendOidcBroker) {
-      this.userAuth.logout();
-      this._sessionNonce = '';
-      this.router.navigate(['/login']);
-      return;
-    }
-
-    const token = this.userAuth.token;
-    this.userAuth.logout();
+    this.userAuth.setOidcAccessToken(null);
+    await this.userAuth.setOidcRefreshToken(null);
     this._sessionNonce = '';
     try {
       const meta = await this.loadMeta();
@@ -407,10 +332,48 @@ export class OidcAuthService {
         client_id: this.clientId,
         post_logout_redirect_uri: `${location.origin}/login`,
       });
-      if (token) params.set('id_token_hint', token);
       location.href = `${meta.end_session_endpoint}?${params}`;
     } catch {
       this.router.navigate(['/login']);
+    }
+  }
+
+  private async tryRestoreLinkedHubSession(oidcAccessToken: string): Promise<void> {
+    const oidc = this.profiles.current.oidc;
+    const linkEnabled = oidc?.hub_link_enabled === true || oidc?.bridge_active === true;
+    const hubUrl = this.hubUrl;
+    if (!linkEnabled || !hubUrl) return;
+    try {
+      const response = await fetch(`${hubUrl.replace(/\/$/, '')}/auth/oidc/exchange`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ oidc_access_token: oidcAccessToken }),
+      });
+      if (!response.ok) return;
+      const payload = await response.json() as any;
+      const data = payload?.data ?? payload;
+      if (data?.access_token) {
+        await this.userAuth.setTokens(data.access_token, data.refresh_token);
+      }
+    } catch {
+      // Pair login remains valid when the optional Hub exchange is unavailable.
+    }
+  }
+
+  private async linkCurrentHubIdentity(oidcAccessToken: string): Promise<void> {
+    const hubUrl = this.hubUrl;
+    const hubToken = this.userAuth.token;
+    if (!hubUrl || !hubToken) throw new Error('Hub login required before account linking');
+    const response = await fetch(`${hubUrl.replace(/\/$/, '')}/auth/oidc/link`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${hubToken}`,
+      },
+      body: JSON.stringify({ oidc_access_token: oidcAccessToken }),
+    });
+    if (!response.ok) {
+      throw new Error(`Account linking failed: HTTP ${response.status}`);
     }
   }
 
@@ -451,8 +414,9 @@ export class OidcAuthService {
     const tokens = await r.json();
     const nonce = sessionStorage.getItem(SS_NONCE_KEY) ?? this.randomB64Url(16);
     this._sessionNonce = nonce;
-    this.userAuth.setTokens(tokens.access_token, tokens.refresh_token);
     this.userAuth.setOidcAccessToken(tokens.access_token);
+    await this.userAuth.setOidcRefreshToken(tokens.refresh_token ?? null);
+    await this.tryRestoreLinkedHubSession(tokens.access_token);
     return true;
   }
 

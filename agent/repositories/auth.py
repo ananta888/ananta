@@ -4,7 +4,14 @@ from typing import List, Optional
 from sqlmodel import Session, select
 
 from agent.database import engine
-from agent.db_models import BannedIPDB, LoginAttemptDB, PasswordHistoryDB, RefreshTokenDB, UserDB
+from agent.db_models import (
+    BannedIPDB,
+    LoginAttemptDB,
+    OidcIdentityLinkDB,
+    PasswordHistoryDB,
+    RefreshTokenDB,
+    UserDB,
+)
 
 
 class UserRepository:
@@ -27,10 +34,54 @@ class UserRepository:
         with Session(engine) as session:
             user = session.get(UserDB, username)
             if user:
+                from sqlmodel import delete
+
+                session.exec(
+                    delete(OidcIdentityLinkDB).where(OidcIdentityLinkDB.username == username)
+                )
                 session.delete(user)
                 session.commit()
                 return True
             return False
+
+
+class OidcIdentityLinkRepository:
+    def get_by_subject(self, issuer: str, subject: str) -> Optional[OidcIdentityLinkDB]:
+        with Session(engine) as session:
+            statement = select(OidcIdentityLinkDB).where(
+                OidcIdentityLinkDB.issuer == issuer,
+                OidcIdentityLinkDB.subject == subject,
+            )
+            return session.exec(statement).first()
+
+    def get_for_user(self, username: str, issuer: str) -> Optional[OidcIdentityLinkDB]:
+        with Session(engine) as session:
+            statement = select(OidcIdentityLinkDB).where(
+                OidcIdentityLinkDB.username == username,
+                OidcIdentityLinkDB.issuer == issuer,
+            )
+            return session.exec(statement).first()
+
+    def save(self, link: OidcIdentityLinkDB) -> OidcIdentityLinkDB:
+        with Session(engine) as session:
+            session.add(link)
+            session.commit()
+            session.refresh(link)
+            return link
+
+    def delete_for_user(self, username: str, issuer: str) -> bool:
+        with Session(engine) as session:
+            link = session.exec(
+                select(OidcIdentityLinkDB).where(
+                    OidcIdentityLinkDB.username == username,
+                    OidcIdentityLinkDB.issuer == issuer,
+                )
+            ).first()
+            if link is None:
+                return False
+            session.delete(link)
+            session.commit()
+            return True
 
 
 class RefreshTokenRepository:

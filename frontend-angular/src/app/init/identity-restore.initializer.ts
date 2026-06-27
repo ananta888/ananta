@@ -1,5 +1,6 @@
 import { APP_INITIALIZER, Provider } from '@angular/core';
 import { IdentityRegistry } from '../services/identity/identity-registry';
+import { NetworkProfileService } from '../services/network-profile.service';
 
 /**
  * Restore all identity sources (hub + oidc) from storage at app boot.
@@ -10,6 +11,9 @@ import { IdentityRegistry } from '../services/identity/identity-registry';
 export const identityRestoreInitializer: Provider = {
   provide: APP_INITIALIZER,
   multi: true,
-  deps: [IdentityRegistry],
-  useFactory: (registry: IdentityRegistry) => () => registry.restoreAllFromStorage(),
+  deps: [IdentityRegistry, NetworkProfileService],
+  useFactory: (registry: IdentityRegistry, profiles: NetworkProfileService) => async () => {
+    await registry.restoreAllFromStorage();
+    await profiles.load();
+  },
 };

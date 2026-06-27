@@ -1,5 +1,5 @@
 import { Injectable, OnDestroy, inject } from '@angular/core';
-import { BehaviorSubject, Observable, firstValueFrom } from 'rxjs';
+import { BehaviorSubject, Observable, Subscription, firstValueFrom } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import type { IdentitySnapshot, IdentitySource } from './identity.types';
 import {
@@ -34,8 +34,23 @@ export class HubIdentitySource implements IdentitySource, OnDestroy {
   private readonly http = inject(HttpClient);
   private readonly auth = inject(UserAuthService);
   private readonly dir = inject(AgentDirectoryService);
+  private readonly tokenSubscription: Subscription;
   private refreshTimer: ReturnType<typeof setTimeout> | null = null;
   private refreshInFlight: Promise<void> | null = null;
+
+  constructor() {
+    this.tokenSubscription = this.auth.token$.subscribe((token) => {
+      if (!token) {
+        if (this._snapshot$.value.status !== 'absent') {
+          this._snapshot$.next(buildSnapshot({ status: 'absent' }));
+        }
+        return;
+      }
+      if (this._snapshot$.value.token === token) return;
+      this._snapshot$.next(snapshotFromJwt(token, undefined, 'hub'));
+      this.scheduleRefresh();
+    });
+  }
 
   /** Synchronous getter for current value (used by templates & other services). */
   get current(): IdentitySnapshot {
@@ -106,9 +121,9 @@ export class HubIdentitySource implements IdentitySource, OnDestroy {
       await this.onAuthenticated(resp.access_token, resp.refresh_token);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'refresh failed';
-      this._snapshot$.next(buildSnapshot({ status: 'expired', error: msg }));
       // Mark user-auth logout so headers stop carrying stale token
       await this.auth.setTokens(null, null);
+      this._snapshot$.next(buildSnapshot({ status: 'expired', error: msg }));
     }
   }
 
@@ -144,6 +159,7 @@ export class HubIdentitySource implements IdentitySource, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.tokenSubscription.unsubscribe();
     if (this.refreshTimer) {
       clearTimeout(this.refreshTimer);
       this.refreshTimer = null;

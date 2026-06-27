@@ -7,6 +7,7 @@ This package splits persistence concerns by domain while keeping the existing
 from .auth import (
     BannedIPRepository,
     LoginAttemptRepository,
+    OidcIdentityLinkRepository,
     PasswordHistoryRepository,
     RefreshTokenRepository,
     UserRepository,
@@ -77,6 +78,7 @@ __all__ = [
     "KnowledgeLinkRepository",
     "InstructionOverlayRepository",
     "LoginAttemptRepository",
+    "OidcIdentityLinkRepository",
     "MemoryEntryRepository",
     "PasswordHistoryRepository",
     "PlanNodeRepository",

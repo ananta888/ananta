@@ -2,7 +2,7 @@ import { Component, inject, OnInit } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Capacitor } from '@capacitor/core';
 import { firstValueFrom, timeout } from 'rxjs';
 import { UserAuthService } from '../services/user-auth.service';
@@ -11,6 +11,7 @@ import { PythonRuntimeService } from '../services/python-runtime.service';
 import { OidcAuthService } from '../services/oidc-auth.service';
 import { IdentityBridge } from '../services/identity/identity-bridge';
 import { PUBLIC_KEYCLOAK_BASE_URL } from '../services/public-ananta-endpoints';
+import { NetworkProfileService } from '../services/network-profile.service';
 
 @Component({
   selector: 'app-login',
@@ -20,6 +21,11 @@ template: `
     <div class="login-container">
       <div class="card login-card">
         <h2>Ananta Login</h2>
+        @if (requestedSphere === 'hub') {
+          <p class="muted mfa-hint">Für diese Aktion ist eine Hub-Anmeldung erforderlich.</p>
+        } @else if (requestedSphere === 'oidc') {
+          <p class="muted mfa-hint">Für Pair/WebRTC ist eine Keycloak-Anmeldung erforderlich.</p>
+        }
         @if (showHubDirect) {
           <form (submit)="onLogin($event)" aria-label="Login-Formular">
             <div class="form-group">
@@ -120,32 +126,6 @@ template: `
               @if (forgotInfo) {
                 <div class="hint-text text-center mt-sm" aria-live="polite">{{ forgotInfo }}</div>
               }
-              @if (showOidc) {
-                <div class="oidc-divider"><span>oder</span></div>
-                <button type="button" class="secondary btn-full" (click)="loginWithKeycloak()" [disabled]="loading">
-                  Mit Keycloak anmelden ({{ keycloakHostLabel }})
-                </button>
-                <button type="button" class="secondary btn-full btn-mt-sm" (click)="toggleDeviceFlow()" [disabled]="loading">
-                  {{ deviceFlowOpen ? 'Device Flow schliessen' : 'Device Flow (TUI-Code)' }}
-                </button>
-                @if (deviceFlowOpen) {
-                  <div class="device-flow-panel">
-                    @if (!deviceFlowData) {
-                      <button type="button" class="primary btn-full" (click)="startDeviceFlow()" [disabled]="deviceFlowBusy">
-                        {{ deviceFlowBusy ? 'Starte...' : 'Device Flow starten' }}
-                      </button>
-                    } @else {
-                      <div class="device-code-box">
-                        <div class="device-code-label">Code in Browser oder TUI eingeben:</div>
-                        <div class="device-code">{{ deviceFlowData.user_code }}</div>
-                        <div class="device-code-url">{{ deviceFlowData.verification_uri }}</div>
-                      </div>
-                      @if (deviceFlowError) { <div class="error-msg">{{ deviceFlowError }}</div> }
-                      @if (deviceFlowBusy) { <div class="hint-text">Warte auf Bestätigung...</div> }
-                    }
-                  </div>
-                }
-              }
             }
           </form>
         }
@@ -158,6 +138,40 @@ template: `
             Zurück zum Passwort
           </button>
         }
+        @if (showOidc) {
+          <div class="oidc-divider"><span>Pair-/WebRTC-Zugang</span></div>
+          <button type="button" class="secondary btn-full" (click)="loginWithKeycloak()" [disabled]="loading">
+            Bei Keycloak anmelden ({{ keycloakHostLabel }})
+          </button>
+          <p class="muted mfa-hint">
+            Diese Anmeldung gilt für Pair Dev und webrtc.ananta.de. Der Hub-Zugang bleibt davon getrennt.
+          </p>
+          @if (showLinkOption) {
+            <button type="button" class="secondary btn-full btn-mt-sm" (click)="linkIdentities()" [disabled]="loading">
+              {{ hasOidcIdentity ? 'Hub- und Keycloak-Konto verknüpfen' : 'Bei Keycloak anmelden und Konten verknüpfen' }}
+            </button>
+          }
+          <button type="button" class="secondary btn-full btn-mt-sm" (click)="toggleDeviceFlow()" [disabled]="loading">
+            {{ deviceFlowOpen ? 'Device Flow schliessen' : 'Device Flow (TUI-Code)' }}
+          </button>
+          @if (deviceFlowOpen) {
+            <div class="device-flow-panel">
+              @if (!deviceFlowData) {
+                <button type="button" class="primary btn-full" (click)="startDeviceFlow()" [disabled]="deviceFlowBusy">
+                  {{ deviceFlowBusy ? 'Starte...' : 'Device Flow starten' }}
+                </button>
+              } @else {
+                <div class="device-code-box">
+                  <div class="device-code-label">Code in Browser oder TUI eingeben:</div>
+                  <div class="device-code">{{ deviceFlowData.user_code }}</div>
+                  <div class="device-code-url">{{ deviceFlowData.verification_uri }}</div>
+                </div>
+                @if (deviceFlowError) { <div class="error-msg">{{ deviceFlowError }}</div> }
+                @if (deviceFlowBusy) { <div class="hint-text">Warte auf Bestätigung...</div> }
+              }
+            </div>
+          }
+        }
       </div>
     </div>
     `
@@ -165,11 +179,14 @@ template: `
 export class LoginComponent implements OnInit {
   private http = inject(HttpClient);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
   private auth = inject(UserAuthService);
   private dir = inject(AgentDirectoryService);
   private pythonRuntime = inject(PythonRuntimeService);
   private oidc = inject(OidcAuthService);
   private bridge = inject(IdentityBridge);
+  private profiles = inject(NetworkProfileService);
+  requestedSphere: 'hub' | 'oidc' | null = null;
 
   deviceFlowOpen = false;
   deviceFlowBusy = false;
@@ -189,14 +206,43 @@ export class LoginComponent implements OnInit {
   get showOidc(): boolean {
     return this.bridge.showOidcLogin;
   }
+  get showLinkOption(): boolean {
+    return this.bridge.hubLinkEnabled && !!this.auth.token;
+  }
+  get hasOidcIdentity(): boolean {
+    return !!this.auth.oidcAccessTokenValue;
+  }
 
   ngOnInit(): void {
-    // Bridge.mode() depends on NetworkProfileService.current which may not be loaded yet.
-    // The template reads the getter lazily on each change detection, so no eager call needed.
+    const sphere = this.route.snapshot.queryParamMap.get('sphere');
+    this.requestedSphere = sphere === 'hub' || sphere === 'oidc' ? sphere : null;
   }
 
   loginWithKeycloak(): void {
     void this.oidc.startLogin('/');
+  }
+
+  async linkIdentities(): Promise<void> {
+    const hub = this.resolveHubForLogin();
+    const oidcToken = this.auth.oidcAccessTokenValue;
+    if (!hub) return;
+    if (!oidcToken) {
+      await this.oidc.startLogin('/login', true);
+      return;
+    }
+    this.loading = true;
+    this.error = '';
+    try {
+      await firstValueFrom(this.http.post(
+        `${hub.url}/auth/oidc/link`,
+        { oidc_access_token: oidcToken },
+      ));
+      this.forgotInfo = 'Hub- und Keycloak-Konto wurden verknüpft.';
+    } catch (err: any) {
+      this.error = err?.error?.message || 'Konten konnten nicht verknüpft werden.';
+    } finally {
+      this.loading = false;
+    }
   }
 
   toggleDeviceFlow(): void {
@@ -324,7 +370,8 @@ export class LoginComponent implements OnInit {
         return;
       }
 
-      this.auth.setTokens(accessToken, payload?.refresh_token ?? null);
+      await this.auth.setTokens(accessToken, payload?.refresh_token ?? null);
+      await this.profiles.load();
       this.router.navigate(['/dashboard']);
     } catch (err: any) {
       if (err?.message === 'embedded_start_timeout') {

@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { IDBFactory } from 'fake-indexeddb';
 import { APP_INITIALIZER } from '@angular/core';
 import { IdentityRegistry } from '../services/identity/identity-registry';
@@ -13,6 +13,7 @@ import { WebrtcSignalingService } from '../services/webrtc-signaling.service';
 import { HttpClient } from '@angular/common/http';
 import { of } from 'rxjs';
 import { identityRestoreInitializer } from './identity-restore.initializer';
+import { NetworkProfileService } from '../services/network-profile.service';
 
 function makeJwt(payload: Record<string, unknown>): string {
   const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
@@ -24,6 +25,7 @@ describe('identityRestoreInitializer', () => {
   let registry: IdentityRegistry;
   let hub: HubIdentitySource;
   let oidc: OidcIdentitySource;
+  const profiles = { load: vi.fn(async () => undefined) };
 
   beforeEach(() => {
     localStorage.clear();
@@ -39,6 +41,7 @@ describe('identityRestoreInitializer', () => {
         SecureTokenStorage,
         WebrtcSignalingService,
         identityRestoreInitializer,
+        { provide: NetworkProfileService, useValue: profiles },
         { provide: HttpClient, useValue: { post: () => of({}), get: () => of({}) } },
         { provide: AgentDirectoryService, useValue: { list: () => [] } },
       ],
@@ -60,17 +63,22 @@ describe('identityRestoreInitializer', () => {
     localStorage.setItem('ananta.user.token', makeJwt({ sub: 'a', exp: future }));
     localStorage.setItem('ananta.oidc.access_token', makeJwt({ sub: 'b', exp: future }));
 
-    const provider = identityRestoreInitializer as unknown as { useFactory: (r: IdentityRegistry) => () => Promise<void> };
-    const factory = provider.useFactory(registry);
+    const provider = identityRestoreInitializer as unknown as {
+      useFactory: (r: IdentityRegistry, p: NetworkProfileService) => () => Promise<void>;
+    };
+    const factory = provider.useFactory(registry, profiles as unknown as NetworkProfileService);
     await factory();
 
     expect(hub.current.status).toBe('ready');
     expect(oidc.current.status).toBe('ready');
+    expect(profiles.load).toHaveBeenCalled();
   });
 
   it('factory handles empty storage gracefully', async () => {
-    const provider = identityRestoreInitializer as unknown as { useFactory: (r: IdentityRegistry) => () => Promise<void> };
-    const factory = provider.useFactory(registry);
+    const provider = identityRestoreInitializer as unknown as {
+      useFactory: (r: IdentityRegistry, p: NetworkProfileService) => () => Promise<void>;
+    };
+    const factory = provider.useFactory(registry, profiles as unknown as NetworkProfileService);
     await factory();
     expect(hub.current.status).toBe('absent');
     expect(oidc.current.status).toBe('absent');

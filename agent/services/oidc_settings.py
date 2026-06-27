@@ -5,9 +5,9 @@ them as a typed object. The OIDC bridge is **opt-in**: `OIDC_ENABLED`
 defaults to False. When False, the Hub keeps using its own secret_key
 JWT for user auth — exactly the existing behaviour.
 
-When `OIDC_ENABLED=True`, the Hub validates user tokens against the
-configured JWKS endpoint instead of its own secret. See
-`docs/identity-architecture.md` for the full opt-in recipe.
+When `OIDC_ENABLED=True`, the Hub may validate an OIDC token at the explicit
+account-link and exchange endpoints. Normal Hub endpoints continue to require
+Hub-issued JWTs. See `docs/identity-architecture.md`.
 
 Single responsibility:
 - Read the relevant config fields
@@ -16,15 +16,12 @@ Single responsibility:
 - Expose the data to the auth layer without leaking pydantic internals
 
 Default-deny: if `oidc_enabled` is True but a required field is empty,
-`oidc_is_configured()` returns False so the Hub refuses to engage the
-OIDC path and keeps using the secret-key path. This prevents silent
-fallbacks to an insecure config.
+`oidc_is_configured()` returns False and account linking is unavailable.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 from agent.config import settings
 
@@ -63,10 +60,8 @@ def get_oidc_config() -> OidcConfig:
 def oidc_is_configured() -> bool:
     """True iff OIDC is enabled AND all required fields are present.
 
-    Used by `check_user_auth` to decide whether to engage the JWKS path.
-    Default-deny: a partial config does not silently fall back to the
-    secret-key path — it returns False so the caller can decide what to
-    do (e.g. return 503 or refuse to authenticate).
+    Used only at explicit account-link/exchange boundaries. A partial config
+    disables that capability and never changes normal Hub authentication.
     """
     cfg = _load()
     if not cfg.enabled:
@@ -76,5 +71,5 @@ def oidc_is_configured() -> bool:
 
 
 def reset_oidc_cache() -> None:
-    """No-op placeholder for the JWKS cache layer (Welle 3 will populate)."""
+    """Backward-compatible no-op; validator cache is managed separately."""
     return None

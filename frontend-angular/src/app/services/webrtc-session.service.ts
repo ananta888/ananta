@@ -9,8 +9,6 @@ import { NetworkProfileService } from './network-profile.service';
 import { WebrtcSignalingService, SignalMessage } from './webrtc-signaling.service';
 import { OidcAuthService } from './oidc-auth.service';
 import { dcMake, dcDecode, dcEncode, dcEncodeChunked, dcTryReassembleChunk, DcMessage } from './webrtc-datachannel.service';
-import { HubApiCoreService } from './hub-api-core.service';
-import { AgentDirectoryService } from './agent-directory.service';
 
 export type PeerState = 'idle' | 'connecting' | 'connected' | 'failed' | 'closed';
 
@@ -32,8 +30,6 @@ export class WebrtcSessionService {
   private profiles = inject(NetworkProfileService);
   private signaling = inject(WebrtcSignalingService);
   private oidc = inject(OidcAuthService);
-  private core = inject(HubApiCoreService);
-  private dir = inject(AgentDirectoryService);
 
   readonly state$ = new BehaviorSubject<PeerState>('idle');
   readonly dcMessage$ = new Subject<DcMessage>();
@@ -44,10 +40,6 @@ export class WebrtcSessionService {
   private sessionId = '';
   private rateTs: number[] = [];
   private connectionTimeout: ReturnType<typeof setTimeout> | null = null;
-
-  private get hubUrl(): string {
-    return this.dir.list().find((a) => a.role === 'hub')?.url ?? '';
-  }
 
   async startSession(sessionId: string, isInitiator: boolean): Promise<void> {
     this.sessionId = sessionId;
@@ -197,6 +189,5 @@ export class WebrtcSessionService {
     // /api/audit/webrtc endpoint — sending the POST would surface a 404
     // in the console and trip the auth interceptor's refresh logic.
     // If a future Hub version exposes such an endpoint, wire it up here.
-    void event;
   }
 }

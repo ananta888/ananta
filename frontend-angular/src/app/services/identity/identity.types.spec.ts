@@ -27,8 +27,8 @@ describe('identity.types', () => {
     };
     expect(rule.from).toBe('oidc');
     expect(rule.to).toBe('hub');
-    expect(rule.when({ activeProfile: 'public-ananta', hubUrl: () => '' })).toBe(true);
-    expect(rule.when({ activeProfile: 'local', hubUrl: () => '' })).toBe(false);
+    expect(rule.when({ activeProfile: 'public-ananta', hubLinkEnabled: false, hubUrl: () => '' })).toBe(true);
+    expect(rule.when({ activeProfile: 'local', hubLinkEnabled: false, hubUrl: () => '' })).toBe(false);
   });
 
   it('BridgeError extends Error with code field', () => {

@@ -55,6 +55,8 @@ export interface IdentitySource {
 export interface BridgeContext {
   /** Aktives Profil-ID aus NetworkProfileService */
   activeProfile: string;
+  /** Explicit server capability for OIDC-to-Hub account-link exchange. */
+  hubLinkEnabled: boolean;
   /** Resolved Hub-URL (oder leer wenn keiner im Directory) */
   hubUrl(): string;
 }

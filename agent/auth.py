@@ -9,8 +9,6 @@ from flask import current_app, g, request
 from agent.common.audit import log_audit
 from agent.common.errors import PermanentError, api_response
 from agent.config import settings
-from agent.services.oidc_settings import get_oidc_config, oidc_is_configured
-from agent.services.oidc_validator import validate_oidc_token
 from agent.utils import register_with_hub
 
 INVALID_TOKEN_WARN_LAST: dict[tuple[str, str], float] = {}
@@ -154,13 +152,11 @@ def check_auth(f):
 
 
 def check_user_auth(f):
-    """Prüft auf einen gültigen Benutzer-JWT.
+    """Validate a Hub-issued user JWT.
 
-    Validation order (Welle 3):
-      1. Wenn OIDC konfiguriert ist → gegen Keycloak JWKS validieren.
-      2. Sonst → eigenen secret_key JWT validieren (Default-Verhalten).
-
-    Wenn OIDC enabled aber partial config → kein silent fallback: 401.
+    Keycloak/OIDC tokens belong to the independent Pair/WebRTC identity
+    sphere.  They may be exchanged for a Hub session by the explicit,
+    opt-in account-link flow, but are never accepted here directly.
     """
 
     @wraps(f)
@@ -171,22 +167,6 @@ def check_user_auth(f):
 
         token = auth_header.split(" ")[1]
 
-        if oidc_is_configured():
-            # OIDC-Bridge ist explizit aktiviert. Wir akzeptieren KEINE
-            # Hub-secret-key JWTs mehr, nur OIDC-Tokens vom konfigurierten
-            # Provider (z.B. Keycloak). Das ist die Definition der SSO-Bridge.
-            payload = validate_oidc_token(token, get_oidc_config())
-            if payload is None:
-                return api_response(
-                    status="error",
-                    message="Invalid token",
-                    data={"details": "OIDC token validation failed"},
-                    code=401,
-                )
-            _set_user_auth_context(payload)
-            return f(*args, **kwargs)
-
-        # Legacy-Pfad: Hub's eigener secret_key JWT.
         try:
             payload = _validate_user_jwt(token)
             if payload is None:

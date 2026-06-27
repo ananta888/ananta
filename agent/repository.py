@@ -29,6 +29,7 @@ from agent.repositories import (
     KnowledgeIndexRunRepository,
     KnowledgeLinkRepository,
     LoginAttemptRepository,
+    OidcIdentityLinkRepository,
     MemoryEntryRepository,
     PasswordHistoryRepository,
     PlanNodeRepository,
@@ -70,6 +71,7 @@ from agent.repositories import (
 playbook_repo = PlaybookRepository()
 action_pack_repo = ActionPackRepository()
 user_repo = UserRepository()
+oidc_identity_link_repo = OidcIdentityLinkRepository()
 refresh_token_repo = RefreshTokenRepository()
 agent_repo = AgentRepository()
 artifact_repo = ArtifactRepository()
@@ -151,6 +153,7 @@ __all__ = [
     "KnowledgeLinkRepository",
     "InstructionOverlayRepository",
     "LoginAttemptRepository",
+    "OidcIdentityLinkRepository",
     "MemoryEntryRepository",
     "PasswordHistoryRepository",
     "PlanNodeRepository",

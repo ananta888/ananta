@@ -96,14 +96,14 @@ describe('IdentityRegistry', () => {
   });
 
   describe('hardDisconnect on identity revocation', () => {
-    it('hardDisconnects signaling when hub goes absent', async () => {
+    it('keeps signaling connected when only the Hub identity goes absent', async () => {
       const future = Math.floor(Date.now() / 1000) + 3600;
       await hub.onAuthenticated(makeJwt({ sub: 'c', exp: future }), 'rt');
       const spy = vi.spyOn(signalingSvc, 'hardDisconnect');
 
       hub.logout();
 
-      expect(spy).toHaveBeenCalled();
+      expect(spy).not.toHaveBeenCalled();
     });
 
     it('hardDisconnects signaling when oidc goes absent', async () => {
