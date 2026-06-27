@@ -16,13 +16,15 @@ import { PythonRuntimeService } from './services/python-runtime.service';
 import { WindowBridgeService } from './services/window-bridge.service';
 import { SnakeOverlayService } from './services/snake-overlay.service';
 import { SnakeOverlayComponent } from './components/snake-overlay.component';
+import { SecurityStorageBannerComponent } from './components/security-storage-banner.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterLink, RouterLinkActive, RouterOutlet, NotificationsComponent, ToastComponent, AsyncPipe, AiAssistantComponent, BreadcrumbComponent, SnakeOverlayComponent],
+  imports: [RouterLink, RouterLinkActive, RouterOutlet, NotificationsComponent, ToastComponent, AsyncPipe, AiAssistantComponent, BreadcrumbComponent, SnakeOverlayComponent, SecurityStorageBannerComponent],
   template: `
     <a class="skip-link" href="#main-content">Zum Inhalt springen</a>
+    <app-security-storage-banner />
     <app-notifications />
     <app-toast />
     <header class="app-header">
