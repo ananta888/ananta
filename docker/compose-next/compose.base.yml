@@ -32,9 +32,7 @@ services:
       AUTH_TEST_ENDPOINTS_ENABLED: ${AUTH_TEST_ENDPOINTS_ENABLED:-0}
       HUB_CAN_BE_WORKER: ${HUB_CAN_BE_WORKER:-0}
       ANANTA_WORKSPACE_ROOT: /project-workspaces
-      # OIDC / SSO Bridge (opt-in — see docs/identity-architecture.md).
-      # Default off. Set OIDC_ENABLED=true + issuer/jwks/audience/client_id
-      # to enable single-login for hub.ananta.de + webrtc.ananta.de via Keycloak.
+      # Optional OIDC account linking. Hub endpoints still require Hub JWTs.
       OIDC_ENABLED: ${OIDC_ENABLED:-false}
       OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-}
       OIDC_JWKS_URL: ${OIDC_JWKS_URL:-}
