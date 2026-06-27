@@ -8,6 +8,7 @@ from pathlib import Path
 from flask import Blueprint, jsonify
 
 from agent.auth import check_auth
+from agent.services.oidc_settings import get_oidc_config, oidc_is_configured
 
 network_profiles_bp = Blueprint("network_profiles", __name__)
 
@@ -62,12 +63,37 @@ def get_network_profile(profile_id: str):
             del entry["credential_mode"]
         ice_servers.append(entry)
 
+    # Wenn die Hub-OIDC-SSO-Bridge aktiviert ist (OIDC_ENABLED=true +
+    # alle required Felder gesetzt), injizieren wir die echten
+    # Hub-OIDC-Werte ins Profil. So bekommt das Frontend die korrekten
+    # Issuer/Client/Audience-Werte OHNE dass der Profil-JSON angepasst
+    # werden muss. Wenn die Bridge nicht aktiv ist, lassen wir die
+    # JSON-Werte unangetastet (Default-Deny).
+    oidc_block = dict(profile.get("oidc", {}))
+    if oidc_is_configured():
+        oidc_cfg = get_oidc_config()
+        oidc_block = {
+            **oidc_block,
+            "enabled": True,
+            "issuer": oidc_cfg.issuer_url,
+            "client_id": oidc_cfg.client_id,
+            "audience": oidc_cfg.audience,
+            "pkce_required": True,
+            "bridge_active": True,
+        }
+    else:
+        oidc_block = {
+            **oidc_block,
+            "enabled": bool(oidc_block.get("enabled", False)),
+            "bridge_active": False,
+        }
+
     return jsonify({
         "ok": True,
         "profile": {
             "profile_id": profile["profile_id"],
             "label": profile.get("label", ""),
-            "oidc": profile.get("oidc", {}),
+            "oidc": oidc_block,
             "rendezvous": profile.get("rendezvous", {}),
             "ice_servers": ice_servers,
             "require_e2e_payload_encryption": profile.get("rendezvous", {}).get("require_e2e_payload_encryption", False),

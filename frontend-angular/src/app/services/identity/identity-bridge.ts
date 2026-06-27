@@ -40,11 +40,23 @@ export class IdentityBridge {
 
   /**
    * Login mode based on the active network profile.
-   *   - 'oidc-bridge'   OIDC + bridge to hub  (e.g. public-ananta)
+   *   - 'oidc-bridge'   OIDC + bridge to hub  (e.g. public-ananta OR
+   *                     Hub-OIDC-Settings enabled, see network-profile.service)
    *   - 'hub-direct'    direct hub login       (e.g. local / enterprise)
+   *
+   * Welle 4: The profile's `oidc.bridge_active` flag is the source of truth
+   * for whether the Hub has explicitly opted into the SSO bridge (set
+   * server-side based on OIDC_ENABLED + required fields). Profile_id alone
+   * is no longer enough — a 'public-ananta' profile with `bridge_active=false`
+   * means the Hub is in legacy mode and the frontend must show the Hub-direct
+   * login form.
    */
   mode(): 'oidc-bridge' | 'hub-direct' {
+    const profile = this.profiles.current;
     const ctx = this.buildContext();
+    if (profile?.oidc?.bridge_active === true) {
+      return 'oidc-bridge';
+    }
     if (ctx.activeProfile === 'public-ananta' && ctx.hubUrl().length > 0) {
       return 'oidc-bridge';
     }

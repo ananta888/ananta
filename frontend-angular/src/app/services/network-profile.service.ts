@@ -14,7 +14,14 @@ import {
 export interface NetworkProfile {
   profile_id: string;
   label: string;
-  oidc: { issuer: string; client_id: string; audience: string; pkce_required: boolean };
+  oidc: {
+    issuer: string;
+    client_id: string;
+    audience: string;
+    pkce_required: boolean;
+    enabled?: boolean;
+    bridge_active?: boolean;
+  };
   rendezvous: { base_url: string; signaling_url: string; transport_order: string[] };
   ice_servers: RTCIceServer[];
   require_e2e_payload_encryption: boolean;

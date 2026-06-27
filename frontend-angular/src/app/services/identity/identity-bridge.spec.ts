@@ -11,14 +11,23 @@ describe('IdentityBridge', () => {
     TestBed.resetTestingModule();
   });
 
-  function build(profileId: string, hubUrl: string | null) {
+  function build(profileId: string, hubUrl: string | null, bridgeActive = false) {
     TestBed.configureTestingModule({
       providers: [
         IdentityBridge,
         {
           provide: NetworkProfileService,
           useValue: {
-            current: { profile_id: profileId },
+            current: {
+              profile_id: profileId,
+              oidc: {
+                issuer: 'https://issuer.test',
+                client_id: 'client',
+                audience: 'ananta-hub',
+                pkce_required: true,
+                bridge_active: bridgeActive,
+              },
+            },
           },
         },
         {
@@ -99,6 +108,33 @@ describe('IdentityBridge', () => {
       expect(bridge.mode()).toBe('hub-direct');
       expect(bridge.showOidcLogin).toBe(false);
       expect(bridge.showHubDirectLogin).toBe(true);
+    });
+
+    it('Welle 4: bridge_active=true on local profile → oidc-bridge', () => {
+      // Hub has explicitly enabled OIDC SSO Bridge. Even though the
+      // profile is "local", the SSO flag wins.
+      build('local', 'http://hub.test', true);
+      expect(bridge.mode()).toBe('oidc-bridge');
+      expect(bridge.showOidcLogin).toBe(true);
+      expect(bridge.showHubDirectLogin).toBe(false);
+    });
+
+    it('Welle 4: public-ananta with bridge_active=true → oidc-bridge (and Hub values are authoritative)', () => {
+      // Hub has set OIDC_ENABLED=true and all required fields, so the
+      // network-profile endpoint sets bridge_active=true. Frontend uses
+      // Hub's issuer/client_id/audience (injected by network_profiles.py),
+      // not the JSON file values.
+      build('public-ananta', 'http://hub.test', true);
+      expect(bridge.mode()).toBe('oidc-bridge');
+      expect(bridge.showOidcLogin).toBe(true);
+    });
+
+    it('Welle 4: bridge_active undefined on local profile → hub-direct', () => {
+      // Hub has NOT enabled OIDC. The local profile alone is not
+      // enough to flip the bridge mode.
+      build('local', 'http://hub.test');
+      expect(bridge.mode()).toBe('hub-direct');
+      expect(bridge.showOidcLogin).toBe(false);
     });
   });
 });
