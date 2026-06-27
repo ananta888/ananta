@@ -8,6 +8,7 @@ import { AgentApiTransport } from './agent-api-transport.service';
 export class SystemApiClient {
   private transport = inject(AgentApiTransport);
   readonly configTimeoutMs = 45000;
+  readonly readinessTimeoutMs = 12000;
 
   health(baseUrl: string, token?: string): Observable<any> {
     return this.transport.unwrap(
@@ -21,7 +22,7 @@ export class SystemApiClient {
     return this.transport.unwrap(
       this.transport.http
         .get(`${baseUrl}/ready`, this.transport.getHeaders(baseUrl, token))
-        .pipe(timeout(5000), retry(this.transport.retryCount)),
+        .pipe(timeout(this.readinessTimeoutMs), retry(this.transport.retryCount)),
     );
   }
 

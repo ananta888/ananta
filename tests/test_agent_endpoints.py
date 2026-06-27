@@ -26,6 +26,7 @@ def test_ready_endpoint_success(client):
     assert data["ready"] is True
     assert "hub" in data["checks"]
     assert data["checks"]["hub"]["status"] == "ok"
+    assert mock_get.call_args_list[0].args[0].endswith("/health?basic=1")
 
 
 def test_ready_endpoint_failure(client):

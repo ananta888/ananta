@@ -324,11 +324,14 @@ def readiness_check():
             }
 
         base = (settings.hub_url or "http://localhost:5000").rstrip("/")
-        candidates = [f"{base}/health"]
+        # Readiness only needs hub liveness. The full health payload performs
+        # provider and persistence probes of its own and can exceed this
+        # endpoint's timeout, causing healthy workers to report a false 503.
+        candidates = [f"{base}/health?basic=1"]
 
         # Fallbacks: robust gegen fehlerhafte/hostseitige HUB_URL Werte in Containern.
         if "localhost" in base:
-            candidates.append("http://ai-agent-hub:5000/health")
+            candidates.append("http://ai-agent-hub:5000/health?basic=1")
 
         seen = set()
         checked = []
