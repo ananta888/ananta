@@ -315,7 +315,44 @@ export class OidcAuthService {
     return true;
   }
 
-  // ── T13: Silent token refresh via OIDC token endpoint ───────────────
+// ── T13: Silent token refresh via OIDC token endpoint ────────────────
+
+  /**
+   * Refresh using the encrypted OIDC RT from storage.
+   * Returns true on success, false on failure (logs nothing — caller decides).
+   */
+  async refreshFromStorage(): Promise<boolean> {
+    if (this.usesBackendOidcBroker) {
+      try {
+        await firstValueFrom(this.userAuth.refreshToken());
+        return true;
+      } catch {
+        return false;
+      }
+    }
+    const refreshToken = await this.userAuth.getOidcRefreshToken();
+    if (!refreshToken) return false;
+    try {
+      const tokenEndpoint = `${this.issuer.replace(/\/$/, '')}/protocol/openid-connect/token`;
+      const body = new URLSearchParams({
+        grant_type: 'refresh_token',
+        client_id: this.clientId,
+        refresh_token: refreshToken,
+      });
+      const r = await fetch(tokenEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString(),
+      });
+      if (!r.ok) { this.userAuth.logout(); return false; }
+      const tokens = await r.json();
+      this.userAuth.setOidcAccessToken(tokens.access_token);
+      await this.userAuth.setOidcRefreshToken(tokens.refresh_token ?? refreshToken);
+      return true;
+    } catch {
+      return false;
+    }
+  }
 
   async silentRefresh(): Promise<boolean> {
     if (this.usesBackendOidcBroker) {

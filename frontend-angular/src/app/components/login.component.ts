@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -9,6 +9,7 @@ import { UserAuthService } from '../services/user-auth.service';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { PythonRuntimeService } from '../services/python-runtime.service';
 import { OidcAuthService } from '../services/oidc-auth.service';
+import { IdentityBridge } from '../services/identity/identity-bridge';
 import { PUBLIC_KEYCLOAK_BASE_URL } from '../services/public-ananta-endpoints';
 
 @Component({
@@ -19,6 +20,7 @@ import { PUBLIC_KEYCLOAK_BASE_URL } from '../services/public-ananta-endpoints';
     <div class="login-container">
       <div class="card login-card">
         <h2>Ananta Login</h2>
+        @if (showHubDirect) {
         <form (submit)="onLogin($event)" aria-label="Login-Formular">
           <div class="form-group">
             <label for="username">Benutzername</label>
@@ -118,6 +120,7 @@ import { PUBLIC_KEYCLOAK_BASE_URL } from '../services/public-ananta-endpoints';
             @if (forgotInfo) {
               <div class="hint-text text-center mt-sm" aria-live="polite">{{ forgotInfo }}</div>
             }
+            @if (showOidc) {
             <div class="oidc-divider"><span>oder</span></div>
             <button type="button" class="secondary btn-full" (click)="loginWithKeycloak()" [disabled]="loading">
               Mit Keycloak anmelden ({{ keycloakHostLabel }})
@@ -143,7 +146,7 @@ import { PUBLIC_KEYCLOAK_BASE_URL } from '../services/public-ananta-endpoints';
               </div>
             }
           }
-          @if (mfaRequired) {
+        @if (mfaRequired) {
             <button
               type="button"
               (click)="mfaRequired = false; error = ''"
@@ -153,23 +156,43 @@ import { PUBLIC_KEYCLOAK_BASE_URL } from '../services/public-ananta-endpoints';
             </button>
           }
         </form>
+        }
       </div>
     </div>
     `
 })
-export class LoginComponent {
+export class LoginComponent implements OnInit {
   private http = inject(HttpClient);
   private router = inject(Router);
   private auth = inject(UserAuthService);
   private dir = inject(AgentDirectoryService);
   private pythonRuntime = inject(PythonRuntimeService);
   private oidc = inject(OidcAuthService);
+  private bridge = inject(IdentityBridge);
 
   deviceFlowOpen = false;
   deviceFlowBusy = false;
   deviceFlowData: { user_code: string; verification_uri: string; device_code: string; interval: number } | null = null;
   deviceFlowError = '';
   private deviceFlowPollHandle: ReturnType<typeof setInterval> | null = null;
+
+  /**
+   * Login-mode flag exposed to the template.
+   * Public-ananta profile → only OIDC button + device flow.
+   * Local/enterprise     → only username/password.
+   * If both bridge and hub-direct would be applicable, both are shown.
+   */
+  get showHubDirect(): boolean {
+    return this.bridge.showHubDirectLogin;
+  }
+  get showOidc(): boolean {
+    return this.bridge.showOidcLogin;
+  }
+
+  ngOnInit(): void {
+    // Bridge.mode() depends on NetworkProfileService.current which may not be loaded yet.
+    // The template reads the getter lazily on each change detection, so no eager call needed.
+  }
 
   loginWithKeycloak(): void {
     void this.oidc.startLogin('/');
