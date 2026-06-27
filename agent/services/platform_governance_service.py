@@ -314,11 +314,16 @@ class PlatformGovernanceService:
 
     def normalize_terminal_policy(self, raw: dict[str, Any] | None) -> dict[str, Any]:
         raw = raw if isinstance(raw, dict) else {}
+        require_admin = bool(raw.get("require_admin", True))
         return {
             "enabled": bool(raw.get("enabled", False)),
             "allow_read": bool(raw.get("allow_read", False)),
             "allow_interactive": bool(raw.get("allow_interactive", False)),
-            "require_admin": bool(raw.get("require_admin", True)),
+            "require_authenticated": bool(raw.get("require_authenticated", False)),
+            "require_admin": require_admin,
+            "require_admin_for_interactive": bool(
+                raw.get("require_admin_for_interactive", require_admin)
+            ),
             "emit_audit_events": bool(raw.get("emit_audit_events", True)),
             "max_session_seconds": _positive_int(raw.get("max_session_seconds"), 1800, minimum=30, maximum=86400),
             "idle_timeout_seconds": _positive_int(raw.get("idle_timeout_seconds"), 300, minimum=10, maximum=86400),
@@ -333,6 +338,7 @@ class PlatformGovernanceService:
         cfg: dict[str, Any] | None,
         terminal_mode: str,
         is_admin: bool,
+        is_authenticated: bool = False,
         roles: list[str] | None = None,
         remote_addr: str | None = None,
     ) -> TerminalAccessDecision:
@@ -341,8 +347,16 @@ class PlatformGovernanceService:
         mode = terminal_mode if terminal_mode in {"interactive", "read"} else "interactive"
         if not bool(policy.get("enabled", False)):
             return TerminalAccessDecision(False, "terminal_disabled", mode, platform_mode, policy)
+        if bool(policy.get("require_authenticated", False)) and not is_authenticated:
+            return TerminalAccessDecision(False, "terminal_authentication_required", mode, platform_mode, policy)
         if bool(policy.get("require_admin", True)) and not is_admin:
             return TerminalAccessDecision(False, "terminal_admin_required", mode, platform_mode, policy)
+        if (
+            mode == "interactive"
+            and bool(policy.get("require_admin_for_interactive", False))
+            and not is_admin
+        ):
+            return TerminalAccessDecision(False, "terminal_interactive_admin_required", mode, platform_mode, policy)
         allowed_roles = {str(item or "").strip().lower() for item in policy.get("allowed_roles", []) if str(item or "").strip()}
         if allowed_roles:
             actual_roles = {str(item or "").strip().lower() for item in (roles or []) if str(item or "").strip()}

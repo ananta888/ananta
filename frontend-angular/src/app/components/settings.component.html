@@ -1317,7 +1317,9 @@
           <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.terminal_policy.enabled"> Terminal aktiv</label>
           <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.terminal_policy.allow_read"> Lesen erlaubt</label>
           <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.terminal_policy.allow_interactive"> Interaktiv erlaubt</label>
-          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.terminal_policy.require_admin"> Admin erforderlich</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.terminal_policy.require_authenticated"> Anmeldung erforderlich</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.terminal_policy.require_admin"> Admin für alle Modi erforderlich</label>
+          <label class="row gap-sm align-center mb-xs"><input type="checkbox" [(ngModel)]="config.terminal_policy.require_admin_for_interactive"> Admin für interaktiven Modus erforderlich</label>
           <div class="row gap-md flex-wrap mt-sm">
             <label class="col gap-xs">
               <span class="font-sm">Max. Session (Sek.)</span>

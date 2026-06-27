@@ -78,6 +78,38 @@ def test_platform_governance_enforces_terminal_role_and_network_restrictions():
     assert wrong_network.reason == "terminal_network_not_allowed"
 
 
+def test_platform_governance_allows_authenticated_read_but_requires_admin_for_interactive():
+    service = get_platform_governance_service()
+    cfg = {
+        "terminal_policy": {
+            "enabled": True,
+            "allow_read": True,
+            "allow_interactive": True,
+            "require_authenticated": True,
+            "require_admin": False,
+            "require_admin_for_interactive": True,
+        },
+    }
+
+    anonymous_read = service.evaluate_terminal_access(
+        cfg=cfg, terminal_mode="read", is_admin=False, is_authenticated=False
+    )
+    user_read = service.evaluate_terminal_access(
+        cfg=cfg, terminal_mode="read", is_admin=False, is_authenticated=True, roles=["user"]
+    )
+    user_interactive = service.evaluate_terminal_access(
+        cfg=cfg, terminal_mode="interactive", is_admin=False, is_authenticated=True, roles=["user"]
+    )
+    admin_interactive = service.evaluate_terminal_access(
+        cfg=cfg, terminal_mode="interactive", is_admin=True, is_authenticated=True, roles=["admin"]
+    )
+
+    assert anonymous_read.reason == "terminal_authentication_required"
+    assert user_read.allowed is True
+    assert user_interactive.reason == "terminal_interactive_admin_required"
+    assert admin_interactive.allowed is True
+
+
 def test_platform_governance_semi_public_limits_external_exposure():
     service = get_platform_governance_service()
 

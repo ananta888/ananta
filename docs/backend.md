@@ -217,7 +217,9 @@ Die Reihenfolge ist absichtlich in `create_app()` sichtbar, damit der Hub-Startu
   - `read`: read-only Stream fuer `data/terminal_log.jsonl` (tail/follow).
 - Zugriff ist standardmaessig fail-closed. `terminal_policy.enabled=true` ist erforderlich.
 - `terminal_policy.allow_read` und `terminal_policy.allow_interactive` sind getrennte Freigaben; read-only schaltet keine interaktive Shell frei.
-- `terminal_policy.require_admin=true` verlangt eine Admin-Rolle im Token bzw. den Agent-Token.
+- `terminal_policy.require_authenticated=true` sperrt anonyme Terminal-Sitzungen.
+- `terminal_policy.require_admin=true` verlangt eine Admin-Rolle in allen Terminal-Modi.
+- `terminal_policy.require_admin_for_interactive=true` erlaubt angemeldeten Nutzern read-only, beschränkt den interaktiven Schreibzugriff aber auf Admins.
 - `terminal_policy.max_session_seconds` und `terminal_policy.idle_timeout_seconds` begrenzen laufende Sessions.
 - `terminal_policy.input_preview_max_chars` begrenzt auditierte Input-Previews.
 - `terminal_policy.allowed_roles` und `terminal_policy.allowed_cidrs` koennen Terminal-Zugriff zusaetzlich auf Operator-Rollen oder interne Netze einschraenken.

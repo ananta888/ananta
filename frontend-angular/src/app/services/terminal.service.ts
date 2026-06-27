@@ -224,7 +224,7 @@ export class TerminalService {
             return;
           }
           if (msgType === 'error') {
-            const detailMessage = String(msgData?.message || msgData?.details || 'terminal_error').trim();
+            const detailMessage = String(msgData?.details || msgData?.message || 'terminal_error').trim();
             preReadyErrorMessage = detailMessage || 'terminal_error';
             try { ws.close(); } catch {}
             finish(false);

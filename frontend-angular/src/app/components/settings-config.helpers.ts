@@ -473,7 +473,7 @@ export function createDefaultSettingsConfig(): any {
     ananta_worker_workspace_mutation: { enabled: false, mutation_mode: 'read_only', max_diff_chars: 12000, max_write_file_bytes: 262144 },
     hub_direct_execution: { enabled: false, direct_before_worker: true, fallback_to_worker: true, require_policy_gate: true, confidence_threshold: 0.8 },
     git_workspace: { enabled: false, remote_url: '', branch_strategy: 'goal', merge_strategy: 'squash', auto_commit: false },
-    terminal_policy: { enabled: false, allow_read: false, allow_interactive: false, require_admin: true, max_session_seconds: 1800, idle_timeout_seconds: 300 },
+    terminal_policy: { enabled: false, allow_read: false, allow_interactive: false, require_authenticated: false, require_admin: true, require_admin_for_interactive: true, max_session_seconds: 1800, idle_timeout_seconds: 300 },
     evolution: { enabled: true, analyze_only: true, validate_allowed: true, apply_allowed: false, auto_triggers_enabled: false, manual_triggers_enabled: true, require_review_before_apply: true },
     local_ai: { enabled: false, provider: 'ollama', base_url: 'http://localhost:11434', model: '', api_key: '' },
     memory_tree: { enabled: false, mode: 'safe_readonly', auto_ingest_knowledge_index: false, auto_ingest_result_memory: false, llm_summary_enabled: false },

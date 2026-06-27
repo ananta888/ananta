@@ -424,6 +424,7 @@ def register_ws_terminal(app: Any) -> None:
             cfg=app.config.get("AGENT_CONFIG", {}) or {},
             terminal_mode=mode,
             is_admin=_auth_payload_is_admin(auth_payload),
+            is_authenticated=bool(auth_payload),
             roles=_auth_payload_roles(auth_payload),
             remote_addr=remote_addr,
         )

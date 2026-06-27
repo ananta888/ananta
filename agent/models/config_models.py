@@ -259,7 +259,9 @@ class TerminalPolicyContract(SQLModel):
     enabled: bool = False
     allow_read: bool = False
     allow_interactive: bool = False
+    require_authenticated: bool = False
     require_admin: bool = True
+    require_admin_for_interactive: bool = True
     emit_audit_events: bool = True
     max_session_seconds: int = 1800
     idle_timeout_seconds: int = 300
