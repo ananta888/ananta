@@ -200,6 +200,22 @@ class Settings(BaseSettings):
     auth_mfa_backup_code_count: int = Field(default=10, validation_alias="AUTH_MFA_BACKUP_CODE_COUNT")
     auth_test_endpoints_enabled: bool = Field(default=False, validation_alias="AUTH_TEST_ENDPOINTS_ENABLED")
 
+    # OIDC / SSO Bridge (opt-in, default off — see docs/identity-architecture.md)
+    # Wenn oidc.enabled=False verhält sich der Hub exakt wie bisher
+    # (eigener User-JWT, secret_key signed). Wenn True, validiert der Hub
+    # User-Tokens gegen den JWKS-Endpoint des konfigurierten OIDC-Providers
+    # (z.B. Keycloak) und der eigene User-Login wird deaktiviert.
+    oidc_enabled: bool = Field(default=False, validation_alias="OIDC_ENABLED")
+    oidc_issuer_url: str = Field(default="", validation_alias="OIDC_ISSUER_URL")
+    oidc_jwks_url: str = Field(default="", validation_alias="OIDC_JWKS_URL")
+    oidc_audience: str = Field(default="", validation_alias="OIDC_AUDIENCE")
+    oidc_client_id: str = Field(default="", validation_alias="OIDC_CLIENT_ID")
+    # Wie viele Sekunden der JWKS im Memory gecached wird (Keycloak rotiert
+    # standardmäßig alle 24h, wir cachen 1h).
+    oidc_jwks_cache_seconds: int = Field(default=3600, validation_alias="OIDC_JWKS_CACHE_SECONDS")
+    # Erlaubte Signaturalgorithmen — RS256 ist der OIDC-Default.
+    oidc_allowed_algorithms: str = Field(default="RS256", validation_alias="OIDC_ALLOWED_ALGORITHMS")
+
     # Initial User
     initial_admin_user: str = Field(default="admin", validation_alias="INITIAL_ADMIN_USER")
     initial_admin_password: Optional[str] = Field(default=None, validation_alias="INITIAL_ADMIN_PASSWORD")
