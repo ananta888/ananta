@@ -13,13 +13,22 @@ function arrayBufferToBase64(buf: ArrayBuffer): string {
   return btoa(binary);
 }
 
-function base64ToArrayBuffer(b64: string): ArrayBuffer {
+function base64ToArrayBuffer(b64: string): Uint8Array {
   const binary = atob(b64);
+  // Return a Uint8Array (TypedArray = BufferSource) rather than its
+  // underlying ArrayBuffer. In cross-realm contexts (e.g. when
+  // SubtleCrypto from a node realm is asked to operate on an
+  // ArrayBuffer allocated in the jsdom realm), node 20.x's stricter
+  // SubtleCrypto.run-time checks reject the cross-realm ArrayBuffer
+  // with "not instance of ArrayBuffer, Buffer, TypedArray, or
+  // DataView". Passing the Uint8Array view works because TypedArray
+  // matching is performed by ArrayBuffer.isView and does not require
+  // realm identity on the underlying buffer.
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) {
     bytes[i] = binary.charCodeAt(i);
   }
-  return bytes.buffer;
+  return bytes;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -93,8 +102,12 @@ export class SecureTokenStorage {
     const parts = encrypted.split('.');
     if (parts.length !== 2) throw new Error('Invalid encrypted format');
     const [ivB64, ctB64] = parts;
-    const iv = base64ToArrayBuffer(ivB64);
-    const ct = base64ToArrayBuffer(ctB64);
+    // Cast through any: Uint8Array<ArrayBufferLike> is structurally a
+    // BufferSource, but TS's lib.dom.d.ts pins the parameter to
+    // ArrayBufferView<ArrayBuffer>, which excludes SharedArrayBuffer
+    // backings. See base64ToArrayBuffer for the full explanation.
+    const iv = base64ToArrayBuffer(ivB64) as any;
+    const ct = base64ToArrayBuffer(ctB64) as any;
     const key = await this.getOrCreateKey(storageKey);
     const pt = await crypto.subtle.decrypt(
       { name: 'AES-GCM', iv },
