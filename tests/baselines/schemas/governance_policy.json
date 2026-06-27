@@ -142,6 +142,16 @@
           "default": true,
           "title": "Require Admin",
           "type": "boolean"
+        },
+        "require_admin_for_interactive": {
+          "default": true,
+          "title": "Require Admin For Interactive",
+          "type": "boolean"
+        },
+        "require_authenticated": {
+          "default": false,
+          "title": "Require Authenticated",
+          "type": "boolean"
         }
       },
       "title": "TerminalPolicyContract",

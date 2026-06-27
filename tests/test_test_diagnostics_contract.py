@@ -7,7 +7,8 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_playwright_config_keeps_structured_failure_artifacts_enabled():
     config = (ROOT / "frontend-angular" / "playwright.config.ts").read_text(encoding="utf-8")
 
-    assert "const resultsDir = process.env.E2E_RESULTS_DIR?.trim() || 'test-results';" in config
+    assert "function resolveResultsDir(): string" in config
+    assert "const resultsDir = resolveResultsDir();" in config
     assert "outputDir: resultsDir" in config
     assert "path.join(resultsDir, fileName)" in config
     assert "resultsPath('junit-results.xml')" in config
@@ -46,7 +47,7 @@ def test_backend_coverage_uses_a_single_shard_resolver_and_pip_cache():
 
     assert "resolve_backend_coverage" in workflow
     assert "resolve_backend_coverage_shards.py" in workflow
-    assert "--shard-count 14" in workflow
+    assert "--shard-count 18" in workflow
     assert "cache: pip" in workflow
     assert "fromJson(needs.resolve_backend_coverage.outputs.matrix)" in workflow
     assert "matrix.shard_name" in workflow
