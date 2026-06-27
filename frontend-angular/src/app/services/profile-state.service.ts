@@ -51,4 +51,12 @@ export class ProfileStateService {
   get oidcClientId(): string {
     return this._profile().oidc?.client_id ?? '';
   }
+
+  /**
+   * Test helper: replace the signal value bypassing setProfile.
+   * Production code MUST use setProfile.
+   */
+  _overrideForTesting(next: ProfileState): void {
+    this._profile.set(next);
+  }
 }

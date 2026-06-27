@@ -9,6 +9,7 @@ import { GlobalErrorHandler } from './app/services/global-error-handler';
 import { AuthInterceptor } from './app/services/auth.interceptor';
 import { ErrorInterceptor } from './app/services/error.interceptor';
 import { identityRestoreInitializer } from './app/init/identity-restore.initializer';
+import { authRequiredRouterInitializer } from './app/init/auth-required-router.initializer';
 
 bootstrapApplication(AppComponent, {
   providers: [
@@ -19,5 +20,6 @@ bootstrapApplication(AppComponent, {
     { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },
     { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true },
     identityRestoreInitializer,
+    authRequiredRouterInitializer,
   ]
 }).catch(err => console.error(err));
