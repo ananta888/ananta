@@ -51,11 +51,11 @@ export E2E_RESULTS_DIR="${E2E_RESULTS_DIR:-frontend-angular/test-results/${shard
 export E2E_LOGS_DIR="${E2E_LOGS_DIR:-ci-artifacts/e2e-compose/${shard_name}}"
 export E2E_REPORTER_MODE="${E2E_REPORTER_MODE:-compact}"
 
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.github-ci.yml up -d --no-build \
+docker compose -f docker/old_way/docker-compose.base.yml -f docker/old_way/docker-compose-lite.yml -f docker/old_way/docker-compose.github-ci.yml up -d --no-build \
   postgres redis ai-agent-hub ai-agent-alpha ai-agent-beta angular-frontend
 
 cleanup() {
-  docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.github-ci.yml down -v --remove-orphans || true
+  docker compose -f docker/old_way/docker-compose.base.yml -f docker/old_way/docker-compose-lite.yml -f docker/old_way/docker-compose.github-ci.yml down -v --remove-orphans || true
 }
 trap cleanup EXIT
 

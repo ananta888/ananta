@@ -3,13 +3,13 @@ FROM python:3.11.15-slim-bookworm@sha256:9c6f90801e6b68e772b7c0ca74260cbf7af9f32
 
 # Quickstart (ein auslieferbares Image ohne Ollama):
 # 1) Hub + Worker + Frontend aus genau diesem einen Image starten:
-#    docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml up -d --build
+#    docker compose --env-file .env -f docker/old_way/docker-compose.base.yml -f docker/old_way/docker-compose.quickstart-no-ollama.yml up -d --build
 # 2) Provider auf LM Studio:
-#    DEFAULT_PROVIDER=lmstudio LMSTUDIO_URL=http://host.docker.internal:1234/v1 docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml up -d --build
+#    DEFAULT_PROVIDER=lmstudio LMSTUDIO_URL=http://host.docker.internal:1234/v1 docker compose --env-file .env -f docker/old_way/docker-compose.base.yml -f docker/old_way/docker-compose.quickstart-no-ollama.yml up -d --build
 # 3) Provider auf OpenAI:
-#    DEFAULT_PROVIDER=openai OPENAI_API_KEY=<SECRET> docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml up -d --build
+#    DEFAULT_PROVIDER=openai OPENAI_API_KEY=<SECRET> docker compose --env-file .env -f docker/old_way/docker-compose.base.yml -f docker/old_way/docker-compose.quickstart-no-ollama.yml up -d --build
 # 4) Fullstack aus demselben Image (inkl. Evolver/DeerFlow/ml-intern Rollen):
-#    docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.single-image-fullstack.yml up -d --build
+#    docker compose --env-file .env -f docker/old_way/docker-compose.base.yml -f docker/old_way/docker-compose.quickstart-no-ollama.yml -f docker/old_way/docker-compose.single-image-fullstack.yml up -d --build
 
 ARG DEBIAN_SNAPSHOT=20260406T000000Z
 
@@ -40,6 +40,7 @@ RUN printf 'Acquire::Check-Valid-Until "false";\n' > /etc/apt/apt.conf.d/99snaps
     iputils-ping \
     traceroute \
     tmux \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # Node 20.19.5 aus dem offiziellen Frontend-Runtime-Image uebernehmen.
@@ -54,6 +55,9 @@ RUN npm i -g "opencode-ai@${OPENCODE_AI_VERSION}" \
     && npm cache clean --force
 
 WORKDIR /app
+
+# Legacy-Dev-Overlays binden das Repository mit Host-UID ein.
+RUN git config --global --add safe.directory /app
 
 # Kopiere Release-Lockdatei und installiere Python-Runtime-Pakete (Caching nutzen)
 COPY requirements.lock .

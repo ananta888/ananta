@@ -4,15 +4,15 @@ services:
   # - Data is kept in local ./data/* folders for transparent persistence.
   postgres:
     volumes:
-      - ./data/postgres:/var/lib/postgresql/data
+      - ../../data/postgres:/var/lib/postgresql/data
 
   ai-agent-hub:
     environment:
       FLASK_DEBUG: 0
     volumes:
-      - ./:/app
-      - ./data/hub:/app/data
-      - ./project-workspaces:/project-workspaces:rw
+      - ../../:/app
+      - ../../data/hub:/app/data
+      - ../../project-workspaces:/project-workspaces:rw
 
   ai-agent-alpha:
     environment:
@@ -20,9 +20,9 @@ services:
     ports:
       - "5001:5000"
     volumes:
-      - ./:/app
-      - ./data/alpha:/app/data
-      - ./project-workspaces:/project-workspaces:rw
+      - ../../:/app
+      - ../../data/alpha:/app/data
+      - ../../project-workspaces:/project-workspaces:rw
 
   ai-agent-beta:
     environment:
@@ -30,12 +30,12 @@ services:
     ports:
       - "5002:5000"
     volumes:
-      - ./:/app
-      - ./data/beta:/app/data
-      - ./project-workspaces:/project-workspaces:rw
+      - ../../:/app
+      - ../../data/beta:/app/data
+      - ../../project-workspaces:/project-workspaces:rw
 
   angular-frontend:
     volumes:
-      - ./frontend-angular:/app/frontend-angular
+      - ../../frontend-angular:/app/frontend-angular
       - /app/frontend-angular/node_modules
       - /ms-playwright

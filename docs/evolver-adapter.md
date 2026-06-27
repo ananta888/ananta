@@ -75,7 +75,7 @@ EVOLVER_HEADERS={"X-Evolver-Tenant":"team-a"}
 Start the optional Evolver service profile when an Evolver image is available:
 
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose.yml --profile evolution up
+docker compose -f docker/old_way/docker-compose.base.yml -f docker/old_way/docker-compose.yml --profile evolution up
 ```
 
 Set `EVOLVER_IMAGE` if the runtime image is hosted under a different name.

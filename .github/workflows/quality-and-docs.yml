@@ -76,7 +76,7 @@ jobs:
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
         with:
           context: .
-          file: Dockerfile.quickstart-no-ollama
+          file: docker/compose-next/Dockerfile.quickstart-no-ollama
           tags: ananta-backend-compose-test:local
           load: true
           cache-from: type=gha,scope=compose-backend
@@ -159,12 +159,12 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - name: Prepare compose artifact directory
         run: mkdir -p ci-artifacts/compose
-      - name: Validate lite compose config
-        run: docker compose -f docker-compose.base.yml -f docker-compose-lite.yml config > ci-artifacts/compose/compose-lite.yml
-      - name: Validate GitHub CI compose config without Ollama
-        run: docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.github-ci.yml config > ci-artifacts/compose/compose-github-ci.yml
-      - name: Validate distributed compose config
-        run: docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.distributed.yml config > ci-artifacts/compose/compose-distributed.yml
+      - name: Validate Compose-next quickstart config
+        run: docker compose -f docker/compose-next/compose.stack.quickstart.yml config > ci-artifacts/compose/compose-next-quickstart.yml
+      - name: Validate legacy GitHub CI compose config without Ollama
+        run: docker compose -f docker/old_way/docker-compose.base.yml -f docker/old_way/docker-compose-lite.yml -f docker/old_way/docker-compose.github-ci.yml config > ci-artifacts/compose/compose-github-ci.yml
+      - name: Validate Compose-next distributed config
+        run: docker compose -f docker/compose-next/compose.stack.distributed.yml config > ci-artifacts/compose/compose-next-distributed.yml
       - name: Upload compose config artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

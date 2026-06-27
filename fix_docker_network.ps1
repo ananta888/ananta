@@ -75,4 +75,4 @@ Write-Host "- WICHTIG: Falls Sie 'Temporary failure in name resolution' sehen, k
 Write-Host "  die 'dns:'-Zeilen in der docker-compose.yml aus. In manchen Netzwerken blockieren"
 Write-Host "  feste DNS-Einträge die Auflösung über den Host."
 Write-Host "- Falls es immer noch hakt: Nutzen Sie die SQLite-Variante:"
-Write-Host "  docker compose -f docker-compose.sqlite.yml up -d"
+Write-Host "  Hinweis: Das historische SQLite-Overlay unter docker/old_way ist nicht eigenständig startfähig."

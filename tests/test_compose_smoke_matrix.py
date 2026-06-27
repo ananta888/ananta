@@ -3,6 +3,31 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def test_docker_layout_keeps_active_and_legacy_sources_separate():
+    assert list(ROOT.glob("docker-compose*.yml")) == []
+    assert not (ROOT / "Dockerfile.quickstart-no-ollama").exists()
+
+    active_base = (ROOT / "docker" / "compose-next" / "compose.base.yml").read_text(encoding="utf-8")
+    active_dockerfile = (
+        ROOT / "docker" / "compose-next" / "Dockerfile.quickstart-no-ollama"
+    ).read_text(encoding="utf-8")
+    assert "docker/old_way/" not in active_base
+    assert "docker/compose-next/Dockerfile.quickstart-no-ollama" in active_base
+    assert " git " in active_dockerfile.replace("\\\n", " ")
+
+
+def test_legacy_compose_paths_are_relative_to_their_current_directory():
+    legacy_files = list((ROOT / "docker" / "old_way").glob("docker-compose*.yml"))
+
+    assert legacy_files
+    for compose_file in legacy_files:
+        content = compose_file.read_text(encoding="utf-8")
+        assert "\n      - .:/app" not in content
+        assert "\n      - ./:/app" not in content
+        assert "\n      - ./frontend-angular:" not in content
+        assert "\n      dockerfile: Dockerfile" not in content
+
+
 def test_compose_smoke_matrix_declares_lite_distributed_and_ollama_variants():
     script = (ROOT / "scripts" / "compose-test-stack.sh").read_text(encoding="utf-8")
 
@@ -28,7 +53,7 @@ def test_compose_smoke_matrix_files_exist_for_release_variants():
         "docker-compose.live-code.yml",
     ]
 
-    missing = [name for name in required if not (ROOT / name).exists()]
+    missing = [name for name in required if not (ROOT / "docker" / "old_way" / name).exists()]
 
     assert missing == []
 
@@ -44,21 +69,21 @@ def test_frontend_e2e_scripts_expose_compose_and_lite_entrypoints():
 
 def test_e2e_compose_backend_services_use_quickstart_single_image_dockerfile():
     for compose_name in ("docker-compose.test.yml", "docker-compose.github-ci.yml"):
-        content = (ROOT / compose_name).read_text(encoding="utf-8")
+        content = (ROOT / "docker" / "old_way" / compose_name).read_text(encoding="utf-8")
         for service_name in ("ai-agent-hub", "ai-agent-alpha", "ai-agent-beta"):
             marker = f"{service_name}:"
             assert marker in content, f"{compose_name} must define {service_name}"
-        assert "dockerfile: Dockerfile.quickstart-no-ollama" in content
+        assert "dockerfile: docker/old_way/Dockerfile.quickstart-no-ollama" in content
         assert 'ANANTA_QUICKSTART_MODE: "agent-only"' in content
 
 
 def test_e2e_ci_builds_backend_compose_image_from_quickstart_single_image():
     workflow = (ROOT / ".github" / "workflows" / "quality-and-docs.yml").read_text(encoding="utf-8")
-    assert "file: Dockerfile.quickstart-no-ollama" in workflow
+    assert "file: docker/compose-next/Dockerfile.quickstart-no-ollama" in workflow
 
 
 def test_final_compose_file_chains_all_tests_without_extra_profiles():
-    compose = (ROOT / "docker-compose.final-tests.yml").read_text(encoding="utf-8")
+    compose = (ROOT / "docker" / "old_way" / "docker-compose.final-tests.yml").read_text(encoding="utf-8")
 
     assert "service_completed_successfully" in compose
     assert "backend-test:" in compose
@@ -73,7 +98,7 @@ def test_final_compose_file_chains_all_tests_without_extra_profiles():
 
 
 def test_openai_final_compose_file_requires_openai_key_and_chains_all_tests():
-    compose = (ROOT / "docker-compose.final-tests-openai.yml").read_text(encoding="utf-8")
+    compose = (ROOT / "docker" / "old_way" / "docker-compose.final-tests-openai.yml").read_text(encoding="utf-8")
 
     assert "OPENAI_API_KEY" in compose
     assert 'DEFAULT_PROVIDER: "openai"' in compose

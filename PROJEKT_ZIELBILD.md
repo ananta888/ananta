@@ -18,7 +18,8 @@ Der Hub organisiert Arbeit, Worker fuehren aus, das Frontend macht Zustand und E
 - **Hub-Agent**: zentrale API, Task- und Team-Orchestrierung, Trigger/Webhooks, Konfiguration.
 - **Worker-Agenten**: Ausfuehrung von Aufgaben/Commands mit LLM-Unterstuetzung.
 - **Datenhaltung**: primär PostgreSQL/Redis im Compose-Betrieb.
-- **Betrieb**: Compose-Layer (`docker-compose.base.yml` + `docker-compose-lite.yml`) fuer lokalen Standard.
+- **Betrieb**: `docker/compose-next/` ist der lokale Standard; spezielle
+  Legacy-Testoverlays bleiben isoliert unter `docker/old_way/`.
 
 ## 4. Worin der eigentliche Wert steckt
 - **Automatisierungsgrad**: nicht nur Chat, sondern planbare und delegierbare Arbeitsschritte.

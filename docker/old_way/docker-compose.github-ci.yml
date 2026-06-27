@@ -14,7 +14,7 @@ services:
     image: ananta-backend-compose-test:local
     build:
       context: ../..
-      dockerfile: Dockerfile.quickstart-no-ollama
+      dockerfile: docker/old_way/Dockerfile.quickstart-no-ollama
     environment:
       ANANTA_QUICKSTART_MODE: "agent-only"
       DEFAULT_PROVIDER: "mock"
@@ -30,7 +30,7 @@ services:
     image: ananta-backend-compose-test:local
     build:
       context: ../..
-      dockerfile: Dockerfile.quickstart-no-ollama
+      dockerfile: docker/old_way/Dockerfile.quickstart-no-ollama
     environment:
       ANANTA_QUICKSTART_MODE: "agent-only"
       DEFAULT_PROVIDER: "mock"
@@ -46,7 +46,7 @@ services:
     image: ananta-backend-compose-test:local
     build:
       context: ../..
-      dockerfile: Dockerfile.quickstart-no-ollama
+      dockerfile: docker/old_way/Dockerfile.quickstart-no-ollama
     environment:
       ANANTA_QUICKSTART_MODE: "agent-only"
       DEFAULT_PROVIDER: "mock"
@@ -77,7 +77,7 @@ services:
       E2E_DETERMINISTIC_SCRUM_SEED: "1"
       E2E_SCRUM_SEED_TEAM_NAME: "E2E Seed Scrum Team"
     volumes:
-      - ./frontend-angular:/app
+      - ../../frontend-angular:/app
       - /app/node_modules
     working_dir: /app
     depends_on:

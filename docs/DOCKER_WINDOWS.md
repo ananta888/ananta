@@ -19,12 +19,13 @@ docker compose up -d --build
 
 In diesem Repository ist der explizite Stack ueblicherweise:
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build
+docker compose --env-file .env -f docker/compose-next/compose.stack.quickstart.yml up -d --build
 ```
 
 Mit WSL2/Vulkan fuer den Compose-Ollama-Service:
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml up -d --build
+POSTGRES_PASSWORD=... \
+docker compose --env-file .env -f docker/compose-next/compose.dev.ollama.yml up -d --build
 ```
 
 Oder noch gruendlicher:

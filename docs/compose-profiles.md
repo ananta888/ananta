@@ -6,26 +6,27 @@ Diese Seite ordnet die Compose-Varianten zuerst nach Nutzerziel. Die Dateinamen 
 
 | Ziel | Variante | Wann nutzen |
 | --- | --- | --- |
-| Demo oder erster lokaler Lauf | Lite-Stack | Schnellster Einstieg, wenig Infrastrukturwissen noetig. |
-| Alltagliche lokale Entwicklung | Lite-Stack plus `setup.ps1` | Standard fuer lokale Arbeit mit reproduzierbarer `.env`. |
-| Live-Code und Browser-Test | Live-Code-Stack | Wenn Python/Angular-Aenderungen sofort im Container sichtbar sein sollen. |
-| Lokale LLM-Runtime unter WSL2/Vulkan | Lite + Ollama-WSL Overlay | Wenn Ollama im Compose-Stack GPU-nah laufen soll. |
-| Mehrere Worker oder verteiltes Setup | Distributed Stack | Wenn Routing und Worker-Verteilung getestet werden sollen. |
-| Isolierte E2E/CI-Laeufe | Test-Stack | Wenn Playwright oder CI ohne Host-Port-Konflikte laufen soll. |
+| Demo oder erster lokaler Lauf | `compose.stack.quickstart.yml` | SQLite, zwei Worker, wenig Infrastrukturwissen. |
+| Alltagliche lokale Entwicklung mit LM Studio | `compose.dev.lmstudio.yml` | Bind-Mounts und automatische Reloads. |
+| Alltagliche lokale Entwicklung mit Ollama | `compose.dev.ollama.yml` | Bind-Mounts plus lokaler Ollama-Service. |
+| Persistenter Fullstack | `compose.stack.full.yml` | PostgreSQL, Redis, Hub und zwei Worker. |
+| Mehrere Worker oder verteiltes Setup | `compose.stack.distributed.yml` | Vier Worker und optionale Ollama-Runtime. |
+| Isolierte E2E/CI-Laeufe | `docker/old_way/` | Bestehende Spezial-Overlays bis zu ihrer separaten Migration. |
 
 ## Basis-Schichten
 
-This project uses two compose layers for local operation:
-
-1. `docker-compose.base.yml`: common services and defaults.
-2. `docker-compose-lite.yml`: local development overrides (Postgres, Redis, lite resources).
+Neue Starts verwenden genau eine Datei aus `docker/compose-next/`. Gemeinsame
+Service-Defaults liegen intern in `compose.base.yml` und werden über
+`extends` eingebunden. Die Datei wird nicht separat gestartet.
 
 Environment templates:
 
 - `.env.example`: ready-to-copy defaults for the common lite stack.
 - `.env.template`: compact template when secrets, ports and provider URLs should be filled explicitly.
-- For `docker-compose.distributed.yml`, additionally set `AGENT_TOKEN_GAMMA`, `AGENT_TOKEN_DELTA`, `GAMMA_PORT` and `DELTA_PORT`.
-- For `docker-compose.test.yml`, the optional live-test knobs (`RUN_LIVE_LLM_TESTS`, `LIVE_LLM_MODEL`, `LIVE_LLM_TIMEOUT_SEC`, `LIVE_LLM_RETRY_ATTEMPTS`, `LIVE_LLM_RETRY_BACKOFF_SEC`, `E2E_OLLAMA_URL`, `E2E_LMSTUDIO_URL`, `E2E_ADMIN_PASSWORD`) are now listed in the env templates as well.
+- Für `compose.stack.distributed.yml` können die Worker-IDs über
+  `ANANTA_WORKER_GAMMA_ID` und `ANANTA_WORKER_DELTA_ID` überschrieben werden.
+- Legacy-Testvariablen bleiben in `docker/old_way/README.md` und
+  `docs/testing.md` dokumentiert.
 
 ## Runtime Profiles
 
@@ -48,27 +49,25 @@ Validation:
 
 - `POST /config` rejects unknown `runtime_profile` values with `invalid_runtime_profile`.
 
-## Recommended Lite Dev/Test Start
+## Empfohlener lokaler Start
 
 Nutze diesen Pfad fuer Demo, Standard lokal und die meisten schnellen Tests:
 
 ```bash
-scripts/compose-test-stack.sh down
-scripts/compose-test-stack.sh up
-scripts/compose-test-stack.sh ps
+docker compose --env-file .env -f docker/compose-next/compose.stack.quickstart.yml up -d --build
+docker compose --env-file .env -f docker/compose-next/compose.stack.quickstart.yml ps
 ```
 
-WSL2 mit Vulkan fuer den Compose-Ollama-Service:
+Entwicklung mit Ollama:
 
 ```bash
-scripts/compose-test-stack.sh down
-scripts/compose-test-stack.sh up
-scripts/compose-test-stack.sh ps
+POSTGRES_PASSWORD=... \
+docker compose --env-file .env -f docker/compose-next/compose.dev.ollama.yml up -d --build
 ```
 
-Sicheres Deep-Cleanup (Volumes ausser `ollama_data`):
+Cleanup:
 ```bash
-scripts/compose-test-stack.sh clean
+docker compose --env-file .env -f docker/compose-next/compose.stack.quickstart.yml down -v --remove-orphans
 ```
 
 ## E2E Against Existing Lite Environment
@@ -94,14 +93,11 @@ Nutze diese Variante erst, wenn du mehrere Worker-Nodes oder Routing-Verhalten p
 Fuer mehr Worker-Nodes:
 
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.distributed.yml up -d --build
+POSTGRES_PASSWORD=... \
+docker compose --env-file .env -f docker/compose-next/compose.stack.distributed.yml up -d --build
 ```
 
-Mit WSL2/Vulkan fuer den Compose-Ollama-Service:
-
-```bash
-docker compose -f docker-compose.base.yml -f docker-compose.ollama-wsl.yml -f docker-compose.yml -f docker-compose.distributed.yml up -d --build
-```
+Ollama kann bei dieser Variante über `--profile ollama` aktiviert werden.
 
 Details: `docs/distributed-deployment.md`
 

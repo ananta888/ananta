@@ -8,9 +8,9 @@ shard_name="${1:?missing shard name}"
 spec_string="${2:?missing spec string}"
 
 compose_files=(
-  -f docker-compose.base.yml
-  -f docker-compose-lite.yml
-  -f docker-compose.github-ci.yml
+  -f docker/old_way/docker-compose.base.yml
+  -f docker/old_way/docker-compose-lite.yml
+  -f docker/old_way/docker-compose.github-ci.yml
 )
 
 results_root="${E2E_RESULTS_DIR:-frontend-angular/test-results/${shard_name}}"

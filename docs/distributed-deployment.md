@@ -11,13 +11,15 @@ Diese Variante erweitert den bestehenden Hub/Worker-Stack um weitere Worker-Node
 ## Start
 
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.distributed.yml up -d --build
+POSTGRES_PASSWORD=... \
+docker compose --env-file .env -f docker/compose-next/compose.stack.distributed.yml up -d --build
 ```
 
 WSL2/Vulkan fuer den Compose-Ollama-Service:
 
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose.ollama-wsl.yml -f docker-compose.yml -f docker-compose.distributed.yml up -d --build
+POSTGRES_PASSWORD=... \
+docker compose --env-file .env -f docker/compose-next/compose.stack.distributed.yml --profile ollama up -d --build
 ```
 
 ## Enthaltene Nodes
@@ -44,6 +46,6 @@ docker compose -f docker-compose.base.yml -f docker-compose.ollama-wsl.yml -f do
 ## Smoke-Test
 
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.distributed.yml ps
+docker compose --env-file .env -f docker/compose-next/compose.stack.distributed.yml ps
 curl -fsS http://localhost:${HUB_PORT:-5000}/health
 ```

@@ -26,7 +26,7 @@ services:
     image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
     build:
       context: ../..
-      dockerfile: Dockerfile.quickstart-no-ollama
+      dockerfile: docker/old_way/Dockerfile.quickstart-no-ollama
     environment:
       ANANTA_QUICKSTART_MODE: ${ANANTA_QUICKSTART_MODE_HUB:-agent-only}
       ROLE: hub
@@ -49,7 +49,7 @@ services:
       - "5000:5000"
     volumes:
       - hub-data:/app/data
-      - ./project-workspaces:/project-workspaces:rw
+      - ../../project-workspaces:/project-workspaces:rw
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:5000/health?basic=1 || exit 1"]
       interval: 10s
@@ -64,7 +64,7 @@ services:
     image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
     build:
       context: ../..
-      dockerfile: Dockerfile.quickstart-no-ollama
+      dockerfile: docker/old_way/Dockerfile.quickstart-no-ollama
     environment:
       ANANTA_QUICKSTART_MODE: ${ANANTA_QUICKSTART_MODE_ALPHA:-agent-only}
       ROLE: worker
@@ -85,7 +85,7 @@ services:
       ANANTA_WORKSPACE_ROOT: /project-workspaces
     volumes:
       - alpha-data:/app/data
-      - ./project-workspaces:/project-workspaces:rw
+      - ../../project-workspaces:/project-workspaces:rw
     depends_on:
       ai-agent-hub:
         condition: service_healthy
@@ -94,7 +94,7 @@ services:
     image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
     build:
       context: ../..
-      dockerfile: Dockerfile.quickstart-no-ollama
+      dockerfile: docker/old_way/Dockerfile.quickstart-no-ollama
     environment:
       ANANTA_QUICKSTART_MODE: ${ANANTA_QUICKSTART_MODE_BETA:-agent-only}
       ROLE: worker
@@ -115,7 +115,7 @@ services:
       ANANTA_WORKSPACE_ROOT: /project-workspaces
     volumes:
       - beta-data:/app/data
-      - ./project-workspaces:/project-workspaces:rw
+      - ../../project-workspaces:/project-workspaces:rw
     depends_on:
       ai-agent-hub:
         condition: service_healthy
@@ -124,7 +124,7 @@ services:
     image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
     build:
       context: ../..
-      dockerfile: Dockerfile.quickstart-no-ollama
+      dockerfile: docker/old_way/Dockerfile.quickstart-no-ollama
     working_dir: /app/frontend-angular
     environment:
       ANANTA_QUICKSTART_MODE: ${ANANTA_QUICKSTART_MODE_FRONTEND:-role}

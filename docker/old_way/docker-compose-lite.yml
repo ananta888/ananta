@@ -1,6 +1,6 @@
 ﻿# Minimal dev compose (frontend + backend only)
-# Usage: docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up
-# WSL2/Vulkan fuer Ollama optional zusaetzlich: -f docker-compose.ollama-wsl.yml
+# Usage: docker compose -f docker/old_way/docker-compose.base.yml -f docker/old_way/docker-compose-lite.yml up
+# WSL2/Vulkan fuer Ollama optional zusaetzlich: -f docker/old_way/docker-compose.ollama-wsl.yml
 
 services:
   postgres:
@@ -106,7 +106,7 @@ services:
           cpus: '1.0'
           memory: 1G
     volumes:
-      - ./data/hub:/app/data
+      - ../../data/hub:/app/data
     depends_on:
       postgres:
         condition: service_healthy
@@ -132,7 +132,7 @@ services:
           cpus: '1.0'
           memory: 1G
     volumes:
-      - ./data/alpha:/app/data
+      - ../../data/alpha:/app/data
     depends_on:
       postgres:
         condition: service_healthy
@@ -158,7 +158,7 @@ services:
           cpus: '1.0'
           memory: 1G
     volumes:
-      - ./data/beta:/app/data
+      - ../../data/beta:/app/data
     depends_on:
       postgres:
         condition: service_healthy

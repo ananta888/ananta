@@ -176,9 +176,9 @@ API-Verbindung zum Hub:
    ```
    Das Script prueft Docker, Python und Node, legt eine `.env` an und installiert lokale Abhaengigkeiten.
 
-2. Lite-Stack starten:
+2. Compose-next-Quickstart starten:
    ```bash
-   docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build
+   docker compose --env-file .env -f docker/compose-next/compose.stack.quickstart.yml up -d --build
    ```
 
 3. Im Browser oeffnen:
@@ -204,39 +204,44 @@ Wenn der Browser keine Verbindung bekommt, pruefe zuerst `docker compose ps` und
 
 Offizieller UI-Standardweg: `docs/golden-path-ui.md`.
 
-### F) Docker-Quickstart ohne Ollama (ein auslieferbares Image)
+### F) Docker-Varianten
 
-Dieser Pfad baut **ein einziges auslieferbares Image** (`Dockerfile.quickstart-no-ollama`) und startet Hub, Worker und Angular-Frontend daraus.
+Dieser Pfad baut **ein einziges auslieferbares Image** (`docker/compose-next/Dockerfile.quickstart-no-ollama`) und startet Hub, Worker und Angular-Frontend daraus.
 
 Build:
 
 ```bash
-docker build -f Dockerfile.quickstart-no-ollama -t ananta-quickstart-no-ollama:local .
+docker build -f docker/compose-next/Dockerfile.quickstart-no-ollama -t ananta-quickstart-no-ollama:local .
 ```
 
-Basis-Start (Hub + Worker + Frontend):
+Quickstart mit SQLite (Hub + zwei Worker + Frontend):
 
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml up -d --build
+docker compose --env-file .env -f docker/compose-next/compose.stack.quickstart.yml up -d --build
 ```
 
-Fullstack aus demselben Image (zusaetzlich Evolver, DeerFlow, ml-intern Worker):
+Fullstack mit PostgreSQL und Redis:
 
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.single-image-fullstack.yml up -d --build
+POSTGRES_PASSWORD=... docker compose --env-file .env -f docker/compose-next/compose.stack.full.yml up -d --build
 ```
 
-Provider auf **LM Studio**:
+Direkte Entwicklung mit Bind-Mount und **LM Studio**:
 
 ```bash
-DEFAULT_PROVIDER=lmstudio LMSTUDIO_URL=http://host.docker.internal:1234/v1 docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.single-image-fullstack.yml up -d --build
+POSTGRES_PASSWORD=... LMSTUDIO_URL=http://host.docker.internal:1234/v1 \
+docker compose --env-file .env -f docker/compose-next/compose.dev.lmstudio.yml up -d --build
 ```
 
-Provider auf **OpenAI API**:
+Direkte Entwicklung mit **Ollama**:
 
 ```bash
-DEFAULT_PROVIDER=openai OPENAI_API_KEY=<SECRET> OPENAI_URL=https://api.openai.com/v1/chat/completions docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.single-image-fullstack.yml up -d --build
+POSTGRES_PASSWORD=... docker compose --env-file .env -f docker/compose-next/compose.dev.ollama.yml up -d --build
 ```
+
+Die frühere mehrschichtige Compose-Welt bleibt für spezielle E2E-, CI- und
+Kompatibilitätsabläufe unter `docker/old_way/` erhalten. Sie ist nicht der
+Standard für neue lokale Setups.
 
 ## CodeCompass Vector Encoding
 

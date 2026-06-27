@@ -33,7 +33,9 @@ x-agent-env: &agent-env
   TERMINAL_OIDC_ENABLED: ${TERMINAL_OIDC_ENABLED:-false}
 
 x-agent-defaults: &agent-defaults
-  build: .
+  build:
+    context: ../..
+    dockerfile: docker/old_way/Dockerfile
   restart: unless-stopped
   working_dir: /app
   extra_hosts:
@@ -102,8 +104,8 @@ services:
       AGENT_URL: http://ai-agent-hub:5000
       AUTH_TEST_ENDPOINTS_ENABLED: ${AUTH_TEST_ENDPOINTS_ENABLED:-0}
     volumes:
-      - .:/app
-      - ./data/hub:/app/data
+      - ../../:/app
+      - ../../data/hub:/app/data
     ports:
       - "${HUB_PORT:-5000}:5000"
 
@@ -117,7 +119,7 @@ services:
       AGENT_URL: http://ai-agent-alpha:5000
       HUB_URL: http://ai-agent-hub:5000
     volumes:
-      - ./data/alpha:/app/data
+      - ../../data/alpha:/app/data
     ports:
       - "${ALPHA_PORT:-5001}:5000"
 
@@ -131,7 +133,7 @@ services:
       AGENT_URL: http://ai-agent-beta:5000
       HUB_URL: http://ai-agent-hub:5000
     volumes:
-      - ./data/beta:/app/data
+      - ../../data/beta:/app/data
     ports:
       - "${BETA_PORT:-5002}:5000"
 
@@ -149,7 +151,7 @@ services:
       OLLAMA_MAX_LOADED_MODELS: ${OLLAMA_MAX_LOADED_MODELS:-1}
       OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-5m}
     volumes:
-      - ./.ollama:/root/.ollama
+      - ../../.ollama:/root/.ollama
       - /mnt/c/Users/Public/lm-models:/models:ro
     healthcheck:
       test: ["CMD", "ollama", "list"]
@@ -165,8 +167,8 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ./autoimport-state:/state
-      - ./scripts/ollama-autoimport.sh:/usr/local/bin/ollama-autoimport.sh:ro
+      - ../../autoimport-state:/state
+      - ../../scripts/ollama-autoimport.sh:/usr/local/bin/ollama-autoimport.sh:ro
     environment:
       OLLAMA_NUM_CTX: ${OLLAMA_NUM_CTX:-4096}
     entrypoint: ["/bin/sh", "/usr/local/bin/ollama-autoimport.sh"]

@@ -2,12 +2,12 @@
 # Ziel: ohne zusätzliche Profile/Flags direkt in IntelliJ startbar.
 #
 # IntelliJ (Docker Compose Run Configuration):
-# - Compose file: docker-compose.final-tests.yml
+# - Compose file: docker/old_way/docker-compose.final-tests.yml
 # - Command: Up
 # - Optional service filter: all-tests
 #
 # CLI-Äquivalent:
-#   docker compose -f docker-compose.final-tests.yml up --build
+#   docker compose -f docker/old_way/docker-compose.final-tests.yml up --build
 
 services:
   postgres:
@@ -28,7 +28,7 @@ services:
       service: ollama
     build:
       context: ../..
-      dockerfile: Dockerfile.ollama-wsl-amd
+      dockerfile: docker/old_way/Dockerfile.ollama-wsl-amd
     image: ollama-wsl-amd:0.20.7-vulkan
     container_name: ollama
     devices:
@@ -38,7 +38,7 @@ services:
       OLLAMA_VULKAN: "${OLLAMA_VULKAN:-1}"
       VK_ICD_FILENAMES: ${OLLAMA_WSL_VK_ICD_FILENAMES:-/usr/share/vulkan/icd.d/dzn_icd.json}
     volumes:
-      - ./.ollama:/root/.ollama
+      - ../../.ollama:/root/.ollama
       - /mnt/c/Users/Public/lm-models:/models:ro
       - /usr/lib/wsl:/usr/lib/wsl:ro
     ports: []
@@ -50,8 +50,8 @@ services:
     entrypoint: ["/bin/sh", "/usr/local/bin/ollama-autoimport.sh"]
     volumes:
       - /mnt/c/Users/Public/lm-models:/models:ro
-      - ./autoimport-state:/state
-      - ./scripts/ollama-autoimport.sh:/usr/local/bin/ollama-autoimport.sh:ro
+      - ../../autoimport-state:/state
+      - ../../scripts/ollama-autoimport.sh:/usr/local/bin/ollama-autoimport.sh:ro
     environment:
       OLLAMA_AUTOIMPORT_MODE: "${OLLAMA_AUTOIMPORT_MODE:-seed}"
       OLLAMA_BASE_URL: "http://ollama:11434"
@@ -62,7 +62,7 @@ services:
       service: angular-frontend
     image: ananta-frontend-compose-test:local
     volumes:
-      - ./frontend-angular:/app
+      - ../../frontend-angular:/app
       - /app/node_modules
       - /ms-playwright
     ports: []
@@ -74,11 +74,11 @@ services:
     image: ananta-backend-compose-test:local
     build:
       context: ../..
-      dockerfile: Dockerfile.quickstart-no-ollama
+      dockerfile: docker/old_way/Dockerfile.quickstart-no-ollama
     ports: []
     volumes:
-      - ./:/app
-      - ./data/hub:/app/data
+      - ../../:/app
+      - ../../data/hub:/app/data
     environment:
       ANANTA_QUICKSTART_MODE: "agent-only"
       DEFAULT_PROVIDER: "ollama"
@@ -104,11 +104,11 @@ services:
     image: ananta-backend-compose-test:local
     build:
       context: ../..
-      dockerfile: Dockerfile.quickstart-no-ollama
+      dockerfile: docker/old_way/Dockerfile.quickstart-no-ollama
     ports: []
     volumes:
-      - ./:/app
-      - ./data/alpha:/app/data
+      - ../../:/app
+      - ../../data/alpha:/app/data
     environment:
       ANANTA_QUICKSTART_MODE: "agent-only"
       DEFAULT_PROVIDER: "ollama"
@@ -131,11 +131,11 @@ services:
     image: ananta-backend-compose-test:local
     build:
       context: ../..
-      dockerfile: Dockerfile.quickstart-no-ollama
+      dockerfile: docker/old_way/Dockerfile.quickstart-no-ollama
     ports: []
     volumes:
-      - ./:/app
-      - ./data/beta:/app/data
+      - ../../:/app
+      - ../../data/beta:/app/data
     environment:
       ANANTA_QUICKSTART_MODE: "agent-only"
       DEFAULT_PROVIDER: "ollama"
@@ -155,7 +155,7 @@ services:
     image: ananta-backend-compose-test-gate:local
     build:
       context: ../..
-      dockerfile: Dockerfile.compose-test
+      dockerfile: docker/old_way/Dockerfile.compose-test
     environment:
       ANANTA_QUICKSTART_MODE: "agent-only"
       PYTHONPATH: "/app"
@@ -163,7 +163,7 @@ services:
       OLLAMA_MODEL: "${TEST_OLLAMA_MODEL:-ananta-smoke}"
       LIVE_LLM_PROVIDER: "ollama"
     volumes:
-      - .:/app
+      - ../../:/app
     working_dir: /app
     depends_on:
       postgres:
@@ -180,7 +180,7 @@ services:
     image: ananta-backend-compose-test-gate:local
     build:
       context: ../..
-      dockerfile: Dockerfile.compose-test
+      dockerfile: docker/old_way/Dockerfile.compose-test
     environment:
       ANANTA_QUICKSTART_MODE: "agent-only"
       PYTHONPATH: "/app"
@@ -194,7 +194,7 @@ services:
       E2E_OLLAMA_URL: "http://ollama:11434/api/generate"
       OLLAMA_MODEL: "${TEST_OLLAMA_MODEL:-ananta-smoke}"
     volumes:
-      - .:/app
+      - ../../:/app
     working_dir: /app
     depends_on:
       backend-test:

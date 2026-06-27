@@ -52,10 +52,10 @@ Unknown groups grant **no** permissions.
 
 ### Local current Keycloak via compose overlay
 
-Use the optional overlay `docker-compose.oidc-keycloak.yml` to run a local Keycloak for OIDC:
+Use the optional overlay `docker/old_way/docker-compose.oidc-keycloak.yml` to run a local Keycloak for OIDC:
 
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.oidc-keycloak.yml --profile oidc up -d
+docker compose -f docker/old_way/docker-compose.base.yml -f docker/old_way/docker-compose.yml -f docker/old_way/docker-compose.oidc-keycloak.yml --profile oidc up -d
 ```
 
 Default issuer used by this overlay:

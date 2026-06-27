@@ -30,7 +30,7 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./public-rendezvous/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ../../public-rendezvous/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - public_caddy_data:/data
       - public_caddy_config:/config
     depends_on:
@@ -65,7 +65,7 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?set KEYCLOAK_ADMIN_PASSWORD in .env}
     volumes:
-      - ./public-rendezvous/keycloak:/opt/keycloak/data/import:ro
+      - ../../public-rendezvous/keycloak:/opt/keycloak/data/import:ro
     depends_on:
       - postgres
     healthcheck:

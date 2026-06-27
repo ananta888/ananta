@@ -40,9 +40,9 @@ Weiterfuehrung: `docs/setup/quickstart.md`, `docs/cli/commands.md`.
    ```
    Alternativ `.env.example` nach `.env` kopieren und `INITIAL_ADMIN_PASSWORD` setzen.
 
-2. Lite-Stack starten:
+2. Compose-next-Quickstart starten:
    ```bash
-   docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build
+   docker compose --env-file .env -f docker/compose-next/compose.stack.quickstart.yml up -d --build
    ```
 
 3. Browser oeffnen:
@@ -55,23 +55,25 @@ Weiterfuehrung: `docs/setup/quickstart.md`, `docs/cli/commands.md`.
 
 5. Im Dashboard ein erstes Ziel eingeben oder die Demo-Vorschau oeffnen.
 
-### B2. Fullstack aus einem Image (ohne Ollama)
+### B2. Compose-next Fullstack
 
-Wenn Hub, Worker, Angular, Evolver, DeerFlow und ml-intern aus demselben Image laufen sollen:
+Wenn Hub, zwei Worker, Angular, PostgreSQL und Redis zusammen laufen sollen:
 
 ```bash
-docker build -f Dockerfile.quickstart-no-ollama -t ananta-quickstart-no-ollama:local .
-docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.single-image-fullstack.yml up -d --build
+docker build -f docker/compose-next/Dockerfile.quickstart-no-ollama -t ananta-quickstart-no-ollama:local .
+POSTGRES_PASSWORD=... docker compose --env-file .env -f docker/compose-next/compose.stack.full.yml up -d --build
 ```
 
 Provider-Varianten:
 
 ```bash
 # OpenAI
-DEFAULT_PROVIDER=openai OPENAI_API_KEY=<SECRET> OPENAI_URL=https://api.openai.com/v1/chat/completions docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.single-image-fullstack.yml up -d --build
+POSTGRES_PASSWORD=... DEFAULT_PROVIDER=openai OPENAI_API_KEY=<SECRET> \
+docker compose --env-file .env -f docker/compose-next/compose.stack.full.yml up -d --build
 
 # LM Studio
-DEFAULT_PROVIDER=lmstudio LMSTUDIO_URL=http://host.docker.internal:1234/v1 docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.single-image-fullstack.yml up -d --build
+POSTGRES_PASSWORD=... DEFAULT_PROVIDER=lmstudio LMSTUDIO_URL=http://host.docker.internal:1234/v1 \
+docker compose --env-file .env -f docker/compose-next/compose.stack.full.yml up -d --build
 ```
 
 Hinweise:
@@ -83,18 +85,18 @@ Hinweise:
 
 | Ziel | Variante | Empfehlung |
 | --- | --- | --- |
-| Demo ansehen oder erstes Goal planen | Lite-Stack | Standard fuer neue Nutzer. |
-| Lokal entwickeln | Lite-Stack mit `setup.ps1` | Gute Balance aus Einfachheit und reproduzierbarer Umgebung. |
-| Live-Code bearbeiten | Live-Code-Stack | Fuer schnelle Frontend-/Backend-Aenderungen im Container. |
-| Lokales Ollama unter WSL2/Vulkan nutzen | Lite + Ollama-WSL Overlay | Nur waehlen, wenn die lokale GPU-/WSL-Runtime gebraucht wird. |
-| Worker-Verteilung pruefen | Distributed Stack | Fuer Routing-, Team- und Mehr-Worker-Tests. |
-| Automatisierte Browsertests | Test-Stack | Fuer Playwright/CI, nicht fuer den normalen Browserzugriff. |
+| Demo ansehen oder erstes Goal planen | `compose.stack.quickstart.yml` | Standard fuer neue Nutzer. |
+| Lokal mit LM Studio entwickeln | `compose.dev.lmstudio.yml` | Bind-Mounts und Reloads. |
+| Lokal mit Ollama entwickeln | `compose.dev.ollama.yml` | Lokale Ollama-Runtime und Bind-Mounts. |
+| Persistenter Fullstack | `compose.stack.full.yml` | PostgreSQL und Redis. |
+| Worker-Verteilung pruefen | `compose.stack.distributed.yml` | Fuer Routing- und Mehr-Worker-Tests. |
+| Automatisierte Browsertests | `docker/old_way/` | Bestehender Legacy-Testpfad. |
 
 ### D. Weitere Compose-Befehle
 
-   Unter WSL2 mit AMD/Vulkan fuer den Compose-Ollama-Service nutzen Sie stattdessen das additive Overlay:
+   Fuer den Compose-Ollama-Service:
    ```bash
-   docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml up -d --build
+   POSTGRES_PASSWORD=... docker compose --env-file .env -f docker/compose-next/compose.dev.ollama.yml up -d --build
    ```
    Auf Windows mit Rancher/WSL-Kontext empfiehlt sich stattdessen:
    ```powershell
@@ -184,7 +186,7 @@ Ananta enthält einen optionalen Observability-Stack zur detaillierten Überwach
 **Aktivierung:**
 Starten Sie Docker Compose mit dem `observability` Profil:
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose.yml --profile observability up -d
+docker compose -f docker/old_way/docker-compose.base.yml -f docker/old_way/docker-compose.yml --profile observability up -d
 ```
 
 **Komponenten:**
@@ -212,7 +214,7 @@ Weitere Worker-Agenten können einfach hinzugefügt werden, indem neue Instanzen
   > ⚠️ **GEFAHR**: In den Docker-Compose Dateien sind kritische Passwörter (Postgres, Grafana) bewusst mit Fehlern belegt (`?Error: ...`), um einen ungesicherten Start zu verhindern. 
   > Sie **MÜSSEN** eine `.env` Datei anlegen (basierend auf `.env.example`) und dort sichere Passwörter vergeben.
   > Vordefinierte Platzhalter wie `replace_this_with_a_secure_password_123!` dienen nur als Beispiel und dürfen keinesfalls produktiv genutzt werden.
-- **Port-Binding**: Standardmäßig sind die Ports in der `docker-compose.yml` offen (`"4200:4200"`), damit sie sowohl über `localhost` als auch über die Netzwerk-IP erreichbar sind. Falls Sie den Zugriff auf Ihren lokalen Rechner beschränken möchten, können Sie die Bindung auf `127.0.0.1` ändern (z.B. `"127.0.0.1:4200:4200"`). Beachten Sie jedoch, dass manche Browser dann Probleme mit der Auflösung von `localhost` (IPv6 vs IPv4) haben könnten.
+- **Port-Binding**: Standardmäßig sind die Ports in der `docker/old_way/docker-compose.yml` offen (`"4200:4200"`), damit sie sowohl über `localhost` als auch über die Netzwerk-IP erreichbar sind. Falls Sie den Zugriff auf Ihren lokalen Rechner beschränken möchten, können Sie die Bindung auf `127.0.0.1` ändern (z.B. `"127.0.0.1:4200:4200"`). Beachten Sie jedoch, dass manche Browser dann Probleme mit der Auflösung von `localhost` (IPv6 vs IPv4) haben könnten.
 - **Tokens**: Nutzen Sie die Umgebungsvariable `AGENT_TOKEN`, um schreibende Zugriffe abzusichern.
 - **Shell-Validierung**: Der Agent verfügt über eine Blacklist für gefährliche Befehle (konfigurierbar in `blacklist.txt`).
 
@@ -242,7 +244,7 @@ Docker Desktop unter Windows (WSL2) hat oft Probleme mit der DNS-Auflösung oder
 3. **MTU Probleme (VPN)**: Falls Sie ein VPN nutzen und "Network unreachable" oder hängende Verbindungen sehen, liegt dies oft an der MTU. Setzen Sie die MTU für Docker auf einen kleineren Wert (z.B. 1400).
    - In Docker Desktop: *Settings -> Docker Engine*
    - Fügen Sie hinzu: `"mtu": 1400`
-4. **Explizites DNS**: Wir haben in der `docker-compose.yml` feste DNS-Server (`8.8.8.8`) vorbereitet. Falls Sie jedoch "Temporary failure in name resolution" sehen, **kommentieren Sie diese Zeilen aus**, damit Docker die DNS-Einstellungen Ihres Hosts verwendet. Dies ist oft in restriktiven Netzwerken oder Firmen-VPNs notwendig.
+4. **Explizites DNS**: Wir haben in der `docker/old_way/docker-compose.yml` feste DNS-Server (`8.8.8.8`) vorbereitet. Falls Sie jedoch "Temporary failure in name resolution" sehen, **kommentieren Sie diese Zeilen aus**, damit Docker die DNS-Einstellungen Ihres Hosts verwendet. Dies ist oft in restriktiven Netzwerken oder Firmen-VPNs notwendig.
 5. **WSL2 Neustart**: Ein kompletter Reset des WSL-Subsystems löst 90% der Netzwerk-Hänger:
    ```bash
    wsl --shutdown
@@ -264,12 +266,13 @@ Docker Desktop unter Windows (WSL2) hat oft Probleme mit der DNS-Auflösung oder
    }
    ```
 
-#### Permanenter Workaround (Ohne Postgres)
-Wenn Sie die Netzwerkprobleme nicht beheben können, können Sie das System stattdstattdessen mit **SQLite** betreiben. Wir haben dafür eine separate Konfigurationsdatei vorbereitet:
-```bash
-docker compose -f docker-compose.sqlite.yml up -d
-```
-Das System nutzt dann automatisch lokale Datenbankdateien im `data/`-Ordner der jeweiligen Agenten.
+#### Kein unterstützter Compose-Workaround ohne Postgres
+
+Das frühere SQLite-Overlay unter
+`docker/old_way/docker-compose.sqlite.yml` ist historisch und nicht
+eigenständig startfähig. Beheben Sie die Docker-Netzwerkursache oder verwenden
+Sie den aktiven Quickstart aus `docker/compose-next/`; die Dokumentation
+verspricht keinen nicht funktionsfähigen SQLite-Compose-Pfad mehr.
 
 ### LLM Verbindungsfehler (`host.docker.internal` / Connection Refused)
 Falls in den Logs Fehler wie `Failed to establish a new connection: [Errno 111] Connection refused` in Verbindung mit `host.docker.internal` (z.B. Port 11434 für Ollama oder 1234 für LMStudio) erscheinen:
@@ -302,7 +305,7 @@ Falls in den Logs Fehler wie `Failed to establish a new connection: [Errno 111] 
        2. Suchen Sie nach dem Schalter **"Im lokalen Netzwerk bereitstellen"** (oder "Provide on local network"). 
        3. **Empfehlung**: Lassen Sie diesen Schalter **AUS**, wenn Sie `setup_host_services.ps1` nutzen. Falls Sie ihn **AN** haben, achten Sie darauf, dass die gewählte IP (Dropdown in den Network Settings) erreichbar ist. Unser Skript erkennt dies nun automatisch.
    - **Ollama**: Ollama nutzt standardmäßig eine Umgebungsvariable. Setzen Sie `OLLAMA_HOST=0.0.0.0`. Unter Windows können Sie dies in den Systemeigenschaften (Umgebungsvariablen) festlegen oder Ollama über die PowerShell starten: `$env:OLLAMA_HOST="0.0.0.0"; ollama serve`.
-4. **Erreichbare Host-IP bevorzugen**: Verwenden Sie in der `docker-compose.yml` die Adresse, die aus dem Container nachweislich funktioniert. Fuer dieses Projekt war das `http://172.18.96.1:1234/v1`. `host.docker.internal` kann als Fallback dienen, ist aber nicht in jeder WSL2-/Docker-Desktop-Kombination stabil.
+4. **Erreichbare Host-IP bevorzugen**: Verwenden Sie in der `docker/old_way/docker-compose.yml` die Adresse, die aus dem Container nachweislich funktioniert. Fuer dieses Projekt war das `http://172.18.96.1:1234/v1`. `host.docker.internal` kann als Fallback dienen, ist aber nicht in jeder WSL2-/Docker-Desktop-Kombination stabil.
 
 #### Alternative: Spezifische Host-IP nutzen (Nur für Experten)
 Falls Sie LM Studio auf einer festen Host-IP wie `172.18.96.1` betreiben, pruefen Sie die Erreichbarkeit immer direkt aus dem Container, zum Beispiel mit `curl http://172.18.96.1:1234/v1/models`. Wenn diese Adresse funktioniert, ist sie fuer Compose in der Regel die beste Wahl.
@@ -311,7 +314,7 @@ Falls Sie LM Studio auf einer festen Host-IP wie `172.18.96.1` betreiben, pruefe
 Wenn Ollama direkt als Compose-Service in WSL2 laufen soll, gibt es dafuer ein additives Override:
 
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml up -d --build
+docker compose -f docker/old_way/docker-compose.base.yml -f docker/old_way/docker-compose-lite.yml -f docker/old_way/docker-compose.ollama-wsl.yml up -d --build
 ```
 
 Das Override behaelt die bestehende Hub-Worker-Architektur bei und aendert nur den `ollama`-Service:
@@ -327,7 +330,7 @@ Voraussetzungen:
 
 #### Unterschied zwischen Port-Binding und Host-IP Zugriff
 Es ist wichtig, zwei Richtungen der Kommunikation zu unterscheiden:
-1. **Vom Host zum Container (Inbound):** In der `docker-compose.yml` legen Sie fest, auf welcher IP Ihres Rechners die Dienste lauschen (z.B. `0.0.0.0` für alle, `127.0.0.1` für nur lokal).
+1. **Vom Host zum Container (Inbound):** In der `docker/old_way/docker-compose.yml` legen Sie fest, auf welcher IP Ihres Rechners die Dienste lauschen (z.B. `0.0.0.0` für alle, `127.0.0.1` für nur lokal).
 2. **Vom Container zum Host (Outbound):** Wenn ein Agent auf LMStudio zugreift, kontaktiert er den Host (via `host.docker.internal` oder Proxy). Dies ist unabhängig von den Port-Einstellungen in der Compose-Datei.
 
 #### Sicherheitshinweis zu 0.0.0.0:

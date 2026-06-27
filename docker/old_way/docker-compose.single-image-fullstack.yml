@@ -41,7 +41,7 @@ services:
     image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
     build:
       context: ../..
-      dockerfile: Dockerfile.quickstart-no-ollama
+      dockerfile: docker/old_way/Dockerfile.quickstart-no-ollama
     restart: unless-stopped
     environment:
       ANANTA_QUICKSTART_MODE: role
@@ -61,7 +61,7 @@ services:
     image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
     build:
       context: ../..
-      dockerfile: Dockerfile.quickstart-no-ollama
+      dockerfile: docker/old_way/Dockerfile.quickstart-no-ollama
     restart: unless-stopped
     environment:
       ANANTA_QUICKSTART_MODE: role
@@ -88,7 +88,7 @@ services:
     image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
     build:
       context: ../..
-      dockerfile: Dockerfile.quickstart-no-ollama
+      dockerfile: docker/old_way/Dockerfile.quickstart-no-ollama
     restart: unless-stopped
     environment:
       ANANTA_QUICKSTART_MODE: role

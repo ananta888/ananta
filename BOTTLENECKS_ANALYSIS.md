@@ -50,7 +50,7 @@ Wenn eine Stufe serialisiert, bringt Parallelität in den anderen Stufen nur beg
 
 | Aspekt | Bewertung |
 |---|---|
-| Datei | `docker-compose.base.yml` |
+| Datei | `docker/old_way/docker-compose.base.yml` |
 | Problem | `OLLAMA_NUM_PARALLEL` fehlt im `ollama`-Service |
 | Wirkung | Ollama kann Requests intern serialisieren bzw. nicht im gewünschten Umfang parallel abarbeiten |
 | Risiko beim Fix | höherer VRAM-/RAM-/KV-Cache-Verbrauch |

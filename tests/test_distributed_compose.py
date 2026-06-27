@@ -4,8 +4,8 @@ import yaml
 
 
 def test_distributed_compose_has_extra_workers():
-    path = Path("docker-compose.distributed.yml")
-    assert path.exists(), "docker-compose.distributed.yml fehlt"
+    path = Path("docker/compose-next/compose.stack.distributed.yml")
+    assert path.exists(), "compose.stack.distributed.yml fehlt"
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
     services = data.get("services", {})
     assert "ai-agent-gamma" in services
@@ -13,7 +13,7 @@ def test_distributed_compose_has_extra_workers():
 
 
 def test_main_compose_defines_optional_evolver_service():
-    data = yaml.safe_load(Path("docker-compose.yml").read_text(encoding="utf-8"))
+    data = yaml.safe_load(Path("docker/old_way/docker-compose.yml").read_text(encoding="utf-8"))
     services = data.get("services", {})
     hub_env = services["ai-agent-hub"]["environment"]
     assert services["evolver"]["profiles"] == ["evolution"]

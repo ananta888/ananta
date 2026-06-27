@@ -150,23 +150,27 @@ ananta init --yes --runtime-mode sandbox --llm-backend ollama --deployment-targe
 ananta init --yes --runtime-mode sandbox --llm-backend ollama --deployment-target podman
 ```
 
-## Optional: Single-Image Fullstack ohne Ollama
+## Optional: Compose-next Fullstack
 
-Wenn du direkt den Docker-Fullstack aus **einem Image-Artefakt** starten willst (Hub, Worker, Angular, Evolver, DeerFlow, ml-intern):
+Wenn du direkt den Docker-Fullstack mit Hub, zwei Workern, Angular,
+PostgreSQL und Redis starten willst:
 
 ```bash
-docker build -f Dockerfile.quickstart-no-ollama -t ananta-quickstart-no-ollama:local .
-docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.single-image-fullstack.yml up -d --build
+docker build -f docker/compose-next/Dockerfile.quickstart-no-ollama -t ananta-quickstart-no-ollama:local .
+POSTGRES_PASSWORD=... \
+docker compose --env-file .env -f docker/compose-next/compose.stack.full.yml up -d --build
 ```
 
 Provider-Konfiguration:
 
 ```bash
 # OpenAI
-DEFAULT_PROVIDER=openai OPENAI_API_KEY=<SECRET> OPENAI_URL=https://api.openai.com/v1/chat/completions docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.single-image-fullstack.yml up -d --build
+POSTGRES_PASSWORD=... DEFAULT_PROVIDER=openai OPENAI_API_KEY=<SECRET> \
+docker compose --env-file .env -f docker/compose-next/compose.stack.full.yml up -d --build
 
 # LM Studio
-DEFAULT_PROVIDER=lmstudio LMSTUDIO_URL=http://host.docker.internal:1234/v1 docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.single-image-fullstack.yml up -d --build
+POSTGRES_PASSWORD=... DEFAULT_PROVIDER=lmstudio LMSTUDIO_URL=http://host.docker.internal:1234/v1 \
+docker compose --env-file .env -f docker/compose-next/compose.stack.full.yml up -d --build
 ```
 
 Hinweis: Im no-ollama Pfad bleibt Ollama deaktiviert. Bei `DEFAULT_PROVIDER=openai` muss `OPENAI_API_KEY` gesetzt sein.
@@ -181,21 +185,24 @@ Beispiel mit Ollama und expliziter Worker-Parallelität:
 DEFAULT_PROVIDER=ollama \
 OLLAMA_URL=http://ollama:11434/api/generate \
 ANANTA_WORKER_MAX_PARALLEL_TASKS=4 \
-docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.single-image-fullstack.yml --profile ollama up -d --build
+POSTGRES_PASSWORD=... \
+docker compose --env-file .env -f docker/compose-next/compose.stack.distributed.yml --profile ollama up -d --build
 ```
 
 Optionale IDs überschreiben:
 
 ```bash
-ANANTA_WORKER_ALPHA_ID=ananta-worker-1 ANANTA_WORKER_BETA_ID=ananta-worker-2 docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.single-image-fullstack.yml up -d
+ANANTA_WORKER_ALPHA_ID=ananta-worker-1 ANANTA_WORKER_BETA_ID=ananta-worker-2 \
+docker compose --env-file .env -f docker/compose-next/compose.stack.quickstart.yml up -d
 ```
 
-## Optional: Voice Runtime Overlay (Hub + voice-runtime)
+## Legacy: Voice Runtime Overlay (Hub + voice-runtime)
 
-Fuer Sprachpfade (Transcribe/Command/Goal) kann ein dedizierter Voice-Runtime-Service additiv gestartet werden:
+Der noch nicht nach Compose-next migrierte Sprachpfad bleibt explizit unter
+`docker/old_way/` verfügbar:
 
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.voice-runtime.yml up -d --build
+docker compose -f docker/old_way/docker-compose.base.yml -f docker/old_way/docker-compose.yml -f docker/old_way/docker-compose.voice-runtime.yml up -d --build
 ```
 
 Wichtige Variablen (`.env`):

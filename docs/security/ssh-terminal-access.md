@@ -49,9 +49,9 @@ Use the dedicated overlay:
 
 ```bash
 docker compose \
-  -f docker-compose.base.yml \
-  -f docker-compose.yml \
-  -f docker-compose.oidc-keycloak.yml \
+  -f docker/old_way/docker-compose.base.yml \
+  -f docker/old_way/docker-compose.yml \
+  -f docker/old_way/docker-compose.oidc-keycloak.yml \
   --profile oidc up -d
 ```
 

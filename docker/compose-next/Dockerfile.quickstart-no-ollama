@@ -1,15 +1,9 @@
 FROM node:20.19.5-slim@sha256:9e70124bd00f47dd023e349cd587132ae61892acc0e47ed641416c3e18f401c3 AS node_runtime
 FROM python:3.11.15-slim-bookworm@sha256:9c6f90801e6b68e772b7c0ca74260cbf7af9f320acec894e26fccdaccfbe3b47
 
-# Quickstart (ein auslieferbares Image ohne Ollama):
-# 1) Hub + Worker + Frontend aus genau diesem einen Image starten:
-#    docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml up -d --build
-# 2) Provider auf LM Studio:
-#    DEFAULT_PROVIDER=lmstudio LMSTUDIO_URL=http://host.docker.internal:1234/v1 docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml up -d --build
-# 3) Provider auf OpenAI:
-#    DEFAULT_PROVIDER=openai OPENAI_API_KEY=<SECRET> docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml up -d --build
-# 4) Fullstack aus demselben Image (inkl. Evolver/DeerFlow/ml-intern Rollen):
-#    docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.single-image-fullstack.yml up -d --build
+# Aktives Compose-next-Runtime-Image. Build-Kontext ist das Repository-Root:
+# docker build -f docker/compose-next/Dockerfile.quickstart-no-ollama \
+#   -t ananta-quickstart-no-ollama:local .
 
 ARG DEBIAN_SNAPSHOT=20260406T000000Z
 

@@ -8,14 +8,17 @@ Release tags can trigger container image builds through `.github/workflows/conta
 
 The workflow:
 
-- builds the backend image from `Dockerfile`
+- builds the backend-capable image from
+  `docker/compose-next/Dockerfile.quickstart-no-ollama`
 - builds the frontend image from `frontend-angular/Dockerfile`
-- builds the single-image quickstart artifact from `Dockerfile.quickstart-no-ollama`
+- builds the single-image quickstart artifact from `docker/compose-next/Dockerfile.quickstart-no-ollama`
 - tags all images with the release tag
 - writes image metadata to `container-release-metadata/`
 - uploads the metadata as `ananta-container-release-metadata`
 
-The workflow does not push images by default. This avoids publishing unsigned or unapproved images before the release environment and package ownership model are active.
+The workflow pushes the explicitly tagged single-image quickstart artifact to
+GHCR. Backend and frontend images remain build evidence until their separate
+publishing policy is enabled.
 
 ## Future Publishing Gate
 

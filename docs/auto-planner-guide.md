@@ -93,7 +93,7 @@ Der Auto-Planner erkennt automatisch Goal-Typen und nutzt passende Templates:
 ## First-Goal E2E mit lokalem LMStudio
 
 Voraussetzungen:
-- Compose Lite Umgebung laeuft (`docker-compose-lite.yml`).
+- Compose Lite Umgebung laeuft (`docker/old_way/docker-compose-lite.yml`).
 - LMStudio ist erreichbar, z. B. `http://192.168.96.1:1234/v1`.
 
 Beispiel Goal:

@@ -5,7 +5,7 @@ Dieser Quickstart zeigt den minimalen Weg fuer Sprachpfade ueber den Hub.
 ## 1) Voice Overlay starten
 
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.voice-runtime.yml up -d --build
+docker compose -f docker/old_way/docker-compose.base.yml -f docker/old_way/docker-compose.yml -f docker/old_way/docker-compose.voice-runtime.yml up -d --build
 ```
 
 ## 2) Defaults in `.env` setzen

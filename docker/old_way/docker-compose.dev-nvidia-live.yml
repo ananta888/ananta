@@ -3,23 +3,23 @@
 #
 # Usage (full stack):
 #   docker compose \
-#     -f docker-compose.base.yml \
-#     -f docker-compose.yml \
-#     -f docker-compose.dev-nvidia-live.yml \
+#     -f docker/old_way/docker-compose.base.yml \
+#     -f docker/old_way/docker-compose.yml \
+#     -f docker/old_way/docker-compose.dev-nvidia-live.yml \
 #     up --build
 #
 # Usage (lighter dev stack):
 #   docker compose \
-#     -f docker-compose.base.yml \
-#     -f docker-compose-lite.yml \
-#     -f docker-compose.dev-nvidia-live.yml \
+#     -f docker/old_way/docker-compose.base.yml \
+#     -f docker/old_way/docker-compose-lite.yml \
+#     -f docker/old_way/docker-compose.dev-nvidia-live.yml \
 #     up --build
 
 services:
   ollama:
     build:
       context: ../..
-      dockerfile: Dockerfile.ollama-wsl-amd
+      dockerfile: docker/old_way/Dockerfile.ollama-wsl-amd
     image: ollama-wsl-amd:0.20.7-vulkan
     container_name: ollama
     runtime: nvidia
@@ -32,7 +32,7 @@ services:
       OLLAMA_VULKAN: "0"
       LD_LIBRARY_PATH: ${OLLAMA_WSL_LD_LIBRARY_PATH:-/usr/lib/wsl/lib:/usr/local/nvidia/lib:/usr/local/nvidia/lib64}
     volumes:
-      - ./.ollama:/root/.ollama
+      - ../../.ollama:/root/.ollama
       - /mnt/c/Users/Public/lm-models:/models:ro
       - /usr/lib/wsl:/usr/lib/wsl:ro
 
@@ -41,27 +41,27 @@ services:
       FLASK_DEBUG: 0
       OLLAMA_URL: http://ollama:11434/api/generate
     volumes:
-      - ./:/app
-      - ./data/hub:/app/data
+      - ../../:/app
+      - ../../data/hub:/app/data
 
   ai-agent-alpha:
     environment:
       FLASK_DEBUG: 0
       OLLAMA_URL: http://ollama:11434/api/generate
     volumes:
-      - ./:/app
-      - ./data/alpha:/app/data
+      - ../../:/app
+      - ../../data/alpha:/app/data
 
   ai-agent-beta:
     environment:
       FLASK_DEBUG: 0
       OLLAMA_URL: http://ollama:11434/api/generate
     volumes:
-      - ./:/app
-      - ./data/beta:/app/data
+      - ../../:/app
+      - ../../data/beta:/app/data
 
   angular-frontend:
     volumes:
-      - ./frontend-angular:/app
+      - ../../frontend-angular:/app
       - /app/node_modules
       - /ms-playwright

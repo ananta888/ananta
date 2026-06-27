@@ -28,7 +28,7 @@ Defaults must stay conservative:
 ## Repository files
 
 - `config/ananta_network_profiles.default.json`
-- `docker-compose.public-rendezvous.yml`
+- `docker/old_way/docker-compose.public-rendezvous.yml`
 - `public-rendezvous/caddy/Caddyfile`
 - `docs/ops/public-ananta-test-rendezvous.md`
 
@@ -119,7 +119,7 @@ Alle Endpunkte außer `/health` und `/info` erfordern einen gültigen Keycloak-B
 
 ## Environment file
 
-Create `.env` next to `docker-compose.public-rendezvous.yml`:
+Create `.env` next to `docker/old_way/docker-compose.public-rendezvous.yml`:
 
 ```env
 PUBLIC_KEYCLOAK_HOSTNAME=keycloak.ananta.de
@@ -159,18 +159,18 @@ For Oracle Cloud, `PUBLIC_TURN_EXTERNAL_IP` should usually be `<PUBLIC_IP>/<PRIV
 
 ```bash
 # Image bauen und Stack starten
-docker compose -f docker-compose.public-rendezvous.yml build
-docker compose -f docker-compose.public-rendezvous.yml up -d
-docker compose -f docker-compose.public-rendezvous.yml ps
+docker compose -f docker/old_way/docker-compose.public-rendezvous.yml build
+docker compose -f docker/old_way/docker-compose.public-rendezvous.yml up -d
+docker compose -f docker/old_way/docker-compose.public-rendezvous.yml ps
 ```
 
 Logs:
 
 ```bash
-docker compose -f docker-compose.public-rendezvous.yml logs -f caddy
-docker compose -f docker-compose.public-rendezvous.yml logs -f keycloak
-docker compose -f docker-compose.public-rendezvous.yml logs -f rendezvous
-docker compose -f docker-compose.public-rendezvous.yml logs -f coturn
+docker compose -f docker/old_way/docker-compose.public-rendezvous.yml logs -f caddy
+docker compose -f docker/old_way/docker-compose.public-rendezvous.yml logs -f keycloak
+docker compose -f docker/old_way/docker-compose.public-rendezvous.yml logs -f rendezvous
+docker compose -f docker/old_way/docker-compose.public-rendezvous.yml logs -f coturn
 ```
 
 ## Keycloak Realm Setup
@@ -189,7 +189,7 @@ Funktioniert automatisch beim ersten `docker compose up`. Keycloak importiert de
 
 ```bash
 # Keycloak-Log prüfen ob Import erfolgreich war:
-docker compose -f docker-compose.public-rendezvous.yml logs keycloak | grep -i "import\|ananta"
+docker compose -f docker/old_way/docker-compose.public-rendezvous.yml logs keycloak | grep -i "import\|ananta"
 ```
 
 Erwartete Ausgabe: `Realm 'ananta' imported`
@@ -199,7 +199,7 @@ Erwartete Ausgabe: `Realm 'ananta' imported`
 Falls der automatische Import fehlschlägt oder du Änderungen anwenden willst:
 
 ```bash
-docker compose -f docker-compose.public-rendezvous.yml exec \
+docker compose -f docker/old_way/docker-compose.public-rendezvous.yml exec \
   -e KC_BOOTSTRAP_ADMIN_USERNAME=admin \
   -e KC_BOOTSTRAP_ADMIN_PASSWORD=<dein-admin-passwort> \
   keycloak bash /opt/keycloak/data/import/setup.sh

@@ -24,11 +24,11 @@ def _compose_cmd(repo_root: Path) -> list[str]:
         "docker",
         "compose",
         "-f",
-        "docker-compose.base.yml",
+        "docker/old_way/docker-compose.base.yml",
         "-f",
-        "docker-compose.yml",
+        "docker/old_way/docker-compose.yml",
         "-f",
-        "docker-compose.voice-runtime.yml",
+        "docker/old_way/docker-compose.voice-runtime.yml",
     ]
 
 

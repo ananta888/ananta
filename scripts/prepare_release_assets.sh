@@ -7,7 +7,7 @@ if [[ -z "$OUT_DIR" || "$OUT_DIR" == "/" || "$OUT_DIR" == "." || "$OUT_DIR" == "
   exit 2
 fi
 rm -rf "$OUT_DIR"
-mkdir -p "$OUT_DIR/docs" "$OUT_DIR/compose" "$OUT_DIR/architecture"
+mkdir -p "$OUT_DIR/docs" "$OUT_DIR/docker/compose-next" "$OUT_DIR/architecture"
 
 copy_if_present() {
   local source="$1"
@@ -38,11 +38,11 @@ copy_if_present "docs/container-release-strategy.md" "$OUT_DIR/docs/container-re
 copy_if_present "docs/governance-security-model.md" "$OUT_DIR/docs/governance-security-model.md"
 copy_if_present "docs/security_baseline.md" "$OUT_DIR/docs/security_baseline.md"
 
-copy_if_present "docker-compose.base.yml" "$OUT_DIR/compose/docker-compose.base.yml"
-copy_if_present "docker-compose-lite.yml" "$OUT_DIR/compose/docker-compose-lite.yml"
-copy_if_present "docker-compose.yml" "$OUT_DIR/compose/docker-compose.yml"
-copy_if_present "docker-compose.distributed.yml" "$OUT_DIR/compose/docker-compose.distributed.yml"
-copy_if_present "docker-compose.ollama-wsl.yml" "$OUT_DIR/compose/docker-compose.ollama-wsl.yml"
+for compose_file in docker/compose-next/*; do
+  if [[ -f "$compose_file" && "$(basename "$compose_file")" != ".env" ]]; then
+    copy_if_present "$compose_file" "$OUT_DIR/$compose_file"
+  fi
+done
 
 if [[ -d "architektur/rendered" ]]; then
   find "architektur/rendered" -maxdepth 1 -type f -name "*.png" -exec cp {} "$OUT_DIR/architecture/" \;

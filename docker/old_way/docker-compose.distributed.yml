@@ -1,6 +1,8 @@
 services:
   ai-agent-gamma:
-    build: ../..
+    build:
+      context: ../..
+      dockerfile: docker/old_way/Dockerfile
     restart: unless-stopped
     working_dir: /app
     extra_hosts:
@@ -19,13 +21,15 @@ services:
       DEFAULT_MODEL: ${DEFAULT_MODEL:-auto}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
     volumes:
-      - ./data/gamma:/app/data
+      - ../../data/gamma:/app/data
     ports:
       - "${GAMMA_PORT:-5003}:5000"
     command: python -m agent.ai_agent
 
   ai-agent-delta:
-    build: ../..
+    build:
+      context: ../..
+      dockerfile: docker/old_way/Dockerfile
     restart: unless-stopped
     working_dir: /app
     extra_hosts:
@@ -44,7 +48,7 @@ services:
       DEFAULT_MODEL: ${DEFAULT_MODEL:-auto}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
     volumes:
-      - ./data/delta:/app/data
+      - ../../data/delta:/app/data
     ports:
       - "${DELTA_PORT:-5004}:5000"
     command: python -m agent.ai_agent

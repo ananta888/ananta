@@ -19,28 +19,31 @@ if [[ "$cmd" == "up-distributed" ]]; then
 fi
 
 compose_files=(
-  "docker-compose.base.yml"
-  "docker-compose-lite.yml"
+  "docker/old_way/docker-compose.base.yml"
+  "docker/old_way/docker-compose-lite.yml"
 )
 
 if [[ "$USE_DISTRIBUTED" == "1" ]]; then
-  compose_files+=("docker-compose.distributed.yml")
+  compose_files+=("docker/old_way/docker-compose.distributed.yml")
 fi
 
 if [[ "$USE_WSL_VULKAN" == "1" ]]; then
-  compose_files+=("docker-compose.ollama-wsl.yml")
+  compose_files+=("docker/old_way/docker-compose.ollama-wsl.yml")
 fi
 
 if [[ "$USE_LIVE_CODE_MOUNT" == "1" ]]; then
-  compose_files+=("docker-compose.live-code.yml")
+  compose_files+=("docker/old_way/docker-compose.live-code.yml")
 fi
 
-compose_files+=("docker-compose.test.yml")
+compose_files+=("docker/old_way/docker-compose.test.yml")
 
 ANANTA_COMPOSE_BUILD="${ANANTA_COMPOSE_BUILD:-0}"
 
 docker_cli=(docker --config "${DOCKER_CONFIG:-$HOME/.docker}")
 compose_cmd=("${docker_cli[@]}" compose)
+if [[ -f "$ROOT_DIR/.env" ]]; then
+  compose_cmd+=(--env-file "$ROOT_DIR/.env")
+fi
 for file in "${compose_files[@]}"; do
   compose_cmd+=(-f "$file")
 done
@@ -63,10 +66,10 @@ Usage:
   scripts/compose-test-stack.sh run-android-e2e [args...]
 
 Env:
-  ANANTA_USE_WSL_VULKAN=1   Default. Includes docker-compose.ollama-wsl.yml.
+  ANANTA_USE_WSL_VULKAN=1   Default. Includes docker/old_way/docker-compose.ollama-wsl.yml.
   ANANTA_USE_WSL_VULKAN=0   Disable WSL2/Vulkan overlay.
-  ANANTA_DISTRIBUTED=1      Adds docker-compose.distributed.yml for distributed-stack smokes.
-  ANANTA_LIVE_CODE_MOUNT=1  Adds docker-compose.live-code.yml (bind mounts + dev watch behavior).
+  ANANTA_DISTRIBUTED=1      Adds docker/old_way/docker-compose.distributed.yml for distributed-stack smokes.
+  ANANTA_LIVE_CODE_MOUNT=1  Adds docker/old_way/docker-compose.live-code.yml (bind mounts + dev watch behavior).
                             Python worker/hub and Angular frontend use local code directly.
 
 Safety:

@@ -41,7 +41,7 @@ Reranking (Originalquery behält Priorität)
 ## Konfiguration
 
 ```env
-# .env / docker-compose.yml
+# .env / docker/old_way/docker-compose.yml
 RAG_QUERY_NORMALIZE_MODE=keyword    # off | keyword | llm
 RAG_QUERY_NORMALIZE_LANG=de,en      # Sprachhints
 RAG_QUERY_TRANSLATION_DIRECTIONS=de_to_en,mixed_code_query

@@ -88,7 +88,7 @@ python -m camoufox server --port 9377
 ### Docker (optional)
 
 ```yaml
-# docker-compose.yml (Ergänzung)
+# docker/old_way/docker-compose.yml (Ergänzung)
 services:
   camofox:
     image: ghcr.io/daijro/camoufox:latest

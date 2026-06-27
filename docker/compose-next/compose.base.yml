@@ -2,7 +2,7 @@ services:
   ai-agent-hub-base:
     build:
       context: ../..
-      dockerfile: docker/old_way/Dockerfile.quickstart-no-ollama
+      dockerfile: docker/compose-next/Dockerfile.quickstart-no-ollama
     image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
     restart: unless-stopped
     working_dir: /app
@@ -47,7 +47,7 @@ services:
   ai-agent-worker-base:
     build:
       context: ../..
-      dockerfile: docker/old_way/Dockerfile.quickstart-no-ollama
+      dockerfile: docker/compose-next/Dockerfile.quickstart-no-ollama
     image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
     restart: unless-stopped
     working_dir: /app
@@ -79,7 +79,7 @@ services:
   angular-frontend-base:
     build:
       context: ../..
-      dockerfile: docker/old_way/Dockerfile.quickstart-no-ollama
+      dockerfile: docker/compose-next/Dockerfile.quickstart-no-ollama
     image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
     restart: unless-stopped
     working_dir: /app/frontend-angular

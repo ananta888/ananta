@@ -47,9 +47,9 @@ $pgPort = Resolve-Port -Preferred 5432 -Fallback 5433
 $redisPort = Resolve-Port -Preferred 6379 -Fallback 6380
 
 $envLine = "POSTGRES_PORT=$pgPort REDIS_PORT=$redisPort"
-$compose = "docker compose -f docker-compose.base.yml -f docker-compose-lite.yml"
+$compose = "docker compose -f docker/old_way/docker-compose.base.yml -f docker/old_way/docker-compose-lite.yml"
 if ($UseOllamaWsl) {
-  $compose += " -f docker-compose.ollama-wsl.yml"
+  $compose += " -f docker/old_way/docker-compose.ollama-wsl.yml"
 }
 
 switch ($Action) {
@@ -72,7 +72,7 @@ switch ($Action) {
 Write-Host "Using WSL path: $wslRoot"
 Write-Host "Using POSTGRES_PORT=$pgPort REDIS_PORT=$redisPort"
 if ($UseOllamaWsl) {
-  Write-Host "Using docker-compose.ollama-wsl.yml overlay"
+  Write-Host "Using docker/old_way/docker-compose.ollama-wsl.yml overlay"
 }
 Write-Host "Action: $Action"
 wsl -e sh -lc $cmd

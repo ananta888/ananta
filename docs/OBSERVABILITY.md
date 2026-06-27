@@ -70,7 +70,7 @@ Für den produktiven Einsatz sollten folgende Schritte durchgeführt werden:
 1.  **Passwort ändern**: Setzen Sie ein starkes `GRAFANA_PASSWORD` in Ihrer `.env`.
 2.  **Netzwerk einschränken**: Standardmäßig sind die Ports 3000 (Grafana), 9090 (Prometheus) und 3100 (Loki) offen. In einer produktiven Umgebung sollten diese Ports hinter einem Reverse Proxy (z.B. Nginx mit Auth) liegen oder nur an `127.0.0.1` gebunden werden.
 3.  **Persistence**: Die Daten für Prometheus und Grafana werden in Docker Volumes gespeichert (`prometheus_data`). Stellen Sie sicher, dass diese Volumes regelmäßig gesichert werden.
-4.  **Ressourcen-Limits**: In der `docker-compose.yml` sind bereits grundlegende Limits konfiguriert, um zu verhindern, dass das Monitoring den Host überlastet.
+4.  **Ressourcen-Limits**: In der `docker/old_way/docker-compose.yml` sind bereits grundlegende Limits konfiguriert, um zu verhindern, dass das Monitoring den Host überlastet.
 # Knowledge Indexing
 
 Zusatzmetriken fuer `rag-helper`-gestuetzte Artefakt- und Collection-Indizes:

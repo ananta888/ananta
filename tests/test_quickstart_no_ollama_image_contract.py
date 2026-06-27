@@ -5,7 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_quickstart_dockerfile_uses_role_entrypoint_and_exposes_fullstack_ports() -> None:
-    dockerfile = (ROOT / "Dockerfile.quickstart-no-ollama").read_text(encoding="utf-8")
+    dockerfile = (ROOT / "docker" / "compose-next" / "Dockerfile.quickstart-no-ollama").read_text(encoding="utf-8")
 
     assert 'ENTRYPOINT ["/app/scripts/quickstart-single-image-entrypoint.sh"]' in dockerfile
     assert "EXPOSE 5000 5001 4200 8080" in dockerfile
@@ -31,7 +31,6 @@ def test_quickstart_entrypoint_supports_single_image_roles_and_openai_guard() ->
 def test_readme_documents_single_image_fullstack_path() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
 
-    assert "docker-compose.single-image-fullstack.yml" in readme
-    assert "Evolver" in readme
-    assert "DeerFlow" in readme
-    assert "ml-intern" in readme
+    assert "docker/compose-next/compose.stack.full.yml" in readme
+    assert "docker/compose-next/compose.stack.quickstart.yml" in readme
+    assert "docker/old_way/" in readme

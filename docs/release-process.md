@@ -37,14 +37,14 @@ make check-deep
 
 ## Docker Images
 
-Release builds use digest-pinned base images from `Dockerfile`, `frontend-angular/Dockerfile` and `Dockerfile.quickstart-no-ollama`.
+Release builds use digest-pinned base images from `frontend-angular/Dockerfile`
+and `docker/compose-next/Dockerfile.quickstart-no-ollama`.
 
 Build the release candidate images with explicit candidate tags:
 
 ```bash
-docker build -t ananta-backend:v1.0.0-rc .
 docker build -t ananta-frontend:v1.0.0-rc frontend-angular
-docker build -f Dockerfile.quickstart-no-ollama -t ananta-quickstart-no-ollama:v1.0.0-rc .
+docker build -f docker/compose-next/Dockerfile.quickstart-no-ollama -t ananta-quickstart-no-ollama:v1.0.0-rc .
 ```
 
 The release gate already executes equivalent backend and frontend image builds with `:release-gate` tags. The container-release workflow additionally records metadata for the single-image quickstart artifact.
@@ -53,12 +53,12 @@ The release gate already executes equivalent backend and frontend image builds w
 
 Use the release gate as the smoke test for the build path. It verifies that the backend and frontend images build from the pinned inputs and that the frontend production build completes with Node `20.19.5`.
 
-For runtime smoke testing, start the pinned lite stack:
+For runtime smoke testing, start the active Compose-next quickstart:
 
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml ps
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml down -v --remove-orphans
+docker compose --env-file .env -f docker/compose-next/compose.stack.quickstart.yml up -d --build
+docker compose --env-file .env -f docker/compose-next/compose.stack.quickstart.yml ps
+docker compose --env-file .env -f docker/compose-next/compose.stack.quickstart.yml down -v --remove-orphans
 ```
 
 For voice-enabled releases, run the optional voice smoke path as additional evidence:

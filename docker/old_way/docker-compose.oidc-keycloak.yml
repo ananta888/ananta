@@ -1,6 +1,6 @@
 # Optional compose overlay: local Keycloak OIDC provider for Ananta terminal auth.
 # Usage:
-#   docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.oidc-keycloak.yml --profile oidc up -d
+#   docker compose -f docker/old_way/docker-compose.base.yml -f docker/old_way/docker-compose.yml -f docker/old_way/docker-compose.oidc-keycloak.yml --profile oidc up -d
 #
 # This overlay keeps the existing Ananta OIDC implementation (`/auth/oidc/*`) and
 # provides a current Keycloak runtime as OIDC issuer.
@@ -38,7 +38,7 @@ services:
     ports:
       - "${KEYCLOAK_PORT:-8081}:8080"
     volumes:
-      - ./deploy/keycloak/realm-export:/opt/keycloak/data/import:ro
+      - ../../deploy/keycloak/realm-export:/opt/keycloak/data/import:ro
 
   ai-agent-hub:
     environment:

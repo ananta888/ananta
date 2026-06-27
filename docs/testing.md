@@ -116,11 +116,11 @@ ANANTA_LIVE_CODE_MOUNT=1 scripts/compose-test-stack.sh up-live
 ## Compose-Standard mit Ollama
 
 Die standardisierte Testwelt ist jetzt die Compose-Umgebung mit Hub, Workern, Frontend und `ollama` als lokalem LLM-Service.
-- Fuer E2E-/Live-Klicktests werden die Backend-Services dabei explizit aus `Dockerfile.quickstart-no-ollama` gebaut (einheitliches auslieferbares Image als Testbasis).
+- Fuer E2E-/Live-Klicktests werden die Backend-Services dabei explizit aus `docker/compose-next/Dockerfile.quickstart-no-ollama` gebaut (einheitliches auslieferbares Image als Testbasis).
 
 Hinweis fuer GitHub Actions:
 - Der normale GitHub-CI-Pfad nutzt kein echtes LLM.
-- Compose-E2E in GitHub Actions verwendet `docker-compose.github-ci.yml`, setzt den Provider auf `mock` und startet keine Ollama-Abhaengigkeit.
+- Compose-E2E in GitHub Actions verwendet `docker/old_way/docker-compose.github-ci.yml`, setzt den Provider auf `mock` und startet keine Ollama-Abhaengigkeit.
 - Echte hosted Live-LLM-Validierung laeuft getrennt ueber `.github/workflows/live-llm-smoke.yml` mit `LIVE_LLM_PROVIDER=openai`.
 - Dieser hosted Smoke fuehrt nur `tests/test_openai_live_smoke.py` aus und ist auf eine kleine Antwort (`LIVE_LLM_MAX_OUTPUT_TOKENS=16`) sowie einen einzelnen Retry-Versuch begrenzt.
 - Der hosted Smoke laeuft auf `main`, nachts, manuell oder bei internen PRs mit Label `live-llm` oder `full-ci`; Fork-PRs erhalten keine Secret-basierte Live-Ausfuehrung.
@@ -143,18 +143,18 @@ scripts/compose-test-stack.sh up
 
 One-Click Compose (Vulkan + alle Compose-Tests ohne Vorab-Deep-Checks):
 ```bash
-docker compose -f docker-compose.final-tests.yml up --build
+docker compose -f docker/old_way/docker-compose.final-tests.yml up --build
 ```
 - Laeuft die Kette automatisch in dieser Reihenfolge: `backend-test` -> `backend-live-llm-test` -> `frontend-test` -> `frontend-live-llm-test`.
-- Fuer IntelliJ: `docker-compose.final-tests.yml` als einzige Compose-Datei in der Run Configuration auswaehlen und `Up` starten.
+- Fuer IntelliJ: `docker/old_way/docker-compose.final-tests.yml` als einzige Compose-Datei in der Run Configuration auswaehlen und `Up` starten.
 
 One-Click Compose (OpenAI + alle Compose-Tests ohne Vorab-Deep-Checks):
 ```bash
-docker compose -f docker-compose.final-tests-openai.yml up --build
+docker compose -f docker/old_way/docker-compose.final-tests-openai.yml up --build
 ```
 - `.env` muss `OPENAI_API_KEY` enthalten.
 - Optional: `OPENAI_URL` (Default: `https://api.openai.com/v1/chat/completions`) und `TEST_OPENAI_MODEL` (Default: `gpt-4o-mini`).
-- Fuer IntelliJ: `docker-compose.final-tests-openai.yml` als einzige Compose-Datei in der Run Configuration auswaehlen und `Up` starten.
+- Fuer IntelliJ: `docker/old_way/docker-compose.final-tests-openai.yml` als einzige Compose-Datei in der Run Configuration auswaehlen und `Up` starten.
 
 Ein-Kommando-Volltest (inkl. WSL2/Vulkan-Ollama, Dogfood, Live-Click und Deep-Checks):
 ```bash
@@ -173,11 +173,11 @@ ANANTA_USE_WSL_VULKAN=0 scripts/compose-test-stack.sh up
 ```
 
 Wichtig fuer lokale Browser-Nutzung:
-- Der Test-Overlay `docker-compose.test.yml` setzt fuer Services wie `angular-frontend` explizit `ports: !reset []`.
+- Der Test-Overlay `docker/old_way/docker-compose.test.yml` setzt fuer Services wie `angular-frontend` explizit `ports: !reset []`.
 - Damit sind Frontend/Hub/Worker im Test-Stack fuer den Host absichtlich nicht direkt ueber `localhost:*` veroeffentlicht.
 - Fuer Browser-Zugriff wieder ohne Test-Overlay starten:
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build
+docker compose -f docker/old_way/docker-compose.base.yml -f docker/old_way/docker-compose-lite.yml up -d --build
 ```
 
 Backend:
@@ -321,7 +321,7 @@ Fuer lokalen Live-Code-Modus mit Bind-Mounts/Hot-Reload:
 scripts/compose-test-stack.sh up-live
 scripts/start-firefox-vnc.sh start
 ```
-- `up-live` bindet `docker-compose.live-code.yml` ein.
+- `up-live` bindet `docker/old_way/docker-compose.live-code.yml` ein.
 - Python-Hub und Worker nutzen den lokalen Repo-Code direkt.
 - Angular nutzt den lokalen `frontend-angular`-Ordner direkt und reagiert ueber den Dev-Server auf Aenderungen.
 - noVNC: `http://localhost:7900`
@@ -417,7 +417,7 @@ Playwright-Timeouts sind jetzt env-gesteuert:
 
 Beispiel fuer langsamere Umgebungen:
 ```bash
-E2E_EXPECT_TIMEOUT_MS=20000 E2E_NAV_TIMEOUT_MS=45000 docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm frontend-test
+E2E_EXPECT_TIMEOUT_MS=20000 E2E_NAV_TIMEOUT_MS=45000 docker compose -f docker/old_way/docker-compose.base.yml -f docker/old_way/docker-compose-lite.yml -f docker/old_way/docker-compose.test.yml run --rm frontend-test
 ```
 
 ### Liste der Flaky Tests

@@ -1,13 +1,13 @@
 # Test-Override fuer die Compose-Welt.
 # Nutzung:
 # Standard unter WSL2/Vulkan:
-# docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml -f docker-compose.test.yml up -d --build
-# docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml -f docker-compose.test.yml run --rm backend-test
-# docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml -f docker-compose.test.yml run --rm backend-live-llm-test
-# docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml -f docker-compose.test.yml run --rm frontend-test
-# docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml -f docker-compose.test.yml run --rm frontend-live-llm-test
+# docker compose -f docker/old_way/docker-compose.base.yml -f docker/old_way/docker-compose-lite.yml -f docker/old_way/docker-compose.ollama-wsl.yml -f docker/old_way/docker-compose.test.yml up -d --build
+# docker compose -f docker/old_way/docker-compose.base.yml -f docker/old_way/docker-compose-lite.yml -f docker/old_way/docker-compose.ollama-wsl.yml -f docker/old_way/docker-compose.test.yml run --rm backend-test
+# docker compose -f docker/old_way/docker-compose.base.yml -f docker/old_way/docker-compose-lite.yml -f docker/old_way/docker-compose.ollama-wsl.yml -f docker/old_way/docker-compose.test.yml run --rm backend-live-llm-test
+# docker compose -f docker/old_way/docker-compose.base.yml -f docker/old_way/docker-compose-lite.yml -f docker/old_way/docker-compose.ollama-wsl.yml -f docker/old_way/docker-compose.test.yml run --rm frontend-test
+# docker compose -f docker/old_way/docker-compose.base.yml -f docker/old_way/docker-compose-lite.yml -f docker/old_way/docker-compose.ollama-wsl.yml -f docker/old_way/docker-compose.test.yml run --rm frontend-live-llm-test
 # Alternative ohne WSL2/Vulkan-Overlay:
-# docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml up -d --build
+# docker compose -f docker/old_way/docker-compose.base.yml -f docker/old_way/docker-compose-lite.yml -f docker/old_way/docker-compose.test.yml up -d --build
 
 services:
   postgres:
@@ -27,11 +27,11 @@ services:
     image: ananta-backend-compose-test:local
     build:
       context: ../..
-      dockerfile: Dockerfile.quickstart-no-ollama
+      dockerfile: docker/old_way/Dockerfile.quickstart-no-ollama
     ports: !reset []
     volumes:
-      - ./:/app
-      - ./data/hub:/app/data
+      - ../../:/app
+      - ../../data/hub:/app/data
     environment:
       ANANTA_QUICKSTART_MODE: "agent-only"
       DEFAULT_PROVIDER: "ollama"
@@ -57,11 +57,11 @@ services:
     image: ananta-backend-compose-test:local
     build:
       context: ../..
-      dockerfile: Dockerfile.quickstart-no-ollama
+      dockerfile: docker/old_way/Dockerfile.quickstart-no-ollama
     ports: !reset []
     volumes:
-      - ./:/app
-      - ./data/alpha:/app/data
+      - ../../:/app
+      - ../../data/alpha:/app/data
     environment:
       ANANTA_QUICKSTART_MODE: "agent-only"
       DEFAULT_PROVIDER: "ollama"
@@ -81,11 +81,11 @@ services:
     image: ananta-backend-compose-test:local
     build:
       context: ../..
-      dockerfile: Dockerfile.quickstart-no-ollama
+      dockerfile: docker/old_way/Dockerfile.quickstart-no-ollama
     ports: !reset []
     volumes:
-      - ./:/app
-      - ./data/beta:/app/data
+      - ../../:/app
+      - ../../data/beta:/app/data
     environment:
       ANANTA_QUICKSTART_MODE: "agent-only"
       DEFAULT_PROVIDER: "ollama"
@@ -105,14 +105,14 @@ services:
     image: ananta-backend-compose-test-gate:local
     build:
       context: ../..
-      dockerfile: Dockerfile.compose-test
+      dockerfile: docker/old_way/Dockerfile.compose-test
     environment:
       PYTHONPATH: "/app"
       OLLAMA_URL: "http://ollama:11434/api/generate"
       OLLAMA_MODEL: "${TEST_OLLAMA_MODEL:-ananta-smoke}"
       LIVE_LLM_PROVIDER: "ollama"
     volumes:
-      - .:/app
+      - ../../:/app
     working_dir: /app
     depends_on:
       postgres:
@@ -129,7 +129,7 @@ services:
     image: ananta-backend-compose-test-gate:local
     build:
       context: ../..
-      dockerfile: Dockerfile.compose-test
+      dockerfile: docker/old_way/Dockerfile.compose-test
     environment:
       PYTHONPATH: "/app"
       RUN_LIVE_LLM_TESTS: "1"
@@ -142,7 +142,7 @@ services:
       E2E_OLLAMA_URL: "http://ollama:11434/api/generate"
       OLLAMA_MODEL: "${TEST_OLLAMA_MODEL:-ananta-smoke}"
     volumes:
-      - .:/app
+      - ../../:/app
     working_dir: /app
     depends_on:
       ollama:
@@ -174,7 +174,7 @@ services:
       E2E_LIVE_LLM_TIMEOUT_MS: "${E2E_LIVE_LLM_TIMEOUT_MS:-180000}"
       E2E_LLM_API_TIMEOUT_MS: "${E2E_LLM_API_TIMEOUT_MS:-300000}"
     volumes:
-      - ./frontend-angular:/app
+      - ../../frontend-angular:/app
       - /app/node_modules
     working_dir: /app
     depends_on:
@@ -226,7 +226,7 @@ services:
       autoimport:
         condition: service_started
     volumes:
-      - ./frontend-angular:/app
+      - ../../frontend-angular:/app
       - /app/node_modules
     working_dir: /app
     command: npm run test:e2e:live:compose
@@ -234,7 +234,7 @@ services:
   angular-frontend:
     image: ananta-frontend-compose-test:local
     volumes:
-      - ./frontend-angular:/app
+      - ../../frontend-angular:/app
       - /app/node_modules
       - /ms-playwright
     ports:
@@ -244,7 +244,7 @@ services:
     profiles: ["android-runner"]
     build:
       context: ../../frontend-angular
-      dockerfile: ../../frontend-angular/docker/Dockerfile.android-e2e
+      dockerfile: docker/Dockerfile.android-e2e
     privileged: true
     devices:
       - /dev/kvm:/dev/kvm
@@ -282,7 +282,7 @@ services:
       autoimport:
         condition: service_started
     volumes:
-      - ./:/workspace
+      - ../../:/workspace
       - android_avd_cache:/root/.android/avd
     command: bash -lc "npm install && npm run test:e2e:android:terminal"
 

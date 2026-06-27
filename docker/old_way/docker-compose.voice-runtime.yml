@@ -2,7 +2,7 @@ services:
   voice-runtime:
     build:
       context: ../..
-      dockerfile: Dockerfile.voice-runtime
+      dockerfile: docker/old_way/Dockerfile.voice-runtime
     restart: unless-stopped
     environment:
       VOICE_RUNTIME_HOST: 0.0.0.0

@@ -5,9 +5,9 @@ OUT_DIR="ci-artifacts/e2e-compose"
 mkdir -p "${OUT_DIR}"
 
 COMPOSE_FILES=(
-  -f docker-compose.base.yml
-  -f docker-compose-lite.yml
-  -f docker-compose.github-ci.yml
+  -f docker/old_way/docker-compose.base.yml
+  -f docker/old_way/docker-compose-lite.yml
+  -f docker/old_way/docker-compose.github-ci.yml
 )
 
 run_and_capture() {

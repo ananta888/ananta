@@ -22,7 +22,7 @@ Beispiel:
 DEFAULT_PROVIDER=ollama \
 OLLAMA_URL=http://ollama:11434/api/generate \
 ANANTA_WORKER_MAX_PARALLEL_TASKS=4 \
-docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.single-image-fullstack.yml --profile ollama up -d --build
+docker compose -f docker/old_way/docker-compose.base.yml -f docker/old_way/docker-compose.quickstart-no-ollama.yml -f docker/old_way/docker-compose.single-image-fullstack.yml --profile ollama up -d --build
 ```
 
 ## Low-VRAM Profil

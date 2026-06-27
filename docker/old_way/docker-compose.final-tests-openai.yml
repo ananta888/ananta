@@ -8,12 +8,12 @@
 #   TEST_OPENAI_MODEL=gpt-4o-mini
 #
 # IntelliJ (Docker Compose Run Configuration):
-# - Compose file: docker-compose.final-tests-openai.yml
+# - Compose file: docker/old_way/docker-compose.final-tests-openai.yml
 # - Command: Up
 # - Optional service filter: all-tests
 #
 # CLI-Äquivalent:
-#   docker compose -f docker-compose.final-tests-openai.yml up --build
+#   docker compose -f docker/old_way/docker-compose.final-tests-openai.yml up --build
 
 services:
   postgres:
@@ -34,7 +34,7 @@ services:
       service: angular-frontend
     image: ananta-frontend-compose-test:local
     volumes:
-      - ./frontend-angular:/app
+      - ../../frontend-angular:/app
       - /app/node_modules
       - /ms-playwright
     ports: []
@@ -46,11 +46,11 @@ services:
     image: ananta-backend-compose-test:local
     build:
       context: ../..
-      dockerfile: Dockerfile.quickstart-no-ollama
+      dockerfile: docker/old_way/Dockerfile.quickstart-no-ollama
     ports: []
     volumes:
-      - ./:/app
-      - ./data/hub:/app/data
+      - ../../:/app
+      - ../../data/hub:/app/data
     environment:
       ANANTA_QUICKSTART_MODE: "agent-only"
       DEFAULT_PROVIDER: "openai"
@@ -73,11 +73,11 @@ services:
     image: ananta-backend-compose-test:local
     build:
       context: ../..
-      dockerfile: Dockerfile.quickstart-no-ollama
+      dockerfile: docker/old_way/Dockerfile.quickstart-no-ollama
     ports: []
     volumes:
-      - ./:/app
-      - ./data/alpha:/app/data
+      - ../../:/app
+      - ../../data/alpha:/app/data
     environment:
       ANANTA_QUICKSTART_MODE: "agent-only"
       DEFAULT_PROVIDER: "openai"
@@ -97,11 +97,11 @@ services:
     image: ananta-backend-compose-test:local
     build:
       context: ../..
-      dockerfile: Dockerfile.quickstart-no-ollama
+      dockerfile: docker/old_way/Dockerfile.quickstart-no-ollama
     ports: []
     volumes:
-      - ./:/app
-      - ./data/beta:/app/data
+      - ../../:/app
+      - ../../data/beta:/app/data
     environment:
       ANANTA_QUICKSTART_MODE: "agent-only"
       DEFAULT_PROVIDER: "openai"
@@ -118,7 +118,7 @@ services:
     image: ananta-backend-compose-test-gate:local
     build:
       context: ../..
-      dockerfile: Dockerfile.compose-test
+      dockerfile: docker/old_way/Dockerfile.compose-test
     environment:
       ANANTA_QUICKSTART_MODE: "agent-only"
       PYTHONPATH: "/app"
@@ -129,7 +129,7 @@ services:
       OPENAI_URL: "${OPENAI_URL:-https://api.openai.com/v1/chat/completions}"
       OPENAI_API_KEY: "${OPENAI_API_KEY:?Error: OPENAI_API_KEY must be set in .env}"
     volumes:
-      - .:/app
+      - ../../:/app
     working_dir: /app
     depends_on:
       postgres:
@@ -142,7 +142,7 @@ services:
     image: ananta-backend-compose-test-gate:local
     build:
       context: ../..
-      dockerfile: Dockerfile.compose-test
+      dockerfile: docker/old_way/Dockerfile.compose-test
     environment:
       ANANTA_QUICKSTART_MODE: "agent-only"
       PYTHONPATH: "/app"
@@ -157,7 +157,7 @@ services:
       OPENAI_URL: "${OPENAI_URL:-https://api.openai.com/v1/chat/completions}"
       OPENAI_API_KEY: "${OPENAI_API_KEY:?Error: OPENAI_API_KEY must be set in .env}"
     volumes:
-      - .:/app
+      - ../../:/app
     working_dir: /app
     depends_on:
       backend-test:
@@ -183,7 +183,7 @@ services:
       E2E_DETERMINISTIC_SCRUM_SEED: "1"
       E2E_SCRUM_SEED_TEAM_NAME: "E2E Seed Scrum Team"
     volumes:
-      - ./frontend-angular:/app
+      - ../../frontend-angular:/app
       - /app/node_modules
     working_dir: /app
     depends_on:
@@ -237,7 +237,7 @@ services:
       ai-agent-beta:
         condition: service_healthy
     volumes:
-      - ./frontend-angular:/app
+      - ../../frontend-angular:/app
       - /app/node_modules
     working_dir: /app
     command: npm run test:e2e:live:compose

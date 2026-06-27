@@ -18,11 +18,11 @@ REQUIRED_FILES = [
     "README.md",
     "LICENSE",
     "AGENTS.md",
-    "docker/old_way/Dockerfile",
+    "docker/compose-next/Dockerfile.quickstart-no-ollama",
     "frontend-angular/Dockerfile",
-    "docker-compose.base.yml",
-    "docker-compose.yml",
-    "docker-compose-lite.yml",
+    "docker/compose-next/compose.base.yml",
+    "docker/compose-next/compose.stack.quickstart.yml",
+    "docker/compose-next/compose.stack.full.yml",
     "requirements.txt",
     "requirements-dev.txt",
     "requirements.lock",
@@ -36,17 +36,15 @@ REQUIRED_FILES = [
 ]
 
 RELEASE_IMAGE_FILES = [
-    "docker/old_way/Dockerfile",
-    "docker/old_way/Dockerfile.compose-test",
-    "docker/old_way/Dockerfile.evolver-bridge",
+    "docker/compose-next/Dockerfile.quickstart-no-ollama",
     "docker/old_way/Dockerfile.ollama-wsl-amd",
     "frontend-angular/Dockerfile",
-    "docker-compose.base.yml",
-    "docker-compose.yml",
-    "docker-compose-lite.yml",
-    "docker-compose.github-ci.yml",
-    "docker-compose.ollama-wsl.yml",
-    "docker/old_way/docker-compose.dev-vulkan-live.yml",
+    "docker/compose-next/compose.base.yml",
+    "docker/compose-next/compose.dev.lmstudio.yml",
+    "docker/compose-next/compose.dev.ollama.yml",
+    "docker/compose-next/compose.stack.quickstart.yml",
+    "docker/compose-next/compose.stack.full.yml",
+    "docker/compose-next/compose.stack.distributed.yml",
 ]
 
 RELEASE_CI_FILE = ".github/workflows/quality-and-docs.yml"
@@ -303,7 +301,7 @@ def check_image_pinning() -> CheckResult:
 
 def check_tool_pinning() -> CheckResult:
     problems = []
-    dockerfile = read_text("docker/old_way/Dockerfile")
+    dockerfile = read_text("docker/compose-next/Dockerfile.quickstart-no-ollama")
     if "OPENCODE_AI_VERSION=1.14.18" not in dockerfile:
         problems.append("Dockerfile must pin OPENCODE_AI_VERSION=1.14.18")
     if "opencode-ai@${OPENCODE_AI_VERSION}" not in dockerfile:
@@ -333,7 +331,7 @@ def check_ci_release_paths() -> CheckResult:
 
 
 def check_apt_snapshots() -> CheckResult:
-    backend = read_text("docker/old_way/Dockerfile")
+    backend = read_text("docker/compose-next/Dockerfile.quickstart-no-ollama")
     ollama = read_text("docker/old_way/Dockerfile.ollama-wsl-amd")
     problems = []
     if f"ARG DEBIAN_SNAPSHOT={APT_SNAPSHOT}" not in backend:
@@ -453,7 +451,11 @@ def check_dyndns_secret_hygiene() -> CheckResult:
 
 def check_compose_config() -> CheckResult:
     env = {"POSTGRES_PASSWORD": "test-postgres-password", "INITIAL_ADMIN_PASSWORD": "test-admin-password", "SECRET_KEY": "test-secret-key-with-at-least-thirty-two-chars", "AGENT_TOKEN_HUB": "hub-token", "AGENT_TOKEN_ALPHA": "alpha-token", "AGENT_TOKEN_BETA": "beta-token", "AGENT_TOKEN_GAMMA": "gamma-token", "AGENT_TOKEN_DELTA": "delta-token", "GRAFANA_PASSWORD": "test-grafana-password"}
-    commands = [["docker", "compose", "-f", "docker-compose.base.yml", "-f", "docker-compose-lite.yml", "config"], ["docker", "compose", "-f", "docker-compose.base.yml", "-f", "docker-compose.yml", "-f", "docker-compose.distributed.yml", "config"]]
+    commands = [
+        ["docker", "compose", "-f", "docker/compose-next/compose.stack.quickstart.yml", "config"],
+        ["docker", "compose", "-f", "docker/compose-next/compose.stack.full.yml", "config"],
+        ["docker", "compose", "-f", "docker/compose-next/compose.stack.distributed.yml", "config"],
+    ]
     failures = []
     for command in commands:
         result = subprocess.run(command, cwd=ROOT, env=docker_env(env), text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False)
@@ -471,7 +473,27 @@ def check_frontend_build() -> CheckResult:
 
 
 def check_image_builds() -> CheckResult:
-    commands = [["docker", "build", "-t", "ananta-backend:release-gate", "."], ["docker", "build", "-t", "ananta-frontend:release-gate", "frontend-angular"], ["docker", "build", "-f", "Dockerfile.ollama-wsl-amd", "-t", "ollama-wsl-amd:release-gate", "."]]
+    commands = [
+        [
+            "docker",
+            "build",
+            "-f",
+            "docker/compose-next/Dockerfile.quickstart-no-ollama",
+            "-t",
+            "ananta-backend:release-gate",
+            ".",
+        ],
+        ["docker", "build", "-t", "ananta-frontend:release-gate", "frontend-angular"],
+        [
+            "docker",
+            "build",
+            "-f",
+            "docker/old_way/Dockerfile.ollama-wsl-amd",
+            "-t",
+            "ollama-wsl-amd:release-gate",
+            ".",
+        ],
+    ]
     failures = []
     for command in commands:
         result = subprocess.run(command, cwd=ROOT, env=docker_env(), text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False)

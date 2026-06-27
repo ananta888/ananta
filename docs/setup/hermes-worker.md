@@ -108,10 +108,10 @@ Use this only with an explicit policy decision:
 
 ## Optional Compose Overlay
 
-Use `docker-compose.hermes-worker.yml` only when you want a local Hermes container:
+Use `docker/old_way/docker-compose.hermes-worker.yml` only when you want a local Hermes container:
 
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose.hermes-worker.yml up -d
+docker compose -f docker/old_way/docker-compose.base.yml -f docker/old_way/docker-compose.hermes-worker.yml up -d
 ```
 
 This overlay is optional and not required for normal Ananta startup.

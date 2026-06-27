@@ -11,7 +11,7 @@ def _load_yaml(path: str) -> dict:
 
 
 def test_fullstack_overlay_declares_single_image_specialized_services() -> None:
-    data = _load_yaml("docker-compose.single-image-fullstack.yml")
+    data = _load_yaml("docker/old_way/docker-compose.single-image-fullstack.yml")
     services = data.get("services", {})
 
     assert "evolver" in services
@@ -21,11 +21,11 @@ def test_fullstack_overlay_declares_single_image_specialized_services() -> None:
     for name in ("evolver", "ai-agent-deerflow", "ai-agent-ml-intern"):
         svc = services[name]
         assert svc["image"] == "${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}"
-        assert svc["build"]["dockerfile"] == "Dockerfile.quickstart-no-ollama"
+        assert svc["build"]["dockerfile"] == "docker/old_way/Dockerfile.quickstart-no-ollama"
 
 
 def test_fullstack_overlay_routes_core_services_to_role_mode() -> None:
-    data = _load_yaml("docker-compose.single-image-fullstack.yml")
+    data = _load_yaml("docker/old_way/docker-compose.single-image-fullstack.yml")
     services = data.get("services", {})
 
     hub_env = services["ai-agent-hub"]["environment"]
@@ -38,7 +38,7 @@ def test_fullstack_overlay_routes_core_services_to_role_mode() -> None:
 
 
 def test_quickstart_overlay_keeps_agent_only_compat_mode() -> None:
-    data = _load_yaml("docker-compose.quickstart-no-ollama.yml")
+    data = _load_yaml("docker/old_way/docker-compose.quickstart-no-ollama.yml")
     services = data.get("services", {})
 
     assert services["ai-agent-hub"]["environment"]["ANANTA_QUICKSTART_MODE"] == "${ANANTA_QUICKSTART_MODE_HUB:-agent-only}"

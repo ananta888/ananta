@@ -198,5 +198,5 @@ Wenn AI-Snake eine Frage beantwortet, läuft das Retrieval so ab:
 | RAG-Service | `agent/services/rag_service.py` |
 | Angular-Frontend | `frontend-angular/src/app/` |
 | Hub-Hauptprozess | `agent/ai_agent.py` |
-| Docker-Konfiguration | `docker-compose.yml` |
+| Docker-Konfiguration | `docker/old_way/docker-compose.yml` |
 | Nutzer-Einstellungen | `user.json` |

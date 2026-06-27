@@ -7,7 +7,7 @@
 #
 # Oder direkt im Container:
 #
-#   docker compose -f docker-compose.public-rendezvous.yml \
+#   docker compose -f docker/old_way/docker-compose.public-rendezvous.yml \
 #     exec keycloak bash /opt/keycloak/data/import/setup.sh
 #
 # Das Script ist idempotent: bereits vorhandene Objekte werden übersprungen.

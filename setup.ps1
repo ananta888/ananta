@@ -145,9 +145,9 @@ Write-Host "=== Setup abgeschlossen! ===" -ForegroundColor Green
 Write-Host ""
 Write-Host "Nächste Schritte:" -ForegroundColor Cyan
 Write-Host "  1. Starten Sie die Services:" -ForegroundColor White
-Write-Host "     docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d" -ForegroundColor Cyan
+Write-Host "     docker compose --env-file .env -f docker/compose-next/compose.stack.quickstart.yml up -d --build" -ForegroundColor Cyan
 Write-Host "     WSL2 + Vulkan fuer Compose-Ollama:" -ForegroundColor Gray
-Write-Host "     docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml up -d --build" -ForegroundColor Cyan
+Write-Host "     docker compose --env-file .env -f docker/compose-next/compose.dev.ollama.yml up -d --build" -ForegroundColor Cyan
 Write-Host "  2. Öffnen Sie http://localhost:4200 im Browser" -ForegroundColor White
 Write-Host "  3. Login mit:" -ForegroundColor White
 Write-Host "     Username: admin" -ForegroundColor Cyan
