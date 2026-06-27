@@ -146,6 +146,19 @@ template: `
           <p class="muted mfa-hint">
             Diese Anmeldung gilt für Pair Dev und webrtc.ananta.de. Der Hub-Zugang bleibt davon getrennt.
           </p>
+          @if (showRegistration) {
+            <button
+              type="button"
+              class="secondary btn-full btn-mt-sm"
+              (click)="registerWithKeycloak()"
+              [disabled]="loading"
+              aria-label="Neues Konto bei Keycloak anlegen">
+              Neues Konto bei Keycloak anlegen
+            </button>
+            <p class="muted mfa-hint">
+              Kein Konto? Lege hier ein neues Keycloak-Konto an und melde dich danach oben an.
+            </p>
+          }
           @if (showLinkOption) {
             <button type="button" class="secondary btn-full btn-mt-sm" (click)="linkIdentities()" [disabled]="loading">
               {{ hasOidcIdentity ? 'Hub- und Keycloak-Konto verknüpfen' : 'Bei Keycloak anmelden und Konten verknüpfen' }}
@@ -211,6 +224,13 @@ export class LoginComponent implements OnInit {
   }
   get hasOidcIdentity(): boolean {
     return !!this.auth.oidcAccessTokenValue;
+  }
+  get showRegistration(): boolean {
+    return this.bridge.showRegistration;
+  }
+
+  registerWithKeycloak(): void {
+    this.oidc.registerWithKeycloak();
   }
 
   ngOnInit(): void {
