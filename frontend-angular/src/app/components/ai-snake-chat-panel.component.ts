@@ -5,6 +5,7 @@ import { Subscription } from 'rxjs';
 import { AiSnakeChatService } from '../services/ai-snake-chat.service';
 import { AiSnakeConfigService } from '../services/ai-snake-config.service';
 import { OidcAuthService } from '../services/oidc-auth.service';
+import { IdentityBridge } from '../services/identity/identity-bridge';
 import {
   PUBLIC_KEYCLOAK_BASE_URL,
   PUBLIC_OIDC_REALM,
@@ -130,6 +131,16 @@ import { SnakeOverlayService } from '../services/snake-overlay.service';
             <button (click)="keycloakLogin()" [disabled]="loginBusy">
               {{ loginBusy ? 'Öffne Login…' : 'Mit Keycloak anmelden' }}
             </button>
+            @if (showRegistration) {
+              <button
+                type="button"
+                class="ghost"
+                (click)="registerWithKeycloak()"
+                [disabled]="loginBusy"
+                aria-label="Neues Konto bei Keycloak anlegen">
+                Neues Konto bei Keycloak anlegen
+              </button>
+            }
             @if (loginError) { <div class="error">{{ loginError }}</div> }
           }
           <hr class="divider" />
@@ -373,6 +384,7 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
   readonly svc = inject(AiSnakeChatService);
   readonly cfg = inject(AiSnakeConfigService);
   readonly oidc = inject(OidcAuthService);
+  private readonly bridge = inject(IdentityBridge);
   readonly signaling = inject(WebrtcSignalingService);
   readonly sessions = inject(ChatSessionsService);
   readonly history = inject(ChatHistoryService);
@@ -461,6 +473,14 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
     this.sessions.create({ name, icon: '💬', system_prompt: '', settings: {} });
     this.newChatName = '';
     this.newChatMode = false;
+  }
+
+  get showRegistration(): boolean {
+    return this.bridge.showRegistration;
+  }
+
+  registerWithKeycloak(): void {
+    this.oidc.registerWithKeycloak();
   }
 
   async keycloakLogin(): Promise<void> {
