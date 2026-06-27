@@ -16,146 +16,147 @@ import { PUBLIC_KEYCLOAK_BASE_URL } from '../services/public-ananta-endpoints';
   selector: 'app-login',
   standalone: true,
   imports: [FormsModule],
-  template: `
+template: `
     <div class="login-container">
       <div class="card login-card">
         <h2>Ananta Login</h2>
         @if (showHubDirect) {
-        <form (submit)="onLogin($event)" aria-label="Login-Formular">
-          <div class="form-group">
-            <label for="username">Benutzername</label>
-            <input
-              type="text"
-              id="username"
-              [(ngModel)]="username"
-              name="username"
-              required
-              [attr.aria-describedby]="error ? 'login-error' : (getUsernameError() ? 'username-error' : null)"
-              [attr.aria-invalid]="getUsernameError() ? 'true' : null"
-              aria-required="true"
-              (blur)="usernameTouched = true">
-            @if (usernameTouched && getUsernameError()) {
-              <small id="username-error" class="error-msg error-msg-block">{{getUsernameError()}}</small>
-            }
-          </div>
-          @if (!mfaRequired) {
+          <form (submit)="onLogin($event)" aria-label="Login-Formular">
             <div class="form-group">
-              <label for="password">Passwort</label>
-              <input
-                type="password"
-                id="password"
-                [(ngModel)]="password"
-                name="password"
-                required
-                [attr.aria-describedby]="error ? 'login-error' : (getPasswordError() ? 'password-error' : null)"
-                [attr.aria-invalid]="getPasswordError() ? 'true' : null"
-                aria-required="true"
-                (blur)="passwordTouched = true">
-              @if (passwordTouched && getPasswordError()) {
-                <small id="password-error" class="error-msg error-msg-block">{{getPasswordError()}}</small>
-              }
-            </div>
-          }
-          @if (mfaRequired) {
-            <div class="form-group">
-              <label for="mfaToken">MFA Code / Backup Code</label>
+              <label for="username">Benutzername</label>
               <input
                 type="text"
-                id="mfaToken"
-                [(ngModel)]="mfaToken"
-                name="mfaToken"
-                placeholder="000000 oder Backup-Code"
+                id="username"
+                [(ngModel)]="username"
+                name="username"
                 required
-                autoFocus
-                [attr.aria-describedby]="getMfaError() ? 'mfa-error' : 'mfa-help'"
-                [attr.aria-invalid]="getMfaError() ? 'true' : null"
+                [attr.aria-describedby]="error ? 'login-error' : (getUsernameError() ? 'username-error' : null)"
+                [attr.aria-invalid]="getUsernameError() ? 'true' : null"
                 aria-required="true"
-                (blur)="mfaTouched = true">
-              @if (mfaTouched && getMfaError()) {
-                <small id="mfa-error" class="error-msg error-msg-block">{{getMfaError()}}</small>
+                (blur)="usernameTouched = true">
+              @if (usernameTouched && getUsernameError()) {
+                <small id="username-error" class="error-msg error-msg-block">{{getUsernameError()}}</small>
               }
-              <p id="mfa-help" class="muted mfa-hint">Bitte geben Sie den Code aus Ihrer App oder einen Backup-Code ein.</p>
             </div>
-          }
-          @if (error) {
-            <div id="login-error" class="error-msg" role="alert" aria-live="polite">{{error}}</div>
-          }
-          <button
-            type="submit"
-            [disabled]="loading"
-            class="primary btn-full btn-mt-md"
-            [attr.aria-label]="loading ? 'Lädt' : (mfaRequired ? 'MFA-Code verifizieren' : 'Anmelden')">
-            {{ loading ? 'Lade...' : (mfaRequired ? 'Verifizieren' : 'Anmelden') }}
-          </button>
-          @if (isAndroidNative) {
-            <button type="button" class="secondary btn-full btn-mt-sm" (click)="toggleDebugPanel()" [disabled]="debugBusy">
-              {{ showDebugPanel ? 'Android Debug ausblenden' : 'Android Debug anzeigen' }}
-            </button>
-            @if (showDebugPanel) {
-              <div class="card card-light mt-sm">
-                <div class="row gap-sm wrap">
-                  <button type="button" class="secondary" (click)="refreshDebugStatus()" [disabled]="debugBusy">Status aktualisieren</button>
-                  <button type="button" class="secondary" (click)="startEmbeddedNow()" [disabled]="debugBusy">Hub/Worker starten</button>
-                  <button type="button" class="secondary" (click)="debugLoginProbe()" [disabled]="debugBusy">Login testen</button>
-                  <button type="button" class="secondary" (click)="runPluginHealthCheck()" [disabled]="debugBusy">Plugin Health</button>
-                </div>
-                <pre class="mt-sm">{{ debugText || 'Noch keine Debug-Daten.' }}</pre>
-              </div>
-            }
-          }
-          @if (!mfaRequired) {
-            <div class="forgot-password">
-              <a
-                href="#"
-                (click)="onForgotPassword($event)"
-                (keydown.enter)="onForgotPassword($event)"
-                (keydown.space)="onForgotPassword($event)"
-                class="link-plain"
-                role="button"
-                tabindex="0"
-                aria-label="Passwort vergessen">
-                Passwort vergessen?
-              </a>
-            </div>
-            @if (forgotInfo) {
-              <div class="hint-text text-center mt-sm" aria-live="polite">{{ forgotInfo }}</div>
-            }
-            @if (showOidc) {
-            <div class="oidc-divider"><span>oder</span></div>
-            <button type="button" class="secondary btn-full" (click)="loginWithKeycloak()" [disabled]="loading">
-              Mit Keycloak anmelden ({{ keycloakHostLabel }})
-            </button>
-            <button type="button" class="secondary btn-full btn-mt-sm" (click)="toggleDeviceFlow()" [disabled]="loading">
-              {{ deviceFlowOpen ? 'Device Flow schliessen' : 'Device Flow (TUI-Code)' }}
-            </button>
-            @if (deviceFlowOpen) {
-              <div class="device-flow-panel">
-                @if (!deviceFlowData) {
-                  <button type="button" class="primary btn-full" (click)="startDeviceFlow()" [disabled]="deviceFlowBusy">
-                    {{ deviceFlowBusy ? 'Starte...' : 'Device Flow starten' }}
-                  </button>
-                } @else {
-                  <div class="device-code-box">
-                    <div class="device-code-label">Code in Browser oder TUI eingeben:</div>
-                    <div class="device-code">{{ deviceFlowData.user_code }}</div>
-                    <div class="device-code-url">{{ deviceFlowData.verification_uri }}</div>
-                  </div>
-                  @if (deviceFlowError) { <div class="error-msg">{{ deviceFlowError }}</div> }
-                  @if (deviceFlowBusy) { <div class="hint-text">Warte auf Bestätigung...</div> }
+            @if (!mfaRequired) {
+              <div class="form-group">
+                <label for="password">Passwort</label>
+                <input
+                  type="password"
+                  id="password"
+                  [(ngModel)]="password"
+                  name="password"
+                  required
+                  [attr.aria-describedby]="error ? 'login-error' : (getPasswordError() ? 'password-error' : null)"
+                  [attr.aria-invalid]="getPasswordError() ? 'true' : null"
+                  aria-required="true"
+                  (blur)="passwordTouched = true">
+                @if (passwordTouched && getPasswordError()) {
+                  <small id="password-error" class="error-msg error-msg-block">{{getPasswordError()}}</small>
                 }
               </div>
             }
-          }
-        @if (mfaRequired) {
+            @if (mfaRequired) {
+              <div class="form-group">
+                <label for="mfaToken">MFA Code / Backup Code</label>
+                <input
+                  type="text"
+                  id="mfaToken"
+                  [(ngModel)]="mfaToken"
+                  name="mfaToken"
+                  placeholder="000000 oder Backup-Code"
+                  required
+                  autoFocus
+                  [attr.aria-describedby]="getMfaError() ? 'mfa-error' : 'mfa-help'"
+                  [attr.aria-invalid]="getMfaError() ? 'true' : null"
+                  aria-required="true"
+                  (blur)="mfaTouched = true">
+                @if (mfaTouched && getMfaError()) {
+                  <small id="mfa-error" class="error-msg error-msg-block">{{getMfaError()}}</small>
+                }
+                <p id="mfa-help" class="muted mfa-hint">Bitte geben Sie den Code aus Ihrer App oder einen Backup-Code ein.</p>
+              </div>
+            }
+            @if (error) {
+              <div id="login-error" class="error-msg" role="alert" aria-live="polite">{{error}}</div>
+            }
             <button
-              type="button"
-              (click)="mfaRequired = false; error = ''"
-              class="button-outline btn-full btn-mt-sm"
-              aria-label="Zurück zur Passwort-Eingabe">
-              Zurück zum Passwort
+              type="submit"
+              [disabled]="loading"
+              class="primary btn-full btn-mt-md"
+              [attr.aria-label]="loading ? 'Lädt' : (mfaRequired ? 'MFA-Code verifizieren' : 'Anmelden')">
+              {{ loading ? 'Lade...' : (mfaRequired ? 'Verifizieren' : 'Anmelden') }}
             </button>
-          }
-        </form>
+            @if (isAndroidNative) {
+              <button type="button" class="secondary btn-full btn-mt-sm" (click)="toggleDebugPanel()" [disabled]="debugBusy">
+                {{ showDebugPanel ? 'Android Debug ausblenden' : 'Android Debug anzeigen' }}
+              </button>
+              @if (showDebugPanel) {
+                <div class="card card-light mt-sm">
+                  <div class="row gap-sm wrap">
+                    <button type="button" class="secondary" (click)="refreshDebugStatus()" [disabled]="debugBusy">Status aktualisieren</button>
+                    <button type="button" class="secondary" (click)="startEmbeddedNow()" [disabled]="debugBusy">Hub/Worker starten</button>
+                    <button type="button" class="secondary" (click)="debugLoginProbe()" [disabled]="debugBusy">Login testen</button>
+                    <button type="button" class="secondary" (click)="runPluginHealthCheck()" [disabled]="debugBusy">Plugin Health</button>
+                  </div>
+                  <pre class="mt-sm">{{ debugText || 'Noch keine Debug-Daten.' }}</pre>
+                </div>
+              }
+            }
+            @if (!mfaRequired) {
+              <div class="forgot-password">
+                <a
+                  href="#"
+                  (click)="onForgotPassword($event)"
+                  (keydown.enter)="onForgotPassword($event)"
+                  (keydown.space)="onForgotPassword($event)"
+                  class="link-plain"
+                  role="button"
+                  tabindex="0"
+                  aria-label="Passwort vergessen">
+                  Passwort vergessen?
+                </a>
+              </div>
+              @if (forgotInfo) {
+                <div class="hint-text text-center mt-sm" aria-live="polite">{{ forgotInfo }}</div>
+              }
+              @if (showOidc) {
+                <div class="oidc-divider"><span>oder</span></div>
+                <button type="button" class="secondary btn-full" (click)="loginWithKeycloak()" [disabled]="loading">
+                  Mit Keycloak anmelden ({{ keycloakHostLabel }})
+                </button>
+                <button type="button" class="secondary btn-full btn-mt-sm" (click)="toggleDeviceFlow()" [disabled]="loading">
+                  {{ deviceFlowOpen ? 'Device Flow schliessen' : 'Device Flow (TUI-Code)' }}
+                </button>
+                @if (deviceFlowOpen) {
+                  <div class="device-flow-panel">
+                    @if (!deviceFlowData) {
+                      <button type="button" class="primary btn-full" (click)="startDeviceFlow()" [disabled]="deviceFlowBusy">
+                        {{ deviceFlowBusy ? 'Starte...' : 'Device Flow starten' }}
+                      </button>
+                    } @else {
+                      <div class="device-code-box">
+                        <div class="device-code-label">Code in Browser oder TUI eingeben:</div>
+                        <div class="device-code">{{ deviceFlowData.user_code }}</div>
+                        <div class="device-code-url">{{ deviceFlowData.verification_uri }}</div>
+                      </div>
+                      @if (deviceFlowError) { <div class="error-msg">{{ deviceFlowError }}</div> }
+                      @if (deviceFlowBusy) { <div class="hint-text">Warte auf Bestätigung...</div> }
+                    }
+                  </div>
+                }
+              }
+            }
+          </form>
+        }
+        @if (showHubDirect && mfaRequired) {
+          <button
+            type="button"
+            (click)="mfaRequired = false; error = ''"
+            class="button-outline btn-full btn-mt-sm"
+            aria-label="Zurück zur Passwort-Eingabe">
+            Zurück zum Passwort
+          </button>
         }
       </div>
     </div>
