@@ -1,9 +1,10 @@
 import { Injectable, inject } from '@angular/core';
-import { BehaviorSubject, Observable, finalize, from, switchMap, tap } from 'rxjs';
+import { BehaviorSubject, Observable, finalize, from, of, switchMap, tap } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { AgentDirectoryService } from './agent-directory.service';
 import { ApiResponse, unwrapApiResponse } from './api-envelope';
 import { SecureTokenStorage } from './secure-token-storage.service';
+import { ProfileStateService } from './profile-state.service';
 
 const HUB_RT_STORAGE_KEY = 'ananta.hub.refresh_token';
 const OIDC_RT_STORAGE_KEY = 'ananta.oidc.refresh_token';
@@ -14,6 +15,7 @@ export class UserAuthService {
   private http = inject(HttpClient);
   private dir = inject(AgentDirectoryService);
   private secureStorage = inject(SecureTokenStorage);
+  private profileState = inject(ProfileStateService);
   private userRefreshInFlight = false;
 
   private _token = new BehaviorSubject<string | null>(localStorage.getItem('ananta.user.token'));
@@ -130,6 +132,28 @@ export class UserAuthService {
       this.logout();
       throw new Error('No hub');
     }
+
+    // Welle 5: Bei aktiver Hub↔OIDC-SSO-Bridge läuft der Refresh
+    // DIREKT beim OIDC-Provider (z.B. Keycloak), nicht über Hub-RT.
+    // Der Hub akzeptiert OIDC-ATs ohnehin (Welle 3: check_user_auth
+    // validiert gegen JWKS), also reicht der frische OIDC-AT für alle
+    // Hub-Calls — kein Hub-eigenes /refresh-token mehr nötig.
+    if (this.isOidcBridgeActive()) {
+      return from(this.refreshOidcDirectly()).pipe(
+        switchMap((oidcAt) => {
+          if (!oidcAt) {
+            this.logout();
+            throw new Error('OIDC refresh failed');
+          }
+          // Neuen OIDC-AT als aktuellen Hub-Token setzen (Hub validiert
+          // ihn gegen JWKS). Hub-RT wird nicht mehr benötigt.
+          this.setTokens(oidcAt, null);
+          return of(oidcAt);
+        }),
+      );
+    }
+
+    // Legacy-Pfad: Hub-eigenes /refresh-token mit Hub-RT.
     return from(this.getHubRefreshToken()).pipe(
       switchMap((rt) => {
         if (!rt) {
@@ -145,6 +169,54 @@ export class UserAuthService {
         );
       }),
     );
+  }
+
+  /**
+   * Welle 5: Check whether the Hub↔OIDC SSO Bridge is active.
+   * Source of truth is the profile's `oidc.bridge_active` flag injected
+   * by the Hub's network-profile endpoint (see network_profiles.py).
+   * Uses the cycle-free ProfileStateService to avoid NG0200 in tests.
+   */
+  private isOidcBridgeActive(): boolean {
+    return this.profileState.bridgeActive;
+  }
+
+  /**
+   * Refresh the OIDC access token via the standard OIDC token endpoint.
+   * Returns the new access_token string, or null on failure.
+   */
+  private async refreshOidcDirectly(): Promise<string | null> {
+    const oidcRt = await this.getOidcRefreshToken();
+    if (!oidcRt) return null;
+    const issuer = this.profileState.oidcIssuer;
+    const clientId = this.profileState.oidcClientId;
+    if (!issuer || !clientId) return null;
+    try {
+      const metaRes = await fetch(`${issuer.replace(/\/$/, '')}/.well-known/openid-configuration`);
+      if (!metaRes.ok) return null;
+      const meta = await metaRes.json() as { token_endpoint?: string };
+      if (!meta.token_endpoint) return null;
+      const body = new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: oidcRt,
+        client_id: clientId,
+      });
+      const res = await fetch(meta.token_endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body,
+      });
+      if (!res.ok) return null;
+      const json = await res.json() as { access_token?: string; refresh_token?: string };
+      if (!json.access_token) return null;
+      // RT kann rotiert werden — neuen RT verschlüsselt ablegen
+      if (json.refresh_token) {
+        await this.setOidcRefreshToken(json.refresh_token);
+      }
+      return json.access_token;
+    } catch {
+      return null;
+    }
   }
 
   changePassword(old_password: string, new_password: string): Observable<any> {
