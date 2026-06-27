@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { JsonPipe } from '@angular/common';
 import { WorkerLoopDiagnosticsApiService } from '../services/worker-loop-diagnostics-api.service';
 import { SystemFacade } from '../features/system/system.facade';
@@ -73,7 +73,7 @@ import { SystemFacade } from '../features/system/system.facade';
     }
   `,
 })
-export class WorkerLoopDiagnosticsComponent {
+export class WorkerLoopDiagnosticsComponent implements OnInit {
   private api = inject(WorkerLoopDiagnosticsApiService);
   private system = inject(SystemFacade);
 

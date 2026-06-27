@@ -125,7 +125,7 @@ export class ControlCenterDiffViewerComponent {
     `,
   styles: [`.filters{display:grid;grid-template-columns:repeat(5,minmax(120px,1fr));gap:8px;margin-bottom:10px}.filters input,.filters select{background:#111827;color:#e5e7eb;border:1px solid #374151;border-radius:6px;padding:6px}.grid{display:grid;grid-template-columns:280px 1fr;gap:10px}.list{display:flex;flex-direction:column;gap:6px}.list button{border:1px solid #1f2937;background:#0f172a;color:#e5e7eb;border-radius:8px;padding:8px;text-align:left}.list button.active{border-color:#2563eb}.raw{border:1px solid #1f2937;border-radius:8px;padding:10px;background:#111827;white-space:pre-wrap}@media (max-width:900px){.filters{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr}}`]
 })
-export class ControlCenterArtifactBrowserComponent implements OnInit {
+export class ControlCenterArtifactBrowserComponent implements OnInit, OnDestroy {
   private state = inject(ControlCenterStateFacade);
   private api = inject(HubControlCenterApiClient);
   artifacts: CcArtifact[] = [];

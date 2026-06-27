@@ -1,10 +1,10 @@
-import { Directive, Input, HostBinding, HostListener, ElementRef, Renderer2, inject } from '@angular/core';
+import { Directive, Input, HostBinding, HostListener, ElementRef, Renderer2, OnDestroy, inject } from '@angular/core';
 
 @Directive({
   selector: '[appTooltip]',
   standalone: true
 })
-export class TooltipDirective {
+export class TooltipDirective implements OnDestroy {
   private el = inject(ElementRef);
   private renderer = inject(Renderer2);
 
