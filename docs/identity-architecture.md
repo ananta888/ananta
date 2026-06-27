@@ -101,6 +101,39 @@ signals in sync with `UserAuthService`.
 
 **Total: 87 identity-related unit tests, all green.**
 
+## Default Behaviour on 401 (no SSO Bridge configured)
+
+Without an active bridge rule (`identity-bridge.config.ts` empty, or
+`oidc.enabled = false` in the profile), **each sphere requires its own login**:
+
+| Sphere    | 401 from Hub on hub-sphere endpoint | UI behaviour               |
+|-----------|-------------------------------------|----------------------------|
+| `hub`     | Yes                                 | Show Hub login mask        |
+| `oidc`    | Yes                                 | Show OIDC login mask       |
+| `signaling` | Yes (derived, falls through)     | Show OIDC login mask       |
+
+**Silent fallbacks are forbidden by policy** (see AGENTS.md: default-deny,
+no implicit trust between components). The auth interceptor MUST show a
+login mask on 401 — never retry with empty/stale tokens.
+
+This explains the historical "401 UNAUTHORIZED on `/share-sessions`"
+message: when the user is on a profile where OIDC is enabled but Hub
+login has not happened yet, Hub rejects the request and the frontend
+shows the Hub login mask. After login the share-panel works.
+
+## Enabling the Hub↔OIDC SSO Bridge (opt-in)
+
+The bridge is **opt-in** and must be configured explicitly. Two required
+steps:
+
+1. **Profile config** — set `oidc.enabled = true` in `profiles.yaml`
+   together with `oidc.issuer_url`, `oidc.client_id`, `oidc.audience`.
+2. **Frontend** — declare the bridge rule in `identity-bridge.config.ts`
+   (`oidc-to-hub` → `POST {hub}/auth/oidc/exchange`).
+
+Only then will a single Keycloak login produce both the OIDC token
+(for webrtc.ananta.de) and the Hub JWT (for `/share-sessions` etc.).
+
 ## Migration Notes
 
 - Public-ananta profile: users authenticate via Keycloak → bridge exchange → Hub JWT.

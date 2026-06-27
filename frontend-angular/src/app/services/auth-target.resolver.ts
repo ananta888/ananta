@@ -15,8 +15,6 @@ export type AuthTargetKind =
   | 'hub_user_bearer'
   /** Worker (oder Hub ohne User-Login) mit hinterlegtem Shared Secret – Agent-JWT wird erzeugt. */
   | 'agent_jwt_shared_secret'
-  /** Ausdrücklicher Fallback: Worker ohne Agent-Token, aber vorhandener User-Token. */
-  | 'user_bearer_fallback_on_worker'
   /** Weder Hub- noch Worker-URL erkannt – unverändert weiterreichen. */
   | 'passthrough_unknown_target'
   /** Zielagent bekannt, aber weder User-Token noch Shared Secret – unverändert weiterreichen. */
@@ -28,7 +26,7 @@ export interface AuthTarget {
   agent: Agent | null;
   /**
    * Optionaler User-Bearer-Token, der direkt im Header landet.
-   * Nur für `hub_user_bearer` und `user_bearer_fallback_on_worker` belegt.
+   * Nur für `hub_user_bearer` belegt.
    */
   userToken: string | null;
   /**
@@ -99,25 +97,20 @@ export function resolveAuthTarget(ctx: AuthTargetContext): AuthTarget {
     };
   }
 
-  if (ctx.userToken) {
-    return {
-      kind: 'user_bearer_fallback_on_worker',
-      agent,
-      userToken: ctx.userToken,
-      agentSharedSecret: null,
-      reason:
-        'Worker ohne Shared Secret, aber gültiger User-Token vorhanden – ' +
-        'Fallback verwendet, um 401->refresh->retry-Zyklen bei read-only Requests zu vermeiden.',
-      refreshOnUnauthorized: true,
-    };
-  }
-
+  // Default-deny: kein Shared-Secret, kein User-Token für Worker-Endpoints.
+  // Wir leiten den Request NICHT mit dem User-Token an einen Worker weiter,
+  // weil der Worker per `@check_user_auth` einen User-JWT des Hubs erwartet
+  // und der User-JWT des Workers in einer anderen Auth-Sphäre lebt.
+  // Stattdessen geben wir passthrough zurück; das Frontend zeigt dann die
+  // passende Login-Maske (siehe docs/identity-architecture.md).
   return {
     kind: 'passthrough_no_credentials',
     agent,
     userToken: null,
     agentSharedSecret: null,
-    reason: 'Zielagent erkannt, aber weder User-Token noch Shared Secret verfügbar.',
+    reason:
+      'Worker ohne Shared Secret – kein impliziter User-Token-Fallback ' +
+      '(default-deny). Frontend zeigt Login-Maske.',
     refreshOnUnauthorized: false,
   };
 }

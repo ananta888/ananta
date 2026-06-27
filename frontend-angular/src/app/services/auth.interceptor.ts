@@ -35,8 +35,7 @@ export class AuthInterceptor implements HttpInterceptor {
     target: AuthTarget,
   ): Observable<HttpEvent<unknown>> {
     switch (target.kind) {
-      case 'hub_user_bearer':
-      case 'user_bearer_fallback_on_worker': {
+      case 'hub_user_bearer': {
         const authReq = this.addTokenHeader(req, target.userToken!);
         return this.withRefreshPolicy(authReq, next, target);
       }

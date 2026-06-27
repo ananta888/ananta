@@ -21,11 +21,18 @@ describe('auth target resolver', () => {
     expect(resolveAgentForUrl(nestedAgents, 'http://worker:5001/api/tasks')?.name).toBe('worker-api');
   });
 
-  it('uses refresh-capable user bearer only for hub and explicit user fallback paths', () => {
-    expect(resolveAuthTarget({ agents, userToken: 'user-token', requestUrl: 'http://hub:5000/tasks' }))
-      .toEqual(expect.objectContaining({ kind: 'hub_user_bearer', refreshOnUnauthorized: true }));
-    expect(resolveAuthTarget({ agents, userToken: 'user-token', requestUrl: 'http://worker-readonly:5002/tasks' }))
-      .toEqual(expect.objectContaining({ kind: 'user_bearer_fallback_on_worker', refreshOnUnauthorized: true }));
+  it('forbids the silent user-token fallback on workers without shared secret', () => {
+    // Default-deny: kein User-Token an Worker ohne Shared Secret.
+    // Wir wollen NICHT dass der Interceptor den Hub-User-Token an einen
+    // Worker-Endpoint schickt; der Worker hat eine andere Auth-Sphäre.
+    const target = resolveAuthTarget({
+      agents,
+      userToken: 'user-token',
+      requestUrl: 'http://worker-readonly:5002/tasks',
+    });
+    expect(target.kind).toBe('passthrough_no_credentials');
+    expect(target.refreshOnUnauthorized).toBe(false);
+    expect(target.userToken).toBeNull();
   });
 
   it('keeps shared-secret agent JWT paths separate from user refresh', () => {
