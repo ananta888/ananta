@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { BehaviorSubject, Observable, finalize, tap } from 'rxjs';
+import { BehaviorSubject, Observable, finalize, from, switchMap, tap } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { AgentDirectoryService } from './agent-directory.service';
 import { ApiResponse, unwrapApiResponse } from './api-envelope';
@@ -126,17 +126,24 @@ export class UserAuthService {
 
   refreshToken(): Observable<any> {
     const hub = this.dir.list().find(a => a.role === 'hub');
-    if (!hub || !this.refreshTokenValue) {
+    if (!hub) {
       this.logout();
-      throw new Error('No hub or refresh token');
+      throw new Error('No hub');
     }
-
-    return this.unwrapResponse<any>(this.http.post(`${hub.url}/refresh-token`, {
-      refresh_token: this.refreshTokenValue
-    })).pipe(
-      tap((res: any) => {
-        this.setTokens(res.access_token);
-      })
+    return from(this.getHubRefreshToken()).pipe(
+      switchMap((rt) => {
+        if (!rt) {
+          this.logout();
+          throw new Error('No refresh token');
+        }
+        return this.unwrapResponse<any>(this.http.post(`${hub.url}/refresh-token`, {
+          refresh_token: rt,
+        })).pipe(
+          tap((res: any) => {
+            this.setTokens(res.access_token);
+          }),
+        );
+      }),
     );
   }
 
