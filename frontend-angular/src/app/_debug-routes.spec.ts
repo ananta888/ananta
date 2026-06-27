@@ -1,4 +1,4 @@
-import { routes } from '/home/krusty/ananta/frontend-angular/src/app/app.routes';
+import { routes } from './app.routes';
 
 function flatten(items: any[], acc: any[] = []): any[] {
   for (const route of items) {
