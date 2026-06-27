@@ -1,6 +1,7 @@
 import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 
 import { NotificationService, Notification } from '../services/notification.service';
+import { ClipboardService } from '../services/clipboard.service';
 
 type ActiveNotification = Notification & { timeoutId?: ReturnType<typeof setTimeout> };
 
@@ -19,7 +20,19 @@ type ActiveNotification = Notification & { timeoutId?: ReturnType<typeof setTime
           (mouseleave)="resume(n)">
           <div class="notification-header">
             <span class="notification-title">{{ labels[n.type] }}</span>
-            <button class="notification-close" (click)="remove(n)">x</button>
+            <div class="notification-actions">
+              <button
+                type="button"
+                class="notification-copy"
+                (click)="copy(n.message)"
+                aria-label="Meldung kopieren"
+                title="Meldung kopieren">📋</button>
+              <button
+                type="button"
+                class="notification-close"
+                (click)="remove(n)"
+                aria-label="Meldung schließen">x</button>
+            </div>
           </div>
           <div class="notification-message">{{ n.message }}</div>
           @if (n.duration && n.duration > 0) {
@@ -70,6 +83,12 @@ type ActiveNotification = Notification & { timeoutId?: ReturnType<typeof setTime
       margin-bottom: 4px;
     }
     .notification-title { opacity: 0.9; }
+    .notification-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      pointer-events: auto;
+    }
     .notification-header,
     .notification-message,
     .notification-progress {
@@ -80,6 +99,7 @@ type ActiveNotification = Notification & { timeoutId?: ReturnType<typeof setTime
       overflow-wrap: anywhere;
       word-break: break-word;
     }
+    .notification-copy,
     .notification-close {
       background: transparent;
       border: none;
@@ -88,6 +108,13 @@ type ActiveNotification = Notification & { timeoutId?: ReturnType<typeof setTime
       font-size: 12px;
       padding: 0;
       pointer-events: auto;
+      opacity: 0.85;
+    }
+    .notification-copy:hover,
+    .notification-copy:focus-visible,
+    .notification-close:hover,
+    .notification-close:focus-visible {
+      opacity: 1;
     }
     .notification-progress {
       position: absolute;
@@ -132,6 +159,7 @@ type ActiveNotification = Notification & { timeoutId?: ReturnType<typeof setTime
 export class NotificationsComponent implements OnInit {
   private ns = inject(NotificationService);
   private cdr = inject(ChangeDetectorRef);
+  private clipboard = inject(ClipboardService);
 
   activeNotifications: ActiveNotification[] = [];
   labels: Record<Notification['type'], string> = {
@@ -168,6 +196,10 @@ export class NotificationsComponent implements OnInit {
   remove(n: ActiveNotification) {
     if (n.timeoutId) clearTimeout(n.timeoutId);
     this.activeNotifications = this.activeNotifications.filter(item => item.id !== n.id);
+  }
+
+  copy(message: string) {
+    void this.clipboard.copyText(message);
   }
 
   pause(n: ActiveNotification) {

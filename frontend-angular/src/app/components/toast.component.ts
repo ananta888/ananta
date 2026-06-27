@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { NgClass } from '@angular/common';
 import { ToastService, ToastMessage } from '../services/toast.service';
 import { Subscription } from 'rxjs';
+import { ClipboardService } from '../services/clipboard.service';
 
 @Component({
   selector: 'app-toast',
@@ -13,6 +14,12 @@ import { Subscription } from 'rxjs';
         <div class="toast" [ngClass]="'toast-' + toast.type">
           <span class="toast-icon">{{ iconFor(toast.type) }}</span>
           <span class="toast-message">{{ toast.message }}</span>
+          <button
+            type="button"
+            class="toast-copy"
+            (click)="copy(toast.message)"
+            aria-label="Meldung kopieren"
+            title="Meldung kopieren">📋</button>
           <button class="toast-close" (click)="dismiss(toast.id)" aria-label="Dismiss">&times;</button>
         </div>
       }
@@ -60,15 +67,25 @@ import { Subscription } from 'rxjs';
       overflow-wrap: anywhere;
       word-break: break-word;
     }
+    .toast-copy,
     .toast-close {
       background: none;
       border: none;
-      font-size: 18px;
       cursor: pointer;
       opacity: 0.6;
       padding: 0 4px;
+      flex-shrink: 0;
     }
-    .toast-close:hover {
+    .toast-copy {
+      font-size: 14px;
+    }
+    .toast-close {
+      font-size: 18px;
+    }
+    .toast-copy:hover,
+    .toast-copy:focus-visible,
+    .toast-close:hover,
+    .toast-close:focus-visible {
       opacity: 1;
     }
     @media (max-width: 500px) {
@@ -85,6 +102,7 @@ import { Subscription } from 'rxjs';
 })
 export class ToastComponent implements OnInit, OnDestroy {
   private toastService = inject(ToastService);
+  private clipboard = inject(ClipboardService);
   
   activeToasts: Array<ToastMessage & { id: number }> = [];
   private counter = 0;
@@ -108,6 +126,10 @@ export class ToastComponent implements OnInit, OnDestroy {
 
   dismiss(id: number) {
     this.activeToasts = this.activeToasts.filter(t => t.id !== id);
+  }
+
+  copy(message: string) {
+    void this.clipboard.copyText(message);
   }
 
   iconFor(type: ToastMessage['type']): string {
