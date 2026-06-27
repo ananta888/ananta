@@ -27,10 +27,14 @@ export class OidcCallbackComponent implements OnInit {
     this.isPopup = !!window.opener;
     try {
       const query = new URLSearchParams(window.location.search);
-      const backendCode = query.get('oidc_code') || query.get('code');
+      // Only `oidc_code` is a one-time Hub broker code. A plain `code` is
+      // the standard OIDC authorization code and must go through PKCE.
+      const backendCode = query.get('oidc_code');
       if (backendCode) {
         const ok = await this.oidc.handleBackendCallback();
-        if (!ok) {
+        if (ok && this.isPopup) {
+          window.close();
+        } else if (!ok) {
           this.error = 'Backend-OIDC-Austausch fehlgeschlagen.';
         }
         return;

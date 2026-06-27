@@ -73,6 +73,11 @@ export class OidcAuthService {
         if (e.key === 'ananta.user.token' && e.newValue) {
           const refresh = localStorage.getItem('ananta.user.refresh_token') ?? undefined;
           this.userAuth.setTokens(e.newValue, refresh);
+        } else if (e.key === 'ananta.oidc.access_token') {
+          this.userAuth.setOidcAccessToken(e.newValue);
+          if (e.newValue) {
+            void this.tryRestoreLinkedHubSession(e.newValue);
+          }
         } else if (e.key === 'oidc.popup.nonce' && e.newValue) {
           this._sessionNonce = e.newValue;
           localStorage.removeItem('oidc.popup.nonce');
@@ -185,7 +190,7 @@ export class OidcAuthService {
 
   async handleBackendCallback(): Promise<boolean> {
     const params = new URLSearchParams(location.search);
-    const code = params.get('oidc_code') || params.get('code');
+    const code = params.get('oidc_code');
     if (!code) return false;
     const state = params.get('state') || '';
 
@@ -201,9 +206,11 @@ export class OidcAuthService {
     const accessToken = String(data?.access_token || '').trim();
     if (!accessToken) return false;
     this._sessionNonce = '';
-    this.userAuth.setTokens(accessToken, data?.refresh_token || null);
+    await this.userAuth.setTokens(accessToken, data?.refresh_token || null);
     this.userAuth.setOidcAccessToken(String(data?.oidc_access_token || '').trim() || null);
-    this.router.navigateByUrl(String(data?.redirect_path || '/'));
+    if (!window.opener) {
+      await this.router.navigateByUrl(String(data?.redirect_path || '/'));
+    }
     return true;
   }
 
@@ -274,9 +281,10 @@ export class OidcAuthService {
     // Write nonce to localStorage so parent window can read it via storage event
     localStorage.setItem('oidc.popup.nonce', nonce);
     this._sessionNonce = nonce;
-    // setTokens writes to localStorage → fires storage event in parent window
+    // Writing the OIDC access token fires a storage event in the parent.
     this.userAuth.setOidcAccessToken(tokens.access_token);
     await this.userAuth.setOidcRefreshToken(tokens.refresh_token ?? null);
+    await this.tryRestoreLinkedHubSession(tokens.access_token);
     return true;
   }
 
