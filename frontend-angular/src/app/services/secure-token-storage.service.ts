@@ -117,4 +117,10 @@ export class SecureTokenStorage {
     if (await this.isAvailable()) return null;
     return 'IndexedDB nicht verfügbar — vermutlich Browser-Privacy-Mode oder InPrivate-Modus. Token-Encryption kann nicht aktiviert werden; Refresh-Tokens werden dann im Klartext in localStorage gespeichert.';
   }
+
+  /** Clears the in-memory key cache. Test-helper only. */
+  _clearCacheForTesting(): void {
+    this.keyCache.clear();
+    this.keyPromiseCache.clear();
+  }
 }

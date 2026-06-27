@@ -3,11 +3,17 @@ import { BehaviorSubject, Observable, finalize, tap } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { AgentDirectoryService } from './agent-directory.service';
 import { ApiResponse, unwrapApiResponse } from './api-envelope';
+import { SecureTokenStorage } from './secure-token-storage.service';
+
+const HUB_RT_STORAGE_KEY = 'ananta.hub.refresh_token';
+const OIDC_RT_STORAGE_KEY = 'ananta.oidc.refresh_token';
+const LEGACY_HUB_RT_KEY = 'ananta.user.refresh_token';
 
 @Injectable({ providedIn: 'root' })
 export class UserAuthService {
   private http = inject(HttpClient);
   private dir = inject(AgentDirectoryService);
+  private secureStorage = inject(SecureTokenStorage);
   private userRefreshInFlight = false;
 
   private _token = new BehaviorSubject<string | null>(localStorage.getItem('ananta.user.token'));
@@ -32,17 +38,20 @@ export class UserAuthService {
   get oidcAccessTokenValue() { return this._oidcAccessToken.value; }
   get userPayload() { return this._user.value; }
 
-  setTokens(token: string | null, refreshToken?: string | null) {
+  async setTokens(token: string | null, refreshToken?: string | null) {
     if (token) {
       localStorage.setItem('ananta.user.token', token);
     } else {
       localStorage.removeItem('ananta.user.token');
     }
-    
+
     if (refreshToken) {
-      localStorage.setItem('ananta.user.refresh_token', refreshToken);
+      const encrypted = await this.secureStorage.encrypt(refreshToken, HUB_RT_STORAGE_KEY);
+      localStorage.setItem(HUB_RT_STORAGE_KEY, encrypted);
+      localStorage.removeItem(LEGACY_HUB_RT_KEY);
     } else if (refreshToken === null && token === null) {
-      localStorage.removeItem('ananta.user.refresh_token');
+      localStorage.removeItem(HUB_RT_STORAGE_KEY);
+      localStorage.removeItem(LEGACY_HUB_RT_KEY);
     }
 
     this._token.next(token);
@@ -59,6 +68,53 @@ export class UserAuthService {
     }
 
     this._oidcAccessToken.next(token);
+  }
+
+  async setOidcRefreshToken(token: string | null) {
+    if (token) {
+      const encrypted = await this.secureStorage.encrypt(token, OIDC_RT_STORAGE_KEY);
+      localStorage.setItem(OIDC_RT_STORAGE_KEY, encrypted);
+    } else {
+      localStorage.removeItem(OIDC_RT_STORAGE_KEY);
+    }
+  }
+
+  async getHubRefreshToken(): Promise<string | null> {
+    const enc = localStorage.getItem(HUB_RT_STORAGE_KEY);
+    if (!enc) return null;
+    try {
+      return await this.secureStorage.decrypt(enc, HUB_RT_STORAGE_KEY);
+    } catch {
+      return null;
+    }
+  }
+
+  async getOidcRefreshToken(): Promise<string | null> {
+    const enc = localStorage.getItem(OIDC_RT_STORAGE_KEY);
+    if (!enc) return null;
+    try {
+      return await this.secureStorage.decrypt(enc, OIDC_RT_STORAGE_KEY);
+    } catch {
+      return null;
+    }
+  }
+
+  async runStorageMigration(): Promise<void> {
+    const legacyHubRt = localStorage.getItem(LEGACY_HUB_RT_KEY);
+    if (legacyHubRt) {
+      const encrypted = await this.secureStorage.encrypt(legacyHubRt, HUB_RT_STORAGE_KEY);
+      localStorage.setItem(HUB_RT_STORAGE_KEY, encrypted);
+      localStorage.removeItem(LEGACY_HUB_RT_KEY);
+    }
+    // OIDC-RT: if a legacy cleartext value exists in ananta.oidc.refresh_token
+    // (which would be very unusual — historically the OIDC RT was only kept in memory)
+    // it should be migrated. We detect "legacy" by the absence of the '.' separator
+    // that our encrypted format requires.
+    const existingOidc = localStorage.getItem(OIDC_RT_STORAGE_KEY);
+    if (existingOidc && !existingOidc.includes('.')) {
+      const encrypted = await this.secureStorage.encrypt(existingOidc, OIDC_RT_STORAGE_KEY);
+      localStorage.setItem(OIDC_RT_STORAGE_KEY, encrypted);
+    }
   }
 
   isLoggedIn() { return !!this.token; }
