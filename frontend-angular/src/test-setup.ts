@@ -17,8 +17,27 @@ if (!g.crypto || !g.crypto.subtle) {
 // tear it down between test files. The auth services use localStorage
 // from field initializers and async cleanup paths, so a ReferenceError
 // here manifests as a vitest "unhandled error" that fails the run.
-// Polyfill with a no-op in-memory stub when localStorage is missing.
-if (typeof (globalThis as any).localStorage === 'undefined') {
+// Polyfill with a no-op in-memory stub when localStorage is unusable.
+//
+// IMPORTANT: do not use `typeof globalThis.localStorage === 'undefined'`.
+// On opaque jsdom origins (no URL), accessing `localStorage` throws a
+// DOMException "localStorage is not available for opaque origins", and
+// `typeof` re-throws that — the typeof check itself fails. Use try/catch
+// on a real property access instead.
+function hasUsableLocalStorage(): boolean {
+  try {
+    const ls = (globalThis as any).localStorage;
+    if (!ls) return false;
+    const probe = '__ananta_probe__';
+    ls.setItem(probe, '1');
+    ls.removeItem(probe);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+if (!hasUsableLocalStorage()) {
   const memory = new Map<string, string>();
   const stub = {
     getItem: (k: string) => (memory.has(k) ? memory.get(k)! : null),
