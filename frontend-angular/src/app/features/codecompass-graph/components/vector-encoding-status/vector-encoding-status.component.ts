@@ -60,7 +60,7 @@ function badgeFor(mode: string): BadgeConfig {
         </div>
 
         <!-- Compression ratio -->
-        @if (diag()!.compression_ratio != null) {
+        @if (diag()!.compression_ratio !== null && diag()!.compression_ratio !== undefined) {
           <div class="row">
             <span class="key">Ratio</span>
             <span class="val">{{ diag()!.compression_ratio | number:'1.1-1' }}×</span>
@@ -68,7 +68,7 @@ function badgeFor(mode: string): BadgeConfig {
         }
 
         <!-- Max abs error -->
-        @if (diag()!.max_abs_error != null) {
+        @if (diag()!.max_abs_error !== null && diag()!.max_abs_error !== undefined) {
           <div class="row">
             <span class="key">Max err</span>
             <span class="val">{{ diag()!.max_abs_error | number:'1.3-3' }}</span>
