@@ -11,6 +11,7 @@ TODO_PATH_CANDIDATES = (
     ROOT / "todo.json",
     ROOT / "todo_last.json",
     ROOT / "todos" / "todo.rtipm-codecompass-tests-docs-2026-06-19.json",
+    ROOT / "todos" / "archiv" / "todo.rtipm-codecompass-tests-docs-2026-06-19.json",
 )
 
 
