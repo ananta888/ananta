@@ -22,6 +22,7 @@ export interface NetworkProfile {
     enabled?: boolean;
     hub_link_enabled?: boolean;
     bridge_active?: boolean;
+    registration_allowed?: boolean;
   };
   rendezvous: { base_url: string; signaling_url: string; transport_order: string[] };
   ice_servers: RTCIceServer[];
@@ -42,6 +43,7 @@ const FALLBACK: NetworkProfile = {
     enabled: true,
     hub_link_enabled: false,
     bridge_active: false,
+    registration_allowed: false,
   },
   rendezvous: { base_url: PUBLIC_WEBRTC_BASE_URL, signaling_url: PUBLIC_WEBRTC_SIGNALING_URL, transport_order: ['webrtc', 'hub_relay'] },
   ice_servers: [{ urls: PUBLIC_WEBRTC_STUN_URL }],

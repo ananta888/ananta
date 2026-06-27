@@ -71,4 +71,26 @@ export class IdentityBridge {
   get hubLinkEnabled(): boolean {
     return this.mode() === 'oidc-bridge';
   }
+
+  /**
+   * Whether the "Bei Keycloak registrieren" button should be shown.
+   *
+   * Single source of truth = the backend-supplied
+   * `oidc.registration_allowed` flag (set in /api/network-profiles from
+   * settings.OIDC_REGISTRATION_ALLOWED AND oidc_is_configured()).
+   *
+   * Frontend-side defensive invariant: button only renders when the
+   * keycloak-realm is reachable via the Pair config AND a hub agent is
+   * registered locally (otherwise there is no keycloak-realm to register
+   * against from this device).
+   *
+   * Default-deny: if the flag is missing or false → false.
+   */
+  get showRegistration(): boolean {
+    const oidc = this.profiles.current?.oidc;
+    if (!oidc?.registration_allowed) return false;
+    if (!oidc.issuer || !oidc.client_id) return false;
+    const hub = this.dir.list().find((a) => a.role === 'hub');
+    return !!hub?.url;
+  }
 }

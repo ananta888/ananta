@@ -16,6 +16,7 @@ describe('IdentityBridge', () => {
     hubUrl: string | null,
     bridgeActive = false,
     pairEnabled = profileId === 'public-ananta',
+    registrationAllowed = false,
   ) {
     TestBed.configureTestingModule({
       providers: [
@@ -33,6 +34,7 @@ describe('IdentityBridge', () => {
                 enabled: pairEnabled,
                 hub_link_enabled: bridgeActive,
                 bridge_active: bridgeActive,
+                registration_allowed: registrationAllowed,
               },
             },
           },
@@ -142,6 +144,34 @@ describe('IdentityBridge', () => {
       build('local', 'http://hub.test');
       expect(bridge.mode()).toBe('hub-direct');
       expect(bridge.showOidcLogin).toBe(false);
+    });
+  });
+
+  describe('showRegistration (Self-Registration-Gate)', () => {
+    it('default-deny: registration_allowed=false → showRegistration=false', () => {
+      build('public-ananta', 'http://hub.test', true, true, false);
+      expect(bridge.showRegistration).toBe(false);
+    });
+
+    it('registration_allowed=true with pair enabled → showRegistration=true', () => {
+      build('public-ananta', 'http://hub.test', true, true, true);
+      expect(bridge.showRegistration).toBe(true);
+    });
+
+    it('registration_allowed=true but pair disabled → showRegistration=false', () => {
+      // Ohne OIDC-Infrastruktur darf auch der Registration-Button nicht
+      // erscheinen, selbst wenn der Server das Feld "true" liefert
+      // (defensive — Server sollte sowieso false liefern, aber Frontend
+      // verifiziert das invariant).
+      build('local', 'http://hub.test', false, false, true);
+      expect(bridge.showRegistration).toBe(false);
+    });
+
+    it('registration_allowed=true on profile ohne Hub-Directory → showRegistration=false', () => {
+      // Auch ohne Hub-Eintrag zeigt der Button nichts an, weil wir
+      // keine keycloak-realm ohne Hub-config exposen wollen.
+      build('public-ananta', null, true, true, true);
+      expect(bridge.showRegistration).toBe(false);
     });
   });
 });

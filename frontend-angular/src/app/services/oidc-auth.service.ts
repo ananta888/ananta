@@ -118,6 +118,45 @@ export class OidcAuthService {
 
   // ── T12: PKCE Authorization redirect ────────────────────────────────
 
+  /**
+   * Returns the standard Keycloak self-registration URL for the configured
+   * issuer, or an empty string if no issuer is configured.
+   *
+   * This URL is opened in a new tab via window.open() — there is no PKCE
+   * state, no callback handling. The user fills in the keycloak-native
+   * registration form and then has to click "Bei Keycloak anmelden"
+   * manually to complete an OIDC login.
+   *
+   * Single source of truth: the network profile's `oidc.issuer`. We do
+   * NOT use the public-ananta fallback here — self-registration must be
+   * scoped to the same realm the user is logging in to. The button is
+   * only rendered when the IdentityBridge.showRegistration gate is true,
+   * which itself requires `registration_allowed` to be set by the Hub
+   * (single source of truth on the backend). This service is the dumb
+   * URL-builder; the visibility gate lives elsewhere.
+   *
+   * Returns the empty string when the issuer is missing so callers (and
+   * tests) can rely on a falsy result to no-op safely.
+   */
+  registrationUrl(): string {
+    const issuer = String(this.profiles.current?.oidc?.issuer || '')
+      .trim()
+      .replace(/\/$/, '');
+    if (!issuer) return '';
+    return `${issuer}/login-actions/registration`;
+  }
+
+  /**
+   * Opens the keycloak self-registration page in a new tab. No-op when
+   * no issuer is configured. Does not write to sessionStorage or localStorage
+   * (no PKCE state — registration has no callback path).
+   */
+  registerWithKeycloak(): void {
+    const url = this.registrationUrl();
+    if (!url) return;
+    window.open(url, '_blank');
+  }
+
   async startLogin(redirectPath = '/', linkHub = false): Promise<void> {
     const authEndpoint = `${this.issuer.replace(/\/$/, '')}/protocol/openid-connect/auth`;
     const verifier = this.randomB64Url(48);
