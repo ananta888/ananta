@@ -57,6 +57,27 @@ export class WebrtcSignalingService {
     this.status$.next('disconnected');
   }
 
+  /**
+   * Hard disconnect — irreversible: cancels reconnect, kills Hub-Relay poll,
+   * closes WebSocket, clears all peer-connection bindings.
+   * Used by Identity-Registry logout: identity went away, so any WebRTC
+   * session it was carrying must die now.
+   */
+  hardDisconnect(): void {
+    this.stopReconnect();
+    this.stopPoll();
+    if (this.ws) {
+      try { this.ws.close(1000, 'identity revoked'); } catch { /* ignore */ }
+      this.ws = null;
+    }
+    this.useHubRelay = false;
+    this.pollCursor = '';
+    this.sessionId = '';
+    this.signalingUrl = '';
+    this.reconnectAttempts = 0;
+    this.status$.next('disconnected');
+  }
+
   send(msg: SignalMessage): void {
     if (this.useHubRelay) {
       this.hubRelaySend(msg);
