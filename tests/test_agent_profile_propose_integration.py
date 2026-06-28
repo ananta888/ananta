@@ -205,6 +205,7 @@ def test_user_overlay_cannot_suppress_agent_profile_template(app):
 # APRL-019 T4: bug_fix and refactor produce different active profiles
 # ---------------------------------------------------------------------------
 
+@pytest.mark.integration
 def test_bug_fix_and_refactor_produce_different_active_profiles(client, app, admin_auth_header):
     from agent.routes.tasks.utils import _update_local_task_status
 
