@@ -23,6 +23,15 @@ class CodeCompassGraphStore:
                 "equivalence_rules": [],
                 "translation_contracts": [],
                 "transform_artifacts": [],
+                # X86CC-020: x86_extension slot is always present so consumers can
+                # safely access it even when the index is missing.
+                "x86_nodes": [],
+                "x86_edges": [],
+                "x86_index": {
+                    "schema": "codecompass_x86_graph.v1",
+                    "nodes": [], "edges": [], "nodes_by_id": {},
+                    "node_count": 0, "edge_count": 0,
+                },
                 "node_index": {},
                 "semantic_index": {},
                 "outgoing_index": {},
@@ -40,6 +49,14 @@ class CodeCompassGraphStore:
             "equivalence_rules": [item for item in list(payload.get("equivalence_rules") or []) if isinstance(item, dict)],
             "translation_contracts": [item for item in list(payload.get("translation_contracts") or []) if isinstance(item, dict)],
             "transform_artifacts": [item for item in list(payload.get("transform_artifacts") or []) if isinstance(item, dict)],
+            # X86CC-020: x86 fields are optional in the on-disk payload; default to empty.
+            "x86_nodes": [item for item in list(payload.get("x86_nodes") or []) if isinstance(item, dict)],
+            "x86_edges": [item for item in list(payload.get("x86_edges") or []) if isinstance(item, dict)],
+            "x86_index": dict(payload.get("x86_index") or {
+                "schema": "codecompass_x86_graph.v1",
+                "nodes": [], "edges": [], "nodes_by_id": {},
+                "node_count": 0, "edge_count": 0,
+            }),
             "node_index": dict(payload.get("node_index") or {}),
             "semantic_index": dict(payload.get("semantic_index") or {}),
             "outgoing_index": dict(payload.get("outgoing_index") or {}),
@@ -66,6 +83,11 @@ class CodeCompassGraphStore:
         equivalence_rules: list[dict[str, Any]] = []
         translation_contracts: list[dict[str, Any]] = []
         transform_artifacts: list[dict[str, Any]] = []
+        # X86CC-020: separate storage so existing graph_nodes / graph_edges indexes
+        # are not polluted. x86 records keep their full record shape for round-trip
+        # queries via X86QueryEngine.
+        x86_nodes_list: list[dict[str, Any]] = []
+        x86_edges_list: list[dict[str, Any]] = []
         has_nodes = False
         has_edges = False
         for index, record in enumerate(list(records or []), start=1):
@@ -120,6 +142,14 @@ class CodeCompassGraphStore:
                 translation_contracts.append(dict(record))
             elif output_kind == "transform_artifacts":
                 transform_artifacts.append(dict(record))
+            elif output_kind == "x86_nodes":
+                # X86CC-020: x86 nodes are stored as a separate list under x86_nodes
+                # so the existing graph_nodes index is not polluted. They participate
+                # in their own (nodes_by_id-like) lookup but the general graph_nodes
+                # index stays unchanged for backward compatibility.
+                x86_nodes_list.append(dict(record))
+            elif output_kind == "x86_edges":
+                x86_edges_list.append(dict(record))
 
         node_index = self._build_node_index(nodes)
         semantic_index = self._build_semantic_index(semantic_nodes, semantic_edges, equivalence_rules)
@@ -145,6 +175,28 @@ class CodeCompassGraphStore:
         else:
             diagnostics["semantic_translation"] = {"status": "degraded", "reason": "semantic_translation_index_unavailable"}
 
+        if x86_nodes_list or x86_edges_list:
+            # X86CC-020: expose x86 records as their own structure with a deterministic
+            # id-keyed lookup so X86QueryEngine can run against the same payload
+            # without rebuilding the index.
+            x86_index = {
+                "schema": "codecompass_x86_graph.v1",
+                "nodes": x86_nodes_list,
+                "edges": x86_edges_list,
+                "nodes_by_id": {n["id"]: n for n in x86_nodes_list if isinstance(n, dict) and n.get("id")},
+                "node_count": len(x86_nodes_list),
+                "edge_count": len(x86_edges_list),
+            }
+            diagnostics["x86_extension"] = {
+                "schema": "codecompass_x86_graph.v1",
+                "node_count": len(x86_nodes_list),
+                "edge_count": len(x86_edges_list),
+                "status": "ready",
+            }
+        else:
+            x86_index = {"schema": "codecompass_x86_graph.v1", "nodes": [], "edges": [], "nodes_by_id": {}, "node_count": 0, "edge_count": 0}
+            diagnostics["x86_extension"] = {"status": "degraded", "reason": "no_x86_records"}
+
         payload = {
             "state": {"schema": "codecompass_graph_index.v1", "manifest_hash": str(manifest_hash or "")},
             "nodes": nodes,
@@ -154,6 +206,9 @@ class CodeCompassGraphStore:
             "equivalence_rules": equivalence_rules,
             "translation_contracts": translation_contracts,
             "transform_artifacts": transform_artifacts,
+            "x86_nodes": x86_nodes_list,
+            "x86_edges": x86_edges_list,
+            "x86_index": x86_index,
             "node_index": node_index,
             "semantic_index": semantic_index,
             "outgoing_index": outgoing_index,
