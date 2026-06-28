@@ -1,0 +1,120 @@
+{
+  "metadata": {
+    "architecture": "x86_64",
+    "bitness": 64,
+    "syntax": "intel",
+    "abi": "x86_64_sysv",
+    "endianness": "little",
+    "base_address": 4194304,
+    "source": "synthetic_fixture",
+    "description": "Function with one call site and ret; calls helper at 0x401000"
+  },
+  "sections": [
+    {"name": ".text", "start": 4194304, "size": 24, "flags": "rx"}
+  ],
+  "symbols": [
+    {"name": "caller", "address": 4194304, "kind": "function", "size": 20},
+    {"name": "helper", "address": 4198400, "kind": "function", "size": 4}
+  ],
+  "functions": [
+    {
+      "id": "func_0x400000",
+      "name": "caller",
+      "start_address": 4194304,
+      "end_address": 4194324,
+      "basic_blocks": ["bb_0x400000"]
+    },
+    {
+      "id": "func_0x401000",
+      "name": "helper",
+      "start_address": 4198400,
+      "end_address": 4198404,
+      "basic_blocks": ["bb_0x401000"]
+    }
+  ],
+  "instructions": [
+    {
+      "address": 4194304,
+      "bytes_hex": "55",
+      "mnemonic": "push",
+      "operands": [
+        {"kind": "register", "value_str": "rbp", "width": 64, "is_read": true, "is_write": false}
+      ],
+      "implicit_registers_read": ["rsp"],
+      "implicit_registers_written": ["rsp"],
+      "flag_effects": [],
+      "width": 64
+    },
+    {
+      "address": 4194305,
+      "bytes_hex": "48 89 e5",
+      "mnemonic": "mov",
+      "operands": [
+        {"kind": "register", "value_str": "rbp", "width": 64, "is_read": false, "is_write": true},
+        {"kind": "register", "value_str": "rsp", "width": 64, "is_read": true, "is_write": false}
+      ],
+      "implicit_registers_read": [],
+      "implicit_registers_written": [],
+      "flag_effects": [],
+      "width": 64
+    },
+    {
+      "address": 4194308,
+      "bytes_hex": "e8 f3 0f 00 00",
+      "mnemonic": "call",
+      "operands": [
+        {"kind": "relative_target", "value_str": "helper", "width": 64, "is_read": true, "is_write": false}
+      ],
+      "implicit_registers_read": ["rsp"],
+      "implicit_registers_written": ["rsp"],
+      "flag_effects": [],
+      "width": 64
+    },
+    {
+      "address": 4194313,
+      "bytes_hex": "5d",
+      "mnemonic": "pop",
+      "operands": [
+        {"kind": "register", "value_str": "rbp", "width": 64, "is_read": false, "is_write": true}
+      ],
+      "implicit_registers_read": ["rsp"],
+      "implicit_registers_written": ["rsp"],
+      "flag_effects": [],
+      "width": 64
+    },
+    {
+      "address": 4194314,
+      "bytes_hex": "c3",
+      "mnemonic": "ret",
+      "operands": [],
+      "implicit_registers_read": ["rsp", "rax"],
+      "implicit_registers_written": ["rsp"],
+      "flag_effects": [],
+      "width": 64
+    },
+    {
+      "address": 4198400,
+      "bytes_hex": "31 c0",
+      "mnemonic": "xor",
+      "operands": [
+        {"kind": "register", "value_str": "eax", "width": 32, "is_read": true, "is_write": true},
+        {"kind": "register", "value_str": "eax", "width": 32, "is_read": true, "is_write": false}
+      ],
+      "implicit_registers_read": [],
+      "implicit_registers_written": [],
+      "flag_effects": [],
+      "width": 32
+    },
+    {
+      "address": 4198402,
+      "bytes_hex": "c3",
+      "mnemonic": "ret",
+      "operands": [],
+      "implicit_registers_read": ["rsp", "rax"],
+      "implicit_registers_written": ["rsp"],
+      "flag_effects": [],
+      "width": 64
+    }
+  ],
+  "diagnostics": []
+}

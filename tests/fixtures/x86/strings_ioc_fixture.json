@@ -1,0 +1,35 @@
+{
+  "metadata": {
+    "architecture": "x86_64",
+    "bitness": 64,
+    "syntax": "intel",
+    "abi": "x86_64_windows",
+    "endianness": "little",
+    "base_address": 4194304,
+    "source": "synthetic_fixture",
+    "description": "Strings section fixture with domains, URLs, registry keys, mutex names for IOC testing"
+  },
+  "sections": [
+    {"name": ".rdata", "start": 4206592, "size": 4096, "flags": "r", "entropy": 3.2}
+  ],
+  "symbols": [],
+  "functions": [],
+  "instructions": [],
+  "strings": [
+    {"value": "example.com", "encoding": "ascii", "address": 4206592, "section": ".rdata", "length": 11},
+    {"value": "malicious-domain.net", "encoding": "ascii", "address": 4206604, "section": ".rdata", "length": 20},
+    {"value": "http://evil.example.org/payload.exe", "encoding": "ascii", "address": 4206624, "section": ".rdata", "length": 35},
+    {"value": "https://c2.attacker.example/api/v1", "encoding": "ascii", "address": 4206660, "section": ".rdata", "length": 34},
+    {"value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run", "encoding": "ascii", "address": 4206694, "section": ".rdata", "length": 50},
+    {"value": "HKCU\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon", "encoding": "ascii", "address": 4206744, "section": ".rdata", "length": 58},
+    {"value": "Global\\MyMutex_12345", "encoding": "ascii", "address": 4206802, "section": ".rdata", "length": 20},
+    {"value": "C:\\Windows\\System32\\svchost.exe", "encoding": "ascii", "address": 4206822, "section": ".rdata", "length": 30},
+    {"value": "Mozilla/5.0 (Windows NT 10.0; Win64) custom_ua/1.0", "encoding": "ascii", "address": 4206852, "section": ".rdata", "length": 50},
+    {"value": "cmd.exe /c whoami && net user", "encoding": "ascii", "address": 4206902, "section": ".rdata", "length": 29},
+    {"value": "192.168.1.100", "encoding": "ascii", "address": 4206932, "section": ".rdata", "length": 13},
+    {"value": "10.0.0.1", "encoding": "ascii", "address": 4206945, "section": ".rdata", "length": 8},
+    {"value": "hello world", "encoding": "ascii", "address": 4206953, "section": ".rdata", "length": 11},
+    {"value": "version 1.0.0", "encoding": "ascii", "address": 4206964, "section": ".rdata", "length": 13}
+  ],
+  "diagnostics": []
+}

@@ -1,0 +1,104 @@
+{
+  "metadata": {
+    "architecture": "x86_64",
+    "bitness": 64,
+    "syntax": "intel",
+    "abi": "x86_64_windows",
+    "endianness": "little",
+    "base_address": 4194304,
+    "source": "synthetic_fixture",
+    "file_type": "pe",
+    "description": "PE-like metadata fixture with suspicious imports: CreateFile, VirtualAlloc, WriteProcessMemory"
+  },
+  "file_metadata": {
+    "sha256": "aabbccdd0011223344556677889900aabbccdd0011223344556677889900aabb",
+    "sha1": "aabbccdd00112233445566778899aabbccdd0011",
+    "md5": "aabbccdd00112233445566778899aabb",
+    "file_size": 65536,
+    "file_type": "pe",
+    "entry_point": 4198400,
+    "packing_indicators": [],
+    "entropy_hints": []
+  },
+  "sections": [
+    {"name": ".text", "start": 4194304, "size": 8192, "flags": "rx", "entropy": 5.2},
+    {"name": ".data", "start": 4202496, "size": 4096, "flags": "rw", "entropy": 2.1},
+    {"name": ".rdata", "start": 4206592, "size": 4096, "flags": "r", "entropy": 3.8},
+    {"name": ".idata", "start": 4210688, "size": 4096, "flags": "r", "entropy": 2.5}
+  ],
+  "symbols": [
+    {"name": "WinMain", "address": 4198400, "kind": "function", "size": 64}
+  ],
+  "imports": [
+    {"dll": "kernel32.dll", "name": "CreateFileA", "address": 4210700},
+    {"dll": "kernel32.dll", "name": "ReadFile", "address": 4210708},
+    {"dll": "kernel32.dll", "name": "WriteFile", "address": 4210716},
+    {"dll": "kernel32.dll", "name": "CloseHandle", "address": 4210724},
+    {"dll": "kernel32.dll", "name": "VirtualAlloc", "address": 4210732},
+    {"dll": "kernel32.dll", "name": "VirtualProtect", "address": 4210740},
+    {"dll": "kernel32.dll", "name": "VirtualFree", "address": 4210748},
+    {"dll": "kernel32.dll", "name": "GetProcAddress", "address": 4210756},
+    {"dll": "kernel32.dll", "name": "LoadLibraryA", "address": 4210764},
+    {"dll": "ntdll.dll", "name": "NtQueryInformationProcess", "address": 4210772},
+    {"dll": "kernel32.dll", "name": "IsDebuggerPresent", "address": 4210780},
+    {"dll": "psapi.dll", "name": "WriteProcessMemory", "address": 4210788}
+  ],
+  "exports": [],
+  "functions": [
+    {
+      "id": "func_WinMain",
+      "name": "WinMain",
+      "start_address": 4198400,
+      "end_address": 4198464,
+      "basic_blocks": ["bb_WinMain_0"]
+    }
+  ],
+  "instructions": [
+    {
+      "address": 4198400,
+      "bytes_hex": "55",
+      "mnemonic": "push",
+      "operands": [{"kind": "register", "value_str": "rbp", "width": 64, "is_read": true, "is_write": false}],
+      "implicit_registers_read": ["rsp"],
+      "implicit_registers_written": ["rsp"],
+      "flag_effects": [],
+      "width": 64
+    },
+    {
+      "address": 4198401,
+      "bytes_hex": "48 89 e5",
+      "mnemonic": "mov",
+      "operands": [
+        {"kind": "register", "value_str": "rbp", "width": 64, "is_read": false, "is_write": true},
+        {"kind": "register", "value_str": "rsp", "width": 64, "is_read": true, "is_write": false}
+      ],
+      "implicit_registers_read": [],
+      "implicit_registers_written": [],
+      "flag_effects": [],
+      "width": 64
+    },
+    {
+      "address": 4198404,
+      "bytes_hex": "ff 15 68 03 40 00",
+      "mnemonic": "call",
+      "operands": [
+        {"kind": "memory", "value_str": "[IsDebuggerPresent]", "width": 64, "is_read": true, "is_write": false}
+      ],
+      "implicit_registers_read": ["rsp"],
+      "implicit_registers_written": ["rsp", "rax"],
+      "flag_effects": [],
+      "width": 64
+    },
+    {
+      "address": 4198410,
+      "bytes_hex": "c3",
+      "mnemonic": "ret",
+      "operands": [],
+      "implicit_registers_read": ["rsp"],
+      "implicit_registers_written": ["rsp"],
+      "flag_effects": [],
+      "width": 64
+    }
+  ],
+  "diagnostics": []
+}

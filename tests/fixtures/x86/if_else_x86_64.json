@@ -1,0 +1,127 @@
+{
+  "metadata": {
+    "architecture": "x86_64",
+    "bitness": 64,
+    "syntax": "intel",
+    "abi": "x86_64_sysv",
+    "endianness": "little",
+    "base_address": 4194304,
+    "source": "synthetic_fixture",
+    "description": "if/else: cmp rdi,0; jne else_branch; mov rax,1; ret; else: mov rax,0; ret"
+  },
+  "sections": [
+    {"name": ".text", "start": 4194304, "size": 24, "flags": "rx"}
+  ],
+  "symbols": [
+    {"name": "is_zero", "address": 4194304, "kind": "function", "size": 24}
+  ],
+  "functions": [
+    {
+      "id": "func_0x400000",
+      "name": "is_zero",
+      "start_address": 4194304,
+      "end_address": 4194328,
+      "basic_blocks": ["bb_0x400000", "bb_0x40000a", "bb_0x40000e"]
+    }
+  ],
+  "instructions": [
+    {
+      "address": 4194304,
+      "bytes_hex": "48 83 ff 00",
+      "mnemonic": "cmp",
+      "operands": [
+        {"kind": "register", "value_str": "rdi", "width": 64, "is_read": true, "is_write": false},
+        {"kind": "immediate", "value_str": "0", "width": 64, "is_read": true, "is_write": false}
+      ],
+      "implicit_registers_read": [],
+      "implicit_registers_written": [],
+      "flag_effects": ["ZF", "SF", "OF", "CF", "PF", "AF"],
+      "width": 64
+    },
+    {
+      "address": 4194308,
+      "bytes_hex": "75 06",
+      "mnemonic": "jne",
+      "operands": [
+        {"kind": "relative_target", "value_str": "0x40000e", "width": 64, "is_read": true, "is_write": false}
+      ],
+      "implicit_registers_read": ["ZF"],
+      "implicit_registers_written": [],
+      "flag_effects": [],
+      "width": 64
+    },
+    {
+      "address": 4194310,
+      "bytes_hex": "b8 01 00 00 00",
+      "mnemonic": "mov",
+      "operands": [
+        {"kind": "register", "value_str": "eax", "width": 32, "is_read": false, "is_write": true},
+        {"kind": "immediate", "value_str": "1", "width": 32, "is_read": true, "is_write": false}
+      ],
+      "implicit_registers_read": [],
+      "implicit_registers_written": [],
+      "flag_effects": [],
+      "width": 32
+    },
+    {
+      "address": 4194315,
+      "bytes_hex": "c3",
+      "mnemonic": "ret",
+      "operands": [],
+      "implicit_registers_read": ["rsp", "rax"],
+      "implicit_registers_written": ["rsp"],
+      "flag_effects": [],
+      "width": 64
+    },
+    {
+      "address": 4194316,
+      "bytes_hex": "31 c0",
+      "mnemonic": "xor",
+      "operands": [
+        {"kind": "register", "value_str": "eax", "width": 32, "is_read": true, "is_write": true},
+        {"kind": "register", "value_str": "eax", "width": 32, "is_read": true, "is_write": false}
+      ],
+      "implicit_registers_read": [],
+      "implicit_registers_written": [],
+      "flag_effects": ["ZF", "SF", "OF", "CF", "PF"],
+      "width": 32
+    },
+    {
+      "address": 4194318,
+      "bytes_hex": "c3",
+      "mnemonic": "ret",
+      "operands": [],
+      "implicit_registers_read": ["rsp", "rax"],
+      "implicit_registers_written": ["rsp"],
+      "flag_effects": [],
+      "width": 64
+    }
+  ],
+  "basic_blocks": [
+    {
+      "id": "bb_0x400000",
+      "start_address": 4194304,
+      "end_address": 4194310,
+      "successors": [
+        {"address": 4194310, "edge_type": "fallthrough"},
+        {"address": 4194316, "edge_type": "conditional_true"}
+      ],
+      "block_type": "branch"
+    },
+    {
+      "id": "bb_0x40000a",
+      "start_address": 4194310,
+      "end_address": 4194316,
+      "successors": [],
+      "block_type": "linear"
+    },
+    {
+      "id": "bb_0x40000e",
+      "start_address": 4194316,
+      "end_address": 4194320,
+      "successors": [],
+      "block_type": "linear"
+    }
+  ],
+  "diagnostics": []
+}

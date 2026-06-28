@@ -1,0 +1,171 @@
+{
+  "metadata": {
+    "architecture": "x86_64",
+    "bitness": 64,
+    "syntax": "intel",
+    "abi": "x86_64_windows",
+    "endianness": "little",
+    "base_address": 4194304,
+    "source": "synthetic_fixture",
+    "description": "Anti-debug patterns: IsDebuggerPresent call + RDTSC timing check"
+  },
+  "sections": [
+    {"name": ".text", "start": 4194304, "size": 64, "flags": "rx"}
+  ],
+  "symbols": [
+    {"name": "check_debugger", "address": 4194304, "kind": "function", "size": 32},
+    {"name": "timing_check", "address": 4194336, "kind": "function", "size": 32}
+  ],
+  "imports": [
+    {"dll": "kernel32.dll", "name": "IsDebuggerPresent", "address": 4210780},
+    {"dll": "kernel32.dll", "name": "CheckRemoteDebuggerPresent", "address": 4210788}
+  ],
+  "functions": [
+    {
+      "id": "func_check_debugger",
+      "name": "check_debugger",
+      "start_address": 4194304,
+      "end_address": 4194336,
+      "basic_blocks": ["bb_0x400000"]
+    },
+    {
+      "id": "func_timing_check",
+      "name": "timing_check",
+      "start_address": 4194336,
+      "end_address": 4194368,
+      "basic_blocks": ["bb_0x400020"]
+    }
+  ],
+  "instructions": [
+    {
+      "address": 4194304,
+      "bytes_hex": "ff 15 d0 03 40 00",
+      "mnemonic": "call",
+      "operands": [
+        {"kind": "memory", "value_str": "[IsDebuggerPresent]", "width": 64, "is_read": true, "is_write": false}
+      ],
+      "implicit_registers_read": ["rsp"],
+      "implicit_registers_written": ["rsp", "rax"],
+      "flag_effects": [],
+      "width": 64
+    },
+    {
+      "address": 4194310,
+      "bytes_hex": "85 c0",
+      "mnemonic": "test",
+      "operands": [
+        {"kind": "register", "value_str": "eax", "width": 32, "is_read": true, "is_write": false},
+        {"kind": "register", "value_str": "eax", "width": 32, "is_read": true, "is_write": false}
+      ],
+      "implicit_registers_read": [],
+      "implicit_registers_written": [],
+      "flag_effects": ["ZF", "SF", "PF"],
+      "width": 32
+    },
+    {
+      "address": 4194312,
+      "bytes_hex": "74 04",
+      "mnemonic": "je",
+      "operands": [
+        {"kind": "relative_target", "value_str": "0x400012", "width": 64, "is_read": true, "is_write": false}
+      ],
+      "implicit_registers_read": ["ZF"],
+      "implicit_registers_written": [],
+      "flag_effects": [],
+      "width": 64
+    },
+    {
+      "address": 4194314,
+      "bytes_hex": "b8 01 00 00 00",
+      "mnemonic": "mov",
+      "operands": [
+        {"kind": "register", "value_str": "eax", "width": 32, "is_read": false, "is_write": true},
+        {"kind": "immediate", "value_str": "1", "width": 32, "is_read": true, "is_write": false}
+      ],
+      "implicit_registers_read": [],
+      "implicit_registers_written": [],
+      "flag_effects": [],
+      "width": 32
+    },
+    {
+      "address": 4194319,
+      "bytes_hex": "c3",
+      "mnemonic": "ret",
+      "operands": [],
+      "implicit_registers_read": ["rsp"],
+      "implicit_registers_written": ["rsp"],
+      "flag_effects": [],
+      "width": 64
+    },
+    {
+      "address": 4194320,
+      "bytes_hex": "31 c0",
+      "mnemonic": "xor",
+      "operands": [
+        {"kind": "register", "value_str": "eax", "width": 32, "is_read": true, "is_write": true},
+        {"kind": "register", "value_str": "eax", "width": 32, "is_read": true, "is_write": false}
+      ],
+      "implicit_registers_read": [],
+      "implicit_registers_written": [],
+      "flag_effects": ["ZF"],
+      "width": 32
+    },
+    {
+      "address": 4194322,
+      "bytes_hex": "c3",
+      "mnemonic": "ret",
+      "operands": [],
+      "implicit_registers_read": ["rsp"],
+      "implicit_registers_written": ["rsp"],
+      "flag_effects": [],
+      "width": 64
+    },
+    {
+      "address": 4194336,
+      "bytes_hex": "0f 31",
+      "mnemonic": "rdtsc",
+      "operands": [],
+      "implicit_registers_read": [],
+      "implicit_registers_written": ["eax", "edx"],
+      "flag_effects": [],
+      "width": 64
+    },
+    {
+      "address": 4194338,
+      "bytes_hex": "48 c1 e2 20",
+      "mnemonic": "shl",
+      "operands": [
+        {"kind": "register", "value_str": "rdx", "width": 64, "is_read": true, "is_write": true},
+        {"kind": "immediate", "value_str": "32", "width": 8, "is_read": true, "is_write": false}
+      ],
+      "implicit_registers_read": [],
+      "implicit_registers_written": [],
+      "flag_effects": ["CF", "ZF", "SF", "OF"],
+      "width": 64
+    },
+    {
+      "address": 4194342,
+      "bytes_hex": "48 09 d0",
+      "mnemonic": "or",
+      "operands": [
+        {"kind": "register", "value_str": "rax", "width": 64, "is_read": true, "is_write": true},
+        {"kind": "register", "value_str": "rdx", "width": 64, "is_read": true, "is_write": false}
+      ],
+      "implicit_registers_read": [],
+      "implicit_registers_written": [],
+      "flag_effects": ["ZF", "SF", "OF", "CF"],
+      "width": 64
+    },
+    {
+      "address": 4194345,
+      "bytes_hex": "c3",
+      "mnemonic": "ret",
+      "operands": [],
+      "implicit_registers_read": ["rsp", "rax"],
+      "implicit_registers_written": ["rsp"],
+      "flag_effects": [],
+      "width": 64
+    }
+  ],
+  "diagnostics": []
+}

@@ -1,0 +1,111 @@
+{
+  "metadata": {
+    "architecture": "x86_64",
+    "bitness": 64,
+    "syntax": "intel",
+    "abi": "x86_64_sysv",
+    "endianness": "little",
+    "base_address": 4194304,
+    "source": "synthetic_fixture",
+    "description": "Function with indirect jump via register (jmp rax) - CFG is incomplete"
+  },
+  "sections": [
+    {"name": ".text", "start": 4194304, "size": 24, "flags": "rx"}
+  ],
+  "symbols": [
+    {"name": "dispatch", "address": 4194304, "kind": "function", "size": 24}
+  ],
+  "functions": [
+    {
+      "id": "func_dispatch",
+      "name": "dispatch",
+      "start_address": 4194304,
+      "end_address": 4194328,
+      "basic_blocks": ["bb_0x400000", "bb_0x40000a"]
+    }
+  ],
+  "instructions": [
+    {
+      "address": 4194304,
+      "bytes_hex": "48 83 ff 04",
+      "mnemonic": "cmp",
+      "operands": [
+        {"kind": "register", "value_str": "rdi", "width": 64, "is_read": true, "is_write": false},
+        {"kind": "immediate", "value_str": "4", "width": 64, "is_read": true, "is_write": false}
+      ],
+      "implicit_registers_read": [],
+      "implicit_registers_written": [],
+      "flag_effects": ["ZF", "CF", "SF", "OF"],
+      "width": 64
+    },
+    {
+      "address": 4194308,
+      "bytes_hex": "77 0a",
+      "mnemonic": "ja",
+      "operands": [
+        {"kind": "relative_target", "value_str": "0x400014", "width": 64, "is_read": true, "is_write": false}
+      ],
+      "implicit_registers_read": ["CF", "ZF"],
+      "implicit_registers_written": [],
+      "flag_effects": [],
+      "width": 64
+    },
+    {
+      "address": 4194310,
+      "bytes_hex": "48 8b 04 fd 00 20 40 00",
+      "mnemonic": "mov",
+      "operands": [
+        {"kind": "register", "value_str": "rax", "width": 64, "is_read": false, "is_write": true},
+        {"kind": "memory", "value_str": "[rdi*8+0x402000]", "width": 64, "is_read": true, "is_write": false}
+      ],
+      "implicit_registers_read": ["rdi"],
+      "implicit_registers_written": [],
+      "flag_effects": [],
+      "width": 64
+    },
+    {
+      "address": 4194318,
+      "bytes_hex": "ff e0",
+      "mnemonic": "jmp",
+      "operands": [
+        {"kind": "register", "value_str": "rax", "width": 64, "is_read": true, "is_write": false}
+      ],
+      "implicit_registers_read": [],
+      "implicit_registers_written": [],
+      "flag_effects": [],
+      "width": 64
+    },
+    {
+      "address": 4194320,
+      "bytes_hex": "31 c0",
+      "mnemonic": "xor",
+      "operands": [
+        {"kind": "register", "value_str": "eax", "width": 32, "is_read": true, "is_write": true},
+        {"kind": "register", "value_str": "eax", "width": 32, "is_read": true, "is_write": false}
+      ],
+      "implicit_registers_read": [],
+      "implicit_registers_written": [],
+      "flag_effects": ["ZF"],
+      "width": 32
+    },
+    {
+      "address": 4194322,
+      "bytes_hex": "c3",
+      "mnemonic": "ret",
+      "operands": [],
+      "implicit_registers_read": ["rsp"],
+      "implicit_registers_written": ["rsp"],
+      "flag_effects": [],
+      "width": 64
+    }
+  ],
+  "diagnostics": [
+    {
+      "code": "cfg_incomplete",
+      "severity": "warning",
+      "message": "Indirect jump at 0x40000e: jmp rax - CFG edge targets unknown",
+      "path": "synthetic",
+      "line": 0
+    }
+  ]
+}

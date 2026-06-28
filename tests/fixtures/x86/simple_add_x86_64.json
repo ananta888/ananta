@@ -1,0 +1,66 @@
+{
+  "metadata": {
+    "architecture": "x86_64",
+    "bitness": 64,
+    "syntax": "intel",
+    "abi": "x86_64_sysv",
+    "endianness": "little",
+    "base_address": 4194304,
+    "source": "synthetic_fixture",
+    "description": "Minimal add function: adds two registers (rdi + rsi -> rax)"
+  },
+  "sections": [
+    {"name": ".text", "start": 4194304, "size": 12, "flags": "rx"}
+  ],
+  "symbols": [
+    {"name": "add_two", "address": 4194304, "kind": "function", "size": 12}
+  ],
+  "functions": [
+    {
+      "id": "func_0x400000",
+      "name": "add_two",
+      "start_address": 4194304,
+      "end_address": 4194316,
+      "basic_blocks": ["bb_0x400000"]
+    }
+  ],
+  "instructions": [
+    {
+      "address": 4194304,
+      "bytes_hex": "48 89 f8",
+      "mnemonic": "mov",
+      "operands": [
+        {"kind": "register", "value_str": "rax", "width": 64, "is_read": false, "is_write": true},
+        {"kind": "register", "value_str": "rdi", "width": 64, "is_read": true, "is_write": false}
+      ],
+      "implicit_registers_read": [],
+      "implicit_registers_written": [],
+      "flag_effects": [],
+      "width": 64
+    },
+    {
+      "address": 4194307,
+      "bytes_hex": "48 01 f0",
+      "mnemonic": "add",
+      "operands": [
+        {"kind": "register", "value_str": "rax", "width": 64, "is_read": true, "is_write": true},
+        {"kind": "register", "value_str": "rsi", "width": 64, "is_read": true, "is_write": false}
+      ],
+      "implicit_registers_read": [],
+      "implicit_registers_written": [],
+      "flag_effects": ["ZF", "SF", "OF", "CF", "PF", "AF"],
+      "width": 64
+    },
+    {
+      "address": 4194310,
+      "bytes_hex": "c3",
+      "mnemonic": "ret",
+      "operands": [],
+      "implicit_registers_read": ["rsp", "rax"],
+      "implicit_registers_written": ["rsp"],
+      "flag_effects": [],
+      "width": 64
+    }
+  ],
+  "diagnostics": []
+}

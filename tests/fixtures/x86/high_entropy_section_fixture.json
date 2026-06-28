@@ -1,0 +1,96 @@
+{
+  "metadata": {
+    "architecture": "x86_64",
+    "bitness": 64,
+    "syntax": "intel",
+    "abi": "x86_64_windows",
+    "endianness": "little",
+    "base_address": 4194304,
+    "source": "synthetic_fixture",
+    "description": "PE with high-entropy section indicating possible packing; very few imports"
+  },
+  "file_metadata": {
+    "sha256": "ccddee0011223344556677889900aabbccddee0011223344556677889900ccdd",
+    "file_size": 32768,
+    "file_type": "pe",
+    "entry_point": 4194304,
+    "packing_indicators": ["high_section_entropy", "few_imports"],
+    "entropy_hints": [
+      {"section": ".text", "entropy": 7.82, "indicator": "high_entropy"}
+    ]
+  },
+  "sections": [
+    {"name": ".text", "start": 4194304, "size": 16384, "flags": "rx", "entropy": 7.82},
+    {"name": ".rsrc", "start": 4210688, "size": 8192, "flags": "r", "entropy": 6.1}
+  ],
+  "symbols": [
+    {"name": "entry", "address": 4194304, "kind": "function", "size": 16}
+  ],
+  "imports": [
+    {"dll": "kernel32.dll", "name": "LoadLibraryA", "address": 4220000},
+    {"dll": "kernel32.dll", "name": "GetProcAddress", "address": 4220008}
+  ],
+  "functions": [
+    {
+      "id": "func_entry",
+      "name": "entry",
+      "start_address": 4194304,
+      "end_address": 4194320,
+      "basic_blocks": ["bb_entry"]
+    }
+  ],
+  "instructions": [
+    {
+      "address": 4194304,
+      "bytes_hex": "55",
+      "mnemonic": "push",
+      "operands": [{"kind": "register", "value_str": "rbp", "width": 64, "is_read": true, "is_write": false}],
+      "implicit_registers_read": ["rsp"],
+      "implicit_registers_written": ["rsp"],
+      "flag_effects": [],
+      "width": 64
+    },
+    {
+      "address": 4194305,
+      "bytes_hex": "48 89 e5",
+      "mnemonic": "mov",
+      "operands": [
+        {"kind": "register", "value_str": "rbp", "width": 64, "is_read": false, "is_write": true},
+        {"kind": "register", "value_str": "rsp", "width": 64, "is_read": true, "is_write": false}
+      ],
+      "implicit_registers_read": [],
+      "implicit_registers_written": [],
+      "flag_effects": [],
+      "width": 64
+    },
+    {
+      "address": 4194308,
+      "bytes_hex": "5d",
+      "mnemonic": "pop",
+      "operands": [{"kind": "register", "value_str": "rbp", "width": 64, "is_read": false, "is_write": true}],
+      "implicit_registers_read": ["rsp"],
+      "implicit_registers_written": ["rsp"],
+      "flag_effects": [],
+      "width": 64
+    },
+    {
+      "address": 4194309,
+      "bytes_hex": "c3",
+      "mnemonic": "ret",
+      "operands": [],
+      "implicit_registers_read": ["rsp"],
+      "implicit_registers_written": ["rsp"],
+      "flag_effects": [],
+      "width": 64
+    }
+  ],
+  "diagnostics": [
+    {
+      "code": "index_truncated",
+      "severity": "warning",
+      "message": "High-entropy section .text: entropy=7.82, instructions may not be accurately decoded (possible packing)",
+      "path": "synthetic",
+      "line": 0
+    }
+  ]
+}
