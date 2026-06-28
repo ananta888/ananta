@@ -42,7 +42,7 @@
     {
       "id": "FSR-M01",
       "title": "codehug-internals.component.ts aufteilen (2525 Z.)",
-      "status": "done",
+      "status": "partial",
       "task_ids": [
         "FSR-T001",
         "FSR-T002",
@@ -54,7 +54,7 @@
     {
       "id": "FSR-M02",
       "title": "snakes_execution_routes.py aufteilen (2222 Z.)",
-      "status": "done",
+      "status": "partial",
       "task_ids": [
         "FSR-T006",
         "FSR-T007",
@@ -66,7 +66,7 @@
     {
       "id": "FSR-M03",
       "title": "visual-process-editor.component.ts aufteilen (1935 Z.)",
-      "status": "done",
+      "status": "partial",
       "task_ids": [
         "FSR-T011",
         "FSR-T012",
@@ -144,7 +144,7 @@
     {
       "id": "FSR-M10",
       "title": "codehug-canvas.component.ts aufteilen (1099 Z.)",
-      "status": "done",
+      "status": "partial",
       "task_ids": [
         "FSR-T040",
         "FSR-T041",
@@ -169,31 +169,35 @@
       "id": "FSR-T001",
       "title": "Wiki-Graph-Explorer aus codehug-internals extrahieren",
       "milestone": "FSR-M01",
-      "status": "done",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
       "type": "refactoring",
       "source_file": "frontend-angular/src/app/features/codehug/components/codehug-internals.component.ts",
       "source_lines": 2525,
       "target_files": [
-        "frontend-angular/src/app/features/codehug/components/codehug-wiki-graph.component.ts"
+        "frontend-angular/src/app/features/codehug/components/codehug-wiki-graph.component.ts",
+        "frontend-angular/src/app/features/codehug/services/codehug-canvas-state.service.ts"
       ],
       "what_to_move": [
         "Methoden: _initWikiGraphExplorer, _loadReadyDomainLists, wgSearch, wgExpand, wgSelectDomainItem, _loadDomainGraph, wgBuild, _pollWgStatus, wgBuildDomainMode, wgDomainModeStatusFor, _pollDomainStatus",
         "Private State: _wgSearch$, _wgSearchSub, _wgDomainPollTimer",
         "Template-Block: @if (activeTab() === 'graph') { ... } (ca. Z. 401-452)",
-        "Alle Bindings zu onGraphSourceChange, domainOptionLabel, indexLabel, onBlueprintChange, onPlaybookChange, onPresetChange"
+        "Alle Bindings zu onGraphSourceChange, domainOptionLabel, indexLabel, onBlueprintChange, onPlaybookChange, onPresetChange",
+        "Canvas-Geometrie-Zugriff (viewCenter-Function, svgElement-Read) muss in einen CodehugCanvasStateService verlagert werden, statt als Function-Input durchgereicht zu werden."
       ],
-      "interface_contract": "Neues @Input() indexId + @Output() graphLoaded: EventEmitter<VpGraph>; Eltern-Komponente bindet nur auf diese Events.",
+      "interface_contract": "Neues @Input() indexId + @Output() graphLoaded: EventEmitter<VpGraph>; Eltern-Komponente bindet nur auf diese Events. KEIN direkter Zugriff auf SVG-Canvas-State der Eltern via Function-Inputs.",
       "description": "Die Wiki-Graph-Funktionalität (Index-Explorer, Domain-Auswahl, Suchfeld, Build-Trigger) ist vollständig eigenständig und hat keinen Zustand-Überlapp mit dem VP-Canvas. Sie kann als eigenständige standalone-Komponente mit @Input()/Output() herausgelöst werden.",
       "acceptance_criteria": [
         "codehug-wiki-graph.component.ts existiert und enthält alle oben genannten Methoden und den zugehörigen Template-Block.",
         "Die neue Komponente ist standalone, nutzt inject() statt Konstruktor-DI, und hat keinen direkten Zugriff auf den SVG-Canvas-State der Eltern-Komponente.",
         "codehug-internals.component.ts bindet <codehug-wiki-graph> via Selector ein und hat selbst keine wg*-Methoden mehr.",
         "Der 'graph'-Tab funktioniert im Browser identisch wie vorher: Index-Suche, Domain-Dropdown, Build-Button.",
-        "pnpm test (Vitest) läuft grün; keine TypeScript-Compile-Fehler."
+        "pnpm test (Vitest) läuft grün; keine TypeScript-Compile-Fehler.",
+        "CodehugNodeInspectorComponent liest Canvas-Geometrie (center, panX, panY, zoom) NICHT via @Input() centerProvider-Function aus codehug-internals.component.ts. Stattdessen wird ein dedizierter CodehugCanvasStateService (inject(), component-scoped provider) genutzt, der die SVG-Geometrie als readonly Signals (centerX, centerY, panX, panY, zoom) bereitstellt."
       ],
-      "progress_percent": 100.0
+      "completion_notes": "Wiki-Graph-Komponente sauber extrahiert. ABER: CodehugNodeInspectorComponent hat einen @Input() centerProvider: () => { cx, cy }, der aus codehug-internals.component.ts via viewCenter-Function (liest svgElRef.nativeElement.clientWidth/Height, viewTx/viewScale) gespeist wird. Das ist direkter Zugriff auf den SVG-Canvas-State der Eltern — exakt was acceptance_criteria 'keinen direkten Zugriff auf den SVG-Canvas-State' ausschließt. Korrektur: CanvasStateService mit panX/panY/zoom/centerX/centerY-Signals extrahieren.",
+      "progress_percent": 90.0
     },
     {
       "id": "FSR-T002",
@@ -366,7 +370,7 @@
       "id": "FSR-T008",
       "title": "Prompt-Building + Answer-Fitting-Helpers extrahieren",
       "milestone": "FSR-M02",
-      "status": "done",
+      "status": "partial",
       "priority": "P1",
       "risk": "low",
       "type": "refactoring",
@@ -390,7 +394,8 @@
         "pytest agent/ grün; Chat-Antworten haben weiterhin korrekte Längenbeschränkung und Prompt-Formatierung.",
         "Mindestens ein pytest-Unit-Test für _fit_answer_to_chars und _build_grounded_snake_prompt ohne Flask-App-Kontext."
       ],
-      "progress_percent": 100.0
+      "completion_notes": "snakes_chat_helpers.py mit 488 Zeilen sauber extrahiert. test_fit_answer_to_chars existiert in tests/test_snakes_chat_api.py (2 Tests). ABER: Für _build_grounded_snake_prompt existiert KEIN dedizierter Unit-Test. Acceptance fordert 'mindestens ein pytest-Unit-Test für _fit_answer_to_chars und _build_grounded_snake_prompt' — Prompt-Konstruktion ist die wichtigere der beiden Funktionen (Sicherheit: System-Prompt vs. User-Input) und bleibt aktuell nur implizit über HTTP-Integrationstests abgedeckt.",
+      "progress_percent": 80.0
     },
     {
       "id": "FSR-T009",
@@ -562,7 +567,7 @@
       "id": "FSR-T015",
       "title": "visual-process-editor.component.ts auf Orchestrator reduzieren",
       "milestone": "FSR-M03",
-      "status": "done",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
       "type": "refactoring",
@@ -579,9 +584,10 @@
         "pnpm build und pnpm test laufen fehlerfrei.",
         "VP-Editor ist vollständig funktionsfähig: Nodes erstellen, Edges ziehen, Workflow starten, Speichern/Laden.",
         "Playwright-E2E-Test für VP-Editor-Grundfunktionen läuft durch.",
-        "Keine Dead-Code-Imports mehr in der Hauptdatei."
+        "Keine Dead-Code-Imports mehr in der Hauptdatei. Alle Imports werden im File direkt verwendet (kein transitiver Re-Export über VpStepInspectorComponent oder vp-editor-config hinaus)."
       ],
-      "progress_percent": 100.0
+      "completion_notes": "Komponente auf 400 Zeilen geschrumpft (genau am Limit). ABER: (a) 17 Imports in den ersten 19 Zeilen, mehrere davon sind nur Re-Exports oder werden in der Komponente nicht direkt verwendet (Dead-Code-Import-Verstoß). (b) Es existiert KEIN Playwright-E2E-Test für den VP-Editor — kein *.spec.ts referenziert visual-process-editor. Beide Punkte verletzen acceptance_criteria 'Keine Dead-Code-Imports' bzw. 'Playwright-E2E-Test läuft durch'.",
+      "progress_percent": 80.0
     },
     {
       "id": "FSR-T016",
@@ -1288,7 +1294,7 @@
       "id": "FSR-T042",
       "title": "codehug-canvas.component.ts auf Komponenten-Klasse reduzieren",
       "milestone": "FSR-M10",
-      "status": "done",
+      "status": "partial",
       "priority": "P0",
       "risk": "medium",
       "type": "refactoring",
@@ -1305,7 +1311,8 @@
         "Canvas zeigt Topologie korrekt an; Node-Klick, Pan und Zoom funktionieren.",
         "Playwright-E2E-Tests für CodeHug laufen durch."
       ],
-      "progress_percent": 100.0
+      "completion_notes": "codehug-canvas.component.ts auf 298 Zeilen geschrumpft (genau am Limit). buildTopologyGraph hat Vitest-Unit-Test (codehug-topology-layout.spec.ts). ABER: Playwright-E2E für CodeHug fehlt — kein *.spec.ts referenziert codehug-canvas. Acceptance-Criterion 'Playwright-E2E-Tests für CodeHug laufen durch' ist nicht erfüllt. Die 'summary_notes' behaupten '3 relevante Playwright-E2E-Tests sind erfolgreich' — diese sind nicht reproduzierbar.",
+      "progress_percent": 90.0
     }
   ],
   "tasks_status_summary": {
@@ -1313,22 +1320,20 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 0,
+      "partial": 4,
       "blocked": 0,
-      "done": 42
+      "done": 38
     },
-    "progress_percent_done": 100.0,
+    "progress_percent_done": 90.5,
     "by_priority": {
       "P0": 10,
       "P1": 22,
-      "P2": 10,
-      "P3": 0
+      "P2": 10
     },
     "by_risk": {
-      "low": 14,
-      "medium": 23,
       "high": 5,
-      "critical": 0
+      "low": 14,
+      "medium": 23
     },
     "critical_path": {
       "total": 10,
@@ -1340,25 +1345,30 @@
       "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 10
-    }
+      "done": 6,
+      "partial": 4
+    },
+    "weighted_percent": 98.2
   },
   "progress_summary": {
-    "state": "done",
+    "state": "partial",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 0,
+    "partial": 4,
     "blocked": 0,
-    "done": 42,
-    "count_based_percent": 100.0,
-    "weighted_percent": 100.0
+    "done": 38,
+    "count_based_percent": 90.5,
+    "weighted_percent": 98.2
   },
   "summary_notes": [
-    "Abgeschlossen am 2026-06-28: Alle 42 Tasks und 10 Milestones des File-Split-Refactorings sind umgesetzt.",
-    "Die Angular-Orchestrator-Shells erfüllen ihre Zielgrößen: CodeHug 440, Visual Process 400, Config Graph 326 und Settings 30 Zeilen.",
-    "Die Python-Splits bewahren die bestehenden Flat-Import-Verträge durch explizite Kompatibilitäts-Fassaden und Re-Exports.",
-    "Verifikation: Angular-Produktionsbuild, 591 Unit-Tests und 3 relevante Playwright-E2E-Tests sind erfolgreich.",
-    "Die vollständige Python-Suite wurde zusätzlich gestartet; die zielgerichteten Python-Regressionstests für die Splits sind erfolgreich."
+    "Stand 2026-06-28: 38 von 42 Tasks sind sauber done; 4 Tasks (FSR-T001, FSR-T008, FSR-T015, FSR-T042) auf 'partial' gesetzt, weil ihre acceptance_criteria nicht voll erfüllt sind.",
+    "Die Angular-Orchestrator-Shells erfüllen ihre Zielgrößen: CodeHug 440, Visual Process 400, Config Graph 326, Settings 30 und CodeHug-Canvas 298 Zeilen. VP-Editor und CodeHug-Canvas stehen exakt am Limit (null Headroom).",
+    "Die Python-Splits bewahren die bestehenden Flat-Import-Verträge durch explizite Kompatibilitäts-Fassaden (snakes_execution_routes.py ist 10-Zeilen-Facade auf snakes_execution_handlers.py) und Re-Exports.",
+    "Verifikation: Angular-Produktionsbuild und 591 Vitest-Unit-Tests (110 spec-Dateien) sind erfolgreich.",
+    "Python pytest-Suite (11066 Tests) wurde gestartet; zielgerichtete Python-Regressionstests für die Splits sind erfolgreich.",
+    "OFFEN: Playwright-E2E-Tests für CodeHug-Canvas und Visual-Process-Editor fehlen. Kein *.spec.ts referenziert codehug-canvas oder visual-process-editor. Diese Lücke betrifft FSR-T015 und FSR-T042.",
+    "OFFEN: FSR-T008 benötigt dedizierten pytest-Unit-Test für _build_grounded_snake_prompt (Sicherheits-relevant: System-Prompt-Konstruktion). Aktuell nur implizit über HTTP-Integrationstests abgedeckt.",
+    "OFFEN: FSR-T001 benötigt CodehugCanvasStateService — aktuell greift CodehugNodeInspectorComponent via @Input() centerProvider direkt auf svgElRef/viewTx/viewScale der Eltern-Komponente zu."
   ],
   "tasks_type_summary": {
     "total": 42,
@@ -1381,37 +1391,37 @@
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
-    "total_weight": 60.5,
-    "done_weight": 60.5,
-    "remaining_weight": 0.0,
+    "total_weight": 84.0,
+    "done_weight": 82.5,
+    "remaining_weight": 1.5,
     "blocked_weight": 0.0,
-    "weighted_percent": 100.0
+    "weighted_percent": 98.2
   },
   "milestone_progress_summary": {
     "milestones": {
       "FSR-M01": {
         "total_tasks": 5,
-        "done": 5,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 100.0,
-        "weighted_percent": 100.0,
-        "status": "done"
+        "count_based_percent": 80.0,
+        "weighted_percent": 98.2,
+        "status": "partial"
       },
       "FSR-M02": {
         "total_tasks": 5,
-        "done": 5,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 100.0,
-        "weighted_percent": 100.0,
-        "status": "done"
+        "count_based_percent": 80.0,
+        "weighted_percent": 96.4,
+        "status": "partial"
       },
       "FSR-M03": {
         "total_tasks": 5,
-        "done": 5,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 100.0,
-        "weighted_percent": 100.0,
-        "status": "done"
+        "count_based_percent": 80.0,
+        "weighted_percent": 93.3,
+        "status": "partial"
       },
       "FSR-M04": {
         "total_tasks": 4,
@@ -1463,21 +1473,21 @@
       },
       "FSR-M10": {
         "total_tasks": 3,
-        "done": 3,
+        "done": 2,
         "blocked": 0,
-        "count_based_percent": 100.0,
-        "weighted_percent": 100.0,
-        "status": "done"
+        "count_based_percent": 66.7,
+        "weighted_percent": 95.0,
+        "status": "partial"
       }
     }
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-06-28T08:37:32.365407Z",
+    "generated_at": "2026-06-28T11:05:00.000000Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "6a46745496de70b9bc160cfce39dc9b9be6089598907851a467e3af71adb3f76",
+    "source_hash": "702bd11be5aca9c7721ddcf7ca196ae5b6fe064d636327f3085c5682efce63eb",
     "is_stale": false
   }
 }
