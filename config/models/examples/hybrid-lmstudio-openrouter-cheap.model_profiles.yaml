@@ -1,0 +1,64 @@
+version: "1.0"
+_note: "Example copy of the Ananta hybrid local-openrouter profile chain."
+profiles:
+  - profile_id: local_lmstudio_phi_json_worker
+    provider_id: lmstudio
+    model: auto
+    local: true
+    cloud: false
+    cloud_allowed: false
+    block_secret_context: false
+    supports_json: true
+    supports_tools: false
+    context_tokens: 12000
+    max_context_for_profile: 12000
+    temperature: 0.0
+    cost_class: free
+    quality_class: low_medium
+    tool_calling_mode: prompt_json
+    json_reliability_class: usable
+    fallback_group: local_first_cheap
+    fallback_rank: 10
+  - profile_id: openrouter_gemma3_4b_cheap_json
+    provider_id: openrouter
+    model: google/gemma-3-4b-it
+    local: false
+    cloud: true
+    cloud_allowed: true
+    block_secret_context: true
+    supports_json: true
+    supports_tools: true
+    context_tokens: 120000
+    max_context_for_profile: 120000
+    temperature: 0.0
+    cost_class: very_low
+    quality_class: medium
+    price_input_per_million: 0.02
+    price_output_per_million: 0.04
+    tool_calling_mode: both
+    json_reliability_class: usable
+    fallback_group: local_first_cheap
+    fallback_rank: 20
+    api_key_env: OPENROUTER_API_KEY
+  - profile_id: openrouter_qwen3_30b_a3b_stronger
+    provider_id: openrouter
+    model: qwen/qwen3-30b-a3b-instruct-2507
+    model_role: planner
+    local: false
+    cloud: true
+    cloud_allowed: true
+    block_secret_context: true
+    supports_json: true
+    supports_tools: true
+    context_tokens: 120000
+    max_context_for_profile: 120000
+    temperature: 0.0
+    cost_class: low
+    quality_class: high
+    price_input_per_million: 0.12
+    price_output_per_million: 0.30
+    tool_calling_mode: both
+    json_reliability_class: strict
+    fallback_group: local_first_cheap
+    fallback_rank: 30
+    api_key_env: OPENROUTER_API_KEY

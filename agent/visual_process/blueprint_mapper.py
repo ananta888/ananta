@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from agent.visual_process.models import VisualProcessGraph, VisualProcessStep
+from agent.visual_process.models import ModelRoutingConfig, VisualProcessGraph, VisualProcessStep
 from agent.services.workflow_backend import WorkflowRequest, WorkflowStepRequest
 
 
@@ -33,6 +33,7 @@ def graph_to_blueprint_steps(graph: VisualProcessGraph) -> list[dict[str, Any]]:
             "gate": step.gate,
             "sort_order": sort_idx,
             "checks": _build_checks(step),
+            "model_routing": _effective_model_routing(graph, step),
         })
     return steps
 
@@ -101,6 +102,7 @@ def graph_to_workflow_request(
             output_artifacts=tuple(step.io.output_names()),
             metadata={
                 **dict(step.metadata or {}),
+                "model_routing": _effective_model_routing(graph, step),
                 "agent_skill_profile_id": step.agent_skill_profile_id,
                 "policy_hints": list(step.policy_hints),
             },
@@ -154,3 +156,23 @@ def _build_checks(step: VisualProcessStep) -> dict[str, Any]:
     if step.policy_hints:
         checks["policy_hints"] = step.policy_hints
     return checks
+
+
+def _effective_model_routing(graph: VisualProcessGraph, step: VisualProcessStep) -> dict[str, Any]:
+    graph_routing = ModelRoutingConfig.from_metadata(graph.metadata)
+    step_routing = ModelRoutingConfig.from_metadata(step.metadata)
+    merged: dict[str, Any] = {}
+    if graph_routing is not None:
+        merged.update(graph_routing.as_metadata())
+    if step_routing is not None:
+        merged.update(step_routing.as_metadata())
+    if step.role and "model_role" not in merged:
+        merged["model_role"] = step.role
+    if "required_capabilities" not in merged:
+        caps: list[str] = []
+        if merged.get("requires_json"):
+            caps.append("json")
+        if merged.get("requires_tools"):
+            caps.append("tools")
+        merged["required_capabilities"] = caps
+    return merged

@@ -17,6 +17,15 @@
       "type": "array",
       "items": { "type": "string" },
       "description": "Ordered list of profile_ids to try when no rule matches"
+    },
+    "fallback_groups": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/FallbackGroup" },
+      "description": "Named ordered fallback chains"
+    },
+    "escalation_rules": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/EscalationRule" }
     }
   },
   "$defs": {
@@ -38,6 +47,80 @@
           "type": "array",
           "items": { "type": "string" },
           "description": "Regex patterns for detecting secrets in prompts"
+        }
+      }
+    },
+    "FallbackGroup": {
+      "type": "object",
+      "required": ["ordered_profiles"],
+      "additionalProperties": true,
+      "properties": {
+        "ordered_profiles": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "max_total_retries": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stop_on_policy_block": {
+          "type": "boolean",
+          "default": true
+        },
+        "stop_on_success": {
+          "type": "boolean",
+          "default": true
+        },
+        "cost_policy": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "max_input_price_per_million": { "type": "number", "minimum": 0 },
+            "max_output_price_per_million": { "type": "number", "minimum": 0 },
+            "max_estimated_cost_per_step": { "type": "number", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "EscalationRule": {
+      "type": "object",
+      "required": ["trigger"],
+      "additionalProperties": true,
+      "properties": {
+        "trigger": {
+          "type": "string",
+          "enum": [
+            "provider_unavailable",
+            "timeout",
+            "http_5xx",
+            "http_4xx",
+            "invalid_json_response",
+            "empty_content",
+            "schema_validation_failed",
+            "tool_not_allowed",
+            "tool_args_invalid",
+            "repeated_tool_failure",
+            "context_too_large",
+            "policy_blocked"
+          ]
+        },
+        "from_profile": { "type": ["string", "null"] },
+        "to_profile": { "type": ["string", "null"] },
+        "condition": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "min_context_tokens": { "type": "integer", "minimum": 0 },
+            "task_kind": { "type": "string" },
+            "step_kind": { "type": "string" },
+            "model_role": { "type": "string" },
+            "risk_class": { "type": "string" },
+            "requires_json": { "type": "boolean" },
+            "requires_tools": { "type": "boolean" },
+            "previous_error_type": { "type": "string" },
+            "repeated_failure_count": { "type": "integer", "minimum": 0 }
+          }
         }
       }
     },

@@ -5,7 +5,7 @@
   "created": "2026-06-28",
   "updated": "2026-06-28",
   "project": "Ananta",
-  "status": "open",
+  "status": "done",
   "priority": "critical",
   "tags": [
     "model-routing",
@@ -117,7 +117,7 @@
         {
           "id": "AMR-FB-001",
           "title": "ModelProfile um generische Routing-Metadaten erweitern",
-          "status": "open",
+          "status": "done",
           "priority": "critical",
           "files": [
             "agent/services/model_profile_loader.py",
@@ -145,7 +145,7 @@
         {
           "id": "AMR-FB-002",
           "title": "Beispielprofil Local LM Studio + OpenRouter Gemma + OpenRouter Qwen",
-          "status": "open",
+          "status": "done",
           "priority": "critical",
           "files": [
             "config/models/ananta.hybrid.local-openrouter.model_profiles.yaml",
@@ -178,7 +178,7 @@
         {
           "id": "AMR-FB-010",
           "title": "FallbackPolicyService einführen",
-          "status": "open",
+          "status": "done",
           "priority": "critical",
           "files": [
             "agent/services/model_fallback_policy_service.py",
@@ -206,7 +206,7 @@
         {
           "id": "AMR-FB-011",
           "title": "Invocation-Level Retry und Fallback in ModelInvocationService einbauen",
-          "status": "open",
+          "status": "done",
           "priority": "critical",
           "files": [
             "agent/services/model_invocation_service.py"
@@ -232,7 +232,7 @@
         {
           "id": "AMR-FB-012",
           "title": "Prompt-JSON Tool-Calling als offizieller Tool-Modus",
-          "status": "open",
+          "status": "done",
           "priority": "critical",
           "files": [
             "agent/services/model_invocation_service.py",
@@ -270,7 +270,7 @@
         {
           "id": "AMR-FB-020",
           "title": "model_routing.json um fallback_groups und escalation_rules erweitern",
-          "status": "open",
+          "status": "done",
           "priority": "high",
           "files": [
             "config/models/ananta.hybrid.local-openrouter.model_routing.json",
@@ -298,7 +298,7 @@
         {
           "id": "AMR-FB-021",
           "title": "Kosten- und Token-Schätzung vor dem Call",
-          "status": "open",
+          "status": "done",
           "priority": "high",
           "files": [
             "agent/services/model_cost_estimator.py",
@@ -332,7 +332,7 @@
         {
           "id": "VP-MR-001",
           "title": "Frontend-Interfaces um ModelRoutingConfig erweitern",
-          "status": "open",
+          "status": "done",
           "priority": "critical",
           "files": [
             "frontend-angular/src/app/features/visual-process/visual-process-api.service.ts"
@@ -356,7 +356,7 @@
         {
           "id": "VP-MR-002",
           "title": "Backend-Modelle für VisualProcessGraph/Step um ModelRouting erweitern",
-          "status": "open",
+          "status": "done",
           "priority": "critical",
           "files": [
             "agent/visual_process/models.py",
@@ -390,7 +390,7 @@
         {
           "id": "VP-MR-010",
           "title": "API-Service um Model-Routing-Endpunkte erweitern",
-          "status": "open",
+          "status": "done",
           "priority": "critical",
           "files": [
             "frontend-angular/src/app/features/visual-process/visual-process-api.service.ts",
@@ -414,7 +414,7 @@
         {
           "id": "VP-MR-011",
           "title": "Graph-Level Model-Routing Panel im Visual-Process-Editor",
-          "status": "open",
+          "status": "done",
           "priority": "high",
           "files": [
             "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
@@ -442,7 +442,7 @@
         {
           "id": "VP-MR-012",
           "title": "Step-Inspector um Model-Routing Override erweitern",
-          "status": "open",
+          "status": "done",
           "priority": "critical",
           "files": [
             "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.ts",
@@ -469,7 +469,7 @@
         {
           "id": "VP-MR-013",
           "title": "Routing-Visualisierung auf Nodes und Edges",
-          "status": "open",
+          "status": "done",
           "priority": "medium",
           "files": [
             "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
@@ -501,7 +501,7 @@
         {
           "id": "VP-MR-020",
           "title": "Dry-Run um effektiven Model-Routing-Plan erweitern",
-          "status": "open",
+          "status": "done",
           "priority": "critical",
           "files": [
             "agent/routes/visual_process.py",
@@ -527,7 +527,7 @@
         {
           "id": "VP-MR-021",
           "title": "Runtime-Trace: tatsächliche Fallbacks im Workflow anzeigen",
-          "status": "open",
+          "status": "done",
           "priority": "high",
           "files": [
             "agent/services/prompt_trace_service.py",
@@ -560,7 +560,7 @@
         {
           "id": "AMR-FB-030",
           "title": "Cloud-Fallback darf Security-Policy niemals umgehen",
-          "status": "open",
+          "status": "done",
           "priority": "critical",
           "files": [
             "agent/services/model_profile_resolver.py",
@@ -586,7 +586,7 @@
         {
           "id": "AMR-FB-031",
           "title": "Approval Gate für teure oder Cloud-Eskalation optional unterstützen",
-          "status": "open",
+          "status": "done",
           "priority": "medium",
           "files": [
             "agent/visual_process/models.py",
@@ -618,7 +618,7 @@
         {
           "id": "AMR-FB-900",
           "title": "Unit-Tests für Profile, Routing und Fallback",
-          "status": "open",
+          "status": "done",
           "priority": "critical",
           "files": [
             "tests/test_model_profile_loader.py",
@@ -646,7 +646,7 @@
         {
           "id": "AMR-FB-901",
           "title": "Visual-Process-Editor Tests",
-          "status": "open",
+          "status": "done",
           "priority": "high",
           "files": [
             "frontend-angular/src/app/features/visual-process/visual-process-api.service.ts",
@@ -671,7 +671,7 @@
         {
           "id": "AMR-FB-902",
           "title": "Manueller End-to-End-Testplan",
-          "status": "open",
+          "status": "done",
           "priority": "high",
           "files": [
             "docs/operator/model-routing.md",

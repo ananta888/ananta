@@ -12,6 +12,7 @@ from typing import Any
 
 from agent.visual_process.models import (
     ArtifactRef,
+    ModelRoutingConfig,
     VisualProcessEdge,
     VisualProcessGraph,
     VisualProcessStep,
@@ -278,6 +279,7 @@ class GraphValidator:
 
         # VPRT-003: Runtime-Truth consistency checks
         self._check_runtime_truth(graph, issues)
+        self._check_model_routing(graph, issues)
 
         errors = [i for i in issues if i.severity == "error"]
         return ValidationResult(valid=len(errors) == 0, issues=issues)
@@ -303,6 +305,57 @@ class GraphValidator:
                     f"Step '{step.label}' (kind={step.kind}) hat implementation_state='{impl_state}'. "
                     f"Der Step ist im Editor sichtbar, aber ohne VP-Execution-Adapter nicht ausführbar. "
                     f"Backend: {backend}",
+                    step_id=step.id,
+                ))
+
+    @staticmethod
+    def _check_model_routing(graph: VisualProcessGraph, issues: list[ValidationIssue]) -> None:
+        known_profiles: set[str] | None = None
+        try:
+            from agent.services.model_invocation_service import ModelInvocationService
+            resolver = ModelInvocationService._get_resolver()
+            if resolver is not None:
+                known_profiles = set(resolver._by_id.keys())
+        except Exception:
+            known_profiles = None
+
+        try:
+            ModelRoutingConfig.from_metadata(graph.metadata)
+        except Exception as exc:
+            issues.append(ValidationIssue(
+                "warning",
+                "model_routing_invalid",
+                f"Graph model_routing is invalid: {exc}",
+            ))
+
+        for step in graph.steps:
+            try:
+                routing = ModelRoutingConfig.from_metadata(step.metadata)
+            except Exception as exc:
+                issues.append(ValidationIssue(
+                    "warning",
+                    "model_routing_invalid",
+                    f"Step '{step.label}' model_routing is invalid: {exc}",
+                    step_id=step.id,
+                ))
+                continue
+            if routing is None:
+                continue
+            if routing.preferred_profile_id and known_profiles is not None and routing.preferred_profile_id not in known_profiles:
+                issues.append(ValidationIssue(
+                    "warning",
+                    "model_profile_missing",
+                    f"Step '{step.label}' references unknown model profile '{routing.preferred_profile_id}'",
+                    step_id=step.id,
+                ))
+            if routing.allow_cloud and not step.gate and (
+                routing.require_approval_on_cloud_escalation
+                or routing.require_approval_above_estimated_cost is not None
+            ):
+                issues.append(ValidationIssue(
+                    "info",
+                    "model_cloud_gate_missing",
+                    f"Step '{step.label}' may require approval for cloud or cost escalation but gate=false.",
                     step_id=step.id,
                 ))
 

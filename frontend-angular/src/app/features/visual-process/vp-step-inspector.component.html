@@ -42,6 +42,73 @@
       Gate (Freigabe erforderlich)
     </label>
 
+    <div class="vpe-meta-section">
+      <div class="vpe-panel-title">Model Routing</div>
+      <label class="vpe-label">Modellrolle
+        <input class="vpe-input" [ngModel]="stepRouting().model_role || ''"
+               (ngModelChange)="setStepRoutingField('model_role', $event)" placeholder="any" />
+      </label>
+      <label class="vpe-label">Profilpräferenz
+        <select class="vpe-input" [ngModel]="stepRouting().preferred_profile_id || ''"
+                (ngModelChange)="setStepRoutingField('preferred_profile_id', $event)">
+          <option value="">Graph-Default</option>
+          @for (p of modelProfiles(); track p.profile_id) {
+            <option [value]="p.profile_id">
+              {{ p.profile_id }} ({{ p.provider_id }} / {{ p.cost_class || 'n/a' }})
+            </option>
+          }
+        </select>
+      </label>
+      <label class="vpe-label">Fallback-Gruppe
+        <select class="vpe-input" [ngModel]="stepRouting().fallback_group_id || ''"
+                (ngModelChange)="setStepRoutingField('fallback_group_id', $event)">
+          <option value="">Graph-Default</option>
+          @for (groupId of fallbackGroupIds(); track groupId) {
+            <option [value]="groupId">{{ groupId }}</option>
+          }
+        </select>
+      </label>
+      <label class="vpe-label">Tool-Modus
+        <select class="vpe-input" [ngModel]="stepRouting().tool_calling_mode || ''"
+                (ngModelChange)="setStepRoutingField('tool_calling_mode', $event)">
+          <option value="">Profil-Default</option>
+          <option value="native_tools">native_tools</option>
+          <option value="prompt_json">prompt_json</option>
+          <option value="both">both</option>
+          <option value="none">none</option>
+        </select>
+      </label>
+      <label class="vpe-label vpe-checkbox">
+        <input type="checkbox" [ngModel]="!!stepRouting().requires_json"
+               (ngModelChange)="setStepRoutingField('requires_json', $event)" />
+        JSON erforderlich
+      </label>
+      <label class="vpe-label vpe-checkbox">
+        <input type="checkbox" [ngModel]="!!stepRouting().requires_tools"
+               (ngModelChange)="setStepRoutingField('requires_tools', $event)" />
+        Tools erforderlich
+      </label>
+      <label class="vpe-label vpe-checkbox">
+        <input type="checkbox" [ngModel]="!!stepRouting().allow_cloud"
+               (ngModelChange)="setStepRoutingField('allow_cloud', $event)" />
+        Cloud erlauben
+      </label>
+      <label class="vpe-label">Max. Step-Kosten
+        <input class="vpe-input" type="number" min="0" step="0.001"
+               [ngModel]="stepRouting().max_estimated_cost ?? null"
+               (ngModelChange)="setStepRoutingField('max_estimated_cost', $event === null ? undefined : +$event)" />
+      </label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="vpe-btn-xs" (click)="clearStepRouting()">vom Graph übernehmen</button>
+        <button class="vpe-btn-xs" (click)="applyModelRoutingPreset('local')">billig lokal</button>
+        <button class="vpe-btn-xs" (click)="applyModelRoutingPreset('cheap_cloud')">billig Cloud</button>
+        <button class="vpe-btn-xs" (click)="applyModelRoutingPreset('strong')">stärker</button>
+      </div>
+      @if (stepRouting().allow_cloud) {
+        <div class="vpe-warn-note">Cloud-Override aktiv; Secret-Kontext wird weiterhin backendseitig blockiert.</div>
+      }
+    </div>
+
     <!-- Runtime-Truth Inspector (VPUI-001) -->
     @if (selectedStepKindInfo()) {
       <div class="vpe-rt-panel">

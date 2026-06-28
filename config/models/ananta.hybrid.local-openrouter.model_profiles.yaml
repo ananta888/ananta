@@ -1,0 +1,89 @@
+version: "1.0"
+_note: "Hybrid local-first routing: LM Studio -> OpenRouter Gemma -> OpenRouter Qwen. Secrets are never embedded here."
+profiles:
+  - profile_id: local_lmstudio_phi_json_worker
+    provider_id: lmstudio
+    model: auto
+    model_role: any
+    local: true
+    cloud: false
+    cloud_allowed: false
+    block_secret_context: false
+    supports_json: true
+    supports_tools: false
+    supports_streaming: true
+    context_tokens: 12000
+    max_context_for_profile: 12000
+    max_output_tokens: 2048
+    timeout_seconds: 120
+    temperature: 0.0
+    cost_class: free
+    quality_class: low_medium
+    estimated_latency_class: local
+    json_reliability_class: usable
+    tool_calling_mode: prompt_json
+    preferred_for: [tool_selection, prompt_json, small_context]
+    retry_budget: 1
+    fallback_group: local_first_cheap
+    fallback_rank: 10
+    notes: "Cheap local first pass through LM Studio. Uses prompt-json for tool proposals."
+
+  - profile_id: openrouter_gemma3_4b_cheap_json
+    provider_id: openrouter
+    model: google/gemma-3-4b-it
+    model_role: any
+    local: false
+    cloud: true
+    cloud_allowed: true
+    block_secret_context: true
+    supports_json: true
+    supports_tools: true
+    supports_streaming: true
+    context_tokens: 120000
+    max_context_for_profile: 120000
+    max_output_tokens: 4096
+    timeout_seconds: 120
+    temperature: 0.0
+    cost_class: very_low
+    quality_class: medium
+    price_input_per_million: 0.02
+    price_output_per_million: 0.04
+    estimated_latency_class: cloud_low
+    json_reliability_class: usable
+    tool_calling_mode: both
+    preferred_for: [cheap_cloud_fallback, json, tools]
+    retry_budget: 1
+    fallback_group: local_first_cheap
+    fallback_rank: 20
+    api_key_env: OPENROUTER_API_KEY
+    notes: "Cheap cloud fallback. Requires OPENROUTER_API_KEY at runtime."
+
+  - profile_id: openrouter_qwen3_30b_a3b_stronger
+    provider_id: openrouter
+    model: qwen/qwen3-30b-a3b-instruct-2507
+    model_role: planner
+    local: false
+    cloud: true
+    cloud_allowed: true
+    block_secret_context: true
+    supports_json: true
+    supports_tools: true
+    supports_streaming: true
+    context_tokens: 120000
+    max_context_for_profile: 120000
+    max_output_tokens: 8192
+    timeout_seconds: 180
+    temperature: 0.0
+    cost_class: low
+    quality_class: high
+    price_input_per_million: 0.12
+    price_output_per_million: 0.30
+    estimated_latency_class: cloud_medium
+    json_reliability_class: strict
+    tool_calling_mode: both
+    preferred_for: [architecture, planning, refactoring, repeated_failures]
+    retry_budget: 1
+    fallback_group: local_first_cheap
+    fallback_rank: 30
+    api_key_env: OPENROUTER_API_KEY
+    notes: "Stronger fallback after local/Gemma failures or high-complexity routing."

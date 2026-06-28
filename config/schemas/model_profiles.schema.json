@@ -99,13 +99,62 @@
         },
         "cost_class": {
           "type": "string",
-          "enum": ["free", "low", "medium", "high"],
+          "enum": ["free", "very_low", "low", "low_medium", "medium", "high"],
           "description": "Cost classification for routing decisions"
         },
         "quality_class": {
           "type": "string",
-          "enum": ["low", "medium", "high", "frontier"],
+          "enum": ["low", "low_medium", "medium", "high", "frontier"],
           "description": "Relative quality classification"
+        },
+        "price_input_per_million": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "description": "Estimated input token price per 1M tokens"
+        },
+        "price_output_per_million": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "description": "Estimated output token price per 1M tokens"
+        },
+        "estimated_latency_class": {
+          "type": "string",
+          "description": "Operator-facing latency class such as local, cloud_low, cloud_medium"
+        },
+        "json_reliability_class": {
+          "type": "string",
+          "enum": ["unknown", "experimental", "usable", "strict"],
+          "description": "Expected reliability for JSON output"
+        },
+        "tool_calling_mode": {
+          "type": "string",
+          "enum": ["native_tools", "prompt_json", "both", "none"],
+          "description": "native_tools sends provider tool definitions; prompt_json serializes tools in the prompt; both permits either; none disables tool use"
+        },
+        "preferred_for": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "avoid_for": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "max_context_for_profile": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "retry_budget": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0
+        },
+        "fallback_group": {
+          "type": ["string", "null"],
+          "description": "Generic fallback group identifier"
+        },
+        "fallback_rank": {
+          "type": ["integer", "null"],
+          "description": "Ordering within a fallback_group"
         },
         "api_key_env": {
           "type": ["string", "null"],

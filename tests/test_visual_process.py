@@ -239,6 +239,26 @@ class TestBlueprintMapper:
         steps = graph_to_blueprint_steps(g)
         assert steps[0]["checks"].get("approval_required") is True
 
+    def test_model_routing_transferred_to_blueprint_step(self):
+        from agent.visual_process.models import VisualProcessGraph, VisualProcessStep
+        from agent.visual_process.blueprint_mapper import graph_to_blueprint_steps
+
+        s = VisualProcessStep(
+            id="s1",
+            label="Analyse",
+            kind="analysis",
+            metadata={"model_routing": {"preferred_profile_id": "local_lmstudio_phi_json_worker"}},
+        )
+        g = VisualProcessGraph(
+            id="g",
+            name="G",
+            metadata={"model_routing": {"fallback_group_id": "local_first_cheap"}},
+            steps=[s],
+        )
+        steps = graph_to_blueprint_steps(g)
+        assert steps[0]["model_routing"]["fallback_group_id"] == "local_first_cheap"
+        assert steps[0]["model_routing"]["preferred_profile_id"] == "local_lmstudio_phi_json_worker"
+
 
 # ── VPAD-007: Presets ─────────────────────────────────────────────────────────
 
@@ -452,6 +472,61 @@ class TestVisualProcessAPI:
         assert data["dry_run"] is True
         assert "blueprint" in data
         assert "policy_summary" in data
+
+    def test_dry_run_includes_model_plan(self, flask_client, monkeypatch):
+        from agent.services.model_profile_loader import ModelProfile
+        from agent.services.model_profile_resolver import ModelProfileResolver, RoutingRules
+        from agent.services.model_invocation_service import ModelInvocationService
+        from agent.visual_process.models import VisualProcessGraph, VisualProcessStep
+
+        local = ModelProfile(
+            profile_id="local_lmstudio_phi_json_worker",
+            provider_id="lmstudio",
+            model="auto",
+            local=True,
+            block_secret_context=False,
+            supports_json=True,
+            tool_calling_mode="prompt_json",
+            fallback_group="local_first_cheap",
+            fallback_rank=10,
+        )
+        gemma = ModelProfile(
+            profile_id="openrouter_gemma3_4b_cheap_json",
+            provider_id="openrouter",
+            model="google/gemma-3-4b-it",
+            cloud=True,
+            cloud_allowed=True,
+            block_secret_context=True,
+            supports_json=True,
+            fallback_group="local_first_cheap",
+            fallback_rank=20,
+        )
+        resolver = ModelProfileResolver(
+            [local, gemma],
+            routing_rules=RoutingRules.from_dict({
+                "fallback_groups": {
+                    "local_first_cheap": {
+                        "ordered_profiles": [local.profile_id, gemma.profile_id]
+                    }
+                }
+            }),
+        )
+        monkeypatch.setattr(ModelInvocationService, "_get_resolver", classmethod(lambda cls: resolver))
+        graph = VisualProcessGraph(
+            id="g",
+            name="G",
+            metadata={"model_routing": {"fallback_group_id": "local_first_cheap", "allow_cloud": True}},
+            steps=[VisualProcessStep(id="s1", label="Analyse", kind="analysis")],
+        )
+
+        r = flask_client.post("/api/visual-process/dry-run", json=graph.model_dump())
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data["per_step_model_plan"][0]["selected_profile_id"] == "local_lmstudio_phi_json_worker"
+        assert data["per_step_model_plan"][0]["candidate_chain"] == [
+            "local_lmstudio_phi_json_worker",
+            "openrouter_gemma3_4b_cheap_json",
+        ]
 
     def test_mermaid_endpoint(self, flask_client):
         from agent.visual_process.presets import get_preset

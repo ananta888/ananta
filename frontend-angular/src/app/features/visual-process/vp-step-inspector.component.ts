@@ -1,7 +1,16 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, Signal, WritableSignal, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
-import { SkillProfile, TaskKindInfo, VpEdge, VpGraph, VpStep } from './visual-process-api.service';
+import {
+  FallbackGroupSummary,
+  ModelProfileSummary,
+  ModelRoutingConfig,
+  SkillProfile,
+  TaskKindInfo,
+  VpEdge,
+  VpGraph,
+  VpStep,
+} from './visual-process-api.service';
 
 @Component({
   selector: 'app-vp-step-inspector',
@@ -16,6 +25,8 @@ export class VpStepInspectorComponent {
   @Input({ required: true }) selectedId!: WritableSignal<string | null>;
   @Input({ required: true }) taskKindList!: Signal<TaskKindInfo[]>;
   @Input({ required: true }) skillProfiles!: Signal<SkillProfile[]>;
+  @Input({ required: true }) modelProfiles!: Signal<ModelProfileSummary[]>;
+  @Input({ required: true }) fallbackGroups!: Signal<Record<string, FallbackGroupSummary>>;
   @Input({ required: true }) artifactKinds: string[] = [];
   @Input({ required: true }) edgeKinds: string[] = [];
   @Input({ required: true }) encodingModes: string[] = [];
@@ -37,6 +48,20 @@ export class VpStepInspectorComponent {
     if (!expression) return 'Ausdruck erforderlich';
     return /^[\w.\s!=<>&|()+\-*/'"]+$/.test(expression) ? null : 'Ungültige Zeichen im Ausdruck';
   });
+  readonly kindGroups = computed(() => {
+    const groups = new Map<string, TaskKindInfo[]>();
+    for (const kind of this.taskKindList()) {
+      const group = kind.group || 'General';
+      groups.set(group, [...(groups.get(group) ?? []), kind]);
+    }
+    return Array.from(groups.entries()).map(([group, kinds]) => ({ group, kinds }));
+  });
+  readonly stepDescription = computed(() => String(this.selectedStep()?.metadata?.['description'] ?? ''));
+  readonly stepRouting = computed<ModelRoutingConfig>(() => {
+    const raw = this.selectedStep()?.metadata?.['model_routing'];
+    return (raw && typeof raw === 'object' ? raw : {}) as ModelRoutingConfig;
+  });
+  readonly fallbackGroupIds = computed(() => Object.keys(this.fallbackGroups()));
 
   kindOptionSuffix(kind: TaskKindInfo): string {
     if (kind.implementation_status === 'experimental') return ' [exp]';
@@ -78,6 +103,37 @@ export class VpStepInspectorComponent {
   setStepRole(value: string): void { this.mutateSelectedStep(step => step.role = value); }
   setStepSkillProfile(value: string): void { this.mutateSelectedStep(step => step.agent_skill_profile_id = value); }
   setStepGate(value: boolean): void { this.mutateSelectedStep(step => step.gate = value); }
+
+  setStepRoutingField(key: keyof ModelRoutingConfig, value: unknown): void {
+    this.mutateSelectedStep(step => {
+      const metadata = { ...(step.metadata ?? {}) };
+      const routing = { ...((metadata['model_routing'] as ModelRoutingConfig | undefined) ?? {}) };
+      if (value === '' || value === null || value === undefined) delete (routing as Record<string, unknown>)[key as string];
+      else (routing as Record<string, unknown>)[key as string] = value;
+      metadata['model_routing'] = routing;
+      step.metadata = metadata;
+    });
+  }
+
+  clearStepRouting(): void {
+    this.mutateSelectedStep(step => {
+      const metadata = { ...(step.metadata ?? {}) };
+      delete metadata['model_routing'];
+      step.metadata = metadata;
+    });
+  }
+
+  applyModelRoutingPreset(kind: 'local' | 'cheap_cloud' | 'strong'): void {
+    const profileId = kind === 'local'
+      ? 'local_lmstudio_phi_json_worker'
+      : kind === 'cheap_cloud'
+        ? 'openrouter_gemma3_4b_cheap_json'
+        : 'openrouter_qwen3_30b_a3b_stronger';
+    this.setStepRoutingField('preferred_profile_id', profileId);
+    this.setStepRoutingField('fallback_group_id', kind === 'local' ? 'local_first_cheap' : undefined);
+    this.setStepRoutingField('allow_cloud', kind !== 'local');
+    this.statusChanged.emit(`Model-Profil "${profileId}" gesetzt`);
+  }
 
   isChannelSelected(channel: string): boolean {
     const channels = this.stepMeta('channels') as string[] | null;

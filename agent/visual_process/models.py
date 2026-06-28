@@ -123,6 +123,36 @@ class VisualProcessStep(BaseModel):
     run_state: Optional[str] = None  # "pending" | "running" | "done" | "failed" | "skipped"
 
 
+class ModelRoutingConfig(BaseModel):
+    """Typed routing override stored under metadata.model_routing."""
+    strategy: str = "local_first"
+    model_role: Optional[str] = None
+    preferred_profile_id: Optional[str] = None
+    fallback_group_id: Optional[str] = None
+    required_capabilities: list[str] = Field(default_factory=list)
+    requires_json: Optional[bool] = None
+    requires_tools: Optional[bool] = None
+    tool_calling_mode: Optional[Literal["native_tools", "prompt_json", "both", "none"]] = None
+    allow_cloud: bool = False
+    max_estimated_cost: Optional[float] = None
+    max_estimated_cost_per_run: Optional[float] = None
+    default_model_role: Optional[str] = None
+    require_approval_on_cloud_escalation: bool = False
+    require_approval_above_estimated_cost: Optional[float] = None
+
+    model_config = {"extra": "allow"}
+
+    @classmethod
+    def from_metadata(cls, metadata: dict[str, Any] | None) -> Optional["ModelRoutingConfig"]:
+        raw = dict(metadata or {}).get("model_routing")
+        if not isinstance(raw, dict):
+            return None
+        return cls.model_validate(raw)
+
+    def as_metadata(self) -> dict[str, Any]:
+        return self.model_dump(exclude_none=True)
+
+
 # ── Graph (VPAD-001) ──────────────────────────────────────────────────────────
 
 class VisualProcessGraph(BaseModel):
