@@ -1,0 +1,732 @@
+{
+  "id": "todo.ananta-generic-model-routing-fallback-visual-process-editor",
+  "title": "Ananta — Generischer Model Router mit Local→OpenRouter-Fallback und Visual-Process-Editor-Integration",
+  "version": "1.0",
+  "created": "2026-06-28",
+  "updated": "2026-06-28",
+  "project": "Ananta",
+  "status": "open",
+  "priority": "critical",
+  "tags": [
+    "model-routing",
+    "model-profiles",
+    "fallback-chain",
+    "lmstudio",
+    "openrouter",
+    "gemma",
+    "qwen",
+    "visual-process-editor",
+    "prompt-json-tool-calling",
+    "cost-control",
+    "policy-first",
+    "generic-extensible"
+  ],
+  "review_basis": {
+    "repository": "ananta888/ananta",
+    "reviewed_branch_or_commit": "main / c07f54bc137fd8f2c0df07ce0d25610508555344",
+    "reviewed_files": [
+      "agent/services/model_invocation_service.py",
+      "agent/services/model_profile_loader.py",
+      "docs/operator/model-routing.md",
+      "docs/architecture/model-routing-current-state.md",
+      "docs/architecture/model-routing-profiles-policy.md",
+      "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
+      "frontend-angular/src/app/features/visual-process/visual-process-api.service.ts",
+      "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.ts",
+      "todos/archiv/todo.visual-process-editor-completion.json"
+    ],
+    "summary": "Ananta hat bereits ModelProfile, ModelProfileLoader, ModelProfileResolver-Anbindung in ModelInvocationService, OpenRouter/LM-Studio Provider-Normalisierung, Prompt-Trace und Visual-Process-Editor mit Step-Metadata. Es fehlt eine wirklich generische Fallback-Kette pro Prozess/Step, Provider-Health-Eskalation auf Invocation-Ebene, Kosten-/Qualitäts-Metriken, eine editierbare UI im Visual-Process-Editor und vollständige Tests für Local→Gemma→Qwen."
+  },
+  "goals": [
+    "LM Studio lokal als erste billige Arbeitsebene nutzen.",
+    "OpenRouter google/gemma-3-4b-it als billigsten bezahlten Cloud-Fallback nutzen.",
+    "OpenRouter qwen/qwen3-30b-a3b-instruct-2507 als stärkeren Fallback nutzen.",
+    "Routing generisch halten: beliebig viele Provider, Profile, Rollen, Capabilities, Kostenklassen und Fallback-Regeln.",
+    "Visual-Process-Editor soll pro Graph und pro Step Model-Routing konfigurieren, validieren, dry-runnen und anzeigen können.",
+    "Prompt-JSON-Fallback und native Tool-Calling gleichberechtigt als Capability behandeln.",
+    "Security bleibt Policy-first: Secret-Kontext darf nicht versehentlich an Cloud-Provider."
+  ],
+  "non_goals": [
+    "Kein Hardcoding ausschließlich auf Gemma/Qwen/Phi.",
+    "Kein Entfernen von DEFAULT_PROVIDER/DEFAULT_MODEL Legacy-Fallback.",
+    "Kein API-Key im Frontend oder in gespeicherten Graphen.",
+    "Keine Cloud-Nutzung, wenn Kontext als secret/personal/confidential blockiert ist."
+  ],
+  "recommended_initial_runtime_config": {
+    "env": {
+      "MODEL_PROFILES_PATH": "config/models/ananta.hybrid.local-openrouter.model_profiles.yaml",
+      "MODEL_ROUTING_PATH": "config/models/ananta.hybrid.local-openrouter.model_routing.json",
+      "DEFAULT_PROVIDER": "lmstudio",
+      "DEFAULT_MODEL": "auto",
+      "LMSTUDIO_URL": "http://localhost:1234/v1",
+      "OPENROUTER_API_KEY": "${OPENROUTER_API_KEY}"
+    },
+    "profile_chain": [
+      {
+        "profile_id": "local_lmstudio_phi_json_worker",
+        "provider_id": "lmstudio",
+        "model": "auto",
+        "local": true,
+        "cloud": false,
+        "cloud_allowed": false,
+        "block_secret_context": false,
+        "supports_json": true,
+        "supports_tools": false,
+        "cost_class": "free",
+        "quality_class": "low_medium",
+        "intended_use": "tool_selection, prompt-json fallback, small codecompass queries"
+      },
+      {
+        "profile_id": "openrouter_gemma3_4b_cheap_json",
+        "provider_id": "openrouter",
+        "model": "google/gemma-3-4b-it",
+        "local": false,
+        "cloud": true,
+        "cloud_allowed": true,
+        "block_secret_context": true,
+        "supports_json": true,
+        "supports_tools": true,
+        "cost_class": "very_low",
+        "quality_class": "medium",
+        "api_key_env": "OPENROUTER_API_KEY",
+        "intended_use": "cheap cloud fallback when local fails"
+      },
+      {
+        "profile_id": "openrouter_qwen3_30b_a3b_stronger",
+        "provider_id": "openrouter",
+        "model": "qwen/qwen3-30b-a3b-instruct-2507",
+        "local": false,
+        "cloud": true,
+        "cloud_allowed": true,
+        "block_secret_context": true,
+        "supports_json": true,
+        "supports_tools": true,
+        "cost_class": "low",
+        "quality_class": "high",
+        "api_key_env": "OPENROUTER_API_KEY",
+        "intended_use": "large context, repeated failures, planning, architecture/refactoring"
+      }
+    ]
+  },
+  "categories": [
+    {
+      "name": "profile-schema-extension",
+      "label": "AMR-FB-001 — ModelProfile generisch für Fallback, Kosten und Prompt-JSON erweitern",
+      "description": "ModelProfile hat bereits provider_id, model, local/cloud, supports_json/tools, context_tokens, cost_class, quality_class und extra. Diese Felder sollen nicht ersetzt, sondern generisch erweitert und sauber validiert werden.",
+      "items": [
+        {
+          "id": "AMR-FB-001",
+          "title": "ModelProfile um generische Routing-Metadaten erweitern",
+          "status": "open",
+          "priority": "critical",
+          "files": [
+            "agent/services/model_profile_loader.py",
+            "config/schemas/model_profiles.schema.json",
+            "docs/operator/model-routing.md"
+          ],
+          "description": "Ergänze optionale Felder für Kosten, Latenz, Tool-Modus, JSON-Zuverlässigkeit und Fallback-Verhalten. Bestehende Profile bleiben valide.",
+          "tasks": [
+            "Neue optionale Felder in ModelProfile ergänzen: price_input_per_million, price_output_per_million, estimated_latency_class, json_reliability_class, tool_calling_mode, preferred_for, avoid_for, max_context_for_profile, retry_budget, fallback_group, fallback_rank.",
+            "tool_calling_mode als Enum dokumentieren: native_tools, prompt_json, both, none.",
+            "json_reliability_class als Enum dokumentieren: unknown, experimental, usable, strict.",
+            "cost_class nicht ersetzen, sondern zusätzlich numerische Preisfelder erlauben.",
+            "extra weiterhin als Escape-Hatch behalten, aber bekannte neue Felder explizit parsen.",
+            "JSON/YAML-Schema aktualisieren, falls vorhanden; wenn nicht vorhanden, neu anlegen."
+          ],
+          "acceptance_criteria": [
+            "Alte Profile ohne neue Felder laden unverändert.",
+            "Profile mit neuen Feldern werden ohne Fehler geladen.",
+            "Unbekannte Felder landen weiterhin in extra und brechen nicht.",
+            "Cloud-Profile müssen weiterhin cloud_allowed und block_secret_context explizit setzen.",
+            "Tests prüfen mindestens LM Studio, OpenRouter Gemma und OpenRouter Qwen Profile.",
+            "Dokumentation enthält ein vollständiges Beispiel für Local→Gemma→Qwen."
+          ]
+        },
+        {
+          "id": "AMR-FB-002",
+          "title": "Beispielprofil Local LM Studio + OpenRouter Gemma + OpenRouter Qwen",
+          "status": "open",
+          "priority": "critical",
+          "files": [
+            "config/models/ananta.hybrid.local-openrouter.model_profiles.yaml",
+            "config/models/examples/hybrid-lmstudio-openrouter-cheap.model_profiles.yaml"
+          ],
+          "description": "Lege ein lauffähiges Standardprofil an, das direkt zu deinem Setup passt.",
+          "tasks": [
+            "Profil local_lmstudio_phi_json_worker mit provider_id=lmstudio, model=auto, supports_json=true, supports_tools=false, tool_calling_mode=prompt_json.",
+            "Profil openrouter_gemma3_4b_cheap_json mit model=google/gemma-3-4b-it, supports_json=true, supports_tools=true, tool_calling_mode=both.",
+            "Profil openrouter_qwen3_30b_a3b_stronger mit model=qwen/qwen3-30b-a3b-instruct-2507, supports_json=true, supports_tools=true, tool_calling_mode=both.",
+            "Alle OpenRouter-Profile mit api_key_env=OPENROUTER_API_KEY, cloud=true, cloud_allowed=true, block_secret_context=true.",
+            "Kontextgrenzen konservativ setzen: LM Studio 12000, Gemma 120000, Qwen 120000 oder konfigurierbar.",
+            "temperature für JSON/Tool-Aufgaben default 0.0."
+          ],
+          "acceptance_criteria": [
+            "MODEL_PROFILES_PATH auf diese Datei startet den Hub ohne Loader-Fehler.",
+            "GET /config/model-routing/read-model zeigt alle drei Profile.",
+            "Ohne OPENROUTER_API_KEY werden OpenRouter-Profile als nicht nutzbar oder sauber fehlschlagend behandelt, aber LM Studio bleibt nutzbar.",
+            "Mit Secret im Kontext werden Gemma/Qwen blockiert und nur lokale Profile berücksichtigt.",
+            "Die Beispielprofile enthalten keine API-Key-Werte."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "fallback-router-runtime",
+      "label": "AMR-FB-010 — Runtime-Fallback-Kette Local→Gemma→Qwen",
+      "description": "Der Resolver existiert bereits, aber Fallback muss nicht nur bei Provider-Ausfall, sondern auch bei JSON-/Schema-/Qualitätsfehlern deterministisch funktionieren.",
+      "items": [
+        {
+          "id": "AMR-FB-010",
+          "title": "FallbackPolicyService einführen",
+          "status": "open",
+          "priority": "critical",
+          "files": [
+            "agent/services/model_fallback_policy_service.py",
+            "agent/services/model_profile_resolver.py",
+            "agent/services/model_invocation_service.py"
+          ],
+          "description": "Zentraler Service, der aus RoutingContext, Fehlerklasse, Profilmetadaten und Security-Policy den nächsten Kandidaten bestimmt.",
+          "tasks": [
+            "Neuen Service ModelFallbackPolicyService anlegen.",
+            "Fehlerklassen definieren: provider_unavailable, timeout, http_5xx, http_4xx, invalid_json_response, empty_content, schema_validation_failed, tool_not_allowed, tool_args_invalid, repeated_tool_failure, context_too_large, policy_blocked.",
+            "Fallback nicht als starre if-else-Kette implementieren, sondern über profile.fallback_group und profile.fallback_rank.",
+            "SecurityPolicyChecker bleibt vorgelagert: policy_blocked darf niemals durch stärkeren Cloud-Fallback umgangen werden.",
+            "ProviderHealthCache bei provider_unavailable, timeout und 5xx aktualisieren.",
+            "Fallback-Entscheidung mit reason, previous_profile_id, next_profile_id, trigger und blocked_candidates protokollieren."
+          ],
+          "acceptance_criteria": [
+            "Wenn LM Studio nicht erreichbar ist, wird Gemma gewählt.",
+            "Wenn Gemma HTTP 5xx liefert, wird Qwen gewählt.",
+            "Wenn Kontext Secrets enthält, werden Gemma/Qwen nicht gewählt.",
+            "Wenn alle Profile blockiert sind, wird ein strukturierter Fehler zurückgegeben.",
+            "Fallback-Entscheidung erscheint in response.metadata.resolution_info oder llm_call_profile.",
+            "Unit-Tests decken mindestens 8 Fehlerklassen ab."
+          ]
+        },
+        {
+          "id": "AMR-FB-011",
+          "title": "Invocation-Level Retry und Fallback in ModelInvocationService einbauen",
+          "status": "open",
+          "priority": "critical",
+          "files": [
+            "agent/services/model_invocation_service.py"
+          ],
+          "description": "ModelInvocationService ruft aktuell genau ein resolved_profile auf. Es soll optional eine Kandidatenliste aus dem Resolver/FallbackPolicyService bekommen und sequenziell abarbeiten.",
+          "tasks": [
+            "_make_chat_call intern so erweitern, dass resolved_profile nicht nur einzelnes Profil, sondern eine ordered candidate chain sein kann.",
+            "Bestehende öffentliche Methoden invoke(), invoke_result(), invoke_with_tools(), invoke_with_json_schema_result() unverändert kompatibel halten.",
+            "LM Studio Lock beibehalten, aber nur für lmstudio-Kandidaten anwenden.",
+            "Jeden Versuch als llm_call_profile-Eintrag protokollieren.",
+            "Bei Erfolgsantwort metadata.llm_call_profile mit allen vorherigen Fehlversuchen plus Erfolg zurückgeben.",
+            "Bei endgültigem Fehler alle Versuche in LLMUnavailableError.llm_call_profile zurückgeben."
+          ],
+          "acceptance_criteria": [
+            "Bestehende Tests für ModelInvocationService bleiben kompatibel.",
+            "Ein LM-Studio-Timeout löst exakt einen Gemma-Fallback aus, nicht parallele Requests.",
+            "Ein Gemma-Schemafehler kann Qwen auslösen, wenn die Policy das erlaubt.",
+            "Bei erfolgreichem Fallback enthält metadata.llm_call_profile mindestens zwei Einträge.",
+            "Provider, URL und effektives Modell werden pro Versuch korrekt geloggt.",
+            "Kein API-Key erscheint in Logs, PromptTrace oder UI-Antwort."
+          ]
+        },
+        {
+          "id": "AMR-FB-012",
+          "title": "Prompt-JSON Tool-Calling als offizieller Tool-Modus",
+          "status": "open",
+          "priority": "critical",
+          "files": [
+            "agent/services/model_invocation_service.py",
+            "agent/services/tools",
+            "agent/services/tool_registry.py",
+            "todos/archiv/todo.unified-ananta-tool-calling-registry.json"
+          ],
+          "description": "Ananta soll nicht von nativem Tool Calling abhängig sein. Modelle wie Phi/Gemma/Qwen sollen über JSON-Fallback sauber Tools vorschlagen können.",
+          "tasks": [
+            "Tool-Calling-Modus pro Profil auswerten: native_tools, prompt_json, both.",
+            "Bei prompt_json keine OpenAI tools an Provider senden, sondern Tool-Schema in den System/User-Prompt serialisieren.",
+            "Antwort strikt gegen JSON-Schema validieren: {tool: string, args: object, confidence?: number, reasoning_summary?: string}.",
+            "Toolname gegen Registry validieren.",
+            "Args gegen Tool-Schema validieren.",
+            "Repair-Prompt bei invalid_json/schema_validation_failed erzeugen.",
+            "Repair maximal profile.retry_budget oder global default ausführen.",
+            "Native Tool Calls und Prompt-JSON in ein einheitliches internes ToolCall-Objekt normalisieren."
+          ],
+          "acceptance_criteria": [
+            "Phi/LM-Studio-Profil mit supports_tools=false kann trotzdem prompt_json Tool-Vorschläge liefern.",
+            "Ein erfundenes Tool wird abgelehnt und triggert Repair oder Fallback.",
+            "Ungültige Args werden abgelehnt und enthalten konkrete Schema-Fehlermeldung im Repair-Prompt.",
+            "Native OpenRouter Tool Calls funktionieren weiterhin, wenn tool_calling_mode=native_tools oder both.",
+            "Alle final ausgeführten Tools stammen aus der erlaubten Registry.",
+            "Keine Tool-Ausführung erfolgt direkt durch das LLM; Hub validiert immer zuerst."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "routing-rules-config",
+      "label": "AMR-FB-020 — Generische Routing-Regeln und Kosten-/Qualitätsstrategie",
+      "description": "Routing soll nicht auf konkrete Modelle hart verdrahtet sein. Prozess, Step, Rolle, Risiko, Kontextgröße, Kostenbudget und Fehlerhistorie müssen Regeln beeinflussen können.",
+      "items": [
+        {
+          "id": "AMR-FB-020",
+          "title": "model_routing.json um fallback_groups und escalation_rules erweitern",
+          "status": "open",
+          "priority": "high",
+          "files": [
+            "config/models/ananta.hybrid.local-openrouter.model_routing.json",
+            "config/schemas/model_routing.schema.json",
+            "agent/services/model_profile_resolver.py"
+          ],
+          "description": "Routing-Regeln sollen Ketten wie local_first_cheap, cloud_cheap, cloud_strong, secret_safe beschreiben können.",
+          "tasks": [
+            "Neue Top-Level-Struktur fallback_groups einführen.",
+            "Jede fallback_group enthält ordered_profiles, max_total_retries, stop_on_policy_block, stop_on_success.",
+            "Neue escalation_rules einführen: trigger, from_profile, to_profile, condition.",
+            "Unterstütze Bedingungen: min_context_tokens, task_kind, step_kind, model_role, risk_class, requires_json, requires_tools, previous_error_type, repeated_failure_count.",
+            "Kostenbudget unterstützen: max_input_price_per_million, max_output_price_per_million, max_estimated_cost_per_step.",
+            "Backward compatibility: bestehende RoutingRules ohne fallback_groups bleiben gültig."
+          ],
+          "acceptance_criteria": [
+            "Eine Routing-Datei kann local_lmstudio_phi_json_worker → openrouter_gemma3_4b_cheap_json → openrouter_qwen3_30b_a3b_stronger ausdrücken.",
+            "Bei task_kind=architecture oder metadata.complexity=high kann Qwen direkt gewählt werden.",
+            "Bei small JSON tool_selection wird LM Studio zuerst gewählt.",
+            "Bei cost_policy=max_cheap darf Qwen nur nach Fehlern gewählt werden.",
+            "Schema validiert ungültige profile_ids.",
+            "Dokumentation enthält mindestens drei Beispielregeln."
+          ]
+        },
+        {
+          "id": "AMR-FB-021",
+          "title": "Kosten- und Token-Schätzung vor dem Call",
+          "status": "open",
+          "priority": "high",
+          "files": [
+            "agent/services/model_cost_estimator.py",
+            "agent/services/model_invocation_service.py",
+            "agent/services/prompt_trace_service.py"
+          ],
+          "description": "Ananta soll vor einem Cloud-Fallback abschätzen können, ob der Call in das Budget passt.",
+          "tasks": [
+            "Neuen ModelCostEstimator anlegen.",
+            "Token-Schätzung heuristisch: chars/4 als Default, optional tiktoken wenn verfügbar.",
+            "Preisfelder aus ModelProfile nutzen.",
+            "Kosten pro Versuch und gesamte Fallback-Kette schätzen.",
+            "Bei max_estimated_cost_per_step Überschreitung Fallback blockieren oder Approval-Gate erzeugen.",
+            "Geschätzte und echte usage nach Response vergleichen und im Trace speichern."
+          ],
+          "acceptance_criteria": [
+            "Dry-Run zeigt geschätzte Kosten pro Step und Gesamtgraph.",
+            "Cloud-Call oberhalb des konfigurierten Budgets wird nicht still ausgeführt.",
+            "Bei fehlenden Preisfeldern wird cost_class genutzt und als estimated=true markiert.",
+            "Usage aus Provider-Antwort überschreibt Schätzung nach erfolgreichem Call.",
+            "Kostenwerte erscheinen nicht als harte Voraussetzung für lokale Profile."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "visual-process-data-model",
+      "label": "VP-MR-001 — Visual-Process-Datenmodell für Model-Routing",
+      "description": "VpStep hat bereits metadata. Für saubere UI/Validation braucht es aber typisierte ModelRouting-Felder auf Graph- und Step-Ebene.",
+      "items": [
+        {
+          "id": "VP-MR-001",
+          "title": "Frontend-Interfaces um ModelRoutingConfig erweitern",
+          "status": "open",
+          "priority": "critical",
+          "files": [
+            "frontend-angular/src/app/features/visual-process/visual-process-api.service.ts"
+          ],
+          "description": "Ergänze typisierte Interfaces, ohne bestehende Graphen zu brechen.",
+          "tasks": [
+            "Interface ModelProfileSummary hinzufügen: profile_id, provider_id, model, model_role, local, cloud, supports_json, supports_tools, tool_calling_mode, cost_class, quality_class, context_tokens, enabled.",
+            "Interface ModelRoutingConfig hinzufügen: strategy, preferred_profile_id, fallback_group_id, required_capabilities, max_estimated_cost, allow_cloud, block_secret_context.",
+            "VpGraph.metadata.model_routing als optionalen Graph-Default typisieren.",
+            "VpStep.metadata.model_routing als optionalen Step-Override typisieren.",
+            "DryRunResult um model_routing_summary und per_step_model_plan optional erweitern."
+          ],
+          "acceptance_criteria": [
+            "Bestehende gespeicherte Graphen ohne model_routing laden weiterhin.",
+            "TypeScript kompiliert ohne any-Zwang außer an existierenden metadata-Grenzen.",
+            "Step-Override überschreibt Graph-Default im Dry-Run.",
+            "Graph-Default wird beim neuen Step automatisch nur logisch vererbt, nicht zwingend kopiert.",
+            "UI kann Profile anzeigen, ohne API-Key oder geheime Providerdetails zu kennen."
+          ]
+        },
+        {
+          "id": "VP-MR-002",
+          "title": "Backend-Modelle für VisualProcessGraph/Step um ModelRouting erweitern",
+          "status": "open",
+          "priority": "critical",
+          "files": [
+            "agent/visual_process/models.py",
+            "agent/visual_process/validator.py",
+            "agent/visual_process/blueprint_mapper.py"
+          ],
+          "description": "Backend soll model_routing aus metadata lesen und in WorkflowRequest/TaskRoutingContract übertragen.",
+          "tasks": [
+            "Pydantic-Modell ModelRoutingConfig ergänzen.",
+            "Graph-level metadata.model_routing validieren.",
+            "Step-level metadata.model_routing validieren.",
+            "blueprint_mapper erweitert Task/Blueprint um model_profile_id, model_role, fallback_group_id, required_capabilities.",
+            "Unbekannte Routing-Felder dürfen als Warnung, nicht als harter Fehler behandelt werden, solange sie in metadata liegen.",
+            "Validator prüft, ob ausgewählte Profile existieren."
+          ],
+          "acceptance_criteria": [
+            "VisualProcessGraph mit Graph-Default model_routing validiert erfolgreich.",
+            "Step mit ungültigem preferred_profile_id erzeugt validation issue.",
+            "Step mit allow_cloud=false blockiert Cloud-Profile schon im Dry-Run.",
+            "Blueprint/WorkflowRequest enthält pro Step die effektive Routing-Policy.",
+            "Bestehende Presets bleiben valide."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "visual-process-editor-ui",
+      "label": "VP-MR-010 — Visual-Process-Editor UI für Model-Routing",
+      "description": "Der Editor hat Toolbar, Step-Inspector, Dry-Run und Policy-Hints. Darauf soll Model-Routing sichtbar und editierbar werden.",
+      "items": [
+        {
+          "id": "VP-MR-010",
+          "title": "API-Service um Model-Routing-Endpunkte erweitern",
+          "status": "open",
+          "priority": "critical",
+          "files": [
+            "frontend-angular/src/app/features/visual-process/visual-process-api.service.ts",
+            "agent/routes/config/read_models.py"
+          ],
+          "description": "Frontend benötigt Profil-Liste, Fallback-Gruppen und Routing-Diagnose.",
+          "tasks": [
+            "VisualProcessApiService.listModelProfiles(): GET /config/model-routing/profiles oder vorhandenes /read-model adaptieren.",
+            "VisualProcessApiService.getModelRoutingDiagnostics(): GET /config/model-routing/read-model.",
+            "VisualProcessApiService.validateModelRouting(graph): POST /api/visual-process/model-routing/validate.",
+            "VisualProcessApiService.estimateModelCost(graph): POST /api/visual-process/model-routing/estimate-cost.",
+            "Backend-Endpunkte liefern redacted Profile ohne api_key_env-Werte oder Secrets."
+          ],
+          "acceptance_criteria": [
+            "Frontend kann Profile laden und Dropdowns befüllen.",
+            "API gibt nur sichere Metadaten zurück.",
+            "Wenn Backend nicht läuft, bleibt Editor nutzbar und zeigt fallback UI.",
+            "read-model bleibt abwärtskompatibel."
+          ]
+        },
+        {
+          "id": "VP-MR-011",
+          "title": "Graph-Level Model-Routing Panel im Visual-Process-Editor",
+          "status": "open",
+          "priority": "high",
+          "files": [
+            "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
+            "frontend-angular/src/app/features/visual-process/visual-process-editor.component.html",
+            "frontend-angular/src/app/features/visual-process/visual-process-editor.component.scss"
+          ],
+          "description": "Toolbar oder Graph-Details sollen globale Routing-Defaults setzen können.",
+          "tasks": [
+            "Graph-Details Panel um Abschnitt 'Model Routing' erweitern.",
+            "Felder: strategy, fallback_group_id, allow_cloud, max_estimated_cost_per_run, default_model_role.",
+            "Dropdown für fallback_group_id aus Backend laden.",
+            "Checkbox 'Cloud erlauben' mit Warnhinweis.",
+            "Button 'Routing prüfen' ruft validateModelRouting auf.",
+            "Button 'Kosten schätzen' ruft estimateModelCost auf.",
+            "Dry-Run Summary zeigt effektive Profile pro Step."
+          ],
+          "acceptance_criteria": [
+            "Ein neuer Graph kann Local→Gemma→Qwen als Default-Kette auswählen.",
+            "Änderungen setzen isDirty=true.",
+            "Speichern/Laden erhält model_routing vollständig.",
+            "Cloud-Allow ist standardmäßig false oder folgt sicherem Backend-Default.",
+            "Bei Cloud-Allow=true wird sichtbar angezeigt, dass Secrets weiterhin blockiert werden."
+          ]
+        },
+        {
+          "id": "VP-MR-012",
+          "title": "Step-Inspector um Model-Routing Override erweitern",
+          "status": "open",
+          "priority": "critical",
+          "files": [
+            "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.ts",
+            "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html"
+          ],
+          "description": "Jeder Prozess-Schritt soll optional eigene Modellrolle, Profilpräferenz und Fallbackgruppe definieren können.",
+          "tasks": [
+            "Step-Inspector Sektion 'Model Routing' hinzufügen.",
+            "Felder: model_role, preferred_profile_id, fallback_group_id, requires_json, requires_tools, tool_calling_mode, allow_cloud, max_estimated_cost.",
+            "Button 'vom Graph übernehmen' entfernt Step-Override.",
+            "Button 'billig lokal' setzt LM-Studio-Profil.",
+            "Button 'billig Cloud' setzt Gemma-Profil.",
+            "Button 'stärker' setzt Qwen-Profil.",
+            "Profile nach Role/Capability filtern, aber 'alle anzeigen' erlauben."
+          ],
+          "acceptance_criteria": [
+            "Step-Override landet in step.metadata.model_routing.",
+            "Ohne Override verwendet Step Graph-Default.",
+            "Ungültige Kombination, z.B. requires_tools=true bei Profil ohne native tools aber prompt_json erlaubt, wird nicht pauschal blockiert, sondern als prompt_json-fähig bewertet.",
+            "Secret-/Cloud-Warnungen erscheinen direkt im Inspector.",
+            "UI bleibt auch bei leerer Profil-Liste bedienbar."
+          ]
+        },
+        {
+          "id": "VP-MR-013",
+          "title": "Routing-Visualisierung auf Nodes und Edges",
+          "status": "open",
+          "priority": "medium",
+          "files": [
+            "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
+            "frontend-angular/src/app/features/visual-process/visual-process-editor.component.html",
+            "frontend-angular/src/app/features/visual-process/vp-editor-config.ts"
+          ],
+          "description": "Der Canvas soll anzeigen, ob ein Step lokal, billig-cloud oder stark-cloud läuft.",
+          "tasks": [
+            "Node-Badge für Provider: local, openrouter, openai, ollama, unknown.",
+            "Node-Badge für cost_class: free, very_low, low, medium, high.",
+            "Node-Badge für fallback count oder fallback group.",
+            "Tooltip zeigt effective profile nach Dry-Run.",
+            "nodeColor/hintColor nicht kaputt machen, sondern zusätzliche kleine Badges rendern."
+          ],
+          "acceptance_criteria": [
+            "Nach Dry-Run ist pro Step sichtbar, welches Profil geplant ist.",
+            "Cloud-Steps sind visuell unterscheidbar.",
+            "Policy-blocked Steps zeigen Warnsymbol.",
+            "Keine harte Farblogik in Business-Code; Mapping liegt in Config/Helper."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "visual-process-dry-run-runtime",
+      "label": "VP-MR-020 — Dry-Run, Policy-Hints und Runtime-Truth",
+      "description": "Model-Routing muss im Dry-Run nachvollziehbar werden, bevor ein Workflow gestartet wird.",
+      "items": [
+        {
+          "id": "VP-MR-020",
+          "title": "Dry-Run um effektiven Model-Routing-Plan erweitern",
+          "status": "open",
+          "priority": "critical",
+          "files": [
+            "agent/routes/visual_process.py",
+            "agent/visual_process/blueprint_mapper.py",
+            "agent/services/model_profile_resolver.py"
+          ],
+          "description": "Dry-Run soll pro Step zeigen, welches Profil gewählt würde und warum.",
+          "tasks": [
+            "DryRunResult erhält per_step_model_plan.",
+            "Pro Step: step_id, model_role, selected_profile_id, provider_id, model, resolver_source, resolver_rank, fallback_group_id, cloud_allowed, blocked_candidates, policy_decisions, estimated_cost.",
+            "Resolver im Dry-Run ohne echten LLM-Call ausführen.",
+            "Kontextsensitivität aus Graph/Step metadata berücksichtigen.",
+            "Policy-Hints um model_cloud_blocked, model_cost_warning, model_profile_missing, model_fallback_available erweitern."
+          ],
+          "acceptance_criteria": [
+            "Dry-Run führt keinen externen LLM-Call aus.",
+            "Dry-Run zeigt Local→Gemma→Qwen-Kette pro Step.",
+            "Bei secret context wird Cloud als blocked_candidates angezeigt.",
+            "Bei fehlendem Profil gibt es validation warning/error mit step_id.",
+            "Frontend dryRunSummary zeigt model_routing_summary."
+          ]
+        },
+        {
+          "id": "VP-MR-021",
+          "title": "Runtime-Trace: tatsächliche Fallbacks im Workflow anzeigen",
+          "status": "open",
+          "priority": "high",
+          "files": [
+            "agent/services/prompt_trace_service.py",
+            "agent/services/model_invocation_service.py",
+            "frontend-angular/src/app/features/visual-process/vp-workflow-runner.service.ts",
+            "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
+          ],
+          "description": "Nach Start soll sichtbar sein, ob LM Studio, Gemma oder Qwen tatsächlich verwendet wurde.",
+          "tasks": [
+            "Workflow event payload um llm_call_profile erweitern, sofern vorhanden.",
+            "Step-Status um selected_model_profile_id, selected_provider_id, selected_model, fallback_attempts ergänzen.",
+            "Frontend zeigt im Event-Log die Modellversuche je Step.",
+            "Bei Fallback wird statusMsg oder Event-Panel mit 'LM Studio → Gemma' usw. gefüllt.",
+            "PromptTrace-ID optional verlinkbar oder kopierbar machen."
+          ],
+          "acceptance_criteria": [
+            "Ein realer Fallback ist im Workflow-Status sichtbar.",
+            "llm_call_profile enthält alle Versuche in Reihenfolge.",
+            "Keine Prompt-Inhalte mit Secrets werden im UI unredacted angezeigt.",
+            "Bei lokalem Erfolg sieht man, dass keine OpenRouter-Kosten entstanden sind."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "security-policy",
+      "label": "AMR-FB-030 — Security, Secret-Blocking und Cloud-Gates",
+      "description": "Bestehende Policy-first-Architektur darf durch Fallback nicht geschwächt werden.",
+      "items": [
+        {
+          "id": "AMR-FB-030",
+          "title": "Cloud-Fallback darf Security-Policy niemals umgehen",
+          "status": "open",
+          "priority": "critical",
+          "files": [
+            "agent/services/model_profile_resolver.py",
+            "agent/services/model_fallback_policy_service.py",
+            "tests/test_model_routing_security_policy.py"
+          ],
+          "description": "Wenn Cloud wegen Secrets blockiert ist, darf auch Qwen als stärkerer Fallback nicht gewählt werden.",
+          "tasks": [
+            "Policy-blocked als terminale Blockierung für betroffene Kandidaten behandeln.",
+            "Fallback darf nur zu Profilen wechseln, die SecurityPolicyChecker erlaubt.",
+            "Cloud-Allow pro Graph/Step beachten.",
+            "block_secret_context=true für alle Cloud-Beispiele erzwingen.",
+            "Validation-Message klar formulieren: Cloud blocked because secret-like context detected."
+          ],
+          "acceptance_criteria": [
+            "Test mit OPENAI_API_KEY=... im Kontext blockiert Gemma und Qwen.",
+            "Lokales LM-Studio-Profil bleibt erlaubt.",
+            "Wenn kein lokales Profil vorhanden ist, gibt Runtime einen sicheren Fehler statt Cloud-Call.",
+            "Visual-Process-Dry-Run zeigt blockierte Cloud-Kandidaten.",
+            "Kein Test erfordert echten OpenRouter-Call."
+          ]
+        },
+        {
+          "id": "AMR-FB-031",
+          "title": "Approval Gate für teure oder Cloud-Eskalation optional unterstützen",
+          "status": "open",
+          "priority": "medium",
+          "files": [
+            "agent/visual_process/models.py",
+            "agent/visual_process/validator.py",
+            "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
+          ],
+          "description": "Bei Step-Eskalation auf Cloud oder höheres Kostenprofil soll optional ein Human-Gate erzwungen werden.",
+          "tasks": [
+            "RoutingConfig-Feld require_approval_on_cloud_escalation ergänzen.",
+            "RoutingConfig-Feld require_approval_above_estimated_cost ergänzen.",
+            "Dry-Run warnt, wenn ein Step Gate braucht, aber gate=false ist.",
+            "Optional automatisch gate=true vorschlagen, aber nicht ungefragt setzen.",
+            "Runtime stoppt bei awaiting_approval, wenn Gate aktiv ist."
+          ],
+          "acceptance_criteria": [
+            "Teure Eskalation kann Gate erzwingen.",
+            "Bestehendes Gate-Approval im Visual-Process-Editor wird wiederverwendet.",
+            "Ohne aktivierte Approval-Regel bleibt Verhalten unverändert.",
+            "Policy-Hints markieren fehlende Gates."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "tests",
+      "label": "AMR-FB-900 — Tests und Akzeptanz-Suite",
+      "description": "Die Erweiterung muss mit Mock-Providern testbar sein und darf keine echten API-Kosten verursachen.",
+      "items": [
+        {
+          "id": "AMR-FB-900",
+          "title": "Unit-Tests für Profile, Routing und Fallback",
+          "status": "open",
+          "priority": "critical",
+          "files": [
+            "tests/test_model_profile_loader.py",
+            "tests/test_model_profile_resolver.py",
+            "tests/test_model_fallback_policy_service.py",
+            "tests/test_model_invocation_fallback_chain.py"
+          ],
+          "description": "Tests für generische Modellketten ohne echte Provider.",
+          "tasks": [
+            "Loader-Test für neue Profilfelder.",
+            "Resolver-Test für fallback_group und fallback_rank.",
+            "Security-Test für Secret-Kontext.",
+            "Invocation-Test mit fake HTTP responses: LM Studio timeout, Gemma invalid JSON, Qwen success.",
+            "Test für llm_call_profile mit mehreren Versuchen.",
+            "Test für no-cloud-if-secret."
+          ],
+          "acceptance_criteria": [
+            "pytest läuft ohne echte API-Keys.",
+            "Alle neuen Tests sind deterministisch.",
+            "Mindestens ein Test bildet exakt local_lmstudio_phi_json_worker → openrouter_gemma3_4b_cheap_json → openrouter_qwen3_30b_a3b_stronger ab.",
+            "Fehlerfälle geben strukturierte error_type-Werte zurück.",
+            "Legacy DEFAULT_PROVIDER/DEFAULT_MODEL Tests bleiben grün."
+          ]
+        },
+        {
+          "id": "AMR-FB-901",
+          "title": "Visual-Process-Editor Tests",
+          "status": "open",
+          "priority": "high",
+          "files": [
+            "frontend-angular/src/app/features/visual-process/visual-process-api.service.ts",
+            "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.ts",
+            "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts"
+          ],
+          "description": "Frontend-Tests für Graph-Default, Step-Override und Dry-Run-Anzeige.",
+          "tasks": [
+            "Test: ModelProfile-Liste lädt und Dropdown wird gefüllt.",
+            "Test: Graph-Level RoutingConfig wird in graph.metadata gespeichert.",
+            "Test: Step-Level Override wird in step.metadata.model_routing gespeichert.",
+            "Test: DryRunResult.per_step_model_plan wird angezeigt.",
+            "Test: Cloud-Warnung erscheint bei Cloud-Profil."
+          ],
+          "acceptance_criteria": [
+            "Angular Tests kompilieren ohne neue any-Fehler.",
+            "Bestehende Visual-Process-Funktionen Speichern/Laden/Start/Dry-Run bleiben nutzbar.",
+            "Ein gespeicherter Graph behält model_routing nach Reload.",
+            "Keine API-Key-Felder werden ins Frontend-Modell übernommen."
+          ]
+        },
+        {
+          "id": "AMR-FB-902",
+          "title": "Manueller End-to-End-Testplan",
+          "status": "open",
+          "priority": "high",
+          "files": [
+            "docs/operator/model-routing.md",
+            "docs/operator/hybrid-local-openrouter-routing.md"
+          ],
+          "description": "Ein klarer manueller Testplan für dein Setup mit LM Studio + OpenRouter.",
+          "tasks": [
+            "Dokumentiere Start mit LM Studio auf http://localhost:1234/v1.",
+            "Dokumentiere OPENROUTER_API_KEY Setup.",
+            "Testfall 1: LM Studio erreichbar, einfacher Tool-JSON-Call bleibt lokal.",
+            "Testfall 2: LM Studio stoppen, Gemma wird genutzt.",
+            "Testfall 3: Gemma absichtlich invalid JSON mocken, Qwen wird genutzt.",
+            "Testfall 4: Secret-Kontext einfügen, Cloud wird blockiert.",
+            "Testfall 5: Visual-Process-Dry-Run zeigt Profile und Kosten.",
+            "Testfall 6: Workflow starten und tatsächliches llm_call_profile prüfen."
+          ],
+          "acceptance_criteria": [
+            "Ein Entwickler kann den Testplan ohne Vorwissen ausführen.",
+            "Jeder Testfall hat erwartete Logs/UI-Anzeigen.",
+            "Keine echten Kosten entstehen außer explizit markierten OpenRouter-Testcalls.",
+            "Fehlerdiagnose enthält konkrete Hinweise: missing API key, LM Studio unavailable, profile not found, policy blocked."
+          ]
+        }
+      ]
+    }
+  ],
+  "definition_of_done": [
+    "Hybrid-Profil Local LM Studio → OpenRouter Gemma → OpenRouter Qwen ist als Beispielkonfiguration enthalten.",
+    "Fallback-Kette ist generisch und unterstützt beliebig viele Profile.",
+    "Visual-Process-Editor kann Graph-Default und Step-Override für Model-Routing setzen.",
+    "Dry-Run zeigt effektive Modellwahl, Fallback-Kette, blockierte Kandidaten und geschätzte Kosten.",
+    "Runtime protokolliert tatsächliche Modellversuche in llm_call_profile.",
+    "Prompt-JSON Tool-Calling funktioniert unabhängig von nativem Tool-Calling.",
+    "Cloud-Fallback wird bei Secret-Kontext sicher blockiert.",
+    "Alle Tests laufen ohne echte API-Keys.",
+    "Bestehende Legacy-Konfiguration DEFAULT_PROVIDER/DEFAULT_MODEL bleibt lauffähig."
+  ],
+  "suggested_implementation_order": [
+    "AMR-FB-001",
+    "AMR-FB-002",
+    "AMR-FB-020",
+    "AMR-FB-010",
+    "AMR-FB-011",
+    "AMR-FB-012",
+    "VP-MR-001",
+    "VP-MR-002",
+    "VP-MR-020",
+    "VP-MR-010",
+    "VP-MR-011",
+    "VP-MR-012",
+    "VP-MR-013",
+    "AMR-FB-030",
+    "AMR-FB-021",
+    "AMR-FB-900",
+    "AMR-FB-901",
+    "AMR-FB-902"
+  ]
+}
