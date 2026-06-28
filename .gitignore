@@ -170,3 +170,5 @@ scripts/dyndns.conf
 /.opencode/
 /.junie/
 /.hermes/
+/test-results/
+/.*
