@@ -993,6 +993,175 @@
     "Bestehende CodeCompass-Funktionen bleiben bei deaktiviertem Feature-Flag unverändert.",
     "Mindestens 80 harmlose x86 Fixtures decken Schema, Indexing, Address Lookup, CFG, Call Graph, Diagnostics und Regressionen ab.",
     "Dokumentation erklärt klar, dass dieser Track keine Binary-Ausführung, keine Decompilation und keine direkte Hochsprachenübersetzung implementiert."
+  ],
+  "discovery_report": {
+    "discovery_date": "2026-06-28T19:08:00Z",
+    "module_map": {
+      "agent/codecompass/x86/adapter.py": "X86DisassemblerAdapter ABC + DummyAdapter",
+      "agent/codecompass/x86/capstone_adapter.py": "CapstoneAdapter (lazy is_available)",
+      "agent/codecompass/x86/config.py": "X86Config + load_x86_config (env-driven flags)",
+      "agent/codecompass/x86/diagnostics.py": "X86Diagnostic + x86_diagnostic helpers",
+      "agent/codecompass/x86/fixture_adapter.py": "load_fixture + FixtureAdapter",
+      "agent/codecompass/x86/graph_extensions.py": "X86GraphIndex + X86CFGTraversal + X86CallGraphTraversal",
+      "agent/codecompass/x86/index_builder.py": "X86IndexLimits + build_manifest + X86IndexBuilder",
+      "agent/codecompass/x86/index_pipeline.py": "X86IndexPipeline.run",
+      "agent/codecompass/x86/input_taxonomy.py": "X86InputRecord + make_input_record",
+      "agent/codecompass/x86/models.py": "Node/Edge/Address/Location/Provenance/EvidenceKinds",
+      "agent/codecompass/x86/query.py": "X86Query + QueryEngine + parse_address",
+      "agent/codecompass/x86/safety.py": "check_safety_policy / assert_no_execution",
+      "agent/codecompass/x86/viewer.py": "X86ViewerView/Model + build_function_overview"
+    },
+    "behaviour_inventory": "38 public symbols across 14 modules, 2279 LOC total",
+    "wiring_map": {
+      "importers_in_repo": "ZERO non-self importers as of HEAD",
+      "env_vars": [
+        "ANANTA_CODECOMPASS_X86_ENABLED",
+        "ANANTA_CODECOMPASS_X86_RAW_ASSEMBLY",
+        "ANANTA_CODECOMPASS_X86_BINARY_METADATA",
+        "ANANTA_CODECOMPASS_X86_DISASSEMBLER_EXPORT",
+        "ANANTA_CODECOMPASS_X86_CFG",
+        "ANANTA_CODECOMPASS_X86_EXPERIMENTAL_ADAPTER",
+        "ANANTA_CODECOMPASS_X86_DEFAULT_PROFILE",
+        "ANANTA_CODECOMPASS_X86_MAX_INSTRUCTIONS",
+        "ANANTA_CODECOMPASS_X86_MAX_FUNCTIONS",
+        "ANANTA_CODECOMPASS_X86_MAX_BASIC_BLOCKS",
+        "ANANTA_CODECOMPASS_X86_MAX_STRINGS"
+      ],
+      "consumer_modules_intended": [
+        "worker/retrieval/codecompass_graph_store.py",
+        "agent/services/tools/codecompass_tools.py",
+        "agent/services/codecompass_context_service.py",
+        "agent/services/codecompass_context_planner_service.py",
+        "scripts/setup_codecompass_index.py",
+        "web/www/codecompass/query.html"
+      ],
+      "consumer_modules_currently_touching_x86": []
+    },
+    "test_coverage_map": "0 pytest tests against x86 skeleton",
+    "verdict": "subsystem skeleton present (53/62 source-symbols vorhanden), ZERO wiring, ZERO tests, ZERO docs. 13/62 tasks have no skeleton symbol at all (mostly tools/docs/handoff).",
+    "task_classification_bucket": {
+      "A_present": [
+        "X86CC-002",
+        "X86CC-003",
+        "X86CC-004",
+        "X86CC-005",
+        "X86CC-006",
+        "X86CC-007",
+        "X86CC-008",
+        "X86CC-009",
+        "X86CC-010",
+        "X86CC-011",
+        "X86CC-012",
+        "X86CC-013",
+        "X86CC-014",
+        "X86CC-015",
+        "X86CC-016",
+        "X86CC-017",
+        "X86CC-018",
+        "X86CC-019",
+        "X86CC-020",
+        "X86CC-021",
+        "X86CC-025",
+        "X86CC-029",
+        "X86CC-030"
+      ],
+      "B_partial": [],
+      "C_missing": [
+        "X86CC-001",
+        "X86CC-022",
+        "X86CC-023",
+        "X86CC-024",
+        "X86CC-026",
+        "X86CC-027",
+        "X86CC-028",
+        "X86CC-031",
+        "X86CC-032"
+      ]
+    }
+  },
+  "welle_progress": {
+    "W1": {
+      "status": "todo",
+      "tasks": [
+        "X86CC-001",
+        "X86CC-002",
+        "X86CC-003",
+        "X86CC-004",
+        "X86CC-005"
+      ]
+    },
+    "W2": {
+      "status": "todo",
+      "tasks": [
+        "X86CC-006",
+        "X86CC-007",
+        "X86CC-008",
+        "X86CC-009",
+        "X86CC-010"
+      ]
+    },
+    "W3": {
+      "status": "todo",
+      "tasks": [
+        "X86CC-011",
+        "X86CC-012",
+        "X86CC-013",
+        "X86CC-014",
+        "X86CC-015",
+        "X86CC-016"
+      ]
+    },
+    "W4": {
+      "status": "todo",
+      "tasks": [
+        "X86CC-017",
+        "X86CC-018",
+        "X86CC-019",
+        "X86CC-020",
+        "X86CC-021",
+        "X86CC-022"
+      ]
+    },
+    "W5": {
+      "status": "todo",
+      "tasks": [
+        "X86CC-023",
+        "X86CC-024",
+        "X86CC-025",
+        "X86CC-026",
+        "X86CC-027"
+      ]
+    },
+    "W6": {
+      "status": "todo",
+      "tasks": [
+        "X86CC-028",
+        "X86CC-029",
+        "X86CC-030",
+        "X86CC-031",
+        "X86CC-032"
+      ]
+    },
+    "current": "W1",
+    "session": "2026-06-28T19:08Z",
+    "strategy": "opt-B sequential, core-track first, malware-track after"
+  },
+  "open_decisions": [
+    {
+      "id": "CORE-D1",
+      "question": "wird capstone als echte optional dependency installiert (pip install capstone) oder bleibt nur lazy is_available()?",
+      "context": "X86CC-013 verlangt optionalen Capstone Adapter. aktuell: is_available() returnt False ohne capstone-import. fixture-only tests würden reichen.",
+      "recommendation": "keine neue dependency hinzufügen. is_available()-stub bleibt, FixtureAdapter ist die primaere testbare quelle. echter capstone nur wenn user ein live-sample anfasst.",
+      "user_acknowledged": false,
+      "status": "recommendation_made_awaiting_pick"
+    },
+    {
+      "id": "CORE-D2",
+      "question": "web/www/codecompass/query.html x86-aware machen oder nicht?",
+      "context": "todo-file listet query.html als reuse-ziel. aktuelle query.html ist statisches 178-LOC template ohne x86-bezug.",
+      "recommendation": "x86-aware erweiterung als optional-feature-flag in der page selbst, default aus. x86-tools laufen via API/tools auch ohne UI-update.",
+      "user_acknowledged": false,
+      "status": "recommendation_made_awaiting_pick"
+    }
   ]
 }
-
