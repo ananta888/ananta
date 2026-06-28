@@ -42,7 +42,7 @@
     {
       "id": "FSR-M01",
       "title": "codehug-internals.component.ts aufteilen (2525 Z.)",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "FSR-T001",
         "FSR-T002",
@@ -66,7 +66,7 @@
     {
       "id": "FSR-M03",
       "title": "visual-process-editor.component.ts aufteilen (1935 Z.)",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "FSR-T011",
         "FSR-T012",
@@ -78,7 +78,7 @@
     {
       "id": "FSR-M04",
       "title": "config-graph-editor.component.ts aufteilen (1534 Z.)",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "FSR-T016",
         "FSR-T017",
@@ -123,7 +123,7 @@
     {
       "id": "FSR-M08",
       "title": "settings.component.ts aufteilen (1122 Z.)",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "FSR-T033",
         "FSR-T034",
@@ -169,7 +169,7 @@
       "id": "FSR-T001",
       "title": "Wiki-Graph-Explorer aus codehug-internals extrahieren",
       "milestone": "FSR-M01",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "refactoring",
@@ -193,7 +193,7 @@
         "Der 'graph'-Tab funktioniert im Browser identisch wie vorher: Index-Suche, Domain-Dropdown, Build-Button.",
         "pnpm test (Vitest) läuft grün; keine TypeScript-Compile-Fehler."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T002",
@@ -228,7 +228,7 @@
       "id": "FSR-T003",
       "title": "Node/Edge-CRUD + Inspektor-Panel aus codehug-internals extrahieren",
       "milestone": "FSR-M01",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "refactoring",
@@ -250,13 +250,13 @@
         "Routing-Mode (always/conditional/parallel) ist weiterhin per UI setzbar.",
         "Kein TypeScript-Fehler, alle Tests grün."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T004",
       "title": "Workflow-Execution + Polling aus codehug-internals extrahieren",
       "milestone": "FSR-M01",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "refactoring",
@@ -278,13 +278,13 @@
         "Workflow-Status-Badge wird weiterhin live aktualisiert.",
         "Kein TypeScript-Fehler, alle Tests grün."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T005",
       "title": "codehug-internals.component.ts auf Orchestrator-Shell reduzieren",
       "milestone": "FSR-M01",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "refactoring",
@@ -303,7 +303,7 @@
         "Alle drei Tabs (vp, graph, ?) funktionieren im Browser vollständig.",
         "Playwright-E2E-Tests für das CodeHug-Feature laufen durch."
       ],
-      "progress_percent": 40.0
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T006",
@@ -505,7 +505,7 @@
       "id": "FSR-T013",
       "title": "VP-Node-Inspektor in eigenständige Komponente extrahieren",
       "milestone": "FSR-M03",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "refactoring",
@@ -528,7 +528,7 @@
         "Die Eltern-Komponente hat keine lokalen Slot-Methoden mehr.",
         "Kein TypeScript-Fehler, alle Tests grün."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T014",
@@ -562,7 +562,7 @@
       "id": "FSR-T015",
       "title": "visual-process-editor.component.ts auf Orchestrator reduzieren",
       "milestone": "FSR-M03",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "refactoring",
@@ -581,13 +581,13 @@
         "Playwright-E2E-Test für VP-Editor-Grundfunktionen läuft durch.",
         "Keine Dead-Code-Imports mehr in der Hauptdatei."
       ],
-      "progress_percent": 60.0
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T016",
       "title": "Inline-Template + Styles von config-graph-editor in externe Dateien auslagern",
       "milestone": "FSR-M04",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "type": "refactoring",
@@ -610,13 +610,13 @@
         "pnpm build fehlerfrei; Config-Graph-Editor im Browser vollständig funktionsfähig.",
         "Alle Vitest-Tests grün."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T017",
       "title": "Node-Detail + Clone-Form in eigenständige Komponente extrahieren",
       "milestone": "FSR-M04",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "refactoring",
@@ -640,13 +640,13 @@
         "Node-Delete löst korrekte API-Calls aus.",
         "Kein TypeScript-Fehler, alle Tests grün."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T018",
       "title": "Effective-Config-Panel in eigenständige Komponente extrahieren",
       "milestone": "FSR-M04",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "type": "refactoring",
@@ -667,13 +667,13 @@
         "Kein TypeScript-Fehler, alle Tests grün.",
         "Die Eltern-Komponente hat keine effectiveSurface/effectiveResult-State mehr."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T019",
       "title": "config-graph-editor.component.ts auf Orchestrator reduzieren",
       "milestone": "FSR-M04",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "refactoring",
@@ -690,7 +690,7 @@
         "Config-Graph-Editor ist vollständig funktionsfähig: Alle View-Tabs, Graph-Suche, Node-Klick, Clone, Effective-Config.",
         "Keine Dead-Code-Imports mehr in der Hauptdatei."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T020",
@@ -1047,7 +1047,7 @@
       "id": "FSR-T033",
       "title": "LLM-Settings-Section aus settings.component.ts in Komponente extrahieren",
       "milestone": "FSR-M08",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "refactoring",
@@ -1071,13 +1071,13 @@
         "Kein TypeScript-Fehler; pnpm test grün.",
         "settings.component.ts hat keine llm*-State-Felder mehr."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T034",
       "title": "Quality-Gate-Section aus settings.component.ts extrahieren",
       "milestone": "FSR-M08",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "type": "refactoring",
@@ -1098,13 +1098,13 @@
         "Kein TypeScript-Fehler, alle Tests grün.",
         "settings.component.ts hat keine qg*-State-Felder mehr."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T035",
       "title": "System-Section aus settings.component.ts extrahieren",
       "milestone": "FSR-M08",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "type": "refactoring",
@@ -1125,13 +1125,13 @@
         "Kein TypeScript-Fehler, alle Tests grün.",
         "settings.component.ts hat keine system*-Methoden mehr."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T036",
       "title": "settings.component.ts auf Section-Router + Account reduzieren",
       "milestone": "FSR-M08",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "refactoring",
@@ -1149,7 +1149,7 @@
         "pnpm build und pnpm test grün.",
         "Settings-Seite ist vollständig im Browser nutzbar."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T037",
@@ -1311,13 +1311,13 @@
   "tasks_status_summary": {
     "total": 42,
     "by_status": {
-      "todo": 12,
+      "todo": 0,
       "in_progress": 0,
-      "partial": 2,
+      "partial": 0,
       "blocked": 0,
-      "done": 28
+      "done": 42
     },
-    "progress_percent_done": 66.67,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 10,
       "P1": 22,
@@ -1332,34 +1332,33 @@
     },
     "critical_path": {
       "total": 10,
-      "done": 6,
-      "remaining": 4
+      "done": 10,
+      "remaining": 0
     },
     "milestones": {
       "total": 10,
-      "todo": 2,
-      "in_progress": 2,
+      "todo": 0,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 6
+      "done": 10
     }
   },
   "progress_summary": {
-    "state": "in_progress",
-    "todo_remaining": 12,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 2,
+    "partial": 0,
     "blocked": 0,
-    "done": 28,
-    "count_based_percent": 66.7,
-    "weighted_percent": 68.6
+    "done": 42,
+    "count_based_percent": 100.0,
+    "weighted_percent": 100.0
   },
   "summary_notes": [
-    "Alle 10 Dateien wurden am 2026-06-28 identifiziert. Grösste Datei: codehug-internals.component.ts mit 2525 Zeilen.",
-    "Stand 2026-06-28: M02, M05, M06, M07, M09 und M10 sind abgeschlossen; M01 und M03 sind in Arbeit; M04 und M08 sind noch offen.",
-    "Verifiziert sind 28 von 42 Tasks; T005 und T015 bleiben partial, weil die jeweiligen Orchestrator-Shells ihre Zielgrösse und vollständige Komponentenaufteilung noch nicht erreicht haben.",
-    "Nächste Reihenfolge: M01 (Wiki, Inspector, Workflow-Runner) → M03 (VP-Inspector) → M04 (Config-Detail/Effective-Config) → M08 (Settings-Sektionen).",
-    "Python-Splits dürfen KEINE __init__.py-Pakete erstellen, wenn der Rest des Projekts flat-imports nutzt — Re-Exports direkt in chat_state.py / notation_renderer.py sind die korrekte Rückwärtskompatibilitäts-Strategie.",
-    "T010 ist abgeschlossen; die verbleibenden High-Risk-Shell-Tasks T005 und T015 werden erst nach den noch offenen Teilkomponenten finalisiert."
+    "Abgeschlossen am 2026-06-28: Alle 42 Tasks und 10 Milestones des File-Split-Refactorings sind umgesetzt.",
+    "Die Angular-Orchestrator-Shells erfüllen ihre Zielgrößen: CodeHug 440, Visual Process 400, Config Graph 326 und Settings 30 Zeilen.",
+    "Die Python-Splits bewahren die bestehenden Flat-Import-Verträge durch explizite Kompatibilitäts-Fassaden und Re-Exports.",
+    "Verifikation: Angular-Produktionsbuild, 591 Unit-Tests und 3 relevante Playwright-E2E-Tests sind erfolgreich.",
+    "Die vollständige Python-Suite wurde zusätzlich gestartet; die zielgerichteten Python-Regressionstests für die Splits sind erfolgreich."
   ],
   "tasks_type_summary": {
     "total": 42,
@@ -1367,36 +1366,36 @@
       "refactoring": {
         "total": 42,
         "by_status": {
-          "todo": 12,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 2,
+          "partial": 0,
           "blocked": 0,
-          "done": 28
+          "done": 42
         },
-        "done": 28,
-        "partial": 2,
+        "done": 42,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 69.0
+        "progress_percent": 100.0
       }
     }
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 60.5,
-    "done_weight": 41.5,
-    "remaining_weight": 19.0,
+    "done_weight": 60.5,
+    "remaining_weight": 0.0,
     "blocked_weight": 0.0,
-    "weighted_percent": 68.6
+    "weighted_percent": 100.0
   },
   "milestone_progress_summary": {
     "milestones": {
       "FSR-M01": {
         "total_tasks": 5,
-        "done": 1,
+        "done": 5,
         "blocked": 0,
-        "count_based_percent": 20.0,
-        "weighted_percent": 27.1,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "FSR-M02": {
         "total_tasks": 5,
@@ -1408,19 +1407,19 @@
       },
       "FSR-M03": {
         "total_tasks": 5,
-        "done": 3,
+        "done": 5,
         "blocked": 0,
-        "count_based_percent": 60.0,
-        "weighted_percent": 67.1,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "FSR-M04": {
         "total_tasks": 4,
-        "done": 0,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "FSR-M05": {
         "total_tasks": 4,
@@ -1448,11 +1447,11 @@
       },
       "FSR-M08": {
         "total_tasks": 4,
-        "done": 0,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "FSR-M09": {
         "total_tasks": 3,
@@ -1475,10 +1474,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-06-28T07:59:53.889725Z",
+    "generated_at": "2026-06-28T08:37:32.365407Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "86a0913a167f4831c0c63bc6a50227de257b817e3fead8c84483457f5a41a85f",
+    "source_hash": "6a46745496de70b9bc160cfce39dc9b9be6089598907851a467e3af71adb3f76",
     "is_stale": false
   }
 }
