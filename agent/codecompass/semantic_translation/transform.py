@@ -30,7 +30,7 @@ class DeterministicTransformEngine:
         if target_language not in {"typescript", "kotlin"}:
             return self._artifact(request, status="unsupported", target_code="", warnings=["unsupported_target_language"], nodes=[], rules=[])
         graph = self.java_adapter.emit_graph_records(request.source_path, request.source_code)
-        source_types = [node for node in graph["nodes"] if node.get("semantic_kind") in {"data_record", "enum_value", "interface_contract"} and ":property:" not in node["id"] and ":enum:" not in node["id"]]
+        source_types = [node for node in graph["nodes"] if (node.get("attributes") or {}).get("kind") in {"record", "class", "enum", "interface"}]
         rendered: list[str] = []
         warnings = list(_diag_codes(graph.get("diagnostics") or []))
         applied_rules: list[str] = []

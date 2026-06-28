@@ -289,12 +289,16 @@ def main() -> int:
     print(f"  {len(files)} files found → {len(records)} indexable records")
 
     if semantic_summary.get("enabled"):
+        langs = ", ".join(semantic_summary.get("recognized_languages") or ["none"])
+        warnings_count = len(semantic_summary.get("warnings") or [])
         print(
             "  Semantic Translation: "
             f"{semantic_summary['analyzed_files']} files, "
+            f"languages=[{langs}], "
             f"{semantic_summary['node_count']} nodes, "
             f"{semantic_summary['edge_count']} edges, "
-            f"{semantic_summary['rule_count']} rules"
+            f"{semantic_summary['rule_count']} rules, "
+            f"{warnings_count} warnings"
         )
 
     if args.dry_run:

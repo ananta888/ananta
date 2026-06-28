@@ -1,9 +1,9 @@
 {
-  "$schema": "./todo.track.schema.json",
+  "$schema": "../todo.track.schema.json",
   "version": "1.0",
   "owner": "Peter Stuiber / Ananta",
   "track": "codecompass-semantic-translation-graph",
-  "status": "todo",
+  "status": "done",
   "priority": "P0",
   "purpose": "CodeCompass um einen sprachübergreifenden Semantic Translation Graph erweitern, der Quellcode nicht textuell, sondern über formale Semantik, Äquivalenzregeln, Transformationsverträge und prüfbare Übersetzungsartefakte zwischen Programmiersprachen abbildet.",
   "goal": "Ein erster deterministischer Kern für Java -> TypeScript/Kotlin entsteht: Code wird in semantische Nodes/Edges zerlegt, sprachneutrale Konzepte werden normalisiert, Äquivalenzen werden versioniert gespeichert, Transformationen werden nur bei erfüllten Vorbedingungen ausgeführt und durch Golden Tests/Contracts geprüft.",
@@ -80,7 +80,7 @@
     {
       "id": "CSTG-M1",
       "title": "Semantic Graph Contract",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "CSTG-001",
         "CSTG-002",
@@ -91,7 +91,7 @@
     {
       "id": "CSTG-M2",
       "title": "Language Frontends Java/TypeScript/Kotlin",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "CSTG-005",
         "CSTG-006",
@@ -102,7 +102,7 @@
     {
       "id": "CSTG-M3",
       "title": "Semantic Vocabulary and Equivalence Registry",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "CSTG-009",
         "CSTG-010",
@@ -115,7 +115,7 @@
     {
       "id": "CSTG-M4",
       "title": "Deterministic Transform and Verification",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "CSTG-015",
         "CSTG-016",
@@ -126,7 +126,7 @@
     {
       "id": "CSTG-M5",
       "title": "CodeCompass Tooling and Agent Workflow",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "CSTG-019",
         "CSTG-020",
@@ -137,7 +137,7 @@
     {
       "id": "CSTG-M6",
       "title": "Documentation, Trace and Viewer",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "CSTG-023",
         "CSTG-024"
@@ -148,11 +148,11 @@
     {
       "id": "CSTG-001",
       "title": "Semantic Translation Graph Contract definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "architecture",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Es gibt ein dokumentiertes Schema `codecompass_semantic_translation_graph.v1` für Nodes, Edges, Rules, Contracts und Artifacts.",
         "Das Schema unterscheidet mindestens `syntax_node`, `semantic_node`, `type_node`, `symbol_node`, `control_flow_node`, `data_flow_node`, `effect_node`, `contract_node`, `equivalence_rule` und `transform_artifact`.",
@@ -165,11 +165,11 @@
     {
       "id": "CSTG-002",
       "title": "GraphStore für Semantic Translation Payload erweitern",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Der bestehende CodeCompassGraphStore kann Semantic-Translation-Nodes und -Edges laden, speichern und indexieren.",
         "Indexe existieren mindestens für `by_id`, `by_file`, `by_kind`, `by_language`, `by_symbol`, `by_semantic_kind` und `by_rule_id`.",
@@ -181,11 +181,11 @@
     {
       "id": "CSTG-003",
       "title": "Feature-Flag und Config für Semantic Translation aktivieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "configuration",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Es gibt ein zentrales Feature-Flag, z. B. `ANANTA_CODECOMPASS_SEMANTIC_TRANSLATION_ENABLED`.",
         "Default ist `false`, sodass bestehende Indexläufe nicht verändert werden.",
@@ -197,11 +197,11 @@
     {
       "id": "CSTG-004",
       "title": "Parser Adapter Interface definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "architecture",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Es gibt ein einheitliches Interface für Language Adapter: `detect`, `parse`, `extract_symbols`, `extract_types`, `extract_semantics` und `emit_graph_records`.",
         "Adapter liefern deterministische JSON Records, keine freien Textantworten.",
@@ -213,11 +213,11 @@
     {
       "id": "CSTG-005",
       "title": "Java Adapter für DTOs, Records, Enums und Signaturen bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Java-Klassen, Records, Enums, Interfaces und Methodensignaturen werden als Semantic Graph Records extrahiert.",
         "Der Adapter erkennt primitive Typen, String, UUID, BigDecimal, LocalDate, LocalDateTime, List, Set, Map, Optional und einfache generische Typen.",
@@ -230,11 +230,11 @@
     {
       "id": "CSTG-006",
       "title": "TypeScript Zielmodell für Interfaces, Types und Enums definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "implementation",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "TypeScript-Zielnodes für `interface`, `type`, `enum`, `function_signature`, `union_type` und `optional_property` sind definiert.",
         "Mapping von Java-Typen auf TypeScript-Typen ist regelbasiert und versioniert.",
@@ -247,11 +247,11 @@
     {
       "id": "CSTG-007",
       "title": "Kotlin Zielmodell für Data Classes, Enums und Signaturen definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "implementation",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Kotlin-Zielnodes für `data_class`, `enum_class`, `interface`, `function_signature` und nullable Typen sind definiert.",
         "Mapping von Java Record/DTO auf Kotlin Data Class funktioniert für einfache Felder.",
@@ -263,11 +263,11 @@
     {
       "id": "CSTG-008",
       "title": "Index-Erzeugung um Semantic Records erweitern",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Der bestehende CodeCompass-Indexlauf kann optional zusätzliche Output-Kinds für Semantic Translation erzeugen.",
         "Output-Kinds heißen stabil, z. B. `semantic_nodes`, `semantic_edges`, `equivalence_rules`, `translation_contracts` und `transform_artifacts`.",
@@ -280,11 +280,11 @@
     {
       "id": "CSTG-009",
       "title": "Sprachneutrales Semantik-Vokabular v1 festlegen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "architecture",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Es gibt eine dokumentierte Liste sprachneutraler Semantik-Konzepte für den ersten Scope.",
         "Mindestens enthalten: `data_record`, `property`, `enum_value`, `function_signature`, `nullable_value`, `optional_absence`, `collection`, `map`, `pure_expression`, `side_effect`, `exception_flow`.",
@@ -296,11 +296,11 @@
     {
       "id": "CSTG-010",
       "title": "Type Mapping Registry implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Es gibt eine deterministische Registry für Typ-Äquivalenzen zwischen Java, TypeScript und Kotlin.",
         "Jede Regel enthält `rule_id`, `source_language`, `target_language`, `source_pattern`, `target_pattern`, `preconditions`, `postconditions`, `lossiness`, `warnings` und Beispiele.",
@@ -312,11 +312,11 @@
     {
       "id": "CSTG-011",
       "title": "Expression Mapping Registry für einfache Ausdrücke implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "implementation",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Einfache Literale, Property-Zugriffe, Methodenaufrufe ohne Nebenwirkungen und Vergleichsoperatoren können als sprachneutrale Expressions modelliert werden.",
         "Java `a.equals(b)` wird nur bei passender Nullability-Analyse sicher auf TypeScript/Kotlin Vergleich gemappt.",
@@ -328,11 +328,11 @@
     {
       "id": "CSTG-012",
       "title": "Control-Flow Mapping für Minimal-Scope definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "architecture",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "If/else, return, einfache for-each Iteration und switch/enum Mapping sind als Semantik-Konzepte dokumentiert.",
         "Loops werden als `iteration_over_finite_collection` modelliert, nicht als sprachspezifische Syntax.",
@@ -344,11 +344,11 @@
     {
       "id": "CSTG-013",
       "title": "Nullability und Absence Model implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Das Modell unterscheidet `nullable`, `non_null`, `unknown_nullability`, `optional_absence` und `empty_collection`.",
         "Java Optional wird nicht mit Java null gleichgesetzt.",
@@ -361,11 +361,11 @@
     {
       "id": "CSTG-014",
       "title": "Side-Effect, Exception und Contract Model ergänzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "architecture",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Semantic Nodes können Nebenwirkungen wie `db_read`, `db_write`, `io_read`, `io_write`, `network_call`, `time_access` und `random_access` markieren.",
         "Methoden können `throws`, `may_throw`, `error_result` und `unchecked_exception` modellieren.",
@@ -377,11 +377,11 @@
     {
       "id": "CSTG-015",
       "title": "Equivalence Rule Registry mit Versionierung bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Äquivalenzregeln werden in einer JSON/YAML Registry gespeichert und versioniert.",
         "Jede Regel besitzt eindeutige ID, Scope, unterstützte Sprachen, Semantik-Konzept, Vorbedingungen, Nachbedingungen, Beispiele und Testreferenzen.",
@@ -394,11 +394,11 @@
     {
       "id": "CSTG-016",
       "title": "Deterministic Transform Engine v1 implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Transform Engine nimmt Semantic Source Graph, Zielsprachprofil und erlaubte Rule IDs entgegen.",
         "Engine erzeugt Zielmodell und Zielcode deterministisch ohne LLM.",
@@ -411,11 +411,11 @@
     {
       "id": "CSTG-017",
       "title": "Verifier Service für Transformationen bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Verifier prüft Transform Artifacts gegen Rule Preconditions, Postconditions und Golden Samples.",
         "Verifier erkennt fehlende Zielproperties, falsche Typmappings, verlorene Enum-Werte und nicht behandelte Nullability.",
@@ -427,11 +427,11 @@
     {
       "id": "CSTG-018",
       "title": "Golden Sample Suite Java -> TypeScript/Kotlin erstellen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "test",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Es gibt mindestens 30 Golden Samples im Repo.",
         "Samples decken DTO, Record, Enum, Interface, Optional, Collections, Maps, UUID, BigDecimal und LocalDate ab.",
@@ -443,11 +443,11 @@
     {
       "id": "CSTG-019",
       "title": "CodeCompass Tool `semantic_equivalents` ergänzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "implementation",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Neues Tool `codecompass.semantic_equivalents` akzeptiert Symbol, Datei, Sprache und Zielsprachen.",
         "Tool liefert passende Semantic Nodes, Äquivalenzregeln, mögliche Zielkonstrukte und Warnings.",
@@ -459,11 +459,11 @@
     {
       "id": "CSTG-020",
       "title": "CodeCompass Tool `translation_plan` ergänzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "implementation",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Neues Tool `codecompass.translation_plan` erstellt einen Plan für eine gewünschte Übersetzung, ohne sofort Code zu ändern.",
         "Plan enthält Source-Files, erkannte Sprachelemente, anwendbare Regeln, blockierende Unsicherheiten, Zielartefakte und Teststrategie.",
@@ -475,11 +475,11 @@
     {
       "id": "CSTG-021",
       "title": "CodeCompass Tool `verify_translation` ergänzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "implementation",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Neues Tool `codecompass.verify_translation` akzeptiert Source Artifact, Target Artifact und Transform Artifact.",
         "Tool führt Verifier Service aus und gibt maschinenlesbare Fehler/Warnungen zurück.",
@@ -491,11 +491,11 @@
     {
       "id": "CSTG-022",
       "title": "Agent Workflow für Vorschlagen, Prüfen und Promoten von Regeln definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "workflow",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Es gibt einen dokumentierten Workflow: LLM schlägt Regel vor, Registry validiert, Golden Tests laufen, Mensch/Agent promotet.",
         "Neue Regeln starten standardmäßig als `experimental`.",
@@ -507,11 +507,11 @@
     {
       "id": "CSTG-023",
       "title": "Trace und Audit Artifacts für Übersetzungen speichern",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "implementation",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Jede Transformation erzeugt ein Artifact mit Source Hash, Target Hash, Rule IDs, Warnings, Verifier Status und Zeitstempel.",
         "Artifacts enthalten keine Secrets und keine unnötig vollständigen sensiblen Inhalte.",
@@ -523,11 +523,11 @@
     {
       "id": "CSTG-024",
       "title": "Dokumentation und Mini-Tutorial schreiben",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "type": "documentation",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Es gibt `docs/codecompass-semantic-translation-graph.md` mit Motivation, Architektur, Non-Goals und erstem Scope.",
         "Ein Tutorial zeigt Java Record -> TypeScript Interface und Java Record -> Kotlin Data Class.",
@@ -558,13 +558,13 @@
   "tasks_status_summary": {
     "total": 24,
     "by_status": {
-      "todo": 24,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 24
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 100,
     "by_priority": {
       "P0": 16,
       "P1": 8,
@@ -577,15 +577,16 @@
     },
     "critical_path": {
       "total": 16,
-      "done": 0,
-      "remaining": 16
+      "done": 16,
+      "remaining": 0
     },
     "milestones": {
       "total": 6,
-      "todo": 6,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 6,
+      "partial": 0
     }
   },
   "tasks_type_summary": {
@@ -593,97 +594,97 @@
     "by_type": {
       "architecture": {
         "total": 5,
-        "done": 0,
+        "done": 5,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 5,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 5
         }
       },
       "implementation": {
         "total": 14,
-        "done": 0,
+        "done": 14,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 14,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 14
         }
       },
       "configuration": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "test": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "workflow": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "documentation": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       }
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 24,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 24
   },
   "execution_stage_summary": {
     "recommended_order": [

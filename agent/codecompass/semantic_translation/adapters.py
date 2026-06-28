@@ -219,6 +219,8 @@ class JavaSemanticAdapter:
                 item["methods"] = self._parse_methods(block, start_line)
             if re.search(r"\b(synchronized|native)\b", block):
                 item["unsupported"].append({"code": "unsupported_construct", "reason": "synchronized_or_native_member", "path": path})
+            if _UNSUPPORTED_CONTROL_FLOW_RE.search(block):
+                item["unsupported"].append({"code": "unsupported_control_flow", "reason": "break_continue_synchronized_or_goto_detected", "path": path})
             types.append(item)
         return types
 
@@ -259,16 +261,20 @@ class JavaSemanticAdapter:
             return_type = " ".join((match.group("return") or "").split())
             if return_type in {"if", "for", "while", "switch", "catch", "new"}:
                 continue
+            throws_raw = [item.strip() for item in (match.group("throws") or "").split(",") if item.strip()]
+            classified_throws = [_classify_throw(exc) for exc in throws_raw]
             methods.append({
                 "name": match.group("name"),
                 "return_type": return_type,
                 "parameters": self._parse_parameters(match.group("params") or ""),
-                "throws": [item.strip() for item in (match.group("throws") or "").split(",") if item.strip()],
+                "throws": throws_raw,
+                "throws_classified": classified_throws,
                 "visibility": match.group("visibility") or "package",
                 "static": bool(match.group("static")),
                 "final": bool(match.group("final")),
                 "annotations": re.findall(r"@\w+", match.group("annotations") or ""),
                 "side_effects": ["unknown_side_effect"],
+                "contracts": {"preconditions": [], "postconditions": [], "invariants": []},
                 "line_start": body_line_offset + body[: match.start()].count("\n"),
             })
         return methods
@@ -286,7 +292,12 @@ class JavaSemanticAdapter:
 
     def _parse_enum_values(self, block: str) -> list[str]:
         body = block.split("{", 1)[-1].split(";", 1)[0]
-        return [item.strip().split("(")[0].strip() for item in body.replace("\n", " ").split(",") if item.strip() and re.match(r"^[A-Z][A-Z0-9_]*", item.strip())]
+        result = []
+        for item in body.replace("\n", " ").split(","):
+            cleaned = item.strip().rstrip("}").strip().split("(")[0].strip()
+            if cleaned and re.match(r"^[A-Z][A-Z0-9_]*$", cleaned):
+                result.append(cleaned)
+        return result
 
     def _find_block_end_line(self, content: str, start: int) -> int:
         depth = 1
@@ -306,6 +317,31 @@ class JavaSemanticAdapter:
             result.append(lines[index].strip())
             index -= 1
         return list(reversed(result))
+
+
+_CHECKED_EXCEPTIONS = {
+    "Exception", "IOException", "SQLException", "ParseException", "ClassNotFoundException",
+    "InterruptedException", "CloneNotSupportedException", "ReflectiveOperationException",
+}
+
+_UNCHECKED_EXCEPTIONS = {
+    "RuntimeException", "NullPointerException", "IllegalArgumentException",
+    "IllegalStateException", "IndexOutOfBoundsException", "UnsupportedOperationException",
+    "ArithmeticException", "ClassCastException", "ConcurrentModificationException",
+}
+
+_UNSUPPORTED_CONTROL_FLOW_RE = re.compile(r"\b(break|continue|synchronized|goto)\b")
+
+
+def _classify_throw(exception_name: str) -> dict:
+    name = str(exception_name or "").strip().split(".")[-1]
+    if name in _UNCHECKED_EXCEPTIONS or name.endswith("Error"):
+        kind = "unchecked_exception"
+    elif name in _CHECKED_EXCEPTIONS:
+        kind = "checked_exception"
+    else:
+        kind = "may_throw"
+    return {"name": exception_name, "kind": kind}
 
 
 def _split_top_level_commas(value: str) -> list[str]:

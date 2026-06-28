@@ -1,0 +1,234 @@
+name: compose-next
+services:
+  ai-agent-alpha:
+    build:
+      context: /home/krusty/ananta
+      dockerfile: docker/compose-next/Dockerfile.quickstart-no-ollama
+    command:
+      - python
+      - -m
+      - agent.ai_agent
+    depends_on:
+      ai-agent-hub:
+        condition: service_healthy
+        required: true
+    environment:
+      AGENT_NAME: ananta-worker-1
+      AGENT_URL: http://ai-agent-alpha:5000
+      ANANTA_RUNTIME_PROFILE: compose-safe
+      ANANTA_WORKSPACE_ROOT: /project-workspaces
+      COMMAND_TIMEOUT: "180"
+      DATABASE_URL: sqlite:////app/data/ananta-alpha.db
+      DEFAULT_MODEL: auto
+      DEFAULT_PROVIDER: lmstudio
+      FLASK_DEBUG: "0"
+      HTTP_TIMEOUT: "300"
+      HUB_URL: http://ai-agent-hub:5000
+      INITIAL_ADMIN_PASSWORD: test123
+      INITIAL_ADMIN_USER: admin
+      LMSTUDIO_API_MODE: chat
+      LMSTUDIO_URL: http://192.168.178.100:1234/v1
+      OLLAMA_MODEL: qwen2.5-coder:7b
+      OLLAMA_URL: http://ollama:11434/api/generate
+      OPENROUTER_API_KEY: PLACEHOLDER_OPENROUTER_API_KEY
+      PYTHONPATH: /app
+      PYTHONUNBUFFERED: "1"
+      ROLE: worker
+      SECRET_KEY: test-secret-key-with-at-least-thirty-two-chars
+    extra_hosts:
+      - host.docker.internal=host-gateway
+    image: ananta-quickstart-no-ollama:local
+    networks:
+      default: null
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: /home/krusty/ananta/project-workspaces
+        target: /project-workspaces
+        bind: {}
+      - type: volume
+        source: alpha-data
+        target: /app/data
+        volume: {}
+    working_dir: /app
+  ai-agent-beta:
+    build:
+      context: /home/krusty/ananta
+      dockerfile: docker/compose-next/Dockerfile.quickstart-no-ollama
+    command:
+      - python
+      - -m
+      - agent.ai_agent
+    depends_on:
+      ai-agent-hub:
+        condition: service_healthy
+        required: true
+    environment:
+      AGENT_NAME: ananta-worker-2
+      AGENT_URL: http://ai-agent-beta:5000
+      ANANTA_RUNTIME_PROFILE: compose-safe
+      ANANTA_WORKSPACE_ROOT: /project-workspaces
+      COMMAND_TIMEOUT: "180"
+      DATABASE_URL: sqlite:////app/data/ananta-beta.db
+      DEFAULT_MODEL: auto
+      DEFAULT_PROVIDER: lmstudio
+      FLASK_DEBUG: "0"
+      HTTP_TIMEOUT: "300"
+      HUB_URL: http://ai-agent-hub:5000
+      INITIAL_ADMIN_PASSWORD: test123
+      INITIAL_ADMIN_USER: admin
+      LMSTUDIO_API_MODE: chat
+      LMSTUDIO_URL: http://192.168.178.100:1234/v1
+      OLLAMA_MODEL: qwen2.5-coder:7b
+      OLLAMA_URL: http://ollama:11434/api/generate
+      OPENROUTER_API_KEY: PLACEHOLDER_OPENROUTER_API_KEY
+      PYTHONPATH: /app
+      PYTHONUNBUFFERED: "1"
+      ROLE: worker
+      SECRET_KEY: test-secret-key-with-at-least-thirty-two-chars
+    extra_hosts:
+      - host.docker.internal=host-gateway
+    image: ananta-quickstart-no-ollama:local
+    networks:
+      default: null
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: /home/krusty/ananta/project-workspaces
+        target: /project-workspaces
+        bind: {}
+      - type: volume
+        source: beta-data
+        target: /app/data
+        volume: {}
+    working_dir: /app
+  ai-agent-hub:
+    build:
+      context: /home/krusty/ananta
+      dockerfile: docker/compose-next/Dockerfile.quickstart-no-ollama
+    command:
+      - python
+      - -m
+      - agent.ai_agent
+    environment:
+      AGENT_NAME: ananta-hub
+      AGENT_URL: http://ai-agent-hub:5000
+      ANANTA_RUNTIME_PROFILE: compose-safe
+      ANANTA_WORKSPACE_ROOT: /project-workspaces
+      AUTH_TEST_ENDPOINTS_ENABLED: "1"
+      COMMAND_TIMEOUT: "180"
+      DATABASE_URL: sqlite:////app/data/ananta-hub.db
+      DEFAULT_MODEL: auto
+      DEFAULT_PROVIDER: lmstudio
+      FLASK_DEBUG: "0"
+      HTTP_TIMEOUT: "300"
+      HUB_CAN_BE_WORKER: "0"
+      INITIAL_ADMIN_PASSWORD: test123
+      INITIAL_ADMIN_USER: admin
+      LMSTUDIO_API_MODE: chat
+      LMSTUDIO_URL: http://192.168.178.100:1234/v1
+      OIDC_ALLOWED_ALGORITHMS: RS256
+      OIDC_AUDIENCE: ""
+      OIDC_CLIENT_ID: ""
+      OIDC_ENABLED: "false"
+      OIDC_ISSUER_URL: ""
+      OIDC_JWKS_CACHE_SECONDS: "3600"
+      OIDC_JWKS_URL: ""
+      OLLAMA_MODEL: qwen2.5-coder:7b
+      OLLAMA_URL: http://ollama:11434/api/generate
+      OPENROUTER_API_KEY: PLACEHOLDER_OPENROUTER_API_KEY
+      PYTHONPATH: /app
+      PYTHONUNBUFFERED: "1"
+      ROLE: hub
+      SECRET_KEY: test-secret-key-with-at-least-thirty-two-chars
+    extra_hosts:
+      - host.docker.internal=host-gateway
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - curl -sf http://localhost:5000/health?basic=1 || exit 1
+      timeout: 5s
+      interval: 10s
+      retries: 10
+      start_period: 20s
+    image: ananta-quickstart-no-ollama:local
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 5000
+        published: "5000"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: /home/krusty/ananta/project-workspaces
+        target: /project-workspaces
+        bind: {}
+      - type: volume
+        source: hub-data
+        target: /app/data
+        volume: {}
+    working_dir: /app
+  angular-frontend:
+    build:
+      context: /home/krusty/ananta
+      dockerfile: docker/compose-next/Dockerfile.quickstart-no-ollama
+    command:
+      - npx
+      - ng
+      - serve
+      - --host
+      - 0.0.0.0
+      - --port
+      - "4200"
+      - --poll
+      - "2000"
+      - --disable-host-check
+    depends_on:
+      ai-agent-hub:
+        condition: service_healthy
+        required: true
+    environment:
+      E2E_ADMIN_PASSWORD: test123
+      E2E_ADMIN_USER: admin
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+    extra_hosts:
+      - host.docker.internal=host-gateway
+    image: ananta-quickstart-no-ollama:local
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 4200
+        published: "4200"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: /home/krusty/ananta/frontend-angular
+        target: /app/frontend-angular
+        bind: {}
+      - type: volume
+        source: frontend-node-modules
+        target: /app/frontend-angular/node_modules
+        volume: {}
+      - type: volume
+        source: frontend-angular-cache
+        target: /app/frontend-angular/.angular
+        volume: {}
+    working_dir: /app/frontend-angular
+networks:
+  default:
+    name: compose-next_default
+volumes:
+  alpha-data:
+    name: compose-next_alpha-data
+  beta-data:
+    name: compose-next_beta-data
+  frontend-angular-cache:
+    name: compose-next_frontend-angular-cache
+  frontend-node-modules:
+    name: compose-next_frontend-node-modules
+  hub-data:
+    name: compose-next_hub-data

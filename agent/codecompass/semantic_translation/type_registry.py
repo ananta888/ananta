@@ -75,6 +75,28 @@ class TypeMappingRegistry:
                 result.append(mapped)
         return result
 
+    def find_by_semantic_kind(self, semantic_kind: str, *, source_language: str = "", target_language: str = "") -> list[TypeMapping]:
+        kind = str(semantic_kind or "").strip().lower()
+        src = str(source_language or "").strip().lower()
+        tgt = str(target_language or "").strip().lower()
+        return [
+            rule for rule in self._rules
+            if rule.semantic_kind == kind
+            and (not src or rule.source_language == src)
+            and (not tgt or rule.target_language == tgt)
+        ]
+
+    def find_by_lossiness(self, lossiness: str, *, source_language: str = "", target_language: str = "") -> list[TypeMapping]:
+        loss = str(lossiness or "").strip().lower()
+        src = str(source_language or "").strip().lower()
+        tgt = str(target_language or "").strip().lower()
+        return [
+            rule for rule in self._rules
+            if rule.lossiness == loss
+            and (not src or rule.source_language == src)
+            and (not tgt or rule.target_language == tgt)
+        ]
+
 
 def normalize_java_type(source_type: str) -> str:
     value = re.sub(r"\s+", " ", str(source_type or "").strip())
@@ -133,8 +155,8 @@ def _apply_rule(rule: TypeMapping, source: str, policy: dict) -> dict | None:
 
 def _result(rule: TypeMapping, source: str, target: str, *, status: str = "ok", extra_warnings: list[str] | None = None) -> dict:
     warnings = [*rule.warnings, *(extra_warnings or [])]
-    if rule.lossiness != "lossless" and status == "ok":
-        status = "needs_review" if warnings else "ok"
+    if rule.lossiness == "lossy" and status == "ok":
+        status = "needs_review"
     return {
         "status": status,
         "source_type": source,

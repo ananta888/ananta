@@ -73,6 +73,9 @@ def execute_ananta_tool(
         if name == "codecompass.verify_translation":
             from agent.services.tools.codecompass_tools import codecompass_verify_translation
             return codecompass_verify_translation(workspace_dir=workspace_dir, arguments=args, tool_call_id=tool_call_id)
+        if name == "codecompass.python_translation_plan":
+            from agent.services.tools.codecompass_tools import codecompass_python_translation_plan
+            return codecompass_python_translation_plan(workspace_dir=workspace_dir, arguments=args, tool_call_id=tool_call_id)
         if name == "test.discover":
             from agent.services.tools.test_tools import test_discover
             return test_discover(workspace_dir=workspace_dir, arguments=args, tool_call_id=tool_call_id)

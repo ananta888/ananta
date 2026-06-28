@@ -398,7 +398,10 @@ class CodeCompassGraphStore:
         allowed_edge_types: set[str] | None = None,
     ) -> dict[str, Any]:
         payload = self.load()
-        by_id = dict((payload.get("node_index") or {}).get("by_id") or {})
+        by_id: dict[str, Any] = {
+            **dict((payload.get("semantic_index") or {}).get("by_id") or {}),
+            **dict((payload.get("node_index") or {}).get("by_id") or {}),
+        }
         visited: set[str] = set()
         queue: list[tuple[str, int, list[dict[str, Any]]]] = []
         for seed in sorted({str(item).strip() for item in list(seed_ids or []) if str(item).strip()}):

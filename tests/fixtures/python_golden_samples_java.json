@@ -1,0 +1,232 @@
+{
+  "schema": "python_to_java_golden_samples.v1",
+  "target_language": "java",
+  "samples": [
+    {
+      "id": "pyjr-java-001",
+      "description": "Simple dataclass with str and int fields",
+      "source_python": "@dataclass\nclass User:\n    name: str\n    age: int",
+      "source_kind": "dataclass",
+      "expected_java_kind": "record",
+      "expected_fields": ["name", "age"],
+      "expected_types": {"name": "String", "age": "long"},
+      "expected_warnings": [],
+      "expected_verifier_status": "verified",
+      "rules": ["pyjr.dataclass_to_java_record.v1"]
+    },
+    {
+      "id": "pyjr-java-002",
+      "description": "Frozen dataclass → immutable Java record",
+      "source_python": "@dataclass(frozen=True)\nclass Point:\n    x: float\n    y: float",
+      "source_kind": "frozen_dataclass",
+      "expected_java_kind": "record",
+      "expected_fields": ["x", "y"],
+      "expected_types": {"x": "double", "y": "double"},
+      "expected_warnings": [],
+      "expected_verifier_status": "verified",
+      "rules": ["pyjr.dataclass_to_java_record.v1"]
+    },
+    {
+      "id": "pyjr-java-003",
+      "description": "Dataclass with Optional[str] field",
+      "source_python": "@dataclass\nclass Profile:\n    email: Optional[str] = None",
+      "source_kind": "dataclass",
+      "expected_java_kind": "record",
+      "expected_fields": ["email"],
+      "expected_contains": ["Optional<String>"],
+      "expected_warnings": [],
+      "expected_verifier_status": "verified",
+      "rules": ["pyjr.dataclass_to_java_record.v1"]
+    },
+    {
+      "id": "pyjr-java-004",
+      "description": "Python Enum → Java enum",
+      "source_python": "class Status(Enum):\n    ACTIVE = 1\n    DISABLED = 2\n    PENDING = 3",
+      "source_kind": "enum",
+      "expected_java_kind": "enum",
+      "expected_enum_values": ["ACTIVE", "DISABLED", "PENDING"],
+      "expected_warnings": [],
+      "expected_verifier_status": "verified",
+      "rules": ["pyjr.enum_to_java_enum.v1"]
+    },
+    {
+      "id": "pyjr-java-005",
+      "description": "TypedDict → Java record",
+      "source_python": "class UserDTO(TypedDict):\n    id: UUID\n    name: str\n    active: bool",
+      "source_kind": "typed_dict",
+      "expected_java_kind": "record",
+      "expected_fields": ["id", "name", "active"],
+      "expected_types": {"id": "UUID", "name": "String", "active": "boolean"},
+      "expected_imports": ["java.util.UUID"],
+      "expected_warnings": [],
+      "expected_verifier_status": "verified",
+      "rules": ["pyjr.typed_dict_to_java_record.v1"]
+    },
+    {
+      "id": "pyjr-java-006",
+      "description": "Dataclass with list[str] field",
+      "source_python": "@dataclass\nclass Tags:\n    items: list[str]",
+      "source_kind": "dataclass",
+      "expected_java_kind": "record",
+      "expected_contains": ["List<String>"],
+      "expected_imports": ["java.util.List"],
+      "expected_warnings": [],
+      "expected_verifier_status": "verified",
+      "rules": ["pyjr.dataclass_to_java_record.v1"]
+    },
+    {
+      "id": "pyjr-java-007",
+      "description": "Dataclass with dict[str, int] field",
+      "source_python": "@dataclass\nclass Counters:\n    counts: dict[str, int]",
+      "source_kind": "dataclass",
+      "expected_java_kind": "record",
+      "expected_contains": ["Map<String,Long>"],
+      "expected_imports": ["java.util.Map"],
+      "expected_warnings": [],
+      "expected_verifier_status": "verified",
+      "rules": ["pyjr.dataclass_to_java_record.v1"]
+    },
+    {
+      "id": "pyjr-java-008",
+      "description": "Python int → Java long with policy warning",
+      "source_python": "@dataclass\nclass Counter:\n    value: int",
+      "source_kind": "dataclass",
+      "expected_java_kind": "record",
+      "expected_types": {"value": "long"},
+      "expected_verifier_status": "verified_with_warnings",
+      "expected_warnings_contain": ["int_precision_policy"],
+      "rules": ["pyjr.dataclass_to_java_record.v1"]
+    },
+    {
+      "id": "pyjr-java-009",
+      "description": "Dataclass with Decimal field → BigDecimal",
+      "source_python": "@dataclass\nclass Price:\n    amount: Decimal",
+      "source_kind": "dataclass",
+      "expected_java_kind": "record",
+      "expected_contains": ["BigDecimal"],
+      "expected_imports": ["java.math.BigDecimal"],
+      "expected_warnings": [],
+      "expected_verifier_status": "verified",
+      "rules": ["pyjr.dataclass_to_java_record.v1"]
+    },
+    {
+      "id": "pyjr-java-010",
+      "description": "Dataclass with datetime → LocalDateTime with policy warning",
+      "source_python": "@dataclass\nclass Event:\n    created_at: datetime",
+      "source_kind": "dataclass",
+      "expected_java_kind": "record",
+      "expected_contains": ["LocalDateTime"],
+      "expected_imports": ["java.time.LocalDateTime"],
+      "expected_warnings_contain": ["Timezone"],
+      "expected_verifier_status": "verified_with_warnings",
+      "rules": ["pyjr.dataclass_to_java_record.v1"]
+    },
+    {
+      "id": "pyjr-java-011",
+      "description": "Dataclass with bytes → byte[]",
+      "source_python": "@dataclass\nclass Blob:\n    data: bytes",
+      "source_kind": "dataclass",
+      "expected_java_kind": "record",
+      "expected_contains": ["byte[]"],
+      "expected_warnings": [],
+      "expected_verifier_status": "verified",
+      "rules": ["pyjr.dataclass_to_java_record.v1"]
+    },
+    {
+      "id": "pyjr-java-012",
+      "description": "Simple function with annotated parameters → Java method signature",
+      "source_python": "def greet(name: str, count: int) -> str:\n    return name * count",
+      "source_kind": "function",
+      "expected_java_kind": "method",
+      "expected_contains": ["String greet(String name, long count)"],
+      "expected_warnings": [],
+      "expected_verifier_status": "verified",
+      "rules": ["pyjr.function_to_java_method.v1"]
+    },
+    {
+      "id": "pyjr-java-013",
+      "description": "Function with Optional return type",
+      "source_python": "def find_user(user_id: UUID) -> Optional[str]:\n    ...",
+      "source_kind": "function",
+      "expected_java_kind": "method",
+      "expected_contains": ["Optional<String>"],
+      "expected_warnings": [],
+      "expected_verifier_status": "verified",
+      "rules": ["pyjr.function_to_java_method.v1"]
+    },
+    {
+      "id": "pyjr-java-014",
+      "description": "Function with *args → needs_review",
+      "source_python": "def collect(*items: str) -> list[str]:\n    return list(items)",
+      "source_kind": "function",
+      "expected_java_kind": "method",
+      "expected_transform_status": "needs_review",
+      "expected_warnings_contain": ["varargs_kwargs"],
+      "rules": []
+    },
+    {
+      "id": "pyjr-java-015",
+      "description": "Unannotated dataclass → needs_review",
+      "source_python": "@dataclass\nclass Raw:\n    x\n    y = 5",
+      "source_kind": "dataclass",
+      "expected_transform_status": "needs_review",
+      "expected_warnings_contain": ["type_confidence_unknown"],
+      "rules": []
+    },
+    {
+      "id": "pyjr-java-016",
+      "description": "Dataclass with set[str] → Java Set<String>",
+      "source_python": "@dataclass\nclass UniqueNames:\n    names: set[str]",
+      "source_kind": "dataclass",
+      "expected_java_kind": "record",
+      "expected_contains": ["Set<String>"],
+      "expected_imports": ["java.util.Set"],
+      "expected_warnings": [],
+      "expected_verifier_status": "verified",
+      "rules": ["pyjr.dataclass_to_java_record.v1"]
+    },
+    {
+      "id": "pyjr-java-017",
+      "description": "eval() usage → blocked_dynamic_runtime",
+      "source_python": "def compute(expr: str) -> int:\n    return eval(expr)",
+      "source_kind": "function",
+      "expected_transform_status": "blocked_dynamic_runtime",
+      "expected_blockers_contain": ["eval_usage"],
+      "rules": []
+    },
+    {
+      "id": "pyjr-java-018",
+      "description": "Dataclass with UUID field",
+      "source_python": "@dataclass\nclass Entity:\n    id: UUID\n    name: str",
+      "source_kind": "dataclass",
+      "expected_java_kind": "record",
+      "expected_types": {"id": "UUID", "name": "String"},
+      "expected_imports": ["java.util.UUID"],
+      "expected_warnings": [],
+      "expected_verifier_status": "verified",
+      "rules": ["pyjr.dataclass_to_java_record.v1"]
+    },
+    {
+      "id": "pyjr-java-019",
+      "description": "Enum with string values → Java enum (values ignored in Java)",
+      "source_python": "class Color(Enum):\n    RED = 'red'\n    GREEN = 'green'\n    BLUE = 'blue'",
+      "source_kind": "enum",
+      "expected_java_kind": "enum",
+      "expected_enum_values": ["RED", "GREEN", "BLUE"],
+      "expected_warnings": [],
+      "expected_verifier_status": "verified",
+      "rules": ["pyjr.enum_to_java_enum.v1"]
+    },
+    {
+      "id": "pyjr-java-020",
+      "description": "Dataclass with bool field",
+      "source_python": "@dataclass\nclass Flag:\n    enabled: bool\n    name: str",
+      "source_kind": "dataclass",
+      "expected_java_kind": "record",
+      "expected_types": {"enabled": "boolean", "name": "String"},
+      "expected_warnings": [],
+      "expected_verifier_status": "verified",
+      "rules": ["pyjr.dataclass_to_java_record.v1"]
+    }
+  ]
+}

@@ -72,6 +72,32 @@ EFFECT_KINDS = {
 }
 
 
+CONTROL_FLOW_KINDS = {
+    "if_else_branch",
+    "return_statement",
+    "iteration_over_finite_collection",
+    "switch_enum_match",
+    "unsupported_control_flow",
+}
+
+CONTROL_FLOW_PRECONDITIONS: dict[str, list[str]] = {
+    "if_else_branch": ["condition_is_boolean_expression", "no_nullable_condition_without_null_check"],
+    "return_statement": ["return_type_mapped", "no_unchecked_exception_in_path"],
+    "iteration_over_finite_collection": ["collection_is_finite", "no_mutating_iterator", "no_break_continue"],
+    "switch_enum_match": ["all_enum_values_known", "no_fallthrough"],
+}
+
+UNSUPPORTED_CONTROL_FLOW_CONSTRUCTS = {
+    "break",
+    "continue",
+    "labeled_break",
+    "synchronized_block",
+    "try_with_resources_complex",
+    "mutating_iterator",
+    "goto",
+}
+
+
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 

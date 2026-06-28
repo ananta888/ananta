@@ -1,0 +1,230 @@
+{
+  "schema": "python_to_rust_golden_samples.v1",
+  "target_language": "rust",
+  "samples": [
+    {
+      "id": "pyjr-rust-001",
+      "description": "Simple dataclass → Rust struct with owned fields",
+      "source_python": "@dataclass\nclass User:\n    name: str\n    age: int",
+      "source_kind": "dataclass",
+      "expected_rust_kind": "struct",
+      "expected_fields": ["name", "age"],
+      "expected_types": {"name": "String", "age": "i64"},
+      "expected_warnings": [],
+      "expected_verifier_status": "verified",
+      "rules": ["pyjr.dataclass_to_rust_struct.v1"]
+    },
+    {
+      "id": "pyjr-rust-002",
+      "description": "Frozen dataclass → Rust struct with PartialEq",
+      "source_python": "@dataclass(frozen=True)\nclass Point:\n    x: float\n    y: float",
+      "source_kind": "frozen_dataclass",
+      "expected_rust_kind": "struct",
+      "expected_contains": ["PartialEq", "pub struct Point"],
+      "expected_fields": ["x", "y"],
+      "expected_types": {"x": "f64", "y": "f64"},
+      "expected_warnings": [],
+      "expected_verifier_status": "verified",
+      "rules": ["pyjr.dataclass_to_rust_struct.v1"]
+    },
+    {
+      "id": "pyjr-rust-003",
+      "description": "Dataclass with Optional[str] → Option<String>",
+      "source_python": "@dataclass\nclass Profile:\n    email: Optional[str] = None",
+      "source_kind": "dataclass",
+      "expected_rust_kind": "struct",
+      "expected_contains": ["Option<String>"],
+      "expected_warnings": [],
+      "expected_verifier_status": "verified",
+      "rules": ["pyjr.dataclass_to_rust_struct.v1"]
+    },
+    {
+      "id": "pyjr-rust-004",
+      "description": "Python Enum → Rust enum",
+      "source_python": "class Status(Enum):\n    ACTIVE = 1\n    DISABLED = 2\n    PENDING = 3",
+      "source_kind": "enum",
+      "expected_rust_kind": "enum",
+      "expected_enum_values": ["ACTIVE", "DISABLED", "PENDING"],
+      "expected_warnings": [],
+      "expected_verifier_status": "verified",
+      "rules": ["pyjr.enum_to_rust_enum.v1"]
+    },
+    {
+      "id": "pyjr-rust-005",
+      "description": "Dataclass with list[str] → Vec<String>",
+      "source_python": "@dataclass\nclass Tags:\n    items: list[str]",
+      "source_kind": "dataclass",
+      "expected_rust_kind": "struct",
+      "expected_contains": ["Vec<String>"],
+      "expected_warnings": [],
+      "expected_verifier_status": "verified",
+      "rules": ["pyjr.dataclass_to_rust_struct.v1"]
+    },
+    {
+      "id": "pyjr-rust-006",
+      "description": "Dataclass with dict[str, int] → HashMap<String, i64>",
+      "source_python": "@dataclass\nclass Counters:\n    counts: dict[str, int]",
+      "source_kind": "dataclass",
+      "expected_rust_kind": "struct",
+      "expected_contains": ["HashMap<String,i64>"],
+      "expected_uses": ["std::collections::HashMap"],
+      "expected_warnings": [],
+      "expected_verifier_status": "verified",
+      "rules": ["pyjr.dataclass_to_rust_struct.v1"]
+    },
+    {
+      "id": "pyjr-rust-007",
+      "description": "Python int → Rust i64 with precision policy warning",
+      "source_python": "@dataclass\nclass Counter:\n    value: int",
+      "source_kind": "dataclass",
+      "expected_rust_kind": "struct",
+      "expected_types": {"value": "i64"},
+      "expected_verifier_status": "verified_with_warnings",
+      "expected_warnings_contain": ["int_precision_policy"],
+      "rules": ["pyjr.dataclass_to_rust_struct.v1"]
+    },
+    {
+      "id": "pyjr-rust-008",
+      "description": "Dataclass with bytes → Vec<u8>",
+      "source_python": "@dataclass\nclass Blob:\n    data: bytes",
+      "source_kind": "dataclass",
+      "expected_rust_kind": "struct",
+      "expected_contains": ["Vec<u8>"],
+      "expected_warnings": [],
+      "expected_verifier_status": "verified",
+      "rules": ["pyjr.dataclass_to_rust_struct.v1"]
+    },
+    {
+      "id": "pyjr-rust-009",
+      "description": "Dataclass with Decimal → rust_decimal::Decimal",
+      "source_python": "@dataclass\nclass Price:\n    amount: Decimal",
+      "source_kind": "dataclass",
+      "expected_rust_kind": "struct",
+      "expected_contains": ["Decimal"],
+      "expected_uses": ["rust_decimal::Decimal"],
+      "expected_warnings": [],
+      "expected_verifier_status": "verified",
+      "rules": ["pyjr.dataclass_to_rust_struct.v1"]
+    },
+    {
+      "id": "pyjr-rust-010",
+      "description": "Dataclass with datetime → chrono::DateTime<Utc> with timezone warning",
+      "source_python": "@dataclass\nclass Event:\n    created_at: datetime",
+      "source_kind": "dataclass",
+      "expected_rust_kind": "struct",
+      "expected_contains": ["DateTime<Utc>"],
+      "expected_uses": ["chrono::{DateTime, Utc}"],
+      "expected_warnings_contain": ["Timezone"],
+      "expected_verifier_status": "verified_with_warnings",
+      "rules": ["pyjr.dataclass_to_rust_struct.v1"]
+    },
+    {
+      "id": "pyjr-rust-011",
+      "description": "Simple function → Rust fn with owned String parameter (borrowing advisory)",
+      "source_python": "def greet(name: str) -> str:\n    return f'Hello {name}'",
+      "source_kind": "function",
+      "expected_rust_kind": "fn",
+      "expected_contains": ["pub fn greet"],
+      "expected_param_types_contain": ["str"],
+      "expected_warnings": [],
+      "expected_verifier_status": "verified",
+      "rules": ["pyjr.function_to_rust_fn.v1"]
+    },
+    {
+      "id": "pyjr-rust-012",
+      "description": "Function with Optional return → Rust Option<T>",
+      "source_python": "def find(id: UUID) -> Optional[str]:\n    ...",
+      "source_kind": "function",
+      "expected_rust_kind": "fn",
+      "expected_contains": ["Option<String>"],
+      "expected_warnings": [],
+      "expected_verifier_status": "verified",
+      "rules": ["pyjr.function_to_rust_fn.v1"]
+    },
+    {
+      "id": "pyjr-rust-013",
+      "description": "Function with *args → needs_review",
+      "source_python": "def collect(*items: str) -> list[str]:\n    return list(items)",
+      "source_kind": "function",
+      "expected_transform_status": "needs_review",
+      "expected_warnings_contain": ["varargs_kwargs"],
+      "rules": []
+    },
+    {
+      "id": "pyjr-rust-014",
+      "description": "Dataclass with set[str] → HashSet<String>",
+      "source_python": "@dataclass\nclass UniqueNames:\n    names: set[str]",
+      "source_kind": "dataclass",
+      "expected_rust_kind": "struct",
+      "expected_contains": ["HashSet<String>"],
+      "expected_uses": ["std::collections::HashSet"],
+      "expected_warnings": [],
+      "expected_verifier_status": "verified",
+      "rules": ["pyjr.dataclass_to_rust_struct.v1"]
+    },
+    {
+      "id": "pyjr-rust-015",
+      "description": "exec() usage → blocked_dynamic_runtime",
+      "source_python": "def run(code: str) -> None:\n    exec(code)",
+      "source_kind": "function",
+      "expected_transform_status": "blocked_dynamic_runtime",
+      "expected_blockers_contain": ["exec_usage"],
+      "rules": []
+    },
+    {
+      "id": "pyjr-rust-016",
+      "description": "TypedDict → Rust struct",
+      "source_python": "class Config(TypedDict):\n    host: str\n    port: int\n    tls: bool",
+      "source_kind": "typed_dict",
+      "expected_rust_kind": "struct",
+      "expected_fields": ["host", "port", "tls"],
+      "expected_types": {"host": "String", "port": "i64", "tls": "bool"},
+      "expected_warnings": [],
+      "expected_verifier_status": "verified",
+      "rules": ["pyjr.typed_dict_to_rust_struct.v1"]
+    },
+    {
+      "id": "pyjr-rust-017",
+      "description": "Dataclass with UUID → uuid::Uuid",
+      "source_python": "@dataclass\nclass Entity:\n    id: UUID\n    name: str",
+      "source_kind": "dataclass",
+      "expected_rust_kind": "struct",
+      "expected_contains": ["Uuid"],
+      "expected_uses": ["uuid::Uuid"],
+      "expected_warnings": [],
+      "expected_verifier_status": "verified",
+      "rules": ["pyjr.dataclass_to_rust_struct.v1"]
+    },
+    {
+      "id": "pyjr-rust-018",
+      "description": "Enum with 5 variants",
+      "source_python": "class Permission(Enum):\n    READ = 'read'\n    WRITE = 'write'\n    DELETE = 'delete'\n    ADMIN = 'admin'\n    NONE = 'none'",
+      "source_kind": "enum",
+      "expected_rust_kind": "enum",
+      "expected_enum_values": ["READ", "WRITE", "DELETE", "ADMIN", "NONE"],
+      "expected_warnings": [],
+      "expected_verifier_status": "verified",
+      "rules": ["pyjr.enum_to_rust_enum.v1"]
+    },
+    {
+      "id": "pyjr-rust-019",
+      "description": "Dataclass with bool field",
+      "source_python": "@dataclass\nclass Flag:\n    enabled: bool\n    label: str",
+      "source_kind": "dataclass",
+      "expected_rust_kind": "struct",
+      "expected_types": {"enabled": "bool", "label": "String"},
+      "expected_warnings": [],
+      "expected_verifier_status": "verified",
+      "rules": ["pyjr.dataclass_to_rust_struct.v1"]
+    },
+    {
+      "id": "pyjr-rust-020",
+      "description": "Unannotated dataclass → needs_review",
+      "source_python": "@dataclass\nclass Raw:\n    x = None\n    y = 5",
+      "source_kind": "dataclass",
+      "expected_transform_status": "needs_review",
+      "expected_warnings_contain": ["type_confidence"],
+      "rules": []
+    }
+  ]
+}

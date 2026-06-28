@@ -1,0 +1,495 @@
+name: old_way
+services:
+  ai-agent-alpha:
+    build:
+      context: /home/krusty/ananta
+      dockerfile: docker/old_way/Dockerfile.quickstart-no-ollama
+    command:
+      - python
+      - -m
+      - agent.ai_agent
+    deploy:
+      resources:
+        limits:
+          cpus: 1
+          memory: "1073741824"
+        reservations:
+          memory: "268435456"
+    environment:
+      AGENT_NAME: alpha
+      AGENT_TOKEN: alpha-token
+      AGENT_URL: http://ai-agent-alpha:5000
+      ANANTA_QUICKSTART_MODE: agent-only
+      ANANTA_RUNTIME_PROFILE: compose-safe
+      COMMAND_TIMEOUT: "180"
+      DATABASE_URL: postgresql://ananta:test-postgres-password@postgres:5432/ananta
+      DEFAULT_MODEL: mock
+      DEFAULT_PROVIDER: mock
+      FLASK_DEBUG: "0"
+      HTTP_TIMEOUT: "180"
+      HUB_URL: http://ai-agent-hub:5000
+      INITIAL_ADMIN_PASSWORD: test123
+      INITIAL_ADMIN_USER: admin
+      LMSTUDIO_API_MODE: chat
+      LMSTUDIO_MAX_CONTEXT_TOKENS: "32768"
+      LMSTUDIO_URL: http://192.168.56.1:1234/v1
+      LOG_LEVEL: WARNING
+      OLLAMA_MODEL: qwen2.5-coder:7b
+      OLLAMA_URL: ""
+      OPENCODE_DEFAULT_MODEL: qwen2.5-coder:7b
+      PYTHONPATH: /app
+      PYTHONUNBUFFERED: "1"
+      REDIS_URL: redis://redis:6379/0
+      ROLE: worker
+      SECRET_KEY: test-secret-key-with-at-least-thirty-two-chars
+      SGPT_DEFAULT_MODEL: qwen2.5-coder:7b
+      TERMINAL_ATTACH_TOKEN_TTL_SECONDS: "60"
+      TERMINAL_FEATURE_ENABLED: "false"
+      TERMINAL_HUB_AS_WORKER_TARGET_ENABLED: "false"
+      TERMINAL_HUB_TARGET_ENABLED: "false"
+      TERMINAL_IDLE_TIMEOUT_SECONDS: "900"
+      TERMINAL_MAX_LIFETIME_SECONDS: "14400"
+      TERMINAL_OIDC_ENABLED: "false"
+      TERMINAL_RECORDING_ENABLED_LOCAL_DEV: "false"
+      TERMINAL_RECORDING_ENABLED_REMOTE: "true"
+      TERMINAL_WORKER_TARGET_ENABLED: "true"
+    extra_hosts:
+      - host.docker.internal=host-gateway
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - curl -f http://localhost:5000/health?basic=1 || exit 1
+      timeout: 10s
+      interval: 30s
+      retries: 5
+      start_period: 40s
+    image: ananta-backend-compose-test:local
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 5000
+        published: "5001"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: /home/krusty/ananta/data/alpha
+        target: /app/data
+        bind: {}
+    working_dir: /app
+  ai-agent-beta:
+    build:
+      context: /home/krusty/ananta
+      dockerfile: docker/old_way/Dockerfile.quickstart-no-ollama
+    command:
+      - python
+      - -m
+      - agent.ai_agent
+    deploy:
+      resources:
+        limits:
+          cpus: 1
+          memory: "1073741824"
+        reservations:
+          memory: "268435456"
+    environment:
+      AGENT_NAME: beta
+      AGENT_TOKEN: beta-token
+      AGENT_URL: http://ai-agent-beta:5000
+      ANANTA_QUICKSTART_MODE: agent-only
+      ANANTA_RUNTIME_PROFILE: compose-safe
+      COMMAND_TIMEOUT: "180"
+      DATABASE_URL: postgresql://ananta:test-postgres-password@postgres:5432/ananta
+      DEFAULT_MODEL: mock
+      DEFAULT_PROVIDER: mock
+      FLASK_DEBUG: "0"
+      HTTP_TIMEOUT: "180"
+      HUB_URL: http://ai-agent-hub:5000
+      INITIAL_ADMIN_PASSWORD: test123
+      INITIAL_ADMIN_USER: admin
+      LMSTUDIO_API_MODE: chat
+      LMSTUDIO_MAX_CONTEXT_TOKENS: "32768"
+      LMSTUDIO_URL: http://192.168.56.1:1234/v1
+      LOG_LEVEL: WARNING
+      OLLAMA_MODEL: qwen2.5-coder:7b
+      OLLAMA_URL: ""
+      OPENCODE_DEFAULT_MODEL: qwen2.5-coder:7b
+      PYTHONPATH: /app
+      PYTHONUNBUFFERED: "1"
+      REDIS_URL: redis://redis:6379/0
+      ROLE: worker
+      SECRET_KEY: test-secret-key-with-at-least-thirty-two-chars
+      SGPT_DEFAULT_MODEL: qwen2.5-coder:7b
+      TERMINAL_ATTACH_TOKEN_TTL_SECONDS: "60"
+      TERMINAL_FEATURE_ENABLED: "false"
+      TERMINAL_HUB_AS_WORKER_TARGET_ENABLED: "false"
+      TERMINAL_HUB_TARGET_ENABLED: "false"
+      TERMINAL_IDLE_TIMEOUT_SECONDS: "900"
+      TERMINAL_MAX_LIFETIME_SECONDS: "14400"
+      TERMINAL_OIDC_ENABLED: "false"
+      TERMINAL_RECORDING_ENABLED_LOCAL_DEV: "false"
+      TERMINAL_RECORDING_ENABLED_REMOTE: "true"
+      TERMINAL_WORKER_TARGET_ENABLED: "true"
+    extra_hosts:
+      - host.docker.internal=host-gateway
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - curl -f http://localhost:5000/health?basic=1 || exit 1
+      timeout: 10s
+      interval: 30s
+      retries: 5
+      start_period: 40s
+    image: ananta-backend-compose-test:local
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 5000
+        published: "5002"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: /home/krusty/ananta/data/beta
+        target: /app/data
+        bind: {}
+    working_dir: /app
+  ai-agent-hub:
+    build:
+      context: /home/krusty/ananta
+      dockerfile: docker/old_way/Dockerfile.quickstart-no-ollama
+    command:
+      - sh
+      - -c
+      - alembic upgrade head && exec python -m agent.ai_agent
+    deploy:
+      resources:
+        limits:
+          cpus: 1
+          memory: "1073741824"
+        reservations:
+          memory: "268435456"
+    environment:
+      AGENT_NAME: hub
+      AGENT_TOKEN: hub-token
+      AGENT_URL: http://ai-agent-hub:5000
+      ANANTA_QUICKSTART_MODE: agent-only
+      ANANTA_RUNTIME_PROFILE: compose-safe
+      AUTH_TEST_ENDPOINTS_ENABLED: "1"
+      COMMAND_TIMEOUT: "180"
+      DATABASE_URL: postgresql://ananta:test-postgres-password@postgres:5432/ananta
+      DEFAULT_MODEL: mock
+      DEFAULT_PROVIDER: mock
+      FLASK_DEBUG: "0"
+      FLASK_RELOAD: "1"
+      HTTP_TIMEOUT: "180"
+      HUB_CAN_BE_WORKER: "0"
+      INITIAL_ADMIN_PASSWORD: test123
+      INITIAL_ADMIN_USER: admin
+      LMSTUDIO_API_MODE: chat
+      LMSTUDIO_MAX_CONTEXT_TOKENS: "32768"
+      LMSTUDIO_URL: http://192.168.56.1:1234/v1
+      LOG_LEVEL: WARNING
+      OLLAMA_MODEL: qwen2.5-coder:7b
+      OLLAMA_URL: ""
+      OPENCODE_DEFAULT_MODEL: qwen2.5-coder:7b
+      PYTHONPATH: /app
+      PYTHONUNBUFFERED: "1"
+      REDIS_URL: redis://redis:6379/0
+      ROLE: hub
+      SECRET_KEY: test-secret-key-with-at-least-thirty-two-chars
+      SGPT_DEFAULT_MODEL: qwen2.5-coder:7b
+      TERMINAL_ATTACH_TOKEN_TTL_SECONDS: "60"
+      TERMINAL_FEATURE_ENABLED: "false"
+      TERMINAL_HUB_AS_WORKER_TARGET_ENABLED: "false"
+      TERMINAL_HUB_TARGET_ENABLED: "false"
+      TERMINAL_IDLE_TIMEOUT_SECONDS: "900"
+      TERMINAL_MAX_LIFETIME_SECONDS: "14400"
+      TERMINAL_OIDC_ENABLED: "false"
+      TERMINAL_RECORDING_ENABLED_LOCAL_DEV: "false"
+      TERMINAL_RECORDING_ENABLED_REMOTE: "true"
+      TERMINAL_WORKER_TARGET_ENABLED: "true"
+    extra_hosts:
+      - host.docker.internal=host-gateway
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - curl -f http://localhost:5000/health?basic=1 || exit 1
+      timeout: 10s
+      interval: 30s
+      retries: 5
+      start_period: 40s
+    image: ananta-backend-compose-test:local
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 5000
+        published: "5000"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: /home/krusty/ananta
+        target: /app
+        bind: {}
+      - type: bind
+        source: /home/krusty/ananta/data/hub
+        target: /app/data
+        bind: {}
+    working_dir: /app
+  angular-frontend:
+    build:
+      context: /home/krusty/ananta/frontend-angular
+      dockerfile: Dockerfile
+    command:
+      - npx
+      - ng
+      - serve
+      - --host
+      - 0.0.0.0
+      - --port
+      - "4200"
+      - --poll
+      - "2000"
+    environment:
+      E2E_ADMIN_PASSWORD: test123
+      E2E_ADMIN_USER: admin
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+    extra_hosts:
+      - host.docker.internal=host-gateway
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'node -e "const http = require(''http''); const options = { hostname: ''localhost'', port: 4200, path: ''/'', method: ''GET'', timeout: 2000 }; const req = http.request(options, (res) => { if (res.statusCode === 200) process.exit(0); else process.exit(1); }); req.on(''error'', () => process.exit(1)); req.end();"'
+      timeout: 10s
+      interval: 30s
+      retries: 3
+      start_period: 1m0s
+    image: ananta-frontend-compose-test:local
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 4200
+        published: "4200"
+        protocol: tcp
+    working_dir: /app
+  frontend-test:
+    command:
+      - npm
+      - run
+      - test:e2e:compose
+    depends_on:
+      ai-agent-alpha:
+        condition: service_healthy
+        required: true
+      ai-agent-beta:
+        condition: service_healthy
+        required: true
+      ai-agent-hub:
+        condition: service_healthy
+        required: true
+      angular-frontend:
+        condition: service_started
+        required: true
+    environment:
+      ANANTA_E2E_USE_EXISTING: "1"
+      CI: "true"
+      E2E_ADMIN_PASSWORD: test123
+      E2E_ADMIN_USER: admin
+      E2E_ALPHA_AGENT_TOKEN: alpha-token
+      E2E_ALPHA_URL: http://ai-agent-alpha:5000
+      E2E_BETA_AGENT_TOKEN: beta-token
+      E2E_BETA_URL: http://ai-agent-beta:5000
+      E2E_DETERMINISTIC_SCRUM_SEED: "1"
+      E2E_FRONTEND_URL: http://angular-frontend:4200
+      E2E_HUB_AGENT_TOKEN: hub-token
+      E2E_HUB_URL: http://ai-agent-hub:5000
+      E2E_REPORTER_MODE: compact
+      E2E_REUSE_SERVER: "1"
+      E2E_SCRUM_SEED_TEAM_NAME: E2E Seed Scrum Team
+    image: ananta-frontend-compose-test:local
+    networks:
+      default: null
+    volumes:
+      - type: bind
+        source: /home/krusty/ananta/frontend-angular
+        target: /app
+        bind: {}
+      - type: volume
+        target: /app/node_modules
+        volume: {}
+    working_dir: /app
+  postgres:
+    deploy:
+      resources:
+        limits:
+          cpus: 0.5
+          memory: "536870912"
+    environment:
+      POSTGRES_DB: ananta
+      POSTGRES_PASSWORD: test-postgres-password
+      POSTGRES_USER: ananta
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U ananta
+      timeout: 5s
+      interval: 10s
+      retries: 5
+    image: postgres:16.13@sha256:5a65324fe84dc41709ff914e90b07f3e2f577073ed27bf917d4873aca0c9ec51
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 5432
+        published: "5432"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: postgres_data
+        target: /var/lib/postgresql/data
+        volume: {}
+  redis:
+    command:
+      - |
+        echo "=========================================="
+        echo "WARNING: Redis Performance Check"
+        echo "=========================================="
+        echo "If you see 'WARNING overcommit_memory is set to 0' in Redis logs,"
+        echo "please configure your host system:"
+        echo ""
+        echo "Linux/WSL2:"
+        echo "  sudo sysctl vm.overcommit_memory=1"
+        echo "  echo 'vm.overcommit_memory = 1' | sudo tee -a /etc/sysctl.conf"
+        echo ""
+        echo "Docker Desktop (Windows/Mac):"
+        echo "  Run in WSL2 terminal or add to Docker VM settings"
+        echo "=========================================="
+        exec redis-server
+    deploy:
+      resources:
+        limits:
+          cpus: 0.5
+          memory: "268435456"
+    entrypoint:
+      - /bin/sh
+      - -c
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - redis-cli ping | grep PONG
+      timeout: 5s
+      interval: 10s
+      retries: 5
+    image: redis:7.4.8-alpine@sha256:7aec734b2bb298a1d769fd8729f13b8514a41bf90fcdd1f38ec52267fbaa8ee6
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 6379
+        published: "6379"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: redis_data
+        target: /data
+        volume: {}
+networks:
+  default:
+    name: old_way_default
+volumes:
+  postgres_data:
+    name: ananta_postgres_data
+  redis_data:
+    name: ananta_redis_data
+x-agent-defaults:
+  build:
+    context: ../..
+    dockerfile: docker/old_way/Dockerfile
+  command: |
+    sh -c "alembic upgrade head && exec python -m agent.ai_agent"
+  deploy:
+    resources:
+      limits:
+        cpus: "1.0"
+        memory: 1G
+      reservations:
+        memory: 256M
+  environment:
+    ANANTA_RUNTIME_PROFILE: compose-safe
+    COMMAND_TIMEOUT: "180"
+    DEFAULT_MODEL: qwen2.5-coder:7b
+    DEFAULT_PROVIDER: ollama
+    FLASK_DEBUG: 0
+    HTTP_TIMEOUT: "180"
+    INITIAL_ADMIN_PASSWORD: test123
+    INITIAL_ADMIN_USER: admin
+    LMSTUDIO_API_MODE: chat
+    LMSTUDIO_MAX_CONTEXT_TOKENS: "32768"
+    LMSTUDIO_URL: http://192.168.56.1:1234/v1
+    OLLAMA_MODEL: qwen2.5-coder:7b
+    OLLAMA_URL: http://ollama:11434/api/generate
+    OPENCODE_DEFAULT_MODEL: qwen2.5-coder:7b
+    PYTHONPATH: /app
+    PYTHONUNBUFFERED: 1
+    REDIS_URL: redis://redis:6379/0
+    SECRET_KEY: test-secret-key-with-at-least-thirty-two-chars
+    SGPT_DEFAULT_MODEL: qwen2.5-coder:7b
+    TERMINAL_ATTACH_TOKEN_TTL_SECONDS: "60"
+    TERMINAL_FEATURE_ENABLED: "false"
+    TERMINAL_HUB_AS_WORKER_TARGET_ENABLED: "false"
+    TERMINAL_HUB_TARGET_ENABLED: "false"
+    TERMINAL_IDLE_TIMEOUT_SECONDS: "900"
+    TERMINAL_MAX_LIFETIME_SECONDS: "14400"
+    TERMINAL_OIDC_ENABLED: "false"
+    TERMINAL_RECORDING_ENABLED_LOCAL_DEV: "false"
+    TERMINAL_RECORDING_ENABLED_REMOTE: "true"
+    TERMINAL_WORKER_TARGET_ENABLED: "true"
+  extra_hosts:
+    - host.docker.internal:host-gateway
+  healthcheck:
+    interval: 30s
+    retries: 5
+    start_period: 40s
+    test:
+      - CMD-SHELL
+      - curl -f http://localhost:5000/health?basic=1 || exit 1
+    timeout: 10s
+  restart: unless-stopped
+  working_dir: /app
+x-agent-env:
+  ANANTA_RUNTIME_PROFILE: compose-safe
+  COMMAND_TIMEOUT: "180"
+  DEFAULT_MODEL: qwen2.5-coder:7b
+  DEFAULT_PROVIDER: ollama
+  FLASK_DEBUG: 0
+  HTTP_TIMEOUT: "180"
+  INITIAL_ADMIN_PASSWORD: test123
+  INITIAL_ADMIN_USER: admin
+  LMSTUDIO_API_MODE: chat
+  LMSTUDIO_MAX_CONTEXT_TOKENS: "32768"
+  LMSTUDIO_URL: http://192.168.56.1:1234/v1
+  OLLAMA_MODEL: qwen2.5-coder:7b
+  OLLAMA_URL: http://ollama:11434/api/generate
+  OPENCODE_DEFAULT_MODEL: qwen2.5-coder:7b
+  PYTHONPATH: /app
+  PYTHONUNBUFFERED: 1
+  REDIS_URL: redis://redis:6379/0
+  SECRET_KEY: test-secret-key-with-at-least-thirty-two-chars
+  SGPT_DEFAULT_MODEL: qwen2.5-coder:7b
+  TERMINAL_ATTACH_TOKEN_TTL_SECONDS: "60"
+  TERMINAL_FEATURE_ENABLED: "false"
+  TERMINAL_HUB_AS_WORKER_TARGET_ENABLED: "false"
+  TERMINAL_HUB_TARGET_ENABLED: "false"
+  TERMINAL_IDLE_TIMEOUT_SECONDS: "900"
+  TERMINAL_MAX_LIFETIME_SECONDS: "14400"
+  TERMINAL_OIDC_ENABLED: "false"
+  TERMINAL_RECORDING_ENABLED_LOCAL_DEV: "false"
+  TERMINAL_RECORDING_ENABLED_REMOTE: "true"
+  TERMINAL_WORKER_TARGET_ENABLED: "true"

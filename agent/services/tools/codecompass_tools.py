@@ -466,7 +466,7 @@ def codecompass_semantic_equivalents(*, workspace_dir: str, arguments: dict[str,
     return build_tool_result(
         tool_name="codecompass.semantic_equivalents",
         tool_call_id=tool_call_id,
-        status="ok" if semantic_nodes or rules else "degraded",
+        status="ok" if not warnings and (semantic_nodes or rules) else "degraded",
         evidence=evidence,
         data={
             "knowledge_index_id": index_id,
@@ -560,4 +560,87 @@ def codecompass_verify_translation(*, workspace_dir: str, arguments: dict[str, A
         warnings=list(result.get("warnings") or []),
         error="translation_verification_failed" if result.get("status") == "failed" else None,
         max_total_chars=8000,
+    )
+
+
+def codecompass_python_translation_plan(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str) -> dict[str, Any]:
+    """PYJR-024: Python → Java/Rust translation plan tool."""
+    args = arguments or {}
+    if not _semantic_feature_enabled():
+        return build_tool_result(
+            tool_name="codecompass.python_translation_plan",
+            tool_call_id=tool_call_id,
+            status="error",
+            error="semantic_translation_disabled",
+            warnings=["ANANTA_CODECOMPASS_SEMANTIC_TRANSLATION_ENABLED=false"],
+        )
+
+    source_code = str(args.get("source_code") or "").strip()
+    source_path = str(args.get("source_path") or "<stdin>").strip()
+    target = str(args.get("target") or "both").strip().lower()
+    symbol_filter = str(args.get("symbol") or "").strip()
+
+    if not source_code and source_path and source_path != "<stdin>":
+        try:
+            full_path = Path(workspace_dir) / source_path if not Path(source_path).is_absolute() else Path(source_path)
+            source_code = full_path.read_text(encoding="utf-8", errors="replace")
+        except Exception as exc:
+            return build_tool_result(
+                tool_name="codecompass.python_translation_plan",
+                tool_call_id=tool_call_id,
+                status="error",
+                error=f"source_file_read_failed: {exc}",
+            )
+
+    if not source_code:
+        return build_tool_result(
+            tool_name="codecompass.python_translation_plan",
+            tool_call_id=tool_call_id,
+            status="error",
+            error="source_code_or_path_required",
+        )
+
+    if target not in ("java", "rust", "both"):
+        return build_tool_result(
+            tool_name="codecompass.python_translation_plan",
+            tool_call_id=tool_call_id,
+            status="error",
+            error="invalid_target: must be java, rust, or both",
+        )
+
+    from agent.codecompass.semantic_translation.python_transform import PythonTranslationPlanService
+
+    plan = PythonTranslationPlanService().create_plan(source_code, source_path, target)
+
+    # Optionally filter by symbol
+    entries = plan.entries
+    if symbol_filter:
+        entries = [e for e in entries if symbol_filter in e.symbol]
+
+    plan_dict = plan.as_dict()
+    plan_dict["entries"] = [e.as_dict() for e in entries]
+
+    evidence = []
+    entry, _ = build_evidence_entry(
+        kind="python_translation_plan",
+        path=source_path,
+        excerpt=f"target={target} entries={len(entries)} blockers={len(plan.dynamic_blockers)} safe={plan.is_fully_safe}",
+        source="codecompass.python_translation_plan",
+        max_excerpt_chars=400,
+    )
+    evidence.append(entry)
+
+    warnings = list(plan.warnings)
+    has_blockers = bool(plan.dynamic_blockers)
+    status = "ok" if not has_blockers else "degraded"
+
+    return build_tool_result(
+        tool_name="codecompass.python_translation_plan",
+        tool_call_id=tool_call_id,
+        status=status,
+        evidence=evidence,
+        data={"plan": plan_dict},
+        warnings=warnings,
+        error="dynamic_runtime_blockers_detected" if has_blockers else None,
+        max_total_chars=14000,
     )

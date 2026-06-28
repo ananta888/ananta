@@ -1,0 +1,62 @@
+[
+  {
+    "rule_id": "eq.java_record.ts_interface.v1",
+    "scope": "dto",
+    "source_language": "java",
+    "target_language": "typescript",
+    "semantic_kind": "data_record",
+    "preconditions": ["all_properties_mapped"],
+    "postconditions": ["target_interface_has_same_property_names"],
+    "examples": [{"source": "record User(String name)", "target": "export interface User { name: string; }"}],
+    "tests": ["golden:java_record_to_ts_interface"],
+    "status": "stable",
+    "experimental": false,
+    "deprecated": false,
+    "known_deviations": ["interface_has_no_runtime_type_guard"]
+  },
+  {
+    "rule_id": "eq.java_record.kotlin_data_class.v1",
+    "scope": "dto",
+    "source_language": "java",
+    "target_language": "kotlin",
+    "semantic_kind": "data_record",
+    "preconditions": ["all_properties_mapped", "nullability_reviewed"],
+    "postconditions": ["target_data_class_has_same_constructor_properties"],
+    "examples": [{"source": "record User(String name)", "target": "data class User(val name: String)"}],
+    "tests": ["golden:java_record_to_kotlin_data_class"],
+    "status": "stable",
+    "experimental": false,
+    "deprecated": false,
+    "known_deviations": ["kotlin_data_class_adds_copy_equals_hashcode_automatically"]
+  },
+  {
+    "rule_id": "eq.java_enum.ts_enum.v1",
+    "scope": "enum",
+    "source_language": "java",
+    "target_language": "typescript",
+    "semantic_kind": "enum_value",
+    "preconditions": ["enum_values_known"],
+    "postconditions": ["target_enum_preserves_values"],
+    "examples": [{"source": "enum Status { ACTIVE }", "target": "export enum Status { ACTIVE = 'ACTIVE' }"}],
+    "tests": ["golden:java_enum_to_ts_enum"],
+    "status": "stable",
+    "experimental": false,
+    "deprecated": false,
+    "known_deviations": ["typescript_enum_values_are_string_literals_by_default"]
+  },
+  {
+    "rule_id": "eq.java_enum.kotlin_enum.v1",
+    "scope": "enum",
+    "source_language": "java",
+    "target_language": "kotlin",
+    "semantic_kind": "enum_value",
+    "preconditions": ["enum_values_known"],
+    "postconditions": ["target_enum_preserves_values"],
+    "examples": [{"source": "enum Status { ACTIVE }", "target": "enum class Status { ACTIVE }"}],
+    "tests": ["golden:java_enum_to_kotlin_enum"],
+    "status": "stable",
+    "experimental": false,
+    "deprecated": false,
+    "known_deviations": []
+  }
+]

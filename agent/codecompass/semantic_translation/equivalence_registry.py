@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
+
+_RULES_FILE = Path(__file__).parent / "equivalence_rules.v1.json"
 
 
 @dataclass(frozen=True)
@@ -41,9 +45,41 @@ class EquivalenceRule:
         }
 
 
+def load_rules_from_file(path: Path | None = None) -> list[EquivalenceRule]:
+    source = path or _RULES_FILE
+    try:
+        raw = json.loads(source.read_text(encoding="utf-8"))
+    except Exception:
+        return list(BUILTIN_EQUIVALENCE_RULES)
+    result = []
+    for entry in list(raw or []):
+        try:
+            result.append(EquivalenceRule(
+                rule_id=str(entry["rule_id"]),
+                scope=str(entry.get("scope") or ""),
+                source_language=str(entry.get("source_language") or ""),
+                target_language=str(entry.get("target_language") or ""),
+                semantic_kind=str(entry.get("semantic_kind") or ""),
+                preconditions=tuple(str(p) for p in list(entry.get("preconditions") or [])),
+                postconditions=tuple(str(p) for p in list(entry.get("postconditions") or [])),
+                examples=tuple(dict(ex) for ex in list(entry.get("examples") or [])),
+                tests=tuple(str(t) for t in list(entry.get("tests") or [])),
+                status=str(entry.get("status") or "stable"),
+                experimental=bool(entry.get("experimental", False)),
+                deprecated=bool(entry.get("deprecated", False)),
+                known_deviations=tuple(str(d) for d in list(entry.get("known_deviations") or [])),
+            ))
+        except (KeyError, TypeError):
+            continue
+    return result or list(BUILTIN_EQUIVALENCE_RULES)
+
+
 class EquivalenceRuleRegistry:
-    def __init__(self, rules: list[EquivalenceRule] | None = None):
-        self._rules = list(rules or BUILTIN_EQUIVALENCE_RULES)
+    def __init__(self, rules: list[EquivalenceRule] | None = None, *, rules_file: Path | None = None):
+        if rules is not None:
+            self._rules = list(rules)
+        else:
+            self._rules = load_rules_from_file(rules_file)
         self.validate()
 
     def validate(self) -> None:
