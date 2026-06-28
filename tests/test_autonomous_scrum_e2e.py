@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from agent.config import settings
 from agent.db_models import AgentInfoDB, ConfigDB
 from agent.repository import agent_repo, config_repo
@@ -7,6 +9,7 @@ from agent.routes.tasks.autopilot import AUTOPILOT_STATE_KEY, AutonomousLoopMana
 from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
 
 
+@pytest.mark.integration
 def test_e2e_autonomous_scrum_progress_with_followup_chain(app, monkeypatch):
     monkeypatch.setattr(settings, "role", "hub")
     autonomous_loop.stop(persist=False)
