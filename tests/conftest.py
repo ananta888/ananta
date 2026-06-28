@@ -485,6 +485,18 @@ def cleanup_db_and_runtime():
                     except Exception:
                         pass
 
+        # Best-effort DB cleanup: roll back any in-flight transaction on the
+        # test engine so the next test starts from a clean slate. We avoid
+        # `engine.dispose()` because that drops the in-memory SQLite tables
+        # and would force every test to re-run schema migration.
+        try:
+            from agent.database import engine
+
+            with engine.connect() as conn:
+                conn.rollback()
+        except Exception:
+            pass
+
     _reset_runtime_state()
     try:
         yield
