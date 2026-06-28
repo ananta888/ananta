@@ -407,3 +407,157 @@ def codecompass_architecture_query(*, workspace_dir: str, arguments: dict[str, A
         warnings=[str(item) for item in list(result.get("warnings") or [])],
         error=str(result.get("error") or "") or None,
     )
+
+
+def _semantic_feature_enabled() -> bool:
+    from agent.codecompass.semantic_translation.config import load_semantic_translation_config
+
+    return load_semantic_translation_config().enabled
+
+
+def codecompass_semantic_equivalents(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str) -> dict[str, Any]:
+    args = arguments or {}
+    target_languages = [str(item).strip().lower() for item in list(args.get("target_languages") or ["typescript", "kotlin"]) if str(item).strip()]
+    symbol = str(args.get("symbol") or "").strip()
+    file = str(args.get("file") or "").strip()
+    language = str(args.get("language") or "java").strip().lower()
+    semantic_kind = str(args.get("semantic_kind") or "").strip().lower()
+    try:
+        store, index_id = _resolve_graph_store(args)
+    except Exception as exc:
+        store, index_id = None, None
+        unavailable_reason = str(exc)
+    else:
+        unavailable_reason = "semantic_translation_index_unavailable"
+    semantic_nodes: list[dict[str, Any]] = []
+    diagnostics: dict[str, Any] = {}
+    if store is not None:
+        payload = store.load()
+        diagnostics = dict((payload.get("diagnostics") or {}).get("semantic_translation") or {})
+        semantic_nodes = store.find_semantic_nodes(symbol=symbol or None, file=file or None, language=language or None, semantic_kind=semantic_kind or None, limit=20)
+    if store is None or diagnostics.get("status") != "ready":
+        warnings = ["semantic_translation_index_unavailable"]
+        semantic_nodes = []
+    else:
+        warnings = []
+    from agent.codecompass.semantic_translation.equivalence_registry import EquivalenceRuleRegistry
+    from agent.codecompass.semantic_translation.type_registry import TypeMappingRegistry
+
+    rule_registry = EquivalenceRuleRegistry()
+    type_registry = TypeMappingRegistry()
+    target_constructs = []
+    for node in semantic_nodes[:10]:
+        attrs = dict(node.get("attributes") or {})
+        for prop in attrs.get("properties") or []:
+            target_constructs.extend(type_registry.find_by_source(str(prop.get("type") or ""), target_languages=target_languages))
+    rules = []
+    for target in target_languages:
+        rules.extend(rule.as_record() for rule in rule_registry.find(source_language=language, target_language=target, semantic_kind=semantic_kind or "data_record"))
+    evidence = []
+    for node in semantic_nodes[:8]:
+        entry, _ = build_evidence_entry(
+            kind=EVIDENCE_KIND_GRAPH_PATH,
+            path=str(node.get("file") or ""),
+            excerpt=f"{node.get('semantic_kind')}:{node.get('symbol')}",
+            source="codecompass.semantic_equivalents",
+            max_excerpt_chars=300,
+        )
+        evidence.append(entry)
+    return build_tool_result(
+        tool_name="codecompass.semantic_equivalents",
+        tool_call_id=tool_call_id,
+        status="ok" if semantic_nodes or rules else "degraded",
+        evidence=evidence,
+        data={
+            "knowledge_index_id": index_id,
+            "semantic_nodes": semantic_nodes[:20],
+            "equivalence_rules": rules[:20],
+            "target_constructs": target_constructs[:30],
+            "diagnostics": diagnostics or {"reason": unavailable_reason},
+        },
+        warnings=warnings,
+        error="semantic_translation_index_unavailable" if warnings else None,
+        max_total_chars=10000,
+    )
+
+
+def codecompass_translation_plan(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str) -> dict[str, Any]:
+    args = arguments or {}
+    if not _semantic_feature_enabled():
+        return build_tool_result(
+            tool_name="codecompass.translation_plan",
+            tool_call_id=tool_call_id,
+            status="error",
+            error="semantic_translation_disabled",
+            warnings=["ANANTA_CODECOMPASS_SEMANTIC_TRANSLATION_ENABLED=false"],
+        )
+    source_path = str(args.get("source_path") or "").strip()
+    source_code = str(args.get("source_code") or "").strip()
+    target_language = str(args.get("target_language") or "typescript").strip().lower()
+    if not source_path or not source_code:
+        return build_tool_result(tool_name="codecompass.translation_plan", tool_call_id=tool_call_id, status="error", error="source_required")
+    from agent.codecompass.semantic_translation.adapters import JavaSemanticAdapter
+    from agent.codecompass.semantic_translation.transform import DeterministicTransformEngine, TransformRequest
+
+    adapter = JavaSemanticAdapter()
+    graph = adapter.emit_graph_records(source_path, source_code)
+    artifact = DeterministicTransformEngine().transform(
+        TransformRequest(
+            source_path=source_path,
+            source_code=source_code,
+            target_language=target_language,
+            allowed_rule_ids=tuple(str(item) for item in list(args.get("allowed_rule_ids") or [])),
+        )
+    )
+    classification = artifact["status"] if artifact["status"] in {"safe_auto_transform", "needs_review", "unsupported"} else "needs_review"
+    return build_tool_result(
+        tool_name="codecompass.translation_plan",
+        tool_call_id=tool_call_id,
+        status="ok",
+        data={
+            "plan": {
+                "classification": classification,
+                "source_files": [source_path],
+                "recognized_language_elements": [node for node in graph["nodes"][:40]],
+                "applicable_rules": artifact.get("rule_ids") or [],
+                "blocking_uncertainties": artifact.get("warnings") or [],
+                "target_artifacts": [{"target_language": target_language, "kind": "code", "preview": artifact.get("target_code", "")[:2000]}],
+                "test_strategy": ["run semantic translation golden samples", "run verifier before promotion"],
+                "transform_artifact": artifact,
+            }
+        },
+        warnings=list(artifact.get("warnings") or []),
+        max_total_chars=12000,
+    )
+
+
+def codecompass_verify_translation(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str) -> dict[str, Any]:
+    args = arguments or {}
+    source_path = str(args.get("source_path") or "").strip()
+    source_code = str(args.get("source_code") or "")
+    target_code = str(args.get("target_code") or "")
+    artifact = dict(args.get("transform_artifact") or {})
+    if not source_path or not source_code or not target_code or not artifact:
+        return build_tool_result(tool_name="codecompass.verify_translation", tool_call_id=tool_call_id, status="error", error="verification_inputs_required")
+    from agent.codecompass.semantic_translation.verifier import SemanticTranslationVerifier
+
+    result = SemanticTranslationVerifier().verify(source_path=source_path, source_code=source_code, target_code=target_code, transform_artifact=artifact)
+    evidence = []
+    entry, _ = build_evidence_entry(
+        kind="semantic_translation_verification",
+        path=source_path,
+        excerpt=f"status={result.get('status')} rules={','.join(result.get('verified_rule_ids') or [])}",
+        source="codecompass.verify_translation",
+        max_excerpt_chars=500,
+    )
+    evidence.append(entry)
+    return build_tool_result(
+        tool_name="codecompass.verify_translation",
+        tool_call_id=tool_call_id,
+        status="ok" if result.get("status") in {"verified", "verified_with_warnings"} else "error",
+        evidence=evidence,
+        data={"verification": result},
+        warnings=list(result.get("warnings") or []),
+        error="translation_verification_failed" if result.get("status") == "failed" else None,
+        max_total_chars=8000,
+    )

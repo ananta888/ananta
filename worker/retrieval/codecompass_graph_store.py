@@ -18,7 +18,13 @@ class CodeCompassGraphStore:
                 "state": {},
                 "nodes": [],
                 "edges": [],
+                "semantic_nodes": [],
+                "semantic_edges": [],
+                "equivalence_rules": [],
+                "translation_contracts": [],
+                "transform_artifacts": [],
                 "node_index": {},
+                "semantic_index": {},
                 "outgoing_index": {},
                 "incoming_index": {},
                 "diagnostics": {"status": "degraded", "reason": "graph_index_missing"},
@@ -29,7 +35,13 @@ class CodeCompassGraphStore:
             "state": dict(payload.get("state") or {}),
             "nodes": [item for item in list(payload.get("nodes") or []) if isinstance(item, dict)],
             "edges": [item for item in list(payload.get("edges") or []) if isinstance(item, dict)],
+            "semantic_nodes": [item for item in list(payload.get("semantic_nodes") or []) if isinstance(item, dict)],
+            "semantic_edges": [item for item in list(payload.get("semantic_edges") or []) if isinstance(item, dict)],
+            "equivalence_rules": [item for item in list(payload.get("equivalence_rules") or []) if isinstance(item, dict)],
+            "translation_contracts": [item for item in list(payload.get("translation_contracts") or []) if isinstance(item, dict)],
+            "transform_artifacts": [item for item in list(payload.get("transform_artifacts") or []) if isinstance(item, dict)],
             "node_index": dict(payload.get("node_index") or {}),
+            "semantic_index": dict(payload.get("semantic_index") or {}),
             "outgoing_index": dict(payload.get("outgoing_index") or {}),
             "incoming_index": dict(payload.get("incoming_index") or {}),
             "diagnostics": dict(payload.get("diagnostics") or {}),
@@ -49,6 +61,11 @@ class CodeCompassGraphStore:
     ) -> dict[str, Any]:
         nodes: list[dict[str, Any]] = []
         edges: list[dict[str, Any]] = []
+        semantic_nodes: list[dict[str, Any]] = []
+        semantic_edges: list[dict[str, Any]] = []
+        equivalence_rules: list[dict[str, Any]] = []
+        translation_contracts: list[dict[str, Any]] = []
+        transform_artifacts: list[dict[str, Any]] = []
         has_nodes = False
         has_edges = False
         for index, record in enumerate(list(records or []), start=1):
@@ -91,9 +108,22 @@ class CodeCompassGraphStore:
                     if record.get(attribute_key) is not None:
                         edge[attribute_key] = record[attribute_key]
                 edges.append(edge)
+            elif output_kind == "semantic_nodes":
+                semantic_nodes.append(self._normalize_semantic_node(record, manifest_hash, index))
+            elif output_kind == "semantic_edges":
+                edge = self._normalize_semantic_edge(record, manifest_hash)
+                if edge:
+                    semantic_edges.append(edge)
+            elif output_kind == "equivalence_rules":
+                equivalence_rules.append(dict(record))
+            elif output_kind == "translation_contracts":
+                translation_contracts.append(dict(record))
+            elif output_kind == "transform_artifacts":
+                transform_artifacts.append(dict(record))
 
         node_index = self._build_node_index(nodes)
-        outgoing_index, incoming_index = self._build_edge_indexes(edges)
+        semantic_index = self._build_semantic_index(semantic_nodes, semantic_edges, equivalence_rules)
+        outgoing_index, incoming_index = self._build_edge_indexes([*edges, *semantic_edges])
         diagnostics = {"status": "ready", "reason": "graph_loaded", "node_count": len(nodes), "edge_count": len(edges)}
         if not has_nodes or not has_edges:
             diagnostics = {
@@ -102,18 +132,72 @@ class CodeCompassGraphStore:
                 "node_count": len(nodes),
                 "edge_count": len(edges),
             }
+        if semantic_nodes or semantic_edges or equivalence_rules or transform_artifacts:
+            diagnostics["semantic_translation"] = {
+                "schema": "codecompass_semantic_translation_graph.v1",
+                "semantic_node_count": len(semantic_nodes),
+                "semantic_edge_count": len(semantic_edges),
+                "equivalence_rule_count": len(equivalence_rules),
+                "translation_contract_count": len(translation_contracts),
+                "transform_artifact_count": len(transform_artifacts),
+                "status": "ready",
+            }
+        else:
+            diagnostics["semantic_translation"] = {"status": "degraded", "reason": "semantic_translation_index_unavailable"}
 
         payload = {
             "state": {"schema": "codecompass_graph_index.v1", "manifest_hash": str(manifest_hash or "")},
             "nodes": nodes,
             "edges": edges,
+            "semantic_nodes": semantic_nodes,
+            "semantic_edges": semantic_edges,
+            "equivalence_rules": equivalence_rules,
+            "translation_contracts": translation_contracts,
+            "transform_artifacts": transform_artifacts,
             "node_index": node_index,
+            "semantic_index": semantic_index,
             "outgoing_index": outgoing_index,
             "incoming_index": incoming_index,
             "diagnostics": diagnostics,
         }
         self.save(payload)
         return diagnostics
+
+    @staticmethod
+    def _normalize_semantic_node(record: dict[str, Any], manifest_hash: str, index: int) -> dict[str, Any]:
+        provenance = dict(record.get("provenance") or {})
+        node_id = str(record.get("id") or record.get("node_id") or f"semantic-node:{index}").strip()
+        return {
+            "id": node_id,
+            "file": str(provenance.get("file") or record.get("file") or record.get("path") or "").strip(),
+            "kind": str(record.get("kind") or "semantic_node").strip().lower() or "semantic_node",
+            "semantic_kind": str(record.get("semantic_kind") or "").strip().lower(),
+            "language": str(record.get("language") or provenance.get("language") or "").strip().lower(),
+            "symbol": str(record.get("symbol") or provenance.get("symbol") or record.get("name") or "").strip(),
+            "rule_id": str(record.get("rule_id") or "").strip(),
+            "record_id": str(record.get("record_id") or node_id).strip(),
+            "attributes": dict(record.get("attributes") or {}),
+            "provenance": {**provenance, "manifest_hash": str(manifest_hash or "")},
+            "source_record": dict(record),
+        }
+
+    @staticmethod
+    def _normalize_semantic_edge(record: dict[str, Any], manifest_hash: str) -> dict[str, Any] | None:
+        source_id = str(record.get("source") or record.get("source_id") or "").strip()
+        target_id = str(record.get("target") or record.get("target_id") or "").strip()
+        if not source_id or not target_id:
+            return None
+        edge_type = str(record.get("edge_type") or record.get("type") or "related").strip().lower() or "related"
+        return {
+            "source_id": source_id,
+            "target_id": target_id,
+            "edge_type": edge_type,
+            "rule_id": str(record.get("rule_id") or "").strip(),
+            "confidence": float(record.get("confidence") or (record.get("provenance") or {}).get("confidence") or 1.0),
+            "attributes": dict(record.get("attributes") or {}),
+            "provenance": {**dict(record.get("provenance") or {}), "manifest_hash": str(manifest_hash or ""), "output_kind": "semantic_edges"},
+            "source_record": dict(record),
+        }
 
     @staticmethod
     def _build_node_index(nodes: list[dict[str, Any]]) -> dict[str, Any]:
@@ -145,6 +229,53 @@ class CodeCompassGraphStore:
             "by_kind": {key: sorted(value) for key, value in by_kind.items()},
             "by_name": {key: sorted(value) for key, value in by_name.items()},
             "by_record_id": {key: sorted(value) for key, value in by_record_id.items()},
+        }
+
+    @staticmethod
+    def _build_semantic_index(
+        nodes: list[dict[str, Any]],
+        edges: list[dict[str, Any]],
+        rules: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        by_id: dict[str, dict[str, Any]] = {}
+        by_file: dict[str, list[str]] = {}
+        by_kind: dict[str, list[str]] = {}
+        by_language: dict[str, list[str]] = {}
+        by_symbol: dict[str, list[str]] = {}
+        by_semantic_kind: dict[str, list[str]] = {}
+        by_rule_id: dict[str, list[str]] = {}
+        for node in nodes:
+            node_id = str(node.get("id") or "").strip()
+            if not node_id:
+                continue
+            by_id[node_id] = dict(node)
+            for key, bucket, transform in [
+                ("file", by_file, str),
+                ("kind", by_kind, lambda value: str(value).lower()),
+                ("language", by_language, lambda value: str(value).lower()),
+                ("symbol", by_symbol, str),
+                ("semantic_kind", by_semantic_kind, lambda value: str(value).lower()),
+                ("rule_id", by_rule_id, str),
+            ]:
+                value = transform(node.get(key) or "").strip()
+                if value:
+                    bucket.setdefault(value, []).append(node_id)
+        for edge in edges:
+            rule_id = str(edge.get("rule_id") or "").strip()
+            if rule_id:
+                by_rule_id.setdefault(rule_id, []).append(f"{edge.get('source_id')}->{edge.get('target_id')}")
+        for rule in rules:
+            rule_id = str(rule.get("rule_id") or "").strip()
+            if rule_id:
+                by_rule_id.setdefault(rule_id, []).append(rule_id)
+        return {
+            "by_id": by_id,
+            "by_file": {key: sorted(set(value)) for key, value in by_file.items()},
+            "by_kind": {key: sorted(set(value)) for key, value in by_kind.items()},
+            "by_language": {key: sorted(set(value)) for key, value in by_language.items()},
+            "by_symbol": {key: sorted(set(value)) for key, value in by_symbol.items()},
+            "by_semantic_kind": {key: sorted(set(value)) for key, value in by_semantic_kind.items()},
+            "by_rule_id": {key: sorted(set(value)) for key, value in by_rule_id.items()},
         }
 
     @staticmethod
@@ -198,6 +329,42 @@ class CodeCompassGraphStore:
                 if lowered in str(known_file).lower():
                     node_ids.extend(by_file.get(known_file) or [])
         return [dict(by_id[node_id]) for node_id in sorted(set(node_ids)) if node_id in by_id]
+
+    def find_semantic_nodes(
+        self,
+        *,
+        symbol: str | None = None,
+        file: str | None = None,
+        language: str | None = None,
+        semantic_kind: str | None = None,
+        limit: int = 20,
+    ) -> list[dict[str, Any]]:
+        payload = self.load()
+        semantic_index = dict(payload.get("semantic_index") or {})
+        by_id = dict(semantic_index.get("by_id") or {})
+        candidate_sets: list[set[str]] = []
+        for key, value in [
+            ("by_symbol", symbol),
+            ("by_file", file),
+            ("by_language", language),
+            ("by_semantic_kind", semantic_kind),
+        ]:
+            query = str(value or "").strip()
+            if not query:
+                continue
+            bucket = dict(semantic_index.get(key) or {})
+            exact = set(bucket.get(query) or bucket.get(query.lower()) or [])
+            if not exact:
+                lowered = query.lower()
+                for known, ids in bucket.items():
+                    if lowered in str(known).lower():
+                        exact.update(ids or [])
+            candidate_sets.append(exact)
+        if not candidate_sets:
+            ids = set(by_id.keys())
+        else:
+            ids = set.intersection(*candidate_sets) if candidate_sets else set()
+        return [dict(by_id[node_id]) for node_id in sorted(ids)[: max(1, int(limit))] if node_id in by_id]
 
     @staticmethod
     def _edges_from_index(
@@ -367,4 +534,3 @@ class CodeCompassGraphStore:
             "truncated": truncated,
             "expansions": expansions,
         }
-

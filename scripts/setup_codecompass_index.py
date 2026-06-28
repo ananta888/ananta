@@ -184,6 +184,51 @@ def _build_records(files: list[Path]) -> list[dict]:
     return records
 
 
+def _build_semantic_translation_records(files: list[Path]) -> tuple[list[dict], dict]:
+    from agent.codecompass.semantic_translation.adapters import JavaSemanticAdapter
+    from agent.codecompass.semantic_translation.config import load_semantic_translation_config
+    from agent.codecompass.semantic_translation.equivalence_registry import EquivalenceRuleRegistry
+
+    config = load_semantic_translation_config()
+    if not config.enabled:
+        return [], {"enabled": False, "warnings": list(config.diagnostics)}
+    adapter = JavaSemanticAdapter()
+    records: list[dict] = []
+    diagnostics: list[dict] = []
+    analyzed_files = 0
+    for path in files:
+        if path.suffix != ".java":
+            continue
+        rel = str(path.relative_to(ROOT))
+        try:
+            content = path.read_text(encoding="utf-8", errors="replace")
+        except Exception as exc:
+            diagnostics.append({"code": "semantic_file_read_failed", "path": rel, "message": str(exc)})
+            continue
+        if not adapter.detect(rel, content):
+            continue
+        analyzed_files += 1
+        emitted = adapter.emit_graph_records(rel, content)
+        records.extend(emitted["nodes"])
+        records.extend(emitted["edges"])
+        diagnostics.extend(emitted["diagnostics"])
+        if len(records) >= config.max_graph_records:
+            diagnostics.append({"code": "semantic_graph_record_limit_reached", "path": rel})
+            break
+    records.extend(EquivalenceRuleRegistry().records())
+    summary = {
+        "enabled": True,
+        "analyzed_files": analyzed_files,
+        "recognized_languages": ["java"] if analyzed_files else [],
+        "record_count": len(records),
+        "node_count": sum(1 for row in records if (row.get("_provenance") or {}).get("output_kind") == "semantic_nodes"),
+        "edge_count": sum(1 for row in records if (row.get("_provenance") or {}).get("output_kind") == "semantic_edges"),
+        "rule_count": sum(1 for row in records if (row.get("_provenance") or {}).get("output_kind") == "equivalence_rules"),
+        "warnings": [str(row.get("code") or row) for row in diagnostics],
+    }
+    return records, summary
+
+
 def _login(hub: str, username: str, password: str) -> str:
     body = json.dumps({"username": username, "password": password}).encode()
     req = urllib.request.Request(
@@ -238,7 +283,19 @@ def main() -> int:
     print(f"Scanning {ROOT} for source files…")
     files = _collect_files()
     records = _build_records(files)
+    semantic_records, semantic_summary = _build_semantic_translation_records(files)
+    if semantic_records:
+        records.extend(semantic_records)
     print(f"  {len(files)} files found → {len(records)} indexable records")
+
+    if semantic_summary.get("enabled"):
+        print(
+            "  Semantic Translation: "
+            f"{semantic_summary['analyzed_files']} files, "
+            f"{semantic_summary['node_count']} nodes, "
+            f"{semantic_summary['edge_count']} edges, "
+            f"{semantic_summary['rule_count']} rules"
+        )
 
     if args.dry_run:
         for r in records[:20]:

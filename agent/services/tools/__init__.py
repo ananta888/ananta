@@ -64,6 +64,15 @@ def execute_ananta_tool(
         if name == "codecompass.architecture_query":
             from agent.services.tools.codecompass_tools import codecompass_architecture_query
             return codecompass_architecture_query(workspace_dir=workspace_dir, arguments=args, tool_call_id=tool_call_id)
+        if name == "codecompass.semantic_equivalents":
+            from agent.services.tools.codecompass_tools import codecompass_semantic_equivalents
+            return codecompass_semantic_equivalents(workspace_dir=workspace_dir, arguments=args, tool_call_id=tool_call_id)
+        if name == "codecompass.translation_plan":
+            from agent.services.tools.codecompass_tools import codecompass_translation_plan
+            return codecompass_translation_plan(workspace_dir=workspace_dir, arguments=args, tool_call_id=tool_call_id)
+        if name == "codecompass.verify_translation":
+            from agent.services.tools.codecompass_tools import codecompass_verify_translation
+            return codecompass_verify_translation(workspace_dir=workspace_dir, arguments=args, tool_call_id=tool_call_id)
         if name == "test.discover":
             from agent.services.tools.test_tools import test_discover
             return test_discover(workspace_dir=workspace_dir, arguments=args, tool_call_id=tool_call_id)

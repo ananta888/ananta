@@ -41,6 +41,9 @@ def test_codecompass_context_tools_are_read_only_policy_allowed():
         "codecompass.expand_graph",
         "codecompass.get_file_context",
         "codecompass.get_domain_map",
+        "codecompass.semantic_equivalents",
+        "codecompass.translation_plan",
+        "codecompass.verify_translation",
     ]:
         decision = _evaluate(tool_name, allowed_tools=[tool_name])
         assert decision.decision == DECISION_ALLOW

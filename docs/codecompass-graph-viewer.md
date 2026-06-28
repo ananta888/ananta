@@ -1,5 +1,7 @@
 # CodeCompass Graph Viewer
 
+Semantic Translation Graph extensions are documented in `docs/codecompass-semantic-translation-graph.md`. The extension is feature-flagged and adds semantic/equivalence/transform records without changing existing graph node or edge outputs.
+
 Angular feature for visualizing CodeCompass static-analysis graphs. The viewer is renderer-independent: a canonical `GenericGraphModel` feeds all view variants (simple list, 2D canvas, 3D WebGL) through a single adapter boundary.
 
 ---

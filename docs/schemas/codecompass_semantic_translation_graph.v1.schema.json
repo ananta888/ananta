@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "codecompass_semantic_translation_graph.v1",
+  "title": "CodeCompass Semantic Translation Graph v1",
+  "type": "object",
+  "required": ["schema"],
+  "properties": {
+    "schema": { "const": "codecompass_semantic_translation_graph.v1" },
+    "id": { "type": "string" },
+    "kind": {
+      "enum": [
+        "syntax_node",
+        "semantic_node",
+        "type_node",
+        "symbol_node",
+        "control_flow_node",
+        "data_flow_node",
+        "effect_node",
+        "contract_node",
+        "equivalence_rule",
+        "transform_artifact"
+      ]
+    },
+    "semantic_kind": {
+      "enum": [
+        "data_record",
+        "property",
+        "enum_value",
+        "function_signature",
+        "nullable_value",
+        "optional_absence",
+        "collection",
+        "map",
+        "pure_expression",
+        "side_effect",
+        "exception_flow",
+        "interface_contract",
+        "unsupported_construct"
+      ]
+    },
+    "edge_type": {
+      "enum": [
+        "declares",
+        "uses",
+        "calls",
+        "reads",
+        "writes",
+        "returns",
+        "throws",
+        "maps_to",
+        "equivalent_to",
+        "requires",
+        "ensures",
+        "generated_by",
+        "verified_by"
+      ]
+    },
+    "language": { "type": "string" },
+    "symbol": { "type": "string" },
+    "attributes": { "type": "object" },
+    "rule_id": { "type": "string" },
+    "source": { "type": "string" },
+    "target": { "type": "string" },
+    "provenance": {
+      "type": "object",
+      "required": ["file", "language", "parser", "confidence", "created_at"],
+      "properties": {
+        "file": { "type": "string" },
+        "language": { "type": "string" },
+        "symbol": { "type": "string" },
+        "line_start": { "type": ["integer", "null"] },
+        "line_end": { "type": ["integer", "null"] },
+        "parser": { "type": "string" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "created_at": { "type": "string" }
+      }
+    },
+    "preconditions": { "type": "array", "items": { "type": "string" } },
+    "postconditions": { "type": "array", "items": { "type": "string" } },
+    "warnings": { "type": "array", "items": { "type": "string" } },
+    "status": { "type": "string" }
+  },
+  "additionalProperties": true
+}
