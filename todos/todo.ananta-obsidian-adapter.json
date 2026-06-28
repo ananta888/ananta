@@ -1,292 +1,1280 @@
 {
   "project": "ananta-obsidian-adapter",
-  "goal": "Obsidian Vault als Markdown-Wissensbasis in ANANTA/CodeCompass integrieren",
+  "version": "2.0",
+  "goal": "Obsidian Vault(s) als Markdown-Wissensbasis in ANANTA/CodeCompass integrieren: Vault-Inhalte werden gescannt, geparst, in das CodeCompass-JSONL-Format überführt und über resolve_context() als RAG-Quelle abrufbar gemacht.",
   "status": "planned",
   "priority": "high",
+
+  "architecture": {
+    "integration_point": "StructuredExtractor / JavaLikeExtractor in rag-helper/rag_helper/extractors/ — ObsidianExtractor implementiert JavaLikeExtractor (zwei Pässe: pre_scan_types baut globale Link-Map, parse verarbeitet Note vollständig). Canvas-Dateien erhalten eigene CanvasExtractor-Klasse. Beide werden über neue Parameter in build_extractors() (document_extractor.py) registriert.",
+    "vault_config": "Multi-Vault mit benannten Profilen in config.json (obsidian_vaults: {name: ObsidianVaultProfile}). Ein Vault = eine RAG-Quelle mit eigenem Output-Verzeichnis unter data_dir/knowledge_indices/obsidian_{vault_name}/.",
+    "privacy": "Drei Mechanismen, alle konfigurierbar und kombiniert (OR-Logik als Default): (1) Pfad-Präfix-Liste, (2) Frontmatter-Feld (z.B. private: true), (3) Tag-Blacklist (z.B. #no-index). Alle drei aktiv wenn 'Alle drei unterstützen' gewählt.",
+    "special_features": "Canvas-Dateien (.canvas, Obsidian JSON) als eigenständige Graph-Nodes/Edges. Dataview-Blöcke werden erkannt und als Metadatum erfasst (kein Ausführen). Aliases aus Frontmatter für Link-Auflösung und Suche.",
+    "md_currently": "WICHTIG: .md ist in build_extractors() (document_extractor.py:117) bereits via text_extractor_cls registriert. ObsidianExtractor muss als eigener Parameter hinzugefügt werden und hat Vorrang vor text_extractor für .md-Dateien.",
+    "ranking_rule": "Code > AGENTS.md > ADR > Obsidian Notes (niedrigste RAG-Priorität)"
+  },
+
   "principles": [
-    "Obsidian bleibt UI und Wissenseditor",
+    "Obsidian bleibt UI und Wissenseditor — kein Obsidian-Plugin, kein Obsidian-API-Aufruf",
     "ANANTA bleibt Orchestrierung, Policy und Agentensteuerung",
     "CodeCompass bleibt RAG- und Kontext-Fassade",
-    "Keine Obsidian-Neuimplementierung",
-    "Nur erlaubte Semantiken übernehmen, Rest ignorieren"
+    "Read-only ist Default — Write-back explizit opt-in pro Vault",
+    "Privacy-First: Ausschluss-Logik läuft VOR jeder Verarbeitung",
+    "Keine Code-Ausführung aus Notes (Dataview, Templater, eingebettete Scripts)",
+    "Inkrementelles Reindexing: nur geänderte Dateien neu verarbeiten"
   ],
+
+  "mvp": [
+    "OBS-001: Multi-Vault Config",
+    "OBS-002: Vault Discovery & Manifest",
+    "OBS-003: Privacy Filter",
+    "OBS-004: Markdown Parser (ObsidianExtractor)",
+    "OBS-005: Pipeline-Integration (build_extractors + process_snapshot)",
+    "OBS-006: Canvas Parser",
+    "OBS-007: Graph Nodes/Edges",
+    "OBS-008: Index & Detail Records",
+    "OBS-009: resolve_context Integration",
+    "OBS-010: CLI Commands",
+    "OBS-012: Tests"
+  ],
+
+  "later": [
+    "OBS-011: Write-back (Agent-Logs, ADR-Drafts in Vault schreiben)",
+    "Live-Watching per Filesystem-Events (inotify/watchdog)",
+    "Obsidian Plugin UI",
+    "Graph-Visualisierung im ANANTA Frontend",
+    "Dataview-Query-Auswertung (read-only, sandboxed)"
+  ],
+
   "epics": [
     {
       "id": "OBS-001",
-      "title": "Vault Discovery",
+      "title": "Multi-Vault Configuration",
       "priority": "high",
+      "mvp": true,
+      "depends_on": [],
+      "description": "Pydantic-Konfigurationsmodell für benannte Vault-Profile, Integration in die globale Settings-Klasse, und Validierung beim Start.",
       "tasks": [
         {
           "id": "OBS-001-001",
-          "title": "Konfigurierbaren Vault-Pfad einführen",
+          "title": "ObsidianVaultProfile Pydantic-Modell definieren",
           "type": "config",
-          "done": false
+          "done": false,
+          "depends_on": [],
+          "source_refs": [
+            "agent/config.py (Settings-Klasse, Referenz für Pydantic-Patterns)",
+            "rag-helper/rag_helper/application/processing_limits.py:6 (ProcessingLimits-Muster)"
+          ],
+          "acceptance_criteria": [
+            "Pflichtfelder: path (str, absoluter Pfad), name (str, Key im Dict)",
+            "Optionale Felder: enabled (bool, default=true), read_only (bool, default=true), description (str|None)",
+            "Discovery-Felder: exclude_dirs (list[str], default=['.obsidian','.git','.trash','assets']), exclude_glob_patterns (list[str], default=[])",
+            "Privacy-Felder: private_path_prefixes (list[str], default=['private/','personal/','_private']), private_frontmatter_field (str, default='private'), private_frontmatter_truthy_values (list, default=[true,'true','yes','1']), private_tags (list[str], default=['no-index','private','personal']), privacy_filter_mode (str, default='or', options=['or','and','off'])",
+            "Feature-Flags: index_canvas_files (bool, default=true), index_dataview_as_metadata (bool, default=true), resolve_aliases (bool, default=true)",
+            "Chunking-Felder: heading_chunk_level (int, default=2, min=1, max=6), max_block_size_chars (int, default=2000), min_block_size_chars (int, default=50)",
+            "Tag-Konfiguration: tag_namespace_separator (str, default='/'), tag_max_depth (int|None, default=None)",
+            "Write-back (default-disabled): write_back_enabled (bool, default=false), write_back_folder (str, default='_ananta'), write_back_overwrite (bool, default=false)",
+            "Modell validiert: path muss str sein, heading_chunk_level zwischen 1 und 6"
+          ],
+          "implementation_notes": "Pydantic BaseModel oder dataclass mit field() Defaults. Analog zu CodeCompassContextToolConfig in agent/services/codecompass_context_service.py:24."
         },
         {
           "id": "OBS-001-002",
-          "title": "Markdown-Dateien rekursiv scannen",
-          "type": "implementation",
-          "done": false
+          "title": "Globale Settings um obsidian_vaults erweitern",
+          "type": "config",
+          "done": false,
+          "depends_on": ["OBS-001-001"],
+          "source_refs": [
+            "agent/config.py (Settings-Klasse mit pydantic-settings und JsonConfigSettingsSource)"
+          ],
+          "acceptance_criteria": [
+            "Settings erhält Feld obsidian_vaults: dict[str, ObsidianVaultProfile] = {}",
+            "Konfiguration per config.json möglich: {\"obsidian_vaults\": {\"main\": {\"path\": \"/home/user/vault\"}, \"work\": {\"path\": \"/home/user/work\", \"enabled\": false}}}",
+            "Konfiguration per Env-Var möglich: ANANTA_OBSIDIAN_VAULTS als JSON-String",
+            "Leeres Dict (kein Vault konfiguriert) ist valider Startzustand — kein Fehler beim Start"
+          ],
+          "implementation_notes": "Vault-Name (Key) wird in den Output-Pfad übernommen: data_dir/knowledge_indices/obsidian_{name}/. Namen dürfen nur [a-z0-9_-] enthalten — beim Laden validieren."
         },
         {
           "id": "OBS-001-003",
-          "title": "Excludes definieren: .obsidian/cache, .git, assets optional",
-          "type": "implementation",
-          "done": false
+          "title": "Vault-Pfad-Validierung beim Start",
+          "type": "config",
+          "done": false,
+          "depends_on": ["OBS-001-002"],
+          "source_refs": [
+            "agent/config.py"
+          ],
+          "acceptance_criteria": [
+            "Beim Start: für jeden enabled Vault wird geprüft ob path existiert und lesbar ist",
+            "Nicht existierender Pfad → Warning-Log, Vault wird als disabled behandelt (kein Crash)",
+            "Nicht lesbarer Pfad (Permission-Error) → Warning-Log, Vault als disabled",
+            "Kein .obsidian/-Ordner im Pfad → Info-Log 'Kein Obsidian-Vault erkannt, trotzdem indexiert'",
+            "Doppelte Vault-Namen → ValueError beim Config-Laden"
+          ],
+          "implementation_notes": "Validierung als @model_validator(mode='after') oder als separate validate_vaults() Funktion die beim App-Start aufgerufen wird."
         },
         {
           "id": "OBS-001-004",
-          "title": "Änderungsdatum und Hash je Datei erfassen",
-          "type": "implementation",
-          "done": false
+          "title": "ObsidianProcessingLimits als Erweiterung von ProcessingLimits",
+          "type": "config",
+          "done": false,
+          "depends_on": ["OBS-001-001"],
+          "source_refs": [
+            "rag-helper/rag_helper/application/processing_limits.py:6 (ProcessingLimits frozen dataclass)"
+          ],
+          "acceptance_criteria": [
+            "Neue Felder speziell für Obsidian: md_heading_chunk_level (int, default=2), md_max_block_size_chars (int, default=2000), md_min_block_size_chars (int, default=50), md_max_headings_per_note (int|None, default=None), md_max_links_per_note (int|None, default=200), canvas_max_nodes (int|None, default=None)",
+            "Felder werden als optionale Ergänzung zu ProcessingLimits definiert — entweder ProcessingLimits um diese Felder erweitert, oder ObsidianProcessingLimits ist separate dataclass",
+            "Profile-JSON (*.json in rag-helper/) kann diese Felder enthalten"
+          ],
+          "implementation_notes": "ProcessingLimits ist frozen=True. Entweder direkt neue Felder hinzufügen (breaking change prüfen) oder als ObsidianLimits-Wrapper. Empfehlung: direkt hinzufügen, da alle Felder default haben."
+        },
+        {
+          "id": "OBS-001-005",
+          "title": "Unit-Tests für Config-Modell",
+          "type": "test",
+          "done": false,
+          "depends_on": ["OBS-001-002", "OBS-001-003"],
+          "source_refs": [
+            "tests/ (bestehende Test-Patterns)"
+          ],
+          "acceptance_criteria": [
+            "Test: minimale Config (nur path) wird korrekt geladen",
+            "Test: ungültiger heading_chunk_level (0, 7) → ValidationError",
+            "Test: privacy_filter_mode='invalid' → ValidationError",
+            "Test: nicht existierender Vault-Pfad → Warning, kein Crash",
+            "Test: leere obsidian_vaults-Config → keine Fehler"
+          ]
         }
       ]
     },
+
     {
       "id": "OBS-002",
-      "title": "Markdown Parsing",
+      "title": "Vault Discovery & Inkrementelles Manifest",
       "priority": "high",
+      "mvp": true,
+      "depends_on": ["OBS-001"],
+      "description": "Rekursives Scannen des Vault-Verzeichnisses, File-Fingerprinting, Persistenz des Manifests für inkrementelles Reindexing.",
       "tasks": [
         {
           "id": "OBS-002-001",
-          "title": "Frontmatter/YAML parsen",
+          "title": "ObsidianVaultScanner Klasse",
           "type": "implementation",
-          "done": false
+          "done": false,
+          "depends_on": ["OBS-001-001"],
+          "source_refs": [
+            "rag-helper/rag_helper/application/file_scanner.py (FileSnapshot-Muster, Referenz)",
+            "rag-helper/rag_helper/application/processing_limits.py (max_file_size_kb)"
+          ],
+          "acceptance_criteria": [
+            "scan(vault_profile) → list[VaultFile] mit Feldern: rel_path (str, relativ zu vault root), abs_path (Path), ext (str, 'md' oder 'canvas'), mtime (float), size_bytes (int), sha256 (str)",
+            "Rekursives Scannen: alle .md und .canvas Dateien werden gefunden",
+            "Ausschluss-Ordner aus exclude_dirs werden nicht betreten (performant: kein Betreten, kein Scannen)",
+            "Glob-Pattern-Ausschlüsse aus exclude_glob_patterns werden angewendet (fnmatch)",
+            "Leere Dateien (size=0) werden als skipped markiert, nicht eingeschlossen",
+            "Dateien über max_file_size_kb werden als skipped markiert (falls konfiguriert)"
+          ],
+          "implementation_notes": "Kann pathlib.Path.rglob('*.md') + rglob('*.canvas') nutzen. SHA-256 mit hashlib.sha256. VaultFile als dataclass."
         },
         {
           "id": "OBS-002-002",
-          "title": "Headings als Strukturknoten extrahieren",
+          "title": "VaultManifest Datenmodell und Persistenz",
           "type": "implementation",
-          "done": false
+          "done": false,
+          "depends_on": ["OBS-002-001"],
+          "source_refs": [
+            "rag-helper/rag_helper/application/incremental_cache.py (save_incremental_cache, Referenz)"
+          ],
+          "acceptance_criteria": [
+            "VaultManifest speichert pro Datei: rel_path, sha256, mtime, last_indexed_at (ISO-Timestamp), indexed_record_count",
+            "Persistenz als JSON-Datei unter {output_dir}/.vault_manifest.json",
+            "load_manifest(path) → VaultManifest | None (None wenn nicht vorhanden)",
+            "save_manifest(manifest, path) schreibt atomar (write temp → rename)",
+            "Manifest überlebt Neustart und ist human-readable"
+          ]
         },
         {
           "id": "OBS-002-003",
-          "title": "Obsidian Wiki-Links [[...]] erkennen",
+          "title": "Inkrementeller Diff: neue/geänderte/gelöschte Dateien",
           "type": "implementation",
-          "done": false
+          "done": false,
+          "depends_on": ["OBS-002-002"],
+          "source_refs": [
+            "rag-helper/rag_helper/application/incremental_cache.py"
+          ],
+          "acceptance_criteria": [
+            "compute_diff(current_files, manifest) → VaultDiff mit: new (neue Dateien), changed (sha256 geändert), deleted (im Manifest aber nicht mehr auf Disk), unchanged (sha256 gleich)",
+            "Bei --force oder kein Manifest: alle Dateien gelten als 'new'",
+            "Bei --incremental: nur new + changed werden verarbeitet",
+            "Gelöschte Dateien: ihre Einträge werden aus dem Manifest entfernt, zugehörige JSONL-Records invalidiert (Output-Rebuild erforderlich)"
+          ]
         },
         {
           "id": "OBS-002-004",
-          "title": "Tags #tag extrahieren",
+          "title": "Privacy-Vorfilter in Scanner integrieren",
           "type": "implementation",
-          "done": false
+          "done": false,
+          "depends_on": ["OBS-002-001", "OBS-003-001"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "Pfad-Präfix-Filter wird im Scanner angewendet (bevor SHA256 berechnet wird — performant)",
+            "Dateien mit privatem Pfad erhalten status='private_excluded' im Manifest-Eintrag",
+            "Frontmatter- und Tag-Filter werden nach dem Einlesen der Datei angewendet (im Extractor)",
+            "private_excluded Dateien erscheinen nicht in index.jsonl/details.jsonl/graph_nodes.jsonl"
+          ]
         },
         {
           "id": "OBS-002-005",
-          "title": "Codeblöcke gesondert erkennen",
-          "type": "implementation",
-          "done": false
+          "title": "Unit-Tests für Scanner und Manifest",
+          "type": "test",
+          "done": false,
+          "depends_on": ["OBS-002-003", "OBS-002-004"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "Test: Scanner findet alle .md und .canvas in verschachtelten Ordnern",
+            "Test: Scanner ignoriert exclude_dirs komplett (kein Betreten)",
+            "Test: diff erkennt korrekt new/changed/unchanged/deleted",
+            "Test: atomares Schreiben des Manifests (Simulation mit fehlschlagendem write)"
+          ]
         }
       ]
     },
+
     {
       "id": "OBS-003",
-      "title": "CodeCompass Mapping",
+      "title": "Privacy Filter",
       "priority": "high",
+      "mvp": true,
+      "depends_on": ["OBS-001"],
+      "description": "Drei unabhängige Ausschluss-Mechanismen (Pfad, Frontmatter, Tags) kombiniert mit konfigurierbarer Logik (OR/AND). Läuft vor jeder Verarbeitung.",
       "tasks": [
         {
           "id": "OBS-003-001",
-          "title": "Markdown-Datei zu CodeCompass DocumentNode mappen",
-          "type": "implementation",
-          "done": false
+          "title": "ObsidianPrivacyFilter Klasse",
+          "type": "security",
+          "done": false,
+          "depends_on": ["OBS-001-001"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "is_private(rel_path, text_or_none, profile) → PrivacyResult(excluded: bool, reason: str|None, matched_mechanism: str|None)",
+            "Wird mit ObsidianVaultProfile initialisiert — kein globaler State",
+            "Bei privacy_filter_mode='off': immer excluded=false zurückgeben",
+            "Bei privacy_filter_mode='or': excluded=true wenn MINDESTENS EIN Mechanismus anschlägt",
+            "Bei privacy_filter_mode='and': excluded=true wenn ALLE aktivierten Mechanismen anschlagen"
+          ]
         },
         {
           "id": "OBS-003-002",
-          "title": "Headings zu SectionNodes mappen",
-          "type": "implementation",
-          "done": false
+          "title": "Pfad-Präfix-Filter implementieren",
+          "type": "security",
+          "done": false,
+          "depends_on": ["OBS-003-001"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "Prüft ob rel_path mit einem der private_path_prefixes beginnt (case-insensitive, os-sep-normalisiert)",
+            "Beispiel: 'private/meeting-notes.md' matcht Präfix 'private/'",
+            "Unterordner: 'private/2024/january.md' matcht ebenfalls 'private/'",
+            "Präfixe ohne trailing '/' werden korrekt behandelt: 'private' matcht 'private/foo.md' aber nicht 'privatefoo.md'",
+            "Leere private_path_prefixes-Liste → kein Pfad ausgeschlossen"
+          ]
         },
         {
           "id": "OBS-003-003",
-          "title": "Wiki-Links zu Graph-Edges mappen",
-          "type": "implementation",
-          "done": false
+          "title": "Frontmatter-Feld-Filter implementieren",
+          "type": "security",
+          "done": false,
+          "depends_on": ["OBS-003-001"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "Parst NUR den YAML-Frontmatter-Block (zwischen --- delimiters) — kein vollständiges Markdown-Parse",
+            "Prüft ob private_frontmatter_field im Frontmatter vorhanden und Wert in private_frontmatter_truthy_values",
+            "Beispiel: '---\\nprivate: true\\n---' mit field='private', truthy=['true', true] → excluded",
+            "Kein Frontmatter-Block → Frontmatter-Filter schlägt NICHT an",
+            "Fehlerhafter YAML im Frontmatter → silenter Skip des Frontmatter-Filters (kein Crash), Warning-Log",
+            "Leistung: nur ersten 2KB der Datei lesen für Frontmatter-Extraktion"
+          ]
         },
         {
           "id": "OBS-003-004",
-          "title": "Tags zu Domain-/Topic-Knoten mappen",
-          "type": "implementation",
-          "done": false
+          "title": "Tag-Filter implementieren",
+          "type": "security",
+          "done": false,
+          "depends_on": ["OBS-003-001"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "Prüft Tags aus zwei Quellen: Frontmatter 'tags:'-Liste UND inline '#tag' im Body",
+            "Vergleich: tag aus private_tags-Liste vs. Dokument-Tags (case-insensitive, ohne führendes #)",
+            "Beispiel: private_tags=['no-index', 'private'], Dokument hat '#no-index' → excluded",
+            "Hierarchische Tags: '#private/meeting' matcht private_tag 'private' (Präfix-Match optional, per Config)",
+            "Frontmatter tags können als String-Liste oder als einzelner String vorliegen"
+          ]
         },
         {
           "id": "OBS-003-005",
-          "title": "Export nach nodes.jsonl und edges.jsonl",
+          "title": "list-excluded Dry-run Funktion",
           "type": "implementation",
-          "done": false
+          "done": false,
+          "depends_on": ["OBS-003-001", "OBS-003-002", "OBS-003-003", "OBS-003-004"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "list_excluded(vault_profile, scanner_result) → list[ExclusionRecord] mit rel_path, reason, matched_mechanism",
+            "Gibt ALLE ausgeschlossenen Dateien zurück (auch Ordner-Ausschlüsse)",
+            "Wird von CLI-Kommando 'ananta obsidian list-excluded' genutzt",
+            "Keine Seiteneffekte: kein Schreiben in Manifest oder Output"
+          ]
+        },
+        {
+          "id": "OBS-003-006",
+          "title": "Unit-Tests für alle drei Filter-Mechanismen",
+          "type": "test",
+          "done": false,
+          "depends_on": ["OBS-003-002", "OBS-003-003", "OBS-003-004"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "Test: Pfad-Präfix — positiv, negativ, Unterordner, trailing-slash-Varianten",
+            "Test: Frontmatter — private: true, private: 'yes', kein Frontmatter, fehlerhafter YAML",
+            "Test: Tags — Frontmatter-tags-Liste, inline #tag, hierarchischer Tag",
+            "Test: privacy_filter_mode='or' → reicht ein Match",
+            "Test: privacy_filter_mode='and' → alle müssen matchen",
+            "Test: privacy_filter_mode='off' → nie excluded"
+          ]
         }
       ]
     },
+
     {
       "id": "OBS-004",
-      "title": "RAG Integration",
+      "title": "Markdown Parser — ObsidianExtractor",
       "priority": "high",
+      "mvp": true,
+      "depends_on": ["OBS-001", "OBS-003"],
+      "description": "Kernkomponente: implementiert JavaLikeExtractor-Protokoll. pre_scan_types() baut globale Titel/Alias→Pfad-Map für Vault-weite Link-Auflösung. parse() extrahiert alle Obsidian-Semantiken und produziert index/detail/relation-Records.",
       "tasks": [
         {
           "id": "OBS-004-001",
-          "title": "Relevante Markdown-Abschnitte chunking-fähig machen",
+          "title": "ObsidianExtractor Klassen-Grundgerüst mit JavaLikeExtractor-Protokoll",
           "type": "implementation",
-          "done": false
+          "done": false,
+          "depends_on": [],
+          "source_refs": [
+            "rag-helper/rag_helper/extractors/base.py:18 (JavaLikeExtractor Protocol — pre_scan_types + parse)",
+            "rag-helper/rag_helper/extractors/java.py (Referenz-Implementierung)"
+          ],
+          "acceptance_criteria": [
+            "Datei: rag-helper/rag_helper/extractors/obsidian.py",
+            "Klasse ObsidianExtractor implementiert JavaLikeExtractor-Protokoll (structurally typed via Protocol)",
+            "Konstruktor-Parameter: limits (ProcessingLimits), vault_profile (ObsidianVaultProfile)",
+            "pre_scan_types(rel_path, text) → dict mit keys: 'title' (str), 'aliases' (list[str]), 'file' (str)",
+            "parse(rel_path, text, known_package_types) → tuple[list[dict], list[dict], list[dict], dict] (index, details, relations, stats)",
+            "FileSkipped wird geworfen wenn Privacy-Filter anschlägt (Frontmatter/Tag-Check in parse)"
+          ],
+          "implementation_notes": "known_package_types in parse() enthält die akkumulierte Link-Resolution-Map: {normalized_title: rel_path, alias: rel_path}. Titel-Normalisierung: lowercase, strip."
         },
         {
           "id": "OBS-004-002",
-          "title": "Embeddings für Vault-Inhalte erzeugen",
+          "title": "Frontmatter YAML Parser",
           "type": "implementation",
-          "done": false
+          "done": false,
+          "depends_on": ["OBS-004-001"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "parse_frontmatter(text) → tuple[dict, str] mit (frontmatter_dict, body_without_frontmatter)",
+            "Erkennt --- delimiter am Dateianfang (optional: auch +++ für TOML — als Future-Note markieren, jetzt ignorieren)",
+            "Parst YAML mit pyyaml (bereits in Abhängigkeiten?) oder python-frontmatter",
+            "Fehlerhafter YAML → leeres dict, body = ganzer text, Warning-Log",
+            "Kein Frontmatter → leeres dict, body = ganzer text",
+            "Obsidian-Properties-Format (neueres Obsidian >= 1.4): gleicher --- Block, gleiche Behandlung",
+            "Felder: title, aliases (list|str), tags (list|str), date, draft (bool), custom fields alle erhalten"
+          ]
         },
         {
           "id": "OBS-004-003",
-          "title": "Obsidian-Quelle in resolve_context berücksichtigen",
+          "title": "Heading-Tree Builder",
           "type": "implementation",
-          "done": false
+          "done": false,
+          "depends_on": ["OBS-004-002"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "extract_headings(body) → list[Heading] mit: level (1-6), title (str, ohne # Präfix), line_no (int, 0-based), anchor (str, Obsidian-Anchor-Format: lowercase, spaces→-, Sonderzeichen entfernt)",
+            "Heading-Hierarchie: jedes Heading kennt seinen parent (parent_level < own_level)",
+            "Headings in Codeblöcken werden NICHT extrahiert (korrekte Code-Block-Erkennung nötig)",
+            "Obsidian-Anchor-Format: gleiche Regeln wie Obsidian selbst (für [[Note#Heading]]-Auflösung)",
+            "Bis zu max_headings_per_note Headings pro Note (ProcessingLimits)"
+          ]
         },
         {
           "id": "OBS-004-004",
-          "title": "Ranking-Regel: Code > AGENTS.md > ADR > Obsidian Notes",
-          "type": "policy",
-          "done": false
+          "title": "Wiki-Link Parser",
+          "type": "implementation",
+          "done": false,
+          "depends_on": ["OBS-004-003"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "extract_wikilinks(body) → list[WikiLink] mit: raw (str), target_note (str), target_heading (str|None), display_text (str|None), line_no (int)",
+            "Unterstützte Formate: [[Note]], [[Note|Display]], [[Note#Heading]], [[Note#Heading|Display]], [[#Heading]] (interne Heading-Referenz)",
+            "Wiki-Links in Codeblöcken werden NICHT extrahiert",
+            "Bis zu md_max_links_per_note Links — darüber: restliche ignorieren, Warning in stats"
+          ]
+        },
+        {
+          "id": "OBS-004-005",
+          "title": "Wiki-Link Resolver (Cross-Note)",
+          "type": "implementation",
+          "done": false,
+          "depends_on": ["OBS-004-004"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "resolve_link(wikilink, known_package_types) → LinkResolution mit: resolved (bool), target_path (str|None), target_heading_anchor (str|None), resolution_type ('exact'|'alias'|'unresolved')",
+            "Sucht zuerst exact match (target_note nach Normalisierung), dann Alias-Match",
+            "Normalisierung: strip, lowercase (case-insensitive matching)",
+            "Ungelöste Links: resolved=false, target_path=None — werden als obs_wikilink_unresolved-Edge geschrieben",
+            "Heading-Anker bei [[Note#Heading]]: wird separat in target_heading_anchor gespeichert"
+          ]
+        },
+        {
+          "id": "OBS-004-006",
+          "title": "Tag Extraktor",
+          "type": "implementation",
+          "done": false,
+          "depends_on": ["OBS-004-002"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "extract_tags(frontmatter, body) → list[str] (normalisiert, ohne führendes #, dedupliziert)",
+            "Quellen: frontmatter['tags'] (list oder string) + inline #tag im Body",
+            "Inline-Tag-Regex: #[a-zA-Z][a-zA-Z0-9_/-]* (kein # mitten in URL, kein # in Code-Blöcken)",
+            "Hierarchische Tags: '#project/alpha' → Tag-Liste enthält 'project/alpha' (und optional Eltern 'project' wenn tag_expand_hierarchy=true)",
+            "Normalisierung: lowercase, führende # entfernt",
+            "Tags in Codeblöcken nicht extrahieren"
+          ]
+        },
+        {
+          "id": "OBS-004-007",
+          "title": "Codeblock-Detektor",
+          "type": "implementation",
+          "done": false,
+          "depends_on": ["OBS-004-002"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "extract_codeblocks(body) → list[CodeBlock] mit: language (str|None), content (str), start_line (int), end_line (int)",
+            "Erkennt: ``` und ~~~ Delimiter (mindestens 3 Backticks/Tilden)",
+            "Verschachtelte Codeblöcke: äußerster Delimiter gewinnt (Obsidian-Verhalten)",
+            "Codeblöcke werden als Metadatum erfasst, NICHT als Code ausgeführt",
+            "Liefert Code-Sprachen-Statistik in stats-dict: {'code_languages': {'python': 2, 'sql': 1}}"
+          ]
+        },
+        {
+          "id": "OBS-004-008",
+          "title": "Dataview-Block-Detektor",
+          "type": "implementation",
+          "done": false,
+          "depends_on": ["OBS-004-007"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "Dataview-Blöcke sind Codeblöcke mit language='dataview' oder 'dataviewjs'",
+            "extract_dataview_blocks(codeblocks) → list[DataviewBlock] mit: query_type ('dql'|'js'), raw_query (str), start_line (int)",
+            "Query-Content wird als Metadatum gespeichert (index_record-Feld 'dataview_queries') — KEINE Ausführung",
+            "Dataviewjs-Blöcke: als type='js' markiert, query='[DATAVIEW_JS_NOT_EXECUTED]' (Content nicht indexiert aus Sicherheit)"
+          ]
+        },
+        {
+          "id": "OBS-004-009",
+          "title": "Section Chunker (Heading-basiertes Splitting)",
+          "type": "implementation",
+          "done": false,
+          "depends_on": ["OBS-004-003"],
+          "source_refs": [
+            "rag-helper/rag_helper/application/processing_limits.py (md_heading_chunk_level, md_max_block_size_chars)"
+          ],
+          "acceptance_criteria": [
+            "chunk_by_headings(body, headings, heading_chunk_level, max_chars, min_chars) → list[Section] mit: heading_path (str, z.B. 'Kapitel > Unterkapitel'), content (str), start_line (int), word_count (int)",
+            "Chunks entstehen an Heading-Level <= heading_chunk_level (z.B. bei Level 2: Splits bei H1 und H2)",
+            "Chunk-Inhalt enthält den Heading-Text selbst + Body bis zum nächsten Split-Heading",
+            "Zu grosse Chunks (> max_block_size_chars): werden weiter aufgesplittet (an Paragraph-Grenzen, mindestens min_chars)",
+            "Zu kleine Chunks (< min_chars): werden mit vorangehendem Chunk zusammengefasst",
+            "Inhalt vor erstem Heading: eigener Chunk mit heading_path='(preamble)'"
+          ]
+        },
+        {
+          "id": "OBS-004-010",
+          "title": "pre_scan_types implementieren",
+          "type": "implementation",
+          "done": false,
+          "depends_on": ["OBS-004-002", "OBS-004-006"],
+          "source_refs": [
+            "rag-helper/rag_helper/extractors/base.py:19 (JavaLikeExtractor.pre_scan_types)"
+          ],
+          "acceptance_criteria": [
+            "pre_scan_types(rel_path, text) → dict mit keys: 'title' (str), 'aliases' (list[str]), 'file' (str)",
+            "Titel: aus H1 (erste Level-1-Heading) oder Dateiname ohne Extension",
+            "Aliases: aus frontmatter 'aliases' Feld (list oder einzelner string)",
+            "Normalisiert title und alle aliases: strip + lowercase",
+            "Wenn Privacy-Filter (Pfad-Check) anschlägt: leeres dict zurückgeben (kein Error, nur kein Eintrag in Link-Map)",
+            "Performance: nur Frontmatter und erste Heading parsen — nicht ganzen Body"
+          ]
+        },
+        {
+          "id": "OBS-004-011",
+          "title": "parse() vollständig implementieren (Index/Detail/Relation Records)",
+          "type": "implementation",
+          "done": false,
+          "depends_on": ["OBS-004-002", "OBS-004-003", "OBS-004-004", "OBS-004-005", "OBS-004-006", "OBS-004-007", "OBS-004-008", "OBS-004-009"],
+          "source_refs": [
+            "rag-helper/rag_helper/application/output_formats.py (build_embedding_records, build_context_records — Referenz für Record-Felder)",
+            "rag-helper/rag_helper/extractors/base.py:18"
+          ],
+          "acceptance_criteria": [
+            "Index-Records (für RAG-Retrieval) pro Note: {id: 'obs_note:{sha1(rel_path)}', kind: 'obsidian_note', file: rel_path, vault: vault_name, title: str, tags: list, aliases: list, embedding_text: str, summary: str, role_labels: list, importance_score: float}",
+            "Index-Records pro Section/Block: {id: 'obs_block:{sha1(rel_path+heading_path)}', kind: 'obsidian_block', file: rel_path, vault: vault_name, heading_path: str, content: str, embedding_text: str, parent_id: note_id}",
+            "Detail-Records pro Note: vollständiger Inhalt, alle Felder aus Frontmatter, alle Tags, alle Links",
+            "Relation-Records für Wiki-Links: {from: note_id, to: target_note_id_or_title, type: 'obs_wikilink', resolved: bool, confidence: 1.0}",
+            "Relation-Records für Tags: {from: note_id, to: 'obs_tag:{tag}', type: 'obs_has_tag'}",
+            "stats-dict enthält: heading_count, link_count, tag_count, block_count, skipped_links (overflow), dataview_block_count",
+            "FileSkipped Exception wenn Privacy-Filter (Frontmatter/Tag) nach parse anschlägt"
+          ]
+        },
+        {
+          "id": "OBS-004-012",
+          "title": "Unit-Tests für alle Parser-Komponenten",
+          "type": "test",
+          "done": false,
+          "depends_on": ["OBS-004-011"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "Test: Frontmatter-Parser — mit/ohne Frontmatter, fehlerhafter YAML, aliases als List vs. String",
+            "Test: Heading-Tree — verschachtelte Headings, Headings in Codeblöcken (sollen ignoriert werden)",
+            "Test: Wiki-Link-Parser — alle 4 Formate, Links in Code-Blöcken ignorieren",
+            "Test: Link-Resolver — exact match, alias match, unresolved, case-insensitive",
+            "Test: Tag-Extraktor — Frontmatter-Tags, Inline-Tags, hierarchische Tags, Tags in Code ignorieren",
+            "Test: Section-Chunker — normale Splits, Overflow-Chunk, Minimum-Merge, Präambel",
+            "Test: Dataview — DQL und JS getrennt, JS-Content nicht indexiert",
+            "Test: pre_scan_types — Titel aus H1, Titel aus Filename, mehrere Aliases"
+          ]
         }
       ]
     },
+
     {
       "id": "OBS-005",
-      "title": "Write-back",
-      "priority": "medium",
+      "title": "Pipeline-Integration (build_extractors + process_snapshot)",
+      "priority": "high",
+      "mvp": true,
+      "depends_on": ["OBS-004"],
+      "description": "ObsidianExtractor in die bestehende rag-helper-Pipeline einbinden. Kritisch: .md ist bereits via text_extractor_cls belegt — ObsidianExtractor muss explizit priorisiert werden.",
       "tasks": [
         {
           "id": "OBS-005-001",
-          "title": "Write-back standardmäßig deaktivieren",
-          "type": "safety",
-          "done": false
+          "title": "build_extractors() um obsidian_extractor_cls erweitern",
+          "type": "implementation",
+          "done": false,
+          "depends_on": ["OBS-004-001"],
+          "source_refs": [
+            "rag-helper/rag_helper/application/document_extractor.py:52 (build_extractors Signatur)",
+            "rag-helper/rag_helper/application/document_extractor.py:117 (bestehende .md → text_extractor Registrierung)"
+          ],
+          "acceptance_criteria": [
+            "build_extractors() erhält neuen optionalen Parameter obsidian_extractor_cls=None",
+            "Wenn obsidian_extractor_cls gesetzt: registriert als 'md' und 'canvas' Extractor — überschreibt text_extractor für diese Extensions",
+            "Wenn obsidian_extractor_cls=None: .md bleibt bei text_extractor (kein Breaking Change)",
+            "canvas Extension ist neu — vorher unbekannt und thus skipped"
+          ]
         },
         {
           "id": "OBS-005-002",
-          "title": "Agent-Run-Zusammenfassungen in Obsidian schreiben",
+          "title": "process_snapshot() um md/canvas Zwei-Pass-Handling erweitern",
           "type": "implementation",
-          "done": false
+          "done": false,
+          "depends_on": ["OBS-005-001"],
+          "source_refs": [
+            "rag-helper/rag_helper/application/document_extractor.py:266 (process_snapshot)",
+            "rag-helper/rag_helper/application/document_extractor.py:399-412 (java/cs special cases)"
+          ],
+          "acceptance_criteria": [
+            "elif ext in {'md', 'canvas'} Block analog zu elif ext == 'java' (Z.399)",
+            "Aufruf: extractor.parse(rel_path=rel_path, text=text, known_package_types=known_note_titles)",
+            "known_note_titles wird als neues Argument in process_snapshot() durchgereicht",
+            "Kein Breaking Change für bestehende Aufrufe: known_note_titles optional, default={}"
+          ]
         },
         {
           "id": "OBS-005-003",
-          "title": "ADR-Vorschläge als Draft-Dateien erzeugen",
+          "title": "Pre-Scan-Phase in project_processor.py für .md/.canvas",
           "type": "implementation",
-          "done": false
+          "done": false,
+          "depends_on": ["OBS-005-002", "OBS-004-010"],
+          "source_refs": [
+            "rag-helper/rag_helper/application/project_processor.py (Pre-Scan-Loop für Java — Referenz)"
+          ],
+          "acceptance_criteria": [
+            "Pre-Scan-Phase: alle .md und .canvas Dateien werden zuerst mit pre_scan_types() durchlaufen",
+            "Ergebnis: known_note_titles dict — wird für alle parse()-Aufrufe bereitgestellt",
+            "Pre-Scan läuft nur wenn ObsidianExtractor registriert ist",
+            "Pre-Scan-Ergebnis wird gecacht (analog zu Java pre_scan im incremental_cache)"
+          ]
         },
         {
           "id": "OBS-005-004",
-          "title": "Kein automatisches Überschreiben bestehender Notes",
-          "type": "safety",
-          "done": false
+          "title": "Obsidian RAG-Helper Profil-JSON",
+          "type": "config",
+          "done": false,
+          "depends_on": ["OBS-005-003"],
+          "source_refs": [
+            "rag-helper/codecompass_wiki.json (Referenz-Profil für Wiki)",
+            "rag-helper/rag_helper/application/config_profiles.py"
+          ],
+          "acceptance_criteria": [
+            "Neue Profil-Datei: rag-helper/codecompass_obsidian.json",
+            "Enthält sinnvolle Defaults: graph_export_mode='on', embedding_text_mode, md_heading_chunk_level=2 etc.",
+            "Profil wird über --profile obsidian aktivierbar",
+            "Profil deaktiviert Java/C#/XML-Verarbeitung (nur .md und .canvas)"
+          ]
         }
       ]
     },
+
     {
       "id": "OBS-006",
-      "title": "Policy & Security",
+      "title": "Canvas File Parser",
       "priority": "high",
+      "mvp": true,
+      "depends_on": ["OBS-005"],
+      "description": "Eigener Extractor für Obsidian Canvas (.canvas, JSON-Format). Extrahiert Nodes, Edges, Text-Content und File-Referenzen.",
       "tasks": [
         {
           "id": "OBS-006-001",
-          "title": "Vault nur read-only öffnen, wenn nicht anders konfiguriert",
-          "type": "security",
-          "done": false
+          "title": "Canvas JSON Schema verstehen und dokumentieren",
+          "type": "implementation",
+          "done": false,
+          "depends_on": [],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "Canvas-Datei ist valides JSON: {nodes: [...], edges: [...]}",
+            "Node-Typen: text (hat text-Feld), file (hat file-Feld, Pfad relativ zu Vault), link (hat url-Feld), group (hat label-Feld, hat children)",
+            "Jeder Node: {id, type, x, y, width, height} + typ-spezifische Felder",
+            "Jede Edge: {id, fromNode, toNode, fromSide?, toSide?, label?}",
+            "parse_canvas_json(text) → CanvasData mit nodes und edges — ValueError bei ungültigem JSON"
+          ]
         },
         {
           "id": "OBS-006-002",
-          "title": "Private Notes per Pfad/Tag ausschließen",
-          "type": "security",
-          "done": false
+          "title": "CanvasExtractor Klasse (StructuredExtractor)",
+          "type": "implementation",
+          "done": false,
+          "depends_on": ["OBS-006-001"],
+          "source_refs": [
+            "rag-helper/rag_helper/extractors/base.py:13 (StructuredExtractor Protocol — einfachere Variante, kein Zwei-Pass nötig)"
+          ],
+          "acceptance_criteria": [
+            "Datei: rag-helper/rag_helper/extractors/obsidian_canvas.py",
+            "Klasse CanvasExtractor implementiert StructuredExtractor",
+            "parse(rel_path, text) parst Canvas JSON",
+            "FileSkipped bei leerem oder ungültigem JSON",
+            "Konstruktor: limits (ProcessingLimits), vault_profile (ObsidianVaultProfile)"
+          ]
         },
         {
           "id": "OBS-006-003",
-          "title": "Erlaubte Tags/Semantiken whitelist-basiert definieren",
-          "type": "policy",
-          "done": false
+          "title": "Text-Node Content indexieren",
+          "type": "implementation",
+          "done": false,
+          "depends_on": ["OBS-006-002"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "Jeder text-Node → eigener index_record: {kind: 'obsidian_canvas_text_node', id: 'obs_canvas_node:{canvas_file}:{node_id}', content: text, embedding_text: text[:512]}",
+            "Markdown in text-Nodes: einfaches Strip (kein vollständiges MD-Parse in Canvas-Nodes)",
+            "Leere text-Nodes (text='') werden nicht indexiert"
+          ]
         },
         {
           "id": "OBS-006-004",
-          "title": "Keine Ausführung von eingebettetem Code aus Notes",
-          "type": "security",
-          "done": false
+          "title": "File-Reference-Nodes auflösen",
+          "type": "implementation",
+          "done": false,
+          "depends_on": ["OBS-006-002"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "file-Nodes referenzieren Dateien im Vault (pfad relativ zu Vault)",
+            "Relation-Record: {from: canvas_id, to: 'obs_note:{sha1(file_path)}', type: 'obs_canvas_file_ref'}",
+            "Nicht-existierende Referenz → type: 'obs_canvas_file_ref_unresolved', target: raw_path",
+            "Nicht-Markdown-Dateien (Bilder, PDFs): relation record trotzdem erstellen, kind='obs_canvas_asset_ref'"
+          ]
+        },
+        {
+          "id": "OBS-006-005",
+          "title": "Canvas-Edges als Graph-Edges",
+          "type": "implementation",
+          "done": false,
+          "depends_on": ["OBS-006-003", "OBS-006-004"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "Jede Canvas-Edge → relation_record: {from: 'obs_canvas_node:{canvas}:{fromNode}', to: 'obs_canvas_node:{canvas}:{toNode}', type: 'obs_canvas_edge', label: edge.label|None}",
+            "Group-Nodes: enthalten child-IDs → {from: group_node_id, to: child_node_id, type: 'obs_canvas_group_contains'}"
+          ]
+        },
+        {
+          "id": "OBS-006-006",
+          "title": "Unit-Tests für Canvas Extractor",
+          "type": "test",
+          "done": false,
+          "depends_on": ["OBS-006-005"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "Test: Canvas mit text-Nodes → Index-Records korrekt",
+            "Test: Canvas mit file-Nodes → Relation zu Note",
+            "Test: Canvas mit Edges → Relation-Records",
+            "Test: Ungültiges JSON → FileSkipped",
+            "Test: Leere Canvas ({nodes:[], edges:[]}) → leere Records, kein Error"
+          ]
         }
       ]
     },
+
     {
       "id": "OBS-007",
-      "title": "CLI / Tooling",
-      "priority": "medium",
+      "title": "Graph Nodes/Edges — Definitionen und Aufbau",
+      "priority": "high",
+      "mvp": true,
+      "depends_on": ["OBS-004", "OBS-006"],
+      "description": "Vollständige Definition aller obsidian_* Node-Arten und obs_* Edge-Typen. Aufbau der Hierarchie-Knoten (Vault, Folder, Note, Heading). Deduplication von Tag-Nodes.",
       "tasks": [
         {
           "id": "OBS-007-001",
-          "title": "CLI-Befehl: scan-vault",
-          "type": "cli",
-          "done": false
+          "title": "Node-ID-Schema und Node-Kind-Definitionen",
+          "type": "implementation",
+          "done": false,
+          "depends_on": [],
+          "source_refs": [
+            "rag-helper/rag_helper/domain_discovery/graph_model.py:20 (GraphNode dataclass)",
+            "agent/services/wiki_codecompass_bridge.py:69 (_write_node Pattern)"
+          ],
+          "acceptance_criteria": [
+            "Node-Kinds (kind-Feld in graph_nodes.jsonl): obsidian_vault, obsidian_folder, obsidian_note, obsidian_heading, obsidian_block, obsidian_canvas, obsidian_canvas_node, obsidian_tag",
+            "Node-ID-Schema: obs_vault:{vault_name}, obs_folder:{sha1(vault+folder_path)}, obs_note:{sha1(vault+rel_path)}, obs_heading:{sha1(vault+rel_path+heading_path)}, obs_block:{sha1(vault+rel_path+heading_path+idx)}, obs_tag:{vault_name}:{normalized_tag}",
+            "IDs sind stabil: sha1 von Vault-Name + relativer Pfad (nicht von absolutem Pfad)",
+            "Tag-Nodes sind vault-scoped (kein Teilen zwischen Vaults — separates Mapping wenn gewünscht)",
+            "Dokumentation der ID-Schemata als Kommentar in obsidian.py"
+          ]
         },
         {
           "id": "OBS-007-002",
-          "title": "CLI-Befehl: export-graph",
-          "type": "cli",
-          "done": false
+          "title": "Hierarchie-Knoten: Vault, Folder, Note",
+          "type": "implementation",
+          "done": false,
+          "depends_on": ["OBS-007-001"],
+          "source_refs": [
+            "rag-helper/rag_helper/domain_discovery/graph_model.py:20"
+          ],
+          "acceptance_criteria": [
+            "Vault-Node: {id: obs_vault:{name}, kind: obsidian_vault, file: '', title: vault_name, vault: vault_name}",
+            "Folder-Nodes: für jeden Zwischen-Ordner im Pfad (lazy — nur wenn mindestens eine Note darin)",
+            "Note-Node: {id, kind: obsidian_note, file: rel_path, title, vault, parent_id: folder_id|vault_id}",
+            "Ordner-Hierarchie wird korrekt aufgebaut: a/b/c/note.md → Folder(a), Folder(a/b), Folder(a/b/c), Note",
+            "Vault-Node wird immer erstellt (auch wenn leer)"
+          ]
         },
         {
           "id": "OBS-007-003",
-          "title": "CLI-Befehl: sync-rag",
-          "type": "cli",
-          "done": false
+          "title": "Heading- und Block-Knoten",
+          "type": "implementation",
+          "done": false,
+          "depends_on": ["OBS-007-001"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "Heading-Nodes: {id, kind: obsidian_heading, file, vault, heading_level: int, title: str, anchor: str, parent_id: note_id|parent_heading_id}",
+            "Heading-Hierarchie: H3 unter H2 unter H1 (parent_id korrekt gesetzt)",
+            "Block-Nodes: {id, kind: obsidian_block, file, vault, heading_path: str, parent_id: heading_id|note_id}",
+            "graph_nodes.jsonl Einträge für alle Knoten werden korrekt produziert"
+          ]
         },
         {
           "id": "OBS-007-004",
-          "title": "Dry-run-Modus einbauen",
-          "type": "cli",
-          "done": false
+          "title": "Edge-Typen und graph_edges.jsonl",
+          "type": "implementation",
+          "done": false,
+          "depends_on": ["OBS-007-002", "OBS-007-003"],
+          "source_refs": [
+            "rag-helper/rag_helper/domain_discovery/graph_model.py:32 (GraphEdge dataclass)"
+          ],
+          "acceptance_criteria": [
+            "Strukturelle Edges: obs_vault_contains_folder, obs_vault_contains_note, obs_folder_contains_folder, obs_folder_contains_note, obs_note_contains_heading, obs_heading_contains_heading, obs_heading_contains_block",
+            "Semantische Edges: obs_wikilink (resolved), obs_wikilink_to_heading, obs_wikilink_unresolved, obs_has_tag, obs_alias_of",
+            "Canvas-Edges: obs_canvas_link, obs_canvas_file_ref, obs_canvas_group_contains",
+            "Alle Edges im Format: {source, target, type, confidence?, heuristic?}",
+            "Deduplication: gleiche (source, target, type) Tripel nur einmal in graph_edges.jsonl",
+            "obs_wikilink hat confidence=1.0, obs_wikilink_unresolved hat confidence=0.0, heuristic=true"
+          ]
+        },
+        {
+          "id": "OBS-007-005",
+          "title": "Tag-Node Deduplication",
+          "type": "implementation",
+          "done": false,
+          "depends_on": ["OBS-007-001"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "Gleicher Tag in mehreren Notes → nur EIN Tag-Node in graph_nodes.jsonl",
+            "Hierarchische Tags: '#project/alpha' → Tag-Node 'project/alpha' + Tag-Node 'project' (Eltern-Tag), Edge obs_tag_parent zwischen beiden",
+            "Tag-Nodes pro Vault getrennt (vault-scoped IDs)",
+            "Sammlung der Tag-Nodes über alle Dateien hinweg (global im Extractor-State, nicht pro Datei)"
+          ]
+        },
+        {
+          "id": "OBS-007-006",
+          "title": "Integrations-Test: JSONL-Ausgabe gegen Mini-Vault",
+          "type": "test",
+          "done": false,
+          "depends_on": ["OBS-007-004", "OBS-007-005"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "Mini-Test-Vault in tests/fixtures/obsidian_test_vault/ mit: 3 Notes (eine mit Wiki-Link, eine mit Tag, eine private), 1 Canvas-Datei, 1 Unterordner",
+            "Test prüft: graph_nodes.jsonl enthält alle erwarteten Node-Kinds",
+            "Test prüft: graph_edges.jsonl enthält obs_wikilink für aufgelösten Link, obs_wikilink_unresolved für toten Link",
+            "Test prüft: private Note erscheint NICHT in Output-Dateien",
+            "Snapshot-Test: JSONL-Output gegen gespeicherte Erwartungs-Datei (regression)"
+          ]
         }
       ]
     },
+
     {
       "id": "OBS-008",
-      "title": "Tests",
+      "title": "Embedding-Text und Index-Records",
       "priority": "high",
+      "mvp": true,
+      "depends_on": ["OBS-004", "OBS-007"],
+      "description": "Embedding-Text-Strategie pro Node-Kind. Korrekte Nutzung der bestehenden build_embedding_text()-Pipeline.",
       "tasks": [
         {
           "id": "OBS-008-001",
-          "title": "Unit-Tests für Markdown-Parser",
-          "type": "test",
-          "done": false
+          "title": "Embedding-Text Templates pro Node-Kind",
+          "type": "implementation",
+          "done": false,
+          "depends_on": [],
+          "source_refs": [
+            "worker/retrieval/embedding_text_builder.py (build_embedding_text, CODECOMPASS_EMBEDDING_TEXT_PROFILE)",
+            "worker/retrieval/embedding_text_builder.py (text_fields Struktur)"
+          ],
+          "acceptance_criteria": [
+            "obsidian_note: '{title} | tags: {tags_joined} | {first_200_chars_of_body}'",
+            "obsidian_heading: '{note_title} > {heading_path} | {section_first_100_chars}'",
+            "obsidian_block: '{note_title} > {heading_path} | {block_content[:400]}'",
+            "obsidian_tag: 'tag: {tag_name}'",
+            "obsidian_canvas_node (text): '{canvas_title}: {text_content[:400]}'",
+            "Alle embedding_text-Werte truncated auf 4096 chars (bestehende build_embedding_text-Grenze)",
+            "embedding_text wird als direktes Feld in index_record gesetzt (kein text_fields-Lookup nötig)"
+          ]
         },
         {
           "id": "OBS-008-002",
-          "title": "Unit-Tests für Wiki-Link-Auflösung",
-          "type": "test",
-          "done": false
+          "title": "importance_score für Obsidian-Nodes",
+          "type": "implementation",
+          "done": false,
+          "depends_on": ["OBS-008-001"],
+          "source_refs": [
+            "rag-helper/rag_helper/application/importance_scoring.py (score_index_records)"
+          ],
+          "acceptance_criteria": [
+            "Basis-Score: obsidian_note=0.5, obsidian_heading=0.6, obsidian_block=0.7 (Blöcke höher als Note-Ebene)",
+            "Score-Boosts: +0.1 wenn Note einen #important/#key-Tag hat, +0.05 pro ausgehender Wiki-Link (connectedeness)",
+            "Score-Boosts: +0.1 wenn Note viele eingehende Links hat (backlink-popularity)",
+            "importance_scoring_mode='basic' kompatibel — Obsidian-spezifische Scores werden unabhängig vom allgemeinen Modus gesetzt",
+            "Score bleibt in [0.0, 1.0]"
+          ]
         },
         {
           "id": "OBS-008-003",
-          "title": "Integrationstest mit Mini-Test-Vault",
-          "type": "test",
-          "done": false
+          "title": "Source-Attribution in allen Records",
+          "type": "implementation",
+          "done": false,
+          "depends_on": ["OBS-008-001"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "Jeder index_record und detail_record enthält: vault (vault_name), source_type: 'obsidian_vault'",
+            "file-Feld enthält rel_path relativ zu Vault (nicht absoluter Pfad — kein Leaken von Systempfaden)",
+            "vault_path (absoluter Pfad) ist NICHT in Records — nur vault_name",
+            "Bei resolve_context(): source_type='obsidian_vault' identifizierbar für Ranking"
+          ]
         },
         {
           "id": "OBS-008-004",
-          "title": "Regressionstest für nodes/edges JSONL",
+          "title": "embedding.jsonl für Vektor-Retrieval",
+          "type": "implementation",
+          "done": false,
+          "depends_on": ["OBS-008-001", "OBS-008-003"],
+          "source_refs": [
+            "worker/retrieval/codecompass_output_reader.py",
+            "agent/services/codecompass_vector_retrieval_service.py"
+          ],
+          "acceptance_criteria": [
+            "embedding.jsonl wird als Output-Datei produziert (zusätzlich zu index.jsonl, details.jsonl, graph_nodes.jsonl, graph_edges.jsonl)",
+            "Format: {id, embedding_text, kind, file, vault, ...} pro Record",
+            "Nur Records mit nicht-leerem embedding_text kommen in embedding.jsonl",
+            "Kompatibel mit CodeCompassVectorRetrievalService (bestehender Lader)"
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "OBS-009",
+      "title": "resolve_context Integration",
+      "priority": "high",
+      "mvp": true,
+      "depends_on": ["OBS-008"],
+      "description": "Obsidian-Vault als Quelle in CodeCompassContextService registrieren. Ranking-Regel umsetzen. Vault-Auswahl per domain_hint.",
+      "tasks": [
+        {
+          "id": "OBS-009-001",
+          "title": "Obsidian Output-Dir in CodeCompassContextService registrieren",
+          "type": "implementation",
+          "done": false,
+          "depends_on": [],
+          "source_refs": [
+            "agent/services/codecompass_context_service.py:101 (resolve_context Signatur)",
+            "agent/services/rag_helper_index_service.py (RagHelperIndexService.retrieve)"
+          ],
+          "acceptance_criteria": [
+            "Für jeden enabled Vault: Output-Dir ({data_dir}/knowledge_indices/obsidian_{vault_name}/) wird als zusätzliche Quelle in resolve_context bekannt gemacht",
+            "Vorhandene index.jsonl/details.jsonl/graph_nodes.jsonl aus Vault-Output werden geladen",
+            "Vault-Quelle erscheint in candidate_files mit source_type='obsidian_vault' und vault-Attribut",
+            "Kein Fehler wenn Output-Dir noch nicht existiert (Vault noch nicht indexiert) — nur Info-Log"
+          ]
+        },
+        {
+          "id": "OBS-009-002",
+          "title": "Ranking-Regel: Obsidian niedrigste Priorität",
+          "type": "policy",
+          "done": false,
+          "depends_on": ["OBS-009-001"],
+          "source_refs": [
+            "agent/services/codecompass_context_service.py (Candidate-Ranking-Logik)"
+          ],
+          "acceptance_criteria": [
+            "Ranking-Reihenfolge: Code > AGENTS.md > ADR > Obsidian Notes",
+            "Bei gleichem Relevanz-Score: Code-Records werden vor Obsidian-Records platziert",
+            "importance_score von Obsidian-Records wird mit Faktor <1.0 skaliert (konfigurierbar, default: 0.7)",
+            "Ranking-Faktor konfigurierbar: CodeCompassContextToolConfig erhält obsidian_ranking_factor (float, default=0.7)"
+          ]
+        },
+        {
+          "id": "OBS-009-003",
+          "title": "domain_hint für Vault-Filterung",
+          "type": "implementation",
+          "done": false,
+          "depends_on": ["OBS-009-001"],
+          "source_refs": [
+            "agent/services/codecompass_context_service.py (domain_hint Parameter)"
+          ],
+          "acceptance_criteria": [
+            "domain_hint kann Vault-Namen enthalten (z.B. 'main' oder 'obsidian:main')",
+            "Bei Vault-spezifischem domain_hint: nur dieser Vault wird für Obsidian-Kandidaten berücksichtigt",
+            "Bei domain_hint=None: alle enabled Vaults werden abgefragt"
+          ]
+        },
+        {
+          "id": "OBS-009-004",
+          "title": "Integrations-Test: resolve_context gibt Obsidian-Kandidaten zurück",
           "type": "test",
-          "done": false
+          "done": false,
+          "depends_on": ["OBS-009-002", "OBS-009-003"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "Test mit Mini-Vault: nach Indexierung gibt resolve_context(query='...' ) Obsidian-Kandidaten zurück",
+            "Test: Obsidian-Kandidaten haben niedrigeren Rang als Code-Kandidaten bei gleicher Relevanz",
+            "Test: private Notes erscheinen nie als Kandidaten"
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "OBS-010",
+      "title": "CLI Commands",
+      "priority": "high",
+      "mvp": true,
+      "depends_on": ["OBS-002", "OBS-005", "OBS-009"],
+      "description": "CLI-Befehle für Vault-Management unter 'ananta rag obsidian' Subgruppe.",
+      "tasks": [
+        {
+          "id": "OBS-010-001",
+          "title": "CLI Subcommand-Gruppe 'ananta rag obsidian'",
+          "type": "cli",
+          "done": false,
+          "depends_on": [],
+          "source_refs": [
+            "agent/cli/main.py (build_parser, bestehende rag-Subcommands)",
+            "agent/cli/commands/ (Befehlsmodule)"
+          ],
+          "acceptance_criteria": [
+            "Neue Datei: agent/cli/commands/obsidian_commands.py",
+            "Registriert unter 'ananta rag obsidian' (Subparser der rag-Gruppe)",
+            "'ananta rag obsidian --help' zeigt alle Subcommands",
+            "Alle Befehle laden Settings und validieren Vaults vor Ausführung"
+          ]
+        },
+        {
+          "id": "OBS-010-002",
+          "title": "CLI: scan-vault",
+          "type": "cli",
+          "done": false,
+          "depends_on": ["OBS-010-001", "OBS-002-001"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "Befehl: ananta rag obsidian scan-vault [--vault NAME] [--dry-run] [--verbose]",
+            "Ohne --vault: alle enabled Vaults scannen",
+            "Mit --dry-run: gibt Dateiliste + Statistik aus (Anzahl .md, .canvas, excluded, private), KEINE Indexierung",
+            "Output: Tabelle mit Dateianzahl, davon excluded, davon private, Vault-Pfad",
+            "Exit-Code 1 wenn kein enabled Vault konfiguriert"
+          ]
+        },
+        {
+          "id": "OBS-010-003",
+          "title": "CLI: sync-rag",
+          "type": "cli",
+          "done": false,
+          "depends_on": ["OBS-010-001", "OBS-005-003"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "Befehl: ananta rag obsidian sync-rag [--vault NAME] [--incremental] [--force] [--profile PROFILE]",
+            "--incremental: nur geänderte/neue Dateien verarbeiten (Manifest-basiert)",
+            "--force: Manifest ignorieren, alles neu indexieren",
+            "Ohne Flag: auto-incremental wenn Manifest vorhanden, sonst full",
+            "Progress-Output: [n/total xx%] file.md state=ok (analog zu bestehender emit_progress)",
+            "Am Ende: Zusammenfassung mit index_count, node_count, edge_count, skipped, errors",
+            "Exit-Code 1 bei Fehler, 0 bei Erfolg"
+          ]
+        },
+        {
+          "id": "OBS-010-004",
+          "title": "CLI: export-graph",
+          "type": "cli",
+          "done": false,
+          "depends_on": ["OBS-010-001"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "Befehl: ananta rag obsidian export-graph [--vault NAME] [--output DIR] [--format jsonl|dot]",
+            "--format jsonl (default): kopiert/verlinkt graph_nodes.jsonl und graph_edges.jsonl in --output DIR",
+            "--format dot: exportiert DOT-Format für Graphviz (optional, kann als 'not yet implemented' markiert werden)",
+            "Ohne --output: gibt in stdout aus"
+          ]
+        },
+        {
+          "id": "OBS-010-005",
+          "title": "CLI: list-excluded",
+          "type": "cli",
+          "done": false,
+          "depends_on": ["OBS-010-001", "OBS-003-005"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "Befehl: ananta rag obsidian list-excluded [--vault NAME] [--reason]",
+            "Zeigt alle Dateien die Privacy-Filter ausschließen würde",
+            "--reason: zeigt welcher Mechanismus anschlägt (path_prefix|frontmatter|tag)",
+            "Keine Seiteneffekte: liest nur, schreibt nichts"
+          ]
+        },
+        {
+          "id": "OBS-010-006",
+          "title": "CLI: validate-config",
+          "type": "cli",
+          "done": false,
+          "depends_on": ["OBS-010-001", "OBS-001-003"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "Befehl: ananta rag obsidian validate-config",
+            "Prüft: alle Vault-Pfade existieren und sind lesbar, Config-Schema valide, kein Duplikat-Name",
+            "Gibt strukturierten Report: OK / WARNING / ERROR pro Vault",
+            "Exit-Code 0 wenn alles OK, 1 wenn mindestens ein ERROR"
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "OBS-011",
+      "title": "Write-back (Later)",
+      "priority": "medium",
+      "mvp": false,
+      "depends_on": ["OBS-009"],
+      "description": "Optionaler Write-back von Agent-Run-Summaries und ADR-Drafts in den Vault. Standardmäßig deaktiviert. Nur wenn write_back_enabled=true pro Vault.",
+      "tasks": [
+        {
+          "id": "OBS-011-001",
+          "title": "ObsidianWriteBackService Klasse",
+          "type": "implementation",
+          "done": false,
+          "depends_on": ["OBS-001-001"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "Klasse ObsidianWriteBackService mit vault_profile: ObsidianVaultProfile",
+            "Alle Methoden prüfen write_back_enabled == True — sonst RuntimeError",
+            "read_only-Vault: write_back_enabled kann nicht True sein — Validierung beim Laden",
+            "Schreibt nur in write_back_folder-Unterordner des Vaults — kein Schreiben außerhalb"
+          ]
+        },
+        {
+          "id": "OBS-011-002",
+          "title": "Agent-Run-Summary in Vault schreiben",
+          "type": "implementation",
+          "done": false,
+          "depends_on": ["OBS-011-001"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "write_agent_summary(goal_id, summary_text, metadata) → Path der erstellten Datei",
+            "Dateiname: {write_back_folder}/agent-runs/{YYYY-MM-DD}-{goal_id[:8]}.md",
+            "Datei existiert bereits: NICHT überschreiben (Appendix-Mode oder Skip je nach write_back_overwrite)",
+            "Frontmatter enthält: date, goal_id, source: 'ananta-agent-run'",
+            "Verzeichnis wird erstellt wenn nicht vorhanden"
+          ]
+        },
+        {
+          "id": "OBS-011-003",
+          "title": "ADR-Draft in Vault schreiben",
+          "type": "implementation",
+          "done": false,
+          "depends_on": ["OBS-011-001"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "write_adr_draft(title, content) → Path der erstellten Datei",
+            "Dateiname: {write_back_folder}/adr-drafts/{YYYY-MM-DD}-{slugified_title}.md",
+            "Frontmatter: draft: true, source: 'ananta-adr-proposal', date",
+            "Keine bestehende Datei überschreiben (write_back_overwrite=false: skip + Warning)"
+          ]
+        },
+        {
+          "id": "OBS-011-004",
+          "title": "No-Overwrite Guard",
+          "type": "safety",
+          "done": false,
+          "depends_on": ["OBS-011-002", "OBS-011-003"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "Vor jedem Write: Datei-Existenzprüfung",
+            "write_back_overwrite=false (default): bestehende Datei → skip, Log-Warning 'Skipping write to {path}: file already exists'",
+            "write_back_overwrite=true: bestehende Datei wird überschrieben (explizites Opt-In)",
+            "Kein Write außerhalb des Vault-Verzeichnisses (Path-Traversal-Schutz: Pfad muss Präfix = vault_path haben)"
+          ]
+        },
+        {
+          "id": "OBS-011-005",
+          "title": "Unit-Tests Write-back",
+          "type": "test",
+          "done": false,
+          "depends_on": ["OBS-011-004"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "Test: write_back_enabled=false → RuntimeError bei jedem Write-Versuch",
+            "Test: No-overwrite bei bestehender Datei",
+            "Test: Path-Traversal-Versuch ('../../etc/passwd') → Fehler",
+            "Test mit tmp_path: Datei wird korrekt erstellt mit richtigem Frontmatter"
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "OBS-012",
+      "title": "Tests — Mini-Vault Fixture und Integrationstests",
+      "priority": "high",
+      "mvp": true,
+      "depends_on": ["OBS-004", "OBS-006", "OBS-007"],
+      "description": "Vollständige Test-Suite mit Mini-Test-Vault als Fixture. Unit-Tests bereits in den jeweiligen Epics. Hier: Integrations- und Regressions-Tests.",
+      "tasks": [
+        {
+          "id": "OBS-012-001",
+          "title": "Mini-Test-Vault Fixture aufbauen",
+          "type": "test",
+          "done": false,
+          "depends_on": [],
+          "source_refs": [
+            "tests/fixtures/ (bestehende Fixture-Patterns)"
+          ],
+          "acceptance_criteria": [
+            "Verzeichnis: tests/fixtures/obsidian_test_vault/",
+            "Notes: index.md (Vault-Root, mit [[projects/Alpha]] Link), projects/Alpha.md (mit #project-Tag und Alias), projects/Beta.md (keine Links), private/secret.md (mit private: true Frontmatter), _private/notes.md (Pfad-Präfix privat)",
+            "Canvas: overview.canvas (mit Text-Node, File-Node zu Alpha.md, Edge zwischen beiden)",
+            "Unterordner: projects/, private/, _private/, resources/",
+            "resources/image.png (Nicht-Markdown, für Asset-Referenz-Test)",
+            "Alle Fixtures sind statisch im Repo eingecheckt"
+          ]
+        },
+        {
+          "id": "OBS-012-002",
+          "title": "Integrationstest: vollständiger Vault-Scan → JSONL",
+          "type": "test",
+          "done": false,
+          "depends_on": ["OBS-012-001", "OBS-005-003"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "Test scannt Mini-Vault, schreibt Output in tmp_path",
+            "index.jsonl: enthält Einträge für Alpha, Beta, overview-Canvas, aber NICHT für private/secret.md und _private/notes.md",
+            "graph_nodes.jsonl: enthält obsidian_vault, obsidian_folder (projects), obsidian_note für Alpha+Beta+index, obsidian_canvas für overview",
+            "graph_edges.jsonl: enthält obs_wikilink (index → Alpha), obs_has_tag (Alpha → project), obs_canvas_file_ref (overview → Alpha)",
+            "Kein absoluter Systempfad in Records"
+          ]
+        },
+        {
+          "id": "OBS-012-003",
+          "title": "Snapshot-Regressionstest: JSONL-Inhalt",
+          "type": "test",
+          "done": false,
+          "depends_on": ["OBS-012-002"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "JSONL-Output wird gegen eingecheckte Snapshot-Dateien verglichen (tests/fixtures/expected_obsidian_output/)",
+            "Bei Abweichung: Test schlägt fehl mit Diff-Ausgabe",
+            "Snapshot-Update: pytest --update-snapshots aktualisiert die Baseline"
+          ]
+        },
+        {
+          "id": "OBS-012-004",
+          "title": "Test: Inkrementelles Reindexing",
+          "type": "test",
+          "done": false,
+          "depends_on": ["OBS-002-003"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "Test: Vault komplett indexieren, dann eine Note ändern, dann --incremental",
+            "Nach inkrementellem Sync: nur geänderte Note neu verarbeitet (Manifest-Einträge der anderen unverändert)",
+            "Test: Note löschen → nach Sync kein Eintrag mehr in index.jsonl",
+            "Test: neue Note hinzufügen → nach Sync vorhanden"
+          ]
+        },
+        {
+          "id": "OBS-012-005",
+          "title": "Test: Multi-Vault Isolation",
+          "type": "test",
+          "done": false,
+          "depends_on": ["OBS-001-002"],
+          "source_refs": [],
+          "acceptance_criteria": [
+            "Test mit zwei Vault-Profilen: 'main' und 'work'",
+            "Output landet in separaten Verzeichnissen: knowledge_indices/obsidian_main/ und obsidian_work/",
+            "Tag-Nodes aus 'main' sind nicht mit Tag-Nodes aus 'work' identisch (vault-scoped IDs)",
+            "Deaktivierter Vault (enabled=false) wird nicht indexiert"
+          ]
         }
       ]
     }
   ],
-  "mvp": [
-    "Vault-Pfad konfigurieren",
-    "Markdown-Dateien scannen",
-    "Frontmatter, Links, Tags, Headings extrahieren",
-    "nodes.jsonl und edges.jsonl erzeugen",
-    "CodeCompass resolve_context um Obsidian-Quelle erweitern",
-    "Read-only Default",
-    "Mini-Test-Vault mit Tests"
-  ],
-  "later": [
-    "Write-back von Agent-Logs",
-    "ADR-Drafts",
-    "Obsidian Plugin UI",
-    "Live-Watching per Filesystem Events",
-    "Graph-Visualisierung im ANANTA Frontend"
+
+  "open_questions": [
+    {
+      "id": "Q-001",
+      "question": "Sollen Tag-Nodes vault-übergreifend geteilt werden (gleicher Tag in 'main' und 'work' = ein Node) oder vault-scoped bleiben?",
+      "current_assumption": "vault-scoped (einfacher, sicherer, kein Namespace-Konflikt)",
+      "impact": "OBS-007-005"
+    },
+    {
+      "id": "Q-002",
+      "question": "Welches Embedding-Modell soll für Obsidian-Notes genutzt werden? Gleicher EmbeddingProviderConfig-Scope wie bestehende Indices ('rag_helper') oder eigener Scope 'obsidian_vault'?",
+      "current_assumption": "Scope 'rag_helper' nutzen (kein neuer Config-Aufwand)",
+      "impact": "OBS-008-004"
+    },
+    {
+      "id": "Q-003",
+      "question": "Soll pyyaml als neue Abhängigkeit für Frontmatter-Parsing hinzugefügt werden, oder soll ein eigener minimaler YAML-Parser für Frontmatter genutzt werden?",
+      "current_assumption": "pyyaml ist bereits indirekt abhängig — prüfen ob vorhanden",
+      "impact": "OBS-004-002"
+    }
   ]
 }
-
