@@ -11,6 +11,22 @@ export class CodehugCanvasInteractionService {
     () => `translate(${this.viewTx()},${this.viewTy()}) scale(${this.viewScale()})`,
   );
 
+  private svgElement = signal<SVGSVGElement | null>(null);
+  readonly centerX = computed(() => {
+    const svg = this.svgElement();
+    if (!svg) return Number.NaN;
+    return (svg.clientWidth / 2 - this.viewTx()) / this.viewScale();
+  });
+  readonly centerY = computed(() => {
+    const svg = this.svgElement();
+    if (!svg) return Number.NaN;
+    return (svg.clientHeight / 2 - this.viewTy()) / this.viewScale();
+  });
+
+  registerSvgElement(svg: SVGSVGElement | null): void {
+    this.svgElement.set(svg);
+  }
+
   private dragging: { id: string; ox: number; oy: number } | null = null;
   private panning: { mx: number; my: number; tx: number; ty: number } | null = null;
   private didDrag = false;

@@ -1,4 +1,5 @@
 import {
+  AfterViewInit,
   ChangeDetectionStrategy,
   Component,
   ElementRef,
@@ -36,7 +37,7 @@ import {
   templateUrl: './codehug-internals.component.html',
   styleUrls: ['./codehug-internals.component.scss'],
 })
-export class CodeHugInternalsComponent implements OnInit, OnDestroy {
+export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('svgEl') svgElRef!: ElementRef<SVGSVGElement>;
   @ViewChild(CodehugNodeInspectorComponent) nodeInspector?: CodehugNodeInspectorComponent;
 
@@ -105,9 +106,14 @@ export class CodeHugInternalsComponent implements OnInit, OnDestroy {
       .subscribe(s => this.autopilot.set(s));
   }
 
+  ngAfterViewInit(): void {
+    this.canvas.registerSvgElement(this.svgElRef.nativeElement);
+  }
+
   ngOnDestroy(): void {
     this._pollSub?.unsubscribe();
     this.workflowRunner.destroy();
+    this.canvas.registerSvgElement(null);
   }
 
   onBlueprintChange(id: string): void {
@@ -402,13 +408,6 @@ export class CodeHugInternalsComponent implements OnInit, OnDestroy {
   isComplexNode(node: CanvasNode): boolean { return this.nodeInspector?.isComplexNode(node) ?? false; }
   routingLabel(node: CanvasNode): string { return this.nodeInspector?.routingLabel(node) ?? ''; }
   routingBadgeW(node: CanvasNode): number { return this.nodeInspector?.routingBadgeW(node) ?? 0; }
-  readonly viewCenter = (): { cx: number; cy: number } => {
-    const svg = this.svgElRef.nativeElement;
-    return {
-      cx: (svg.clientWidth / 2 - this.viewTx()) / this.viewScale(),
-      cy: (svg.clientHeight / 2 - this.viewTy()) / this.viewScale(),
-    };
-  };
 
   nodeIsActive(node: CanvasNode): boolean {
     const activeStep = this.activeWorkflowStepId();

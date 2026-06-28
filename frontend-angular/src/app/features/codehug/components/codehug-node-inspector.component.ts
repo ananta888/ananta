@@ -1,6 +1,7 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, Signal, WritableSignal, computed } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, Signal, WritableSignal, computed, inject } from '@angular/core';
 import { SlicePipe } from '@angular/common';
 
+import { CodehugCanvasInteractionService } from '../services/codehug-canvas-interaction.service';
 import { AnantaWorker, VpSkillProfile } from '../services/internals.service';
 import {
   ARTIFACT_KINDS, BACKENDS, CAPABILITIES, VP_KINDS,
@@ -17,6 +18,8 @@ import {
   styleUrls: ['./codehug-internals.component.scss'],
 })
 export class CodehugNodeInspectorComponent {
+  private readonly canvas = inject(CodehugCanvasInteractionService);
+
   @Input({ required: true }) nodes!: WritableSignal<CanvasNode[]>;
   @Input({ required: true }) edges!: WritableSignal<CanvasEdge[]>;
   @Input({ required: true }) selectedNodeId!: WritableSignal<string | null>;
@@ -27,7 +30,6 @@ export class CodehugNodeInspectorComponent {
   @Input({ required: true }) detRunResult!: Signal<Record<string, unknown> | null>;
   @Input({ required: true }) detRunning!: Signal<boolean>;
   @Input() activeStepId: string | null = null;
-  @Input() centerProvider: () => { cx: number; cy: number } = () => ({ cx: 300, cy: 200 });
   @Output() runDeterministic = new EventEmitter<CanvasNode>();
 
   readonly ARTIFACT_KINDS = ARTIFACT_KINDS;
@@ -40,7 +42,8 @@ export class CodehugNodeInspectorComponent {
   private edgeSequence = 1000;
 
   addNode(type: CanvasNode['type']): void {
-    const { cx, cy } = this.centerProvider();
+    const cx = Number.isFinite(this.canvas.centerX()) ? this.canvas.centerX() : 300;
+    const cy = Number.isFinite(this.canvas.centerY()) ? this.canvas.centerY() : 200;
     const id = `${type}-${++this.nodeSequence}`;
     const role = this.currentRoles()[this.nodes().filter(node => node.type === 'task').length % Math.max(1, this.currentRoles().length)] ?? '';
     const dimensions = ['fork', 'join'].includes(type) ? { w: 120, h: 52 } : { w: 220, h: 68 };

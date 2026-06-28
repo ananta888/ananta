@@ -7,9 +7,9 @@ import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import {
   VisualProcessApiService,
-  VpGraph, VpStep, VpEdge, ArtifactRef,
-  ValidationResult, DryRunResult, SkillProfile, PresetSummary,
-  TaskKindInfo, SavedGraphSummary, WorkflowStatus, StepExecutionPlan,
+  VpGraph, VpStep, VpEdge,
+  SkillProfile, PresetSummary,
+  TaskKindInfo, SavedGraphSummary,
 } from './visual-process-api.service';
 import { VpCanvasInteractionService } from './vp-canvas-interaction.service';
 import { VpImportExportService } from './vp-import-export.service';
@@ -17,7 +17,7 @@ import { VpStepInspectorComponent } from './vp-step-inspector.component';
 import { VpWorkflowRunnerService } from './vp-workflow-runner.service';
 
 import {
-  ENCODING_MODES, FALLBACK_KINDS, NODE_H, NODE_W, RAG_CHANNELS,
+  ENCODING_MODES, FALLBACK_KINDS, NODE_W, RAG_CHANNELS,
   autoLayoutGraph, edgeId, emptyGraph, hintColor, nodeKindColor, stepId,
 } from './vp-editor-config';
 
