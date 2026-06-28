@@ -531,3 +531,8 @@ def _render_bpmn_collaboration(params: dict[str, Any]) -> tuple[str, str]:
     lines.append("  </bpmndi:BPMNDiagram>")
     lines.append("</bpmn:definitions>")
     return "\n".join(lines) + "\n", "collaboration.bpmn"
+
+
+render_bpmn_process = _render_bpmn_process
+render_bpmn_pool_lane = _render_bpmn_pool_lane
+render_bpmn_collaboration = _render_bpmn_collaboration

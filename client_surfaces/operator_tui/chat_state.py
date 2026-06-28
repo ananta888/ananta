@@ -1,19 +1,4 @@
-"""T02.01 + T02.03: Chat-State – Channel-Modell und ChatMessage-v1.
-
-Channel types: room, direct, ai, notes, system
-Message fields: id, created_at, channel_id, channel_type, sender_id, sender_kind,
-                target_ids, text, visibility, delivery_state, policy_decision_ref
-
-This module is the public API façade.  All symbols live in the sub-modules
-below and are re-exported here so existing ``from chat_state import …``
-calls continue to work unchanged.
-
-Sub-module layout (FSR-M07):
-  chat_models   — Enums, SourceRef, ChatAnswerBlock, make_message, make_heuristic_message
-  chat_channel  — make_channel, default_channels, channel helpers
-  chat_session  — session defaults/CRUD, effective-settings merge
-  chat_message  — append_message, sanitize_text, unread helpers
-"""
+"""Backward-compatible facade for the split operator-TUI chat state."""
 from __future__ import annotations
 
 import time
@@ -78,9 +63,6 @@ from client_surfaces.operator_tui.chat_message import (
     maybe_add_prediction_comment,
     append_artifact_graph_explanation,
 )
-
-
-# ── Top-level chat state container ────────────────────────────────────────────
 
 
 def default_chat_state(local_snake_id: str = "s1") -> dict[str, Any]:

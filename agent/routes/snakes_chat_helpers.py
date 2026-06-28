@@ -121,6 +121,7 @@ def _fit_answer_to_chars(
     timeout: int = 60,
     overflow_policy: str | None = None,
     never_truncate: bool | None = None,
+    text_generator: Any = None,
 ) -> str:
     value = str(text or "").strip()
     safe_limit = max(600, min(50000, int(limit or 0)))
@@ -143,7 +144,7 @@ def _fit_answer_to_chars(
     )
     try:
         max_output_tokens = max(200, min(8000, safe_limit // 3))
-        compressed = generate_text(
+        compressed = (text_generator or generate_text)(
             prompt=compress_prompt,
             provider=provider,
             model=model,
@@ -185,7 +186,7 @@ def _append_room_ai_message(*, text: str, session_id: str = "", visibility: str 
     }
     if ui_snapshot:
         msg["ui_snapshot"] = ui_snapshot[:500]
-    from agent.routes.snakes import _room_messages, _MAX_ROOM_MSGS  # lazy to avoid circular import
+    from agent.routes.snakes_state import _room_messages, _MAX_ROOM_MSGS
     _room_messages.append(msg)
     if len(_room_messages) > _MAX_ROOM_MSGS:
         del _room_messages[:-_MAX_ROOM_MSGS]
@@ -199,7 +200,7 @@ def _build_room_conversation_history(
     max_messages: int = 8,
 ) -> list[dict[str, str]]:
     """Return recent room messages before the current user turn for LLM history."""
-    from agent.routes.snakes import _room_messages  # lazy to avoid circular import
+    from agent.routes.snakes_state import _room_messages
     current = str(current_text or "").strip()
     requested_session_id = str(session_id or "").strip()
     current_idx: int | None = None

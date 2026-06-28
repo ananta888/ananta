@@ -221,3 +221,6 @@ def _render_mermaid_sequence(params: dict[str, Any]) -> tuple[str, str]:
 
     _emit_fragment(fragments, indent=1)
     return "\n".join(lines) + "\n", "diagram.mmd"
+
+
+render_mermaid_sequence = _render_mermaid_sequence

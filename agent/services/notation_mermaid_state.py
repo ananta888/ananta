@@ -103,3 +103,6 @@ def _render_mermaid_state(params: dict[str, Any]) -> tuple[str, str]:
         label = " : " + " ".join(parts) if parts else ""
         lines.append(f"  {frm} --> {to}{label}")
     return "\n".join(lines) + "\n", "diagram.mmd"
+
+
+render_mermaid_state = _render_mermaid_state

@@ -1,18 +1,4 @@
-"""VACGE-001/002: ConfigGraphBuilderService.
-
-Builds an ``ananta_configuration_graph.v1`` snapshot from all runtime-active
-configuration sources:
-  - docs/agent-profiles/profile-map.json   (agent profiles)
-  - AGENTS.md / profile AGENTS.md          (instruction layers)
-  - agent/services/planning_utils.py       (goal templates)
-  - AnantaToolRegistryService              (tools + tool groups)
-  - PathAiModePolicyService                (path rules)
-  - EmbeddingProviderConfigService         (embedding models)
-
-Every node carries a ``source_file`` ref and a ``runtime_active`` flag.
-Stale / hardcoded sources are marked with a ``stale`` diagnostic.
-Missing or conflicting sources produce diagnostics instead of crashing.
-"""
+"""Build the runtime-active Ananta configuration graph."""
 from __future__ import annotations
 
 import json

@@ -98,3 +98,6 @@ def _render_mermaid_usecase(params: dict[str, Any]) -> tuple[str, str]:
         to = _as_str(lnk.get("to"), field="extends[].to")
         lines.append(f"  {frm} -.-> {to} : <<extend>>")
     return "\n".join(lines) + "\n", "diagram.mmd"
+
+
+render_mermaid_usecase = _render_mermaid_usecase

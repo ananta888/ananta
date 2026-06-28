@@ -117,3 +117,6 @@ def _render_mermaid_class(params: dict[str, Any]) -> tuple[str, str]:
         )
         lines.append(f"  {frm} {arrow} {to}")
     return "\n".join(lines) + "\n", "diagram.mmd"
+
+
+render_mermaid_class = _render_mermaid_class

@@ -8,7 +8,7 @@ from typing import Any
 
 from flask import jsonify, request
 
-from .snakes import (
+from .snakes_state import (
     _MAX_SNAKES,
     _VALID_COLORS,
     _VALID_ROLES,

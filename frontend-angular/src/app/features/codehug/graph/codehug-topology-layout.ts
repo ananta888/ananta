@@ -55,7 +55,7 @@ const NODE_H_LAYER = 58;
 const NODE_W_RULE = 170;
 const NODE_H_RULE = 50;
 
-export function autoLayout(topology: ChTopologyReadModel): { nodes: ChCanvasNode[]; edges: ChCanvasEdge[] } {
+export function buildTopologyGraph(topology: ChTopologyReadModel): { nodes: ChCanvasNode[]; edges: ChCanvasEdge[] } {
   const nodes: ChCanvasNode[] = [];
   const edges: ChCanvasEdge[] = [];
 
@@ -174,3 +174,6 @@ export function autoLayout(topology: ChTopologyReadModel): { nodes: ChCanvasNode
 
   return { nodes, edges };
 }
+
+/** @deprecated Use buildTopologyGraph. */
+export const autoLayout = buildTopologyGraph;

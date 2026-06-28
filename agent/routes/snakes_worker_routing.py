@@ -14,7 +14,7 @@ from .snakes_chat_helpers import SnakeAskLimits, _fit_answer_to_chars
 
 
 def _get_snakes() -> dict:
-    from agent.routes.snakes import _snakes  # lazy to avoid circular import
+    from agent.routes.snakes_state import _snakes
     return _snakes
 
 
@@ -89,19 +89,21 @@ def _worker_propose(
     provider: str = "lmstudio",
     limits: SnakeAskLimits | None = None,
     retrieval_profile_trace: dict[str, Any] | None = None,
+    worker_picker: Any = None,
+    model_resolver: Any = None,
 ) -> tuple[str, dict[str, Any]]:
     """Forward prompt to worker /step/propose. Returns (answer, trace)."""
     from agent.services.task_runtime_service import forward_to_worker
 
     effective_limits = limits or SnakeAskLimits()
     trace: dict[str, Any] = {}
-    worker_url, token = _pick_worker_for_ask()
+    worker_url, token = (worker_picker or _pick_worker_for_ask)()
     trace["worker_url"] = worker_url
     if not worker_url:
         trace["error"] = "no_online_worker"
         return "", trace
 
-    resolved_model = _resolve_lmstudio_model_for_worker(model)
+    resolved_model = (model_resolver or _resolve_lmstudio_model_for_worker)(model)
     trace["model_requested"] = model
     trace["model_resolved"] = resolved_model
     payload: dict[str, Any] = {

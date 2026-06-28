@@ -12,8 +12,16 @@ from agent.rag_query_normalizer import normalize_query_from_settings
 # Re-exports für Rückwärtskompatibilität
 from agent.repository_map_engine import ContextChunk, RepositoryMapEngine
 from agent.agentic_search_engine import AgenticSearchEngine, SearchSkill
+from agent import semantic_search_engine as _semantic_search
 from agent.semantic_search_engine import SemanticSearchEngine
 from agent.context_manager import ContextManager
+
+# Compatibility aliases for callers that replace optional semantic-search
+# dependencies through the historical facade.
+StorageContext = _semantic_search.StorageContext
+VectorStoreIndex = _semantic_search.VectorStoreIndex
+load_index_from_storage = _semantic_search.load_index_from_storage
+SimpleDirectoryReader = _semantic_search.SimpleDirectoryReader
 
 __all__ = [
     "ContextChunk",
@@ -67,6 +75,10 @@ class HybridOrchestrator:
             max_commands=agentic_max_commands,
             command_timeout_seconds=agentic_timeout_seconds,
         )
+        _semantic_search.StorageContext = StorageContext
+        _semantic_search.VectorStoreIndex = VectorStoreIndex
+        _semantic_search.load_index_from_storage = load_index_from_storage
+        _semantic_search.SimpleDirectoryReader = SimpleDirectoryReader
         self.semantic_engine = SemanticSearchEngine(self.data_roots, persist_dir=persist_dir)
         self.codecompass_vector_service = codecompass_vector_service
         self._global_config: dict = dict(global_config or {})

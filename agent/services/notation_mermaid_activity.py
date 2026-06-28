@@ -100,3 +100,6 @@ def _render_mermaid_activity(params: dict[str, Any]) -> tuple[str, str]:
         else:
             lines.append(f"  {frm} --> {to}")
     return "\n".join(lines) + "\n", "diagram.mmd"
+
+
+render_mermaid_activity = _render_mermaid_activity

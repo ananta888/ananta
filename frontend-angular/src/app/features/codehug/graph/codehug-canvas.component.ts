@@ -32,46 +32,24 @@ import {
   ChNodeRunState,
   ChCanvasNode,
   ChCanvasEdge,
-  autoLayout,
+  buildTopologyGraph,
+} from './codehug-topology-layout';
+import {
+  badgeFill,
+  edgePath as buildEdgePath,
+  kindLabel,
+  nodeFilter,
+  nodeStyle,
+  runStateLabel,
+} from './codehug-canvas-presentation';
+
+export type {
+  ChNodeKind,
+  ChNodeRunState,
+  ChCanvasNode,
+  ChCanvasEdge,
 } from './codehug-topology-layout';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Node visual config
-// ─────────────────────────────────────────────────────────────────────────────
-
-interface NodeStyle { fill: string; stroke: string; strokeWidth: number; textColor: string; icon: string; }
-
-function nodeStyle(kind: ChNodeKind): NodeStyle {
-  switch (kind) {
-    case 'hub':          return { fill: '#fef3c7', stroke: '#d97706', strokeWidth: 2.5, textColor: '#78350f', icon: '⬡' };
-    case 'worker-llm':   return { fill: '#dbeafe', stroke: '#2563eb', strokeWidth: 1.5, textColor: '#1e40af', icon: '◈' };
-    case 'worker-det':   return { fill: '#f3f4f6', stroke: '#6b7280', strokeWidth: 1.5, textColor: '#374151', icon: '⚙' };
-    case 'policy-layer': return { fill: '#fff7ed', stroke: '#ea580c', strokeWidth: 1.5, textColor: '#7c2d12', icon: '⚖' };
-    case 'test-layer':   return { fill: '#f0fdf4', stroke: '#16a34a', strokeWidth: 1.5, textColor: '#14532d', icon: '▣' };
-    case 'routing-rule': return { fill: '#f0fdfa', stroke: '#0d9488', strokeWidth: 1.5, textColor: '#134e4a', icon: '⤳' };
-  }
-}
-
-function runStateGlow(state: ChNodeRunState): string | null {
-  switch (state) {
-    case 'active':    return '#3b82f6';
-    case 'completed': return '#22c55e';
-    case 'failed':    return '#ef4444';
-    default:          return null;
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Component
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * CodeHugCanvasComponent — interaktiver Node-Canvas für die Internals-Ansicht.
- *
- * Stellt die Hub/Worker-Topologie, Test-Layer und Routing-Regeln als
- * positionierbare, klickbare Nodes auf einem SVG-Canvas dar.
- * Unterstützt Drag/Zoom/Pan, Node-Inspektion und Live-Lauf-Highlighting.
- */
 @Component({
   selector: 'ch-canvas',
   standalone: true,
@@ -96,7 +74,6 @@ export class CodeHugCanvasComponent implements AfterViewInit, OnChanges {
   readonly selectedNodeId = signal<string | null>(null);
   readonly selectedNode = computed(() => this.nodes().find(n => n.id === this.selectedNodeId()) ?? null);
 
-  // Viewport
   readonly panX = signal(40);
   readonly panY = signal(30);
   readonly zoom = signal(1);
@@ -109,7 +86,6 @@ export class CodeHugCanvasComponent implements AfterViewInit, OnChanges {
     `translate(${this.panX() % 24},${this.panY() % 24})`
   );
 
-  // Active run step for the currently selected node
   readonly activeRunStep = computed((): ChAgentStepReadModel | null => {
     const node = this.selectedNode();
     const run = this.activeRun;
@@ -121,7 +97,6 @@ export class CodeHugCanvasComponent implements AfterViewInit, OnChanges {
 
   readonly backends: ChCliBackend[] = ['sgpt', 'opencode', 'codex', 'claude_code', 'aider', 'mistral', 'deterministic'];
 
-  // Drag state (not signal — purely internal)
   private _draggingNodeId: string | null = null;
   private _didDrag = false;
   private _dragStartSvgX = 0;
@@ -147,11 +122,9 @@ export class CodeHugCanvasComponent implements AfterViewInit, OnChanges {
     }
   }
 
-  // ── Canvas building ───────────────────────────────────────────────────────
-
   private rebuildCanvas(): void {
     if (!this.topology) return;
-    const { nodes, edges } = autoLayout(this.topology);
+    const { nodes, edges } = buildTopologyGraph(this.topology);
     this.nodes.set(nodes);
     this.edges.set(edges);
     if (this.activeRun) this.applyRunState();
@@ -174,7 +147,6 @@ export class CodeHugCanvasComponent implements AfterViewInit, OnChanges {
       return { ...n, runState };
     }));
 
-    // also mark hub as active if run is running
     this.nodes.update(nodes => nodes.map(n => {
       if (n.kind !== 'hub') return n;
       const state: ChNodeRunState = run.status === 'running' ? 'active' : run.status === 'succeeded' ? 'completed' : run.status === 'failed' ? 'failed' : 'idle';
@@ -270,78 +242,21 @@ export class CodeHugCanvasComponent implements AfterViewInit, OnChanges {
     this.zoom.set(newZoom);
   }
 
-  // ── SVG helpers ───────────────────────────────────────────────────────────
-
   nodeTransform(node: ChCanvasNode): string {
     return `translate(${node.x}, ${node.y})`;
   }
 
-  nodeFilter(node: ChCanvasNode): string | null {
-    switch (node.runState) {
-      case 'active': return 'url(#ch-cv-glow-active)';
-      case 'completed': return 'url(#ch-cv-glow-completed)';
-      case 'failed': return 'url(#ch-cv-glow-failed)';
-      default: return null;
-    }
-  }
+  readonly nodeFilter = nodeFilter;
 
   edgePath(edge: ChCanvasEdge): { d: string; labelX: number; labelY: number } | null {
-    const from = this.nodes().find(n => n.id === edge.fromId);
-    const to = this.nodes().find(n => n.id === edge.toId);
-    if (!from || !to) return null;
-    const x1 = from.x + from.w / 2;
-    const y1 = from.y + from.h;
-    const x2 = to.x + to.w / 2;
-    const y2 = to.y;
-    const mx = (x1 + x2) / 2;
-    const my = (y1 + y2) / 2;
-    const cpY = (y1 + y2) / 2;
-    return {
-      d: `M ${x1} ${y1} C ${x1} ${cpY}, ${x2} ${cpY}, ${x2} ${y2}`,
-      labelX: mx,
-      labelY: my - 4,
-    };
+    return buildEdgePath(edge, this.nodes());
   }
 
-  getStyle(kind: ChNodeKind): NodeStyle {
-    return nodeStyle(kind);
-  }
-
-  badgeFill(node: ChCanvasNode): string {
-    const s = node.badge;
-    if (s === 'online' || s === 'healthy' || s === 'on') return '#16a34a';
-    if (s === 'offline' || s === 'unhealthy' || s === 'off') return '#dc2626';
-    if (s === 'degraded') return '#f59e0b';
-    return '#6b7280';
-  }
-
-  badgeText(node: ChCanvasNode): string {
-    const f = this.badgeFill(node);
-    return f === '#6b7280' ? '#fff' : '#fff';
-  }
-
-  kindLabel(kind: ChNodeKind): string {
-    const map: Record<ChNodeKind, string> = {
-      'hub': 'Hub-Instanz',
-      'worker-llm': 'LLM-Worker',
-      'worker-det': 'Deterministic Worker',
-      'policy-layer': 'Policy-Layer',
-      'test-layer': 'Test-/Instruktions-Layer',
-      'routing-rule': 'Routing-Regel',
-    };
-    return map[kind] ?? kind;
-  }
-
-  runStateLabel(state: ChNodeRunState): string {
-    const map: Record<ChNodeRunState, string> = {
-      idle: 'Inaktiv',
-      active: 'Aktiv',
-      completed: 'Abgeschlossen',
-      failed: 'Fehler',
-      skipped: 'Übersprungen',
-    };
-    return map[state] ?? state;
-  }
+  readonly getStyle = nodeStyle;
+  readonly badgeFill = badgeFill;
+  readonly badgeText = () => '#fff';
+  readonly kindLabel = kindLabel;
+  readonly runStateLabel = runStateLabel;
 
   private toSvgCoords(e: MouseEvent): { x: number; y: number } {
     const svgEl = this.svgRef?.nativeElement;
@@ -349,8 +264,6 @@ export class CodeHugCanvasComponent implements AfterViewInit, OnChanges {
     const rect = svgEl.getBoundingClientRect();
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   }
-
-  // ── Inspector type helpers ────────────────────────────────────────────────
 
   asHub(p: unknown): ChHubInstanceReadModel { return p as ChHubInstanceReadModel; }
   asWorker(p: unknown): ChWorkerInstanceReadModel { return p as ChWorkerInstanceReadModel; }
