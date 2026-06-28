@@ -164,11 +164,11 @@
     {
       "id": "X86CC-001",
       "title": "x86/Assembly Core Extension Contract definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "architecture",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Es gibt ein dokumentiertes Contract-Dokument `docs/codecompass-x86-assembly-core-extension.md`.",
         "Das Dokument beschreibt Scope, Non-Goals, Datenmodell, Sicherheitsgrenzen, Feature-Flags, Indexing Flow und Tooling.",
@@ -177,16 +177,18 @@
         "Der Contract enthält Beispiele für raw assembly, disassembler export und binary metadata.",
         "Der Contract benennt explizit, dass keine Binary-Ausführung Teil dieser Core-Erweiterung ist.",
         "Review-Kriterium: Ein späterer Malware- oder C-Lifting-Track kann eindeutig auf diesen Contract verweisen, ohne eigene Core-Schema-Felder neu zu erfinden."
-      ]
+      ],
+      "evidence": "docs/codecompass-x86-assembly-core-extension.md (6818 chars); tests/codecompass/x86/test_doc_contract.py (13 tests)",
+      "result": "13 passed in 6.08s (commit 4d3a05bdc)"
     },
     {
       "id": "X86CC-002",
       "title": "Feature-Flags und Profile für x86-CodeCompass einführen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "configuration",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Es gibt ein zentrales Feature-Flag, z. B. `ANANTA_CODECOMPASS_X86_ENABLED`.",
         "Default ist `false`, sodass bestehende CodeCompass-Indexläufe unverändert bleiben.",
@@ -194,7 +196,9 @@
         "Profile unterscheiden mindestens `x86_64_sysv`, `x86_64_windows`, `x86_32_cdecl`, `x86_32_stdcall` und `unknown_x86`.",
         "Ungültige Profile erzeugen klare Diagnostics und fallen nicht still auf falsche Defaults zurück.",
         "Tests prüfen Default-off, explizit-on, ungültiges Profil und deaktivierte Teilfeatures."
-      ]
+      ],
+      "evidence": "tests/codecompass/x86/test_config.py (12 tests)",
+      "result": "12 passed in 5.81s (commit 004aea85f). Skeleton in agent/codecompass/x86/config.py already correct."
     },
     {
       "id": "X86CC-003",
@@ -1081,13 +1085,17 @@
   },
   "welle_progress": {
     "W1": {
-      "status": "todo",
+      "status": "in_progress",
       "tasks": [
         "X86CC-001",
         "X86CC-002",
         "X86CC-003",
         "X86CC-004",
         "X86CC-005"
+      ],
+      "completed": [
+        "X86CC-001",
+        "X86CC-002"
       ]
     },
     "W2": {
