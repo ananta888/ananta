@@ -48,20 +48,22 @@ def set_correlation_id(cid: str):
     correlation_id_ctx.set(cid)
 
 
+_ORIGINAL_LOG_RECORD_FACTORY = logging.getLogRecordFactory()
+
+
+def _ananta_record_factory(*args, **kwargs):
+    record = _ORIGINAL_LOG_RECORD_FACTORY(*args, **kwargs)
+    record.correlation_id = correlation_id_ctx.get()
+    return record
+
+
 def setup_logging(
     level: str = "INFO", json_format: bool = False, log_file: Optional[str] = None, config_path: str = "log_config.yaml"
 ):
     """Konfiguriert das Logging-System."""
 
-    # Factory für LogRecords anpassen, um correlation_id immer dabei zu haben
-    old_factory = logging.getLogRecordFactory()
-
-    def record_factory(*args, **kwargs):
-        record = old_factory(*args, **kwargs)
-        record.correlation_id = correlation_id_ctx.get()
-        return record
-
-    logging.setLogRecordFactory(record_factory)
+    # Always install the same factory instance — idempotent, no wrapping chain.
+    logging.setLogRecordFactory(_ananta_record_factory)
 
     if os.path.exists(config_path):
         try:

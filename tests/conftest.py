@@ -364,6 +364,65 @@ def cleanup_db_and_runtime():
         except Exception:
             pass
 
+        # --- Mutable module-level singletons ---
+
+        try:
+            import agent.services.ssh_certificate_issuer as _ssh
+
+            _ssh._KNOWN_NONCES.clear()
+            _ssh._ALLOWED_ISSUERS_FROM_CONFIG = None
+        except Exception:
+            pass
+
+        try:
+            import agent.routes.auth_oidc as _oidc
+
+            _oidc._FRONTEND_TOKEN_EXCHANGE_CODES.clear()
+            _oidc._OIDC_LOGIN_REQUESTS.clear()
+        except Exception:
+            pass
+
+        try:
+            import agent.routes.snakes_state as _ss
+
+            _ss._snakes.clear()
+            _ss._messages.clear()
+            _ss._chat_messages.clear()
+        except Exception:
+            pass
+
+        try:
+            import agent.services.terminal_session_service as _tss
+
+            _tss._ATTACH_TOKENS.clear()
+        except Exception:
+            pass
+
+        try:
+            import agent.llm_resilience as _res
+
+            _res._RATE_LIMIT_WINDOW.clear()
+            _res._ERR_SUCCESS_WINDOW.clear()
+            _res._ERR_FAILURE_WINDOW.clear()
+        except Exception:
+            pass
+
+        try:
+            import agent.llm_integration as _llmi
+
+            _llmi._LOCAL_RUNTIME_SELECTION_CACHE.clear()
+        except Exception:
+            pass
+
+        try:
+            from agent.common import lmstudio_request_registry as _lms
+
+            _lms._goal_sessions.clear()
+            _lms._task_sessions.clear()
+            _lms._thread_context.clear()
+        except Exception:
+            pass
+
         runtime = _db_runtime()
         inspector = runtime["inspect"](runtime["engine"])
         session_cls = runtime["Session"]
@@ -476,6 +535,26 @@ def isolate_operator_tui_user_config(tmp_path, monkeypatch):
         ucm.reset_manager()
     except Exception:
         yield
+
+
+@pytest.fixture(autouse=True)
+def _reset_log_record_factory():
+    """Restore log record factory after each test.
+
+    setup_logging() installs a custom record factory. If a test calls
+    create_app() (which triggers setup_logging()), the factory gets replaced.
+    Without this fixture the factories accumulate across tests in the full run
+    until the call stack overflows (~950 levels → RecursionError).
+
+    The production-side fix in agent/common/logging.py makes setup_logging()
+    idempotent; this fixture is a belt-and-suspenders guard for any other code
+    path that may swap the factory.
+    """
+    import logging as _logging
+
+    factory_before = _logging.getLogRecordFactory()
+    yield
+    _logging.setLogRecordFactory(factory_before)
 
 
 @pytest.fixture(autouse=True)
