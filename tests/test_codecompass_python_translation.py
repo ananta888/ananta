@@ -280,6 +280,90 @@ class TestPythonAdapter:
 
 
 # ---------------------------------------------------------------------------
+# PYJR-009: Python Exception und Error Flow
+# ---------------------------------------------------------------------------
+
+class TestPythonExceptionFlow:
+    def _adapt(self, code: str) -> dict:
+        from agent.codecompass.semantic_translation.python_adapter import PythonSemanticAdapter
+        return PythonSemanticAdapter().parse("test.py", code)
+
+    def _detect(self, code: str) -> object:
+        from agent.codecompass.semantic_translation.python_dynamic_detector import detect_dynamic_features
+        return detect_dynamic_features(code)
+
+    def test_raise_extracted(self):
+        code = "def fail(x: int) -> None:\n    raise ValueError('bad')"
+        parsed = self._adapt(code)
+        fn = parsed["functions"][0]
+        exc = fn.get("exception_info", {})
+        assert "ValueError" in exc.get("raises", [])
+
+    def test_try_except_extracted(self):
+        code = "def safe(x: int) -> int:\n    try:\n        return int(x)\n    except ValueError:\n        return 0"
+        parsed = self._adapt(code)
+        fn = parsed["functions"][0]
+        exc = fn.get("exception_info", {})
+        assert exc.get("has_try") is True
+        assert "ValueError" in exc.get("handled", [])
+
+    def test_finally_extracted(self):
+        code = "def cleanup() -> None:\n    try:\n        pass\n    finally:\n        pass"
+        parsed = self._adapt(code)
+        fn = parsed["functions"][0]
+        exc = fn.get("exception_info", {})
+        assert exc.get("has_finally") is True
+
+    def test_bare_except_blocks_transform(self):
+        code = "def risky() -> None:\n    try:\n        pass\n    except:\n        pass"
+        parsed = self._adapt(code)
+        fn = parsed["functions"][0]
+        exc = fn.get("exception_info", {})
+        assert exc.get("has_bare_except") is True
+        assert "bare_except_blocks_auto_transform" in fn.get("warnings", [])
+
+    def test_bare_except_detected_as_blocker(self):
+        code = "def risky() -> None:\n    try:\n        pass\n    except:\n        pass"
+        result = self._detect(code)
+        assert result.has_blockers
+        assert "bare_except" in result.blocker_codes
+
+    def test_dynamic_exception_type_is_flagged(self):
+        code = "def risky() -> None:\n    try:\n        pass\n    except:\n        pass"
+        parsed = self._adapt(code)
+        fn = parsed["functions"][0]
+        assert fn["exception_info"]["dynamic_exception_types"] is True
+
+    def test_clean_function_no_exception_info_issues(self):
+        code = "def add(a: int, b: int) -> int:\n    return a + b"
+        parsed = self._adapt(code)
+        fn = parsed["functions"][0]
+        exc = fn.get("exception_info", {})
+        assert exc.get("has_bare_except") is False
+        assert exc.get("has_try") is False
+        assert not exc.get("raises")
+
+    def test_rust_exception_policy_for_known_exception(self):
+        from agent.codecompass.semantic_translation.rust_ownership_policy import RustOwnershipPolicyEngine
+        engine = RustOwnershipPolicyEngine()
+        d = engine.classify_exception_policy("ValueError")
+        assert d.rust_policy == "result_t_e"
+
+    def test_rust_exception_policy_bare_blocks(self):
+        from agent.codecompass.semantic_translation.rust_ownership_policy import RustOwnershipPolicyEngine
+        engine = RustOwnershipPolicyEngine()
+        d = engine.classify_exception_policy("Exception")
+        assert d.rust_policy == "needs_review"
+        assert any("bare_exception" in w for w in d.warnings)
+
+    def test_unsupported_exception_type_needs_review(self):
+        from agent.codecompass.semantic_translation.rust_ownership_policy import RustOwnershipPolicyEngine
+        engine = RustOwnershipPolicyEngine()
+        d = engine.classify_exception_policy("SomeWeirdDomainException")
+        assert d.rust_policy == "needs_review"
+
+
+# ---------------------------------------------------------------------------
 # PYJR-010: Dynamic Feature Detector
 # ---------------------------------------------------------------------------
 

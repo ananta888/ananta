@@ -107,6 +107,13 @@ class _DynamicVisitor(ast.NodeVisitor):
                     ))
         self.generic_visit(node)
 
+    def visit_ExceptHandler(self, node: ast.ExceptHandler) -> None:
+        if node.type is None:
+            self.result.features.append(DynamicFeature(
+                "bare_except", "bare except: without exception type — blocks auto-transform", self.path, node.lineno, "blocker"
+            ))
+        self.generic_visit(node)
+
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         for alias in node.names:
             if alias.name == "*":

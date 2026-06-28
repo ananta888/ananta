@@ -420,6 +420,10 @@ def _extract_function_info(node: ast.FunctionDef | ast.AsyncFunctionDef) -> dict
                 warnings.append("dynamic_import_detected")
                 break
 
+    exception_info = _extract_exception_flow(node)
+    if exception_info.get("has_bare_except"):
+        warnings.append("bare_except_blocks_auto_transform")
+
     return {
         "name": node.name,
         "line_start": node.lineno,
@@ -433,6 +437,43 @@ def _extract_function_info(node: ast.FunctionDef | ast.AsyncFunctionDef) -> dict
         "is_async": isinstance(node, ast.AsyncFunctionDef),
         "is_method": False,
         "warnings": warnings,
+        "exception_info": exception_info,
+    }
+
+
+def _extract_exception_flow(node: ast.FunctionDef | ast.AsyncFunctionDef) -> dict:
+    raises: list[str] = []
+    handled: list[str] = []
+    has_bare_except = False
+    has_finally = False
+    has_try = False
+
+    for child in ast.walk(node):
+        if isinstance(child, ast.Raise):
+            exc = child.exc
+            if exc is not None:
+                exc_name = ast.unparse(exc).split("(")[0].strip()
+                if exc_name and exc_name not in raises:
+                    raises.append(exc_name)
+        elif isinstance(child, ast.Try):
+            has_try = True
+            if child.finalbody:
+                has_finally = True
+            for handler in child.handlers:
+                if handler.type is None:
+                    has_bare_except = True
+                else:
+                    exc_name = ast.unparse(handler.type).split("(")[0].strip()
+                    if exc_name and exc_name not in handled:
+                        handled.append(exc_name)
+
+    return {
+        "raises": raises,
+        "handled": handled,
+        "has_try": has_try,
+        "has_finally": has_finally,
+        "has_bare_except": has_bare_except,
+        "dynamic_exception_types": has_bare_except,
     }
 
 

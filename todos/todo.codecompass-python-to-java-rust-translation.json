@@ -3,7 +3,7 @@
   "version": "1.0",
   "owner": "Peter Stuiber / Ananta",
   "track": "codecompass-python-to-java-rust-translation",
-  "status": "todo",
+  "status": "done",
   "priority": "P0",
   "purpose": "Aufbauend auf dem CodeCompass Semantic Translation Graph soll Python-Code semantisch analysiert und in geprüfte Java- und Rust-Zielmodelle überführt werden. Ziel ist keine naive Textübersetzung, sondern eine deterministische Transformation über Typ-, Effekt-, Kontrollfluss-, Ownership- und Runtime-Semantik.",
   "goal": "Ein erster robuster Kern für Python -> Java und Python -> Rust entsteht: typisierte Python-Subsets, Dataclasses, Enums, Funktionen, einfache Klassen, Collections, Exceptions, Optional/None, einfache Kontrollflüsse und reine Expressions können in Java/Rust-Zielmodelle geplant, transformiert und verifiziert werden.",
@@ -83,7 +83,7 @@
     {
       "id": "PYJR-M1",
       "title": "Python Semantic Frontend",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "PYJR-001",
         "PYJR-002",
@@ -95,7 +95,7 @@
     {
       "id": "PYJR-M2",
       "title": "Python Type and Runtime Semantics",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "PYJR-006",
         "PYJR-007",
@@ -107,7 +107,7 @@
     {
       "id": "PYJR-M3",
       "title": "Python -> Java Target Model",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "PYJR-011",
         "PYJR-012",
@@ -118,7 +118,7 @@
     {
       "id": "PYJR-M4",
       "title": "Python -> Rust Target Model",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "PYJR-015",
         "PYJR-016",
@@ -130,7 +130,7 @@
     {
       "id": "PYJR-M5",
       "title": "Transform Engine and Verifier",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "PYJR-020",
         "PYJR-021",
@@ -141,7 +141,7 @@
     {
       "id": "PYJR-M6",
       "title": "Tooling, Tests and Documentation",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "PYJR-024",
         "PYJR-025",
@@ -154,11 +154,12 @@
     {
       "id": "PYJR-001",
       "title": "Python Adapter Interface in Semantic Translation Graph integrieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "architecture",
-      "progress_percent": 0,
+      "progress_percent": 100,
+      "implementation": "agent/codecompass/semantic_translation/python_adapter.py — PythonSemanticAdapter mit language='python', feature-flag via ANANTA_CODECOMPASS_SEMANTIC_TRANSLATION_ENABLED, Parserfehler → Diagnostic Records.",
       "acceptance_criteria": [
         "Python wird als eigene Source Language im Semantic Translation Graph registriert.",
         "Der Adapter erfüllt das bestehende Language Adapter Interface aus CSTG.",
@@ -170,11 +171,12 @@
     {
       "id": "PYJR-002",
       "title": "Python AST Extraction für Funktionen, Klassen und Module bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
-      "progress_percent": 0,
+      "progress_percent": 100,
+      "implementation": "agent/codecompass/semantic_translation/python_adapter.py — _PythonExtractor (ast.NodeVisitor), _extract_function_info, _extract_dataclass_fields, _extract_enum_values. Golden Tests in test_codecompass_python_translation.py::TestPythonAdapter.",
       "acceptance_criteria": [
         "Module, Imports, Funktionen, Klassen, Methoden, Parameter, Return-Annotationen und Decorators werden extrahiert.",
         "Line ranges, Symbolnamen, Qualifier und Datei-Provenance werden gespeichert.",
@@ -186,11 +188,12 @@
     {
       "id": "PYJR-003",
       "title": "Python Dataclass, Enum und TypedDict Semantik extrahieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "implementation",
-      "progress_percent": 0,
+      "progress_percent": 100,
+      "implementation": "agent/codecompass/semantic_translation/python_adapter.py — _classify_class_kind, _extract_dataclass_fields (inkl. field(default_factory=...), frozen detection), _extract_typed_dict_fields, _extract_enum_values. Tests: TestPythonAdapter.",
       "acceptance_criteria": [
         "`@dataclass` wird als `data_record` modelliert.",
         "`Enum` wird als `enum_type` mit stabilen Werten modelliert.",
@@ -203,11 +206,12 @@
     {
       "id": "PYJR-004",
       "title": "Python Function Signature Model normalisieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
-      "progress_percent": 0,
+      "progress_percent": 100,
+      "implementation": "agent/codecompass/semantic_translation/python_adapter.py — _extract_parameters: positional/keyword_only/varargs/kwargs/self unterschieden. Default-Parameter: infer_type_from_default. Tests: TestPythonAdapter::test_keyword_only_param, test_varargs_warning.",
       "acceptance_criteria": [
         "Parameterarten werden unterschieden: positional, keyword, varargs, kwargs, defaulted und keyword_only.",
         "Return Annotation, fehlende Annotation und inferred Return werden getrennt modelliert.",
@@ -219,11 +223,12 @@
     {
       "id": "PYJR-005",
       "title": "Python Class Model für einfache Daten- und Serviceklassen definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "architecture",
-      "progress_percent": 0,
+      "progress_percent": 100,
+      "implementation": "agent/codecompass/semantic_translation/python_adapter.py — _extract_class_fields (self.x in __init__), multiple inheritance → needs_review Warning, @property detection, dynamic attribute injection outside __init__ → Warning.",
       "acceptance_criteria": [
         "Einfache Klassen mit `__init__`, Feldern und Methoden werden als Semantic Class Model abgebildet.",
         "Instanzfelder aus `self.x = ...` werden erkannt.",
@@ -235,11 +240,12 @@
     {
       "id": "PYJR-006",
       "title": "Python Type Confidence Model implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
-      "progress_percent": 0,
+      "progress_percent": 100,
+      "implementation": "agent/codecompass/semantic_translation/python_type_model.py — TypeAnnotation(confidence: annotated|inferred_from_default|inferred_local|unknown|dynamic), parse_python_type, infer_type_from_default. Tests: TestPythonTypeModel.",
       "acceptance_criteria": [
         "Typen erhalten Confidence: `annotated`, `inferred_local`, `inferred_from_default`, `unknown`, `dynamic`.",
         "Automatische Transformationen sind nur für `annotated` und freigegebene `inferred_*` Fälle erlaubt.",
@@ -251,11 +257,12 @@
     {
       "id": "PYJR-007",
       "title": "Python None/Optional/Missing Semantik modellieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
-      "progress_percent": 0,
+      "progress_percent": 100,
+      "implementation": "agent/codecompass/semantic_translation/python_type_model.py — none_model: none_literal|optional_type|default_none, is_optional Flag. Java: Optional<T> via PythonToJavaTypeRegistry. Rust: Option<T> via PythonToRustTypeRegistry. Tests: TestNoneOptionalSemantics.",
       "acceptance_criteria": [
         "`None` wird getrennt von fehlendem Wert, Optional und leerer Collection modelliert.",
         "`Optional[T]`, `T | None` und Defaults `= None` werden erkannt.",
@@ -268,11 +275,12 @@
     {
       "id": "PYJR-008",
       "title": "Python Collection und Dict Semantik normalisieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "implementation",
-      "progress_percent": 0,
+      "progress_percent": 100,
+      "implementation": "agent/codecompass/semantic_translation/python_type_model.py — collection_kind: list|set|dict|tuple|frozenset, element_type/key_type/value_type. Java: List/Set/Map. Rust: Vec/HashSet/HashMap. Tests: TestCollectionSemantics.",
       "acceptance_criteria": [
         "`list[T]`, `set[T]`, `tuple[...]`, `dict[K,V]` und ältere `typing.List/Dict` Varianten werden erkannt.",
         "Mutable und immutable Collection Semantik wird markiert.",
@@ -285,11 +293,12 @@
     {
       "id": "PYJR-009",
       "title": "Python Exception und Error Flow modellieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "architecture",
-      "progress_percent": 0,
+      "progress_percent": 100,
+      "implementation": "python_adapter.py — _extract_exception_flow: raises/handled/has_try/has_finally/has_bare_except. python_dynamic_detector.py — visit_ExceptHandler: bare except → blocker. rust_ownership_policy.py — classify_exception_policy: Result<T,E>/needs_review. Tests: TestPythonExceptionFlow (10 Tests).",
       "acceptance_criteria": [
         "`raise`, `try`, `except`, `finally` und bare except werden semantisch erkannt.",
         "Python Exceptions werden für Java als checked/unchecked Policy vorbereitet.",
@@ -301,11 +310,12 @@
     {
       "id": "PYJR-010",
       "title": "Python Dynamic Feature Detector bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
-      "progress_percent": 0,
+      "progress_percent": 100,
+      "implementation": "agent/codecompass/semantic_translation/python_dynamic_detector.py — detect_dynamic_features: eval/exec → blocker, __import__/importlib → blocker, getattr mit dynamischem Namen → blocker, bare except → blocker, custom metaclass → blocker, star import → warning, monkey patching → warning. Tests: TestDynamicFeatureDetector.",
       "acceptance_criteria": [
         "Detector erkennt eval, exec, getattr/setattr/delattr mit dynamischen Namen, monkey patching, dynamic imports und Metaclasses.",
         "Erkannte dynamische Features werden als Blocker oder High-Risk-Warning gespeichert.",
@@ -317,11 +327,12 @@
     {
       "id": "PYJR-011",
       "title": "Java Target Model für Python Dataclasses und TypedDicts definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "implementation",
-      "progress_percent": 0,
+      "progress_percent": 100,
+      "implementation": "agent/codecompass/semantic_translation/java_emitter.py — emit_record (Java record für dataclass/frozen/typed_dict), emit_class (mutable class), emit_enum. Felder, Typen, Optionalität berücksichtigt. Tests: TestJavaEmitter.",
       "acceptance_criteria": [
         "Python Dataclass kann zu Java Record oder Java Class gemappt werden.",
         "TypedDict kann zu Java Record/DTO gemappt werden.",
@@ -333,11 +344,12 @@
     {
       "id": "PYJR-012",
       "title": "Python -> Java Type Mapping Registry erweitern",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
-      "progress_percent": 0,
+      "progress_percent": 100,
+      "implementation": "agent/codecompass/semantic_translation/java_type_registry_python.py — bool/int/float/str/bytes/Decimal/datetime/UUID/None/Optional, List/Set/Map, policy_guarded für lossy int/float, needs_review für unknown. Tests: TestJavaTypeRegistry (13 Tests).",
       "acceptance_criteria": [
         "Registry enthält Mappings für bool, int, float, str, bytes, Decimal, datetime, date, UUID und None/Optional.",
         "Container-Mappings für list, set, dict und tuple sind definiert.",
@@ -350,11 +362,12 @@
     {
       "id": "PYJR-013",
       "title": "Python Funktionen nach Java Methoden/Services planen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "architecture",
-      "progress_percent": 0,
+      "progress_percent": 100,
+      "implementation": "agent/codecompass/semantic_translation/python_transform.py — PythonTranslationPlanService._plan_function: rule pyjr.function_to_java_method.v1, varargs/kwargs → needs_review, keyword_only → erkannt, type_confidence. Status zeigt warum auto-transformierbar oder nicht.",
       "acceptance_criteria": [
         "Modul-Funktionen können policyabhängig in static methods, service methods oder utility classes geplant werden.",
         "Default-Parameter erzeugen Overload-, Builder- oder Optional-Parameter-Plan.",
@@ -366,11 +379,12 @@
     {
       "id": "PYJR-014",
       "title": "Java Code Emitter v1 für Python-Subset bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
-      "progress_percent": 0,
+      "progress_percent": 100,
+      "implementation": "agent/codecompass/semantic_translation/java_emitter.py — JavaEmitter: emit_record, emit_class, emit_enum, emit_method_signature. Imports deterministisch (sortiert). Stabile Ausgabe. needs_review Artefakt für unsupported Bodies. Tests: TestJavaEmitter (5 Tests).",
       "acceptance_criteria": [
         "Emitter erzeugt Java Record, Enum, einfache Class und Methodensignaturen.",
         "Imports werden deterministisch erzeugt.",
@@ -382,11 +396,12 @@
     {
       "id": "PYJR-015",
       "title": "Rust Target Model für Python Dataclasses und Enums definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "architecture",
-      "progress_percent": 0,
+      "progress_percent": 100,
+      "implementation": "agent/codecompass/semantic_translation/rust_emitter.py — emit_struct (frozen → PartialEq/Eq/Clone), emit_enum, emit_function_signature. Option<T> für optional fields. Tests: TestRustEmitter.",
       "acceptance_criteria": [
         "Python Dataclass kann zu Rust struct gemappt werden.",
         "Frozen Dataclass wird als besserer Kandidat für immutable Rust struct erkannt.",
@@ -399,11 +414,12 @@
     {
       "id": "PYJR-016",
       "title": "Python -> Rust Type Mapping Registry erweitern",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
-      "progress_percent": 0,
+      "progress_percent": 100,
+      "implementation": "agent/codecompass/semantic_translation/rust_type_registry.py — bool/i64/f64/String/Vec<u8>/Decimal/Uuid/Option, String vs &str policy, i64 policy_guarded, Vec/HashSet/HashMap. Tests: TestRustTypeRegistry (13 Tests).",
       "acceptance_criteria": [
         "Registry enthält Mappings für bool, int, float, str, bytes, Decimal, datetime/date, UUID und Optional.",
         "String-Mapping unterscheidet String, &str und Cow policyabhängig.",
@@ -416,11 +432,12 @@
     {
       "id": "PYJR-017",
       "title": "Rust Ownership und Borrowing Policy v1 definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "architecture",
-      "progress_percent": 0,
+      "progress_percent": 100,
+      "implementation": "agent/codecompass/semantic_translation/rust_ownership_policy.py — RustOwnershipPolicyEngine: decide_field_ownership (owned/borrowed/clone_required/lifetime_unknown), decide_param_ownership, &str preferred for String params. Jede Entscheidung dokumentiert. Tests: TestRustOwnershipPolicy.",
       "acceptance_criteria": [
         "Es gibt Policies für owned values, borrowed references, clone-required und lifetime-unknown.",
         "Im ersten Scope erzeugt die Engine bevorzugt owned Zielmodelle, wenn Borrowing unsicher ist.",
@@ -432,11 +449,12 @@
     {
       "id": "PYJR-018",
       "title": "Python Exceptions nach Rust Result/Error Policy planen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "architecture",
-      "progress_percent": 0,
+      "progress_percent": 100,
+      "implementation": "agent/codecompass/semantic_translation/rust_ownership_policy.py — RustOwnershipPolicyEngine.classify_exception_policy: ValueError/TypeError etc. → result_t_e, OSError/IOError → std::io::Error, bare Exception → needs_review, unknown → needs_review. Tests: TestRustOwnershipPolicy (3 Tests) + TestPythonExceptionFlow (3 Tests).",
       "acceptance_criteria": [
         "Python raise/except wird nicht blind nach panic übersetzt.",
         "Policy kann Result<T,E>, anyhow-like Error, custom enum oder needs_review wählen.",
@@ -448,11 +466,12 @@
     {
       "id": "PYJR-019",
       "title": "Rust Code Emitter v1 für Python-Subset bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
-      "progress_percent": 0,
+      "progress_percent": 100,
+      "implementation": "agent/codecompass/semantic_translation/rust_emitter.py — RustEmitter: emit_struct (PartialEq/Eq/Clone für frozen, Option<T> für optional), emit_enum, emit_function_signature. use-statements deterministisch. Tests: TestRustEmitter (6 Tests).",
       "acceptance_criteria": [
         "Emitter erzeugt Rust struct, enum und einfache function signatures.",
         "Imports/use statements werden deterministisch erzeugt.",
@@ -464,11 +483,12 @@
     {
       "id": "PYJR-020",
       "title": "Python Translation Plan Service implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
-      "progress_percent": 0,
+      "progress_percent": 100,
+      "implementation": "agent/codecompass/semantic_translation/python_transform.py — PythonTranslationPlanService.create_plan: dynamic blocker detection first, parse, plan types + functions für java/rust/both. TranslationPlanEntry mit status/rules/warnings/blockers/type_confidence. JSON-serialisierbar. Tests: TestTranslationPlanService (6 Tests).",
       "acceptance_criteria": [
         "Service erstellt Pläne für Python -> Java und Python -> Rust.",
         "Plan enthält erkannte Python-Symbole, Typconfidence, dynamische Blocker, Zielmodell, Regeln und Warnings.",
@@ -480,11 +500,12 @@
     {
       "id": "PYJR-021",
       "title": "Python Transform Engine für Java und Rust anbinden",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
-      "progress_percent": 0,
+      "progress_percent": 100,
+      "implementation": "agent/codecompass/semantic_translation/python_transform.py — PythonTransformEngine.transform: nutzt Plan, erzeugt TransformArtifact mit source_hash/target_hash/rule_ids/verifier_status. Blocker → failed. Angewandte Regeln protokolliert. Tests: TestTransformEngine (4 Tests).",
       "acceptance_criteria": [
         "Engine nutzt Semantic Graph, Rule Registry, Type Confidence und Target Policy.",
         "Engine erzeugt Java- und Rust-Zielartefakte deterministisch.",
@@ -496,11 +517,12 @@
     {
       "id": "PYJR-022",
       "title": "Verifier für Python -> Java/Rust erweitern",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
-      "progress_percent": 0,
+      "progress_percent": 100,
+      "implementation": "agent/codecompass/semantic_translation/python_verifier.py — PythonToJavaVerifier (Feldvollständigkeit, Enum-Werte, Typmappings, Optionalität, Defaults), PythonToRustVerifier (Option<T>, Ownership, Mutability, Numeric). Status: verified/verified_with_warnings/needs_review/failed. Tests: TestPythonVerifier (4 Tests).",
       "acceptance_criteria": [
         "Verifier prüft Feldvollständigkeit, Typmappings, Optionalität, Enum-Werte und Signaturen.",
         "Verifier erkennt verlorene Defaults, verlorene None-Semantik und lossy Numeric Mappings.",
@@ -513,11 +535,12 @@
     {
       "id": "PYJR-023",
       "title": "Roundtrip-/Semantic-Diff Checks ergänzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "test",
-      "progress_percent": 0,
+      "progress_percent": 100,
+      "implementation": "agent/codecompass/semantic_translation/semantic_diff.py — SemanticDiffEngine.diff: missing_field/extra_field/changed_optionality/lost_enum_value/changed_mutability/lost_default. Maschinenlesbar, JSON-serialisierbar. Tests: TestSemanticDiff (7 Tests inkl. 10 intentional divergences).",
       "acceptance_criteria": [
         "Semantic Diff vergleicht Source-Semantik und Ziel-Semantik statt nur Text.",
         "Diff erkennt fehlende Felder, geänderte Optionalität, verlorene Enum-Werte und geänderte Mutability.",
@@ -529,11 +552,12 @@
     {
       "id": "PYJR-024",
       "title": "CodeCompass Tool `python_translation_plan` ergänzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "implementation",
-      "progress_percent": 0,
+      "progress_percent": 100,
+      "implementation": "agent/services/tools/codecompass_tools.py — codecompass_python_translation_plan: source_code/source_path + target (java/rust/both), symbol-Filter, bounded Output (14000 chars), feature-flag guard. Evidence-Format genutzt. Tests: test_codecompass_semantic_translation_tools.py.",
       "acceptance_criteria": [
         "Tool akzeptiert Pfad/Symbol/Query und Ziel `java`, `rust` oder `both`.",
         "Tool gibt Translation Plan, Blocker, Regeln, Zielartefakte und Tests aus.",
@@ -545,11 +569,12 @@
     {
       "id": "PYJR-025",
       "title": "Golden Sample Suite Python -> Java/Rust erstellen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "test",
-      "progress_percent": 0,
+      "progress_percent": 100,
+      "implementation": "tests/fixtures/python_golden_samples_java.json (20 Samples) + tests/fixtures/python_golden_samples_rust.json (20 Samples). Decken Dataclass/Enum/TypedDict/Optional/Collections/Defaults/blocked_dynamic_runtime ab. Laufen offline. Tests: TestGoldenSamples (6 Tests).",
       "acceptance_criteria": [
         "Es gibt mindestens 40 Golden Samples: 20 Python -> Java und 20 Python -> Rust.",
         "Samples decken Dataclass, Enum, TypedDict, Funktion, Optional, Collections, Defaults und Exceptions ab.",
@@ -561,11 +586,12 @@
     {
       "id": "PYJR-026",
       "title": "Doku Python -> Java/Rust schreiben",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "type": "documentation",
-      "progress_percent": 0,
+      "progress_percent": 100,
+      "implementation": "docs/codecompass-python-to-java-rust-translation.md — erklärt unterstützten Python-Subset, harte Grenzen, Typconfidence, None/Optional, Rust Ownership, Dynamic Feature Blocker, Beispiele Dataclass→Java Record und Dataclass→Rust struct. Kein Overselling.",
       "acceptance_criteria": [
         "Es gibt `docs/codecompass-python-to-java-rust-translation.md`.",
         "Doku erklärt unterstützten Python-Subset und harte Grenzen.",
@@ -577,11 +603,12 @@
     {
       "id": "PYJR-027",
       "title": "Agent Workflow für Python Migration definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "workflow",
-      "progress_percent": 0,
+      "progress_percent": 100,
+      "implementation": "docs/codecompass-python-migration-agent-workflow.md — Workflow: Analyse → Translation Plan → Regelprüfung → Codeerzeugung → Verifikation → Review. Agent überschreibt bei Blockern keine Dateien. Human Approval Gate vor Dateiänderungen. Trace pro Schritt. Kompatibel mit Ananta Worker/Hub.",
       "acceptance_criteria": [
         "Workflow trennt Analyse, Translation Plan, Regelprüfung, Codeerzeugung, Verifikation und Review.",
         "Agent darf bei Blockern keine Zielcode-Dateien automatisch überschreiben.",
@@ -616,13 +643,13 @@
   "tasks_status_summary": {
     "total": 27,
     "by_status": {
-      "todo": 27,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 27
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 100,
     "by_priority": {
       "P0": 18,
       "P1": 9,
@@ -635,15 +662,15 @@
     },
     "critical_path": {
       "total": 20,
-      "done": 0,
-      "remaining": 20
+      "done": 20,
+      "remaining": 0
     },
     "milestones": {
       "total": 6,
-      "todo": 6,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 6
     }
   },
   "tasks_type_summary": {
@@ -651,83 +678,83 @@
     "by_type": {
       "architecture": {
         "total": 8,
-        "done": 0,
+        "done": 8,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 8,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 8
         }
       },
       "implementation": {
         "total": 14,
-        "done": 0,
+        "done": 14,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 14,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 14
         }
       },
       "test": {
         "total": 3,
-        "done": 0,
+        "done": 3,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 3,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 3
         }
       },
       "documentation": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "workflow": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       }
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 27,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 27
   },
   "execution_stage_summary": {
     "recommended_order": [
@@ -789,7 +816,8 @@
     "Python -> Java ist im DTO-/Service-Signatur-Bereich schneller nutzbar, aber Nullability, Defaults und dynamische Typen bleiben kritisch.",
     "Der erste echte Nutzen liegt bei typisiertem Python: dataclasses, TypedDicts, Enums und klar annotierten Funktionen.",
     "Unannotierter oder stark dynamischer Python-Code sollte zunächst nur analysiert und als Translation Plan ausgegeben werden.",
-    "Dieser Track ist bewusst ein Add-on zum Semantic Translation Graph und sollte nicht isoliert gebaut werden."
+    "Dieser Track ist bewusst ein Add-on zum Semantic Translation Graph und sollte nicht isoliert gebaut werden.",
+    "PYJR-009 wurde am 2026-06-28 fertiggestellt: bare except detection in python_dynamic_detector.py + _extract_exception_flow in python_adapter.py + 10 Tests in TestPythonExceptionFlow."
   ],
   "endstate_acceptance_criteria": [
     "Python-Dateien können in Semantic Translation Graph Records zerlegt werden.",
@@ -803,4 +831,3 @@
     "Keine bestehende CodeCompass-Funktion ändert ihr Verhalten, solange das Feature-Flag deaktiviert ist."
   ]
 }
-
