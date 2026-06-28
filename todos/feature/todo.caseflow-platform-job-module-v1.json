@@ -1,0 +1,1336 @@
+{
+  "version": "1.0",
+  "owner": "Peter Stuiber",
+  "track": "caseflow-platform-job-module-v1",
+  "id": "todo.caseflow-platform-job-module-v1",
+  "title": "Ananta CaseFlow Platform mit umfangreichem Job-Application-Modul als erste produktive Spezialisierung",
+  "created": "2026-06-28",
+  "updated": "2026-06-28",
+  "project": "Ananta",
+  "status": "todo",
+  "priority": "critical",
+  "purpose": "Aufbau einer generischen CaseFlow-Plattform in Ananta, die beliebige Vorgänge verwalten kann. Das erste umfangreiche produktive Modul ist ein Job- und Bewerbungsmodul mit Stellensuche, Bewerbungsmanagement, Dokumenten, Kommunikation, Agentenbewertung, Trace, Human-Gates und Angular-Spezial-UI.",
+  "goal": "CaseFlow wird als generische Plattform umgesetzt. JobApplication ist der erste Blueprint/Domain-Typ, aber keine harte Sonderlösung. Alles, was für Bewerbungen gebaut wird, muss soweit möglich auf generischen Case-, Discovery-, Artifact-, Timeline-, Action-, AgentRun-, Trace- und Blueprint-Konzepten aufbauen.",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "critical",
+    "high",
+    "medium",
+    "low"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high"
+  ],
+  "source_code_alignment": {
+    "reviewed_repository": "ananta888/ananta",
+    "reviewed_branch": "main",
+    "existing_reusable_parts": [
+      {
+        "area": "Visual Process Model",
+        "files": [
+          "agent/visual_process/models.py"
+        ],
+        "notes": [
+          "VisualProcessGraph, VisualProcessStep, VisualProcessEdge, ArtifactRef und StepIOContract existieren bereits.",
+          "gate=true existiert bereits auf VisualProcessStep und soll für Human Approval genutzt werden.",
+          "metadata existiert auf Graph, Step und Edge und kann für CaseFlow-Bindings, Domain-Typen und Runtime-Informationen genutzt werden.",
+          "ModelRoutingConfig existiert und soll für Job-Agenten wiederverwendet werden."
+        ]
+      },
+      {
+        "area": "Visual Process API",
+        "files": [
+          "agent/routes/visual_process.py"
+        ],
+        "notes": [
+          "Presets, Skill Profiles, Task Kinds, Validate, Dry-Run, Mermaid, Policy Summary, Context Assembly, BPMN Import/Export und Workflow Start sind vorhanden.",
+          "Graph-Persistenz-Endpunkte sind vorhanden und sollen nicht ersetzt, sondern für Flow-Blueprints genutzt werden."
+        ]
+      },
+      {
+        "area": "Visual Process Persistence",
+        "files": [
+          "agent/db_models/visual_process.py"
+        ],
+        "notes": [
+          "VisualProcessGraphDB persistiert Graphen als JSON Blob.",
+          "CaseFlow bekommt eigene DB-Modelle, referenziert aber VisualProcessGraph-IDs für Blueprint/Flow-Bindings."
+        ]
+      },
+      {
+        "area": "Skill Profiles",
+        "files": [
+          "agent/visual_process/skill_profiles.py"
+        ],
+        "notes": [
+          "SkillProfileRegistry ist offen und erlaubt register_profile().",
+          "Job-spezifische Agenten sollen als zusätzliche Profile registriert werden, nicht als Hardcoded-Sonderlogik im VisualProcess-Core."
+        ]
+      },
+      {
+        "area": "Trace",
+        "files": [
+          "worker/core/trace.py",
+          "worker/core/trace_v2.py",
+          "worker/core/trace_bundle.py",
+          "agent/pipeline_trace.py",
+          "agent/services/task_engine_trace.py",
+          "agent/routes/ai_snake_trace_store.py",
+          "frontend-angular/src/app/services/ai-snake-trace.service.ts",
+          "frontend-angular/src/app/components/ai-snake-trace-viewer.component.ts"
+        ],
+        "notes": [
+          "CaseFlow darf keinen zweiten Trace-Mechanismus bauen.",
+          "CaseFlow speichert trace_id und agent_run_id pro CaseEvent, Artifact und AgentRun."
+        ]
+      },
+      {
+        "area": "Testing",
+        "files": [
+          "tests/test_visual_process.py"
+        ],
+        "notes": [
+          "Bestehende Tests für Schema, Validator, ContextAssembly und BlueprintMapper dienen als Stilvorlage.",
+          "Neue Tests sollen analog strukturiert werden: Model, Validator, API, Mapping, Integration."
+        ]
+      }
+    ],
+    "explicit_non_goals": [
+      "Kein harter StepStone/LinkedIn-Scraper als Kernbestandteil.",
+      "Keine automatische Bewerbung ohne Human Approval.",
+      "Keine Parallel-Trace-Infrastruktur.",
+      "Keine Bewerbungslogik direkt in VisualProcessGraph einbauen.",
+      "Keine Angular-Monolith-Komponente mit tausenden Zeilen.",
+      "Keine Speicherung sensibler Bewerbungsdaten ohne klare Privacy-/Export-/Delete-Strategie."
+    ]
+  },
+  "architecture_principles": [
+    "CaseFlow Core ist generisch.",
+    "Job Module ist die erste große Domain-Spezialisierung.",
+    "Discovery ist generisch und kann später Jobs, Ausschreibungen, Leads, Förderprogramme, Security Advisories oder Behördenfälle finden.",
+    "VisualProcess bleibt der Designer und Blueprint-Layer.",
+    "CaseFlow ist die Arbeitsoberfläche und Runtime-Verwaltung.",
+    "Angular Job UI ist domänenspezifisch, aber nutzt generische CaseFlow APIs.",
+    "Agenten liefern Vorschläge, keine unkontrollierten finalen Aktionen.",
+    "Human Gates sind Pflicht für Senden, Veröffentlichen, Löschen, Cloud-Eskalation und kostenrelevante Aktionen.",
+    "Traceability ist Pflicht für KI-generierte Bewertungen, Dokumente und Entscheidungen."
+  ],
+  "proposed_file_structure": {
+    "backend": [
+      "agent/caseflow/**init**.py",
+      "agent/caseflow/models.py",
+      "agent/caseflow/domain.py",
+      "agent/caseflow/status_machine.py",
+      "agent/caseflow/artifacts.py",
+      "agent/caseflow/timeline.py",
+      "agent/caseflow/actions.py",
+      "agent/caseflow/discovery.py",
+      "agent/caseflow/deduplication.py",
+      "agent/caseflow/scoring.py",
+      "agent/caseflow/agent_runs.py",
+      "agent/caseflow/blueprint_binding.py",
+      "agent/caseflow/policies.py",
+      "agent/caseflow/privacy.py",
+      "agent/db_models/caseflow.py",
+      "agent/routes/caseflow.py",
+      "agent/routes/caseflow_discovery.py",
+      "agent/routes/job_applications.py",
+      "agent/job_module/**init**.py",
+      "agent/job_module/models.py",
+      "agent/job_module/search_profiles.py",
+      "agent/job_module/posting_normalizer.py",
+      "agent/job_module/fit_scoring.py",
+      "agent/job_module/document_bundle.py",
+      "agent/job_module/agents.py",
+      "agent/job_module/blueprints.py",
+      "agent/job_module/source_adapters.py"
+    ],
+    "frontend": [
+      "frontend-angular/src/app/features/caseflow/caseflow.models.ts",
+      "frontend-angular/src/app/features/caseflow/caseflow-api.service.ts",
+      "frontend-angular/src/app/features/caseflow/caseflow-shell.component.ts",
+      "frontend-angular/src/app/features/caseflow/job-application/job-application.routes.ts",
+      "frontend-angular/src/app/features/caseflow/job-application/job-application.models.ts",
+      "frontend-angular/src/app/features/caseflow/job-application/job-application-api.service.ts",
+      "frontend-angular/src/app/features/caseflow/job-application/job-dashboard.component.ts",
+      "frontend-angular/src/app/features/caseflow/job-application/application-board.component.ts",
+      "frontend-angular/src/app/features/caseflow/job-application/application-detail.component.ts",
+      "frontend-angular/src/app/features/caseflow/job-application/discovery-inbox.component.ts",
+      "frontend-angular/src/app/features/caseflow/job-application/search-profiles.component.ts",
+      "frontend-angular/src/app/features/caseflow/job-application/action-center.component.ts",
+      "frontend-angular/src/app/features/caseflow/job-application/artifacts-tab.component.ts",
+      "frontend-angular/src/app/features/caseflow/job-application/communication-tab.component.ts",
+      "frontend-angular/src/app/features/caseflow/job-application/fit-analysis-tab.component.ts",
+      "frontend-angular/src/app/features/caseflow/job-application/trace-tab.component.ts",
+      "frontend-angular/src/app/features/caseflow/job-application/flow-tab.component.ts"
+    ],
+    "tests": [
+      "tests/test_caseflow_models.py",
+      "tests/test_caseflow_status_machine.py",
+      "tests/test_caseflow_artifacts.py",
+      "tests/test_caseflow_timeline.py",
+      "tests/test_caseflow_discovery.py",
+      "tests/test_caseflow_deduplication.py",
+      "tests/test_caseflow_api.py",
+      "tests/test_job_module_models.py",
+      "tests/test_job_posting_normalizer.py",
+      "tests/test_job_fit_scoring.py",
+      "tests/test_job_application_flow.py",
+      "tests/test_job_human_gates.py",
+      "tests/test_job_trace_integrity.py"
+    ]
+  },
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Generic CaseFlow Core",
+      "status": "todo",
+      "task_ids": [
+        "CASECORE-001",
+        "CASECORE-002",
+        "CASECORE-003",
+        "CASECORE-004",
+        "CASECORE-005",
+        "CASECORE-006"
+      ]
+    },
+    {
+      "id": "M2",
+      "title": "Generic Discovery Layer",
+      "status": "todo",
+      "task_ids": [
+        "DISCOVERY-001",
+        "DISCOVERY-002",
+        "DISCOVERY-003",
+        "DISCOVERY-004"
+      ]
+    },
+    {
+      "id": "M3",
+      "title": "Job Domain Module",
+      "status": "todo",
+      "task_ids": [
+        "JOBCORE-001",
+        "JOBCORE-002",
+        "JOBCORE-003",
+        "JOBCORE-004",
+        "JOBCORE-005"
+      ]
+    },
+    {
+      "id": "M4",
+      "title": "Job Agents und VisualProcess Integration",
+      "status": "todo",
+      "task_ids": [
+        "JOBAGENT-001",
+        "JOBAGENT-002",
+        "JOBFLOW-001",
+        "JOBFLOW-002"
+      ]
+    },
+    {
+      "id": "M5",
+      "title": "Angular Spezial-UI",
+      "status": "todo",
+      "task_ids": [
+        "JOBUI-001",
+        "JOBUI-002",
+        "JOBUI-003",
+        "JOBUI-004",
+        "JOBUI-005",
+        "JOBUI-006"
+      ]
+    },
+    {
+      "id": "M6",
+      "title": "Safety, Privacy, Tests und Migration",
+      "status": "todo",
+      "task_ids": [
+        "SECURITY-001",
+        "SECURITY-002",
+        "TEST-001",
+        "TEST-002",
+        "MIGRATION-001"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "CASECORE-001",
+      "type": "backend-model",
+      "title": "Generisches CaseFlow-Domänenmodell einführen",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "progress_percent": 0,
+      "files": [
+        "agent/caseflow/models.py",
+        "agent/caseflow/domain.py",
+        "agent/db_models/caseflow.py",
+        "tests/test_caseflow_models.py"
+      ],
+      "description": "Ein generisches Case-Modell erstellen, das beliebige Vorgänge abbildet. Bewerbungen sind später nur ein case_type='job_application'.",
+      "implementation_tasks": [
+        "Pydantic-Modell CaseFlowCase definieren.",
+        "SQLModel CaseFlowCaseDB definieren.",
+        "Felder: id, case_type, title, status, priority, risk, owner, created_at, updated_at, closed_at, source, metadata.",
+        "Keine Job-spezifischen Felder in den Core packen.",
+        "Domain-spezifische Daten über domain_payload oder separate Domain-Tabellen anbinden.",
+        "CaseTypeDefinition für Statusmodell, erlaubte Aktionen, Artefakttypen und UI-Hints vorbereiten."
+      ],
+      "acceptance_criteria": [
+        "CaseFlowCase kann ohne Job-Modul instanziiert, validiert und serialisiert werden.",
+        "case_type ist ein freier, aber validierter String und nicht hart auf job_application beschränkt.",
+        "Core-Modell enthält keine Felder wie company, salary, job_title oder cover_letter.",
+        "metadata akzeptiert zusätzliche strukturierte Daten, aber Kernfelder bleiben typisiert.",
+        "SQLModel-Tabelle caseflow_cases kann angelegt werden, ohne VisualProcessGraphDB zu verändern.",
+        "Unit-Test prüft Erzeugung, Serialisierung, Pflichtfelder, Defaultwerte und ungültige Statuswerte.",
+        "Bestehende VisualProcess-Tests laufen unverändert weiter."
+      ]
+    },
+    {
+      "id": "CASECORE-002",
+      "type": "backend-state-machine",
+      "title": "Generische Statusmaschine pro CaseType bauen",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "progress_percent": 0,
+      "files": [
+        "agent/caseflow/status_machine.py",
+        "tests/test_caseflow_status_machine.py"
+      ],
+      "description": "Statusübergänge dürfen nicht beliebig sein. Jeder CaseType bekommt ein eigenes Statusmodell.",
+      "implementation_tasks": [
+        "CaseStatusDefinition mit statuses, initial_status, terminal_statuses und transitions definieren.",
+        "validate_transition(case_type, from_status, to_status, actor, context) implementieren.",
+        "TransitionReason und TransitionResult einführen.",
+        "Generischen Default-Flow bereitstellen: new, active, waiting, action_required, done, archived.",
+        "JobApplication-Statusmodell später darauf aufbauen."
+      ],
+      "acceptance_criteria": [
+        "Ein erlaubter Statuswechsel liefert valid=true.",
+        "Ein verbotener Statuswechsel liefert valid=false mit maschinenlesbarem Fehlercode.",
+        "Terminalstatus kann ohne explizite reopen-Regel nicht verlassen werden.",
+        "Statuswechsel erzeugt keinen Timeline-Event direkt, sondern liefert Daten für Timeline-Service.",
+        "Statusmaschine ist unabhängig von Flask/API nutzbar.",
+        "Tests decken mindestens erlaubte, verbotene, terminale und unbekannte Status ab."
+      ]
+    },
+    {
+      "id": "CASECORE-003",
+      "type": "backend-artifact",
+      "title": "Generisches Artifact-System für Cases",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "progress_percent": 0,
+      "files": [
+        "agent/caseflow/artifacts.py",
+        "agent/db_models/caseflow.py",
+        "tests/test_caseflow_artifacts.py"
+      ],
+      "description": "Cases benötigen Artefakte: Texte, PDFs, Links, generierte Dokumente, E-Mails, Notizen, Screenshots, JSON-Auswertungen.",
+      "implementation_tasks": [
+        "CaseArtifact Modell definieren.",
+        "Felder: id, case_id, artifact_type, artifact_kind, title, source, content_ref, content_text, mime_type, version, status, created_by, trace_id, metadata.",
+        "ArtifactStatus definieren: draft, generated, reviewed, approved, sent, archived.",
+        "ArtifactKind an bestehende VisualProcess ArtifactKind anlehnen: file, json, text, report, dataset, unknown.",
+        "Versionierung vorbereiten: previous_artifact_id oder version_group_id.",
+        "Keine großen Binärdaten direkt im JSON speichern."
+      ],
+      "acceptance_criteria": [
+        "Ein Case kann mehrere Artefakte besitzen.",
+        "Ein Artefakt kann auf einen Trace verweisen.",
+        "Ein KI-generiertes Artefakt ist von einem manuell hochgeladenen Artefakt unterscheidbar.",
+        "Version 2 eines Anschreibens überschreibt Version 1 nicht.",
+        "content_text ist optional; große Dateien werden nur referenziert.",
+        "Tests prüfen Artifact-Erzeugung, Versionierung, Statuswechsel und Trace-Verknüpfung."
+      ]
+    },
+    {
+      "id": "CASECORE-004",
+      "type": "backend-timeline",
+      "title": "Timeline/Event-Sourcing-Light pro Case",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "low",
+      "progress_percent": 0,
+      "files": [
+        "agent/caseflow/timeline.py",
+        "agent/db_models/caseflow.py",
+        "tests/test_caseflow_timeline.py"
+      ],
+      "description": "Jede wichtige Änderung an einem Case muss nachvollziehbar sein.",
+      "implementation_tasks": [
+        "CaseEvent Modell definieren.",
+        "Felder: id, case_id, event_type, actor_type, actor_id, created_at, title, payload, trace_id, artifact_id.",
+        "Eventtypen definieren: case_created, status_changed, artifact_added, action_created, action_completed, agent_run_started, agent_run_completed, communication_added, approval_requested, approval_granted, approval_rejected.",
+        "append_event(case_id, event) implementieren.",
+        "Timeline sortiert nach created_at und stabil nach id ausgeben."
+      ],
+      "acceptance_criteria": [
+        "Jede Case-Erstellung erzeugt ein case_created Event.",
+        "Jeder Statuswechsel erzeugt ein status_changed Event mit from/to.",
+        "Agentenläufe können über trace_id referenziert werden.",
+        "Timeline kann gelesen werden, ohne Domain-spezifische Job-Modelle zu laden.",
+        "Events sind append-only; bestehende Events werden nicht mutiert.",
+        "Tests prüfen Reihenfolge, Payload, Trace-Referenz und Statuswechsel-Event."
+      ]
+    },
+    {
+      "id": "CASECORE-005",
+      "type": "backend-action",
+      "title": "Generisches Action- und Reminder-System",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "low",
+      "progress_percent": 0,
+      "files": [
+        "agent/caseflow/actions.py",
+        "agent/db_models/caseflow.py",
+        "tests/test_caseflow_actions.py"
+      ],
+      "description": "CaseFlow soll immer beantworten können: Was muss ich als Nächstes tun?",
+      "implementation_tasks": [
+        "CaseAction Modell definieren.",
+        "Felder: id, case_id, action_type, title, description, status, due_at, priority, assigned_to, created_by, completed_at, blocking, metadata.",
+        "ActionStatus definieren: open, in_progress, waiting, done, cancelled.",
+        "next_action pro Case berechnen.",
+        "Überfällige Aktionen markieren.",
+        "Aktionen mit Human-Gates verknüpfen."
+      ],
+      "acceptance_criteria": [
+        "Ein Case kann null bis viele Actions haben.",
+        "Die nächste Aktion wird deterministisch nach due_at, priority und blocking berechnet.",
+        "Erledigen einer Action erzeugt Timeline-Event.",
+        "Überfällige Actions erscheinen in einer API-Abfrage.",
+        "Action-System ist generisch und enthält keine Bewerbungsbegriffe.",
+        "Tests decken Sortierung, Erledigung, Überfälligkeit und Blocking ab."
+      ]
+    },
+    {
+      "id": "CASECORE-006",
+      "type": "backend-api",
+      "title": "Generische CaseFlow REST API",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "progress_percent": 0,
+      "files": [
+        "agent/routes/caseflow.py",
+        "tests/test_caseflow_api.py"
+      ],
+      "description": "CRUD- und Arbeits-API für generische Cases.",
+      "implementation_tasks": [
+        "Blueprint /api/caseflow registrieren.",
+        "POST /api/caseflow/cases implementieren.",
+        "GET /api/caseflow/cases implementieren mit Filtern case_type, status, priority, risk, search.",
+        "GET /api/caseflow/cases/<case_id> implementieren.",
+        "PATCH /api/caseflow/cases/<case_id> implementieren.",
+        "POST /api/caseflow/cases/<case_id>/transition implementieren.",
+        "GET /api/caseflow/cases/<case_id>/timeline implementieren.",
+        "GET /api/caseflow/actions/open implementieren."
+      ],
+      "acceptance_criteria": [
+        "API kann einen generischen Case erstellen und zurücklesen.",
+        "Ungültiger Statuswechsel gibt 422 mit Fehlercode.",
+        "Listen-Endpunkt unterstützt Pagination oder limit/offset.",
+        "Filter beeinflussen nur Query, nicht gespeicherte Daten.",
+        "Timeline-Endpunkt gibt Events chronologisch zurück.",
+        "Alle mutierenden Endpunkte erzeugen Timeline-Events.",
+        "API-Tests laufen isoliert mit Testdatenbank oder Flask-Testclient."
+      ]
+    },
+    {
+      "id": "DISCOVERY-001",
+      "type": "backend-discovery",
+      "title": "Generisches DiscoverySourceAdapter Interface",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "progress_percent": 0,
+      "files": [
+        "agent/caseflow/discovery.py",
+        "tests/test_caseflow_discovery.py"
+      ],
+      "description": "Discovery ist die generische Suche nach externen Objekten, aus denen Cases entstehen können.",
+      "implementation_tasks": [
+        "DiscoverySourceAdapter Protocol/BaseClass definieren.",
+        "Methoden: source_id(), capabilities(), search(profile), normalize(raw_result).",
+        "DiscoveryResult Modell definieren.",
+        "DiscoveryRun Modell definieren.",
+        "Result darf generisch sein: result_type, title, source_url, source_name, raw_text, normalized_payload, metadata."
+      ],
+      "acceptance_criteria": [
+        "Ein Dummy-Adapter kann registriert und ausgeführt werden.",
+        "Fehler eines Adapters werden als Adapter-Fehler gespeichert, brechen aber andere Adapter nicht ab.",
+        "DiscoveryResult enthält keine Job-spezifischen Pflichtfelder.",
+        "DiscoveryRun speichert Startzeit, Ende, Status, Trefferzahl und Fehler.",
+        "Tests prüfen erfolgreichen Lauf, leeren Lauf und Adapter-Fehler."
+      ]
+    },
+    {
+      "id": "DISCOVERY-002",
+      "type": "backend-discovery",
+      "title": "Generische SearchProfile-Modelle",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "low",
+      "progress_percent": 0,
+      "files": [
+        "agent/caseflow/discovery.py",
+        "agent/db_models/caseflow.py",
+        "tests/test_caseflow_discovery.py"
+      ],
+      "description": "Suchprofile beschreiben, wonach gesucht werden soll. Jobs sind nur ein Profiltyp.",
+      "implementation_tasks": [
+        "SearchProfile Modell definieren.",
+        "Felder: id, profile_type, name, enabled, query_terms, include_terms, exclude_terms, locations, remote_policy, source_ids, schedule_hint, metadata.",
+        "ProfileType frei halten, z. B. job_search, lead_search, advisory_search.",
+        "Manuelle Ausführung ohne Scheduler implementieren."
+      ],
+      "acceptance_criteria": [
+        "Ein Suchprofil kann erstellt, gespeichert und geladen werden.",
+        "include_terms und exclude_terms werden normalisiert.",
+        "Suchprofil kann deaktiviert werden.",
+        "Manueller DiscoveryRun referenziert das Suchprofil.",
+        "Kein Scheduler ist für v1 zwingend notwendig.",
+        "Tests prüfen Profilvalidierung und manuelle Run-Erzeugung."
+      ]
+    },
+    {
+      "id": "DISCOVERY-003",
+      "type": "backend-deduplication",
+      "title": "Generische Deduplizierung für DiscoveryResult",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "progress_percent": 0,
+      "files": [
+        "agent/caseflow/deduplication.py",
+        "tests/test_caseflow_deduplication.py"
+      ],
+      "description": "Treffer aus mehreren Quellen dürfen nicht als Duplikate den Workflow zumüllen.",
+      "implementation_tasks": [
+        "ResultFingerprint berechnen aus result_type, normalized title, source_url host/path, normalized_payload und optional text hash.",
+        "Exact Duplicate Detection implementieren.",
+        "Near Duplicate Detection vorbereiten mit einfacher Token-Jaccard-Ähnlichkeit.",
+        "Merge Strategy definieren: primary_result + duplicate_sources.",
+        "IgnoredResultMemory vorbereiten."
+      ],
+      "acceptance_criteria": [
+        "Identische URL wird als Duplikat erkannt.",
+        "Gleicher Titel mit gleicher Firma/Quelle bei JobResult wird später als Domain-Regel möglich, aber Core bleibt generisch.",
+        "Deduplizierung löscht keine Rohdaten, sondern markiert/merged.",
+        "Ignorierte Treffer können wiedererkannt werden.",
+        "Tests prüfen exact duplicate, near duplicate und non-duplicate."
+      ]
+    },
+    {
+      "id": "DISCOVERY-004",
+      "type": "backend-case-conversion",
+      "title": "Human-Gate vor DiscoveryResult zu Case",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "progress_percent": 0,
+      "files": [
+        "agent/caseflow/discovery.py",
+        "agent/caseflow/policies.py",
+        "tests/test_caseflow_discovery.py"
+      ],
+      "description": "Discovery darf Vorschläge erzeugen, aber Cases nur kontrolliert anlegen.",
+      "implementation_tasks": [
+        "convert_result_to_case(result_id, case_type, approved_by, options) implementieren.",
+        "Policy: require_human_approval=true als Default.",
+        "Automatische Case-Erstellung nur erlauben, wenn explizite Regel gesetzt und auditierbar.",
+        "Timeline-Event für conversion erzeugen.",
+        "Trace-ID aus DiscoveryRun übernehmen."
+      ],
+      "acceptance_criteria": [
+        "Ohne approval gibt convert_result_to_case 403 oder policy_denied.",
+        "Mit approval wird ein Case erzeugt und mit source_result_id verknüpft.",
+        "Derselbe Result kann nicht versehentlich mehrfach zu mehreren Cases werden, außer allow_duplicate=true.",
+        "Case-Erstellung erzeugt Timeline-Event.",
+        "Tests prüfen Deny ohne Approval, Erfolg mit Approval und Duplicate-Schutz."
+      ]
+    },
+    {
+      "id": "JOBCORE-001",
+      "type": "job-domain-model",
+      "title": "JobApplication-Domänenmodell als CaseFlow-Spezialisierung",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "progress_percent": 0,
+      "files": [
+        "agent/job_module/models.py",
+        "agent/db_models/caseflow.py",
+        "tests/test_job_module_models.py"
+      ],
+      "description": "JobApplicationCase ergänzt den generischen Case um Bewerbungsfelder.",
+      "implementation_tasks": [
+        "JobApplicationPayload Modell definieren.",
+        "Felder: company_name, role_title, job_url, source_name, location, remote_policy, salary_min, salary_max, employment_type, contact_name, contact_email, applied_at, response_due_at, interview_at.",
+        "Technische Felder: tech_stack, required_skills, nice_to_have_skills, language_requirements.",
+        "Bewerbungsstatusmodell definieren: found, interesting, preparing, applied, waiting_response, interview, offer, rejected, archived.",
+        "Mapping CaseFlowCase.domain_payload <-> JobApplicationPayload implementieren."
+      ],
+      "acceptance_criteria": [
+        "Ein JobApplicationCase ist immer auch ein CaseFlowCase mit case_type='job_application'.",
+        "Job-Felder liegen nicht im CaseFlow-Core.",
+        "Leere optionale Felder sind erlaubt.",
+        "Statuswerte sind mit Job-Statusmaschine kompatibel.",
+        "Tests prüfen Payload-Validierung, Mapping und Defaultstatus found."
+      ]
+    },
+    {
+      "id": "JOBCORE-002",
+      "type": "job-status-machine",
+      "title": "Bewerbungsstatusmodell und erlaubte Übergänge",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "low",
+      "progress_percent": 0,
+      "files": [
+        "agent/job_module/models.py",
+        "agent/job_module/blueprints.py",
+        "tests/test_job_application_flow.py"
+      ],
+      "description": "Bewerbungen brauchen ein eigenes, aber über CaseFlow registriertes Statusmodell.",
+      "implementation_tasks": [
+        "JobApplicationStatusDefinition registrieren.",
+        "Erlaubte Übergänge definieren: found -> interesting/preparing/archived, interesting -> preparing/archived, preparing -> applied/archived, applied -> waiting_response/interview/rejected, waiting_response -> interview/rejected/archived, interview -> offer/rejected/waiting_response, offer -> archived, rejected -> archived.",
+        "Sonderfall reopen aus archived nur mit reason.",
+        "Statuswechsel erzeugt passende Action-Vorschläge."
+      ],
+      "acceptance_criteria": [
+        "Direkter Wechsel found -> offer ist verboten.",
+        "preparing -> applied erzeugt Applied-Timeline-Event mit applied_at.",
+        "applied oder waiting_response erzeugt Follow-up-Action, wenn keine Antwort nach definierter Zeit.",
+        "rejected ist terminal bis auf archived.",
+        "Tests prüfen alle Hauptübergänge und mindestens drei verbotene Übergänge."
+      ]
+    },
+    {
+      "id": "JOBCORE-003",
+      "type": "job-posting",
+      "title": "JobPosting Normalizer für Text, Link und Datei",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "progress_percent": 0,
+      "files": [
+        "agent/job_module/posting_normalizer.py",
+        "tests/test_job_posting_normalizer.py"
+      ],
+      "description": "Stellenanzeigen aus Text, Link oder Datei werden in ein einheitliches JobPosting-Modell gebracht.",
+      "implementation_tasks": [
+        "JobPosting Modell definieren.",
+        "Felder: title, company, location, remote_policy, requirements, responsibilities, benefits, salary_text, raw_text, source_url, source_name, detected_language, metadata.",
+        "Text-basierte Heuristik ohne LLM implementieren.",
+        "LLM/Agent-basierte Extraktion optional später über AgentRun.",
+        "Normalizer darf niemals Bewerbungscase direkt erzeugen."
+      ],
+      "acceptance_criteria": [
+        "Ein reiner kopierter Stellenanzeigentext wird in JobPosting normalisiert.",
+        "Unklare Felder bleiben null/empty und werden nicht erfunden.",
+        "raw_text bleibt vollständig referenzierbar.",
+        "Normalizer ist deterministisch testbar.",
+        "Tests prüfen deutsche Stellenanzeige, englische Anzeige und sehr kurzen Text."
+      ]
+    },
+    {
+      "id": "JOBCORE-004",
+      "type": "job-fit-scoring",
+      "title": "FitScore-Modell und erklärbare Bewerbungsbewertung",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "progress_percent": 0,
+      "files": [
+        "agent/job_module/fit_scoring.py",
+        "tests/test_job_fit_scoring.py"
+      ],
+      "description": "Jobs sollen nachvollziehbar bewertet werden: fachlich, technisch, Ort, Remote, Gehalt, Risiko, Aufwand.",
+      "implementation_tasks": [
+        "JobFitScore Modell definieren.",
+        "Subscores: technical_fit, domain_fit, seniority_fit, location_fit, remote_fit, salary_fit, risk_score, effort_score.",
+        "EvidenceRefs einführen: artifact_id, field_path, quote_hash, explanation.",
+        "Manuelle Nutzerbewertung separat von KI-Bewertung speichern.",
+        "FinalScore aus KI + manueller Bewertung berechnen, aber Herkunft sichtbar halten."
+      ],
+      "acceptance_criteria": [
+        "FitScore ist nicht nur eine Zahl.",
+        "Jeder Subscore hat explanation.",
+        "KI-Bewertung und manuelle Bewertung werden nicht vermischt.",
+        "EvidenceRefs können auf Lebenslauf, Zertifikate oder Stellenanzeige zeigen.",
+        "Bei fehlenden Daten wird unknown statt erfundener Score verwendet.",
+        "Tests prüfen Score-Berechnung, fehlende Daten und manuelles Override."
+      ]
+    },
+    {
+      "id": "JOBCORE-005",
+      "type": "job-documents",
+      "title": "Job-spezifische Dokumenten-Bundles",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "progress_percent": 0,
+      "files": [
+        "agent/job_module/document_bundle.py",
+        "tests/test_job_module_models.py"
+      ],
+      "description": "Pro Bewerbung muss klar sein, welche Dokumente dazugehören und in welchem Zustand sie sind.",
+      "implementation_tasks": [
+        "ApplicationDocumentBundle Modell definieren.",
+        "Dokumenttypen: cv, certificate, cover_letter, email_draft, job_posting, portfolio, notes.",
+        "Status je Dokument: missing, available, generated, reviewed, approved, sent.",
+        "Versionierung über CaseArtifact nutzen.",
+        "Bundle Completion berechnen."
+      ],
+      "acceptance_criteria": [
+        "Pro Bewerbung ist ermittelbar, welche Dokumente fehlen.",
+        "Ein generiertes Anschreiben gilt nicht automatisch als approved.",
+        "Bundle kann mehrere CV-Versionen referenzieren.",
+        "Senden ist nur mit approved Dokumenten möglich.",
+        "Tests prüfen missing/available/generated/approved und Completion."
+      ]
+    },
+    {
+      "id": "JOBAGENT-001",
+      "type": "agent-profile",
+      "title": "Job-spezifische Agent Skill Profiles registrieren",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "progress_percent": 0,
+      "files": [
+        "agent/job_module/agents.py",
+        "agent/visual_process/skill_profiles.py",
+        "tests/test_job_application_flow.py"
+      ],
+      "description": "Job-Agenten sollen als SkillProfiles registriert werden und nicht hart in VisualProcess eingebaut werden.",
+      "implementation_tasks": [
+        "register_job_skill_profiles() implementieren.",
+        "Profile: job_discovery_agent, job_posting_parser_agent, company_research_agent, fit_evaluator_agent, cv_matcher_agent, cover_letter_agent, email_draft_agent, followup_agent, interview_prep_agent, rejection_analysis_agent, application_audit_agent.",
+        "Allowed tools je Agent streng begrenzen.",
+        "Read-only Profile für Analyse von mutierenden Profilen trennen.",
+        "SkillProfiles mit task_kinds und capabilities versehen."
+      ],
+      "acceptance_criteria": [
+        "Nach Registrierung sind Job-Profile über SkillProfileRegistry abrufbar.",
+        "Analyse-Agenten haben keine send_email oder write_external Tools.",
+        "CoverLetterAgent darf Entwürfe erzeugen, aber nicht senden.",
+        "AuditAgent kann Cases/Artifacts/Trace lesen, aber nicht ändern.",
+        "Tests prüfen Registrierung, Profileigenschaften und Tool-Grenzen."
+      ]
+    },
+    {
+      "id": "JOBAGENT-002",
+      "type": "agent-run",
+      "title": "AgentRun-Bindung an Case, Artifact und Trace",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "progress_percent": 0,
+      "files": [
+        "agent/caseflow/agent_runs.py",
+        "agent/job_module/agents.py",
+        "tests/test_job_trace_integrity.py"
+      ],
+      "description": "Jeder Agentenlauf im Jobmodul muss nachvollziehbar sein.",
+      "implementation_tasks": [
+        "CaseAgentRun Modell definieren.",
+        "Felder: id, case_id, agent_profile_id, input_artifact_ids, output_artifact_ids, status, started_at, finished_at, trace_id, model_profile_id, estimated_cost, metadata.",
+        "AgentRun Events in Timeline schreiben.",
+        "Output-Artefakte mit trace_id und agent_run_id speichern.",
+        "Fehlerzustand inklusive error_code/error_detail ablegen."
+      ],
+      "acceptance_criteria": [
+        "Ein FitEvaluator-Lauf erzeugt CaseAgentRun + Timeline-Events.",
+        "Ein generiertes Anschreiben referenziert den erzeugenden AgentRun.",
+        "Trace-ID ist aus der Bewerbungsdetailansicht auffindbar.",
+        "Fehlerhafte Agentenläufe werden sichtbar gespeichert.",
+        "Tests prüfen erfolgreiche und fehlgeschlagene AgentRuns."
+      ]
+    },
+    {
+      "id": "JOBFLOW-001",
+      "type": "visual-process-integration",
+      "title": "JobApplication VisualProcess Blueprints",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "progress_percent": 0,
+      "files": [
+        "agent/job_module/blueprints.py",
+        "agent/visual_process/presets.py",
+        "tests/test_job_application_flow.py"
+      ],
+      "description": "Jobmodule nutzt VisualProcessGraph für Flow-Definitionen.",
+      "implementation_tasks": [
+        "Preset job_application_intake_flow definieren.",
+        "Preset job_discovery_to_case_flow definieren.",
+        "Preset cover_letter_generation_flow definieren.",
+        "Preset interview_preparation_flow definieren.",
+        "Preset followup_flow definieren.",
+        "Human Gates als gate=true Steps modellieren.",
+        "metadata.case_type='job_application' setzen."
+      ],
+      "acceptance_criteria": [
+        "Alle Job-Blueprints sind gültige VisualProcessGraph Instanzen.",
+        "Dry-Run über /api/visual-process/dry-run funktioniert für jeden Job-Blueprint.",
+        "Human Approval Steps haben gate=true.",
+        "Blueprints nutzen registrierte Job Skill Profiles.",
+        "Blueprints enthalten keine hart codierten persönlichen Daten.",
+        "Tests prüfen Validierung und graph_to_blueprint_dict Mapping."
+      ]
+    },
+    {
+      "id": "JOBFLOW-002",
+      "type": "visual-process-runtime-binding",
+      "title": "CaseFlow ↔ VisualProcess Runtime Binding",
+      "status": "todo",
+      "priority": "high",
+      "risk": "high",
+      "progress_percent": 0,
+      "files": [
+        "agent/caseflow/blueprint_binding.py",
+        "agent/routes/caseflow.py",
+        "tests/test_job_application_flow.py"
+      ],
+      "description": "Ein Case kann mit einem VisualProcessGraph/Blueprint verbunden und als Workflow gestartet werden.",
+      "implementation_tasks": [
+        "CaseBlueprintBinding Modell definieren.",
+        "Felder: case_id, visual_process_graph_id, blueprint_id, blueprint_version, active_step_id, workflow_id, status.",
+        "start_case_workflow(case_id, graph_id) implementieren.",
+        "WorkflowRequest mit case_id in policy_scope/metadata ausstatten.",
+        "Workflow-Status auf CaseAction/Timeline abbilden."
+      ],
+      "acceptance_criteria": [
+        "Ein JobApplicationCase kann einen Job-Blueprint referenzieren.",
+        "Start eines Workflows erzeugt Timeline-Event.",
+        "workflow_id wird am Case gespeichert.",
+        "Fehler beim Workflow-Start beschädigen den Case nicht.",
+        "Human-Gate-Status kann als offene Action dargestellt werden.",
+        "Tests prüfen Binding, Start und Fehlerfall."
+      ]
+    },
+    {
+      "id": "JOBUI-001",
+      "type": "angular-feature",
+      "title": "Angular Feature-Struktur caseflow/job-application anlegen",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "progress_percent": 0,
+      "files": [
+        "frontend-angular/src/app/features/caseflow/caseflow.models.ts",
+        "frontend-angular/src/app/features/caseflow/caseflow-api.service.ts",
+        "frontend-angular/src/app/features/caseflow/job-application/job-application.routes.ts",
+        "frontend-angular/src/app/features/caseflow/job-application/job-application.models.ts",
+        "frontend-angular/src/app/features/caseflow/job-application/job-application-api.service.ts"
+      ],
+      "description": "Eigene Angular-Spezial-UI für Bewerbungen, nicht im VisualProcess-Editor verstecken.",
+      "implementation_tasks": [
+        "Feature-Ordner caseflow/job-application anlegen.",
+        "Typed Models für CaseFlowCase, JobApplicationCase, JobPosting, JobFitScore, CaseAction, CaseArtifact, CaseEvent definieren.",
+        "API-Service für CaseFlow und JobApplication trennen.",
+        "Routes für /caseflow/jobs, /caseflow/jobs/discovery, /caseflow/jobs/:id definieren.",
+        "Lazy Loading vorbereiten, falls bestehende App-Routing-Struktur das unterstützt."
+      ],
+      "acceptance_criteria": [
+        "Angular App kompiliert mit neuem Feature-Ordner.",
+        "Job-UI ist über eigene Route erreichbar.",
+        "VisualProcess-Editor wird nicht verändert, außer optionaler Link-Integration.",
+        "Models nutzen keine pauschalen any-Felder außer metadata.",
+        "Services kapseln HTTP-Aufrufe und mutieren keine UI-State-Objekte direkt."
+      ]
+    },
+    {
+      "id": "JOBUI-002",
+      "type": "angular-board",
+      "title": "Bewerbungs-Kanban und Action Center",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "low",
+      "progress_percent": 0,
+      "files": [
+        "frontend-angular/src/app/features/caseflow/job-application/application-board.component.ts",
+        "frontend-angular/src/app/features/caseflow/job-application/action-center.component.ts"
+      ],
+      "description": "Die UI muss zuerst Übersicht schaffen: Was ist offen, wo stehe ich, was muss ich tun?",
+      "implementation_tasks": [
+        "Kanban-Spalten: found, interesting, preparing, applied, waiting_response, interview, offer, rejected, archived.",
+        "Cards zeigen Firma, Rolle, Ort, Remote, FitScore, Priorität, nächste Aktion.",
+        "Action Center zeigt offene/überfällige Aktionen.",
+        "Statuswechsel über API transition endpoint.",
+        "Filter nach Status, Priorität, Ort, Remote, Quelle, Deadline."
+      ],
+      "acceptance_criteria": [
+        "50+ Bewerbungen bleiben bedienbar.",
+        "Eine Card zeigt die wichtigsten Infos ohne Detailansicht.",
+        "Drag/Statuswechsel schreibt nicht nur lokalen UI-State, sondern ruft API auf.",
+        "Überfällige Aktionen sind klar sichtbar.",
+        "Leere Spalten haben saubere Empty-States.",
+        "Keine Bewerbung verschwindet durch Filter dauerhaft."
+      ]
+    },
+    {
+      "id": "JOBUI-003",
+      "type": "angular-detail",
+      "title": "Bewerbungsdetail mit Tabs",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "progress_percent": 0,
+      "files": [
+        "frontend-angular/src/app/features/caseflow/job-application/application-detail.component.ts",
+        "frontend-angular/src/app/features/caseflow/job-application/fit-analysis-tab.component.ts",
+        "frontend-angular/src/app/features/caseflow/job-application/artifacts-tab.component.ts",
+        "frontend-angular/src/app/features/caseflow/job-application/communication-tab.component.ts",
+        "frontend-angular/src/app/features/caseflow/job-application/trace-tab.component.ts",
+        "frontend-angular/src/app/features/caseflow/job-application/flow-tab.component.ts"
+      ],
+      "description": "Pro Bewerbung gibt es eine saubere Arbeitsansicht.",
+      "implementation_tasks": [
+        "Header: Firma, Rolle, Status, Priorität, FitScore, nächste Aktion.",
+        "Tabs: Überblick, Stellenanzeige, Bewertung, Dokumente, Kommunikation, Timeline, Trace, Flow.",
+        "Inline-Bearbeitung für Basisdaten.",
+        "Ungespeicherte Änderungen anzeigen.",
+        "Fehler- und Loading-States pro Tab."
+      ],
+      "acceptance_criteria": [
+        "Klick auf Kanban-Card öffnet Detailansicht.",
+        "Reload auf Detail-URL lädt denselben Case wieder.",
+        "Lange Stellenanzeigen sprengen das Layout nicht.",
+        "Trace-Tab nutzt bestehenden ai-snake Trace Viewer oder Service.",
+        "Flow-Tab zeigt VisualProcess-Binding read-only.",
+        "Änderungen werden nur über API gespeichert."
+      ]
+    },
+    {
+      "id": "JOBUI-004",
+      "type": "angular-discovery",
+      "title": "Discovery Inbox und Suchprofile UI",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "progress_percent": 0,
+      "files": [
+        "frontend-angular/src/app/features/caseflow/job-application/discovery-inbox.component.ts",
+        "frontend-angular/src/app/features/caseflow/job-application/search-profiles.component.ts"
+      ],
+      "description": "Neue Stellen werden erst als Treffer angezeigt, nicht direkt als Bewerbung.",
+      "implementation_tasks": [
+        "Search Profiles UI bauen.",
+        "DiscoveryRun manuell starten.",
+        "Trefferliste anzeigen mit Quelle, Titel, Firma, Ort, FitScore, Duplicate-Status.",
+        "Aktionen: ignorieren, merken, Case anlegen.",
+        "Bereits vorhandene Bewerbungen markieren."
+      ],
+      "acceptance_criteria": [
+        "Neue Jobtreffer sind getrennt vom Bewerbungsboard sichtbar.",
+        "Case-Erstellung aus Treffer erfordert Klick/Human Approval.",
+        "Ignorierte Treffer tauchen nicht ständig wieder auf.",
+        "Dubletten sind sichtbar markiert.",
+        "Suchprofil kann deaktiviert werden.",
+        "Discovery-Fehler einer Quelle werden angezeigt, aber UI bleibt nutzbar."
+      ]
+    },
+    {
+      "id": "JOBUI-005",
+      "type": "angular-documents",
+      "title": "Dokumentenbereich und Anschreiben-Workflow UI",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "progress_percent": 0,
+      "files": [
+        "frontend-angular/src/app/features/caseflow/job-application/artifacts-tab.component.ts"
+      ],
+      "description": "Bewerbungsdokumente müssen versioniert, freigegeben und nachvollziehbar sein.",
+      "implementation_tasks": [
+        "Dokumenttypen anzeigen: Stellenanzeige, Lebenslauf, Zeugnisse, Anschreiben, E-Mail-Entwurf, Notizen.",
+        "Status pro Dokument anzeigen: missing, available, generated, reviewed, approved, sent.",
+        "Versionen darstellen.",
+        "Button 'Anschreiben erzeugen' startet AgentRun/Flow.",
+        "Generated Artifact verweist auf Trace."
+      ],
+      "acceptance_criteria": [
+        "Fehlende Dokumente sind sofort sichtbar.",
+        "Generiertes Anschreiben kann nicht als gesendet markiert werden ohne approved.",
+        "Versionen sind unterscheidbar.",
+        "Trace-Link ist bei KI-generierten Dokumenten sichtbar.",
+        "Manueller Upload und KI-Generierung sind unterscheidbar."
+      ]
+    },
+    {
+      "id": "JOBUI-006",
+      "type": "angular-dashboard",
+      "title": "Job Dashboard und Statistik",
+      "status": "todo",
+      "priority": "medium",
+      "risk": "low",
+      "progress_percent": 0,
+      "files": [
+        "frontend-angular/src/app/features/caseflow/job-application/job-dashboard.component.ts"
+      ],
+      "description": "Dashboard für Überblick über Bewerbungsstand und Pipeline.",
+      "implementation_tasks": [
+        "Kennzahlen: offen, in Vorbereitung, beworben, Antwort offen, Gespräche, Angebote, Absagen.",
+        "Durchschnittliche Antwortzeit vorbereiten.",
+        "Top-Prioritäten anzeigen.",
+        "Warnung bei zu vielen vorbereiteten, aber nicht gesendeten Bewerbungen.",
+        "Klick auf Kennzahl filtert Board."
+      ],
+      "acceptance_criteria": [
+        "Dashboard-Zahlen stimmen mit CaseFlow API überein.",
+        "Klick auf Zahl führt zu gefilterter Board-Ansicht.",
+        "Keine Statistik zeigt sensible Details unnötig offen.",
+        "Dashboard ist hilfreich, auch wenn erst wenige Bewerbungen vorhanden sind."
+      ]
+    },
+    {
+      "id": "SECURITY-001",
+      "type": "privacy-security",
+      "title": "Privacy- und Datenschutzregeln für Bewerbungsdaten",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "progress_percent": 0,
+      "files": [
+        "agent/caseflow/privacy.py",
+        "agent/caseflow/policies.py",
+        "tests/test_job_human_gates.py"
+      ],
+      "description": "Bewerbungsdaten enthalten persönliche Daten und müssen sauber begrenzt werden.",
+      "implementation_tasks": [
+        "SensitiveField-Klassifikation definieren.",
+        "Export/Delete pro Case vorbereiten.",
+        "Policy: Cloud-Modelle für sensible Dokumente nur mit Approval.",
+        "Policy: E-Mail senden nie automatisch.",
+        "Policy: Externe Quellen respektieren Robots/ToS soweit möglich; v1 bevorzugt manuelle Inputs/RSS/öffentliche Karriere-Seiten."
+      ],
+      "acceptance_criteria": [
+        "Sensible Artefakte sind als sensitive markierbar.",
+        "Cloud-Eskalation erzeugt Approval-Action, wenn sensible Daten betroffen sind.",
+        "E-Mail-Senden ist ohne Human Approval unmöglich.",
+        "Case kann exportiert werden.",
+        "Case kann gelöscht oder archiviert werden.",
+        "Tests prüfen Policy-Denials für auto-send und cloud escalation."
+      ]
+    },
+    {
+      "id": "SECURITY-002",
+      "type": "human-gates",
+      "title": "Human Approval Gates für kritische Aktionen",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "progress_percent": 0,
+      "files": [
+        "agent/caseflow/policies.py",
+        "agent/caseflow/actions.py",
+        "tests/test_job_human_gates.py"
+      ],
+      "description": "Agenten dürfen vorbereiten, aber kritische Aktionen brauchen Nutzerfreigabe.",
+      "implementation_tasks": [
+        "ApprovalRequest Modell definieren.",
+        "Kritische Aktionen: send_application_email, send_followup_email, delete_case, convert_discovery_result_to_case, cloud_model_with_sensitive_data.",
+        "Approval in Timeline speichern.",
+        "Rejected Approval mit Grund speichern.",
+        "Approval-Action im Action Center anzeigen."
+      ],
+      "acceptance_criteria": [
+        "Ohne Approval wird keine Bewerbung gesendet.",
+        "Ohne Approval wird kein Follow-up gesendet.",
+        "Approval enthält actor, timestamp, target_action und payload_hash.",
+        "Ablehnung verhindert Ausführung und erzeugt Timeline-Event.",
+        "Tests prüfen alle kritischen Aktionen."
+      ]
+    },
+    {
+      "id": "TEST-001",
+      "type": "testing-backend",
+      "title": "Backend-Testabdeckung für CaseFlow und Jobmodul",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "progress_percent": 0,
+      "files": [
+        "tests/test_caseflow_models.py",
+        "tests/test_caseflow_status_machine.py",
+        "tests/test_caseflow_artifacts.py",
+        "tests/test_caseflow_timeline.py",
+        "tests/test_caseflow_discovery.py",
+        "tests/test_caseflow_deduplication.py",
+        "tests/test_caseflow_api.py",
+        "tests/test_job_module_models.py",
+        "tests/test_job_posting_normalizer.py",
+        "tests/test_job_fit_scoring.py",
+        "tests/test_job_application_flow.py",
+        "tests/test_job_human_gates.py",
+        "tests/test_job_trace_integrity.py"
+      ],
+      "description": "Tests müssen vor UI-Ausbau die Kernlogik absichern.",
+      "implementation_tasks": [
+        "Unit-Tests für alle Core-Modelle.",
+        "Unit-Tests für Statusmaschinen.",
+        "API-Tests für Case CRUD und Transition.",
+        "Discovery-Tests für Adapter, Result, Deduplication.",
+        "Job-Tests für Posting Normalizer und FitScore.",
+        "Policy-Tests für Human Gates.",
+        "Trace-Integrity-Tests für AgentRun und Artifact."
+      ],
+      "acceptance_criteria": [
+        "pytest tests/test_caseflow_models.py läuft grün.",
+        "pytest tests/test_caseflow_status_machine.py läuft grün.",
+        "pytest tests/test_caseflow_discovery.py läuft grün.",
+        "pytest tests/test_job_application_flow.py läuft grün.",
+        "pytest tests/test_job_human_gates.py läuft grün.",
+        "Bestehende tests/test_visual_process.py laufen weiterhin grün.",
+        "Mindestens ein Integrationstest deckt DiscoveryResult -> Approval -> Case -> JobFlow -> Artifact -> Trace ab."
+      ]
+    },
+    {
+      "id": "TEST-002",
+      "type": "testing-frontend",
+      "title": "Angular UI Tests und E2E-Szenarien vorbereiten",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "progress_percent": 0,
+      "files": [
+        "frontend-angular/src/app/features/caseflow/job-application/*.spec.ts"
+      ],
+      "description": "Die UI darf nicht nur schön aussehen, sondern muss zuverlässig gegen Chaos helfen.",
+      "implementation_tasks": [
+        "Component Tests für Board, Detail, Discovery Inbox und Action Center.",
+        "Service Tests für JobApplicationApiService.",
+        "Mockdaten für 50 Bewerbungen.",
+        "E2E-Szenario: Jobtext einfügen -> Case erstellen -> Fit bewerten -> Anschreiben erzeugen -> Approval.",
+        "E2E-Szenario: Discovery Treffer ignorieren."
+      ],
+      "acceptance_criteria": [
+        "Board rendert 50 Bewerbungen ohne sichtbare Performance-Probleme im Test.",
+        "Statuswechsel ruft API-Service auf.",
+        "Detailansicht lädt Case per ID.",
+        "Discovery Inbox erzeugt keinen Case ohne Nutzeraktion.",
+        "Trace Tab zeigt Empty-State ohne Fehler.",
+        "Action Center zeigt überfällige Aktionen."
+      ]
+    },
+    {
+      "id": "MIGRATION-001",
+      "type": "migration",
+      "title": "DB-Migration und Backward Compatibility",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "progress_percent": 0,
+      "files": [
+        "migrations/versions/<new>_caseflow_platform_job_module.py",
+        "agent/db_models/caseflow.py"
+      ],
+      "description": "CaseFlow braucht eigene Tabellen, ohne bestehende VisualProcess-Persistenz zu brechen.",
+      "implementation_tasks": [
+        "Migration für caseflow_cases erstellen.",
+        "Migration für caseflow_events erstellen.",
+        "Migration für caseflow_artifacts erstellen.",
+        "Migration für caseflow_actions erstellen.",
+        "Migration für discovery_profiles, discovery_runs, discovery_results erstellen.",
+        "Migration für case_agent_runs und case_blueprint_bindings erstellen.",
+        "Keine Änderung an visual_process_graphs außer optionaler Foreign-Key-freier Referenz per ID."
+      ],
+      "acceptance_criteria": [
+        "Migration läuft auf leerer DB.",
+        "Migration läuft auf bestehender DB mit visual_process_graphs.",
+        "Rollback-Strategie ist dokumentiert oder technisch unterstützt.",
+        "Bestehende VisualProcessGraphDB-Daten bleiben unverändert.",
+        "CaseFlow-Tabellen können ohne Job-Daten genutzt werden.",
+        "Tests oder Smoke-Test prüfen Tabellenanlage."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "CASECORE-001",
+    "CASECORE-002",
+    "CASECORE-003",
+    "CASECORE-004",
+    "CASECORE-005",
+    "CASECORE-006",
+    "DISCOVERY-001",
+    "DISCOVERY-002",
+    "DISCOVERY-003",
+    "DISCOVERY-004",
+    "JOBCORE-001",
+    "JOBCORE-002",
+    "JOBCORE-003",
+    "JOBCORE-004",
+    "JOBAGENT-002",
+    "JOBFLOW-001",
+    "JOBFLOW-002",
+    "JOBUI-001",
+    "JOBUI-002",
+    "JOBUI-003",
+    "JOBUI-004",
+    "SECURITY-001",
+    "SECURITY-002",
+    "TEST-001"
+  ],
+  "tasks_status_summary": {
+    "total": 30,
+    "by_status": {
+      "todo": 30,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "critical": 21,
+      "high": 7,
+      "medium": 2,
+      "low": 0
+    },
+    "by_risk": {
+      "low": 8,
+      "medium": 17,
+      "high": 5
+    },
+    "critical_path": {
+      "total": 24,
+      "done": 0,
+      "remaining": 24
+    },
+    "milestones": {
+      "total": 6,
+      "todo": 6,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 30,
+    "by_type": {
+      "backend-model": 1,
+      "backend-state-machine": 1,
+      "backend-artifact": 1,
+      "backend-timeline": 1,
+      "backend-action": 1,
+      "backend-api": 1,
+      "backend-discovery": 2,
+      "backend-deduplication": 1,
+      "backend-case-conversion": 1,
+      "job-domain-model": 1,
+      "job-status-machine": 1,
+      "job-posting": 1,
+      "job-fit-scoring": 1,
+      "job-documents": 1,
+      "agent-profile": 1,
+      "agent-run": 1,
+      "visual-process-integration": 1,
+      "visual-process-runtime-binding": 1,
+      "angular-feature": 1,
+      "angular-board": 1,
+      "angular-detail": 1,
+      "angular-discovery": 1,
+      "angular-documents": 1,
+      "angular-dashboard": 1,
+      "privacy-security": 1,
+      "human-gates": 1,
+      "testing-backend": 1,
+      "testing-frontend": 1,
+      "migration": 1
+    }
+  },
+  "progress_summary": {
+    "state": "not_started",
+    "todo_remaining": 30,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "execution_stage_summary": {
+    "recommended_order": [
+      "CASECORE zuerst: Datenmodell, Status, Timeline, Artifacts, Actions, API.",
+      "Dann DISCOVERY: Adapter, SearchProfile, Dedupe, Human-Gate.",
+      "Dann JOBCORE: JobApplicationPayload, JobPosting, FitScore, Dokumentenbundle.",
+      "Dann JOBFLOW/JOBAGENT: SkillProfiles, VisualProcess Blueprints, Runtime Binding.",
+      "Dann JOBUI: Board, Detail, Discovery Inbox, Documents, Trace, Flow.",
+      "Zum Schluss Hardening: Privacy, Human Gates, Tests, Migration."
+    ],
+    "first_usable_slice": [
+      "CASECORE-001",
+      "CASECORE-002",
+      "CASECORE-004",
+      "CASECORE-006",
+      "JOBCORE-001",
+      "JOBCORE-002",
+      "JOBUI-001",
+      "JOBUI-002"
+    ],
+    "do_not_start_with": [
+      "Scraper für externe Jobbörsen",
+      "Komplexe Scheduler",
+      "Automatisches E-Mail-Senden",
+      "Zu frühe UI-Perfektion ohne Core-API"
+    ]
+  },
+  "summary_notes": [
+    "Diese TODO beschreibt bewusst eine Plattform, nicht nur ein Bewerbungsboard.",
+    "JobApplication ist der erste echte Domain-Blueprint.",
+    "Discovery ist generisch und später wiederverwendbar.",
+    "VisualProcess wird genutzt, aber nicht zweckentfremdet.",
+    "Trace, SkillProfiles und ModelRouting werden wiederverwendet.",
+    "Human Approval ist Sicherheitsgrenze für alle externen oder sensiblen Aktionen."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "core_architecture",
+      "title": "Architektur-Kern",
+      "items": [
+        "CaseFlow Core verwaltet generische Vorgänge.",
+        "Job Module erweitert CaseFlow mit JobApplicationPayload und JobPosting.",
+        "Discovery findet Kandidaten, erstellt aber nicht automatisch Cases.",
+        "VisualProcess definiert Flows und Blueprints.",
+        "Angular Job UI ist die tägliche Arbeitsoberfläche."
+      ]
+    },
+    {
+      "summary_id": "safety",
+      "title": "Sicherheitsgrenzen",
+      "items": [
+        "Keine Bewerbung wird automatisch gesendet.",
+        "Keine Cloud-Eskalation mit sensiblen Daten ohne Freigabe.",
+        "Keine Case-Erstellung aus Discovery ohne Approval in der Standardkonfiguration.",
+        "Alle KI-generierten Dokumente und Bewertungen müssen tracebar sein."
+      ]
+    },
+    {
+      "summary_id": "first_real_value",
+      "title": "Erster praktischer Nutzen",
+      "items": [
+        "Bewerbungen gehen nicht mehr verloren.",
+        "Nächste Aktionen sind sichtbar.",
+        "Stellenanzeigen können importiert und bewertet werden.",
+        "Dokumente und Kommunikation sind pro Bewerbung gebündelt.",
+        "Trace zeigt, warum die KI etwas vorgeschlagen hat."
+      ]
+    }
+  ]
+}
