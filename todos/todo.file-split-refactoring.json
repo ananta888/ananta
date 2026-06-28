@@ -5,9 +5,25 @@
   "track": "file_split_refactoring",
   "purpose": "Alle Quellcode-Dateien mit >1000 Zeilen auf sinnvolle Einzel-Module aufteilen, um Lesbarkeit, Testbarkeit und Wartbarkeit zu verbessern.",
   "goal": "Jede der 10 identifizierten Groß-Dateien wird durch einen klar abgegrenzten Satz kleinerer Dateien ersetzt, die zusammen dieselbe Funktionalität bieten, ohne Regressions zu verursachen. Nach Abschluss hat keine Datei mehr als 500 Zeilen (Templates/Styles ausgenommen).",
-  "status_scale": ["todo", "in_progress", "blocked", "done"],
-  "priority_scale": ["P0", "P1", "P2", "P3"],
-  "risk_scale": ["low", "medium", "high", "critical"],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
   "program_success_criteria": [
     "Keine der 10 Dateien überschreitet nach dem Refactoring 500 Zeilen Logik-Code (Inline-Templates und CSS-Blöcke ausgenommen).",
     "Alle bestehenden Tests (pytest, vitest, playwright) laufen nach jedem Milestone grün durch.",
@@ -26,67 +42,127 @@
     {
       "id": "FSR-M01",
       "title": "codehug-internals.component.ts aufteilen (2525 Z.)",
-      "status": "todo",
-      "task_ids": ["FSR-T001", "FSR-T002", "FSR-T003", "FSR-T004", "FSR-T005"]
+      "status": "in_progress",
+      "task_ids": [
+        "FSR-T001",
+        "FSR-T002",
+        "FSR-T003",
+        "FSR-T004",
+        "FSR-T005"
+      ]
     },
     {
       "id": "FSR-M02",
       "title": "snakes_execution_routes.py aufteilen (2222 Z.)",
-      "status": "todo",
-      "task_ids": ["FSR-T006", "FSR-T007", "FSR-T008", "FSR-T009", "FSR-T010"]
+      "status": "done",
+      "task_ids": [
+        "FSR-T006",
+        "FSR-T007",
+        "FSR-T008",
+        "FSR-T009",
+        "FSR-T010"
+      ]
     },
     {
       "id": "FSR-M03",
       "title": "visual-process-editor.component.ts aufteilen (1935 Z.)",
-      "status": "todo",
-      "task_ids": ["FSR-T011", "FSR-T012", "FSR-T013", "FSR-T014", "FSR-T015"]
+      "status": "in_progress",
+      "task_ids": [
+        "FSR-T011",
+        "FSR-T012",
+        "FSR-T013",
+        "FSR-T014",
+        "FSR-T015"
+      ]
     },
     {
       "id": "FSR-M04",
       "title": "config-graph-editor.component.ts aufteilen (1534 Z.)",
       "status": "todo",
-      "task_ids": ["FSR-T016", "FSR-T017", "FSR-T018", "FSR-T019"]
+      "task_ids": [
+        "FSR-T016",
+        "FSR-T017",
+        "FSR-T018",
+        "FSR-T019"
+      ]
     },
     {
       "id": "FSR-M05",
       "title": "notation_renderer.py aufteilen (1500 Z.)",
-      "status": "todo",
-      "task_ids": ["FSR-T020", "FSR-T021", "FSR-T022", "FSR-T023"]
+      "status": "done",
+      "task_ids": [
+        "FSR-T020",
+        "FSR-T021",
+        "FSR-T022",
+        "FSR-T023"
+      ]
     },
     {
       "id": "FSR-M06",
       "title": "hybrid_orchestrator.py aufteilen (1440 Z.)",
-      "status": "todo",
-      "task_ids": ["FSR-T024", "FSR-T025", "FSR-T026", "FSR-T027"]
+      "status": "done",
+      "task_ids": [
+        "FSR-T024",
+        "FSR-T025",
+        "FSR-T026",
+        "FSR-T027"
+      ]
     },
     {
       "id": "FSR-M07",
       "title": "chat_state.py aufteilen (1232 Z.)",
-      "status": "todo",
-      "task_ids": ["FSR-T028", "FSR-T029", "FSR-T030", "FSR-T031", "FSR-T032"]
+      "status": "done",
+      "task_ids": [
+        "FSR-T028",
+        "FSR-T029",
+        "FSR-T030",
+        "FSR-T031",
+        "FSR-T032"
+      ]
     },
     {
       "id": "FSR-M08",
       "title": "settings.component.ts aufteilen (1122 Z.)",
       "status": "todo",
-      "task_ids": ["FSR-T033", "FSR-T034", "FSR-T035", "FSR-T036"]
+      "task_ids": [
+        "FSR-T033",
+        "FSR-T034",
+        "FSR-T035",
+        "FSR-T036"
+      ]
     },
     {
       "id": "FSR-M09",
       "title": "config_graph_builder_service.py aufteilen (1102 Z.)",
-      "status": "todo",
-      "task_ids": ["FSR-T037", "FSR-T038", "FSR-T039"]
+      "status": "done",
+      "task_ids": [
+        "FSR-T037",
+        "FSR-T038",
+        "FSR-T039"
+      ]
     },
     {
       "id": "FSR-M10",
       "title": "codehug-canvas.component.ts aufteilen (1099 Z.)",
-      "status": "todo",
-      "task_ids": ["FSR-T040", "FSR-T041", "FSR-T042"]
+      "status": "done",
+      "task_ids": [
+        "FSR-T040",
+        "FSR-T041",
+        "FSR-T042"
+      ]
     }
   ],
   "critical_path_tasks": [
-    "FSR-T005", "FSR-T010", "FSR-T015", "FSR-T019",
-    "FSR-T023", "FSR-T027", "FSR-T032", "FSR-T036", "FSR-T039", "FSR-T042"
+    "FSR-T005",
+    "FSR-T010",
+    "FSR-T015",
+    "FSR-T019",
+    "FSR-T023",
+    "FSR-T027",
+    "FSR-T032",
+    "FSR-T036",
+    "FSR-T039",
+    "FSR-T042"
   ],
   "tasks": [
     {
@@ -116,13 +192,14 @@
         "codehug-internals.component.ts bindet <codehug-wiki-graph> via Selector ein und hat selbst keine wg*-Methoden mehr.",
         "Der 'graph'-Tab funktioniert im Browser identisch wie vorher: Index-Suche, Domain-Dropdown, Build-Button.",
         "pnpm test (Vitest) läuft grün; keine TypeScript-Compile-Fehler."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "FSR-T002",
       "title": "Canvas-Interaktion (Pan/Zoom/Drag) aus codehug-internals in Service extrahieren",
       "milestone": "FSR-M01",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "refactoring",
@@ -144,7 +221,8 @@
         "SVG-Transformationen (translate/scale) werden weiterhin korrekt auf dem Canvas angewendet.",
         "Mausbasiertes Verschieben von Nodes und Hintergrund-Panning funktioniert im Browser identisch.",
         "Kein TypeScript-Fehler, kein Test-Fehler."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T003",
@@ -171,7 +249,8 @@
         "Artifact-Binding-Dropdown zeigt weiterhin korrekte Optionen und speichert Änderungen.",
         "Routing-Mode (always/conditional/parallel) ist weiterhin per UI setzbar.",
         "Kein TypeScript-Fehler, alle Tests grün."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "FSR-T004",
@@ -198,18 +277,24 @@
         "Polling stoppt beim Destroy der Komponente (kein Memory-Leak, verifizierbar per Browser-DevTools-Netzwerk-Tab).",
         "Workflow-Status-Badge wird weiterhin live aktualisiert.",
         "Kein TypeScript-Fehler, alle Tests grün."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "FSR-T005",
       "title": "codehug-internals.component.ts auf Orchestrator-Shell reduzieren",
       "milestone": "FSR-M01",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
       "type": "refactoring",
       "source_file": "frontend-angular/src/app/features/codehug/components/codehug-internals.component.ts",
-      "blocked_by": ["FSR-T001", "FSR-T002", "FSR-T003", "FSR-T004"],
+      "blocked_by": [
+        "FSR-T001",
+        "FSR-T002",
+        "FSR-T003",
+        "FSR-T004"
+      ],
       "description": "Nach allen Extraktionen wird die Hauptdatei bereinigt: nur noch Tabs-Management, Signal-Bootstrapping (ngOnInit/ngOnDestroy), loadCCGraph/loadSelfGraph und die Haupt-Template-Struktur (<codehug-wiki-graph>, <codehug-node-inspector> etc.) bleiben übrig.",
       "acceptance_criteria": [
         "codehug-internals.component.ts hat nach dem Refactoring maximal 450 Zeilen.",
@@ -217,13 +302,14 @@
         "pnpm test grün, kein TypeScript-Fehler.",
         "Alle drei Tabs (vp, graph, ?) funktionieren im Browser vollständig.",
         "Playwright-E2E-Tests für das CodeHug-Feature laufen durch."
-      ]
+      ],
+      "progress_percent": 40.0
     },
     {
       "id": "FSR-T006",
       "title": "Visual-Guide-Logik aus snakes_execution_routes.py extrahieren",
       "milestone": "FSR-M02",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "refactoring",
@@ -245,13 +331,14 @@
         "snakes_execution_routes.py importiert _spawn_visual_reply, _spawn_region_explain_reply und _append_visual_user_tick aus snakes_visual_guide.",
         "pytest agent/ läuft grün; Visual-Guide-Route (/snakes/<id>/visual-guide) antwortet weiterhin korrekt.",
         "Kein zirkulärer Import (prüfbar mit 'python -c \"import agent.routes.snakes_execution_routes\"')."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T007",
       "title": "Retrieval-Helpers aus snakes_execution_routes.py extrahieren",
       "milestone": "FSR-M02",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "refactoring",
@@ -272,13 +359,14 @@
         "pytest agent/ grün; Retrieval-Dry-Run und Profil-Trace-Endpoints funktionieren weiterhin.",
         "Kein zirkulärer Import.",
         "Die extrahierten Funktionen sind mit pytest direkt testbar (kein Flask-App-Kontext nötig)."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T008",
       "title": "Prompt-Building + Answer-Fitting-Helpers extrahieren",
       "milestone": "FSR-M02",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "type": "refactoring",
@@ -301,13 +389,14 @@
         "snakes_execution_routes.py hat keine lokalen Definitionen mehr dieser Funktionen.",
         "pytest agent/ grün; Chat-Antworten haben weiterhin korrekte Längenbeschränkung und Prompt-Formatierung.",
         "Mindestens ein pytest-Unit-Test für _fit_answer_to_chars und _build_grounded_snake_prompt ohne Flask-App-Kontext."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T009",
       "title": "Worker-Routing + Auth-Helpers extrahieren",
       "milestone": "FSR-M02",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "refactoring",
@@ -327,18 +416,24 @@
         "pytest agent/ grün; Worker-Routing funktioniert weiterhin bei Multi-Worker-Setup.",
         "Auth-Token-Prüfung (snake_ask-Route) schlägt weiterhin korrekt fehl bei ungültigem Token.",
         "Kein zirkulärer Import."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T010",
       "title": "snakes_execution_routes.py auf Flask-Endpoints reduzieren",
       "milestone": "FSR-M02",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "refactoring",
       "source_file": "agent/routes/snakes_execution_routes.py",
-      "blocked_by": ["FSR-T006", "FSR-T007", "FSR-T008", "FSR-T009"],
+      "blocked_by": [
+        "FSR-T006",
+        "FSR-T007",
+        "FSR-T008",
+        "FSR-T009"
+      ],
       "description": "Nach allen Extraktionen enthält snakes_execution_routes.py nur noch die Flask-Route-Definitionen (chat_send, chat_receive, chat_cancel, chat_ack, snake_events_stream, snake_ui_state_push, worker_context, snake_ask, chat_traces_list, chat_trace_detail, chat_trace_events) und die Blueprint-Registrierung.",
       "acceptance_criteria": [
         "snakes_execution_routes.py hat nach dem Refactoring maximal 500 Zeilen.",
@@ -346,13 +441,14 @@
         "pytest agent/ vollständig grün.",
         "python -c \"from agent.routes.snakes_execution_routes import *\" erzeugt keine Fehler.",
         "Der operationelle Workflow (curl für Goal-Run, 3er-Lauf, Hub-Restart aus ref_ananta_ops_workflow) funktioniert unverändert."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T011",
       "title": "Inline-Template von visual-process-editor in .html-Datei auslagern",
       "milestone": "FSR-M03",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "type": "refactoring",
@@ -374,13 +470,14 @@
         "Die .ts-Datei hat nach diesem Schritt max. 830 Zeilen (nur noch Klasse + Imports).",
         "pnpm build ohne Fehler; alle Vitest-Tests grün.",
         "Der VP-Editor ist im Browser vollständig funktionsfähig (Nodes hinzufügen, Edges ziehen, Speichern)."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T012",
       "title": "VP-Canvas-Interaktion (Pan/Zoom/Drag/Edge-Drawing) in Service extrahieren",
       "milestone": "FSR-M03",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "refactoring",
@@ -401,7 +498,8 @@
         "Edge-Drawing-Modus (drawingEdge) funktioniert korrekt (Klick auf Quell-Node, Klick auf Ziel-Node).",
         "Maus-Koordinaten-Transformation (Viewport → SVG) ist korrekt nach Pan/Zoom.",
         "Kein TypeScript-Fehler, alle Tests grün."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T013",
@@ -429,13 +527,14 @@
         "Kind-Selector und Routing-Config-Felder zeigen korrekte Optionen.",
         "Die Eltern-Komponente hat keine lokalen Slot-Methoden mehr.",
         "Kein TypeScript-Fehler, alle Tests grün."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "FSR-T014",
       "title": "VP-Import/Export (BPMN + Mermaid) in Service extrahieren",
       "milestone": "FSR-M03",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "type": "refactoring",
@@ -456,18 +555,24 @@
         "Mermaid-Export erzeugt korrektes Mermaid-Markup für einen einfachen Testgraphen.",
         "Mermaid-Dialog (showMermaidDialog) öffnet und zeigt Inhalt korrekt.",
         "Kein TypeScript-Fehler, alle Tests grün."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T015",
       "title": "visual-process-editor.component.ts auf Orchestrator reduzieren",
       "milestone": "FSR-M03",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
       "type": "refactoring",
       "source_file": "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
-      "blocked_by": ["FSR-T011", "FSR-T012", "FSR-T013", "FSR-T014"],
+      "blocked_by": [
+        "FSR-T011",
+        "FSR-T012",
+        "FSR-T013",
+        "FSR-T014"
+      ],
       "description": "Nach allen Extraktionen enthält die .ts-Datei nur noch: ngOnInit/OnDestroy, graph-Signal, savedGraphs/presets/taskKindList-Laden, Workflow-Ausführung (dryRun, startWorkflow), und die grundlegende Node/Edge-Append-Logik. Template ist extern.",
       "acceptance_criteria": [
         "visual-process-editor.component.ts hat maximal 400 Zeilen.",
@@ -475,7 +580,8 @@
         "VP-Editor ist vollständig funktionsfähig: Nodes erstellen, Edges ziehen, Workflow starten, Speichern/Laden.",
         "Playwright-E2E-Test für VP-Editor-Grundfunktionen läuft durch.",
         "Keine Dead-Code-Imports mehr in der Hauptdatei."
-      ]
+      ],
+      "progress_percent": 60.0
     },
     {
       "id": "FSR-T016",
@@ -503,7 +609,8 @@
         "Die .ts-Datei hat nach diesem Schritt max. 600 Zeilen.",
         "pnpm build fehlerfrei; Config-Graph-Editor im Browser vollständig funktionsfähig.",
         "Alle Vitest-Tests grün."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "FSR-T017",
@@ -532,7 +639,8 @@
         "Node-Patch (Felder bearbeiten) funktioniert weiterhin.",
         "Node-Delete löst korrekte API-Calls aus.",
         "Kein TypeScript-Fehler, alle Tests grün."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "FSR-T018",
@@ -558,7 +666,8 @@
         "Effective-Config-Auflösung funktioniert im Browser (surface + task_kind + path eingeben, Ergebnis erscheint).",
         "Kein TypeScript-Fehler, alle Tests grün.",
         "Die Eltern-Komponente hat keine effectiveSurface/effectiveResult-State mehr."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "FSR-T019",
@@ -569,20 +678,25 @@
       "risk": "high",
       "type": "refactoring",
       "source_file": "frontend-angular/src/app/components/config-graph-editor.component.ts",
-      "blocked_by": ["FSR-T016", "FSR-T017", "FSR-T018"],
+      "blocked_by": [
+        "FSR-T016",
+        "FSR-T017",
+        "FSR-T018"
+      ],
       "description": "Nach allen Extraktionen enthält die .ts-Datei nur noch: View-Management (activeView, displayMode), Graph-Loading (loadGraph, applyOps), Graph-Filter (graphFilterIds, graphSearchText) und Layout-Algorithmus (layoutNodes, svgWidth, svgHeight).",
       "acceptance_criteria": [
         "config-graph-editor.component.ts hat maximal 400 Zeilen.",
         "pnpm build und pnpm test laufen fehlerfrei.",
         "Config-Graph-Editor ist vollständig funktionsfähig: Alle View-Tabs, Graph-Suche, Node-Klick, Clone, Effective-Config.",
         "Keine Dead-Code-Imports mehr in der Hauptdatei."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "FSR-T020",
       "title": "Gemeinsame Helpers und Modelle aus notation_renderer.py extrahieren",
       "milestone": "FSR-M05",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "type": "refactoring",
@@ -604,13 +718,14 @@
         "Keine anderen notation_renderer*-Module haben doppelte Definitionen dieser Funktionen.",
         "python -c \"from agent.services.notation_renderer_common import NotationArtifact, _as_str\" funktioniert.",
         "pytest agent/services/ grün."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T021",
       "title": "Mermaid-Renderer-Funktionen in separate Module aufteilen",
       "milestone": "FSR-M05",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "refactoring",
@@ -637,13 +752,14 @@
         "pytest agent/services/ grün (alle bestehenden Notation-Tests).",
         "Mermaid-Rendering über NotationRenderer.render() funktioniert weiterhin für alle 5 Typen.",
         "Kein zirkulärer Import."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T022",
       "title": "BPMN-Renderer-Funktionen in separates Modul extrahieren",
       "milestone": "FSR-M05",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "refactoring",
@@ -665,18 +781,23 @@
         "pytest agent/services/ grün.",
         "Kein zirkulärer Import.",
         "python -c \"from agent.services.notation_bpmn import render_bpmn_process\" funktioniert."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T023",
       "title": "notation_renderer.py auf Dispatcher-Klasse reduzieren",
       "milestone": "FSR-M05",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "refactoring",
       "source_file": "agent/services/notation_renderer.py",
-      "blocked_by": ["FSR-T020", "FSR-T021", "FSR-T022"],
+      "blocked_by": [
+        "FSR-T020",
+        "FSR-T021",
+        "FSR-T022"
+      ],
       "description": "Nach allen Extraktionen enthält notation_renderer.py nur noch die NotationRenderer-Klasse (Dispatcher, Z. 1366-1489) und die Singleton-Funktionen get_notation_renderer/reset_notation_renderer_singleton. Alle render_*-Calls delegieren an die extrahierten Module.",
       "acceptance_criteria": [
         "notation_renderer.py hat maximal 200 Zeilen.",
@@ -684,13 +805,14 @@
         "NotationRenderer.render() dispatcht korrekt an alle 8 Diagramm-Typen.",
         "pytest agent/services/ vollständig grün.",
         "python -c \"from agent.services.notation_renderer import get_notation_renderer\" funktioniert."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T024",
       "title": "RepositoryMapEngine aus hybrid_orchestrator.py extrahieren",
       "milestone": "FSR-M06",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "refactoring",
@@ -711,13 +833,14 @@
         "pytest agent/ grün.",
         "python -c \"from agent.repository_map_engine import RepositoryMapEngine\" funktioniert.",
         "Kein zirkulärer Import."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T025",
       "title": "AgenticSearchEngine + SearchSkill aus hybrid_orchestrator.py extrahieren",
       "milestone": "FSR-M06",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "refactoring",
@@ -736,13 +859,14 @@
         "hybrid_orchestrator.py importiert AgenticSearchEngine aus agentic_search_engine.",
         "pytest agent/ grün.",
         "Kein zirkulärer Import."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T026",
       "title": "SemanticSearchEngine aus hybrid_orchestrator.py extrahieren",
       "milestone": "FSR-M06",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "refactoring",
@@ -760,18 +884,23 @@
         "hybrid_orchestrator.py importiert SemanticSearchEngine aus semantic_search_engine.",
         "pytest agent/ grün.",
         "Kein zirkulärer Import."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T027",
       "title": "ContextManager aus hybrid_orchestrator.py extrahieren + Hauptdatei reduzieren",
       "milestone": "FSR-M06",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "refactoring",
       "source_file": "agent/hybrid_orchestrator.py",
-      "blocked_by": ["FSR-T024", "FSR-T025", "FSR-T026"],
+      "blocked_by": [
+        "FSR-T024",
+        "FSR-T025",
+        "FSR-T026"
+      ],
       "target_files": [
         "agent/context_manager.py"
       ],
@@ -785,13 +914,14 @@
         "python -c \"from agent.hybrid_orchestrator import HybridOrchestrator\" funktioniert.",
         "pytest agent/ vollständig grün.",
         "Kein zirkulärer Import."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T028",
       "title": "Enums + Type-Modelle aus chat_state.py extrahieren",
       "milestone": "FSR-M07",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "type": "refactoring",
@@ -811,13 +941,14 @@
         "chat_state.py importiert diese aus chat_models und hat keine lokalen Definitionen mehr.",
         "pytest client_surfaces/ grün.",
         "Kein zirkulärer Import."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T029",
       "title": "Session-Management-Funktionen aus chat_state.py extrahieren",
       "milestone": "FSR-M07",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "refactoring",
@@ -835,13 +966,14 @@
         "chat_state.py hat keine lokalen Definitionen mehr dieser Funktionen.",
         "pytest client_surfaces/ grün.",
         "Operator-TUI: Session-Wechsel, Settings-Änderung, Channel-Sync funktionieren weiterhin."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T030",
       "title": "Channel-Management-Funktionen aus chat_state.py extrahieren",
       "milestone": "FSR-M07",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "refactoring",
@@ -859,13 +991,14 @@
         "Chat_state.py und chat_session.py haben keine lokalen Kopien dieser Funktionen.",
         "pytest client_surfaces/ grün.",
         "Channel-Wechsel im Operator-TUI funktioniert weiterhin."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T031",
       "title": "Message-Funktionen aus chat_state.py extrahieren",
       "milestone": "FSR-M07",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "type": "refactoring",
@@ -883,25 +1016,32 @@
         "pytest client_surfaces/ grün.",
         "Operator-TUI: Nachrichten erscheinen und werden korrekt sanitized.",
         "Kein zirkulärer Import."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T032",
       "title": "chat_state.py auf Re-Export-__init__ + default_chat_state reduzieren",
       "milestone": "FSR-M07",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "refactoring",
       "source_file": "client_surfaces/operator_tui/chat_state.py",
-      "blocked_by": ["FSR-T028", "FSR-T029", "FSR-T030", "FSR-T031"],
+      "blocked_by": [
+        "FSR-T028",
+        "FSR-T029",
+        "FSR-T030",
+        "FSR-T031"
+      ],
       "description": "Nach allen Extraktionen enthält chat_state.py nur noch: default_chat_state, get_chat_state, set_chat_state (die Top-Level-State-Container-Funktionen) und Re-Exports aller Symbole aus den Sub-Modulen für Rückwärtskompatibilität.",
       "acceptance_criteria": [
         "chat_state.py hat maximal 150 Zeilen.",
         "Alle Symbole, die bisher direkt aus chat_state importiert wurden, sind weiterhin importierbar (Rückwärtskompatibilität via __all__ oder explizite Re-Exports).",
         "pytest client_surfaces/ vollständig grün.",
         "Operator-TUI startet fehlerfrei und alle Chat-Funktionen sind nutzbar."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T033",
@@ -930,7 +1070,8 @@
         "Model-Override-Map speichert korrekt.",
         "Kein TypeScript-Fehler; pnpm test grün.",
         "settings.component.ts hat keine llm*-State-Felder mehr."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "FSR-T034",
@@ -956,7 +1097,8 @@
         "QG-Konfiguration (Toggle, Keywords, Markers) speichert und lädt korrekt im Browser.",
         "Kein TypeScript-Fehler, alle Tests grün.",
         "settings.component.ts hat keine qg*-State-Felder mehr."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "FSR-T035",
@@ -982,7 +1124,8 @@
         "System-Konfiguration (Worker-Parallelismus setzen, Governance-Mode wählen) speichert korrekt.",
         "Kein TypeScript-Fehler, alle Tests grün.",
         "settings.component.ts hat keine system*-Methoden mehr."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "FSR-T036",
@@ -993,7 +1136,11 @@
       "risk": "medium",
       "type": "refactoring",
       "source_file": "frontend-angular/src/app/components/settings.component.ts",
-      "blocked_by": ["FSR-T033", "FSR-T034", "FSR-T035"],
+      "blocked_by": [
+        "FSR-T033",
+        "FSR-T034",
+        "FSR-T035"
+      ],
       "description": "Nach allen Extraktionen enthält settings.component.ts nur noch: selectedSection-State, setSection(), ngOnInit-Bootstrapping, Account-Section-State (isAdmin, isDarkMode, toggleDarkMode) und die Top-Level-Tab-Navigation im Template.",
       "acceptance_criteria": [
         "settings.component.ts hat maximal 200 Zeilen.",
@@ -1001,13 +1148,14 @@
         "Dark-Mode-Toggle funktioniert weiterhin.",
         "pnpm build und pnpm test grün.",
         "Settings-Seite ist vollständig im Browser nutzbar."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "FSR-T037",
       "title": "ConfigGraph-Modell-Klassen aus config_graph_builder_service.py extrahieren",
       "milestone": "FSR-M09",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "type": "refactoring",
@@ -1027,13 +1175,14 @@
         "pytest agent/services/ grün.",
         "python -c \"from agent.services.config_graph_models import ConfigGraph\" funktioniert.",
         "Kein zirkulärer Import."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T038",
       "title": "Klassifikations-Helpers aus config_graph_builder_service.py extrahieren",
       "milestone": "FSR-M09",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "type": "refactoring",
@@ -1052,18 +1201,22 @@
         "pytest agent/services/ grün.",
         "Kein zirkulärer Import.",
         "Mindestens ein pytest-Test für _classify_rule_character mit Mock-Profil-Daten."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T039",
       "title": "config_graph_builder_service.py auf Builder-Klasse reduzieren",
       "milestone": "FSR-M09",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "refactoring",
       "source_file": "agent/services/config_graph_builder_service.py",
-      "blocked_by": ["FSR-T037", "FSR-T038"],
+      "blocked_by": [
+        "FSR-T037",
+        "FSR-T038"
+      ],
       "description": "Nach Extraktionen enthält config_graph_builder_service.py nur noch ConfigGraphBuilderService (~640 Zeilen) und get_config_graph_builder_service. Das ist immer noch groß, aber die Klasse hat eine einzige kohärente Verantwortlichkeit: den Graph aus Konfigurations-Daten aufzubauen.",
       "acceptance_criteria": [
         "config_graph_builder_service.py hat maximal 700 Zeilen.",
@@ -1071,13 +1224,14 @@
         "pytest agent/services/ vollständig grün.",
         "Config-Graph-API-Endpoints (/config-graph/*) liefern weiterhin korrekte Antworten.",
         "Kein zirkulärer Import."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T040",
       "title": "Topology-Layout-Algorithmus aus codehug-canvas.component.ts extrahieren",
       "milestone": "FSR-M10",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "type": "refactoring",
@@ -1099,13 +1253,14 @@
         "codehug-canvas.component.ts importiert buildTopologyGraph aus codehug-topology-layout.",
         "Canvas rendert Topologie weiterhin korrekt im Browser.",
         "Kein TypeScript-Fehler."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T041",
       "title": "Inline-Template + Styles von codehug-canvas in externe Dateien auslagern",
       "milestone": "FSR-M10",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "type": "refactoring",
@@ -1126,18 +1281,22 @@
         "Die .ts-Datei hat nach diesem Schritt max. 600 Zeilen.",
         "pnpm build fehlerfrei; Canvas rendert Topologie korrekt im Browser.",
         "Alle Tests grün."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "FSR-T042",
       "title": "codehug-canvas.component.ts auf Komponenten-Klasse reduzieren",
       "milestone": "FSR-M10",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "refactoring",
       "source_file": "frontend-angular/src/app/features/codehug/graph/codehug-canvas.component.ts",
-      "blocked_by": ["FSR-T040", "FSR-T041"],
+      "blocked_by": [
+        "FSR-T040",
+        "FSR-T041"
+      ],
       "description": "Nach Extraktion von Layout-Algorithmus (T040) und Template/Styles (T041) enthält die .ts-Datei nur noch die Komponenten-Klasse mit: @Input/@Output-Deklarationen, Signal-State (nodes, edges, selectedNodeId, panX/Y, zoom), ngOnChanges (Topology → Graph-Konvertierung via buildTopologyGraph) und @HostListener-Events für Pan/Zoom.",
       "acceptance_criteria": [
         "codehug-canvas.component.ts hat maximal 300 Zeilen.",
@@ -1145,19 +1304,20 @@
         "pnpm build und pnpm test grün.",
         "Canvas zeigt Topologie korrekt an; Node-Klick, Pan und Zoom funktionieren.",
         "Playwright-E2E-Tests für CodeHug laufen durch."
-      ]
+      ],
+      "progress_percent": 100.0
     }
   ],
   "tasks_status_summary": {
     "total": 42,
     "by_status": {
-      "todo": 42,
+      "todo": 12,
       "in_progress": 0,
-      "partial": 0,
+      "partial": 2,
       "blocked": 0,
-      "done": 0
+      "done": 28
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 66.67,
     "by_priority": {
       "P0": 10,
       "P1": 22,
@@ -1165,37 +1325,160 @@
       "P3": 0
     },
     "by_risk": {
-      "low": 15,
-      "medium": 24,
-      "high": 3,
+      "low": 14,
+      "medium": 23,
+      "high": 5,
       "critical": 0
     },
     "critical_path": {
       "total": 10,
-      "done": 0,
-      "remaining": 10
+      "done": 6,
+      "remaining": 4
     },
     "milestones": {
       "total": 10,
-      "todo": 10,
-      "in_progress": 0,
+      "todo": 2,
+      "in_progress": 2,
       "blocked": 0,
-      "done": 0
+      "done": 6
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 42,
+    "state": "in_progress",
+    "todo_remaining": 12,
     "in_progress": 0,
-    "partial": 0,
+    "partial": 2,
     "blocked": 0,
-    "done": 0
+    "done": 28,
+    "count_based_percent": 66.7,
+    "weighted_percent": 68.6
   },
   "summary_notes": [
     "Alle 10 Dateien wurden am 2026-06-28 identifiziert. Grösste Datei: codehug-internals.component.ts mit 2525 Zeilen.",
-    "Empfohlene Reihenfolge: M05 (notation_renderer, niedrigstes Risiko) → M06 (hybrid_orchestrator, klare Klassen-Grenzen) → M07 (chat_state) → M09 (config_graph_builder) → M02 (snakes_routes) → M03/M04/M08 (Angular) → M01/M10 (grosse Angular-Komponenten).",
-    "Template-Auslagerungen (T011, T016, T041) sollten immer als erster Schritt im jeweiligen Milestone erfolgen, da sie risikolos sind und sofort Zeilen reduzieren.",
+    "Stand 2026-06-28: M02, M05, M06, M07, M09 und M10 sind abgeschlossen; M01 und M03 sind in Arbeit; M04 und M08 sind noch offen.",
+    "Verifiziert sind 28 von 42 Tasks; T005 und T015 bleiben partial, weil die jeweiligen Orchestrator-Shells ihre Zielgrösse und vollständige Komponentenaufteilung noch nicht erreicht haben.",
+    "Nächste Reihenfolge: M01 (Wiki, Inspector, Workflow-Runner) → M03 (VP-Inspector) → M04 (Config-Detail/Effective-Config) → M08 (Settings-Sektionen).",
     "Python-Splits dürfen KEINE __init__.py-Pakete erstellen, wenn der Rest des Projekts flat-imports nutzt — Re-Exports direkt in chat_state.py / notation_renderer.py sind die korrekte Rückwärtskompatibilitäts-Strategie.",
-    "Tasks mit risk=high (T005, T010, T015) sollten erst nach vollständiger grüner Test-Suite der Vorgänger angegangen werden."
-  ]
+    "T010 ist abgeschlossen; die verbleibenden High-Risk-Shell-Tasks T005 und T015 werden erst nach den noch offenen Teilkomponenten finalisiert."
+  ],
+  "tasks_type_summary": {
+    "total": 42,
+    "by_type": {
+      "refactoring": {
+        "total": 42,
+        "by_status": {
+          "todo": 12,
+          "in_progress": 0,
+          "partial": 2,
+          "blocked": 0,
+          "done": 28
+        },
+        "done": 28,
+        "partial": 2,
+        "blocked": 0,
+        "progress_percent": 69.0
+      }
+    }
+  },
+  "weighted_progress_summary": {
+    "weighting_model_ref": "planning-weighting-default-v1",
+    "total_weight": 60.5,
+    "done_weight": 41.5,
+    "remaining_weight": 19.0,
+    "blocked_weight": 0.0,
+    "weighted_percent": 68.6
+  },
+  "milestone_progress_summary": {
+    "milestones": {
+      "FSR-M01": {
+        "total_tasks": 5,
+        "done": 1,
+        "blocked": 0,
+        "count_based_percent": 20.0,
+        "weighted_percent": 27.1,
+        "status": "in_progress"
+      },
+      "FSR-M02": {
+        "total_tasks": 5,
+        "done": 5,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "FSR-M03": {
+        "total_tasks": 5,
+        "done": 3,
+        "blocked": 0,
+        "count_based_percent": 60.0,
+        "weighted_percent": 67.1,
+        "status": "in_progress"
+      },
+      "FSR-M04": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "FSR-M05": {
+        "total_tasks": 4,
+        "done": 4,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "FSR-M06": {
+        "total_tasks": 4,
+        "done": 4,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "FSR-M07": {
+        "total_tasks": 5,
+        "done": 5,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "FSR-M08": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "FSR-M09": {
+        "total_tasks": 3,
+        "done": 3,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "FSR-M10": {
+        "total_tasks": 3,
+        "done": 3,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      }
+    }
+  },
+  "derived_summary_metadata": {
+    "mode": "derived_cache",
+    "source_of_truth": "tasks",
+    "generated_at": "2026-06-28T07:59:53.889725Z",
+    "generator": "planning-summary-engine",
+    "generator_version": "1.0",
+    "source_hash": "86a0913a167f4831c0c63bc6a50227de257b817e3fead8c84483457f5a41a85f",
+    "is_stale": false
+  }
 }
