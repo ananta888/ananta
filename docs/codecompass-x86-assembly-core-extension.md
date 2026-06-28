@@ -156,3 +156,53 @@ contract resolves in favor of **this Core contract**.
 This contract document is itself an acceptance deliverable for X86CC-001
 (see `todos/todo.codecompass-x86-assembly-core-extension.json`). The
 deliverable is verified by `tests/codecompass/x86/test_doc_contract.py`.
+
+## Tools (W5 / X86CC-023..027)
+
+The x86 extension exposes five tools through `agent.services.tools.codecompass_tools`,
+following the same `workspace_dir / arguments / tool_call_id -> ToolResult` shape
+as the existing CodeCompass tools:
+
+- `codecompass.x86_overview` — counts, kinds present, section breakdown for the indexed x86 payload.
+- `codecompass.x86_address_lookup` — resolve a single hex (`0x...`) or decimal address to matching nodes.
+- `codecompass.x86_cfg` — bounded, cycle-safe CFG traversal from a seed node id.
+- `codecompass.x86_call_graph` — classify calls from a seed function into direct, indirect, import, unresolved.
+- `codecompass.x86_find` — generic finder for the 9 query kinds: `address`, `symbol`, `function`, `mnemonic`, `import`, `string`, `section`, `basic_block`, `diagnostics`.
+
+All five tools degrade to `status: ok` with empty data when no x86 records
+are present in the persisted graph. They never raise — invalid arguments
+return `status: error` with a human-readable reason.
+
+## Sample Queries (W6 / X86CC-032)
+
+Workers and operators can copy-paste these argument dicts into the
+corresponding tools. All return JSON-serializable ToolResult payloads.
+
+```python
+# 1) summarize the indexed x86 payload
+codecompass.x86_overview(arguments={})
+
+# 2) resolve an address (hex or decimal)
+codecompass.x86_address_lookup(arguments={"address": "0x401014"})
+
+# 3) walk the CFG from a seed
+codecompass.x86_cfg(arguments={"seed_id": "fn-abc123", "max_depth": 20, "max_nodes": 200})
+
+# 4) classify the call graph from a seed function
+codecompass.x86_call_graph(arguments={"seed_id": "fn-abc123"})
+
+# 5) find by mnemonic (limit)
+codecompass.x86_find(arguments={"kind": "mnemonic", "value": "mov", "limit": 50})
+codecompass.x86_find(arguments={"kind": "function", "value": "add_two"})
+codecompass.x86_find(arguments={"kind": "import", "value": "printf"})
+codecompass.x86_find(arguments={"kind": "string", "value": "http"})
+```
+
+## Worker Context Handoff (W6 / X86CC-028)
+
+`agent.codecompass.x86.handoff.build_x86_worker_context(nodes=..., edges=..., function_id=...)`
+produces a `codecompass_x86_context.v1` package for one function: the function
+node itself, the instructions that belong to it (by address range), any calls
+it makes, and warnings (e.g. `function_end_address_missing`,
+`indirect_calls_present`). Used by worker tools that need a self-contained
+view of a function without re-walking the graph.
