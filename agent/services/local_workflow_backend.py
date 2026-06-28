@@ -165,6 +165,7 @@ class LocalWorkflowBackend:
 
 
 def _status_step_dict(step, status: str) -> dict[str, Any]:
+    routing = dict((step.metadata or {}).get("model_routing") or {})
     return {
         "id": step.step_id,
         "step_id": step.step_id,
@@ -173,6 +174,12 @@ def _status_step_dict(step, status: str) -> dict[str, Any]:
         "gate": step.gate,
         "consumes": list(step.input_artifacts),
         "status": status,
+        "selected_model_profile_id": routing.get("preferred_profile_id"),
+        "selected_provider_id": None,
+        "selected_model": None,
+        "fallback_attempts": [],
+        "llm_call_profile": list((step.metadata or {}).get("llm_call_profile") or []),
+        "model_routing": routing,
     }
 
 

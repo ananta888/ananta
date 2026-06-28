@@ -40,6 +40,7 @@ describe('VisualProcessEditorComponent (FSR-T015 acceptance)', () => {
     listSkillProfiles: ReturnType<typeof vi.fn>;
     listTaskKinds: ReturnType<typeof vi.fn>;
     listSavedGraphs: ReturnType<typeof vi.fn>;
+    listModelProfiles: ReturnType<typeof vi.fn>;
     validate: ReturnType<typeof vi.fn>;
     dryRun: ReturnType<typeof vi.fn>;
   };
@@ -50,6 +51,7 @@ describe('VisualProcessEditorComponent (FSR-T015 acceptance)', () => {
       listSkillProfiles: vi.fn().mockReturnValue(of([])),
       listTaskKinds: vi.fn().mockReturnValue(of([])),
       listSavedGraphs: vi.fn().mockReturnValue(of([])),
+      listModelProfiles: vi.fn().mockReturnValue(of({ profiles: [], fallback_groups: {}, status: 'ok' })),
       validate: vi.fn().mockReturnValue(of({ valid: true, error_count: 0, warning_count: 0, issues: [] })),
       dryRun: vi.fn().mockReturnValue(of({} as any)),
     };

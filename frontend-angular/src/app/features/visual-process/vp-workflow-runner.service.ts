@@ -119,7 +119,19 @@ export class VpWorkflowRunnerService {
             ...current,
             steps: current.steps.map(step => {
               const runtimeStep = steps.find(item => item.step_id === step.id);
-              return runtimeStep ? { ...step, run_state: runtimeStep.run_state } : step;
+              if (!runtimeStep) return step;
+              return {
+                ...step,
+                run_state: runtimeStep.run_state ?? runtimeStep.status,
+                metadata: {
+                  ...(step.metadata ?? {}),
+                  selected_model_profile_id: runtimeStep.selected_model_profile_id,
+                  selected_provider_id: runtimeStep.selected_provider_id,
+                  selected_model: runtimeStep.selected_model,
+                  fallback_attempts: runtimeStep.fallback_attempts ?? [],
+                  llm_call_profile: runtimeStep.llm_call_profile ?? [],
+                },
+              };
             }),
           }));
         }

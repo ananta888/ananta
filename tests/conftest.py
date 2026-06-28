@@ -63,7 +63,7 @@ def pytest_runtest_setup(item):
 
 
 @pytest.fixture(autouse=True)
-def _integration_planning_timeout_brake(request, app):
+def _integration_planning_timeout_brake(request, app, monkeypatch):
     """Cap planning_policy timeouts for integration tests.
 
     Even with the opt-in gate above, integration tests that start a real
@@ -88,13 +88,17 @@ def _integration_planning_timeout_brake(request, app):
     "did not yield a value".
     """
     if "integration" not in request.keywords:
+        yield
         return
-    cfg = dict(app.config.get("AGENT_CONFIG") or {})
-    planning_policy = dict(cfg.get("planning_policy") or {})
-    planning_policy["timeout_seconds"] = 5
-    planning_policy["queue_wait_timeout_seconds"] = 5
-    cfg["planning_policy"] = planning_policy
-    app.config["AGENT_CONFIG"] = cfg
+    app = request.getfixturevalue("app")
+    with app.app_context():
+        cfg = dict(app.config.get("AGENT_CONFIG") or {})
+        planning_policy = dict(cfg.get("planning_policy") or {})
+        planning_policy["timeout_seconds"] = 5
+        planning_policy["queue_wait_timeout_seconds"] = 5
+        cfg["planning_policy"] = planning_policy
+        app.config["AGENT_CONFIG"] = cfg
+        yield
 
 
 def _settings():

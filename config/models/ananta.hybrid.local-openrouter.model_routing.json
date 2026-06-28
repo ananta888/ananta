@@ -1,0 +1,84 @@
+{
+  "version": "1.0",
+  "_note": "Generic local-first routing for LM Studio -> OpenRouter Gemma -> OpenRouter Qwen.",
+  "security_policy": {
+    "block_cloud_with_secrets": true,
+    "allowed_cloud_providers": ["openrouter"]
+  },
+  "routing_rules": [
+    {
+      "rule_id": "small-json-tool-selection-local-first",
+      "model_role": "any",
+      "profile_id": "local_lmstudio_phi_json_worker",
+      "enabled": true,
+      "reason": "Small JSON/tool-selection work starts locally and escalates through fallback_groups."
+    },
+    {
+      "rule_id": "architecture-prefers-stronger-cloud-when-allowed",
+      "task_kind": "architecture",
+      "profile_id": "openrouter_qwen3_30b_a3b_stronger",
+      "enabled": true,
+      "reason": "Architecture work benefits from the stronger Qwen profile when policy allows cloud."
+    }
+  ],
+  "fallback_chain": [
+    "local_lmstudio_phi_json_worker",
+    "openrouter_gemma3_4b_cheap_json",
+    "openrouter_qwen3_30b_a3b_stronger"
+  ],
+  "fallback_groups": {
+    "local_first_cheap": {
+      "ordered_profiles": [
+        "local_lmstudio_phi_json_worker",
+        "openrouter_gemma3_4b_cheap_json",
+        "openrouter_qwen3_30b_a3b_stronger"
+      ],
+      "max_total_retries": 2,
+      "stop_on_policy_block": true,
+      "stop_on_success": true,
+      "cost_policy": {
+        "max_input_price_per_million": 0.12,
+        "max_output_price_per_million": 0.30,
+        "max_estimated_cost_per_step": 0.05
+      }
+    },
+    "cloud_cheap": {
+      "ordered_profiles": ["openrouter_gemma3_4b_cheap_json"],
+      "max_total_retries": 1,
+      "stop_on_policy_block": true,
+      "stop_on_success": true
+    },
+    "cloud_strong": {
+      "ordered_profiles": ["openrouter_qwen3_30b_a3b_stronger"],
+      "max_total_retries": 1,
+      "stop_on_policy_block": true,
+      "stop_on_success": true
+    },
+    "secret_safe": {
+      "ordered_profiles": ["local_lmstudio_phi_json_worker"],
+      "max_total_retries": 0,
+      "stop_on_policy_block": true,
+      "stop_on_success": true
+    }
+  },
+  "escalation_rules": [
+    {
+      "trigger": "provider_unavailable",
+      "from_profile": "local_lmstudio_phi_json_worker",
+      "to_profile": "openrouter_gemma3_4b_cheap_json",
+      "condition": {"allow_cloud": true}
+    },
+    {
+      "trigger": "schema_validation_failed",
+      "from_profile": "openrouter_gemma3_4b_cheap_json",
+      "to_profile": "openrouter_qwen3_30b_a3b_stronger",
+      "condition": {"requires_json": true}
+    },
+    {
+      "trigger": "repeated_tool_failure",
+      "from_profile": "openrouter_gemma3_4b_cheap_json",
+      "to_profile": "openrouter_qwen3_30b_a3b_stronger",
+      "condition": {"repeated_failure_count": 2}
+    }
+  ]
+}

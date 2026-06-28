@@ -259,3 +259,91 @@ def test_decision_trace_is_populated():
     accepted = [d for d in result.decisions if d.accepted]
     assert len(accepted) == 1
     assert accepted[0].profile_id == "p1"
+
+
+def test_fallback_group_returns_local_gemma_qwen_chain():
+    local = ModelProfile(
+        profile_id="local_lmstudio_phi_json_worker",
+        provider_id="lmstudio",
+        model="auto",
+        local=True,
+        block_secret_context=False,
+        supports_json=True,
+        tool_calling_mode="prompt_json",
+        fallback_group="local_first_cheap",
+        fallback_rank=10,
+    )
+    gemma = ModelProfile(
+        profile_id="openrouter_gemma3_4b_cheap_json",
+        provider_id="openrouter",
+        model="google/gemma-3-4b-it",
+        cloud=True,
+        cloud_allowed=True,
+        block_secret_context=True,
+        supports_json=True,
+        supports_tools=True,
+        tool_calling_mode="both",
+        fallback_group="local_first_cheap",
+        fallback_rank=20,
+    )
+    qwen = ModelProfile(
+        profile_id="openrouter_qwen3_30b_a3b_stronger",
+        provider_id="openrouter",
+        model="qwen/qwen3-30b-a3b-instruct-2507",
+        cloud=True,
+        cloud_allowed=True,
+        block_secret_context=True,
+        supports_json=True,
+        supports_tools=True,
+        tool_calling_mode="both",
+        fallback_group="local_first_cheap",
+        fallback_rank=30,
+    )
+    rules = RoutingRules.from_dict({
+        "fallback_groups": {
+            "local_first_cheap": {
+                "ordered_profiles": [local.profile_id, gemma.profile_id, qwen.profile_id]
+            }
+        }
+    })
+    resolver = ModelProfileResolver([local, gemma, qwen], routing_rules=rules)
+    result, chain = resolver.resolve_candidate_chain(RoutingContext(
+        fallback_group_id="local_first_cheap",
+        requires_tools=True,
+        requires_json=True,
+        allow_cloud=True,
+    ))
+
+    assert result.ok
+    assert [p.profile_id for p in chain] == [
+        "local_lmstudio_phi_json_worker",
+        "openrouter_gemma3_4b_cheap_json",
+        "openrouter_qwen3_30b_a3b_stronger",
+    ]
+
+
+def test_secret_context_blocks_cloud_candidates_but_keeps_local():
+    local = _local("local", supports_json=True)
+    gemma = ModelProfile(
+        profile_id="gemma",
+        provider_id="openrouter",
+        model="google/gemma-3-4b-it",
+        cloud=True,
+        cloud_allowed=True,
+        block_secret_context=True,
+        supports_json=True,
+        fallback_group="g",
+        fallback_rank=20,
+    )
+    rules = RoutingRules.from_dict({"fallback_groups": {"g": {"ordered_profiles": ["local", "gemma"]}}})
+    resolver = ModelProfileResolver([local, gemma], routing_rules=rules)
+
+    result, chain = resolver.resolve_candidate_chain(RoutingContext(
+        fallback_group_id="g",
+        context_text="OPENAI_API_KEY=sk-abcdefghijklmnopqrstuvwxyz",
+        allow_cloud=True,
+    ))
+
+    assert result.ok
+    assert [p.profile_id for p in chain] == ["local"]
+    assert any(pid == "gemma" and "secrets_detected" in reason for pid, reason in result.blocked_candidates)

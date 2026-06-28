@@ -22,6 +22,9 @@ ALLOWED_MODEL_ROLES = frozenset({
     "planner", "coder", "reviewer", "embedder", "summarizer", "chat", "any",
 })
 
+ALLOWED_TOOL_CALLING_MODES = frozenset({"native_tools", "prompt_json", "both", "none"})
+ALLOWED_JSON_RELIABILITY_CLASSES = frozenset({"unknown", "experimental", "usable", "strict"})
+
 
 @dataclass
 class ModelProfile:
@@ -42,6 +45,17 @@ class ModelProfile:
     temperature: float = 0.2
     cost_class: str = "free"
     quality_class: str = "medium"
+    price_input_per_million: float | None = None
+    price_output_per_million: float | None = None
+    estimated_latency_class: str = "unknown"
+    json_reliability_class: str = "unknown"
+    tool_calling_mode: str = "none"
+    preferred_for: list[str] = field(default_factory=list)
+    avoid_for: list[str] = field(default_factory=list)
+    max_context_for_profile: int | None = None
+    retry_budget: int = 0
+    fallback_group: str | None = None
+    fallback_rank: int | None = None
     api_key_env: str | None = None
     base_url: str | None = None
     enabled: bool = True
@@ -54,6 +68,12 @@ class ModelProfile:
     def is_usable_with_secrets(self) -> bool:
         """True if profile may receive secret-containing context."""
         return not self.block_secret_context or not self.is_cloud()
+
+    def supports_prompt_json_tools(self) -> bool:
+        return self.tool_calling_mode in {"prompt_json", "both"}
+
+    def supports_native_tools(self) -> bool:
+        return self.supports_tools and self.tool_calling_mode in {"native_tools", "both"}
 
 
 @dataclass
@@ -132,6 +152,7 @@ class ModelProfileLoader:
                 temperature=float(raw.get("temperature") or 0.2),
                 enabled=bool(raw.get("enabled", True)),
                 notes=str(raw.get("notes") or ""),
+                tool_calling_mode="prompt_json" if "json" in str(raw.get("notes") or "").lower() else "none",
                 extra={"_legacy": True, "_source": "planning_model_profiles"},
             )
             profiles.append(profile)
@@ -179,10 +200,19 @@ class ModelProfileLoader:
             "profile_id", "provider_id", "model", "model_role", "local", "cloud",
             "cloud_allowed", "block_secret_context", "supports_tools", "supports_json",
             "supports_streaming", "context_tokens", "max_output_tokens", "timeout_seconds",
-            "temperature", "cost_class", "quality_class", "api_key_env", "base_url",
+            "temperature", "cost_class", "quality_class", "price_input_per_million",
+            "price_output_per_million", "estimated_latency_class", "json_reliability_class",
+            "tool_calling_mode", "preferred_for", "avoid_for", "max_context_for_profile",
+            "retry_budget", "fallback_group", "fallback_rank", "api_key_env", "base_url",
             "enabled", "notes",
         }
         extra = {k: v for k, v in raw.items() if k not in known_keys}
+        tool_calling_mode = str(raw.get("tool_calling_mode") or ("native_tools" if raw.get("supports_tools") else "none")).strip()
+        if tool_calling_mode not in ALLOWED_TOOL_CALLING_MODES:
+            errors.append(f"profile[{index}]:{pid!r}:invalid_tool_calling_mode:{tool_calling_mode}")
+        json_reliability_class = str(raw.get("json_reliability_class") or "unknown").strip()
+        if json_reliability_class not in ALLOWED_JSON_RELIABILITY_CLASSES:
+            errors.append(f"profile[{index}]:{pid!r}:invalid_json_reliability_class:{json_reliability_class}")
 
         try:
             profile = ModelProfile(
@@ -203,6 +233,17 @@ class ModelProfileLoader:
                 temperature=float(raw.get("temperature") or 0.2),
                 cost_class=str(raw.get("cost_class") or "free"),
                 quality_class=str(raw.get("quality_class") or "medium"),
+                price_input_per_million=_optional_float(raw.get("price_input_per_million")),
+                price_output_per_million=_optional_float(raw.get("price_output_per_million")),
+                estimated_latency_class=str(raw.get("estimated_latency_class") or "unknown"),
+                json_reliability_class=json_reliability_class,
+                tool_calling_mode=tool_calling_mode,
+                preferred_for=_string_list(raw.get("preferred_for")),
+                avoid_for=_string_list(raw.get("avoid_for")),
+                max_context_for_profile=_optional_int(raw.get("max_context_for_profile")),
+                retry_budget=max(0, int(raw.get("retry_budget") or 0)),
+                fallback_group=str(raw["fallback_group"]) if raw.get("fallback_group") else None,
+                fallback_rank=_optional_int(raw.get("fallback_rank")),
                 api_key_env=str(raw["api_key_env"]) if raw.get("api_key_env") else None,
                 base_url=str(raw["base_url"]) if raw.get("base_url") else None,
                 enabled=bool(raw.get("enabled", True)),
@@ -213,3 +254,24 @@ class ModelProfileLoader:
             errors.append(f"profile[{index}]:{pid!r}:field_error:{exc}")
             return None
         return profile, errors
+
+
+def _optional_float(value: Any) -> float | None:
+    if value is None or value == "":
+        return None
+    return float(value)
+
+
+def _optional_int(value: Any) -> int | None:
+    if value is None or value == "":
+        return None
+    return int(value)
+
+
+def _string_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    text = str(value).strip()
+    return [text] if text else []

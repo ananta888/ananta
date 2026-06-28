@@ -208,3 +208,170 @@ def test_make_chat_call_with_routing_ctx_includes_resolution_info(monkeypatch) -
     assert ri["profile_id"] == "test-local"
     assert ri["resolution_source"] == "request_runtime_override"
     assert ri["resolution_rank"] == 1
+
+
+def test_invocation_fallback_chain_local_gemma_qwen(monkeypatch) -> None:
+    from agent.services.model_profile_loader import ModelProfile
+    from agent.services.model_profile_resolver import ModelProfileResolver, RoutingContext, RoutingRules
+    import agent.services.model_invocation_service as svc_mod
+
+    local = ModelProfile(
+        profile_id="local_lmstudio_phi_json_worker",
+        provider_id="lmstudio",
+        model="auto",
+        local=True,
+        block_secret_context=False,
+        supports_json=True,
+        fallback_group="local_first_cheap",
+        fallback_rank=10,
+    )
+    gemma = ModelProfile(
+        profile_id="openrouter_gemma3_4b_cheap_json",
+        provider_id="openrouter",
+        model="google/gemma-3-4b-it",
+        cloud=True,
+        cloud_allowed=True,
+        block_secret_context=True,
+        supports_json=True,
+        fallback_group="local_first_cheap",
+        fallback_rank=20,
+    )
+    qwen = ModelProfile(
+        profile_id="openrouter_qwen3_30b_a3b_stronger",
+        provider_id="openrouter",
+        model="qwen/qwen3-30b-a3b-instruct-2507",
+        cloud=True,
+        cloud_allowed=True,
+        block_secret_context=True,
+        supports_json=True,
+        fallback_group="local_first_cheap",
+        fallback_rank=30,
+    )
+    resolver = ModelProfileResolver(
+        [local, gemma, qwen],
+        routing_rules=RoutingRules.from_dict({
+            "fallback_groups": {
+                "local_first_cheap": {
+                    "ordered_profiles": [local.profile_id, gemma.profile_id, qwen.profile_id]
+                }
+            }
+        }),
+    )
+    monkeypatch.setattr(ModelInvocationService, "_get_resolver", classmethod(lambda cls: resolver))
+    svc_mod._PROFILE_RESOLVER_CACHE = None
+    calls: list[str] = []
+
+    def _fake_post(url, json, headers, timeout):  # noqa: ANN001
+        calls.append(json["model"])
+        if len(calls) == 1:
+            raise svc_mod.requests.exceptions.Timeout("local timeout")
+        if len(calls) == 2:
+            return SimpleNamespace(status_code=503, text="bad gateway")
+        return SimpleNamespace(
+            status_code=200,
+            json=lambda: {
+                "choices": [{"message": {"content": "qwen ok", "tool_calls": []}, "finish_reason": "stop"}],
+                "usage": {"prompt_tokens": 10, "completion_tokens": 2, "total_tokens": 12},
+                "model": "qwen/qwen3-30b-a3b-instruct-2507",
+            },
+        )
+
+    monkeypatch.setattr("agent.services.model_invocation_service.requests.post", _fake_post)
+    monkeypatch.setattr(
+        ModelInvocationService,
+        "_get_settings",
+        classmethod(
+            lambda cls: SimpleNamespace(
+                default_provider="lmstudio",
+                default_model="auto",
+                lmstudio_url="http://localhost:1234/v1",
+                ollama_url="http://localhost:11434/api/generate",
+                openai_url="https://api.openai.com/v1",
+                openai_api_key=None,
+                mock_url="http://mock",
+                llm_invoke_timeout_seconds=120,
+            )
+        ),
+    )
+
+    result = ModelInvocationService.invoke_result(
+        "hello",
+        routing_ctx=RoutingContext(fallback_group_id="local_first_cheap", allow_cloud=True),
+    )
+
+    assert result["content"] == "qwen ok"
+    profile = result["metadata"]["llm_call_profile"]
+    assert len(profile) == 3
+    assert profile[0]["success"] is False
+    assert profile[1]["success"] is False
+    assert profile[2]["success"] is True
+    assert result["metadata"]["resolution_info"]["candidate_chain"] == [
+        "local_lmstudio_phi_json_worker",
+        "openrouter_gemma3_4b_cheap_json",
+        "openrouter_qwen3_30b_a3b_stronger",
+    ]
+
+
+def test_prompt_json_tool_call_validates_args_schema(monkeypatch) -> None:
+    from agent.services.model_profile_loader import ModelProfile
+    from agent.services.model_profile_resolver import ModelProfileResolver, RoutingContext
+
+    profile = ModelProfile(
+        profile_id="local_prompt_json",
+        provider_id="lmstudio",
+        model="auto",
+        local=True,
+        block_secret_context=False,
+        supports_json=True,
+        supports_tools=False,
+        tool_calling_mode="prompt_json",
+    )
+    resolver = ModelProfileResolver([profile])
+    monkeypatch.setattr(ModelInvocationService, "_get_resolver", classmethod(lambda cls: resolver))
+
+    def _fake_post(url, json, headers, timeout):  # noqa: ANN001
+        return SimpleNamespace(
+            status_code=200,
+            json=lambda: {
+                "choices": [{
+                    "message": {"content": '{"tool":"file_read","args":{"path":123}}', "tool_calls": []},
+                    "finish_reason": "stop",
+                }],
+                "usage": {},
+                "model": "auto",
+            },
+        )
+
+    monkeypatch.setattr("agent.services.model_invocation_service.requests.post", _fake_post)
+    monkeypatch.setattr(
+        ModelInvocationService,
+        "_get_settings",
+        classmethod(
+            lambda cls: SimpleNamespace(
+                default_provider="lmstudio",
+                default_model="auto",
+                lmstudio_url="http://localhost:1234/v1",
+                ollama_url="http://localhost:11434/api/generate",
+                openai_url="https://api.openai.com/v1",
+                openai_api_key=None,
+                mock_url="http://mock",
+                llm_invoke_timeout_seconds=120,
+            )
+        ),
+    )
+
+    result = ModelInvocationService.invoke_with_tools(
+        "choose",
+        tools=[{
+            "name": "file_read",
+            "description": "read",
+            "parameters": {
+                "type": "object",
+                "required": ["path"],
+                "properties": {"path": {"type": "string"}},
+            },
+        }],
+        routing_ctx=RoutingContext(request_profile_id="local_prompt_json", requires_tools=True),
+    )
+
+    assert result["tool_calls"] == []

@@ -163,3 +163,36 @@ def test_extra_fields_preserved():
     result = ModelProfileLoader().load_dict(data)
     assert result.ok
     assert result.profiles[0].extra.get("custom_field") == "hello"
+
+
+def test_hybrid_profile_fields_are_parsed():
+    data = {
+        "profiles": [
+            {
+                "profile_id": "openrouter_qwen",
+                "provider_id": "openrouter",
+                "model": "qwen/qwen3-30b-a3b-instruct-2507",
+                "cloud": True,
+                "cloud_allowed": True,
+                "block_secret_context": True,
+                "supports_tools": True,
+                "supports_json": True,
+                "tool_calling_mode": "both",
+                "json_reliability_class": "strict",
+                "price_input_per_million": 0.12,
+                "price_output_per_million": 0.30,
+                "preferred_for": ["architecture"],
+                "fallback_group": "local_first_cheap",
+                "fallback_rank": 30,
+                "retry_budget": 1,
+            }
+        ]
+    }
+    result = ModelProfileLoader().load_dict(data)
+    assert result.ok
+    profile = result.profiles[0]
+    assert profile.tool_calling_mode == "both"
+    assert profile.json_reliability_class == "strict"
+    assert profile.price_input_per_million == 0.12
+    assert profile.fallback_group == "local_first_cheap"
+    assert profile.fallback_rank == 30

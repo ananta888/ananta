@@ -108,3 +108,43 @@ explicit rules and capability matching until its TTL expires or it is reset.
 - Treat `block_secret_context=true` as mandatory for every cloud profile.
 - Prefer local fallbacks for all cloud profiles.
 - Review `blocked_candidates` before assuming model routing is broken.
+# Hybrid Local-First Routing
+
+Ananta supports a generic local-to-cloud fallback chain without hardcoding
+specific providers in runtime code. A recommended setup is:
+
+```powershell
+$env:MODEL_PROFILES_PATH="config/models/ananta.hybrid.local-openrouter.model_profiles.yaml"
+$env:MODEL_ROUTING_PATH="config/models/ananta.hybrid.local-openrouter.model_routing.json"
+$env:DEFAULT_PROVIDER="lmstudio"
+$env:DEFAULT_MODEL="auto"
+$env:LMSTUDIO_URL="http://localhost:1234/v1"
+$env:OPENROUTER_API_KEY="<your OpenRouter key>"
+```
+
+The included `local_first_cheap` fallback group is ordered as:
+
+1. `local_lmstudio_phi_json_worker` (`lmstudio`, `auto`, free, `prompt_json`)
+2. `openrouter_gemma3_4b_cheap_json` (`google/gemma-3-4b-it`, very low cost, `both`)
+3. `openrouter_qwen3_30b_a3b_stronger` (`qwen/qwen3-30b-a3b-instruct-2507`, stronger fallback, `both`)
+
+Cloud profiles must set `cloud_allowed=true` and `block_secret_context=true`.
+If prompt/context contains secret-like data, OpenRouter candidates are blocked
+and local profiles remain the only eligible candidates.
+
+`tool_calling_mode` values:
+
+- `native_tools`: send OpenAI-compatible tool definitions to the provider.
+- `prompt_json`: serialize the tool schema into the prompt and require a JSON
+  object shaped like `{ "tool": "...", "args": { ... } }`.
+- `both`: allow native tools, with prompt-json as a policy-visible capability.
+- `none`: do not use tools for this profile.
+
+Manual test plan:
+
+1. Start LM Studio on `http://localhost:1234/v1`, set the env vars above, and run a small JSON/tool-selection step. Expected: `llm_call_profile[0].provider=lmstudio`, no OpenRouter cost.
+2. Stop LM Studio and repeat. Expected: a timeout/connection error entry followed by Gemma in `llm_call_profile`.
+3. Mock Gemma to return invalid JSON for a JSON-schema call. Expected: fallback decision with `trigger=invalid_json_response` and Qwen as the next attempt.
+4. Add `OPENAI_API_KEY=sk-test...` or another secret-like value to context. Expected: Gemma/Qwen appear under `blocked_candidates`; no cloud call is made.
+5. In the Visual Process Editor, set graph routing to `local_first_cheap` and run Dry-Run. Expected: each step shows `candidate_chain`, selected profile, blocked candidates, and estimated cost.
+6. Start a workflow and inspect status/events. Expected: step metadata includes `selected_model_profile_id`, `fallback_attempts`, and any `llm_call_profile` emitted by the execution path.

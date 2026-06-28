@@ -308,95 +308,118 @@ class ModelInvocationService:
             )
         return normalized
 
+    @staticmethod
+    def _tool_calling_mode(profile: Any | None) -> str:
+        if profile is None:
+            return "native_tools"
+        mode = str(getattr(profile, "tool_calling_mode", "") or "").strip()
+        if mode:
+            return mode
+        return "native_tools" if bool(getattr(profile, "supports_tools", False)) else "none"
+
     @classmethod
-    def _make_chat_call(
+    def _messages_for_tool_mode(
         cls,
         messages: list[dict],
         *,
-        tools: list | None = None,
-        response_format: dict | None = None,
-        model: str | None = None,
-        timeout: int | None = None,
-        routing_ctx: Any = None,
-    ) -> dict:
-        """POST chat/completions and return parsed JSON response."""
-        resolved_profile = None
-        resolution_info: dict[str, Any] = {}
-        if routing_ctx is not None:
-            try:
-                resolver = cls._get_resolver()
-                if resolver is not None:
-                    result = resolver.resolve(routing_ctx)
-                    if result.ok:
-                        resolved_profile = result.profile
-                        resolution_info = {
-                            "profile_id": result.profile.profile_id,
-                            "resolution_source": result.final_source,
-                            "resolution_rank": result.final_rank,
-                        }
-                        accepted = [d for d in result.decisions if d.accepted]
-                        if accepted:
-                            resolution_info["resolution_decision"] = accepted[-1].reason
-                        logger.debug(
-                            "model_invocation: resolver picked %s via %s (rank=%s)",
-                            result.profile.profile_id,
-                            result.final_source,
-                            result.final_rank,
-                        )
-                    else:
-                        blocked_reasons = [r for _, r in result.blocked_candidates]
-                        resolution_info = {
-                            "resolution_source": "none",
-                            "resolution_fallback_reason": "no_profile_resolved",
-                            "blocked_candidates": blocked_reasons,
-                        }
-                        logger.warning(
-                            "model_invocation: resolver returned no profile (blocked=%s), using legacy path",
-                            blocked_reasons,
-                        )
-            except Exception as exc:
-                resolution_info = {
-                    "resolution_source": "error",
-                    "resolution_fallback_reason": f"resolver_error:{exc}",
+        tools: list | None,
+        tool_calling_mode: str,
+    ) -> tuple[list[dict], bool]:
+        normalized_tools = cls._normalize_openai_tools(tools)
+        if not normalized_tools:
+            return messages, False
+        if tool_calling_mode in {"native_tools", "both"}:
+            return messages, True
+        if tool_calling_mode != "prompt_json":
+            return messages, False
+        tool_contract = {
+            "response_schema": {
+                "type": "object",
+                "required": ["tool", "args"],
+                "properties": {
+                    "tool": {"type": "string"},
+                    "args": {"type": "object"},
+                    "confidence": {"type": "number"},
+                    "reasoning_summary": {"type": "string"},
+                },
+            },
+            "allowed_tools": [
+                {
+                    "name": item["function"]["name"],
+                    "description": item["function"].get("description") or "",
+                    "parameters": item["function"].get("parameters") or {"type": "object", "properties": {}},
                 }
-                logger.warning("model_invocation: resolver failed: %s — using legacy path", exc)
+                for item in normalized_tools
+            ],
+        }
+        system_msg = {
+            "role": "system",
+            "content": (
+                "Return exactly one JSON object selecting a tool. Do not call tools directly. "
+                f"Tool contract: {json.dumps(tool_contract, sort_keys=True)}"
+            ),
+        }
+        return [system_msg] + [m for m in messages if isinstance(m, dict)], False
 
-        if resolved_profile is not None:
-            provider, url, api_key = cls._provider_info_from_profile(resolved_profile)
-            effective_model = resolved_profile.model
-            if not effective_model or effective_model == "auto":
-                effective_model = cls._get_settings().default_model
-            if timeout is None:
-                timeout = resolved_profile.timeout_seconds
-        else:
-            provider, url, api_key = cls._provider_info()
-            s = cls._get_settings()
-            effective_model = model
-            if not effective_model or effective_model == "auto":
-                effective_model = s.default_model
-            if timeout is None:
-                timeout = int(getattr(s, "llm_invoke_timeout_seconds", None) or 120)
-            # override model if explicitly passed and non-auto
-            if model and model != "auto":
-                effective_model = model
-            if not resolution_info.get("resolution_source"):
-                resolution_info["resolution_source"] = "legacy_provider_info"
+    @staticmethod
+    def _blocked_candidates_as_dict(blocked: list[tuple[str, str]] | None) -> list[dict[str, Any]]:
+        return [{"profile_id": pid, "reason": reason} for pid, reason in list(blocked or [])]
 
-        if timeout is None:
-            timeout = 120
+    @classmethod
+    def _fallback_error_type(cls, exc: LLMUnavailableError) -> str:
+        profile = list(getattr(exc, "llm_call_profile", []) or [])
+        if profile and isinstance(profile[-1], dict):
+            return str(profile[-1].get("error_type") or "unknown")
+        return "unknown"
+
+    @staticmethod
+    def _finalize_trace_error(prompt_trace: Any, trace_svc: Any, error_type: str, error_message: str) -> None:
+        if prompt_trace is None or trace_svc is None:
+            return
+        try:
+            finalized = trace_svc.finalize_trace(
+                prompt_trace,
+                success=False,
+                error_type=error_type,
+                error_message=error_message,
+            )
+            trace_svc.store(finalized)
+        except Exception:
+            pass
+
+    @classmethod
+    def _make_single_chat_call(
+        cls,
+        messages: list[dict],
+        *,
+        tools: list | None,
+        response_format: dict | None,
+        attempt: dict[str, Any],
+        resolution_info: dict[str, Any],
+    ) -> dict:
+        provider = attempt["provider"]
+        url = attempt["url"]
+        api_key = attempt.get("api_key")
+        effective_model = attempt["model"]
+        timeout = int(attempt.get("timeout") or 120)
+        profile = attempt.get("profile")
+        tool_mode = cls._tool_calling_mode(profile)
+        outgoing_messages, send_native_tools = cls._messages_for_tool_mode(
+            messages,
+            tools=tools,
+            tool_calling_mode=tool_mode,
+        )
 
         headers = {"Content-Type": "application/json"}
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
 
-        body: dict[str, Any] = {"model": effective_model, "messages": messages}
-        if tools:
+        body: dict[str, Any] = {"model": effective_model, "messages": outgoing_messages}
+        if tools and send_native_tools:
             body["tools"] = cls._normalize_openai_tools(tools)
             body["tool_choice"] = "auto"
         if response_format:
             body["response_format"] = response_format
-
-        logger.debug("LLM call provider=%s url=%s model=%s tools=%s timeout=%s", provider, url, effective_model, bool(tools), timeout)
 
         prompt_trace = None
         trace_svc = None
@@ -417,8 +440,8 @@ class ModelInvocationService:
                     model=effective_model,
                     endpoint_kind="chat_completions",
                     request_kind="propose",
-                    messages=[m for m in list(messages or []) if isinstance(m, dict)],
-                    tools=cls._normalize_openai_tools(tools),
+                    messages=[m for m in list(outgoing_messages or []) if isinstance(m, dict)],
+                    tools=cls._normalize_openai_tools(tools) if send_native_tools else [],
                     llm_scope="task",
                     sensitivity_level="internal",
                 )
@@ -427,26 +450,16 @@ class ModelInvocationService:
             trace_svc = None
 
         started_at = time.time()
-        _lmstudio_lock = _LMSTUDIO_INFERENCE_LOCK if provider in ("lmstudio", "lm_studio") else None
-        if _lmstudio_lock is not None:
-            if not _lmstudio_lock.acquire(blocking=False):
-                logger.debug("LM Studio busy — waiting for inference lock (provider=%s)", provider)
-                _lmstudio_lock.acquire()
+        lock = _LMSTUDIO_INFERENCE_LOCK if provider in ("lmstudio", "lm_studio") else None
+        if lock is not None:
+            if not lock.acquire(blocking=False):
+                logger.debug("LM Studio busy - waiting for inference lock (provider=%s)", provider)
+                lock.acquire()
         try:
             try:
                 resp = requests.post(url, json=body, headers=headers, timeout=timeout)
             except requests.exceptions.ConnectionError as exc:
-                if prompt_trace is not None and trace_svc is not None:
-                    try:
-                        finalized = trace_svc.finalize_trace(
-                            prompt_trace,
-                            success=False,
-                            error_type="connection_error",
-                            error_message=f"{exc}",
-                        )
-                        trace_svc.store(finalized)
-                    except Exception:
-                        pass
+                cls._finalize_trace_error(prompt_trace, trace_svc, "connection_error", f"{exc}")
                 cls._raise_llm_error(
                     message=f"llm_connection_failed: {exc}",
                     name="chat_completions",
@@ -457,17 +470,7 @@ class ModelInvocationService:
                     error_type="connection_error",
                 )
             except requests.exceptions.Timeout as exc:
-                if prompt_trace is not None and trace_svc is not None:
-                    try:
-                        finalized = trace_svc.finalize_trace(
-                            prompt_trace,
-                            success=False,
-                            error_type="timeout",
-                            error_message=f"{exc}",
-                        )
-                        trace_svc.store(finalized)
-                    except Exception:
-                        pass
+                cls._finalize_trace_error(prompt_trace, trace_svc, "timeout", f"{exc}")
                 cls._raise_llm_error(
                     message=f"llm_timeout: {exc}",
                     name="chat_completions",
@@ -479,17 +482,7 @@ class ModelInvocationService:
                 )
 
             if resp.status_code >= 500:
-                if prompt_trace is not None and trace_svc is not None:
-                    try:
-                        finalized = trace_svc.finalize_trace(
-                            prompt_trace,
-                            success=False,
-                            error_type="server_error",
-                            error_message=f"HTTP {resp.status_code}",
-                        )
-                        trace_svc.store(finalized)
-                    except Exception:
-                        pass
+                cls._finalize_trace_error(prompt_trace, trace_svc, "server_error", f"HTTP {resp.status_code}")
                 cls._raise_llm_error(
                     message=f"llm_server_error: HTTP {resp.status_code}",
                     name="chat_completions",
@@ -500,17 +493,7 @@ class ModelInvocationService:
                     error_type="server_error",
                 )
             if resp.status_code >= 400:
-                if prompt_trace is not None and trace_svc is not None:
-                    try:
-                        finalized = trace_svc.finalize_trace(
-                            prompt_trace,
-                            success=False,
-                            error_type="client_error",
-                            error_message=f"HTTP {resp.status_code} {resp.text[:200]}",
-                        )
-                        trace_svc.store(finalized)
-                    except Exception:
-                        pass
+                cls._finalize_trace_error(prompt_trace, trace_svc, "client_error", f"HTTP {resp.status_code} {resp.text[:200]}")
                 cls._raise_llm_error(
                     message=f"llm_client_error: HTTP {resp.status_code} {resp.text[:200]}",
                     name="chat_completions",
@@ -523,55 +506,8 @@ class ModelInvocationService:
 
             try:
                 payload = resp.json()
-                ended_at = time.time()
-                usage = payload.get("usage") if isinstance(payload, dict) else {}
-                if prompt_trace is not None and trace_svc is not None:
-                    try:
-                        msg_content = ""
-                        if isinstance(payload, dict):
-                            first = ((payload.get("choices") or [{}])[0] or {})
-                            msg = first.get("message") if isinstance(first, dict) else {}
-                            msg_content = str((msg or {}).get("content") or "")
-                        finalized = trace_svc.finalize_trace(
-                            prompt_trace,
-                            success=True,
-                            response_text=msg_content or None,
-                            usage=usage if isinstance(usage, dict) else None,
-                        )
-                        trace_svc.store(finalized)
-                    except Exception:
-                        pass
-                profile = cls._build_llm_call_profile_entry(
-                    name="chat_completions",
-                    backend="llm_api",
-                    provider=provider,
-                    model=effective_model,
-                    success=True,
-                    started_at=started_at,
-                    ended_at=ended_at,
-                    usage=usage if isinstance(usage, dict) else None,
-                )
-                if isinstance(payload, dict):
-                    meta = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
-                    if prompt_trace is not None:
-                        meta["prompt_trace_id"] = str(getattr(prompt_trace, "trace_id", "") or "")
-                    meta["llm_call_profile"] = list(meta.get("llm_call_profile") or []) + [profile]
-                    if resolution_info:
-                        meta["resolution_info"] = dict(resolution_info)
-                    payload["metadata"] = meta
-                return payload
             except Exception as exc:
-                if prompt_trace is not None and trace_svc is not None:
-                    try:
-                        finalized = trace_svc.finalize_trace(
-                            prompt_trace,
-                            success=False,
-                            error_type="invalid_json_response",
-                            error_message=f"{exc}",
-                        )
-                        trace_svc.store(finalized)
-                    except Exception:
-                        pass
+                cls._finalize_trace_error(prompt_trace, trace_svc, "invalid_json_response", f"{exc}")
                 cls._raise_llm_error(
                     message=f"llm_invalid_json_response: {exc}",
                     name="chat_completions",
@@ -581,9 +517,160 @@ class ModelInvocationService:
                     started_at=started_at,
                     error_type="invalid_json_response",
                 )
+
+            ended_at = time.time()
+            usage = payload.get("usage") if isinstance(payload, dict) else {}
+            if prompt_trace is not None and trace_svc is not None:
+                try:
+                    msg_content = ""
+                    if isinstance(payload, dict):
+                        first = ((payload.get("choices") or [{}])[0] or {})
+                        msg = first.get("message") if isinstance(first, dict) else {}
+                        msg_content = str((msg or {}).get("content") or "")
+                    finalized = trace_svc.finalize_trace(
+                        prompt_trace,
+                        success=True,
+                        response_text=msg_content or None,
+                        usage=usage if isinstance(usage, dict) else None,
+                    )
+                    trace_svc.store(finalized)
+                except Exception:
+                    pass
+            call_entry = cls._build_llm_call_profile_entry(
+                name="chat_completions",
+                backend="llm_api",
+                provider=provider,
+                model=effective_model,
+                success=True,
+                started_at=started_at,
+                ended_at=ended_at,
+                usage=usage if isinstance(usage, dict) else None,
+            )
+            call_entry["profile_id"] = getattr(profile, "profile_id", None)
+            call_entry["tool_calling_mode"] = tool_mode
+            if isinstance(payload, dict):
+                meta = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
+                if prompt_trace is not None:
+                    meta["prompt_trace_id"] = str(getattr(prompt_trace, "trace_id", "") or "")
+                meta["llm_call_profile"] = list(meta.get("llm_call_profile") or []) + [call_entry]
+                if resolution_info:
+                    meta["resolution_info"] = dict(resolution_info)
+                payload["metadata"] = meta
+            return payload
         finally:
-            if _lmstudio_lock is not None:
-                _lmstudio_lock.release()
+            if lock is not None:
+                lock.release()
+
+    @classmethod
+    def _make_chat_call(
+        cls,
+        messages: list[dict],
+        *,
+        tools: list | None = None,
+        response_format: dict | None = None,
+        model: str | None = None,
+        timeout: int | None = None,
+        routing_ctx: Any = None,
+    ) -> dict:
+        resolver = None
+        resolution_result = None
+        candidate_profiles: list[Any] = []
+        resolution_info: dict[str, Any] = {}
+        if routing_ctx is not None:
+            try:
+                resolver = cls._get_resolver()
+                if resolver is not None:
+                    resolution_result, candidate_profiles = resolver.resolve_candidate_chain(routing_ctx)
+                    if resolution_result.ok:
+                        resolution_info = {
+                            "profile_id": resolution_result.profile.profile_id,
+                            "resolution_source": resolution_result.final_source,
+                            "resolution_rank": resolution_result.final_rank,
+                            "candidate_chain": [p.profile_id for p in candidate_profiles],
+                        }
+                    else:
+                        resolution_info = {
+                            "resolution_source": "none",
+                            "resolution_fallback_reason": "no_profile_resolved",
+                            "blocked_candidates": [r for _, r in resolution_result.blocked_candidates],
+                        }
+            except Exception as exc:
+                resolution_info = {
+                    "resolution_source": "error",
+                    "resolution_fallback_reason": f"resolver_error:{exc}",
+                }
+                logger.warning("model_invocation: resolver failed: %s - using legacy path", exc)
+
+        attempts: list[dict[str, Any]] = []
+        if candidate_profiles:
+            for profile in candidate_profiles:
+                provider, url, api_key = cls._provider_info_from_profile(profile)
+                effective_model = profile.model if profile.model and profile.model != "auto" else cls._get_settings().default_model
+                attempts.append({
+                    "profile": profile,
+                    "provider": provider,
+                    "url": url,
+                    "api_key": api_key,
+                    "model": effective_model,
+                    "timeout": timeout if timeout is not None else profile.timeout_seconds,
+                })
+        else:
+            provider, url, api_key = cls._provider_info()
+            settings = cls._get_settings()
+            attempts.append({
+                "profile": None,
+                "provider": provider,
+                "url": url,
+                "api_key": api_key,
+                "model": model if model and model != "auto" else settings.default_model,
+                "timeout": timeout if timeout is not None else int(getattr(settings, "llm_invoke_timeout_seconds", None) or 120),
+            })
+            resolution_info.setdefault("resolution_source", "legacy_provider_info")
+
+        from agent.services.model_fallback_policy_service import ModelFallbackPolicyService
+
+        call_profile: list[dict[str, Any]] = []
+        fallback_decisions: list[dict[str, Any]] = []
+        blocked = cls._blocked_candidates_as_dict(getattr(resolution_result, "blocked_candidates", []))
+        fallback_policy = ModelFallbackPolicyService(getattr(resolver, "health", None) if resolver is not None else None)
+
+        for index, attempt in enumerate(attempts):
+            try:
+                payload = cls._make_single_chat_call(
+                    messages,
+                    tools=tools,
+                    response_format=response_format,
+                    attempt=attempt,
+                    resolution_info=resolution_info,
+                )
+                if isinstance(payload, dict):
+                    meta = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
+                    meta["llm_call_profile"] = call_profile + list(meta.get("llm_call_profile") or [])
+                    meta["fallback_decisions"] = list(fallback_decisions)
+                    if resolution_info:
+                        meta["resolution_info"] = dict(resolution_info)
+                    payload["metadata"] = meta
+                return payload
+            except LLMUnavailableError as exc:
+                call_profile.extend([entry for entry in list(exc.llm_call_profile or []) if isinstance(entry, dict)])
+                next_profile = attempts[index + 1]["profile"] if index + 1 < len(attempts) else None
+                decision = fallback_policy.should_fallback(
+                    error_type=cls._fallback_error_type(exc),
+                    previous_profile=attempt.get("profile"),
+                    next_profile=next_profile,
+                    blocked_candidates=blocked,
+                )
+                fallback_decisions.append(decision.as_dict())
+                if decision.terminal:
+                    raise LLMUnavailableError(str(exc), llm_call_profile=call_profile)
+                logger.warning(
+                    "model_invocation: fallback %s -> %s trigger=%s",
+                    decision.previous_profile_id,
+                    decision.next_profile_id,
+                    decision.trigger,
+                )
+
+        raise LLMUnavailableError("llm_unavailable:no_attempts", llm_call_profile=call_profile)
 
     @classmethod
     def invoke_with_tools(
@@ -617,6 +704,37 @@ class ModelInvocationService:
                 "args": parsed_args,
                 "id": tc.get("id"),
             })
+        if not tool_calls and msg.get("content"):
+            allowed_tools = {
+                item["function"]["name"]: item["function"].get("parameters") or {"type": "object", "properties": {}}
+                for item in cls._normalize_openai_tools(tools)
+                if isinstance(item.get("function"), dict)
+            }
+            try:
+                prompt_json_call = json.loads(msg.get("content") or "{}")
+            except Exception:
+                prompt_json_call = None
+            if isinstance(prompt_json_call, dict):
+                tool_name = str(prompt_json_call.get("tool") or "").strip()
+                args = prompt_json_call.get("args")
+                args_valid = False
+                if tool_name in allowed_tools and isinstance(args, dict):
+                    try:
+                        import jsonschema
+                        jsonschema.validate(instance=args, schema=allowed_tools[tool_name])
+                        args_valid = True
+                    except ImportError:
+                        args_valid = True
+                    except Exception:
+                        args_valid = False
+                if args_valid:
+                    tool_calls.append({
+                        "name": tool_name,
+                        "args": args,
+                        "id": prompt_json_call.get("id") or f"prompt-json-{len(tool_calls) + 1}",
+                        "confidence": prompt_json_call.get("confidence"),
+                        "reasoning_summary": prompt_json_call.get("reasoning_summary"),
+                    })
 
         metadata = response.get("metadata") if isinstance(response.get("metadata"), dict) else {}
         return {

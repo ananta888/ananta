@@ -30,6 +30,9 @@ _CODECOMPASS_SPECS: dict[str, set[str]] = {
     },
     "codecompass.get_domain_map": {"domain_hint", "include_files", "include_edges", "max_entries"},
     "codecompass.architecture_query": {"question"},
+    "codecompass.semantic_equivalents": {"symbol", "file", "language", "target_languages", "semantic_kind"},
+    "codecompass.translation_plan": {"source_path", "source_code", "target_language", "allowed_rule_ids"},
+    "codecompass.verify_translation": {"source_path", "source_code", "target_code", "transform_artifact"},
 }
 
 

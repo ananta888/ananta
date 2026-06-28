@@ -8,6 +8,64 @@ export interface StepIOContract { inputs: ArtifactRef[]; outputs: ArtifactRef[];
 export interface LoopPolicy { kind: string; max_iterations: number; condition?: string; break_on_output?: string; }
 export interface TransitionCondition { kind: string; expression?: string; output_name?: string; loop_policy?: LoopPolicy; }
 export interface StepPosition { x: number; y: number; }
+export interface ModelRoutingConfig {
+  strategy?: string;
+  model_role?: string;
+  preferred_profile_id?: string;
+  fallback_group_id?: string;
+  required_capabilities?: string[];
+  requires_json?: boolean;
+  requires_tools?: boolean;
+  tool_calling_mode?: 'native_tools' | 'prompt_json' | 'both' | 'none';
+  allow_cloud?: boolean;
+  max_estimated_cost?: number;
+  max_estimated_cost_per_run?: number;
+  default_model_role?: string;
+  require_approval_on_cloud_escalation?: boolean;
+  require_approval_above_estimated_cost?: number;
+}
+export interface ModelProfileSummary {
+  profile_id: string;
+  provider_id: string;
+  model: string;
+  model_role: string;
+  local: boolean;
+  cloud: boolean;
+  supports_json: boolean;
+  supports_tools: boolean;
+  tool_calling_mode?: string;
+  cost_class?: string;
+  quality_class?: string;
+  fallback_group?: string;
+  fallback_rank?: number;
+  api_key_configured?: boolean;
+}
+export interface FallbackGroupSummary {
+  ordered_profiles: string[];
+  max_total_retries?: number;
+  stop_on_policy_block?: boolean;
+  stop_on_success?: boolean;
+}
+export interface ModelRoutingProfilesResult {
+  profiles: ModelProfileSummary[];
+  fallback_groups: Record<string, FallbackGroupSummary>;
+  status: string;
+}
+export interface PerStepModelPlan {
+  step_id: string;
+  model_role?: string;
+  selected_profile_id?: string;
+  provider_id?: string;
+  model?: string;
+  resolver_source?: string;
+  resolver_rank?: number;
+  fallback_group_id?: string;
+  candidate_chain?: string[];
+  cloud_allowed?: boolean;
+  blocked_candidates?: Record<string, unknown>[];
+  policy_decisions?: Record<string, unknown>[];
+  estimated_cost?: Record<string, unknown>;
+}
 export interface VpStep {
   id: string; label: string; kind: string; role?: string;
   agent_skill_profile_id?: string;
@@ -32,6 +90,8 @@ export interface DryRunResult {
   blueprint: unknown; step_count: number; edge_count: number;
   step_execution_plan?: StepExecutionPlan[];
   non_executable_count?: number;
+  per_step_model_plan?: PerStepModelPlan[];
+  model_routing_summary?: Record<string, unknown>;
 }
 export interface BpmnImportResult { graph: VpGraph; warnings: string[]; validation: ValidationResult; }
 export interface BpmnExportResult { bpmn_xml: string; warnings: string[]; }
@@ -105,6 +165,22 @@ export class VisualProcessApiService {
 
   dryRun(graph: VpGraph): Observable<DryRunResult> {
     return this.http.post<DryRunResult>(`${this.baseUrl}/api/visual-process/dry-run`, graph);
+  }
+
+  listModelProfiles(): Observable<ModelRoutingProfilesResult> {
+    return this.http.get<ModelRoutingProfilesResult>(`${this.baseUrl}/config/model-routing/profiles`);
+  }
+
+  getModelRoutingDiagnostics(): Observable<Record<string, unknown>> {
+    return this.http.get<Record<string, unknown>>(`${this.baseUrl}/config/model-routing/read-model`);
+  }
+
+  validateModelRouting(graph: VpGraph): Observable<Record<string, unknown>> {
+    return this.http.post<Record<string, unknown>>(`${this.baseUrl}/api/visual-process/model-routing/validate`, graph);
+  }
+
+  estimateModelCost(graph: VpGraph): Observable<Record<string, unknown>> {
+    return this.http.post<Record<string, unknown>>(`${this.baseUrl}/api/visual-process/model-routing/estimate-cost`, graph);
   }
 
   // ── Mermaid ──────────────────────────────────────────────────────────────────

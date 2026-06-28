@@ -10,6 +10,7 @@ import {
   VpGraph, VpStep, VpEdge,
   SkillProfile, PresetSummary,
   TaskKindInfo, SavedGraphSummary,
+  ModelProfileSummary, ModelRoutingConfig, FallbackGroupSummary,
 } from './visual-process-api.service';
 import { VpCanvasInteractionService } from './vp-canvas-interaction.service';
 import { VpImportExportService } from './vp-import-export.service';
@@ -17,7 +18,7 @@ import { VpStepInspectorComponent } from './vp-step-inspector.component';
 import { VpWorkflowRunnerService } from './vp-workflow-runner.service';
 
 import {
-  ENCODING_MODES, FALLBACK_KINDS, NODE_W, RAG_CHANNELS,
+  ENCODING_MODES, FALLBACK_KINDS, NODE_H, NODE_W, RAG_CHANNELS,
   autoLayoutGraph, edgeId, emptyGraph, hintColor, nodeKindColor, stepId,
 } from './vp-editor-config';
 
@@ -38,6 +39,7 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy {
 
   @ViewChild('bpmnFileInput') bpmnFileInputRef!: ElementRef<HTMLInputElement>;
   readonly NODE_W = NODE_W;
+  readonly NODE_H = NODE_H;
   readonly artifactKinds = ['text','code','report','json','file','dataset','image','binary','vector','unknown'];
   readonly edgeKinds = ['always','on_success','on_failure','on_output','back_edge','expression'];
   readonly encodingModes = ENCODING_MODES;
@@ -47,6 +49,8 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy {
   skillProfiles = signal<SkillProfile[]>([]);
   taskKindList = signal<TaskKindInfo[]>(FALLBACK_KINDS);
   savedGraphs = signal<SavedGraphSummary[]>([]);
+  modelProfiles = signal<ModelProfileSummary[]>([]);
+  fallbackGroups = signal<Record<string, FallbackGroupSummary>>({});
   validationResult = this.workflowRunner.validationResult;
   dryRunResult = this.workflowRunner.dryRunResult;
   mermaidText = signal<string>('');
@@ -112,6 +116,8 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy {
       step_count: r.step_count,
       non_executable_count: r.non_executable_count ?? 0,
       policy: r.policy_summary,
+      model_routing_summary: r.model_routing_summary ?? null,
+      model_plan: r.per_step_model_plan ?? [],
     }, null, 2);
   });
 
@@ -136,6 +142,16 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy {
     this.subs.add(this.api.listSavedGraphs().subscribe({
       next: g => this.savedGraphs.set(g),
       error: () => { /* ignore if backend not running */ },
+    }));
+    this.subs.add(this.api.listModelProfiles().subscribe({
+      next: result => {
+        this.modelProfiles.set(result.profiles ?? []);
+        this.fallbackGroups.set(result.fallback_groups ?? {});
+      },
+      error: () => {
+        this.modelProfiles.set([]);
+        this.fallbackGroups.set({});
+      },
     }));
   }
 
@@ -251,6 +267,42 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy {
     const tags = val.split(',').map(t => t.trim()).filter(Boolean);
     this.graph.update(g => ({ ...g, tags }));
     this.isDirty.set(true);
+  }
+
+  graphRouting(): ModelRoutingConfig {
+    const raw = this.graph().metadata?.['model_routing'];
+    return (raw && typeof raw === 'object' ? raw : {}) as ModelRoutingConfig;
+  }
+
+  fallbackGroupIds(): string[] {
+    return Object.keys(this.fallbackGroups());
+  }
+
+  setGraphRoutingField(key: keyof ModelRoutingConfig, value: unknown): void {
+    this.graph.update(g => {
+      const metadata = { ...(g.metadata ?? {}) };
+      const routing = { ...((metadata['model_routing'] as ModelRoutingConfig | undefined) ?? {}) };
+      if (value === '' || value === null || value === undefined) delete (routing as Record<string, unknown>)[key as string];
+      else (routing as Record<string, unknown>)[key as string] = value;
+      metadata['model_routing'] = routing;
+      return { ...g, metadata };
+    });
+    this.validationResult.set(null);
+    this.isDirty.set(true);
+  }
+
+  validateModelRouting(): void {
+    this.subs.add(this.api.validateModelRouting(this.graph()).subscribe({
+      next: result => this.statusMsg.set(`Routing geprüft (${((result['validation'] as any)?.warning_count ?? 0)} Warnungen)`),
+      error: () => this.statusMsg.set('Routing-Prüfung fehlgeschlagen'),
+    }));
+  }
+
+  estimateModelCost(): void {
+    this.subs.add(this.api.estimateModelCost(this.graph()).subscribe({
+      next: result => this.statusMsg.set(`Kosten geschätzt: ${JSON.stringify(result['model_routing_summary'] ?? {})}`),
+      error: () => this.statusMsg.set('Kostenschätzung fehlgeschlagen'),
+    }));
   }
   loadPreset(id: string): void {
     this.loadPresetMenu = false;
@@ -380,6 +432,17 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy {
   runStateColor(state: string): string {
     const m: Record<string, string> = { done: '#55efc4', running: '#fdcb6e', failed: '#ff7675', pending: '#636e72', skipped: '#b2bec3', awaiting_approval: '#e17055' };
     return m[state] ?? '#636e72';
+  }
+
+  modelPlanForStep(stepId: string): any {
+    return (this.dryRunResult()?.per_step_model_plan ?? []).find(plan => plan.step_id === stepId) ?? null;
+  }
+
+  modelBadge(step: VpStep): string {
+    const plan = this.modelPlanForStep(step.id);
+    if (plan?.provider_id) return `${plan.provider_id}:${plan.selected_profile_id ?? plan.model ?? 'auto'}`;
+    const routing = step.metadata?.['model_routing'] as ModelRoutingConfig | undefined;
+    return routing?.preferred_profile_id ?? routing?.fallback_group_id ?? '';
   }
 
   stepLabel(id: string): string {

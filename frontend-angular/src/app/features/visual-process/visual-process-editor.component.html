@@ -74,6 +74,48 @@
     <label class="vpe-meta-label">Tags (komma-getrennt)
       <input class="vpe-meta-input" [ngModel]="graphTagsStr()" (ngModelChange)="setTags($event)" placeholder="code, review, pipeline" />
     </label>
+    <div class="vpe-meta-section">
+      <div class="vpe-panel-title">Model Routing</div>
+      <label class="vpe-meta-label">Strategie
+        <select class="vpe-meta-input" [ngModel]="graphRouting().strategy || 'local_first'"
+                (ngModelChange)="setGraphRoutingField('strategy', $event)">
+          <option value="local_first">local_first</option>
+          <option value="cheap_first">cheap_first</option>
+          <option value="quality_first">quality_first</option>
+          <option value="manual">manual</option>
+        </select>
+      </label>
+      <label class="vpe-meta-label">Fallback-Gruppe
+        <select class="vpe-meta-input" [ngModel]="graphRouting().fallback_group_id || ''"
+                (ngModelChange)="setGraphRoutingField('fallback_group_id', $event)">
+          <option value="">Backend-Default</option>
+          @for (groupId of fallbackGroupIds(); track groupId) {
+            <option [value]="groupId">{{ groupId }}</option>
+          }
+        </select>
+      </label>
+      <label class="vpe-meta-label">Default-Rolle
+        <input class="vpe-meta-input" [ngModel]="graphRouting().default_model_role || ''"
+               (ngModelChange)="setGraphRoutingField('default_model_role', $event)" placeholder="any" />
+      </label>
+      <label class="vpe-meta-label">Max. Kosten pro Run
+        <input class="vpe-meta-input" type="number" min="0" step="0.001"
+               [ngModel]="graphRouting().max_estimated_cost_per_run ?? null"
+               (ngModelChange)="setGraphRoutingField('max_estimated_cost_per_run', $event === null ? undefined : +$event)" />
+      </label>
+      <label class="vpe-meta-label vpe-checkbox">
+        <input type="checkbox" [ngModel]="!!graphRouting().allow_cloud"
+               (ngModelChange)="setGraphRoutingField('allow_cloud', $event)" />
+        Cloud erlauben
+      </label>
+      @if (graphRouting().allow_cloud) {
+        <div class="vpe-warn-note">Cloud ist erlaubt; Secret-Kontext bleibt durch Backend-Policy blockiert.</div>
+      }
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="vpe-btn" (click)="validateModelRouting()">Routing prüfen</button>
+        <button class="vpe-btn" (click)="estimateModelCost()">Kosten schätzen</button>
+      </div>
+    </div>
   </div>
 }
 
@@ -156,6 +198,9 @@
               <circle [attr.cx]="NODE_W - 10" cy="10" r="5"
                       [attr.fill]="runStateColor(step.run_state)"/>
             }
+            @if (modelBadge(step)) {
+              <text x="6" [attr.y]="NODE_H - 8" class="vpe-node-kind">{{ modelBadge(step) }}</text>
+            }
           </g>
         }
       </g>
@@ -172,6 +217,7 @@
     <app-vp-step-inspector
       [graph]="graph" [selectedId]="selectedId"
       [taskKindList]="taskKindList" [skillProfiles]="skillProfiles"
+      [modelProfiles]="modelProfiles" [fallbackGroups]="fallbackGroups"
       [artifactKinds]="artifactKinds" [edgeKinds]="edgeKinds"
       [encodingModes]="encodingModes" [ragChannels]="ragChannels"
       (changed)="isDirty.set(true)"
@@ -248,6 +294,27 @@
                   <td [class.vpe-risk-high]="p.risk_level === 'high' || p.risk_level === 'critical'">
                     {{ p.risk_level }}
                   </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+
+      @if ((dryRunResult()!.per_step_model_plan || []).length > 0) {
+        <div class="vpe-dialog-section">
+          <div class="vpe-dialog-subtitle">Model Routing Plan</div>
+          <table class="vpe-exec-table">
+            <thead>
+              <tr><th>Step</th><th>Profil</th><th>Provider</th><th>Fallback</th></tr>
+            </thead>
+            <tbody>
+              @for (p of dryRunResult()!.per_step_model_plan || []; track p.step_id) {
+                <tr>
+                  <td>{{ stepLabel(p.step_id) }}</td>
+                  <td>{{ p.selected_profile_id || 'n/a' }}</td>
+                  <td>{{ p.provider_id || 'n/a' }}<br><span style="font-size:10px;opacity:0.6">{{ p.model }}</span></td>
+                  <td>{{ (p.candidate_chain || []).join(' -> ') }}</td>
                 </tr>
               }
             </tbody>

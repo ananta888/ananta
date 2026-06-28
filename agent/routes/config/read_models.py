@@ -24,6 +24,29 @@ from . import shared
 read_models_bp = Blueprint("config_read_models", __name__)
 
 
+def _safe_model_profile_summary(profile) -> dict:
+    return {
+        "profile_id": profile.profile_id,
+        "provider_id": profile.provider_id,
+        "model": profile.model,
+        "model_role": profile.model_role,
+        "local": profile.local,
+        "cloud": profile.cloud,
+        "cloud_allowed": profile.cloud_allowed,
+        "block_secret_context": profile.block_secret_context,
+        "supports_json": profile.supports_json,
+        "supports_tools": profile.supports_tools,
+        "tool_calling_mode": getattr(profile, "tool_calling_mode", "none"),
+        "cost_class": profile.cost_class,
+        "quality_class": profile.quality_class,
+        "context_tokens": profile.context_tokens,
+        "fallback_group": getattr(profile, "fallback_group", None),
+        "fallback_rank": getattr(profile, "fallback_rank", None),
+        "enabled": profile.enabled,
+        "api_key_configured": bool(getattr(profile, "api_key_env", None)),
+    }
+
+
 def assistant_editable_settings_inventory() -> list[dict]:
     return [
         {"key": "default_provider", "path": "config.default_provider", "type": "enum", "editable": True, "allowed_values": ["ollama", "lmstudio", "openai", "codex", "anthropic"], "endpoint": "POST /config"},
@@ -301,22 +324,23 @@ def model_routing_read_model():
             profiles_info = {
                 "status": "loaded",
                 "count": len(profiles),
-                "profiles": [
-                    {
-                        "profile_id": p.profile_id,
-                        "provider_id": p.provider_id,
-                        "model": p.model,
-                        "model_role": p.model_role,
-                        "local": p.local,
-                        "cloud": p.cloud,
-                        "cloud_allowed": p.cloud_allowed,
-                        "block_secret_context": p.block_secret_context,
-                        "enabled": p.enabled,
-                    }
-                    for p in profiles
-                ],
+                "profiles": [_safe_model_profile_summary(p) for p in profiles],
             }
-            resolver_info = {"status": "ready", "rules_source": "MODEL_PROFILES_PATH"}
+            resolver_info = {
+                "status": "ready",
+                "rules_source": "MODEL_PROFILES_PATH",
+                "fallback_groups": {
+                    group_id: {
+                        "ordered_profiles": list(group.ordered_profiles),
+                        "max_total_retries": group.max_total_retries,
+                        "stop_on_policy_block": group.stop_on_policy_block,
+                        "stop_on_success": group.stop_on_success,
+                        "cost_policy": dict(group.cost_policy or {}),
+                    }
+                    for group_id, group in getattr(resolver.rules, "fallback_groups", {}).items()
+                },
+                "fallback_chain": list(getattr(resolver.rules, "fallback_chain", []) or []),
+            }
     except Exception as exc:
         resolver_info = {"status": "error", "reason": str(exc)}
 
@@ -370,6 +394,32 @@ def model_routing_read_model():
         "legacy": legacy_info,
         "effective_winner": winner_info or None,
     })
+
+
+@read_models_bp.route("/config/model-routing/profiles", methods=["GET"])
+@check_auth
+def model_routing_profiles():
+    """Safe profile list for UI dropdowns."""
+    try:
+        from agent.services.model_invocation_service import ModelInvocationService
+        resolver = ModelInvocationService._get_resolver()
+        if resolver is None:
+            return api_response(data={"profiles": [], "fallback_groups": {}, "status": "not_configured"})
+        return api_response(data={
+            "profiles": [_safe_model_profile_summary(p) for p in list(resolver._all_enabled)],
+            "fallback_groups": {
+                group_id: {
+                    "ordered_profiles": list(group.ordered_profiles),
+                    "max_total_retries": group.max_total_retries,
+                    "stop_on_policy_block": group.stop_on_policy_block,
+                    "stop_on_success": group.stop_on_success,
+                }
+                for group_id, group in getattr(resolver.rules, "fallback_groups", {}).items()
+            },
+            "status": "loaded",
+        })
+    except Exception as exc:
+        return api_response(status="error", message=f"model_routing_profiles_failed:{exc}", code=500)
 
 
 @read_models_bp.route("/diagnostics/embedding-provider", methods=["GET"])
