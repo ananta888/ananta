@@ -25,19 +25,19 @@
     "Native PDF/PPTX export should be delegated to a controlled backend/worker/export pipeline in a later milestone."
   ],
   "milestones": [
-    {"id": "KM-M1", "title": "Markdown Slide Core", "status": "todo", "task_ids": ["KM-T001", "KM-T002", "KM-T003", "KM-T004"]},
-    {"id": "KM-M2", "title": "Angular UI Integration", "status": "todo", "task_ids": ["KM-T005", "KM-T006", "KM-T007", "KM-T008"]},
-    {"id": "KM-M3", "title": "Safe Rendering And Mermaid", "status": "todo", "task_ids": ["KM-T009", "KM-T010", "KM-T011", "KM-T012"]},
-    {"id": "KM-M4", "title": "Artifacts And CodeCompass", "status": "todo", "task_ids": ["KM-T013", "KM-T014", "KM-T015", "KM-T016"]},
-    {"id": "KM-M5", "title": "Export Contract", "status": "todo", "task_ids": ["KM-T017", "KM-T018", "KM-T019", "KM-T020"]},
-    {"id": "KM-M6", "title": "Tests And Documentation", "status": "todo", "task_ids": ["KM-T021", "KM-T022", "KM-T023", "KM-T024"]}
+    {"id": "KM-M1", "title": "Markdown Slide Core", "status": "done", "task_ids": ["KM-T001", "KM-T002", "KM-T003", "KM-T004"]},
+    {"id": "KM-M2", "title": "Angular UI Integration", "status": "done", "task_ids": ["KM-T005", "KM-T006", "KM-T007", "KM-T008"]},
+    {"id": "KM-M3", "title": "Safe Rendering And Mermaid", "status": "done", "task_ids": ["KM-T009", "KM-T010", "KM-T011", "KM-T012"]},
+    {"id": "KM-M4", "title": "Artifacts And CodeCompass", "status": "done", "task_ids": ["KM-T013", "KM-T014", "KM-T015", "KM-T016"]},
+    {"id": "KM-M5", "title": "Export Contract", "status": "done", "task_ids": ["KM-T017", "KM-T018", "KM-T019", "KM-T020"]},
+    {"id": "KM-M6", "title": "Tests And Documentation", "status": "done", "task_ids": ["KM-T021", "KM-T022", "KM-T023", "KM-T024"]}
   ],
   "critical_path_tasks": ["KM-T001", "KM-T002", "KM-T005", "KM-T009", "KM-T013", "KM-T017", "KM-T021"],
   "tasks": [
     {
       "id": "KM-T001",
       "title": "Define Markdown slide parser contract",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "milestone": "KM-M1",
@@ -59,7 +59,7 @@
     {
       "id": "KM-T002",
       "title": "Add deck metadata model",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "low",
       "milestone": "KM-M1",
@@ -78,7 +78,7 @@
     {
       "id": "KM-T003",
       "title": "Create sample Ananta deck",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "milestone": "KM-M1",
@@ -97,7 +97,7 @@
     {
       "id": "KM-T004",
       "title": "Add local deck state service",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "milestone": "KM-M1",
@@ -116,7 +116,7 @@
     {
       "id": "KM-T005",
       "title": "Add Markdown Slides route",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "milestone": "KM-M2",
@@ -136,7 +136,7 @@
     {
       "id": "KM-T006",
       "title": "Implement split editor and preview layout",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "milestone": "KM-M2",
@@ -156,7 +156,7 @@
     {
       "id": "KM-T007",
       "title": "Add keyboard navigation",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "milestone": "KM-M2",
@@ -175,7 +175,7 @@
     {
       "id": "KM-T008",
       "title": "Add responsive presentation mode",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "milestone": "KM-M2",
@@ -194,7 +194,7 @@
     {
       "id": "KM-T009",
       "title": "Implement safe Markdown renderer",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "milestone": "KM-M3",
@@ -217,7 +217,7 @@
     {
       "id": "KM-T010",
       "title": "Render Mermaid diagrams safely",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "milestone": "KM-M3",
@@ -238,7 +238,7 @@
     {
       "id": "KM-T011",
       "title": "Add theme abstraction",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "milestone": "KM-M3",
@@ -257,7 +257,7 @@
     {
       "id": "KM-T012",
       "title": "Add diagnostics panel",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "milestone": "KM-M3",
@@ -276,7 +276,7 @@
     {
       "id": "KM-T013",
       "title": "Define deck artifact contract",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "milestone": "KM-M4",
@@ -295,7 +295,7 @@
     {
       "id": "KM-T014",
       "title": "Add local browser persistence adapter",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "milestone": "KM-M4",
@@ -314,7 +314,7 @@
     {
       "id": "KM-T015",
       "title": "Prepare workspace file adapter",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "milestone": "KM-M4",
@@ -333,7 +333,7 @@
     {
       "id": "KM-T016",
       "title": "Integrate CodeCompass context handoff",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "milestone": "KM-M4",
@@ -352,7 +352,7 @@
     {
       "id": "KM-T017",
       "title": "Define export job API contract",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "milestone": "KM-M5",
@@ -373,7 +373,7 @@
     {
       "id": "KM-T018",
       "title": "Add export UI placeholder",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "milestone": "KM-M5",
@@ -392,7 +392,7 @@
     {
       "id": "KM-T019",
       "title": "Evaluate Kova CLI compatibility path",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "milestone": "KM-M5",
@@ -411,7 +411,7 @@
     {
       "id": "KM-T020",
       "title": "Add export artifact provenance",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "milestone": "KM-M5",
@@ -430,7 +430,7 @@
     {
       "id": "KM-T021",
       "title": "Add parser and renderer unit tests",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "milestone": "KM-M6",
@@ -450,7 +450,7 @@
     {
       "id": "KM-T022",
       "title": "Add Playwright E2E coverage",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "milestone": "KM-M6",
@@ -469,7 +469,7 @@
     {
       "id": "KM-T023",
       "title": "Document user workflow",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "milestone": "KM-M6",
@@ -488,7 +488,7 @@
     {
       "id": "KM-T024",
       "title": "Run build and Android compatibility checks",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "milestone": "KM-M6",

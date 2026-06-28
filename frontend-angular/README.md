@@ -71,6 +71,7 @@ Wichtige Variablen dafuer:
 - Standard-CI fuehrt regulaeere Playwright-Tests aus.
 - Live-LLM-Tests laufen standardisiert gegen die Compose-Welt mit Ollama.
 - Frontend basiert auf Angular 21 (siehe `package.json`).
+- Markdown Slides sind unter `/markdown-slides` erreichbar. Details zu Syntax, Sicherheit, Artefakten und Export-Grenzen stehen in `../docs/markdown-slides.md`.
 
 ## Sichere Migrationen
 Siehe docs/angular-migration-safety-workflow.md fuer den schrittweisen Schematics-Workflow.

@@ -18,6 +18,7 @@ describe('route metadata', () => {
       '/chats',
       '/board',
       '/artifacts',
+      '/markdown-slides',
       '/templates',
       '/voxtral-offline',
       '/llama-runtime',

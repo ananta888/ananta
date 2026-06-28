@@ -28,6 +28,7 @@ export const routes: Routes = [
       { path: 'config-graph', data: { breadcrumb: 'Konfig-Graph', area: 'Configure' }, loadComponent: () => import('./components/config-graph-editor.component').then(m => m.ConfigGraphEditorComponent) },
       { path: 'blueprint-config', data: { breadcrumb: 'Blueprint-Konfig', area: 'Configure' }, loadComponent: () => import('./components/blueprint-config-workbench.component').then(m => m.BlueprintConfigWorkbenchComponent) },
       { path: 'hub-worker-graph', data: { breadcrumb: 'Hub-/Worker-Graph', area: 'Configure' }, loadComponent: () => import('./components/hub-worker-graph-editor.component').then(m => m.HubWorkerGraphEditorComponent) },
+      { path: 'markdown-slides', data: { breadcrumb: 'Markdown Slides', area: 'Operate' }, loadComponent: () => import('./features/markdown-slides/markdown-slides.component').then(m => m.MarkdownSlidesComponent) },
       ...controlPlaneRoutes,
       ...controlCenterRoutes,
       ...adminRoutes,

@@ -27,12 +27,13 @@ describe('app routes', () => {
       'templates',
       'teams',
       'artifacts',
+      'markdown-slides',
       'strategy-game-demo',
       'help',
       'codehug',
     ].includes(route.path));
 
-    expect(featureRoutes.length).toBe(20);
+    expect(featureRoutes.length).toBe(21);
     expect(featureRoutes.every((route: any) => typeof route.loadComponent === 'function')).toBe(true);
     expect(featureRoutes.every((route: any) => !route.component)).toBe(true);
     expect(featureRoutes.every((route: any) => route.data?.breadcrumb && route.data?.area)).toBe(true);

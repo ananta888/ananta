@@ -33,6 +33,7 @@ export const APP_ROUTE_META: Record<string, AppRouteMeta> = {
   board: { label: 'Aufgaben', area: 'Operate', navGroup: 'Arbeiten', navOrder: 20, simpleNav: true },
   operations: { label: 'Operationen', area: 'Operate', navGroup: 'Betrieb', navOrder: 40, expertOnly: true },
   artifacts:  { label: 'Ergebnisse', area: 'Operate', navGroup: 'Arbeiten', navOrder: 30, simpleNav: true },
+  'markdown-slides': { label: 'Markdown Slides', area: 'Operate', navGroup: 'Arbeiten', navOrder: 30.5, simpleNav: true },
   knowledge:  { label: 'Wissen',     area: 'Operate', navGroup: 'Arbeiten', navOrder: 31, expertOnly: true },
   wikipedia:  { label: 'Wikipedia',  area: 'Operate', navGroup: 'Arbeiten', navOrder: 32, expertOnly: true },
   archived: { label: 'Archiv', area: 'Operate', navGroup: 'Betrieb', navOrder: 60, expertOnly: true },
