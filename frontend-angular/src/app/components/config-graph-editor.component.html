@@ -1,0 +1,331 @@
+    <div class="cge-root">
+    
+      <!-- Header -->
+      <div class="cge-header">
+        <div class="cge-title-row">
+          <h2 class="cge-title">Visual Agent Configuration Graph</h2>
+          <div class="header-actions">
+            <div class="mode-toggle">
+              <button class="mode-btn" [class.active]="displayMode==='config'" (click)="setDisplayMode('config')">☰ Konfiguration</button>
+              <button class="mode-btn" [class.active]="displayMode==='graph'"  (click)="setDisplayMode('graph')">◈ Graph</button>
+            </div>
+            <button class="button-outline" (click)="reload()">↻ Aktualisieren</button>
+            @if (displayMode==='graph') {
+              <label class="edit-toggle">
+                <input type="checkbox" [(ngModel)]="editMode" (ngModelChange)="cdr.markForCheck()" /> Edit-Modus
+              </label>
+            }
+          </div>
+        </div>
+        @if ((graph?.diagnostics?.length ?? 0) > 0) {
+          <div class="diag-bar">
+            @for (d of graph!.diagnostics; track d) {
+              <span class="diag-item">⚠ {{ d }}</span>
+            }
+          </div>
+        }
+      </div>
+    
+      <!-- Body -->
+      <div class="cge-body">
+    
+        <!-- Sidebar -->
+        <div class="cge-sidebar">
+          <div class="sidebar-section-label">Ansichten</div>
+          <div class="view-cards">
+            @for (v of views; track v) {
+              <button class="view-card" [class.active]="activeView===v.id" (click)="setView(v.id)">
+                <div class="vcard-dot" [style.background]="v.color"></div>
+                <div class="vcard-body">
+                  <div class="vcard-title">{{ v.label }}</div>
+                  <div class="vcard-desc">{{ v.description }}</div>
+                  @if (graph) {
+                    <span class="count-badge" [style.background]="activeView===v.id ? v.color : undefined">
+                      {{ (graph.views[v.id] ?? []).length }} Nodes
+                    </span>
+                  }
+                </div>
+              </button>
+            }
+          </div>
+          <div class="sidebar-divider"></div>
+          <div class="sidebar-section-label">Graph filtern</div>
+          <div class="graph-filter-form">
+            <input
+              [(ngModel)]="graphSearchText"
+              (ngModelChange)="onGraphFilterChanged()"
+              placeholder="Suche nach Label, Typ, Datei..."
+              class="eff-input"
+              />
+            <select
+              [(ngModel)]="graphNodeType"
+              (ngModelChange)="onGraphFilterChanged()"
+              class="eff-input"
+              >
+              <option value="">Alle Node-Typen</option>
+              @for (t of availableNodeTypes; track t) {
+                <option [value]="t">{{ t }}</option>
+              }
+            </select>
+            <select
+              [(ngModel)]="graphStatus"
+              (ngModelChange)="onGraphFilterChanged()"
+              class="eff-input"
+              >
+              <option value="all">Alle Status</option>
+              <option value="active">Nur aktiv</option>
+              <option value="inactive">Nur inaktiv</option>
+              <option value="diagnostics">Mit Diagnose</option>
+              <option value="stale">Veraltet</option>
+            </select>
+            @if (hasGraphFilters) {
+              <button class="button-outline full-w" (click)="clearGraphSearchFilters()">Filter zurücksetzen</button>
+            }
+          </div>
+          <div class="sidebar-divider"></div>
+          <app-config-effective-config />
+          @if (graph) {
+            <div class="sidebar-footer">
+              <span>{{ graph.node_count }} Nodes · {{ graph.edge_count }} Edges</span>
+              @if (graph.diagnostics.length) {
+                <span class="warn-inline"> · {{ graph.diagnostics.length }} ⚠</span>
+              }
+            </div>
+          }
+        </div>
+    
+        <!-- Main -->
+        <div class="cge-main">
+    
+          <!-- View header -->
+          @if (activeViewMeta) {
+            <div class="view-header">
+              <div class="vhdot" [style.background]="activeViewMeta.color"></div>
+              <div class="vh-text">
+                <div class="vh-title">{{ activeViewMeta.label }}</div>
+                <div class="vh-desc">{{ activeViewMeta.description }}</div>
+              </div>
+              @if (graph) {
+                <div class="vh-right">
+                  <span class="count-badge" [style.background]="activeViewMeta.color">
+                    {{ visibleNodeIds.length }} / {{ graph.node_count }} Nodes
+                  </span>
+                  @if (hasGraphFilters) {
+                    <span class="filter-badge" (click)="clearGraphSearchFilters()">
+                      Suche aktiv x
+                    </span>
+                  }
+                  @if (graphFilterIds) {
+                    <span class="filter-badge" (click)="clearGraphFilter()">
+                      Fokus aktiv x
+                    </span>
+                  }
+                  <span class="snap-id muted">{{ graph.snapshot_id }}</span>
+                </div>
+              }
+            </div>
+          }
+    
+          <!-- ══════════ CONFIG MODE ══════════ -->
+          @if (displayMode === 'config') {
+            <!-- effectiveConfig empty hint -->
+            @if (activeView === VIEW_IDS.effectiveConfig) {
+              <div class="config-hint">
+                <div class="config-hint-icon">◈</div>
+                <div>
+                  <strong>Effektive Konfiguration auflösen</strong>
+                  <p class="muted">Surface und optionalen Task-Kind in der Sidebar eingeben und "Auflösen" klicken.</p>
+                </div>
+              </div>
+            }
+            <!-- Config panel -->
+            @if (activeView !== VIEW_IDS.effectiveConfig) {
+              <div class="config-panel">
+                <!-- Overview header -->
+                @if (!selectedConfigItem && !configEditorActive) {
+                  <div class="cp-header">
+                    <span class="cp-count">{{ configPanelItems.length }} {{ activeViewMeta?.label }}-Einträge</span>
+                    @if (creatableTypeForView) {
+                      <button class="button-outline" (click)="startNewEntry()">+ Neu erstellen</button>
+                    }
+                  </div>
+                }
+                <!-- ── OVERVIEW: card grid ── -->
+                @if (!selectedConfigItem && !configEditorActive && !loading) {
+                  <div class="config-cards">
+                    @for (item of configPanelItems; track item) {
+                      <div
+                        class="config-card selectable"
+                        [class.card-inactive]="!item.runtime_active"
+                        [class.card-has-diags]="item.diagnostics.length > 0"
+                        (click)="selectConfigItem(item)">
+                        <div class="card-head">
+                          <div class="card-dot" [style.background]="activeViewMeta?.color"></div>
+                          <strong class="card-label" [title]="item.id">{{ item.label }}</strong>
+                          @if (characterBadge(item); as badge) {
+                            <span class="char-badge" [style.background]="badge.bg" [style.color]="badge.color">{{ badge.label }}</span>
+                          }
+                          @if (!item.runtime_active) {
+                            <span class="inactive-tag">inaktiv</span>
+                          }
+                        </div>
+                        <div class="card-fields">
+                          @for (f of keyFieldsFor(item); track f) {
+                            <div class="card-field">
+                              <span class="cf-label">{{ f.label }}</span>
+                              <span class="cf-value" [class.cf-empty]="!f.value || f.value==='—'">{{ f.value }}</span>
+                            </div>
+                          }
+                        </div>
+                        @if (item.diagnostics.length > 0) {
+                          <div class="card-diags">
+                            @for (d of item.diagnostics; track d) {
+                              <span class="diag-item">⚠ {{ d }}</span>
+                            }
+                          </div>
+                        }
+                        <div class="card-open-hint">Klicken zum Öffnen →</div>
+                      </div>
+                    }
+                    <!-- Policy-Pfad: empty state with suggestions -->
+                    @if (configPanelItems.length === 0 && activeView === VIEW_IDS.policyPath) {
+                      <div class="policy-empty">
+                        <div class="policy-empty-head">
+                          <span class="policy-empty-icon">⚖</span>
+                          <div>
+                            <strong>Keine Pfad-Regeln konfiguriert</strong>
+                            <p class="muted">Alle Pfade sind offen — kein KI-Modus ist eingeschränkt. Typische Beispiele:</p>
+                          </div>
+                        </div>
+                        <div class="policy-suggestions">
+                          @for (s of policySuggestions; track s) {
+                            <div class="policy-suggestion" (click)="prefillSuggestion(s)">
+                              <div class="sug-glob">{{ s.glob }}</div>
+                              <div class="sug-blocked"><span class="char-badge" style="background:#5a0000;color:#fff">{{ s.blocked }}</span></div>
+                              <div class="sug-hint muted">{{ s.hint }}</div>
+                              <div class="sug-action">Als Vorlage →</div>
+                            </div>
+                          }
+                        </div>
+                      </div>
+                    }
+                    @if (configPanelItems.length === 0 && activeView !== VIEW_IDS.policyPath) {
+                      <div class="cp-empty">
+                        <p class="muted">Keine Einträge für diese Ansicht konfiguriert.</p>
+                      </div>
+                    }
+                  </div>
+                }
+                @if (loading && !selectedConfigItem && !configEditorActive) {
+                  <div class="loading-wrap">
+                    <p class="muted">Wird geladen…</p>
+                  </div>
+                }
+                <app-config-node-detail
+                  #configDetail
+                  [node]="selectedConfigItem"
+                  [connectedNodes]="connectedNodes"
+                  [accentColor]="activeViewMeta?.color ?? '#4A90D9'"
+                  (closed)="clearItemSelection()"
+                  (nodeSelected)="selectConfigItem($event)"
+                  (showInGraph)="showInGraph($event)"
+                  (patchQueued)="queueConfigPatch($event)"
+                  (graphChanged)="onConfigGraphChanged($event)"
+                  (editorActiveChange)="configEditorActive = $event; cdr.markForCheck()" />
+              </div>
+            }
+          }
+    
+          <!-- ══════════ GRAPH MODE ══════════ -->
+          @if (displayMode === 'graph') {
+            @if (editMode && pendingOps.length > 0) {
+              <div class="edit-toolbar">
+                <span>{{ pendingOps.length }} Änderung(en)</span>
+                <button class="button-outline" (click)="validatePatch()">Validieren</button>
+                @if (lastValidation?.requires_approval) {
+                  <input [(ngModel)]="approvalToken" class="approval-input" placeholder="Approval-Token" />
+                }
+                <button class="button-outline" [disabled]="!lastValidation?.valid" (click)="applyPatch()">Anwenden</button>
+                <button class="button-outline danger" (click)="discardPatch()">Verwerfen</button>
+                @if (lastValidation) {
+                  <span class="risk-badge" [class]="'risk-' + lastValidation.risk_tier">{{ lastValidation.risk_tier }}</span>
+                }
+                @if (lastValidation?.errors?.length) {
+                  <ul class="edit-errors">
+                    @for (e of lastValidation!.errors; track e) {
+                      <li>{{ e }}</li>
+                    }
+                  </ul>
+                }
+              </div>
+            }
+            @if (lastSourceDiffs.length) {
+              <div class="source-diff-panel">
+                <div class="source-diff-head">
+                  <strong>Source-Diff</strong>
+                  @if (lastRollbackArtifact) {
+                    <button class="button-outline" (click)="rollbackLastPatch()">Rollback</button>
+                  }
+                </div>
+                @for (diff of lastSourceDiffs; track diff) {
+                  <pre>{{ diff }}</pre>
+                }
+              </div>
+            }
+            @if (!loading) {
+              <div class="cge-canvas-wrap">
+                <svg #svgEl class="cge-svg" [attr.width]="svgWidth" [attr.height]="svgHeight" (click)="onSvgClick($event)">
+                  <defs>
+                    <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                      <path d="M0,0 L0,6 L8,3 z" fill="#666" />
+                    </marker>
+                  </defs>
+                  <g class="edges-layer">
+                    @for (edge of visibleEdges; track edge) {
+                      <line
+                        [attr.x1]="edgeX1(edge)" [attr.y1]="edgeY1(edge)"
+                        [attr.x2]="edgeX2(edge)" [attr.y2]="edgeY2(edge)"
+                        stroke="#555" stroke-width="1.5" marker-end="url(#arrow)" />
+                    }
+                  </g>
+                  <g class="nodes-layer">
+                    @for (ln of visibleLayoutNodes; track ln) {
+                      <g
+                        class="graph-node"
+                        [class.selected]="selectedNode?.id === ln.id"
+                        [class.stale]="ln.node.stale"
+                        [class.inactive]="!ln.node.runtime_active"
+                        (click)="selectNode($event, ln.node)"
+                        style="cursor:pointer">
+                        <rect [attr.x]="ln.x" [attr.y]="ln.y" [attr.width]="ln.w" [attr.height]="ln.h"
+                          rx="6" [attr.fill]="nodeColor(ln.node.node_type)"
+                          [attr.fill-opacity]="ln.node.runtime_active ? 0.85 : 0.35"
+                          [attr.stroke]="selectedNode?.id===ln.id ? '#fff' : 'transparent'" stroke-width="2" />
+                        <text [attr.x]="ln.x+ln.w/2" [attr.y]="ln.y+ln.h/2-4"
+                        text-anchor="middle" font-size="10" fill="#fff" font-weight="600" style="pointer-events:none">{{ ln.node.node_type }}</text>
+                        <text [attr.x]="ln.x+ln.w/2" [attr.y]="ln.y+ln.h/2+10"
+                        text-anchor="middle" font-size="11" fill="#fff" style="pointer-events:none;dominant-baseline:middle">{{ truncate(ln.node.label,18) }}</text>
+                        @if (ln.node.diagnostics.length>0) {
+                          <circle [attr.cx]="ln.x+ln.w-6" [attr.cy]="ln.y+6" r="5" fill="#ff8f00" />
+                        }
+                      </g>
+                    }
+                  </g>
+                </svg>
+                @if (visibleLayoutNodes.length===0) {
+                  <div class="empty-view"><p class="muted">Keine Nodes in dieser Ansicht.</p></div>
+                }
+              </div>
+            } @else {
+              <div class="loading-wrap"><p class="muted">Graph wird geladen…</p></div>
+            }
+            <app-config-graph-node-detail
+              [node]="selectedNode" [editMode]="editMode"
+              (closed)="selectedNode=null; cdr.markForCheck()"
+              (removeRequested)="queueRemoveNode($event)" />
+          }
+    
+        </div>
+      </div>
+    </div>
+    

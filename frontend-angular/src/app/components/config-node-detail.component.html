@@ -1,0 +1,186 @@
+@if (cloneState) {
+  <div class="cp-breadcrumb">
+    <button class="breadcrumb-back" (click)="cancel()">← Zurück</button>
+    <span class="breadcrumb-sep">/</span>
+    <span class="breadcrumb-label">
+      {{ cloneState.mode === 'edit' && cloneState.sourceNode
+        ? 'Bearbeiten: ' + cloneState.sourceNode.label
+        : cloneState.sourceNode
+          ? 'Klonen: ' + cloneState.sourceNode.label
+          : 'Neu: ' + cloneState.entryType }}
+    </span>
+  </div>
+  <div class="clone-form">
+    @if (cloneState.sourceNode) {
+      <div class="cf-source-hint">
+        Vorausgefüllt aus: <em>{{ cloneState.sourceNode.label }}</em> — Felder anpassen und speichern.
+      </div>
+    }
+    <div class="cf-fields">
+      @for (field of cloneState.fields; track field.key) {
+        <div class="cf-field">
+          <label class="cf-field-label">
+            {{ field.label }}
+            @if (field.key === 'profile_id' || field.key === 'path_glob' || field.key === 'id') {
+              <span class="required-mark">*</span>
+            }
+          </label>
+          @if (field.type === 'select') {
+            <select [(ngModel)]="cloneState.values[field.key]" class="cf-input">
+              @for (option of field.options; track option) {
+                <option [value]="option">{{ option }}</option>
+              }
+            </select>
+          } @else {
+            <input [(ngModel)]="cloneState.values[field.key]" class="cf-input" />
+          }
+          @if (field.hint) {
+            <div class="cf-hint">{{ field.hint }}</div>
+          }
+        </div>
+      }
+    </div>
+    @if (cloneState.error) {
+      <div class="cf-error">{{ cloneState.error }}</div>
+    }
+    <div class="cf-actions">
+      <button class="button-primary" (click)="save()" [disabled]="cloneState.saving">
+        {{ cloneState.saving ? 'Wird gespeichert…' : cloneState.mode === 'edit' ? 'Änderung vormerken' : 'Speichern' }}
+      </button>
+      <button class="button-outline" (click)="cancel()">Abbrechen</button>
+    </div>
+  </div>
+} @else if (node) {
+  <div class="cp-breadcrumb">
+    <button class="breadcrumb-back" (click)="closed.emit()">← Übersicht</button>
+    <span class="breadcrumb-sep">/</span>
+    <span class="breadcrumb-dot" [style.background]="accentColor"></span>
+    <span class="breadcrumb-label">{{ node.label }}</span>
+  </div>
+  <div class="config-detail">
+    <div class="detail-head">
+      <div class="detail-type-dot" [style.background]="accentColor"></div>
+      <div class="detail-head-text">
+        <h3 class="detail-title">{{ node.label }}</h3>
+        <div class="detail-meta">
+          <span class="card-type">{{ node.node_type }}</span>
+          @if (characterBadge(node); as badge) {
+            <span class="char-badge" [style.background]="badge.bg" [style.color]="badge.color">{{ badge.label }}</span>
+          }
+          @if (!node.runtime_active) {
+            <span class="inactive-tag">inaktiv</span>
+          }
+          <span class="detail-id muted">{{ node.id }}</span>
+        </div>
+      </div>
+      <div class="detail-head-actions">
+        @if (isEditableConfigNode(node)) {
+          <button class="button-outline" (click)="startEdit(node)">Bearbeiten</button>
+        }
+        @if (isCloneable(node)) {
+          <button class="button-outline" (click)="startClone(node)">⎘ Klonen & anpassen</button>
+        }
+        <button class="button-outline" (click)="showInGraph.emit(node)">Im Graph zeigen</button>
+      </div>
+    </div>
+    @if (node.node_type === 'agent_profile' && behaviorDims(node); as behavior) {
+      <div class="detail-section">
+        <div class="section-label">Verhaltens-Dimensionen</div>
+        <div class="beh-grid">
+          <div class="beh-card" [class]="'beh-gate-' + behavior.execute_contract.gate">
+            <div class="beh-card-head">
+              <span class="beh-icon">{{ behavior.execute_contract.gate === 'blocked' ? '🔒' : behavior.execute_contract.gate === 'explicit_approval_required' ? '⚠' : '✓' }}</span>
+              <div>
+                <div class="beh-card-title">Ausführungs-Vertrag</div>
+                <div class="beh-card-value">{{ behavior.execute_contract.label }}</div>
+              </div>
+            </div>
+            <div class="beh-card-desc">{{ behavior.execute_contract.description }}</div>
+            <div class="beh-caps">
+              <span class="beh-cap" [class.beh-cap-yes]="behavior.execute_contract.can_write_files" [class.beh-cap-no]="!behavior.execute_contract.can_write_files">
+                {{ behavior.execute_contract.can_write_files ? '✓' : '✗' }} Dateien schreiben
+              </span>
+              <span class="beh-cap" [class.beh-cap-yes]="behavior.execute_contract.can_run_commands" [class.beh-cap-no]="!behavior.execute_contract.can_run_commands">
+                {{ behavior.execute_contract.can_run_commands ? '✓' : '✗' }} Befehle ausführen
+              </span>
+            </div>
+          </div>
+          <div class="beh-card beh-card-context">
+            <div class="beh-card-head">
+              <span class="beh-icon">◈</span>
+              <div>
+                <div class="beh-card-title">Kontext-Autorität</div>
+                <div class="beh-card-value">{{ behavior.context_authority.label }}</div>
+              </div>
+            </div>
+            <div class="beh-card-desc">{{ behavior.context_authority.description }}</div>
+            <div class="beh-sources">
+              @for (source of behavior.context_authority.primary_sources; track source) {
+                <span class="beh-source">{{ source }}</span>
+              }
+              <span class="beh-cc" [class.beh-cc-primary]="behavior.context_authority.codecompass === 'primary'" [class.beh-cc-secondary]="behavior.context_authority.codecompass === 'secondary'">
+                CodeCompass: {{ behavior.context_authority.codecompass }}
+              </span>
+            </div>
+          </div>
+          @if (behavior.must_not?.length) {
+            <div class="beh-card beh-card-mustnot">
+              <div class="beh-card-head">
+                <span class="beh-icon">🚫</span>
+                <div>
+                  <div class="beh-card-title">Darf nicht</div>
+                  <div class="beh-card-value">{{ behavior.scope_label }}</div>
+                </div>
+              </div>
+              <ul class="beh-mustnot-list">
+                @for (restriction of behavior.must_not; track restriction) {
+                  <li>{{ restriction }}</li>
+                }
+              </ul>
+            </div>
+          }
+        </div>
+      </div>
+    }
+    <div class="detail-section">
+      <div class="section-label">Konfiguration</div>
+      <div class="detail-fields">
+        @for (field of configFieldsFor(node); track field.label) {
+          <div class="detail-field">
+            <span class="df-label">{{ field.label }}</span>
+            <span class="df-value" [class.df-empty]="field.value === '—'">{{ field.value }}</span>
+          </div>
+        }
+      </div>
+    </div>
+    @if (connectedNodes.length > 0) {
+      <div class="detail-section">
+        <div class="section-label">Verbundene Nodes ({{ connectedNodes.length }})</div>
+        <div class="connected-list">
+          @for (connected of connectedNodes; track connected.node.id) {
+            <div class="connected-node">
+              <span class="cn-dir" [class.cn-out]="connected.direction === 'out'" [class.cn-in]="connected.direction === 'in'">
+                {{ connected.direction === 'out' ? '→' : '←' }}
+              </span>
+              <span class="cn-edge-type">{{ connected.edgeType }}</span>
+              <div class="cn-dot" [style.background]="nodeTypeColor(connected.node.node_type)"></div>
+              <strong class="cn-label">{{ connected.node.label }}</strong>
+              <span class="card-type">{{ connected.node.node_type }}</span>
+              <button class="button-outline cn-open-btn" (click)="nodeSelected.emit(connected.node)">Öffnen</button>
+            </div>
+          }
+        </div>
+      </div>
+    }
+    @if (node.diagnostics.length > 0) {
+      <div class="detail-section">
+        <div class="section-label">Diagnosen</div>
+        <div class="card-diags">
+          @for (diagnostic of node.diagnostics; track diagnostic) {
+            <span class="diag-item">⚠ {{ diagnostic }}</span>
+          }
+        </div>
+      </div>
+    }
+  </div>
+}

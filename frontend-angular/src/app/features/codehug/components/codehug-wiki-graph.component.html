@@ -1,0 +1,67 @@
+<div class="ch-int-bar">
+  <label class="ch-lbl">Quelle</label>
+  <select class="ch-sel" [value]="graphMode()" (change)="changeSource($any($event.target).value)">
+    <option value="self">Ananta (Codebase)</option>
+    @for (index of indexes(); track index.id) {
+      <option [value]="index.id">{{ indexLabel(index) }}</option>
+    }
+  </select>
+  @if (graphMode() === 'self') {
+    <label class="ch-lbl">Modul</label>
+    <select class="ch-sel" [value]="domain()" (change)="domain.set($any($event.target).value); loadSelfGraph()">
+      @for (item of domains(); track item.domain) {
+        <option [value]="item.domain">{{ domainOptionLabel(item) }}</option>
+      }
+    </select>
+    <label class="ch-lbl">Detailgrad</label>
+    <select class="ch-sel" [value]="detailLevel()" (change)="detailLevel.set(+$any($event.target).value); loadSelfGraph()">
+      <option value="0">Dateien</option><option value="1">+ Typen</option>
+      <option value="2">+ Funktionen</option><option value="3">+ Details</option>
+    </select>
+  } @else if (status()?.status === 'ready') {
+    @for (entry of [
+      { mode: 'hubs', label: 'Hub-Artikel', values: hubDomains() },
+      { mode: 'categories', label: 'Kategorien', values: categoryDomains() },
+      { mode: 'clusters', label: 'Cluster', values: clusterDomains() }
+    ]; track entry.mode) {
+      @if (domainModeStatus(entry.mode) === 'ready') {
+        <select class="ch-sel" (change)="selectDomain(entry.mode, $any($event.target).value)">
+          <option value="">{{ entry.label }}…</option>
+          @for (item of entry.values; track item.id) { <option [value]="item.id">{{ item.label }}</option> }
+        </select>
+      } @else {
+        <button class="ch-btn" (click)="buildDomain(entry.mode)">+ {{ entry.label }}</button>
+      }
+    }
+    <input class="ch-sel" type="search" placeholder="Artikel suchen…" [value]="searchQuery()"
+      (input)="search($any($event.target).value)" />
+    @if (searchResults().length) {
+      <div class="ch-wg-tb-results">
+        @for (result of searchResults(); track result.slug) {
+          <button class="ch-wg-tb-result" (click)="expand(result.slug)">{{ result.title }}</button>
+        }
+      </div>
+    }
+  } @else if (status()?.status === 'not_built') {
+    <button class="ch-btn" (click)="build()">SQLite-Index aufbauen</button>
+  } @else if (status()?.status === 'building') {
+    <span class="ch-lbl muted"><span class="ch-dot-run"></span> Index wird aufgebaut…</span>
+  }
+  @if (loading()) { <span class="ch-lbl muted">Lädt…</span> }
+  @if (error()) { <span class="ch-lbl" style="color:#ef4444">{{ error() }}</span> }
+</div>
+
+@if (metadata()) {
+  <div class="ch-graph-info">
+    <span>{{ metadata()!['node_count'] }} Nodes · {{ metadata()!['edge_count'] }} Edges</span>
+  </div>
+}
+<div class="ch-graph-wrap">
+  @if (rawGraph() && (rawGraph().nodes?.length || rawGraph().entities?.length)) {
+    <app-graph-viewer [rawGraphData]="rawGraph()" [wikiIndexId]="graphMode() !== 'self' ? graphMode() : ''" />
+  } @else if (!loading()) {
+    <div class="ch-wg-empty-state">
+      <span>{{ graphMode() === 'self' ? 'Kein Graph verfügbar.' : 'Domäne wählen oder Artikel suchen.' }}</span>
+    </div>
+  }
+</div>

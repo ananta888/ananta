@@ -1,0 +1,33 @@
+        <div class="card">
+<h3>Qualitaetsregeln <span class="help-icon" [appTooltip]="'Qualitaetspruefungen fuer Task-Ausgaben. Prueft Mindestlaenge und optionale Marker.'" tabindex="0">?</span></h3>
+<p class="muted">Qualitaetsregeln fuer Task-Ausgaben und Autopilot-Durchsetzung.</p>
+<div class="grid cols-2">
+  <label class="row gap-sm">
+    <input type="checkbox" [(ngModel)]="state.qgEnabled" />
+    Gates aktiviert <span class="help-icon" [appTooltip]="'Aktiviert oder deaktiviert alle Quality-Gate-Pruefungen global.'" tabindex="0">?</span>
+  </label>
+  <label class="row gap-sm">
+    <input type="checkbox" [(ngModel)]="state.qgAutopilotEnforce" />
+    Im Autopilot erzwingen <span class="help-icon" [appTooltip]="'Wenn aktiviert, schlaegt ein Task im Autopilot fehl, wenn er die Qualitaetsregeln nicht besteht.'" tabindex="0">?</span>
+  </label>
+  <label>
+    Min. Output Zeichen
+    <input type="number" min="1" [(ngModel)]="state.qgMinOutputChars" [class.input-error]="state.qgMinOutputChars < 1" />
+    @if (state.qgMinOutputChars < 1) {
+      <span class="error-text">Mindestens 1 Zeichen</span>
+    }
+  </label>
+  <label>
+    Coding Keywords (Komma)
+    <input [(ngModel)]="state.qgCodingKeywordsText" placeholder="code, implement, test" />
+  </label>
+  <label class="col-span-full">
+    Erforderliche Marker bei Coding (Komma)
+    <input [(ngModel)]="state.qgMarkersText" placeholder="pytest, passed, success" />
+  </label>
+</div>
+<div class="row mt-md gap-sm">
+  <button class="secondary" (click)="state.loadQualityGates()">Reload</button>
+  <button (click)="state.saveQualityGates()" [disabled]="state.qgMinOutputChars < 1">Qualitaetsregeln speichern</button>
+</div>
+        </div>

@@ -1,0 +1,361 @@
+@if (selectedNode(); as n) {
+  <div class="ch-insp-head">
+    <span class="ch-insp-tag" [attr.data-t]="n.type">{{ n.type }}</span>
+    <button class="ch-insp-x" (click)="selectedNodeId.set(null)">✕</button>
+  </div>
+  <div class="ch-insp-body">
+    <label class="ch-fl">Titel</label>
+    <input type="text" class="ch-fi" [value]="n.title"
+      (change)="patchNode(n.id, { title: $any($event.target).value })"/>
+
+    @if (n.subtitle !== undefined && (n.type === 'task' || n.type === 'det' || n.type === 'gate' || n.type === 'review' || n.type === 'planning' || n.type === 'verification')) {
+      <label class="ch-fl">Beschreibung</label>
+      <textarea class="ch-fta" [value]="n.subtitle ?? ''"
+        (change)="patchNode(n.id, { subtitle: $any($event.target).value })"></textarea>
+    }
+
+    <!-- ─── LLM Task config ─── -->
+    @if (n.type === 'task') {
+      <label class="ch-fl">Priorität</label>
+      <select class="ch-fsel" [value]="n.priority ?? 'Medium'"
+        (change)="patchNode(n.id, { priority: $any($event.target).value })">
+        <option value="High">High</option>
+        <option value="Medium">Medium</option>
+        <option value="Low">Low</option>
+      </select>
+
+      <label class="ch-fl">Rolle (Blueprint)</label>
+      <select class="ch-fsel" [value]="n.role ?? ''"
+        (change)="patchNode(n.id, { role: $any($event.target).value })">
+        <option value="">— keine —</option>
+        @for (r of currentRoles(); track r) { <option [value]="r">{{ r }}</option> }
+      </select>
+
+      <label class="ch-fl">Skill-Profil (VP)</label>
+      <select class="ch-fsel" [value]="n.skillProfileId ?? ''"
+        (change)="patchNode(n.id, { skillProfileId: $any($event.target).value || undefined })">
+        <option value="">— Auto —</option>
+        @for (sp of skillProfiles(); track sp.id) {
+          <option [value]="sp.id">{{ sp.name }} ({{ sp.role }})</option>
+        }
+      </select>
+
+      <label class="ch-fl">VP Kind</label>
+      <select class="ch-fsel" [value]="n.vpKind ?? ''"
+        (change)="patchNode(n.id, { vpKind: $any($event.target).value || undefined })">
+        <option value="">— Auto (aus Typ) —</option>
+        @for (k of VP_KINDS; track k) { <option [value]="k">{{ k }}</option> }
+      </select>
+
+      <label class="ch-fl">Worker-Routing</label>
+      <select class="ch-fsel" [value]="n.routing?.mode ?? 'auto'"
+        (change)="setRoutingMode(n.id, $any($event.target).value)">
+        <option value="auto">Auto (beliebiger Worker)</option>
+        <option value="backend">Nach Backend (Typ)</option>
+        <option value="worker">Explizit (bestimmter Worker)</option>
+        <option value="capability">Nach Fähigkeit</option>
+      </select>
+      @if (n.routing?.mode === 'backend') {
+        <select class="ch-fsel" [value]="n.routing?.backend ?? 'ananta'"
+          (change)="patchRouting(n.id, { backend: $any($event.target).value })">
+          @for (b of BACKENDS; track b) { <option [value]="b">{{ b }}</option> }
+        </select>
+      }
+      @if (n.routing?.mode === 'worker') {
+        <select class="ch-fsel" [value]="n.routing?.workerName ?? ''"
+          (change)="patchRouting(n.id, { workerName: $any($event.target).value })">
+          <option value="">— wählen —</option>
+          @for (w of workers(); track w.name) {
+            <option [value]="w.name">{{ w.name }} ({{ w.status }})</option>
+          }
+        </select>
+      }
+      @if (n.routing?.mode === 'capability') {
+        <select class="ch-fsel" [value]="n.routing?.capability ?? 'coder'"
+          (change)="patchRouting(n.id, { capability: $any($event.target).value })">
+          @for (c of CAPABILITIES; track c) { <option [value]="c">{{ c }}</option> }
+        </select>
+      }
+    }
+
+    <!-- ─── Deterministic step config ─── -->
+    @if (n.type === 'det') {
+      <label class="ch-fl">Priorität</label>
+      <select class="ch-fsel" [value]="n.priority ?? 'Medium'"
+        (change)="patchNode(n.id, { priority: $any($event.target).value })">
+        <option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option>
+      </select>
+
+      <label class="ch-fl">Schritt-Typ</label>
+      <select class="ch-fsel" [value]="n.detSubtype ?? 'script'"
+        (change)="patchNode(n.id, { detSubtype: $any($event.target).value })">
+        <option value="script">Shell-Script / Befehl</option>
+        <option value="api-call">API-Aufruf (HTTP)</option>
+        <option value="regex-check">Regex-Prüfung</option>
+        <option value="git-op">Git-Operation</option>
+        <option value="file-check">Datei-Check</option>
+      </select>
+
+      <label class="ch-fl">{{ n.detSubtype === 'api-call' ? 'URL' : n.detSubtype === 'regex-check' ? 'Regex-Pattern' : 'Befehl / Script' }}</label>
+      <input type="text" class="ch-fi" [value]="n.detCommand ?? ''"
+        placeholder="{{ n.detSubtype === 'api-call' ? 'https://...' : n.detSubtype === 'regex-check' ? '^OK.*' : 'npm test' }}"
+        (change)="patchNode(n.id, { detCommand: $any($event.target).value })"/>
+
+      <label class="ch-fl">Erwartetes Ergebnis (optional)</label>
+      <input type="text" class="ch-fi" [value]="n.detExpectedResult ?? ''"
+        placeholder="exit 0 / 200 OK / …"
+        (change)="patchNode(n.id, { detExpectedResult: $any($event.target).value })"/>
+
+      <button type="button" class="ch-det-test-btn"
+        [disabled]="!n.detCommand || detRunning()"
+        (click)="runDetStep(n)">
+        {{ detRunning() ? '⏳ Läuft…' : '▶ Jetzt testen' }}
+      </button>
+      @if (detRunResult()) {
+        <div class="ch-det-result" [class.ch-det-ok]="detRunResult()?.['success']" [class.ch-det-fail]="!detRunResult()?.['success']">
+          <div class="ch-det-status">{{ detRunResult()?.['success'] ? '✓ OK' : '✗ Fehler' }}
+            @if (detRunResult()?.['exit_code'] !== undefined) {
+              · exit {{ detRunResult()?.['exit_code'] }}
+            }
+            @if (detRunResult()?.['duration_ms']) {
+              · {{ detRunResult()?.['duration_ms'] }}ms
+            }
+            @if (detRunResult()?.['http_code']) {
+              · HTTP {{ detRunResult()?.['http_code'] }}
+            }
+          </div>
+          @if (detRunResult()?.['stdout']) {
+            <pre class="ch-det-out">{{ detRunResult()?.['stdout'] | slice:0:300 }}</pre>
+          }
+          @if (detRunResult()?.['stderr']) {
+            <pre class="ch-det-err">{{ detRunResult()?.['stderr'] | slice:0:200 }}</pre>
+          }
+        </div>
+      }
+
+      <label class="ch-fl">Bei Fehler</label>
+      <select class="ch-fsel" [value]="n.failAction ?? 'block'"
+        (change)="patchNode(n.id, { failAction: $any($event.target).value })">
+        <option value="block">Blockieren (Flow stoppt)</option>
+        <option value="continue">Weiter (ignorieren)</option>
+        <option value="rollback">Rollback</option>
+        <option value="retry">Erneut versuchen</option>
+      </select>
+
+      <label class="ch-fl">Worker-Routing</label>
+      <select class="ch-fsel" [value]="n.routing?.mode ?? 'auto'"
+        (change)="setRoutingMode(n.id, $any($event.target).value)">
+        <option value="auto">Auto</option>
+        <option value="backend">Backend-Typ</option>
+        <option value="worker">Expliziter Worker</option>
+      </select>
+      @if (n.routing?.mode === 'backend') {
+        <select class="ch-fsel" [value]="n.routing?.backend ?? 'ananta'"
+          (change)="patchRouting(n.id, { backend: $any($event.target).value })">
+          @for (b of BACKENDS; track b) { <option [value]="b">{{ b }}</option> }
+        </select>
+      }
+      @if (n.routing?.mode === 'worker') {
+        <select class="ch-fsel" [value]="n.routing?.workerName ?? ''"
+          (change)="patchRouting(n.id, { workerName: $any($event.target).value })">
+          @for (w of workers(); track w.name) { <option [value]="w.name">{{ w.name }}</option> }
+        </select>
+      }
+    }
+
+    <!-- ─── Gate config ─── -->
+    @if (n.type === 'gate') {
+      <label class="ch-fl">Gate-Typ</label>
+      <select class="ch-fsel" [value]="n.gateSubtype ?? 'auto-verify'"
+        (change)="patchNode(n.id, { gateSubtype: $any($event.target).value })">
+        <option value="auto-verify">Auto-Verifikation</option>
+        <option value="human-approval">Manuelle Freigabe</option>
+        <option value="test-run">Test-Ausführung</option>
+        <option value="lint">Lint-Prüfung</option>
+        <option value="type-check">Type-Check</option>
+      </select>
+      <label class="ch-fl">Timeout (Sekunden)</label>
+      <input type="number" class="ch-fi" [value]="n.gateTimeout ?? 60"
+        (change)="patchNode(n.id, { gateTimeout: +$any($event.target).value })"/>
+      <label class="ch-fl">Bei Fehler</label>
+      <select class="ch-fsel" [value]="n.failAction ?? 'block'"
+        (change)="patchNode(n.id, { failAction: $any($event.target).value })">
+        <option value="block">Blockieren</option>
+        <option value="continue">Weiter</option>
+        <option value="rollback">Rollback</option>
+      </select>
+    }
+
+    <!-- ─── Review config ─── -->
+    @if (n.type === 'review') {
+      <label class="ch-fl">Reviewer-Rolle</label>
+      <select class="ch-fsel" [value]="n.role ?? ''"
+        (change)="patchNode(n.id, { role: $any($event.target).value })">
+        <option value="">— alle —</option>
+        @for (r of currentRoles(); track r) { <option [value]="r">{{ r }}</option> }
+      </select>
+      <label class="ch-fl">Bei Ablehnung</label>
+      <select class="ch-fsel" [value]="n.failAction ?? 'block'"
+        (change)="patchNode(n.id, { failAction: $any($event.target).value })">
+        <option value="block">Blockieren</option>
+        <option value="rollback">Rollback zu vorherigem Schritt</option>
+      </select>
+    }
+
+    @if (n.type !== 'start' && n.type !== 'end') {
+      <label class="ch-fl">Human-Approval Gate</label>
+      <label class="ch-ftoggle">
+        <input type="checkbox" [checked]="n.gate ?? false"
+          (change)="patchNode(n.id, { gate: $any($event.target).checked })"/>
+        <span>{{ (n.gate ?? false) ? 'Ja (blockiert bis Freigabe)' : 'Nein' }}</span>
+      </label>
+    }
+
+    <!-- ─── Function Composition I/O ─── -->
+    @if (n.type !== 'start' && n.type !== 'end') {
+      <div class="ch-io-section">
+        <div class="ch-io-hd">
+          <span>▶ Inputs</span>
+          <button class="ch-io-add" (click)="addInput(n.id)">+</button>
+        </div>
+        @for (slot of n.inputs; track slot.name; let i = $index) {
+          <div class="ch-io-row">
+            <input class="ch-io-name" type="text" [value]="slot.name"
+              placeholder="name"
+              (change)="patchSlot(n.id, 'inputs', i, { name: $any($event.target).value })"/>
+            <select class="ch-io-kind"
+              (change)="patchSlot(n.id, 'inputs', i, { kind: $any($event.target).value })">
+              @for (k of ARTIFACT_KINDS; track k) {
+                <option [value]="k" [attr.selected]="slot.kind === k ? '' : null">{{ k }}</option>
+              }
+            </select>
+            <label class="ch-io-req">
+              <input type="checkbox" [checked]="slot.required"
+                (change)="patchSlot(n.id, 'inputs', i, { required: $any($event.target).checked })"/>
+              req
+            </label>
+            <button class="ch-io-del" (click)="removeSlot(n.id, 'inputs', i)">✕</button>
+          </div>
+          @if (slot.producedByStepId) {
+            <div class="ch-io-source">
+              von {{ nodeLabel(slot.producedByStepId) }}.{{ slot.producedByOutputName ?? slot.name }}
+            </div>
+          }
+        }
+        @if (n.inputs.length === 0) { <div class="ch-io-empty">Keine Inputs</div> }
+
+        <div class="ch-io-hd" style="margin-top:5px">
+          <span>◀ Outputs</span>
+          <button class="ch-io-add" (click)="addOutput(n.id)">+</button>
+        </div>
+        @for (slot of n.outputs; track slot.name; let i = $index) {
+          <div class="ch-io-row">
+            <input class="ch-io-name" type="text" [value]="slot.name"
+              placeholder="name"
+              (change)="patchSlot(n.id, 'outputs', i, { name: $any($event.target).value })"/>
+            <select class="ch-io-kind"
+              (change)="patchSlot(n.id, 'outputs', i, { kind: $any($event.target).value })">
+              @for (k of ARTIFACT_KINDS; track k) {
+                <option [value]="k" [attr.selected]="slot.kind === k ? '' : null">{{ k }}</option>
+              }
+            </select>
+            <button class="ch-io-del" (click)="removeSlot(n.id, 'outputs', i)">✕</button>
+          </div>
+        }
+        @if (n.outputs.length === 0) { <div class="ch-io-empty">Keine Outputs</div> }
+      </div>
+    }
+
+    <label class="ch-fl">Aktiv</label>
+    <label class="ch-ftoggle">
+      <input type="checkbox" [checked]="n.enabled"
+        (change)="patchNode(n.id, { enabled: $any($event.target).checked })"/>
+      <span>{{ n.enabled ? 'Ja' : 'Deaktiviert' }}</span>
+    </label>
+
+    <label class="ch-fl">Größe (B × H)</label>
+    <div class="ch-frow">
+      <input type="number" class="ch-fnum" [value]="n.w" min="60"
+        (change)="patchNode(n.id, { w: +$any($event.target).value })"/>
+      <span class="ch-fdim">×</span>
+      <input type="number" class="ch-fnum" [value]="n.h" min="30"
+        (change)="patchNode(n.id, { h: +$any($event.target).value })"/>
+    </div>
+
+    <label class="ch-fl">Position (X, Y)</label>
+    <div class="ch-frow">
+      <input type="number" class="ch-fnum" [value]="n.x | number:'1.0-0'"
+        (change)="patchNode(n.id, { x: +$any($event.target).value })"/>
+      <span class="ch-fdim">,</span>
+      <input type="number" class="ch-fnum" [value]="n.y | number:'1.0-0'"
+        (change)="patchNode(n.id, { y: +$any($event.target).value })"/>
+    </div>
+
+    @if (nodeIsActive(n)) {
+      <div class="ch-active-badge"><span class="ch-dot-run"></span> Aktuell aktiv</div>
+    }
+
+    @if (n.type !== 'start' && n.type !== 'end') {
+      <button type="button" class="ch-del-btn" (click)="deleteNode(n.id)">✕ Schritt löschen</button>
+    }
+  </div>
+}
+
+@if (selectedEdge(); as e) {
+  <div class="ch-insp-head">
+    <span class="ch-insp-tag" data-t="edge">Pfeil</span>
+    <button class="ch-insp-x" (click)="selectedEdgeId.set(null)">✕</button>
+  </div>
+  <div class="ch-insp-body">
+    <label class="ch-fl">Bedingung</label>
+    <select class="ch-fsel" [value]="e.condition"
+      (change)="patchEdge(e.id, { condition: $any($event.target).value })">
+      <option value="always">Immer →</option>
+      <option value="on_success">Nur bei Erfolg ✓</option>
+      <option value="on_failure">Nur bei Fehler ✗</option>
+      <option value="back_edge">↩ Loop / Back-Edge</option>
+      <option value="on_output">📦 Wenn Artifact produziert</option>
+    </select>
+    @if (e.condition === 'back_edge') {
+      <label class="ch-fl">Max. Iterationen</label>
+      <input type="number" class="ch-fi" min="1" max="20" [value]="e.loopMaxIter ?? 3"
+        (change)="patchEdge(e.id, { loopMaxIter: +$any($event.target).value })"/>
+    }
+    @if (e.condition === 'on_output') {
+      <label class="ch-fl">Artifact-Name (Output des Quell-Steps)</label>
+      <input type="text" class="ch-fi" [value]="e.outputName ?? ''"
+        placeholder="z.B. code_artifact, report, test_results"
+        (change)="patchEdge(e.id, { outputName: $any($event.target).value })"/>
+    }
+    <label class="ch-fl">Artifact-Bindung</label>
+    <div class="ch-bind-list">
+      @for (binding of e.bindings ?? []; track binding.outputName + ':' + binding.inputName) {
+        <div class="ch-bind-row">
+          <span>{{ nodeLabel(e.from) }}.{{ binding.outputName }}</span>
+          <span>→</span>
+          <span>{{ nodeLabel(e.to) }}.{{ binding.inputName }}</span>
+          <button type="button" class="ch-io-del" (click)="removeArtifactBinding(e.id, binding)">✕</button>
+        </div>
+      }
+      @if (!(e.bindings ?? []).length) {
+        <div class="ch-io-empty">Keine Bindung</div>
+      }
+      <select class="ch-fsel" [value]="availableBindingOptions(e)[0]?.value ?? ''"
+        (change)="addArtifactBinding(e.id, $any($event.target).value)">
+        <option value="">— Output → Input wählen —</option>
+        @for (opt of availableBindingOptions(e); track opt.value) {
+          <option [value]="opt.value">{{ opt.label }}</option>
+        }
+      </select>
+    </div>
+    <label class="ch-fl">Label</label>
+    <input type="text" class="ch-fi" [value]="e.label ?? ''" placeholder="Optionales Label…"
+      (change)="patchEdge(e.id, { label: $any($event.target).value })"/>
+    <label class="ch-fl">Von</label>
+    <div class="ch-fval">{{ nodeLabel(e.from) }}</div>
+    <label class="ch-fl">Nach</label>
+    <div class="ch-fval">{{ nodeLabel(e.to) }}</div>
+    <button type="button" class="ch-del-btn" (click)="deleteEdge(e.id)">✕ Pfeil löschen</button>
+  </div>
+}
+

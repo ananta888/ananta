@@ -1,0 +1,118 @@
+        <div class="card">
+<h3>System Parameter</h3>
+<div class="grid cols-2">
+  <label>Log Level
+    <select [(ngModel)]="state.config.log_level" (ngModelChange)="state.markSystemFormDirty()">
+      <option value="DEBUG">DEBUG</option>
+      <option value="INFO">INFO</option>
+      <option value="WARNING">WARNING</option>
+      <option value="ERROR">ERROR</option>
+    </select>
+  </label>
+  <label>Agent Offline Timeout (s)
+    <input type="number" [(ngModel)]="state.config.agent_offline_timeout" (ngModelChange)="state.markSystemFormDirty()" min="10" [class.input-error]="state.config.agent_offline_timeout < 10">
+    @if (state.config.agent_offline_timeout < 10) {
+      <span class="error-text">Mindestens 10 Sekunden</span>
+    }
+  </label>
+</div>
+<div class="grid cols-2 mt-lg">
+  <label>HTTP Timeout (s)
+    <input type="number" [(ngModel)]="state.config.http_timeout" (ngModelChange)="state.markSystemFormDirty()" min="1" [class.input-error]="state.config.http_timeout < 1">
+    @if (state.config.http_timeout < 1) {
+      <span class="error-text">Mindestens 1 Sekunde</span>
+    }
+  </label>
+  <label>Command Timeout (s)
+    <input type="number" [(ngModel)]="state.config.command_timeout" (ngModelChange)="state.markSystemFormDirty()" min="1" [class.input-error]="state.config.command_timeout < 1">
+    @if (state.config.command_timeout < 1) {
+      <span class="error-text">Mindestens 1 Sekunde</span>
+    }
+  </label>
+</div>
+<div class="row mt-lg">
+  <button (click)="state.save()" [disabled]="state.config.agent_offline_timeout < 10 || state.config.http_timeout < 1 || state.config.command_timeout < 1">Speichern</button>
+</div>
+        </div>
+        <div class="card card-info mt-lg">
+<h3>Profile & Governance</h3>
+<p class="muted">Benannte Profile und Governance-Modi machen Kontrollniveau und Defaults explizit sichtbar. Das aendert nicht die Hub-Worker-Architektur, sondern setzt klare Standardentscheidungen.</p>
+<div class="grid cols-2 mt-lg">
+  <label>Runtime Profile
+    <select [(ngModel)]="state.config.runtime_profile">
+      @for (p of state.getRuntimeProfileOptions(); track p) {
+        <option [value]="p">{{ p }}</option>
+      }
+    </select>
+  </label>
+  <label>Governance Mode
+    <select [(ngModel)]="state.config.governance_mode">
+      @for (m of state.getGovernanceModeOptions(); track m) {
+        <option [value]="m">{{ m }}</option>
+      }
+    </select>
+  </label>
+</div>
+<div class="muted font-sm mt-md">
+  Effektiv: runtime_profile={{ state.config.runtime_profile_effective?.effective || state.config.runtime_profile || '-' }}
+  · governance_mode={{ state.config.governance_mode_effective?.effective || state.config.governance_mode || '-' }}
+</div>
+<div class="row mt-lg">
+  <button (click)="state.save()">Speichern</button>
+</div>
+        </div>
+        <div class="card">
+<h3>Freigabe &amp; Human-in-the-Loop</h3>
+<p class="muted">Steuert ob Tasks eine explizite Freigabe benoetigen und welche Aktionen immer manuell genehmigt werden muessen.</p>
+<div class="grid cols-2 mt-md">
+  <label class="row gap-sm col-span-full">
+    <input type="checkbox" [(ngModel)]="state.config.approval_lifecycle.enabled" />
+    Approval Lifecycle aktivieren
+  </label>
+  <label class="row gap-sm">
+    <input type="checkbox" [(ngModel)]="state.config.approval_lifecycle.grant_one_shot" [disabled]="!state.config.approval_lifecycle.enabled" />
+    One-Shot Freigabe (einmalig pro Grant)
+  </label>
+  <label>Freigabe-TTL (Sekunden)
+    <input type="number" min="60" max="86400" [(ngModel)]="state.config.approval_lifecycle.default_ttl_seconds" [disabled]="!state.config.approval_lifecycle.enabled" />
+  </label>
+  <label class="row gap-sm col-span-full">
+    <input type="checkbox" [(ngModel)]="state.config.approval_lifecycle.goal_pre_approvals.enabled" [disabled]="!state.config.approval_lifecycle.enabled" />
+    Ziel-Vorab-Freigaben aktivieren (goal_pre_approvals)
+  </label>
+  <label>Vorab-Freigabe TTL (Sekunden)
+    <input type="number" min="60" max="86400" [(ngModel)]="state.config.approval_lifecycle.goal_pre_approvals.ttl_seconds" [disabled]="!state.config.approval_lifecycle.enabled || !state.config.approval_lifecycle.goal_pre_approvals.enabled" />
+  </label>
+</div>
+<div class="row mt-lg">
+  <button (click)="state.save()">Speichern</button>
+</div>
+        </div>
+        <div class="card">
+<h3>Mutation Gate</h3>
+<p class="muted">Globale Kontrolle ob schreibende Operationen (Mutationen) erlaubt sind.</p>
+<div class="grid cols-2 mt-md">
+  <label class="row gap-sm">
+    <input type="checkbox" [(ngModel)]="state.config.mutation_gate.enabled" />
+    Mutation Gate aktiv
+  </label>
+  <label class="row gap-sm">
+    <input type="checkbox" [(ngModel)]="state.config.mutation_gate.global_deny_mutations" [disabled]="!state.config.mutation_gate.enabled" />
+    Alle Mutationen global sperren
+  </label>
+</div>
+<div class="row mt-lg">
+  <button (click)="state.save()">Speichern</button>
+</div>
+        </div>
+        <div class="card">
+<h3>Roh-Konfiguration (Hub)</h3>
+<p class="muted font-sm">Vorsicht: Direkte Bearbeitung der config.json des Hubs.</p>
+<textarea [(ngModel)]="state.configRaw" rows="10" class="font-mono w-full" [class.input-error]="state.configRawError"></textarea>
+@if (state.configRawError) {
+  <span class="error-text">{{ state.configRawError }}</span>
+}
+<div class="row mt-sm">
+  <button (click)="state.saveRaw()" class="button-outline" [disabled]="state.configRawError">Roh-Daten Speichern</button>
+</div>
+        </div>

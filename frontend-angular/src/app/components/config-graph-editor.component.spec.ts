@@ -1,4 +1,6 @@
+import { ɵresolveComponentResources } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { readFile } from 'node:fs/promises';
 import { of } from 'rxjs';
 
 import { ConfigGraphEditorComponent } from './config-graph-editor.component';
@@ -146,3 +148,8 @@ describe('ConfigGraphEditorComponent', () => {
     ]);
   });
 });
+  beforeAll(async () => {
+    await ɵresolveComponentResources(resource =>
+      readFile(new URL(resource, import.meta.url), 'utf8'),
+    );
+  });
