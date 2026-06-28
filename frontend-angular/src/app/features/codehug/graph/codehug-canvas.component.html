@@ -1,0 +1,326 @@
+    <div class="ch-cv-root" [class.ch-cv-inspector-open]="selectedNode() !== null">
+
+      <!-- Toolbar -->
+      <div class="ch-cv-toolbar">
+        <span class="ch-cv-toolbar-title">System Canvas</span>
+        <div class="ch-cv-toolbar-sep"></div>
+
+        @if (activeRun) {
+          <span class="ch-cv-run-badge">
+            <span class="ch-cv-run-dot"></span>
+            Run aktiv · {{ activeRun.actualCliBackend }} · {{ activeRun.deterministicStepCount + activeRun.llmStepCount }} Schritte
+          </span>
+        }
+
+        <button type="button" class="ch-cv-tb-btn" (click)="zoomIn()" title="Vergrößern">+</button>
+        <button type="button" class="ch-cv-tb-btn" (click)="zoomOut()" title="Verkleinern">−</button>
+        <button type="button" class="ch-cv-tb-btn" (click)="resetView()" title="Ansicht zurücksetzen">⟲</button>
+        <button type="button" class="ch-cv-tb-btn" (click)="fitToContent()" title="Alles einpassen">⊡</button>
+
+        <div class="ch-cv-toolbar-sep"></div>
+        <span class="ch-cv-zoom-label">{{ (zoom() * 100).toFixed(0) }}%</span>
+
+        @if (selectedNode() !== null) {
+          <button type="button" class="ch-cv-tb-btn" (click)="clearSelection()">✕ Inspector</button>
+        }
+      </div>
+
+      <!-- SVG Canvas -->
+      <div class="ch-cv-canvas-wrap">
+        <svg
+          #svgEl
+          class="ch-cv-svg"
+          (mousedown)="onSvgMousedown($event)"
+          (wheel)="onWheel($event)"
+          [attr.cursor]="isPanning() ? 'grabbing' : 'default'">
+
+          <defs>
+            <!-- Grid pattern -->
+            <pattern id="ch-cv-grid" width="24" height="24" patternUnits="userSpaceOnUse"
+              [attr.patternTransform]="gridTransform()">
+              <path d="M 24 0 L 0 0 0 24" fill="none" stroke="var(--border)" stroke-width="0.5" opacity="0.6"/>
+            </pattern>
+            <!-- Arrow marker for edges -->
+            <marker id="ch-cv-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L8,3 z" fill="#9ca3af" />
+            </marker>
+            <marker id="ch-cv-arrow-active" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L8,3 z" fill="#3b82f6" />
+            </marker>
+
+            <!-- Glow filters for run states -->
+            <filter id="ch-cv-glow-active" x="-30%" y="-30%" width="160%" height="160%">
+              <feGaussianBlur stdDeviation="4" result="blur" />
+              <feFlood flood-color="#3b82f6" flood-opacity="0.6" result="color"/>
+              <feComposite in="color" in2="blur" operator="in" result="glow"/>
+              <feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+            <filter id="ch-cv-glow-completed" x="-30%" y="-30%" width="160%" height="160%">
+              <feGaussianBlur stdDeviation="3" result="blur" />
+              <feFlood flood-color="#22c55e" flood-opacity="0.5" result="color"/>
+              <feComposite in="color" in2="blur" operator="in" result="glow"/>
+              <feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+            <filter id="ch-cv-glow-failed" x="-30%" y="-30%" width="160%" height="160%">
+              <feGaussianBlur stdDeviation="3" result="blur" />
+              <feFlood flood-color="#ef4444" flood-opacity="0.5" result="color"/>
+              <feComposite in="color" in2="blur" operator="in" result="glow"/>
+              <feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+
+          <!-- Grid background -->
+          <rect width="100%" height="100%" fill="url(#ch-cv-grid)" />
+
+          <!-- Viewport group (pan + zoom) -->
+          <g [attr.transform]="viewportTransform()">
+
+            <!-- Edges -->
+            @for (edge of edges(); track edge.id) {
+              @if (edgePath(edge); as path) {
+                <path
+                  [attr.d]="path.d"
+                  fill="none"
+                  [attr.stroke]="edge.runState === 'active' ? '#3b82f6' : edge.runState === 'completed' ? '#22c55e' : '#d1d5db'"
+                  [attr.stroke-width]="edge.runState === 'active' ? 2.5 : 1.5"
+                  [attr.stroke-dasharray]="edge.runState === 'idle' ? '4 3' : null"
+                  [attr.marker-end]="edge.runState === 'active' ? 'url(#ch-cv-arrow-active)' : 'url(#ch-cv-arrow)'"
+                  opacity="0.7" />
+                @if (edge.label && path.labelX !== undefined) {
+                  <text
+                    [attr.x]="path.labelX"
+                    [attr.y]="path.labelY"
+                    text-anchor="middle"
+                    font-size="9"
+                    fill="#9ca3af">{{ edge.label }}</text>
+                }
+              }
+            }
+
+            <!-- Nodes -->
+            @for (node of nodes(); track node.id) {
+              <g
+                class="ch-cv-node"
+                [attr.data-id]="node.id"
+                [attr.data-kind]="node.kind"
+                [attr.data-run-state]="node.runState"
+                [attr.transform]="nodeTransform(node)"
+                [attr.filter]="nodeFilter(node)"
+                [class.ch-cv-node-selected]="selectedNode()?.id === node.id"
+                (mousedown)="onNodeMousedown($event, node)"
+                (click)="onNodeClick(node)">
+
+                <!-- Stacked card effect for layers -->
+                @if (node.kind === 'test-layer' || node.kind === 'policy-layer') {
+                  <rect [attr.width]="node.w - 6" [attr.height]="node.h - 6" rx="8" x="6" y="6"
+                    [attr.fill]="getStyle(node.kind).fill" [attr.stroke]="getStyle(node.kind).stroke"
+                    stroke-width="1" opacity="0.4" />
+                  <rect [attr.width]="node.w - 3" [attr.height]="node.h - 3" rx="8" x="3" y="3"
+                    [attr.fill]="getStyle(node.kind).fill" [attr.stroke]="getStyle(node.kind).stroke"
+                    stroke-width="1" opacity="0.6" />
+                }
+
+                <!-- Main body -->
+                <rect
+                  [attr.width]="node.w"
+                  [attr.height]="node.h"
+                  [attr.rx]="node.kind === 'hub' ? 10 : 8"
+                  [attr.fill]="getStyle(node.kind).fill"
+                  [attr.stroke]="selectedNode()?.id === node.id ? '#8b5cf6' : getStyle(node.kind).stroke"
+                  [attr.stroke-width]="selectedNode()?.id === node.id ? 2.5 : getStyle(node.kind).strokeWidth" />
+
+                <!-- Active pulse ring -->
+                @if (node.runState === 'active') {
+                  <rect
+                    [attr.width]="node.w"
+                    [attr.height]="node.h"
+                    [attr.rx]="node.kind === 'hub' ? 10 : 8"
+                    fill="none"
+                    stroke="#3b82f6"
+                    stroke-width="3"
+                    opacity="0.5">
+                    <animate attributeName="opacity" values="0.5;0.1;0.5" dur="1.4s" repeatCount="indefinite"/>
+                    <animate attributeName="stroke-width" values="3;6;3" dur="1.4s" repeatCount="indefinite"/>
+                  </rect>
+                }
+
+                <!-- Icon -->
+                <text
+                  [attr.x]="12"
+                  y="22"
+                  font-size="14"
+                  [attr.fill]="getStyle(node.kind).stroke">{{ getStyle(node.kind).icon }}</text>
+
+                <!-- Label -->
+                <text
+                  [attr.x]="node.w / 2"
+                  [attr.y]="node.kind === 'hub' ? 24 : 22"
+                  text-anchor="middle"
+                  [attr.font-size]="node.kind === 'hub' ? 13 : 12"
+                  font-weight="600"
+                  [attr.fill]="getStyle(node.kind).textColor">{{ node.label }}</text>
+
+                <!-- Sublabel -->
+                <text
+                  [attr.x]="node.w / 2"
+                  [attr.y]="node.kind === 'hub' ? 40 : 38"
+                  text-anchor="middle"
+                  font-size="9"
+                  fill="#6b7280">{{ node.sublabel }}</text>
+
+                <!-- Badge (top-right) -->
+                @if (node.badge) {
+                  <g [attr.transform]="'translate(' + (node.w - 2) + ', -2)'">
+                    <rect x="-22" y="0" width="24" height="14" rx="7"
+                      [attr.fill]="badgeFill(node)"
+                      opacity="0.92" />
+                    <text x="-10" y="10" text-anchor="middle" font-size="8" font-weight="700"
+                      [attr.fill]="badgeText(node)">{{ node.badge }}</text>
+                  </g>
+                }
+
+                <!-- Run state icon (bottom-right) -->
+                @if (node.runState === 'completed') {
+                  <text [attr.x]="node.w - 6" [attr.y]="node.h - 6" text-anchor="end" font-size="13" fill="#22c55e">✓</text>
+                }
+                @if (node.runState === 'failed') {
+                  <text [attr.x]="node.w - 6" [attr.y]="node.h - 6" text-anchor="end" font-size="13" fill="#ef4444">✕</text>
+                }
+                @if (node.runState === 'skipped') {
+                  <text [attr.x]="node.w - 6" [attr.y]="node.h - 6" text-anchor="end" font-size="11" fill="#9ca3af">⇥</text>
+                }
+              </g>
+            }
+          </g>
+        </svg>
+
+        <!-- Empty state -->
+        @if (nodes().length === 0) {
+          <div class="ch-cv-empty">
+            <p>Keine Topologie-Daten. Hub erreichbar?</p>
+            <button type="button" class="ch-cv-empty-btn" (click)="refreshRequested.emit()">Aktualisieren</button>
+          </div>
+        }
+      </div>
+
+      <!-- Inspector Panel -->
+      @if (selectedNode(); as node) {
+        <aside class="ch-cv-inspector" aria-label="Node-Inspektor">
+          <header class="ch-cv-inspector-head">
+            <span class="ch-cv-inspector-kind-icon">{{ getStyle(node.kind).icon }}</span>
+            <div class="ch-cv-inspector-title-group">
+              <span class="ch-cv-inspector-title">{{ node.label }}</span>
+              <span class="ch-cv-inspector-kind">{{ kindLabel(node.kind) }}</span>
+            </div>
+            <button type="button" class="ch-cv-inspector-close" (click)="clearSelection()">✕</button>
+          </header>
+
+          <div class="ch-cv-inspector-body">
+            <!-- Run State -->
+            @if (node.runState !== 'idle') {
+              <div class="ch-cv-inspector-run-state" [attr.data-state]="node.runState">
+                <span class="ch-cv-rs-dot"></span>
+                <span>{{ runStateLabel(node.runState) }}</span>
+              </div>
+            }
+
+            <!-- Hub details -->
+            @if (node.kind === 'hub') {
+              @let hub = asHub(node.payload);
+              <dl class="ch-cv-inspector-dl">
+                <dt>ID</dt><dd class="ch-mono">{{ hub.id }}</dd>
+                <dt>URL</dt><dd class="ch-mono">{{ hub.url }}</dd>
+                <dt>Status</dt><dd><span class="ch-cv-inspector-badge" [attr.data-status]="hub.status">{{ hub.status }}</span></dd>
+                <dt>Version</dt><dd>{{ hub.version }}</dd>
+                <dt>Gestartet</dt><dd>{{ hub.startedAt | date:'medium' }}</dd>
+              </dl>
+            }
+
+            <!-- Worker details -->
+            @if (node.kind === 'worker-llm' || node.kind === 'worker-det') {
+              @let worker = asWorker(node.payload);
+              <dl class="ch-cv-inspector-dl">
+                <dt>ID</dt><dd class="ch-mono">{{ worker.id }}</dd>
+                <dt>Typ</dt><dd>{{ worker.type }}</dd>
+                <dt>CLI-Backend</dt><dd><code class="ch-mono">{{ worker.cliBackend }}</code></dd>
+                <dt>Modell</dt><dd class="ch-mono">{{ worker.model }}</dd>
+                <dt>Provider</dt><dd>{{ worker.llmProvider }}</dd>
+                <dt>Health</dt><dd><span class="ch-cv-inspector-badge" [attr.data-status]="worker.health">{{ worker.health }}</span></dd>
+                <dt>Boundary</dt><dd>{{ worker.boundary }}</dd>
+                <dt>Capabilities</dt>
+                <dd class="ch-cv-caps">
+                  @for (cap of worker.capabilities; track cap) {
+                    <span class="ch-cv-cap-tag">{{ cap }}</span>
+                  }
+                </dd>
+                @if (worker.lastHeartbeatAt) {
+                  <dt>Last Heartbeat</dt><dd>{{ worker.lastHeartbeatAt | date:'mediumTime' }}</dd>
+                }
+              </dl>
+            }
+
+            <!-- Test Layer details -->
+            @if (node.kind === 'test-layer') {
+              @let layer = asLayer(node.payload);
+              <dl class="ch-cv-inspector-dl">
+                <dt>ID</dt><dd class="ch-mono">{{ layer.id }}</dd>
+                <dt>Name</dt><dd>{{ layer.name }}</dd>
+                <dt>Order</dt><dd>{{ layer.order }}</dd>
+                <dt>Aktiv</dt>
+                <dd>
+                  <label class="ch-cv-toggle-label">
+                    <input type="checkbox" [checked]="layer.enabled" [disabled]="!writeModeActive"
+                      (change)="onLayerToggle(layer, $any($event.target).checked)" />
+                    {{ layer.enabled ? 'Ja' : 'Nein' }}
+                  </label>
+                  @if (!writeModeActive) {
+                    <span class="ch-cv-warn-inline">Write-Modus erforderlich</span>
+                  }
+                </dd>
+                @if (layer.parameters && hasKeys(layer.parameters)) {
+                  <dt>Parameter</dt>
+                  <dd><pre class="ch-cv-pre">{{ stringify(layer.parameters) }}</pre></dd>
+                }
+              </dl>
+            }
+
+            <!-- Routing Rule details -->
+            @if (node.kind === 'routing-rule') {
+              @let rule = asRule(node.payload);
+              <dl class="ch-cv-inspector-dl">
+                <dt>ID</dt><dd class="ch-mono">{{ rule.id }}</dd>
+                <dt>Beschreibung</dt><dd>{{ rule.description }}</dd>
+                <dt>Priorität</dt><dd>{{ rule.priority }}</dd>
+                <dt>Backend</dt>
+                <dd>
+                  <select
+                    [disabled]="!writeModeActive"
+                    [value]="rule.selectedBackend"
+                    (change)="onRuleChange(rule, $any($event.target).value)"
+                    class="ch-cv-select">
+                    @for (b of backends; track b) {
+                      <option [value]="b">{{ b }}</option>
+                    }
+                  </select>
+                </dd>
+                <dt>Modell</dt><dd class="ch-mono">{{ rule.selectedModel }}</dd>
+              </dl>
+            }
+
+            <!-- Active run step info -->
+            @if (node.runState === 'active' && activeRunStep()) {
+              <div class="ch-cv-inspector-run-step">
+                <h4 class="ch-cv-inspector-section">Aktueller Schritt</h4>
+                <dl class="ch-cv-inspector-dl">
+                  <dt>Phase</dt><dd><code class="ch-mono">{{ activeRunStep()!.phase }}</code></dd>
+                  <dt>Titel</dt><dd>{{ activeRunStep()!.title }}</dd>
+                  @if (activeRunStep()!.outputSummary) {
+                    <dt>Output</dt><dd>{{ activeRunStep()!.outputSummary }}</dd>
+                  }
+                </dl>
+              </div>
+            }
+          </div>
+        </aside>
+      }
+    </div>

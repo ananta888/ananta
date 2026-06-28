@@ -1,0 +1,1201 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": 1,
+  "owner": "ananta",
+  "track": "file_split_refactoring",
+  "purpose": "Alle Quellcode-Dateien mit >1000 Zeilen auf sinnvolle Einzel-Module aufteilen, um Lesbarkeit, Testbarkeit und Wartbarkeit zu verbessern.",
+  "goal": "Jede der 10 identifizierten Groß-Dateien wird durch einen klar abgegrenzten Satz kleinerer Dateien ersetzt, die zusammen dieselbe Funktionalität bieten, ohne Regressions zu verursachen. Nach Abschluss hat keine Datei mehr als 500 Zeilen (Templates/Styles ausgenommen).",
+  "status_scale": ["todo", "in_progress", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "program_success_criteria": [
+    "Keine der 10 Dateien überschreitet nach dem Refactoring 500 Zeilen Logik-Code (Inline-Templates und CSS-Blöcke ausgenommen).",
+    "Alle bestehenden Tests (pytest, vitest, playwright) laufen nach jedem Milestone grün durch.",
+    "Öffentliche Schnittstellen (Python-Imports, Angular-Selektoren, Injections) bleiben nach außen unverändert.",
+    "Jedes neue Modul hat ausschließlich eine klar benannte Verantwortlichkeit (Single Responsibility).",
+    "Zirkuläre Imports werden in Python konsequent vermieden; neue Angular-Services sind über Dependency Injection konsumierbar.",
+    "Bestehende Barrel-Exports (index.ts / __init__.py) stellen Rückwärtskompatibilität sicher."
+  ],
+  "assumptions": [
+    "Die Dateien werden einzeln und unabhängig voneinander aufgeteilt; keine dateiübergreifenden Refactorings in einem Schritt.",
+    "Tests laufen lokal über 'pytest' (Python) und 'pnpm test' / 'npx playwright test' (Frontend).",
+    "Angular-Komponenten-Splits nutzen den bestehenden standalone-Component-Ansatz mit inject().",
+    "Python-Splits folgen dem bestehenden flat-import-Stil des Projekts (kein forciertes Paket-Refactoring wenn nicht nötig)."
+  ],
+  "milestones": [
+    {
+      "id": "FSR-M01",
+      "title": "codehug-internals.component.ts aufteilen (2525 Z.)",
+      "status": "todo",
+      "task_ids": ["FSR-T001", "FSR-T002", "FSR-T003", "FSR-T004", "FSR-T005"]
+    },
+    {
+      "id": "FSR-M02",
+      "title": "snakes_execution_routes.py aufteilen (2222 Z.)",
+      "status": "todo",
+      "task_ids": ["FSR-T006", "FSR-T007", "FSR-T008", "FSR-T009", "FSR-T010"]
+    },
+    {
+      "id": "FSR-M03",
+      "title": "visual-process-editor.component.ts aufteilen (1935 Z.)",
+      "status": "todo",
+      "task_ids": ["FSR-T011", "FSR-T012", "FSR-T013", "FSR-T014", "FSR-T015"]
+    },
+    {
+      "id": "FSR-M04",
+      "title": "config-graph-editor.component.ts aufteilen (1534 Z.)",
+      "status": "todo",
+      "task_ids": ["FSR-T016", "FSR-T017", "FSR-T018", "FSR-T019"]
+    },
+    {
+      "id": "FSR-M05",
+      "title": "notation_renderer.py aufteilen (1500 Z.)",
+      "status": "todo",
+      "task_ids": ["FSR-T020", "FSR-T021", "FSR-T022", "FSR-T023"]
+    },
+    {
+      "id": "FSR-M06",
+      "title": "hybrid_orchestrator.py aufteilen (1440 Z.)",
+      "status": "todo",
+      "task_ids": ["FSR-T024", "FSR-T025", "FSR-T026", "FSR-T027"]
+    },
+    {
+      "id": "FSR-M07",
+      "title": "chat_state.py aufteilen (1232 Z.)",
+      "status": "todo",
+      "task_ids": ["FSR-T028", "FSR-T029", "FSR-T030", "FSR-T031", "FSR-T032"]
+    },
+    {
+      "id": "FSR-M08",
+      "title": "settings.component.ts aufteilen (1122 Z.)",
+      "status": "todo",
+      "task_ids": ["FSR-T033", "FSR-T034", "FSR-T035", "FSR-T036"]
+    },
+    {
+      "id": "FSR-M09",
+      "title": "config_graph_builder_service.py aufteilen (1102 Z.)",
+      "status": "todo",
+      "task_ids": ["FSR-T037", "FSR-T038", "FSR-T039"]
+    },
+    {
+      "id": "FSR-M10",
+      "title": "codehug-canvas.component.ts aufteilen (1099 Z.)",
+      "status": "todo",
+      "task_ids": ["FSR-T040", "FSR-T041", "FSR-T042"]
+    }
+  ],
+  "critical_path_tasks": [
+    "FSR-T005", "FSR-T010", "FSR-T015", "FSR-T019",
+    "FSR-T023", "FSR-T027", "FSR-T032", "FSR-T036", "FSR-T039", "FSR-T042"
+  ],
+  "tasks": [
+    {
+      "id": "FSR-T001",
+      "title": "Wiki-Graph-Explorer aus codehug-internals extrahieren",
+      "milestone": "FSR-M01",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "refactoring",
+      "source_file": "frontend-angular/src/app/features/codehug/components/codehug-internals.component.ts",
+      "source_lines": 2525,
+      "target_files": [
+        "frontend-angular/src/app/features/codehug/components/codehug-wiki-graph.component.ts"
+      ],
+      "what_to_move": [
+        "Methoden: _initWikiGraphExplorer, _loadReadyDomainLists, wgSearch, wgExpand, wgSelectDomainItem, _loadDomainGraph, wgBuild, _pollWgStatus, wgBuildDomainMode, wgDomainModeStatusFor, _pollDomainStatus",
+        "Private State: _wgSearch$, _wgSearchSub, _wgDomainPollTimer",
+        "Template-Block: @if (activeTab() === 'graph') { ... } (ca. Z. 401-452)",
+        "Alle Bindings zu onGraphSourceChange, domainOptionLabel, indexLabel, onBlueprintChange, onPlaybookChange, onPresetChange"
+      ],
+      "interface_contract": "Neues @Input() indexId + @Output() graphLoaded: EventEmitter<VpGraph>; Eltern-Komponente bindet nur auf diese Events.",
+      "description": "Die Wiki-Graph-Funktionalität (Index-Explorer, Domain-Auswahl, Suchfeld, Build-Trigger) ist vollständig eigenständig und hat keinen Zustand-Überlapp mit dem VP-Canvas. Sie kann als eigenständige standalone-Komponente mit @Input()/Output() herausgelöst werden.",
+      "acceptance_criteria": [
+        "codehug-wiki-graph.component.ts existiert und enthält alle oben genannten Methoden und den zugehörigen Template-Block.",
+        "Die neue Komponente ist standalone, nutzt inject() statt Konstruktor-DI, und hat keinen direkten Zugriff auf den SVG-Canvas-State der Eltern-Komponente.",
+        "codehug-internals.component.ts bindet <codehug-wiki-graph> via Selector ein und hat selbst keine wg*-Methoden mehr.",
+        "Der 'graph'-Tab funktioniert im Browser identisch wie vorher: Index-Suche, Domain-Dropdown, Build-Button.",
+        "pnpm test (Vitest) läuft grün; keine TypeScript-Compile-Fehler."
+      ]
+    },
+    {
+      "id": "FSR-T002",
+      "title": "Canvas-Interaktion (Pan/Zoom/Drag) aus codehug-internals in Service extrahieren",
+      "milestone": "FSR-M01",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "refactoring",
+      "source_file": "frontend-angular/src/app/features/codehug/components/codehug-internals.component.ts",
+      "target_files": [
+        "frontend-angular/src/app/features/codehug/services/codehug-canvas-interaction.service.ts"
+      ],
+      "what_to_move": [
+        "Private State: _dragging, _panning, _didDrag, _nodeSeq, _edgeSeq",
+        "Methoden: onBgMouseDown, onNodeMouseDown, onNodeClick, onEdgeClick, onMouseMove, onMouseUp, onWheel, onKeyDown",
+        "Hilfsmethoden: _toCanvas (private viewCenter), toCanvas, insertOnEdge, edgePath, edgeMidpoint, edgeMarkerSuffix",
+        "Pan/Zoom-Signal-State aus der Komponente"
+      ],
+      "interface_contract": "Service ist providedIn: 'root' (oder component-scoped). Exponiert Signals für panX, panY, zoom und Methoden für Hit-Testing und Koordinaten-Transformation.",
+      "description": "Pan, Zoom und Node-Drag sind reine geometrische Operationen ohne Business-Logik. Ein dedizierter Service entkoppelt sie vollständig von der Komponente und macht sie einzeln testbar.",
+      "acceptance_criteria": [
+        "codehug-canvas-interaction.service.ts existiert und enthält den gesamten Pan/Zoom/Drag-State sowie alle Koordinaten-Transformationen.",
+        "Die Komponente delegiert alle @HostListener-Events an den Service und bindet pan/zoom via Service-Signals.",
+        "SVG-Transformationen (translate/scale) werden weiterhin korrekt auf dem Canvas angewendet.",
+        "Mausbasiertes Verschieben von Nodes und Hintergrund-Panning funktioniert im Browser identisch.",
+        "Kein TypeScript-Fehler, kein Test-Fehler."
+      ]
+    },
+    {
+      "id": "FSR-T003",
+      "title": "Node/Edge-CRUD + Inspektor-Panel aus codehug-internals extrahieren",
+      "milestone": "FSR-M01",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "refactoring",
+      "source_file": "frontend-angular/src/app/features/codehug/components/codehug-internals.component.ts",
+      "target_files": [
+        "frontend-angular/src/app/features/codehug/components/codehug-node-inspector.component.ts"
+      ],
+      "what_to_move": [
+        "Methoden: addFreeNode, addGateNode, addDetNode, addReviewNode, addForkNode, addJoinNode, addInput, addOutput, patchSlot, removeSlot, deleteNode, deleteEdge, patchNode, patchEdge, forkPoints, setRoutingMode, patchRouting, isComplexNode, routingLabel, routingBadgeW, availableBindingOptions, addArtifactBinding, removeArtifactBinding, edgeBindingLabel, syncInputBindings",
+        "Template-Block: Inspector-Seitenleiste (Node/Edge-Details, Slot-Editor, Routing-Config, Artifact-Bindings)",
+        "Computed-Signals: nodeLabel, nodeIsActive"
+      ],
+      "interface_contract": "@Input() selectedNode / selectedEdge Signals; @Output() nodePatch, edgeDelete etc.; liest/schreibt canvas-State über einen gemeinsamen CanvasStateService.",
+      "description": "Node- und Edge-Verwaltung inklusive Inspektor-Seitenleiste ist ein in sich geschlossener Aufgabenbereich. Extraktion ermöglicht es, die CRUD-Logik isoliert zu testen.",
+      "acceptance_criteria": [
+        "codehug-node-inspector.component.ts enthält alle CRUD-Methoden und den Inspektor-Template-Block.",
+        "Die Eltern-Komponente delegiert 'Add'-Buttons und Slot-Bearbeitung an die neue Komponente.",
+        "Artifact-Binding-Dropdown zeigt weiterhin korrekte Optionen und speichert Änderungen.",
+        "Routing-Mode (always/conditional/parallel) ist weiterhin per UI setzbar.",
+        "Kein TypeScript-Fehler, alle Tests grün."
+      ]
+    },
+    {
+      "id": "FSR-T004",
+      "title": "Workflow-Execution + Polling aus codehug-internals extrahieren",
+      "milestone": "FSR-M01",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "refactoring",
+      "source_file": "frontend-angular/src/app/features/codehug/components/codehug-internals.component.ts",
+      "target_files": [
+        "frontend-angular/src/app/features/codehug/services/codehug-workflow-runner.service.ts"
+      ],
+      "what_to_move": [
+        "Methoden: runDetStep, dryRunWorkflow, startVpWorkflow, submitGoal, buildCanvas, startWorkflowPolling",
+        "Polling-State: _pollSub, _workflowPollSub",
+        "Methoden: activeWorkflowStepId, loadFromVpGraph, toVpGraph, vpKindToNodeType, nodeKindFor"
+      ],
+      "interface_contract": "Service exponiert workflowStatus-Signal und run()/cancel()-Methoden; Komponente subscribt nur auf Status-Änderungen.",
+      "description": "Workflow-Ausführung, Dry-Run und Polling sind asynchrone Operationen mit eigenem Lifecycle. Ein Service vereinfacht das Abbrechen (ngOnDestroy) und ermöglicht isoliertes Testen mit Mock-HTTP.",
+      "acceptance_criteria": [
+        "codehug-workflow-runner.service.ts enthält alle Workflow-Methoden und Polling-Abonnements.",
+        "'Run Workflow'-, 'Dry Run'- und 'Submit Goal'-Buttons funktionieren weiterhin korrekt im Browser.",
+        "Polling stoppt beim Destroy der Komponente (kein Memory-Leak, verifizierbar per Browser-DevTools-Netzwerk-Tab).",
+        "Workflow-Status-Badge wird weiterhin live aktualisiert.",
+        "Kein TypeScript-Fehler, alle Tests grün."
+      ]
+    },
+    {
+      "id": "FSR-T005",
+      "title": "codehug-internals.component.ts auf Orchestrator-Shell reduzieren",
+      "milestone": "FSR-M01",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "refactoring",
+      "source_file": "frontend-angular/src/app/features/codehug/components/codehug-internals.component.ts",
+      "blocked_by": ["FSR-T001", "FSR-T002", "FSR-T003", "FSR-T004"],
+      "description": "Nach allen Extraktionen wird die Hauptdatei bereinigt: nur noch Tabs-Management, Signal-Bootstrapping (ngOnInit/ngOnDestroy), loadCCGraph/loadSelfGraph und die Haupt-Template-Struktur (<codehug-wiki-graph>, <codehug-node-inspector> etc.) bleiben übrig.",
+      "acceptance_criteria": [
+        "codehug-internals.component.ts hat nach dem Refactoring maximal 450 Zeilen.",
+        "Das Template referenziert ausschließlich Sub-Komponenten und minimal eigene State-Signals.",
+        "pnpm test grün, kein TypeScript-Fehler.",
+        "Alle drei Tabs (vp, graph, ?) funktionieren im Browser vollständig.",
+        "Playwright-E2E-Tests für das CodeHug-Feature laufen durch."
+      ]
+    },
+    {
+      "id": "FSR-T006",
+      "title": "Visual-Guide-Logik aus snakes_execution_routes.py extrahieren",
+      "milestone": "FSR-M02",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "refactoring",
+      "source_file": "agent/routes/snakes_execution_routes.py",
+      "source_lines": 2222,
+      "target_files": [
+        "agent/routes/snakes_visual_guide.py"
+      ],
+      "what_to_move": [
+        "Funktionen: _get_visual_state_ref, _visual_session_settings, _visual_session_log_deltas_only, _append_visual_user_tick, _spawn_visual_reply, _spawn_region_explain_reply",
+        "Thread-Pool-Executor für Visual-Guide-Calls",
+        "Kommentar-Block VG-003 / VG-053 und alle zugehörigen Konstanten"
+      ],
+      "interface_contract": "snakes_visual_guide.py exportiert diese Funktionen; snakes_execution_routes.py importiert sie from .snakes_visual_guide (relative Import bevorzugt).",
+      "description": "Die Visual-Guide-Funktionalität (Screenshot-basierte UI-Erklärung) hat eigenen State (_visual_state), eigene Threading-Logik und ist komplett unabhängig vom Chat-Routing. Sie hat >350 Zeilen und klare Modul-Grenzen.",
+      "acceptance_criteria": [
+        "agent/routes/snakes_visual_guide.py existiert und enthält alle oben genannten Funktionen.",
+        "_visual_state und der ThreadPoolExecutor sind in snakes_visual_guide.py definiert.",
+        "snakes_execution_routes.py importiert _spawn_visual_reply, _spawn_region_explain_reply und _append_visual_user_tick aus snakes_visual_guide.",
+        "pytest agent/ läuft grün; Visual-Guide-Route (/snakes/<id>/visual-guide) antwortet weiterhin korrekt.",
+        "Kein zirkulärer Import (prüfbar mit 'python -c \"import agent.routes.snakes_execution_routes\"')."
+      ]
+    },
+    {
+      "id": "FSR-T007",
+      "title": "Retrieval-Helpers aus snakes_execution_routes.py extrahieren",
+      "milestone": "FSR-M02",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "refactoring",
+      "source_file": "agent/routes/snakes_execution_routes.py",
+      "target_files": [
+        "agent/routes/snakes_retrieval_helpers.py"
+      ],
+      "what_to_move": [
+        "Funktionen: _snake_retrieval_config_overrides, _resolve_snake_retrieval_profile_trace, _snake_retrieval_dry_run",
+        "Hilfsfunktionen: _resolve_domain_scope_for_chat, _domain_scope_response",
+        "Funktion: _build_local_repo_fallback_context"
+      ],
+      "interface_contract": "snakes_retrieval_helpers.py hat keine Abhängigkeit auf Flask-Routen-State; alle Eingaben kommen als Parameter.",
+      "description": "Retrieval-Konfiguration und Tracing sind eigenständige Logik-Einheiten (~250 Zeilen) die keine Flask-Request-Context-Abhängigkeit haben. Sie eignen sich gut für isolierte Unit-Tests.",
+      "acceptance_criteria": [
+        "agent/routes/snakes_retrieval_helpers.py existiert und enthält alle oben genannten Funktionen.",
+        "snakes_execution_routes.py importiert diese Funktionen und hat keine lokalen Kopien mehr.",
+        "pytest agent/ grün; Retrieval-Dry-Run und Profil-Trace-Endpoints funktionieren weiterhin.",
+        "Kein zirkulärer Import.",
+        "Die extrahierten Funktionen sind mit pytest direkt testbar (kein Flask-App-Kontext nötig)."
+      ]
+    },
+    {
+      "id": "FSR-T008",
+      "title": "Prompt-Building + Answer-Fitting-Helpers extrahieren",
+      "milestone": "FSR-M02",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "type": "refactoring",
+      "source_file": "agent/routes/snakes_execution_routes.py",
+      "target_files": [
+        "agent/routes/snakes_chat_helpers.py"
+      ],
+      "what_to_move": [
+        "Funktionen: _build_grounded_snake_prompt, _with_answer_budget_instruction, _answer_budget_instruction, _fit_answer_to_chars, _chat_answer_chars_limit, _chat_never_truncate_answers, _answer_overflow_policy",
+        "Funktionen: _append_room_ai_message, _build_room_conversation_history",
+        "Hilfsfunktionen: _optional_bool, _bounded_optional_int",
+        "Klasse: SnakeAskLimits",
+        "Funktionen: _ensure_ui_guide, _read_ananta_settings_summary, _build_ui_guide, _should_include_light_ui_context"
+      ],
+      "interface_contract": "Alle Funktionen sind pure oder haben nur Lese-Abhängigkeiten auf externe Services; keine Flask-Route-State-Abhängigkeit.",
+      "description": "Prompt-Konstruktion, Answer-Trimming und UI-Guide-Context-Building sind reine Transformationsfunktionen (~500 Zeilen). Sie eignen sich hervorragend für Unit-Tests ohne HTTP-Kontext.",
+      "acceptance_criteria": [
+        "agent/routes/snakes_chat_helpers.py existiert und enthält alle oben genannten Funktionen/Klassen.",
+        "SnakeAskLimits-Klasse ist in snakes_chat_helpers.py definiert.",
+        "snakes_execution_routes.py hat keine lokalen Definitionen mehr dieser Funktionen.",
+        "pytest agent/ grün; Chat-Antworten haben weiterhin korrekte Längenbeschränkung und Prompt-Formatierung.",
+        "Mindestens ein pytest-Unit-Test für _fit_answer_to_chars und _build_grounded_snake_prompt ohne Flask-App-Kontext."
+      ]
+    },
+    {
+      "id": "FSR-T009",
+      "title": "Worker-Routing + Auth-Helpers extrahieren",
+      "milestone": "FSR-M02",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "refactoring",
+      "source_file": "agent/routes/snakes_execution_routes.py",
+      "target_files": [
+        "agent/routes/snakes_worker_routing.py"
+      ],
+      "what_to_move": [
+        "Funktionen: _auth_token, _verify_token, _pick_worker_for_ask, _resolve_lmstudio_model_for_worker, _worker_propose",
+        "Klasse/State: Worker-Selection-Logik und zugehörige Konstanten"
+      ],
+      "interface_contract": "snakes_worker_routing.py hat keine Abhängigkeit auf Visual-Guide oder Chat-Helpers; gibt Tupel (worker_url, model) zurück.",
+      "description": "Worker-Auswahl, Load-Balancing und Auth-Token-Verifizierung (~150 Zeilen) sind eigenständige Infrastruktur-Logik ohne Überlapp mit Chat-Logik.",
+      "acceptance_criteria": [
+        "agent/routes/snakes_worker_routing.py existiert und enthält alle oben genannten Funktionen.",
+        "snakes_execution_routes.py importiert _pick_worker_for_ask und _worker_propose aus snakes_worker_routing.",
+        "pytest agent/ grün; Worker-Routing funktioniert weiterhin bei Multi-Worker-Setup.",
+        "Auth-Token-Prüfung (snake_ask-Route) schlägt weiterhin korrekt fehl bei ungültigem Token.",
+        "Kein zirkulärer Import."
+      ]
+    },
+    {
+      "id": "FSR-T010",
+      "title": "snakes_execution_routes.py auf Flask-Endpoints reduzieren",
+      "milestone": "FSR-M02",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "refactoring",
+      "source_file": "agent/routes/snakes_execution_routes.py",
+      "blocked_by": ["FSR-T006", "FSR-T007", "FSR-T008", "FSR-T009"],
+      "description": "Nach allen Extraktionen enthält snakes_execution_routes.py nur noch die Flask-Route-Definitionen (chat_send, chat_receive, chat_cancel, chat_ack, snake_events_stream, snake_ui_state_push, worker_context, snake_ask, chat_traces_list, chat_trace_detail, chat_trace_events) und die Blueprint-Registrierung.",
+      "acceptance_criteria": [
+        "snakes_execution_routes.py hat nach dem Refactoring maximal 500 Zeilen.",
+        "Alle Route-Funktionen sind erhalten und erreichbar (curl-Tests gegen laufende Instanz).",
+        "pytest agent/ vollständig grün.",
+        "python -c \"from agent.routes.snakes_execution_routes import *\" erzeugt keine Fehler.",
+        "Der operationelle Workflow (curl für Goal-Run, 3er-Lauf, Hub-Restart aus ref_ananta_ops_workflow) funktioniert unverändert."
+      ]
+    },
+    {
+      "id": "FSR-T011",
+      "title": "Inline-Template von visual-process-editor in .html-Datei auslagern",
+      "milestone": "FSR-M03",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "type": "refactoring",
+      "source_file": "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
+      "source_lines": 1935,
+      "target_files": [
+        "frontend-angular/src/app/features/visual-process/visual-process-editor.component.html"
+      ],
+      "what_to_move": [
+        "Gesamter template-String (ca. Z. 99-975, ~870 Zeilen HTML/Angular-Template)",
+        "Gesamter styles-Array-Block (ca. Z. 976-1120)"
+      ],
+      "interface_contract": "@Component referenziert templateUrl + styleUrls statt inline template/styles.",
+      "description": "Das Inline-Template (870 Zeilen) und die Styles (145 Zeilen) machen die .ts-Datei sehr unübersichtlich. Die Auslagerung in .html/.scss ist ein risikoarmer erster Schritt ohne Logik-Änderung.",
+      "acceptance_criteria": [
+        "visual-process-editor.component.html existiert mit vollständigem Template-Inhalt.",
+        "visual-process-editor.component.scss (oder .css) existiert mit allen Styles.",
+        "Der @Component-Decorator nutzt templateUrl und styleUrls.",
+        "Die .ts-Datei hat nach diesem Schritt max. 830 Zeilen (nur noch Klasse + Imports).",
+        "pnpm build ohne Fehler; alle Vitest-Tests grün.",
+        "Der VP-Editor ist im Browser vollständig funktionsfähig (Nodes hinzufügen, Edges ziehen, Speichern)."
+      ]
+    },
+    {
+      "id": "FSR-T012",
+      "title": "VP-Canvas-Interaktion (Pan/Zoom/Drag/Edge-Drawing) in Service extrahieren",
+      "milestone": "FSR-M03",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "refactoring",
+      "source_file": "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
+      "target_files": [
+        "frontend-angular/src/app/features/visual-process/vp-canvas-interaction.service.ts"
+      ],
+      "what_to_move": [
+        "Private State: panX, panY, zoom, isPanning, panStart, panStartOrigin, dragId, dragOffset, drawingEdge-Signal, mouseSvg",
+        "Methoden: onBgMouseDown, onNodeMouseDown, onNodeClick, onEdgeClick, onMouseMove, onMouseUp, onWheel, onKeyDown",
+        "Hilfsmethoden: toSvgCoords, hitTest, alle Koordinaten-Transformationen"
+      ],
+      "interface_contract": "Service ist component-scoped (providers: [VpCanvasInteractionService] in @Component). Exponiert readonly Signals für pan/zoom und Callbacks für Hit-Events.",
+      "description": "Identisches Problem wie in codehug-internals: Pan/Zoom/Drag-Geometrie hat null Überlapp mit Business-Logik und kann isoliert getestet und wiederverwendet werden.",
+      "acceptance_criteria": [
+        "vp-canvas-interaction.service.ts enthält den gesamten Interaktions-State und alle Mouse/Wheel-Handler.",
+        "SVG-Canvas reagiert weiterhin auf Panning und Node-Drag.",
+        "Edge-Drawing-Modus (drawingEdge) funktioniert korrekt (Klick auf Quell-Node, Klick auf Ziel-Node).",
+        "Maus-Koordinaten-Transformation (Viewport → SVG) ist korrekt nach Pan/Zoom.",
+        "Kein TypeScript-Fehler, alle Tests grün."
+      ]
+    },
+    {
+      "id": "FSR-T013",
+      "title": "VP-Node-Inspektor in eigenständige Komponente extrahieren",
+      "milestone": "FSR-M03",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "refactoring",
+      "source_file": "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
+      "target_files": [
+        "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.ts",
+        "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html"
+      ],
+      "what_to_move": [
+        "Template-Block: Step-Inspektor-Panel (Inputs/Outputs-Slot-Editor, Kind-Selector, Routing-Config, Encoding-Modus)",
+        "Methoden zur Slot-Bearbeitung: patchStep, addInput, addOutput, patchSlot, removeSlot, patchEdge",
+        "Konstanten-Arrays: artifactKinds, edgeKinds, encodingModes, ragChannels (als @Input oder in Service)"
+      ],
+      "interface_contract": "@Input() step: VpStep | null; @Input() selectedEdge: VpEdge | null; @Output() stepChange: EventEmitter<VpStep>; @Output() edgeChange: EventEmitter<VpEdge>.",
+      "description": "Die Inspektor-Seitenleiste (Schritt-Detail, Slot-Konfiguration) macht 30% des Templates aus und hat klare Input/Output-Grenzen. Als eigene Komponente ist sie unabhängig vom Canvas testbar.",
+      "acceptance_criteria": [
+        "vp-step-inspector.component.ts + .html existieren als standalone-Komponente.",
+        "Alle Slot-Operationen (Input/Output hinzufügen/entfernen, Patch) funktionieren im Browser.",
+        "Kind-Selector und Routing-Config-Felder zeigen korrekte Optionen.",
+        "Die Eltern-Komponente hat keine lokalen Slot-Methoden mehr.",
+        "Kein TypeScript-Fehler, alle Tests grün."
+      ]
+    },
+    {
+      "id": "FSR-T014",
+      "title": "VP-Import/Export (BPMN + Mermaid) in Service extrahieren",
+      "milestone": "FSR-M03",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "type": "refactoring",
+      "source_file": "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
+      "target_files": [
+        "frontend-angular/src/app/features/visual-process/vp-import-export.service.ts"
+      ],
+      "what_to_move": [
+        "Methoden: importBpmn, exportMermaid, exportTuiMermaid",
+        "State: mermaidText-Signal, mermaidTuiText-Signal, mermaidTab",
+        "Template-Block: Mermaid-Dialog und BPMN-Import-Input-Element"
+      ],
+      "interface_contract": "Service hat importFromBpmn(file: File): Observable<VpGraph> und exportToMermaid(graph: VpGraph): string.",
+      "description": "Import/Export-Logik ist funktional abgegrenzt und hat keine Seiteneffekte auf Canvas-State. Ausgelagert kann sie unabhängig getestet werden.",
+      "acceptance_criteria": [
+        "vp-import-export.service.ts existiert mit allen Import/Export-Methoden.",
+        "BPMN-Import über File-Input funktioniert weiterhin im Browser.",
+        "Mermaid-Export erzeugt korrektes Mermaid-Markup für einen einfachen Testgraphen.",
+        "Mermaid-Dialog (showMermaidDialog) öffnet und zeigt Inhalt korrekt.",
+        "Kein TypeScript-Fehler, alle Tests grün."
+      ]
+    },
+    {
+      "id": "FSR-T015",
+      "title": "visual-process-editor.component.ts auf Orchestrator reduzieren",
+      "milestone": "FSR-M03",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "refactoring",
+      "source_file": "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
+      "blocked_by": ["FSR-T011", "FSR-T012", "FSR-T013", "FSR-T014"],
+      "description": "Nach allen Extraktionen enthält die .ts-Datei nur noch: ngOnInit/OnDestroy, graph-Signal, savedGraphs/presets/taskKindList-Laden, Workflow-Ausführung (dryRun, startWorkflow), und die grundlegende Node/Edge-Append-Logik. Template ist extern.",
+      "acceptance_criteria": [
+        "visual-process-editor.component.ts hat maximal 400 Zeilen.",
+        "pnpm build und pnpm test laufen fehlerfrei.",
+        "VP-Editor ist vollständig funktionsfähig: Nodes erstellen, Edges ziehen, Workflow starten, Speichern/Laden.",
+        "Playwright-E2E-Test für VP-Editor-Grundfunktionen läuft durch.",
+        "Keine Dead-Code-Imports mehr in der Hauptdatei."
+      ]
+    },
+    {
+      "id": "FSR-T016",
+      "title": "Inline-Template + Styles von config-graph-editor in externe Dateien auslagern",
+      "milestone": "FSR-M04",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "type": "refactoring",
+      "source_file": "frontend-angular/src/app/components/config-graph-editor.component.ts",
+      "source_lines": 1534,
+      "target_files": [
+        "frontend-angular/src/app/components/config-graph-editor.component.html",
+        "frontend-angular/src/app/components/config-graph-editor.component.scss"
+      ],
+      "what_to_move": [
+        "template-String (ca. Z. 180-762, ~580 Zeilen)",
+        "styles-Array (ca. Z. 763-980, ~217 Zeilen CSS)"
+      ],
+      "interface_contract": "@Component referenziert templateUrl und styleUrls.",
+      "description": "Risikoarmer erster Schritt: Keine Logik-Änderung, nur Auslagerung von Template und Styles in dedizierte Dateien.",
+      "acceptance_criteria": [
+        "config-graph-editor.component.html und .scss existieren.",
+        "@Component nutzt templateUrl und styleUrls.",
+        "Die .ts-Datei hat nach diesem Schritt max. 600 Zeilen.",
+        "pnpm build fehlerfrei; Config-Graph-Editor im Browser vollständig funktionsfähig.",
+        "Alle Vitest-Tests grün."
+      ]
+    },
+    {
+      "id": "FSR-T017",
+      "title": "Node-Detail + Clone-Form in eigenständige Komponente extrahieren",
+      "milestone": "FSR-M04",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "refactoring",
+      "source_file": "frontend-angular/src/app/components/config-graph-editor.component.ts",
+      "target_files": [
+        "frontend-angular/src/app/components/config-node-detail.component.ts",
+        "frontend-angular/src/app/components/config-node-detail.component.html"
+      ],
+      "what_to_move": [
+        "CloneFormState-Interface und CloneFormField-Type",
+        "CLONE_FIELDS-Konfiguration (agent_profile, path_rule, restricted_inference_model etc.)",
+        "Template-Block: Node-Detail-Panel und Clone-Dialog",
+        "Methoden: openCloneForm, submitClone, cancelClone, patchNode, deleteNode"
+      ],
+      "interface_contract": "@Input() node: ConfigGraphNode | null; @Output() nodeChanged; @Output() nodeDeleted.",
+      "description": "Das Node-Detail-Panel mit Clone-Form ist vollständig eigenständig (~200 Zeilen Template + ~100 Zeilen Logik) und hat keinen State-Überlapp mit dem Graph-Canvas.",
+      "acceptance_criteria": [
+        "config-node-detail.component.ts + .html existieren als standalone-Komponente.",
+        "Clone-Dialog öffnet sich bei Klick auf 'Klonen' und speichert korrekt.",
+        "Node-Patch (Felder bearbeiten) funktioniert weiterhin.",
+        "Node-Delete löst korrekte API-Calls aus.",
+        "Kein TypeScript-Fehler, alle Tests grün."
+      ]
+    },
+    {
+      "id": "FSR-T018",
+      "title": "Effective-Config-Panel in eigenständige Komponente extrahieren",
+      "milestone": "FSR-M04",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "type": "refactoring",
+      "source_file": "frontend-angular/src/app/components/config-graph-editor.component.ts",
+      "target_files": [
+        "frontend-angular/src/app/components/config-effective-config.component.ts"
+      ],
+      "what_to_move": [
+        "State: effectiveSurface, effectiveTaskKind, effectivePath, effectiveResult",
+        "Methoden: resolveEffective, clearEffective",
+        "Template-Block: Effective-Config-Resolve-Panel mit Eingabefeldern"
+      ],
+      "interface_contract": "Eigenständige standalone-Komponente ohne Inputs; liest config-State via ConfigGraphService.",
+      "description": "Das Effective-Config-Auflösungs-Panel ist ein Debug/Analyse-Tool mit eigenem API-Call-Pattern und hat kein State-Sharing mit dem Graph-Canvas.",
+      "acceptance_criteria": [
+        "config-effective-config.component.ts existiert als standalone-Komponente.",
+        "Effective-Config-Auflösung funktioniert im Browser (surface + task_kind + path eingeben, Ergebnis erscheint).",
+        "Kein TypeScript-Fehler, alle Tests grün.",
+        "Die Eltern-Komponente hat keine effectiveSurface/effectiveResult-State mehr."
+      ]
+    },
+    {
+      "id": "FSR-T019",
+      "title": "config-graph-editor.component.ts auf Orchestrator reduzieren",
+      "milestone": "FSR-M04",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "refactoring",
+      "source_file": "frontend-angular/src/app/components/config-graph-editor.component.ts",
+      "blocked_by": ["FSR-T016", "FSR-T017", "FSR-T018"],
+      "description": "Nach allen Extraktionen enthält die .ts-Datei nur noch: View-Management (activeView, displayMode), Graph-Loading (loadGraph, applyOps), Graph-Filter (graphFilterIds, graphSearchText) und Layout-Algorithmus (layoutNodes, svgWidth, svgHeight).",
+      "acceptance_criteria": [
+        "config-graph-editor.component.ts hat maximal 400 Zeilen.",
+        "pnpm build und pnpm test laufen fehlerfrei.",
+        "Config-Graph-Editor ist vollständig funktionsfähig: Alle View-Tabs, Graph-Suche, Node-Klick, Clone, Effective-Config.",
+        "Keine Dead-Code-Imports mehr in der Hauptdatei."
+      ]
+    },
+    {
+      "id": "FSR-T020",
+      "title": "Gemeinsame Helpers und Modelle aus notation_renderer.py extrahieren",
+      "milestone": "FSR-M05",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "type": "refactoring",
+      "source_file": "agent/services/notation_renderer.py",
+      "source_lines": 1500,
+      "target_files": [
+        "agent/services/notation_renderer_common.py"
+      ],
+      "what_to_move": [
+        "Klassen: NotationRenderError, NotationArtifact",
+        "Hilfsfunktionen: _as_str, _as_bool, _as_list, _as_dict_entries, _check_identifier, _arrow",
+        "Hilfsfunktionen: _xml_escape, _render_bpmn_element, _render_bpmn_flow, _render_diagram_shape, _render_diagram_edge, _definitions_open",
+        "Funktionen: _validate_flow_elements, _validate_flows"
+      ],
+      "interface_contract": "notation_renderer_common.py ist ein reines Utilities-Modul ohne Abhängigkeiten auf andere notation_renderer*-Module.",
+      "description": "Diese Hilfsfunktionen werden von allen Renderer-Modulen benötigt. Sie in ein gemeinsames Modul auszulagern verhindert Zirkel-Imports und ermöglicht isolierte Unit-Tests.",
+      "acceptance_criteria": [
+        "agent/services/notation_renderer_common.py existiert mit allen oben genannten Symbolen.",
+        "Keine anderen notation_renderer*-Module haben doppelte Definitionen dieser Funktionen.",
+        "python -c \"from agent.services.notation_renderer_common import NotationArtifact, _as_str\" funktioniert.",
+        "pytest agent/services/ grün."
+      ]
+    },
+    {
+      "id": "FSR-T021",
+      "title": "Mermaid-Renderer-Funktionen in separate Module aufteilen",
+      "milestone": "FSR-M05",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "refactoring",
+      "source_file": "agent/services/notation_renderer.py",
+      "target_files": [
+        "agent/services/notation_mermaid_class.py",
+        "agent/services/notation_mermaid_sequence.py",
+        "agent/services/notation_mermaid_state.py",
+        "agent/services/notation_mermaid_usecase.py",
+        "agent/services/notation_mermaid_activity.py"
+      ],
+      "what_to_move": [
+        "notation_mermaid_class.py: _render_mermaid_class (Z. 239-315)",
+        "notation_mermaid_sequence.py: _render_mermaid_sequence (Z. 316-527)",
+        "notation_mermaid_state.py: _render_mermaid_state (Z. 528-621)",
+        "notation_mermaid_usecase.py: _render_mermaid_usecase (Z. 622-714)",
+        "notation_mermaid_activity.py: _render_mermaid_activity (Z. 715-802)"
+      ],
+      "interface_contract": "Jede Datei exportiert genau eine öffentliche Funktion render_<type>(params: dict) -> tuple[str, str]. Alle importieren aus notation_renderer_common.",
+      "description": "Jeder Mermaid-Diagrammtyp (Class, Sequence, State, UseCase, Activity) hat ca. 90-200 Zeilen eigene Logik. Die Aufteilung macht jeden Typ einzeln testbar und wartbar.",
+      "acceptance_criteria": [
+        "Alle 5 Dateien existieren, jeweils mit einer öffentlichen render_*-Funktion.",
+        "Jede Datei ist einzeln importierbar ohne Fehler.",
+        "pytest agent/services/ grün (alle bestehenden Notation-Tests).",
+        "Mermaid-Rendering über NotationRenderer.render() funktioniert weiterhin für alle 5 Typen.",
+        "Kein zirkulärer Import."
+      ]
+    },
+    {
+      "id": "FSR-T022",
+      "title": "BPMN-Renderer-Funktionen in separates Modul extrahieren",
+      "milestone": "FSR-M05",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "refactoring",
+      "source_file": "agent/services/notation_renderer.py",
+      "target_files": [
+        "agent/services/notation_bpmn.py"
+      ],
+      "what_to_move": [
+        "_render_bpmn_process (Z. 949-992)",
+        "_render_bpmn_pool_lane (Z. 993-1103)",
+        "_render_bpmn_collaboration (Z. 1104-1336)",
+        "Hilfsfunktionen _render_bpmn_element, _render_bpmn_flow, _render_diagram_shape, _render_diagram_edge, _definitions_open (sofern nicht in common)"
+      ],
+      "interface_contract": "notation_bpmn.py exportiert render_bpmn_process, render_bpmn_pool_lane, render_bpmn_collaboration. Importiert Shared-Helpers aus notation_renderer_common.",
+      "description": "BPMN ist ein grundlegend anderes Format als Mermaid und hat ~400 Zeilen eigene Logik (XML-Generierung, Pool/Lane-Struktur). Eine eigene Datei macht die Trennung klar.",
+      "acceptance_criteria": [
+        "agent/services/notation_bpmn.py existiert mit allen BPMN-Renderer-Funktionen.",
+        "BPMN-Rendering über NotationRenderer.render() funktioniert weiterhin für alle BPMN-Typen.",
+        "pytest agent/services/ grün.",
+        "Kein zirkulärer Import.",
+        "python -c \"from agent.services.notation_bpmn import render_bpmn_process\" funktioniert."
+      ]
+    },
+    {
+      "id": "FSR-T023",
+      "title": "notation_renderer.py auf Dispatcher-Klasse reduzieren",
+      "milestone": "FSR-M05",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "refactoring",
+      "source_file": "agent/services/notation_renderer.py",
+      "blocked_by": ["FSR-T020", "FSR-T021", "FSR-T022"],
+      "description": "Nach allen Extraktionen enthält notation_renderer.py nur noch die NotationRenderer-Klasse (Dispatcher, Z. 1366-1489) und die Singleton-Funktionen get_notation_renderer/reset_notation_renderer_singleton. Alle render_*-Calls delegieren an die extrahierten Module.",
+      "acceptance_criteria": [
+        "notation_renderer.py hat maximal 200 Zeilen.",
+        "get_notation_renderer() und reset_notation_renderer_singleton() sind weiterhin exportiert.",
+        "NotationRenderer.render() dispatcht korrekt an alle 8 Diagramm-Typen.",
+        "pytest agent/services/ vollständig grün.",
+        "python -c \"from agent.services.notation_renderer import get_notation_renderer\" funktioniert."
+      ]
+    },
+    {
+      "id": "FSR-T024",
+      "title": "RepositoryMapEngine aus hybrid_orchestrator.py extrahieren",
+      "milestone": "FSR-M06",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "refactoring",
+      "source_file": "agent/hybrid_orchestrator.py",
+      "source_lines": 1440,
+      "target_files": [
+        "agent/repository_map_engine.py"
+      ],
+      "what_to_move": [
+        "ContextChunk-Klasse (Z. 47-54)",
+        "RepositoryMapEngine-Klasse komplett (Z. 55-683)"
+      ],
+      "interface_contract": "repository_map_engine.py ist vollständig standalone; keine Rück-Abhängigkeit auf hybrid_orchestrator.py.",
+      "description": "RepositoryMapEngine (~630 Zeilen) ist die größte eigenständige Klasse in der Datei. Sie baut Repository-Maps auf, tokenisiert Code und ist unabhängig vom eigentlichen Orchestrator.",
+      "acceptance_criteria": [
+        "agent/repository_map_engine.py existiert mit RepositoryMapEngine und ContextChunk.",
+        "hybrid_orchestrator.py importiert RepositoryMapEngine aus repository_map_engine.",
+        "pytest agent/ grün.",
+        "python -c \"from agent.repository_map_engine import RepositoryMapEngine\" funktioniert.",
+        "Kein zirkulärer Import."
+      ]
+    },
+    {
+      "id": "FSR-T025",
+      "title": "AgenticSearchEngine + SearchSkill aus hybrid_orchestrator.py extrahieren",
+      "milestone": "FSR-M06",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "refactoring",
+      "source_file": "agent/hybrid_orchestrator.py",
+      "target_files": [
+        "agent/agentic_search_engine.py"
+      ],
+      "what_to_move": [
+        "SearchSkill-Klasse (Z. 684-690)",
+        "AgenticSearchEngine-Klasse komplett (Z. 691-839)"
+      ],
+      "interface_contract": "agentic_search_engine.py importiert RepositoryMapEngine aus repository_map_engine (nicht aus hybrid_orchestrator).",
+      "description": "AgenticSearchEngine (~150 Zeilen) kapselt LLM-gesteuertes iteratives Suchen und ist konzeptuell getrennt von semantischer Suche und dem Top-Level-Orchestrator.",
+      "acceptance_criteria": [
+        "agent/agentic_search_engine.py existiert mit AgenticSearchEngine und SearchSkill.",
+        "hybrid_orchestrator.py importiert AgenticSearchEngine aus agentic_search_engine.",
+        "pytest agent/ grün.",
+        "Kein zirkulärer Import."
+      ]
+    },
+    {
+      "id": "FSR-T026",
+      "title": "SemanticSearchEngine aus hybrid_orchestrator.py extrahieren",
+      "milestone": "FSR-M06",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "refactoring",
+      "source_file": "agent/hybrid_orchestrator.py",
+      "target_files": [
+        "agent/semantic_search_engine.py"
+      ],
+      "what_to_move": [
+        "SemanticSearchEngine-Klasse komplett (Z. 840-998)"
+      ],
+      "interface_contract": "semantic_search_engine.py importiert ContextChunk aus repository_map_engine und hat keine Abhängigkeit auf AgenticSearchEngine.",
+      "description": "SemanticSearchEngine (~160 Zeilen) ist rein vektorbasierte Suche ohne Überlapp mit agentischem Suchen. Die Trennung macht beide Suchmechanismen austauschbar.",
+      "acceptance_criteria": [
+        "agent/semantic_search_engine.py existiert mit SemanticSearchEngine.",
+        "hybrid_orchestrator.py importiert SemanticSearchEngine aus semantic_search_engine.",
+        "pytest agent/ grün.",
+        "Kein zirkulärer Import."
+      ]
+    },
+    {
+      "id": "FSR-T027",
+      "title": "ContextManager aus hybrid_orchestrator.py extrahieren + Hauptdatei reduzieren",
+      "milestone": "FSR-M06",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "refactoring",
+      "source_file": "agent/hybrid_orchestrator.py",
+      "blocked_by": ["FSR-T024", "FSR-T025", "FSR-T026"],
+      "target_files": [
+        "agent/context_manager.py"
+      ],
+      "what_to_move": [
+        "ContextManager-Klasse komplett (Z. 999-1142)"
+      ],
+      "description": "Nach Extraktion von ContextManager enthält hybrid_orchestrator.py nur noch HybridOrchestrator selbst (~300 Zeilen), der die vier extrahierten Engines koordiniert.",
+      "acceptance_criteria": [
+        "agent/context_manager.py existiert mit ContextManager.",
+        "hybrid_orchestrator.py hat maximal 350 Zeilen und enthält nur HybridOrchestrator.",
+        "python -c \"from agent.hybrid_orchestrator import HybridOrchestrator\" funktioniert.",
+        "pytest agent/ vollständig grün.",
+        "Kein zirkulärer Import."
+      ]
+    },
+    {
+      "id": "FSR-T028",
+      "title": "Enums + Type-Modelle aus chat_state.py extrahieren",
+      "milestone": "FSR-M07",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "type": "refactoring",
+      "source_file": "client_surfaces/operator_tui/chat_state.py",
+      "source_lines": 1232,
+      "target_files": [
+        "client_surfaces/operator_tui/chat_models.py"
+      ],
+      "what_to_move": [
+        "Enums: ChannelType, Visibility, DeliveryState, SenderKind (Z. 19-63)",
+        "Klassen: SourceRef (Z. 1011-1021), ChatAnswerBlock (Z. 1022-1083)"
+      ],
+      "interface_contract": "chat_models.py hat keine Abhängigkeit auf andere chat_state*-Module.",
+      "description": "Enums und Daten-Klassen sind pure Typdefinitionen und sollten als Fundament in einer eigenen Datei stehen, auf die alle anderen Module aufbauen.",
+      "acceptance_criteria": [
+        "client_surfaces/operator_tui/chat_models.py existiert mit allen Enums und Daten-Klassen.",
+        "chat_state.py importiert diese aus chat_models und hat keine lokalen Definitionen mehr.",
+        "pytest client_surfaces/ grün.",
+        "Kein zirkulärer Import."
+      ]
+    },
+    {
+      "id": "FSR-T029",
+      "title": "Session-Management-Funktionen aus chat_state.py extrahieren",
+      "milestone": "FSR-M07",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "refactoring",
+      "source_file": "client_surfaces/operator_tui/chat_state.py",
+      "target_files": [
+        "client_surfaces/operator_tui/chat_session.py"
+      ],
+      "what_to_move": [
+        "Funktionen: make_session, default_sessions, _ensure_settings_delta, get_sessions, get_session, get_active_session, active_session_channel_id, get_effective_chat_settings, active_session_id, clear_session_messages, clear_all_session_messages, add_session, delete_session, set_active_session, update_session_settings, ensure_session_channels (Z. 468-937)"
+      ],
+      "interface_contract": "chat_session.py importiert chat-dict-Struktur als opaque dict; keine zirkuläre Abhängigkeit auf chat_state.py.",
+      "description": "Session-Management (~470 Zeilen) ist ein klar abgegrenzter Bereich mit eigener Semantik (aktive Session, Settings-Delta, Channel-Synchronisation). Eine eigene Datei macht ihn separat testbar.",
+      "acceptance_criteria": [
+        "client_surfaces/operator_tui/chat_session.py existiert mit allen Session-Funktionen.",
+        "chat_state.py hat keine lokalen Definitionen mehr dieser Funktionen.",
+        "pytest client_surfaces/ grün.",
+        "Operator-TUI: Session-Wechsel, Settings-Änderung, Channel-Sync funktionieren weiterhin."
+      ]
+    },
+    {
+      "id": "FSR-T030",
+      "title": "Channel-Management-Funktionen aus chat_state.py extrahieren",
+      "milestone": "FSR-M07",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "refactoring",
+      "source_file": "client_surfaces/operator_tui/chat_state.py",
+      "target_files": [
+        "client_surfaces/operator_tui/chat_channel.py"
+      ],
+      "what_to_move": [
+        "Funktionen: make_channel, default_channels, get_channel, get_active_channel, switch_channel, add_direct_channel (Z. 65-106, 1112-1146)"
+      ],
+      "interface_contract": "chat_channel.py importiert aus chat_models (ChannelType); keine Abhängigkeit auf chat_session.",
+      "description": "Channel-Verwaltung ist konzeptuell getrennt von Session-Verwaltung: Channels sind persistent identifizierbare Kommunikationskanäle, Sessions sind temporäre Konversations-Kontexte.",
+      "acceptance_criteria": [
+        "client_surfaces/operator_tui/chat_channel.py existiert mit allen Channel-Funktionen.",
+        "Chat_state.py und chat_session.py haben keine lokalen Kopien dieser Funktionen.",
+        "pytest client_surfaces/ grün.",
+        "Channel-Wechsel im Operator-TUI funktioniert weiterhin."
+      ]
+    },
+    {
+      "id": "FSR-T031",
+      "title": "Message-Funktionen aus chat_state.py extrahieren",
+      "milestone": "FSR-M07",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "type": "refactoring",
+      "source_file": "client_surfaces/operator_tui/chat_state.py",
+      "target_files": [
+        "client_surfaces/operator_tui/chat_message.py"
+      ],
+      "what_to_move": [
+        "Funktionen: make_message, append_message, sanitize_text, unread_total, make_heuristic_message, maybe_add_prediction_comment, append_artifact_graph_explanation (Z. 107-467 anteilig, 1147-1232)"
+      ],
+      "interface_contract": "chat_message.py importiert aus chat_models (SenderKind, Visibility, DeliveryState); keine Abhängigkeit auf chat_session oder chat_channel.",
+      "description": "Nachrichten-Erstellung, Sanitization und Anhang-Logik (~120 Zeilen) sind reine Transformationsfunktionen ohne State.",
+      "acceptance_criteria": [
+        "client_surfaces/operator_tui/chat_message.py existiert mit allen Message-Funktionen.",
+        "pytest client_surfaces/ grün.",
+        "Operator-TUI: Nachrichten erscheinen und werden korrekt sanitized.",
+        "Kein zirkulärer Import."
+      ]
+    },
+    {
+      "id": "FSR-T032",
+      "title": "chat_state.py auf Re-Export-__init__ + default_chat_state reduzieren",
+      "milestone": "FSR-M07",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "refactoring",
+      "source_file": "client_surfaces/operator_tui/chat_state.py",
+      "blocked_by": ["FSR-T028", "FSR-T029", "FSR-T030", "FSR-T031"],
+      "description": "Nach allen Extraktionen enthält chat_state.py nur noch: default_chat_state, get_chat_state, set_chat_state (die Top-Level-State-Container-Funktionen) und Re-Exports aller Symbole aus den Sub-Modulen für Rückwärtskompatibilität.",
+      "acceptance_criteria": [
+        "chat_state.py hat maximal 150 Zeilen.",
+        "Alle Symbole, die bisher direkt aus chat_state importiert wurden, sind weiterhin importierbar (Rückwärtskompatibilität via __all__ oder explizite Re-Exports).",
+        "pytest client_surfaces/ vollständig grün.",
+        "Operator-TUI startet fehlerfrei und alle Chat-Funktionen sind nutzbar."
+      ]
+    },
+    {
+      "id": "FSR-T033",
+      "title": "LLM-Settings-Section aus settings.component.ts in Komponente extrahieren",
+      "milestone": "FSR-M08",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "refactoring",
+      "source_file": "frontend-angular/src/app/components/settings.component.ts",
+      "source_lines": 1122,
+      "target_files": [
+        "frontend-angular/src/app/components/settings-llm.component.ts",
+        "frontend-angular/src/app/components/settings-llm.component.html"
+      ],
+      "what_to_move": [
+        "State: llmHistory, providerCatalog, benchmarkConfig, benchmarkRetentionDays, benchmarkRetentionSamples, benchmarkProviderOrderTextValue, benchmarkModelOrderTextValue, benchmarkValidationError, agentLlmDrafts, llmApiKeyProfilesRaw, llmApiKeyProfilesError, roleModelOverridesRaw, templateModelOverridesRaw, roleModelOverridesError, templateModelOverridesError, researchBackendStatus, evolutionProviderStatus",
+        "Methoden: bootstrapAgentLlmDrafts, getAgentLlmDraft, alle saveLlm*, normalizeWorker*, normalizeHub*, alle Benchmark-Save-Methoden",
+        "Template-Block: <section> für 'llm' und 'erweitert'"
+      ],
+      "interface_contract": "Standalone-Komponente; teilt config-Objekt via @Input() oder AgentApiService-Injection.",
+      "description": "Der LLM-Bereich (Provider-Konfiguration, Benchmarks, API-Keys, Model-Overrides) ist mit ca. 500 Template-Zeilen und 30+ Methoden der größte Section-Block.",
+      "acceptance_criteria": [
+        "settings-llm.component.ts + .html existieren als standalone-Komponente.",
+        "LLM-Konfiguration (Provider wählen, API-Key setzen, Benchmark-Config) funktioniert im Browser.",
+        "Model-Override-Map speichert korrekt.",
+        "Kein TypeScript-Fehler; pnpm test grün.",
+        "settings.component.ts hat keine llm*-State-Felder mehr."
+      ]
+    },
+    {
+      "id": "FSR-T034",
+      "title": "Quality-Gate-Section aus settings.component.ts extrahieren",
+      "milestone": "FSR-M08",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "type": "refactoring",
+      "source_file": "frontend-angular/src/app/components/settings.component.ts",
+      "target_files": [
+        "frontend-angular/src/app/components/settings-quality.component.ts"
+      ],
+      "what_to_move": [
+        "State: qgEnabled, qgAutopilotEnforce, qgMinOutputChars, qgCodingKeywordsText, qgMarkersText",
+        "Methoden: saveQg, loadQg",
+        "Template-Block: <section> für 'quality'"
+      ],
+      "interface_contract": "Standalone-Komponente; lädt/speichert via AgentApiService direkt.",
+      "description": "Quality-Gate-Einstellungen (~80 Template-Zeilen, 3 Methoden) sind vollständig eigenständig und häufig unabhängig von LLM-Settings geändert.",
+      "acceptance_criteria": [
+        "settings-quality.component.ts existiert als standalone-Komponente.",
+        "QG-Konfiguration (Toggle, Keywords, Markers) speichert und lädt korrekt im Browser.",
+        "Kein TypeScript-Fehler, alle Tests grün.",
+        "settings.component.ts hat keine qg*-State-Felder mehr."
+      ]
+    },
+    {
+      "id": "FSR-T035",
+      "title": "System-Section aus settings.component.ts extrahieren",
+      "milestone": "FSR-M08",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "type": "refactoring",
+      "source_file": "frontend-angular/src/app/components/settings.component.ts",
+      "target_files": [
+        "frontend-angular/src/app/components/settings-system.component.ts"
+      ],
+      "what_to_move": [
+        "State: systemFormDirty",
+        "Methoden: markSystemFormDirty, normalizeSgptRouting, normalizeApprovalLifecycle, normalizeMutationGate, taskKindBackendOptions, taskKindRoutingEntries, normalizeObj, normalizeLocalAi, normalizeAutopilotSecurityPolicies, normalizeKnowledgeContext, workerParallelismOptions, getRuntimeProfileOptions, getGovernanceModeOptions, saveSystem",
+        "Template-Block: <section> für 'system'"
+      ],
+      "interface_contract": "Standalone-Komponente; erhält config via @Input() oder Service.",
+      "description": "System-Einstellungen (Worker-Parallelismus, Governance-Mode, Routing, Autopilot-Security) haben ~200 Template-Zeilen und 15+ Methoden, alle eigenständig.",
+      "acceptance_criteria": [
+        "settings-system.component.ts existiert als standalone-Komponente.",
+        "System-Konfiguration (Worker-Parallelismus setzen, Governance-Mode wählen) speichert korrekt.",
+        "Kein TypeScript-Fehler, alle Tests grün.",
+        "settings.component.ts hat keine system*-Methoden mehr."
+      ]
+    },
+    {
+      "id": "FSR-T036",
+      "title": "settings.component.ts auf Section-Router + Account reduzieren",
+      "milestone": "FSR-M08",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "refactoring",
+      "source_file": "frontend-angular/src/app/components/settings.component.ts",
+      "blocked_by": ["FSR-T033", "FSR-T034", "FSR-T035"],
+      "description": "Nach allen Extraktionen enthält settings.component.ts nur noch: selectedSection-State, setSection(), ngOnInit-Bootstrapping, Account-Section-State (isAdmin, isDarkMode, toggleDarkMode) und die Top-Level-Tab-Navigation im Template.",
+      "acceptance_criteria": [
+        "settings.component.ts hat maximal 200 Zeilen.",
+        "Alle Tabs (account, llm, quality, system, erweitert) wechseln korrekt.",
+        "Dark-Mode-Toggle funktioniert weiterhin.",
+        "pnpm build und pnpm test grün.",
+        "Settings-Seite ist vollständig im Browser nutzbar."
+      ]
+    },
+    {
+      "id": "FSR-T037",
+      "title": "ConfigGraph-Modell-Klassen aus config_graph_builder_service.py extrahieren",
+      "milestone": "FSR-M09",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "type": "refactoring",
+      "source_file": "agent/services/config_graph_builder_service.py",
+      "source_lines": 1102,
+      "target_files": [
+        "agent/services/config_graph_models.py"
+      ],
+      "what_to_move": [
+        "Klassen: ConfigGraphNode (Z. 359-396), ConfigGraphEdge (Z. 397-418), ConfigGraph (Z. 419-455)"
+      ],
+      "interface_contract": "config_graph_models.py ist standalone ohne Abhängigkeit auf ConfigGraphBuilderService.",
+      "description": "Daten-Modelle (ConfigGraphNode, ConfigGraphEdge, ConfigGraph) sind reine Datenstrukturen und sollten als Fundament-Modul ohne Business-Logik existieren.",
+      "acceptance_criteria": [
+        "agent/services/config_graph_models.py existiert mit allen drei Klassen.",
+        "config_graph_builder_service.py importiert diese aus config_graph_models.",
+        "pytest agent/services/ grün.",
+        "python -c \"from agent.services.config_graph_models import ConfigGraph\" funktioniert.",
+        "Kein zirkulärer Import."
+      ]
+    },
+    {
+      "id": "FSR-T038",
+      "title": "Klassifikations-Helpers aus config_graph_builder_service.py extrahieren",
+      "milestone": "FSR-M09",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "type": "refactoring",
+      "source_file": "agent/services/config_graph_builder_service.py",
+      "target_files": [
+        "agent/services/config_graph_classifiers.py"
+      ],
+      "what_to_move": [
+        "Funktionen: _classify_profile_character (Z. 185-193), _classify_rule_character (Z. 194-329), _build_behavior_dimensions (Z. 330-358)"
+      ],
+      "interface_contract": "config_graph_classifiers.py hat ausschließlich Abhängigkeit auf config_graph_models; keine Abhängigkeit auf ConfigGraphBuilderService.",
+      "description": "Klassifikations-Logik (~170 Zeilen) ist eine reine Mapping/Scoring-Funktion ohne State, die separat getestet werden sollte (insbesondere _classify_rule_character mit vielen Fallunterscheidungen).",
+      "acceptance_criteria": [
+        "agent/services/config_graph_classifiers.py existiert mit allen drei Funktionen.",
+        "config_graph_builder_service.py importiert diese aus config_graph_classifiers.",
+        "pytest agent/services/ grün.",
+        "Kein zirkulärer Import.",
+        "Mindestens ein pytest-Test für _classify_rule_character mit Mock-Profil-Daten."
+      ]
+    },
+    {
+      "id": "FSR-T039",
+      "title": "config_graph_builder_service.py auf Builder-Klasse reduzieren",
+      "milestone": "FSR-M09",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "refactoring",
+      "source_file": "agent/services/config_graph_builder_service.py",
+      "blocked_by": ["FSR-T037", "FSR-T038"],
+      "description": "Nach Extraktionen enthält config_graph_builder_service.py nur noch ConfigGraphBuilderService (~640 Zeilen) und get_config_graph_builder_service. Das ist immer noch groß, aber die Klasse hat eine einzige kohärente Verantwortlichkeit: den Graph aus Konfigurations-Daten aufzubauen.",
+      "acceptance_criteria": [
+        "config_graph_builder_service.py hat maximal 700 Zeilen.",
+        "from agent.services.config_graph_builder_service import get_config_graph_builder_service funktioniert.",
+        "pytest agent/services/ vollständig grün.",
+        "Config-Graph-API-Endpoints (/config-graph/*) liefern weiterhin korrekte Antworten.",
+        "Kein zirkulärer Import."
+      ]
+    },
+    {
+      "id": "FSR-T040",
+      "title": "Topology-Layout-Algorithmus aus codehug-canvas.component.ts extrahieren",
+      "milestone": "FSR-M10",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "type": "refactoring",
+      "source_file": "frontend-angular/src/app/features/codehug/graph/codehug-canvas.component.ts",
+      "source_lines": 1099,
+      "target_files": [
+        "frontend-angular/src/app/features/codehug/graph/codehug-topology-layout.ts"
+      ],
+      "what_to_move": [
+        "Funktion: buildTopologyGraph (ca. Z. 96-222, ~130 Zeilen)",
+        "Alle Layout-Konstanten: canvasW, hubY, workerLlmY, workerDetY, layerY, ruleY etc.",
+        "Hilfsfunktionen für Positions-Berechnung (nodeColorFor, stateColorFor sofern rein berechnet)"
+      ],
+      "interface_contract": "codehug-topology-layout.ts exportiert buildTopologyGraph(topology: ChTopologyReadModel): { nodes: ChCanvasNode[], edges: ChCanvasEdge[] } als pure Funktion.",
+      "description": "Der Layout-Algorithmus (Hub/Worker/Layer-Positionierung) ist eine reine Funktion ohne Seiteneffekte. Als standalone exportierte Funktion ist sie trivial unit-testbar.",
+      "acceptance_criteria": [
+        "codehug-topology-layout.ts existiert und exportiert buildTopologyGraph als pure Funktion.",
+        "Die Funktion ist mit einem Vitest-Unit-Test abgedeckt (Mock-Topology → korrekte Node-Positionen).",
+        "codehug-canvas.component.ts importiert buildTopologyGraph aus codehug-topology-layout.",
+        "Canvas rendert Topologie weiterhin korrekt im Browser.",
+        "Kein TypeScript-Fehler."
+      ]
+    },
+    {
+      "id": "FSR-T041",
+      "title": "Inline-Template + Styles von codehug-canvas in externe Dateien auslagern",
+      "milestone": "FSR-M10",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "type": "refactoring",
+      "source_file": "frontend-angular/src/app/features/codehug/graph/codehug-canvas.component.ts",
+      "target_files": [
+        "frontend-angular/src/app/features/codehug/graph/codehug-canvas.component.html",
+        "frontend-angular/src/app/features/codehug/graph/codehug-canvas.component.scss"
+      ],
+      "what_to_move": [
+        "template-String (ca. Z. 241-568, ~330 Zeilen)",
+        "styles-Array (ca. Z. 569-807, ~238 Zeilen CSS)"
+      ],
+      "interface_contract": "@Component referenziert templateUrl und styleUrls.",
+      "description": "Risikoarme Auslagerung von Template und Styles in dedizierte Dateien ohne Logik-Änderung.",
+      "acceptance_criteria": [
+        "codehug-canvas.component.html und .scss existieren.",
+        "@Component nutzt templateUrl und styleUrls.",
+        "Die .ts-Datei hat nach diesem Schritt max. 600 Zeilen.",
+        "pnpm build fehlerfrei; Canvas rendert Topologie korrekt im Browser.",
+        "Alle Tests grün."
+      ]
+    },
+    {
+      "id": "FSR-T042",
+      "title": "codehug-canvas.component.ts auf Komponenten-Klasse reduzieren",
+      "milestone": "FSR-M10",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "refactoring",
+      "source_file": "frontend-angular/src/app/features/codehug/graph/codehug-canvas.component.ts",
+      "blocked_by": ["FSR-T040", "FSR-T041"],
+      "description": "Nach Extraktion von Layout-Algorithmus (T040) und Template/Styles (T041) enthält die .ts-Datei nur noch die Komponenten-Klasse mit: @Input/@Output-Deklarationen, Signal-State (nodes, edges, selectedNodeId, panX/Y, zoom), ngOnChanges (Topology → Graph-Konvertierung via buildTopologyGraph) und @HostListener-Events für Pan/Zoom.",
+      "acceptance_criteria": [
+        "codehug-canvas.component.ts hat maximal 300 Zeilen.",
+        "ChCanvasNode, ChCanvasEdge, ChNodeKind, ChNodeRunState als Interfaces bleiben in der Datei (oder eigene models-Datei) und sind aus dem Barrel exportiert.",
+        "pnpm build und pnpm test grün.",
+        "Canvas zeigt Topologie korrekt an; Node-Klick, Pan und Zoom funktionieren.",
+        "Playwright-E2E-Tests für CodeHug laufen durch."
+      ]
+    }
+  ],
+  "tasks_status_summary": {
+    "total": 42,
+    "by_status": {
+      "todo": 42,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 10,
+      "P1": 22,
+      "P2": 10,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 15,
+      "medium": 24,
+      "high": 3,
+      "critical": 0
+    },
+    "critical_path": {
+      "total": 10,
+      "done": 0,
+      "remaining": 10
+    },
+    "milestones": {
+      "total": 10,
+      "todo": 10,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "progress_summary": {
+    "state": "todo",
+    "todo_remaining": 42,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "summary_notes": [
+    "Alle 10 Dateien wurden am 2026-06-28 identifiziert. Grösste Datei: codehug-internals.component.ts mit 2525 Zeilen.",
+    "Empfohlene Reihenfolge: M05 (notation_renderer, niedrigstes Risiko) → M06 (hybrid_orchestrator, klare Klassen-Grenzen) → M07 (chat_state) → M09 (config_graph_builder) → M02 (snakes_routes) → M03/M04/M08 (Angular) → M01/M10 (grosse Angular-Komponenten).",
+    "Template-Auslagerungen (T011, T016, T041) sollten immer als erster Schritt im jeweiligen Milestone erfolgen, da sie risikolos sind und sofort Zeilen reduzieren.",
+    "Python-Splits dürfen KEINE __init__.py-Pakete erstellen, wenn der Rest des Projekts flat-imports nutzt — Re-Exports direkt in chat_state.py / notation_renderer.py sind die korrekte Rückwärtskompatibilitäts-Strategie.",
+    "Tasks mit risk=high (T005, T010, T015) sollten erst nach vollständiger grüner Test-Suite der Vorgänger angegangen werden."
+  ]
+}

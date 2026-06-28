@@ -46,6 +46,56 @@ from .snake_event_broadcaster import (
     drop_snake_queue,
     get_snake_event,
 )
+from .snakes_chat_helpers import (
+    SnakeAskLimits,
+    _ANANTA_UI_GUIDE_MAP,
+    _answer_budget_instruction,
+    _answer_overflow_policy,
+    _append_room_ai_message,
+    _bounded_optional_int,
+    _build_grounded_snake_prompt,
+    _build_room_conversation_history,
+    _build_ui_guide,
+    _chat_answer_chars_limit,
+    _chat_never_truncate_answers,
+    _ensure_ui_guide,
+    _fit_answer_to_chars,
+    _optional_bool,
+    _read_ananta_settings_summary,
+    _should_include_light_ui_context,
+    _trace_feature_enabled,
+    _with_answer_budget_instruction,
+)
+from .snakes_retrieval_helpers import (
+    _SNAKE_RETRIEVAL_CONFIG_KEYS,
+    _build_local_repo_fallback_context,
+    _domain_scope_response,
+    _resolve_domain_scope_for_chat,
+    _resolve_snake_retrieval_profile_trace,
+    _snake_retrieval_config_overrides,
+    _snake_retrieval_dry_run,
+)
+from .snakes_visual_guide import (
+    _VISUAL_GUIDE_EXECUTOR,
+    _VISUAL_SESSION_ID,
+    _VISUAL_THROTTLE_S,
+    _append_visual_user_tick,
+    _get_visual_state_ref,
+    _spawn_region_explain_reply,
+    _spawn_visual_reply,
+    _visual_session_log_deltas_only,
+    _visual_session_settings,
+)
+from .snakes_worker_routing import (
+    _auth_token,
+    _pick_worker_for_ask,
+    _resolve_lmstudio_model_for_worker,
+    _verify_token,
+    _worker_propose,
+)
+from .snakes_full_scan import _SCAN_CANCELS as _FULL_SCAN_CANCELS
+from .snakes_full_scan import worker_chat_full_scan as _worker_chat_full_scan
+from .snakes_rag_iterative import worker_chat_rag_iterative as _worker_chat_rag_iterative
 
 # In-memory UI state pushed by the browser via PUT /snakes/<id>/ui-state.
 # Keyed by snake_id; used to enrich LLM prompts with current navigation context.
@@ -62,76 +112,6 @@ _SNAKE_CHAT_PROMPT = (
     "5) Halte Antworten kurz, konkret, technisch nutzbar, auf Deutsch.\n"
     "6) Wenn Schrittfolge noetig ist, gib maximal 5 nummerierte Schritte.\n"
 )
-
-_SNAKE_RETRIEVAL_CONFIG_KEYS = frozenset({
-    "chat_retrieval_profile",
-    "chat_retrieval_domain_hint",
-    "chat_code_questions_repo_first",
-    "chat_architecture_analysis_mode",
-    "chat_codecompass_trigger_mode",
-    "chat_use_codecompass",
-    "chat_include_local_project",
-    "chat_include_wikipedia",
-    "chat_include_task_memory",
-    "chat_source_pack_id",
-})
-
-
-@dataclass(frozen=True, slots=True)
-class SnakeAskLimits:
-    context_chars: int = 4000
-    answer_chars: int = 2200
-    max_tokens: int | None = None
-    rag_top_k: int | None = None
-    answer_overflow_policy: str = "allow"
-    never_truncate_answers: bool = True
-
-    @classmethod
-    def from_payload(cls, payload: dict[str, Any]) -> "SnakeAskLimits":
-        return cls(
-            context_chars=_bounded_optional_int(payload.get("context_chars"), default=4000, minimum=500, maximum=20000),
-            answer_chars=_bounded_optional_int(payload.get("answer_chars"), default=2200, minimum=600, maximum=50000),
-            max_tokens=_bounded_optional_int(payload.get("max_tokens"), default=None, minimum=100, maximum=8000),
-            rag_top_k=_bounded_optional_int(payload.get("rag_top_k"), default=None, minimum=1, maximum=120),
-            answer_overflow_policy=_answer_overflow_policy(payload.get("answer_overflow_policy")),
-            never_truncate_answers=_optional_bool(payload.get("never_truncate_answers"), default=True),
-        )
-
-
-def _optional_bool(value: Any, *, default: bool) -> bool:
-    if isinstance(value, bool):
-        return value
-    if value is None or value == "":
-        return default
-    token = str(value).strip().lower()
-    if token in {"1", "true", "yes", "on", "an", "ja"}:
-        return True
-    if token in {"0", "false", "no", "off", "aus", "nein"}:
-        return False
-    return default
-
-
-def _bounded_optional_int(value: Any, *, default: int | None, minimum: int, maximum: int) -> int | None:
-    if value is None or value == "":
-        return default
-    try:
-        parsed = int(value)
-    except (TypeError, ValueError):
-        return default
-    return max(minimum, min(maximum, parsed))
-
-
-def _answer_overflow_policy(value: Any | None = None) -> str:
-    raw = value
-    if raw is None or raw == "":
-        try:
-            from agent.routes.ai_snake_config import _current_config
-
-            raw = _current_config().get("chat_answer_overflow_policy")
-        except Exception:
-            raw = None
-    policy = str(raw or "allow").strip().lower()
-    return policy if policy in {"allow", "summarize", "truncate"} else "allow"
 
 
 def _background_threads_disabled() -> bool:
@@ -167,796 +147,6 @@ def _resolve_ai_snake_chat_provider() -> tuple[str, str | None, str | None]:
     except Exception:
         pass
     return provider, model, api_base
-
-
-def _snake_retrieval_config_overrides(body: dict[str, Any]) -> dict[str, Any]:
-    raw = body.get("retrieval_config")
-    if not isinstance(raw, dict):
-        return {}
-    overrides: dict[str, Any] = {}
-    for key in _SNAKE_RETRIEVAL_CONFIG_KEYS:
-        value = raw.get(key)
-        if isinstance(value, bool):
-            overrides[key] = value
-        elif isinstance(value, str):
-            overrides[key] = value.strip()
-    return overrides
-
-
-def _build_local_repo_fallback_context(prompt: str) -> str:
-    text = str(prompt or "").lower()
-    repo_root = Path(getattr(settings, "rag_repo_root", ".")).resolve()
-    if "_build_grounded_snake_prompt" in text or "snakes.py" in text:
-        snakes_file = repo_root / "agent" / "routes" / "snakes.py"
-        if snakes_file.exists():
-            try:
-                lines = snakes_file.read_text(encoding="utf-8", errors="replace").splitlines()
-            except OSError:
-                return ""
-            for idx, line in enumerate(lines):
-                if "def _build_grounded_snake_prompt" in line:
-                    start = max(0, idx - 4)
-                    end = min(len(lines), idx + 24)
-                    return "\n".join(lines[start:end]).strip()
-    if "agent/routes" in text or "routes" in text:
-        routes_dir = repo_root / "agent" / "routes"
-        if routes_dir.exists() and routes_dir.is_dir():
-            names = sorted(path.name for path in routes_dir.glob("*.py") if path.is_file())
-            if names:
-                return "Dateien in agent/routes:\n" + "\n".join(f"- {name}" for name in names[:24])
-    return ""
-
-
-def _domain_scope_response(domain_scope: object | None, bundle_domain_scope: dict | None) -> dict[str, Any]:
-    """Build a serialisable domain_scope response fragment for snake ask."""
-    if domain_scope is None:
-        return {}
-    from agent.codecompass.domain_scope import ResolvedDomainScope
-    if isinstance(domain_scope, ResolvedDomainScope) and domain_scope.active:
-        info = domain_scope.as_dict()
-        if bundle_domain_scope and isinstance(bundle_domain_scope, dict):
-            info.update({
-                k: bundle_domain_scope[k]
-                for k in ("active_domain_ids", "filter_stats", "guidance")
-                if k in bundle_domain_scope
-            })
-        return {"domain_scope": info}
-    return {}
-
-
-def _resolve_domain_scope_for_chat(domain_hint: str | None) -> object | None:
-    """CCRDS-014: resolve a ``domain:``-prefixed hint to a DomainScope or None.
-
-    Returns None when the feature is disabled, the hint is unprefixed, or
-    the hint is empty — the caller then proceeds without hard scoping.
-    """
-    if not domain_hint:
-        return None
-    if not str(getattr(settings, "codecompass_domain_scope_enabled", False)).strip().lower() in {"1", "true", "yes"}:
-        return None
-    try:
-        from agent.codecompass.domain_scope_resolver import (
-            DomainScopeResolver,
-            scope_from_domain_hint,
-        )
-        scope = scope_from_domain_hint(
-            domain_hint,
-            enabled=True,
-            strict=bool(getattr(settings, "codecompass_scope_strict_mode", True)),
-        )
-        if scope is None:
-            return None
-        resolver = DomainScopeResolver(
-            repo_root=Path(__file__).resolve().parents[2],
-            artifact_path=str(getattr(settings, "codecompass_domain_artifact_path", "") or "") or None,
-            descriptor_root=str(getattr(settings, "codecompass_domain_descriptor_root", "") or "") or None,
-        )
-        return resolver.resolve(scope)
-    except Exception:
-        return None
-
-
-def _build_grounded_snake_prompt(
-    user_text: str,
-    *,
-    limits: SnakeAskLimits | None = None,
-    retrieval_config_overrides: dict[str, Any] | None = None,
-) -> tuple[str, bool, str, dict[str, Any], list[dict[str, Any]]]:
-    """Returns (grounded_prompt, has_context, summary, domain_info, chunk_meta).
-
-    chunk_meta is a list of dicts with keys: path, source_type, score.
-    """
-    prompt = str(user_text or "").strip()
-    if not prompt:
-        return prompt, False, "", {}, []
-    effective_limits = limits or SnakeAskLimits()
-    try:
-        from agent.routes.ai_snake_config import _current_config
-        from agent.services.retrieval_profile_service import resolve_profile
-
-        cfg = _current_config()
-        cfg.update(dict(retrieval_config_overrides or {}))
-
-        feature_flag = str(cfg.get("chat_retrieval_profile") or "auto").strip().lower()
-        if bool(cfg.get("chat_code_questions_repo_first")) and feature_flag == "auto":
-            feature_flag = "repo_first"
-        domain_hint = str(cfg.get("chat_retrieval_domain_hint") or "").strip() or None
-
-        profile = resolve_profile(prompt, cfg, domain_hint=domain_hint, feature_flag=feature_flag)
-
-        # CCRDS-014: resolve runtime domain scope from domain_hint
-        domain_scope = _resolve_domain_scope_for_chat(domain_hint)
-
-        # QIE-001: Phase 0 — extract clean search intent before CodeCompass
-        from agent.services.query_intent_extractor import extract_query_intent
-        _qi = extract_query_intent(prompt, cfg)
-        _search_query = _qi.search_query
-
-        bundle, grounded = get_rag_service().build_execution_context(
-            _search_query,
-            task_kind="research",
-            retrieval_intent=profile.retrieval_intent or "chat_codecompass_overview",
-            source_types=profile.source_types or None,
-            max_chunks=effective_limits.rag_top_k,
-            retrieval_profile=profile.as_dict(),
-            domain_scope=domain_scope,
-        )
-        chunks = list(bundle.get("chunks") or [])
-        domain_scope_info = _domain_scope_response(domain_scope, bundle.get("domain_scope"))
-        if chunks:
-            src_type_counts: dict[str, int] = {}
-            chunk_meta: list[dict[str, Any]] = []
-            for chunk in chunks:
-                metadata = dict((chunk or {}).get("metadata") or {})
-                st = str(metadata.get("source_type") or (chunk or {}).get("engine") or "unknown").strip().lower() or "unknown"
-                src_type_counts[st] = int(src_type_counts.get(st, 0)) + 1
-                path = str(
-                    metadata.get("file_path") or metadata.get("path")
-                    or metadata.get("source_id") or (chunk or {}).get("source")
-                    or (chunk or {}).get("path") or ""
-                ).strip()
-                if path.startswith("/app/"):
-                    path = path[5:]
-                score = float((chunk or {}).get("score") or metadata.get("score") or 0.0)
-                if path and len(chunk_meta) < 40:
-                    chunk_meta.append({"path": path, "source_type": st, "score": round(score, 3)})
-            logging.getLogger(__name__).info(
-                "ai_snake_retrieval_profile_selected profile_id=%s domain=%s intent=%s feature_flag=%s source_type_counts=%s warnings=%s",
-                profile.profile_id,
-                profile.domain,
-                profile.intent,
-                profile.feature_flag,
-                src_type_counts,
-                list(profile.warnings),
-            )
-            summary_parts = [f"{k}:{v}" for k, v in sorted(src_type_counts.items())]
-            summary = f"Kontext: {len(chunks)} Treffer ({', '.join(summary_parts)}) [{profile.profile_id}]"
-            return grounded, True, summary, domain_scope_info, chunk_meta
-    except Exception as exc:
-        logging.getLogger(__name__).debug("ai_snake_retrieval_profile_failed: %s", exc)
-        pass
-    local_fallback = _build_local_repo_fallback_context(prompt)
-    if local_fallback:
-        grounded = (
-            f"{prompt}\n\n"
-            "Lokaler Projektkontext (Fallback, wenn RAG leer ist):\n"
-            f"{local_fallback}"
-        )
-        return prompt, True, "Kontext: 1 Treffer (repo_fallback:1)", {}, []
-    return prompt, False, "Kontext: 0 Treffer", {}, []
-
-
-def _resolve_snake_retrieval_profile_trace(
-    user_text: str,
-    *,
-    retrieval_config_overrides: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    try:
-        from agent.routes.ai_snake_config import _current_config
-        from agent.services.retrieval_profile_service import resolve_profile
-
-        cfg = _current_config()
-        cfg.update(dict(retrieval_config_overrides or {}))
-        feature_flag = str(cfg.get("chat_retrieval_profile") or "auto").strip().lower()
-        if bool(cfg.get("chat_code_questions_repo_first")) and feature_flag == "auto":
-            feature_flag = "repo_first"
-        domain_hint = str(cfg.get("chat_retrieval_domain_hint") or "").strip() or None
-        profile = resolve_profile(str(user_text or ""), cfg, domain_hint=domain_hint, feature_flag=feature_flag)
-
-        # CCRDS-006/014: show the soft profile domain and the hard runtime
-        # scope as separate trace fields. The scope is only resolved when
-        # the feature flag is on and the hint uses the `domain:` prefix.
-        runtime_domain_scope: dict[str, Any] = {"active": False}
-        try:
-            from agent.codecompass.domain_scope_resolver import (
-                DomainScopeResolver,
-                scope_from_domain_hint,
-            )
-
-            scope = scope_from_domain_hint(
-                domain_hint,
-                enabled=bool(getattr(settings, "codecompass_domain_scope_enabled", False)),
-                strict=bool(getattr(settings, "codecompass_scope_strict_mode", True)),
-            )
-            if scope is not None:
-                resolver = DomainScopeResolver(
-                    repo_root=Path(__file__).resolve().parents[2],
-                    artifact_path=str(getattr(settings, "codecompass_domain_artifact_path", "") or "") or None,
-                    descriptor_root=str(getattr(settings, "codecompass_domain_descriptor_root", "") or "") or None,
-                )
-                runtime_domain_scope = resolver.resolve(scope).as_dict()
-        except Exception as scope_exc:
-            runtime_domain_scope = {"active": False, "error": str(scope_exc)[:120]}
-
-        return {
-            "profile_id": profile.profile_id,
-            "retrieval_profile_domain": profile.domain,
-            "runtime_domain_scope": runtime_domain_scope,
-            "domain": profile.domain,
-            "intent": profile.intent,
-            "analysis_mode": profile.analysis_mode or "standard",
-            "output_intent": profile.output_intent,
-            "coverage_policy": profile.coverage_policy,
-            "summary_policy": profile.summary_policy,
-            "source_types": list(profile.source_types),
-            "source_type_weights": dict(profile.source_type_weights),
-            "feature_flag": profile.feature_flag,
-            "trigger_mode": str(cfg.get("chat_codecompass_trigger_mode") or "auto").strip().lower(),
-            "selected_by": profile.selected_by,
-            "reasons": list(profile.reasons),
-            "negative_source_patterns": list(profile.negative_source_patterns),
-            "warnings": list(profile.warnings),
-        }
-    except Exception as exc:
-        return {"error": str(exc)[:120]}
-
-
-def _snake_retrieval_dry_run(
-    question: str,
-    *,
-    retrieval_config_overrides: dict[str, Any] | None = None,
-    top_k: int = 20,
-) -> dict[str, Any]:
-    """RWY-005: run retrieval for *question* without calling an LLM.
-
-    Returns profile metadata, resolver scope flags, candidate counts per
-    source type, top-5 candidate paths, and preset hints.
-    """
-    result: dict[str, Any] = {}
-    try:
-        from agent.routes.ai_snake_config import _current_config
-        from agent.services.retrieval_profile_service import resolve_profile
-        from worker.retrieval.codecompass_candidate_resolver import ResolverConfig
-
-        cfg = _current_config()
-        cfg.update(dict(retrieval_config_overrides or {}))
-        feature_flag = str(cfg.get("chat_retrieval_profile") or "auto").strip().lower()
-        if bool(cfg.get("chat_code_questions_repo_first")) and feature_flag == "auto":
-            feature_flag = "repo_first"
-        domain_hint = str(cfg.get("chat_retrieval_domain_hint") or "").strip() or None
-
-        profile = resolve_profile(question, cfg, domain_hint=domain_hint, feature_flag=feature_flag)
-        result["retrieval_profile"] = {
-            "profile_id": profile.profile_id,
-            "domain": profile.domain,
-            "intent": profile.intent,
-            "analysis_mode": profile.analysis_mode or "standard",
-            "feature_flag": profile.feature_flag,
-            "trigger_mode": str(cfg.get("chat_codecompass_trigger_mode") or "auto").strip().lower(),
-            "selected_by": profile.selected_by,
-            "reasons": list(profile.reasons),
-            "source_types": list(profile.source_types),
-            "source_type_weights": dict(profile.source_type_weights),
-            "negative_source_patterns": list(profile.negative_source_patterns),
-            "warnings": list(profile.warnings),
-        }
-
-        scope = ResolverConfig.from_env()
-        result["resolver_scope"] = {
-            "include_source": scope.include_source,
-            "include_test_paths": scope.include_test_paths,
-            "include_docs": scope.include_docs,
-            "include_workflows": scope.include_workflows,
-            "include_third_party": scope.include_third_party,
-            "include_xml_nodes": scope.include_xml_nodes,
-        }
-
-        try:
-            bundle, _ = get_rag_service().build_execution_context(
-                question,
-                task_kind="research",
-                retrieval_intent=profile.retrieval_intent or "chat_codecompass_overview",
-                source_types=profile.source_types or None,
-                max_chunks=max(8, min(top_k if top_k is not None else 40, 40)),
-                retrieval_profile=profile.as_dict(),
-            )
-            chunks = list(bundle.get("chunks") or [])
-            src_counts: dict[str, int] = {}
-            top_sources: list[dict[str, Any]] = []
-            for ch in chunks:
-                meta = dict((ch or {}).get("metadata") or {})
-                st = str(meta.get("source_type") or (ch or {}).get("engine") or "unknown").lower()
-                src_counts[st] = src_counts.get(st, 0) + 1
-                if len(top_sources) < 5:
-                    path = str(meta.get("file_path") or meta.get("path") or (ch or {}).get("path") or "").strip()
-                    score = float((ch or {}).get("score") or meta.get("score") or 0.0)
-                    if path:
-                        top_sources.append({"path": path, "source_type": st, "score": round(score, 3)})
-            result["candidate_counts"] = {
-                "total": len(chunks),
-                "by_source_type": src_counts,
-            }
-            result["top_sources"] = top_sources
-            result["degraded_channels"] = []
-        except Exception as exc:
-            result["retrieval_error"] = str(exc)[:200]
-            result["candidate_counts"] = {"total": 0, "by_source_type": {}}
-            result["top_sources"] = []
-            result["degraded_channels"] = [str(exc)[:120]]
-
-        q_lower = question.lower()
-        hints: list[str] = []
-        if any(w in q_lower for w in ("readme", "docs", "doku", "architektur", "todo", "notiz")) and not scope.include_docs:
-            hints.append("Tipp: docs/artifact deaktiviert \u2192 :config chat_retrieval_profile docs_first")
-        if any(w in q_lower for w in ("test", "spec", "pytest", "unittest")) and not scope.include_test_paths:
-            hints.append("Tipp: tests deaktiviert \u2192 ANANTA_CODECOMPASS_INCLUDE_TEST_PATHS=1 oder :config code_with_tests")
-        if any(w in q_lower for w in ("workflow", "blueprint", "ops", "runbook")) and not scope.include_workflows:
-            hints.append("Tipp: workflows deaktiviert \u2192 ANANTA_CODECOMPASS_INCLUDE_WORKFLOWS=1 oder :config ops")
-        result["preset_hints"] = hints
-
-    except Exception as exc:
-        result["error"] = str(exc)[:200]
-    return result
-
-
-def _chat_answer_chars_limit(default: int = 12000) -> int:
-    try:
-        from agent.routes.ai_snake_config import _current_config
-
-        return max(600, min(50000, int(_current_config().get("chat_answer_chars") or default)))
-    except Exception:
-        return default
-
-
-def _chat_never_truncate_answers(default: bool = True) -> bool:
-    try:
-        from agent.routes.ai_snake_config import _current_config
-
-        return _optional_bool(_current_config().get("chat_never_truncate_answers"), default=default)
-    except Exception:
-        return default
-
-
-def _answer_budget_instruction(limit: int, *, policy: str | None = None) -> str:
-    resolved_policy = _answer_overflow_policy(policy)
-    if resolved_policy == "allow":
-        return ""
-    action = "fasse aktiv zusammen" if resolved_policy == "summarize" else "halte die Antwort strikt kurz"
-    return (
-        f"Antwort-Budget: maximal {max(600, min(50000, int(limit or 0)))} Zeichen. "
-        f"Wenn die vollstaendige Antwort laenger waere, {action} statt mitten im Satz abzubrechen."
-    )
-
-
-def _with_answer_budget_instruction(prompt: str, limit: int, *, policy: str | None = None) -> str:
-    instruction = _answer_budget_instruction(limit, policy=policy)
-    if not instruction:
-        return prompt
-    return f"{prompt}\n\n{instruction}"
-
-
-def _fit_answer_to_chars(
-    text: str,
-    *,
-    limit: int,
-    provider: str,
-    model: str | None,
-    timeout: int = 60,
-    overflow_policy: str | None = None,
-    never_truncate: bool | None = None,
-) -> str:
-    value = str(text or "").strip()
-    safe_limit = max(600, min(50000, int(limit or 0)))
-    if len(value) <= safe_limit:
-        return value
-    policy = _answer_overflow_policy(overflow_policy)
-    if policy == "allow":
-        return value
-    if policy == "truncate":
-        marker = "\n\n[gekuerzt]"
-        return value[: max(0, safe_limit - len(marker))].rstrip() + marker
-
-    compress_prompt = (
-        "Verdichte die folgende Antwort, ohne neue Fakten zu erfinden.\n"
-        f"Ziel: maximal {safe_limit} Zeichen.\n"
-        "Bewahre die wichtigen konkreten Aussagen, Dateinamen, Begriffe und Entscheidungen.\n"
-        "Antworte auf Deutsch und gib nur die verdichtete Antwort aus.\n\n"
-        "Antwort:\n"
-        f"{value}"
-    )
-    try:
-        max_output_tokens = max(200, min(8000, safe_limit // 3))
-        compressed = generate_text(
-            prompt=compress_prompt,
-            provider=provider,
-            model=model,
-            max_output_tokens=max_output_tokens,
-            timeout=max(10, min(int(timeout or 60), 120)),
-        )
-        compressed_text = str(compressed or "").strip()
-        if compressed_text and len(compressed_text) <= safe_limit:
-            return compressed_text
-        if compressed_text:
-            value = compressed_text
-    except Exception:
-        pass
-
-    if (never_truncate if never_truncate is not None else _chat_never_truncate_answers()):
-        return value
-
-    marker = "\n\n[gekuerzt]"
-    return value[: max(0, safe_limit - len(marker))].rstrip() + marker
-
-
-def _append_room_ai_message(*, text: str, session_id: str = "", visibility: str = "room",
-                            sender_id: str = "ai-snake", ui_snapshot: str = "") -> None:
-    if not text:
-        return
-    msg: dict[str, Any] = {
-        "id": str(uuid.uuid4()),
-        "created_at": time.time(),
-        "channel_id": "room:main",
-        "channel_type": "room",
-        "sender_id": sender_id,
-        "sender_kind": "assistant" if sender_id == "ai-snake" else "system",
-        "target_ids": [],
-        "text": text,
-        "visibility": visibility,
-        "delivery_state": "received",
-        "policy_decision_ref": None,
-        "session_id": session_id,
-    }
-    if ui_snapshot:
-        msg["ui_snapshot"] = ui_snapshot[:500]
-    global _room_messages
-    _room_messages.append(msg)
-    if len(_room_messages) > _MAX_ROOM_MSGS:
-        _room_messages = _room_messages[-_MAX_ROOM_MSGS:]
-
-
-# ── Visual snake session (ananta-visual) ───────────────────────────────────────
-# VG-003: Per-snake state lives in agent.services.visual_guide.service._visual_state.
-# We re-export it here for backward compat with tests/monkeypatches that reference
-# _visual_state via this module.  The dict object is shared — mutations are reflected
-# in both places because Python dicts are reference types.
-def _get_visual_state_ref() -> dict:
-    """Lazy accessor that avoids a circular import at module init time."""
-    from agent.services.visual_guide.service import _visual_state as _vs
-    return _vs
-
-_VISUAL_THROTTLE_S: float = 25.0  # minimum seconds between visual replies
-_VISUAL_SESSION_ID: str = "ananta-visual"  # tag for messages belonging to the visual snake session
-
-# VG-053: ThreadPoolExecutor replaces daemon threads for visual guide calls
-_VISUAL_GUIDE_EXECUTOR = ThreadPoolExecutor(max_workers=4, thread_name_prefix="visual-guide")
-
-
-def _visual_session_settings() -> dict:
-    """Read all predictive_guide_* settings from the ananta-visual session.
-
-    Falls back to _DEFAULT_SESSION_SETTINGS values when the session is missing
-    or a key is absent. Same read-path as _visual_session_log_deltas_only so
-    conftest monkeypatches on get_manager are picked up automatically."""
-    from client_surfaces.operator_tui.config.user_config_manager import get_manager
-    from client_surfaces.operator_tui.chat_state import _DEFAULT_SESSION_SETTINGS
-    defaults = {k: v for k, v in _DEFAULT_SESSION_SETTINGS.items() if k.startswith("predictive_guide_")}
-    try:
-        sessions = get_manager().load().get("chat_sessions") or []
-        sess = next(
-            (s for s in sessions if str(s.get("id") or "") == _VISUAL_SESSION_ID),
-            None,
-        )
-        stored = dict((sess or {}).get("settings") or {})
-        return {**defaults, **{k: v for k, v in stored.items() if k in defaults}}
-    except Exception:
-        return defaults
-
-
-def _visual_session_log_deltas_only() -> bool:
-    return bool(_visual_session_settings().get("predictive_guide_log_deltas_only", True))
-
-
-def _append_visual_user_tick(*, ui_snapshot: str, snake_id: str = "") -> None:
-    """Persist the incoming UI snapshot as a system message in the ananta-visual session
-    so the user can later review what the visual snake observed.
-
-    When the session has predictive_guide_log_deltas_only=True, also append
-    a [ui-delta] system message containing the human-readable diff between
-    the previous and current snapshot.
-
-    VG-003: snake_id scopes the delta_snapshot state per-snake."""
-    text = f"[ui-tick] {ui_snapshot}" if ui_snapshot else "[ui-tick] (leer)"
-    _append_room_ai_message(
-        text=text,
-        session_id=_VISUAL_SESSION_ID,
-        visibility="system",
-        sender_id="browser",
-        ui_snapshot=ui_snapshot,
-    )
-    # ── Delta log (optional, opt-in via session setting) ──────────────────
-    if not ui_snapshot:
-        return
-    log_deltas = _visual_session_log_deltas_only()
-    if log_deltas:
-        # Per-snake delta baseline (VG-003)
-        from agent.services.visual_guide.service import _get_visual_state
-        state = _get_visual_state(snake_id) if snake_id else None
-        prev_delta = (state["delta_snapshot"] if state else "") or ""
-        try:
-            from agent.services.snapshot_delta import diff_snapshots
-            delta = diff_snapshots(prev_delta, ui_snapshot)
-            if not delta.is_empty():
-                delta_text = f"[ui-delta] {delta.as_compact_text()}"
-                _append_room_ai_message(
-                    text=delta_text,
-                    session_id=_VISUAL_SESSION_ID,
-                    visibility="system",
-                    sender_id="browser",
-                )
-        except Exception as exc:  # never let the delta path break the raw tick
-            logging.getLogger(__name__).debug("ananta-visual delta log failed: %s", exc)
-    # Update per-snake delta baseline — separate from reply-throttle key
-    if snake_id:
-        from agent.services.visual_guide.service import _get_visual_state
-        state = _get_visual_state(snake_id)
-        state["delta_snapshot"] = ui_snapshot
-        state["updated_at"] = time.time()
-
-
-def _spawn_visual_reply(ui_snapshot: str, snake_id: str = "") -> None:
-    """Background: generate a proactive guide response for the visual snake session.
-
-    VG-003: snake_id scopes reply throttle state per-snake.
-    VG-010/011: delegates to VisualGuideService which uses ModelInvocationService.
-
-    When predictive_guide_enabled is False the call is a no-op.
-    When predictive_guide_multi_candidates > 1 the LLM is asked to produce
-    N alternative guide sequences and the answer is stored as:
-        <primary bubble text>
-        __CANDIDATES__: [{"label":"primary","bubble":"...","steps":[...]}, ...]
-    Single-candidate mode keeps the legacy __GUIDE__: format."""
-    from agent.services.visual_guide.service import _visual_guide_service
-    _visual_guide_service.handle_ui_tick(
-        snake_id=snake_id,
-        ui_snapshot=ui_snapshot,
-        route="",
-        visible_waypoints=[],
-    )
-
-
-def _spawn_region_explain_reply(region_steps: list[dict], route: str, snake_id: str = "") -> None:
-    """Background: generate AI explanations for each element the user selected.
-
-    VG-010/011: delegates to VisualGuideService which uses ModelInvocationService.
-    Builds a __GUIDE__: response with the original pixel coordinates from
-    region_steps and AI-generated bubble texts, so the client can play
-    the guide with real explanations instead of raw element labels."""
-    from agent.services.visual_guide.service import _visual_guide_service
-    _visual_guide_service.handle_region_explain(
-        snake_id=snake_id,
-        region_steps=region_steps,
-        route=route,
-    )
-
-
-def _build_room_conversation_history(
-    *,
-    snake_id: str | None,
-    current_text: str,
-    session_id: str = "",
-    max_messages: int = 8,
-) -> list[dict[str, str]]:
-    """Return recent room messages before the current user turn for LLM history."""
-    current = str(current_text or "").strip()
-    requested_session_id = str(session_id or "").strip()
-    current_idx: int | None = None
-    for idx in range(len(_room_messages) - 1, -1, -1):
-        msg = _room_messages[idx]
-        if requested_session_id and str(msg.get("session_id") or "") != requested_session_id:
-            continue
-        if (
-            str(msg.get("sender_id") or "") == str(snake_id or "")
-            and str(msg.get("sender_kind") or "") == "user"
-            and str(msg.get("text") or "").strip() == current
-        ):
-            current_idx = idx
-            break
-
-    prior_messages = _room_messages[:current_idx] if current_idx is not None else list(_room_messages)
-    if requested_session_id:
-        prior_messages = [
-            msg for msg in prior_messages
-            if str(msg.get("session_id") or "") == requested_session_id
-        ]
-    history: list[dict[str, str]] = []
-    for msg in prior_messages[-max(1, int(max_messages)) :]:
-        text = str(msg.get("text") or "").strip()
-        if not text:
-            continue
-        sender_id = str(msg.get("sender_id") or "")
-        sender_kind = str(msg.get("sender_kind") or "")
-        role = "assistant" if sender_kind == "assistant" or sender_id == "ai-snake" else "user"
-        history.append({"role": role, "content": text[:2000]})
-    return history
-
-
-from .snakes_full_scan import _SCAN_CANCELS as _FULL_SCAN_CANCELS
-from .snakes_full_scan import worker_chat_full_scan as _worker_chat_full_scan
-from .snakes_rag_iterative import worker_chat_rag_iterative as _worker_chat_rag_iterative
-
-
-def _trace_feature_enabled() -> bool:
-    try:
-        from agent.routes.ai_snake_config import _current_config
-        cfg = _current_config()
-        return bool(cfg.get("ai_snake_trace_enabled", True))
-    except Exception:
-        return True
-
-
-# ── Ananta-Settings guided tour ───────────────────────────────────────────────
-
-def _ensure_ui_guide(force: bool = False) -> str:
-    """Return the UI guide markdown, generating/refreshing as needed."""
-    try:
-        from agent.routes.snakes_ananta_config_tool_loop import ensure_ui_guide
-        return ensure_ui_guide(force=force)
-    except Exception as exc:
-        logging.getLogger(__name__).warning("UI guide unavailable: %s", exc)
-        return ""
-
-
-def _read_ananta_settings_summary() -> str:
-    """Return current live settings + the UI guide (generated on demand)."""
-    parts: list[str] = []
-    try:
-        from client_surfaces.operator_tui.config.user_config_manager import get_manager
-        s = get_manager().load()
-        active_sid = str(s.get("chat_active_session_id") or "")
-        sessions = s.get("chat_sessions") or []
-        active_sess = next((x for x in sessions if str(x.get("id") or "") == active_sid), None)
-        sess_cfg = (active_sess or {}).get("settings") or {}
-        backend = str(sess_cfg.get("chat_backend") or s.get("chat_backend") or "unbekannt")
-        model = str(sess_cfg.get("chat_backend_model") or s.get("chat_backend_model") or "unbekannt")
-        cc_on = bool(sess_cfg.get("chat_use_codecompass", s.get("chat_use_codecompass")))
-        profile = sess_cfg.get("chat_retrieval_profile") or s.get("chat_retrieval_profile") or "auto"
-
-        sess_lines = []
-        for sx in sessions:
-            sid = str(sx.get("id") or "")
-            sname = str(sx.get("name") or sid)
-            scfg = sx.get("settings") or {}
-            sb = str(scfg.get("chat_backend") or "")
-            sm = str(scfg.get("chat_backend_model") or "")
-            sess_lines.append(f"  - {sname} ({sid}): backend={sb or '(global)'} model={sm or '(global)'}")
-
-        parts.append("\n".join([
-            "## Aktuelle Ananta-Einstellungen (live)",
-            f"- Aktive Session: {active_sid or '(keine)'}",
-            f"- Standard-Backend: {backend}",
-            f"- Standard-Modell: {model}",
-            f"- CodeCompass: {'an' if cc_on else 'aus'}",
-            f"- Retrieval-Profil: {profile}",
-            f"- Konfigurierte Chat-Sessions ({len(sessions)}):",
-            *sess_lines,
-        ]))
-    except Exception as exc:
-        parts.append(f"(Live-Einstellungen nicht lesbar: {exc})")
-
-    guide = _ensure_ui_guide()
-    if guide:
-        parts.append(guide)
-
-    return "\n\n".join(parts)
-
-
-_ANANTA_UI_GUIDE_MAP: list[tuple[list[str], list[dict]]] = [
-    (
-        ["pair", "pair dev", "pair-dev", "pairdev", "pari", "pari-dev", "pairing", "share session", "share-session", "zusammen", "kollaboration"],
-        [
-            {"waypoint": "assistant.snake-chat-btn", "bubble": "'Snake Chat' öffnen (💬 unten rechts)", "delay_ms": 3000},
-            {"waypoint": "assistant.tab-pair-dev", "bubble": "Tab 'Pair Dev' wählen", "delay_ms": 3000},
-            {"waypoint": "snake.tab-pair", "bubble": "Hier Pair-Dev-Session starten oder beitreten", "delay_ms": 4000},
-        ],
-    ),
-    (
-        ["chat session", "neue session", "new session", "konversation anlegen", "chat anlegen"],
-        [
-            {"waypoint": "nav./chats", "bubble": "Zum Bereich 'AI Chats' navigieren", "delay_ms": 2500},
-            {"waypoint": "chat.new-session", "bubble": "Mit '+' neue Chat-Session anlegen", "delay_ms": 3000},
-            {"waypoint": "chat.settings-tab", "bubble": "Tab 'Einstellungen' öffnen", "delay_ms": 3000},
-            {"waypoint": "chat.backend-select", "bubble": "Hier Backend auswählen (z.B. ananta-worker)", "delay_ms": 3500},
-            {"waypoint": "chat.system-prompt", "bubble": "System-Prompt für diese Session eingeben", "delay_ms": 4000},
-        ],
-    ),
-    (
-        ["modell", "model", "provider", "llm", "openai", "lmstudio", "hermes", "backend wechseln", "backend ändern"],
-        [
-            {"waypoint": "nav./chats", "bubble": "Zum Chat-Bereich navigieren", "delay_ms": 2000},
-            {"waypoint": "chat.settings-tab", "bubble": "Einstellungen der aktiven Session öffnen", "delay_ms": 3000},
-            {"waypoint": "chat.backend-select", "bubble": "Hier Backend/Modell für die Session wechseln", "delay_ms": 4000},
-        ],
-    ),
-    (
-        ["worker", "agent", "worker pool", "workerpool"],
-        [
-            {"waypoint": "cc.workers", "bubble": "Control Center → Workers öffnen", "delay_ms": 3500},
-        ],
-    ),
-    (
-        ["blueprint erstell", "blueprint anleg", "neues blueprint", "blueprint creat", "blueprint bau"],
-        [
-            {"waypoint": "nav./teams", "bubble": "Navigiere zu 'Teams & Blueprints' im Menü", "delay_ms": 3000},
-            {"waypoint": "teams.tab-blueprints", "bubble": "Tab 'Blueprints' öffnen", "delay_ms": 2500},
-            {"waypoint": "teams.blueprint-catalog", "bubble": "Hier siehst du den Blueprint-Katalog — wähle einen aus oder erstelle einen neuen", "delay_ms": 4000},
-        ],
-    ),
-    (
-        ["blueprint", "vorlage"],
-        [
-            {"waypoint": "nav./teams", "bubble": "Blueprints findest du unter 'Teams & Blueprints'", "delay_ms": 3000},
-            {"waypoint": "teams.tab-blueprints", "bubble": "Tab 'Blueprints' öffnen", "delay_ms": 3000},
-        ],
-    ),
-    (
-        ["policy", "richtlinie", "approval", "genehmigung", "freigabe"],
-        [
-            {"waypoint": "cc.policies", "bubble": "Control Center → Policy-Genehmigungen öffnen", "delay_ms": 3000},
-        ],
-    ),
-    (
-        ["codecompass", "rag", "retrieval", "code compass"],
-        [
-            {"waypoint": "cc.codecompass", "bubble": "Control Center → CodeCompass-Verwaltung öffnen", "delay_ms": 3000},
-            {"waypoint": "chat.retrieval-profile", "bubble": "Retrieval-Profil in Session-Einstellungen", "delay_ms": 3500},
-        ],
-    ),
-    (
-        ["einstellungen", "settings", "konfigurieren", "konfiguration", "einrichten", "setup"],
-        [
-            {"waypoint": "assistant.snake-chat-btn", "bubble": "'Snake Chat' öffnen (💬 unten rechts)", "delay_ms": 2500},
-            {"waypoint": "assistant.tab-settings", "bubble": "Tab 'Einstellungen' öffnen", "delay_ms": 3000},
-            {"waypoint": "snake.tab-settings", "bubble": "Hier Snake-Chat-Einstellungen anpassen", "delay_ms": 3500},
-        ],
-    ),
-]
-
-
-def _build_ui_guide(prompt: str) -> dict | None:
-    """Return a guide dict for the UI if the prompt matches a known topic."""
-    q = str(prompt or "").lower()
-    for keywords, steps in _ANANTA_UI_GUIDE_MAP:
-        if any(kw in q for kw in keywords):
-            return {"steps": steps}
-    return None
-
-
-def _should_include_light_ui_context(
-    *,
-    active_session_id: str,
-    active_session_group: str = "",
-    active_session_settings: dict[str, Any] | None = None,
-) -> bool:
-    """Whether a normal chat session should receive the lightweight UI hint."""
-    sid = str(active_session_id or "").strip()
-    if not sid or sid in {"ananta-settings", "ananta-visual"}:
-        return False
-    settings = dict(active_session_settings or {})
-    if settings.get("chat_include_ui_context") is False:
-        return False
-    if str(active_session_group or "").strip().lower() == "architektur":
-        return False
-    return True
 
 
 def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_context: dict | None = None, client_session_id: str = "") -> None:
@@ -1000,7 +190,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
                 store = get_trace_store()
                 trace_id = store.new_trace(snake_id=snake_id)
                 rec = TraceRecorder(store, trace_id, max_preview_chars=_max_preview)
-                _prompt_preview = prompt[:120] + ("\u2026" if len(prompt) > 120 else "")
+                _prompt_preview = prompt[:120] + ("…" if len(prompt) > 120 else "")
                 rec.event(
                     "request_received", "Anfrage empfangen",
                     status="completed",
@@ -1293,7 +483,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
                 logging.getLogger(__name__).debug("full_scan check failed, falling back: %s", exc)
 
             if rec:
-                rec.event("retrieval_profile_selected", "Retrieval-Profil wird aufgel\u00f6st", status="running",
+                rec.event("retrieval_profile_selected", "Retrieval-Profil wird aufgelöst", status="running",
                           input_preview=prompt)
 
             retrieval_start = time.time()
@@ -1326,14 +516,14 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
             q = prompt.lower()
             asks_for_concrete_local_facts = any(
                 token in q for token in (
-                    "konkret", "datei", "dateien", "artefakt", "artefakte", "welche", "verfuegbar", "verf\u00fcgbar"
+                    "konkret", "datei", "dateien", "artefakt", "artefakte", "welche", "verfuegbar", "verfügbar"
                 )
             )
                         # Skip the "no-context" short-circuit for ananta-settings (it intentionally has no RAG)
             if asks_for_concrete_local_facts and not has_context and _active_session_id != "ananta-settings":
                 if rec:
                     rec.event("answer_postprocessed", "Anfrage ohne Kontext abgebrochen", status="skipped",
-                              summary="Kein Kontext verf\u00fcgbar f\u00fcr konkrete Fragen")
+                              summary="Kein Kontext verfügbar für konkrete Fragen")
                 _append_room_ai_message(text=f"Unklar, bitte Kontext pruefen.\n\n[{context_summary}]", session_id=_active_session_id)
                 if rec:
                     rec.event("chat_message_written", "Hinweis in Raum geschrieben", status="completed")
@@ -1396,7 +586,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
 
             if rec:
                 rec.event("answer_postprocessed", "Antwort aufbereitet", status="completed",
-                          summary=f"{len(text)} Zeichen, Kontext angeh\u00e4ngt")
+                          summary=f"{len(text)} Zeichen, Kontext angehängt")
 
             _append_room_ai_message(text=f"{text}{_guide_suffix}", session_id=_active_session_id)
 
@@ -1420,158 +610,6 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
     thread.start()
 
 
-def _auth_token(snake_id: str) -> str | None:
-    """Extract Bearer token from Authorization header. Returns None if missing."""
-    auth = request.headers.get("Authorization", "")
-    if auth.startswith("Bearer "):
-        return auth[7:].strip()
-    return None
-
-
-def _verify_token(snake_id: str) -> bool:
-    snake = _snakes.get(snake_id)
-    if not snake or not snake.get("active"):
-        return False
-    token = _auth_token(snake_id)
-    return token is not None and secrets.compare_digest(str(snake.get("token") or ""), token)
-
-
-def _pick_worker_for_ask() -> tuple[str, str | None]:
-    """Return (worker_url, token) for the first online worker, or ("", None)."""
-    try:
-        from agent.services.agent_registry_service import get_agent_registry_service
-        from agent.services.repository_registry import get_repository_registry
-
-        agents = get_agent_registry_service().get_online_agents()
-        if not agents:
-            return "", None
-        agent = agents[0]
-        worker_url = str(getattr(agent, "url", "") or "").strip()
-        if not worker_url:
-            return "", None
-        token: str | None = None
-        try:
-            db_agent = get_repository_registry().agent_repo.get_by_url(worker_url)
-            token = str(getattr(db_agent, "token", "") or "").strip() or None
-        except Exception:
-            pass
-        return worker_url, token
-    except Exception:
-        return "", None
-
-
-def _resolve_lmstudio_model_for_worker(configured: str | None) -> str | None:
-    """Resolve an actual LMStudio model ID, bypassing smoke/placeholder names."""
-    try:
-        from agent.llm_integration import _list_lmstudio_candidates, _select_best_lmstudio_model, _prepare_lmstudio_history
-        from agent.config import settings as _s
-
-        base_url = str(getattr(_s, "lmstudio_url", "") or "").rstrip("/")
-        if not base_url:
-            return configured
-        candidates = _list_lmstudio_candidates(base_url, timeout=5)
-        if not candidates:
-            return configured
-        if configured and "smoke" not in configured.lower() and "ananta" not in configured.lower():
-            from agent.llm_integration import _find_matching_lmstudio_candidate
-            matched = _find_matching_lmstudio_candidate(configured, candidates)
-            if matched:
-                return str(matched.get("id") or configured)
-        history = _prepare_lmstudio_history(candidates)
-        best = _select_best_lmstudio_model(candidates, history)
-        return str((best or candidates[0]).get("id") or "")
-    except Exception:
-        return configured
-
-
-def _worker_propose(
-    grounded_prompt: str,
-    model: str | None,
-    *,
-    provider: str = "lmstudio",
-    limits: SnakeAskLimits | None = None,
-    retrieval_profile_trace: dict[str, Any] | None = None,
-) -> tuple[str, dict[str, Any]]:
-    """Forward prompt to worker /step/propose. Returns (answer, trace)."""
-    from agent.services.task_runtime_service import forward_to_worker
-
-    effective_limits = limits or SnakeAskLimits()
-    trace: dict[str, Any] = {}
-    worker_url, token = _pick_worker_for_ask()
-    trace["worker_url"] = worker_url
-    if not worker_url:
-        trace["error"] = "no_online_worker"
-        return "", trace
-
-    resolved_model = _resolve_lmstudio_model_for_worker(model)
-    trace["model_requested"] = model
-    trace["model_resolved"] = resolved_model
-    payload: dict[str, Any] = {
-        "prompt": grounded_prompt,
-        "provider": provider,
-        "temperature": 0.3,
-        "max_context_chars": effective_limits.context_chars,
-        "answer_chars": effective_limits.answer_chars,
-        "answer_overflow_policy": effective_limits.answer_overflow_policy,
-        "never_truncate_answers": effective_limits.never_truncate_answers,
-    }
-    if resolved_model:
-        payload["model"] = resolved_model
-    if effective_limits.max_tokens is not None:
-        payload["max_tokens"] = effective_limits.max_tokens
-    trace["prompt_chars"] = len(grounded_prompt)
-    trace["prompt_preview"] = grounded_prompt[:300]
-    trace["limits"] = {
-        "context_chars": effective_limits.context_chars,
-        "answer_chars": effective_limits.answer_chars,
-        "max_tokens": effective_limits.max_tokens,
-        "rag_top_k": effective_limits.rag_top_k,
-        "answer_overflow_policy": effective_limits.answer_overflow_policy,
-        "never_truncate_answers": effective_limits.never_truncate_answers,
-    }
-    if retrieval_profile_trace:
-        analysis_mode = str(retrieval_profile_trace.get("analysis_mode") or "standard")
-        trace["full_scan"] = {
-            "status": "delegated_to_worker" if analysis_mode == "architecture_full_scan" else "not_requested",
-            "analysis_mode": analysis_mode,
-            "profile_id": retrieval_profile_trace.get("profile_id"),
-            "output_intent": retrieval_profile_trace.get("output_intent"),
-            "coverage_policy": retrieval_profile_trace.get("coverage_policy"),
-            "plan_id": None,
-            "artifact_paths": {},
-        }
-
-    try:
-        result = forward_to_worker(worker_url, "/step/propose", payload, token=token)
-        if result is None and token:
-            result = forward_to_worker(worker_url, "/step/propose", payload, token=None)
-    except Exception as exc:
-        logging.getLogger(__name__).debug("snake-ask worker forward failed: %s", exc)
-        trace["error"] = str(exc)[:120]
-        return "", trace
-
-    trace["worker_raw_response"] = str(result)[:500] if result else None
-    if not isinstance(result, dict):
-        trace["error"] = "non_dict_response"
-        return "", trace
-    data = result.get("data") if isinstance(result.get("data"), dict) else result
-    if not isinstance(data, dict):
-        trace["error"] = "no_data_field"
-        return "", trace
-    text = str(data.get("reason") or data.get("raw") or data.get("answer") or "").strip()
-    text = _fit_answer_to_chars(
-        text,
-        limit=effective_limits.answer_chars,
-        provider=provider,
-        model=resolved_model,
-        timeout=min(int(getattr(settings, "http_timeout", 120) or 120), 180),
-        overflow_policy=effective_limits.answer_overflow_policy,
-        never_truncate=effective_limits.never_truncate_answers,
-    )
-    trace["answer_chars"] = len(text)
-    return text, trace
-
-
 # ── Route endpoints ────────────────────────────────────────────────────────────
 
 
@@ -1579,7 +617,7 @@ def _worker_propose(
 def chat_send(snake_id: str):
     """POST /snakes/<id>/chat/messages -- ChatMessage-v1 senden."""
     if not _verify_token(snake_id):
-        return jsonify({"error": "Ung\u00fcltiger Token"}), 401
+        return jsonify({"error": "Ungültiger Token"}), 401
     auth = _optional_user_auth()
     if not auth and not _is_local_request():
         return jsonify({"error": "oidc_login_required_or_local_dev_only"}), 401
@@ -1647,7 +685,7 @@ def chat_send(snake_id: str):
         return jsonify({"ok": True, "id": str(body.get("id") or "")}), 202
 
     if channel_type not in _VALID_CHANNEL_TYPES:
-        return jsonify({"error": f"ung\u00fcltiger channel_type: {channel_type}"}), 422
+        return jsonify({"error": f"ungültiger channel_type: {channel_type}"}), 422
 
     # Backend-side guard: ananta-visual is a read-only log.
     # Only browser-side [ui-tick] and [region-explain] system messages are allowed.
@@ -1683,7 +721,7 @@ def chat_send(snake_id: str):
     elif channel_type == "direct":
         target_ids = msg["target_ids"]
         if not target_ids:
-            return jsonify({"error": "target_ids erforderlich f\u00fcr direct"}), 422
+            return jsonify({"error": "target_ids erforderlich für direct"}), 422
         target_id = str(target_ids[0])
         if target_id not in _snakes:
             return jsonify({"error": f"Ziel-Snake unbekannt: {target_id}"}), 422
@@ -1694,7 +732,7 @@ def chat_send(snake_id: str):
             if len(inbox) > _MAX_CHAT_MSGS:
                 _chat_messages[target_id] = inbox[-_MAX_CHAT_MSGS:]
     else:
-        return jsonify({"error": f"channel_type {channel_type} nicht unterst\u00fctzt"}), 422
+        return jsonify({"error": f"channel_type {channel_type} nicht unterstützt"}), 422
 
     return jsonify({"ok": True, "id": msg["id"]}), 202
 
@@ -1736,7 +774,7 @@ def chat_receive(snake_id: str):
 def chat_cancel(snake_id: str):
     """POST /snakes/<id>/chat/cancel -- Laufenden AI-Snake-Chat abbrechen."""
     if not _verify_token(snake_id):
-        return jsonify({"error": "Ung\u00fcltiger Token"}), 401
+        return jsonify({"error": "Ungültiger Token"}), 401
     keys = ("room", "snake_ask", snake_id)
     cancelled_keys = cancel_chat(keys)
     legacy_cancelled = False
@@ -1754,9 +792,9 @@ def chat_cancel(snake_id: str):
 
 @snakes_bp.route("/snakes/<snake_id>/chat/ack", methods=["POST"])
 def chat_ack(snake_id: str):
-    """POST /snakes/<id>/chat/ack -- Gelesene Nachrichten best\u00e4tigen."""
+    """POST /snakes/<id>/chat/ack -- Gelesene Nachrichten bestätigen."""
     if not _verify_token(snake_id):
-        return jsonify({"error": "Ung\u00fcltiger Token"}), 401
+        return jsonify({"error": "Ungültiger Token"}), 401
     body: dict[str, Any] = request.get_json(force=True, silent=True) or {}
     message_ids: list[str] = [str(i) for i in (body.get("message_ids") or [])]
     return jsonify({"ok": True, "acked": len(message_ids)}), 200
@@ -1806,7 +844,7 @@ def snake_events_stream(snake_id: str):
 def snake_ui_state_push(snake_id: str):
     """PUT /snakes/<id>/ui-state -- aktuellen UI-Zustand des Browsers speichern."""
     if not _verify_token(snake_id):
-        return jsonify({"error": "Ung\u00fcltiger Token"}), 401
+        return jsonify({"error": "Ungültiger Token"}), 401
     body: dict[str, Any] = request.get_json(force=True, silent=True) or {}
     route = str(body.get("route") or "").strip()
     visible_waypoints = [str(w) for w in (body.get("visible_waypoints") or []) if w][:30]
@@ -1901,12 +939,12 @@ def worker_context():
 
 @snakes_bp.route("/snake/ask", methods=["POST"])
 def snake_ask():
-    """POST /snake/ask -- Synchrone AI-Antwort f\u00fcr den TUI ananta-worker Modus.
+    """POST /snake/ask -- Synchrone AI-Antwort für den TUI ananta-worker Modus.
 
     Akzeptiert v1 ({question, context, depth}) und v2 ({question, context, depth, memory_context}).
-    Optionales Feld "debug": true gibt trace-Infos zur\u00fcck.
-    Antwortet mit {"answer": "..."}. Routet \u00fcber einen registrierten Worker-Prozess;
-    f\u00e4llt auf direkten LMStudio-Aufruf zur\u00fcck falls kein Worker verf\u00fcgbar.
+    Optionales Feld "debug": true gibt trace-Infos zurück.
+    Antwortet mit {"answer": "..."}. Routet über einen registrierten Worker-Prozess;
+    fällt auf direkten LMStudio-Aufruf zurück falls kein Worker verfügbar.
     """
     if not _is_local_request():
         auth = _optional_user_auth()
