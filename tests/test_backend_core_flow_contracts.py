@@ -1,11 +1,39 @@
+import pytest
+from uuid import uuid4
+
 from agent.db_models import AgentInfoDB, GoalDB, TaskDB
 from agent.repository import agent_repo, goal_repo, policy_decision_repo, task_repo, verification_record_repo
 
+# This file exercises the full POST /goals -> auto_planner.plan_goal ->
+# task-create -> claim -> complete -> verification chain. It starts real
+# background planning threads whose outer_planning_timeout_s safety-net is
+# sized for production invokes (default 645s). It is therefore an
+# integration test, not a unit test — see conftest.py for the opt-in
+# RUN_INTEGRATION_TESTS=1 mechanism and the fast-fail timeout brake.
+pytestmark = pytest.mark.integration
+
 
 def test_goal_task_delegation_completion_backend_flow_stays_consistent(client, admin_auth_header, monkeypatch):
+    def fake_impl(*, goal_id: str, context: dict) -> None:
+        goal = goal_repo.get_by_id(goal_id)
+        if goal is None:
+            return
+        task_repo.save(
+            TaskDB(
+                id=f"core-flow-{uuid4().hex[:12]}",
+                title="Implement backend flow",
+                description="Wire task completion",
+                priority="High",
+                status="todo",
+                task_kind="coding",
+                goal_id=goal.id,
+                goal_trace_id=goal.trace_id,
+            )
+        )
+
     monkeypatch.setattr(
-        "agent.routes.tasks.auto_planner.generate_text",
-        lambda **_kwargs: '[{"title":"Implement backend flow","description":"Wire task completion","priority":"High"}]',
+        "agent.routes.tasks.goals_planning_routes._run_goal_planning_background_impl",
+        fake_impl,
     )
     create = client.post("/goals", headers=admin_auth_header, json={"goal": "Ship backend flow"})
     assert create.status_code == 201
