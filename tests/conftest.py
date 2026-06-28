@@ -38,6 +38,61 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(skip_manual_full_scan)
 
 
+_INTEGRATION_OPT_IN_ENV = "RUN_INTEGRATION_TESTS"
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_runtest_setup(item):
+    """Skip integration-marked tests unless RUN_INTEGRATION_TESTS is set.
+
+    Integration tests in this repo exercise the full planning/worker/claim
+    chain and rely on background threads with production-sized safety-net
+    timeouts (outer_planning_timeout_s default 645s). They MUST NOT run in
+    the default `pytest` invocation — a single one stalls the suite for
+    ~10 minutes. Opt-in via `RUN_INTEGRATION_TESTS=1`.
+
+    Parallel pattern to the manual_full_scan skip above.
+    """
+    if "integration" not in item.keywords:
+        return
+    if str(os.environ.get(_INTEGRATION_OPT_IN_ENV) or "").strip().lower() in {"1", "true", "yes", "on"}:
+        return
+    pytest.skip(
+        f"integration test requires {_INTEGRATION_OPT_IN_ENV}=1 (default pytest runs skip integration tests to keep suite fast)"
+    )
+
+
+@pytest.fixture(autouse=True)
+def _integration_planning_timeout_brake(request, app, monkeypatch):
+    """Cap planning_policy timeouts for integration tests.
+
+    Even with the opt-in gate above, integration tests that start a real
+    planning invoke should fail fast instead of waiting 10+ minutes on the
+    production safety-net. The handler reads timeouts from
+    `current_app.config["AGENT_CONFIG"]["planning_policy"]`, so we shrink
+    that dict before the request fires.
+
+    The handler applies a floor of max(30, timeout_seconds) on execute and
+    max(10, queue_wait_timeout_seconds) on queue-wait
+    (goals_planning_routes.py:297-298). Our 5s becomes 30s after the
+    floor, the outer timeout becomes 30 + 45 = 75s. That's still ~8x
+    faster than the 645s default and short enough that a single stuck
+    test cannot kill the whole suite.
+
+    Only fires for integration-marked tests. Other tests are untouched.
+    """
+    if "integration" not in request.keywords:
+        return
+    with app.app_context():
+        cfg = dict(app.config.get("AGENT_CONFIG") or {})
+        planning_policy = dict(cfg.get("planning_policy") or {})
+        planning_policy["timeout_seconds"] = 5
+        planning_policy["queue_wait_timeout_seconds"] = 5
+        cfg["planning_policy"] = planning_policy
+        app.config["AGENT_CONFIG"] = cfg
+        yield
+
+
 def _settings():
     from agent.config import settings
 
