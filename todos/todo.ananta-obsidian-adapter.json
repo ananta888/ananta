@@ -1,0 +1,292 @@
+{
+  "project": "ananta-obsidian-adapter",
+  "goal": "Obsidian Vault als Markdown-Wissensbasis in ANANTA/CodeCompass integrieren",
+  "status": "planned",
+  "priority": "high",
+  "principles": [
+    "Obsidian bleibt UI und Wissenseditor",
+    "ANANTA bleibt Orchestrierung, Policy und Agentensteuerung",
+    "CodeCompass bleibt RAG- und Kontext-Fassade",
+    "Keine Obsidian-Neuimplementierung",
+    "Nur erlaubte Semantiken übernehmen, Rest ignorieren"
+  ],
+  "epics": [
+    {
+      "id": "OBS-001",
+      "title": "Vault Discovery",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "OBS-001-001",
+          "title": "Konfigurierbaren Vault-Pfad einführen",
+          "type": "config",
+          "done": false
+        },
+        {
+          "id": "OBS-001-002",
+          "title": "Markdown-Dateien rekursiv scannen",
+          "type": "implementation",
+          "done": false
+        },
+        {
+          "id": "OBS-001-003",
+          "title": "Excludes definieren: .obsidian/cache, .git, assets optional",
+          "type": "implementation",
+          "done": false
+        },
+        {
+          "id": "OBS-001-004",
+          "title": "Änderungsdatum und Hash je Datei erfassen",
+          "type": "implementation",
+          "done": false
+        }
+      ]
+    },
+    {
+      "id": "OBS-002",
+      "title": "Markdown Parsing",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "OBS-002-001",
+          "title": "Frontmatter/YAML parsen",
+          "type": "implementation",
+          "done": false
+        },
+        {
+          "id": "OBS-002-002",
+          "title": "Headings als Strukturknoten extrahieren",
+          "type": "implementation",
+          "done": false
+        },
+        {
+          "id": "OBS-002-003",
+          "title": "Obsidian Wiki-Links [[...]] erkennen",
+          "type": "implementation",
+          "done": false
+        },
+        {
+          "id": "OBS-002-004",
+          "title": "Tags #tag extrahieren",
+          "type": "implementation",
+          "done": false
+        },
+        {
+          "id": "OBS-002-005",
+          "title": "Codeblöcke gesondert erkennen",
+          "type": "implementation",
+          "done": false
+        }
+      ]
+    },
+    {
+      "id": "OBS-003",
+      "title": "CodeCompass Mapping",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "OBS-003-001",
+          "title": "Markdown-Datei zu CodeCompass DocumentNode mappen",
+          "type": "implementation",
+          "done": false
+        },
+        {
+          "id": "OBS-003-002",
+          "title": "Headings zu SectionNodes mappen",
+          "type": "implementation",
+          "done": false
+        },
+        {
+          "id": "OBS-003-003",
+          "title": "Wiki-Links zu Graph-Edges mappen",
+          "type": "implementation",
+          "done": false
+        },
+        {
+          "id": "OBS-003-004",
+          "title": "Tags zu Domain-/Topic-Knoten mappen",
+          "type": "implementation",
+          "done": false
+        },
+        {
+          "id": "OBS-003-005",
+          "title": "Export nach nodes.jsonl und edges.jsonl",
+          "type": "implementation",
+          "done": false
+        }
+      ]
+    },
+    {
+      "id": "OBS-004",
+      "title": "RAG Integration",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "OBS-004-001",
+          "title": "Relevante Markdown-Abschnitte chunking-fähig machen",
+          "type": "implementation",
+          "done": false
+        },
+        {
+          "id": "OBS-004-002",
+          "title": "Embeddings für Vault-Inhalte erzeugen",
+          "type": "implementation",
+          "done": false
+        },
+        {
+          "id": "OBS-004-003",
+          "title": "Obsidian-Quelle in resolve_context berücksichtigen",
+          "type": "implementation",
+          "done": false
+        },
+        {
+          "id": "OBS-004-004",
+          "title": "Ranking-Regel: Code > AGENTS.md > ADR > Obsidian Notes",
+          "type": "policy",
+          "done": false
+        }
+      ]
+    },
+    {
+      "id": "OBS-005",
+      "title": "Write-back",
+      "priority": "medium",
+      "tasks": [
+        {
+          "id": "OBS-005-001",
+          "title": "Write-back standardmäßig deaktivieren",
+          "type": "safety",
+          "done": false
+        },
+        {
+          "id": "OBS-005-002",
+          "title": "Agent-Run-Zusammenfassungen in Obsidian schreiben",
+          "type": "implementation",
+          "done": false
+        },
+        {
+          "id": "OBS-005-003",
+          "title": "ADR-Vorschläge als Draft-Dateien erzeugen",
+          "type": "implementation",
+          "done": false
+        },
+        {
+          "id": "OBS-005-004",
+          "title": "Kein automatisches Überschreiben bestehender Notes",
+          "type": "safety",
+          "done": false
+        }
+      ]
+    },
+    {
+      "id": "OBS-006",
+      "title": "Policy & Security",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "OBS-006-001",
+          "title": "Vault nur read-only öffnen, wenn nicht anders konfiguriert",
+          "type": "security",
+          "done": false
+        },
+        {
+          "id": "OBS-006-002",
+          "title": "Private Notes per Pfad/Tag ausschließen",
+          "type": "security",
+          "done": false
+        },
+        {
+          "id": "OBS-006-003",
+          "title": "Erlaubte Tags/Semantiken whitelist-basiert definieren",
+          "type": "policy",
+          "done": false
+        },
+        {
+          "id": "OBS-006-004",
+          "title": "Keine Ausführung von eingebettetem Code aus Notes",
+          "type": "security",
+          "done": false
+        }
+      ]
+    },
+    {
+      "id": "OBS-007",
+      "title": "CLI / Tooling",
+      "priority": "medium",
+      "tasks": [
+        {
+          "id": "OBS-007-001",
+          "title": "CLI-Befehl: scan-vault",
+          "type": "cli",
+          "done": false
+        },
+        {
+          "id": "OBS-007-002",
+          "title": "CLI-Befehl: export-graph",
+          "type": "cli",
+          "done": false
+        },
+        {
+          "id": "OBS-007-003",
+          "title": "CLI-Befehl: sync-rag",
+          "type": "cli",
+          "done": false
+        },
+        {
+          "id": "OBS-007-004",
+          "title": "Dry-run-Modus einbauen",
+          "type": "cli",
+          "done": false
+        }
+      ]
+    },
+    {
+      "id": "OBS-008",
+      "title": "Tests",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "OBS-008-001",
+          "title": "Unit-Tests für Markdown-Parser",
+          "type": "test",
+          "done": false
+        },
+        {
+          "id": "OBS-008-002",
+          "title": "Unit-Tests für Wiki-Link-Auflösung",
+          "type": "test",
+          "done": false
+        },
+        {
+          "id": "OBS-008-003",
+          "title": "Integrationstest mit Mini-Test-Vault",
+          "type": "test",
+          "done": false
+        },
+        {
+          "id": "OBS-008-004",
+          "title": "Regressionstest für nodes/edges JSONL",
+          "type": "test",
+          "done": false
+        }
+      ]
+    }
+  ],
+  "mvp": [
+    "Vault-Pfad konfigurieren",
+    "Markdown-Dateien scannen",
+    "Frontmatter, Links, Tags, Headings extrahieren",
+    "nodes.jsonl und edges.jsonl erzeugen",
+    "CodeCompass resolve_context um Obsidian-Quelle erweitern",
+    "Read-only Default",
+    "Mini-Test-Vault mit Tests"
+  ],
+  "later": [
+    "Write-back von Agent-Logs",
+    "ADR-Drafts",
+    "Obsidian Plugin UI",
+    "Live-Watching per Filesystem Events",
+    "Graph-Visualisierung im ANANTA Frontend"
+  ]
+}
+
