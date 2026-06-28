@@ -171,4 +171,4 @@ scripts/dyndns.conf
 /.junie/
 /.hermes/
 /test-results/
-/.*
+/.coverage*
