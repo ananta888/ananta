@@ -48,6 +48,17 @@ def compute_importance_score(record: dict) -> float:
         if any(token in name for token in ("request", "response", "order", "customer", "invoice")):
             score += 1.2
 
+    if kind == "obsidian_note":
+        score += 0.5
+    if kind == "obsidian_heading":
+        score += 0.6
+    if kind == "obsidian_block":
+        score += 0.7
+
+    obs_tags = set(record.get("tags") or [])
+    if obs_tags & {"important", "key", "core"}:
+        score += 0.1
+
     if record.get("generated_code"):
         score -= 0.8
 

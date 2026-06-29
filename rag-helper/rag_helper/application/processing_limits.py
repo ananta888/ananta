@@ -43,6 +43,12 @@ class ProcessingLimits:
     domain_descriptor_suggestions: bool = False
     llm_narrative_endpoint: str | None = None
     llm_narrative_model: str | None = None
+    md_heading_chunk_level: int = 2
+    md_max_block_size_chars: int = 2000
+    md_min_block_size_chars: int = 50
+    md_max_headings_per_note: int | None = None
+    md_max_links_per_note: int | None = 200
+    canvas_max_nodes: int | None = None
 
     def as_options(self) -> dict[str, int | str]:
         return {

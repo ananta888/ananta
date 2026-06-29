@@ -1,0 +1,9 @@
+{
+  "nodes": [
+    {"id": "node1", "type": "text", "text": "Vault Overview", "x": 0, "y": 0, "width": 200, "height": 100},
+    {"id": "node2", "type": "file", "file": "projects/Alpha.md", "x": 300, "y": 0, "width": 200, "height": 100}
+  ],
+  "edges": [
+    {"id": "edge1", "fromNode": "node1", "toNode": "node2", "label": "references"}
+  ]
+}

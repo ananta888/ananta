@@ -288,6 +288,8 @@ class Settings(BaseSettings):
     rag_route_quota_codecompass_vector: int = Field(default=6, validation_alias="RAG_ROUTE_QUOTA_CODECOMPASS_VECTOR")
     rag_route_quota_codecompass_vector_default: int = Field(default=4, validation_alias="RAG_ROUTE_QUOTA_CODECOMPASS_VECTOR_DEFAULT")
     rag_route_quota_codecompass_vector_docs: int = Field(default=1, validation_alias="RAG_ROUTE_QUOTA_CODECOMPASS_VECTOR_DOCS")
+    obsidian_vaults: dict = Field(default_factory=dict, validation_alias="ANANTA_OBSIDIAN_VAULTS")
+    obsidian_ranking_factor: float = Field(default=0.7, validation_alias="ANANTA_OBSIDIAN_RANKING_FACTOR")
     rag_scan_exclude_dirs: str = Field(
         default=".git,.venv,venv,myvenv,site-packages,node_modules,__pycache__,.mypy_cache,.claude,project-workspaces,.tox,dist,build,.eggs",
         validation_alias="RAG_SCAN_EXCLUDE_DIRS",

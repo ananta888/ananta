@@ -1,0 +1,8 @@
+{
+  "graph_export_mode": "on",
+  "embedding_text_mode": "verbose",
+  "md_heading_chunk_level": 2,
+  "md_max_block_size_chars": 2000,
+  "md_min_block_size_chars": 50,
+  "importance_scoring_mode": "basic"
+}

@@ -6,7 +6,7 @@ import sys
 from collections.abc import Sequence
 from typing import Any
 
-SUBCOMMANDS = ["index", "query", "explain", "policy-check"]
+SUBCOMMANDS = ["index", "query", "explain", "policy-check", "obsidian"]
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -20,6 +20,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "  ananta rag query \"What does the auth service do?\"\n"
             "  ananta rag explain --query \"auth\"\n"
             "  ananta rag policy-check\n"
+            "  ananta rag obsidian scan-vault --vault my_vault\n"
         ),
     )
     _configure_subparsers(p)
@@ -44,12 +45,23 @@ def _configure_subparsers(p: argparse.ArgumentParser) -> None:
 
     sub.add_parser("policy-check", help="Check context access policy boundaries.")
 
+    # Obsidian sub-namespace
+    from agent.cli.commands.obsidian_commands import _configure_subparsers as _obs_sub
+    obs_p = sub.add_parser("obsidian", help="Manage Obsidian Vault integration.")
+    _obs_sub(obs_p)
+
 
 def dispatch(argv: Sequence[str]) -> int:
     parser = _build_parser()
     if not argv or argv[0] in ("-h", "--help"):
         parser.print_help()
         return 0
+
+    # Delegate to obsidian sub-dispatcher before full parse
+    if argv[0] == "obsidian":
+        from agent.cli.commands.obsidian_commands import dispatch as obs_dispatch
+        return obs_dispatch(list(argv[1:]))
+
     try:
         parsed = parser.parse_args(list(argv))
     except SystemExit as exc:

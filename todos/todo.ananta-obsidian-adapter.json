@@ -2,7 +2,7 @@
   "project": "ananta-obsidian-adapter",
   "version": "2.0",
   "goal": "Obsidian Vault(s) als Markdown-Wissensbasis in ANANTA/CodeCompass integrieren: Vault-Inhalte werden gescannt, geparst, in das CodeCompass-JSONL-Format überführt und über resolve_context() als RAG-Quelle abrufbar gemacht.",
-  "status": "planned",
+  "status": "done",
   "priority": "high",
 
   "architecture": {
@@ -59,7 +59,7 @@
           "id": "OBS-001-001",
           "title": "ObsidianVaultProfile Pydantic-Modell definieren",
           "type": "config",
-          "done": false,
+          "done": true,
           "depends_on": [],
           "source_refs": [
             "agent/config.py (Settings-Klasse, Referenz für Pydantic-Patterns)",
@@ -82,7 +82,7 @@
           "id": "OBS-001-002",
           "title": "Globale Settings um obsidian_vaults erweitern",
           "type": "config",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-001-001"],
           "source_refs": [
             "agent/config.py (Settings-Klasse mit pydantic-settings und JsonConfigSettingsSource)"
@@ -99,7 +99,7 @@
           "id": "OBS-001-003",
           "title": "Vault-Pfad-Validierung beim Start",
           "type": "config",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-001-002"],
           "source_refs": [
             "agent/config.py"
@@ -117,7 +117,7 @@
           "id": "OBS-001-004",
           "title": "ObsidianProcessingLimits als Erweiterung von ProcessingLimits",
           "type": "config",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-001-001"],
           "source_refs": [
             "rag-helper/rag_helper/application/processing_limits.py:6 (ProcessingLimits frozen dataclass)"
@@ -133,7 +133,7 @@
           "id": "OBS-001-005",
           "title": "Unit-Tests für Config-Modell",
           "type": "test",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-001-002", "OBS-001-003"],
           "source_refs": [
             "tests/ (bestehende Test-Patterns)"
@@ -161,7 +161,7 @@
           "id": "OBS-002-001",
           "title": "ObsidianVaultScanner Klasse",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-001-001"],
           "source_refs": [
             "rag-helper/rag_helper/application/file_scanner.py (FileSnapshot-Muster, Referenz)",
@@ -181,7 +181,7 @@
           "id": "OBS-002-002",
           "title": "VaultManifest Datenmodell und Persistenz",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-002-001"],
           "source_refs": [
             "rag-helper/rag_helper/application/incremental_cache.py (save_incremental_cache, Referenz)"
@@ -198,7 +198,7 @@
           "id": "OBS-002-003",
           "title": "Inkrementeller Diff: neue/geänderte/gelöschte Dateien",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-002-002"],
           "source_refs": [
             "rag-helper/rag_helper/application/incremental_cache.py"
@@ -214,7 +214,7 @@
           "id": "OBS-002-004",
           "title": "Privacy-Vorfilter in Scanner integrieren",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-002-001", "OBS-003-001"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -228,7 +228,7 @@
           "id": "OBS-002-005",
           "title": "Unit-Tests für Scanner und Manifest",
           "type": "test",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-002-003", "OBS-002-004"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -253,7 +253,7 @@
           "id": "OBS-003-001",
           "title": "ObsidianPrivacyFilter Klasse",
           "type": "security",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-001-001"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -268,7 +268,7 @@
           "id": "OBS-003-002",
           "title": "Pfad-Präfix-Filter implementieren",
           "type": "security",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-003-001"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -283,7 +283,7 @@
           "id": "OBS-003-003",
           "title": "Frontmatter-Feld-Filter implementieren",
           "type": "security",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-003-001"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -299,7 +299,7 @@
           "id": "OBS-003-004",
           "title": "Tag-Filter implementieren",
           "type": "security",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-003-001"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -314,7 +314,7 @@
           "id": "OBS-003-005",
           "title": "list-excluded Dry-run Funktion",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-003-001", "OBS-003-002", "OBS-003-003", "OBS-003-004"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -328,7 +328,7 @@
           "id": "OBS-003-006",
           "title": "Unit-Tests für alle drei Filter-Mechanismen",
           "type": "test",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-003-002", "OBS-003-003", "OBS-003-004"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -355,7 +355,7 @@
           "id": "OBS-004-001",
           "title": "ObsidianExtractor Klassen-Grundgerüst mit JavaLikeExtractor-Protokoll",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": [],
           "source_refs": [
             "rag-helper/rag_helper/extractors/base.py:18 (JavaLikeExtractor Protocol — pre_scan_types + parse)",
@@ -375,7 +375,7 @@
           "id": "OBS-004-002",
           "title": "Frontmatter YAML Parser",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-004-001"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -392,7 +392,7 @@
           "id": "OBS-004-003",
           "title": "Heading-Tree Builder",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-004-002"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -407,7 +407,7 @@
           "id": "OBS-004-004",
           "title": "Wiki-Link Parser",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-004-003"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -421,7 +421,7 @@
           "id": "OBS-004-005",
           "title": "Wiki-Link Resolver (Cross-Note)",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-004-004"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -436,7 +436,7 @@
           "id": "OBS-004-006",
           "title": "Tag Extraktor",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-004-002"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -452,7 +452,7 @@
           "id": "OBS-004-007",
           "title": "Codeblock-Detektor",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-004-002"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -467,7 +467,7 @@
           "id": "OBS-004-008",
           "title": "Dataview-Block-Detektor",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-004-007"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -481,7 +481,7 @@
           "id": "OBS-004-009",
           "title": "Section Chunker (Heading-basiertes Splitting)",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-004-003"],
           "source_refs": [
             "rag-helper/rag_helper/application/processing_limits.py (md_heading_chunk_level, md_max_block_size_chars)"
@@ -499,7 +499,7 @@
           "id": "OBS-004-010",
           "title": "pre_scan_types implementieren",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-004-002", "OBS-004-006"],
           "source_refs": [
             "rag-helper/rag_helper/extractors/base.py:19 (JavaLikeExtractor.pre_scan_types)"
@@ -517,7 +517,7 @@
           "id": "OBS-004-011",
           "title": "parse() vollständig implementieren (Index/Detail/Relation Records)",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-004-002", "OBS-004-003", "OBS-004-004", "OBS-004-005", "OBS-004-006", "OBS-004-007", "OBS-004-008", "OBS-004-009"],
           "source_refs": [
             "rag-helper/rag_helper/application/output_formats.py (build_embedding_records, build_context_records — Referenz für Record-Felder)",
@@ -537,7 +537,7 @@
           "id": "OBS-004-012",
           "title": "Unit-Tests für alle Parser-Komponenten",
           "type": "test",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-004-011"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -566,7 +566,7 @@
           "id": "OBS-005-001",
           "title": "build_extractors() um obsidian_extractor_cls erweitern",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-004-001"],
           "source_refs": [
             "rag-helper/rag_helper/application/document_extractor.py:52 (build_extractors Signatur)",
@@ -583,7 +583,7 @@
           "id": "OBS-005-002",
           "title": "process_snapshot() um md/canvas Zwei-Pass-Handling erweitern",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-005-001"],
           "source_refs": [
             "rag-helper/rag_helper/application/document_extractor.py:266 (process_snapshot)",
@@ -600,7 +600,7 @@
           "id": "OBS-005-003",
           "title": "Pre-Scan-Phase in project_processor.py für .md/.canvas",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-005-002", "OBS-004-010"],
           "source_refs": [
             "rag-helper/rag_helper/application/project_processor.py (Pre-Scan-Loop für Java — Referenz)"
@@ -616,7 +616,7 @@
           "id": "OBS-005-004",
           "title": "Obsidian RAG-Helper Profil-JSON",
           "type": "config",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-005-003"],
           "source_refs": [
             "rag-helper/codecompass_wiki.json (Referenz-Profil für Wiki)",
@@ -644,7 +644,7 @@
           "id": "OBS-006-001",
           "title": "Canvas JSON Schema verstehen und dokumentieren",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": [],
           "source_refs": [],
           "acceptance_criteria": [
@@ -659,7 +659,7 @@
           "id": "OBS-006-002",
           "title": "CanvasExtractor Klasse (StructuredExtractor)",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-006-001"],
           "source_refs": [
             "rag-helper/rag_helper/extractors/base.py:13 (StructuredExtractor Protocol — einfachere Variante, kein Zwei-Pass nötig)"
@@ -676,7 +676,7 @@
           "id": "OBS-006-003",
           "title": "Text-Node Content indexieren",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-006-002"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -689,7 +689,7 @@
           "id": "OBS-006-004",
           "title": "File-Reference-Nodes auflösen",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-006-002"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -703,7 +703,7 @@
           "id": "OBS-006-005",
           "title": "Canvas-Edges als Graph-Edges",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-006-003", "OBS-006-004"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -715,7 +715,7 @@
           "id": "OBS-006-006",
           "title": "Unit-Tests für Canvas Extractor",
           "type": "test",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-006-005"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -741,7 +741,7 @@
           "id": "OBS-007-001",
           "title": "Node-ID-Schema und Node-Kind-Definitionen",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": [],
           "source_refs": [
             "rag-helper/rag_helper/domain_discovery/graph_model.py:20 (GraphNode dataclass)",
@@ -759,7 +759,7 @@
           "id": "OBS-007-002",
           "title": "Hierarchie-Knoten: Vault, Folder, Note",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-007-001"],
           "source_refs": [
             "rag-helper/rag_helper/domain_discovery/graph_model.py:20"
@@ -776,7 +776,7 @@
           "id": "OBS-007-003",
           "title": "Heading- und Block-Knoten",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-007-001"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -790,7 +790,7 @@
           "id": "OBS-007-004",
           "title": "Edge-Typen und graph_edges.jsonl",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-007-002", "OBS-007-003"],
           "source_refs": [
             "rag-helper/rag_helper/domain_discovery/graph_model.py:32 (GraphEdge dataclass)"
@@ -808,7 +808,7 @@
           "id": "OBS-007-005",
           "title": "Tag-Node Deduplication",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-007-001"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -822,7 +822,7 @@
           "id": "OBS-007-006",
           "title": "Integrations-Test: JSONL-Ausgabe gegen Mini-Vault",
           "type": "test",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-007-004", "OBS-007-005"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -848,7 +848,7 @@
           "id": "OBS-008-001",
           "title": "Embedding-Text Templates pro Node-Kind",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": [],
           "source_refs": [
             "worker/retrieval/embedding_text_builder.py (build_embedding_text, CODECOMPASS_EMBEDDING_TEXT_PROFILE)",
@@ -868,7 +868,7 @@
           "id": "OBS-008-002",
           "title": "importance_score für Obsidian-Nodes",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-008-001"],
           "source_refs": [
             "rag-helper/rag_helper/application/importance_scoring.py (score_index_records)"
@@ -885,7 +885,7 @@
           "id": "OBS-008-003",
           "title": "Source-Attribution in allen Records",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-008-001"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -899,7 +899,7 @@
           "id": "OBS-008-004",
           "title": "embedding.jsonl für Vektor-Retrieval",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-008-001", "OBS-008-003"],
           "source_refs": [
             "worker/retrieval/codecompass_output_reader.py",
@@ -927,7 +927,7 @@
           "id": "OBS-009-001",
           "title": "Obsidian Output-Dir in CodeCompassContextService registrieren",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": [],
           "source_refs": [
             "agent/services/codecompass_context_service.py:101 (resolve_context Signatur)",
@@ -944,7 +944,7 @@
           "id": "OBS-009-002",
           "title": "Ranking-Regel: Obsidian niedrigste Priorität",
           "type": "policy",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-009-001"],
           "source_refs": [
             "agent/services/codecompass_context_service.py (Candidate-Ranking-Logik)"
@@ -960,7 +960,7 @@
           "id": "OBS-009-003",
           "title": "domain_hint für Vault-Filterung",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-009-001"],
           "source_refs": [
             "agent/services/codecompass_context_service.py (domain_hint Parameter)"
@@ -975,7 +975,7 @@
           "id": "OBS-009-004",
           "title": "Integrations-Test: resolve_context gibt Obsidian-Kandidaten zurück",
           "type": "test",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-009-002", "OBS-009-003"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -999,7 +999,7 @@
           "id": "OBS-010-001",
           "title": "CLI Subcommand-Gruppe 'ananta rag obsidian'",
           "type": "cli",
-          "done": false,
+          "done": true,
           "depends_on": [],
           "source_refs": [
             "agent/cli/main.py (build_parser, bestehende rag-Subcommands)",
@@ -1016,7 +1016,7 @@
           "id": "OBS-010-002",
           "title": "CLI: scan-vault",
           "type": "cli",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-010-001", "OBS-002-001"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -1031,7 +1031,7 @@
           "id": "OBS-010-003",
           "title": "CLI: sync-rag",
           "type": "cli",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-010-001", "OBS-005-003"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -1048,7 +1048,7 @@
           "id": "OBS-010-004",
           "title": "CLI: export-graph",
           "type": "cli",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-010-001"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -1062,7 +1062,7 @@
           "id": "OBS-010-005",
           "title": "CLI: list-excluded",
           "type": "cli",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-010-001", "OBS-003-005"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -1076,7 +1076,7 @@
           "id": "OBS-010-006",
           "title": "CLI: validate-config",
           "type": "cli",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-010-001", "OBS-001-003"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -1101,7 +1101,7 @@
           "id": "OBS-011-001",
           "title": "ObsidianWriteBackService Klasse",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-001-001"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -1115,7 +1115,7 @@
           "id": "OBS-011-002",
           "title": "Agent-Run-Summary in Vault schreiben",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-011-001"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -1130,7 +1130,7 @@
           "id": "OBS-011-003",
           "title": "ADR-Draft in Vault schreiben",
           "type": "implementation",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-011-001"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -1144,7 +1144,7 @@
           "id": "OBS-011-004",
           "title": "No-Overwrite Guard",
           "type": "safety",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-011-002", "OBS-011-003"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -1158,7 +1158,7 @@
           "id": "OBS-011-005",
           "title": "Unit-Tests Write-back",
           "type": "test",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-011-004"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -1183,7 +1183,7 @@
           "id": "OBS-012-001",
           "title": "Mini-Test-Vault Fixture aufbauen",
           "type": "test",
-          "done": false,
+          "done": true,
           "depends_on": [],
           "source_refs": [
             "tests/fixtures/ (bestehende Fixture-Patterns)"
@@ -1201,7 +1201,7 @@
           "id": "OBS-012-002",
           "title": "Integrationstest: vollständiger Vault-Scan → JSONL",
           "type": "test",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-012-001", "OBS-005-003"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -1216,7 +1216,7 @@
           "id": "OBS-012-003",
           "title": "Snapshot-Regressionstest: JSONL-Inhalt",
           "type": "test",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-012-002"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -1229,7 +1229,7 @@
           "id": "OBS-012-004",
           "title": "Test: Inkrementelles Reindexing",
           "type": "test",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-002-003"],
           "source_refs": [],
           "acceptance_criteria": [
@@ -1243,7 +1243,7 @@
           "id": "OBS-012-005",
           "title": "Test: Multi-Vault Isolation",
           "type": "test",
-          "done": false,
+          "done": true,
           "depends_on": ["OBS-001-002"],
           "source_refs": [],
           "acceptance_criteria": [

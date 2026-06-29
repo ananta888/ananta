@@ -60,6 +60,9 @@ def build_extractors(
     xsd_extractor_cls,
     text_extractor_cls=None,
     csharp_extractor_cls=None,
+    obsidian_extractor_cls=None,
+    obsidian_canvas_extractor_cls=None,
+    obsidian_vault_name: str = "default",
 ) -> dict[str, object]:
     extractors = {
         "java": java_extractor_cls(
@@ -122,6 +125,23 @@ def build_extractors(
                 "kts": text_extractor,
             }
         )
+    if obsidian_extractor_cls is not None:
+        # ObsidianExtractor takes precedence over text_extractor for .md
+        obs_extractor = obsidian_extractor_cls(
+            vault_name=obsidian_vault_name,
+            heading_chunk_level=limits.md_heading_chunk_level,
+            max_block_size_chars=limits.md_max_block_size_chars,
+            min_block_size_chars=limits.md_min_block_size_chars,
+            max_links_per_note=limits.md_max_links_per_note,
+            max_headings_per_note=limits.md_max_headings_per_note,
+        )
+        extractors["md"] = obs_extractor
+    if obsidian_canvas_extractor_cls is not None:
+        canvas_extractor = obsidian_canvas_extractor_cls(
+            vault_name=obsidian_vault_name,
+            max_nodes=limits.canvas_max_nodes,
+        )
+        extractors["canvas"] = canvas_extractor
     return extractors
 
 
@@ -279,6 +299,10 @@ def process_snapshot(
     text_extractor_cls=None,
     pre_scan: dict | None = None,
     csharp_extractor_cls=None,
+    obsidian_extractor_cls=None,
+    obsidian_canvas_extractor_cls=None,
+    obsidian_vault_name: str = "default",
+    known_note_titles: dict | None = None,
 ) -> FileProcessingResult:
     started_at = perf_counter()
     rel_path = snapshot.rel_path
@@ -374,6 +398,9 @@ def process_snapshot(
             xml_extractor_cls=xml_extractor_cls,
             xsd_extractor_cls=xsd_extractor_cls,
             text_extractor_cls=text_extractor_cls,
+            obsidian_extractor_cls=obsidian_extractor_cls,
+            obsidian_canvas_extractor_cls=obsidian_canvas_extractor_cls,
+            obsidian_vault_name=obsidian_vault_name,
         ).get(ext)
         if extractor is None:
             manifest_entry = {
@@ -407,6 +434,13 @@ def process_snapshot(
                 rel_path=rel_path,
                 text=text,
                 known_namespace_types=known_namespace_types,
+            )
+        elif ext in {"md", "canvas"} and obsidian_extractor_cls is not None:
+            # ObsidianExtractor: pass known_note_titles via known_package_types slot
+            idx, det, rel, stats = extractor.parse(
+                rel_path=rel_path,
+                text=text,
+                known_package_types=known_note_titles or {},
             )
         else:
             idx, det, rel, stats = extractor.parse(rel_path, text)
