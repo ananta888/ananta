@@ -79,6 +79,17 @@ from .teams import (
     TeamTypeRoleLink,
 )
 from .visual_process import VisualProcessGraphDB
+from .caseflow import (
+    CaseFlowCaseDB,
+    CaseEventDB,
+    CaseArtifactDB,
+    CaseActionDB,
+    DiscoveryProfileDB,
+    DiscoveryRunDB,
+    DiscoveryResultDB,
+    CaseAgentRunDB,
+    CaseBlueprintBindingDB,
+)
 from .workers import (
     EvolutionProposalDB,
     EvolutionRunDB,
@@ -159,6 +170,15 @@ __all__ = [
     "UserInstructionProfileDB",
     "VerificationRecordDB",
     "VisualProcessGraphDB",
+    "CaseFlowCaseDB",
+    "CaseEventDB",
+    "CaseArtifactDB",
+    "CaseActionDB",
+    "DiscoveryProfileDB",
+    "DiscoveryRunDB",
+    "DiscoveryResultDB",
+    "CaseAgentRunDB",
+    "CaseBlueprintBindingDB",
     "WorkerJobDB",
     "WorkerResultDB",
     "WorkerSlotLeaseDB",

@@ -12,6 +12,7 @@ import { contextAccessPolicyRoutes } from './features/context-access-policy/cont
 import { visualProcessRoutes } from './features/visual-process/visual-process.routes';
 import { diff3Routes } from './features/diff3/diff3.routes';
 import { codeHugRoutes } from './features/codehug/codehug.routes';
+import { JOB_APPLICATION_ROUTES } from './features/caseflow/job-application/job-application.routes';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
@@ -38,6 +39,11 @@ export const routes: Routes = [
       ...visualProcessRoutes,
       ...diff3Routes,
       ...codeHugRoutes,
+      {
+        path: 'caseflow/jobs',
+        data: { breadcrumb: 'Job-Bewerbungen', area: 'Operate' },
+        children: JOB_APPLICATION_ROUTES,
+      },
     ]
   },
   { path: '**', component: NotFoundComponent }

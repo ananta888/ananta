@@ -136,6 +136,9 @@ ananta = "agent.cli.main:main"
 packages = [
     "agent",
     "agent.bootstrap",
+    "agent.caseflow",
+    "agent.job_module",
+    "agent.routes",
     "agent.cli",
     "agent.common",
     "agent.llm_strategies",
