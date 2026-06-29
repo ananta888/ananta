@@ -70,7 +70,7 @@ langchain = [
     # LCG-065: langchain-core 0.3.x coexists with llama-index>=0.10
     # on Python 3.10+ (verified 2026-06-29). Upper bound <0.4 guards
     # against the 0.4 API break (callback interface refactor).
-    "langchain-core>=0.3,<0.4",
+    "langchain-core>=1.4.8,<1.5",
 ]
 langgraph = [
     # LangGraph rides on top of langchain-core. Installing the langgraph
@@ -78,17 +78,17 @@ langgraph = [
     # LCG-065: langgraph 0.2.x depends on langchain-core>=0.1, so the
     # shared upper bound on langchain-core (<0.4) pins both together.
     "langgraph>=0.2,<0.3",
-    "langchain-core>=0.3,<0.4",
+    "langchain-core>=1.4.8,<1.5",
 ]
 lc-lg = [
     # Convenience: install both adapters at once. Same upper bounds as
     # the individual extras — they share the same core.
-    "langchain-core>=0.3,<0.4",
+    "langchain-core>=1.4.8,<1.5",
     "langgraph>=0.2,<0.3",
 ]
 lc-lg-ollama = [
     # ChatOllama provider — enables local model path via Ollama API.
-    # Compatible with langchain-core>=0.3,<0.4 (same pin as lc-lg).
+    # Compatible with langchain-core>=1.4.8,<1.5 (same pin as lc-lg).
     "langchain-ollama>=0.3,<0.4",
 ]
 lc-lg-openai = [
@@ -101,7 +101,7 @@ lc-lg-anthropic = [
 ]
 lc-lg-all = [
     # Full install: lc-lg + all three provider extras.
-    "langchain-core>=0.3,<0.4",
+    "langchain-core>=1.4.8,<1.5",
     "langgraph>=0.2,<0.3",
     "langchain-ollama>=0.3,<0.4",
     "langchain-openai>=0.3,<0.4",
