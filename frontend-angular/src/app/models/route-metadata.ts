@@ -61,6 +61,7 @@ export const APP_ROUTE_META: Record<string, AppRouteMeta> = {
   'blueprint-config': { label: 'Blueprint-Konfig', area: 'Configure', navGroup: 'Konfiguration', navOrder: 37.5, expertOnly: true },
   codehug: { label: 'CodeHug', area: 'Operate', navGroup: 'Arbeiten', navOrder: 5, simpleNav: true },
   diff3: { label: 'Three-Way Diff', area: 'Operate', navGroup: 'Betrieb', navOrder: 73, expertOnly: true },
+  'caseflow/jobs': { label: 'Bewerbungen', area: 'Operate', navGroup: 'Arbeiten', navOrder: 35, simpleNav: true },
 };
 
 export function routeDataFor(path: keyof typeof APP_ROUTE_META): { breadcrumb: string; area: AppRouteArea } {
