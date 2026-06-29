@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { AgentDirectoryService } from '../../../services/agent-directory.service';
 import { CaseArtifact } from '../caseflow.models';
 import {
   JobApplicationCase,
@@ -10,7 +11,12 @@ import {
 @Injectable({ providedIn: 'root' })
 export class JobApplicationApiService {
   private readonly http = inject(HttpClient);
-  private readonly base = '/api/caseflow/jobs';
+  private readonly dir = inject(AgentDirectoryService);
+
+  private get base(): string {
+    const hub = this.dir.list().find(a => a.role === 'hub');
+    return `${hub?.url ?? 'http://127.0.0.1:5000'}/api/caseflow/jobs`;
+  }
 
   listJobApplications(
     filters: Record<string, string> = {}
