@@ -46,6 +46,17 @@ class RateLimitService:
         for key in list(self._in_memory.keys()):
             if key.startswith(prefix):
                 self._in_memory.pop(key, None)
+        redis_client = get_redis_client()
+        if redis_client is None:
+            return
+        try:
+            for key in redis_client.scan_iter(match=f"{prefix}*"):
+                redis_client.delete(key)
+        except Exception:
+            logging.debug(
+                "RateLimitService.clear_namespace() could not clear Redis state",
+                exc_info=True,
+            )
 
     def clear_all(self) -> None:
         self._in_memory.clear()

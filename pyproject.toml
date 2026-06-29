@@ -67,11 +67,16 @@ langchain = [
     # surface into many sub-packages, we only need the core runtime
     # for the chain executor. Pull langchain-community only if a
     # community loader is actually configured in a chain descriptor.
+    # LCG-065: langchain-core 0.3.x coexists with llama-index>=0.10
+    # on Python 3.10+ (verified 2026-06-29). Upper bound <0.4 guards
+    # against the 0.4 API break (callback interface refactor).
     "langchain-core>=0.3,<0.4",
 ]
 langgraph = [
     # LangGraph rides on top of langchain-core. Installing the langgraph
     # extra pulls the matching core in, so users do not need both.
+    # LCG-065: langgraph 0.2.x depends on langchain-core>=0.1, so the
+    # shared upper bound on langchain-core (<0.4) pins both together.
     "langgraph>=0.2,<0.3",
     "langchain-core>=0.3,<0.4",
 ]
@@ -80,6 +85,27 @@ lc-lg = [
     # the individual extras — they share the same core.
     "langchain-core>=0.3,<0.4",
     "langgraph>=0.2,<0.3",
+]
+lc-lg-ollama = [
+    # ChatOllama provider — enables local model path via Ollama API.
+    # Compatible with langchain-core>=0.3,<0.4 (same pin as lc-lg).
+    "langchain-ollama>=0.3,<0.4",
+]
+lc-lg-openai = [
+    # ChatOpenAI provider — enables cloud.openai.* model refs.
+    "langchain-openai>=0.3,<0.4",
+]
+lc-lg-anthropic = [
+    # ChatAnthropic provider — enables cloud.anthropic.* model refs.
+    "langchain-anthropic>=0.3,<0.4",
+]
+lc-lg-all = [
+    # Full install: lc-lg + all three provider extras.
+    "langchain-core>=0.3,<0.4",
+    "langgraph>=0.2,<0.3",
+    "langchain-ollama>=0.3,<0.4",
+    "langchain-openai>=0.3,<0.4",
+    "langchain-anthropic>=0.3,<0.4",
 ]
 rtipm-sentence-transformers = [
     "sentence-transformers>=3,<4",

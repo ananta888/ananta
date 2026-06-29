@@ -19,11 +19,16 @@ class WorkflowAuditLog:
         self._entries: list[dict[str, Any]] = []
 
     def log(self, event: str, **kwargs: Any) -> None:
+        try:
+            from agent.common.redaction import redact
+            safe_kwargs = redact(dict(kwargs))
+        except ImportError:
+            safe_kwargs = dict(kwargs)
         self._entries.append({
             "ts": time.monotonic(),
             "adapter_id": self._adapter_id,
             "event": event,
-            **kwargs,
+            **safe_kwargs,
         })
 
     def entries(self) -> list[dict[str, Any]]:

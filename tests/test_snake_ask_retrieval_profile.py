@@ -141,7 +141,7 @@ class TestBuildGroundedSnakePromptProfileIntegration:
                 self.records = []
                 self.handler = logging.Handler()
                 self.handler.emit = self.records.append
-                self.logger = logging.getLogger("agent.routes.snakes_execution_routes")
+                self.logger = logging.getLogger("agent.routes.snakes_chat_helpers")
                 self.old_level = self.logger.level
                 self.old_disabled = self.logger.disabled
                 self.logger.disabled = False
@@ -166,7 +166,23 @@ class TestBuildGroundedSnakePromptProfileIntegration:
         with (
             patch("agent.routes.snakes_execution_routes.get_rag_service") as mock_rag,
             patch("agent.routes.ai_snake_config._current_config") as mock_cfg,
+            patch("agent.services.retrieval_profile_service.resolve_profile") as mock_resolve,
         ):
+            from agent.services.retrieval_profile_service import (
+                DOMAIN_CODECOMPASS,
+                INTENT_CODE_EXPLANATION,
+                RetrievalProfile,
+            )
+            mock_profile = RetrievalProfile(
+                profile_id="codecompass/implemented_code_explanation",
+                domain=DOMAIN_CODECOMPASS,
+                intent=INTENT_CODE_EXPLANATION,
+                source_types=["repo", "artifact"],
+                source_type_weights={"repo": 1.45, "artifact": 1.05, "wiki": 0.3, "task_memory": 0.95},
+                retrieval_intent="code_explanation_with_codecompass",
+                negative_source_patterns=["book-of-ananta"],
+            )
+            mock_resolve.return_value = mock_profile
             mock_cfg.return_value = {
                 "chat_use_codecompass": True,
                 "chat_include_local_project": True,

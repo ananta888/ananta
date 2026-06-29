@@ -387,10 +387,14 @@ def cleanup_db_and_runtime():
             autonomous_loop.budget_label = ""
             autonomous_loop.security_level = "safe"
             autonomous_loop.last_error = None
-            autonomous_loop._app = None
+            # NOTE: do NOT reset autonomous_loop._app here. The `app` fixture
+            # rebinds it per-test, but pytest may schedule that fixture *after*
+            # this autouse cleanup, which would leave _app=None for the duration
+            # of the test body and break `tick_once` in worker threads. Leave
+            # _app alone; runtime state (intervals, counters, locks) is fully
+            # reset above.
         except Exception:
             pass
-
         try:
             from agent.shell import _close_global_shells
 

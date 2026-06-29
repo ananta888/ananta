@@ -33,25 +33,44 @@ def list_adapters_as_dicts() -> list[dict[str, Any]]:
 
 
 def _load_defaults() -> None:
-    """Lazy-load adapters when the registry is first accessed.
-
-    Not-installed optional dependencies produce degraded/blocked status,
-    not import crashes.
-    """
     if _REGISTRY:
         return
 
-    # LangChain (optional)
+    lc_config = None
+    lg_config = None
+
+    try:
+        import flask
+        if flask.has_app_context():
+            from flask import current_app
+            agent_cfg = current_app.config.get("AGENT_CONFIG") or {}
+            providers = agent_cfg.get("providers") or {}
+            lc_raw = providers.get("langchain")
+            lg_raw = providers.get("langgraph")
+            if isinstance(lc_raw, dict):
+                try:
+                    from agent.providers.lc_lg import LangChainProviderConfig
+                    lc_config = LangChainProviderConfig(**lc_raw)
+                except Exception as exc:
+                    logger.warning("langchain provider config invalid, using default_off: %s", exc)
+            if isinstance(lg_raw, dict):
+                try:
+                    from agent.providers.lc_lg import LangGraphProviderConfig
+                    lg_config = LangGraphProviderConfig(**lg_raw)
+                except Exception as exc:
+                    logger.warning("langgraph provider config invalid, using default_off: %s", exc)
+    except Exception:
+        pass
+
     try:
         from worker.adapters.langchain_adapter import LangChainAdapter
-        register_adapter(LangChainAdapter())
+        register_adapter(LangChainAdapter(lc_config))
     except ImportError as exc:
         logger.debug("LangChainAdapter not loaded: %s", exc)
 
-    # LangGraph (optional)
     try:
         from worker.adapters.langgraph_adapter import LangGraphAdapter
-        register_adapter(LangGraphAdapter())
+        register_adapter(LangGraphAdapter(lg_config))
     except ImportError as exc:
         logger.debug("LangGraphAdapter not loaded: %s", exc)
 

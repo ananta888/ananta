@@ -46,10 +46,19 @@ class LangGraphProviderConfig(BaseModel):
 
     # Security
     external_calls_allowed: bool = False
+    model_provider_ref: str = "local.default"
+    embedding_provider_scope: str = "codecompass_vector"
     secret_refs: list[str] = Field(default_factory=list)
 
     artifact_first: bool = True
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("model_provider_ref")
+    @classmethod
+    def _no_plain_secrets(cls, v: str) -> str:
+        if any(ch in v for ch in ("sk-", "Bearer ", "key=", "token=")):
+            raise ValueError("model_provider_ref must be a reference, not a secret value")
+        return v
 
     @field_validator("timeout_seconds")
     @classmethod

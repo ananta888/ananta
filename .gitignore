@@ -172,3 +172,4 @@ scripts/dyndns.conf
 /.hermes/
 /test-results/
 /.coverage*
+/.*

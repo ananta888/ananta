@@ -27,6 +27,7 @@ class LangChainProviderConfig(BaseModel):
 
     # Security
     external_calls_allowed: bool = False
+    allowed_base_urls: list[str] = Field(default_factory=list)
     allowed_tools: list[str] = Field(default_factory=list)
     secret_refs: list[str] = Field(default_factory=list)   # references, never values
 

@@ -22,6 +22,7 @@ class WorkflowAdapterDescriptor:
     reason: str
     capabilities: list[str] = field(default_factory=list)
     version: str = "1.0"
+    provider_diagnostics: dict = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -33,6 +34,7 @@ class WorkflowAdapterDescriptor:
             "reason": self.reason,
             "capabilities": list(self.capabilities),
             "version": self.version,
+            "provider_diagnostics": dict(self.provider_diagnostics),
         }
 
 
@@ -89,6 +91,7 @@ class WorkflowArtifactResult:
     execution_trace: list[dict[str, Any]] = field(default_factory=list)
     error: str = ""
     reason_code: str = ""
+    resume_token: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -105,6 +108,7 @@ class WorkflowArtifactResult:
             "execution_trace": self.execution_trace,
             "error": self.error,
             "reason_code": self.reason_code,
+            "resume_token": self.resume_token,
         }
 
 

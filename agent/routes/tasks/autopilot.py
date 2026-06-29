@@ -766,7 +766,8 @@ def _services():
     if has_app_context():
         return get_core_services()
     if autonomous_loop._app is not None:
-        return get_core_services(autonomous_loop._app)
+        with autonomous_loop._app.app_context():
+            return get_core_services()
     raise RuntimeError("core_services_unavailable")
 
 

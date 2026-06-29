@@ -30,15 +30,21 @@ them in a profile (see [Profile update](#profile-update) below).
 
 | Extra        | Pulled in                          | Notes                                |
 |--------------|------------------------------------|--------------------------------------|
-| `langchain`  | `langchain-core>=0.3,<0.4`         | Core chain runtime only.             |
-| `langgraph`  | `langgraph>=0.2,<0.3`, `langchain-core>=0.3,<0.4` | Graph runtime + matching core. |
-| `lc-lg`      | both of the above                  | Convenience meta-extra.              |
+| `langchain`       | `langchain-core>=0.3,<0.4`         | Core chain runtime only.              |
+| `langgraph`       | `langgraph>=0.2,<0.3`, `langchain-core>=0.3,<0.4` | Graph runtime + matching core. |
+| `lc-lg`           | both of the above                  | Convenience meta-extra.               |
+| `lc-lg-ollama`    | `langchain-ollama>=0.3,<0.4`       | ChatOllama for local models.          |
+| `lc-lg-openai`    | `langchain-openai>=0.3,<0.4`       | ChatOpenAI for cloud.openai.*         |
+| `lc-lg-anthropic` | `langchain-anthropic>=0.3,<0.4`    | ChatAnthropic for cloud.anthropic.*   |
+| `lc-lg-all`       | `lc-lg` + all three above          | Full install incl. all providers.     |
 
-We do not pin `langchain-community`, `langchain-openai`, or any
-provider-specific integration. Those are pulled in only if a chain
-descriptor references a community loader or a specific model
-provider. The Ananta default is local models; add a provider package
-explicitly when you need it.
+The `lc-lg-*` provider extras are optional. They unlock the **ChatModel path**
+via `build_lc_chat_model(model_provider_ref)` in `lc_chat_model_factory.py`.
+When a provider extra is missing, the adapter falls back to `SimplexRunner`
+(which uses `agent.llm_integration.generate_text` via the hub's LLM routing).
+
+The Ananta default is local models; add a provider package explicitly
+when you need it. `langchain-community` is never pulled in automatically.
 
 ## Why optional, not required
 
@@ -168,6 +174,45 @@ Default values in the provider config:
   resource but `external_calls_allowed=False`. Either allow external
   calls (with Hub approval) or remove the network tool from the
   descriptor.
+
+## ChatModel path (provider extras)
+
+When a provider extra is installed, `build_lc_chat_model(model_provider_ref)` returns
+a real `BaseChatModel` and the LCEL chain `(prompt | model | parser)` is used instead
+of `SimplexRunner`. The prefix in `model_provider_ref` determines the provider:
+
+| Prefix             | Provider extra       | ChatModel class     |
+|--------------------|----------------------|---------------------|
+| `ollama.*`         | `lc-lg-ollama`       | `ChatOllama`        |
+| `local.*`          | `lc-lg-ollama`       | `ChatOllama`        |
+| `openai.*`         | `lc-lg-openai`       | `ChatOpenAI`        |
+| `cloud.openai.*`   | `lc-lg-openai`       | `ChatOpenAI`        |
+| `anthropic.*`      | `lc-lg-anthropic`    | `ChatAnthropic`     |
+| `cloud.anthropic.*`| `lc-lg-anthropic`    | `ChatAnthropic`     |
+
+If the matching provider extra is absent, the LCEL chain is skipped and
+`SimplexRunner` is used as a transparent fallback. No config change needed.
+
+## StateGraph compile path (LangGraph live mode)
+
+When `langgraph` is installed and `mode=local_live`, `LangGraphAdapter._run_graph()`
+first attempts `_run_compiled_graph()`, which builds a real `StateGraph`, registers
+each node as a Python function, compiles it with `checkpointer=_get_checkpointer()`,
+and invokes it. Policy-Gate and Budget-Guard run inside each node function — identical
+to the `_walk_nodes()` path.
+
+If compilation fails (e.g., unsupported node kinds, StateGraph API change), the error
+is caught, logged as `compiled_graph_failed_fallback` in the audit trace, and
+`_walk_nodes()` is used as the fallback. No silent data loss.
+
+`_get_checkpointer()` returns based on `checkpoint_policy`:
+
+| Policy                         | Checkpointer                          |
+|--------------------------------|---------------------------------------|
+| `none`                         | `None` — no checkpointing             |
+| `local_ephemeral`              | `MemorySaver()` (in-process only)     |
+| `local_ephemeral_or_hub_owned` | `MemorySaver()` (hub store: LCG-049)  |
+| `hub_owned`                    | `None` for now (not yet wired)        |
 
 See `docs/architecture/langchain-langgraph-adapters.md` for the
 control flow, `docs/architecture/codecompass-vs-langchain.md` for

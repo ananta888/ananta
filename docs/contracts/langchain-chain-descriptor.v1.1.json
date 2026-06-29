@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.dev/schemas/contracts/langchain-chain-descriptor.v1.1.json",
+  "title": "LangChainChainDescriptor v1.1",
+  "description": "Additive extension of v1.0 (LCG-066). Adds prompt_template, output_format, and model_provider_ref. All v1.0 descriptors validate against this schema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "id", "purpose", "inputs", "outputs", "model_ref", "policies"],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "enum": ["langchain-chain-descriptor.v1", "langchain-chain-descriptor.v1.1"],
+      "description": "Both v1 and v1.1 marker values are accepted — no breaking change."
+    },
+    "id": { "type": "string", "minLength": 1 },
+    "purpose": { "type": "string", "minLength": 1 },
+    "version": { "type": "string", "default": "1.1" },
+    "model_ref": { "type": "string", "minLength": 1 },
+    "model_provider_ref": {
+      "type": "string",
+      "description": "v1.1: explicit provider ref (e.g. 'ollama.llama3.1', 'local.default'). Overrides model_ref prefix routing when present.",
+      "default": "local.default"
+    },
+    "prompt_template": {
+      "type": "string",
+      "description": "v1.1: optional Jinja2/f-string prompt template. If absent, _build_prompt() assembles the prompt from inputs.",
+      "examples": ["Answer the following: {query}"]
+    },
+    "output_format": {
+      "type": "string",
+      "description": "v1.1: desired output format. 'json' triggers JsonOutputParser; 'text' uses StrOutputParser (default).",
+      "enum": ["text", "json"],
+      "default": "text"
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "type"],
+        "properties": {
+          "name": { "type": "string" },
+          "type": { "type": "string" },
+          "required": { "type": "boolean", "default": true },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "type"],
+        "properties": {
+          "name": { "type": "string" },
+          "type": { "type": "string" },
+          "artifact_first": { "type": "boolean", "default": true }
+        }
+      }
+    },
+    "retriever_ref": {
+      "type": "string",
+      "description": "Must be 'codecompass' or null — no external retriever sources",
+      "enum": ["codecompass", null]
+    },
+    "tools": {
+      "type": "array",
+      "description": "Allowlist of permitted tool names. Empty = no tools allowed (default-deny).",
+      "items": { "type": "string" }
+    },
+    "policies": {
+      "type": "object",
+      "properties": {
+        "external_calls_allowed": { "type": "boolean", "default": false },
+        "requires_approval": { "type": "boolean", "default": false },
+        "artifact_first": { "type": "boolean", "default": true },
+        "max_steps": { "type": "integer", "minimum": 1, "default": 12 },
+        "timeout_seconds": { "type": "integer", "minimum": 1, "default": 120 }
+      }
+    },
+    "artifact_outputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "artifact_type"],
+        "properties": {
+          "name": { "type": "string" },
+          "artifact_type": { "type": "string" },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "metadata": { "type": "object" }
+  }
+}

@@ -1,0 +1,1272 @@
+{
+  "title": "LangChain and LangGraph support for ANANTA",
+  "schema": "todo.track.v1",
+  "track": "langchain-langgraph-support",
+  "analysis_date": "2026-06-29",
+  "analysis_base": "LCG-001..LCG-030 (archive: todos/archiv/todo.langchain-langgraph-worker-adapters.json)",
+  "summary": "LCG-001..LCG-030: Fundamente implementiert (Adapterskelette, Policy-Gates, Audit, Budget, CodeCompassRetriever, Provider-Configs, Schemas, Beispiele, ~94 Tests). LCG-020 ist partial (60%). LCG-021 TUI ist 'done' im Sinne von Beispiel-JSON, kein UI-Code. Neue Items LCG-031..LCG-060 decken alle offenen Implementierungslücken feingranular ab: echte LangChain-Primitiven, echter StateGraph, Checkpointing, Resume, Streaming, Hub-API-Routen, Profile-Auto-Loading, TUI-Surface, Security-Lücken.",
+  "architecture_principles": [
+    "LangChain und LangGraph sind optionale Worker-Adapter, keine Kern-Abhängigkeit.",
+    "Default ist disabled und dry_run — kein Live-Execute ohne explizites Opt-in.",
+    "CodeCompass ist kanonischer Retriever; LangChain darf keinen Parallel-Index aufbauen.",
+    "Hub besitzt Policy, Approval, Audit, Task-State und Artifact-Verifikation.",
+    "Kein Worker-zu-Worker — Hub bleibt zentraler Dispatcher.",
+    "LangGraph-State darf Hub-Task-State nicht überschreiben.",
+    "Alle Tool-Calls laufen durch WorkflowPolicyGate (default-deny).",
+    "Riskante Schritte brauchen Human-Approval bevor execute() durchläuft.",
+    "Ergebnisse artifact-first in WorkflowArtifactResult — kein raw Token-Stream zum User ohne Policy-Gate.",
+    "Rückwärtskompatibilität: SimplexRunner bleibt aktiver Fallback ohne Framework."
+  ],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "items": [
+    {
+      "id": "LCG-031",
+      "title": "LangGraphProviderConfig: model_provider_ref Feld ergänzen",
+      "status": "done",
+      "priority": "P0",
+      "risk": "low",
+      "type": "config",
+      "area": "langgraph",
+      "description": "LangGraphProviderConfig fehlt das model_provider_ref Feld. In langgraph_adapter.py:373-376 steht explizit: 'LangGraphProviderConfig has no model_provider_ref field by design (it is governance-only); fall back to a runtime default'. Das Fallback ist 'local.default' via getattr. Alle LLM-Nodes im Graph nutzen damit immer denselben Hard-Code-Wert — kein Profil kann das überschreiben.",
+      "depends_on": [],
+      "files_to_change": [
+        "agent/providers/lc_lg/langgraph_provider_config.py",
+        "worker/adapters/langgraph_adapter.py"
+      ],
+      "acceptance_criteria": [
+        "LangGraphProviderConfig erhält Feld model_provider_ref: str = 'local.default' (analog zu LangChainProviderConfig)",
+        "Validator: kein inline Secret (sk-, Bearer, key=, token=) im Wert — exakt wie in LangChainProviderConfig._no_plain_secrets()",
+        "langgraph_adapter.py _invoke_llm_node(): getattr-Fallback entfernt; nutzt self._config.model_provider_ref direkt",
+        "agent/providers/lc_lg/__init__.py re-exportiert model_provider_ref-Feld korrekt",
+        "Test: LangGraphProviderConfig(model_provider_ref='ollama.llama3.1').model_provider_ref == 'ollama.llama3.1'",
+        "Test: LangGraphProviderConfig(model_provider_ref='sk-secret') raises ValidationError",
+        "Bestehende Tests (test_workflow_lc_lg_provider_config.py, test_workflow_lc_lg_live_langgraph.py) bleiben grün"
+      ],
+      "notes": "Referenz: agent/providers/lc_lg/langchain_provider_config.py:29 — dort ist das Muster bereits implementiert."
+    },
+    {
+      "id": "LCG-032",
+      "title": "LangGraphProviderConfig: embedding_provider_scope Feld ergänzen",
+      "status": "done",
+      "priority": "P1",
+      "risk": "low",
+      "type": "config",
+      "area": "langgraph",
+      "description": "LangChainProviderConfig hat embedding_provider_scope: str = 'codecompass_vector'. LangGraphProviderConfig hat dieses Feld NICHT. In langgraph_adapter.py:78 steht: 'The scope is hard-coded to codecompass_vector for now; a future embedding_provider_scope field on LangGraphProviderConfig can override it without touching this line.' Dieser Follow-up fehlt.",
+      "depends_on": [],
+      "files_to_change": [
+        "agent/providers/lc_lg/langgraph_provider_config.py",
+        "worker/adapters/langgraph_adapter.py"
+      ],
+      "acceptance_criteria": [
+        "LangGraphProviderConfig erhält Feld embedding_provider_scope: str = 'codecompass_vector'",
+        "langgraph_adapter.py __init__(): CodeCompassRetriever(scope=self._config.embedding_provider_scope) statt Hardcode",
+        "Test: LangGraphProviderConfig(embedding_provider_scope='custom_scope') — Adapter nutzt custom_scope im Retriever",
+        "Test: Default-Scope bleibt 'codecompass_vector' (Rückwärtskompatibilität)",
+        "test_workflow_lc_lg_embedding_provider.py::test_langgraph_adapter_uses_codecompass_vector_scope prüft Default"
+      ],
+      "notes": "Referenz: langgraph_adapter.py Zeilen 72-78 — TODO-Kommentar bereits vorhanden."
+    },
+    {
+      "id": "LCG-033",
+      "title": "LCG-020 vervollständigen: Provider-Diagnostics (lokal/cloud/degraded)",
+      "status": "done",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "config",
+      "area": "provider",
+      "description": "LCG-020 ist partial (60%). Offene Acceptance-Criteria laut Archiv: 'Lokale OpenAI-kompatible Endpunkte können per allowlisted base_url verwendet werden' und 'Provider-Diagnostics zeigen lokal/cloud/degraded eindeutig an'. WorkflowAdapterDescriptor hat kein provider_diagnostics Feld. LangChainProviderConfig hat kein allowed_base_urls Feld.",
+      "depends_on": [],
+      "files_to_change": [
+        "agent/providers/lc_lg/langchain_provider_config.py",
+        "worker/adapters/workflow_adapter_base.py",
+        "worker/adapters/langchain_adapter.py"
+      ],
+      "acceptance_criteria": [
+        "LangChainProviderConfig erhält allowed_base_urls: list[str] = [] (leer = alle lokalen URLs erlaubt bei external_calls_allowed=False)",
+        "WorkflowAdapterDescriptor erhält provider_diagnostics: dict = {} Feld (kein frozen-Bruch, da default_factory)",
+        "LangChainAdapter.descriptor() befüllt provider_diagnostics mit: {'model_ref': config.model_provider_ref, 'locality': 'local'|'cloud', 'external_calls': config.external_calls_allowed}",
+        "'locality' = 'local' wenn model_provider_ref mit 'local.' oder 'ollama.' beginnt; 'cloud' wenn 'cloud_gated'-Mode",
+        "Test: LangChainAdapter(config=LangChainProviderConfig(enabled=True, mode='local_live')).descriptor().provider_diagnostics['locality'] == 'local'",
+        "Test: mode='cloud_gated' → locality='cloud'",
+        "WorkflowAdapterDescriptor.as_dict() enthält provider_diagnostics-Schlüssel"
+      ],
+      "notes": "LCG-020 progress_percent auf 100 setzen wenn Criteria erfüllt. Archiv-Item bleibt in archiv, neues Item hier ist der Abschluss."
+    },
+    {
+      "id": "LCG-034",
+      "title": "Hub API Blueprint: /api/workflow_adapters/ implementieren",
+      "status": "done",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "api",
+      "area": "tooling",
+      "description": "Das Rollout-Runbook (docs/operations/langchain-langgraph-rollout-runbook.md, Phase 1) referenziert 'curl http://hub:5000/api/workflow_adapters/' als Smoke-Check. Diese Route existiert nicht. Nur integrations_workflows_bp (/api/integrations/workflows/callback) und effective_workflow_bp (/api/effective-workflow/) existieren. Kein Endpunkt für Adapter-Listing, Dry-Run oder Execute.",
+      "depends_on": [],
+      "files_to_change": [
+        "agent/routes/workflow_adapters.py",
+        "agent/bootstrap/routes.py"
+      ],
+      "acceptance_criteria": [
+        "Neue Datei agent/routes/workflow_adapters.py mit Blueprint workflow_adapters_bp, url_prefix='/api/workflow_adapters'",
+        "GET /api/workflow_adapters/ → 200, body: list_adapters_as_dicts() — keine Auth nötig (read-only Status)",
+        "GET /api/workflow_adapters/<kind>/ → 200 mit adapter.descriptor().as_dict(); 404 wenn kind unbekannt",
+        "POST /api/workflow_adapters/<kind>/dry_run → 200 mit DryRunResult.as_dict(); Body: {task_id, task_type, payload}; Auth erforderlich (JWT wie andere Hub-Routen)",
+        "POST /api/workflow_adapters/<kind>/execute → 200 mit WorkflowArtifactResult.as_dict(); Auth + log_audit('workflow_adapter_execute', {...})",
+        "agent/bootstrap/routes.py importiert und registriert workflow_adapters_bp",
+        "Rollout-Runbook Smoke-Check: curl /api/workflow_adapters/ gibt JSON-Array mit adapter_id, status, enabled",
+        "Test: GET /api/workflow_adapters/ enthält 'adapter.langchain' und 'adapter.langgraph' in Response",
+        "Test: POST /api/workflow_adapters/langchain/dry_run ohne Auth → 401",
+        "Test: POST /api/workflow_adapters/unknown_kind/dry_run → 404"
+      ],
+      "notes": "Auth-Pattern: from agent.auth import require_auth wie in anderen Routes. Rate-Limit: analog zu /api/goals/."
+    },
+    {
+      "id": "LCG-035",
+      "title": "workflow_adapter_registry: Profile-Auto-Loading aus AGENT_CONFIG",
+      "status": "done",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "config",
+      "area": "config",
+      "description": "_load_defaults() in workflow_adapter_registry.py instanziiert immer LangChainAdapter() und LangGraphAdapter() ohne Config — also immer default_off(). Das Profile-Snippet (docs/architecture/profile-snippet-langchain-langgraph.json) hat keine Wirkung, weil kein Code es lädt. LCG-028 ('done') hat nur den Snippet erstellt, nicht die Laderoutine.",
+      "depends_on": [],
+      "files_to_change": [
+        "worker/adapters/workflow_adapter_registry.py"
+      ],
+      "acceptance_criteria": [
+        "_load_defaults() prüft ob flask.has_app_context() und AGENT_CONFIG['providers']['langchain'] existiert",
+        "Bei vorhandenem Config-Dict: LangChainProviderConfig(**config_dict) — Pydantic-ValidationError → log warning + default_off(), kein Crash",
+        "Analog für 'providers.langgraph' → LangGraphProviderConfig(**config_dict)",
+        "Kein flask-Import auf Modul-Ebene (nur lazy bei Aufruf), damit Unit-Tests ohne App-Kontext funktionieren",
+        "Test: Mock-App-Context mit AGENT_CONFIG={'providers':{'langchain':{'enabled':True,'mode':'dry_run'}}} → Registry gibt LangChainAdapter mit enabled=True zurück",
+        "Test: Fehlerhafte Config (z.B. mode='ungültig') → default_off() + keine Exception",
+        "Test: Kein App-Kontext → default_off() (unverändert wie bisher)",
+        "Bestehende test_workflow_lc_lg_smoke.py::test_registry_adapters_disabled_by_default bleibt grün (kein App-Kontext in Tests)"
+      ],
+      "notes": "Muster: analog zu agent/llm_integration.py _runtime_default_provider() welches has_app_context() nutzt."
+    },
+    {
+      "id": "LCG-036",
+      "title": "LangChain: ChatModel-Factory (build_lc_chat_model)",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "implementation",
+      "area": "langchain",
+      "description": "LangChainRunnableRunner.run() wraps generate_text() in RunnableLambda. Das ist der dokumentierte Migrations-Pfad (chain_runners.py:83-87 Kommentar: 'replace the body of this lambda with a real chain'). Für echte LangChain-Chain-Komposition braucht der Runner ein echtes BaseChatModel-Objekt. Dieses muss aus model_provider_ref gebaut werden.",
+      "depends_on": [
+        "LCG-038"
+      ],
+      "files_to_change": [
+        "worker/adapters/lc_chat_model_factory.py",
+        "worker/adapters/chain_runners.py"
+      ],
+      "acceptance_criteria": [
+        "Neue Datei worker/adapters/lc_chat_model_factory.py mit Funktion build_lc_chat_model(model_provider_ref: str, base_url: str | None = None) -> BaseChatModel | None",
+        "Prefix 'ollama.*' oder 'local.*' → ChatOllama(model=...) wenn langchain_ollama installiert",
+        "Prefix 'openai.*' oder 'cloud.openai.*' → ChatOpenAI(model=...) wenn langchain_openai installiert",
+        "Prefix 'anthropic.*' oder 'cloud.anthropic.*' → ChatAnthropic(model=...) wenn langchain_anthropic installiert",
+        "Kein passendes Prefix oder Framework nicht installiert → None (SimplexRunner-Fallback greift)",
+        "external_calls_allowed=False und Cloud-Provider → None (SecurityError darf NICHT geworfen werden; Silent-Fallback ist sicherer)",
+        "LangChainRunnableRunner.run() ruft build_lc_chat_model() auf; bei None → SimplexRunner.run()",
+        "Test: build_lc_chat_model('local.default') ohne langchain_ollama → None",
+        "Test: build_lc_chat_model('local.default') mit monkeypatch langchain_ollama → ChatOllama-Instanz",
+        "Test: Kein Import-Crash wenn kein Provider-Package installiert (ImportError intern abgefangen)"
+      ],
+      "notes": "Referenz: simulation/adapters/langgraph_runner.py — ähnliche lazy-import Technik für StateGraph."
+    },
+    {
+      "id": "LCG-037",
+      "title": "pyproject.toml: Provider-Extras lc-lg-ollama, lc-lg-openai, lc-lg-anthropic",
+      "status": "done",
+      "priority": "P1",
+      "risk": "low",
+      "type": "config",
+      "area": "provider",
+      "description": "Die aktuellen Extras langchain/langgraph/lc-lg enthalten nur langchain-core und langgraph. Für echte ChatModel-Bindungen (LCG-036) braucht man langchain_ollama, langchain_openai oder langchain_anthropic. Diese sollen explizit opt-in bleiben, nicht Teil von lc-lg.",
+      "depends_on": [],
+      "files_to_change": [
+        "pyproject.toml"
+      ],
+      "acceptance_criteria": [
+        "Neues Extra 'lc-lg-ollama' = ['langchain-ollama>=0.3,<0.4'] (oder aktuelle kompatible Version)",
+        "Neues Extra 'lc-lg-openai' = ['langchain-openai>=0.3,<0.4']",
+        "Neues Extra 'lc-lg-anthropic' = ['langchain-anthropic>=0.3,<0.4']",
+        "Bestehendes 'lc-lg' Meta-Extra zieht diese NICHT automatisch ein (local-first Policy)",
+        "Neues Meta-Extra 'lc-lg-all' = lc-lg + alle drei Provider (für Power-User)",
+        "docs/setup/langchain-langgraph.md ergänzt: Abschnitt 'Provider-Extras'",
+        "Test: pip install 'ananta[lc-lg-ollama]' installiert langchain-ollama aber kein langchain-openai"
+      ],
+      "notes": "Versionsgrenzen müssen mit langchain-core>=0.3,<0.4 kompatibel sein. Bei Konflikt mit llama-index Pinning-Check in CI."
+    },
+    {
+      "id": "LCG-038",
+      "title": "LangChain: Echte LCEL Chain (prompt | model | parser) in LangChainRunnableRunner",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "area": "langchain",
+      "description": "LangChainRunnableRunner._call() wraps generate_text() in RunnableLambda. Wenn build_lc_chat_model() (LCG-036) ein echtes BaseChatModel zurückgibt, soll stattdessen eine echte LCEL-Chain gebaut werden: prompt_template | chat_model | output_parser. RunnableLambda-Wrapper wird damit für den Live-Pfad obsolet. Fallback (generate_text) bleibt via SimplexRunner.",
+      "depends_on": [
+        "LCG-036",
+        "LCG-039",
+        "LCG-040"
+      ],
+      "files_to_change": [
+        "worker/adapters/chain_runners.py"
+      ],
+      "acceptance_criteria": [
+        "LangChainRunnableRunner.run() überprüft ob chat_model = build_lc_chat_model(model_provider_ref) nicht None",
+        "Wenn chat_model vorhanden: chain = prompt_runnable | chat_model | StrOutputParser(); result = chain.invoke({'prompt': prompt, ...})",
+        "Wenn chat_model None: bisheriger RunnableLambda-Pfad bleibt aktiv (Rückwärtskompatibilität)",
+        "prompt_runnable ist ein RunnableLambda der den plain-string prompt als HumanMessage verpackt",
+        "Budget-Guard: budget.record_step('langchain_chain_invoke') wird VOR chain.invoke() gecheckt",
+        "WorkerError bei chain.invoke() Exception: reason_code='langchain_chain_failed'",
+        "Test (mit monkeypatched ChatModel): chain.invoke() wird aufgerufen; generate_text() wird NICHT aufgerufen",
+        "Test (ohne ChatModel): RunnableLambda-Pfad aktiv; generate_text() wird aufgerufen",
+        "Audit-Event: runner-Label 'langchain_chain' statt 'langchain_runnable' wenn echter Chain-Pfad"
+      ],
+      "notes": "Migration documented in chain_runners.py:83-90 Kommentar. Dieses Item setzt diese Migration um."
+    },
+    {
+      "id": "LCG-039",
+      "title": "LangChain: ChatPromptTemplate-Unterstützung in _build_prompt()",
+      "status": "done",
+      "priority": "P2",
+      "risk": "low",
+      "type": "implementation",
+      "area": "langchain",
+      "description": "langchain_adapter._build_prompt() baut Prompts als plain-String (Task/Query/Context-Sektionen). Für echte LCEL-Chains (LCG-038) braucht der Chat-Pfad ein ChatPromptTemplate. Das Chain-Descriptor-Schema kennt kein prompt_template-Feld.",
+      "depends_on": [
+        "LCG-038"
+      ],
+      "files_to_change": [
+        "docs/contracts/langchain-chain-descriptor.schema.json",
+        "worker/adapters/langchain_adapter.py",
+        "examples/langchain/chain.example.rag_query.v1.json"
+      ],
+      "acceptance_criteria": [
+        "langchain-chain-descriptor.schema.json v1.1: neues optionales Feld 'prompt_template': {type: 'object', properties: {system: {type: string}, human: {type: string}}}",
+        "LangChainAdapter._build_prompt() bleibt für SimplexRunner/RunnableLambda-Pfad unverändert",
+        "Neue Methode _build_chat_prompt(task_type, payload, context_sources, descriptor_template) → ChatPromptTemplate | None",
+        "Wenn descriptor kein prompt_template → None → _build_prompt() Fallback",
+        "Wenn ChatPromptTemplate: system-Message aus descriptor.prompt_template.system; human-Message mit {query} und {context} Platzhaltern",
+        "Test: descriptor mit prompt_template → ChatPromptTemplate mit 2 Messages",
+        "Test: descriptor ohne prompt_template → None → plain-String-Pfad",
+        "Test: descriptor_schema v1.1 validiert chain.example.rag_query.v1.json weiterhin (kein Breaking Change)"
+      ],
+      "notes": "Schema-Version auf '1.1' anheben wenn prompt_template hinzugefügt; examples/ aktualisieren."
+    },
+    {
+      "id": "LCG-040",
+      "title": "LangChain: Output-Parser Integration (StrOutputParser, JsonOutputParser)",
+      "status": "done",
+      "priority": "P2",
+      "risk": "low",
+      "type": "implementation",
+      "area": "langchain",
+      "description": "WorkflowArtifactResult.artifacts[0]['content'] ist immer ein str. Kein Output-Parser strukturiert die Ausgabe. Chain-Descriptor kennt kein output_format-Feld. Für strukturierte Artefakte (JSON-Reports, Listen) ist ein Parser nötig.",
+      "depends_on": [
+        "LCG-038"
+      ],
+      "files_to_change": [
+        "docs/contracts/langchain-chain-descriptor.schema.json",
+        "worker/adapters/langchain_adapter.py"
+      ],
+      "acceptance_criteria": [
+        "langchain-chain-descriptor.schema.json: neues optionales Feld 'output_format': {enum: ['text', 'json']}; default 'text'",
+        "LangChainAdapter._run_chain(): wenn output_format='json' und chain.invoke() gibt gültiges JSON zurück → artifact['content'] als dict",
+        "Fehlerhafte JSON-Ausgabe bei output_format='json': artifact['status']='partial', artifact['content']=raw_str, artifact['parse_error'] gesetzt",
+        "output_format='text' (default): artifact['content'] als str (Rückwärtskompatibilität)",
+        "Test: output_format='json' + LLM gibt '{\"key\":\"val\"}' zurück → artifact.content ist dict",
+        "Test: output_format='json' + LLM gibt kein JSON zurück → status='partial'",
+        "Test: output_format='text' → artifact.content ist str wie bisher"
+      ],
+      "notes": "JsonOutputParser aus langchain-core; kein zusätzliches Package nötig."
+    },
+    {
+      "id": "LCG-041",
+      "title": "LangChain: BaseRetriever-Adapter für CodeCompassRetriever",
+      "status": "done",
+      "priority": "P2",
+      "risk": "low",
+      "type": "implementation",
+      "area": "langchain",
+      "description": "CodeCompassRetriever ist eine ANANTA-eigene Klasse (worker/retrieval/codecompass_retriever.py). Sie implementiert NICHT BaseRetriever aus langchain-core. Damit kann sie nicht in echter LCEL-Chain als Retriever genutzt werden (z.B. create_retrieval_chain()). Ohne BaseRetriever-Adapter ist der Retrieval-Schritt im echten Chain-Pfad immer manuell.",
+      "depends_on": [
+        "LCG-038"
+      ],
+      "files_to_change": [
+        "worker/retrieval/lc_baseretriever_adapter.py"
+      ],
+      "acceptance_criteria": [
+        "Neue Datei worker/retrieval/lc_baseretriever_adapter.py",
+        "Klasse LangChainCodeCompassRetriever erbt von BaseRetriever (langchain-core) — nur importierbar wenn langchain-core installiert",
+        "Guard: wenn langchain_core nicht importierbar → ImportError mit Hinweis 'pip install ananta[langchain]'",
+        "_get_relevant_documents(query: str, **kwargs) → list[Document]: ruft CodeCompassRetriever(scope=...).query(query, max_results=kwargs.get('k',5)) auf",
+        "async _aget_relevant_documents(): async-Wrapper via asyncio.to_thread(self._get_relevant_documents)",
+        "Document.page_content = source['content'], Document.metadata = {'path': source['path'], 'score': source['score']}",
+        "LangChainCodeCompassRetriever respektiert den scope-Parameter aus LangChainProviderConfig.embedding_provider_scope",
+        "Test: LangChainCodeCompassRetriever.get_relevant_documents('test') gibt list[Document] zurück (mock HybridRetrievalService)",
+        "Test: Metadata enthält 'path' und 'score' Schlüssel",
+        "Test: Kein Import-Crash ohne langchain-core"
+      ],
+      "notes": "CodeCompassRetriever selbst bleibt unverändert. Wrapper ist thin-adapter. ADR-Regel 'nur CodeCompass' bleibt enforced."
+    },
+    {
+      "id": "LCG-042",
+      "title": "LangGraph: tool-Node-Ausführung implementieren",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "area": "langgraph",
+      "description": "In _walk_nodes() Zeilen 324-329: Kommentar 'Other node kinds (tool, retriever, router, artifact_writer) are simulated as before — the v0.8+ GraphState contract already has slots for them; v0.7 walks the topology.' Alle Non-LLM-Nodes werden nur traversiert, nicht ausgeführt. Tool-Nodes rufen kein Tool auf.",
+      "depends_on": [],
+      "files_to_change": [
+        "worker/adapters/langgraph_adapter.py"
+      ],
+      "acceptance_criteria": [
+        "_walk_nodes() erhält neuen Zweig: if kind == 'tool': self._invoke_tool_node(node, state, budget)",
+        "_invoke_tool_node(): tool_ref = node.get('tool_ref','') → policy.check_tool(tool_ref)",
+        "Wenn nicht allowed: WorkerError(reason_code='tool_blocked_by_policy', ...) — budget.record_step('tool_blocked') ERST DANN raise",
+        "Wenn allowed: budget.record_step(f'tool:{tool_ref}') + audit.log('tool_invoked', tool_ref=tool_ref)",
+        "Aktuell kein echter Tool-Dispatcher — tool_result = {'tool_ref': tool_ref, 'status': 'invoked', 'result': 'tool_execution_not_wired'} in state.llm_responses als Placeholder",
+        "state.llm_responses bekommt Eintrag {node_id, runner: 'tool_node', tool_ref, status}",
+        "Test: Tool-Node mit allowed tool → kein WorkerError, state.llm_responses enthält tool_ref Eintrag",
+        "Test: Tool-Node mit verbotenem tool_ref → WorkerError mit reason_code='tool_blocked_by_policy'",
+        "Test: Tool-Node mit leerem tool_ref → WorkerError mit reason_code='tool_ref_missing'",
+        "Audit-Event: 'tool_node_invoked' oder 'tool_node_blocked'"
+      ],
+      "notes": "Echter Tool-Dispatcher (externe Tool-Calls) ist ein separates Item (LCG-053). Dieses Item wired nur Policy-Gate und Budget."
+    },
+    {
+      "id": "LCG-043",
+      "title": "LangGraph: retriever-Node-Ausführung implementieren",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "implementation",
+      "area": "langgraph",
+      "description": "retriever-Nodes im Graph werden traversiert aber nicht ausgeführt. CodeCompassRetriever wird nur im __init__() für den globalen Kontext genutzt. Node-level Retrieval (z.B. zur Mitte des Graphen, nach einem router-Node) ist nicht implementiert.",
+      "depends_on": [],
+      "files_to_change": [
+        "worker/adapters/langgraph_adapter.py"
+      ],
+      "acceptance_criteria": [
+        "_walk_nodes() erhält Zweig: if kind == 'retriever': self._invoke_retriever_node(node, state, budget)",
+        "_invoke_retriever_node(): query = node.get('query_from_state', '') oder letzter llm_response-Text als Query",
+        "budget.record_step(f'retriever:{node.get(\"id\",\"?\")}') + audit.log('retriever_node_invoked')",
+        "Ergebnis: self._retriever.query(query, max_results=5) → neue Sources in state.context_sources (append, nicht replace)",
+        "Wenn retriever_ref in node und != 'codecompass': WorkerError('retriever_ref_not_allowed', 'only codecompass allowed')",
+        "Test: retriever-Node führt CodeCompassRetriever.query() aus (mock HybridRetrievalService)",
+        "Test: retriever-Node mit verbotenem retriever_ref → WorkerError",
+        "Test: Nach retriever-Node enthält state.context_sources die neuen Sources"
+      ],
+      "notes": "ADR-Regel: nur CodeCompass als Retriever. node.get('retriever_ref') darf nur 'codecompass' oder fehlen."
+    },
+    {
+      "id": "LCG-044",
+      "title": "LangGraph: artifact_writer-Node-Ausführung implementieren",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "implementation",
+      "area": "langgraph",
+      "description": "artifact_writer-Nodes werden traversiert aber nicht ausgeführt. Das Artifact-First-Prinzip erfordert, dass ein artifact_writer-Node tatsächlich ein Artifact in state.artifacts erzeugt. Aktuell erzeugt nur _run_graph() am Ende ein Artifact — unabhängig davon ob ein artifact_writer-Node vorhanden war.",
+      "depends_on": [],
+      "files_to_change": [
+        "worker/adapters/langgraph_adapter.py"
+      ],
+      "acceptance_criteria": [
+        "_walk_nodes() erhält Zweig: if kind == 'artifact_writer': self._invoke_artifact_writer_node(node, state, budget)",
+        "_invoke_artifact_writer_node(): artifact_id = f'artifact-lg-node-{uuid.uuid4().hex[:8]}'; artifact_type = node.get('artifact_type', 'report')",
+        "content: letzter llm_response-Text aus state.llm_responses wenn vorhanden, sonst ''",
+        "state.artifacts.append({'artifact_id': artifact_id, 'node_id': node['id'], 'artifact_type': artifact_type, 'content': content, 'sources': state.context_sources, 'status': 'created'})",
+        "budget.record_step(f'artifact_writer:{node.get(\"id\",\"?\")}') + audit.log('artifact_writer_node_invoked', artifact_id=artifact_id)",
+        "Test: Graph mit artifact_writer-Node → state.artifacts enthält Node-Artifact",
+        "Test: artifact_writer nach llm → content enthält llm_response-Text",
+        "Test: artifact_writer ohne vorherigen llm → content = ''"
+      ],
+      "notes": "_run_graph() erzeugt weiterhin ein finales Gesamt-Artifact — die Node-Artifacts sind zusätzlich in state.artifacts."
+    },
+    {
+      "id": "LCG-045",
+      "title": "LangGraph: router-Node und Conditional Edges implementieren",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "area": "langgraph",
+      "description": "_walk_nodes() Zeilen 340-355: immer erster Outbound-Edge Match. Router-Nodes ohne Conditional Logic sind nutzlos. Graph-Descriptor-Schema kennt kein 'condition'-Feld auf Edges. Ohne Conditional Edges sind Verzweigungen im Graph nicht möglich.",
+      "depends_on": [],
+      "files_to_change": [
+        "docs/contracts/langgraph-graph-descriptor.schema.json",
+        "worker/adapters/langgraph_adapter.py"
+      ],
+      "acceptance_criteria": [
+        "langgraph-graph-descriptor.schema.json v1.1: Edge-Objekt erhält optionales 'condition': {type: object, properties: {on_stop_reason: {type: string}, on_state_key: {type: string}, on_state_value: {type: string}}}",
+        "_walk_nodes() router-Node-Zweig: if kind == 'router': next_node = self._route(node, state, edges); budget.record_step()",
+        "_route(node, state, edges): iteriert über Edges mit from==current; prüft condition für jede Edge",
+        "Condition on_stop_reason: prüft ob state.stop_reason Wert passt",
+        "Condition on_state_key/on_state_value: prüft ob state.llm_responses[-1].get(on_state_key) == on_state_value",
+        "Wenn keine Condition auf Edge: erste matchende Edge (bestehendes Verhalten — Rückwärtskompatibilität)",
+        "Wenn router-Node + keine passende Condition: stop_reason='no_matching_route'",
+        "Test: Graph mit router + conditional edges → korrekte Ziel-Node nach Condition",
+        "Test: Graph mit router + keiner passenden Condition → stop_reason='no_matching_route'",
+        "Test: Bestehende Graphs ohne condition-Feld validieren weiterhin (schema additive change)",
+        "Audit-Event: 'router_node_routed', destination=next_node"
+      ],
+      "notes": "Kein Cycle-Detection in diesem Item — max_iterations schützt gegen Endlosschleifen."
+    },
+    {
+      "id": "LCG-046",
+      "title": "LangGraph: max_nodes Enforcement in dry_run() und _walk_nodes()",
+      "status": "done",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "security",
+      "area": "langgraph",
+      "description": "LangGraphProviderConfig hat max_nodes: int = 25 (Zeile 43). Weder dry_run() noch _walk_nodes() prüfen len(nodes) gegen max_nodes. Ein Graph mit 100 Nodes könnte unbegrenzt viele Budget-Steps verbrauchen.",
+      "depends_on": [],
+      "files_to_change": [
+        "worker/adapters/langgraph_adapter.py"
+      ],
+      "acceptance_criteria": [
+        "dry_run(): nach descriptor['nodes'] Extraktion: if len(nodes) > self._config.max_nodes: result.blocked=True; result.block_reason=f'graph_too_many_nodes:{len(nodes)}/{self._config.max_nodes}'",
+        "_walk_nodes(): beim ersten Start: if len(nodes) > max_iter: WorkerError('graph_too_many_nodes', ...)",
+        "Test: Graph mit len(nodes)=30 und max_nodes=25 → dry_run blocked",
+        "Test: Graph mit len(nodes)=24 → dry_run nicht blocked durch max_nodes",
+        "Bestehende Tests mit kleinen Graphs (3-5 Nodes) bleiben grün"
+      ],
+      "notes": "max_nodes und max_iterations sind unterschiedliche Limits: max_nodes = Topologie-Größe, max_iterations = Laufzeit-Schleifenschutz."
+    },
+    {
+      "id": "LCG-047",
+      "title": "LangGraph: StateGraph.compile() als optionaler Live-Pfad",
+      "status": "done",
+      "priority": "P2",
+      "risk": "high",
+      "type": "implementation",
+      "area": "langgraph",
+      "description": "LangGraphAdapter._run_graph() nutzt _walk_nodes() statt StateGraph.compile().invoke(). simulation/adapters/langgraph_runner.py nutzt bereits echten StateGraph als Referenz-Implementierung. Für volle LangGraph-Funktionalität (native Conditional Edges, Streaming, Checkpointing) ist StateGraph.compile() nötig.",
+      "depends_on": [
+        "LCG-042",
+        "LCG-043",
+        "LCG-044",
+        "LCG-045",
+        "LCG-048"
+      ],
+      "files_to_change": [
+        "worker/adapters/langgraph_adapter.py"
+      ],
+      "acceptance_criteria": [
+        "_run_graph() erhält optionalen Pfad: wenn _langgraph_available() und mode in ('local_live', 'cloud_gated'): _run_compiled_graph()",
+        "_run_compiled_graph(): from langgraph.graph import StateGraph; baut Graph aus graph_descriptor (nodes+edges); compiled = graph.compile(checkpointer=self._get_checkpointer())",
+        "Jeder Node-Typ wird als Python-Function registriert (llm_fn, tool_fn, retriever_fn, artifact_writer_fn, human_gate_fn)",
+        "Policy-Gate und Budget-Guard werden INNERHALB jeder Node-Function aufgerufen (nicht nur am Graph-Rand)",
+        "Fallback: wenn _run_compiled_graph() scheitert → _walk_nodes() mit WorkerError-Log",
+        "_walk_nodes() bleibt aktiv wenn langgraph nicht installiert",
+        "Test: Mit monkeypatched StateGraph → compiled graph wird aufgerufen",
+        "Test: Ohne langgraph → _walk_nodes() Fallback aktiv",
+        "Test: Policy-Gate-Verletzung in Node-Function → WorkflowArtifactResult.status='blocked'",
+        "Audit-Events bleiben identisch (node_enter, tool_invoked, human_gate_stop) — nur Execution-Path ändert sich"
+      ],
+      "notes": "Referenz: simulation/adapters/langgraph_runner.py:26-58 — vollständiges StateGraph-Pattern bereits vorhanden."
+    },
+    {
+      "id": "LCG-048",
+      "title": "LangGraph: Checkpointing (MemorySaver für local_ephemeral, Hub-Store für hub_owned)",
+      "status": "done",
+      "priority": "P2",
+      "risk": "high",
+      "type": "implementation",
+      "area": "langgraph",
+      "description": "LangGraphProviderConfig.checkpoint_policy: CheckpointPolicy = 'local_ephemeral_or_hub_owned'. Kein Checkpoint-Store implementiert. _get_checkpointer()-Methode fehlt in LangGraphAdapter. Ohne Checkpointing ist kein Resume nach human_gate möglich.",
+      "depends_on": [
+        "LCG-047"
+      ],
+      "files_to_change": [
+        "worker/adapters/langgraph_adapter.py"
+      ],
+      "acceptance_criteria": [
+        "_get_checkpointer(): je nach checkpoint_policy gibt verschiedene Checkpoint-Stores zurück",
+        "checkpoint_policy='none': None → kein Checkpointing",
+        "checkpoint_policy='local_ephemeral': from langgraph.checkpoint.memory import MemorySaver; return MemorySaver() — nur wenn langgraph installiert",
+        "checkpoint_policy='local_ephemeral_or_hub_owned': MemorySaver() als Default (Hub-Owned-Store ist LCG-049)",
+        "checkpoint_policy='hub_owned': None für jetzt (LCG-049 implementiert Hub-Store)",
+        "Kein Import-Crash wenn langgraph nicht installiert: _get_checkpointer() gibt None zurück wenn ImportError",
+        "Test: checkpoint_policy='none' → _get_checkpointer() gibt None zurück",
+        "Test: checkpoint_policy='local_ephemeral' mit langgraph installiert → MemorySaver-Instanz",
+        "Test: checkpoint_policy='local_ephemeral' ohne langgraph → None (kein Crash)"
+      ],
+      "notes": "MemorySaver ist in-process ephemer. Für Production: SqliteSaver wäre persistenter aber erfordert DB-Pfad-Config. Erstmal MemorySaver als Einstieg."
+    },
+    {
+      "id": "LCG-049",
+      "title": "LangGraph: resume_token und State-Persistenz nach human_gate",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "area": "langgraph",
+      "description": "Wenn human_gate den Graph stoppt, gibt execute() einen blocked WorkflowArtifactResult zurück. Der Graph-State (_GraphState) wird nicht persistiert. Es gibt keinen Mechanismus um nach Hub-Approval wiederaufzunehmen. WorkflowArtifactResult hat kein resume_token-Feld.",
+      "depends_on": [
+        "LCG-048"
+      ],
+      "files_to_change": [
+        "worker/adapters/workflow_adapter_base.py",
+        "worker/adapters/langgraph_adapter.py"
+      ],
+      "acceptance_criteria": [
+        "WorkflowArtifactResult erhält optionales Feld resume_token: str | None = None",
+        "WorkflowArtifactResult.as_dict() enthält 'resume_token' Schlüssel (None oder str)",
+        "Bei human_gate-Stop: _GraphState wird mit json.dumps serialisiert (nur serialisierbare Felder), als resume_token im Result gespeichert",
+        "execute() erhält optionalen Parameter resume_token: str | None = None",
+        "Wenn resume_token übergeben: State deserialisieren, Graph ab gespeichertem Node fortsetzen",
+        "Ungültiger/abgelaufener resume_token → WorkerError('resume_token_invalid')",
+        "Resume-Pfad prüft dieselben Policy-Gates wie normaler execute()-Pfad",
+        "Test: human_gate-Stop → result.resume_token ist nicht None und ist gültiger JSON-String",
+        "Test: execute(resume_token=valid_token) → Graph setzt ab human_gate-Node fort",
+        "Test: execute(resume_token='garbage') → WorkerError('resume_token_invalid')",
+        "Test: result.as_dict()['resume_token'] nicht None nach human_gate"
+      ],
+      "notes": "SICHERHEIT: resume_token enthält Graph-State aber keine Secrets. State muss vor Serialisierung durch redact() gefiltert werden."
+    },
+    {
+      "id": "LCG-050",
+      "title": "LangGraph: Token-Streaming via stream()-Methode",
+      "status": "done",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "implementation",
+      "area": "langgraph",
+      "description": "Alle Adapter-Ergebnisse sind batch-returned. Es gibt keine stream()-Methode auf WorkflowAdapter Protocol oder auf Adaptern. LangChain und LangGraph unterstützen nativ astream(). ANANTA hat flask-sock für WebSockets. Streaming würde UX verbessern ohne Policy-Sicherheit zu brechen.",
+      "depends_on": [
+        "LCG-047"
+      ],
+      "files_to_change": [
+        "worker/adapters/workflow_adapter_base.py",
+        "worker/adapters/langgraph_adapter.py",
+        "worker/adapters/langchain_adapter.py"
+      ],
+      "acceptance_criteria": [
+        "WorkflowAdapter Protocol erhält optionale Methode stream(*, task_id, task_type, payload) → Generator[dict, None, None]",
+        "LangGraphAdapter.stream(): wenn compiled graph (LCG-047) verfügbar → compiled_graph.stream(input) → yield {event_type, node_id, token|artifact|status}",
+        "Fallback: wenn kein compiled graph → yield einzelnes Batch-Event nach execute()",
+        "Policy-Gate via dry_run() wird VOR dem Generator geprüft — Blocking vor Stream-Start, nicht mittendrin",
+        "Budget-Guard: record_step() bei jedem Stream-Event",
+        "Jedes Stream-Event hat: {adapter_id, task_id, event_type: 'token'|'node_complete'|'artifact'|'stream_end', ...}",
+        "stream_end-Event enthält finales WorkflowArtifactResult.as_dict()",
+        "LangChainAdapter.stream(): RunnableLambda/chain.stream() → yield pro Token-Chunk",
+        "Test: LangGraphAdapter.stream() ohne compiled graph → genau 1 Event (Batch-Fallback)",
+        "Test: dry_run blocked → StopIteration sofort (Generator wird nie gestartet)"
+      ],
+      "notes": "Hub-API-Route /api/workflow_adapters/<kind>/stream via SSE (LCG-034-Erweiterung). flask-sock ist bereits in requirements.txt."
+    },
+    {
+      "id": "LCG-051",
+      "title": "LangGraph: Subgraph-Support (Node-Kind 'subgraph')",
+      "status": "done",
+      "priority": "P3",
+      "risk": "high",
+      "type": "implementation",
+      "area": "langgraph",
+      "description": "Jeder LangGraph-Graph in ANANTA ist ein flacher Node-Graph. LangGraph unterstützt nativ Subgraphs (verschachtelte StateGraphs). Im Descriptor-Schema gibt es kein 'subgraph'-Node-Kind. Subgraphs sind Basis für Multi-Agent-Workflows.",
+      "depends_on": [
+        "LCG-047"
+      ],
+      "files_to_change": [
+        "docs/contracts/langgraph-graph-descriptor.schema.json",
+        "worker/adapters/langgraph_adapter.py"
+      ],
+      "acceptance_criteria": [
+        "Graph-Descriptor-Schema: Node-Kind-Enum erweitert um 'subgraph'; Node erhält Feld 'subgraph_ref': {type: string} (graph_id des Subgraphs)",
+        "_walk_nodes() Zweig: if kind == 'subgraph': self._invoke_subgraph_node(node, state, budget)",
+        "_invoke_subgraph_node(): ruft _run_graph() rekursiv auf mit subgraph_descriptor aus payload['subgraph_descriptors'][subgraph_ref]",
+        "Subgraph läuft im selben Worker-Prozess (kein Worker-zu-Worker-Call)",
+        "Budget wird zwischen Parent und Subgraph geteilt (same budget-Instanz wird übergeben)",
+        "Subgraph-Tiefe: max 3 Ebenen (depth-Counter in _run_graph()-Signatur)",
+        "Cycle-Detection: wenn subgraph_ref == parent graph_id → WorkerError('subgraph_cycle_detected')",
+        "Audit-Events tragen subgraph-Präfix: 'subgraph:graph_id.node_id'",
+        "max_nodes gilt über den gesamten Baum (Parent + alle Subgraphs)",
+        "Test: Subgraph mit 2 LLM-Nodes → beide werden ausgeführt",
+        "Test: Subgraph > 3 Ebenen → WorkerError",
+        "Test: Subgraph referenziert sich selbst → WorkerError('subgraph_cycle_detected')"
+      ],
+      "notes": "KEIN Worker-zu-Worker! Subgraph läuft im selben Adapter-Aufruf. Hub-Policy gilt für gesamten Baum."
+    },
+    {
+      "id": "LCG-052",
+      "title": "LangChain: @tool / BaseTool Integration (Tool-Schema in Descriptor)",
+      "status": "done",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "implementation",
+      "area": "langchain",
+      "description": "WorkflowPolicyGate nutzt String-Namen für Tool-Calls (allowed_tools=['summarize_doc']). Kein @tool-Decorator oder BaseTool-Subclass-Integration. Chain-Descriptor definiert Tools als String-Liste. Für echte LangChain-Tool-Bindung (LCEL mit Tools) braucht der Adapter eine Tool-Registry.",
+      "depends_on": [
+        "LCG-038"
+      ],
+      "files_to_change": [
+        "worker/adapters/lc_tool_registry.py",
+        "worker/adapters/langchain_adapter.py",
+        "docs/contracts/langchain-chain-descriptor.schema.json"
+      ],
+      "acceptance_criteria": [
+        "Neue Datei worker/adapters/lc_tool_registry.py mit einer Handvoll Built-in-Tools",
+        "Built-in-Tools: summarize_doc, search_code — als @tool-dekorierte Funktionen (langchain-core), die intern ANANTA-Services aufrufen",
+        "search_code-Tool ruft CodeCompassRetriever.query() auf (ADR-konform)",
+        "summarize_doc-Tool erzeugt SimplexRunner-Call für Zusammenfassung",
+        "get_tools_for_chain(allowed_tools: list[str]) → list[BaseTool]: filtert Built-in-Tools gegen allowed_tools + PolicyGate",
+        "LangChainAdapter._run_chain(): wenn allowed_tools nicht leer und langchain-core installiert → Tools aus get_tools_for_chain() an chain binden",
+        "Chain-Descriptor-Schema: tools-Array-Einträge dürfen optionales Feld 'input_schema' haben",
+        "Test: get_tools_for_chain(['summarize_doc']) gibt 1 Tool zurück",
+        "Test: get_tools_for_chain(['exec_shell']) gibt 0 zurück (Hard-Deny greift)",
+        "Test: get_tools_for_chain(['unknown_tool']) gibt 0 zurück (nicht in Built-in-Registry)"
+      ],
+      "notes": "Nur Built-in-Tools; kein externen Tool-Loader. Externe Tool-Calls erfordern external_calls_allowed=True + Hub-Approval."
+    },
+    {
+      "id": "LCG-053",
+      "title": "Hub-API: /api/workflow_adapters/<kind>/stream Endpunkt (SSE)",
+      "status": "done",
+      "priority": "P3",
+      "risk": "medium",
+      "type": "api",
+      "area": "tooling",
+      "description": "Sobald stream()-Methode (LCG-050) auf Adaptern vorhanden ist, braucht die Hub-API einen SSE-Endpunkt. flask-sock ist in requirements.txt vorhanden.",
+      "depends_on": [
+        "LCG-034",
+        "LCG-050"
+      ],
+      "files_to_change": [
+        "agent/routes/workflow_adapters.py"
+      ],
+      "acceptance_criteria": [
+        "GET /api/workflow_adapters/<kind>/stream mit Query-Params task_id, task_type, payload (JSON-encoded) → SSE Stream",
+        "Jedes SSE-Event: data: {event_type, ...} als JSON",
+        "stream_end-Event: data: WorkflowArtifactResult.as_dict()",
+        "Auth: JWT-Bearer erforderlich",
+        "dry_run() wird vor SSE-Start gecheckt; wenn blocked → HTTP 403 mit block_reason",
+        "Content-Type: text/event-stream; Cache-Control: no-cache",
+        "Test: Stream-Start gibt mindestens 1 Event zurück",
+        "Test: blocked dry_run → 403 vor SSE-Start"
+      ],
+      "notes": "Alternativ WebSocket via flask-sock. SSE einfacher für read-only Streams."
+    },
+    {
+      "id": "LCG-054",
+      "title": "Security: execution_trace und audit_log Redaction",
+      "status": "done",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "security",
+      "area": "testing",
+      "description": "LCG-025 Archiv-Notes: 'Weitere Redaction-Pfade (Audit-Log, execution_trace) sind TODO im Audit-Cluster, nicht in LCG-025.' WorkflowAuditLog.log() nimmt **kwargs an ohne Redaction. Wenn ein Node-Prompt oder ein payload-Wert ein Secret enthält, landet es im execution_trace im WorkflowArtifactResult.",
+      "depends_on": [],
+      "files_to_change": [
+        "worker/adapters/workflow_audit.py",
+        "tests/test_workflow_lc_lg_security_redaction.py"
+      ],
+      "acceptance_criteria": [
+        "workflow_audit.py: WorkflowAuditLog.log() wendet agent.common.redaction.redact() auf alle kwargs-Werte an bevor sie in _entries[] gespeichert werden",
+        "Importiert from agent.common.redaction import redact — kein neuer Redaction-Code",
+        "Ausnahme: 'event' und 'ts' werden NICHT redact()'ed (kein Secret-Risiko)",
+        "Test (neue Datei tests/test_workflow_lc_lg_security_redaction.py):",
+        "  T1: WorkflowAuditLog.log('test', secret_value='sk-abc123') → entries()[0]['secret_value'] enthält NICHT 'sk-abc123'",
+        "  T2: execution_trace im WorkflowArtifactResult enthält kein sk-xxx Muster",
+        "  T3: LangChainProviderConfig.to_safe_dict() enthält keine secret_refs-Werte (bereits vorhanden, hier als Regression-Guard)",
+        "  T4: _build_prompt() mit Payload der sk-xxx enthält → prompt selbst enthält NICHT sk-xxx (payload wird durch redact() gefiltert vor Prompt-Build)",
+        "Test-Datei liegt in tests/ (nicht tests/security/ da kein security-Dir vorhanden)",
+        "Keine Regression in bestehenden Audit-Tests (test_workflow_lc_lg_audit.py)"
+      ],
+      "notes": "LCG-025 Notes: 'tests/security/test_langchain_langgraph_secret_redaction.py' — diese Datei existiert NICHT. Sie wurde im TODO beschrieben aber nie erstellt. Hier wird sie erstellt."
+    },
+    {
+      "id": "LCG-055",
+      "title": "Security: _build_prompt() Secret-Guard gegen payload-injizierte Secrets",
+      "status": "done",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "security",
+      "area": "langchain",
+      "description": "LangChainAdapter._build_prompt() nimmt payload-Dict an und schreibt query/prompt-Wert in den LLM-Prompt. Wenn ein Angreifer ein Secret (API-Key, Passwort) im payload['query'] Feld einschleust, landet es im Prompt. Kein Redaction-Filter auf payload-Ebene vor Prompt-Build.",
+      "depends_on": [],
+      "files_to_change": [
+        "worker/adapters/langchain_adapter.py",
+        "worker/adapters/langgraph_adapter.py"
+      ],
+      "acceptance_criteria": [
+        "LangChainAdapter._build_prompt(): query = redact(str(payload.get('query') or payload.get('prompt') or '')) bevor es in den Prompt-String eingebaut wird",
+        "LangGraphAdapter._build_node_prompt(): analoge Redaction auf context_block und prior-Responses",
+        "Redaction verwendet from agent.common.redaction import redact (bereits importiert in anderen Modulen)",
+        "Test: LangChainAdapter.dry_run(payload={'query': 'find sk-abc123'}) → plan_steps enthalten keine 'sk-abc123' Strings",
+        "Test: LangGraphAdapter._build_node_prompt() mit state.llm_responses die sk-xxx enthalten → prompt enthält NICHT sk-xxx"
+      ],
+      "notes": "redact() aus agent.common.redaction ist bereits im Codebase vorhanden (z.B. in integrations_workflows.py)."
+    },
+    {
+      "id": "LCG-056",
+      "title": "Operator-TUI: Workflow-Adapter-Status-Panel",
+      "status": "done",
+      "priority": "P2",
+      "risk": "low",
+      "type": "ui",
+      "area": "tooling",
+      "description": "LCG-021 ist als 'done' markiert, aber Notes: 'examples/langchain/chain.example.rag_query.v1.json — minimal RAG chain...' Das ist ein JSON-Beispiel, kein UI-Code. In client_surfaces/operator_tui/ gibt es keinerlei Code für workflow_adapters. Das Acceptance-Criteria 'Workerliste zeigt langchain/langgraph Provider und Status' ist nicht erfüllt.",
+      "depends_on": [
+        "LCG-034"
+      ],
+      "files_to_change": [
+        "client_surfaces/operator_tui/workflow_adapter_panel.py"
+      ],
+      "acceptance_criteria": [
+        "Neue Datei client_surfaces/operator_tui/workflow_adapter_panel.py",
+        "Funktion render_workflow_adapter_status(adapters: list[dict]) → str: gibt ANSI-formatierte Tabelle zurück",
+        "Spalten: adapter_id | status | enabled | capabilities (erste 3) | reason",
+        "Status-Farben: ready=grün, degraded=gelb, disabled=grau, blocked=rot",
+        "Funktion fetch_adapter_status(hub_base_url: str) → list[dict]: GET /api/workflow_adapters/ und gibt Ergebnis zurück",
+        "Leeres Ergebnis: 'Keine Workflow-Adapter registriert.' Meldung",
+        "Test: render_workflow_adapter_status([{...adapter.langchain disabled...}]) gibt String zurück der 'adapter.langchain' enthält",
+        "Test: render_workflow_adapter_status([]) gibt 'Keine...' Meldung zurück"
+      ],
+      "notes": "Kein Textual/Rich-Framework-Coupling; einfaches ANSI-String-Rendering wie andere TUI-Components."
+    },
+    {
+      "id": "LCG-057",
+      "title": "Operator-TUI: DryRun-Plan-Anzeige",
+      "status": "done",
+      "priority": "P2",
+      "risk": "low",
+      "type": "ui",
+      "area": "tooling",
+      "description": "LCG-021 Acceptance-Criteria 'Dry-Run-Plan ist lesbar darstellbar' ist nicht erfüllt. Kein Code rendert DryRunResult.plan_steps in der TUI.",
+      "depends_on": [
+        "LCG-056"
+      ],
+      "files_to_change": [
+        "client_surfaces/operator_tui/workflow_adapter_panel.py"
+      ],
+      "acceptance_criteria": [
+        "Funktion render_dry_run_plan(dry_run_result: dict) → str",
+        "Zeigt: plan_steps als nummerierte Liste (step, action, description)",
+        "Zeigt: risk_level (low/medium/high farbig)",
+        "Zeigt: approval_required als 'APPROVAL REQUIRED' Banner wenn True",
+        "Zeigt: blocked + block_reason als 'BLOCKED: reason' wenn blocked=True",
+        "Zeigt: estimated_tokens wenn vorhanden",
+        "Test: render_dry_run_plan({'plan_steps':[{'step':1,'action':'x','description':'y'}],'risk_level':'low','blocked':False}) gibt String mit 'x' und 'y' zurück",
+        "Test: blocked=True → String enthält 'BLOCKED'",
+        "Test: approval_required=True → String enthält 'APPROVAL REQUIRED'"
+      ],
+      "notes": "Analog zum CLI-Prompt-Inspect-Output (agent/cli/prompt_inspect_formatters.py)."
+    },
+    {
+      "id": "LCG-058",
+      "title": "Live-Integration-Tests mit echtem lokalen LLM (pytest.mark.integration)",
+      "status": "done",
+      "priority": "P3",
+      "risk": "low",
+      "type": "testing",
+      "area": "testing",
+      "description": "Alle ~94 LCG-Tests mocken generate_text() oder laufen ohne Framework. test_workflow_lc_lg_live_runners.py ist trotz Name komplett gemockt. Keine Tests prüfen echten LLM-Aufruf durch Adapter. Latenz-, Token-Budget- und Response-Normalisierungs-Probleme bleiben unerkannt.",
+      "depends_on": [],
+      "files_to_change": [
+        "tests/test_workflow_lc_lg_live_integration.py"
+      ],
+      "acceptance_criteria": [
+        "Neue Datei tests/test_workflow_lc_lg_live_integration.py",
+        "Alle Tests @pytest.mark.integration dekoriert",
+        "Tests nur ausgeführt wenn ANANTA_OLLAMA_URL in os.environ gesetzt",
+        "Skip-Fixture: if not os.environ.get('ANANTA_OLLAMA_URL'): pytest.skip('ANANTA_OLLAMA_URL not set')",
+        "T1: LangChainAdapter(LangChainProviderConfig(enabled=True, mode='local_live')).execute(task_id='live-t1', task_type='rag_query', payload={'query':'what is python'}) → result.status in ('success','partial')",
+        "T2: result.artifacts[0]['content'] ist nicht-leerer String",
+        "T3: result.execution_trace enthält 'execute_complete' Event",
+        "T4: LangChainAdapter mit timeout_seconds=1 → WorkflowArtifactResult.status='failed', reason_code='budget_timeout'",
+        "pytest.ini: 'integration' Marker ist deklariert (bereits vorhanden: markers=['integration: ...'])"
+      ],
+      "notes": "Nicht in CI-Standard-Run. Für lokale Entwicklung mit laufendem Ollama. Marker 'integration' ist in pytest.ini bereits korrekt deklariert."
+    },
+    {
+      "id": "LCG-059",
+      "title": "Test: _walk_nodes() Tool-Node-Policy-Gate-Integration",
+      "status": "done",
+      "priority": "P0",
+      "risk": "low",
+      "type": "testing",
+      "area": "testing",
+      "description": "Nach LCG-042 (tool-Node-Ausführung) fehlen Integrations-Tests die beweisen, dass PolicyGate für Tool-Nodes korrekt aus dem LangGraph-Adapter aufgerufen wird — nicht nur aus dem Unit-Test für PolicyGate selbst.",
+      "depends_on": [
+        "LCG-042"
+      ],
+      "files_to_change": [
+        "tests/test_workflow_lc_lg_live_langgraph.py"
+      ],
+      "acceptance_criteria": [
+        "Test: LangGraphAdapter mit allowed_tools=['search_code'] + Graph mit tool-Node tool_ref='search_code' → execute() status='success'",
+        "Test: LangGraphAdapter mit allowed_tools=[] (Default-Deny) + Graph mit tool-Node → result.status='failed', reason_code='tool_blocked_by_policy'",
+        "Test: Graph mit hard-deny tool_ref='exec_shell' → result.status='failed', reason_code='tool_blocked_by_policy'",
+        "Test: policy_decisions im Result enthält den tool-Eintrag"
+      ],
+      "notes": "Tests kommen als neue Testfunktionen in test_workflow_lc_lg_live_langgraph.py."
+    },
+    {
+      "id": "LCG-060",
+      "title": "Test: max_nodes-Enforcement in dry_run() und execute()",
+      "status": "done",
+      "priority": "P0",
+      "risk": "low",
+      "type": "testing",
+      "area": "testing",
+      "description": "Nach LCG-046 fehlen Tests für max_nodes-Enforcement sowohl in dry_run() als auch in execute().",
+      "depends_on": [
+        "LCG-046"
+      ],
+      "files_to_change": [
+        "tests/test_workflow_lc_lg_smoke.py"
+      ],
+      "acceptance_criteria": [
+        "Test: LangGraphAdapter(LangGraphProviderConfig(max_nodes=3)).dry_run(..., payload mit 5 Nodes) → result.blocked=True, block_reason enthält 'graph_too_many_nodes'",
+        "Test: LangGraphAdapter(LangGraphProviderConfig(max_nodes=5)).dry_run(..., payload mit 5 Nodes) → nicht blocked durch max_nodes",
+        "Test: execute() mit 5 Nodes und max_nodes=3 → result.status='blocked'"
+      ],
+      "notes": "Einfache parametrisierte Tests; kein Framework nötig."
+    },
+    {
+      "id": "LCG-061",
+      "title": "Test: resume_token round-trip (human_gate stop → resume)",
+      "status": "done",
+      "priority": "P1",
+      "risk": "low",
+      "type": "testing",
+      "area": "testing",
+      "description": "Nach LCG-049 (resume_token) fehlen Tests die den vollständigen Round-Trip beweisen: human_gate-Stop erzeugt resume_token, execute() mit resume_token setzt ab human_gate-Node fort.",
+      "depends_on": [
+        "LCG-049"
+      ],
+      "files_to_change": [
+        "tests/test_workflow_lc_lg_live_langgraph.py"
+      ],
+      "acceptance_criteria": [
+        "Test: Graph mit human_gate-Node → result.resume_token is not None",
+        "Test: resume_token ist gültiger JSON-String der graph_id und stopped_at enthält",
+        "Test: execute(task_id=..., task_type=..., payload=..., resume_token=valid_token) → resume setzt korrekt ab human_gate fort",
+        "Test: execute(resume_token='ungültig') → WorkflowArtifactResult.status='failed', reason_code='resume_token_invalid'",
+        "Test: result.as_dict()['resume_token'] ist nicht None nach human_gate-Stop",
+        "Test: resume_token enthält KEINEN Secret-Pattern (redact() wurde angewendet)"
+      ],
+      "notes": "Abhängig von LCG-049 (WorkflowArtifactResult.resume_token Feld)."
+    },
+    {
+      "id": "LCG-062",
+      "title": "Test: Conditional Edge routing (router-Node)",
+      "status": "done",
+      "priority": "P1",
+      "risk": "low",
+      "type": "testing",
+      "area": "testing",
+      "description": "Nach LCG-045 (Conditional Edges) fehlen Tests die beweisen, dass der Router-Node korrekt routet.",
+      "depends_on": [
+        "LCG-045"
+      ],
+      "files_to_change": [
+        "tests/test_workflow_lc_lg_live_langgraph.py"
+      ],
+      "acceptance_criteria": [
+        "Test: Graph mit router-Node und zwei Outbound-Edges (eine mit condition, eine ohne) → router wählt bedingte Edge wenn Condition erfüllt",
+        "Test: router-Node, keine Condition erfüllt → stop_reason='no_matching_route'",
+        "Test: Graph mit router-Node, keine Edges → stop_reason='no_outbound_edge'",
+        "Test: Bestehende Graphs ohne condition-Felder → router-Verhalten identisch zu bisherigem ersten-Match-Verhalten"
+      ],
+      "notes": "Abhängig von LCG-045."
+    },
+    {
+      "id": "LCG-063",
+      "title": "Docs: docs/setup/langchain-langgraph.md um Provider-Extras und Chat-Model-Pfad erweitern",
+      "status": "done",
+      "priority": "P1",
+      "risk": "low",
+      "type": "docs",
+      "area": "docs",
+      "description": "docs/setup/langchain-langgraph.md beschreibt nur die Basis-Extras (langchain, langgraph, lc-lg) und dry_run-Betrieb. Nach LCG-037/LCG-036/LCG-038 gibt es Provider-Extras und einen echten ChatModel-Pfad, der dokumentiert werden muss.",
+      "depends_on": [
+        "LCG-037",
+        "LCG-036"
+      ],
+      "files_to_change": [
+        "docs/setup/langchain-langgraph.md"
+      ],
+      "acceptance_criteria": [
+        "Neuer Abschnitt '## Provider-Extras' mit Tabelle: Extra | Pulled in | Wann nötig",
+        "Eintrag lc-lg-ollama / lc-lg-openai / lc-lg-anthropic / lc-lg-all in Tabelle",
+        "Abschnitt '## ChatModel-Pfad (echte LangChain-Chain)' erklärt: wann build_lc_chat_model() anspringt, wie model_provider_ref gemappt wird",
+        "Abschnitt '## Fallback-Hierarchie': Framework installiert + ChatModel verfügbar → LCEL-Chain; Framework installiert + kein ChatModel → RunnableLambda; kein Framework → SimplexRunner",
+        "Rollout-Runbook Smoke-Check-URLs aktualisiert (LCG-034)"
+      ],
+      "notes": "docs/setup/langchain-langgraph.md ist das primäre Nutzer-Dokument für den Opt-in-Pfad."
+    },
+    {
+      "id": "LCG-064",
+      "title": "Docs: docs/architecture/langchain-langgraph-adapters.md: Implementierungs-Lücken aus 'Future work' entfernen",
+      "status": "done",
+      "priority": "P2",
+      "risk": "low",
+      "type": "docs",
+      "area": "docs",
+      "description": "docs/architecture/langchain-langgraph-adapters.md enthält Abschnitt '## Future work (follow-up commits)' mit LCG-010, LCG-021, LCG-028 und 'Real chain runner'. Diese Punkte sind entweder done oder werden durch aktuelle Items (LCG-036, LCG-038) umgesetzt. Nach Umsetzung müssen die Docs aktualisiert werden.",
+      "depends_on": [
+        "LCG-038"
+      ],
+      "files_to_change": [
+        "docs/architecture/langchain-langgraph-adapters.md"
+      ],
+      "acceptance_criteria": [
+        "Future-work-Abschnitt entfernt oder als 'Completed' markiert",
+        "Neuer Abschnitt '## Chain-Runner-Hierarchie' dokumentiert SimplexRunner / RunnableLambda / LCEL-Chain Fallback-Kette",
+        "Abschnitt '## StateGraph-Pfad' dokumentiert _walk_nodes() vs StateGraph.compile()-Entscheidung",
+        "Architektur-Diagramm im Dokument auf aktuellem Stand (keine Referenzen auf ausstehende Punkte)"
+      ],
+      "notes": "Docs-Update ist letzter Schritt nach Code-Implementierung."
+    },
+    {
+      "id": "LCG-065",
+      "title": "pyproject.toml: langchain-core Upper-Bound auf Konflikt mit llama-index prüfen",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "config",
+      "area": "config",
+      "description": "requirements.txt enthält llama-index als Pflichtabhängigkeit. pyproject.toml pinnt langchain-core>=0.3,<0.4. Diese Versionen haben teilweise überlappende Abhängigkeiten (pydantic, httpx). Eine CI-Matrix die beide zusammen installiert und Imports prüft fehlt.",
+      "depends_on": [],
+      "files_to_change": [
+        ".github/workflows/",
+        "requirements-dev.txt"
+      ],
+      "acceptance_criteria": [
+        "CI-Job 'lc-lg-compat-check': pip install 'ananta[lc-lg]' auf Python 3.10 und 3.12",
+        "Import-Check: python -c 'import langchain_core; import llama_index.core; print(OK)'",
+        "Wenn Versionkonflikt: Fehlermeldung klar benennt welches Paket kollidiert",
+        "requirements-dev.lock enthält kompatible Versionen wenn lc-lg installiert",
+        "Wenn kein Konflikt: Upper-Bound Kommentar im pyproject.toml ergänzt: '# kompatibel mit llama-index X.Y geprüft YYYY-MM-DD'"
+      ],
+      "notes": "Dieses Item ist ein Sicherheitsnetz für Version-Management, kein Feature."
+    },
+    {
+      "id": "LCG-066",
+      "title": "Descriptor-Schema: Versionierung (v1.1) für Chain- und Graph-Descriptoren",
+      "status": "done",
+      "priority": "P1",
+      "risk": "low",
+      "type": "config",
+      "area": "config",
+      "description": "LCG-039 (prompt_template), LCG-040 (output_format), LCG-045 (condition auf Edges) und LCG-051 (subgraph Node-Kind) erweitern die Descriptor-Schemas. Die Schema-IDs sind fest auf v1 gesetzt. Neue Felder sind additiv (additionalProperties: false — ACHTUNG: muss auf additionalProperties: false für neue Felder bleiben oder v1.1 Schemas erstellen).",
+      "depends_on": [
+        "LCG-039",
+        "LCG-040",
+        "LCG-045"
+      ],
+      "files_to_change": [
+        "docs/contracts/langchain-chain-descriptor.schema.json",
+        "docs/contracts/langgraph-graph-descriptor.schema.json"
+      ],
+      "acceptance_criteria": [
+        "Schema-$id auf v1.1 angehoben: langchain-chain-descriptor.v1.1.json und langgraph-graph-descriptor.v1.1.json",
+        "v1.0-Schemas bleiben unverändert für Rückwärtskompatibilität (neue Dateien, nicht in-place Edit)",
+        "v1.1-Schemas: 'schema'-Feld bleibt const 'langchain-chain-descriptor.v1' (kein Breaking Change im schema-Marker)",
+        "ODER: schema-Feld erlaubt ['langchain-chain-descriptor.v1', 'langchain-chain-descriptor.v1.1']",
+        "test_workflow_lc_lg_descriptor_schemas.py: Tests für v1.1-Features (prompt_template, output_format, condition, subgraph)",
+        "Bestehende v1.0-Beispiel-JSONs validieren weiterhin gegen v1.1-Schema (additiv)"
+      ],
+      "notes": "additionalProperties: false in den Schemas bedeutet: jedes neue Feld muss im Schema deklariert werden. Kein Workaround durch 'false' entfernen."
+    }
+  ],
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Config-Vervollständigung (LangGraphProviderConfig komplett)",
+      "task_ids": [
+        "LCG-031",
+        "LCG-032",
+        "LCG-033"
+      ],
+      "priority": "P0",
+      "description": "LangGraphProviderConfig hat alle benötigten Felder; LCG-020 ist vollständig abgeschlossen."
+    },
+    {
+      "id": "M2",
+      "title": "Hub API und Profile-Wiring produktiv",
+      "task_ids": [
+        "LCG-034",
+        "LCG-035"
+      ],
+      "priority": "P0",
+      "description": "Rollout-Runbook curl-Smoke-Checks funktionieren; Profile-Config wirkt beim Hub-Start."
+    },
+    {
+      "id": "M3",
+      "title": "Security-Lücken geschlossen",
+      "task_ids": [
+        "LCG-054",
+        "LCG-055"
+      ],
+      "priority": "P0",
+      "description": "Execution-Trace und Prompts redacten Secrets; fehlende Security-Tests existieren."
+    },
+    {
+      "id": "M4",
+      "title": "LangGraph Node-Vollständigkeit",
+      "task_ids": [
+        "LCG-042",
+        "LCG-043",
+        "LCG-044",
+        "LCG-045",
+        "LCG-046",
+        "LCG-059",
+        "LCG-060",
+        "LCG-062"
+      ],
+      "priority": "P1",
+      "description": "Alle Node-Kinds (tool, retriever, artifact_writer, router) sind implementiert und getestet."
+    },
+    {
+      "id": "M5",
+      "title": "Echte LangChain-Primitiven (ChatModel, LCEL, BaseRetriever)",
+      "task_ids": [
+        "LCG-036",
+        "LCG-037",
+        "LCG-038",
+        "LCG-039",
+        "LCG-040",
+        "LCG-041"
+      ],
+      "priority": "P1",
+      "description": "LCEL-Chain ist aktiv wenn Provider-Extra installiert; BaseRetriever-Adapter vorhanden."
+    },
+    {
+      "id": "M6",
+      "title": "LangGraph Checkpointing und Resume",
+      "task_ids": [
+        "LCG-047",
+        "LCG-048",
+        "LCG-049",
+        "LCG-061"
+      ],
+      "priority": "P1",
+      "description": "Echter StateGraph, MemorySaver, resume_token — human_gate Workflows vollständig."
+    },
+    {
+      "id": "M7",
+      "title": "TUI-Surface und Docs aktuell",
+      "task_ids": [
+        "LCG-056",
+        "LCG-057",
+        "LCG-063",
+        "LCG-064"
+      ],
+      "priority": "P2",
+      "description": "Operator-TUI zeigt Adapter-Status und DryRun-Pläne; Docs sind up to date."
+    },
+    {
+      "id": "M8",
+      "title": "Erweiterte Features (Streaming, Subgraphs, Tool-Registry)",
+      "task_ids": [
+        "LCG-050",
+        "LCG-051",
+        "LCG-052",
+        "LCG-053",
+        "LCG-065",
+        "LCG-066"
+      ],
+      "priority": "P2-P3",
+      "description": "Streaming, Subgraphs, Tool-Dekoratoren, SSE-Endpunkt, Schema-v1.1."
+    },
+    {
+      "id": "M9",
+      "title": "Live-Integration-Tests",
+      "task_ids": [
+        "LCG-058"
+      ],
+      "priority": "P3",
+      "description": "Echter LLM-Call durch Adapter mit markierten Integration-Tests."
+    }
+  ],
+  "not_in_scope": [
+    {
+      "id": "NOT-001",
+      "title": "LangSmith als primäres Tracing-Backend",
+      "reason": "ADR-langchain-langgraph-worker-adapters.md: 'LangSmith, OpenAI, Anthropic, or any external service called without external_calls_allowed=True and Hub policy approval.' ANANTA hat eigenes Audit-System (agent.services.audit_service + WorkflowAuditLog). LangSmith ist extern, kostenpflichtig und würde alle Trace-Daten an Dritte senden."
+    },
+    {
+      "id": "NOT-002",
+      "title": "LangChain Community-Pakete (langchain_community) als Built-in",
+      "reason": "langchain_community enthält Web-Scraper, SQL-Agents, Shell-Tools und andere Komponenten die ANANTA-Policy direkt widersprechen (exec_shell, write_file, http_request sind Hard-Deny). Explizites Opt-in durch Nutzer nur nach Security-Review."
+    },
+    {
+      "id": "NOT-003",
+      "title": "Worker-zu-Worker-Kommunikation für Subgraphs",
+      "reason": "ADR und ANANTA-Architektur: Hub ist zentraler Dispatcher. Subgraphs laufen im selben Worker-Prozess (LCG-051). Kein Agent darf einen anderen Agent direkt aufrufen."
+    },
+    {
+      "id": "NOT-004",
+      "title": "LangGraph-Checkpoint-State überschreibt Hub-Task-State",
+      "reason": "Hub-Task-State (task.status, task.result, task.plan) ist Source of Truth. LangGraph-Checkpoints sind ephemer oder Hub-owned-read-through — sie überschreiben niemals den Task-Status im Hub."
+    },
+    {
+      "id": "NOT-005",
+      "title": "LangGraph Studio Kompatibilität",
+      "reason": "LangGraph Studio ist LangChain's kommerzielle Debugging-Oberfläche. ANANTA hat eigene TUI + Angular-Frontend. Studio-Kompatibilität würde externe Service-Calls und Daten-Export erfordern."
+    },
+    {
+      "id": "NOT-006",
+      "title": "OpenAI Agents SDK / Anthropic Tools als primäre Tool-Definition",
+      "reason": "ANANTA nutzt eigene Policy-Gate-Architektur (WorkflowPolicyGate). Provider-spezifische Tool-Definitionen würden Vendor-Lock-in erzeugen und die Default-Deny-Semantik untergraben."
+    }
+  ],
+  "open_questions": [
+    {
+      "id": "Q-001",
+      "question": "Soll build_lc_chat_model() (LCG-036) auch base_url aus LangChainProviderConfig.allowed_base_urls berücksichtigen, oder reicht model_provider_ref-Prefix-Mapping?",
+      "context": "Für lokale OpenAI-kompatible Endpunkte (z.B. LMStudio auf localhost:1234) braucht man base_url. LangChainProviderConfig hat kein allowed_base_urls-Feld (LCG-033 fügt es hinzu). Dependency beachten."
+    },
+    {
+      "id": "Q-002",
+      "question": "Welche Python-Version braucht das Projekt für die async-Features (LCG-049 resume_token, LCG-050 Streaming)? asyncio.to_thread() erfordert Python 3.9+.",
+      "context": "pyproject.toml hat target-version = 'py310' — asyncio.to_thread() ist also verfügbar. Kein Blocking."
+    },
+    {
+      "id": "Q-003",
+      "question": "Soll MemorySaver-State (LCG-048) zwischen Hub-Restarts überleben? MemorySaver ist in-process ephemer. Für Production wäre SqliteSaver nötig.",
+      "context": "Für human_gate-Resume (LCG-049) muss der State mindestens solange leben wie ein menschlicher Reviewer braucht. Bei Hub-Restart verliert MemorySaver alles. Lösung: resume_token als serialisierter JSON-State ohne externe Store-Abhängigkeit."
+    },
+    {
+      "id": "Q-004",
+      "question": "Sollen LangChain-Tool-Definitions (LCG-052) in den Graph-Descriptor eingebettet werden können, oder nur in Chain-Descriptor?",
+      "context": "LangGraph-Nodes vom Typ 'tool' nutzen tool_ref-Strings. Wenn LangGraph auch @tool-Objekte nutzen soll, brauchen Nodes eine tool_schema-Definition oder eine Referenz auf die Tool-Registry."
+    }
+  ],
+  "risks": [
+    {
+      "id": "RISK-001",
+      "title": "Versions-Konflikt llama-index vs langchain-core bei Upper-Bound-Upgrade",
+      "severity": "high",
+      "mitigation": "LCG-065 CI-Kompatibilitäts-Check. Upper-Bounds in pyproject.toml strikt halten bis Check grün."
+    },
+    {
+      "id": "RISK-002",
+      "title": "MemorySaver (LCG-048) verliert State bei Hub-Restart — human_gate-Resume bricht",
+      "severity": "medium",
+      "mitigation": "resume_token (LCG-049) serialisiert State als JSON-String in WorkflowArtifactResult. Bei Hub-Restart: resume_token neu übergeben, State aus Token re-hydratisieren ohne MemorySaver-Abhängigkeit."
+    },
+    {
+      "id": "RISK-003",
+      "title": "SimplexRunner-Verhalten divergiert von LCEL-Chain-Verhalten (Antwort-Format, Fehler-Handling)",
+      "severity": "medium",
+      "mitigation": "LCG-058 Live-Tests prüfen beide Pfade gegen dieselbe prompt/payload-Kombination. runner-Label in execution_trace ermöglicht Debugging."
+    },
+    {
+      "id": "RISK-004",
+      "title": "Subgraph-Cycle (LCG-051) führt zu Stack-Overflow wenn depth-Check fehlt",
+      "severity": "high",
+      "mitigation": "depth-Parameter in _run_graph()-Signatur; max 3 Ebenen; Cycle-Detection auf subgraph_ref."
+    },
+    {
+      "id": "RISK-005",
+      "title": "resume_token enthält unredacte State-Daten (LCG-049)",
+      "severity": "critical",
+      "mitigation": "State wird vor Serialisierung durch redact() gefiltert. Test in LCG-061: resume_token enthält keinen Secret-Pattern."
+    }
+  ],
+  "implementation_order": {
+    "phase_0_security_and_config": {
+      "description": "P0: Security-Lücken schließen und Config-Basis vollständig machen. Keine neuen Features.",
+      "items": [
+        "LCG-031",
+        "LCG-032",
+        "LCG-033",
+        "LCG-046",
+        "LCG-054",
+        "LCG-055",
+        "LCG-060"
+      ]
+    },
+    "phase_1_hub_api_and_wiring": {
+      "description": "P0: Hub-API und Profile-Loading wired. Rollout-Runbook wird ausführbar.",
+      "items": [
+        "LCG-034",
+        "LCG-035"
+      ]
+    },
+    "phase_2_langgraph_node_execution": {
+      "description": "P1: Alle Node-Kinds sind ausgeführt, nicht nur traversiert.",
+      "items": [
+        "LCG-042",
+        "LCG-043",
+        "LCG-044",
+        "LCG-045",
+        "LCG-059",
+        "LCG-062"
+      ]
+    },
+    "phase_3_langchain_real_chain": {
+      "description": "P1: Echte LangChain-Primitiven wenn Provider-Extra installiert.",
+      "items": [
+        "LCG-037",
+        "LCG-036",
+        "LCG-038",
+        "LCG-039",
+        "LCG-040",
+        "LCG-041"
+      ]
+    },
+    "phase_4_checkpointing_and_resume": {
+      "description": "P1-P2: StateGraph, Checkpointing, resume_token — human_gate vollständig.",
+      "items": [
+        "LCG-047",
+        "LCG-048",
+        "LCG-049",
+        "LCG-061"
+      ]
+    },
+    "phase_5_tui_and_docs": {
+      "description": "P2: TUI-Surface, Docs-Update, Schema-Versionierung.",
+      "items": [
+        "LCG-056",
+        "LCG-057",
+        "LCG-063",
+        "LCG-064",
+        "LCG-065",
+        "LCG-066"
+      ]
+    },
+    "phase_6_advanced_features": {
+      "description": "P2-P3: Streaming, Subgraphs, Tool-Registry, SSE-Endpoint.",
+      "items": [
+        "LCG-050",
+        "LCG-051",
+        "LCG-052",
+        "LCG-053",
+        "LCG-058"
+      ]
+    }
+  }
+}

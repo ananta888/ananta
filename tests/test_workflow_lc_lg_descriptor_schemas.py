@@ -18,6 +18,8 @@ from jsonschema import Draft202012Validator, ValidationError
 SCHEMA_DIR = Path(__file__).resolve().parents[1] / "docs" / "contracts"
 CHAIN_SCHEMA = SCHEMA_DIR / "langchain-chain-descriptor.schema.json"
 GRAPH_SCHEMA = SCHEMA_DIR / "langgraph-graph-descriptor.schema.json"
+CHAIN_SCHEMA_V11 = SCHEMA_DIR / "langchain-chain-descriptor.v1.1.json"
+GRAPH_SCHEMA_V11 = SCHEMA_DIR / "langgraph-graph-descriptor.v1.1.json"
 
 
 @pytest.fixture(scope="module")
@@ -28,6 +30,16 @@ def chain_validator() -> Draft202012Validator:
 @pytest.fixture(scope="module")
 def graph_validator() -> Draft202012Validator:
     return Draft202012Validator(json.loads(GRAPH_SCHEMA.read_text()))
+
+
+@pytest.fixture(scope="module")
+def chain_v11_validator() -> Draft202012Validator:
+    return Draft202012Validator(json.loads(CHAIN_SCHEMA_V11.read_text()))
+
+
+@pytest.fixture(scope="module")
+def graph_v11_validator() -> Draft202012Validator:
+    return Draft202012Validator(json.loads(GRAPH_SCHEMA_V11.read_text()))
 
 
 # ── Schema files are valid Draft 2020-12 ───────────────────────────────
@@ -147,3 +159,136 @@ def test_graph_rejects_unknown_top_level_property(graph_validator):
     bad = dict(_MIN_GRAPH, mystery_field="value")
     with pytest.raises(ValidationError):
         graph_validator.validate(bad)
+
+
+# ── v1.1 schemas (LCG-066) ────────────────────────────────────────────────────
+
+
+def test_chain_v11_schema_is_valid_draft202012():
+    """v1.1 chain schema is itself valid JSON Schema 2020-12."""
+    Draft202012Validator.check_schema(json.loads(CHAIN_SCHEMA_V11.read_text()))
+
+
+def test_graph_v11_schema_is_valid_draft202012():
+    """v1.1 graph schema is itself valid JSON Schema 2020-12."""
+    Draft202012Validator.check_schema(json.loads(GRAPH_SCHEMA_V11.read_text()))
+
+
+def test_v10_chain_validates_against_v11(chain_v11_validator):
+    """All v1.0 chain descriptors validate against the v1.1 schema (additive only)."""
+    chain_v11_validator.validate(_MIN_CHAIN)
+
+
+def test_v10_graph_validates_against_v11(graph_v11_validator):
+    """All v1.0 graph descriptors validate against the v1.1 schema (additive only)."""
+    graph_v11_validator.validate(_MIN_GRAPH)
+
+
+def test_chain_v11_allows_v11_schema_marker(chain_v11_validator):
+    """v1.1 schema accepts 'langchain-chain-descriptor.v1.1' as schema marker."""
+    chain_v11 = dict(_MIN_CHAIN, schema="langchain-chain-descriptor.v1.1")
+    chain_v11_validator.validate(chain_v11)
+
+
+def test_graph_v11_allows_v11_schema_marker(graph_v11_validator):
+    """v1.1 schema accepts 'langgraph-graph-descriptor.v1.1' as schema marker."""
+    graph_v11 = dict(_MIN_GRAPH, schema="langgraph-graph-descriptor.v1.1")
+    graph_v11_validator.validate(graph_v11)
+
+
+def test_chain_v11_prompt_template_field(chain_v11_validator):
+    """v1.1: prompt_template field is accepted."""
+    chain = dict(_MIN_CHAIN, prompt_template="Answer: {query}", output_format="text")
+    chain_v11_validator.validate(chain)
+
+
+def test_chain_v11_output_format_json(chain_v11_validator):
+    """v1.1: output_format='json' is accepted."""
+    chain = dict(_MIN_CHAIN, output_format="json")
+    chain_v11_validator.validate(chain)
+
+
+def test_chain_v11_model_provider_ref(chain_v11_validator):
+    """v1.1: model_provider_ref field is accepted."""
+    chain = dict(_MIN_CHAIN, model_provider_ref="ollama.llama3.1")
+    chain_v11_validator.validate(chain)
+
+
+def test_graph_v11_subgraph_node_kind(graph_v11_validator):
+    """v1.1: 'subgraph' is a valid node kind."""
+    graph = dict(
+        _MIN_GRAPH,
+        nodes=[
+            {"id": "main", "kind": "llm"},
+            {"id": "sub", "kind": "subgraph", "subgraph_ref": "analysis_subgraph"},
+            {"id": "end", "kind": "end"},
+        ],
+        edges=[
+            {"from": "main", "to": "sub"},
+            {"from": "sub", "to": "end"},
+        ],
+    )
+    graph_v11_validator.validate(graph)
+
+
+def test_graph_v11_conditional_edge_object(graph_v11_validator):
+    """v1.1: edge condition can be an object with on_stop_reason."""
+    graph = dict(
+        _MIN_GRAPH,
+        nodes=[
+            {"id": "router", "kind": "router"},
+            {"id": "happy", "kind": "end"},
+            {"id": "sad", "kind": "end"},
+        ],
+        edges=[
+            {"from": "router", "to": "happy",
+             "condition": {"on_stop_reason": "success"}},
+            {"from": "router", "to": "sad"},
+        ],
+        entrypoint="router",
+    )
+    graph_v11_validator.validate(graph)
+
+
+def test_graph_v11_conditional_edge_string(graph_v11_validator):
+    """v1.1: edge condition can be a plain string (on_stop_reason shorthand)."""
+    graph = dict(
+        _MIN_GRAPH,
+        nodes=[
+            {"id": "router", "kind": "router"},
+            {"id": "dest", "kind": "end"},
+        ],
+        edges=[
+            {"from": "router", "to": "dest", "condition": "end_node"},
+        ],
+        entrypoint="router",
+    )
+    graph_v11_validator.validate(graph)
+
+
+def test_graph_v11_retriever_node_with_retriever_ref(graph_v11_validator):
+    """v1.1: retriever node can declare retriever_ref='codecompass'."""
+    graph = dict(
+        _MIN_GRAPH,
+        nodes=[
+            {"id": "fetch", "kind": "retriever", "retriever_ref": "codecompass"},
+            {"id": "end", "kind": "end"},
+        ],
+        edges=[{"from": "fetch", "to": "end"}],
+        entrypoint="fetch",
+    )
+    graph_v11_validator.validate(graph)
+
+
+def test_graph_v11_artifact_writer_node(graph_v11_validator):
+    """v1.1: artifact_writer node can declare artifact_type."""
+    graph = dict(
+        _MIN_GRAPH,
+        nodes=[
+            {"id": "writer", "kind": "artifact_writer", "artifact_type": "report"},
+            {"id": "end", "kind": "end"},
+        ],
+        edges=[{"from": "writer", "to": "end"}],
+        entrypoint="writer",
+    )
+    graph_v11_validator.validate(graph)

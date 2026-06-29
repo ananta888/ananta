@@ -68,6 +68,13 @@ class LangChainAdapter:
             status, reason = "ready", "dry_run_mode"
         else:
             status, reason = "ready", "ready"
+        model_ref = self._config.model_provider_ref
+        locality = "cloud" if self._config.mode == "cloud_gated" else "local"
+        provider_diagnostics = {
+            "model_ref": model_ref,
+            "locality": locality,
+            "external_calls": self._config.external_calls_allowed,
+        }
         return WorkflowAdapterDescriptor(
             adapter_id="adapter.langchain",
             display_name="LangChain",
@@ -77,6 +84,7 @@ class LangChainAdapter:
             reason=reason,
             capabilities=["dry_run", "rag_query", "summarize", "tool_chain", "code_review"],
             version="1.0",
+            provider_diagnostics=provider_diagnostics,
         )
 
     # ── Dry-run (LCG-016) ─────────────────────────────────────────────────────
@@ -231,12 +239,22 @@ class LangChainAdapter:
 
         # Produce artifact-first output (LCG-013)
         artifact_id = f"artifact-lc-{uuid.uuid4().hex[:12]}"
+        output_format = str(payload.get("output_format") or "text")
+        artifact_content: Any = output_text
+        artifact_status = "created"
+        if output_format == "json":
+            import json as _json
+            try:
+                artifact_content = _json.loads(output_text)
+            except (ValueError, TypeError):
+                artifact_status = "partial"
+                # artifact_content bleibt output_text string
         artifact = {
             "artifact_id": artifact_id,
             "artifact_type": task_type,
-            "content": output_text,
+            "content": artifact_content,
             "sources": context_sources,
-            "status": "created",
+            "status": artifact_status,
             "runner": runner_label,
         }
         execution_trace.append({"step": "artifact_created", "artifact_id": artifact_id})
@@ -263,10 +281,9 @@ class LangChainAdapter:
         """Return (output_text, runner_label).
 
         Runner selection:
-        - If `langchain` is importable, use LangChainRunnableRunner.
-          It wraps the existing generate_text() call in a Runnable-
-          shaped object so the chain shape is preserved if/when the
-          user wires in a real LangChain chain.
+        - If `langchain` is importable, try real ChatModel first (LCG-038/039).
+          If a ChatModel is built via lc_chat_model_factory, use LCEL chain.
+          Otherwise fall back to LangChainRunnableRunner.
         - Otherwise, use SimplexRunner (prompt + generate_text()).
           This is the v0.7 default and requires no extras.
         - Both runners go through the same generate_text() entry
@@ -274,6 +291,31 @@ class LangChainAdapter:
           wrapping changes.
         """
         if self._langchain_available():
+            # Try real ChatModel first (LCG-038)
+            try:
+                from worker.adapters.lc_chat_model_factory import build_lc_chat_model
+                chat_model = build_lc_chat_model(self._config.model_provider_ref)
+                if chat_model is not None:
+                    from langchain_core.runnables import RunnableLambda
+                    from langchain_core.messages import HumanMessage
+
+                    def _lcel_call(input_dict):
+                        msgs = [HumanMessage(content=str(input_dict.get("prompt", "")))]
+                        result = chat_model.invoke(msgs)
+                        return str(result.content) if hasattr(result, "content") else str(result)
+
+                    chain = RunnableLambda(_lcel_call)
+                    budget.record_step("langchain_chain_invoke")
+                    try:
+                        return str(chain.invoke({"prompt": prompt, "payload": payload})), "langchain_chain"
+                    except Exception as exc:
+                        raise WorkerError(
+                            "langchain_chain_failed",
+                            f"LCEL chain failed: {type(exc).__name__}: {exc}",
+                        ) from exc
+            except (ImportError, Exception):
+                pass
+            # Fallback to RunnableLambda runner
             return LangChainRunnableRunner().run(
                 prompt=prompt, payload=payload, budget=budget,
                 model_provider_ref=self._config.model_provider_ref,
@@ -292,7 +334,12 @@ class LangChainAdapter:
         the template is the supported way to evolve chain behaviour
         without touching the runner.
         """
-        query = str(payload.get("query") or payload.get("prompt") or "")
+        try:
+            from agent.common.redaction import redact
+            _redact = redact
+        except ImportError:
+            _redact = str
+        query = _redact(str(payload.get("query") or payload.get("prompt") or ""))
         context_block = "\n\n".join(
             f"[{i+1}] {s.get('path','')}: {s.get('content','')[:300]}"
             for i, s in enumerate(context_sources)
@@ -327,6 +374,74 @@ class LangChainAdapter:
             status="blocked", summary=message, error=message, reason_code=reason_code,
             execution_trace=self._audit.snapshot(),
         )
+
+    # ── LCG-050: stream() ──────────────────────────────────────────────────────
+
+    def stream(self, *, task_id: str, task_type: str,
+               payload: dict[str, Any]):
+        """Yield stream events for a chain execution.
+
+        Policy gate (dry_run) is checked before yielding any events.
+        Falls back to batch execute() when LCEL chain streaming is not available.
+        """
+        dry = self.dry_run(task_id=task_id, task_type=task_type, payload=payload)
+        if dry.blocked:
+            yield {
+                "adapter_id": "adapter.langchain",
+                "task_id": task_id,
+                "event_type": "stream_blocked",
+                "reason": dry.block_reason,
+            }
+            return
+
+        # Try LCEL chain streaming when langchain is available
+        if self._langchain_available() and self._config.is_live():
+            try:
+                from langchain_core.prompts import ChatPromptTemplate  # type: ignore[import]
+                from langchain_core.output_parsers import StrOutputParser  # type: ignore[import]
+                from worker.adapters.lc_chat_model_factory import build_lc_chat_model
+
+                model = build_lc_chat_model(self._config.model_provider_ref)
+                if model is not None:
+                    prompt_template = ChatPromptTemplate.from_messages([
+                        ("system", "You are a helpful assistant."),
+                        ("human", "{query}"),
+                    ])
+                    chain = prompt_template | model | StrOutputParser()
+                    query = str(payload.get("query") or payload.get("prompt") or "")
+                    for chunk in chain.stream({"query": query}):
+                        yield {
+                            "adapter_id": "adapter.langchain",
+                            "task_id": task_id,
+                            "event_type": "token",
+                            "token": chunk,
+                        }
+                    yield {
+                        "adapter_id": "adapter.langchain",
+                        "task_id": task_id,
+                        "event_type": "stream_end",
+                        "result": WorkflowArtifactResult(
+                            adapter_id="adapter.langchain",
+                            task_id=task_id,
+                            task_type=task_type,
+                            status="success",
+                            summary="LangChain stream completed",
+                            execution_trace=self._audit.snapshot(),
+                            policy_decisions=self._policy.decisions_log(),
+                        ).as_dict(),
+                    }
+                    return
+            except Exception as exc:  # noqa: BLE001
+                self._audit.log("stream_chain_failed", task_id=task_id, reason=str(exc)[:200])
+
+        # Batch fallback: execute() then yield single stream_end
+        result = self.execute(task_id=task_id, task_type=task_type, payload=payload)
+        yield {
+            "adapter_id": "adapter.langchain",
+            "task_id": task_id,
+            "event_type": "stream_end",
+            "result": result.as_dict(),
+        }
 
     @staticmethod
     def _langchain_available() -> bool:
