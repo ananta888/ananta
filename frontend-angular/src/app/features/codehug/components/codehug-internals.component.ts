@@ -8,6 +8,7 @@ import {
   OnInit,
   ViewChild,
   computed,
+  effect,
   inject,
   signal,
 } from '@angular/core';
@@ -91,6 +92,26 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
 
   readonly activeTab = signal<'vp' | 'graph'>('graph');
   readonly connectMode = signal(false);
+
+  constructor() {
+    // Re-register the SVG with the canvas service whenever the tab switches
+    // back to 'graph'. ngAfterViewInit only fires once; @ViewChild is updated
+    // by Angular after each render cycle when @if adds/removes the element.
+    effect(() => {
+      const tab = this.activeTab();
+      if (tab !== 'graph') {
+        this.canvas.registerSvgElement(null);
+      } else {
+        // The SVG is added back to the DOM on the next microtask after the
+        // signal update — give Angular one tick to attach it.
+        queueMicrotask(() => {
+          if (this.svgElRef) {
+            this.canvas.registerSvgElement(this.svgElRef.nativeElement);
+          }
+        });
+      }
+    });
+  }
   readonly connectSource = signal<string | null>(null);
   private _nodeSeq = 0;
   private _edgeSeq = 0;
@@ -334,7 +355,7 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   onNodeMouseDown(e: MouseEvent, nodeId: string): void {
-    if (this.connectMode()) return;
+    if (this.connectMode() || !this.svgElRef) return;
     const n = this.nodes().find(n => n.id === nodeId);
     if (n) this.canvas.onNodeMouseDown(e, n, this.svgElRef.nativeElement);
   }
@@ -364,6 +385,7 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
 
   @HostListener('document:mousemove', ['$event'])
   onMouseMove(e: MouseEvent): void {
+    if (!this.svgElRef) return;
     this.canvas.onMouseMove(e, this.svgElRef.nativeElement, (id, x, y) => {
       this.nodes.update(nodes => nodes.map(node => node.id === id ? { ...node, x, y } : node));
     });
@@ -377,7 +399,10 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
   @HostListener('document:mouseup')
   onMouseUp(): void { this.canvas.onMouseUp(); }
 
-  onWheel(e: WheelEvent): void { this.canvas.onWheel(e, this.svgElRef.nativeElement); }
+  onWheel(e: WheelEvent): void {
+    if (!this.svgElRef) return;
+    this.canvas.onWheel(e, this.svgElRef.nativeElement);
+  }
 
   zoomIn(): void { this.canvas.zoomIn(); }
   zoomOut(): void { this.canvas.zoomOut(); }
