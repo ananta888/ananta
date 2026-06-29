@@ -6,8 +6,11 @@ import { RouterModule } from '@angular/router';
   selector: 'app-caseflow-shell',
   template: `
     <nav class="caseflow-nav">
+      <a routerLink="" routerLinkActive="active" [routerLinkActiveOptions]="{exact:true}">Dashboard</a>
       <a routerLink="board" routerLinkActive="active">Board</a>
       <a routerLink="discovery" routerLinkActive="active">Discovery</a>
+      <a routerLink="actions" routerLinkActive="active">Aktionen</a>
+      <a routerLink="profiles" routerLinkActive="active">Suchprofile</a>
     </nav>
     <router-outlet />
   `,

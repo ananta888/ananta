@@ -42,6 +42,7 @@ export const routes: Routes = [
       {
         path: 'caseflow/jobs',
         data: { breadcrumb: 'Job-Bewerbungen', area: 'Operate' },
+        loadComponent: () => import('./features/caseflow/caseflow-shell.component').then(m => m.CaseflowShellComponent),
         children: JOB_APPLICATION_ROUTES,
       },
     ]

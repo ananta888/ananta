@@ -21,7 +21,7 @@ interface DashboardStat {
       <div class="stats-grid">
         @for (stat of stats(); track stat.label) {
           <div class="stat-card" [class.warning]="stat.count > 5 && stat.status === 'preparing'"
-               [routerLink]="['../board']" [queryParams]="stat.status ? { status: stat.status } : {}">
+               [routerLink]="['board']" [queryParams]="stat.status ? { status: stat.status } : {}">
             <span class="stat-count">{{ stat.count }}</span>
             <span class="stat-label">{{ stat.label }}</span>
           </div>
@@ -36,9 +36,9 @@ interface DashboardStat {
       }
 
       <div class="quick-links">
-        <a routerLink="../board">Kanban-Board</a>
-        <a routerLink="../discovery">Discovery Inbox</a>
-        <a routerLink="../actions">Aktionszentrum</a>
+        <a routerLink="board">Kanban-Board</a>
+        <a routerLink="discovery">Discovery Inbox</a>
+        <a routerLink="actions">Aktionszentrum</a>
       </div>
     </div>
   `,
