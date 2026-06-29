@@ -1,4 +1,5 @@
 import {
+  AfterViewChecked,
   AfterViewInit,
   ChangeDetectionStrategy,
   Component,
@@ -8,7 +9,6 @@ import {
   OnInit,
   ViewChild,
   computed,
-  effect,
   inject,
   signal,
 } from '@angular/core';
@@ -38,7 +38,7 @@ import {
   templateUrl: './codehug-internals.component.html',
   styleUrls: ['./codehug-internals.component.scss'],
 })
-export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestroy {
+export class CodeHugInternalsComponent implements OnInit, AfterViewInit, AfterViewChecked, OnDestroy {
   @ViewChild('svgEl') svgElRef!: ElementRef<SVGSVGElement>;
   @ViewChild(CodehugNodeInspectorComponent) nodeInspector?: CodehugNodeInspectorComponent;
 
@@ -93,25 +93,8 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
   readonly activeTab = signal<'vp' | 'graph'>('graph');
   readonly connectMode = signal(false);
 
-  constructor() {
-    // Re-register the SVG with the canvas service whenever the tab switches
-    // back to 'graph'. ngAfterViewInit only fires once; @ViewChild is updated
-    // by Angular after each render cycle when @if adds/removes the element.
-    effect(() => {
-      const tab = this.activeTab();
-      if (tab !== 'graph') {
-        this.canvas.registerSvgElement(null);
-      } else {
-        // The SVG is added back to the DOM on the next microtask after the
-        // signal update — give Angular one tick to attach it.
-        queueMicrotask(() => {
-          if (this.svgElRef) {
-            this.canvas.registerSvgElement(this.svgElRef.nativeElement);
-          }
-        });
-      }
-    });
-  }
+  private _svgRegistered = false;
+
   readonly connectSource = signal<string | null>(null);
   private _nodeSeq = 0;
   private _edgeSeq = 0;
@@ -128,13 +111,29 @@ export class CodeHugInternalsComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   ngAfterViewInit(): void {
-    this.canvas.registerSvgElement(this.svgElRef.nativeElement);
+    this._syncSvgRegistration();
+  }
+
+  ngAfterViewChecked(): void {
+    this._syncSvgRegistration();
+  }
+
+  private _syncSvgRegistration(): void {
+    const wantsVp = this.activeTab() === 'vp';
+    if (wantsVp && this.svgElRef && !this._svgRegistered) {
+      this.canvas.registerSvgElement(this.svgElRef.nativeElement);
+      this._svgRegistered = true;
+    } else if (!wantsVp && this._svgRegistered) {
+      this.canvas.registerSvgElement(null);
+      this._svgRegistered = false;
+    }
   }
 
   ngOnDestroy(): void {
     this._pollSub?.unsubscribe();
     this.workflowRunner.destroy();
     this.canvas.registerSvgElement(null);
+    this._svgRegistered = false;
   }
 
   onBlueprintChange(id: string): void {
