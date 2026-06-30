@@ -38,6 +38,7 @@ x-backend-test: &backend-test
     RAG_REPO_ROOT: "/tmp"
   volumes:
     - ../../:/app
+    - test-results:/results
   working_dir: /app
 
 services:
@@ -197,7 +198,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/benchmarks tests/cli tests/smoke tests/heuristic_runtime"]
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/benchmarks tests/cli tests/smoke tests/heuristic_runtime; echo $? > /results/t-infra; exit 0"]
 
   # ~37 Dateien: llm_interceptor, codecompass
   t-llm-cc:
@@ -207,7 +208,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/llm_interceptor tests/codecompass"]
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/llm_interceptor tests/codecompass; echo $? > /results/t-llm-cc; exit 0"]
 
   # ~54 Dateien: client_surfaces
   t-tui-client:
@@ -217,7 +218,17 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/client_surfaces"]
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/client_surfaces; echo $? > /results/t-tui-client; exit 0"]
+
+  # ~5 Dateien: obsidian-Tests (machen sys.path.insert(0, rag-helper) — eigener Prozess!)
+  t-rag-obsidian:
+    <<: *backend-test
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_obsidian_canvas.py tests/test_obsidian_extractor.py tests/test_obsidian_integration.py tests/test_obsidian_privacy.py tests/test_obsidian_scanner.py; echo $? > /results/t-rag-obsidian; exit 0"]
 
   # ~53 Dateien: operator_tui
   t-tui-operator:
@@ -227,7 +238,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/operator_tui"]
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/operator_tui; echo $? > /results/t-tui-operator; exit 0"]
 
   # ════════════════════════════════════════════════════════════════════════════
   # PHASE 2 — Sequenzielle Kette: flat test_*.py in 14 Domain-Clustern
@@ -244,7 +255,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_a*.py"]
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_a*.py; echo $? > /results/t-flat-01; exit 0"]
 
   # ~80 Dateien: backend, background, backup, blueprint, browser, budget, build,
   #              caseflow, chat, check, cli (flat), client
@@ -253,7 +264,7 @@ services:
     depends_on:
       t-flat-01:
         condition: service_completed_successfully
-    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_b*.py tests/test_ca*.py tests/test_ch*.py tests/test_cl*.py"]
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_b*.py tests/test_ca*.py tests/test_ch*.py tests/test_cl*.py; echo $? > /results/t-flat-02; exit 0"]
 
   # ~83 Dateien: codex, codecompass (flat), command, commit, common, compose, config, context, contract, control
   t-flat-03:
@@ -261,7 +272,7 @@ services:
     depends_on:
       t-flat-02:
         condition: service_completed_successfully
-    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_cod*.py tests/test_com*.py tests/test_con*.py"]
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_cod*.py tests/test_com*.py tests/test_con*.py; echo $? > /results/t-flat-03; exit 0"]
 
   # ~48 Dateien: core, creative, critical, cross, csd, csp, custom_tool, cwfh,
   #              db, decision, deerflow, domain
@@ -270,7 +281,7 @@ services:
     depends_on:
       t-flat-03:
         condition: service_completed_successfully
-    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_cor*.py tests/test_cr*.py tests/test_cs*.py tests/test_cu*.py tests/test_cw*.py tests/test_d*.py"]
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_cor*.py tests/test_cr*.py tests/test_cs*.py tests/test_cu*.py tests/test_cw*.py tests/test_d*.py; echo $? > /results/t-flat-04; exit 0"]
 
   # ~69 Dateien: endpoint, evolver, execution, explainer, external,
   #              feature, file, freecad, fuzzing, goal
@@ -279,7 +290,7 @@ services:
     depends_on:
       t-flat-04:
         condition: service_completed_successfully
-    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_e*.py tests/test_f*.py tests/test_g*.py"]
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_e*.py tests/test_f*.py tests/test_g*.py; echo $? > /results/t-flat-05; exit 0"]
 
   # ~49 Dateien: helpcenter, hermes, hub, heuristic (flat)
   t-flat-06:
@@ -287,7 +298,7 @@ services:
     depends_on:
       t-flat-05:
         condition: service_completed_successfully
-    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_h*.py"]
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_h*.py; echo $? > /results/t-flat-06; exit 0"]
 
   # ~80 Dateien: imap, integration (flat), jwt, knowledge,
   #              llm (flat), login, memory, model, monitoring, multi
@@ -296,7 +307,7 @@ services:
     depends_on:
       t-flat-06:
         condition: service_completed_successfully
-    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_i*.py tests/test_j*.py tests/test_k*.py tests/test_l*.py tests/test_m*.py"]
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_i*.py tests/test_j*.py tests/test_k*.py tests/test_l*.py tests/test_m*.py; echo $? > /results/t-flat-07; exit 0"]
 
   # ~61 Dateien: namespace, nginx, objective, oidc, opencode, operator (flat),
   #              pattern, permission
@@ -305,7 +316,7 @@ services:
     depends_on:
       t-flat-07:
         condition: service_completed_successfully
-    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_n*.py tests/test_o*.py tests/test_pa*.py tests/test_pe*.py"]
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_n*.py tests/test_o*.py tests/test_pa*.py tests/test_pe*.py --ignore=tests/test_obsidian_canvas.py --ignore=tests/test_obsidian_extractor.py --ignore=tests/test_obsidian_integration.py --ignore=tests/test_obsidian_privacy.py --ignore=tests/test_obsidian_scanner.py; echo $? > /results/t-flat-08; exit 0"]
 
   # ~71 Dateien: plan, planning, plugin, policy, presentation, profiling, propose
   t-flat-09:
@@ -313,7 +324,7 @@ services:
     depends_on:
       t-flat-08:
         condition: service_completed_successfully
-    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_pl*.py tests/test_po*.py tests/test_pr*.py"]
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_pl*.py tests/test_po*.py tests/test_pr*.py; echo $? > /results/t-flat-09; exit 0"]
 
   # ~70 Dateien: rag, repair, repository, role, route, run
   t-flat-10:
@@ -321,7 +332,7 @@ services:
     depends_on:
       t-flat-09:
         condition: service_completed_successfully
-    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_r*.py"]
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_r*.py; echo $? > /results/t-flat-10; exit 0"]
 
   # ~89 Dateien: scheduler, scrum, security, service, settings, skill,
   #              snake, snapshot, spec, sprint, stats
@@ -330,7 +341,7 @@ services:
     depends_on:
       t-flat-10:
         condition: service_completed_successfully
-    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_s*.py"]
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_s*.py; echo $? > /results/t-flat-11; exit 0"]
 
   # ~60 Dateien: task, template, terminal (test_t[a-k]*)
   t-flat-12:
@@ -338,7 +349,7 @@ services:
     depends_on:
       t-flat-11:
         condition: service_completed_successfully
-    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_t[a-k]*.py"]
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_t[a-k]*.py; echo $? > /results/t-flat-12; exit 0"]
 
   # ~92 Dateien: tool, tui (flat), usage, validator, voice (test_t[l-z]* + u + v)
   t-flat-13:
@@ -346,7 +357,7 @@ services:
     depends_on:
       t-flat-12:
         condition: service_completed_successfully
-    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_t[l-z]*.py tests/test_u*.py tests/test_v*.py"]
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_t[l-z]*.py tests/test_u*.py tests/test_v*.py; echo $? > /results/t-flat-13; exit 0"]
 
   # ~107 Dateien: wiki, worker (flat), workspace
   t-flat-14:
@@ -354,7 +365,7 @@ services:
     depends_on:
       t-flat-13:
         condition: service_completed_successfully
-    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_w*.py"]
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_w*.py; echo $? > /results/t-flat-14; exit 0"]
 
   # ════════════════════════════════════════════════════════════════════════════
   # PHASE 3 — Nach der Flat-Kette (DB-intensivere Subdirs)
@@ -366,7 +377,7 @@ services:
     depends_on:
       t-flat-14:
         condition: service_completed_successfully
-    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/worker tests/services"]
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/worker tests/services; echo $? > /results/t-worker-services; exit 0"]
 
   # ~69 Dateien: e2e, integration, routes — nach ALLEN Backend-Tests
   t-e2e-subdir:
@@ -384,7 +395,7 @@ services:
         condition: service_completed_successfully
       t-tui-operator:
         condition: service_completed_successfully
-    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/e2e tests/integration tests/routes --ignore=tests/e2e/fixtures"]
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/e2e tests/integration tests/routes --ignore=tests/e2e/fixtures; echo $? > /results/t-e2e-subdir; exit 0"]
 
   # ════════════════════════════════════════════════════════════════════════════
   # Backend Live-LLM-Test (nach allen Unit-Tests)
@@ -464,9 +475,9 @@ services:
       ai-agent-hub:
         condition: service_healthy
       ai-agent-alpha:
-        condition: service_healthy
+        condition: service_started
       ai-agent-beta:
-        condition: service_healthy
+        condition: service_started
     command: npm run test:e2e:compose
 
   frontend-live-llm-test:
@@ -512,19 +523,44 @@ services:
       ai-agent-hub:
         condition: service_healthy
       ai-agent-alpha:
-        condition: service_healthy
+        condition: service_started
       ai-agent-beta:
-        condition: service_healthy
+        condition: service_started
     command: npm run test:e2e:live:compose
 
   # ── Sentinel ─────────────────────────────────────────────────────────────────
+  # Liest /results/<service-name> (jede Datei enthält den pytest Exit-Code).
+  # Gibt exit 0 wenn alle 0, sonst exit 1.
 
   all-tests:
     image: alpine:3.23.4@sha256:5b10f432ef3da1b8d4c7eb6c487f2f5a8f096bc91145e68878dd4a5019afde11
+    volumes:
+      - test-results:/results
     command:
       - sh
       - -c
-      - "echo 'All tests passed: 20 backend groups + live-llm + frontend-unit + frontend-e2e + frontend-live-llm.'"
+      - |
+        fail=0
+        echo "=== Test Results ==="
+        for f in /results/*; do
+          [ -f "$f" ] || continue
+          code=$(cat "$f")
+          name=$(basename "$f")
+          if [ "$code" = "0" ]; then
+            echo "  PASS  $name"
+          else
+            echo "  FAIL  $name  (exit $code)"
+            fail=1
+          fi
+        done
+        echo "===================="
+        if [ "$fail" = "0" ]; then
+          echo "All backend test groups passed."
+          exit 0
+        else
+          echo "One or more backend test groups FAILED."
+          exit 1
+        fi
     depends_on:
       frontend-live-llm-test:
         condition: service_completed_successfully
@@ -535,3 +571,4 @@ volumes:
   hub-data:
   alpha-data:
   beta-data:
+  test-results:

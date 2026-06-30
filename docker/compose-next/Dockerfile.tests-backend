@@ -31,6 +31,7 @@ RUN printf 'Acquire::Check-Valid-Until "false";\n' > /etc/apt/apt.conf.d/99snaps
     curl \
     git \
     net-tools \
+    ripgrep \
     && rm -rf /var/lib/apt/lists/*
 
 # Node 20 aus dem offiziellen Runtime-Image übernehmen (für opencode-ai-Tests).

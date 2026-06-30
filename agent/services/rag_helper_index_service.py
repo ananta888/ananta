@@ -226,7 +226,11 @@ class RagHelperIndexService:
         if not helper_root.exists():
             raise RuntimeError("rag_helper_not_found")
         helper_root_str = str(helper_root)
-        if helper_root_str not in sys.path:
+        # Temporarily add rag-helper to sys.path for dynamic imports, then remove it
+        # to prevent the regular package at rag-helper/tests/ from shadowing the
+        # tests/ namespace package used by the test suite.
+        path_added = helper_root_str not in sys.path
+        if path_added:
             sys.path.insert(0, helper_root_str)
         try:
             codecompass = importlib.import_module("codecompass_rag")
@@ -234,6 +238,9 @@ class RagHelperIndexService:
             project_processor = importlib.import_module("rag_helper.application.project_processor")
         except Exception as exc:
             raise RuntimeError(f"rag_helper_import_failed:{exc}") from exc
+        finally:
+            if path_added and helper_root_str in sys.path:
+                sys.path.remove(helper_root_str)
         return {
             "codecompass": codecompass,
             "ProcessingLimits": processing_limits.ProcessingLimits,
