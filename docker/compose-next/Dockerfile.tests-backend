@@ -1,0 +1,63 @@
+FROM node:20.19.5-slim@sha256:9e70124bd00f47dd023e349cd587132ae61892acc0e47ed641416c3e18f401c3 AS node_runtime
+FROM python:3.11.15-slim-bookworm@sha256:9c6f90801e6b68e772b7c0ca74260cbf7af9f320acec894e26fccdaccfbe3b47
+
+# Backend-Test-Gate-Image für compose-next.
+# Build-Kontext ist das Repository-Root:
+#   docker build -f docker/compose-next/Dockerfile.tests-backend -t ananta-backend-tests:local .
+
+ARG DEBIAN_SNAPSHOT=20260406T000000Z
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    NPM_CONFIG_UPDATE_NOTIFIER=false \
+    NPM_CONFIG_FUND=false \
+    OPENCODE_AI_VERSION=1.14.18
+
+RUN printf 'Acquire::Check-Valid-Until "false";\n' > /etc/apt/apt.conf.d/99snapshot \
+    && printf '%s\n' \
+        'Types: deb' \
+        "URIs: http://snapshot.debian.org/archive/debian/${DEBIAN_SNAPSHOT}" \
+        'Suites: bookworm bookworm-updates' \
+        'Components: main' \
+        'Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg' \
+        '' \
+        'Types: deb' \
+        "URIs: http://snapshot.debian.org/archive/debian-security/${DEBIAN_SNAPSHOT}" \
+        'Suites: bookworm-security' \
+        'Components: main' \
+        'Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg' \
+        > /etc/apt/sources.list.d/debian.sources \
+    && apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    git \
+    net-tools \
+    && rm -rf /var/lib/apt/lists/*
+
+# Node 20 aus dem offiziellen Runtime-Image übernehmen (für opencode-ai-Tests).
+COPY --from=node_runtime /usr/local/bin/ /usr/local/bin/
+COPY --from=node_runtime /usr/local/lib/node_modules/ /usr/local/lib/node_modules/
+RUN node --version | grep -F "v20.19.5" \
+    && npm --version >/dev/null
+
+RUN npm i -g "opencode-ai@${OPENCODE_AI_VERSION}" \
+    && opencode --version | grep -F "${OPENCODE_AI_VERSION}" \
+    && npm cache clean --force
+
+WORKDIR /app
+
+RUN git config --global --add safe.directory /app
+
+# Produktions-Lock zuerst, dann Dev-Extras (pytest, httpx, etc.).
+COPY requirements.lock ./
+COPY requirements-dev.lock ./
+COPY rag-helper/requirements.txt ./rag-helper/requirements.txt
+RUN pip install --no-cache-dir -r requirements.lock -r rag-helper/requirements.txt \
+    && pip install --no-cache-dir -r requirements-dev.lock
+
+COPY . .
+
+ENV PYTHONPATH=/app \
+    PYTHONUNBUFFERED=1 \
+    FLASK_DEBUG=0
+
+CMD ["python", "-m", "pytest"]

@@ -1,0 +1,345 @@
+# Vollständiger Live-Teststack mit LM Studio (oder OpenAI-kompatiblem Endpunkt).
+#
+# Alle Tests laufen im Container:
+#   backend-unit-test      → Python pytest (ohne LLM)
+#   backend-live-llm-test  → Python pytest tests/test_goal_live_lmstudio.py
+#   frontend-unit-test     → vitest (npm run test:unit)
+#   frontend-e2e-test      → Playwright ohne Live-LLM (npm run test:e2e:compose)
+#   frontend-live-llm-test → Playwright mit Live-LLM (npm run test:e2e:live:compose)
+#   all-tests              → Sentinel, Exit 0 wenn alles grün
+#
+# Voraussetzungen (.env):
+#   POSTGRES_PASSWORD, INITIAL_ADMIN_PASSWORD, SECRET_KEY
+#   LM Studio läuft auf dem Host (Server-Modus, Port 1234)
+#
+# Start:
+#   docker compose -f docker/compose-next/compose.tests.lmstudio.yml \
+#     --env-file docker/compose-next/.env up --build
+#
+# Nur Sentinel abwarten (non-interactive CI):
+#   docker compose -f docker/compose-next/compose.tests.lmstudio.yml \
+#     --env-file docker/compose-next/.env up --build --exit-code-from all-tests all-tests
+#
+# Mit OpenAI-kompatiblem Endpunkt statt LM Studio:
+#   LIVE_LLM_PROVIDER=openai \
+#   OPENAI_URL=https://api.openai.com/v1/chat/completions \
+#   OPENAI_API_KEY=sk-... \
+#   docker compose -f docker/compose-next/compose.tests.lmstudio.yml \
+#     --env-file docker/compose-next/.env up --build
+
+services:
+
+  # ── Infrastruktur ───────────────────────────────────────────────────────────
+
+  postgres:
+    image: postgres:16.13@sha256:5a65324fe84dc41709ff914e90b07f3e2f577073ed27bf917d4873aca0c9ec51
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ananta}
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Error: POSTGRES_PASSWORD must be set in .env}"
+      POSTGRES_DB: ${POSTGRES_DB:-ananta}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ananta}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports: []
+
+  redis:
+    image: redis:7.4.8-alpine@sha256:7aec734b2bb298a1d769fd8729f13b8514a41bf90fcdd1f38ec52267fbaa8ee6
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports: []
+
+  # ── Backend-Agenten (Live-Stack) ────────────────────────────────────────────
+
+  ai-agent-hub:
+    extends:
+      file: compose.base.yml
+      service: ai-agent-hub-base
+    command: sh -c "alembic upgrade head && exec python -m agent.ai_agent"
+    environment:
+      ANANTA_QUICKSTART_MODE: "agent-only"
+      FLASK_DEBUG: "0"
+      DEFAULT_PROVIDER: ${LIVE_LLM_PROVIDER:-lmstudio}
+      DEFAULT_MODEL: ${LIVE_LLM_MODEL:-auto}
+      LMSTUDIO_URL: ${LMSTUDIO_URL:-http://host.docker.internal:1234/v1}
+      LMSTUDIO_API_MODE: ${LMSTUDIO_API_MODE:-chat}
+      OPENAI_URL: ${OPENAI_URL:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}"
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      AUTH_TEST_ENDPOINTS_ENABLED: "1"
+    volumes:
+      - ../../:/app:rw
+      - ../../project-workspaces:/project-workspaces:rw
+      - hub-data:/app/data
+    ports: []
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  ai-agent-alpha:
+    extends:
+      file: compose.base.yml
+      service: ai-agent-worker-base
+    command: sh -c "alembic upgrade head && exec python -m agent.ai_agent"
+    environment:
+      ANANTA_QUICKSTART_MODE: "agent-only"
+      FLASK_DEBUG: "0"
+      DEFAULT_PROVIDER: ${LIVE_LLM_PROVIDER:-lmstudio}
+      DEFAULT_MODEL: ${LIVE_LLM_MODEL:-auto}
+      LMSTUDIO_URL: ${LMSTUDIO_URL:-http://host.docker.internal:1234/v1}
+      LMSTUDIO_API_MODE: ${LMSTUDIO_API_MODE:-chat}
+      OPENAI_URL: ${OPENAI_URL:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      AGENT_NAME: ${ANANTA_WORKER_ALPHA_ID:-ananta-worker-1}
+      AGENT_URL: http://ai-agent-alpha:5000
+      HUB_URL: http://ai-agent-hub:5000
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}"
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+    volumes:
+      - ../../:/app:rw
+      - ../../project-workspaces:/project-workspaces:rw
+      - alpha-data:/app/data
+    ports: []
+    depends_on:
+      ai-agent-hub:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  ai-agent-beta:
+    extends:
+      file: compose.base.yml
+      service: ai-agent-worker-base
+    command: sh -c "alembic upgrade head && exec python -m agent.ai_agent"
+    environment:
+      ANANTA_QUICKSTART_MODE: "agent-only"
+      FLASK_DEBUG: "0"
+      DEFAULT_PROVIDER: ${LIVE_LLM_PROVIDER:-lmstudio}
+      DEFAULT_MODEL: ${LIVE_LLM_MODEL:-auto}
+      LMSTUDIO_URL: ${LMSTUDIO_URL:-http://host.docker.internal:1234/v1}
+      LMSTUDIO_API_MODE: ${LMSTUDIO_API_MODE:-chat}
+      OPENAI_URL: ${OPENAI_URL:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      AGENT_NAME: ${ANANTA_WORKER_BETA_ID:-ananta-worker-2}
+      AGENT_URL: http://ai-agent-beta:5000
+      HUB_URL: http://ai-agent-hub:5000
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}"
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+    volumes:
+      - ../../:/app:rw
+      - ../../project-workspaces:/project-workspaces:rw
+      - beta-data:/app/data
+    ports: []
+    depends_on:
+      ai-agent-hub:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  # ── Angular Dev-Server (für E2E-Tests) ─────────────────────────────────────
+
+  angular-frontend:
+    build:
+      context: ../../frontend-angular
+    image: ananta-frontend-tests:local
+    working_dir: /app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: npx ng serve --host 0.0.0.0 --port 4200 --poll 2000 --disable-host-check
+    environment:
+      E2E_ADMIN_USER: ${INITIAL_ADMIN_USER:-admin}
+      E2E_ADMIN_PASSWORD: "${INITIAL_ADMIN_PASSWORD:?Error: INITIAL_ADMIN_PASSWORD must be set in .env}"
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+    volumes:
+      - ../../frontend-angular:/app
+      - /app/node_modules
+      - /ms-playwright
+    ports: []
+    depends_on:
+      ai-agent-hub:
+        condition: service_healthy
+
+  # ── Test-Gate-Container (lineare Kette: jeder wartet auf den Vorherigen) ───
+
+  # 1. Python-Unit & Integrationstests (kein LLM-Aufruf)
+  backend-unit-test:
+    build:
+      context: ../..
+      dockerfile: docker/compose-next/Dockerfile.tests-backend
+    image: ananta-backend-tests:local
+    environment:
+      ANANTA_QUICKSTART_MODE: "agent-only"
+      PYTHONPATH: /app
+      PYTHONUNBUFFERED: "1"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}"
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      DEFAULT_PROVIDER: "mock"
+      DEFAULT_MODEL: "mock"
+    volumes:
+      - ../../:/app
+    working_dir: /app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: python -m pytest -q --ignore-glob=tests/**/fixtures/**
+
+  # 2. Python Live-LLM-Tests (ruft LM Studio / OpenAI-compat auf dem Host auf)
+  backend-live-llm-test:
+    image: ananta-backend-tests:local
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      ANANTA_QUICKSTART_MODE: "agent-only"
+      PYTHONPATH: /app
+      PYTHONUNBUFFERED: "1"
+      RUN_LIVE_LLM_TESTS: "1"
+      LIVE_LLM_PROVIDER: ${LIVE_LLM_PROVIDER:-lmstudio}
+      LIVE_LLM_MODEL: ${LIVE_LLM_MODEL:-auto}
+      LIVE_LLM_TIMEOUT_SEC: ${LIVE_LLM_TIMEOUT_SEC:-120}
+      LIVE_LLM_RETRY_ATTEMPTS: ${LIVE_LLM_RETRY_ATTEMPTS:-2}
+      LIVE_LLM_RETRY_BACKOFF_SEC: ${LIVE_LLM_RETRY_BACKOFF_SEC:-1.0}
+      LMSTUDIO_URL: ${LMSTUDIO_URL:-http://host.docker.internal:1234/v1}
+      LMSTUDIO_API_MODE: ${LMSTUDIO_API_MODE:-chat}
+      OPENAI_URL: ${OPENAI_URL:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    volumes:
+      - ../../:/app
+    working_dir: /app
+    depends_on:
+      backend-unit-test:
+        condition: service_completed_successfully
+    command: python -m pytest -q tests/test_goal_live_lmstudio.py
+
+  # 3. Angular Unit-Tests (vitest, kein laufender Stack nötig)
+  frontend-unit-test:
+    image: ananta-frontend-tests:local
+    working_dir: /app
+    environment:
+      CI: "true"
+    volumes:
+      - ../../frontend-angular:/app
+      - /app/node_modules
+    depends_on:
+      backend-live-llm-test:
+        condition: service_completed_successfully
+    command: npm run test:unit
+
+  # 4. E2E Playwright ohne Live-LLM (deterministische Tests)
+  frontend-e2e-test:
+    image: ananta-frontend-tests:local
+    working_dir: /app
+    environment:
+      CI: "true"
+      ANANTA_E2E_USE_EXISTING: "1"
+      E2E_REUSE_SERVER: "1"
+      E2E_REPORTER_MODE: "compact"
+      E2E_FRONTEND_URL: "http://angular-frontend:4200"
+      E2E_HUB_URL: "http://ai-agent-hub:5000"
+      E2E_ALPHA_URL: "http://ai-agent-alpha:5000"
+      E2E_BETA_URL: "http://ai-agent-beta:5000"
+      E2E_ADMIN_USER: ${INITIAL_ADMIN_USER:-admin}
+      E2E_ADMIN_PASSWORD: "${INITIAL_ADMIN_PASSWORD:?Error: INITIAL_ADMIN_PASSWORD must be set in .env}"
+      E2E_HUB_AGENT_TOKEN: "${AGENT_TOKEN_HUB:-}"
+      E2E_ALPHA_AGENT_TOKEN: "${AGENT_TOKEN_ALPHA:-}"
+      E2E_BETA_AGENT_TOKEN: "${AGENT_TOKEN_BETA:-}"
+      E2E_DETERMINISTIC_SCRUM_SEED: "1"
+      E2E_SCRUM_SEED_TEAM_NAME: "E2E Seed Scrum Team"
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+    volumes:
+      - ../../frontend-angular:/app
+      - /app/node_modules
+      - /ms-playwright
+    depends_on:
+      frontend-unit-test:
+        condition: service_completed_successfully
+      angular-frontend:
+        condition: service_started
+      ai-agent-hub:
+        condition: service_healthy
+      ai-agent-alpha:
+        condition: service_healthy
+      ai-agent-beta:
+        condition: service_healthy
+    command: npm run test:e2e:compose
+
+  # 5. E2E Playwright mit Live-LLM (LM Studio / OpenAI-compat)
+  frontend-live-llm-test:
+    image: ananta-frontend-tests:local
+    working_dir: /app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      CI: "true"
+      ANANTA_E2E_USE_EXISTING: "1"
+      E2E_REUSE_SERVER: "1"
+      E2E_REPORTER_MODE: "compact"
+      E2E_FRONTEND_URL: "http://angular-frontend:4200"
+      E2E_HUB_URL: "http://ai-agent-hub:5000"
+      E2E_ALPHA_URL: "http://ai-agent-alpha:5000"
+      E2E_BETA_URL: "http://ai-agent-beta:5000"
+      E2E_ADMIN_USER: ${INITIAL_ADMIN_USER:-admin}
+      E2E_ADMIN_PASSWORD: "${INITIAL_ADMIN_PASSWORD:?Error: INITIAL_ADMIN_PASSWORD must be set in .env}"
+      E2E_HUB_AGENT_TOKEN: "${AGENT_TOKEN_HUB:-}"
+      E2E_ALPHA_AGENT_TOKEN: "${AGENT_TOKEN_ALPHA:-}"
+      E2E_BETA_AGENT_TOKEN: "${AGENT_TOKEN_BETA:-}"
+      E2E_DETERMINISTIC_SCRUM_SEED: "1"
+      E2E_SCRUM_SEED_TEAM_NAME: "E2E Seed Scrum Team"
+      RUN_LIVE_LLM_TESTS: "1"
+      LIVE_LLM_PROVIDER: ${LIVE_LLM_PROVIDER:-lmstudio}
+      E2E_LIVE_LLM_PROVIDER: ${LIVE_LLM_PROVIDER:-lmstudio}
+      LIVE_LLM_MODEL: ${LIVE_LLM_MODEL:-auto}
+      LMSTUDIO_URL: ${LMSTUDIO_URL:-http://host.docker.internal:1234/v1}
+      OPENAI_URL: ${OPENAI_URL:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      E2E_LIVE_LLM_TIMEOUT_MS: ${E2E_LIVE_LLM_TIMEOUT_MS:-300000}
+      E2E_LLM_API_TIMEOUT_MS: ${E2E_LLM_API_TIMEOUT_MS:-300000}
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+    volumes:
+      - ../../frontend-angular:/app
+      - /app/node_modules
+      - /ms-playwright
+    depends_on:
+      frontend-e2e-test:
+        condition: service_completed_successfully
+      angular-frontend:
+        condition: service_started
+      ai-agent-hub:
+        condition: service_healthy
+      ai-agent-alpha:
+        condition: service_healthy
+      ai-agent-beta:
+        condition: service_healthy
+    command: npm run test:e2e:live:compose
+
+  # 6. Sentinel – Exit 0 wenn alle Tests grün
+  all-tests:
+    image: alpine:3.23.4@sha256:5b10f432ef3da1b8d4c7eb6c487f2f5a8f096bc91145e68878dd4a5019afde11
+    command:
+      - sh
+      - -c
+      - "echo 'All tests passed: backend-unit + backend-live-llm + frontend-unit + frontend-e2e + frontend-live-llm.'"
+    depends_on:
+      frontend-live-llm-test:
+        condition: service_completed_successfully
+
+volumes:
+  postgres-data:
+  redis-data:
+  hub-data:
+  alpha-data:
+  beta-data:
