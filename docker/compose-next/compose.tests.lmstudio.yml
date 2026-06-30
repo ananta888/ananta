@@ -439,8 +439,8 @@ services:
       - ../../frontend-angular:/app
       - /app/node_modules
       - ../../tests:/tests
-      - ../../scripts:/app/scripts
-      - ../../artifacts:/app/artifacts
+      - ../../scripts:/scripts
+      - ../../artifacts:/artifacts
     depends_on:
       backend-live-llm-test:
         condition: service_completed_successfully
