@@ -1,0 +1,748 @@
+{
+  "version": "1.0.0",
+  "owner": "ananta888/planning",
+  "track": "bayesian-benchmark-estimation",
+  "purpose": "Add Bayesian posterior and bounded retry-success estimates on top of existing Ananta benchmark/evidence data without duplicating benchmark runners, planning-track verification, or model-routing infrastructure.",
+  "goal": "Improve model benchmark interpretation and task-success forecasting by deriving posterior success/quality probabilities from existing hub/Ollama benchmark samples and exposing advisory attempt estimates for small-model retry versus escalation decisions.",
+  "large_goal_mode": true,
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high"
+  ],
+  "source_analysis": {
+    "repo_paths_researched": [
+      "agent/hub_benchmark.py",
+      "agent/ollama_benchmark.py",
+      "agent/services/hub_benchmark_service.py",
+      "agent/services/ollama_benchmark_service.py",
+      "agent/services/benchmark_job_service.py",
+      "agent/benchmark_quality.py",
+      "agent/routes/tasks/autopilot_task_dispatcher.py",
+      "agent/routes/tasks/autopilot_task_dispatcher_helpers.py",
+      "agent/services/planning_track_pipeline_service.py",
+      "agent/services/planning_track_task_integration_service.py",
+      "todos/todo.track.schema.json",
+      "docs/architecture/planning-track-contract.md"
+    ],
+    "findings": [
+      "Existing hub and Ollama benchmark code already records success/failure, quality pass/fail, latency, tokens, cost, roles, task kinds, and samples.",
+      "Existing benchmark scoring already computes success_rate, quality_rate, latency_score, cost_score, and suitability_score.",
+      "Existing recommendation functions already rank models by weighted suitability score.",
+      "Existing planning-track and autopilot code already cover verification, materialization, retry budgets, status updates, and hard guards.",
+      "No existing Bayes/posterior/prior/confidence probability implementation was found during targeted code search.",
+      "The implementation should therefore add Bayesian estimation and reporting as an advisory layer over existing benchmark samples."
+    ],
+    "non_goals": [
+      "Do not create a new benchmark runner.",
+      "Do not replace existing benchmark result JSON formats.",
+      "Do not replace existing suitability_score in the first implementation.",
+      "Do not create a new model router.",
+      "Do not bypass existing hub-worker boundaries, autopilot hard guards, or planning-track validation."
+    ]
+  },
+  "milestones": [
+    {
+      "id": "M01",
+      "title": "Source-grounded benchmark inventory",
+      "status": "todo",
+      "task_ids": [
+        "BAYES-001",
+        "BAYES-002",
+        "BAYES-003"
+      ]
+    },
+    {
+      "id": "M02",
+      "title": "Bayesian estimation contracts",
+      "status": "todo",
+      "task_ids": [
+        "BAYES-004",
+        "BAYES-005",
+        "BAYES-006",
+        "BAYES-007"
+      ]
+    },
+    {
+      "id": "M03",
+      "title": "Estimator implementation and benchmark integration",
+      "status": "todo",
+      "task_ids": [
+        "BAYES-008",
+        "BAYES-009",
+        "BAYES-010",
+        "BAYES-011"
+      ]
+    },
+    {
+      "id": "M04",
+      "title": "Deterministic tests and backward compatibility",
+      "status": "todo",
+      "task_ids": [
+        "BAYES-012",
+        "BAYES-013",
+        "BAYES-014",
+        "BAYES-015"
+      ]
+    },
+    {
+      "id": "M05",
+      "title": "UI and interpretation documentation",
+      "status": "todo",
+      "task_ids": [
+        "BAYES-016",
+        "BAYES-017",
+        "BAYES-018"
+      ]
+    },
+    {
+      "id": "M06",
+      "title": "Release evidence and final guardrails",
+      "status": "todo",
+      "task_ids": [
+        "BAYES-019",
+        "BAYES-020"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "BAYES-001",
+      "title": "Inventory benchmark data producers",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "research",
+      "milestone_id": "M01",
+      "progress_percent": 0,
+      "acceptance_criteria": [
+        "Inspect existing benchmark modules before implementing any Bayesian code: agent/hub_benchmark.py, agent/ollama_benchmark.py, agent/services/hub_benchmark_service.py, agent/services/ollama_benchmark_service.py, agent/services/benchmark_job_service.py, agent/benchmark_quality.py, agent/llm_benchmarks.py, agent/product_benchmark_suite.py, and benchmark routes.",
+        "Document which modules already persist samples, aggregate scores, run async jobs, evaluate quality, and expose recommendations.",
+        "Confirm that the new work reuses existing benchmark result stores and does not create a second benchmark runner.",
+        "Confirm whether existing samples already include success, quality_passed, latency_ms, tokens_total, cost_units, role_name, task_kind, provider/model, and parameter fields.",
+        "Add implementation notes listing reused source files and explicit non-goals."
+      ]
+    },
+    {
+      "id": "BAYES-002",
+      "title": "Map existing benchmark result schemas to Bayesian evidence",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "research",
+      "milestone_id": "M01",
+      "progress_percent": 0,
+      "acceptance_criteria": [
+        "Map hub benchmark samples from provider/model role buckets into a common Bayesian evidence shape.",
+        "Map Ollama benchmark samples including parameter variations into the same evidence shape.",
+        "Map benchmark job summaries only as aggregate metadata, not as replacement for per-sample evidence where samples are available.",
+        "Define how missing legacy fields are represented without raising exceptions.",
+        "Include a table or documented mapping from existing sample fields to Bayesian evidence fields."
+      ],
+      "depends_on": [
+        "BAYES-001"
+      ]
+    },
+    {
+      "id": "BAYES-003",
+      "title": "Document current scoring and recommendation limitations",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "research",
+      "milestone_id": "M01",
+      "progress_percent": 0,
+      "acceptance_criteria": [
+        "Document that current benchmark scoring is weighted by success_rate, quality_rate, latency_score, and cost_score.",
+        "Document that current scoring is descriptive and does not estimate posterior uncertainty or probability after repeated attempts.",
+        "Document why low sample counts can produce unstable recommendations without a prior/uncertainty model.",
+        "Document that Bayesian estimates should augment existing score output rather than replace suitability_score in the first implementation.",
+        "Identify the exact recommendation payloads that should gain optional Bayesian fields."
+      ],
+      "depends_on": [
+        "BAYES-001"
+      ]
+    },
+    {
+      "id": "BAYES-004",
+      "title": "Define Bayesian evidence record extension",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "schema",
+      "milestone_id": "M02",
+      "progress_percent": 0,
+      "acceptance_criteria": [
+        "Define a backward-compatible Bayesian evidence record with schema/version fields and no required database migration.",
+        "Evidence records include source, provider, model, role_name, task_kind, parameters, sample timestamp, success, quality_passed, latency_ms, tokens_total, cost_units, and deterministic_signal.",
+        "Evidence records distinguish raw LLM success from deterministic or quality-gate pass evidence.",
+        "Evidence records can be created from both hub and Ollama sample formats.",
+        "Unit tests validate evidence extraction for hub sample, Ollama sample, missing fields, and malformed sample dictionaries."
+      ],
+      "depends_on": [
+        "BAYES-002"
+      ]
+    },
+    {
+      "id": "BAYES-005",
+      "title": "Define beta-binomial posterior contract",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "schema",
+      "milestone_id": "M02",
+      "progress_percent": 0,
+      "acceptance_criteria": [
+        "Define a beta-binomial posterior contract using alpha_prior, beta_prior, success_count, failure_count, posterior_alpha, posterior_beta, posterior_mean, and sample_count.",
+        "Default priors are configurable but safe; the default must not produce certainty from zero evidence.",
+        "Quality-gate pass/fail can be used as the strongest binary signal when available; raw non-empty response success is a weaker fallback only when quality evidence is unavailable.",
+        "The contract includes an explanation object describing the evidence source and prior used.",
+        "Tests verify zero evidence, all success, all failure, and mixed evidence behavior."
+      ],
+      "depends_on": [
+        "BAYES-004"
+      ]
+    },
+    {
+      "id": "BAYES-006",
+      "title": "Define cumulative success-after-N-attempts contract",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "schema",
+      "milestone_id": "M02",
+      "progress_percent": 0,
+      "acceptance_criteria": [
+        "Define a deterministic contract for estimating probability of at least one success after N attempts from posterior per-attempt success probability.",
+        "The contract exposes assumptions: independent attempts, correlated attempts, or penalized retries.",
+        "The function supports pessimistic, neutral, and optimistic modes by applying a documented correlation or shrinkage factor.",
+        "The result includes attempts, per_attempt_probability, cumulative_probability, mode, and warning flags.",
+        "The function never returns 1.0 certainty for finite evidence."
+      ],
+      "depends_on": [
+        "BAYES-005"
+      ]
+    },
+    {
+      "id": "BAYES-007",
+      "title": "Define uncertainty and low-confidence flags",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "schema",
+      "milestone_id": "M02",
+      "progress_percent": 0,
+      "acceptance_criteria": [
+        "Define uncertainty flags based on sample count, posterior variance or equivalent uncertainty proxy, and conflicting evidence.",
+        "Low-confidence estimates are explicitly flagged when samples are below configured thresholds.",
+        "High-confidence labels require both sufficient samples and stable deterministic evidence.",
+        "Uncertainty fields are optional additions to benchmark payloads and do not break existing consumers.",
+        "Tests cover low sample, balanced success/failure, high sample/high success, and high sample/high failure cases."
+      ],
+      "depends_on": [
+        "BAYES-005"
+      ]
+    },
+    {
+      "id": "BAYES-008",
+      "title": "Implement pure Bayesian estimator service",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "service",
+      "milestone_id": "M03",
+      "progress_percent": 0,
+      "acceptance_criteria": [
+        "Implement a focused pure service module, for example agent/services/bayesian_benchmark_estimator.py.",
+        "The service contains no network calls, no LLM calls, and no benchmark execution side effects.",
+        "The service exposes pure functions for evidence normalization, posterior calculation, uncertainty labeling, and success-after-N estimation.",
+        "The service handles malformed, empty, or legacy samples defensively.",
+        "Tests cover all exported functions without requiring Ollama, external providers, live workers, or filesystem writes except temporary fixtures."
+      ],
+      "depends_on": [
+        "BAYES-005",
+        "BAYES-006",
+        "BAYES-007"
+      ]
+    },
+    {
+      "id": "BAYES-009",
+      "title": "Add evidence extraction adapters for hub and Ollama benchmarks",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "service",
+      "milestone_id": "M03",
+      "progress_percent": 0,
+      "acceptance_criteria": [
+        "Add adapter functions that read existing hub and Ollama benchmark samples and convert them to Bayesian evidence records.",
+        "Adapters do not alter existing persistence formats for hub_benchmark_results.json or ollama_benchmark_results.json.",
+        "Adapters preserve provider/model separation for hub benchmarks and parameter variation separation for Ollama benchmarks.",
+        "Adapters support filtering by role_name, task_kind, provider, model, and parameters where existing recommendation functions already support filters.",
+        "Tests prove adapters produce identical evidence counts to the filtered sample counts used by existing recommendation logic."
+      ],
+      "depends_on": [
+        "BAYES-004",
+        "BAYES-008"
+      ]
+    },
+    {
+      "id": "BAYES-010",
+      "title": "Integrate posterior fields into benchmark scoring output",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "integration",
+      "milestone_id": "M03",
+      "progress_percent": 0,
+      "acceptance_criteria": [
+        "Extend existing benchmark score objects with optional bayesian_estimate fields while preserving current score_hub_bucket and score_ollama_bucket fields.",
+        "Bayesian fields include posterior_success_probability, posterior_quality_probability, evidence_count, success_count, failure_count, uncertainty, and estimate_status.",
+        "Existing suitability_score remains present and numerically unchanged unless a later explicitly separate task changes routing policy.",
+        "Hub benchmark rows and Ollama benchmark rows remain backward compatible for consumers that ignore unknown fields.",
+        "Tests verify old expected keys are still present and new Bayesian keys appear only when evidence can be computed."
+      ],
+      "depends_on": [
+        "BAYES-008",
+        "BAYES-009"
+      ]
+    },
+    {
+      "id": "BAYES-011",
+      "title": "Integrate attempt estimates into recommendation payloads",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "integration",
+      "milestone_id": "M03",
+      "progress_percent": 0,
+      "acceptance_criteria": [
+        "Extend recommendation payloads with optional Bayesian interpretation fields without automatically changing selected models.",
+        "Payloads include estimated_attempts_for_50_percent, estimated_attempts_for_80_percent, estimated_attempts_for_95_percent, and low_confidence flag where computable.",
+        "Recommendation output explains when a cheap small model is statistically worth retrying before escalation.",
+        "Recommendation output explains when evidence supports escalation because expected attempts exceed configured limits.",
+        "Tests verify recommendation payloads for small-high-uncertainty, small-low-probability, and strong-high-probability model cases."
+      ],
+      "depends_on": [
+        "BAYES-010"
+      ]
+    },
+    {
+      "id": "BAYES-012",
+      "title": "Add Bayesian benchmark tests for zero and low sample cases",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "tests",
+      "milestone_id": "M04",
+      "progress_percent": 0,
+      "acceptance_criteria": [
+        "Add deterministic tests for zero evidence and low sample count handling.",
+        "Zero evidence returns the configured prior, not 0.0, 1.0, or a fabricated benchmark conclusion.",
+        "Low sample count sets low_confidence or equivalent warning status.",
+        "Tests verify no division-by-zero and no missing-key exceptions.",
+        "Tests are pure unit tests and do not call live benchmark services."
+      ],
+      "depends_on": [
+        "BAYES-008"
+      ]
+    },
+    {
+      "id": "BAYES-013",
+      "title": "Add tests for posterior updates from pass/fail evidence",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "tests",
+      "milestone_id": "M04",
+      "progress_percent": 0,
+      "acceptance_criteria": [
+        "Add tests for posterior updates from pass/fail evidence.",
+        "One success increases posterior mean relative to the prior when using the default prior.",
+        "One failure decreases posterior mean relative to the prior when using the default prior.",
+        "Mixed evidence produces a posterior between all-success and all-failure cases.",
+        "Quality_passed evidence is preferred over raw success when both are present and conflict."
+      ],
+      "depends_on": [
+        "BAYES-008"
+      ]
+    },
+    {
+      "id": "BAYES-014",
+      "title": "Add tests for cumulative attempt probability and correlation penalty",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "tests",
+      "milestone_id": "M04",
+      "progress_percent": 0,
+      "acceptance_criteria": [
+        "Add tests for cumulative success-after-N-attempt estimates.",
+        "Cumulative probability increases monotonically with N for neutral mode.",
+        "Pessimistic mode produces a probability less than or equal to neutral mode for N greater than 1.",
+        "Optimistic mode never exceeds the configured maximum cap or certainty boundary.",
+        "Tests cover N=0, N=1, N=5, N=20, and invalid negative N handling."
+      ],
+      "depends_on": [
+        "BAYES-006",
+        "BAYES-008"
+      ]
+    },
+    {
+      "id": "BAYES-015",
+      "title": "Add backward compatibility tests for existing benchmark payloads",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "tests",
+      "milestone_id": "M04",
+      "progress_percent": 0,
+      "acceptance_criteria": [
+        "Add compatibility tests using representative legacy hub and Ollama benchmark payloads.",
+        "Existing recommendation tests continue to pass without requiring Bayesian fields.",
+        "Malformed samples are skipped or marked invalid according to documented behavior.",
+        "Existing benchmark job summaries remain readable after Bayesian fields are added to nested result payloads.",
+        "No existing benchmark JSON fixture needs destructive migration."
+      ],
+      "depends_on": [
+        "BAYES-009",
+        "BAYES-010"
+      ]
+    },
+    {
+      "id": "BAYES-016",
+      "title": "Expose Bayesian estimates in benchmark UI models without forcing routing",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "frontend",
+      "milestone_id": "M05",
+      "progress_percent": 0,
+      "acceptance_criteria": [
+        "Extend Angular benchmark dashboard models or view mapping only after backend payload fields exist.",
+        "UI displays Bayesian estimates as advisory information, not as automatic routing decisions.",
+        "UI labels low-confidence estimates clearly.",
+        "Existing dashboard benchmark panels continue to render when Bayesian fields are absent.",
+        "Frontend tests or component specs verify rendering with and without Bayesian fields."
+      ],
+      "depends_on": [
+        "BAYES-010",
+        "BAYES-011"
+      ]
+    },
+    {
+      "id": "BAYES-017",
+      "title": "Document Bayesian benchmark interpretation",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "type": "docs",
+      "milestone_id": "M05",
+      "progress_percent": 0,
+      "acceptance_criteria": [
+        "Add documentation explaining prior, evidence, posterior, and attempts-after-N in Ananta benchmark terms.",
+        "Documentation states that Bayes improves benchmark interpretation and planning estimates but does not prove code correctness.",
+        "Documentation explains that deterministic quality gates and tests are stronger evidence than LLM self-assessment.",
+        "Documentation includes a worked example where a small model has low per-attempt probability but high cumulative probability after bounded retries.",
+        "Documentation lists assumptions and caveats for correlated attempts, repeated context errors, and benchmark overfitting."
+      ],
+      "depends_on": [
+        "BAYES-010"
+      ]
+    },
+    {
+      "id": "BAYES-018",
+      "title": "Document routing policy boundaries for Bayesian estimates",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "docs",
+      "milestone_id": "M05",
+      "progress_percent": 0,
+      "acceptance_criteria": [
+        "Document that Bayesian estimates do not change routing automatically in this track.",
+        "Document how a future routing policy could use posterior probability, expected attempts, latency, and cost after enough evidence exists.",
+        "Document safety boundaries: no capability escalation, no tool-permission changes, and no bypassing hub policy from benchmark statistics.",
+        "Document fallback/escalation criteria in advisory terms only.",
+        "Documentation references existing benchmark recommendation paths rather than proposing a new router."
+      ],
+      "depends_on": [
+        "BAYES-011",
+        "BAYES-017"
+      ]
+    },
+    {
+      "id": "BAYES-019",
+      "title": "Add release evidence entry and migration notes",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "type": "docs",
+      "milestone_id": "M06",
+      "progress_percent": 0,
+      "acceptance_criteria": [
+        "Add a release evidence or implementation note describing files changed and compatibility expectations.",
+        "Include migration notes that existing benchmark result JSON files remain valid.",
+        "Include rollback notes: removing Bayesian display/fields must not remove benchmark sample data.",
+        "Include test evidence checklist covering unit, compatibility, and frontend tests where applicable.",
+        "Include a note that no new live benchmark run is required to use Bayesian estimates on existing samples."
+      ],
+      "depends_on": [
+        "BAYES-015",
+        "BAYES-017"
+      ]
+    },
+    {
+      "id": "BAYES-020",
+      "title": "Run final checks and verify no duplicate benchmark runner was introduced",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "quality",
+      "milestone_id": "M06",
+      "progress_percent": 0,
+      "acceptance_criteria": [
+        "Run or document relevant pytest targets for Bayesian estimator, benchmark adapters, hub benchmark compatibility, Ollama benchmark compatibility, and recommendation payloads.",
+        "Run or document lint checks for touched Python files.",
+        "Run or document frontend tests if benchmark dashboard files changed.",
+        "Verify no new benchmark runner, duplicate benchmark result store, or duplicate model recommendation system was introduced.",
+        "Verify existing hub and Ollama benchmark APIs remain backward compatible for clients that ignore unknown fields.",
+        "Prepare final PR notes summarizing source analysis, Bayesian estimator behavior, compatibility impact, and remaining follow-up work."
+      ],
+      "depends_on": [
+        "BAYES-012",
+        "BAYES-013",
+        "BAYES-014",
+        "BAYES-015",
+        "BAYES-016",
+        "BAYES-018",
+        "BAYES-019"
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "BAYES-001",
+    "BAYES-002",
+    "BAYES-003",
+    "BAYES-004",
+    "BAYES-005",
+    "BAYES-006",
+    "BAYES-008",
+    "BAYES-009",
+    "BAYES-010",
+    "BAYES-011",
+    "BAYES-012",
+    "BAYES-013",
+    "BAYES-014",
+    "BAYES-015",
+    "BAYES-020"
+  ],
+  "tasks_status_summary": {
+    "total": 20,
+    "by_status": {
+      "todo": 20,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0.0,
+    "by_priority": {
+      "P1": 15,
+      "P2": 5
+    },
+    "by_risk": {
+      "medium": 10,
+      "high": 8,
+      "low": 2
+    },
+    "critical_path": {
+      "total": 15,
+      "done": 0,
+      "remaining": 15
+    },
+    "milestones": {
+      "total": 6,
+      "todo": 6,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 20,
+    "by_type": {
+      "research": {
+        "total": 3,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 3,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "schema": {
+        "total": 4,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 4,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "service": {
+        "total": 2,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "integration": {
+        "total": 2,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "tests": {
+        "total": 4,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 4,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "frontend": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "docs": {
+        "total": 3,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 3,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "quality": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      }
+    }
+  },
+  "progress_summary": {
+    "state": "not_started",
+    "todo_remaining": 20,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "execution_stage_summary": {
+    "source_analysis": "todo",
+    "contracts": "todo",
+    "implementation": "todo",
+    "tests": "todo",
+    "ui_docs": "todo",
+    "release": "todo"
+  },
+  "summary_notes": [
+    "This TODO is intentionally narrower than a new iterative verification model because the repository already contains benchmark, verification, planning-track, and retry infrastructure.",
+    "The central missing capability is Bayesian/posterior interpretation of existing benchmark and attempt evidence.",
+    "Bayesian fields are advisory in this track and must not automatically change routing or policy decisions.",
+    "All acceptance criteria emphasize reuse of existing benchmark samples and backward compatibility."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "definition-of-done",
+      "title": "Definition of Done",
+      "items": [
+        "Existing benchmark samples can be converted into Bayesian evidence records.",
+        "Posterior success and quality estimates are computed deterministically from existing evidence.",
+        "Benchmark summaries and recommendations expose Bayesian advisory fields without breaking existing consumers.",
+        "Low-confidence estimates are clearly marked.",
+        "No duplicate benchmark runner, duplicate result store, duplicate model router, or policy bypass is introduced.",
+        "Tests cover estimator math, legacy payload compatibility, recommendation payloads, and no-evidence edge cases."
+      ]
+    },
+    {
+      "summary_id": "implementation-boundaries",
+      "title": "Implementation Boundaries",
+      "items": [
+        "Use existing hub_benchmark and ollama_benchmark sample stores as evidence sources.",
+        "Keep existing suitability_score behavior intact unless a later explicit routing-policy task changes it.",
+        "Keep Bayesian estimator pure and side-effect free.",
+        "Keep benchmark job execution unchanged.",
+        "Keep routing decisions hub-owned and policy-governed."
+      ]
+    }
+  ]
+}
