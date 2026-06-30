@@ -308,6 +308,17 @@ class GraphValidator:
                     step_id=step.id,
                 ))
 
+            # requires_approval in registry but no gate on step
+            if info.get("requires_approval", False) and not step.gate:
+                # evolution_apply already has a hard error, skip duplicate
+                if step.kind != "evolution_apply":
+                    issues.append(ValidationIssue(
+                        "warning", "requires_approval_no_gate",
+                        f"Step '{step.label}' (kind={step.kind}) erfordert laut Registry "
+                        "zwingend Approval (requires_approval=true), hat aber gate=false.",
+                        step_id=step.id,
+                    ))
+
     @staticmethod
     def _check_model_routing(graph: VisualProcessGraph, issues: list[ValidationIssue]) -> None:
         known_profiles: set[str] | None = None
@@ -358,17 +369,6 @@ class GraphValidator:
                     f"Step '{step.label}' may require approval for cloud or cost escalation but gate=false.",
                     step_id=step.id,
                 ))
-
-            # requires_approval in registry but no gate on step
-            if info.get("requires_approval", False) and not step.gate:
-                # evolution_apply already has a hard error, skip duplicate
-                if step.kind != "evolution_apply":
-                    issues.append(ValidationIssue(
-                        "warning", "requires_approval_no_gate",
-                        f"Step '{step.label}' (kind={step.kind}) erfordert laut Registry "
-                        "zwingend Approval (requires_approval=true), hat aber gate=false.",
-                        step_id=step.id,
-                    ))
 
             # uses_network=true — inform user
             if uses_network:

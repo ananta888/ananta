@@ -33,7 +33,7 @@ describe('app routes', () => {
       'codehug',
     ].includes(route.path));
 
-    expect(featureRoutes.length).toBe(21);
+    expect(featureRoutes.length).toBe(22);
     expect(featureRoutes.every((route: any) => typeof route.loadComponent === 'function')).toBe(true);
     expect(featureRoutes.every((route: any) => !route.component)).toBe(true);
     expect(featureRoutes.every((route: any) => route.data?.breadcrumb && route.data?.area)).toBe(true);

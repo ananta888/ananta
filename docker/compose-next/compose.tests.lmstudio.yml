@@ -228,7 +228,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_obsidian_canvas.py tests/test_obsidian_extractor.py tests/test_obsidian_integration.py tests/test_obsidian_privacy.py tests/test_obsidian_scanner.py; echo $? > /results/t-rag-obsidian; exit 0"]
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_obsidian_canvas.py tests/test_obsidian_config.py tests/test_obsidian_extractor.py tests/test_obsidian_integration.py tests/test_obsidian_privacy.py tests/test_obsidian_scanner.py; echo $? > /results/t-rag-obsidian; exit 0"]
 
   # ~53 Dateien: operator_tui
   t-tui-operator:
@@ -310,13 +310,13 @@ services:
     command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_i*.py tests/test_j*.py tests/test_k*.py tests/test_l*.py tests/test_m*.py; echo $? > /results/t-flat-07; exit 0"]
 
   # ~61 Dateien: namespace, nginx, objective, oidc, opencode, operator (flat),
-  #              pattern, permission
+  #              pattern, permission (Obsidian ausgeschlossen — eigener Service t-rag-obsidian)
   t-flat-08:
     <<: *backend-test
     depends_on:
       t-flat-07:
         condition: service_completed_successfully
-    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_n*.py tests/test_o*.py tests/test_pa*.py tests/test_pe*.py --ignore=tests/test_obsidian_canvas.py --ignore=tests/test_obsidian_extractor.py --ignore=tests/test_obsidian_integration.py --ignore=tests/test_obsidian_privacy.py --ignore=tests/test_obsidian_scanner.py; echo $? > /results/t-flat-08; exit 0"]
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_n*.py tests/test_oi*.py tests/test_ol*.py tests/test_ope*.py tests/test_or*.py tests/test_os*.py tests/test_ou*.py tests/test_pa*.py tests/test_pe*.py; echo $? > /results/t-flat-08; exit 0"]
 
   # ~71 Dateien: plan, planning, plugin, policy, presentation, profiling, propose
   t-flat-09:
@@ -438,6 +438,9 @@ services:
     volumes:
       - ../../frontend-angular:/app
       - /app/node_modules
+      - ../../tests:/tests
+      - ../../scripts:/app/scripts
+      - ../../artifacts:/app/artifacts
     depends_on:
       backend-live-llm-test:
         condition: service_completed_successfully
@@ -563,6 +566,8 @@ services:
         fi
     depends_on:
       frontend-live-llm-test:
+        condition: service_completed_successfully
+      t-rag-obsidian:
         condition: service_completed_successfully
 
 volumes:

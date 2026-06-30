@@ -6,7 +6,8 @@ from pathlib import Path
 from agent.artifacts.goal_artifact_service import GoalArtifactService
 from agent.artifacts.goal_artifact_repository import GoalArtifactRepository
 from client_surfaces.operator_tui.diff.ai_diff_context import build_ai_diff_context_envelope
-from client_surfaces.operator_tui.diff.ai_diff_dispatch import dispatch_ai_diff_request
+from client_surfaces.operator_tui.diff import ai_diff_dispatch as _dispatch_module
+from client_surfaces.operator_tui.diff.ai_diff_dispatch import dispatch_ai_diff_request, _mock_ai_response
 from client_surfaces.operator_tui.diff.ai_diff_prompts import get_ai_diff_prompt_template, render_ai_diff_prompt
 from client_surfaces.operator_tui.diff.ai_diff_panel_state import build_ai_diff_panel_state
 from client_surfaces.operator_tui.diff.diff_source_resolver import DiffSourceResolver
@@ -113,11 +114,11 @@ def test_prompt_templates_render_control_task_and_schema() -> None:
 
 def test_dispatch_registers_patch_output_and_provenance(tmp_path: Path, monkeypatch) -> None:
     from agent.config import settings
-    from client_surfaces.operator_tui.diff import ai_diff_dispatch as dispatch_module
 
     monkeypatch.setattr(settings, "data_dir", str(tmp_path / "data"))
     service = _seed_goal_with_grant_and_output(tmp_path)
-    monkeypatch.setattr(dispatch_module, "GoalArtifactService", lambda: service)
+    monkeypatch.setattr(_dispatch_module, "GoalArtifactService", lambda: service)
+    monkeypatch.setattr(_dispatch_module, "_AI_RESPONSE_GENERATOR", _mock_ai_response)
     (tmp_path / "report.txt").write_text("artifact output", encoding="utf-8")
     session = build_current_diff_three_panel_session(session_id="s-2", goal_id="goal-ctx")
     session["extensions"]["ai_panel_state"] = build_ai_diff_panel_state(mode="patch", selected_panels=["A", "B"])
