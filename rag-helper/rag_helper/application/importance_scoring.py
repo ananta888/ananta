@@ -55,7 +55,7 @@ def compute_importance_score(record: dict) -> float:
     if kind == "obsidian_block":
         score += 0.7
 
-    obs_tags = set(record.get("tags") or [])
+    obs_tags = {t for t in (record.get("tags") or []) if isinstance(t, str)}
     if obs_tags & {"important", "key", "core"}:
         score += 0.1
 

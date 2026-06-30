@@ -89,7 +89,7 @@ class TestBuildGroundedSnakePromptProfileIntegration:
             # _build_grounded_snake_prompt lives in snakes_execution_routes
             # (snakes.py only re-exports it) — patch the module that holds
             # the actual get_rag_service reference.
-            patch("agent.routes.snakes_execution_routes.get_rag_service") as mock_rag,
+            patch("agent.routes.snakes_chat_helpers.get_rag_service") as mock_rag,
             patch("agent.routes.ai_snake_config._current_config") as mock_cfg,
             patch("agent.services.retrieval_profile_service.resolve_profile") as mock_resolve,
         ):
@@ -164,7 +164,7 @@ class TestBuildGroundedSnakePromptProfileIntegration:
         from agent.routes.snakes import SnakeAskLimits, _build_grounded_snake_prompt
 
         with (
-            patch("agent.routes.snakes_execution_routes.get_rag_service") as mock_rag,
+            patch("agent.routes.snakes_chat_helpers.get_rag_service") as mock_rag,
             patch("agent.routes.ai_snake_config._current_config") as mock_cfg,
             patch("agent.services.retrieval_profile_service.resolve_profile") as mock_resolve,
         ):

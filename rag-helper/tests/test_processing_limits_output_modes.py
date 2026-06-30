@@ -553,6 +553,7 @@ class ProcessingLimitsOutputModeTests(unittest.TestCase):
                 include_globs=[],
                 exclude_globs=[],
                 limits=ProcessingLimits(
+                    xml_index_mode="summary",
                     output_compaction_mode="ultra",
                     gem_partition_mode="domain",
                     xml_overview_mode="compact",
