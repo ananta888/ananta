@@ -1,35 +1,47 @@
-# Vollständiger Live-Teststack mit LM Studio (oder OpenAI-kompatiblem Endpunkt).
+# Vollständiger Live-Teststack — aufgeteilt in ~20 Testservices.
 #
-# Alle Tests laufen im Container:
-#   backend-unit-test      → Python pytest (ohne LLM)
-#   backend-live-llm-test  → Python pytest tests/test_goal_live_lmstudio.py
-#   frontend-unit-test     → vitest (npm run test:unit)
-#   frontend-e2e-test      → Playwright ohne Live-LLM (npm run test:e2e:compose)
-#   frontend-live-llm-test → Playwright mit Live-LLM (npm run test:e2e:live:compose)
-#   all-tests              → Sentinel, Exit 0 wenn alles grün
+# Struktur:
+#   Phase 1 (parallel, kein/wenig DB):
+#     t-infra, t-llm-cc, t-tui-client, t-tui-operator
 #
-# Voraussetzungen (.env):
-#   POSTGRES_PASSWORD, INITIAL_ADMIN_PASSWORD, SECRET_KEY
-#   LM Studio läuft auf dem Host (Server-Modus, Port 1234)
+#   Phase 2 (sequenzielle Kette, flat test_*.py aufgeteilt in 14 Domain-Cluster):
+#     t-flat-01 → t-flat-02 → … → t-flat-14
+#
+#   Phase 3 (nach Kette):
+#     t-worker-services, t-e2e-subdir
+#
+#   Dann: backend-live-llm-test → frontend-unit-test →
+#         frontend-e2e-test → frontend-live-llm-test → all-tests
 #
 # Start:
 #   docker compose -f docker/compose-next/compose.tests.lmstudio.yml \
-#     --env-file docker/compose-next/.env up --build
+#     --env-file docker/compose-next/.env up --exit-code-from all-tests all-tests
 #
-# Nur Sentinel abwarten (non-interactive CI):
+# Mit OpenAI-kompatiblem Endpunkt:
+#   LIVE_LLM_PROVIDER=openai OPENAI_API_KEY=sk-... \
 #   docker compose -f docker/compose-next/compose.tests.lmstudio.yml \
-#     --env-file docker/compose-next/.env up --build --exit-code-from all-tests all-tests
-#
-# Mit OpenAI-kompatiblem Endpunkt statt LM Studio:
-#   LIVE_LLM_PROVIDER=openai \
-#   OPENAI_URL=https://api.openai.com/v1/chat/completions \
-#   OPENAI_API_KEY=sk-... \
-#   docker compose -f docker/compose-next/compose.tests.lmstudio.yml \
-#     --env-file docker/compose-next/.env up --build
+#     --env-file docker/compose-next/.env up --exit-code-from all-tests all-tests
+
+# ── YAML-Anker für gemeinsame Backend-Test-Konfiguration ──────────────────────
+x-backend-test: &backend-test
+  image: ananta-backend-tests:local
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  environment:
+    ANANTA_QUICKSTART_MODE: "agent-only"
+    PYTHONPATH: /app
+    PYTHONUNBUFFERED: "1"
+    DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}"
+    REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+    DEFAULT_PROVIDER: "mock"
+    DEFAULT_MODEL: "mock"
+  volumes:
+    - ../../:/app
+  working_dir: /app
 
 services:
 
-  # ── Infrastruktur ───────────────────────────────────────────────────────────
+  # ── Infrastruktur ────────────────────────────────────────────────────────────
 
   postgres:
     image: postgres:16.13@sha256:5a65324fe84dc41709ff914e90b07f3e2f577073ed27bf917d4873aca0c9ec51
@@ -59,7 +71,7 @@ services:
       retries: 5
     ports: []
 
-  # ── Backend-Agenten (Live-Stack) ────────────────────────────────────────────
+  # ── Backend-Agenten (für live-llm + e2e) ────────────────────────────────────
 
   ai-agent-hub:
     extends:
@@ -149,7 +161,7 @@ services:
       postgres:
         condition: service_healthy
 
-  # ── Angular Dev-Server (für E2E-Tests) ─────────────────────────────────────
+  # ── Angular Dev-Server (für Frontend-E2E) ───────────────────────────────────
 
   angular-frontend:
     build:
@@ -172,35 +184,213 @@ services:
       ai-agent-hub:
         condition: service_healthy
 
-  # ── Test-Gate-Container (lineare Kette: jeder wartet auf den Vorherigen) ───
+  # ════════════════════════════════════════════════════════════════════════════
+  # PHASE 1 — Parallel-Subdirs (kein/wenig DB, starten sofort)
+  # ════════════════════════════════════════════════════════════════════════════
 
-  # 1. Python-Unit & Integrationstests (kein LLM-Aufruf)
-  backend-unit-test:
-    build:
-      context: ../..
-      dockerfile: docker/compose-next/Dockerfile.tests-backend
-    image: ananta-backend-tests:local
-    environment:
-      ANANTA_QUICKSTART_MODE: "agent-only"
-      PYTHONPATH: /app
-      PYTHONUNBUFFERED: "1"
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}"
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
-      DEFAULT_PROVIDER: "mock"
-      DEFAULT_MODEL: "mock"
-    volumes:
-      - ../../:/app
-    working_dir: /app
+  # ~30 Dateien: benchmarks, cli, smoke, heuristic_runtime
+  t-infra:
+    <<: *backend-test
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: python -m pytest -q --ignore-glob=tests/**/fixtures/**
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/benchmarks tests/cli tests/smoke tests/heuristic_runtime"]
 
-  # 2. Python Live-LLM-Tests (ruft LM Studio / OpenAI-compat auf dem Host auf)
+  # ~37 Dateien: llm_interceptor, codecompass
+  t-llm-cc:
+    <<: *backend-test
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/llm_interceptor tests/codecompass"]
+
+  # ~54 Dateien: client_surfaces
+  t-tui-client:
+    <<: *backend-test
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/client_surfaces"]
+
+  # ~53 Dateien: operator_tui
+  t-tui-operator:
+    <<: *backend-test
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/operator_tui"]
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # PHASE 2 — Sequenzielle Kette: flat test_*.py in 14 Domain-Clustern
+  # Jeder Service wartet auf den vorherigen (service_completed_successfully).
+  # ════════════════════════════════════════════════════════════════════════════
+
+  # ~96 Dateien: acceptance, action, activation, adapter, admin, adversarial,
+  #              agent, ai_snake, alwa, ananta, api, app, approval, architecture,
+  #              artifact, ash, audit, auth, auto, autonomous, autopilot, awf
+  t-flat-01:
+    <<: *backend-test
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_a*.py"]
+
+  # ~80 Dateien: backend, background, backup, blueprint, browser, budget, build,
+  #              caseflow, chat, check, cli (flat), client
+  t-flat-02:
+    <<: *backend-test
+    depends_on:
+      t-flat-01:
+        condition: service_completed_successfully
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_b*.py tests/test_ca*.py tests/test_ch*.py tests/test_cl*.py"]
+
+  # ~83 Dateien: codex, codecompass (flat), command, commit, common, compose, config, context, contract, control
+  t-flat-03:
+    <<: *backend-test
+    depends_on:
+      t-flat-02:
+        condition: service_completed_successfully
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_cod*.py tests/test_com*.py tests/test_con*.py"]
+
+  # ~48 Dateien: core, creative, critical, cross, csd, csp, custom_tool, cwfh,
+  #              db, decision, deerflow, domain
+  t-flat-04:
+    <<: *backend-test
+    depends_on:
+      t-flat-03:
+        condition: service_completed_successfully
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_cor*.py tests/test_cr*.py tests/test_cs*.py tests/test_cu*.py tests/test_cw*.py tests/test_d*.py"]
+
+  # ~69 Dateien: endpoint, evolver, execution, explainer, external,
+  #              feature, file, freecad, fuzzing, goal
+  t-flat-05:
+    <<: *backend-test
+    depends_on:
+      t-flat-04:
+        condition: service_completed_successfully
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_e*.py tests/test_f*.py tests/test_g*.py"]
+
+  # ~49 Dateien: helpcenter, hermes, hub, heuristic (flat)
+  t-flat-06:
+    <<: *backend-test
+    depends_on:
+      t-flat-05:
+        condition: service_completed_successfully
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_h*.py"]
+
+  # ~80 Dateien: imap, integration (flat), jwt, knowledge,
+  #              llm (flat), login, memory, model, monitoring, multi
+  t-flat-07:
+    <<: *backend-test
+    depends_on:
+      t-flat-06:
+        condition: service_completed_successfully
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_i*.py tests/test_j*.py tests/test_k*.py tests/test_l*.py tests/test_m*.py"]
+
+  # ~61 Dateien: namespace, nginx, objective, oidc, opencode, operator (flat),
+  #              pattern, permission
+  t-flat-08:
+    <<: *backend-test
+    depends_on:
+      t-flat-07:
+        condition: service_completed_successfully
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_n*.py tests/test_o*.py tests/test_pa*.py tests/test_pe*.py"]
+
+  # ~71 Dateien: plan, planning, plugin, policy, presentation, profiling, propose
+  t-flat-09:
+    <<: *backend-test
+    depends_on:
+      t-flat-08:
+        condition: service_completed_successfully
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_pl*.py tests/test_po*.py tests/test_pr*.py"]
+
+  # ~70 Dateien: rag, repair, repository, role, route, run
+  t-flat-10:
+    <<: *backend-test
+    depends_on:
+      t-flat-09:
+        condition: service_completed_successfully
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_r*.py"]
+
+  # ~89 Dateien: scheduler, scrum, security, service, settings, skill,
+  #              snake, snapshot, spec, sprint, stats
+  t-flat-11:
+    <<: *backend-test
+    depends_on:
+      t-flat-10:
+        condition: service_completed_successfully
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_s*.py"]
+
+  # ~60 Dateien: task, template, terminal (test_t[a-k]*)
+  t-flat-12:
+    <<: *backend-test
+    depends_on:
+      t-flat-11:
+        condition: service_completed_successfully
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_t[a-k]*.py"]
+
+  # ~92 Dateien: tool, tui (flat), usage, validator, voice (test_t[l-z]* + u + v)
+  t-flat-13:
+    <<: *backend-test
+    depends_on:
+      t-flat-12:
+        condition: service_completed_successfully
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_t[l-z]*.py tests/test_u*.py tests/test_v*.py"]
+
+  # ~107 Dateien: wiki, worker (flat), workspace
+  t-flat-14:
+    <<: *backend-test
+    depends_on:
+      t-flat-13:
+        condition: service_completed_successfully
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_w*.py"]
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # PHASE 3 — Nach der Flat-Kette (DB-intensivere Subdirs)
+  # ════════════════════════════════════════════════════════════════════════════
+
+  # ~58 Dateien: worker, services
+  t-worker-services:
+    <<: *backend-test
+    depends_on:
+      t-flat-14:
+        condition: service_completed_successfully
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/worker tests/services"]
+
+  # ~69 Dateien: e2e, integration, routes — nach ALLEN Backend-Tests
+  t-e2e-subdir:
+    <<: *backend-test
+    depends_on:
+      t-flat-14:
+        condition: service_completed_successfully
+      t-worker-services:
+        condition: service_completed_successfully
+      t-infra:
+        condition: service_completed_successfully
+      t-llm-cc:
+        condition: service_completed_successfully
+      t-tui-client:
+        condition: service_completed_successfully
+      t-tui-operator:
+        condition: service_completed_successfully
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/e2e tests/integration tests/routes --ignore=tests/e2e/fixtures"]
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # Backend Live-LLM-Test (nach allen Unit-Tests)
+  # ════════════════════════════════════════════════════════════════════════════
+
   backend-live-llm-test:
-    image: ananta-backend-tests:local
+    <<: *backend-test
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
@@ -217,15 +407,17 @@ services:
       LMSTUDIO_API_MODE: ${LMSTUDIO_API_MODE:-chat}
       OPENAI_URL: ${OPENAI_URL:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-    volumes:
-      - ../../:/app
-    working_dir: /app
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}"
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
     depends_on:
-      backend-unit-test:
+      t-e2e-subdir:
         condition: service_completed_successfully
-    command: python -m pytest -q tests/test_goal_live_lmstudio.py
+    command: ["python", "-m", "pytest", "-q", "--timeout=120", "tests/test_goal_live_lmstudio.py"]
 
-  # 3. Angular Unit-Tests (vitest, kein laufender Stack nötig)
+  # ════════════════════════════════════════════════════════════════════════════
+  # Frontend-Tests
+  # ════════════════════════════════════════════════════════════════════════════
+
   frontend-unit-test:
     image: ananta-frontend-tests:local
     working_dir: /app
@@ -239,7 +431,6 @@ services:
         condition: service_completed_successfully
     command: npm run test:unit
 
-  # 4. E2E Playwright ohne Live-LLM (deterministische Tests)
   frontend-e2e-test:
     image: ananta-frontend-tests:local
     working_dir: /app
@@ -277,7 +468,6 @@ services:
         condition: service_healthy
     command: npm run test:e2e:compose
 
-  # 5. E2E Playwright mit Live-LLM (LM Studio / OpenAI-compat)
   frontend-live-llm-test:
     image: ananta-frontend-tests:local
     working_dir: /app
@@ -326,13 +516,14 @@ services:
         condition: service_healthy
     command: npm run test:e2e:live:compose
 
-  # 6. Sentinel – Exit 0 wenn alle Tests grün
+  # ── Sentinel ─────────────────────────────────────────────────────────────────
+
   all-tests:
     image: alpine:3.23.4@sha256:5b10f432ef3da1b8d4c7eb6c487f2f5a8f096bc91145e68878dd4a5019afde11
     command:
       - sh
       - -c
-      - "echo 'All tests passed: backend-unit + backend-live-llm + frontend-unit + frontend-e2e + frontend-live-llm.'"
+      - "echo 'All tests passed: 20 backend groups + live-llm + frontend-unit + frontend-e2e + frontend-live-llm.'"
     depends_on:
       frontend-live-llm-test:
         condition: service_completed_successfully
