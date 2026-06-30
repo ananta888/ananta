@@ -115,7 +115,7 @@ rtipm-huggingface = [
     "torch>=2.2",
 ]
 rtipm-onnxruntime = [
-    "onnxruntime>=1.17,<2",
+    "onnxruntime>=1.27.0,<2",
     "transformers>=4.40,<5",
 ]
 rtipm-pytorch = [
@@ -126,7 +126,7 @@ rtipm-all = [
     "sentence-transformers>=3,<4",
     "transformers>=4.40,<5",
     "torch>=2.2",
-    "onnxruntime>=1.17,<2",
+    "onnxruntime>=1.27.0,<2",
 ]
 
 [project.scripts]
