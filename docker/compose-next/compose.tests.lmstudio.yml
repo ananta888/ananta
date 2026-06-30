@@ -35,6 +35,7 @@ x-backend-test: &backend-test
     REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
     DEFAULT_PROVIDER: "mock"
     DEFAULT_MODEL: "mock"
+    RAG_REPO_ROOT: "/tmp"
   volumes:
     - ../../:/app
   working_dir: /app
