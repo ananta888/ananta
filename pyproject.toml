@@ -112,20 +112,20 @@ rtipm-sentence-transformers = [
 ]
 rtipm-huggingface = [
     "transformers>=4.40,<5",
-    "torch>=2.2",
+    "torch>=2.12.1",
 ]
 rtipm-onnxruntime = [
     "onnxruntime>=1.17,<2",
     "transformers>=4.40,<5",
 ]
 rtipm-pytorch = [
-    "torch>=2.2",
+    "torch>=2.12.1",
     "transformers>=4.40,<5",
 ]
 rtipm-all = [
     "sentence-transformers>=3,<4",
     "transformers>=4.40,<5",
-    "torch>=2.2",
+    "torch>=2.12.1",
     "onnxruntime>=1.17,<2",
 ]
 
