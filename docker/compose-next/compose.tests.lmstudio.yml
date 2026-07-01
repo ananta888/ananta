@@ -30,6 +30,7 @@ services:
 
   _backend-test:
     image: ananta-backend-tests:local
+    pull_policy: never
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
@@ -528,6 +529,7 @@ services:
 
   frontend-unit-test:
     image: ananta-frontend-tests:local
+    pull_policy: never
     working_dir: /app
     environment:
       CI: "true"
@@ -544,6 +546,7 @@ services:
 
   frontend-e2e-test:
     image: ananta-frontend-tests:local
+    pull_policy: never
     working_dir: /app
     environment:
       CI: "true"
@@ -581,6 +584,7 @@ services:
 
   frontend-live-llm-test:
     image: ananta-frontend-tests:local
+    pull_policy: never
     working_dir: /app
     extra_hosts:
       - "host.docker.internal:host-gateway"
