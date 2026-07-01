@@ -27,6 +27,13 @@ _MOCK_TOOL_CALLS = [
 
 
 @pytest.fixture(autouse=True)
+def _ensure_lmstudio_in_agent_config(app):
+    # AGENT_CONFIG is built at app init from DEFAULT_PROVIDER=mock in Docker;
+    # tests that patch settings.default_provider still see "mock" via effective_config.
+    app.config["AGENT_CONFIG"]["default_provider"] = "lmstudio"
+
+
+@pytest.fixture(autouse=True)
 def _block_sgpt():
     with patch(
         "agent.cli_backends.sgpt.run_sgpt_command",

@@ -602,13 +602,16 @@ def test_llm_generate_runtime_falls_back_to_ollama_in_routing_metadata(client, a
             "default_model": "qwen2.5-coder",
         }
 
-    with patch("agent.routes.config.resolve_preferred_local_runtime", return_value={
-        "provider": "ollama",
-        "base_url": "http://ollama:11434/api/generate",
-        "selection_source": "runtime.ollama_fallback",
-    }):
-        with patch("agent.routes.config.generate_text", return_value='{"answer":"ok","tool_calls":[]}') as mock_generate:
-            res = client.post("/llm/generate", json={"prompt": "hello"}, headers={"Authorization": "Bearer secret-token"})
+    # _list_lmstudio_candidates is called by recommend_runtime_selection via shared.py
+    # before resolve_preferred_local_runtime — patch it to avoid real HTTP to 192.168.56.1
+    with patch("agent.routes.config._list_lmstudio_candidates", return_value=[]):
+        with patch("agent.routes.config.resolve_preferred_local_runtime", return_value={
+            "provider": "ollama",
+            "base_url": "http://ollama:11434/api/generate",
+            "selection_source": "runtime.ollama_fallback",
+        }):
+            with patch("agent.routes.config.generate_text", return_value='{"answer":"ok","tool_calls":[]}') as mock_generate:
+                res = client.post("/llm/generate", json={"prompt": "hello"}, headers={"Authorization": "Bearer secret-token"})
 
     if res.status_code != 200:
         assert res.status_code == 400

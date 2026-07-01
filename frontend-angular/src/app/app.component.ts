@@ -32,7 +32,7 @@ import { SecurityStorageBannerComponent } from './components/security-storage-ba
       <div class="app-hrow-top">
         <!-- Links: Brand + Breadcrumbs -->
         <div class="app-hleft">
-          @if (isAndroidNative && headerUser) {
+          @if (isAndroidNative && headerUser()) {
             <button class="secondary android-drawer-toggle"
               (click)="shell.toggleMobileNav()"
               [attr.aria-expanded]="shell.mobileNavOpen()"
@@ -40,10 +40,10 @@ import { SecurityStorageBannerComponent } from './components/security-storage-ba
               aria-label="Menue oeffnen">☰</button>
           }
           <img src="/assets/ananta.svg" alt="Ananta" class="app-logo" />
-          @if (headerUser) { <app-breadcrumb /> }
+          @if (headerUser()) { <app-breadcrumb /> }
         </div>
         <!-- Mitte: Nav-Gruppen -->
-        @if (headerUser) {
+        @if (headerUser()) {
           @if (!isAndroidNative) {
             <nav
               id="primary-navigation"
@@ -51,7 +51,7 @@ import { SecurityStorageBannerComponent } from './components/security-storage-ba
               [class.nav-open]="shell.mobileNavOpen()"
               aria-label="Hauptnavigation"
               (click)="onNavClick($event)">
-              @for (group of navGroups(headerUser.role); track group.label) {
+              @for (group of navGroups(headerUser()?.role); track group.label) {
                 <details class="nav-menu-group">
                   <summary>
                     <span>{{ group.label }}</span>
@@ -77,7 +77,7 @@ import { SecurityStorageBannerComponent } from './components/security-storage-ba
           }
         }
         <!-- Rechts: User-Controls -->
-        @if (headerUser) {
+        @if (headerUser()) {
           <div class="app-hright">
             @if (!isAndroidNative) {
               <button class="secondary app-hbtn mobile-nav-toggle"
@@ -94,7 +94,7 @@ import { SecurityStorageBannerComponent } from './components/security-storage-ba
             </button>
             <button (click)="snakeOverlay.toggle()" class="secondary app-hbtn snake-toggle"
               [class.snake-on]="snakeOverlay.visible$ | async" title="AI-Snake">🐍</button>
-            <span class="app-header-user">{{ headerUser.sub }} ({{ headerUser.role }})</span>
+            <span class="app-header-user">{{ headerUser()?.sub }} ({{ headerUser()?.role }})</span>
             <button (click)="onLogout()" class="secondary app-hbtn" aria-label="Logout">Abmelden</button>
           </div>
         }
@@ -106,7 +106,7 @@ import { SecurityStorageBannerComponent } from './components/security-storage-ba
         class="android-fullscreen-menu"
         [class.open]="shell.mobileNavOpen()"
         aria-label="Hauptnavigation">
-        @for (group of navGroups(headerUser?.role); track group.label) {
+        @for (group of navGroups(headerUser()?.role); track group.label) {
           <details class="nav-menu-group" open>
             <summary>
               <span>{{ group.label }}</span>
@@ -147,10 +147,10 @@ import { SecurityStorageBannerComponent } from './components/security-storage-ba
     <main id="main-content" [class.main-flush]="isFullscreenRoute" tabindex="-1">
       <router-outlet />
     </main>
-    @if (headerUser) {
+    @if (headerUser()) {
       <app-ai-assistant data-testid="assistant-feature-root" />
     }
-    @if ((snakeOverlay.visible$ | async) && headerUser) {
+    @if ((snakeOverlay.visible$ | async) && headerUser()) {
       <app-snake-overlay />
     }
   `,

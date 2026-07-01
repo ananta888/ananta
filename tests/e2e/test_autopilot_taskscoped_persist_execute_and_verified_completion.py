@@ -91,6 +91,7 @@ class TestTaskScopedPersistExecuteReload:
         workspace.mkdir(parents=True, exist_ok=True)
 
         monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")
+        app.config["AGENT_CONFIG"]["default_provider"] = "lmstudio"
         monkeypatch.setattr(
             "agent.services.model_invocation_service.ModelInvocationService.invoke_with_tools",
             make_mock_invoke_with_tools(_tool_calls_for_workspace(workspace)),
