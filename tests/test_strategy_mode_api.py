@@ -8,15 +8,14 @@ TASK_ID = "T-STRATEGY-MODE-API-001"
 
 def test_task_propose_accepts_strategy_mode_and_exposes_effective_mode(app, client, admin_auth_header, monkeypatch):
     monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")
+    # AGENT_CONFIG is built at app init from settings (DEFAULT_PROVIDER=mock in Docker);
+    # patch it here so effective_config reflects "lmstudio" during the test.
+    app.config["AGENT_CONFIG"]["default_provider"] = "lmstudio"
     tool_mock = make_mock_invoke_with_tools([
         {"name": "write_file", "args": {"path": "app.py", "content": "print(1)\n"}},
     ])
     monkeypatch.setattr(
         "agent.services.model_invocation_service.ModelInvocationService.invoke_with_tools",
-        tool_mock,
-    )
-    monkeypatch.setattr(
-        "worker.core.tool_calling_llm_strategy.ModelInvocationService.invoke_with_tools",
         tool_mock,
     )
 

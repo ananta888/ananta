@@ -76,6 +76,10 @@ class TestSgptBlockedDuringPropose:
     """If sgpt is accidentally invoked, these tests fail explicitly."""
 
     def test_propose_chain_does_not_invoke_sgpt(self, monkeypatch):
+        # Force a non-mock provider so LLM strategies attempt real invocation and
+        # raise LLMUnavailableError — triggering T003 early-return before
+        # deterministic_handler (which requires Flask app context) is reached.
+        monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")
         sgpt_called = []
 
         def _raise_if_sgpt(*args, **kwargs):
