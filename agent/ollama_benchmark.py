@@ -410,6 +410,7 @@ def recommend_ollama_model(
     min_samples: int = 1,
     exclude_models: list[str] | None = None,
     preferred_parameters: dict[str, Any] | None = None,
+    include_bayesian: bool = False,
 ) -> dict[str, Any] | None:
     ranked = recommend_ollama_models(
         data_dir=data_dir,
@@ -419,6 +420,7 @@ def recommend_ollama_model(
         limit=1,
         exclude_models=exclude_models,
         preferred_parameters=preferred_parameters,
+        include_bayesian=include_bayesian,
     )
     if not ranked:
         return None
@@ -436,6 +438,7 @@ def recommend_ollama_models(
     limit: int = 5,
     exclude_models: list[str] | None = None,
     preferred_parameters: dict[str, Any] | None = None,
+    include_bayesian: bool = False,
 ) -> list[dict[str, Any]]:
     role_match = str(role_name or "").strip().lower()
     excluded = {str(item or "").strip() for item in list(exclude_models or []) if str(item or "").strip()}
@@ -490,6 +493,16 @@ def recommend_ollama_models(
             "score": scored,
             "parameter_performance": param_stats,
         }
+        if include_bayesian:
+            from agent.services.bayesian_benchmark_estimator import estimate_bayesian_for_samples
+            bayes = estimate_bayesian_for_samples(
+                filtered, source="ollama", provider=None, model=model
+            )
+            candidate["bayesian_estimate"] = bayes
+            candidate["estimated_attempts_for_50_percent"] = bayes.get("estimated_attempts_for_50_percent")
+            candidate["estimated_attempts_for_80_percent"] = bayes.get("estimated_attempts_for_80_percent")
+            candidate["estimated_attempts_for_95_percent"] = bayes.get("estimated_attempts_for_95_percent")
+            candidate["low_confidence"] = bayes.get("low_confidence", True)
         candidates.append(candidate)
 
     candidates.sort(key=lambda item: float(((item.get("score") or {}).get("suitability_score") or 0.0)), reverse=True)
@@ -527,6 +540,7 @@ def ollama_benchmark_rows(
     role_name: str | None = None,
     model_name: str | None = None,
     top_n: int | None = None,
+    include_bayesian: bool = False,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     role_match = str(role_name or "").strip().lower()
     model_match = str(model_name or "").strip().lower()
@@ -554,6 +568,15 @@ def ollama_benchmark_rows(
             row["focus"] = row["roles"][role_match]
         else:
             row["focus"] = overall
+        if include_bayesian:
+            from agent.services.bayesian_benchmark_estimator import estimate_bayesian_for_samples
+            focus_bucket = (
+                (entry.get("roles") or {}).get(role_match) if role_match else None
+            ) or entry.get("overall") or {}
+            samples = list(focus_bucket.get("samples") or [])
+            row["bayesian_estimate"] = estimate_bayesian_for_samples(
+                samples, source="ollama", provider=None, model=model
+            )
         row["_sort_score"] = float((row["focus"] or {}).get("suitability_score") or 0.0)
         rows.append(row)
 

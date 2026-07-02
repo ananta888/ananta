@@ -287,6 +287,7 @@ def recommend_hub_model(
     task_kind: str | None = None,
     min_samples: int = 2,
     exclude_models: list[str] | None = None,
+    include_bayesian: bool = False,
 ) -> dict[str, Any] | None:
     ranked = recommend_hub_models(
         data_dir=data_dir,
@@ -295,6 +296,7 @@ def recommend_hub_model(
         min_samples=min_samples,
         limit=1,
         exclude_models=exclude_models,
+        include_bayesian=include_bayesian,
     )
     if not ranked:
         return None
@@ -311,6 +313,7 @@ def recommend_hub_models(
     min_samples: int = 2,
     limit: int = 3,
     exclude_models: list[str] | None = None,
+    include_bayesian: bool = False,
 ) -> list[dict[str, Any]]:
     role_match = str(role_name or "").strip().lower()
     excluded = {str(item or "").strip() for item in list(exclude_models or []) if str(item or "").strip()}
@@ -361,6 +364,16 @@ def recommend_hub_models(
             "sample_count": aggregate["total"],
             "score": scored,
         }
+        if include_bayesian:
+            from agent.services.bayesian_benchmark_estimator import estimate_bayesian_for_samples
+            bayes = estimate_bayesian_for_samples(
+                filtered, source="hub", provider=provider, model=model
+            )
+            candidate["bayesian_estimate"] = bayes
+            candidate["estimated_attempts_for_50_percent"] = bayes.get("estimated_attempts_for_50_percent")
+            candidate["estimated_attempts_for_80_percent"] = bayes.get("estimated_attempts_for_80_percent")
+            candidate["estimated_attempts_for_95_percent"] = bayes.get("estimated_attempts_for_95_percent")
+            candidate["low_confidence"] = bayes.get("low_confidence", True)
         candidates.append(candidate)
 
     candidates.sort(key=lambda item: float(((item.get("score") or {}).get("suitability_score") or 0.0)), reverse=True)
@@ -373,6 +386,7 @@ def hub_benchmark_rows(
     data_dir: str,
     role_name: str | None = None,
     top_n: int | None = None,
+    include_bayesian: bool = False,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     role_match = str(role_name or "").strip().lower()
     cfg = load_hub_benchmark_config(data_dir)
@@ -397,6 +411,18 @@ def hub_benchmark_rows(
             row["focus"] = row["roles"][role_match]
         else:
             row["focus"] = overall
+        if include_bayesian:
+            from agent.services.bayesian_benchmark_estimator import estimate_bayesian_for_samples
+            focus_bucket = (
+                (entry.get("roles") or {}).get(role_match) if role_match else None
+            ) or entry.get("overall") or {}
+            samples = list(focus_bucket.get("samples") or [])
+            row["bayesian_estimate"] = estimate_bayesian_for_samples(
+                samples,
+                source="hub",
+                provider=row["provider"],
+                model=row["model"],
+            )
         row["_sort_score"] = float((row["focus"] or {}).get("suitability_score") or 0.0)
         rows.append(row)
 

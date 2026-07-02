@@ -277,6 +277,7 @@ def recommend_model_for_context(
     template_name: str | None = None,
     provider: str | None = None,
     min_samples: int = 3,
+    include_bayesian: bool = False,
 ) -> dict[str, Any] | None:
     ranked = recommend_models_for_context(
         data_dir=data_dir,
@@ -286,6 +287,7 @@ def recommend_model_for_context(
         provider=provider,
         min_samples=min_samples,
         limit=1,
+        include_bayesian=include_bayesian,
     )
     if not ranked:
         return None
@@ -308,6 +310,7 @@ def recommend_models_for_context(
     min_samples: int = 3,
     limit: int = 3,
     exclude_models: list[str] | None = None,
+    include_bayesian: bool = False,
 ) -> list[dict[str, Any]]:
     normalized_task_kind = str(task_kind or "").strip().lower()
     if normalized_task_kind not in BENCH_TASK_KINDS:
@@ -362,6 +365,16 @@ def recommend_models_for_context(
             "sample_count": aggregate["total"],
             "score": scored,
         }
+        if include_bayesian:
+            from agent.services.bayesian_benchmark_estimator import estimate_bayesian_for_samples
+            bayes = estimate_bayesian_for_samples(
+                filtered, source="llm_benchmark", provider=provider, model=model
+            )
+            candidate["bayesian_estimate"] = bayes
+            candidate["estimated_attempts_for_50_percent"] = bayes.get("estimated_attempts_for_50_percent")
+            candidate["estimated_attempts_for_80_percent"] = bayes.get("estimated_attempts_for_80_percent")
+            candidate["estimated_attempts_for_95_percent"] = bayes.get("estimated_attempts_for_95_percent")
+            candidate["low_confidence"] = bayes.get("low_confidence", True)
         candidates.append(candidate)
 
     candidates.sort(
@@ -441,6 +454,7 @@ def benchmark_rows(
     data_dir: str,
     task_kind: str | None = None,
     top_n: int | None = None,
+    include_bayesian: bool = False,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     normalized_task_kind = str(task_kind or "").strip().lower()
     if normalized_task_kind not in BENCH_TASK_KINDS:
@@ -459,6 +473,18 @@ def benchmark_rows(
             "task_kinds": {kind: score_bucket(((entry.get("task_kinds") or {}).get(kind) or {})) for kind in BENCH_TASK_KINDS},
         }
         row["focus"] = row["task_kinds"].get(normalized_task_kind, score_bucket({})) if normalized_task_kind else overall
+        if include_bayesian:
+            from agent.services.bayesian_benchmark_estimator import estimate_bayesian_for_samples
+            focus_bucket = (
+                (entry.get("task_kinds") or {}).get(normalized_task_kind) if normalized_task_kind else None
+            ) or entry.get("overall") or {}
+            samples = list(focus_bucket.get("samples") or [])
+            row["bayesian_estimate"] = estimate_bayesian_for_samples(
+                samples,
+                source="llm_benchmark",
+                provider=row["provider"],
+                model=row["model"],
+            )
         row["_sort_score"] = float((row["focus"] or {}).get("suitability_score") or 0.0)
         rows.append(row)
     rows.sort(key=lambda item: item.get("_sort_score") or 0.0, reverse=True)
