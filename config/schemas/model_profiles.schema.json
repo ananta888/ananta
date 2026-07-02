@@ -170,6 +170,35 @@
         },
         "notes": {
           "type": "string"
+        },
+        "context_window_tokens": {
+          "type": ["integer", "null"],
+          "minimum": 512,
+          "description": "Explicit context window override when context_tokens is insufficient"
+        },
+        "hard_max_output_tokens": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "description": "Absolute hard limit on output tokens regardless of request parameters"
+        },
+        "tokenizer_strategy": {
+          "type": "string",
+          "enum": ["tiktoken_cl100k", "tiktoken_llama3", "chars_per_token"],
+          "description": "Strategy for estimating token counts"
+        },
+        "tokenizer_name": {
+          "type": ["string", "null"],
+          "description": "Optional explicit tokenizer name (e.g. cl100k_base)"
+        },
+        "input_cost_per_1m_tokens": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "description": "Cost in EUR per 1M input tokens for cost estimation"
+        },
+        "output_cost_per_1m_tokens": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "description": "Cost in EUR per 1M output tokens for cost estimation"
         }
       },
       "if": {

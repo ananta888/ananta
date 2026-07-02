@@ -38,15 +38,23 @@ class RoutingDecisionChain:
     steps: list[dict[str, Any]]
     effective: dict[str, Any]
     fallback_policy: dict[str, Any]
+    # T07 — Token budget integration fields
+    context_budget_decision_ref: str | None = None
+    token_budget_note: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
-        return {
+        d: dict[str, Any] = {
             "policy_version": self.policy_version,
             "task_kind": self.task_kind,
             "steps": list(self.steps),
             "effective": dict(self.effective),
             "fallback_policy": dict(self.fallback_policy),
         }
+        if self.context_budget_decision_ref is not None:
+            d["context_budget_decision_ref"] = self.context_budget_decision_ref
+        if self.token_budget_note is not None:
+            d["token_budget_note"] = self.token_budget_note
+        return d
 
 
 def _normalize_step_list(raw: Any) -> list[str]:
@@ -98,6 +106,7 @@ class RoutingDecisionService:
         recommendation: dict[str, Any] | None = None,
         runtime_selection: dict[str, Any] | None = None,
         execution_backend: dict[str, Any] | None = None,
+        context_budget: Any = None,   # ContextBudgetDecision | None — T07
     ) -> dict[str, Any]:
         fallback_policy = self.resolve_fallback_policy(cfg)
         requested = requested if isinstance(requested, dict) else {}
@@ -166,12 +175,21 @@ class RoutingDecisionService:
                 }
             )
 
+        # T07 — attach context budget decision ref if provided
+        _budget_ref: str | None = None
+        _budget_note: str | None = None
+        if context_budget is not None:
+            _budget_ref = str(getattr(context_budget, "decision_ref", "") or "").strip() or None
+            _budget_note = str(getattr(context_budget, "mode", "") or "").strip() or None
+
         return RoutingDecisionChain(
             policy_version="routing-decision-v1",
             task_kind=str(task_kind or "").strip() or None,
             steps=steps,
             effective=effective,
             fallback_policy=fallback_policy,
+            context_budget_decision_ref=_budget_ref,
+            token_budget_note=_budget_note,
         ).as_dict()
 
     def provider_catalog_decision(
@@ -274,6 +292,26 @@ class RoutingDecisionService:
             "reason": "worker_capabilities_and_profile_policy_allow_routing",
             "target_match": target_match,
         }
+
+
+def estimate_cost_eur(tokens: int, model_profile: Any) -> float | None:
+    """Estimate cost in EUR for a given token count using a ModelProfile.
+
+    Uses input_cost_per_1m_tokens from the profile (T02 extension field).
+    Returns None if cost data is unavailable.
+    """
+    if model_profile is None:
+        return None
+    cost_per_1m = getattr(model_profile, "input_cost_per_1m_tokens", None)
+    if cost_per_1m is None:
+        # Fall back to legacy price_input_per_million
+        cost_per_1m = getattr(model_profile, "price_input_per_million", None)
+    if cost_per_1m is None:
+        return None
+    try:
+        return float(tokens) * float(cost_per_1m) / 1_000_000.0
+    except (TypeError, ValueError):
+        return None
 
 
 routing_decision_service = RoutingDecisionService()

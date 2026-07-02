@@ -102,7 +102,7 @@
     {
       "id": "M05",
       "title": "UI and interpretation documentation",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "BAYES-016",
         "BAYES-017",
@@ -112,7 +112,7 @@
     {
       "id": "M06",
       "title": "Release evidence and final guardrails",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "BAYES-019",
         "BAYES-020"
@@ -426,12 +426,12 @@
     {
       "id": "BAYES-016",
       "title": "Expose Bayesian estimates in benchmark UI models without forcing routing",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "frontend",
       "milestone_id": "M05",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Extend Angular benchmark dashboard models or view mapping only after backend payload fields exist.",
         "UI displays Bayesian estimates as advisory information, not as automatic routing decisions.",
@@ -509,12 +509,12 @@
     {
       "id": "BAYES-020",
       "title": "Run final checks and verify no duplicate benchmark runner was introduced",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "quality",
       "milestone_id": "M06",
-      "progress_percent": 80,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Run or document relevant pytest targets for Bayesian estimator, benchmark adapters, hub benchmark compatibility, Ollama benchmark compatibility, and recommendation payloads.",
         "Run or document lint checks for touched Python files.",
@@ -554,13 +554,13 @@
   "tasks_status_summary": {
     "total": 20,
     "by_status": {
-      "todo": 1,
+      "todo": 0,
       "in_progress": 0,
-      "partial": 1,
+      "partial": 0,
       "blocked": 0,
-      "done": 18
+      "done": 20
     },
-    "progress_percent_done": 90.0,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P1": 16,
       "P2": 4
@@ -572,15 +572,15 @@
     },
     "critical_path": {
       "total": 15,
-      "done": 14,
-      "remaining": 1
+      "done": 15,
+      "remaining": 0
     },
     "milestones": {
       "total": 6,
       "todo": 0,
-      "in_progress": 2,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 4
+      "done": 6
     }
   },
   "tasks_type_summary": {
@@ -701,20 +701,20 @@
     }
   },
   "progress_summary": {
-    "state": "in_progress",
-    "todo_remaining": 1,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 1,
+    "partial": 0,
     "blocked": 0,
-    "done": 18
+    "done": 20
   },
   "execution_stage_summary": {
     "source_analysis": "done",
     "contracts": "done",
     "implementation": "done",
     "tests": "done",
-    "ui_docs": "in_progress",
-    "release": "in_progress"
+    "ui_docs": "done",
+    "release": "done"
   },
   "summary_notes": [
     "This TODO is intentionally narrower than a new iterative verification model because the repository already contains benchmark, verification, planning-track, and retry infrastructure.",

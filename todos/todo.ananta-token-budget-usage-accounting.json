@@ -3,7 +3,7 @@
   "owner": "Peter Stuiber",
   "track": "ananta-token-budget-usage-accounting",
   "created_at": "2026-07-02",
-  "status": "todo",
+  "status": "done",
   "priority": "P0",
   "risk": "medium",
   "purpose": "Token- und Kontextkosten in Ananta nicht nur grob zu vermuten, sondern pro Request nachvollziehbar, modellabhaengig, budgetiert und nach Provider-Usage rueckverfolgbar zu machen.",
@@ -123,7 +123,7 @@
     {
       "id": "T01",
       "title": "TokenBudgetService einfuehren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "description": "Zentralen Service fuer konservative Token-Schaetzung, Budgetvalidierung und Usage-Normalisierung implementieren.",
       "files_expected": [
@@ -138,12 +138,13 @@
         "Sehr grosse Texte werden ohne LLM-Aufruf geschaetzt.",
         "Rueckgabewert enthaelt tokens, method, safety_multiplier, model, provider und confidence.",
         "Unit-Tests decken Deutsch, Englisch, Code, JSON/XML und leere Eingabe ab."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "T02",
       "title": "ModelProfile um Tokenizer und Kontextfenster erweitern",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "description": "Modellprofile muessen Kontextfenster, Tokenizer-Strategie, Output-Limits und Kostenfelder tragen koennen.",
       "files_expected": [
@@ -158,12 +159,13 @@
         "Fehlende Felder bleiben rueckwaertskompatibel und erhalten sichere Defaults.",
         "Schema validiert neue Felder mit sinnvollen Minimum-Werten.",
         "Tests beweisen Legacy-Profile ohne neue Felder funktionieren weiterhin."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "T03",
       "title": "ContextBudgetDecision Schema und Service",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "description": "Vor jedem Request muss entschieden werden, welcher Modus und welche Kontextquellen erlaubt sind.",
       "files_expected": [
@@ -179,12 +181,13 @@
         "deep_analysis erfordert expliziten Trigger aus User Request, Blueprint oder Policy.",
         "Decision ist fail-closed, wenn kein Budget oder kein ModelProfile bestimmt werden kann.",
         "Tests decken Smalltalk, Codefrage, Toolwunsch, grosse Repoanalyse und unklaren Intent ab."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "T04",
       "title": "ContextAssemblyTrace implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "description": "Jeder zusammengesetzte Prompt muss eine strukturierte Bilanz seiner Bestandteile bekommen.",
       "files_expected": [
@@ -199,12 +202,13 @@
         "Trace markiert abgeschnittene oder verworfene Kontextteile explizit.",
         "Trace kann in Audit/Benchmark/Run-Metadaten referenziert werden.",
         "Tests beweisen, dass sensitive Inhalte nicht als Klartext im Trace landen."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "T05",
       "title": "Budget-Gate vor CLI- und Worker-Aufrufen einhaengen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "description": "OpenCode, Codex und weitere Worker-Aufrufe duerfen keine unbudgetierten Prompts mehr erhalten.",
       "files_expected": [
@@ -220,12 +224,13 @@
         "Keine Budgetverletzung startet den bisherigen CLI-Fluss unveraendert.",
         "WorkerSelectionPolicy kann teure/externe Worker blockieren, wenn Decision sie nicht erlaubt.",
         "Tests pruefen, dass grosse Prompts nicht an subprocess.run weitergereicht werden."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "T06",
       "title": "Provider-Usage normalisieren und speichern",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "description": "Nach Antworten muessen echte Usage-Daten, soweit vorhanden, in ein einheitliches Format ueberfuehrt werden.",
       "files_expected": [
@@ -240,12 +245,13 @@
         "Report enthaelt estimated_* und actual_* getrennt.",
         "Report enthaelt provider, model, tokenizer_method, usage_source und trace_ref.",
         "Tests decken OpenAI-kompatible, Ollama-/LMStudio-nahe und fehlende Usage ab."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "T07",
       "title": "Kosten- und Benchmark-Integration",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "description": "Routing und Benchmarks sollen Schaetzung und echte Usage als Bayes-/Benchmark-Signal nutzen koennen.",
       "files_expected": [
@@ -260,12 +266,13 @@
         "Provider mit systematisch hoeherem actual/estimated-Verhaeltnis koennen per Policy abgewertet oder geblockt werden.",
         "Fallback auf teurere Modelle darf Budget-Limits nicht umgehen.",
         "Tests pruefen free -> cheap -> expensive Routing mit Budget-Gate."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "T08",
       "title": "ai-snake-chat Default-Modus absichern",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "description": "Normale Chat-Anfragen duerfen nicht automatisch RAG, CodeCompass, Tool-Schemas oder volle History mitschleppen.",
       "files_expected": [
@@ -282,12 +289,13 @@
         "Kompaktierung startet nicht ohne eigenes Budget und Grund.",
         "Audit speichert Decision/Trace-Refs und Token-Breakdown, aber keinen Volltext.",
         "Tests pruefen, dass einfache Chat-Anfragen keinen Projektkontext laden."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "T09",
       "title": "Konfigurationsbeispiele und Dokumentation",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "description": "Budget-Verhalten muss fuer lokale, billige externe und teure Reasoning-Modelle nachvollziehbar konfigurierbar sein.",
       "files_expected": [
@@ -300,7 +308,8 @@
         "Beispiele enthalten lokale Ollama/LMStudio-Profile und externe OpenRouter/OpenAI-kompatible Profile.",
         "Beispiele zeigen safe_minimal_chat, project_chat, tool_enabled_chat und deep_analysis.",
         "Dokumentation enthaelt klare Default-Deny-Regeln fuer unbekannte Budgets."
-      ]
+      ],
+      "progress_percent": 100
     }
   ],
   "cross_cutting_acceptance_criteria": [

@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/chat/token_usage_report.v1.json",
+  "title": "TokenUsageReport",
+  "description": "Normalized token usage report — combines provider-reported actuals with pre-call estimates.",
+  "type": "object",
+  "required": [
+    "estimated_prompt_tokens",
+    "estimated_completion_tokens",
+    "estimated_total_tokens",
+    "tokenizer_method",
+    "usage_source"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "estimated_prompt_tokens": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Pre-call estimated prompt tokens"
+    },
+    "estimated_completion_tokens": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Pre-call estimated completion tokens (often 0 before response)"
+    },
+    "estimated_total_tokens": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Sum of estimated_prompt_tokens + estimated_completion_tokens"
+    },
+    "actual_prompt_tokens": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "Provider-reported input token count, or null if unavailable"
+    },
+    "actual_completion_tokens": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "Provider-reported output token count, or null if unavailable"
+    },
+    "actual_total_tokens": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "Provider-reported total, or null if unavailable"
+    },
+    "provider": {
+      "type": ["string", "null"],
+      "description": "Provider identifier (e.g. openai, ollama, lmstudio)"
+    },
+    "model": {
+      "type": ["string", "null"],
+      "description": "Model identifier used for this request"
+    },
+    "tokenizer_method": {
+      "type": "string",
+      "enum": ["tiktoken", "chars_per_token_fallback", "empty", "unknown"],
+      "description": "Method used for pre-call token estimation"
+    },
+    "usage_source": {
+      "type": "string",
+      "enum": ["provider_reported", "estimate_only"],
+      "description": "Whether actual counts came from the provider or are estimates"
+    },
+    "reason_code": {
+      "type": ["string", "null"],
+      "description": "Diagnostic reason code when usage is unavailable or abnormal"
+    },
+    "trace_ref": {
+      "type": ["string", "null"],
+      "description": "Reference to the ContextAssemblyTrace that produced this request"
+    }
+  }
+}

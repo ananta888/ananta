@@ -195,6 +195,47 @@ def policy_allows_kind(policy: WorkerSelectionPolicy, kind: str) -> tuple[bool, 
     return True, ""
 
 
+# ── T05 — Token Budget Worker Gate ────────────────────────────────────────────
+
+_EXPENSIVE_WORKER_PREFIXES = ("openai", "openrouter", "cloud", "remote", "gpt", "claude")
+_EXPENSIVE_WORKER_KEYWORDS = frozenset({"openai", "openrouter", "cloud", "remote", "gpt4", "frontier"})
+
+
+def _is_expensive_worker_name(worker_name: str) -> bool:
+    name_lower = str(worker_name or "").lower()
+    if any(name_lower.startswith(p) for p in _EXPENSIVE_WORKER_PREFIXES):
+        return True
+    return any(kw in name_lower for kw in _EXPENSIVE_WORKER_KEYWORDS)
+
+
+def check_worker_allowed(
+    *,
+    worker_name: str,
+    decision: Any,  # ContextBudgetDecision | None
+) -> dict[str, Any]:
+    """Determine whether a worker may be invoked given the current context budget decision.
+
+    Args:
+        worker_name: Identifier of the worker to check.
+        decision: ContextBudgetDecision from context_budget_policy_service, or None.
+
+    Returns:
+        {"allowed": bool, "reason_code": str}
+    """
+    if decision is None:
+        return {"allowed": True, "reason_code": "no_budget_gate_active"}
+
+    mode = str(getattr(decision, "mode", "") or "")
+
+    if mode == "safe_minimal_chat" and _is_expensive_worker_name(worker_name):
+        return {
+            "allowed": False,
+            "reason_code": "safe_minimal_chat_blocks_expensive_workers",
+        }
+
+    return {"allowed": True, "reason_code": "worker_allowed_by_budget_policy"}
+
+
 __all__ = [
     "ANALYSIS_ONLY_KINDS",
     "CLOUD_WORKER_KINDS",
@@ -218,4 +259,5 @@ __all__ = [
     "policy_allows_kind",
     "strict_local_policy",
     "validate_worker_kind",
+    "check_worker_allowed",
 ]

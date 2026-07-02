@@ -133,6 +133,36 @@ import {
             </div>
           </div>
         </div>
+        @if (data[0]?.bayesian_estimate; as bayes) {
+          <div class="card card-light mt-sm">
+            <div class="row space-between">
+              <span class="muted font-sm"><strong>Bayesian (advisory)</strong> — {{ data[0].provider }} / {{ data[0].model }}</span>
+              <span class="muted font-sm">Konfidenz: {{ bayes.uncertainty.label }} · Status: {{ bayes.estimate_status }}</span>
+            </div>
+            <div class="row gap-md mt-xs">
+              <div>
+                <div class="muted font-sm">P(Success)</div>
+                <strong [class.muted]="bayes.low_confidence">{{ bayes.posterior_success_probability | percent:'1.0-1' }}</strong>
+              </div>
+              @if (bayes.posterior_quality_probability != null) {
+                <div>
+                  <div class="muted font-sm">P(Qual)</div>
+                  <strong [class.muted]="bayes.low_confidence">{{ bayes.posterior_quality_probability | percent:'1.0-1' }}</strong>
+                </div>
+              }
+              <div>
+                <div class="muted font-sm">Evidenz (n / ok / fail)</div>
+                <strong>{{ bayes.evidence_count }} / {{ bayes.success_count }} / {{ bayes.failure_count }}</strong>
+              </div>
+              @if (data[0]?.estimated_attempts_for_80_percent != null) {
+                <div>
+                  <div class="muted font-sm">80% in ~n Versuchen</div>
+                  <strong [class.muted]="bayes.low_confidence">{{ data[0].estimated_attempts_for_80_percent }}</strong>
+                </div>
+              }
+            </div>
+          </div>
+        }
         @if (activeRuntime()) {
           <div class="grid cols-4 mt-sm">
             <div class="card card-light">
@@ -234,6 +264,8 @@ import {
                 <th>Quality</th>
                 <th>Latency</th>
                 <th>Tokens</th>
+                <th>Bayes P(Qual)</th>
+                <th>Versuche 80%</th>
               </tr>
             </thead>
             <tbody>
@@ -247,6 +279,16 @@ import {
                   <td>{{ item.focus?.quality_rate || 0 | percent:'1.0-0' }}</td>
                   <td>{{ item.focus?.avg_latency_ms || 0 | number:'1.0-0' }} ms</td>
                   <td>{{ item.focus?.avg_tokens || 0 | number:'1.0-0' }}</td>
+                  <td [class.muted]="item.low_confidence || !item.bayesian_estimate">
+                    @if (item.bayesian_estimate) {
+                      {{ (item.bayesian_estimate.posterior_quality_probability ?? item.bayesian_estimate.posterior_success_probability) | percent:'1.0-0' }}
+                    } @else {
+                      -
+                    }
+                  </td>
+                  <td [class.muted]="item.low_confidence || !item.bayesian_estimate">
+                    {{ item.estimated_attempts_for_80_percent != null ? item.estimated_attempts_for_80_percent : '-' }}
+                  </td>
                 </tr>
               }
             </tbody>

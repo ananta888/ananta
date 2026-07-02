@@ -187,6 +187,123 @@ def system_message_for_deny(decision: dict[str, Any]) -> str:
     return f"* [system] policy deny: {action} → {reason}"
 
 
+def classify_chat_intent(message: str) -> str:
+    """Heuristically classify a chat message into an intent category.
+
+    Returns one of: "smalltalk" | "code_question" | "tool_request" | "analysis" | "unknown"
+    """
+    text = str(message or "").strip().lower()
+
+    if not text:
+        return "unknown"
+
+    # Check content-specific keywords FIRST so they override short-message heuristics
+
+    # Tool request: explicit tool/command keywords
+    _TOOL_KEYWORDS = re.compile(
+        r"\b(run|execute|call|invoke|use tool|search|fetch|browse|open|create file|write file|delete|install|deploy|trigger|start|stop|restart|list files|read file|scan)\b"
+    )
+    if _TOOL_KEYWORDS.search(text):
+        return "tool_request"
+
+    # Analysis: deep / comprehensive review / explain architecture
+    _ANALYSIS_KEYWORDS = re.compile(
+        r"\b(analyze|analyse|explain|summarize|summarise|review|audit|investigate|diagnose|benchmark|compare|evaluate|assess|deep dive|architecture|refactor|migrate|performance)\b"
+    )
+    if _ANALYSIS_KEYWORDS.search(text):
+        return "analysis"
+
+    # Code question: code-specific keywords
+    _CODE_KEYWORDS = re.compile(
+        r"\b(code|function|class|method|bug|error|exception|test|pytest|import|module|library|api|endpoint|sql|query|script|python|javascript|typescript|rust|go|java|c\+\+|bash|shell|git|docker|kubernetes|yaml|json|xml)\b"
+    )
+    if _CODE_KEYWORDS.search(text):
+        return "code_question"
+
+    # Smalltalk: short greetings / social phrases (check after content keywords)
+    _SMALLTALK_PATTERNS = [
+        re.compile(r"^(hallo|hi|hey|guten\s+\w+|good\s+(morning|afternoon|evening|day)|hello|howdy|wie\s+geht|what'?s\s+up|danke|bitte|thanks?|thx|ok|okay|ja|nein|yes|no|sure|alright)[!?.]*$"),
+        re.compile(r"^(wie\s+geht|how\s+are\s+you|was\s+machst|was\s+gibt|what'?s\s+new)[^a-z]*$"),
+    ]
+    if any(p.match(text) for p in _SMALLTALK_PATTERNS):
+        return "smalltalk"
+    # Also treat very short messages without code-like content as smalltalk
+    if len(text) <= 40 and not re.search(r"[/\\.<>(){}\[\]`#@]", text):
+        word_count = len(text.split())
+        if word_count <= 6:
+            return "smalltalk"
+
+    return "unknown"
+
+
+def apply_token_budget_policy(
+    *,
+    intent: str,
+    channel_type: str = "ai",
+) -> dict[str, Any]:
+    """Derive a token budget policy dict for a given intent and channel type.
+
+    Returns a flat dict with budget limits for context assembly.
+    """
+    intent = str(intent or "").strip().lower()
+
+    if intent == "smalltalk":
+        return {
+            "mode": "safe_minimal_chat",
+            "max_input_tokens": 4096,
+            "max_output_tokens": 1024,
+            "max_tool_schema_tokens": 0,
+            "max_rag_context_tokens": 0,
+            "max_history_turns": 5,
+            "max_file_context_tokens": 0,
+            "allow_rag": False,
+            "allow_tool_schemas": False,
+            "allow_full_history": False,
+        }
+
+    if intent == "tool_request":
+        return {
+            "mode": "tool_enabled_chat",
+            "max_input_tokens": 32768,
+            "max_output_tokens": 8192,
+            "max_tool_schema_tokens": 8192,
+            "max_rag_context_tokens": 4096,
+            "max_history_turns": 20,
+            "max_file_context_tokens": 8192,
+            "allow_rag": True,
+            "allow_tool_schemas": True,
+            "allow_full_history": False,
+        }
+
+    if intent == "analysis":
+        return {
+            "mode": "deep_analysis",
+            "max_input_tokens": 128000,
+            "max_output_tokens": 32768,
+            "max_tool_schema_tokens": 16384,
+            "max_rag_context_tokens": 32768,
+            "max_history_turns": 50,
+            "max_file_context_tokens": 32768,
+            "allow_rag": True,
+            "allow_tool_schemas": True,
+            "allow_full_history": True,
+        }
+
+    # code_question and unknown → project_chat
+    return {
+        "mode": "project_chat",
+        "max_input_tokens": 16384,
+        "max_output_tokens": 4096,
+        "max_tool_schema_tokens": 0,
+        "max_rag_context_tokens": 4096,
+        "max_history_turns": 20,
+        "max_file_context_tokens": 4096,
+        "allow_rag": True,
+        "allow_tool_schemas": False,
+        "allow_full_history": False,
+    }
+
+
 def chat_decision_to_decision_result(decision: dict[str, Any]) -> Any:
     """Adapter: konvertiert chat_policy decision-dict zu DecisionResult."""
     from agent.services.heuristic_runtime.decision_result import DecisionResult

@@ -195,3 +195,84 @@ def test_audit_stores_deny_events():
     log = get_audit_log()
     deny_entries = [e for e in log if e.get("decision") == "deny"]
     assert len(deny_entries) > 0
+
+
+# ── T08 — classify_chat_intent + apply_token_budget_policy ───────────────────
+
+from client_surfaces.operator_tui.chat_policy import (
+    classify_chat_intent,
+    apply_token_budget_policy,
+)
+
+
+def test_classify_smalltalk_greeting():
+    assert classify_chat_intent("hallo") == "smalltalk"
+
+
+def test_classify_english_hello():
+    assert classify_chat_intent("hello") == "smalltalk"
+
+
+def test_classify_thanks():
+    assert classify_chat_intent("danke") == "smalltalk"
+
+
+def test_classify_code_question():
+    intent = classify_chat_intent("What does this Python function do?")
+    assert intent == "code_question"
+
+
+def test_classify_tool_request():
+    intent = classify_chat_intent("Please run the tests and fetch the results")
+    assert intent == "tool_request"
+
+
+def test_classify_analysis():
+    intent = classify_chat_intent("Please analyze the architecture and explain the design")
+    assert intent == "analysis"
+
+
+def test_classify_empty():
+    assert classify_chat_intent("") == "unknown"
+
+
+def test_budget_policy_smalltalk_safe_minimal():
+    policy = apply_token_budget_policy(intent="smalltalk")
+    assert policy["mode"] == "safe_minimal_chat"
+    assert policy["max_tool_schema_tokens"] == 0
+    assert policy["max_rag_context_tokens"] == 0
+    assert policy["allow_rag"] is False
+    assert policy["allow_tool_schemas"] is False
+
+
+def test_budget_policy_code_question_project_chat():
+    policy = apply_token_budget_policy(intent="code_question")
+    assert policy["mode"] == "project_chat"
+    assert policy["max_rag_context_tokens"] > 0
+    assert policy["allow_rag"] is True
+    assert policy["allow_tool_schemas"] is False
+
+
+def test_budget_policy_tool_request_allows_tools():
+    policy = apply_token_budget_policy(intent="tool_request")
+    assert policy["mode"] == "tool_enabled_chat"
+    assert policy["max_tool_schema_tokens"] > 0
+    assert policy["allow_tool_schemas"] is True
+
+
+def test_budget_policy_analysis_deep():
+    policy = apply_token_budget_policy(intent="analysis")
+    assert policy["mode"] == "deep_analysis"
+    assert policy["max_input_tokens"] >= 128000
+    assert policy["allow_rag"] is True
+    assert policy["allow_full_history"] is True
+
+
+def test_budget_policy_smalltalk_max_history_limited():
+    policy = apply_token_budget_policy(intent="smalltalk")
+    assert policy["max_history_turns"] <= 10
+
+
+def test_budget_policy_unknown_defaults_to_project_chat():
+    policy = apply_token_budget_policy(intent="unknown")
+    assert policy["mode"] == "project_chat"

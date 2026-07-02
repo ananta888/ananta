@@ -1,0 +1,28 @@
+chat_context_budget:
+  enabled: true
+  fail_closed: true
+  fallback_chars_per_token: 4
+  safety_multiplier: 1.25
+  block_if_estimate_missing: true
+  store_prompt_text: false
+  store_prompt_hashes: true
+  store_token_breakdown: true
+  store_provider_reported_usage: true
+
+  modes:
+    safe_minimal_chat:
+      max_input_tokens: 4096
+      max_output_tokens: 1024
+      max_history_turns: 5
+    project_chat:
+      max_input_tokens: 16384
+      max_output_tokens: 4096
+      max_rag_context_tokens: 4096
+    tool_enabled_chat:
+      max_input_tokens: 32768
+      max_output_tokens: 8192
+      max_tool_schema_tokens: 8192
+    deep_analysis:
+      max_input_tokens: 128000
+      max_output_tokens: 32768
+      requires_explicit_trigger: true

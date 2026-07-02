@@ -1,3 +1,4 @@
+import pytest
 from agent.llm_benchmarks import record_benchmark_sample, recommend_profiles_for_context
 from agent.services.model_profile_loader import ModelProfile
 from agent.services.model_profile_resolver import ModelProfileResolver, RoutingContext, SecurityPolicyChecker
@@ -103,3 +104,106 @@ def test_benchmark_ranking_cannot_override_secret_cloud_policy(tmp_path):
     assert result.ok
     assert result.profile.profile_id == "local-safe"
     assert any(profile_id == "cloud-fast" for profile_id, _reason in result.blocked_candidates)
+
+
+# ── T07 — RoutingDecisionChain + cost estimation ──────────────────────────────
+
+def _routing_profile(profile_id: str, cost_class: str = "free", **kwargs) -> ModelProfile:
+    return ModelProfile(
+        profile_id=profile_id,
+        provider_id="ollama",
+        model=f"model-{profile_id}",
+        local=True,
+        cloud=False,
+        cloud_allowed=False,
+        block_secret_context=False,
+        cost_class=cost_class,
+        **kwargs,
+    )
+
+
+def test_routing_decision_chain_with_context_budget():
+    from agent.services.routing_decision_service import RoutingDecisionService
+    from unittest.mock import MagicMock
+
+    svc = RoutingDecisionService()
+    mock_budget = MagicMock()
+    mock_budget.decision_ref = "budget-ref-123"
+    mock_budget.mode = "project_chat"
+
+    result = svc.build_decision_chain(
+        cfg=None,
+        task_kind="coding",
+        requested={},
+        effective={},
+        sources={},
+        context_budget=mock_budget,
+    )
+    assert result["context_budget_decision_ref"] == "budget-ref-123"
+    assert result["token_budget_note"] == "project_chat"
+
+
+def test_routing_decision_chain_no_context_budget():
+    from agent.services.routing_decision_service import RoutingDecisionService
+
+    svc = RoutingDecisionService()
+    result = svc.build_decision_chain(
+        cfg=None,
+        task_kind="coding",
+        requested={},
+        effective={},
+        sources={},
+    )
+    assert "context_budget_decision_ref" not in result or result.get("context_budget_decision_ref") is None
+
+
+def test_estimate_cost_eur_with_cost_field():
+    from agent.services.routing_decision_service import estimate_cost_eur
+
+    profile = _routing_profile("cheap", input_cost_per_1m_tokens=0.5)
+    cost = estimate_cost_eur(1_000_000, profile)
+    assert cost is not None
+    assert abs(cost - 0.5) < 1e-9
+
+
+def test_estimate_cost_eur_free_profile_no_cost():
+    from agent.services.routing_decision_service import estimate_cost_eur
+
+    profile = _routing_profile("free-local")
+    cost = estimate_cost_eur(1_000_000, profile)
+    assert cost is None  # no cost field set
+
+
+def test_estimate_cost_eur_fallback_to_price_input_per_million():
+    from agent.services.routing_decision_service import estimate_cost_eur
+
+    profile = _routing_profile("legacy", price_input_per_million=1.0)
+    cost = estimate_cost_eur(500_000, profile)
+    assert cost is not None
+    assert abs(cost - 0.5) < 1e-9
+
+
+def test_estimate_cost_eur_none_profile():
+    from agent.services.routing_decision_service import estimate_cost_eur
+
+    assert estimate_cost_eur(1000, None) is None
+
+
+def test_free_to_cheap_to_expensive_routing_with_budget_gate():
+    """Simulate free→cheap→expensive routing logic with profile costs."""
+    from agent.services.routing_decision_service import estimate_cost_eur
+
+    free_profile = _routing_profile("free-local", cost_class="free")
+    cheap_profile = _routing_profile("cheap-cloud", cost_class="low", input_cost_per_1m_tokens=0.1)
+    expensive_profile = _routing_profile("expensive-cloud", cost_class="high", input_cost_per_1m_tokens=10.0)
+
+    tokens = 100_000
+    costs = {
+        p.profile_id: estimate_cost_eur(tokens, p)
+        for p in [free_profile, cheap_profile, expensive_profile]
+    }
+    assert costs["free-local"] is None  # free, no cost data
+    assert costs["cheap-cloud"] == pytest.approx(0.01)
+    assert costs["expensive-cloud"] == pytest.approx(1.0)
+    # Ensure cheap is cheaper than expensive
+    assert costs["cheap-cloud"] < costs["expensive-cloud"]

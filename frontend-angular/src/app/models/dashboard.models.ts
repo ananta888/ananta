@@ -67,11 +67,28 @@ export interface BenchmarkFocus {
   avg_tokens?: number;
 }
 
+export interface BayesianEstimate {
+  posterior_success_probability: number;
+  posterior_quality_probability?: number | null;
+  evidence_count: number;
+  success_count: number;
+  failure_count: number;
+  low_confidence: boolean;
+  estimate_status: string;
+  primary_signal: string;
+  uncertainty: { label: string };
+}
+
 export interface BenchmarkItem {
   id: string;
   provider: string;
   model: string;
   focus?: BenchmarkFocus;
+  bayesian_estimate?: BayesianEstimate;
+  estimated_attempts_for_50_percent?: number | null;
+  estimated_attempts_for_80_percent?: number | null;
+  estimated_attempts_for_95_percent?: number | null;
+  low_confidence?: boolean;
 }
 
 export interface BenchmarkRecommendation {

@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/chat/context_budget_decision.v1.json",
+  "title": "ContextBudgetDecision",
+  "description": "Decision about context budget mode and allowed/blocked sources for a chat turn.",
+  "type": "object",
+  "required": [
+    "mode",
+    "max_input_tokens",
+    "max_output_tokens",
+    "allowed_context_sources",
+    "blocked_context_sources",
+    "allowed_model_tiers",
+    "reason_codes",
+    "fail_closed",
+    "decision_ref"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "mode": {
+      "type": "string",
+      "enum": ["safe_minimal_chat", "project_chat", "tool_enabled_chat", "deep_analysis"],
+      "description": "Active context budget mode"
+    },
+    "max_input_tokens": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Maximum input tokens allowed for this turn"
+    },
+    "max_output_tokens": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Maximum output tokens reserved for this turn"
+    },
+    "allowed_context_sources": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Context source types that may contribute to the prompt"
+    },
+    "blocked_context_sources": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Context source types explicitly blocked from contributing"
+    },
+    "allowed_model_tiers": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Model cost/capability tiers that may be used in this mode"
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Reason codes explaining how this decision was reached"
+    },
+    "fail_closed": {
+      "type": "boolean",
+      "description": "If true, ambiguous or unknown inputs default to the most restrictive mode"
+    },
+    "decision_ref": {
+      "type": "string",
+      "description": "Unique reference for this decision (UUID)"
+    }
+  }
+}

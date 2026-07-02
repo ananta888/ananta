@@ -347,3 +347,57 @@ def test_secret_context_blocks_cloud_candidates_but_keeps_local():
     assert result.ok
     assert [p.profile_id for p in chain] == ["local"]
     assert any(pid == "gemma" and "secrets_detected" in reason for pid, reason in result.blocked_candidates)
+
+
+# ── T02 — Token budget extension fields ──────────────────────────────────────
+
+def test_new_fields_safe_defaults_on_local_profile():
+    """Legacy profiles without new fields have safe defaults."""
+    p = _local("x")
+    assert p.context_window_tokens is None
+    assert p.hard_max_output_tokens is None
+    assert p.tokenizer_strategy == "chars_per_token"
+    assert p.tokenizer_name is None
+    assert p.input_cost_per_1m_tokens is None
+    assert p.output_cost_per_1m_tokens is None
+
+
+def test_new_fields_loaded_via_loader():
+    from agent.services.model_profile_loader import ModelProfileLoader
+    loader = ModelProfileLoader()
+    result = loader.load_dict({"profiles": [{
+        "profile_id": "budget-test",
+        "provider_id": "ollama",
+        "model": "llama3",
+        "context_window_tokens": 65536,
+        "hard_max_output_tokens": 8192,
+        "tokenizer_strategy": "tiktoken_cl100k",
+        "tokenizer_name": "cl100k_base",
+        "input_cost_per_1m_tokens": 0.0,
+        "output_cost_per_1m_tokens": 0.0,
+    }]})
+    assert not result.errors
+    p = result.profiles[0]
+    assert p.context_window_tokens == 65536
+    assert p.hard_max_output_tokens == 8192
+    assert p.tokenizer_strategy == "tiktoken_cl100k"
+    assert p.tokenizer_name == "cl100k_base"
+
+
+def test_new_fields_do_not_break_cloud_profile_validation():
+    from agent.services.model_profile_loader import ModelProfileLoader
+    loader = ModelProfileLoader()
+    result = loader.load_dict({"profiles": [{
+        "profile_id": "cloud-with-budget",
+        "provider_id": "openai",
+        "model": "gpt-4o",
+        "cloud": True,
+        "cloud_allowed": True,
+        "block_secret_context": True,
+        "input_cost_per_1m_tokens": 5.0,
+        "output_cost_per_1m_tokens": 15.0,
+    }]})
+    assert not result.errors
+    p = result.profiles[0]
+    assert p.input_cost_per_1m_tokens == pytest.approx(5.0)
+    assert p.output_cost_per_1m_tokens == pytest.approx(15.0)

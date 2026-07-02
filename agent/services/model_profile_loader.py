@@ -61,6 +61,13 @@ class ModelProfile:
     enabled: bool = True
     notes: str = ""
     extra: dict[str, Any] = field(default_factory=dict)
+    # T01/T02 — Token budget extension fields (all safe-defaulted)
+    context_window_tokens: int | None = None
+    hard_max_output_tokens: int | None = None
+    tokenizer_strategy: str = "chars_per_token"   # "tiktoken_cl100k" | "tiktoken_llama3" | "chars_per_token"
+    tokenizer_name: str | None = None
+    input_cost_per_1m_tokens: float | None = None
+    output_cost_per_1m_tokens: float | None = None
 
     def is_cloud(self) -> bool:
         return self.cloud or self.provider_id in {"openai", "openrouter"}
@@ -205,6 +212,9 @@ class ModelProfileLoader:
             "tool_calling_mode", "preferred_for", "avoid_for", "max_context_for_profile",
             "retry_budget", "fallback_group", "fallback_rank", "api_key_env", "base_url",
             "enabled", "notes",
+            # T02 — token budget extension fields
+            "context_window_tokens", "hard_max_output_tokens", "tokenizer_strategy",
+            "tokenizer_name", "input_cost_per_1m_tokens", "output_cost_per_1m_tokens",
         }
         extra = {k: v for k, v in raw.items() if k not in known_keys}
         tool_calling_mode = str(raw.get("tool_calling_mode") or ("native_tools" if raw.get("supports_tools") else "none")).strip()
@@ -249,6 +259,13 @@ class ModelProfileLoader:
                 enabled=bool(raw.get("enabled", True)),
                 notes=str(raw.get("notes") or ""),
                 extra=extra,
+                # T02 — token budget extension fields
+                context_window_tokens=_optional_int(raw.get("context_window_tokens")),
+                hard_max_output_tokens=_optional_int(raw.get("hard_max_output_tokens")),
+                tokenizer_strategy=str(raw.get("tokenizer_strategy") or "chars_per_token"),
+                tokenizer_name=str(raw["tokenizer_name"]) if raw.get("tokenizer_name") else None,
+                input_cost_per_1m_tokens=_optional_float(raw.get("input_cost_per_1m_tokens")),
+                output_cost_per_1m_tokens=_optional_float(raw.get("output_cost_per_1m_tokens")),
             )
         except Exception as exc:
             errors.append(f"profile[{index}]:{pid!r}:field_error:{exc}")

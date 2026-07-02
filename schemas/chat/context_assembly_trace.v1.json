@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/chat/context_assembly_trace.v1.json",
+  "title": "ContextAssemblyTrace",
+  "description": "Audit trace of how context was assembled for a prompt. Never stores raw text.",
+  "type": "object",
+  "required": [
+    "trace_ref",
+    "decision_ref",
+    "parts",
+    "estimated_input_tokens",
+    "reserved_output_tokens",
+    "truncated_parts"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "trace_ref": {
+      "type": "string",
+      "description": "Unique trace identifier (UUID)"
+    },
+    "decision_ref": {
+      "type": "string",
+      "description": "Reference to the ContextBudgetDecision that governs this trace"
+    },
+    "parts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/ContextPart" },
+      "description": "Ordered list of context parts considered for inclusion"
+    },
+    "estimated_input_tokens": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Sum of estimated_tokens for all included parts"
+    },
+    "reserved_output_tokens": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Tokens reserved in the context window for the model response"
+    },
+    "truncated_parts": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "source_types that were added but not included (truncated/blocked)"
+    }
+  },
+  "$defs": {
+    "ContextPart": {
+      "type": "object",
+      "required": ["source_type", "source_ref", "estimated_tokens", "included"],
+      "additionalProperties": false,
+      "properties": {
+        "source_type": {
+          "type": "string",
+          "enum": ["system", "user", "history", "tool_schemas", "rag_context", "file_context", "worker_instruction", "output_budget"],
+          "description": "Type of context source"
+        },
+        "source_ref": {
+          "type": "string",
+          "description": "Short reference identifier — never the full text"
+        },
+        "estimated_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "included": {
+          "type": "boolean",
+          "description": "Whether this part was included in the final prompt"
+        },
+        "blocked_reason": {
+          "type": ["string", "null"],
+          "description": "Reason code if this part was not included"
+        },
+        "content_hash": {
+          "type": ["string", "null"],
+          "description": "First 16 hex chars of SHA-256 of the content, for deduplication"
+        }
+      }
+    }
+  }
+}
