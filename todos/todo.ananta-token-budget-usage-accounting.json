@@ -1,0 +1,334 @@
+{
+  "version": "1.0",
+  "owner": "Peter Stuiber",
+  "track": "ananta-token-budget-usage-accounting",
+  "created_at": "2026-07-02",
+  "status": "todo",
+  "priority": "P0",
+  "risk": "medium",
+  "purpose": "Token- und Kontextkosten in Ananta nicht nur grob zu vermuten, sondern pro Request nachvollziehbar, modellabhaengig, budgetiert und nach Provider-Usage rueckverfolgbar zu machen.",
+  "goal": "Ananta muss vor jedem LLM-/Worker-Aufruf eine konservative Token-/Kontextentscheidung treffen, Context-Bestandteile budgetiert zusammensetzen, harte Limits erzwingen und nach der Antwort echte Provider-Usage normalisiert speichern. Routing, Benchmarks und Kostenabschaetzungen duerfen nicht mehr nur auf impliziten Promptgroessen oder CLI-Verhalten beruhen.",
+  "non_goals": [
+    "Keine perfekte Tokenisierung fuer jedes exotische Modell im ersten Schritt.",
+    "Keine Abhaengigkeit von einem einzelnen Provider-Tokenizer als harte Voraussetzung.",
+    "Keine Veraenderung der fachlichen Worker-Orchestrierung ohne explizite Budget-Decision.",
+    "Keine Speicherung vollstaendiger sensitiver Prompts nur fuer Token-Audits."
+  ],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high"
+  ],
+  "repo_findings_2026_07_02": {
+    "relevant_existing_files": [
+      "todos/archiv/todo.ai-snake-chat-token-budget-context-guard-default-mode.json - enthaelt bereits Zielbild, Gaps, Modes und Schema-Ideen fuer Budget/Context Guard.",
+      "agent/services/routing_decision_service.py - erklaerbare Provider-/Model-/Fallback-Entscheidung vorhanden, aber ohne Tokenbudget- und Kosten-Gates.",
+      "client_surfaces/operator_tui/chat_policy.py - Default-Deny und Sensitive-Content-Policy vorhanden, aber keine Token-/Kontextbudget-Entscheidung.",
+      "agent/cli_backends/opencode.py - reicht Prompts an OpenCode/Codex weiter; keine sichtbare Vorab-Tokenzaehlung oder Budgetvalidierung direkt vor dem CLI-Aufruf.",
+      "agent/services/model_profile_loader.py - Modellprofile sind naheliegender Ort fuer Kontextfenster, Tokenizer-Strategie, Kosten- und Usage-Mapping.",
+      "config/schemas/model_profiles.schema.json - Schema muss um Budget-/Tokenizer-/Usage-Felder erweitert werden."
+    ],
+    "confirmed_gaps": [
+      "Keine zentrale TokenBudgetPolicy als produktiver Service erkennbar.",
+      "Keine verpflichtende ContextBudgetDecision vor LLM-/Worker-Aufrufen erkennbar.",
+      "Keine ContextAssemblyTrace fuer system, user, history, tools, rag, files und output_budget erkennbar.",
+      "Keine normalisierte Rueckschreibung echter Provider-Usage erkennbar.",
+      "Keine harte Trennung zwischen geschaetzten Tokens, tatsaechlichen Provider-Tokens und Benchmark-Kosten erkennbar.",
+      "Keine provider-/modellabhaengige Tokenizer-Auswahl mit konservativem Fallback erkennbar."
+    ],
+    "existing_strengths_to_reuse": [
+      "RoutingDecisionService liefert bereits erklaerbare Decision Chains.",
+      "ChatPolicy hat Default-Deny, Reason-Codes und Audit ohne Volltext.",
+      "Model Profiles und Runtime Resolver existieren als natuerliche Integrationspunkte.",
+      "Todo-Archiv beschreibt bereits sinnvolle Modi wie safe_minimal_chat, project_chat, tool_enabled_chat und deep_analysis."
+    ]
+  },
+  "target_design": {
+    "new_services": [
+      {
+        "path": "agent/services/token_budget_service.py",
+        "responsibility": "Zentrale Token-Schaetzung, Budgetvalidierung, Provider-Usage-Normalisierung und Kostenableitung."
+      },
+      {
+        "path": "agent/services/context_budget_policy_service.py",
+        "responsibility": "Aus Request, Intent, Channel, ModelProfile und RoutingPolicy eine ContextBudgetDecision bauen."
+      },
+      {
+        "path": "agent/services/context_assembly_trace_service.py",
+        "responsibility": "Nachweisen, welche Kontextteile mit welchen geschaetzten Tokens in den finalen Prompt gelangt sind."
+      }
+    ],
+    "new_schemas": [
+      "schemas/chat/context_budget_decision.v1.json",
+      "schemas/chat/context_assembly_trace.v1.json",
+      "schemas/chat/token_usage_report.v1.json",
+      "schemas/chat/model_tokenizer_profile.v1.json"
+    ],
+    "config_section": {
+      "name": "chat_context_budget",
+      "defaults": {
+        "enabled": true,
+        "fail_closed": true,
+        "fallback_chars_per_token": 4,
+        "safety_multiplier": 1.25,
+        "block_if_estimate_missing": true,
+        "store_prompt_text": false,
+        "store_prompt_hashes": true,
+        "store_token_breakdown": true,
+        "store_provider_reported_usage": true
+      }
+    },
+    "budget_parts": [
+      "system",
+      "developer_or_policy",
+      "user",
+      "history",
+      "tool_schemas",
+      "rag_context",
+      "codecompass_context",
+      "file_context",
+      "worker_instruction",
+      "output_budget"
+    ],
+    "usage_fields": [
+      "estimated_prompt_tokens",
+      "estimated_completion_tokens",
+      "estimated_total_tokens",
+      "actual_prompt_tokens",
+      "actual_completion_tokens",
+      "actual_total_tokens",
+      "provider",
+      "model",
+      "tokenizer_method",
+      "usage_source",
+      "cost_estimate_eur",
+      "cost_actual_eur",
+      "trace_ref"
+    ]
+  },
+  "implementation_tasks": [
+    {
+      "id": "T01",
+      "title": "TokenBudgetService einfuehren",
+      "status": "todo",
+      "priority": "P0",
+      "description": "Zentralen Service fuer konservative Token-Schaetzung, Budgetvalidierung und Usage-Normalisierung implementieren.",
+      "files_expected": [
+        "agent/services/token_budget_service.py",
+        "tests/test_token_budget_service.py"
+      ],
+      "acceptance_criteria": [
+        "Service bietet estimate_tokens(text, model_profile=None, provider=None, model=None).",
+        "Service nutzt provider-/modellabhaengige Tokenizer-Methode, wenn explizit konfiguriert oder lokal verfuegbar.",
+        "Service faellt deterministisch auf chars_per_token plus safety_multiplier zurueck.",
+        "Leerer Text ergibt 0 Tokens und wirft keinen Fehler.",
+        "Sehr grosse Texte werden ohne LLM-Aufruf geschaetzt.",
+        "Rueckgabewert enthaelt tokens, method, safety_multiplier, model, provider und confidence.",
+        "Unit-Tests decken Deutsch, Englisch, Code, JSON/XML und leere Eingabe ab."
+      ]
+    },
+    {
+      "id": "T02",
+      "title": "ModelProfile um Tokenizer und Kontextfenster erweitern",
+      "status": "todo",
+      "priority": "P0",
+      "description": "Modellprofile muessen Kontextfenster, Tokenizer-Strategie, Output-Limits und Kostenfelder tragen koennen.",
+      "files_expected": [
+        "agent/services/model_profile_loader.py",
+        "config/schemas/model_profiles.schema.json",
+        "tests/test_model_profile_resolver.py"
+      ],
+      "acceptance_criteria": [
+        "ModelProfile kann context_window_tokens, default_max_output_tokens und hard_max_output_tokens laden.",
+        "ModelProfile kann tokenizer_strategy und tokenizer_name laden.",
+        "ModelProfile kann input_cost_per_1m_tokens und output_cost_per_1m_tokens optional laden.",
+        "Fehlende Felder bleiben rueckwaertskompatibel und erhalten sichere Defaults.",
+        "Schema validiert neue Felder mit sinnvollen Minimum-Werten.",
+        "Tests beweisen Legacy-Profile ohne neue Felder funktionieren weiterhin."
+      ]
+    },
+    {
+      "id": "T03",
+      "title": "ContextBudgetDecision Schema und Service",
+      "status": "todo",
+      "priority": "P0",
+      "description": "Vor jedem Request muss entschieden werden, welcher Modus und welche Kontextquellen erlaubt sind.",
+      "files_expected": [
+        "agent/services/context_budget_policy_service.py",
+        "schemas/chat/context_budget_decision.v1.json",
+        "tests/test_context_budget_policy_service.py"
+      ],
+      "acceptance_criteria": [
+        "Decision enthaelt mode, max_input_tokens, max_output_tokens, allowed_context_sources, blocked_context_sources, allowed_model_tiers und reason_codes.",
+        "safe_minimal_chat blockiert RAG, CodeCompass, Tool-Schemas, Full-History und Compaction.",
+        "project_chat erlaubt begrenzten RAG-/CodeCompass-Kontext, aber keine Tool-Schemas.",
+        "tool_enabled_chat erlaubt nur intent-scoped Tool-Schemas im Budget.",
+        "deep_analysis erfordert expliziten Trigger aus User Request, Blueprint oder Policy.",
+        "Decision ist fail-closed, wenn kein Budget oder kein ModelProfile bestimmt werden kann.",
+        "Tests decken Smalltalk, Codefrage, Toolwunsch, grosse Repoanalyse und unklaren Intent ab."
+      ]
+    },
+    {
+      "id": "T04",
+      "title": "ContextAssemblyTrace implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "description": "Jeder zusammengesetzte Prompt muss eine strukturierte Bilanz seiner Bestandteile bekommen.",
+      "files_expected": [
+        "agent/services/context_assembly_trace_service.py",
+        "schemas/chat/context_assembly_trace.v1.json",
+        "tests/test_context_assembly_trace_service.py"
+      ],
+      "acceptance_criteria": [
+        "Trace enthaelt pro Teil source_type, source_ref, estimated_tokens, included, blocked_reason und content_hash.",
+        "Trace speichert standardmaessig keinen Volltext.",
+        "Trace summiert estimated_input_tokens und reserved_output_tokens.",
+        "Trace markiert abgeschnittene oder verworfene Kontextteile explizit.",
+        "Trace kann in Audit/Benchmark/Run-Metadaten referenziert werden.",
+        "Tests beweisen, dass sensitive Inhalte nicht als Klartext im Trace landen."
+      ]
+    },
+    {
+      "id": "T05",
+      "title": "Budget-Gate vor CLI- und Worker-Aufrufen einhaengen",
+      "status": "todo",
+      "priority": "P0",
+      "description": "OpenCode, Codex und weitere Worker-Aufrufe duerfen keine unbudgetierten Prompts mehr erhalten.",
+      "files_expected": [
+        "agent/cli_backends/opencode.py",
+        "agent/cli_backends/sgpt.py",
+        "agent/services/worker_selection_policy_service.py",
+        "tests/test_llm_budget_gate_cli_backends.py"
+      ],
+      "acceptance_criteria": [
+        "run_opencode_command validiert Prompt plus reserviertes Output-Budget vor subprocess.run.",
+        "run_codex_command validiert Prompt plus reserviertes Output-Budget vor subprocess.run.",
+        "Budgetverletzung liefert kontrollierten Fehler mit reason_code token_budget_exceeded.",
+        "Keine Budgetverletzung startet den bisherigen CLI-Fluss unveraendert.",
+        "WorkerSelectionPolicy kann teure/externe Worker blockieren, wenn Decision sie nicht erlaubt.",
+        "Tests pruefen, dass grosse Prompts nicht an subprocess.run weitergereicht werden."
+      ]
+    },
+    {
+      "id": "T06",
+      "title": "Provider-Usage normalisieren und speichern",
+      "status": "todo",
+      "priority": "P1",
+      "description": "Nach Antworten muessen echte Usage-Daten, soweit vorhanden, in ein einheitliches Format ueberfuehrt werden.",
+      "files_expected": [
+        "agent/services/token_budget_service.py",
+        "schemas/chat/token_usage_report.v1.json",
+        "tests/test_token_usage_report.py"
+      ],
+      "acceptance_criteria": [
+        "normalize_usage akzeptiert OpenAI-kompatible usage-Felder wie prompt_tokens, completion_tokens und total_tokens.",
+        "normalize_usage akzeptiert alternative Felder wie input_tokens/output_tokens, falls Provider sie liefern.",
+        "Fehlende Provider-Usage faellt auf estimate_only mit reason_code provider_usage_missing zurueck.",
+        "Report enthaelt estimated_* und actual_* getrennt.",
+        "Report enthaelt provider, model, tokenizer_method, usage_source und trace_ref.",
+        "Tests decken OpenAI-kompatible, Ollama-/LMStudio-nahe und fehlende Usage ab."
+      ]
+    },
+    {
+      "id": "T07",
+      "title": "Kosten- und Benchmark-Integration",
+      "status": "todo",
+      "priority": "P1",
+      "description": "Routing und Benchmarks sollen Schaetzung und echte Usage als Bayes-/Benchmark-Signal nutzen koennen.",
+      "files_expected": [
+        "agent/services/routing_decision_service.py",
+        "tests/test_model_profile_benchmark_routing.py",
+        "tests/test_model_routing_e2e.py"
+      ],
+      "acceptance_criteria": [
+        "RoutingDecisionChain referenziert ContextBudgetDecision und optional TokenUsageReport.",
+        "Kosten werden aus ModelProfile-Preisen berechnet, wenn vorhanden.",
+        "Benchmark-Daten koennen estimated_total_tokens und actual_total_tokens getrennt speichern.",
+        "Provider mit systematisch hoeherem actual/estimated-Verhaeltnis koennen per Policy abgewertet oder geblockt werden.",
+        "Fallback auf teurere Modelle darf Budget-Limits nicht umgehen.",
+        "Tests pruefen free -> cheap -> expensive Routing mit Budget-Gate."
+      ]
+    },
+    {
+      "id": "T08",
+      "title": "ai-snake-chat Default-Modus absichern",
+      "status": "todo",
+      "priority": "P0",
+      "description": "Normale Chat-Anfragen duerfen nicht automatisch RAG, CodeCompass, Tool-Schemas oder volle History mitschleppen.",
+      "files_expected": [
+        "client_surfaces/operator_tui/chat_policy.py",
+        "client_surfaces/operator_tui/chat_state.py",
+        "tests/test_tui_snake_chat_policy.py",
+        "tests/test_tui_snake_chat_state.py",
+        "tests/test_snakes_chat_api.py"
+      ],
+      "acceptance_criteria": [
+        "Smalltalk wie 'hallo' landet in safe_minimal_chat.",
+        "safe_minimal_chat setzt max_tool_schema_tokens und max_rag_context_tokens auf 0.",
+        "History wird im Default-Modus hart begrenzt.",
+        "Kompaktierung startet nicht ohne eigenes Budget und Grund.",
+        "Audit speichert Decision/Trace-Refs und Token-Breakdown, aber keinen Volltext.",
+        "Tests pruefen, dass einfache Chat-Anfragen keinen Projektkontext laden."
+      ]
+    },
+    {
+      "id": "T09",
+      "title": "Konfigurationsbeispiele und Dokumentation",
+      "status": "todo",
+      "priority": "P2",
+      "description": "Budget-Verhalten muss fuer lokale, billige externe und teure Reasoning-Modelle nachvollziehbar konfigurierbar sein.",
+      "files_expected": [
+        "config/examples/chat_context_budget.yaml",
+        "docs/token-budget-and-usage.md"
+      ],
+      "acceptance_criteria": [
+        "Dokumentation erklaert estimate vs actual usage.",
+        "Dokumentation erklaert modellabhaengige Tokenizer und konservativen Fallback.",
+        "Beispiele enthalten lokale Ollama/LMStudio-Profile und externe OpenRouter/OpenAI-kompatible Profile.",
+        "Beispiele zeigen safe_minimal_chat, project_chat, tool_enabled_chat und deep_analysis.",
+        "Dokumentation enthaelt klare Default-Deny-Regeln fuer unbekannte Budgets."
+      ]
+    }
+  ],
+  "cross_cutting_acceptance_criteria": [
+    "Kein LLM-/Worker-Aufruf ohne ContextBudgetDecision, sofern chat_context_budget.enabled=true ist.",
+    "Jede Budgetentscheidung hat maschinenlesbare reason_codes.",
+    "Schaetzung und echte Provider-Usage werden nie in dasselbe Feld gemischt.",
+    "Budget- und Usage-Audit speichert standardmaessig Hashes/Refs statt Prompt-Volltext.",
+    "Bestehende Tests fuer Routing, Model Profiles und ChatPolicy bleiben gruen.",
+    "Neue Tests koennen ohne externe LLM-Provider laufen.",
+    "Fallback-Modelle duerfen weder Kontextfenster noch Kostenlimit stillschweigend erhoehen.",
+    "Tokenbudget-Fehler sind kontrollierte Policy-Denies, keine ungefangenen Exceptions."
+  ],
+  "suggested_execution_order": [
+    "T01",
+    "T02",
+    "T03",
+    "T04",
+    "T05",
+    "T08",
+    "T06",
+    "T07",
+    "T09"
+  ],
+  "done_definition": [
+    "Alle P0-Tasks sind implementiert und getestet.",
+    "Mindestens ein lokales OpenAI-kompatibles Backend und ein CLI-Backend laufen durch das Budget-Gate.",
+    "ai-snake-chat Smalltalk erzeugt nachweislich keine RAG-/CodeCompass-/Tool-Schema-Injektion.",
+    "Ein Testlauf erzeugt ContextBudgetDecision, ContextAssemblyTrace und TokenUsageReport als getrennte Artefakte oder Metadaten.",
+    "Routing/Benchmark kann estimated und actual tokens getrennt auswerten."
+  ]
+}
