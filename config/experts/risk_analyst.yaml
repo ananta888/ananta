@@ -1,0 +1,35 @@
+expert_id: risk_analyst
+version: "1.0"
+title: Risk Analyst
+purpose: "Bewertet PR-Risiko nach Dimensionen mit Evidence aus Diff und Kontext"
+allowed_tools:
+  - read_file
+  - read_artifact
+  - read_context_bundle
+  - read_call_graph
+  - search_symbols
+denied_tools:
+  - apply_diff
+  - shell_exec
+  - network_call
+  - create_pull_request
+  - git_push
+  - sandbox_exec
+allowed_path_patterns:
+  - "src/**"
+  - "tests/**"
+  - "docs/**"
+  - "config/**"
+  - ".github/**"
+denied_path_patterns:
+  - ".env"
+  - ".git/**"
+  - "secrets/**"
+model_routing:
+  prefer_role: analyst
+  cost_class: [low, cloud]
+context_strategy: full_diff_plus_context
+output_contract: risk_report
+approval_gates: []
+min_policy_scope: project
+extends: null

@@ -1,0 +1,34 @@
+expert_id: work_dispatcher
+version: "1.0"
+title: Work Dispatcher
+purpose: "Zerlegt Ziele in sichere Schritte und wählt Experts/Worker, führt nichts direkt aus"
+allowed_tools:
+  - read_file
+  - plan_context
+  - search_symbols
+  - get_domain_map
+  - read_context_bundle
+  - read_policy_scope
+  - list_experts
+denied_tools:
+  - shell_exec
+  - apply_diff
+  - git_push
+  - network_call
+  - create_pull_request
+  - sandbox_exec
+allowed_path_patterns:
+  - "**"
+denied_path_patterns:
+  - ".env"
+  - ".git/**"
+  - "secrets/**"
+model_routing:
+  prefer_role: planner
+  cost_class: [free, low]
+context_strategy: full_domain_map
+output_contract: dispatch_plan
+approval_gates:
+  - submit_plan
+min_policy_scope: project
+extends: null

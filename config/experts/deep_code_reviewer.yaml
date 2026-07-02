@@ -1,0 +1,35 @@
+expert_id: deep_code_reviewer
+version: "1.0"
+title: Deep Code Reviewer
+purpose: "Tiefer Code-Review: Architektur, Security, Tests, Regressionen, Policy"
+allowed_tools:
+  - read_file
+  - read_artifact
+  - read_context_bundle
+  - search_test_refs
+  - search_symbols
+  - get_domain_map
+denied_tools:
+  - apply_diff
+  - shell_exec
+  - network_call
+  - create_pull_request
+  - git_push
+  - sandbox_exec
+allowed_path_patterns:
+  - "src/**"
+  - "tests/**"
+  - "docs/**"
+  - "config/**"
+denied_path_patterns:
+  - ".env"
+  - ".git/**"
+  - "secrets/**"
+model_routing:
+  prefer_role: reviewer
+  cost_class: [low, cloud, frontier]
+context_strategy: full_diff_plus_context
+output_contract: review_report
+approval_gates: []
+min_policy_scope: project
+extends: null

@@ -4,7 +4,7 @@
   "status": "open",
   "priority": "critical",
   "created": "2026-06-21",
-  "last_reviewed": "2026-06-21",
+  "last_reviewed": "2026-07-02",
   "tags": [
     "ananta",
     "transparency",
@@ -73,7 +73,7 @@
     {
       "id": "TRANS-001",
       "title": "Transparenz-Manifest fuer README und Architektur schreiben",
-      "status": "open",
+      "status": "done",
       "priority": "critical",
       "component": "documentation",
       "description": "Ein kurzes, hartes Manifest formulieren: Ananta verlangt kein Vertrauen, sondern macht Agentenarbeit lokal pruefbar.",
@@ -228,7 +228,7 @@
     {
       "id": "TRANS-008",
       "title": "Local-only Modus als Produktfeature definieren",
-      "status": "open",
+      "status": "done",
       "priority": "critical",
       "component": "config",
       "description": "Ein harter Modus, in dem keine externen Provider, keine Cloud-Modelle, keine Remote-Indexierung und keine Netzwerktools erlaubt sind.",
@@ -252,7 +252,7 @@
     {
       "id": "TRANS-009",
       "title": "Public Verification Bundle fuer Open-Source-Nutzer definieren",
-      "status": "open",
+      "status": "done",
       "priority": "medium",
       "component": "export",
       "description": "Nutzer sollen einen Run so exportieren koennen, dass andere ihn pruefen koennen, ohne Secrets oder private Codeinhalte offenzulegen.",

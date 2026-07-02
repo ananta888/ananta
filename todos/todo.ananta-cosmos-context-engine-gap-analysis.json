@@ -4,7 +4,7 @@
   "status": "open",
   "priority": "critical",
   "created": "2026-06-21",
-  "last_reviewed": "2026-06-21",
+  "last_reviewed": "2026-07-02",
   "tags": [
     "ananta",
     "codecompass",
@@ -85,7 +85,7 @@
     {
       "id": "COSMOS-000",
       "title": "Strategisches Architekturpapier Ananta vs Cosmos schreiben",
-      "status": "open",
+      "status": "done",
       "priority": "critical",
       "component": "strategy",
       "description": "Ein klares internes Dokument erstellen, das Cosmos als kommerzielle Referenz einordnet und Anantas Positionierung dagegen schaerft.",
@@ -281,7 +281,7 @@
     {
       "id": "COSMOS-008",
       "title": "CodeCompass Live Knowledge Graph roadmap definieren",
-      "status": "open",
+      "status": "done",
       "priority": "critical",
       "component": "codecompass",
       "description": "CodeCompass in Richtung Live Knowledge Graph weiterentwickeln: Dateien, Symbole, Funktionen, Imports, API-Endpunkte, Datenmodelle, Tests, Services und Domain-Beziehungen.",
@@ -326,7 +326,7 @@
     {
       "id": "COSMOS-009",
       "title": "Cross-Repo und Cross-Service Analyse fuer CodeCompass planen",
-      "status": "open",
+      "status": "done",
       "priority": "high",
       "component": "codecompass",
       "description": "CodeCompass soll langfristig Beziehungen ueber mehrere Repositories/Services darstellen koennen, ohne Projektgrenzen und Rechte aufzuweichen.",
@@ -342,7 +342,7 @@
     {
       "id": "COSMOS-010",
       "title": "Active-vs-Deprecated-Erkennung fuer CodeCompass entwerfen",
-      "status": "open",
+      "status": "done",
       "priority": "high",
       "component": "codecompass",
       "description": "Kontexttreffer sollen markieren koennen, ob Code aktiv genutzt, historisch, veraltet, tot, riskant oder unsicher ist.",
@@ -533,7 +533,7 @@
     {
       "id": "COSMOS-020",
       "title": "Integrationsmatrix GitHub/Jira/Slack/CI fuer Ananta erstellen",
-      "status": "open",
+      "status": "done",
       "priority": "medium",
       "component": "integrations",
       "description": "Cosmos punktet stark ueber Integrationen. Ananta soll eine realistische Matrix definieren, was zuerst integriert wird und was bewusst optional bleibt.",
@@ -558,7 +558,7 @@
     {
       "id": "COSMOS-021",
       "title": "Governance- und Audit-Konzept gegen Enterprise-Features abgleichen",
-      "status": "open",
+      "status": "done",
       "priority": "high",
       "component": "governance",
       "description": "Ananta braucht keine Enterprise-SaaS-Kopie, aber klare Governance: Rollen, Rechte, Audit, Export, SIEM-kompatible Logs optional.",
@@ -574,7 +574,7 @@
     {
       "id": "COSMOS-022",
       "title": "Ananta Produktpositionierung fuer README/Website ableiten",
-      "status": "open",
+      "status": "done",
       "priority": "medium",
       "component": "product",
       "description": "Aus der Gap-Analyse eine klare, ehrliche Positionierung fuer README und Website ableiten.",
@@ -621,7 +621,7 @@
     {
       "id": "COSMOS-024",
       "title": "Roadmap priorisieren: was wirklich zuerst gebaut wird",
-      "status": "open",
+      "status": "done",
       "priority": "critical",
       "component": "planning",
       "description": "Aus allen Luecken eine realistische Reihenfolge ableiten, damit Ananta nicht in Cosmos-Nachbau explodiert.",

@@ -1,0 +1,33 @@
+expert_id: pr_author
+version: "1.0"
+title: PR Author
+purpose: "Erstellt PR-Entwurf aus genehmigtem ChangeProposal"
+allowed_tools:
+  - read_file
+  - read_artifact
+  - github_create_draft_pr
+  - read_context_bundle
+denied_tools:
+  - shell_exec
+  - apply_diff
+  - git_push
+  - network_call
+  - merge_pull_request
+  - sandbox_exec
+allowed_path_patterns:
+  - "src/**"
+  - "tests/**"
+  - "docs/**"
+denied_path_patterns:
+  - ".env"
+  - ".git/**"
+  - "secrets/**"
+model_routing:
+  prefer_role: coder
+  cost_class: [free, low, cloud]
+context_strategy: focused_diff_only
+output_contract: diff_proposal
+approval_gates:
+  - create_pull_request
+min_policy_scope: project
+extends: null

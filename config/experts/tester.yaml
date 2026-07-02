@@ -1,0 +1,34 @@
+expert_id: tester
+version: "1.0"
+title: Tester
+purpose: "Wählt Tests aus, führt sie in Sandbox aus, erzeugt TestReport"
+allowed_tools:
+  - read_file
+  - read_context_bundle
+  - read_call_graph
+  - sandbox_exec
+  - sandbox_copy_in
+  - sandbox_copy_out
+  - read_artifact
+denied_tools:
+  - apply_diff
+  - network_call
+  - create_pull_request
+  - git_push
+  - shell_exec
+allowed_path_patterns:
+  - "src/**"
+  - "tests/**"
+denied_path_patterns:
+  - ".env"
+  - ".git/**"
+  - "secrets/**"
+model_routing:
+  prefer_role: executor
+  cost_class: [free, low]
+context_strategy: focused_test_selection
+output_contract: test_report
+approval_gates:
+  - run_tests_in_sandbox
+min_policy_scope: workspace
+extends: null

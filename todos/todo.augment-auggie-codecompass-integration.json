@@ -4,7 +4,7 @@
   "status": "open",
   "priority": "high",
   "created": "2026-06-21",
-  "last_reviewed": "2026-06-21",
+  "last_reviewed": "2026-07-02",
   "tags": [
     "augment",
     "auggie",
@@ -160,7 +160,7 @@
     {
       "id": "AUG-000",
       "title": "Integrationsentscheidung und Feature-Gates dokumentieren",
-      "status": "open",
+      "status": "done",
       "priority": "critical",
       "component": "architecture",
       "description": "Architekturentscheidung festhalten: Augment/Auggie ist optionaler externer Provider/Worker, kein Ersatz fuer CodeCompass oder Hub.",
@@ -625,7 +625,7 @@
     {
       "id": "AUG-900",
       "title": "Security Threat Model fuer Augment/Auggie schreiben",
-      "status": "open",
+      "status": "done",
       "priority": "critical",
       "component": "security",
       "description": "Risiken systematisch dokumentieren: Datenabfluss, Prompt Injection, Tool-Missbrauch, Repo-Mutation, Session-Hijack, Supply Chain.",
