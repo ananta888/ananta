@@ -30,6 +30,8 @@
       "agent/services/ollama_benchmark_service.py",
       "agent/services/benchmark_job_service.py",
       "agent/benchmark_quality.py",
+      "agent/llm_benchmarks.py",
+      "agent/product_benchmark_suite.py",
       "agent/routes/tasks/autopilot_task_dispatcher.py",
       "agent/routes/tasks/autopilot_task_dispatcher_helpers.py",
       "agent/services/planning_track_pipeline_service.py",
@@ -57,7 +59,7 @@
     {
       "id": "M01",
       "title": "Source-grounded benchmark inventory",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "BAYES-001",
         "BAYES-002",
@@ -67,7 +69,7 @@
     {
       "id": "M02",
       "title": "Bayesian estimation contracts",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "BAYES-004",
         "BAYES-005",
@@ -78,7 +80,7 @@
     {
       "id": "M03",
       "title": "Estimator implementation and benchmark integration",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "BAYES-008",
         "BAYES-009",
@@ -89,7 +91,7 @@
     {
       "id": "M04",
       "title": "Deterministic tests and backward compatibility",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "BAYES-012",
         "BAYES-013",
@@ -100,7 +102,7 @@
     {
       "id": "M05",
       "title": "UI and interpretation documentation",
-      "status": "todo",
+      "status": "in_progress",
       "task_ids": [
         "BAYES-016",
         "BAYES-017",
@@ -110,7 +112,7 @@
     {
       "id": "M06",
       "title": "Release evidence and final guardrails",
-      "status": "todo",
+      "status": "in_progress",
       "task_ids": [
         "BAYES-019",
         "BAYES-020"
@@ -121,12 +123,12 @@
     {
       "id": "BAYES-001",
       "title": "Inventory benchmark data producers",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "research",
       "milestone_id": "M01",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Inspect existing benchmark modules before implementing any Bayesian code: agent/hub_benchmark.py, agent/ollama_benchmark.py, agent/services/hub_benchmark_service.py, agent/services/ollama_benchmark_service.py, agent/services/benchmark_job_service.py, agent/benchmark_quality.py, agent/llm_benchmarks.py, agent/product_benchmark_suite.py, and benchmark routes.",
         "Document which modules already persist samples, aggregate scores, run async jobs, evaluate quality, and expose recommendations.",
@@ -138,12 +140,12 @@
     {
       "id": "BAYES-002",
       "title": "Map existing benchmark result schemas to Bayesian evidence",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "research",
       "milestone_id": "M01",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Map hub benchmark samples from provider/model role buckets into a common Bayesian evidence shape.",
         "Map Ollama benchmark samples including parameter variations into the same evidence shape.",
@@ -158,12 +160,12 @@
     {
       "id": "BAYES-003",
       "title": "Document current scoring and recommendation limitations",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "research",
       "milestone_id": "M01",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Document that current benchmark scoring is weighted by success_rate, quality_rate, latency_score, and cost_score.",
         "Document that current scoring is descriptive and does not estimate posterior uncertainty or probability after repeated attempts.",
@@ -178,12 +180,12 @@
     {
       "id": "BAYES-004",
       "title": "Define Bayesian evidence record extension",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "schema",
       "milestone_id": "M02",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Define a backward-compatible Bayesian evidence record with schema/version fields and no required database migration.",
         "Evidence records include source, provider, model, role_name, task_kind, parameters, sample timestamp, success, quality_passed, latency_ms, tokens_total, cost_units, and deterministic_signal.",
@@ -198,12 +200,12 @@
     {
       "id": "BAYES-005",
       "title": "Define beta-binomial posterior contract",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "schema",
       "milestone_id": "M02",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Define a beta-binomial posterior contract using alpha_prior, beta_prior, success_count, failure_count, posterior_alpha, posterior_beta, posterior_mean, and sample_count.",
         "Default priors are configurable but safe; the default must not produce certainty from zero evidence.",
@@ -218,12 +220,12 @@
     {
       "id": "BAYES-006",
       "title": "Define cumulative success-after-N-attempts contract",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "schema",
       "milestone_id": "M02",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Define a deterministic contract for estimating probability of at least one success after N attempts from posterior per-attempt success probability.",
         "The contract exposes assumptions: independent attempts, correlated attempts, or penalized retries.",
@@ -238,12 +240,12 @@
     {
       "id": "BAYES-007",
       "title": "Define uncertainty and low-confidence flags",
-      "status": "todo",
-      "priority": "P2",
+      "status": "done",
+      "priority": "P1",
       "risk": "medium",
       "type": "schema",
       "milestone_id": "M02",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Define uncertainty flags based on sample count, posterior variance or equivalent uncertainty proxy, and conflicting evidence.",
         "Low-confidence estimates are explicitly flagged when samples are below configured thresholds.",
@@ -258,12 +260,12 @@
     {
       "id": "BAYES-008",
       "title": "Implement pure Bayesian estimator service",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "service",
       "milestone_id": "M03",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Implement a focused pure service module, for example agent/services/bayesian_benchmark_estimator.py.",
         "The service contains no network calls, no LLM calls, and no benchmark execution side effects.",
@@ -280,12 +282,12 @@
     {
       "id": "BAYES-009",
       "title": "Add evidence extraction adapters for hub and Ollama benchmarks",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "service",
       "milestone_id": "M03",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Add adapter functions that read existing hub and Ollama benchmark samples and convert them to Bayesian evidence records.",
         "Adapters do not alter existing persistence formats for hub_benchmark_results.json or ollama_benchmark_results.json.",
@@ -301,12 +303,12 @@
     {
       "id": "BAYES-010",
       "title": "Integrate posterior fields into benchmark scoring output",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "integration",
       "milestone_id": "M03",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Extend existing benchmark score objects with optional bayesian_estimate fields while preserving current score_hub_bucket and score_ollama_bucket fields.",
         "Bayesian fields include posterior_success_probability, posterior_quality_probability, evidence_count, success_count, failure_count, uncertainty, and estimate_status.",
@@ -322,12 +324,12 @@
     {
       "id": "BAYES-011",
       "title": "Integrate attempt estimates into recommendation payloads",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "integration",
       "milestone_id": "M03",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Extend recommendation payloads with optional Bayesian interpretation fields without automatically changing selected models.",
         "Payloads include estimated_attempts_for_50_percent, estimated_attempts_for_80_percent, estimated_attempts_for_95_percent, and low_confidence flag where computable.",
@@ -342,12 +344,12 @@
     {
       "id": "BAYES-012",
       "title": "Add Bayesian benchmark tests for zero and low sample cases",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "tests",
       "milestone_id": "M04",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Add deterministic tests for zero evidence and low sample count handling.",
         "Zero evidence returns the configured prior, not 0.0, 1.0, or a fabricated benchmark conclusion.",
@@ -362,12 +364,12 @@
     {
       "id": "BAYES-013",
       "title": "Add tests for posterior updates from pass/fail evidence",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "tests",
       "milestone_id": "M04",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Add tests for posterior updates from pass/fail evidence.",
         "One success increases posterior mean relative to the prior when using the default prior.",
@@ -382,12 +384,12 @@
     {
       "id": "BAYES-014",
       "title": "Add tests for cumulative attempt probability and correlation penalty",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "tests",
       "milestone_id": "M04",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Add tests for cumulative success-after-N-attempt estimates.",
         "Cumulative probability increases monotonically with N for neutral mode.",
@@ -403,12 +405,12 @@
     {
       "id": "BAYES-015",
       "title": "Add backward compatibility tests for existing benchmark payloads",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "tests",
       "milestone_id": "M04",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Add compatibility tests using representative legacy hub and Ollama benchmark payloads.",
         "Existing recommendation tests continue to pass without requiring Bayesian fields.",
@@ -445,12 +447,12 @@
     {
       "id": "BAYES-017",
       "title": "Document Bayesian benchmark interpretation",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "type": "docs",
       "milestone_id": "M05",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Add documentation explaining prior, evidence, posterior, and attempts-after-N in Ananta benchmark terms.",
         "Documentation states that Bayes improves benchmark interpretation and planning estimates but does not prove code correctness.",
@@ -465,12 +467,12 @@
     {
       "id": "BAYES-018",
       "title": "Document routing policy boundaries for Bayesian estimates",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "docs",
       "milestone_id": "M05",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Document that Bayesian estimates do not change routing automatically in this track.",
         "Document how a future routing policy could use posterior probability, expected attempts, latency, and cost after enough evidence exists.",
@@ -486,12 +488,12 @@
     {
       "id": "BAYES-019",
       "title": "Add release evidence entry and migration notes",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "type": "docs",
       "milestone_id": "M06",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "Add a release evidence or implementation note describing files changed and compatibility expectations.",
         "Include migration notes that existing benchmark result JSON files remain valid.",
@@ -507,12 +509,12 @@
     {
       "id": "BAYES-020",
       "title": "Run final checks and verify no duplicate benchmark runner was introduced",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
       "type": "quality",
       "milestone_id": "M06",
-      "progress_percent": 0,
+      "progress_percent": 80,
       "acceptance_criteria": [
         "Run or document relevant pytest targets for Bayesian estimator, benchmark adapters, hub benchmark compatibility, Ollama benchmark compatibility, and recommendation payloads.",
         "Run or document lint checks for touched Python files.",
@@ -552,16 +554,16 @@
   "tasks_status_summary": {
     "total": 20,
     "by_status": {
-      "todo": 20,
+      "todo": 1,
       "in_progress": 0,
-      "partial": 0,
+      "partial": 1,
       "blocked": 0,
-      "done": 0
+      "done": 18
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 90.0,
     "by_priority": {
-      "P1": 15,
-      "P2": 5
+      "P1": 16,
+      "P2": 4
     },
     "by_risk": {
       "medium": 10,
@@ -570,15 +572,15 @@
     },
     "critical_path": {
       "total": 15,
-      "done": 0,
-      "remaining": 15
+      "done": 14,
+      "remaining": 1
     },
     "milestones": {
       "total": 6,
-      "todo": 6,
-      "in_progress": 0,
+      "todo": 0,
+      "in_progress": 2,
       "blocked": 0,
-      "done": 0
+      "done": 4
     }
   },
   "tasks_type_summary": {
@@ -586,72 +588,72 @@
     "by_type": {
       "research": {
         "total": 3,
-        "done": 0,
+        "done": 3,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 3,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 3
         }
       },
       "schema": {
         "total": 4,
-        "done": 0,
+        "done": 4,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 4,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 4
         }
       },
       "service": {
         "total": 2,
-        "done": 0,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         }
       },
       "integration": {
         "total": 2,
-        "done": 0,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         }
       },
       "tests": {
         "total": 4,
-        "done": 0,
+        "done": 4,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 4,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 4
         }
       },
       "frontend": {
@@ -670,28 +672,28 @@
       },
       "docs": {
         "total": 3,
-        "done": 0,
+        "done": 3,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 100,
         "by_status": {
-          "todo": 3,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 3
         }
       },
       "quality": {
         "total": 1,
         "done": 0,
-        "partial": 0,
+        "partial": 1,
         "blocked": 0,
-        "progress_percent": 0,
+        "progress_percent": 80,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 0,
+          "partial": 1,
           "blocked": 0,
           "done": 0
         }
@@ -699,20 +701,20 @@
     }
   },
   "progress_summary": {
-    "state": "not_started",
-    "todo_remaining": 20,
+    "state": "in_progress",
+    "todo_remaining": 1,
     "in_progress": 0,
-    "partial": 0,
+    "partial": 1,
     "blocked": 0,
-    "done": 0
+    "done": 18
   },
   "execution_stage_summary": {
-    "source_analysis": "todo",
-    "contracts": "todo",
-    "implementation": "todo",
-    "tests": "todo",
-    "ui_docs": "todo",
-    "release": "todo"
+    "source_analysis": "done",
+    "contracts": "done",
+    "implementation": "done",
+    "tests": "done",
+    "ui_docs": "in_progress",
+    "release": "in_progress"
   },
   "summary_notes": [
     "This TODO is intentionally narrower than a new iterative verification model because the repository already contains benchmark, verification, planning-track, and retry infrastructure.",
