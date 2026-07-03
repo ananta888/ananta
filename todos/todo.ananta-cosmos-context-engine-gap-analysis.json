@@ -104,7 +104,7 @@
     {
       "id": "COSMOS-001",
       "title": "Expert Registry fuer Ananta definieren",
-      "status": "open",
+      "status": "done",
       "priority": "critical",
       "component": "agent-runtime",
       "description": "Eine Registry fuer wiederverwendbare Expert-/Worker-Templates definieren, analog zu Dispatcher, PR Author, Reviewer, Risk Analyst und Tester, aber policyfaehig und lokal/offen.",
@@ -127,12 +127,13 @@
         "Default-Experts laufen mit minimalen Rechten.",
         "Ein Expert kann als Vorlage kopiert und projektspezifisch erweitert werden.",
         "Tests pruefen Registrierung, Validierung, Versionierung und Policy-Vererbung."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "COSMOS-002",
       "title": "Agent Runtime Modell gegen Cosmos-Anforderungen haerten",
-      "status": "open",
+      "status": "done",
       "priority": "critical",
       "component": "agent-runtime",
       "description": "Die bestehende Hub/Worker-Runtime so erweitern, dass Agentenlaeufe robuste Zustandsmodelle, Artefakte, Fehlerbehandlung, Wiederaufnahme und Abbruch unterstuetzen.",
@@ -155,12 +156,13 @@
         "Wiederaufnahme ist nur bei idempotenten oder freigegebenen Schritten erlaubt.",
         "Fehler speichern Ursache, betroffenen Schritt, Artefakte und naechste Optionen.",
         "Tests pruefen State Machine, ungueltige Uebergaenge, Cancel und Retry."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "COSMOS-003",
       "title": "Trigger- und Automation-System fuer Ananta definieren",
-      "status": "open",
+      "status": "done",
       "priority": "high",
       "component": "automation",
       "description": "Workflows sollen durch definierte Trigger gestartet werden koennen, ohne dass externe Integrationen direkt Agentenrechte bekommen.",
@@ -182,12 +184,13 @@
         "Externe Webhooks werden signiert/validiert oder abgelehnt.",
         "Trigger koennen deaktiviert und pro Projekt konfiguriert werden.",
         "Tests pruefen erlaubte, abgelehnte und mehrfach ausgelöste Trigger."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "COSMOS-004",
       "title": "Shared Task File System als kontrolliertes Artefaktmodell bauen",
-      "status": "open",
+      "status": "done",
       "priority": "critical",
       "component": "workspace",
       "description": "Ein gemeinsames, aber kontrolliertes Task-Dateisystem fuer Agentenlaeufe definieren: Inputs, Kontextpakete, Diffs, Logs, Reports, Testausgaben und Freigaben.",
@@ -210,12 +213,13 @@
         "Jeder Worker sieht nur erlaubte Artefakte.",
         "Artefakte koennen fuer Replay und Debug exportiert werden.",
         "Tests pruefen Zugriffskontrolle, Redaction und Artefakt-Lifecycle."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "COSMOS-005",
       "title": "Sandbox-Abstraktion fuer Builds, Tests und Agentenarbeit definieren",
-      "status": "open",
+      "status": "done",
       "priority": "critical",
       "component": "sandbox",
       "description": "Eine Sandbox-Schicht definieren, damit Tests, Builds, externe CLIs und schreibende Agentenarbeit isoliert laufen koennen.",
@@ -233,12 +237,13 @@
         "Docker/Devcontainer sind optionale Backends, keine harte Pflicht.",
         "Jede Sandbox-Ausfuehrung wird auditiert.",
         "Tests nutzen FakeSandbox und pruefen Policy-Verletzungen."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "COSMOS-006",
       "title": "Human-in-the-loop Policy Gates systematisieren",
-      "status": "open",
+      "status": "done",
       "priority": "critical",
       "component": "policy",
       "description": "Freigabe-Gates fuer riskante Aktionen vereinheitlichen: Datei-Diffs, Git-Operationen, PRs, externe Calls, Secrets, Deployment und Loeschoperationen.",
@@ -260,12 +265,13 @@
         "Gates koennen im UI/CLI beantwortet werden.",
         "Policy kann pro Projekt strengere Gates verlangen.",
         "Tests pruefen erlaubte, abgelehnte, abgelaufene und fehlende Approvals."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "COSMOS-007",
       "title": "Replayable Runs fuer Agentenlaeufe einbauen",
-      "status": "open",
+      "status": "done",
       "priority": "critical",
       "component": "audit",
       "description": "Agentenlaeufe sollen spaeter reproduzierbar, inspizierbar und debugbar sein: Inputs, Kontextentscheidungen, Toolcalls, Outputs, Diffs, Tests und Freigaben.",
@@ -276,7 +282,8 @@
         "Replay unterscheidet Analyse-Replay und Action-Replay mit separaten Approvals.",
         "UI/CLI kann einen Run inspizieren und Replay-Voraussetzungen anzeigen.",
         "Tests pruefen ReplayRecord-Schema und Dry-Run-Schutz."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "COSMOS-008",
@@ -369,7 +376,7 @@
     {
       "id": "COSMOS-011",
       "title": "History Context aus Git, Issues und PRs anbinden",
-      "status": "open",
+      "status": "done",
       "priority": "high",
       "component": "codecompass",
       "description": "Commit-History, PRs, Reviews, Issues und Architekturentscheidungen sollen als Kontextsignal nutzbar werden, aber nie unkritisch fachliche Wahrheit ersetzen.",
@@ -380,12 +387,13 @@
         "Private/fehlende Berechtigungen werden respektiert.",
         "History kann pro Projekt deaktiviert werden.",
         "Tests pruefen Git-Commit-Fixtures und veraltete PR-Informationen."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "COSMOS-012",
       "title": "IDE-/Arbeitskontext als optionales Signal modellieren",
-      "status": "open",
+      "status": "done",
       "priority": "medium",
       "component": "developer-experience",
       "description": "Aktuelle geoeffnete Dateien, Cursorbereich, aktive Branch und lokale Aenderungen koennen Kontext-Ranking verbessern, duerfen aber nicht automatisch Rechte erweitern.",
@@ -396,12 +404,13 @@
         "Sensible lokale Aenderungen werden redigiert oder blockiert.",
         "UI/CLI zeigt, wann Arbeitskontext verwendet wurde.",
         "Tests pruefen Ranking-Effekt ohne Rechteausweitung."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "COSMOS-013",
       "title": "Context Curation Pipeline fuer CodeCompass definieren",
-      "status": "open",
+      "status": "done",
       "priority": "critical",
       "component": "codecompass",
       "description": "Aus Trefferlisten soll eine kuratierte Kontextauswahl werden: retrieve, merge, deduplicate, rank, compress, explain, budget und evidence.",
@@ -424,12 +433,13 @@
         "Budget-Ueberschreitungen fuehren zu Kompression, nicht zu blindem Abschneiden ohne Trace.",
         "Evidence und Confidence werden pro Treffer ausgegeben.",
         "Tests pruefen Duplikate, Budget, Freshness und Policy-Filter."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "COSMOS-014",
       "title": "Confidence/Evidence Modell fuer alle Kontexttreffer einfuehren",
-      "status": "open",
+      "status": "done",
       "priority": "high",
       "component": "codecompass",
       "description": "Jeder Kontexttreffer soll erklaeren, warum er relevant ist und wie sicher diese Einschaetzung ist.",
@@ -439,12 +449,13 @@
         "Unklare Treffer werden als uncertain markiert.",
         "Antworten koennen Evidence-Zusammenfassung ausgeben.",
         "Tests pruefen Confidence-Berechnung mit statischen Fixtures."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "COSMOS-015",
       "title": "PR Author Expert Blueprint erstellen",
-      "status": "open",
+      "status": "done",
       "priority": "high",
       "component": "experts",
       "description": "Ein Expert, der aus einem genehmigten ChangeProposal einen PR-Entwurf mit Beschreibung, Teststatus und Risiko-Hinweisen erzeugt.",
@@ -455,12 +466,13 @@
         "Kein automatischer Merge.",
         "GitHub-Integration ist optional und faellt auf Markdown-PR-Entwurf zurueck.",
         "Tests pruefen PR-Body-Generierung ohne GitHub-Zugriff."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "COSMOS-016",
       "title": "Deep Code Review Expert Blueprint erstellen",
-      "status": "open",
+      "status": "done",
       "priority": "high",
       "component": "experts",
       "description": "Ein Expert fuer tiefe Code-Reviews mit Fokus auf Architektur, Security, Tests, Regressionen und Policy-Verletzungen.",
@@ -471,12 +483,13 @@
         "Security-Funde werden als risk_report Artefakt gespeichert.",
         "Review verweist auf Evidence statt pauschaler Aussagen.",
         "Tests pruefen Output-Vertrag und Severity-Klassifikation."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "COSMOS-017",
       "title": "PR Risk Analysis Expert Blueprint erstellen",
-      "status": "open",
+      "status": "done",
       "priority": "high",
       "component": "experts",
       "description": "Ein Expert bewertet Risiko eines PRs/Changes anhand von betroffenen Modulen, Tests, Security-Relevanz, Runtime-Pfaden und Deploy-Auswirkungen.",
@@ -497,12 +510,13 @@
         "Fehlende Tests werden als Risiko markiert, nicht geraten kompensiert.",
         "Risk Expert darf keine Aenderung anwenden.",
         "Tests pruefen Risiko-Regeln mit Fixture-Diffs."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "COSMOS-018",
       "title": "Tester Expert Blueprint und Verifikationskette definieren",
-      "status": "open",
+      "status": "done",
       "priority": "high",
       "component": "experts",
       "description": "Ein Tester Expert waehlt passende Tests aus, laeuft sie in Sandbox/Task-Workspace und erstellt TestReport-Artefakte.",
@@ -513,12 +527,13 @@
         "Fehlgeschlagene Tests blockieren Apply/Merge-Gates je nach Policy.",
         "Flaky/Timeout wird separat markiert.",
         "Tests pruefen erfolgreiche, fehlgeschlagene und blockierte Testausfuehrung."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "COSMOS-019",
       "title": "Work Dispatcher Expert fuer Aufgabenzerlegung definieren",
-      "status": "open",
+      "status": "done",
       "priority": "high",
       "component": "experts",
       "description": "Ein Dispatcher zerlegt Ziele in sichere Schritte, waehlt Experts/Worker und erzeugt einen pruefbaren Plan, aber fuehrt nichts direkt aus.",
@@ -528,7 +543,8 @@
         "Plan ist im Tracking sichtbar und editierbar/freigebbar.",
         "Unklare Ziele fuehren zu Analyse-/Frage-Schritten statt riskanter Ausfuehrung.",
         "Tests pruefen Plan-Erzeugung und Policy-Grenzen."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "COSMOS-020",
@@ -597,7 +613,7 @@
     {
       "id": "COSMOS-023",
       "title": "Benchmark-Suite Ananta/CodeCompass vs externe Systeme erweitern",
-      "status": "open",
+      "status": "done",
       "priority": "high",
       "component": "evaluation",
       "description": "Die bestehende Augment-Benchmark-Idee auf Cosmos-aehnliche Workflows erweitern: Triage, Authoring, Review, Risk und Testing.",
@@ -616,7 +632,8 @@
         "Metriken enthalten Laufzeit, Kosten, Kontexttreffer, Fehler, Approval-Bedarf und Testabdeckung.",
         "Externe Systeme bleiben optional; Fake-/Local-Modus ist Standard.",
         "Ergebnisse werden als JSON und Markdown-Report erzeugt."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "COSMOS-024",

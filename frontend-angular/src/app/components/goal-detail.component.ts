@@ -9,6 +9,8 @@ import { LoadingStateComponent, StatusBadgeComponent, StatusTone } from '../shar
 import { DecisionExplanationComponent, ExplanationNoticeComponent, MetricCardComponent, NextStepAction, NextStepsComponent, SafetyNoticeComponent } from '../shared/ui/display';
 import { SectionCardComponent } from '../shared/ui/layout';
 import { interval, Subscription } from 'rxjs';
+import { RunTransparencyViewerComponent } from './run-transparency-viewer.component';
+import { RunTransparencyReport } from '../models/transparency.models';
 
 @Component({
   standalone: true,
@@ -24,6 +26,7 @@ import { interval, Subscription } from 'rxjs';
     DecisionExplanationComponent,
     NextStepsComponent,
     SafetyNoticeComponent,
+    RunTransparencyViewerComponent,
   ],
   template: `
     <div class="container pb-lg">
@@ -222,6 +225,12 @@ import { interval, Subscription } from 'rxjs';
             </div>
           </div>
         </div>
+
+        @if (transparencyReport) {
+          <app-section-card title="Verifiable Transparency" class="mt-md">
+            <app-run-transparency-viewer [report]="transparencyReport"></app-run-transparency-viewer>
+          </app-section-card>
+        }
       }
     </div>
 
@@ -296,6 +305,7 @@ export class GoalDetailComponent implements OnInit, OnDestroy {
   governance: any;
   costSummary: any;
   loading = false;
+  transparencyReport: RunTransparencyReport | null = null;
   hiddenHints = new Set<string>((localStorage.getItem('ananta.hidden-hints') || '').split(',').filter(Boolean));
   private sub?: Subscription;
 

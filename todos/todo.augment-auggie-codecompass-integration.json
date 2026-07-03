@@ -180,7 +180,7 @@
     {
       "id": "AUG-001",
       "title": "Neutralen ContextProvider-Port definieren",
-      "status": "open",
+      "status": "done",
       "priority": "critical",
       "component": "codecompass",
       "description": "Eine neutrale Schnittstelle schaffen, damit CodeCompass eigene Quellen und externe Quellen wie Augment gleichfoermig abfragen kann.",
@@ -195,12 +195,13 @@
         "Port unterstuetzt Timeouts und harte Ergebnislimits.",
         "Port unterstuetzt Scope/Policy-Informationen, ohne selbst Policies zu entscheiden.",
         "Unit Tests pruefen mindestens einen FakeProvider und Fehlerfaelle."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "AUG-002",
       "title": "Provider-Ergebnisformat mit CodeCompass normalisieren",
-      "status": "open",
+      "status": "done",
       "priority": "critical",
       "component": "codecompass",
       "description": "Ein kanonisches ContextItem/ContextBundle definieren, damit Augment-Ergebnisse neben search_symbols, resolve_context und plan_context vergleichbar werden.",
@@ -226,12 +227,13 @@
         "Fehlende Line-Ranges werden explizit als unknown markiert, nicht geraten.",
         "Snippets werden laengenbegrenzt und bei Bedarf redigiert.",
         "Tests pruefen Serialisierung, Redaction und deterministische Sortierung."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "AUG-003",
       "title": "Augment Healthcheck implementieren",
-      "status": "open",
+      "status": "done",
       "priority": "high",
       "component": "augment",
       "description": "Pruefen, ob Node, Auggie CLI, Login/Account, MCP-Server und non-interactive Mode verfuegbar sind.",
@@ -250,12 +252,13 @@
         "Deaktivierter non-interactive mode wird klar gemeldet.",
         "Healthcheck fuehrt keine Projektanalyse und keine Schreiboperation aus.",
         "Tests mocken alle externen Commands."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "AUG-004",
       "title": "Augment-Konfiguration zentral integrieren",
-      "status": "open",
+      "status": "done",
       "priority": "critical",
       "component": "config",
       "description": "Zentrale Config um augment.mcp, augment.auggie_cli, augment.interactive_bridge und augment.security erweitern.",
@@ -266,12 +269,13 @@
         "Projektbezogene Approval-Flags sind ausdruecklich erforderlich.",
         "Config-Diagnose zeigt aktive Provider, Modi, Limits und Sicherheitsstatus.",
         "Tests pruefen Defaults, erlaubte Overrides und abgelehnte Unsicherheiten."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "AUG-100",
       "title": "AugmentContextProvider ueber MCP/codebase-retrieval bauen",
-      "status": "open",
+      "status": "done",
       "priority": "critical",
       "component": "context-provider",
       "description": "Augment Context Engine als optionalen ContextProvider anbinden und Ergebnisse auf ContextProviderResult normalisieren.",
@@ -282,12 +286,13 @@
         "Provider gibt strukturierte Fehler statt roher Exceptions zurueck.",
         "Provider-Ergebnisse enthalten provider='augment' und correlation_id.",
         "Tests decken erfolgreiche Treffer, leere Treffer, Timeout, MCP-Fehler und Redaction ab."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "AUG-101",
       "title": "Scope- und Pfadfilter vor Augment-Abfrage erzwingen",
-      "status": "open",
+      "status": "done",
       "priority": "critical",
       "component": "security",
       "description": "Vor jeder Augment-Abfrage pruefen, welche Dateien/Pfade/Workspaces extern indexiert oder abgefragt werden duerfen.",
@@ -298,12 +303,13 @@
         "Secrets und ENV-Dateien werden vor Provider-Zugriff ausgeschlossen.",
         "Blockierte Abfragen werden auditiert.",
         "Tests pruefen .env, .git, secrets, node_modules und benutzerdefinierte deny rules."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "AUG-102",
       "title": "Provider-Routing in CodeCompass einbauen",
-      "status": "open",
+      "status": "done",
       "priority": "high",
       "component": "codecompass",
       "description": "CodeCompass soll je nach Query/Config eigene Provider, Augment oder beide verwenden koennen.",
@@ -321,12 +327,13 @@
         "compare_only veraendert keine Antwortlogik, sondern erzeugt Vergleichsmetriken.",
         "Routing-Entscheidung wird im Audit/Trace sichtbar.",
         "Tests pruefen alle Routing-Modi."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "AUG-103",
       "title": "Kontext-Kompression und Snippet-Limits vereinheitlichen",
-      "status": "open",
+      "status": "done",
       "priority": "high",
       "component": "codecompass",
       "description": "Externe Augment-Ergebnisse duerfen das Kontextbudget nicht sprengen und muessen mit CodeCompass-Budgets kompatibel sein.",
@@ -336,12 +343,13 @@
         "Keine stillen Voll-Datei-Dumps in LLM-Prompts.",
         "Token-/Char-Budget wird im Trace sichtbar.",
         "Tests pruefen Truncation, Sortierung und Budget-Ueberschreitung."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "AUG-104",
       "title": "Augment-Ergebnisse in plan_context integrieren",
-      "status": "open",
+      "status": "done",
       "priority": "high",
       "component": "codecompass",
       "description": "plan_context soll Augment optional als Zusatzquelle verwenden koennen, ohne Planentscheidungen an Augment abzugeben.",
@@ -351,12 +359,13 @@
         "Plan bleibt reproduzierbar genug durch gespeicherte Query, Provider, Treffer und Scores.",
         "Policy-Status jedes Treffers ist sichtbar.",
         "Tests zeigen, dass blockierte Augment-Treffer nicht im Plan landen."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "AUG-200",
       "title": "Benchmark CodeCompass vs Augment definieren",
-      "status": "open",
+      "status": "done",
       "priority": "high",
       "component": "evaluation",
       "description": "Vergleichstests bauen, um Retrieval-Qualitaet, Vollstaendigkeit, Halluzinationsrisiko, Erklaerbarkeit und Kosten/Nutzen zu messen.",
@@ -375,12 +384,13 @@
         "Ergebnisbericht ist JSON und optional Markdown.",
         "Keine Benchmarks brauchen echten Augment-Zugang; FakeProvider-Test bleibt moeglich.",
         "Smoke-Test mit echtem Augment ist optional und per Marker deaktiviert."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "AUG-201",
       "title": "Retrieval-Audit-Report bauen",
-      "status": "open",
+      "status": "done",
       "priority": "medium",
       "component": "audit",
       "description": "Fuer jede hybride Abfrage nachvollziehbar dokumentieren, welcher Provider welchen Treffer geliefert hat und warum der Treffer verwendet oder verworfen wurde.",
@@ -390,12 +400,13 @@
         "Report kann im Tracking Viewer oder CLI angezeigt werden.",
         "Keine Secrets erscheinen im Report.",
         "Tests pruefen Report-Schema und Redaction."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "AUG-300",
       "title": "AuggieCliWorker-Port definieren",
-      "status": "open",
+      "status": "done",
       "priority": "critical",
       "component": "worker-backend",
       "description": "Neutralen Backend-Port fuer externe CLI-Worker definieren und Auggie als Implementierung vorbereiten.",
@@ -410,12 +421,13 @@
         "Port unterstuetzt harte Timeouts und Output-Limits.",
         "Port unterstuetzt read_only und write_proposal Modi.",
         "Tests pruefen FakeCliWorker und Timeout-Verhalten."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "AUG-301",
       "title": "Auggie CLI read-only Worker implementieren",
-      "status": "open",
+      "status": "done",
       "priority": "critical",
       "component": "worker-backend",
       "description": "Auggie fuer nicht-interaktive Analyse-Aufgaben ueber auggie --print --quiet anbinden, zunaechst ohne Schreibrechte.",
@@ -428,12 +440,13 @@
         "stdout/stderr werden laengenbegrenzt gespeichert.",
         "Exit-Code, Timeout und Diagnose werden strukturiert zurueckgegeben.",
         "Unit Tests mocken subprocess und pruefen Command-Building ohne Shell-Injection."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "AUG-302",
       "title": "Prompt-Vertrag fuer AuggieCliWorker definieren",
-      "status": "open",
+      "status": "done",
       "priority": "high",
       "component": "prompting",
       "description": "Ein robuster Prompt-Envelope soll Auggie-Aufgaben begrenzen und maschinenlesbare Rueckgaben verlangen.",
@@ -452,12 +465,13 @@
         "Prompt verlangt JSON oder klar markierte strukturierte Ausgabe.",
         "Parser kann ungueltige Auggie-Ausgabe robust als raw_output_result speichern.",
         "Tests pruefen gueltige, ungueltige und teilweise Ausgabe."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "AUG-303",
       "title": "Task-Workspace-Copy fuer Auggie erzwingen",
-      "status": "open",
+      "status": "done",
       "priority": "critical",
       "component": "workspace",
       "description": "Auggie darf bei moeglichen Schreiboperationen nur in einer isolierten Arbeitskopie laufen.",
@@ -469,12 +483,13 @@
         "Nach Lauf wird ein Diff gegen Baseline erzeugt.",
         "Task-Copy kann nach Audit geloescht oder fuer Debug erhalten werden.",
         "Tests pruefen Copy, Deny-Paths, Symlink Escape und Diff-Erzeugung."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "AUG-304",
       "title": "Diff-Extraktion und Change-Proposal bauen",
-      "status": "open",
+      "status": "done",
       "priority": "critical",
       "component": "change-management",
       "description": "Auggie-Aenderungen werden nicht automatisch uebernommen, sondern als ChangeProposal mit Diff, Dateien, Risiken und Tests dargestellt.",
@@ -485,12 +500,13 @@
         "Diff wird gegen Policy geprueft, bevor er anwendbar ist.",
         "Apply erfordert explizite Freigabe oder konfiguriertes Approval-Gate.",
         "Tests pruefen erlaubte, blockierte und teilweise erlaubte Diffs."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "AUG-305",
       "title": "Auggie Worker in Task-Scoped Adapter-Orchestrierung einhaengen",
-      "status": "open",
+      "status": "done",
       "priority": "high",
       "component": "orchestration",
       "description": "AuggieCliWorker in bestehende Task-Scoped Adapter einbinden, ohne Worker-zu-Worker-Kommunikation oder Hub-Bypass.",
@@ -501,12 +517,13 @@
         "Tracking zeigt Auggie-Schritt, Scope, Dauer, Exit-Code und Artefakte.",
         "Fehler fuehren zu sauberem failed/degraded Status.",
         "Tests pruefen Routing, Blockade und erfolgreichen Lauf mit FakeWorker."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "AUG-306",
       "title": "Auggie CLI Security Wrapper bauen",
-      "status": "open",
+      "status": "done",
       "priority": "critical",
       "component": "security",
       "description": "Subprocess-Ausfuehrung kapseln: keine Shell-Injection, begrenzte ENV, Timeout, Arbeitsverzeichnis, Ressourcenlimits.",
@@ -518,12 +535,13 @@
         "Max Output Bytes wird durchgesetzt.",
         "Working Directory ist immer explizit gesetzt.",
         "Tests pruefen Command-Injection-Versuche, Timeout und Output-Begrenzung."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "AUG-400",
       "title": "Write-Proposal-Modus fuer Auggie aktivieren",
-      "status": "open",
+      "status": "done",
       "priority": "high",
       "component": "worker-backend",
       "description": "Nach read-only Stabilisierung darf Auggie in Task-Copy Aenderungsvorschlaege erzeugen, aber nicht direkt anwenden.",
@@ -534,12 +552,13 @@
         "Ohne Approval wird kein Diff ins echte Repo angewendet.",
         "Policy-Verstoss blockiert das Proposal oder markiert es als nicht anwendbar.",
         "Tests pruefen read_only/write_proposal Trennung."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "AUG-401",
       "title": "Test-Runner-Integration fuer Auggie-Proposals",
-      "status": "open",
+      "status": "done",
       "priority": "medium",
       "component": "quality",
       "description": "Optional Tests im Task-Workspace ausfuehren, bevor ein Auggie-Proposal als anwendbar gilt.",
@@ -550,12 +569,13 @@
         "Fehlende Tests blockieren nicht zwingend, markieren aber Risiko.",
         "Timeouts und Logs sind begrenzt.",
         "Tests pruefen erfolgreiche, fehlgeschlagene und nicht konfigurierte Testlaeufe."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "AUG-500",
       "title": "AuggieInteractiveBridge Konzept und Session-Port definieren",
-      "status": "open",
+      "status": "done",
       "priority": "high",
       "component": "interactive-bridge",
       "description": "Spaetere interaktive Auggie-Sessions duerfen nur ueber kontrollierte Session-Bridge laufen.",
@@ -572,12 +592,13 @@
         "Session kann hart beendet werden.",
         "Keine InteractiveBridge ist per Default aktiv.",
         "Tests pruefen FakeSession, Timeout und Stop."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "AUG-501",
       "title": "PTY/Process-Management fuer interaktive Auggie-Sessions kapseln",
-      "status": "open",
+      "status": "done",
       "priority": "medium",
       "component": "interactive-bridge",
       "description": "Falls interaktive CLI-Steuerung noetig wird, PTY/Process sauber kapseln und plattformbedingte Unterschiede dokumentieren.",
@@ -588,12 +609,13 @@
         "Output wird gestreamt, aber laengenbegrenzt persistiert.",
         "Keine Secrets aus ENV werden an Session gegeben.",
         "Tests nutzen FakePTY oder MockProcess statt echte Auggie-Session."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "AUG-502",
       "title": "Approval-Gates fuer interaktive Schreibaktionen",
-      "status": "open",
+      "status": "done",
       "priority": "critical",
       "component": "security",
       "description": "Interaktive Auggie-Sessions duerfen keine schreibenden Aktionen ohne Approval-Gate in echte Repos bringen.",
@@ -604,12 +626,13 @@
         "Apply ins echte Repo erfordert explizite Freigabe.",
         "Session darf keine Git-Push/PR/Release-Aktion direkt ausloesen, ausser eine separate Policy erlaubt es ausdruecklich.",
         "Tests pruefen blockierte Write- und Git-Aktionen."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "AUG-503",
       "title": "InteractiveBridge im Tracking Viewer sichtbar machen",
-      "status": "open",
+      "status": "done",
       "priority": "medium",
       "component": "ui-tracking",
       "description": "Interaktive Auggie-Schritte muessen nachvollziehbar sein: Turns, Tool-Hinweise, Dateien, Diffs, Entscheidungen.",
@@ -620,7 +643,8 @@
         "Abbruch/Timeout wird sichtbar.",
         "UI zeigt klar externe Auggie-Nutzung an.",
         "Tests oder Snapshot-Pruefungen decken die Datenstruktur ab."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "AUG-900",
@@ -649,7 +673,7 @@
     {
       "id": "AUG-901",
       "title": "Redaction- und Secret-Scanning vor Provider-Nutzung",
-      "status": "open",
+      "status": "done",
       "priority": "critical",
       "component": "security",
       "description": "Vor Augment/Auggie-Nutzung muessen Dateien, Prompts, ENV und Logs auf Secrets/verborgene sensible Inhalte geprueft und redigiert werden.",
@@ -660,12 +684,13 @@
         "Logs speichern keine Tokens.",
         "Redaction wird im Audit sichtbar.",
         "Tests pruefen typische API Keys, .env, PEM-Dateien und benutzerdefinierte Patterns."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "AUG-902",
       "title": "Dokumentation fuer Installation und sichere Nutzung",
-      "status": "open",
+      "status": "done",
       "priority": "high",
       "component": "documentation",
       "description": "Nutzer sollen Augment/Auggie sauber installieren, pruefen, aktivieren und wieder deaktivieren koennen.",
@@ -676,12 +701,13 @@
         "Doku zeigt Healthcheck-Kommandos.",
         "Doku warnt vor sensiblen Repositories und Remote-Indexierung.",
         "Doku enthaelt Troubleshooting fuer fehlenden Login, fehlende Binary, deaktivierten non-interactive Mode und Timeout."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "AUG-903",
       "title": "CI-/Teststrategie ohne Augment-Account absichern",
-      "status": "open",
+      "status": "done",
       "priority": "high",
       "component": "testing",
       "description": "Normale Tests duerfen keinen Augment-Account brauchen. Echte Integrationstests laufen nur optional.",
@@ -692,12 +718,13 @@
         "Healthcheck-Tests mocken externe Commands.",
         "Dokumentation erklaert, wie echte Smoke Tests lokal aktiviert werden.",
         "Keine Tests senden echte Projektinhalte an externe Dienste ohne explizite Aktivierung."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "AUG-904",
       "title": "End-to-End Demo-Blueprint erstellen",
-      "status": "open",
+      "status": "done",
       "priority": "medium",
       "component": "demo",
       "description": "Ein kleiner Demo-Flow zeigt Augment Retrieval, Auggie Analyse und optional ChangeProposal mit Diff.",
@@ -707,12 +734,13 @@
         "Flow zeigt: Query -> ContextProvider -> Worker -> Audit -> Ergebnis.",
         "Write-Proposal-Demo nutzt Task-Copy und erzeugt Diff.",
         "Demo dokumentiert erwartete Artefakte und Fehlerfaelle."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "AUG-905",
       "title": "Metriken fuer Kosten, Laufzeit und Nutzen erfassen",
-      "status": "open",
+      "status": "done",
       "priority": "medium",
       "component": "observability",
       "description": "Augment/Auggie-Nutzung soll messbar sein, damit entschieden werden kann, wann der externe Provider lohnt.",
@@ -735,7 +763,8 @@
         "Vergleich CodeCompass vs Augment ist daraus ableitbar.",
         "Timeouts/Fehler erscheinen in Diagnose.",
         "Tests pruefen Metrik-Erzeugung fuer Erfolg und Fehler."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     }
   ],
   "global_acceptance_criteria": [

@@ -92,7 +92,7 @@
     {
       "id": "TRANS-002",
       "title": "PolicySnapshot fuer jeden Run einfuehren",
-      "status": "open",
+      "status": "done",
       "priority": "critical",
       "component": "policy",
       "description": "Jeder Agentenlauf soll exakt speichern, welche Rechte, Pfade, Tools, Provider, Modelle und Gates zum Startzeitpunkt galten.",
@@ -118,12 +118,13 @@
         "Fehlender PolicySnapshot blockiert Worker-Ausfuehrung.",
         "Snapshot kann als JSON exportiert und im UI/CLI angezeigt werden.",
         "Tests pruefen Erstellung, Serialisierung, Hash und Blockade bei fehlendem Snapshot."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "TRANS-003",
       "title": "ContextTrace fuer CodeCompass und externe Provider erzwingen",
-      "status": "open",
+      "status": "done",
       "priority": "critical",
       "component": "codecompass",
       "description": "Jede Kontextauswahl muss erklaeren, welche Query, welcher Provider, welcher Treffer, welche Policy und welcher Auswahlgrund beteiligt war.",
@@ -147,12 +148,13 @@
         "Externe Provider wie Augment werden klar als externe Evidence markiert.",
         "ContextTrace kann ohne Quellcode-Leak in Kurzform angezeigt werden.",
         "Tests pruefen ausgewaehlte, verworfene und blockierte Treffer."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "TRANS-004",
       "title": "ToolCallLog als pruefbaren Ausfuehrungsnachweis standardisieren",
-      "status": "open",
+      "status": "done",
       "priority": "critical",
       "component": "audit",
       "description": "Jeder Toolcall braucht strukturierte Logs mit Input-Hash, Output-Hash, Policy-Entscheidung, Dauer, Status und Redaction-Informationen.",
@@ -163,12 +165,13 @@
         "Fehler und Timeouts werden strukturiert protokolliert.",
         "Log kann als JSONL exportiert werden.",
         "Tests pruefen Logging fuer Erfolg, Fehler, Timeout und blockierte Calls."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "TRANS-005",
       "title": "DelegationTrace fuer Hub-zu-Worker Entscheidungen bauen",
-      "status": "open",
+      "status": "done",
       "priority": "critical",
       "component": "orchestration",
       "description": "Ananta soll sichtbar machen, warum ein Worker/Expert fuer eine Aufgabe gewaehlt wurde und welche Grenzen er bekommen hat.",
@@ -178,12 +181,13 @@
         "Worker erhalten nur explizit zugewiesene Tools und Kontextpakete.",
         "DelegationTrace erscheint im Tracking Viewer oder CLI.",
         "Tests pruefen Worker-Auswahl, abgelehnte Delegation und minimale Rechte."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "TRANS-006",
       "title": "DiffProposal als einzige erlaubte Schreib-Vorstufe erzwingen",
-      "status": "open",
+      "status": "done",
       "priority": "critical",
       "component": "change-management",
       "description": "Agenten duerfen Aenderungen nur als pruefbares DiffProposal erzeugen. Anwendung ins echte Repository ist ein separater Gate-Schritt.",
@@ -194,12 +198,13 @@
         "Apply braucht ApprovalRecord und PolicyCheck.",
         "DiffProposal kann vor Apply lokal inspiziert werden.",
         "Tests pruefen direkte Mutation, erlaubtes Proposal und blockierten Apply."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "TRANS-007",
       "title": "Trustless Run Report fuer Nutzer erzeugen",
-      "status": "open",
+      "status": "done",
       "priority": "high",
       "component": "reporting",
       "description": "Nach jedem Run soll ein Bericht entstehen, der ohne Vertrauen in das Modell zeigt, was passiert ist.",
@@ -223,7 +228,8 @@
         "Report enthaelt keine Secrets.",
         "Report verweist auf exportierbare Trace-Artefakte.",
         "Tests pruefen Report-Erzeugung fuer Analyse-Run und ChangeProposal-Run."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     },
     {
       "id": "TRANS-008",
@@ -267,7 +273,7 @@
     {
       "id": "TRANS-010",
       "title": "UI/Tracking Viewer auf Pruefbarkeit ausrichten",
-      "status": "open",
+      "status": "done",
       "priority": "high",
       "component": "ui-tracking",
       "description": "Der Tracking Viewer soll nicht nur Fortschritt zeigen, sondern Pruefbarkeit: Kontext, Policy, Delegation, Toolcalls, Diffs und Approvals.",
@@ -278,7 +284,8 @@
         "External Provider werden klar markiert.",
         "Local-only Status ist sichtbar.",
         "UI zeigt Evidence getrennt von Modelltext."
-      ]
+      ],
+      "last_reviewed": "2026-07-03"
     }
   ],
   "global_acceptance_criteria": [
