@@ -342,6 +342,9 @@ def make_session(
     settings: dict[str, Any] | None = None,
     icon: str = "💬",
     group: str = "",
+    folder_id: str = "",
+    session_type: str = "",
+    type_description: str = "",
 ) -> dict[str, Any]:
     """Create a new chat session. Settings are merged over the default
     session settings so a session can override individual fields without
@@ -362,6 +365,9 @@ def make_session(
         "name": str(name or session_id),
         "icon": str(icon or "💬"),
         "group": str(group or ""),
+        "folder_id": str(folder_id or ""),
+        "session_type": str(session_type or ""),
+        "type_description": str(type_description or ""),
         "system_prompt": str(system_prompt or ""),
         "settings": merged_settings,
         "settings_delta": settings_delta,
@@ -419,12 +425,18 @@ def get_sessions(chat: dict[str, Any]) -> list[dict[str, Any]]:
         chat["ai_sessions"] = sessions
         return sessions
 
-    # Backfill settings_delta + group for legacy sessions
+    # Backfill settings_delta + group + folder fields for legacy sessions
     for s in sessions:
         if isinstance(s, dict):
             _ensure_settings_delta(s)
             if "group" not in s:
                 s["group"] = ""
+            if "folder_id" not in s:
+                s["folder_id"] = ""
+            if "session_type" not in s:
+                s["session_type"] = ""
+            if "type_description" not in s:
+                s["type_description"] = ""
 
     # Build index of built-in default sessions by ID for migration
     _default_by_id = {str(d.get("id") or ""): d for d in DEFAULT_SESSIONS if d.get("id")}

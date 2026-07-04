@@ -81,6 +81,7 @@ _SCHEMA_KEYS: frozenset[str] = frozenset({
     # snake restarts so the user doesn't lose their custom sessions.
     "chat_sessions",
     "chat_active_session_id",
+    "chat_folders",
     # Advanced chat configuration (env-mapped features)
     "chat_system_prompt",
     "chat_streaming",
@@ -268,6 +269,33 @@ def _extract_settings(settings: dict[str, Any]) -> dict[str, Any]:
         out["chat_sessions"] = _sanitize_sessions(settings["chat_sessions"])
         if "chat_active_session_id" in settings and isinstance(settings["chat_active_session_id"], str):
             out["chat_active_session_id"] = settings["chat_active_session_id"]
+    # Persist chat_folders (list of folder dicts) if provided directly
+    if "chat_folders" in settings and isinstance(settings["chat_folders"], list):
+        out["chat_folders"] = _sanitize_folders(settings["chat_folders"])
+    return out
+
+
+def _sanitize_folders(folders: list[Any]) -> list[dict[str, Any]]:
+    """Strip a list of folder dicts down to JSON-safe persisted shape."""
+    out: list[dict[str, Any]] = []
+    for item in folders:
+        if not isinstance(item, dict):
+            continue
+        fid = str(item.get("id") or "").strip()
+        if not fid:
+            continue
+        clean: dict[str, Any] = {"id": fid}
+        for k in ("name", "icon", "parent_id", "color"):
+            v = item.get(k)
+            if isinstance(v, str):
+                clean[k] = v
+            elif v is not None:
+                clean[k] = str(v)
+        for k in ("created_at", "updated_at"):
+            v = item.get(k)
+            if isinstance(v, (int, float)):
+                clean[k] = v
+        out.append(clean)
     return out
 
 
@@ -286,7 +314,7 @@ def _sanitize_sessions(sessions: list[Any]) -> list[dict[str, Any]]:
         if not sid:
             continue
         clean: dict[str, Any] = {"id": sid}
-        for k in ("name", "system_prompt", "icon", "group"):
+        for k in ("name", "system_prompt", "icon", "group", "folder_id", "session_type", "type_description"):
             v = item.get(k)
             if isinstance(v, str):
                 clean[k] = v
