@@ -35,6 +35,29 @@ export interface ReorganizeProposal {
   folders: ChatFolder[];
   assignments: Record<string, string>;
   summary: string;
+  method?: 'llm' | 'heuristic';
+}
+
+export interface PartialSummaryResult {
+  summary: string;
+  method: 'llm' | 'extractive';
+  source_count: number;
+  chars: number;
+}
+
+export interface PromptPreviewSection {
+  name: string;
+  enabled: boolean;
+  chars: number;
+  truncated: boolean;
+  text: string;
+}
+
+export interface PromptPreview {
+  session_id: string;
+  sections: PromptPreviewSection[];
+  total_chars: number;
+  assembled_prompt: string;
 }
 
 export interface ContextOverview {
@@ -131,6 +154,35 @@ export class ChatSessionsService {
   aiReorganize(): Observable<ReorganizeProposal> {
     const url = this.hubUrl;
     return this.core.post<ReorganizeProposal>(`${url}/api/chat/sessions/ai-reorganize`, {}, url);
+  }
+
+  summarizeMessages(
+    sessionId: string,
+    messages: { sender: string; text: string }[],
+    targetChars?: number,
+    instruction?: string,
+  ): Observable<PartialSummaryResult> {
+    const url = this.hubUrl;
+    const body: Record<string, unknown> = { messages };
+    if (targetChars != null) body['target_chars'] = targetChars;
+    if (instruction) body['instruction'] = instruction;
+    return this.core.post<PartialSummaryResult>(
+      `${url}/api/chat/sessions/${sessionId}/summarize`, body, url,
+    );
+  }
+
+  getPromptPreview(
+    sessionId: string,
+    message: string,
+    history: { sender: string; text: string }[],
+    summary?: string,
+  ): Observable<PromptPreview> {
+    const url = this.hubUrl;
+    const body: Record<string, unknown> = { message, history };
+    if (summary) body['summary'] = summary;
+    return this.core.post<PromptPreview>(
+      `${url}/api/chat/sessions/${sessionId}/prompt-preview`, body, url,
+    );
   }
 
   getContextOverview(sessionId: string): Observable<ContextOverview> {

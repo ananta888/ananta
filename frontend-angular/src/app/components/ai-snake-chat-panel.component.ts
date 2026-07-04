@@ -208,6 +208,28 @@ import { SnakeOverlayService } from '../services/snake-overlay.service';
             </div>
           }
 
+          @if (!isVisualLogSession()) {
+            <div class="summarize-bar">
+              <button class="sum-toggle" [class.active]="selectMode" (click)="toggleSelectMode()">
+                {{ selectMode ? '✕ Auswahl beenden' : '✂ Zusammenfassen' }}
+              </button>
+              @if (selectMode) {
+                <select [(ngModel)]="summaryLength" class="sum-len">
+                  <option [ngValue]="400">kurz (400)</option>
+                  <option [ngValue]="800">mittel (800)</option>
+                  <option [ngValue]="1500">lang (1500)</option>
+                </select>
+                <button class="sum-go" [disabled]="selectedMsgIds.size < 2 || summarizing"
+                        (click)="summarizeSelected()">
+                  {{ summarizing ? '⟳ Fasse zusammen…' : selectedMsgIds.size + ' Nachrichten zusammenfassen' }}
+                </button>
+              }
+              @if (summaryHint) {
+                <span class="sum-hint">{{ summaryHint }}</span>
+              }
+            </div>
+          }
+
           <div class="messages" #messagesEl>
             @if (isVisualLogSession()) {
               <app-visual-snake-log />
@@ -219,13 +241,50 @@ import { SnakeOverlayService } from '../services/snake-overlay.service';
                 </div>
               }
               @for (m of chatMessages(); track m.id) {
-                <div class="msg" [class.msg-ai]="m.isAI">
-                  <span class="msg-who">{{ m.isAI ? '🤖' : '👤' }}</span>
-                  <span class="msg-body">
-                    <app-chat-message [text]="m.text" />
-                  </span>
-                  @if (m.hasGuide) {
-                    <button class="guide-badge" (click)="setTab('trace')" title="Guide gespielt — Trace ansehen">📍</button>
+                <div class="msg-row"
+                     [class.selectable]="selectMode"
+                     [class.selected]="selectedMsgIds.has(m.id)"
+                     (click)="onMsgRowClick(m.id)">
+                  @if (selectMode) {
+                    <input type="checkbox" class="sel-box"
+                           [checked]="selectedMsgIds.has(m.id)"
+                           (click)="$event.stopPropagation(); toggleMsgSelection(m.id)" />
+                  }
+                  @if (m.kind === 'summary') {
+                    <div class="summary-box">
+                      <div class="summary-head">📋 Zusammenfassung ({{ m.summarizedIds?.length || 0 }} Nachrichten)</div>
+                      <div class="summary-text">{{ m.text }}</div>
+                      <div class="summary-actions">
+                        <button class="sum-mini"
+                                (click)="$event.stopPropagation(); toggleExpandSummary(m.id)">
+                          {{ expandedSummaryIds.has(m.id) ? '▾ Original verbergen' : '▸ Original anzeigen' }}
+                        </button>
+                        <button class="sum-mini"
+                                (click)="$event.stopPropagation(); dissolveSummary(m.id)">↩ Auflösen</button>
+                      </div>
+                      @if (expandedSummaryIds.has(m.id)) {
+                        <div class="summary-originals">
+                          @for (o of summarizedMessages(m.id); track o.id) {
+                            <div class="msg orig-msg" [class.msg-ai]="o.isAI">
+                              <span class="msg-who">{{ o.isAI ? '🤖' : '👤' }}</span>
+                              <span class="msg-body">
+                                <app-chat-message [text]="o.text" />
+                              </span>
+                            </div>
+                          }
+                        </div>
+                      }
+                    </div>
+                  } @else {
+                    <div class="msg" [class.msg-ai]="m.isAI">
+                      <span class="msg-who">{{ m.isAI ? '🤖' : '👤' }}</span>
+                      <span class="msg-body">
+                        <app-chat-message [text]="m.text" />
+                      </span>
+                      @if (m.hasGuide) {
+                        <button class="guide-badge" (click)="setTab('trace')" title="Guide gespielt — Trace ansehen">📍</button>
+                      }
+                    </div>
                   }
                 </div>
               }
@@ -333,8 +392,54 @@ import { SnakeOverlayService } from '../services/snake-overlay.service';
     .sess-meta { color: #4a7aaa; }
     .sess-cc { background: #0a2a1a; border: 1px solid #1a6a3a; color: #3affaa; padding: 1px 4px; font-size: 9px; border-radius: 2px; }
     .msg-count { margin-left: auto; color: #2a4a6a; font-size: 10px; }
+    /* ── Zusammenfassen-Leiste ── */
+    .summarize-bar {
+      display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+      padding: 4px 10px; background: #09172a; border-bottom: 1px solid #152040;
+      font-size: 10px; flex-shrink: 0;
+    }
+    .sum-toggle {
+      background: transparent; border: 1px solid #1a2d4a; color: #6b8ab8;
+      padding: 2px 7px; font-size: 10px; cursor: pointer; border-radius: 3px;
+    }
+    .sum-toggle:hover { color: #7fffd4; }
+    .sum-toggle.active { color: #7fffd4; border-color: #7fffd4; background: #0a2a1a; }
+    .sum-len {
+      background: #0f1c30; border: 1px solid #1a2d4a; color: #c8d8f8;
+      padding: 2px 4px; font-size: 10px; border-radius: 3px;
+    }
+    .sum-go {
+      background: #0a2a1a; border: 1px solid #2a5a4a; color: #7fffd4;
+      padding: 2px 8px; font-size: 10px; cursor: pointer; border-radius: 3px;
+    }
+    .sum-go:disabled { opacity: 0.4; cursor: default; }
+    .sum-hint { color: #d8c8a8; font-size: 10px; }
     /* ── Messages ── */
     .messages { padding: 8px 10px; overflow: auto; display: flex; flex-direction: column; gap: 6px; }
+    .msg-row { display: flex; gap: 6px; align-items: flex-start; }
+    .msg-row.selectable { cursor: pointer; border-radius: 3px; padding: 1px 2px; }
+    .msg-row.selectable:hover { background: #0d1e34; }
+    .msg-row.selected { background: #0a2438; outline: 1px solid #2a5a4a; }
+    .msg-row > .msg, .msg-row > .summary-box { flex: 1; min-width: 0; }
+    .sel-box { flex-shrink: 0; margin-top: 3px; accent-color: #7fffd4; }
+    /* ── Zusammenfassungs-Nachricht ── */
+    .summary-box {
+      background: #0a1a2a; border: 1px solid #2a5a4a; border-radius: 4px;
+      padding: 6px 8px; font-size: 11px; display: grid; gap: 4px;
+    }
+    .summary-head { color: #7fffd4; font-size: 10px; font-weight: 600; }
+    .summary-text { color: #c8d8f8; white-space: pre-wrap; word-break: break-word; }
+    .summary-actions { display: flex; gap: 6px; }
+    .sum-mini {
+      background: transparent; border: 1px solid #1a2d4a; color: #6b8ab8;
+      padding: 1px 6px; font-size: 10px; cursor: pointer; border-radius: 3px;
+    }
+    .sum-mini:hover { color: #7fffd4; border-color: #2a5a4a; }
+    .summary-originals {
+      border-top: 1px dashed #1a2d4a; padding-top: 4px; margin-top: 2px;
+      display: flex; flex-direction: column; gap: 4px; opacity: 0.6;
+    }
+    .orig-msg { font-size: 11px; }
     .no-msgs-hint { color: #2a4a6a; font-size: 11px; text-align: center; padding: 20px 10px; line-height: 1.6; }
     .msg { display: flex; gap: 6px; font-size: 12px; word-break: break-word; align-items: flex-start; }
     .msg-ai .msg-body { color: #b8d8b0; }
@@ -401,6 +506,13 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
   loginError = '';
   newChatMode = false;
   newChatName = '';
+  selectMode = false;
+  selectedMsgIds = new Set<string>();
+  summaryLength = 800;
+  summarizing = false;
+  summaryHint = '';
+  expandedSummaryIds = new Set<string>();
+  private summaryHintTimer: ReturnType<typeof setTimeout> | undefined;
   readonly keycloakPresets = [PUBLIC_KEYCLOAK_BASE_URL];
 
   private historySub?: Subscription;
@@ -440,11 +552,77 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.historySub?.unsubscribe();
     this.activeSub?.unsubscribe();
+    if (this.summaryHintTimer) clearTimeout(this.summaryHintTimer);
     this.uiSync.stop();
   }
 
   chatMessages(): ChatHistoryMessage[] {
-    return this.history.getMessages(this._snakeSessionId || 'default');
+    return this.history.getVisibleMessages(this._snakeSessionId || 'default');
+  }
+
+  toggleSelectMode(): void {
+    this.selectMode = !this.selectMode;
+    if (!this.selectMode) this.selectedMsgIds.clear();
+  }
+
+  toggleMsgSelection(id: string): void {
+    if (this.selectedMsgIds.has(id)) {
+      this.selectedMsgIds.delete(id);
+    } else {
+      this.selectedMsgIds.add(id);
+    }
+  }
+
+  onMsgRowClick(id: string): void {
+    if (this.selectMode) this.toggleMsgSelection(id);
+  }
+
+  toggleExpandSummary(id: string): void {
+    if (this.expandedSummaryIds.has(id)) {
+      this.expandedSummaryIds.delete(id);
+    } else {
+      this.expandedSummaryIds.add(id);
+    }
+  }
+
+  summarizedMessages(summaryId: string): ChatHistoryMessage[] {
+    return this.history.getSummarizedMessages(this._snakeSessionId || 'default', summaryId);
+  }
+
+  dissolveSummary(summaryId: string): void {
+    this.history.dissolveSummary(this._snakeSessionId || 'default', summaryId);
+    this.expandedSummaryIds.delete(summaryId);
+    this.selectedMsgIds.delete(summaryId);
+  }
+
+  summarizeSelected(): void {
+    const sessionId = this._snakeSessionId || 'default';
+    const all = this.history.getVisibleMessages(sessionId);
+    const selected = all.filter(m => this.selectedMsgIds.has(m.id));
+    if (selected.length < 2) return;
+    this.summarizing = true;
+    const payload = selected.map(m => ({ sender: m.isAI ? 'ai' : 'user', text: m.text }));
+    this.sessions.summarizeMessages(sessionId, payload, this.summaryLength).subscribe({
+      next: res => {
+        this.history.insertSummary(sessionId, res.summary, selected.map(m => m.id));
+        this.summarizing = false;
+        this.selectMode = false;
+        this.selectedMsgIds.clear();
+        if (res.method === 'extractive') {
+          this.setSummaryHint('ℹ Kein LLM erreichbar — extraktive Zusammenfassung verwendet.');
+        }
+      },
+      error: () => {
+        this.summarizing = false;
+        this.setSummaryHint('⚠ Zusammenfassung fehlgeschlagen.');
+      },
+    });
+  }
+
+  private setSummaryHint(text: string): void {
+    this.summaryHint = text;
+    if (this.summaryHintTimer) clearTimeout(this.summaryHintTimer);
+    this.summaryHintTimer = setTimeout(() => { this.summaryHint = ''; }, 6000);
   }
 
   sendPlaceholder(): string {
@@ -565,6 +743,9 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
 
   switchSession(id: string): void {
     this._snakeSessionId = id;
+    this.selectMode = false;
+    this.selectedMsgIds.clear();
+    this.expandedSummaryIds.clear();
     try { localStorage.setItem('ananta.snake.session', id); } catch {}
     this.sessions.activate(id);
   }

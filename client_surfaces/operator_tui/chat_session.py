@@ -49,6 +49,7 @@ _DEFAULT_SESSION_SETTINGS: dict[str, Any] = {
     "chat_use_history": True,
     "chat_use_summary": True,
     "chat_summary_chars": 600,
+    "chat_partial_summary_chars": 800,
     "chat_include_local_project": True,
     "chat_include_wikipedia": False,
     "chat_include_task_memory": True,

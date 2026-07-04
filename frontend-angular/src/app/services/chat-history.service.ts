@@ -14,6 +14,9 @@ export interface ChatHistoryMessage {
   ts: number;
   isAI: boolean;
   hasGuide?: boolean;
+  kind?: 'summary';           // set for AI-generated partial summaries
+  summarizedIds?: string[];   // ids of the messages this summary replaces
+  hiddenBySummary?: string;   // id of the summary message that folded this one away
 }
 
 const LS_KEY = 'ananta.chat.history.v2';
@@ -42,6 +45,53 @@ export class ChatHistoryService implements OnDestroy {
 
   getMessages(sessionId: string): ChatHistoryMessage[] {
     return this.store[sessionId] ?? [];
+  }
+
+  /** Insert a summary message replacing the given messages. The originals are
+   *  kept but marked hidden; the summary is inserted at the position of the
+   *  first replaced message. Returns the new summary message id. */
+  insertSummary(sessionId: string, summaryText: string, replacedIds: string[]): string {
+    const msgs = this.store[sessionId] ?? [];
+    const firstIdx = msgs.findIndex(m => replacedIds.includes(m.id));
+    if (firstIdx < 0) return '';
+    const summaryId = 'summary-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    for (const m of msgs) {
+      if (replacedIds.includes(m.id)) m.hiddenBySummary = summaryId;
+    }
+    const entry: ChatHistoryMessage = {
+      id: summaryId, sessionId, senderId: 'summary',
+      text: summaryText, ts: Date.now(), isAI: true,
+      kind: 'summary', summarizedIds: [...replacedIds],
+    };
+    msgs.splice(firstIdx, 0, entry);
+    this.knownIds.add(summaryId);
+    this.persist();
+    this.updated$.next(Date.now());
+    return summaryId;
+  }
+
+  /** Remove a summary and unhide its folded messages. */
+  dissolveSummary(sessionId: string, summaryId: string): void {
+    const msgs = this.store[sessionId] ?? [];
+    const idx = msgs.findIndex(m => m.id === summaryId && m.kind === 'summary');
+    if (idx < 0) return;
+    for (const m of msgs) {
+      if (m.hiddenBySummary === summaryId) delete m.hiddenBySummary;
+    }
+    msgs.splice(idx, 1);
+    this.knownIds.delete(summaryId);
+    this.persist();
+    this.updated$.next(Date.now());
+  }
+
+  /** Messages with summary-folded ones filtered out (for prompt building / display). */
+  getVisibleMessages(sessionId: string): ChatHistoryMessage[] {
+    return (this.store[sessionId] ?? []).filter(m => !m.hiddenBySummary);
+  }
+
+  /** Originals folded under a summary (for expand view). */
+  getSummarizedMessages(sessionId: string, summaryId: string): ChatHistoryMessage[] {
+    return (this.store[sessionId] ?? []).filter(m => m.hiddenBySummary === summaryId);
   }
 
   allSessionIds(): string[] {

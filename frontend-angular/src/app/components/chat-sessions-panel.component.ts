@@ -9,6 +9,7 @@ import {
   ReorganizeProposal,
   ContextOverview,
   CreateSessionPayload,
+  PromptPreview,
 } from '../services/chat-sessions.service';
 import { ChatHistoryService } from '../services/chat-history.service';
 
@@ -61,6 +62,7 @@ interface TreeItem {
         <button class="reorg-btn" (click)="startReorganize()" [disabled]="reorganizing">
           {{ reorganizing ? '⟳ Analysiere...' : '🤖 Neu-Strukturieren' }}
         </button>
+        <button class="new-folder-btn" (click)="createRootFolder()" title="Neuen Ordner anlegen">📁＋</button>
         @if (loading) {
           <span class="loading-indicator">⟳</span>
         }
@@ -68,6 +70,15 @@ interface TreeItem {
 
       <!-- ── Session + folder list ── -->
       <div class="list">
+        @if (draggingSessionId) {
+          <div class="root-drop-zone"
+               [class.drag-over]="dragOverFolderId === '__root__'"
+               (dragover)="onDragOver($event, '__root__')"
+               (dragleave)="onDragLeave()"
+               (drop)="onDropRoot($event)">
+            ⤒ Hierher ziehen: aus Ordner entfernen
+          </div>
+        }
         @for (item of getFlatTree(); track item.trackId) {
 
           <!-- Folder header -->
@@ -119,11 +130,11 @@ interface TreeItem {
                         @if (s.type_description) {
                           <div class="tt-desc">{{ s.type_description }}</div>
                         }
-                        @if (s.message_count > 0) {
-                          <div class="tt-row">{{ s.message_count }} Nachrichten</div>
+                        @if (msgCount(s) > 0) {
+                          <div class="tt-row">{{ msgCount(s) }} Nachrichten</div>
                         }
-                        @if (s.last_message_preview) {
-                          <div class="tt-preview">"{{ s.last_message_preview }}"</div>
+                        @if (lastPreview(s)) {
+                          <div class="tt-preview">"{{ lastPreview(s) }}"</div>
                         }
                         @if (s.updated_at) {
                           <div class="tt-row tt-muted">{{ formatDate(s.updated_at) }}</div>
@@ -366,9 +377,12 @@ interface TreeItem {
                     </div>
 
                     <!-- Kontext-Überblick button + table -->
-                    <button class="ctx-overview-btn" (click)="toggleContextOverview(s)">
-                      Kontext-Überblick anzeigen {{ contextOverviewExpanded[s.id] ? '▲' : '▼' }}
-                    </button>
+                    <div class="ctx-btn-row">
+                      <button class="ctx-overview-btn" (click)="toggleContextOverview(s)">
+                        Kontext-Überblick anzeigen {{ contextOverviewExpanded[s.id] ? '▲' : '▼' }}
+                      </button>
+                      <button class="ctx-overview-btn" (click)="openPromptPreview(s)">Prompt-Vorschau ⧉</button>
+                    </div>
 
                     @if (contextOverviewExpanded[s.id]) {
                       @if (contextOverviews[s.id]; as ov) {
@@ -504,6 +518,44 @@ interface TreeItem {
         </div>
       </div>
     }
+
+    <!-- ── Prompt preview modal ── -->
+    @if (promptPreviewSession) {
+      <div class="modal-backdrop" (click)="closePromptPreview()">
+        <div class="modal preview-modal" (click)="$event.stopPropagation()">
+          <div class="modal-title">⧉ Prompt-Vorschau — {{ promptPreviewSession }}</div>
+          @if (promptPreview; as pv) {
+            <div class="preview-sections">
+              @for (sec of pv.sections; track sec.name) {
+                <div class="preview-sec-row">
+                  <span class="preview-sec-name">{{ sectionLabel(sec.name) }}</span>
+                  <span class="preview-badge" [class.on]="sec.enabled">{{ sec.enabled ? 'aktiv' : 'inaktiv' }}</span>
+                  <span class="preview-chars">{{ sec.chars }} Zeichen</span>
+                  @if (sec.truncated) {
+                    <span class="preview-trunc">⚠ gekürzt</span>
+                  }
+                </div>
+              }
+            </div>
+            <div class="preview-total">Gesamt: {{ pv.total_chars }} Zeichen</div>
+            <pre class="preview-pre">{{ pv.assembled_prompt }}</pre>
+            <div class="modal-actions">
+              <button class="btn-cancel" (click)="copyPromptPreview()">
+                {{ previewCopied ? '✓ Kopiert' : 'In Zwischenablage kopieren' }}
+              </button>
+              <button class="btn-accept" (click)="closePromptPreview()">Schließen</button>
+            </div>
+          } @else if (promptPreviewError) {
+            <div class="err">{{ promptPreviewError }}</div>
+            <div class="modal-actions">
+              <button class="btn-cancel" (click)="closePromptPreview()">Schließen</button>
+            </div>
+          } @else {
+            <div class="ctx-loading">Lade Prompt-Vorschau...</div>
+          }
+        </div>
+      </div>
+    }
   `,
   styles: [`
     :host { display: block; }
@@ -520,6 +572,18 @@ interface TreeItem {
     }
     .reorg-btn:hover:not(:disabled) { background: #102238; color: #7fffd4; border-color: #2a5090; }
     .reorg-btn:disabled { opacity: 0.45; cursor: default; }
+    .new-folder-btn {
+      background: #0a1825; border: 1px solid #1a3050; color: #7ab0e0;
+      padding: 4px 8px; cursor: pointer; font-size: 11px; border-radius: 3px; flex-shrink: 0;
+    }
+    .new-folder-btn:hover { background: #102238; color: #7fffd4; border-color: #2a5090; }
+
+    /* ── Root drop zone ── */
+    .root-drop-zone {
+      border: 1px dashed #3a6a9a; padding: 6px; font-size: 10px;
+      color: #6b8ab8; text-align: center; margin: 4px 6px; border-radius: 3px;
+    }
+    .root-drop-zone.drag-over { border-color: #3aacca; background: #0a2030; }
     .loading-indicator { color: #3a6a9a; font-size: 13px; animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -700,11 +764,13 @@ interface TreeItem {
       background: #0f1c30; border: 1px solid #1a2d4a; color: #c8d8f8;
       border-radius: 2px; font-family: inherit;
     }
+    .ctx-btn-row { display: flex; gap: 5px; margin-top: 2px; }
     .ctx-overview-btn {
       background: transparent; border: 1px solid #1a2d4a; color: #4a6a9a;
       padding: 2px 8px; cursor: pointer; font-size: 10px; align-self: flex-start;
       border-radius: 2px; margin-top: 2px;
     }
+    .ctx-btn-row .ctx-overview-btn { margin-top: 0; }
     .ctx-overview-btn:hover { color: #7fffd4; border-color: #2a5080; }
     .ctx-table { font-size: 10px; border-collapse: collapse; width: 100%; margin-top: 4px; }
     .ctx-td-label { color: #6b8ab8; padding: 2px 6px 2px 0; width: 100px; white-space: nowrap; }
@@ -783,6 +849,26 @@ interface TreeItem {
       padding: 6px 14px; cursor: pointer; font-size: 12px; border-radius: 3px;
     }
     .btn-cancel:hover { color: #c8d8f8; }
+
+    /* ── Prompt preview modal ── */
+    .preview-modal { min-width: 420px; max-width: 620px; }
+    .preview-sections { display: flex; flex-direction: column; gap: 3px; margin-bottom: 10px; }
+    .preview-sec-row { display: flex; align-items: center; gap: 8px; font-size: 11px; }
+    .preview-sec-name { color: #c8d8f8; width: 130px; flex-shrink: 0; }
+    .preview-badge {
+      font-size: 9px; padding: 1px 6px; border-radius: 8px;
+      background: #101a28; border: 1px solid #1a2d4a; color: #4a6a8a;
+    }
+    .preview-badge.on { background: #0a2a1a; border-color: #2a5a4a; color: #7fffd4; }
+    .preview-chars { color: #6b8ab8; font-size: 10px; }
+    .preview-trunc { color: #d8a848; font-size: 10px; }
+    .preview-total { font-size: 11px; color: #9ab8d8; margin-bottom: 8px; }
+    .preview-pre {
+      max-height: 300px; overflow-y: auto; font-size: 10px;
+      background: #050d18; border: 1px solid #1a2d4a; border-radius: 3px;
+      padding: 8px; color: #9ab8d8; white-space: pre-wrap; word-break: break-word;
+      margin: 0;
+    }
   `],
 })
 export class ChatSessionsPanelComponent implements OnInit, OnDestroy {
@@ -813,6 +899,12 @@ export class ChatSessionsPanelComponent implements OnInit, OnDestroy {
   // Context overview per session
   contextOverviews: Record<string, ContextOverview> = {};
   contextOverviewExpanded: Record<string, boolean> = {};
+
+  // Prompt preview modal
+  promptPreview: PromptPreview | null = null;
+  promptPreviewSession = '';
+  promptPreviewError = '';
+  previewCopied = false;
 
   // New session form
   newName = '';
@@ -928,7 +1020,20 @@ export class ChatSessionsPanelComponent implements OnInit, OnDestroy {
     this.dragOverFolderId = '';
   }
 
+  onDropRoot(event: DragEvent): void {
+    event.preventDefault();
+    if (this.draggingSessionId) this.svc.update(this.draggingSessionId, { folder_id: '' });
+    this.draggingSessionId = '';
+    this.dragOverFolderId = '';
+  }
+
   // ── Folder actions ───────────────────────────────────────────────────────
+
+  createRootFolder(): void {
+    const name = prompt('Ordner-Name:');
+    if (!name?.trim()) return;
+    this.svc.createFolder(name.trim(), '📁').subscribe();
+  }
 
   createSubfolder(parentId: string): void {
     const name = prompt('Ordner-Name:');
@@ -1033,6 +1138,50 @@ export class ChatSessionsPanelComponent implements OnInit, OnDestroy {
     }
   }
 
+  // ── Prompt preview ───────────────────────────────────────────────────────
+
+  openPromptPreview(s: ChatSession): void {
+    this.promptPreview = null;
+    this.promptPreviewError = '';
+    this.previewCopied = false;
+    this.promptPreviewSession = s.name;
+    const history = this.chatHistorySvc.getVisibleMessages(s.id)
+      .map(m => ({ sender: m.isAI ? 'ai' : 'user', text: m.text }));
+    this.svc.getPromptPreview(s.id, '(Beispiel: nächste Nachricht)', history).subscribe({
+      next: pv => { this.promptPreview = pv; },
+      error: err => {
+        this.promptPreviewError = String((err as Error)?.message || 'Fehler beim Laden der Prompt-Vorschau');
+      },
+    });
+  }
+
+  closePromptPreview(): void {
+    this.promptPreview = null;
+    this.promptPreviewSession = '';
+    this.promptPreviewError = '';
+    this.previewCopied = false;
+  }
+
+  copyPromptPreview(): void {
+    const text = this.promptPreview?.assembled_prompt ?? '';
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      this.previewCopied = true;
+      setTimeout(() => { this.previewCopied = false; }, 2000);
+    }).catch(() => { /* clipboard unavailable — ignore */ });
+  }
+
+  sectionLabel(name: string): string {
+    const map: Record<string, string> = {
+      system_prompt: 'System-Prompt',
+      summary: 'Zusammenfassung',
+      history: 'Verlauf',
+      rag: 'Kontext (RAG)',
+      user_message: 'Neue Nachricht',
+    };
+    return map[name] ?? name;
+  }
+
   // ── Session type picker ──────────────────────────────────────────────────
 
   selectSessionType(t: typeof SESSION_TYPES[number]): void {
@@ -1108,6 +1257,18 @@ export class ChatSessionsPanelComponent implements OnInit, OnDestroy {
   clearHistory(s: ChatSession): void {
     if (!confirm(`Chat-Verlauf für "${s.name}" wirklich löschen?`)) return;
     this.chatHistorySvc.clearSession(s.id);
+  }
+
+  // ── Tooltip data from local history ──────────────────────────────────────
+
+  msgCount(s: ChatSession): number {
+    return this.chatHistorySvc.getMessages(s.id).length;
+  }
+
+  lastPreview(s: ChatSession): string {
+    const msgs = this.chatHistorySvc.getMessages(s.id);
+    const last = msgs[msgs.length - 1];
+    return last ? last.text.slice(0, 80) : '';
   }
 
   // ── Settings helpers ─────────────────────────────────────────────────────
