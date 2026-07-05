@@ -2,23 +2,55 @@
   "$schema": "./todo.track.schema.json",
   "id": "todo.subscription-cli-adapters-codex-claude",
   "title": "Codex-CLI Account-Login nachruesten und Claude-CLI als Worker-Agent integrieren",
-  "version": "2.0",
+  "version": "2.1",
   "owner": "Peter Stuiber / Ananta",
   "track": "ananta-cli-worker-backends",
   "created": "2026-07-05",
   "updated": "2026-07-05",
   "changelog": [
+    "v2.1 (2026-07-05): CCA-001 + CCA-002 done. docs/architecture/cli-backends/codex-already-done.md erstellt mit 26 code-anchors und migartion-rule. 14 neue tests in test_codex_cli_auth_mode.py. auth_mode=chatgpt_login und api_key_required in settings/config_defaults/resolve_codex_runtime_config/run_codex_command/preflight integriert.",
     "v2.0 (2026-07-05): nach quellcode-recherche korrigiert. CCA-001 (ist-zustand) done — codex-cli runtime, contract, preflight, config-block, tests alle vorhanden. COMMON-001 done — shell-disziplin (5 subprocess.run-stellen ohne shell=True) bereits etabliert. features mit status done|open, depends_on graph, milestones, tasks_status_summary, prioritaet, risk. confirmed_anchors durch codebelege erweitert; open_questions explizit als block; 'codex-bereits-da' als neuer eintrag ergaenzt."
   ],
-  "status_scale": ["open", "in_progress", "partial", "blocked", "done"],
+  "status_scale": [
+    "open",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
   "tasks_status_summary": {
     "total": 11,
-    "by_status": {"done": 2, "in_progress": 0, "partial": 0, "blocked": 0, "open": 9},
-    "progress_percent_done": 18.18,
-    "by_priority": {"P0": 9, "P1": 2},
-    "by_risk": {"low": 4, "medium": 5, "high": 2, "critical": 0},
-    "critical_path": {"total": 7, "done": 1, "remaining": 6},
-    "milestones": {"total": 4, "todo": 3, "in_progress": 0, "partial": 0, "done": 1}
+    "by_status": {
+      "done": 3,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "open": 8
+    },
+    "progress_percent_done": 27.27,
+    "by_priority": {
+      "P0": 9,
+      "P1": 2
+    },
+    "by_risk": {
+      "low": 4,
+      "medium": 5,
+      "high": 2,
+      "critical": 0
+    },
+    "critical_path": {
+      "total": 7,
+      "done": 2,
+      "remaining": 5
+    },
+    "milestones": {
+      "total": 4,
+      "todo": 2,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 2
+    }
   },
   "corrected_assumption": {
     "codex_cli": "Nicht als komplett neuer Adapter behandeln. Codex-CLI ist in Ananta bereits als Worker-Agent-Pfad vorhanden (executor_kind='openai_codex_cli'), bisher aber API-Key-basiert. Aufgabe ist Ist-Zustand dokumentieren, vorhandenen Code wiederverwenden und Account-Login-Modus ergaenzen.",
@@ -148,28 +180,43 @@
       "id": "M1",
       "title": "Codex-Ist-Zustand dokumentieren (CCA-001)",
       "status": "done",
-      "task_ids": ["CCA-001"],
+      "task_ids": [
+        "CCA-001"
+      ],
       "deliverable": "docs/architecture/cli-backends/codex-already-done.md"
     },
     {
       "id": "M2",
       "title": "Codex um Account-Login erweitern (CCA-002 + COMMON-001)",
-      "status": "open",
-      "task_ids": ["CCA-002", "COMMON-001"],
+      "status": "done",
+      "task_ids": [
+        "CCA-002",
+        "COMMON-001"
+      ],
       "acceptance": "Bestehender API-Key-Modus unveraendert; auth_mode=chatgpt_login ueber codex_cli.agent_cfg konfigurierbar; run_codex_command setzt kein OPENAI_API_KEY wenn auth_mode=chatgpt_login; preflight liefert auth_mode und login_status; tests mit mock-codex."
     },
     {
       "id": "M3",
       "title": "Claude-Code Worker-Agent-Adapter komplett (CLA-001 + CLA-002 + COMMON-001 fuer claude)",
       "status": "open",
-      "task_ids": ["CLA-001", "CLA-002"],
+      "task_ids": [
+        "CLA-001",
+        "CLA-002"
+      ],
       "acceptance": "cli_backend=claude_code runtime-seitig registriert (semaphore, contract, SUPPORTED_CLI_BACKENDS, executor_kind); run_claude_command folgt codex/aider-muster (args-liste, kein shell, timeout, env-isolierung); read_only analyse funktioniert mit mock-claude-binary; health und login_status ohne token-lesen; tests gruen."
     },
     {
       "id": "M4",
       "title": "Routing, API, UI, Doku, Tests (COMMON-002..005 + CCA-003 + CLA-003)",
       "status": "open",
-      "task_ids": ["COMMON-002", "COMMON-003", "COMMON-004", "COMMON-005", "CCA-003", "CLA-003"],
+      "task_ids": [
+        "COMMON-002",
+        "COMMON-003",
+        "COMMON-004",
+        "COMMON-005",
+        "CCA-003",
+        "CLA-003"
+      ],
       "acceptance": "per-backend health/diagnose/test-run endpunkte; codex+claude ui-cards; routing-trennung; betriebsmodus-doku; mock-tests ohne echte accounts; alle 11 features done; alle tests gruen."
     }
   ],
@@ -196,11 +243,14 @@
     {
       "id": "CCA-002",
       "title": "Codex Account-Login-Modus ohne API-Key-Zwang nachruesten",
-      "status": "open",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "milestone": "M2",
-      "depends_on": ["CCA-001", "COMMON-001"],
+      "depends_on": [
+        "CCA-001",
+        "COMMON-001"
+      ],
       "acceptance_criteria": [
         "Bestehender API-Key-Modus bleibt unveraendert nutzbar.",
         "Neuer auth_mode=chatgpt_login/account_login ist konfigurierbar (agent_cfg.codex_cli.auth_mode).",
@@ -214,7 +264,8 @@
         "agent/cli_backends/opencode.py:528 run_codex_command — Z. 558-559 ist die api_key-pruefung, anpassen",
         "agent/config_defaults.py:389 codex_cli block — auth_mode field hinzufuegen",
         "agent/cli_backends/routing.py:382 codex preflight-block — auth_mode, auth_status sichtbar machen"
-      ]
+      ],
+      "status_note": "2026-07-05: codex auth_mode implementiert + 14 tests gruen. settings.codex_auth_mode und codex_require_api_key neu. config_defaults.codex_cli.auth_mode und api_key_required neu. resolve_codex_runtime_config liefert auth_mode + api_key_required. run_codex_command ueberspringt api_key-pruefung und OPENAI_API_KEY-injection bei auth_mode=chatgpt_login. preflight liefert auth_mode + login_command='codex login'."
     },
     {
       "id": "CCA-003",
@@ -223,7 +274,10 @@
       "priority": "P0",
       "risk": "medium",
       "milestone": "M4",
-      "depends_on": ["CCA-002", "COMMON-003"],
+      "depends_on": [
+        "CCA-002",
+        "COMMON-003"
+      ],
       "acceptance_criteria": [
         "UI zeigt Codex nicht als komplett neuen unbekannten Adapter, sondern als vorhandenes/erkanntes Backend mit Status.",
         "API-Key-Modus und ChatGPT-Login-Modus sind klar getrennt (z.B. separate ui-felder oder -tabs).",
@@ -244,7 +298,9 @@
       "priority": "P0",
       "risk": "high",
       "milestone": "M3",
-      "depends_on": ["COMMON-001"],
+      "depends_on": [
+        "COMMON-001"
+      ],
       "acceptance_criteria": [
         "cli_backend=claude_code wird runtime-seitig registriert (agent/backend_provider_contracts.py, agent/cli_backends/semaphore.py, SUPPORTED_CLI_BACKENDS).",
         "Adapter kann read-only Analyse-Task ausfuehren und stdout/stderr/exit_code/duration erfassen.",
@@ -274,7 +330,9 @@
       "priority": "P0",
       "risk": "medium",
       "milestone": "M3",
-      "depends_on": ["CLA-001"],
+      "depends_on": [
+        "CLA-001"
+      ],
       "acceptance_criteria": [
         "Health Check erkennt command_not_found und liefert Install-Hinweise fuer Windows, WSL/Linux und macOS.",
         "Auth Check liest keine Dateien aus .claude, .config oder anderen Token-Verzeichnissen.",
@@ -294,7 +352,11 @@
       "priority": "P0",
       "risk": "medium",
       "milestone": "M4",
-      "depends_on": ["CLA-001", "CLA-002", "COMMON-003"],
+      "depends_on": [
+        "CLA-001",
+        "CLA-002",
+        "COMMON-003"
+      ],
       "acceptance_criteria": [
         "UI-Karte fuer Claude Code/Claude CLI vorhanden.",
         "Button fuer Diagnose, Install-Hilfe, Aktivieren/Deaktivieren und read-only Test-Run vorhanden.",
@@ -337,7 +399,9 @@
       "priority": "P0",
       "risk": "medium",
       "milestone": "M4",
-      "depends_on": ["CLA-001"],
+      "depends_on": [
+        "CLA-001"
+      ],
       "acceptance_criteria": [
         "Codex/Claude werden als Worker-Agent/CLI-Backends geroutet, nicht als OpenAI-kompatible ChatCompletionProvider.",
         "Deterministische Task Engine bleibt Vorrang fuer einfache Read-only Operationen.",
@@ -358,7 +422,10 @@
       "priority": "P1",
       "risk": "medium",
       "milestone": "M4",
-      "depends_on": ["CCA-002", "CLA-001"],
+      "depends_on": [
+        "CCA-002",
+        "CLA-001"
+      ],
       "api_candidates": [
         "GET /api/cli-backends (existiert als GET /sgpt/backends in agent/routes/sgpt.py:435, wiederverwenden)",
         "GET /api/cli-backends/{backend_id}/health (fehlt — neuer endpunkt)",
@@ -405,7 +472,10 @@
       "priority": "P0",
       "risk": "low",
       "milestone": "M4",
-      "depends_on": ["CCA-002", "CLA-001"],
+      "depends_on": [
+        "CCA-002",
+        "CLA-001"
+      ],
       "acceptance_criteria": [
         "Mock-Codex deckt api_key_mode, chatgpt_login_ready, not_logged_in, timeout und fake_diff ab.",
         "Mock-Claude deckt ready, not_installed, not_logged_in, timeout und fake_diff ab.",
