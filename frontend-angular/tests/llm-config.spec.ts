@@ -114,7 +114,7 @@ test.describe('LLM Config', () => {
     await openLlmSettings(page);
 
     // 1) Catalog context length is visible in model select
-    const modelSelect = page.getByLabel('Default Model').first();
+    const modelSelect = page.getByTestId('settings-default-model');
     await expect.poll(async () => {
       const options = await modelSelect.locator('option').allTextContents();
       return options.join(' | ');

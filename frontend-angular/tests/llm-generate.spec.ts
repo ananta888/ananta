@@ -66,7 +66,11 @@ test.describe('LLM Generate', () => {
   async function openAssistant(page: any) {
     const container = page.locator('.ai-assistant-container');
     await container.locator('.header').click();
-    await expect(container.locator('.content')).toBeVisible();
+    const content = container.locator('.content');
+    if (await content.isHidden()) {
+      await container.getByRole('button', { name: /Snake Chat/i }).evaluate((button: HTMLButtonElement) => button.click());
+    }
+    await expect(content).toBeVisible();
     return container;
   }
 

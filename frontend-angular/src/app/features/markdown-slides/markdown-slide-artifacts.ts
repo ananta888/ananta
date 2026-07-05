@@ -4,6 +4,7 @@ import {
   MarkdownSlideDiagnostic,
   MarkdownSlideDiagnosticSeverity,
 } from './markdown-slide.models';
+import { sha256Hex } from '../../shared/crypto/sha256';
 
 export async function buildMarkdownDeckArtifactContract(
   markdown: string,
@@ -14,7 +15,7 @@ export async function buildMarkdownDeckArtifactContract(
   return {
     artifactType: 'markdown_slide_deck',
     sourcePath: metadata.sourcePath,
-    contentHash: await sha256(markdown),
+    contentHash: await sha256Hex(markdown),
     metadata,
     slideCount,
     diagnosticsSummary: summarizeDiagnostics(diagnostics),
@@ -26,10 +27,4 @@ export function summarizeDiagnostics(diagnostics: MarkdownSlideDiagnostic[]): Re
     summary[diagnostic.severity] += 1;
     return summary;
   }, { info: 0, warning: 0, error: 0, security: 0 } as Record<MarkdownSlideDiagnosticSeverity, number>);
-}
-
-async function sha256(value: string): Promise<string> {
-  const bytes = new TextEncoder().encode(value);
-  const digest = await crypto.subtle.digest('SHA-256', bytes);
-  return Array.from(new Uint8Array(digest)).map(byte => byte.toString(16).padStart(2, '0')).join('');
 }
