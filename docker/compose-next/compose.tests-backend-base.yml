@@ -1,0 +1,27 @@
+# Gemeinsame Konfiguration für die aufgeteilten Backend-Testservices.
+#
+# Diese Datei wird ausschließlich über `extends` eingebunden. Sie ist kein
+# eigenständig zu startender Teststack.
+
+services:
+  _backend-test:
+    build:
+      context: ../..
+      dockerfile: docker/compose-next/Dockerfile.tests-backend
+    image: ananta-backend-tests:local
+    pull_policy: never
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      ANANTA_QUICKSTART_MODE: "agent-only"
+      PYTHONPATH: /app
+      PYTHONUNBUFFERED: "1"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:-ananta_password}@postgres:5432/${POSTGRES_DB:-ananta}"
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      DEFAULT_PROVIDER: "mock"
+      DEFAULT_MODEL: "mock"
+      RAG_REPO_ROOT: "/tmp"
+    volumes:
+      - ../../:/app
+      - test-results:/results
+    working_dir: /app
