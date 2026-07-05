@@ -1,0 +1,57 @@
+{
+  "schema_version": "code-review-graph.export.v1",
+  "reviewer_graph_revision": "b72413cbd34a4ac08cc60dcdd42df1d02f3fc77d",
+  "reviewer_graph_version": "2.3.6",
+  "files": [
+    {
+      "path": "src/billing.cpp",
+      "functions": [
+        {"name": "compute_total", "line_start": 1, "line_end": 10, "confidence": "EXTRACTED"}
+      ],
+      "classes": [],
+      "imports": []
+    },
+    {
+      "path": "src/payments.cpp",
+      "functions": [
+        {"name": "charge", "line_start": 1, "line_end": 12, "confidence": "EXTRACTED"}
+      ],
+      "classes": [],
+      "imports": []
+    },
+    {
+      "path": "src/orders.cpp",
+      "functions": [
+        {"name": "create_order", "line_start": 1, "line_end": 8, "confidence": "EXTRACTED"}
+      ],
+      "classes": [],
+      "imports": []
+    }
+  ],
+  "edges": [
+    {
+      "kind": "calls",
+      "from_file": "src/orders.cpp",
+      "from_symbol": "create_order",
+      "to_file": "src/billing.cpp",
+      "to_symbol": "compute_total",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "kind": "calls",
+      "from_file": "src/billing.cpp",
+      "from_symbol": "compute_total",
+      "to_file": "src/payments.cpp",
+      "to_symbol": "charge",
+      "confidence": "EXTRACTED"
+    }
+  ],
+  "tests": [
+    {
+      "file": "tests/test_billing.cpp",
+      "function": "test_compute_total",
+      "covers_symbol": "src/billing.cpp:compute_total",
+      "confidence": "EXTRACTED"
+    }
+  ]
+}

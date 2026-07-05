@@ -405,6 +405,8 @@ class CrgSqliteAdapter:
 
     @staticmethod
     def _read_revision(db_path: Path) -> str:
+        # Always read-only. COMBO-008 acceptance: every SQLite access
+        # in the adapter must use uri=mode=ro.
         with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True) as conn:
             row = conn.execute(
                 "SELECT value FROM meta WHERE key='reviewer_graph_revision'"
@@ -416,6 +418,8 @@ class CrgSqliteAdapter:
     @staticmethod
     def _read_table(conn: sqlite3.Connection, table: str) -> list[dict[str, Any]]:
         # Schema-pinned query — column order is part of CRG v2.3.6 contract.
+        # Note: this helper takes an *already-opened* read-only
+        # connection (the caller passes a ``sqlite3.connect(uri=mode=ro)``).
         if table == "nodes":
             rows = conn.execute(
                 "SELECT id, kind, file, name, confidence FROM nodes"
