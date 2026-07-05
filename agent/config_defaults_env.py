@@ -240,6 +240,8 @@ def apply_env_config_overrides(cfg: dict) -> None:
             evolver_cfg[key] = value
     provider_overrides["evolver"] = evolver_cfg
     evolution_cfg["provider_overrides"] = provider_overrides
-    if evolver_cfg["enabled"] and evolver_cfg["default"]:
+    # Persistierte Configs aelterer Versionen koennen enabled/default
+    # im evolver-Block noch nicht haben — fail-safe statt KeyError.
+    if evolver_cfg.get("enabled") and evolver_cfg.get("default"):
         evolution_cfg["default_provider"] = evolver_cfg.get("provider_name") or "evolver"
     cfg["evolution"] = evolution_cfg

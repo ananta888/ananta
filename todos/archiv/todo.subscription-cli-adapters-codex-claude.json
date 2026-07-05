@@ -1,13 +1,14 @@
 {
-  "$schema": "./todo.track.schema.json",
+  "$schema": "../todo.track.schema.json",
   "id": "todo.subscription-cli-adapters-codex-claude",
   "title": "Codex-CLI Account-Login nachruesten und Claude-CLI als Worker-Agent integrieren",
-  "version": "2.1",
+  "version": "3.0",
   "owner": "Peter Stuiber / Ananta",
   "track": "ananta-cli-worker-backends",
   "created": "2026-07-05",
   "updated": "2026-07-05",
   "changelog": [
+    "v3.0 (2026-07-05): ALLE 11 features done, M1-M4 done. CLA-001: run_claude_command + resolve_claude_runtime_config in opencode.py (args-liste, kein shell, semaphore, env-isolierung, ANTHROPIC_API_KEY-strip bei claude_login, allowed_paths-check, permission_mode fail-safe auf plan). CLA-002: preflight providers.claude + _claude_login_command_for_mode + runtime-status-eintrag. COMMON-002: _choose_candidates gated claude_code (nur enabled+installed im auto-modus), codex-prefix in _EXPENSIVE_WORKER_PREFIXES. COMMON-003: GET /sgpt/backends/{id}/health, POST .../diagnose, POST .../test-run + diagnose_cli_backend helper; auth_mode/api_key_required in codex_runtime_target, neues claude_runtime_target. CCA-003+CLA-003: cli-backend-setup.component.ts (route /cli-backends, codex+claude cards, kein token-feld bei login-modi), types/client/service erweitert. COMMON-004: docs/architecture/cli-backends/runtime-modes.md. COMMON-005: tests/test_claude_cli_backend.py mit 34 mock-basierten tests, alle ohne echte keys; 138+59 tests gruen im docker-compose-testcontainer. Bonus-fix: config_defaults_env.py evolver KeyError (crash-loop der compose-agents) fail-safe gemacht.",
     "v2.1 (2026-07-05): CCA-001 + CCA-002 done. docs/architecture/cli-backends/codex-already-done.md erstellt mit 26 code-anchors und migartion-rule. 14 neue tests in test_codex_cli_auth_mode.py. auth_mode=chatgpt_login und api_key_required in settings/config_defaults/resolve_codex_runtime_config/run_codex_command/preflight integriert.",
     "v2.0 (2026-07-05): nach quellcode-recherche korrigiert. CCA-001 (ist-zustand) done — codex-cli runtime, contract, preflight, config-block, tests alle vorhanden. COMMON-001 done — shell-disziplin (5 subprocess.run-stellen ohne shell=True) bereits etabliert. features mit status done|open, depends_on graph, milestones, tasks_status_summary, prioritaet, risk. confirmed_anchors durch codebelege erweitert; open_questions explizit als block; 'codex-bereits-da' als neuer eintrag ergaenzt."
   ],
@@ -21,13 +22,13 @@
   "tasks_status_summary": {
     "total": 11,
     "by_status": {
-      "done": 3,
+      "done": 11,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "open": 8
+      "open": 0
     },
-    "progress_percent_done": 27.27,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 9,
       "P1": 2
@@ -40,16 +41,16 @@
     },
     "critical_path": {
       "total": 7,
-      "done": 2,
-      "remaining": 5
+      "done": 7,
+      "remaining": 0
     },
     "milestones": {
       "total": 4,
-      "todo": 2,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 2
+      "done": 4
     }
   },
   "corrected_assumption": {
@@ -198,7 +199,7 @@
     {
       "id": "M3",
       "title": "Claude-Code Worker-Agent-Adapter komplett (CLA-001 + CLA-002 + COMMON-001 fuer claude)",
-      "status": "open",
+      "status": "done",
       "task_ids": [
         "CLA-001",
         "CLA-002"
@@ -208,7 +209,7 @@
     {
       "id": "M4",
       "title": "Routing, API, UI, Doku, Tests (COMMON-002..005 + CCA-003 + CLA-003)",
-      "status": "open",
+      "status": "done",
       "task_ids": [
         "COMMON-002",
         "COMMON-003",
@@ -270,7 +271,8 @@
     {
       "id": "CCA-003",
       "title": "Codex UI an bestehenden Backend-Pfad anbinden",
-      "status": "open",
+      "status": "done",
+      "status_note": "2026-07-05: auth_mode + api_key_required in codex_runtime_target (list_cli_backends). Neue seite frontend-angular/src/app/components/cli-backend-setup.component.ts (route /cli-backends): codex-card mit auth-modus-umschalter, kein api-key-pflichtfeld bei chatgpt_login (nur profil-feld im api_key-modus), login_command-hinweis, diagnose + read-only test-run buttons.",
       "priority": "P0",
       "risk": "medium",
       "milestone": "M4",
@@ -294,7 +296,8 @@
     {
       "id": "CLA-001",
       "title": "Claude Code/Claude-CLI Adapter neu implementieren",
-      "status": "open",
+      "status": "done",
+      "status_note": "2026-07-05: run_claude_command + resolve_claude_runtime_config in agent/cli_backends/opencode.py (codex/aider-muster: shutil.which, args-liste, kein shell=True, timeout, semaphore claude_code=1, env-isolierung). auth_mode=claude_login strippt ANTHROPIC_API_KEY aus env; api_key-modus injiziert settings.anthropic_api_key. permission_mode fail-safe auf plan (bypassPermissions abgelehnt). allowed_paths-workdir-check. registrierung: SUPPORTED_CLI_BACKENDS/capabilities/install-hint/verify/semaphore/contract (bereits in 32cf33cf7) + worker_execution.py EXECUTOR_KIND_TO_PROVIDER_ID + descriptor + read_models.py claude_cli inventory + dispatch-zweig in cli_backends/sgpt.py. 34 tests in tests/test_claude_cli_backend.py, alle mit mock-binary.",
       "priority": "P0",
       "risk": "high",
       "milestone": "M3",
@@ -326,7 +329,8 @@
     {
       "id": "CLA-002",
       "title": "Claude CLI Health/Auth Diagnose",
-      "status": "open",
+      "status": "done",
+      "status_note": "2026-07-05: preflight providers.claude (installed via shutil.which, enabled, auth_mode, api_key_required, login_command via _claude_login_command_for_mode, install_hint, diagnostics) + claude_code-eintrag in get_cli_backend_runtime_status. KEIN lesen von ~/.claude/ oder token-files; not_logged_in zeigt sich im run/test-run und wird als stderr durchgereicht (dokumentiert in runtime-modes.md).",
       "priority": "P0",
       "risk": "medium",
       "milestone": "M3",
@@ -348,7 +352,8 @@
     {
       "id": "CLA-003",
       "title": "Claude Angular Setup Wizard",
-      "status": "open",
+      "status": "done",
+      "status_note": "2026-07-05: claude-card in cli-backend-setup.component.ts: enabled-toggle (opt-in), auth-modus (claude_login/api_key), KEIN token-eingabefeld bei claude_login (login_command-hinweis stattdessen), permission_mode (plan/default), default_model, timeout, diagnose- und test-run-buttons, status not_installed/disabled/ready/error als chip. route /cli-backends (area Configure) + route-metadata + CliBackend/SgptBackend types + backendLabel.",
       "priority": "P0",
       "risk": "medium",
       "milestone": "M4",
@@ -395,7 +400,8 @@
     {
       "id": "COMMON-002",
       "title": "Routing und Fallback sauber trennen",
-      "status": "open",
+      "status": "done",
+      "status_note": "2026-07-05: _choose_candidates nimmt claude_code im auto-modus nur auf wenn claude_cli.enabled UND binary installiert (strikt opt-in); explizite anforderung bleibt moeglich mit klarer diagnose aus run_claude_command. claude_code in code_pref-reihenfolge nach codex. 'codex' prefix zu _EXPENSIVE_WORKER_PREFIXES ergaenzt ('claude' war schon drin). resolve_cli_backend arbeitet generisch ueber supported_backends — kein sondercode noetig.",
       "priority": "P0",
       "risk": "medium",
       "milestone": "M4",
@@ -418,7 +424,8 @@
     {
       "id": "COMMON-003",
       "title": "Config/API-Endpunkte fuer Angular bereitstellen",
-      "status": "open",
+      "status": "done",
+      "status_note": "2026-07-05: GET /api/sgpt/backends/{id}/health (preflight+runtime aggregiert, api_key_source ausgefiltert), POST /api/sgpt/backends/{id}/diagnose (diagnose_cli_backend in routing.py: verify-command als args-liste, output gekuerzt), POST /api/sgpt/backends/{id}/test-run (read-only via run_llm_cli_command, allowed_backends-pin, timeout 10-300s, audit-log). config-persistenz via bestehendem POST /config (claude_cli editierbar via read_models inventory). keine secrets in responses.",
       "priority": "P1",
       "risk": "medium",
       "milestone": "M4",
@@ -449,7 +456,8 @@
     {
       "id": "COMMON-004",
       "title": "WSL/Docker/Windows Betriebsmodus dokumentieren",
-      "status": "open",
+      "status": "done",
+      "status_note": "2026-07-05: docs/architecture/cli-backends/runtime-modes.md: windows nativ / WSL2 local-dev / docker-fullstack getrennt beschrieben, status-tabelle (not_installed/disabled/ready/not_logged_in) mit quelle, kein default-mount von credential-verzeichnissen, diagnose statt fake-ready, local-runner/bridge als bewusst nicht gebaute folgearbeit.",
       "priority": "P1",
       "risk": "low",
       "milestone": "M4",
@@ -468,7 +476,8 @@
     {
       "id": "COMMON-005",
       "title": "Mock-basierte Tests ohne echte Anbieteraccounts",
-      "status": "open",
+      "status": "done",
+      "status_note": "2026-07-05: tests/test_claude_cli_backend.py (34 tests): mock-binary via shutil.which-patch + subprocess.run-capture (env/args/shell-assertions), disabled/not_installed/timeout/allowed_paths-faelle, preflight, routing-gate, registrierungs-flaechen, diagnose-helper, health/diagnose/test-run endpunkte via test_client, claude_runtime_target + codex auth_mode im backends-listing. write_armed-diff-test bleibt follow-up (write_armed-konzept existiert noch nicht, siehe COMMON-001 note). laufen ohne OPENAI_API_KEY/ANTHROPIC_API_KEY; verifiziert im docker-compose-testcontainer (138+59 tests gruen).",
       "priority": "P0",
       "risk": "low",
       "milestone": "M4",
