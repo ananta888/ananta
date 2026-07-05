@@ -81,6 +81,13 @@ CLI_BACKEND_CAPABILITIES = {
         "supports_temperature": False,
         "supports_top_p": False,
     },
+    "claude_code": {
+        "display_name": "Claude Code CLI",
+        "supports_model": True,
+        "supported_flags": [],
+        "supports_temperature": False,
+        "supports_top_p": False,
+    },
     "aider": {
         "display_name": "Aider",
         "supports_model": True,
@@ -143,6 +150,8 @@ def _resolve_backend_binary(backend: str) -> str | None:
         return shutil.which(settings.codex_path or "codex")
     if backend == "opencode":
         return shutil.which(settings.opencode_path or "opencode")
+    if backend == "claude_code":
+        return shutil.which(getattr(settings, "claude_path", "claude") or "claude")
     if backend == "aider":
         return shutil.which(settings.aider_path or "aider")
     if backend == "mistral_code":
@@ -159,6 +168,8 @@ def _configured_backend_command(backend: str) -> str:
         return settings.codex_path or "codex"
     if backend == "opencode":
         return settings.opencode_path or "opencode"
+    if backend == "claude_code":
+        return getattr(settings, "claude_path", "claude") or "claude"
     if backend == "aider":
         return settings.aider_path or "aider"
     if backend == "mistral_code":
@@ -219,8 +230,32 @@ def get_cli_backend_runtime_status() -> dict[str, dict]:
             runtime_entry["target_kind"] = opencode_runtime.get("target_kind")
             runtime_entry["target_provider_type"] = opencode_runtime.get("target_provider_type")
             runtime_entry["diagnostics"] = list(opencode_runtime.get("diagnostics") or [])
+        if name == "claude_code":
+            from agent.cli_backends.opencode import resolve_claude_runtime_config
+
+            claude_runtime = resolve_claude_runtime_config()
+            runtime_entry["enabled"] = bool(claude_runtime.get("enabled"))
+            runtime_entry["auth_mode"] = claude_runtime.get("auth_mode")
+            runtime_entry["api_key_required"] = bool(claude_runtime.get("api_key_required"))
+            runtime_entry["permission_mode"] = claude_runtime.get("permission_mode")
+            runtime_entry["default_model"] = claude_runtime.get("default_model")
+            runtime_entry["diagnostics"] = list(claude_runtime.get("diagnostics") or [])
         data[name] = runtime_entry
     return data
+
+
+def _claude_login_command_for_mode(auth_mode: str | None) -> str | None:
+    """CLA-002: liefert den offiziellen Claude CLI Login-Befehl fuer den
+    gegebenen auth mode, oder None wenn kein manueller Login noetig ist.
+
+    Wie bei codex ist der String nur ein UI-Hinweis; Ananta fuehrt ihn
+    nicht aus und liest keine Dateien aus ~/.claude/.
+    """
+    mode = str(auth_mode or "").strip().lower()
+    if mode == "claude_login":
+        claude_path = str(getattr(settings, "claude_path", "claude") or "claude").strip() or "claude"
+        return f"{claude_path} login"
+    return None
 
 
 def _codex_login_command_for_mode(auth_mode: str | None) -> str | None:
@@ -244,7 +279,7 @@ def _codex_login_command_for_mode(auth_mode: str | None) -> str | None:
 
 
 def get_cli_backend_preflight(*, runtime_scope: str = "full") -> dict[str, dict]:
-    from agent.cli_backends.opencode import resolve_codex_runtime_config
+    from agent.cli_backends.opencode import resolve_claude_runtime_config, resolve_codex_runtime_config
 
     scope = str(runtime_scope or "full").strip().lower() or "full"
     worker_scope = scope in {"worker", "worker_only", "execution"}
@@ -254,6 +289,7 @@ def get_cli_backend_preflight(*, runtime_scope: str = "full") -> dict[str, dict]
 
     ollama_base_url = _normalize_ollama_base_url(provider_urls.get("ollama") or getattr(settings, "ollama_url", None))
     codex_runtime = resolve_codex_runtime_config()
+    claude_runtime = resolve_claude_runtime_config()
     agent_cfg = _get_agent_config()
 
     cli_backends: dict[str, dict] = {}
@@ -430,9 +466,83 @@ def get_cli_backend_preflight(*, runtime_scope: str = "full") -> dict[str, dict]
                     codex_runtime.get("auth_mode", "api_key"),
                 ),
             },
+            # CLA-002: Claude Code CLI Health/Auth-Status. Kein
+            # Token-File-Lesen: installed kommt aus shutil.which,
+            # der Login-Status bleibt Sache des CLI selbst —
+            # not_logged_in zeigt sich erst im Run und wird dann
+            # als Fehlertext durchgereicht.
+            "claude": {
+                "enabled": bool(claude_runtime.get("enabled")),
+                "installed": bool(_resolve_backend_binary("claude_code")),
+                "binary_path": _resolve_backend_binary("claude_code"),
+                "command": claude_runtime.get("command"),
+                "auth_mode": claude_runtime.get("auth_mode", "claude_login"),
+                "api_key_required": bool(claude_runtime.get("api_key_required", False)),
+                "login_command": _claude_login_command_for_mode(
+                    claude_runtime.get("auth_mode", "claude_login"),
+                ),
+                "default_model": claude_runtime.get("default_model"),
+                "permission_mode": claude_runtime.get("permission_mode"),
+                "timeout_seconds": claude_runtime.get("timeout_seconds"),
+                "max_concurrent_runs": claude_runtime.get("max_concurrent_runs"),
+                "install_hint": CLI_BACKEND_INSTALL_HINTS.get("claude_code"),
+                "diagnostics": list(claude_runtime.get("diagnostics") or []),
+            },
             "local_openai": local_provider_entries,
         },
     }
+
+
+def diagnose_cli_backend(backend: str, *, timeout: float = 15.0) -> dict:
+    """COMMON-003: nicht-mutierende Diagnose eines CLI-Backends.
+
+    Prueft Binary-Aufloesung und fuehrt den statischen Verify-Befehl
+    (z.B. ``claude --version``) als Argumentliste aus — kein shell=True,
+    kein Netzwerkzwang, keine Token-Dateien. Ausgaben werden gekuerzt.
+    """
+    import shlex
+    import subprocess
+
+    name = str(backend or "").strip().lower()
+    if name not in SUPPORTED_CLI_BACKENDS:
+        return {"backend": name, "status": "unsupported"}
+    binary = _resolve_backend_binary(name)
+    result: dict[str, Any] = {
+        "backend": name,
+        "command": _configured_backend_command(name),
+        "binary_path": binary,
+        "binary_available": bool(binary),
+        "install_hint": CLI_BACKEND_INSTALL_HINTS.get(name),
+        "verify_command": CLI_BACKEND_VERIFY_COMMANDS.get(name),
+        "status": "not_installed",
+        "version_probe": None,
+    }
+    if not binary:
+        return result
+    verify = str(CLI_BACKEND_VERIFY_COMMANDS.get(name) or "")
+    probe_args = shlex.split(verify)[1:] if verify else ["--version"]
+    try:
+        proc = subprocess.run(  # noqa: S603 - binary via shutil.which, args from static verify table
+            [binary, *probe_args],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
+        )
+        result["version_probe"] = {
+            "rc": proc.returncode,
+            "stdout": (proc.stdout or "")[:2000],
+            "stderr": (proc.stderr or "")[:2000],
+        }
+        result["status"] = "ready" if proc.returncode == 0 else "error"
+    except subprocess.TimeoutExpired:
+        result["version_probe"] = {"rc": -1, "stdout": "", "stderr": "timeout"}
+        result["status"] = "timeout"
+    except Exception as exc:  # pragma: no cover - defensive
+        result["version_probe"] = {"rc": -1, "stdout": "", "stderr": str(exc)[:500]}
+        result["status"] = "error"
+    return result
 
 
 def get_cli_backend_capabilities() -> dict[str, dict]:
@@ -440,7 +550,7 @@ def get_cli_backend_capabilities() -> dict[str, dict]:
 
 
 def _prioritize_code_backends(candidates: list[str]) -> list[str]:
-    code_pref = ["ananta-worker", "sgpt", "codex", "aider", "opencode", "mistral_code", "deerflow", "ananta_research", "browser_use"]
+    code_pref = ["ananta-worker", "sgpt", "codex", "claude_code", "aider", "opencode", "mistral_code", "deerflow", "ananta_research", "browser_use"]
     ordered = [c for c in code_pref if c in candidates]
     for candidate in candidates:
         if candidate not in ordered:
@@ -475,6 +585,16 @@ def _choose_candidates(
         for name in sorted(SUPPORTED_CLI_BACKENDS):
             if name not in candidates:
                 candidates.append(name)
+        # COMMON-002: claude_code ist strikt opt-in. Im auto-Modus wird
+        # es nur als Kandidat gefuehrt, wenn claude_cli.enabled=true und
+        # das Binary installiert ist. Explizite Anforderung bleibt
+        # erlaubt — dort liefert run_claude_command eine klare Diagnose.
+        if "claude_code" in candidates:
+            from agent.cli_backends.opencode import resolve_claude_runtime_config
+
+            claude_ready = bool(resolve_claude_runtime_config().get("enabled")) and bool(_resolve_backend_binary("claude_code"))
+            if not claude_ready:
+                candidates = [c for c in candidates if c != "claude_code"]
     else:
         candidates = [requested]
 

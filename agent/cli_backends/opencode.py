@@ -620,6 +620,157 @@ def run_codex_command(prompt: str, model: str | None = None, timeout: int = 60) 
             return -1, "", str(e)
 
 
+def resolve_claude_runtime_config() -> dict:
+    """CLA-001: Laufzeit-Konfiguration fuer das Claude Code CLI Backend.
+
+    Liest agent_cfg.claude_cli mit Fallback auf settings.claude_*.
+    Anders als codex braucht claude keine OpenAI-compatible base_url:
+    das CLI spricht direkt mit Anthropic (auth_mode=api_key) oder
+    nutzt die lokale Login-Session unter ~/.claude/ (claude_login).
+    Ananta liest keine Dateien aus ~/.claude/.
+    """
+    agent_cfg = _get_agent_config()
+    claude_cfg = agent_cfg.get("claude_cli") or {}
+    if not isinstance(claude_cfg, dict):
+        claude_cfg = {}
+
+    enabled = bool(claude_cfg.get("enabled", False))
+    command = str(claude_cfg.get("command") or getattr(settings, "claude_path", "claude") or "claude").strip() or "claude"
+
+    raw_auth_mode = claude_cfg.get("auth_mode") if isinstance(claude_cfg.get("auth_mode"), str) else None
+    if raw_auth_mode is not None:
+        auth_mode = raw_auth_mode.strip().lower() or "claude_login"
+    else:
+        auth_mode = str(getattr(settings, "claude_auth_mode", "claude_login") or "claude_login").strip().lower() or "claude_login"
+    if auth_mode not in ("claude_login", "api_key"):
+        auth_mode = "claude_login"
+    api_key_required = auth_mode == "api_key"
+
+    default_model = str(claude_cfg.get("default_model") or getattr(settings, "claude_default_model", "") or "").strip() or None
+
+    raw_permission_mode = str(claude_cfg.get("permission_mode") or getattr(settings, "claude_permission_mode", "plan") or "plan").strip()
+    # Fail-safe: nur read-only-taugliche Modi. bypassPermissions wird
+    # bewusst nicht akzeptiert; write-Laeufe gehoeren hinter das
+    # write_armed/Diff-Review-Konzept (COMMON-001 Follow-up).
+    if raw_permission_mode not in ("plan", "default"):
+        raw_permission_mode = "plan"
+
+    def _bounded(value: object, *, default: int, minimum: int, maximum: int) -> int:
+        try:
+            parsed = int(value)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            return default
+        return max(minimum, min(maximum, parsed))
+
+    timeout_seconds = _bounded(
+        claude_cfg.get("timeout_seconds", getattr(settings, "claude_timeout_seconds", 1800)),
+        default=1800, minimum=30, maximum=14400,
+    )
+    max_concurrent_runs = _bounded(
+        claude_cfg.get("max_concurrent_runs", getattr(settings, "claude_max_concurrent_runs", 1)),
+        default=1, minimum=1, maximum=8,
+    )
+    allowed_paths = [str(p) for p in (claude_cfg.get("allowed_paths") or []) if str(p or "").strip()]
+
+    diagnostics: list[str] = []
+    if not enabled:
+        diagnostics.append("claude_cli_disabled")
+    if auth_mode == "api_key" and not (os.environ.get("ANTHROPIC_API_KEY") or getattr(settings, "anthropic_api_key", None)):
+        diagnostics.append("claude_runtime_missing_api_key")
+
+    return {
+        "enabled": enabled,
+        "command": command,
+        "auth_mode": auth_mode,
+        "api_key_required": api_key_required,
+        "default_model": default_model,
+        "permission_mode": raw_permission_mode,
+        "timeout_seconds": timeout_seconds,
+        "max_concurrent_runs": max_concurrent_runs,
+        "allowed_paths": allowed_paths,
+        "write_armed_default": bool(claude_cfg.get("write_armed_default", False)),
+        "diagnostics": diagnostics,
+    }
+
+
+def run_claude_command(
+    prompt: str,
+    model: str | None = None,
+    timeout: int | None = None,
+    workdir: str | None = None,
+) -> tuple[int, str, str]:
+    """CLA-001: Fuehrt einen nicht-interaktiven Claude Code CLI Aufruf aus.
+
+    Folgt demselben Muster wie run_codex_command/run_aider_command:
+    shutil.which, reine Argumentliste (kein Shell-String), Timeout,
+    Semaphore, env-Isolierung. In auth_mode=claude_login wird ANTHROPIC_API_KEY
+    aus der Prozess-Env entfernt, damit das CLI seine eigene lokale
+    Login-Session nutzt statt eines versehentlich geerbten Keys.
+    """
+    budget_error = check_prompt_budget(
+        prompt,
+        max_tokens=getattr(settings, "max_prompt_tokens", 128000),
+    )
+    if budget_error is not None:
+        return budget_error
+
+    runtime_cfg = resolve_claude_runtime_config()
+    if not runtime_cfg["enabled"]:
+        return -1, "", (
+            "Claude CLI backend ist deaktiviert (claude_cli.enabled=false). "
+            "Aktivieren via POST /config mit {'claude_cli': {'enabled': true}}."
+        )
+
+    claude_bin = runtime_cfg["command"]
+    claude_resolved = shutil.which(claude_bin)
+    if claude_resolved is None:
+        return -1, "", (f"Claude binary '{claude_bin}' not found. Install with: npm i -g @anthropic-ai/claude-code")
+
+    if workdir and runtime_cfg["allowed_paths"]:
+        workdir_abs = os.path.realpath(workdir)
+        if not any(workdir_abs == os.path.realpath(p) or workdir_abs.startswith(os.path.realpath(p) + os.sep) for p in runtime_cfg["allowed_paths"]):
+            return -1, "", f"Workdir '{workdir}' liegt ausserhalb von claude_cli.allowed_paths"
+
+    effective_timeout = int(timeout or runtime_cfg["timeout_seconds"])
+    args = [claude_resolved, "-p", prompt, "--permission-mode", runtime_cfg["permission_mode"], "--output-format", "text"]
+    selected_model = str(model or runtime_cfg["default_model"] or "").strip()
+    # "claude-code-default" ist ein Sentinel fuer "CLI-eigenen Default
+    # nutzen" — dann kein --model uebergeben.
+    if selected_model and selected_model not in ("claude-code-default", "default"):
+        args.extend(["--model", selected_model])
+
+    with _acquire_backend_permit("claude_code", timeout=effective_timeout) as ticket:
+        if not ticket.acquired:
+            return -1, "", "Backend 'claude_code' ist ausgelastet (semaphore_exhausted)"
+        env = os.environ.copy()
+        if runtime_cfg["auth_mode"] == "claude_login":
+            env.pop("ANTHROPIC_API_KEY", None)
+        elif not env.get("ANTHROPIC_API_KEY") and getattr(settings, "anthropic_api_key", None):
+            env["ANTHROPIC_API_KEY"] = settings.anthropic_api_key
+        diagnostics = list(runtime_cfg.get("diagnostics") or [])
+        if diagnostics:
+            log.warning("Claude runtime diagnostics: %s", ",".join(diagnostics))
+        try:
+            log.info(f"Zentraler Claude-Code-Aufruf: {args[:1] + ['-p', '<prompt>'] + args[3:]}")
+            result = subprocess.run(  # noqa: S603 - executable resolved via shutil.which, args list-only
+                args,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                env=env,
+                timeout=effective_timeout,
+                cwd=workdir or None,
+            )
+            return result.returncode, result.stdout, result.stderr
+        except subprocess.TimeoutExpired:
+            log.error("Claude Code Timeout")
+            return -1, "", "Timeout"
+        except Exception as e:
+            log.exception(f"Claude Code Fehler: {e}")
+            return -1, "", str(e)
+
+
 def run_aider_command(prompt: str, model: str | None = None, timeout: int = 60) -> tuple[int, str, str]:
     """Führt einen Aider-CLI-Aufruf aus (non-interactive)."""
     aider_bin = settings.aider_path or "aider"

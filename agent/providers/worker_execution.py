@@ -10,6 +10,7 @@ EXECUTOR_KIND_TO_PROVIDER_ID = {
     "ananta_worker": "ananta_worker",
     "opencode": "opencode",
     "openai_codex_cli": "openai_codex_cli",
+    "claude_code": "claude_code",
     "custom": "custom",
 }
 
@@ -49,6 +50,7 @@ def register_default_worker_execution_descriptors(registry: GenericProviderRegis
         ("ananta_worker", "medium"),
         ("opencode", "high"),
         ("openai_codex_cli", "high"),
+        ("claude_code", "high"),
         ("custom", "medium"),
     ):
         registry.register_descriptor(

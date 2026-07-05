@@ -197,7 +197,7 @@ def policy_allows_kind(policy: WorkerSelectionPolicy, kind: str) -> tuple[bool, 
 
 # ── T05 — Token Budget Worker Gate ────────────────────────────────────────────
 
-_EXPENSIVE_WORKER_PREFIXES = ("openai", "openrouter", "cloud", "remote", "gpt", "claude")
+_EXPENSIVE_WORKER_PREFIXES = ("openai", "openrouter", "cloud", "remote", "gpt", "claude", "codex")
 _EXPENSIVE_WORKER_KEYWORDS = frozenset({"openai", "openrouter", "cloud", "remote", "gpt4", "frontier"})
 
 

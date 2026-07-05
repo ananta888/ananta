@@ -43,6 +43,7 @@ from agent.cli_backends.opencode import (
     resolve_codex_runtime_config,
     resolve_opencode_runtime_config,
     run_aider_command,
+    run_claude_command,
     run_codex_command,
     run_mistral_code_command,
     run_opencode_command,
@@ -368,6 +369,8 @@ def run_llm_cli_command(
                 session=session,
                 workdir=workdir,
             )
+        elif name == "claude_code":
+            rc, out, err = run_claude_command(prompt=prompt, model=model, timeout=timeout, workdir=workdir)
         elif name == "aider":
             rc, out, err = run_aider_command(prompt=prompt, model=model, timeout=timeout)
         elif name == "mistral_code":
