@@ -397,6 +397,22 @@ def build_default_agent_config() -> dict:
             # When auth_mode=chatgpt_login, this is ignored.
             "api_key_required": True,
         },
+        # CLA-001: Claude Code / Claude CLI worker-agent config.
+        # Enabled defaults to false so we never auto-activate a
+        # backend that may not be installed. The user opts in via
+        # CLAUDE_CODE_ENABLED=1 in .env or via the POST /config
+        # endpoint.
+        "claude_cli": {
+            "enabled": False,
+            "command": "claude",
+            "auth_mode": "claude_login",
+            "default_model": "claude-code-default",
+            "permission_mode": "plan",
+            "timeout_seconds": 1800,
+            "max_concurrent_runs": 1,
+            "allowed_paths": [],
+            "write_armed_default": False,
+        },
         "cli_session_mode": {
             "enabled": False,
             "stateful_backends": ["opencode", "codex"],

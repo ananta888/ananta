@@ -16,6 +16,10 @@ _DEFAULT_BACKEND_PARALLEL_LIMITS: dict[str, int] = {
     "ananta-worker": 4,
     "codex": 4,
     "opencode": 4,
+    # CLA-001: Claude Code / Claude CLI. Default limit is 1 to
+    # match the user's typical local-only setup; configurable via
+    # claude_cli.max_concurrent_runs in agent.cfg.
+    "claude_code": 1,
     "aider": 1,
     "mistral_code": 1,
 }

@@ -25,12 +25,17 @@ from agent.cli_backends.helpers import (
 
 log = logging.getLogger(__name__)
 
-SUPPORTED_CLI_BACKENDS = {"sgpt", "ananta-worker", "codex", "opencode", "aider", "mistral_code", *RESEARCH_BACKEND_PROVIDERS}
+SUPPORTED_CLI_BACKENDS = {"sgpt", "ananta-worker", "codex", "opencode", "claude_code", "aider", "mistral_code", *RESEARCH_BACKEND_PROVIDERS}
 CLI_BACKEND_INSTALL_HINTS = {
     "sgpt": "python -m pip install shell-gpt",
     "ananta-worker": "python -m pip install shell-gpt",
     "codex": "npm i -g @openai/codex",
     "opencode": "npm i -g opencode-ai",
+    # CLA-001: Claude Code / Claude CLI install hint. The CLI is
+    # shipped as a Node.js script (`npm i -g @anthropic-ai/claude-code`).
+    # Network access is needed only at install and at login; nothing
+    # inside Ananta reads ~/.claude/.
+    "claude_code": "npm i -g @anthropic-ai/claude-code",
     "aider": "python -m pip install aider-chat",
     "mistral_code": "npm i -g mistral-code",
     "deerflow": "Clone deer-flow and configure research_backend.command plus research_backend.working_dir.",
@@ -41,6 +46,7 @@ CLI_BACKEND_VERIFY_COMMANDS = {
     "ananta-worker": "python -m sgpt --help",
     "codex": "codex --help",
     "opencode": "opencode --help",
+    "claude_code": "claude --version",
     "aider": "aider --help",
     "mistral_code": "mistral-code --help",
     "deerflow": "python main.py --help",

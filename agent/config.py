@@ -259,6 +259,27 @@ class Settings(BaseSettings):
     # minimum-surface change for CCA-002.
     codex_auth_mode: str = Field(default="api_key", validation_alias="CODEX_AUTH_MODE")
     codex_require_api_key: bool = Field(default=True, validation_alias="CODEX_REQUIRE_API_KEY")
+    # CLA-001: Claude Code/Claude CLI worker-agent settings. Modeled
+    # after codex but kept in its own namespace so the two systems do
+    # not interfere. Anthropic API key is not required for the claude
+    # CLI's "claude_login" mode; the user runs `claude login` locally
+    # and the CLI manages ~/.claude/.
+    claude_path: str = Field(default="claude", validation_alias="CLAUDE_CODE_PATH")
+    claude_default_model: str = Field(
+        default="claude-code-default", validation_alias="CLAUDE_CODE_DEFAULT_MODEL",
+    )
+    claude_auth_mode: str = Field(
+        default="claude_login", validation_alias="CLAUDE_CODE_AUTH_MODE",
+    )
+    claude_permission_mode: str = Field(
+        default="plan", validation_alias="CLAUDE_CODE_PERMISSION_MODE",
+    )
+    claude_timeout_seconds: int = Field(
+        default=1800, validation_alias="CLAUDE_CODE_TIMEOUT_SECONDS",
+    )
+    claude_max_concurrent_runs: int = Field(
+        default=1, validation_alias="CLAUDE_CODE_MAX_CONCURRENT_RUNS",
+    )
     opencode_path: str = Field(default="opencode", validation_alias="OPENCODE_PATH")
     opencode_default_model: Optional[str] = Field(
         default="opencode/glm-5-free", validation_alias="OPENCODE_DEFAULT_MODEL"

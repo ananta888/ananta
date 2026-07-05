@@ -288,7 +288,7 @@ def normalize_worker_todo_contract_config(value: dict | None) -> dict:
         return max(minimum, min(maximum, parsed))
 
     executor_kind = str(payload.get("default_executor_kind") or "ananta_worker").strip().lower() or "ananta_worker"
-    if executor_kind not in {"ananta_worker", "opencode", "openai_codex_cli", "custom"}:
+    if executor_kind not in {"ananta_worker", "opencode", "openai_codex_cli", "claude_code", "custom"}:
         executor_kind = "ananta_worker"
     execution_mode = str(payload.get("execution_mode") or "assistant_execute").strip().lower() or "assistant_execute"
     if execution_mode not in {"command_execute", "assistant_execute", "plan_only"}:

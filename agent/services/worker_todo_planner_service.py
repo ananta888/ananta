@@ -40,7 +40,7 @@ def _bounded_int(value: object, *, default: int, minimum: int, maximum: int) -> 
 
 def _normalize_executor_kind(value: object) -> str:
     normalized = str(value or "").strip().lower()
-    if normalized in {"ananta_worker", "opencode", "openai_codex_cli", "custom"}:
+    if normalized in {"ananta_worker", "opencode", "openai_codex_cli", "claude_code", "custom"}:
         return normalized
     return "ananta_worker"
 

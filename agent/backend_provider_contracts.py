@@ -62,6 +62,27 @@ BACKEND_PROVIDER_CONTRACTS: list[dict[str, Any]] = [
         "governance": {"trust_level": "local_workspace", "requires_remote_hub_policy": False, "audit_required": True},
         "health": {"preflight": "cli_backend_preflight", "failure_mode": "execution_backend_unavailable"},
     },
+    # CLA-001: Claude Code / Claude CLI worker-agent contract. Same
+    # shape as codex_cli (process-based local CLI), but classified
+    # with its own provider id so the routing layer can dispatch
+    # to claude_code separately. permission_mode is an extra
+    # capability offered by the Claude CLI.
+    {
+        "provider": "claude_code",
+        "provider_type": "cli_backend",
+        "location": "local",
+        "transport": {"protocol": "process", "api_shape": "task_scoped_cli"},
+        "capabilities": {"chat": True, "tools": True, "dynamic_models": False,
+                         "file_access": "workspace_scoped", "permission_mode": True},
+        "routing": {"eligible_for_inference": False,
+                    "eligible_for_execution": True, "remote_hops": 0},
+        "governance": {"trust_level": "local_subscription",
+                       "requires_remote_hub_policy": False,
+                       "audit_required": True,
+                       "no_token_persistence": True},
+        "health": {"preflight": "cli_backend_preflight",
+                   "failure_mode": "execution_backend_unavailable_or_not_logged_in"},
+    },
     {
         "provider": "hosted_openai",
         "provider_type": "hosted_api",

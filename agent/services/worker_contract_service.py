@@ -168,7 +168,7 @@ class WorkerContractService:
     ) -> dict:
         normalized_profile = normalize_worker_execution_profile(worker_profile)
         normalized_executor = str(executor_kind or "").strip().lower() or "custom"
-        if normalized_executor not in {"ananta_worker", "opencode", "openai_codex_cli", "custom"}:
+        if normalized_executor not in {"ananta_worker", "opencode", "openai_codex_cli", "claude_code", "custom"}:
             normalized_executor = "custom"
         normalized_profile_source = str(profile_source or "task_context").strip().lower() or "task_context"
         if normalized_profile_source not in {"agent_default", "task_context", "task_override", "runtime_override"}:
