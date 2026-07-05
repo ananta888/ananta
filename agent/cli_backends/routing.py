@@ -314,6 +314,10 @@ def get_cli_backend_preflight(*, runtime_scope: str = "full") -> dict[str, dict]
             }
 
     local_provider_entries = []
+    # cliproxyapi-007: optional display labels for known provider
+    # ids. Adding a label for a new id is purely additive — LM
+    # Studio and Ollama preflight entries stay unchanged.
+    _DISPLAY_LABELS = {"cliproxyapi": "CLI Proxy API"}
     for backend in get_local_openai_backends(
         agent_cfg=agent_cfg,
         provider_urls=provider_urls,
@@ -332,6 +336,7 @@ def get_cli_backend_preflight(*, runtime_scope: str = "full") -> dict[str, dict]
                 "remote_hub": bool(backend.get("remote_hub")),
                 "instance_id": backend.get("instance_id"),
                 "max_hops": backend.get("max_hops"),
+                "display_name": _DISPLAY_LABELS.get(backend["provider"]),
             }
         )
 
