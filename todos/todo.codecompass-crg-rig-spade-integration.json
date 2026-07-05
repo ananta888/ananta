@@ -1,11 +1,16 @@
 {
   "$schema": "./todo.track.schema.json",
-  "version": "1.0",
+  "version": "2.0",
   "owner": "Peter Stuiber / Ananta",
   "track": "codecompass-crg-rig-spade-integration",
   "created": "2026-07-05",
+  "last_updated": "2026-07-05",
   "status": "todo",
-  "purpose": "code-review-graph und Repository Intelligence Graph / SPADE sollen in Ananta nicht blind kopiert, sondern ueber saubere Adapter, Evidence, Trust-Level und bestehende CodeCompass-/RAG-/Policy-Strukturen integriert werden.",
+  "changelog": [
+    "v2.0 (2026-07-05): Summary-Fehler und Ist-Zustand korrigiert. CRG-012 in CRG-001 sowie RIG-004 in RIG-001 zusammengefuehrt. COMBO-002 als fruehe Import-Invariante nach M1 verschoben, RIG-012 als versionierten Maschinenvertrag vor Store/Extractoren gezogen, native Graphfaehigkeiten vom optionalen CRG-Adapter entkoppelt, Hub-Worker-Artefaktfluss und coverage-begrenzte RIG-Wahrheit festgelegt. CRG/SPADE Revisionen und Lizenzen gepinnt; Security-, CI-, Benchmark- und Grounding-Kriterien geschaerft.",
+    "v1.0 (2026-07-05): Initialer Integrations-Backlog."
+  ],
+  "purpose": "code-review-graph und Repository Intelligence Graph / SPADE sollen in Ananta nicht blind kopiert, sondern ueber versionierte Adapter, fail-closed Evidence-/Trust-Vertraege und die bestehende hub-gesteuerte CodeCompass-/RAG-/Policy-Struktur integriert werden.",
   "goal": "Ananta CodeCompass wird zur kombinierten Kontextschicht: lokaler Symbol-/Review-Graph fuer Blast Radius und minimale Review-Kontexte, Repository Intelligence Graph fuer deterministische Build-/Test-/Package-Wahrheit, RAG fuer semantische Suche und Policy-Gates fuer sichere Worker-Orchestrierung.",
   "source_review": {
     "ananta_observed_files": [
@@ -22,6 +27,18 @@
         "observation": "Vorhandene Tools umfassen resolve_context, search_symbols, get_file_context, get_domain_map, search und plan_context; Graph- und Architecture-Query-Funktionalitaet ist bereits tool-loop-nah angebunden."
       },
       {
+        "path": "agent/services/codecompass_context_planner_service.py",
+        "observation": "CodeCompassContextPlanner und CodeCompassContextBudget existieren bereits und erzeugen begrenzte Location-Refs/Patch-Targets. COMBO-001 erweitert diesen Planner statt einen parallelen Planner einzufuehren."
+      },
+      {
+        "path": "agent/services/codecompass_context_service.py",
+        "observation": "CodeCompassContextService besitzt bereits Context-Budgets, Workspace-Pfadgrenzen, externe-Cloud-Policy, Secret-Redaction und optionale Graph-Erweiterung. CRG-006/RIG-007 erweitern diese Fassade."
+      },
+      {
+        "path": "agent/services/tools/_evidence.py",
+        "observation": "Der bestehende ananta_tool_result.v1 Evidence-Contract begrenzt Excerpts und Payload-Groesse. COMBO-002 erweitert ihn um Graph-Trust und Verifizierungsstatus."
+      },
+      {
         "path": "worker/retrieval/codecompass_graph_store.py",
         "observation": "JSON-basierter GraphStore speichert nodes, edges, semantic_* und x86_* Slots, baut node_index/outgoing_index/incoming_index und normalisiert graph_nodes/graph_edges aus Output Records."
       },
@@ -34,6 +51,10 @@
         "observation": "Deterministische whitelisted Architecture Query Engine existiert fuer dto-impact, controller-test-coverage, field-policy-impact und service-dependency-chain mit Evidence-Pfaden und Unsicherheitswarnungen."
       },
       {
+        "path": "frontend-angular/src/app/features/codecompass-graph/services/graph-adapter.service.ts",
+        "observation": "GenericGraphModel, unknown-Fallback und Metadatenweitergabe existieren. RIG-008 erweitert Mapping/Filter/Fixtures, ohne einen neuen Viewer zu bauen."
+      },
+      {
         "path": "todos/todo.track.schema.json",
         "observation": "Todo-Dateien brauchen version, owner, track, status_scale, priority_scale, risk_scale, milestones, tasks und tasks_status_summary; Task acceptance_criteria sind Pflicht."
       }
@@ -42,6 +63,9 @@
       {
         "name": "code-review-graph",
         "url": "https://github.com/tirth8205/code-review-graph",
+        "reviewed_revision": "b72413cbd34a4ac08cc60dcdd42df1d02f3fc77d",
+        "reviewed_version": "2.3.6",
+        "license": "MIT",
         "relevant_points": [
           "local-first Tree-sitter AST graph",
           "SQLite storage under .code-review-graph",
@@ -55,12 +79,25 @@
       {
         "name": "Repository Intelligence Graph / SPADE",
         "url": "https://arxiv.org/abs/2601.10112",
+        "reviewed_revision": "arXiv:2601.10112v1",
         "relevant_points": [
           "deterministic evidence-backed architectural map",
           "buildable components, aggregators, runners, tests, external packages, package managers",
           "dependency and coverage edges backed by build/test artifacts",
           "SPADE CMake/CTest extractor via CMake File API",
           "LLM-friendly JSON authoritative repo structure"
+        ]
+      },
+      {
+        "name": "SPADE reference implementation",
+        "url": "https://github.com/Greenfuze/Spade",
+        "reviewed_revision": "6306e203732f7c4553d1564c5250396b7f84a315",
+        "release_status": "no published releases at review time",
+        "license": "MIT",
+        "relevant_points": [
+          "reference implementation is pinned by commit, never consumed from floating main",
+          "automatic extraction is currently CMake-focused",
+          "fixtures and schema snapshots are imported as versioned test evidence"
         ]
       }
     ]
@@ -90,6 +127,31 @@
       "id": "CCRIG-DD-005",
       "decision": "SQLite bleibt optional, JSON/Fallback bleibt kompatibel.",
       "rationale": "Im Repo existiert bereits ein optionaler SQLiteGraphStore; CRG nutzt ebenfalls SQLite, aber Ananta sollte nicht auf fremde Tabellen als Kernformat festgenagelt werden."
+    },
+    {
+      "id": "CCRIG-DD-006",
+      "decision": "Native Graphfaehigkeiten haengen nur vom neutralen CodeCompass Graph-Contract ab.",
+      "rationale": "Blast Radius, Graph Metrics und Graph Diff muessen mit nativen Ananta-Graphen funktionieren; CRG und RIG sind optionale ImportProvider, keine Voraussetzung fuer Kernfaehigkeiten."
+    },
+    {
+      "id": "CCRIG-DD-007",
+      "decision": "Trust-, Evidence-, Pfad- und Groessenregeln gelten am Import-Rand.",
+      "rationale": "Unsichere externe Daten duerfen nicht erst nach Query-/Context-Aufbau bewertet werden. Importer validieren fail-closed vor Persistenz."
+    },
+    {
+      "id": "CCRIG-DD-008",
+      "decision": "RIG-Wahrheit ist nur innerhalb dokumentierter Extraktionsabdeckung autoritativ.",
+      "rationale": "Fehlende Knoten sind bei partial/unknown Coverage keine negative Evidence. Jeder RIG-Snapshot traegt Extractor-Version, Buildsystem, Coverage-Status und unsupported_features."
+    },
+    {
+      "id": "CCRIG-DD-009",
+      "decision": "Extraktion und Import folgen Hub -> Task Queue -> Worker -> versioniertes Artefakt -> Hub Policy/Registry.",
+      "rationale": "Worker orchestrieren nicht und Hub/CLI umgehen den zentralen Taskfluss nicht. Containergrenzen und reproduzierbare Artefakte bleiben erhalten."
+    },
+    {
+      "id": "CCRIG-DD-010",
+      "decision": "Externe Upstream-Formate werden per Commit und Fixture eingefroren.",
+      "rationale": "CRG ist aktiv in Entwicklung und SPADE hat keine stabilen Releases. Floating-main- oder unversionierte SQLite-Schema-Abhaengigkeiten sind nicht reproduzierbar."
     }
   ],
   "status_scale": [
@@ -114,12 +176,14 @@
   "milestones": [
     {
       "id": "M1",
-      "title": "Architektur- und Adapter-Contracts festlegen",
+      "title": "Architektur-, Schema-, Trust- und Adapter-Contracts festlegen",
       "status": "todo",
       "task_ids": [
         "CRG-001",
         "CRG-002",
-        "RIG-001"
+        "RIG-001",
+        "RIG-012",
+        "COMBO-002"
       ]
     },
     {
@@ -130,8 +194,7 @@
         "CRG-003",
         "CRG-004",
         "RIG-002",
-        "RIG-003",
-        "RIG-004"
+        "RIG-003"
       ]
     },
     {
@@ -156,19 +219,17 @@
       "task_ids": [
         "CRG-010",
         "CRG-011",
-        "CRG-012",
         "RIG-008",
         "RIG-009"
       ]
     },
     {
       "id": "M5",
-      "title": "Multi-Buildsystem, Multi-Repo und Benchmark-Vorbereitung",
+      "title": "Multi-Repo und Benchmark-Vorbereitung",
       "status": "todo",
       "task_ids": [
         "RIG-010",
-        "RIG-011",
-        "RIG-012"
+        "RIG-011"
       ]
     },
     {
@@ -177,7 +238,6 @@
       "status": "todo",
       "task_ids": [
         "COMBO-001",
-        "COMBO-002",
         "COMBO-003",
         "COMBO-004",
         "COMBO-005"
@@ -207,26 +267,31 @@
       "integration_mode": "native_adapter_first",
       "target_files": [
         "docs/architecture/code-review-graph-adapter.md",
-        "worker/retrieval/codecompass_graph_store.py"
+        "worker/retrieval/codecompass_graph_store.py",
+        "agent/config.py",
+        "tests/test_codecompass_feature_flags.py"
       ],
       "notes": "",
       "acceptance_criteria": [
         "Ein Dokument docs/architecture/code-review-graph-adapter.md beschreibt Importquellen, Datenmodell, Grenzen und Lizenz-/Vendor-Isolation.",
         "Der Contract mappt Funktionen/Klassen/Imports/Calls/Inheritance/Test-Coverage auf vorhandene CodeCompass nodes/edges statt ein zweites Graphmodell einzufuehren.",
         "Der Contract benennt explizit, welche Felder aus code-review-graph nur als evidence/provenance gespeichert werden und welche in CodeCompassGraphStore normalisiert werden.",
-        "Keine bestehende CodeCompass API wird gebrochen; vorhandene Graph Viewer und Architecture Query Engine koennen alte Graphen weiter lesen."
+        "Keine bestehende CodeCompass API wird gebrochen; vorhandene Graph Viewer und Architecture Query Engine koennen alte Graphen weiter lesen.",
+        "Feature Flags trennen native Ananta-Graphfaehigkeiten von optionalen CRG-ImportProvidern; native Blast-Radius-/Metrics-/Diff-Funktionen bleiben ohne CRG-Installation nutzbar.",
+        "Kein CRG-spezifischer Begriff leakt in generische REST-Schemas ausser provenance.source='code-review-graph'."
       ]
     },
     {
       "id": "CRG-002",
-      "title": "Vendor-neutrale Graph-Import-Schnittstelle einfuehren",
+      "title": "Vendor-neutrale Graph-/Repository-Import-Schnittstelle einfuehren",
       "type": "backend",
       "milestone": "M1",
       "status": "todo",
       "priority": "P0",
       "risk": "high",
       "dependencies": [
-        "CRG-001"
+        "CRG-001",
+        "COMBO-002"
       ],
       "integration_mode": "native_adapter_first",
       "target_files": [
@@ -236,9 +301,12 @@
       "notes": "",
       "acceptance_criteria": [
         "Eine neue Schnittstelle z.B. CodeCompassGraphImportProvider akzeptiert externe Graphquellen und liefert normalisierte graph_nodes/graph_edges Records.",
-        "Mindestens ein Test beweist, dass ein Provider ohne code-review-graph Installation lauffaehig bleibt und degraded diagnostics liefert.",
+        "Der Port ist klein und capability-basiert: probe, import_snapshot und diagnostics; CRG- und RIG-Provider implementieren denselben Lebenszyklus ohne voneinander abzuleiten.",
+        "Mindestens ein Test beweist, dass Provider ohne code-review-graph/SPADE Installation lauffaehig bleiben und degraded diagnostics liefern.",
         "Provider duerfen keine Shell-Kommandos ungeprueft aus Userinput bauen; Pfade werden via pathlib normalisiert und auf workspace_dir begrenzt.",
-        "Die Schnittstelle ist unabhaengig von SQLite, JSONL und MCP, damit spaeter weitere Adapter wie RIG/SPADE, Codebase-Memory oder eigene Parser anschliessbar sind."
+        "Die Schnittstelle ist unabhaengig von SQLite, JSONL und MCP, damit spaeter weitere Adapter wie RIG/SPADE, Codebase-Memory oder eigene Parser anschliessbar sind.",
+        "Import/Extraktion wird als Hub-Task an einen Worker delegiert; der Worker liefert ein versioniertes Artefakt mit content_hash, provider_id, provider_revision und diagnostics zurueck.",
+        "Fehlende Source-/Run-IDs werden als unverified/failed behandelt; der Provider erfindet keine Ersatz-IDs."
       ]
     },
     {
@@ -250,7 +318,8 @@
       "priority": "P0",
       "risk": "high",
       "dependencies": [
-        "CRG-002"
+        "CRG-002",
+        "COMBO-002"
       ],
       "integration_mode": "native_adapter_first",
       "target_files": [
@@ -260,10 +329,11 @@
       ],
       "notes": "",
       "acceptance_criteria": [
-        "Adapter kann eine .code-review-graph SQLite-Datei oder einen exportierten JSON/GraphML Snapshot lesen, ohne code-review-graph als Runtime-Abhaengigkeit zu erzwingen.",
-        "Adapter erkennt fehlende oder inkompatible Datenbanken und gibt diagnostics.reason='external_graph_unavailable' statt Exception.",
+        "Primaervertrag ist ein versionierter JSON-Export der gepinnten CRG-Revision; GraphML und direkter SQLite-Import sind optionale, separat getestete Reader.",
+        "Direkter SQLite-Import akzeptiert nur dokumentierte CRG-Schema-Versionen, arbeitet read-only und erzwingt Pfad-, Datei-, Record- und Payload-Grenzen.",
+        "Adapter erkennt fehlende oder inkompatible Exporte/Datenbanken und gibt diagnostics.reason='external_graph_unavailable' bzw. 'external_graph_incompatible' statt Exception.",
         "Mindestens Funktionen, Klassen, Dateien, Imports, Calls, Inheritance und Testbeziehungen werden in CodeCompass Edge-Taxonomie gemappt.",
-        "Tests nutzen kleine Fixtures und verifizieren deterministische Node-IDs, Edge-Typen, Confidence und Provenance."
+        "Tests nutzen kleine, auf reviewed_revision gepinnte Fixtures und verifizieren deterministische Node-IDs, Edge-Typen, Confidence, Provenance und Fail-closed-Grenzen."
       ]
     },
     {
@@ -275,7 +345,8 @@
       "priority": "P1",
       "risk": "medium",
       "dependencies": [
-        "CRG-003"
+        "CRG-003",
+        "COMBO-002"
       ],
       "integration_mode": "native_adapter_first",
       "target_files": [
@@ -297,10 +368,11 @@
       "type": "tools",
       "milestone": "M3",
       "status": "todo",
-      "priority": "P0",
+      "priority": "P1",
       "risk": "medium",
       "dependencies": [
-        "CRG-003"
+        "CRG-001",
+        "COMBO-002"
       ],
       "integration_mode": "native_adapter_first",
       "target_files": [
@@ -313,7 +385,8 @@
         "Neues Tool codecompass.blast_radius akzeptiert changed_files, seed_nodes, max_depth, include_tests und liefert bounded ToolResult.",
         "Tool nutzt vorhandenen CodeCompassGraphStore/SQLiteGraphStore und nicht direkt fremde CRG APIs.",
         "Antwort enthaelt affected_files, affected_symbols, affected_tests, evidence_paths, risk_score und warnings.",
-        "Unit-Tests pruefen lokale Aenderung, transitive Caller, Tests und Token-/Node-Limits."
+        "risk_score nutzt eine versionierte, dokumentierte Formel mit geklemmten Teilwerten; die Ausgabe nennt risk_model_version und score_breakdown.",
+        "Unit-Tests pruefen native Graphdaten ohne CRG-Installation, lokale Aenderung, transitive Caller, Tests und Token-/Node-Limits."
       ]
     },
     {
@@ -322,7 +395,7 @@
       "type": "tools",
       "milestone": "M3",
       "status": "todo",
-      "priority": "P0",
+      "priority": "P1",
       "risk": "medium",
       "dependencies": [
         "CRG-005"
@@ -350,7 +423,8 @@
       "priority": "P1",
       "risk": "medium",
       "dependencies": [
-        "CRG-003"
+        "CRG-001",
+        "COMBO-002"
       ],
       "integration_mode": "native_adapter_first",
       "target_files": [
@@ -360,7 +434,7 @@
       ],
       "notes": "",
       "acceptance_criteria": [
-        "Ein Service berechnet degree/betweenness-nahe Metriken ohne schwere externe Graphdatenbank.",
+        "Ein Service berechnet exakt dokumentierte degree_centrality und eine deterministische bounded betweenness approximation ohne schwere externe Graphdatenbank.",
         "Top hub_nodes und bridge_nodes werden mit Datei, Symbol, Score, Reasons und Evidence-Kanten ausgegeben.",
         "Graph Viewer kann diese Scores als metadata lesen, ohne Renderer-spezifische Logik im Backendmodell zu erzwingen.",
         "Tests pruefen kleine Graphen mit bekannten Hub-/Bridge-Knoten."
@@ -424,7 +498,8 @@
       "priority": "P1",
       "risk": "high",
       "dependencies": [
-        "CRG-003"
+        "CRG-001",
+        "COMBO-002"
       ],
       "integration_mode": "native_adapter_first",
       "target_files": [
@@ -437,6 +512,7 @@
         "CodeCompass kann zwei Graph-Snapshots vergleichen und added/removed/changed nodes/edges ausgeben.",
         "Manifest-Hash, Datei-Hash und Parser-Version werden in state/provenance gespeichert.",
         "Incremental Rebuild ist optional; wenn nicht verfuegbar, bleibt Full Rebuild korrekt.",
+        "Die Diff-Logik arbeitet gegen den neutralen Graph-Contract und ist ohne CRG-Installation nutzbar.",
         "Tests beweisen deterministische Diffs fuer hinzugefuegte Funktion, geloeschte Edge und geaenderte Confidence."
       ]
     },
@@ -460,34 +536,10 @@
       "notes": "",
       "acceptance_criteria": [
         "Dokumentierter Workflow .github/workflows/ananta-codecompass-review.yml baut lokalen Graphen und erzeugt Risk Summary.",
-        "Workflow ist standardmaessig report-only und sendet keinen Sourcecode an externe Dienste.",
+        "Workflow ist standardmaessig report-only, nutzt minimale permissions (contents: read) und sendet keinen Sourcecode an externe Dienste.",
+        "PR-Kommentare sind ein expliziter Opt-in-Job mit pull-requests: write, Fork-/Secret-Gates und unvertrauenswuerdige PR-Daten werden nie als Shellcode interpoliert.",
         "Optionaler fail-on-risk Modus ist dokumentiert, aber nicht default.",
         "Output enthaelt changed files, risk_score, affected_tests, knowledge_gaps und context_savings_estimate."
-      ]
-    },
-    {
-      "id": "CRG-012",
-      "title": "CRG Features nicht kopieren, sondern als Adapter-Faehigkeiten kapseln",
-      "type": "design",
-      "milestone": "M4",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "low",
-      "dependencies": [
-        "CRG-001"
-      ],
-      "integration_mode": "native_adapter_first",
-      "target_files": [
-        "docs/architecture/code-review-graph-adapter.md",
-        "agent/config.py",
-        "tests/test_codecompass_feature_flags.py"
-      ],
-      "notes": "",
-      "acceptance_criteria": [
-        "Feature Flags trennen native Ananta Graphlogik von optionaler CRG-Importquelle.",
-        "Kein CRG-spezifischer Begriff leakt in generische REST-Schemas ausser provenance.source='code-review-graph'.",
-        "Ein Adapter Contract Test laeuft auch dann, wenn code-review-graph nicht installiert ist.",
-        "README/Docs erklaeren: CRG ist optionale Inspirations-/Importquelle, Ananta bleibt eigener Graph-/Policy-Layer."
       ]
     },
     {
@@ -508,7 +560,10 @@
         "Dokument docs/architecture/repository-intelligence-graph.md beschreibt RIG-Entities: package_manager, external_package, buildable_component, aggregator, runner, test, coverage/dependency edges.",
         "Das Modell trennt Build/Test-Wahrheit strikt von Symbol-/AST-Graph und Semantic/RAG Layer.",
         "Jede RIG-Kante benoetigt evidence mit source_file, source_kind, source_record_id oder reason='manual_fixture'.",
-        "Mapping zum bestehenden CodeCompassGraphStore wird beschrieben, ohne vorhandene Edge-Taxonomie zu brechen."
+        "Mapping zum bestehenden CodeCompassGraphStore wird beschrieben, ohne vorhandene Edge-Taxonomie zu brechen.",
+        "Dokumentation definiert die stufenweise Extractor-Familie fuer CMake, Maven, Gradle, npm, Cargo und Go gegen denselben ImportProvider-/Evidence-Contract.",
+        "Jeder RIG-Snapshot traegt extractor_id, extractor_version, build_system, coverage_status=complete|partial|unknown, unsupported_features und generated_at.",
+        "Die Dokumentation stellt klar: RIG ist nur innerhalb coverage_status=complete und der ausgewiesenen Buildsystem-Abdeckung autoritativ; Abwesenheit bei partial/unknown ist keine negative Evidence."
       ]
     },
     {
@@ -520,7 +575,8 @@
       "priority": "P0",
       "risk": "medium",
       "dependencies": [
-        "RIG-001"
+        "RIG-001",
+        "RIG-012"
       ],
       "integration_mode": "native_adapter_first",
       "target_files": [
@@ -545,7 +601,10 @@
       "priority": "P0",
       "risk": "high",
       "dependencies": [
-        "RIG-002"
+        "RIG-002",
+        "RIG-012",
+        "CRG-002",
+        "COMBO-002"
       ],
       "integration_mode": "native_adapter_first",
       "target_files": [
@@ -555,34 +614,11 @@
       ],
       "notes": "",
       "acceptance_criteria": [
-        "Importer liest CMake File API reply und CTest-Metadaten aus einem Workspace, wenn vorhanden.",
+        "Importer implementiert den neutralen ImportProvider-Port und liest CMake File API reply und CTest-Metadaten aus einem Workspace, wenn vorhanden.",
         "Er erzeugt buildable_component, target, test, runner und dependency/coverage edges mit Evidence auf konkrete JSON-/CTest-Dateien.",
-        "Fehlende CMake File API Daten fuehren zu degraded diagnostics, nicht zu harter Exception.",
-        "Tests verwenden minimales Fixture mit zwei Targets und einem Test."
-      ]
-    },
-    {
-      "id": "RIG-004",
-      "title": "Maven/Gradle/NPM/Cargo/Go Adapter Roadmap als stufenweise Extractor-Familie",
-      "type": "design",
-      "milestone": "M2",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "medium",
-      "dependencies": [
-        "RIG-001"
-      ],
-      "integration_mode": "native_adapter_first",
-      "target_files": [
-        "docs/architecture/repository-intelligence-graph.md",
-        "worker/retrieval/codecompass_rig_adapter.py"
-      ],
-      "notes": "",
-      "acceptance_criteria": [
-        "Todo/Dokumentation definiert ein einheitliches Adapter-Interface fuer Buildsysteme.",
-        "Mindestens Maven pom.xml, Gradle build.gradle(.kts), package.json, Cargo.toml und go.mod sind als planned adapters mit Edge-Contract beschrieben.",
-        "Jeder Adapter muss evidence-backed sein und darf keine Dependencies durch LLM-Raten erfinden.",
-        "Priorisierung fuer Ananta: Python/JavaScript/Java zuerst, danach Rust/Go/CMake."
+        "Er fuehrt keine frei zusammengesetzten Build-Kommandos aus; vorhandene Reply-/CTest-Artefakte werden read-only, pfadbegrenzt und mit Groessenlimits verarbeitet.",
+        "Fehlende oder nur teilweise unterstuetzte CMake File API Daten fuehren zu degraded diagnostics und coverage_status=partial|unknown, nicht zu harter Exception oder negativer Evidence.",
+        "Tests verwenden ein auf die gepinnte SPADE-Revision zurueckgefuehrtes Minimal-Fixture mit zwei Targets und einem Test."
       ]
     },
     {
@@ -616,7 +652,7 @@
       "type": "tools",
       "milestone": "M3",
       "status": "todo",
-      "priority": "P0",
+      "priority": "P1",
       "risk": "medium",
       "dependencies": [
         "RIG-005"
@@ -694,7 +730,8 @@
       "risk": "medium",
       "dependencies": [
         "RIG-006",
-        "RIG-007"
+        "RIG-007",
+        "COMBO-002"
       ],
       "integration_mode": "native_adapter_first",
       "target_files": [
@@ -704,9 +741,10 @@
       ],
       "notes": "",
       "acceptance_criteria": [
-        "Wenn RIG fuer eine Build/Test-Frage vorhanden ist, markiert die Antwort semantische Treffer ohne RIG-Evidence als weak_support.",
-        "Worker-Prompt/Tool-Handoff weist darauf hin, dass Build/Test-Aussagen aus RIG Evidence Vorrang vor freier Textsuche haben.",
-        "Tests pruefen Konfliktfall: RAG sagt Test existiert, RIG findet keinen Test -> Warning statt sichere Behauptung.",
+        "Wenn ein coverage_status=complete RIG fuer eine Build/Test-Frage vorhanden ist, markiert die Antwort semantische Treffer ohne RIG-Evidence als weak_support.",
+        "Bei coverage_status=partial|unknown wird fehlende RIG-Evidence als unknown_coverage statt als Widerlegung behandelt.",
+        "Worker-Prompt/Tool-Handoff weist darauf hin, dass verifizierte Build/Test-Aussagen aus RIG Evidence Vorrang vor freier Textsuche haben.",
+        "Tests pruefen Konfliktfaelle: RAG sagt Test existiert, complete RIG findet keinen Test -> Warning; partial RIG findet keinen Test -> unknown_coverage.",
         "Dokumentation erlaeutert deterministic repository truth vs. heuristic semantic context."
       ]
     },
@@ -754,20 +792,22 @@
       "acceptance_criteria": [
         "Ein Benchmark-Set mit strukturellen Repo-Fragen wird unter tests/ oder benchmarks/ abgelegt.",
         "Verglichen werden baseline search, CodeCompass Symbolgraph, RIG-only und Combined Context.",
-        "Metriken enthalten accuracy, evidence_path_present, token_estimate und tool_call_count.",
+        "Jede Frage besitzt eine versionierte Ground-Truth-Antwort, erlaubte Alternativen und eine deterministische Scoring-Funktion.",
+        "Metriken enthalten accuracy, evidence_path_present, token_estimate und tool_call_count; Aggregation und Rundung sind dokumentiert.",
         "Ergebnisse sind deterministisch und ohne externe LLM API lauffaehig, mindestens als fixture-basierter Smoke-Test."
       ]
     },
     {
       "id": "RIG-012",
-      "title": "RIG als manuelle/halbautomatische Import-Spezifikation ermoeglichen",
+      "title": "Versionierten RIG-Schema- und manuellen Import-Contract definieren",
       "type": "backend",
-      "milestone": "M5",
+      "milestone": "M1",
       "status": "todo",
-      "priority": "P2",
-      "risk": "low",
+      "priority": "P0",
+      "risk": "high",
       "dependencies": [
-        "RIG-002"
+        "RIG-001",
+        "COMBO-002"
       ],
       "integration_mode": "native_adapter_first",
       "target_files": [
@@ -777,10 +817,12 @@
       ],
       "notes": "",
       "acceptance_criteria": [
-        "Ein JSON Schema fuer manuelle RIG-Dateien wird bereitgestellt.",
-        "Import validiert Pflichtfelder und Evidence, gibt mehrere Fehler gesammelt aus.",
+        "Ein versioniertes JSON Schema fuer RIG-Snapshots wird vor GraphStore und Extractoren bereitgestellt.",
+        "Schema verlangt Evidence, repository_id/module_id, extractor_id/version, build_system, coverage_status, unsupported_features und stabile externe IDs.",
+        "Import validiert Pflichtfelder, Trust-Level, Source-/Run-IDs, Pfade und Groessenlimits und gibt mehrere Fehler gesammelt aus.",
         "Manuelle RIG-Fixtures koennen spaeter fuer Maven/npm/Cargo genutzt werden, bevor vollautomatische Extractor fertig sind.",
-        "CLI/Script kann rig.json in codecompass-graph.jsonl bzw. cc_graph_index.json integrieren."
+        "CLI/Script erzeugt nur bei explizitem --write-index normalisierte rig_nodes/rig_edges; Default ist validate/dry-run.",
+        "Fehlende oder unbekannte Source-/Run-IDs werden als unverified/failed behandelt und nicht synthetisiert."
       ]
     },
     {
@@ -793,7 +835,8 @@
       "risk": "high",
       "dependencies": [
         "CRG-006",
-        "RIG-007"
+        "RIG-007",
+        "COMBO-002"
       ],
       "integration_mode": "native_adapter_first",
       "target_files": [
@@ -802,6 +845,7 @@
       ],
       "notes": "",
       "acceptance_criteria": [
+        "Der bestehende CodeCompassContextPlanner wird erweitert; es entsteht kein paralleler Context-Planner-Service.",
         "Context Planner hat klare Buckets: changed_files, symbol_neighbors, build_test_evidence, semantic_chunks, policy_evidence.",
         "Gewichtung ist task_kind-abhaengig: review/bugfix priorisiert CRG blast radius; ci/build priorisiert RIG; security priorisiert policy evidence.",
         "Budget-Entscheidungen werden im context_package begruendet.",
@@ -810,28 +854,31 @@
     },
     {
       "id": "COMBO-002",
-      "title": "Policy-Gates fuer externe Graphdaten",
+      "title": "Graph Evidence-/Trust-Policy als Import-Invariante definieren",
       "type": "policy",
-      "milestone": "M6",
+      "milestone": "M1",
       "status": "todo",
       "priority": "P0",
       "risk": "high",
       "dependencies": [
-        "CRG-004",
-        "RIG-009"
+        "CRG-001",
+        "RIG-001"
       ],
       "integration_mode": "native_adapter_first",
       "target_files": [
         "agent/services/tools/_evidence.py",
         "worker/retrieval/codecompass_architecture_query.py",
+        "schemas/codecompass.graph-evidence.schema.json",
         "tests/test_codecompass_graph_trust_policy.py"
       ],
       "notes": "",
       "acceptance_criteria": [
-        "Externe Graphdaten bekommen trust_level: deterministic, extracted, inferred, ambiguous, manual.",
+        "Externe Graphdaten bekommen trust_level: deterministic, extracted, inferred, ambiguous, manual sowie verification_status=verified|unverified|failed.",
+        "Der Contract verlangt echte, vom Importartefakt bereitgestellte Source-/Run-IDs; fehlende IDs werden nicht synthetisiert und bleiben unverified/failed.",
+        "Trust-, Pfad-, Schema-, Groessen- und Secret-Redaction-Regeln werden am Import-Rand vor Persistenz angewendet.",
         "Security-/Rechteentscheidungen duerfen nur auf erlaubten trust levels beruhen.",
         "ToolResult warnt, wenn nur inferred/ambiguous Evidence verfuegbar ist.",
-        "Tests pruefen, dass ambiguous import/call edge keine Policy-Freigabe erzeugt."
+        "Tests pruefen, dass ambiguous import/call edge und Evidence ohne gueltige Source-/Run-ID keine Policy-Freigabe erzeugen."
       ]
     },
     {
@@ -870,7 +917,8 @@
       "risk": "medium",
       "dependencies": [
         "CRG-003",
-        "RIG-003"
+        "RIG-003",
+        "COMBO-002"
       ],
       "integration_mode": "native_adapter_first",
       "target_files": [
@@ -879,8 +927,9 @@
       ],
       "notes": "",
       "acceptance_criteria": [
-        "CLI oder Script kann externe Graphquellen importieren, RIG extrahieren und Diagnose ausgeben.",
-        "Kommandos sind read-only, ausser explizitem --write-index.",
+        "CLI/API fordert beim Hub einen Import-/Extraktions-Task an; der Hub delegiert an genau einen Worker und registriert dessen versioniertes Ergebnisartefakt.",
+        "Worker erzeugen keine Untertasks und tauschen keine Aufgaben direkt aus.",
+        "Lokale Diagnose ist read-only; persistente Aenderungen erfolgen nur ueber den Hub-Taskfluss und explizites --write-index.",
         "Diagnose zeigt counts fuer symbol_nodes, symbol_edges, rig_nodes, rig_edges, ambiguous_edges, missing_evidence.",
         "Tests verwenden tempfile workspace und pruefen Exitcodes."
       ]
@@ -894,7 +943,7 @@
       "priority": "P1",
       "risk": "low",
       "dependencies": [
-        "CRG-012",
+        "CRG-001",
         "RIG-001"
       ],
       "integration_mode": "native_adapter_first",
@@ -906,7 +955,7 @@
       "notes": "",
       "acceptance_criteria": [
         "docs/codecompass.md ist kein Placeholder mehr und beschreibt Ananta CodeCompass als Kombination aus Symbolgraph, Repository Intelligence Graph, RAG und Policy Layer.",
-        "Dokument nennt CRG als optionalen lokalen Symbolgraph-/Review-Adapter und RIG/SPADE als Build/Test-Truth-Quelle.",
+        "Dokument nennt CRG als optionalen lokalen Symbolgraph-/Review-Adapter und RIG/SPADE als coverage-begrenzte Build/Test-Truth-Quelle.",
         "Abgrenzung: Ananta kopiert nicht fremde Tools, sondern integriert ueber Adapter und Trust-/Evidence-Modell.",
         "README oder docs index verlinkt die neue Architektur."
       ]
@@ -985,70 +1034,107 @@
         "Adapter lesen nur innerhalb workspace_dir oder explizit erlaubter Pfade.",
         "Keine Secrets aus Buildfiles werden unredacted in ToolResult oder Evidence excerpts ausgegeben.",
         "SQLite/JSON Import validiert Groesse, Schema und Pfade gegen DoS/Traversal.",
-        "Security-Test prueft path traversal, zu grosse Dateien und secret-like values."
+        "Security-Test prueft path traversal, Symlink-Escape, zu grosse Dateien, SQLite read-only, ungueltige Source-/Run-IDs und secret-like values.",
+        "Der M7-Review weist nach, dass die bereits in COMBO-002 erzwungenen Import-Invarianten in jedem Provider greifen; er fuehrt keine erstmaligen Security-Gates ein."
       ]
     }
   ],
   "critical_path_tasks": [
     "CRG-001",
-    "CRG-002",
-    "CRG-003",
     "RIG-001",
+    "COMBO-002",
+    "CRG-002",
+    "RIG-012",
+    "CRG-003",
     "RIG-002",
     "RIG-003",
     "RIG-005",
     "RIG-006",
     "COMBO-001",
-    "COMBO-002",
     "COMBO-006",
     "COMBO-008"
   ],
+  "implementation_order": [
+    "CRG-001",
+    "RIG-001",
+    "COMBO-002",
+    "CRG-002",
+    "RIG-012",
+    "RIG-002",
+    "CRG-003",
+    "CRG-004",
+    "RIG-003",
+    "CRG-005",
+    "CRG-007",
+    "CRG-010",
+    "RIG-005",
+    "CRG-006",
+    "CRG-008",
+    "CRG-009",
+    "RIG-006",
+    "RIG-007",
+    "RIG-008",
+    "RIG-009",
+    "RIG-010",
+    "RIG-011",
+    "COMBO-001",
+    "COMBO-003",
+    "COMBO-004",
+    "COMBO-005",
+    "COMBO-006",
+    "CRG-011",
+    "COMBO-007",
+    "COMBO-008"
+  ],
   "tasks_status_summary": {
-    "total": 32,
+    "total": 30,
     "by_status": {
-      "todo": 32,
+      "todo": 30,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
       "done": 0
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 0.0,
     "by_priority": {
-      "P0": 12,
-      "P1": 11,
-      "P2": 9,
+      "P0": 11,
+      "P1": 13,
+      "P2": 6,
       "P3": 0
     },
     "by_risk": {
-      "low": 5,
+      "low": 3,
       "medium": 19,
       "high": 8,
       "critical": 0
     },
     "critical_path": {
-      "total": 12,
+      "total": 13,
       "done": 0,
-      "remaining": 12
+      "remaining": 13
     },
     "milestones": {
       "total": 7,
       "todo": 7,
       "in_progress": 0,
+      "partial": 0,
       "blocked": 0,
       "done": 0
     }
   },
   "tasks_type_summary": {
-    "total": 32,
+    "total": 30,
     "by_type": {
       "design": {
-        "total": 5,
+        "total": 2,
         "done": 0,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "todo": 2,
+        "in_progress": 0,
+        "progress_percent": 0.0,
         "by_status": {
-          "todo": 5,
+          "todo": 2,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
@@ -1056,13 +1142,15 @@
         }
       },
       "backend": {
-        "total": 13,
+        "total": 12,
         "done": 0,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "todo": 12,
+        "in_progress": 0,
+        "progress_percent": 0.0,
         "by_status": {
-          "todo": 13,
+          "todo": 12,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
@@ -1074,7 +1162,9 @@
         "done": 0,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "todo": 4,
+        "in_progress": 0,
+        "progress_percent": 0.0,
         "by_status": {
           "todo": 4,
           "in_progress": 0,
@@ -1088,7 +1178,9 @@
         "done": 0,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 0.0,
         "by_status": {
           "todo": 1,
           "in_progress": 0,
@@ -1102,7 +1194,9 @@
         "done": 0,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 0.0,
         "by_status": {
           "todo": 1,
           "in_progress": 0,
@@ -1116,7 +1210,9 @@
         "done": 0,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 0.0,
         "by_status": {
           "todo": 1,
           "in_progress": 0,
@@ -1130,7 +1226,9 @@
         "done": 0,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "todo": 2,
+        "in_progress": 0,
+        "progress_percent": 0.0,
         "by_status": {
           "todo": 2,
           "in_progress": 0,
@@ -1144,7 +1242,9 @@
         "done": 0,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "todo": 2,
+        "in_progress": 0,
+        "progress_percent": 0.0,
         "by_status": {
           "todo": 2,
           "in_progress": 0,
@@ -1158,7 +1258,9 @@
         "done": 0,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 0.0,
         "by_status": {
           "todo": 1,
           "in_progress": 0,
@@ -1172,7 +1274,9 @@
         "done": 0,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 0.0,
         "by_status": {
           "todo": 1,
           "in_progress": 0,
@@ -1186,7 +1290,9 @@
         "done": 0,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 0.0,
         "by_status": {
           "todo": 1,
           "in_progress": 0,
@@ -1200,7 +1306,9 @@
         "done": 0,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 0.0,
         "by_status": {
           "todo": 1,
           "in_progress": 0,
@@ -1214,7 +1322,9 @@
         "done": 0,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 0.0,
         "by_status": {
           "todo": 1,
           "in_progress": 0,
@@ -1226,18 +1336,23 @@
     }
   },
   "progress_summary": {
-    "state": "not_started",
-    "todo_remaining": 32,
+    "state": "todo",
+    "todo_remaining": 30,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 0,
+    "milestones_done": 0,
+    "milestones_total": 7
   },
   "summary_notes": [
     "Die Datei ist als Umsetzungs-Backlog gedacht, nicht als reine Recherche-Notiz.",
-    "Erster Implementierungsweg: neutrale ImportProvider + kleine Fixtures + bestehende CodeCompassGraphStore/ToolResult Contracts wiederverwenden.",
+    "Erster Implementierungsweg: bestehende CodeCompass-Seams erweitern, dann neutralen ImportProvider + Trust-/Evidence-Schema + kleine gepinnte Fixtures implementieren.",
+    "Alle persistenten Imports/Extraktionen laufen Hub -> Task Queue -> Worker -> versioniertes Artefakt -> Hub Policy/Registry; CLI/API umgehen diesen Fluss nicht.",
     "Direkte Integration von code-review-graph sollte optional bleiben; die stabilen Ideen sind Blast Radius, Minimal Review Context, Incremental Diff, Graph Metrics und CI Risk Review.",
-    "RIG/SPADE sollte als eigene repository_intelligence Schicht umgesetzt werden, weil Build/Test-/Package-Wahrheit eine andere Beweisqualitaet hat als AST/Symbolgraph oder RAG."
+    "RIG/SPADE wird als eigene repository_intelligence Schicht umgesetzt, weil Build/Test-/Package-Wahrheit eine andere Beweisqualitaet hat als AST/Symbolgraph oder RAG.",
+    "RIG-Abwesenheit ist nur bei coverage_status=complete negative Evidence; partial/unknown bleibt unknown_coverage.",
+    "CRG-012 wurde in CRG-001 und RIG-004 in RIG-001 zusammengefuehrt, um reine Dokumentations-/Feature-Flag-Duplikate zu vermeiden."
   ],
   "end_summaries": [
     {
@@ -1254,10 +1369,11 @@
       "summary_id": "implementation_order",
       "title": "Empfohlene Reihenfolge",
       "items": [
-        "Erst Contracts und Provider-Schnittstellen, dann kleine Adapter-Fixtures.",
+        "Erst native/externe Grenzen, RIG-Maschinenschema und Trust-/Evidence-Invarianten festlegen.",
+        "Dann neutralen ImportProvider und kleine, auf Upstream-Commits gepinnte Adapter-Fixtures implementieren.",
         "Dann CRG-Import + RIG CMake Adapter getrennt implementieren.",
         "Dann Query/Tool-Layer, Context Planner und Policy-Gates verbinden.",
-        "Zum Schluss CI, Viewer, Benchmark und Security Hardening."
+        "Zum Schluss CI, Viewer, Benchmark und Security-Audit; Security-Gates selbst gelten bereits am Import-Rand."
       ]
     }
   ]
