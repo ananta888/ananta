@@ -40,6 +40,9 @@ const KNOWN_NODE_KINDS = new Set<string>([
   'yaml_entry', 'yaml_file',
   'config',
   'wiki_article', 'wiki_section', 'wiki_chunk',
+  // RIG-008: Repository Intelligence Graph node kinds (DD-001).
+  'package_manager', 'external_package', 'buildable_component',
+  'aggregator', 'runner', 'test',
   'unknown',
 ]);
 
@@ -73,6 +76,8 @@ const KNOWN_EDGE_TYPES = new Set<string>([
   'uses_type',
   'related',
   'wiki_link',
+  // RIG-008: Repository Intelligence Graph edge kinds (DD-001).
+  'depends_on', 'aggregates', 'built_by', 'tested_by', 'runs', 'covers',
 ]);
 
 @Injectable({ providedIn: 'root' })
