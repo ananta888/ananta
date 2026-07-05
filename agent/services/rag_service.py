@@ -120,6 +120,8 @@ class RagService:
                     source_row["source_id"] = metadata.get("source_id")
                 if metadata.get("chunk_id"):
                     source_row["chunk_id"] = metadata.get("chunk_id")
+                if metadata.get("snapshot_id"):
+                    source_row["snapshot_id"] = metadata.get("snapshot_id")
             sources.append(source_row)
         explainability["artifact_ids"] = sorted(artifact_ids)
         explainability["collection_names"] = sorted(collection_names)
@@ -150,6 +152,78 @@ class RagService:
         if include_context_text is False:
             bundle.pop("context_text", None)
         return bundle
+
+    _EXTERNAL_LLM_SCOPES = {"external_cloud_allowed", "trusted_private_cloud"}
+
+    def build_open_notebook_worker_refs(
+        self,
+        bundle: dict[str, object],
+        *,
+        llm_scope: str | None = None,
+        max_content_chars: int = 1200,
+    ) -> dict[str, object]:
+        """Convert open_notebook chunks of a bundle into worker retrieval_refs.
+
+        Workers only ever receive SourceReference-carrying refs with budgeted
+        content, never raw OpenNotebook objects. Chunks marked local_only are
+        denied for external llm scopes.
+        """
+        import hashlib as _hashlib
+        import json as _json
+
+        from agent.sources.open_notebook_source_reference import build_source_reference
+
+        scope = str(llm_scope or bundle.get("llm_scope") or "local_only")
+        external = scope in self._EXTERNAL_LLM_SCOPES
+        refs: list[dict[str, object]] = []
+        denied: list[dict[str, object]] = []
+        hash_records: list[dict[str, str]] = []
+        for chunk in list(bundle.get("chunks") or []):
+            metadata = dict((chunk or {}).get("metadata") or {})
+            if str(metadata.get("source_type") or "") != "open_notebook":
+                continue
+            sanitized = dict(metadata.get("sanitized") or {})
+            chunk_scope = str(sanitized.get("llm_scope") or metadata.get("llm_scope") or "local_only")
+            if external and chunk_scope == "local_only":
+                denied.append(
+                    {
+                        "chunk_id": str(metadata.get("chunk_id") or ""),
+                        "reason_code": "denied_external_llm_scope",
+                        "llm_scope": scope,
+                    }
+                )
+                continue
+            reference = build_source_reference(metadata)
+            content = str(chunk.get("content") or "")[: max(1, int(max_content_chars))]
+            refs.append(
+                {
+                    "source_type": "open_notebook",
+                    "origin_id": reference["chunk_id"],
+                    "provenance": str(reference["extensions"].get("citation_label") or reference["title"]),
+                    "source_reference": reference,
+                    "content": content,
+                    "token_estimate": max(1, len(content) // 4),
+                    "sensitivity": "project_internal",
+                    "priority": 40,
+                }
+            )
+            hash_records.append(
+                {
+                    "source_id": reference["source_id"],
+                    "snapshot_id": reference["snapshot_id"],
+                    "content_hash": str(reference["extensions"].get("content_hash") or ""),
+                }
+            )
+        context_hash = _hashlib.sha256(
+            _json.dumps(hash_records, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+        return {
+            "retrieval_refs": refs,
+            "denied": denied,
+            "context_hash": context_hash,
+            "llm_scope": scope,
+            "provenance_policy": dict(bundle.get("provenance_policy") or {}),
+        }
 
     def build_execution_context(
         self,

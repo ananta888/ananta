@@ -306,6 +306,7 @@ class Settings(BaseSettings):
     rag_source_artifact_enabled: bool = Field(default=True, validation_alias="RAG_SOURCE_ARTIFACT_ENABLED")
     rag_source_task_memory_enabled: bool = Field(default=True, validation_alias="RAG_SOURCE_TASK_MEMORY_ENABLED")
     rag_source_wiki_enabled: bool = Field(default=True, validation_alias="RAG_SOURCE_WIKI_ENABLED")
+    rag_source_open_notebook_enabled: bool = Field(default=False, validation_alias="RAG_SOURCE_OPEN_NOTEBOOK_ENABLED")
     rag_default_window_profile: str = Field(default="standard_32k", validation_alias="RAG_DEFAULT_WINDOW_PROFILE")
     rag_compact_budget_tokens: int = Field(default=12000, validation_alias="RAG_COMPACT_BUDGET_TOKENS")
     rag_standard_budget_tokens: int = Field(default=32000, validation_alias="RAG_STANDARD_BUDGET_TOKENS")

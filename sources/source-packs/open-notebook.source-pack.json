@@ -1,0 +1,121 @@
+{
+  "schema": "source_pack.v1",
+  "source_pack_id": "open-notebook",
+  "display_name": "OpenNotebook Research Source Pack",
+  "version": "1.0.0",
+  "enabled": true,
+  "sources": [
+    {
+      "source_id": "open-notebook-local-export",
+      "descriptor_path": "sources/open_notebook/source_descriptor.json",
+      "source_type": "open_notebook",
+      "trust_level": "user_managed_research",
+      "source_priority": 140,
+      "knowledge_domain": "user_research",
+      "abstraction_profile": "research_notebook",
+      "bootstrap_mode": "manual",
+      "fetch_source": {
+        "url": "file:///imports/open-notebook/export.json",
+        "method": "GET"
+      },
+      "citation_source": {
+        "canonical_url": "https://github.com/lfnovo/open-notebook",
+        "license_ref": "unknown"
+      },
+      "enabled": true
+    }
+  ],
+  "codecompass_profiles": [
+    {
+      "profile_id": "open-notebook-research",
+      "source_ids": [
+        "open-notebook-local-export"
+      ],
+      "priority": 20,
+      "query_terms": [
+        "notebook",
+        "research",
+        "source",
+        "notes",
+        "insight"
+      ]
+    }
+  ],
+  "retrieval_rules": [
+    {
+      "rule_id": "research-notebook-primary",
+      "match_mode": "research_notebook",
+      "include_source_ids": [
+        "open-notebook-local-export"
+      ],
+      "exclude_source_ids": [
+        "wikimedia-wikipedia-initial-dump"
+      ]
+    }
+  ],
+  "bootstrap_steps": [
+    {
+      "step_id": "import-open-notebook-fixture",
+      "action": "download",
+      "source_ids": [
+        "open-notebook-local-export"
+      ],
+      "required": true
+    },
+    {
+      "step_id": "verify-open-notebook-import",
+      "action": "verify",
+      "required": true
+    },
+    {
+      "step_id": "index-open-notebook-import",
+      "action": "index",
+      "required": true
+    },
+    {
+      "step_id": "validate-open-notebook-import",
+      "action": "validate",
+      "required": true
+    }
+  ],
+  "license_policy": {
+    "require_license_ref": true,
+    "block_on_missing_license": false,
+    "allowed_licenses": [
+      "unknown",
+      "license_unknown",
+      "CC BY-SA 4.0",
+      "MIT"
+    ]
+  },
+  "extensions": {
+    "activation_mode": "manual_import",
+    "notes": "OpenNotebook exports are imported offline via POST /sources/import/open-notebook or TUI :sources import-open-notebook <path>. Fixtures: tests/fixtures/open_notebook/.",
+    "bootstrap_instructions": [
+      "Import an export offline: POST /sources/import/open-notebook with tests/fixtures/open_notebook/complex_export.json",
+      "Or via Operator TUI: :sources import-open-notebook tests/fixtures/open_notebook/complex_export.json",
+      "Verify snapshots: GET /sources/{registry_source_id}/snapshots",
+      "Query with source_types=['open_notebook'] once rag_source_open_notebook_enabled=true"
+    ],
+    "rag_source_profile": "domains/open_notebook/rag_sources/open_notebook_source.profile.json",
+    "provenance_policy": {
+      "default_llm_scope": "local_only",
+      "chat_sessions_indexed": false,
+      "license_fallback": "unknown"
+    },
+    "retrieval_priority_policy": {
+      "priority_order": [
+        "local_project",
+        "open_notebook_research",
+        "general_knowledge"
+      ],
+      "condition": "retrieval_intent in {research, notebook, notes, source}",
+      "research_primary_sources": [
+        "open-notebook-local-export"
+      ],
+      "general_secondary_sources": [
+        "wikimedia-wikipedia-initial-dump"
+      ]
+    }
+  }
+}

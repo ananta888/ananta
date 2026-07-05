@@ -86,7 +86,7 @@
       "type": "array",
       "items": {
         "type": "string",
-        "enum": ["repo", "artifact", "wiki", "task_memory"]
+        "enum": ["repo", "artifact", "wiki", "task_memory", "open_notebook"]
       },
       "uniqueItems": true
     },

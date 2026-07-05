@@ -135,6 +135,86 @@ def source_pack_doctor():
     return api_response(data=report)
 
 
+@sources_bp.route("/sources/import/open-notebook", methods=["POST"])
+@check_auth
+def import_open_notebook():
+    _sync_builtin_descriptors()
+    payload: dict[str, Any] | None = None
+    uploaded = request.files.get("file")
+    if uploaded is not None:
+        import json as _json
+
+        try:
+            payload = _json.loads(uploaded.read().decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            raise BadRequestError("invalid_open_notebook_export_file")
+    else:
+        payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        raise BadRequestError("invalid_payload")
+
+    options = {}
+    for key in ("include_notes", "include_insights"):
+        raw = request.args.get(key)
+        if raw is not None:
+            options[key] = str(raw).strip().lower() in {"1", "true", "yes"}
+
+    from agent.sources.open_notebook_importer import get_open_notebook_importer
+
+    result = get_open_notebook_importer().import_export(payload, created_by="api", **options)
+    if str(result.get("status") or "") == "failed":
+        return api_response(data=result, status="error", message=str(result.get("reason_code") or "import_failed"), code=400)
+    return api_response(data=result)
+
+
+@sources_bp.route("/sources/<source_id>/chat", methods=["POST"])
+@check_auth
+def source_chat(source_id: str):
+    _sync_builtin_descriptors()
+    payload = request.get_json(silent=True) or {}
+    if not isinstance(payload, dict):
+        raise BadRequestError("invalid_payload")
+    prompt = str(payload.get("prompt") or "").strip()
+    if not prompt:
+        raise BadRequestError("prompt_required")
+
+    from agent.services.source_chat_context_service import get_source_chat_context_service
+
+    try:
+        context = get_source_chat_context_service().build_context(
+            prompt=prompt,
+            source_ref=source_id,
+            include_insights=bool(payload.get("include_insights", True)),
+            include_notes=bool(payload.get("include_notes", False)),
+            max_chunks=payload.get("max_chunks"),
+            provenance_visibility=str(payload.get("provenance_visibility") or "") or None,
+            llm_scope=str(payload.get("llm_scope") or "") or None,
+        )
+    except ValueError as exc:
+        reason = str(exc)
+        if reason == "source_not_found":
+            raise NotFoundError("source_not_found")
+        if reason == "no_retrieval_source_enabled":
+            raise BadRequestError("open_notebook_source_disabled")
+        raise BadRequestError(reason)
+
+    from agent.services.chat_partial_summary_service import call_llm_text
+
+    answer = call_llm_text(context["grounded_prompt"]) or ""
+    bundle = dict(context.get("context_bundle") or {})
+    return api_response(
+        data={
+            "source_id": source_id,
+            "answer": answer,
+            "source_references": context["source_references"],
+            "context_hash": context["context_hash"],
+            "explainability": dict(bundle.get("explainability") or {}),
+            "selected_sources": context["selected_sources"],
+            "budget": context["budget"],
+        }
+    )
+
+
 @sources_bp.route("/sources/<source_id>", methods=["GET"])
 @check_auth
 def get_source(source_id: str):

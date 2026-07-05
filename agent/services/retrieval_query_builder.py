@@ -76,6 +76,7 @@ def task_profile_for_fusion(task_kind: str | None, retrieval_intent: str | None)
             "artifact": 1.08,
             "task_memory": 1.1,
             "wiki": 1.06,
+            "open_notebook": 0.95,
         },
         "max_per_source": 2,
         "max_per_source_type": max(1, settings.rag_max_chunks // 2),
@@ -89,7 +90,7 @@ def task_profile_for_fusion(task_kind: str | None, retrieval_intent: str | None)
             "knowledge_index": 1.25,
             "result_memory": 1.2,
         }
-        profile["source_type_weights"] = {"repo": 1.1, "artifact": 1.15, "task_memory": 1.2, "wiki": 1.0}
+        profile["source_type_weights"] = {"repo": 1.1, "artifact": 1.15, "task_memory": 1.2, "wiki": 1.0, "open_notebook": 0.85}
     elif normalized_kind in {"refactor", "implement", "coding"}:
         profile["engine_weights"] = {
             "repository_map": 1.25,
@@ -98,7 +99,7 @@ def task_profile_for_fusion(task_kind: str | None, retrieval_intent: str | None)
             "knowledge_index": 1.1,
             "result_memory": 1.15,
         }
-        profile["source_type_weights"] = {"repo": 1.15, "artifact": 1.1, "task_memory": 1.15, "wiki": 1.0}
+        profile["source_type_weights"] = {"repo": 1.15, "artifact": 1.1, "task_memory": 1.15, "wiki": 1.0, "open_notebook": 0.85}
     elif normalized_kind in {"architecture", "analysis", "doc", "research"}:
         profile["engine_weights"] = {
             "repository_map": 0.85,
@@ -107,7 +108,7 @@ def task_profile_for_fusion(task_kind: str | None, retrieval_intent: str | None)
             "knowledge_index": 1.3,
             "result_memory": 1.1,
         }
-        profile["source_type_weights"] = {"repo": 0.9, "artifact": 1.2, "task_memory": 1.0, "wiki": 1.25}
+        profile["source_type_weights"] = {"repo": 0.9, "artifact": 1.2, "task_memory": 1.0, "wiki": 1.25, "open_notebook": 1.2}
         profile["max_per_source"] = 1
     elif normalized_kind in {"config", "xml", "ops"}:
         profile["engine_weights"] = {
@@ -117,7 +118,13 @@ def task_profile_for_fusion(task_kind: str | None, retrieval_intent: str | None)
             "knowledge_index": 1.2,
             "result_memory": 1.15,
         }
-        profile["source_type_weights"] = {"repo": 1.05, "artifact": 1.15, "task_memory": 1.1, "wiki": 1.0}
+        profile["source_type_weights"] = {"repo": 1.05, "artifact": 1.15, "task_memory": 1.1, "wiki": 1.0, "open_notebook": 0.9}
+
+    if normalized_kind in {"code_change", "api_contract"}:
+        source_weights = dict(profile.get("source_type_weights") or {})
+        source_weights["repo"] = max(1.15, float(source_weights.get("repo", 1.0)))
+        source_weights["open_notebook"] = min(0.85, float(source_weights.get("open_notebook", 1.0)))
+        profile["source_type_weights"] = source_weights
 
     if "architecture" in normalized_intent:
         engine_weights = dict(profile["engine_weights"] or {})
@@ -137,6 +144,10 @@ def task_profile_for_fusion(task_kind: str | None, retrieval_intent: str | None)
         source_weights["repo"] = max(1.15, float(source_weights.get("repo", 1.0)))
         source_weights["artifact"] = max(1.15, float(source_weights.get("artifact", 1.0)))
         source_weights["task_memory"] = max(1.2, float(source_weights.get("task_memory", 1.0)))
+        profile["source_type_weights"] = source_weights
+    if any(marker in normalized_intent for marker in ("research", "notebook", "notes")):
+        source_weights = dict(profile.get("source_type_weights") or {})
+        source_weights["open_notebook"] = max(1.3, float(source_weights.get("open_notebook", 1.0)))
         profile["source_type_weights"] = source_weights
     return profile
 
@@ -163,6 +174,14 @@ def source_priority_rules(
             reason = "task_execution_history_relevance"
         elif source_type in {"artifact", "wiki"} and normalized_kind in {"architecture", "analysis", "doc", "research"}:
             reason = "architecture_and_documentation_coverage"
+        elif source_type == "open_notebook":
+            intent_text = normalized_intent or ""
+            if any(marker in intent_text for marker in ("research", "notebook", "notes")):
+                reason = "user_research_relevance"
+            elif normalized_kind in {"code_change", "api_contract", "bugfix", "implement", "coding", "refactor"}:
+                reason = "user_research_below_code_truth"
+            else:
+                reason = "user_research_secondary"
         elif source_type == "repo":
             reason = "repository_locality"
         rules.append(
@@ -207,11 +226,13 @@ def final_merge_trace(chunks: list[ContextChunk]) -> list[dict[str, object]]:
     ranked = sorted(chunks, key=lambda chunk: (-float(chunk.score or 0.0), chunk.engine, chunk.source, chunk.content[:80]))
     trace: list[dict[str, object]] = []
     for index, chunk in enumerate(ranked, start=1):
+        metadata = dict(chunk.metadata or {})
         trace.append(
             {
                 "rank": index,
                 "engine": str(chunk.engine or ""),
                 "source": str(chunk.source or ""),
+                "source_type": str(metadata.get("source_type") or "unknown"),
                 "score": round(float(chunk.score or 0.0), 4),
             }
         )

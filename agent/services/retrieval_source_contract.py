@@ -5,7 +5,7 @@ import re
 from dataclasses import dataclass
 from typing import Any, Mapping, Protocol, runtime_checkable
 
-SOURCE_TYPES: tuple[str, ...] = ("repo", "artifact", "task_memory", "wiki")
+SOURCE_TYPES: tuple[str, ...] = ("repo", "artifact", "task_memory", "wiki", "open_notebook")
 _SOURCE_TYPE_SET = set(SOURCE_TYPES)
 _NORMALIZE_SPACES = re.compile(r"\s+")
 _SENSITIVITY_CLASSES = {
@@ -32,6 +32,7 @@ _SOURCE_ORIGIN_CLASSES = {
     "wiki",
     "external_research",
     "task_memory",
+    "open_notebook",
 }
 
 
@@ -94,6 +95,8 @@ def enabled_source_types_from_settings(settings) -> frozenset[str]:
         enabled.add("task_memory")
     if bool(getattr(settings, "rag_source_wiki_enabled", False)):
         enabled.add("wiki")
+    if bool(getattr(settings, "rag_source_open_notebook_enabled", False)):
+        enabled.add("open_notebook")
     return frozenset(enabled)
 
 
@@ -119,6 +122,8 @@ def infer_source_type(*, engine: str, metadata: Mapping[str, Any] | None) -> str
     source_scope = str(payload.get("source_scope") or "").strip().lower()
     if source_scope == "wiki":
         return "wiki"
+    if source_scope == "open_notebook":
+        return "open_notebook"
     if source_scope in {"artifact", "knowledge"}:
         return "artifact"
 
@@ -157,6 +162,13 @@ def infer_source_id(*, source_type: str, source: str, metadata: Mapping[str, Any
             or str(payload.get("memory_entry_id") or "").strip()
             or fallback
         )
+    if source_type == "open_notebook":
+        return (
+            str(payload.get("registry_source_id") or "").strip()
+            or str(payload.get("open_notebook_source_id") or "").strip()
+            or str(payload.get("artifact_id") or "").strip()
+            or fallback
+        )
     return fallback
 
 
@@ -166,6 +178,8 @@ def source_scopes_for_types(source_types: set[str] | frozenset[str]) -> set[str]
         scopes.add("artifact")
     if "wiki" in source_types:
         scopes.add("wiki")
+    if "open_notebook" in source_types:
+        scopes.add("open_notebook")
     return scopes
 
 
@@ -192,6 +206,13 @@ def build_citation(
         citation["section_title"] = payload.get("section_title")
         citation["language"] = payload.get("language")
         citation["revision"] = payload.get("import_revision") or payload.get("revision")
+    elif source_type == "open_notebook":
+        citation["title"] = payload.get("source_title") or payload.get("article_title")
+        citation["source_system"] = payload.get("source_system") or "open_notebook"
+        citation["snapshot_id"] = payload.get("snapshot_id")
+        citation["artifact_id"] = payload.get("artifact_id")
+        citation["record_kind"] = payload.get("record_kind")
+        citation["canonical_url"] = payload.get("canonical_url") or payload.get("file_path")
     return citation
 
 

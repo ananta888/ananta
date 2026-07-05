@@ -89,7 +89,8 @@
               "source_code",
               "technical_docs",
               "general_knowledge",
-              "plugin_development_knowledge"
+              "plugin_development_knowledge",
+              "user_research"
             ]
           },
           "bootstrap_mode": {
@@ -105,7 +106,8 @@
             "enum": [
               "repo_code",
               "api_docs",
-              "general_encyclopedia"
+              "general_encyclopedia",
+              "research_notebook"
             ]
           },
           "enabled": {
@@ -140,7 +142,8 @@
             "enum": [
               "technical_eclipse",
               "technical_keycloak",
-              "general_fallback"
+              "general_fallback",
+              "research_notebook"
             ]
           },
           "include_source_ids": {

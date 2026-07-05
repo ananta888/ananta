@@ -1,0 +1,347 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.dev/schemas/integrations/open_notebook_export.v1.json",
+  "title": "OpenNotebook Export Contract v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "export_version",
+    "source_system"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "open_notebook_export.v1"
+    },
+    "export_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 40
+    },
+    "source_system": {
+      "type": "string",
+      "const": "open_notebook"
+    },
+    "exported_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "notebooks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/notebook"
+      }
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/note"
+      }
+    },
+    "source_insights": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/source_insight"
+      }
+    },
+    "transformations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/transformation"
+      }
+    },
+    "chat_sessions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/chat_session"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "stable_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "notebook": {
+      "type": "object",
+      "required": [
+        "id",
+        "name"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/stable_id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "description": {
+          "type": "string"
+        },
+        "created": {
+          "type": "string"
+        },
+        "updated": {
+          "type": "string"
+        },
+        "metadata": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "id",
+        "title"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/stable_id"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "topics": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "asset": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "format": "uri"
+            },
+            "file_path": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "full_text": {
+          "type": "string"
+        },
+        "notebook_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/stable_id"
+          }
+        },
+        "created": {
+          "type": "string"
+        },
+        "updated": {
+          "type": "string"
+        },
+        "metadata": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "anyOf": [
+        {
+          "properties": {
+            "asset": {
+              "required": [
+                "url"
+              ]
+            }
+          },
+          "required": [
+            "asset"
+          ]
+        },
+        {
+          "properties": {
+            "asset": {
+              "required": [
+                "file_path"
+              ]
+            }
+          },
+          "required": [
+            "asset"
+          ]
+        },
+        {
+          "properties": {
+            "full_text": {
+              "minLength": 1
+            }
+          },
+          "required": [
+            "full_text"
+          ]
+        }
+      ]
+    },
+    "note": {
+      "type": "object",
+      "required": [
+        "id",
+        "content"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/stable_id"
+        },
+        "title": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string",
+          "minLength": 1
+        },
+        "note_type": {
+          "type": "string",
+          "enum": [
+            "human",
+            "ai",
+            "unknown"
+          ]
+        },
+        "notebook_id": {
+          "$ref": "#/$defs/stable_id"
+        },
+        "source_id": {
+          "$ref": "#/$defs/stable_id"
+        },
+        "created": {
+          "type": "string"
+        },
+        "updated": {
+          "type": "string"
+        },
+        "metadata": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    "source_insight": {
+      "type": "object",
+      "required": [
+        "id",
+        "source_id",
+        "content"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/stable_id"
+        },
+        "source_id": {
+          "$ref": "#/$defs/stable_id"
+        },
+        "insight_type": {
+          "type": "string"
+        },
+        "transformation_name": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string",
+          "minLength": 1
+        },
+        "created": {
+          "type": "string"
+        },
+        "metadata": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    "transformation": {
+      "type": "object",
+      "required": [
+        "id",
+        "name"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/stable_id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string"
+        },
+        "prompt": {
+          "type": "string"
+        },
+        "apply_default": {
+          "type": "boolean"
+        },
+        "metadata": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    "chat_session": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/stable_id"
+        },
+        "notebook_id": {
+          "$ref": "#/$defs/stable_id"
+        },
+        "title": {
+          "type": "string"
+        },
+        "created": {
+          "type": "string"
+        },
+        "messages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "role",
+              "content"
+            ],
+            "properties": {
+              "role": {
+                "type": "string"
+              },
+              "content": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "metadata": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

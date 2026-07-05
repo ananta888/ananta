@@ -29,6 +29,7 @@ from agent.services.retrieval_query_builder import (
 )
 from agent.services.retrieval_source_adapters import (
     ArtifactKnowledgeSourceAdapter,
+    OpenNotebookKnowledgeSourceAdapter,
     RepoRetrievalSourceAdapter,
     TaskMemorySourceAdapter,
     WikiKnowledgeSourceAdapter,
@@ -54,6 +55,7 @@ class RetrievalService:
             ),
             "artifact": ArtifactKnowledgeSourceAdapter(self._knowledge_index_retrieval_service),
             "wiki": WikiKnowledgeSourceAdapter(self._knowledge_index_retrieval_service),
+            "open_notebook": OpenNotebookKnowledgeSourceAdapter(self._knowledge_index_retrieval_service),
             "task_memory": TaskMemorySourceAdapter(
                 memory_search=lambda *, query, task_id, goal_id, neighbor_task_ids, top_k: memory_candidates(
                     query=query,
@@ -82,6 +84,7 @@ class RetrievalService:
             settings.rag_source_artifact_enabled,
             settings.rag_source_task_memory_enabled,
             settings.rag_source_wiki_enabled,
+            settings.rag_source_open_notebook_enabled,
         )
 
     def _build_orchestrator(self) -> HybridOrchestrator:
@@ -167,6 +170,12 @@ class RetrievalService:
                 "status": task_memory_status,
                 "issues": task_memory_issues,
                 "notes": ["task_memory availability is contextual and depends on task/goal neighborhood"],
+            },
+            "open_notebook": {
+                "enabled": "open_notebook" in effective,
+                "status": str((knowledge_preflight.get("open_notebook") or {}).get("status") or "unknown"),
+                "issues": list((knowledge_preflight.get("open_notebook") or {}).get("issues") or []),
+                "completed_indices": int((knowledge_preflight.get("open_notebook") or {}).get("completed_indices") or 0),
             },
         }
         source_statuses = [str((item or {}).get("status") or "unknown") for item in sources.values() if bool((item or {}).get("enabled"))]
@@ -267,6 +276,16 @@ class RetrievalService:
         if "wiki" in effective_source_types and isinstance(wiki_adapter, WikiKnowledgeSourceAdapter):
             knowledge_chunks.extend(
                 wiki_adapter.search(
+                    query,
+                    top_k=knowledge_top_k,
+                    task_kind=task_kind,
+                    retrieval_intent=retrieval_intent,
+                )
+            )
+        open_notebook_adapter = self._source_adapters.get("open_notebook")
+        if "open_notebook" in effective_source_types and isinstance(open_notebook_adapter, OpenNotebookKnowledgeSourceAdapter):
+            knowledge_chunks.extend(
+                open_notebook_adapter.search(
                     query,
                     top_k=knowledge_top_k,
                     task_kind=task_kind,

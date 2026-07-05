@@ -122,10 +122,25 @@ class ContextEnvelopeAdapter:
             return list(preloaded_blocks), []
 
         if ref.retrieval_refs:
-            return self._resolver.resolve(
-                ref.retrieval_refs,
+            # open_notebook refs must carry a source_reference; workers never
+            # consume raw OpenNotebook objects without provenance.
+            guarded_refs: list[dict[str, Any]] = []
+            guard_errors: list[str] = []
+            for retrieval_ref in ref.retrieval_refs:
+                item = dict(retrieval_ref or {})
+                if str(item.get("source_type") or "") == "open_notebook" and not isinstance(
+                    item.get("source_reference"), dict
+                ):
+                    guard_errors.append(
+                        f"open_notebook_ref_missing_source_reference:{item.get('origin_id') or 'unknown'}"
+                    )
+                    continue
+                guarded_refs.append(item)
+            blocks, errors = self._resolver.resolve(
+                guarded_refs,
                 allowed_source_types=allowed_source_types,
             )
+            return blocks, [*guard_errors, *errors]
 
         # No retrieval_refs and no preloaded — return a minimal task-description block
         stub = ContextBlock(

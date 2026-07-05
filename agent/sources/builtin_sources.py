@@ -15,6 +15,7 @@ def load_builtin_source_descriptors() -> list[dict[str, Any]]:
         ROOT / "sources" / "eclipse" / "eclipse-pde.source_descriptor.json",
         ROOT / "sources" / "keycloak" / "source_descriptor.json",
         ROOT / "sources" / "wikipedia" / "source_descriptor.json",
+        ROOT / "sources" / "open_notebook" / "source_descriptor.json",
     ):
         if not path.exists():
             continue

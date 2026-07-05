@@ -137,6 +137,56 @@ def handle_sources_command(args: list[str], state: OperatorState) -> CommandResu
             state.with_updates(status_message=f"sources cite {source_id}"[:240]),
             rendered,
         )
+    if action == "import-open-notebook":
+        if len(args) < 2:
+            return CommandResult(state, "sources import-open-notebook <path>", handled=False)
+        from pathlib import Path
+
+        from agent.sources.open_notebook_importer import get_open_notebook_importer
+
+        path = Path(str(args[1]).strip()).expanduser()
+        if not path.exists() or not path.is_file():
+            return CommandResult(state, f"sources: export file not found {path}", handled=False)
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (ValueError, OSError) as exc:
+            return CommandResult(state, f"sources: invalid export file {path}: {exc}", handled=False)
+        result = get_open_notebook_importer().import_export(payload, created_by="operator_tui")
+        status = str(result.get("status") or "unknown")
+        imported = dict(result.get("imported") or {})
+        msg = (
+            f"sources import-open-notebook: {status} "
+            f"sources={imported.get('sources', 0)} notes={imported.get('notes', 0)} "
+            f"insights={imported.get('insights', 0)} registry={result.get('registry_source_id') or '-'}"
+        )
+        return CommandResult(state.with_updates(status_message=msg[:240]), json.dumps(result, ensure_ascii=False))
+    if action == "chat":
+        if len(args) < 3:
+            return CommandResult(state, "sources chat <source-id> <question>", handled=False)
+        from agent.services.source_chat_context_service import get_source_chat_context_service
+
+        source_id = str(args[1]).strip()
+        question = " ".join(args[2:]).strip()
+        try:
+            context = get_source_chat_context_service().build_context(prompt=question, source_ref=source_id)
+        except ValueError as exc:
+            return CommandResult(state, f"sources chat {source_id}: {exc}", handled=False)
+        from agent.services.chat_partial_summary_service import call_llm_text
+
+        answer = call_llm_text(context["grounded_prompt"]) or ""
+        references = list(context.get("source_references") or [])
+        labels = " | ".join(
+            str(dict(item.get("extensions") or {}).get("citation_label") or item.get("title") or "")
+            for item in references[:3]
+        )
+        payload = {
+            "source_id": source_id,
+            "answer": answer,
+            "context_hash": context.get("context_hash"),
+            "source_references": references,
+        }
+        msg = f"sources chat {source_id}: refs={len(references)} {labels}"
+        return CommandResult(state.with_updates(status_message=msg[:240]), json.dumps(payload, ensure_ascii=False))
     if action == "cache":
         if len(args) < 2:
             return CommandResult(state, "sources cache <source-id> [clear]", handled=False)
@@ -158,4 +208,4 @@ def handle_sources_command(args: list[str], state: OperatorState) -> CommandResu
             f"bytes={stats['total_bytes']}"
         )
         return CommandResult(state.with_updates(status_message=msg[:240]), msg)
-    return CommandResult(state, "sources: list | packs | pack show <id> | pack bootstrap <id> [--dry-run] | pack query <id> <question> | refresh <id> | snapshots <id> | cite <id> | cache <id> [clear]", handled=False)
+    return CommandResult(state, "sources: list | packs | pack show <id> | pack bootstrap <id> [--dry-run] | pack query <id> <question> | refresh <id> | snapshots <id> | cite <id> | cache <id> [clear] | import-open-notebook <path> | chat <id> <question>", handled=False)

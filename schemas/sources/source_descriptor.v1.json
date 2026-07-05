@@ -30,7 +30,8 @@
         "keycloak_docs",
         "wikimedia_dump",
         "web_doc",
-        "local_dump"
+        "local_dump",
+        "open_notebook"
       ]
     },
     "display_name": {
