@@ -1,0 +1,135 @@
+{
+  "schema": "open_notebook_export.v1",
+  "export_version": "1",
+  "source_system": "open_notebook",
+  "exported_at": "2026-07-02T18:30:00Z",
+  "notebooks": [
+    {
+      "id": "nb-research-agents",
+      "name": "Autonomous Agents Research",
+      "description": "Papers and notes about multi-agent orchestration.",
+      "created": "2026-05-01T08:00:00Z",
+      "updated": "2026-07-02T18:00:00Z"
+    },
+    {
+      "id": "nb-infra",
+      "name": "Infrastructure Reading",
+      "description": "Deployment, queues and storage references.",
+      "created": "2026-05-10T08:00:00Z",
+      "updated": "2026-06-28T10:00:00Z"
+    }
+  ],
+  "sources": [
+    {
+      "id": "src-url-agent-survey",
+      "title": "A Survey of Autonomous LLM Agents",
+      "topics": ["agents", "planning", "survey"],
+      "asset": {
+        "url": "https://example.org/papers/autonomous-llm-agents-survey"
+      },
+      "full_text": "Autonomous agents combine planning, tool use and memory. Hub-centric orchestration keeps workers stateless while the hub owns task state. Delegation traces make multi-agent decisions auditable.",
+      "notebook_ids": ["nb-research-agents", "nb-infra"],
+      "created": "2026-05-02T09:00:00Z",
+      "updated": "2026-06-15T09:00:00Z",
+      "metadata": {
+        "reading_status": "finished"
+      }
+    },
+    {
+      "id": "src-file-queue-notes",
+      "title": "Queue Design Notes",
+      "topics": ["queues", "backpressure"],
+      "asset": {
+        "file_path": "documents/queue-design-notes.pdf"
+      },
+      "full_text": "Backpressure protects downstream consumers. Bounded queues with explicit overflow policies beat unbounded buffering. Retries need idempotency keys.",
+      "notebook_ids": ["nb-infra"],
+      "created": "2026-05-12T14:00:00Z",
+      "updated": "2026-05-12T14:00:00Z"
+    },
+    {
+      "id": "src-text-context-budget",
+      "title": "Context Budget Heuristics",
+      "topics": ["context", "tokens", "budget"],
+      "asset": {},
+      "full_text": "Context budgets should be enforced in characters and tokens. Diversity cuts prevent one source from dominating the bundle. Provenance metadata must survive reranking.",
+      "notebook_ids": ["nb-research-agents"],
+      "created": "2026-06-01T11:00:00Z",
+      "updated": "2026-06-20T11:00:00Z"
+    }
+  ],
+  "notes": [
+    {
+      "id": "note-human-1",
+      "title": "Follow up",
+      "content": "Check how delegation traces map to Ananta HITL gates.",
+      "note_type": "human",
+      "notebook_id": "nb-research-agents",
+      "source_id": "src-url-agent-survey",
+      "created": "2026-05-03T10:00:00Z",
+      "updated": "2026-05-03T10:00:00Z"
+    },
+    {
+      "id": "note-ai-1",
+      "title": "AI summary of queue notes",
+      "content": "The document argues for bounded queues, overflow policies and idempotent retries.",
+      "note_type": "ai",
+      "notebook_id": "nb-infra",
+      "source_id": "src-file-queue-notes",
+      "created": "2026-05-13T09:00:00Z",
+      "updated": "2026-05-13T09:00:00Z"
+    }
+  ],
+  "source_insights": [
+    {
+      "id": "insight-1",
+      "source_id": "src-url-agent-survey",
+      "insight_type": "key_terms",
+      "transformation_name": "Key Terms",
+      "content": "planning, tool use, memory, hub-centric orchestration, delegation trace",
+      "created": "2026-05-04T12:00:00Z"
+    },
+    {
+      "id": "insight-2",
+      "source_id": "src-text-context-budget",
+      "insight_type": "summary",
+      "transformation_name": "Dense Summary",
+      "content": "Enforce dual budgets (chars and tokens), apply diversity cuts, and keep provenance metadata through reranking.",
+      "created": "2026-06-21T12:00:00Z"
+    }
+  ],
+  "transformations": [
+    {
+      "id": "transform-key-terms",
+      "name": "Key Terms",
+      "title": "Extract key terms",
+      "prompt": "List the most important terms of the source as a comma separated list.",
+      "apply_default": true
+    },
+    {
+      "id": "transform-summary",
+      "name": "Dense Summary",
+      "title": "Dense summary",
+      "prompt": "Summarize the source in at most three sentences.",
+      "apply_default": false
+    }
+  ],
+  "chat_sessions": [
+    {
+      "id": "chat-1",
+      "notebook_id": "nb-research-agents",
+      "title": "Questions about the survey",
+      "created": "2026-05-05T15:00:00Z",
+      "messages": [
+        {
+          "role": "user",
+          "content": "What keeps workers stateless in hub-centric designs?"
+        },
+        {
+          "role": "assistant",
+          "content": "The hub owns all task state; workers only receive scoped context envelopes."
+        }
+      ]
+    }
+  ]
+}

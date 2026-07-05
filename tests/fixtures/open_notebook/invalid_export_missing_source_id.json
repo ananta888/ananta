@@ -1,0 +1,25 @@
+{
+  "schema": "open_notebook_export.v1",
+  "export_version": "1",
+  "source_system": "open_notebook",
+  "exported_at": "2026-07-02T18:30:00Z",
+  "notebooks": [
+    {
+      "id": "nb-broken",
+      "name": "Broken Export",
+      "created": "2026-06-01T08:00:00Z",
+      "updated": "2026-06-01T08:00:00Z"
+    }
+  ],
+  "sources": [
+    {
+      "title": "Source without id",
+      "topics": [],
+      "asset": {},
+      "full_text": "This source is invalid because the stable id is missing.",
+      "notebook_ids": ["nb-broken"],
+      "created": "2026-06-01T08:05:00Z",
+      "updated": "2026-06-01T08:05:00Z"
+    }
+  ]
+}

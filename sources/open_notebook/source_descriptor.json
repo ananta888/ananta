@@ -1,0 +1,43 @@
+{
+  "schema": "source_descriptor.v1",
+  "source_id": "open-notebook-local-export",
+  "source_type": "open_notebook",
+  "display_name": "OpenNotebook Local Export",
+  "enabled": true,
+  "trust_level": "user_managed_research",
+  "fetch_source": {
+    "url": "file:///imports/open-notebook/export.json",
+    "method": "GET",
+    "refresh_interval": "manual",
+    "cache_policy": "immutable_export",
+    "expected_format": "open_notebook_export.v1"
+  },
+  "citation_source": {
+    "canonical_url": "https://github.com/lfnovo/open-notebook",
+    "title": "OpenNotebook local export",
+    "publisher": "OpenNotebook (user-managed research workspace)",
+    "version_label": "export-v1",
+    "retrieved_at": "2026-07-05T00:00:00Z",
+    "license_ref": "unknown",
+    "citation_text": "Imported from a local OpenNotebook export; user-managed research content, license per contained source."
+  },
+  "license": {
+    "name": "unknown",
+    "ref": "unknown"
+  },
+  "snapshot_policy": {
+    "immutable": true,
+    "dedupe_by_hash": true
+  },
+  "retention_policy": {
+    "keep_latest": 50
+  },
+  "extensions": {
+    "source_system": "open_notebook",
+    "export_contract": "schemas/integrations/open_notebook_export.v1.json",
+    "import_endpoint": "POST /sources/import/open-notebook",
+    "chat_sessions_import_default": false,
+    "notes_import_default": true,
+    "insights_import_default": true
+  }
+}

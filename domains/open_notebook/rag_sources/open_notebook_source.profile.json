@@ -1,0 +1,35 @@
+{
+  "schema": "rag_source_profile.v1",
+  "source_id": "open_notebook.imported.sources",
+  "domain_id": "open_notebook",
+  "source_type": "project_reference",
+  "repo": "ananta888/ananta",
+  "path": "tests/fixtures/open_notebook",
+  "ref": "main",
+  "allowed_paths": [
+    "tests/fixtures/open_notebook/",
+    "docs/integrations/open-notebook/"
+  ],
+  "include_globs": [
+    "tests/fixtures/open_notebook/**/*.json",
+    "docs/integrations/open-notebook/**/*.md",
+    "docs/integrations/open-notebook/**/*.txt"
+  ],
+  "exclude_globs": [
+    "**/*secret*",
+    "**/*.env",
+    "**/*.sqlite",
+    "**/*.db",
+    "**/*dump*.sql"
+  ],
+  "license_note": "User-managed OpenNotebook research exports; license per contained source, unknown by default.",
+  "intended_usage": "Answer notebook research questions from imported OpenNotebook sources, notes and insights; source focused retrieval for research and notebook intents.",
+  "indexing_config_ref": "rag-helper/spring-large-project-profile.json",
+  "ingestion_path": "codecompass/rag_helper",
+  "retrieval_source_types": ["open_notebook", "artifact"],
+  "provenance": {
+    "owner": "ananta",
+    "captured_at": "2026-07-05T12:00:00+02:00",
+    "explanation": "OpenNotebook adapter/importer integration profile for offline fixtures and imported research sources."
+  }
+}
