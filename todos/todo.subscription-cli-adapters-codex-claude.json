@@ -1,0 +1,534 @@
+{
+  "schema": "ananta.todo.v1",
+  "id": "todo.subscription-cli-adapters-codex-claude",
+  "title": "Subscription-CLI-Adapter fuer OpenAI Codex CLI und Anthropic Claude Code",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "ananta-subscription-cli-worker-backends",
+  "created": "2026-07-05",
+  "status": "open",
+  "priority": "P0",
+  "purpose": "Ananta soll vorhandene Nutzer-Abos von OpenAI/ChatGPT und Anthropic/Claude nicht als API-Key-Provider missverstehen, sondern sauber als lokale CLI-Worker-Backends nutzen: OpenAI Codex CLI ueber ChatGPT-Login und Anthropic Claude Code ueber Claude-Login. Einrichtung soll sowohl ueber Konfiguration als auch ueber die Angular-App moeglich sein.",
+  "research_summary": {
+    "openai_codex_cli": {
+      "official_position": "Codex CLI ist ein lokaler Coding-Agent, kann lokal Dateien lesen/aendern und Befehle ausfuehren. ChatGPT Plus, Pro, Business, Edu und Enterprise enthalten Codex; erster Start fragt nach ChatGPT-Account oder API-Key.",
+      "install": [
+        "macOS/Linux: curl -fsSL https://chatgpt.com/codex/install.sh | sh",
+        "Windows: powershell -ExecutionPolicy ByPass -c \"irm https://chatgpt.com/codex/install.ps1 | iex\"",
+        "npm: npm install -g @openai/codex"
+      ],
+      "automation_relevance": "Codex CLI-Doku nennt Non-interactive Mode und exec command fuer wiederholbare Automatisierung. Ananta soll deshalb zuerst einen CLI-Adapter bauen, nicht versuchen ChatGPT Web zu scrapen.",
+      "sources": [
+        "https://developers.openai.com/codex/cli",
+        "https://github.com/openai/codex"
+      ]
+    },
+    "anthropic_claude_code": {
+      "official_position": "Claude Code ist ein agentisches Coding-Tool fuer Terminal, IDE, Desktop und Browser. Es liest Codebases, editiert Dateien, fuehrt Commands aus und arbeitet ueber Claude Subscription oder Anthropic Console Account; Terminal CLI und VS Code koennen auch Third-Party Provider nutzen.",
+      "install": [
+        "macOS/Linux/WSL: curl -fsSL https://claude.ai/install.sh | bash",
+        "Windows PowerShell: irm https://claude.ai/install.ps1 | iex",
+        "WinGet: winget install Anthropic.ClaudeCode",
+        "Homebrew: brew install --cask claude-code"
+      ],
+      "automation_relevance": "Claude Code CLI ist pipe-/script-faehig, unterstuetzt claude -p und kann mit Git, MCP, CLAUDE.md, Settings und Permissions arbeiten. Ananta soll CLI-Adapter, Settings-Generator und Audit-Huelle bauen.",
+      "sources": [
+        "https://code.claude.com/docs/en/overview",
+        "https://code.claude.com/docs/en/cli-reference",
+        "https://code.claude.com/docs/en/settings",
+        "https://github.com/anthropics/claude-code"
+      ]
+    },
+    "security_note": "Keine Browser-Automation und kein Token-Scraping. Lokale OAuth-/Login-Tokens bleiben im jeweiligen CLI-Home des Nutzers. Ananta liest, kopiert oder persistiert diese Tokens nicht."
+  },
+  "repo_alignment": {
+    "confirmed_existing_anchors": [
+      {
+        "path": "README.md",
+        "evidence": "Ananta ist Hub-Worker-Plattform mit Goal->Plan->Task->Execution->Verification->Artifact, Hub-kontrollierter Orchestrierung, Docker-Worker-Laufzeiten und optionaler deterministischer Direct-Execution.",
+        "impact": "Codex/Claude muessen als WorkerRuntime-/CLI-Backend eingebunden werden, nicht als normale ChatCompletionProvider."
+      },
+      {
+        "path": "README.md",
+        "evidence": "README nennt bereits SGPT_EXECUTION_BACKEND=ananta-worker und Alternative opencode.",
+        "impact": "Neuer Adapter soll bestehendes Backend-Muster erweitern: codex-cli und claude-code als weitere Worker-Backends."
+      },
+      {
+        "path": "agent/config.py",
+        "evidence": "Settings enthalten DEFAULT_PROVIDER/DEFAULT_MODEL, OpenAI/Anthropic API-URLs und API-Key-Felder, aber noch keine dedizierten Subscription-CLI-Adapterfelder.",
+        "impact": "Neue Settings muessen klar zwischen API-Key-Providern und Subscription-CLI-Backends trennen."
+      },
+      {
+        "path": ".env.example",
+        "evidence": ".env.example enthaelt CODEX_DEFAULT_MODEL, OPENCODE_DEFAULT_MODEL, SGPT_DEFAULT_MODEL und Model-Profiles-Pfad.",
+        "impact": "Codex ist namentlich schon als Default angedeutet, aber es fehlen Runtime-Adapter, Health/Auth-Checks und UI-Setup."
+      },
+      {
+        "path": "frontend-angular/src/app/features/codehug/models/codehug.models.ts",
+        "evidence": "ChCliBackend kennt bereits 'codex' und 'claude_code'; ChLlmProvider kennt 'openai' und 'anthropic'; AgentProfileReadModel enthaelt cliBackend, llmProvider, model, allowedTools, allowedPaths und Limits.",
+        "impact": "Angular-Typen sind teilweise vorbereitet. Umsetzung muss UI, Services, Backend-Endpunkte und Persistenz ergaenzen."
+      },
+      {
+        "path": "config/models/examples/local-ollama-rtx3080.model_profiles.yaml",
+        "evidence": "Model Profiles enthalten provider_id, model_role, local/cloud Flags, supports_json/tools/streaming, context_tokens, timeout, cost_class, quality_class, enabled.",
+        "impact": "Subscription-CLI-Profile sollen dieselbe Profil-Logik wiederverwenden und um backend_type/auth_mode/command/policy erweitern."
+      },
+      {
+        "path": "todos/archiv/todo.hub-worker-orchestration-graph-editor.json",
+        "evidence": "Archiv-TODO beschreibt Worker Ring mit ananta-worker, opencode, hermes, codex-cli, claude-cli und Detailkonfiguration.",
+        "impact": "Diese TODO konkretisiert genau diese offenen Adapter als implementierbare P0-Arbeit."
+      }
+    ],
+    "explicit_non_goals": [
+      "Kein ChatGPT-Web- oder Claude-Web-Scraping.",
+      "Kein Speichern von OAuth-Refresh-Tokens in Ananta, Datenbank, .env oder Frontend.",
+      "Kein Umgehen von Plan-, Rate-, Usage- oder Policy-Limits der Anbieter.",
+      "Kein automatisches Aktivieren von Netzwerk-/Write-Rechten ohne Ananta-Approval."
+    ]
+  },
+  "target_architecture": {
+    "concept": "Codex und Claude Code werden als subscription_cli_worker_backend registriert. Der Hub dispatcht Tasks an eine lokale Runtime-Huelle, die CLI-Prozesse in einem kontrollierten Workspace startet, stdout/stderr/events sammelt, Exitcodes bewertet, Diffs extrahiert und alle Schreib-/Command-Rechte ueber Ananta-Policy begrenzt.",
+    "runtime_flow": [
+      "Angular Setup Wizard oder config.yaml/.env erzeugt Backend-Profil.",
+      "Backend Health Check prueft, ob codex/claude Binary vorhanden ist.",
+      "Auth Check prueft nur login_state/verfuegbare CLI-Nutzung, ohne Tokens auszulesen.",
+      "Hub waehlt Backend nach Profil, Task-Kind, Pfad, Risiko, Write-Armed und Kostenklasse.",
+      "WorkerRuntime erzeugt isolierten Arbeitsordner oder nutzt erlaubten Projektpfad.",
+      "Prompt wird mit CodeCompass-Kontext, AGENTS.md/CLAUDE.md/Adapter-Regeln und Policy-Grenzen gebaut.",
+      "CLI wird non-interaktiv/scriptbar gestartet.",
+      "Ananta sammelt Stream, Artefakte, Diffs, Commands, Exitcode und Metriken.",
+      "Schreibende Diffs gehen in Review/Approval statt blind in Hauptpfad."
+    ],
+    "provider_boundary": {
+      "api_provider": "openai/anthropic mit API-Key bleibt normaler LLM-Provider.",
+      "subscription_cli_backend": "codex_cli/claude_code nutzt lokalen CLI-Login des Nutzers und ist kein OpenAI-kompatibler ChatCompletionProvider.",
+      "routing_rule": "Subscription-CLI-Backends duerfen nur fuer Agent-Run/Worker-Tasks genutzt werden, nicht fuer beliebige serverseitige ChatCompletion-Aufrufe."
+    }
+  },
+  "configuration_design": {
+    "new_env_vars": [
+      "SUBSCRIPTION_CLI_BACKENDS_ENABLED=0",
+      "CODEX_CLI_ENABLED=0",
+      "CODEX_CLI_COMMAND=codex",
+      "CODEX_CLI_AUTH_MODE=chatgpt_login",
+      "CODEX_CLI_DEFAULT_MODEL=gpt-5-codex",
+      "CODEX_CLI_WORKDIR_MODE=project_path",
+      "CODEX_CLI_APPROVAL_MODE=read_only",
+      "CODEX_CLI_TIMEOUT_SECONDS=1800",
+      "CODEX_CLI_MAX_CONCURRENT_RUNS=1",
+      "CODEX_CLI_ALLOW_NETWORK=0",
+      "CLAUDE_CODE_ENABLED=0",
+      "CLAUDE_CODE_COMMAND=claude",
+      "CLAUDE_CODE_AUTH_MODE=claude_subscription",
+      "CLAUDE_CODE_DEFAULT_MODEL=default",
+      "CLAUDE_CODE_WORKDIR_MODE=project_path",
+      "CLAUDE_CODE_PERMISSION_MODE=read_only",
+      "CLAUDE_CODE_TIMEOUT_SECONDS=1800",
+      "CLAUDE_CODE_MAX_CONCURRENT_RUNS=1",
+      "CLAUDE_CODE_ALLOW_NETWORK=0"
+    ],
+    "model_profile_extension_example": {
+      "profiles": [
+        {
+          "profile_id": "subscription-codex-cli-coder",
+          "provider_id": "openai-subscription",
+          "backend_type": "subscription_cli",
+          "cli_backend": "codex",
+          "auth_mode": "chatgpt_login",
+          "command": "codex",
+          "model": "gpt-5-codex",
+          "model_role": "coder",
+          "local": true,
+          "cloud": true,
+          "cloud_allowed": true,
+          "requires_local_login": true,
+          "api_key_required": false,
+          "supports_tools": true,
+          "supports_json": false,
+          "supports_streaming": true,
+          "context_tokens": 192000,
+          "timeout_seconds": 1800,
+          "cost_class": "subscription",
+          "quality_class": "high",
+          "enabled": false
+        },
+        {
+          "profile_id": "subscription-claude-code-coder",
+          "provider_id": "anthropic-subscription",
+          "backend_type": "subscription_cli",
+          "cli_backend": "claude_code",
+          "auth_mode": "claude_subscription",
+          "command": "claude",
+          "model": "default",
+          "model_role": "coder",
+          "local": true,
+          "cloud": true,
+          "cloud_allowed": true,
+          "requires_local_login": true,
+          "api_key_required": false,
+          "supports_tools": true,
+          "supports_json": false,
+          "supports_streaming": true,
+          "context_tokens": 200000,
+          "timeout_seconds": 1800,
+          "cost_class": "subscription",
+          "quality_class": "high",
+          "enabled": false
+        }
+      ]
+    }
+  },
+  "required_features": [
+    {
+      "id": "SCA-001",
+      "title": "Ist-Zustand der Worker-/Provider-Ausfuehrung sauber analysieren",
+      "priority": "P0",
+      "description": "Vor Implementierung eine kurze Codeanalyse dokumentieren: aktuelle LLM-Provider, WorkerRuntime, Shell/Terminal-Policy, AgentProfile/CodeHug UI, Model-Profiles und .env Defaults.",
+      "implementation_hints": [
+        "README.md als Architekturanker nutzen.",
+        "agent/config.py Settings erweitern statt parallele Konfigurationswelt bauen.",
+        ".env.example und config/models/examples/*.model_profiles.yaml aktualisieren.",
+        "frontend-angular CodeHug-Models und Services als UI-Anker nutzen.",
+        "Bestehende todo.hub-worker-orchestration-graph-editor.json nicht duplizieren, sondern Adapter konkretisieren."
+      ],
+      "acceptance_criteria": [
+        "Eine kurze Markdown-Notiz oder PR-Beschreibung listet die konkret geaenderten Runtime-/Config-/UI-Dateien.",
+        "Es ist belegt, ob bereits eine zentrale WorkerRuntime/CommandRunner/TerminalPolicy existiert und wiederverwendet wird.",
+        "Kein neuer paralleler Provider-Mechanismus entsteht, wenn bestehende ModelProfiles/Settings erweitert werden koennen.",
+        "Die Analyse benennt explizit, warum Codex/Claude als CLI-Backend und nicht als ChatCompletionProvider umgesetzt werden."
+      ]
+    },
+    {
+      "id": "SCA-002",
+      "title": "SubscriptionCliBackend Domain-Modell einfuehren",
+      "priority": "P0",
+      "description": "Ein gemeinsames Backend-Modell fuer lokale Subscription-CLIs bauen: codex und claude_code teilen Health/Auth/Run/Policy/Audit-Felder.",
+      "fields": [
+        "backend_id",
+        "cli_backend: codex | claude_code",
+        "display_name",
+        "enabled",
+        "command",
+        "auth_mode",
+        "requires_local_login",
+        "api_key_required=false",
+        "default_model",
+        "workdir_mode",
+        "allowed_paths",
+        "allowed_task_kinds",
+        "permission_mode",
+        "approval_mode",
+        "allow_network",
+        "timeout_seconds",
+        "max_concurrent_runs",
+        "source_ref",
+        "diagnostics"
+      ],
+      "acceptance_criteria": [
+        "Codex und Claude Code koennen ueber dasselbe Interface registriert werden.",
+        "API-Key-Felder sind fuer subscription_cli nicht erforderlich und werden im UI nicht als Pflichtfeld angezeigt.",
+        "Auth-Status wird als unknown/not_installed/not_logged_in/ready/rate_limited/error modelliert.",
+        "source_ref zeigt, ob Wert aus Default, .env, JSON/YAML-Config oder UI-Persistenz kommt.",
+        "Unit-Tests decken Parsing von Defaults, Overrides und disabled-by-default ab."
+      ]
+    },
+    {
+      "id": "SCA-003",
+      "title": "Settings und .env fuer Codex CLI und Claude Code ergaenzen",
+      "priority": "P0",
+      "description": "agent/config.py und .env.example um dedizierte Subscription-CLI-Settings erweitern.",
+      "acceptance_criteria": [
+        "SUBSCRIPTION_CLI_BACKENDS_ENABLED defaultet auf false/0.",
+        "CODEX_CLI_ENABLED und CLAUDE_CODE_ENABLED defaulten auf false/0.",
+        "command, auth_mode, default_model, timeout, concurrency, network und approval/permission mode sind konfigurierbar.",
+        "Bestehende CODEX_DEFAULT_MODEL-Zeile wird nicht semantisch widerspruechlich dupliziert, sondern sauber migriert oder kommentiert.",
+        "Secrets/OAuth-Tokens tauchen in .env.example nicht auf.",
+        "Config-Validierung blockiert unbekannte cli_backend Werte."
+      ]
+    },
+    {
+      "id": "SCA-004",
+      "title": "Model Profiles um subscription_cli erweitern",
+      "priority": "P0",
+      "description": "Die bestehende ModelProfile-Struktur soll CLI-Backends darstellen koennen, ohne lokale/API-Provider zu brechen.",
+      "acceptance_criteria": [
+        "backend_type akzeptiert mindestens api_chat, local_http, subscription_cli, deterministic.",
+        "cli_backend akzeptiert codex und claude_code entsprechend den bereits vorhandenen Angular-Typen.",
+        "api_key_required=false und requires_local_login=true sind gueltige Kombinationen.",
+        "cost_class=subscription ist erlaubt und wird nicht als API-Kostenmodell behandelt.",
+        "Beispieldatei config/models/examples/subscription-cli-codex-claude.model_profiles.yaml wird angelegt.",
+        "Bestehende local-ollama Beispielprofile bleiben valid."
+      ]
+    },
+    {
+      "id": "SCA-005",
+      "title": "CLI Discovery und Install-Diagnose bauen",
+      "priority": "P0",
+      "description": "Backend-Health prueft lokal, ob codex/claude vorhanden sind, welche Version installiert ist und ob der Aufruf prinzipiell funktioniert.",
+      "acceptance_criteria": [
+        "Health Check nutzt command --version oder ein dokumentiertes aequivalentes Read-only-Kommando.",
+        "not_installed liefert konkrete Install-Hinweise fuer Windows, WSL/Linux und macOS.",
+        "Fehlende Binary erzeugt Diagnose, aber keinen Serverfehler.",
+        "Command-Pfad kann absolut gesetzt werden und wird gegen erlaubte Pfade/Command-Policy validiert.",
+        "Tests mocken subprocess ohne echte Anbieter-CLIs vorauszusetzen."
+      ]
+    },
+    {
+      "id": "SCA-006",
+      "title": "Auth-Check ohne Tokenzugriff implementieren",
+      "priority": "P0",
+      "description": "Ananta soll erkennen koennen, ob der Nutzer lokal angemeldet ist, ohne Token-Dateien auszulesen, zu kopieren oder im Frontend sichtbar zu machen.",
+      "acceptance_criteria": [
+        "Auth-Check ruft nur offizielle CLI-Kommandos oder harmlose Probe-Aufrufe auf.",
+        "Ananta liest keine Dateien wie refresh tokens, OAuth caches oder Anbieter-Config-Secrets.",
+        "Frontend zeigt nur Status und naechste Aktion: installieren, im Terminal einloggen, bereit, Fehler.",
+        "Bei not_logged_in wird der Nutzer auf manuellen lokalen Login verwiesen, nicht durch Ananta-Web-Scraping gefuehrt.",
+        "Security-Test stellt sicher, dass stdout/stderr Redaction Tokens/Secrets maskiert."
+      ]
+    },
+    {
+      "id": "SCA-007",
+      "title": "CodexCliWorkerAdapter implementieren",
+      "priority": "P0",
+      "description": "Adapter fuer OpenAI Codex CLI als Worker-Backend bauen.",
+      "acceptance_criteria": [
+        "Adapter kann einen Analyse-Task read-only starten und Ergebnistext, Exitcode, Laufzeit und Logs zurueckgeben.",
+        "Adapter kann optional write_armed Tasks in isoliertem Workspace starten und Diffs als Artefakt zurueckgeben.",
+        "Adapter unterstuetzt konfigurierbares command, model/default_model, timeout, working directory und approval mode.",
+        "Adapter nutzt keine OPENAI_API_KEY-Pflicht, wenn auth_mode=chatgpt_login gesetzt ist.",
+        "Adapter faellt kontrolliert auf disabled/not_ready zurueck, wenn Codex nicht installiert oder nicht eingeloggt ist.",
+        "Tests decken success, command_not_found, timeout, nonzero_exit und redaction ab."
+      ]
+    },
+    {
+      "id": "SCA-008",
+      "title": "ClaudeCodeWorkerAdapter implementieren",
+      "priority": "P0",
+      "description": "Adapter fuer Anthropic Claude Code CLI als Worker-Backend bauen.",
+      "acceptance_criteria": [
+        "Adapter kann claude -p oder aequivalente scriptbare Nutzung fuer nicht-interaktive Prompts ausfuehren.",
+        "Adapter kann Analyse-Task read-only starten und Ergebnistext, Exitcode, Laufzeit und Logs zurueckgeben.",
+        "Adapter kann optional write_armed Tasks in isoliertem Workspace starten und Diffs als Artefakt zurueckgeben.",
+        "Adapter unterstuetzt permission_mode, command, default_model, timeout und working directory.",
+        "Adapter nutzt keine ANTHROPIC_API_KEY-Pflicht, wenn auth_mode=claude_subscription gesetzt ist.",
+        "Tests decken success, command_not_found, timeout, nonzero_exit und redaction ab."
+      ]
+    },
+    {
+      "id": "SCA-009",
+      "title": "WorkerRuntime-Huelle fuer sichere CLI-Prozesse",
+      "priority": "P0",
+      "description": "Gemeinsame Prozesshuelle fuer Subscription-CLI-Backends: erlaubte Pfade, Environment-Sanitizing, Logging, Timeout, Prozessabbruch, Artefakte.",
+      "acceptance_criteria": [
+        "Nur whitelisted env vars werden an den CLI-Prozess durchgereicht.",
+        "Provider-Token-Dateien werden nicht in Artefakte kopiert.",
+        "cwd muss innerhalb allowed_paths oder eines erzeugten Workspace liegen.",
+        "Timeout beendet Prozessbaum, nicht nur Parent-Prozess.",
+        "stdout/stderr werden begrenzt, redigiert und als Trace/Artifact getrennt gespeichert.",
+        "write_armed=false verhindert automatische Aenderungen am Originalprojekt oder nutzt zwingend temporaeren Workspace."
+      ]
+    },
+    {
+      "id": "SCA-010",
+      "title": "Diff-/Artifact-Extraction fuer CLI-Backends",
+      "priority": "P0",
+      "description": "Nach CLI-Lauf sollen geaenderte Dateien, git diff, Tests und Logs als Ananta-Artefakte sichtbar werden.",
+      "acceptance_criteria": [
+        "Bei Git-Repo wird git status/diff vor und nach Lauf erfasst.",
+        "Bei Nicht-Git-Workspace wird eine Dateisnapshot-Diff-Strategie oder klare Nicht-Unterstuetzung implementiert.",
+        "Diffs werden nie automatisch gemerged, wenn requiresHumanApproval=true oder riskLevel != low.",
+        "Artifact enthaelt backend_id, cli_backend, prompt_hash, started_at, finished_at, exit_code, changed_files, diff_ref und log_ref.",
+        "Angular AgentRunReadModel kann actualCliBackend codex/claude_code anzeigen."
+      ]
+    },
+    {
+      "id": "SCA-011",
+      "title": "Routing in Hub/Task Engine integrieren",
+      "priority": "P0",
+      "description": "Task-Auswahl soll Codex/Claude Code nur nutzen, wenn Profil, Task-Kind, Pfad, Risiko und Backend-Status passen.",
+      "acceptance_criteria": [
+        "Deterministische Task Engine bleibt Vorrang fuer einfache Read-only Operationen.",
+        "Codex/Claude werden nur gewaehlt, wenn subscription_cli global und backend-spezifisch enabled ist.",
+        "Routing erklaert Entscheidung in Trace: chosen_backend, alternatives, rejection_reasons.",
+        "GLM/OpenRouter/MiniMax/API-Provider bleiben davon unabhaengig.",
+        "Bei not_ready Backend wird auf konfigurierten Fallback geroutet oder sauber abgebrochen."
+      ]
+    },
+    {
+      "id": "SCA-012",
+      "title": "Angular Setup Wizard fuer Subscription-CLI-Backends",
+      "priority": "P0",
+      "description": "In der Angular-App soll der Nutzer Codex CLI und Claude Code einfach einrichten, testen und als Worker-Profil aktivieren koennen.",
+      "acceptance_criteria": [
+        "UI zeigt Codex CLI und Claude Code als eigene Backend-Karten, nicht als API-Key-Provider.",
+        "Jede Karte zeigt installed/version/auth_status/enabled/default_model/permission_mode.",
+        "Buttons: Diagnose starten, Install-Hinweise anzeigen, Profil aktivieren/deaktivieren, Test-Run read-only.",
+        "Bei not_logged_in zeigt UI klare Terminal-Kommandos bzw. Hinweis 'CLI lokal starten und anmelden'.",
+        "Keine OAuth-/Token-Werte werden im Frontend angezeigt oder eingegeben.",
+        "Form validiert allowed_paths, concurrency, timeout und network/write Risiken."
+      ]
+    },
+    {
+      "id": "SCA-013",
+      "title": "Backend-Endpunkte fuer UI-Diagnose und Persistenz",
+      "priority": "P0",
+      "description": "Hub-API fuer Subscription-CLI-Backends bereitstellen.",
+      "api_candidates": [
+        "GET /api/cli-backends",
+        "GET /api/cli-backends/{backend_id}/health",
+        "POST /api/cli-backends/{backend_id}/diagnose",
+        "POST /api/cli-backends/{backend_id}/test-run",
+        "PUT /api/cli-backends/{backend_id}/config"
+      ],
+      "acceptance_criteria": [
+        "Alle mutierenden Endpunkte erfordern Admin/Operator-Recht.",
+        "test-run ist default read-only und nutzt einen sicheren Beispielprompt.",
+        "Antwortmodell enthaelt keine Secrets.",
+        "Persistenz schreibt in die bestehende Config-Schicht oder einen klar dokumentierten neuen Config-Pfad.",
+        "Audit-Event wird bei Aktivierung/Deaktivierung und Config-Aenderung geschrieben."
+      ]
+    },
+    {
+      "id": "SCA-014",
+      "title": "CodeHug/AgentProfileReadModel erweitern statt neu bauen",
+      "priority": "P1",
+      "description": "Die vorhandenen Angular-Typen sollen weitergenutzt werden, da codex/claude_code bereits in ChCliBackend existieren.",
+      "acceptance_criteria": [
+        "ChCliBackend bleibt kompatibel und wird nicht umbenannt.",
+        "ChAgentProfileReadModel kann Subscription-CLI-spezifische Diagnose entweder ueber neues optionales Feld oder separaten ReadModel-Endpunkt anzeigen.",
+        "actualCliBackend zeigt bei Runs codex oder claude_code.",
+        "actualProvider unterscheidet openai/anthropic API von subscription_cli boundary entweder ueber provider_id oder neues optionales Feld.",
+        "Bestehende CodeHug Views kompilieren ohne Breaking Change."
+      ]
+    },
+    {
+      "id": "SCA-015",
+      "title": "AGENTS.md/CLAUDE.md/Adapter-Instructions generieren",
+      "priority": "P1",
+      "description": "CLI-Backends brauchen klare Projektregeln, ohne Ananta-Policy zu umgehen.",
+      "acceptance_criteria": [
+        "Codex bekommt AGENTS.md oder Adapter-Prompt mit Ananta-Regeln, allowed paths, no-secret-reading und diff-only Verhalten.",
+        "Claude Code bekommt CLAUDE.md oder Adapter-Prompt mit denselben Regeln.",
+        "Generator ueberschreibt vorhandene Nutzerdateien nicht ungefragt.",
+        "Bei vorhandenen AGENTS.md/CLAUDE.md werden Ananta-Regeln als separate managed section oder Kontext-Prompt injiziert.",
+        "Tests pruefen idempotente Generierung."
+      ]
+    },
+    {
+      "id": "SCA-016",
+      "title": "Security Guards gegen Token-Leakage und Command Injection",
+      "priority": "P0",
+      "description": "CLI-Agenten laufen mit echten Nutzer-Logins. Deshalb muss Ananta gegen Token-Leaks, Prompt-Injection in Pfaden/Branch-Namen und unsichere Commands haerten.",
+      "acceptance_criteria": [
+        "Alle Pfade, Branch-Namen und Tasktitel werden beim Shell-Aufruf als Argumentliste statt String-Shell zusammengesetzt.",
+        "Command allowlist blockiert beliebige vom UI gesetzte Binaries, sofern nicht explizit Admin-approved.",
+        "Logs redigieren bekannte Token-/Key-Muster.",
+        "Artifacts schliessen CLI-Home-Verzeichnisse, .codex, .claude, .config und Provider-Tokenpfade aus.",
+        "Security-Test deckt malicious branch/path/task title mit Shell-Metacharacters ab.",
+        "Dokumentation warnt vor Drittanbieter-Fake-CLIs und empfiehlt offizielle Installationswege."
+      ]
+    },
+    {
+      "id": "SCA-017",
+      "title": "Docker/WSL/Windows Betriebsmodi klaeren",
+      "priority": "P1",
+      "description": "Da Nutzer WSL2 + Windows nutzt, muss klar sein, wo die CLIs laufen: im Host/WSL, nicht blind im Docker-Container ohne Login.",
+      "acceptance_criteria": [
+        "Doku beschreibt Windows native, WSL2 und Docker-Fullstack separat.",
+        "Wenn Hub im Docker laeuft und CLI nur auf Host/WSL installiert ist, zeigt UI einen nicht_verfuegbar-Hinweis oder nutzt explizit einen local-runner.",
+        "Optionaler local-runner/bridge Plan ist dokumentiert, falls Docker-Hub Host-CLI nicht direkt starten darf.",
+        "Keine Docker-Volume-Mounts von geheimen CLI-Tokenverzeichnissen als Default.",
+        "Smoke-Test fuer WSL local-dev ohne Docker ist dokumentiert."
+      ]
+    },
+    {
+      "id": "SCA-018",
+      "title": "Observability und Run-Tracking",
+      "priority": "P1",
+      "description": "Subscription-CLI-Runs muessen im bestehenden Tracking Viewer/AgentRun sichtbar werden.",
+      "acceptance_criteria": [
+        "Run-Step-Phasen enthalten det/llm/tool/policy/apply/verify passend zu vorhandenen ChRunPhase-Typen.",
+        "UI zeigt backend badge: Codex CLI oder Claude Code.",
+        "Logs koennen gestreamt oder nach Abschluss geladen werden.",
+        "Metriken: duration_ms, exit_code, changed_file_count, prompt_chars, context_chars, backend_status.",
+        "Fehler unterscheiden timeout, auth, command_not_found, policy_denied und provider_limit."
+      ]
+    },
+    {
+      "id": "SCA-019",
+      "title": "Dokumentation und Golden Path aktualisieren",
+      "priority": "P1",
+      "description": "README, Golden Paths und Setup-Doku sollen die neue Abo-CLI-Nutzung kurz und korrekt erklaeren.",
+      "acceptance_criteria": [
+        "README Schnellstart nennt Codex CLI und Claude Code als optionale Worker-Backends neben ananta-worker/opencode.",
+        "docs/golden-path-ui.md beschreibt Einrichtung ueber Angular.",
+        "docs/golden-path-cli.md beschreibt Einrichtung ueber env/config.",
+        "Doku sagt klar: ChatGPT/Claude Abo != API-Key; Nutzung erfolgt ueber lokale offizielle CLI.",
+        "Troubleshooting enthaelt not_installed, not_logged_in, Docker/WSL und Rate-Limit-Hinweise."
+      ]
+    },
+    {
+      "id": "SCA-020",
+      "title": "End-to-End Akzeptanztests mit Mock-CLIs",
+      "priority": "P0",
+      "description": "CI darf keine echten OpenAI/Anthropic-Logins brauchen. Tests nutzen Mock-Binaries fuer codex und claude.",
+      "acceptance_criteria": [
+        "Mock codex/claude Binaries liefern version, success, nonzero, timeout und fake diff Szenarien.",
+        "E2E startet Hub mit SUBSCRIPTION_CLI_BACKENDS_ENABLED=1 und mock command paths.",
+        "Angular/Backend-Test zeigt Backend ready und fuehrt read-only test-run aus.",
+        "write_armed=false Szenario erzeugt keine Aenderung am Originalrepo.",
+        "write_armed=true Szenario erzeugt diff artifact und awaiting_diff_review.",
+        "CI bleibt ohne echte Provider-Credentials gruen."
+      ]
+    }
+  ],
+  "implementation_order": [
+    "SCA-001 Analyse",
+    "SCA-002/SCA-003 Domain + Settings",
+    "SCA-004 ModelProfile Extension",
+    "SCA-005/SCA-006 Discovery/Auth",
+    "SCA-009 Prozesshuelle und Security Guards",
+    "SCA-007 Codex Adapter",
+    "SCA-008 Claude Adapter",
+    "SCA-010 Artifacts/Diffs",
+    "SCA-011 Routing",
+    "SCA-013 API",
+    "SCA-012/SCA-014 Angular Setup",
+    "SCA-015 Instructions",
+    "SCA-017 Betriebsmodi",
+    "SCA-018 Tracking",
+    "SCA-019 Doku",
+    "SCA-020 E2E Mock-Tests"
+  ],
+  "global_acceptance_criteria": [
+    "Codex CLI und Claude Code koennen jeweils ueber Konfiguration disabled-by-default eingerichtet werden.",
+    "Angular kann Installation/Auth/Health anzeigen und read-only Test-Run starten.",
+    "Es gibt keinen Zwang zu OPENAI_API_KEY oder ANTHROPIC_API_KEY fuer Subscription-CLI-Backends.",
+    "Der Hub behandelt beide Backends als Worker-Ausfuehrung mit Policy/Audit, nicht als freie Chat-API.",
+    "Keine Tokens werden ausgelesen, gespeichert, angezeigt oder in Artefakte geschrieben.",
+    "Alle Schreiboperationen laufen ueber write_armed, Diff Review und vorhandene Approval-Gates.",
+    "Mock-basierte Tests laufen ohne echte Anbieter-Accounts.",
+    "Bestehende Ollama/LMStudio/OpenRouter/OpenAI/Anthropic API-Provider bleiben rueckwaertskompatibel."
+  ],
+  "risk_register": [
+    {
+      "risk": "CLI-Kommandos und Flags aendern sich bei Codex/Claude Code.",
+      "mitigation": "Adapter kapseln Kommandos zentral, Health-Check meldet inkompatible Version, Doku verweist auf offizielle Install-/Upgrade-Wege."
+    },
+    {
+      "risk": "Docker-Hub kann Host-/WSL-CLI nicht direkt nutzen.",
+      "mitigation": "Local-dev als erster Pfad; optional separater local-runner/bridge als Folgearbeit."
+    },
+    {
+      "risk": "OAuth-/CLI-Tokens koennen durch Logs oder Artefakte leaken.",
+      "mitigation": "Keine Token-Dateien lesen, Env-Sanitizing, Redaction, Artifact-Excludes, Security-Tests."
+    },
+    {
+      "risk": "Nutzer erwartet API-kompatible Nutzung der Abos.",
+      "mitigation": "UI und Doku trennen klar API Provider vs Subscription CLI Worker."
+    },
+    {
+      "risk": "Provider-Planlimits werden durch Agentenlaeufe schnell erreicht.",
+      "mitigation": "Concurrency default 1, Rate-Limit-Status, manuelle Aktivierung, klare Cost-Class subscription."
+    }
+  ]
+}
