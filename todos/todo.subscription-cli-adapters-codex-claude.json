@@ -1,18 +1,29 @@
 {
-  "schema": "ananta.todo.v1",
+  "$schema": "./todo.track.schema.json",
   "id": "todo.subscription-cli-adapters-codex-claude",
   "title": "Codex-CLI Account-Login nachruesten und Claude-CLI als Worker-Agent integrieren",
+  "version": "2.0",
   "owner": "Peter Stuiber / Ananta",
   "track": "ananta-cli-worker-backends",
   "created": "2026-07-05",
   "updated": "2026-07-05",
-  "status": "open",
-  "priority": "P0",
-  "purpose": "Ananta soll den bereits vorhandenen oder vorgesehenen Codex-CLI-Worker-Agent-Pfad nicht doppelt neu bauen, sondern sauber analysieren und um ChatGPT-Account-Login/Auth-Mode ohne API-Key-Zwang erweitern. Claude Code/Claude-CLI soll dagegen als bislang fehlender Worker-Agent-Adapter neu integriert werden. Beide sollen ueber Angular-App und Konfiguration einrichtbar sein.",
+  "changelog": [
+    "v2.0 (2026-07-05): nach quellcode-recherche korrigiert. CCA-001 (ist-zustand) done — codex-cli runtime, contract, preflight, config-block, tests alle vorhanden. COMMON-001 done — shell-disziplin (5 subprocess.run-stellen ohne shell=True) bereits etabliert. features mit status done|open, depends_on graph, milestones, tasks_status_summary, prioritaet, risk. confirmed_anchors durch codebelege erweitert; open_questions explizit als block; 'codex-bereits-da' als neuer eintrag ergaenzt."
+  ],
+  "status_scale": ["open", "in_progress", "partial", "blocked", "done"],
+  "tasks_status_summary": {
+    "total": 11,
+    "by_status": {"done": 2, "in_progress": 0, "partial": 0, "blocked": 0, "open": 9},
+    "progress_percent_done": 18.18,
+    "by_priority": {"P0": 9, "P1": 2},
+    "by_risk": {"low": 4, "medium": 5, "high": 2, "critical": 0},
+    "critical_path": {"total": 7, "done": 1, "remaining": 6},
+    "milestones": {"total": 4, "todo": 3, "in_progress": 0, "partial": 0, "done": 1}
+  },
   "corrected_assumption": {
-    "codex_cli": "Nicht als komplett neuer Adapter behandeln. Codex-CLI ist in Ananta vermutlich bereits als Worker-Agent-Pfad/Adapter oder Direktintegration erreichbar, bisher aber eher API-Key-basiert. Aufgabe ist Ist-Zustand pruefen, vorhandenen Code wiederverwenden und Account-Login-Modus ergaenzen.",
-    "claude_cli": "Nach aktuellem Nutzerwissen noch gar nicht oder nicht relevant integriert. Aufgabe ist neue Integration als Worker-Agent-Adapter fuer Claude Code/Claude-CLI.",
-    "important_rule": "Keine Doppelimplementierung. Erst Codepfad finden, dann erweitern. Wenn Codex bereits funktioniert, nur Auth/Config/UI/Health/Policy-Luecken schliessen."
+    "codex_cli": "Nicht als komplett neuer Adapter behandeln. Codex-CLI ist in Ananta bereits als Worker-Agent-Pfad vorhanden (executor_kind='openai_codex_cli'), bisher aber API-Key-basiert. Aufgabe ist Ist-Zustand dokumentieren, vorhandenen Code wiederverwenden und Account-Login-Modus ergaenzen.",
+    "claude_cli": "Nach Recherche noch gar nicht implementiert. CLI-Worker-Backend fehlt komplett, weder Adapter noch Contract noch runtime-pfad. Aufgabe ist neue Integration als Worker-Agent-Adapter.",
+    "important_rule": "Keine Doppelimplementierung. Erst Codepfad finden, dann erweitern. Wenn Codex bereits funktioniert, nur Auth/Config/UI/Health/Policy-Luecken schliessen. Claude wird komplett neu gebaut, aber nach demselben muster wie Codex/Aider/Mistral."
   },
   "research_summary": {
     "openai_codex_cli": {
@@ -21,7 +32,17 @@
       "sources": [
         "https://developers.openai.com/codex/cli",
         "https://github.com/openai/codex"
-      ]
+      ],
+      "codex_resolved_2026_07_05": {
+        "status": "vorhanden",
+        "runtime_path": "agent/cli_backends/opencode.py:528 run_codex_command",
+        "executor_kind": "openai_codex_cli (in worker_execution.py:12, worker_contract_service.py:171, worker_todo_planner_service.py:43)",
+        "config_block": "agent_cfg.codex_cli (agent/config_defaults.py:389, agent/routes/config/read_models.py:55 als POST /config editierbar)",
+        "settings_fields": "settings.codex_path, settings.codex_default_model (agent/config.py:253-254)",
+        "preflight": "resolve_codex_runtime_config() + get_cli_backend_preflight() (agent/cli_backends/routing.py:382-397)",
+        "existing_tests": "tests/test_codex_cli_backend.py + tests/test_codex_cli_backend_preflight.py (laufen gruen)",
+        "openai_compat_today": "true — codex-cli nutzt OpenAI-kompatibles protokoll, akzeptiert jede base_url. fuer cliproxyapi siehe todo.cliproxyapi."
+      }
     },
     "anthropic_claude_code": {
       "official_position": "Claude Code ist ein agentisches Coding-Tool fuer Terminal/IDE/Desktop/Web. Die CLI ist script-/pipe-faehig und kann mit Claude-Account/Subscription oder Console/API-Setup genutzt werden.",
@@ -31,248 +52,84 @@
         "https://code.claude.com/docs/en/cli-reference",
         "https://code.claude.com/docs/en/settings",
         "https://github.com/anthropics/claude-code"
-      ]
-    },
-    "security_note": "Keine Browser-Automation, kein Web-Scraping, kein Auslesen oder Speichern von OAuth-/Refresh-Tokens. Lokale Anbieter-Logins bleiben im jeweiligen CLI-Home des Nutzers."
-  },
-  "repo_alignment": {
-    "confirmed_anchors": [
-      {
-        "path": "README.md",
-        "evidence": "Ananta ist Hub-Worker-Plattform mit Goal->Plan->Task->Execution->Verification->Artifact und Hub-kontrollierter Orchestrierung.",
-        "impact": "Codex und Claude gehoeren als Worker-Agent-/CLI-Backends in die WorkerRuntime, nicht als normale ChatCompletionProvider."
-      },
-      {
-        "path": "README.md",
-        "evidence": "README nennt bereits ananta-worker und opencode als Ausfuehrungs-Backends.",
-        "impact": "Codex muss in denselben Backend-/Worker-Agent-Kontext eingeordnet werden; Claude wird analog als neuer Backend-Typ ergaenzt."
-      },
-      {
-        "path": ".env.example",
-        "evidence": ".env.example enthaelt CODEX_DEFAULT_MODEL, OPENCODE_DEFAULT_MODEL und SGPT_DEFAULT_MODEL.",
-        "impact": "Codex ist konzeptionell bereits vorhanden oder vorbereitet. Neue Arbeit: bestehende Codex-Settings finden, Account-Login-Modus ohne API-Key ergaenzen und sauber dokumentieren."
-      },
-      {
-        "path": "frontend-angular/src/app/features/codehug/models/codehug.models.ts",
-        "evidence": "ChCliBackend kennt bereits 'codex' und 'claude_code'. ChLlmProvider kennt 'openai' und 'anthropic'. AgentProfileReadModel enthaelt cliBackend, llmProvider, model, allowedTools, allowedPaths und Limits.",
-        "impact": "Angular-Typen sind vorbereitet. UI/Services/Backend-Endpunkte fehlen oder muessen an echte Runtime-Backends angebunden werden."
-      },
-      {
-        "path": "agent/config.py",
-        "evidence": "Settings enthalten OpenAI/Anthropic API-Key-Felder und Provider-URLs, aber keine klar getrennte Subscription-CLI/Auth-Mode-Schicht.",
-        "impact": "API-Key-Provider und Abo-CLI-Worker muessen getrennt modelliert werden."
+      ],
+      "claude_resolved_2026_07_05": {
+        "status": "NICHT vorhanden",
+        "fehlt_in_code": [
+          "agent/cli_backends/opencode.py: kein run_claude_command",
+          "agent/cli_backends/semaphore.py: kein 'claude_code' in _DEFAULT_BACKEND_PARALLEL_LIMITS",
+          "agent/backend_provider_contracts.py: kein 'claude_code' contract",
+          "agent/cli_backends/routing.py: kein 'claude_code' in SUPPORTED_CLI_BACKENDS",
+          "agent/services/worker_contract_service.py: kein 'claude_code' in executor_kind-set",
+          "agent/services/worker_todo_planner_service.py: kein 'claude_code' in executor_kind-set",
+          "agent/providers/worker_execution.py: kein 'claude_code' eintrag",
+          "agent/config.py: kein claude_path, kein claude_default_model",
+          "agent/config_defaults.py: kein 'claude_cli' block",
+          "agent/routes/config/read_models.py: kein 'claude_cli' schema-eintrag",
+          "agent/services/agent_feature_provider.py:271 hat platzhalter 'claude-cli-doc' aber nur als provider_id-string, keine runtime-anbindung",
+          "agent/routes/sgpt.py: kein 'claude_code'-endpunkt in list_cli_backends"
+        ],
+        "executor_kind_status": "NICHT in worker_executor_kind-set (worker_contract_service.py:171, worker_todo_planner_service.py:43, agent/routes/config/shared.py:291). 'openai_codex_cli' ist der einzige CLI-executor_kind heute.",
+        "angular_type": "'claude_code' ist in ChCliBackend und preferredBackend types (frontend-angular/.../codehug.models.ts) vorbereitet, aber backend-runtime fehlt"
       }
-    ],
-    "open_verification_needed": [
-      "Exakten Codex-Codepfad finden: Adapterklasse, WorkerRuntime-Branch, SGPT/OpenCode-Bridge, CLI-Wrapper oder direkte Invocation.",
-      "Pruefen, ob Codex derzeit OPENAI_API_KEY zwingend erwartet oder optional nutzt.",
-      "Pruefen, ob Codex bereits als ChCliBackend/AgentProfile/Run sichtbar wird.",
-      "Pruefen, ob Claude Code wirklich noch nicht implementiert ist oder nur als Typ/Platzhalter existiert."
-    ],
-    "explicit_non_goals": [
-      "Kein zweiter Codex-Adapter neben einem bestehenden funktionierenden Codex-Adapter.",
-      "Kein ChatGPT-Web- oder Claude-Web-Scraping.",
-      "Keine Speicherung von OAuth-/Refresh-Tokens in Ananta, DB, .env, Logs oder Frontend.",
-      "Kein Umgehen von Anbieterlimits oder Nutzungsregeln."
+    },
+    "security_note": "Keine Browser-Automation, kein Web-Scraping, kein Auslesen oder Speichern von OAuth-/Refresh-Tokens. Lokale Anbieter-Logins bleiben im jeweiligen CLI-Home des Nutzers.",
+    "shell_discipline_already_in_place": {
+      "files_using_subprocess_run": [
+        "agent/cli_backends/opencode.py:429,571,607,640 (opencode/codex/aider/mistral_code) — alle ohne shell=True, alle als argument-listen",
+        "agent/cli_backends/sgpt.py:140 — ohne shell=True"
+      ],
+      "implication_for_CLA_001": "claude_code-run_claude_command MUSS demselben muster folgen (shutil.which + args-liste, kein shell=True, timeout, env-isolierung)"
+    }
+  },
+  "codex_already_done_summary": {
+    "filename": "docs/architecture/cli-backends/codex-already-done.md",
+    "purpose": "explizite doku welche codex-pfade bereits vorhanden sind, sodass niemand doppelt implementiert",
+    "expected_sections": [
+      "welche dateien codex beruehren",
+      "welche endpunkte codex exposieren",
+      "welche tests fuer codex existieren",
+      "welche schritte fuer chatgpt_login NOETIG sind (CCA-002)",
+      "welche schritte fuer ui-anbindung NOETIG sind (CCA-003)"
     ]
   },
-  "target_architecture": {
-    "codex": {
-      "target": "Bestehenden Codex-Worker-Agent-Pfad erweitern.",
-      "auth_modes": [
-        "api_key_existing",
-        "chatgpt_account_login_new"
-      ],
-      "routing": "Wenn Codex bereits als Worker-Agent registriert ist, bleibt dessen Backend-ID stabil. Nur capabilities/auth_status/config/UI werden erweitert.",
-      "migration_rule": "Bestehende OPENAI_API_KEY-Nutzung bleibt rueckwaertskompatibel. Account-Login ist zusaetzlicher Modus, nicht Breaking Change."
-    },
-    "claude_code": {
-      "target": "Neuer Claude-Code/Claude-CLI Worker-Agent-Adapter.",
-      "auth_modes": [
-        "claude_account_login",
-        "anthropic_api_key_optional_if_supported"
-      ],
-      "routing": "Claude Code wird analog zu Codex/OpenCode/ananta-worker als cli_backend=claude_code registriert und ueber Hub-Policy dispatcht."
-    },
-    "common_runtime_boundary": "Beide laufen als kontrollierte lokale CLI-Prozesse mit allowed_paths, write_armed, approval gates, diff artifacts, timeout, redaction und audit."
-  },
-  "configuration_design": {
-    "codex_existing_plus_new": [
-      "CODEX_DEFAULT_MODEL bleibt, falls bereits genutzt.",
-      "CODEX_AUTH_MODE=api_key|chatgpt_login",
-      "CODEX_REQUIRE_API_KEY=0 nur fuer chatgpt_login",
-      "CODEX_CLI_COMMAND=codex",
-      "CODEX_CLI_ENABLED bleibt nur falls kein bestehender Enable-Schalter existiert; sonst vorhandenen Schalter verwenden.",
-      "CODEX_LOGIN_STATUS=runtime_diagnostic_only, nicht persistierter Secret-Wert"
+  "open_questions": {
+    "CCA-001": [],
+    "CCA-002": [
+      "Verwendet codex-cli OpenAI-konformes API fuer login-status-probing, oder ist eine eigene subcommand-noetig? (vermutlich 'codex login status' oder '~/.codex/auth.json' nicht-lesend)",
+      "Soll auth_status aus 'codex login status' abgeleitet werden, oder reicht 'binary found + chatgpt_login_ready = True' ohne probe?",
+      "Was passiert wenn auth_mode=chatgpt_login und codex_login NICHT durchgefuehrt wurde? codex-cli bricht ab — wir muessen das diagnostizieren, nicht abfaelschen."
     ],
-    "claude_new": [
-      "CLAUDE_CODE_ENABLED=0",
-      "CLAUDE_CODE_COMMAND=claude",
-      "CLAUDE_CODE_AUTH_MODE=claude_login|anthropic_api_key",
-      "CLAUDE_CODE_DEFAULT_MODEL=default",
-      "CLAUDE_CODE_PERMISSION_MODE=read_only",
-      "CLAUDE_CODE_TIMEOUT_SECONDS=1800",
-      "CLAUDE_CODE_MAX_CONCURRENT_RUNS=1"
+    "CCA-003": [
+      "Welcher bestehende API-endpunkt (z.B. POST /config oder GET /sgpt/backends) wird erweitert, um auth_mode sichtbar zu machen?",
+      "Soll die UI zwischen codex-modi umschaltbar sein, oder nur einmal konfiguriert werden?"
     ],
-    "model_profile_extension": {
-      "codex_profile_rule": "Bestehendes Codex-Profil aktualisieren statt neu anzulegen, falls vorhanden. Ergaenze auth_mode und api_key_required=false fuer ChatGPT-Login.",
-      "claude_profile_rule": "Neues Profil subscription-claude-code-coder mit cli_backend=claude_code, provider_id=anthropic-subscription, backend_type=subscription_cli, api_key_required=false, requires_local_login=true."
-    }
+    "CLA-001": [
+      "Welcher offizielle CLI-aufruf ist noetig fuer read-only analyse? 'claude --print', 'claude chat', oder ein MCP-server-modus?",
+      "Erlaubt claude-code CLI pipe-stdin mit nicht-interaktivem prompt, oder brauchen wir --output-format=json?",
+      "Wie funktioniert permission_mode=read_only konkret? '--permission-mode bypassPermissions' ist das gegenteil; gibt es 'plan' oder 'readonly'?",
+      "Wo lebt der 'claude login'-status? '~/.claude/' oder '~/.config/claude/' oder anderes? Ananta liest KEINE files, sondern nutzt offizielle CLI-status-subcommands."
+    ],
+    "CLA-002": [
+      "Gibt es ein offizielles 'claude doctor'-aehnliches subcommand? oder nur 'claude --version' und 'claude login status'?",
+      "Welche felder bietet 'claude login status' an?"
+    ],
+    "COMMON-001": [],
+    "COMMON-002": [
+      "Soll 'claude_code' als 'expensive' worker klassifiziert werden (siehe worker_selection_policy_service.py:200 _EXPENSIVE_WORKER_PREFIXES)? 'claude' ist bereits drin.",
+      "Soll fallback von codex auf ananta-worker moeglich sein? bereits heute via _choose_candidates"
+    ],
+    "COMMON-003": [
+      "Welcher bestehende API-endpunkt ist die basis fuer 'GET /api/cli-backends/{id}/health'? list_cli_backends liefert heute runtime-info, fehlt nur health-probe.",
+      "Soll '/diagnose' und '/test-run' getrennt sein oder unified in eine 'run-diagnose'?"
+    ],
+    "COMMON-004": [
+      "Gibt es bereits eine 'Wo laeuft was' doku? Wenn nein, an welcher stelle anlegen?"
+    ],
+    "COMMON-005": [
+      "Wie werden mock-binaries fuer codex und claude in tests bereitgestellt? ueber PATH-override (shutil.which-mock) oder pytest-mock mit file-basiertem fake-binary?"
+    ]
   },
-  "required_features": [
-    {
-      "id": "CCA-001",
-      "title": "Codex Ist-Zustand exakt finden und dokumentieren",
-      "priority": "P0",
-      "description": "Vor jeder Implementierung den vorhandenen Codex-CLI/Worker-Agent-Pfad im Code finden und dokumentieren.",
-      "acceptance_criteria": [
-        "Alle Dateien/Funktionen/Klassen, die Codex aufrufen oder konfigurieren, sind mit Pfad und kurzer Rolle dokumentiert.",
-        "Es ist klar, ob Codex ueber Adapter, OpenCode/SGPT-Bridge, WorkerRuntime oder direkte CLI-Invocation erreichbar ist.",
-        "Es ist klar, ob OPENAI_API_KEY aktuell zwingend ist, optional ist oder nur in einem bestimmten Modus benoetigt wird.",
-        "Es wird explizit entschieden: vorhandenen Codex-Code erweitern statt neuen Paralleladapter bauen.",
-        "Falls kein echter Codex-Codepfad gefunden wird, wird das als Abweichung zur Annahme dokumentiert und erst dann ein Minimaladapter geplant."
-      ]
-    },
-    {
-      "id": "CCA-002",
-      "title": "Codex Account-Login-Modus ohne API-Key-Zwang nachruesten",
-      "priority": "P0",
-      "description": "Bestehende Codex-Integration so erweitern, dass sie Codex CLI mit ChatGPT-Login nutzen kann, ohne OPENAI_API_KEY zu verlangen.",
-      "acceptance_criteria": [
-        "Bestehender API-Key-Modus bleibt unveraendert nutzbar.",
-        "Neuer auth_mode=chatgpt_login/account_login ist konfigurierbar.",
-        "Bei auth_mode=chatgpt_login wird OPENAI_API_KEY nicht validiert oder verlangt.",
-        "Health/Auth-Check prueft nur CLI-Verfuegbarkeit und Login-Status ueber offizielle CLI-Nutzung, ohne Token-Dateien zu lesen.",
-        "Fehlerfaelle not_installed, not_logged_in, rate_limited, provider_error und timeout werden sauber unterschieden.",
-        "Tests decken API-Key-Modus und Account-Login-Modus mit Mock-Codex ab."
-      ]
-    },
-    {
-      "id": "CCA-003",
-      "title": "Codex UI an bestehenden Backend-Pfad anbinden",
-      "priority": "P0",
-      "description": "Angular soll Codex als bereits vorhandenen/erweiterten Worker-Agent anzeigen und zwischen API-Key- und ChatGPT-Login-Modus unterscheiden.",
-      "acceptance_criteria": [
-        "UI zeigt Codex nicht als komplett neuen unbekannten Adapter, sondern als vorhandenes/erkanntes Backend mit Status.",
-        "API-Key-Modus und ChatGPT-Login-Modus sind klar getrennt.",
-        "Bei ChatGPT-Login gibt es kein API-Key-Pflichtfeld.",
-        "UI zeigt Diagnose: installed/version/auth_status/current_mode/default_model.",
-        "Read-only Test-Run kann ueber bestehenden Codex-Run-Pfad gestartet werden."
-      ]
-    },
-    {
-      "id": "CLA-001",
-      "title": "Claude Code/Claude-CLI Adapter neu implementieren",
-      "priority": "P0",
-      "description": "Neuer Worker-Agent-Adapter fuer Claude Code CLI, analog zur bestehenden Codex/OpenCode/ananta-worker Runtime-Philosophie.",
-      "acceptance_criteria": [
-        "cli_backend=claude_code wird runtime-seitig registriert und ist nicht nur Angular-Typ.",
-        "Adapter kann read-only Analyse-Task ausfuehren und stdout/stderr/exit_code/duration erfassen.",
-        "Adapter kann optional write_armed in isoliertem Workspace laufen und Diffs als Artefakt liefern.",
-        "Adapter unterstuetzt command, auth_mode, default_model, permission_mode, timeout und allowed_paths.",
-        "ANTHROPIC_API_KEY ist bei auth_mode=claude_login nicht erforderlich.",
-        "Tests nutzen Mock-Claude-Binary und brauchen keinen echten Anthropic/Claude Account."
-      ]
-    },
-    {
-      "id": "CLA-002",
-      "title": "Claude CLI Health/Auth Diagnose",
-      "priority": "P0",
-      "description": "Diagnose fuer Installation, Version und Login-Zustand bauen, ohne Claude-Token auszulesen.",
-      "acceptance_criteria": [
-        "Health Check erkennt command_not_found und liefert Install-Hinweise fuer Windows, WSL/Linux und macOS.",
-        "Auth Check liest keine Dateien aus .claude, .config oder anderen Token-Verzeichnissen.",
-        "Frontend erhaelt nur Status und naechste sichere Aktion.",
-        "not_logged_in verweist auf manuellen lokalen Claude-Login im Terminal.",
-        "Logs und Diagnoseausgaben werden redigiert."
-      ]
-    },
-    {
-      "id": "CLA-003",
-      "title": "Claude Angular Setup Wizard",
-      "priority": "P0",
-      "description": "Claude Code soll ueber Angular einfach einrichtbar sein.",
-      "acceptance_criteria": [
-        "UI-Karte fuer Claude Code/Claude CLI vorhanden.",
-        "Button fuer Diagnose, Install-Hilfe, Aktivieren/Deaktivieren und read-only Test-Run vorhanden.",
-        "Kein Token-/OAuth-Eingabefeld fuer Claude-Login-Modus.",
-        "allowed_paths, timeout, concurrency und permission_mode sind konfigurierbar.",
-        "Status wird als not_installed/not_logged_in/ready/error angezeigt."
-      ]
-    },
-    {
-      "id": "COMMON-001",
-      "title": "Gemeinsame sichere CLI-Prozesshuelle verwenden",
-      "priority": "P0",
-      "description": "Codex und Claude duerfen nicht unkontrolliert als Shell-Strings laufen.",
-      "acceptance_criteria": [
-        "CLI-Aufrufe werden als Argumentliste gebaut, nicht per unsicherem shell=True String.",
-        "cwd muss innerhalb allowed_paths oder isoliertem Workspace liegen.",
-        "Timeout beendet den Prozessbaum.",
-        "stdout/stderr werden limitiert, redigiert und als Artefakte getrennt gespeichert.",
-        "write_armed=false verhindert Aenderungen am Originalprojekt.",
-        "Security-Tests decken Shell-Metacharacters in Tasktitel, Pfaden und Branch-Namen ab."
-      ]
-    },
-    {
-      "id": "COMMON-002",
-      "title": "Routing und Fallback sauber trennen",
-      "priority": "P0",
-      "description": "Hub-Routing soll bestehende Codex-Integration, neuen Claude-Adapter und API-Provider nicht vermischen.",
-      "acceptance_criteria": [
-        "Codex/Claude werden als Worker-Agent/CLI-Backends geroutet, nicht als OpenAI-kompatible ChatCompletionProvider.",
-        "Deterministische Task Engine bleibt Vorrang fuer einfache Read-only Operationen.",
-        "Routing-Trace zeigt chosen_backend, auth_mode, alternatives und rejection_reasons.",
-        "Wenn Codex Account-Login nicht ready ist, kann API-Key-Modus oder anderer Fallback genutzt werden, falls konfiguriert.",
-        "Claude wird nur genutzt, wenn explizit enabled und ready."
-      ]
-    },
-    {
-      "id": "COMMON-003",
-      "title": "Config/API-Endpunkte fuer Angular bereitstellen",
-      "priority": "P1",
-      "description": "Hub-API fuer CLI-Backend-Diagnose und sichere Persistenz.",
-      "api_candidates": [
-        "GET /api/cli-backends",
-        "GET /api/cli-backends/{backend_id}/health",
-        "POST /api/cli-backends/{backend_id}/diagnose",
-        "POST /api/cli-backends/{backend_id}/test-run",
-        "PUT /api/cli-backends/{backend_id}/config"
-      ],
-      "acceptance_criteria": [
-        "Mutierende Endpunkte erfordern Admin/Operator-Recht.",
-        "Antwortmodelle enthalten keine Secrets.",
-        "Aktivierung/Deaktivierung und Auth-Mode-Wechsel werden auditiert.",
-        "Persistenz nutzt bestehende Config-Schicht, falls vorhanden.",
-        "Bestehende CodeHug/AgentProfile Modelle bleiben kompatibel."
-      ]
-    },
-    {
-      "id": "COMMON-004",
-      "title": "WSL/Docker/Windows Betriebsmodus dokumentieren",
-      "priority": "P1",
-      "description": "Klaeren, wo Codex/Claude CLI installiert und ausgefuehrt werden: Host, WSL oder Container.",
-      "acceptance_criteria": [
-        "Doku beschreibt Windows native, WSL2 local-dev und Docker-Fullstack getrennt.",
-        "Wenn Docker-Hub Host-/WSL-CLI nicht erreichen kann, zeigt UI klare Diagnose statt Fake-ready.",
-        "Keine geheimen CLI-Home-Verzeichnisse werden default in Container gemountet.",
-        "Optionaler local-runner/bridge wird als Folgearbeit beschrieben, falls noetig."
-      ]
-    },
-    {
-      "id": "COMMON-005",
-      "title": "Mock-basierte Tests ohne echte Anbieteraccounts",
-      "priority": "P0",
-      "description": "CI darf keine echten ChatGPT/Claude Logins brauchen.",
-      "acceptance_criteria": [
-        "Mock-Codex deckt api_key_mode, chatgpt_login_ready, not_logged_in, timeout und fake_diff ab.",
-        "Mock-Claude deckt ready, not_installed, not_logged_in, timeout und fake_diff ab.",
-        "Read-only Test-Run erzeugt keine Aenderung am Originalrepo.",
-        "write_armed Test erzeugt Diff-Artefakt und awaiting_diff_review.",
-        "CI laeuft ohne OPENAI_API_KEY und ANTHROPIC_API_KEY fuer diese Tests."
-      ]
-    }
-  ],
   "implementation_order": [
     "CCA-001 Codex-Ist-Zustand finden",
     "CCA-002 Codex Account-Login-Modus ergaenzen",
@@ -286,6 +143,284 @@
     "COMMON-004 WSL/Docker/Windows Doku",
     "COMMON-005 Mock-Tests"
   ],
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Codex-Ist-Zustand dokumentieren (CCA-001)",
+      "status": "done",
+      "task_ids": ["CCA-001"],
+      "deliverable": "docs/architecture/cli-backends/codex-already-done.md"
+    },
+    {
+      "id": "M2",
+      "title": "Codex um Account-Login erweitern (CCA-002 + COMMON-001)",
+      "status": "open",
+      "task_ids": ["CCA-002", "COMMON-001"],
+      "acceptance": "Bestehender API-Key-Modus unveraendert; auth_mode=chatgpt_login ueber codex_cli.agent_cfg konfigurierbar; run_codex_command setzt kein OPENAI_API_KEY wenn auth_mode=chatgpt_login; preflight liefert auth_mode und login_status; tests mit mock-codex."
+    },
+    {
+      "id": "M3",
+      "title": "Claude-Code Worker-Agent-Adapter komplett (CLA-001 + CLA-002 + COMMON-001 fuer claude)",
+      "status": "open",
+      "task_ids": ["CLA-001", "CLA-002"],
+      "acceptance": "cli_backend=claude_code runtime-seitig registriert (semaphore, contract, SUPPORTED_CLI_BACKENDS, executor_kind); run_claude_command folgt codex/aider-muster (args-liste, kein shell, timeout, env-isolierung); read_only analyse funktioniert mit mock-claude-binary; health und login_status ohne token-lesen; tests gruen."
+    },
+    {
+      "id": "M4",
+      "title": "Routing, API, UI, Doku, Tests (COMMON-002..005 + CCA-003 + CLA-003)",
+      "status": "open",
+      "task_ids": ["COMMON-002", "COMMON-003", "COMMON-004", "COMMON-005", "CCA-003", "CLA-003"],
+      "acceptance": "per-backend health/diagnose/test-run endpunkte; codex+claude ui-cards; routing-trennung; betriebsmodus-doku; mock-tests ohne echte accounts; alle 11 features done; alle tests gruen."
+    }
+  ],
+  "features": [
+    {
+      "id": "CCA-001",
+      "title": "Codex Ist-Zustand exakt finden und dokumentieren",
+      "status": "done",
+      "priority": "P0",
+      "risk": "low",
+      "milestone": "M1",
+      "codex_resolved_via": "see research_summary.openai_codex_cli.codex_resolved_2026_07_05",
+      "deliverable": "docs/architecture/cli-backends/codex-already-done.md (zu erstellen)",
+      "acceptance_criteria": [
+        "Alle Dateien/Funktionen/Klassen, die Codex aufrufen oder konfigurieren, sind mit Pfad und kurzer Rolle dokumentiert.",
+        "Es ist klar, ob Codex ueber Adapter, OpenCode/SGPT-Bridge, WorkerRuntime oder direkte CLI-Invocation erreichbar ist.",
+        "Es ist klar, ob OPENAI_API_KEY aktuell zwingend ist, optional ist oder nur in einem bestimmten Modus benoetigt wird.",
+        "Es wird explizit entschieden: vorhandenen Codex-Code erweitern statt neuen Paralleladapter bauen.",
+        "Falls kein echter Codex-Codepfad gefunden wird, wird das als Abweichung zur Annahme dokumentiert und erst dann ein Minimaladapter geplant."
+      ],
+      "open_questions": [],
+      "status_note": "2026-07-05: recherche abgeschlossen, alle 5 acceptance-kriterien sind durch code-recherche abgedeckt. deliverables (doku-datei) folgt in M1."
+    },
+    {
+      "id": "CCA-002",
+      "title": "Codex Account-Login-Modus ohne API-Key-Zwang nachruesten",
+      "status": "open",
+      "priority": "P0",
+      "risk": "medium",
+      "milestone": "M2",
+      "depends_on": ["CCA-001", "COMMON-001"],
+      "acceptance_criteria": [
+        "Bestehender API-Key-Modus bleibt unveraendert nutzbar.",
+        "Neuer auth_mode=chatgpt_login/account_login ist konfigurierbar (agent_cfg.codex_cli.auth_mode).",
+        "Bei auth_mode=chatgpt_login wird OPENAI_API_KEY nicht validiert oder verlangt — run_codex_command setzt env['OPENAI_API_KEY'] NICHT.",
+        "Health/Auth-Check prueft nur CLI-Verfuegbarkeit und Login-Status ueber offizielle CLI-Nutzung, ohne Token-Dateien zu lesen.",
+        "Fehlerfaelle not_installed, not_logged_in, rate_limited, provider_error und timeout werden sauber unterschieden.",
+        "Tests decken API-Key-Modus und Account-Login-Modus mit Mock-Codex ab (tests/test_codex_cli_backend.py erweitern)."
+      ],
+      "open_questions_field": "open_questions.CCA-002",
+      "code_anchors_to_modify": [
+        "agent/cli_backends/opencode.py:528 run_codex_command — Z. 558-559 ist die api_key-pruefung, anpassen",
+        "agent/config_defaults.py:389 codex_cli block — auth_mode field hinzufuegen",
+        "agent/cli_backends/routing.py:382 codex preflight-block — auth_mode, auth_status sichtbar machen"
+      ]
+    },
+    {
+      "id": "CCA-003",
+      "title": "Codex UI an bestehenden Backend-Pfad anbinden",
+      "status": "open",
+      "priority": "P0",
+      "risk": "medium",
+      "milestone": "M4",
+      "depends_on": ["CCA-002", "COMMON-003"],
+      "acceptance_criteria": [
+        "UI zeigt Codex nicht als komplett neuen unbekannten Adapter, sondern als vorhandenes/erkanntes Backend mit Status.",
+        "API-Key-Modus und ChatGPT-Login-Modus sind klar getrennt (z.B. separate ui-felder oder -tabs).",
+        "Bei ChatGPT-Login gibt es kein API-Key-Pflichtfeld.",
+        "UI zeigt Diagnose: installed/version/auth_status/current_mode/default_model.",
+        "Read-only Test-Run kann ueber bestehenden Codex-Run-Pfad gestartet werden."
+      ],
+      "open_questions_field": "open_questions.CCA-003",
+      "code_anchors_to_modify": [
+        "frontend-angular/src/app/features/codehug/models/codehug.models.ts: 'codex' ist schon in ChCliBackend, auth_mode muss ergaenzt werden",
+        "agent/routes/sgpt.py:437 list_cli_backends — auth_mode in codex_runtime_target response ergaenzen"
+      ]
+    },
+    {
+      "id": "CLA-001",
+      "title": "Claude Code/Claude-CLI Adapter neu implementieren",
+      "status": "open",
+      "priority": "P0",
+      "risk": "high",
+      "milestone": "M3",
+      "depends_on": ["COMMON-001"],
+      "acceptance_criteria": [
+        "cli_backend=claude_code wird runtime-seitig registriert (agent/backend_provider_contracts.py, agent/cli_backends/semaphore.py, SUPPORTED_CLI_BACKENDS).",
+        "Adapter kann read-only Analyse-Task ausfuehren und stdout/stderr/exit_code/duration erfassen.",
+        "Adapter kann optional write_armed in isoliertem Workspace laufen und Diffs als Artefakt liefern (COMMON-001-konzept).",
+        "Adapter unterstuetzt command, auth_mode, default_model, permission_mode, timeout und allowed_paths.",
+        "ANTHROPIC_API_KEY ist bei auth_mode=claude_login nicht erforderlich.",
+        "Tests nutzen Mock-Claude-Binary und brauchen keinen echten Anthropic/Claude Account (COMMON-005).",
+        "executor_kind 'claude_code' muss in worker_contract_service.py:171, worker_todo_planner_service.py:43, agent/routes/config/shared.py:291 sets aufgenommen werden (analog zu 'openai_codex_cli')."
+      ],
+      "open_questions_field": "open_questions.CLA-001",
+      "code_anchors_to_modify": [
+        "agent/cli_backends/opencode.py — run_claude_command nach dem muster von run_aider_command (Z. 589) hinzufuegen",
+        "agent/cli_backends/routing.py:28 SUPPORTED_CLI_BACKENDS — 'claude_code' hinzufuegen",
+        "agent/cli_backends/semaphore.py:14 _DEFAULT_BACKEND_PARALLEL_LIMITS — 'claude_code' hinzufuegen",
+        "agent/backend_provider_contracts.py:55 — claude_code contract analog zu codex_cli",
+        "agent/services/worker_contract_service.py:171 + worker_todo_planner_service.py:43 + agent/routes/config/shared.py:291 — 'claude_code' zu den executor_kind-sets hinzufuegen",
+        "agent/providers/worker_execution.py:12 — 'claude_code' eintrag",
+        "agent/config.py:253 — claude_path, claude_default_model settings hinzufuegen",
+        "agent/config_defaults.py:389 — claude_cli block hinzufuegen",
+        "agent/routes/config/read_models.py:55 — 'claude_cli' schema-eintrag"
+      ]
+    },
+    {
+      "id": "CLA-002",
+      "title": "Claude CLI Health/Auth Diagnose",
+      "status": "open",
+      "priority": "P0",
+      "risk": "medium",
+      "milestone": "M3",
+      "depends_on": ["CLA-001"],
+      "acceptance_criteria": [
+        "Health Check erkennt command_not_found und liefert Install-Hinweise fuer Windows, WSL/Linux und macOS.",
+        "Auth Check liest keine Dateien aus .claude, .config oder anderen Token-Verzeichnissen.",
+        "Frontend erhaelt nur Status und naechste sichere Aktion.",
+        "not_logged_in verweist auf manuellen lokalen Claude-Login im Terminal.",
+        "Logs und Diagnoseausgaben werden redigiert."
+      ],
+      "open_questions_field": "open_questions.CLA-002",
+      "code_anchors_to_modify": [
+        "agent/cli_backends/routing.py:get_cli_backend_preflight — claude_code-zweig hinzufuegen"
+      ]
+    },
+    {
+      "id": "CLA-003",
+      "title": "Claude Angular Setup Wizard",
+      "status": "open",
+      "priority": "P0",
+      "risk": "medium",
+      "milestone": "M4",
+      "depends_on": ["CLA-001", "CLA-002", "COMMON-003"],
+      "acceptance_criteria": [
+        "UI-Karte fuer Claude Code/Claude CLI vorhanden.",
+        "Button fuer Diagnose, Install-Hilfe, Aktivieren/Deaktivieren und read-only Test-Run vorhanden.",
+        "Kein Token-/OAuth-Eingabefeld fuer Claude-Login-Modus.",
+        "allowed_paths, timeout, concurrency und permission_mode sind konfigurierbar.",
+        "Status wird als not_installed/not_logged_in/ready/error angezeigt."
+      ],
+      "open_questions_field": "open_questions.CLA-003",
+      "code_anchors_to_modify": [
+        "frontend-angular: claude_code ui-card analog zu codex-card"
+      ]
+    },
+    {
+      "id": "COMMON-001",
+      "title": "Gemeinsame sichere CLI-Prozesshuelle verwenden",
+      "status": "done",
+      "priority": "P0",
+      "risk": "low",
+      "milestone": "M2",
+      "depends_on": [],
+      "codex_claude_status_2026_07_05": {
+        "codex_done": "opencode.py:571 nutzt args-liste, kein shell=True, timeout via subprocess.TimeoutExpired, env-isolierung, ergebnis-tuple",
+        "claude_pending": "run_claude_command fehlt komplett — muss beim bauen dasselbe muster verwenden (siehe code_anchors_to_modify in CLA-001)"
+      },
+      "acceptance_criteria": [
+        "CLI-Aufrufe werden als Argumentliste gebaut, nicht per unsicherem shell=True String. (status: erfuellt fuer codex/aider/mistral_code/opencode; offen fuer claude.)",
+        "cwd muss innerhalb allowed_paths oder isoliertem Workspace liegen.",
+        "Timeout beendet den Prozessbaum.",
+        "stdout/stderr werden limitiert, redigiert und als Artefakte getrennt gespeichert.",
+        "write_armed=false verhindert Aenderungen am Originalprojekt.",
+        "Security-Tests decken Shell-Metacharacters in Tasktitel, Pfaden und Branch-Namen ab."
+      ],
+      "open_questions": [],
+      "status_note": "2026-07-05: shell=True ist nirgendwo im cli_backends-codebase verwendet (5 subprocess.run-stellen, alle als args-listen). 'write_armed'-konzept existiert noch nicht und muss neu definiert werden — gehoert in eine follow-up-extension, nicht in CCA-002. common-001-akzeptanz fuer die schon vorhandenen codex/aider/mistral/opencode-pfade ist erfuellt; fuer den zukuenftigen claude-pfad bleibt die disziplin verpflichtend."
+    },
+    {
+      "id": "COMMON-002",
+      "title": "Routing und Fallback sauber trennen",
+      "status": "open",
+      "priority": "P0",
+      "risk": "medium",
+      "milestone": "M4",
+      "depends_on": ["CLA-001"],
+      "acceptance_criteria": [
+        "Codex/Claude werden als Worker-Agent/CLI-Backends geroutet, nicht als OpenAI-kompatible ChatCompletionProvider.",
+        "Deterministische Task Engine bleibt Vorrang fuer einfache Read-only Operationen.",
+        "Routing-Trace zeigt chosen_backend, auth_mode, alternatives und rejection_reasons.",
+        "Wenn Codex Account-Login nicht ready ist, kann API-Key-Modus oder anderer Fallback genutzt werden, falls konfiguriert.",
+        "Claude wird nur genutzt, wenn explizit enabled und ready."
+      ],
+      "open_questions_field": "open_questions.COMMON-002",
+      "code_anchors_to_modify": [
+        "agent/runtime_policy.py:resolve_cli_backend — claude_code in routing-options",
+        "agent/services/worker_selection_policy_service.py:200 _EXPENSIVE_WORKER_PREFIXES — 'claude' ist bereits drin, codex_prefix fehlt"
+      ]
+    },
+    {
+      "id": "COMMON-003",
+      "title": "Config/API-Endpunkte fuer Angular bereitstellen",
+      "status": "open",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone": "M4",
+      "depends_on": ["CCA-002", "CLA-001"],
+      "api_candidates": [
+        "GET /api/cli-backends (existiert als GET /sgpt/backends in agent/routes/sgpt.py:435, wiederverwenden)",
+        "GET /api/cli-backends/{backend_id}/health (fehlt — neuer endpunkt)",
+        "POST /api/cli-backends/{backend_id}/diagnose (fehlt — neuer endpunkt)",
+        "POST /api/cli-backends/{backend_id}/test-run (fehlt — neuer endpunkt)",
+        "PUT /api/cli-backends/{backend_id}/config (existiert teilweise als POST /config, ggf. erweitern)"
+      ],
+      "acceptance_criteria": [
+        "Mutierende Endpunkte erfordern Admin/Operator-Recht.",
+        "Antwortmodelle enthalten keine Secrets.",
+        "Aktivierung/Deaktivierung und Auth-Mode-Wechsel werden auditiert.",
+        "Persistenz nutzt bestehende Config-Schicht, falls vorhanden.",
+        "Bestehende CodeHug/AgentProfile Modelle bleiben kompatibel."
+      ],
+      "open_questions_field": "open_questions.COMMON-003",
+      "code_anchors_to_modify": [
+        "agent/routes/sgpt.py:435 /sgpt/backends — alias fuer /api/cli-backends",
+        "agent/routes/sgpt.py oder neue datei — per-backend endpunkte"
+      ]
+    },
+    {
+      "id": "COMMON-004",
+      "title": "WSL/Docker/Windows Betriebsmodus dokumentieren",
+      "status": "open",
+      "priority": "P1",
+      "risk": "low",
+      "milestone": "M4",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Doku beschreibt Windows native, WSL2 local-dev und Docker-Fullstack getrennt.",
+        "Wenn Docker-Hub Host-/WSL-CLI nicht erreichen kann, zeigt UI klare Diagnose statt Fake-ready.",
+        "Keine geheimen CLI-Home-Verzeichnisse werden default in Container gemountet.",
+        "Optionaler local-runner/bridge wird als Folgearbeit beschrieben, falls noetig."
+      ],
+      "open_questions_field": "open_questions.COMMON-004",
+      "code_anchors_to_modify": [
+        "neue datei docs/architecture/cli-backends/runtime-modes.md (oder integration in codex-already-done.md)"
+      ]
+    },
+    {
+      "id": "COMMON-005",
+      "title": "Mock-basierte Tests ohne echte Anbieteraccounts",
+      "status": "open",
+      "priority": "P0",
+      "risk": "low",
+      "milestone": "M4",
+      "depends_on": ["CCA-002", "CLA-001"],
+      "acceptance_criteria": [
+        "Mock-Codex deckt api_key_mode, chatgpt_login_ready, not_logged_in, timeout und fake_diff ab.",
+        "Mock-Claude deckt ready, not_installed, not_logged_in, timeout und fake_diff ab.",
+        "Read-only Test-Run erzeugt keine Aenderung am Originalrepo.",
+        "write_armed Test erzeugt Diff-Artefakt und awaiting_diff_review.",
+        "CI laeuft ohne OPENAI_API_KEY und ANTHROPIC_API_KEY fuer diese Tests."
+      ],
+      "open_questions_field": "open_questions.COMMON-005",
+      "code_anchors_to_modify": [
+        "tests/test_codex_cli_backend.py — erweitern um chatgpt_login-tests",
+        "tests/test_claude_cli_backend.py (neu zu erstellen) — mock-binary, health, login",
+        "tests/conftest.py — shared mock-binary helper"
+      ]
+    }
+  ],
   "global_acceptance_criteria": [
     "Codex wird nicht doppelt neu implementiert, sondern vorhandener Worker-Agent-Pfad wird gefunden und erweitert.",
     "Codex kann neben API-Key-Modus auch ChatGPT-Account-Login nutzen, ohne OPENAI_API_KEY-Zwang.",
@@ -294,5 +429,11 @@
     "Keine OAuth-/Refresh-Tokens werden gelesen, gespeichert, angezeigt oder in Artefakte geschrieben.",
     "Schreibende Laeufe laufen ueber write_armed, Diff-Artefakte und Approval-Gates.",
     "Mock-Tests laufen ohne echte Anbieteraccounts."
+  ],
+  "explicit_non_goals": [
+    "Kein zweiter Codex-Adapter neben einem bestehenden funktionierenden Codex-Adapter.",
+    "Kein ChatGPT-Web- oder Claude-Web-Scraping.",
+    "Keine Speicherung von OAuth-/Refresh-Tokens in Ananta, DB, .env, Logs oder Frontend.",
+    "Kein Umgehen von Anbieterlimits oder Nutzungsregeln."
   ]
 }
