@@ -19,7 +19,7 @@
 #      werden (siehe cliproxyapi-003 acceptance).
 
 default_provider: cliproxyapi
-default_model: codex/gpt-5.5-codex
+default_model: gpt-5.5-codex
 
 local_openai_backends:
   - id: cliproxyapi
@@ -28,6 +28,6 @@ local_openai_backends:
     api_key: "***"
     supports_tool_calls: true
     models:
-      - codex/gpt-5.5-codex
-      - claude/sonnet
-      - gemini/gemini-pro
+      - gpt-5.5-codex
+      - claude-sonnet
+      - gemini-pro
