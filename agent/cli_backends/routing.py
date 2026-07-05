@@ -217,6 +217,26 @@ def get_cli_backend_runtime_status() -> dict[str, dict]:
     return data
 
 
+def _codex_login_command_for_mode(auth_mode: str | None) -> str | None:
+    """CCA-002: return the official Codex CLI login command for the
+    given auth mode, or None if no manual login is required.
+
+    The string is returned as a hint for the UI; Ananta does not
+    execute it. The user runs it locally and the Codex CLI manages
+    its own credentials under ~/.codex/.
+
+    * "api_key" — Codex CLI does not require a separate login; the
+      API key is supplied via ``OPENAI_API_KEY``. The hint is None.
+    * "chatgpt_login" — the user must run ``codex login`` to
+      authenticate against ChatGPT. The hint is the literal command.
+    """
+    mode = str(auth_mode or "").strip().lower()
+    if mode == "chatgpt_login":
+        codex_path = str(getattr(settings, "codex_path", "codex") or "codex").strip() or "codex"
+        return f"{codex_path} login"
+    return None
+
+
 def get_cli_backend_preflight(*, runtime_scope: str = "full") -> dict[str, dict]:
     from agent.cli_backends.opencode import resolve_codex_runtime_config
 
@@ -395,6 +415,14 @@ def get_cli_backend_preflight(*, runtime_scope: str = "full") -> dict[str, dict]
                 "instance_id": codex_runtime.get("instance_id"),
                 "max_hops": codex_runtime.get("max_hops"),
                 "diagnostics": list(codex_runtime.get("diagnostics") or []),
+                # CCA-002: auth_mode + auth_status + login_command are
+                # surfaced here so the Angular UI can show the current
+                # auth state without re-deriving it.
+                "auth_mode": codex_runtime.get("auth_mode", "api_key"),
+                "api_key_required": bool(codex_runtime.get("api_key_required", True)),
+                "login_command": _codex_login_command_for_mode(
+                    codex_runtime.get("auth_mode", "api_key"),
+                ),
             },
             "local_openai": local_provider_entries,
         },

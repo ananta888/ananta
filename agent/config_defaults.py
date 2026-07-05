@@ -390,6 +390,12 @@ def build_default_agent_config() -> dict:
             "base_url": None,
             "api_key_profile": None,
             "prefer_lmstudio": True,
+            # CCA-002: codex auth mode. "api_key" is the legacy
+            # behaviour; "chatgpt_login" lets codex CLI use its
+            # own ~/.codex/auth.json without OPENAI_API_KEY.
+            "auth_mode": "api_key",
+            # When auth_mode=chatgpt_login, this is ignored.
+            "api_key_required": True,
         },
         "cli_session_mode": {
             "enabled": False,

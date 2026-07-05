@@ -252,6 +252,13 @@ class Settings(BaseSettings):
     )
     codex_path: str = Field(default="codex", validation_alias="CODEX_PATH")
     codex_default_model: Optional[str] = Field(default="gpt-5-codex", validation_alias="CODEX_DEFAULT_MODEL")
+    # CCA-002: codex auth mode. "api_key" preserves the legacy behaviour
+    # (OPENAI_API_KEY is required for remote base_urls). "chatgpt_login"
+    # skips the api_key check and lets the codex CLI use its own
+    # ~/.codex/auth.json. CCA-001 is the ist-zustand; this is the
+    # minimum-surface change for CCA-002.
+    codex_auth_mode: str = Field(default="api_key", validation_alias="CODEX_AUTH_MODE")
+    codex_require_api_key: bool = Field(default=True, validation_alias="CODEX_REQUIRE_API_KEY")
     opencode_path: str = Field(default="opencode", validation_alias="OPENCODE_PATH")
     opencode_default_model: Optional[str] = Field(
         default="opencode/glm-5-free", validation_alias="OPENCODE_DEFAULT_MODEL"

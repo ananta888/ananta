@@ -508,6 +508,31 @@ def resolve_codex_runtime_config() -> dict:
     elif not is_local:
         target_kind = "remote_openai_compatible"
     diagnostics = _build_codex_runtime_diagnostics(base_url=base_url, api_key=api_key, is_local=is_local)
+    # CCA-002: resolve auth_mode from agent_cfg.codex_cli.auth_mode
+    # with fallback to settings.codex_auth_mode and the legacy
+    # "api_key" default. api_key_required derives from it.
+    codex_cli_cfg = codex_cfg if isinstance(codex_cfg, dict) else {}
+    raw_auth_mode = (
+        codex_cli_cfg.get("auth_mode")
+        if isinstance(codex_cli_cfg.get("auth_mode"), str)
+        else None
+    )
+    if raw_auth_mode is not None:
+        auth_mode = raw_auth_mode.strip().lower() or "api_key"
+    else:
+        auth_mode = str(getattr(settings, "codex_auth_mode", "api_key") or "api_key").strip().lower() or "api_key"
+    if auth_mode not in ("api_key", "chatgpt_login"):
+        auth_mode = "api_key"
+    # api_key_required: if explicitly set, honour it; else derive
+    # from auth_mode (chatgpt_login -> not required).
+    if "api_key_required" in codex_cli_cfg and isinstance(
+        codex_cli_cfg.get("api_key_required"), bool
+    ):
+        api_key_required = bool(codex_cli_cfg["api_key_required"])
+    else:
+        api_key_required = bool(getattr(settings, "codex_require_api_key", True))
+    if auth_mode == "chatgpt_login":
+        api_key_required = False
     return {
         "base_url": base_url,
         "api_key": api_key,
@@ -522,6 +547,9 @@ def resolve_codex_runtime_config() -> dict:
         "instance_id": (local_target or {}).get("instance_id") if isinstance(local_target, dict) else None,
         "max_hops": (local_target or {}).get("max_hops") if isinstance(local_target, dict) else None,
         "diagnostics": diagnostics,
+        # CCA-002 fields
+        "auth_mode": auth_mode,
+        "api_key_required": api_key_required,
     }
 
 
@@ -553,15 +581,21 @@ def run_codex_command(prompt: str, model: str | None = None, timeout: int = 60) 
         base_url = runtime_cfg["base_url"]
         api_key = runtime_cfg["api_key"]
         diagnostics = list(runtime_cfg.get("diagnostics") or [])
+        # CCA-002: chatgpt_login mode skips the api_key requirement.
+        auth_mode = str(runtime_cfg.get("auth_mode") or "api_key").strip().lower()
         if not base_url:
             return -1, "", "Codex runtime target is not configured: missing OpenAI-compatible base_url"
-        if not api_key and not bool(runtime_cfg.get("is_local")):
-            return -1, "", "Codex runtime target requires API key for remote endpoint"
+        if not api_key and not bool(runtime_cfg.get("is_local")) and auth_mode != "chatgpt_login":
+            return -1, "", "Codex runtime target requires API key for remote endpoint (or set codex_cli.auth_mode=chatgpt_login)"
         if base_url:
             env["OPENAI_BASE_URL"] = base_url
             env["OPENAI_API_BASE"] = base_url
 
-        if api_key:
+        # CCA-002: only set OPENAI_API_KEY when (a) we have one, and
+        # (b) auth_mode != chatgpt_login. In chatgpt_login mode the
+        # codex CLI uses its own ~/.codex/auth.json and any injected
+        # OPENAI_API_KEY would be honoured before ~/.codex/auth.json.
+        if api_key and auth_mode != "chatgpt_login":
             env["OPENAI_API_KEY"] = api_key
         if diagnostics:
             log.warning("Codex runtime diagnostics: %s", ",".join(diagnostics))
