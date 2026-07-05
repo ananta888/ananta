@@ -1,0 +1,33 @@
+# Offizielles CLIProxyAPI Provider-Profil fuer Ananta.
+#
+# Diese Datei ist die kanonische Beispielkonfiguration fuer die
+# CLIProxyAPI-Integration. Sie nutzt ausschliesslich bestehende
+# Ananta-Mechanismen (local_openai_backends); es wird keine neue
+# Provider-Architektur eingefuehrt.
+#
+# Verwendung:
+#   1. Anpassen: base_url auf deine CLIProxyAPI-Instanz setzen.
+#      In WSL2 auf Windows-host z.B. http://192.168.x.x:8317/v1 oder
+#      http://host.docker.internal:8317/v1.
+#   2. Secret-Handling: api_key nur als Dummy "***" wenn CLIProxyAPI
+#      lokal keinen Key verlangt. Fuer echte Keys siehe
+#      docs/integrations/cliproxyapi.md#secrets.
+#   3. Modellnamen: Die folgende Liste ist installationsabhaengig.
+#      Die tatsaechlich verfuegbaren Modelle liefert deine CLIProxyAPI-
+#      Instanz unter GET <base_url>/v1/models.
+#   4. Diese Datei kann von einem Config-Loader in tests eingelesen
+#      werden (siehe cliproxyapi-003 acceptance).
+
+default_provider: cliproxyapi
+default_model: codex/gpt-5.5-codex
+
+local_openai_backends:
+  - id: cliproxyapi
+    name: CLI Proxy API
+    base_url: http://localhost:8317/v1
+    api_key: "***"
+    supports_tool_calls: true
+    models:
+      - codex/gpt-5.5-codex
+      - claude/sonnet
+      - gemini/gemini-pro
