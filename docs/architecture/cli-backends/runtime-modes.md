@@ -82,6 +82,14 @@ Schreibende Runs laufen ausschließlich über `run_claude_write_armed`
    `awaiting_diff_review`. Der Diff wird **nie automatisch angewendet**;
    die Übernahme ins Originalprojekt ist eine manuelle Review-Entscheidung
    (Approval-Gate). Der Temp-Workspace wird danach gelöscht.
+4. Nach dem Review kann der Diff über
+   `POST /api/sgpt/backends/claude_code/apply-diff` übernommen werden:
+   erst `git apply --check` (weist Konflikte mit zwischenzeitlich
+   geändertem lokalem Stand als `409 conflict` ab, ebenso abgeschnittene
+   Diffs), dann `git apply` in den Working Tree — **ohne Commit**, damit
+   die Übernahme im `git status` sichtbar bleibt und der Commit die
+   letzte manuelle Entscheidung ist. Es gelten dieselben Gates
+   (enabled + `allowed_paths` + Git-Repo).
 
 Hinweis: der Workspace wird 1:1 kopiert — für sehr große Repos/Monorepos
 ist dieser Pfad ungeeignet.
@@ -91,5 +99,3 @@ ist dieser Pfad ungeeignet.
 - **Local-runner/Bridge** für Docker-Fullstack (Hub im Container delegiert
   CLI-Runs an einen Runner auf dem Host): erst bauen, wenn der Docker-Modus
   mit Subscription-CLIs wirklich gebraucht wird.
-- **Diff-Apply-Endpunkt** (reviewten Diff serverseitig anwenden): bis dahin
-  wendet der Nutzer den Diff bewusst selbst an (`git apply`).

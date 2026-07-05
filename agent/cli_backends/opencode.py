@@ -771,7 +771,7 @@ def run_claude_command(
             return -1, "", str(e)
 
 
-def _run_git(args: list[str], cwd: str, timeout: int = 60) -> tuple[int, str, str]:
+def _run_git(args: list[str], cwd: str, timeout: int = 60, input_text: str | None = None) -> tuple[int, str, str]:
     """Hilfsroutine fuer git-Aufrufe im write_armed-Workspace."""
     git_bin = shutil.which("git")
     if git_bin is None:
@@ -785,6 +785,7 @@ def _run_git(args: list[str], cwd: str, timeout: int = 60) -> tuple[int, str, st
             errors="replace",
             cwd=cwd,
             timeout=timeout,
+            input=input_text,
         )
         return result.returncode, result.stdout, result.stderr
     except subprocess.TimeoutExpired:
@@ -924,6 +925,79 @@ def run_claude_write_armed(
         return result
     finally:
         shutil.rmtree(tmp_root, ignore_errors=True)
+
+
+def apply_reviewed_diff(diff: str, workdir: str | None = None) -> dict:
+    """Diff-Apply nach Review: wendet einen (vom Nutzer geprueften)
+    write_armed-Diff auf das Original-Workdir an.
+
+    Dieselben Gates wie run_claude_write_armed: claude_cli.enabled,
+    workdir ist Git-Repo innerhalb von claude_cli.allowed_paths.
+    Ablauf: erst ``git apply --check`` (Validierung, u.a. gegen
+    abgeschnittene Diffs und Konflikte mit lokalem Stand), dann
+    ``git apply`` in den Working Tree. Es wird bewusst NICHT
+    committet — die Aenderungen bleiben im ``git status`` sichtbar
+    und der Commit ist die letzte manuelle Review-Entscheidung.
+    """
+    result: dict = {
+        "status": "error",
+        "stderr": "",
+        "changed_files": [],
+        "applied": False,
+    }
+    diff_text = str(diff or "")
+    if not diff_text.strip():
+        result["stderr"] = "Leerer Diff — nichts anzuwenden."
+        return result
+    if len(diff_text) > _WRITE_ARMED_MAX_DIFF_CHARS:
+        result["stderr"] = (
+            f"Diff ist groesser als {_WRITE_ARMED_MAX_DIFF_CHARS} Zeichen — vermutlich abgeschnitten "
+            "(diff_truncated). Abgeschnittene Diffs werden nicht angewendet."
+        )
+        return result
+
+    runtime_cfg = resolve_claude_runtime_config()
+    if not runtime_cfg["enabled"]:
+        result["stderr"] = "Claude CLI backend ist deaktiviert (claude_cli.enabled=false)."
+        return result
+    if not runtime_cfg["allowed_paths"]:
+        result["stderr"] = "Diff-Apply erfordert konfigurierte claude_cli.allowed_paths (bewusstes Opt-in pro Workspace)."
+        return result
+    if not workdir:
+        result["stderr"] = "Diff-Apply erfordert ein explizites workdir."
+        return result
+    workdir_abs = os.path.realpath(workdir)
+    if not any(
+        workdir_abs == os.path.realpath(p) or workdir_abs.startswith(os.path.realpath(p) + os.sep)
+        for p in runtime_cfg["allowed_paths"]
+    ):
+        result["stderr"] = f"Workdir '{workdir}' liegt ausserhalb von claude_cli.allowed_paths"
+        return result
+    if not os.path.isdir(os.path.join(workdir_abs, ".git")):
+        result["stderr"] = "Diff-Apply erfordert ein Git-Repository als workdir."
+        return result
+
+    rc, _, err = _run_git(["apply", "--check", "--whitespace=nowarn", "-"], workdir_abs, input_text=diff_text)
+    if rc != 0:
+        result["status"] = "conflict"
+        result["stderr"] = (
+            "Diff laesst sich nicht sauber anwenden (lokaler Stand hat sich geaendert oder Diff ist "
+            f"unvollstaendig): {err.strip()}"
+        )
+        return result
+
+    _, numstat, _ = _run_git(["apply", "--numstat", "-"], workdir_abs, input_text=diff_text)
+    changed_files = [line.split("\t")[-1].strip() for line in numstat.splitlines() if line.strip()]
+
+    rc, _, err = _run_git(["apply", "--whitespace=nowarn", "-"], workdir_abs, input_text=diff_text)
+    if rc != 0:
+        result["stderr"] = f"git apply fehlgeschlagen: {err.strip()}"
+        return result
+
+    result["status"] = "applied"
+    result["applied"] = True
+    result["changed_files"] = changed_files
+    return result
 
 
 def run_aider_command(prompt: str, model: str | None = None, timeout: int = 60) -> tuple[int, str, str]:

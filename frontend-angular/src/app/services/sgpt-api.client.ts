@@ -78,6 +78,24 @@ export class SgptApiClient {
     );
   }
 
+  /** write_armed: schreibender Claude-Run im isolierten Workspace, liefert Diff-Artefakt. */
+  claudeWriteArmedRun(baseUrl: string, body: { prompt: string; workdir: string; model?: string; timeout?: number }, token?: string): Observable<any> {
+    return this.transport.unwrap(
+      this.transport.http
+        .post(`${baseUrl}/api/sgpt/backends/claude_code/write-armed-run`, body, this.transport.getHeaders(baseUrl, token))
+        .pipe(timeout(3620000)),
+    );
+  }
+
+  /** Diff-Apply nach Review: wendet einen geprueften write_armed-Diff auf das Original an. */
+  claudeApplyDiff(baseUrl: string, body: { diff: string; workdir: string }, token?: string): Observable<any> {
+    return this.transport.unwrap(
+      this.transport.http
+        .post(`${baseUrl}/api/sgpt/backends/claude_code/apply-diff`, body, this.transport.getHeaders(baseUrl, token))
+        .pipe(timeout(60000)),
+    );
+  }
+
   /** COMMON-003: read-only Test-Run ueber den regulaeren Run-Pfad. */
   backendTestRun(baseUrl: string, backendId: string, body: { prompt?: string; model?: string; timeout?: number } = {}, token?: string): Observable<any> {
     return this.transport.unwrap(

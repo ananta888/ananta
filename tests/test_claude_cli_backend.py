@@ -681,6 +681,124 @@ def test_run_claude_write_armed_uses_accept_edits_permission_mode(tmp_path):
     assert "--permission-mode acceptEdits" in logged
 
 
+def test_apply_reviewed_diff_e2e_roundtrip(tmp_path):
+    """write_armed erzeugt einen Diff, apply_reviewed_diff wendet ihn
+    auf das Original an — ohne Commit (Uebernahme bleibt sichtbar)."""
+    from agent.cli_backends.opencode import apply_reviewed_diff, run_claude_write_armed
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "hello.txt").write_text("original\n")
+    _init_git_repo(repo)
+    mock_claude = _write_mock_claude(tmp_path, 'echo "modified by claude" > hello.txt\necho OK')
+
+    app = _fake_app({"claude_cli": {"enabled": True, "allowed_paths": [str(tmp_path)]}})
+    settings = _fake_settings(claude_path=mock_claude)
+    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings):
+        armed = run_claude_write_armed("aendere hello.txt", timeout=60, workdir=str(repo))
+        assert armed["status"] == "awaiting_diff_review"
+        applied = apply_reviewed_diff(armed["diff"], workdir=str(repo))
+
+    assert applied["status"] == "applied"
+    assert applied["applied"] is True
+    assert applied["changed_files"] == ["hello.txt"]
+    assert (repo / "hello.txt").read_text() == "modified by claude\n"
+    # Kein Auto-Commit: die Aenderung steht im git status.
+    status = _subprocess.run(
+        ["git", "status", "--porcelain"], cwd=str(repo), capture_output=True, text=True, check=True
+    ).stdout
+    assert "hello.txt" in status
+
+
+def test_apply_reviewed_diff_conflict_when_local_state_changed(tmp_path):
+    from agent.cli_backends.opencode import apply_reviewed_diff, run_claude_write_armed
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "hello.txt").write_text("original\n")
+    _init_git_repo(repo)
+    mock_claude = _write_mock_claude(tmp_path, 'echo "modified by claude" > hello.txt\necho OK')
+
+    app = _fake_app({"claude_cli": {"enabled": True, "allowed_paths": [str(tmp_path)]}})
+    settings = _fake_settings(claude_path=mock_claude)
+    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings):
+        armed = run_claude_write_armed("aendere hello.txt", timeout=60, workdir=str(repo))
+        # Lokaler Stand aendert sich zwischen Review und Apply:
+        (repo / "hello.txt").write_text("diverged locally\n")
+        applied = apply_reviewed_diff(armed["diff"], workdir=str(repo))
+
+    assert applied["status"] == "conflict"
+    assert applied["applied"] is False
+    # Original bleibt in seinem lokalen Zustand.
+    assert (repo / "hello.txt").read_text() == "diverged locally\n"
+
+
+def test_apply_reviewed_diff_rejects_empty_and_oversized_diff(tmp_path):
+    from agent.cli_backends.opencode import _WRITE_ARMED_MAX_DIFF_CHARS, apply_reviewed_diff
+
+    app = _fake_app({"claude_cli": {"enabled": True, "allowed_paths": [str(tmp_path)]}})
+    settings = _fake_settings()
+    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings):
+        empty = apply_reviewed_diff("", workdir=str(tmp_path))
+        oversized = apply_reviewed_diff("x" * (_WRITE_ARMED_MAX_DIFF_CHARS + 1), workdir=str(tmp_path))
+    assert empty["status"] == "error"
+    assert "Leerer Diff" in empty["stderr"]
+    assert oversized["status"] == "error"
+    assert "abgeschnitten" in oversized["stderr"]
+
+
+def test_apply_reviewed_diff_requires_allowed_paths_and_git_repo(tmp_path):
+    from agent.cli_backends.opencode import apply_reviewed_diff
+
+    diff = "diff --git a/x b/x\n"
+    settings = _fake_settings()
+    app = _fake_app({"claude_cli": {"enabled": True}})
+    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings):
+        no_paths = apply_reviewed_diff(diff, workdir=str(tmp_path))
+    assert "allowed_paths" in no_paths["stderr"]
+
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    app = _fake_app({"claude_cli": {"enabled": True, "allowed_paths": [str(tmp_path)]}})
+    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings):
+        no_git = apply_reviewed_diff(diff, workdir=str(plain))
+    assert "Git-Repository" in no_git["stderr"]
+
+
+def test_apply_diff_endpoint_validation_and_status_codes(client, admin_auth_header):
+    response = client.post("/api/sgpt/backends/claude_code/apply-diff", json={}, headers=admin_auth_header)
+    assert response.status_code == 400
+    response = client.post(
+        "/api/sgpt/backends/claude_code/apply-diff",
+        json={"diff": "diff --git a/x b/x"},
+        headers=admin_auth_header,
+    )
+    assert response.status_code == 400
+
+    with patch(
+        "agent.cli_backends.opencode.apply_reviewed_diff",
+        return_value={"status": "applied", "applied": True, "changed_files": ["x"], "stderr": ""},
+    ):
+        ok = client.post(
+            "/api/sgpt/backends/claude_code/apply-diff",
+            json={"diff": "diff --git a/x b/x", "workdir": "/tmp/repo"},
+            headers=admin_auth_header,
+        )
+    assert ok.status_code == 200
+    assert ok.get_json()["data"]["applied"] is True
+
+    with patch(
+        "agent.cli_backends.opencode.apply_reviewed_diff",
+        return_value={"status": "conflict", "applied": False, "changed_files": [], "stderr": "diverged"},
+    ):
+        conflict = client.post(
+            "/api/sgpt/backends/claude_code/apply-diff",
+            json={"diff": "diff --git a/x b/x", "workdir": "/tmp/repo"},
+            headers=admin_auth_header,
+        )
+    assert conflict.status_code == 409
+
+
 def test_write_armed_endpoint_requires_prompt_and_workdir(client, admin_auth_header):
     response = client.post("/api/sgpt/backends/claude_code/write-armed-run", json={}, headers=admin_auth_header)
     assert response.status_code == 400

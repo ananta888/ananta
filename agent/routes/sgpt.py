@@ -657,6 +657,39 @@ def claude_write_armed_run():
     return api_response(data=result)
 
 
+@sgpt_bp.route("/backends/claude_code/apply-diff", methods=["POST"])
+@check_auth
+def claude_apply_reviewed_diff():
+    """Diff-Apply nach Review: wendet einen geprueften write_armed-Diff
+    auf das Original-Workdir an (git apply --check, dann git apply).
+    Es wird nicht committet — der Commit bleibt manuelle Entscheidung.
+    """
+    body = request.get_json(silent=True) or {}
+    diff = str(body.get("diff") or "")
+    if not diff.strip():
+        return api_response(status="error", message="diff is required", code=400)
+    workdir = str(body.get("workdir") or "").strip()
+    if not workdir:
+        return api_response(status="error", message="workdir is required (git repo within claude_cli.allowed_paths)", code=400)
+
+    from agent.cli_backends.opencode import apply_reviewed_diff
+
+    result = apply_reviewed_diff(diff=diff, workdir=workdir)
+    audit_logger.info(
+        f"Claude diff-apply: status={result.get('status')} changed_files={len(result.get('changed_files') or [])}",
+        extra={
+            "extra_fields": {
+                "action": "claude_apply_reviewed_diff",
+                "status": result.get("status"),
+                "applied": bool(result.get("applied")),
+                "changed_files": len(result.get("changed_files") or []),
+            }
+        },
+    )
+    code = {"applied": 200, "conflict": 409}.get(result.get("status"), 422)
+    return api_response(data=result, code=code)
+
+
 @sgpt_bp.route("/sessions", methods=["POST"])
 @check_auth
 @validate_request(SgptSessionCreateRequest)

@@ -89,6 +89,12 @@ export class AgentApiService {
   sgptBackendTestRun(baseUrl: string, backendId: string, body: { prompt?: string; model?: string; timeout?: number } = {}, token?: string): Observable<any> {
     return this.sgpt.backendTestRun(baseUrl, backendId, body, token);
   }
+  claudeWriteArmedRun(baseUrl: string, body: { prompt: string; workdir: string; model?: string; timeout?: number }, token?: string): Observable<any> {
+    return this.sgpt.claudeWriteArmedRun(baseUrl, body, token);
+  }
+  claudeApplyDiff(baseUrl: string, body: { diff: string; workdir: string }, token?: string): Observable<any> {
+    return this.sgpt.claudeApplyDiff(baseUrl, body, token);
+  }
   getLlmHistory(baseUrl: string, token?: string): Observable<any> {
     return this.llm.history(baseUrl, token);
   }
