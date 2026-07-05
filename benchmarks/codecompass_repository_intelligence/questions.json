@@ -1,0 +1,71 @@
+[
+  {
+    "id": "q_which_tests_cover_hello",
+    "task_kind": "review",
+    "prompt": "Which tests cover the buildable_component hello?",
+    "query_type": "component-tests",
+    "seed": "bc:hello",
+    "expected_results": [
+      {"component": "bc:hello", "runner": "rn:ctest", "edge_kind": "tested_by"},
+      {"runner": "rn:ctest", "test": "t:hello_test", "edge_kind": "runs"}
+    ],
+    "evidence_path_substring": "CTestTestfile.cmake",
+    "scoring": {
+      "accuracy": 1.0,
+      "evidence_path_present": true,
+      "token_estimate_baseline": 1800,
+      "token_estimate_combined": 320,
+      "tool_call_count": 1
+    }
+  },
+  {
+    "id": "q_which_components_depend_on_fmt",
+    "task_kind": "ci",
+    "prompt": "Which components depend on the external package fmt?",
+    "query_type": "package-dependents",
+    "seed": "ep:fmt",
+    "expected_results": [
+      {"from": "bc:hello", "to": "ep:fmt", "edge_kind": "depends_on"}
+    ],
+    "evidence_path_substring": "CMakeLists.txt",
+    "scoring": {
+      "accuracy": 1.0,
+      "evidence_path_present": true,
+      "token_estimate_baseline": 1200,
+      "token_estimate_combined": 200,
+      "tool_call_count": 1
+    }
+  },
+  {
+    "id": "q_external_package_impact",
+    "task_kind": "ci",
+    "prompt": "If we bump fmt to v11, which components are impacted?",
+    "query_type": "external-package-impact",
+    "seed": "ep:fmt",
+    "expected_results": [
+      {"component": "bc:hello", "package": "ep:fmt", "edge_kind": "depends_on"}
+    ],
+    "evidence_path_substring": "CMakeLists.txt",
+    "scoring": {
+      "accuracy": 1.0,
+      "evidence_path_present": true,
+      "token_estimate_baseline": 1400,
+      "token_estimate_combined": 240,
+      "tool_call_count": 1
+    }
+  },
+  {
+    "id": "q_no_rig_data_available",
+    "task_kind": "review",
+    "prompt": "Which components depend on a non-existent package?",
+    "query_type": "package-dependents",
+    "seed": "ep:missing",
+    "expected_results": [],
+    "scoring": {
+      "accuracy": 1.0,
+      "evidence_path_present": false,
+      "token_estimate_combined": 60,
+      "tool_call_count": 1
+    }
+  }
+]

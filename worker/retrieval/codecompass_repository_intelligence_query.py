@@ -65,6 +65,43 @@ def _warnings_for_coverage(graph_store: CodeCompassGraphStore) -> tuple[str, ...
     return ()
 
 
+def _scope_filter(
+    node: dict[str, Any], edge: dict[str, Any] | None,
+    *,
+    repository_id: str | None,
+    module_id: str | None,
+) -> bool:
+    """Decide whether a node/edge belongs to the requested scope.
+
+    RIG-010: scopes can be limited by repository_id / module_id. When
+    both are None the function is a no-op. A node without the relevant
+    attribute is treated as *scope-agnostic* (shared across modules);
+    only nodes with the attribute set must match.
+
+    The scope fields are looked up at the node top level *and* under
+    ``attrs`` because RIG-001 / DD-014 store them in ``attrs``.
+    """
+    if repository_id is None and module_id is None:
+        return True
+
+    def _attr(node: dict[str, Any], key: str) -> str:
+        v = str(node.get(key) or "").strip()
+        if v:
+            return v
+        attrs = node.get("attrs") or {}
+        if isinstance(attrs, dict):
+            return str(attrs.get(key) or "").strip()
+        return ""
+
+    node_repo = _attr(node, "repository_id")
+    node_mod = _attr(node, "module_id")
+    if repository_id is not None and node_repo and node_repo != repository_id:
+        return False
+    if module_id is not None and node_mod and node_mod != module_id:
+        return False
+    return True
+
+
 def _neighbours_by_kind(bucket: dict[str, dict[str, list[dict[str, Any]]]],
                         node_id: str, kind: str) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
@@ -81,8 +118,17 @@ def run_query(
     query_type: str,
     seed: str,
     max_results: int = 100,
+    repository_id: str | None = None,
+    module_id: str | None = None,
+    cross_scope: bool = False,
 ) -> QueryResult:
-    """Dispatch one whitelisted query."""
+    """Dispatch one whitelisted query.
+
+    RIG-010: ``repository_id`` / ``module_id`` limit the query to one
+    scope. ``cross_scope=True`` overrides that filter (explicit opt-in).
+    External-package nodes are deduplicated across modules, but evidence
+    per module is preserved.
+    """
     if query_type not in ALLOWED_QUERY_TYPES:
         raise ValueError(
             f"unsupported query_type {query_type!r}; allowed={sorted(ALLOWED_QUERY_TYPES)}"
@@ -97,6 +143,8 @@ def run_query(
         "seed": seed,
         "matched_node_ids": [],
         "matched_via": None,
+        "scope": {"repository_id": repository_id, "module_id": module_id,
+                  "cross_scope": cross_scope},
     }
     warnings = list(_warnings_for_coverage(graph_store))
 
@@ -111,6 +159,9 @@ def run_query(
         )
 
     # Seed resolution: match by id, name, or source_file substring.
+    # Seed resolution is intentionally *not* scope-filtered: if the user
+    # asks about "ep:fmt" we want to find it regardless of whether the
+    # seed node itself has repository_id / module_id annotations.
     matches: list[str] = []
     if seed in rig_nodes_by_id:
         matches = [seed]
@@ -155,70 +206,90 @@ def run_query(
         rig_out.setdefault(from_id, {}).setdefault(kind, []).append(edge)
         rig_in.setdefault(to_id, {}).setdefault(kind, []).append(edge)
 
+    def _in_scope(node_id: str) -> bool:
+        if cross_scope:
+            return True
+        node = rig_nodes_by_id.get(node_id) or {}
+        return _scope_filter(node, None,
+                             repository_id=repository_id,
+                             module_id=module_id)
+
     results: list[dict[str, Any]] = []
     evidence: set[str] = set()
+
+    def _push_evidence(edge: dict[str, Any]) -> None:
+        src = (edge.get("evidence") or {}).get("source_file")
+        if src:
+            evidence.add(src)
 
     if query_type == "component-tests":
         # Walk tested_by -> runner -> runs -> test. Also accept direct
         # covers edges in either direction.
         for mid in matches:
+            if not _in_scope(mid):
+                continue
             for e in _neighbours_by_kind(rig_out, mid, "covers"):
+                if not _in_scope(str(e.get("to_id") or "")):
+                    continue
                 results.append({"from": mid, "to": e.get("to_id"),
                                 "edge_kind": "covers"})
-                src = (e.get("evidence") or {}).get("source_file")
-                if src:
-                    evidence.add(src)
+                _push_evidence(e)
             for e in _neighbours_by_kind(rig_in, mid, "covers"):
+                if not _in_scope(str(e.get("from_id") or "")):
+                    continue
                 results.append({"from": e.get("from_id"), "to": mid,
                                 "edge_kind": "covers"})
-                src = (e.get("evidence") or {}).get("source_file")
-                if src:
-                    evidence.add(src)
+                _push_evidence(e)
             for e in _neighbours_by_kind(rig_out, mid, "tested_by"):
                 runner_id = str(e.get("to_id") or "")
-                if not runner_id:
+                if not runner_id or not _in_scope(runner_id):
                     continue
                 results.append({"component": mid, "runner": runner_id,
                                 "edge_kind": "tested_by"})
-                src = (e.get("evidence") or {}).get("source_file")
-                if src:
-                    evidence.add(src)
+                _push_evidence(e)
                 for e2 in _neighbours_by_kind(rig_out, runner_id, "runs"):
                     test_id = str(e2.get("to_id") or "")
-                    if not test_id:
+                    if not test_id or not _in_scope(test_id):
                         continue
                     results.append({"runner": runner_id, "test": test_id,
                                     "edge_kind": "runs"})
-                    src2 = (e2.get("evidence") or {}).get("source_file")
-                    if src2:
-                        evidence.add(src2)
+                    _push_evidence(e2)
 
     elif query_type == "package-dependents":
         for mid in matches:
+            if not _in_scope(mid):
+                continue
             for e in _neighbours_by_kind(rig_in, mid, "depends_on"):
-                results.append({"from": e.get("from_id"), "to": mid,
+                comp = str(e.get("from_id") or "")
+                if not _in_scope(comp):
+                    continue
+                results.append({"from": comp, "to": mid,
                                 "edge_kind": "depends_on"})
-                src = (e.get("evidence") or {}).get("source_file")
-                if src:
-                    evidence.add(src)
+                _push_evidence(e)
 
     elif query_type == "runner-coverage":
         for mid in matches:
+            if not _in_scope(mid):
+                continue
             for e in _neighbours_by_kind(rig_out, mid, "runs"):
-                results.append({"runner": mid, "test": e.get("to_id"),
+                test_id = str(e.get("to_id") or "")
+                if not _in_scope(test_id):
+                    continue
+                results.append({"runner": mid, "test": test_id,
                                 "edge_kind": "runs"})
-                src = (e.get("evidence") or {}).get("source_file")
-                if src:
-                    evidence.add(src)
+                _push_evidence(e)
             for e in _neighbours_by_kind(rig_in, mid, "tested_by"):
-                results.append({"component": e.get("from_id"), "runner": mid,
+                comp = str(e.get("from_id") or "")
+                if not _in_scope(comp):
+                    continue
+                results.append({"component": comp, "runner": mid,
                                 "edge_kind": "tested_by"})
-                src = (e.get("evidence") or {}).get("source_file")
-                if src:
-                    evidence.add(src)
+                _push_evidence(e)
 
     elif query_type == "build-target-chain":
         for mid in matches:
+            if not _in_scope(mid):
+                continue
             stack = [(mid, 0)]
             visited: set[str] = set()
             while stack and len(results) < max_results:
@@ -228,23 +299,30 @@ def run_query(
                 visited.add(cur)
                 for e in _neighbours_by_kind(rig_out, cur, "built_by"):
                     nxt = str(e.get("to_id") or "")
-                    if nxt and nxt not in visited:
+                    if nxt and nxt not in visited and _in_scope(nxt):
                         results.append({"from": cur, "to": nxt,
                                         "edge_kind": "built_by",
                                         "depth": depth + 1})
                         stack.append((nxt, depth + 1))
-                        src = (e.get("evidence") or {}).get("source_file")
-                        if src:
-                            evidence.add(src)
+                        _push_evidence(e)
 
     elif query_type == "external-package-impact":
+        seen_packages: set[str] = set()
         for mid in matches:
+            if not _in_scope(mid):
+                continue
             for e in _neighbours_by_kind(rig_in, mid, "depends_on"):
-                results.append({"component": e.get("from_id"),
+                comp = str(e.get("from_id") or "")
+                if not _in_scope(comp):
+                    continue
+                # External-package nodes are deduplicated but evidence
+                # per module is preserved (RIG-010 acceptance).
+                if mid in seen_packages:
+                    continue
+                seen_packages.add(mid)
+                results.append({"component": comp,
                                 "package": mid, "edge_kind": "depends_on"})
-                src = (e.get("evidence") or {}).get("source_file")
-                if src:
-                    evidence.add(src)
+                _push_evidence(e)
 
     truncated = False
     if len(results) > max_results:
