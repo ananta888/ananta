@@ -2,24 +2,52 @@
   "$schema": "./todo.track.schema.json",
   "id": "todo-cliproxyapi-ist-zustand-analyse-2026-07-05",
   "title": "CLIProxyAPI Ist-Zustand in Ananta analysieren und offizielle Integrationsluecke ableiten",
-  "version": "2.0",
+  "version": "3.0",
   "created_at": "2026-07-05",
   "last_updated": "2026-07-05",
-  "status": "open",
+  "status": "done",
   "type": "analysis_todo",
   "language": "de",
   "owner_hint": "ananta maintainers",
   "changelog": [
+    "v3.0 (2026-07-05): alle 9 tasks abgeschlossen. 53 tests gruen, 4 dokumente, 1 beispiel-yaml, 1 source-code-aenderung (preflight display_name). Antwort: ja, architektonisch war CLIProxyAPI bereits abgedeckt, und ist jetzt auch offiziell dokumentiert und getestet. Details: docs/architecture/cliproxyapi/abschluss.md",
     "v2.0 (2026-07-05): status_scale + tasks_status_summary ergaenzt (konsistenz mit track.schema). cliproxyapi-008 haengt jetzt von cliproxyapi-001 statt 002 ab (security-analyse vor doku). 004 verbindlicher formuliert (keine 'falls'-ausreden mehr). 005 mock-strategie in 004 zusammengefasst. 007 entscheidungs-trigger expliziter."
   ],
-  "status_scale": ["open", "in_progress", "partial", "blocked", "done"],
+  "status_scale": [
+    "open",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
   "tasks_status_summary": {
     "total": 9,
-    "by_status": {"open": 9, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
-    "progress_percent_done": 0.0,
-    "by_priority": {"high": 5, "medium": 4, "low": 0},
-    "critical_path": {"total": 6, "done": 0, "remaining": 6},
-    "milestones": {"total": 0, "todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}
+    "by_status": {
+      "open": 0,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 9
+    },
+    "progress_percent_done": 100.0,
+    "by_priority": {
+      "high": 5,
+      "medium": 4,
+      "low": 0
+    },
+    "critical_path": {
+      "total": 6,
+      "done": 6,
+      "remaining": 0
+    },
+    "milestones": {
+      "total": 0,
+      "todo": 0,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    }
   },
   "goal": {
     "short": "Explizit pruefen und dokumentieren, ob CLIProxyAPI bereits durch bestehende Ananta-Mechanismen abgedeckt ist und welche minimale offizielle Integration fehlt.",
@@ -201,7 +229,7 @@
     {
       "id": "cliproxyapi-001-map-existing-code-paths",
       "title": "Ist-Zustand der relevanten Codepfade vollstaendig mappen",
-      "status": "open",
+      "status": "done",
       "priority": "high",
       "files_to_inspect": [
         "agent/local_llm_backends.py",
@@ -231,9 +259,11 @@
     {
       "id": "cliproxyapi-002-add-doc-profile",
       "title": "Offizielles CLIProxyAPI Provider-Profil dokumentieren",
-      "status": "open",
+      "status": "done",
       "priority": "high",
-      "depends_on": ["cliproxyapi-001-map-existing-code-paths"],
+      "depends_on": [
+        "cliproxyapi-001-map-existing-code-paths"
+      ],
       "candidate_files": [
         "docs/setup/quickstart.md",
         "docs/cli/commands.md",
@@ -258,9 +288,11 @@
     {
       "id": "cliproxyapi-003-add-fixture-or-example-config",
       "title": "Beispielkonfiguration fuer CLIProxyAPI ergaenzen",
-      "status": "open",
+      "status": "done",
       "priority": "medium",
-      "depends_on": ["cliproxyapi-001-map-existing-code-paths"],
+      "depends_on": [
+        "cliproxyapi-001-map-existing-code-paths"
+      ],
       "candidate_files": [
         "config/examples/cliproxyapi.yaml",
         "docs/examples/cliproxyapi-agent-config.yaml",
@@ -276,9 +308,11 @@
     {
       "id": "cliproxyapi-004-test-local-openai-backend-normalization",
       "title": "Tests fuer CLIProxyAPI-artigen local_openai_backend ergaenzen",
-      "status": "open",
+      "status": "done",
       "priority": "high",
-      "depends_on": ["cliproxyapi-001-map-existing-code-paths"],
+      "depends_on": [
+        "cliproxyapi-001-map-existing-code-paths"
+      ],
       "candidate_test_files": [
         "tests/test_local_llm_backends.py",
         "tests/test_cli_backend_routing.py",
@@ -303,9 +337,12 @@
     {
       "id": "cliproxyapi-005-test-opencode-provider-config",
       "title": "OpenCode Runtime-Konfig fuer CLIProxyAPI absichern",
-      "status": "open",
+      "status": "done",
       "priority": "high",
-      "depends_on": ["cliproxyapi-001-map-existing-code-paths", "cliproxyapi-004-test-local-openai-backend-normalization"],
+      "depends_on": [
+        "cliproxyapi-001-map-existing-code-paths",
+        "cliproxyapi-004-test-local-openai-backend-normalization"
+      ],
       "candidate_test_files": [
         "tests/test_opencode_runtime_config.py",
         "tests/test_sgpt_route.py"
@@ -325,9 +362,11 @@
     {
       "id": "cliproxyapi-006-check-codex-path",
       "title": "Codex-Pfad gegen CLIProxyAPI-Kontrakt pruefen",
-      "status": "open",
+      "status": "done",
       "priority": "medium",
-      "depends_on": ["cliproxyapi-001-map-existing-code-paths"],
+      "depends_on": [
+        "cliproxyapi-001-map-existing-code-paths"
+      ],
       "files_to_inspect": [
         "agent/cli_backends/opencode.py",
         "agent/cli_backends/routing.py",
@@ -348,9 +387,11 @@
     {
       "id": "cliproxyapi-007-preflight-label",
       "title": "Preflight-Ausgabe fuer CLIProxyAPI verstaendlich machen",
-      "status": "open",
+      "status": "done",
       "priority": "medium",
-      "depends_on": ["cliproxyapi-004-test-local-openai-backend-normalization"],
+      "depends_on": [
+        "cliproxyapi-004-test-local-openai-backend-normalization"
+      ],
       "decision_trigger": "Die Wahl zwischen den drei implementation_options wird bei Abschluss von cliproxyapi-004 entschieden, sobald die Mock-Strategie und das Preflight-Rendering-Layer konkret vorliegen. Bis dahin gilt: 'Nur Doku' als sicherer Default, falls die Optionen 'Kleines Label' oder 'Health-Hinweis' das bestehende LM Studio/Ollama-Preflight-Format brechen wuerden.",
       "implementation_options": [
         "Nur Doku: Nutzer sieht CLIProxyAPI unter providers.local_openai.",
@@ -367,9 +408,11 @@
     {
       "id": "cliproxyapi-008-security-boundary",
       "title": "Security-Grenze fuer CLIProxyAPI dokumentieren",
-      "status": "open",
+      "status": "done",
       "priority": "high",
-      "depends_on": ["cliproxyapi-001-map-existing-code-paths"],
+      "depends_on": [
+        "cliproxyapi-001-map-existing-code-paths"
+      ],
       "required_points": [
         "Ananta kontrolliert Hub/Worker/Policy/Audit, aber nicht automatisch die internen Account- und OAuth-Flows von CLIProxyAPI.",
         "CLIProxyAPI kann mehrere externe CLIs/Accounts routen; daraus folgt eine eigene Vertrauensgrenze.",
@@ -385,7 +428,7 @@
     {
       "id": "cliproxyapi-009-final-analysis-summary",
       "title": "Abschlussanalyse als Ist/Soll/Fazit zusammenfassen",
-      "status": "open",
+      "status": "done",
       "priority": "medium",
       "depends_on": [
         "cliproxyapi-001-map-existing-code-paths",
@@ -425,5 +468,15 @@
       "Health-Probe fuer /v1/models generisch fuer alle OpenAI-compatible Backends anzeigen.",
       "Codex-spezifische CLIProxyAPI-Unterstuetzung nachziehen, falls Analyse zeigt, dass OpenCode bereits weiter ist als Codex."
     ]
+  },
+  "progress_summary": {
+    "state": "done",
+    "todo_remaining": 0,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 9,
+    "milestones_done": 0,
+    "milestones_total": 0
   }
 }
