@@ -656,7 +656,7 @@
     </select>
   </label>
   <label>Default Model
-    <select [(ngModel)]="state.config.default_model">
+    <select data-testid="settings-default-model" [(ngModel)]="state.config.default_model">
       @for (m of state.getCatalogModels(state.getEffectiveProvider()); track m.id) {
         <option [value]="m.id">{{ m.display_name }}{{ m.context_length ? ' (ctx ' + m.context_length + ')' : '' }}</option>
       }
