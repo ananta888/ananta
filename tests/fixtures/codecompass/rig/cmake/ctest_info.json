@@ -1,0 +1,12 @@
+{
+  "kind": "ctestInfo",
+  "version": { "major": 2, "minor": 0 },
+  "backtraceGraph": {},
+  "tests": [
+    {
+      "name": "hello_test",
+      "command": ["/build/tests/hello_test"],
+      "properties": { "WORKING_DIRECTORY": "/build" }
+    }
+  ]
+}

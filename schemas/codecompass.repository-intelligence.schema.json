@@ -38,8 +38,8 @@
           "enum": ["cmake", "maven", "gradle", "npm", "cargo", "go", "manual"]
         },
         "reviewed_revision": {
-          "type": "string",
-          "description": "Pin auf reviewed_revision des Upstream-Repos (Pflicht fuer SPADE, optional fuer manual)."
+          "type": ["string", "null"],
+          "description": "Pin auf reviewed_revision des Upstream-Repos. Pflicht fuer SPADE; null/freiwillig fuer manual."
         }
       }
     },

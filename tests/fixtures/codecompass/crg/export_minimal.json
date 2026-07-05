@@ -1,0 +1,42 @@
+{
+  "schema_version": "code-review-graph.export.v1",
+  "reviewer_graph_revision": "b72413cbd34a4ac08cc60dcdd42df1d02f3fc77d",
+  "reviewer_graph_version": "2.3.6",
+  "files": [
+    {
+      "path": "src/hello.py",
+      "functions": [
+        {"name": "greet", "line_start": 1, "line_end": 4, "confidence": "EXTRACTED"},
+        {"name": "main", "line_start": 7, "line_end": 10, "confidence": "EXTRACTED"}
+      ],
+      "classes": [],
+      "imports": ["sys"]
+    }
+  ],
+  "edges": [
+    {
+      "kind": "calls",
+      "from_file": "src/main.py",
+      "from_symbol": "main",
+      "to_file": "src/hello.py",
+      "to_symbol": "greet",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "kind": "imports",
+      "from_file": "src/main.py",
+      "from_symbol": "main",
+      "to_file": "src/hello.py",
+      "to_symbol": null,
+      "confidence": "EXTRACTED"
+    }
+  ],
+  "tests": [
+    {
+      "file": "tests/test_hello.py",
+      "function": "test_greet",
+      "covers_symbol": "src/hello.py:greet",
+      "confidence": "INFERRED"
+    }
+  ]
+}

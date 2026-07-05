@@ -1,0 +1,31 @@
+{
+  "kind": "codemodel-v2",
+  "version": { "major": 2, "minor": 0 },
+  "configurations": [
+    {
+      "name": "",
+      "targets": [
+        {
+          "name": "hello",
+          "id": "target::hello::@sdbg@",
+          "type": "STATIC_LIBRARY",
+          "sources": ["src/hello.cpp"],
+          "sourceGroups": [
+            { "name": "Source Files", "sources": ["src/hello.cpp"] }
+          ],
+          "backtrace": { "expansion": {} }
+        },
+        {
+          "name": "hello_test",
+          "id": "target::hello_test::@sdbg@",
+          "type": "EXECUTABLE",
+          "sources": ["tests/hello_test.cpp"],
+          "sourceGroups": [
+            { "name": "Source Files", "sources": ["tests/hello_test.cpp"] }
+          ],
+          "backtrace": { "expansion": {} }
+        }
+      ]
+    }
+  ]
+}

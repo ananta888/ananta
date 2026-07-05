@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.20)
+project(hello CXX)
+add_library(hello STATIC src/hello.cpp)
+add_executable(hello_test tests/hello_test.cpp)
+target_link_libraries(hello_test PRIVATE hello)
+enable_testing()
+add_test(NAME hello_test COMMAND hello_test)

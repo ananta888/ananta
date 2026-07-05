@@ -32,11 +32,32 @@ class CodeCompassGraphStore:
                     "nodes": [], "edges": [], "nodes_by_id": {},
                     "node_count": 0, "edge_count": 0,
                 },
+                # RIG-002: repository_intelligence slot is always present so consumers
+                # can safely access rig_nodes / rig_edges even when the index is missing.
+                "rig_nodes": [],
+                "rig_edges": [],
+                "rig_index": {
+                    "schema": "codecompass_repository_intelligence.v1",
+                    "nodes": [], "edges": [], "nodes_by_id": {},
+                    "node_count": 0, "edge_count": 0,
+                },
                 "node_index": {},
                 "semantic_index": {},
                 "outgoing_index": {},
                 "incoming_index": {},
-                "diagnostics": {"status": "degraded", "reason": "graph_index_missing"},
+                "diagnostics": {
+                    "status": "degraded",
+                    "reason": "graph_index_missing",
+                    # RIG-002: rig slot is always present with a stable shape
+                    # so consumers can safely access it on a missing index.
+                    "repository_intelligence": {
+                        "schema": "codecompass_repository_intelligence.v1",
+                        "status": "degraded",
+                        "reason": "no_rig_records",
+                        "node_count": 0,
+                        "edge_count": 0,
+                    },
+                },
             }
             return self._cached_payload
         payload = json.loads(self._index_path.read_text(encoding="utf-8"))
@@ -54,6 +75,14 @@ class CodeCompassGraphStore:
             "x86_edges": [item for item in list(payload.get("x86_edges") or []) if isinstance(item, dict)],
             "x86_index": dict(payload.get("x86_index") or {
                 "schema": "codecompass_x86_graph.v1",
+                "nodes": [], "edges": [], "nodes_by_id": {},
+                "node_count": 0, "edge_count": 0,
+            }),
+            # RIG-002: rig fields are optional in the on-disk payload; default to empty.
+            "rig_nodes": [item for item in list(payload.get("rig_nodes") or []) if isinstance(item, dict)],
+            "rig_edges": [item for item in list(payload.get("rig_edges") or []) if isinstance(item, dict)],
+            "rig_index": dict(payload.get("rig_index") or {
+                "schema": "codecompass_repository_intelligence.v1",
                 "nodes": [], "edges": [], "nodes_by_id": {},
                 "node_count": 0, "edge_count": 0,
             }),
@@ -88,6 +117,9 @@ class CodeCompassGraphStore:
         # queries via X86QueryEngine.
         x86_nodes_list: list[dict[str, Any]] = []
         x86_edges_list: list[dict[str, Any]] = []
+        # RIG-002: rig_nodes / rig_edges slots; never pollutes the symbolgraph.
+        rig_nodes_list: list[dict[str, Any]] = []
+        rig_edges_list: list[dict[str, Any]] = []
         has_nodes = False
         has_edges = False
         for index, record in enumerate(list(records or []), start=1):
@@ -150,6 +182,12 @@ class CodeCompassGraphStore:
                 x86_nodes_list.append(dict(record))
             elif output_kind == "x86_edges":
                 x86_edges_list.append(dict(record))
+            elif output_kind == "rig_nodes":
+                # RIG-002: rig_nodes lives under its own slot; never enters the
+                # symbolgraph nodes/edges index. Records keep their full shape.
+                rig_nodes_list.append(dict(record))
+            elif output_kind == "rig_edges":
+                rig_edges_list.append(dict(record))
 
         node_index = self._build_node_index(nodes)
         semantic_index = self._build_semantic_index(semantic_nodes, semantic_edges, equivalence_rules)
@@ -197,6 +235,31 @@ class CodeCompassGraphStore:
             x86_index = {"schema": "codecompass_x86_graph.v1", "nodes": [], "edges": [], "nodes_by_id": {}, "node_count": 0, "edge_count": 0}
             diagnostics["x86_extension"] = {"status": "degraded", "reason": "no_x86_records"}
 
+        # RIG-002: build rig_index analogously to x86_index. The snapshot metadata
+        # (coverage_status, extractor, etc.) lives in the JSON-payload slot and is
+        # sourced from the importer (RIG-012). Per DD-011 the JSON payload remains
+        # the source-of-truth for replay.
+        rig_index = {
+            "schema": "codecompass_repository_intelligence.v1",
+            "nodes": rig_nodes_list,
+            "edges": rig_edges_list,
+            "nodes_by_id": {
+                n["id"]: n
+                for n in rig_nodes_list
+                if isinstance(n, dict) and n.get("id")
+            },
+            "node_count": len(rig_nodes_list),
+            "edge_count": len(rig_edges_list),
+        }
+        diagnostics["repository_intelligence"] = {
+            "schema": "codecompass_repository_intelligence.v1",
+            "node_count": len(rig_nodes_list),
+            "edge_count": len(rig_edges_list),
+            "status": "ready" if (rig_nodes_list or rig_edges_list) else "degraded",
+        }
+        if not (rig_nodes_list or rig_edges_list):
+            diagnostics["repository_intelligence"]["reason"] = "no_rig_records"
+
         payload = {
             "state": {"schema": "codecompass_graph_index.v1", "manifest_hash": str(manifest_hash or "")},
             "nodes": nodes,
@@ -209,6 +272,9 @@ class CodeCompassGraphStore:
             "x86_nodes": x86_nodes_list,
             "x86_edges": x86_edges_list,
             "x86_index": x86_index,
+            "rig_nodes": rig_nodes_list,
+            "rig_edges": rig_edges_list,
+            "rig_index": rig_index,
             "node_index": node_index,
             "semantic_index": semantic_index,
             "outgoing_index": outgoing_index,
