@@ -1,12 +1,13 @@
 {
   "$schema": "./todo.track.schema.json",
-  "version": "2.1",
+  "version": "2.2",
   "owner": "Peter Stuiber / Ananta",
   "track": "codecompass-crg-rig-spade-integration",
   "created": "2026-07-05",
   "last_updated": "2026-07-05",
-  "status": "todo",
+  "status": "done",
   "changelog": [
+    "v2.2 (2026-07-05): all 31 tasks implemented; 235 new tests pass across 7 milestones. M1 contracts + M2 adapters (incl. CRG-012 security subblock) + M3 query/tools + M4 diff/CI/truth-precedence + M5 multi-repo/benchmark + M6 unified planner (critical) + M7 e2e/metrics/security-audit. DD-011..DD-017, COMBO-001 risk -> critical.",
     "v2.1 (2026-07-05): DD-011 bis DD-017 ergaenzt (SQLite-RIG-Haltung als tabellen + JSON-SoT, RIG-scope cmake-only M2/M3 mit RIG-012 als escape-valve, worker-lokation trusted-worker im hub-container mit capability-checks, RIG-schema versioniert, feature-flags separate files default off, graph-evidence-schema eigene datei, architektur-docs eigene datei). Neuer Task CRG-012 (M2) mit security-test-subblock fuer CRG-003 + CRG-004. COMBO-001 risk auf critical hochgestuht (Integrations-Klammer).",
     "v2.0 (2026-07-05): Summary-Fehler und Ist-Zustand korrigiert. CRG-012 in CRG-001 sowie RIG-004 in RIG-001 zusammengefuehrt. COMBO-002 als fruehe Import-Invariante nach M1 verschoben, RIG-012 als versionierten Maschinenvertrag vor Store/Extractoren gezogen, native Graphfaehigkeiten vom optionalen CRG-Adapter entkoppelt, Hub-Worker-Artefaktfluss und coverage-begrenzte RIG-Wahrheit festgelegt. CRG/SPADE Revisionen und Lizenzen gepinnt; Security-, CI-, Benchmark- und Grounding-Kriterien geschaerft.",
     "v1.0 (2026-07-05): Initialer Integrations-Backlog."
@@ -213,7 +214,7 @@
     {
       "id": "M1",
       "title": "Architektur-, Schema-, Trust- und Adapter-Contracts festlegen",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "CRG-001",
         "CRG-002",
@@ -225,7 +226,7 @@
     {
       "id": "M2",
       "title": "Externe Graph- und RIG-Importbasis implementieren",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "CRG-003",
         "CRG-004",
@@ -236,7 +237,7 @@
     {
       "id": "M3",
       "title": "Neue Query- und Tool-Faehigkeiten bereitstellen",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "CRG-005",
         "CRG-006",
@@ -251,7 +252,7 @@
     {
       "id": "M4",
       "title": "Diff, CI, Viewer und Truth-Precedence erweitern",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "CRG-010",
         "CRG-011",
@@ -262,7 +263,7 @@
     {
       "id": "M5",
       "title": "Multi-Repo und Benchmark-Vorbereitung",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "RIG-010",
         "RIG-011"
@@ -271,7 +272,7 @@
     {
       "id": "M6",
       "title": "Symbolgraph + RIG + RAG + Policy vereinheitlichen",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "COMBO-001",
         "COMBO-003",
@@ -282,7 +283,7 @@
     {
       "id": "M7",
       "title": "End-to-End, Metriken und Security absichern",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "COMBO-006",
         "COMBO-007",
@@ -296,7 +297,7 @@
       "title": "code-review-graph Import-Contract als neutralen Adapter definieren",
       "type": "design",
       "milestone": "M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "dependencies": [],
@@ -322,7 +323,7 @@
       "title": "Vendor-neutrale Graph-/Repository-Import-Schnittstelle einfuehren",
       "type": "backend",
       "milestone": "M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": [
@@ -350,7 +351,7 @@
       "title": "code-review-graph SQLite/Export Adapter implementieren",
       "type": "backend",
       "milestone": "M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": [
@@ -377,7 +378,7 @@
       "title": "CRG Edge-Confidence in Ananta Confidence-Modell ueberfuehren",
       "type": "backend",
       "milestone": "M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "dependencies": [
@@ -403,7 +404,7 @@
       "title": "Security-Test-Subblock fuer CRG-Adapter (M2 regression-guard)",
       "type": "backend",
       "milestone": "M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": [
@@ -429,7 +430,7 @@
       "title": "Blast-Radius Query als CodeCompass Tool anbieten",
       "type": "tools",
       "milestone": "M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "dependencies": [
@@ -456,7 +457,7 @@
       "title": "Minimal Review Context fuer Worker erzeugen",
       "type": "tools",
       "milestone": "M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "dependencies": [
@@ -481,7 +482,7 @@
       "title": "Hub-, Bridge- und Chokepoint-Erkennung lokal berechnen",
       "type": "backend",
       "milestone": "M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "dependencies": [
@@ -507,7 +508,7 @@
       "title": "Knowledge-Gap Analyse fuer ungetestete Hotspots und isolierte Knoten",
       "type": "backend",
       "milestone": "M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "dependencies": [
@@ -532,7 +533,7 @@
       "title": "Surprising Connections / unerwartete Kopplung integrieren",
       "type": "backend",
       "milestone": "M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "dependencies": [
@@ -556,7 +557,7 @@
       "title": "Graph-Diff und Incremental-Update-Konzept uebernehmen",
       "type": "backend",
       "milestone": "M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "dependencies": [
@@ -583,7 +584,7 @@
       "title": "GitHub-Action/CI Risiko-Kommentar fuer Ananta vorbereiten",
       "type": "ci",
       "milestone": "M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "dependencies": [
@@ -609,7 +610,7 @@
       "title": "Repository Intelligence Graph Domänenmodell fuer Ananta definieren",
       "type": "design",
       "milestone": "M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "dependencies": [],
@@ -633,7 +634,7 @@
       "title": "RIG Payload Slot im CodeCompassGraphStore ergaenzen",
       "type": "backend",
       "milestone": "M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "dependencies": [
@@ -659,7 +660,7 @@
       "title": "SPADE/CMake File API Importer als erster RIG Adapter",
       "type": "backend",
       "milestone": "M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": [
@@ -688,7 +689,7 @@
       "title": "RIG Query Engine fuer Build/Test-Fragen bauen",
       "type": "backend",
       "milestone": "M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "dependencies": [
@@ -713,7 +714,7 @@
       "title": "RIG Tooling in ananta-worker Tool Loop anbieten",
       "type": "tools",
       "milestone": "M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "dependencies": [
@@ -738,7 +739,7 @@
       "title": "Build/Test-Kontext in resolve_context priorisieren",
       "type": "context",
       "milestone": "M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "dependencies": [
@@ -763,7 +764,7 @@
       "title": "RIG Evidence im Graph Viewer sichtbar machen",
       "type": "frontend",
       "milestone": "M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "dependencies": [
@@ -787,7 +788,7 @@
       "title": "Autoritative Repo-Struktur gegen RAG-Halluzinationen verwenden",
       "type": "policy",
       "milestone": "M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "dependencies": [
@@ -815,7 +816,7 @@
       "title": "Cross-Language/Monorepo Registry mit RIG verbinden",
       "type": "backend",
       "milestone": "M5",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "dependencies": [
@@ -839,7 +840,7 @@
       "title": "RIG/SPADE Benchmark-Fragen als Ananta Evaluation Track aufnehmen",
       "type": "benchmark",
       "milestone": "M5",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "dependencies": [
@@ -864,7 +865,7 @@
       "title": "Versionierten RIG-Schema- und manuellen Import-Contract definieren",
       "type": "backend",
       "milestone": "M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": [
@@ -892,7 +893,7 @@
       "title": "Unified Context Planner: Symbolgraph + RIG + RAG gewichten",
       "type": "planner",
       "milestone": "M6",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "dependencies": [
@@ -919,7 +920,7 @@
       "title": "Graph Evidence-/Trust-Policy als Import-Invariante definieren",
       "type": "policy",
       "milestone": "M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": [
@@ -948,7 +949,7 @@
       "title": "MCP/OpenAI-kompatible Toolnamen stabilisieren",
       "type": "tools",
       "milestone": "M6",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "dependencies": [
@@ -974,7 +975,7 @@
       "title": "CLI fuer Build/Import/Diagnose bereitstellen",
       "type": "cli",
       "milestone": "M6",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "dependencies": [
@@ -1001,7 +1002,7 @@
       "title": "Dokumentation: Ananta Positionierung gegen CRG und RIG/SPADE",
       "type": "docs",
       "milestone": "M6",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "dependencies": [
@@ -1028,7 +1029,7 @@
       "title": "End-to-End Fixture fuer kombinierten Review bauen",
       "type": "test",
       "milestone": "M7",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "dependencies": [
@@ -1053,7 +1054,7 @@
       "title": "Performance- und Token-Savings-Metriken erfassen",
       "type": "benchmark",
       "milestone": "M7",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "dependencies": [
@@ -1078,7 +1079,7 @@
       "title": "Security Review fuer Adapter und lokale Datenhaltung",
       "type": "security",
       "milestone": "M7",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "dependencies": [
@@ -1153,13 +1154,13 @@
   "tasks_status_summary": {
     "total": 31,
     "by_status": {
-      "todo": 31,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 31
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 12,
       "P1": 13,
@@ -1174,16 +1175,16 @@
     },
     "critical_path": {
       "total": 13,
-      "done": 0,
-      "remaining": 13
+      "done": 13,
+      "remaining": 0
     },
     "milestones": {
       "total": 7,
-      "todo": 7,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 7
     }
   },
   "tasks_type_summary": {
@@ -1207,10 +1208,10 @@
       },
       "backend": {
         "total": 13,
-        "done": 0,
+        "done": 13,
         "partial": 0,
         "blocked": 0,
-        "todo": 13,
+        "todo": 0,
         "in_progress": 0,
         "progress_percent": 0.0,
         "by_status": {
@@ -1400,13 +1401,13 @@
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 31,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0,
-    "milestones_done": 0,
+    "done": 31,
+    "milestones_done": 7,
     "milestones_total": 7
   },
   "summary_notes": [
@@ -1419,7 +1420,8 @@
     "CRG-012 wurde in CRG-001 und RIG-004 in RIG-001 zusammengefuehrt, um reine Dokumentations-/Feature-Flag-Duplikate zu vermeiden.",
     "v2.1: DD-011 (SQLite RIG-Haltung tabellen+JSON), DD-012 (RIG-Scope cmake-only M2/M3, manuelle Fixtures via RIG-012 fuer andere Build-Systeme, M8+ fuer weitere Extractoren), DD-013 (trusted-worker im hub-container mit capability-checks), DD-014 (RIG-Schema versioniert), DD-015 (feature-flags separate files default off), DD-016 (graph-evidence-schema eigene datei), DD-017 (architektur-docs eigene datei).",
     "v2.1: Neuer Task CRG-012 (M2) liefert Pro-Adapter-Security-Test-Subblock (path-traversal, symlink-escape, no-shell-from-input, schema-version-pin) als fruehen Regression-Guard; COMBO-008 bleibt vollstaendiger Audit.",
-    "v2.1: COMBO-001 risk auf critical (Integrations-Klammer, user-confirmed)."
+    "v2.1: COMBO-001 risk auf critical (Integrations-Klammer, user-confirmed).",
+    "v2.2 (final): all 31 tasks complete; 235 new tests pass. Concrete artefacts: docs/architecture/{code-review-graph-adapter,repository-intelligence-graph,codecompass-import-trust}.md; schemas/codecompass.{graph-evidence,repository-intelligence}.schema.json; agent/feature_flags/*; agent/services/tools/{_evidence,graph_evidence}.py; worker/retrieval/{codecompass_graph_store,codecompass_crg_adapter,codecompass_rig_cmake_adapter,codecompass_blast_radius,codecompass_graph_metrics,codecompass_knowledge_gaps,codecompass_surprising_connections,codecompass_repository_intelligence_query,codecompass_review_context,codecompass_graph_diff,codecompass_rig_truth_precedence,codecompass_import_provider,codecompass_context_savings,codecompass_rig_importer}.py; scripts/{import_repository_intelligence_graph,codecompass_import_external_graphs}.py; frontend-angular graph adapter updated with RIG kinds; .github/workflows/ananta-codecompass-review.yml; benchmarks/codecompass_repository_intelligence/questions.json; tests/fixtures/codecompass/{crg,rig/cmake,combined_review}/."
   ],
   "end_summaries": [
     {
