@@ -2,12 +2,45 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 
 SCHEMA_LOCATION_REF = "codecompass_location_ref.v1"
 SCHEMA_CONTEXT_BUNDLE = "codecompass_context_bundle.v1"
+SCHEMA_UNIFIED_CONTEXT = "codecompass_unified_context.v1"
+
+
+# COMBO-001: bucket weights per task_kind. Keys are the supported
+# task kinds; values are dicts mapping bucket name -> weight.
+# Buckets are described in the public docs/architecture/code-review-graph-adapter.md
+# and docs/architecture/repository-intelligence-graph.md.
+TASK_KIND_WEIGHTS: dict[str, dict[str, float]] = {
+    "review":         {"changed_files": 0.10, "symbol_neighbors": 0.40,
+                       "build_test_evidence": 0.10, "semantic_chunks": 0.30,
+                       "policy_evidence": 0.10},
+    "bugfix":         {"changed_files": 0.10, "symbol_neighbors": 0.30,
+                       "build_test_evidence": 0.20, "semantic_chunks": 0.30,
+                       "policy_evidence": 0.10},
+    "ci":             {"changed_files": 0.05, "symbol_neighbors": 0.15,
+                       "build_test_evidence": 0.55, "semantic_chunks": 0.15,
+                       "policy_evidence": 0.10},
+    "build":          {"changed_files": 0.05, "symbol_neighbors": 0.15,
+                       "build_test_evidence": 0.55, "semantic_chunks": 0.15,
+                       "policy_evidence": 0.10},
+    "architecture_question": {"changed_files": 0.05, "symbol_neighbors": 0.30,
+                              "build_test_evidence": 0.20, "semantic_chunks": 0.35,
+                              "policy_evidence": 0.10},
+    "security_policy_task":  {"changed_files": 0.05, "symbol_neighbors": 0.20,
+                              "build_test_evidence": 0.15, "semantic_chunks": 0.20,
+                              "policy_evidence": 0.40},
+}
+
+DEFAULT_WEIGHTS: dict[str, float] = {
+    "changed_files": 0.10, "symbol_neighbors": 0.30,
+    "build_test_evidence": 0.20, "semantic_chunks": 0.30,
+    "policy_evidence": 0.10,
+}
 
 
 @dataclass(frozen=True)
@@ -250,6 +283,117 @@ class CodeCompassContextPlanner:
             return float(value)
         except (TypeError, ValueError):
             return None
+
+    # ------------------------------------------------------------------
+    # COMBO-001: unified context planner
+    # ------------------------------------------------------------------
+
+    def weights_for(self, task_kind: str | None) -> dict[str, float]:
+        """Return the bucket-weight table for a given task_kind.
+
+        Unknown task_kinds fall back to :data:`DEFAULT_WEIGHTS`.
+        """
+        if not task_kind:
+            return dict(DEFAULT_WEIGHTS)
+        return dict(TASK_KIND_WEIGHTS.get(str(task_kind), DEFAULT_WEIGHTS))
+
+    def plan_unified_context(
+        self,
+        *,
+        query: str,
+        task_kind: str | None = None,
+        budget: dict[str, Any] | None = None,
+        workspace_dir: str | None = None,
+        bucket_inputs: dict[str, list[dict[str, Any]]] | None = None,
+        include_neighbors: bool = True,
+    ) -> dict[str, Any]:
+        """Build a unified context package with explicit buckets.
+
+        Unlike :meth:`plan_context` (which produces a flat
+        ``location_refs`` list), this method:
+
+        * accepts pre-collected inputs per bucket
+        * applies the task_kind-specific weight table
+        * bounds each bucket by ``bucket_max``
+        * records the *reasons* for budget decisions in
+          ``decisions[]``
+        * never invents synthetic IDs (AGENTS.md source-grounded)
+
+        Parameters
+        ----------
+        query, task_kind, budget, workspace_dir, include_neighbors
+            Forwarded to :meth:`plan_context` when bucket_inputs is
+            empty (so callers get the same behaviour as the legacy
+            plan_context for the symbolgraph+search path).
+        bucket_inputs
+            ``{"changed_files": [...], "symbol_neighbors": [...],
+               "build_test_evidence": [...], "semantic_chunks": [...],
+               "policy_evidence": [...]}``. Each item is a
+            ``location_ref``-shaped dict. Unknown buckets are recorded
+            as warnings.
+        """
+        effective = CodeCompassContextBudget.from_raw(budget)
+        weights = self.weights_for(task_kind)
+
+        buckets: dict[str, list[dict[str, Any]]] = {}
+        decisions: list[dict[str, Any]] = []
+        warnings: list[str] = []
+
+        raw_inputs = bucket_inputs or {}
+        for bucket_name in ("changed_files", "symbol_neighbors",
+                            "build_test_evidence", "semantic_chunks",
+                            "policy_evidence"):
+            items = list(raw_inputs.get(bucket_name) or [])
+            bounded = items[: effective.max_ranges]
+            if len(items) > len(bounded):
+                decisions.append({
+                    "bucket": bucket_name,
+                    "reason": "bucket_max_applied",
+                    "weight": weights.get(bucket_name, 0.0),
+                    "input_count": len(items),
+                    "selected_count": len(bounded),
+                })
+            buckets[bucket_name] = bounded
+
+        for bucket_name in raw_inputs:
+            if bucket_name not in buckets:
+                warnings.append(f"unknown_bucket:{bucket_name}")
+
+        if not bucket_inputs:
+            # Fall back to the legacy plan_context behaviour so callers
+            # that only pass query/task_kind keep working.
+            legacy = self.plan_context(query=query, task_kind=task_kind,
+                                       budget=budget,
+                                       workspace_dir=workspace_dir,
+                                       include_neighbors=include_neighbors)
+            buckets["symbol_neighbors"] = legacy.get("location_refs", [])
+            decisions.append({
+                "bucket": "symbol_neighbors",
+                "reason": "legacy_plan_context_fallback",
+                "weight": weights.get("symbol_neighbors", 0.0),
+                "input_count": len(buckets["symbol_neighbors"]),
+                "selected_count": len(buckets["symbol_neighbors"]),
+            })
+            warnings.extend(legacy.get("warnings") or [])
+
+        core = {
+            "schema": SCHEMA_UNIFIED_CONTEXT,
+            "query": str(query or ""),
+            "task_kind": str(task_kind or ""),
+            "buckets": buckets,
+            "weights": weights,
+            "decisions": decisions,
+            "diagnostics": {
+                "bucket_counts": {k: len(v) for k, v in buckets.items()},
+                "weighted_total": round(
+                    sum(weights.get(k, 0.0) * len(v)
+                        for k, v in buckets.items()), 4),
+                "workspace_dir": str(workspace_dir or ""),
+            },
+            "warnings": sorted(set(warnings)),
+        }
+        core["bundle_id"] = self._stable_id("cc-unified", core)
+        return core
 
 
 _codecompass_context_planner = CodeCompassContextPlanner()
