@@ -1,0 +1,410 @@
+{
+  "id": "todo-cliproxyapi-ist-zustand-analyse-2026-07-05",
+  "title": "CLIProxyAPI Ist-Zustand in Ananta analysieren und offizielle Integrationsluecke ableiten",
+  "status": "open",
+  "type": "analysis_todo",
+  "created_at": "2026-07-05",
+  "language": "de",
+  "owner_hint": "ananta maintainers",
+  "goal": {
+    "short": "Explizit pruefen und dokumentieren, ob CLIProxyAPI bereits durch bestehende Ananta-Mechanismen abgedeckt ist und welche minimale offizielle Integration fehlt.",
+    "target_outcome": "Eine belastbare Ist-Zustandsanalyse mit codebasierten Nachweisen, die zeigt: Ananta besitzt bereits CLI-Backend-Routing und OpenAI-kompatible Provider-Unterstuetzung; CLIProxyAPI fehlt aber als benanntes Profil/Adapter/Dokumentationspfad mit Tests und Preflight-Sichtbarkeit.",
+    "non_goal": [
+      "Keine grosse neue Provider-Architektur bauen.",
+      "Keine bestehende LM Studio/Ollama/OpenAI-compatible Logik duplizieren.",
+      "Keine direkte Abhaengigkeit auf ein externes CLIProxyAPI-Paket erzwingen.",
+      "Keine Secrets, OAuth-Tokens oder CLI-Login-Daten in Repo-Dateien schreiben."
+    ]
+  },
+  "context": {
+    "user_question": "@GitHub das hab ich doch bereits im ananta oder?",
+    "interpreted_answer": "Ja, architektonisch weitgehend: local_openai_backends + OpenCode/Codex Routing koennen CLIProxyAPI bereits ueber OpenAI-compatible base_url nutzen. Nein, nicht offiziell/benannt als CLIProxyAPI-Profil mit eigener Doku, Tests und Preflight-Nennung.",
+    "cli_proxy_api_target_shape": {
+      "provider_id": "cliproxyapi",
+      "base_url_example": "http://localhost:8317/v1",
+      "api_key_example": "sk-no-key-needed",
+      "model_endpoint": "/v1/models",
+      "transport": "openai_compatible",
+      "expected_usage": "Ananta, OpenCode, Codex, Open NotebookLM oder andere Clients sprechen gegen CLIProxyAPI wie gegen eine OpenAI-kompatible API, waehrend CLIProxyAPI darunter CLI-Tools/Accounts routet."
+    }
+  },
+  "current_state_findings": [
+    {
+      "id": "finding-cli-backend-routing-exists",
+      "summary": "Ananta hat bereits ein zentrales CLI-Backend-Routing.",
+      "evidence_files": [
+        {
+          "path": "agent/cli_backends/routing.py",
+          "symbols_or_lines_to_review": [
+            "SUPPORTED_CLI_BACKENDS",
+            "CLI_BACKEND_INSTALL_HINTS",
+            "CLI_BACKEND_VERIFY_COMMANDS",
+            "get_cli_backend_runtime_status",
+            "get_cli_backend_preflight",
+            "_choose_candidates"
+          ],
+          "observed_backends": [
+            "sgpt",
+            "ananta-worker",
+            "codex",
+            "opencode",
+            "aider",
+            "mistral_code",
+            "deerflow",
+            "ananta_research"
+          ]
+        }
+      ],
+      "implication": "CLIProxyAPI muss nicht als neues CLI-Backend verstanden werden, solange es OpenAI-compatible API bereitstellt. Es ist eher ein Provider-Profil bzw. Transport-Ziel."
+    },
+    {
+      "id": "finding-local-openai-backends-exist",
+      "summary": "Ananta hat bereits generische OpenAI-compatible Backend-Konfiguration.",
+      "evidence_files": [
+        {
+          "path": "agent/local_llm_backends.py",
+          "symbols_or_lines_to_review": [
+            "normalize_openai_compatible_base_url",
+            "_normalize_local_backend_entry",
+            "get_local_openai_backends",
+            "resolve_local_openai_backend",
+            "list_openai_compatible_models",
+            "probe_openai_compatible_backend"
+          ],
+          "relevant_fields": [
+            "id/provider",
+            "name",
+            "base_url",
+            "api_key",
+            "api_key_profile",
+            "supports_tool_calls",
+            "models"
+          ]
+        }
+      ],
+      "implication": "CLIProxyAPI kann sehr wahrscheinlich bereits als local_openai_backends-Eintrag funktionieren."
+    },
+    {
+      "id": "finding-preflight-lists-local-openai",
+      "summary": "Der CLI-Preflight sammelt bereits local_openai Backend-Eintraege und macht base_url/provider_type sichtbar.",
+      "evidence_files": [
+        {
+          "path": "agent/cli_backends/routing.py",
+          "symbols_or_lines_to_review": [
+            "get_cli_backend_preflight",
+            "providers.local_openai",
+            "provider_type",
+            "base_url",
+            "supports_tool_calls",
+            "transport_provider"
+          ]
+        }
+      ],
+      "implication": "CLIProxyAPI kann im Preflight sichtbar werden, wenn es als local_openai_backend konfiguriert ist; eine explizite Anzeige als 'CLI Proxy API' fehlt vermutlich nur als Profil/Doku/Fixture."
+    },
+    {
+      "id": "finding-opencode-openai-compatible-runtime-exists",
+      "summary": "OpenCode wird bereits dynamisch mit OpenAI-compatible Provider-Konfig erzeugt.",
+      "evidence_files": [
+        {
+          "path": "agent/cli_backends/opencode.py",
+          "symbols_or_lines_to_review": [
+            "resolve_opencode_runtime_config",
+            "resolve_local_openai_backend",
+            "@ai-sdk/openai-compatible",
+            "provider_config",
+            "options.baseURL",
+            "model",
+            "small_model"
+          ]
+        }
+      ],
+      "implication": "Fuer OpenCode braucht CLIProxyAPI wahrscheinlich keinen Sondercode, sondern nur korrektes Provider-Profil und Tests, dass baseURL/model korrekt weitergereicht werden."
+    },
+    {
+      "id": "finding-config-has-provider-url-foundation",
+      "summary": "Settings enthalten bereits Provider-URLs und Defaults fuer LLM-Backends.",
+      "evidence_files": [
+        {
+          "path": "agent/config.py",
+          "symbols_or_lines_to_review": [
+            "ollama_url",
+            "lmstudio_url",
+            "openai_url",
+            "default_provider",
+            "default_model",
+            "openai_api_key"
+          ]
+        }
+      ],
+      "implication": "Eine dedizierte CLIProxyAPI-URL als Env-Variable ist optional. Minimal reicht local_openai_backends; komfortabler waere ein dokumentiertes Profil."
+    }
+  ],
+  "gap_analysis": {
+    "already_present": [
+      "Generischer OpenAI-compatible Transport ueber local_openai_backends.",
+      "Provider-Aufloesung fuer nicht eingebaute Provider-IDs.",
+      "OpenCode-Konfiggenerierung fuer OpenAI-compatible baseURL.",
+      "CLI-Backend-Routing fuer codex/opencode/ananta-worker und weitere Backends.",
+      "Preflight-Struktur, die lokale OpenAI-compatible Provider anzeigen kann."
+    ],
+    "missing_or_unclear": [
+      "Kein benannter Standard-Provider 'cliproxyapi' in Doku/Beispielkonfiguration gefunden.",
+      "Keine explizite CLIProxyAPI Preflight-Zeile oder Health-Label als eigenes Profil gefunden.",
+      "Keine Tests, die CLIProxyAPI-artige /v1/models Discovery ueber local_openai_backends absichern.",
+      "Keine Golden-Path-Doku, wie Ananta/OpenCode/Codex gegen CLIProxyAPI konfiguriert werden sollen.",
+      "Unklar, ob Codex-Pfad fuer beliebige local_openai_backends genauso sauber funktioniert wie OpenCode-Pfad; gesondert pruefen."
+    ],
+    "expected_minimal_solution": "CLIProxyAPI als offizielles OpenAI-compatible Provider-Profil dokumentieren und testen, ohne neue Architektur zu bauen."
+  },
+  "recommended_config_contract": {
+    "agent_config_yaml_example": {
+      "default_provider": "cliproxyapi",
+      "default_model": "codex/gpt-5.5-codex",
+      "local_openai_backends": [
+        {
+          "id": "cliproxyapi",
+          "name": "CLI Proxy API",
+          "base_url": "http://localhost:8317/v1",
+          "api_key": "sk-no-key-needed",
+          "supports_tool_calls": true,
+          "models": [
+            "codex/gpt-5.5-codex",
+            "claude/sonnet",
+            "gemini/gemini-pro"
+          ]
+        }
+      ]
+    },
+    "env_optional_example": {
+      "DEFAULT_PROVIDER": "cliproxyapi",
+      "DEFAULT_MODEL": "codex/gpt-5.5-codex"
+    },
+    "strict_secret_rule": "api_key nur als Dummy dokumentieren, wenn CLIProxyAPI lokal keinen Key verlangt; echte Keys nur ueber Env/Vault/Profile."
+  },
+  "tasks": [
+    {
+      "id": "cliproxyapi-001-map-existing-code-paths",
+      "title": "Ist-Zustand der relevanten Codepfade vollstaendig mappen",
+      "status": "open",
+      "priority": "high",
+      "files_to_inspect": [
+        "agent/local_llm_backends.py",
+        "agent/cli_backends/routing.py",
+        "agent/cli_backends/opencode.py",
+        "agent/config.py",
+        "agent/model_selection.py",
+        "agent/llm_integration.py",
+        "docs/cli/commands.md",
+        "docs/setup/ananta_init.md",
+        "docs/setup/quickstart.md"
+      ],
+      "steps": [
+        "Alle Stellen sammeln, an denen default_provider/default_model/local_openai_backends/provider_urls gelesen werden.",
+        "Pruefen, ob beliebige Provider-ID wie 'cliproxyapi' durchgaengig akzeptiert wird.",
+        "Pruefen, ob /v1 suffix normalisiert oder doppelt angehaengt wird.",
+        "Pruefen, ob supports_tool_calls nur dokumentativ ist oder funktional beruecksichtigt wird.",
+        "Pruefen, ob api_key/api_key_profile fuer OpenCode und Codex korrekt weitergereicht oder bewusst ignoriert wird."
+      ],
+      "acceptance_criteria": [
+        "Eine Analyse-Datei oder ein Abschnitt nennt fuer jeden relevanten Codepfad die konkrete Datei, Funktion und Entscheidung.",
+        "Es ist explizit beantwortet, ob 'cliproxyapi' ohne Sondercode als local_openai_backend funktioniert.",
+        "Es ist explizit beantwortet, ob OpenCode, Codex und Ananta-Worker denselben Provider-Kontrakt nutzen oder wo sie abweichen.",
+        "Keine neue Implementierung wurde vor Abschluss dieser Analyse eingefuehrt."
+      ]
+    },
+    {
+      "id": "cliproxyapi-002-add-doc-profile",
+      "title": "Offizielles CLIProxyAPI Provider-Profil dokumentieren",
+      "status": "open",
+      "priority": "high",
+      "depends_on": ["cliproxyapi-001-map-existing-code-paths"],
+      "candidate_files": [
+        "docs/setup/quickstart.md",
+        "docs/cli/commands.md",
+        "docs/setup/ananta_init.md",
+        "docs/integrations/cliproxyapi.md"
+      ],
+      "required_content": [
+        "Was CLIProxyAPI in Ananta ist: OpenAI-compatible Provider-Ziel, nicht zwingend neues CLI-Backend.",
+        "Minimalbeispiel fuer local_openai_backends mit id=cliproxyapi.",
+        "Beispiel fuer default_provider/default_model.",
+        "Hinweis, dass echte CLI/OAuth-Logins ausserhalb von Ananta in CLIProxyAPI liegen.",
+        "Hinweis auf /v1/models Preflight/Discovery.",
+        "Troubleshooting fuer WSL2/Windows Host-IP, localhost, host.docker.internal und Ports."
+      ],
+      "acceptance_criteria": [
+        "Ein Nutzer kann anhand der Doku CLIProxyAPI als Provider in Ananta konfigurieren.",
+        "Die Doku sagt klar, dass bestehende local_openai_backends genutzt werden.",
+        "Die Doku vermeidet die Behauptung, CLIProxyAPI sei ein neues natives Ananta-Backend, falls kein Sondercode existiert.",
+        "Die Doku enthaelt keine echten Keys, Tokens oder Account-Hinweise."
+      ]
+    },
+    {
+      "id": "cliproxyapi-003-add-fixture-or-example-config",
+      "title": "Beispielkonfiguration fuer CLIProxyAPI ergaenzen",
+      "status": "open",
+      "priority": "medium",
+      "depends_on": ["cliproxyapi-001-map-existing-code-paths"],
+      "candidate_files": [
+        "config/examples/cliproxyapi.yaml",
+        "docs/examples/cliproxyapi-agent-config.yaml",
+        "docs/setup/ananta_init.md"
+      ],
+      "acceptance_criteria": [
+        "Es gibt genau ein kanonisches Beispiel fuer provider_id 'cliproxyapi'.",
+        "Das Beispiel nutzt base_url 'http://localhost:8317/v1' oder weist klar auf Anpassung hin.",
+        "Das Beispiel zeigt mindestens ein Modell, aber kennzeichnet Modellnamen als installationsabhaengig.",
+        "Das Beispiel ist YAML/JSON-valid und kann in Tests geladen werden, falls ein Config-Loader existiert."
+      ]
+    },
+    {
+      "id": "cliproxyapi-004-test-local-openai-backend-normalization",
+      "title": "Tests fuer CLIProxyAPI-artigen local_openai_backend ergaenzen",
+      "status": "open",
+      "priority": "high",
+      "depends_on": ["cliproxyapi-001-map-existing-code-paths"],
+      "candidate_test_files": [
+        "tests/test_local_llm_backends.py",
+        "tests/test_cli_backend_routing.py",
+        "tests/test_opencode_runtime_config.py"
+      ],
+      "test_cases": [
+        "local_openai_backends Eintrag mit id=cliproxyapi wird normalisiert und dedupliziert.",
+        "base_url ohne /v1 wird korrekt normalisiert, falls bestehendes Verhalten das vorsieht.",
+        "base_url mit /v1 wird nicht zu /v1/v1 verfaelscht.",
+        "supports_tool_calls bleibt im Preflight sichtbar.",
+        "api_key_profile wird gegen Klartext-api_key bevorzugt oder zumindest erwartbar behandelt, je nach bestehendem Kontrakt."
+      ],
+      "acceptance_criteria": [
+        "Tests laufen ohne echte CLIProxyAPI-Instanz.",
+        "HTTP-Aufrufe zu /v1/models werden gemockt oder bestehende Probe-Funktionen isoliert getestet.",
+        "Tests bestaetigen, dass keine Sonderarchitektur noetig ist, solange OpenAI-compatible Contract erfuellt ist.",
+        "Fehlschlag bei invalid_url wird klar erwartet und dokumentiert."
+      ]
+    },
+    {
+      "id": "cliproxyapi-005-test-opencode-provider-config",
+      "title": "OpenCode Runtime-Konfig fuer CLIProxyAPI absichern",
+      "status": "open",
+      "priority": "high",
+      "depends_on": ["cliproxyapi-001-map-existing-code-paths", "cliproxyapi-004-test-local-openai-backend-normalization"],
+      "candidate_test_files": [
+        "tests/test_opencode_runtime_config.py",
+        "tests/test_sgpt_route.py"
+      ],
+      "expected_behavior": [
+        "target_provider=cliproxyapi wird als local_openai_backend erkannt.",
+        "provider_config.provider.cliproxyapi.npm ist '@ai-sdk/openai-compatible'.",
+        "provider_config.provider.cliproxyapi.options.baseURL zeigt auf CLIProxyAPI base_url.",
+        "provider_config.model und small_model verwenden 'cliproxyapi/<model>'."
+      ],
+      "acceptance_criteria": [
+        "Ein Test beweist die korrekte provider_config fuer OpenCode.",
+        "Ein Test beweist, dass native OpenCode Provider weiterhin unveraendert funktionieren.",
+        "Kein Test setzt echte globale User-Konfig oder echte XDG_CONFIG_HOME dauerhaft."
+      ]
+    },
+    {
+      "id": "cliproxyapi-006-check-codex-path",
+      "title": "Codex-Pfad gegen CLIProxyAPI-Kontrakt pruefen",
+      "status": "open",
+      "priority": "medium",
+      "depends_on": ["cliproxyapi-001-map-existing-code-paths"],
+      "files_to_inspect": [
+        "agent/cli_backends/opencode.py",
+        "agent/cli_backends/routing.py",
+        "agent/cli_backends/helpers.py"
+      ],
+      "questions": [
+        "Kann Codex aktuell eine beliebige local_openai_backend Provider-ID nutzen?",
+        "Wird CLIProxyAPI base_url fuer Codex sauber aufgeloest?",
+        "Sind API-Key und Model-ID fuer Codex anders zu behandeln als fuer OpenCode?",
+        "Ist Codex hier wirklich Ziel-CLI oder nur Backend-Name im Routing?"
+      ],
+      "acceptance_criteria": [
+        "Die Analyse nennt klar: funktioniert bereits / funktioniert teilweise / funktioniert nicht.",
+        "Falls Codex nicht generisch local_openai_backend-faehig ist, wird nur ein separater Folge-Todo vorgeschlagen, nicht heimlich mit OpenCode vermischt.",
+        "Bestehende Codex-Tests bleiben unveraendert gruen."
+      ]
+    },
+    {
+      "id": "cliproxyapi-007-preflight-label",
+      "title": "Preflight-Ausgabe fuer CLIProxyAPI verstaendlich machen",
+      "status": "open",
+      "priority": "medium",
+      "depends_on": ["cliproxyapi-004-test-local-openai-backend-normalization"],
+      "implementation_options": [
+        "Nur Doku: Nutzer sieht CLIProxyAPI unter providers.local_openai.",
+        "Kleines Label: Wenn provider_id=cliproxyapi, display_name='CLI Proxy API'.",
+        "Optionaler Health-Hinweis: models_url=<base_url>/models sichtbar machen, ohne Spezialprobe."
+      ],
+      "acceptance_criteria": [
+        "Preflight zeigt cliproxyapi mit provider, name, base_url, supports_tool_calls und provider_type an.",
+        "Nicht konfigurierte CLIProxyAPI erzeugt keinen Fehler und keine falsche Warnung.",
+        "Bestehende LM Studio/Ollama Preflight-Ausgabe bleibt kompatibel."
+      ]
+    },
+    {
+      "id": "cliproxyapi-008-security-boundary",
+      "title": "Security-Grenze fuer CLIProxyAPI dokumentieren",
+      "status": "open",
+      "priority": "high",
+      "depends_on": ["cliproxyapi-002-add-doc-profile"],
+      "required_points": [
+        "Ananta kontrolliert Hub/Worker/Policy/Audit, aber nicht automatisch die internen Account- und OAuth-Flows von CLIProxyAPI.",
+        "CLIProxyAPI kann mehrere externe CLIs/Accounts routen; daraus folgt eine eigene Vertrauensgrenze.",
+        "Bei Remote-CLIProxyAPI muessen API-Key, Netzwerkfreigabe, Allowed Hosts und Audit bewusst gesetzt werden.",
+        "Local-first Empfehlung: CLIProxyAPI bevorzugt lokal binden, nicht ungeschuetzt ins Netzwerk stellen."
+      ],
+      "acceptance_criteria": [
+        "Die Doku benennt die neue Vertrauensgrenze klar.",
+        "Keine Passage suggeriert, dass Ananta fremde CLIProxyAPI-Accounts vollstaendig kontrollieren kann.",
+        "Remote-Nutzung ist als bewusstes Risiko/Deployment-Szenario beschrieben."
+      ]
+    },
+    {
+      "id": "cliproxyapi-009-final-analysis-summary",
+      "title": "Abschlussanalyse als Ist/Soll/Fazit zusammenfassen",
+      "status": "open",
+      "priority": "medium",
+      "depends_on": [
+        "cliproxyapi-001-map-existing-code-paths",
+        "cliproxyapi-002-add-doc-profile",
+        "cliproxyapi-004-test-local-openai-backend-normalization",
+        "cliproxyapi-005-test-opencode-provider-config",
+        "cliproxyapi-006-check-codex-path",
+        "cliproxyapi-008-security-boundary"
+      ],
+      "required_sections": [
+        "Ist-Zustand",
+        "Was bereits funktioniert",
+        "Was nur implizit funktioniert",
+        "Was offiziell ergaenzt wurde",
+        "Was bewusst nicht gebaut wurde",
+        "Offene Risiken / Follow-ups"
+      ],
+      "acceptance_criteria": [
+        "Die Zusammenfassung beantwortet die Ursprungsfrage eindeutig mit Ja/Nein/Teilweise.",
+        "Sie verweist auf konkrete Dateien und Tests.",
+        "Sie ist kurz genug fuer README/Release Notes und detailliert genug fuer Maintainer."
+      ]
+    }
+  ],
+  "definition_of_done": [
+    "Ist-Zustand ist mit konkreten Dateien/Funktionen belegt.",
+    "CLIProxyAPI ist als offizieller OpenAI-compatible Provider-Pfad dokumentiert.",
+    "Mindestens local_openai_backend-Normalisierung und OpenCode-provider_config sind getestet.",
+    "Preflight/Doku macht sichtbar, wie CLIProxyAPI angebunden wird.",
+    "Keine Architektur-Dopplung zu LM Studio/Ollama/local_openai_backends wurde eingefuehrt.",
+    "Security-Grenze zwischen Ananta und CLIProxyAPI ist dokumentiert."
+  ],
+  "recommended_follow_up_after_analysis": {
+    "only_if_needed": [
+      "Eigenes cliproxyapi preset in ananta init anbieten.",
+      "UI-Formular fuer local_openai_backends um Preset 'CLI Proxy API' erweitern.",
+      "Health-Probe fuer /v1/models generisch fuer alle OpenAI-compatible Backends anzeigen.",
+      "Codex-spezifische CLIProxyAPI-Unterstuetzung nachziehen, falls Analyse zeigt, dass OpenCode bereits weiter ist als Codex."
+    ]
+  }
+}
