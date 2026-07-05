@@ -1,0 +1,1043 @@
+{
+  "meta": {
+    "project": "ananta",
+    "feature": "open-notebook-adapter-importer-frontend-backend-integration",
+    "title": "OpenNotebook Adapter, Importer, Source UX und Backend-Lerntransfer",
+    "description": "Feingranularer Plan, um lfnovo/open-notebook als externe NotebookLM-ähnliche Research-Quelle sauber in Ananta zu integrieren. Fokus: Adapter/Importer statt Kernarchitektur-Kopie, SourcePack/SourceDescriptor/Snapshot/SourceReference-Anschluss, RetrievalService-Adapter, Angular Sources Center, source-focused chat mode, Transformations/Insights und Tests mit Offline-Fixtures.",
+    "created": "2026-07-05",
+    "last_updated": "2026-07-05",
+    "version": "1.0",
+    "status": "open",
+    "source_repositories": [
+      "ananta888/ananta",
+      "lfnovo/open-notebook"
+    ],
+    "reference_paths_ananta": [
+      "docs/architecture/reliable_source_ingestion_and_citation_flow.md",
+      "docs/architecture/source-pack-codecompass-architecture.md",
+      "docs/sources/reliable_sources.md",
+      "agent/services/ingestion_service.py",
+      "agent/services/rag_source_profile_loader.py",
+      "agent/services/retrieval_service.py",
+      "agent/services/rag_service.py",
+      "agent/services/retrieval_source_adapters.py",
+      "agent/services/retrieval_source_contract.py",
+      "agent/services/knowledge_index_retrieval_service.py",
+      "agent/routes/chat.py",
+      "agent/routes/snakes_retrieval_helpers.py",
+      "frontend-angular/src/app/services/chat-sessions.service.ts",
+      "frontend-angular/src/app/features/system/system.routes.ts"
+    ],
+    "reference_paths_open_notebook": [
+      "README.md",
+      "docs/7-DEVELOPMENT/architecture.md",
+      "open_notebook/domain/notebook.py",
+      "api/sources_service.py",
+      "open_notebook/graphs/source.py",
+      "open_notebook/graphs/source_chat.py",
+      "frontend/src/components/sources/README.md"
+    ],
+    "extends": [
+      "docs/architecture/reliable_source_ingestion_and_citation_flow.md",
+      "docs/architecture/source-pack-codecompass-architecture.md",
+      "docs/sources/reliable_sources.md"
+    ],
+    "legend": {
+      "priority": "P1 = muss, P2 = soll, P3 = kann",
+      "effort": "XS = <2h, S = 2-4h, M = 4-8h, L = 8-16h, XL = >16h",
+      "status": "open | in_progress | done | blocked"
+    }
+  },
+  "core_goal": "Ananta soll OpenNotebook-Inhalte als kontrollierte, zitierfähige, policy-konforme Wissensquellen nutzen können, ohne OpenNotebook als Fremdarchitektur in den Kern zu kopieren. OpenNotebook dient als Adapter-/Importer-Ziel und als UX-/Workflow-Vorbild für Sources, Notebooks, Notes, Transformations, Source Chat, Async Processing und Statusanzeige.",
+  "non_goals": [
+    "Keine direkte Übernahme der OpenNotebook-SurrealDB-Struktur als Ananta-Primärmodell.",
+    "Kein Kopieren des React/Next.js-Frontends in Ananta; UI-Lernen wird in Angular umgesetzt.",
+    "Kein zweiter paralleler RAG-Stack neben RagService/RetrievalService/CodeCompass.",
+    "Keine unkontrollierte Übernahme von OpenNotebook-Rohtexten in Worker-Kontexte ohne SourceReference, Hash, Trust-Level und Policy-Prüfung.",
+    "Keine harte Runtime-Abhängigkeit von einer laufenden OpenNotebook-Instanz für bestehende Ananta-Funktionen."
+  ],
+  "principles": [
+    "Adapter vor Migration: OpenNotebook kann live abgefragt oder aus Export-Fixtures importiert werden.",
+    "Ananta bleibt hub-zentriert: Worker konsumieren kontrollierte Referenzen, nicht fremde Notebook-Objekte direkt.",
+    "SourceDescriptor trennt fetch_source und citation_source.",
+    "SourceSnapshot ist immutable und erhält Hash, snapshot_id, imported_at und source_system.",
+    "Retrieval läuft über RetrievalService und ContextBundleService, nicht über OpenNotebook-interne Chat-Logik.",
+    "OpenNotebook Notebook entspricht in Ananta primär KnowledgeCollection oder SourcePack, nicht einem Worker-Goal.",
+    "OpenNotebook Source entspricht in Ananta ArtifactDB + SourceSnapshot + indexed chunks.",
+    "OpenNotebook Note entspricht je nach Nutzung Artifact, ResultMemory oder TaskMemory-Kandidat.",
+    "OpenNotebook SourceInsight entspricht in Ananta SourceInsight/TransformationArtifact und wird optional indexiert.",
+    "UI zeigt Status, Retry, Trust-Level, Snapshot, Citation und Chunk-/Embedding-Zustand klar an.",
+    "Alle Tests müssen offline mit Fixtures laufen und dürfen keine echte OpenNotebook-Instanz benötigen."
+  ],
+  "architecture_mapping": {
+    "open_notebook_to_ananta": [
+      {
+        "open_notebook": "Notebook",
+        "ananta": "KnowledgeCollectionDB / SourcePack / optional Goal context",
+        "mapping_rule": "Notebook ist ein menschlicher Research-Container und wird in Ananta als Sammlung importierter Quellen modelliert."
+      },
+      {
+        "open_notebook": "Source",
+        "ananta": "ArtifactDB + ArtifactVersionDB + SourceSnapshot + SourceReference",
+        "mapping_rule": "Source-Titel, asset, url, file_path, full_text, topics und timestamps werden erhalten; Rohinhalt wird gehasht und versioniert."
+      },
+      {
+        "open_notebook": "SourceEmbedding",
+        "ananta": "KnowledgeIndex chunk / CodeCompassBundle chunk",
+        "mapping_rule": "Embeddings werden nicht zwingend übernommen; Standard ist Re-Indexing durch Ananta, damit Dimension, Modell und Provenance kontrolliert bleiben."
+      },
+      {
+        "open_notebook": "Note",
+        "ananta": "ArtifactDB / ResultMemory / TaskMemory",
+        "mapping_rule": "Notes werden als vom Benutzer oder AI erzeugte Wissensartefakte importiert und optional getrennt von Sources gewichtet."
+      },
+      {
+        "open_notebook": "SourceInsight",
+        "ananta": "TransformationArtifact / SourceInsight / indexed derived chunk",
+        "mapping_rule": "Insights werden als abgeleitete Artefakte markiert und behalten parent_source_ref."
+      },
+      {
+        "open_notebook": "ChatSession",
+        "ananta": "Chat history / operator TUI session / optional ResultMemory",
+        "mapping_rule": "Chatverläufe werden nicht automatisch als Wahrheit indexiert, sondern nur nach expliziter Freigabe oder als memory mit niedrigerem trust_level."
+      },
+      {
+        "open_notebook": "Transformation",
+        "ananta": "TransformationTask template / Source processing rule",
+        "mapping_rule": "Transformation-Prompts dienen als Vorlage für Ananta-eigene TransformationTasks."
+      }
+    ]
+  },
+  "epics": [
+    {
+      "id": "E01",
+      "title": "OpenNotebook Analyse-Freeze und Fixture-Basis",
+      "goal": "Die Integration startet reproduzierbar: relevante OpenNotebook-Konzepte, Datenformen und Beispielobjekte werden als stabile Fixtures festgehalten.",
+      "tasks": [
+        {
+          "id": "T01.01",
+          "title": "OpenNotebook Struktur-Dokument für Ananta erstellen",
+          "description": "Kurzes internes Architektur-Dokument, das OpenNotebook Notebook/Source/Note/Insight/Chat/Transformation auf Ananta-Objekte abbildet.",
+          "files": [
+            "docs/integrations/open-notebook/architecture_mapping.md"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": [],
+          "status": "open",
+          "acceptance_criteria": [
+            "Dokument nennt explizit die OpenNotebook-Referenzdateien README.md, docs/7-DEVELOPMENT/architecture.md, open_notebook/domain/notebook.py, api/sources_service.py, open_notebook/graphs/source.py und open_notebook/graphs/source_chat.py.",
+            "Dokument beschreibt Notebook -> KnowledgeCollection/SourcePack, Source -> Artifact/SourceSnapshot, Note -> Artifact/Memory, SourceInsight -> TransformationArtifact und ChatSession -> optional ResultMemory.",
+            "Dokument enthält eine klare Entscheidung: keine Übernahme der OpenNotebook-DB als Ananta-Primärmodell.",
+            "Dokument beschreibt, warum RagService/RetrievalService zentrale Ananta-Seams bleiben.",
+            "Dokument enthält eine Tabelle mit Risiken: Lizenz, Datenvolumen, Embedding-Modell-Mismatch, Citation-Qualität, Rohtext-Import und Chat-Halluzinationen."
+          ]
+        },
+        {
+          "id": "T01.02",
+          "title": "Offline-Fixtures für OpenNotebook Export definieren",
+          "description": "Minimaler und komplexer OpenNotebook-Export als JSON-Fixtures für Tests, ohne externe DB oder API.",
+          "files": [
+            "tests/fixtures/open_notebook/minimal_export.json",
+            "tests/fixtures/open_notebook/complex_export.json",
+            "tests/fixtures/open_notebook/invalid_export_missing_source_id.json"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T01.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "minimal_export.json enthält genau ein notebook, eine source und optional eine note.",
+            "complex_export.json enthält mehrere notebooks, gemeinsam genutzte sources, notes, source_insights, transformations und chat_sessions.",
+            "Jede Fixture enthält source ids, title, topics, asset.url oder asset.file_path, full_text, created und updated.",
+            "Mindestens eine Source enthält nur URL, mindestens eine enthält file_path, mindestens eine enthält direct text content.",
+            "invalid_export_missing_source_id.json löst im Importer einen validierten Fehler aus.",
+            "Fixtures enthalten keine echten Secrets, Tokens oder personenbezogenen Daten."
+          ]
+        },
+        {
+          "id": "T01.03",
+          "title": "OpenNotebook Export Contract v1 Schema anlegen",
+          "description": "Schema für den von Ananta akzeptierten OpenNotebook-Export, bewusst unabhängig von OpenNotebook-interner SurrealDB-Darstellung.",
+          "files": [
+            "schemas/integrations/open_notebook_export.v1.json",
+            "tests/test_open_notebook_export_schema.py"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T01.02"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Schema validiert notebooks, sources, notes, source_insights, transformations und chat_sessions als optionale Top-Level-Arrays.",
+            "Schema fordert stabile ids für notebooks und sources.",
+            "Schema erlaubt asset.url, asset.file_path oder inline content, aber verlangt mindestens eine nutzbare Content-Quelle pro Source.",
+            "Schema enthält source_system='open_notebook' und export_version.",
+            "Schema erlaubt extension-Felder unter metadata, aber keine beliebigen unbekannten Top-Level-Pflichtfelder.",
+            "Tests prüfen minimal_export, complex_export und invalid_export_missing_source_id."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E02",
+      "title": "Backend Importer und Mapping in Ananta-Artefakte",
+      "goal": "OpenNotebook-Exports werden deterministisch in Ananta-Artefakte, Collections, Snapshots und Referenzen umgewandelt.",
+      "tasks": [
+        {
+          "id": "T02.01",
+          "title": "OpenNotebookMapper implementieren",
+          "description": "Mapper wandelt validierte Export-Daten in Ananta-interne DTOs um, ohne Persistenz-Seiteneffekte.",
+          "files": [
+            "agent/sources/open_notebook_mapper.py",
+            "tests/test_open_notebook_mapper.py"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T01.03"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Mapper erzeugt für jedes OpenNotebook Notebook einen KnowledgeCollection-Plan mit stable external_id.",
+            "Mapper erzeugt für jede OpenNotebook Source einen Artifact-Plan mit filename/title/media_type/content/url/file_path/topics.",
+            "Mapper erhält externe IDs in metadata.open_notebook.source_id und metadata.open_notebook.notebook_ids.",
+            "Mapper markiert source_system='open_notebook'.",
+            "Mapper erzeugt content_hash aus normalisiertem full_text oder aus Asset-Referenz, wenn full_text fehlt.",
+            "Mapper erzeugt deterministic import_key, damit Wiederholungsimporte idempotent prüfbar sind.",
+            "Tests prüfen URL-Source, File-Source, Text-Source, leere Source und doppelte source_id."
+          ]
+        },
+        {
+          "id": "T02.02",
+          "title": "OpenNotebookImporter Service implementieren",
+          "description": "Importer nutzt IngestionService, Artifact-Repositories und KnowledgeCollection-Repositories, um gemappte Objekte zu speichern.",
+          "files": [
+            "agent/sources/open_notebook_importer.py",
+            "tests/test_open_notebook_importer.py"
+          ],
+          "priority": "P1",
+          "effort": "XL",
+          "depends_on": ["T02.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Importer ruft für Inline-/Text-Quellen IngestionService.upload_artifact mit filename, content, media_type und collection_name auf.",
+            "Importer nutzt bestehende ArtifactDB/ArtifactVersionDB-Felder latest_sha256, latest_media_type, latest_filename und size_bytes statt neue parallele Felder anzulegen.",
+            "Importer legt KnowledgeCollectionDB pro OpenNotebook Notebook an oder verknüpft vorhandene Collection idempotent.",
+            "Importer speichert metadata.ingestion_mode='open_notebook_import'.",
+            "Importer speichert metadata.open_notebook.import_key und external ids.",
+            "Importer legt keine Rohtexte außerhalb des bestehenden Artifact-/Extraction-Flows ab.",
+            "Wiederholter Import derselben Fixture erzeugt keine doppelten Collections oder doppelten Links.",
+            "Tests nutzen Fake-Repositories oder isolierte Test-Repositories und laufen offline."
+          ]
+        },
+        {
+          "id": "T02.03",
+          "title": "OpenNotebook SourceSnapshot-Erzeugung ergänzen",
+          "description": "Importierte Sources erhalten immutable Snapshot-Metadaten passend zur Reliable Source Architektur.",
+          "files": [
+            "agent/sources/open_notebook_snapshot.py",
+            "schemas/sources/open_notebook_source_snapshot.v1.json",
+            "tests/test_open_notebook_snapshot.py"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T02.02"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Snapshot enthält snapshot_id, source_id, source_system, imported_at, content_hash, source_hash, source_title, source_url/file_path und notebook_refs.",
+            "Snapshot enthält citation_source mit title, source_system='OpenNotebook local/export', retrieved_at/imported_at und optional canonical_url.",
+            "Snapshot enthält fetch_source getrennt von citation_source.",
+            "Identischer Inhalt wird als duplicate erkannt und nicht als neuer indexed Snapshot markiert.",
+            "Snapshot-IDs sind deterministisch oder stabil aus source_id + content_hash ableitbar.",
+            "Tests prüfen neuen Snapshot, duplicate Snapshot und geänderten Inhalt."
+          ]
+        },
+        {
+          "id": "T02.04",
+          "title": "OpenNotebook Notes als kontrollierte Artefakte importieren",
+          "description": "Notes werden nicht automatisch als Quellenwahrheit behandelt, sondern als menschliche/AI-Notizen mit niedrigerem oder konfigurierbarem Trust-Level.",
+          "files": [
+            "agent/sources/open_notebook_notes_importer.py",
+            "tests/test_open_notebook_notes_importer.py"
+          ],
+          "priority": "P2",
+          "effort": "L",
+          "depends_on": ["T02.02"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Importer unterscheidet note_type human, ai oder unknown, sofern Exportdaten dies hergeben.",
+            "Notes erhalten metadata.source_system='open_notebook_note'.",
+            "Notes werden optional in KnowledgeCollection verlinkt, aber als record_kind='note' markiert.",
+            "Notes werden standardmäßig mit niedrigerer retrieval priority als Sources behandelt.",
+            "ChatSession-Inhalte werden nicht automatisch als Note importiert, außer explizit konfiguriert.",
+            "Tests prüfen human note, ai note und deaktivierten notes_import."
+          ]
+        },
+        {
+          "id": "T02.05",
+          "title": "OpenNotebook SourceInsights als abgeleitete Artefakte importieren",
+          "description": "Insights werden mit parent_source_ref und transformation metadata importiert, damit sie im Retrieval transparent bleiben.",
+          "files": [
+            "agent/sources/open_notebook_insights_importer.py",
+            "tests/test_open_notebook_insights_importer.py"
+          ],
+          "priority": "P2",
+          "effort": "L",
+          "depends_on": ["T02.02"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Insights erhalten parent_source_id und parent_source_snapshot_id, wenn verfügbar.",
+            "Insights erhalten record_kind='source_insight' und derived_from='open_notebook'.",
+            "Insights enthalten transformation_name oder insight_type, falls vorhanden.",
+            "Insights werden nicht mit Original-Sources dedupliziert, sondern separat als derived chunks markiert.",
+            "Retrieval-Metadaten erlauben spätere Anzeige 'derived insight' statt 'primary source'.",
+            "Tests prüfen Import mit gültiger parent source und Fehler/Warning bei fehlender parent source."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E03",
+      "title": "SourceDescriptor, SourcePack und RagSourceProfile Erweiterung",
+      "goal": "OpenNotebook wird als erstklassige, aber kontrollierte Source-Art in Anantas SourcePack-/RAG-Profil-System beschreibbar.",
+      "tasks": [
+        {
+          "id": "T03.01",
+          "title": "OpenNotebook SourceDescriptor Beispiel definieren",
+          "description": "Descriptor beschreibt OpenNotebook Export/API als fetch_source und lokale/importierte Herkunft als citation_source.",
+          "files": [
+            "docs/integrations/open-notebook/source_descriptor_example.json",
+            "tests/test_open_notebook_source_descriptor_example.py"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T02.03"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Beispiel enthält source_id='open-notebook-local-export' oder ähnlich stabilen Wert.",
+            "Beispiel enthält source_type='open_notebook'.",
+            "fetch_source beschreibt export_file oder api_base_url, aber keine Secrets.",
+            "citation_source beschreibt OpenNotebook als user-managed research workspace.",
+            "trust_level ist niedriger als official_vendor_project und höher/gleich user_supplied_private je nach Policy.",
+            "Test validiert Beispiel gegen vorhandenes oder neu erweitertes SourceDescriptor-Schema."
+          ]
+        },
+        {
+          "id": "T03.02",
+          "title": "RagSourceProfile für OpenNotebook anlegen",
+          "description": "OpenNotebook kann über RagSourceProfileLoader als indexierbares Profil geladen und für Retrieval-Intent ausgewählt werden.",
+          "files": [
+            "domains/open_notebook/rag_sources/open_notebook_source.profile.json",
+            "tests/test_open_notebook_rag_source_profile.py"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T03.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Profil validiert gegen schemas/domain/rag_source_profile.v1.json.",
+            "Profil nutzt ingestion_path='codecompass/rag_helper' oder einen vom RagSourceProfileLoader akzeptierten Wert.",
+            "Profil enthält allowed_paths ohne absolute Pfade und ohne '..'.",
+            "Profil enthält include_globs für JSON/Markdown/Text-Fixtures und exclude_globs für Secrets/DB Dumps.",
+            "RagSourceProfileLoader.profiles_for_indexing liefert das Profil zurück.",
+            "RagSourceProfileLoader.profiles_for_retrieval bevorzugt das Profil bei retrieval_intent mit notebook, research, source oder notes."
+          ]
+        },
+        {
+          "id": "T03.03",
+          "title": "SourcePack OpenNotebook Development Pack definieren",
+          "description": "Ein SourcePack bündelt OpenNotebook Descriptor, Importregeln, Trust-Level und Test-Fixtures.",
+          "files": [
+            "docs/sources/open-notebook-source-pack.md",
+            "source_packs/open_notebook/source_pack.json",
+            "tests/test_open_notebook_source_pack.py"
+          ],
+          "priority": "P2",
+          "effort": "L",
+          "depends_on": ["T03.02"],
+          "status": "open",
+          "acceptance_criteria": [
+            "SourcePack verweist auf den OpenNotebook SourceDescriptor und RagSourceProfile.",
+            "SourcePack enthält bootstrap instructions für offline fixtures.",
+            "SourcePack enthält priority rules: lokale Projektquellen vor OpenNotebook, OpenNotebook vor allgemeinem Wiki-Fallback, sofern retrieval_intent research/notebook ist.",
+            "SourcePack enthält trust_level und provenance_policy.",
+            "Test prüft, dass alle referenzierten Dateien existieren und JSON gültig ist."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E04",
+      "title": "RetrievalService Adapter und ContextBundle Provenance",
+      "goal": "OpenNotebook-Quellen werden über den bestehenden RetrievalService als source_type='open_notebook' auffindbar, gewichtet und zitierfähig.",
+      "tasks": [
+        {
+          "id": "T04.01",
+          "title": "OpenNotebookKnowledgeSourceAdapter implementieren",
+          "description": "Neuer Retrieval-Adapter greift auf importierte OpenNotebook-Artefakte/KnowledgeIndex-Chunks zu.",
+          "files": [
+            "agent/services/retrieval_source_adapters.py",
+            "tests/test_open_notebook_retrieval_source_adapter.py"
+          ],
+          "priority": "P1",
+          "effort": "XL",
+          "depends_on": ["T02.02", "T03.02"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Adapter-Klasse heißt OpenNotebookKnowledgeSourceAdapter oder ähnlich eindeutig.",
+            "Adapter nutzt KnowledgeIndexRetrievalService oder vorhandene ArtifactKnowledgeSourceAdapter-Mechanik statt eigene Suchlogik zu duplizieren.",
+            "Adapter gibt ContextChunk-Objekte mit engine, source, content, score und metadata zurück.",
+            "metadata enthält source_type='open_notebook', source_system='open_notebook', source_id, snapshot_id, artifact_id und record_kind.",
+            "Adapter normalisiert Metadaten über normalize_chunk_metadata oder äquivalente bestehende Contract-Funktion.",
+            "Adapter ignoriert ChatSession-Inhalte standardmäßig.",
+            "Tests prüfen Treffer, leere Suche, Metadatenvollständigkeit und deaktivierte Quelle."
+          ]
+        },
+        {
+          "id": "T04.02",
+          "title": "RetrievalService um source_type open_notebook erweitern",
+          "description": "RetrievalService._build_source_adapters und Source-Policy kennen open_notebook als optionalen Source-Typ.",
+          "files": [
+            "agent/services/retrieval_service.py",
+            "agent/services/retrieval_query_builder.py",
+            "agent/config.py",
+            "tests/test_retrieval_service_open_notebook_source_type.py"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T04.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "_build_source_adapters enthält key 'open_notebook'.",
+            "Konfigurationssignatur enthält ein Flag wie rag_source_open_notebook_enabled, damit Adapter-Lifecycle korrekt invalidiert wird.",
+            "Default effective_source_types bleibt rückwärtskompatibel und aktiviert open_notebook nicht ungefragt, falls Policy dies nicht vorsieht.",
+            "source_selection_policy akzeptiert open_notebook und lehnt unbekannte Source-Typen weiterhin ab.",
+            "retrieve_context(query, source_types=['open_notebook']) ruft nur OpenNotebook-Adapter plus notwendige gemeinsame Logik auf.",
+            "Tests prüfen source_types explizit, default ohne open_notebook und kombinierten Abruf repo+artifact+open_notebook."
+          ]
+        },
+        {
+          "id": "T04.03",
+          "title": "Reranking und Source Priority für OpenNotebook ergänzen",
+          "description": "OpenNotebook bekommt sinnvolle Gewichtung: User Research stärker bei research/notebook-Fragen, schwächer bei Code-/API-Wahrheitsfragen.",
+          "files": [
+            "agent/services/retrieval_query_builder.py",
+            "tests/test_open_notebook_retrieval_priority.py"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T04.02"],
+          "status": "open",
+          "acceptance_criteria": [
+            "task_profile_for_fusion oder äquivalente Gewichtungslogik berücksichtigt source_type='open_notebook'.",
+            "Bei retrieval_intent research/notebook/notes erhält open_notebook positiven Bonus.",
+            "Bei task_kind code_change oder api_contract behalten repo und official sources höhere Priorität.",
+            "source_priority_rules erklärt die Gewichtung in strategy.fusion.source_priority_rules.",
+            "final_ranked_sources enthält OpenNotebook-Quellen mit erkennbarer source_type contribution.",
+            "Tests prüfen Ranking in Research-Query, Code-Query und gemischter Query."
+          ]
+        },
+        {
+          "id": "T04.04",
+          "title": "ContextBundle Explainability für OpenNotebook erweitern",
+          "description": "RagService erklärt OpenNotebook-Herkunft sichtbar in explainability und provenance_policy.",
+          "files": [
+            "agent/services/rag_service.py",
+            "tests/test_rag_service_open_notebook_explainability.py"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T04.02"],
+          "status": "open",
+          "acceptance_criteria": [
+            "explainability.source_types enthält open_notebook, wenn entsprechende Chunks genutzt werden.",
+            "source_type_counts zählt open_notebook korrekt.",
+            "explainability.sources zeigt für Standard-Visibility keine unnötigen Rohmetadaten, aber source und source_type.",
+            "Bei provenance_visibility='admin' werden source_id und chunk_id/snapshot_id sichtbar, sofern vorhanden.",
+            "rag_redact_sensitive redigiert mögliche API-Keys oder Secrets in OpenNotebook-Metadaten.",
+            "Tests prüfen standard visibility, admin visibility und redaction."
+          ]
+        },
+        {
+          "id": "T04.05",
+          "title": "SourceReference für OpenNotebook chunks erzeugen",
+          "description": "Jeder importierte oder abgerufene OpenNotebook-Chunk erhält eine zitierfähige Referenz.",
+          "files": [
+            "agent/sources/open_notebook_source_reference.py",
+            "tests/test_open_notebook_source_reference.py"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T02.03", "T04.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "SourceReference enthält source_system, notebook_id, source_id, snapshot_id, chunk_id, title, canonical_url/file_path und content_hash.",
+            "SourceReference enthält citation_label für UI-Anzeige.",
+            "SourceReference unterscheidet primary_source, note und derived_insight über record_kind.",
+            "SourceReference wird in chunk.metadata abgelegt oder deterministisch daraus erzeugbar gemacht.",
+            "Tests prüfen Referenz für URL source, File source, Text source, Note und SourceInsight."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E05",
+      "title": "Source Chat Mode und Worker-/RAG-Anschluss",
+      "goal": "OpenNotebook SourceChat-Idee wird als Ananta Source-focused Chat Mode umgesetzt, aber über RagService und ContextBundle statt OpenNotebook-LangGraph-Chat dupliziert.",
+      "tasks": [
+        {
+          "id": "T05.01",
+          "title": "SourceChatContextService implementieren",
+          "description": "Service baut Kontext für eine einzelne Source/Snapshot/Collection mit Insights und Notes optional zusammen.",
+          "files": [
+            "agent/services/source_chat_context_service.py",
+            "tests/test_source_chat_context_service.py"
+          ],
+          "priority": "P1",
+          "effort": "XL",
+          "depends_on": ["T04.05"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Service akzeptiert source_ref oder artifact_id oder snapshot_id als Eingabe.",
+            "Service ruft RagService.retrieve_context_bundle mit source_types=['open_notebook'] oder passendem Filter auf.",
+            "Service kann include_insights und include_notes separat steuern.",
+            "Service begrenzt Kontext über max_chunks und Token-/Char-Budget statt pauschal langen Rohtext einzusetzen.",
+            "Service gibt context_bundle, selected_sources, source_references und grounded_prompt zurück.",
+            "Tests prüfen Source-only, Source+Insights, Source+Notes und Budget-Cut."
+          ]
+        },
+        {
+          "id": "T05.02",
+          "title": "API Route für source-focused chat ergänzen",
+          "description": "Endpoint ermöglicht Fragen zu einer Quelle oder Collection und nutzt SourceChatContextService.",
+          "files": [
+            "agent/routes/sources.py",
+            "agent/routes/chat.py",
+            "tests/test_sources_chat_route.py"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T05.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Route POST /sources/{source_id}/chat oder äquivalenter Pfad ist dokumentiert.",
+            "Route akzeptiert prompt, include_insights, include_notes, max_chunks und provenance_visibility.",
+            "Route nutzt vorhandene Chat-/RAG-Infrastruktur und erzeugt keinen zweiten OpenNotebook-Chat-Stack.",
+            "Antwort enthält answer, source_references, context_hash und explainability.",
+            "Nicht existierende source_id liefert 404 oder validierten Fehler mit reason_code.",
+            "Tests prüfen happy path, source missing, disabled open_notebook source und provenance admin."
+          ]
+        },
+        {
+          "id": "T05.03",
+          "title": "Worker ContextEnvelope mit OpenNotebook refs prüfen",
+          "description": "Worker erhalten nur SourceReference/ContextEnvelopeRef statt ungeprüfter OpenNotebook-Rohobjekte.",
+          "files": [
+            "agent/services/rag_service.py",
+            "worker/core/context_bundle_adapter.py",
+            "tests/test_worker_context_open_notebook_refs.py"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T05.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Worker-Kontext enthält open_notebook chunks nur mit source_reference metadata.",
+            "context_hash berücksichtigt source_id, snapshot_id und content_hash.",
+            "Rohtext wird nur als budgetierter Kontext übergeben, nicht als persistente Worker-Konfiguration.",
+            "Cloud-/externes Modell respektiert llm_scope und provenance_policy.",
+            "Tests prüfen local_only, admin provenance und denied external scope."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E06",
+      "title": "Transformationen und Insights nach OpenNotebook-Vorbild",
+      "goal": "Ananta lernt von OpenNotebook: Sources können nach Import automatisch oder manuell transformiert werden; Outputs bleiben als abgeleitete Artefakte nachvollziehbar.",
+      "tasks": [
+        {
+          "id": "T06.01",
+          "title": "TransformationTask Templates für Sources definieren",
+          "description": "Standardisierte Transformationen für importierte Quellen: Summary, Key Terms, Architecture Facts, API Contracts, Security Notes, Testable Claims und Citation Candidates.",
+          "files": [
+            "agent/sources/source_transformation_templates.py",
+            "docs/integrations/open-notebook/source_transformations.md",
+            "tests/test_source_transformation_templates.py"
+          ],
+          "priority": "P2",
+          "effort": "L",
+          "depends_on": ["T02.05"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Templates enthalten id, title, prompt_intent, output_schema_ref, default_enabled und allowed_source_types.",
+            "Mindestens sieben Templates sind vorhanden: summary, key_terms, architecture_facts, api_contracts, security_notes, testable_claims, citation_candidates.",
+            "Templates sind deterministic serialisierbar und enthalten keine provider-spezifischen API-Keys.",
+            "Tests prüfen eindeutige ids, gültige allowed_source_types und stabile Sortierung."
+          ]
+        },
+        {
+          "id": "T06.02",
+          "title": "SourceTransformationService implementieren",
+          "description": "Service führt Transformationen auf SourceSnapshot/Artifact aus und speichert abgeleitete Artefakte mit Provenance.",
+          "files": [
+            "agent/services/source_transformation_service.py",
+            "tests/test_source_transformation_service.py"
+          ],
+          "priority": "P2",
+          "effort": "XL",
+          "depends_on": ["T06.01", "T04.05"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Service nimmt source_reference, transformation_id und execution_scope entgegen.",
+            "Service baut Kontext über RagService/SourceChatContextService und nicht direkt aus OpenNotebook-Rohdaten.",
+            "Ergebnis wird als Artifact/SourceInsight mit parent_source_ref, transformation_id, output_hash und created_at gespeichert.",
+            "Abgeleitete Artefakte erhalten record_kind='source_insight'.",
+            "Fehlschläge speichern status='failed' mit reason_code, ohne parent source zu beschädigen.",
+            "Tests prüfen erfolgreiche Transformation, leeren Source-Inhalt, fehlendes Template und wiederholte idempotente Transformation."
+          ]
+        },
+        {
+          "id": "T06.03",
+          "title": "Async Processing Status für Source-Transformationen",
+          "description": "OpenNotebook-ähnlicher Status: queued, processing, completed, failed, retryable.",
+          "files": [
+            "agent/services/source_processing_status_service.py",
+            "schemas/sources/source_processing_status.v1.json",
+            "tests/test_source_processing_status_service.py"
+          ],
+          "priority": "P2",
+          "effort": "L",
+          "depends_on": ["T06.02"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Statusmodell enthält source_id, operation_id, operation_kind, status, started_at, finished_at, progress, error_reason und retryable.",
+            "Import, indexing und transformation können denselben Statusservice nutzen.",
+            "Statuswerte sind enum-basiert und UI-tauglich.",
+            "Retry erzeugt neue operation_id oder erhöht attempt_count nachvollziehbar.",
+            "Tests prüfen Statusübergänge queued->processing->completed und queued->processing->failed->retry."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E07",
+      "title": "Angular Sources Center und UI-Lerntransfer",
+      "goal": "OpenNotebook-Source-UX wird in Anantas Angular-Frontend umgesetzt: Quellen hinzufügen, Status sehen, Snapshots/Citations prüfen, Transformations starten und Source Chat nutzen.",
+      "tasks": [
+        {
+          "id": "T07.01",
+          "title": "Angular Sources Feature Route anlegen",
+          "description": "Neuer Feature-Bereich für Sources, an bestehender Angular-Struktur ausgerichtet.",
+          "files": [
+            "frontend-angular/src/app/features/sources/sources.routes.ts",
+            "frontend-angular/src/app/features/sources/source-list.component.ts",
+            "frontend-angular/src/app/features/sources/source-list.component.html",
+            "frontend-angular/src/app/features/sources/source-list.component.scss",
+            "frontend-angular/src/app/features/system/system.routes.ts"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T05.02"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Route /sources oder äquivalente System-Unterroute ist registriert.",
+            "Liste zeigt source_id/title, source_type, trust_level, latest_snapshot, status und citation indicator.",
+            "UI ist responsive und nutzt Card-Layout auf schmalen Screens statt breiter Pflicht-Tabelle.",
+            "Leere Liste zeigt sinnvolle Empty-State-Aktion 'Quelle importieren'.",
+            "Fehlerzustand zeigt reason_code oder lesbare Fehlermeldung.",
+            "Angular Unit-Test prüft Rendering mit leerer, gefüllter und fehlerhafter Liste."
+          ]
+        },
+        {
+          "id": "T07.02",
+          "title": "Source Import Dialog nach OpenNotebook-Muster",
+          "description": "Dialog unterstützt Link, Datei, Text und OpenNotebook Export als Quelle.",
+          "files": [
+            "frontend-angular/src/app/features/sources/source-import-dialog.component.ts",
+            "frontend-angular/src/app/features/sources/source-import-dialog.component.html",
+            "frontend-angular/src/app/features/sources/source-import-dialog.component.scss",
+            "frontend-angular/src/app/services/sources.service.ts"
+          ],
+          "priority": "P1",
+          "effort": "XL",
+          "depends_on": ["T07.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Dialog bietet source types link, file, text und open_notebook_export.",
+            "Link-Quelle verlangt valide URL.",
+            "Text-Quelle verlangt nicht-leeren Inhalt.",
+            "OpenNotebook Export akzeptiert JSON-Fixture/Datei und sendet sie an Backend-Importer.",
+            "Dialog erlaubt optional Collection/Notebook-Zuordnung.",
+            "Dialog bietet Optionen embed/index, apply_transformations und async_processing, soweit Backend vorhanden.",
+            "Validierungsfehler werden inline angezeigt.",
+            "Tests prüfen alle Source-Type-Formpfade und ungültige Eingaben."
+          ]
+        },
+        {
+          "id": "T07.03",
+          "title": "Source Processing Status UI",
+          "description": "Statusanzeige für Import, Extraction, Indexing und Transformation mit Retry.",
+          "files": [
+            "frontend-angular/src/app/features/sources/source-processing-status.component.ts",
+            "frontend-angular/src/app/features/sources/source-processing-status.component.html",
+            "frontend-angular/src/app/services/source-processing-status.service.ts"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T06.03", "T07.02"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Komponente zeigt queued, processing, completed, failed und retryable verständlich an.",
+            "Komponente zeigt operation_kind import/index/transform.",
+            "Retry-Button ist nur aktiv, wenn retryable=true.",
+            "Polling oder Refresh ist entkoppelt im Service und testbar.",
+            "Fehlerdetails verstecken sensible technische Details im Standardmodus.",
+            "Tests prüfen Statusrendering und Retry-Event."
+          ]
+        },
+        {
+          "id": "T07.04",
+          "title": "Source Detail mit Snapshot und Citation Panel",
+          "description": "Detailansicht zeigt Herkunft, Snapshots, Hashes, Trust-Level, Citation und abgeleitete Insights.",
+          "files": [
+            "frontend-angular/src/app/features/sources/source-detail.component.ts",
+            "frontend-angular/src/app/features/sources/source-detail.component.html",
+            "frontend-angular/src/app/features/sources/source-citation-panel.component.ts",
+            "frontend-angular/src/app/features/sources/source-snapshot-list.component.ts"
+          ],
+          "priority": "P1",
+          "effort": "XL",
+          "depends_on": ["T07.01", "T04.05"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Detail zeigt source title, source_type, source_system, trust_level, current status und collection links.",
+            "Snapshot-Liste zeigt snapshot_id, content_hash, imported_at, duplicate/indexed status.",
+            "Citation Panel zeigt citation_label, canonical_url/file_path und retrieved/imported timestamp.",
+            "Insights werden klar als derived angezeigt und nicht als primary source verwechselt.",
+            "Admin-Ansicht kann chunk_id/source_id anzeigen; Standardansicht zeigt nur nötige Provenance.",
+            "Tests prüfen URL source, File source, Text source und SourceInsight-Anzeige."
+          ]
+        },
+        {
+          "id": "T07.05",
+          "title": "Source Chat Panel in Angular",
+          "description": "UI für Fragen zu einer Quelle oder OpenNotebook-Collection mit Quellenanzeige.",
+          "files": [
+            "frontend-angular/src/app/features/sources/source-chat-panel.component.ts",
+            "frontend-angular/src/app/features/sources/source-chat-panel.component.html",
+            "frontend-angular/src/app/services/source-chat.service.ts"
+          ],
+          "priority": "P2",
+          "effort": "XL",
+          "depends_on": ["T05.02", "T07.04"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Panel sendet prompt an source-focused chat API.",
+            "Antwort zeigt source_references klickbar oder aufklappbar an.",
+            "Panel zeigt context_hash und explainability im Debug/Admin-Modus.",
+            "include_insights und include_notes sind als Optionen steuerbar.",
+            "Fehler bei fehlender Quelle oder deaktiviertem open_notebook source_type werden verständlich angezeigt.",
+            "Tests prüfen Prompt-Senden, Antwort-Rendering und SourceReference-Anzeige."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E08",
+      "title": "API-Routen, Services und CLI/TUI Bedienung",
+      "goal": "Importer, Status, Refresh, Cite und Chat sind über Backend-API und optional Operator-TUI nutzbar.",
+      "tasks": [
+        {
+          "id": "T08.01",
+          "title": "Sources API für Import und Listing ergänzen",
+          "description": "Backend-Routen für Sources, OpenNotebook Import, Snapshots und Citation.",
+          "files": [
+            "agent/routes/sources.py",
+            "agent/bootstrap/routes.py",
+            "tests/test_sources_routes_open_notebook.py"
+          ],
+          "priority": "P1",
+          "effort": "XL",
+          "depends_on": ["T02.02", "T02.03"],
+          "status": "open",
+          "acceptance_criteria": [
+            "agent/bootstrap/routes.py registriert sources router, falls noch nicht vorhanden.",
+            "GET /sources listet importierte Quellen mit type, status, latest_snapshot und citation summary.",
+            "POST /sources/import/open-notebook akzeptiert Export JSON oder multipart Datei.",
+            "GET /sources/{source_id}/snapshots liefert Snapshot-Liste.",
+            "GET /sources/{source_id}/citation liefert Citation-Daten.",
+            "Alle Routen liefern reason_code bei validierten Fehlern.",
+            "Tests prüfen Import, Listing, Snapshots, Citation und invalid payload."
+          ]
+        },
+        {
+          "id": "T08.02",
+          "title": "Sources API Status und Retry ergänzen",
+          "description": "Operation Status und Retry für Import/Index/Transform werden API-seitig verfügbar.",
+          "files": [
+            "agent/routes/sources.py",
+            "agent/services/source_processing_status_service.py",
+            "tests/test_sources_status_retry_routes.py"
+          ],
+          "priority": "P2",
+          "effort": "L",
+          "depends_on": ["T06.03", "T08.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "GET /sources/operations/{operation_id} liefert Statusmodell.",
+            "POST /sources/operations/{operation_id}/retry startet retry nur bei retryable=true.",
+            "Retry verweist auf ursprüngliche operation_id.",
+            "Nicht retrybare Fehler liefern 409 oder validierten reason_code.",
+            "Tests prüfen completed nicht retrybar, failed retrybar und unknown operation."
+          ]
+        },
+        {
+          "id": "T08.03",
+          "title": "Operator-TUI Sources Kommandos ergänzen",
+          "description": "TUI-Kommandos aus Reliable Sources Model werden für OpenNotebook nutzbar gemacht.",
+          "files": [
+            "client_surfaces/operator_tui/chat_mixin.py",
+            "client_surfaces/operator_tui/chat_session.py",
+            "client_surfaces/operator_tui/chat_message_formatter.py",
+            "tests/test_operator_tui_sources_commands.py"
+          ],
+          "priority": "P3",
+          "effort": "XL",
+          "depends_on": ["T08.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            ":sources list zeigt OpenNotebook-Quellen mit Status.",
+            ":sources cite <source-id> zeigt Citation-Label und Snapshot.",
+            ":sources snapshots <source-id> zeigt Snapshot-Historie.",
+            ":sources import-open-notebook <path> startet Import aus lokaler Fixture/Datei.",
+            ":sources chat <source-id> <question> nutzt SourceChatContextService.",
+            "Tests prüfen Parser/Dispatch ohne echte UI-Interaktion."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E09",
+      "title": "Sicherheit, Governance und Lizenz-/Datenkontrolle",
+      "goal": "OpenNotebook-Daten bleiben kontrolliert: keine Secrets, keine ungeprüfte Cloud-Weitergabe, klare Trust-Level und Lizenz-/Provenance-Hinweise.",
+      "tasks": [
+        {
+          "id": "T09.01",
+          "title": "OpenNotebook Import Policy definieren",
+          "description": "Policy entscheidet, welche Exportteile importiert/indexiert werden dürfen.",
+          "files": [
+            "agent/sources/open_notebook_import_policy.py",
+            "tests/test_open_notebook_import_policy.py"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T02.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Policy kann sources, notes, insights und chat_sessions getrennt erlauben oder verbieten.",
+            "Default importiert sources, aber chat_sessions nicht automatisch.",
+            "Policy blockiert Felder, die wie API keys, tokens oder passwords aussehen.",
+            "Policy markiert user_supplied/private Inhalte als local_only, sofern keine explizite Freigabe existiert.",
+            "Policy liefert decision, reason_code und sanitized metadata.",
+            "Tests prüfen erlaubte Source, blockierte ChatSession, Secret-Erkennung und local_only default."
+          ]
+        },
+        {
+          "id": "T09.02",
+          "title": "Secret Redaction für OpenNotebook Metadata",
+          "description": "Sensible Werte in Exporten und Metadaten werden vor Speicherung und Explainability entfernt oder maskiert.",
+          "files": [
+            "agent/sources/open_notebook_redaction.py",
+            "tests/test_open_notebook_redaction.py"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T09.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Redaction erkennt typische Schlüssel: api_key, token, password, secret, authorization, bearer.",
+            "Redaction erkennt sk-ähnliche API-Key-Muster analog RagService._redact_sensitive.",
+            "Redaction verändert nicht den eigentlichen content_hash für Rohcontent, sondern nur gespeicherte Metadaten/Explainability.",
+            "Redaction protokolliert Anzahl redigierter Felder ohne Secret-Werte zu loggen.",
+            "Tests prüfen verschachtelte dict/list-Strukturen."
+          ]
+        },
+        {
+          "id": "T09.03",
+          "title": "License und Provenance Hinweise ergänzen",
+          "description": "Importierte OpenNotebook-Quellen behalten Lizenz-/Herkunftshinweise, soweit vorhanden, und zeigen fallback Hinweise, wenn unbekannt.",
+          "files": [
+            "agent/sources/open_notebook_provenance.py",
+            "frontend-angular/src/app/features/sources/source-citation-panel.component.ts",
+            "tests/test_open_notebook_provenance.py"
+          ],
+          "priority": "P2",
+          "effort": "M",
+          "depends_on": ["T04.05", "T07.04"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Provenance enthält source_system, original_url/file_path, imported_at und export_version.",
+            "Wenn Lizenz unbekannt ist, wird license_status='unknown' gesetzt statt erfunden.",
+            "Citation Panel zeigt license_status im Admin/Detailbereich.",
+            "Tests prüfen bekannte Lizenz, unbekannte Lizenz und fehlende URL."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E10",
+      "title": "End-to-End Tests, Migration Safety und Developer Runbook",
+      "goal": "Die Integration ist durchgehend testbar: Import -> Snapshot -> Index -> Retrieval -> Source Chat -> UI/API, ohne echte externe Dienste.",
+      "tasks": [
+        {
+          "id": "T10.01",
+          "title": "E2E Fixture Flow OpenNotebook Import bis Retrieval",
+          "description": "Ein Test beweist den Kernflow mit complex_export.json.",
+          "files": [
+            "tests/test_open_notebook_e2e_import_retrieval.py"
+          ],
+          "priority": "P1",
+          "effort": "XL",
+          "depends_on": ["T02.02", "T04.02", "T04.05"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Test importiert complex_export.json.",
+            "Test prüft erzeugte KnowledgeCollections und ArtifactDB/ArtifactVersionDB-Einträge.",
+            "Test prüft SourceSnapshot mit source_system='open_notebook'.",
+            "Test ruft RetrievalService.retrieve_context mit source_types=['open_notebook'] auf.",
+            "Test prüft mindestens einen ContextChunk mit source_type='open_notebook'.",
+            "Test prüft explainability.source_type_counts.open_notebook oder äquivalente Zählung.",
+            "Test läuft offline und deterministisch."
+          ]
+        },
+        {
+          "id": "T10.02",
+          "title": "E2E Source Chat mit Citations",
+          "description": "Ein Test beweist source-focused chat ohne echten Provider durch Fake-LLM oder Stub.",
+          "files": [
+            "tests/test_open_notebook_e2e_source_chat.py"
+          ],
+          "priority": "P2",
+          "effort": "L",
+          "depends_on": ["T05.02"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Test importiert Fixture und fragt eine konkrete Source.",
+            "Fake-LLM erhält grounded_prompt mit budgetiertem Kontext.",
+            "Antwort enthält source_references und context_hash.",
+            "include_insights=true fügt derived insights hinzu.",
+            "include_notes=false verhindert Note-Kontext.",
+            "Test prüft, dass keine ChatSession-Inhalte ohne Freigabe im Kontext landen."
+          ]
+        },
+        {
+          "id": "T10.03",
+          "title": "Angular Sources Center Tests",
+          "description": "Frontend-Komponenten werden mit gemocktem SourcesService getestet.",
+          "files": [
+            "frontend-angular/src/app/features/sources/source-list.component.spec.ts",
+            "frontend-angular/src/app/features/sources/source-import-dialog.component.spec.ts",
+            "frontend-angular/src/app/features/sources/source-detail.component.spec.ts",
+            "frontend-angular/src/app/features/sources/source-chat-panel.component.spec.ts"
+          ],
+          "priority": "P2",
+          "effort": "XL",
+          "depends_on": ["T07.01", "T07.02", "T07.04", "T07.05"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Tests laufen ohne echtes Backend durch gemockte Services.",
+            "Source list zeigt OpenNotebook source_type und status korrekt.",
+            "Import dialog validiert link/file/text/open_notebook_export Pfade.",
+            "Detail zeigt Snapshot und Citation Panel.",
+            "Chat Panel rendert SourceReferences aus Antwortdaten.",
+            "Mobile/Card Layout wird mindestens über DOM-Struktur/Klassen abgesichert."
+          ]
+        },
+        {
+          "id": "T10.04",
+          "title": "Developer Runbook schreiben",
+          "description": "Kurze Anleitung: Fixtures importieren, Tests starten, Source im UI ansehen, Retrieval debuggen.",
+          "files": [
+            "docs/integrations/open-notebook/runbook.md"
+          ],
+          "priority": "P2",
+          "effort": "M",
+          "depends_on": ["T10.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Runbook erklärt Fixture-Import über API und optional TUI.",
+            "Runbook nennt relevante Tests und wie sie lokal ausgeführt werden.",
+            "Runbook erklärt Debug-Punkte in RetrievalService, RagService und SourceChatContextService.",
+            "Runbook erklärt, warum OpenNotebook nicht als primäre DB übernommen wird.",
+            "Runbook enthält Troubleshooting für invalid export, duplicate snapshot, empty retrieval und secret redaction."
+          ]
+        },
+        {
+          "id": "T10.05",
+          "title": "Backward Compatibility Gate",
+          "description": "Bestehende Repo/Artifact/Wiki/TaskMemory Retrievals dürfen durch OpenNotebook-Erweiterung nicht brechen.",
+          "files": [
+            "tests/test_open_notebook_backward_compatibility.py"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T04.02"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Default Retrieval ohne source_types verhält sich wie vor der OpenNotebook-Erweiterung, sofern open_notebook nicht explizit aktiviert ist.",
+            "source_types=['repo'] ruft keinen OpenNotebook-Adapter auf.",
+            "source_types=['artifact'] ruft keinen OpenNotebook-Adapter auf.",
+            "Unbekannter source_type wird weiterhin validiert abgelehnt.",
+            "Bestehende RagService explainability Felder bleiben vorhanden.",
+            "Test dokumentiert bewusst, ob open_notebook per Default disabled oder enabled ist."
+          ]
+        }
+      ]
+    }
+  ],
+  "implementation_order": [
+    "T01.01",
+    "T01.02",
+    "T01.03",
+    "T02.01",
+    "T02.02",
+    "T02.03",
+    "T09.01",
+    "T09.02",
+    "T03.01",
+    "T03.02",
+    "T04.01",
+    "T04.02",
+    "T04.05",
+    "T10.05",
+    "T10.01",
+    "T05.01",
+    "T05.02",
+    "T08.01",
+    "T07.01",
+    "T07.02",
+    "T07.04",
+    "T04.03",
+    "T04.04",
+    "T06.01",
+    "T06.02",
+    "T06.03",
+    "T07.03",
+    "T07.05",
+    "T08.02",
+    "T08.03",
+    "T10.02",
+    "T10.03",
+    "T10.04"
+  ],
+  "definition_of_done": [
+    "OpenNotebook Export Fixture kann offline importiert werden.",
+    "Import erzeugt Ananta-Artefakte, Collections, Snapshots und SourceReferences ohne duplizierte Kernmodelle.",
+    "RetrievalService kann source_types=['open_notebook'] gezielt bedienen.",
+    "RagService Explainability zeigt open_notebook Source-Typen und Provenance korrekt.",
+    "Source-focused Chat nutzt Ananta-Kontextlogik und liefert Citations.",
+    "Angular Sources Center kann OpenNotebook Export importieren und Status/Snapshot/Citation anzeigen.",
+    "Secrets werden redigiert und ChatSessions nicht ungefragt indexiert.",
+    "Bestehende repo/artifact/wiki/task_memory Retrievals bleiben rückwärtskompatibel.",
+    "Alle neuen Tests laufen offline und deterministisch."
+  ]
+}
