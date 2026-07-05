@@ -1,0 +1,94 @@
+{
+  "schema_version": "codecompass.repository-intelligence.v1",
+  "snapshot_id": "snap_fixture0001",
+  "extractor": {
+    "id": "manual.fixture",
+    "version": "0.1.0",
+    "build_system": "cmake",
+    "reviewed_revision": null
+  },
+  "repository": {
+    "repository_id": "ananta",
+    "workspace_dir": "/workspace"
+  },
+  "coverage": {
+    "status": "complete",
+    "unsupported_features": []
+  },
+  "entities": {
+    "package_managers": [
+      {"id": "pm:cmake", "kind": "cmake", "version": "3.27"}
+    ],
+    "external_packages": [
+      {"id": "ep:fmt", "name": "fmt", "version": "10.2.1", "registry": "vcpkg"}
+    ],
+    "buildable_components": [
+      {"id": "bc:hello", "name": "hello", "kind": "library", "language": "cpp"}
+    ],
+    "aggregators": [],
+    "runners": [
+      {"id": "rn:ctest", "kind": "ctest"}
+    ],
+    "tests": [
+      {"id": "t:hello_test", "name": "hello_test", "source_file": "tests/hello_test.cpp"}
+    ]
+  },
+  "edges": [
+    {
+      "kind": "depends_on",
+      "from_id": "bc:hello",
+      "to_id": "ep:fmt",
+      "evidence": {
+        "source_file": "/workspace/CMakeLists.txt",
+        "source_kind": "manual_fixture",
+        "reason": "manual_fixture"
+      },
+      "trust": {
+        "trust_level": "manual",
+        "verification_status": "verified",
+        "confidence": 0.9,
+        "evidence": {
+          "source_file": "/workspace/CMakeLists.txt",
+          "source_kind": "manual_fixture",
+          "reason": "manual_fixture"
+        },
+        "provenance": {
+          "source": "manual",
+          "provider_id": "rig.manual",
+          "provider_revision": "0.1.0",
+          "extractor_id": "manual.fixture",
+          "extractor_version": "0.1.0",
+          "build_system": "cmake",
+          "imported_at": "2026-07-05T12:00:00Z"
+        }
+      }
+    },
+    {
+      "kind": "tested_by",
+      "from_id": "bc:hello",
+      "to_id": "rn:ctest",
+      "evidence": {
+        "source_file": "/workspace/CMakeLists.txt",
+        "source_kind": "manual_fixture",
+        "reason": "manual_fixture"
+      },
+      "trust": {
+        "trust_level": "manual",
+        "verification_status": "verified",
+        "confidence": 0.9,
+        "evidence": {
+          "source_file": "/workspace/CMakeLists.txt",
+          "source_kind": "manual_fixture",
+          "reason": "manual_fixture"
+        },
+        "provenance": {
+          "source": "manual",
+          "provider_id": "rig.manual",
+          "provider_revision": "0.1.0",
+          "build_system": "cmake"
+        }
+      }
+    }
+  ],
+  "generated_at": "2026-07-05T12:00:00Z"
+}
