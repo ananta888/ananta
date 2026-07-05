@@ -1,11 +1,26 @@
 {
+  "$schema": "./todo.track.schema.json",
   "id": "todo-cliproxyapi-ist-zustand-analyse-2026-07-05",
   "title": "CLIProxyAPI Ist-Zustand in Ananta analysieren und offizielle Integrationsluecke ableiten",
+  "version": "2.0",
+  "created_at": "2026-07-05",
+  "last_updated": "2026-07-05",
   "status": "open",
   "type": "analysis_todo",
-  "created_at": "2026-07-05",
   "language": "de",
   "owner_hint": "ananta maintainers",
+  "changelog": [
+    "v2.0 (2026-07-05): status_scale + tasks_status_summary ergaenzt (konsistenz mit track.schema). cliproxyapi-008 haengt jetzt von cliproxyapi-001 statt 002 ab (security-analyse vor doku). 004 verbindlicher formuliert (keine 'falls'-ausreden mehr). 005 mock-strategie in 004 zusammengefasst. 007 entscheidungs-trigger expliziter."
+  ],
+  "status_scale": ["open", "in_progress", "partial", "blocked", "done"],
+  "tasks_status_summary": {
+    "total": 9,
+    "by_status": {"open": 9, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+    "progress_percent_done": 0.0,
+    "by_priority": {"high": 5, "medium": 4, "low": 0},
+    "critical_path": {"total": 6, "done": 0, "remaining": 6},
+    "milestones": {"total": 0, "todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}
+  },
   "goal": {
     "short": "Explizit pruefen und dokumentieren, ob CLIProxyAPI bereits durch bestehende Ananta-Mechanismen abgedeckt ist und welche minimale offizielle Integration fehlt.",
     "target_outcome": "Eine belastbare Ist-Zustandsanalyse mit codebasierten Nachweisen, die zeigt: Ananta besitzt bereits CLI-Backend-Routing und OpenAI-kompatible Provider-Unterstuetzung; CLIProxyAPI fehlt aber als benanntes Profil/Adapter/Dokumentationspfad mit Tests und Preflight-Sichtbarkeit.",
@@ -271,16 +286,18 @@
       ],
       "test_cases": [
         "local_openai_backends Eintrag mit id=cliproxyapi wird normalisiert und dedupliziert.",
-        "base_url ohne /v1 wird korrekt normalisiert, falls bestehendes Verhalten das vorsieht.",
+        "base_url ohne /v1 wird korrekt normalisiert; die Normalisierungslogik wird im Test explizit verifiziert (kein 'falls das bestehende Verhalten das vorsieht').",
         "base_url mit /v1 wird nicht zu /v1/v1 verfaelscht.",
         "supports_tool_calls bleibt im Preflight sichtbar.",
         "api_key_profile wird gegen Klartext-api_key bevorzugt oder zumindest erwartbar behandelt, je nach bestehendem Kontrakt."
       ],
+      "shared_mock_strategy": "HTTP-Aufrufe zu /v1/models werden ueber responses/requests-mocks oder bestehende Probe-Helper isoliert. Keine echten globalen Config- oder XDG_CONFIG_HOME-Aenderungen. Diese Strategie gilt gleichermassen fuer cliproxyapi-005 und alle folgenden Test-Tasks.",
       "acceptance_criteria": [
         "Tests laufen ohne echte CLIProxyAPI-Instanz.",
         "HTTP-Aufrufe zu /v1/models werden gemockt oder bestehende Probe-Funktionen isoliert getestet.",
         "Tests bestaetigen, dass keine Sonderarchitektur noetig ist, solange OpenAI-compatible Contract erfuellt ist.",
-        "Fehlschlag bei invalid_url wird klar erwartet und dokumentiert."
+        "Fehlschlag bei invalid_url wird klar erwartet und dokumentiert.",
+        "Keine Test-Datei setzt echte globale User-Konfig oder echte XDG_CONFIG_HOME dauerhaft (shared_mock_strategy)."
       ]
     },
     {
@@ -334,6 +351,7 @@
       "status": "open",
       "priority": "medium",
       "depends_on": ["cliproxyapi-004-test-local-openai-backend-normalization"],
+      "decision_trigger": "Die Wahl zwischen den drei implementation_options wird bei Abschluss von cliproxyapi-004 entschieden, sobald die Mock-Strategie und das Preflight-Rendering-Layer konkret vorliegen. Bis dahin gilt: 'Nur Doku' als sicherer Default, falls die Optionen 'Kleines Label' oder 'Health-Hinweis' das bestehende LM Studio/Ollama-Preflight-Format brechen wuerden.",
       "implementation_options": [
         "Nur Doku: Nutzer sieht CLIProxyAPI unter providers.local_openai.",
         "Kleines Label: Wenn provider_id=cliproxyapi, display_name='CLI Proxy API'.",
@@ -342,7 +360,8 @@
       "acceptance_criteria": [
         "Preflight zeigt cliproxyapi mit provider, name, base_url, supports_tool_calls und provider_type an.",
         "Nicht konfigurierte CLIProxyAPI erzeugt keinen Fehler und keine falsche Warnung.",
-        "Bestehende LM Studio/Ollama Preflight-Ausgabe bleibt kompatibel."
+        "Bestehende LM Studio/Ollama Preflight-Ausgabe bleibt kompatibel.",
+        "Die gewaehlte implementation_option und ihre Begruendung sind in cliproxyapi-009 dokumentiert."
       ]
     },
     {
@@ -350,7 +369,7 @@
       "title": "Security-Grenze fuer CLIProxyAPI dokumentieren",
       "status": "open",
       "priority": "high",
-      "depends_on": ["cliproxyapi-002-add-doc-profile"],
+      "depends_on": ["cliproxyapi-001-map-existing-code-paths"],
       "required_points": [
         "Ananta kontrolliert Hub/Worker/Policy/Audit, aber nicht automatisch die internen Account- und OAuth-Flows von CLIProxyAPI.",
         "CLIProxyAPI kann mehrere externe CLIs/Accounts routen; daraus folgt eine eigene Vertrauensgrenze.",

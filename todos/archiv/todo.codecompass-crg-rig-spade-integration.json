@@ -1,5 +1,5 @@
 {
-  "$schema": "./todo.track.schema.json",
+  "$schema": "../todo.track.schema.json",
   "version": "2.2",
   "owner": "Peter Stuiber / Ananta",
   "track": "codecompass-crg-rig-spade-integration",
