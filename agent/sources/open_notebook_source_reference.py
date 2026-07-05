@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 from datetime import UTC, datetime
 from pathlib import Path
@@ -29,18 +28,12 @@ def validate_source_reference_payload(payload: dict[str, Any]) -> list[str]:
     return [f"{'/'.join(map(str, e.path)) or '$'}: {e.message}" for e in errors]
 
 
-def _synthetic_snapshot_id(*parts: str) -> str:
-    digest = hashlib.sha1("|".join(str(part or "") for part in parts).encode("utf-8")).hexdigest()[:16]
-    return f"snap_{digest}"
-
-
 def build_source_reference(metadata: Mapping[str, Any]) -> dict[str, Any]:
     """Build a schema-valid source_reference.v1 for an OpenNotebook chunk.
 
     Works from normalized chunk metadata (adapter output) or importer record
-    import_metadata. Notes have no own snapshot; they get a deterministic
-    synthetic snapshot id derived from their artifact id and are marked as
-    synthetic in extensions.
+    import_metadata. Missing provenance identifiers are rejected instead of
+    being synthesized into apparently grounded citations.
     """
     payload = dict(metadata or {})
     record_kind = str(payload.get("record_kind") or "primary_source").strip()
@@ -50,16 +43,17 @@ def build_source_reference(metadata: Mapping[str, Any]) -> dict[str, Any]:
     source_id = (
         str(payload.get("registry_source_id") or "").strip()
         or str(payload.get("source_id") or "").strip()
-        or "open-notebook-unknown"
     )
-    chunk_id = str(payload.get("chunk_id") or "").strip() or f"onb:{_synthetic_snapshot_id(source_id)[5:]}"
+    if not source_id:
+        raise ValueError("unverified_source_reference:source_id_missing")
+    chunk_id = str(payload.get("chunk_id") or "").strip()
+    if not chunk_id:
+        raise ValueError("unverified_source_reference:chunk_id_missing")
     title = str(payload.get("source_title") or payload.get("title") or source_id).strip() or source_id
 
     snapshot_id = str(payload.get("snapshot_id") or payload.get("parent_source_snapshot_id") or "").strip()
-    synthetic_snapshot = False
     if not snapshot_id:
-        snapshot_id = _synthetic_snapshot_id(source_id, str(payload.get("artifact_id") or ""), chunk_id)
-        synthetic_snapshot = True
+        raise ValueError("unverified_source_reference:snapshot_id_missing")
 
     canonical_url = str(payload.get("canonical_url") or "").strip()
     file_path = str(payload.get("file_path") or "").strip()
@@ -96,7 +90,7 @@ def build_source_reference(metadata: Mapping[str, Any]) -> dict[str, Any]:
             "artifact_id": str(payload.get("artifact_id") or "") or None,
             "content_hash": str(payload.get("content_hash") or "") or None,
             "file_path": file_path or None,
-            "synthetic_snapshot": synthetic_snapshot,
+            "synthetic_snapshot": False,
         },
     }
     if record_kind == "source_insight":
@@ -150,7 +144,10 @@ def build_source_references_for_chunks(chunks: list[Mapping[str, Any]]) -> list[
         metadata = dict((chunk or {}).get("metadata") or {})
         if str(metadata.get("source_type") or "") != "open_notebook":
             continue
-        reference = build_source_reference(metadata)
+        try:
+            reference = build_source_reference(metadata)
+        except ValueError:
+            continue
         key = f"{reference['source_id']}|{reference['snapshot_id']}|{reference['chunk_id']}"
         if key in seen:
             continue

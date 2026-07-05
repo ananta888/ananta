@@ -49,11 +49,13 @@ def source_content_hash(source: dict[str, Any]) -> str:
 
 
 def build_import_key(payload: dict[str, Any]) -> str:
-    """Deterministic key over stable ids and content hashes for idempotent re-imports."""
+    """Deterministic identity for one external notebook/source set.
+
+    Content hashes intentionally do not participate: changed source content is
+    a new snapshot of the same imported source set, not a new registry source.
+    """
     notebooks = sorted(str(item.get("id") or "") for item in list(payload.get("notebooks") or []))
-    sources = sorted(
-        f"{item.get('id')}:{source_content_hash(item)}" for item in list(payload.get("sources") or []) if isinstance(item, dict)
-    )
+    sources = sorted(str(item.get("id") or "") for item in list(payload.get("sources") or []) if isinstance(item, dict))
     basis = json.dumps({"notebooks": notebooks, "sources": sources}, sort_keys=True, separators=(",", ":"))
     return _sha256_text(basis)
 

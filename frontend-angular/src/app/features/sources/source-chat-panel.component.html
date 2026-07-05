@@ -1,0 +1,15 @@
+<section class="source-chat">
+  <h4>Source Chat</h4>
+  <textarea [(ngModel)]="prompt" placeholder="Frage zu dieser Quelle"></textarea>
+  <label><input type="checkbox" [(ngModel)]="includeInsights"> Insights</label>
+  <label><input type="checkbox" [(ngModel)]="includeNotes"> Notes</label>
+  <button class="btn" (click)="send()" [disabled]="loading">Fragen</button>
+  @if (error) { <p class="error">{{ error }}</p> }
+  @if (response) {
+    <p>{{ response.answer }}</p>
+    <small>context={{ response.context_hash }}</small>
+    @for (reference of response.source_references || []; track reference.chunk_id) {
+      <details><summary>{{ reference.title }}</summary><code>{{ reference.canonical_url }}</code></details>
+    }
+  }
+</section>

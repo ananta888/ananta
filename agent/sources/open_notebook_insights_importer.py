@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from typing import Any
 
 from agent.services.wiki_chunking_policy import split_wiki_content
@@ -32,6 +33,7 @@ class OpenNotebookInsightsImporter:
         snapshots_by_source: dict[str, dict[str, Any]],
         artifacts_by_source: dict[str, Any],
         created_by: str | None = None,
+        existing_state: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         imported = 0
         skipped = 0
@@ -39,9 +41,17 @@ class OpenNotebookInsightsImporter:
         issues: list[dict[str, Any]] = []
         records: list[dict[str, Any]] = []
         artifact_ids: list[str] = []
+        state = dict(existing_state or {})
 
         for insight in insights:
             insight_id = str(insight.get("id") or "").strip()
+            insight_hash = hashlib.sha256(
+                json.dumps(insight, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+            ).hexdigest()
+            if str(dict(state.get(insight_id) or {}).get("content_hash") or "") == insight_hash:
+                skipped += 1
+                issues.append({"reason_code": "duplicate_insight", "insight_id": insight_id})
+                continue
             parent_source_id = str(insight.get("source_id") or "").strip()
             decision = self._policy.evaluate_record(insight, section="source_insights")
             if not decision.allowed:
@@ -99,6 +109,7 @@ class OpenNotebookInsightsImporter:
                 continue
             imported += 1
             artifact_ids.append(str(artifact.id))
+            state[insight_id] = {"content_hash": insight_hash, "artifact_id": str(artifact.id)}
             for ordinal, chunk_text in enumerate(split_wiki_content(content, max_chars=700), start=1):
                 digest = hashlib.sha256(f"insight|{insight_id}|{chunk_text}".encode("utf-8")).hexdigest()[:16]
                 records.append(
@@ -125,6 +136,14 @@ class OpenNotebookInsightsImporter:
                             "insight_type": insight_type,
                             "import_key": import_key,
                             "source_title": title,
+                            "llm_scope": str((decision.sanitized_metadata or {}).get("llm_scope") or "local_only"),
+                            "sensitivity": str(
+                                (decision.sanitized_metadata or {}).get("sensitivity") or "internal_high"
+                            ),
+                            "raw_allowed": bool((decision.sanitized_metadata or {}).get("raw_allowed", False)),
+                            "source_origin": str(
+                                (decision.sanitized_metadata or {}).get("source_origin") or "external_research"
+                            ),
                         },
                     }
                 )
@@ -136,4 +155,5 @@ class OpenNotebookInsightsImporter:
             "issues": issues,
             "records": records,
             "artifact_ids": artifact_ids,
+            "state": state,
         }

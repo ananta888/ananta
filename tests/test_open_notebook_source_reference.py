@@ -51,13 +51,19 @@ def test_text_source_reference_falls_back_to_ananta_uri():
     assert reference["canonical_url"].startswith("ananta://open-notebook/")
 
 
-def test_note_reference_gets_synthetic_snapshot_and_label():
+def test_note_reference_uses_parent_snapshot_and_label():
     reference = build_source_reference(
-        _base_metadata(record_kind="note", note_type="human", snapshot_id=None, canonical_url=None)
+        _base_metadata(
+            record_kind="note",
+            note_type="human",
+            snapshot_id=None,
+            parent_source_snapshot_id="snap_feedfacefeedface",
+            canonical_url=None,
+        )
     )
     assert validate_source_reference_payload(reference) == []
-    assert reference["snapshot_id"].startswith("snap_")
-    assert reference["extensions"]["synthetic_snapshot"] is True
+    assert reference["snapshot_id"] == "snap_feedfacefeedface"
+    assert reference["extensions"]["synthetic_snapshot"] is False
     assert reference["extensions"]["record_kind"] == "note"
     assert reference["extensions"]["note_type"] == "human"
     assert reference["extensions"]["citation_label"].startswith("[note]")
@@ -82,12 +88,15 @@ def test_insight_reference_keeps_parent_and_transformation():
     assert reference["extensions"]["citation_label"].startswith("[derived insight]")
 
 
-def test_reference_is_deterministic_from_metadata():
-    metadata = _base_metadata(record_kind="note", snapshot_id=None)
-    first = build_source_reference(metadata)
-    second = build_source_reference(dict(metadata))
-    assert first["snapshot_id"] == second["snapshot_id"]
-    assert first["chunk_id"] == second["chunk_id"]
+def test_reference_rejects_missing_grounding_ids():
+    import pytest
+
+    with pytest.raises(ValueError, match="snapshot_id_missing"):
+        build_source_reference(_base_metadata(record_kind="note", snapshot_id=None))
+    with pytest.raises(ValueError, match="source_id_missing"):
+        build_source_reference(_base_metadata(registry_source_id=None, source_id=None))
+    with pytest.raises(ValueError, match="chunk_id_missing"):
+        build_source_reference(_base_metadata(chunk_id=None))
 
 
 def test_build_references_for_chunks_dedupes_and_filters():

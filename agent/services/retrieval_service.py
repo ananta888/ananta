@@ -227,6 +227,7 @@ class RetrievalService:
         source_types: list[str] | None = None,
         retrieval_profile: dict | None = None,
         domain_scope: object | None = None,
+        source_constraints: dict[str, str] | None = None,
     ) -> dict[str, object]:
         # CRPS-008: extract profile source_types if not explicitly provided
         effective_source_types_override: list[str] | None = source_types
@@ -290,6 +291,7 @@ class RetrievalService:
                     top_k=knowledge_top_k,
                     task_kind=task_kind,
                     retrieval_intent=retrieval_intent,
+                    source_constraints=source_constraints,
                 )
             )
         memory_chunks: list[ContextChunk] = []

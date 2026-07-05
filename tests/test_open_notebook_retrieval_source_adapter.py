@@ -39,7 +39,7 @@ def test_adapter_returns_hits_with_complete_metadata(tmp_path):
     assert primary[0].metadata["snapshot_id"].startswith("snap_")
     # normalize_chunk_metadata ran: citation and security metadata present
     assert metadata["citation"]["source_type"] == "open_notebook"
-    assert metadata["security_metadata"]["source_origin"] == "open_notebook"
+    assert metadata["security_metadata"]["source_origin"] == "external_research"
 
 
 def test_adapter_empty_search_returns_no_chunks(tmp_path):

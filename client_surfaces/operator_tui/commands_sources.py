@@ -163,28 +163,20 @@ def handle_sources_command(args: list[str], state: OperatorState) -> CommandResu
     if action == "chat":
         if len(args) < 3:
             return CommandResult(state, "sources chat <source-id> <question>", handled=False)
-        from agent.services.source_chat_context_service import get_source_chat_context_service
+        from agent.services.source_chat_service import get_source_chat_service
 
         source_id = str(args[1]).strip()
         question = " ".join(args[2:]).strip()
         try:
-            context = get_source_chat_context_service().build_context(prompt=question, source_ref=source_id)
+            payload = get_source_chat_service().answer(prompt=question, source_ref=source_id)
         except ValueError as exc:
             return CommandResult(state, f"sources chat {source_id}: {exc}", handled=False)
-        from agent.services.chat_partial_summary_service import call_llm_text
-
-        answer = call_llm_text(context["grounded_prompt"]) or ""
-        references = list(context.get("source_references") or [])
+        answer = str(payload.get("answer") or "")
+        references = list(payload.get("source_references") or [])
         labels = " | ".join(
             str(dict(item.get("extensions") or {}).get("citation_label") or item.get("title") or "")
             for item in references[:3]
         )
-        payload = {
-            "source_id": source_id,
-            "answer": answer,
-            "context_hash": context.get("context_hash"),
-            "source_references": references,
-        }
         msg = f"sources chat {source_id}: refs={len(references)} {labels}"
         return CommandResult(state.with_updates(status_message=msg[:240]), json.dumps(payload, ensure_ascii=False))
     if action == "cache":

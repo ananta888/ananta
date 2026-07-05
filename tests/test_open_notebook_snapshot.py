@@ -53,13 +53,13 @@ def test_changed_content_creates_new_indexed_snapshot(tmp_path):
     second = env.importer.import_export(payload)
 
     assert second["imported"]["sources"] == 1
-    assert first["registry_source_id"] != second["registry_source_id"]
+    assert first["registry_source_id"] == second["registry_source_id"]
     new_snapshots = env.snapshots.list_snapshots(source_id=second["registry_source_id"])
-    assert len(new_snapshots) == 1
+    assert len(new_snapshots) == 2
     assert new_snapshots[0]["status"] == "indexed"
     assert (
         new_snapshots[0]["extensions"]["content_hash"]
-        != env.snapshots.list_snapshots(source_id=first["registry_source_id"])[0]["extensions"]["content_hash"]
+        != new_snapshots[1]["extensions"]["content_hash"]
     )
 
 

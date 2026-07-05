@@ -46,6 +46,7 @@ class RagService:
         source_types: list[str] | None = None,
         retrieval_profile: dict | None = None,
         domain_scope: object | None = None,
+        source_constraints: dict[str, str] | None = None,
     ) -> dict[str, object]:
         context_payload = self._retrieval_service.retrieve_context(
             query,
@@ -57,6 +58,7 @@ class RagService:
             source_types=source_types,
             retrieval_profile=retrieval_profile,
             domain_scope=domain_scope,
+            source_constraints=source_constraints,
         )
         bundle = self._context_bundle_service.build_bundle(
             query=query,

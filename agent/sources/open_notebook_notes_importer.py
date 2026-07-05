@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from typing import Any
 
 from agent.services.wiki_chunking_policy import split_wiki_content
@@ -33,6 +34,8 @@ class OpenNotebookNotesImporter:
         registry_source_id: str,
         collection_names_by_notebook: dict[str, str],
         created_by: str | None = None,
+        existing_state: dict[str, Any] | None = None,
+        snapshots_by_source: dict[str, dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         imported = 0
         skipped = 0
@@ -40,9 +43,18 @@ class OpenNotebookNotesImporter:
         issues: list[dict[str, Any]] = []
         records: list[dict[str, Any]] = []
         artifact_ids: list[str] = []
+        state = dict(existing_state or {})
+        parent_snapshots = dict(snapshots_by_source or {})
 
         for note in notes:
             note_id = str(note.get("id") or "").strip()
+            note_hash = hashlib.sha256(
+                json.dumps(note, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+            ).hexdigest()
+            if str(dict(state.get(note_id) or {}).get("content_hash") or "") == note_hash:
+                skipped += 1
+                issues.append({"reason_code": "duplicate_note", "note_id": note_id})
+                continue
             decision = self._policy.evaluate_record(note, section="notes")
             if not decision.allowed:
                 skipped += 1
@@ -88,6 +100,7 @@ class OpenNotebookNotesImporter:
                 continue
             imported += 1
             artifact_ids.append(str(artifact.id))
+            state[note_id] = {"content_hash": note_hash, "artifact_id": str(artifact.id)}
             records.extend(
                 self._build_note_records(
                     note=note,
@@ -98,6 +111,10 @@ class OpenNotebookNotesImporter:
                     registry_source_id=registry_source_id,
                     import_key=import_key,
                     collection_name=collection_name,
+                    policy_metadata=dict(decision.sanitized_metadata or {}),
+                    parent_snapshot_id=str(
+                        dict(parent_snapshots.get(str(note.get("source_id") or "")) or {}).get("snapshot_id") or ""
+                    ),
                 )
             )
 
@@ -108,6 +125,7 @@ class OpenNotebookNotesImporter:
             "issues": issues,
             "records": records,
             "artifact_ids": artifact_ids,
+            "state": state,
         }
 
     def _build_note_records(
@@ -121,6 +139,8 @@ class OpenNotebookNotesImporter:
         registry_source_id: str,
         import_key: str,
         collection_name: str | None,
+        policy_metadata: dict[str, Any],
+        parent_snapshot_id: str,
     ) -> list[dict[str, Any]]:
         note_id = str(note.get("id") or "")
         records: list[dict[str, Any]] = []
@@ -148,6 +168,11 @@ class OpenNotebookNotesImporter:
                         "collection_names": [collection_name] if collection_name else [],
                         "import_key": import_key,
                         "source_title": title,
+                        "parent_source_snapshot_id": parent_snapshot_id or None,
+                        "llm_scope": str(policy_metadata.get("llm_scope") or "local_only"),
+                        "sensitivity": str(policy_metadata.get("sensitivity") or "internal_high"),
+                        "raw_allowed": bool(policy_metadata.get("raw_allowed", False)),
+                        "source_origin": str(policy_metadata.get("source_origin") or "external_research"),
                     },
                 }
             )

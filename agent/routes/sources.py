@@ -178,17 +178,17 @@ def source_chat(source_id: str):
     if not prompt:
         raise BadRequestError("prompt_required")
 
-    from agent.services.source_chat_context_service import get_source_chat_context_service
+    from agent.services.source_chat_service import get_source_chat_service
 
     try:
-        context = get_source_chat_context_service().build_context(
+        result = get_source_chat_service().answer(
             prompt=prompt,
             source_ref=source_id,
             include_insights=bool(payload.get("include_insights", True)),
             include_notes=bool(payload.get("include_notes", False)),
             max_chunks=payload.get("max_chunks"),
             provenance_visibility=str(payload.get("provenance_visibility") or "") or None,
-            llm_scope=str(payload.get("llm_scope") or "") or None,
+            requested_llm_scope=str(payload.get("llm_scope") or "") or None,
         )
     except ValueError as exc:
         reason = str(exc)
@@ -198,21 +198,7 @@ def source_chat(source_id: str):
             raise BadRequestError("open_notebook_source_disabled")
         raise BadRequestError(reason)
 
-    from agent.services.chat_partial_summary_service import call_llm_text
-
-    answer = call_llm_text(context["grounded_prompt"]) or ""
-    bundle = dict(context.get("context_bundle") or {})
-    return api_response(
-        data={
-            "source_id": source_id,
-            "answer": answer,
-            "source_references": context["source_references"],
-            "context_hash": context["context_hash"],
-            "explainability": dict(bundle.get("explainability") or {}),
-            "selected_sources": context["selected_sources"],
-            "budget": context["budget"],
-        }
-    )
+    return api_response(data=result)
 
 
 @sources_bp.route("/sources/<source_id>", methods=["GET"])

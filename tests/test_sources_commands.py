@@ -4,6 +4,7 @@ from client_surfaces.operator_tui.commands import execute_command
 from client_surfaces.operator_tui.models import OperatorState
 from agent.sources.source_registry import SourceRegistry
 from agent.sources.source_snapshot_store import SourceSnapshotStore
+import json
 
 
 def _descriptor() -> dict:
@@ -100,3 +101,47 @@ def test_sources_pack_commands_list_show_bootstrap(monkeypatch, tmp_path) -> Non
     query = execute_command(":sources pack query ananta-dev-default how to build eclipse plugin?", bootstrap.state)
     assert query.handled is True
     assert "\"source_references\"" in query.message
+
+
+def test_sources_import_open_notebook_command(monkeypatch, tmp_path) -> None:
+    from agent.sources import open_notebook_importer as importer_module
+
+    export_path = tmp_path / "export.json"
+    export_path.write_text(json.dumps({"schema": "open_notebook_export.v1"}), encoding="utf-8")
+
+    class _Importer:
+        def import_export(self, payload, **_kwargs):
+            assert payload["schema"] == "open_notebook_export.v1"
+            return {
+                "status": "completed",
+                "imported": {"sources": 1, "notes": 0, "insights": 0},
+                "registry_source_id": "open-notebook-1",
+            }
+
+    monkeypatch.setattr(importer_module, "get_open_notebook_importer", lambda: _Importer())
+    result = execute_command(f":sources import-open-notebook {export_path}", OperatorState(endpoint="http://localhost"))
+    assert result.handled is True
+    assert "open-notebook-1" in result.message
+
+
+def test_sources_chat_command(monkeypatch) -> None:
+    from agent.services import source_chat_service as chat_module
+
+    class _Chat:
+        def answer(self, **_kwargs):
+            return {
+                "source_id": "open-notebook-1",
+                "answer": "grounded",
+                "context_hash": "hash",
+                "source_references": [
+                    {"title": "Source", "extensions": {"citation_label": "Source citation"}}
+                ],
+            }
+
+    monkeypatch.setattr(chat_module, "get_source_chat_service", lambda: _Chat())
+    result = execute_command(
+        ":sources chat open-notebook-1 what is grounded?",
+        OperatorState(endpoint="http://localhost"),
+    )
+    assert result.handled is True
+    assert "grounded" in result.message

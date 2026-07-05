@@ -74,8 +74,15 @@ class OpenNotebookImportPolicy:
             sanitized_metadata = {}
 
         sharing_approved = bool(sanitized_metadata.get("sharing_approved", False))
-        if not sharing_approved:
+        if sharing_approved:
+            sanitized_metadata["llm_scope"] = "external_cloud_allowed"
+            sanitized_metadata["sensitivity"] = "internal_low"
+            sanitized_metadata["raw_allowed"] = True
+        else:
             sanitized_metadata["llm_scope"] = "local_only"
+            sanitized_metadata["sensitivity"] = "internal_high"
+            sanitized_metadata["raw_allowed"] = False
+        sanitized_metadata["source_origin"] = "external_research"
 
         return PolicyDecision(
             allowed=True,

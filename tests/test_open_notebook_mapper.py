@@ -83,12 +83,14 @@ def test_duplicate_source_id_raises():
         OpenNotebookMapper().map_export(payload)
 
 
-def test_import_key_is_deterministic_and_content_sensitive():
+def test_import_key_is_deterministic_and_content_stable():
     payload = _load("minimal_export.json")
     key_one = build_import_key(payload)
     key_two = build_import_key(json.loads(json.dumps(payload)))
     assert key_one == key_two
     payload["sources"][0]["full_text"] = "changed content"
+    assert build_import_key(payload) == key_one
+    payload["sources"][0]["id"] = "different-source"
     assert build_import_key(payload) != key_one
 
 

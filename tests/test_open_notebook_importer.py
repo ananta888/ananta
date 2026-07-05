@@ -76,7 +76,9 @@ def test_repeated_import_is_idempotent(tmp_path):
 
     assert first["registry_source_id"] == second["registry_source_id"]
     assert second["imported"]["sources"] == 0
+    assert second["imported"]["notes"] == 0
     assert second["skipped"]["sources"] == 1
+    assert second["skipped"]["notes"] == 1
     assert any(issue["reason_code"] == "duplicate_content_hash" for issue in second["issues"])
     # no duplicate descriptors, snapshots stay single-indexed
     assert len(env.registry.list_sources()) == 1
@@ -84,6 +86,23 @@ def test_repeated_import_is_idempotent(tmp_path):
     assert len([s for s in snapshots if s["status"] == "indexed"]) == 1
     # collections resolve by name: only one collection object created
     assert len(env.ingestion.collections) == 1
+    assert len(env.ingestion.uploads) == 2
+    assert len(env.index_repo.saved) == 1
+
+
+def test_distinct_sources_with_same_content_are_not_deduplicated(tmp_path):
+    env = build_importer(tmp_path)
+    payload = _load("minimal_export.json")
+    second_source = dict(payload["sources"][0])
+    second_source["id"] = "src-same-content-other-id"
+    second_source["title"] = "Independent source with shared text"
+    payload["sources"].append(second_source)
+
+    result = env.importer.import_export(payload)
+
+    assert result["imported"]["sources"] == 2
+    assert result["skipped"]["sources"] == 0
+    assert len(result["snapshot_ids"]) == 2
 
 
 def test_complex_import_links_shared_source_to_both_collections(tmp_path):

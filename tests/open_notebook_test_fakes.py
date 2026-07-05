@@ -107,6 +107,7 @@ def build_importer(tmp_path, *, policy=None, ingestion=None):
     from agent.sources.open_notebook_importer import OpenNotebookImporter
     from agent.sources.source_registry import SourceRegistry
     from agent.sources.source_snapshot_store import SourceSnapshotStore
+    from agent.sources.open_notebook_import_state import OpenNotebookImportStateStore
 
     ingestion = ingestion or FakeIngestionService()
     artifact_repo = FakeArtifactRepo()
@@ -126,6 +127,7 @@ def build_importer(tmp_path, *, policy=None, ingestion=None):
         policy=policy,
         index_root=tmp_path / "indices",
         knowledge_index_factory=fake_knowledge_index_factory,
+        import_state_store=OpenNotebookImportStateStore(root=tmp_path / "import-state"),
     )
     return SimpleNamespace(
         importer=importer,

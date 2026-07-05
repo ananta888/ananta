@@ -6,9 +6,11 @@
     "description": "Feingranularer Plan, um lfnovo/open-notebook als externe NotebookLM-ähnliche Research-Quelle sauber in Ananta zu integrieren. Fokus: Adapter/Importer statt Kernarchitektur-Kopie, Wiederverwendung der bestehenden Reliable-Sources-Infrastruktur (SourceRegistry, SourceSnapshotStore, SourcePackService, citation_formatter, sources-Route, TUI :sources), RetrievalService-Adapter, Erweiterung des bestehenden Angular Sources Centers, source-focused chat mode und Tests mit Offline-Fixtures.",
     "created": "2026-07-05",
     "last_updated": "2026-07-05",
-    "version": "2.0",
-    "status": "open",
+    "version": "3.0",
+    "status": "done",
     "changelog": [
+      "v3.0 (2026-07-05): Restumfang abgeschlossen. Importidentität und Deduplizierung pro externer Source gehärtet, idempotenter Zustand für Sources/Notes/Insights ergänzt, Source-Chat vor Top-K source-scoped gemacht, tatsächlichen Provider-Scope vor LLM-Aufruf erzwungen und synthetische Grounding-IDs entfernt. Transformationen, Provenance, TUI-Tests, Angular SourcesService/Import/Detail/Chat, E2E-/Kompatibilitäts-Gates und Runbook ergänzt. Alle Tasks nach bestandenen Backend-, Frontend- und Build-Gates auf done gesetzt.",
+      "v2.1 (2026-07-05): Implementierungsstand der Commits f7f69dfad und e089ff576 abgeglichen. Nachgewiesen vollständige Tasks auf done gesetzt; Tasks mit offenen Idempotenz-, Source-Grounding-, Scope- oder Testproblemen auf in_progress gesetzt. Noch nicht implementierte Frontend-, Transformations-, Provenance-, E2E- und Runbook-Tasks bleiben open.",
       "v2.0 (2026-07-05): Realitätsabgleich mit Codebase. Bestehende Infrastruktur dokumentiert (siehe current_state). Tasks T06.03, T07.03, T08.02 entfernt (Async-Status/Retry-Infrastruktur ist für den synchronen Fixture-Import verfrüht, siehe removed_tasks). T02.03 nutzt SourceSnapshotStore + source_snapshot.v1.json statt neuem Schema. T03.01 erzeugt echten Descriptor statt Doku-Beispiel. T03.03 nutzt sources/source-packs/ Konvention. T08.01/T08.03/T07.01 als Erweiterung bestehender Route/TUI/Komponente umformuliert. implementation_order vollständig und konsistent zu depends_on (v1.0 fehlten T02.04, T02.05, T03.03, T05.03, T09.03). Efforts an reale Wiederverwendung angepasst. E06 auf P3 heruntergestuft.",
       "v1.0 (2026-07-05): Initialer Plan."
     ],
@@ -216,7 +218,7 @@
           "priority": "P1",
           "effort": "S",
           "depends_on": [],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Dokument nennt explizit die OpenNotebook-Referenzdateien README.md, docs/7-DEVELOPMENT/architecture.md, open_notebook/domain/notebook.py, api/sources_service.py, open_notebook/graphs/source.py und open_notebook/graphs/source_chat.py.",
             "Dokument übernimmt die Mapping-Tabelle aus diesem Todo-File (Notebook -> KnowledgeCollection/SourcePack, Source -> Artifact/SourceSnapshot/Descriptor, Note -> Artifact/Memory, SourceInsight -> TransformationArtifact, ChatSession -> optional ResultMemory).",
@@ -237,7 +239,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T01.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "minimal_export.json enthält genau ein notebook, eine source und optional eine note.",
             "complex_export.json enthält mehrere notebooks, gemeinsam genutzte sources, notes, source_insights, transformations und chat_sessions.",
@@ -258,7 +260,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T01.02"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Schema validiert notebooks, sources, notes, source_insights, transformations und chat_sessions als optionale Top-Level-Arrays.",
             "Schema fordert stabile ids für notebooks und sources.",
@@ -286,7 +288,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": ["T01.03"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Mapper erzeugt für jedes OpenNotebook Notebook einen KnowledgeCollection-Plan mit stable external_id.",
             "Mapper erzeugt für jede OpenNotebook Source einen Artifact-Plan mit filename/title/media_type/content/url/file_path/topics.",
@@ -308,7 +310,7 @@
           "priority": "P1",
           "effort": "XL",
           "depends_on": ["T02.01", "T09.01", "T09.02"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Importer ruft für Inline-/Text-Quellen IngestionService.upload_artifact mit filename, content, media_type und collection_name auf.",
             "Importer nutzt bestehende ArtifactDB/ArtifactVersionDB-Felder latest_sha256, latest_media_type, latest_filename und size_bytes statt neue parallele Felder anzulegen.",
@@ -333,7 +335,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T02.02"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Snapshots werden über SourceSnapshotStore.build_snapshot/save_snapshot erzeugt und validieren gegen schemas/sources/source_snapshot.v1.json.",
             "extensions enthält source_system='open_notebook', notebook_refs, open_notebook.source_id, imported_at und source_title sowie source_url/file_path.",
@@ -354,7 +356,7 @@
           "priority": "P2",
           "effort": "M",
           "depends_on": ["T02.02"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Importer unterscheidet note_type human, ai oder unknown, sofern Exportdaten dies hergeben.",
             "Notes erhalten metadata.source_system='open_notebook_note'.",
@@ -375,7 +377,7 @@
           "priority": "P2",
           "effort": "L",
           "depends_on": ["T02.02"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Insights erhalten parent_source_id und parent_source_snapshot_id, wenn verfügbar.",
             "Insights erhalten record_kind='source_insight' und derived_from='open_notebook'.",
@@ -404,7 +406,7 @@
           "priority": "P1",
           "effort": "S",
           "depends_on": ["T01.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Descriptor enthält source_id='open-notebook-local-export' oder ähnlich stabilen Wert und source_type='open_notebook'.",
             "fetch_source beschreibt export_file oder api_base_url, aber keine Secrets.",
@@ -425,7 +427,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T03.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Profil validiert gegen schemas/domain/rag_source_profile.v1.json.",
             "Profil nutzt einen der vom Loader akzeptierten ingestion_path-Werte: codecompass, rag_helper oder codecompass/rag_helper.",
@@ -447,7 +449,7 @@
           "priority": "P2",
           "effort": "S",
           "depends_on": ["T03.02"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Pack validiert gegen schemas/sources/source_pack.v1.json (validate_source_pack_payload).",
             "Pack verweist auf den OpenNotebook SourceDescriptor und das RagSourceProfile.",
@@ -475,7 +477,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": ["T02.02", "T03.02"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Adapter-Klasse heißt OpenNotebookKnowledgeSourceAdapter und erfüllt das RetrievalSourceAdapter-Protocol aus retrieval_source_contract.py.",
             "Adapter nutzt KnowledgeIndexRetrievalService oder die ArtifactKnowledgeSourceAdapter-Mechanik statt eigene Suchlogik zu duplizieren.",
@@ -499,7 +501,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": ["T04.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "SOURCE_TYPES/_SOURCE_TYPE_SET enthält 'open_notebook'; normalize_requested_source_types akzeptiert es und lehnt unbekannte Typen weiterhin mit invalid_source_type ab.",
             "agent/config.py enthält rag_source_open_notebook_enabled (validation_alias RAG_SOURCE_OPEN_NOTEBOOK_ENABLED) mit default=False, analog rag_source_wiki_enabled.",
@@ -522,7 +524,7 @@
           "priority": "P2",
           "effort": "M",
           "depends_on": ["T04.02"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "task_profile_for_fusion berücksichtigt source_type='open_notebook'.",
             "Bei retrieval_intent research/notebook/notes erhält open_notebook positiven Bonus.",
@@ -543,7 +545,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T04.02"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "explainability.source_types enthält open_notebook, wenn entsprechende Chunks genutzt werden.",
             "source_type_counts zählt open_notebook korrekt.",
@@ -564,7 +566,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T02.03", "T04.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "SourceReference validiert gegen schemas/sources/source_reference.v1.json.",
             "SourceReference enthält source_system, notebook_id, source_id, snapshot_id, chunk_id, title, canonical_url/file_path und content_hash.",
@@ -592,7 +594,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": ["T04.05"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Service akzeptiert source_ref oder artifact_id oder snapshot_id als Eingabe.",
             "Service ruft RagService.retrieve_context_bundle mit source_types=['open_notebook'] oder passendem Filter auf.",
@@ -613,7 +615,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": ["T05.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Route POST /sources/{source_id}/chat ist im bestehenden sources_bp registriert und dokumentiert.",
             "Route akzeptiert prompt, include_insights, include_notes, max_chunks und provenance_visibility.",
@@ -635,7 +637,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": ["T05.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Worker-Kontext enthält open_notebook chunks nur mit source_reference metadata.",
             "context_hash berücksichtigt source_id, snapshot_id und content_hash.",
@@ -663,7 +665,7 @@
           "priority": "P3",
           "effort": "M",
           "depends_on": ["T02.05"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Templates enthalten id, title, prompt_intent, output_schema_ref, default_enabled und allowed_source_types.",
             "Mindestens sieben Templates sind vorhanden: summary, key_terms, architecture_facts, api_contracts, security_notes, testable_claims, citation_candidates.",
@@ -682,7 +684,7 @@
           "priority": "P3",
           "effort": "L",
           "depends_on": ["T06.01", "T04.05"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Service nimmt source_reference, transformation_id und execution_scope entgegen.",
             "Service baut Kontext über RagService/SourceChatContextService und nicht direkt aus OpenNotebook-Rohdaten.",
@@ -710,7 +712,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T08.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Bestehende Funktionalität (Packs, Bootstrap, Refresh, Snapshots, Citation) bleibt erhalten.",
             "Liste zeigt für open_notebook-Quellen source_type, trust_level, latest_snapshot-Status und citation indicator.",
@@ -732,7 +734,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T07.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Dialog akzeptiert OpenNotebook-Export als Datei-Upload oder eingefügtes JSON und sendet es an POST /sources/import/open-notebook.",
             "Text-Quelle verlangt nicht-leeren Inhalt.",
@@ -753,7 +755,7 @@
           "priority": "P2",
           "effort": "L",
           "depends_on": ["T07.01", "T04.05"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Detail zeigt source title, source_type, source_system, trust_level, aktuellen Snapshot-Status und collection links.",
             "Snapshot-Liste zeigt snapshot_id, content_hash, imported_at und duplicate/indexed status.",
@@ -775,7 +777,7 @@
           "priority": "P2",
           "effort": "L",
           "depends_on": ["T05.02", "T07.04"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Panel sendet prompt an die source-focused chat API.",
             "Antwort zeigt source_references klickbar oder aufklappbar an.",
@@ -803,7 +805,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": ["T02.02", "T02.03"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "POST /sources/import/open-notebook akzeptiert Export JSON (Body) oder multipart Datei.",
             "Antwort enthält das Import-Ergebnisobjekt aus T02.02 (status, reason_code, imported/skipped/failed, ids).",
@@ -824,7 +826,7 @@
           "priority": "P3",
           "effort": "S",
           "depends_on": ["T08.01", "T05.02"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             ":sources import-open-notebook <path> startet Import aus lokaler Fixture/Datei und zeigt das Ergebnisobjekt an.",
             ":sources chat <source-id> <frage> nutzt SourceChatContextService bzw. die Chat-Route.",
@@ -850,7 +852,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T02.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Policy kann sources, notes, insights und chat_sessions getrennt erlauben oder verbieten.",
             "Default importiert sources, aber chat_sessions nicht automatisch.",
@@ -871,7 +873,7 @@
           "priority": "P1",
           "effort": "S",
           "depends_on": ["T09.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Redaction erkennt typische Schlüssel: api_key, token, password, secret, authorization, bearer.",
             "Redaction erkennt sk-ähnliche API-Key-Muster analog RagService._redact_sensitive.",
@@ -892,7 +894,7 @@
           "priority": "P2",
           "effort": "M",
           "depends_on": ["T04.05", "T07.04"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Provenance enthält source_system, original_url/file_path, imported_at und export_version.",
             "Wenn Lizenz unbekannt ist, wird license_status='unknown' gesetzt statt erfunden.",
@@ -917,7 +919,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": ["T02.02", "T04.02", "T04.05"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Test importiert complex_export.json.",
             "Test prüft erzeugte KnowledgeCollections, ArtifactDB/ArtifactVersionDB-Einträge und SourceRegistry-Descriptors.",
@@ -938,7 +940,7 @@
           "priority": "P2",
           "effort": "M",
           "depends_on": ["T05.02"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Test importiert Fixture und fragt eine konkrete Source.",
             "Fake-LLM erhält grounded_prompt mit budgetiertem Kontext.",
@@ -960,7 +962,7 @@
           "priority": "P2",
           "effort": "L",
           "depends_on": ["T07.02", "T07.04", "T07.05"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Tests laufen ohne echtes Backend durch gemockten SourcesService.",
             "Source list zeigt open_notebook source_type und status korrekt.",
@@ -979,7 +981,7 @@
           "priority": "P2",
           "effort": "S",
           "depends_on": ["T10.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Runbook erklärt Fixture-Import über API (POST /sources/import/open-notebook) und TUI (:sources import-open-notebook).",
             "Runbook nennt relevante Tests und wie sie lokal ausgeführt werden.",
@@ -998,7 +1000,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T04.02"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Default Retrieval ohne source_types verhält sich wie vor der OpenNotebook-Erweiterung (rag_source_open_notebook_enabled ist default False).",
             "source_types=['repo'] ruft keinen OpenNotebook-Adapter auf.",

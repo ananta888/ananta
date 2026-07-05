@@ -4,7 +4,7 @@ import json
 import re
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from agent.config import settings
 from agent.hybrid_orchestrator import ContextChunk
@@ -464,6 +464,7 @@ class KnowledgeIndexRetrievalService:
         task_kind: str | None = None,
         retrieval_intent: str | None = None,
         source_scopes: set[str] | None = None,
+        record_predicate: Callable[[dict[str, Any]], bool] | None = None,
     ) -> list[ContextChunk]:
         query_features = self._query_features(query)
         profile = self._task_profile(task_kind, retrieval_intent)
@@ -485,6 +486,8 @@ class KnowledgeIndexRetrievalService:
             output_records = list(self._iter_output_records(output_dir))
             duplicate_ids = self._duplicate_candidate_ids(output_records)
             for filename, record in output_records:
+                if record_predicate is not None and not record_predicate(record):
+                    continue
                 source = str(record.get("file") or record.get("path") or getattr(knowledge_index, "artifact_id", "knowledge-index"))
                 record_text = self._record_text(record)
                 if not record_text:

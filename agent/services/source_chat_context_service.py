@@ -84,6 +84,15 @@ class SourceChatContextService:
             task_kind="research",
             provenance_visibility=provenance_visibility,
             llm_scope=llm_scope,
+            source_constraints={
+                key: value
+                for key, value in {
+                    "source_ref": normalized_source_ref,
+                    "artifact_id": normalized_artifact_id,
+                    "snapshot_id": normalized_snapshot_id,
+                }.items()
+                if value is not None
+            },
         )
 
         selected: list[dict[str, Any]] = []

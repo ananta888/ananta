@@ -55,7 +55,9 @@ def test_sharing_approved_record_is_not_forced_local_only():
         section="sources",
     )
     assert decision.allowed
-    assert "llm_scope" not in decision.sanitized_metadata
+    assert decision.sanitized_metadata["llm_scope"] == "external_cloud_allowed"
+    assert decision.sanitized_metadata["sensitivity"] == "internal_low"
+    assert decision.sanitized_metadata["raw_allowed"] is True
 
 
 def test_metadata_secrets_are_redacted_not_blocking():

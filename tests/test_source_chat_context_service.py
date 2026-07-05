@@ -64,6 +64,7 @@ def test_source_only_context_filters_notes_and_insights():
     kinds = {item["record_kind"] for item in result["selected_sources"]}
     assert kinds == {"primary_source"}
     assert rag.calls[0]["source_types"] == ["open_notebook"]
+    assert rag.calls[0]["source_constraints"] == {"source_ref": "open-notebook-abc123def456"}
     assert result["grounded_prompt"] == "Q:question|CTX:1"
     assert result["context_hash"]
     assert result["source_references"]

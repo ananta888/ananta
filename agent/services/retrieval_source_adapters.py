@@ -122,6 +122,10 @@ class OpenNotebookKnowledgeSourceAdapter(RetrievalSourceAdapter):
         "collection_names",
         "notebook_ids",
         "retrieval_priority",
+        "llm_scope",
+        "sensitivity",
+        "raw_allowed",
+        "source_origin",
     )
 
     def __init__(self, knowledge_index_retrieval_service) -> None:
@@ -136,13 +140,39 @@ class OpenNotebookKnowledgeSourceAdapter(RetrievalSourceAdapter):
         retrieval_intent: str | None = None,
         **kwargs: Any,
     ) -> list[ContextChunk]:
-        raw_chunks = self._knowledge_index_retrieval_service.search(
-            query,
-            top_k=max(1, int(top_k or 1)),
-            task_kind=task_kind,
-            retrieval_intent=retrieval_intent,
-            source_scopes={"open_notebook"},
-        )
+        constraints = dict(kwargs.get("source_constraints") or {})
+
+        def _matches_constraints(record: dict[str, Any]) -> bool:
+            metadata = dict(record.get("import_metadata") or {})
+            source_ref = str(constraints.get("source_ref") or "").strip()
+            artifact_id = str(constraints.get("artifact_id") or "").strip()
+            snapshot_id = str(constraints.get("snapshot_id") or "").strip()
+            if source_ref and source_ref not in {
+                str(metadata.get("registry_source_id") or ""),
+                str(metadata.get("open_notebook_source_id") or ""),
+            }:
+                return False
+            if artifact_id and artifact_id not in {
+                str(metadata.get("artifact_id") or ""),
+                str(metadata.get("parent_artifact_id") or ""),
+            }:
+                return False
+            if snapshot_id and snapshot_id not in {
+                str(metadata.get("snapshot_id") or ""),
+                str(metadata.get("parent_source_snapshot_id") or ""),
+            }:
+                return False
+            return True
+
+        search_options: dict[str, Any] = {
+            "top_k": max(1, int(top_k or 1)),
+            "task_kind": task_kind,
+            "retrieval_intent": retrieval_intent,
+            "source_scopes": {"open_notebook"},
+        }
+        if constraints:
+            search_options["record_predicate"] = _matches_constraints
+        raw_chunks = self._knowledge_index_retrieval_service.search(query, **search_options)
         chunks: list[ContextChunk] = []
         for chunk in raw_chunks:
             metadata = dict(chunk.metadata or {})

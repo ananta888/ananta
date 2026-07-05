@@ -67,6 +67,15 @@ def build_registry_descriptor(
             "notebook_ids": list(notebook_ids),
             "imported_at": imported_at,
             "export_version": str(export_version or ""),
+            "provenance": {
+                "source_system": SOURCE_SYSTEM,
+                "original_url": None,
+                "original_file_path": f"/imports/open-notebook/{import_key}.json",
+                "imported_at": imported_at,
+                "export_version": str(export_version or ""),
+                "license_ref": None,
+                "license_status": "unknown",
+            },
         },
     }
 
@@ -95,6 +104,7 @@ class OpenNotebookImporter:
         mapper: OpenNotebookMapper | None = None,
         index_root: Path | None = None,
         knowledge_index_factory=None,
+        import_state_store=None,
     ) -> None:
         if ingestion_service is None:
             from agent.services.ingestion_service import get_ingestion_service
@@ -129,6 +139,10 @@ class OpenNotebookImporter:
             from agent.db_models import KnowledgeIndexDB
 
             knowledge_index_factory = KnowledgeIndexDB
+        if import_state_store is None:
+            from agent.sources.open_notebook_import_state import OpenNotebookImportStateStore
+
+            import_state_store = OpenNotebookImportStateStore()
 
         self._ingestion_service = ingestion_service
         self._artifact_repo = artifact_repository
@@ -141,6 +155,7 @@ class OpenNotebookImporter:
         self._mapper = mapper or OpenNotebookMapper()
         self._index_root = Path(index_root or (Path(settings.data_dir) / "knowledge_indices" / "open_notebook"))
         self._knowledge_index_factory = knowledge_index_factory
+        self._import_state_store = import_state_store
 
     def import_export(
         self,
@@ -165,6 +180,7 @@ class OpenNotebookImporter:
 
         import_key = str(plan["import_key"])
         registry_source_id = registry_source_id_for_import_key(import_key)
+        import_state = self._import_state_store.load(registry_source_id)
         notebook_ids = [str(item.get("external_id") or "") for item in plan["collections"]]
 
         descriptor = build_registry_descriptor(
@@ -188,16 +204,11 @@ class OpenNotebookImporter:
         collection_ids: list[str] = []
         snapshots_by_source: dict[str, dict[str, Any]] = {}
         artifacts_by_source: dict[str, Any] = {}
+        imported_source_ids: set[str] = set()
 
         chat_decision = self._policy.evaluate_section("chat_sessions")
         if plan["chat_sessions"] and not chat_decision.allowed:
             issues.append({"reason_code": chat_decision.reason_code, "section": "chat_sessions"})
-
-        indexed_hashes = {
-            str((item.get("extensions") or {}).get("content_hash") or item.get("content_hash") or "")
-            for item in self._snapshot_store.list_snapshots(source_id=registry_source_id)
-            if str(item.get("status") or "") in {"indexed", "duplicate"}
-        }
 
         for artifact_plan in plan["artifacts"]:
             external_id = str(artifact_plan["external_id"])
@@ -213,9 +224,19 @@ class OpenNotebookImporter:
                 skipped["sources"] += 1
                 issues.append({"reason_code": decision.reason_code, "source_id": external_id})
                 continue
-            if artifact_plan["content_hash"] in indexed_hashes:
+            previous_source = dict((import_state.get("sources") or {}).get(external_id) or {})
+            if str(previous_source.get("content_hash") or "") == str(artifact_plan["content_hash"]):
                 skipped["sources"] += 1
                 issues.append({"reason_code": "duplicate_content_hash", "source_id": external_id})
+                previous_snapshot = self._snapshot_by_id(
+                    registry_source_id=registry_source_id,
+                    snapshot_id=str(previous_source.get("snapshot_id") or ""),
+                )
+                previous_artifact = self._artifact_repo.get_by_id(str(previous_source.get("artifact_id") or ""))
+                if previous_snapshot is not None:
+                    snapshots_by_source[external_id] = previous_snapshot
+                if previous_artifact is not None:
+                    artifacts_by_source[external_id] = previous_artifact
                 continue
             try:
                 artifact, snapshot = self._import_source(
@@ -226,6 +247,7 @@ class OpenNotebookImporter:
                     import_key=import_key,
                     created_by=created_by,
                     collection_ids_out=collection_ids,
+                    export_version=str(plan.get("export_version") or ""),
                 )
             except Exception as exc:  # noqa: BLE001 - collected as import issue
                 failed["sources"] += 1
@@ -236,7 +258,12 @@ class OpenNotebookImporter:
             snapshot_ids.append(str(snapshot["snapshot_id"]))
             snapshots_by_source[external_id] = snapshot
             artifacts_by_source[external_id] = artifact
-            indexed_hashes.add(str(artifact_plan["content_hash"]))
+            imported_source_ids.add(external_id)
+            import_state.setdefault("sources", {})[external_id] = {
+                "content_hash": str(artifact_plan["content_hash"]),
+                "artifact_id": str(artifact.id),
+                "snapshot_id": str(snapshot["snapshot_id"]),
+            }
 
         notes_enabled = self._policy.allow_notes if include_notes is None else bool(include_notes)
         if plan["notes"] and notes_enabled and self._policy.allow_notes:
@@ -254,6 +281,8 @@ class OpenNotebookImporter:
                     str(item.get("external_id") or ""): str(item.get("name") or "") for item in plan["collections"]
                 },
                 created_by=created_by,
+                existing_state=dict(import_state.get("notes") or {}),
+                snapshots_by_source=snapshots_by_source,
             )
             imported["notes"] = int(notes_result["imported"])
             skipped["notes"] = int(notes_result["skipped"])
@@ -261,6 +290,7 @@ class OpenNotebookImporter:
             issues.extend(notes_result["issues"])
             note_records = list(notes_result["records"])
             artifact_ids.extend(notes_result["artifact_ids"])
+            import_state["notes"] = dict(notes_result["state"])
         else:
             skipped["notes"] = len(plan["notes"])
             note_records = []
@@ -282,6 +312,7 @@ class OpenNotebookImporter:
                 snapshots_by_source=snapshots_by_source,
                 artifacts_by_source=artifacts_by_source,
                 created_by=created_by,
+                existing_state=dict(import_state.get("insights") or {}),
             )
             imported["insights"] = int(insights_result["imported"])
             skipped["insights"] = int(insights_result["skipped"])
@@ -289,6 +320,7 @@ class OpenNotebookImporter:
             issues.extend(insights_result["issues"])
             insight_records = list(insights_result["records"])
             artifact_ids.extend(insights_result["artifact_ids"])
+            import_state["insights"] = dict(insights_result["state"])
         else:
             skipped["insights"] = len(plan["source_insights"])
             insight_records = []
@@ -298,6 +330,7 @@ class OpenNotebookImporter:
         source_records = [
             record
             for external_id, snapshot in snapshots_by_source.items()
+            if external_id in imported_source_ids
             for record in self._build_source_records(
                 artifact_plan=next(item for item in plan["artifacts"] if str(item["external_id"]) == external_id),
                 snapshot=snapshot,
@@ -314,6 +347,27 @@ class OpenNotebookImporter:
                 import_key=import_key,
                 registry_source_id=registry_source_id,
                 created_by=created_by,
+            )
+        self._import_state_store.save(registry_source_id, import_state)
+        current_descriptor = self._source_registry.get_source(registry_source_id)
+        if current_descriptor is not None:
+            extensions = dict(current_descriptor.get("extensions") or {})
+            extensions["record_counts"] = {
+                "primary_sources": len(dict(import_state.get("sources") or {})),
+                "notes": len(dict(import_state.get("notes") or {})),
+                "derived_insights": len(
+                    [
+                        key
+                        for key in dict(import_state.get("insights") or {})
+                        if not str(key).startswith("transformation:")
+                    ]
+                ),
+            }
+            current_descriptor["extensions"] = extensions
+            self._source_registry.update_source(
+                source_id=registry_source_id,
+                descriptor=current_descriptor,
+                allow_create=False,
             )
 
         imported["collections"] = len(set(collection_ids))
@@ -347,6 +401,7 @@ class OpenNotebookImporter:
         import_key: str,
         created_by: str | None,
         collection_ids_out: list[str],
+        export_version: str,
     ):
         collection_names = [str(item) for item in artifact_plan["collection_names"] if str(item).strip()]
         primary_collection = collection_names[0] if collection_names else None
@@ -375,13 +430,28 @@ class OpenNotebookImporter:
             "registry_source_id": registry_source_id,
         }
         metadata["sanitized"] = dict(sanitized_metadata or {})
+        from agent.sources.open_notebook_provenance import build_open_notebook_provenance
+
+        provenance = build_open_notebook_provenance(
+            {
+                **dict(sanitized_metadata or {}),
+                "url": artifact_plan.get("url"),
+                "file_path": artifact_plan.get("file_path"),
+                "imported_at": _now_iso(),
+                "export_version": export_version,
+            }
+        )
+        metadata["provenance"] = provenance
         artifact.artifact_metadata = metadata
         artifact = self._artifact_repo.save(artifact)
 
         snapshot = self._snapshot_store.build_snapshot(
             source_id=registry_source_id,
             descriptor_hash=descriptor_hash,
-            content_payload=normalize_text(str(artifact_plan["content"])),
+            content_payload={
+                "open_notebook_source_id": str(artifact_plan["external_id"]),
+                "content": normalize_text(str(artifact_plan["content"])),
+            },
             metadata_payload={
                 "open_notebook_source_id": str(artifact_plan["external_id"]),
                 "title": str(artifact_plan["title"]),
@@ -402,6 +472,7 @@ class OpenNotebookImporter:
             "notebook_refs": list(artifact_plan["notebook_ids"]),
             "artifact_id": str(artifact.id),
             "record_kind": "primary_source",
+            "provenance": provenance,
             "citation_source": {
                 "title": str(artifact_plan["title"]),
                 "source_system": "OpenNotebook local/export",
@@ -416,6 +487,14 @@ class OpenNotebookImporter:
         }
         snapshot = self._snapshot_store.save_snapshot(snapshot)
         return artifact, snapshot
+
+    def _snapshot_by_id(self, *, registry_source_id: str, snapshot_id: str) -> dict[str, Any] | None:
+        if not snapshot_id:
+            return None
+        for snapshot in self._snapshot_store.list_snapshots(source_id=registry_source_id):
+            if str(snapshot.get("snapshot_id") or "") == snapshot_id:
+                return snapshot
+        return None
 
     def _link_collection(self, *, artifact_id: str, collection_name: str, created_by: str | None):
         from agent.db_models import KnowledgeCollectionDB, KnowledgeLinkDB
@@ -447,6 +526,7 @@ class OpenNotebookImporter:
     ) -> list[dict[str, Any]]:
         title = str(artifact_plan["title"])
         source_hint = artifact_plan.get("url") or artifact_plan.get("file_path") or f"open-notebook/{slugify(title)}.md"
+        policy_metadata = dict((getattr(artifact, "artifact_metadata", None) or {}).get("sanitized") or {})
         records: list[dict[str, Any]] = []
         for ordinal, chunk_text in enumerate(split_wiki_content(str(artifact_plan["content"]), max_chars=700), start=1):
             digest = hashlib.sha256(f"{artifact_plan['external_id']}|{chunk_text}".encode("utf-8")).hexdigest()[:16]
@@ -475,6 +555,10 @@ class OpenNotebookImporter:
                         "content_hash": str(artifact_plan["content_hash"]),
                         "import_key": import_key,
                         "source_title": title,
+                        "llm_scope": str(policy_metadata.get("llm_scope") or "local_only"),
+                        "sensitivity": str(policy_metadata.get("sensitivity") or "internal_high"),
+                        "raw_allowed": bool(policy_metadata.get("raw_allowed", False)),
+                        "source_origin": str(policy_metadata.get("source_origin") or "external_research"),
                     },
                 }
             )
