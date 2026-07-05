@@ -25,6 +25,7 @@ def test_run_codex_command_injects_lmstudio_openai_compatible_env():
         mock_settings.lmstudio_url = "http://127.0.0.1:1234/v1"
         mock_settings.openai_url = "https://api.openai.com/v1/chat/completions"
         mock_settings.openai_api_key = None
+        mock_settings.max_prompt_tokens = 128000
         mock_settings_h.default_provider = "lmstudio"
         mock_settings_h.ollama_url = ""
         mock_settings_h.lmstudio_url = "http://127.0.0.1:1234/v1"
@@ -167,6 +168,7 @@ def test_run_sgpt_command_prefers_runtime_openai_provider_config(app):
             mock_settings.lmstudio_url = "http://127.0.0.1:1234/v1"
             mock_settings.openai_url = "https://api.openai.com/v1/chat/completions"
             mock_settings.openai_api_key = "sk-cloud"
+            mock_settings.max_prompt_tokens = 128000
 
             mock_result = MagicMock()
             mock_result.returncode = 0
@@ -209,6 +211,7 @@ def test_run_sgpt_command_uses_lmstudio_runtime_base_url(app):
             mock_settings.lmstudio_url = "http://127.0.0.1:1234/v1"
             mock_settings.openai_url = "https://api.openai.com/v1/chat/completions"
             mock_settings.openai_api_key = None
+            mock_settings.max_prompt_tokens = 128000
 
             mock_result = MagicMock()
             mock_result.returncode = 0
