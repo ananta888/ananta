@@ -507,6 +507,7 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
         if (supported.includes('sgpt')) dynamic.push('sgpt');
         if (supported.includes('codex')) dynamic.push('codex');
         if (supported.includes('opencode')) dynamic.push('opencode');
+        if (supported.includes('claude_code')) dynamic.push('claude_code');
         if (supported.includes('aider')) dynamic.push('aider');
         if (supported.includes('mistral_code')) dynamic.push('mistral_code');
         this.availableCliBackends = dynamic;
@@ -522,7 +523,7 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
       next: cfg => {
         const value = String(cfg?.sgpt_execution_backend || '').toLowerCase();
         if (
-          (value === 'auto' || value === 'sgpt' || value === 'codex' || value === 'opencode' || value === 'aider' || value === 'mistral_code') &&
+          (value === 'auto' || value === 'sgpt' || value === 'codex' || value === 'opencode' || value === 'claude_code' || value === 'aider' || value === 'mistral_code') &&
           this.availableCliBackends.includes(value as CliBackend)
         ) {
           this.cliBackend = value as CliBackend;
@@ -654,6 +655,13 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
         base_url: cfg.codex_cli.base_url || null,
         api_key_profile: cfg.codex_cli.api_key_profile || null,
         prefer_lmstudio: cfg.codex_cli.prefer_lmstudio ?? null,
+        auth_mode: cfg.codex_cli.auth_mode || null,
+      } : null,
+      claude_cli: cfg.claude_cli ? {
+        enabled: cfg.claude_cli.enabled ?? null,
+        auth_mode: cfg.claude_cli.auth_mode || null,
+        permission_mode: cfg.claude_cli.permission_mode || null,
+        default_model: cfg.claude_cli.default_model || null,
       } : null,
     };
   }

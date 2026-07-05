@@ -27,6 +27,7 @@ export const routes: Routes = [
       { path: 'help', data: { breadcrumb: 'Hilfe', area: 'General' }, loadComponent: () => import('./components/help.component').then(m => m.HelpComponent) },
       { path: 'effective-workflow', data: { breadcrumb: 'Effective Workflow', area: 'Configure' }, loadComponent: () => import('./components/effective-workflow-explorer.component').then(m => m.EffectiveWorkflowExplorerComponent) },
       { path: 'config-graph', data: { breadcrumb: 'Konfig-Graph', area: 'Configure' }, loadComponent: () => import('./components/config-graph-editor.component').then(m => m.ConfigGraphEditorComponent) },
+      { path: 'cli-backends', data: { breadcrumb: 'CLI-Backends', area: 'Configure' }, loadComponent: () => import('./components/cli-backend-setup.component').then(m => m.CliBackendSetupComponent) },
       { path: 'blueprint-config', data: { breadcrumb: 'Blueprint-Konfig', area: 'Configure' }, loadComponent: () => import('./components/blueprint-config-workbench.component').then(m => m.BlueprintConfigWorkbenchComponent) },
       { path: 'hub-worker-graph', data: { breadcrumb: 'Hub-/Worker-Graph', area: 'Configure' }, loadComponent: () => import('./components/hub-worker-graph-editor.component').then(m => m.HubWorkerGraphEditorComponent) },
       { path: 'markdown-slides', data: { breadcrumb: 'Markdown Slides', area: 'Operate' }, loadComponent: () => import('./features/markdown-slides/markdown-slides.component').then(m => m.MarkdownSlidesComponent) },

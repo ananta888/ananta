@@ -65,6 +65,7 @@ export class AiAssistantControlsComponent {
     if (backend === 'sgpt') return 'ShellGPT';
     if (backend === 'codex') return 'Codex CLI';
     if (backend === 'opencode') return 'OpenCode';
+    if (backend === 'claude_code') return 'Claude Code';
     if (backend === 'aider') return 'Aider';
     if (backend === 'mistral_code') return 'Mistral Code';
     return 'Auto';

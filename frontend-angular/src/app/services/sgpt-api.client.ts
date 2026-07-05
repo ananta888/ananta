@@ -7,6 +7,7 @@ export type SgptBackend =
   | 'sgpt'
   | 'codex'
   | 'opencode'
+  | 'claude_code'
   | 'aider'
   | 'mistral_code'
   | 'auto';
@@ -56,6 +57,33 @@ export class SgptApiClient {
       this.transport.http
         .get(`${baseUrl}/api/sgpt/backends`, this.transport.getHeaders(baseUrl, token))
         .pipe(timeout(120000)),
+    );
+  }
+
+  /** COMMON-003: Health-Status eines einzelnen CLI-Backends. */
+  backendHealth(baseUrl: string, backendId: string, token?: string): Observable<any> {
+    return this.transport.unwrap(
+      this.transport.http
+        .get(`${baseUrl}/api/sgpt/backends/${encodeURIComponent(backendId)}/health`, this.transport.getHeaders(baseUrl, token))
+        .pipe(timeout(30000)),
+    );
+  }
+
+  /** COMMON-003: Verify-Command-Diagnose (z.B. `claude --version`). */
+  backendDiagnose(baseUrl: string, backendId: string, token?: string): Observable<any> {
+    return this.transport.unwrap(
+      this.transport.http
+        .post(`${baseUrl}/api/sgpt/backends/${encodeURIComponent(backendId)}/diagnose`, {}, this.transport.getHeaders(baseUrl, token))
+        .pipe(timeout(60000)),
+    );
+  }
+
+  /** COMMON-003: read-only Test-Run ueber den regulaeren Run-Pfad. */
+  backendTestRun(baseUrl: string, backendId: string, body: { prompt?: string; model?: string; timeout?: number } = {}, token?: string): Observable<any> {
+    return this.transport.unwrap(
+      this.transport.http
+        .post(`${baseUrl}/api/sgpt/backends/${encodeURIComponent(backendId)}/test-run`, body, this.transport.getHeaders(baseUrl, token))
+        .pipe(timeout(320000)),
     );
   }
 }

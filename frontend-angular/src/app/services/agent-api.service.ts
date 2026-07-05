@@ -80,6 +80,15 @@ export class AgentApiService {
   sgptBackends(baseUrl: string, token?: string): Observable<any> {
     return this.sgpt.backends(baseUrl, token);
   }
+  sgptBackendHealth(baseUrl: string, backendId: string, token?: string): Observable<any> {
+    return this.sgpt.backendHealth(baseUrl, backendId, token);
+  }
+  sgptBackendDiagnose(baseUrl: string, backendId: string, token?: string): Observable<any> {
+    return this.sgpt.backendDiagnose(baseUrl, backendId, token);
+  }
+  sgptBackendTestRun(baseUrl: string, backendId: string, body: { prompt?: string; model?: string; timeout?: number } = {}, token?: string): Observable<any> {
+    return this.sgpt.backendTestRun(baseUrl, backendId, body, token);
+  }
   getLlmHistory(baseUrl: string, token?: string): Observable<any> {
     return this.llm.history(baseUrl, token);
   }

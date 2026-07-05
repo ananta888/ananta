@@ -441,6 +441,9 @@ def list_cli_backends():
     preflight = registry_payload.get("preflight") or {}
     configured_backend = _normalize_backend_name(settings.sgpt_execution_backend, default="ananta-worker")
     codex_runtime = resolve_codex_runtime_config()
+    from agent.cli_backends.opencode import resolve_claude_runtime_config
+
+    claude_runtime = resolve_claude_runtime_config()
     default_provider = str((current_app.config.get("AGENT_CONFIG", {}) or {}).get("default_provider") or settings.default_provider or "").strip().lower() or None
     data = {
         "configured_backend": configured_backend,
@@ -458,6 +461,18 @@ def list_cli_backends():
                 "instance_id": codex_runtime.get("instance_id"),
                 "max_hops": codex_runtime.get("max_hops"),
                 "diagnostics": list(codex_runtime.get("diagnostics") or []),
+                # CCA-003: Auth-Zustand fuer die UI — kein Secret,
+                # nur Modus + Hinweis-Kommando.
+                "auth_mode": codex_runtime.get("auth_mode", "api_key"),
+                "api_key_required": bool(codex_runtime.get("api_key_required", True)),
+            },
+            "claude_runtime_target": {
+                "enabled": bool(claude_runtime.get("enabled")),
+                "auth_mode": claude_runtime.get("auth_mode", "claude_login"),
+                "api_key_required": bool(claude_runtime.get("api_key_required", False)),
+                "default_model": claude_runtime.get("default_model"),
+                "permission_mode": claude_runtime.get("permission_mode"),
+                "diagnostics": list(claude_runtime.get("diagnostics") or []),
             },
         },
         "supported_backends": capabilities,
@@ -478,17 +493,125 @@ def capability_matrix():
                 "backend": backend,
                 "available": bool(info.get("available")),
                 "supports_model_selection": bool(info.get("supports_model_selection")),
-                "risk_level": "high" if backend in {"codex", "aider", "opencode", "mistral_code"} else "medium",
+                "risk_level": "high" if backend in {"codex", "claude_code", "aider", "opencode", "mistral_code"} else "medium",
                 "task_fit": {
-                    "coding": backend in {"ananta-worker", "sgpt", "codex", "aider", "opencode", "mistral_code"},
-                    "analysis": backend in {"ananta-worker", "sgpt", "codex", "opencode"},
-                    "doc": backend in {"ananta-worker", "sgpt", "codex", "opencode"},
+                    "coding": backend in {"ananta-worker", "sgpt", "codex", "claude_code", "aider", "opencode", "mistral_code"},
+                    "analysis": backend in {"ananta-worker", "sgpt", "codex", "claude_code", "opencode"},
+                    "doc": backend in {"ananta-worker", "sgpt", "codex", "claude_code", "opencode"},
                     "ops": backend in {"ananta-worker", "opencode", "sgpt", "codex"},
                 },
                 "allowed_flags": info.get("supported_options", []),
             }
         )
     return api_response(data={"items": matrix, "policy": "capability_matrix_v1"})
+
+
+def _normalized_supported_backend_or_none(backend_id: str) -> str | None:
+    backend = str(backend_id or "").strip().lower()
+    return backend if backend in SUPPORTED_CLI_BACKENDS else None
+
+
+@sgpt_bp.route("/backends/<backend_id>/health", methods=["GET"])
+@check_auth
+def cli_backend_health(backend_id: str):
+    """COMMON-003: Health-Status eines einzelnen CLI-Backends.
+
+    Aggregiert Preflight- und Runtime-Sicht ohne neue Probe und ohne
+    Secrets in der Antwort.
+    """
+    backend = _normalized_supported_backend_or_none(backend_id)
+    if backend is None:
+        return api_response(status="error", message=f"Unknown backend. Allowed: {sorted(SUPPORTED_CLI_BACKENDS)}", code=404)
+    from agent.cli_backends.routing import get_cli_backend_preflight, get_cli_backend_runtime_status
+
+    preflight = get_cli_backend_preflight(runtime_scope="worker")
+    runtime = get_cli_backend_runtime_status().get(backend) or {}
+    backend_preflight = (preflight.get("cli_backends") or {}).get(backend) or {}
+    providers = preflight.get("providers") or {}
+    provider_view = None
+    if backend == "codex":
+        provider_view = providers.get("codex")
+    elif backend == "claude_code":
+        provider_view = providers.get("claude")
+
+    status = "ready"
+    if not backend_preflight.get("binary_available"):
+        status = "not_installed"
+    elif backend == "claude_code" and not (provider_view or {}).get("enabled"):
+        status = "disabled"
+    return api_response(
+        data={
+            "backend": backend,
+            "status": status,
+            "preflight": backend_preflight,
+            "provider": provider_view,
+            "runtime": {k: v for k, v in runtime.items() if k not in {"api_key_source"}},
+        }
+    )
+
+
+@sgpt_bp.route("/backends/<backend_id>/diagnose", methods=["POST"])
+@check_auth
+def cli_backend_diagnose(backend_id: str):
+    """COMMON-003: Verify-Command-Diagnose (z.B. ``claude --version``)."""
+    backend = _normalized_supported_backend_or_none(backend_id)
+    if backend is None:
+        return api_response(status="error", message=f"Unknown backend. Allowed: {sorted(SUPPORTED_CLI_BACKENDS)}", code=404)
+    from agent.cli_backends.routing import diagnose_cli_backend
+
+    result = diagnose_cli_backend(backend)
+    audit_logger.info(
+        f"CLI backend diagnose: {backend} -> {result.get('status')}",
+        extra={"extra_fields": {"action": "cli_backend_diagnose", "backend": backend, "status": result.get("status")}},
+    )
+    return api_response(data=result)
+
+
+@sgpt_bp.route("/backends/<backend_id>/test-run", methods=["POST"])
+@check_auth
+def cli_backend_test_run(backend_id: str):
+    """COMMON-003: read-only Test-Run ueber den regulaeren Run-Pfad.
+
+    Nutzt einen harmlosen Prompt; es wird nichts am Projekt geaendert
+    (claude laeuft mit permission_mode=plan, codex via exec-Pfad).
+    """
+    backend = _normalized_supported_backend_or_none(backend_id)
+    if backend is None:
+        return api_response(status="error", message=f"Unknown backend. Allowed: {sorted(SUPPORTED_CLI_BACKENDS)}", code=404)
+    body = request.get_json(silent=True) or {}
+    prompt = str(body.get("prompt") or "Antworte nur mit dem Wort: OK").strip()[:2000]
+    model = str(body.get("model") or "").strip() or None
+    try:
+        timeout = int(body.get("timeout") or 120)
+    except (TypeError, ValueError):
+        timeout = 120
+    timeout = max(10, min(timeout, 300))
+
+    started = time.time()
+    rc, out, err, backend_used = run_llm_cli_command(
+        prompt=prompt,
+        options=[],
+        timeout=timeout,
+        backend=backend,
+        model=model,
+        routing_policy={"allowed_backends": [backend]},
+    )
+    duration_ms = int((time.time() - started) * 1000)
+    audit_logger.info(
+        f"CLI backend test-run: {backend} rc={rc}",
+        extra={"extra_fields": {"action": "cli_backend_test_run", "backend": backend, "rc": rc, "duration_ms": duration_ms}},
+    )
+    return api_response(
+        data={
+            "backend": backend,
+            "backend_used": backend_used,
+            "rc": rc,
+            "ok": rc == 0,
+            "stdout": (out or "")[:4000],
+            "stderr": (err or "")[:4000],
+            "duration_ms": duration_ms,
+        }
+    )
 
 
 @sgpt_bp.route("/sessions", methods=["POST"])
