@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/codecompass.graph-evidence.schema.json",
+  "title": "CodeCompass Graph Evidence / Trust Policy",
+  "description": "DD-016: fail-closed Trust- und Evidence-Regeln am Import-Rand. Externe Graphdaten muessen dieses Schema erfuellen, bevor sie in CodeCompassGraphStore aufgenommen werden. Fehlende oder unbekannte IDs werden nicht synthetisiert; sie bleiben unverified/failed.",
+  "type": "object",
+  "required": ["trust_level", "verification_status", "evidence", "provenance"],
+  "additionalProperties": false,
+  "properties": {
+    "trust_level": {
+      "type": "string",
+      "enum": ["deterministic", "extracted", "manual", "inferred", "ambiguous"],
+      "description": "Woher kommt diese Information? deterministic = aus Build-Artefakt mit content_hash; extracted = versionierter Tool-Output; manual = versionierte JSON-Fixture von Mensch; inferred = heuristisch (z.B. Tree-sitter maybe_call); ambiguous = nicht eindeutig zuordenbar."
+    },
+    "verification_status": {
+      "type": "string",
+      "enum": ["verified", "unverified", "failed"],
+      "description": "Wurde die Information gegen ein Original-Artefakt verifiziert? Fehlende Source-/Run-IDs bedeuten unverified oder failed und werden NIEMALS automatisch synthetisiert."
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Numerische Konfidenz 0.0..1.0. Pflicht fuer inferred/ambiguous, empfohlen fuer alle anderen."
+    },
+    "confidence_kind": {
+      "type": "string",
+      "description": "Optionale Herkunfts-Markierung der Konfidenz, z.B. 'EXTRACTED', 'INFERRED', 'AMBIGUOUS' aus code-review-graph."
+    },
+    "evidence": {
+      "type": "object",
+      "required": ["source_kind"],
+      "additionalProperties": true,
+      "properties": {
+        "source_file": {
+          "type": "string",
+          "description": "Pfad innerhalb workspace_dir. Pflicht wenn nicht manual."
+        },
+        "source_kind": {
+          "type": "string",
+          "enum": ["crg_sqlite_export", "crg_json_export", "spade_cmake_reply", "spade_ctest_record", "manual_fixture", "tree_sitter_ast", "build_artifact", "tool_output"]
+        },
+        "source_record_id": {
+          "type": "string",
+          "description": "Stabile ID des Original-Records (z.B. CRG node-ID, CTest-Test-Name). Fehlend => unverified."
+        },
+        "source_run_id": {
+          "type": "string",
+          "description": "Stabile ID des Extraktions-/Import-Laufs. Fehlend => unverified."
+        },
+        "reason": {
+          "type": "string",
+          "description": "Manuelle Begruendung wenn kein direkter Source-Record existiert (z.B. 'manual_fixture', 'aggregated_from_children')."
+        }
+      },
+      "anyOf": [
+        {"required": ["source_record_id"]},
+        {"required": ["source_run_id"]},
+        {
+          "required": ["reason"],
+          "properties": {
+            "reason": { "enum": ["manual_fixture", "aggregated_from_children"] }
+          }
+        }
+      ]
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["source"],
+      "additionalProperties": true,
+      "properties": {
+        "source": {
+          "type": "string",
+          "enum": ["code-review-graph", "spade", "manual", "tree-sitter", "build-system", "tool-output"]
+        },
+        "provider_id": {
+          "type": "string",
+          "description": "Stabile Adapter-/Provider-ID, z.B. 'crg.adapter', 'rig.cmake'."
+        },
+        "provider_revision": {
+          "type": "string",
+          "description": "Gepinnte Revision des Upstreams (Commit-Hash oder Version)."
+        },
+        "extractor_id": {
+          "type": "string"
+        },
+        "extractor_version": {
+          "type": "string"
+        },
+        "build_system": {
+          "type": "string",
+          "enum": ["cmake", "maven", "gradle", "npm", "cargo", "go", "unknown", "manual"]
+        },
+        "imported_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "description": "inferred/ambiguous duerfen keine policy-relevanten decisions tragen — confidence muss unter 0.7 sein und evidence.reason fehlt (inferred/ambiguous sind explizit).",
+      "if": {
+        "properties": { "trust_level": { "enum": ["inferred", "ambiguous"] } }
+      },
+      "then": {
+        "properties": {
+          "confidence": { "maximum": 0.7 }
+        }
+      }
+    },
+    {
+      "description": "Wenn trust_level=manual, MUSS evidence.reason='manual_fixture' sein und provenance.source='manual'.",
+      "if": { "properties": { "trust_level": { "const": "manual" } } },
+      "then": {
+        "properties": {
+          "evidence": { "required": ["reason"] },
+          "provenance": { "properties": { "source": { "const": "manual" } } }
+        }
+      }
+    }
+  ]
+}

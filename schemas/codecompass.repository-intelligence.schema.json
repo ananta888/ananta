@@ -1,0 +1,190 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/codecompass.repository-intelligence.schema.json",
+  "title": "CodeCompass Repository Intelligence Graph Snapshot (DD-014)",
+  "description": "Versioniertes Schema fuer RIG-Snapshots (RIG-012). Wird von CMake-Extractor (RIG-003) und manuellen Fixtures (RIG-012 CLI) verwendet. Externe Quellen muessen dieses Schema erfuellen, sonst Import verweigert.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "snapshot_id",
+    "extractor",
+    "repository",
+    "coverage",
+    "entities",
+    "edges",
+    "generated_at"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "codecompass.repository-intelligence.v1",
+      "description": "Pin auf v1. Kuenftige Versionen bekommen v2 mit eigenem Migrationspfad."
+    },
+    "snapshot_id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9_-]{8,128}$",
+      "description": "Deterministische ID aus content_hash. Stabil fuer Replay."
+    },
+    "extractor": {
+      "type": "object",
+      "required": ["id", "version", "build_system"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "description": "z.B. 'spade.cmake.file_api', 'manual.fixture'" },
+        "version": { "type": "string", "description": "Version oder Commit-Hash des Extractors." },
+        "build_system": {
+          "type": "string",
+          "enum": ["cmake", "maven", "gradle", "npm", "cargo", "go", "manual"]
+        },
+        "reviewed_revision": {
+          "type": "string",
+          "description": "Pin auf reviewed_revision des Upstream-Repos (Pflicht fuer SPADE, optional fuer manual)."
+        }
+      }
+    },
+    "repository": {
+      "type": "object",
+      "required": ["repository_id"],
+      "additionalProperties": false,
+      "properties": {
+        "repository_id": { "type": "string" },
+        "module_id": {
+          "type": "string",
+          "description": "Sub-Modul fuer Monorepos (RIG-010)."
+        },
+        "workspace_dir": {
+          "type": "string",
+          "description": "Pfad innerhalb dessen gelesen wurde (muss mit workspace_dir uebereinstimmen, sonst path_outside_workspace)."
+        }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "required": ["status"],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["complete", "partial", "unknown"],
+          "description": "CCRIG-DD-008: nur complete ist autoritativ; partial/unknown liefert unknown_coverage bei Queries."
+        },
+        "unsupported_features": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Liste bekannter Luecken, z.B. ['ctest_discovery', 'external_packages']."
+        }
+      }
+    },
+    "entities": {
+      "type": "object",
+      "required": ["buildable_components", "runners", "tests", "external_packages", "package_managers", "aggregators"],
+      "additionalProperties": false,
+      "properties": {
+        "package_managers": { "type": "array", "items": { "$ref": "#/$defs/package_manager" } },
+        "external_packages": { "type": "array", "items": { "$ref": "#/$defs/external_package" } },
+        "buildable_components": { "type": "array", "items": { "$ref": "#/$defs/buildable_component" } },
+        "aggregators": { "type": "array", "items": { "$ref": "#/$defs/aggregator" } },
+        "runners": { "type": "array", "items": { "$ref": "#/$defs/runner" } },
+        "tests": { "type": "array", "items": { "$ref": "#/$defs/test" } }
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/rig_edge" }
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 UTC."
+    }
+  },
+  "$defs": {
+    "evidence": {
+      "type": "object",
+      "required": ["source_kind"],
+      "additionalProperties": true,
+      "properties": {
+        "source_file": { "type": "string" },
+        "source_kind": { "type": "string", "enum": ["spade_cmake_reply", "spade_ctest_record", "manual_fixture", "build_artifact"] },
+        "source_record_id": { "type": "string" },
+        "source_run_id": { "type": "string" },
+        "reason": { "type": "string" }
+      }
+    },
+    "package_manager": {
+      "type": "object",
+      "required": ["id", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "kind": { "type": "string", "enum": ["cmake", "maven", "gradle", "npm", "cargo", "go"] },
+        "version": { "type": "string" }
+      }
+    },
+    "external_package": {
+      "type": "object",
+      "required": ["id", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "registry": { "type": "string" }
+      }
+    },
+    "buildable_component": {
+      "type": "object",
+      "required": ["id", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "kind": { "type": "string", "enum": ["library", "executable", "header_only", "custom"] },
+        "language": { "type": "string" },
+        "source_files": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "aggregator": {
+      "type": "object",
+      "required": ["id", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" }
+      }
+    },
+    "runner": {
+      "type": "object",
+      "required": ["id", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "kind": { "type": "string", "enum": ["ctest", "cargo_test", "jest", "pytest", "go_test", "junit", "maven_surefire", "gradle_test"] },
+        "config_ref": { "type": "string" }
+      }
+    },
+    "test": {
+      "type": "object",
+      "required": ["id", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "source_file": { "type": "string" }
+      }
+    },
+    "rig_edge": {
+      "type": "object",
+      "required": ["kind", "from_id", "to_id", "evidence", "trust"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "type": "string", "enum": ["depends_on", "aggregates", "built_by", "tested_by", "runs", "covers"] },
+        "from_id": { "type": "string" },
+        "to_id": { "type": "string" },
+        "evidence": { "$ref": "#/$defs/evidence" },
+        "trust": { "$ref": "https://ananta.local/schemas/codecompass.graph-evidence.schema.json" }
+      }
+    }
+  }
+}
