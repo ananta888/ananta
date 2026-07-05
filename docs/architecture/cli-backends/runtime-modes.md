@@ -67,10 +67,29 @@ oder einen Netz-Roundtrip erzwingen); es zeigt sich beim Diagnose-/Test-Run
 und wird als Fehlertext durchgereicht. Nächste sichere Aktion ist immer der
 angezeigte `login_command` im **lokalen Terminal des Nutzers**.
 
+## write_armed / Diff-Review (schreibende Claude-Runs)
+
+Schreibende Runs laufen ausschließlich über `run_claude_write_armed`
+(`POST /api/sgpt/backends/claude_code/write-armed-run`):
+
+1. Das `workdir` muss ein **Git-Repo innerhalb von
+   `claude_cli.allowed_paths`** sein (doppeltes Opt-in: enabled + Pfadliste).
+2. Es wird in einen **isolierten Temp-Workspace kopiert** und mit einem
+   Baseline-Commit eingefroren; Claude läuft nur dort mit
+   `--permission-mode acceptEdits` (der einzige erlaubte Kontext für
+   diesen Modus — der normale Run-Pfad bleibt auf `plan`/`default`).
+3. Ergebnis ist ein **Diff-Artefakt** (`git diff` + Dateiliste) mit Status
+   `awaiting_diff_review`. Der Diff wird **nie automatisch angewendet**;
+   die Übernahme ins Originalprojekt ist eine manuelle Review-Entscheidung
+   (Approval-Gate). Der Temp-Workspace wird danach gelöscht.
+
+Hinweis: der Workspace wird 1:1 kopiert — für sehr große Repos/Monorepos
+ist dieser Pfad ungeeignet.
+
 ## Folgearbeit (bewusst nicht gebaut)
 
 - **Local-runner/Bridge** für Docker-Fullstack (Hub im Container delegiert
   CLI-Runs an einen Runner auf dem Host): erst bauen, wenn der Docker-Modus
   mit Subscription-CLIs wirklich gebraucht wird.
-- **write_armed/Diff-Review** für schreibende Claude-Runs: der Adapter läuft
-  bis dahin fail-safe mit `permission_mode=plan` (read-only Analyse).
+- **Diff-Apply-Endpunkt** (reviewten Diff serverseitig anwenden): bis dahin
+  wendet der Nutzer den Diff bewusst selbst an (`git apply`).

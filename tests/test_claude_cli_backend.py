@@ -564,6 +564,160 @@ def test_backend_test_run_endpoint_uses_requested_backend(client, admin_auth_hea
     assert kwargs["routing_policy"] == {"allowed_backends": ["claude_code"]}
 
 
+# ---------------------------------------------------------------------------
+# COMMON-001 follow-up / write_armed + diff review
+# ---------------------------------------------------------------------------
+
+import os
+import stat
+import subprocess as _subprocess
+
+
+def _init_git_repo(path) -> None:
+    for cmd in (
+        ["git", "init", "-q"],
+        ["git", "-c", "user.email=t@t", "-c", "user.name=t", "add", "-A"],
+    ):
+        _subprocess.run(cmd, cwd=str(path), check=True, capture_output=True)
+    _subprocess.run(
+        ["git", "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", "init", "--allow-empty"],
+        cwd=str(path), check=True, capture_output=True,
+    )
+
+
+def _write_mock_claude(tmp_path, script_body: str) -> str:
+    """Create a real executable mock claude binary (COMMON-005)."""
+    binary = tmp_path / "bin" / "claude"
+    binary.parent.mkdir(exist_ok=True)
+    binary.write_text("#!/bin/sh\n" + script_body + "\n")
+    binary.chmod(binary.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+    return str(binary)
+
+
+def test_run_claude_write_armed_produces_diff_and_leaves_original_untouched(tmp_path):
+    from agent.cli_backends.opencode import run_claude_write_armed
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "hello.txt").write_text("original\n")
+    _init_git_repo(repo)
+    mock_claude = _write_mock_claude(tmp_path, 'echo "modified by claude" > hello.txt\necho OK')
+
+    app = _fake_app({"claude_cli": {"enabled": True, "allowed_paths": [str(tmp_path)]}})
+    settings = _fake_settings(claude_path=mock_claude)
+    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings):
+        result = run_claude_write_armed("aendere hello.txt", timeout=60, workdir=str(repo))
+
+    assert result["status"] == "awaiting_diff_review"
+    assert result["rc"] == 0
+    assert result["changed_files"] == ["hello.txt"]
+    assert "modified by claude" in result["diff"]
+    assert result["diff_truncated"] is False
+    # Approval-Gate: Original bleibt unveraendert.
+    assert (repo / "hello.txt").read_text() == "original\n"
+
+
+def test_run_claude_write_armed_no_changes(tmp_path):
+    from agent.cli_backends.opencode import run_claude_write_armed
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "hello.txt").write_text("original\n")
+    _init_git_repo(repo)
+    mock_claude = _write_mock_claude(tmp_path, "echo nothing to do")
+
+    app = _fake_app({"claude_cli": {"enabled": True, "allowed_paths": [str(tmp_path)]}})
+    settings = _fake_settings(claude_path=mock_claude)
+    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings):
+        result = run_claude_write_armed("nichts tun", timeout=60, workdir=str(repo))
+
+    assert result["status"] == "no_changes"
+    assert result["changed_files"] == []
+    assert result["diff"] == ""
+
+
+def test_run_claude_write_armed_requires_allowed_paths(tmp_path):
+    from agent.cli_backends.opencode import run_claude_write_armed
+
+    app = _fake_app({"claude_cli": {"enabled": True}})
+    settings = _fake_settings()
+    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings):
+        result = run_claude_write_armed("x", workdir=str(tmp_path))
+    assert result["status"] == "error"
+    assert "allowed_paths" in result["stderr"]
+
+
+def test_run_claude_write_armed_requires_git_repo(tmp_path):
+    from agent.cli_backends.opencode import run_claude_write_armed
+
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    app = _fake_app({"claude_cli": {"enabled": True, "allowed_paths": [str(tmp_path)]}})
+    settings = _fake_settings()
+    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings):
+        result = run_claude_write_armed("x", workdir=str(plain))
+    assert result["status"] == "error"
+    assert "Git-Repository" in result["stderr"]
+
+
+def test_run_claude_write_armed_uses_accept_edits_permission_mode(tmp_path):
+    """write_armed ist der einzige Pfad mit acceptEdits; der Mock loggt
+    seine Argumente zur Verifikation."""
+    from agent.cli_backends.opencode import run_claude_write_armed
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "hello.txt").write_text("original\n")
+    _init_git_repo(repo)
+    args_log = tmp_path / "args.log"
+    mock_claude = _write_mock_claude(tmp_path, f'echo "$@" > {args_log}\necho OK')
+
+    app = _fake_app({"claude_cli": {"enabled": True, "allowed_paths": [str(tmp_path)]}})
+    settings = _fake_settings(claude_path=mock_claude)
+    with app.app_context(), patch("agent.cli_backends.opencode.settings", settings):
+        run_claude_write_armed("pruefe args", timeout=60, workdir=str(repo))
+
+    logged = args_log.read_text()
+    assert "--permission-mode acceptEdits" in logged
+
+
+def test_write_armed_endpoint_requires_prompt_and_workdir(client, admin_auth_header):
+    response = client.post("/api/sgpt/backends/claude_code/write-armed-run", json={}, headers=admin_auth_header)
+    assert response.status_code == 400
+    response = client.post(
+        "/api/sgpt/backends/claude_code/write-armed-run",
+        json={"prompt": "x"},
+        headers=admin_auth_header,
+    )
+    assert response.status_code == 400
+
+
+def test_write_armed_endpoint_returns_diff_artifact(client, admin_auth_header):
+    fake_result = {
+        "status": "awaiting_diff_review",
+        "rc": 0,
+        "stdout": "OK",
+        "stderr": "",
+        "diff": "diff --git a/hello.txt b/hello.txt",
+        "diff_truncated": False,
+        "changed_files": ["hello.txt"],
+        "write_armed": True,
+    }
+    with patch("agent.cli_backends.opencode.run_claude_write_armed", return_value=dict(fake_result)) as mock_run:
+        response = client.post(
+            "/api/sgpt/backends/claude_code/write-armed-run",
+            json={"prompt": "aendere hello.txt", "workdir": "/tmp/repo"},
+            headers=admin_auth_header,
+        )
+    assert response.status_code == 200
+    data = response.get_json()["data"]
+    assert data["status"] == "awaiting_diff_review"
+    assert data["changed_files"] == ["hello.txt"]
+    assert "duration_ms" in data
+    kwargs = mock_run.call_args.kwargs
+    assert kwargs["workdir"] == "/tmp/repo"
+
+
 def test_backends_listing_contains_claude_runtime_target(client, admin_auth_header):
     response = client.get("/api/sgpt/backends", headers=admin_auth_header)
     assert response.status_code == 200
