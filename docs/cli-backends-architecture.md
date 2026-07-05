@@ -19,6 +19,7 @@ Production code imports from this namespace. The detector
 
 | Module | Responsibility | Status |
 |--------|----------------|--------|
+| `budget.py` | Token-budget adapter behind the context boundary | Source-of-truth |
 | `context.py` | `CliBackendContext` service boundary | Source-of-truth |
 | `helpers.py` | backend config/runtime helpers | Source-of-truth |
 | `semaphore.py` | backend concurrency limits | Source-of-truth |

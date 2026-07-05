@@ -112,6 +112,12 @@ class CliBackendContext:
             fromlist=["DECISION_BLOCKED", "extract_policy_config"],
         )
     )
+    token_budget_service = _ServiceProperty(
+        lambda: __import__(
+            "agent.services.token_budget_service",
+            fromlist=["TokenBudgetService"],
+        ).TokenBudgetService()
+    )
 
 
 # Module-level singleton — tests monkeypatch the class or the instance.

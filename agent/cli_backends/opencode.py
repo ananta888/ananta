@@ -12,6 +12,7 @@ import tempfile
 from flask import current_app, has_app_context
 
 from agent.config import settings
+from agent.cli_backends.budget import check_prompt_budget
 from agent.cli_backends.context import default_context as _ctx
 from agent.llm_integration import (
     _find_matching_lmstudio_candidate,
@@ -317,21 +318,12 @@ def run_opencode_command(
     workdir: str | None = None,
 ) -> tuple[int, str, str]:
     """Führt einen OpenCode-CLI-Aufruf aus. Gibt (returncode, stdout, stderr) zurück."""
-    # Budget gate — T05
-    try:
-        from agent.services.token_budget_service import TokenBudgetService as _TBS
-        _tbs = _TBS()
-        _budget_check = _tbs.check_budget(
-            _tbs.estimate(prompt)["tokens"],
-            max_tokens=getattr(settings, "max_prompt_tokens", 128000),
-        )
-        if not _budget_check["allowed"]:
-            return -1, "", (
-                f"token_budget_exceeded: prompt ~{_budget_check['estimated_tokens']} tokens "
-                f"exceeds limit {_budget_check['max_tokens']}"
-            )
-    except Exception as _budget_err:
-        log.debug("Token budget gate skipped (error): %s", _budget_err)
+    budget_error = check_prompt_budget(
+        prompt,
+        max_tokens=getattr(settings, "max_prompt_tokens", 128000),
+    )
+    if budget_error is not None:
+        return budget_error
 
     opencode_bin = settings.opencode_path or "opencode"
     opencode_resolved = shutil.which(opencode_bin)
@@ -535,21 +527,12 @@ def resolve_codex_runtime_config() -> dict:
 
 def run_codex_command(prompt: str, model: str | None = None, timeout: int = 60) -> tuple[int, str, str]:
     """Fuehrt einen OpenAI Codex CLI exec-Aufruf aus."""
-    # Budget gate — T05
-    try:
-        from agent.services.token_budget_service import TokenBudgetService as _TBS
-        _tbs = _TBS()
-        _budget_check = _tbs.check_budget(
-            _tbs.estimate(prompt)["tokens"],
-            max_tokens=getattr(settings, "max_prompt_tokens", 128000),
-        )
-        if not _budget_check["allowed"]:
-            return -1, "", (
-                f"token_budget_exceeded: prompt ~{_budget_check['estimated_tokens']} tokens "
-                f"exceeds limit {_budget_check['max_tokens']}"
-            )
-    except Exception as _budget_err:
-        log.debug("Token budget gate skipped (error): %s", _budget_err)
+    budget_error = check_prompt_budget(
+        prompt,
+        max_tokens=getattr(settings, "max_prompt_tokens", 128000),
+    )
+    if budget_error is not None:
+        return budget_error
 
     codex_bin = settings.codex_path or "codex"
     codex_resolved = shutil.which(codex_bin)

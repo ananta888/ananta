@@ -56,6 +56,17 @@ def test_context_property_returns_underlying_service() -> None:
     assert result is not None
 
 
+def test_context_token_budget_service_is_overrideable() -> None:
+    """Budget policy is injected through the CLI backend context boundary."""
+    from agent.cli_backends.context import CliBackendContext
+
+    ctx = CliBackendContext()
+    fake_service = object()
+    ctx.token_budget_service = fake_service
+
+    assert ctx.token_budget_service is fake_service
+
+
 def test_context_service_getter_imports_lazy() -> None:
     """Importing CliBackendContext must NOT eagerly import agent.services.*.
 

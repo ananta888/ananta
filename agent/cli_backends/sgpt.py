@@ -9,6 +9,7 @@ import sys
 import time
 
 from agent.config import settings
+from agent.cli_backends.budget import check_prompt_budget
 from agent.research_backend import is_research_backend, run_research_backend_command
 from agent.cli_backends.helpers import (
     _get_agent_config,
@@ -74,21 +75,12 @@ def run_sgpt_command(
     Führt einen SGPT-Befehl zentral aus, inkl. korrekter Environment-Injektion.
     Gibt (returncode, stdout, stderr) zurück.
     """
-    # Budget gate — T05
-    try:
-        from agent.services.token_budget_service import TokenBudgetService as _TBS
-        _tbs = _TBS()
-        _budget_check = _tbs.check_budget(
-            _tbs.estimate(prompt)["tokens"],
-            max_tokens=getattr(settings, "max_prompt_tokens", 128000),
-        )
-        if not _budget_check["allowed"]:
-            return -1, "", (
-                f"token_budget_exceeded: prompt ~{_budget_check['estimated_tokens']} tokens "
-                f"exceeds limit {_budget_check['max_tokens']}"
-            )
-    except Exception as _budget_err:
-        log.debug("Token budget gate skipped (error): %s", _budget_err)
+    budget_error = check_prompt_budget(
+        prompt,
+        max_tokens=getattr(settings, "max_prompt_tokens", 128000),
+    )
+    if budget_error is not None:
+        return budget_error
 
     options = options or []
     if "--no-interaction" not in options:
