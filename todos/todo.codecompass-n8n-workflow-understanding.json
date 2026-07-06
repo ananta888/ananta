@@ -1,0 +1,283 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "codecompass-n8n-workflow-understanding",
+  "created": "2026-07-06",
+  "status": "todo",
+  "priority": "P1",
+  "purpose": "CodeCompass/rag-helper soll n8n-Workflow-JSON-Dateien genauso strukturiert verstehen wie Java, C#, XML oder andere Projektartefakte: als Graph, Kontextrecords, Relations und Embedding-Quelle.",
+  "goal": "n8n-Workflows werden nicht nur als Rohtext indexiert, sondern als ausführbarer Datenfluss analysiert: Trigger, Nodes, Credentials-Referenzen, Expressions, IF/Switch/Merge/Wait/Subworkflow-Verbindungen, HTTP/API-Kanten, Datenverträge, Fehlerpfade und Sicherheits-/Secret-Hinweise werden als CodeCompass-Records exportiert.",
+  "problem_statement": "n8n-Workflows sind in Ananta-Unterricht, Automatisierung und Agenten-Orchestrierung fachlich genauso wichtig wie Quellcode. Ein exportierter n8n-Workflow ist JSON, enthält aber semantisch einen Prozessgraphen. Ohne eigenen Extractor kann CodeCompass/rag-helper weder Nodes noch Datenfluss, Credentials, Webhooks, Subflows oder API-Kopplungen zuverlässig durchsuchen, clustern, erklären oder in Embeddings abbilden.",
+  "non_goals": [
+    "Keine Ausführung von n8n-Workflows im rag-helper.",
+    "Kein Import/Deploy nach n8n aus CodeCompass heraus.",
+    "Keine Entschlüsselung oder Offenlegung echter Credentials.",
+    "Kein vollständiger n8n-Linter-Ersatz; Ziel ist RAG-/Graph-Verständnis, nicht Runtime-Validierung.",
+    "Keine Abhängigkeit von einem laufenden n8n-Server für die lokale Indexierung exportierter Workflow-Dateien."
+  ],
+  "source_review": {
+    "summary": "Der bestehende rag-helper hat bereits die nötige Pipeline: pro Datei liefert ein Extractor index/details/relations/stats; daraus werden Embedding-Records und Graph-Knoten/Kanten gebaut. Der n8n-Support sollte daher als eigener Extractor in dieselbe Struktur eingebunden werden, statt als Sonderlogik im CodeCompass-Retriever zu landen.",
+    "observed_source_files": [
+      {
+        "path": "rag-helper/rag_helper/application/document_extractor.py",
+        "finding": "build_extractors registriert aktuell java, adoc, xml, xsd, optional cs sowie generische Text-Extensions. Ein n8n-Workflow-Extractor fehlt."
+      },
+      {
+        "path": "rag-helper/rag_helper/application/document_extractor.py",
+        "finding": "process_snapshot wählt den Extractor anhand der Dateiendung und ruft parse(...) auf. Für n8n sollte entweder ext=json plus Workflow-Erkennung oder eine virtuelle ext=n8n genutzt werden."
+      },
+      {
+        "path": "rag-helper/codecompass_rag.py",
+        "finding": "DEFAULT_EXTENSIONS enthält java, cs, xml, xsd, adoc, properties, yaml/yml, sql, md, py, ts und tsx, aber kein json/n8n."
+      },
+      {
+        "path": "rag-helper/rag_helper/application/output_formats.py",
+        "finding": "build_embedding_records nutzt id/kind/file/embedding_text/summary. n8n-Records müssen diese Felder sauber setzen."
+      },
+      {
+        "path": "rag-helper/rag_helper/application/output_formats.py",
+        "finding": "build_graph_nodes und build_graph_edges können aus Records und Relations bereits Graph-Knoten/Kanten erzeugen. n8n-Relations sollen daher source/target/type oder source_id/target-Format kompatibel liefern."
+      },
+      {
+        "path": "todos/archiv/todo.codecompass-context-tool-provider.json",
+        "finding": "Vorhandene Tool-Zielrichtung mit codecompass.resolve_context/search_symbols/expand_graph passt direkt zu Workflow-Fragen wie: welcher Webhook startet welchen Prozess, welcher Node ruft welche API, wo hängt Merge/Wait/Subworkflow."
+      }
+    ]
+  },
+  "target_capabilities": [
+    "Workflow-Dateien aus n8n-Exports automatisch erkennen: JSON mit nodes/connections/name/settings oder n8n-spezifischen Node-Typen.",
+    "Workflow-Level-Record erzeugen: name, active, node_count, connection_count, trigger_count, credential_ref_count, tags, settings, pinData-Hinweise.",
+    "Node-Level-Records erzeugen: id/name/type/typeVersion/position/parameters/credentials/expression_fields/webhook_path/http_method/subworkflow_ref.",
+    "Connection-Relations erzeugen: n8n_connects, n8n_main_flow, n8n_branch_true, n8n_branch_false, n8n_error_flow, n8n_ai_tool_flow, n8n_resume_flow.",
+    "Semantische API-Relations erzeugen: n8n_calls_http_endpoint, n8n_reads_google_sheet, n8n_sends_email, n8n_receives_webhook, n8n_invokes_subworkflow, n8n_uses_llm_provider.",
+    "Expressions analysieren: {{$json...}}, $node[], $item(), $workflow, $env, $credentials nur als Referenzen, nie Secrets.",
+    "Credentials nur als referenzierte Credential-Namen/Typen zählen und markieren; keine Secret-Werte exportieren.",
+    "Embeddings so bauen, dass Fragen nach fachlichem Prozess, Node-Namen, API-Zielen, Webhooks, Fehlerpfaden und Datenfeldern gute Treffer liefern.",
+    "Graph so bauen, dass CodeCompass-Graph-Viewer n8n-Datenfluss als Knoten/Kanten anzeigen und expandieren kann.",
+    "Workflow-Sicherheitsbefunde erzeugen: ungesicherte Webhooks, hardcoded tokens/URLs, gefährliche Code-Nodes, fehlende Error-Branches, unklare Credential-Nutzung."
+  ],
+  "implementation_plan": [
+    {
+      "id": "N8N-001",
+      "title": "n8n Workflow Schema Detection",
+      "type": "code",
+      "paths": [
+        "rag-helper/rag_helper/extractors/n8n_workflow_extractor.py",
+        "rag-helper/rag_helper/extractors/__init__.py"
+      ],
+      "tasks": [
+        "Neuen N8nWorkflowExtractor anlegen.",
+        "JSON robust laden; ungültige JSON-Dateien sauber als FileSkipped oder stats.error behandeln.",
+        "is_n8n_workflow(payload) implementieren: nodes:list, connections:dict, typische Felder name/type/typeVersion/parameters.",
+        "Mehrere Exportformen unterstützen: einzelner Workflow als Objekt, Liste von Workflows, n8n Export-Bundle wenn vorhanden.",
+        "Für nicht-n8n JSON keine aggressiven Records erzeugen; später optional GenericJsonExtractor."
+      ],
+      "acceptance_criteria": [
+        "Ein valider n8n-Export mit nodes/connections wird erkannt.",
+        "Eine normale package.json wird nicht fälschlich als n8n-Workflow indexiert.",
+        "Ungültiges JSON bricht den Projektlauf nicht ab.",
+        "Unit-Tests decken Einzelworkflow, Workflow-Liste und Nicht-n8n-JSON ab."
+      ]
+    },
+    {
+      "id": "N8N-002",
+      "title": "Index-, Detail- und Embedding-Records",
+      "type": "code",
+      "paths": [
+        "rag-helper/rag_helper/extractors/n8n_workflow_extractor.py",
+        "rag-helper/rag_helper/utils/embedding_text.py"
+      ],
+      "tasks": [
+        "Workflow-Record kind=n8n_workflow erzeugen.",
+        "Node-Records kind=n8n_node erzeugen; Trigger optional kind=n8n_trigger_node, API-Nodes optional kind=n8n_api_node.",
+        "Expression-Records oder Detail-Felder für genutzte Datenpfade erzeugen.",
+        "summary und embedding_text fachlich formulieren: Node-Zweck, Node-Typ, Parameter-Schlüssel, API-Ziel, Datenfelder, Credentials-Typ.",
+        "Große parameters-Felder kompakt halten; raw JSON nicht vollständig in embedding_text kopieren."
+      ],
+      "acceptance_criteria": [
+        "embeddings.jsonl enthält pro Workflow und wichtigsten Nodes sinnvolle embedding_text-Werte.",
+        "details/context_records enthalten genug Parameter-Kontext für Erklärungen, aber keine Secret-Werte.",
+        "Workflow-Record enthält node_count, trigger_count, connection_count und credential_ref_count.",
+        "Node-Record enthält node_id, node_name, node_type, type_version, parameter_keys und role_labels."
+      ]
+    },
+    {
+      "id": "N8N-003",
+      "title": "n8n Graph Relations",
+      "type": "code",
+      "paths": [
+        "rag-helper/rag_helper/extractors/n8n_workflow_extractor.py",
+        "rag-helper/rag_helper/application/output_formats.py"
+      ],
+      "tasks": [
+        "connections in relation_records überführen.",
+        "Relations direkt im source/target/type-Format ausgeben, damit build_graph_edges sie ohne Spezialauflösung übernehmen kann.",
+        "Branch-Typen aus connection input/output ableiten: main, true, false, error, ai_tool, tool, resume soweit erkennbar.",
+        "Parent-Child über parent_id setzen: Workflow -> Node.",
+        "Subworkflow-Referenzen als Relation n8n_invokes_subworkflow aufnehmen, auch wenn Ziel nicht lokal auflösbar ist."
+      ],
+      "acceptance_criteria": [
+        "graph_nodes.jsonl enthält Workflow- und Node-Knoten.",
+        "graph_edges.jsonl enthält parent_child plus n8n_connects-Kanten.",
+        "IF/Switch/Merge/Wait-Verbindungen bleiben als unterscheidbare Kanten erkennbar.",
+        "Graph-Export läuft ohne dangling source/target für lokale Nodes."
+      ]
+    },
+    {
+      "id": "N8N-004",
+      "title": "CLI/Profile Integration",
+      "type": "code",
+      "paths": [
+        "rag-helper/codecompass_rag.py",
+        "rag-helper/rag_helper/cli.py",
+        "rag-helper/rag_helper/application/document_extractor.py",
+        "rag-helper/rag_helper/application/config_profiles.py"
+      ],
+      "tasks": [
+        "json in DEFAULT_EXTENSIONS aufnehmen oder eigenes n8n-include-glob Profil bereitstellen.",
+        "n8n_extractor_cls durch run_cli/process_project/build_extractors durchreichen.",
+        "document_extractor so erweitern, dass json-Dateien zuerst n8n-spezifisch versucht werden und bei Nicht-Erkennung übersprungen oder generisch behandelt werden.",
+        "Profilbeispiel docs/config für n8n-Workflow-Repos ergänzen: include_glob **/*.json plus exclude für package-lock/node_modules.",
+        "Kompatibilität zu bestehenden Aufrufen erhalten."
+      ],
+      "acceptance_criteria": [
+        "python rag-helper/codecompass_rag.py <repo> --extensions json --dry-run läuft mit n8n-Workflow-Datei.",
+        "Bestehende Java/XML/C#/Text-Tests laufen unverändert.",
+        "Ohne n8n-Extractor-Option entstehen keine unerwarteten Fehler bei JSON-Dateien.",
+        "CLI-Hilfe oder Doku erwähnt n8n-Workflow-Unterstützung."
+      ]
+    },
+    {
+      "id": "N8N-005",
+      "title": "Security and Secret Redaction",
+      "type": "code",
+      "paths": [
+        "rag-helper/rag_helper/extractors/n8n_workflow_extractor.py",
+        "rag-helper/rag_helper/application/generated_code.py"
+      ],
+      "tasks": [
+        "Redaction-Regeln für Parameterwerte: token, apiKey, authorization, password, secret, bearer, credential, privateKey.",
+        "Credential-Objekte nur als credential_ref mit name/type/id-hash ausgeben, nicht als Secret.",
+        "Webhook-/HTTP-URLs normalisieren; Query-Token entfernen.",
+        "security_findings in stats/detail ergänzen, z.B. hardcoded_secret_candidate, public_webhook_without_auth_hint, code_node_present, no_error_branch.",
+        "Tests mit künstlichen Secrets sicherstellen."
+      ],
+      "acceptance_criteria": [
+        "Kein Testsecret erscheint in index.jsonl, details.jsonl, embeddings.jsonl, graph*.jsonl oder manifest.",
+        "Hardcoded-Secret-Kandidaten werden als Befund gezählt, aber redacted gespeichert.",
+        "Credentials werden als Referenz/Typ sichtbar, ohne Werte offenzulegen.",
+        "Security-Findings sind im Context/Embedding auffindbar."
+      ]
+    },
+    {
+      "id": "N8N-006",
+      "title": "Fixture Workflows and Tests",
+      "type": "test",
+      "paths": [
+        "rag-helper/tests/fixtures/n8n/simple_manual_http_workflow.json",
+        "rag-helper/tests/fixtures/n8n/webhook_if_merge_wait_workflow.json",
+        "rag-helper/tests/fixtures/n8n/llm_email_triage_workflow.json",
+        "rag-helper/tests/test_n8n_workflow_extractor.py"
+      ],
+      "tasks": [
+        "Fixture 1: Manual Trigger -> HTTP Request -> Set/Respond.",
+        "Fixture 2: Webhook -> IF -> Merge -> Wait/Resume -> Response.",
+        "Fixture 3: Email/Webhook -> OpenRouter/OpenAI-kompatibler LLM-Node -> JSON Parse/Structured Output -> Output.",
+        "Tests für Records, Relations, Embeddings, Redaction und Graph-Ausgabe schreiben.",
+        "Snapshot-ähnliche Assertions für stabile kind/type/id-Konventionen ergänzen."
+      ],
+      "acceptance_criteria": [
+        "Mindestens drei n8n-Fixtures werden indexiert.",
+        "Tests prüfen node_count, trigger_count, relation_count und credential_ref_count.",
+        "Tests prüfen, dass IF/Merge/Wait/Subworkflow oder LLM-Knoten semantisch erkannt werden.",
+        "pytest für rag-helper läuft lokal ohne n8n-Server."
+      ]
+    },
+    {
+      "id": "N8N-007",
+      "title": "CodeCompass Query and Graph Viewer Doku",
+      "type": "docs",
+      "paths": [
+        "docs/codecompass.md",
+        "docs/codecompass-graph-viewer.md",
+        "docs/codecompass-n8n-workflows.md"
+      ],
+      "tasks": [
+        "Kurzdoku schreiben: Was wird aus n8n extrahiert und was nicht.",
+        "Beispielfragen ergänzen: 'Welcher Webhook startet den Prozess?', 'Welche Nodes nutzen Credentials?', 'Wo geht der False-Branch hin?', 'Welche APIs werden aufgerufen?'.",
+        "Graph-Legende für n8n_node/n8n_workflow/n8n_connects/n8n_calls_http_endpoint ergänzen.",
+        "Hinweis: n8n Export ist Prozessgraph, Originalworkflow bleibt autoritative Quelle."
+      ],
+      "acceptance_criteria": [
+        "Doku enthält mindestens ein vollständiges CLI-Beispiel.",
+        "Doku erklärt Redaction und Credential-Behandlung klar.",
+        "Doku enthält Beispiel-Recordarten und Relations."
+      ]
+    }
+  ],
+  "record_contract": {
+    "workflow_record_kind": "n8n_workflow",
+    "node_record_kind": "n8n_node",
+    "trigger_record_kind": "n8n_trigger_node",
+    "relation_types": [
+      "n8n_connects",
+      "n8n_branch_true",
+      "n8n_branch_false",
+      "n8n_error_flow",
+      "n8n_ai_tool_flow",
+      "n8n_receives_webhook",
+      "n8n_calls_http_endpoint",
+      "n8n_invokes_subworkflow",
+      "n8n_uses_credential_ref",
+      "n8n_reads_data_field",
+      "n8n_writes_data_field"
+    ],
+    "minimum_workflow_fields": [
+      "id",
+      "kind",
+      "file",
+      "name",
+      "workflow_name",
+      "node_count",
+      "connection_count",
+      "trigger_count",
+      "credential_ref_count",
+      "summary",
+      "embedding_text"
+    ],
+    "minimum_node_fields": [
+      "id",
+      "kind",
+      "file",
+      "parent_id",
+      "node_id",
+      "name",
+      "node_type",
+      "type_version",
+      "parameter_keys",
+      "credential_refs",
+      "expression_refs",
+      "role_labels",
+      "summary",
+      "embedding_text"
+    ]
+  },
+  "definition_of_done": [
+    "rag-helper kann n8n-Workflow-JSONs indexieren, ohne n8n auszuführen.",
+    "CodeCompass erzeugt Embeddings, Details, Relations und Graph-Knoten/Kanten für n8n-Workflows.",
+    "Secrets/Credentials werden nicht offengelegt.",
+    "Graph-Fragen und Workflow-Fragen sind über CodeCompass-Retrieval auffindbar.",
+    "Tests und Doku sind vorhanden.",
+    "Bestehende Sprachen/Extractor-Pfade bleiben rückwärtskompatibel."
+  ],
+  "manual_validation_queries": [
+    "Welche n8n-Workflows haben Webhook Trigger?",
+    "Welche Nodes nutzen Credentials?",
+    "Welche externen HTTP APIs werden aufgerufen?",
+    "Welche Datenfelder werden aus $json gelesen?",
+    "Wo führt der false branch des IF Nodes hin?",
+    "Welche Workflows enthalten LLM/OpenRouter/OpenAI-kompatible Nodes?",
+    "Welche Workflows haben keinen erkennbaren Error-Branch?"
+  ]
+}
