@@ -1,5 +1,5 @@
 {
-  "$schema": "./todo.track.schema.json",
+  "$schema": "../todo.track.schema.json",
   "version": "2.1",
   "owner": "Peter Stuiber / Ananta",
   "track": "classroom-transcript-codecompass-assistant",

@@ -1,0 +1,629 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "2.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "text-quality-anti-slop-evaluator-evolution",
+  "created": "2026-07-06",
+  "updated": "2026-07-06",
+  "status": "todo",
+  "priority": "P0",
+  "purpose": "Ananta soll oberflaechliche, floskelhafte und gleichfoermige Texte als Qualitaetsproblem erkennen, ohne einen Human-Imitation- oder Detector-Evasion-Mechanismus zu bauen. Der Track konsolidiert den bisherigen Anti-Slop-/Depth-Evolver und den avoid-ai-writing-Adapter in eine provider-neutrale, auditierbare Textqualitaetsarchitektur.",
+  "goal": "Ein versionierter Textqualitaets-Core bewertet geeignete Output-Arten mit deterministischen und optionalen LLM-/Adapter-Signalen, persistiert nachvollziehbare Ergebnisse, leitet ausschliesslich allowlist-basierte Prompt-Vorschlaege ab und integriert sie kontrolliert in Planning-Evaluation, Learning Loop, Canary und Rollback. avoid-ai-writing ist eine optionale, gepinnte Signalquelle und niemals alleinige Qualitaetsinstanz.",
+  "core_decisions": [
+    "Qualitaet statt Tarnung: Zielgroessen sind Konkretheit, Aussagekraft, Grounding, passende Struktur und profilspezifischer Stil; HUMAN_ONLY/AI_ONLY oder ein niedriger Detector-Score sind keine Erfolgsziele.",
+    "Core owns contracts: AntiSlopEvaluationResult, CriteriaSet, ContentKind, QualitySignalProvider, Fusion und Persistenz liegen in agent.services.text_quality; externe Detectoren liefern nur normalisierte Signale.",
+    "Content-kind first: freeform_prose, planning_task_description, technical_documentation, changelog, course_material und structured_plan erhalten getrennte Regeln. Ganze Planning-JSONs werden nicht mit Prosa-/Listicle-Heuristiken bewertet.",
+    "Grounding before depth: spezifische Behauptungen, Gegenargumente und Beispiele erhoehen den Depth-Score nur, wenn sie durch vorhandene Evidence gedeckt oder klar als Meinung/Hypothese markiert sind. Unbekannte SRC_*/RUN_* IDs sind unverified.",
+    "No raw rule injection: LLM- oder Upstream-Texte gelangen nie direkt in system_rules. Nur stabile Reason-Codes werden deterministisch auf fest definierte Prompt-Regeln abgebildet.",
+    "Hub controls, sandbox executes: Der Hub entscheidet Policy, Routing, Review und Persistenz; externe Node-Ausfuehrung erfolgt ueber SandboxBackend mit argv-Liste, ohne shell und ohne Netzwerk.",
+    "Review-first evolution: Kriterien, Prompt-Versionen und Rewrite-Vorschlaege bleiben proposed, bis eine explizite Review-Aktion sie aktiviert. Kein Edit-in-place in diesem Track.",
+    "Comparable canaries only: Baseline und Canary werden nur bei gleicher evaluator_version, criteria_version, language, content_kind, provider/model family und ausreichender Stichprobe verglichen."
+  ],
+  "non_goals": [
+    "Kein Versprechen, menschliche und KI-Autorschaft verlaesslich zu erkennen.",
+    "Kein Optimieren auf HUMAN_ONLY, AI_ONLY oder das Umgehen externer Detectoren.",
+    "Kein automatisches Umschreiben oder Edit-in-place von Dateien.",
+    "Keine ungepruefte Uebernahme englischer Regeln in deutsche Profile.",
+    "Keine direkte Aenderung von Worker-Systemprompts, Rollen, Governance, Tool-Rechten, Context-Scope oder Apply-Policies.",
+    "Keine Netzwerkpflicht und kein ungepinnter Bezug auf einen beweglichen Upstream-Branch.",
+    "Keine Bewertung strukturierter Planning-JSONs als Fliesstext."
+  ],
+  "source_contract_verified_2026_07_06": [
+    {
+      "area": "planning_telemetry",
+      "anchors": [
+        "agent/services/planning_telemetry_service.py::PlanningTelemetryService.update_run",
+        "agent/services/planning_telemetry_service.py::PlanningTelemetryService.build_learning_record",
+        "agent/db_models/planning.py::PlanningRunDB"
+      ],
+      "consequence": "PlanningRunDB speichert raw_output_preview nur bounded bis 1200 Zeichen und mode_data als JSON. Textqualitaet wird nicht aus unbounded Rohtext spaeter rekonstruiert, sondern waehrend der Evaluation berechnet und als versionierte Referenz/Details persistiert."
+    },
+    {
+      "area": "planning_evaluation",
+      "anchors": [
+        "agent/services/planning_evaluation_service.py::PlanningEvaluationService.evaluate",
+        "agent/db_models/planning.py::PlanningEvaluationDB",
+        "agent/repositories/planning_learning.py::PlanningEvaluationRepository"
+      ],
+      "consequence": "PlanningEvaluationDB.details ist der additive Persistenzpunkt fuer planning-bezogene text_quality-Summaries; CriteriaSets und wiederverwendbare Evaluationen erhalten eigene Models/Repositories statt mode_data zu ueberladen."
+    },
+    {
+      "area": "prompt_evolution",
+      "anchors": [
+        "agent/services/planning_prompt_evolver_service.py::PlanningPromptEvolverService.evolve_from_run",
+        "agent/services/planning_prompt_evolution_guard_service.py::PlanningPromptEvolutionGuardService.validate_mutation"
+      ],
+      "consequence": "Der bestehende Evolver mutiert nur PlanningPromptVersionDB-Felder und erzeugt ReviewItems fuer deaktivierte Kandidaten. Textqualitaet liefert nur stabile Trigger-Codes; feste Regeln werden im Evolver gemappt und anschliessend vom Guard validiert."
+    },
+    {
+      "area": "learning_loop",
+      "anchors": [
+        "agent/services/planning_metrics_service.py::PlanningMetricsService.summarize",
+        "agent/services/planning_learning_loop_service.py::PlanningLearningLoopService._create_candidate",
+        "agent/services/planning_learning_loop_service.py::PlanningLearningLoopService._maybe_promote_canary",
+        "agent/services/planning_learning_loop_service.py::PlanningLearningLoopService._maybe_rollback_candidate"
+      ],
+      "consequence": "Textqualitaetsmetriken werden additiv in bestehende Gruppen aufgenommen. Promotion/Rollback brauchen getrennte technische und Textqualitaets-Gates; fehlende oder nicht vergleichbare Textmetriken duerfen nicht als Nullscore behandelt werden."
+    },
+    {
+      "area": "llm_json",
+      "anchors": [
+        "agent/services/model_invocation_service.py::ModelInvocationService.invoke_with_json_schema_result",
+        "agent/services/planning_track_pipeline_service.py"
+      ],
+      "consequence": "LLM-Judgment und Kriterienextraktion nutzen JSON-Schema, bounded Input und maximal einen Repair-Versuch. Parse-Fehler liefern degraded/failed, nie frei geparsten Prompttext."
+    },
+    {
+      "area": "repositories",
+      "anchors": [
+        "agent/db_models/__init__.py",
+        "agent/repositories/planning_learning.py",
+        "agent/repository.py",
+        "agent/services/repository_registry.py"
+      ],
+      "consequence": "Neue Models liegen unter agent/db_models/text_quality.py, Repositories unter agent/repositories/text_quality.py und werden ueber die bestehenden Composition Roots exportiert. agent/db_models.py und tests/agent existieren nicht."
+    },
+    {
+      "area": "sandbox",
+      "anchors": [
+        "agent/services/sandbox_backend.py::SandboxBackend",
+        "agent/services/sandbox_backend.py::FakeSandboxBackend",
+        "agent/services/sandbox_policy_service.py"
+      ],
+      "consequence": "Der optionale Node-Detector wird ueber die Sandbox-Port-Schnittstelle mit fester argv-Liste ausgefuehrt. Kein subprocess-Aufruf im Route-/Core-Service und kein shell=True."
+    },
+    {
+      "area": "plugins",
+      "anchors": [
+        "agent/plugin_loader.py::_read_plugin_manifest",
+        "agent/plugin_loader.py::_register_declared_evolution_providers",
+        "agent/services/evolution/engine.py::EvolutionEngine",
+        "agent/services/evolution/models.py::EvolutionCapability"
+      ],
+      "consequence": "Ein optionaler Provider nutzt ananta-plugin.json und unterstuetzt ANALYZE/REVIEW_HINTS. VALIDATE/APPLY bleiben durch UnsupportedEvolutionOperation fail-closed."
+    },
+    {
+      "area": "api_cli",
+      "anchors": [
+        "agent/bootstrap/routes.py::register_blueprints",
+        "agent/routes/admin/planning_review.py",
+        "agent/cli/commands/__init__.py::DOMAIN_MODULES",
+        "agent/cli/main.py::_run_domain"
+      ],
+      "consequence": "Routes brauchen Blueprint-Registrierung, Auth/Admin-Gates und Audit; die CLI wird als Domain-Command agent/cli/commands/text_quality.py registriert und nutzt die Hub-API statt eigene Persistenzlogik."
+    },
+    {
+      "area": "upstream_avoid_ai_writing",
+      "anchors": [
+        "https://github.com/conorbronsdon/avoid-ai-writing",
+        "detector/patterns.js::AIDetector.analyzeText",
+        "detector/CATEGORIES.md",
+        "detector/README.md",
+        "LICENSE"
+      ],
+      "consequence": "Upstream ist aktuell MIT, Node >=18, zero-dependency und liefert einen 0-100 Detector-Signal-Score mit 44 Engine-Typen. Vor Integration sind Commit-SHA, LICENSE-Kopie/Attribution, Contract-Fixture und Checksum festzuschreiben; main ist kein gueltiger Pin."
+    }
+  ],
+  "target_config": {
+    "path": "agent_config.text_quality",
+    "safe_defaults": {
+      "enabled": false,
+      "evaluate_planning_outputs": false,
+      "llm_judge_enabled": false,
+      "rewrite_enabled": false,
+      "default_profile": "critical_editor_de",
+      "max_input_chars": 12000,
+      "max_input_words": 2500,
+      "max_output_bytes": 262144,
+      "max_slop_score": 0.35,
+      "min_depth_score": 0.7,
+      "min_canary_runs": 10,
+      "external_detectors": {
+        "avoid_ai_writing": {
+          "enabled": false,
+          "execution_plane": "sandbox",
+          "network": "none",
+          "pinned_commit": null,
+          "detector_sha256": null,
+          "context_mode": "technical"
+        }
+      }
+    }
+  },
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "milestones": [
+    {"id": "TQAS-M1", "title": "Core-Contracts, Scanner, Persistenz und Evaluator", "task_ids": ["TQAS-001", "TQAS-002", "TQAS-003", "TQAS-004", "TQAS-005"], "status": "todo"},
+    {"id": "TQAS-M2", "title": "Gepinnter externer Detector und Kalibration", "task_ids": ["TQAS-006", "TQAS-007", "TQAS-008", "TQAS-009"], "status": "todo"},
+    {"id": "TQAS-M3", "title": "Kriterien-Review, Prompt-Evolution und Learning Loop", "task_ids": ["TQAS-010", "TQAS-011", "TQAS-012"], "status": "todo"},
+    {"id": "TQAS-M4", "title": "API/CLI, optionaler Provider und End-to-End-Nachweis", "task_ids": ["TQAS-013", "TQAS-014", "TQAS-015"], "status": "todo"}
+  ],
+  "tasks": [
+    {
+      "id": "TQAS-001",
+      "title": "Textqualitaets-Contracts, Content-Kinds und Provider-Port definieren",
+      "type": "architecture",
+      "milestone_id": "TQAS-M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [],
+      "target_files": [
+        "agent/services/text_quality/__init__.py",
+        "agent/services/text_quality/models.py",
+        "agent/services/text_quality/quality_signal_provider.py",
+        "tests/test_text_quality_models.py"
+      ],
+      "acceptance_criteria": [
+        "ContentKind ist eine geschlossene Enum mit mindestens freeform_prose, planning_task_description, technical_documentation, changelog, course_material und structured_plan.",
+        "CriteriaSet enthaelt id, version, language, profile_name, content_kinds, status, blocked_phrases, weak_patterns, required_positive_traits, thresholds, checksum, source_refs, created_by und created_at.",
+        "TextQualityEvaluationResult enthaelt slop_score, depth_score, style_fit_score, reason_codes, bounded findings, source_breakdown, grounding_status, evaluator_version, criteria_version, language, content_kind, confidence und status=completed|degraded|unscorable|failed.",
+        "DetectorSignal bleibt getrennt vom Quality-Gesamtergebnis und enthaelt provider_name, provider_version, raw_signal_score, normalized_signal_score, issues, confidence und degraded_reason.",
+        "QualitySignalProvider ist ein kleines Protocol/ABC fuer analyze(request)->DetectorSignal; Core-Modelle importieren weder Node-, avoid-ai-writing-, EvolutionEngine- noch Planning-Klassen.",
+        "Scores werden deterministisch auf 0.0..1.0 begrenzt; NaN/Infinity, unbekannte Statuswerte und unbekannte Reason-Codes werden validiert abgelehnt.",
+        "Reason-Codes umfassen mindestens generic_phrase, shallow_claim, missing_concrete_example, unsupported_specific_claim, vague_attribution, overused_transition, structure_mismatch, style_uniformity und source_unverified.",
+        "JSON-Roundtrip-Tests beweisen stabile Feldnamen; Contract-Tests beweisen, dass alternative Provider substituierbar sind.",
+        "SOLID-Gate: Modelle haben keine Persistenz-/LLM-/Subprozesslogik und der Provider-Port exponiert keine Methoden, die ein Consumer nicht benoetigt."
+      ]
+    },
+    {
+      "id": "TQAS-002",
+      "title": "Deterministischen Core-Scanner und content-kind-spezifische Profile implementieren",
+      "type": "code",
+      "milestone_id": "TQAS-M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["TQAS-001"],
+      "target_files": [
+        "agent/services/text_quality/deterministic_scanner.py",
+        "agent/services/text_quality/profiles/de.json",
+        "agent/services/text_quality/profiles/en.json",
+        "tests/fixtures/text_quality/",
+        "tests/test_text_quality_deterministic_scanner.py"
+      ],
+      "acceptance_criteria": [
+        "Scanner arbeitet offline, ohne Datenbank, Netzwerk oder LLM und liefert ausschliesslich DetectorSignal/Findings aus dem Core-Contract.",
+        "Phrase-Matching ist case-insensitive, Unicode-normalisiert, sprach- und content-kind-bezogen; Fundstellen speichern nur start/end/reason_code und einen bounded Ausschnitt.",
+        "technical_documentation, changelog und structured_plan deaktivieren ungeeignete Prosa-Signale wie Bullet-Dichte, Title-Case-Header oder notwendige Fachterminologie.",
+        "Sehr kurze Texte werden unscorable statt sloppig; max_input_chars und max_input_words liefern stabile reason_codes und verarbeiten keinen abgeschnittenen Text als Vollbewertung.",
+        "Deutsche und englische Profile sind eigenstaendig versioniert; englische Phrasen werden nicht automatisch im deutschen Profil aktiviert.",
+        "Tests enthalten positive Slop-Beispiele, konkrete sachliche Gegenbeispiele, technische Dokumentation, Changelog, Taskliste und kurze Texte.",
+        "False-Positive-Gate: alle freigegebenen technischen Gegenbeispiele bleiben unter dem konfigurierten Scanner-Schwellwert.",
+        "Snapshot-Tests pruefen Profilversion und Checksum, damit Regel-Drift sichtbar wird."
+      ]
+    },
+    {
+      "id": "TQAS-003",
+      "title": "CriteriaSets und Evaluationen versioniert persistieren",
+      "type": "persistence",
+      "milestone_id": "TQAS-M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["TQAS-001"],
+      "target_files": [
+        "agent/db_models/text_quality.py",
+        "agent/db_models/__init__.py",
+        "agent/repositories/text_quality.py",
+        "agent/repository.py",
+        "agent/services/repository_registry.py",
+        "tests/test_text_quality_repository.py"
+      ],
+      "acceptance_criteria": [
+        "TextQualityCriteriaSetDB und TextQualityEvaluationDB sind additive SQLModel-Tabellen; bestehende Planning-Tabellen und APIs bleiben kompatibel.",
+        "CriteriaSet-Status ist proposed|enabled|archived|rejected; genau ein Set pro profile_name/language/content_kind kann aktiv aufgeloest werden.",
+        "Aktivierung archiviert die zuvor aktive Version atomar oder lehnt einen konkurrierenden Konflikt mit reason_code ab.",
+        "Checksum wird aus kanonischen, sicherheitsrelevanten Criteria-Feldern gebildet; identische Sets werden dedupliziert.",
+        "Evaluationen referenzieren optional planning_run_id, planning_evaluation_id, criteria_set_id und prompt_version_id sowie evaluator/provider versions.",
+        "Volltexte werden nicht in CriteriaSet-Metadaten, Audit oder Evaluation gespeichert; Beispieltexte erscheinen nur als SHA-256, bounded Preview und autorisierte Artifact-Referenz.",
+        "Repository-Port bietet create/list/get_active/activate/archive/reject und Evaluation save/get_by_run; keine Business-Regel lebt in agent/repository.py.",
+        "Repository-Tests pruefen Transaktionen, Deduplikation, Aktivierungskonflikt, Sprach-/ContentKind-Aufloesung und Restart-Persistenz."
+      ]
+    },
+    {
+      "id": "TQAS-004",
+      "title": "Evaluator-Orchestrator mit deterministischer Fusion, optionalem LLM-Judge und Grounding bauen",
+      "type": "code",
+      "milestone_id": "TQAS-M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["TQAS-001", "TQAS-002"],
+      "target_files": [
+        "agent/services/text_quality/evaluator_service.py",
+        "agent/services/text_quality/score_fusion_policy.py",
+        "agent/services/text_quality/llm_judge.py",
+        "agent/services/model_invocation_service.py",
+        "tests/test_text_quality_evaluator_service.py"
+      ],
+      "acceptance_criteria": [
+        "Evaluator nimmt Text, language, content_kind, CriteriaSet, optionale Evidence-Refs und eine Liste injizierter QualitySignalProvider entgegen.",
+        "Fusion ist eine reine, versionierte Policy mit expliziten Gewichten; fehlende/degraded Provider werden aus dem Nenner entfernt und im source_breakdown markiert, nicht als Score 0 behandelt.",
+        "Ein externer Detector-Score bleibt detector_signal_score und wird nie ungekennzeichnet zum gesamten slop_score.",
+        "LLM-Judge ist default-off, nutzt invoke_with_json_schema_result, temperature 0 soweit Provider unterstuetzt, bounded Prompt und maximal einen JSON-Repair-Versuch.",
+        "LLM-Ausgabe kann Reason-Codes und bounded Verbesserungshinweise liefern, aber keine neuen Systemregeln, Tools, Quellen-IDs oder Criteria-Felder aktivieren.",
+        "Depth-Signale fuer konkrete Beispiele, Einschraenkungen und Gegenargumente zaehlen nur bei Grounding=verified|not_required; unbekannte oder fehlende SRC_*/RUN_* IDs erzeugen source_unverified/unsupported_specific_claim.",
+        "style_fit_score bewertet Passung zum Profil; corpus_style_diversity wird nicht aus einem Einzeltext erfunden.",
+        "Einfacher, konkreter Text erhaelt keinen Slop-Malus nur wegen kurzer Saetze oder niedriger sprachlicher Komplexitaet.",
+        "Kalibrationsfixtures definieren Score-Baender statt exakter LLM-Zahlen; deterministische Fusion bleibt bei identischen Inputs byte-stabil.",
+        "Provider-/LLM-Ausfall liefert degraded mit Scanner-Ergebnis; Parser-, Contract- oder Grounding-Fehler koennen nie still completed werden."
+      ]
+    },
+    {
+      "id": "TQAS-005",
+      "title": "Planning-Evaluation und Telemetrie an Textqualitaet anbinden",
+      "type": "integration",
+      "milestone_id": "TQAS-M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["TQAS-003", "TQAS-004"],
+      "target_files": [
+        "agent/services/planning_evaluation_service.py",
+        "agent/services/planning_telemetry_service.py",
+        "agent/db_models/planning.py",
+        "tests/test_planning_evaluation_text_quality.py"
+      ],
+      "acceptance_criteria": [
+        "Textqualitaet wird nur ausgefuehrt, wenn text_quality.enabled und evaluate_planning_outputs aktiv sind; Default-Verhalten und bestehende Planning-Scores bleiben unveraendert.",
+        "Bewertet werden normalisierte task title/description-/summary-Felder als planning_task_description, nicht der gesamte JSON-Plan, Schema-Keys oder technische IDs.",
+        "PlanningEvaluationDB.details.text_quality speichert evaluation_id, Scores, status, versions, reason_codes und content_kind; kein Rohtext.",
+        "PlanningTelemetryService.build_learning_record exponiert die persistierte Summary additiv und unterscheidet missing, unscorable, degraded und completed.",
+        "Eine Planning-Run-Evaluation wird idempotent pro run_id+criteria_version+evaluator_version gespeichert.",
+        "Fehler in Textqualitaet verschlechtern technische parse/validation/materialization Scores nicht und lassen den Planning-Flow nicht fehlschlagen.",
+        "Tests beweisen Feature-off-Kompatibilitaet, strukturierte-Plan-Ausnahme, idempotente Persistenz und bounded Details."
+      ]
+    },
+    {
+      "id": "TQAS-006",
+      "title": "avoid-ai-writing Source-, Lizenz- und Pinning-Audit abschliessen",
+      "type": "source-audit",
+      "milestone_id": "TQAS-M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [],
+      "target_files": [
+        "docs/integrations/avoid-ai-writing.md",
+        "docs/licenses/third-party-avoid-ai-writing.md",
+        "docs/decisions/ADR-avoid-ai-writing-source-strategy.md"
+      ],
+      "acceptance_criteria": [
+        "README, SKILL.md, detector/README.md, detector/patterns.js, detector/CATEGORIES.md, detector/patterns.test.js und LICENSE werden gegen einen konkreten 40-stelligen Commit-SHA auditiert.",
+        "MIT-Lizenz, Copyright-Attribution und Pflicht zur Beibehaltung des Lizenztexts werden dokumentiert, bevor Upstream-Code kopiert oder paketiert wird.",
+        "ADR entscheidet zwischen gepinntem vendored Detector und reproduzierbar bereitgestelltem read-only External-Bundle; main, latest und ungepinnte URLs sind verboten.",
+        "Detector-Datei und LICENSE erhalten erwartete SHA-256-Werte; Start/Healthcheck schlagen bei Abweichung fail-closed fehl.",
+        "Dokumentation trennt 44 Engine-Typen, Human-Katalog und LLM-only Judgment-Regeln und verbietet das Gleichsetzen ihrer Counts.",
+        "Risiken fuer englischen Bias, False Positives, Upstream-Drift, Node-Runtime und Detector-Evasion sind mit Mitigation dokumentiert.",
+        "CI bleibt offline reproduzierbar; kein Test klont oder laedt zur Laufzeit aus dem Internet.",
+        "Repo-Assertion beweist, dass vor bestandenem Audit keine unlizenzierte patterns.js-Kopie enthalten ist."
+      ]
+    },
+    {
+      "id": "TQAS-007",
+      "title": "Gepinnten avoid-ai-writing Contract und Category-Mapping implementieren",
+      "type": "code",
+      "milestone_id": "TQAS-M2",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["TQAS-001", "TQAS-006"],
+      "target_files": [
+        "agent/services/text_quality/providers/avoid_ai_writing_contract.py",
+        "agent/services/text_quality/providers/avoid_ai_writing_category_map.py",
+        "tests/fixtures/text_quality/avoid_ai_writing/",
+        "tests/test_avoid_ai_writing_contract.py"
+      ],
+      "acceptance_criteria": [
+        "Contract mappt score, label, issues, stats, document_classification, class_probabilities, confidence_category und highlight_sentence_for_ai defensiv auf DetectorSignal.",
+        "Empty, Too short und Text too long werden unscorable/skipped; sie erzeugen weder Slop-Trigger noch Prompt-Mutation.",
+        "0-100 wird als normalized_signal_score auf 0..1 abgebildet, aber nicht als finaler slop_score ausgegeben.",
+        "Alle 44 am gepinnten SHA bekannten type-Werte sind klassifiziert als direct, stylometric/fingerprint oder judgment-only mapping; strict mode scheitert bei Drift mit upstream_unknown.",
+        "Highlight-Spans werden auf Integer, Bounds, Reihenfolge und Ueberlappung validiert; Audit speichert nur Offsets/Reason-Code, nie den Volltext.",
+        "contextMode erlaubt nur general|technical; Upstream-Fallback auf general wird als reason_code sichtbar.",
+        "Contract unterscheidet max_input_chars, max_input_words und max_output_bytes; Unit-Tests decken jede Grenze ab.",
+        "Golden Fixtures stammen vom gepinnten Detector und tragen Upstream-SHA sowie erwartete Contract-Version."
+      ]
+    },
+    {
+      "id": "TQAS-008",
+      "title": "avoid-ai-writing als sandboxed QualitySignalProvider anbinden",
+      "type": "integration",
+      "milestone_id": "TQAS-M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["TQAS-003", "TQAS-006", "TQAS-007"],
+      "target_files": [
+        "agent/services/text_quality/providers/avoid_ai_writing_provider.py",
+        "agent/services/sandbox_backend.py",
+        "agent/services/sandbox_policy_service.py",
+        "scripts/avoid_ai_writing_detector_bridge.mjs",
+        "tests/test_avoid_ai_writing_provider.py"
+      ],
+      "acceptance_criteria": [
+        "Provider implementiert ausschliesslich QualitySignalProvider und wird nur bei text_quality.external_detectors.avoid_ai_writing.enabled=true instanziiert.",
+        "Ausfuehrung erfolgt ueber injiziertes SandboxBackend; Tests verwenden FakeSandboxBackend und beweisen, dass Route/Core-Service keinen subprocess startet.",
+        "Sandbox wird read-only, network=none und mit leerer/minimaler Env-Allowlist gestartet; Detector und Bridge werden ueber kanonische Pfade sowie erwartete SHA-256 geprueft.",
+        "exec erhaelt feste argv [node, bridge] und Text ueber stdin/Datei-Contract; kein shell, keine nutzerkontrollierten Flags, kein beliebiges detector_path ausserhalb des approved bundle root.",
+        "Timeout, Nonzero-Exit, Signal, Outputlimit, invalid JSON, Contract-Drift, fehlendes Node und Checksum-Mismatch liefern stabile degraded reason_codes.",
+        "Input/Output-Limits werden vor und nach Sandbox-Ausfuehrung erzwungen; stdout/stderr werden nur bounded und redacted auditiert.",
+        "Provider-Antwort enthaelt gepinnten Commit, Detector-Checksum, Node-Version, Contract-Version und contextMode.",
+        "Adapter-Ausfall beeintraechtigt weder Hub noch Planning-Flow; Evaluator faellt deterministisch auf Core-Scanner zurueck.",
+        "Integrationstest laeuft offline gegen das approved Bundle; Security-Test beweist, dass Pfad-Traversal und zusaetzliche argv abgelehnt werden."
+      ]
+    },
+    {
+      "id": "TQAS-009",
+      "title": "Mehrsprachige Kalibration und Score-Fusion mit externem Detector absichern",
+      "type": "validation",
+      "milestone_id": "TQAS-M2",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["TQAS-004", "TQAS-008"],
+      "target_files": [
+        "agent/services/text_quality/score_fusion_policy.py",
+        "agent/services/text_quality/profiles/de.json",
+        "agent/services/text_quality/profiles/en.json",
+        "tests/fixtures/text_quality/calibration/",
+        "tests/test_text_quality_calibration.py"
+      ],
+      "acceptance_criteria": [
+        "Kalibrationskorpus enthaelt deutsche und englische Slop-Beispiele sowie menschlich redigierte, einfache, technische und strukturierte Gegenbeispiele mit dokumentierter Herkunft/Lizenz.",
+        "Englische Phrase-Signale erhalten im deutschen Profil Gewicht 0, sofern sie nicht durch deutsche Fixtures separat bestaetigt wurden.",
+        "Stylometrische Signale werden nur oberhalb ihrer dokumentierten Mindestlaenge aktiviert; Einzeltexte liefern style_fit, Kohorten ab min_samples corpus_style_diversity.",
+        "Fusion-Gewichte sind je language+content_kind versioniert und summieren sich nach degraded Provider-Neugewichtung deterministisch auf 1.",
+        "Detector-Klassifikation HUMAN_ONLY/MIXED/AI_ONLY wird diagnostisch gespeichert, aber weder als Ground Truth noch als Canary-Erfolg verwendet.",
+        "Akzeptanz-Gates definieren False-Positive-Obergrenzen fuer technische Dokumentation und False-Negative-Obergrenzen fuer kuratierte Slop-Fixtures.",
+        "Regressionstest vergleicht Score-Baender und Reason-Codes; Upstream- oder Profilversionswechsel erfordert explizites Snapshot-Review."
+      ]
+    },
+    {
+      "id": "TQAS-010",
+      "title": "Kriterien aus Negativbeispielen extrahieren und reviewbar versionieren",
+      "type": "code",
+      "milestone_id": "TQAS-M3",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["TQAS-001", "TQAS-003", "TQAS-004"],
+      "target_files": [
+        "agent/services/text_quality/criteria_extractor_service.py",
+        "agent/services/text_quality/criteria_review_service.py",
+        "agent/services/model_invocation_service.py",
+        "tests/test_text_quality_criteria_extractor.py"
+      ],
+      "acceptance_criteria": [
+        "Extractor akzeptiert bounded Negativbeispiele, optionale Kommentare, language und content_kind und redigiert Secrets/PII vor Prompt/Audit.",
+        "LLM-Output folgt geschlossenem JSON-Schema und erzeugt proposed CriteriaSets mit confidence je Kriterium; confidence <0.7 setzt requires_review.",
+        "Maximal ein Repair-Versuch ist erlaubt; danach status=failed/degraded und kein persistierbares aktives Set.",
+        "Extrahierte Kriterien duerfen nur bekannte Reason-Codes, bounded Phrasen und positive Traits enthalten; Tool-, Governance-, Role-, Source-ID- oder Prompt-Injection-Anweisungen werden verworfen.",
+        "Nutzerkommentare werden als bounded provenance/review note gespeichert, nicht als ausfuehrbare Regel.",
+        "Rohbeispiele erscheinen nur als Hash, bounded Preview und autorisierte Artifact-Ref in Persistenz/Audit.",
+        "Aktivierung verlangt actor, source und Review-Aktion; Service kann proposed/enable/reject/archive, aber nicht Prompt-Versionen direkt mutieren.",
+        "Adversarial Tests pruefen Prompt-Injection, unbekannte Reason-Codes, erfundene SRC_*/RUN_* IDs, Oversize und invalid JSON."
+      ]
+    },
+    {
+      "id": "TQAS-011",
+      "title": "Allowlist-basierte Textqualitaets-Signale in PlanningPromptEvolver integrieren",
+      "type": "integration",
+      "milestone_id": "TQAS-M3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["TQAS-005", "TQAS-009", "TQAS-010"],
+      "target_files": [
+        "agent/services/text_quality/prompt_rule_mapping.py",
+        "agent/services/planning_prompt_evolver_service.py",
+        "agent/services/planning_prompt_evolution_guard_service.py",
+        "tests/test_planning_prompt_evolver_text_quality.py"
+      ],
+      "acceptance_criteria": [
+        "evolve_from_run liest nur persistierte completed TextQualityEvaluationen mit passender criteria/evaluator version; unscorable/degraded Ergebnisse sind keine Evolutions-Trigger.",
+        "Reason-Code-zu-Regel-Mapping ist eine deterministische Allowlist. Externe issue text/suggestion, Nutzertext und LLM-Hinweise werden nie direkt in user_prompt_template, repair_prompt_template oder system_rules interpoliert.",
+        "generic_phrase mappt auf konkrete Reduktionsregel, missing_concrete_example auf Beispielanforderung, vague_attribution auf Evidence-Anforderung und structure_mismatch auf content-kind-spezifische Strukturregel.",
+        "source_unverified/unsupported_specific_claim darf keine Aufforderung zu mehr erfundenen Details erzeugen, sondern verlangt vorhandene Evidence oder explizite Unsicherheit.",
+        "Mutationen bleiben auf PlanningPromptVersionDB.user_prompt_template, repair_prompt_template, output_contract und planning-lokale system_rules begrenzt.",
+        "Guard blockiert weiterhin alle vorhandenen forbidden keys und neu raw_external_rule, detector_instruction, rewrite_in_place sowie unbekannte Mapping-Codes.",
+        "Bestehende Parse-/Validation-/Repair-Evolution bleibt bei fehlender Textqualitaet byte-kompatibel.",
+        "Kandidaten sind default disabled/proposed und erzeugen PlanningReviewItem; keine automatische Aktivierung durch einen einzelnen schlechten Text.",
+        "Tests pruefen erlaubte Mappings, Injection-Negativfaelle, Feature-off-Regression und unveraenderte Governance-/Tool-/Role-Grenzen."
+      ]
+    },
+    {
+      "id": "TQAS-012",
+      "title": "PlanningMetrics, Learning Loop, Canary und Rollback um vergleichbare Textqualitaet erweitern",
+      "type": "integration",
+      "milestone_id": "TQAS-M3",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["TQAS-005", "TQAS-011"],
+      "target_files": [
+        "agent/services/planning_metrics_service.py",
+        "agent/services/planning_learning_loop_service.py",
+        "agent/services/model_response_behavior_aggregation_service.py",
+        "tests/test_planning_learning_loop_text_quality.py"
+      ],
+      "acceptance_criteria": [
+        "Gruppen enthalten average/median slop_score, depth_score und style_fit_score sowie completed/degraded/unscorable counts, wenn Textqualitaetsdaten vorhanden sind.",
+        "Gruppierung trennt mindestens profile_name, prompt_version_id, language, content_kind, criteria_version, evaluator_version und relevante model family.",
+        "Fehlende oder nicht vergleichbare Daten werden excluded_count, niemals implizit Score 0.",
+        "Trigger slop_score_high/depth_score_low/style_fit_low greifen erst ab min_canary_runs und konfigurierbarer Mindestquote completed evaluations.",
+        "Technische quality_score-Gates bleiben eigenstaendig; Textqualitaet kann Kandidaten vorschlagen, aber technische Parse-/Validation-Qualitaet nicht ueberstimmen.",
+        "Promotion verlangt technische Schwelle UND Textqualitaets-Nichtverschlechterung gegen eine versionsgleiche Baseline; Delta und Stichprobe werden im Candidate-Payload gespeichert.",
+        "Rollback wird bei konfigurierter signifikanter Verschlechterung nach Mindestfenster ausgeloest; Provider-Ausfall oder Criteria-Version-Wechsel allein loest keinen Rollback aus.",
+        "corpus_style_diversity wird nur fuer Kohorten oberhalb min_samples berechnet und nie aus Einzeltextwerten gemittelt.",
+        "Tests decken Candidate, Small-Sample-Skip, incomparable-Version-Skip, Promotion, Rollback, degraded Provider und Feature-off ab."
+      ]
+    },
+    {
+      "id": "TQAS-013",
+      "title": "Sichere API, CLI, Config und Review-Oberflaeche bereitstellen",
+      "type": "api-cli",
+      "milestone_id": "TQAS-M4",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["TQAS-003", "TQAS-004", "TQAS-006", "TQAS-010"],
+      "target_files": [
+        "agent/routes/text_quality.py",
+        "agent/bootstrap/routes.py",
+        "agent/cli/commands/text_quality.py",
+        "agent/cli/commands/__init__.py",
+        "agent/config_defaults.py",
+        "agent/routes/config/read_models.py",
+        "tests/test_text_quality_routes.py",
+        "tests/test_text_quality_cli.py"
+      ],
+      "acceptance_criteria": [
+        "API bietet evaluate, extract-criteria, list/get CriteriaSets sowie activate/reject/archive; Rewrite liefert hoechstens einen Vorschlagsreport und keinen Datei-Apply.",
+        "Alle Routes nutzen check_auth; Criteria-Aktivierung/-Ablehnung ist admin_required und ermittelt actor aus Auth-Kontext.",
+        "Request-Groesse wird vor LLM/Sandbox begrenzt; leerer Text=400, zu gross=413, disabled=403 und Provider-Ausfall=degraded 200 oder stabiler 502 gemaess Endpoint-Contract.",
+        "Audit-Actions text_quality_evaluated, criteria_extracted, criteria_activated, criteria_rejected und provider_degraded enthalten IDs/Versionen/Hashes, aber keinen Volltext oder Secret.",
+        "Blueprint ist in register_blueprints registriert; bestehende Routen bleiben unveraendert.",
+        "CLI ist als DOMAIN_MODULE text-quality registriert, nutzt Hub-API und bietet evaluate, criteria extract/list/activate/reject sowie --json; keine direkte DB- oder Node-Ausfuehrung.",
+        "config_defaults enthaelt safe defaults aus target_config; Bounds/Enum/Pfade werden normalisiert, Read-Model redigiert sensitive Werte und zeigt Provider-Health ohne beliebige Hostpfade.",
+        "Rate-Limit/Review-Tests pruefen wiederholte Extraktion und Aktivierung; CLI-Tests pruefen Exit-Codes und scripting-stabile JSON-Ausgabe.",
+        "Source-grounded API akzeptiert nur vorhandene Evidence-Refs; unbekannte SRC_*/RUN_* IDs werden unverified statt erfunden oder akzeptiert."
+      ]
+    },
+    {
+      "id": "TQAS-014",
+      "title": "Optionalen analyse-only EvolutionEngine-Provider anbieten",
+      "type": "plugin",
+      "milestone_id": "TQAS-M4",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["TQAS-004", "TQAS-009"],
+      "target_files": [
+        "plugins/anti_slop_evaluator/__init__.py",
+        "plugins/anti_slop_evaluator/provider.py",
+        "plugins/anti_slop_evaluator/ananta-plugin.json",
+        "tests/test_anti_slop_evolution_provider.py"
+      ],
+      "acceptance_criteria": [
+        "Plugin wird nur ueber PLUGINS/plugin_dirs geladen und registriert provider_name anti_slop_evaluator; ohne explizite Konfiguration beeinflusst es keinen Default-Provider.",
+        "Provider implementiert EvolutionEngine und deklariert ANALYZE sowie REVIEW_HINTS; VALIDATE/APPLY fehlen und werfen geerbte UnsupportedEvolutionOperation.",
+        "analyze nutzt den Core-Evaluator und erzeugt ausschliesslich reviewpflichtige Prompt-/Criteria-Proposals, keine Code-Aenderung und kein Rewrite-Apply.",
+        "EvolutionContext-Text wird aus autorisierten bounded source_refs/signals gewonnen; fehlender Text liefert failed/degraded ohne erfundene Quelle.",
+        "provider_metadata enthaelt criteria/evaluator/provider versions, content_kind, language, Score-Summary und evaluation_id, keinen Rohtext.",
+        "Plugin-Loader-, Capability-, Analyze-, disabled- und Apply-fail-closed-Tests bestehen."
+      ]
+    },
+    {
+      "id": "TQAS-015",
+      "title": "Dokumentation, Datenschutz, Betriebsgrenzen und End-to-End-Gates abschliessen",
+      "type": "documentation",
+      "milestone_id": "TQAS-M4",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 0,
+      "depends_on": ["TQAS-012", "TQAS-013", "TQAS-014"],
+      "target_files": [
+        "docs/text-quality-anti-slop.md",
+        "docs/integrations/avoid-ai-writing.md",
+        "docs/evolution-rollout.md",
+        "docs/demo-flows.md",
+        "tests/test_text_quality_e2e.py"
+      ],
+      "acceptance_criteria": [
+        "Dokumentation erklaert detect, quality evaluate, criteria review, prompt evolve und rewrite proposal als getrennte Schritte.",
+        "Sie warnt explizit, dass AI-Detector-Klassifikation weder Autorschaft beweist noch Qualitaet misst und nicht als Evasion-Ziel optimiert wird.",
+        "Deutscher Demo-Flow zeigt Negativbeispiel -> Core/optional Upstream Signale -> proposed CriteriaSet -> Review -> Evaluation -> Prompt-Kandidat -> Canary -> Promotion/Rollback.",
+        "Betriebsdoku beschreibt Feature-off, Scanner-only, LLM-Judge, external sandbox provider, degraded fallback, Pin-/Checksum-Update und Offline-CI.",
+        "Privacy-Doku beschreibt Input-Redaction, bounded Previews, Hash-/Artifact-Refs, Audit-Felder, Retention und Loeschpfad.",
+        "Source-grounding-Regel und Behandlung unbekannter SRC_*/RUN_* IDs sind mit Negativbeispiel dokumentiert.",
+        "End-to-End-Test laeuft offline mit FakeSandbox und gemocktem LLM: technische Planung bleibt valide, Textqualitaet wird persistiert, Criteria bleibt bis Review proposed, Kandidat bleibt disabled und Apply ist unmoeglich.",
+        "Regression-Gates umfassen bestehende PlanningPromptEvolver-, PlanningLearningLoop-, Plugin-Loader-, API-Auth- und Config-Tests.",
+        "Abschlusspruefung benennt SOLID-Verletzungen: keine Raw-Regeln im Evolver, keine Subprozesse in Routes/Core, fokussierter Provider-Port, getrennte Persistenz und substituierbare Provider."
+      ]
+    }
+  ],
+  "critical_path_tasks": ["TQAS-001", "TQAS-002", "TQAS-003", "TQAS-004", "TQAS-005", "TQAS-006", "TQAS-007", "TQAS-008", "TQAS-009", "TQAS-010", "TQAS-011", "TQAS-012", "TQAS-013"],
+  "tasks_status_summary": {
+    "total": 15,
+    "by_status": {"todo": 15, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+    "progress_percent_done": 0,
+    "by_priority": {"P0": 8, "P1": 6, "P2": 1, "P3": 0},
+    "by_risk": {"low": 1, "medium": 4, "high": 10, "critical": 0},
+    "critical_path": {"total": 13, "done": 0, "remaining": 13},
+    "milestones": {"total": 4, "todo": 4, "in_progress": 0, "blocked": 0, "done": 0}
+  },
+  "tasks_type_summary": {
+    "total": 15,
+    "by_type": {
+      "architecture": 1,
+      "code": 4,
+      "persistence": 1,
+      "integration": 4,
+      "source-audit": 1,
+      "validation": 1,
+      "api-cli": 1,
+      "plugin": 1,
+      "documentation": 1
+    }
+  },
+  "progress_summary": {
+    "state": "todo",
+    "todo_remaining": 15,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "summary_notes": [
+    "Dieser Track ersetzt todo.anti-ai-slop-style-depth-evaluator-evolver.json und todo.avoid-ai-writing-detector-adapter.json.",
+    "Der Core bleibt provider-neutral; avoid-ai-writing ist eine optionale Signalquelle mit eigenem Audit-, Pinning- und Sandbox-Gate.",
+    "Die Umsetzung beginnt mit Contracts/Persistenz und dem Upstream-Audit parallel. Prompt-Evolution beginnt erst nach persistierter Evaluation, Kalibration und Criteria-Review.",
+    "Der Track bewertet Qualitaet, nicht vermeintliche menschliche Autorschaft. Ein niedriger externer Detector-Score ist kein Definition-of-Done-Kriterium."
+  ],
+  "definition_of_done": [
+    "Alle 15 Tasks und vier Milestones sind done; Summary-Caches sind aus tasks[] konsistent abgeleitet.",
+    "Feature-off ist rueckwaertskompatibel und alle bestehenden Planning-/Evolution-/Plugin-Tests bleiben gruen.",
+    "Offline-End-to-End-Gate mit Scanner, FakeSandbox, optionalem LLM-Judge, Persistenz, Review, Canary und Rollback besteht.",
+    "Kein Hub-Route/Core-Service startet Node direkt, keine Raw-Regel gelangt in Prompt-Systemregeln und kein Apply/Edit-in-place-Pfad wurde eingefuehrt.",
+    "Upstream-SHA, License/Attribution, Detector-Checksum, Contract-Fixtures und Update-Prozess sind dokumentiert und getestet.",
+    "Schema-, Todo-Konsistenz-, Cross-Track-, Ruff- und relevante Pytest-Gates sind gruen."
+  ]
+}
