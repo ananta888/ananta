@@ -54,6 +54,7 @@ def assistant_editable_settings_inventory() -> list[dict]:
         {"key": "auth_provider", "path": "config.auth_provider", "type": "enum", "editable": True, "allowed_values": ["local", "oidc_bff"], "endpoint": "POST /config"},
         {"key": "codex_cli", "path": "config.codex_cli", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "claude_cli", "path": "config.claude_cli", "type": "object", "editable": True, "endpoint": "POST /config"},
+        {"key": "classroom", "path": "config.classroom", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "research_backend", "path": "config.research_backend", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "hub_copilot", "path": "config.hub_copilot", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "context_bundle_policy", "path": "config.context_bundle_policy", "type": "object", "editable": True, "endpoint": "POST /config"},

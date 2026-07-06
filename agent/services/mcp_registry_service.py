@@ -92,6 +92,42 @@ class MCPRegistryService:
                 "additionalProperties": False,
             },
         ),
+        # CTA-013: classroom transcript assistant triggers. External
+        # transcript/room systems (or n8n) push segments here; the
+        # classroom gateway handles dedup via TriggerEngine.
+        MCPToolSpec(
+            name="classroom.transcript_event",
+            description="Push a classroom transcript segment; triggers analysis up to a TeacherActionCard.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "event_id": {"type": "string"},
+                    "session_id": {"type": "string"},
+                    "zoom_room_id": {"type": "string"},
+                    "room_label": {"type": "string"},
+                    "module_id_hint": {"type": "string"},
+                    "task_id_hint": {"type": "string"},
+                    "timestamp": {"type": ["string", "number"]},
+                    "sequence_no": {"type": "integer", "minimum": 0},
+                    "speaker_role": {"type": "string", "enum": ["student", "teacher", "unknown"]},
+                    "speaker_label": {"type": "string"},
+                    "text_segment": {"type": "string"},
+                    "trigger_mode": {"type": "string"},
+                },
+                "required": ["event_id", "session_id", "text_segment"],
+                "additionalProperties": False,
+            },
+        ),
+        MCPToolSpec(
+            name="classroom.reanalyze",
+            description="Re-run classroom analysis for an existing TeacherActionCard.",
+            input_schema={
+                "type": "object",
+                "properties": {"card_id": {"type": "string"}},
+                "required": ["card_id"],
+                "additionalProperties": False,
+            },
+        ),
         MCPToolSpec(
             name="evolution.proposals.list",
             description="Read Evolution runs and proposals for a task.",
@@ -241,6 +277,33 @@ class MCPRegistryService:
                     }
                 ]
             }
+
+        if name == "classroom.transcript_event":
+            gateway = context["classroom_gateway"]
+            result = gateway.process_event(args, source_adapter="mcp")
+            if result.get("status") == "error":
+                raise ValueError(str(result.get("reason_code") or "classroom_event_invalid"))
+            return {"content": [{"type": "json", "json": result}]}
+
+        if name == "classroom.reanalyze":
+            card_id = str(args.get("card_id") or "").strip()
+            if not card_id:
+                raise ValueError("card_id_required")
+            card_service = context["classroom_card_service"]
+            card = card_service.get_card(card_id)
+            if card is None:
+                raise KeyError("card_not_found")
+            gateway = context["classroom_gateway"]
+            replay = {
+                "event_id": f"{card['source_event_id']}-reanalyze-{card_id}",
+                "session_id": str(card.get("source_event_id") or card_id),
+                "zoom_room_id": card.get("zoom_room"),
+                "speaker_label": card.get("student_alias"),
+                "text_segment": card.get("question_summary"),
+                "trigger_mode": "reanalyze",
+            }
+            result = gateway.process_event(replay, source_adapter="mcp")
+            return {"content": [{"type": "json", "json": result}]}
 
         if name == "evolution.proposals.list":
             task_id = str(args.get("task_id") or "").strip()

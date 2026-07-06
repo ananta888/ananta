@@ -413,6 +413,19 @@ def build_default_agent_config() -> dict:
             "allowed_paths": [],
             "write_armed_default": False,
         },
+        # CTA-014/CTA-001: classroom transcript assistant. Opt-in;
+        # room_mappings/schedule sind Context-Hint-Quellen, keine
+        # Antwortquellen. webhook_secrets pro source (HMAC sha256).
+        "classroom": {
+            "enabled": False,
+            "webhook_secrets": {},
+            "room_mappings": {},
+            "schedule": [],
+            "question_confidence_threshold": 0.6,
+            "retention_hours_raw_segments": 72,
+            "n8n_examples_dir": "rag-helper/tests/fixtures/n8n",
+            "max_context_tokens": 2000,
+        },
         "cli_session_mode": {
             "enabled": False,
             "stateful_backends": ["opencode", "codex"],

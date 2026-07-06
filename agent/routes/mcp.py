@@ -27,7 +27,21 @@ def _mcp_context() -> dict:
         "evolution_service": services.evolution_service,
         "agent_config": current_app.config.get("AGENT_CONFIG", {}) or {},
         "evolution_config": dict((current_app.config.get("AGENT_CONFIG", {}) or {}).get("evolution") or {}),
+        "classroom_gateway": _classroom_gateway(),
+        "classroom_card_service": _classroom_card_service(),
     }
+
+
+def _classroom_gateway():
+    from agent.services.classroom.classroom_event_gateway import get_classroom_event_gateway
+
+    return get_classroom_event_gateway()
+
+
+def _classroom_card_service():
+    from agent.services.classroom.teacher_action_card_service import get_teacher_action_card_service
+
+    return get_teacher_action_card_service()
 
 
 def _jsonrpc_error(*, req_id, code: int, message: str, data: dict | None = None, http_status: int = 200):
