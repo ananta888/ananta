@@ -76,4 +76,29 @@ export class SystemApiClient {
       })
       .pipe(timeout(this.transport.timeoutMs));
   }
+
+  getClassroomCards(baseUrl: string, filters: Record<string, string> = {}, token?: string): Observable<any> {
+    const query = new URLSearchParams(filters).toString();
+    return this.transport.unwrap(
+      this.transport.http
+        .get(`${baseUrl}/api/classroom/cards${query ? `?${query}` : ''}`, this.transport.getHeaders(baseUrl, token))
+        .pipe(timeout(this.transport.timeoutMs)),
+    );
+  }
+
+  updateClassroomCard(baseUrl: string, cardId: string, status: string, token?: string): Observable<any> {
+    return this.transport.unwrap(
+      this.transport.http
+        .post(`${baseUrl}/api/classroom/cards/${encodeURIComponent(cardId)}/status`, { status }, this.transport.getHeaders(baseUrl, token))
+        .pipe(timeout(this.transport.timeoutMs)),
+    );
+  }
+
+  exportClassroomWorkflow(baseUrl: string, cardId: string, token?: string): Observable<any> {
+    return this.transport.unwrap(
+      this.transport.http
+        .post(`${baseUrl}/api/classroom/cards/${encodeURIComponent(cardId)}/export`, {}, this.transport.getHeaders(baseUrl, token))
+        .pipe(timeout(this.transport.timeoutMs)),
+    );
+  }
 }

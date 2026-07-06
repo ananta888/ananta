@@ -4,6 +4,7 @@ Uebersetzt zoom_room_id + timestamp anhand des classroom-Config-Blocks
 (agent_cfg.classroom.room_mappings / .schedule) in gewichtete Hints
 und retrieval_filters. Liefert nie Antworten — nur Eingrenzung.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -63,14 +64,16 @@ def build_context_hints(*, zoom_room_id: str | None, timestamp: object, cfg: dic
     room_entry = room_mappings.get(room_key) if room_key else None
     if isinstance(room_entry, dict):
         # Ein Raum-Hint allein ist nie strong (Acceptance).
-        hints.append({
-            "kind": "room",
-            "value": {
-                "group": room_entry.get("group"),
-                "module_scope": room_entry.get("module_scope"),
-            },
-            "confidence": HINT_MEDIUM,
-        })
+        hints.append(
+            {
+                "kind": "room",
+                "value": {
+                    "group": room_entry.get("group"),
+                    "module_scope": room_entry.get("module_scope"),
+                },
+                "confidence": HINT_MEDIUM,
+            }
+        )
         if room_entry.get("module_scope"):
             retrieval_filters["module_scope"] = str(room_entry["module_scope"])
 
@@ -93,16 +96,22 @@ def build_context_hints(*, zoom_room_id: str | None, timestamp: object, cfg: dic
                 continue
             if not (start <= minute_of_day < end):
                 continue
-            confidence = HINT_MEDIUM if (room_entry and slot.get("module_id") == (room_entry or {}).get("module_scope")) else HINT_WEAK
-            hints.append({
-                "kind": "schedule",
-                "value": {
-                    "schedule_slot": f"{slot_day or 'any'} {slot.get('start')}-{slot.get('end')}",
-                    "module_id": slot.get("module_id"),
-                    "task_id": slot.get("task_id"),
-                },
-                "confidence": confidence,
-            })
+            confidence = (
+                HINT_MEDIUM
+                if (room_entry and slot.get("module_id") == (room_entry or {}).get("module_scope"))
+                else HINT_WEAK
+            )
+            hints.append(
+                {
+                    "kind": "schedule",
+                    "value": {
+                        "schedule_slot": f"{slot_day or 'any'} {slot.get('start')}-{slot.get('end')}",
+                        "module_id": slot.get("module_id"),
+                        "task_id": slot.get("task_id"),
+                    },
+                    "confidence": confidence,
+                }
+            )
             if slot.get("module_id") and "module_scope" not in retrieval_filters:
                 retrieval_filters["module_scope"] = str(slot["module_id"])
             if slot.get("task_id"):

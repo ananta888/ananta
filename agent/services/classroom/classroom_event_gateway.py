@@ -5,6 +5,7 @@ Idempotenz/Dedup kommt aus der bestehenden TriggerEngine
 (agent/routes/tasks/triggers.py), nicht aus Eigenbau. Der Gateway
 orchestriert die Pipeline bis zur TeacherActionCard.
 """
+
 from __future__ import annotations
 
 import time
@@ -13,6 +14,7 @@ from typing import Callable
 from agent.common.audit import log_audit
 from agent.services.classroom import privacy_policy
 from agent.services.classroom.answer_composer_service import AnswerComposerService, build_transcript_window
+from agent.services.classroom.classroom_material_search_service import ClassroomMaterialSearchService
 from agent.services.classroom.module_task_resolver_service import ModuleTaskResolverService
 from agent.services.classroom.n8n_partial_workflow_selector import N8nPartialWorkflowSelector, load_fixture_workflows
 from agent.services.classroom.n8n_teaching_workflow_verifier_service import (
@@ -20,7 +22,11 @@ from agent.services.classroom.n8n_teaching_workflow_verifier_service import (
     known_node_types_from_examples,
     verify_workflow_part,
 )
-from agent.services.classroom.question_detection_service import ACTIONABLE_INTENTS, INTENT_IRONIC, StudentQuestionDetectionService
+from agent.services.classroom.question_detection_service import (
+    ACTIONABLE_INTENTS,
+    INTENT_IRONIC,
+    StudentQuestionDetectionService,
+)
 from agent.services.classroom.teacher_action_card_service import (
     WARNING_AMBIGUOUS_INTENT,
     WARNING_LOW_CONFIDENCE,
@@ -68,8 +74,14 @@ def normalize_classroom_event(payload: object, *, source_adapter: str) -> dict:
     if speaker_role not in SPEAKER_ROLES:
         speaker_role = "unknown"
 
-    raw_label = str(data.get("speaker_label") or data.get("speaker_label_hash") or "unknown")
-    speaker_label_hash = raw_label if raw_label.startswith("spk-") else privacy_policy.hash_speaker_label(raw_label)
+    raw_label = str(data.get("speaker_label") or "").strip()
+    supplied_hash = str(data.get("speaker_label_hash") or "").strip()
+    if raw_label:
+        speaker_label_hash = privacy_policy.hash_speaker_label(raw_label)
+    elif privacy_policy.is_valid_speaker_hash(supplied_hash):
+        speaker_label_hash = supplied_hash
+    else:
+        speaker_label_hash = privacy_policy.hash_speaker_label("unknown")
 
     try:
         sequence_no = int(data.get("sequence_no") or 0)
@@ -135,16 +147,22 @@ class ClassroomEventGateway:
             }
 
         cfg = self.config_provider() or {}
+        classroom_cfg = cfg.get("classroom") if isinstance(cfg.get("classroom"), dict) else {}
+        if not bool(classroom_cfg.get("enabled", False)):
+            return {"status": STATUS_ERROR, "reason_code": "classroom_disabled", "card_id": None, "warnings": []}
         redacted_text, redaction_count = privacy_policy.redact_pii(event["text_segment"])
         event["text_segment"] = redacted_text
         self._store_segment(event, cfg)
-        self.audit_fn(privacy_policy.AUDIT_EVENT_RECEIVED, {
-            "event_id": event["event_id"],
-            "session_id": event["session_id"],
-            "zoom_room_id": event["zoom_room_id"],
-            "source_adapter": source_adapter,
-            "redactions": redaction_count,
-        })
+        self.audit_fn(
+            privacy_policy.AUDIT_EVENT_RECEIVED,
+            {
+                "event_id": event["event_id"],
+                "session_id": event["session_id"],
+                "zoom_room_id": event["zoom_room_id"],
+                "source_adapter": source_adapter,
+                "redactions": redaction_count,
+            },
+        )
 
         hints = build_context_hints(zoom_room_id=event["zoom_room_id"], timestamp=event["timestamp"], cfg=cfg)
         detection = self.detection_service.detect(
@@ -158,7 +176,9 @@ class ClassroomEventGateway:
         if detection["intent"] == INTENT_IRONIC:
             warnings.append(WARNING_AMBIGUOUS_INTENT)
 
-        threshold = float(((cfg.get("classroom") or {}).get("question_confidence_threshold") or self.detection_service.confidence_threshold))
+        threshold = float(
+            (classroom_cfg.get("question_confidence_threshold") or self.detection_service.confidence_threshold)
+        )
         actionable = detection["intent"] in ACTIONABLE_INTENTS and detection["confidence"] >= threshold
         if not actionable and not detection.get("needs_teacher_attention"):
             # Kein Frage-/Hilfe-Signal: Segment nur beobachten, keine Karte.
@@ -175,7 +195,7 @@ class ClassroomEventGateway:
         window = build_transcript_window(
             self._segments_by_session.get(event["session_id"], []),
             question_segment=event,
-            max_tokens=int(((cfg.get("classroom") or {}).get("max_context_tokens") or 2000)),
+            max_tokens=int((classroom_cfg.get("max_context_tokens") or 2000)),
         )
         answer = None
         if actionable:
@@ -185,12 +205,18 @@ class ClassroomEventGateway:
                 candidates=candidates,
                 material_evidence=material_evidence,
             )
-            if "no_material_evidence" in (answer.get("reason_codes") or []) and WARNING_NO_MATERIAL_EVIDENCE not in warnings:
+            if (
+                "no_material_evidence" in (answer.get("reason_codes") or [])
+                and WARNING_NO_MATERIAL_EVIDENCE not in warnings
+            ):
                 warnings.append(WARNING_NO_MATERIAL_EVIDENCE)
-            self.audit_fn(privacy_policy.AUDIT_ANSWER_PROPOSED, {
-                "event_id": event["event_id"],
-                "needs_teacher": bool(answer.get("needs_teacher")),
-            })
+            self.audit_fn(
+                privacy_policy.AUDIT_ANSWER_PROPOSED,
+                {
+                    "event_id": event["event_id"],
+                    "needs_teacher": bool(answer.get("needs_teacher")),
+                },
+            )
 
         workflow_part = self._maybe_select_workflow(event, detection, warnings, cfg)
 
@@ -210,11 +236,14 @@ class ClassroomEventGateway:
             warnings=warnings,
             source_event_id=event["event_id"],
         )
-        self.audit_fn(privacy_policy.AUDIT_CARD_CREATED, {
-            "card_id": card["card_id"],
-            "event_id": event["event_id"],
-            "intent": detection["intent"],
-        })
+        self.audit_fn(
+            privacy_policy.AUDIT_CARD_CREATED,
+            {
+                "card_id": card["card_id"],
+                "event_id": event["event_id"],
+                "intent": detection["intent"],
+            },
+        )
         return {"status": STATUS_CARD_CREATED, "card_id": card["card_id"], "warnings": card["warnings"]}
 
     # ── intern ───────────────────────────────────────────────────────────
@@ -224,13 +253,17 @@ class ClassroomEventGateway:
         if engine is None:
             from agent.routes.tasks.triggers import trigger_engine as engine  # lazy: vermeidet Import-Zyklen
 
-        result = engine._check_replay_and_dedup(
+        result = engine.check_replay_and_dedup(
             TRIGGER_SOURCE,
             {"event_id": event["event_id"], "sequence_no": event["sequence_no"]},
         )
         if result is not None and result.get("status") != "ok":
             return str(result.get("status"))
         return None
+
+    def normalize_event(self, payload: object, *, source_adapter: str) -> dict:
+        """Public adapter seam used by webhook, MCP and batch tests."""
+        return normalize_classroom_event(payload, source_adapter=source_adapter)
 
     def _store_segment(self, event: dict, cfg: dict) -> None:
         segments = self._segments_by_session.setdefault(event["session_id"], [])
@@ -244,7 +277,9 @@ class ClassroomEventGateway:
 
             if "n8n_term" not in detect_signals(event["text_segment"])["signals"]:
                 return None
-        examples_dir = str(((cfg.get("classroom") or {}).get("n8n_examples_dir") or self.workflow_selector.examples_dir))
+        examples_dir = str(
+            ((cfg.get("classroom") or {}).get("n8n_examples_dir") or self.workflow_selector.examples_dir)
+        )
         self.workflow_selector.examples_dir = examples_dir
         proposal = self.workflow_selector.select(question_text=event["text_segment"])
         if proposal is None:
@@ -258,12 +293,15 @@ class ClassroomEventGateway:
         )
         if verification["status"] == STATUS_FAILED:
             warnings.append(WARNING_WORKFLOW_VERIFICATION_FAILED)
-        self.audit_fn(privacy_policy.AUDIT_WORKFLOW_PROPOSED, {
-            "event_id": event["event_id"],
-            "form": proposal["form"],
-            "origin": proposal["origin"],
-            "verifier_status": verification["status"],
-        })
+        self.audit_fn(
+            privacy_policy.AUDIT_WORKFLOW_PROPOSED,
+            {
+                "event_id": event["event_id"],
+                "form": proposal["form"],
+                "origin": proposal["origin"],
+                "verifier_status": verification["status"],
+            },
+        )
         return {
             "form": proposal["form"],
             "import_hint": proposal["import_hint"],
@@ -281,7 +319,11 @@ _gateway: ClassroomEventGateway | None = None
 def get_classroom_event_gateway() -> ClassroomEventGateway:
     global _gateway
     if _gateway is None:
-        _gateway = ClassroomEventGateway(config_provider=_default_config_provider)
+        material_search = ClassroomMaterialSearchService(_default_config_provider)
+        _gateway = ClassroomEventGateway(
+            config_provider=_default_config_provider,
+            resolver_service=ModuleTaskResolverService(search_fn=material_search.search),
+        )
     return _gateway
 
 

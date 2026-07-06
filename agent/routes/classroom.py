@@ -4,6 +4,7 @@ Webhook nach dem Muster von agent/routes/webhooks.py (Secret-Allowlist,
 HMAC-Signatur, kein Gateway-Aufruf vor bestandener Pruefung); Cards-API
 fuer das Dozenten-Dashboard; Export streng read-only (CTA-009).
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -41,6 +42,8 @@ def _verify_signature(payload_raw: bytes, secret: str) -> bool:
 @classroom_bp.route("/webhook/<source>", methods=["POST"])
 def classroom_webhook(source: str):
     config = _classroom_config()
+    if not bool(config.get("enabled", False)):
+        return api_response(status="error", message="classroom_disabled", code=404)
     secrets = config.get("webhook_secrets") if isinstance(config.get("webhook_secrets"), dict) else {}
     normalized_source = str(source or "").strip().lower()
     secret = str(secrets.get(normalized_source) or "").strip()
@@ -51,6 +54,12 @@ def classroom_webhook(source: str):
     if not _verify_signature(payload_raw, secret):
         # Kein Gateway-Aufruf bei ungueltiger Signatur (Acceptance CTA-001).
         return api_response(status="error", message="invalid_signature", code=401)
+
+    from agent.routes.tasks.triggers import trigger_engine
+
+    client_ip = str(request.remote_addr or "unknown")
+    if not trigger_engine.check_rate_limit(f"classroom:{normalized_source}", client_ip):
+        return api_response(status="error", message="rate_limited", code=429)
 
     try:
         payload = json.loads(payload_raw.decode("utf-8") or "{}")
@@ -118,9 +127,13 @@ def export_workflow_part(card_id: str):
     }
     if verifier_status == "warning":
         export_payload["warning_banner"] = workflow_part.get("verifier_reasons")
-    log_audit(privacy_policy.AUDIT_WORKFLOW_EXPORTED, {
-        "card_id": card_id,
-        "verifier_status": verifier_status,
-        "form": workflow_part.get("form"),
-    })
+    log_audit(
+        privacy_policy.AUDIT_WORKFLOW_EXPORTED,
+        {
+            "card_id": card_id,
+            "verifier_status": verifier_status,
+            "form": workflow_part.get("form"),
+            "source_ref": workflow_part.get("source_ref"),
+        },
+    )
     return api_response(data=export_payload)

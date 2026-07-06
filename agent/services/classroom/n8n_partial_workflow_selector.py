@@ -5,8 +5,10 @@ fertigen n8n-Tracks; Startbestand rag-helper/tests/fixtures/n8n/) vor
 jeder LLM-Generierung. Credentials erscheinen im Output ausschliesslich
 als {credential_type}-Platzhalter.
 """
+
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -38,6 +40,11 @@ _TERM_TO_ROLE_NEEDLES: tuple[tuple[str, tuple[str, ...]], ...] = (
 _FULL_WORKFLOW_REQUEST = re.compile(r"komplett|ganzer workflow|beispiel.?workflow|gesamten", re.IGNORECASE)
 
 
+def _workflow_record_id(file_name: str, workflow_name: str) -> str:
+    digest = hashlib.sha1(f"{file_name}::{workflow_name}".encode("utf-8", errors="ignore")).hexdigest()[:16]
+    return f"n8n_workflow:{digest}"
+
+
 def load_fixture_workflows(examples_dir: str | Path) -> list[dict]:
     """Laedt funktionierende Beispiel-Workflows (Default: die Fixtures
     des n8n-Tracks). Nicht-Workflow-JSON wird uebersprungen."""
@@ -52,7 +59,11 @@ def load_fixture_workflows(examples_dir: str | Path) -> list[dict]:
             continue
         items = payload if isinstance(payload, list) else [payload]
         for item in items:
-            if isinstance(item, dict) and isinstance(item.get("nodes"), list) and isinstance(item.get("connections"), dict):
+            if (
+                isinstance(item, dict)
+                and isinstance(item.get("nodes"), list)
+                and isinstance(item.get("connections"), dict)
+            ):
                 workflows.append({"file": str(path), "name": str(item.get("name") or path.stem), "workflow": item})
     return workflows
 
@@ -114,13 +125,23 @@ class N8nPartialWorkflowSelector:
 
         _, entry, matched = best
         workflow = entry["workflow"]
-        source_ref = {"file": entry["file"], "workflow_name": entry["name"]}
+        source_ref = {
+            "file": entry["file"],
+            "workflow_name": entry["name"],
+            "record_id": _workflow_record_id(entry["file"], entry["name"]),
+        }
 
         if _FULL_WORKFLOW_REQUEST.search(str(question_text or "")):
             cleaned = dict(workflow)
             cleaned["nodes"] = [_redact_credentials(n) for n in workflow.get("nodes") or []]
             cleaned.pop("pinData", None)
-            return {"form": FORM_FULL_WORKFLOW, "part": cleaned, "import_hint": IMPORT_HINT_IMPORTABLE, "source_ref": source_ref, "origin": "fixture"}
+            return {
+                "form": FORM_FULL_WORKFLOW,
+                "part": cleaned,
+                "import_hint": IMPORT_HINT_IMPORTABLE,
+                "source_ref": source_ref,
+                "origin": "fixture",
+            }
 
         if len(matched) == 1 and not self._neighbours(workflow, matched[0]):
             return {

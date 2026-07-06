@@ -64,6 +64,7 @@ def build_extractors(
     obsidian_canvas_extractor_cls=None,
     obsidian_vault_name: str = "default",
     n8n_extractor_cls=None,
+    teaching_extractor_cls=None,
 ) -> dict[str, object]:
     extractors = {
         "java": java_extractor_cls(
@@ -149,6 +150,10 @@ def build_extractors(
         # json is deliberately NOT part of DEFAULT_EXTENSIONS.
         extractors["json"] = build_extractor(
             n8n_extractor_cls, embedding_text_mode=limits.embedding_text_mode
+        )
+    if teaching_extractor_cls is not None:
+        extractors["md"] = build_extractor(
+            teaching_extractor_cls, embedding_text_mode=limits.embedding_text_mode
         )
     return extractors
 
@@ -312,6 +317,7 @@ def process_snapshot(
     obsidian_vault_name: str = "default",
     known_note_titles: dict | None = None,
     n8n_extractor_cls=None,
+    teaching_extractor_cls=None,
 ) -> FileProcessingResult:
     started_at = perf_counter()
     rel_path = snapshot.rel_path
@@ -411,6 +417,7 @@ def process_snapshot(
             obsidian_canvas_extractor_cls=obsidian_canvas_extractor_cls,
             obsidian_vault_name=obsidian_vault_name,
             n8n_extractor_cls=n8n_extractor_cls,
+            teaching_extractor_cls=teaching_extractor_cls,
         ).get(ext)
         if extractor is None:
             manifest_entry = {
@@ -445,7 +452,9 @@ def process_snapshot(
                 text=text,
                 known_namespace_types=known_namespace_types,
             )
-        elif ext in {"md", "canvas"} and obsidian_extractor_cls is not None:
+        elif ext in {"md", "canvas"} and obsidian_extractor_cls is not None and not (
+            ext == "md" and teaching_extractor_cls is not None
+        ):
             # ObsidianExtractor: pass known_note_titles via known_package_types slot
             idx, det, rel, stats = extractor.parse(
                 rel_path=rel_path,

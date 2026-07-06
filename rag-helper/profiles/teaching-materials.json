@@ -1,0 +1,11 @@
+{
+  "_comment": "Opt-in profile for classroom teaching Markdown plus referenced n8n workflow exports.",
+  "extensions": ["md", "json"],
+  "teaching_materials": true,
+  "exclude_glob": [
+    "**/node_modules/**",
+    "**/package.json",
+    "**/package-lock.json",
+    "**/tsconfig*.json"
+  ]
+}

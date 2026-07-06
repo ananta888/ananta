@@ -424,6 +424,7 @@ def build_default_agent_config() -> dict:
             "question_confidence_threshold": 0.6,
             "retention_hours_raw_segments": 72,
             "n8n_examples_dir": "rag-helper/tests/fixtures/n8n",
+            "teaching_index_file": "",
             "max_context_tokens": 2000,
         },
         "cli_session_mode": {

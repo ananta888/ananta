@@ -4,8 +4,10 @@ Enthaelt das fruehere CTA-003 (Windowing) als Baustein. Ohne
 Material-Evidence entsteht keine Schueler-Antwort, sondern eine
 Dozent-Rueckfrage (reason_code no_material_evidence).
 """
+
 from __future__ import annotations
 
+import json
 from typing import Callable
 
 REASON_NO_MATERIAL_EVIDENCE = "no_material_evidence"
@@ -41,19 +43,24 @@ def build_transcript_window(
     question_seq = int(question_segment.get("sequence_no") or 0)
 
     prior = [
-        seg for seg in segments
-        if int(seg.get("sequence_no") or 0) < question_seq and str(seg.get("session_id")) == str(question_segment.get("session_id"))
+        seg
+        for seg in segments
+        if int(seg.get("sequence_no") or 0) < question_seq
+        and str(seg.get("session_id")) == str(question_segment.get("session_id"))
     ]
     own = [seg for seg in prior if str(seg.get("speaker_label_hash") or "") == speaker]
     others = [
-        seg for seg in prior
+        seg
+        for seg in prior
         if str(seg.get("speaker_label_hash") or "") != speaker
         and task_hint
         and str(seg.get("task_id_hint") or "") == task_hint
     ]
     # Eigene Fehlversuche zuerst (juengste zuerst), dann fremde mit
     # gleichem Task-Kontext.
-    ordered = sorted(own, key=lambda s: -int(s.get("sequence_no") or 0)) + sorted(others, key=lambda s: -int(s.get("sequence_no") or 0))
+    ordered = sorted(own, key=lambda s: -int(s.get("sequence_no") or 0)) + sorted(
+        others, key=lambda s: -int(s.get("sequence_no") or 0)
+    )
 
     window: list[dict] = []
     budget = max(1, int(max_tokens))
@@ -103,14 +110,20 @@ class AnswerComposerService:
                 schema=ANSWER_SCHEMA,
                 prompt=self._build_prompt(question_text, window_segments, top, material_evidence),
             )
+            if isinstance(payload, dict) and isinstance(payload.get("content"), str):
+                try:
+                    payload = json.loads(payload["content"])
+                except (TypeError, ValueError):
+                    payload = {}
             result = payload if isinstance(payload, dict) else {}
         else:
             excerpt = str((material_evidence[0] or {}).get("excerpt") or "")[:200]
+            task_title = top.get("title") or top.get("task_id") or "der Aufgabe"
             result = {
                 "problem_summary": str(question_text)[:200],
                 "student_position": f"Vermutlich bei Aufgabe {top.get('task_id') or 'unbekannt'}",
                 "next_action_for_teacher": f"Materialstelle zeigen: {excerpt or 'siehe Quelle'}",
-                "answer_for_student": f"Schau in das Material zu {top.get('title') or top.get('task_id') or 'der Aufgabe'}: {excerpt}",
+                "answer_for_student": f"Schau in das Material zu {task_title}: {excerpt}",
                 "confidence": min(0.75, float(top.get("score") or 0.5)),
             }
 
@@ -120,7 +133,9 @@ class AnswerComposerService:
         result["evidence_refs"] = list(material_evidence)
         return result
 
-    def _build_prompt(self, question_text: str, window_segments: list[dict], top_candidate: dict, evidence: list[dict]) -> str:
+    def _build_prompt(
+        self, question_text: str, window_segments: list[dict], top_candidate: dict, evidence: list[dict]
+    ) -> str:
         # Das Fenster ist bereits budgetiert (build_transcript_window im
         # Gateway); hier nur noch Formatierung.
         window_text = "\n".join(f"- {seg.get('text_segment')}" for seg in window_segments[:10])

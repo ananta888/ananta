@@ -1,0 +1,2 @@
+{"event_id":"evt-1","session_id":"session-1","zoom_room_id":"room-a","sequence_no":1,"speaker_role":"student","speaker_label":"Max Mustermann","text_segment":"Mein Webhook kommt nicht an, was mache ich falsch?"}
+{"event_id":"evt-2","session_id":"session-1","zoom_room_id":"room-a","sequence_no":2,"speaker_role":"teacher","speaker_label":"Dozent Beispiel","text_segment":"Prüfe zuerst den Trigger."}

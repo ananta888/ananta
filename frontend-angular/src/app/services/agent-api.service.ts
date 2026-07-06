@@ -52,6 +52,15 @@ export class AgentApiService {
   getMetrics(baseUrl: string, token?: string): Observable<string> {
     return this.system.getMetrics(baseUrl, token);
   }
+  getClassroomCards(baseUrl: string, filters: Record<string, string> = {}, token?: string): Observable<any> {
+    return this.system.getClassroomCards(baseUrl, filters, token);
+  }
+  updateClassroomCard(baseUrl: string, cardId: string, status: string, token?: string): Observable<any> {
+    return this.system.updateClassroomCard(baseUrl, cardId, status, token);
+  }
+  exportClassroomWorkflow(baseUrl: string, cardId: string, token?: string): Observable<any> {
+    return this.system.exportClassroomWorkflow(baseUrl, cardId, token);
+  }
   llmGenerate(
     baseUrl: string,
     prompt: string,

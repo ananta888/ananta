@@ -23,7 +23,6 @@ from flask import Blueprint, current_app, g, has_app_context, request
 from agent.auth import admin_required, check_auth
 from agent.common.audit import log_audit
 from agent.common.errors import api_response
-from agent.db_models import ConfigDB
 from agent.models import TriggerConfigureRequest, TriggerTestRequest
 from agent.runtime_policy import evaluate_trigger_precheck
 from agent.services.repository_registry import get_repository_registry
@@ -143,7 +142,9 @@ class TriggerEngine:
         with self._lock:
             self._prune_seen_fingerprints(now)
             event_ts = self._extract_event_timestamp(payload, headers=headers)
-            if event_ts is not None and abs(now - event_ts) > max(30, int(self._replay_window_seconds or DEFAULT_REPLAY_WINDOW_SECONDS)):
+            if event_ts is not None and abs(now - event_ts) > max(
+                30, int(self._replay_window_seconds or DEFAULT_REPLAY_WINDOW_SECONDS)
+            ):
                 self._stats["rejected"] += 1
                 self._stats["replay_blocked"] += 1
                 return {"status": "replay_blocked", "reason": "stale_event_timestamp"}
@@ -161,6 +162,15 @@ class TriggerEngine:
 
             self._seen_event_fingerprints[fingerprint] = {"first_seen": now, "last_seen": now, "count": 1}
             return {"status": "ok", "fingerprint": fingerprint}
+
+    def check_replay_and_dedup(
+        self,
+        source: str,
+        payload: dict,
+        headers: dict | None = None,
+    ) -> dict | None:
+        """Public admission port for domain adapters sharing trigger dedup."""
+        return self._check_replay_and_dedup(source, payload, headers=headers)
 
     def register_handler(self, source: str, handler: Callable):
         with self._lock:
@@ -331,6 +341,7 @@ class TriggerEngine:
             self._ensure_autopilot_running()
             try:
                 from agent.routes.tasks.autopilot import autonomous_loop
+
                 autonomous_loop.wake()
             except Exception:
                 pass
@@ -514,7 +525,6 @@ Subject: {subject}
             from agent.routes.tasks.autopilot import autonomous_loop
 
             if not autonomous_loop.running:
-                
                 active_team = next((t for t in _repos().team_repo.get_all() if t.is_active), None)
                 autonomous_loop.start(
                     interval_seconds=5,
@@ -685,7 +695,9 @@ def webhook_endpoint(source: str):
     signature = request.headers.get("X-Hub-Signature-256", "")
     client_ip = _get_client_ip()
 
-    if not get_core_services().trigger_runtime_service.verify_signature(source=source, payload_raw=payload_raw, signature=signature):
+    if not get_core_services().trigger_runtime_service.verify_signature(
+        source=source, payload_raw=payload_raw, signature=signature
+    ):
         log_audit("trigger_webhook_rejected", {"source": source, "reason": "invalid_signature", "ip": client_ip})
         return api_response(status="error", message="invalid_signature", code=401)
 

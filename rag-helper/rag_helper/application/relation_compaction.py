@@ -49,6 +49,10 @@ RELATION_PRIORITY = {
     "n8n_uses_llm_provider": 74,
     "n8n_reads_data_field": 20,
     "n8n_writes_data_field": 20,
+    "teaching_task_belongs_to_module": 82,
+    "hint_for_task": 78,
+    "solution_for_task": 78,
+    "task_uses_n8n_workflow": 80,
 }
 
 

@@ -181,6 +181,8 @@ class N8nWorkflowExtractor:
         # Priority order matters: compact_relation_records truncates from the
         # end, so connections survive before API relations before data fields.
         relation_records = [*connect_relations, *api_relations, *field_relations]
+        for relation in relation_records:
+            relation.setdefault("file", rel_path)
         stats = {
             "kind": "n8n",
             "file": rel_path,

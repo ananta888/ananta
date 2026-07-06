@@ -6,8 +6,10 @@ Schema-Pfad (model_invocation_service.invoke_with_json_schema_result,
 per Konstruktor injizierbar). Ohne injizierten LLM-Pfad liefert der
 deterministische Fallback ein konservatives Ergebnis.
 """
+
 from __future__ import annotations
 
+import json
 import re
 from typing import Any, Callable
 
@@ -58,7 +60,10 @@ _N8N_TERM_PATTERN = re.compile(
     re.IGNORECASE,
 )
 _IRONY_PATTERN = re.compile(r"\b(super|toll|na klasse|klasse|wieder mal|natürlich)\b", re.IGNORECASE)
-_ORGANIZATIONAL_PATTERN = re.compile(r"\b(pause|abgabe(frist)?|anwesenheit|zoom.?link|raumwechsel|wann ist schluss)\b", re.IGNORECASE)
+_ORGANIZATIONAL_PATTERN = re.compile(
+    r"\b(pause|abgabe(frist)?|anwesenheit|zoom.?link|raumwechsel|wann ist schluss)\b", re.IGNORECASE
+)
+_OFFTOPIC_PATTERN = re.compile(r"\b(fu[ßs]ball\w*|kino|urlaub|party|wetter)\b", re.IGNORECASE)
 
 
 def detect_signals(text: str) -> dict:
@@ -79,6 +84,8 @@ def detect_signals(text: str) -> dict:
         signals.append("irony_marker")
     if _ORGANIZATIONAL_PATTERN.search(value):
         signals.append("organizational_phrase")
+    if _OFFTOPIC_PATTERN.search(value):
+        signals.append("offtopic_phrase")
     has_candidate = bool(set(signals) & {"question_mark", "w_question", "help_phrase", "error_message"})
     return {"signals": signals, "has_candidate": has_candidate}
 
@@ -97,7 +104,13 @@ class StudentQuestionDetectionService:
         signals = stage1["signals"]
 
         if not stage1["has_candidate"]:
-            intent = INTENT_ORGANIZATIONAL if "organizational_phrase" in signals else INTENT_SMALLTALK
+            intent = (
+                INTENT_ORGANIZATIONAL
+                if "organizational_phrase" in signals
+                else INTENT_OFFTOPIC
+                if "offtopic_phrase" in signals
+                else INTENT_SMALLTALK
+            )
             return self._result(intent, 0.9, ["no_candidate_signal", *signals], [], False, llm_used=False)
 
         if self.invoke_json is None:
@@ -107,6 +120,11 @@ class StudentQuestionDetectionService:
             schema=INTENT_SCHEMA,
             prompt=self._build_prompt(text, context),
         )
+        if isinstance(payload, dict) and isinstance(payload.get("content"), str):
+            try:
+                payload = json.loads(payload["content"])
+            except (TypeError, ValueError):
+                payload = {}
         return self._normalize_llm_result(payload, signals)
 
     # ── intern ───────────────────────────────────────────────────────────
@@ -114,8 +132,12 @@ class StudentQuestionDetectionService:
     def _deterministic_fallback(self, text: str, signals: list[str]) -> dict:
         # Ironie/Ambiguitaet wird NIE als sichere technische Frage
         # behandelt (Acceptance CTA-002).
-        if "irony_marker" in signals and ("help_phrase" in signals or "error_message" in signals):
-            return self._result(INTENT_IRONIC, 0.5, ["irony_with_problem_marker", *signals], [str(text)[:120]], True, llm_used=False)
+        if "irony_marker" in signals:
+            return self._result(
+                INTENT_IRONIC, 0.5, ["irony_with_problem_marker", *signals], [str(text)[:120]], True, llm_used=False
+            )
+        if "offtopic_phrase" in signals:
+            return self._result(INTENT_OFFTOPIC, 0.8, signals, [], False, llm_used=False)
         if "organizational_phrase" in signals:
             return self._result(INTENT_ORGANIZATIONAL, 0.7, signals, [], False, llm_used=False)
         if "error_message" in signals or "help_phrase" in signals:
@@ -156,7 +178,15 @@ class StudentQuestionDetectionService:
         return result
 
     @staticmethod
-    def _result(intent: str, confidence: float, reason_codes: list[str], evidence_spans: list[str], needs_teacher: bool, *, llm_used: bool) -> dict:
+    def _result(
+        intent: str,
+        confidence: float,
+        reason_codes: list[str],
+        evidence_spans: list[str],
+        needs_teacher: bool,
+        *,
+        llm_used: bool,
+    ) -> dict:
         return {
             "intent": intent,
             "confidence": confidence,

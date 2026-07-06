@@ -5,6 +5,7 @@ architecture.context_signal_priority im Todo). Raum/Zeit-Hints grenzen
 nur ein: ohne Material-Evidence oder expliziten Hint entsteht kein
 Kandidat ueber dem Schwellwert.
 """
+
 from __future__ import annotations
 
 from typing import Callable
@@ -47,14 +48,16 @@ class ModuleTaskResolverService:
         explicit_module = str(event.get("module_id_hint") or "").strip()
         if explicit_task:
             # Expliziter Hint gewinnt gegen alle semantischen Treffer.
-            candidates.append({
-                "module_id": explicit_module or None,
-                "task_id": explicit_task,
-                "score": 1.0,
-                "signals": ["explicit_task_id_from_event"],
-                "evidence_refs": [],
-                "context_hint_refs": hint_refs,
-            })
+            candidates.append(
+                {
+                    "module_id": explicit_module or None,
+                    "task_id": explicit_task,
+                    "score": 1.0,
+                    "signals": ["explicit_task_id_from_event"],
+                    "evidence_refs": [],
+                    "context_hint_refs": hint_refs,
+                }
+            )
 
         material_matches = self._search_materials(event, detection, hints)
         for match in material_matches:
@@ -72,15 +75,17 @@ class ModuleTaskResolverService:
             if room_scope and str(match.get("module_id") or "") == str(room_scope):
                 score = min(1.0, score + 0.1)
                 signals.append("zoom_room_group_hint")
-            candidates.append({
-                "module_id": match.get("module_id"),
-                "task_id": match.get("task_id"),
-                "title": match.get("title"),
-                "score": round(score, 4),
-                "signals": signals,
-                "evidence_refs": [evidence],
-                "context_hint_refs": hint_refs,
-            })
+            candidates.append(
+                {
+                    "module_id": match.get("module_id"),
+                    "task_id": match.get("task_id"),
+                    "title": match.get("title"),
+                    "score": round(score, 4),
+                    "signals": signals,
+                    "evidence_refs": [evidence],
+                    "context_hint_refs": hint_refs,
+                }
+            )
 
         # Kandidaten ohne Evidence UND ohne expliziten Hint sind verboten.
         candidates = [c for c in candidates if c["evidence_refs"] or "explicit_task_id_from_event" in c["signals"]]
@@ -93,7 +98,9 @@ class ModuleTaskResolverService:
                 warnings.append(WARNING_WEAK_CONTEXT_HINT_ONLY)
             return {"ranked_candidates": candidates, "warnings": warnings, "confirmed": None}
 
-        confirmed = confident[0] if (len(confident) == 1 or confident[0]["score"] - confident[1]["score"] >= 0.15) else None
+        confirmed = (
+            confident[0] if (len(confident) == 1 or confident[0]["score"] - confident[1]["score"] >= 0.15) else None
+        )
         return {"ranked_candidates": candidates, "warnings": warnings, "confirmed": confirmed}
 
     # ── intern ───────────────────────────────────────────────────────────
@@ -101,10 +108,12 @@ class ModuleTaskResolverService:
     def _search_materials(self, event: dict, detection: dict, hints: dict) -> list[dict]:
         if self.search_fn is None:
             return []
-        terms = " ".join([
-            str(event.get("text_segment") or "")[:400],
-            " ".join(str(span) for span in (detection.get("evidence_spans") or [])[:3]),
-        ]).strip()
+        terms = " ".join(
+            [
+                str(event.get("text_segment") or "")[:400],
+                " ".join(str(span) for span in (detection.get("evidence_spans") or [])[:3]),
+            ]
+        ).strip()
         if not terms:
             return []
         filters = dict(hints.get("retrieval_filters") or {})

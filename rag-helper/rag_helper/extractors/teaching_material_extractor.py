@@ -21,6 +21,7 @@ bestehenden kind n8n_workflow; Aufloesung passiert per
 link_material_workflow_relations, wenn Material und n8n-Fixtures im
 selben Lauf indexiert werden.
 """
+
 from __future__ import annotations
 
 from rag_helper.extractors.obsidian import parse_frontmatter
@@ -52,14 +53,15 @@ class TeachingMaterialExtractor:
 
     # ── frontmatter path ─────────────────────────────────────────────────
 
-    def _parse_with_frontmatter(self, rel_path: str, frontmatter: dict, body: str) -> tuple[list[dict], list[dict], list[dict], dict]:
+    def _parse_with_frontmatter(
+        self, rel_path: str, frontmatter: dict, body: str
+    ) -> tuple[list[dict], list[dict], list[dict], dict]:
         module_id = str(frontmatter.get("module_id") or "unknown-module").strip()
         task_id = str(frontmatter.get("task_id") or "").strip() or None
         material_kind = str(frontmatter.get("material_kind") or ("task" if task_id else "module")).strip().lower()
         kind = _KIND_BY_MATERIAL.get(material_kind, "teaching_module")
 
         primary_id = self._record_id(kind, rel_path, module_id, task_id or "")
-        module_record_id = f"teaching_module:{safe_id(rel_path, module_id)}"
         title = self._first_heading(body) or task_id or module_id
         summary_text = compact_text(body, 300)
 
@@ -88,8 +90,6 @@ class TeachingMaterialExtractor:
                 f"{material_kind} {title} ({module_id}{'/' + task_id if task_id else ''}): {compact_text(body, 100)}",
             ),
         }
-        if kind != "teaching_module":
-            primary["parent_id"] = module_record_id
         index_records.append(primary)
 
         detail = {
@@ -103,22 +103,34 @@ class TeachingMaterialExtractor:
         }
 
         if kind == "teaching_task":
-            relations.append({"from": primary_id, "to": module_record_id, "type": RELATION_TASK_BELONGS_TO_MODULE})
+            relations.append(
+                {
+                    "kind": "relation",
+                    "file": rel_path,
+                    "id": f"relation:{safe_id(rel_path, primary_id, RELATION_TASK_BELONGS_TO_MODULE, module_id)}",
+                    "source_id": primary_id,
+                    "source_kind": kind,
+                    "relation": RELATION_TASK_BELONGS_TO_MODULE,
+                    "target": module_id,
+                }
+            )
         elif kind in ("teaching_hint", "known_solution") and task_id:
             # Die Task liegt in einer ANDEREN Datei — direkte from/to-Kante
             # wuerde danglen (passthrough prueft Existenz nicht). Daher
             # make_relation-Format: Graph-Export verwirft Unaufloesbares,
             # link_material_workflow_relations loest projektweit auf.
             relation_type = RELATION_HINT_FOR_TASK if kind == "teaching_hint" else RELATION_SOLUTION_FOR_TASK
-            relations.append({
-                "kind": "relation",
-                "file": rel_path,
-                "id": f"relation:{safe_id(rel_path, primary_id, relation_type, module_id, task_id)}",
-                "source_id": primary_id,
-                "source_kind": kind,
-                "relation": relation_type,
-                "target": f"{module_id}/{task_id}",
-            })
+            relations.append(
+                {
+                    "kind": "relation",
+                    "file": rel_path,
+                    "id": f"relation:{safe_id(rel_path, primary_id, relation_type, module_id, task_id)}",
+                    "source_id": primary_id,
+                    "source_kind": kind,
+                    "relation": relation_type,
+                    "target": f"{module_id}/{task_id}",
+                }
+            )
 
         related = frontmatter.get("related_n8n_workflows") or []
         if isinstance(related, str):
@@ -131,15 +143,17 @@ class TeachingMaterialExtractor:
             # Graph-Symbolaufloesung verwirft es (kein dangling), und
             # link_material_workflow_relations loest es projektweit auf,
             # wenn der n8n-Workflow im selben Lauf indexiert wurde.
-            relations.append({
-                "kind": "relation",
-                "file": rel_path,
-                "id": f"relation:{safe_id(rel_path, primary_id, RELATION_TASK_USES_N8N_WORKFLOW, name)}",
-                "source_id": primary_id,
-                "source_kind": kind,
-                "relation": RELATION_TASK_USES_N8N_WORKFLOW,
-                "target": name,
-            })
+            relations.append(
+                {
+                    "kind": "relation",
+                    "file": rel_path,
+                    "id": f"relation:{safe_id(rel_path, primary_id, RELATION_TASK_USES_N8N_WORKFLOW, name)}",
+                    "source_id": primary_id,
+                    "source_kind": kind,
+                    "relation": RELATION_TASK_USES_N8N_WORKFLOW,
+                    "target": name,
+                }
+            )
 
         stats = {
             "kind": "teaching_material",
@@ -165,44 +179,50 @@ class TeachingMaterialExtractor:
             elif stripped.startswith("## "):
                 tasks.append(stripped[3:].strip())
         module_title = module_title or rel_path
+        task_summary = ", ".join(tasks[:8]) or "none"
 
         module_id = f"teaching_module:{safe_id(rel_path, module_title)}"
-        index_records: list[dict] = [{
-            "kind": "teaching_module",
-            "file": rel_path,
-            "id": module_id,
-            "name": module_title,
-            "module_id": None,
-            "task_id": None,
-            "material_kind": "module",
-            "confidence": "low",
-            "summary": f"module '{module_title}' (heuristisch, kein Frontmatter)",
-            "embedding_text": build_embedding_text(
-                self.embedding_text_mode,
-                f"Teaching module {module_title} ({rel_path}), extracted heuristically without frontmatter. Tasks: {', '.join(tasks[:8]) or 'none'}.",
-                f"module {module_title}: {', '.join(tasks[:4]) or 'no tasks'}",
-            ),
-        }]
+        index_records: list[dict] = [
+            {
+                "kind": "teaching_module",
+                "file": rel_path,
+                "id": module_id,
+                "name": module_title,
+                "module_id": None,
+                "task_id": None,
+                "material_kind": "module",
+                "confidence": "low",
+                "summary": f"module '{module_title}' (heuristisch, kein Frontmatter)",
+                "embedding_text": build_embedding_text(
+                    self.embedding_text_mode,
+                    f"Teaching module {module_title} ({rel_path}), "
+                    f"extracted heuristically without frontmatter. Tasks: {task_summary}.",
+                    f"module {module_title}: {', '.join(tasks[:4]) or 'no tasks'}",
+                ),
+            }
+        ]
         relations: list[dict] = []
         for task_title in tasks:
             task_record_id = f"teaching_task:{safe_id(rel_path, module_title, task_title)}"
-            index_records.append({
-                "kind": "teaching_task",
-                "file": rel_path,
-                "id": task_record_id,
-                "parent_id": module_id,
-                "name": task_title,
-                "module_id": None,
-                "task_id": None,
-                "material_kind": "task",
-                "confidence": "low",
-                "summary": f"task '{task_title}' in module '{module_title}' (heuristisch)",
-                "embedding_text": build_embedding_text(
-                    self.embedding_text_mode,
-                    f"Teaching task {task_title} in module {module_title} ({rel_path}), heuristic extraction.",
-                    f"task {task_title} ({module_title})",
-                ),
-            })
+            index_records.append(
+                {
+                    "kind": "teaching_task",
+                    "file": rel_path,
+                    "id": task_record_id,
+                    "parent_id": module_id,
+                    "name": task_title,
+                    "module_id": None,
+                    "task_id": None,
+                    "material_kind": "task",
+                    "confidence": "low",
+                    "summary": f"task '{task_title}' in module '{module_title}' (heuristisch)",
+                    "embedding_text": build_embedding_text(
+                        self.embedding_text_mode,
+                        f"Teaching task {task_title} in module {module_title} ({rel_path}), heuristic extraction.",
+                        f"task {task_title} ({module_title})",
+                    ),
+                }
+            )
             relations.append({"from": task_record_id, "to": module_id, "type": RELATION_TASK_BELONGS_TO_MODULE})
 
         stats = {
@@ -249,6 +269,11 @@ def link_material_workflow_relations(index_records: list[dict], relation_records
         for record in index_records
         if record.get("kind") == "teaching_task" and record.get("task_id")
     }
+    modules_by_module_id = {
+        str(record.get("module_id") or ""): str(record.get("id"))
+        for record in index_records
+        if record.get("kind") == "teaching_module" and record.get("module_id")
+    }
 
     resolved = 0
     for relation in relation_records:
@@ -258,6 +283,8 @@ def link_material_workflow_relations(index_records: list[dict], relation_records
         target_id: str | None = None
         if relation_type == RELATION_TASK_USES_N8N_WORKFLOW:
             target_id = workflows_by_name.get(str(relation.get("target") or ""))
+        elif relation_type == RELATION_TASK_BELONGS_TO_MODULE:
+            target_id = modules_by_module_id.get(str(relation.get("target") or ""))
         elif relation_type in (RELATION_HINT_FOR_TASK, RELATION_SOLUTION_FOR_TASK):
             raw_target = str(relation.get("target") or "")
             module_id, _, task_id = raw_target.partition("/")

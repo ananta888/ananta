@@ -279,6 +279,9 @@ class MCPRegistryService:
             }
 
         if name == "classroom.transcript_event":
+            classroom_cfg = (context.get("agent_config") or {}).get("classroom") or {}
+            if not bool(classroom_cfg.get("enabled", False)):
+                raise ValueError("classroom_disabled")
             gateway = context["classroom_gateway"]
             result = gateway.process_event(args, source_adapter="mcp")
             if result.get("status") == "error":
@@ -286,6 +289,9 @@ class MCPRegistryService:
             return {"content": [{"type": "json", "json": result}]}
 
         if name == "classroom.reanalyze":
+            classroom_cfg = (context.get("agent_config") or {}).get("classroom") or {}
+            if not bool(classroom_cfg.get("enabled", False)):
+                raise ValueError("classroom_disabled")
             card_id = str(args.get("card_id") or "").strip()
             if not card_id:
                 raise ValueError("card_id_required")
@@ -298,7 +304,7 @@ class MCPRegistryService:
                 "event_id": f"{card['source_event_id']}-reanalyze-{card_id}",
                 "session_id": str(card.get("source_event_id") or card_id),
                 "zoom_room_id": card.get("zoom_room"),
-                "speaker_label": card.get("student_alias"),
+                "speaker_label_hash": card.get("student_alias"),
                 "text_segment": card.get("question_summary"),
                 "trigger_mode": "reanalyze",
             }

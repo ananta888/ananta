@@ -4,6 +4,7 @@ Die Karte ist die einzige Ausgabeflaeche der Pipeline. Evidence
 (Material/Transkript) und Context-Hints (Raum/Zeit) sind strukturell
 getrennt; warnings kommen aus einem festen Vokabular.
 """
+
 from __future__ import annotations
 
 import threading
@@ -19,14 +20,16 @@ WARNING_WORKFLOW_VERIFICATION_FAILED = "workflow_verification_failed"
 WARNING_PRIVACY_REDACTION_APPLIED = "privacy_redaction_applied"
 WARNING_NO_MATERIAL_EVIDENCE = "no_material_evidence"
 
-WARNING_VOCABULARY = frozenset({
-    WARNING_AMBIGUOUS_INTENT,
-    WARNING_LOW_CONFIDENCE,
-    WARNING_WEAK_CONTEXT_HINT_ONLY,
-    WARNING_WORKFLOW_VERIFICATION_FAILED,
-    WARNING_PRIVACY_REDACTION_APPLIED,
-    WARNING_NO_MATERIAL_EVIDENCE,
-})
+WARNING_VOCABULARY = frozenset(
+    {
+        WARNING_AMBIGUOUS_INTENT,
+        WARNING_LOW_CONFIDENCE,
+        WARNING_WEAK_CONTEXT_HINT_ONLY,
+        WARNING_WORKFLOW_VERIFICATION_FAILED,
+        WARNING_PRIVACY_REDACTION_APPLIED,
+        WARNING_NO_MATERIAL_EVIDENCE,
+    }
+)
 
 CARD_STATUSES = ("open", "answered", "dismissed")
 
@@ -104,7 +107,9 @@ class TeacherActionCardService:
                 return card
         return None
 
-    def list_cards(self, *, zoom_room: str | None = None, module: str | None = None, status: str | None = None) -> list[dict]:
+    def list_cards(
+        self, *, zoom_room: str | None = None, module: str | None = None, status: str | None = None
+    ) -> list[dict]:
         cards = list(self._cards.values())
         if zoom_room:
             cards = [c for c in cards if c.get("zoom_room") == zoom_room]

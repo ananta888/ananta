@@ -61,6 +61,7 @@ def build_options_signature(
     include_globs: list[str] | None,
     exclude_globs: list[str] | None,
     limits: ProcessingLimits,
+    extractor_modes: dict[str, bool] | None = None,
 ) -> str:
     payload = {
         "include_code_snippets": include_code_snippets,
@@ -68,6 +69,7 @@ def build_options_signature(
         "include_xml_node_details": include_xml_node_details,
         "include_globs": include_globs or [],
         "exclude_globs": exclude_globs or [],
+        "extractor_modes": extractor_modes or {},
         **limits.as_options(),
     }
     return sha1_text(json.dumps(payload, sort_keys=True, ensure_ascii=False))
@@ -98,6 +100,7 @@ def process_project(
     error_log_file: Path | None = None,
     csharp_extractor_cls=None,
     n8n_extractor_cls=None,
+    teaching_extractor_cls=None,
 ) -> None:
     if not dry_run:
         ensure_dir(out_dir)
@@ -114,6 +117,7 @@ def process_project(
         xsd_extractor_cls=xsd_extractor_cls,
         text_extractor_cls=text_extractor_cls,
         n8n_extractor_cls=n8n_extractor_cls,
+        teaching_extractor_cls=teaching_extractor_cls,
     )
     java_extractor = extractors["java"]
     csharp_extractor = extractors.get("cs")
@@ -133,6 +137,10 @@ def process_project(
         include_globs=include_globs,
         exclude_globs=exclude_globs,
         limits=limits,
+        extractor_modes={
+            "n8n": n8n_extractor_cls is not None,
+            "teaching_materials": teaching_extractor_cls is not None,
+        },
     )
     cache_enabled = incremental or rebuild or resume
     loaded_cache = {"version": 1, "files": {}}
@@ -260,6 +268,7 @@ def process_project(
                 pre_scan=next_cache["files"].get(snapshot.rel_path, {}).get("pre_scan"),
                 csharp_extractor_cls=csharp_extractor_cls,
                 n8n_extractor_cls=n8n_extractor_cls,
+                teaching_extractor_cls=teaching_extractor_cls,
             )
             _record_result(result, total=len(snapshots))
     else:
@@ -283,6 +292,7 @@ def process_project(
                     pre_scan=next_cache["files"].get(snapshot.rel_path, {}).get("pre_scan"),
                     csharp_extractor_cls=csharp_extractor_cls,
                     n8n_extractor_cls=n8n_extractor_cls,
+                    teaching_extractor_cls=teaching_extractor_cls,
                 ): snapshot.rel_path
                 for snapshot in pending_snapshots
             }
@@ -296,6 +306,11 @@ def process_project(
         all_relations.extend(result.relations)
         manifest_files.append(result.manifest_entry)
         next_cache["files"].setdefault(snapshot.rel_path, result.cache_entry)
+
+    if teaching_extractor_cls is not None:
+        from rag_helper.extractors.teaching_material_extractor import link_material_workflow_relations
+
+        link_material_workflow_relations(all_index, all_relations)
 
     aggregates = compute_post_processing(
         all_index=all_index,

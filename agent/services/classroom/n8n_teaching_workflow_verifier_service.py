@@ -6,6 +6,7 @@ Regexe zu duplizieren. rag-helper ist kein installiertes Paket, daher
 wird das Verzeichnis beim Import auf sys.path gelegt (Repo-Layout ist
 stabil; siehe archivierter n8n-Track).
 """
+
 from __future__ import annotations
 
 import json

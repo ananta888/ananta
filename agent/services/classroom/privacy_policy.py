@@ -4,6 +4,7 @@ Reine Funktionen, damit die Policy isoliert testbar bleibt. Der Audit
 laeuft ueber den bestehenden log_audit-Pfad (agent/common/audit.py);
 dieses Modul definiert nur die Action-Namen und die Redaction-Regeln.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -32,6 +33,7 @@ _PHONE_PATTERN = re.compile(r"(?:\+?\d[\d\s/()-]{6,}\d)")
 # Bewusst ueberredigierend: im Unterrichts-Transkript ist ein falsch
 # redigiertes Hauptwort billiger als ein geleakter Schuelername.
 _FULL_NAME_PATTERN = re.compile(r"\b[A-ZÄÖÜ][a-zäöüß]{2,}\s+[A-ZÄÖÜ][a-zäöüß]{2,}\b")
+_SPEAKER_HASH_PATTERN = re.compile(r"^spk-[0-9a-f]{12}$")
 
 REDACTED_NAME = "<name>"
 REDACTED_CONTACT = "<contact>"
@@ -41,6 +43,10 @@ def hash_speaker_label(label: str) -> str:
     """Stabiler Alias fuer einen Sprecher; Klarname wird nie persistiert."""
     normalized = str(label or "unknown").strip().lower()
     return "spk-" + hashlib.sha1(normalized.encode("utf-8", errors="ignore")).hexdigest()[:12]
+
+
+def is_valid_speaker_hash(value: str) -> bool:
+    return bool(_SPEAKER_HASH_PATTERN.fullmatch(str(value or "").strip()))
 
 
 def redact_pii(text: str) -> tuple[str, int]:
@@ -76,4 +82,9 @@ def prune_expired_segments(segments: list[dict], *, cfg: dict | None = None, now
     """Entfernt Roh-Segmente nach TTL. Karten sind davon nicht betroffen."""
     ttl_seconds = retention_hours(cfg) * 3600
     current = now if now is not None else time.time()
-    return [seg for seg in segments if (current - float(seg.get("received_at") or current)) < ttl_seconds]
+
+    def _received_at(segment: dict) -> float:
+        raw = segment.get("received_at")
+        return current if raw is None else float(raw)
+
+    return [seg for seg in segments if (current - _received_at(seg)) < ttl_seconds]

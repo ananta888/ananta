@@ -24,6 +24,7 @@ export const routes: Routes = [
       { path: '', pathMatch: 'full', redirectTo: 'workspace' },
       { path: 'workspace', data: { breadcrumb: 'Arbeitsbereich', area: 'Operate' }, loadComponent: () => import('./components/personal-workspace.component').then(m => m.PersonalWorkspaceComponent) },
       { path: 'chats', data: { breadcrumb: 'AI Chats', area: 'Operate' }, loadComponent: () => import('./features/chat/chat-page.component').then(m => m.ChatPageComponent) },
+      { path: 'classroom', data: { breadcrumb: 'Classroom', area: 'Operate' }, loadComponent: () => import('./components/classroom-assistant.component').then(m => m.ClassroomAssistantComponent) },
       { path: 'help', data: { breadcrumb: 'Hilfe', area: 'General' }, loadComponent: () => import('./components/help.component').then(m => m.HelpComponent) },
       { path: 'effective-workflow', data: { breadcrumb: 'Effective Workflow', area: 'Configure' }, loadComponent: () => import('./components/effective-workflow-explorer.component').then(m => m.EffectiveWorkflowExplorerComponent) },
       { path: 'config-graph', data: { breadcrumb: 'Konfig-Graph', area: 'Configure' }, loadComponent: () => import('./components/config-graph-editor.component').then(m => m.ConfigGraphEditorComponent) },
