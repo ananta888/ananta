@@ -1,0 +1,515 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "classroom-transcript-codecompass-assistant",
+  "created": "2026-07-06",
+  "status": "todo",
+  "priority": "P1",
+  "purpose": "Ananta/CodeCompass soll Unterrichtstranskripte, Aufgabenmaterialien und funktionierende n8n-Workflow-Beispiele so verbinden, dass ein spontan übernehmender Dozent schnell erkennt, wo ein Schüler im Modul steht, ob gerade eine echte Frage vorliegt, und welche geprüfte Antwort bzw. welches passende n8n-Teilelement hilft.",
+  "goal": "Aus Raum-/Schüler-Transkripten wird ein sicherer Unterrichtsassistenz-Workflow: Frage- und Hilfebedarf erkennen, Modul/Aufgabe/Lernstand zuordnen, passende Unterrichtsmaterialien und n8n-Workflow-Fixtures abrufen, eine kurze Antwort erzeugen, n8n-Teile auf Plausibilität prüfen und dem Dozenten eine kompakte Handlungsempfehlung mit Quellen liefern.",
+  "problem_statement": "Im Unterricht liegen bereits Transkripte aus Räumen mit Schülern vor. Der Nutzen entsteht nicht primär durch neuen Stoff, sondern durch schnelles Erkennen der aktuellen Stelle im Kurs und durch Wiederverwendung vorhandener, funktionierender Materialien und Workflows. Das System muss Ironie, Smalltalk und echte Fragen unterscheiden, darf keine falschen Workflow-Elemente einschleusen und muss dem Dozenten Modul, Aufgabe, Evidenz und nächsten Schritt sofort anzeigen.",
+  "fit_to_existing_ananta": [
+    "CodeCompass stellt bereits kanonische Tools wie codecompass.resolve_context, search_symbols, get_file_context, get_domain_map, search, plan_context und expand_graph bereit.",
+    "Der bestehende n8n-Todo-Track beschreibt bereits, wie n8n-Workflows als Graph, Embedding-Quelle und Kontextrecords verstanden werden sollen.",
+    "Diese Aufgabe baut darauf auf: weniger Quellcode-Analyse, mehr Text-/Didaktik-Analyse, aber weiterhin mit Graph, RAG, Evidenz und Verifikation."
+  ],
+  "non_goals": [
+    "Kein automatisches Bewerten von Schülern oder Notengebung.",
+    "Kein heimliches Einschleusen in Schüler-Workflows ohne Dozentenaktion.",
+    "Keine Speicherung sensibler Transkript-Rohdaten in Embeddings ohne Redaction/Retention-Regeln.",
+    "Kein Ersatz für den Dozenten; Ziel ist schnelle Orientierung und geprüfte Hilfestellung.",
+    "Kein freies LLM-Erfinden von n8n-Workflow-Strukturen ohne Validierung gegen bekannte funktionierende Beispiele."
+  ],
+  "source_review": {
+    "summary": "Die Repo-Suche zeigt, dass Ananta bereits ein passendes CodeCompass-Tooling und einen n8n-Workflow-Understanding-Track hat. Es fehlt ein darauf aufsetzender Unterrichts-/Transcript-Assistant-Track mit Frageerkennung, Modulzuordnung, Material-RAG, Workflow-Teilvalidierung und Dozentenansicht.",
+    "observed_source_files": [
+      {
+        "path": "docs/codecompass-tools.md",
+        "finding": "Dokumentiert die vorhandenen CodeCompass-Tools; resolve_context/search/plan_context/expand_graph sind die passende Retrieval- und Graph-Oberfläche für Unterrichtsmaterialien und n8n-Artefakte."
+      },
+      {
+        "path": "agent/services/tools/codecompass_tools.py",
+        "finding": "Implementiert bounded ToolResult-Ausgaben, Retrieval-Evidence und Graph-Expansion. Der Unterrichtsassistent soll dieselben ToolResult-/Evidence-Prinzipien nutzen."
+      },
+      {
+        "path": "todos/todo.codecompass-n8n-workflow-understanding.json",
+        "finding": "Bestehender Todo-Track für n8n-Workflow-Erkennung, Node-/Connection-Records, Graph-Relations, Embeddings, Redaction und Tests. Dieser Track ist Voraussetzung für geprüfte n8n-Teilworkflow-Antworten."
+      },
+      {
+        "path": "todos/todo.track.schema.json",
+        "finding": "Todo-Dateien folgen einem Track-Schema mit Milestones, Tasks, Status-/Priority-/Risk-Scales und Akzeptanzkriterien."
+      }
+    ]
+  },
+  "domain_model": {
+    "entities": [
+      "classroom_session",
+      "transcript_segment",
+      "speaker_turn",
+      "student_question_candidate",
+      "teaching_module",
+      "module_task",
+      "teaching_material",
+      "known_solution",
+      "n8n_workflow_fixture",
+      "n8n_partial_workflow",
+      "assistant_answer",
+      "teacher_action_card",
+      "verification_result"
+    ],
+    "relations": [
+      "segment_mentions_task",
+      "question_about_material",
+      "student_at_module_task",
+      "answer_supported_by_material",
+      "answer_uses_workflow_fixture",
+      "partial_workflow_matches_task",
+      "partial_workflow_verified_by_rules",
+      "teacher_card_references_evidence"
+    ]
+  },
+  "target_capabilities": [
+    "Transkript-Segmente importieren und segmentieren: Raum, Zeit, Sprecher, Schüler, Dozent, Text, optional Modul-/Tageskontext.",
+    "Erkennen, ob ein Segment eine echte Frage, Hilferuf, Blockade, ironische Frage, Offtopic, Smalltalk oder organisatorische Frage ist.",
+    "Modul/Aufgabe aus Kontext ableiten: Raum, Tag, aktuelle Aufgabe, erwähnte Begriffe, n8n-Node-Namen, Fehlermeldungen, Materialtitel.",
+    "Passende Unterrichtsmaterialien, Musterlösungen und funktionierende n8n-Workflow-Beispiele per CodeCompass/RAG abrufen.",
+    "Antworten kurz, dozententauglich und evidenzbasiert generieren: Was ist das Problem, wo steht der Schüler, welche Quelle passt, was ist der nächste Schritt.",
+    "Bei n8n-Fragen ein kleines passendes Teilelement oder einen geprüften Beispielworkflow vorschlagen, statt einen großen unpassenden Workflow zu halluzinieren.",
+    "LLM-Antworten gegen bekannte Materialien und n8n-Graph-/Schema-Regeln prüfen: Node-Typen, Connections, Credentials-Platzhalter, JSON-Importfähigkeit, keine Secrets.",
+    "Dozentenansicht bereitstellen: Modul, Aufgabe, Schülerfrage, erkannter Bedarf, Quellen, Antwortvorschlag, Workflow-Teil, Confidence, Warnungen.",
+    "Privacy/Retention beachten: Transkript-Rohdaten minimieren, PII redaction, keine sensiblen Schülerprofile in dauerhafte Embeddings."
+  ],
+  "architecture": {
+    "recommended_flow": [
+      "transcript_ingest",
+      "segment_classifier",
+      "question_intent_detector",
+      "module_task_resolver",
+      "codecompass_context_retrieval",
+      "n8n_artifact_retrieval",
+      "answer_composer",
+      "workflow_partial_generator_or_selector",
+      "verification_gate",
+      "teacher_action_card"
+    ],
+    "tooling": {
+      "codecompass": [
+        "codecompass.search",
+        "codecompass.resolve_context",
+        "codecompass.plan_context",
+        "codecompass.get_file_context",
+        "codecompass.expand_graph"
+      ],
+      "new_services": [
+        "ClassroomTranscriptIngestService",
+        "StudentQuestionDetectionService",
+        "ModuleTaskResolverService",
+        "TeachingMaterialContextService",
+        "N8nTeachingWorkflowVerifierService",
+        "TeacherActionCardService"
+      ]
+    }
+  },
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high"
+  ],
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Transcript ingestion and question detection",
+      "task_ids": [
+        "CTA-001",
+        "CTA-002",
+        "CTA-003"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M2",
+      "title": "Module/task RAG over teaching material",
+      "task_ids": [
+        "CTA-004",
+        "CTA-005",
+        "CTA-006"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M3",
+      "title": "n8n answer and partial workflow verification",
+      "task_ids": [
+        "CTA-007",
+        "CTA-008",
+        "CTA-009"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M4",
+      "title": "Teacher UI and audit trail",
+      "task_ids": [
+        "CTA-010",
+        "CTA-011",
+        "CTA-012"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "CTA-001",
+      "title": "Transcript input contract",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "paths": [
+        "docs/classroom-transcript-assistant.md",
+        "agent/services/classroom/",
+        "tests/fixtures/classroom/transcripts/"
+      ],
+      "description": "Ein minimales, provider-neutrales JSON-Format für Raum-/Schüler-Transkripte definieren.",
+      "implementation_notes": [
+        "Felder: session_id, room_id, module_id_hint, task_id_hint, timestamp, speaker_role, speaker_label_hash, text, source.",
+        "Rohtext und normalisierte Segmente trennen.",
+        "PII nur optional und redacted persistieren."
+      ],
+      "acceptance_criteria": [
+        "Ein Fixture-Transkript mit mehreren Schülern kann geladen werden.",
+        "Jedes Segment hat stabile IDs und Zeitbezug.",
+        "Ohne bekannte Modul-ID bleibt der Datensatz valide.",
+        "PII-Redaction ist dokumentiert und in Tests sichtbar."
+      ]
+    },
+    {
+      "id": "CTA-002",
+      "title": "Question and help-intent detector",
+      "type": "code",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "paths": [
+        "agent/services/classroom/question_detection_service.py",
+        "tests/test_classroom_question_detection.py"
+      ],
+      "description": "Echte Fragen, Hilferufe, Blockaden, Ironie, Smalltalk und organisatorische Aussagen unterscheiden.",
+      "implementation_notes": [
+        "Erst deterministische Hinweise: Fragezeichen, W-Fragen, Fehlermeldungen, n8n-Node-Namen, 'geht nicht', 'wo finde ich'.",
+        "Danach LLM-Klassifikation mit strengem JSON-Schema.",
+        "Output: intent, confidence, reason_codes, evidence_spans, needs_teacher_attention."
+      ],
+      "acceptance_criteria": [
+        "Tests enthalten echte Frage, ironische Frage, Offtopic, Smalltalk und Fehlermeldung.",
+        "Ironie wird nicht automatisch als technische Frage behandelt, sondern als ambiguous/needs_context.",
+        "Bei niedriger Confidence wird keine automatische Antwort ausgespielt.",
+        "Klassifikation liefert maschinenlesbares JSON ohne Freitext-Zwang."
+      ]
+    },
+    {
+      "id": "CTA-003",
+      "title": "Transcript context windowing",
+      "type": "code",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "paths": [
+        "agent/services/classroom/transcript_window_service.py",
+        "tests/test_classroom_transcript_window.py"
+      ],
+      "description": "Für eine erkannte Frage den relevanten Kontext davor/danach begrenzen, ohne den gesamten Raumverlauf ins LLM zu kippen.",
+      "acceptance_criteria": [
+        "Kontextfenster kann nach Zeit, Sprecher und Tokenbudget begrenzt werden.",
+        "Vorherige Fehlversuche des gleichen Schülers werden priorisiert.",
+        "Andere Schüler werden nur aufgenommen, wenn sie denselben Aufgaben-/Fehlerkontext teilen.",
+        "Tokenbudget wird hart eingehalten."
+      ]
+    },
+    {
+      "id": "CTA-004",
+      "title": "Teaching material indexing profile",
+      "type": "code",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "paths": [
+        "rag-helper/",
+        "docs/classroom-transcript-assistant.md",
+        "tests/fixtures/classroom/materials/"
+      ],
+      "description": "Unterrichtsmaterialien, Aufgaben, Musterlösungen und n8n-Fixtures als eigene CodeCompass-Domain indexieren.",
+      "acceptance_criteria": [
+        "Materialien erhalten record_kinds wie teaching_module, teaching_task, teaching_hint, known_solution, n8n_workflow_fixture.",
+        "Modulnummer, Tag, Aufgabe und Abgabehinweise werden als Felder extrahiert, wenn vorhanden.",
+        "CodeCompass-Suche findet eine Aufgabe über Titel, typische Schülerfrage und n8n-Node-Begriffe.",
+        "Bestehende CodeCompass-Code-Indexierung bleibt unverändert."
+      ]
+    },
+    {
+      "id": "CTA-005",
+      "title": "Module and task resolver",
+      "type": "code",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "paths": [
+        "agent/services/classroom/module_task_resolver_service.py",
+        "tests/test_classroom_module_task_resolver.py"
+      ],
+      "description": "Aus Raum, Transkript, Materialtreffern und n8n-Begriffen ableiten, welches Modul und welche Aufgabe gemeint ist.",
+      "acceptance_criteria": [
+        "Resolver nutzt explizite Hints vor semantischen Treffern.",
+        "Bei mehreren plausiblen Aufgaben gibt der Resolver ranked_candidates statt einer erfundenen Entscheidung zurück.",
+        "Jeder Kandidat enthält evidence_refs auf Material/Transcript.",
+        "Dozentenkarte zeigt Modul/Aufgabe nur als sicher an, wenn Confidence über Grenzwert liegt."
+      ]
+    },
+    {
+      "id": "CTA-006",
+      "title": "Evidence-backed answer composer",
+      "type": "code",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "paths": [
+        "agent/services/classroom/answer_composer_service.py",
+        "tests/test_classroom_answer_composer.py"
+      ],
+      "description": "Kurze Antworten für Schüler/Dozent erzeugen, die sichtbar auf Unterrichtsmaterial und bekannte Lösungen gestützt sind.",
+      "acceptance_criteria": [
+        "Antwort enthält Problemzusammenfassung, nächste Handlung und Quellenreferenzen.",
+        "Ohne ausreichende Quelle wird eine Rückfrage/Dozentenhinweis erzeugt statt Halluzination.",
+        "Antworten bleiben kurz und didaktisch passend.",
+        "Alle verwendeten Quellen werden als EvidenceRefs ausgegeben."
+      ]
+    },
+    {
+      "id": "CTA-007",
+      "title": "n8n partial workflow selector",
+      "type": "code",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "paths": [
+        "agent/services/classroom/n8n_partial_workflow_selector.py",
+        "tests/test_n8n_partial_workflow_selector.py"
+      ],
+      "description": "Bei n8n-Fragen bevorzugt vorhandene funktionierende Workflow-Teile aus Fixtures/Material wählen, bevor ein LLM neu generiert.",
+      "acceptance_criteria": [
+        "Bekannte funktionierende Workflows werden gegenüber freier Generierung priorisiert.",
+        "Selector kann einzelne Nodes, Subflow-Ausschnitte oder vollständige Mini-Workflows liefern.",
+        "Ausgabe enthält Import-Hinweis: vollständiger Workflow vs. manuelles Node-Teilfragment.",
+        "Credentials werden nur als Platzhalter/Referenz ausgegeben."
+      ]
+    },
+    {
+      "id": "CTA-008",
+      "title": "n8n answer verification gate",
+      "type": "code",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "paths": [
+        "agent/services/classroom/n8n_teaching_workflow_verifier_service.py",
+        "tests/test_n8n_teaching_workflow_verifier.py"
+      ],
+      "description": "LLM-generierte oder ausgewählte n8n-Teile vor Anzeige/Einspielung prüfen.",
+      "implementation_notes": [
+        "JSON parsebar, nodes/connections vorhanden bei vollständigem Workflow.",
+        "Node-Typen gegen allowlist/bekannte n8n type strings prüfen.",
+        "Connections auf vorhandene Node-Namen prüfen.",
+        "Keine echten Credential-Werte, keine Tokens, keine Secrets.",
+        "Aufgabenbezug prüfen: passt das Teil zum Modul/Task und zur Schülerfrage."
+      ],
+      "acceptance_criteria": [
+        "Ungültiges JSON wird abgelehnt.",
+        "Connections auf nicht vorhandene Nodes werden abgelehnt.",
+        "Secret-Kandidaten werden redacted und als blocker markiert.",
+        "Ein valider Beispielworkflow aus Fixtures wird akzeptiert.",
+        "Verifier liefert status=passed|warning|failed plus reasons."
+      ]
+    },
+    {
+      "id": "CTA-009",
+      "title": "Safe n8n injection workflow boundary",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "paths": [
+        "docs/classroom-transcript-assistant.md",
+        "agent/services/classroom/"
+      ],
+      "description": "Klare Grenze definieren: Vorschlagen, Kopieren, Importieren oder aktiv in Schüler-n8n einspielen nur mit Dozentenfreigabe.",
+      "acceptance_criteria": [
+        "Standardmodus ist read-only Vorschlag.",
+        "Jede Einspielung erfordert explizite Dozentenaktion.",
+        "Audit-Event enthält wer, wann, welchen Workflow/Node, welches Ziel und welchen Verifier-Status.",
+        "Ohne Verifier passed darf nicht automatisch eingespielt werden."
+      ]
+    },
+    {
+      "id": "CTA-010",
+      "title": "Teacher action card schema",
+      "type": "code",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "paths": [
+        "agent/services/classroom/teacher_action_card_service.py",
+        "tests/test_teacher_action_card_service.py"
+      ],
+      "description": "Kompakte Dozentenkarte für spontane Unterrichtsübernahme erzeugen.",
+      "acceptance_criteria": [
+        "Karte zeigt Raum, Schüleralias, Modul, Aufgabe, erkannte Frage, Confidence, kurze Antwort, nächste Aktion.",
+        "Karte zeigt passende Material-/Workflow-Quellen.",
+        "Karte zeigt Warnungen: ambiguous_intent, low_confidence, workflow_verification_failed, privacy_redaction_applied.",
+        "JSON-Schema ist stabil und frontendfähig."
+      ]
+    },
+    {
+      "id": "CTA-011",
+      "title": "Angular teacher dashboard integration",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "paths": [
+        "ai-snake-chat/",
+        "docs/classroom-transcript-assistant.md"
+      ],
+      "description": "Frontend-Ansicht für Live-/Nachträglich-Auswertung: offene Fragen, Module, Aufgaben, Antwortvorschläge, n8n-Teilworkflow.",
+      "acceptance_criteria": [
+        "Liste offener Schülerfragen nach Raum/Modul sortierbar.",
+        "Detailansicht zeigt EvidenceRefs und Workflow-Verifier-Ergebnis.",
+        "Dozent kann Antwort kopieren oder als erledigt markieren.",
+        "Workflow-Einspielung bleibt hinter expliziter Aktion/Bestätigung."
+      ]
+    },
+    {
+      "id": "CTA-012",
+      "title": "Privacy, audit and retention rules",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "paths": [
+        "docs/classroom-transcript-assistant.md",
+        "agent/services/classroom/privacy_policy.py",
+        "tests/test_classroom_privacy_policy.py"
+      ],
+      "description": "Datenschutzregeln für Transkripte, Schülerbezug, Embeddings, Löschung und Audit definieren.",
+      "acceptance_criteria": [
+        "PII-Redaction ist vor permanenter Indexierung testbar.",
+        "Retention-Strategie für Rohtranskripte und abgeleitete Records ist dokumentiert.",
+        "Audit unterscheidet Lesen, Antwortvorschlag, Workflow-Vorschlag und Workflow-Einspielung.",
+        "Export/Debug-Ausgaben enthalten keine unredacted Schülerdaten."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "CTA-001",
+    "CTA-002",
+    "CTA-004",
+    "CTA-005",
+    "CTA-006",
+    "CTA-008",
+    "CTA-010",
+    "CTA-012"
+  ],
+  "tasks_status_summary": {
+    "total": 12,
+    "by_status": {
+      "todo": 12,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 3,
+      "P1": 6,
+      "P2": 3,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 7,
+      "high": 5
+    },
+    "critical_path": {
+      "total": 8,
+      "done": 0,
+      "remaining": 8
+    },
+    "milestones": {
+      "total": 4,
+      "todo": 4,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 12,
+    "by_type": {
+      "architecture": 2,
+      "code": 7,
+      "frontend": 1,
+      "security": 1
+    }
+  },
+  "progress_summary": {
+    "state": "todo",
+    "todo_remaining": 12,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "summary_notes": [
+    "Dieser Track soll nicht neuen Stoff generieren, sondern vorhandenes Unterrichtsmaterial und funktionierende n8n-Workflows situativ nutzbar machen.",
+    "Die wichtigste Sicherheitsgrenze ist der Verifier plus Dozentenfreigabe vor jeder Workflow-Einspielung.",
+    "Der bestehende n8n-Workflow-Understanding-Track ist technische Vorbedingung für robuste n8n-Teilworkflow-Antworten."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "implementation_order",
+      "title": "Empfohlene Reihenfolge",
+      "items": [
+        "Zuerst Transkriptformat und Frageerkennung bauen.",
+        "Dann Unterrichtsmaterialien und Aufgaben als CodeCompass-Domain indexieren.",
+        "Danach n8n-Teilworkflow-Auswahl und Verifier anbinden.",
+        "Zuletzt Dozentenkarte und Frontend-Dashboard integrieren."
+      ]
+    }
+  ]
+}
