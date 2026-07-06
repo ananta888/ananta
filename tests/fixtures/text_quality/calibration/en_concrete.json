@@ -1,0 +1,20 @@
+{
+  "language": "en",
+  "profile": "critical_editor_en",
+  "description": "Sachliche englische Gegenbeispiele. Englische Profil-Phrasen duerfen nicht auftauchen.",
+  "thresholds": {
+    "max_slop_score": 0.05
+  },
+  "examples": [
+    {
+      "id": "en_concrete_001",
+      "forbidden_reason_codes": ["generic_phrase", "overused_transition"],
+      "text": "The retry loop increments attempt to 3, waits 30 seconds, and persists status_code to the audit log. Each row references the planning_prompts.checksum column."
+    },
+    {
+      "id": "en_concrete_002",
+      "forbidden_reason_codes": ["generic_phrase"],
+      "text": "Schema migration 0007 introduces text_quality_evaluations table with identity_checksum as a unique index. Upgrade is offline; rollback is supported within the migration window."
+    }
+  ]
+}

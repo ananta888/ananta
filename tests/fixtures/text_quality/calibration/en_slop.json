@@ -1,0 +1,20 @@
+{
+  "language": "en",
+  "profile": "critical_editor_en",
+  "description": "Kurierte englischsprachige Slop-Beispiele. Erwartet, dass nur die Profil-Phrasen Treffer erzeugen, nicht aber die deutschen Profil-Phrasen.",
+  "thresholds": {
+    "min_slop_score": 0.18
+  },
+  "examples": [
+    {
+      "id": "en_slop_001",
+      "reason_codes_min": ["generic_phrase", "overused_transition"],
+      "text": "In today's world it is important to note that we are entering a new era. Moreover the solution is robust, and furthermore it scales without further intervention."
+    },
+    {
+      "id": "en_slop_002",
+      "reason_codes_min": ["generic_phrase"],
+      "text": "It is important to note that this is a deep dive into AI. Let's delve into the future of generically applicable patterns that are moreover growing at scale."
+    }
+  ]
+}

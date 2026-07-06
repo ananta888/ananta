@@ -1,0 +1,26 @@
+{
+  "language": "de",
+  "profile": "critical_editor_de",
+  "description": "Technische und sachliche deutsche Gegenbeispiele. Erwartet, dass Slop-Score unter der Obergrenze bleibt und keine generischen Prosa-Signale ausgeloest werden.",
+  "thresholds": {
+    "max_slop_score": 0.05
+  },
+  "examples": [
+    {
+      "id": "de_concrete_001",
+      "forbidden_reason_codes": ["generic_phrase", "overused_transition"],
+      "text": "Der Backoff setzt nach drei aufeinanderfolgenden 503-Antworten den Timeout auf 30 Sekunden. Antworten mit Statuscode 200 liefern den Payload-Typ application/json."
+    },
+    {
+      "id": "de_concrete_002",
+      "forbidden_reason_codes": ["generic_phrase"],
+      "text": "Die Migration fuehrt schema_version=2 in einem Backfill-Skript ein und liest Werte aus planning_prompts.checksum, um die Konsistenz ueber den Cluster hinweg sicherzustellen."
+    },
+    {
+      "id": "de_concrete_003_changelog",
+      "content_kind": "changelog",
+      "forbidden_reason_codes": ["overused_transition", "generic_phrase"],
+      "text": "## 1.4.0\n- planning_prompts.checksum Spalte hinzugefuegt\n- text_quality externe Provider standardmaessig deaktiviert\n- deterministische Score-Fusion auf 0.0..1.0 begrenzt"
+    }
+  ]
+}

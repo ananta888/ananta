@@ -1,0 +1,26 @@
+{
+  "language": "de",
+  "profile": "critical_editor_de",
+  "description": "Kurierte deutschsprachige Slop-Beispiele (offline, handgepflegt). Erwartet, dass der Core-Scanner oberhalb des konfigurierten Mindest-Slop-Scores liegt und die erwarteten Reason-Codes enthaelt.",
+  "thresholds": {
+    "min_slop_score": 0.18,
+    "max_depth_score": 0.7
+  },
+  "examples": [
+    {
+      "id": "de_slop_001",
+      "reason_codes_min": ["generic_phrase", "overused_transition"],
+      "text": "In der heutigen Zeit ist es wichtig zu beachten, dass wir darüber hinaus neue Möglichkeiten schaffen. Zudem tauchen wir ein in eine Welt voller Daten."
+    },
+    {
+      "id": "de_slop_002",
+      "reason_codes_min": ["generic_phrase"],
+      "text": "Es ist wichtig zu beachten, dass wir generische Phrasen vermeiden und stattdessen konkrete Beispiele bringen. Abschließend ist zu sagen, dass es wichtig ist."
+    },
+    {
+      "id": "de_slop_003",
+      "reason_codes_min": ["generic_phrase"],
+      "text": "In der heutigen Zeit berichten viele Quellen, dass diese Lösung zudem robust und skalierbar ist und darüber hinaus die Komplexität reduziert."
+    }
+  ]
+}

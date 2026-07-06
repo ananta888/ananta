@@ -1,0 +1,15 @@
+{
+  "language": "de",
+  "profile": "critical_editor_de",
+  "description": "Sprachmischung: ein deutscher Text mit eingestreutem englischen Block. Stellt sicher, dass englische Profil-Phrasen im deutschen Profil kein Signal ausloesen, solange sie nicht durch deutsche Fixtures separat bestaetigt sind.",
+  "thresholds": {
+    "max_slop_score_from_en_only": 0.18
+  },
+  "examples": [
+    {
+      "id": "de_with_en_block_001",
+      "text": "Der Eintrag dokumentiert, dass wir in einer realen Anwendung eine Verbindung zu einer externen API nutzen. Intern heisst das Komponentenname: avoid-ai-writing integration.",
+      "expected_findings_from_en_only": 0
+    }
+  ]
+}
