@@ -1,0 +1,9 @@
+{
+  "version": "1.0",
+  "language": "en",
+  "profile_name": "critical_editor_en",
+  "blocked_phrases": ["in today's world", "it is important to note", "let's delve into", "moreover"],
+  "transitions": ["moreover", "furthermore", "in conclusion"],
+  "technical_exemptions": ["robust", "scalable"],
+  "thresholds": {"max_slop_score": 0.35, "min_depth_score": 0.7}
+}

@@ -41,6 +41,7 @@ DOMAIN_COMMANDS = (
     "repair",
     "dev",
     "share",
+    "text-quality",
 )
 
 

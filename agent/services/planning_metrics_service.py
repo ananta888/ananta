@@ -59,6 +59,12 @@ class PlanningMetricsService:
             "output_shape_distribution": defaultdict(int),
             "format_error_distribution": defaultdict(int),
             "recent_quality_samples": [],
+            "text_quality_completed": 0,
+            "text_quality_degraded": 0,
+            "slop_score_total": 0.0,
+            "depth_score_total": 0.0,
+            "style_fit_score_total": 0.0,
+            "text_quality_keys": set(),
         })
         for row in filtered:
             learning_record = telemetry.build_learning_record(row)
@@ -84,6 +90,26 @@ class PlanningMetricsService:
                 materialization_success_rate=1.0 if int(learning_record.get("generated_task_count") or 0) > 0 else 0.0,
             )
             item["recent_quality_samples"].append(quality)
+            tq = learning_record.get("text_quality")
+            if isinstance(tq, dict):
+                if tq.get("status") == "completed":
+                    item["text_quality_keys"].add(
+                        "::".join(
+                            str(tq.get(key) or "")
+                            for key in (
+                                "criteria_version",
+                                "evaluator_version",
+                                "language",
+                                "content_kind",
+                            )
+                        )
+                    )
+                    item["text_quality_completed"] += 1
+                    item["slop_score_total"] += float(tq.get("slop_score") or 0.0)
+                    item["depth_score_total"] += float(tq.get("depth_score") or 0.0)
+                    item["style_fit_score_total"] += float(tq.get("style_fit_score") or 0.0)
+                else:
+                    item["text_quality_degraded"] += 1
 
         data = []
         for key, item in groups.items():
@@ -130,6 +156,25 @@ class PlanningMetricsService:
                     "output_shape_distribution": {k: round(v / c, 4) for k, v in item["output_shape_distribution"].items()},
                     "format_error_distribution": {k: round(v / c, 4) for k, v in item["format_error_distribution"].items()},
                     "response_behavior_profile": key.split("::", 2)[2] if group_by_profile and key.count("::") >= 2 else (key.split("::", 1)[1] if "::" in key else None),
+                    "text_quality_completed_count": item["text_quality_completed"],
+                    "text_quality_excluded_count": item["text_quality_degraded"],
+                    "text_quality_comparable": len(item["text_quality_keys"]) <= 1,
+                    "text_quality_comparability_key": (
+                        next(iter(item["text_quality_keys"]))
+                        if len(item["text_quality_keys"]) == 1 else None
+                    ),
+                    "average_slop_score": (
+                        round(item["slop_score_total"] / item["text_quality_completed"], 4)
+                        if item["text_quality_completed"] and len(item["text_quality_keys"]) <= 1 else None
+                    ),
+                    "average_depth_score": (
+                        round(item["depth_score_total"] / item["text_quality_completed"], 4)
+                        if item["text_quality_completed"] and len(item["text_quality_keys"]) <= 1 else None
+                    ),
+                    "average_style_fit_score": (
+                        round(item["style_fit_score_total"] / item["text_quality_completed"], 4)
+                        if item["text_quality_completed"] and len(item["text_quality_keys"]) <= 1 else None
+                    ),
                 }
             )
         data.sort(key=lambda x: x["run_count"], reverse=True)

@@ -46,10 +46,21 @@ class PlanningPromptEvolverService:
             reasons.append("validation_failed")
         if str(run.error_classification or "").strip():
             reasons.append("error_classification")
+        text_quality = (getattr(run, "mode_data", {}) or {}).get("__text_quality__")
+        if isinstance(text_quality, dict) and text_quality.get("status") == "completed":
+            max_slop = float(rules.get("max_slop_score", 0.35))
+            min_depth = float(rules.get("min_depth_score", 0.7))
+            if float(text_quality.get("slop_score") or 0.0) > max_slop:
+                reasons.extend(str(code) for code in text_quality.get("reason_codes") or [])
+            if float(text_quality.get("depth_score") or 0.0) < min_depth:
+                reasons.append("missing_concrete_example")
         return bool(reasons), reasons
 
     def _mutate_template(self, template: str, *, reasons: list[str], output_format: str, output_shape: str | None = None, parse_mode: str | None = None, model_family: str | None = None) -> str:
         patch_rules: list[str] = []
+        from agent.services.text_quality.prompt_rule_mapping import rules_for
+
+        patch_rules.extend(rules_for(reasons))
         if "low_parse_confidence" in reasons:
             patch_rules.append("Use compact fields and avoid extra prose.")
             patch_rules.append("Prefer one task per line/object with explicit title and concrete output.")

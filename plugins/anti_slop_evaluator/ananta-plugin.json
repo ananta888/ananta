@@ -1,0 +1,8 @@
+{
+  "name": "anti_slop_evaluator",
+  "type": "evolution-provider",
+  "provider": "anti_slop_evaluator",
+  "enabled": true,
+  "default_roles": ["evaluator"],
+  "compatibility": {"ananta": ">=0.7.0"}
+}

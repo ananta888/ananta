@@ -43,6 +43,10 @@ from .organization import (
 from .tasks import AgentSessionRepository, ArchivedTaskRepository, PolicySnapshotRepository, TaskRepository, ToolCallRepository
 from .worker_slot_lease import WorkerSlotLeaseRepository
 from .terminal import TerminalSessionRepository, TerminalEventRepository
+from .text_quality import (
+    TextQualityCriteriaSetRepository,
+    TextQualityEvaluationRepository,
+)
 from .planning_learning import (
     PlanningEvaluationRepository,
     PlanningModelProfileRepository,
@@ -114,4 +118,6 @@ __all__ = [
     "PlanningReviewItemRepository",
     "TerminalSessionRepository",
     "TerminalEventRepository",
+    "TextQualityCriteriaSetRepository",
+    "TextQualityEvaluationRepository",
 ]

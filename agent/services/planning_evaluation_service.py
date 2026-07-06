@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from agent.db_models import PlanningEvaluationDB
 from agent.services.repository_registry import get_repository_registry
 from agent.services.planning_semantic_behavior_analyzer import analyze_semantic_behavior
@@ -55,12 +57,18 @@ class PlanningEvaluationService:
         }
         try:
             semantic_codes: list[str] = []
+            quality_texts: list[str] = []
             if goal_id:
                 plans = get_repository_registry().plan_repo.get_by_goal_id(goal_id)
                 if plans:
                     nodes = get_repository_registry().plan_node_repo.get_by_plan_id(plans[0].id)
                     subtasks = []
                     for n in nodes:
+                        quality_texts.extend(
+                            value
+                            for value in (str(n.title or ""), str(n.description or ""))
+                            if value.strip()
+                        )
                         subtasks.append(
                             {
                                 "title": n.title,
@@ -74,8 +82,50 @@ class PlanningEvaluationService:
                         )
                     semantic_codes = analyze_semantic_behavior(subtasks=subtasks)
             evaluation.details = {**dict(evaluation.details or {}), "semantic_behavior_codes": semantic_codes}
+            from flask import current_app, has_app_context
+
+            cfg = current_app.config.get("AGENT_CONFIG", {}) if has_app_context() else {}
+            tq_cfg = cfg.get("text_quality") if isinstance(cfg.get("text_quality"), dict) else {}
+            if tq_cfg.get("enabled") and tq_cfg.get("evaluate_planning_outputs") and quality_texts:
+                from agent.services.text_quality.models import ContentKind
+                from agent.services.text_quality.runtime_service import (
+                    get_text_quality_runtime_service,
+                )
+
+                result, row = get_text_quality_runtime_service().evaluate(
+                    text="\n".join(quality_texts),
+                    language=str(run.prompt_language or "de"),
+                    content_kind=ContentKind.PLANNING_TASK_DESCRIPTION,
+                    planning_run_id=str(run.id),
+                    planning_evaluation_id=str(evaluation.id),
+                    prompt_version_id=run.prompt_version_id,
+                )
+                text_quality_summary = {
+                    "evaluation_id": row.id,
+                    "status": result.status.value,
+                    "slop_score": result.slop_score,
+                    "depth_score": result.depth_score,
+                    "style_fit_score": result.style_fit_score,
+                    "reason_codes": result.reason_codes,
+                    "criteria_version": result.criteria_version,
+                    "evaluator_version": result.evaluator_version,
+                    "content_kind": result.content_kind.value,
+                    "language": result.language,
+                }
+                evaluation.details = {
+                    **dict(evaluation.details or {}),
+                    "text_quality": text_quality_summary,
+                }
+                run.mode_data = {
+                    **dict(run.mode_data or {}),
+                    "__text_quality__": text_quality_summary,
+                }
+                get_repository_registry().planning_run_repo.save(run)
         except Exception:
-            pass
+            logging.exception(
+                "text_quality_planning_evaluation_degraded",
+                extra={"planning_run_id": planning_run_id},
+            )
         return get_repository_registry().planning_evaluation_repo.save(evaluation)
 
 

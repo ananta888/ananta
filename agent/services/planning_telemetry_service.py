@@ -85,6 +85,11 @@ class PlanningTelemetryService:
             "truncation_flag": truncation_flag,
             "parse_warnings": list(getattr(run, "parse_warnings", []) or []),
             "parser_trace": parser_trace,
+            "text_quality": (
+                dict(mode_data.get("__text_quality__") or {})
+                if isinstance(mode_data.get("__text_quality__"), dict)
+                else None
+            ),
         }
 
     def start_run(

@@ -68,6 +68,20 @@ class PlanningLearningLoopService:
             trigger_signals.append("materialization_success_rate_low")
         if float(group.get("repair_rate") or 0.0) > float(learning.get("max_repair_rate") or 0.4):
             trigger_signals.append("repair_rate_high")
+        min_text_runs = int(learning.get("min_text_quality_runs") or 10)
+        if (
+            bool(group.get("text_quality_comparable"))
+            and int(group.get("text_quality_completed_count") or 0) >= min_text_runs
+        ):
+            slop = group.get("average_slop_score")
+            depth = group.get("average_depth_score")
+            style = group.get("average_style_fit_score")
+            if slop is not None and float(slop) > float(learning.get("max_slop_score") or 0.35):
+                trigger_signals.append("slop_score_high")
+            if depth is not None and float(depth) < float(learning.get("min_depth_score") or 0.7):
+                trigger_signals.append("depth_score_low")
+            if style is not None and float(style) < float(learning.get("min_style_fit_score") or 0.6):
+                trigger_signals.append("style_fit_low")
         if str(group.get("trend_direction") or "").strip().lower() == "degrading":
             trigger_signals.append("trend_degrading")
 
@@ -86,7 +100,19 @@ class PlanningLearningLoopService:
 
     @staticmethod
     def _quality_score(group: dict[str, Any]) -> float:
-        return float(group.get("quality_score") or 0.0)
+        technical = float(group.get("quality_score") or 0.0)
+        if not bool(group.get("text_quality_comparable")):
+            return technical
+        completed = int(group.get("text_quality_completed_count") or 0)
+        if completed <= 0:
+            return technical
+        slop = group.get("average_slop_score")
+        depth = group.get("average_depth_score")
+        style = group.get("average_style_fit_score")
+        if None in {slop, depth, style}:
+            return technical
+        text_score = (1.0 - float(slop) + float(depth) + float(style)) / 3.0
+        return round((technical + text_score) / 2.0, 4)
 
     def _find_profile_groups(self, *, profile_name: str, lookback_runs: int, prompt_version: str | None = None) -> list[dict[str, Any]]:
         metrics = get_planning_metrics_service().summarize(

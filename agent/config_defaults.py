@@ -427,6 +427,29 @@ def build_default_agent_config() -> dict:
             "teaching_index_file": "",
             "max_context_tokens": 2000,
         },
+        "text_quality": {
+            "enabled": False,
+            "evaluate_planning_outputs": False,
+            "llm_judge_enabled": False,
+            "rewrite_enabled": False,
+            "default_profile": "critical_editor_de",
+            "max_input_chars": 12000,
+            "max_input_words": 2500,
+            "max_output_bytes": 262144,
+            "max_slop_score": 0.35,
+            "min_depth_score": 0.7,
+            "min_canary_runs": 10,
+            "external_detectors": {
+                "avoid_ai_writing": {
+                    "enabled": False,
+                    "execution_plane": "sandbox",
+                    "network": "none",
+                    "pinned_commit": "f9f8265061eaee1004e9ef86383959163dd2477d",
+                    "detector_sha256": "66cc34590ed17d4b7d7c59323b204e2b231e41ed58502ab89fc9753a64c278f5",
+                    "context_mode": "technical",
+                }
+            },
+        },
         "cli_session_mode": {
             "enabled": False,
             "stateful_backends": ["opencode", "codex"],

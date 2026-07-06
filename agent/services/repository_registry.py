@@ -58,6 +58,8 @@ from agent.repository import (
     template_repo,
     terminal_event_repo,
     terminal_session_repo,
+    text_quality_criteria_set_repo,
+    text_quality_evaluation_repo,
     tool_call_repo,
     user_instruction_profile_repo,
     user_repo,
@@ -128,6 +130,8 @@ class RepositoryRegistry:
     planning_review_item_repo: object
     terminal_session_repo: object
     terminal_event_repo: object
+    text_quality_criteria_set_repo: object
+    text_quality_evaluation_repo: object
 
 
 def build_repository_registry() -> RepositoryRegistry:
@@ -191,6 +195,8 @@ def build_repository_registry() -> RepositoryRegistry:
         planning_review_item_repo=planning_review_item_repo,
         terminal_session_repo=terminal_session_repo,
         terminal_event_repo=terminal_event_repo,
+        text_quality_criteria_set_repo=text_quality_criteria_set_repo,
+        text_quality_evaluation_repo=text_quality_evaluation_repo,
     )
 
 

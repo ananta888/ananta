@@ -1,0 +1,9 @@
+{
+  "version": "1.0",
+  "language": "de",
+  "profile_name": "critical_editor_de",
+  "blocked_phrases": ["in der heutigen zeit", "es ist wichtig zu beachten", "tauchen wir ein", "darüber hinaus"],
+  "transitions": ["darüber hinaus", "zudem", "abschließend"],
+  "technical_exemptions": ["robust", "skalierbar"],
+  "thresholds": {"max_slop_score": 0.35, "min_depth_score": 0.7}
+}

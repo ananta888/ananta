@@ -65,6 +65,8 @@ from agent.repositories import (
     PlanningReviewItemRepository,
     TerminalSessionRepository,
     TerminalEventRepository,
+    TextQualityCriteriaSetRepository,
+    TextQualityEvaluationRepository,
 )
 
 # Singletons für Repositories
@@ -125,6 +127,8 @@ planning_pattern_cluster_repo = PlanningPatternClusterRepository()
 planning_review_item_repo = PlanningReviewItemRepository()
 terminal_session_repo = TerminalSessionRepository()
 terminal_event_repo = TerminalEventRepository()
+text_quality_criteria_set_repo = TextQualityCriteriaSetRepository()
+text_quality_evaluation_repo = TextQualityEvaluationRepository()
 agent_session_repo = AgentSessionRepository()
 tool_call_repo = ToolCallRepository()
 policy_snapshot_repo = PolicySnapshotRepository()
@@ -248,4 +252,6 @@ __all__ = [
     "planning_review_item_repo",
     "terminal_session_repo",
     "terminal_event_repo",
+    "text_quality_criteria_set_repo",
+    "text_quality_evaluation_repo",
 ]

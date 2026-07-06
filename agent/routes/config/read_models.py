@@ -17,6 +17,7 @@ from agent.services.service_registry import get_core_services
 from agent.services.system_contract_service import get_system_contract_service
 from agent.services.system_health_service import build_system_health_payload
 from agent.services.config_profile_service import get_config_profile_service
+from agent.services.text_quality.config import text_quality_read_model
 from agent.tool_capabilities import build_capability_contract, describe_capabilities, resolve_allowed_tools
 
 from . import shared
@@ -55,6 +56,7 @@ def assistant_editable_settings_inventory() -> list[dict]:
         {"key": "codex_cli", "path": "config.codex_cli", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "claude_cli", "path": "config.claude_cli", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "classroom", "path": "config.classroom", "type": "object", "editable": True, "endpoint": "POST /config"},
+        {"key": "text_quality", "path": "config.text_quality", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "research_backend", "path": "config.research_backend", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "hub_copilot", "path": "config.hub_copilot", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "context_bundle_policy", "path": "config.context_bundle_policy", "type": "object", "editable": True, "endpoint": "POST /config"},
@@ -207,6 +209,7 @@ def assistant_settings_summary(cfg: dict, teams: list[dict], templates: list[dic
             "autopilot_enforce": quality_gates.get("autopilot_enforce"),
             "min_output_chars": quality_gates.get("min_output_chars"),
         },
+        "text_quality": text_quality_read_model(cfg.get("text_quality")),
         "governance": {
             "review_policy": {
                 "enabled": bool(review_cfg.get("enabled", True)),

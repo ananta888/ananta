@@ -16,6 +16,9 @@ _FORBIDDEN_KEYS = {
     "overlay_patch",
     "provider_override",
     "ignore_governance",
+    "raw_external_rule",
+    "detector_instruction",
+    "rewrite_in_place",
 }
 
 
@@ -66,4 +69,3 @@ _SERVICE = PlanningPromptEvolutionGuardService()
 
 def get_planning_prompt_evolution_guard_service() -> PlanningPromptEvolutionGuardService:
     return _SERVICE
-

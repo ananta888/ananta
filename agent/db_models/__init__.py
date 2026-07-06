@@ -70,6 +70,7 @@ from .planning import (
     TemplateDB,
 )
 from .tasks import ArchivedTaskDB, ConfigDB, TaskDB
+from .text_quality import TextQualityCriteriaSetDB, TextQualityEvaluationDB
 from .teams import (
     RoleDB,
     TeamBlueprintDB,
@@ -157,6 +158,8 @@ __all__ = [
     "ShareSessionDB",
     "StatsSnapshotDB",
     "TaskDB",
+    "TextQualityCriteriaSetDB",
+    "TextQualityEvaluationDB",
     "TeamBlueprintDB",
     "TeamDB",
     "TeamMemberDB",

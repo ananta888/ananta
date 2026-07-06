@@ -20,6 +20,7 @@ from agent.cli.commands import (
     runtime,
     share,
     task,
+    text_quality,
     worker,
 )
 
@@ -31,6 +32,7 @@ DOMAIN_MODULES = {
     "worker": worker,
     "goal": goal,
     "task": task,
+    "text-quality": text_quality,
     "project": project,
     "rag": rag,
     "repair": repair,

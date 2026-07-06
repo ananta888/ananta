@@ -36,6 +36,7 @@ from agent.routes.tasks import register_tasks_blueprints, tasks_bp
 from agent.routes.blueprint_routes import blueprint_bp
 from agent.routes.teams import teams_bp
 from agent.routes.classroom import classroom_bp
+from agent.routes.text_quality import text_quality_bp
 from agent.routes.webhooks import webhooks_bp
 from agent.routes.sources import sources_bp
 from agent.routes.goal_artifacts import goal_artifacts_bp
@@ -104,6 +105,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(integrations_workflows_bp)
     app.register_blueprint(webhooks_bp)
     app.register_blueprint(classroom_bp, url_prefix="/api/classroom")
+    app.register_blueprint(text_quality_bp, url_prefix="/api")
     app.register_blueprint(sources_bp)
     app.register_blueprint(goal_artifacts_bp)
     app.register_blueprint(sgpt_bp, url_prefix="/api/sgpt")
