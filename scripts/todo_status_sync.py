@@ -107,7 +107,7 @@ def sync(path: Path) -> int:
         by_status[s] = by_status.get(s, 0) + 1
     total = len(tasks)
     done = by_status["done"]
-    progress_percent_done = round(100 * done / total, 1) if total else 0
+    progress_percent_done = round(100 * done / total, 2) if total else 0
 
     data["tasks_status_summary"] = {
         "total": total,

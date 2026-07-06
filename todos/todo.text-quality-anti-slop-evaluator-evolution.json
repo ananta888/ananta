@@ -150,14 +150,69 @@
       }
     }
   },
-  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
-  "priority_scale": ["P0", "P1", "P2", "P3"],
-  "risk_scale": ["low", "medium", "high", "critical"],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
   "milestones": [
-    {"id": "TQAS-M1", "title": "Core-Contracts, Scanner, Persistenz und Evaluator", "task_ids": ["TQAS-001", "TQAS-002", "TQAS-003", "TQAS-004", "TQAS-005"], "status": "todo"},
-    {"id": "TQAS-M2", "title": "Gepinnter externer Detector und Kalibration", "task_ids": ["TQAS-006", "TQAS-007", "TQAS-008", "TQAS-009"], "status": "todo"},
-    {"id": "TQAS-M3", "title": "Kriterien-Review, Prompt-Evolution und Learning Loop", "task_ids": ["TQAS-010", "TQAS-011", "TQAS-012"], "status": "todo"},
-    {"id": "TQAS-M4", "title": "API/CLI, optionaler Provider und End-to-End-Nachweis", "task_ids": ["TQAS-013", "TQAS-014", "TQAS-015"], "status": "todo"}
+    {
+      "id": "TQAS-M1",
+      "title": "Core-Contracts, Scanner, Persistenz und Evaluator",
+      "task_ids": [
+        "TQAS-001",
+        "TQAS-002",
+        "TQAS-003",
+        "TQAS-004",
+        "TQAS-005"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "TQAS-M2",
+      "title": "Gepinnter externer Detector und Kalibration",
+      "task_ids": [
+        "TQAS-006",
+        "TQAS-007",
+        "TQAS-008",
+        "TQAS-009"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "TQAS-M3",
+      "title": "Kriterien-Review, Prompt-Evolution und Learning Loop",
+      "task_ids": [
+        "TQAS-010",
+        "TQAS-011",
+        "TQAS-012"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "TQAS-M4",
+      "title": "API/CLI, optionaler Provider und End-to-End-Nachweis",
+      "task_ids": [
+        "TQAS-013",
+        "TQAS-014",
+        "TQAS-015"
+      ],
+      "status": "done"
+    }
   ],
   "tasks": [
     {
@@ -165,10 +220,10 @@
       "title": "Textqualitaets-Contracts, Content-Kinds und Provider-Port definieren",
       "type": "architecture",
       "milestone_id": "TQAS-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [],
       "target_files": [
         "agent/services/text_quality/__init__.py",
@@ -193,11 +248,13 @@
       "title": "Deterministischen Core-Scanner und content-kind-spezifische Profile implementieren",
       "type": "code",
       "milestone_id": "TQAS-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
-      "depends_on": ["TQAS-001"],
+      "progress_percent": 100,
+      "depends_on": [
+        "TQAS-001"
+      ],
       "target_files": [
         "agent/services/text_quality/deterministic_scanner.py",
         "agent/services/text_quality/profiles/de.json",
@@ -221,11 +278,13 @@
       "title": "CriteriaSets und Evaluationen versioniert persistieren",
       "type": "persistence",
       "milestone_id": "TQAS-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
-      "depends_on": ["TQAS-001"],
+      "progress_percent": 100,
+      "depends_on": [
+        "TQAS-001"
+      ],
       "target_files": [
         "agent/db_models/text_quality.py",
         "agent/db_models/__init__.py",
@@ -250,11 +309,14 @@
       "title": "Evaluator-Orchestrator mit deterministischer Fusion, optionalem LLM-Judge und Grounding bauen",
       "type": "code",
       "milestone_id": "TQAS-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
-      "depends_on": ["TQAS-001", "TQAS-002"],
+      "progress_percent": 100,
+      "depends_on": [
+        "TQAS-001",
+        "TQAS-002"
+      ],
       "target_files": [
         "agent/services/text_quality/evaluator_service.py",
         "agent/services/text_quality/score_fusion_policy.py",
@@ -280,11 +342,14 @@
       "title": "Planning-Evaluation und Telemetrie an Textqualitaet anbinden",
       "type": "integration",
       "milestone_id": "TQAS-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
-      "depends_on": ["TQAS-003", "TQAS-004"],
+      "progress_percent": 100,
+      "depends_on": [
+        "TQAS-003",
+        "TQAS-004"
+      ],
       "target_files": [
         "agent/services/planning_evaluation_service.py",
         "agent/services/planning_telemetry_service.py",
@@ -306,10 +371,10 @@
       "title": "avoid-ai-writing Source-, Lizenz- und Pinning-Audit abschliessen",
       "type": "source-audit",
       "milestone_id": "TQAS-M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [],
       "target_files": [
         "docs/integrations/avoid-ai-writing.md",
@@ -332,11 +397,14 @@
       "title": "Gepinnten avoid-ai-writing Contract und Category-Mapping implementieren",
       "type": "code",
       "milestone_id": "TQAS-M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
-      "depends_on": ["TQAS-001", "TQAS-006"],
+      "progress_percent": 100,
+      "depends_on": [
+        "TQAS-001",
+        "TQAS-006"
+      ],
       "target_files": [
         "agent/services/text_quality/providers/avoid_ai_writing_contract.py",
         "agent/services/text_quality/providers/avoid_ai_writing_category_map.py",
@@ -359,11 +427,15 @@
       "title": "avoid-ai-writing als sandboxed QualitySignalProvider anbinden",
       "type": "integration",
       "milestone_id": "TQAS-M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
-      "depends_on": ["TQAS-003", "TQAS-006", "TQAS-007"],
+      "progress_percent": 100,
+      "depends_on": [
+        "TQAS-003",
+        "TQAS-006",
+        "TQAS-007"
+      ],
       "target_files": [
         "agent/services/text_quality/providers/avoid_ai_writing_provider.py",
         "agent/services/sandbox_backend.py",
@@ -388,11 +460,18 @@
       "title": "Mehrsprachige Kalibration und Score-Fusion mit externem Detector absichern",
       "type": "validation",
       "milestone_id": "TQAS-M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
-      "depends_on": ["TQAS-004", "TQAS-008"],
+      "progress_percent": 100,
+      "depends_on": [
+        "TQAS-004",
+        "TQAS-008"
+      ],
+      "evidence_links": [
+        "tests/fixtures/text_quality/calibration/",
+        "tests/test_text_quality_calibration.py"
+      ],
       "target_files": [
         "agent/services/text_quality/score_fusion_policy.py",
         "agent/services/text_quality/profiles/de.json",
@@ -415,11 +494,15 @@
       "title": "Kriterien aus Negativbeispielen extrahieren und reviewbar versionieren",
       "type": "code",
       "milestone_id": "TQAS-M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
-      "depends_on": ["TQAS-001", "TQAS-003", "TQAS-004"],
+      "progress_percent": 100,
+      "depends_on": [
+        "TQAS-001",
+        "TQAS-003",
+        "TQAS-004"
+      ],
       "target_files": [
         "agent/services/text_quality/criteria_extractor_service.py",
         "agent/services/text_quality/criteria_review_service.py",
@@ -442,11 +525,20 @@
       "title": "Allowlist-basierte Textqualitaets-Signale in PlanningPromptEvolver integrieren",
       "type": "integration",
       "milestone_id": "TQAS-M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
-      "depends_on": ["TQAS-005", "TQAS-009", "TQAS-010"],
+      "progress_percent": 100,
+      "depends_on": [
+        "TQAS-005",
+        "TQAS-009",
+        "TQAS-010"
+      ],
+      "evidence_links": [
+        "agent/services/text_quality/prompt_rule_mapping.py",
+        "agent/services/planning_prompt_evolver_service.py",
+        "tests/test_planning_prompt_evolver_text_quality.py"
+      ],
       "target_files": [
         "agent/services/text_quality/prompt_rule_mapping.py",
         "agent/services/planning_prompt_evolver_service.py",
@@ -470,11 +562,19 @@
       "title": "PlanningMetrics, Learning Loop, Canary und Rollback um vergleichbare Textqualitaet erweitern",
       "type": "integration",
       "milestone_id": "TQAS-M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
-      "depends_on": ["TQAS-005", "TQAS-011"],
+      "progress_percent": 100,
+      "depends_on": [
+        "TQAS-005",
+        "TQAS-011"
+      ],
+      "evidence_links": [
+        "agent/services/planning_metrics_service.py",
+        "agent/services/planning_learning_loop_service.py",
+        "tests/test_planning_learning_loop_text_quality.py"
+      ],
       "target_files": [
         "agent/services/planning_metrics_service.py",
         "agent/services/planning_learning_loop_service.py",
@@ -498,11 +598,16 @@
       "title": "Sichere API, CLI, Config und Review-Oberflaeche bereitstellen",
       "type": "api-cli",
       "milestone_id": "TQAS-M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
-      "depends_on": ["TQAS-003", "TQAS-004", "TQAS-006", "TQAS-010"],
+      "progress_percent": 100,
+      "depends_on": [
+        "TQAS-003",
+        "TQAS-004",
+        "TQAS-006",
+        "TQAS-010"
+      ],
       "target_files": [
         "agent/routes/text_quality.py",
         "agent/bootstrap/routes.py",
@@ -530,11 +635,14 @@
       "title": "Optionalen analyse-only EvolutionEngine-Provider anbieten",
       "type": "plugin",
       "milestone_id": "TQAS-M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 0,
-      "depends_on": ["TQAS-004", "TQAS-009"],
+      "progress_percent": 100,
+      "depends_on": [
+        "TQAS-004",
+        "TQAS-009"
+      ],
       "target_files": [
         "plugins/anti_slop_evaluator/__init__.py",
         "plugins/anti_slop_evaluator/provider.py",
@@ -555,11 +663,23 @@
       "title": "Dokumentation, Datenschutz, Betriebsgrenzen und End-to-End-Gates abschliessen",
       "type": "documentation",
       "milestone_id": "TQAS-M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
-      "progress_percent": 0,
-      "depends_on": ["TQAS-012", "TQAS-013", "TQAS-014"],
+      "progress_percent": 100,
+      "evidence_links": [
+        "docs/text-quality-anti-slop.md",
+        "docs/text-quality-demo-flow-de.md",
+        "docs/text-quality-privacy.md",
+        "docs/text-quality-operations.md",
+        "docs/integrations/avoid-ai-writing.md",
+        "tests/test_text_quality_e2e.py"
+      ],
+      "depends_on": [
+        "TQAS-012",
+        "TQAS-013",
+        "TQAS-014"
+      ],
       "target_files": [
         "docs/text-quality-anti-slop.md",
         "docs/integrations/avoid-ai-writing.md",
@@ -580,37 +700,215 @@
       ]
     }
   ],
-  "critical_path_tasks": ["TQAS-001", "TQAS-002", "TQAS-003", "TQAS-004", "TQAS-005", "TQAS-006", "TQAS-007", "TQAS-008", "TQAS-009", "TQAS-010", "TQAS-011", "TQAS-012", "TQAS-013"],
+  "critical_path_tasks": [
+    "TQAS-001",
+    "TQAS-002",
+    "TQAS-003",
+    "TQAS-004",
+    "TQAS-005",
+    "TQAS-006",
+    "TQAS-007",
+    "TQAS-008",
+    "TQAS-009",
+    "TQAS-010",
+    "TQAS-011",
+    "TQAS-012",
+    "TQAS-013"
+  ],
   "tasks_status_summary": {
     "total": 15,
-    "by_status": {"todo": 15, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
-    "progress_percent_done": 0,
-    "by_priority": {"P0": 8, "P1": 6, "P2": 1, "P3": 0},
-    "by_risk": {"low": 1, "medium": 4, "high": 10, "critical": 0},
-    "critical_path": {"total": 13, "done": 0, "remaining": 13},
-    "milestones": {"total": 4, "todo": 4, "in_progress": 0, "blocked": 0, "done": 0}
+    "by_status": {
+      "todo": 0,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 15
+    },
+    "progress_percent_done": 100.0,
+    "by_priority": {
+      "P0": 8,
+      "P1": 6,
+      "P2": 1,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 1,
+      "medium": 4,
+      "high": 10,
+      "critical": 0
+    },
+    "critical_path": {
+      "total": 13,
+      "done": 13,
+      "remaining": 0
+    },
+    "milestones": {
+      "total": 4,
+      "todo": 0,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 4
+    }
   },
   "tasks_type_summary": {
     "total": 15,
     "by_type": {
-      "architecture": 1,
-      "code": 4,
-      "persistence": 1,
-      "integration": 4,
-      "source-audit": 1,
-      "validation": 1,
-      "api-cli": 1,
-      "plugin": 1,
-      "documentation": 1
+      "architecture": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "code": {
+        "total": 4,
+        "done": 4,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 4
+        }
+      },
+      "persistence": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "integration": {
+        "total": 4,
+        "done": 4,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 4
+        }
+      },
+      "source-audit": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "validation": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "api-cli": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "plugin": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "documentation": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      }
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 15,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 15,
+    "milestones_done": 4,
+    "milestones_total": 4
   },
   "summary_notes": [
     "Dieser Track ersetzt todo.anti-ai-slop-style-depth-evaluator-evolver.json und todo.avoid-ai-writing-detector-adapter.json.",
