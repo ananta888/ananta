@@ -1,0 +1,73 @@
+{
+  "name": "Webhook Order Routing",
+  "active": true,
+  "nodes": [
+    {
+      "id": "w1",
+      "name": "Order Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "parameters": {
+        "path": "orders-incoming",
+        "httpMethod": "POST"
+      }
+    },
+    {
+      "id": "i1",
+      "name": "Is Priority",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [200, 0],
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {"leftValue": "={{ $json.priority }}", "rightValue": "high", "operator": {"type": "string", "operation": "equals"}}
+          ]
+        }
+      }
+    },
+    {
+      "id": "g1",
+      "name": "Merge Paths",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [400, 0],
+      "parameters": {"mode": "append"}
+    },
+    {
+      "id": "t1",
+      "name": "Wait For Approval",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [600, 0],
+      "parameters": {"resume": "webhook"}
+    },
+    {
+      "id": "r1",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [800, 0],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Order Webhook": {
+      "main": [[{"node": "Is Priority", "type": "main", "index": 0}]]
+    },
+    "Is Priority": {
+      "main": [
+        [{"node": "Merge Paths", "type": "main", "index": 0}],
+        [{"node": "Merge Paths", "type": "main", "index": 1}]
+      ]
+    },
+    "Merge Paths": {
+      "main": [[{"node": "Wait For Approval", "type": "main", "index": 0}]]
+    },
+    "Wait For Approval": {
+      "main": [[{"node": "Respond", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {}
+}

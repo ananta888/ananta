@@ -1,0 +1,12 @@
+{
+  "_comment": "CodeCompass-Profil fuer n8n-Workflow-Repos (track codecompass-n8n-workflow-understanding). n8n ist opt-in: json steht bewusst NICHT in DEFAULT_EXTENSIONS. Aufruf: python codecompass_rag.py --config profiles/n8n-workflows.json <repo>",
+  "extensions": ["json", "md"],
+  "exclude_glob": [
+    "**/package.json",
+    "**/package-lock.json",
+    "**/tsconfig*.json",
+    "**/composer.json",
+    "**/*.lock.json",
+    "**/node_modules/**"
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "name": "Simple Order Fetch",
+  "active": false,
+  "nodes": [
+    {
+      "id": "m1",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "parameters": {}
+    },
+    {
+      "id": "h1",
+      "name": "Fetch Orders",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [200, 0],
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.example.com/orders?limit=10",
+        "options": {}
+      }
+    },
+    {
+      "id": "s1",
+      "name": "Shape Result",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [400, 0],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "a1", "name": "order_total", "value": "={{ $json.data.total }}", "type": "number"}
+          ]
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [[{"node": "Fetch Orders", "type": "main", "index": 0}]]
+    },
+    "Fetch Orders": {
+      "main": [[{"node": "Shape Result", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {}
+}

@@ -14,6 +14,7 @@ except ModuleNotFoundError:  # pragma: no cover - environment dependent
 
 from rag_helper.cli import run_cli
 from rag_helper.extractors.adoc_extractor import AdocExtractor
+from rag_helper.extractors.n8n_workflow_extractor import N8nWorkflowExtractor
 from rag_helper.extractors.csharp_ast_helpers import (
     extract_namespace as extract_csharp_namespace,
     extract_usings,
@@ -412,6 +413,7 @@ def main() -> None:
         xml_extractor_cls=XmlExtractor,
         xsd_extractor_cls=XsdExtractor,
         text_extractor_cls=TextFileExtractor,
+        n8n_extractor_cls=N8nWorkflowExtractor,
     )
 
 

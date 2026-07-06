@@ -97,6 +97,7 @@ def process_project(
     show_progress: bool = False,
     error_log_file: Path | None = None,
     csharp_extractor_cls=None,
+    n8n_extractor_cls=None,
 ) -> None:
     if not dry_run:
         ensure_dir(out_dir)
@@ -112,6 +113,7 @@ def process_project(
         xml_extractor_cls=xml_extractor_cls,
         xsd_extractor_cls=xsd_extractor_cls,
         text_extractor_cls=text_extractor_cls,
+        n8n_extractor_cls=n8n_extractor_cls,
     )
     java_extractor = extractors["java"]
     csharp_extractor = extractors.get("cs")
@@ -257,6 +259,7 @@ def process_project(
                 text_extractor_cls=text_extractor_cls,
                 pre_scan=next_cache["files"].get(snapshot.rel_path, {}).get("pre_scan"),
                 csharp_extractor_cls=csharp_extractor_cls,
+                n8n_extractor_cls=n8n_extractor_cls,
             )
             _record_result(result, total=len(snapshots))
     else:
@@ -279,6 +282,7 @@ def process_project(
                     text_extractor_cls=text_extractor_cls,
                     pre_scan=next_cache["files"].get(snapshot.rel_path, {}).get("pre_scan"),
                     csharp_extractor_cls=csharp_extractor_cls,
+                    n8n_extractor_cls=n8n_extractor_cls,
                 ): snapshot.rel_path
                 for snapshot in pending_snapshots
             }

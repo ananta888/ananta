@@ -1,28 +1,41 @@
 {
-  "$schema": "./todo.track.schema.json",
-  "version": "2.0",
+  "$schema": "../todo.track.schema.json",
+  "version": "2.1",
   "owner": "Peter Stuiber / Ananta",
   "track": "codecompass-n8n-workflow-understanding",
   "created": "2026-07-06",
   "updated": "2026-07-06",
-  "status": "todo",
+  "status": "done",
   "priority": "P1",
   "changelog": [
+    "v2.1 (2026-07-06): ALLE 7 tasks done. N8N-001..005: N8nWorkflowExtractor in rag-helper/rag_helper/extractors/n8n_workflow_extractor.py (Erkennung + FileSkipped fuer invalid_json/not_n8n_workflow, Workflow-/Node-/Credential-Ref-/HTTP-Endpoint-Records, from/to/type-Relations mit field/http_method/endpoint_path-Kantenattributen, Redaction schluessel- UND wertbasiert, URL-Query-Token-Strip, pinData nie gelesen, security_findings). Plumbing opt-in durch build_extractors/process_snapshot/process_project/run_cli/main (json NICHT in DEFAULT_EXTENSIONS), Profil rag-helper/profiles/n8n-workflows.json. Zusaetzlich noetig (in v2.0 nicht erkannt): n8n-Prioritaeten in relation_compaction.RELATION_PRIORITY, da compact_relation_records nach Prioritaetstabelle prunt, nicht nach Reihenfolge — Reihenfolge wirkt nur als Tiebreaker. N8N-006: 5 Fixtures + 29 Tests (Detection, Records, Relations, Graph-Durchstich ohne dangling edges gegen echte output_formats-Funktionen, Redaction per String-Suche ueber alle Outputs, process_snapshot-Skips, Pruning-Prioritaet). N8N-007: docs/codecompass-n8n-workflows.md neu, Legende in codecompass-graph-viewer.md, Verweis in codecompass.md. Verifikation im Compose-Container: 29/29 neue Tests gruen, rag-helper-Suite 219 passed mit nur den 4 PRE-EXISTING failures (per HEAD-Worktree-Gegenprobe belegt: TestFixtureLayout fehlendes fixtures-Verzeichnis, xml-embedding-text, ultra-mode gems_by_domain — unabhaengig von n8n). CLI-Dry-Run: 2 Dateien, Workflow indexiert (5 index records), package.json sauber geskippt.",
     "v2.0 (2026-07-06): Nach vollstaendiger Quellcode-Analyse des rag-helper korrigiert und erweitert. Korrigiert: N8N-003 nutzte das falsche Relations-Format ('source/target/type') — das direkte Passthrough-Format in build_graph_edges ist 'from/to/type' (output_formats.py:273, vorgelebt vom md-Parser in text_file_extractor.py); Records mit source_id/target laufen stattdessen durch die Symbol-Aufloesung und unaufloesbare Kanten werden verworfen. Geloescht als ueberflussig: output_formats.py aus N8N-003-Pfaden (Passthrough funktioniert ohne Aenderung), utils/embedding_text.py aus N8N-002-Pfaden (build_embedding_text ist generisch, nur importieren), generated_code.py aus N8N-005-Pfaden (das ist Generated-Code-Detection, keine Redaction; Redaction gehoert in den Extractor). Erweitert: verifizierter source_contract mit exakten Funktions-/Feldnamen, FileSkipped als Skip-Mechanismus fuer Nicht-n8n-JSON, pinData-Behandlung (Groesse + PII/Secret-Risiko), 'source'-Feldnamen-Falle (_CONTEXT_DROP_KEYS), Limits-Verhalten (max_file_size_kb VOR parse, max_records_per_file NACH parse, compact_relation_records), Entscheidung json NICHT in DEFAULT_EXTENSIONS (opt-in via --extensions/Profil), per-Task status/depends_on + tasks_status_summary, Test-Ausfuehrungsbefehl fuer den Compose-Container.",
     "v1.0 (2026-07-06): Initiale Fassung."
   ],
-  "status_scale": ["open", "in_progress", "partial", "blocked", "done"],
+  "status_scale": [
+    "open",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
   "tasks_status_summary": {
     "total": 7,
     "by_status": {
-      "open": 7,
+      "open": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 7
     },
-    "progress_percent_done": 0.0,
-    "critical_path": ["N8N-001", "N8N-002", "N8N-003", "N8N-004", "N8N-006"]
+    "progress_percent_done": 100.0,
+    "critical_path": [
+      "N8N-001",
+      "N8N-002",
+      "N8N-003",
+      "N8N-004",
+      "N8N-006"
+    ]
   },
   "purpose": "CodeCompass/rag-helper soll n8n-Workflow-JSON-Dateien genauso strukturiert verstehen wie Java, C#, XML oder andere Projektartefakte: als Graph, Kontextrecords, Relations und Embedding-Quelle.",
   "goal": "n8n-Workflows werden nicht nur als Rohtext indexiert, sondern als ausfuehrbarer Datenfluss analysiert: Trigger, Nodes, Credentials-Referenzen, Expressions, IF/Switch/Merge/Wait/Subworkflow-Verbindungen, HTTP/API-Kanten, Datenvertraege, Fehlerpfade und Sicherheits-/Secret-Hinweise werden als CodeCompass-Records exportiert.",
@@ -94,7 +107,7 @@
       "id": "N8N-001",
       "title": "N8nWorkflowExtractor: Erkennung und Grundgeruest",
       "type": "code",
-      "status": "open",
+      "status": "done",
       "depends_on": [],
       "paths": [
         "rag-helper/rag_helper/extractors/n8n_workflow_extractor.py",
@@ -120,8 +133,10 @@
       "id": "N8N-002",
       "title": "Index-, Detail- und Embedding-Records",
       "type": "code",
-      "status": "open",
-      "depends_on": ["N8N-001"],
+      "status": "done",
+      "depends_on": [
+        "N8N-001"
+      ],
       "paths": [
         "rag-helper/rag_helper/extractors/n8n_workflow_extractor.py"
       ],
@@ -147,8 +162,10 @@
       "id": "N8N-003",
       "title": "Graph-Relations im from/to/type-Format",
       "type": "code",
-      "status": "open",
-      "depends_on": ["N8N-002"],
+      "status": "done",
+      "depends_on": [
+        "N8N-002"
+      ],
       "paths": [
         "rag-helper/rag_helper/extractors/n8n_workflow_extractor.py"
       ],
@@ -173,8 +190,10 @@
       "id": "N8N-004",
       "title": "CLI/Profile-Integration (opt-in, rueckwaertskompatibel)",
       "type": "code",
-      "status": "open",
-      "depends_on": ["N8N-001"],
+      "status": "done",
+      "depends_on": [
+        "N8N-001"
+      ],
       "paths": [
         "rag-helper/codecompass_rag.py",
         "rag-helper/rag_helper/cli.py",
@@ -200,8 +219,10 @@
       "id": "N8N-005",
       "title": "Secret-Redaction und Security-Findings",
       "type": "code",
-      "status": "open",
-      "depends_on": ["N8N-002"],
+      "status": "done",
+      "depends_on": [
+        "N8N-002"
+      ],
       "paths": [
         "rag-helper/rag_helper/extractors/n8n_workflow_extractor.py"
       ],
@@ -226,8 +247,12 @@
       "id": "N8N-006",
       "title": "Fixtures und Tests",
       "type": "test",
-      "status": "open",
-      "depends_on": ["N8N-002", "N8N-003", "N8N-005"],
+      "status": "done",
+      "depends_on": [
+        "N8N-002",
+        "N8N-003",
+        "N8N-005"
+      ],
       "paths": [
         "rag-helper/tests/fixtures/n8n/simple_manual_http_workflow.json",
         "rag-helper/tests/fixtures/n8n/webhook_if_merge_wait_workflow.json",
@@ -258,8 +283,10 @@
       "id": "N8N-007",
       "title": "Doku: Query-Beispiele und Graph-Legende",
       "type": "docs",
-      "status": "open",
-      "depends_on": ["N8N-006"],
+      "status": "done",
+      "depends_on": [
+        "N8N-006"
+      ],
       "paths": [
         "docs/codecompass.md",
         "docs/codecompass-graph-viewer.md",
@@ -310,16 +337,40 @@
       "n8n_writes_data_field"
     ],
     "minimum_workflow_fields": [
-      "id", "kind", "file", "name", "workflow_name", "active",
-      "node_count", "connection_count", "trigger_count", "credential_ref_count",
-      "has_pin_data", "security_findings", "summary", "embedding_text"
+      "id",
+      "kind",
+      "file",
+      "name",
+      "workflow_name",
+      "active",
+      "node_count",
+      "connection_count",
+      "trigger_count",
+      "credential_ref_count",
+      "has_pin_data",
+      "security_findings",
+      "summary",
+      "embedding_text"
     ],
     "minimum_node_fields": [
-      "id", "kind", "file", "parent_id", "node_id", "name", "node_type",
-      "type_version", "parameter_keys", "credential_refs", "expression_refs",
-      "role_labels", "summary", "embedding_text"
+      "id",
+      "kind",
+      "file",
+      "parent_id",
+      "node_id",
+      "name",
+      "node_type",
+      "type_version",
+      "parameter_keys",
+      "credential_refs",
+      "expression_refs",
+      "role_labels",
+      "summary",
+      "embedding_text"
     ],
-    "forbidden_field_names": ["source"],
+    "forbidden_field_names": [
+      "source"
+    ],
     "id_convention": "n8n_workflow:<safe_id(rel_path, workflow_name)> / n8n_node:<safe_id(rel_path, workflow_name, node_id)> (safe_id aus rag_helper/utils/ids.py)"
   },
   "definition_of_done": [

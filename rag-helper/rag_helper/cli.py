@@ -33,6 +33,7 @@ def run_cli(
     xsd_extractor_cls,
     text_extractor_cls=None,
     csharp_extractor_cls=None,
+    n8n_extractor_cls=None,
 ) -> None:
     config_parser = argparse.ArgumentParser(add_help=False)
     config_parser.add_argument("--config", help="JSON- oder YAML-Profil mit CLI-Defaults")
@@ -435,6 +436,7 @@ def run_cli(
         xml_extractor_cls=xml_extractor_cls,
         xsd_extractor_cls=xsd_extractor_cls,
         text_extractor_cls=text_extractor_cls,
+        n8n_extractor_cls=n8n_extractor_cls,
         dry_run=args.dry_run,
         show_progress=args.progress,
         error_log_file=error_log_file,

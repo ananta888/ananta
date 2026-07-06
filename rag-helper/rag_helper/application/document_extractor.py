@@ -63,6 +63,7 @@ def build_extractors(
     obsidian_extractor_cls=None,
     obsidian_canvas_extractor_cls=None,
     obsidian_vault_name: str = "default",
+    n8n_extractor_cls=None,
 ) -> dict[str, object]:
     extractors = {
         "java": java_extractor_cls(
@@ -142,6 +143,13 @@ def build_extractors(
             max_nodes=limits.canvas_max_nodes,
         )
         extractors["canvas"] = canvas_extractor
+    if n8n_extractor_cls is not None:
+        # n8n workflow exports are JSON files; the extractor itself skips
+        # non-workflow JSON via FileSkipped("not_n8n_workflow"). Opt-in:
+        # json is deliberately NOT part of DEFAULT_EXTENSIONS.
+        extractors["json"] = build_extractor(
+            n8n_extractor_cls, embedding_text_mode=limits.embedding_text_mode
+        )
     return extractors
 
 
@@ -303,6 +311,7 @@ def process_snapshot(
     obsidian_canvas_extractor_cls=None,
     obsidian_vault_name: str = "default",
     known_note_titles: dict | None = None,
+    n8n_extractor_cls=None,
 ) -> FileProcessingResult:
     started_at = perf_counter()
     rel_path = snapshot.rel_path
@@ -401,6 +410,7 @@ def process_snapshot(
             obsidian_extractor_cls=obsidian_extractor_cls,
             obsidian_canvas_extractor_cls=obsidian_canvas_extractor_cls,
             obsidian_vault_name=obsidian_vault_name,
+            n8n_extractor_cls=n8n_extractor_cls,
         ).get(ext)
         if extractor is None:
             manifest_entry = {

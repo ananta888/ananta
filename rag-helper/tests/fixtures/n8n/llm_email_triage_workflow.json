@@ -1,0 +1,64 @@
+{
+  "name": "LLM Email Triage",
+  "active": true,
+  "tags": [{"name": "ai"}, {"name": "triage"}],
+  "nodes": [
+    {
+      "id": "st1",
+      "name": "Every Morning",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0],
+      "parameters": {"rule": {"interval": [{"triggerAtHour": 7}]}}
+    },
+    {
+      "id": "ag1",
+      "name": "Triage Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.9,
+      "position": [200, 0],
+      "parameters": {
+        "promptType": "define",
+        "text": "=Classify this email: {{ $json.subject }} / {{ $json.body }}"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "lm1",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [200, 200],
+      "parameters": {"model": "gpt-4.1-mini"},
+      "credentials": {
+        "openAiApi": {"id": "42", "name": "OpenAI account"}
+      }
+    },
+    {
+      "id": "sv1",
+      "name": "Save Verdict",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [400, 0],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "b1", "name": "verdict", "value": "={{ $json.output }}", "type": "string"}
+          ]
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every Morning": {
+      "main": [[{"node": "Triage Agent", "type": "main", "index": 0}]]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [[{"node": "Triage Agent", "type": "ai_languageModel", "index": 0}]]
+    },
+    "Triage Agent": {
+      "main": [[{"node": "Save Verdict", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {}
+}

@@ -33,6 +33,22 @@ RELATION_PRIORITY = {
     "contains_type": 5,
     "child_of_type": 5,
     "child_of_file": 5,
+    # n8n workflow relations (track codecompass-n8n-workflow-understanding):
+    # data-flow connections must survive pruning before API/semantic edges,
+    # data-field edges are the first to go.
+    "n8n_connects": 86,
+    "n8n_branch_true": 86,
+    "n8n_branch_false": 86,
+    "n8n_error_flow": 86,
+    "n8n_ai_tool_flow": 85,
+    "n8n_resume_flow": 85,
+    "n8n_receives_webhook": 80,
+    "n8n_calls_http_endpoint": 80,
+    "n8n_invokes_subworkflow": 78,
+    "n8n_uses_credential_ref": 75,
+    "n8n_uses_llm_provider": 74,
+    "n8n_reads_data_field": 20,
+    "n8n_writes_data_field": 20,
 }
 
 

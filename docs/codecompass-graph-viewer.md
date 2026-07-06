@@ -190,6 +190,13 @@ export interface GraphFilter {
 
 `filteredEdges` automatically excludes edges whose source or target node was removed by the node filter — renderers do not need to enforce this.
 
+### n8n workflow legend
+
+When a graph export contains n8n workflow records (see `codecompass-n8n-workflows.md`), the following kinds/edge types appear:
+
+- Node kinds: `n8n_workflow` (container), `n8n_node` (workflow step, `role_labels` such as trigger/webhook/api_call/llm/branch/merge/wait/code/subworkflow), `n8n_credential_ref` (credential reference, never values), `n8n_http_endpoint` (external API target).
+- Edge types: `parent_child` (workflow → node), `n8n_connects`, `n8n_branch_true`/`n8n_branch_false`, `n8n_error_flow`, `n8n_ai_tool_flow`, `n8n_resume_flow`, `n8n_receives_webhook`, `n8n_calls_http_endpoint` (carries `http_method`/`endpoint_path`), `n8n_invokes_subworkflow`, `n8n_uses_credential_ref`, `n8n_uses_llm_provider`, `n8n_reads_data_field`/`n8n_writes_data_field` (carry `field`).
+
 ---
 
 ## Testing
