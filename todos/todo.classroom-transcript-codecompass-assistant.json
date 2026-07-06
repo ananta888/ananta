@@ -1,0 +1,514 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.2",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "classroom-transcript-codecompass-assistant",
+  "created": "2026-07-06",
+  "updated": "2026-07-06",
+  "status": "todo",
+  "priority": "P1",
+  "purpose": "Ananta/CodeCompass soll Unterrichts-Streams, Zoom-Raum-Kontext, Aufgabenmaterialien und funktionierende n8n-Workflow-Beispiele so verbinden, dass ein spontan übernehmender Dozent automatisch getriggert erkennt, wo ein Schüler im Modul steht, ob gerade eine echte Frage vorliegt, und welche geprüfte Antwort bzw. welches passende n8n-Teilelement hilft.",
+  "goal": "Aus Live-Transkript-Streams, Batch-Transkripten oder MCP-Events wird ein sicherer Unterrichtsassistenz-Workflow: automatisch triggern, Zoom-Raum/Tag/Uhrzeit nur als Context-Hints nutzen, Frage- und Hilfebedarf erkennen, Modul/Aufgabe/Lernstand zuordnen, passende Unterrichtsmaterialien und n8n-Workflow-Fixtures über CodeCompass abrufen, eine kurze Antwort erzeugen, n8n-Teile auf Plausibilität prüfen und dem Dozenten eine kompakte Handlungsempfehlung mit Quellen liefern.",
+  "problem_statement": "Im Unterricht liegen bereits Transkripte aus Zoom-Räumen mit Schülern vor. Jede Gruppe hat einen Raum; Raum, Tag und Tageszeit sind aber nicht die eigentliche Wissensquelle, sondern nur Hinweise zur Eingrenzung. Der eigentliche Kontext kommt aus CodeCompass: indexierte Unterrichtsmaterialien, Aufgaben, Musterlösungen und funktionierende n8n-Workflows. Das System muss deshalb auf Stream-/MCP-/Webhook-Events reagieren, Frage des Schülers plus Raum-/Zeit-Hints nutzen, relevante Materialien zusammensuchen, daraus einen Prompt bauen, die LLM-Antwort verifizieren und dem Dozenten schnell helfen, ohne minutenlang im Material zu klicken.",
+  "product_logic_plain_language": [
+    "Zoom-Raum bedeutet: In welcher Gruppe sitzt der Schüler gerade?",
+    "Tag und Uhrzeit bedeuten: Welche Unterrichtseinheit ist laut Ablaufplan wahrscheinlich gerade aktiv?",
+    "Diese Daten reichen allein nicht; sie grenzen nur den Suchraum ein.",
+    "CodeCompass indexiert alle Unterrichtsmaterialien, Aufgaben, Musterlösungen und n8n-Workflows.",
+    "Ablauf: Schülerfrage -> Raum/Tag/Uhrzeit als Hints -> CodeCompass holt relevantes Material -> Prompt wird gebaut -> LLM antwortet -> Verifikation -> kurze Antwort/Handlungskarte an den Dozenten.",
+    "Der Schüler wird nicht irgendwo automatisch hingeleitet; primär wird der Dozent zur passenden Materialstelle, Aufgabe oder geprüften n8n-Lösung geführt, damit er schneller helfen kann."
+  ],
+  "fit_to_existing_ananta": [
+    "CodeCompass stellt bereits kanonische Tools wie codecompass.resolve_context, search_symbols, get_file_context, get_domain_map, search, plan_context und expand_graph bereit.",
+    "Der bestehende n8n-Todo-Track beschreibt bereits, wie n8n-Workflows als Graph, Embedding-Quelle und Kontextrecords verstanden werden sollen.",
+    "Diese Aufgabe baut darauf auf: weniger Quellcode-Analyse, mehr Text-/Didaktik-Analyse, aber weiterhin mit Graph, RAG, Evidenz und Verifikation.",
+    "Die Trigger-Fläche soll adapterfähig sein: Stream/Webhook/MCP sollen denselben internen Event-Contract beliefern.",
+    "Zoom-Raum, Tag und Uhrzeit werden als Context-Hints behandelt, nicht als alleinige Entscheidungsgrundlage."
+  ],
+  "non_goals": [
+    "Kein automatisches Bewerten von Schülern oder Notengebung.",
+    "Kein heimliches Einschleusen in Schüler-Workflows ohne Dozentenaktion.",
+    "Keine Speicherung sensibler Transkript-Rohdaten in Embeddings ohne Redaction/Retention-Regeln.",
+    "Kein Ersatz für den Dozenten; Ziel ist schnelle Orientierung und geprüfte Hilfestellung.",
+    "Kein freies LLM-Erfinden von n8n-Workflow-Strukturen ohne Validierung gegen bekannte funktionierende Beispiele.",
+    "Keine Kopplung an nur einen Transkriptanbieter; Stream, Batch, Webhook und MCP müssen über Adapter austauschbar bleiben.",
+    "Kein Vertrauen auf Stundenplan allein; Raum/Zeit-Hints dürfen ohne Materialtreffer keine sichere Antwort erzeugen."
+  ],
+  "source_review": {
+    "summary": "Die Repo-Suche zeigt, dass Ananta bereits ein passendes CodeCompass-Tooling und einen n8n-Workflow-Understanding-Track hat. Es fehlt ein darauf aufsetzender Unterrichts-/Transcript-Assistant-Track mit Stream-/MCP-Trigger, Zoom-Raum-/Zeit-Kontext-Hints, Frageerkennung, Modulzuordnung, Material-RAG, Workflow-Teilvalidierung und Dozentenansicht.",
+    "observed_source_files": [
+      {
+        "path": "docs/codecompass-tools.md",
+        "finding": "Dokumentiert die vorhandenen CodeCompass-Tools; resolve_context/search/plan_context/expand_graph sind die passende Retrieval- und Graph-Oberfläche für Unterrichtsmaterialien und n8n-Artefakte."
+      },
+      {
+        "path": "agent/services/tools/codecompass_tools.py",
+        "finding": "Implementiert bounded ToolResult-Ausgaben, Retrieval-Evidence und Graph-Expansion. Der Unterrichtsassistent soll dieselben ToolResult-/Evidence-Prinzipien nutzen."
+      },
+      {
+        "path": "todos/todo.codecompass-n8n-workflow-understanding.json",
+        "finding": "Bestehender Todo-Track für n8n-Workflow-Erkennung, Node-/Connection-Records, Graph-Relations, Embeddings, Redaction und Tests. Dieser Track ist Voraussetzung für geprüfte n8n-Teilworkflow-Antworten."
+      },
+      {
+        "path": "todos/todo.track.schema.json",
+        "finding": "Todo-Dateien folgen einem Track-Schema mit Milestones, Tasks, Status-/Priority-/Risk-Scales und Akzeptanzkriterien."
+      }
+    ]
+  },
+  "domain_model": {
+    "entities": [
+      "classroom_session",
+      "zoom_room",
+      "schedule_slot",
+      "context_hint",
+      "transcript_stream",
+      "transcript_event",
+      "transcript_segment",
+      "speaker_turn",
+      "student_question_candidate",
+      "teaching_module",
+      "module_task",
+      "teaching_material",
+      "known_solution",
+      "mcp_trigger_event",
+      "webhook_trigger_event",
+      "n8n_workflow_fixture",
+      "n8n_partial_workflow",
+      "assistant_answer",
+      "teacher_action_card",
+      "verification_result"
+    ],
+    "relations": [
+      "zoom_room_suggests_group",
+      "schedule_slot_suggests_module_task",
+      "context_hint_limits_retrieval_scope",
+      "stream_emits_segment",
+      "mcp_event_triggers_analysis",
+      "segment_mentions_task",
+      "question_about_material",
+      "student_at_module_task",
+      "answer_supported_by_material",
+      "answer_uses_workflow_fixture",
+      "partial_workflow_matches_task",
+      "partial_workflow_verified_by_rules",
+      "teacher_card_references_evidence"
+    ]
+  },
+  "target_capabilities": [
+    "Transkript-Segmente nicht nur importieren, sondern als Stream/Webhook/MCP-Event entgegennehmen: Zoom-Raum, Zeit, Sprecher, Schüler, Dozent, Text, optional Modul-/Tageskontext.",
+    "Automatisch triggern, sobald ein relevantes Segment oder ein MCP-Event eingeht; Batch-Import bleibt nur Fallback/Testpfad.",
+    "Zoom-Raum, Tag und Uhrzeit als Context-Hints nutzen, um Material-/Aufgaben-Suche einzugrenzen, aber nie als alleinige Antwortquelle behandeln.",
+    "Erkennen, ob ein Segment eine echte Frage, Hilferuf, Blockade, ironische Frage, Offtopic, Smalltalk oder organisatorische Frage ist.",
+    "Modul/Aufgabe aus mehreren Signalen ableiten: Zoom-Raum, Tag, Tageszeit, aktuelle Aufgabe, Transkript, erwähnte Begriffe, n8n-Node-Namen, Fehlermeldungen, Materialtitel.",
+    "Passende Unterrichtsmaterialien, Musterlösungen und funktionierende n8n-Workflow-Beispiele per CodeCompass/RAG abrufen.",
+    "Prompt-Paket aus Schülerfrage, relevantem Transkriptfenster, Materialauszügen und n8n-Artefakten bauen.",
+    "Antworten kurz, dozententauglich und evidenzbasiert generieren: Was ist das Problem, wo steht der Schüler, welche Quelle passt, was ist der nächste Schritt.",
+    "Bei n8n-Fragen ein kleines passendes Teilelement oder einen geprüften Beispielworkflow vorschlagen, statt einen großen unpassenden Workflow zu halluzinieren.",
+    "LLM-Antworten gegen bekannte Materialien und n8n-Graph-/Schema-Regeln prüfen: Node-Typen, Connections, Credentials-Platzhalter, JSON-Importfähigkeit, keine Secrets.",
+    "Dozentenansicht bereitstellen: Zoom-Raum, Modul, Aufgabe, Schülerfrage, erkannter Bedarf, Quellen, Antwortvorschlag, Workflow-Teil, Confidence, Warnungen.",
+    "Privacy/Retention beachten: Transkript-Rohdaten minimieren, PII redaction, keine sensiblen Schülerprofile in dauerhafte Embeddings."
+  ],
+  "architecture": {
+    "recommended_flow": [
+      "transcript_stream_or_mcp_trigger",
+      "transcript_event_normalizer",
+      "zoom_room_schedule_context_hints",
+      "segment_classifier",
+      "question_intent_detector",
+      "module_task_resolver",
+      "codecompass_context_retrieval",
+      "prompt_context_assembler",
+      "n8n_artifact_retrieval",
+      "answer_composer",
+      "workflow_partial_generator_or_selector",
+      "verification_gate",
+      "teacher_action_card"
+    ],
+    "trigger_modes": [
+      "live_transcript_stream",
+      "mcp_tool_or_resource_event",
+      "webhook_event",
+      "file_batch_import_for_tests_only"
+    ],
+    "context_signal_priority": [
+      "explicit_task_id_from_event",
+      "explicit_module_id_from_event",
+      "student_question_terms_and_error_messages",
+      "codecompass_material_matches",
+      "codecompass_n8n_workflow_matches",
+      "zoom_room_group_hint",
+      "day_and_time_schedule_hint"
+    ],
+    "tooling": {
+      "codecompass": [
+        "codecompass.search",
+        "codecompass.resolve_context",
+        "codecompass.plan_context",
+        "codecompass.get_file_context",
+        "codecompass.expand_graph"
+      ],
+      "new_services": [
+        "ClassroomTranscriptEventGateway",
+        "ClassroomTranscriptStreamService",
+        "ClassroomMcpTriggerAdapter",
+        "ZoomRoomScheduleContextHintService",
+        "StudentQuestionDetectionService",
+        "ModuleTaskResolverService",
+        "TeachingMaterialContextService",
+        "PromptContextAssemblerService",
+        "N8nTeachingWorkflowVerifierService",
+        "TeacherActionCardService"
+      ]
+    }
+  },
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high"],
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Streaming/MCP transcript trigger and context hints",
+      "task_ids": ["CTA-001", "CTA-002", "CTA-003", "CTA-013", "CTA-014"],
+      "status": "todo"
+    },
+    {
+      "id": "M2",
+      "title": "Module/task RAG over teaching material",
+      "task_ids": ["CTA-004", "CTA-005", "CTA-006"],
+      "status": "todo"
+    },
+    {
+      "id": "M3",
+      "title": "n8n answer and partial workflow verification",
+      "task_ids": ["CTA-007", "CTA-008", "CTA-009"],
+      "status": "todo"
+    },
+    {
+      "id": "M4",
+      "title": "Teacher UI and audit trail",
+      "task_ids": ["CTA-010", "CTA-011", "CTA-012"],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "CTA-001",
+      "title": "Transcript stream/event input contract",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "paths": ["docs/classroom-transcript-assistant.md", "agent/services/classroom/", "tests/fixtures/classroom/transcripts/"],
+      "description": "Ein minimales, provider-neutrales Event-Format für Live-Transkript-Segmente, Webhook-Events und MCP-Trigger definieren. Dateiimport ist nur Test-/Fallbackpfad.",
+      "implementation_notes": [
+        "Felder: event_id, session_id, zoom_room_id, room_label, module_id_hint, task_id_hint, timestamp, sequence_no, speaker_role, speaker_label_hash, text_delta_or_segment, source_adapter, trigger_mode.",
+        "Stream-Events müssen idempotent verarbeitbar sein.",
+        "Rohtext, Deltas und normalisierte Segmente trennen.",
+        "PII nur optional und redacted persistieren."
+      ],
+      "acceptance_criteria": [
+        "Ein Fixture-Stream mit mehreren Events kann geladen und zu Segmenten normalisiert werden.",
+        "Doppelte Events werden anhand event_id/sequence_no nicht doppelt verarbeitet.",
+        "Webhook-, MCP- und Batch-Fixtures mappen auf denselben internen Event-Contract.",
+        "Ohne bekannte Modul-ID bleibt der Datensatz valide.",
+        "PII-Redaction ist dokumentiert und in Tests sichtbar."
+      ]
+    },
+    {
+      "id": "CTA-002",
+      "title": "Question and help-intent detector",
+      "type": "code",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "paths": ["agent/services/classroom/question_detection_service.py", "tests/test_classroom_question_detection.py"],
+      "description": "Echte Fragen, Hilferufe, Blockaden, Ironie, Smalltalk und organisatorische Aussagen unterscheiden.",
+      "implementation_notes": [
+        "Erst deterministische Hinweise: Fragezeichen, W-Fragen, Fehlermeldungen, n8n-Node-Namen, 'geht nicht', 'wo finde ich'.",
+        "Danach LLM-Klassifikation mit strengem JSON-Schema.",
+        "Output: intent, confidence, reason_codes, evidence_spans, needs_teacher_attention."
+      ],
+      "acceptance_criteria": [
+        "Tests enthalten echte Frage, ironische Frage, Offtopic, Smalltalk und Fehlermeldung.",
+        "Ironie wird nicht automatisch als technische Frage behandelt, sondern als ambiguous/needs_context.",
+        "Bei niedriger Confidence wird keine automatische Antwort ausgespielt.",
+        "Klassifikation liefert maschinenlesbares JSON ohne Freitext-Zwang."
+      ]
+    },
+    {
+      "id": "CTA-003",
+      "title": "Transcript context windowing",
+      "type": "code",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "paths": ["agent/services/classroom/transcript_window_service.py", "tests/test_classroom_transcript_window.py"],
+      "description": "Für eine erkannte Frage den relevanten Stream-Kontext davor/danach begrenzen, ohne den gesamten Raumverlauf ins LLM zu kippen.",
+      "acceptance_criteria": [
+        "Kontextfenster kann nach Zeit, Sprecher und Tokenbudget begrenzt werden.",
+        "Vorherige Fehlversuche des gleichen Schülers werden priorisiert.",
+        "Andere Schüler werden nur aufgenommen, wenn sie denselben Aufgaben-/Fehlerkontext teilen.",
+        "Tokenbudget wird hart eingehalten."
+      ]
+    },
+    {
+      "id": "CTA-004",
+      "title": "Teaching material indexing profile",
+      "type": "code",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "paths": ["rag-helper/", "docs/classroom-transcript-assistant.md", "tests/fixtures/classroom/materials/"],
+      "description": "Unterrichtsmaterialien, Aufgaben, Musterlösungen und n8n-Fixtures als eigene CodeCompass-Domain indexieren.",
+      "acceptance_criteria": [
+        "Materialien erhalten record_kinds wie teaching_module, teaching_task, teaching_hint, known_solution, n8n_workflow_fixture.",
+        "Modulnummer, Tag, Aufgabe und Abgabehinweise werden als Felder extrahiert, wenn vorhanden.",
+        "CodeCompass-Suche findet eine Aufgabe über Titel, typische Schülerfrage und n8n-Node-Begriffe.",
+        "Bestehende CodeCompass-Code-Indexierung bleibt unverändert."
+      ]
+    },
+    {
+      "id": "CTA-005",
+      "title": "Module and task resolver",
+      "type": "code",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "paths": ["agent/services/classroom/module_task_resolver_service.py", "tests/test_classroom_module_task_resolver.py"],
+      "description": "Aus Zoom-Raum, Tag/Uhrzeit-Hints, Stream-Kontext, Materialtreffern und n8n-Begriffen ableiten, welches Modul und welche Aufgabe gemeint ist. Raum/Zeit dürfen nur eingrenzen, nicht allein entscheiden.",
+      "acceptance_criteria": [
+        "Resolver nutzt explizite Hints vor semantischen Treffern.",
+        "Schülerfrage und CodeCompass-Materialtreffer werden höher gewichtet als Zoom-Raum oder Uhrzeit.",
+        "Bei mehreren plausiblen Aufgaben gibt der Resolver ranked_candidates statt einer erfundenen Entscheidung zurück.",
+        "Jeder Kandidat enthält evidence_refs auf Material/Transcript und context_hint_refs auf Raum/Zeit.",
+        "Dozentenkarte zeigt Modul/Aufgabe nur als sicher an, wenn Confidence über Grenzwert liegt."
+      ]
+    },
+    {
+      "id": "CTA-006",
+      "title": "Evidence-backed answer composer",
+      "type": "code",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "paths": ["agent/services/classroom/answer_composer_service.py", "tests/test_classroom_answer_composer.py"],
+      "description": "Kurze Antworten für Schüler/Dozent erzeugen, die sichtbar auf Unterrichtsmaterial und bekannte Lösungen gestützt sind.",
+      "acceptance_criteria": [
+        "Antwort enthält Problemzusammenfassung, nächste Handlung und Quellenreferenzen.",
+        "Ohne ausreichende Quelle wird eine Rückfrage/Dozentenhinweis erzeugt statt Halluzination.",
+        "Antworten bleiben kurz und didaktisch passend.",
+        "Alle verwendeten Quellen werden als EvidenceRefs ausgegeben."
+      ]
+    },
+    {
+      "id": "CTA-007",
+      "title": "n8n partial workflow selector",
+      "type": "code",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "paths": ["agent/services/classroom/n8n_partial_workflow_selector.py", "tests/test_n8n_partial_workflow_selector.py"],
+      "description": "Bei n8n-Fragen bevorzugt vorhandene funktionierende Workflow-Teile aus Fixtures/Material wählen, bevor ein LLM neu generiert.",
+      "acceptance_criteria": [
+        "Bekannte funktionierende Workflows werden gegenüber freier Generierung priorisiert.",
+        "Selector kann einzelne Nodes, Subflow-Ausschnitte oder vollständige Mini-Workflows liefern.",
+        "Ausgabe enthält Import-Hinweis: vollständiger Workflow vs. manuelles Node-Teilfragment.",
+        "Credentials werden nur als Platzhalter/Referenz ausgegeben."
+      ]
+    },
+    {
+      "id": "CTA-008",
+      "title": "n8n answer verification gate",
+      "type": "code",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "paths": ["agent/services/classroom/n8n_teaching_workflow_verifier_service.py", "tests/test_n8n_teaching_workflow_verifier.py"],
+      "description": "LLM-generierte oder ausgewählte n8n-Teile vor Anzeige/Einspielung prüfen.",
+      "implementation_notes": [
+        "JSON parsebar, nodes/connections vorhanden bei vollständigem Workflow.",
+        "Node-Typen gegen allowlist/bekannte n8n type strings prüfen.",
+        "Connections auf vorhandene Node-Namen prüfen.",
+        "Keine echten Credential-Werte, keine Tokens, keine Secrets.",
+        "Aufgabenbezug prüfen: passt das Teil zum Modul/Task und zur Schülerfrage."
+      ],
+      "acceptance_criteria": [
+        "Ungültiges JSON wird abgelehnt.",
+        "Connections auf nicht vorhandene Nodes werden abgelehnt.",
+        "Secret-Kandidaten werden redacted und als blocker markiert.",
+        "Ein valider Beispielworkflow aus Fixtures wird akzeptiert.",
+        "Verifier liefert status=passed|warning|failed plus reasons."
+      ]
+    },
+    {
+      "id": "CTA-009",
+      "title": "Safe n8n injection workflow boundary",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "paths": ["docs/classroom-transcript-assistant.md", "agent/services/classroom/"],
+      "description": "Klare Grenze definieren: Vorschlagen, Kopieren, Importieren oder aktiv in Schüler-n8n einspielen nur mit Dozentenfreigabe.",
+      "acceptance_criteria": [
+        "Standardmodus ist read-only Vorschlag.",
+        "Jede Einspielung erfordert explizite Dozentenaktion.",
+        "Audit-Event enthält wer, wann, welchen Workflow/Node, welches Ziel und welchen Verifier-Status.",
+        "Ohne Verifier passed darf nicht automatisch eingespielt werden."
+      ]
+    },
+    {
+      "id": "CTA-010",
+      "title": "Teacher action card schema",
+      "type": "code",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "paths": ["agent/services/classroom/teacher_action_card_service.py", "tests/test_teacher_action_card_service.py"],
+      "description": "Kompakte Dozentenkarte für spontane Unterrichtsübernahme erzeugen.",
+      "acceptance_criteria": [
+        "Karte zeigt Zoom-Raum, Schüleralias, Modul, Aufgabe, erkannte Frage, Confidence, kurze Antwort, nächste Aktion.",
+        "Karte unterscheidet Material-Evidence von Raum-/Zeit-Hints.",
+        "Karte zeigt passende Material-/Workflow-Quellen.",
+        "Karte zeigt Warnungen: ambiguous_intent, low_confidence, weak_context_hint_only, workflow_verification_failed, privacy_redaction_applied.",
+        "JSON-Schema ist stabil und frontendfähig."
+      ]
+    },
+    {
+      "id": "CTA-011",
+      "title": "Angular teacher dashboard integration",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "paths": ["ai-snake-chat/", "docs/classroom-transcript-assistant.md"],
+      "description": "Frontend-Ansicht für Live-/Nachträglich-Auswertung: offene Fragen, Zoom-Räume, Module, Aufgaben, Antwortvorschläge, n8n-Teilworkflow.",
+      "acceptance_criteria": [
+        "Liste offener Schülerfragen nach Zoom-Raum/Modul sortierbar.",
+        "Detailansicht zeigt EvidenceRefs, ContextHints und Workflow-Verifier-Ergebnis.",
+        "Dozent kann Antwort kopieren oder als erledigt markieren.",
+        "Workflow-Einspielung bleibt hinter expliziter Aktion/Bestätigung."
+      ]
+    },
+    {
+      "id": "CTA-012",
+      "title": "Privacy, audit and retention rules",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "paths": ["docs/classroom-transcript-assistant.md", "agent/services/classroom/privacy_policy.py", "tests/test_classroom_privacy_policy.py"],
+      "description": "Datenschutzregeln für Streams, Transkripte, Schülerbezug, Embeddings, Löschung und Audit definieren.",
+      "acceptance_criteria": [
+        "PII-Redaction ist vor permanenter Indexierung testbar.",
+        "Retention-Strategie für Rohtranskripte und abgeleitete Records ist dokumentiert.",
+        "Audit unterscheidet Lesen, Antwortvorschlag, Workflow-Vorschlag und Workflow-Einspielung.",
+        "Export/Debug-Ausgaben enthalten keine unredacted Schülerdaten."
+      ]
+    },
+    {
+      "id": "CTA-013",
+      "title": "MCP auto-trigger adapter",
+      "type": "code",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "paths": ["agent/services/classroom/classroom_mcp_trigger_adapter.py", "agent/services/tools/", "tests/test_classroom_mcp_trigger_adapter.py", "docs/classroom-transcript-assistant.md"],
+      "description": "MCP als automatische Trigger-Möglichkeit anbinden, damit externe Transkript-/Raum-Systeme oder n8n den Unterrichtsassistenten ohne manuellen Dateiimport starten können.",
+      "implementation_notes": [
+        "MCP-Tool/Resource-Event nimmt transcript_segment, transcript_delta, session_started, session_ended und manual_reanalyse entgegen.",
+        "Adapter ruft denselben Event-Gateway wie Stream/Webhook auf.",
+        "Antwort ist ein ToolResult/EventResult mit teacher_action_card_id, status und warnings.",
+        "Fehler dürfen den Stream nicht blockieren; Retry/Dead-letter-Konzept dokumentieren."
+      ],
+      "acceptance_criteria": [
+        "Ein MCP-Fixture-Event triggert automatisch Analyse bis zur TeacherActionCard.",
+        "MCP- und Webhook-Trigger erzeugen identische interne Event-Objekte.",
+        "Idempotenz verhindert doppelte Karten bei erneut gesendetem MCP-Event.",
+        "Bei ungültigem Event liefert der Adapter status=error mit reason_code statt Exception.",
+        "Tests prüfen automatische Auslösung ohne manuellen Import."
+      ]
+    },
+    {
+      "id": "CTA-014",
+      "title": "Zoom room and schedule context hints",
+      "type": "code",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "paths": ["agent/services/classroom/zoom_room_schedule_context_hint_service.py", "tests/test_zoom_room_schedule_context_hint_service.py", "docs/classroom-transcript-assistant.md"],
+      "description": "Zoom-Raum, Datum, Tageszeit und optionaler Ablaufplan werden in schwache Context-Hints übersetzt, die den CodeCompass-Retrieval-Scope eingrenzen, aber keine Antwort ersetzen.",
+      "implementation_notes": [
+        "Mapping: zoom_room_id -> group/cohort/module_scope wenn bekannt.",
+        "Mapping: timestamp -> schedule_slot -> likely_module/task wenn Ablaufplan vorhanden.",
+        "Hints haben Gewichtung und Confidence, z.B. weak, medium, strong.",
+        "Der Service liefert keine finale Antwort, sondern retrieval_filters und ranked_context_hints."
+      ],
+      "acceptance_criteria": [
+        "Ein Zoom-Raum kann einer Gruppe oder einem Modul-Scope zugeordnet werden, wenn Mapping vorhanden ist.",
+        "Tag/Uhrzeit können einen wahrscheinlichen ScheduleSlot liefern, wenn Ablaufplan vorhanden ist.",
+        "Ohne Ablaufplan bleibt die Analyse möglich und fällt auf Transkript+CodeCompass zurück.",
+        "Context-Hints werden in der TeacherActionCard getrennt von EvidenceRefs angezeigt.",
+        "Wenn nur Raum/Zeit-Hints existieren, wird warning=weak_context_hint_only gesetzt und keine sichere Antwort behauptet."
+      ]
+    }
+  ],
+  "critical_path_tasks": ["CTA-001", "CTA-002", "CTA-004", "CTA-005", "CTA-006", "CTA-008", "CTA-010", "CTA-012", "CTA-013", "CTA-014"],
+  "tasks_status_summary": {
+    "total": 14,
+    "by_status": {"todo": 14, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+    "progress_percent_done": 0,
+    "by_priority": {"P0": 4, "P1": 8, "P2": 2, "P3": 0},
+    "by_risk": {"low": 0, "medium": 7, "high": 7},
+    "critical_path": {"total": 10, "done": 0, "remaining": 10},
+    "milestones": {"total": 4, "todo": 4, "in_progress": 0, "blocked": 0, "done": 0}
+  },
+  "tasks_type_summary": {
+    "total": 14,
+    "by_type": {"architecture": 2, "code": 10, "frontend": 1, "security": 1}
+  },
+  "progress_summary": {
+    "state": "todo",
+    "todo_remaining": 14,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "summary_notes": [
+    "Dieser Track soll nicht neuen Stoff generieren, sondern vorhandenes Unterrichtsmaterial und funktionierende n8n-Workflows situativ nutzbar machen.",
+    "Der Einstieg ist nicht nur Transkriptimport, sondern Stream/Webhook/MCP-Trigger mit gemeinsamem Event-Contract.",
+    "Zoom-Raum, Tag und Tageszeit sind nur Hinweise zur Eingrenzung, nicht die Quelle der Antwort.",
+    "Die Antwort entsteht aus Schülerfrage plus CodeCompass-Kontext aus Unterrichtsmaterialien und n8n-Workflows, anschließend geprüft durch Verifikation.",
+    "Die wichtigste Sicherheitsgrenze ist der Verifier plus Dozentenfreigabe vor jeder Workflow-Einspielung.",
+    "Der bestehende n8n-Workflow-Understanding-Track ist technische Vorbedingung für robuste n8n-Teilworkflow-Antworten."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "implementation_order",
+      "title": "Empfohlene Reihenfolge",
+      "items": [
+        "Zuerst gemeinsamen Event-Contract für Stream/Webhook/MCP bauen.",
+        "Dann Zoom-Raum-/Zeit-Hints als schwache Context-Signale anbinden.",
+        "Dann MCP-Autotrigger und Frageerkennung anschließen.",
+        "Danach Unterrichtsmaterialien und Aufgaben als CodeCompass-Domain indexieren.",
+        "Danach Prompt-Kontext aus Frage, Transcript, Materialien und n8n-Artefakten zusammensetzen.",
+        "Danach n8n-Teilworkflow-Auswahl und Verifier anbinden.",
+        "Zuletzt Dozentenkarte und Frontend-Dashboard integrieren."
+      ]
+    }
+  ]
+}
