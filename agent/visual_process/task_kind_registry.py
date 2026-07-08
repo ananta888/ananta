@@ -32,6 +32,7 @@ WORKER_TASK_KINDS: frozenset[str] = frozenset({
 
 ML_TASK_KINDS: frozenset[str] = frozenset({
     "embed_api", "embed_chunk",
+    "ml_intern_build_lora_dataset",
     "ml_intern_train_lora",
     "turboquant_mse", "sign_rotation",
     "rag_retrieve", "rerank", "query_rewrite",
@@ -382,6 +383,18 @@ _KIND_INFO: dict[str, TaskKindInfo] = {
     },
 
     # ── ML – Local LoRA training ─────────────────────────────────────────────
+    "ml_intern_build_lora_dataset": {
+        "id": "ml_intern_build_lora_dataset", "label": "ML-Intern: LoRA Dataset", "group": "ml", "dispatch_capable": False,
+        "description": (
+            "Hub-seitiger Visual-Process-Adapter fuer MlInternLoraDatasetBuildService.build_dataset. "
+            "Normalisiert kuratierte Beispiele/JSONL-Quellen in validiertes Instruction- oder Chat-JSONL."
+        ),
+        "implementation_status": "production", "implementation_state": "wired_and_executable",
+        "backend_service": "MlInternLoraDatasetBuildService.build_dataset",
+        "deterministic": True, "uses_llm": False, "uses_network": False,
+        "side_effects": ["read_workspace", "write_files"], "risk_level": "medium",
+        "legacy_aliases": [], "requires_approval": False,
+    },
     "ml_intern_train_lora": {
         "id": "ml_intern_train_lora", "label": "ML-Intern: LoRA Training", "group": "ml", "dispatch_capable": False,
         "description": (

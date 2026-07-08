@@ -11,6 +11,7 @@ Adapters implemented here:
   turboquant_mse      — TurboQuantMseEncoder (TQ-012, experimental)
   workspace_snapshot  — WorkspaceDiffService.take_before_snapshot()
   workspace_diff      — WorkspaceDiffService.compute_diff() + synthesize_manifest()
+  ml_intern_build_lora_dataset — MlInternLoraDatasetBuildService.build_dataset
   ml_intern_train_lora — MlInternTrainingJobService.train_lora
 
 CodeCompass (codecompass_*), Evolution (evolution_*), and domain_cluster
@@ -45,7 +46,81 @@ class QueryRewriteAdapter(StepAdapter):
         )
 
 
-# ── ML-Intern LoRA training ──────────────────────────────────────────────────
+# ── ML-Intern LoRA dataset build + training ──────────────────────────────────
+
+class MlInternBuildLoraDatasetAdapter(StepAdapter):
+    @property
+    def kind(self) -> str:
+        return "ml_intern_build_lora_dataset"
+
+    def execute(self, step: VisualProcessStep, artifacts: dict[str, Any], context: dict[str, Any]) -> StepExecutionResult:
+        from agent.services.ml_intern_lora_dataset_build_service import (
+            DatasetBuildError,
+            get_lora_dataset_build_service,
+        )
+
+        metadata = dict(step.metadata or {})
+        dataset_root = str(
+            metadata.get("dataset_root")
+            or metadata.get("datasetRoot")
+            or context.get("dataset_root")
+            or "data/training/lora"
+        )
+        spec = self._build_spec(metadata, artifacts)
+        try:
+            result = get_lora_dataset_build_service(dataset_root).build_dataset(spec)
+        except DatasetBuildError as exc:
+            return StepExecutionResult(
+                status="failed",
+                outputs={},
+                diagnostics={"error": str(exc)},
+                backend_service="MlInternLoraDatasetBuildService",
+                executable=True,
+                execution_reason="ml_intern_build_lora_dataset: invalid build spec",
+            )
+
+        status = "success" if result.status == "completed" else "failed"
+        return StepExecutionResult(
+            status=status,
+            outputs={
+                "dataset_build_result": result.to_dict(),
+                "dataset_path": result.dataset_path,
+                "absolute_dataset_path": result.absolute_dataset_path,
+                "validation_report_path": result.report_path,
+                "dataset_status": result.status,
+            },
+            diagnostics={"errors": result.errors, "skipped_records": result.skipped_records},
+            warnings=list(result.warnings),
+            backend_service="MlInternLoraDatasetBuildService",
+            executable=True,
+            execution_reason=f"vp_adapter: ml_intern build_lora_dataset status={result.status}",
+        )
+
+    @staticmethod
+    def _build_spec(metadata: dict[str, Any], artifacts: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "records": (
+                artifacts.get("training_examples")
+                or artifacts.get("examples")
+                or artifacts.get("records")
+                or metadata.get("records")
+                or metadata.get("examples")
+                or []
+            ),
+            "source_paths": (
+                artifacts.get("source_paths")
+                or metadata.get("source_paths")
+                or metadata.get("sourcePaths")
+                or []
+            ),
+            "output_path": str(metadata.get("output_path") or metadata.get("outputPath") or "vp-train.jsonl"),
+            "format": str(metadata.get("format") or "instruction"),
+            "max_examples": metadata.get("max_examples", metadata.get("maxExamples", 1000)),
+            "min_instruction_chars": metadata.get("min_instruction_chars", metadata.get("minInstructionChars", 4)),
+            "min_output_chars": metadata.get("min_output_chars", metadata.get("minOutputChars", 1)),
+            "require_secret_scan": metadata.get("require_secret_scan", metadata.get("requireSecretScan", True)),
+        }
+
 
 class MlInternTrainLoraAdapter(StepAdapter):
     @property

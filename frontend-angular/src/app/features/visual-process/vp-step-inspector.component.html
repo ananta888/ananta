@@ -156,6 +156,52 @@
 
     <!-- Kind-specific meta fields -->
 
+    <!-- ml_intern_build_lora_dataset: curated examples/files -> validated JSONL -->
+    @if (selectedStep()!.kind === 'ml_intern_build_lora_dataset') {
+      <div class="vpe-meta-section">
+        <div class="vpe-info-note">LoRA-Datasets entstehen aus kuratierten Beispielen oder JSON/JSONL-Quellen. Der Step normalisiert, dedupliziert und validiert; er erzeugt keine neuen Inhalte per LLM.</div>
+        <label class="vpe-label">Dataset-Root
+          <input class="vpe-input" [ngModel]="stepMeta('dataset_root') || 'data/training/lora'"
+                 (ngModelChange)="setStepMeta('dataset_root', $event)" />
+        </label>
+        <label class="vpe-label">Quell-Dateien
+          <input class="vpe-input" [ngModel]="stepMeta('source_paths') || ''"
+                 (ngModelChange)="setStepMeta('source_paths', $event)" placeholder="curated/examples.jsonl oder JSON-Liste" />
+        </label>
+        <label class="vpe-label">Output JSONL
+          <input class="vpe-input" [ngModel]="stepMeta('output_path') || 'vp-train.jsonl'"
+                 (ngModelChange)="setStepMeta('output_path', $event)" />
+        </label>
+        <label class="vpe-label">Format
+          <select class="vpe-input" [ngModel]="stepMeta('format') || 'instruction'"
+                  (ngModelChange)="setStepMeta('format', $event)">
+            <option value="instruction">instruction</option>
+            <option value="chat">chat</option>
+          </select>
+        </label>
+        <label class="vpe-label">Max Beispiele
+          <input class="vpe-input" type="number" min="1"
+                 [ngModel]="stepMeta('max_examples') ?? 1000"
+                 (ngModelChange)="setStepMeta('max_examples', +$event)" />
+        </label>
+        <label class="vpe-label">Min Instruction-Zeichen
+          <input class="vpe-input" type="number" min="1"
+                 [ngModel]="stepMeta('min_instruction_chars') ?? 4"
+                 (ngModelChange)="setStepMeta('min_instruction_chars', +$event)" />
+        </label>
+        <label class="vpe-label">Min Output-Zeichen
+          <input class="vpe-input" type="number" min="1"
+                 [ngModel]="stepMeta('min_output_chars') ?? 1"
+                 (ngModelChange)="setStepMeta('min_output_chars', +$event)" />
+        </label>
+        <label class="vpe-label vpe-checkbox">
+          <input type="checkbox" [ngModel]="stepMeta('require_secret_scan') !== false"
+                 (ngModelChange)="setStepMeta('require_secret_scan', $event)" />
+          Secret-Scan erzwingen
+        </label>
+      </div>
+    }
+
     <!-- ml_intern_train_lora: Hub-owned LoRA/QLoRA training job -->
     @if (selectedStep()!.kind === 'ml_intern_train_lora') {
       <div class="vpe-meta-section">

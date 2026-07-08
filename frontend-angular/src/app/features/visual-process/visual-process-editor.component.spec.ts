@@ -104,6 +104,14 @@ describe('VisualProcessEditorComponent (FSR-T015 acceptance)', () => {
     expect(nodeKindColor('ml_intern_train_lora')).toBeTruthy();
   });
 
+  it('has a fallback catalog entry for ML-Intern LoRA dataset build', () => {
+    const kind = FALLBACK_KINDS.find(item => item.id === 'ml_intern_build_lora_dataset');
+    expect(kind).toBeDefined();
+    expect(kind?.deterministic).toBe(true);
+    expect(kind?.risk_level).toBe('medium');
+    expect(nodeKindColor('ml_intern_build_lora_dataset')).toBeTruthy();
+  });
+
 it('routes validation calls through VpWorkflowRunnerService, not directly to api', () => {
     const fixture = TestBed.createComponent(VisualProcessEditorComponent);
     fixture.detectChanges();

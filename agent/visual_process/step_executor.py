@@ -199,10 +199,11 @@ def get_step_executor() -> StepExecutor:
 def _register_builtin_adapters(executor: StepExecutor) -> None:
     from agent.visual_process.step_adapters import (
         EmbedApiAdapter,
+        MlInternBuildLoraDatasetAdapter,
+        MlInternTrainLoraAdapter,
         QueryRewriteAdapter,
         RerankAdapter,
         SignRotationAdapter,
-        MlInternTrainLoraAdapter,
         TurboQuantMseAdapter,
         WorkspaceDiffAdapter,
         WorkspaceSnapshotAdapter,
@@ -211,6 +212,7 @@ def _register_builtin_adapters(executor: StepExecutor) -> None:
         QueryRewriteAdapter,
         RerankAdapter,
         EmbedApiAdapter,
+        MlInternBuildLoraDatasetAdapter,
         MlInternTrainLoraAdapter,
         SignRotationAdapter,
         TurboQuantMseAdapter,

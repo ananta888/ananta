@@ -295,6 +295,16 @@ def test_execution_plan_ml_intern_train_lora_vp_adapter():
     assert plan[0].requires_approval is True
 
 
+def test_execution_plan_ml_intern_build_lora_dataset_vp_adapter():
+    executor = get_step_executor()
+    steps = [_step("ml_intern_build_lora_dataset")]
+    plan = executor.execution_plan(steps)
+    assert plan[0].execution_mode == "vp_adapter"
+    assert plan[0].backend_service == "MlInternLoraDatasetBuildService.build_dataset"
+    assert plan[0].risk_level == "medium"
+    assert plan[0].deterministic is True
+
+
 def test_execution_plan_not_executable():
     executor = get_step_executor()
     steps = [_step("codecompass_vector_search")]
@@ -368,6 +378,31 @@ def test_vp_adapter_ml_intern_train_lora_dry_run_executes(tmp_path):
     assert result.status == "success"
     assert result.outputs["training_status"] == "dry_run_completed"
     assert result.outputs["job_result"]["job_type"] == "train_lora"
+
+
+def test_vp_adapter_ml_intern_build_lora_dataset_executes(tmp_path):
+    executor = get_step_executor()
+    step = _step(
+        "ml_intern_build_lora_dataset",
+        metadata={
+            "dataset_root": str(tmp_path),
+            "output_path": "train.jsonl",
+            "format": "instruction",
+            "require_secret_scan": False,
+        },
+    )
+    result = executor.execute(
+        step,
+        artifacts={
+            "training_examples": [
+                {"instruction": "Erzeuge Todo JSON", "output": '{"tasks":[]}'},
+            ],
+        },
+        context={},
+    )
+    assert result.status == "success"
+    assert result.outputs["dataset_path"] == "train.jsonl"
+    assert result.outputs["dataset_status"] == "completed"
 
 
 def test_vp_adapter_ml_intern_train_lora_default_disabled(tmp_path):

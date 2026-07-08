@@ -80,15 +80,20 @@ Ausfuehrungspfad teilen.
 Visual-Process-Editor:
 
 ```text
+Step-Kind: ml_intern_build_lora_dataset
+Adapter:   MlInternLoraDatasetBuildService.build_dataset
+
 Step-Kind: ml_intern_train_lora
 Adapter:   MlInternTrainingJobService.train_lora
 ```
 
 Der Angular Visual Process Editor zeigt den Step unter der ML-Gruppe an und
-bietet Felder fuer Dataset-Pfad, Basismodell, Modus, Backend, GPU-Profil,
-Dataset-/Artifact-Root, Max-Steps und LoRA-Rank. Der Step bleibt default
-deaktiviert (`enabled=false`) und sollte fuer Live-Training mit `gate=true`
-verwendet werden.
+bietet fuer den Dataset-Step Felder fuer Dataset-Root, Quell-Dateien,
+Output-JSONL, Format, Max-Beispiele, Mindestlaengen und Secret-Scan. Der
+Training-Step bietet Felder fuer Dataset-Pfad, Basismodell, Modus, Backend,
+GPU-Profil, Dataset-/Artifact-Root, Max-Steps und LoRA-Rank. Der Training-Step
+bleibt default deaktiviert (`enabled=false`) und sollte fuer Live-Training mit
+`gate=true` verwendet werden.
 
 **Invarianten:**
 
@@ -188,15 +193,16 @@ Warum `ananta-todo-json` als erster Adapter:
 ## 6. Training-Pipeline (Schrittfolge)
 
 ```
-1. Dataset erstellen (data/training/lora/)
-2. dataset_validate  → dataset_validation_report.json
-3. Secret-Scan       → in report enthalten, blockiert bei Findings
-4. Dry-Run           → prüft Config/Pfade, kein GPU
-5. train_lora        → agent.ml_intern_training_runner + adapter_model.safetensors + training_log.jsonl
-6. evaluate_lora     → eval_report.json (base vs. adapter)
-7. [manuelles Approval] → adapter_registry.json: status=approved
-8. [optional] Routing aktivieren (lora_runtime.routing_enabled=true)
-9. [optional] Rollback → base_model_only
+1. Kuratierte Beispiele/JSONL-Quellen ablegen (data/training/lora/)
+2. ml_intern_build_lora_dataset → train.jsonl + train.jsonl.validation.json
+3. dataset_validate             → dataset_validation_report.json
+4. Secret-Scan                  → in report enthalten, blockiert bei Findings
+5. Dry-Run                      → prüft Config/Pfade, kein GPU
+6. train_lora                   → agent.ml_intern_training_runner + adapter_model.safetensors + training_log.jsonl
+7. evaluate_lora                → eval_report.json (base vs. adapter)
+8. [manuelles Approval]         → adapter_registry.json: status=approved
+9. [optional] Routing aktivieren (lora_runtime.routing_enabled=true)
+10. [optional] Rollback         → base_model_only
 
 Wenn ein passender approved Adapter gefunden wird, nutzt `/api/sgpt/execute` vor
 dem normalen CLI-Backend den lokalen `MlInternLoraInferenceService`. Dieser lädt
@@ -205,6 +211,24 @@ Adapter-Laden oder Inferenz fehlschlagen, entscheidet
 `lora_runtime.fallback_to_base_model`, ob auf den normalen Backend-Pfad
 zurückgefallen oder mit Fehler abgebrochen wird.
 ```
+
+### Wie sinnige Trainingsdaten entstehen
+
+Der produktive Pfad erzeugt Trainingsdaten nicht frei per LLM. Gute Beispiele
+entstehen aus explizit kuratierten Records, vorhandenen JSON/JSONL-Dateien oder
+vorherigen Visual-Process-Artefakten wie `training_examples`. Der Dataset-Builder:
+
+- akzeptiert Instruction-Records (`instruction`/`output`) oder Chat-Records
+  (`messages`)
+- normalisiert Alternativfelder wie `prompt`/`response`
+- entfernt exakte Duplikate
+- filtert zu kurze Instructions/Outputs
+- schreibt nur JSONL unter `dataset_root`
+- fuehrt anschliessend den bestehenden Dataset-Validator inklusive Secret-Scan aus
+
+Damit wird Verhalten trainiert, nicht fluechtiges Projektwissen: z. B. Todo-JSON,
+Review-Struktur, Planungsdisziplin oder sichere Ablehnungen. Aktuelle
+Repo-Fakten bleiben im RAG/CodeCompass-Layer.
 
 ---
 
