@@ -4,7 +4,7 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "performance-profiling-optimization-agent",
   "created": "2026-07-08",
-  "status": "todo",
+  "status": "done",
   "priority": "P0",
   "purpose": "Ananta soll aus der Fable/llama.cpp-Idee einen sicheren, reproduzierbaren Performance- und Profiling-Agenten machen: Codebase analysieren, Engpaesse finden, Hypothesen bilden, Patches nur in Sandbox testen, Benchmarks/Regressionen vergleichen und erst danach menschlichen Review vorbereiten.",
   "goal": "Ein Hub-gesteuerter Performance Profiling Agent nutzt vorhandene CodeCompass-Tools, WorkerToolRegistry, NativeWorkerRuntimeService, CommandPolicy und VerificationArtifacts, um Optimierungsvorschlaege belastbar zu machen. Keine AI-Performance-Behauptung ohne Baseline, Messdaten, Output-/Test-Regression und nachvollziehbare Provenance.",
@@ -97,7 +97,7 @@
     {
       "id": "PPA-M1",
       "title": "Ist-Zustand, Scope und Sicherheitsmodell klaeren",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "PPA-001",
         "PPA-002",
@@ -108,7 +108,7 @@
     {
       "id": "PPA-M2",
       "title": "Profiling-/Benchmark-Artefakte und Runner definieren",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "PPA-005",
         "PPA-006",
@@ -121,7 +121,7 @@
     {
       "id": "PPA-M3",
       "title": "CodeCompass-gestuetzte Hotspot-Analyse bauen",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "PPA-011",
         "PPA-012",
@@ -132,7 +132,7 @@
     {
       "id": "PPA-M4",
       "title": "Patch-Sandbox, Regression und Vergleich automatisieren",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "PPA-015",
         "PPA-016",
@@ -143,7 +143,7 @@
     {
       "id": "PPA-M5",
       "title": "Worker-/Hub-Orchestrierung und Policy-Gates integrieren",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "PPA-019",
         "PPA-020",
@@ -153,7 +153,7 @@
     {
       "id": "PPA-M6",
       "title": "UI/Trace, Reporting, Doku und Beispiel-Flows liefern",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "PPA-022",
         "PPA-023",
@@ -167,7 +167,7 @@
       "title": "Vorhandene Tool-/Runtime-Basis gegen Quellcode abgleichen",
       "type": "architecture-analysis",
       "milestone": "PPA-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "target_files": [
@@ -187,14 +187,15 @@
       "test_expectations": [
         "Review-Check listet alle referenzierten Dateien mit Existenzstatus.",
         "Schema-Check bestaetigt, dass die Todo-Datei gegen todos/todo.track.schema.json validierbar bleibt."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "PPA-002",
       "title": "Zielbild Performance Profiling Agent definieren",
       "type": "architecture-design",
       "milestone": "PPA-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "target_files": [
@@ -212,14 +213,15 @@
       "test_expectations": [
         "Docs enthalten einen Beispielablauf baseline -> profile -> propose -> sandbox -> benchmark -> regression -> review.",
         "Mindestens ein Negativbeispiel erklaert, warum ein cleverer Patch trotz Funktionalitaet abgelehnt wird, wenn Benchmark oder Regression verliert."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "PPA-003",
       "title": "Threat Model fuer selbstoptimierende Agenten festlegen",
       "type": "security-design",
       "milestone": "PPA-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -238,14 +240,15 @@
       "test_expectations": [
         "Policy-Test blockiert destructive/host-mutating Benchmark-Kommandos.",
         "Unit-Test prueft, dass ein Patch ohne approval_ref nicht auf main angewendet werden kann."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "PPA-004",
       "title": "Performance-Domainen und Benchmark-Modi definieren",
       "type": "architecture-design",
       "milestone": "PPA-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "target_files": [
@@ -263,14 +266,15 @@
       "test_expectations": [
         "Config-Test laedt Default-Profile ohne fehlende Keys.",
         "Dokumentationsbeispiel zeigt mindestens ein CPU-only und ein GPU-/lokale-LLM-Profil."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "PPA-005",
       "title": "BenchmarkRunArtifact v1 Schema erstellen",
       "type": "contract-model",
       "milestone": "PPA-M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -292,14 +296,15 @@
         "JSON-Schema-Test akzeptiert Minimal- und Vollbeispiel.",
         "Snapshot-Test verhindert unbeabsichtigte Schema-Breaks.",
         "Test prueft, dass env_sanitized keine API-Keys enthaelt."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "PPA-006",
       "title": "PerformanceComparisonArtifact v1 Schema erstellen",
       "type": "contract-model",
       "milestone": "PPA-M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -321,14 +326,15 @@
         "Unit-Test markiert kleine Messdeltas innerhalb Noise als inconclusive.",
         "Unit-Test verhindert passed, wenn baseline oder candidate fehlt.",
         "Snapshot-Test fuer 0%, +10%, -10% und flaky Faelle."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "PPA-007",
       "title": "OptimizationHypothesisArtifact v1 Schema erstellen",
       "type": "contract-model",
       "milestone": "PPA-M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "target_files": [
@@ -346,14 +352,15 @@
       "test_expectations": [
         "Schema-Test lehnt Hypothese ohne Evidence ab.",
         "Test prueft Serialisierung mehrerer Hotspot-Refs und betroffener Dateien."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "PPA-008",
       "title": "ExperimentPlanArtifact v1 fuer Patch- und Benchmark-Plan erstellen",
       "type": "contract-model",
       "milestone": "PPA-M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "target_files": [
@@ -376,14 +383,15 @@
         "Schema-Test akzeptiert plan_only ohne approval_ref.",
         "Schema-Test blockiert apply_sandbox_patch ohne rollback_plan.",
         "Roundtrip-Test JSON -> Model -> JSON ist stabil."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "PPA-009",
       "title": "BenchmarkRunnerService als deterministische Service-Fassade bauen",
       "type": "service-implementation",
       "milestone": "PPA-M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -406,14 +414,15 @@
         "Unit-Test mit echo/python Dummy-Benchmark erzeugt gueltiges BenchmarkRunArtifact.",
         "Timeout-Test erzeugt degraded/tool_timeout.",
         "Policy-Test blockiert nicht erlaubte Commands."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "PPA-010",
       "title": "Baseline-Manager und Reproduzierbarkeit bauen",
       "type": "service-implementation",
       "milestone": "PPA-M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "target_files": [
@@ -435,14 +444,15 @@
         "Unit-Test findet passende Baseline nach profile_id und fingerprints.",
         "Test markiert alte oder commit-fremde Baseline als stale.",
         "Test verhindert Secret-Leak in gespeicherten env-Daten."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "PPA-011",
       "title": "CodeCompass-Hotspot-Resolver bauen",
       "type": "service-implementation",
       "milestone": "PPA-M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "target_files": [
@@ -464,14 +474,15 @@
         "Fixture mit Symbolnamen mappt auf erwartete CandidateFiles.",
         "Missing-index-Test liefert degraded statt Crash.",
         "Graph-Test begrenzt max_nodes und max_depth."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "PPA-012",
       "title": "Profiler-Parser-Adapter einfuehren",
       "type": "adapter-implementation",
       "milestone": "PPA-M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "target_files": [
@@ -493,14 +504,15 @@
         "Parser-Fixtures erzeugen deterministische Observations.",
         "Unbekanntes Format erzeugt degraded/raw statt Exception.",
         "llama.cpp-Fixture extrahiert tokens/s, prompt processing und decode getrennt, sofern vorhanden."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "PPA-013",
       "title": "Bottleneck-Klassifikation und Hypothesen-Generator bauen",
       "type": "service-implementation",
       "milestone": "PPA-M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -522,14 +534,15 @@
         "Fixture 'copy time > compute time' erzeugt bus_bound Hypothese.",
         "Fixture ohne klare Evidenz erzeugt unknown mit niedriger confidence.",
         "Test prueft, dass Hypothesen ohne Evidence abgelehnt werden."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "PPA-014",
       "title": "Kontextpaket fuer Optimierungs-Worker bauen",
       "type": "context-orchestration",
       "milestone": "PPA-M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "target_files": [
@@ -552,14 +565,15 @@
         "Budget-Test kappt grosse Kontextpakete deterministisch.",
         "Policy-Test blockiert Pfade ausserhalb Workspace.",
         "Test prueft working_files werden priorisiert."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "PPA-015",
       "title": "PatchSandboxService fuer isolierte Kandidaten bauen",
       "type": "service-implementation",
       "milestone": "PPA-M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -581,14 +595,15 @@
         "Unit-Test wendet Dummy-Patch in Tempdir an und laesst Original unveraendert.",
         "Test blockiert absolute Pfade und Path-Traversal im Patch.",
         "Test erzeugt rollback_info und changed_files."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "PPA-016",
       "title": "RegressionGateService fuer Tests und Output-Diff bauen",
       "type": "service-implementation",
       "milestone": "PPA-M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -610,14 +625,15 @@
         "Test: schneller aber falscher Output wird rejected.",
         "Test: Tests fehlen -> blocked/inconclusive.",
         "Test: identischer Output + bessere Metrik -> candidate_passed."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "PPA-017",
       "title": "PerformanceComparator mit Noise- und Schwellenlogik bauen",
       "type": "service-implementation",
       "milestone": "PPA-M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "target_files": [
@@ -640,14 +656,15 @@
         "Median-Test ignoriert Ausreisser im erlaubten Rahmen.",
         "Test unter Mindestschwelle wird inconclusive.",
         "Test Regression in einer wichtigen Metrik blockiert accepted."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "PPA-018",
       "title": "ExperimentOrchestrator als Gesamtpipeline bauen",
       "type": "orchestration",
       "milestone": "PPA-M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -675,14 +692,15 @@
         "Happy-path-Test mit Dummy-Projekt produziert finalen Report.",
         "Failure-path-Test stoppt nach Regression-Fail.",
         "Plan-only-Test erzeugt keine Dateiaenderungen."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "PPA-019",
       "title": "ToolRegistry um Performance-Tools erweitern",
       "type": "tooling-integration",
       "milestone": "PPA-M5",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "target_files": [
@@ -706,14 +724,15 @@
         "Schema-Test prueft required Felder und risk_class.",
         "Registry-Test stellt sicher, dass Performance-Tools auftauchen.",
         "Policy-Test blockiert performance.run_benchmark ohne passende Capability."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "PPA-020",
       "title": "Hub Policy und Approval-Gates integrieren",
       "type": "policy-integration",
       "milestone": "PPA-M5",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": [
@@ -734,14 +753,15 @@
         "Test blockiert ungeprueften Shell-Command.",
         "Test erlaubt compare/report ohne Shell.",
         "Test blockiert echtes apply_patch ohne approval_ref."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "PPA-021",
       "title": "Worker-Prompt-/Instruction-Contract fuer Optimierungen definieren",
       "type": "worker-contract",
       "milestone": "PPA-M5",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "target_files": [
@@ -760,14 +780,15 @@
       "test_expectations": [
         "Contract-Snapshot enthaelt required sections.",
         "Test prueft, dass fehlende benchmark_refs im Worker-Ergebnis als invalid/degraded gelten."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "PPA-022",
       "title": "Trace-/Report-Darstellung fuer UI und TUI vorbereiten",
       "type": "ui-observability",
       "milestone": "PPA-M6",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "target_files": [
@@ -787,14 +808,15 @@
         "Model-Test akzeptiert PerformanceReport DTO.",
         "Snapshot-Test fuer Beispielreport.",
         "UI-Logik testet Status-Mapping."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "PPA-023",
       "title": "Beispielprojekt und Dummy-Benchmarks anlegen",
       "type": "test-fixtures",
       "milestone": "PPA-M6",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "target_files": [
@@ -813,14 +835,15 @@
         "CI-Test fuehrt Demo-Flow unter Zeitlimit aus.",
         "Regression-Fail-Fixture wird korrekt rejected.",
         "Performance-Gewinn-Fixture wird accepted oder inconclusive gemaess Schwelle."
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "PPA-024",
       "title": "Dokumentation mit Fable/llama.cpp-Lessons Learned schreiben",
       "type": "documentation",
       "milestone": "PPA-M6",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "target_files": [
@@ -838,7 +861,8 @@
       "test_expectations": [
         "Docs enthalten kompakten End-to-End-Flow.",
         "Review-Check: keine absoluten Behauptungen ohne Mess-/Kontext-Hinweis."
-      ]
+      ],
+      "progress_percent": 100
     }
   ],
   "critical_path_tasks": [
@@ -857,13 +881,13 @@
   "tasks_status_summary": {
     "total": 24,
     "by_status": {
-      "todo": 24,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 24
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 100,
     "by_priority": {
       "P0": 24
     },
@@ -873,15 +897,15 @@
     },
     "critical_path": {
       "total": 11,
-      "done": 0,
-      "remaining": 11
+      "done": 11,
+      "remaining": 0
     },
     "milestones": {
       "total": 6,
-      "todo": 6,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 6
     }
   },
   "tasks_type_summary": {
@@ -904,17 +928,18 @@
     }
   },
   "progress_summary": {
-    "state": "not_started",
-    "todo_remaining": 24,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 24
   },
   "summary_notes": [
     "Die Todo ist absichtlich als grosser Track geschrieben, weil das Feature mehrere Schichten beruehrt: Tooling, Policy, Artifacts, Benchmarking, CodeCompass, Worker-Vertrag und UI.",
     "Der Fable/llama.cpp-Fall wird als methodisches Muster genutzt: erfolgreiche und gescheiterte Optimierungen zaehlen beide, solange sie sauber gemessen und erklaert werden.",
-    "Erste Implementierung sollte mit kleinem Dummy-Projekt starten; GPU-/llama.cpp-spezifische Profile erst nach stabiler Pipeline."
+    "Erste Implementierung sollte mit kleinem Dummy-Projekt starten; GPU-/llama.cpp-spezifische Profile erst nach stabiler Pipeline.",
+    "Implementierung abgeschlossen: Performance-Artefakte, Runner, Parser, Sandbox, RegressionGate, Comparator, Orchestrator, Tool-Registrierung, Doku und Demo-Fixture sind umgesetzt und fokussiert verifiziert."
   ],
   "end_summaries": [
     {
