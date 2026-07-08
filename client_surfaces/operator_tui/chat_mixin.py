@@ -61,6 +61,18 @@ def _capture_snake_ask_trace(game: dict[str, object], data: dict[str, Any]) -> N
         game["last_snake_ask_summary"] = summary
 
 
+def format_performance_report_summary(report: dict[str, Any]) -> str:
+    """Return a compact TUI-safe performance report summary."""
+    comparison = report.get("comparison") if isinstance(report.get("comparison"), dict) else {}
+    regression = report.get("regression") if isinstance(report.get("regression"), dict) else {}
+    return "\n".join([
+        f"Performance: {report.get('status', 'unknown')} ({report.get('reason_code', 'unknown')})",
+        f"Regression: {regression.get('status', 'unknown')}",
+        f"Comparison: {comparison.get('pass_fail', 'unknown')} / {comparison.get('reason_code', 'unknown')}",
+        "Review required: yes",
+    ])
+
+
 class ChatMixin(ChatHistoryManagerMixin, ChatMessageFormatterMixin):
     """Mixin providing chat, notes, and ask-question functionality.
 

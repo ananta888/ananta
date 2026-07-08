@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/benchmark_run_artifact.v1.schema.json",
+  "title": "BenchmarkRunArtifact v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema",
+    "run_id",
+    "task_id",
+    "profile_id",
+    "command",
+    "cwd",
+    "env_sanitized",
+    "started_at",
+    "duration_seconds",
+    "exit_code",
+    "metrics",
+    "stdout_ref",
+    "stderr_ref",
+    "artifacts",
+    "hardware_fingerprint",
+    "software_fingerprint",
+    "warnings"
+  ],
+  "properties": {
+    "schema": { "const": "benchmark_run_artifact.v1" },
+    "run_id": { "type": "string", "minLength": 1 },
+    "task_id": { "type": "string", "minLength": 1 },
+    "profile_id": { "type": "string", "minLength": 1 },
+    "command": { "type": "string", "minLength": 1 },
+    "cwd": { "type": "string", "minLength": 1 },
+    "env_sanitized": { "type": "object" },
+    "started_at": { "type": "string", "minLength": 1 },
+    "duration_seconds": { "type": "number", "minimum": 0 },
+    "exit_code": { "type": "integer" },
+    "status": { "type": "string" },
+    "reason_code": { "type": "string" },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "throughput": {},
+        "latency": {},
+        "memory": {},
+        "cpu": {},
+        "gpu": {},
+        "io": {},
+        "tokens_per_second": {},
+        "wall_time": {},
+        "custom": {}
+      }
+    },
+    "stdout_ref": { "type": "string" },
+    "stderr_ref": { "type": "string" },
+    "artifacts": { "type": "array" },
+    "hardware_fingerprint": { "type": "object" },
+    "software_fingerprint": { "type": "object" },
+    "warnings": { "type": "array" }
+  }
+}

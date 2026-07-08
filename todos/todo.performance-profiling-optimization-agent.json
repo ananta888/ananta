@@ -278,7 +278,9 @@
         "agent/models.py",
         "tests/baselines/schemas/benchmark_run_artifact.v1.json"
       ],
-      "depends_on": [],
+      "depends_on": [
+        "PPA-005"
+      ],
       "acceptance_criteria": [
         "Schema enthaelt run_id, task_id, profile_id, command, cwd, env_sanitized, started_at, duration_seconds, exit_code, metrics, stdout_ref, stderr_ref, artifacts, hardware_fingerprint, software_fingerprint und warnings.",
         "Metrics sind typisiert: throughput, latency, memory, cpu, gpu, io, tokens_per_second, wall_time und custom.",
@@ -305,7 +307,9 @@
         "agent/models.py",
         "tests/baselines/schemas/performance_comparison_artifact.v1.json"
       ],
-      "depends_on": [],
+      "depends_on": [
+        "PPA-005"
+      ],
       "acceptance_criteria": [
         "Schema vergleicht baseline_run_id, candidate_run_id, metric_deltas, confidence, noise_estimate, pass_fail, reason_code und caveats.",
         "Es gibt getrennte Felder fuer code_delta, config_delta, data_delta und hardware_delta.",
@@ -356,7 +360,11 @@
         "docs/schemas/experiment_plan_artifact.v1.schema.json",
         "agent/models.py"
       ],
-      "depends_on": [],
+      "depends_on": [
+        "PPA-005",
+        "PPA-006",
+        "PPA-007"
+      ],
       "acceptance_criteria": [
         "Plan enthaelt steps, required_tools, patch_strategy, benchmark_matrix, regression_matrix, rollback_plan und human_review_gate.",
         "Jeder Step hat mode: analyze, profile, propose_patch, apply_sandbox_patch, run_benchmark, run_regression, compare, report.",
@@ -384,7 +392,9 @@
         "agent/services/native_worker_runtime_service.py",
         "tests/agent/services/test_benchmark_runner_service.py"
       ],
-      "depends_on": [],
+      "depends_on": [
+        "PPA-005"
+      ],
       "acceptance_criteria": [
         "Service fuehrt Benchmark-Kommandos ueber vorhandene CommandPolicy/NativeWorkerRuntime aus, nicht ueber ungepruefte subprocess-Sonderwege.",
         "Run-Ergebnisse werden als BenchmarkRunArtifact v1 normalisiert.",
@@ -411,7 +421,9 @@
         "data/performance-baselines/.gitkeep",
         "tests/agent/services/test_performance_baseline_service.py"
       ],
-      "depends_on": [],
+      "depends_on": [
+        "PPA-005"
+      ],
       "acceptance_criteria": [
         "Baseline-Artefakte koennen pro repo, branch/ref, profile_id, hardware_fingerprint und software_fingerprint abgelegt und wiedergefunden werden.",
         "Baseline-Auswahl bevorzugt exakt gleichen Fingerprint, faellt aber nachvollziehbar auf kompatible Baselines zurueck.",
@@ -438,7 +450,9 @@
         "agent/services/tools/codecompass_tools.py",
         "tests/agent/services/test_performance_hotspot_service.py"
       ],
-      "depends_on": [],
+      "depends_on": [
+        "PPA-012"
+      ],
       "acceptance_criteria": [
         "Hotspot-Resolver nimmt Profiler-Ausgaben oder Benchmark-Metriken entgegen und mappt sie auf Dateien/Symbole/Graph-Nodes.",
         "Resolver nutzt vorhandene codecompass.search_symbols, expand_graph und get_file_context Konzepte statt eigener Repo-Suche.",
@@ -493,7 +507,10 @@
         "agent/services/optimization_hypothesis_service.py",
         "tests/agent/services/test_optimization_hypothesis_service.py"
       ],
-      "depends_on": [],
+      "depends_on": [
+        "PPA-007",
+        "PPA-011"
+      ],
       "acceptance_criteria": [
         "Service erzeugt Hypothesen mit Bottleneck-Klassen compute_bound, memory_bound, io_bound, bus_bound, allocation_bound, algorithmic, concurrency, config_only und unknown.",
         "Jede Hypothese verweist auf Hotspot-, Benchmark- und CodeCompass-Evidence.",
@@ -520,7 +537,10 @@
         "agent/services/codecompass_context_service.py",
         "tests/agent/services/test_performance_context_orchestrator.py"
       ],
-      "depends_on": [],
+      "depends_on": [
+        "PPA-011",
+        "PPA-013"
+      ],
       "acceptance_criteria": [
         "Orchestrator baut fuer jede Hypothese ein begrenztes ContextPackage mit betroffenen Dateien, relevanten Tests, Benchmark-Skripten und Profiling-Evidence.",
         "Originaldateien werden nur ueber policy-geprueften get_file_context-Mechanismus aufgenommen.",
@@ -547,7 +567,9 @@
         "worker/core/tool_registry.py",
         "tests/agent/services/test_patch_sandbox_service.py"
       ],
-      "depends_on": [],
+      "depends_on": [
+        "PPA-008"
+      ],
       "acceptance_criteria": [
         "Patches werden zuerst als PatchArtifact/propose_patch behandelt und nur in Sandbox/Temp-Workspace angewendet.",
         "Main-Branch oder Original-Workspace werden ohne expliziten Apply-/Review-Schritt nicht veraendert.",
@@ -573,7 +595,10 @@
         "agent/services/regression_gate_service.py",
         "tests/agent/services/test_regression_gate_service.py"
       ],
-      "depends_on": [],
+      "depends_on": [
+        "PPA-009",
+        "PPA-015"
+      ],
       "acceptance_criteria": [
         "Gate fuehrt konfigurierte Regressionen nach Patch aus: Unit Tests, relevante Tests, Output-Diff und optional Golden-Sample-Vergleich.",
         "Ein Performance-Gewinn wird bei Regressionen nicht als accepted markiert.",
@@ -599,7 +624,11 @@
         "agent/services/performance_comparator_service.py",
         "tests/agent/services/test_performance_comparator_service.py"
       ],
-      "depends_on": [],
+      "depends_on": [
+        "PPA-006",
+        "PPA-009",
+        "PPA-016"
+      ],
       "acceptance_criteria": [
         "Comparator erzeugt PerformanceComparisonArtifact v1 aus Baseline- und Kandidaten-Runs.",
         "Konfigurierbare Mindestschwellen pro Metrik existieren, z.B. min_relative_improvement_percent.",
@@ -625,7 +654,16 @@
         "agent/services/performance_experiment_orchestrator.py",
         "tests/agent/services/test_performance_experiment_orchestrator.py"
       ],
-      "depends_on": [],
+      "depends_on": [
+        "PPA-008",
+        "PPA-009",
+        "PPA-011",
+        "PPA-013",
+        "PPA-014",
+        "PPA-015",
+        "PPA-016",
+        "PPA-017"
+      ],
       "acceptance_criteria": [
         "Pipeline orchestriert baseline -> profile -> hotspots -> hypotheses -> context -> patch proposal -> sandbox -> benchmark -> regression -> compare -> report.",
         "Jeder Schritt kann plan_only, execute oder skipped sein und erzeugt nachvollziehbare Artifacts.",
@@ -652,7 +690,11 @@
         "agent/services/ananta_tool_registry_service.py",
         "tests/services/test_performance_tool_schemas.py"
       ],
-      "depends_on": [],
+      "depends_on": [
+        "PPA-009",
+        "PPA-017",
+        "PPA-018"
+      ],
       "acceptance_criteria": [
         "Neue Tools sind registriert: performance.profile, performance.run_benchmark, performance.compare, performance.create_experiment_plan und performance.report.",
         "performance.profile/run_benchmark sind medium oder high risk, wenn Shell-Ausfuehrung erforderlich ist; compare/report bleiben low risk.",
@@ -846,10 +888,10 @@
     "total": 24,
     "by_type": {
       "architecture-analysis": 1,
-      "architecture-design": 3,
+      "architecture-design": 2,
       "security-design": 1,
       "contract-model": 4,
-      "service-implementation": 9,
+      "service-implementation": 7,
       "adapter-implementation": 1,
       "context-orchestration": 1,
       "orchestration": 1,

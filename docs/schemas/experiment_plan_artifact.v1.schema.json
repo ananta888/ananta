@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/experiment_plan_artifact.v1.schema.json",
+  "title": "ExperimentPlanArtifact v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema",
+    "plan_id",
+    "steps",
+    "required_tools",
+    "patch_strategy",
+    "benchmark_matrix",
+    "regression_matrix",
+    "rollback_plan",
+    "human_review_gate"
+  ],
+  "properties": {
+    "schema": { "const": "experiment_plan_artifact.v1" },
+    "plan_id": { "type": "string", "minLength": 1 },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["mode"],
+        "properties": {
+          "mode": {
+            "enum": ["analyze", "profile", "propose_patch", "apply_sandbox_patch", "run_benchmark", "run_regression", "compare", "report"]
+          },
+          "approval_ref": {}
+        }
+      }
+    },
+    "required_tools": { "type": "array" },
+    "patch_strategy": { "type": "object" },
+    "benchmark_matrix": { "type": "array" },
+    "regression_matrix": { "type": "array" },
+    "rollback_plan": { "type": "object" },
+    "human_review_gate": { "type": "object" }
+  }
+}

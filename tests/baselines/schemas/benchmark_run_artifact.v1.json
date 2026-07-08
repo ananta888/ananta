@@ -1,0 +1,21 @@
+{
+  "schema": "benchmark_run_artifact.v1",
+  "run_id": "run-demo",
+  "task_id": "task-demo",
+  "profile_id": "micro_benchmark",
+  "command": "python bench.py",
+  "cwd": "/workspace",
+  "env_sanitized": {},
+  "started_at": "2026-07-08T00:00:00+00:00",
+  "duration_seconds": 0.1,
+  "exit_code": 0,
+  "status": "completed",
+  "reason_code": "success",
+  "metrics": { "wall_time": { "samples": [0.1] } },
+  "stdout_ref": "ok",
+  "stderr_ref": "",
+  "artifacts": [],
+  "hardware_fingerprint": {},
+  "software_fingerprint": {},
+  "warnings": []
+}

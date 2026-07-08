@@ -1,0 +1,23 @@
+{
+  "schema": "performance_comparison_artifact.v1",
+  "comparison_id": "cmp-demo",
+  "baseline_run_id": "run-base",
+  "candidate_run_id": "run-candidate",
+  "metric_deltas": {
+    "wall_time": {
+      "baseline": 1.0,
+      "candidate": 0.9,
+      "absolute_delta": -0.1,
+      "relative_delta_percent": -10.0
+    }
+  },
+  "confidence": 0.8,
+  "noise_estimate": { "method": "single_or_median", "value": 0.0 },
+  "pass_fail": "passed",
+  "reason_code": "improvement_above_threshold",
+  "code_delta": {},
+  "config_delta": {},
+  "data_delta": {},
+  "hardware_delta": {},
+  "caveats": []
+}

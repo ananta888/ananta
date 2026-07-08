@@ -557,6 +557,82 @@ def build_default_registry() -> WorkerToolRegistry:
             description="Request a compact CodeCompass domain map.",
             resource_limits=ResourceLimits(timeout_seconds=10, max_output_chars=16_000, max_files_touched=1),
         ),
+        WorkerToolEntry(
+            id="performance.profile",
+            kind="performance",
+            capability_classes=("performance_profile",),
+            risk_class="medium",
+            side_effects=("artifact_profile",),
+            input_schema={
+                "required": ["profile_id", "command"],
+                "properties": {
+                    "profile_id": {"type": "string"},
+                    "command": {"type": "string"},
+                    "timeout_seconds": {"type": "integer"},
+                },
+            },
+            description="Run a policy-bound profiling command and emit ProfileObservation artifacts.",
+            resource_limits=ResourceLimits(timeout_seconds=60, max_output_chars=32_000, max_files_touched=4),
+        ),
+        WorkerToolEntry(
+            id="performance.run_benchmark",
+            kind="performance",
+            capability_classes=("performance_benchmark", "shell_execute"),
+            risk_class="high",
+            side_effects=("artifact_benchmark",),
+            input_schema={
+                "required": ["profile_id", "command"],
+                "properties": {
+                    "profile_id": {"type": "string"},
+                    "command": {"type": "string"},
+                    "warmup_runs": {"type": "integer"},
+                    "measured_runs": {"type": "integer"},
+                    "timeout_seconds": {"type": "integer"},
+                },
+            },
+            description="Run a benchmark through NativeWorkerRuntime and emit BenchmarkRunArtifact.",
+            resource_limits=ResourceLimits(timeout_seconds=120, max_output_chars=32_000, max_files_touched=8),
+        ),
+        WorkerToolEntry(
+            id="performance.compare",
+            kind="performance",
+            capability_classes=("performance_compare",),
+            risk_class="low",
+            side_effects=("artifact_performance_comparison",),
+            input_schema={
+                "required": ["baseline_run", "candidate_run"],
+                "properties": {
+                    "baseline_run": {"type": "object"},
+                    "candidate_run": {"type": "object"},
+                    "metric": {"type": "string"},
+                },
+            },
+            description="Compare benchmark artifacts with noise and regression awareness.",
+        ),
+        WorkerToolEntry(
+            id="performance.create_experiment_plan",
+            kind="performance",
+            capability_classes=("performance_plan",),
+            risk_class="low",
+            side_effects=("artifact_experiment_plan",),
+            input_schema={
+                "required": ["benchmark_command"],
+                "properties": {"benchmark_command": {"type": "string"}, "profile_id": {"type": "string"}},
+            },
+            description="Create a plan-only performance experiment artifact.",
+        ),
+        WorkerToolEntry(
+            id="performance.report",
+            kind="performance",
+            capability_classes=("performance_report",),
+            risk_class="low",
+            side_effects=("artifact_report",),
+            input_schema={
+                "required": ["trace_bundle"],
+                "properties": {"trace_bundle": {"type": "array"}},
+            },
+            description="Summarize performance experiment artifacts for human review.",
+        ),
     ]
     for entry in _DEFAULTS:
         registry.register(entry)

@@ -151,6 +151,25 @@ export interface ChContextGroup {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Performance Profiling Agent
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type ChPerformanceDecision = 'passed' | 'rejected' | 'inconclusive' | 'blocked' | 'failed';
+
+export interface ChPerformanceReportReadModel {
+  id: string;
+  status: ChPerformanceDecision;
+  reasonCode: string;
+  baselineRunId: string;
+  candidateRunId: string;
+  metricDeltas: Record<string, unknown>;
+  regressionStatus: string;
+  risk: 'low' | 'medium' | 'high' | 'critical';
+  artifactRefs: Array<{ kind: string; ref: string }>;
+  caveats: string[];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Agent Run Integration
 // ─────────────────────────────────────────────────────────────────────────────
 
