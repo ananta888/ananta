@@ -1,14 +1,11 @@
 """Tests fuer ml_intern_training_job_service (MLLORA-011..014/023)."""
 
 import json
-import pytest
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from agent.services.ml_intern_training_job_service import (
-    MlInternTrainingJobService,
-    get_training_job_service,
-)
+from agent.services.ml_intern_training_job_service import MlInternTrainingJobService
 
 
 def _svc(tmp_path: Path, enabled: bool = False, mode: str = "dry_run", backend: str = "mock"):
@@ -75,7 +72,12 @@ def test_dry_run_creates_artifacts(tmp_path):
 
 def test_dry_run_never_sets_approved_status(tmp_path):
     svc = _svc(tmp_path, enabled=True, mode="dry_run")
-    result = svc.submit_job({"job_type": "train_lora", "base_model": "x", "dataset_path": "d.jsonl", "output_dir": "out"})
+    result = svc.submit_job({
+        "job_type": "train_lora",
+        "base_model": "x",
+        "dataset_path": "d.jsonl",
+        "output_dir": "out",
+    })
     assert result.status not in ("approved", "trained")
     assert result.status == "dry_run_completed"
 
@@ -151,7 +153,10 @@ def test_risky_override_documented_in_report(tmp_path):
         "dataset_path": "d.jsonl",
         "output_dir": "out",
         "batch_size": 100,
-        "explicit_override": {"reason": "testing large batch on workstation with 40GB VRAM", "overrides": {"batch_size": 100}},
+        "explicit_override": {
+            "reason": "testing large batch on workstation with 40GB VRAM",
+            "overrides": {"batch_size": 100},
+        },
     })
     # Override-Reason landet in den Warnings
     assert any("override" in w.lower() for w in result.warnings)
@@ -174,7 +179,11 @@ def test_failed_status_with_simulated_oom(tmp_path):
     name = _write_dataset(tmp_path)
     svc = _svc(tmp_path, enabled=True, mode="live", backend="mock")
     # Mock den Backend-Runner um OOM zu simulieren
-    with patch.object(svc, "_invoke_backend_runner", return_value={"status": "failed", "errors": ["CUDA out of memory"], "warnings": []}):
+    with patch.object(
+        svc,
+        "_invoke_backend_runner",
+        return_value={"status": "failed", "errors": ["CUDA out of memory"], "warnings": []},
+    ):
         result = svc.submit_job({
             "job_type": "train_lora",
             "base_model": "x",
@@ -183,3 +192,57 @@ def test_failed_status_with_simulated_oom(tmp_path):
         })
     assert result.status == "failed"
     assert any("out of memory" in e for e in result.errors)
+
+
+def test_live_train_lora_invokes_repo_runner_with_spec(tmp_path):
+    name = _write_dataset(tmp_path)
+    svc = _svc(tmp_path, enabled=True, mode="live", backend="unsloth")
+
+    completed = MagicMock()
+    completed.returncode = 0
+    completed.stdout = "ok"
+    completed.stderr = ""
+
+    with patch("agent.services.ml_intern_training_job_service.subprocess.run", return_value=completed) as run:
+        result = svc.submit_job({
+            "job_type": "train_lora",
+            "base_model": "qwen2.5-coder-7b",
+            "dataset_path": name,
+            "output_dir": "out",
+            "max_steps": 1,
+        })
+
+    assert result.status == "trained"
+    cmd = run.call_args.kwargs.get("args") or run.call_args.args[0]
+    assert cmd[:3] == [sys.executable, "-m", "agent.ml_intern_training_runner"]
+    spec_path = Path(cmd[-1])
+    spec = json.loads(spec_path.read_text(encoding="utf-8"))
+    assert spec["backend"] == "unsloth"
+    assert spec["max_steps"] == 1
+    assert spec["external_network_allowed"] is False
+
+
+def test_training_job_api_submits_via_hub_route(client, admin_auth_header, app, tmp_path):
+    app.config["AGENT_CONFIG"] = {
+        **(app.config.get("AGENT_CONFIG") or {}),
+        "ml_intern_training": {
+            "enabled": True,
+            "mode": "dry_run",
+            "backend": "mock",
+            "artifact_root": str(tmp_path / "artifacts"),
+            "dataset_root": str(tmp_path / "datasets"),
+            "require_dataset_validation": False,
+            "require_secret_scan": False,
+        },
+    }
+
+    response = client.post(
+        "/api/ml-intern-training/jobs",
+        headers=admin_auth_header,
+        json={"job_type": "train_lora", "base_model": "x", "dataset_path": "train.jsonl"},
+    )
+
+    assert response.status_code == 202
+    payload = response.get_json()
+    assert payload["data"]["status"] == "dry_run_completed"
+    assert payload["data"]["job_type"] == "train_lora"

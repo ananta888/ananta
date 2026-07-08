@@ -12,8 +12,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import shlex
 import subprocess
+import sys
 import time
 import uuid
 from dataclasses import asdict, dataclass, field
@@ -21,13 +21,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from agent.services.ml_intern_training_config_service import (
-    normalize_ml_intern_training_config,
-    get_gpu_profile_defaults,
-)
 from agent.services.ml_intern_dataset_validation_service import (
     MlInternDatasetValidationService,
     get_dataset_validation_service,
+)
+from agent.services.ml_intern_training_config_service import (
+    get_gpu_profile_defaults,
+    normalize_ml_intern_training_config,
 )
 
 
@@ -85,7 +85,10 @@ class MlInternTrainingJobService:
         if not job_type:
             return self._fail(job_spec, "job_type is required")
         if job_type not in set(cfg.get("allowed_job_types") or []):
-            return self._fail(job_spec, f"job_type {job_type!r} not in allowed_job_types: {cfg.get('allowed_job_types')}")
+            return self._fail(
+                job_spec,
+                f"job_type {job_type!r} not in allowed_job_types: {cfg.get('allowed_job_types')}",
+            )
 
         # Sicherheitspruefungen
         val_errors = self._validate_job_spec(job_spec, cfg)
@@ -346,12 +349,16 @@ class MlInternTrainingJobService:
             "output_dir": str(artifact_dir),
             "method": job_spec.get("method", "qlora"),
             "backend": backend,
+            "external_network_allowed": bool(cfg.get("external_network_allowed", False)),
+            "max_steps": job_spec.get("max_steps"),
+            "num_train_epochs": job_spec.get("num_train_epochs"),
+            "target_modules": job_spec.get("target_modules"),
             **gpu_params,
         }
         spec_file = artifact_dir / "job_spec.json"
         spec_file.write_text(json.dumps(script_spec, indent=2), encoding="utf-8")
 
-        cmd = shlex.split(f"python -m agent.ml_intern_training_runner --spec {spec_file}")
+        cmd = [sys.executable, "-m", "agent.ml_intern_training_runner", "--spec", str(spec_file)]
         timeout = int(cfg.get("timeout_seconds") or 3600)
         try:
             result = subprocess.run(
@@ -368,7 +375,11 @@ class MlInternTrainingJobService:
             log_path = artifact_dir / "training_log.jsonl"
             log_path.write_text(json.dumps({"stdout": stdout, "stderr": stderr}) + "\n", encoding="utf-8")
             if result.returncode != 0:
-                return {"status": "failed", "errors": [f"runner exited with code {result.returncode}: {stderr[:512]}"], "warnings": []}
+                return {
+                    "status": "failed",
+                    "errors": [f"runner exited with code {result.returncode}: {stderr[:512]}"],
+                    "warnings": [],
+                }
             return {"status": "trained", "errors": [], "warnings": []}
         except subprocess.TimeoutExpired:
             return {"status": "failed", "errors": [f"training timeout after {timeout}s"], "warnings": []}
@@ -408,14 +419,24 @@ class MlInternTrainingJobService:
 
         if batch is not None and int(batch) > max_bs:
             if override_reason:
-                warnings.append(f"batch_size {batch} exceeds profile limit {max_bs} (override: {override_reason[:100]})")
+                warnings.append(
+                    f"batch_size {batch} exceeds profile limit {max_bs} (override: {override_reason[:100]})"
+                )
             else:
-                warnings.append(f"batch_size {batch} exceeds profile hard limit {max_bs}; provide explicit_override.reason to proceed")
+                warnings.append(
+                    f"batch_size {batch} exceeds profile hard limit {max_bs}; "
+                    "provide explicit_override.reason to proceed"
+                )
         if seq is not None and int(seq) > max_seq:
             if override_reason:
-                warnings.append(f"max_seq_length {seq} exceeds profile limit {max_seq} (override: {override_reason[:100]})")
+                warnings.append(
+                    f"max_seq_length {seq} exceeds profile limit {max_seq} (override: {override_reason[:100]})"
+                )
             else:
-                warnings.append(f"max_seq_length {seq} exceeds profile hard limit {max_seq}; provide explicit_override.reason to proceed")
+                warnings.append(
+                    f"max_seq_length {seq} exceeds profile hard limit {max_seq}; "
+                    "provide explicit_override.reason to proceed"
+                )
         return warnings
 
     def _resolve_gpu_params(self, job_spec: dict, cfg: dict) -> dict:
@@ -427,7 +448,10 @@ class MlInternTrainingJobService:
             "lora_dropout": job_spec.get("lora_dropout", defaults["lora_dropout"]),
             "max_seq_length": job_spec.get("max_seq_length", defaults["max_seq_length"]),
             "batch_size": job_spec.get("batch_size", defaults["batch_size"]),
-            "gradient_accumulation_steps": job_spec.get("gradient_accumulation_steps", defaults["gradient_accumulation_steps"]),
+            "gradient_accumulation_steps": job_spec.get(
+                "gradient_accumulation_steps",
+                defaults["gradient_accumulation_steps"],
+            ),
             "learning_rate": job_spec.get("learning_rate", defaults["learning_rate"]),
         }
 

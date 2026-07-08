@@ -22,6 +22,7 @@ from agent.routes.hub_benchmark import hub_benchmark_bp
 from agent.routes.instruction_layers import instruction_layers_bp
 from agent.routes.integrations_workflows import integrations_workflows_bp
 from agent.routes.knowledge import knowledge_bp
+from agent.routes.ml_intern_training import ml_intern_training_bp
 from agent.routes.mcp import mcp_bp
 from agent.routes.ollama_benchmark import ollama_benchmark_bp
 from agent.routes.openai_compat import openai_compat_bp
@@ -90,6 +91,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(hub_direct_diagnostics_bp)
     app.register_blueprint(approvals_bp)
     app.register_blueprint(knowledge_bp)
+    app.register_blueprint(ml_intern_training_bp)
     app.register_blueprint(openai_compat_bp)
     app.register_blueprint(voice_bp)
     app.register_blueprint(mcp_bp)

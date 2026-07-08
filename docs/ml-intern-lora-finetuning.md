@@ -66,6 +66,17 @@ MlInternTrainingJobService.submit_job()
     └── merge_adapter_optional  [GPU, erfordert allow_merge=true]
 ```
 
+Hub-API-Einstieg:
+
+```text
+POST /api/ml-intern-training/jobs
+```
+
+Der Endpunkt ist admin-geschuetzt und ruft ausschliesslich den Hub-seitigen
+`MlInternTrainingJobService` auf. Er ist absichtlich getrennt von
+`/api/sgpt/execute`, damit Prompt-Inferenz und Training-Jobs nicht denselben
+Ausfuehrungspfad teilen.
+
 **Invarianten:**
 
 1. `MlInternTrainingJobService` ist niemals über `/api/sgpt/execute` erreichbar.
@@ -168,7 +179,7 @@ Warum `ananta-todo-json` als erster Adapter:
 2. dataset_validate  → dataset_validation_report.json
 3. Secret-Scan       → in report enthalten, blockiert bei Findings
 4. Dry-Run           → prüft Config/Pfade, kein GPU
-5. train_lora        → adapter_model.safetensors + training_log.jsonl
+5. train_lora        → agent.ml_intern_training_runner + adapter_model.safetensors + training_log.jsonl
 6. evaluate_lora     → eval_report.json (base vs. adapter)
 7. [manuelles Approval] → adapter_registry.json: status=approved
 8. [optional] Routing aktivieren (lora_runtime.routing_enabled=true)
@@ -231,9 +242,8 @@ Hermes (PEFT/LoRA-Orchestrator) kann als externer Vergleichspfad genutzt werden.
 
 ## Offene Fragen
 
-1. Soll der Training-Runner als Python-Modul im Repo liegen oder als externen
-   `command_template`-artigen Prozess gestartet werden?
-2. Soll es eine eigene API für Trainingsjobs geben oder nur Service-intern/CLI?
-3. Adapter-Routing: in bestehende Model-Profile integriert oder als separater `lora_runtime` Layer?
-4. Welche lokalen Basismodelle sind auf der RTX-3080 tatsächlich verfügbar?
-5. Welche Todo-/Review-Beispiele dürfen als Trainingsdaten genutzt werden?
+1. Adapter-Inferenz: Der aktuelle SGPT-Pfad berechnet `lora_runtime`-Routing als
+   Provenance. Eine echte Base+Adapter-Inferenz braucht einen Backend-spezifischen
+   Ladepunkt, der den approved Adapter vor der Modell-Ausfuehrung anwendet.
+2. Welche lokalen Basismodelle sind auf der RTX-3080 tatsächlich verfügbar?
+3. Welche Todo-/Review-Beispiele dürfen als Trainingsdaten genutzt werden?
