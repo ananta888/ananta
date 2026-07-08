@@ -1,0 +1,897 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "performance-profiling-optimization-agent",
+  "created": "2026-07-08",
+  "status": "todo",
+  "priority": "P0",
+  "purpose": "Ananta soll aus der Fable/llama.cpp-Idee einen sicheren, reproduzierbaren Performance- und Profiling-Agenten machen: Codebase analysieren, Engpaesse finden, Hypothesen bilden, Patches nur in Sandbox testen, Benchmarks/Regressionen vergleichen und erst danach menschlichen Review vorbereiten.",
+  "goal": "Ein Hub-gesteuerter Performance Profiling Agent nutzt vorhandene CodeCompass-Tools, WorkerToolRegistry, NativeWorkerRuntimeService, CommandPolicy und VerificationArtifacts, um Optimierungsvorschlaege belastbar zu machen. Keine AI-Performance-Behauptung ohne Baseline, Messdaten, Output-/Test-Regression und nachvollziehbare Provenance.",
+  "problem_statement": "Das hochgeladene Fable/llama.cpp-Transkript zeigt ein nuetzliches Muster: AI kann echte Bottlenecks finden, aber nur wenn Profiling, Benchmark vor/nachher, Output-Diff und Failures ehrlich ausgewertet werden. Fuer Ananta ist daraus kein 'AI schreibt einfach schnellen Code'-Feature abzuleiten, sondern ein kontrollierter Experiment-Orchestrator mit starken Gates.",
+  "source_review": {
+    "summary": "Der aktuelle Ananta-Code enthaelt bereits wichtige Grundlagen: WorkerToolRegistry mit ToolResult, ResourceLimits, ToolInvocationEnvelope und Default-Tools; CodeCompass-Tools fuer resolve_context/search_symbols/expand_graph/get_file_context/get_domain_map; NativeWorkerRuntimeService mit CommandPlan, CommandPolicy, execute_command_plan, test_result_artifact und verification_artifact. Die Todo baut darauf auf und fuehrt Performance-spezifische Artifacts, Runner, Comparator, Sandbox und Gates ein.",
+    "observed_source_files": [
+      {
+        "path": "worker/core/tool_registry.py",
+        "reason": "Enthaelt ToolResult, ResourceLimits, ToolInvocationEnvelope, WorkerToolEntry, WorkerToolRegistry und Default-Tools inklusive run_shell/run_tests/propose_patch/apply_patch und codecompass.*. Performance-Tools muessen hier oder ueber zentralen ToolCatalog sauber registriert werden."
+      },
+      {
+        "path": "agent/services/tools/codecompass_tools.py",
+        "reason": "Implementiert Hub-seitige CodeCompass Tool-Funktionen. Performance-Hotspot-Analyse sollte diese Kontextpfade nutzen, statt eigene unkontrollierte Repo-Suche zu bauen."
+      },
+      {
+        "path": "agent/services/native_worker_runtime_service.py",
+        "reason": "Fuehrt CommandPlan/execute/verify aus und erzeugt test_result_artifact/verification_artifact. BenchmarkRunner sollte diese Pipeline wiederverwenden."
+      },
+      {
+        "path": "todos/todo.track.schema.json",
+        "reason": "Schema fuer Todo-Tracks. Neue Todo-Datei muss version, owner, track, milestones, tasks und tasks_status_summary enthalten."
+      },
+      {
+        "path": "todos/archiv/todo.codecompass-context-tool-provider.json",
+        "reason": "Vorarbeit und Stilvorlage fuer umfangreiche Todo-Tracks mit Source Review, Milestones, feingranularen Tasks und Acceptance Criteria."
+      }
+    ]
+  },
+  "idea_explained": {
+    "short_version": "Nicht 'AI optimiert magisch Code', sondern 'AI wird zum messenden Experiment-Assistenten'.",
+    "core_loop": [
+      "Baseline messen",
+      "Profilingdaten sammeln",
+      "Hotspots mit CodeCompass auf Dateien/Symbole mappen",
+      "Hypothese mit Falsifikationskriterien erzeugen",
+      "Patch nur als Vorschlag/Sandbox anwenden",
+      "Benchmark vorher/nachher mehrfach vergleichen",
+      "Regressionen und Output-Diff pruefen",
+      "Report mit Entscheidung accepted/rejected/inconclusive/block erstellen",
+      "Mensch entscheidet ueber echten Merge"
+    ],
+    "improvements_over_raw_fable_demo": [
+      "Default-Deny Policy statt SSH-Freihandlauf",
+      "Artefakt-Schemas fuer Messungen und Vergleiche",
+      "Noise-/Flaky-Erkennung",
+      "Sandbox-Patches statt direkter Arbeitsbaum-Mutation",
+      "Pflicht fuer Regression und Output-Diff",
+      "Klare Trennung von Codegewinn, Konfigtuning und Hardwareeffekt",
+      "Kompatibel mit Ananta Hub/Worker/CodeCompass statt Einzelmodell-Experiment"
+    ]
+  },
+  "non_goals": [
+    "Kein automatisches Mergen AI-generierter Optimierungspatches.",
+    "Kein ungepruefter SSH-/Host-Zugriff auf Maschinen.",
+    "Kein Benchmark-Cherry-Picking als Erfolg.",
+    "Kein Ersatz fuer menschliches Verstaendnis bei komplexen Low-Level-Optimierungen.",
+    "Keine GPU-/llama.cpp-Spezialloesung als harter Kern; llama.cpp ist Beispielprofil, nicht einziges Ziel."
+  ],
+  "architecture_principles": [
+    "Messartefakte sind autoritativer als Modellbehauptungen.",
+    "CodeCompass ist Projektkarte und Kontextnavigation; Originaldateien und Tests bleiben autoritative Quellen.",
+    "Hub fuehrt Tools aus und setzt Policy; Worker schlagen vor und begruenden.",
+    "Jeder Performance Claim braucht Baseline, Candidate, Delta, Noise/Caveat und Regressionsergebnis.",
+    "Sandbox vor Apply: echte Workspace-/Main-Aenderungen brauchen Review/Approval.",
+    "Hardware- und Konfig-Abhaengigkeit wird explizit gespeichert.",
+    "Fehler und negative Ergebnisse sind wertvolle Ergebnisse und werden nicht versteckt.",
+    "Default-Deny fuer destruktive Commands, Secrets, Host-Mutation und Pfade ausserhalb Workspace."
+  ],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "milestones": [
+    {
+      "id": "PPA-M1",
+      "title": "Ist-Zustand, Scope und Sicherheitsmodell klaeren",
+      "status": "todo",
+      "task_ids": [
+        "PPA-001",
+        "PPA-002",
+        "PPA-003",
+        "PPA-004"
+      ]
+    },
+    {
+      "id": "PPA-M2",
+      "title": "Profiling-/Benchmark-Artefakte und Runner definieren",
+      "status": "todo",
+      "task_ids": [
+        "PPA-005",
+        "PPA-006",
+        "PPA-007",
+        "PPA-008",
+        "PPA-009",
+        "PPA-010"
+      ]
+    },
+    {
+      "id": "PPA-M3",
+      "title": "CodeCompass-gestuetzte Hotspot-Analyse bauen",
+      "status": "todo",
+      "task_ids": [
+        "PPA-011",
+        "PPA-012",
+        "PPA-013",
+        "PPA-014"
+      ]
+    },
+    {
+      "id": "PPA-M4",
+      "title": "Patch-Sandbox, Regression und Vergleich automatisieren",
+      "status": "todo",
+      "task_ids": [
+        "PPA-015",
+        "PPA-016",
+        "PPA-017",
+        "PPA-018"
+      ]
+    },
+    {
+      "id": "PPA-M5",
+      "title": "Worker-/Hub-Orchestrierung und Policy-Gates integrieren",
+      "status": "todo",
+      "task_ids": [
+        "PPA-019",
+        "PPA-020",
+        "PPA-021"
+      ]
+    },
+    {
+      "id": "PPA-M6",
+      "title": "UI/Trace, Reporting, Doku und Beispiel-Flows liefern",
+      "status": "todo",
+      "task_ids": [
+        "PPA-022",
+        "PPA-023",
+        "PPA-024"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "PPA-001",
+      "title": "Vorhandene Tool-/Runtime-Basis gegen Quellcode abgleichen",
+      "type": "architecture-analysis",
+      "milestone": "PPA-M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "target_files": [
+        "worker/core/tool_registry.py",
+        "agent/services/tools/codecompass_tools.py",
+        "agent/services/native_worker_runtime_service.py",
+        "todos/archiv/todo.codecompass-context-tool-provider.json"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Dokumentiert ist, welche vorhandenen Tool-IDs bereits real existieren: run_shell, plan_shell, propose_patch, apply_patch, run_tests und codecompass.*.",
+        "Der neue Track erfindet keinen zweiten CodeCompass-Kontextpfad, sondern nutzt codecompass.resolve_context/search_symbols/expand_graph/get_file_context/get_domain_map als Read-Kontextbasis.",
+        "Die vorhandene NativeWorkerRuntimeService-Pipeline fuer CommandPlan, execute_command_plan, test_result_artifact und verification_artifact ist als Integrationspunkt bewertet.",
+        "Unklare oder fehlende Implementierungen werden als Follow-up markiert, nicht still vorausgesetzt.",
+        "Die Analyse trennt klar zwischen bereits implementiert, Todo-Vorarbeit und neu zu bauenden Teilen."
+      ],
+      "test_expectations": [
+        "Review-Check listet alle referenzierten Dateien mit Existenzstatus.",
+        "Schema-Check bestaetigt, dass die Todo-Datei gegen todos/todo.track.schema.json validierbar bleibt."
+      ]
+    },
+    {
+      "id": "PPA-002",
+      "title": "Zielbild Performance Profiling Agent definieren",
+      "type": "architecture-design",
+      "milestone": "PPA-M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "target_files": [
+        "docs/architecture/performance-profiling-agent.md",
+        "todos/todo.performance-profiling-optimization-agent.json"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Das Zielbild beschreibt einen Hub-gesteuerten Agenten, der Code analysiert, Hotspots sucht, Hypothesen bildet, Patches nur vorschlaegt und Benchmarks/Regressionen zwingend auswertet.",
+        "Die Idee aus dem Fable/llama.cpp-Beispiel wird abstrahiert: Baseline messen, Profilingdaten lesen, Bottleneck begruenden, Patch in Sandbox testen, Ergebnis vergleichen.",
+        "Der Agent darf keine Performance-Behauptung ohne Messartefakt als Erfolg markieren.",
+        "Der Agent unterscheidet Codegewinn, Konfig-Tuning, Hardwareeffekt und Messrauschen.",
+        "Der menschliche Review bleibt Pflicht fuer Merge/Apply ausserhalb einer isolierten Sandbox."
+      ],
+      "test_expectations": [
+        "Docs enthalten einen Beispielablauf baseline -> profile -> propose -> sandbox -> benchmark -> regression -> review.",
+        "Mindestens ein Negativbeispiel erklaert, warum ein cleverer Patch trotz Funktionalitaet abgelehnt wird, wenn Benchmark oder Regression verliert."
+      ]
+    },
+    {
+      "id": "PPA-003",
+      "title": "Threat Model fuer selbstoptimierende Agenten festlegen",
+      "type": "security-design",
+      "milestone": "PPA-M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "docs/security/performance-profiling-agent-threat-model.md",
+        "agent/services/native_worker_runtime_service.py",
+        "worker/shell/command_policy.py"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Gefahren sind dokumentiert: Benchmark-Manipulation, Cherry-Picking, Test-Overfitting, Ressourcenmissbrauch, Secret-Leaks durch Profiler, ungepruefte AI-Patches und destructive Commands.",
+        "Profiling/Benchmark-Kommandos laufen nur ueber erlaubte Shell-Policy und Workspace-Grenzen.",
+        "Netzwerkzugriff, sudo, rm -rf, Host-Mount-Mutationen und System-Tuning ausserhalb erlaubter Sandbox sind default-deny.",
+        "Secrets, absolute Pfade und externe Cloud-Scope-Verletzungen werden durch Policy/Redaction blockiert.",
+        "Jede Entscheidung enthaelt reason_code und Audit-Spur."
+      ],
+      "test_expectations": [
+        "Policy-Test blockiert destructive/host-mutating Benchmark-Kommandos.",
+        "Unit-Test prueft, dass ein Patch ohne approval_ref nicht auf main angewendet werden kann."
+      ]
+    },
+    {
+      "id": "PPA-004",
+      "title": "Performance-Domainen und Benchmark-Modi definieren",
+      "type": "architecture-design",
+      "milestone": "PPA-M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "target_files": [
+        "docs/architecture/performance-profiling-agent.md",
+        "agent/config_defaults.py"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Mindestens die Modi micro_benchmark, integration_benchmark, model_runtime_benchmark, regression_test und exploratory_profile sind definiert.",
+        "Jeder Modus hat erlaubte Commands, Timeouts, Wiederholungen, Warmup-Regeln, Artifact-Pflichten und Abbruchbedingungen.",
+        "Model-Runtime-Faelle wie llama.cpp, n8n, RAG, CodeCompass-Indexing und lokale LLM-Adapter sind als erweiterbare Profile modelliert.",
+        "CPU/GPU/RAM/VRAM/IO/PCIe/Netzwerk werden als optionale Messdimensionen beschrieben, ohne Hardware-spezifische Annahmen hart zu codieren.",
+        "Nicht reproduzierbare Messungen landen im Status degraded statt success."
+      ],
+      "test_expectations": [
+        "Config-Test laedt Default-Profile ohne fehlende Keys.",
+        "Dokumentationsbeispiel zeigt mindestens ein CPU-only und ein GPU-/lokale-LLM-Profil."
+      ]
+    },
+    {
+      "id": "PPA-005",
+      "title": "BenchmarkRunArtifact v1 Schema erstellen",
+      "type": "contract-model",
+      "milestone": "PPA-M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "docs/schemas/benchmark_run_artifact.v1.schema.json",
+        "agent/models.py",
+        "tests/baselines/schemas/benchmark_run_artifact.v1.json"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Schema enthaelt run_id, task_id, profile_id, command, cwd, env_sanitized, started_at, duration_seconds, exit_code, metrics, stdout_ref, stderr_ref, artifacts, hardware_fingerprint, software_fingerprint und warnings.",
+        "Metrics sind typisiert: throughput, latency, memory, cpu, gpu, io, tokens_per_second, wall_time und custom.",
+        "stdout/stderr werden begrenzt referenziert; grosse Rohdaten werden als Artifact-Refs gefuehrt.",
+        "Hardware-Fingerprint ist datenschutzarm: keine Seriennummern, keine Secrets, keine Benutzerpfade.",
+        "Schema ist unabhaengig von einem konkreten Profiler nutzbar."
+      ],
+      "test_expectations": [
+        "JSON-Schema-Test akzeptiert Minimal- und Vollbeispiel.",
+        "Snapshot-Test verhindert unbeabsichtigte Schema-Breaks.",
+        "Test prueft, dass env_sanitized keine API-Keys enthaelt."
+      ]
+    },
+    {
+      "id": "PPA-006",
+      "title": "PerformanceComparisonArtifact v1 Schema erstellen",
+      "type": "contract-model",
+      "milestone": "PPA-M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "docs/schemas/performance_comparison_artifact.v1.schema.json",
+        "agent/models.py",
+        "tests/baselines/schemas/performance_comparison_artifact.v1.json"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Schema vergleicht baseline_run_id, candidate_run_id, metric_deltas, confidence, noise_estimate, pass_fail, reason_code und caveats.",
+        "Es gibt getrennte Felder fuer code_delta, config_delta, data_delta und hardware_delta.",
+        "Relative und absolute Verbesserungen werden gemeinsam angegeben.",
+        "Verbesserungen unter konfigurierter Mindestschwelle oder innerhalb Messrauschen werden als inconclusive markiert.",
+        "Ein fehlender Regressionstest blockiert pass_fail=passed."
+      ],
+      "test_expectations": [
+        "Unit-Test markiert kleine Messdeltas innerhalb Noise als inconclusive.",
+        "Unit-Test verhindert passed, wenn baseline oder candidate fehlt.",
+        "Snapshot-Test fuer 0%, +10%, -10% und flaky Faelle."
+      ]
+    },
+    {
+      "id": "PPA-007",
+      "title": "OptimizationHypothesisArtifact v1 Schema erstellen",
+      "type": "contract-model",
+      "milestone": "PPA-M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "target_files": [
+        "docs/schemas/optimization_hypothesis_artifact.v1.schema.json",
+        "agent/models.py"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Schema enthaelt hypothesis_id, hotspot_refs, suspected_bottleneck, expected_effect, affected_files, risk, required_measurements und falsification_criteria.",
+        "Jede Hypothese muss mindestens eine Evidence-/CodeCompass-/Profiling-Referenz enthalten.",
+        "Falsifizierbarkeit ist Pflicht: Es muss klar sein, wann die Idee als gescheitert gilt.",
+        "Hardware-Abhaengigkeit wird explizit modelliert.",
+        "Mehrere Hypothesen koennen einem ExperimentPlan zugeordnet werden."
+      ],
+      "test_expectations": [
+        "Schema-Test lehnt Hypothese ohne Evidence ab.",
+        "Test prueft Serialisierung mehrerer Hotspot-Refs und betroffener Dateien."
+      ]
+    },
+    {
+      "id": "PPA-008",
+      "title": "ExperimentPlanArtifact v1 fuer Patch- und Benchmark-Plan erstellen",
+      "type": "contract-model",
+      "milestone": "PPA-M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "target_files": [
+        "docs/schemas/experiment_plan_artifact.v1.schema.json",
+        "agent/models.py"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Plan enthaelt steps, required_tools, patch_strategy, benchmark_matrix, regression_matrix, rollback_plan und human_review_gate.",
+        "Jeder Step hat mode: analyze, profile, propose_patch, apply_sandbox_patch, run_benchmark, run_regression, compare, report.",
+        "Riskante Steps verlangen approval_ref oder bleiben plan_only.",
+        "Plan kann ohne Ausfuehrung als CommandPlanArtifact-kompatibler Vorschlag angezeigt werden.",
+        "Rollback fuer jede Sandbox-Aenderung ist beschrieben."
+      ],
+      "test_expectations": [
+        "Schema-Test akzeptiert plan_only ohne approval_ref.",
+        "Schema-Test blockiert apply_sandbox_patch ohne rollback_plan.",
+        "Roundtrip-Test JSON -> Model -> JSON ist stabil."
+      ]
+    },
+    {
+      "id": "PPA-009",
+      "title": "BenchmarkRunnerService als deterministische Service-Fassade bauen",
+      "type": "service-implementation",
+      "milestone": "PPA-M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "agent/services/benchmark_runner_service.py",
+        "worker/core/tool_registry.py",
+        "agent/services/native_worker_runtime_service.py",
+        "tests/agent/services/test_benchmark_runner_service.py"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Service fuehrt Benchmark-Kommandos ueber vorhandene CommandPolicy/NativeWorkerRuntime aus, nicht ueber ungepruefte subprocess-Sonderwege.",
+        "Run-Ergebnisse werden als BenchmarkRunArtifact v1 normalisiert.",
+        "Timeout, max_output_chars und max_artifact_bytes respektieren ResourceLimits.",
+        "Mehrfachlaeufe mit warmup_runs und measured_runs werden unter einer run_group_id zusammengefasst.",
+        "Fehlerhafte Commands erzeugen status=failed oder degraded mit reason_code statt Exception-Leak."
+      ],
+      "test_expectations": [
+        "Unit-Test mit echo/python Dummy-Benchmark erzeugt gueltiges BenchmarkRunArtifact.",
+        "Timeout-Test erzeugt degraded/tool_timeout.",
+        "Policy-Test blockiert nicht erlaubte Commands."
+      ]
+    },
+    {
+      "id": "PPA-010",
+      "title": "Baseline-Manager und Reproduzierbarkeit bauen",
+      "type": "service-implementation",
+      "milestone": "PPA-M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "target_files": [
+        "agent/services/performance_baseline_service.py",
+        "data/performance-baselines/.gitkeep",
+        "tests/agent/services/test_performance_baseline_service.py"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Baseline-Artefakte koennen pro repo, branch/ref, profile_id, hardware_fingerprint und software_fingerprint abgelegt und wiedergefunden werden.",
+        "Baseline-Auswahl bevorzugt exakt gleichen Fingerprint, faellt aber nachvollziehbar auf kompatible Baselines zurueck.",
+        "Veraltete Baselines werden als stale markiert, nicht still verwendet.",
+        "Baseline-Artefakte enthalten Provenance zum Commit/Workspace-Hash.",
+        "Keine grossen Rohlogs werden direkt in Git committed; nur kleine JSON-Metadaten oder refs."
+      ],
+      "test_expectations": [
+        "Unit-Test findet passende Baseline nach profile_id und fingerprints.",
+        "Test markiert alte oder commit-fremde Baseline als stale.",
+        "Test verhindert Secret-Leak in gespeicherten env-Daten."
+      ]
+    },
+    {
+      "id": "PPA-011",
+      "title": "CodeCompass-Hotspot-Resolver bauen",
+      "type": "service-implementation",
+      "milestone": "PPA-M3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "target_files": [
+        "agent/services/performance_hotspot_service.py",
+        "agent/services/tools/codecompass_tools.py",
+        "tests/agent/services/test_performance_hotspot_service.py"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Hotspot-Resolver nimmt Profiler-Ausgaben oder Benchmark-Metriken entgegen und mappt sie auf Dateien/Symbole/Graph-Nodes.",
+        "Resolver nutzt vorhandene codecompass.search_symbols, expand_graph und get_file_context Konzepte statt eigener Repo-Suche.",
+        "Jeder Hotspot erhaelt score, evidence_refs, suspected_layer und affected_files.",
+        "Wenn keine CodeCompass-Indizes vorhanden sind, wird degraded mit codecompass_index_unavailable ausgegeben.",
+        "Der Resolver kann auch einfache Textprofile ohne Spezialformat heuristisch auswerten."
+      ],
+      "test_expectations": [
+        "Fixture mit Symbolnamen mappt auf erwartete CandidateFiles.",
+        "Missing-index-Test liefert degraded statt Crash.",
+        "Graph-Test begrenzt max_nodes und max_depth."
+      ]
+    },
+    {
+      "id": "PPA-012",
+      "title": "Profiler-Parser-Adapter einfuehren",
+      "type": "adapter-implementation",
+      "milestone": "PPA-M3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "target_files": [
+        "agent/performance/profilers/base.py",
+        "agent/performance/profilers/python_time.py",
+        "agent/performance/profilers/pytest_benchmark.py",
+        "agent/performance/profilers/llama_cpp_log.py",
+        "tests/performance/test_profiler_parsers.py"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Parser liefern ein einheitliches ProfileObservation-Modell.",
+        "Mindestens generische wall-clock Logs, pytest-benchmark-artige Ausgaben und llama.cpp/log-token-Durchsatz sind als erste Adapter vorbereitet.",
+        "Unbekannte Formate werden als raw_observation mit warnings uebernommen.",
+        "Parser sind side-effect-free und lesen nur ueber erlaubte Artifact-/File-Refs.",
+        "Adapter koennen spaeter fuer perf, py-spy, Nsight, ROCm oder nvidia-smi erweitert werden."
+      ],
+      "test_expectations": [
+        "Parser-Fixtures erzeugen deterministische Observations.",
+        "Unbekanntes Format erzeugt degraded/raw statt Exception.",
+        "llama.cpp-Fixture extrahiert tokens/s, prompt processing und decode getrennt, sofern vorhanden."
+      ]
+    },
+    {
+      "id": "PPA-013",
+      "title": "Bottleneck-Klassifikation und Hypothesen-Generator bauen",
+      "type": "service-implementation",
+      "milestone": "PPA-M3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "agent/services/optimization_hypothesis_service.py",
+        "tests/agent/services/test_optimization_hypothesis_service.py"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Service erzeugt Hypothesen mit Bottleneck-Klassen compute_bound, memory_bound, io_bound, bus_bound, allocation_bound, algorithmic, concurrency, config_only und unknown.",
+        "Jede Hypothese verweist auf Hotspot-, Benchmark- und CodeCompass-Evidence.",
+        "Config-only Optimierungen werden von Code-Patches getrennt.",
+        "Der Service darf keine konkrete Codeaenderung als sicher darstellen, bevor Regression/Benchmark vorliegt.",
+        "Falsification criteria werden automatisch vorgeschlagen."
+      ],
+      "test_expectations": [
+        "Fixture 'copy time > compute time' erzeugt bus_bound Hypothese.",
+        "Fixture ohne klare Evidenz erzeugt unknown mit niedriger confidence.",
+        "Test prueft, dass Hypothesen ohne Evidence abgelehnt werden."
+      ]
+    },
+    {
+      "id": "PPA-014",
+      "title": "Kontextpaket fuer Optimierungs-Worker bauen",
+      "type": "context-orchestration",
+      "milestone": "PPA-M3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "target_files": [
+        "agent/services/performance_context_orchestrator.py",
+        "agent/services/codecompass_context_service.py",
+        "tests/agent/services/test_performance_context_orchestrator.py"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Orchestrator baut fuer jede Hypothese ein begrenztes ContextPackage mit betroffenen Dateien, relevanten Tests, Benchmark-Skripten und Profiling-Evidence.",
+        "Originaldateien werden nur ueber policy-geprueften get_file_context-Mechanismus aufgenommen.",
+        "ContextPackage trennt authoritative source files von abgeleiteten CodeCompass-Records.",
+        "Token-/Byte-Budgets werden hart eingehalten.",
+        "why_this_context erklaert fuer jede Datei den Bezug zur Hypothese."
+      ],
+      "test_expectations": [
+        "Budget-Test kappt grosse Kontextpakete deterministisch.",
+        "Policy-Test blockiert Pfade ausserhalb Workspace.",
+        "Test prueft working_files werden priorisiert."
+      ]
+    },
+    {
+      "id": "PPA-015",
+      "title": "PatchSandboxService fuer isolierte Kandidaten bauen",
+      "type": "service-implementation",
+      "milestone": "PPA-M4",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "agent/services/patch_sandbox_service.py",
+        "worker/core/tool_registry.py",
+        "tests/agent/services/test_patch_sandbox_service.py"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Patches werden zuerst als PatchArtifact/propose_patch behandelt und nur in Sandbox/Temp-Workspace angewendet.",
+        "Main-Branch oder Original-Workspace werden ohne expliziten Apply-/Review-Schritt nicht veraendert.",
+        "Sandbox enthaelt base_ref, patch_hash, changed_files und rollback_info.",
+        "Fehlgeschlagene Patch-Anwendung erzeugt failed mit patch_apply_failed und bewahrt Diagnostik.",
+        "Mehrere Patch-Kandidaten koennen getrennt verglichen werden."
+      ],
+      "test_expectations": [
+        "Unit-Test wendet Dummy-Patch in Tempdir an und laesst Original unveraendert.",
+        "Test blockiert absolute Pfade und Path-Traversal im Patch.",
+        "Test erzeugt rollback_info und changed_files."
+      ]
+    },
+    {
+      "id": "PPA-016",
+      "title": "RegressionGateService fuer Tests und Output-Diff bauen",
+      "type": "service-implementation",
+      "milestone": "PPA-M4",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "agent/services/regression_gate_service.py",
+        "tests/agent/services/test_regression_gate_service.py"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Gate fuehrt konfigurierte Regressionen nach Patch aus: Unit Tests, relevante Tests, Output-Diff und optional Golden-Sample-Vergleich.",
+        "Ein Performance-Gewinn wird bei Regressionen nicht als accepted markiert.",
+        "Output-Diff kann strict, normalized oder semantic_disabled auswerten; Default ist strict/normalized ohne LLM-Urteil.",
+        "Fehlende Regressionen markieren Kandidat als blocked oder inconclusive.",
+        "Gate erzeugt VerificationArtifact-kompatible Zusammenfassung."
+      ],
+      "test_expectations": [
+        "Test: schneller aber falscher Output wird rejected.",
+        "Test: Tests fehlen -> blocked/inconclusive.",
+        "Test: identischer Output + bessere Metrik -> candidate_passed."
+      ]
+    },
+    {
+      "id": "PPA-017",
+      "title": "PerformanceComparator mit Noise- und Schwellenlogik bauen",
+      "type": "service-implementation",
+      "milestone": "PPA-M4",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "target_files": [
+        "agent/services/performance_comparator_service.py",
+        "tests/agent/services/test_performance_comparator_service.py"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Comparator erzeugt PerformanceComparisonArtifact v1 aus Baseline- und Kandidaten-Runs.",
+        "Konfigurierbare Mindestschwellen pro Metrik existieren, z.B. min_relative_improvement_percent.",
+        "Mehrfachlaeufe werden mit Median/p95/Noise ausgewertet.",
+        "Flaky oder widerspruechliche Messungen werden inconclusive.",
+        "Report trennt Verbesserung, Verschlechterung, keine Aenderung und nicht vergleichbar."
+      ],
+      "test_expectations": [
+        "Median-Test ignoriert Ausreisser im erlaubten Rahmen.",
+        "Test unter Mindestschwelle wird inconclusive.",
+        "Test Regression in einer wichtigen Metrik blockiert accepted."
+      ]
+    },
+    {
+      "id": "PPA-018",
+      "title": "ExperimentOrchestrator als Gesamtpipeline bauen",
+      "type": "orchestration",
+      "milestone": "PPA-M4",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "agent/services/performance_experiment_orchestrator.py",
+        "tests/agent/services/test_performance_experiment_orchestrator.py"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Pipeline orchestriert baseline -> profile -> hotspots -> hypotheses -> context -> patch proposal -> sandbox -> benchmark -> regression -> compare -> report.",
+        "Jeder Schritt kann plan_only, execute oder skipped sein und erzeugt nachvollziehbare Artifacts.",
+        "Bei Fehlern wird der naechste riskante Schritt nicht blind ausgefuehrt.",
+        "Orchestrator kann ohne LLM mit vorgegebenem Patch/Command getestet werden.",
+        "Alle Artifact-IDs werden in einem trace_bundle zusammengefuehrt."
+      ],
+      "test_expectations": [
+        "Happy-path-Test mit Dummy-Projekt produziert finalen Report.",
+        "Failure-path-Test stoppt nach Regression-Fail.",
+        "Plan-only-Test erzeugt keine Dateiaenderungen."
+      ]
+    },
+    {
+      "id": "PPA-019",
+      "title": "ToolRegistry um Performance-Tools erweitern",
+      "type": "tooling-integration",
+      "milestone": "PPA-M5",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "target_files": [
+        "worker/core/tool_registry.py",
+        "agent/services/ananta_tool_registry_service.py",
+        "tests/services/test_performance_tool_schemas.py"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Neue Tools sind registriert: performance.profile, performance.run_benchmark, performance.compare, performance.create_experiment_plan und performance.report.",
+        "performance.profile/run_benchmark sind medium oder high risk, wenn Shell-Ausfuehrung erforderlich ist; compare/report bleiben low risk.",
+        "Input-Schemas verlangen profile_id/command oder artifact_refs und begrenzen runs/timeouts.",
+        "Side-effects sind korrekt gesetzt: artifact_benchmark, artifact_profile, sandbox_write; keine versteckten filesystem_write ohne Sandbox.",
+        "Capability Catalog zeigt Performance-Tools ohne Secrets oder interne Pfade."
+      ],
+      "test_expectations": [
+        "Schema-Test prueft required Felder und risk_class.",
+        "Registry-Test stellt sicher, dass Performance-Tools auftauchen.",
+        "Policy-Test blockiert performance.run_benchmark ohne passende Capability."
+      ]
+    },
+    {
+      "id": "PPA-020",
+      "title": "Hub Policy und Approval-Gates integrieren",
+      "type": "policy-integration",
+      "milestone": "PPA-M5",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "agent/services/tool_routing_service.py",
+        "agent/services/native_worker_runtime_service.py",
+        "worker/shell/command_policy.py",
+        "tests/agent/services/test_performance_policy_gates.py"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Exploratory Analyse und Report duerfen ohne Schreibrechte laufen.",
+        "Patch-Anwendung in Sandbox verlangt mindestens patch_apply_sandbox Capability; Apply auf echten Workspace verlangt explizite Review/Approval.",
+        "Shell-Kommandos werden gegen allowlist/denylist und ResourceLimits geprueft.",
+        "Cloud-Modelle erhalten keine sensiblen Profiling-/Quelltextdaten, wenn llm_scope dies verbietet.",
+        "Policy-Entscheidungen erscheinen in jedem Artifact als policy_decision_ref."
+      ],
+      "test_expectations": [
+        "Test blockiert ungeprueften Shell-Command.",
+        "Test erlaubt compare/report ohne Shell.",
+        "Test blockiert echtes apply_patch ohne approval_ref."
+      ]
+    },
+    {
+      "id": "PPA-021",
+      "title": "Worker-Prompt-/Instruction-Contract fuer Optimierungen definieren",
+      "type": "worker-contract",
+      "milestone": "PPA-M5",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "target_files": [
+        "docs/agent-profiles/performance-optimizer.md",
+        "agent/services/worker_contract_service.py",
+        "tests/agent/services/test_performance_worker_contract.py"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Worker-Instruktionen verbieten ungepruefte Erfolgsaussagen und verlangen Messartefakte.",
+        "Worker muss Hypothese, Risiko, Patch-Idee, Regressionserwartung und Abbruchbedingung trennen.",
+        "Worker darf bei unsicherer Evidenz 'inconclusive' ausgeben.",
+        "Contract beschreibt, dass AI-generierte Patches nicht direkt mainline-faehig sind, sondern Review brauchen.",
+        "Native, OpenCode, Codex-CLI und Claude-CLI koennen denselben strukturierten Auftrag erhalten."
+      ],
+      "test_expectations": [
+        "Contract-Snapshot enthaelt required sections.",
+        "Test prueft, dass fehlende benchmark_refs im Worker-Ergebnis als invalid/degraded gelten."
+      ]
+    },
+    {
+      "id": "PPA-022",
+      "title": "Trace-/Report-Darstellung fuer UI und TUI vorbereiten",
+      "type": "ui-observability",
+      "milestone": "PPA-M6",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "target_files": [
+        "frontend-angular/src/app/features/codehug/models/codehug.models.ts",
+        "client_surfaces/operator_tui/chat_mixin.py",
+        "docs/architecture/performance-profiling-agent.md"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Report zeigt Baseline, Kandidat, Delta, Regressionsergebnis, Risiko und Entscheidung kurz verstaendlich.",
+        "Trace zeigt jeden Pipeline-Step mit Artifact-Refs und reason_code.",
+        "UI/TUI unterscheidet accepted, rejected, inconclusive, blocked und failed.",
+        "Keine riesigen Logs werden inline angezeigt; grosse Artefakte bleiben refs.",
+        "Der Bericht ist fuer Unterricht/Demo geeignet: Was wurde gemessen, was wurde geaendert, warum akzeptiert/abgelehnt."
+      ],
+      "test_expectations": [
+        "Model-Test akzeptiert PerformanceReport DTO.",
+        "Snapshot-Test fuer Beispielreport.",
+        "UI-Logik testet Status-Mapping."
+      ]
+    },
+    {
+      "id": "PPA-023",
+      "title": "Beispielprojekt und Dummy-Benchmarks anlegen",
+      "type": "test-fixtures",
+      "milestone": "PPA-M6",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "target_files": [
+        "tests/fixtures/performance_demo/",
+        "tests/performance/test_performance_demo_flow.py"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Fixture enthaelt kleines Python- oder TypeScript-Projekt mit absichtlich langsamer Funktion und Tests.",
+        "Es gibt Baseline- und Kandidaten-Patch-Beispiel.",
+        "Benchmark ist schnell genug fuer CI und trotzdem messbar.",
+        "Regression-Fail-Beispiel ist enthalten.",
+        "Demo benoetigt keine GPU, kein Netzwerk und keine externen API-Keys."
+      ],
+      "test_expectations": [
+        "CI-Test fuehrt Demo-Flow unter Zeitlimit aus.",
+        "Regression-Fail-Fixture wird korrekt rejected.",
+        "Performance-Gewinn-Fixture wird accepted oder inconclusive gemaess Schwelle."
+      ]
+    },
+    {
+      "id": "PPA-024",
+      "title": "Dokumentation mit Fable/llama.cpp-Lessons Learned schreiben",
+      "type": "documentation",
+      "milestone": "PPA-M6",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "target_files": [
+        "docs/architecture/performance-profiling-agent.md",
+        "docs/examples/performance-profiling-agent-flow.md"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Dokumentation erklaert die uebertragbare Idee: AI nicht blind coden lassen, sondern messen, begruenden, patchen, vergleichen und reviewen.",
+        "Die llama.cpp-Erkenntnisse werden als Muster beschrieben: Memory/Bus/Compute-Bottleneck, Overlap, Pinning, gescheiterte adaptive Idee, Hardware-Abhaengigkeit.",
+        "Dokumentation warnt vor AI-PRs ohne menschliches Verstaendnis und Maintainer-Kontext.",
+        "Es gibt eine Checkliste fuer 'guter Optimierungsvorschlag' versus 'AI Slop Performance Claim'.",
+        "Dokumentation verweist auf die neuen Artifacts und Pipeline-Schritte."
+      ],
+      "test_expectations": [
+        "Docs enthalten kompakten End-to-End-Flow.",
+        "Review-Check: keine absoluten Behauptungen ohne Mess-/Kontext-Hinweis."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "PPA-001",
+    "PPA-003",
+    "PPA-005",
+    "PPA-006",
+    "PPA-009",
+    "PPA-015",
+    "PPA-016",
+    "PPA-017",
+    "PPA-018",
+    "PPA-020",
+    "PPA-021"
+  ],
+  "tasks_status_summary": {
+    "total": 24,
+    "by_status": {
+      "todo": 24,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 24
+    },
+    "by_risk": {
+      "medium": 15,
+      "high": 9
+    },
+    "critical_path": {
+      "total": 11,
+      "done": 0,
+      "remaining": 11
+    },
+    "milestones": {
+      "total": 6,
+      "todo": 6,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 24,
+    "by_type": {
+      "architecture-analysis": 1,
+      "architecture-design": 3,
+      "security-design": 1,
+      "contract-model": 4,
+      "service-implementation": 9,
+      "adapter-implementation": 1,
+      "context-orchestration": 1,
+      "orchestration": 1,
+      "tooling-integration": 1,
+      "policy-integration": 1,
+      "worker-contract": 1,
+      "ui-observability": 1,
+      "test-fixtures": 1,
+      "documentation": 1
+    }
+  },
+  "progress_summary": {
+    "state": "not_started",
+    "todo_remaining": 24,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "summary_notes": [
+    "Die Todo ist absichtlich als grosser Track geschrieben, weil das Feature mehrere Schichten beruehrt: Tooling, Policy, Artifacts, Benchmarking, CodeCompass, Worker-Vertrag und UI.",
+    "Der Fable/llama.cpp-Fall wird als methodisches Muster genutzt: erfolgreiche und gescheiterte Optimierungen zaehlen beide, solange sie sauber gemessen und erklaert werden.",
+    "Erste Implementierung sollte mit kleinem Dummy-Projekt starten; GPU-/llama.cpp-spezifische Profile erst nach stabiler Pipeline."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "deliverable",
+      "title": "Ergebnis nach Umsetzung",
+      "items": [
+        "Performance-Profiling-Agent kann reproduzierbare Optimierungsexperimente planen und ausfuehren.",
+        "Jede Optimierung hat Baseline, Candidate, Vergleich, Regression und Report.",
+        "AI-generierte Patches bleiben reviewpflichtig und werden nicht blind gemerged."
+      ]
+    },
+    {
+      "summary_id": "first_slice",
+      "title": "Sinnvoller erster Implementierungsschnitt",
+      "items": [
+        "Nur Schemas + BenchmarkRunner + Comparator + Dummy-Fixture bauen.",
+        "Danach erst CodeCompass-Hotspot-Mapping und PatchSandbox integrieren.",
+        "llama.cpp/GPU-Profile als spaeteres Spezialprofil, nicht als Startvoraussetzung."
+      ]
+    }
+  ]
+}
