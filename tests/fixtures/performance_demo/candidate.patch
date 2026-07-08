@@ -1,0 +1,11 @@
+diff --git a/slow_math.py b/slow_math.py
+index 6a9d998..b7b874c 100644
+--- a/slow_math.py
++++ b/slow_math.py
+@@ -1,5 +1,2 @@
+ def sum_to_n(n: int) -> int:
+-    total = 0
+-    for i in range(n + 1):
+-        total += i
+-    return total
++    return n * (n + 1) // 2
