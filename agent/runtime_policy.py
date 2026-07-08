@@ -221,12 +221,18 @@ def resolve_lora_adapter_routing(
         adapter = svc.resolve_active_adapter(base_model=base_model, task_kind=task_kind, approved_only=True)
         if adapter is None:
             return {**_NO_ADAPTER, "reason": "no_approved_adapter_for_model_and_task_kind"}
+        adapter_path = (
+            adapter.artifact_paths.get("adapter_dir")
+            or adapter.artifact_paths.get("adapter_path")
+            or adapter.artifact_paths.get("output_dir")
+        )
         return {
             "adapter_used": True,
             "adapter_id": adapter.adapter_id,
             "adapter_version": adapter.version,
             "base_model": adapter.base_model,
             "eval_report_ref": adapter.eval_report_ref,
+            "_adapter_path": adapter_path,
             "reason": "lora_approved_adapter_selected",
             "fallback_to_base_model": lora_rt.get("fallback_to_base_model", True),
         }

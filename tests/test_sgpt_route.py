@@ -197,6 +197,100 @@ def test_sgpt_execute_ml_intern_backend_when_enabled(client, admin_auth_header):
     assert response.json["data"]["output"] == "ml intern output"
 
 
+def _write_approved_lora_registry(tmp_path, *, fallback_to_base_model=True):
+    from agent.services.ml_intern_adapter_registry_service import MlInternAdapterRegistryService
+
+    adapter_dir = tmp_path / "adapter"
+    adapter_dir.mkdir()
+    registry_path = tmp_path / "adapter_registry.json"
+    registry = MlInternAdapterRegistryService(registry_path)
+    registry.register(
+        adapter_id="todo-json-v1",
+        display_name="Todo JSON",
+        version="1.0",
+        base_model="qwen2.5-coder-7b",
+        artifact_paths={"adapter_dir": str(adapter_dir)},
+        task_kinds=["analysis"],
+    )
+    registry.transition("todo-json-v1", "training")
+    registry.transition("todo-json-v1", "trained")
+    registry.set_eval_report("todo-json-v1", eval_report_ref="eval.json", eval_score=0.9)
+    registry.approve("todo-json-v1", approved_by="test", reason="good eval")
+    return {
+        "lora_runtime": {
+            "enabled": True,
+            "routing_enabled": True,
+            "approved_only": True,
+            "fallback_to_base_model": fallback_to_base_model,
+            "adapter_registry_path": str(registry_path),
+        }
+    }
+
+
+def test_sgpt_execute_uses_approved_lora_adapter_before_cli(client, admin_auth_header, app, tmp_path):
+    app.config["AGENT_CONFIG"] = {
+        **(app.config.get("AGENT_CONFIG") or {}),
+        **_write_approved_lora_registry(tmp_path),
+    }
+    with (
+        patch("agent.routes.sgpt.get_lora_inference_service") as lora_factory,
+        patch("agent.routes.sgpt.run_llm_cli_command") as cli_runner,
+    ):
+        lora_service = MagicMock()
+        lora_service.generate.return_value = '{"tasks":[]}'
+        lora_factory.return_value = lora_service
+        response = client.post(
+            "/api/sgpt/execute",
+            json={
+                "prompt": "make todo json",
+                "backend": "ananta-worker",
+                "model": "qwen2.5-coder-7b",
+                "task_kind": "todo_json_generation",
+            },
+            headers=admin_auth_header,
+        )
+
+    assert response.status_code == 200
+    data = response.json["data"]
+    assert data["backend"] == "lora_adapter"
+    assert data["output"] == '{"tasks":[]}'
+    assert data["lora_provenance"]["adapter_id"] == "todo-json-v1"
+    assert "_adapter_path" not in data["lora_provenance"]
+    cli_runner.assert_not_called()
+
+
+def test_sgpt_execute_lora_failure_falls_back_to_base_model(client, admin_auth_header, app, tmp_path):
+    app.config["AGENT_CONFIG"] = {
+        **(app.config.get("AGENT_CONFIG") or {}),
+        **_write_approved_lora_registry(tmp_path, fallback_to_base_model=True),
+    }
+    with (
+        patch("agent.routes.sgpt.get_lora_inference_service") as lora_factory,
+        patch("agent.routes.sgpt.run_llm_cli_command") as cli_runner,
+    ):
+        lora_service = MagicMock()
+        lora_service.generate.side_effect = RuntimeError("adapter load failed")
+        lora_factory.return_value = lora_service
+        cli_runner.return_value = (0, "base output", "", "ananta-worker")
+        response = client.post(
+            "/api/sgpt/execute",
+            json={
+                "prompt": "make todo json",
+                "backend": "ananta-worker",
+                "model": "qwen2.5-coder-7b",
+                "task_kind": "todo_json_generation",
+            },
+            headers=admin_auth_header,
+        )
+
+    assert response.status_code == 200
+    data = response.json["data"]
+    assert data["backend"] == "ananta-worker"
+    assert data["output"] == "base output"
+    assert data["lora_provenance"]["reason"] == "lora_adapter_failed_fell_back_to_base_model"
+    cli_runner.assert_called_once()
+
+
 def test_sgpt_backends_endpoint(client, admin_auth_header):
     with patch(
         "agent.llm_integration.probe_lmstudio_runtime",

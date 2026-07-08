@@ -184,6 +184,13 @@ Warum `ananta-todo-json` als erster Adapter:
 7. [manuelles Approval] → adapter_registry.json: status=approved
 8. [optional] Routing aktivieren (lora_runtime.routing_enabled=true)
 9. [optional] Rollback → base_model_only
+
+Wenn ein passender approved Adapter gefunden wird, nutzt `/api/sgpt/execute` vor
+dem normalen CLI-Backend den lokalen `MlInternLoraInferenceService`. Dieser lädt
+das Basismodell plus PEFT-Adapter und gibt `backend=lora_adapter` zurück. Wenn
+Adapter-Laden oder Inferenz fehlschlagen, entscheidet
+`lora_runtime.fallback_to_base_model`, ob auf den normalen Backend-Pfad
+zurückgefallen oder mit Fehler abgebrochen wird.
 ```
 
 ---
@@ -242,8 +249,5 @@ Hermes (PEFT/LoRA-Orchestrator) kann als externer Vergleichspfad genutzt werden.
 
 ## Offene Fragen
 
-1. Adapter-Inferenz: Der aktuelle SGPT-Pfad berechnet `lora_runtime`-Routing als
-   Provenance. Eine echte Base+Adapter-Inferenz braucht einen Backend-spezifischen
-   Ladepunkt, der den approved Adapter vor der Modell-Ausfuehrung anwendet.
-2. Welche lokalen Basismodelle sind auf der RTX-3080 tatsächlich verfügbar?
-3. Welche Todo-/Review-Beispiele dürfen als Trainingsdaten genutzt werden?
+1. Welche lokalen Basismodelle sind auf der RTX-3080 tatsächlich verfügbar?
+2. Welche Todo-/Review-Beispiele dürfen als Trainingsdaten genutzt werden?
