@@ -285,6 +285,16 @@ def test_execution_plan_vp_adapter():
     assert plan[0].executable is True
 
 
+def test_execution_plan_ml_intern_train_lora_vp_adapter():
+    executor = get_step_executor()
+    steps = [_step("ml_intern_train_lora", gate=True)]
+    plan = executor.execution_plan(steps)
+    assert plan[0].execution_mode == "vp_adapter"
+    assert plan[0].backend_service == "MlInternTrainingJobService.train_lora"
+    assert plan[0].risk_level == "high"
+    assert plan[0].requires_approval is True
+
+
 def test_execution_plan_not_executable():
     executor = get_step_executor()
     steps = [_step("codecompass_vector_search")]
@@ -335,6 +345,45 @@ def test_vp_adapter_query_rewrite_executes():
     assert "rewritten" in result.outputs
     # "fix" expands to repair/resolve
     assert result.outputs["rewritten"] != result.outputs.get("original", "")
+
+
+def test_vp_adapter_ml_intern_train_lora_dry_run_executes(tmp_path):
+    executor = get_step_executor()
+    step = _step(
+        "ml_intern_train_lora",
+        gate=True,
+        metadata={
+            "enabled": True,
+            "mode": "dry_run",
+            "backend": "mock",
+            "dataset_path": "train.jsonl",
+            "base_model": "qwen2.5-coder-7b",
+            "dataset_root": str(tmp_path / "datasets"),
+            "artifact_root": str(tmp_path / "artifacts"),
+            "require_dataset_validation": False,
+            "require_secret_scan": False,
+        },
+    )
+    result = executor.execute(step, artifacts={}, context={})
+    assert result.status == "success"
+    assert result.outputs["training_status"] == "dry_run_completed"
+    assert result.outputs["job_result"]["job_type"] == "train_lora"
+
+
+def test_vp_adapter_ml_intern_train_lora_default_disabled(tmp_path):
+    executor = get_step_executor()
+    step = _step(
+        "ml_intern_train_lora",
+        metadata={
+            "dataset_path": "train.jsonl",
+            "base_model": "qwen2.5-coder-7b",
+            "dataset_root": str(tmp_path / "datasets"),
+            "artifact_root": str(tmp_path / "artifacts"),
+        },
+    )
+    result = executor.execute(step, artifacts={}, context={})
+    assert result.status == "failed"
+    assert result.outputs["training_status"] == "disabled"
 
 
 def test_vp_adapter_sign_rotation_executes():

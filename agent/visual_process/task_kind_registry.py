@@ -32,6 +32,7 @@ WORKER_TASK_KINDS: frozenset[str] = frozenset({
 
 ML_TASK_KINDS: frozenset[str] = frozenset({
     "embed_api", "embed_chunk",
+    "ml_intern_train_lora",
     "turboquant_mse", "sign_rotation",
     "rag_retrieve", "rerank", "query_rewrite",
     "evolution_analyze", "evolution_validate", "evolution_apply",
@@ -378,6 +379,20 @@ _KIND_INFO: dict[str, TaskKindInfo] = {
         "deterministic": True, "uses_llm": False, "uses_network": False,
         "side_effects": [], "risk_level": "none",
         "legacy_aliases": [], "requires_approval": False,
+    },
+
+    # ── ML – Local LoRA training ─────────────────────────────────────────────
+    "ml_intern_train_lora": {
+        "id": "ml_intern_train_lora", "label": "ML-Intern: LoRA Training", "group": "ml", "dispatch_capable": False,
+        "description": (
+            "Hub-seitiger Visual-Process-Adapter fuer MlInternTrainingJobService.train_lora. "
+            "Default dry_run; live nutzt agent.ml_intern_training_runner mit unsloth/peft_trl."
+        ),
+        "implementation_status": "production", "implementation_state": "wired_and_executable",
+        "backend_service": "MlInternTrainingJobService.train_lora",
+        "deterministic": False, "uses_llm": False, "uses_network": False,
+        "side_effects": ["write_files", "shell_execution"], "risk_level": "high",
+        "legacy_aliases": [], "requires_approval": True,
     },
 
     # ── ML – Evolution (EvolutionService) ─────────────────────────────────────

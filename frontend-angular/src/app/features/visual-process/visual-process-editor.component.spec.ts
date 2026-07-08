@@ -7,6 +7,7 @@ import { of, throwError } from 'rxjs';
 import { VisualProcessEditorComponent } from './visual-process-editor.component';
 import { VisualProcessApiService, VpGraph, VpStep } from './visual-process-api.service';
 import { VpCanvasInteractionService } from './vp-canvas-interaction.service';
+import { FALLBACK_KINDS, nodeKindColor } from './vp-editor-config';
 import { VpImportExportService } from './vp-import-export.service';
 import { VpWorkflowRunnerService } from './vp-workflow-runner.service';
 
@@ -93,6 +94,14 @@ describe('VisualProcessEditorComponent (FSR-T015 acceptance)', () => {
     const after = component.graph().steps.length;
     expect(after).toBe(before + 1);
     expect(component.graph().steps[after - 1].kind).toBeTruthy();
+  });
+
+  it('has a fallback catalog entry for ML-Intern LoRA training', () => {
+    const kind = FALLBACK_KINDS.find(item => item.id === 'ml_intern_train_lora');
+    expect(kind).toBeDefined();
+    expect(kind?.requires_approval).toBe(true);
+    expect(kind?.risk_level).toBe('high');
+    expect(nodeKindColor('ml_intern_train_lora')).toBeTruthy();
   });
 
 it('routes validation calls through VpWorkflowRunnerService, not directly to api', () => {

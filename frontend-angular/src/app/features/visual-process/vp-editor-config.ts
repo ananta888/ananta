@@ -20,6 +20,7 @@ export const FALLBACK_KINDS: TaskKindInfo[] = [
   { id: 'codecompass_graph_expand',  label: 'CC: Graph-Expansion', group: 'retrieval', dispatch_capable: false, description: '', implementation_status: 'production', implementation_state: 'registered_only', risk_level: 'none', uses_llm: false, uses_network: false, side_effects: [] },
   { id: 'embed_api',       label: 'Embedding API',          group: 'ml',           dispatch_capable: false, description: '', implementation_status: 'production',     implementation_state: 'wired_and_executable', risk_level: 'none',     uses_llm: false, uses_network: true,  side_effects: ['network_egress'] },
   { id: 'embed_chunk',     label: 'Chunk + Einbetten',      group: 'ml',           dispatch_capable: false, description: '', implementation_status: 'production',     implementation_state: 'wired_and_executable', risk_level: 'none',     uses_llm: false, uses_network: true,  side_effects: ['read_workspace', 'network_egress'] },
+  { id: 'ml_intern_train_lora', label: 'ML-Intern: LoRA Training', group: 'ml',     dispatch_capable: false, description: '', implementation_status: 'production',     implementation_state: 'wired_and_executable', risk_level: 'high',     uses_llm: false, uses_network: false, side_effects: ['write_files', 'shell_execution'], requires_approval: true },
   { id: 'turboquant_mse',  label: 'TurboQuant MSE (experimentell)', group: 'ml',   dispatch_capable: false, description: '', implementation_status: 'experimental',   implementation_state: 'wired_and_executable', risk_level: 'none',     uses_llm: false, uses_network: false, side_effects: [] },
   { id: 'sign_rotation',   label: 'Sign-Rotation (TQ-011)', group: 'ml',           dispatch_capable: false, description: '', implementation_status: 'production',     implementation_state: 'wired_and_executable', risk_level: 'none',     uses_llm: false, uses_network: false, side_effects: [], deterministic: true },
   { id: 'rag_retrieve',    label: 'RAG Abruf',              group: 'ml',           dispatch_capable: false, description: '', implementation_status: 'production',     implementation_state: 'wired_and_executable', risk_level: 'none',     uses_llm: false, uses_network: false, side_effects: [] },
@@ -75,6 +76,7 @@ export function nodeKindColor(kind: string): string {
   if (RETRIEVAL_KINDS.has(kind)) return '#6c5ce7';
   if (EVOLUTION_KINDS.has(kind)) return '#e84393';
   if (WORKSPACE_KINDS.has(kind)) return '#b2bec3';
+  if (kind === 'ml_intern_train_lora') return '#fdcb6e';
   if (kind === 'turboquant_mse' || kind === 'sign_rotation') return '#00b894';
   if (kind === 'embed_api' || kind === 'embed_chunk') return '#00cec9';
   return '';

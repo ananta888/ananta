@@ -11,6 +11,7 @@ Adapters implemented here:
   turboquant_mse      — TurboQuantMseEncoder (TQ-012, experimental)
   workspace_snapshot  — WorkspaceDiffService.take_before_snapshot()
   workspace_diff      — WorkspaceDiffService.compute_diff() + synthesize_manifest()
+  ml_intern_train_lora — MlInternTrainingJobService.train_lora
 
 CodeCompass (codecompass_*), Evolution (evolution_*), and domain_cluster
 have implementation_state=registered_only — no adapter here, dry-run marks
@@ -42,6 +43,122 @@ class QueryRewriteAdapter(StepAdapter):
             executable=True,
             execution_reason="vp_adapter: synonym expansion (deterministic, no LLM, no network)",
         )
+
+
+# ── ML-Intern LoRA training ──────────────────────────────────────────────────
+
+class MlInternTrainLoraAdapter(StepAdapter):
+    @property
+    def kind(self) -> str:
+        return "ml_intern_train_lora"
+
+    def execute(self, step: VisualProcessStep, artifacts: dict[str, Any], context: dict[str, Any]) -> StepExecutionResult:
+        from agent.services.ml_intern_training_job_service import get_training_job_service
+
+        metadata = dict(step.metadata or {})
+        dataset_path = str(
+            artifacts.get("dataset_path")
+            or metadata.get("dataset_path")
+            or metadata.get("datasetPath")
+            or ""
+        ).strip()
+        base_model = str(
+            artifacts.get("base_model")
+            or metadata.get("base_model")
+            or metadata.get("baseModel")
+            or ""
+        ).strip()
+        if not dataset_path:
+            return StepExecutionResult(
+                status="failed",
+                executable=True,
+                backend_service="MlInternTrainingJobService",
+                execution_reason="ml_intern_train_lora: dataset_path is required",
+            )
+        if not base_model:
+            return StepExecutionResult(
+                status="failed",
+                executable=True,
+                backend_service="MlInternTrainingJobService",
+                execution_reason="ml_intern_train_lora: base_model is required",
+            )
+
+        training_cfg = self._training_config(metadata, context)
+        job_spec = self._job_spec(metadata, artifacts, dataset_path=dataset_path, base_model=base_model)
+        result = get_training_job_service(training_cfg).submit_job(job_spec)
+        status = "success" if result.status in {"dry_run_completed", "completed", "trained"} else "failed"
+        return StepExecutionResult(
+            status=status,
+            outputs={
+                "job_result": result.to_dict(),
+                "job_id": result.job_id,
+                "artifact_dir": result.artifact_dir,
+                "training_status": result.status,
+            },
+            diagnostics={"job_type": result.job_type, "errors": result.errors},
+            warnings=list(result.warnings),
+            backend_service="MlInternTrainingJobService",
+            executable=True,
+            execution_reason=f"vp_adapter: ml_intern train_lora status={result.status}",
+        )
+
+    @staticmethod
+    def _training_config(metadata: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+        cfg = dict(context.get("ml_intern_training") or {})
+        cfg.update(dict(metadata.get("training_config") or metadata.get("trainingConfig") or {}))
+        if "enabled" not in cfg:
+            cfg["enabled"] = bool(metadata.get("enabled", False))
+        if "mode" not in cfg:
+            cfg["mode"] = str(metadata.get("mode") or "dry_run")
+        if "backend" not in cfg:
+            cfg["backend"] = str(metadata.get("backend") or "mock")
+        for key in (
+            "artifact_root",
+            "dataset_root",
+            "gpu_profile",
+            "timeout_seconds",
+            "require_dataset_validation",
+            "require_secret_scan",
+            "external_network_allowed",
+        ):
+            if key in metadata and key not in cfg:
+                cfg[key] = metadata[key]
+        return cfg
+
+    @staticmethod
+    def _job_spec(
+        metadata: dict[str, Any],
+        artifacts: dict[str, Any],
+        *,
+        dataset_path: str,
+        base_model: str,
+    ) -> dict[str, Any]:
+        spec = {
+            "job_type": "train_lora",
+            "base_model": base_model,
+            "dataset_path": dataset_path,
+            "method": str(metadata.get("method") or "qlora"),
+            "output_dir": str(metadata.get("output_dir") or metadata.get("outputDir") or "vp-lora-adapter"),
+        }
+        for key in (
+            "batch_size",
+            "max_seq_length",
+            "gradient_accumulation_steps",
+            "learning_rate",
+            "lora_rank",
+            "lora_alpha",
+            "lora_dropout",
+            "load_in_4bit",
+            "max_steps",
+            "num_train_epochs",
+            "target_modules",
+            "explicit_override",
+        ):
+            if key in artifacts:
+                spec[key] = artifacts[key]
+            elif key in metadata:
+                spec[key] = metadata[key]
+        return spec
 
 
 # ── Reranker ──────────────────────────────────────────────────────────────────

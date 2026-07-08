@@ -156,6 +156,81 @@
 
     <!-- Kind-specific meta fields -->
 
+    <!-- ml_intern_train_lora: Hub-owned LoRA/QLoRA training job -->
+    @if (selectedStep()!.kind === 'ml_intern_train_lora') {
+      <div class="vpe-meta-section">
+        <div class="vpe-warn-note">⚠ LoRA-Training schreibt Artefakte und kann GPU/Shell auslösen. Dry-run ist der sichere Standard; Live-Läufe sollten gate=true nutzen.</div>
+        <label class="vpe-label">Dataset-Pfad
+          <input class="vpe-input" [ngModel]="stepMeta('dataset_path') || ''"
+                 (ngModelChange)="setStepMeta('dataset_path', $event)" placeholder="train.jsonl relativ zu dataset_root" />
+        </label>
+        <label class="vpe-label">Basismodell
+          <input class="vpe-input" [ngModel]="stepMeta('base_model') || 'qwen2.5-coder-7b'"
+                 (ngModelChange)="setStepMeta('base_model', $event)" />
+        </label>
+        <label class="vpe-label">Modus
+          <select class="vpe-input" [ngModel]="stepMeta('mode') || 'dry_run'"
+                  (ngModelChange)="setStepMeta('mode', $event)">
+            <option value="dry_run">dry_run</option>
+            <option value="live">live</option>
+          </select>
+        </label>
+        <label class="vpe-label">Backend
+          <select class="vpe-input" [ngModel]="stepMeta('backend') || 'mock'"
+                  (ngModelChange)="setStepMeta('backend', $event)">
+            <option value="mock">mock</option>
+            <option value="unsloth">unsloth</option>
+            <option value="peft_trl">peft_trl</option>
+          </select>
+        </label>
+        <label class="vpe-label">GPU-Profil
+          <select class="vpe-input" [ngModel]="stepMeta('gpu_profile') || 'rtx3080-safe'"
+                  (ngModelChange)="setStepMeta('gpu_profile', $event)">
+            <option value="rtx3080-safe">rtx3080-safe</option>
+            <option value="generic-safe">generic-safe</option>
+            <option value="none">none</option>
+          </select>
+        </label>
+        <label class="vpe-label">Dataset-Root
+          <input class="vpe-input" [ngModel]="stepMeta('dataset_root') || 'data/training/lora'"
+                 (ngModelChange)="setStepMeta('dataset_root', $event)" />
+        </label>
+        <label class="vpe-label">Artifact-Root
+          <input class="vpe-input" [ngModel]="stepMeta('artifact_root') || 'artifacts/lora'"
+                 (ngModelChange)="setStepMeta('artifact_root', $event)" />
+        </label>
+        <label class="vpe-label">Max Steps
+          <input class="vpe-input" type="number" min="1"
+                 [ngModel]="stepMeta('max_steps') ?? null"
+                 (ngModelChange)="setStepMeta('max_steps', $event === null ? undefined : +$event)" />
+        </label>
+        <label class="vpe-label">LoRA Rank
+          <input class="vpe-input" type="number" min="1" max="256"
+                 [ngModel]="stepMeta('lora_rank') ?? 16"
+                 (ngModelChange)="setStepMeta('lora_rank', +$event)" />
+        </label>
+        <label class="vpe-label">Output Dir
+          <input class="vpe-input" [ngModel]="stepMeta('output_dir') || 'vp-lora-adapter'"
+                 (ngModelChange)="setStepMeta('output_dir', $event)" />
+        </label>
+        <label class="vpe-label vpe-checkbox">
+          <input type="checkbox" [ngModel]="!!stepMeta('enabled')"
+                 (ngModelChange)="setStepMeta('enabled', $event)" />
+          Training-Service für diesen Step aktivieren
+        </label>
+        <label class="vpe-label vpe-checkbox">
+          <input type="checkbox" [ngModel]="stepMeta('require_dataset_validation') !== false"
+                 (ngModelChange)="setStepMeta('require_dataset_validation', $event)" />
+          Dataset-Validation erzwingen
+        </label>
+        <label class="vpe-label vpe-checkbox">
+          <input type="checkbox" [ngModel]="stepMeta('require_secret_scan') !== false"
+                 (ngModelChange)="setStepMeta('require_secret_scan', $event)" />
+          Secret-Scan erzwingen
+        </label>
+      </div>
+    }
+
     <!-- embed_api: HTTP-API oder lokal-hash — KEIN lokaler PyTorch/Transformer -->
     @if (selectedStep()!.kind === 'embed_api' || selectedStep()!.kind === 'vector_encode') {
       <div class="vpe-meta-section">

@@ -473,6 +473,36 @@ class TestVisualProcessAPI:
         assert "blueprint" in data
         assert "policy_summary" in data
 
+    def test_dry_run_marks_ml_intern_train_lora_executable(self, flask_client, tmp_path):
+        from agent.visual_process.models import VisualProcessGraph, VisualProcessStep
+
+        graph = VisualProcessGraph(
+            id="lora-flow",
+            name="LoRA Flow",
+            steps=[
+                VisualProcessStep(
+                    id="train",
+                    label="Train LoRA",
+                    kind="ml_intern_train_lora",
+                    gate=True,
+                    metadata={
+                        "dataset_path": "train.jsonl",
+                        "base_model": "qwen2.5-coder-7b",
+                        "artifact_root": str(tmp_path / "artifacts"),
+                        "dataset_root": str(tmp_path / "datasets"),
+                    },
+                )
+            ],
+        )
+
+        r = flask_client.post("/api/visual-process/dry-run", json=graph.model_dump())
+        assert r.status_code == 200
+        plan = r.get_json()["step_execution_plan"][0]
+        assert plan["kind"] == "ml_intern_train_lora"
+        assert plan["execution_mode"] == "vp_adapter"
+        assert plan["executable"] is True
+        assert plan["requires_approval"] is True
+
     def test_dry_run_includes_model_plan(self, flask_client, monkeypatch):
         from agent.services.model_profile_loader import ModelProfile
         from agent.services.model_profile_resolver import ModelProfileResolver, RoutingRules

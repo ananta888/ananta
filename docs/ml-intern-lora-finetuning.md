@@ -77,6 +77,19 @@ Der Endpunkt ist admin-geschuetzt und ruft ausschliesslich den Hub-seitigen
 `/api/sgpt/execute`, damit Prompt-Inferenz und Training-Jobs nicht denselben
 Ausfuehrungspfad teilen.
 
+Visual-Process-Editor:
+
+```text
+Step-Kind: ml_intern_train_lora
+Adapter:   MlInternTrainingJobService.train_lora
+```
+
+Der Angular Visual Process Editor zeigt den Step unter der ML-Gruppe an und
+bietet Felder fuer Dataset-Pfad, Basismodell, Modus, Backend, GPU-Profil,
+Dataset-/Artifact-Root, Max-Steps und LoRA-Rank. Der Step bleibt default
+deaktiviert (`enabled=false`) und sollte fuer Live-Training mit `gate=true`
+verwendet werden.
+
 **Invarianten:**
 
 1. `MlInternTrainingJobService` ist niemals über `/api/sgpt/execute` erreichbar.
