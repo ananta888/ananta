@@ -46,8 +46,12 @@ jobs:
 
       - name: Build (CMake File API reply required for RIG-003)
         run: |
-          cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-          cmake --build build
+          if [ -f CMakeLists.txt ]; then
+            cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+            cmake --build build
+          else
+            echo "::warning::No root CMakeLists.txt found; skipping optional RIG-003 CMake build"
+          fi
 
       - name: Install ananta dev extras (no network to upstream CRG/SPADE)
         run: |
@@ -55,6 +59,7 @@ jobs:
 
       - name: Import RIG snapshot (dry-run by default per CCRIG-DD-009)
         run: |
+          mkdir -p .codecompass
           python -m scripts.import_repository_intelligence_graph \
             --workspace-dir "$GITHUB_WORKSPACE" \
             --write-index \
@@ -64,6 +69,7 @@ jobs:
 
       - name: Compute blast radius
         run: |
+          mkdir -p .codecompass
           python -c "
           import json
           from worker.retrieval.codecompass_blast_radius import compute_blast_radius
