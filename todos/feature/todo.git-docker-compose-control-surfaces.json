@@ -1,0 +1,539 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "git-docker-compose-control-surfaces",
+  "created": "2026-07-09",
+  "status": "todo",
+  "priority": "P0",
+  "purpose": "Git, Docker und Docker Compose sollen in Ananta uebersichtlich, modern und sicher verwaltet werden koennen: einmal in der Angular App als visuelle Operations-Konsole und einmal im Operator TUI als schnelle Tastatur-/Terminal-Oberflaeche.",
+  "goal": "Ananta bietet eine einheitliche Control Surface fuer lokale Projekt-Repositories, Container, Images, Volumes, Netzwerke und Compose-Stacks. Lesen ist standardmaessig erlaubt, veraendernde Aktionen laufen ueber Policy Gates, Admin-/Rollenpruefung, Audit und optionale Human Approval. Angular und TUI nutzen dieselben Backend-Contracts statt eigene Shell-Logik zu duplizieren.",
+  "core_decision": "Backend-first: Git/Docker/Compose werden ueber stabile Services und REST-/Tool-Contracts im Hub/Agent verwaltet. Angular und Operator TUI sind nur Oberflaechen. Keine direkte Docker- oder Git-Shell-Ausfuehrung im Browser und keine unkontrollierten Mutationsbefehle im TUI.",
+  "non_goals": [
+    "Kein Ersatz fuer Portainer oder eine vollstaendige Docker-Desktop-Kopie im ersten Schritt.",
+    "Keine automatische Massenloeschung von Volumes, Images, Branches oder Remotes ohne explizite Approval.",
+    "Kein direkter Shell-Zugriff aus Angular auf den Host.",
+    "Kein Speichern von Docker-/Registry-/Git-Credentials im Frontend.",
+    "Kein Kubernetes-Management in diesem Track; Kubernetes wird spaeter eigener Track."
+  ],
+  "architecture_principles": [
+    "Single backend contract: Angular, TUI und Agent Tools verwenden dieselben GitDockerOps-Services.",
+    "Read-first UX: Status, Diagnose, Logs und Diffs sind schnell sichtbar; Start/Stop/Commit/Push/Prune bleiben bewusst gated.",
+    "Policy-aware operations: alle Mutationen werden gegen platform_governance, terminal_policy, execution_risk_policy und action_pack-Regeln geprueft.",
+    "Audit by default: jede mutierende Git-/Docker-/Compose-Aktion erzeugt einen strukturierten Audit-Eintrag mit Workspace, User, Aktion, Ziel und Ergebnis.",
+    "Workspace-scoped: Git- und Compose-Aktionen laufen nur in registrierten/erlaubten Workspace-Pfaden.",
+    "Portable local-first: Windows 11/WSL2, Linux und macOS/Colima sollen beruecksichtigt werden.",
+    "Progressive disclosure: einfache Ampeln und Cards fuer Teilnehmer, Detailansicht fuer Dozenten/Operatoren."
+  ],
+  "target_capabilities": {
+    "git": [
+      "Repository erkennen, Branch, Remote, Dirty State, geaenderte Dateien und letzte Commits anzeigen",
+      "Diffs lesen, staged/unstaged unterscheiden, Dateien selektiv stagen/unstagen",
+      "Commit mit validierter Commit Message erstellen",
+      "Pull/Fetch/Push mit Policy Gate und sichtbarem Ergebnis ausfuehren",
+      "Branch wechseln/anlegen nur nach Approval und nur im erlaubten Workspace"
+    ],
+    "docker": [
+      "Docker Engine erreichbar/nicht erreichbar erkennen",
+      "Containerliste mit Status, Ports, Image, Health, Uptime und Compose-Projekt anzeigen",
+      "Container logs, inspect-light, start, stop, restart anzeigen/ausfuehren",
+      "Images, Volumes und Netzwerke read-only sichtbar machen; Prune nur spaeter und approvalpflichtig"
+    ],
+    "docker_compose": [
+      "Compose-Dateien im Workspace erkennen und validieren",
+      "Compose-Projektstatus anzeigen: Services, Replicas, Ports, Health, Exit Codes",
+      "docker compose config/ps/logs/up/down/restart fuer erlaubte Projektpfade anbieten",
+      "Profile und Compose-Dateien aus docker/compose-next, docs/compose-profiles und alten Compose-Dateien migrierbar darstellen"
+    ],
+    "surfaces": [
+      "Angular: moderne Operations-Seite mit Tabs Git, Docker, Compose, Logs, Approvals",
+      "Operator TUI: schnelle Panels, Shortcuts, Detaildrawer und sichere Aktionsdialoge",
+      "Gemeinsame Statusmodelle und Fehlercodes fuer beide Oberflaechen"
+    ]
+  },
+  "suggested_backend_contract": {
+    "rest_endpoints": [
+      "GET /ops/git/status?workspace_id=...",
+      "GET /ops/git/diff?workspace_id=...&path=...&cached=false",
+      "POST /ops/git/stage",
+      "POST /ops/git/commit",
+      "POST /ops/git/push",
+      "GET /ops/docker/status",
+      "GET /ops/docker/containers",
+      "GET /ops/docker/containers/{id}/logs",
+      "POST /ops/docker/containers/{id}/action",
+      "GET /ops/compose/projects",
+      "GET /ops/compose/projects/{id}/status",
+      "GET /ops/compose/projects/{id}/logs",
+      "POST /ops/compose/projects/{id}/action"
+    ],
+    "tool_names": [
+      "git.status",
+      "git.diff",
+      "git.stage",
+      "git.commit",
+      "git.push",
+      "docker.status",
+      "docker.container_list",
+      "docker.container_logs",
+      "docker.container_action",
+      "compose.project_list",
+      "compose.project_status",
+      "compose.project_logs",
+      "compose.project_action"
+    ],
+    "action_policy": {
+      "read_actions": ["status", "diff", "list", "logs", "inspect_light", "config"],
+      "mutating_actions": ["stage", "unstage", "commit", "pull", "push", "start", "stop", "restart", "up", "down"],
+      "dangerous_actions": ["force_push", "reset_hard", "clean", "rm_volume", "prune", "compose_down_volumes"],
+      "default_dangerous_action": "deny"
+    }
+  },
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "milestones": [
+    {
+      "id": "GDC-M1",
+      "title": "Ist-Zustand und Contracts festlegen",
+      "task_ids": ["GDC-001", "GDC-002", "GDC-003", "GDC-004"],
+      "status": "todo"
+    },
+    {
+      "id": "GDC-M2",
+      "title": "Backend Services und Policy Gates",
+      "task_ids": ["GDC-005", "GDC-006", "GDC-007", "GDC-008", "GDC-009", "GDC-010"],
+      "status": "todo"
+    },
+    {
+      "id": "GDC-M3",
+      "title": "Angular Operations Console",
+      "task_ids": ["GDC-011", "GDC-012", "GDC-013", "GDC-014", "GDC-015"],
+      "status": "todo"
+    },
+    {
+      "id": "GDC-M4",
+      "title": "Operator TUI Modernisierung",
+      "task_ids": ["GDC-016", "GDC-017", "GDC-018", "GDC-019"],
+      "status": "todo"
+    },
+    {
+      "id": "GDC-M5",
+      "title": "Tests, Doku und Golden Path",
+      "task_ids": ["GDC-020", "GDC-021", "GDC-022", "GDC-023"],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "GDC-001",
+      "title": "Ist-Zustand Git-, Docker- und Compose-Dateien inventarisieren",
+      "type": "analysis",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "acceptance_criteria": [
+        "Alle vorhandenen Git-Tools, Docker-/Compose-Dateien, Setup-Skripte und TUI-/Angular-Bezugspunkte sind in einer kurzen Matrix dokumentiert.",
+        "Die Matrix unterscheidet read-only Funktionen, mutierende Funktionen und aktuell ungesicherte Shell-Aufrufe.",
+        "Mindestens agent/tools_git.py, client_surfaces/operator_tui/tools/git_read_tool.py, docker/compose-next, docker/old_way, docs/compose-profiles.md und frontend-angular sind geprueft."
+      ]
+    },
+    {
+      "id": "GDC-002",
+      "title": "Gemeinsames Domainmodell fuer GitDockerOps definieren",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Es gibt stabile TypedDict/Pydantic-Modelle oder vergleichbare DTOs fuer GitStatus, GitDiff, DockerContainerSummary, DockerEngineStatus, ComposeProjectSummary, ComposeServiceStatus und OpsActionResult.",
+        "Fehlercodes sind maschinenlesbar und frontendfreundlich, z.B. docker_not_found, docker_unreachable, compose_file_invalid, workspace_not_allowed, approval_required.",
+        "Modelle enthalten keine Secrets und keine ungekappte Log-Ausgabe."
+      ]
+    },
+    {
+      "id": "GDC-003",
+      "title": "Workspace- und Repository-Registry fuer Ops verwenden",
+      "type": "security-architecture",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Git-/Docker-/Compose-Aktionen akzeptieren keine beliebigen Pfade vom Client, sondern nur workspace_id oder registrierte Workspace-Roots.",
+        "Pfadnormalisierung verhindert Directory Traversal und Symlink-Ausbruch aus erlaubten Workspaces.",
+        "Fehlerfall workspace_not_allowed wird in Angular und TUI klar angezeigt."
+      ]
+    },
+    {
+      "id": "GDC-004",
+      "title": "UX-Skizze fuer Angular und TUI festlegen",
+      "type": "ux-design",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "acceptance_criteria": [
+        "Es gibt eine kurze Markdown- oder JSON-Skizze mit Navigation, Cards, Tabellen, Detaildrawer und Aktionsdialogen.",
+        "Angular und TUI zeigen dieselben Kerninformationen, aber jeweils passend fuer Maus/Browser bzw. Tastatur/Terminal.",
+        "Dozenten-/Teilnehmer-Sicht ist beruecksichtigt: einfache Ampelansicht plus Detailmodus."
+      ]
+    },
+    {
+      "id": "GDC-005",
+      "title": "GitOpsService als Backend-Fassade bauen",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Bestehende Git-Funktionen werden nicht dupliziert, sondern ueber GitOpsService konsolidiert oder sauber adaptiert.",
+        "git status, branch, changed files, recent commits und diff liefern strukturierte Daten statt nur stdout.",
+        "Timeouts, cwd, Fehlercodes und stdout/stderr-Kappung sind einheitlich geregelt.",
+        "Unit-Tests decken clean repo, dirty repo, no git, timeout und invalid workspace ab."
+      ]
+    },
+    {
+      "id": "GDC-006",
+      "title": "Git-Mutationen mit Approval und Audit absichern",
+      "type": "security-backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "stage, unstage, commit, pull und push pruefen Rollen, Action Pack, Workspace und Mutation Gate.",
+        "Commit Messages werden validiert und Fehler werden strukturiert zurueckgegeben.",
+        "Jede erfolgreiche und fehlgeschlagene mutierende Aktion erzeugt Audit-Metadaten.",
+        "Dangerous Actions wie reset --hard, clean -fd und force push sind initial nicht verfuegbar oder hart denied."
+      ]
+    },
+    {
+      "id": "GDC-007",
+      "title": "DockerEngineService implementieren",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Docker Engine Status erkennt Linux Docker, Docker Desktop, WSL2 und Colima soweit moeglich ueber CLI/API-Signale.",
+        "Containerliste enthaelt ID kurz, Name, Image, Status, Health, Ports, Labels, Compose-Projekt und Uptime.",
+        "Logs sind paginiert oder limitiert und koennen nach tail/seit/Service gefiltert werden.",
+        "Start/Stop/Restart sind policy-gated und auditiert."
+      ]
+    },
+    {
+      "id": "GDC-008",
+      "title": "DockerComposeService implementieren",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Compose-Dateien werden aus registrierten Workspaces und konfigurierten Compose-Pfaden erkannt.",
+        "docker compose config, ps und logs koennen read-only ausgefuehrt werden.",
+        "up, down, restart und pull sind nur mit Policy Gate und Approval moeglich.",
+        "Mehrere Compose-Dateien und Profile werden als Projektdefinition modelliert.",
+        "down --volumes ist initial denied oder als dangerous_action separat approvalpflichtig."
+      ]
+    },
+    {
+      "id": "GDC-009",
+      "title": "REST-Routen fuer Ops Control Surface bereitstellen",
+      "type": "api",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "GET-Endpunkte fuer Git, Docker und Compose liefern strukturierte JSON-Antworten im bestehenden API-Envelope-Stil.",
+        "POST-Endpunkte fuer Aktionen nehmen action, target, workspace_id/project_id und optional approval_token entgegen.",
+        "Auth, Admin-Required bei Mutationen und konsistente Fehlercodes sind getestet.",
+        "OpenAPI- oder Markdown-Kontrakt ist fuer Angular/TUI dokumentiert."
+      ]
+    },
+    {
+      "id": "GDC-010",
+      "title": "Tool-Registry fuer Git/Docker/Compose erweitern",
+      "type": "tooling",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Neue Toolnamen folgen Namespace-Schema git.*, docker.* und compose.*.",
+        "Read-only Tools koennen von Agenten genutzt werden, mutierende Tools benoetigen Policy- und Approval-Kontext.",
+        "Tool-Ausgaben sind kompakt, strukturierbar und enthalten keine Secrets.",
+        "Bestehende git_status/git_diff/git_log/git_commit/git_push bleiben kompatibel oder bekommen Deprecation-Hinweise."
+      ]
+    },
+    {
+      "id": "GDC-011",
+      "title": "Angular AgentApiService um Ops-Client erweitern",
+      "type": "frontend-api",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Es gibt einen separaten OpsApiClient fuer Git, Docker und Compose.",
+        "AgentApiService delegiert an OpsApiClient, ohne bestehende Clients aufzublaehen.",
+        "Typescript-Interfaces spiegeln die Backend-DTOs.",
+        "HTTP-Fehler werden in benutzerfreundliche Meldungen uebersetzt."
+      ]
+    },
+    {
+      "id": "GDC-012",
+      "title": "Angular Operations-Seite mit Tabs Git Docker Compose bauen",
+      "type": "frontend-ui",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Neue Route oder Navigationssektion 'Operations' ist vorhanden.",
+        "Tabs Git, Docker, Compose, Logs und Approvals sind sichtbar.",
+        "Git-Tab zeigt Branch, Remote, Dirty-State, Dateien, Diff-Preview und letzte Commits.",
+        "Docker-Tab zeigt Engine Status, Container Cards/Tabelle, Ports, Health und Aktionen.",
+        "Compose-Tab zeigt Projekte, Services, Profile, Status und Logs."
+      ]
+    },
+    {
+      "id": "GDC-013",
+      "title": "Angular Aktionsdialoge sicher gestalten",
+      "type": "frontend-security-ux",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Mutierende Aktionen zeigen Ziel, Workspace, Befehlskategorie, Risiko und erwartete Wirkung an.",
+        "Dangerous Actions sind klar markiert und initial deaktiviert, wenn Backend sie denied.",
+        "Commit/Push/Compose up/down/Container restart laufen nicht versehentlich durch einfachen Tabellenklick.",
+        "Erfolgs- und Fehlerzustand werden dauerhaft nachvollziehbar angezeigt."
+      ]
+    },
+    {
+      "id": "GDC-014",
+      "title": "Angular Live-Status und Log-Ansicht implementieren",
+      "type": "frontend-ui",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Status kann manuell aktualisiert werden und optional per Polling laufen.",
+        "Logs sind limitiert, kopierbar, filterbar und blockieren die UI nicht.",
+        "Bei Docker nicht erreichbar wird eine klare Diagnose angezeigt, z.B. Docker nicht installiert, Socket nicht erreichbar, WSL/Colima nicht gestartet.",
+        "Keine unendlichen Log-Streams ohne Stop/Timeout."
+      ]
+    },
+    {
+      "id": "GDC-015",
+      "title": "Angular Settings fuer Ops Policies ergaenzen",
+      "type": "frontend-config",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Settings enthalten docker_policy, compose_policy und git_workspace Erweiterungen oder eine gemeinsame ops_policy.",
+        "Admin kann read-only, mutating und dangerous Actions getrennt konfigurieren.",
+        "Defaults sind sicher: read-only an, mutating aus oder approvalpflichtig, dangerous denied.",
+        "Bestehende terminal_policy und mutation_gate werden sichtbar verknuepft statt widerspruechlich uebersteuert."
+      ]
+    },
+    {
+      "id": "GDC-016",
+      "title": "Operator TUI Hauptmenue um Ops-Bereich erweitern",
+      "type": "tui-ui",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "TUI hat einen klaren Einstieg fuer Git/Docker/Compose Operations.",
+        "Navigation funktioniert per Tastatur und zeigt Status-Ampeln fuer Git Dirty, Docker Engine und Compose Health.",
+        "TUI nutzt dieselben Backend-Contracts wie Angular und keine eigene divergierende Shell-Implementierung fuer neue Aktionen."
+      ]
+    },
+    {
+      "id": "GDC-017",
+      "title": "TUI Git-Panel modernisieren",
+      "type": "tui-ui",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Git-Panel zeigt Branch, geaenderte Dateien, letzte Commits und Diff-Preview.",
+        "Read-only Status ersetzt oder erweitert das bestehende GitReadTool sauber.",
+        "Mutierende Aktionen oeffnen bestaetigungspflichtige Dialoge und zeigen Policy-Fehler klar an."
+      ]
+    },
+    {
+      "id": "GDC-018",
+      "title": "TUI Docker-Panel bauen",
+      "type": "tui-ui",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Containerliste ist filterbar nach running/exited/compose project.",
+        "Containerdetails zeigen Ports, Health, Image, Labels und kurze Logs.",
+        "Start/Stop/Restart sind nur nach Bestaetigung moeglich und zeigen Ergebnis/Audit-ID."
+      ]
+    },
+    {
+      "id": "GDC-019",
+      "title": "TUI Compose-Panel bauen",
+      "type": "tui-ui",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Compose-Projekte werden mit Services, Status, Ports und Profilen angezeigt.",
+        "Logs pro Service koennen limitiert geladen werden.",
+        "up/down/restart sind approvalpflichtig und verwenden DockerComposeService."
+      ]
+    },
+    {
+      "id": "GDC-020",
+      "title": "Backend Unit- und Integrationstests fuer Ops Services schreiben",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "GitOpsService ist mit temporaeren Git-Repos getestet.",
+        "Docker/Compose Services sind mit Mock-Runnern getestet, damit CI ohne Docker stabil bleibt.",
+        "Optionaler E2E-Test mit Docker wird uebers Environment aktiviert und ist standardmaessig skipbar.",
+        "Policy-denied, approval-required und command-timeout sind getestet."
+      ]
+    },
+    {
+      "id": "GDC-021",
+      "title": "Angular und TUI Tests ergaenzen",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Angular-Komponenten testen Loading, Empty State, Docker unreachable, Policy denied und erfolgreiche Aktion.",
+        "TUI-Tests pruefen Navigation und Rendering der wichtigsten Statusmodelle.",
+        "Keine Tests benoetigen echte lokale Docker-Credentials oder echte GitHub-Remotes."
+      ]
+    },
+    {
+      "id": "GDC-022",
+      "title": "Golden-Path-Doku fuer Windows WSL2 macOS Colima Linux erstellen",
+      "type": "documentation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "acceptance_criteria": [
+        "Doku zeigt, wie Git, Docker und Docker Compose von Ananta erkannt werden.",
+        "Bekannte Probleme fuer WSL2 Docker Socket, Docker Gruppe, Colima nicht gestartet und fehlendes docker compose plugin sind enthalten.",
+        "Screenshots oder textuelle Walkthroughs fuer Angular Operations und TUI Ops sind vorhanden.",
+        "Dozentenmodus erklaert, wie Teilnehmerstatus schnell kontrolliert wird."
+      ]
+    },
+    {
+      "id": "GDC-023",
+      "title": "Migration alter Compose-Pfade vorbereiten",
+      "type": "migration",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "docker/old_way wird nicht sofort geloescht, aber Compose-Projekte werden als legacy markiert.",
+        "docker/compose-next wird als bevorzugter Pfad in UI und Doku dargestellt.",
+        "Es gibt Hinweise, welche Compose-Dateien produktiv, dev, lite, oidc oder ci sind.",
+        "Keine bestehende Quickstart- oder CI-Nutzung wird stillschweigend gebrochen."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "GDC-001",
+    "GDC-002",
+    "GDC-003",
+    "GDC-005",
+    "GDC-006",
+    "GDC-007",
+    "GDC-008",
+    "GDC-009",
+    "GDC-011",
+    "GDC-012",
+    "GDC-016",
+    "GDC-020"
+  ],
+  "tasks_status_summary": {
+    "total": 23,
+    "by_status": {
+      "todo": 23,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 10,
+      "P1": 11,
+      "P2": 1,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 4,
+      "medium": 14,
+      "high": 5,
+      "critical": 0
+    },
+    "critical_path": {
+      "total": 12,
+      "done": 0,
+      "remaining": 12
+    },
+    "milestones": {
+      "total": 5,
+      "todo": 5,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 23,
+    "by_type": {
+      "analysis": 1,
+      "architecture": 1,
+      "security-architecture": 1,
+      "ux-design": 1,
+      "backend": 3,
+      "security-backend": 1,
+      "api": 1,
+      "tooling": 1,
+      "frontend-api": 1,
+      "frontend-ui": 3,
+      "frontend-security-ux": 1,
+      "frontend-config": 1,
+      "tui-ui": 4,
+      "testing": 2,
+      "documentation": 1,
+      "migration": 1
+    }
+  },
+  "progress_summary": {
+    "state": "not_started",
+    "todo_remaining": 23,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "summary_notes": [
+    "Dieser Track baut bewusst auf vorhandenen Git-Ansaetzen auf, erweitert sie aber zu einem gemeinsamen Ops-Konzept fuer Git, Docker und Docker Compose.",
+    "Angular und TUI sollen nicht zwei getrennte Implementierungen bekommen, sondern dieselben Services und DTOs nutzen.",
+    "Der erste produktive Nutzen ist Uebersicht und Diagnose; veraendernde Aktionen kommen erst nach Policy-, Approval- und Audit-Absicherung."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "implementation_intent",
+      "title": "Zielbild",
+      "items": [
+        "Angular wird zur modernen Operations-Konsole fuer Git, Docker und Compose.",
+        "Operator TUI wird zur schnellen lokalen Admin-/Dozentenoberflaeche.",
+        "Backend-Services bleiben die einzige Stelle, an der Git-/Docker-/Compose-Befehle ausgefuehrt werden.",
+        "Alle riskanten Aktionen sind policy-gated, approvalpflichtig oder initial verboten."
+      ]
+    }
+  ]
+}
