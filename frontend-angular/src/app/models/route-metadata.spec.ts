@@ -16,6 +16,7 @@ describe('route metadata', () => {
       '/codehug',
       '/workspace',
       '/chats',
+      '/classroom',
       '/board',
       '/artifacts',
       '/markdown-slides',

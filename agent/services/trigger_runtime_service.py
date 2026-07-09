@@ -47,8 +47,18 @@ class TriggerRuntimeService:
     def verify_signature(self, *, source: str, payload_raw: bytes, signature: str) -> bool:
         return self._engine().verify_webhook_signature(source, payload_raw, signature)
 
-    def process_webhook(self, *, source: str, payload: dict, headers: dict | None = None, client_ip: str | None = None) -> dict:
+    def process_webhook(
+        self,
+        *,
+        source: str,
+        payload: dict,
+        headers: dict | None = None,
+        client_ip: str | None = None,
+    ) -> dict:
         return self._engine().process_webhook(source, payload, headers or {}, client_ip=client_ip)
+
+    def check_replay_and_dedup(self, *, source: str, payload: dict, headers: dict | None = None) -> dict | None:
+        return self._engine().check_replay_and_dedup(source, payload, headers or {})
 
     def preview_tasks(self, *, source: str, payload: dict) -> list[dict]:
         engine = self._engine()

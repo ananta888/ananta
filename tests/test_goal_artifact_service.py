@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -18,7 +19,13 @@ def _sha() -> str:
     return "a" * 64
 
 
-def _grant(goal_id: str, *, grant_id: str = "g01", expires_at: str | None = None, revoked_at: str | None = None) -> dict:
+def _grant(
+    goal_id: str,
+    *,
+    grant_id: str = "g01",
+    expires_at: str | None = None,
+    revoked_at: str | None = None,
+) -> dict:
     payload = {
         "schema": "source_artifact_grant.v1",
         "grant_id": grant_id,
@@ -88,12 +95,25 @@ def test_goal_graph_schema_validation_valid_and_invalid(tmp_path: Path) -> None:
     assert any("goal_id" in message for message in errors)
 
 
+def test_repository_recreates_missing_parent_directory(tmp_path: Path) -> None:
+    repository = GoalArtifactRepository(root=tmp_path)
+    shutil.rmtree(tmp_path / "artifacts")
+
+    graph = repository.get_graph("goal-recreate")
+
+    assert graph["goal_id"] == "goal-recreate"
+    assert (tmp_path / "artifacts" / "goals" / "goal-recreate.json").exists()
+
+
 def test_service_happy_path_with_output_provenance(tmp_path: Path) -> None:
     service = _service(tmp_path)
     goal_id = "goal-happy"
     service.create_grant(goal_id=goal_id, grant=_grant(goal_id))
     usage = service.record_usage(goal_id=goal_id, usage=_usage(goal_id))
-    output = service.record_output_artifact(goal_id=goal_id, output_artifact=_output(goal_id, input_refs=[usage["usage_id"]]))
+    output = service.record_output_artifact(
+        goal_id=goal_id,
+        output_artifact=_output(goal_id, input_refs=[usage["usage_id"]]),
+    )
     graph = service.get_goal_graph(goal_id)
     assert len(graph["source_grants"]) == 1
     assert len(graph["source_usages"]) == 1

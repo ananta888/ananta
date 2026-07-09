@@ -43,5 +43,6 @@ class GoalArtifactRepository:
         if errors:
             raise ValueError(f"goal_artifact_graph_invalid:{'; '.join(errors)}")
         path = self._path_for_goal(goal_id)
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(graph, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         return graph

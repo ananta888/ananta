@@ -251,11 +251,13 @@ class ClassroomEventGateway:
     def _check_dedup(self, event: dict) -> str | None:
         engine = self._trigger_engine
         if engine is None:
-            from agent.routes.tasks.triggers import trigger_engine as engine  # lazy: vermeidet Import-Zyklen
+            from agent.services.trigger_runtime_service import get_trigger_runtime_service
+
+            engine = get_trigger_runtime_service()
 
         result = engine.check_replay_and_dedup(
-            TRIGGER_SOURCE,
-            {"event_id": event["event_id"], "sequence_no": event["sequence_no"]},
+            source=TRIGGER_SOURCE,
+            payload={"event_id": event["event_id"], "sequence_no": event["sequence_no"]},
         )
         if result is not None and result.get("status") != "ok":
             return str(result.get("status"))
