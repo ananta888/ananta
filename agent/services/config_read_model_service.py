@@ -319,7 +319,12 @@ class ConfigReadModelService:
         capability_meta = capabilities_describer(capability_contract, allowed_tools=allowed_tools, is_admin=is_admin)
         settings_inventory = settings_inventory_builder()
         settings_summary = settings_summary_builder(cfg, teams, templates)
-        runtime_preflight = (get_integration_registry_service().list_execution_backends(include_preflight=True).get("preflight") or {})
+        runtime_preflight = (
+            get_integration_registry_service()
+            .list_execution_backends(include_preflight=True, preflight_scope="execution")
+            .get("preflight")
+            or {}
+        )
         return {
             "config": {"effective": cfg, "has_sensitive_redactions": True},
             "teams": {"count": len(teams), "items": teams},
@@ -369,7 +374,12 @@ class ConfigReadModelService:
         bench_rows, bench = benchmark_rows_builder(task_kind=benchmark_task_kind, top_n=8)
         valid_task_kind = benchmark_task_kind if benchmark_task_kind in benchmark_task_kinds else "analysis"
         benchmark_recommendation = benchmark_recommendation_builder(task_kind=valid_task_kind, cfg=cfg)
-        runtime_preflight = (get_integration_registry_service().list_execution_backends(include_preflight=True).get("preflight") or {})
+        runtime_preflight = (
+            get_integration_registry_service()
+            .list_execution_backends(include_preflight=True, preflight_scope="execution")
+            .get("preflight")
+            or {}
+        )
         retrieval_telemetry = self._build_retrieval_bundle_telemetry(tasks if include_task_snapshot else [])
         operations_observability = get_operations_observability_service().build_dashboard_summary(
             tasks=tasks if include_task_snapshot else [],

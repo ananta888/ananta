@@ -284,7 +284,11 @@ def dashboard_read_model():
             include_task_snapshot=include_task_snapshot,
             benchmark_rows_builder=shared.benchmark_rows_for_task,
             benchmark_recommendation_builder=shared.dashboard_benchmark_recommendation,
-            system_health_builder=lambda: build_system_health_payload(current_app, basic_mode=False),
+            system_health_builder=lambda: build_system_health_payload(
+                current_app,
+                basic_mode=False,
+                probe_providers=False,
+            ),
             contract_catalog_builder=lambda: get_system_contract_service().build_contract_catalog(),
             hub_copilot_summary_builder=shared.hub_copilot_settings_summary,
             context_policy_summary_builder=shared.context_bundle_policy_settings_summary,

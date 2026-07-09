@@ -4,6 +4,7 @@ from flask import Flask
 
 from agent.metrics import TASK_SUCCESS_RATE, WORKER_BUSY_SECONDS, WORKER_PROPOSE_DURATION_SECONDS
 from agent.routes.tasks.autopilot_tick_engine import _dispatch_one_task
+from agent.routes.tasks import autopilot_task_dispatcher
 
 
 def _sample_value(metric, sample_name: str) -> float:
@@ -58,11 +59,13 @@ def test_dispatch_populates_core_bottleneck_metrics(monkeypatch):
     services = SimpleNamespace(autopilot_decision_service=_DecisionService())
 
     monkeypatch.setattr(
-        "agent.routes.tasks.autopilot_model_selector._select_model_for_task",
+        autopilot_task_dispatcher,
+        "_select_model_for_task",
         lambda **kwargs: ("m1", {"selected_model": "m1", "source": "test"}),
     )
     monkeypatch.setattr(
-        "agent.routes.tasks.autopilot_strategy_candidates._proposal_strategy_candidates",
+        autopilot_task_dispatcher,
+        "_proposal_strategy_candidates",
         lambda **kwargs: [{"model": "m1", "source": "test", "temperature": None}],
     )
 

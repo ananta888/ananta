@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 shard_name="${1:-core-contracts-02}"
-shard_count="${2:-14}"
+shard_count="${2:-18}"
 
 tmp_matrix="$(mktemp)"
 trap 'rm -f "$tmp_matrix"' EXIT

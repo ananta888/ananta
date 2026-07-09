@@ -3,9 +3,11 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
+from sqlmodel import Session, delete
 
 from agent.config import settings
 from agent.db_models import AgentInfoDB, GoalDB, TaskDB
+from agent.database import engine
 from agent.repository import agent_repo, goal_repo, task_repo
 from agent.routes.tasks.auto_planner import auto_planner
 from agent.routes.tasks.autopilot_tick_engine import (
@@ -33,6 +35,28 @@ def _disable_followup_side_effects():
     finally:
         auto_planner.auto_followup_enabled = previous_followups
         auto_planner.auto_start_autopilot = previous_autostart
+
+
+@pytest.fixture(autouse=True)
+def _isolate_autopilot_queue(app):
+    """These tests assert one tick against one synthetic task and worker."""
+    base_agent_config = dict(app.config.get("AGENT_CONFIG") or {})
+
+    def _clear() -> None:
+        with Session(engine) as session:
+            session.exec(delete(TaskDB))
+            session.exec(delete(AgentInfoDB))
+            session.commit()
+        app.config["AGENT_CONFIG"] = dict(base_agent_config)
+        autonomous_loop._task_propose_streak = {}
+        autonomous_loop._task_propose_last_attempt_at = {}
+        autonomous_loop._task_propose_next_allowed_at = {}
+
+    _clear()
+    try:
+        yield
+    finally:
+        _clear()
 
 
 

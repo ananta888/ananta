@@ -243,55 +243,18 @@ def _db_runtime() -> dict[str, Any]:
 
 
 @pytest.fixture(autouse=True, scope="function")
-def _db_savepoint_isolation(monkeypatch):
+def _db_savepoint_isolation():
     """
-    Intercepts all SQLModel Session() constructions in the agent.database
-    module so that every test runs inside a SAVEPOINT.
+    Kept as a compatibility fixture for tests that rely on its autouse name.
 
-    Without this, tests that call get_session() or create their own
-    Session(engine) directly bypass the db_session/app fixtures and can
-    leave uncommitted rows that leak into the next test.
-
-    All Session instances created during the test share the same underlying
-    connection; on test exit every open session is rolled back and closed.
+    The previous implementation patched only ``agent.database.Session`` with
+    nested SQLite savepoints, while many repositories import ``sqlmodel.Session``
+    directly. Long shard runs then mixed savepoint-managed and direct sessions
+    and could leave SQLite with ``no such savepoint`` setup failures. The
+    cleanup_db_and_runtime fixture below owns test isolation by clearing all
+    known tables before and after each test.
     """
-    runtime = _db_runtime()
-    sessions_to_close: list = []
-
-    class _SavepointSession(runtime["Session"]):
-        """Session subclass that auto-creates a savepoint on begin()."""
-
-        def __init__(self, bind, **kw):
-            # SQLModel/SQLAlchemy passes bind=engine or bind=connection
-            super().__init__(bind=bind, **kw)
-            # Create a savepoint inside this session's transaction.
-            # begin_nested() opens a real nested transaction (SQLite SAVEPOINT).
-            self.begin_nested()
-            sessions_to_close.append(self)
-
-    # Monkey-patch the Session class inside the agent.database module so that
-    # every code path (routes, services, direct Session() calls) uses our
-    # savepoint-aware subclass instead of the plain SQLModel Session.
-    import agent.database as _db_module
-
-    _original_session_cls = _db_module.Session
-    monkeypatch.setattr(_db_module, "Session", _SavepointSession)
-
     yield
-
-    # Teardown: roll back every savepoint session created during this test.
-    for s in sessions_to_close:
-        try:
-            s.rollback()
-        except Exception:
-            pass
-        try:
-            s.close()
-        except Exception:
-            pass
-
-    # Restore the original class so subsequent tests get clean state.
-    monkeypatch.setattr(_db_module, "Session", _original_session_cls)
 
 
 @pytest.fixture

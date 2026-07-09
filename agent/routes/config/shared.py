@@ -716,8 +716,10 @@ def runtime_model_available(
         return any(str(item.get("id") or "").strip() == model for item in candidates)
     if provider == "ollama":
         return model in {"llama3", "mistral"} and bool(provider_urls.get("ollama"))
-    if provider in {"openai", "codex"}:
-        return model in {"gpt-4o", "gpt-4-turbo", "gpt-5-codex", "gpt-5-codex-mini"} and bool(
+    if provider == "codex":
+        return model in {"gpt-5-codex", "gpt-5-codex-mini"}
+    if provider == "openai":
+        return model in {"gpt-4o", "gpt-4-turbo"} and bool(
             provider_urls.get("openai") or current_app.config.get("OPENAI_API_KEY")
         )
     if provider == "anthropic":

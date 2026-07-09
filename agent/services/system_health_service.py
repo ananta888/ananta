@@ -41,7 +41,7 @@ def _component_status(statuses: list[str]) -> str:
     return "unknown"
 
 
-def build_system_health_payload(app: Flask, *, basic_mode: bool = False) -> dict[str, Any]:
+def build_system_health_payload(app: Flask, *, basic_mode: bool = False, probe_providers: bool = True) -> dict[str, Any]:
     checks: dict[str, Any] = {}
     agent_name = app.config.get("AGENT_NAME")
     role = str(settings.role or "worker").strip().lower()
@@ -96,12 +96,13 @@ def build_system_health_payload(app: Flask, *, basic_mode: bool = False) -> dict
         except Exception:
             return provider, "error"
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, len(active_providers))) as executor:
-        futures = [executor.submit(_check_provider, provider) for provider in active_providers]
-        for future in concurrent.futures.as_completed(futures):
-            provider, status = future.result()
-            if status:
-                llm_checks[provider] = status
+    if probe_providers:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, len(active_providers))) as executor:
+            futures = [executor.submit(_check_provider, provider) for provider in active_providers]
+            for future in concurrent.futures.as_completed(futures):
+                provider, status = future.result()
+                if status:
+                    llm_checks[provider] = status
 
     if llm_checks:
         checks["llm_providers"] = llm_checks
