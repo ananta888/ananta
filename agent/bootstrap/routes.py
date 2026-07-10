@@ -68,6 +68,7 @@ from agent.routes.run_control import run_control_bp
 from agent.routes.caseflow import caseflow_bp
 from agent.routes.caseflow_discovery import discovery_bp
 from agent.routes.job_applications import job_app_bp
+from agent.routes.ops import ops_bp
 from agent.ws_terminal import register_ws_terminal
 
 
@@ -138,6 +139,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(caseflow_bp)
     app.register_blueprint(discovery_bp)
     app.register_blueprint(job_app_bp)
+    app.register_blueprint(ops_bp, url_prefix="/api/ops")
     register_ws_terminal(app)
 
 

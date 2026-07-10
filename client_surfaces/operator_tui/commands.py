@@ -88,6 +88,7 @@ from client_surfaces.operator_tui.commands_ai import handle_ai_command, _resolve
 from client_surfaces.operator_tui.commands_rag import handle_rag_command, handle_te_command, handle_sim_command, handle_tutorial_command, handle_tutorials_command, handle_snakes_command, handle_msg_command
 from client_surfaces.operator_tui.commands_chat import handle_chat_command, handle_notes_command, handle_channels_command, handle_ai_context_command
 from client_surfaces.operator_tui.commands_run_control import handle_run_command, handle_approval_command, handle_branch_command
+from client_surfaces.operator_tui.commands_ops import handle_ops_command
 
 def _now_iso() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
@@ -122,6 +123,8 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             ),
             "refresh requested",
         )
+    if command == "ops":
+        return handle_ops_command(args, state)
     if command in {"section", "open", "goto"}:
         if not args:
             return CommandResult(state.with_updates(mode=OperatorMode.COMMAND), "section command requires a section id")
@@ -472,5 +475,4 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
         return _handle_webrtc_command(command, args, state)
 
     return CommandResult(state.with_updates(status_message=f"unknown command: {command}"), f"unknown command: {command}", handled=False)
-
 

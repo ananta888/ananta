@@ -793,6 +793,7 @@ from agent.tools_git import (
 from agent.tools_shell import shell_execute_tool
 from agent.tools_browser import web_fetch_tool, web_search_tool
 from agent.tools_document import doc_extract_tool
+from agent import tools_ops as _tools_ops  # noqa: F401
 
 
 def _with_git_patch_points(func, *args, **kwargs):

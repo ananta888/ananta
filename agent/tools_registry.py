@@ -55,6 +55,8 @@ class ToolRegistry:
         return decorator
 
     def _resolve(self, name: str) -> str:
+        if name in self.tools:
+            return name
         stripped = name.rsplit(".", 1)[-1] if "." in name else name
         return _TOOL_ALIASES.get(stripped, stripped)
 

@@ -2,6 +2,10 @@
 
 Diese Seite ordnet die Compose-Varianten zuerst nach Nutzerziel. Die Dateinamen sind wichtig, aber die Auswahl sollte ueber den Zweck erfolgen.
 
+Ops-Status und die sichtbare Preferred/Legacy-Einordnung fuer Angular `/operations`,
+Operator TUI `:ops` und `/api/ops` sind in `docs/ops-control-surfaces.md`
+dokumentiert.
+
 ## Auswahl nach Ziel
 
 | Ziel | Variante | Wann nutzen |
