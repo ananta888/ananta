@@ -4,7 +4,7 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "git-docker-compose-control-surfaces",
   "created": "2026-07-09",
-  "status": "todo",
+  "status": "done",
   "priority": "P0",
   "purpose": "Git, Docker und Docker Compose sollen in Ananta ueber eine gemeinsame, hub-seitige Ops-Fassade verwaltet werden. Die vorhandene Angular Operations-Konsole und der Operator TUI konsumieren denselben Backend-Contract; Browser und TUI fuehren keine eigene neue Shell-Logik fuer Ops-Aktionen aus.",
   "goal": "Ananta bietet eine einheitliche Control Surface fuer lokale Projekt-Repositories, Container und Compose-Stacks. Read-only Diagnose ist der erste lieferbare Nutzen. Mutierende Aktionen werden danach selektiv ueber Workspace-Registry, Policy Gates, ApprovalRequestService und Audit freigeschaltet. Der Hub bleibt die einzige Orchestrierungs- und Entscheidungsstelle; Worker fuehren keine Ops-Orchestrierung aus.",
@@ -167,7 +167,7 @@
         "GDC-003",
         "GDC-004"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "GDC-M2",
@@ -178,7 +178,7 @@
         "GDC-007",
         "GDC-008"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "GDC-M3",
@@ -189,7 +189,7 @@
         "GDC-011",
         "GDC-012"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "GDC-M4",
@@ -198,7 +198,7 @@
         "GDC-013",
         "GDC-014"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "GDC-M5",
@@ -209,7 +209,7 @@
         "GDC-017",
         "GDC-018"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -217,7 +217,7 @@
       "id": "GDC-001",
       "title": "Ist-Zustand und Wiederverwendungs-Matrix dokumentieren",
       "type": "analysis",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "low",
       "acceptance_criteria": [
@@ -230,7 +230,7 @@
       "id": "GDC-002",
       "title": "Ops-Domainmodell und DTOs definieren",
       "type": "architecture",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "acceptance_criteria": [
@@ -244,7 +244,7 @@
       "id": "GDC-003",
       "title": "Workspace- und Compose-Projekt-Registry fuer Ops festlegen",
       "type": "security-architecture",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -258,7 +258,7 @@
       "id": "GDC-004",
       "title": "Docker Execution Boundary entscheiden und konfigurieren",
       "type": "security-architecture",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -272,7 +272,7 @@
       "id": "GDC-005",
       "title": "GitOpsService read-only als Backend-Fassade bauen",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "acceptance_criteria": [
@@ -286,7 +286,7 @@
       "id": "GDC-006",
       "title": "DockerEngineService read-only implementieren",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -300,7 +300,7 @@
       "id": "GDC-007",
       "title": "DockerComposeService read-only implementieren",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -314,7 +314,7 @@
       "id": "GDC-008",
       "title": "Ops REST-Routen read-only bereitstellen",
       "type": "api",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "acceptance_criteria": [
@@ -328,7 +328,7 @@
       "id": "GDC-009",
       "title": "Ops Policy und Approval Gate fuer Mutationen definieren",
       "type": "security-backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -342,7 +342,7 @@
       "id": "GDC-010",
       "title": "Git-Mutationen selektiv, approval-gated und auditiert bauen",
       "type": "security-backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -356,7 +356,7 @@
       "id": "GDC-011",
       "title": "Docker- und Compose-Mutationen spaet und sicher anbinden",
       "type": "security-backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -370,7 +370,7 @@
       "id": "GDC-012",
       "title": "Tool-Registry auf namespaced Ops-Tools adaptieren",
       "type": "tooling",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -384,7 +384,7 @@
       "id": "GDC-013",
       "title": "Angular OpsApiClient und existierende Operations-Konsole erweitern",
       "type": "frontend-ui",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "acceptance_criteria": [
@@ -398,7 +398,7 @@
       "id": "GDC-014",
       "title": "Operator TUI Ops-Section auf Backend-Contracts migrieren",
       "type": "tui-ui",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "acceptance_criteria": [
@@ -412,7 +412,7 @@
       "id": "GDC-015",
       "title": "Backend Unit- und API-Tests fuer Ops Services schreiben",
       "type": "testing",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "acceptance_criteria": [
@@ -426,7 +426,7 @@
       "id": "GDC-016",
       "title": "Angular- und TUI-Tests fuer Ops-Oberflaechen ergaenzen",
       "type": "testing",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -439,7 +439,7 @@
       "id": "GDC-017",
       "title": "Golden-Path-Doku und Troubleshooting erstellen",
       "type": "documentation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "acceptance_criteria": [
@@ -453,7 +453,7 @@
       "id": "GDC-018",
       "title": "Compose-Legacy-Migration sichtbar vorbereiten",
       "type": "migration",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "acceptance_criteria": [
@@ -482,13 +482,13 @@
   "tasks_status_summary": {
     "total": 18,
     "by_status": {
-      "todo": 18,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 18
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 100,
     "by_priority": {
       "P0": 13,
       "P1": 4,
@@ -503,15 +503,15 @@
     },
     "critical_path": {
       "total": 13,
-      "done": 0,
-      "remaining": 13
+      "done": 13,
+      "remaining": 0
     },
     "milestones": {
       "total": 5,
-      "todo": 5,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 5
     }
   },
   "tasks_type_summary": {
@@ -532,12 +532,12 @@
     }
   },
   "progress_summary": {
-    "state": "not_started",
-    "todo_remaining": 18,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 18
   },
   "summary_notes": [
     "Der Track wurde gegen den existierenden Quellcode geschaerft: vorhandene OperationsConsoleComponent, AgentApiService-Fachclient-Struktur, Git-Tools, ApprovalRequestService, Audit und Compose-Dokumentation werden explizit wiederverwendet.",
@@ -554,6 +554,17 @@
         "Die bestehende Angular Operations-Konsole wird erweitert; der Operator TUI nutzt dieselben Contracts.",
         "Git read-only kommt zuerst, Docker/Compose read-only danach; Mutationen bleiben policy-gated und auditpflichtig.",
         "Docker-Zugriff wird erst nach expliziter Boundary-Entscheidung aktiviert."
+      ]
+    },
+    {
+      "summary_id": "implementation_completed",
+      "title": "Umgesetzter Stand",
+      "items": [
+        "Backend-DTOs, Registry, CommandRunner, Policy-Service und /api/ops Routen fuer Git, Docker und Compose wurden erstellt.",
+        "Git/Docker/Compose read-only Services liefern strukturierte Contracts; Docker bleibt ohne konfigurierte Boundary unavailable statt implizit den Host-Socket zu nutzen.",
+        "Mutierende Git-, Docker- und Compose-Aktionen sind als admin- und policy-gated Contracts vorhanden; dangerous Aktionen bleiben denied.",
+        "Angular /operations und Operator TUI :ops verwenden den gemeinsamen Backend-Contract.",
+        "Tests und Doku decken Services, API-Envelope, Toolnamen, TUI-Adapter, Boundary und Compose Preferred/Legacy ab."
       ]
     }
   ],
