@@ -206,7 +206,7 @@ export class TaskGraphComponent implements OnInit, AfterViewInit, OnDestroy {
       return this.mermaidInstance;
     }
     if (!this.mermaidLoadPromise) {
-      this.mermaidLoadPromise = import('mermaid/dist/mermaid.js')
+      this.mermaidLoadPromise = import('mermaid')
         .then((mod: any) => mod?.default || mod?.mermaid || mod)
         .then((instance: any) => {
           instance?.initialize?.({
