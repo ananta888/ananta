@@ -155,6 +155,7 @@ services:
       ANANTA_WORKSPACE_ROOT: /project-workspaces
       DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:-ananta_password}@postgres:5432/${POSTGRES_DB:-ananta}"
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      TERMINAL_FEATURE_ENABLED: "true"
     volumes:
       - ../../:/app:rw
       - ../../project-workspaces:/project-workspaces:rw
