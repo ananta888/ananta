@@ -444,6 +444,52 @@ def test_receive_room_messages(client):
     assert "greetings" in texts
 
 
+def test_receive_room_messages_includes_senders_own_history(client):
+    s1 = _register(client, "HistoryOwner")
+    client.post(
+        f"/snakes/{s1['id']}/chat/messages",
+        json={
+            "channel_type": "room",
+            "text": "my persisted question",
+            "visibility": "room",
+            "session_id": "code-help",
+        },
+        headers={"Authorization": f"Bearer {s1['token']}"},
+    )
+
+    resp = client.get(f"/snakes/{s1['id']}/chat/messages?session_id=code-help")
+
+    assert resp.status_code == 200
+    assert [m["text"] for m in resp.get_json()["messages"]] == ["my persisted question"]
+
+
+def test_chat_provider_uses_effective_session_configuration():
+    import agent.routes.snakes_execution_routes as ser
+
+    provider, model, api_base = ser._resolve_ai_snake_chat_provider(
+        {
+            "chat_backend": "lmstudio",
+            "chat_backend_model": "google/gemma-4-e4b",
+            "chat_backend_api_base": "http://lmstudio.test/v1",
+        }
+    )
+
+    assert provider == "lmstudio"
+    assert model == "google/gemma-4-e4b"
+    assert api_base == "http://lmstudio.test/v1/chat/completions"
+
+
+def test_explicit_worker_backend_does_not_switch_to_openai_by_model_name():
+    import agent.routes.snakes_execution_routes as ser
+
+    provider, model, _ = ser._resolve_ai_snake_chat_provider(
+        {"chat_backend": "ananta-worker", "chat_backend_model": "gpt-4o-mini"}
+    )
+
+    assert provider == "lmstudio"
+    assert model == "gpt-4o-mini"
+
+
 def test_room_message_persists_client_session_id(client):
     from agent.routes.snakes import _room_messages
 

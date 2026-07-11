@@ -165,6 +165,7 @@ def run_rag_chat_tool_loop(
     messages: list[dict],
     provider: str,
     model: str | None,
+    api_base: str | None = None,
     repo_root: _pl.Path,
     max_tool_calls: int = 0,
     max_search_calls: int = 0,
@@ -216,7 +217,7 @@ def run_rag_chat_tool_loop(
     }
 
     urls = _runtime_provider_urls()
-    base_url = str(urls.get(provider) or "").rstrip("/")
+    base_url = str(api_base or urls.get(provider) or "").rstrip("/")
     api_key = _runtime_api_key(provider)
 
     if not base_url:

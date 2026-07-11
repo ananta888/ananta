@@ -123,14 +123,15 @@ def _background_threads_disabled() -> bool:
     )
 
 
-def _resolve_ai_snake_chat_provider() -> tuple[str, str | None, str | None]:
+def _resolve_ai_snake_chat_provider(config: dict[str, Any] | None = None) -> tuple[str, str | None, str | None]:
     provider = "lmstudio"
     model: str | None = None
     api_base: str | None = None
     try:
         from agent.routes.ai_snake_config import _current_config
 
-        cfg = _current_config()
+        cfg = dict(config) if config is not None else _current_config()
+        configured_backend = str(cfg.get("chat_backend") or "").strip().lower()
         configured_model = str(cfg.get("chat_backend_model") or "").strip() or None
         configured_api_base = str(cfg.get("chat_backend_api_base") or "").strip() or None
         if configured_model:
@@ -140,10 +141,20 @@ def _resolve_ai_snake_chat_provider() -> tuple[str, str | None, str | None]:
         is_openai_model = any(model.startswith(m) for m in _openai_models) if model else False
         is_openai_url = configured_api_base and "openai.com" in configured_api_base.lower()
 
-        if is_openai_url or is_openai_model:
+        def _chat_completions_url(base_url: str) -> str:
+            normalized = base_url.rstrip("/")
+            return normalized if normalized.endswith("/chat/completions") else f"{normalized}/chat/completions"
+
+        if configured_backend in {"openai", "codex"} or (
+            not configured_backend and (is_openai_url or is_openai_model)
+        ):
             provider = "openai"
             if configured_api_base:
-                api_base = configured_api_base.rstrip("/") + "/chat/completions"
+                api_base = _chat_completions_url(configured_api_base)
+        elif configured_backend in {"ollama", "lmstudio"}:
+            provider = configured_backend
+            if configured_api_base:
+                api_base = _chat_completions_url(configured_api_base)
     except Exception:
         pass
     return provider, model, api_base
@@ -197,16 +208,11 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
                     summary=f"Prompt: {_prompt_preview}",
                 )
 
-            provider, model, api_base = _resolve_ai_snake_chat_provider()
             conversation_history = _build_room_conversation_history(
                 snake_id=snake_id,
                 current_text=prompt,
                 session_id=client_session_id,
             )
-            if rec:
-                rec.event("config_loaded", "Provider-Konfiguration geladen", status="completed",
-                          details={"provider": provider, "model": model, "conversation_history_messages": len(conversation_history)})
-
             # Resolve active session's system_prompt, ID, and settings overrides
             _active_session_prompt: str | None = None
             _active_session_id: str = ""
@@ -226,6 +232,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
                             break
             except Exception:
                 pass
+
             # If the frontend sent an explicit session_id, use it directly (avoids user.json race conditions
             # when the snake panel session and AI Chats page session diverge).
             if client_session_id and client_session_id != _active_session_id:
@@ -257,6 +264,25 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
                         break
             except Exception:
                 pass
+
+            from agent.routes.ai_snake_config import _current_config as _provider_config
+            _effective_provider_config = _provider_config()
+            if _active_session_settings:
+                _effective_provider_config = {**_effective_provider_config, **_active_session_settings}
+            provider, model, api_base = _resolve_ai_snake_chat_provider(_effective_provider_config)
+            if rec:
+                rec.event(
+                    "config_loaded",
+                    "Provider-Konfiguration geladen",
+                    status="completed",
+                    details={
+                        "provider": provider,
+                        "model": model,
+                        "backend": _effective_provider_config.get("chat_backend"),
+                        "session_id": _active_session_id,
+                        "conversation_history_messages": len(conversation_history),
+                    },
+                )
 
             # Ananta-Settings session: enrich prompt with current settings context
             _original_prompt = prompt
@@ -376,6 +402,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
                             prompt,
                             provider=provider,
                             model=model,
+                            api_base=api_base,
                             limits=SnakeAskLimits(
                                 answer_chars=_answer_chars_limit,
                                 answer_overflow_policy=_answer_overflow_policy(),
@@ -752,7 +779,6 @@ def chat_receive(snake_id: str):
     room = [
         m for m in _room_messages
         if float(m.get("created_at") or 0) > since
-        and m.get("sender_id") != snake_id
         and (
             not requested_session_id
             or str(m.get("session_id") or "") == requested_session_id
@@ -1056,6 +1082,7 @@ def snake_ask():
                     question,
                     provider=provider,
                     model=model,
+                    api_base=api_base,
                     limits=limits,
                     cancel_event=_cancel_event,
                     system_prompt=_active_session_prompt,
