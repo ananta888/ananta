@@ -974,6 +974,9 @@ export class ChatSessionsPanelComponent implements OnInit, OnDestroy {
   promptPreviewError = '';
   previewCopied = false;
 
+  // Session types (from API)
+  types: ChatSessionType[] = [];
+
   // New session form
   newName = '';
   newIcon = '💬';
@@ -981,6 +984,14 @@ export class ChatSessionsPanelComponent implements OnInit, OnDestroy {
   newPrompt = '';
   newFolderId = '';
   newProfileId = 'general';
+  newSessionType = '';
+  newSessionSubtype = '';
+
+  // Custom type form
+  showCustomType = false;
+  customTypeIcon = '🎯';
+  customTypeName = '';
+  customTypeSubtypes = '';
   editingProfileId = '';
   profileName = '';
   profileIcon = '🎯';
@@ -998,6 +1009,7 @@ export class ChatSessionsPanelComponent implements OnInit, OnDestroy {
       this.svc.sessions$.subscribe(s => { this.sessions = s; }),
       this.svc.folders$.subscribe(f => { this.folders = f; }),
       this.svc.profiles$.subscribe(p => { this.profiles = p; }),
+      this.svc.types$.subscribe(t => { this.types = t; }),
       this.svc.activeSessionId$.subscribe(id => { this.activeSessionId = id; }),
       this.svc.error$.subscribe(e => { this.error = e; }),
       this.svc.loading$.subscribe(l => { this.loading = l; }),
@@ -1263,6 +1275,37 @@ export class ChatSessionsPanelComponent implements OnInit, OnDestroy {
     this.svc.update(session.id, { profile_id: profileId });
   }
 
+  changeType(session: ChatSession, typeId: string): void {
+    this.svc.update(session.id, { session_type: typeId, session_subtype: '' });
+  }
+
+  changeSubtype(session: ChatSession, subtype: string): void {
+    this.svc.update(session.id, { session_subtype: subtype });
+  }
+
+  typeFor(sessionType: string): ChatSessionType | undefined {
+    return this.types.find(t => t.id === sessionType);
+  }
+
+  selectedType(): ChatSessionType | undefined {
+    return this.types.find(t => t.id === this.newSessionType);
+  }
+
+  createCustomType(): void {
+    const name = this.customTypeName.trim();
+    if (!name) return;
+    const subtypes = this.customTypeSubtypes.split(',').map(s => s.trim()).filter(Boolean);
+    this.svc.createType({
+      name,
+      icon: this.customTypeIcon || '🎯',
+      subtypes,
+    });
+    this.customTypeName = '';
+    this.customTypeIcon = '🎯';
+    this.customTypeSubtypes = '';
+    this.showCustomType = false;
+  }
+
   editProfile(profile: ChatProfile): void {
     this.editingProfileId = profile.id;
     this.profileName = profile.name;
@@ -1335,6 +1378,8 @@ export class ChatSessionsPanelComponent implements OnInit, OnDestroy {
       folder_id: this.newFolderId,
       system_prompt: this.newPrompt,
       profile_id: this.newProfileId,
+      session_type: this.newSessionType,
+      session_subtype: this.newSessionSubtype,
     };
     this.svc.create(payload);
     this.resetNewForm();
@@ -1347,6 +1392,8 @@ export class ChatSessionsPanelComponent implements OnInit, OnDestroy {
     this.newPrompt = '';
     this.newFolderId = '';
     this.newProfileId = 'general';
+    this.newSessionType = '';
+    this.newSessionSubtype = '';
     this.showNew = false;
   }
 

@@ -82,6 +82,7 @@ _SCHEMA_KEYS: frozenset[str] = frozenset({
     "chat_sessions",
     "chat_active_session_id",
     "chat_folders",
+    "chat_session_types",
     # Advanced chat configuration (env-mapped features)
     "chat_system_prompt",
     "chat_streaming",
@@ -208,6 +209,13 @@ _LIST_SCHEMA_KEYS: frozenset[str] = frozenset({
 })
 
 
+_COMPLEX_LIST_KEYS: frozenset[str] = frozenset({
+    "chat_sessions",
+    "chat_folders",
+    "chat_session_types",
+})
+
+
 def _validated(settings: dict[str, Any]) -> dict[str, Any]:
     """Strip unknown keys and coerce types to JSON-safe primitives or list[str]."""
     out: dict[str, Any] = {}
@@ -221,8 +229,8 @@ def _validated(settings: dict[str, Any]) -> dict[str, Any]:
             # Allow list[str] only for designated history keys
             str_list = [str(item) for item in value if isinstance(item, (str, int, float))]
             out[key] = str_list
-        elif key == "chat_sessions" and isinstance(value, list):
-            # Sessions are list[dict]; already sanitized by _sanitize_sessions — pass through
+        elif key in _COMPLEX_LIST_KEYS and isinstance(value, list):
+            # Sessions, folders, and custom types are list[dict]; pass through
             out[key] = value
     return out
 
@@ -314,7 +322,7 @@ def _sanitize_sessions(sessions: list[Any]) -> list[dict[str, Any]]:
         if not sid:
             continue
         clean: dict[str, Any] = {"id": sid}
-        for k in ("name", "system_prompt", "icon", "group", "folder_id", "session_type", "type_description"):
+        for k in ("name", "system_prompt", "icon", "group", "folder_id", "session_type", "session_subtype", "type_description", "profile_id"):
             v = item.get(k)
             if isinstance(v, str):
                 clean[k] = v
