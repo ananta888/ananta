@@ -1,4 +1,7 @@
+import os
 import struct
+import sys
+import time
 
 from agent.services import terminal_bridge as bridge_mod
 from agent.services.terminal_bridge import PtyBridge, _write_all
@@ -58,3 +61,27 @@ def test_pty_bridge_wait_for_output_returns_false_without_process_or_data():
     bridge = PtyBridge(shell="/bin/sh")
 
     assert bridge.wait_for_output(0.01) is False
+
+
+def test_pty_bridge_assigns_a_controlling_terminal():
+    if os.name == "nt":
+        return
+
+    probe = (
+        "import os; "
+        "print(f'isatty={os.isatty(0)} controlling={os.tcgetpgrp(0) == os.getpgrp()}', flush=True)"
+    )
+    bridge = PtyBridge(shell=sys.executable, argv=[sys.executable, "-c", probe])
+
+    try:
+        bridge.start()
+        deadline = time.monotonic() + 2
+        output = ""
+        while time.monotonic() < deadline:
+            bridge.wait_for_output(0.1)
+            output += "".join(bridge.drain())
+            if "controlling=" in output:
+                break
+        assert "isatty=True controlling=True" in output
+    finally:
+        bridge.close()

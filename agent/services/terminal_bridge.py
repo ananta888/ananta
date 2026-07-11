@@ -61,15 +61,16 @@ class PtyBridge:
 
         def _child_setup() -> None:
             """Make the slave PTY the controlling terminal of the new session."""
-            try:
-                os.setsid()
-            except OSError:
-                pass
-            try:
-                import fcntl as _fcntl
-                _fcntl.ioctl(slave_fd, pty.TIOCSCTTY, 0)
-            except Exception:
-                pass
+            os.setsid()
+            if termios is None or not hasattr(termios, "TIOCSCTTY"):
+                raise RuntimeError("controlling_tty_unavailable")
+            # TIOCSCTTY belongs to termios.  The pty module does not expose
+            # it on Linux; using pty.TIOCSCTTY silently skipped controlling
+            # terminal assignment and left interactive shells without job
+            # control.
+            if fcntl is None:
+                raise RuntimeError("controlling_tty_unavailable")
+            fcntl.ioctl(slave_fd, termios.TIOCSCTTY, 0)
 
         self.process = subprocess.Popen(  # noqa: S603
             command,
