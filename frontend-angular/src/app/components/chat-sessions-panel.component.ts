@@ -1,7 +1,7 @@
 import { Component, inject, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { forkJoin, Subscription } from 'rxjs';
+import { Subscription } from 'rxjs';
 import {
   ChatSessionsService,
   ChatSession,
@@ -9,11 +9,13 @@ import {
   ChatSessionType,
   ChatFolder,
   ReorganizeProposal,
+  OrganizationRevision,
   ContextOverview,
   CreateSessionPayload,
   PromptPreview,
 } from '../services/chat-sessions.service';
 import { ChatHistoryService } from '../services/chat-history.service';
+import { ChatOrganizationDialogsComponent } from './chat-organization-dialogs.component';
 
 const PUG_PRESETS = {
   quiet:    { predictive_guide_dwell_ms: 5000, predictive_guide_min_confidence: 0.7,  predictive_guide_multi_candidates: 1 },
@@ -46,17 +48,22 @@ interface TreeItem {
 @Component({
   selector: 'app-chat-sessions-panel',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ChatOrganizationDialogsComponent],
   template: `
     <div class="sessions-panel">
 
       <!-- ── Top bar: AI reorganize ── -->
       <div class="top-bar">
+        <select [(ngModel)]="reorganizeInputPolicy" title="Daten für KI-Reorganisation">
+          <option value="metadata_only">Nur Metadaten</option>
+          <option value="metadata_plus_preview">Metadaten + Vorschau</option>
+        </select>
         <button class="reorg-btn" (click)="startReorganize()" [disabled]="reorganizing">
           {{ reorganizing ? '⟳ Analysiere...' : '🤖 Neu-Strukturieren' }}
         </button>
         <button class="new-folder-btn" (click)="createRootFolder()" title="Neuen Ordner anlegen">📁＋</button>
         <button class="new-folder-btn" (click)="showProfiles = !showProfiles" title="Chat-Profile verwalten">🎛 Profile</button>
+        <button class="new-folder-btn" (click)="openHistory()" title="Organisationsverlauf">↶ Verlauf</button>
         @if (loading) {
           <span class="loading-indicator">⟳</span>
         }
@@ -98,7 +105,7 @@ interface TreeItem {
 
       <!-- ── Session + folder list ── -->
       <div class="list">
-        @if (draggingSessionId) {
+        @if (draggingSessionId || draggingFolderId) {
           <div class="root-drop-zone"
                [class.drag-over]="dragOverFolderId === '__root__'"
                (dragover)="onDragOver($event, '__root__')"
@@ -112,15 +119,18 @@ interface TreeItem {
           <!-- Folder header -->
           @if (item.kind === 'folder-header' && item.folder; as node) {
             <div class="folder-row"
+                 draggable="true"
                  [class.drag-over]="dragOverFolderId === node.folder.id"
                  [style.padding-left.px]="8 + item.depth * 14"
                  (click)="toggleFolder(node.folder.id)"
                  (dragover)="onDragOver($event, node.folder.id)"
                  (dragleave)="onDragLeave()"
                  (drop)="onDrop($event, node.folder.id)">
+              <span (dragstart)="onFolderDragStart($event, node.folder.id)" (dragend)="onDragEnd()">
               <span class="folder-chevron">{{ isFolderCollapsed(node.folder.id) ? '▶' : '▼' }}</span>
               <span class="folder-icon">{{ node.folder.icon || '📁' }}</span>
               <span class="folder-name">{{ node.folder.name }}</span>
+              </span>
               <button class="icon-btn" title="Unterordner anlegen"
                       (click)="$event.stopPropagation(); createSubfolder(node.folder.id)">+</button>
               <button class="icon-btn" title="Umbenennen"
@@ -514,6 +524,16 @@ interface TreeItem {
           <button class="type-btn" (click)="showCustomType = !showCustomType">＋ Eigenen Session-Typ anlegen</button>
           @if (showCustomType) {
             <div class="custom-type-form">
+              <div class="muted">Typ/Subtyp klassifiziert Inhalt und Zweck; das Profil bestimmt die Arbeitsweise.</div>
+              @for (type of types; track type.id) {
+                <div class="profile-row">
+                  <span>{{ type.icon }} {{ type.name }} <span class="muted">{{ type.subtypes.join(', ') }}</span></span>
+                  @if (!type.builtin) {
+                    <button class="icon-btn" (click)="editCustomType(type)">✎</button>
+                    <button class="icon-btn del" (click)="deleteCustomType(type)">✕</button>
+                  }
+                </div>
+              }
               <input [(ngModel)]="customTypeIcon" placeholder="🎯" maxlength="4" />
               <input [(ngModel)]="customTypeName" placeholder="Name des Typs" />
               <input [(ngModel)]="customTypeSubtypes" placeholder="Subtypen, kommagetrennt" />
@@ -557,29 +577,17 @@ interface TreeItem {
 
     </div><!-- /.sessions-panel -->
 
-    <!-- ── AI Reorganize modal (outside panel to escape stacking context) ── -->
-    @if (reorganizeProposal) {
-      <div class="modal-backdrop" (click)="cancelReorganize()">
-        <div class="modal" (click)="$event.stopPropagation()">
-          <div class="modal-title">🤖 KI-Reorganisierungsvorschlag</div>
-          <div class="modal-summary">{{ reorganizeProposal.summary }}</div>
-          @for (f of reorganizeProposal.folders; track f.id) {
-            <div class="proposal-folder">
-              <div class="proposal-folder-header">{{ f.icon || '📁' }} {{ f.name }}</div>
-              <div class="proposal-session-list">
-                @for (s of getProposalFolderSessions(f.id); track s.id) {
-                  <div class="proposal-session-item">{{ s.icon || '💬' }} {{ s.name }}</div>
-                }
-              </div>
-            </div>
-          }
-          <div class="modal-actions">
-            <button class="btn-cancel" (click)="cancelReorganize()">Abbrechen</button>
-            <button class="btn-accept" (click)="acceptReorganize()">Übernehmen</button>
-          </div>
-        </div>
-      </div>
-    }
+    <app-chat-organization-dialogs
+      [proposal]="reorganizeProposal"
+      [sessions]="sessions"
+      [folders]="folders"
+      [history]="organizationHistory"
+      [historyVisible]="showOrganizationHistory"
+      (apply)="acceptReorganize()"
+      (cancel)="cancelReorganize()"
+      (proposalChanged)="reorganizeProposal = $event"
+      (revert)="revertRevision($event)"
+      (closeHistory)="showOrganizationHistory = false" />
 
     <!-- ── Prompt preview modal ── -->
     @if (promptPreviewSession) {
@@ -957,12 +965,16 @@ export class ChatSessionsPanelComponent implements OnInit, OnDestroy {
   showProfiles = false;
   tooltipId = '';
   draggingSessionId = '';
+  draggingFolderId = '';
   dragOverFolderId = '';
   collapsedFolders = new Set<string>();
 
   // AI Reorganize
   reorganizing = false;
   reorganizeProposal: ReorganizeProposal | null = null;
+  reorganizeInputPolicy: 'metadata_only' | 'metadata_plus_preview' = 'metadata_only';
+  organizationHistory: OrganizationRevision[] = [];
+  showOrganizationHistory = false;
 
   // Context overview per session
   contextOverviews: Record<string, ContextOverview> = {};
@@ -1023,11 +1035,14 @@ export class ChatSessionsPanelComponent implements OnInit, OnDestroy {
   // ── Folder tree ──────────────────────────────────────────────────────────
 
   buildFolderTree(folders: ChatFolder[], sessions: ChatSession[]): FolderNode[] {
-    const roots = folders.filter(f => !f.parent_id);
+    const ordered = [...folders].sort((a, b) =>
+      (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+    const roots = ordered.filter(f => !f.parent_id);
     return roots.map(f => ({
       folder: f,
-      sessions: sessions.filter(s => s.folder_id === f.id),
-      children: this.buildFolderTree(folders.filter(c => c.parent_id === f.id), sessions),
+      sessions: sessions.filter(s => s.folder_id === f.id)
+        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.name.localeCompare(b.name)),
+      children: this.buildFolderTree(ordered.filter(c => c.parent_id === f.id), sessions),
     }));
   }
 
@@ -1077,10 +1092,18 @@ export class ChatSessionsPanelComponent implements OnInit, OnDestroy {
 
   onDragStart(s: ChatSession): void {
     this.draggingSessionId = s.id;
+    this.draggingFolderId = '';
+  }
+
+  onFolderDragStart(event: DragEvent, folderId: string): void {
+    event.stopPropagation();
+    this.draggingFolderId = folderId;
+    this.draggingSessionId = '';
   }
 
   onDragEnd(): void {
     this.draggingSessionId = '';
+    this.draggingFolderId = '';
     this.dragOverFolderId = '';
   }
 
@@ -1097,16 +1120,34 @@ export class ChatSessionsPanelComponent implements OnInit, OnDestroy {
     event.preventDefault();
     if (this.draggingSessionId) {
       this.svc.update(this.draggingSessionId, { folder_id: folderId });
+    } else if (this.draggingFolderId && this.draggingFolderId !== folderId && !this.isFolderDescendant(folderId, this.draggingFolderId)) {
+      this.svc.updateFolder(this.draggingFolderId, { parent_id: folderId }).subscribe({
+        error: () => this.svc.loadFolders(),
+      });
     }
     this.draggingSessionId = '';
+    this.draggingFolderId = '';
     this.dragOverFolderId = '';
   }
 
   onDropRoot(event: DragEvent): void {
     event.preventDefault();
     if (this.draggingSessionId) this.svc.update(this.draggingSessionId, { folder_id: '' });
+    if (this.draggingFolderId) this.svc.updateFolder(this.draggingFolderId, { parent_id: '' }).subscribe();
     this.draggingSessionId = '';
+    this.draggingFolderId = '';
     this.dragOverFolderId = '';
+  }
+
+  isFolderDescendant(candidateId: string, ancestorId: string): boolean {
+    let current = this.folders.find(folder => folder.id === candidateId);
+    const seen = new Set<string>();
+    while (current?.parent_id && !seen.has(current.id)) {
+      if (current.parent_id === ancestorId) return true;
+      seen.add(current.id);
+      current = this.folders.find(folder => folder.id === current?.parent_id);
+    }
+    return false;
   }
 
   // ── Folder actions ───────────────────────────────────────────────────────
@@ -1138,7 +1179,7 @@ export class ChatSessionsPanelComponent implements OnInit, OnDestroy {
 
   startReorganize(): void {
     this.reorganizing = true;
-    this.svc.aiReorganize().subscribe({
+    this.svc.aiReorganize(this.reorganizeInputPolicy).subscribe({
       next: proposal => {
         this.reorganizing = false;
         this.reorganizeProposal = proposal;
@@ -1153,48 +1194,48 @@ export class ChatSessionsPanelComponent implements OnInit, OnDestroy {
   acceptReorganize(): void {
     if (!this.reorganizeProposal) return;
     const proposal = this.reorganizeProposal;
-    this.reorganizeProposal = null;
-
-    if (!proposal.folders.length) {
-      // Only session assignments, no new folders
-      for (const [sid, fid] of Object.entries(proposal.assignments)) {
-        this.svc.update(sid, { folder_id: fid });
-      }
-      setTimeout(() => { this.svc.load(); this.svc.loadFolders(); }, 400);
-      return;
-    }
-
-    // Create all proposed folders, then map proposal IDs to real IDs
-    forkJoin(proposal.folders.map(f => this.svc.createFolder(f.name, f.icon))).subscribe({
-      next: createdFolders => {
-        // Build mapping: proposed folder id -> newly created folder id
-        const idMap: Record<string, string> = {};
-        proposal.folders.forEach((pf, i) => {
-          idMap[pf.id] = createdFolders[i].id;
-        });
-        // Assign sessions
-        for (const [sid, proposedFolderId] of Object.entries(proposal.assignments)) {
-          const realFolderId = idMap[proposedFolderId] ?? proposedFolderId;
-          this.svc.update(sid, { folder_id: realFolderId });
-        }
-        setTimeout(() => { this.svc.load(); this.svc.loadFolders(); }, 400);
-      },
-      error: err => {
-        this.error = String((err as Error)?.message || 'Fehler beim Anlegen der Ordner');
-      },
+    this.svc.updateProposal(proposal.id, { operations: proposal.operations }).subscribe({
+      next: () => this.svc.validateProposal(proposal.id).subscribe({
+        next: validated => {
+          this.reorganizeProposal = { ...proposal, ...validated };
+          if (validated.status !== 'ready') return;
+          this.svc.applyProposal(proposal.id).subscribe({
+            next: () => {
+              this.reorganizeProposal = null;
+              this.svc.loadFolders();
+            },
+            error: err => { this.error = String(err?.message || 'Atomare Anwendung fehlgeschlagen'); },
+          });
+        },
+        error: err => { this.error = String(err?.message || 'Validierung fehlgeschlagen'); },
+      }),
+      error: err => { this.error = String(err?.message || 'Vorschlag konnte nicht gespeichert werden'); },
     });
   }
 
   cancelReorganize(): void {
+    if (this.reorganizeProposal?.id && this.reorganizeProposal.status !== 'applied') {
+      this.svc.discardProposal(this.reorganizeProposal.id).subscribe();
+    }
     this.reorganizeProposal = null;
   }
 
-  getProposalFolderSessions(folderId: string): ChatSession[] {
-    if (!this.reorganizeProposal) return [];
-    const sessionIds = Object.entries(this.reorganizeProposal.assignments)
-      .filter(([, fid]) => fid === folderId)
-      .map(([sid]) => sid);
-    return this.sessions.filter(s => sessionIds.includes(s.id));
+  openHistory(): void {
+    this.svc.loadOrganizationHistory().subscribe({
+      next: revisions => { this.organizationHistory = revisions; this.showOrganizationHistory = true; },
+      error: err => { this.error = String(err?.message || 'Verlauf konnte nicht geladen werden'); },
+    });
+  }
+
+  revertRevision(revision: OrganizationRevision): void {
+    const inversePreview = [...revision.applied_operations].reverse()
+      .map(operation => `• ${operation.type}: ${String(operation.after ?? '–')} → ${String(operation.before ?? '–')}`)
+      .join('\n');
+    if (!confirm(`Revision „${revision.summary}“ rückgängig machen?\n\nVorschau:\n${inversePreview || 'Gespeicherten Zustand wiederherstellen'}`)) return;
+    this.svc.revertRevision(revision.id).subscribe({
+      next: () => { this.svc.loadFolders(); this.openHistory(); },
+      error: err => { this.error = String(err?.message || 'Revision hat Konflikte und kann nicht rückgängig gemacht werden'); },
+    });
   }
 
   // ── Context overview ─────────────────────────────────────────────────────
@@ -1304,6 +1345,22 @@ export class ChatSessionsPanelComponent implements OnInit, OnDestroy {
     this.customTypeIcon = '🎯';
     this.customTypeSubtypes = '';
     this.showCustomType = false;
+  }
+
+  editCustomType(type: ChatSessionType): void {
+    const name = prompt('Name des Typs:', type.name)?.trim();
+    if (!name) return;
+    const subtypes = prompt('Subtypen, kommagetrennt:', type.subtypes.join(', '));
+    if (subtypes == null) return;
+    this.svc.updateType(type.id, {
+      name,
+      subtypes: subtypes.split(',').map(value => value.trim()).filter(Boolean),
+    });
+  }
+
+  deleteCustomType(type: ChatSessionType): void {
+    if (!confirm(`Typ „${type.name}“ löschen? Verwendete Typen werden serverseitig geschützt.`)) return;
+    this.svc.deleteType(type.id);
   }
 
   editProfile(profile: ChatProfile): void {

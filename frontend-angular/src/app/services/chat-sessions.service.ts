@@ -22,6 +22,7 @@ export interface ChatSession {
   system_prompt_override?: string;
   created_at?: number;
   updated_at?: number;
+  sort_order?: number;
 }
 
 export interface ChatProfile {
@@ -51,13 +52,50 @@ export interface ChatFolder {
   color?: string;
   created_at?: number;
   updated_at?: number;
+  sort_order?: number;
+}
+
+export interface OrganizationOperation {
+  operation_id: string;
+  type: string;
+  target_id?: string;
+  temp_id?: string;
+  before?: unknown;
+  after?: unknown;
+  rationale?: string;
 }
 
 export interface ReorganizeProposal {
+  id: string;
+  status: 'draft' | 'ready' | 'invalid' | 'applied' | 'discarded' | 'superseded';
+  base_state_hash: string;
+  input_policy: 'metadata_only' | 'metadata_plus_preview';
+  operations: OrganizationOperation[];
+  validation_errors: Array<{ operation_id?: string; error_code: string; message: string }>;
   folders: ChatFolder[];
   assignments: Record<string, string>;
   summary: string;
   method?: 'llm' | 'heuristic';
+}
+
+export interface OrganizationSnapshot {
+  folders: ChatFolder[];
+  conversations: Array<Pick<ChatSession, 'id' | 'name' | 'folder_id' | 'profile_id' | 'session_type' | 'session_subtype'>>;
+  state_hash: string;
+}
+
+export interface OrganizationRevision {
+  id: string;
+  created_at: number;
+  source: 'user' | 'ai';
+  source_proposal_id?: string;
+  reverts_revision_id?: string;
+  summary: string;
+  applied_operations: OrganizationOperation[];
+  base_state_hash: string;
+  result_state_hash: string;
+  before_snapshot: OrganizationSnapshot;
+  after_snapshot: OrganizationSnapshot;
 }
 
 export interface PartialSummaryResult {
@@ -163,6 +201,24 @@ export class ChatSessionsService {
     });
   }
 
+  updateType(typeId: string, patch: Partial<ChatSessionType>): void {
+    const url = this.hubUrl;
+    if (!url) return;
+    this.core.patch<ChatSessionType>(`${url}/api/chat/types/${typeId}`, patch, url).subscribe({
+      next: () => this.loadTypes(),
+      error: err => this.error$.next(String(err?.message || 'Chat-Typ konnte nicht aktualisiert werden')),
+    });
+  }
+
+  deleteType(typeId: string): void {
+    const url = this.hubUrl;
+    if (!url) return;
+    this.core.delete<void>(`${url}/api/chat/types/${typeId}`, url).subscribe({
+      next: () => this.loadTypes(),
+      error: err => this.error$.next(String(err?.message || 'Chat-Typ wird noch verwendet oder konnte nicht gelöscht werden')),
+    });
+  }
+
   loadProfiles(): void {
     const url = this.hubUrl;
     if (!url) return;
@@ -233,9 +289,45 @@ export class ChatSessionsService {
     );
   }
 
-  aiReorganize(): Observable<ReorganizeProposal> {
+  aiReorganize(inputPolicy: 'metadata_only' | 'metadata_plus_preview' = 'metadata_only'): Observable<ReorganizeProposal> {
     const url = this.hubUrl;
-    return this.core.post<ReorganizeProposal>(`${url}/api/chat/sessions/ai-reorganize`, {}, url);
+    return this.core.post<ReorganizeProposal>(
+      `${url}/api/chat/sessions/ai-reorganize`, { input_policy: inputPolicy }, url,
+    );
+  }
+
+  updateProposal(id: string, patch: Partial<Pick<ReorganizeProposal, 'operations' | 'summary'>>): Observable<ReorganizeProposal> {
+    const url = this.hubUrl;
+    return this.core.patch<ReorganizeProposal>(`${url}/api/chat/organization/proposals/${id}`, patch, url);
+  }
+
+  validateProposal(id: string): Observable<ReorganizeProposal> {
+    const url = this.hubUrl;
+    return this.core.post<ReorganizeProposal>(`${url}/api/chat/organization/proposals/${id}/validate`, {}, url);
+  }
+
+  applyProposal(id: string): Observable<OrganizationRevision> {
+    const url = this.hubUrl;
+    return this.core.post<OrganizationRevision>(`${url}/api/chat/organization/proposals/${id}/apply`, {}, url).pipe(
+      tap(() => this.load()),
+    );
+  }
+
+  discardProposal(id: string): Observable<void> {
+    const url = this.hubUrl;
+    return this.core.delete<void>(`${url}/api/chat/organization/proposals/${id}`, url);
+  }
+
+  loadOrganizationHistory(): Observable<OrganizationRevision[]> {
+    const url = this.hubUrl;
+    return this.core.get<OrganizationRevision[]>(`${url}/api/chat/organization/history`, url);
+  }
+
+  revertRevision(id: string): Observable<OrganizationRevision> {
+    const url = this.hubUrl;
+    return this.core.post<OrganizationRevision>(`${url}/api/chat/organization/history/${id}/revert`, {}, url).pipe(
+      tap(() => this.load()),
+    );
   }
 
   summarizeMessages(
