@@ -4,7 +4,7 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "chat-organization-profiles-types-reorganization-history",
   "created": "2026-07-11",
-  "status": "todo",
+  "status": "done",
   "priority": "P0",
   "purpose": "Die bestehende Chat-Verwaltung wird zu einem konsistenten Organisationsmodell aus wiederverwendbaren Chat-Profilen, semantischen Typen/Subtypen, konkreten Conversations mit eigenem Verlauf und einem frei vom Benutzer verwaltbaren hierarchischen Ordnerbaum ausgebaut. KI-gestuetzte Reorganisation darf keine Struktur direkt veraendern, sondern erzeugt persistierte, editierbare und nachvollziehbare Vorschlaege mit Diff-Vorschau, atomarem Apply, History und Undo.",
   "goal": "Angular und Backend bilden dieselben klar getrennten Konzepte ab: Profile bestimmen, wie die KI arbeitet; Typ und Subtyp beschreiben, worum es in einer Conversation geht; die Conversation besitzt ihren konkreten Verlauf und optionale Overrides; Ordner organisieren Conversations unabhaengig von Profil und Typ. Benutzer koennen Ordner und Unterordner frei erstellen, umbenennen, verschieben und Chats zuordnen. Die KI kann auf Basis von Metadaten und optional begrenzten Chat-Signalen eine neue Struktur und Umbenennungen vorschlagen. Jede Reorganisation ist vor Anwendung als Diff sichtbar, wird als atomare Revision gespeichert und kann nachvollzogen oder rueckgaengig gemacht werden.",
@@ -242,7 +242,8 @@
         "COR-003",
         "COR-005"
       ],
-      "status": "todo"
+      "status": "done",
+      "progress_percent": 100
     },
     {
       "id": "COR-M2",
@@ -253,7 +254,8 @@
         "COR-009",
         "COR-010"
       ],
-      "status": "todo"
+      "status": "done",
+      "progress_percent": 100
     },
     {
       "id": "COR-M3",
@@ -265,7 +267,8 @@
         "COR-016",
         "COR-017"
       ],
-      "status": "todo"
+      "status": "done",
+      "progress_percent": 100
     },
     {
       "id": "COR-M4",
@@ -276,7 +279,8 @@
         "COR-020",
         "COR-022"
       ],
-      "status": "todo"
+      "status": "done",
+      "progress_percent": 100
     },
     {
       "id": "COR-M5",
@@ -288,7 +292,8 @@
         "COR-027",
         "COR-028"
       ],
-      "status": "todo"
+      "status": "done",
+      "progress_percent": 100
     },
     {
       "id": "COR-M6",
@@ -301,7 +306,8 @@
         "COR-033",
         "COR-034"
       ],
-      "status": "todo"
+      "status": "done",
+      "progress_percent": 100
     }
   ],
   "tasks": [
@@ -309,7 +315,7 @@
       "id": "COR-002",
       "title": "Begriffe Session und Conversation im Contract konsistent festlegen",
       "type": "architecture",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "acceptance_criteria": [
@@ -323,13 +329,14 @@
         "Es wird dokumentiert, dass FolderNode/TreeItem und die bestehende Drag-and-Drop-Session-Zuordnung nicht neu parallel implementiert werden duerfen."
       ],
       "milestone_id": "COR-M1",
-      "depends_on": []
+      "depends_on": [],
+      "progress_percent": 100
     },
     {
       "id": "COR-003",
       "title": "Typed Backend-Domainmodelle fuer Organisation, Proposal und Revision definieren",
       "type": "architecture",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "acceptance_criteria": [
@@ -347,13 +354,14 @@
       "milestone_id": "COR-M1",
       "depends_on": [
         "COR-002"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "COR-005",
       "title": "Persistenzschema und UserConfig-Whitelist vollstaendig absichern",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -366,13 +374,14 @@
       "milestone_id": "COR-M1",
       "depends_on": [
         "COR-003"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "COR-006",
       "title": "Folder-Referenzvalidierung zentralisieren",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -390,13 +399,14 @@
       "depends_on": [
         "COR-003",
         "COR-005"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "COR-008",
       "title": "Stabile manuelle Folder-Move-Operation einfuehren",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -408,13 +418,14 @@
       "milestone_id": "COR-M2",
       "depends_on": [
         "COR-006"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "COR-009",
       "title": "Folder- und Conversation-Reihenfolge explizit modellieren",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -427,13 +438,14 @@
       "depends_on": [
         "COR-003",
         "COR-005"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "COR-010",
       "title": "Type- und Subtype-Referenzintegritaet serverseitig erzwingen",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -452,13 +464,14 @@
       "depends_on": [
         "COR-003",
         "COR-005"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "COR-012",
       "title": "OrganizationStore-Abstraktion ueber bestehender Persistenz einfuehren",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "acceptance_criteria": [
@@ -474,13 +487,14 @@
       "depends_on": [
         "COR-003",
         "COR-005"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "COR-013",
       "title": "ReorganizationProposal persistent speichern und auflisten",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "acceptance_criteria": [
@@ -498,13 +512,14 @@
       "milestone_id": "COR-M3",
       "depends_on": [
         "COR-012"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "COR-015",
       "title": "Serverseitigen Proposal-Validator implementieren",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -519,13 +534,14 @@
         "COR-006",
         "COR-010",
         "COR-013"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "COR-016",
       "title": "Atomaren Apply-Service fuer Organisationsoperationen implementieren",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -542,13 +558,14 @@
       "milestone_id": "COR-M3",
       "depends_on": [
         "COR-015"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "COR-017",
       "title": "OrganizationRevision mit reversiblen Daten persistieren",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -563,13 +580,14 @@
       "milestone_id": "COR-M3",
       "depends_on": [
         "COR-016"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "COR-018",
       "title": "AI-Reorganization-Input auf das neue Domainmodell ausrichten",
       "type": "ai-backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -588,13 +606,14 @@
       "depends_on": [
         "COR-003",
         "COR-006"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "COR-019",
       "title": "Konfigurierbare Privacy- und Context-Policy fuer AI-Reorganization einfuehren",
       "type": "security-ai",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -607,13 +626,14 @@
       "milestone_id": "COR-M4",
       "depends_on": [
         "COR-018"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "COR-020",
       "title": "LLM-Ausgabe auf Operations-Contract validieren",
       "type": "ai-backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -628,13 +648,14 @@
         "COR-013",
         "COR-015",
         "COR-019"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "COR-022",
       "title": "Bestehenden ai-reorganize Endpoint auf Proposal-Service migrieren",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -646,13 +667,14 @@
       "milestone_id": "COR-M4",
       "depends_on": [
         "COR-020"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "COR-023",
       "title": "Angular ChatSessionsPanel in klar getrennte UI-Bereiche zerlegen",
       "type": "frontend-architecture",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -670,13 +692,14 @@
       "depends_on": [
         "COR-002",
         "COR-003"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "COR-024",
       "title": "FolderTree UX fuer Folder- und Conversation-Drag-and-Drop vervollstaendigen",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "acceptance_criteria": [
@@ -691,13 +714,14 @@
         "COR-008",
         "COR-009",
         "COR-023"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "COR-026",
       "title": "Reorganization Preview als echten Before/After-Diff bauen",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -712,13 +736,14 @@
         "COR-013",
         "COR-015",
         "COR-023"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "COR-027",
       "title": "Proposal vor Apply im Angular UI editierbar machen",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -731,13 +756,14 @@
       "milestone_id": "COR-M5",
       "depends_on": [
         "COR-026"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "COR-028",
       "title": "Profile- und Type-Verwaltung als sekundare Management-UX verbessern",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -751,13 +777,14 @@
       "depends_on": [
         "COR-010",
         "COR-023"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "COR-029",
       "title": "History-Ansicht fuer Organisationsrevisionen implementieren",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "acceptance_criteria": [
@@ -771,13 +798,14 @@
       "depends_on": [
         "COR-017",
         "COR-023"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "COR-030",
       "title": "Sicheres Undo/Revert fuer Strukturrevisionen implementieren",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "acceptance_criteria": [
@@ -792,13 +820,14 @@
       "milestone_id": "COR-M6",
       "depends_on": [
         "COR-017"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "COR-031",
       "title": "Manuelle Strukturmutationen ebenfalls in die Organization-History integrieren",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -812,13 +841,14 @@
         "COR-008",
         "COR-016",
         "COR-030"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "COR-032",
       "title": "Backend-Unit- und API-Tests fuer Domainintegritaet erstellen",
       "type": "testing",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -837,13 +867,14 @@
         "COR-016",
         "COR-030",
         "COR-031"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "COR-033",
       "title": "Angular-Tests fuer Baum, Proposal-Preview und History ergaenzen",
       "type": "testing",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -860,13 +891,14 @@
         "COR-027",
         "COR-028",
         "COR-029"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "COR-034",
       "title": "Migration, Backward Compatibility und Abschlussdokumentation durchfuehren",
       "type": "migration",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -883,7 +915,8 @@
         "COR-022",
         "COR-032",
         "COR-033"
-      ]
+      ],
+      "progress_percent": 100
     }
   ],
   "critical_path_tasks": [
@@ -904,13 +937,13 @@
   "tasks_status_summary": {
     "total": 27,
     "by_status": {
-      "todo": 27,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 27
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 100,
     "by_priority": {
       "P0": 20,
       "P1": 7
@@ -922,15 +955,15 @@
     },
     "critical_path": {
       "total": 13,
-      "done": 0,
-      "remaining": 13
+      "done": 13,
+      "remaining": 0
     },
     "milestones": {
       "total": 6,
-      "todo": 6,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 6
     }
   },
   "tasks_type_summary": {
@@ -947,16 +980,38 @@
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 27,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 27
   },
   "summary_notes": [
-    "tasks[] ist die einzige Status-Quelle; Summary-Bloecke werden daraus abgeleitet.",
+    "tasks[] ist die einzige Status-Quelle; Summary-Bloecke wurden nach erfolgreicher Verifikation daraus abgeleitet.",
     "Der Track wurde von 34 auf 27 Tasks konsolidiert; reine Voranalysen und ueberlappende Contract-Aufgaben sind in ihre verantwortlichen Liefertasks eingeflossen.",
-    "Atomar bedeutet einen gelockten, crash-konsistenten Compare-and-swap-Persistenzschritt fuer Organization-Zustand, Proposal-Status und Revision."
+    "Atomar bedeutet einen gelockten, crash-konsistenten Compare-and-swap-Persistenzschritt fuer Organization-Zustand, Proposal-Status und Revision.",
+    "Verifiziert durch Backend-Domain-/API-/Persistenztests, vollstaendige Angular-Unit-Suite und Angular-Produktions-Build."
+  ],
+  "execution_stage_summary": {
+    "contracts": "done",
+    "backend_integrity": "done",
+    "proposal_revision_domain": "done",
+    "ai_migration": "done",
+    "angular_ux": "done",
+    "tests_migration_docs": "done"
+  },
+  "end_summaries": [
+    {
+      "summary_id": "COR-DONE-2026-07-11",
+      "title": "Chat organization implementation completed",
+      "items": [
+        "Profile, Type/Subtype, Conversation und Folder bleiben getrennte Entitaeten.",
+        "Persistierte editierbare Proposals werden serverseitig validiert und atomar angewendet.",
+        "Append-only Revision-History und konfliktgeprueftes idempotentes Revert sind implementiert.",
+        "KI-Kontext ist explizit datensparsam begrenzt; der Legacy-Endpunkt delegiert auf den Proposal-Workflow.",
+        "Angular verwendet den kanonischen Backend-Zustand fuer Diff, Apply und History."
+      ]
+    }
   ]
 }
