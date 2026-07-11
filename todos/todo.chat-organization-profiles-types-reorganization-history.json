@@ -1,0 +1,706 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "chat-organization-profiles-types-reorganization-history",
+  "created": "2026-07-11",
+  "status": "todo",
+  "priority": "P0",
+  "purpose": "Die bestehende Chat-Verwaltung wird zu einem konsistenten Organisationsmodell aus wiederverwendbaren Chat-Profilen, semantischen Typen/Subtypen, konkreten Conversations mit eigenem Verlauf und einem frei vom Benutzer verwaltbaren hierarchischen Ordnerbaum ausgebaut. KI-gestuetzte Reorganisation darf keine Struktur direkt veraendern, sondern erzeugt persistierte, editierbare und nachvollziehbare Vorschlaege mit Diff-Vorschau, atomarem Apply, History und Undo.",
+  "goal": "Angular und Backend bilden dieselben klar getrennten Konzepte ab: Profile bestimmen, wie die KI arbeitet; Typ und Subtyp beschreiben, worum es in einer Conversation geht; die Conversation besitzt ihren konkreten Verlauf und optionale Overrides; Ordner organisieren Conversations unabhaengig von Profil und Typ. Benutzer koennen Ordner und Unterordner frei erstellen, umbenennen, verschieben und Chats zuordnen. Die KI kann auf Basis von Metadaten und optional begrenzten Chat-Signalen eine neue Struktur und Umbenennungen vorschlagen. Jede Reorganisation ist vor Anwendung als Diff sichtbar, wird als atomare Revision gespeichert und kann nachvollzogen oder rueckgaengig gemacht werden.",
+  "core_decision": "Die vorhandene Implementierung in agent/routes/chat.py, client_surfaces/operator_tui/chat_state.py, client_surfaces/operator_tui/config/user_config_manager.py, frontend-angular/src/app/services/chat-sessions.service.ts und frontend-angular/src/app/components/chat-sessions-panel.component.ts wird weiterentwickelt statt durch ein zweites Chat-System ersetzt. Ordnerbaum, Profile, Typen und Conversations bleiben getrennte Entitaeten. AI-Reorganization wird von einem fluechtigen Vorschlag aus zufaelligen Einzel-PATCHes zu einem persistierten Proposal/Revision-Workflow mit serverseitiger Validierung und atomarem Apply weiterentwickelt.",
+  "current_state_findings": [
+    "ChatSession enthaelt bereits folder_id, session_type, session_subtype, profile_id, settings_delta, last_message_preview, message_count sowie Zeitstempel-Felder.",
+    "ChatProfile und ChatSessionType sind bereits getrennte Frontend-DTOs; Profile werden ueber /api/chat/profiles und Typen ueber /api/chat/types geladen.",
+    "ChatFolder ist bereits hierarchisch ueber parent_id modelliert; Angular baut daraus FolderNode und TreeItem und unterstuetzt Unterordner sowie Session-Drag-and-Drop.",
+    "Folder-CRUD persistiert aktuell direkt in user.json ueber chat_folders; Session-Zuordnungen persistieren ueber chat_sessions.",
+    "DELETE /api/chat/folders/{id} entfernt aktuell nur den Zielordner, setzt direkt darin liegende Sessions auf Root und behandelt Kindordner nicht explizit.",
+    "POST /api/chat/sessions/ai-reorganize erzeugt aktuell nur folders, assignments, method und summary; der Endpoint veraendert selbst keinen Zustand.",
+    "Die aktuelle LLM-Reorganisation verwendet Session-ID, Name, session_type, group und den Anfang des system_prompt, aber nicht den vorhandenen last_message_preview, message_count, subtype, bestehenden Ordnerpfad oder eine explizite Privacy-/Context-Policy.",
+    "Die aktuelle Reorganize-Annahme wird clientseitig durch mehrere Folder-Create- und Session-PATCH-Aufrufe zusammengesetzt; dadurch fehlt eine transaktionale/atomare Anwendung und Teilfehler koennen Mischzustaende erzeugen.",
+    "Es existiert aktuell kein persistiertes ReorganizationProposal mit stabiler ID, Status, before/after Snapshot, Operationsliste oder Apply-/Revert-Historie.",
+    "Profile und Typen sind funktional vorhanden, werden in der Angular-Oberflaeche aber zusammen mit Ordnerorganisation in einer sehr grossen Komponente verwaltet; die UI-Hierarchie bildet die fachliche Trennung noch nicht klar genug ab.",
+    "Die Backend-Routen validieren profile_id, validieren aber session_type/session_subtype und Ordner-parent_id/folder_id noch nicht durchgehend gegen bestehende Entitaeten oder Zyklen.",
+    "Custom Type DELETE verhindert aktuell nicht, dass Conversations mit verwaister session_type-Referenz zurueckbleiben.",
+    "Die Persistenz-Validierung fuer komplexe Listen muss fuer chat_profiles, chat_session_types, chat_folders und kuenftige Proposal-/Revision-Listen konsistent und getestet sein."
+  ],
+  "domain_model": {
+    "profile": {
+      "meaning": "Wie arbeitet die KI?",
+      "owns": ["system_prompt", "settings delta/defaults", "backend/tool/RAG behavior"],
+      "does_not_own": ["conversation history", "folder placement", "semantic topic classification"]
+    },
+    "conversation_type": {
+      "meaning": "Worum geht es in der Conversation?",
+      "owns": ["type id", "optional subtype", "classification metadata"],
+      "does_not_own": ["folder hierarchy", "AI behavior profile", "message history"]
+    },
+    "conversation": {
+      "meaning": "Konkreter Chat mit eigenem Verlauf",
+      "owns": ["conversation id", "name", "message history", "profile_id", "type/subtype", "folder_id", "session overrides", "preview metadata"]
+    },
+    "folder": {
+      "meaning": "Frei vom Benutzer steuerbare Organisationsstruktur",
+      "owns": ["folder id", "name", "icon", "color", "parent_id", "ordering metadata"],
+      "does_not_own": ["profile behavior", "semantic type", "conversation history"]
+    },
+    "reorganization_proposal": {
+      "meaning": "Nicht angewendeter, persistierter Strukturvorschlag",
+      "owns": ["proposal id", "base revision", "source", "status", "operations", "preview", "rationale", "timestamps"]
+    },
+    "structure_revision": {
+      "meaning": "Nachvollziehbare angewendete Organisationsaenderung",
+      "owns": ["revision id", "before snapshot or inverse operations", "after snapshot or applied operations", "source proposal", "actor", "timestamp", "revert metadata"]
+    }
+  },
+  "architecture_principles": [
+    "Profile, Typen, Conversations und Ordner bleiben getrennte Entitaeten mit expliziten Referenzen; keine Entitaet wird als Ersatz fuer eine andere missbraucht.",
+    "Der Ordnerbaum ist die primaere Organisationsoberflaeche; Profil und Typ/Subtyp sind Eigenschaften einer Conversation und keine konkurrierenden Baumebenen.",
+    "KI-Reorganisation ist proposal-first: Analyse und Vorschlag veraendern keinen produktiven Zustand.",
+    "Apply ist backend-atomar: eine Reorganisation wird als validierter Operationssatz in einem serverseitigen Schritt angewendet oder gar nicht.",
+    "History ist Domain-History der Organisationsstruktur und nicht mit dem eigentlichen Chat-Nachrichtenverlauf zu vermischen.",
+    "Undo basiert auf einer stabilen Revision bzw. inversen Operationen und nicht auf heuristischem Zurueckraten des vorherigen Zustands.",
+    "Alle Referenzen werden serverseitig validiert, auch wenn Angular bereits UI-Validierung bietet.",
+    "Bestehende user.json-Persistenz darf schrittweise erweitert werden; der Track darf spaeter eine dedizierte Store-Abstraktion vorbereiten, ohne fuer den ersten Schritt zwingend eine Datenbankmigration zu erzwingen.",
+    "LLM-Eingaben fuer Reorganisation sind explizit begrenzt, datensparsam und nachvollziehbar; standardmaessig werden keine vollstaendigen Chat-Verlaeufe an das Reorganisations-LLM gesendet.",
+    "Angular zeigt reale Backend-Zustaende; keine rein lokale Vorschlags- oder History-Wahrheit, die nach Reload verloren geht.",
+    "Bestehende APIs bleiben waehrend der Migration kompatibel oder erhalten klar dokumentierte Versionierungs-/Deprecation-Pfade."
+  ],
+  "non_goals": [
+    "Kein Ersatz des Chat-Nachrichtenverlaufs durch die Struktur-History.",
+    "Keine automatische ungefragte Reorganisation beim Start der Anwendung.",
+    "Keine direkte KI-Mutation des Ordnerbaums ohne Vorschau und explizite Benutzeraktion.",
+    "Keine Verwendung von session_type als folder_id oder von Ordnernamen als stabile Typ-IDs.",
+    "Keine Volltext-Uebertragung aller Chats an ein externes Modell als Default fuer die Reorganisation.",
+    "Keine zweite parallele Chat-Verwaltung neben ChatSessionsService und /api/chat.",
+    "Keine sofortige Pflichtmigration auf eine externe Datenbank, solange die bestehende UserConfig-Persistenz den Contract korrekt und atomar abbilden kann."
+  ],
+  "target_capabilities": [
+    "Beliebig tiefe, zyklusfreie Benutzerordner und Unterordner erstellen, umbenennen, verschieben und loeschen.",
+    "Conversations per Drag-and-Drop zwischen Ordnern und Root verschieben.",
+    "Ordner per Drag-and-Drop in andere Ordner verschieben und Reihenfolge stabil speichern.",
+    "Conversation-Name, Profil, Typ und Subtyp getrennt bearbeiten.",
+    "Custom Profiles und Custom Types verwalten, ohne Referenzintegritaet zu verletzen.",
+    "KI-Reorganisation aus aktuellem Strukturzustand und begrenzten Conversation-Signalen erzeugen.",
+    "KI-Vorschlag als echten Baum plus Aenderungsliste darstellen.",
+    "Vorschlag vor Apply bearbeiten: Ordnernamen, Icons, Parent-Zuordnung und Chat-Zuordnung anpassen.",
+    "Vorschlag atomar anwenden.",
+    "Alle angewendeten Strukturrevisionen mit Zeit, Quelle und Zusammenfassung anzeigen.",
+    "Letzte bzw. ausgewaehlte reversible Revision zuruecknehmen, sofern keine Konflikte bestehen.",
+    "Vor und nach Reorganisation Vorschau und Diff anzeigen.",
+    "Reload-resistente Proposal- und History-Daten.",
+    "Backend-seitige Validierung fuer Folder-, Profile-, Type- und Subtype-Referenzen."
+  ],
+  "suggested_backend_contract": {
+    "existing_endpoints_to_keep": [
+      "GET /api/chat/sessions",
+      "POST /api/chat/sessions",
+      "PATCH /api/chat/sessions/{session_id}",
+      "DELETE /api/chat/sessions/{session_id}",
+      "GET /api/chat/folders",
+      "POST /api/chat/folders",
+      "PATCH /api/chat/folders/{folder_id}",
+      "DELETE /api/chat/folders/{folder_id}",
+      "GET /api/chat/profiles",
+      "POST /api/chat/profiles",
+      "PATCH /api/chat/profiles/{profile_id}",
+      "DELETE /api/chat/profiles/{profile_id}",
+      "GET /api/chat/types",
+      "POST /api/chat/types",
+      "PATCH /api/chat/types/{type_id}",
+      "DELETE /api/chat/types/{type_id}"
+    ],
+    "endpoints_to_add_or_replace": [
+      "GET /api/chat/organization/snapshot",
+      "POST /api/chat/organization/proposals",
+      "GET /api/chat/organization/proposals",
+      "GET /api/chat/organization/proposals/{proposal_id}",
+      "PATCH /api/chat/organization/proposals/{proposal_id}",
+      "POST /api/chat/organization/proposals/{proposal_id}/validate",
+      "POST /api/chat/organization/proposals/{proposal_id}/apply",
+      "DELETE /api/chat/organization/proposals/{proposal_id}",
+      "GET /api/chat/organization/history",
+      "GET /api/chat/organization/history/{revision_id}",
+      "POST /api/chat/organization/history/{revision_id}/revert"
+    ],
+    "legacy_endpoint_migration": "POST /api/chat/sessions/ai-reorganize bleibt waehrend der Migration kompatibel, delegiert intern auf den Proposal-Service oder wird nach Frontend-Migration klar deprecated. Er darf dauerhaft keine direkte Mutation ausfuehren.",
+    "proposal_statuses": ["draft", "ready", "invalid", "applied", "discarded", "superseded"],
+    "operation_types": [
+      "folder.create",
+      "folder.rename",
+      "folder.move",
+      "folder.update_icon",
+      "folder.update_color",
+      "folder.delete_if_empty",
+      "conversation.move",
+      "conversation.rename"
+    ],
+    "error_codes": [
+      "folder_not_found",
+      "folder_cycle",
+      "folder_parent_invalid",
+      "folder_not_empty",
+      "conversation_not_found",
+      "profile_not_found",
+      "type_not_found",
+      "subtype_not_allowed",
+      "proposal_not_found",
+      "proposal_stale",
+      "proposal_invalid",
+      "proposal_already_applied",
+      "revision_not_found",
+      "revision_not_revertible",
+      "revision_conflict",
+      "organization_state_changed"
+    ]
+  },
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "milestones": [
+    {
+      "id": "COR-M1",
+      "title": "Ist-Zustand absichern und Domain-Contracts festlegen",
+      "task_ids": ["COR-001", "COR-002", "COR-003", "COR-004", "COR-005"],
+      "status": "todo"
+    },
+    {
+      "id": "COR-M2",
+      "title": "Referenzintegritaet und robuste Ordnerstruktur",
+      "task_ids": ["COR-006", "COR-007", "COR-008", "COR-009", "COR-010", "COR-011"],
+      "status": "todo"
+    },
+    {
+      "id": "COR-M3",
+      "title": "Persistierte Proposal- und Revision-Domain",
+      "task_ids": ["COR-012", "COR-013", "COR-014", "COR-015", "COR-016", "COR-017"],
+      "status": "todo"
+    },
+    {
+      "id": "COR-M4",
+      "title": "KI-Reorganisation sicher und editierbar machen",
+      "task_ids": ["COR-018", "COR-019", "COR-020", "COR-021", "COR-022"],
+      "status": "todo"
+    },
+    {
+      "id": "COR-M5",
+      "title": "Angular Organisations-UX neu strukturieren",
+      "task_ids": ["COR-023", "COR-024", "COR-025", "COR-026", "COR-027", "COR-028"],
+      "status": "todo"
+    },
+    {
+      "id": "COR-M6",
+      "title": "History, Undo, Tests und Migration abschliessen",
+      "task_ids": ["COR-029", "COR-030", "COR-031", "COR-032", "COR-033", "COR-034"],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "COR-001",
+      "title": "Bestehende Chat-Organisationspfade als Wiederverwendungs-Matrix dokumentieren",
+      "type": "analysis",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "acceptance_criteria": [
+        "Die Analyse dokumentiert mindestens agent/routes/chat.py, client_surfaces/operator_tui/chat_state.py, client_surfaces/operator_tui/chat_session.py, client_surfaces/operator_tui/config/user_config_manager.py, frontend-angular/src/app/services/chat-sessions.service.ts, frontend-angular/src/app/components/chat-sessions-panel.component.ts und frontend-angular/src/app/services/chat-history.service.ts.",
+        "Fuer jede Datei ist festgehalten, welche Verantwortung sie heute fuer Profile, Typen, Conversations, Folder, Chat-History, Preview und AI-Reorganization besitzt.",
+        "Die Analyse markiert explizit vorhandene Logik, die wiederverwendet wird, und Logik, die nur migriert oder deprecated werden soll.",
+        "Es wird dokumentiert, dass FolderNode/TreeItem und die bestehende Drag-and-Drop-Session-Zuordnung nicht neu parallel implementiert werden duerfen."
+      ]
+    },
+    {
+      "id": "COR-002",
+      "title": "Begriffe Session und Conversation im Contract konsistent festlegen",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Eine dokumentierte Entscheidung legt fest, ob der externe Contract weiterhin ChatSession heisst oder schrittweise auf Conversation migriert wird.",
+        "Falls ChatSession aus Kompatibilitaetsgruenden bleibt, ist dokumentiert, dass fachlich eine konkrete Conversation mit eigenem Verlauf gemeint ist.",
+        "Neue Proposal-/Revision-DTOs verwenden dieselbe ID-Terminologie konsistent und mischen nicht session_id und conversation_id ohne dokumentierte Mapping-Regel.",
+        "Bestehende API-Clients brechen durch die Begriffsbereinigung nicht ungeplant."
+      ]
+    },
+    {
+      "id": "COR-003",
+      "title": "Typed Backend-Domainmodelle fuer Organisation, Proposal und Revision definieren",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Es existieren zentrale Backend-Modelle oder validierte Dict-/Dataclass-/Pydantic-Contracts fuer ChatFolder, ConversationClassification, OrganizationSnapshot, ReorganizationProposal, OrganizationOperation und OrganizationRevision.",
+        "ReorganizationProposal enthaelt mindestens id, created_at, updated_at, status, source, method, base_revision_id oder base_state_hash, summary, operations und validation_errors.",
+        "OrganizationRevision enthaelt mindestens id, created_at, source, source_proposal_id, summary, applied_operations sowie revert-relevante Daten.",
+        "Operationen sind explizit typisiert; ein Apply wertet keine freien natuerlichsprachlichen Anweisungen aus.",
+        "Die Domainmodelle liegen nicht ausschliesslich in Flask-Routen und werden von Service und Tests wiederverwendet."
+      ]
+    },
+    {
+      "id": "COR-004",
+      "title": "OrganisationSnapshot und stabilen State-Hash definieren",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Ein OrganizationSnapshot enthaelt die fuer Strukturmutationen erforderlichen Folder- und Conversation-Metadaten in deterministischer Reihenfolge.",
+        "Der Snapshot trennt Strukturfelder von Chat-Inhalt; vollstaendige Nachrichten werden nicht Bestandteil des Struktur-Snapshots.",
+        "Ein deterministischer base_state_hash oder eine monotone organization_revision_id erlaubt das Erkennen veralteter Vorschlaege.",
+        "Gleicher logischer Zustand erzeugt unabhaengig von Dict-Einfuegereihenfolge denselben Hash.",
+        "GET /api/chat/organization/snapshot liefert den aktuellen Snapshot inklusive Revision/Hash."
+      ]
+    },
+    {
+      "id": "COR-005",
+      "title": "Persistenzschema und UserConfig-Whitelist vollstaendig absichern",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "user_config_manager.py behandelt chat_sessions, chat_folders, chat_profiles, chat_session_types sowie neue Proposal-/Revision-Persistenzfelder explizit und konsistent als strukturierte JSON-Daten.",
+        "chat_profiles wird auf denselben Persistenzverlust-Risikopfad geprueft, der zuvor bei chat_session_types und session_subtype/profile_id bestand.",
+        "Strukturierte Listen werden nicht versehentlich in list[str] konvertiert oder durch Unknown-Key-Filter entfernt.",
+        "Sanitizing entfernt unbekannte/ungueltige Felder kontrolliert, bewahrt aber alle vereinbarten Profile-, Type-, Folder-, Proposal- und Revision-Felder.",
+        "Roundtrip-Tests speichern und laden mindestens ein Custom Profile, einen Custom Type mit Subtypes, einen verschachtelten Folderbaum, eine Conversation-Zuordnung, ein Proposal und eine Revision ohne Datenverlust."
+      ]
+    },
+    {
+      "id": "COR-006",
+      "title": "Folder-Referenzvalidierung zentralisieren",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Folder-Erstellung und Folder-Update validieren parent_id serverseitig gegen existierende Folder oder Root.",
+        "Ein Folder kann weder sich selbst noch einen eigenen Nachfahren als parent_id erhalten.",
+        "Die Zykluspruefung arbeitet fuer beliebige Hierarchietiefe und liefert folder_cycle statt einen inkonsistenten Zustand zu speichern.",
+        "Conversation folder_id wird bei Create und Update gegen existierende Folder oder Root validiert.",
+        "Die Validierungslogik ist als wiederverwendbare Service-/Helper-Funktion implementiert und nicht in mehreren Routen dupliziert."
+      ]
+    },
+    {
+      "id": "COR-007",
+      "title": "Folder-Loeschsemantik fuer Unterordner und Conversations festlegen",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Die bisherige Semantik, nur direkt enthaltene Sessions auf Root zu setzen und Kindordner unbehandelt zu lassen, wird ersetzt oder explizit verhindert.",
+        "Der API-Contract unterstuetzt mindestens eine sichere Standardstrategie: reject-non-empty; optionale explizite Strategien duerfen move-children-to-parent oder recursive-delete nur mit klarer Benutzeraktion anbieten.",
+        "DELETE eines nicht-leeren Folders liefert einen maschinenlesbaren Fehler und veraendert ohne explizite Strategie keinen Teilzustand.",
+        "Tests decken Folder mit direkten Conversations, Unterordnern und gemischten Inhalten ab."
+      ]
+    },
+    {
+      "id": "COR-008",
+      "title": "Stabile manuelle Folder-Move-Operation einfuehren",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Das Backend kann einen Folder innerhalb des Baums verschieben, ohne dass Angular rohe parent_id-Manipulation ohne Validierung benoetigt.",
+        "Move validiert Existenz, Zyklusfreiheit und optional die erwartete Basisrevision.",
+        "Der Move aktualisiert updated_at und erzeugt spaeter ueber den gemeinsamen Mutation-Service einen History-Eintrag.",
+        "Root ist ein gueltiges Move-Ziel."
+      ]
+    },
+    {
+      "id": "COR-009",
+      "title": "Folder- und Conversation-Reihenfolge explizit modellieren",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Es wird entschieden und dokumentiert, ob sort_order, position oder rank verwendet wird.",
+        "Folder und Conversations koennen innerhalb desselben Parents deterministisch dargestellt werden.",
+        "Bestehende Daten ohne Reihenfolge erhalten eine stabile Migration, z. B. nach created_at/name/id, ohne bei jedem Reload zu springen.",
+        "Reorder-Operationen koennen spaeter in Proposal-Diff und History dargestellt werden."
+      ]
+    },
+    {
+      "id": "COR-010",
+      "title": "Type- und Subtype-Referenzintegritaet serverseitig erzwingen",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Create und Update einer Conversation akzeptieren leeren session_type oder eine existierende Type-ID.",
+        "Ein nicht-leerer session_subtype ist nur gueltig, wenn er in subtypes des ausgewaehlten Types enthalten ist.",
+        "Beim Wechsel des Types wird ein nicht mehr gueltiger Subtype serverseitig geloescht oder der Request mit subtype_not_allowed abgelehnt; die gewaehlte Semantik ist getestet.",
+        "Fehlerantworten unterscheiden type_not_found und subtype_not_allowed.",
+        "Angular-Validierung bleibt Komfortfunktion, ist aber nicht die einzige Integritaetsbarriere."
+      ]
+    },
+    {
+      "id": "COR-011",
+      "title": "Custom-Type- und Custom-Profile-Loeschregeln vereinheitlichen",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Custom Type DELETE prueft aktive Conversation-Referenzen analog zur bereits vorhandenen Profile-Referenzpruefung.",
+        "Ein verwendeter Type kann ohne explizite Migrationsstrategie nicht geloescht werden.",
+        "Optional angebotene Migration verlangt einen gueltigen replacement_type und behandelt Subtypes deterministisch.",
+        "Built-in Profiles und Built-in Types bleiben read-only.",
+        "Tests beweisen, dass keine verwaisten profile_id- oder session_type-Referenzen entstehen."
+      ]
+    },
+    {
+      "id": "COR-012",
+      "title": "OrganizationStore-Abstraktion ueber bestehender Persistenz einfuehren",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Folder, Proposal und Revision-Zugriffe werden hinter einer klaren Store-/Repository-Abstraktion gekapselt, auch wenn die erste Implementierung weiterhin user.json nutzt.",
+        "agent/routes/chat.py muss fuer neue Proposal-/Revision-Logik nicht direkt alle Persistenzdetails kennen.",
+        "Der Store bietet atomare read-modify-write-Operationen innerhalb der Moeglichkeiten des bestehenden UserConfig-Managers.",
+        "Die Abstraktion erlaubt spaeter eine Datenbankimplementierung, ohne Angular- oder REST-Contracts zu aendern."
+      ]
+    },
+    {
+      "id": "COR-013",
+      "title": "ReorganizationProposal persistent speichern und auflisten",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "POST /api/chat/organization/proposals erzeugt eine stabile proposal_id und persistiert den Vorschlag.",
+        "GET-Liste und GET-Detail liefern Proposal-Daten nach Reload unveraendert zurueck.",
+        "Proposal enthaelt base_state_hash oder base_revision_id und kann dadurch spaeter als stale erkannt werden.",
+        "Statuswechsel sind auf erlaubte Transitionen beschraenkt.",
+        "Nicht angewendete Proposals koennen verworfen werden, ohne die aktive Organisation zu veraendern."
+      ]
+    },
+    {
+      "id": "COR-014",
+      "title": "Proposal als explizite Operationsliste statt nur Zielarrays modellieren",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Ein Proposal kann konkrete folder.create, folder.rename, folder.move, conversation.move und conversation.rename Operationen enthalten.",
+        "Jede Operation besitzt stabile operation_id, type, target_id bzw. temp_id und notwendige before/after-Werte.",
+        "Temporare Folder-IDs in einem Proposal koennen vor Apply referenziert und beim Apply deterministisch auf reale IDs abgebildet werden.",
+        "Unbekannte Operationstypen werden abgelehnt und niemals als generische Dict-Mutation ausgefuehrt.",
+        "Aus der Operationsliste kann sowohl eine menschenlesbare Vorschau als auch ein maschinenlesbarer Diff erzeugt werden."
+      ]
+    },
+    {
+      "id": "COR-015",
+      "title": "Serverseitigen Proposal-Validator implementieren",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "Der Validator simuliert alle Operationen gegen dem Proposal zugrunde liegenden oder aktuellen OrganizationSnapshot, bevor persistenter Zustand geaendert wird.",
+        "Er erkennt unbekannte Conversation-/Folder-IDs, doppelte temp_ids, Folder-Zyklen, ungueltige Parent-Referenzen, ungueltige Delete-Operationen und widerspruechliche Mehrfachoperationen.",
+        "Validation liefert strukturierte Fehler mit operation_id und error_code.",
+        "Ein invalides Proposal kann nicht applied werden.",
+        "Validator-Tests enthalten mindestens einen Mehrschrittfall, in dem eine spaetere Operation einen zuvor im selben Proposal neu angelegten Folder referenziert."
+      ]
+    },
+    {
+      "id": "COR-016",
+      "title": "Atomaren Apply-Service fuer Organisationsoperationen implementieren",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "Apply erfolgt serverseitig in einem Serviceaufruf und ersetzt den bisherigen clientseitigen forkJoin-artigen Mehrfachmutationspfad fuer Reorganisationen.",
+        "Vor Apply wird base_state_hash/base_revision geprueft; ein veralteter Vorschlag liefert proposal_stale bzw. organization_state_changed.",
+        "Alle Operationen werden auf einer Arbeitskopie angewendet und erst nach erfolgreicher Gesamtvalidierung persistiert.",
+        "Bei Fehlern bleibt der vorherige Folder-/Conversation-Zustand unveraendert.",
+        "Erfolgreiches Apply erzeugt genau eine OrganizationRevision und setzt Proposal-Status auf applied.",
+        "Doppeltes Apply desselben Proposals wird idempotent abgewiesen oder liefert die bereits erzeugte Revision, ohne Operationen erneut auszufuehren."
+      ]
+    },
+    {
+      "id": "COR-017",
+      "title": "OrganizationRevision mit reversiblen Daten persistieren",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Jede atomare Strukturmutation kann eine Revision mit eindeutiger ID, Zeitstempel, Quelle und Zusammenfassung erzeugen.",
+        "Eine Revision speichert entweder einen ausreichend kleinen before/after Snapshot oder vollstaendige inverse Operationen; die Entscheidung ist dokumentiert und getestet.",
+        "Revisionsdaten enthalten keine Chat-Nachrichteninhalte, sofern sie fuer Struktur-Undo nicht benoetigt werden.",
+        "History-Limits oder Retention sind konfigurierbar bzw. klar begrenzt, damit user.json nicht unbegrenzt waechst.",
+        "GET /api/chat/organization/history liefert neueste Revisionen zuerst und GET Detail liefert den zugehoerigen Diff."
+      ]
+    },
+    {
+      "id": "COR-018",
+      "title": "AI-Reorganization-Input auf das neue Domainmodell ausrichten",
+      "type": "ai-backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Der KI-Input enthaelt mindestens Conversation-ID, Name, Type, Subtype, aktuellen Folderpfad, optional group als Legacy-Signal, message_count und begrenzte Preview-/Summary-Signale.",
+        "system_prompt wird nicht mehr als primaeres Themensignal verwendet, weil er das Verhalten des Profils beschreibt und nicht zwingend den Inhalt der konkreten Conversation.",
+        "Der aktive profile_id darf als Kontextsignal separat uebergeben werden, wird aber nicht mit dem semantischen Typ verwechselt.",
+        "Vollstaendige Chat-History wird standardmaessig nicht gesendet.",
+        "Der erzeugte Prompt dokumentiert fuer das Modell explizit die Trennung zwischen Profil, Typ und Ordnerstruktur."
+      ]
+    },
+    {
+      "id": "COR-019",
+      "title": "Konfigurierbare Privacy- und Context-Policy fuer AI-Reorganization einfuehren",
+      "type": "security-ai",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Es gibt mindestens die Modi metadata_only und metadata_plus_preview; weitere Summary-Modi sind optional.",
+        "metadata_only sendet keine Nachrichteninhalte und keine last_message_preview-Texte.",
+        "metadata_plus_preview kappt Preview-Laengen pro Conversation und Gesamtprompt deterministisch.",
+        "Der verwendete Modus wird im Proposal als input_policy dokumentiert.",
+        "Angular zeigt vor der Analyse, welche Datenkategorie verwendet wird, ohne Secrets oder komplette Payloads anzuzeigen."
+      ]
+    },
+    {
+      "id": "COR-020",
+      "title": "LLM-Ausgabe auf Operations-Contract validieren",
+      "type": "ai-backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "Die LLM-Ausgabe wird strikt als JSON in ein definiertes Schema geparst.",
+        "Die KI kann keine unbekannten Conversation-IDs erfinden oder beliebige bestehende IDs ueberschreiben.",
+        "Folder-temp_ids werden lokal auf Proposal-Ebene validiert und nicht direkt als produktive IDs uebernommen.",
+        "Ungenaue oder unvollstaendige LLM-Ausgabe fuehrt zu einem invaliden Proposal oder klarer Fallback-Strategie, niemals zu Teilmutationen.",
+        "Heuristik-Fallback erzeugt denselben Proposal-/Operations-Contract wie die LLM-Variante."
+      ]
+    },
+    {
+      "id": "COR-021",
+      "title": "KI-Vorschlaege fuer Umbenennen und Verschieben getrennt begruenden",
+      "type": "ai-backend",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Proposal kann Folder-Neuanlage, Folder-Umbenennung, Folder-Move, Conversation-Move und optional Conversation-Rename getrennt vorschlagen.",
+        "Jede nicht-triviale Operation kann eine kurze rationale enthalten.",
+        "Conversation-Rename ist separat aktivierbar und standardmaessig nicht zwingend Bestandteil jeder Reorganisation.",
+        "Die KI darf bestehende benutzerdefinierte Struktur beibehalten und nur Teilverbesserungen vorschlagen; sie wird nicht gezwungen, alle Chats neu zu verteilen.",
+        "Die Vorschlagszusammenfassung nennt Anzahl create/rename/move Operationen."
+      ]
+    },
+    {
+      "id": "COR-022",
+      "title": "Bestehenden ai-reorganize Endpoint auf Proposal-Service migrieren",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "POST /api/chat/sessions/ai-reorganize nutzt intern denselben Analyse-/Validator-Code wie POST /api/chat/organization/proposals oder wird nach Frontend-Migration explizit deprecated.",
+        "Es existieren nicht zwei divergierende KI-Reorganisationsalgorithmen.",
+        "Bestehende Clients erhalten waehrend der Uebergangsphase weiterhin einen Vorschlag ohne direkte Mutation.",
+        "Deprecation und spaetere Entfernung sind in Code/Dokumentation nachvollziehbar."
+      ]
+    },
+    {
+      "id": "COR-023",
+      "title": "Angular ChatSessionsPanel in klar getrennte UI-Bereiche zerlegen",
+      "type": "frontend-architecture",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Die bestehende sehr grosse chat-sessions-panel.component.ts wird in fachlich getrennte Komponenten oder klar abgegrenzte Subcomponents fuer FolderTree, ConversationRow/Settings, ProfileManager und ReorganizationPreview zerlegt.",
+        "ChatSessionsService bleibt zentrale API-Fassade oder wird in kompatible spezialisierte Services zerlegt, ohne parallele doppelte State-Wahrheit zu erzeugen.",
+        "Die primaere Ansicht ist der Folder-/Conversation-Baum.",
+        "Profile und Typ/Subtyp bleiben im Conversation-Detail/Settings-Kontext und werden nicht als alternative Hauptbaumstruktur dargestellt.",
+        "Bestehende Prompt-Preview- und Context-Overview-Funktionen bleiben erreichbar und werden durch den Umbau nicht verloren."
+      ]
+    },
+    {
+      "id": "COR-024",
+      "title": "FolderTree UX fuer Folder- und Conversation-Drag-and-Drop vervollstaendigen",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Bestehendes Session-Drag-and-Drop zwischen Foldern und Root bleibt erhalten.",
+        "Folder koennen ebenfalls per Drag-and-Drop in andere Folder oder Root verschoben werden.",
+        "Ungueltige Drop-Ziele wie eigener Nachfahre werden bereits in der UI abgewiesen und serverseitig erneut validiert.",
+        "Drag-Feedback unterscheidet Conversation-Move und Folder-Move eindeutig.",
+        "Ein fehlgeschlagener Backend-Move rollt optimistische UI-Aenderungen zurueck oder laedt den kanonischen Zustand neu."
+      ]
+    },
+    {
+      "id": "COR-025",
+      "title": "Conversation-Metadaten kompakt und fachlich korrekt darstellen",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "acceptance_criteria": [
+        "Conversation-Zeile oder Tooltip zeigt Name, Type/Subtype, Profil, message_count, last_message_preview und updated_at sinnvoll getrennt.",
+        "Profil wird als Verhalten/Arbeitsweise bezeichnet und Type/Subtype als thematische Klassifikation.",
+        "Folderpfad wird aus der Baumposition abgeleitet und nicht aus session_type dargestellt.",
+        "Legacy group wird nur noch angezeigt, wenn es fachlich weiterhin benoetigt wird, und nicht als Ersatz fuer Type oder Folder verwendet."
+      ]
+    },
+    {
+      "id": "COR-026",
+      "title": "Reorganization Preview als echten Before/After-Diff bauen",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Die bestehende einfache Modalansicht mit Proposal-Foldern wird zu einer Vorschau erweitert, die aktuellen und vorgeschlagenen Zustand nachvollziehbar gegenueberstellt.",
+        "Die UI zeigt mindestens neue Ordner, umbenannte Ordner, verschobene Ordner, verschobene Conversations und optionale Conversation-Renames getrennt.",
+        "Unveraenderte Elemente koennen ausgeblendet oder reduziert dargestellt werden.",
+        "Jede Operation zeigt Quelle/Ziel bzw. before/after-Werte.",
+        "Apply ist deaktiviert, solange das Proposal invalid oder stale ist."
+      ]
+    },
+    {
+      "id": "COR-027",
+      "title": "Proposal vor Apply im Angular UI editierbar machen",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Benutzer koennen vorgeschlagene Foldernamen und Icons vor Apply aendern.",
+        "Benutzer koennen eine Conversation im Vorschlag einem anderen vorgeschlagenen oder bestehenden Folder zuordnen.",
+        "Benutzer koennen einzelne optionale Rename-Operationen deaktivieren oder entfernen.",
+        "Aenderungen werden als Proposal-Update ans Backend gesendet und danach erneut validiert.",
+        "Die UI arbeitet nicht nur mit einer lokalen Kopie, die nach Reload verloren geht."
+      ]
+    },
+    {
+      "id": "COR-028",
+      "title": "Profile- und Type-Verwaltung als sekundare Management-UX verbessern",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Profile-Manager kommuniziert klar: Profil bestimmt Prompt, Backend, Tools/RAG und Arbeitsweise.",
+        "Type-Manager kommuniziert klar: Type/Subtype klassifiziert den Inhalt/Zweck einer Conversation.",
+        "Custom Types koennen neben Create auch Edit und Delete mit Referenzfehlern verwalten.",
+        "Loeschkonflikte zeigen, welche Conversations den Type oder das Profil noch verwenden.",
+        "Die Management-UX verdraengt nicht den Ordnerbaum als primaere Chat-Navigation."
+      ]
+    },
+    {
+      "id": "COR-029",
+      "title": "History-Ansicht fuer Organisationsrevisionen implementieren",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Angular kann die Liste der OrganizationRevisions laden und chronologisch anzeigen.",
+        "Jeder Eintrag zeigt mindestens Zeitpunkt, Quelle user/ai, Zusammenfassung und Anzahl der Operationen.",
+        "Detailansicht zeigt den gespeicherten Diff der Revision.",
+        "History wird klar vom normalen Chat-Nachrichtenverlauf unterschieden.",
+        "Reload verliert die History nicht."
+      ]
+    },
+    {
+      "id": "COR-030",
+      "title": "Sicheres Undo/Revert fuer Strukturrevisionen implementieren",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "POST /api/chat/organization/history/{revision_id}/revert prueft, ob die Revision gegen den aktuellen Zustand konfliktfrei reversibel ist.",
+        "Revert wird selbst als neue Revision gespeichert und loescht die urspruengliche History nicht.",
+        "Ein Revert kann keine inzwischen neu angelegten oder anderweitig veraenderten Entitaeten stillschweigend ueberschreiben.",
+        "Konflikte liefern revision_conflict mit strukturierten Details.",
+        "Frontend zeigt vor Revert eine Vorschau der inversen Aenderungen und verlangt eine explizite Benutzeraktion."
+      ]
+    },
+    {
+      "id": "COR-031",
+      "title": "Manuelle Strukturmutationen ebenfalls in die Organization-History integrieren",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Folder create/rename/move/delete und Conversation move/rename laufen langfristig ueber denselben OrganizationMutationService oder erzeugen aequivalente Revisionen.",
+        "History unterscheidet source=user und source=ai.",
+        "Eine einfache Drag-and-Drop-Aktion erzeugt keine unnoetige Vielzahl interner Revisionen, sondern genau eine fachliche Revision.",
+        "Bestehende Einzelendpunkte bleiben kompatibel, delegieren aber auf die gemeinsame Mutationslogik."
+      ]
+    },
+    {
+      "id": "COR-032",
+      "title": "Backend-Unit- und API-Tests fuer Domainintegritaet erstellen",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Tests decken Profile/Create/Update/Delete und verwendete Profile ab.",
+        "Tests decken Type/Subtype-Validierung, verwendete Custom Types und Subtype-Wechsel ab.",
+        "Tests decken Folder-Zyklen, fehlende Parents, nicht-leere Deletes und Conversation folder_id ab.",
+        "Tests decken Proposal create/load/update/validate/apply/stale/double-apply ab.",
+        "Tests decken atomaren Rollback bei einer fehlerhaften Operation in einem Mehrschritt-Proposal ab.",
+        "Tests decken Revision-History und konfliktfreies sowie konfliktbehaftetes Revert ab."
+      ]
+    },
+    {
+      "id": "COR-033",
+      "title": "Angular-Tests fuer Baum, Proposal-Preview und History ergaenzen",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": [
+        "Component-/Service-Tests pruefen Folderbaum-Aufbau aus parent_id, Collapsing und Conversation-Zuordnung.",
+        "Tests pruefen Conversation- und Folder-Drag-and-Drop inklusive Root-Ziel und Fehlerfall.",
+        "Tests pruefen, dass Profile und Type/Subtype getrennte Controls bleiben.",
+        "Tests pruefen Proposal Diff, Edit, Validate und Apply-Disabled fuer invalid/stale.",
+        "Tests pruefen History-Liste und Revert-Vorschau.",
+        "Bestehende relevante TUI-/Angular-Snapshots werden nur aktualisiert, wenn die funktionale Aenderung bewusst ist; Snapshot-Refresh ersetzt keine Verhaltensassertionen."
+      ]
+    },
+    {
+      "id": "COR-034",
+      "title": "Migration, Backward Compatibility und Abschlussdokumentation durchfuehren",
+      "type": "migration",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Bestehende user.json-Daten mit chat_sessions, chat_folders, chat_profiles und chat_session_types werden ohne Verlust geladen.",
+        "Fehlende neue Felder erhalten deterministische Defaults.",
+        "Bestehende Folder-IDs und Conversation-IDs bleiben stabil.",
+        "Legacy group-Daten werden nicht ungefragt geloescht; ihre kuenftige Rolle ist dokumentiert.",
+        "Der alte ai-reorganize-Flow ist entweder kompatibel adaptiert oder klar deprecated und im Frontend nicht mehr der primaere Apply-Pfad.",
+        "Eine Entwicklerdokumentation erklaert die sechs Kernkonzepte Profile, Type/Subtype, Conversation, Folder, Proposal und Revision inklusive Datenfluss von Analyse ueber Preview bis Apply/Undo.",
+        "Der Track gilt erst als done, wenn Persistenz-Roundtrip, atomarer Apply, History und Undo automatisiert getestet sind."
+      ]
+    }
+  ]
+}
