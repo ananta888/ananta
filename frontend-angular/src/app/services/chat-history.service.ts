@@ -17,6 +17,7 @@ export interface ChatHistoryMessage {
   kind?: 'summary';           // set for AI-generated partial summaries
   summarizedIds?: string[];   // ids of the messages this summary replaces
   hiddenBySummary?: string;   // id of the summary message that folded this one away
+  includedInContext?: boolean; // false excludes the message from future AI turns
 }
 
 const LS_KEY = 'ananta.chat.history.v2';
@@ -87,6 +88,45 @@ export class ChatHistoryService implements OnDestroy {
   /** Messages with summary-folded ones filtered out (for prompt building / display). */
   getVisibleMessages(sessionId: string): ChatHistoryMessage[] {
     return (this.store[sessionId] ?? []).filter(m => !m.hiddenBySummary);
+  }
+
+  /** Visible messages explicitly enabled for the next AI turn. */
+  getContextMessages(sessionId: string): ChatHistoryMessage[] {
+    return this.getVisibleMessages(sessionId).filter(m => m.includedInContext !== false);
+  }
+
+  updateMessage(sessionId: string, messageId: string, text: string): boolean {
+    const message = (this.store[sessionId] ?? []).find(m => m.id === messageId);
+    const normalized = String(text || '').trim();
+    if (!message || !normalized) return false;
+    message.text = normalized;
+    this.commitUpdate();
+    return true;
+  }
+
+  setIncludedInContext(sessionId: string, messageId: string, included: boolean): void {
+    const message = (this.store[sessionId] ?? []).find(m => m.id === messageId);
+    if (!message) return;
+    message.includedInContext = included;
+    this.commitUpdate();
+  }
+
+  deleteMessage(sessionId: string, messageId: string): void {
+    const messages = this.store[sessionId] ?? [];
+    const message = messages.find(m => m.id === messageId);
+    if (!message) return;
+    if (message.kind === 'summary') {
+      for (const original of messages) {
+        if (original.hiddenBySummary === messageId) delete original.hiddenBySummary;
+      }
+    }
+    for (const summary of messages) {
+      if (summary.kind === 'summary' && summary.summarizedIds?.includes(messageId)) {
+        summary.summarizedIds = summary.summarizedIds.filter(id => id !== messageId);
+      }
+    }
+    this.store[sessionId] = messages.filter(m => m.id !== messageId);
+    this.commitUpdate();
   }
 
   /** Originals folded under a summary (for expand view). */
@@ -183,5 +223,10 @@ export class ChatHistoryService implements OnDestroy {
     try {
       localStorage.setItem(LS_KEY, JSON.stringify(this.store));
     } catch {}
+  }
+
+  private commitUpdate(): void {
+    this.persist();
+    this.updated$.next(Date.now());
   }
 }

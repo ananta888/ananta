@@ -17,8 +17,20 @@ export interface ChatSession {
   system_prompt: string;
   settings: Record<string, unknown>;
   settings_delta: Record<string, unknown>;
+  profile_id: string;
+  system_prompt_override?: string;
   created_at?: number;
   updated_at?: number;
+}
+
+export interface ChatProfile {
+  id: string;
+  name: string;
+  icon: string;
+  description?: string;
+  system_prompt: string;
+  settings: Record<string, unknown>;
+  builtin: boolean;
 }
 
 export interface ChatFolder {
@@ -78,6 +90,7 @@ export interface CreateSessionPayload {
   type_description?: string;
   system_prompt?: string;
   settings?: Record<string, unknown>;
+  profile_id?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -87,6 +100,7 @@ export class ChatSessionsService {
 
   readonly sessions$ = new BehaviorSubject<ChatSession[]>([]);
   readonly folders$ = new BehaviorSubject<ChatFolder[]>([]);
+  readonly profiles$ = new BehaviorSubject<ChatProfile[]>([]);
   readonly activeSessionId$ = new BehaviorSubject<string>('');
   readonly loading$ = new BehaviorSubject<boolean>(false);
   readonly error$ = new BehaviorSubject<string>('');
@@ -115,6 +129,43 @@ export class ChatSessionsService {
       },
     });
     this.loadFolders();
+    this.loadProfiles();
+  }
+
+  loadProfiles(): void {
+    const url = this.hubUrl;
+    if (!url) return;
+    this.core.get<ChatProfile[]>(`${url}/api/chat/profiles`, url).subscribe({
+      next: profiles => this.profiles$.next(Array.isArray(profiles) ? profiles : []),
+      error: err => this.error$.next(String(err?.message || 'Fehler beim Laden der Chat-Profile')),
+    });
+  }
+
+  createProfile(profile: Partial<ChatProfile> & { name: string }): void {
+    const url = this.hubUrl;
+    if (!url) return;
+    this.core.post<ChatProfile>(`${url}/api/chat/profiles`, profile, url).subscribe({
+      next: () => this.loadProfiles(),
+      error: err => this.error$.next(String(err?.message || 'Fehler beim Erstellen des Profils')),
+    });
+  }
+
+  updateProfile(profileId: string, patch: Partial<ChatProfile>): void {
+    const url = this.hubUrl;
+    if (!url) return;
+    this.core.patch<ChatProfile>(`${url}/api/chat/profiles/${profileId}`, patch, url).subscribe({
+      next: () => { this.loadProfiles(); this.load(); },
+      error: err => this.error$.next(String(err?.message || 'Fehler beim Aktualisieren des Profils')),
+    });
+  }
+
+  deleteProfile(profileId: string): void {
+    const url = this.hubUrl;
+    if (!url) return;
+    this.core.delete<void>(`${url}/api/chat/profiles/${profileId}`, url).subscribe({
+      next: () => this.loadProfiles(),
+      error: err => this.error$.next(String(err?.message || 'Profil wird noch verwendet oder konnte nicht gelöscht werden')),
+    });
   }
 
   loadFolders(): void {
@@ -213,6 +264,7 @@ export class ChatSessionsService {
       type_description: payload.type_description || '',
       system_prompt: payload.system_prompt || '',
       settings: payload.settings || {},
+      profile_id: payload.profile_id || 'general',
     };
     this.core.post<ChatSession>(`${url}/api/chat/sessions`, body, url).subscribe({
       next: s => {
@@ -224,7 +276,7 @@ export class ChatSessionsService {
   }
 
   update(sessionId: string, patch: Partial<Pick<ChatSession,
-    'name' | 'icon' | 'group' | 'folder_id' | 'session_type' | 'type_description' | 'system_prompt' | 'settings'
+    'name' | 'icon' | 'group' | 'folder_id' | 'session_type' | 'type_description' | 'system_prompt' | 'settings' | 'profile_id'
   >>): void {
     const url = this.hubUrl;
     if (!url) return;

@@ -5,6 +5,7 @@ import { forkJoin, Subscription } from 'rxjs';
 import {
   ChatSessionsService,
   ChatSession,
+  ChatProfile,
   ChatFolder,
   ReorganizeProposal,
   ContextOverview,
@@ -25,15 +26,6 @@ const PUG_DESCRIPTIONS: Record<string, string> = {
   eager:    'dwell=800ms, confidence=0.35, candidates=5 — Snake reagiert häufig auf jede Änderung',
   custom:   'Individuelle Einstellungen aktiv',
 };
-
-const SESSION_TYPES = [
-  { type: 'code',    icon: '💻', label: 'Code-Hilfe',    desc: 'Code-Fragen, Fehlersuche, Refactoring' },
-  { type: 'writing', icon: '✍️', label: 'Schreib-Coach', desc: 'Texte verfassen, strukturieren, überarbeiten' },
-  { type: 'arch',    icon: '🏗️', label: 'Architektur',   desc: 'System-Design, Diagramme, Abhängigkeiten' },
-  { type: 'config',  icon: '⚙️', label: 'Konfiguration', desc: 'Ananta-Einstellungen, UI-Hilfe' },
-  { type: 'general', icon: '💬', label: 'Allgemein',      desc: 'Freie Unterhaltung, gemischte Themen' },
-  { type: 'custom',  icon: '🎯', label: 'Eigener Typ',    desc: 'Manuell konfiguriert' },
-];
 
 interface FolderNode {
   folder: ChatFolder;
@@ -63,10 +55,45 @@ interface TreeItem {
           {{ reorganizing ? '⟳ Analysiere...' : '🤖 Neu-Strukturieren' }}
         </button>
         <button class="new-folder-btn" (click)="createRootFolder()" title="Neuen Ordner anlegen">📁＋</button>
+        <button class="new-folder-btn" (click)="showProfiles = !showProfiles" title="Chat-Profile verwalten">🎛 Profile</button>
         @if (loading) {
           <span class="loading-indicator">⟳</span>
         }
       </div>
+
+      @if (showProfiles) {
+        <div class="profile-manager">
+          <div class="ctx-title">Wiederverwendbare Chat-Profile</div>
+          @for (profile of profiles; track profile.id) {
+            <div class="profile-row">
+              <span>{{ profile.icon || '🎯' }} {{ profile.name }}</span>
+              <span class="muted">{{ profile.builtin ? 'integriert' : profile.id }}</span>
+              @if (!profile.builtin) {
+                <button class="icon-btn" (click)="editProfile(profile)">✎</button>
+                <button class="icon-btn del" (click)="deleteProfile(profile)">✕</button>
+              }
+            </div>
+          }
+          <div class="profile-editor">
+            <input [(ngModel)]="profileIcon" placeholder="🎯" maxlength="4" />
+            <input [(ngModel)]="profileName" placeholder="Profilname" />
+            <select [(ngModel)]="profileBackend">
+              <option value="ananta-worker">ananta-worker</option>
+              <option value="opencode">opencode</option>
+              <option value="lmstudio">lmstudio</option>
+              <option value="hermes">hermes</option>
+            </select>
+            <label><input type="checkbox" [(ngModel)]="profileCodeCompass" /> CodeCompass</label>
+            <textarea [(ngModel)]="profilePrompt" rows="3" placeholder="System-Prompt"></textarea>
+            <div class="row">
+              <button (click)="saveProfile()" [disabled]="!profileName.trim()">
+                {{ editingProfileId ? 'Profil speichern' : 'Profil anlegen' }}
+              </button>
+              @if (editingProfileId) { <button (click)="resetProfileEditor()">Abbrechen</button> }
+            </div>
+          </div>
+        </div>
+      }
 
       <!-- ── Session + folder list ── -->
       <div class="list">
@@ -168,6 +195,15 @@ interface TreeItem {
                   <div class="cfg-hint">
                     Nur abweichende Werte werden gespeichert.
                     <span class="cfg-hint-badge">{{ deltaCount(s) }} Override(s)</span>
+                  </div>
+
+                  <div class="cfg-row">
+                    <label class="cfg-label">Chat-Profil</label>
+                    <select [ngModel]="s.profile_id || 'general'" (ngModelChange)="changeProfile(s, $event)">
+                      @for (profile of profiles; track profile.id) {
+                        <option [value]="profile.id">{{ profile.icon || '🎯' }} {{ profile.name }}</option>
+                      }
+                    </select>
                   </div>
 
                   <!-- Backend -->
@@ -430,23 +466,20 @@ interface TreeItem {
       <!-- ── New session form ── -->
       <div class="bottom-bar">
         <button class="new-btn" (click)="showNew = !showNew">
-          {{ showNew ? '▲ Abbrechen' : '＋ Neue Session' }}
+          {{ showNew ? '▲ Abbrechen' : '＋ Neuer Chat' }}
         </button>
       </div>
 
       @if (showNew) {
         <div class="new-form">
-          <!-- Session-Typ picker -->
-          <div class="new-form-label">Session-Typ</div>
-          <div class="type-grid">
-            @for (t of sessionTypes; track t.type) {
-              <button class="type-btn" [class.selected]="newSessionType === t.type"
-                      (click)="selectSessionType(t)" [title]="t.desc">
-                <span class="type-icon">{{ t.icon }}</span>
-                <span class="type-label">{{ t.label }}</span>
-              </button>
-            }
-          </div>
+          <label class="cfg-label-block">Chat-Profil
+            <select [(ngModel)]="newProfileId" (ngModelChange)="selectProfile($event)">
+              @for (profile of profiles; track profile.id) {
+                <option [value]="profile.id">{{ profile.icon || '🎯' }} {{ profile.name }}</option>
+              }
+            </select>
+            <span class="muted">Das Profil bestimmt Prompt, Backend und Kontextregeln. Der Chat behält seinen eigenen Verlauf.</span>
+          </label>
 
           <div class="new-form-row">
             <input [(ngModel)]="newIcon" placeholder="🤖" maxlength="4" class="icon-field" />
@@ -467,17 +500,6 @@ interface TreeItem {
             </select>
           </label>
 
-          <label class="cfg-label-block">Backend
-            <select [(ngModel)]="newBackend">
-              <option value="ananta-worker">ananta-worker</option>
-              <option value="opencode">opencode</option>
-              <option value="lmstudio">lmstudio</option>
-              <option value="hermes">hermes</option>
-            </select>
-          </label>
-          <label class="cfg-label-block inline">
-            <input type="checkbox" [(ngModel)]="newCodeCompass" /> CodeCompass aktiv
-          </label>
           <label class="cfg-label-block">
             System-Prompt (optional)
             <textarea rows="3" [(ngModel)]="newPrompt"
@@ -566,6 +588,10 @@ interface TreeItem {
       display: flex; align-items: center; gap: 6px;
       padding: 5px 8px; border-bottom: 1px solid #0d1c30;
     }
+    .profile-manager { padding: 8px; border-bottom: 1px solid #1a2d4a; background: #091526; display: grid; gap: 6px; }
+    .profile-row { display: grid; grid-template-columns: 1fr auto auto auto; align-items: center; gap: 5px; font-size: 11px; }
+    .profile-editor { display: grid; grid-template-columns: auto 1fr; gap: 6px; padding-top: 6px; border-top: 1px dashed #1a2d4a; }
+    .profile-editor textarea, .profile-editor .row { grid-column: 1 / -1; }
     .reorg-btn {
       background: #0a1825; border: 1px solid #1a3050; color: #7ab0e0;
       padding: 4px 10px; cursor: pointer; font-size: 11px; border-radius: 3px; flex: 1;
@@ -878,6 +904,7 @@ export class ChatSessionsPanelComponent implements OnInit, OnDestroy {
   // Locally mirrored state (subscribed in ngOnInit)
   sessions: ChatSession[] = [];
   folders: ChatFolder[] = [];
+  profiles: ChatProfile[] = [];
   activeSessionId = '';
   error = '';
   loading = false;
@@ -887,6 +914,7 @@ export class ChatSessionsPanelComponent implements OnInit, OnDestroy {
   editName = '';
   expandedId = '';
   showNew = false;
+  showProfiles = false;
   tooltipId = '';
   draggingSessionId = '';
   dragOverFolderId = '';
@@ -911,13 +939,14 @@ export class ChatSessionsPanelComponent implements OnInit, OnDestroy {
   newIcon = '💬';
   newGroup = '';
   newPrompt = '';
-  newBackend = 'ananta-worker';
-  newCodeCompass = true;
-  newSessionType = '';
-  newTypeDescription = '';
   newFolderId = '';
-
-  readonly sessionTypes = SESSION_TYPES;
+  newProfileId = 'general';
+  editingProfileId = '';
+  profileName = '';
+  profileIcon = '🎯';
+  profilePrompt = '';
+  profileBackend = 'ananta-worker';
+  profileCodeCompass = true;
 
   private subs: Subscription[] = [];
   private promptDebounce: ReturnType<typeof setTimeout> | null = null;
@@ -928,6 +957,7 @@ export class ChatSessionsPanelComponent implements OnInit, OnDestroy {
     this.subs.push(
       this.svc.sessions$.subscribe(s => { this.sessions = s; }),
       this.svc.folders$.subscribe(f => { this.folders = f; }),
+      this.svc.profiles$.subscribe(p => { this.profiles = p; }),
       this.svc.activeSessionId$.subscribe(id => { this.activeSessionId = id; }),
       this.svc.error$.subscribe(e => { this.error = e; }),
       this.svc.loading$.subscribe(l => { this.loading = l; }),
@@ -1182,15 +1212,55 @@ export class ChatSessionsPanelComponent implements OnInit, OnDestroy {
     return map[name] ?? name;
   }
 
-  // ── Session type picker ──────────────────────────────────────────────────
+  // ── Session CRUD ─────────────────────────────────────────────────────────
 
-  selectSessionType(t: typeof SESSION_TYPES[number]): void {
-    this.newSessionType = t.type;
-    this.newTypeDescription = t.desc;
-    this.newIcon = t.icon;
+  selectProfile(profileId: string): void {
+    const profile = this.profiles.find(item => item.id === profileId);
+    if (profile) this.newIcon = profile.icon || '💬';
   }
 
-  // ── Session CRUD ─────────────────────────────────────────────────────────
+  changeProfile(session: ChatSession, profileId: string): void {
+    this.svc.update(session.id, { profile_id: profileId });
+  }
+
+  editProfile(profile: ChatProfile): void {
+    this.editingProfileId = profile.id;
+    this.profileName = profile.name;
+    this.profileIcon = profile.icon || '🎯';
+    this.profilePrompt = profile.system_prompt || '';
+    this.profileBackend = String(profile.settings?.['chat_backend'] || 'ananta-worker');
+    this.profileCodeCompass = !!profile.settings?.['chat_use_codecompass'];
+  }
+
+  saveProfile(): void {
+    const name = this.profileName.trim();
+    if (!name) return;
+    const payload = {
+      name,
+      icon: this.profileIcon || '🎯',
+      system_prompt: this.profilePrompt,
+      settings: {
+        chat_backend: this.profileBackend,
+        chat_use_codecompass: this.profileCodeCompass,
+      },
+    };
+    if (this.editingProfileId) this.svc.updateProfile(this.editingProfileId, payload);
+    else this.svc.createProfile(payload);
+    this.resetProfileEditor();
+  }
+
+  deleteProfile(profile: ChatProfile): void {
+    if (confirm(`Profil "${profile.name}" wirklich löschen?`)) this.svc.deleteProfile(profile.id);
+  }
+
+  resetProfileEditor(): void {
+    this.editingProfileId = '';
+    this.profileName = '';
+    this.profileIcon = '🎯';
+    this.profilePrompt = '';
+    this.profileBackend = 'ananta-worker';
+    this.profileCodeCompass = true;
+  }
 
   activate(s: ChatSession): void {
     this.svc.activate(s.id);
@@ -1223,13 +1293,8 @@ export class ChatSessionsPanelComponent implements OnInit, OnDestroy {
       icon: this.newIcon || '💬',
       group: this.newGroup.trim(),
       folder_id: this.newFolderId,
-      session_type: this.newSessionType,
-      type_description: this.newTypeDescription,
       system_prompt: this.newPrompt,
-      settings: {
-        chat_backend: this.newBackend,
-        chat_use_codecompass: this.newCodeCompass,
-      },
+      profile_id: this.newProfileId,
     };
     this.svc.create(payload);
     this.resetNewForm();
@@ -1240,11 +1305,8 @@ export class ChatSessionsPanelComponent implements OnInit, OnDestroy {
     this.newIcon = '💬';
     this.newGroup = '';
     this.newPrompt = '';
-    this.newBackend = 'ananta-worker';
-    this.newCodeCompass = true;
-    this.newSessionType = '';
-    this.newTypeDescription = '';
     this.newFolderId = '';
+    this.newProfileId = 'general';
     this.showNew = false;
   }
 

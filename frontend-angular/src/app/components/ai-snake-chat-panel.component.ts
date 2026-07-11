@@ -192,6 +192,11 @@ import { SnakeOverlayService } from '../services/snake-overlay.service';
           @if (newChatMode) {
             <div class="new-chat-form">
               <input [(ngModel)]="newChatName" placeholder="Chat-Name *" (keydown.enter)="createChat()" class="new-chat-input" />
+              <select [(ngModel)]="newChatProfileId" title="Chat-Profil">
+                @for (profile of sessions.profiles$ | async; track profile.id) {
+                  <option [value]="profile.id">{{ profile.icon || '🎯' }} {{ profile.name }}</option>
+                }
+              </select>
               <button (click)="createChat()" [disabled]="!newChatName.trim()" class="new-chat-ok">Anlegen</button>
               <button (click)="newChatMode = false" class="ghost">✕</button>
             </div>
@@ -214,6 +219,7 @@ import { SnakeOverlayService } from '../services/snake-overlay.service';
                 {{ selectMode ? '✕ Auswahl beenden' : '✂ Zusammenfassen' }}
               </button>
               @if (selectMode) {
+                <span class="selection-help">Nachrichten anklicken, dann hier starten:</span>
                 <select [(ngModel)]="summaryLength" class="sum-len">
                   <option [ngValue]="400">kurz (400)</option>
                   <option [ngValue]="800">mittel (800)</option>
@@ -221,12 +227,16 @@ import { SnakeOverlayService } from '../services/snake-overlay.service';
                 </select>
                 <button class="sum-go" [disabled]="selectedMsgIds.size < 2 || summarizing"
                         (click)="summarizeSelected()">
-                  {{ summarizing ? '⟳ Fasse zusammen…' : selectedMsgIds.size + ' Nachrichten zusammenfassen' }}
+                  {{ summarizing ? '⟳ Fasse zusammen…' : '▶ Jetzt zusammenfassen (' + selectedMsgIds.size + ')' }}
                 </button>
               }
               @if (summaryHint) {
                 <span class="sum-hint">{{ summaryHint }}</span>
               }
+            </div>
+            <div class="context-bar">
+              <span>Kontext beim Fortsetzen: <strong>{{ contextMessageCount() }}</strong> ausgewählt (gesendet werden die letzten 20)</span>
+              <span class="context-help">Mit ◉/○ pro Nachricht steuerbar</span>
             </div>
           }
 
@@ -242,6 +252,7 @@ import { SnakeOverlayService } from '../services/snake-overlay.service';
               }
               @for (m of chatMessages(); track m.id) {
                 <div class="msg-row"
+                     [class.context-excluded]="m.includedInContext === false"
                      [class.selectable]="selectMode"
                      [class.selected]="selectedMsgIds.has(m.id)"
                      (click)="onMsgRowClick(m.id)">
@@ -254,6 +265,9 @@ import { SnakeOverlayService } from '../services/snake-overlay.service';
                     <div class="summary-box">
                       <div class="summary-head">📋 Zusammenfassung ({{ m.summarizedIds?.length || 0 }} Nachrichten)</div>
                       <div class="summary-text">{{ m.text }}</div>
+                      @if (editingMessageId === m.id) {
+                        <textarea class="message-editor" [(ngModel)]="editingMessageText" (click)="$event.stopPropagation()"></textarea>
+                      }
                       <div class="summary-actions">
                         <button class="sum-mini"
                                 (click)="$event.stopPropagation(); toggleExpandSummary(m.id)">
@@ -261,7 +275,18 @@ import { SnakeOverlayService } from '../services/snake-overlay.service';
                         </button>
                         <button class="sum-mini"
                                 (click)="$event.stopPropagation(); dissolveSummary(m.id)">↩ Auflösen</button>
+                        <button class="sum-mini" (click)="$event.stopPropagation(); toggleContext(m)">
+                          {{ m.includedInContext === false ? '○ Kontext aus' : '◉ Im Kontext' }}
+                        </button>
+                        <button class="sum-mini" (click)="$event.stopPropagation(); beginEdit(m)">✎ Bearbeiten</button>
+                        <button class="sum-mini danger" (click)="$event.stopPropagation(); deleteMessage(m)">⌫ Löschen</button>
                       </div>
+                      @if (editingMessageId === m.id) {
+                        <div class="edit-actions">
+                          <button class="sum-mini" (click)="$event.stopPropagation(); saveEdit(m)">Speichern</button>
+                          <button class="sum-mini" (click)="$event.stopPropagation(); cancelEdit()">Abbrechen</button>
+                        </div>
+                      }
                       @if (expandedSummaryIds.has(m.id)) {
                         <div class="summary-originals">
                           @for (o of summarizedMessages(m.id); track o.id) {
@@ -279,11 +304,27 @@ import { SnakeOverlayService } from '../services/snake-overlay.service';
                     <div class="msg" [class.msg-ai]="m.isAI">
                       <span class="msg-who">{{ m.isAI ? '🤖' : '👤' }}</span>
                       <span class="msg-body">
-                        <app-chat-message [text]="m.text" />
+                        @if (editingMessageId === m.id) {
+                          <textarea class="message-editor" [(ngModel)]="editingMessageText" (click)="$event.stopPropagation()"></textarea>
+                          <span class="edit-actions">
+                            <button class="sum-mini" (click)="$event.stopPropagation(); saveEdit(m)">Speichern</button>
+                            <button class="sum-mini" (click)="$event.stopPropagation(); cancelEdit()">Abbrechen</button>
+                          </span>
+                        } @else {
+                          <app-chat-message [text]="m.text" />
+                        }
                       </span>
                       @if (m.hasGuide) {
                         <button class="guide-badge" (click)="setTab('trace')" title="Guide gespielt — Trace ansehen">📍</button>
                       }
+                      <span class="message-actions">
+                        <button class="sum-mini" (click)="$event.stopPropagation(); toggleContext(m)"
+                                [title]="m.includedInContext === false ? 'Beim Fortsetzen wieder mitsenden' : 'Beim Fortsetzen nicht mitsenden'">
+                          {{ m.includedInContext === false ? '○' : '◉' }}
+                        </button>
+                        <button class="sum-mini" (click)="$event.stopPropagation(); beginEdit(m)" title="Nachricht bearbeiten">✎</button>
+                        <button class="sum-mini danger" (click)="$event.stopPropagation(); deleteMessage(m)" title="Nachricht löschen">⌫</button>
+                      </span>
                     </div>
                   }
                 </div>
@@ -414,12 +455,15 @@ import { SnakeOverlayService } from '../services/snake-overlay.service';
     }
     .sum-go:disabled { opacity: 0.4; cursor: default; }
     .sum-hint { color: #d8c8a8; font-size: 10px; }
+    .selection-help, .context-help { color: #6b8ab8; }
+    .context-bar { display: flex; justify-content: space-between; gap: 8px; padding: 4px 10px; background: #0b1828; border-bottom: 1px solid #152040; font-size: 10px; flex-shrink: 0; }
     /* ── Messages ── */
     .messages { padding: 8px 10px; overflow: auto; display: flex; flex-direction: column; gap: 6px; }
     .msg-row { display: flex; gap: 6px; align-items: flex-start; }
     .msg-row.selectable { cursor: pointer; border-radius: 3px; padding: 1px 2px; }
     .msg-row.selectable:hover { background: #0d1e34; }
     .msg-row.selected { background: #0a2438; outline: 1px solid #2a5a4a; }
+    .msg-row.context-excluded { opacity: 0.48; border-left: 2px solid #7a5360; padding-left: 4px; }
     .msg-row > .msg, .msg-row > .summary-box { flex: 1; min-width: 0; }
     .sel-box { flex-shrink: 0; margin-top: 3px; accent-color: #7fffd4; }
     /* ── Zusammenfassungs-Nachricht ── */
@@ -429,12 +473,13 @@ import { SnakeOverlayService } from '../services/snake-overlay.service';
     }
     .summary-head { color: #7fffd4; font-size: 10px; font-weight: 600; }
     .summary-text { color: #c8d8f8; white-space: pre-wrap; word-break: break-word; }
-    .summary-actions { display: flex; gap: 6px; }
+    .summary-actions, .edit-actions { display: flex; gap: 6px; flex-wrap: wrap; }
     .sum-mini {
       background: transparent; border: 1px solid #1a2d4a; color: #6b8ab8;
       padding: 1px 6px; font-size: 10px; cursor: pointer; border-radius: 3px;
     }
     .sum-mini:hover { color: #7fffd4; border-color: #2a5a4a; }
+    .sum-mini.danger:hover { color: #fb7185; border-color: #fb7185; }
     .summary-originals {
       border-top: 1px dashed #1a2d4a; padding-top: 4px; margin-top: 2px;
       display: flex; flex-direction: column; gap: 4px; opacity: 0.6;
@@ -445,6 +490,9 @@ import { SnakeOverlayService } from '../services/snake-overlay.service';
     .msg-ai .msg-body { color: #b8d8b0; }
     .msg-who { flex-shrink: 0; font-size: 13px; }
     .msg-body { flex: 1; min-width: 0; white-space: pre-wrap; }
+    .message-actions { display: flex; gap: 3px; opacity: 0.35; }
+    .msg-row:hover .message-actions { opacity: 1; }
+    .message-editor { width: 100%; min-height: 64px; resize: vertical; box-sizing: border-box; color: #dbe8ff; background: #07111f; border: 1px solid #3a5a7a; }
     .guide-badge { background: none; border: none; cursor: pointer; font-size: 12px; padding: 0 2px; opacity: 0.55; flex-shrink: 0; line-height: 1; }
     .guide-badge:hover { opacity: 1; }
     .typing .msg-body { color: #4a8a6a; animation: blink 1s infinite; }
@@ -506,17 +554,21 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
   loginError = '';
   newChatMode = false;
   newChatName = '';
+  newChatProfileId = 'general';
   selectMode = false;
   selectedMsgIds = new Set<string>();
   summaryLength = 800;
   summarizing = false;
   summaryHint = '';
   expandedSummaryIds = new Set<string>();
+  editingMessageId = '';
+  editingMessageText = '';
   private summaryHintTimer: ReturnType<typeof setTimeout> | undefined;
   readonly keycloakPresets = [PUBLIC_KEYCLOAK_BASE_URL];
 
   private historySub?: Subscription;
   private activeSub?: Subscription;
+  private sessionSub?: Subscription;
   /** Snake panel tracks its own session independently of the global ChatSessionsService.
    *  Persisted in localStorage so reconnects keep the same session. Defaults to 'ananta-settings'. */
   private _snakeSessionId: string = this.loadSnakeSession();
@@ -547,17 +599,56 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
         this.uiSync.stop();
       }
     });
+    this.sessionSub = this.sessions.sessions$.subscribe(items => {
+      if (!items.length || items.some(item => item.id === this._snakeSessionId)) return;
+      const fallback = items.find(item => !item.settings?.['chat_read_only']) || items[0];
+      this.switchSession(fallback.id);
+    });
   }
 
   ngOnDestroy(): void {
     this.historySub?.unsubscribe();
     this.activeSub?.unsubscribe();
+    this.sessionSub?.unsubscribe();
     if (this.summaryHintTimer) clearTimeout(this.summaryHintTimer);
     this.uiSync.stop();
   }
 
   chatMessages(): ChatHistoryMessage[] {
     return this.history.getVisibleMessages(this._snakeSessionId || 'default');
+  }
+
+  contextMessageCount(): number {
+    return this.history.getContextMessages(this._snakeSessionId || 'default').length;
+  }
+
+  toggleContext(message: ChatHistoryMessage): void {
+    this.history.setIncludedInContext(
+      this._snakeSessionId || 'default', message.id, message.includedInContext === false,
+    );
+  }
+
+  beginEdit(message: ChatHistoryMessage): void {
+    this.editingMessageId = message.id;
+    this.editingMessageText = message.text;
+  }
+
+  saveEdit(message: ChatHistoryMessage): void {
+    if (this.history.updateMessage(this._snakeSessionId || 'default', message.id, this.editingMessageText)) {
+      this.cancelEdit();
+    }
+  }
+
+  cancelEdit(): void {
+    this.editingMessageId = '';
+    this.editingMessageText = '';
+  }
+
+  deleteMessage(message: ChatHistoryMessage): void {
+    if (!window.confirm('Diese Nachricht aus dem lokalen Chatverlauf löschen?')) return;
+    this.history.deleteMessage(this._snakeSessionId || 'default', message.id);
+    this.selectedMsgIds.delete(message.id);
+    if (this.editingMessageId === message.id) this.cancelEdit();
   }
 
   toggleSelectMode(): void {
@@ -648,7 +739,14 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
   createChat(): void {
     const name = this.newChatName.trim();
     if (!name) return;
-    this.sessions.create({ name, icon: '💬', system_prompt: '', settings: {} });
+    const profile = this.sessions.profiles$.value.find(item => item.id === this.newChatProfileId);
+    this.sessions.create({
+      name,
+      icon: profile?.icon || '💬',
+      profile_id: this.newChatProfileId,
+      system_prompt: '',
+      settings: {},
+    });
     this.newChatName = '';
     this.newChatMode = false;
   }
@@ -691,7 +789,11 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
     const text = this.draft.trim();
     if (!text) return;
     if (this.isActiveSessionReadOnly()) return;  // guard: never post to read-only log sessions
-    this.svc.sendRoomMessage(text, this._snakeSessionId);
+    const contextHistory = this.history.getContextMessages(this._snakeSessionId || 'default').slice(-20).map(message => ({
+      role: message.isAI ? 'assistant' as const : 'user' as const,
+      content: message.text,
+    }));
+    this.svc.sendRoomMessage(text, this._snakeSessionId, contextHistory);
     this.draft = '';
   }
 
@@ -752,9 +854,10 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
 
   sessionGroups(): Array<{ name: string; sessions: ChatSession[] }> {
     const all = this.sessions.sessions$.value || [];
+    const folderNames = new Map((this.sessions.folders$.value || []).map(folder => [folder.id, folder.name]));
     const map = new Map<string, ChatSession[]>();
     for (const s of all) {
-      const g = s.group || '';
+      const g = folderNames.get(s.folder_id || '') || '';
       if (!map.has(g)) map.set(g, []);
       map.get(g)!.push(s);
     }

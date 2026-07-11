@@ -123,10 +123,10 @@ PREDICTIVE_PRESETS: dict[str, dict[str, Any]] = {
     "eager": PRESET_PREDICTIVE_EAGER,
 }
 
-# Built-in sessions — these are the templates the user gets out of the box.
+# Built-in chat profiles. They configure conversations but are not conversations.
 # Settings here are DELTAS only — keys that differ from _DEFAULT_SESSION_SETTINGS.
 # make_session() merges them with the defaults so the full settings dict is stored.
-DEFAULT_SESSIONS: list[dict[str, Any]] = [
+DEFAULT_CHAT_PROFILES: list[dict[str, Any]] = [
     {
         "id": "code-help",
         "name": "Code-Help",
@@ -334,6 +334,44 @@ DEFAULT_SESSIONS: list[dict[str, Any]] = [
     },
 ]
 
+# Compatibility alias for extensions importing the historic symbol.
+DEFAULT_SESSIONS = DEFAULT_CHAT_PROFILES
+
+
+def default_chat_profiles() -> list[dict[str, Any]]:
+    """Return immutable-style copies of the built-in profile definitions."""
+    import copy as _copy
+    return [_copy.deepcopy(profile) for profile in DEFAULT_CHAT_PROFILES if profile.get("id") != "ananta-visual"]
+
+
+def get_chat_profile(profile_id: str, profiles: list[dict[str, Any]] | None = None) -> dict[str, Any] | None:
+    for profile in profiles if profiles is not None else default_chat_profiles():
+        if str(profile.get("id") or "") == str(profile_id or ""):
+            return profile
+    return None
+
+
+def default_conversations() -> list[dict[str, Any]]:
+    """Return the user starter chat and the backend-owned visual log."""
+    visual = next(profile for profile in DEFAULT_CHAT_PROFILES if profile.get("id") == "ananta-visual")
+    return [
+        make_session(
+            session_id="chat-default",
+            name="Neuer Chat",
+            icon="💬",
+            profile_id="general",
+        ),
+        make_session(
+            session_id="ananta-visual",
+            name=str(visual.get("name") or "Visual Snake Log"),
+            icon=str(visual.get("icon") or "🐍"),
+            group="System",
+            profile_id="general",
+            system_prompt=str(visual.get("system_prompt") or ""),
+            settings=dict(visual.get("settings") or {}),
+        ),
+    ]
+
 
 def make_session(
     *,
@@ -346,6 +384,7 @@ def make_session(
     folder_id: str = "",
     session_type: str = "",
     type_description: str = "",
+    profile_id: str = "general",
 ) -> dict[str, Any]:
     """Create a new chat session. Settings are merged over the default
     session settings so a session can override individual fields without
@@ -358,7 +397,10 @@ def make_session(
     settings_delta: dict[str, Any] = {
         k: v for k, v in (settings or {}).items() if v is not None
     }
+    profile = get_chat_profile(profile_id)
+    profile_settings = dict((profile or {}).get("settings") or {})
     merged_settings = _copy.deepcopy(_DEFAULT_SESSION_SETTINGS)
+    merged_settings.update(profile_settings)
     for k, v in settings_delta.items():
         merged_settings[k] = v
     return {
@@ -369,7 +411,11 @@ def make_session(
         "folder_id": str(folder_id or ""),
         "session_type": str(session_type or ""),
         "type_description": str(type_description or ""),
-        "system_prompt": str(system_prompt or ""),
+        "profile_id": str(profile_id or "general"),
+        "profile_settings": profile_settings,
+        "profile_system_prompt": str((profile or {}).get("system_prompt") or ""),
+        "system_prompt": str(system_prompt or (profile or {}).get("system_prompt") or ""),
+        "system_prompt_override": str(system_prompt or ""),
         "settings": merged_settings,
         "settings_delta": settings_delta,
         "created_at": time.time(),
@@ -378,7 +424,7 @@ def make_session(
 
 
 def default_sessions() -> list[dict[str, Any]]:
-    """Return a fresh list of the built-in default sessions."""
+    """Compatibility: materialize the historic profile-seeded sessions."""
     return [
         make_session(
             session_id=str(s.get("id") or ""),
@@ -387,9 +433,60 @@ def default_sessions() -> list[dict[str, Any]]:
             settings=dict(s.get("settings") or {}),
             icon=str(s.get("icon") or "💬"),
             group=str(s.get("group") or ""),
+            profile_id=str(s.get("id") or "general"),
         )
         for s in DEFAULT_SESSIONS
     ]
+
+
+def migrate_legacy_profile_sessions(sessions: list[dict[str, Any]]) -> bool:
+    """Bind legacy built-in sessions to profiles without changing IDs/history."""
+    changed = False
+    profile_by_id = {str(p.get("id") or ""): p for p in default_chat_profiles()}
+    for session in sessions:
+        if not isinstance(session, dict):
+            continue
+        session_id = str(session.get("id") or "")
+        profile_id = str(session.get("profile_id") or "")
+        if not profile_id:
+            profile_id = session_id if session_id in profile_by_id else "general"
+            session["profile_id"] = profile_id
+            changed = True
+        profile = profile_by_id.get(profile_id)
+        if profile is None:
+            profile = {
+                "settings": dict(session.get("profile_settings") or {}),
+                "system_prompt": str(session.get("profile_system_prompt") or session.get("system_prompt") or ""),
+            }
+        profile_settings = dict(profile.get("settings") or {})
+        if session.get("profile_settings") != profile_settings:
+            session["profile_settings"] = profile_settings
+            changed = True
+        delta = dict(session.get("settings_delta") or {})
+        reduced_delta = {key: value for key, value in delta.items() if profile_settings.get(key) != value}
+        if reduced_delta != delta:
+            session["settings_delta"] = reduced_delta
+            changed = True
+        prompt = str(session.get("system_prompt") or "")
+        canonical_prompt = str(profile.get("system_prompt") or "")
+        if session.get("profile_system_prompt") != canonical_prompt:
+            session["profile_system_prompt"] = canonical_prompt
+            changed = True
+        override = str(session.get("system_prompt_override") or "")
+        if "system_prompt_override" not in session:
+            session["system_prompt_override"] = "" if prompt == canonical_prompt else prompt
+            changed = True
+        effective_settings = dict(_DEFAULT_SESSION_SETTINGS)
+        effective_settings.update(profile_settings)
+        effective_settings.update(reduced_delta)
+        if session.get("settings") != effective_settings:
+            session["settings"] = effective_settings
+            changed = True
+        effective_prompt = override or str(session.get("system_prompt_override") or "") or canonical_prompt
+        if session.get("system_prompt") != effective_prompt:
+            session["system_prompt"] = effective_prompt
+            changed = True
+    return changed
 
 
 def _ensure_settings_delta(session: dict[str, Any]) -> None:
@@ -413,16 +510,13 @@ def _ensure_settings_delta(session: dict[str, Any]) -> None:
 
 def get_sessions(chat: dict[str, Any]) -> list[dict[str, Any]]:
     """Return the list of session dicts. Always non-empty — returns the
-    default sessions if the chat state has none yet (legacy / freshly
+    a starter conversation if the chat state has none yet (legacy / freshly
     initialised).
 
-    Also handles two migration tasks transparently:
-    - Backfills ``settings_delta`` for sessions that pre-date that field.
-    - Appends any built-in default sessions that are missing (e.g. newly
-      added architecture sessions) so users get them automatically."""
+    Also binds legacy profile-shaped sessions to the new profile model."""
     sessions = chat.get("ai_sessions")
     if not isinstance(sessions, list) or not sessions:
-        sessions = default_sessions()
+        sessions = default_conversations()
         chat["ai_sessions"] = sessions
         return sessions
 
@@ -439,53 +533,7 @@ def get_sessions(chat: dict[str, Any]) -> list[dict[str, Any]]:
             if "type_description" not in s:
                 s["type_description"] = ""
 
-    # Build index of built-in default sessions by ID for migration
-    _default_by_id = {str(d.get("id") or ""): d for d in DEFAULT_SESSIONS if d.get("id")}
-
-    # Re-sync settings of existing built-in sessions when DEFAULT_SESSIONS changes.
-    # User-customised sessions (not in DEFAULT_SESSIONS) are left untouched.
-    #
-    # For built-in sessions, we want the canonical defaults to be present,
-    # but the user's settings_delta overrides must win on every key the
-    # user actually touched.  Without this, any user-set value gets blown
-    # away on the next get_sessions() call.
-    for s in sessions:
-        if not isinstance(s, dict):
-            continue
-        sid = str(s.get("id") or "")
-        if sid in _default_by_id:
-            import copy as _copy
-            user_delta = dict(s.get("settings_delta") or {})
-            # Canonical = full defaults, with the built-in's known delta on top.
-            canonical_settings = _copy.deepcopy(_DEFAULT_SESSION_SETTINGS)
-            for k, v in (dict(_default_by_id[sid].get("settings") or {})).items():
-                canonical_settings[k] = v
-            # Re-apply user overrides so the user's value wins.
-            for k, v in user_delta.items():
-                canonical_settings[k] = v
-            current_settings = dict(s.get("settings") or {})
-            if canonical_settings != current_settings:
-                s["settings"] = canonical_settings
-                _ensure_settings_delta(s)
-            # Also sync system_prompt for built-in sessions so prompt changes take effect
-            canonical_prompt = str(_default_by_id[sid].get("system_prompt") or "")
-            if canonical_prompt and s.get("system_prompt") != canonical_prompt:
-                s["system_prompt"] = canonical_prompt
-
-    if bool(chat.get("_append_missing_default_sessions")) and not bool(chat.get("_preserve_session_list")):
-        # Add missing built-in sessions (e.g. new architecture sessions)
-        existing_ids = {str((s or {}).get("id") or "") for s in sessions}
-        for default_sess in DEFAULT_SESSIONS:
-            sess_id = str(default_sess.get("id") or "")
-            if sess_id and sess_id not in existing_ids:
-                sessions.append(make_session(
-                    session_id=sess_id,
-                    name=str(default_sess.get("name") or sess_id),
-                    system_prompt=str(default_sess.get("system_prompt") or ""),
-                    settings=dict(default_sess.get("settings") or {}),
-                    icon=str(default_sess.get("icon") or "💬"),
-                    group=str(default_sess.get("group") or ""),
-                ))
+    migrate_legacy_profile_sessions(sessions)
 
     chat["ai_sessions"] = sessions
     return sessions
@@ -746,7 +794,7 @@ def update_session_settings(
 ) -> bool:
     """Merge new settings into a session.
 
-    Values set to ``None`` are treated as "reset to default" — the key is
+    Values set to ``None`` are treated as "reset to profile default" — the key is
     removed from ``settings_delta`` and the default value from
     ``_DEFAULT_SESSION_SETTINGS`` is restored in ``settings``.  All other
     values are added to both ``settings`` and ``settings_delta``."""
@@ -757,11 +805,13 @@ def update_session_settings(
     _ensure_settings_delta(session)
     delta = dict(session.get("settings_delta") or {})
     current = dict(session.get("settings") or {})
+    profile_defaults = dict(_DEFAULT_SESSION_SETTINGS)
+    profile_defaults.update(dict(session.get("profile_settings") or {}))
     for k, v in (settings or {}).items():
         if v is None:
             delta.pop(k, None)
-            if k in _DEFAULT_SESSION_SETTINGS:
-                current[k] = _copy.deepcopy(_DEFAULT_SESSION_SETTINGS[k])
+            if k in profile_defaults:
+                current[k] = _copy.deepcopy(profile_defaults[k])
             else:
                 current.pop(k, None)
         else:

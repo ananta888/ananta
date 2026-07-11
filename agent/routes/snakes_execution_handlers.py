@@ -160,7 +160,14 @@ def _resolve_ai_snake_chat_provider(config: dict[str, Any] | None = None) -> tup
     return provider, model, api_base
 
 
-def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_context: dict | None = None, client_session_id: str = "") -> None:
+def _spawn_ai_chat_reply(
+    *,
+    user_text: str,
+    snake_id: str | None = None,
+    ui_context: dict | None = None,
+    client_session_id: str = "",
+    context_history: list[dict[str, str]] | None = None,
+) -> None:
     prompt = str(user_text or "").strip()
     if not prompt:
         return
@@ -208,16 +215,15 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
                     summary=f"Prompt: {_prompt_preview}",
                 )
 
-            conversation_history = _build_room_conversation_history(
-                snake_id=snake_id,
-                current_text=prompt,
-                session_id=client_session_id,
+            conversation_history = context_history if context_history is not None else _build_room_conversation_history(
+                snake_id=snake_id, current_text=prompt, session_id=client_session_id,
             )
             # Resolve active session's system_prompt, ID, and settings overrides
             _active_session_prompt: str | None = None
             _active_session_id: str = ""
             _active_session_group: str = ""
             _active_session_settings: dict = {}
+            _active_profile_id: str = ""
             try:
                 from client_surfaces.operator_tui.config.user_config_manager import get_manager as _get_mgr2
                 _stored2 = _get_mgr2().load()
@@ -229,6 +235,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
                             _active_session_prompt = str(_sess2.get("system_prompt") or "").strip() or None
                             _active_session_group = str(_sess2.get("group") or "").strip()
                             _active_session_settings = dict(_sess2.get("settings") or {})
+                            _active_profile_id = str(_sess2.get("profile_id") or "")
                             break
             except Exception:
                 pass
@@ -241,8 +248,10 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
                 try:
                     for _sess2 in (_stored2.get("chat_sessions") or []):
                         if str(_sess2.get("id") or "") == client_session_id:
+                            _active_session_prompt = str(_sess2.get("system_prompt") or "").strip() or None
                             _active_session_group = str(_sess2.get("group") or "").strip()
                             _active_session_settings = dict(_sess2.get("settings") or {})
+                            _active_profile_id = str(_sess2.get("profile_id") or "")
                             break
                 except Exception:
                     pass
@@ -250,20 +259,6 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
                 "chat session resolved: active_session_id=%r client_session_id=%r",
                 _active_session_id, client_session_id,
             )
-
-            # For built-in sessions, always use the canonical system_prompt from DEFAULT_SESSIONS
-            # so code changes to prompts take effect immediately without requiring user.json migration.
-            try:
-                from client_surfaces.operator_tui.chat_state import DEFAULT_SESSIONS as _DS2
-                for _ds in _DS2:
-                    if str(_ds.get("id") or "") == _active_session_id:
-                        _active_session_group = str(_ds.get("group") or _active_session_group or "").strip()
-                        _canonical_prompt = str(_ds.get("system_prompt") or "").strip()
-                        if _canonical_prompt:
-                            _active_session_prompt = _canonical_prompt
-                        break
-            except Exception:
-                pass
 
             from agent.routes.ai_snake_config import _current_config as _provider_config
             _effective_provider_config = _provider_config()
@@ -286,7 +281,8 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
 
             # Ananta-Settings session: enrich prompt with current settings context
             _original_prompt = prompt
-            if _active_session_id == "ananta-settings":
+            _is_settings_profile = _active_profile_id == "ananta-settings" or _active_session_id == "ananta-settings"
+            if _is_settings_profile:
                 # Resolve effective UI context: per-message > continuous push > empty
                 _effective_ui_ctx = (ui_context or {}) or (_snake_ui_state.get(snake_id or "") if snake_id else {}) or {}
                 _settings_ctx = _read_ananta_settings_summary()
@@ -321,7 +317,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
             # Compute guide suffix for ananta-settings session (used below in all emit paths)
             import json as _json
             _guide_suffix = ""
-            if _active_session_id == "ananta-settings":
+            if _is_settings_profile:
                 _guide = _build_ui_guide(_original_prompt)
                 if _guide:
                     _guide_suffix = f"\n\n__GUIDE__:{_json.dumps(_guide, ensure_ascii=False)}"
@@ -334,7 +330,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
                 # Apply session-level setting overrides so they take precedence over global config.
                 # For ananta-settings: force disable RAG/code-analysis regardless of persisted values,
                 # since legacy persisted sessions may have rag_iterative from before the session existed.
-                if _active_session_id == "ananta-settings":
+                if _is_settings_profile:
                     _cfg = {
                         **_cfg,
                         "chat_architecture_analysis_mode": False,
@@ -349,7 +345,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
                 _answer_chars_limit = _chat_answer_chars_limit()
 
                 # ananta-settings: dedicated config tool loop (search_ui_docs, read_ananta_config, get_hub_*)
-                if _active_session_id == "ananta-settings":
+                if _is_settings_profile:
                     from agent.routes.snakes_ananta_config_tool_loop import run_ananta_config_tool_loop
                     if rec:
                         rec.event("ananta_config_tool_loop_start", "Ananta-Konfig Tool-Loop gestartet",
@@ -547,7 +543,7 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
                 )
             )
                         # Skip the "no-context" short-circuit for ananta-settings (it intentionally has no RAG)
-            if asks_for_concrete_local_facts and not has_context and _active_session_id != "ananta-settings":
+            if asks_for_concrete_local_facts and not has_context and not _is_settings_profile:
                 if rec:
                     rec.event("answer_postprocessed", "Anfrage ohne Kontext abgebrochen", status="skipped",
                               summary="Kein Kontext verfügbar für konkrete Fragen")
@@ -637,6 +633,24 @@ def _spawn_ai_chat_reply(*, user_text: str, snake_id: str | None = None, ui_cont
     thread.start()
 
 
+def _normalize_client_context_history(raw_history: Any) -> list[dict[str, str]] | None:
+    """Validate the optional browser-controlled continuation context."""
+    if raw_history is None:
+        return None
+    if not isinstance(raw_history, list):
+        raise ValueError("context_history muss eine Liste sein")
+    normalized: list[dict[str, str]] = []
+    for item in raw_history[-20:]:
+        if not isinstance(item, dict):
+            raise ValueError("context_history Eintraege muessen Objekte sein")
+        role = str(item.get("role") or "").strip()
+        content = str(item.get("content") or "").strip()
+        if role not in {"user", "assistant"} or not content:
+            raise ValueError("ungueltiger context_history Eintrag")
+        normalized.append({"role": role, "content": content[:2000]})
+    return normalized
+
+
 # ── Route endpoints ────────────────────────────────────────────────────────────
 
 
@@ -659,6 +673,10 @@ def chat_send(snake_id: str):
     ui_context = body.get("ui_context") or {}
     # session_id sent by the frontend reflects the panel's active session, bypassing user.json race conditions
     client_session_id = str(body.get("session_id") or "").strip()
+    try:
+        context_history = _normalize_client_context_history(body.get("context_history"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
 
     if not text:
         return jsonify({"error": "text erforderlich"}), 400
@@ -744,7 +762,13 @@ def chat_send(snake_id: str):
             _room_messages.append(msg)
             if len(_room_messages) > _MAX_ROOM_MSGS:
                 _room_messages = _room_messages[-_MAX_ROOM_MSGS:]
-            _spawn_ai_chat_reply(user_text=text, snake_id=snake_id, ui_context=ui_context, client_session_id=client_session_id)
+            _spawn_ai_chat_reply(
+                user_text=text,
+                snake_id=snake_id,
+                ui_context=ui_context,
+                client_session_id=client_session_id,
+                context_history=context_history,
+            )
     elif channel_type == "direct":
         target_ids = msg["target_ids"]
         if not target_ids:
@@ -1043,6 +1067,7 @@ def snake_ask():
         # Resolve active session's system_prompt and apply session-level setting overrides
         _active_session_prompt: str | None = None
         _active_sid = ""
+        _active_profile_id = ""
         try:
             from client_surfaces.operator_tui.config.user_config_manager import get_manager as _get_mgr
             _stored = _get_mgr().load()
@@ -1051,8 +1076,9 @@ def snake_ask():
                 for _sess in (_stored.get("chat_sessions") or []):
                     if str(_sess.get("id") or "") == _active_sid:
                         _active_session_prompt = str(_sess.get("system_prompt") or "").strip() or None
+                        _active_profile_id = str(_sess.get("profile_id") or "")
                         break
-            if _active_sid == "ananta-settings":
+            if _active_profile_id == "ananta-settings" or _active_sid == "ananta-settings":
                 _eff_cfg = {
                     **_eff_cfg,
                     "chat_architecture_analysis_mode": False,
@@ -1061,17 +1087,6 @@ def snake_ask():
                     "chat_code_questions_repo_first": False,
                     "chat_include_local_project": False,
                 }
-        except Exception:
-            pass
-        # Always override system_prompt for built-in sessions with the canonical DEFAULT_SESSIONS value
-        try:
-            from client_surfaces.operator_tui.chat_state import DEFAULT_SESSIONS as _DS
-            for _ds in _DS:
-                if str(_ds.get("id") or "") == _active_sid:
-                    _cp = str(_ds.get("system_prompt") or "").strip()
-                    if _cp:
-                        _active_session_prompt = _cp
-                    break
         except Exception:
             pass
         if _is_rag_iterative_intent(_eff_cfg):

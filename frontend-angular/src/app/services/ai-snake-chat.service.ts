@@ -33,6 +33,11 @@ export interface SnakeChatMessage {
   ui_snapshot?: string;
 }
 
+export interface SnakeContextMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AiSnakeChatService implements OnDestroy {
   private http = inject(HttpClient);
@@ -135,7 +140,7 @@ export class AiSnakeChatService implements OnDestroy {
     this.messages$.next([]);
   }
 
-  sendRoomMessage(text: string, snakePanelSessionId = ''): void {
+  sendRoomMessage(text: string, snakePanelSessionId = '', contextHistory?: SnakeContextMessage[]): void {
     const base = this.hubUrl();
     const snakeId = this.snakeId$.value;
     const content = String(text || '').trim();
@@ -149,7 +154,11 @@ export class AiSnakeChatService implements OnDestroy {
     const activeSessionId = snakePanelSessionId || this.chatSessions.activeSessionId$.value || '';
     this.http.post(
       `${base}/snakes/${encodeURIComponent(snakeId)}/chat/messages`,
-      { id, channel_type: 'room', visibility: 'room', text: content, ui_context: uiContext, session_id: activeSessionId },
+      {
+        id, channel_type: 'room', visibility: 'room', text: content,
+        ui_context: uiContext, session_id: activeSessionId,
+        ...(contextHistory ? { context_history: contextHistory } : {}),
+      },
       { headers: this.withSnakeHeaders() },
     ).subscribe({
       next: () => {

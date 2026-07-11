@@ -36,8 +36,11 @@ from client_surfaces.operator_tui.chat_session import (
     PRESET_PREDICTIVE_EAGER,
     PREDICTIVE_PRESETS,
     DEFAULT_SESSIONS,
+    DEFAULT_CHAT_PROFILES,
     make_session,
     default_sessions,
+    default_conversations,
+    default_chat_profiles,
     _ensure_settings_delta,
     get_sessions,
     get_session,
@@ -66,8 +69,8 @@ from client_surfaces.operator_tui.chat_message import (
 
 
 def default_chat_state(local_snake_id: str = "s1") -> dict[str, Any]:
-    sessions = default_sessions()
-    first_id = str(sessions[0].get("id") or "code-help")
+    sessions = default_conversations()
+    first_id = str(sessions[0].get("id") or "chat-default")
     chat = {
         "local_snake_id": local_snake_id,
         "active_channel": f"ai:{first_id}",

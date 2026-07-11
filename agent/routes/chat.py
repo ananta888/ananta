@@ -10,7 +10,8 @@ from flask import Blueprint, jsonify, request
 
 from client_surfaces.operator_tui.chat_state import (
     get_sessions, get_session, add_session, update_session_settings,
-    delete_session, make_session, set_active_session, default_sessions,
+    delete_session, make_session, set_active_session, default_conversations,
+    default_chat_profiles,
 )
 from client_surfaces.operator_tui.config.user_config_manager import get_manager
 
@@ -21,10 +22,19 @@ chat_bp = Blueprint("chat_api", __name__, url_prefix="/api/chat")
 
 def _load_chat() -> dict[str, Any]:
     """Build a minimal chat dict from persisted user.json for session operations."""
-    settings = get_manager().load()
-    sessions = settings.get("chat_sessions") or default_sessions()[:3]
+    manager = get_manager()
+    settings = manager.load()
+    sessions = settings.get("chat_sessions") or default_conversations()
     active_id = settings.get("chat_active_session_id") or (sessions[0]["id"] if sessions else "")
-    return {"ai_sessions": sessions, "active_session_id": active_id, "channels": {}, "_preserve_session_list": True}
+    chat = {"ai_sessions": sessions, "active_session_id": active_id, "channels": {}, "_preserve_session_list": True}
+    migrated = get_sessions(chat)
+    if settings.get("chat_model_version") != 2 or migrated != sessions:
+        manager.save({
+            "chat_sessions": migrated,
+            "chat_active_session_id": active_id,
+            "chat_model_version": 2,
+        })
+    return chat
 
 
 def _save_chat(chat: dict[str, Any]) -> None:
@@ -45,6 +55,113 @@ def _load_folders() -> list[dict]:
 def _save_folders(folders: list[dict]) -> None:
     """Persist chat_folders to user.json (merging with existing keys)."""
     get_manager().save({"chat_folders": folders})
+
+
+def _load_profiles() -> list[dict[str, Any]]:
+    """Load built-in and user profiles, with user profiles stored separately."""
+    settings = get_manager().load()
+    custom = settings.get("chat_profiles") or []
+    custom = custom if isinstance(custom, list) else []
+    by_id = {str(profile.get("id") or ""): profile for profile in default_chat_profiles()}
+    for profile in custom:
+        if isinstance(profile, dict) and profile.get("id"):
+            by_id[str(profile["id"])] = dict(profile)
+    return list(by_id.values())
+
+
+def _save_custom_profiles(profiles: list[dict[str, Any]]) -> None:
+    get_manager().save({"chat_profiles": profiles})
+
+
+def _profile_by_id(profile_id: str) -> dict[str, Any] | None:
+    return next((profile for profile in _load_profiles() if str(profile.get("id") or "") == profile_id), None)
+
+
+def _apply_profile(session: dict[str, Any], profile: dict[str, Any]) -> None:
+    """Materialize effective profile values while preserving chat overrides."""
+    from client_surfaces.operator_tui.chat_state import _DEFAULT_SESSION_SETTINGS
+
+    profile_settings = dict(profile.get("settings") or {})
+    effective = dict(_DEFAULT_SESSION_SETTINGS)
+    effective.update(profile_settings)
+    effective.update(dict(session.get("settings_delta") or {}))
+    session["profile_id"] = str(profile.get("id") or "general")
+    session["profile_settings"] = profile_settings
+    session["profile_system_prompt"] = str(profile.get("system_prompt") or "")
+    session["settings"] = effective
+    override = str(session.get("system_prompt_override") or "")
+    session["system_prompt"] = override or str(profile.get("system_prompt") or "")
+
+
+# ── Reusable chat profile CRUD ───────────────────────────────────────────────
+
+@chat_bp.route("/profiles", methods=["GET"])
+def list_chat_profiles():
+    builtin_ids = {str(profile.get("id") or "") for profile in default_chat_profiles()}
+    return jsonify([{**profile, "builtin": str(profile.get("id") or "") in builtin_ids} for profile in _load_profiles()])
+
+
+@chat_bp.route("/profiles", methods=["POST"])
+def create_chat_profile():
+    data = request.get_json(silent=True) or {}
+    name = str(data.get("name") or "").strip()
+    profile_id = str(data.get("id") or f"profile-{uuid.uuid4().hex[:12]}").strip()
+    if not name or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}", profile_id):
+        return jsonify({"error": "valid profile id and name are required"}), 400
+    if _profile_by_id(profile_id) is not None:
+        return jsonify({"error": f"Profile '{profile_id}' already exists"}), 409
+    profile = {
+        "id": profile_id,
+        "name": name,
+        "icon": str(data.get("icon") or "🎯"),
+        "description": str(data.get("description") or ""),
+        "system_prompt": str(data.get("system_prompt") or ""),
+        "settings": dict(data.get("settings") or {}),
+    }
+    custom = list((get_manager().load().get("chat_profiles") or []))
+    custom.append(profile)
+    _save_custom_profiles(custom)
+    return jsonify({**profile, "builtin": False}), 201
+
+
+@chat_bp.route("/profiles/<profile_id>", methods=["PATCH"])
+def update_chat_profile(profile_id: str):
+    builtin_ids = {str(profile.get("id") or "") for profile in default_chat_profiles()}
+    if profile_id in builtin_ids:
+        return jsonify({"error": "built-in profiles are read-only"}), 409
+    data = request.get_json(silent=True) or {}
+    custom = list((get_manager().load().get("chat_profiles") or []))
+    profile = next((p for p in custom if str((p or {}).get("id") or "") == profile_id), None)
+    if profile is None:
+        return jsonify({"error": f"Profile '{profile_id}' not found"}), 404
+    for key in ("name", "icon", "description", "system_prompt"):
+        if key in data:
+            profile[key] = str(data.get(key) or "")
+    if "settings" in data and isinstance(data["settings"], dict):
+        profile["settings"] = {**dict(profile.get("settings") or {}), **data["settings"]}
+    _save_custom_profiles(custom)
+    chat = _load_chat()
+    for session in get_sessions(chat):
+        if str(session.get("profile_id") or "") == profile_id:
+            _apply_profile(session, profile)
+    _save_chat(chat)
+    return jsonify({**profile, "builtin": False})
+
+
+@chat_bp.route("/profiles/<profile_id>", methods=["DELETE"])
+def delete_chat_profile(profile_id: str):
+    builtin_ids = {str(profile.get("id") or "") for profile in default_chat_profiles()}
+    if profile_id in builtin_ids:
+        return jsonify({"error": "built-in profiles are read-only"}), 409
+    chat = _load_chat()
+    if any(str(session.get("profile_id") or "") == profile_id for session in get_sessions(chat)):
+        return jsonify({"error": "profile is still used by chats"}), 409
+    custom = list((get_manager().load().get("chat_profiles") or []))
+    kept = [p for p in custom if str((p or {}).get("id") or "") != profile_id]
+    if len(kept) == len(custom):
+        return jsonify({"error": f"Profile '{profile_id}' not found"}), 404
+    _save_custom_profiles(kept)
+    return "", 204
 
 
 @chat_bp.route("/sessions", methods=["GET"])
@@ -70,6 +187,10 @@ def create_chat_session():
     if get_session(chat, session_id):
         return jsonify({"error": f"Session with ID '{session_id}' already exists"}), 409
 
+    profile_id = str(data.get("profile_id") or "general")
+    profile = _profile_by_id(profile_id)
+    if profile is None:
+        return jsonify({"error": f"Profile '{profile_id}' not found"}), 400
     new_session = make_session(
         session_id=session_id,
         name=name,
@@ -80,7 +201,9 @@ def create_chat_session():
         session_type=data.get("session_type", ""),
         type_description=data.get("type_description", ""),
         settings=data.get("settings") or {},
+        profile_id=profile_id,
     )
+    _apply_profile(new_session, profile)
     add_session(chat, new_session)
     set_active_session(chat, session_id)
     _save_chat(chat)
@@ -110,7 +233,7 @@ def update_chat_session(session_id: str):
     if "name" in data:
         session["name"] = data["name"]
     if "system_prompt" in data:
-        session["system_prompt"] = data["system_prompt"]
+        session["system_prompt_override"] = str(data["system_prompt"] or "")
     if "icon" in data:
         session["icon"] = data["icon"]
     if "group" in data:
@@ -121,8 +244,18 @@ def update_chat_session(session_id: str):
         session["session_type"] = str(data["session_type"] or "")
     if "type_description" in data:
         session["type_description"] = str(data["type_description"] or "")
+    if "profile_id" in data:
+        profile_id = str(data["profile_id"] or "general")
+        profile = _profile_by_id(profile_id)
+        if profile is None:
+            return jsonify({"error": f"Profile '{profile_id}' not found"}), 400
+        _apply_profile(session, profile)
     if "settings" in data and isinstance(data["settings"], dict):
         update_session_settings(chat, session_id, data["settings"])
+
+    profile = _profile_by_id(str(session.get("profile_id") or "general"))
+    if profile is not None:
+        _apply_profile(session, profile)
 
     _save_chat(chat)
     session = get_session(chat, session_id)
