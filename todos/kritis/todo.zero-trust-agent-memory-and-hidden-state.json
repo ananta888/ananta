@@ -1,0 +1,475 @@
+{
+  "schema_version": "todo.v2",
+  "id": "todo.zero-trust-agent-memory-and-hidden-state",
+  "title": "Zero-Trust Agent Memory: verdeckte Zustandsfortführung und persistente Nebenkanäle verhindern",
+  "summary": "Diese Todo erweitert Ananta um ein Zero-Trust-Sicherheitsmodell für Agenten- und Modell-Memory. Ein Modell darf über Agentenwerkzeuge keine unbemerkten Dateien, Datenbankeinträge, Vectorstore-Inhalte, Caches oder andere Zustände anlegen und später aufgabenfremd weiterverwenden. Ziel ist ausdrücklich nicht, interne neuronale Aktivierungen oder Gedanken vollständig zu erkennen. Kontrolliert werden stattdessen alle wirksamen externen Speicher-, Kontext-, Skill- und Toolkanäle.",
+  "created_from": [
+    "User requirement vom 2026-07-11: Agenten dürfen keinen unbemerkten Speicherbereich zur aufgabenfremden Zustandsfortführung nutzen.",
+    "Analyse der vorhandenen MemoryEntryDB-, MemoryTreeChunkDB-, MemoryTreeNodeDB- und MemoryTreeJobDB-Strukturen.",
+    "Analyse vorhandener task-scoped Execution-, Worker-Contract-, Result-Memory- und Memory-Tree-Pfade.",
+    "Security-Grundsatz: beobachtbare Wirkungskanäle kontrollieren, ohne Gedankenlesbarkeit zu behaupten."
+  ],
+  "global_goals": [
+    "Persistente Memory-Zugriffe sind standardmäßig verboten und nur über explizite Capabilities erlaubt.",
+    "Jeder Lese-, Schreib-, Änderungs-, Lösch- und Promotion-Vorgang wird einem Run, Task, Goal, Actor und einer Policy-Entscheidung zugeordnet.",
+    "Memory ist nach Run, Task, Goal, Conversation, Workspace und globalem Scope hart isoliert.",
+    "Flüchtige Scratchpads werden nach Task-Ende sicher entfernt und niemals automatisch dauerhaft.",
+    "Unregistrierte Datei-, Datenbank-, Cache- oder Vectorstore-Nebenkanäle werden blockiert oder erkannt.",
+    "Gespeicherte Inhalte gelten als untrusted Daten und können keine Systemanweisungen oder Rechte erweitern.",
+    "Operatoren sehen Memory-Diffs, Provenienz, Policy-Gründe, Retention und Widerrufsstatus.",
+    "Ananta behauptet nicht, interne Modellaktivierungen oder J-Space vollständig beobachten zu können."
+  ],
+  "non_goals": [
+    "Vollständiges Auslesen oder Verstehen interner neuronaler Aktivierungen.",
+    "Beweis, dass ein Modell keine verborgenen internen Repräsentationen besitzt.",
+    "Speicherung oder Anzeige privater Chain-of-Thought-Inhalte.",
+    "Automatische Einstufung jedes ungewöhnlichen Inhalts als bösartig."
+  ],
+  "architecture_principles": [
+    {"id": "ZAM-PRINCIPLE-001", "title": "Deny by default", "description": "Kein persistenter Memory-Zugriff ohne explizite, eng begrenzte Capability."},
+    {"id": "ZAM-PRINCIPLE-002", "title": "Task isolation first", "description": "Standardscope ist der aktuelle Run beziehungsweise Task; weitere Scopes benötigen Promotion."},
+    {"id": "ZAM-PRINCIPLE-003", "title": "Observe effects, not claimed thoughts", "description": "Kontrolliert werden Inputs, Outputs, Tools, Speicher und Zustandsänderungen."},
+    {"id": "ZAM-PRINCIPLE-004", "title": "Typed gateway only", "description": "Alle Memory-Operationen laufen über typisierte APIs mit Policy-Prüfung."},
+    {"id": "ZAM-PRINCIPLE-005", "title": "Provenance and reversibility", "description": "Jeder Zustand hat Herkunft, Lebenszyklus, Audit und Widerrufsweg."},
+    {"id": "ZAM-PRINCIPLE-006", "title": "Memory is untrusted data", "description": "Persistenter Inhalt wird niemals automatisch zu einer höher priorisierten Instruktion."}
+  ],
+  "affected_files_observed": [
+    "agent/db_models/memory.py",
+    "agent/repositories/memory.py",
+    "agent/services/result_memory_service.py",
+    "agent/services/memory_tree_store_service.py",
+    "agent/services/memory_tree_retrieval_service.py",
+    "agent/services/memory_tree_ingestion_service.py",
+    "agent/services/memory_tree_summary_service.py",
+    "worker/core/memory_stores.py",
+    "agent/services/task_scoped_execution_service.py",
+    "agent/services/_task_scoped_runtime.py",
+    "agent/services/worker_contract_service.py",
+    "agent/services/workflow_gate_engine.py",
+    "client_surfaces/operator_tui/chat_memory.py",
+    "agent/config_defaults.py"
+  ],
+  "risk_register": [
+    {"id": "ZAM-RISK-001", "title": "Verdeckter persistenter Nebenspeicher", "severity": "critical", "description": "Ein Agent legt außerhalb offizieller Memory-Stores Dateien, Tabellen, Caches oder Vektoren an und liest sie später wieder.", "mitigation": "Registry, Gateway, Dateisystem-Policy, Snapshot/Diff und Anomaliescanner."},
+    {"id": "ZAM-RISK-002", "title": "Cross-task-Zustandsfortführung", "severity": "critical", "description": "Ein späterer Task erhält unbeabsichtigt Zustände oder Ziele eines früheren Tasks.", "mitigation": "Harte Namespaces, serverseitige Scope-Ableitung und Canary-Tests."},
+    {"id": "ZAM-RISK-003", "title": "Memory-basierte Prompt Injection", "severity": "critical", "description": "Gespeicherte Inhalte werden später als Instruktionen statt als untrusted Daten eingefügt.", "mitigation": "Trust-Markierung, getrennte Prompt-Segmente und unveränderliche Capabilities."},
+    {"id": "ZAM-RISK-004", "title": "Automatische globale Promotion", "severity": "high", "description": "Flüchtige Modellzustände werden ohne Prüfung dauerhaft und global wiederverwendet.", "mitigation": "Expliziter Promotion-Workflow, Provenienzprüfung und Freigabe."},
+    {"id": "ZAM-RISK-005", "title": "Unvollständige Auditierbarkeit", "severity": "high", "description": "Der sichtbare Chat zeigt nicht, welche Memorys oder Tools tatsächlich genutzt wurden.", "mitigation": "Append-only Audit, Prompt-Snapshot, Memory-Diff und Operator-Timeline."},
+    {"id": "ZAM-RISK-006", "title": "Falsches Sicherheitsversprechen", "severity": "high", "description": "Die Plattform suggeriert, interne Gedanken vollständig kontrollieren zu können.", "mitigation": "Klare Grenzen, Control-Level pro Runtime und dokumentierte Restrisiken."},
+    {"id": "ZAM-RISK-007", "title": "Kodierte Zustände umgehen Prüfungen", "severity": "medium", "description": "Zustand wird in Base64, Binärblobs oder ungewöhnlichen Tokenmustern versteckt.", "mitigation": "Typgrenzen, Risikoscan, Provenienz und manuelle Prüfung."},
+    {"id": "ZAM-RISK-008", "title": "Löschung wirkt nicht auf Ableitungen", "severity": "high", "description": "Ein widerrufener Eintrag bleibt über Summary, Cache oder Vectorindex wirksam.", "mitigation": "Abhängigkeitsgraph, Quarantäne, kaskadierender Widerruf und Index-Invalidierung."}
+  ],
+  "tracks": [
+    {
+      "id": "ZAM-TRACK-001",
+      "title": "Memory-Inventar und verbindliches Sicherheitsmodell",
+      "summary": "Alle persistenten und flüchtigen Speicherkanäle werden inventarisiert und in ein einheitliches Zero-Trust-Modell überführt.",
+      "priority": "P0",
+      "status": "open",
+      "tasks": [
+        {
+          "id": "ZAM-001",
+          "title": "Persistente und flüchtige Speicherkanäle inventarisieren",
+          "type": "security",
+          "priority": "P0",
+          "status": "open",
+          "summary": "Erfasst jeden Pfad, über den Modell- oder Agentenzustand über einen Inferenzaufruf hinaus wirken kann.",
+          "files": ["agent/db_models/memory.py", "agent/repositories/memory.py", "agent/services/result_memory_service.py", "agent/services/memory_tree_store_service.py", "worker/core/memory_stores.py", "client_surfaces/operator_tui/chat_memory.py"],
+          "description": "Erstelle ein maschinenlesbares Register aller Memory-, Cache-, Datei-, Datenbank-, Vectorstore-, Prompt- und Tool-State-Kanäle.",
+          "implementation_notes": ["Direkte und indirekte Schreibpfade erfassen.", "Pro Kanal Owner, Scope, Persistenzdauer, Leser, Schreiber und Löschmechanismus dokumentieren.", "Unregistrierte Kanäle später als Policy-Verstoß erkennen."],
+          "acceptance_criteria": ["Ein versioniertes Memory-Channel-Register existiert.", "Jeder bestehende produktive Speicherpfad ist einem Kanal zugeordnet.", "CI schlägt fehl, wenn ein neuer persistenter Kanal ohne Registereintrag eingeführt wird.", "Temporäre Prozess-Caches und dauerhafte Stores sind unterscheidbar."],
+          "depends_on": []
+        },
+        {
+          "id": "ZAM-002",
+          "title": "Memory-Sicherheitsklassen und Scopes definieren",
+          "type": "security",
+          "priority": "P0",
+          "status": "open",
+          "summary": "Definiert task-, goal-, conversation-, workspace- und global-scoped Memory mit klaren Grenzen.",
+          "files": ["agent/db_models/memory.py", "agent/services/memory_tree_store_service.py", "agent/services/memory_tree_retrieval_service.py", "agent/config_defaults.py"],
+          "description": "Erweitere Memory-Metadaten um normierte Scope-, Sensitivity-, Retention- und Trust-Felder.",
+          "implementation_notes": ["Default ist task-scoped und deny-by-default.", "Globaler oder profilübergreifender Speicher braucht explizite Policy.", "Legacy-Einträge konservativ als untrusted/internal klassifizieren."],
+          "acceptance_criteria": ["Memory-Einträge besitzen validierte scope, sensitivity, retention_class und trust_level.", "Fehlende Werte werden nicht als global interpretiert.", "Cross-task retrieval ist standardmäßig blockiert.", "Migration für vorhandene Daten ist idempotent."],
+          "depends_on": ["ZAM-001"]
+        },
+        {
+          "id": "ZAM-003",
+          "title": "Memory-Capability-Manifest pro Run einführen",
+          "type": "security",
+          "priority": "P0",
+          "status": "open",
+          "summary": "Jeder Run erhält eine explizite Liste erlaubter Memory-Lese- und Schreibfähigkeiten.",
+          "files": ["agent/services/task_scoped_execution_service.py", "agent/services/_task_scoped_runtime.py", "agent/services/worker_contract_service.py", "agent/models/goal_models.py"],
+          "description": "Füge dem Worker-/Run-Contract ein unveränderbares Capability-Manifest hinzu.",
+          "implementation_notes": ["Capabilities getrennt für read, append, update, delete und promote.", "Wildcards nur für privilegierte Operator-Flows.", "Das Modell darf das Manifest nicht selbst erweitern."],
+          "acceptance_criteria": ["Ein Run ohne Memory-Capability kann keinen persistenten Speicher lesen oder schreiben.", "Jeder Zugriff wird gegen Kanal und Scope geprüft.", "Capability-Eskalation innerhalb eines Runs ist blockiert.", "Tests decken erlaubte und abgelehnte Zugriffe ab."],
+          "depends_on": ["ZAM-002"]
+        }
+      ]
+    },
+    {
+      "id": "ZAM-TRACK-002",
+      "title": "Kontrollierter Memory-Gateway und Isolation",
+      "summary": "Alle Speicherzugriffe laufen über einen typisierten Gateway; direkte Nebenkanäle werden blockiert.",
+      "priority": "P0",
+      "status": "open",
+      "tasks": [
+        {
+          "id": "ZAM-004",
+          "title": "Zentralen Memory-Policy-Gateway implementieren",
+          "type": "security",
+          "priority": "P0",
+          "status": "open",
+          "summary": "Ersetzt verstreute Direktzugriffe durch einen einzigen prüfbaren Zugriffspunkt.",
+          "files": ["agent/services/memory_policy_gateway.py", "agent/repositories/memory.py", "agent/services/result_memory_service.py", "agent/services/memory_tree_store_service.py", "agent/services/memory_tree_retrieval_service.py"],
+          "description": "Implementiere authorize_read, authorize_write, authorize_update, authorize_delete und authorize_promote mit einheitlichen Fehlercodes.",
+          "implementation_notes": ["Policy-Entscheidung vor Datenbank- oder Dateizugriff.", "Entscheidungen enthalten rule_id und reason.", "Kein Fail-open bei Fehlern."],
+          "acceptance_criteria": ["Alle produktiven Memory-Services nutzen den Gateway.", "Abgelehnte Zugriffe erzeugen keine Teiländerung.", "Policy-Ausfälle blockieren den Zugriff.", "Unit- und Integrationstests prüfen deny-by-default."],
+          "depends_on": ["ZAM-003"]
+        },
+        {
+          "id": "ZAM-005",
+          "title": "Task-isolierte Memory-Namespaces erzwingen",
+          "type": "security",
+          "priority": "P0",
+          "status": "open",
+          "summary": "Verhindert, dass ein Agent Zustände anderer Tasks oder Goals unbemerkt fortführt.",
+          "files": ["agent/db_models/memory.py", "agent/repositories/memory.py", "agent/services/memory_policy_gateway.py", "agent/services/task_scoped_execution_service.py"],
+          "description": "Nutze harte Namespace-Schlüssel aus Tenant, Workspace, Goal, Task und Run statt nur Retrieval-Tags.",
+          "implementation_notes": ["Namespace serverseitig aus Run-Kontext ableiten.", "Vom Modell gelieferte task_id niemals als Autorität akzeptieren.", "Cross-scope nur über explizite Promotion."],
+          "acceptance_criteria": ["Ein Task kann Einträge eines anderen Tasks nicht abrufen.", "Manipulierte IDs umgehen die Isolation nicht.", "Datenbankabfragen enthalten verpflichtende Scope-Filter.", "Negative Tests prüfen IDOR-ähnliche Angriffe."],
+          "depends_on": ["ZAM-004"]
+        },
+        {
+          "id": "ZAM-006",
+          "title": "Ephemeren Scratchpad-Speicher bereitstellen",
+          "type": "security",
+          "priority": "P0",
+          "status": "open",
+          "summary": "Bietet Agenten einen begrenzten Arbeitsbereich, der nach dem Run verworfen wird.",
+          "files": ["agent/services/ephemeral_scratchpad_service.py", "agent/services/task_scoped_execution_service.py", "worker/core/memory_stores.py"],
+          "description": "Implementiere einen explizit flüchtigen Store mit Größen-, Zeit- und Datentypgrenzen.",
+          "implementation_notes": ["Keine automatische Promotion in persistentes Memory.", "Cleanup auch bei Crash, Timeout und Cancel.", "Scratchpad-Inhalt nicht ungeprüft in Systemprompts übernehmen."],
+          "acceptance_criteria": ["Scratchpad ist pro Run isoliert.", "Nach Run-Ende sind Inhalte nicht mehr abrufbar.", "Quota-Überschreitung wird deterministisch abgelehnt.", "Crash-Recovery entfernt verwaiste Scratchpads."],
+          "depends_on": ["ZAM-004"]
+        },
+        {
+          "id": "ZAM-007",
+          "title": "Direkte Datei- und Datenbank-Nebenkanäle blockieren",
+          "type": "security",
+          "priority": "P0",
+          "status": "open",
+          "summary": "Verhindert versteckte Agenten-Memorys außerhalb registrierter Stores.",
+          "files": ["agent/services/workflow_gate_engine.py", "agent/services/_task_scoped_domain_action.py", "worker/core", "agent/config_defaults.py"],
+          "description": "Erweitere Tool- und Dateisystem-Policies um erlaubte Pfade, Dateitypen und persistente Mounts.",
+          "implementation_notes": ["Schreibbare Arbeitsverzeichnisse von persistenten Verzeichnissen trennen.", "Hidden files und frei benannte State-Dateien nicht pauschal erlauben.", "DB-Clients nur über kontrollierte Services bereitstellen."],
+          "acceptance_criteria": ["Agenten können außerhalb freigegebener Pfade nicht schreiben.", "Symlink-, Path-Traversal- und Rename-Umgehungen sind getestet.", "Neue persistente Dateien erscheinen im Audit.", "Shell- und Tool-Aufrufe erben dieselbe Policy."],
+          "depends_on": ["ZAM-004", "ZAM-001"]
+        }
+      ]
+    },
+    {
+      "id": "ZAM-TRACK-003",
+      "title": "Provenienz, Audit und Memory-Diffs",
+      "summary": "Jede Zustandsänderung wird nachvollziehbar und dem verursachenden Run zugeordnet.",
+      "priority": "P0",
+      "status": "open",
+      "tasks": [
+        {
+          "id": "ZAM-008",
+          "title": "Append-only Memory-Audit-Log einführen",
+          "type": "security",
+          "priority": "P0",
+          "status": "open",
+          "summary": "Protokolliert jeden Memory-Zugriff und jede Policy-Entscheidung manipulationserschwerend.",
+          "files": ["agent/db_models/memory_audit.py", "agent/services/memory_audit_service.py", "agent/services/memory_policy_gateway.py"],
+          "description": "Speichere Actor, Run, Task, Scope, Operation, Target, Decision, Rule, Hashes und Zeitstempel.",
+          "implementation_notes": ["Keine sensiblen Rohinhalte im Standard-Audit.", "Hash-Kette oder äquivalente Integritätsprüfung.", "Audit-Schreiben darf Zugriffsentscheidung nicht unbemerkt verlieren."],
+          "acceptance_criteria": ["Jeder Memory-Zugriff besitzt einen Audit-Eintrag.", "Audit-Einträge sind nach trace_id und task_id filterbar.", "Manipulation oder Lücke ist erkennbar.", "Audit-Retention ist getrennt vom Nutzinhalt konfigurierbar."],
+          "depends_on": ["ZAM-004"]
+        },
+        {
+          "id": "ZAM-009",
+          "title": "Memory-Snapshots und Vorher/Nachher-Diffs erzeugen",
+          "type": "security",
+          "priority": "P0",
+          "status": "open",
+          "summary": "Macht sichtbar, welche dauerhaften Zustände ein Run verändert hat.",
+          "files": ["agent/services/memory_snapshot_service.py", "agent/services/memory_diff_service.py", "agent/routes/tasks/goals.py"],
+          "description": "Erzeuge vor und nach einem Run normalisierte Snapshots erreichbarer persistenter Memorys.",
+          "implementation_notes": ["Große Inhalte über Hash und Metadaten vergleichen.", "Added, modified, deleted und promoted getrennt ausweisen.", "Diff muss auch abgebrochene Runs erfassen."],
+          "acceptance_criteria": ["Für jeden schreibfähigen Run ist ein Memory-Diff verfügbar.", "Unveränderte Inhalte werden nicht als Änderung gemeldet.", "Operator kann Änderungen nach Kanal und Scope filtern.", "Diff referenziert Audit-Ereignisse."],
+          "depends_on": ["ZAM-008"]
+        },
+        {
+          "id": "ZAM-010",
+          "title": "Provenienz und Ableitungskette für Memory-Einträge",
+          "type": "security",
+          "priority": "P0",
+          "status": "open",
+          "summary": "Kennzeichnet, aus welchem Nutzerinput, Tool-Ergebnis, Modelloutput oder Memory ein Eintrag entstand.",
+          "files": ["agent/db_models/memory.py", "agent/services/result_memory_service.py", "agent/services/memory_tree_ingestion_service.py", "agent/services/memory_tree_summary_service.py"],
+          "description": "Erweitere Einträge um source_kind, source_refs, producer_model, Prompt-, Profil- und Skill-Versionen sowie parent_memory_ids.",
+          "implementation_notes": ["Zusammenfassungen behalten Herkunft zu Quellchunks.", "Modellgenerierte Behauptungen werden nicht als nutzerbestätigt markiert.", "Zyklische Herkunftsketten blockieren."],
+          "acceptance_criteria": ["Jeder neue persistente Eintrag hat vollständige Provenienz.", "Abgeleitete Memorys sind bis zu ihren Quellen rückverfolgbar.", "Fehlende Provenienz verhindert automatische Promotion.", "Provenienz bleibt bei Export und Import erhalten."],
+          "depends_on": ["ZAM-008"]
+        },
+        {
+          "id": "ZAM-011",
+          "title": "Operator-Ansicht für Memory-Zugriffe und Diffs",
+          "type": "ui",
+          "priority": "P1",
+          "status": "open",
+          "summary": "Zeigt in Angular und TUI, was gelesen, geschrieben, blockiert oder promoted wurde.",
+          "files": ["client_surfaces/operator_tui", "frontend", "agent/routes"],
+          "description": "Baue eine Run-zentrierte Ansicht mit Timeline, Diff, Policy-Grund und Provenienz.",
+          "implementation_notes": ["Keine Anzeige vermeintlicher interner Gedanken; nur beobachtbare Zustände und Aktionen.", "Blockierte Versuche von erfolgreichen Zugriffen unterscheiden.", "Sensible Rohinhalte nur nach Berechtigung anzeigen."],
+          "acceptance_criteria": ["Operator sieht alle Memory-Operationen eines Runs.", "Diff kann vor Freigabe geprüft werden.", "UI zeigt Scope, Retention, Trust und Herkunft.", "TUI und Angular nutzen dasselbe Backend-Readmodel."],
+          "depends_on": ["ZAM-009", "ZAM-010"]
+        }
+      ]
+    },
+    {
+      "id": "ZAM-TRACK-004",
+      "title": "Promotion, Retention und sichere Wiederverwendung",
+      "summary": "Persistenz und spätere Wiederverwendung erfolgen nur kontrolliert, begründet und widerrufbar.",
+      "priority": "P0",
+      "status": "open",
+      "tasks": [
+        {
+          "id": "ZAM-012",
+          "title": "Expliziten Memory-Promotion-Workflow einführen",
+          "type": "security",
+          "priority": "P0",
+          "status": "open",
+          "summary": "Verhindert, dass Scratchpad- oder Task-Zustände automatisch dauerhaft und global wirksam werden.",
+          "files": ["agent/services/memory_promotion_service.py", "agent/services/memory_policy_gateway.py", "agent/services/memory_tree_ingestion_service.py"],
+          "description": "Promotion ist ein eigener Vorgang mit Zielscope, Begründung, Provenienzprüfung und optionaler Freigabe.",
+          "implementation_notes": ["Task zu Goal, Goal zu Workspace und Workspace zu Global als getrennte Übergänge.", "Keine Mehrfach-Scope-Sprünge.", "High-risk Inhalte benötigen menschliche Freigabe."],
+          "acceptance_criteria": ["Ohne Promotion bleibt Memory im Ursprungsscope.", "Promotion ist auditierbar und rückgängig machbar.", "Untrusted oder provenance-loser Inhalt wird nicht automatisch promoted.", "Policy kann Promotion vollständig deaktivieren."],
+          "depends_on": ["ZAM-006", "ZAM-010"]
+        },
+        {
+          "id": "ZAM-013",
+          "title": "Retention-, TTL- und sichere Löschregeln implementieren",
+          "type": "security",
+          "priority": "P0",
+          "status": "open",
+          "summary": "Begrenzt, wie lange Agentenzustände fortwirken können.",
+          "files": ["agent/db_models/memory.py", "agent/services/memory_retention_service.py", "agent/services/memory_tree_store_service.py", "agent/config_defaults.py"],
+          "description": "Führe expires_at, retention_policy_id, legal_hold und Tombstone-/Secure-delete-Semantik ein.",
+          "implementation_notes": ["Task-Scratchpads sofort oder kurz nach Abschluss löschen.", "Abgeleitete Summaries bei Quellenlöschung neu bewerten.", "Backups und Exporte berücksichtigen."],
+          "acceptance_criteria": ["Abgelaufene Einträge werden nicht retrieved.", "Löschung erzeugt Audit und Tombstone ohne Nutzinhalt.", "Retention-Jobs sind idempotent.", "Tests prüfen kaskadierende und blockierte Löschung."],
+          "depends_on": ["ZAM-002", "ZAM-008"]
+        },
+        {
+          "id": "ZAM-014",
+          "title": "Memory-Widerruf und Quarantäne bereitstellen",
+          "type": "security",
+          "priority": "P0",
+          "status": "open",
+          "summary": "Stoppt nachträglich kompromittierte oder verdächtige Zustände sofort.",
+          "files": ["agent/services/memory_quarantine_service.py", "agent/services/memory_tree_retrieval_service.py", "agent/services/memory_policy_gateway.py"],
+          "description": "Einträge und ganze Herkunftsketten können quarantined oder revoked werden.",
+          "implementation_notes": ["Quarantäne wirkt vor Retrieval und Prompt-Aufbau.", "Abhängige Summaries markieren oder regenerieren.", "Freigabe aus Quarantäne nur mit Audit."],
+          "acceptance_criteria": ["Quarantänisierte Einträge erreichen kein Modell.", "Widerruf wirkt auch auf Caches und Indizes.", "Betroffene Ableitungen sind auffindbar.", "Rollback ist kontrolliert möglich."],
+          "depends_on": ["ZAM-010", "ZAM-013"]
+        },
+        {
+          "id": "ZAM-015",
+          "title": "Memory nur als untrusted Kontext in Prompts einfügen",
+          "type": "security",
+          "priority": "P0",
+          "status": "open",
+          "summary": "Verhindert, dass gespeicherte Inhalte zu versteckten Systemanweisungen werden.",
+          "files": ["agent/services/memory_tree_retrieval_service.py", "agent/services/worker_contract_service.py", "prompts"],
+          "description": "Serialisiere Memory in klar abgegrenzten Datenblöcken mit Herkunft und Trust-Markierung.",
+          "implementation_notes": ["Keine Vermischung mit System- oder Developer-Instruktionen.", "Prompt-Injection-Marker und verdächtige Instruktionen klassifizieren.", "Memory als Daten, nicht als Autorität behandeln."],
+          "acceptance_criteria": ["Memory-Inhalte können keine Capability erweitern.", "Prompt-Snapshots zeigen genaue Einfügeposition und Quelle.", "Injection-Testfälle ändern keine Systempolicy.", "Untrusted Inhalte sind technisch und visuell markiert."],
+          "depends_on": ["ZAM-010", "ZAM-014"]
+        }
+      ]
+    },
+    {
+      "id": "ZAM-TRACK-005",
+      "title": "Erkennung verdeckter Nebenkanäle und Anomalien",
+      "summary": "Das System erkennt Hinweise auf versteckte Zustandsfortführung, ohne Gedankenlesen zu behaupten.",
+      "priority": "P1",
+      "status": "open",
+      "tasks": [
+        {
+          "id": "ZAM-016",
+          "title": "Unregistrierte persistente Artefakte erkennen",
+          "type": "security",
+          "priority": "P1",
+          "status": "open",
+          "summary": "Vergleicht Dateisystem, Datenbanken und Stores vor und nach Runs auf unbekannte Zustände.",
+          "files": ["agent/services/persistence_anomaly_scanner.py", "agent/services/memory_snapshot_service.py", "worker"],
+          "description": "Scanne freigegebene Laufzeitbereiche und melde neue oder veränderte persistente Artefakte.",
+          "implementation_notes": ["Baseline pro Worker-Image und Workspace.", "Noise-Filter für erwartete Build-Artefakte.", "Funde blockieren optional den Abschluss."],
+          "acceptance_criteria": ["Unbekannte State-Datei wird erkannt.", "Erwartete Artefakte sind über Registry erklärbar.", "Scanner arbeitet offline.", "Ausnahmen sind versioniert und auditierbar."],
+          "depends_on": ["ZAM-001", "ZAM-009"]
+        },
+        {
+          "id": "ZAM-017",
+          "title": "Kodierte und steganografische Memory-Muster risikobasiert prüfen",
+          "type": "security",
+          "priority": "P1",
+          "status": "open",
+          "summary": "Markiert ungewöhnlich entropische, verschleierte oder instruktive Inhalte zur Prüfung.",
+          "files": ["agent/services/memory_content_risk_service.py", "agent/services/memory_promotion_service.py"],
+          "description": "Nutze deterministische Heuristiken plus optional unabhängige Klassifikation; keine automatische Schuldannahme.",
+          "implementation_notes": ["Base64, Hex, komprimierte Blobs und versteckte Instruktionen erkennen.", "Binärartefakte nur über erlaubte Typen.", "Risk Score darf allein keine endgültige Löschung auslösen."],
+          "acceptance_criteria": ["Verdächtige Inhalte werden vor Promotion markiert.", "Normale Code- und Datenblöcke können über Typ und Provenienz legitimiert werden.", "Entscheidungsgründe sind sichtbar.", "Tests enthalten harmlose und bösartige Beispiele."],
+          "depends_on": ["ZAM-012"]
+        },
+        {
+          "id": "ZAM-018",
+          "title": "Cross-run-Zielkontinuität als Anomaliesignal messen",
+          "type": "security",
+          "priority": "P2",
+          "status": "open",
+          "summary": "Erkennt, wenn unabhängige Runs unerwartet dieselben nicht angeforderten Teilziele fortführen.",
+          "files": ["agent/services/agent_behavior_anomaly_service.py", "agent/services/planning_telemetry_service.py", "agent/services/memory_audit_service.py"],
+          "description": "Korrelieren nur beobachtbare Aktionen, Tool-Aufrufe, Memory-Refs und Planobjekte; keine Behauptung über innere Gedanken.",
+          "implementation_notes": ["Signal mit klarer Unsicherheit.", "Explizite Wiederaufnahme als legitime Ursache berücksichtigen.", "Keine automatische Sanktion ohne weitere Evidenz."],
+          "acceptance_criteria": ["Report trennt Fakten, Korrelation und Interpretation.", "Wiederkehrende unbekannte Memory-Refs werden erkannt.", "Legitime Fortsetzungen lassen sich freigeben.", "Datenschutzgerechte Aggregation ist dokumentiert."],
+          "depends_on": ["ZAM-008", "ZAM-010"]
+        },
+        {
+          "id": "ZAM-019",
+          "title": "Canary-Memorys zur Zugriffskontrolle einsetzen",
+          "type": "security",
+          "priority": "P1",
+          "status": "open",
+          "summary": "Erkennt unerlaubte Cross-scope- oder Cross-task-Retrievals über harmlose Marker.",
+          "files": ["agent/services/memory_canary_service.py", "agent/services/memory_policy_gateway.py", "tests/security"],
+          "description": "Platziere nicht-sensitive Canary-Einträge in isolierten Scopes und alarmiere bei Zugriff oder Ausgabe.",
+          "implementation_notes": ["Canaries enthalten keine realen Geheimnisse.", "Marker pro Testlauf rotieren.", "Nur in Test und Hardening standardmäßig aktiv."],
+          "acceptance_criteria": ["Cross-scope-Leak löst reproduzierbar Alarm aus.", "Erlaubte Retrievals erzeugen keinen Alarm.", "Canary-Nutzung ist konfigurierbar.", "Security-E2E-Test läuft lokal und offline."],
+          "depends_on": ["ZAM-005", "ZAM-008"]
+        }
+      ]
+    },
+    {
+      "id": "ZAM-TRACK-006",
+      "title": "Skills, Modelle und reproduzierbare Ausführung",
+      "summary": "Memory-Verhalten bleibt trotz wechselnder Skills, Modelle und Provider nachvollziehbar.",
+      "priority": "P0",
+      "status": "open",
+      "tasks": [
+        {
+          "id": "ZAM-020",
+          "title": "Skill- und Prompt-Versionen an jeden Memory-Eintrag binden",
+          "type": "security",
+          "priority": "P0",
+          "status": "open",
+          "summary": "Zeigt, unter welchen Anweisungen ein Zustand erzeugt wurde.",
+          "files": ["agent/services/worker_contract_service.py", "agent/services/result_memory_service.py", "agent/db_models/memory.py", "prompts"],
+          "description": "Persistiere Hashes und Versionen aller wirksamen Systemprompts, Skills, Profile und Toolschemas.",
+          "implementation_notes": ["Nicht nur Skill-Namen, sondern Inhaltshash.", "Dynamische Provider-Instruktionen als unbekannt oder extern markieren.", "Versionen in Provenienz und Audit aufnehmen."],
+          "acceptance_criteria": ["Memory-Eintrag ist einer reproduzierbaren lokalen Konfiguration zuordenbar.", "Skill-Änderung wird bei Wiederverwendung sichtbar.", "Unbekannte Instruktionsschichten werden nicht als verifiziert dargestellt.", "Hashes sind in UI und Export verfügbar."],
+          "depends_on": ["ZAM-010"]
+        },
+        {
+          "id": "ZAM-021",
+          "title": "Memory-Zugriff in Replay-Modus deterministisch reproduzieren",
+          "type": "security",
+          "priority": "P1",
+          "status": "open",
+          "summary": "Erlaubt die Prüfung, welche gespeicherten Inhalte einem Modell tatsächlich bereitgestellt wurden.",
+          "files": ["agent/services/run_replay_service.py", "agent/services/memory_snapshot_service.py", "agent/services/worker_contract_service.py"],
+          "description": "Replay nutzt eingefrorene Memory-Snapshots, Prompt- und Skill-Versionen sowie Toolschemas ohne externe Nebenwirkungen.",
+          "implementation_notes": ["Providerantwort muss nicht deterministisch sein; Input und Capabilities müssen es sein.", "Netzwerk und Schreibzugriffe im Replay standardmäßig aus.", "Geheime Inhalte redaktierbar."],
+          "acceptance_criteria": ["Replay rekonstruiert denselben Memory-Input und dieselbe Reihenfolge.", "Replay kann keine produktiven Memorys verändern.", "Abweichungen zwischen Original und Replay werden ausgewiesen.", "Offline-Test mit lokalem Stub besteht."],
+          "depends_on": ["ZAM-009", "ZAM-020"]
+        },
+        {
+          "id": "ZAM-022",
+          "title": "Provider- und Modellgrenzen explizit kennzeichnen",
+          "type": "security",
+          "priority": "P1",
+          "status": "open",
+          "summary": "Verhindert falsche Sicherheitsversprechen bei gehosteten oder nicht vollständig kontrollierbaren Modellen.",
+          "files": ["agent/models", "agent/services/worker_contract_service.py", "frontend", "client_surfaces/operator_tui"],
+          "description": "Führe control_level und observability_level pro Provider und Runtime ein.",
+          "implementation_notes": ["Lokale Gewichte, lokale Runtime mit externem Modell und gehostete API unterscheiden.", "UI darf interne Zustände nicht als geprüft darstellen.", "Policy kann hochkritische Memorys auf lokale Modelle beschränken."],
+          "acceptance_criteria": ["Jeder Run zeigt Kontroll- und Beobachtbarkeitsniveau.", "Policies können nach Runtime-Typ filtern.", "Gehostete Modelle erhalten standardmäßig weniger persistente Rechte.", "Dokumentation trennt beobachtbare Aktionen von internen Aktivierungen."],
+          "depends_on": ["ZAM-003"]
+        }
+      ]
+    },
+    {
+      "id": "ZAM-TRACK-007",
+      "title": "Security-Tests, Migration und Betriebsfreigabe",
+      "summary": "Die Architektur wird durch Angriffs- und Regressionstests sowie sichere Migration abgesichert.",
+      "priority": "P0",
+      "status": "open",
+      "tasks": [
+        {
+          "id": "ZAM-023",
+          "title": "Adversarial Memory Security Test Suite erstellen",
+          "type": "security",
+          "priority": "P0",
+          "status": "open",
+          "summary": "Prüft Prompt-Injection, Cross-task-Leaks, versteckte Dateien, kodierte Zustände und Capability-Eskalation.",
+          "files": ["tests/security/test_memory_zero_trust.py", "tests/security/fixtures", "scripts"],
+          "description": "Baue deterministische lokale Tests mit bösartigen Modell-Stubs und Tool-Sequenzen.",
+          "implementation_notes": ["Keine echten Provider nötig.", "Positive und negative Controls.", "Fehler müssen konkrete Policy-Regeln nennen."],
+          "acceptance_criteria": ["Suite deckt alle kritischen Risiken des Registers ab.", "Mindestens ein Test pro Gateway-Operation und Scope-Grenze.", "Tests laufen in CI reproduzierbar.", "Ein absichtlich unsicherer Adapter wird zuverlässig erkannt."],
+          "depends_on": ["ZAM-007", "ZAM-015", "ZAM-019"]
+        },
+        {
+          "id": "ZAM-024",
+          "title": "Bestehende Memory-Daten sicher migrieren",
+          "type": "security",
+          "priority": "P0",
+          "status": "open",
+          "summary": "Überführt vorhandene Einträge in das neue Scope-, Trust-, Retention- und Provenienzmodell.",
+          "files": ["agent/migrations", "agent/db_models/memory.py", "scripts"],
+          "description": "Migration klassifiziert konservativ, erstellt Bericht und erlaubt Dry-run und Rollback.",
+          "implementation_notes": ["Kein Legacy-Eintrag wird automatisch global vertrauenswürdig.", "Unklare Einträge quarantänisieren oder task-lokal halten.", "Vorher/Nachher-Zählungen und Hashes erfassen."],
+          "acceptance_criteria": ["Dry-run verändert keine Daten.", "Migration ist wiederholbar.", "Rollback-Pfad ist getestet.", "Nicht klassifizierbare Einträge werden im Report aufgeführt."],
+          "depends_on": ["ZAM-002", "ZAM-014"]
+        },
+        {
+          "id": "ZAM-025",
+          "title": "Zero-Trust-Memory als sichere Default-Konfiguration aktivieren",
+          "type": "security",
+          "priority": "P0",
+          "status": "open",
+          "summary": "Schaltet persistente Agenten-Memorys standardmäßig ab, bis eine Policy sie erlaubt.",
+          "files": ["agent/config_defaults.py", "config", "docs/operator-guide.md", "docs/backend.md"],
+          "description": "Definiere sichere Defaults, Upgrade-Hinweise und explizite Opt-ins.",
+          "implementation_notes": ["Keine stille Verhaltensänderung ohne Migrationsbericht.", "Dev-Modus darf einfacher sein, aber muss sichtbar warnen.", "Produktionsprofil fail-closed."],
+          "acceptance_criteria": ["Neuinstallation startet deny-by-default.", "Upgrade zeigt blockierte Legacy-Zugriffe verständlich an.", "Unsichere Compatibility-Option ist opt-in und sichtbar.", "Konfiguration wird durch Tests validiert."],
+          "depends_on": ["ZAM-004", "ZAM-024"]
+        },
+        {
+          "id": "ZAM-026",
+          "title": "Threat Model und Betriebs-Runbook dokumentieren",
+          "type": "documentation",
+          "priority": "P1",
+          "status": "open",
+          "summary": "Dokumentiert realistische Grenzen: keine Gedankenlesbarkeit, aber kontrollierbare Ein- und Auswirkungskanäle.",
+          "files": ["docs/security/zero-trust-agent-memory.md", "docs/operator-guide.md"],
+          "description": "Beschreibe Assets, Angreifer, Trust Boundaries, Missbrauchsfälle, Alarmierung und Incident Response.",
+          "implementation_notes": ["J-Space und interne Aktivierung klar von externem persistentem Agenten-Memory trennen.", "Keine unbelegten Garantien.", "Runbook für Quarantäne, Widerruf, Replay und Export."],
+          "acceptance_criteria": ["Threat Model deckt Modell, Agent, Skill, Tool, Speicher und Provider ab.", "Restrisiken sind explizit.", "Operator-Schritte sind ausführbar und getestet.", "Dokumentation verweist auf konkrete Policies und UI-Flows."],
+          "depends_on": ["ZAM-022", "ZAM-023"]
+        }
+      ]
+    }
+  ],
+  "definition_of_done": [
+    "Alle produktiven persistenten Memory-Zugriffe laufen über den Memory-Policy-Gateway.",
+    "Default-Konfiguration ist deny-by-default und task-isoliert.",
+    "Vorher/Nachher-Diffs und Audit-Events sind pro schreibfähigem Run verfügbar.",
+    "Scratchpads werden auch bei Abbruch, Timeout und Crash entfernt.",
+    "Persistenz außerhalb registrierter Kanäle wird blockiert oder zuverlässig erkannt.",
+    "Cross-task-, Prompt-Injection-, Capability-Eskalations- und versteckte-Datei-Tests laufen in CI.",
+    "Operator kann Memory-Inhalte, Herkunft, Scope, Retention, Trust, Zugriffe und Widerruf prüfen.",
+    "Dokumentation beschreibt ausdrücklich, was Ananta kontrollieren kann und was nicht."
+  ]
+}
