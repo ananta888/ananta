@@ -12,6 +12,7 @@ from client_surfaces.operator_tui.chat_state import (
     get_sessions, get_session, add_session, update_session_settings,
     delete_session, make_session, set_active_session, default_conversations,
     default_chat_profiles,
+    DEFAULT_CHAT_TYPES,
 )
 from client_surfaces.operator_tui.config.user_config_manager import get_manager
 
@@ -71,6 +72,15 @@ def _load_profiles() -> list[dict[str, Any]]:
 
 def _save_custom_profiles(profiles: list[dict[str, Any]]) -> None:
     get_manager().save({"chat_profiles": profiles})
+
+
+def _load_chat_types() -> list[dict[str, Any]]:
+    custom = get_manager().load().get("chat_session_types") or []
+    by_id = {str(item["id"]): dict(item) for item in DEFAULT_CHAT_TYPES}
+    for item in custom if isinstance(custom, list) else []:
+        if isinstance(item, dict) and item.get("id"):
+            by_id[str(item["id"])] = dict(item)
+    return list(by_id.values())
 
 
 def _profile_by_id(profile_id: str) -> dict[str, Any] | None:
@@ -164,6 +174,52 @@ def delete_chat_profile(profile_id: str):
     return "", 204
 
 
+# ── Conversation classification types ───────────────────────────────────────
+
+@chat_bp.route("/types", methods=["GET"])
+def list_chat_types():
+    builtin_ids = {str(item["id"]) for item in DEFAULT_CHAT_TYPES}
+    return jsonify([{**item, "builtin": str(item.get("id") or "") in builtin_ids} for item in _load_chat_types()])
+
+
+@chat_bp.route("/types", methods=["POST"])
+def create_chat_type():
+    data = request.get_json(silent=True) or {}
+    name = str(data.get("name") or "").strip()
+    type_id = str(data.get("id") or f"type-{uuid.uuid4().hex[:12]}").strip()
+    subtypes = [str(value).strip() for value in list(data.get("subtypes") or []) if str(value).strip()]
+    if not name or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}", type_id):
+        return jsonify({"error": "valid type id and name are required"}), 400
+    if any(str(item.get("id") or "") == type_id for item in _load_chat_types()):
+        return jsonify({"error": f"Type '{type_id}' already exists"}), 409
+    item = {"id": type_id, "name": name, "icon": str(data.get("icon") or "🎯"), "description": str(data.get("description") or ""), "subtypes": subtypes}
+    custom = list((get_manager().load().get("chat_session_types") or []))
+    custom.append(item)
+    get_manager().save({"chat_session_types": custom})
+    return jsonify({**item, "builtin": False}), 201
+
+
+@chat_bp.route("/types/<type_id>", methods=["PATCH", "DELETE"])
+def mutate_chat_type(type_id: str):
+    if type_id in {str(item["id"]) for item in DEFAULT_CHAT_TYPES}:
+        return jsonify({"error": "built-in types are read-only"}), 409
+    custom = list((get_manager().load().get("chat_session_types") or []))
+    item = next((entry for entry in custom if str((entry or {}).get("id") or "") == type_id), None)
+    if item is None:
+        return jsonify({"error": f"Type '{type_id}' not found"}), 404
+    if request.method == "DELETE":
+        get_manager().save({"chat_session_types": [entry for entry in custom if entry is not item]})
+        return "", 204
+    data = request.get_json(silent=True) or {}
+    for key in ("name", "icon", "description"):
+        if key in data:
+            item[key] = str(data.get(key) or "")
+    if "subtypes" in data and isinstance(data["subtypes"], list):
+        item["subtypes"] = [str(value).strip() for value in data["subtypes"] if str(value).strip()]
+    get_manager().save({"chat_session_types": custom})
+    return jsonify({**item, "builtin": False})
+
+
 @chat_bp.route("/sessions", methods=["GET"])
 def list_chat_sessions():
     chat = _load_chat()
@@ -199,6 +255,7 @@ def create_chat_session():
         group=data.get("group", ""),
         folder_id=data.get("folder_id", ""),
         session_type=data.get("session_type", ""),
+        session_subtype=data.get("session_subtype", ""),
         type_description=data.get("type_description", ""),
         settings=data.get("settings") or {},
         profile_id=profile_id,
@@ -242,6 +299,8 @@ def update_chat_session(session_id: str):
         session["folder_id"] = str(data["folder_id"] or "")
     if "session_type" in data:
         session["session_type"] = str(data["session_type"] or "")
+    if "session_subtype" in data:
+        session["session_subtype"] = str(data["session_subtype"] or "")
     if "type_description" in data:
         session["type_description"] = str(data["type_description"] or "")
     if "profile_id" in data:

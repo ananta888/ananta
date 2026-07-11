@@ -37,6 +37,7 @@ from client_surfaces.operator_tui.chat_session import (
     PREDICTIVE_PRESETS,
     DEFAULT_SESSIONS,
     DEFAULT_CHAT_PROFILES,
+    DEFAULT_CHAT_TYPES,
     make_session,
     default_sessions,
     default_conversations,

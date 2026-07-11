@@ -123,6 +123,17 @@ PREDICTIVE_PRESETS: dict[str, dict[str, Any]] = {
     "eager": PRESET_PREDICTIVE_EAGER,
 }
 
+DEFAULT_CHAT_TYPES: list[dict[str, Any]] = [
+    {"id": "code", "name": "Softwareentwicklung", "icon": "💻", "description": "Implementierung und Codequalität", "subtypes": ["implementation", "debugging", "refactoring", "code-review", "testing"]},
+    {"id": "architecture", "name": "Architektur", "icon": "🏗️", "description": "Systemstruktur und technische Entscheidungen", "subtypes": ["overview", "classes", "sequence", "dependencies", "data-flow", "deployment", "security"]},
+    {"id": "planning", "name": "Planung", "icon": "🗺️", "description": "Ziele, Roadmaps und Aufgaben", "subtypes": ["goal", "roadmap", "tasks", "estimation", "review"]},
+    {"id": "research", "name": "Recherche", "icon": "🔎", "description": "Quellenbasierte Untersuchung", "subtypes": ["repository", "web", "comparison", "evidence-review"]},
+    {"id": "writing", "name": "Schreiben", "icon": "✍️", "description": "Texte und Dokumentation", "subtypes": ["draft", "review", "summary", "translation", "documentation"]},
+    {"id": "configuration", "name": "Konfiguration", "icon": "⚙️", "description": "Ananta- und Laufzeitkonfiguration", "subtypes": ["ananta", "ui", "worker", "model", "deployment"]},
+    {"id": "analysis", "name": "Analyse", "icon": "📊", "description": "Auswertung und Diagnose", "subtypes": ["diagnosis", "audit", "performance", "risk", "data"]},
+    {"id": "general", "name": "Allgemein", "icon": "💬", "description": "Freie oder gemischte Themen", "subtypes": []},
+]
+
 # Built-in chat profiles. They configure conversations but are not conversations.
 # Settings here are DELTAS only — keys that differ from _DEFAULT_SESSION_SETTINGS.
 # make_session() merges them with the defaults so the full settings dict is stored.
@@ -383,6 +394,7 @@ def make_session(
     group: str = "",
     folder_id: str = "",
     session_type: str = "",
+    session_subtype: str = "",
     type_description: str = "",
     profile_id: str = "general",
 ) -> dict[str, Any]:
@@ -410,6 +422,7 @@ def make_session(
         "group": str(group or ""),
         "folder_id": str(folder_id or ""),
         "session_type": str(session_type or ""),
+        "session_subtype": str(session_subtype or ""),
         "type_description": str(type_description or ""),
         "profile_id": str(profile_id or "general"),
         "profile_settings": profile_settings,
@@ -532,6 +545,8 @@ def get_sessions(chat: dict[str, Any]) -> list[dict[str, Any]]:
                 s["session_type"] = ""
             if "type_description" not in s:
                 s["type_description"] = ""
+            if "session_subtype" not in s:
+                s["session_subtype"] = ""
 
     migrate_legacy_profile_sessions(sessions)
 

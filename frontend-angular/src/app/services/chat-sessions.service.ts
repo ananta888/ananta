@@ -11,6 +11,7 @@ export interface ChatSession {
   group: string;
   folder_id: string;
   session_type: string;
+  session_subtype: string;
   type_description: string;
   last_message_preview: string;
   message_count: number;
@@ -30,6 +31,15 @@ export interface ChatProfile {
   description?: string;
   system_prompt: string;
   settings: Record<string, unknown>;
+  builtin: boolean;
+}
+
+export interface ChatSessionType {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  subtypes: string[];
   builtin: boolean;
 }
 
@@ -87,6 +97,7 @@ export interface CreateSessionPayload {
   group?: string;
   folder_id?: string;
   session_type?: string;
+  session_subtype?: string;
   type_description?: string;
   system_prompt?: string;
   settings?: Record<string, unknown>;
@@ -101,6 +112,7 @@ export class ChatSessionsService {
   readonly sessions$ = new BehaviorSubject<ChatSession[]>([]);
   readonly folders$ = new BehaviorSubject<ChatFolder[]>([]);
   readonly profiles$ = new BehaviorSubject<ChatProfile[]>([]);
+  readonly types$ = new BehaviorSubject<ChatSessionType[]>([]);
   readonly activeSessionId$ = new BehaviorSubject<string>('');
   readonly loading$ = new BehaviorSubject<boolean>(false);
   readonly error$ = new BehaviorSubject<string>('');
@@ -130,6 +142,25 @@ export class ChatSessionsService {
     });
     this.loadFolders();
     this.loadProfiles();
+    this.loadTypes();
+  }
+
+  loadTypes(): void {
+    const url = this.hubUrl;
+    if (!url) return;
+    this.core.get<ChatSessionType[]>(`${url}/api/chat/types`, url).subscribe({
+      next: types => this.types$.next(Array.isArray(types) ? types : []),
+      error: err => this.error$.next(String(err?.message || 'Fehler beim Laden der Chat-Typen')),
+    });
+  }
+
+  createType(type: Partial<ChatSessionType> & { name: string }): void {
+    const url = this.hubUrl;
+    if (!url) return;
+    this.core.post<ChatSessionType>(`${url}/api/chat/types`, type, url).subscribe({
+      next: () => this.loadTypes(),
+      error: err => this.error$.next(String(err?.message || 'Fehler beim Erstellen des Chat-Typs')),
+    });
   }
 
   loadProfiles(): void {
@@ -261,6 +292,7 @@ export class ChatSessionsService {
       group: payload.group || '',
       folder_id: payload.folder_id || '',
       session_type: payload.session_type || '',
+      session_subtype: payload.session_subtype || '',
       type_description: payload.type_description || '',
       system_prompt: payload.system_prompt || '',
       settings: payload.settings || {},
@@ -276,7 +308,7 @@ export class ChatSessionsService {
   }
 
   update(sessionId: string, patch: Partial<Pick<ChatSession,
-    'name' | 'icon' | 'group' | 'folder_id' | 'session_type' | 'type_description' | 'system_prompt' | 'settings' | 'profile_id'
+    'name' | 'icon' | 'group' | 'folder_id' | 'session_type' | 'session_subtype' | 'type_description' | 'system_prompt' | 'settings' | 'profile_id'
   >>): void {
     const url = this.hubUrl;
     if (!url) return;

@@ -6,6 +6,7 @@ import {
   ChatSessionsService,
   ChatSession,
   ChatProfile,
+  ChatSessionType,
   ChatFolder,
   ReorganizeProposal,
   ContextOverview,
@@ -205,6 +206,22 @@ interface TreeItem {
                       }
                     </select>
                   </div>
+                  <div class="cfg-row">
+                    <label class="cfg-label">Session-Typ</label>
+                    <select [ngModel]="s.session_type || ''" (ngModelChange)="changeType(s, $event)">
+                      <option value="">(nicht klassifiziert)</option>
+                      @for (type of types; track type.id) { <option [value]="type.id">{{ type.icon }} {{ type.name }}</option> }
+                    </select>
+                  </div>
+                  @if (typeFor(s.session_type)?.subtypes?.length) {
+                    <div class="cfg-row">
+                      <label class="cfg-label">Subtyp</label>
+                      <select [ngModel]="s.session_subtype || ''" (ngModelChange)="changeSubtype(s, $event)">
+                        <option value="">(kein Subtyp)</option>
+                        @for (subtype of typeFor(s.session_type)!.subtypes; track subtype) { <option [value]="subtype">{{ subtype }}</option> }
+                      </select>
+                    </div>
+                  }
 
                   <!-- Backend -->
                   <div class="cfg-row">
@@ -480,6 +497,29 @@ interface TreeItem {
             </select>
             <span class="muted">Das Profil bestimmt Prompt, Backend und Kontextregeln. Der Chat behält seinen eigenen Verlauf.</span>
           </label>
+          <label class="cfg-label-block">Session-Typ
+            <select [(ngModel)]="newSessionType" (ngModelChange)="newSessionSubtype = ''">
+              <option value="">(nicht klassifiziert)</option>
+              @for (type of types; track type.id) { <option [value]="type.id">{{ type.icon }} {{ type.name }}</option> }
+            </select>
+          </label>
+          @if (selectedType()?.subtypes?.length) {
+            <label class="cfg-label-block">Subtyp
+              <select [(ngModel)]="newSessionSubtype">
+                <option value="">(kein Subtyp)</option>
+                @for (subtype of selectedType()!.subtypes; track subtype) { <option [value]="subtype">{{ subtype }}</option> }
+              </select>
+            </label>
+          }
+          <button class="type-btn" (click)="showCustomType = !showCustomType">＋ Eigenen Session-Typ anlegen</button>
+          @if (showCustomType) {
+            <div class="custom-type-form">
+              <input [(ngModel)]="customTypeIcon" placeholder="🎯" maxlength="4" />
+              <input [(ngModel)]="customTypeName" placeholder="Name des Typs" />
+              <input [(ngModel)]="customTypeSubtypes" placeholder="Subtypen, kommagetrennt" />
+              <button (click)="createCustomType()" [disabled]="!customTypeName.trim()">Typ anlegen</button>
+            </div>
+          }
 
           <div class="new-form-row">
             <input [(ngModel)]="newIcon" placeholder="🤖" maxlength="4" class="icon-field" />
