@@ -159,7 +159,8 @@ services:
       - ../../:/app:rw
       - ../../project-workspaces:/project-workspaces:rw
       - alpha-data:/app/data
-    ports: []
+    ports:
+      - "${ALPHA_PORT:-5001}:5000"
     depends_on:
       ai-agent-hub:
         condition: service_healthy
@@ -207,7 +208,8 @@ services:
       - ../../:/app:rw
       - ../../project-workspaces:/project-workspaces:rw
       - beta-data:/app/data
-    ports: []
+    ports:
+      - "${BETA_PORT:-5002}:5000"
     depends_on:
       ai-agent-hub:
         condition: service_healthy
