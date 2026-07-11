@@ -58,13 +58,26 @@ class PtyBridge:
         self.master_fd = master_fd
         command = list(self.argv or [self.shell])
         env = ({**os.environ, **self.env} if self.env else None)
+
+        def _child_setup() -> None:
+            """Make the slave PTY the controlling terminal of the new session."""
+            try:
+                os.setsid()
+            except OSError:
+                pass
+            try:
+                import fcntl as _fcntl
+                _fcntl.ioctl(slave_fd, pty.TIOCSCTTY, 0)
+            except Exception:
+                pass
+
         self.process = subprocess.Popen(  # noqa: S603
             command,
             stdin=slave_fd,
             stdout=slave_fd,
             stderr=slave_fd,
             close_fds=True,
-            start_new_session=True,
+            preexec_fn=_child_setup,
             cwd=self.cwd or None,
             env=env,
         )
