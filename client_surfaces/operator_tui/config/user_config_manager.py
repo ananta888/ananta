@@ -8,6 +8,7 @@ Load order: defaults → global → project  (project wins)
 Write     : always writes project file; also updates global on explicit flush.
 Atomic    : writes to .user.json.tmp then os.replace() (POSIX-atomic).
 """
+
 from __future__ import annotations
 
 import json
@@ -21,75 +22,80 @@ _log = logging.getLogger(__name__)
 
 SCHEMA_VERSION = "user_config.v1"
 
-_SCHEMA_KEYS: frozenset[str] = frozenset({
-    # Visual AI-Snake
-    "tutorial_mode",
-    "ai_snake_provider_preference",
-    "ai_visual_use_codecompass",
-    # Chat panel
-    "chat_panel_open",
-    # Chat backend
-    "chat_backend",
-    "chat_backend_model",
-    "chat_backend_api_base",
-    "chat_ask_timeout_s",
-    # CodeCompass / RAG
-    "chat_use_codecompass",
-    "chat_include_local_project",
-    "chat_include_wikipedia",
-    "chat_include_task_memory",
-    "chat_source_pack_id",
-    "chat_retrieval_profile",
-    "chat_retrieval_domain_hint",
-    "chat_codecompass_trigger_mode",
-    "chat_code_questions_repo_first",
-    "chat_architecture_analysis_mode",
-    "chat_full_scan_source_only",
-    "chat_full_scan_max_batches",
-    "chat_full_scan_files_per_batch",
-    "chat_full_scan_parallel_batches",
-    "chat_full_scan_timeout_s",
-    "chat_full_scan_chars_per_file",
-    "chat_full_scan_max_input_tokens",
-    # Context budgets
-    "chat_context_chars",
-    "chat_max_tokens",
-    "chat_rag_top_k",
-    "chat_answer_chars",
-    "chat_answer_overflow_policy",
-    "chat_never_truncate_answers",
-    # Memory (CMW track)
-    "chat_use_history",
-    "chat_history_turns",
-    "chat_history_chars",
-    "chat_use_summary",
-    "chat_summary_chars",
-    "chat_summary_update_every_turns",
-    "chat_pass_memory_to_worker",
-    "chat_worker_mode",
-    "chat_backend_fallback",
-    "chat_include_runtime_status",
-    # Input history persistence
-    "input_history_chat_enabled",
-    "input_history_command_enabled",
-    "input_history_max_entries",
-    "chat_input_history",     # list[str]
-    "command_input_history",  # list[str]
-    # Chat sessions — each user has multiple named chat sessions with
-    # their own settings. Persisted as a list of dicts, identical shape
-    # to the runtime `ai_sessions` list in `chat_state`. Survives
-    # snake restarts so the user doesn't lose their custom sessions.
-    "chat_sessions",
-    "chat_active_session_id",
-    "chat_folders",
-    "chat_session_types",
-    # Advanced chat configuration (env-mapped features)
-    "chat_system_prompt",
-    "chat_streaming",
-    "chat_use_embedding_api",
-    "chat_embedding_model",
-    "chat_embedding_api_max_records",
-})
+_SCHEMA_KEYS: frozenset[str] = frozenset(
+    {
+        # Visual AI-Snake
+        "tutorial_mode",
+        "ai_snake_provider_preference",
+        "ai_visual_use_codecompass",
+        # Chat panel
+        "chat_panel_open",
+        # Chat backend
+        "chat_backend",
+        "chat_backend_model",
+        "chat_backend_api_base",
+        "chat_ask_timeout_s",
+        # CodeCompass / RAG
+        "chat_use_codecompass",
+        "chat_include_local_project",
+        "chat_include_wikipedia",
+        "chat_include_task_memory",
+        "chat_source_pack_id",
+        "chat_retrieval_profile",
+        "chat_retrieval_domain_hint",
+        "chat_codecompass_trigger_mode",
+        "chat_code_questions_repo_first",
+        "chat_architecture_analysis_mode",
+        "chat_full_scan_source_only",
+        "chat_full_scan_max_batches",
+        "chat_full_scan_files_per_batch",
+        "chat_full_scan_parallel_batches",
+        "chat_full_scan_timeout_s",
+        "chat_full_scan_chars_per_file",
+        "chat_full_scan_max_input_tokens",
+        # Context budgets
+        "chat_context_chars",
+        "chat_max_tokens",
+        "chat_rag_top_k",
+        "chat_answer_chars",
+        "chat_answer_overflow_policy",
+        "chat_never_truncate_answers",
+        # Memory (CMW track)
+        "chat_use_history",
+        "chat_history_turns",
+        "chat_history_chars",
+        "chat_use_summary",
+        "chat_summary_chars",
+        "chat_summary_update_every_turns",
+        "chat_pass_memory_to_worker",
+        "chat_worker_mode",
+        "chat_backend_fallback",
+        "chat_include_runtime_status",
+        # Input history persistence
+        "input_history_chat_enabled",
+        "input_history_command_enabled",
+        "input_history_max_entries",
+        "chat_input_history",  # list[str]
+        "command_input_history",  # list[str]
+        # Chat sessions — each user has multiple named chat sessions with
+        # their own settings. Persisted as a list of dicts, identical shape
+        # to the runtime `ai_sessions` list in `chat_state`. Survives
+        # snake restarts so the user doesn't lose their custom sessions.
+        "chat_sessions",
+        "chat_active_session_id",
+        "chat_folders",
+        "chat_profiles",
+        "chat_session_types",
+        "chat_organization_proposals",
+        "chat_organization_revisions",
+        # Advanced chat configuration (env-mapped features)
+        "chat_system_prompt",
+        "chat_streaming",
+        "chat_use_embedding_api",
+        "chat_embedding_model",
+        "chat_embedding_api_max_records",
+    }
+)
 
 _DEFAULTS: dict[str, Any] = {
     "chat_sessions": [],
@@ -203,17 +209,24 @@ def _write_atomic(path: Path, settings: dict[str, Any]) -> bool:
 
 
 # Schema keys that store list[str] values
-_LIST_SCHEMA_KEYS: frozenset[str] = frozenset({
-    "chat_input_history",
-    "command_input_history",
-})
+_LIST_SCHEMA_KEYS: frozenset[str] = frozenset(
+    {
+        "chat_input_history",
+        "command_input_history",
+    }
+)
 
 
-_COMPLEX_LIST_KEYS: frozenset[str] = frozenset({
-    "chat_sessions",
-    "chat_folders",
-    "chat_session_types",
-})
+_COMPLEX_LIST_KEYS: frozenset[str] = frozenset(
+    {
+        "chat_sessions",
+        "chat_folders",
+        "chat_profiles",
+        "chat_session_types",
+        "chat_organization_proposals",
+        "chat_organization_revisions",
+    }
+)
 
 
 def _validated(settings: dict[str, Any]) -> dict[str, Any]:
@@ -250,7 +263,7 @@ def _extract_settings(settings: dict[str, Any]) -> dict[str, Any]:
     # `chat` (if extracted from game["chat_state"]).
     # For persistence we flatten them.
     for key in _SCHEMA_KEYS:
-        if key == "chat_sessions" or key == "chat_active_session_id": # Handled below
+        if key == "chat_sessions" or key == "chat_active_session_id":  # Handled below
             continue
 
         value = settings.get(key)
@@ -277,10 +290,31 @@ def _extract_settings(settings: dict[str, Any]) -> dict[str, Any]:
         out["chat_sessions"] = _sanitize_sessions(settings["chat_sessions"])
         if "chat_active_session_id" in settings and isinstance(settings["chat_active_session_id"], str):
             out["chat_active_session_id"] = settings["chat_active_session_id"]
-    # Persist chat_folders (list of folder dicts) if provided directly
+    # Persist structured chat collections if provided directly.  These are
+    # deliberately copied as JSON values here and validated again by the
+    # domain service that owns each collection.
     if "chat_folders" in settings and isinstance(settings["chat_folders"], list):
         out["chat_folders"] = _sanitize_folders(settings["chat_folders"])
+    for key in (
+        "chat_profiles",
+        "chat_session_types",
+        "chat_organization_proposals",
+        "chat_organization_revisions",
+    ):
+        value = settings.get(key)
+        if isinstance(value, list):
+            out[key] = _sanitize_json_records(value)
     return out
+
+
+def _sanitize_json_records(records: list[Any]) -> list[dict[str, Any]]:
+    """Return JSON-safe record dictionaries without sharing caller state."""
+    try:
+        encoded = json.dumps(records, ensure_ascii=False)
+        decoded = json.loads(encoded)
+    except (TypeError, ValueError):
+        return []
+    return [item for item in decoded if isinstance(item, dict)]
 
 
 def _sanitize_folders(folders: list[Any]) -> list[dict[str, Any]]:
@@ -299,7 +333,7 @@ def _sanitize_folders(folders: list[Any]) -> list[dict[str, Any]]:
                 clean[k] = v
             elif v is not None:
                 clean[k] = str(v)
-        for k in ("created_at", "updated_at"):
+        for k in ("created_at", "updated_at", "sort_order"):
             v = item.get(k)
             if isinstance(v, (int, float)):
                 clean[k] = v
@@ -322,13 +356,26 @@ def _sanitize_sessions(sessions: list[Any]) -> list[dict[str, Any]]:
         if not sid:
             continue
         clean: dict[str, Any] = {"id": sid}
-        for k in ("name", "system_prompt", "icon", "group", "folder_id", "session_type", "session_subtype", "type_description", "profile_id"):
+        for k in (
+            "name",
+            "system_prompt",
+            "system_prompt_override",
+            "profile_system_prompt",
+            "icon",
+            "group",
+            "folder_id",
+            "session_type",
+            "session_subtype",
+            "type_description",
+            "profile_id",
+            "last_message_preview",
+        ):
             v = item.get(k)
             if isinstance(v, str):
                 clean[k] = v
             elif v is not None:
                 clean[k] = str(v)
-        for k in ("created_at", "updated_at"):
+        for k in ("created_at", "updated_at", "sort_order", "message_count"):
             v = item.get(k)
             if isinstance(v, (int, float)):
                 clean[k] = v
@@ -406,7 +453,7 @@ class UserConfigManager:
         """Merge persisted settings into game dict. Returns updated game."""
         settings = self.load()
         game = dict(game)
-        from client_surfaces.operator_tui.chat_state import get_chat_state, ensure_session_channels, default_sessions
+        from client_surfaces.operator_tui.chat_state import default_sessions, ensure_session_channels, get_chat_state
 
         # Apply non-chat settings from the loaded config
         for key, value in settings.items():
@@ -438,7 +485,7 @@ class UserConfigManager:
             chat["active_session_id"] = persisted_active_id
             chat["active_channel"] = f"ai:{persisted_active_id}"
         else:
-             # Fallback to the first available session if none is persisted
+            # Fallback to the first available session if none is persisted
             if chat["ai_sessions"]:
                 chat["active_session_id"] = chat["ai_sessions"][0].get("id") or "code-help"
                 chat["active_channel"] = "ai:" + str(chat["active_session_id"])
@@ -446,7 +493,7 @@ class UserConfigManager:
                 chat["active_session_id"] = "code-help"
                 chat["active_channel"] = "ai:code-help"
 
-        ensure_session_channels(chat) # Re-create all session channels and apply display names
+        ensure_session_channels(chat)  # Re-create all session channels and apply display names
 
         # Crucially, update game with the now-merged chat_state
         game["chat_state"] = chat

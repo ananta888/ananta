@@ -1,4 +1,5 @@
 """API-Tests für Chat-Ordner (GET/POST /api/chat/folders, PATCH/DELETE /api/chat/folders/<id>)."""
+
 from __future__ import annotations
 
 import copy
@@ -10,8 +11,8 @@ import pytest
 
 from agent.ai_agent import create_app
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def app():
@@ -66,6 +67,7 @@ def store_ctx(sessions: list | None = None, folders: list | None = None, active_
 
 # ── GET /api/chat/folders ─────────────────────────────────────────────────
 
+
 def test_list_folders_initially_empty(client):
     with store_ctx():
         r = client.get("/api/chat/folders")
@@ -74,6 +76,7 @@ def test_list_folders_initially_empty(client):
 
 
 # ── POST /api/chat/folders ────────────────────────────────────────────────
+
 
 def test_create_folder_success(client):
     with store_ctx() as (store, _):
@@ -112,16 +115,23 @@ def test_create_folder_without_name_returns_400(client):
 
 # ── PATCH /api/chat/folders/<id> ──────────────────────────────────────────
 
+
 def test_patch_folder_updates_fields_and_timestamp(client):
     with store_ctx():
+        parent = client.post("/api/chat/folders", json={"name": "Parent"}).json
         created = client.post("/api/chat/folders", json={"name": "Alt"}).json
-        r = client.patch(f"/api/chat/folders/{created['id']}", json={
-            "name": "Neu", "icon": "🗂️", "parent_id": "folder-parent123",
-        })
+        r = client.patch(
+            f"/api/chat/folders/{created['id']}",
+            json={
+                "name": "Neu",
+                "icon": "🗂️",
+                "parent_id": parent["id"],
+            },
+        )
     assert r.status_code == 200
     assert r.json["name"] == "Neu"
     assert r.json["icon"] == "🗂️"
-    assert r.json["parent_id"] == "folder-parent123"
+    assert r.json["parent_id"] == parent["id"]
     assert r.json["updated_at"] > created["updated_at"]
     assert r.json["created_at"] == created["created_at"]
 
@@ -134,6 +144,7 @@ def test_patch_unknown_folder_returns_404(client):
 
 
 # ── DELETE /api/chat/folders/<id> ─────────────────────────────────────────
+
 
 def test_delete_folder_removes_it_from_list(client):
     with store_ctx():
@@ -152,20 +163,27 @@ def test_delete_unknown_folder_returns_404(client):
     assert "not found" in r.json["error"]
 
 
-def test_delete_folder_moves_its_sessions_to_root(client):
+def test_delete_non_empty_folder_is_rejected_without_partial_mutation(client):
     with store_ctx(sessions=[_make_session("keep-me")]):
         fid = client.post("/api/chat/folders", json={"name": "Projekt-X"}).json["id"]
-        r = client.post("/api/chat/sessions", json={
-            "id": "in-folder", "name": "In Folder", "folder_id": fid,
-        })
+        r = client.post(
+            "/api/chat/sessions",
+            json={
+                "id": "in-folder",
+                "name": "In Folder",
+                "folder_id": fid,
+            },
+        )
         assert r.status_code == 201
         assert r.json["folder_id"] == fid
 
-        assert client.delete(f"/api/chat/folders/{fid}").status_code == 204
+        deleted = client.delete(f"/api/chat/folders/{fid}")
+        assert deleted.status_code == 409
+        assert deleted.json["error_code"] == "folder_not_empty"
 
         session = client.get("/api/chat/sessions/in-folder")
     assert session.status_code == 200
-    assert session.json["folder_id"] == ""  # moved back to root
+    assert session.json["folder_id"] == fid
 
 
 def test_folders_persist_across_requests(client):
@@ -183,9 +201,13 @@ def test_folders_persist_across_requests(client):
 def test_nested_folders_child_references_parent(client):
     with store_ctx():
         parent = client.post("/api/chat/folders", json={"name": "Eltern"}).json
-        child = client.post("/api/chat/folders", json={
-            "name": "Kind", "parent_id": parent["id"],
-        }).json
+        child = client.post(
+            "/api/chat/folders",
+            json={
+                "name": "Kind",
+                "parent_id": parent["id"],
+            },
+        ).json
         listing = client.get("/api/chat/folders").json
     ids = {f["id"] for f in listing}
     assert parent["id"] in ids and child["id"] in ids

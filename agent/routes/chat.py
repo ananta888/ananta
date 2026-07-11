@@ -8,17 +8,37 @@ from typing import Any
 
 from flask import Blueprint, jsonify, request
 
+from agent.services.chat_organization_service import (
+    ChatOrganizationService,
+    OrganizationError,
+    validate_classification,
+    validate_folder_parent,
+)
 from client_surfaces.operator_tui.chat_state import (
-    get_sessions, get_session, add_session, update_session_settings,
-    delete_session, make_session, set_active_session, default_conversations,
-    default_chat_profiles,
     DEFAULT_CHAT_TYPES,
+    add_session,
+    default_chat_profiles,
+    default_conversations,
+    delete_session,
+    get_session,
+    get_sessions,
+    make_session,
+    set_active_session,
+    update_session_settings,
 )
 from client_surfaces.operator_tui.config.user_config_manager import get_manager
 
 _log = logging.getLogger(__name__)
 
 chat_bp = Blueprint("chat_api", __name__, url_prefix="/api/chat")
+
+
+def _organization_service() -> ChatOrganizationService:
+    return ChatOrganizationService(get_manager())
+
+
+def _organization_error(exc: OrganizationError):
+    return jsonify(exc.payload()), exc.status
 
 
 def _load_chat() -> dict[str, Any]:
@@ -30,20 +50,24 @@ def _load_chat() -> dict[str, Any]:
     chat = {"ai_sessions": sessions, "active_session_id": active_id, "channels": {}, "_preserve_session_list": True}
     migrated = get_sessions(chat)
     if settings.get("chat_model_version") != 2 or migrated != sessions:
-        manager.save({
-            "chat_sessions": migrated,
-            "chat_active_session_id": active_id,
-            "chat_model_version": 2,
-        })
+        manager.save(
+            {
+                "chat_sessions": migrated,
+                "chat_active_session_id": active_id,
+                "chat_model_version": 2,
+            }
+        )
     return chat
 
 
 def _save_chat(chat: dict[str, Any]) -> None:
     """Persist sessions back to user.json."""
-    get_manager().save({
-        "chat_sessions": chat.get("ai_sessions") or [],
-        "chat_active_session_id": chat.get("active_session_id") or "",
-    })
+    get_manager().save(
+        {
+            "chat_sessions": chat.get("ai_sessions") or [],
+            "chat_active_session_id": chat.get("active_session_id") or "",
+        }
+    )
 
 
 def _load_folders() -> list[dict]:
@@ -105,10 +129,13 @@ def _apply_profile(session: dict[str, Any], profile: dict[str, Any]) -> None:
 
 # ── Reusable chat profile CRUD ───────────────────────────────────────────────
 
+
 @chat_bp.route("/profiles", methods=["GET"])
 def list_chat_profiles():
     builtin_ids = {str(profile.get("id") or "") for profile in default_chat_profiles()}
-    return jsonify([{**profile, "builtin": str(profile.get("id") or "") in builtin_ids} for profile in _load_profiles()])
+    return jsonify(
+        [{**profile, "builtin": str(profile.get("id") or "") in builtin_ids} for profile in _load_profiles()]
+    )
 
 
 @chat_bp.route("/profiles", methods=["POST"])
@@ -176,6 +203,7 @@ def delete_chat_profile(profile_id: str):
 
 # ── Conversation classification types ───────────────────────────────────────
 
+
 @chat_bp.route("/types", methods=["GET"])
 def list_chat_types():
     builtin_ids = {str(item["id"]) for item in DEFAULT_CHAT_TYPES}
@@ -192,7 +220,13 @@ def create_chat_type():
         return jsonify({"error": "valid type id and name are required"}), 400
     if any(str(item.get("id") or "") == type_id for item in _load_chat_types()):
         return jsonify({"error": f"Type '{type_id}' already exists"}), 409
-    item = {"id": type_id, "name": name, "icon": str(data.get("icon") or "🎯"), "description": str(data.get("description") or ""), "subtypes": subtypes}
+    item = {
+        "id": type_id,
+        "name": name,
+        "icon": str(data.get("icon") or "🎯"),
+        "description": str(data.get("description") or ""),
+        "subtypes": subtypes,
+    }
     custom = list((get_manager().load().get("chat_session_types") or []))
     custom.append(item)
     get_manager().save({"chat_session_types": custom})
@@ -208,6 +242,9 @@ def mutate_chat_type(type_id: str):
     if item is None:
         return jsonify({"error": f"Type '{type_id}' not found"}), 404
     if request.method == "DELETE":
+        chat = _load_chat()
+        if any(str(session.get("session_type") or "") == type_id for session in get_sessions(chat)):
+            return jsonify({"error": "type is still used by chats", "error_code": "type_in_use"}), 409
         get_manager().save({"chat_session_types": [entry for entry in custom if entry is not item]})
         return "", 204
     data = request.get_json(silent=True) or {}
@@ -247,15 +284,24 @@ def create_chat_session():
     profile = _profile_by_id(profile_id)
     if profile is None:
         return jsonify({"error": f"Profile '{profile_id}' not found"}), 400
+    folder_id = str(data.get("folder_id") or "")
+    if folder_id and not any(str(item.get("id") or "") == folder_id for item in _load_folders()):
+        return jsonify({"error": f"Folder '{folder_id}' not found", "error_code": "folder_not_found"}), 400
+    session_type = str(data.get("session_type") or "")
+    session_subtype = str(data.get("session_subtype") or "")
+    try:
+        validate_classification(_load_chat_types(), session_type, session_subtype)
+    except OrganizationError as exc:
+        return _organization_error(exc)
     new_session = make_session(
         session_id=session_id,
         name=name,
         system_prompt=data.get("system_prompt", ""),
         icon=data.get("icon", "💬"),
         group=data.get("group", ""),
-        folder_id=data.get("folder_id", ""),
-        session_type=data.get("session_type", ""),
-        session_subtype=data.get("session_subtype", ""),
+        folder_id=folder_id,
+        session_type=session_type,
+        session_subtype=session_subtype,
         type_description=data.get("type_description", ""),
         settings=data.get("settings") or {},
         profile_id=profile_id,
@@ -287,7 +333,55 @@ def update_chat_session(session_id: str):
     if not data or not isinstance(data, dict):
         return jsonify({"error": "Invalid request body"}), 400
 
+    next_folder_id = str(data.get("folder_id", session.get("folder_id") or "") or "")
+    if next_folder_id and not any(str(item.get("id") or "") == next_folder_id for item in _load_folders()):
+        return jsonify({"error": f"Folder '{next_folder_id}' not found", "error_code": "folder_not_found"}), 400
+    next_type = str(data.get("session_type", session.get("session_type") or "") or "")
+    next_subtype = str(data.get("session_subtype", session.get("session_subtype") or "") or "")
+    try:
+        validate_classification(_load_chat_types(), next_type, next_subtype)
+    except OrganizationError as exc:
+        return _organization_error(exc)
+
+    structure_operations: list[dict[str, Any]] = []
     if "name" in data:
+        structure_operations.append(
+            {
+                "operation_id": "rename",
+                "type": "conversation.rename",
+                "target_id": session_id,
+                "after": str(data.get("name") or "").strip(),
+            }
+        )
+    if "folder_id" in data:
+        structure_operations.append(
+            {
+                "operation_id": "move",
+                "type": "conversation.move",
+                "target_id": session_id,
+                "after": next_folder_id,
+            }
+        )
+    if "sort_order" in data:
+        structure_operations.append(
+            {
+                "operation_id": "reorder",
+                "type": "conversation.reorder",
+                "target_id": session_id,
+                "after": int(data.get("sort_order") or 0),
+            }
+        )
+    if structure_operations:
+        try:
+            _organization_service().apply_manual(f"Conversation '{session_id}' updated", structure_operations)
+        except OrganizationError as exc:
+            return _organization_error(exc)
+        chat = _load_chat()
+        session = get_session(chat, session_id)
+        if session is None:
+            return jsonify({"error": f"Session '{session_id}' not found"}), 404
+
+    if "name" in data and not structure_operations:
         session["name"] = data["name"]
     if "system_prompt" in data:
         session["system_prompt_override"] = str(data["system_prompt"] or "")
@@ -295,7 +389,7 @@ def update_chat_session(session_id: str):
         session["icon"] = data["icon"]
     if "group" in data:
         session["group"] = str(data["group"] or "")
-    if "folder_id" in data:
+    if "folder_id" in data and not structure_operations:
         session["folder_id"] = str(data["folder_id"] or "")
     if "session_type" in data:
         session["session_type"] = str(data["session_type"] or "")
@@ -345,6 +439,7 @@ def activate_chat_session(session_id: str):
 
 # ── Folder CRUD ──────────────────────────────────────────────────────────────
 
+
 @chat_bp.route("/folders", methods=["GET"])
 def list_folders():
     return jsonify(_load_folders())
@@ -352,7 +447,6 @@ def list_folders():
 
 @chat_bp.route("/folders", methods=["POST"])
 def create_folder():
-    import time as _time
     data = request.json
     if not data or not isinstance(data, dict):
         return jsonify({"error": "Invalid request body"}), 400
@@ -363,38 +457,93 @@ def create_folder():
     folders = _load_folders()
     if any(f.get("id") == folder_id for f in folders):
         return jsonify({"error": f"Folder '{folder_id}' already exists"}), 409
-    folder = {
-        "id": folder_id,
-        "name": name,
-        "icon": str(data.get("icon") or "📁"),
-        "parent_id": str(data.get("parent_id") or ""),
-        "color": str(data.get("color") or ""),
-        "created_at": _time.time(),
-        "updated_at": _time.time(),
-    }
-    folders.append(folder)
-    _save_folders(folders)
+    parent_id = str(data.get("parent_id") or "")
+    try:
+        validate_folder_parent(folders, folder_id, parent_id)
+    except OrganizationError as exc:
+        return _organization_error(exc)
+    try:
+        revision = _organization_service().apply_manual(
+            f"Folder '{name}' created",
+            [
+                {
+                    "operation_id": f"create-{folder_id}",
+                    "type": "folder.create",
+                    "target_id": folder_id,
+                    "temp_id": folder_id,
+                    "after": {
+                        "name": name,
+                        "icon": str(data.get("icon") or "📁"),
+                        "parent_id": parent_id,
+                        "color": str(data.get("color") or ""),
+                        "sort_order": int(data.get("sort_order") or 0),
+                    },
+                }
+            ],
+        )
+    except OrganizationError as exc:
+        return _organization_error(exc)
+    folder = next(item for item in revision["after_snapshot"]["folders"] if item["id"] == folder_id)
     return jsonify(folder), 201
 
 
 @chat_bp.route("/folders/<folder_id>", methods=["PATCH"])
 def update_folder(folder_id: str):
-    import time as _time
     folders = _load_folders()
     folder = next((f for f in folders if f.get("id") == folder_id), None)
     if folder is None:
         return jsonify({"error": f"Folder '{folder_id}' not found"}), 404
     data = request.json or {}
+    operations: list[dict[str, Any]] = []
     if "name" in data:
-        folder["name"] = str(data["name"] or "").strip() or folder["name"]
+        operations.append(
+            {
+                "operation_id": "rename",
+                "type": "folder.rename",
+                "target_id": folder_id,
+                "after": str(data["name"] or "").strip() or folder["name"],
+            }
+        )
     if "icon" in data:
-        folder["icon"] = str(data["icon"] or "📁")
+        operations.append(
+            {
+                "operation_id": "icon",
+                "type": "folder.update_icon",
+                "target_id": folder_id,
+                "after": str(data["icon"] or "📁"),
+            }
+        )
     if "parent_id" in data:
-        folder["parent_id"] = str(data["parent_id"] or "")
+        parent_id = str(data["parent_id"] or "")
+        try:
+            validate_folder_parent(folders, folder_id, parent_id)
+        except OrganizationError as exc:
+            return _organization_error(exc)
+        operations.append({"operation_id": "move", "type": "folder.move", "target_id": folder_id, "after": parent_id})
     if "color" in data:
-        folder["color"] = str(data["color"] or "")
-    folder["updated_at"] = _time.time()
-    _save_folders(folders)
+        operations.append(
+            {
+                "operation_id": "color",
+                "type": "folder.update_color",
+                "target_id": folder_id,
+                "after": str(data["color"] or ""),
+            }
+        )
+    if "sort_order" in data:
+        operations.append(
+            {
+                "operation_id": "reorder",
+                "type": "folder.reorder",
+                "target_id": folder_id,
+                "after": int(data["sort_order"] or 0),
+            }
+        )
+    if operations:
+        try:
+            revision = _organization_service().apply_manual(f"Folder '{folder_id}' updated", operations)
+        except OrganizationError as exc:
+            return _organization_error(exc)
+        folder = next(item for item in revision["after_snapshot"]["folders"] if item["id"] == folder_id)
     return jsonify(folder)
 
 
@@ -403,19 +552,93 @@ def delete_folder(folder_id: str):
     folders = _load_folders()
     if not any(f.get("id") == folder_id for f in folders):
         return jsonify({"error": f"Folder '{folder_id}' not found"}), 404
-    folders = [f for f in folders if f.get("id") != folder_id]
-    _save_folders(folders)
-    # Move sessions in this folder to root
     chat = _load_chat()
-    sessions = get_sessions(chat)
-    for s in sessions:
-        if s.get("folder_id") == folder_id:
-            s["folder_id"] = ""
-    _save_chat(chat)
+    has_children = any(str(item.get("parent_id") or "") == folder_id for item in folders)
+    has_sessions = any(str(item.get("folder_id") or "") == folder_id for item in get_sessions(chat))
+    if has_children or has_sessions:
+        return jsonify({"error": "folder is not empty", "error_code": "folder_not_empty"}), 409
+    try:
+        _organization_service().apply_manual(
+            f"Folder '{folder_id}' deleted",
+            [{"operation_id": "delete", "type": "folder.delete_if_empty", "target_id": folder_id}],
+        )
+    except OrganizationError as exc:
+        return _organization_error(exc)
     return "", 204
 
 
+# ── Organization proposals and revision history ─────────────────────────────
+
+
+@chat_bp.route("/organization/snapshot", methods=["GET"])
+def get_organization_snapshot():
+    return jsonify(_organization_service().snapshot())
+
+
+@chat_bp.route("/organization/proposals", methods=["GET", "POST"])
+def organization_proposals():
+    service = _organization_service()
+    try:
+        if request.method == "GET":
+            return jsonify(service.list_proposals())
+        return jsonify(service.create_proposal(request.get_json(silent=True) or {})), 201
+    except OrganizationError as exc:
+        return _organization_error(exc)
+
+
+@chat_bp.route("/organization/proposals/<proposal_id>", methods=["GET", "PATCH", "DELETE"])
+def organization_proposal(proposal_id: str):
+    service = _organization_service()
+    try:
+        if request.method == "GET":
+            return jsonify(service.get_proposal(proposal_id))
+        if request.method == "DELETE":
+            service.discard_proposal(proposal_id)
+            return "", 204
+        return jsonify(service.update_proposal(proposal_id, request.get_json(silent=True) or {}))
+    except OrganizationError as exc:
+        return _organization_error(exc)
+
+
+@chat_bp.route("/organization/proposals/<proposal_id>/validate", methods=["POST"])
+def validate_organization_proposal(proposal_id: str):
+    try:
+        return jsonify(_organization_service().validate_proposal(proposal_id))
+    except OrganizationError as exc:
+        return _organization_error(exc)
+
+
+@chat_bp.route("/organization/proposals/<proposal_id>/apply", methods=["POST"])
+def apply_organization_proposal(proposal_id: str):
+    try:
+        return jsonify(_organization_service().apply_proposal(proposal_id))
+    except OrganizationError as exc:
+        return _organization_error(exc)
+
+
+@chat_bp.route("/organization/history", methods=["GET"])
+def organization_history():
+    return jsonify(_organization_service().list_revisions())
+
+
+@chat_bp.route("/organization/history/<revision_id>", methods=["GET"])
+def organization_revision(revision_id: str):
+    try:
+        return jsonify(_organization_service().get_revision(revision_id))
+    except OrganizationError as exc:
+        return _organization_error(exc)
+
+
+@chat_bp.route("/organization/history/<revision_id>/revert", methods=["POST"])
+def revert_organization_revision(revision_id: str):
+    try:
+        return jsonify(_organization_service().revert_revision(revision_id))
+    except OrganizationError as exc:
+        return _organization_error(exc)
+
+
 # ── AI Reorganize ─────────────────────────────────────────────────────────────
+
 
 def _heuristic_reorganize(sessions: list[dict]) -> tuple[list[dict], dict[str, str]]:
     """Group sessions by 'group' (fallback session_type, then 'Allgemein')."""
@@ -437,13 +660,15 @@ def _heuristic_reorganize(sessions: list[dict]) -> tuple[list[dict], dict[str, s
             icon = "✍️"
         elif "code" in group_name.lower():
             icon = "💻"
-        proposed_folders.append({
-            "id": folder_id,
-            "name": group_name,
-            "icon": icon,
-            "parent_id": "",
-            "color": "",
-        })
+        proposed_folders.append(
+            {
+                "id": folder_id,
+                "name": group_name,
+                "icon": icon,
+                "parent_id": "",
+                "color": "",
+            }
+        )
         for s in group_sessions:
             assignments[s["id"]] = folder_id
 
@@ -459,21 +684,52 @@ def _strip_json_fences(text: str) -> str:
     return stripped
 
 
-def _llm_reorganize(sessions: list[dict]) -> tuple[list[dict], dict[str, str]]:
+def _llm_reorganize(
+    sessions: list[dict],
+    folders: list[dict],
+    *,
+    input_policy: str = "metadata_only",
+) -> tuple[list[dict], dict[str, str]]:
     """Ask the LLM for a folder proposal. Raises on any failure or invalid output."""
     from agent.services.chat_partial_summary_service import call_llm_text
 
+    folder_by_id = {str(item.get("id") or ""): item for item in folders}
+
+    def folder_path(folder_id: str) -> str:
+        names: list[str] = []
+        seen: set[str] = set()
+        while folder_id and folder_id not in seen:
+            seen.add(folder_id)
+            folder = folder_by_id.get(folder_id)
+            if folder is None:
+                break
+            names.append(str(folder.get("name") or folder_id))
+            folder_id = str(folder.get("parent_id") or "")
+        return "/".join(reversed(names))
+
     session_lines = []
+    remaining_context_chars = 12000
     for s in sessions:
-        sp = str(s.get("system_prompt") or "").replace("\n", " ")[:120]
-        session_lines.append(
+        preview = ""
+        if input_policy == "metadata_plus_preview":
+            preview = str(s.get("last_message_preview") or "").replace("\n", " ")[:160]
+        line = (
             f"{s.get('id')} | {s.get('name') or ''} | {s.get('session_type') or ''} | "
-            f"{s.get('group') or ''} | {sp}"
+            f"{s.get('session_subtype') or ''} | {s.get('profile_id') or ''} | "
+            f"{s.get('group') or ''} | {folder_path(str(s.get('folder_id') or ''))} | "
+            f"{int(s.get('message_count') or 0)} | {preview}"
         )
+        if remaining_context_chars <= 0:
+            break
+        session_lines.append(line[:remaining_context_chars])
+        remaining_context_chars -= len(session_lines[-1]) + 1
     example_sid = str(sessions[0].get("id")) if sessions else "session-1"
     prompt = (
         "Du organisierst Chat-Sessions in Ordner. Hier die Sessions "
-        "(Format: id | name | type | group | system_prompt-Anfang):\n"
+        "Profile beschreibt die Arbeitsweise, Type/Subtype das Thema und Folder nur die Organisation. "
+        "Bewahre sinnvolle bestehende Struktur und schlage nur notwendige Aenderungen vor.\n"
+        "Format: id | name | type | subtype | profile | legacy_group | folder_path | "
+        "message_count | begrenzte_preview:\n"
         + "\n".join(session_lines)
         + "\n\nErstelle 2-6 thematische Ordner mit deutschen Namen und passenden Emoji-Icons "
         "und weise jede Session genau einem Ordner zu.\n"
@@ -483,8 +739,7 @@ def _llm_reorganize(sessions: list[dict]) -> tuple[list[dict], dict[str, str]]:
         "Verwende in assignments die echten Session-IDs als Schlüssel (jede genau einmal, "
         "zeichengenau kopiert, NICHT übersetzen oder umbenennen) und die Ordner-IDs "
         "(f1, f2, ...) als Werte.\n"
-        "Gültige Session-IDs: "
-        + ", ".join(str(s.get("id")) for s in sessions)
+        "Gültige Session-IDs: " + ", ".join(str(s.get("id")) for s in sessions)
     )
 
     raw = call_llm_text(prompt, timeout=30)
@@ -515,13 +770,15 @@ def _llm_reorganize(sessions: list[dict]) -> tuple[list[dict], dict[str, str]]:
         if proposed_id in id_map:
             raise ValueError(f"duplicate folder id '{proposed_id}'")
         id_map[proposed_id] = f"folder-{uuid.uuid4().hex[:12]}"
-        folders.append({
-            "id": id_map[proposed_id],
-            "name": name,
-            "icon": str(f.get("icon") or "📁"),
-            "parent_id": str(f.get("parent_id") or "").strip(),
-            "color": "",
-        })
+        folders.append(
+            {
+                "id": id_map[proposed_id],
+                "name": name,
+                "icon": str(f.get("icon") or "📁"),
+                "parent_id": str(f.get("parent_id") or "").strip(),
+                "color": "",
+            }
+        )
     # Remap parent_id references (proposed ids → final ids; unknown refs → root).
     for f in folders:
         f["parent_id"] = id_map.get(f["parent_id"], "")
@@ -548,25 +805,69 @@ def ai_reorganize_sessions():
     """
     chat = _load_chat()
     sessions = get_sessions(chat)
+    folders = _load_folders()
+    data = request.get_json(silent=True) or {}
+    input_policy = str(data.get("input_policy") or "metadata_only")
+    if input_policy not in {"metadata_only", "metadata_plus_preview"}:
+        return jsonify({"error": "unsupported input policy", "error_code": "input_policy_invalid"}), 400
 
     method = "heuristic"
     try:
-        proposed_folders, assignments = _llm_reorganize(sessions)
+        proposed_folders, assignments = _llm_reorganize(sessions, folders, input_policy=input_policy)
         method = "llm"
     except Exception as exc:  # noqa: BLE001 — any LLM failure falls back
         _log.debug("ai-reorganize LLM proposal failed, using heuristic: %s", exc)
         proposed_folders, assignments = _heuristic_reorganize(sessions)
 
     label = "KI" if method == "llm" else "Heuristik"
-    return jsonify({
-        "folders": proposed_folders,
-        "assignments": assignments,
-        "method": method,
-        "summary": f"Vorschlag ({label}): {len(proposed_folders)} Ordner für {len(sessions)} Sessions",
-    })
+    operations: list[dict[str, Any]] = []
+    proposed_ids = {str(folder.get("id") or "") for folder in proposed_folders}
+    for folder in proposed_folders:
+        folder_id = str(folder.get("id") or "")
+        operations.append(
+            {
+                "operation_id": f"create-{folder_id}",
+                "type": "folder.create",
+                "temp_id": folder_id,
+                "after": {key: folder.get(key) for key in ("name", "icon", "color", "parent_id")},
+                "rationale": "Thematische Gruppierung",
+            }
+        )
+    for session_id, folder_id in assignments.items():
+        if folder_id in proposed_ids:
+            operations.append(
+                {
+                    "operation_id": f"move-{session_id}",
+                    "type": "conversation.move",
+                    "target_id": session_id,
+                    "after": folder_id,
+                    "rationale": "Conversation dem vorgeschlagenen Themenordner zuordnen",
+                }
+            )
+    service = _organization_service()
+    proposal = service.create_proposal(
+        {
+            "source": "ai",
+            "method": method,
+            "input_policy": input_policy,
+            "summary": f"Vorschlag ({label}): {len(proposed_folders)} Ordner für {len(sessions)} Sessions",
+            "operations": operations,
+        }
+    )
+    proposal = service.validate_proposal(proposal["id"])
+    return jsonify(
+        {
+            **proposal,
+            "folders": proposed_folders,
+            "assignments": assignments,
+            "method": method,
+            "summary": proposal["summary"],
+        }
+    )
 
 
 # ── Context overview ──────────────────────────────────────────────────────────
+
 
 @chat_bp.route("/sessions/<session_id>/context-overview", methods=["GET"])
 def get_session_context_overview(session_id: str):
@@ -578,32 +879,35 @@ def get_session_context_overview(session_id: str):
 
     settings = session.get("settings") or {}
     sp = str(session.get("system_prompt") or "")
-    return jsonify({
-        "session_id": session_id,
-        "system_prompt": {
-            "text": sp[:200] + ("…" if len(sp) > 200 else ""),
-            "chars": len(sp),
-            "enabled": True,
-        },
-        "history": {
-            "enabled": bool(settings.get("chat_use_history", True)),
-            "max_turns": int(settings.get("chat_history_turns") or 6),
-            "max_chars": int(settings.get("chat_history_chars") or 1800),
-        },
-        "summary": {
-            "enabled": bool(settings.get("chat_use_summary", True)),
-            "max_chars": int(settings.get("chat_summary_chars") or 600),
-        },
-        "rag": {
-            "enabled": bool(settings.get("chat_use_codecompass", True)),
-            "profile": str(settings.get("chat_retrieval_profile") or "auto"),
-            "top_k": int(settings.get("chat_rag_top_k") or 12),
-            "max_chars": int(settings.get("chat_context_chars") or 4000),
-        },
-    })
+    return jsonify(
+        {
+            "session_id": session_id,
+            "system_prompt": {
+                "text": sp[:200] + ("…" if len(sp) > 200 else ""),
+                "chars": len(sp),
+                "enabled": True,
+            },
+            "history": {
+                "enabled": bool(settings.get("chat_use_history", True)),
+                "max_turns": int(settings.get("chat_history_turns") or 6),
+                "max_chars": int(settings.get("chat_history_chars") or 1800),
+            },
+            "summary": {
+                "enabled": bool(settings.get("chat_use_summary", True)),
+                "max_chars": int(settings.get("chat_summary_chars") or 600),
+            },
+            "rag": {
+                "enabled": bool(settings.get("chat_use_codecompass", True)),
+                "profile": str(settings.get("chat_retrieval_profile") or "auto"),
+                "top_k": int(settings.get("chat_rag_top_k") or 12),
+                "max_chars": int(settings.get("chat_context_chars") or 4000),
+            },
+        }
+    )
 
 
 # ── Partial summary ───────────────────────────────────────────────────────────
+
 
 @chat_bp.route("/sessions/<session_id>/summarize", methods=["POST"])
 def summarize_session_messages(session_id: str):
@@ -637,17 +941,22 @@ def summarize_session_messages(session_id: str):
     instruction = str(data.get("instruction") or "")
 
     result = get_chat_partial_summary_service().summarize(
-        messages, target_chars=target_chars, instruction=instruction,
+        messages,
+        target_chars=target_chars,
+        instruction=instruction,
     )
-    return jsonify({
-        "summary": result.summary,
-        "method": result.method,
-        "source_count": result.source_count,
-        "chars": result.chars,
-    })
+    return jsonify(
+        {
+            "summary": result.summary,
+            "method": result.method,
+            "source_count": result.source_count,
+            "chars": result.chars,
+        }
+    )
 
 
 # ── Prompt-assembly preview ───────────────────────────────────────────────────
+
 
 @chat_bp.route("/sessions/<session_id>/prompt-preview", methods=["POST"])
 def preview_session_prompt(session_id: str):
@@ -694,9 +1003,7 @@ def preview_session_prompt(session_id: str):
         entries = [e for e in raw_history if isinstance(e, dict)]
         kept = entries[-history_turns:] if history_turns > 0 else []
         history_truncated = len(kept) < len(entries)
-        joined = "\n".join(
-            f"{str(e.get('sender') or '')}: {str(e.get('text') or '')}" for e in kept
-        )
+        joined = "\n".join(f"{str(e.get('sender') or '')}: {str(e.get('text') or '')}" for e in kept)
         if len(joined) > history_chars:
             # Truncate from the front — keep the newest end.
             joined = joined[-history_chars:]
@@ -758,16 +1065,14 @@ def preview_session_prompt(session_id: str):
         "rag": "## Kontext (RAG)",
         "user_message": "## Neue Nachricht",
     }
-    blocks = [
-        f"{headers[s['name']]}\n{s['text']}"
-        for s in sections
-        if s["enabled"] and s["text"]
-    ]
+    blocks = [f"{headers[s['name']]}\n{s['text']}" for s in sections if s["enabled"] and s["text"]]
     assembled_prompt = "\n\n".join(blocks)
 
-    return jsonify({
-        "session_id": session_id,
-        "sections": sections,
-        "total_chars": len(assembled_prompt),
-        "assembled_prompt": assembled_prompt,
-    })
+    return jsonify(
+        {
+            "session_id": session_id,
+            "sections": sections,
+            "total_chars": len(assembled_prompt),
+            "assembled_prompt": assembled_prompt,
+        }
+    )

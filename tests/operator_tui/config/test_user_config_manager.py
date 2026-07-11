@@ -1,23 +1,19 @@
 from __future__ import annotations
 
 import json
-import time
-from pathlib import Path
 
 import pytest
 
 from client_surfaces.operator_tui.config.user_config_manager import (
-    SCHEMA_VERSION,
-    UserConfigManager,
     _DEFAULTS,
     _SCHEMA_KEYS,
+    SCHEMA_VERSION,
+    UserConfigManager,
     _validated,
     flush_user_config,
     global_config_path,
-    load_user_config,
     project_config_path,
     reset_manager,
-    save_user_config,
 )
 
 
@@ -29,6 +25,7 @@ def reset_singleton():
 
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
+
 
 def test_global_config_path():
     p = global_config_path()
@@ -54,6 +51,7 @@ def test_project_config_path_uses_runtime_data_file_for_repo_seed(tmp_path):
 
 
 # ── Load with defaults ────────────────────────────────────────────────────────
+
 
 def test_load_returns_defaults_when_no_files(tmp_path):
     mgr = UserConfigManager(cwd=tmp_path)
@@ -126,15 +124,14 @@ def test_load_tolerates_corrupted_file(tmp_path):
 
 
 def test_load_tolerates_missing_settings_key(tmp_path):
-    (tmp_path / "user.json").write_text(
-        json.dumps({"schema_version": SCHEMA_VERSION}), encoding="utf-8"
-    )
+    (tmp_path / "user.json").write_text(json.dumps({"schema_version": SCHEMA_VERSION}), encoding="utf-8")
     mgr = UserConfigManager(cwd=tmp_path)
     settings = mgr.load()
     assert "chat_backend" in settings
 
 
 # ── Atomic write ──────────────────────────────────────────────────────────────
+
 
 def test_save_writes_project_file(tmp_path):
     mgr = UserConfigManager(cwd=tmp_path)
@@ -194,7 +191,34 @@ def test_save_round_trip(tmp_path):
     assert loaded["chat_history_turns"] == 10
 
 
+def test_structured_chat_domain_round_trip(tmp_path):
+    mgr = UserConfigManager(cwd=tmp_path)
+    payload = {
+        "chat_profiles": [{"id": "review", "name": "Review", "settings": {"chat_backend": "lmstudio"}}],
+        "chat_session_types": [{"id": "work", "name": "Work", "subtypes": ["review"]}],
+        "chat_folders": [{"id": "parent", "name": "Parent", "parent_id": "", "sort_order": 1}],
+        "chat_sessions": [
+            {
+                "id": "chat-1",
+                "name": "Chat",
+                "folder_id": "parent",
+                "profile_id": "review",
+                "session_type": "work",
+                "session_subtype": "review",
+                "settings": {},
+            }
+        ],
+        "chat_organization_proposals": [{"id": "proposal-1", "status": "ready", "operations": []}],
+        "chat_organization_revisions": [{"id": "revision-1", "applied_operations": []}],
+    }
+    assert mgr.save(payload)
+    loaded = UserConfigManager(cwd=tmp_path).load()
+    for key, value in payload.items():
+        assert loaded[key] == value
+
+
 # ── Schema validation ─────────────────────────────────────────────────────────
+
 
 def test_validated_strips_unknown_keys():
     result = _validated({"chat_backend": "lmstudio", "unknown_key_xyz": "bad"})
@@ -215,11 +239,13 @@ def test_validated_allows_input_history_lists():
 
 def test_schema_keys_match_persistent_keys():
     from client_surfaces.operator_tui.ai_snake_config_view import _PERSISTENT_TUI_CONFIG_KEYS
+
     missing_from_schema = _PERSISTENT_TUI_CONFIG_KEYS - _SCHEMA_KEYS
     assert missing_from_schema == set(), f"Keys in PERSISTENT but not SCHEMA: {missing_from_schema}"
 
 
 # ── save_from_game ────────────────────────────────────────────────────────────
+
 
 def test_save_from_game_extracts_persistent_keys(tmp_path):
     game = {
@@ -251,6 +277,7 @@ def test_save_from_game_extracts_nested_chat_input_history(tmp_path):
 
 
 # ── flush ─────────────────────────────────────────────────────────────────────
+
 
 def test_flush_writes_project_and_global(tmp_path):
     global_path = tmp_path / "global" / "user.json"
@@ -305,6 +332,7 @@ def test_flush_updates_input_history_from_runtime_chat_state(tmp_path):
 
 # ── apply_to_game ─────────────────────────────────────────────────────────────
 
+
 def test_apply_to_game_fills_missing_keys(tmp_path):
     mgr = UserConfigManager(cwd=tmp_path)
     mgr.save({"chat_backend": "opencode"})
@@ -323,6 +351,7 @@ def test_apply_to_game_does_not_overwrite_existing(tmp_path):
 
 # ── diagnostics ───────────────────────────────────────────────────────────────
 
+
 def test_diagnostics_keys(tmp_path):
     mgr = UserConfigManager(cwd=tmp_path)
     d = mgr.diagnostics()
@@ -334,6 +363,7 @@ def test_diagnostics_keys(tmp_path):
 
 # ── Concurrent/error safety ───────────────────────────────────────────────────
 
+
 def test_save_with_unwritable_dir_does_not_crash(tmp_path):
     # Use a separate writable dir for global, read-only dir for project
     global_dir = tmp_path / "global"
@@ -344,7 +374,7 @@ def test_save_with_unwritable_dir_does_not_crash(tmp_path):
     mgr = UserConfigManager.__new__(UserConfigManager)
     mgr._cwd = bad_path.resolve()
     mgr._global_path = global_dir / "user.json"  # writable
-    mgr._project_path = bad_path / "user.json"   # read-only
+    mgr._project_path = bad_path / "user.json"  # read-only
     mgr._cache = {}
     mgr._dirty = False
     try:
