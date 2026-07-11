@@ -67,13 +67,20 @@ export class TerminalService {
         return;
       }
       if (result.errorMessage) {
-        lastErrorMessage = result.errorMessage;
+        lastErrorMessage = this.preferConnectionError(lastErrorMessage, result.errorMessage);
       }
     }
 
     if (attemptId !== this.connectAttemptId) return;
     this.stateSubject.next('error');
     this.eventsSubject.next({ type: 'error', data: { message: lastErrorMessage || 'connection_failed' } });
+  }
+
+  private preferConnectionError(current: string, candidate: string): string {
+    if (!current) return candidate;
+    const isTransportOnly = (message: string) =>
+      message === 'connect_timeout' || message.startsWith('closed_before_ready(');
+    return isTransportOnly(current) && !isTransportOnly(candidate) ? candidate : current;
   }
 
   sendInput(input: string): void {
