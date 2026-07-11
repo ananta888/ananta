@@ -131,7 +131,7 @@ def test_planning_learning_loop_surface_flow(monkeypatch):
     monkeypatch.setattr(
         crm,
         "get_integration_registry_service",
-        lambda: SimpleNamespace(list_execution_backends=lambda include_preflight=True: {"preflight": {"providers": {}, "cli_backends": {}}}),
+        lambda: SimpleNamespace(list_execution_backends=lambda **_: {"preflight": {"providers": {}, "cli_backends": {}}}),
     )
     monkeypatch.setattr(
         pls,
