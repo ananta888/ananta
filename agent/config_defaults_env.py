@@ -245,3 +245,12 @@ def apply_env_config_overrides(cfg: dict) -> None:
     if evolver_cfg.get("enabled") and evolver_cfg.get("default"):
         evolution_cfg["default_provider"] = evolver_cfg.get("provider_name") or "evolver"
     cfg["evolution"] = evolution_cfg
+
+    terminal_policy = cfg.get("terminal_policy") if isinstance(cfg.get("terminal_policy"), dict) else {}
+    terminal_feature_enabled = str(os.environ.get("TERMINAL_FEATURE_ENABLED") or "").strip().lower()
+    if terminal_feature_enabled in {"1", "true", "yes"}:
+        terminal_policy["enabled"] = True
+        terminal_policy["allow_read"] = True
+        terminal_policy["allow_interactive"] = True
+    if terminal_policy:
+        cfg["terminal_policy"] = terminal_policy
