@@ -1,0 +1,510 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "ai-snake-visual-process-editor-reuse-live-session-progress",
+  "created": "2026-07-12",
+  "status": "todo",
+  "priority": "P0",
+  "purpose": "Den bestehenden Angular Visual Process Editor generisch und wiederverwendbar machen und ohne Parallelimplementierung in AI-Snake integrieren: rechts im Chat als read-only Live-Prozess-Tab neben Trace sowie innerhalb der mittleren Konfiguration als editierbarer Prozess-Tab fuer Profile und Sessions.",
+  "goal": "Ein gemeinsamer Visual-Process-Renderer und Editor stellt dieselbe Prozessdefinition in allen Oberflaechen dar. AI-Snake Sessions referenzieren eine Prozessdefinition; laufende Chats zeigen Schrittstatus, aktiven Knoten, Gates, Fehler und Abschluss live. Profile bzw. Sessions koennen den Prozess in der Konfiguration bearbeiten, validieren und speichern. Es entsteht kein zweiter Canvas, kein zweites Graphmodell und keine duplizierte Runtime-Statuslogik.",
+  "core_decision": "VisualProcessEditorComponent wird nicht kopiert. Die bestehende Komponente wird in wiederverwendbare Präsentations-/Editor-Bausteine und einen optionalen Standalone-Shell zerlegt. Graphzustand, Selektion, Runtime-Status und Persistenz werden ueber explizite Inputs/Outputs beziehungsweise Facade-Services angebunden. AI-Snake verwendet dieselben Komponenten im read-only Live-Modus und im editierbaren Konfigurationsmodus.",
+  "current_state_findings": [
+    "VisualProcessEditorComponent ist standalone, besitzt den Graph als internes Signal und injiziert API, Canvas-Interaction, Import/Export und WorkflowRunner direkt.",
+    "Die Komponente hat aktuell keine Inputs fuer externen Graph, Workflow-ID, Session-ID, read-only Modus oder externe Runtime-Events.",
+    "VpWorkflowRunnerService haelt activeWorkflowId und workflowStatus intern und pollt alle drei Sekunden maximal zehn Minuten.",
+    "Runtime-Schrittstatus wird aktuell direkt in den editierbaren Graph geschrieben, inklusive run_state und ausgewaehltem Modell/Provider in metadata.",
+    "Der AI-Snake Chat besitzt bereits getrennte Tabs fuer Einstellungen, Sessions und Trace; ein Prozess-Tab existiert noch nicht.",
+    "AiSnakeConfigPanelComponent ist derzeit eine allgemeine, globale Konfigurationsoberflaeche; profil- und sessionspezifische Bearbeitung liegt teilweise im ChatSessionsPanel.",
+    "Der bestehende Visual Process Editor besitzt bereits Graphbearbeitung, Inspector, Validierung, Dry-Run, Workflowstart, Statusanzeige, Gates, Modellrouting und gespeicherte Graphen.",
+    "Der Editor wird derzeit primär als eigenstaendige Route verwendet und ist noch nicht als eingebettete Surface mit begrenztem Funktionsumfang ausgelegt."
+  ],
+  "architecture_principles": [
+    "Kein zweiter Visual Process Editor und kein zweites Graph-Datenmodell.",
+    "Editierbarer Prozessgraph und Laufzeitstatus bleiben getrennte Daten: Runtime-Overlays duerfen die gespeicherte Definition nicht unkontrolliert veraendern.",
+    "Eine AI-Snake Session referenziert einen Prozess ueber stabile ID und optionale Session-Overrides; keine vollstaendige Graphkopie pro Nachricht.",
+    "Profile definieren den Standardprozess; Sessions koennen erben, einen anderen Prozess referenzieren oder gezielte Overrides besitzen.",
+    "Der rechte Chat-Tab ist standardmaessig read-only und auf Live-Fortschritt optimiert.",
+    "Der Konfigurations-Tab ist editierbar, zeigt Dirty-State, Validierung, Speichern und Konflikte.",
+    "Runtime-Updates werden ueber eine gemeinsame Facade geliefert; Polling, SSE oder WebSocket sind austauschbare Transportdetails.",
+    "Tabs duerfen beim Wechsel keinen Workflow abbrechen und keinen Editorzustand verlieren.",
+    "Built-in Profile und read-only Sessions respektieren bestehende Schreibschutzregeln.",
+    "Alle neuen Contracts werden mit Unit-, Component- und Integrationstests abgesichert."
+  ],
+  "non_goals": [
+    "Keine Neuentwicklung eines Canvas oder Node-Editors.",
+    "Keine BPMN-Neuimplementierung innerhalb des AI-Snake Panels.",
+    "Keine Kopie von VisualProcessEditorComponent unter einem AI-Snake-spezifischen Namen.",
+    "Keine Vermischung von Trace-Events und Prozessdefinition in einem untypisierten JSON-Blob.",
+    "Kein automatisches Speichern unvalidierter Prozessdefinitionen.",
+    "Kein Schreibzugriff im Live-Tab rechts."
+  ],
+  "target_user_flow": {
+    "right_chat_live_tab": [
+      "Nutzer waehlt eine AI-Snake Session.",
+      "Der Tab Prozess zeigt den effektiven Prozess dieser Session.",
+      "Bei laufender Verarbeitung wird der aktive Schritt hervorgehoben.",
+      "Abgeschlossene, wartende, fehlgeschlagene und uebersprungene Schritte sind eindeutig sichtbar.",
+      "Ein Klick auf einen Schritt zeigt read-only Laufzeitdetails und passende Trace-Verknuepfungen.",
+      "Der Nutzer kann bei einem Gate genehmigen oder ablehnen, sofern Berechtigung und Prozesszustand dies erlauben."
+    ],
+    "configuration_process_tab": [
+      "Nutzer oeffnet Profil- oder Session-Konfiguration.",
+      "Im mittleren Bereich steht ein Tab Prozess zur Verfuegung.",
+      "Der Nutzer waehlt einen bestehenden Prozess, klont ihn oder erstellt einen neuen mit dem bestehenden Editor.",
+      "Validierung und Dry-Run sind vor dem Speichern verfuegbar.",
+      "Beim Speichern wird nur die Prozessdefinition beziehungsweise Referenz aktualisiert; laufende Runs bleiben reproduzierbar an ihre Version gebunden."
+    ]
+  },
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "milestones": [
+    {"id": "VPR-M1", "title": "Contracts und Ist-Zustand", "task_ids": ["VPR-001", "VPR-002", "VPR-003", "VPR-004"], "status": "todo"},
+    {"id": "VPR-M2", "title": "Editor generisch zerlegen", "task_ids": ["VPR-005", "VPR-006", "VPR-007", "VPR-008", "VPR-009"], "status": "todo"},
+    {"id": "VPR-M3", "title": "Session/Profile Prozessbindung", "task_ids": ["VPR-010", "VPR-011", "VPR-012", "VPR-013"], "status": "todo"},
+    {"id": "VPR-M4", "title": "AI-Snake Live-Prozess-Tab", "task_ids": ["VPR-014", "VPR-015", "VPR-016", "VPR-017", "VPR-018"], "status": "todo"},
+    {"id": "VPR-M5", "title": "Konfigurations-Prozess-Tab", "task_ids": ["VPR-019", "VPR-020", "VPR-021", "VPR-022"], "status": "todo"},
+    {"id": "VPR-M6", "title": "Tests, Migration und Dokumentation", "task_ids": ["VPR-023", "VPR-024", "VPR-025", "VPR-026"], "status": "todo"}
+  ],
+  "tasks": [
+    {
+      "id": "VPR-001",
+      "title": "Bestehende Visual-Process-Komponenten und Zustandsverantwortung kartieren",
+      "type": "analysis",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "dependencies": [],
+      "affected_files": [
+        "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
+        "frontend-angular/src/app/features/visual-process/visual-process-editor.component.html",
+        "frontend-angular/src/app/features/visual-process/vp-workflow-runner.service.ts",
+        "frontend-angular/src/app/features/visual-process/visual-process-api.service.ts"
+      ],
+      "acceptance_criteria": [
+        "Eine dokumentierte Matrix ordnet Graphdefinition, Selektion, Canvaszustand, Persistenz, Validierung, Run-Steuerung und Runtime-Status jeweils genau einer verantwortlichen Komponente oder einem Service zu.",
+        "Alle direkten Seiteneffekte der Editor-Komponente sind erfasst: Laden, Speichern, Polling, Start, Cancel, Gate, Import/Export und Keyboard-Handler.",
+        "Die Analyse benennt explizit, welche Teile fuer read-only Embedding wiederverwendbar sind und welche entkoppelt werden muessen.",
+        "Es ist nachgewiesen, dass keine zweite Canvas-Implementierung erforderlich ist."
+      ]
+    },
+    {
+      "id": "VPR-002",
+      "title": "Kanonischen Prozessdefinitions- und Runtime-Overlay-Contract festlegen",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "dependencies": ["VPR-001"],
+      "acceptance_criteria": [
+        "VpGraph bleibt kanonische editierbare Prozessdefinition.",
+        "Ein typisierter VpRuntimeOverlay-Contract enthaelt run_id, process_id, process_version, overall_status, current_step_ids, step_states, timestamps, error und gate state.",
+        "Runtime-Felder werden nicht mehr dauerhaft in graph.steps oder graph.metadata gespeichert, ausser ein expliziter Export verlangt dies.",
+        "Fuer jeden Step-State sind mindestens pending, running, awaiting_approval, succeeded, failed, skipped und cancelled definiert.",
+        "Unbekannte oder spaet eintreffende Steps werden robust behandelt und verursachen keinen Renderer-Abbruch."
+      ]
+    },
+    {
+      "id": "VPR-003",
+      "title": "AI-Snake Prozessreferenz fuer Profile und Sessions definieren",
+      "type": "backend-contract",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "dependencies": ["VPR-002"],
+      "acceptance_criteria": [
+        "ChatProfile.settings unterstuetzt eine stabile process_definition_id und optional process_version oder version_policy.",
+        "ChatSession.settings_delta kann die Prozessreferenz ueberschreiben oder explizit auf Profilvererbung zuruecksetzen.",
+        "Die effektive Aufloesung lautet globaler Default, Profilreferenz, Session-Override.",
+        "Eine Session-Antwort liefert effektive Prozessmetadaten, ohne den kompletten Graph zwangsweise in jede Session-Liste einzubetten.",
+        "Nicht vorhandene oder geloeschte Prozessreferenzen erzeugen einen typisierten Fehler und einen sichtbaren Fallbackzustand."
+      ]
+    },
+    {
+      "id": "VPR-004",
+      "title": "Lifecycle und Versionierung laufender Prozessinstanzen definieren",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "dependencies": ["VPR-002", "VPR-003"],
+      "acceptance_criteria": [
+        "Jeder gestartete Run bindet sich an process_definition_id und eine unveraenderliche process_version oder einen Snapshot-Hash.",
+        "Aenderungen im Konfigurationseditor veraendern keinen bereits laufenden Run.",
+        "Der Live-Tab kann den fuer den Run verwendeten Graph auch nach spaeteren Editor-Aenderungen korrekt anzeigen.",
+        "Bei fehlendem historischen Snapshot wird ein klarer degraded state statt eines falschen aktuellen Graphen angezeigt.",
+        "Parallel laufende Runs derselben Session sind eindeutig adressierbar."
+      ]
+    },
+    {
+      "id": "VPR-005",
+      "title": "Wiederverwendbaren VisualProcessCanvasComponent extrahieren",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "dependencies": ["VPR-001", "VPR-002"],
+      "acceptance_criteria": [
+        "Canvas, Nodes, Edges, Zoom/Pan und Selektion liegen in einer eigenstaendigen Komponente.",
+        "Die Komponente akzeptiert graph, runtimeOverlay, selectedId und readOnly ueber typisierte Inputs.",
+        "Graphmutationen werden ausschliesslich ueber Outputs oder einen injizierten Editor-State-Adapter gemeldet.",
+        "Im readOnly-Modus sind Dragging, Add/Delete, Edge-Modus und mutierende Tastaturkuerzel deaktiviert.",
+        "Der bestehende Standalone-Editor nutzt nach der Extraktion denselben Canvas ohne sichtbaren Funktionsverlust."
+      ]
+    },
+    {
+      "id": "VPR-006",
+      "title": "Inspector in editierbaren und read-only Modus ueberfuehren",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["VPR-005"],
+      "acceptance_criteria": [
+        "VpStepInspectorComponent akzeptiert einen expliziten mode edit oder runtime-readonly.",
+        "Im Live-Modus zeigt der Inspector Stepdefinition, Run-State, Beginn, Ende, Dauer, Modell, Provider, Fallbacks und Fehler, soweit vorhanden.",
+        "Im read-only Modus werden keine mutierenden Controls gerendert oder ausgelöst.",
+        "Trace-Verknuepfungen werden als typisierte Events ausgegeben und nicht hart an den Trace-Viewer gekoppelt."
+      ]
+    },
+    {
+      "id": "VPR-007",
+      "title": "Editor-State-Facade fuer eingebettete und eigenstaendige Nutzung einfuehren",
+      "type": "frontend-architecture",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "dependencies": ["VPR-005"],
+      "acceptance_criteria": [
+        "Graph, selectedId, dirty, validation und UI-Zustand sind in einer klaren Facade gekapselt.",
+        "Mehrere Editorinstanzen koennen parallel existieren, ohne Signale oder Selektion zu teilen.",
+        "Die Facade kann mit initialem Graph und optionalem externen Persistenzadapter erzeugt werden.",
+        "Beim Tabwechsel bleibt der Zustand erhalten oder wird kontrolliert anhand einer dokumentierten Cache-Policy wiederhergestellt.",
+        "Destroy beendet alle Subscriptions und laesst keinen Polling- oder Keyboard-Listener zurueck."
+      ]
+    },
+    {
+      "id": "VPR-008",
+      "title": "WorkflowRunner in transportneutrale Runtime-Facade refaktorieren",
+      "type": "frontend-architecture",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "dependencies": ["VPR-002"],
+      "acceptance_criteria": [
+        "VpWorkflowRunnerService schreibt Runtime-Status nicht mehr in den Graph.",
+        "Der Service publiziert ein VpRuntimeOverlay Signal oder Observable.",
+        "Polling kann an eine bereits bekannte workflow_id angehaengt werden, ohne den Workflow neu zu starten.",
+        "Start, attach, detach, refresh, cancel und gate signal sind getrennte Operationen.",
+        "Terminale Zustaende behalten den letzten Overlay-Stand, auch nachdem aktives Polling beendet wurde."
+      ]
+    },
+    {
+      "id": "VPR-009",
+      "title": "Standalone VisualProcessEditorComponent als Shell auf gemeinsamen Bausteinen erhalten",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "dependencies": ["VPR-005", "VPR-006", "VPR-007", "VPR-008"],
+      "acceptance_criteria": [
+        "Die bestehende Route und alle bisherigen Editorfunktionen bleiben verfuegbar.",
+        "Standalone-Shell orchestriert Laden, Speichern, Import/Export, Validierung, Dry-Run und Start, ohne Canvascode zu duplizieren.",
+        "Bestehende Component-Tests werden angepasst und bestehen.",
+        "Ein Code-Review-Nachweis zeigt, dass AI-Snake und Standalone dieselbe Canvas- und Inspector-Komponente verwenden."
+      ]
+    },
+    {
+      "id": "VPR-010",
+      "title": "Backend-Endpunkte fuer effektiven Session-Prozess bereitstellen",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "dependencies": ["VPR-003", "VPR-004"],
+      "acceptance_criteria": [
+        "GET /api/chat/sessions/{session_id}/process liefert effektive Referenz, Metadaten und Graph der gewuenschten Version.",
+        "Die Antwort kennzeichnet source als global, profile oder session_override.",
+        "404, invalid reference und forbidden besitzen stabile error_codes.",
+        "Built-in und benutzerdefinierte Profile werden identisch aufgeloest.",
+        "Der Endpoint ist fuer read-only Anzeige ohne Schreibrechte nutzbar."
+      ]
+    },
+    {
+      "id": "VPR-011",
+      "title": "Backend-Endpunkte fuer Session-Run und Live-Status anbinden",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "dependencies": ["VPR-004", "VPR-010"],
+      "acceptance_criteria": [
+        "Eine Session kann ihren aktiven und ihre letzten Prozess-Runs mit workflow_id, Version und Status liefern.",
+        "GET des Run-Status liefert den kanonischen Runtime-Overlay-Contract.",
+        "Statusdaten enthalten keine Secrets oder unredigierten Provider-Credentials.",
+        "Mehrere parallele Runs werden geordnet und eindeutig zur Chat-Anfrage oder Message-ID zugeordnet.",
+        "Terminale Runs bleiben fuer eine definierte Retention abrufbar."
+      ]
+    },
+    {
+      "id": "VPR-012",
+      "title": "Profil- und Session-API um Prozessreferenz erweitern",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "dependencies": ["VPR-003", "VPR-010"],
+      "acceptance_criteria": [
+        "Profile CRUD akzeptiert und validiert process_definition_id sowie optionale Versionseinstellungen.",
+        "Session PATCH kann Prozessreferenz setzen, aendern und auf Profilvererbung zuruecksetzen.",
+        "Unbekannte IDs werden serverseitig abgelehnt.",
+        "Profilupdates materialisieren effektive Sessionwerte konsistent mit der bestehenden Profilvererbung.",
+        "Bestehende Profile und Sessions ohne Prozessreferenz bleiben kompatibel."
+      ]
+    },
+    {
+      "id": "VPR-013",
+      "title": "Prozessdefinition klonen und sessionsicher versionieren",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "dependencies": ["VPR-004", "VPR-012"],
+      "acceptance_criteria": [
+        "Ein vorhandener Prozess kann als neue benutzerdefinierte Definition geklont werden.",
+        "Speichern erzeugt eine nachvollziehbare Version oder Revision mit Zeitstempel und Hash.",
+        "Namens- und ID-Kollisionen werden abgefangen.",
+        "Built-in Prozesse werden nicht direkt ueberschrieben.",
+        "Profile und Sessions koennen kontrolliert auf die neue Version umgestellt werden."
+      ]
+    },
+    {
+      "id": "VPR-014",
+      "title": "Prozess-Tab in AI-Snake Chat-Navigation einfuegen",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "dependencies": ["VPR-005", "VPR-010"],
+      "affected_files": ["frontend-angular/src/app/components/ai-snake-chat-panel.component.ts"],
+      "acceptance_criteria": [
+        "Neben Trace existiert ein eindeutig beschrifteter Tab Prozess.",
+        "Der Tab rendert den gemeinsamen VisualProcessCanvasComponent im read-only Modus.",
+        "Der aktive Chat bestimmt automatisch die angezeigte Prozessdefinition.",
+        "Sessions ohne Prozess zeigen einen erklaerenden Empty-State und eine Verknuepfung zur Konfiguration.",
+        "Tabwechsel beeinflusst Chatverbindung, Nachrichtenzustand und laufenden Run nicht."
+      ]
+    },
+    {
+      "id": "VPR-015",
+      "title": "Live-Runtime-Overlay im Prozess-Tab anzeigen",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "dependencies": ["VPR-008", "VPR-011", "VPR-014"],
+      "acceptance_criteria": [
+        "Aktive Schritte sind visuell eindeutig hervorgehoben.",
+        "Succeeded, failed, skipped, cancelled und awaiting_approval sind auch ohne Farbwahrnehmung unterscheidbar, etwa durch Icon und Text.",
+        "Gesamtstatus, Laufzeit und letzter Aktualisierungszeitpunkt sind sichtbar.",
+        "Runtime-Updates aktualisieren nur betroffene Nodes und verursachen keinen kompletten Canvas-Reset oder Zoomverlust.",
+        "Nach Abschluss bleibt der finale Zustand sichtbar, bis ein anderer Run gewaehlt wird."
+      ]
+    },
+    {
+      "id": "VPR-016",
+      "title": "Run-Auswahl und Zuordnung zu Chat-Nachrichten umsetzen",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["VPR-011", "VPR-015"],
+      "acceptance_criteria": [
+        "Bei mehreren Runs kann zwischen aktivem und historischen Runs gewechselt werden.",
+        "Jeder Run zeigt zugehoerige Session, Chat-Message oder Request-Korrelation, soweit vorhanden.",
+        "Der aktuell aktive Run wird standardmaessig gewaehlt.",
+        "Ein historischer Run verwendet die korrekte Prozessversion.",
+        "Die Auswahl bleibt beim Wechsel zwischen Trace und Prozess erhalten."
+      ]
+    },
+    {
+      "id": "VPR-017",
+      "title": "Trace-Viewer und Prozess-Viewer bidirektional verknuepfen",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["VPR-006", "VPR-015"],
+      "acceptance_criteria": [
+        "Ein Prozessschritt kann den Trace-Tab mit passendem trace_id oder step_id Filter oeffnen.",
+        "Ein Trace-Event kann den Prozess-Tab oeffnen und den passenden Node selektieren.",
+        "Fehlende Korrelation erzeugt keine falsche Selektion.",
+        "Die Verknuepfung erfolgt ueber einen gemeinsamen Selection-/Navigation-Service statt direkter Komponentenreferenzen."
+      ]
+    },
+    {
+      "id": "VPR-018",
+      "title": "Gate-Aktionen kontrolliert im Live-Tab integrieren",
+      "type": "frontend-security",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "dependencies": ["VPR-011", "VPR-015"],
+      "acceptance_criteria": [
+        "Approve und Reject erscheinen nur bei awaiting_approval und ausreichender Berechtigung.",
+        "Vor dem Signal wird workflow_id und step_id serverseitig validiert.",
+        "Doppelklick oder wiederholte Requests sind idempotent oder werden eindeutig abgelehnt.",
+        "Nach Aktion wird der Status unmittelbar aktualisiert und ein Fehler sichtbar behandelt.",
+        "Read-only Viewer ohne Aktionsrecht zeigt Gate-Status, aber keine aktiven Buttons."
+      ]
+    },
+    {
+      "id": "VPR-019",
+      "title": "Prozess-Tab in Profil- und Session-Konfiguration einfuehren",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "dependencies": ["VPR-009", "VPR-012"],
+      "acceptance_criteria": [
+        "Profil- und Session-Konfiguration besitzen einen mittleren Tab Prozess.",
+        "Der Tab verwendet denselben Editor-Canvas und Inspector wie die eigenstaendige Visual-Process-Route.",
+        "Profilbearbeitung zeigt Profilprozess; Sessionbearbeitung zeigt effektiven Prozess und Herkunft.",
+        "Bei geerbtem Prozess kann der Nutzer explizit erben, anderen Prozess waehlen oder als eigene Kopie bearbeiten.",
+        "Built-in Profile werden gemaess bestehender Read-only-Regel nicht direkt gespeichert."
+      ]
+    },
+    {
+      "id": "VPR-020",
+      "title": "Prozessauswahl, Erben, Klonen und Neu-Erstellen als klare UI anbieten",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["VPR-013", "VPR-019"],
+      "acceptance_criteria": [
+        "Ein Selector listet gespeicherte Prozesse mit ID, Name, Version und Herkunft.",
+        "Session-Konfiguration bietet Profilprozess erben als explizite Option.",
+        "Klonen erzeugt vor Bearbeitung eine neue Definition und veraendert das Original nicht.",
+        "Neu-Erstellen verwendet emptyGraph des bestehenden Editors.",
+        "Ein Wechsel bei Dirty-State erfordert Speichern, Verwerfen oder Abbrechen."
+      ]
+    },
+    {
+      "id": "VPR-021",
+      "title": "Validierung, Dry-Run und Speichern im eingebetteten Editor absichern",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "dependencies": ["VPR-019"],
+      "acceptance_criteria": [
+        "Der eingebettete Editor kann denselben Validate- und Dry-Run-Contract wie der Standalone-Editor verwenden.",
+        "Speichern ist bei Validierungsfehlern standardmaessig gesperrt oder erfordert eine explizit dokumentierte Override-Policy.",
+        "Save zeigt Erfolg, Version und Persistenzfehler eindeutig.",
+        "Nach Save wird die Profil- oder Sessionreferenz atomar auf die gespeicherte Definition gesetzt.",
+        "Ein fehlgeschlagener Save laesst den lokalen Dirty-State bestehen."
+      ]
+    },
+    {
+      "id": "VPR-022",
+      "title": "Responsive eingebettete Layoutmodi fuer rechte und mittlere Flaeche bauen",
+      "type": "frontend-ui",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["VPR-005", "VPR-014", "VPR-019"],
+      "acceptance_criteria": [
+        "Der Canvas besitzt compact-readonly, embedded-edit und full-editor Layoutmodi.",
+        "Im rechten schmalen Tab sind Toolbar und Inspector reduziert, ohne den Graph unlesbar zu machen.",
+        "Im mittleren Konfigurationstab sind Bearbeitungswerkzeuge und Inspector voll nutzbar.",
+        "ResizeObserver oder gleichwertige Logik passt Viewport an, ohne Endlosschleifen oder Zoomspruenge.",
+        "Tastaturbedienung und Fokus bleiben innerhalb des aktiven Tabs nachvollziehbar."
+      ]
+    },
+    {
+      "id": "VPR-023",
+      "title": "Unit-Tests fuer Contracts, Facades und Runtime-Mapping erstellen",
+      "type": "test",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "dependencies": ["VPR-007", "VPR-008", "VPR-012"],
+      "acceptance_criteria": [
+        "Tests decken Profil-/Session-Vererbung der Prozessreferenz ab.",
+        "Tests decken Mapping aller Runtime-Step-States in Overlays ab.",
+        "Tests beweisen, dass Runtime-Updates den gespeicherten Graph nicht mutieren.",
+        "Tests decken attach/detach, terminalen Status und Cleanup des Runners ab.",
+        "Fehler-, Missing-Reference- und Versionskonfliktfaelle sind enthalten."
+      ]
+    },
+    {
+      "id": "VPR-024",
+      "title": "Angular Component-Tests fuer beide eingebetteten Modi erstellen",
+      "type": "test",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "dependencies": ["VPR-015", "VPR-019", "VPR-022"],
+      "acceptance_criteria": [
+        "Read-only Prozess-Tab rendert Graph und Laufzeitstatus ohne Mutationscontrols.",
+        "Edit-Konfiguration rendert denselben Canvas mit aktivierten Bearbeitungscontrols.",
+        "Tabwechsel erhaelt Selektion, Zoom und Dirty-State gemaess Policy.",
+        "Sessionwechsel laedt den korrekten effektiven Prozess und beendet alte Runtime-Subscriptions.",
+        "Trace-Prozess-Navigation ist getestet."
+      ]
+    },
+    {
+      "id": "VPR-025",
+      "title": "Backend- und E2E-Tests fuer Prozessbindung und Live-Fortschritt erstellen",
+      "type": "test",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "dependencies": ["VPR-010", "VPR-011", "VPR-012", "VPR-015"],
+      "acceptance_criteria": [
+        "E2E erstellt Profil mit Prozess, erstellt Session daraus und zeigt denselben Prozess im Chat-Tab.",
+        "Ein gestarteter Run aktualisiert mindestens pending, running und succeeded live.",
+        "Ein Failure-Run markiert den fehlerhaften Schritt und verknuepft den Trace.",
+        "Ein Gate-Run kann genehmigt oder abgelehnt werden und setzt den Prozess fort beziehungsweise beendet ihn korrekt.",
+        "Aenderung der Prozessdefinition waehrend eines Runs veraendert dessen angezeigte Version nicht."
+      ]
+    },
+    {
+      "id": "VPR-026",
+      "title": "Migration, Dokumentation und Duplikationsschutz abschliessen",
+      "type": "documentation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["VPR-009", "VPR-025"],
+      "acceptance_criteria": [
+        "Bestehende Sessions ohne Prozessreferenz migrieren ohne Datenverlust und verwenden einen dokumentierten Default oder Empty-State.",
+        "Architekturdokumentation beschreibt Definition, Version, Run, Overlay, Profilvererbung und Session-Override.",
+        "Entwicklerdokumentation zeigt, wie derselbe Editor in einer weiteren Surface eingebettet wird.",
+        "Eine Repository-Pruefung bestaetigt, dass nur eine Canvas-/Node-/Edge-Implementierung existiert.",
+        "Das alte eigenstaendige Editor-Verhalten und die neue AI-Snake-Nutzung sind beide dokumentiert."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "VPR-001", "VPR-002", "VPR-003", "VPR-004", "VPR-005", "VPR-007", "VPR-008", "VPR-009", "VPR-010", "VPR-011", "VPR-012", "VPR-014", "VPR-015", "VPR-019", "VPR-021", "VPR-023", "VPR-024", "VPR-025"
+  ],
+  "tasks_status_summary": {
+    "total": 26,
+    "by_status": {"todo": 26, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+    "progress_percent_done": 0,
+    "by_priority": {"P0": 17, "P1": 9, "P2": 0, "P3": 0},
+    "by_risk": {"low": 0, "medium": 13, "high": 11, "critical": 2},
+    "critical_path": {"total": 18, "done": 0, "remaining": 18},
+    "milestones": {"total": 6, "todo": 6, "in_progress": 0, "blocked": 0, "done": 0}
+  },
+  "progress_summary": {"state": "todo", "todo_remaining": 26, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+  "summary_notes": [
+    "Die wichtigste technische Vorarbeit ist die Trennung von editierbarer Graphdefinition und Runtime-Overlay.",
+    "Der bestehende WorkflowRunner kann als Basis dienen, muss aber an bestehende Run-IDs anhaengbar werden und darf den Graph nicht mehr mit Laufzeitdaten mutieren.",
+    "Die AI-Snake Integration besteht aus zwei Modi derselben Komponenten: rechts compact-readonly-live, in der Konfiguration embedded-edit.",
+    "Prozessversionierung ist zwingend, damit laufende und historische Runs reproduzierbar bleiben."
+  ]
+}
