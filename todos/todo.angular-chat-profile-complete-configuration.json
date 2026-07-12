@@ -4,7 +4,7 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "angular-chat-profile-complete-configuration",
   "created": "2026-07-12",
-  "status": "todo",
+  "status": "done",
   "priority": "P0",
   "purpose": "Die Angular-Oberflaeche fuer wiederverwendbare AI-Snake-Chat-Profile wird von einem Minimalformular zu einem vollstaendigen, schema-getriebenen und sicheren Konfigurationseditor ausgebaut. Profile sollen Backend, Modell, API-Adresse, Credential-Referenz, RAG, Kontext, Memory, Antwortbudgets, Embeddings, Query-Reform und erweiterte Laufzeitparameter verlustfrei konfigurieren koennen.",
   "goal": "Globaler Default, wiederverwendbares Profil und Session-Override werden als getrennte Scopes konsistent dargestellt und gespeichert. Das Backend validiert alle Settings gegen einen kanonischen Katalog; Angular rendert daraus passende Controls, zeigt Vererbung und effektive Werte und verhindert den Verlust bereits vorhandener Profilsettings.",
@@ -91,7 +91,7 @@
         "APC-003",
         "APC-028"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "APC-M2",
@@ -108,7 +108,7 @@
         "APC-026",
         "APC-029"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "APC-M3",
@@ -122,7 +122,7 @@
         "APC-021",
         "APC-022"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "APC-M4",
@@ -134,7 +134,7 @@
         "APC-020",
         "APC-027"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "APC-M5",
@@ -143,7 +143,7 @@
         "APC-024",
         "APC-025"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "APC-M6",
@@ -154,7 +154,7 @@
         "APC-032",
         "APC-035"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -162,10 +162,10 @@
       "id": "APC-001",
       "title": "Ist-Zustand der Profil-, Session- und Global-Konfiguration dokumentieren",
       "type": "analysis",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "low",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [],
       "source_files": [
         "client_surfaces/operator_tui/chat_session.py",
@@ -186,10 +186,10 @@
       "id": "APC-002",
       "title": "Kanonischen Chat-Setting-Katalog als Single Source of Truth entwerfen",
       "type": "architecture",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "APC-001"
       ],
@@ -209,10 +209,10 @@
       "id": "APC-003",
       "title": "Scope- und Vererbungsregeln formal festlegen",
       "type": "architecture",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "APC-001"
       ],
@@ -229,10 +229,10 @@
       "id": "APC-004",
       "title": "Profil-Datenmodell und DTOs typisieren",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "APC-002",
         "APC-003"
@@ -253,10 +253,10 @@
       "id": "APC-005",
       "title": "Settings-Katalog-API bereitstellen",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "APC-002",
         "APC-004"
@@ -276,10 +276,10 @@
       "id": "APC-006",
       "title": "Profil-CRUD streng validieren und Patch-Semantik korrigieren",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "APC-004",
         "APC-005"
@@ -300,10 +300,10 @@
       "id": "APC-007",
       "title": "Modell- und Endpoint-Konfiguration profilbezogen ergaenzen",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "APC-006"
       ],
@@ -320,10 +320,10 @@
       "id": "APC-008",
       "title": "Provider-spezifische Konfiguration modellieren",
       "type": "architecture",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "APC-002",
         "APC-007"
@@ -341,10 +341,10 @@
       "id": "APC-009",
       "title": "Secret-Referenzen statt API-Keys im Profil einfuehren",
       "type": "security",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "APC-008"
       ],
@@ -362,10 +362,10 @@
       "id": "APC-010",
       "title": "Provider-Modellabfrage vereinheitlichen",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "APC-007",
         "APC-008",
@@ -384,10 +384,10 @@
       "id": "APC-011",
       "title": "Verbindungs- und Modelltest-Endpoint implementieren",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "APC-010"
       ],
@@ -404,10 +404,10 @@
       "id": "APC-012",
       "title": "Profil-Editor aus Chat-Sessions-Komponente auslagern",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "APC-005"
       ],
@@ -426,10 +426,10 @@
       "id": "APC-013",
       "title": "Schema-getriebenen Angular-Profil-Editor bauen",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "APC-005",
         "APC-012"
@@ -448,10 +448,10 @@
       "id": "APC-014",
       "title": "Basisdaten des Profils vollstaendig editierbar machen",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "APC-012"
       ],
@@ -468,10 +468,10 @@
       "id": "APC-015",
       "title": "Modell, API-Adresse und Credentials im Profil-Editor ergaenzen",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "APC-009",
         "APC-010",
@@ -491,10 +491,10 @@
       "id": "APC-016",
       "title": "Verbindungspruefung im Profil-Editor integrieren",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "APC-011",
         "APC-015"
@@ -512,10 +512,10 @@
       "id": "APC-017",
       "title": "RAG-, Retrieval- und Kontextgruppe vollstaendig abbilden",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "APC-013"
       ],
@@ -532,10 +532,10 @@
       "id": "APC-018",
       "title": "Memory-, Summary- und Antwortbudgetgruppe vollstaendig abbilden",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "APC-013"
       ],
@@ -552,10 +552,10 @@
       "id": "APC-019",
       "title": "Embedding-, Reranking- und Query-Reform-Gruppe abbilden",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "APC-013"
       ],
@@ -572,10 +572,10 @@
       "id": "APC-020",
       "title": "Iterative-RAG- und Full-Scan-Advanced-Gruppe abbilden",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "APC-013"
       ],
@@ -592,10 +592,10 @@
       "id": "APC-021",
       "title": "Profil-Delta, geerbte Werte und effektive Werte visualisieren",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "APC-003",
         "APC-013"
@@ -613,10 +613,10 @@
       "id": "APC-022",
       "title": "Dirty-State, Abbrechen und sichere Speicherung implementieren",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "APC-013",
         "APC-021"
@@ -635,10 +635,10 @@
       "id": "APC-024",
       "title": "Session-Editor und Profil-Editor konsistent machen",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "APC-003",
         "APC-013",
@@ -658,10 +658,10 @@
       "id": "APC-025",
       "title": "Globalen AI-Snake-Config-Editor fachlich abgrenzen",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "APC-003",
         "APC-005",
@@ -681,10 +681,10 @@
       "id": "APC-026",
       "title": "Effektive Profil-/Session-Vorschau bereitstellen",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "APC-003",
         "APC-006"
@@ -702,10 +702,10 @@
       "id": "APC-027",
       "title": "Effective-Preview und Konfliktanzeige in Angular integrieren",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "APC-021",
         "APC-026"
@@ -723,10 +723,10 @@
       "id": "APC-028",
       "title": "Default- und Enum-Divergenzen bereinigen",
       "type": "migration",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "APC-001",
         "APC-002"
@@ -744,10 +744,10 @@
       "id": "APC-029",
       "title": "Bestehende Profile und Sessions verlustfrei migrieren",
       "type": "migration",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "APC-006",
         "APC-028"
@@ -766,10 +766,10 @@
       "id": "APC-030",
       "title": "Backend-Unit- und API-Tests fuer Profilsettings ausbauen",
       "type": "testing",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "APC-006",
         "APC-007",
@@ -791,10 +791,10 @@
       "id": "APC-031",
       "title": "Angular-Komponententests fuer Profil-Editor erstellen",
       "type": "testing",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "APC-013",
         "APC-015",
@@ -817,10 +817,10 @@
       "id": "APC-032",
       "title": "End-to-End-Tests fuer Profilvererbung und Chat-Runtime erstellen",
       "type": "testing",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "APC-024",
         "APC-027",
@@ -842,10 +842,10 @@
       "id": "APC-035",
       "title": "Dokumentation und Abschlussnachweis aktualisieren",
       "type": "documentation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "APC-032"
       ],
@@ -886,13 +886,13 @@
   "tasks_status_summary": {
     "total": 32,
     "by_status": {
-      "todo": 32,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 32
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 20,
       "P1": 10,
@@ -907,15 +907,15 @@
     },
     "critical_path": {
       "total": 20,
-      "done": 0,
-      "remaining": 20
+      "done": 20,
+      "remaining": 0
     },
     "milestones": {
       "total": 6,
-      "todo": 6,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 6
     }
   },
   "tasks_type_summary": {
@@ -924,126 +924,126 @@
       "analysis": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "architecture": {
         "total": 3,
         "by_status": {
-          "todo": 3,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 3
         },
-        "done": 0,
+        "done": 3,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "backend": {
         "total": 7,
         "by_status": {
-          "todo": 7,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 7
         },
-        "done": 0,
+        "done": 7,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "security": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "frontend": {
         "total": 14,
         "by_status": {
-          "todo": 14,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 14
         },
-        "done": 0,
+        "done": 14,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "migration": {
         "total": 2,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         },
-        "done": 0,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "testing": {
         "total": 3,
         "by_status": {
-          "todo": 3,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 3
         },
-        "done": 0,
+        "done": 3,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "documentation": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       }
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 32,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0,
-    "count_based_percent": 0.0,
-    "weighted_percent": 0.0
+    "done": 32,
+    "count_based_percent": 100.0,
+    "weighted_percent": 100.0
   },
   "execution_order": [
     "APC-M1",
@@ -1069,70 +1069,70 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 55.5,
-    "done_weight": 0.0,
-    "remaining_weight": 55.5,
+    "done_weight": 55.5,
+    "remaining_weight": 0.0,
     "blocked_weight": 0.0,
-    "weighted_percent": 0.0
+    "weighted_percent": 100.0
   },
   "milestone_progress_summary": {
     "milestones": {
       "APC-M1": {
         "total_tasks": 4,
-        "done": 0,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "APC-M2": {
         "total_tasks": 10,
-        "done": 0,
+        "done": 10,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "APC-M3": {
         "total_tasks": 7,
-        "done": 0,
+        "done": 7,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "APC-M4": {
         "total_tasks": 5,
-        "done": 0,
+        "done": 5,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "APC-M5": {
         "total_tasks": 2,
-        "done": 0,
+        "done": 2,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "APC-M6": {
         "total_tasks": 4,
-        "done": 0,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       }
     }
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-07-12T11:52:28.457842Z",
+    "generated_at": "2026-07-12T14:42:00.204782Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "aa1ef27b980791a45f73df14a470a26f61230b6499db9f2a58df83fabe2da98e",
+    "source_hash": "c9a830ed5d8c56b24af0cdd5d70e67b3d3031242315a0dae608bce2db5788a4e",
     "is_stale": false
   }
 }

@@ -4,7 +4,7 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "ai-snake-visual-process-editor-reuse-live-session-progress",
   "created": "2026-07-12",
-  "status": "todo",
+  "status": "done",
   "priority": "P0",
   "purpose": "Den bestehenden Angular Visual Process Editor generisch und wiederverwendbar machen und ohne Parallelimplementierung in AI-Snake integrieren: rechts im Chat als read-only Live-Prozess-Tab neben Trace sowie innerhalb der mittleren Konfiguration als editierbarer Prozess-Tab fuer Profile und Sessions.",
   "goal": "Ein gemeinsamer Visual-Process-Renderer und Editor stellt dieselbe Prozessdefinition in allen Oberflaechen dar. AI-Snake Sessions referenzieren eine Prozessdefinition; laufende Chats zeigen Schrittstatus, aktiven Knoten, Gates, Fehler und Abschluss live. Profile bzw. Sessions koennen den Prozess in der Konfiguration bearbeiten, validieren und speichern. Es entsteht kein zweiter Canvas, kein zweites Graphmodell und keine duplizierte Runtime-Statuslogik.",
@@ -85,7 +85,7 @@
         "VPR-003",
         "VPR-004"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "VPR-M2",
@@ -97,7 +97,7 @@
         "VPR-008",
         "VPR-009"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "VPR-M3",
@@ -108,7 +108,7 @@
         "VPR-012",
         "VPR-013"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "VPR-M4",
@@ -118,7 +118,7 @@
         "VPR-015",
         "VPR-018"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "VPR-M5",
@@ -128,7 +128,7 @@
         "VPR-020",
         "VPR-021"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "VPR-M6",
@@ -139,7 +139,7 @@
         "VPR-025",
         "VPR-026"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -147,7 +147,7 @@
       "id": "VPR-001",
       "title": "Bestehende Visual-Process-Komponenten und Zustandsverantwortung kartieren",
       "type": "analysis",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "dependencies": [],
@@ -163,13 +163,13 @@
         "Die Analyse benennt explizit, welche Teile fuer read-only Embedding wiederverwendbar sind und welche entkoppelt werden muessen.",
         "Es ist nachgewiesen, dass keine zweite Canvas-Implementierung erforderlich ist."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "VPR-002",
       "title": "Kanonischen Prozessdefinitions- und Runtime-Overlay-Contract festlegen",
       "type": "architecture",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": [
@@ -182,13 +182,13 @@
         "Fuer jeden Step-State sind mindestens pending, running, awaiting_approval, succeeded, failed, skipped und cancelled definiert.",
         "Unbekannte oder spaet eintreffende Steps werden robust behandelt und verursachen keinen Renderer-Abbruch."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "VPR-003",
       "title": "AI-Snake Prozessreferenz fuer Profile und Sessions definieren",
       "type": "backend-contract",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": [
@@ -205,13 +205,13 @@
         "Eine Session-Antwort liefert effektive Prozessmetadaten, ohne den kompletten Graph zwangsweise in jede Session-Liste einzubetten.",
         "Nicht vorhandene oder geloeschte Prozessreferenzen erzeugen einen typisierten Fehler und einen sichtbaren Fallbackzustand."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "VPR-004",
       "title": "Lifecycle und Versionierung laufender Prozessinstanzen definieren",
       "type": "architecture",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "dependencies": [
@@ -225,13 +225,13 @@
         "Bei fehlendem historischen Snapshot wird ein klarer degraded state statt eines falschen aktuellen Graphen angezeigt.",
         "Parallel laufende Runs derselben Session sind eindeutig adressierbar."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "VPR-005",
       "title": "Wiederverwendbaren VisualProcessCanvasComponent extrahieren",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": [
@@ -245,13 +245,13 @@
         "Im readOnly-Modus sind Dragging, Add/Delete, Edge-Modus und mutierende Tastaturkuerzel deaktiviert.",
         "Der bestehende Standalone-Editor nutzt nach der Extraktion denselben Canvas ohne sichtbaren Funktionsverlust."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "VPR-006",
       "title": "Inspector in editierbaren und read-only Modus ueberfuehren",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "dependencies": [
@@ -263,13 +263,13 @@
         "Im read-only Modus werden keine mutierenden Controls gerendert oder ausgelöst.",
         "Trace-Verknuepfungen werden als typisierte Events ausgegeben und nicht hart an den Trace-Viewer gekoppelt."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "VPR-007",
       "title": "Editor-State-Facade fuer eingebettete und eigenstaendige Nutzung einfuehren",
       "type": "frontend-architecture",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": [
@@ -282,13 +282,13 @@
         "Beim Tabwechsel bleibt der Zustand erhalten oder wird kontrolliert anhand einer dokumentierten Cache-Policy wiederhergestellt.",
         "Destroy beendet alle Subscriptions und laesst keinen Polling- oder Keyboard-Listener zurueck."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "VPR-008",
       "title": "WorkflowRunner in transportneutrale Runtime-Facade refaktorieren",
       "type": "frontend-architecture",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": [
@@ -301,13 +301,13 @@
         "Start, attach, detach, refresh, cancel und gate signal sind getrennte Operationen.",
         "Terminale Zustaende behalten den letzten Overlay-Stand, auch nachdem aktives Polling beendet wurde."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "VPR-009",
       "title": "Standalone VisualProcessEditorComponent als Shell auf gemeinsamen Bausteinen erhalten",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "dependencies": [
@@ -322,13 +322,13 @@
         "Bestehende Component-Tests werden angepasst und bestehen.",
         "Ein Code-Review-Nachweis zeigt, dass AI-Snake und Standalone dieselbe Canvas- und Inspector-Komponente verwenden."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "VPR-010",
       "title": "Backend-Endpunkte fuer effektiven Session-Prozess bereitstellen",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": [
@@ -342,13 +342,13 @@
         "Built-in und benutzerdefinierte Profile werden identisch aufgeloest.",
         "Der Endpoint ist fuer read-only Anzeige ohne Schreibrechte nutzbar."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "VPR-011",
       "title": "Backend-Endpunkte fuer Session-Run und Live-Status anbinden",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "dependencies": [
@@ -362,13 +362,13 @@
         "Mehrere parallele Runs werden geordnet und eindeutig zur Chat-Anfrage oder Message-ID zugeordnet.",
         "Terminale Runs bleiben fuer eine definierte Retention abrufbar."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "VPR-012",
       "title": "Profil- und Session-API um Prozessreferenz erweitern",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": [
@@ -385,13 +385,13 @@
         "Profilupdates materialisieren effektive Sessionwerte konsistent mit der bestehenden Profilvererbung.",
         "Bestehende Profile und Sessions ohne Prozessreferenz bleiben kompatibel."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "VPR-013",
       "title": "Prozessdefinition klonen und sessionsicher versionieren",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "dependencies": [
@@ -405,13 +405,13 @@
         "Built-in Prozesse werden nicht direkt ueberschrieben.",
         "Profile und Sessions koennen kontrolliert auf die neue Version umgestellt werden."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "VPR-014",
       "title": "Prozess-Tab in AI-Snake Chat-Navigation einfuegen",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "dependencies": [
@@ -430,13 +430,13 @@
         "Compact-readonly, embedded-edit und full-editor sind Layoutmodi derselben Canvas-Komponente; Resize behaelt Zoom, Selektion und Fokus stabil.",
         "Ein gemeinsamer Navigation-Service kann aus Prozessschritten gefiltert zu Trace wechseln und aus Trace-Events den passenden Prozessknoten waehlen, ohne direkte Komponentenreferenzen."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "VPR-015",
       "title": "Live-Runtime-Overlay im Prozess-Tab anzeigen",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": [
@@ -452,13 +452,13 @@
         "Nach Abschluss bleibt der finale Zustand sichtbar, bis ein anderer Run gewaehlt wird.",
         "Bei mehreren Runs ist der aktive Run vorausgewaehlt; historische Runs zeigen korrekte Prozessversion sowie Session-, Request- und Message-Korrelation und bleiben beim Wechsel zu Trace ausgewaehlt."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "VPR-018",
       "title": "Gate-Aktionen kontrolliert im Live-Tab integrieren",
       "type": "frontend-security",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "dependencies": [
@@ -473,13 +473,13 @@
         "Read-only Viewer ohne Aktionsrecht zeigt Gate-Status, aber keine aktiven Buttons.",
         "Hub-seitige Gate-Entscheidungen protokollieren Actor-ID, workflow_id, step_id, Entscheidung und Idempotency-Key auditierbar; Browser und Worker orchestrieren keine Gate-Fortsetzung."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "VPR-019",
       "title": "Prozess-Tab in Profil- und Session-Konfiguration einfuehren",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": [
@@ -499,13 +499,13 @@
         "Built-in Profile werden gemaess bestehender Read-only-Regel nicht direkt gespeichert.",
         "Der eingebettete Editor nutzt compact-readonly, embedded-edit und full-editor als Layoutmodi derselben Canvas-Komponente; Resize erhaelt Zoom und Dirty-State."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "VPR-020",
       "title": "Prozessauswahl, Erben, Klonen und Neu-Erstellen als klare UI anbieten",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "dependencies": [
@@ -519,13 +519,13 @@
         "Neu-Erstellen verwendet emptyGraph des bestehenden Editors.",
         "Ein Wechsel bei Dirty-State erfordert Speichern, Verwerfen oder Abbrechen."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "VPR-021",
       "title": "Validierung, Dry-Run und Speichern im eingebetteten Editor absichern",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": [
@@ -538,13 +538,13 @@
         "Nach Save wird die Profil- oder Sessionreferenz atomar auf die gespeicherte Definition gesetzt.",
         "Ein fehlgeschlagener Save laesst den lokalen Dirty-State bestehen."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "VPR-023",
       "title": "Unit-Tests fuer Contracts, Facades und Runtime-Mapping erstellen",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "dependencies": [
@@ -559,13 +559,13 @@
         "Tests decken attach/detach, terminalen Status und Cleanup des Runners ab.",
         "Fehler-, Missing-Reference- und Versionskonfliktfaelle sind enthalten."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "VPR-024",
       "title": "Angular Component-Tests fuer beide eingebetteten Modi erstellen",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "dependencies": [
@@ -579,13 +579,13 @@
         "Sessionwechsel laedt den korrekten effektiven Prozess und beendet alte Runtime-Subscriptions.",
         "Trace-Prozess-Navigation ist getestet."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "VPR-025",
       "title": "Backend- und E2E-Tests fuer Prozessbindung und Live-Fortschritt erstellen",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": [
@@ -601,13 +601,13 @@
         "Ein Gate-Run kann genehmigt oder abgelehnt werden und setzt den Prozess fort beziehungsweise beendet ihn korrekt.",
         "Aenderung der Prozessdefinition waehrend eines Runs veraendert dessen angezeigte Version nicht."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "VPR-026",
       "title": "Migration, Dokumentation und Duplikationsschutz abschliessen",
       "type": "documentation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "dependencies": [
@@ -621,7 +621,7 @@
         "Eine Repository-Pruefung bestaetigt, dass nur eine Canvas-/Node-/Edge-Implementierung existiert.",
         "Das alte eigenstaendige Editor-Verhalten und die neue AI-Snake-Nutzung sind beide dokumentiert."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     }
   ],
   "critical_path_tasks": [
@@ -647,13 +647,13 @@
   "tasks_status_summary": {
     "total": 23,
     "by_status": {
-      "todo": 23,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 23
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 18,
       "P1": 5,
@@ -668,26 +668,26 @@
     },
     "critical_path": {
       "total": 18,
-      "done": 0,
-      "remaining": 18
+      "done": 18,
+      "remaining": 0
     },
     "milestones": {
       "total": 6,
-      "todo": 6,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 6
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 23,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0,
-    "count_based_percent": 0.0,
-    "weighted_percent": 0.0
+    "done": 23,
+    "count_based_percent": 100.0,
+    "weighted_percent": 100.0
   },
   "summary_notes": [
     "Die wichtigste technische Vorarbeit ist die Trennung von editierbarer Graphdefinition und Runtime-Overlay.",
@@ -701,198 +701,198 @@
       "analysis": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "architecture": {
         "total": 2,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         },
-        "done": 0,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "backend-contract": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "frontend": {
         "total": 8,
         "by_status": {
-          "todo": 8,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 8
         },
-        "done": 0,
+        "done": 8,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "frontend-architecture": {
         "total": 2,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         },
-        "done": 0,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "backend": {
         "total": 4,
         "by_status": {
-          "todo": 4,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 4
         },
-        "done": 0,
+        "done": 4,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "frontend-security": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "test": {
         "total": 3,
         "by_status": {
-          "todo": 3,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 3
         },
-        "done": 0,
+        "done": 3,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "documentation": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       }
     }
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 41.75,
-    "done_weight": 0.0,
-    "remaining_weight": 41.75,
+    "done_weight": 41.75,
+    "remaining_weight": 0.0,
     "blocked_weight": 0.0,
-    "weighted_percent": 0.0
+    "weighted_percent": 100.0
   },
   "milestone_progress_summary": {
     "milestones": {
       "VPR-M1": {
         "total_tasks": 4,
-        "done": 0,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "VPR-M2": {
         "total_tasks": 5,
-        "done": 0,
+        "done": 5,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "VPR-M3": {
         "total_tasks": 4,
-        "done": 0,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "VPR-M4": {
         "total_tasks": 3,
-        "done": 0,
+        "done": 3,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "VPR-M5": {
         "total_tasks": 3,
-        "done": 0,
+        "done": 3,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "VPR-M6": {
         "total_tasks": 4,
-        "done": 0,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       }
     }
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-07-12T11:53:22.719752Z",
+    "generated_at": "2026-07-12T14:42:00.206281Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "1ec6036463e5cbef419f304e4a81028280488b433dfcb887f7396a0d6fe205be",
+    "source_hash": "b1e17bf5c9798d8c6be100882b436875c2cf9c0118badd711fdc0c811ac40d46",
     "is_stale": false
   }
 }
