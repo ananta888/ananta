@@ -44,6 +44,12 @@ class MockVoiceBackend(VoiceBackend):
             ),
             confidence=0.91,
             raw_backend="mock",
+            provenance={
+                "engine": "mock",
+                "model_revision": "synthetic-test-v1",
+                "execution_location": "voice-runtime",
+                "synthetic": True,
+            },
         )
 
     def audio_chat(self, *, filename: str, content: bytes, context: dict | None = None) -> ChatResult:
@@ -58,8 +64,13 @@ class MockVoiceBackend(VoiceBackend):
                 "display_name": "Mock Voice Backend",
                 "capabilities": ["audio_input", "transcription", "voice_command"],
                 "device_preference": "cpu",
+                "status": "ready",
+                "synthetic": True,
             }
         ]
+
+    def context_capabilities(self) -> frozenset[str]:
+        return frozenset()
 
     @staticmethod
     def _maybe_fail() -> None:

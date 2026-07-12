@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
-import re
 from typing import Any
 
 
@@ -18,8 +18,8 @@ class Glossary:
             return cls(replacements={})
         try:
             raw = json.loads(Path(path).read_text(encoding="utf-8"))
-        except Exception as exc:
-            return cls(replacements={}, warnings=(f"glossary_unavailable:{exc}",))
+        except Exception:
+            return cls(replacements={}, warnings=("glossary_unavailable",))
         if not isinstance(raw, dict):
             return cls(replacements={}, warnings=("glossary_invalid:root_not_object",))
         replacements: dict[str, str] = {}
