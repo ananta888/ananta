@@ -1,0 +1,59 @@
+<section class="card voice-card mt-md" data-testid="voice-runtime-status">
+  <div class="row flex-between voice-wrap">
+    <h3>Capabilities und Ressourcen</h3>
+    <button class="button-outline" type="button" (click)="load()" [disabled]="loading">Aktualisieren</button>
+  </div>
+  @if (errorCode) { <div class="card danger mt-md" role="alert"><strong>{{ errorCode }}</strong> · {{ errorMessage }}</div> }
+  @if (capabilities) {
+    <div class="voice-status-line">
+      <span class="voice-status" [class.voice-status-ok]="capabilities.available">{{ capabilities.available ? 'verfügbar' : 'nicht verfügbar' }}</span>
+      <span>Provider {{ capabilities.provider }}</span>
+      <span>Audio-Limit {{ capabilities.limits?.max_audio_mb ?? '?' }} MB</span>
+      <span>Audio-Retention {{ capabilities.privacy?.effective_audio_retention || 'unbekannt' }}</span>
+    </div>
+    @if (capabilities.privacy?.policy_hint) { <p class="muted font-sm">Privacy: {{ capabilities.privacy?.policy_hint }}</p> }
+    <div class="voice-table-wrap mt-md">
+      <table class="standard-table">
+        <thead><tr><th>Backend / Modell</th><th>Revision</th><th>Ort</th><th>Device</th><th>Status</th><th>Grund</th></tr></thead>
+        <tbody>
+          @for (model of models(); track model.id) {
+            <tr>
+              <td>{{ model.backend || '-' }} / {{ model.id }}</td>
+              <td class="font-mono font-sm">{{ model.revision || '-' }}</td>
+              <td>{{ model.local === false ? 'Remote' : 'Lokal' }}</td>
+              <td>{{ model.device || '-' }}</td>
+              <td>{{ model.status || (model.available === false ? 'übersprungen' : 'bereit') }}</td>
+              <td><code>{{ model.reason_code || '-' }}</code></td>
+            </tr>
+          }
+          @if (!models().length) { <tr><td colspan="6" class="muted">Keine Modelle gemeldet.</td></tr> }
+        </tbody>
+      </table>
+    </div>
+    @if ((capabilities.routing_details?.reasons || capabilities.health?.routing_reasons)?.length) {
+      <h4 class="mt-md">Routinggründe</h4>
+      <ul>
+        @for (reason of capabilities.routing_details?.reasons || capabilities.health?.routing_reasons; track reason.code) {
+          <li><code>{{ reason.code }}</code>@if (reason.message) { · {{ reason.message }} }</li>
+        }
+      </ul>
+    }
+    @if ((capabilities.routing_details?.skipped_backends || capabilities.health?.skipped_backends)?.length) {
+      <h4 class="mt-md">Übersprungene Backends</h4>
+      <ul>
+        @for (backend of capabilities.routing_details?.skipped_backends || capabilities.health?.skipped_backends; track backend.backend) {
+          <li>{{ backend.backend }} · <code>{{ backend.reason_code }}</code></li>
+        }
+      </ul>
+    }
+    @if (resourceRows().length) {
+      <div class="grid cols-2 mt-md">
+        @for (resource of resourceRows(); track resource.label) {
+          <div><strong>{{ resource.label }}</strong><br><span class="muted">{{ resource.value }}</span></div>
+        }
+      </div>
+    }
+  } @else if (loading) {
+    <p class="muted">Capability-Status wird geladen …</p>
+  }
+</section>

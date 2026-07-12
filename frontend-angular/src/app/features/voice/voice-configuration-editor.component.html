@@ -1,0 +1,118 @@
+<section class="card voice-card" data-testid="voice-configuration">
+  <div class="row flex-between voice-wrap">
+    <div>
+      <h3>Voice, Fusion und Restricted Inference</h3>
+      <p class="muted">Schema-gesteuerte Konfiguration. Alle Werte werden ausschließlich vom Hub gelesen und dort validiert.</p>
+    </div>
+    <button class="button-outline" type="button" (click)="loadAll()" [disabled]="loading || saving">Aktualisieren</button>
+  </div>
+
+  <div class="voice-scope-tabs" role="tablist" aria-label="Konfigurationsbereich">
+    <button type="button" class="button-outline" [class.active-toggle]="scope === 'global'" (click)="changeScope('global')">Global</button>
+    <button type="button" class="button-outline" [class.active-toggle]="scope === 'profile'" (click)="changeScope('profile')">Profil</button>
+    <button type="button" class="button-outline" [class.active-toggle]="scope === 'session'" (click)="changeScope('session')">Session</button>
+  </div>
+
+  @if (scope !== 'global') {
+    <div class="grid cols-2 mt-md">
+      <label>Profil-ID
+        <input [(ngModel)]="profileId" (change)="loadConfiguration()" autocomplete="off" />
+      </label>
+      @if (scope === 'session') {
+        <label>Session-ID
+          <input [(ngModel)]="sessionId" (change)="loadConfiguration()" autocomplete="off" />
+        </label>
+      }
+    </div>
+  }
+
+  @if (errorCode) {
+    <div class="card danger mt-md" role="alert"><strong>{{ errorCode }}</strong> · {{ errorMessage }}</div>
+  }
+  @if (successMessage) {
+    <div class="card card-light mt-md" role="status">{{ successMessage }}</div>
+  }
+
+  @if (loading) {
+    <p class="muted mt-md">Voice-Konfiguration wird geladen …</p>
+  } @else if (schema && configuration) {
+    <div class="muted font-sm mt-md">
+      Vertrag {{ schema.schema_version }} · Version {{ configuration.version }}
+    </div>
+    @for (group of groups(); track group) {
+      <fieldset class="voice-fieldset mt-md">
+        <legend>{{ group }}</legend>
+        @if (groupDescription(group)) { <p class="muted font-sm">{{ groupDescription(group) }}</p> }
+        <div class="grid cols-2">
+          @for (field of fieldsForGroup(group); track field.key) {
+            <div class="voice-field" [class.voice-field-disabled]="field.enabled === false">
+              <label [for]="'voice-field-' + field.key">{{ field.label || field.key }}</label>
+              @switch (field.type) {
+                @case ('boolean') {
+                  <label class="row gap-sm">
+                    <input [id]="'voice-field-' + field.key" type="checkbox" [ngModel]="value(field)" (ngModelChange)="setValue(field, $event)" [disabled]="field.enabled === false" />
+                    <span>{{ value(field) ? 'Aktiv' : 'Inaktiv' }}</span>
+                  </label>
+                }
+                @case ('enum') {
+                  <select [id]="'voice-field-' + field.key" [ngModel]="value(field)" (ngModelChange)="setValue(field, $event)" [disabled]="field.enabled === false">
+                    @for (option of optionValues(field); track option.value) {
+                      <option [ngValue]="option.value" [disabled]="option.disabled" [title]="option.reason">{{ option.label }}</option>
+                    }
+                  </select>
+                }
+                @case ('integer') {
+                  <input [id]="'voice-field-' + field.key" type="number" step="1" [min]="field.minimum" [max]="field.maximum" [ngModel]="value(field)" (ngModelChange)="setValue(field, $event)" [disabled]="field.enabled === false" />
+                }
+                @case ('number') {
+                  <input [id]="'voice-field-' + field.key" type="number" [min]="field.minimum" [max]="field.maximum" [ngModel]="value(field)" (ngModelChange)="setValue(field, $event)" [disabled]="field.enabled === false" />
+                }
+                @case ('string_list') {
+                  <select [id]="'voice-field-' + field.key" multiple [ngModel]="value(field)" (ngModelChange)="setValue(field, $event)" [disabled]="field.enabled === false">
+                    @for (option of optionValues(field); track option.value) {
+                      <option [ngValue]="option.value" [disabled]="option.disabled" [title]="option.reason">{{ option.label }}</option>
+                    }
+                  </select>
+                }
+                @default {
+                  <input [id]="'voice-field-' + field.key" type="text" [ngModel]="value(field)" (ngModelChange)="setValue(field, $event)" [disabled]="field.enabled === false" />
+                }
+              }
+              @if (field.description) { <small class="muted">{{ field.description }}</small> }
+              @if (field.scopes?.length) {
+                <small class="muted">Scopes: <code>{{ field.scopes?.join(', ') }}</code></small>
+              }
+              @if (field.visibility) {
+                <small class="muted">Sichtbarkeit: <code>{{ field.visibility }}</code> · Secret-Referenz: {{ field.secret_reference ? 'ja' : 'nein' }}</small>
+              }
+              @if (field.required_capabilities?.length) {
+                <small class="muted">Benötigte Capabilities: <code>{{ field.required_capabilities?.join(', ') }}</code></small>
+              }
+              @if (field.capability_reason_source) {
+                <small class="muted">Capability-Gründe vom Hub: <code>{{ field.capability_reason_source }}</code></small>
+              }
+              <small class="muted">Quelle: {{ sourceLabel(field) }}</small>
+              @if (adjustmentFor(field); as adjustment) {
+                <small class="error-text" [attr.data-reason-code]="adjustment.reason_code">
+                  <code>{{ adjustment.reason_code }}</code> · angefordert: {{ adjustment.requested }} · wirksam: {{ adjustment.effective }}
+                </small>
+              } @else if (fieldError(field); as reason) {
+                <small class="error-text" [attr.data-reason-code]="reason">{{ reason }}</small>
+              }
+              @if (hasOverride(field)) {
+                <button class="button-link font-sm" type="button" (click)="removeOverride(field)">Override entfernen</button>
+              }
+            </div>
+          }
+        </div>
+      </fieldset>
+    }
+    @for (reason of combinationErrors(); track reason) {
+      <p class="error-text mt-md" [attr.data-reason-code]="reason"><code>{{ reason }}</code> · Diese Kombination wird auch vom Hub blockiert.</p>
+    }
+    <div class="row gap-sm mt-md voice-wrap">
+      <button type="button" (click)="save()" [disabled]="saving || hasValidationErrors()">{{ saving ? 'Speichert …' : 'Delta speichern' }}</button>
+      <button class="button-outline" type="button" (click)="resetDelta()" [disabled]="saving">Scope-Delta zurücksetzen</button>
+    </div>
+  }
+</section>

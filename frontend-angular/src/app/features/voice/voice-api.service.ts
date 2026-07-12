@@ -1,0 +1,221 @@
+import { Injectable, inject } from '@angular/core';
+import { Observable, map } from 'rxjs';
+
+import { HubApiCoreService } from '../../services/hub-api-core.service';
+import {
+  VoiceCapabilityStatus,
+  VoiceConfiguration,
+  VoiceConfigurationMutation,
+  VoiceConfigurationQuery,
+  VoiceConfigurationSaveResult,
+  VoiceConfigurationSchema,
+  VoiceConsent,
+  VoiceConsentCategory,
+  VoiceFineTuningExportTaskResult,
+  VoicePersonalizationExport,
+  VoicePersonalizationImportPayload,
+  VoicePersonalizationImportResult,
+  VoicePersonalizationSnapshot,
+  VoicePrivacyDeletionResult,
+  VoiceResetResult,
+  VoiceReview,
+  VoiceReviewDecision,
+  VoiceTranscriptionResult,
+} from './voice.models';
+
+const mutationHeaders = (idempotencyKey: string) => ({ 'Idempotency-Key': idempotencyKey });
+
+function queryString(query: VoiceConfigurationQuery): string {
+  const params = new URLSearchParams();
+  if (query.profileId?.trim()) params.set('profile_id', query.profileId.trim());
+  if (query.sessionId?.trim()) params.set('session_id', query.sessionId.trim());
+  const value = params.toString();
+  return value ? `?${value}` : '';
+}
+
+@Injectable({ providedIn: 'root' })
+export class VoiceApiService {
+  private readonly core = inject(HubApiCoreService);
+
+  getCapabilities(hubUrl: string): Observable<VoiceCapabilityStatus> {
+    return this.core.get<VoiceCapabilityStatus>(`${hubUrl}/v1/voice/capabilities`, hubUrl, undefined, true);
+  }
+
+  getConfigurationSchema(hubUrl: string): Observable<VoiceConfigurationSchema> {
+    return this.core.get<VoiceConfigurationSchema | { schema: VoiceConfigurationSchema }>(
+      `${hubUrl}/v1/voice/configuration/schema`, hubUrl, undefined, true,
+    ).pipe(map((response) => 'schema' in response ? response.schema : response));
+  }
+
+  getConfiguration(hubUrl: string, query: VoiceConfigurationQuery = {}): Observable<VoiceConfiguration> {
+    return this.core.get<{ configuration: VoiceConfiguration }>(
+      `${hubUrl}/v1/voice/configuration${queryString(query)}`, hubUrl, undefined, false,
+    ).pipe(map((response) => response.configuration));
+  }
+
+  saveConfiguration(
+    hubUrl: string,
+    mutation: VoiceConfigurationMutation,
+    idempotencyKey: string,
+  ): Observable<VoiceConfigurationSaveResult> {
+    return this.core.request<{ configuration: VoiceConfigurationSaveResult }>(
+      'PUT', `${hubUrl}/v1/voice/configuration`, hubUrl,
+      { body: mutation, headers: mutationHeaders(idempotencyKey) },
+    ).pipe(map((response) => response.configuration));
+  }
+
+  transcribe(
+    hubUrl: string,
+    payload: {
+      file: Blob | File;
+      fileName?: string;
+      language?: string;
+      profileId?: string;
+      sessionId?: string;
+      idempotencyKey?: string;
+    },
+  ): Observable<VoiceTranscriptionResult> {
+    const form = new FormData();
+    form.append('file', payload.file, payload.fileName || 'audio.webm');
+    if (payload.language?.trim()) form.append('language', payload.language.trim());
+    if (payload.profileId?.trim()) form.append('profile_id', payload.profileId.trim());
+    if (payload.sessionId?.trim()) form.append('session_id', payload.sessionId.trim());
+    return this.core.request<VoiceTranscriptionResult>('POST', `${hubUrl}/v1/voice/transcribe`, hubUrl, {
+      body: form,
+      timeoutMs: 120_000,
+      headers: payload.idempotencyKey ? mutationHeaders(payload.idempotencyKey) : undefined,
+    });
+  }
+
+  createReview(
+    hubUrl: string,
+    payload: { profile_id: string; session_id?: string; result_ref: string; candidate_ids: string[] },
+    idempotencyKey: string,
+  ): Observable<VoiceReview> {
+    return this.core.request<{ review: VoiceReview }>('POST', `${hubUrl}/v1/voice/reviews`, hubUrl, {
+      body: payload,
+      headers: mutationHeaders(idempotencyKey),
+    }).pipe(map((response) => response.review));
+  }
+
+  getReview(hubUrl: string, reviewId: string): Observable<VoiceReview> {
+    return this.core.get<{ review: VoiceReview }>(
+      `${hubUrl}/v1/voice/reviews/${encodeURIComponent(reviewId)}`, hubUrl, undefined, false,
+    ).pipe(map((response) => response.review));
+  }
+
+  decideReview(
+    hubUrl: string,
+    reviewId: string,
+    payload: {
+      decision: VoiceReviewDecision;
+      expected_version: number;
+      selected_candidate_id?: string;
+      correction_text?: string;
+    },
+    idempotencyKey: string,
+  ): Observable<VoiceReview> {
+    return this.core.request<{ review: VoiceReview }>(
+      'POST', `${hubUrl}/v1/voice/reviews/${encodeURIComponent(reviewId)}/decision`, hubUrl,
+      { body: payload, headers: mutationHeaders(idempotencyKey) },
+    ).pipe(map((response) => response.review));
+  }
+
+  getConsent(hubUrl: string, profileId: string): Observable<VoiceConsent> {
+    return this.core.get<{ consent: VoiceConsent }>(
+      `${hubUrl}/v1/voice/consents/${encodeURIComponent(profileId)}`, hubUrl, undefined, false,
+    ).pipe(map((response) => response.consent));
+  }
+
+  setConsent(
+    hubUrl: string,
+    profileId: string,
+    payload: { granted: boolean; categories: VoiceConsentCategory[]; retention_days: number },
+    idempotencyKey: string,
+  ): Observable<VoiceConsent> {
+    return this.core.request<{ consent: VoiceConsent }>(
+      'PUT', `${hubUrl}/v1/voice/consents/${encodeURIComponent(profileId)}`, hubUrl,
+      { body: payload, headers: mutationHeaders(idempotencyKey) },
+    ).pipe(map((response) => response.consent));
+  }
+
+  getPersonalizationSnapshot(hubUrl: string, profileId: string): Observable<VoicePersonalizationSnapshot> {
+    return this.core.get<{ snapshot: VoicePersonalizationSnapshot }>(
+      `${hubUrl}/v1/voice/personalization/${encodeURIComponent(profileId)}/snapshot`, hubUrl,
+      undefined, false,
+    ).pipe(map((response) => response.snapshot));
+  }
+
+  exportPersonalization(hubUrl: string, profileId: string): Observable<VoicePersonalizationExport> {
+    return this.core.get<{ personalization: VoicePersonalizationExport }>(
+      `${hubUrl}/v1/voice/personalization/${encodeURIComponent(profileId)}/export`, hubUrl,
+      undefined, false,
+    ).pipe(map((response) => response.personalization));
+  }
+
+  importPersonalization(
+    hubUrl: string,
+    profileId: string,
+    payload: VoicePersonalizationImportPayload,
+    idempotencyKey: string,
+  ): Observable<VoicePersonalizationImportResult> {
+    return this.core.request<{ import: VoicePersonalizationImportResult }>(
+      'POST', `${hubUrl}/v1/voice/personalization/${encodeURIComponent(profileId)}/import`, hubUrl,
+      { body: payload, headers: mutationHeaders(idempotencyKey) },
+    ).pipe(map((response) => response.import));
+  }
+
+  addPersonalizationFeedback(
+    hubUrl: string,
+    payload: {
+      profile_id: string;
+      review_id: string;
+      kind: 'vocabulary' | 'substitution' | 'preference' | 'negative';
+      source_text?: string;
+      target_text?: string;
+      metadata?: Record<string, unknown>;
+    },
+    idempotencyKey: string,
+  ): Observable<unknown> {
+    return this.core.request<{ feedback: unknown }>(
+      'POST', `${hubUrl}/v1/voice/personalization/feedback`, hubUrl,
+      { body: payload, headers: mutationHeaders(idempotencyKey) },
+    ).pipe(map((response) => response.feedback));
+  }
+
+  resetPersonalization(
+    hubUrl: string,
+    profileId: string,
+    idempotencyKey: string,
+  ): Observable<VoiceResetResult> {
+    return this.core.request<{ reset: VoiceResetResult }>(
+      'DELETE', `${hubUrl}/v1/voice/personalization/${encodeURIComponent(profileId)}`, hubUrl,
+      { headers: mutationHeaders(idempotencyKey) },
+    ).pipe(map((response) => response.reset));
+  }
+
+  deleteVoiceProfile(
+    hubUrl: string,
+    profileId: string,
+    idempotencyKey: string,
+  ): Observable<VoicePrivacyDeletionResult> {
+    return this.core.request<{ deletion: VoicePrivacyDeletionResult }>(
+      'DELETE', `${hubUrl}/v1/voice/privacy/${encodeURIComponent(profileId)}`, hubUrl,
+      { body: { confirmed: true }, headers: mutationHeaders(idempotencyKey) },
+    ).pipe(map((response) => response.deletion));
+  }
+
+  createFineTuningExportTask(
+    hubUrl: string,
+    profileId: string,
+    payload: { confirmed: true; purpose: string; license: string },
+    idempotencyKey: string,
+  ): Observable<VoiceFineTuningExportTaskResult> {
+    return this.core.request<VoiceFineTuningExportTaskResult>(
+      'POST',
+      `${hubUrl}/v1/voice/personalization/${encodeURIComponent(profileId)}/fine-tuning-export-tasks`,
+      hubUrl,
+      { body: payload, headers: mutationHeaders(idempotencyKey) },
+    );
+  }
+}

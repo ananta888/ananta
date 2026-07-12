@@ -13,6 +13,7 @@
       <button class="button-outline" [class.active-toggle]="selectedSection==='account'" (click)="setSection('account')">Account</button>
       <button class="button-outline" [class.active-toggle]="selectedSection==='llm'" (click)="setSection('llm')">LLM und KI</button>
       <button class="button-outline" [class.active-toggle]="selectedSection==='quality'" (click)="setSection('quality')">Qualitaetsregeln</button>
+      <button class="button-outline" [class.active-toggle]="selectedSection==='voice'" (click)="setSection('voice')" data-testid="settings-section-voice">Voice &amp; Fusion</button>
       <button class="button-outline" [class.active-toggle]="selectedSection==='system'" (click)="setSection('system')">System</button>
       <button class="button-outline" [class.active-toggle]="selectedSection==='erweitert'" (click)="setSection('erweitert')">Erweitert</button>
     </div>
@@ -20,6 +21,7 @@
     @if (selectedSection === 'llm' || selectedSection === 'erweitert') { <app-settings-llm [state]="this" /> }
     @if (selectedSection === 'quality') { <app-settings-quality [state]="this" /> }
     @if (selectedSection === 'system') { <app-settings-system [state]="this" /> }
+    @if (selectedSection === 'voice' && hub) { <app-settings-voice [hubUrl]="hub.url" /> }
     
     @if (selectedSection === 'account') {
       <div class="grid cols-2">

@@ -5,6 +5,7 @@ import { MfaSetupComponent } from './mfa-setup.component';
 import { SettingsLlmComponent } from './settings-llm.component';
 import { SettingsQualityComponent } from './settings-quality.component';
 import { SettingsSystemComponent } from './settings-system.component';
+import { SettingsVoiceComponent } from './settings-voice.component';
 import { SettingsState } from './settings-state.service';
 export {
   buildOllamaModelStrategyRowsValue, buildProjectModelRoutingRecommendationValue,
@@ -23,7 +24,7 @@ export {
   selector: 'app-settings',
   imports: [
     ChangePasswordComponent, UserManagementComponent, MfaSetupComponent,
-    SettingsLlmComponent, SettingsQualityComponent, SettingsSystemComponent,
+    SettingsLlmComponent, SettingsQualityComponent, SettingsSystemComponent, SettingsVoiceComponent,
   ],
   templateUrl: './settings.component.html',
 })

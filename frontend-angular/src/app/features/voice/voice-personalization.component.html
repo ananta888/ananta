@@ -1,0 +1,198 @@
+<section class="card voice-card mt-md" data-testid="voice-personalization">
+  <h3>Consent und Personalisierung</h3>
+  <p class="muted">Manuelle Reviews verändern das Lernprofil nie automatisch. Consent und jedes Feedback sind getrennte, bewusste Hub-Aktionen.</p>
+
+  <div class="grid cols-2 mt-md">
+    <label>Profil-ID
+      <input [(ngModel)]="profileId" (change)="load()" />
+    </label>
+    <label>Retention (Tage)
+      <input type="number" min="1" max="3650" [(ngModel)]="retentionDays" [class.input-error]="!validRetention()" />
+    </label>
+  </div>
+
+  @if (errorCode) { <div class="card danger mt-md" role="alert"><strong>{{ errorCode }}</strong> · {{ errorMessage }}</div> }
+  @if (successMessage) { <div class="card card-light mt-md" role="status">{{ successMessage }}</div> }
+
+  <div class="voice-consent-status mt-md">
+    <strong>Consent:</strong> {{ consent?.granted ? 'aktiv' : 'nicht aktiv' }}
+    · Version {{ consent?.version ?? 0 }}
+    · Zweck: persönliche Voice-Erkennung für dieses Profil
+    · Retention: {{ consent?.retention_days || retentionDays }} Tage
+  </div>
+
+  <fieldset class="voice-fieldset mt-md">
+    <legend>Einzeln freigegebene Zwecke</legend>
+    @for (choice of consentChoices; track choice.id) {
+      <label class="voice-consent-choice">
+        <input type="checkbox" [(ngModel)]="selectedCategories[choice.id]" [disabled]="busy || !!consent?.granted" />
+        <span><strong>{{ choice.label }}</strong><small class="muted">{{ choice.purpose }}</small></span>
+      </label>
+    }
+    @if (!consent?.granted) {
+      <label class="voice-confirm mt-md">
+        <input type="checkbox" [(ngModel)]="consentAcknowledged" />
+        Ich willige bewusst in die gewählten Zwecke und die angezeigte Retention ein.
+      </label>
+      <button type="button" class="mt-md" (click)="enableLearning()" [disabled]="busy || !consentAcknowledged || !validRetention() || !categories().length">Lernen aktivieren</button>
+    } @else {
+      <label class="voice-confirm mt-md">
+        <input type="checkbox" [(ngModel)]="revokeConfirmed" />
+        Consent wirklich widerrufen; neue Personalisierung wird sofort blockiert.
+      </label>
+      <button type="button" class="button-outline mt-md" (click)="revokeLearning()" [disabled]="busy || !revokeConfirmed">Consent widerrufen</button>
+    }
+  </fieldset>
+
+  @if (learningContext) {
+    <fieldset class="voice-fieldset mt-md">
+      <legend>Explizit aus abgeschlossener Review lernen</legend>
+      <p class="muted font-sm">Review <code>{{ learningContext.review.id }}</code> · Status {{ learningContext.review.state }}</p>
+      <div class="grid cols-2">
+        <label>Feedback-Typ
+          <select [(ngModel)]="feedbackKind">
+            <option value="vocabulary">Wortschatz</option>
+            <option value="substitution">Ersetzung</option>
+            <option value="preference">Präferenz</option>
+            <option value="negative">Negativbeispiel</option>
+          </select>
+        </label>
+        <span></span>
+        <label>Ausgangstext
+          <textarea [(ngModel)]="sourceText" rows="3" maxlength="12000"></textarea>
+        </label>
+        <label>Zieltext
+          <textarea [(ngModel)]="targetText" rows="3" maxlength="12000"></textarea>
+        </label>
+      </div>
+      <label class="voice-confirm mt-md">
+        <input type="checkbox" [(ngModel)]="learningConfirmed" />
+        Dieses konkrete, geprüfte Textpaar bewusst in mein Voice-Profil übernehmen.
+      </label>
+      <button type="button" class="mt-md" (click)="addFeedback()" [disabled]="busy || !consent?.granted || !learningConfirmed || !validFeedback()">Review-Feedback speichern</button>
+      @if (!consent?.granted) { <small class="error-text">voice_consent.required</small> }
+    </fieldset>
+  }
+
+  @if (snapshot) {
+    <div class="voice-personalization-summary mt-md">
+      <h4>Wirksamer Hub-Snapshot</h4>
+      <div class="grid cols-2">
+        <div>Version <strong>{{ snapshot.version }}</strong></div>
+        <div>Consent-Version <strong>{{ snapshot.consent_version }}</strong></div>
+        <div>Wortschatz <strong>{{ snapshot.vocabulary.length }}</strong></div>
+        <div>Ersetzungen <strong>{{ snapshot.substitutions.length }}</strong></div>
+        <div>Persistenz-Eigentümer <strong>{{ snapshot.persistence_owner }}</strong></div>
+        <div>Runtime-Persistenz <strong>{{ snapshot.runtime_persistence_allowed ? 'erlaubt' : 'verboten' }}</strong></div>
+      </div>
+    </div>
+  }
+
+  <fieldset class="voice-fieldset mt-md" data-testid="voice-portability">
+    <legend>Portabilität: schema-validierter Export und Import</legend>
+    <p class="muted font-sm">Der Hub exportiert und importiert ausschließlich <code>voice-personalization.v1</code>. Roh-Audio ist nicht Bestandteil dieses Vertrags.</p>
+    <button type="button" class="button-outline" (click)="exportData()" [disabled]="busy">Datenexport vom Hub</button>
+    @if (exported) {
+      <details class="mt-md"><summary>Letzten Export anzeigen</summary><pre>{{ exported | json }}</pre></details>
+    }
+    <div class="grid cols-2 mt-md">
+      <label>Importdatei
+        <input type="file" accept="application/json,.json" (change)="selectImportFile($event)" />
+      </label>
+      <span class="muted font-sm">Maximal 500 Einträge und 2 MB. Die Profil-ID muss dem Zielprofil entsprechen.</span>
+    </div>
+    <label class="mt-md">Import-JSON
+      <textarea
+        [(ngModel)]="importJson"
+        (blur)="validateImport()"
+        rows="10"
+        class="font-mono w-full"
+        placeholder='{"schema_version":"voice-personalization.v1","profile_id":"default","items":[]}'
+      ></textarea>
+    </label>
+    @if (importErrorCode) {
+      <p class="error-text" [attr.data-reason-code]="importErrorCode"><code>{{ importErrorCode }}</code> · {{ importErrorMessage }}</p>
+    }
+    <label class="voice-confirm mt-md">
+      <input type="checkbox" [(ngModel)]="importConfirmed" />
+      Diesen geprüften JSON-Inhalt bewusst in das angezeigte Profil importieren.
+    </label>
+    <button
+      type="button"
+      class="mt-md"
+      (click)="importData()"
+      [disabled]="busy || !consent?.granted || !importConfirmed || !importJson.trim()"
+    >Schema-validiert importieren</button>
+    @if (!consent?.granted) { <small class="error-text">voice_consent.required</small> }
+  </fieldset>
+
+  <fieldset class="voice-fieldset mt-md" data-testid="voice-feedback-reset">
+    <legend>Nur Personalisierungs-Feedback zurücksetzen</legend>
+    <p class="muted font-sm">Dieser Reset entfernt Feedback-Datensätze. Consent, Reviews und andere Voice-Profildaten bleiben bestehen.</p>
+    <label class="voice-confirm">
+      <input type="checkbox" [(ngModel)]="resetConfirmed" />
+      Feedback dieses Profils wirklich zurücksetzen
+    </label>
+    <button type="button" class="button-outline mt-md" (click)="resetData()" [disabled]="busy || !resetConfirmed">Feedback zurücksetzen</button>
+  </fieldset>
+
+  <fieldset class="voice-fieldset mt-md" data-testid="voice-fine-tuning-export">
+    <legend>Fine-Tuning-Datenexport als Hub-Task</legend>
+    <div class="card card-info"><strong>Export only:</strong> Dieser Task startet kein Training, lädt kein Modell und genehmigt keine spätere Trainingsausführung.</div>
+    <div class="grid cols-2 mt-md">
+      <label>Zweck
+        <input [(ngModel)]="fineTuningPurpose" maxlength="200" />
+      </label>
+      <label>Lizenz / Datenrecht
+        <input [(ngModel)]="fineTuningLicense" maxlength="160" />
+      </label>
+    </div>
+    <label class="voice-confirm mt-md">
+      <input type="checkbox" [(ngModel)]="fineTuningExportConfirmed" />
+      Einen minimierten Exporttask mit Consent-, Zweck-, Lizenz-, Herkunfts- und Löschmetadaten anlegen.
+    </label>
+    <button
+      type="button"
+      class="mt-md"
+      (click)="createFineTuningExportTask()"
+      [disabled]="busy || !consent?.granted || !fineTuningExportConfirmed || !fineTuningPurpose.trim() || !fineTuningLicense.trim()"
+    >Nur Exporttask erstellen</button>
+    @if (fineTuningTask) { <p role="status">Hub-Task: <code>{{ fineTuningTask.task_id }}</code> · startet kein Training</p> }
+  </fieldset>
+
+  <fieldset class="voice-fieldset voice-destructive-zone mt-md" data-testid="voice-profile-delete">
+    <legend>Vollständiges Voice-Profil löschen</legend>
+    <p><strong>Diese Privacy-Aktion ist umfassender als der Feedback-Reset:</strong> Sie löscht die profilbezogenen Voice-Daten über den Hub, widerruft Consent und invalidiert Snapshots.</p>
+    <label>Zur Bestätigung Profil-ID eingeben
+      <input [(ngModel)]="profileDeleteConfirmationText" [placeholder]="profileId" autocomplete="off" />
+    </label>
+    <label class="voice-confirm mt-md">
+      <input type="checkbox" [(ngModel)]="profileDeleteConfirmed" />
+      Das vollständige Voice-Profil unwiderruflich löschen.
+    </label>
+    <button
+      type="button"
+      class="danger mt-md"
+      (click)="deleteProfile()"
+      [disabled]="busy || !profileDeleteConfirmed || profileDeleteConfirmationText.trim() !== profileId.trim()"
+    >Voice-Profil vollständig löschen</button>
+    @if (privacyDeletion) {
+      <div
+        class="card mt-md"
+        data-testid="voice-privacy-delete-result"
+        [attr.data-cleanup-state]="privacyDeletion.runtime_cleanup_pending ? 'pending' : 'complete'"
+      >
+        <div>Hub-Datensätze gelöscht: <strong>{{ privacyDeletion.deleted_count }}</strong></div>
+        <div>Streams widerrufen: <strong>{{ privacyDeletion.revoked_stream_count }}</strong></div>
+        <div>Fehlgeschlagene Runtime-Bereinigungen: <strong>{{ privacyDeletion.runtime_cleanup_failed_count }}</strong></div>
+        @if (privacyDeletion.runtime_cleanup_pending) {
+          <strong class="error-text" data-reason-code="voice_privacy.runtime_cleanup_pending">
+            Runtime-Bereinigung ausstehend – die vollständige Löschung ist noch nicht bestätigt.
+          </strong>
+        } @else {
+          <strong>Hub- und Runtime-Bereinigung vollständig bestätigt.</strong>
+        }
+      </div>
+    }
+  </fieldset>
+</section>

@@ -1,0 +1,120 @@
+<section class="card voice-card mt-md" data-testid="voice-candidate-review">
+  <h3>Candidate-Vergleich und manuelle Review</h3>
+  <p class="muted">Audio wird an den Hub gesendet. Die Angular-App spricht keinen Voice- oder Inferenz-Container direkt an.</p>
+
+  <div class="grid cols-2 mt-md">
+    <label>Audio-Datei
+      <input type="file" accept="audio/*,.wav,.mp3,.ogg,.webm,.flac" (change)="selectFile($event)" />
+    </label>
+    <label>Sprache (optional)
+      <input [(ngModel)]="language" placeholder="de" />
+    </label>
+    <label>Profil-ID
+      <input [(ngModel)]="profileId" />
+    </label>
+    <label>Session-ID (optional)
+      <input [(ngModel)]="sessionId" />
+    </label>
+  </div>
+  <div class="row gap-sm mt-md voice-wrap">
+    <button type="button" (click)="transcribe()" [disabled]="busy || !file">Über Hub transkribieren</button>
+    @if (result) {
+      <button class="button-outline" type="button" (click)="createReview()" [disabled]="busy || !canCreateReview() || !!review">Hub-Review anlegen</button>
+    }
+  </div>
+  @if (result && !canCreateReview()) {
+    <p class="muted font-sm" data-reason-code="voice.review.candidates_or_result_ref_required">
+      Eine Review benötigt mindestens einen erfolgreichen Candidate und eine vom Hub gelieferte Result-Referenz.
+    </p>
+  }
+  @if (errorCode) { <div class="card danger mt-md" role="alert"><strong>{{ errorCode }}</strong> · {{ errorMessage }}</div> }
+  @if (successMessage) { <div class="card card-light mt-md" role="status">{{ successMessage }}</div> }
+
+  @if (result) {
+    <div class="voice-result-summary mt-md">
+      <div><strong>Fusion:</strong> {{ result.fusion_strategy || 'keine' }}</div>
+      <div><strong>Ausgewählt:</strong> {{ result.selected_candidate_id || '–' }}</div>
+      <div><strong>Provenance:</strong> {{ result.provenance_valid === false ? 'ungültig' : 'gültig' }}</div>
+      <div><strong>Result-Referenz:</strong> <code>{{ resultRef() || 'fehlt' }}</code></div>
+    </div>
+    <div class="voice-candidates mt-md">
+      @for (candidate of result.candidates || []; track candidate.candidate_id) {
+        <article class="voice-candidate" [class.voice-candidate-selected]="selectedCandidateId === candidate.candidate_id">
+          <label class="row gap-sm">
+            <input type="radio" name="voice-candidate" [value]="candidate.candidate_id" [(ngModel)]="selectedCandidateId" [disabled]="candidate.status !== 'succeeded' || review?.state !== 'pending' && !!review" />
+            <strong>{{ candidate.backend }}</strong>
+          </label>
+          <div class="font-mono font-sm">{{ candidate.candidate_id }}</div>
+          <dl class="voice-metadata">
+            <div><dt>Modell</dt><dd>{{ candidate.model || '–' }}</dd></div>
+            <div><dt>Revision</dt><dd>{{ candidate.model_revision || '–' }}</dd></div>
+            <div><dt>Ausführungsort</dt><dd>{{ candidate.execution_location || 'voice-runtime' }}</dd></div>
+            <div><dt>Device</dt><dd>{{ candidate.device || '–' }}</dd></div>
+            <div><dt>Audio-Variante</dt><dd>{{ candidate.audio_variant_id || 'original' }}</dd></div>
+            <div><dt>Source-Audio-Digest</dt><dd class="font-mono font-sm">{{ candidate.source_audio_digest || '–' }}</dd></div>
+            <div><dt>Confidence</dt><dd>{{ confidence(candidate.confidence) }}</dd></div>
+            <div><dt>Status</dt><dd>{{ candidate.status }}</dd></div>
+            <div><dt>Lineage-ID</dt><dd class="font-mono font-sm">{{ lineage(candidate) }}</dd></div>
+            <div><dt>Parents</dt><dd>{{ parents(candidate) }}</dd></div>
+          </dl>
+          @if (candidate.error) { <p class="error-text"><code>{{ candidate.error.code }}</code> · {{ candidate.error.message }}</p> }
+          <p class="voice-transcript">{{ candidate.text || 'Kein Text.' }}</p>
+          @if (candidate.segments?.length) {
+            <div class="voice-segments" aria-label="Zeitachsen-Segmente">
+              @for (segment of candidate.segments; track $index) {
+                <div><time>{{ formatTime(segment.start_ms) }}–{{ formatTime(segment.end_ms) }}</time><span>{{ segment.text }}</span><small>{{ confidence(segment.confidence) }}</small></div>
+              }
+            </div>
+          }
+        </article>
+      }
+      @if (!(result.candidates || []).length) { <p class="muted">Der gewählte Recognition-Modus hat keine vergleichbaren Candidates geliefert.</p> }
+    </div>
+
+    @if (result.disagreement_regions?.length) {
+      <h4 class="mt-md">Disagreements auf gemeinsamer Zeitachse</h4>
+      <div class="voice-table-wrap">
+        <table class="standard-table">
+          <thead><tr><th>Zeit</th><th>Alternativen</th><th>Fusion-Auswahl</th></tr></thead>
+          <tbody>
+            @for (region of result.disagreement_regions; track region.region_id) {
+              <tr>
+                <td>{{ formatTime(region.start_ms) }}–{{ formatTime(region.end_ms) }}</td>
+                <td>
+                  @for (alternative of region.alternatives; track alternative.candidate_id) {
+                    <div class="voice-disagreement-source">
+                      <code>{{ alternative.candidate_id }}</code>: {{ alternative.text || '∅' }}
+                      <small class="muted">Quelle: {{ disagreementSource(alternative.candidate_id) }}</small>
+                    </div>
+                  }
+                </td>
+                <td><code>{{ region.selected_candidate_id || '–' }}</code></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  }
+
+  @if (review) {
+    <div class="voice-review mt-md">
+      <h4>Hub-Review {{ review.id }}</h4>
+      <p>Status <strong>{{ review.state }}</strong> · Version {{ review.version }}. Original-Candidates bleiben oben unverändert sichtbar.</p>
+      @if (review.state === 'pending') {
+        <label>Manuelle Korrektur
+          <textarea [(ngModel)]="correctionText" rows="4" maxlength="12000" placeholder="Korrigiertes Transkript"></textarea>
+        </label>
+        <div class="row gap-sm mt-md voice-wrap">
+          <button type="button" (click)="decide('accept')" [disabled]="busy || !selectedCandidateId">Candidate akzeptieren</button>
+          <button class="button-outline" type="button" (click)="decide('correct')" [disabled]="busy || !correctionText.trim()">Korrektur übernehmen</button>
+          <button class="danger" type="button" (click)="decide('reject')" [disabled]="busy">Alle ablehnen</button>
+        </div>
+      } @else {
+        <p>Auswahl: <code>{{ review.selected_candidate_id || 'keine' }}</code></p>
+        @if (review.correction_text) { <p class="voice-transcript">{{ review.correction_text }}</p> }
+        <p class="muted font-sm">Diese Entscheidung aktiviert keine Personalisierung. Dafür ist unten eine separate Consent- und Lernaktion nötig.</p>
+      }
+    </div>
+  }
+</section>

@@ -34,7 +34,7 @@ export class SettingsState implements OnInit {
   qgMinOutputChars = 8;
   qgCodingKeywordsText = 'code, implement, fix, refactor, bug, test, feature, endpoint';
   qgMarkersText = 'test, pytest, passed, success, lint, ok';
-  selectedSection: 'account' | 'llm' | 'quality' | 'system' | 'erweitert' = 'llm';
+  selectedSection: 'account' | 'llm' | 'quality' | 'voice' | 'system' | 'erweitert' = 'llm';
   providerCatalog: any = null;
   benchmarkConfig: any = null;
   benchmarkRetentionDays = 90;
@@ -73,7 +73,7 @@ export class SettingsState implements OnInit {
       localStorage.setItem('ananta.dark-mode', 'false');
     }
   }
-  setSection(section: 'account' | 'llm' | 'quality' | 'system' | 'erweitert') {
+  setSection(section: 'account' | 'llm' | 'quality' | 'voice' | 'system' | 'erweitert') {
     this.selectedSection = section;
   }
   load() {

@@ -46,6 +46,28 @@ export class HubApiCoreService {
     return { headers };
   }
 
+  request<T>(
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
+    url: string,
+    baseUrl: string,
+    options: {
+      body?: unknown;
+      token?: string;
+      headers?: Record<string, string>;
+      timeoutMs?: number;
+    } = {},
+  ): Observable<T> {
+    let headers = this.getHeaders(baseUrl, options.token).headers;
+    for (const [name, value] of Object.entries(options.headers || {})) {
+      headers = headers.set(name, value);
+    }
+    const call = this.http.request<T>(method, url, {
+      body: options.body,
+      headers,
+    }).pipe(timeout(options.timeoutMs ?? this.timeoutMs));
+    return this.unwrapResponse(call);
+  }
+
   unwrapResponse<T>(obs: Observable<T>): Observable<T> {
     return obs.pipe(
       map((response: any) => {
