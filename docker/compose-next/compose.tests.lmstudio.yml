@@ -236,7 +236,8 @@ services:
       - ../../frontend-angular:/app
       - /app/node_modules
       - /ms-playwright
-    ports: []
+    ports:
+      - "${FRONTEND_PORT:-4200}:4200"
     depends_on:
       ai-agent-hub:
         condition: service_healthy
