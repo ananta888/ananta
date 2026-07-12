@@ -140,11 +140,11 @@ export class AiSnakeChatService implements OnDestroy {
     this.messages$.next([]);
   }
 
-  sendRoomMessage(text: string, snakePanelSessionId = '', contextHistory?: SnakeContextMessage[]): void {
+  sendRoomMessage(text: string, snakePanelSessionId = '', contextHistory?: SnakeContextMessage[]): string | null {
     const base = this.hubUrl();
     const snakeId = this.snakeId$.value;
     const content = String(text || '').trim();
-    if (!base || !snakeId || !this.snakeToken || !content) return;
+    if (!base || !snakeId || !this.snakeToken || !content) return null;
     const id = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
     this.awaitingReply$.next(true);
     const currentRoute = this.router.url;
@@ -174,6 +174,7 @@ export class AiSnakeChatService implements OnDestroy {
         this.error$.next('Senden fehlgeschlagen');
       },
     });
+    return id;
   }
 
   /** Silent UI-context tick — sends the compact DOM snapshot to the visual

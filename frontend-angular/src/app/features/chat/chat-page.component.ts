@@ -218,6 +218,11 @@ import { ChatSessionsPanelComponent } from '../../components/chat-sessions-panel
                     </div>
                     <div class="message-actions">
                       <button class="icon-btn" (click)="startMessageEdit(m)" title="Nachricht bearbeiten">✎</button>
+                      @if (m.isAI && m.kind !== 'summary') {
+                        <button class="icon-btn" (click)="regenerateMessage(m)"
+                                [disabled]="snakeSvc.awaitingReply$ | async"
+                                title="Nur diese Antwort neu generieren">↻</button>
+                      }
                       @if (m.kind === 'summary') {
                         <button class="icon-btn" (click)="dissolveSummary(m.id)" title="Zusammenfassung auflösen">↩</button>
                       }
@@ -518,7 +523,7 @@ export class ChatPageComponent implements OnInit, OnDestroy {
   readonly svc = inject(ChatSessionsService);
   readonly history = inject(ChatHistoryService);
   readonly traceSvc = inject(AiSnakeTraceService);
-  private snakeSvc = inject(AiSnakeChatService);
+  readonly snakeSvc = inject(AiSnakeChatService);
 
   selected: ChatSession | null = null;
   selectedId = '';
@@ -698,6 +703,13 @@ export class ChatPageComponent implements OnInit, OnDestroy {
 
   deleteMessage(message: ChatHistoryMessage): void {
     if (confirm('Nachricht wirklich löschen?')) this.history.deleteMessage(this.selectedId, message.id);
+  }
+
+  regenerateMessage(message: ChatHistoryMessage): void {
+    const request = this.history.regenerationRequest(this.selectedId, message.id);
+    if (!request) return;
+    const outgoingId = this.snakeSvc.sendRoomMessage(request.prompt, this.selectedId, request.context);
+    if (outgoingId) this.history.replaceWithNextAiMessage(this.selectedId, message.id, outgoingId);
   }
 
   groupedSessions(): Array<{ name: string; sessions: ChatSession[] }> {

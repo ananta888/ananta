@@ -32,6 +32,7 @@ export class ChatHistoryService implements OnDestroy {
   private store: Record<string, ChatHistoryMessage[]> = {};
   private knownIds = new Set<string>();
   private sub?: Subscription;
+  private pendingReplacement: { sessionId: string; targetId: string; outgoingId: string } | null = null;
 
   readonly updated$ = new BehaviorSubject<number>(0);
 
@@ -104,6 +105,37 @@ export class ChatHistoryService implements OnDestroy {
     return true;
   }
 
+  replaceWithNextAiMessage(sessionId: string, targetId: string, outgoingId: string): void {
+    this.pendingReplacement = { sessionId, targetId, outgoingId };
+    setTimeout(() => {
+      if (this.pendingReplacement?.outgoingId === outgoingId) this.pendingReplacement = null;
+    }, 180_000);
+  }
+
+  regenerationRequest(sessionId: string, targetId: string): {
+    prompt: string;
+    context: Array<{ role: 'user' | 'assistant'; content: string }>;
+  } | null {
+    const visible = this.getVisibleMessages(sessionId);
+    const targetIndex = visible.findIndex(message => message.id === targetId);
+    if (targetIndex < 0) return null;
+    let userIndex = -1;
+    for (let index = targetIndex - 1; index >= 0; index -= 1) {
+      if (!visible[index].isAI) {
+        userIndex = index;
+        break;
+      }
+    }
+    if (userIndex < 0) return null;
+    return {
+      prompt: visible[userIndex].text,
+      context: visible.slice(0, userIndex).map(message => ({
+        role: message.isAI ? 'assistant' : 'user',
+        content: message.text,
+      })),
+    };
+  }
+
   setIncludedInContext(sessionId: string, messageId: string, included: boolean): void {
     const message = (this.store[sessionId] ?? []).find(m => m.id === messageId);
     if (!message) return;
@@ -158,6 +190,11 @@ export class ChatHistoryService implements OnDestroy {
       if (this.knownIds.has(m.id)) continue;
       this.knownIds.add(m.id);
 
+      const pending = this.pendingReplacement;
+      if (pending && m.id === pending.outgoingId) {
+        continue;
+      }
+
       let text = m.text ?? '';
       let hasGuide = false;
       const guideIdx = text.indexOf(GUIDE_MARKER);
@@ -181,13 +218,28 @@ export class ChatHistoryService implements OnDestroy {
       // Use session_id from message if present (e.g. ananta-visual), else active session
       const sessionId = m.session_id || fallbackSessionId;
 
+      const isAI = m.sender_id?.startsWith('ai') || m.sender_id?.startsWith('tutor') || m.sender_id?.includes('snake');
+      if (pending && sessionId === pending.sessionId && isAI) {
+        const target = (this.store[sessionId] ?? []).find(message => message.id === pending.targetId);
+        if (target) {
+          target.text = text;
+          target.senderId = m.sender_id;
+          target.ts = m.created_at || Date.now();
+          target.hasGuide = hasGuide;
+          this.pendingReplacement = null;
+          changed = true;
+          continue;
+        }
+        this.pendingReplacement = null;
+      }
+
       const entry: ChatHistoryMessage = {
         id: m.id,
         sessionId,
         senderId: m.sender_id,
         text,
         ts: m.created_at || Date.now(),
-        isAI: m.sender_id?.startsWith('ai') || m.sender_id?.startsWith('tutor') || m.sender_id?.includes('snake'),
+        isAI,
         hasGuide,
       };
       if (!this.store[sessionId]) this.store[sessionId] = [];

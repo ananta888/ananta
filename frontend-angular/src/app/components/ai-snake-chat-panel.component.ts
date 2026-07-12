@@ -299,6 +299,11 @@ import { SnakeOverlayService } from '../services/snake-overlay.service';
                           {{ m.includedInContext === false ? '○' : '◉' }}
                         </button>
                         <button class="sum-mini" (click)="$event.stopPropagation(); beginEdit(m)" title="Nachricht bearbeiten">✎</button>
+                        @if (m.isAI) {
+                          <button class="sum-mini" (click)="$event.stopPropagation(); regenerateMessage(m)"
+                                  [disabled]="svc.awaitingReply$ | async"
+                                  title="Nur diese Antwort neu generieren">↻</button>
+                        }
                         <button class="sum-mini danger" (click)="$event.stopPropagation(); deleteMessage(m)" title="Nachricht löschen">⌫</button>
                       </span>
                     </div>
@@ -622,6 +627,14 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
     this.history.deleteMessage(this._snakeSessionId || 'default', message.id);
     this.selectedMsgIds.delete(message.id);
     if (this.editingMessageId === message.id) this.cancelEdit();
+  }
+
+  regenerateMessage(message: ChatHistoryMessage): void {
+    const sessionId = this._snakeSessionId || 'default';
+    const request = this.history.regenerationRequest(sessionId, message.id);
+    if (!request) return;
+    const outgoingId = this.svc.sendRoomMessage(request.prompt, sessionId, request.context);
+    if (outgoingId) this.history.replaceWithNextAiMessage(sessionId, message.id, outgoingId);
   }
 
   toggleSelectMode(): void {
