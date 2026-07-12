@@ -38,7 +38,7 @@ def sessions_ctx(sessions: list, active_id: str = ""):
 
     Note: get_sessions() always ensures at least the default sessions when the
     stored list is empty (see chat_state.get_sessions for the guard). Tests that
-    start with 0 sessions will therefore get the 3 default sessions back from
+    start with 0 sessions will therefore get the starter sessions back from
     GET /sessions — that is expected behaviour.
     """
     active_id = active_id or (sessions[0]["id"] if sessions else "")
@@ -70,12 +70,11 @@ def sessions_ctx(sessions: list, active_id: str = ""):
 
 
 def test_list_sessions_returns_defaults_when_none_stored(client):
-    """When no sessions are persisted, the endpoint returns the 3 built-in default
-    sessions — get_sessions() guarantees the list is never empty."""
+    """When none are persisted, return the starter chat and visual log."""
     with sessions_ctx([]):
         r = client.get("/api/chat/sessions")
     assert r.status_code == 200
-    assert len(r.json) == 3  # code-help, writing-coach, general
+    assert [session["id"] for session in r.json] == ["chat-default", "ananta-visual"]
 
 
 def test_list_sessions_with_saved_sessions(client):

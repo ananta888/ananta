@@ -48,15 +48,7 @@ def _load_chat() -> dict[str, Any]:
     sessions = settings.get("chat_sessions") or default_conversations()
     active_id = settings.get("chat_active_session_id") or (sessions[0]["id"] if sessions else "")
     chat = {"ai_sessions": sessions, "active_session_id": active_id, "channels": {}, "_preserve_session_list": True}
-    migrated = get_sessions(chat)
-    if settings.get("chat_model_version") != 2 or migrated != sessions:
-        manager.save(
-            {
-                "chat_sessions": migrated,
-                "chat_active_session_id": active_id,
-                "chat_model_version": 2,
-            }
-        )
+    get_sessions(chat)
     return chat
 
 
@@ -66,6 +58,7 @@ def _save_chat(chat: dict[str, Any]) -> None:
         {
             "chat_sessions": chat.get("ai_sessions") or [],
             "chat_active_session_id": chat.get("active_session_id") or "",
+            "chat_model_version": 2,
         }
     )
 
