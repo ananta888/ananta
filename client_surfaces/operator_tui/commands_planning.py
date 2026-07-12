@@ -58,8 +58,16 @@ def _build_diff3_payload(*, state: dict, goal_id: str | None) -> dict:
         status = "empty"
         stats: dict[str, object] = {}
         if source and panel_type == "diff":
-            resolved = resolver.resolve(source, goal_id=goal_id)
-            if bool(resolved.get("ok")):
+            # A state/render refresh must stay cheap. Current working-tree diffs
+            # are resolved only by workflows that consume their content (for
+            # example the AI context builder), not for every TUI command.
+            source_kind = str(source.get("source_kind") or "")
+            if source_kind in {"git_diff", "working_tree"}:
+                status = "available"
+                resolved = None
+            else:
+                resolved = resolver.resolve(source, goal_id=goal_id)
+            if resolved is not None and bool(resolved.get("ok")):
                 status = "ready"
                 doc = engine.build_document(left=resolved, render_mode=render_mode)
                 stats = dict(doc.get("stats") or {})
@@ -69,7 +77,7 @@ def _build_diff3_payload(*, state: dict, goal_id: str | None) -> dict:
                     source_label = f"{source_label}#{output_ref}" if output_ref else source_label
                     if prov:
                         source_label = f"{source_label} prov={prov}"
-            else:
+            elif resolved is not None:
                 status = str(resolved.get("reason_code") or "degraded")
         elif panel_type.startswith("ai_"):
             ai_state = dict(dict(state.get("extensions") or {}).get("ai_panel_state") or {})
