@@ -1,0 +1,15 @@
+{
+  "schema_version": "ananta-evaluation-dataset.v1",
+  "datasets": [
+    {
+      "dataset_id": "restricted-ci-fixed-choice-v1",
+      "source": "hand-authored fixed-choice conformance cases",
+      "license": "Apache-2.0",
+      "sha256": "sha256:d3a9165b97a2ad213a3f4e6f77be83eb73e5a91f279bf241521b56e23af512cc",
+      "language": "en",
+      "data_class": "synthetic",
+      "split": "ci",
+      "consent_basis": "not-applicable-synthetic"
+    }
+  ]
+}

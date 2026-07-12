@@ -1,0 +1,19 @@
+{
+  "schema_version": "ananta.voice-restricted-thresholds.v1",
+  "threshold_version": "voice-core-2026-07-12.v1",
+  "suite_id": "voice-core",
+  "thresholds": [
+    {"metric": "wer", "direction": "maximum", "limit": 0.25, "allowed_regression": 0.01},
+    {"metric": "cer", "direction": "maximum", "limit": 0.15, "allowed_regression": 0.01},
+    {"metric": "named_entity_accuracy", "direction": "minimum", "limit": 0.85, "allowed_regression": 0.01},
+    {"metric": "number_accuracy", "direction": "minimum", "limit": 0.90, "allowed_regression": 0.01},
+    {"metric": "timestamp_mae_ms", "direction": "maximum", "limit": 250.0, "allowed_regression": 20.0},
+    {"metric": "expected_calibration_error", "direction": "maximum", "limit": 0.10, "allowed_regression": 0.01},
+    {"metric": "brier_score", "direction": "maximum", "limit": 0.12, "allowed_regression": 0.01},
+    {"metric": "provenance_coverage", "direction": "minimum", "limit": 1.0, "allowed_regression": 0.0},
+    {"metric": "p95_latency_ms", "direction": "maximum", "limit": 30000.0, "allowed_regression": 500.0},
+    {"metric": "real_time_factor", "direction": "maximum", "limit": 1.0, "allowed_regression": 0.05},
+    {"metric": "peak_ram_mb", "direction": "maximum", "limit": 8192.0, "allowed_regression": 128.0},
+    {"metric": "peak_vram_mb", "direction": "maximum", "limit": 9216.0, "allowed_regression": 128.0, "required": false}
+  ]
+}

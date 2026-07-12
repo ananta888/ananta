@@ -1,0 +1,76 @@
+{
+  "schema": "pair-view-sync-budget/v1",
+  "generated_at": "deterministic",
+  "inputs": {
+    "duration_s": 300,
+    "partners": 1,
+    "seed": 42,
+    "traffic_profile": {
+      "scroll_hz": 8,
+      "cursor_hz": 15,
+      "selection_hz": 0.4,
+      "route_hz": 0.05,
+      "artifact_hz": 0.1,
+      "snapshot_hz": 0.0033
+    }
+  },
+  "totals": {
+    "deltas_sent": 7033,
+    "bytes_sent": 1446448,
+    "avg_bytes_per_s": 4821,
+    "peak_bytes_per_s": 7581
+  },
+  "by_kind": [
+    {
+      "kind": "cursor",
+      "count": 4492,
+      "total_bytes": 955627,
+      "avg_bytes": 213,
+      "payload_bytes": 924183
+    },
+    {
+      "kind": "scroll",
+      "count": 2386,
+      "total_bytes": 457644,
+      "avg_bytes": 192,
+      "payload_bytes": 440942
+    },
+    {
+      "kind": "selection",
+      "count": 110,
+      "total_bytes": 21986,
+      "avg_bytes": 200,
+      "payload_bytes": 21216
+    },
+    {
+      "kind": "artifact",
+      "count": 26,
+      "total_bytes": 6518,
+      "avg_bytes": 251,
+      "payload_bytes": 6336
+    },
+    {
+      "kind": "route",
+      "count": 19,
+      "total_bytes": 4673,
+      "avg_bytes": 246,
+      "payload_bytes": 4540
+    },
+    {
+      "kind": "snapshot",
+      "count": 0,
+      "total_bytes": 0,
+      "avg_bytes": 0,
+      "payload_bytes": 0
+    }
+  ],
+  "budget_gates": {
+    "avg_bytes_per_s_max": 16000,
+    "peak_bytes_per_s_max": 64000,
+    "per_delta_bytes_max": 8192
+  },
+  "pass": {
+    "avg": true,
+    "peak": true
+  }
+}

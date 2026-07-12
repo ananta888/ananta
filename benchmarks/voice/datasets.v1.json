@@ -1,0 +1,15 @@
+{
+  "schema_version": "ananta-evaluation-dataset.v1",
+  "datasets": [
+    {
+      "dataset_id": "voice-ci-generated-silence-v1",
+      "source": "deterministic PCM generator described in tests/test_evaluation_contracts.py",
+      "license": "CC0-1.0",
+      "sha256": "sha256:7a7c4e80426f490dc84e7aa9e752b0e9a057e20eed8a7f57ce4458c59f9d6c47",
+      "language": "und",
+      "data_class": "synthetic",
+      "split": "ci",
+      "consent_basis": "not-applicable-synthetic"
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/voice-restricted-benchmark-report.v1.json",
+  "title": "Ananta Voice and restricted inference benchmark report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "report_id", "suite_id", "dataset_id", "dataset_digest",
+    "dataset_split", "execution", "threshold_version", "metrics",
+    "baseline_metrics", "failures", "recommendation", "status"
+  ],
+  "properties": {
+    "schema_version": {"const": "ananta.voice-restricted-benchmark-report.v1"},
+    "report_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "suite_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "dataset_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "dataset_digest": {"type": "string", "pattern": "^(sha256:)?[0-9a-f]{64}$"},
+    "dataset_split": {"enum": ["ci", "hardware", "holdout"]},
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["git_sha", "engine_versions", "profile_id", "hardware", "configuration", "models"],
+      "properties": {
+        "git_sha": {"type": "string", "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$"},
+        "engine_versions": {
+          "type": "object", "minProperties": 1,
+          "additionalProperties": {"type": "string", "minLength": 1}
+        },
+        "profile_id": {"enum": ["ci-contract", "cpu", "rtx-3080", "high-end-gpu"]},
+        "hardware": {"type": "object", "minProperties": 1},
+        "configuration": {"type": "object", "minProperties": 1},
+        "models": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": [
+              "capability", "engine", "model_id", "model_revision",
+              "manifest_digest", "quantization", "execution_location"
+            ],
+            "properties": {
+              "capability": {"type": "string", "minLength": 1},
+              "engine": {"type": "string", "minLength": 1},
+              "model_id": {"type": "string", "minLength": 1},
+              "model_revision": {"type": "string", "minLength": 1},
+              "manifest_digest": {"type": "string", "pattern": "^(sha256:)?[0-9a-f]{64}$"},
+              "quantization": {"type": "string", "minLength": 1},
+              "execution_location": {"enum": ["voice-runtime", "restricted-inference-worker"]}
+            }
+          }
+        }
+      }
+    },
+    "threshold_version": {"type": "string", "minLength": 1, "maxLength": 256},
+    "metrics": {"$ref": "#/$defs/metrics"},
+    "baseline_metrics": {"$ref": "#/$defs/metrics"},
+    "failures": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["metric", "reason_code", "actual", "permitted"],
+        "properties": {
+          "metric": {"type": "string", "minLength": 1},
+          "reason_code": {"enum": ["metric_regression", "required_metric_missing", "holdout_required_for_promotion"]},
+          "actual": {"type": ["number", "null"]},
+          "permitted": {"type": ["number", "null"]}
+        }
+      }
+    },
+    "recommendation": {"type": "string", "pattern": "^(recommend|do_not_recommend)_[a-z0-9_-]+$"},
+    "status": {"enum": ["passed", "failed"]},
+    "report_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  },
+  "$defs": {
+    "metrics": {
+      "type": "object",
+      "propertyNames": {"pattern": "^[a-z][a-z0-9_]*$"},
+      "additionalProperties": {"type": "number"}
+    }
+  }
+}

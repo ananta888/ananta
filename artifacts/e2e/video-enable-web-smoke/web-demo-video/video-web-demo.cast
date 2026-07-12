@@ -1,0 +1,4 @@
+schema: web-video-placeholder-v1
+run_id: video-enable-web-smoke
+flow: web_demo
+events: []
