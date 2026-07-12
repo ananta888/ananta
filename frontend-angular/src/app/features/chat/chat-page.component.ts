@@ -8,12 +8,33 @@ import { AiSnakeChatService } from '../../services/ai-snake-chat.service';
 import { AiSnakeTraceViewerComponent } from '../../components/ai-snake-trace-viewer.component';
 import { AiSnakeTraceService } from '../../services/ai-snake-trace.service';
 import { ChatMessageComponent } from '../../components/chat-message.component';
+import { ChatSessionsPanelComponent } from '../../components/chat-sessions-panel.component';
 
 @Component({
   selector: 'app-chat-page',
   standalone: true,
-  imports: [CommonModule, AsyncPipe, DatePipe, FormsModule, AiSnakeTraceViewerComponent, ChatMessageComponent],
+  imports: [
+    CommonModule,
+    AsyncPipe,
+    DatePipe,
+    FormsModule,
+    AiSnakeTraceViewerComponent,
+    ChatMessageComponent,
+    ChatSessionsPanelComponent,
+  ],
   template: `
+<div class="chat-view-switcher" aria-label="Chat-Ansicht">
+  <button [class.active]="viewMode === 'chat'" (click)="viewMode = 'chat'">💬 Chat</button>
+  <button [class.active]="viewMode === 'organization'" (click)="viewMode = 'organization'">
+    🗂 Organisation
+  </button>
+</div>
+
+@if (viewMode === 'organization') {
+  <section class="organization-page">
+    <app-chat-sessions-panel />
+  </section>
+} @else {
 <div class="chat-page">
 
   <!-- ══ 1: Session-Sidebar ══ -->
@@ -36,6 +57,7 @@ import { ChatMessageComponent } from '../../components/chat-message.component';
             <span class="si-icon">{{ s.icon || '💬' }}</span>
             <span class="si-body">
               <span class="si-name">{{ s.name }}</span>
+              <span class="si-meta">{{ sessionClassification(s) }}</span>
               <span class="si-meta">{{ lastMessagePreview(s.id) }}</span>
             </span>
             @if (s.id === (svc.activeSessionId$ | async)) {
@@ -61,6 +83,29 @@ import { ChatMessageComponent } from '../../components/chat-message.component';
             <option value="hermes">hermes</option>
           </select>
         </label>
+        <label class="nf-label">Chat-Profil
+          <select [(ngModel)]="newProfileId">
+            @for (profile of svc.profiles$ | async; track profile.id) {
+              <option [value]="profile.id">{{ profile.icon || '🎯' }} {{ profile.name }}</option>
+            }
+          </select>
+        </label>
+        <label class="nf-label">Typ
+          <select [(ngModel)]="newSessionType" (ngModelChange)="newSessionSubtype = ''">
+            <option value="">(nicht klassifiziert)</option>
+            @for (type of svc.types$ | async; track type.id) {
+              <option [value]="type.id">{{ type.icon }} {{ type.name }}</option>
+            }
+          </select>
+        </label>
+        @if (newTypeSubtypes().length) {
+          <label class="nf-label">Subtyp
+            <select [(ngModel)]="newSessionSubtype">
+              <option value="">(kein Subtyp)</option>
+              @for (subtype of newTypeSubtypes(); track subtype) { <option [value]="subtype">{{ subtype }}</option> }
+            </select>
+          </label>
+        }
         <label class="nf-label inline">
           <input type="checkbox" [(ngModel)]="newCC" /> CodeCompass
         </label>
@@ -128,6 +173,21 @@ import { ChatMessageComponent } from '../../components/chat-message.component';
       <!-- Nachrichten -->
       @if (detailTab === 'messages') {
         <div class="messages-area">
+          <div class="message-tools">
+            <button class="btn-ghost small" [class.active-tool]="selectMode" (click)="toggleSelectMode()">
+              {{ selectMode ? 'Auswahl beenden' : 'Nachrichten zusammenfassen' }}
+            </button>
+            @if (selectMode) {
+              <select [(ngModel)]="summaryLength">
+                <option [ngValue]="400">kurz</option>
+                <option [ngValue]="800">mittel</option>
+                <option [ngValue]="1500">lang</option>
+              </select>
+              <button class="btn-primary" [disabled]="selectedMessageIds.size < 2 || summarizing" (click)="summarizeSelected()">
+                {{ summarizing ? 'Fasse zusammen…' : 'Auswahl zusammenfassen (' + selectedMessageIds.size + ')' }}
+              </button>
+            }
+          </div>
           @if (messages().length === 0) {
             <div class="no-msgs">
               <div>Keine Nachrichten.</div>
@@ -136,12 +196,34 @@ import { ChatMessageComponent } from '../../components/chat-message.component';
           } @else {
             <div class="msg-list">
               @for (m of messages(); track m.id) {
-                <div class="msg-row" [class.msg-ai]="m.isAI" [class.msg-user]="!m.isAI">
+                <div class="msg-row" [class.msg-ai]="m.isAI" [class.msg-user]="!m.isAI"
+                     [class.selected-message]="selectedMessageIds.has(m.id)">
+                  @if (selectMode) {
+                    <input type="checkbox" [checked]="selectedMessageIds.has(m.id)" (change)="toggleMessageSelection(m.id)" />
+                  }
                   <div class="msg-header">
                     <span class="msg-sender">{{ m.isAI ? '🤖' : '👤' }} {{ m.senderId }}</span>
                     <span class="msg-ts">{{ m.ts | date:'HH:mm:ss' }}</span>
                   </div>
-                  <div class="msg-text"><app-chat-message [text]="m.text" /></div>
+                  @if (editingMessageId === m.id) {
+                    <textarea class="message-edit" [(ngModel)]="editingMessageText"></textarea>
+                    <div class="message-actions">
+                      <button class="btn-primary" (click)="saveMessageEdit(m)">Speichern</button>
+                      <button class="btn-ghost" (click)="cancelMessageEdit()">Abbrechen</button>
+                    </div>
+                  } @else {
+                    <div class="msg-text">
+                      @if (m.kind === 'summary') { <strong>📋 Zusammenfassung</strong> }
+                      <app-chat-message [text]="m.text" />
+                    </div>
+                    <div class="message-actions">
+                      <button class="icon-btn" (click)="startMessageEdit(m)" title="Nachricht bearbeiten">✎</button>
+                      @if (m.kind === 'summary') {
+                        <button class="icon-btn" (click)="dissolveSummary(m.id)" title="Zusammenfassung auflösen">↩</button>
+                      }
+                      <button class="icon-btn danger" (click)="deleteMessage(m)" title="Nachricht löschen">⌫</button>
+                    </div>
+                  }
                 </div>
               }
             </div>
@@ -219,9 +301,35 @@ import { ChatMessageComponent } from '../../components/chat-message.component';
   </section>
 
 </div>
+}
   `,
   styles: [`
     :host { display: block; height: 100%; }
+
+    .chat-view-switcher {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .chat-view-switcher button {
+      border: 1px solid #2a4070;
+      border-radius: 5px;
+      background: #0d1e34;
+      color: #8ab0d8;
+      cursor: pointer;
+      padding: 6px 12px;
+    }
+    .chat-view-switcher button:hover,
+    .chat-view-switcher button.active {
+      border-color: #7fffd4;
+      color: #7fffd4;
+      background: #102b3d;
+    }
+    .organization-page {
+      height: calc(100vh - 164px);
+      min-height: 400px;
+      overflow: auto;
+    }
 
     .chat-page {
       display: grid;
@@ -323,6 +431,8 @@ import { ChatMessageComponent } from '../../components/chat-message.component';
     .tabs button.tab-active { color: #7fffd4; border-bottom-color: #7fffd4; }
 
     .messages-area { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+    .message-tools { display: flex; gap: 6px; align-items: center; padding: 8px 12px; border-bottom: 1px solid #1a2d4a; }
+    .active-tool { color: #7fffd4; border-color: #2a8068; }
     .no-msgs {
       flex: 1; display: flex; flex-direction: column; align-items: center;
       justify-content: center; gap: 10px; color: #3a5a8a; font-size: 13px; padding: 20px; text-align: center;
@@ -333,6 +443,9 @@ import { ChatMessageComponent } from '../../components/chat-message.component';
       display: flex; flex-direction: column; gap: 4px;
       padding: 8px 12px; border-radius: 5px; border: 1px solid #152040;
     }
+    .msg-row.selected-message { background: #102b3d; }
+    .message-edit { width: 100%; min-height: 90px; background: #07111f; color: #dbe8ff; border: 1px solid #3a5a7a; }
+    .message-actions { display: flex; justify-content: flex-end; gap: 4px; }
     .msg-user { background: #0a1830; border-color: #1a2d4a; }
     .msg-ai   { background: #0a1c14; border-color: #1a3a25; }
     .msg-header { display: flex; justify-content: space-between; align-items: center; }
@@ -410,6 +523,7 @@ export class ChatPageComponent implements OnInit, OnDestroy {
   selected: ChatSession | null = null;
   selectedId = '';
   detailTab: 'messages' | 'settings' = 'messages';
+  viewMode: 'chat' | 'organization' = 'chat';
 
   showNew = false;
   newName = '';
@@ -417,6 +531,16 @@ export class ChatPageComponent implements OnInit, OnDestroy {
   newPrompt = '';
   newBackend = 'ananta-worker';
   newCC = true;
+  newProfileId = 'general';
+  newSessionType = '';
+  newSessionSubtype = '';
+
+  selectMode = false;
+  selectedMessageIds = new Set<string>();
+  summaryLength = 800;
+  summarizing = false;
+  editingMessageId = '';
+  editingMessageText = '';
 
   editingName = false;
   editNameVal = '';
@@ -449,6 +573,9 @@ export class ChatPageComponent implements OnInit, OnDestroy {
     this.selectedId = s.id;
     this.editingName = false;
     this.detailTab = 'messages';
+    this.selectMode = false;
+    this.selectedMessageIds.clear();
+    this.cancelMessageEdit();
   }
 
   activateSelected(): void {
@@ -472,10 +599,14 @@ export class ChatPageComponent implements OnInit, OnDestroy {
       name, icon: this.newIcon || '💬',
       system_prompt: this.newPrompt,
       settings: { chat_backend: this.newBackend, chat_use_codecompass: this.newCC },
+      profile_id: this.newProfileId,
+      session_type: this.newSessionType,
+      session_subtype: this.newSessionSubtype,
     };
     this.svc.create(payload);
     this.newName = ''; this.newIcon = '💬'; this.newPrompt = '';
     this.newBackend = 'ananta-worker'; this.newCC = true;
+    this.newProfileId = 'general'; this.newSessionType = ''; this.newSessionSubtype = '';
     this.showNew = false;
   }
 
@@ -494,7 +625,7 @@ export class ChatPageComponent implements OnInit, OnDestroy {
   }
 
   messages(): ChatHistoryMessage[] {
-    return this.history.getMessages(this.selectedId);
+    return this.history.getVisibleMessages(this.selectedId);
   }
 
   messageCount(): number {
@@ -503,6 +634,70 @@ export class ChatPageComponent implements OnInit, OnDestroy {
 
   clearMessages(): void {
     if (this.selectedId) this.history.clearSession(this.selectedId);
+  }
+
+  newTypeSubtypes(): string[] {
+    return this.svc.types$.value.find(type => type.id === this.newSessionType)?.subtypes ?? [];
+  }
+
+  sessionClassification(session: ChatSession): string {
+    const profile = this.svc.profiles$.value.find(item => item.id === session.profile_id)?.name
+      || session.profile_id || 'Allgemein';
+    const type = this.svc.types$.value.find(item => item.id === session.session_type)?.name || session.session_type;
+    return type
+      ? `${profile} · ${type}${session.session_subtype ? ` / ${session.session_subtype}` : ''}`
+      : `Profil: ${profile}`;
+  }
+
+  toggleSelectMode(): void {
+    this.selectMode = !this.selectMode;
+    if (!this.selectMode) this.selectedMessageIds.clear();
+  }
+
+  toggleMessageSelection(messageId: string): void {
+    if (this.selectedMessageIds.has(messageId)) this.selectedMessageIds.delete(messageId);
+    else this.selectedMessageIds.add(messageId);
+  }
+
+  summarizeSelected(): void {
+    const selected = this.messages().filter(message => this.selectedMessageIds.has(message.id));
+    if (!this.selectedId || selected.length < 2) return;
+    this.summarizing = true;
+    this.svc.summarizeMessages(
+      this.selectedId,
+      selected.map(message => ({ sender: message.isAI ? 'ai' : 'user', text: message.text })),
+      this.summaryLength,
+    ).subscribe({
+      next: result => {
+        this.history.insertSummary(this.selectedId, result.summary || '', selected.map(message => message.id));
+        this.summarizing = false;
+        this.selectMode = false;
+        this.selectedMessageIds.clear();
+      },
+      error: () => { this.summarizing = false; },
+    });
+  }
+
+  startMessageEdit(message: ChatHistoryMessage): void {
+    this.editingMessageId = message.id;
+    this.editingMessageText = message.text;
+  }
+
+  saveMessageEdit(message: ChatHistoryMessage): void {
+    if (this.history.updateMessage(this.selectedId, message.id, this.editingMessageText)) this.cancelMessageEdit();
+  }
+
+  cancelMessageEdit(): void {
+    this.editingMessageId = '';
+    this.editingMessageText = '';
+  }
+
+  dissolveSummary(summaryId: string): void {
+    this.history.dissolveSummary(this.selectedId, summaryId);
+  }
+
+  deleteMessage(message: ChatHistoryMessage): void {
+    if (confirm('Nachricht wirklich löschen?')) this.history.deleteMessage(this.selectedId, message.id);
   }
 
   groupedSessions(): Array<{ name: string; sessions: ChatSession[] }> {
