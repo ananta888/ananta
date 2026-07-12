@@ -385,6 +385,15 @@ def _sanitize_sessions(sessions: list[Any]) -> list[dict[str, Any]]:
         raw_delta = item.get("settings_delta")
         if isinstance(raw_delta, dict):
             clean["settings_delta"] = _sanitize_session_settings(raw_delta)
+        for key in ("profile_settings", "legacy_settings_delta", "process_ref"):
+            value = item.get(key)
+            if isinstance(value, dict):
+                records = _sanitize_json_records([value])
+                if records:
+                    clean[key] = records[0]
+        raw_runs = item.get("process_runs")
+        if isinstance(raw_runs, list):
+            clean["process_runs"] = _sanitize_json_records(raw_runs)[-20:]
         out.append(clean)
     return out
 

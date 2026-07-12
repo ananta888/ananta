@@ -23,6 +23,7 @@ GET    /api/visual-process/graphs/<id>          — load graph
 PUT    /api/visual-process/graphs/<id>          — update graph
 DELETE /api/visual-process/graphs/<id>          — delete graph
 """
+
 from __future__ import annotations
 
 import json
@@ -43,12 +44,41 @@ from agent.visual_process.models import VisualProcessGraph
 from agent.visual_process.policy_hints import annotate_graph, policy_summary
 from agent.visual_process.presets import get_preset, list_presets
 from agent.visual_process.skill_profiles import get_skill_profile_registry
-from agent.visual_process.task_kind_registry import list_task_kinds
 from agent.visual_process.step_executor import get_step_executor
+from agent.visual_process.task_kind_registry import list_task_kinds
 from agent.visual_process.validator import VisualProcessValidator
 
 vp_bp = Blueprint("visual_process", __name__, url_prefix="/api/visual-process")
 _validator = VisualProcessValidator()
+
+
+def _next_process_version(version: str) -> str:
+    parts = str(version or "1.0").split(".")
+    try:
+        return f"{int(parts[0])}.{int(parts[1] if len(parts) > 1 else 0) + 1}"
+    except ValueError:
+        return f"{version}.1"
+
+
+def _archive_graph_revision(db: Session, row: VisualProcessGraphDB) -> None:
+    try:
+        data = json.loads(row.graph_json)
+    except (TypeError, ValueError):
+        return
+    version = str(data.get("version") or "1.0")
+    revision_id = f"{row.id}@{version}"
+    if db.get(VisualProcessGraphDB, revision_id) is None:
+        db.add(
+            VisualProcessGraphDB(
+                id=revision_id,
+                name=row.name,
+                description=row.description,
+                tags=row.tags,
+                graph_json=row.graph_json,
+                created_at=row.created_at,
+                updated_at=row.updated_at,
+            )
+        )
 
 
 def _parse_graph() -> tuple[VisualProcessGraph | None, dict | None]:
@@ -100,7 +130,10 @@ def _build_model_plan(graph: VisualProcessGraph) -> dict:
     except Exception:
         resolver = None
     if resolver is None:
-        return {"per_step_model_plan": [], "model_routing_summary": {"status": "not_configured", "total_estimated_cost": 0.0}}
+        return {
+            "per_step_model_plan": [],
+            "model_routing_summary": {"status": "not_configured", "total_estimated_cost": 0.0},
+        }
 
     estimator = ModelCostEstimator()
     per_step: list[dict] = []
@@ -126,33 +159,34 @@ def _build_model_plan(graph: VisualProcessGraph) -> dict:
         estimate = estimator.estimate_for_profile(selected, prompt_text=context_text).as_dict() if selected else None
         if estimate:
             total_cost += float(estimate["estimated_total_cost"])
-        per_step.append({
-            "step_id": step.id,
-            "model_role": ctx.model_role,
-            "selected_profile_id": selected.profile_id if selected else None,
-            "provider_id": selected.provider_id if selected else None,
-            "model": selected.model if selected else None,
-            "resolver_source": result.final_source,
-            "resolver_rank": result.final_rank,
-            "fallback_group_id": routing.get("fallback_group_id") or getattr(selected, "fallback_group", None),
-            "candidate_chain": [p.profile_id for p in chain],
-            "cloud_allowed": bool(routing.get("allow_cloud", False)),
-            "blocked_candidates": [
-                {"profile_id": pid, "reason": reason}
-                for pid, reason in list(result.blocked_candidates or [])
-            ],
-            "policy_decisions": [
-                {
-                    "rank": d.rank,
-                    "source": d.source,
-                    "profile_id": d.profile_id,
-                    "accepted": d.accepted,
-                    "reason": d.reason,
-                }
-                for d in list(result.decisions or [])
-            ],
-            "estimated_cost": estimate,
-        })
+        per_step.append(
+            {
+                "step_id": step.id,
+                "model_role": ctx.model_role,
+                "selected_profile_id": selected.profile_id if selected else None,
+                "provider_id": selected.provider_id if selected else None,
+                "model": selected.model if selected else None,
+                "resolver_source": result.final_source,
+                "resolver_rank": result.final_rank,
+                "fallback_group_id": routing.get("fallback_group_id") or getattr(selected, "fallback_group", None),
+                "candidate_chain": [p.profile_id for p in chain],
+                "cloud_allowed": bool(routing.get("allow_cloud", False)),
+                "blocked_candidates": [
+                    {"profile_id": pid, "reason": reason} for pid, reason in list(result.blocked_candidates or [])
+                ],
+                "policy_decisions": [
+                    {
+                        "rank": d.rank,
+                        "source": d.source,
+                        "profile_id": d.profile_id,
+                        "accepted": d.accepted,
+                        "reason": d.reason,
+                    }
+                    for d in list(result.decisions or [])
+                ],
+                "estimated_cost": estimate,
+            }
+        )
     return {
         "per_step_model_plan": per_step,
         "model_routing_summary": {
@@ -164,6 +198,7 @@ def _build_model_plan(graph: VisualProcessGraph) -> dict:
 
 
 # ── Presets ───────────────────────────────────────────────────────────────────
+
 
 @vp_bp.get("/presets")
 def get_presets():
@@ -179,6 +214,7 @@ def get_preset_by_id(preset_id: str):
 
 
 # ── Skill profiles (VPAD-005 agent library) ───────────────────────────────────
+
 
 @vp_bp.get("/skill-profiles")
 def skill_profiles():
@@ -197,12 +233,14 @@ def skill_profile_detail(profile_id: str):
 
 # ── Task kinds (VPWRK-001) ────────────────────────────────────────────────────
 
+
 @vp_bp.get("/task-kinds")
 def task_kinds():
     return jsonify(list_task_kinds()), 200
 
 
 # ── Validate (VPAD-002 + VPDF-002) ───────────────────────────────────────────
+
 
 @vp_bp.post("/validate")
 def validate():
@@ -214,6 +252,7 @@ def validate():
 
 
 # ── Dry-run (VPAD-010) ────────────────────────────────────────────────────────
+
 
 @vp_bp.post("/dry-run")
 def dry_run():
@@ -234,17 +273,19 @@ def dry_run():
     non_executable = [p for p in step_execution_plan if not p["executable"]]
     model_plan = _build_model_plan(graph)
 
-    return jsonify({
-        "dry_run": True,
-        "validation": validation.as_dict(),
-        "policy_summary": policy,
-        "blueprint": blueprint,
-        "step_count": len(graph.steps),
-        "edge_count": len(graph.edges),
-        "step_execution_plan": step_execution_plan,
-        "non_executable_count": len(non_executable),
-        **model_plan,
-    }), 200
+    return jsonify(
+        {
+            "dry_run": True,
+            "validation": validation.as_dict(),
+            "policy_summary": policy,
+            "blueprint": blueprint,
+            "step_count": len(graph.steps),
+            "edge_count": len(graph.edges),
+            "step_execution_plan": step_execution_plan,
+            "non_executable_count": len(non_executable),
+            **model_plan,
+        }
+    ), 200
 
 
 @vp_bp.post("/model-routing/validate")
@@ -268,6 +309,7 @@ def estimate_model_cost():
 
 # ── Graph persistence (VPPERS-001) ────────────────────────────────────────────
 
+
 @vp_bp.post("/graphs")
 def save_graph():
     graph, err = _parse_graph()
@@ -286,6 +328,13 @@ def save_graph():
     with Session(engine) as session:
         existing = session.get(VisualProcessGraphDB, graph.id)
         if existing:
+            _archive_graph_revision(session, existing)
+            previous = json.loads(existing.graph_json)
+            if previous != graph.model_dump():
+                graph = graph.model_copy(
+                    update={"version": _next_process_version(str(previous.get("version") or graph.version))}
+                )
+                row.graph_json = json.dumps(graph.model_dump())
             existing.name = row.name
             existing.description = row.description
             existing.tags = row.tags
@@ -295,7 +344,7 @@ def save_graph():
         else:
             session.add(row)
         session.commit()
-    return jsonify({"id": graph.id, "saved": True}), 200
+    return jsonify({"id": graph.id, "version": graph.version, "saved": True}), 200
 
 
 @vp_bp.get("/graphs")
@@ -303,17 +352,21 @@ def list_graphs():
     with Session(engine) as session:
         rows = session.exec(select(VisualProcessGraphDB)).all()
     rows_sorted = sorted(rows, key=lambda r: r.updated_at, reverse=True)
-    return jsonify([
-        {
-            "id": r.id,
-            "name": r.name,
-            "description": r.description,
-            "tags": [t for t in r.tags.split(",") if t],
-            "updated_at": r.updated_at,
-            "created_at": r.created_at,
-        }
-        for r in rows_sorted
-    ]), 200
+    return jsonify(
+        [
+            {
+                "id": r.id,
+                "name": r.name,
+                "description": r.description,
+                "tags": [t for t in r.tags.split(",") if t],
+                "updated_at": r.updated_at,
+                "created_at": r.created_at,
+                "version": str((json.loads(r.graph_json) if r.graph_json else {}).get("version") or "1.0"),
+                "origin": "revision" if "@" in r.id else "custom",
+            }
+            for r in rows_sorted
+        ]
+    ), 200
 
 
 @vp_bp.get("/graphs/<graph_id>")
@@ -338,6 +391,12 @@ def update_graph(graph_id: str):
         row = session.get(VisualProcessGraphDB, graph_id)
         if not row:
             return jsonify({"error": "not_found"}), 404
+        _archive_graph_revision(session, row)
+        previous = json.loads(row.graph_json)
+        if previous != graph.model_dump():
+            graph = graph.model_copy(
+                update={"version": _next_process_version(str(previous.get("version") or graph.version))}
+            )
         row.name = graph.name
         row.description = graph.description
         row.tags = ",".join(graph.tags)
@@ -345,7 +404,7 @@ def update_graph(graph_id: str):
         row.updated_at = time.time()
         session.add(row)
         session.commit()
-    return jsonify({"id": graph_id, "saved": True}), 200
+    return jsonify({"id": graph_id, "version": graph.version, "saved": True}), 200
 
 
 @vp_bp.delete("/graphs/<graph_id>")
@@ -360,6 +419,7 @@ def delete_graph(graph_id: str):
 
 
 # ── Save as Blueprint (VPBLUEPR-001) ─────────────────────────────────────────
+
 
 @vp_bp.post("/save-blueprint")
 def save_blueprint():
@@ -398,6 +458,7 @@ def save_blueprint():
 
 # ── BPMN import/export ───────────────────────────────────────────────────────
 
+
 @vp_bp.post("/bpmn/import")
 def bpmn_import():
     body = request.get_json(silent=True) or {}
@@ -409,11 +470,13 @@ def bpmn_import():
     except ValueError as exc:
         return jsonify({"error": "invalid_bpmn", "detail": str(exc)}), 400
     validation = _validator.validate(result.graph) if result.graph else None
-    return jsonify({
-        "graph": result.graph.model_dump() if result.graph else None,
-        "warnings": result.warnings,
-        "validation": validation.as_dict() if validation else None,
-    }), 200 if validation is None or validation.valid else 422
+    return jsonify(
+        {
+            "graph": result.graph.model_dump() if result.graph else None,
+            "warnings": result.warnings,
+            "validation": validation.as_dict() if validation else None,
+        }
+    ), 200 if validation is None or validation.valid else 422
 
 
 @vp_bp.post("/bpmn/export")
@@ -430,6 +493,7 @@ def bpmn_export():
 
 # ── Canonical workflow request / backend port ────────────────────────────────
 
+
 @vp_bp.post("/workflow-request")
 def workflow_request():
     body = request.get_json(silent=True) or {}
@@ -441,11 +505,13 @@ def workflow_request():
         return jsonify({"validation": validation.as_dict(), "error": "invalid_graph"}), 422
     workflow = _compile_workflow_request(graph, body)
     errors = workflow.validate()
-    return jsonify({
-        "workflow_request": workflow.to_dict(),
-        "validation": validation.as_dict(),
-        "errors": errors,
-    }), 200 if not errors else 422
+    return jsonify(
+        {
+            "workflow_request": workflow.to_dict(),
+            "validation": validation.as_dict(),
+            "errors": errors,
+        }
+    ), 200 if not errors else 422
 
 
 @vp_bp.post("/workflow/start")
@@ -501,6 +567,7 @@ def workflow_events(workflow_id: str):
 
 # ── Mermaid (VPAD-009) ────────────────────────────────────────────────────────
 
+
 @vp_bp.post("/mermaid")
 def mermaid():
     graph, err = _parse_graph()
@@ -517,6 +584,7 @@ def mermaid():
 
 # ── Policy summary (VPAD-008) ─────────────────────────────────────────────────
 
+
 @vp_bp.post("/policy-summary")
 def policy_summary_route():
     graph, err = _parse_graph()
@@ -529,6 +597,7 @@ def policy_summary_route():
 
 
 # ── Context assembly (VPDF-003) ───────────────────────────────────────────────
+
 
 @vp_bp.post("/assemble-context")
 def assemble_context():

@@ -135,7 +135,7 @@ export interface StepExecutionPlan {
   risk_level: string;
   requires_approval: boolean;
 }
-export interface SavedGraphSummary { id: string; name: string; description: string; tags: string[]; updated_at: number; created_at: number; }
+export interface SavedGraphSummary { id: string; name: string; description: string; tags: string[]; version?: string; origin?: string; updated_at: number; created_at: number; }
 
 @Injectable({ providedIn: 'root' })
 export class VisualProcessApiService {

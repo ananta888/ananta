@@ -205,7 +205,18 @@ def test_structured_chat_domain_round_trip(tmp_path):
                 "profile_id": "review",
                 "session_type": "work",
                 "session_subtype": "review",
-                "settings": {},
+                "settings": {"chat_backend": "lmstudio"},
+                "settings_delta": {"chat_max_tokens": 2048},
+                "profile_settings": {"chat_backend": "lmstudio"},
+                "legacy_settings_delta": {"retired": "preserved"},
+                "process_ref": {"graph_id": "review-flow", "version": "1.0"},
+                "process_runs": [
+                    {
+                        "run_id": "run-1",
+                        "process_id": "review-flow",
+                        "graph_snapshot": {"id": "review-flow", "nodes": [], "edges": []},
+                    }
+                ],
             }
         ],
         "chat_organization_proposals": [{"id": "proposal-1", "status": "ready", "operations": []}],

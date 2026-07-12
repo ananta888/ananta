@@ -5,19 +5,25 @@ import pytest
 from flask import Flask
 
 from agent.routes.chat import chat_bp
-from agent.services.chat_process_binding import normalize_process_ref, resolve_effective_process
+from agent.services.chat_process_binding import normalize_process_ref, resolve_effective_process, runtime_overlay
 from client_surfaces.operator_tui.chat_state import make_session
 
 
 @pytest.fixture
 def client():
     app = Flask(__name__)
+    app.testing = True
     app.register_blueprint(chat_bp)
     return app.test_client()
 
 
 def _manager_for(session):
-    data = {"chat_sessions": [session], "chat_active_session_id": session["id"], "chat_profiles": [], "chat_folders": []}
+    data = {
+        "chat_sessions": [session],
+        "chat_active_session_id": session["id"],
+        "chat_profiles": [],
+        "chat_folders": [],
+    }
     manager = MagicMock()
     manager.load.side_effect = lambda: copy.deepcopy(data)
     manager.save.side_effect = lambda values: data.update(copy.deepcopy(values)) or True
@@ -37,7 +43,7 @@ def test_session_process_overrides_profile_without_mutating_definition():
     graph = {"id": "vp-session", "steps": [{"id": "step-1"}]}
     with patch("agent.services.chat_process_binding.load_graph", return_value=graph):
         result = resolve_effective_process(session, profile)
-    assert result["source"] == "session"
+    assert result["source"] == "session_override"
     assert result["graph"] == graph
     assert "run_state" not in result["graph"]["steps"][0]
 
@@ -55,11 +61,22 @@ def test_session_process_run_endpoints_persist_and_return_overlay(client):
     session["process_ref"] = {"graph_id": "vp-1", "version": "1"}
     data, manager = _manager_for(session)
     graph = {"id": "vp-1", "name": "Flow", "version": "1", "steps": [], "edges": [], "tags": []}
-    run = {"run_id": "wf-1", "workflow_id": "wf-1", "process_id": "vp-1", "process_version": "1", "snapshot_hash": "abc", "status": "running", "started_at": 1}
+    run = {
+        "run_id": "wf-1",
+        "workflow_id": "wf-1",
+        "process_id": "vp-1",
+        "process_version": "1",
+        "snapshot_hash": "abc",
+        "status": "running",
+        "started_at": 1,
+    }
     overlay = {"run_id": "wf-1", "workflow_id": "wf-1", "overall_status": "running", "steps": {}, "step_states": {}}
     with (
         patch("agent.routes.chat.get_manager", return_value=manager),
-        patch("agent.routes.chat.resolve_effective_process", return_value={"graph": graph, "process_ref": session["process_ref"], "source": "session_override"}),
+        patch(
+            "agent.routes.chat.resolve_effective_process",
+            return_value={"graph": graph, "process_ref": session["process_ref"], "source": "session_override"},
+        ),
         patch("agent.routes.chat.start_session_process", return_value=run),
         patch("agent.routes.chat.runtime_overlay", return_value=overlay),
     ):
@@ -70,3 +87,43 @@ def test_session_process_run_endpoints_persist_and_return_overlay(client):
     assert data["chat_sessions"][0]["process_runs"][0]["snapshot_hash"] == "abc"
     assert listed.json[0]["workflow_id"] == "wf-1"
     assert status.json["overall_status"] == "running"
+
+
+def test_runtime_overlay_normalizes_states_and_redacts_credential_fields():
+    backend = MagicMock()
+    backend.get_workflow_status.return_value = {
+        "status": "done",
+        "steps": [{"step_id": "s1", "status": "done", "credential_token": "must-not-leak"}],
+    }
+    with patch("agent.services.chat_process_binding.get_workflow_backend", return_value=backend):
+        overlay = runtime_overlay(
+            {"run_id": "r", "workflow_id": "r", "process_id": "vp", "process_version": "1", "snapshot_hash": "h"}
+        )
+    assert overlay["steps"]["s1"]["status"] == "succeeded"
+    assert "credential_token" not in overlay["steps"]["s1"]
+
+
+def test_gate_endpoint_requires_idempotency_and_replays_duplicate_safely(client):
+    session = make_session(session_id="chat-gate", name="Gate")
+    session["process_runs"] = [{"run_id": "wf-gate", "workflow_id": "wf-gate"}]
+    data, manager = _manager_for(session)
+    with (
+        patch("agent.routes.chat.get_manager", return_value=manager),
+        patch("agent.routes.chat.signal_session_gate", return_value={"status": "running"}) as signal,
+    ):
+        missing = client.post(
+            "/api/chat/sessions/chat-gate/process/runs/wf-gate/gate",
+            json={"step_id": "approval", "decision": "approve"},
+        )
+        first = client.post(
+            "/api/chat/sessions/chat-gate/process/runs/wf-gate/gate",
+            json={"step_id": "approval", "decision": "approve", "idempotency_key": "gate-1"},
+        )
+        duplicate = client.post(
+            "/api/chat/sessions/chat-gate/process/runs/wf-gate/gate",
+            json={"step_id": "approval", "decision": "approve", "idempotency_key": "gate-1"},
+        )
+    assert missing.status_code == 400
+    assert first.status_code == 200 and duplicate.json["status"] == "already_applied"
+    signal.assert_called_once()
+    assert data["chat_sessions"][0]["process_gate_actions"][0]["workflow_id"] == "wf-gate"

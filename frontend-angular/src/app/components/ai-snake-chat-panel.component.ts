@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, inject, OnInit, OnDestroy } from '@angular/core';
+import { Component, EventEmitter, Input, Output, inject, OnInit, OnDestroy, effect } from '@angular/core';
 import { CommonModule, AsyncPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
@@ -22,6 +22,7 @@ import { UiStateSyncService } from '../services/ui-state-sync.service';
 import { VisualSnakeLogComponent } from './visual-snake-log.component';
 import { SnakeOverlayService } from '../services/snake-overlay.service';
 import { AiSnakeProcessPanelComponent } from './ai-snake-process-panel.component';
+import { VpNavigationService } from '../features/visual-process/vp-navigation.service';
 
 @Component({
   selector: 'app-ai-snake-chat-panel',
@@ -552,6 +553,7 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
   private historySub?: Subscription;
   private activeSub?: Subscription;
   private sessionSub?: Subscription;
+  private readonly processNavigation=inject(VpNavigationService);
   /** Snake panel tracks its own session independently of the global ChatSessionsService.
    *  Persisted in localStorage so reconnects keep the same session. Defaults to 'ananta-settings'. */
   private _snakeSessionId: string = this.loadSnakeSession();
@@ -564,6 +566,7 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
   }
 
   constructor() {
+    effect(()=>{if(this.processNavigation.target()==='trace'&&this.tab==='process')this.setTab('trace');});
     this.restoreRuntimeEndpoints();
     this.sessions.load();
     // Sync localStorage session into ChatSessionsService so fallback session_id is correct

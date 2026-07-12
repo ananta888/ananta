@@ -2,7 +2,7 @@ import { Component, inject, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule, AsyncPipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
-import { ChatSessionsService, ChatSession, CreateSessionPayload } from '../../services/chat-sessions.service';
+import { ChatSessionsService, ChatSession, CreateSessionPayload, ChatSettingValue } from '../../services/chat-sessions.service';
 import { ChatHistoryService, ChatHistoryMessage } from '../../services/chat-history.service';
 import { AiSnakeChatService } from '../../services/ai-snake-chat.service';
 import { AiSnakeTraceViewerComponent } from '../../components/ai-snake-trace-viewer.component';
@@ -753,7 +753,7 @@ export class ChatPageComponent implements OnInit, OnDestroy {
     return !!this.selected?.settings?.[key];
   }
 
-  patchSetting(key: string, value: unknown): void {
+  patchSetting(key: string, value: ChatSettingValue): void {
     if (!this.selected) return;
     this.svc.update(this.selected.id, { settings: { ...this.selected.settings, [key]: value } });
   }

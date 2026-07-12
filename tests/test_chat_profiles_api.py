@@ -69,7 +69,7 @@ def test_custom_profile_can_be_assigned_and_cannot_be_deleted_while_used(client)
                 "id": "security-review",
                 "name": "Security Review",
                 "system_prompt": "Review security boundaries.",
-                "settings": {"chat_backend": "lmstudio"},
+                "settings": {"chat_backend": "lmstudio", "chat_backend_model": "review-model"},
             },
         )
         assigned = client.patch("/api/chat/sessions/chat-1", json={"profile_id": "security-review"})
@@ -81,6 +81,8 @@ def test_custom_profile_can_be_assigned_and_cannot_be_deleted_while_used(client)
     assert assigned.json["system_prompt"] == "Review security boundaries."
     assert assigned.json["settings"]["chat_backend"] == "lmstudio"
     assert refreshed.json["settings"]["chat_backend"] == "lmstudio"
+    assert refreshed.json["settings"]["chat_backend_model"] == "review-model"
+    assert refreshed.json["profile_settings"]["chat_backend_model"] == "review-model"
     assert deleted.status_code == 409
 
 
@@ -120,7 +122,9 @@ def test_profile_settings_reject_unknown_keys_and_support_null_reset(client):
 def test_effective_profile_preview_reports_value_provenance(client):
     _, manager_patch = _store()
     with manager_patch:
-        client.post("/api/chat/profiles", json={"id": "preview", "name": "Preview", "settings": {"chat_backend": "opencode"}})
+        client.post(
+            "/api/chat/profiles", json={"id": "preview", "name": "Preview", "settings": {"chat_backend": "opencode"}}
+        )
         preview = client.get("/api/chat/profiles/preview/effective")
 
     assert preview.status_code == 200
@@ -134,7 +138,11 @@ def test_profile_accepts_credential_reference_but_not_plain_secret(client):
     with manager_patch:
         accepted = client.post(
             "/api/chat/profiles",
-            json={"id": "secure", "name": "Secure", "settings": {"chat_backend_credential_ref": "secret://providers/local"}},
+            json={
+                "id": "secure",
+                "name": "Secure",
+                "settings": {"chat_backend_credential_ref": "env://LOCAL_PROVIDER_API_KEY"},
+            },
         )
         rejected = client.post(
             "/api/chat/profiles",
@@ -142,5 +150,83 @@ def test_profile_accepts_credential_reference_but_not_plain_secret(client):
         )
 
     assert accepted.status_code == 201
-    assert accepted.json["settings"]["chat_backend_credential_ref"] == "secret://providers/local"
+    assert accepted.json["settings"]["chat_backend_credential_ref"] == "env://LOCAL_PROVIDER_API_KEY"
     assert rejected.status_code == 422
+
+
+def test_v3_migration_quarantines_unknown_profile_keys_idempotently(client):
+    store, manager_patch = _store()
+    store["chat_profiles"] = [
+        {"id": "legacy", "name": "Legacy", "settings": {"chat_backend": "opencode", "retired_key": "keep-me"}}
+    ]
+    with manager_patch:
+        first = client.get("/api/chat/profiles")
+        snapshot = copy.deepcopy(store["chat_profiles"])
+        second = client.get("/api/chat/profiles")
+    profile = next(item for item in first.json if item["id"] == "legacy")
+    assert profile["settings"] == {"chat_backend": "opencode"}
+    assert profile["legacy_settings"] == {"retired_key": "keep-me"}
+    assert store["chat_profiles"] == snapshot
+    assert second.status_code == 200
+
+
+def test_effective_preview_uses_global_profile_session_precedence(client):
+    _, manager_patch = _store()
+    with manager_patch:
+        client.post(
+            "/api/chat/profiles", json={"id": "layers", "name": "Layers", "settings": {"chat_max_tokens": 2000}}
+        )
+        response = client.post(
+            "/api/chat/profiles/effective-preview",
+            json={"profile_id": "layers", "session_settings_delta": {"chat_max_tokens": 3000}},
+        )
+    assert response.status_code == 200
+    assert response.json["values"]["chat_max_tokens"] == {"value": 3000, "source": "session"}
+
+
+def test_profile_validation_covers_ranges_urls_provider_scope_and_empty_model_inheritance(client):
+    _, manager_patch = _store()
+    with manager_patch:
+        bad_range = client.post(
+            "/api/chat/profiles", json={"id": "bad-range", "name": "Bad", "settings": {"chat_max_tokens": 999999}}
+        )
+        bad_url = client.post(
+            "/api/chat/profiles",
+            json={
+                "id": "bad-url",
+                "name": "Bad",
+                "settings": {"chat_backend": "lmstudio", "chat_backend_api_base": "file:///tmp/model"},
+            },
+        )
+        wrong_provider = client.post(
+            "/api/chat/profiles",
+            json={
+                "id": "wrong-provider",
+                "name": "Bad",
+                "settings": {"chat_backend": "ananta-worker", "chat_backend_api_base": "http://localhost:1234/v1"},
+            },
+        )
+        inherited_model = client.post(
+            "/api/chat/profiles", json={"id": "inherit-model", "name": "Good", "settings": {"chat_backend_model": ""}}
+        )
+    assert bad_range.status_code == 422 and bad_range.json["issues"][0]["error_code"] == "out_of_range"
+    assert bad_url.status_code == 422 and bad_url.json["issues"][0]["error_code"] == "invalid_url"
+    assert (
+        wrong_provider.status_code == 422
+        and wrong_provider.json["issues"][0]["error_code"] == "setting_not_allowed_for_provider"
+    )
+    assert inherited_model.status_code == 201 and "chat_backend_model" not in inherited_model.json["settings"]
+
+
+def test_v3_session_migration_preserves_unknown_delta_in_quarantine(client):
+    legacy = make_session(session_id="legacy-v3", name="Legacy")
+    legacy["settings_delta"] = {"chat_backend": "opencode", "retired_session_key": 7}
+    legacy.pop("process_ref", None)
+    store, manager_patch = _store([legacy])
+    with manager_patch:
+        response = client.get("/api/chat/sessions")
+    migrated = response.json[0]
+    assert migrated["settings_delta"] == {"chat_backend": "opencode"}
+    assert migrated["legacy_settings_delta"] == {"retired_session_key": 7}
+    assert migrated["process_ref"] is None and migrated["process_runs"] == []
+    assert store["chat_model_version"] == 3

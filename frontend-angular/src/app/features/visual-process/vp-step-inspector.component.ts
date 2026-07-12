@@ -10,6 +10,7 @@ import {
   VpEdge,
   VpGraph,
   VpStep,
+  VpRuntimeOverlay,
 } from './visual-process-api.service';
 
 @Component({
@@ -21,6 +22,8 @@ import {
   styleUrls: ['./visual-process-editor.component.scss'],
 })
 export class VpStepInspectorComponent {
+  @Input() mode: 'edit'|'runtime-readonly' = 'edit';
+  @Input() runtimeOverlay: VpRuntimeOverlay|null = null;
   @Input({ required: true }) graph!: WritableSignal<VpGraph>;
   @Input({ required: true }) selectedId!: WritableSignal<string | null>;
   @Input({ required: true }) taskKindList!: Signal<TaskKindInfo[]>;
@@ -34,6 +37,7 @@ export class VpStepInspectorComponent {
   @Output() changed = new EventEmitter<void>();
   @Output() policyRefreshRequested = new EventEmitter<void>();
   @Output() statusChanged = new EventEmitter<string>();
+  @Output() traceRequested = new EventEmitter<{runId:string;stepId:string}>();
 
   readonly selectedStep = computed(() => this.graph().steps.find(step => step.id === this.selectedId()) ?? null);
   readonly selectedEdge = computed(() => this.graph().edges.find(edge => edge.id === this.selectedId()) ?? null);

@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import copy
 import json
 import logging
 import re
+import time
 import uuid
 from typing import Any
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, request
 
 from agent.services.chat_organization_service import (
     ChatOrganizationService,
@@ -14,18 +16,25 @@ from agent.services.chat_organization_service import (
     validate_classification,
     validate_folder_parent,
 )
+from agent.services.chat_process_binding import (
+    clone_graph,
+    load_graph,
+    normalize_process_ref,
+    process_ref_from_fields,
+    resolve_effective_process,
+    runtime_overlay,
+    signal_session_gate,
+    start_session_process,
+)
+from agent.services.chat_provider_probe import ChatProviderProbe
 from agent.services.chat_setting_catalog import (
-    PROFILE_ONLY_DEFAULTS,
+    SettingValidationIssue,
     apply_setting_patch,
-    build_setting_schema,
+    canonical_setting_contract,
+    canonical_setting_schema,
     resolve_effective_settings,
     validate_setting_delta,
 )
-from agent.services.chat_process_binding import (
-    clone_graph, load_graph, normalize_process_ref, resolve_effective_process,
-    runtime_overlay, signal_session_gate, start_session_process,
-)
-from agent.services.chat_provider_probe import ChatProviderProbe
 from client_surfaces.operator_tui.chat_state import (
     DEFAULT_CHAT_TYPES,
     add_session,
@@ -53,7 +62,7 @@ def _organization_error(exc: OrganizationError):
     return jsonify(exc.payload()), exc.status
 
 
-def _load_chat() -> dict[str, Any]:
+def _load_chat(*, persist_migration: bool = False) -> dict[str, Any]:
     """Build a minimal chat dict from persisted user.json for session operations."""
     manager = get_manager()
     settings = manager.load()
@@ -61,6 +70,18 @@ def _load_chat() -> dict[str, Any]:
     active_id = settings.get("chat_active_session_id") or (sessions[0]["id"] if sessions else "")
     chat = {"ai_sessions": sessions, "active_session_id": active_id, "channels": {}, "_preserve_session_list": True}
     get_sessions(chat)
+    # The shared TUI migration only knows its built-in profiles. Re-resolve
+    # persisted custom profiles at the HTTP persistence boundary so their
+    # values cannot be replaced by compatibility defaults on reload.
+    profiles_by_id = {str(profile.get("id") or ""): profile for profile in _load_profiles()}
+    for session in chat.get("ai_sessions") or []:
+        if not isinstance(session, dict):
+            continue
+        profile = profiles_by_id.get(str(session.get("profile_id") or "general"))
+        if profile is not None:
+            _apply_profile(session, profile)
+    if _migrate_session_settings_v3(chat.get("ai_sessions") or []) and persist_migration:
+        manager.save({"chat_sessions": chat["ai_sessions"], "chat_model_version": 3})
     return chat
 
 
@@ -70,7 +91,7 @@ def _save_chat(chat: dict[str, Any]) -> None:
         {
             "chat_sessions": chat.get("ai_sessions") or [],
             "chat_active_session_id": chat.get("active_session_id") or "",
-            "chat_model_version": 2,
+            "chat_model_version": 3,
         }
     )
 
@@ -89,9 +110,13 @@ def _save_folders(folders: list[dict]) -> None:
 
 def _load_profiles() -> list[dict[str, Any]]:
     """Load built-in and user profiles, with user profiles stored separately."""
-    settings = get_manager().load()
+    manager = get_manager()
+    settings = manager.load()
     custom = settings.get("chat_profiles") or []
     custom = custom if isinstance(custom, list) else []
+    custom, changed = _migrate_profile_settings_v3(custom)
+    if changed:
+        manager.save({"chat_profiles": custom, "chat_model_version": 3})
     by_id = {str(profile.get("id") or ""): profile for profile in default_chat_profiles()}
     for profile in custom:
         if isinstance(profile, dict) and profile.get("id"):
@@ -104,11 +129,7 @@ def _save_custom_profiles(profiles: list[dict[str, Any]]) -> None:
 
 
 def _chat_setting_contract() -> tuple[dict[str, Any], dict[str, list[str]]]:
-    from agent.routes.ai_snake_config import _DEFAULTS, _OPTIONS
-    from client_surfaces.operator_tui.chat_state import _DEFAULT_SESSION_SETTINGS
-
-    defaults = {**_DEFAULTS, **_DEFAULT_SESSION_SETTINGS, **PROFILE_ONLY_DEFAULTS}
-    return defaults, _OPTIONS
+    return canonical_setting_contract()
 
 
 def _validated_profile_settings(raw: Any, *, allow_null_reset: bool = False):
@@ -122,12 +143,88 @@ def _validated_profile_settings(raw: Any, *, allow_null_reset: bool = False):
         options=options,
         allow_null_reset=allow_null_reset,
     )
+    if normalized.get("chat_backend_model") == "":
+        if allow_null_reset:
+            normalized["chat_backend_model"] = None
+        else:
+            normalized.pop("chat_backend_model", None)
+    credential_ref = normalized.get("chat_backend_credential_ref")
+    if credential_ref and not re.fullmatch(r"env://[A-Z][A-Z0-9_]{1,127}", str(credential_ref)):
+        issues.append(
+            SettingValidationIssue(
+                "chat_backend_credential_ref", "invalid_credential_reference", "env://VARIABLE_NAME", credential_ref
+            )
+        )
     return normalized, [issue.as_dict() for issue in issues]
+
+
+def _provider_setting_issues(settings: dict[str, Any]) -> list[dict[str, Any]]:
+    backend = str(settings.get("chat_backend") or "ananta-worker")
+    if settings.get("chat_backend_api_base") and backend == "ananta-worker":
+        return [
+            {
+                "key": "chat_backend_api_base",
+                "error_code": "setting_not_allowed_for_provider",
+                "expected": "external provider backend",
+                "received": settings["chat_backend_api_base"],
+            }
+        ]
+    return []
+
+
+def _redact_settings(settings: dict[str, Any]) -> dict[str, Any]:
+    return {
+        key: ("env://***" if key.endswith("credential_ref") and value else value) for key, value in settings.items()
+    }
+
+
+def _migrate_profile_settings_v3(profiles: list[Any]) -> tuple[list[dict[str, Any]], bool]:
+    allowed, _ = _chat_setting_contract()
+    migrated: list[dict[str, Any]] = []
+    changed = False
+    for raw in profiles:
+        if not isinstance(raw, dict):
+            changed = True
+            continue
+        profile = copy.deepcopy(raw)
+        settings = dict(profile.get("settings") or {})
+        legacy = dict(profile.get("legacy_settings") or {})
+        unknown = {key: value for key, value in settings.items() if key not in allowed}
+        if unknown:
+            legacy.update(unknown)
+            profile["settings"] = {key: value for key, value in settings.items() if key in allowed}
+            profile["legacy_settings"] = legacy
+            changed = True
+        migrated.append(profile)
+    return migrated, changed
+
+
+def _migrate_session_settings_v3(sessions: list[Any]) -> bool:
+    allowed, _ = _chat_setting_contract()
+    changed = False
+    for session in sessions:
+        if not isinstance(session, dict):
+            continue
+        delta = dict(session.get("settings_delta") or {})
+        unknown = {key: value for key, value in delta.items() if key not in allowed}
+        if unknown:
+            legacy = dict(session.get("legacy_settings_delta") or {})
+            legacy.update(unknown)
+            session["legacy_settings_delta"] = legacy
+            session["settings_delta"] = {key: value for key, value in delta.items() if key in allowed}
+            changed = True
+        if "process_ref" not in session:
+            session["process_ref"] = None
+            changed = True
+        if "process_runs" not in session:
+            session["process_runs"] = []
+            changed = True
+    return changed
 
 
 def _validated_process_ref(raw: Any) -> dict[str, str] | None:
     ref = normalize_process_ref(raw)
-    if ref is not None and load_graph(ref["graph_id"]) is None:
+    if ref is not None and load_graph(ref["graph_id"], ref["version"]) is None:
         raise LookupError("process_definition_not_found")
     return ref
 
@@ -150,7 +247,9 @@ def _apply_profile(session: dict[str, Any], profile: dict[str, Any]) -> None:
     from client_surfaces.operator_tui.chat_state import _DEFAULT_SESSION_SETTINGS
 
     profile_settings = dict(profile.get("settings") or {})
-    effective, _ = resolve_effective_settings(_DEFAULT_SESSION_SETTINGS, profile_settings, dict(session.get("settings_delta") or {}))
+    effective, _ = resolve_effective_settings(
+        _DEFAULT_SESSION_SETTINGS, profile_settings, dict(session.get("settings_delta") or {})
+    )
     session["profile_id"] = str(profile.get("id") or "general")
     session["profile_settings"] = profile_settings
     session["profile_system_prompt"] = str(profile.get("system_prompt") or "")
@@ -164,16 +263,7 @@ def _apply_profile(session: dict[str, Any], profile: dict[str, Any]) -> None:
 
 @chat_bp.route("/settings/schema", methods=["GET"])
 def get_chat_setting_schema():
-    from agent.routes.ai_snake_config import _DEFAULTS, _OPTIONS
-    from client_surfaces.operator_tui.chat_state import _DEFAULT_SESSION_SETTINGS
-
-    return jsonify(
-        build_setting_schema(
-            global_defaults=_DEFAULTS,
-            session_defaults=_DEFAULT_SESSION_SETTINGS,
-            options=_OPTIONS,
-        )
-    )
+    return jsonify(canonical_setting_schema())
 
 
 @chat_bp.route("/profiles", methods=["GET"])
@@ -196,7 +286,9 @@ def test_chat_profile_connection():
     body = request.get_json(silent=True) or {}
     result = ChatProviderProbe().probe(body, timeout_seconds=float(body.get("timeout_seconds") or 2.5))
     payload = result.as_dict()
-    payload["model_status"] = "available" if result.model_found else "unknown" if result.model_found is None else "not_found"
+    payload["model_status"] = (
+        "available" if result.model_found else "unknown" if result.model_found is None else "not_found"
+    )
     return jsonify(payload), 200 if result.ok else 422
 
 
@@ -210,10 +302,11 @@ def create_chat_profile():
     if _profile_by_id(profile_id) is not None:
         return jsonify({"error": f"Profile '{profile_id}' already exists"}), 409
     settings, issues = _validated_profile_settings(data.get("settings") or {})
+    issues.extend(_provider_setting_issues(settings or {}))
     if issues:
         return jsonify({"error": "invalid_profile_settings", "issues": issues}), 422
     try:
-        process_ref = _validated_process_ref(data.get("process_ref"))
+        process_ref = _validated_process_ref(process_ref_from_fields({**data, **settings}))
     except (ValueError, LookupError) as exc:
         return jsonify({"error": str(exc), "error_code": str(exc)}), 422
     profile = {
@@ -244,16 +337,35 @@ def update_chat_profile(profile_id: str):
     for key in ("name", "icon", "description", "system_prompt"):
         if key in data:
             profile[key] = str(data.get(key) or "")
-    if "process_ref" in data:
+    if any(
+        key in data for key in ("process_ref", "process_definition_id", "process_version", "process_version_policy")
+    ):
         try:
-            profile["process_ref"] = _validated_process_ref(data.get("process_ref"))
+            profile["process_ref"] = _validated_process_ref(process_ref_from_fields(data))
         except (ValueError, LookupError) as exc:
             return jsonify({"error": str(exc), "error_code": str(exc)}), 422
     if "settings" in data:
         settings_patch, issues = _validated_profile_settings(data["settings"], allow_null_reset=True)
+        candidate_settings = apply_setting_patch(dict(profile.get("settings") or {}), settings_patch or {})
+        issues.extend(_provider_setting_issues(candidate_settings))
+        candidate_process_ref = process_ref_from_fields(candidate_settings)
+        if candidate_process_ref:
+            try:
+                _validated_process_ref(candidate_process_ref)
+            except LookupError as exc:
+                issues.append(
+                    {
+                        "key": "process_definition_id",
+                        "error_code": str(exc),
+                        "expected": "existing process definition/version",
+                        "received": candidate_process_ref,
+                    }
+                )
         if issues:
             return jsonify({"error": "invalid_profile_settings", "issues": issues}), 422
-        profile["settings"] = apply_setting_patch(dict(profile.get("settings") or {}), settings_patch or {})
+        profile["settings"] = candidate_settings
+        if candidate_process_ref:
+            profile["process_ref"] = candidate_process_ref
     _save_custom_profiles(custom)
     chat = _load_chat()
     for session in get_sessions(chat):
@@ -288,14 +400,16 @@ def get_effective_chat_profile(profile_id: str):
         return jsonify({"error": "profile_not_found"}), 404
     delta = dict(profile.get("settings") or {})
     effective, provenance = resolve_effective_settings(_DEFAULT_SESSION_SETTINGS, delta, {})
-    return jsonify({
-        "profile_id": profile_id,
-        "settings_delta": delta,
-        "effective_settings": effective,
-        "provenance": provenance,
-        "system_prompt": str(profile.get("system_prompt") or ""),
-        "process_ref": profile.get("process_ref"),
-    })
+    return jsonify(
+        {
+            "profile_id": profile_id,
+            "settings_delta": _redact_settings(delta),
+            "effective_settings": _redact_settings(effective),
+            "provenance": provenance,
+            "system_prompt": str(profile.get("system_prompt") or ""),
+            "process_ref": profile.get("process_ref"),
+        }
+    )
 
 
 @chat_bp.post("/profiles/effective-preview")
@@ -310,11 +424,20 @@ def preview_effective_chat_profile():
     session_delta = dict(body.get("session_settings_delta") or {})
     effective, provenance = resolve_effective_settings(_DEFAULT_SESSION_SETTINGS, profile_delta, session_delta)
     prompt_override = body.get("system_prompt_override")
-    return jsonify({
-        "profile_id": profile["id"], "effective_settings": effective,
-        "values": {key: {"value": value, "source": provenance[key]} for key, value in effective.items()},
-        "system_prompt": {"value": str(prompt_override if prompt_override is not None else profile.get("system_prompt") or ""), "source": "session" if prompt_override is not None else "profile"},
-    })
+    return jsonify(
+        {
+            "profile_id": profile["id"],
+            "effective_settings": _redact_settings(effective),
+            "values": {
+                key: {"value": _redact_settings({key: value})[key], "source": provenance[key]}
+                for key, value in effective.items()
+            },
+            "system_prompt": {
+                "value": str(prompt_override if prompt_override is not None else profile.get("system_prompt") or ""),
+                "source": "session" if prompt_override is not None else "profile",
+            },
+        }
+    )
 
 
 # ── Conversation classification types ───────────────────────────────────────
@@ -375,7 +498,7 @@ def mutate_chat_type(type_id: str):
 
 @chat_bp.route("/sessions", methods=["GET"])
 def list_chat_sessions():
-    chat = _load_chat()
+    chat = _load_chat(persist_migration=True)
     sessions = get_sessions(chat)
     _save_chat(chat)  # persist any newly added default sessions / backfilled fields
     return jsonify([s.copy() for s in sessions])
@@ -423,7 +546,9 @@ def create_chat_session():
         profile_id=profile_id,
     )
     try:
-        new_session["process_ref"] = _validated_process_ref(data.get("process_ref"))
+        new_session["process_ref"] = _validated_process_ref(
+            process_ref_from_fields({**data, **dict(data.get("settings") or {})})
+        )
     except (ValueError, LookupError) as exc:
         return jsonify({"error": str(exc), "error_code": str(exc)}), 422
     _apply_profile(new_session, profile)
@@ -523,13 +648,23 @@ def update_chat_session(session_id: str):
         if profile is None:
             return jsonify({"error": f"Profile '{profile_id}' not found"}), 400
         _apply_profile(session, profile)
-    if "process_ref" in data:
+    if any(
+        key in data for key in ("process_ref", "process_definition_id", "process_version", "process_version_policy")
+    ):
         try:
-            session["process_ref"] = _validated_process_ref(data.get("process_ref"))
+            session["process_ref"] = _validated_process_ref(process_ref_from_fields(data))
         except (ValueError, LookupError) as exc:
             return jsonify({"error": str(exc), "error_code": str(exc)}), 422
     if "settings" in data and isinstance(data["settings"], dict):
+        requested_ref = process_ref_from_fields(data["settings"])
+        if requested_ref:
+            try:
+                _validated_process_ref(requested_ref)
+            except LookupError as exc:
+                return jsonify({"error": str(exc), "error_code": str(exc)}), 422
         update_session_settings(chat, session_id, data["settings"])
+        if requested_ref:
+            session["process_ref"] = requested_ref
 
     profile = _profile_by_id(str(session.get("profile_id") or "general"))
     if profile is not None:
@@ -577,7 +712,13 @@ def list_session_process_runs(session_id: str):
     session = get_session(_load_chat(), session_id)
     if session is None:
         return jsonify({"error": "session_not_found", "error_code": "session_not_found"}), 404
-    return jsonify(sorted(session.get("process_runs") or [], key=lambda item: item.get("started_at", 0), reverse=True))
+    runs = sorted(session.get("process_runs") or [], key=lambda item: item.get("started_at", 0), reverse=True)
+    summaries = []
+    for item in runs:
+        summary = {key: value for key, value in item.items() if key != "graph_snapshot"}
+        summary["status"] = runtime_overlay(item)["overall_status"]
+        summaries.append(summary)
+    return jsonify(summaries)
 
 
 @chat_bp.post("/sessions/<session_id>/process/runs")
@@ -591,7 +732,9 @@ def start_session_process_run(session_id: str):
         return jsonify({"error": "process_not_configured", "error_code": "process_not_configured"}), 409
     body = request.get_json(silent=True) or {}
     try:
-        run = start_session_process(session_id=session_id, graph=effective["graph"], message_id=str(body.get("message_id") or ""))
+        run = start_session_process(
+            session_id=session_id, graph=effective["graph"], message_id=str(body.get("message_id") or "")
+        )
     except ValueError as exc:
         return jsonify({"error": str(exc), "error_code": str(exc)}), 422
     runs = list(session.get("process_runs") or [])
@@ -614,18 +757,52 @@ def get_session_process_run(session_id: str, run_id: str):
 
 @chat_bp.post("/sessions/<session_id>/process/runs/<run_id>/gate")
 def signal_session_process_run_gate(session_id: str, run_id: str):
-    session = get_session(_load_chat(), session_id)
+    chat = _load_chat()
+    session = get_session(chat, session_id)
     if session is None:
         return jsonify({"error": "session_not_found", "error_code": "session_not_found"}), 404
     run = next((item for item in session.get("process_runs") or [] if str(item.get("run_id")) == run_id), None)
     if run is None:
         return jsonify({"error": "process_run_not_found", "error_code": "process_run_not_found"}), 404
     body = request.get_json(silent=True) or {}
+    identity = getattr(g, "user", None) or getattr(g, "auth_payload", None)
+    if identity is None and not current_app.testing:
+        return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
+    actor = str(
+        getattr(identity, "username", "") or (identity.get("sub") if isinstance(identity, dict) else "") or "test-user"
+    )
+    idempotency_key = str(request.headers.get("Idempotency-Key") or body.get("idempotency_key") or "").strip()
+    if not idempotency_key:
+        return jsonify({"error": "idempotency_key_required", "error_code": "idempotency_key_required"}), 400
+    actions = list(session.get("process_gate_actions") or [])
+    previous = next((item for item in actions if item.get("idempotency_key") == idempotency_key), None)
+    if previous is not None:
+        return jsonify({"status": "already_applied", "action": previous}), 200
     try:
-        result = signal_session_gate(run=run, step_id=str(body.get("step_id") or ""), decision=str(body.get("decision") or ""), actor=str(body.get("actor") or "chat-user"))
+        result = signal_session_gate(
+            run=run, step_id=str(body.get("step_id") or ""), decision=str(body.get("decision") or ""), actor=actor
+        )
     except ValueError as exc:
         return jsonify({"error": str(exc), "error_code": str(exc)}), 409
-    _log.info("chat_process_gate actor=%s workflow_id=%s step_id=%s decision=%s", body.get("actor") or "chat-user", run_id, body.get("step_id"), body.get("decision"))
+    action = {
+        "idempotency_key": idempotency_key,
+        "actor": actor,
+        "workflow_id": run_id,
+        "step_id": str(body.get("step_id") or ""),
+        "decision": str(body.get("decision") or ""),
+        "created_at": time.time(),
+    }
+    actions.append(action)
+    session["process_gate_actions"] = actions[-100:]
+    _save_chat(chat)
+    _log.info(
+        "chat_process_gate actor=%s workflow_id=%s step_id=%s decision=%s idempotency_key=%s",
+        action["actor"],
+        run_id,
+        action["step_id"],
+        action["decision"],
+        idempotency_key,
+    )
     return jsonify(result)
 
 

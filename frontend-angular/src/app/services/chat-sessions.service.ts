@@ -16,8 +16,8 @@ export interface ChatSession {
   last_message_preview: string;
   message_count: number;
   system_prompt: string;
-  settings: Record<string, unknown>;
-  settings_delta: Record<string, unknown>;
+  settings: ChatSettingsMap;
+  settings_delta: ChatSettingsMap;
   profile_id: string;
   process_ref?: ChatProcessRef | null;
   system_prompt_override?: string;
@@ -32,10 +32,12 @@ export interface ChatProfile {
   icon: string;
   description?: string;
   system_prompt: string;
-  settings: Record<string, unknown>;
+  settings: ChatSettingsMap;
   builtin: boolean;
   process_ref?: ChatProcessRef | null;
 }
+export type ChatSettingValue = string|number|boolean|null;
+export type ChatSettingsMap = Record<string,ChatSettingValue>;
 
 export interface ChatProcessRef { graph_id: string; version: string; }
 export interface EffectiveChatProcess {
@@ -44,6 +46,7 @@ export interface EffectiveChatProcess {
   graph: Record<string, unknown> | null;
   run: Record<string, unknown> | null;
 }
+export interface ChatProcessRunSummary { run_id:string; workflow_id:string; process_id:string; process_version:string; snapshot_hash:string; status:string; message_id?:string; started_at:number; }
 
 export interface ChatSettingDefinition {
   key: string;
@@ -53,6 +56,7 @@ export interface ChatSettingDefinition {
   default: unknown;
   scope_defaults: Record<string, unknown>;
   allowed_values: unknown[];
+  suggestions?: string[];
   constraints?: { min?: number; max?: number; step?: number };
   visible_when?: Record<string, unknown[]>;
   scopes: string[];
@@ -169,7 +173,7 @@ export interface CreateSessionPayload {
   session_subtype?: string;
   type_description?: string;
   system_prompt?: string;
-  settings?: Record<string, unknown>;
+  settings?: ChatSettingsMap;
   profile_id?: string;
 }
 
@@ -289,6 +293,7 @@ export class ChatSessionsService {
     const url = this.hubUrl;
     return this.core.post<{ ok: boolean; model_status: string; error_code?: string }>(`${url}/api/chat/profiles/test-connection`, draft, url);
   }
+  previewProfile(profileId:string,profileSettings:ChatSettingsMap,sessionDelta:ChatSettingsMap={}):Observable<Record<string,unknown>>{const url=this.hubUrl;return this.core.post<Record<string,unknown>>(`${url}/api/chat/profiles/effective-preview`,{profile_id:profileId||'general',profile_settings:profileSettings,session_settings_delta:sessionDelta},url);}
 
   deleteProfile(profileId: string): void {
     const url = this.hubUrl;
@@ -310,6 +315,10 @@ export class ChatSessionsService {
       tap(() => this.load()),
     );
   }
+  listProcessRuns(sessionId:string): Observable<ChatProcessRunSummary[]> { const url=this.hubUrl; return this.core.get<ChatProcessRunSummary[]>(`${url}/api/chat/sessions/${sessionId}/process/runs`,url); }
+  startProcessRun(sessionId:string,messageId=''): Observable<ChatProcessRunSummary> { const url=this.hubUrl; return this.core.post<ChatProcessRunSummary>(`${url}/api/chat/sessions/${sessionId}/process/runs`,{message_id:messageId},url); }
+  getProcessRun(sessionId:string,runId:string): Observable<Record<string,unknown>> { const url=this.hubUrl; return this.core.get<Record<string,unknown>>(`${url}/api/chat/sessions/${sessionId}/process/runs/${runId}`,url); }
+  signalProcessGate(sessionId:string,runId:string,stepId:string,decision:'approve'|'reject'): Observable<Record<string,unknown>> { const url=this.hubUrl; const idempotency_key=globalThis.crypto?.randomUUID?.()||`${runId}-${stepId}-${decision}`;return this.core.post<Record<string,unknown>>(`${url}/api/chat/sessions/${sessionId}/process/runs/${runId}/gate`,{step_id:stepId,decision,idempotency_key},url); }
 
   loadFolders(): void {
     const url = this.hubUrl;
@@ -466,8 +475,10 @@ export class ChatSessionsService {
     });
   }
 
+  updateProcessRef(sessionId:string,processRef:ChatProcessRef|null):Observable<ChatSession>{const url=this.hubUrl;return this.core.patch<ChatSession>(`${url}/api/chat/sessions/${sessionId}`,{process_ref:processRef},url).pipe(tap(()=>this.load()));}
+
   /** Patch a single session setting optimistically (no full reload; background sync). */
-  patchSetting(sessionId: string, key: string, value: unknown): void {
+  patchSetting(sessionId: string, key: string, value: ChatSettingValue): void {
     const updated = this.sessions$.value.map(s => {
       if (s.id !== sessionId) return s;
       return { ...s, settings: { ...(s.settings || {}), [key]: value } };

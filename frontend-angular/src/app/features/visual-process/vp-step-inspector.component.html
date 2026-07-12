@@ -1,3 +1,16 @@
+@if (mode === 'runtime-readonly') {
+  @if (selectedStep(); as step) {
+    <div class="vpe-inspector"><div class="vpe-panel-title">{{ step.label }}</div>
+      <div>Typ: {{ step.kind }}</div>
+      @if (runtimeOverlay?.steps?.[step.id]; as runtime) {
+        <div>Status: {{ runtime.status }}</div><div>Start: {{ runtime.started_at || '–' }}</div><div>Ende: {{ runtime.finished_at || '–' }}</div>
+        <div>Dauer: {{ runtime.duration_ms || '–' }} ms</div><div>Provider: {{ runtime.selected_provider_id || '–' }}</div><div>Modell: {{ runtime.selected_model || '–' }}</div>
+        @if(runtime.error){<div class="err">{{runtime.error}}</div>}
+        <button (click)="traceRequested.emit({runId:runtimeOverlay!.run_id,stepId:step.id})">Trace anzeigen</button>
+      }
+    </div>
+  }
+} @else {
 <!-- step inspector -->
 @if (selectedStep()) {
   <div class="vpe-inspector">
@@ -778,3 +791,4 @@
     </div>
   }
 </div>
+}

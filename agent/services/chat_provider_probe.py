@@ -1,7 +1,9 @@
 """Bounded, secret-safe provider discovery for chat profile drafts."""
+
 from __future__ import annotations
 
 import json
+import os
 import socket
 import urllib.error
 import urllib.request
@@ -18,7 +20,12 @@ class ProviderProbeResult:
     model_found: bool | None = None
 
     def as_dict(self) -> dict[str, Any]:
-        return {"ok": self.ok, "error_code": self.error_code or None, "models": list(self.models), "model_found": self.model_found}
+        return {
+            "ok": self.ok,
+            "error_code": self.error_code or None,
+            "models": list(self.models),
+            "model_found": self.model_found,
+        }
 
 
 class ChatProviderProbe:
@@ -29,18 +36,25 @@ class ChatProviderProbe:
         if backend not in self.SUPPORTED:
             return ProviderProbeResult(False, "unsupported_provider")
         credential_ref = str(draft.get("chat_backend_credential_ref") or "")
+        token = ""
         if credential_ref:
-            # No general credential resolver exists yet; never accept a secret in this adapter.
-            return ProviderProbeResult(False, "credential_resolver_unavailable")
+            if not credential_ref.startswith("env://"):
+                return ProviderProbeResult(False, "unsupported_credential_reference")
+            token = os.environ.get(credential_ref.removeprefix("env://"), "")
+            if not token:
+                return ProviderProbeResult(False, "credential_not_configured")
         base = str(draft.get("chat_backend_api_base") or "").rstrip("/")
         if not base:
             return ProviderProbeResult(False, "endpoint_required")
         parsed = urlparse(base)
         if parsed.scheme not in {"http", "https"} or not parsed.hostname:
             return ProviderProbeResult(False, "invalid_endpoint")
-        path = "/api/tags" if backend == "ollama" else "/v1/models"
+        path = "/api/tags" if backend == "ollama" else ("/models" if base.endswith("/v1") else "/v1/models")
         try:
-            with urllib.request.urlopen(base + path, timeout=max(0.2, min(timeout_seconds, 5.0))) as response:
+            probe_request = urllib.request.Request(
+                base + path, headers=({"Authorization": f"Bearer {token}"} if token else {})
+            )
+            with urllib.request.urlopen(probe_request, timeout=max(0.2, min(timeout_seconds, 5.0))) as response:
                 payload = json.loads(response.read(1_000_000))
         except urllib.error.HTTPError as exc:
             return ProviderProbeResult(False, "auth_failed" if exc.code in {401, 403} else "provider_http_error")
@@ -49,6 +63,14 @@ class ChatProviderProbe:
         except (urllib.error.URLError, OSError, ValueError, json.JSONDecodeError):
             return ProviderProbeResult(False, "endpoint_unreachable")
         raw_models = payload.get("models") if backend == "ollama" else payload.get("data")
-        models = tuple(sorted({str(item.get("id") or item.get("name") or "") for item in raw_models or [] if isinstance(item, dict) and (item.get("id") or item.get("name"))}))
+        models = tuple(
+            sorted(
+                {
+                    str(item.get("id") or item.get("name") or "")
+                    for item in raw_models or []
+                    if isinstance(item, dict) and (item.get("id") or item.get("name"))
+                }
+            )
+        )
         requested = str(draft.get("chat_backend_model") or "")
         return ProviderProbeResult(True, models=models, model_found=(requested in models if requested else None))

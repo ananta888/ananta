@@ -77,5 +77,47 @@ standalone route. A profile-owned graph must be cloned before session-specific
 changes. Run and gate actions continue to use hub endpoints; workers do not
 coordinate or signal each other.
 
+## Using the Angular configuration
+
+Open **Sessions → Profile** and duplicate a built-in profile or create a new
+one. Name, icon, description and system prompt are edited under the profile;
+all runtime fields are generated from the server schema. Choose backend,
+model, API base and an `env://VARIABLE_NAME` credential reference. **Modelle
+laden** refreshes the draft-specific model list, while **Verbindung testen**
+distinguishes unsupported provider, missing credential, authentication,
+timeout, unreachable endpoint and unknown model. A failed test is a warning
+and does not destroy or automatically save the draft.
+
+An outlined reset arrow removes only that scope's delta. Session settings use
+the identical controls and override the profile. The global panel is explicitly
+labelled as defaults and cannot remove either profile or session deltas.
+
+The **Prozess** section lists stored definitions and versions. Sessions can
+explicitly inherit the profile process, select another definition, create a new
+one or clone the inherited graph before editing. The chat-level Prozess tab is
+read-only, shows live/historical runs, and keeps the immutable run snapshot.
+
+## Adding a setting
+
+Add its definition to the canonical catalog projection in
+`agent/services/chat_setting_catalog.py`, including scopes, type, constraints,
+visibility, secret and advanced metadata. Add or align the runtime default and
+an API test that asserts schema and merge behavior. Angular requires no static
+field entry: every allowed scope consumes `ChatSettingControlsComponent`.
+Regenerate [the inventory](chat-setting-inventory.md) afterwards.
+
+## Credential and export security
+
+Profiles contain references, never tokens. The supported local resolver form
+is `env://VARIABLE_NAME`; resolution happens only inside the hub probe. Browser
+responses contain model IDs and safe error codes, never authorization headers
+or resolved environment values. Runtime overlays remove keys containing
+`secret` or `credential`, and documentation/test exports must use synthetic
+references only. There is deliberately no browser-side secret editor.
+
+Known remaining non-goals are a general-purpose credential vault and automatic
+external discovery without a user action. Provider probing is bounded to five
+seconds and manual model IDs remain supported.
+
 Legacy clients can continue reading effective `system_prompt` and `settings`
 directly from a session response.

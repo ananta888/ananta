@@ -1,6 +1,6 @@
 import {
   Component, OnInit, OnDestroy, OnChanges, Input, SimpleChanges, inject,
-  signal, computed, HostListener, ViewChild, ElementRef,
+  signal, computed, HostListener, ViewChild, ElementRef, effect,
 } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
@@ -17,26 +17,29 @@ import { VpImportExportService } from './vp-import-export.service';
 import { VpStepInspectorComponent } from './vp-step-inspector.component';
 import { VpWorkflowRunnerService } from './vp-workflow-runner.service';
 import { VisualProcessCanvasComponent } from './visual-process-canvas.component';
+import { VpEditorStateFacade } from './vp-editor-state.facade';
 
 import {
   ENCODING_MODES, FALLBACK_KINDS, NODE_H, NODE_W, RAG_CHANNELS,
-  autoLayoutGraph, edgeId, emptyGraph, hintColor, nodeKindColor, stepId,
+  autoLayoutGraph, edgeId, hintColor, nodeKindColor, stepId,
 } from './vp-editor-config';
 
 @Component({
   standalone: true,
   selector: 'app-visual-process-editor',
   imports: [FormsModule, VpStepInspectorComponent, VisualProcessCanvasComponent],
-  providers: [VpCanvasInteractionService, VpImportExportService, VpWorkflowRunnerService],
+  providers: [VpCanvasInteractionService, VpImportExportService, VpWorkflowRunnerService, VpEditorStateFacade],
   templateUrl: './visual-process-editor.component.html',
   styleUrls: ['./visual-process-editor.component.scss'],
 })
 export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChanges {
   @Input() graphId = '';
+  @Input() editorMode: 'embedded-edit'|'full-editor' = 'full-editor';
   private api = inject(VisualProcessApiService);
   private interaction = inject(VpCanvasInteractionService);
   private importExport = inject(VpImportExportService);
   private workflowRunner = inject(VpWorkflowRunnerService);
+  private editorState = inject(VpEditorStateFacade);
   private subs = new Subscription();
 
   @ViewChild('bpmnFileInput') bpmnFileInputRef!: ElementRef<HTMLInputElement>;
@@ -46,22 +49,22 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
   readonly edgeKinds = ['always','on_success','on_failure','on_output','back_edge','expression'];
   readonly encodingModes = ENCODING_MODES;
   readonly ragChannels = RAG_CHANNELS;
-  graph = signal<VpGraph>(emptyGraph());
+  graph = this.editorState.graph;
   presets = signal<PresetSummary[]>([]);
   skillProfiles = signal<SkillProfile[]>([]);
   taskKindList = signal<TaskKindInfo[]>(FALLBACK_KINDS);
   savedGraphs = signal<SavedGraphSummary[]>([]);
   modelProfiles = signal<ModelProfileSummary[]>([]);
   fallbackGroups = signal<Record<string, FallbackGroupSummary>>({});
-  validationResult = this.workflowRunner.validationResult;
+  validationResult = this.editorState.validation;
   dryRunResult = this.workflowRunner.dryRunResult;
   mermaidText = signal<string>('');
   mermaidTuiText = signal<string>('');
   statusMsg = this.workflowRunner.status;
-  selectedId = signal<string | null>(null);
-  edgeMode = signal<boolean>(false);
-  edgeSourceId = signal<string | null>(null);
-  isDirty = signal<boolean>(false);
+  selectedId = this.editorState.selectedId;
+  edgeMode = this.editorState.edgeMode;
+  edgeSourceId = this.editorState.edgeSourceId;
+  isDirty = this.editorState.dirty;
   activeWorkflowId = this.workflowRunner.activeWorkflowId;
   workflowStatus = this.workflowRunner.workflowStatus;
   runtimeOverlay = this.workflowRunner.runtimeOverlay;
@@ -72,6 +75,7 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
   mermaidTab: 'mermaid' | 'tui' = 'mermaid';
 
   private _showMermaidDialog = false;
+  constructor(){effect(()=>this.editorState.validation.set(this.workflowRunner.validationResult()));}
 
   readonly drawingEdge = this.interaction.drawingEdge;
   selectedStep = computed<VpStep | null>(() => {
@@ -166,6 +170,7 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
   ngOnDestroy(): void {
     this.subs.unsubscribe();
     this.workflowRunner.destroy();
+    this.editorState.destroy();
   }
   @HostListener('document:keydown', ['$event'])
   onKey(e: KeyboardEvent): void {

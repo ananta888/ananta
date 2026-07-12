@@ -3,7 +3,8 @@ import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { AiSnakeConfigService } from '../services/ai-snake-config.service';
-import { ChatSessionsService } from '../services/chat-sessions.service';
+import { ChatSessionsService, ChatSettingDefinition, ChatSettingValue } from '../services/chat-sessions.service';
+import { ChatSettingControlsComponent } from './chat-setting-controls.component';
 import { DomainScopeService } from '../features/codecompass-graph/services/domain-scope.service';
 import { DomainScopePanelComponent } from '../features/codecompass-graph/components/domain-scope-panel/domain-scope-panel.component';
 
@@ -16,115 +17,12 @@ interface ConfigField {
 }
 
 const FIELDS: ConfigField[] = [
-  // Visual
-  { key: 'tutorial_mode', label: 'Tutorial AI-Snake', group: 'Visual', type: 'bool' },
-  { key: 'ai_snake_provider_preference', label: 'Visual Provider', group: 'Visual', type: 'choice',
-    options: ['lmstudio', 'opencode', 'hermes', 'worker-propose'] },
-  { key: 'ai_visual_use_codecompass', label: 'Visual CodeCompass', group: 'Visual', type: 'bool' },
-  { key: 'chat_panel_open', label: 'Chat Panel offen', group: 'Visual', type: 'bool' },
-  // Chat Backend
-  { key: 'chat_backend', label: 'Chat Provider', group: 'Chat Backend', type: 'choice',
-    options: ['ananta-worker', 'opencode', 'lmstudio', 'hermes'] },
-  { key: 'chat_backend_model', label: 'Chat Model', group: 'Chat Backend', type: 'text' },
-  { key: 'chat_backend_api_base', label: 'Chat API Base', group: 'Chat Backend', type: 'choice',
-    options: ['http://localhost:1234/v1', 'http://localhost:8080/v1', 'http://localhost:11434/v1'] },
-  { key: 'chat_ask_timeout_s', label: 'Timeout (s)', group: 'Chat Backend', type: 'choice',
-    options: ['20', '30', '45', '60', '90', '120', '180', '300', '600', '1200', '1800'] },
-  { key: 'chat_backend_fallback', label: 'Fallback', group: 'Chat Backend', type: 'choice',
-    options: ['none', 'lmstudio', 'local_knowledge'] },
-  { key: 'chat_worker_mode', label: 'Worker Modus', group: 'Chat Backend', type: 'choice',
-    options: ['snake_ask', 'propose', 'auto'] },
-  { key: 'chat_pass_memory_to_worker', label: 'Memory an Worker', group: 'Chat Backend', type: 'bool' },
-  // Context / RAG
-  { key: 'chat_use_codecompass', label: 'CodeCompass', group: 'Kontext / RAG', type: 'bool' },
-  { key: 'chat_include_local_project', label: 'Lokales Projekt', group: 'Kontext / RAG', type: 'bool' },
-  { key: 'chat_include_wikipedia', label: 'Wikipedia', group: 'Kontext / RAG', type: 'bool' },
-  { key: 'chat_include_task_memory', label: 'Task-Memory', group: 'Kontext / RAG', type: 'bool' },
-  { key: 'chat_include_runtime_status', label: 'TUI-Status in Prompt', group: 'Kontext / RAG', type: 'bool' },
-  { key: 'chat_source_pack_id', label: 'Source Pack', group: 'Kontext / RAG', type: 'choice',
-    options: ['ananta-dev-default', 'ananta-default', 'ananta-local-only'] },
-  { key: 'chat_context_chars', label: 'Context Chars', group: 'Kontext / RAG', type: 'choice',
-    options: ['1000', '2000', '3000', '5000', '8000', '12000'] },
-  { key: 'chat_rag_top_k', label: 'RAG Top-K', group: 'Kontext / RAG', type: 'choice',
-    options: ['12', '24', '32', '48', '64', '96', '120'] },
-  { key: 'chat_retrieval_profile', label: 'Retrieval Profile', group: 'Kontext / RAG', type: 'choice',
-    options: ['auto', 'repo_first', 'docs_first', 'legacy'] },
-  { key: 'chat_codecompass_trigger_mode', label: 'CodeCompass Trigger', group: 'Kontext / RAG', type: 'choice',
-    options: ['auto', 'force_codecompass', 'force_repo_first', 'disabled'] },
-  { key: 'chat_architecture_analysis_mode', label: 'Architektur Analyse', group: 'Kontext / RAG', type: 'choice',
-    options: ['auto', 'rag_iterative', 'standard', 'full_scan', 'off'] },
-  { key: 'rag_iterative_tool_calls_enabled', label: 'RAG-Iterativ: Tool-Calls', group: 'Kontext / RAG', type: 'bool' },
-  { key: 'rag_iterative_max_tool_calls', label: 'RAG-Iterativ: Max. Tool-Calls (0=∞)', group: 'Kontext / RAG', type: 'choice',
-    options: ['0', '1', '2', '3', '4', '6', '8', '10', '20', '50'] },
-  { key: 'rag_iterative_import_depth', label: 'RAG-Iterativ: Import-Tiefe', group: 'Kontext / RAG', type: 'choice',
-    options: ['0', '1', '2', '3'] },
-  { key: 'rag_iterative_symbol_expand_max', label: 'RAG-Iterativ: Symbol-Graph Expansion (0=aus)', group: 'Kontext / RAG', type: 'choice',
-    options: ['0', '5', '10', '15', '20', '30'] },
-  { key: 'rag_iterative_catalog_chars', label: 'RAG-Iterativ: Katalog-Zeichen (component-catalog.md)', group: 'Kontext / RAG', type: 'choice',
-    options: ['5000', '10000', '20000', '30000', '40000', '60000'] },
-  { key: 'rag_iterative_tool_chars_per_file', label: 'RAG-Iterativ: Zeichen pro Datei (Tool-Call)', group: 'Kontext / RAG', type: 'choice',
-    options: ['4000', '8000', '15000', '20000', '40000', '80000'] },
-  { key: 'rag_iterative_initial_min_files', label: 'RAG-Iterativ: Initiale Mindest-Dateien', group: 'Kontext / RAG', type: 'choice',
-    options: ['0', '1', '2', '3', '4', '5'] },
-  { key: 'rag_iterative_initial_max_files', label: 'RAG-Iterativ: Initiale Max-Dateien', group: 'Kontext / RAG', type: 'choice',
-    options: ['3', '5', '8', '10', '12', '16'] },
-  { key: 'rag_iterative_summarize_reads', label: 'RAG-Iterativ: Zwischen-Zusammenfassung nach Dateilesen', group: 'Kontext / RAG', type: 'bool' },
-  { key: 'rag_iterative_summary_chars', label: 'RAG-Iterativ: Zusammenfassung Max-Zeichen', group: 'Kontext / RAG', type: 'choice',
-    options: ['200', '400', '600', '800', '1200', '2000'] },
-  { key: 'chat_full_scan_source_only', label: 'Full-Scan: Nur Quellcode', group: 'Kontext / RAG', type: 'bool' },
-  { key: 'chat_full_scan_max_batches', label: 'Full-Scan: Max. Batches', group: 'Kontext / RAG', type: 'choice',
-    options: ['2', '4', '6', '8', '12', '16'] },
-  { key: 'chat_full_scan_files_per_batch', label: 'Full-Scan: Dateien/Batch', group: 'Kontext / RAG', type: 'choice',
-    options: ['1', '2', '3', '5', '8'] },
-  { key: 'chat_full_scan_parallel_batches', label: 'Full-Scan: Parallele Batches', group: 'Kontext / RAG', type: 'choice',
-    options: ['1', '2', '3', '4', '6', '8'] },
-  { key: 'chat_full_scan_timeout_s', label: 'Full-Scan: Timeout (s)', group: 'Kontext / RAG', type: 'choice',
-    options: ['300', '600', '900', '1200', '1800', '3600'] },
-  { key: 'chat_full_scan_chars_per_file', label: 'Zeichen/Datei (Full-Scan & RAG)', group: 'Kontext / RAG', type: 'choice',
-    options: ['300', '600', '1200', '2000', '3500', '4000', '6000', '8000'] },
-  { key: 'chat_full_scan_max_input_tokens', label: 'Full-Scan: Max. Input-Tokens', group: 'Kontext / RAG', type: 'choice',
-    options: ['auto', '1500', '3000', '6000', '12000', '24000'] },
-  { key: 'chat_retrieval_domain_hint', label: 'Retrieval Domain Hint', group: 'Kontext / RAG', type: 'choice',
-    options: ['', 'codecompass', 'ai_snake', 'worker', 'ananta_game', 'operator_tui', 'ops', 'generic'] },
-  { key: 'chat_code_questions_repo_first', label: 'Codefragen Repo-first', group: 'Kontext / RAG', type: 'bool' },
-  { key: 'chat_max_tokens', label: 'Max Tokens', group: 'Kontext / RAG', type: 'choice',
-    options: ['400', '800', '1200', '2000', '4000', '8000'] },
-  { key: 'chat_answer_chars', label: 'Antwort Chars', group: 'Kontext / RAG', type: 'choice',
-    options: ['600', '1200', '2400', '4000', '6000', '8000', '12000', '16000', '24000'] },
-  { key: 'chat_answer_overflow_policy', label: 'Antwort Überlänge', group: 'Kontext / RAG', type: 'choice',
-    options: ['allow', 'summarize', 'truncate'] },
-  { key: 'chat_never_truncate_answers', label: 'Nie hart kürzen', group: 'Kontext / RAG', type: 'bool' },
-  // Memory
-  { key: 'chat_use_history', label: 'Verlauf nutzen', group: 'Chat Memory', type: 'bool' },
-  { key: 'chat_history_turns', label: 'History Turns', group: 'Chat Memory', type: 'choice',
-    options: ['3', '6', '10', '15', '20', '30'] },
-  { key: 'chat_history_chars', label: 'History Chars', group: 'Chat Memory', type: 'choice',
-    options: ['600', '1200', '1800', '3000', '5000'] },
-  { key: 'chat_use_summary', label: 'Zusammenfassung', group: 'Chat Memory', type: 'bool' },
-  { key: 'chat_summary_chars', label: 'Summary Chars', group: 'Chat Memory', type: 'choice',
-    options: ['500', '1000', '1500', '2500', '4000'] },
-  { key: 'chat_summary_update_every_turns', label: 'Summary alle N Turns', group: 'Chat Memory', type: 'choice',
-    options: ['1', '2', '3', '5', '10'] },
-  // Input History
-  { key: 'input_history_chat_enabled', label: 'Chat-Eingaben speichern', group: 'Input-Verlauf', type: 'bool' },
-  { key: 'input_history_command_enabled', label: 'Befehle speichern', group: 'Input-Verlauf', type: 'bool' },
-  { key: 'input_history_max_entries', label: 'Max. Einträge', group: 'Input-Verlauf', type: 'choice',
-    options: ['20', '50', '100', '200', '500'] },
-  // Embedding / Reranking
-  { key: 'embedding_model_id', label: 'Embedding-Modell', group: 'Embedding / Reranking', type: 'choice',
-    options: ['paraphrase-multilingual-MiniLM-L12-v2', 'all-MiniLM-L6-v2', 'deepset/gbert-base', 'intfloat/multilingual-e5-small'] },
-  { key: 'embedding_lang_detect', label: 'Sprach-Erkennung (langdetect)', group: 'Embedding / Reranking', type: 'bool' },
-  { key: 'embedding_lang_model_de', label: 'Modell für Deutsch', group: 'Embedding / Reranking', type: 'choice',
-    options: ['paraphrase-multilingual-MiniLM-L12-v2', 'deepset/gbert-base', 'intfloat/multilingual-e5-small'] },
-  { key: 'embedding_lang_model_en', label: 'Modell für Englisch', group: 'Embedding / Reranking', type: 'choice',
-    options: ['all-MiniLM-L6-v2', 'paraphrase-multilingual-MiniLM-L12-v2', 'intfloat/multilingual-e5-small'] },
-  // Query-Reform / Intent-Extraktion
-  { key: 'query_reform_mode', label: 'Query-Reform Modus', group: 'Query-Reform', type: 'choice',
-    options: ['off', 'regex', 'regex_embed', 'llm'] },
-  { key: 'query_reform_llm_backend', label: 'LLM Backend (Modus: llm)', group: 'Query-Reform', type: 'choice',
-    options: ['ananta-worker', 'opencode', 'lmstudio', 'hermes'] },
-  { key: 'query_reform_llm_model', label: 'LLM Modell (Modus: llm)', group: 'Query-Reform', type: 'text' },
+  { key:'tutorial_mode', label:'Tutorial AI-Snake', group:'Visual', type:'bool' },
+  { key:'ai_snake_provider_preference', label:'Visual Provider', group:'Visual', type:'choice', options:['lmstudio','opencode','hermes','worker-propose'] },
+  { key:'ai_visual_use_codecompass', label:'Visual CodeCompass', group:'Visual', type:'bool' },
+  { key:'chat_panel_open', label:'Chat Panel offen', group:'Visual', type:'bool' },
 ];
+
 
 const PUG_PRESET_QUIET = {
   predictive_guide_enabled: true, predictive_guide_mode: 'quiet',
@@ -148,7 +46,7 @@ const PUG_PRESET_EAGER = {
 @Component({
   selector: 'app-ai-snake-config-panel',
   standalone: true,
-  imports: [FormsModule, DomainScopePanelComponent],
+  imports: [FormsModule, DomainScopePanelComponent, ChatSettingControlsComponent],
   template: `
     <div class="cfg-panel">
       <div class="cfg-header">
@@ -156,6 +54,12 @@ const PUG_PRESET_EAGER = {
         <input class="cfg-search" [(ngModel)]="search" placeholder="Suchen..." (ngModelChange)="updateFiltered()">
       </div>
       <div class="cfg-body">
+        <div class="cfg-group"><div class="cfg-group-title">Globale Chat-Defaults</div>
+          <p class="cfg-note">Diese Werte sind globale Defaults. Profil- und Session-Overrides bleiben unverändert.</p>
+          <app-chat-setting-controls [settings]="globalChatSchema()" scope="global" [delta]="globalConfig"
+            [effective]="globalConfig" overrideLabel="global" (changed)="setGlobal($event.key,$event.value)"
+            (reset)="resetGlobal($event)" />
+        </div>
         @for (group of visibleGroups(); track group) {
           <div class="cfg-group">
             <div class="cfg-group-title">{{ group }}</div>
@@ -310,6 +214,7 @@ const PUG_PRESET_EAGER = {
     .cfg-body::-webkit-scrollbar { width: 4px; }
     .cfg-body::-webkit-scrollbar-thumb { background: #1a2d4a; }
     .cfg-group { margin-bottom: 10px; }
+    .cfg-note { font-size:10px;color:#86a6d4; }
     .cfg-group-title { font-size: 10px; color: #4a6a9a; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; padding-bottom: 2px; border-bottom: 1px solid #131e36; }
     .cfg-row { display: flex; align-items: center; justify-content: space-between; padding: 3px 0; min-height: 26px; border-bottom: 1px solid #0f1828; }
     .cfg-label { font-size: 11px; color: #a8c7ff; flex: 1; }
@@ -366,8 +271,10 @@ export class AiSnakeConfigPanelComponent implements OnInit, OnDestroy {
   showDomainScope = false;
   modelsList: string[] = [];
   modelsLoading = false;
+  settingSchema: ChatSettingDefinition[] = [];
+  globalConfig: Record<string,unknown> = {};
   private _filtered: ConfigField[] = [...FIELDS];
-  private _sub?: Subscription;
+  private _sub = new Subscription();
 
   readonly pugPresets = [
     { key: 'quiet',    label: 'Quiet',    mode: 'quiet'    },
@@ -379,10 +286,12 @@ export class AiSnakeConfigPanelComponent implements OnInit, OnDestroy {
     this.svc.load();
     this.loadModels();
     this.sessions.load();
+    this._sub.add(this.sessions.settingSchema$.subscribe(schema=>this.settingSchema=schema.settings));
+    this._sub.add(this.svc.config$.subscribe(config=>this.globalConfig={...config}));
   }
 
   ngOnDestroy(): void {
-    this._sub?.unsubscribe();
+    this._sub.unsubscribe();
   }
 
   loadModels(): void {
@@ -434,6 +343,9 @@ export class AiSnakeConfigPanelComponent implements OnInit, OnDestroy {
   setStr(key: string, value: string): void {
     this.svc.updateField(key, value);
   }
+  setGlobal(key:string,value:unknown): void { this.svc.updateField(key,value as string|number|boolean); }
+  globalChatSchema(): ChatSettingDefinition[] { return this.settingSchema.filter(item=>/^(chat_|rag_|embedding_|query_reform_|input_history_)/.test(item.key)); }
+  resetGlobal(key:string): void { const setting=this.settingSchema.find(item=>item.key===key); if(setting) this.svc.updateField(key,setting.scope_defaults['global'] as string|number|boolean); }
 
   // ── Predictive Guide (PUG) — session-scoped on ananta-visual ──────────────
 
@@ -470,7 +382,7 @@ export class AiSnakeConfigPanelComponent implements OnInit, OnDestroy {
     const preset = map[presetKey];
     if (!preset) return;
     for (const [k, v] of Object.entries(preset)) {
-      this.sessions.patchSetting('ananta-visual', k, v);
+      this.sessions.patchSetting('ananta-visual', k, v as ChatSettingValue);
     }
   }
 }

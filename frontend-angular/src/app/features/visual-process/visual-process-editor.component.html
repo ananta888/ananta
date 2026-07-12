@@ -2,7 +2,7 @@
 <input type="file" #bpmnFileInput accept=".bpmn,.xml" hidden (change)="onBpmnFile($event)" />
 
 <!-- ── toolbar ───────────────────────────────────────────────────────────── -->
-<div class="vpe-toolbar">
+<div class="vpe-toolbar" [class.embedded]="editorMode === 'embedded-edit'">
   <span class="vpe-title">
     <input class="vpe-title-input" [ngModel]="graph().name" (ngModelChange)="setGraphName($event)"
            placeholder="Prozessname…" />
@@ -134,7 +134,7 @@
   <app-visual-process-canvas
     [graph]="graph()" [runtimeOverlay]="runtimeOverlay()" [selectedId]="selectedId()"
     [canvasTransform]="canvasTransform()" [drawingEdge]="drawingEdge()" [edgeSourceId]="edgeSourceId()"
-    mode="full-editor" (stepSelected)="selectStep($event)" (edgeSelected)="selectEdge($event)"
+    [mode]="editorMode" (stepSelected)="selectStep($event)" (edgeSelected)="selectEdge($event)"
     (nodeMouseDown)="onCanvasNodeMouseDown($event)" (canvasMouseDown)="onCanvasMouseDown($event)"
     (canvasMouseMove)="onMouseMove($event)" (canvasMouseUp)="onMouseUp($event)" (canvasWheel)="onWheel($event)" />
 

@@ -139,7 +139,7 @@ export class VpWorkflowRunnerService {
       const candidate = mapped[value] ?? value;
       return ['pending','running','awaiting_approval','succeeded','failed','skipped','cancelled'].includes(candidate) ? candidate as VpRuntimeOverlay['steps'][string]['status'] : 'unknown';
     };
-    const mappedSteps = Object.fromEntries(steps.filter(item => item?.step_id).map(item => [item.step_id, {
+    const mappedSteps: VpRuntimeOverlay['steps'] = Object.fromEntries(steps.filter(item => item?.step_id).map(item => [item.step_id, {
       step_id: item.step_id, status: normalize(item.run_state ?? item.status ?? 'unknown'),
       started_at: item.started_at, finished_at: item.finished_at, duration_ms: item.duration_ms, error: item.error,
       gate: item.gate, selected_model_profile_id: item.selected_model_profile_id, selected_provider_id: item.selected_provider_id,

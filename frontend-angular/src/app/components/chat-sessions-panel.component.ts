@@ -13,10 +13,14 @@ import {
   ContextOverview,
   CreateSessionPayload,
   PromptPreview,
+  ChatSettingDefinition,
+  ChatSettingValue,
 } from '../services/chat-sessions.service';
 import { ChatHistoryService } from '../services/chat-history.service';
 import { ChatOrganizationDialogsComponent } from './chat-organization-dialogs.component';
 import { ChatProfileEditorComponent } from './chat-profile-editor.component';
+import { ChatSettingControlsComponent } from './chat-setting-controls.component';
+import { ChatProcessBindingEditorComponent } from './chat-process-binding-editor.component';
 
 const PUG_PRESETS = {
   quiet:    { predictive_guide_dwell_ms: 5000, predictive_guide_min_confidence: 0.7,  predictive_guide_multi_candidates: 1 },
@@ -49,7 +53,7 @@ interface TreeItem {
 @Component({
   selector: 'app-chat-sessions-panel',
   standalone: true,
-  imports: [CommonModule, FormsModule, ChatOrganizationDialogsComponent, ChatProfileEditorComponent],
+  imports: [CommonModule, FormsModule, ChatOrganizationDialogsComponent, ChatProfileEditorComponent, ChatSettingControlsComponent, ChatProcessBindingEditorComponent],
   template: `
     <div class="sessions-panel">
 
@@ -178,6 +182,7 @@ interface TreeItem {
                     Nur abweichende Werte werden gespeichert.
                     <span class="cfg-hint-badge">{{ deltaCount(s) }} Override(s)</span>
                   </div>
+                  <div class="editor-tabs"><button (click)="setSessionTab(s,'base')" [class.active]="sessionTab(s)==='base'">Session</button><button (click)="setSessionTab(s,'process')" [class.active]="sessionTab(s)==='process'">Prozess</button><button (click)="setSessionTab(s,'settings')" [class.active]="sessionTab(s)==='settings'">Einstellungen</button></div>
 
                   <div class="cfg-row">
                     <label class="cfg-label">Chat-Profil</label>
@@ -204,106 +209,10 @@ interface TreeItem {
                     </div>
                   }
 
-                  <!-- Backend -->
-                  <div class="cfg-row">
-                    <label class="cfg-label">Backend</label>
-                    <select [ngModel]="getStr(s, 'chat_backend', 'ananta-worker')"
-                            (ngModelChange)="patchSetting(s, 'chat_backend', $event)">
-                      <option value="ananta-worker">ananta-worker</option>
-                      <option value="opencode">opencode</option>
-                      <option value="lmstudio">lmstudio</option>
-                      <option value="hermes">hermes</option>
-                    </select>
-                    <span class="delta-dot" [class.on]="isOverride(s,'chat_backend')"
-                          (click)="resetSetting(s,'chat_backend')"
-                          [title]="isOverride(s,'chat_backend') ? 'Zurücksetzen auf Standard' : 'Standard'"
-                    >{{ isOverride(s,'chat_backend') ? '●' : '○' }}</span>
-                  </div>
-
-                  <!-- RAG-Modus -->
-                  <div class="cfg-row">
-                    <label class="cfg-label">RAG-Modus</label>
-                    <select [ngModel]="getStr(s, 'chat_architecture_analysis_mode', '')"
-                            (ngModelChange)="patchSetting(s, 'chat_architecture_analysis_mode', $event || false)">
-                      <option value="">aus</option>
-                      <option value="rag_iterative">rag_iterative</option>
-                    </select>
-                    <span class="delta-dot" [class.on]="isOverride(s,'chat_architecture_analysis_mode')"
-                          (click)="resetSetting(s,'chat_architecture_analysis_mode')"
-                          [title]="isOverride(s,'chat_architecture_analysis_mode') ? 'Zurücksetzen' : 'Standard'"
-                    >{{ isOverride(s,'chat_architecture_analysis_mode') ? '●' : '○' }}</span>
-                  </div>
-
-                  <!-- Retrieval-Profil -->
-                  <div class="cfg-row">
-                    <label class="cfg-label">Retrieval</label>
-                    <select [ngModel]="getStr(s, 'chat_retrieval_profile', 'auto')"
-                            (ngModelChange)="patchSetting(s, 'chat_retrieval_profile', $event)">
-                      <option value="auto">auto</option>
-                      <option value="code_first">code_first</option>
-                      <option value="repo_first">repo_first</option>
-                      <option value="none">none</option>
-                    </select>
-                    <span class="delta-dot" [class.on]="isOverride(s,'chat_retrieval_profile')"
-                          (click)="resetSetting(s,'chat_retrieval_profile')"
-                          [title]="isOverride(s,'chat_retrieval_profile') ? 'Zurücksetzen' : 'Standard'"
-                    >{{ isOverride(s,'chat_retrieval_profile') ? '●' : '○' }}</span>
-                  </div>
-
-                  <!-- Antwort-Zeichen -->
-                  <div class="cfg-row">
-                    <label class="cfg-label">Antwort-Zeichen</label>
-                    <input type="number" min="500" max="20000" step="500"
-                           [ngModel]="getNum(s, 'chat_answer_chars', 1800)"
-                           (ngModelChange)="patchSetting(s, 'chat_answer_chars', +$event)" />
-                    <span class="delta-dot" [class.on]="isOverride(s,'chat_answer_chars')"
-                          (click)="resetSetting(s,'chat_answer_chars')"
-                          [title]="isOverride(s,'chat_answer_chars') ? 'Zurücksetzen' : 'Standard'"
-                    >{{ isOverride(s,'chat_answer_chars') ? '●' : '○' }}</span>
-                  </div>
-
-                  <!-- Max Tokens -->
-                  <div class="cfg-row">
-                    <label class="cfg-label">Max. Tokens</label>
-                    <input type="number" min="512" max="16000" step="512"
-                           [ngModel]="getNum(s, 'chat_max_tokens', 4000)"
-                           (ngModelChange)="patchSetting(s, 'chat_max_tokens', +$event)" />
-                    <span class="delta-dot" [class.on]="isOverride(s,'chat_max_tokens')"
-                          (click)="resetSetting(s,'chat_max_tokens')"
-                          [title]="isOverride(s,'chat_max_tokens') ? 'Zurücksetzen' : 'Standard'"
-                    >{{ isOverride(s,'chat_max_tokens') ? '●' : '○' }}</span>
-                  </div>
-
-                  <!-- Checkboxen -->
-                  <div class="cfg-checkboxes">
-                    <label class="cfg-check" [class.overridden]="isOverride(s,'chat_use_codecompass')">
-                      <input type="checkbox"
-                             [ngModel]="getBool(s, 'chat_use_codecompass')"
-                             (ngModelChange)="patchSetting(s, 'chat_use_codecompass', $event)" />
-                      CodeCompass
-                      <span class="delta-dot-inline" [class.on]="isOverride(s,'chat_use_codecompass')"
-                            (click)="$event.preventDefault(); resetSetting(s,'chat_use_codecompass')"
-                      >{{ isOverride(s,'chat_use_codecompass') ? '●' : '○' }}</span>
-                    </label>
-                    <label class="cfg-check" [class.overridden]="isOverride(s,'chat_code_questions_repo_first')">
-                      <input type="checkbox"
-                             [ngModel]="getBool(s, 'chat_code_questions_repo_first')"
-                             (ngModelChange)="patchSetting(s, 'chat_code_questions_repo_first', $event)" />
-                      Repo bevorzugen
-                      <span class="delta-dot-inline" [class.on]="isOverride(s,'chat_code_questions_repo_first')"
-                            (click)="$event.preventDefault(); resetSetting(s,'chat_code_questions_repo_first')"
-                      >{{ isOverride(s,'chat_code_questions_repo_first') ? '●' : '○' }}</span>
-                    </label>
-                    <label class="cfg-check" [class.overridden]="isOverride(s,'chat_include_wikipedia')">
-                      <input type="checkbox"
-                             [ngModel]="getBool(s, 'chat_include_wikipedia')"
-                             (ngModelChange)="patchSetting(s, 'chat_include_wikipedia', $event)" />
-                      Wikipedia
-                      <span class="delta-dot-inline" [class.on]="isOverride(s,'chat_include_wikipedia')"
-                            (click)="$event.preventDefault(); resetSetting(s,'chat_include_wikipedia')"
-                      >{{ isOverride(s,'chat_include_wikipedia') ? '●' : '○' }}</span>
-                    </label>
-                  </div>
+                  @if(sessionTab(s)==='settings'){<app-chat-setting-controls [settings]="settingSchema" scope="session"
+                    [delta]="s.settings_delta || {}" [effective]="s.settings || {}" overrideLabel="Session-Override"
+                    (changed)="patchSetting(s,$event.key,$event.value)" (reset)="resetSetting(s,$event)" (resetAll)="resetAllSettings(s)" />}
+                  @if(sessionTab(s)==='process'){<app-chat-process-binding-editor [sessionId]="s.id" [processRef]="s.process_ref||null" [profileProcessRef]="profileProcessRef(s)" />}
 
                   <!-- PUG Predictive-Guide Presets — only for ananta-visual session -->
                   @if (s.id === 'ananta-visual') {
@@ -349,66 +258,6 @@ interface TreeItem {
                   <!-- ── Chat-Verlauf & Kontext ── -->
                   <div class="ctx-section">
                     <div class="ctx-title">Chat-Verlauf &amp; Kontext</div>
-
-                    <!-- Verlauf row -->
-                    <div class="ctx-row">
-                      <span class="ctx-row-label">Verlauf</span>
-                      <label class="ctx-toggle-lbl">
-                        <input type="checkbox"
-                               [ngModel]="getBool(s, 'chat_use_history')"
-                               (ngModelChange)="patchSetting(s, 'chat_use_history', $event)" />
-                        {{ getBool(s, 'chat_use_history') ? '● aktiv' : '○ inaktiv' }}
-                      </label>
-                      <input type="number" class="ctx-num" min="1" max="200"
-                             [ngModel]="getNum(s, 'chat_history_turns', 20)"
-                             (ngModelChange)="patchSetting(s, 'chat_history_turns', +$event)"
-                             title="Max. Turns" />
-                      <span class="ctx-unit">Turns, max.</span>
-                      <input type="number" class="ctx-num wide" min="1000" max="200000" step="1000"
-                             [ngModel]="getNum(s, 'chat_history_chars', 20000)"
-                             (ngModelChange)="patchSetting(s, 'chat_history_chars', +$event)"
-                             title="Max. Zeichen" />
-                      <span class="ctx-unit">Zeichen</span>
-                    </div>
-
-                    <!-- Zusammenfassung row -->
-                    <div class="ctx-row">
-                      <span class="ctx-row-label">Zusammenfassung</span>
-                      <label class="ctx-toggle-lbl">
-                        <input type="checkbox"
-                               [ngModel]="getBool(s, 'chat_use_summary')"
-                               (ngModelChange)="patchSetting(s, 'chat_use_summary', $event)" />
-                        {{ getBool(s, 'chat_use_summary') ? '● aktiv' : '○ inaktiv' }}
-                      </label>
-                      <span class="ctx-unit">max.</span>
-                      <input type="number" class="ctx-num wide" min="500" max="20000" step="500"
-                             [ngModel]="getNum(s, 'chat_summary_chars', 5000)"
-                             (ngModelChange)="patchSetting(s, 'chat_summary_chars', +$event)" />
-                      <span class="ctx-unit">Zeichen</span>
-                    </div>
-
-                    <!-- RAG row -->
-                    <div class="ctx-row">
-                      <span class="ctx-row-label">RAG</span>
-                      <label class="ctx-toggle-lbl">
-                        <input type="checkbox"
-                               [ngModel]="getBool(s, 'chat_use_rag')"
-                               (ngModelChange)="patchSetting(s, 'chat_use_rag', $event)" />
-                        {{ getBool(s, 'chat_use_rag') ? '● aktiv' : '○ inaktiv' }}
-                      </label>
-                      <span class="ctx-unit">Profil:</span>
-                      <select class="ctx-select"
-                              [ngModel]="getStr(s, 'chat_rag_profile', 'auto')"
-                              (ngModelChange)="patchSetting(s, 'chat_rag_profile', $event)">
-                        <option value="auto">auto</option>
-                        <option value="code_first">code_first</option>
-                        <option value="repo_first">repo_first</option>
-                      </select>
-                      <span class="ctx-unit">Top-K:</span>
-                      <input type="number" class="ctx-num" min="1" max="20"
-                             [ngModel]="getNum(s, 'rag_top_k', 5)"
-                             (ngModelChange)="patchSetting(s, 'rag_top_k', +$event)" />
-                    </div>
 
                     <!-- Kontext-Überblick button + table -->
                     <div class="ctx-btn-row">
@@ -959,6 +808,8 @@ export class ChatSessionsPanelComponent implements OnInit, OnDestroy {
 
   // Session types (from API)
   types: ChatSessionType[] = [];
+  settingSchema: ChatSettingDefinition[] = [];
+  sessionTabs:Record<string,'base'|'process'|'settings'>={};
 
   // New session form
   newName = '';
@@ -987,6 +838,7 @@ export class ChatSessionsPanelComponent implements OnInit, OnDestroy {
       this.svc.folders$.subscribe(f => { this.folders = f; }),
       this.svc.profiles$.subscribe(p => { this.profiles = p; }),
       this.svc.types$.subscribe(t => { this.types = t; }),
+      this.svc.settingSchema$.subscribe(schema => { this.settingSchema = schema.settings; }),
       this.svc.activeSessionId$.subscribe(id => { this.activeSessionId = id; }),
       this.svc.error$.subscribe(e => { this.error = e; }),
       this.svc.loading$.subscribe(l => { this.loading = l; }),
@@ -1292,6 +1144,9 @@ export class ChatSessionsPanelComponent implements OnInit, OnDestroy {
   typeFor(sessionType: string): ChatSessionType | undefined {
     return this.types.find(t => t.id === sessionType);
   }
+  profileProcessRef(session:ChatSession){return this.profiles.find(profile=>profile.id===session.profile_id)?.process_ref||null;}
+  sessionTab(session:ChatSession){return this.sessionTabs[session.id]||'base';}
+  setSessionTab(session:ChatSession,tab:'base'|'process'|'settings'){this.sessionTabs[session.id]=tab;}
 
   selectedType(): ChatSessionType | undefined {
     return this.types.find(t => t.id === this.newSessionType);
@@ -1427,7 +1282,7 @@ export class ChatSessionsPanelComponent implements OnInit, OnDestroy {
     return !!s.settings?.[key];
   }
 
-  patchSetting(s: ChatSession, key: string, value: unknown): void {
+  patchSetting(s: ChatSession, key: string, value: ChatSettingValue): void {
     this.svc.update(s.id, { settings: { [key]: value } });
   }
 
