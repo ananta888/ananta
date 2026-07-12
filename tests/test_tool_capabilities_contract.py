@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from agent.tool_capabilities import (
     build_capability_contract,
     resolve_allowed_tools,
@@ -46,11 +48,12 @@ def test_llm_generate_exposes_assistant_capabilities_metadata(client, app):
             "llm_tool_allowlist": ["list_teams", "create_team"],
         }
 
-    res = client.post(
-        "/llm/generate",
-        json={"prompt": "hello"},
-        headers={"Authorization": "Bearer secret-token"},
-    )
+    with patch("agent.routes.config.generate_text", return_value='{"answer":"ok","tool_calls":[]}'):
+        res = client.post(
+            "/llm/generate",
+            json={"prompt": "hello"},
+            headers={"Authorization": "Bearer secret-token"},
+        )
     assert res.status_code == 200
     data = res.json.get("data") or {}
     caps = data.get("assistant_capabilities") or {}

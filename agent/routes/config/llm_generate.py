@@ -13,7 +13,7 @@ from agent.llm_integration import _default_model_for_provider, resolve_preferred
 from agent.local_llm_backends import resolve_local_openai_backend
 from agent.governance_modes import resolve_governance_mode
 from agent.runtime_policy import normalize_task_kind
-from agent.services.hub_llm_service import generate_text
+from agent.services.hub_llm_service import generate_text as _service_generate_text
 from agent.services.routing_decision_service import get_routing_decision_service
 from agent.services.tool_routing_service import get_tool_routing_service
 from agent.tool_capabilities import (
@@ -30,6 +30,21 @@ from . import shared
 from .llm_support import build_sse_response, build_system_instruction, extract_json
 
 llm_generate_bp = Blueprint("config_llm_generate", __name__)
+
+
+def generate_text(**kwargs):
+    """Resolve the hub LLM port through the config facade at call time.
+
+    The facade is the compatibility and injection seam used by callers and
+    tests. Falling back to the hub service keeps this module usable in
+    isolation without coupling request handling to a concrete transport.
+    """
+    import agent.routes.config as config_facade
+
+    facade_generate = getattr(config_facade, "generate_text", None)
+    if callable(facade_generate) and facade_generate is not generate_text:
+        return facade_generate(**kwargs)
+    return _service_generate_text(**kwargs)
 
 
 def _preflight_with_meta(payload: dict, raw_payload: dict | None = None) -> dict:
