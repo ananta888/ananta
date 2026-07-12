@@ -38,6 +38,7 @@ STRATEGY_LLM_TOOL  [stub]
     CodeCompass exposed as a tool the LLM calls in an iterative loop.
     Architectural change; falls back to DIRECT.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -51,21 +52,23 @@ log = logging.getLogger(__name__)
 
 # ── Strategy constants ────────────────────────────────────────────────────────
 
-STRATEGY_DIRECT             = "direct"
+STRATEGY_DIRECT = "direct"
 STRATEGY_SEMANTIC_PREFILTER = "semantic_prefilter"
 STRATEGY_TRANSFORMER_RERANK = "transformer_rerank"
-STRATEGY_HYBRID             = "hybrid"
-STRATEGY_LLM_DISPATCHER     = "llm_dispatcher"
-STRATEGY_LLM_TOOL           = "llm_tool"
+STRATEGY_HYBRID = "hybrid"
+STRATEGY_LLM_DISPATCHER = "llm_dispatcher"
+STRATEGY_LLM_TOOL = "llm_tool"
 
-ALL_STRATEGIES = frozenset({
-    STRATEGY_DIRECT,
-    STRATEGY_SEMANTIC_PREFILTER,
-    STRATEGY_TRANSFORMER_RERANK,
-    STRATEGY_HYBRID,
-    STRATEGY_LLM_DISPATCHER,
-    STRATEGY_LLM_TOOL,
-})
+ALL_STRATEGIES = frozenset(
+    {
+        STRATEGY_DIRECT,
+        STRATEGY_SEMANTIC_PREFILTER,
+        STRATEGY_TRANSFORMER_RERANK,
+        STRATEGY_HYBRID,
+        STRATEGY_LLM_DISPATCHER,
+        STRATEGY_LLM_TOOL,
+    }
+)
 
 # Strategies that apply a pre-filter at the CodeCompass vector level.
 PREFILTER_STRATEGIES = frozenset({STRATEGY_SEMANTIC_PREFILTER, STRATEGY_HYBRID})
@@ -75,6 +78,7 @@ POSTRANK_STRATEGIES = frozenset({STRATEGY_TRANSFORMER_RERANK, STRATEGY_HYBRID})
 
 
 # ── Strategy config ───────────────────────────────────────────────────────────
+
 
 class RetrievalStrategyConfig:
     """Thin config container parsed from the codecompass_ranking config dict."""
@@ -144,6 +148,7 @@ class RetrievalStrategyConfig:
 
 # ── Pre-filter application ────────────────────────────────────────────────────
 
+
 def apply_semantic_prefilter(
     rows: list[dict[str, Any]],
     query: str,
@@ -168,12 +173,21 @@ def apply_semantic_prefilter(
         return rows[:requested_top_k]
 
     # Map rerank scores back to rows by record_id
-    score_map: dict[str, float] = {r.record_id: r.score for r in rerank_results}
+    score_map: dict[str, tuple[float, str]] = {r.record_id: (r.score, r.manifest_digest) for r in rerank_results}
     annotated: list[tuple[float, dict[str, Any]]] = []
     for row in rows:
         rid = _row_record_id(row)
-        rerank_score = score_map.get(rid, 0.0)
-        annotated.append((rerank_score, {**row, "_rerank_score": rerank_score}))
+        rerank_score, manifest_digest = score_map.get(rid, (0.0, ""))
+        annotated.append(
+            (
+                rerank_score,
+                {
+                    **row,
+                    "_rerank_score": rerank_score,
+                    "_rerank_manifest_digest": manifest_digest,
+                },
+            )
+        )
 
     annotated.sort(key=lambda t: -t[0])
 
@@ -182,15 +196,19 @@ def apply_semantic_prefilter(
 
     # Guarantee minimum results even if below threshold (avoid total blackout)
     if not filtered and config.semantic_prefilter_min_results > 0:
-        filtered = [row for _, row in annotated[:config.semantic_prefilter_min_results]]
+        filtered = [row for _, row in annotated[: config.semantic_prefilter_min_results]]
         log.debug(
             "semantic_prefilter: all %d candidates below threshold %.2f — keeping top %d",
-            len(rows), threshold, len(filtered),
+            len(rows),
+            threshold,
+            len(filtered),
         )
     else:
         log.debug(
             "semantic_prefilter: %d/%d candidates passed threshold %.2f",
-            len(filtered), len(rows), threshold,
+            len(filtered),
+            len(rows),
+            threshold,
         )
 
     return filtered[:requested_top_k]
@@ -201,11 +219,13 @@ def _rows_to_rerank_candidates(rows: list[dict[str, Any]]) -> list[dict[str, Any
     for row in rows:
         source = str(row.get("source") or row.get("file") or "")
         content = str(row.get("content") or "")
-        candidates.append({
-            "path": source,
-            "record_id": _row_record_id(row),
-            "excerpt": content[:500],
-        })
+        candidates.append(
+            {
+                "path": source,
+                "record_id": _row_record_id(row),
+                "excerpt": content[:500],
+            }
+        )
     return candidates
 
 

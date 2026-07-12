@@ -4,28 +4,29 @@ import time
 
 from flask import Flask
 
+from agent import db_models as _  # noqa: F401 - register SQLModel tables before init_db
 from agent.bootstrap.background import start_background_services
 from agent.bootstrap.extensions import configure_cors, configure_swagger, load_extensions
 from agent.bootstrap.request_hooks import configure_audit_logger, register_request_hooks
 from agent.bootstrap.routes import register_alias_routes, register_blueprints
 from agent.bootstrap.runtime_hints import log_runtime_hints
 from agent.bootstrap.startup import run_startup_phase
+from agent.bootstrap.voice_runtime_cleanup import recover_voice_runtime_cleanup
 from agent.common.error_handler import register_error_handler
 from agent.common.logging import setup_logging
 from agent.common.signals import setup_signal_handlers
 from agent.config import settings
 from agent.database import init_db
-from agent import db_models as _
 from agent.metrics import APP_STARTUP_DURATION
 from agent.services.app_runtime_service import build_base_app_config, initialize_runtime_state
-from agent.services.repository_registry import initialize_repository_registry
-from agent.services.service_registry import initialize_core_services
 from agent.services.deterministic_repair_handler import DeterministicRepairHandler
+from agent.services.repository_registry import initialize_repository_registry
 from agent.services.run_tests_handler import register_run_tests_handler
+from agent.services.service_registry import initialize_core_services
 from agent.services.task_handler_registry import register_task_handler
-from worker.core.template_propose_handler import TemplateProposeHandler
 from agent.utils import read_json
 from agent.utils import register_with_hub as _register_with_hub
+from worker.core.template_propose_handler import TemplateProposeHandler
 
 register_with_hub = _register_with_hub
 
@@ -106,6 +107,7 @@ def create_app(agent: str = "default", *, testing: bool = False) -> Flask:
         run_startup_phase("runtime_hints", log_runtime_hints)
         run_startup_phase("audit_logger", configure_audit_logger)
         run_startup_phase("database", init_db)
+        run_startup_phase("voice_runtime_cleanup_recovery", recover_voice_runtime_cleanup)
 
     app = run_startup_phase("flask_app", Flask, __name__)
     app.config["TESTING"] = testing # Set Flask's testing flag

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import fnmatch
 import logging
+import threading
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -171,6 +172,7 @@ class PathAiModePolicyService:
     """
 
     def __init__(self, rules: list[PathAiModeRule] | None = None) -> None:
+        self._lock = threading.RLock()
         self._rules: list[PathAiModeRule] = sorted(
             rules or [], key=lambda r: r.priority, reverse=True
         )
@@ -185,7 +187,9 @@ class PathAiModePolicyService:
     def resolve(self, path: str) -> PolicyResult:
         """Return the policy for a given file path (POSIX separators preferred)."""
         normalised = _normalise(path)
-        for rule in self._rules:
+        with self._lock:
+            rules = tuple(self._rules)
+        for rule in rules:
             if _matches(rule.path_glob, normalised):
                 reason = [f"matched_glob:{rule.path_glob}"]
                 if rule.blocked_ai_modes:
@@ -215,6 +219,13 @@ class PathAiModePolicyService:
             blocked_modes=frozenset(),
             reason_codes=["default_no_restriction"],
         )
+
+    def reload_from_config(self, config: dict[str, Any] | None) -> None:
+        """Atomically replace rules while preserving injected service references."""
+
+        replacement = self.from_config(config)
+        with self._lock:
+            self._rules = list(replacement._rules)
 
     def resolve_for_candidates(
         self, paths: list[str]
@@ -251,8 +262,24 @@ _policy_service: PathAiModePolicyService | None = None
 def get_path_ai_mode_policy_service() -> PathAiModePolicyService:
     global _policy_service
     if _policy_service is None:
-        _policy_service = PathAiModePolicyService()
+        from agent.services.user_config_service import get_user_config_service
+
+        _policy_service = PathAiModePolicyService.from_config(
+            get_user_config_service().config
+        )
     return _policy_service
+
+
+def reload_path_ai_mode_policy_service() -> PathAiModePolicyService:
+    """Reload the Config-Graph source into the live policy object."""
+
+    from agent.services.user_config_service import get_user_config_service
+
+    config_service = get_user_config_service()
+    config_service.refresh()
+    service = get_path_ai_mode_policy_service()
+    service.reload_from_config(config_service.config)
+    return service
 
 
 def reset_path_ai_mode_policy_service(new: PathAiModePolicyService | None = None) -> None:

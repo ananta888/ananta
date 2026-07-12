@@ -25,15 +25,23 @@ Injected callables
 ``index_status_fn`` : () → dict
     Returns current RAG/CodeCompass index status.
 """
+
 from __future__ import annotations
 
-import hashlib
 import logging
 import time
 import uuid
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+from agent.services.candidate_scoring_service import CandidateScoringService
+from agent.services.codecompass_ranking_config_service import CodeCompassRankingConfig
+from agent.services.path_ai_mode_policy_service import (
+    AI_MODE_CODECOMPASS_ONLY,
+    AI_MODE_RESTRICTED_TRANSFORMER,
+    PathAiModePolicyService,
+    get_path_ai_mode_policy_service,
+)
 from agent.services.pre_model_context_cache import (
     ContextPackageCache,
     build_cache_key,
@@ -57,26 +65,42 @@ from agent.services.pre_model_context_decision import (
     DeterministicDecisionEngine,
 )
 from agent.services.pre_model_context_ranking import CandidateScorer, ScoredCandidate
-from agent.services.codecompass_ranking_config_service import CodeCompassRankingConfig
-from agent.services.candidate_scoring_service import CandidateScoringService
-from agent.services.path_ai_mode_policy_service import (
-    AI_MODE_CODECOMPASS_ONLY,
-    AI_MODE_RESTRICTED_TRANSFORMER,
-    PathAiModePolicyService,
-)
 from agent.services.restricted_model_inference_service import RestrictedModelInferenceService
 
 log = logging.getLogger(__name__)
 
 # ── Decision constants ────────────────────────────────────────────────────────
-DECISION_PASS_THROUGH = "pass_through"      # disabled / observe_only: call original flow
+DECISION_PASS_THROUGH = "pass_through"  # disabled / observe_only: call original flow
 DECISION_WORKER_DECIDES = "worker_decides"  # give worker tool catalog, no preflight
-DECISION_USE_CONTEXT = "use_context"        # ContextPackage ready for prompt
-DECISION_DETERMINISTIC = "deterministic"    # no LLM needed
-DECISION_CANNOT_ANSWER = "cannot_answer"    # deterministic_only + no evidence
+DECISION_USE_CONTEXT = "use_context"  # ContextPackage ready for prompt
+DECISION_DETERMINISTIC = "deterministic"  # no LLM needed
+DECISION_CANNOT_ANSWER = "cannot_answer"  # deterministic_only + no evidence
+
+_RERANK_TIMEOUT_CODES = frozenset({"timeout", "deadline_exceeded", "worker_timeout"})
+_RERANK_UNAVAILABLE_CODES = frozenset(
+    {"unavailable", "worker_unavailable", "model_unavailable", "dependency_unavailable"}
+)
+
+
+def _restricted_rerank_failure_reason(error: Exception) -> str:
+    """Map worker failures to bounded trace labels without leaking exception text."""
+
+    if isinstance(error, TimeoutError):
+        return "timeout"
+    raw_code = str(
+        getattr(error, "reason_code", None) or getattr(error, "code", None) or ""
+    ).strip().lower()
+    if raw_code in _RERANK_TIMEOUT_CODES:
+        return "timeout"
+    if raw_code in _RERANK_UNAVAILABLE_CODES:
+        return "model_unavailable"
+    if isinstance(error, RestrictedModelInferenceService.InferenceBlockedError):
+        return "policy_blocked"
+    return "model_error"
 
 
 # ── Data contracts ────────────────────────────────────────────────────────────
+
 
 @dataclass
 class ContextPackage:
@@ -90,7 +114,7 @@ class ContextPackage:
     warnings: list[str] = field(default_factory=list)
     budget_remaining_chars: int = 0
     has_sensitive_content: bool = False
-    cache_status: str = "miss"       # hit / miss / stale / disabled
+    cache_status: str = "miss"  # hit / miss / stale / disabled
     from_cache: bool = False
 
     def to_dict(self) -> dict[str, Any]:
@@ -159,6 +183,7 @@ class PreModelTrace:
 @dataclass
 class OrchestratorResult:
     """Returned by PreModelContextOrchestrator.orchestrate()."""
+
     decision: str = DECISION_PASS_THROUGH
     context_package: ContextPackage | None = None
     deterministic_answer: dict[str, Any] | None = None
@@ -181,6 +206,7 @@ class OrchestratorResult:
 
 # ── Default stubs (no-op, always testable) ────────────────────────────────────
 
+
 def _noop_retrieve(task_text: str, domain_hint: str, workspace_dir: str, budget: int) -> list[dict[str, Any]]:
     return []
 
@@ -190,6 +216,7 @@ def _noop_index_status() -> dict[str, Any]:
 
 
 # ── Main service ──────────────────────────────────────────────────────────────
+
 
 class PreModelContextOrchestrator:
     """Central, optional pre-model context orchestration service (APMCO).
@@ -211,7 +238,7 @@ class PreModelContextOrchestrator:
         self._index_status = index_status_fn or _noop_index_status
         self._cache = cache
         self._restricted_inference = restricted_inference_service
-        self._path_policy = path_policy_service or PathAiModePolicyService()
+        self._path_policy = path_policy_service or get_path_ai_mode_policy_service()
 
     def orchestrate(
         self,
@@ -421,22 +448,14 @@ class PreModelContextOrchestrator:
                 )
 
         # ── 8. Context-bearing modes ──────────────────────────────────────────
-        decision = (
-            DECISION_USE_CONTEXT
-            if pkg and pkg.candidates
-            else DECISION_PASS_THROUGH
-        )
-        if decision == DECISION_PASS_THROUGH and effective_mode in (
-            MODE_PREFER_CONTEXT, MODE_CONTEXT_FIRST
-        ):
+        decision = DECISION_USE_CONTEXT if pkg and pkg.candidates else DECISION_PASS_THROUGH
+        if decision == DECISION_PASS_THROUGH and effective_mode in (MODE_PREFER_CONTEXT, MODE_CONTEXT_FIRST):
             trace.fallback_used = True
             trace.warnings.append("context_build_fallback")
 
         trace.decision = decision
         trace.duration_ms = (time.time() - t0) * 1000
-        combined_warnings = list(dict.fromkeys(
-            (pkg.warnings if pkg else []) + trace.warnings
-        ))
+        combined_warnings = list(dict.fromkeys((pkg.warnings if pkg else []) + trace.warnings))
         return OrchestratorResult(
             decision=decision,
             context_package=pkg,
@@ -522,7 +541,9 @@ class PreModelContextOrchestrator:
         blocked: list[ScoredCandidate] = []
         for candidate in scored:
             policy = self._path_policy.resolve(candidate.path)
-            if policy.is_mode_allowed(AI_MODE_CODECOMPASS_ONLY) and policy.is_mode_allowed(AI_MODE_RESTRICTED_TRANSFORMER):
+            if policy.is_mode_allowed(AI_MODE_CODECOMPASS_ONLY) and policy.is_mode_allowed(
+                AI_MODE_RESTRICTED_TRANSFORMER
+            ):
                 allowed.append(candidate)
             else:
                 blocked.append(candidate)
@@ -532,13 +553,20 @@ class PreModelContextOrchestrator:
             return scored if ranking_cfg.fallback_without_model else []
 
         try:
-            candidates = [
-                {"path": c.path, "record_id": c.record_id, "excerpt": c.excerpt}
-                for c in allowed
-            ]
+            model_candidates = allowed[: ranking_cfg.restricted_inference_max_candidates]
+            if len(model_candidates) < len(allowed):
+                trace.add(
+                    "restricted_rerank_candidate_limit",
+                    selected=len(model_candidates),
+                    total=len(allowed),
+                )
+            candidates = [{"path": c.path, "record_id": c.record_id, "excerpt": c.excerpt} for c in model_candidates]
             reranked = self._restricted_inference.rerank(task_text, candidates)
         except Exception as exc:
-            trace.add("restricted_rerank_error", message=str(exc))
+            trace.add(
+                "restricted_rerank_error",
+                reason_code=_restricted_rerank_failure_reason(exc),
+            )
             if ranking_cfg.fallback_without_model:
                 trace.fallback_used = True
                 trace.warnings.append("restricted_rerank_fallback")
@@ -551,6 +579,7 @@ class PreModelContextOrchestrator:
                 "score": item.score,
                 "model_id": item.model_id,
                 "engine": item.engine,
+                "manifest_digest": item.manifest_digest,
             }
             for item in reranked
         }
@@ -568,37 +597,41 @@ class PreModelContextOrchestrator:
                 updated.append(candidate)
                 continue
             trace_payload = ranked_candidate.trace.as_dict() if ranking_cfg.trace_scores else {}
-            updated.append(ScoredCandidate(
-                path=candidate.path,
-                record_id=candidate.record_id,
-                excerpt=candidate.excerpt,
-                symbols=candidate.symbols,
-                embedding_score=candidate.embedding_score,
-                symbol_match_score=candidate.symbol_match_score,
-                graph_distance_score=candidate.graph_distance_score,
-                working_file_bonus=candidate.working_file_bonus,
-                domain_scope_bonus=candidate.domain_scope_bonus,
-                test_relation_bonus=candidate.test_relation_bonus,
-                recency_bonus=candidate.recency_bonus,
-                policy_penalty=candidate.policy_penalty,
-                sensitivity_penalty=candidate.sensitivity_penalty,
-                transformer_rerank_score=ranked_candidate.trace.transformer_rerank_score,
-                transformer_model_id=ranked_candidate.trace.model_id,
-                transformer_engine=ranked_candidate.trace.engine,
-                score_trace=trace_payload,
-                final_score=ranked_candidate.final_score,
-                policy_denied=candidate.policy_denied,
-                reason=candidate.reason,
-                domain=candidate.domain,
-                sensitivity_class=candidate.sensitivity_class,
-                graph_edges=candidate.graph_edges,
-            ))
+            updated.append(
+                ScoredCandidate(
+                    path=candidate.path,
+                    record_id=candidate.record_id,
+                    excerpt=candidate.excerpt,
+                    symbols=candidate.symbols,
+                    embedding_score=candidate.embedding_score,
+                    symbol_match_score=candidate.symbol_match_score,
+                    graph_distance_score=candidate.graph_distance_score,
+                    working_file_bonus=candidate.working_file_bonus,
+                    domain_scope_bonus=candidate.domain_scope_bonus,
+                    test_relation_bonus=candidate.test_relation_bonus,
+                    recency_bonus=candidate.recency_bonus,
+                    policy_penalty=candidate.policy_penalty,
+                    sensitivity_penalty=candidate.sensitivity_penalty,
+                    transformer_rerank_score=ranked_candidate.trace.transformer_rerank_score,
+                    transformer_model_id=ranked_candidate.trace.model_id,
+                    transformer_engine=ranked_candidate.trace.engine,
+                    transformer_manifest_digest=ranked_candidate.trace.manifest_digest,
+                    score_trace=trace_payload,
+                    final_score=ranked_candidate.final_score,
+                    policy_denied=candidate.policy_denied,
+                    reason=candidate.reason,
+                    domain=candidate.domain,
+                    sensitivity_class=candidate.sensitivity_class,
+                    graph_edges=candidate.graph_edges,
+                )
+            )
         updated.sort(key=lambda item: (-item.final_score, item.path, item.record_id))
         trace.add("restricted_rerank_finished", count=len(reranked))
         return updated
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _candidate_dict(c: ScoredCandidate) -> dict[str, Any]:
     payload = {
@@ -618,6 +651,7 @@ def _candidate_dict(c: ScoredCandidate) -> dict[str, Any]:
         "transformer_rerank_score": c.transformer_rerank_score,
         "transformer_model_id": c.transformer_model_id,
         "transformer_engine": c.transformer_engine,
+        "transformer_manifest_digest": c.transformer_manifest_digest,
         "final_score": c.final_score,
         "policy_denied": c.policy_denied,
         "reason": c.reason,
@@ -636,6 +670,7 @@ def _candidate_raw(c: ScoredCandidate) -> dict[str, Any]:
 
 def _pkg_from_dict(d: dict[str, Any]) -> ContextPackage:
     from agent.services.pre_model_context_ranking import ScoredCandidate
+
     pkg = ContextPackage(
         surface=str(d.get("surface") or ""),
         mode=str(d.get("mode") or ""),
@@ -645,10 +680,10 @@ def _pkg_from_dict(d: dict[str, Any]) -> ContextPackage:
         has_sensitive_content=bool(d.get("has_sensitive_content")),
         cache_status="hit",
     )
-    for cdict in (d.get("candidates") or []):
-        pkg.candidates.append(ScoredCandidate(**{
-            k: cdict[k] for k in ScoredCandidate.__dataclass_fields__ if k in cdict
-        }))
+    for cdict in d.get("candidates") or []:
+        pkg.candidates.append(
+            ScoredCandidate(**{k: cdict[k] for k in ScoredCandidate.__dataclass_fields__ if k in cdict})
+        )
     return pkg
 
 

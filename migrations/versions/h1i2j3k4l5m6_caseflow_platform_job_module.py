@@ -21,7 +21,6 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy import inspect
 
-
 revision: str = "h1i2j3k4l5m6"
 down_revision: Union[str, Sequence[str], None] = "g1h2i3j4k5l6"
 branch_labels: Union[str, Sequence[str], None] = None
@@ -58,7 +57,7 @@ def upgrade() -> None:
         op.create_table(
             "caseflow_events",
             sa.Column("id", sa.String(), primary_key=True),
-            sa.Column("case_id", sa.String(), nullable=False, index=True),
+            sa.Column("case_id", sa.String(), nullable=False),
             sa.Column("event_type", sa.String(), nullable=False),
             sa.Column("actor_type", sa.String(), nullable=False, server_default="system"),
             sa.Column("actor_id", sa.String(), nullable=True),

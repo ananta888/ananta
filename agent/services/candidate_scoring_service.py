@@ -1,4 +1,5 @@
 """CodeCompass candidate scoring with optional trace output."""
+
 from __future__ import annotations
 
 import hashlib
@@ -19,6 +20,7 @@ class CandidateScoreTrace:
     policy_reason: str = ""
     model_id: str = ""
     engine: str = ""
+    manifest_digest: str = ""
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -31,6 +33,7 @@ class CandidateScoreTrace:
             "policy_reason": self.policy_reason,
             "model_id": self.model_id,
             "engine": self.engine,
+            "manifest_digest": self.manifest_digest,
         }
 
 
@@ -46,11 +49,13 @@ class RankedCandidate:
 
     def as_dict(self, *, include_trace: bool = False) -> dict[str, Any]:
         payload = dict(self.raw)
-        payload.update({
-            "path": self.path,
-            "record_id": self.record_id,
-            "final_score": self.final_score,
-        })
+        payload.update(
+            {
+                "path": self.path,
+                "record_id": self.record_id,
+                "final_score": self.final_score,
+            }
+        )
         if include_trace:
             payload["score_trace"] = self.trace.as_dict()
         return payload
@@ -100,6 +105,7 @@ class CandidateScoringService:
             policy_reason=str(candidate.get("policy_reason") or candidate.get("reason") or ""),
             model_id=str((transformer or {}).get("model_id") or ""),
             engine=str((transformer or {}).get("engine") or ""),
+            manifest_digest=str((transformer or {}).get("manifest_digest") or ""),
         )
         return RankedCandidate(
             path=path,
@@ -113,7 +119,9 @@ class CandidateScoringService:
 
 
 def _candidate_key(candidate: dict[str, Any]) -> str:
-    return str(candidate.get("record_id") or candidate.get("id") or candidate.get("path") or candidate.get("source") or "")
+    return str(
+        candidate.get("record_id") or candidate.get("id") or candidate.get("path") or candidate.get("source") or ""
+    )
 
 
 def _stable_id(value: str) -> str:

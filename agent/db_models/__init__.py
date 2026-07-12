@@ -24,10 +24,21 @@ from .blueprints import (
     TerminalEventDB,
     TerminalSessionDB,
 )
+from .caseflow import (
+    CaseActionDB,
+    CaseAgentRunDB,
+    CaseArtifactDB,
+    CaseBlueprintBindingDB,
+    CaseEventDB,
+    CaseFlowCaseDB,
+    DiscoveryProfileDB,
+    DiscoveryResultDB,
+    DiscoveryRunDB,
+)
 from .governance import (
     ActionPackDB,
-    ApprovalRequestDB,
     AgentSessionDB,
+    ApprovalRequestDB,
     AuditLogDB,
     DecisionTraceDB,
     PairGroupDB,
@@ -57,7 +68,6 @@ from .memory import (
 from .planning import (
     GoalDB,
     PlanDB,
-    PlanNodeDB,
     PlanningEvaluationDB,
     PlanningModelProfileDB,
     PlanningPatternClusterDB,
@@ -65,12 +75,12 @@ from .planning import (
     PlanningReviewItemDB,
     PlanningRunDB,
     PlanningTemplateCandidateDB,
+    PlanNodeDB,
     PlaybookDB,
     ScheduledTaskDB,
     TemplateDB,
 )
 from .tasks import ArchivedTaskDB, ConfigDB, TaskDB
-from .text_quality import TextQualityCriteriaSetDB, TextQualityEvaluationDB
 from .teams import (
     RoleDB,
     TeamBlueprintDB,
@@ -79,17 +89,18 @@ from .teams import (
     TeamTypeDB,
     TeamTypeRoleLink,
 )
+from .text_quality import TextQualityCriteriaSetDB, TextQualityEvaluationDB
 from .visual_process import VisualProcessGraphDB
-from .caseflow import (
-    CaseFlowCaseDB,
-    CaseEventDB,
-    CaseArtifactDB,
-    CaseActionDB,
-    DiscoveryProfileDB,
-    DiscoveryRunDB,
-    DiscoveryResultDB,
-    CaseAgentRunDB,
-    CaseBlueprintBindingDB,
+from .voice_configuration import VoiceConfigurationDeltaDB
+from .voice_governance import (
+    VoiceConsentDB,
+    VoiceDeletionTombstoneDB,
+    VoiceFeedbackDB,
+    VoiceGovernanceIdempotencyDB,
+    VoicePersonalizationProfileDB,
+    VoiceResultArtifactDB,
+    VoiceReviewDB,
+    VoiceRuntimeCleanupDB,
 )
 from .workers import (
     EvolutionProposalDB,
@@ -173,6 +184,15 @@ __all__ = [
     "UserInstructionProfileDB",
     "VerificationRecordDB",
     "VisualProcessGraphDB",
+    "VoiceConsentDB",
+    "VoiceDeletionTombstoneDB",
+    "VoiceConfigurationDeltaDB",
+    "VoiceFeedbackDB",
+    "VoiceGovernanceIdempotencyDB",
+    "VoicePersonalizationProfileDB",
+    "VoiceResultArtifactDB",
+    "VoiceReviewDB",
+    "VoiceRuntimeCleanupDB",
     "CaseFlowCaseDB",
     "CaseEventDB",
     "CaseArtifactDB",

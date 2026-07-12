@@ -113,6 +113,7 @@ class ConfigGraphPersistenceService:
             result.errors.append(f"write_failed:{self._relative(path)}:{exc}")
             return result
 
+        self._refresh_runtime_config(staged)
         return result
 
     def _stage_op(
@@ -342,6 +343,8 @@ class ConfigGraphPersistenceService:
         except Exception as exc:
             result.success = False
             result.errors.append(f"write_failed:{self._relative(path)}:{exc}")
+            return result
+        self._refresh_runtime_config(staged)
         return result
 
     def rollback(self, rollback_artifact: dict[str, Any]) -> PersistenceResult:
@@ -386,7 +389,29 @@ class ConfigGraphPersistenceService:
                     rollback_content=before,
                 ))
                 path.write_text(rollback_content, encoding="utf-8")
+        if result.success and any(
+            str(source.get("source_file") or "").strip() == "user.json"
+            for source in sources
+            if isinstance(source, dict)
+        ):
+            self._refresh_runtime_config({self._root / "user.json": ("", "", "user_config")})
         return result
+
+    def _refresh_runtime_config(self, staged: dict[Path, tuple[str, str, str]]) -> None:
+        if not any(path.name == "user.json" for path in staged):
+            return
+        from agent.services.path_ai_mode_policy_service import (
+            get_path_ai_mode_policy_service,
+        )
+        from agent.services.restricted_model_inference_service import (
+            reset_restricted_model_inference_service,
+        )
+        from agent.services.user_config_service import get_user_config_service
+
+        config_service = get_user_config_service(self._root)
+        config_service.refresh()
+        get_path_ai_mode_policy_service().reload_from_config(config_service.config)
+        reset_restricted_model_inference_service()
 
     def _stage_model_provider_update(
         self,

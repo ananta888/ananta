@@ -6,6 +6,7 @@ penalty into a single deterministic final score.
 
 Tie-breaking: final_score desc → path asc → record_id asc.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -18,6 +19,7 @@ from agent.services.pre_model_context_config import RankingWeights
 @dataclass
 class ScoredCandidate:
     """Single ranked candidate with full score breakdown (APMCO-004 trace)."""
+
     path: str
     record_id: str
     excerpt: str = ""
@@ -31,11 +33,12 @@ class ScoredCandidate:
     domain_scope_bonus: float = 0.0
     test_relation_bonus: float = 0.0
     recency_bonus: float = 0.0
-    policy_penalty: float = 0.0       # negative value when policy flags candidate
+    policy_penalty: float = 0.0  # negative value when policy flags candidate
     sensitivity_penalty: float = 0.0  # negative value for sensitive paths
     transformer_rerank_score: float = 0.0
     transformer_model_id: str = ""
     transformer_engine: str = ""
+    transformer_manifest_digest: str = ""
     score_trace: dict[str, Any] = field(default_factory=dict)
 
     # Derived
@@ -78,6 +81,7 @@ class ScoredCandidate:
             transformer_rerank_score=self.transformer_rerank_score,
             transformer_model_id=self.transformer_model_id,
             transformer_engine=self.transformer_engine,
+            transformer_manifest_digest=self.transformer_manifest_digest,
             score_trace=dict(self.score_trace),
             final_score=round(max(0.0, min(1.0, score)), 6),
             policy_denied=self.policy_denied,
@@ -109,9 +113,15 @@ class CandidateScorer:
         self._weights = weights or RankingWeights()
         self._working_files: frozenset[str] = frozenset(working_files or [])
         self._denied_paths: frozenset[str] = frozenset(denied_paths or [])
-        self._sensitive_prefixes: tuple[str, ...] = tuple(sensitive_path_prefixes or [
-            "src/security", "src/auth", "src/payment", "src/secrets",
-        ])
+        self._sensitive_prefixes: tuple[str, ...] = tuple(
+            sensitive_path_prefixes
+            or [
+                "src/security",
+                "src/auth",
+                "src/payment",
+                "src/secrets",
+            ]
+        )
 
     def score_all(self, raw_candidates: list[dict[str, Any]]) -> list[ScoredCandidate]:
         """Score and rank a list of raw candidate dicts from CodeCompass/RAG.
@@ -160,7 +170,9 @@ class CandidateScorer:
         policy_denied = path in self._denied_paths
         policy_pen = -1.0 if policy_denied else 0.0
         sensitivity_class = str(raw.get("sensitivity_class") or "")
-        sens_pen = -0.5 if (sensitivity_class == "high" or any(path.startswith(p) for p in self._sensitive_prefixes)) else 0.0
+        sens_pen = (
+            -0.5 if (sensitivity_class == "high" or any(path.startswith(p) for p in self._sensitive_prefixes)) else 0.0
+        )
 
         reason_parts: list[str] = []
         if working_bonus:

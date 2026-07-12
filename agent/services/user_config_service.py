@@ -47,8 +47,10 @@ _service: UserConfigService | None = None
 
 def get_user_config_service(repo_root: str | Path | None = None) -> UserConfigService:
     global _service
-    if _service is None:
-        from agent.config import settings
-        root = repo_root or getattr(settings, "rag_repo_root", None) or Path(".")
+    from agent.config import settings
+
+    root = Path(repo_root or getattr(settings, "rag_repo_root", None) or Path(".")).resolve()
+    expected_path = root / "user.json"
+    if _service is None or _service._path != expected_path:
         _service = UserConfigService(root)
     return _service

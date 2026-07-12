@@ -145,6 +145,49 @@ CONTEXT_EFFICIENCY_BUDGET_UTILIZATION = Histogram(
     ["task_kind", "task_status"],
 )
 
+# Voice labels are deliberately bounded enumerations. Request IDs, tenants,
+# filenames, transcript text and model paths must never become metric labels.
+VOICE_HUB_REQUESTS_TOTAL = Counter(
+    "voice_hub_requests_total",
+    "Hub-mediated voice requests grouped by operation and bounded outcome",
+    ["operation", "outcome", "error_code"],
+)
+VOICE_HUB_DURATION_SECONDS = Histogram(
+    "voice_hub_duration_seconds",
+    "Hub-mediated voice request duration",
+    ["operation", "outcome"],
+)
+VOICE_AUDIO_DURATION_SECONDS = Histogram(
+    "voice_audio_duration_seconds",
+    "Recognized audio duration grouped by bounded backend label",
+    ["backend"],
+)
+VOICE_REAL_TIME_FACTOR = Histogram(
+    "voice_real_time_factor",
+    "Voice candidate real-time factor grouped by bounded backend label",
+    ["backend"],
+)
+VOICE_FALLBACK_TOTAL = Counter(
+    "voice_fallback_total",
+    "Voice fallback decisions grouped by bounded backend and reason",
+    ["backend", "reason_code"],
+)
+VOICE_RERUN_TOTAL = Counter(
+    "voice_rerun_total",
+    "Voice confidence rerun outcomes grouped by bounded backend and outcome",
+    ["backend", "outcome"],
+)
+VOICE_STREAM_EVENTS_TOTAL = Counter(
+    "voice_stream_events_total",
+    "Hub voice streaming events grouped by bounded event type and outcome",
+    ["event_type", "outcome"],
+)
+VOICE_BACKPRESSURE_TOTAL = Counter(
+    "voice_backpressure_total",
+    "Voice backpressure responses grouped by internal surface",
+    ["surface"],
+)
+
 # Ressourcen Metriken
 APP_STARTUP_DURATION = Gauge("app_startup_duration_seconds", "Duration of the app startup process")
 APP_STARTUP_PHASE_DURATION = Histogram(

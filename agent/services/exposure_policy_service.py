@@ -63,6 +63,16 @@ class ExposurePolicyService:
         "require_admin_for_user_auth": False,
         "require_explicit_approval_for_goal": True,
         "emit_audit_events": True,
+        "user_operations": ["capabilities", "transcribe", "command", "goal", "stream"],
+        "agent_operations": ["capabilities", "transcribe", "command", "stream"],
+        "admin_only_operations": [
+            "model_status",
+            "model_config",
+            "model_download",
+            "model_load",
+            "model_unload",
+            "model_cache_gc",
+        ],
     }
 
     def _normalize_openai_compat_policy(self, raw: dict[str, Any] | None) -> dict[str, Any]:
@@ -117,6 +127,25 @@ class ExposurePolicyService:
 
     def _normalize_voice_policy(self, raw: dict[str, Any] | None) -> dict[str, Any]:
         raw = raw or {}
+        known_operations = {
+            "capabilities",
+            "transcribe",
+            "command",
+            "goal",
+            "stream",
+            "model_status",
+            "model_config",
+            "model_download",
+            "model_load",
+            "model_unload",
+            "model_cache_gc",
+        }
+
+        def operations(key: str) -> list[str]:
+            value = raw.get(key, self._VOICE_DEFAULTS[key])
+            items = value if isinstance(value, list) else self._VOICE_DEFAULTS[key]
+            return sorted({str(item) for item in items if str(item) in known_operations})
+
         return {
             "enabled": bool(raw.get("enabled", self._VOICE_DEFAULTS["enabled"])),
             "allow_agent_auth": bool(raw.get("allow_agent_auth", self._VOICE_DEFAULTS["allow_agent_auth"])),
@@ -131,6 +160,9 @@ class ExposurePolicyService:
                 )
             ),
             "emit_audit_events": bool(raw.get("emit_audit_events", self._VOICE_DEFAULTS["emit_audit_events"])),
+            "user_operations": operations("user_operations"),
+            "agent_operations": operations("agent_operations"),
+            "admin_only_operations": operations("admin_only_operations"),
         }
 
     def normalize_exposure_policy(self, raw: dict[str, Any] | None) -> dict[str, Any]:
@@ -188,7 +220,11 @@ class ExposurePolicyService:
         effective_caller_instance = str(caller_instance_id or "").strip() or None
         if not policy["enabled"]:
             return OpenAICompatAccessDecision(False, "openai_compat_exposure_disabled", auth_source, policy)
-        if effective_local_instance and effective_caller_instance and effective_local_instance == effective_caller_instance:
+        if (
+            effective_local_instance
+            and effective_caller_instance
+            and effective_local_instance == effective_caller_instance
+        ):
             return OpenAICompatAccessDecision(False, "openai_compat_self_call_blocked", auth_source, policy)
         if hop_count is not None and int(hop_count) > int(policy.get("max_hops") or 3):
             return OpenAICompatAccessDecision(False, "openai_compat_max_hops_exceeded", auth_source, policy)
@@ -244,11 +280,18 @@ class ExposurePolicyService:
             return VoiceAccessDecision(False, "voice_exposure_disabled", auth_source, policy)
         if is_agent_auth and not policy["allow_agent_auth"]:
             return VoiceAccessDecision(False, "voice_agent_auth_disabled", auth_source, policy)
+        if operation in set(policy["admin_only_operations"]) and not is_admin:
+            return VoiceAccessDecision(False, "voice_operation_admin_required", auth_source, policy)
+        is_admin_operation = operation in set(policy["admin_only_operations"])
+        if is_agent_auth and operation not in set(policy["agent_operations"]) and not (is_admin and is_admin_operation):
+            return VoiceAccessDecision(False, "voice_agent_operation_disabled", auth_source, policy)
         if is_user_auth:
             if not policy["allow_user_auth"]:
                 return VoiceAccessDecision(False, "voice_user_auth_disabled", auth_source, policy)
             if policy["require_admin_for_user_auth"] and not is_admin:
                 return VoiceAccessDecision(False, "voice_admin_required", auth_source, policy)
+            if operation not in set(policy["user_operations"]) and not (is_admin and is_admin_operation):
+                return VoiceAccessDecision(False, "voice_user_operation_disabled", auth_source, policy)
         if auth_source == "unknown":
             return VoiceAccessDecision(False, "voice_auth_source_unknown", auth_source, policy)
         return VoiceAccessDecision(True, "ok", auth_source, policy)

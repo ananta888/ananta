@@ -155,8 +155,8 @@ def _load_anchor_vecs() -> dict[str, Any] | None:
     try:
         from agent.services.restricted_model_inference_service import get_restricted_model_inference_service
         svc = get_restricted_model_inference_service()
-        code_vec = svc.embed([_CODE_ANCHOR])[0]
-        meta_vec = svc.embed([_META_ANCHOR])[0]
+        code_vec = svc.embed([_CODE_ANCHOR], path="__hub_internal__/query-intent")[0]
+        meta_vec = svc.embed([_META_ANCHOR], path="__hub_internal__/query-intent")[0]
         _ANCHOR_VECS = {"code": code_vec, "meta": meta_vec}
         return _ANCHOR_VECS
     except Exception as exc:
@@ -187,7 +187,7 @@ def _apply_embedding_distillation(intent: QueryIntent) -> QueryIntent:
     try:
         from agent.services.restricted_model_inference_service import get_restricted_model_inference_service
         svc = get_restricted_model_inference_service()
-        vecs = svc.embed(clauses)
+        vecs = svc.embed(clauses, path="__hub_internal__/query-intent")
     except Exception as exc:
         log.debug("query_intent: embed clauses failed: %s", exc)
         return intent

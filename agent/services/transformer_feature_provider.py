@@ -346,7 +346,10 @@ class TransformerFeatureProvider:
             return None
 
         try:
-            vectors = self._inference.embed([safe_text])
+            vectors = self._inference.embed(
+                [safe_text],
+                path="__hub_internal__/transformer-feature-context",
+            )
             if vectors:
                 return list(vectors[0])
             return None

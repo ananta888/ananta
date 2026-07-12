@@ -46,7 +46,10 @@ def _validate_agent_jwt(token: str, agent_token: str) -> dict | None:
 def _warn_if_user_jwt_secret_is_weak() -> None:
     secret = str(settings.secret_key or "")
     if len(secret.encode("utf-8")) < 32:
-        logging.warning("User-JWT secret_key is shorter than 32 bytes; JWT validation remains enabled but is weakly configured.")
+        logging.warning(
+            "User-JWT secret_key is shorter than 32 bytes; "
+            "JWT validation remains enabled but is weakly configured."
+        )
 
 
 def _validate_user_jwt(token: str) -> dict | None:
@@ -91,8 +94,19 @@ def _warn_auth_failure(reason: str) -> None:
 def _authenticate_request(provided_token: str | None, *, require_admin: bool = False) -> tuple[bool, str | None]:
     agent_token = current_app.config.get("AGENT_TOKEN")
     if not agent_token and not require_admin:
+        # Auth-disabled legacy deployments still need to preserve the identity
+        # of a valid Hub user JWT. Otherwise exposure-policy evaluation sees an
+        # unknown caller even though the user completed a real Hub login.
+        if provided_token:
+            try:
+                user_payload = _validate_user_jwt(provided_token)
+            except jwt.ExpiredSignatureError:
+                return False, "expired_token"
+            if user_payload:
+                _set_user_auth_context(user_payload)
+                return True, "user_jwt"
         logging.warning("Agent läuft OHNE Authentifizierung! Setzen Sie AGENT_TOKEN für mehr Sicherheit.")
-        _set_agent_admin_context()
+        _set_agent_admin_context({"auth_mode": "auth_disabled"})
         return True, "auth_disabled"
 
     if not provided_token:
@@ -108,7 +122,9 @@ def _authenticate_request(provided_token: str | None, *, require_admin: bool = F
             _set_agent_admin_context()
             return True, "agent_static_token"
     elif require_admin:
-        logging.warning("Admin route requested without AGENT_TOKEN configured; only user JWT admin auth remains available.")
+        logging.warning(
+            "Admin route requested without AGENT_TOKEN configured; only user JWT admin auth remains available."
+        )
 
     try:
         user_payload = _validate_user_jwt(provided_token)
@@ -122,6 +138,21 @@ def _authenticate_request(provided_token: str | None, *, require_admin: bool = F
         return True, "user_jwt"
 
     return False, "invalid_token"
+
+
+def authenticate_provided_token(
+    provided_token: str | None,
+    *,
+    require_admin: bool = False,
+) -> tuple[bool, str | None]:
+    """Authenticate a token in an active Flask context without reading HTTP request fields.
+
+    WebSocket facades use this boundary before accepting protocol messages. It
+    intentionally applies the same JWT/static-token rules and populates the
+    same request-local identity as the HTTP decorators.
+    """
+
+    return _authenticate_request(provided_token, require_admin=require_admin)
 
 
 def check_auth(f):

@@ -14,14 +14,17 @@ POST /api/config-graph/validate-patch
 POST /api/config-graph/apply-patch
     Apply a validated patch (requires approval token for HIGH/CRITICAL).
 """
+
 from __future__ import annotations
 
-import json
 import difflib
+import hashlib
+import json
 from pathlib import Path
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, g, jsonify, request
 
+from agent.auth import admin_required, check_auth
 from agent.common.audit import log_audit
 from agent.services.config_graph_approval_service import ConfigGraphApprovalService
 from agent.services.config_graph_builder_service import get_config_graph_builder_service
@@ -36,6 +39,7 @@ config_graph_bp = Blueprint("config_graph", __name__, url_prefix="/api/config-gr
 def _get_user_config() -> dict:
     try:
         from agent.services.user_config_service import get_user_config_service
+
         svc = get_user_config_service()
         return dict(svc.config or {})
     except Exception:
@@ -95,49 +99,76 @@ def get_hub_worker_graph():
 
 
 @config_graph_bp.get("/restricted-inference/status")
+@check_auth
+@admin_required
 def get_restricted_inference_status():
-    """Return restricted inference config, adapter and diagnostic status."""
-    cfg = _read_user_json_config()
-    from agent.services.model_inference_adapter_registry import get_model_inference_adapter_registry
-    from agent.services.restricted_inference_config_service import RestrictedInferenceConfigService
+    """Compatibility view backed only by the isolated worker catalog."""
+    from agent.services.restricted_inference_management_service import (
+        RestrictedInferenceManagementError,
+        get_restricted_inference_management_service,
+    )
 
-    config_service = RestrictedInferenceConfigService(global_config=cfg)
-    restricted_cfg = config_service.resolve()
-    registry = get_model_inference_adapter_registry()
-    statuses = registry.statuses(restricted_cfg.models)
-    dependency_status = {
-        status.engine: status.status
-        for status in statuses
+    try:
+        status = get_restricted_inference_management_service().status()
+    except RestrictedInferenceManagementError as exc:
+        return jsonify({"error": exc.reason_code}), exc.status_code
+    models = [dict(item) for item in list(status.get("capability_catalog") or []) if isinstance(item, dict)]
+    engines = sorted({str(item.get("engine") or "") for item in models if item.get("engine")})
+    capabilities = {
+        engine: sorted(
+            {str(task) for item in models if item.get("engine") == engine for task in list(item.get("tasks") or [])}
+        )
+        for engine in engines
     }
-    diagnostics = config_service.diagnostics(dependency_status=dependency_status)
-    return jsonify({
-        "adapters": [
-            {
-                "name": status.name,
-                "engine": status.engine,
-                "status": status.status,
-                "capabilities": sorted(status.capabilities),
-                "model_id": status.model_id,
-                "device": status.device,
-                "revision": status.revision,
-                "error": status.error,
-            }
-            for status in statuses
-        ],
-        "engines": registry.engines(),
-        "capabilities": registry.capabilities(),
-        "models": [model.as_dict(redact_secrets=True) for model in restricted_cfg.models],
-        "diagnostics": [item.as_dict() for item in diagnostics],
-        "config_hash": restricted_cfg.config_hash(),
-    })
+    diagnostics = [
+        {
+            "model_id": item.get("id"),
+            "status": item.get("status"),
+            "reason_code": (((item.get("extensions") or {}).get("restricted_inference") or {}).get("reason_code")),
+        }
+        for item in models
+        if item.get("status") != "ready"
+    ]
+    canonical = json.dumps(models, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+    return jsonify(
+        {
+            "adapters": models,
+            "engines": engines,
+            "capabilities": capabilities,
+            "models": models,
+            "diagnostics": diagnostics,
+            "config_hash": hashlib.sha256(canonical).hexdigest(),
+            "source": "isolated_restricted_inference_worker",
+        }
+    )
 
 
 @config_graph_bp.post("/restricted-inference/reload")
+@check_auth
+@admin_required
 def reload_restricted_inference():
-    """Reset the restricted inference service singleton so it reinitialises on next use."""
-    from agent.services.restricted_model_inference_service import reset_restricted_model_inference_service
-    reset_restricted_model_inference_service(None)
-    return jsonify({"ok": True, "message": "Restricted inference service reset. Next request will reinitialise."})
+    """Preserve the legacy Hub reset contract without loading model weights."""
+    identity = dict(getattr(g, "user", {}) or getattr(g, "auth_payload", {}) or {})
+    actor = str(identity.get("sub") or identity.get("username") or "unknown")
+    tenant_id = str(identity.get("tenant_id") or identity.get("tenant") or actor)
+    log_audit(
+        "restricted_inference_legacy_reload_acknowledged",
+        {
+            "actor": actor,
+            "tenant_id": tenant_id,
+            "status": "no_op",
+            "reason_code": "hub_management_client_is_stateless",
+        },
+    )
+    return jsonify(
+        {
+            "ok": True,
+            "message": "Restricted inference Hub management is stateless; no local service reset is required.",
+            "deprecated": True,
+            "no_op": True,
+            "replacement": "/v1/voice/restricted-inference/models/{manifest_id}/load",
+        }
+    )
 
 
 @config_graph_bp.post("/instruction-layer/diff")
@@ -162,21 +193,25 @@ def diff_instruction_layer():
     if path.name != "AGENTS.md":
         return jsonify({"error": "Only AGENTS.md instruction layers are supported"}), 400
     before = path.read_text(encoding="utf-8") if path.exists() else ""
-    diff_text = "".join(difflib.unified_diff(
-        before.splitlines(keepends=True),
-        proposed_content.splitlines(keepends=True),
-        fromfile=f"a/{source_file}",
-        tofile=f"b/{source_file}",
-    ))
-    return jsonify({
-        "valid": True,
-        "risk_tier": "critical",
-        "requires_approval": True,
-        "source_file": source_file,
-        "diff": diff_text,
-        "apply_supported": False,
-        "message": "Review-only diff generated; apply through explicit source review.",
-    })
+    diff_text = "".join(
+        difflib.unified_diff(
+            before.splitlines(keepends=True),
+            proposed_content.splitlines(keepends=True),
+            fromfile=f"a/{source_file}",
+            tofile=f"b/{source_file}",
+        )
+    )
+    return jsonify(
+        {
+            "valid": True,
+            "risk_tier": "critical",
+            "requires_approval": True,
+            "source_file": source_file,
+            "diff": diff_text,
+            "apply_supported": False,
+            "message": "Review-only diff generated; apply through explicit source review.",
+        }
+    )
 
 
 @config_graph_bp.post("/validate-patch")
@@ -229,25 +264,25 @@ def apply_patch():
         return jsonify({"error": "Patch validation failed", "details": val.to_dict()}), 422
 
     if val.requires_approval:
-        approval = ConfigGraphApprovalService(
-            secret=str(cfg.get("vacge_approval_secret") or "")
-        ).validate(
+        approval = ConfigGraphApprovalService(secret=str(cfg.get("vacge_approval_secret") or "")).validate(
             ops=[op.to_dict() for op in ops],
             risk_tier=val.risk_tier,
             approval_token=approval_token,
         )
         if not approval.approved:
-            return jsonify({
-                "error": "Patch approval failed",
-                "details": {
-                    "approval": {
-                        "approved": approval.approved,
-                        "reason_code": approval.reason_code,
-                        "details": approval.details,
+            return jsonify(
+                {
+                    "error": "Patch approval failed",
+                    "details": {
+                        "approval": {
+                            "approved": approval.approved,
+                            "reason_code": approval.reason_code,
+                            "details": approval.details,
+                        },
+                        "validation": val.to_dict(),
                     },
-                    "validation": val.to_dict(),
-                },
-            }), 403
+                }
+            ), 403
 
     persistence = ConfigGraphPersistenceService(repo_root=_get_repo_root()).persist(graph, ops)
     if not persistence.success:
@@ -260,20 +295,25 @@ def apply_patch():
     if not result.success:
         return jsonify({"error": "Patch apply failed", "details": result.to_dict()}), 422
 
-    log_audit("config_graph_patch_applied", {
-        "risk_tier": val.risk_tier,
-        "op_count": len(ops),
-        "source_files": [item.source_file for item in persistence.source_diffs],
-        "rollback_sources": len(persistence.rollback_artifact.get("sources") or []),
-    })
+    log_audit(
+        "config_graph_patch_applied",
+        {
+            "risk_tier": val.risk_tier,
+            "op_count": len(ops),
+            "source_files": [item.source_file for item in persistence.source_diffs],
+            "rollback_sources": len(persistence.rollback_artifact.get("sources") or []),
+        },
+    )
 
     refreshed_cfg = _read_user_json_config()
     refreshed_graph = get_config_graph_builder_service(user_config=refreshed_cfg).build()
 
-    return jsonify({
-        "result": result.to_dict(),
-        "graph": refreshed_graph.to_dict(),
-    })
+    return jsonify(
+        {
+            "result": result.to_dict(),
+            "graph": refreshed_graph.to_dict(),
+        }
+    )
 
 
 @config_graph_bp.post("/rollback")
@@ -288,10 +328,13 @@ def rollback_patch():
     if not result.success:
         return jsonify({"error": "Rollback failed", "details": result.to_dict()}), 422
 
-    log_audit("config_graph_patch_rolled_back", {
-        "source_files": [item.source_file for item in result.source_diffs],
-        "source_count": len(result.source_diffs),
-    })
+    log_audit(
+        "config_graph_patch_rolled_back",
+        {
+            "source_files": [item.source_file for item in result.source_diffs],
+            "source_count": len(result.source_diffs),
+        },
+    )
     cfg = _read_user_json_config()
     graph = get_config_graph_builder_service(user_config=cfg).build()
     return jsonify({"result": result.to_dict(), "graph": graph.to_dict()})
@@ -310,17 +353,18 @@ def update_hub_worker_config():
     if key is None:
         return jsonify({"error": f"node is readonly or unknown: {node_id}"}), 422
 
-    result = ConfigGraphPersistenceService(
-        repo_root=_get_repo_root()
-    ).persist_user_config_block(key=key, data=data)
+    result = ConfigGraphPersistenceService(repo_root=_get_repo_root()).persist_user_config_block(key=key, data=data)
     if not result.success:
         return jsonify({"error": "Patch persistence failed", "details": result.to_dict()}), 422
 
-    log_audit("hub_worker_config_updated", {
-        "node_id": node_id,
-        "config_key": key,
-        "source_files": [item.source_file for item in result.source_diffs],
-    })
+    log_audit(
+        "hub_worker_config_updated",
+        {
+            "node_id": node_id,
+            "config_key": key,
+            "source_files": [item.source_file for item in result.source_diffs],
+        },
+    )
     cfg = _read_user_json_config()
     graph = HubWorkerGraphService().build(
         user_config=cfg,
@@ -335,7 +379,8 @@ def create_config_entry():
 
     Body
     ----
-    { entry_type: "path_rule" | "agent_profile" | "restricted_inference_model" | "restricted_inference_task", data: { ... } }
+    { entry_type: "path_rule" | "agent_profile" |
+      "restricted_inference_model" | "restricted_inference_task", data: { ... } }
 
     Returns the refreshed config graph on success.
     """
@@ -368,11 +413,14 @@ def create_config_entry():
     if not persistence.success:
         return jsonify({"error": "Patch persistence failed", "details": persistence.to_dict()}), 422
 
-    log_audit("config_graph_entry_created", {
-        "entry_type": entry_type,
-        "risk_tier": val.risk_tier,
-        "source_files": [item.source_file for item in persistence.source_diffs],
-    })
+    log_audit(
+        "config_graph_entry_created",
+        {
+            "entry_type": entry_type,
+            "risk_tier": val.risk_tier,
+            "source_files": [item.source_file for item in persistence.source_diffs],
+        },
+    )
 
     cfg = _read_user_json_config()
     builder = get_config_graph_builder_service(user_config=cfg)

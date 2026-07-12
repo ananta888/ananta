@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import ipaddress
-import time
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Any, List, Optional
-
+from typing import Any, List
 
 PLATFORM_MODES = ("local-dev", "trusted-internal", "admin-only", "semi-public")
 _DEFAULT_PLATFORM_MODE = "local-dev"
@@ -50,6 +48,16 @@ _BASE_EXPOSURE_POLICY: dict[str, Any] = {
         "require_admin_for_user_auth": False,
         "require_explicit_approval_for_goal": True,
         "emit_audit_events": True,
+        "user_operations": ["capabilities", "transcribe", "command", "goal", "stream"],
+        "agent_operations": ["capabilities", "transcribe", "command", "stream"],
+        "admin_only_operations": [
+            "model_status",
+            "model_config",
+            "model_download",
+            "model_load",
+            "model_unload",
+            "model_cache_gc",
+        ],
     },
 }
 
@@ -309,7 +317,8 @@ class PlatformGovernanceService:
         cfg = cfg if isinstance(cfg, dict) else {}
         mode = self.resolve_platform_mode(cfg)
         mode_policy = _MODE_POLICIES[mode]["terminal_policy"]
-        raw_policy = _merge_dict(mode_policy, cfg.get("terminal_policy") if isinstance(cfg.get("terminal_policy"), dict) else {})
+        terminal_override = cfg.get("terminal_policy") if isinstance(cfg.get("terminal_policy"), dict) else {}
+        raw_policy = _merge_dict(mode_policy, terminal_override)
         return self.normalize_terminal_policy(raw_policy)
 
     def normalize_terminal_policy(self, raw: dict[str, Any] | None) -> dict[str, Any]:
@@ -357,7 +366,11 @@ class PlatformGovernanceService:
             and not is_admin
         ):
             return TerminalAccessDecision(False, "terminal_interactive_admin_required", mode, platform_mode, policy)
-        allowed_roles = {str(item or "").strip().lower() for item in policy.get("allowed_roles", []) if str(item or "").strip()}
+        allowed_roles = {
+            str(item or "").strip().lower()
+            for item in policy.get("allowed_roles", [])
+            if str(item or "").strip()
+        }
         if allowed_roles:
             actual_roles = {str(item or "").strip().lower() for item in (roles or []) if str(item or "").strip()}
             if actual_roles.isdisjoint(allowed_roles):

@@ -1,10 +1,17 @@
 import logging
-import time
-import threading
 import os
+import threading
+import time
+
 from agent.config import settings
-from agent.utils import _archive_old_tasks, _archive_terminal_logs, _cleanup_old_backups, read_json
 from agent.database import OperationalError
+from agent.utils import (
+    _archive_old_tasks,
+    _archive_terminal_logs,
+    _cleanup_old_backups,
+    read_json,
+)
+
 
 def _is_db_operational_error(exc: Exception) -> bool:
     return isinstance(exc, OperationalError) or "OperationalError" in str(exc)
@@ -50,6 +57,26 @@ def start_housekeeping_thread(app):
                 _cleanup_old_backups()
                 _archive_old_tasks(app.config["TASKS_PATH"])
                 _check_token_rotation(app)
+                if settings.role == "hub":
+                    from agent.services.voice_retention_cleanup_service import (
+                        get_voice_retention_cleanup_service,
+                    )
+
+                    retention_counts = get_voice_retention_cleanup_service().run_once()
+                    logging.info("Voice retention cleanup completed: %s", retention_counts)
+                    from agent.services.voice_idempotency_service import VoiceIdempotencyService
+
+                    expired_idempotency = VoiceIdempotencyService().purge_expired()
+                    logging.info(
+                        "Voice idempotency retention cleanup completed: expired=%s",
+                        expired_idempotency,
+                    )
+                    from agent.services.voice_runtime_cleanup_service import (
+                        get_voice_runtime_cleanup_service,
+                    )
+
+                    recovered_scopes = get_voice_runtime_cleanup_service().retry_all_pending()
+                    logging.info("Voice runtime cleanup replay completed: scopes=%s", recovered_scopes)
                 consecutive_db_errors = 0
             except (OperationalError, Exception) as e:
                 is_db_err = _is_db_operational_error(e)

@@ -3,7 +3,7 @@
   "version": "1.0",
   "owner": "Peter Stuiber / Ananta",
   "track": "voice-production-restricted-inference-and-fusion-2026-07-12",
-  "status": "todo",
+  "status": "blocked",
   "priority": "P0",
   "created": "2026-07-12",
   "status_scale": [
@@ -111,7 +111,7 @@
         "VPRF-007",
         "VPRF-008"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "VPRF-M2",
@@ -131,7 +131,7 @@
         "VPRF-020",
         "VPRF-021"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "VPRF-M3",
@@ -149,7 +149,7 @@
         "VPRF-031",
         "VPRF-032"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "VPRF-M4",
@@ -173,7 +173,7 @@
         "VPRF-048",
         "VPRF-049"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "VPRF-M5",
@@ -196,7 +196,7 @@
         "VPRF-064",
         "VPRF-065"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "VPRF-M6",
@@ -216,7 +216,7 @@
         "VPRF-077",
         "VPRF-078"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "VPRF-M7",
@@ -232,7 +232,7 @@
         "VPRF-086",
         "VPRF-087"
       ],
-      "status": "todo"
+      "status": "in_progress"
     }
   ],
   "critical_path_tasks": [
@@ -312,10 +312,10 @@
       "id": "VPRF-001",
       "title": "Konsolidierte Baseline- und Delta-Matrix erstellen",
       "type": "analysis",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [],
       "source_files": [
         "voice_runtime",
@@ -332,10 +332,10 @@
       "id": "VPRF-002",
       "title": "Hub-, Voice-Runtime- und Inferenz-Worker-Ownership festschreiben",
       "type": "architecture",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-001"
       ],
@@ -354,10 +354,10 @@
       "id": "VPRF-003",
       "title": "Versionierten Capability- und Modellkatalogvertrag definieren",
       "type": "contract",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-001",
         "VPRF-002"
@@ -376,10 +376,10 @@
       "id": "VPRF-004",
       "title": "Voice-Candidate-, Wort-, Segment-, Varianten- und Trace-Verträge typisieren",
       "type": "contract",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-002",
         "VPRF-003"
@@ -398,10 +398,10 @@
       "id": "VPRF-005",
       "title": "Orthogonale Voice-Strategien, Scope-Vererbung und Migration definieren",
       "type": "configuration",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-002",
         "VPRF-003",
@@ -421,10 +421,10 @@
       "id": "VPRF-006",
       "title": "Readiness-, Provenance- und Produktionsprofilvertrag festlegen",
       "type": "security",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-003",
         "VPRF-005"
@@ -444,10 +444,10 @@
       "id": "VPRF-007",
       "title": "Versioniertes Evaluations-, Datensatz- und Kalibrierungsfundament aufbauen",
       "type": "quality",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-001",
         "VPRF-003",
@@ -468,10 +468,10 @@
       "id": "VPRF-008",
       "title": "Feature-Flags, Kompatibilitätsmodus und Rollback-Vertrag definieren",
       "type": "migration",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-002",
         "VPRF-005",
@@ -491,10 +491,10 @@
       "id": "VPRF-009",
       "title": "Audio-Upload vor Vollallokation begrenzen und validieren",
       "type": "security",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-004",
         "VPRF-005"
@@ -513,10 +513,10 @@
       "id": "VPRF-010",
       "title": "Deterministischen WAV/PCM-Decoder und sicheren optionalen ffmpeg-Pfad implementieren",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-009"
       ],
@@ -534,10 +534,10 @@
       "id": "VPRF-011",
       "title": "Ephemeren Audio-, Workspace- und Retention-Lifecycle absichern",
       "type": "privacy",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-009",
         "VPRF-010"
@@ -556,10 +556,10 @@
       "id": "VPRF-012",
       "title": "Absolute Zeitachse, PCM-Slices und VAD-Strategievertrag implementieren",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-004",
         "VPRF-010"
@@ -578,10 +578,10 @@
       "id": "VPRF-013",
       "title": "WebRTC- und Silero-VAD als optionale lokale Adapter ergänzen",
       "type": "adapter",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-006",
         "VPRF-012"
@@ -599,10 +599,10 @@
       "id": "VPRF-014",
       "title": "Vosk-Batchtranskription produktionsreif implementieren",
       "type": "adapter",
-      "status": "todo",
+      "status": "blocked",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 90.0,
       "depends_on": [
         "VPRF-003",
         "VPRF-006",
@@ -616,16 +616,21 @@
         "Ein reales gepinntes lokales Vosk-Modell liefert Text, Wörter, absolute Zeiten und vorhandene Confidence.",
         "Modell und Recognizer werden begrenzt und thread-sicher verwendet; fehlendes Modell liefert unavailable.",
         "Ein Offline-E2E läuft ohne Mock, Simulation oder Netzwerk."
+      ],
+      "blocker": "Ein lizenzkonformes, lokal gepinntes Vosk-Modell und eine reale Audiofixture sind in dieser Umgebung nicht provisioniert; deshalb konnte der echte Offline-Backendlauf nicht ausgeführt werden.",
+      "remaining_evidence": [
+        "Einen realen Offline-Transkriptionslauf mit gepinntem Vosk-Modell und verifizierter Audio-SHA-256 ausführen.",
+        "Candidate-, Wort- und Manifest-Provenance sowie blockierten externen Netzwerkzugriff im Lauf belegen."
       ]
     },
     {
       "id": "VPRF-015",
       "title": "whisper.cpp-Backend produktionsreif implementieren",
       "type": "adapter",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-003",
         "VPRF-006",
@@ -645,10 +650,10 @@
       "id": "VPRF-016",
       "title": "Faster-Whisper als optionales lokales Hochleistungsbackend ergänzen",
       "type": "adapter",
-      "status": "todo",
+      "status": "blocked",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 85.0,
       "depends_on": [
         "VPRF-003",
         "VPRF-006",
@@ -662,16 +667,21 @@
         "Dependency und Modell werden lazy geladen; CPU/CUDA, compute_type, Beam Size, VAD-Filter und Wortzeiten werden validiert.",
         "Lokale Modellpfade benötigen kein Netzwerk; Download ist nur über explizite Hub-Policy möglich.",
         "Ein CPU-E2E und ein hardwaremarkierter CUDA-Test verwenden reale Inferenz."
+      ],
+      "blocker": "Ein gepinnter Faster-Whisper-Snapshot und geeignete reale CPU-/CUDA-Ausführungsumgebungen sind nicht provisioniert; die beiden produktiven Backendpfade konnten daher nicht real ausgeführt werden.",
+      "remaining_evidence": [
+        "Den gepinnten Faster-Whisper-Snapshot offline auf CPU mit realer Audiofixture ausführen.",
+        "Den CUDA-Pfad real ausführen und Device-, Modellrevision-, Wort- und Manifest-Provenance ohne Download belegen."
       ]
     },
     {
       "id": "VPRF-017",
       "title": "Realen lokalen Voxtral-Adapter klar von Simulation trennen",
       "type": "adapter",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-003",
         "VPRF-006",
@@ -692,10 +702,10 @@
       "id": "VPRF-018",
       "title": "Lazy Voice-Backend-Registry und leichte Health-Probes implementieren",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-003",
         "VPRF-006",
@@ -715,10 +725,10 @@
       "id": "VPRF-019",
       "title": "Typisierte Fehler und kontrollierten sequentiellen Fallback implementieren",
       "type": "reliability",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-005",
         "VPRF-006",
@@ -738,10 +748,10 @@
       "id": "VPRF-020",
       "title": "Circuit Breaker, Cooldown und Voice-Ressourcenbudgets implementieren",
       "type": "reliability",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-018",
         "VPRF-019"
@@ -760,10 +770,10 @@
       "id": "VPRF-021",
       "title": "Segmentgenauen Confidence-Rerun mit gemeinsamem Merge-Vertrag implementieren",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-012",
         "VPRF-019",
@@ -783,10 +793,10 @@
       "id": "VPRF-022",
       "title": "Versioniertes Hub-vermitteltes Streaming-Protokoll definieren",
       "type": "contract",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-002",
         "VPRF-004",
@@ -810,10 +820,10 @@
       "id": "VPRF-023",
       "title": "Inkrementelles Vosk-Streaming mit Backpressure und Cleanup implementieren",
       "type": "streaming",
-      "status": "todo",
+      "status": "blocked",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 90.0,
       "depends_on": [
         "VPRF-014",
         "VPRF-022"
@@ -826,16 +836,21 @@
         "Chunks werden ohne Batch-Datei an einen realen Vosk-Recognizer übergeben und liefern partial vor final.",
         "Idle Timeout, Maximaldauer, Chunk- und Queuegrenzen werden erzwungen; doppelte Chunks sind idempotent.",
         "Disconnect und Cancel beenden Arbeit und entfernen Sessions, Prozesse und Tempfiles."
+      ],
+      "blocker": "Für einen echten inkrementellen Vosk-Streaminglauf fehlen in dieser Umgebung das gepinnte Vosk-Modell und eine reale Streaming-Audiofixture.",
+      "remaining_evidence": [
+        "Eine reale Chunk-Sequenz mit dem gepinnten Vosk-Modell über den internen Streamingpfad ausführen und finalisieren.",
+        "Finales Ergebnis gegen Batch-Ausgabe prüfen und Wort-/Candidate-Provenance, Backpressure und Abbruchverhalten erfassen."
       ]
     },
     {
       "id": "VPRF-024",
       "title": "Voice-API-, Fehler- und Kompatibilitätsenvelope stabilisieren",
       "type": "api",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-004",
         "VPRF-019"
@@ -855,10 +870,10 @@
       "id": "VPRF-025",
       "title": "Voice-RBAC, Exposure Policy und interne Runtime-Authentisierung erzwingen",
       "type": "security",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-002",
         "VPRF-024"
@@ -878,10 +893,10 @@
       "id": "VPRF-026",
       "title": "Tenantgebundene Idempotenz, Queue und Deadline-Propagation implementieren",
       "type": "api",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-004",
         "VPRF-024",
@@ -901,10 +916,10 @@
       "id": "VPRF-027",
       "title": "Voice-Metriken, Redaction und korrelierbare Traces implementieren",
       "type": "observability",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-004",
         "VPRF-019",
@@ -925,10 +940,10 @@
       "id": "VPRF-028",
       "title": "Voice-Runtime least-privilege in docker/compose-next integrieren",
       "type": "deployment",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-006",
         "VPRF-011",
@@ -951,10 +966,10 @@
       "id": "VPRF-029",
       "title": "Voice-Sicherheits- und Adversarial-Testmatrix automatisieren",
       "type": "testing",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-009",
         "VPRF-010",
@@ -977,10 +992,10 @@
       "id": "VPRF-030",
       "title": "Reale lokale Voice-E2E- und Basisbenchmarks etablieren",
       "type": "testing",
-      "status": "todo",
+      "status": "blocked",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 80.0,
       "depends_on": [
         "VPRF-014",
         "VPRF-015",
@@ -998,16 +1013,21 @@
         "Gepinnte Testaudios laufen offline real durch Vosk und whisper.cpp; ein kontrollierter Ausfall beweist Fallback und invalid_input beweist No-Fallback.",
         "Streaming-E2E erhält partial vor final und prüft Backpressure, Timeout, Cancel und Disconnect ohne Reste.",
         "Bericht enthält WER, CER, RTF, Peak-RAM/VRAM, Modellrevision, Git-SHA und Hardwareprofil."
+      ],
+      "blocker": "Die Benchmark- und Reportverträge sind implementiert, aber reale promotete Voice-/Restricted-Snapshots, lizenzierte Evaluationsdaten und passende CPU-/GPU-Hardware für belastbare Messläufe fehlen.",
+      "remaining_evidence": [
+        "Reale CPU- und anwendbare NVIDIA-Benchmarks mit gepinnten Snapshots und versioniertem Evaluationsdatensatz ausführen.",
+        "WER/CER, Kalibrierung, Ranking, Latenz, Peak-RAM/VRAM und Provenance in Release-Reports gegen die Schwellen auswerten."
       ]
     },
     {
       "id": "VPRF-031",
       "title": "Reale optionale Diarisierung segment- und ausfallsicher ergänzen",
       "type": "adapter",
-      "status": "todo",
+      "status": "blocked",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 85.0,
       "depends_on": [
         "VPRF-006",
         "VPRF-012",
@@ -1021,16 +1041,21 @@
         "Ein explizit ausgewählter lokaler Adapter ordnet Sprecher über absolute Zeitüberlappung stabil zu.",
         "Modellherkunft, Lizenz und Offline-Verfügbarkeit erfüllen denselben Manifestvertrag wie andere Voice-Modelle.",
         "Integrationstests beweisen, dass Ausfall oder fehlende Dependency ASR nicht beeinträchtigt und keine Wortzeiten verändert."
+      ],
+      "blocker": "Ein lizenzierter, gepinnter Pyannote-Snapshot und eine reale lokale Ausführungsumgebung sind nicht provisioniert; die produktive Offline-Diarization konnte deshalb nicht ausgeführt werden.",
+      "remaining_evidence": [
+        "Den realen Pyannote-Adapter offline mit einer lizenzierten Overlap-/Mehrsprecher-Audiofixture ausführen.",
+        "Speaker-Zuordnung, Zeitgrenzen, Modellprovenance, Ressourcenlimits und fehlenden externen Netzwerkzugriff belegen."
       ]
     },
     {
       "id": "VPRF-032",
       "title": "Deterministischen Edit-, Glossar- und Postprocessing-Vertrag bereitstellen",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-004",
         "VPRF-012"
@@ -1049,10 +1074,10 @@
       "id": "VPRF-033",
       "title": "Restricted-Inference-Port und isolierte Worker-Grenze definieren",
       "type": "architecture",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-002",
         "VPRF-003",
@@ -1072,10 +1097,10 @@
       "id": "VPRF-034",
       "title": "Versioniertes Restricted-Inference-Modellmanifest definieren",
       "type": "contract",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-003",
         "VPRF-006",
@@ -1095,10 +1120,10 @@
       "id": "VPRF-035",
       "title": "Modellquellen, Downloads und immutable Snapshots sicher verwalten",
       "type": "security",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-034"
       ],
@@ -1116,10 +1141,10 @@
       "id": "VPRF-036",
       "title": "Sichere Modellformate, Provenance, Lizenz und SBOM erzwingen",
       "type": "security",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-034",
         "VPRF-035"
@@ -1139,10 +1164,10 @@
       "id": "VPRF-037",
       "title": "Expliziten Modell-Lifecycle und lazy Registry implementieren",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-033",
         "VPRF-035",
@@ -1161,10 +1186,10 @@
       "id": "VPRF-038",
       "title": "RAM-, VRAM-, Device- und In-flight-Lease-Manager implementieren",
       "type": "reliability",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-037"
       ],
@@ -1182,10 +1207,10 @@
       "id": "VPRF-039",
       "title": "HuggingFace-Klassifikation, Features und echtes Choice-Scoring implementieren",
       "type": "adapter",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-034",
         "VPRF-037",
@@ -1204,10 +1229,10 @@
       "id": "VPRF-040",
       "title": "Sentence-Transformers Bi-Encoder und CrossEncoder trennen",
       "type": "adapter",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-034",
         "VPRF-037",
@@ -1226,10 +1251,10 @@
       "id": "VPRF-041",
       "title": "ONNX-Runtime-Adapter optional produktionsreif härten",
       "type": "adapter",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-034",
         "VPRF-036",
@@ -1249,10 +1274,10 @@
       "id": "VPRF-042",
       "title": "PyTorch-Adapter optional auf sichere Inferenz begrenzen",
       "type": "adapter",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-034",
         "VPRF-036",
@@ -1272,10 +1297,10 @@
       "id": "VPRF-043",
       "title": "no_generation für alle Restricted-Operationen zentral erzwingen",
       "type": "security",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-033",
         "VPRF-039"
@@ -1294,10 +1319,10 @@
       "id": "VPRF-044",
       "title": "Path-Policy, Limits und unveränderlichen Execution-Envelope integrieren",
       "type": "security",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-002",
         "VPRF-033",
@@ -1317,10 +1342,10 @@
       "id": "VPRF-045",
       "title": "Restricted-Inference-API additiv migrieren und RBAC absichern",
       "type": "api",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-024",
         "VPRF-034",
@@ -1341,10 +1366,10 @@
       "id": "VPRF-046",
       "title": "CodeCompass-Reranking über den Hub-gesteuerten Workerpfad integrieren",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-040",
         "VPRF-043",
@@ -1365,10 +1390,10 @@
       "id": "VPRF-047",
       "title": "Tenant- und revisionssicheren Inferenz-Cache ergänzen",
       "type": "performance",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-035",
         "VPRF-038",
@@ -1387,10 +1412,10 @@
       "id": "VPRF-048",
       "title": "Restricted-Inference-Worker in compose-next isoliert deployen",
       "type": "deployment",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-033",
         "VPRF-035",
@@ -1411,10 +1436,10 @@
       "id": "VPRF-049",
       "title": "Restricted-Inference-Security-, Offline- und Recovery-Gates etablieren",
       "type": "testing",
-      "status": "todo",
+      "status": "blocked",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 95.0,
       "depends_on": [
         "VPRF-038",
         "VPRF-039",
@@ -1433,16 +1458,21 @@
         "Compose-E2E durchläuft Hub-Taskqueue, Worker und reale kleine lokale HuggingFace-/sentence-transformers-Modelle ohne Netzwerk.",
         "Security-Gate deckt Hash, Größe, Pfad, Symlink, Redirect, DNS-Rebinding, Pickle, Remote Code und manipulierte Envelopes ab.",
         "Last-, Cancellation-, Worker-Kill- und OOM-Tests halten Queue-/Ressourcengrenzen und beweisen, dass der Hub keine Gewichte lädt."
+      ],
+      "blocker": "Der opt-in Hardware-Compose-Harness einschließlich Ressourcenablehnung und Worker-Kill/Restart ist implementiert, wurde aber noch nicht mit realen gepinnten Modellen und Hardware ausgeführt.",
+      "remaining_evidence": [
+        "Den hardware-compose Release-Gate mit realer Audiofixture sowie gepinnten Choice- und Admission-Manifests ausführen.",
+        "Den fehlgeschlagenen korrelierten Child-Task während Worker-Ausfall, erfolgreiche Recovery und kontrollierte RAM/VRAM-Ablehnung als Gate-Artefakt erfassen."
       ]
     },
     {
       "id": "VPRF-050",
       "title": "Deterministische Audio-Enhancement-Pipeline und Variantenmetadaten implementieren",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-010",
         "VPRF-012"
@@ -1460,10 +1490,10 @@
       "id": "VPRF-051",
       "title": "Optionale lokale Enhancement-Adapter lazy kapseln",
       "type": "adapter",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-050"
       ],
@@ -1480,10 +1510,10 @@
       "id": "VPRF-052",
       "title": "VoiceRecognitionContext und Capability-Filter definieren",
       "type": "contract",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-003",
         "VPRF-004",
@@ -1503,10 +1533,10 @@
       "id": "VPRF-053",
       "title": "Kontextbudget, Tainting und Prompt-Injection-Schutz implementieren",
       "type": "security",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-044",
         "VPRF-052"
@@ -1525,10 +1555,10 @@
       "id": "VPRF-054",
       "title": "Bounded Executor für unabhängige parallele ASR-Candidates implementieren",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-004",
         "VPRF-006",
@@ -1552,10 +1582,10 @@
       "id": "VPRF-055",
       "title": "Sequenziellen classic_then_correct-Pfad explizit implementieren",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-015",
         "VPRF-019",
@@ -1576,10 +1606,10 @@
       "id": "VPRF-056",
       "title": "Candidate- und Audio-Varianten-Lineage gegen Doppelgewichtung absichern",
       "type": "contract",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-004",
         "VPRF-054"
@@ -1598,10 +1628,10 @@
       "id": "VPRF-057",
       "title": "Deterministisches Wort- und Segmentalignment implementieren",
       "type": "fusion",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-007",
         "VPRF-012",
@@ -1621,10 +1651,10 @@
       "id": "VPRF-058",
       "title": "Backend-Confidence kalibrieren und versioniert anwenden",
       "type": "quality",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-007",
         "VPRF-014",
@@ -1645,10 +1675,10 @@
       "id": "VPRF-059",
       "title": "Deterministisches Candidate-Scoring mit erklärbaren Teilgewichten implementieren",
       "type": "fusion",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-007",
         "VPRF-057",
@@ -1667,10 +1697,10 @@
       "id": "VPRF-060",
       "title": "Consensus und Disagreement-Erkennung ohne erfundene Formen implementieren",
       "type": "fusion",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-059"
       ],
@@ -1687,10 +1717,10 @@
       "id": "VPRF-061",
       "title": "Finales Transkript mit vollständiger Wort-Provenance assemblieren",
       "type": "fusion",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-004",
         "VPRF-032",
@@ -1710,10 +1740,10 @@
       "id": "VPRF-062",
       "title": "Policy-begrenztes adaptives lokales Routing und regionale Eskalation ergänzen",
       "type": "routing",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-020",
         "VPRF-021",
@@ -1734,10 +1764,10 @@
       "id": "VPRF-063",
       "title": "Restricted-Transformer-Corrector und Strict-Choice-Judge-Vertrag ergänzen",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-039",
         "VPRF-040",
@@ -1759,10 +1789,10 @@
       "id": "VPRF-064",
       "title": "Optionalen lokalen generativen Judge als getrennten Policy-Pfad absichern",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-025",
         "VPRF-044",
@@ -1783,10 +1813,10 @@
       "id": "VPRF-065",
       "title": "Multi-Modell-Streaming-Fusion als optionale Erweiterung implementieren",
       "type": "streaming",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-023",
         "VPRF-054",
@@ -1807,10 +1837,10 @@
       "id": "VPRF-066",
       "title": "Hub-seitigen Review-Lifecycle und immutable Review-Artefakte implementieren",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-061"
       ],
@@ -1828,10 +1858,10 @@
       "id": "VPRF-067",
       "title": "Tenantgebundene Review-API mit Auth, Idempotenz und Audit bereitstellen",
       "type": "api",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-025",
         "VPRF-026",
@@ -1851,10 +1881,10 @@
       "id": "VPRF-068",
       "title": "Consent-Policy, Datenklassen und Retention modellieren",
       "type": "privacy",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-002",
         "VPRF-067"
@@ -1873,10 +1903,10 @@
       "id": "VPRF-069",
       "title": "Verschlüsseltes Hub-Feedback-Repository implementieren",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-068"
       ],
@@ -1894,10 +1924,10 @@
       "id": "VPRF-070",
       "title": "Minimierte Personalisierungs-Snapshots an Voice-Runtime projizieren",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-052",
         "VPRF-069"
@@ -1916,10 +1946,10 @@
       "id": "VPRF-071",
       "title": "Deterministisches profilbezogenes Lernen aus bestätigtem Feedback implementieren",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-032",
         "VPRF-060",
@@ -1939,10 +1969,10 @@
       "id": "VPRF-072",
       "title": "Export, Import, Widerruf, Reset und vollständige Löschung implementieren",
       "type": "privacy",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-069",
         "VPRF-070",
@@ -1962,10 +1992,10 @@
       "id": "VPRF-073",
       "title": "Expliziten Fine-Tuning-Exportjob als optionale Nicht-Automatik abgrenzen",
       "type": "governance",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-068",
         "VPRF-069",
@@ -1986,10 +2016,10 @@
       "id": "VPRF-074",
       "title": "Kanonische schema-gesteuerte Voice-/Fusion-/Modellkonfigurations-API bereitstellen",
       "type": "api",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-003",
         "VPRF-005",
@@ -2013,10 +2043,10 @@
       "id": "VPRF-075",
       "title": "Angular-Konfiguration auf den gemeinsamen Settings-Vertrag migrieren",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-074"
       ],
@@ -2034,10 +2064,10 @@
       "id": "VPRF-076",
       "title": "Angular-Candidate-Vergleich und manuelle Review integrieren",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-061",
         "VPRF-067",
@@ -2056,10 +2086,10 @@
       "id": "VPRF-077",
       "title": "Angular-Consent- und Personalisierungsverwaltung integrieren",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-068",
         "VPRF-069",
@@ -2079,10 +2109,10 @@
       "id": "VPRF-078",
       "title": "Lokale Ausführung, Ressourcen und Routinggründe in Angular visualisieren",
       "type": "frontend",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-003",
         "VPRF-027",
@@ -2102,10 +2132,10 @@
       "id": "VPRF-079",
       "title": "Gemeinsame Audio-, Modell-, Netzwerk- und Privacy-Security-Suite erstellen",
       "type": "security",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-029",
         "VPRF-035",
@@ -2130,10 +2160,10 @@
       "id": "VPRF-080",
       "title": "Unit-, Contract-, Conformance- und Migrationsgates vervollständigen",
       "type": "testing",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-030",
         "VPRF-049",
@@ -2155,10 +2185,10 @@
       "id": "VPRF-081",
       "title": "Deterministische Fusion-Golden-Suite etablieren",
       "type": "testing",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-057",
         "VPRF-058",
@@ -2180,10 +2210,10 @@
       "id": "VPRF-082",
       "title": "Reproduzierbare Qualitäts-, Kalibrierungs- und Ressourcenregressionsgates definieren",
       "type": "quality",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-007",
         "VPRF-030",
@@ -2206,10 +2236,10 @@
       "id": "VPRF-083",
       "title": "Compose-No-Network-E2E für Voice, Restricted Inference und Fusion erstellen",
       "type": "testing",
-      "status": "todo",
+      "status": "blocked",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 95.0,
       "depends_on": [
         "VPRF-028",
         "VPRF-030",
@@ -2227,16 +2257,21 @@
         "E2E läuft über Hub, Taskqueue und interne Runtime-Container mit Vosk, whisper.cpp sowie kleinen HF-/sentence-transformers-Modellen.",
         "Während des Laufs ist externer Netzwerkzugriff blockiert; Parallelität, Teilausfall, sequenzieller Kontext und Fusion werden geprüft.",
         "Hub lädt keine Modellgewichte und Ergebnis enthält vollständige Candidate-, Wort-, Manifest- und Task-Provenance."
+      ],
+      "blocker": "Der vollständige No-Network-Compose-E2E-Harness ist implementiert, aber der explizite Lauf auf realer Hardware mit gepinnten Voice- und Restricted-Modellen wurde noch nicht ausgeführt.",
+      "remaining_evidence": [
+        "Den hardware-compose Gate auf einem passenden realen Hardwareprofil ohne Modell-Downloads ausführen.",
+        "Blockierten Egress, parallele Fusion, sequenziellen Kontext sowie Hub-/Candidate-/Wort-/Manifest-/Task-Provenance im Evidence-Artefakt belegen."
       ]
     },
     {
       "id": "VPRF-084",
       "title": "Review-, Consent-, Personalisierungs- und Lösch-E2E erstellen",
       "type": "testing",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-067",
         "VPRF-068",
@@ -2259,10 +2294,10 @@
       "id": "VPRF-085",
       "title": "Angular Unit-, Build- und Compose-E2E-Gate abschließen",
       "type": "testing",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-075",
         "VPRF-076",
@@ -2284,10 +2319,10 @@
       "id": "VPRF-086",
       "title": "Optionale Adapter-, Judge-, Streaming- und Fine-Tuning-Exportgates ausführen",
       "type": "testing",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "VPRF-013",
         "VPRF-016",
@@ -2322,10 +2357,10 @@
       "id": "VPRF-087",
       "title": "Core-Release-Gate, Runbooks und Abschlussnachweis erstellen",
       "type": "documentation",
-      "status": "todo",
+      "status": "blocked",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 75.0,
       "depends_on": [
         "VPRF-008",
         "VPRF-079",
@@ -2345,19 +2380,25 @@
         "Release scheitert bei Security-, Privacy-, Offline-, no_generation-, Provenance-, API- oder Architekturregression.",
         "Runbooks dokumentieren Modellpromotion, Offline-Installation, Streaming-Drain, OOM, Rollback, Consent-Widerruf, Löschung und Incident-Diagnose.",
         "CPU-, RTX-3080- und optionale High-End-GPU-Profile sowie hardwareabhängige Evidence-Artefakte sind reproduzierbar dokumentiert."
+      ],
+      "blocker": "Release-Gates, Profile und Runbooks sind implementiert, aber saubere CPU- und NVIDIA-Promotionsläufe mit realen Image-/Modelldigests und Hardware-Evidence-Artefakten stehen noch aus.",
+      "remaining_evidence": [
+        "Core- und hardware-compose Gates aus einem sauberen Worktree für das CPU-Profil ausführen und unveränderliche Evidence-Artefakte sichern.",
+        "Den NVIDIA-Promotionslauf mit realen Ressourcen-/Qualitätsreports, Image-/Manifestdigests und No-Network-Nachweis ausführen.",
+        "Promotions- oder Rollbackentscheidung anhand der versionierten Schwellen und vollständigen Artefakte dokumentieren."
       ]
     }
   ],
   "tasks_status_summary": {
     "total": 87,
     "by_status": {
-      "todo": 87,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
-      "blocked": 0,
-      "done": 0
+      "blocked": 8,
+      "done": 79
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 90.8,
     "by_priority": {
       "P0": 70,
       "P1": 13,
@@ -2372,15 +2413,15 @@
     },
     "critical_path": {
       "total": 70,
-      "done": 0,
-      "remaining": 70
+      "done": 64,
+      "remaining": 6
     },
     "milestones": {
       "total": 7,
-      "todo": 7,
-      "in_progress": 0,
+      "todo": 0,
+      "in_progress": 4,
       "blocked": 0,
-      "done": 0
+      "done": 3
     }
   },
   "tasks_type_summary": {
@@ -2389,412 +2430,412 @@
       "analysis": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "architecture": {
         "total": 2,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         },
-        "done": 0,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "contract": {
         "total": 6,
         "by_status": {
-          "todo": 6,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 6
         },
-        "done": 0,
+        "done": 6,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "configuration": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "security": {
         "total": 9,
         "by_status": {
-          "todo": 9,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 9
         },
-        "done": 0,
+        "done": 9,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "quality": {
         "total": 3,
         "by_status": {
-          "todo": 3,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 3
         },
-        "done": 0,
+        "done": 3,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "migration": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "backend": {
         "total": 13,
         "by_status": {
-          "todo": 13,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 13
         },
-        "done": 0,
+        "done": 13,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "privacy": {
         "total": 3,
         "by_status": {
-          "todo": 3,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 3
         },
-        "done": 0,
+        "done": 3,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "adapter": {
         "total": 11,
         "by_status": {
-          "todo": 11,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
-          "blocked": 0,
-          "done": 0
+          "blocked": 3,
+          "done": 8
         },
-        "done": 0,
+        "done": 8,
         "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0.0
+        "blocked": 3,
+        "progress_percent": 96.4
       },
       "reliability": {
         "total": 3,
         "by_status": {
-          "todo": 3,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 3
         },
-        "done": 0,
+        "done": 3,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "streaming": {
         "total": 2,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
-          "blocked": 0,
-          "done": 0
+          "blocked": 1,
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0.0
+        "blocked": 1,
+        "progress_percent": 95.0
       },
       "api": {
         "total": 5,
         "by_status": {
-          "todo": 5,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 5
         },
-        "done": 0,
+        "done": 5,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "observability": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "deployment": {
         "total": 2,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         },
-        "done": 0,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "testing": {
         "total": 9,
         "by_status": {
-          "todo": 9,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
-          "blocked": 0,
-          "done": 0
+          "blocked": 3,
+          "done": 6
         },
-        "done": 0,
+        "done": 6,
         "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0.0
+        "blocked": 3,
+        "progress_percent": 96.7
       },
       "integration": {
         "total": 3,
         "by_status": {
-          "todo": 3,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 3
         },
-        "done": 0,
+        "done": 3,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "performance": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "fusion": {
         "total": 4,
         "by_status": {
-          "todo": 4,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 4
         },
-        "done": 0,
+        "done": 4,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "routing": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "governance": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "frontend": {
         "total": 4,
         "by_status": {
-          "todo": 4,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 4
         },
-        "done": 0,
+        "done": 4,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "documentation": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
-          "blocked": 0,
+          "blocked": 1,
           "done": 0
         },
         "done": 0,
         "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0.0
+        "blocked": 1,
+        "progress_percent": 75.0
       }
     }
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 151.0,
-    "done_weight": 0.0,
-    "remaining_weight": 151.0,
-    "blocked_weight": 0.0,
-    "weighted_percent": 0.0
+    "done_weight": 148.95,
+    "remaining_weight": 2.05,
+    "blocked_weight": 15.0,
+    "weighted_percent": 98.6
   },
   "milestone_progress_summary": {
     "milestones": {
       "VPRF-M1": {
         "total_tasks": 8,
-        "done": 0,
+        "done": 8,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "VPRF-M2": {
         "total_tasks": 13,
-        "done": 0,
-        "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "done": 11,
+        "blocked": 2,
+        "count_based_percent": 84.6,
+        "weighted_percent": 97.9,
+        "status": "in_progress"
       },
       "VPRF-M3": {
         "total_tasks": 11,
-        "done": 0,
-        "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "done": 8,
+        "blocked": 3,
+        "count_based_percent": 72.7,
+        "weighted_percent": 95.6,
+        "status": "in_progress"
       },
       "VPRF-M4": {
         "total_tasks": 17,
-        "done": 0,
-        "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "done": 16,
+        "blocked": 1,
+        "count_based_percent": 94.1,
+        "weighted_percent": 99.7,
+        "status": "in_progress"
       },
       "VPRF-M5": {
         "total_tasks": 16,
-        "done": 0,
+        "done": 16,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "VPRF-M6": {
         "total_tasks": 13,
-        "done": 0,
+        "done": 13,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "VPRF-M7": {
         "total_tasks": 9,
-        "done": 0,
-        "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "done": 7,
+        "blocked": 2,
+        "count_based_percent": 77.8,
+        "weighted_percent": 96.3,
+        "status": "in_progress"
       }
     }
   },
   "progress_summary": {
     "state": "todo",
-    "todo_remaining": 87,
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
-    "blocked": 0,
-    "done": 0,
-    "count_based_percent": 0.0,
-    "weighted_percent": 0.0
+    "blocked": 8,
+    "done": 79,
+    "count_based_percent": 90.8,
+    "weighted_percent": 98.6
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-07-12T15:24:28.841554Z",
+    "generated_at": "2026-07-12T19:49:25.158884Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "018f19cf1909f106341303cf97c4096104dde6c9be2d356d8f0ad461edf1eec9",
+    "source_hash": "23dadd09c118ec416a3b7c59c50ef79f86088e16fa95842cf2843d7efba3df8f",
     "is_stale": false
   }
 }

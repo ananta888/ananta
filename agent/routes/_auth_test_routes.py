@@ -5,7 +5,9 @@ Behavior preserved 1:1 from the original auth.py (lines 894-1010).
 """
 from __future__ import annotations
 
-from flask import request
+import uuid
+
+from flask import g, request
 from werkzeug.security import generate_password_hash
 
 from agent.auth import admin_required
@@ -82,7 +84,13 @@ def register_routes(auth_bp) -> None:
             existing.lockout_until = None
             _repos().user_repo.save(existing)
         else:
-            _repos().user_repo.save(UserDB(username=username, password_hash=generate_password_hash(password), role=role))
+            _repos().user_repo.save(
+                UserDB(
+                    username=username,
+                    password_hash=generate_password_hash(password),
+                    role=role,
+                )
+            )
 
         return api_response(data={"status": "provisioned", "username": username, "role": role})
 
@@ -136,3 +144,79 @@ def register_routes(auth_bp) -> None:
 
         _repos().user_repo.save(user)
         return api_response(data={"status": "reset", "username": username})
+
+    @auth_bp.route("/test/voice-result-artifact", methods=["POST"])
+    @admin_required
+    def test_create_voice_result_artifact():
+        """Create a real encrypted review envelope for Compose E2E only."""
+
+        err = _ensure_test_endpoint_enabled()
+        if err:
+            return err
+        from agent.services.voice_governance_domain import (
+            VoiceGovernanceError,
+            VoicePrincipal,
+            validate_identifier,
+        )
+        from agent.services.voice_result_artifact_service import (
+            get_voice_result_artifact_service,
+        )
+
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return api_response(status="error", message="JSON object required", code=400)
+        identity = dict(getattr(g, "user", {}) or {})
+        subject = str(identity.get("sub") or identity.get("username") or "").strip()
+        tenant_id = str(identity.get("tenant_id") or identity.get("tenant") or subject).strip()
+        try:
+            principal = VoicePrincipal(tenant_id=tenant_id, subject=subject)
+            profile_id = validate_identifier(data.get("profile_id"), field="profile_id")
+            raw_candidate_ids = data.get("candidate_ids")
+            if not isinstance(raw_candidate_ids, list) or len(raw_candidate_ids) != 2:
+                raise VoiceGovernanceError(
+                    code="voice_test.invalid_candidates",
+                    message="exactly two candidate IDs are required",
+                    status_code=422,
+                )
+            candidate_ids = [
+                validate_identifier(item, field="candidate_id", max_length=192)
+                for item in raw_candidate_ids
+            ]
+            result = {
+                "schema_version": "2.0",
+                "provider": "compose-test-fixture",
+                "model": "deterministic-no-audio",
+                "text": "deterministic compose candidate A",
+                "selected_candidate_id": candidate_ids[0],
+                "candidates": [
+                    {
+                        "candidate_id": candidate_ids[0],
+                        "text": "deterministic compose candidate A",
+                        "status": "succeeded",
+                    },
+                    {
+                        "candidate_id": candidate_ids[1],
+                        "text": "deterministic compose candidate B",
+                        "status": "succeeded",
+                    },
+                ],
+            }
+            artifact = get_voice_result_artifact_service().create(
+                principal,
+                request_hash=f"voice-test-fixture-{uuid.uuid4().hex}",
+                profile_id=profile_id,
+                result=result,
+            )
+        except VoiceGovernanceError as exc:
+            return api_response(
+                status="error",
+                code=exc.status_code,
+                data={"error": {"code": exc.code, "message": exc.message}},
+            )
+        return api_response(
+            data={
+                "result_ref": artifact["id"],
+                "candidate_ids": candidate_ids,
+            },
+            code=201,
+        )

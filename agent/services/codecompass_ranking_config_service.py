@@ -1,16 +1,15 @@
 """Configuration for CodeCompass candidate ranking and optional RTIPM rerank."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
 
 from agent.services.codecompass_retrieval_strategy import (
-    STRATEGY_DIRECT,
-    STRATEGY_SEMANTIC_PREFILTER,
     ALL_STRATEGIES,
+    STRATEGY_SEMANTIC_PREFILTER,
     RetrievalStrategyConfig,
 )
-
 
 DEFAULT_SCORE_WEIGHTS = {
     "embedding_score": 0.45,
@@ -36,6 +35,7 @@ class CodeCompassRankingConfig:
     score_weights: dict[str, float] = field(default_factory=lambda: dict(DEFAULT_SCORE_WEIGHTS))
     trace_scores: bool = False
     fallback_without_model: bool = True
+    restricted_inference_max_candidates: int = 20
     # ── Retrieval strategy ────────────────────────────────────────────────────
     retrieval_strategy: str = STRATEGY_SEMANTIC_PREFILTER
     semantic_prefilter_threshold: float = 0.25
@@ -65,6 +65,7 @@ class CodeCompassRankingConfig:
 
         # Auto-enable restricted reranking and adjust weights for strategies that need it.
         from agent.services.codecompass_retrieval_strategy import POSTRANK_STRATEGIES
+
         rerank_enabled = bool(raw.get("restricted_inference_rerank_enabled", False))
         if strategy in POSTRANK_STRATEGIES and not rerank_enabled:
             rerank_enabled = True
@@ -83,12 +84,17 @@ class CodeCompassRankingConfig:
             min_results = int(raw.get("semantic_prefilter_min_results") or 1)
         except (TypeError, ValueError):
             min_results = 1
+        try:
+            max_candidates = max(1, min(64, int(raw.get("restricted_inference_max_candidates") or 20)))
+        except (TypeError, ValueError):
+            max_candidates = 20
 
         return cls(
             restricted_inference_rerank_enabled=rerank_enabled,
             score_weights=weights,
             trace_scores=bool(raw.get("trace_scores", False)),
             fallback_without_model=bool(raw.get("fallback_without_model", True)),
+            restricted_inference_max_candidates=max_candidates,
             retrieval_strategy=strategy,
             semantic_prefilter_threshold=threshold,
             semantic_prefilter_top_k_multiplier=multiplier,
@@ -120,6 +126,7 @@ class CodeCompassRankingConfig:
             "score_weights": dict(self.score_weights),
             "trace_scores": self.trace_scores,
             "fallback_without_model": self.fallback_without_model,
+            "restricted_inference_max_candidates": self.restricted_inference_max_candidates,
             "retrieval_strategy": self.retrieval_strategy,
             "semantic_prefilter_threshold": self.semantic_prefilter_threshold,
             "semantic_prefilter_top_k_multiplier": self.semantic_prefilter_top_k_multiplier,

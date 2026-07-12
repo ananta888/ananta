@@ -84,6 +84,14 @@ class Settings(BaseSettings):
     agent_offline_timeout: int = Field(default=300, validation_alias="AGENT_OFFLINE_TIMEOUT")
     voice_provider: str = Field(default="voice-runtime", validation_alias="VOICE_PROVIDER")
     voice_runtime_url: str = Field(default="http://voice-runtime:8090", validation_alias="VOICE_RUNTIME_URL")
+    voice_runtime_allowed_origins: str = Field(
+        default="http://voice-runtime:8090",
+        validation_alias="VOICE_RUNTIME_ALLOWED_ORIGINS",
+    )
+    voice_runtime_max_response_bytes: int = Field(
+        default=16 * 1024 * 1024,
+        validation_alias="VOICE_RUNTIME_MAX_RESPONSE_BYTES",
+    )
     voice_model: str = Field(default="voxtral", validation_alias="VOICE_MODEL")
     voice_fallback_model: str = Field(default="whisper-small", validation_alias="VOICE_FALLBACK_MODEL")
     voice_max_audio_mb: int = Field(default=25, validation_alias="VOICE_MAX_AUDIO_MB")
@@ -93,6 +101,35 @@ class Settings(BaseSettings):
     voice_runtime_model_path: Optional[str] = Field(default=None, validation_alias="VOICE_RUNTIME_MODEL_PATH")
     voice_enable_streaming: bool = Field(default=False, validation_alias="VOICE_ENABLE_STREAMING")
     voice_store_audio: bool = Field(default=False, validation_alias="VOICE_STORE_AUDIO")
+    voice_generative_judge_endpoint: str = Field(default="", validation_alias="VOICE_GENERATIVE_JUDGE_ENDPOINT")
+    voice_generative_judge_allowed_endpoints: str = Field(
+        default="",
+        validation_alias="VOICE_GENERATIVE_JUDGE_ALLOWED_ENDPOINTS",
+    )
+    voice_generative_judge_timeout_ms: int = Field(
+        default=2000,
+        validation_alias="VOICE_GENERATIVE_JUDGE_TIMEOUT_MS",
+    )
+    voice_generative_judge_worker_url: str = Field(
+        default="",
+        validation_alias="VOICE_GENERATIVE_JUDGE_WORKER_URL",
+    )
+    voice_generative_judge_worker_allowed_endpoints: str = Field(
+        default="",
+        validation_alias="VOICE_GENERATIVE_JUDGE_WORKER_ALLOWED_ENDPOINTS",
+    )
+    voice_generative_judge_worker_token: str = Field(
+        default="",
+        validation_alias="VOICE_GENERATIVE_JUDGE_WORKER_TOKEN",
+    )
+    voice_generative_judge_hub_origin: str = Field(
+        default="",
+        validation_alias="VOICE_GENERATIVE_JUDGE_HUB_ORIGIN",
+    )
+    voice_generative_judge_max_response_bytes: int = Field(
+        default=64 * 1024,
+        validation_alias="VOICE_GENERATIVE_JUDGE_MAX_RESPONSE_BYTES",
+    )
 
     # Retry Config
     retry_count: int = Field(default=3, validation_alias="RETRY_COUNT")
