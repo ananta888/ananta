@@ -16,6 +16,7 @@ import { VpCanvasInteractionService } from './vp-canvas-interaction.service';
 import { VpImportExportService } from './vp-import-export.service';
 import { VpStepInspectorComponent } from './vp-step-inspector.component';
 import { VpWorkflowRunnerService } from './vp-workflow-runner.service';
+import { VisualProcessCanvasComponent } from './visual-process-canvas.component';
 
 import {
   ENCODING_MODES, FALLBACK_KINDS, NODE_H, NODE_W, RAG_CHANNELS,
@@ -25,7 +26,7 @@ import {
 @Component({
   standalone: true,
   selector: 'app-visual-process-editor',
-  imports: [FormsModule, VpStepInspectorComponent],
+  imports: [FormsModule, VpStepInspectorComponent, VisualProcessCanvasComponent],
   providers: [VpCanvasInteractionService, VpImportExportService, VpWorkflowRunnerService],
   templateUrl: './visual-process-editor.component.html',
   styleUrls: ['./visual-process-editor.component.scss'],
@@ -185,6 +186,7 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
   onMouseMove(e: MouseEvent): void {
     this.interaction.onMouseMove(e, (id, mutate) => this.mutateStep(id, mutate));
   }
+  onCanvasNodeMouseDown(payload: { event: MouseEvent; stepId: string }): void { this.onNodeMouseDown(payload.event, payload.stepId); }
 
   onMouseUp(e: MouseEvent): void { this.interaction.onMouseUp(e); }
 

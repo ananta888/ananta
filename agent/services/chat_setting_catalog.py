@@ -11,6 +11,14 @@ from typing import Any, Iterable, Mapping
 from urllib.parse import urlparse
 
 PROFILE_ONLY_DEFAULTS: dict[str, Any] = {"chat_backend_credential_ref": ""}
+_CONSTRAINTS: dict[str, dict[str, Any]] = {
+    "chat_max_tokens": {"min": 1, "max": 131072, "step": 1},
+    "chat_context_chars": {"min": 1000, "max": 2_000_000, "step": 1000},
+    "chat_history_turns": {"min": 0, "max": 500, "step": 1},
+    "chat_history_chars": {"min": 0, "max": 2_000_000, "step": 1000},
+    "chat_answer_chars": {"min": 0, "max": 2_000_000, "step": 1000},
+    "chat_rag_top_k": {"min": 0, "max": 1000, "step": 1},
+}
 
 
 @dataclass(frozen=True)
@@ -65,6 +73,8 @@ def build_setting_schema(
                     "session": session_defaults.get(key),
                 },
                 "allowed_values": allowed,
+                "constraints": _CONSTRAINTS.get(key, {}),
+                "visible_when": ({"chat_backend": ["lmstudio", "opencode", "hermes", "ollama"]} if key in {"chat_backend_api_base", "chat_backend_model", "chat_backend_credential_ref"} else {}),
                 "scopes": _scopes_for_key(key, global_defaults, profile_defaults, session_defaults),
                 "secret": key.endswith(("api_key", "token", "password")),
                 "advanced": key.startswith(("rag_iterative_", "chat_full_scan_", "embedding_", "query_reform_")),
@@ -98,6 +108,11 @@ def validate_setting_delta(
         if not valid:
             issues.append(SettingValidationIssue(key, "invalid_type", expected, value))
             continue
+        constraints = _CONSTRAINTS.get(key, {})
+        if isinstance(converted, (int, float)) and not isinstance(converted, bool):
+            if "min" in constraints and converted < constraints["min"] or "max" in constraints and converted > constraints["max"]:
+                issues.append(SettingValidationIssue(key, "out_of_range", str(constraints), value))
+                continue
         allowed_values = {str(item) for item in options.get(key, [])}
         if allowed_values and str(converted) not in allowed_values:
             issues.append(
@@ -119,6 +134,20 @@ def apply_setting_patch(current: Mapping[str, Any], patch: Mapping[str, Any]) ->
         else:
             result[key] = value
     return result
+
+
+def resolve_effective_settings(
+    global_defaults: Mapping[str, Any],
+    profile_delta: Mapping[str, Any],
+    session_delta: Mapping[str, Any],
+) -> tuple[dict[str, Any], dict[str, str]]:
+    effective = dict(global_defaults)
+    provenance = {key: "global" for key in effective}
+    for source, values in (("profile", profile_delta), ("session", session_delta)):
+        for key, value in values.items():
+            effective[key] = value
+            provenance[key] = source
+    return effective, provenance
 
 
 def _convert_value(value: Any, expected: str) -> tuple[Any, bool]:

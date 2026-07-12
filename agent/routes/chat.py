@@ -18,9 +18,14 @@ from agent.services.chat_setting_catalog import (
     PROFILE_ONLY_DEFAULTS,
     apply_setting_patch,
     build_setting_schema,
+    resolve_effective_settings,
     validate_setting_delta,
 )
-from agent.services.chat_process_binding import clone_graph, normalize_process_ref, resolve_effective_process
+from agent.services.chat_process_binding import (
+    clone_graph, load_graph, normalize_process_ref, resolve_effective_process,
+    runtime_overlay, signal_session_gate, start_session_process,
+)
+from agent.services.chat_provider_probe import ChatProviderProbe
 from client_surfaces.operator_tui.chat_state import (
     DEFAULT_CHAT_TYPES,
     add_session,
@@ -120,6 +125,13 @@ def _validated_profile_settings(raw: Any, *, allow_null_reset: bool = False):
     return normalized, [issue.as_dict() for issue in issues]
 
 
+def _validated_process_ref(raw: Any) -> dict[str, str] | None:
+    ref = normalize_process_ref(raw)
+    if ref is not None and load_graph(ref["graph_id"]) is None:
+        raise LookupError("process_definition_not_found")
+    return ref
+
+
 def _load_chat_types() -> list[dict[str, Any]]:
     custom = get_manager().load().get("chat_session_types") or []
     by_id = {str(item["id"]): dict(item) for item in DEFAULT_CHAT_TYPES}
@@ -138,9 +150,7 @@ def _apply_profile(session: dict[str, Any], profile: dict[str, Any]) -> None:
     from client_surfaces.operator_tui.chat_state import _DEFAULT_SESSION_SETTINGS
 
     profile_settings = dict(profile.get("settings") or {})
-    effective = dict(_DEFAULT_SESSION_SETTINGS)
-    effective.update(profile_settings)
-    effective.update(dict(session.get("settings_delta") or {}))
+    effective, _ = resolve_effective_settings(_DEFAULT_SESSION_SETTINGS, profile_settings, dict(session.get("settings_delta") or {}))
     session["profile_id"] = str(profile.get("id") or "general")
     session["profile_settings"] = profile_settings
     session["profile_system_prompt"] = str(profile.get("system_prompt") or "")
@@ -174,6 +184,22 @@ def list_chat_profiles():
     )
 
 
+@chat_bp.post("/profiles/models")
+def discover_chat_profile_models():
+    body = request.get_json(silent=True) or {}
+    result = ChatProviderProbe().probe(body, timeout_seconds=float(body.get("timeout_seconds") or 2.5))
+    return jsonify(result.as_dict()), 200 if result.ok else 422
+
+
+@chat_bp.post("/profiles/test-connection")
+def test_chat_profile_connection():
+    body = request.get_json(silent=True) or {}
+    result = ChatProviderProbe().probe(body, timeout_seconds=float(body.get("timeout_seconds") or 2.5))
+    payload = result.as_dict()
+    payload["model_status"] = "available" if result.model_found else "unknown" if result.model_found is None else "not_found"
+    return jsonify(payload), 200 if result.ok else 422
+
+
 @chat_bp.route("/profiles", methods=["POST"])
 def create_chat_profile():
     data = request.get_json(silent=True) or {}
@@ -187,9 +213,9 @@ def create_chat_profile():
     if issues:
         return jsonify({"error": "invalid_profile_settings", "issues": issues}), 422
     try:
-        process_ref = normalize_process_ref(data.get("process_ref"))
-    except ValueError as exc:
-        return jsonify({"error": str(exc)}), 422
+        process_ref = _validated_process_ref(data.get("process_ref"))
+    except (ValueError, LookupError) as exc:
+        return jsonify({"error": str(exc), "error_code": str(exc)}), 422
     profile = {
         "id": profile_id,
         "name": name,
@@ -220,9 +246,9 @@ def update_chat_profile(profile_id: str):
             profile[key] = str(data.get(key) or "")
     if "process_ref" in data:
         try:
-            profile["process_ref"] = normalize_process_ref(data.get("process_ref"))
-        except ValueError as exc:
-            return jsonify({"error": str(exc)}), 422
+            profile["process_ref"] = _validated_process_ref(data.get("process_ref"))
+        except (ValueError, LookupError) as exc:
+            return jsonify({"error": str(exc), "error_code": str(exc)}), 422
     if "settings" in data:
         settings_patch, issues = _validated_profile_settings(data["settings"], allow_null_reset=True)
         if issues:
@@ -261,14 +287,33 @@ def get_effective_chat_profile(profile_id: str):
     if profile is None:
         return jsonify({"error": "profile_not_found"}), 404
     delta = dict(profile.get("settings") or {})
-    effective = {**_DEFAULT_SESSION_SETTINGS, **delta}
+    effective, provenance = resolve_effective_settings(_DEFAULT_SESSION_SETTINGS, delta, {})
     return jsonify({
         "profile_id": profile_id,
         "settings_delta": delta,
         "effective_settings": effective,
-        "provenance": {key: ("profile" if key in delta else "global") for key in effective},
+        "provenance": provenance,
         "system_prompt": str(profile.get("system_prompt") or ""),
         "process_ref": profile.get("process_ref"),
+    })
+
+
+@chat_bp.post("/profiles/effective-preview")
+def preview_effective_chat_profile():
+    from client_surfaces.operator_tui.chat_state import _DEFAULT_SESSION_SETTINGS
+
+    body = request.get_json(silent=True) or {}
+    profile = _profile_by_id(str(body.get("profile_id") or "general"))
+    if profile is None:
+        return jsonify({"error": "profile_not_found", "error_code": "profile_not_found"}), 404
+    profile_delta = {**dict(profile.get("settings") or {}), **dict(body.get("profile_settings") or {})}
+    session_delta = dict(body.get("session_settings_delta") or {})
+    effective, provenance = resolve_effective_settings(_DEFAULT_SESSION_SETTINGS, profile_delta, session_delta)
+    prompt_override = body.get("system_prompt_override")
+    return jsonify({
+        "profile_id": profile["id"], "effective_settings": effective,
+        "values": {key: {"value": value, "source": provenance[key]} for key, value in effective.items()},
+        "system_prompt": {"value": str(prompt_override if prompt_override is not None else profile.get("system_prompt") or ""), "source": "session" if prompt_override is not None else "profile"},
     })
 
 
@@ -378,9 +423,9 @@ def create_chat_session():
         profile_id=profile_id,
     )
     try:
-        new_session["process_ref"] = normalize_process_ref(data.get("process_ref"))
-    except ValueError as exc:
-        return jsonify({"error": str(exc)}), 422
+        new_session["process_ref"] = _validated_process_ref(data.get("process_ref"))
+    except (ValueError, LookupError) as exc:
+        return jsonify({"error": str(exc), "error_code": str(exc)}), 422
     _apply_profile(new_session, profile)
     add_session(chat, new_session)
     set_active_session(chat, session_id)
@@ -480,9 +525,9 @@ def update_chat_session(session_id: str):
         _apply_profile(session, profile)
     if "process_ref" in data:
         try:
-            session["process_ref"] = normalize_process_ref(data.get("process_ref"))
-        except ValueError as exc:
-            return jsonify({"error": str(exc)}), 422
+            session["process_ref"] = _validated_process_ref(data.get("process_ref"))
+        except (ValueError, LookupError) as exc:
+            return jsonify({"error": str(exc), "error_code": str(exc)}), 422
     if "settings" in data and isinstance(data["settings"], dict):
         update_session_settings(chat, session_id, data["settings"])
 
@@ -524,7 +569,64 @@ def clone_effective_session_process(session_id: str):
         return jsonify({"error": "process_graph_not_found"}), 404
     session["process_ref"] = {"graph_id": graph["id"], "version": str(graph.get("version") or "1.0")}
     _save_chat(chat)
-    return jsonify({"process_ref": session["process_ref"], "graph": graph, "source": "session"}), 201
+    return jsonify({"process_ref": session["process_ref"], "graph": graph, "source": "session_override"}), 201
+
+
+@chat_bp.get("/sessions/<session_id>/process/runs")
+def list_session_process_runs(session_id: str):
+    session = get_session(_load_chat(), session_id)
+    if session is None:
+        return jsonify({"error": "session_not_found", "error_code": "session_not_found"}), 404
+    return jsonify(sorted(session.get("process_runs") or [], key=lambda item: item.get("started_at", 0), reverse=True))
+
+
+@chat_bp.post("/sessions/<session_id>/process/runs")
+def start_session_process_run(session_id: str):
+    chat = _load_chat()
+    session = get_session(chat, session_id)
+    if session is None:
+        return jsonify({"error": "session_not_found", "error_code": "session_not_found"}), 404
+    effective = resolve_effective_process(session, _profile_by_id(str(session.get("profile_id") or "general")))
+    if effective.get("graph") is None:
+        return jsonify({"error": "process_not_configured", "error_code": "process_not_configured"}), 409
+    body = request.get_json(silent=True) or {}
+    try:
+        run = start_session_process(session_id=session_id, graph=effective["graph"], message_id=str(body.get("message_id") or ""))
+    except ValueError as exc:
+        return jsonify({"error": str(exc), "error_code": str(exc)}), 422
+    runs = list(session.get("process_runs") or [])
+    runs.append(run)
+    session["process_runs"] = runs[-20:]
+    _save_chat(chat)
+    return jsonify(run), 201
+
+
+@chat_bp.get("/sessions/<session_id>/process/runs/<run_id>")
+def get_session_process_run(session_id: str, run_id: str):
+    session = get_session(_load_chat(), session_id)
+    if session is None:
+        return jsonify({"error": "session_not_found", "error_code": "session_not_found"}), 404
+    run = next((item for item in session.get("process_runs") or [] if str(item.get("run_id")) == run_id), None)
+    if run is None:
+        return jsonify({"error": "process_run_not_found", "error_code": "process_run_not_found"}), 404
+    return jsonify(runtime_overlay(run))
+
+
+@chat_bp.post("/sessions/<session_id>/process/runs/<run_id>/gate")
+def signal_session_process_run_gate(session_id: str, run_id: str):
+    session = get_session(_load_chat(), session_id)
+    if session is None:
+        return jsonify({"error": "session_not_found", "error_code": "session_not_found"}), 404
+    run = next((item for item in session.get("process_runs") or [] if str(item.get("run_id")) == run_id), None)
+    if run is None:
+        return jsonify({"error": "process_run_not_found", "error_code": "process_run_not_found"}), 404
+    body = request.get_json(silent=True) or {}
+    try:
+        result = signal_session_gate(run=run, step_id=str(body.get("step_id") or ""), decision=str(body.get("decision") or ""), actor=str(body.get("actor") or "chat-user"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc), "error_code": str(exc)}), 409
+    _log.info("chat_process_gate actor=%s workflow_id=%s step_id=%s decision=%s", body.get("actor") or "chat-user", run_id, body.get("step_id"), body.get("decision"))
+    return jsonify(result)
 
 
 @chat_bp.route("/sessions/<session_id>", methods=["DELETE"])

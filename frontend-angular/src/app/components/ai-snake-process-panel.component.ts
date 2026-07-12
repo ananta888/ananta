@@ -2,12 +2,15 @@ import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { ChatSessionsService, EffectiveChatProcess } from '../services/chat-sessions.service';
-import { VisualProcessEditorComponent } from '../features/visual-process/visual-process-editor.component';
+import { VisualProcessCanvasComponent } from '../features/visual-process/visual-process-canvas.component';
+import { VpCanvasInteractionService } from '../features/visual-process/vp-canvas-interaction.service';
+import { VpGraph, VpRuntimeOverlay } from '../features/visual-process/visual-process-api.service';
 
 @Component({
   selector: 'app-ai-snake-process-panel',
   standalone: true,
-  imports: [CommonModule, VisualProcessEditorComponent],
+  imports: [CommonModule, VisualProcessCanvasComponent],
+  providers: [VpCanvasInteractionService],
   template: `
     <section class="process-panel">
       <header>
@@ -18,7 +21,10 @@ import { VisualProcessEditorComponent } from '../features/visual-process/visual-
       @if (error) { <p class="error">{{ error }}</p> }
       @if (effective?.process_ref; as ref) {
         <div class="meta">{{ ref.graph_id }} · Version {{ ref.version }}</div>
-        <app-visual-process-editor [graphId]="ref.graph_id" />
+        @if (effective?.graph; as graph) {
+          <app-visual-process-canvas [graph]="asGraph(graph)" [runtimeOverlay]="runtimeOverlay()"
+                                     [readOnly]="true" mode="compact-readonly" />
+        }
       } @else {
         <p>Dem aktiven Chat ist noch kein Prozess zugeordnet. Die Zuordnung erfolgt im Profil- oder Session-Editor.</p>
       }
@@ -45,4 +51,6 @@ export class AiSnakeProcessPanelComponent implements OnInit, OnDestroy {
     }));
   }
   clone(): void { if (this.sessionId) this.subscriptions.add(this.sessions.cloneEffectiveProcess(this.sessionId).subscribe({ next: result => this.effective = result, error: error => this.error = error?.error?.error || 'Klonen fehlgeschlagen' })); }
+  asGraph(graph: Record<string, unknown>): VpGraph { return graph as unknown as VpGraph; }
+  runtimeOverlay(): VpRuntimeOverlay | null { return (this.effective?.run as unknown as VpRuntimeOverlay) ?? null; }
 }

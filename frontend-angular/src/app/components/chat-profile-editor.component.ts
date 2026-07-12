@@ -29,15 +29,23 @@ import {
             <input [(ngModel)]="draft.name" [disabled]="readOnly" placeholder="Profilname" aria-label="Profilname" />
           </div>
           <textarea [(ngModel)]="draft.system_prompt" [disabled]="readOnly" rows="3" placeholder="System-Prompt"></textarea>
+          <textarea [(ngModel)]="draft.description" [disabled]="readOnly" rows="2" placeholder="Beschreibung"></textarea>
+          <div class="tools"><input [(ngModel)]="search" placeholder="Einstellungen suchen" aria-label="Einstellungen suchen" />
+            <label><input type="checkbox" [(ngModel)]="showAdvanced" /> Erweitert</label>
+            <button (click)="discoverModels()" [disabled]="probing">Modelle laden</button>
+            <button (click)="testConnection()" [disabled]="probing">Verbindung testen</button>
+          </div>
+          @if (probeStatus) { <div class="probe" role="status">{{ probeStatus }}</div> }
+          <datalist id="chat-profile-models">@for (model of discoveredModels; track model) { <option [value]="model"></option> }</datalist>
           <label class="process-ref"><span>Visual Process <small>{{ draft.process_ref ? 'Profilbindung' : 'kein Prozess' }}</small></span>
             <input [ngModel]="draft.process_ref?.graph_id || ''" (ngModelChange)="setProcessGraph($event)" [disabled]="readOnly" placeholder="vp-graph-id" />
             @if (draft.process_ref && !readOnly) { <button (click)="setProcessGraph('')" title="Prozessbindung entfernen">↺</button> }
           </label>
           @for (group of groups; track group) {
-            <details [open]="group !== 'Erweitert'">
+            <details [open]="group !== 'Erweitert'" [hidden]="group === 'Erweitert' && !showAdvanced">
               <summary>{{ group }}</summary>
               @for (setting of settingsFor(group); track setting.key) {
-                <label class="setting" [class.inherited]="!hasOverride(setting.key)">
+                <label class="setting" [class.inherited]="!hasOverride(setting.key)" [hidden]="!isVisible(setting)">
                   <span>{{ setting.label }} <small>{{ hasOverride(setting.key) ? 'Profilwert' : 'Standardwert' }}</small></span>
                   @if (setting.type === 'boolean') {
                     <input type="checkbox" [ngModel]="effective(setting)" (ngModelChange)="setValue(setting.key, $event)" [disabled]="readOnly" />
@@ -46,7 +54,9 @@ import {
                       @for (option of setting.allowed_values; track option) { <option [ngValue]="option">{{ option }}</option> }
                     </select>
                   } @else {
-                    <input [type]="setting.secret ? 'password' : 'text'" [ngModel]="effective(setting)"
+                    <input [type]="setting.secret ? 'password' : setting.type === 'integer' || setting.type === 'number' ? 'number' : setting.key.endsWith('_api_base') ? 'url' : 'text'"
+                           [attr.min]="setting.constraints?.min" [attr.max]="setting.constraints?.max" [attr.step]="setting.constraints?.step"
+                           [attr.list]="setting.key === 'chat_backend_model' ? 'chat-profile-models' : null" [ngModel]="effective(setting)"
                            (ngModelChange)="setTypedValue(setting, $event)" [disabled]="readOnly" />
                   }
                   @if (hasOverride(setting.key) && !readOnly) {
@@ -60,7 +70,7 @@ import {
             @if (readOnly) {
               <button (click)="duplicate()">Als eigenes Profil duplizieren</button>
             } @else {
-              <button (click)="save()" [disabled]="!draft.name.trim()">Speichern</button>
+              <button (click)="save()" [disabled]="!draft.name.trim() || saving">{{ saving ? 'Speichere…' : 'Speichern' }}</button>
               <button (click)="cancel()">Abbrechen</button>
               @if (selectedId) { <button class="danger" (click)="remove()">Löschen</button> }
             }
@@ -86,6 +96,14 @@ export class ChatProfileEditorComponent implements OnInit, OnDestroy {
   settings: ChatSettingDefinition[] = [];
   selectedId = '';
   readOnly = false;
+  search = '';
+  showAdvanced = false;
+  saving = false;
+  probing = false;
+  probeStatus = '';
+  discoveredModels: string[] = [];
+  private originalSettings: Record<string, unknown> = {};
+  private resetKeys = new Set<string>();
   draft = this.emptyDraft();
 
   get groups(): string[] { return [...new Set(this.settings.map(item => item.advanced ? 'Erweitert' : item.group))]; }
@@ -97,29 +115,35 @@ export class ChatProfileEditorComponent implements OnInit, OnDestroy {
     );
   }
   ngOnDestroy(): void { this.subscriptions.forEach(subscription => subscription.unsubscribe()); }
-  settingsFor(group: string): ChatSettingDefinition[] { return this.settings.filter(item => (item.advanced ? 'Erweitert' : item.group) === group); }
+  settingsFor(group: string): ChatSettingDefinition[] { const query=this.search.trim().toLowerCase(); return this.settings.filter(item => (item.advanced ? 'Erweitert' : item.group) === group && (!query || `${item.key} ${item.label}`.toLowerCase().includes(query))); }
   select(profile: ChatProfile): void {
     this.selectedId = profile.id; this.readOnly = profile.builtin;
-    this.draft = { name: profile.name, icon: profile.icon || '🎯', system_prompt: profile.system_prompt || '', settings: { ...profile.settings }, process_ref: profile.process_ref ? { ...profile.process_ref } : null };
+    this.originalSettings = { ...profile.settings }; this.resetKeys.clear();
+    this.draft = { name: profile.name, icon: profile.icon || '🎯', description: profile.description || '', system_prompt: profile.system_prompt || '', settings: { ...profile.settings }, process_ref: profile.process_ref ? { ...profile.process_ref } : null };
   }
   newProfile(): void { this.selectedId = ''; this.readOnly = false; this.draft = this.emptyDraft(); }
   duplicate(): void { this.selectedId = ''; this.readOnly = false; this.draft = { ...this.draft, name: `${this.draft.name} (Kopie)`, settings: { ...this.draft.settings } }; }
   cancel(): void { const profile = this.profiles.find(item => item.id === this.selectedId); profile ? this.select(profile) : this.newProfile(); }
   hasOverride(key: string): boolean { return Object.prototype.hasOwnProperty.call(this.draft.settings, key); }
   effective(setting: ChatSettingDefinition): unknown { return this.hasOverride(setting.key) ? this.draft.settings[setting.key] : setting.scope_defaults['profile'] ?? setting.default; }
+  isVisible(setting: ChatSettingDefinition): boolean { return Object.entries(setting.visible_when || {}).every(([key,values]) => values.includes(this.draft.settings[key] ?? this.settings.find(item=>item.key===key)?.scope_defaults['profile'])); }
   setValue(key: string, value: unknown): void { this.draft.settings = { ...this.draft.settings, [key]: value }; }
   setTypedValue(setting: ChatSettingDefinition, value: string): void {
     const converted = setting.type === 'integer' ? Number.parseInt(value, 10) : setting.type === 'number' ? Number(value) : value;
     this.setValue(setting.key, converted);
   }
-  resetValue(key: string): void { const settings = { ...this.draft.settings }; delete settings[key]; this.draft.settings = settings; }
+  resetValue(key: string): void { const settings = { ...this.draft.settings }; delete settings[key]; this.draft.settings = settings; if (Object.prototype.hasOwnProperty.call(this.originalSettings,key)) this.resetKeys.add(key); }
   setProcessGraph(graphId: string): void { this.draft.process_ref = graphId.trim() ? { graph_id: graphId.trim(), version: 'latest' } : null; }
   save(): void {
-    const payload = { ...this.draft, name: this.draft.name.trim(), settings: { ...this.draft.settings } };
-    this.selectedId ? this.service.updateProfile(this.selectedId, payload) : this.service.createProfile(payload);
+    const settings = this.selectedId ? Object.fromEntries([...Object.entries(this.draft.settings).filter(([key,value]) => this.originalSettings[key] !== value), ...[...this.resetKeys].map(key => [key, null])]) : { ...this.draft.settings };
+    const payload = { ...this.draft, name: this.draft.name.trim(), settings };
+    this.saving=true; const request = this.selectedId ? this.service.updateProfile(this.selectedId, payload) : this.service.createProfile(payload);
+    request.subscribe({ next: profile => { this.saving=false; this.select(profile); }, error: error => { this.saving=false; this.probeStatus=error?.error?.error || 'Speichern fehlgeschlagen; Entwurf bleibt erhalten'; } });
   }
+  discoverModels(): void { this.probing=true; this.service.discoverProfileModels(this.draft.settings).subscribe({ next:r=>{this.probing=false;this.discoveredModels=r.models;this.probeStatus=`${r.models.length} Modelle gefunden`;}, error:e=>{this.probing=false;this.probeStatus=e?.error?.error_code || 'Discovery fehlgeschlagen';} }); }
+  testConnection(): void { this.probing=true; this.service.testProfileConnection(this.draft.settings).subscribe({ next:r=>{this.probing=false;this.probeStatus=r.ok ? `Verbindung erfolgreich · Modell ${r.model_status}` : r.error_code || 'Verbindung fehlgeschlagen';}, error:e=>{this.probing=false;this.probeStatus=e?.error?.error_code || 'Verbindung fehlgeschlagen';} }); }
   remove(): void { if (this.selectedId && confirm(`Profil „${this.draft.name}“ löschen?`)) { this.service.deleteProfile(this.selectedId); this.newProfile(); } }
-  private emptyDraft(): { name: string; icon: string; system_prompt: string; settings: Record<string, unknown>; process_ref: { graph_id: string; version: string } | null } {
-    return { name: '', icon: '🎯', system_prompt: '', settings: {}, process_ref: null };
+  private emptyDraft(): { name: string; icon: string; description: string; system_prompt: string; settings: Record<string, unknown>; process_ref: { graph_id: string; version: string } | null } {
+    return { name: '', icon: '🎯', description: '', system_prompt: '', settings: {}, process_ref: null };
   }
 }

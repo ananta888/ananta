@@ -75,7 +75,7 @@ export class VpWorkflowRunnerService {
         this.activeWorkflowId.set(status.workflow_id);
         this.workflowStatus.set(status);
         this.status.set(`Workflow gestartet (id: ${status.workflow_id})`);
-        this.startPolling(graph);
+        this.startPolling();
       },
       error: error => this.status.set(`Fehler: ${error?.error?.detail ?? 'Workflow konnte nicht gestartet werden'}`),
     });
@@ -93,6 +93,20 @@ export class VpWorkflowRunnerService {
     });
   }
 
+  attach(workflowId: string): void {
+    this.activeWorkflowId.set(workflowId);
+    this.startPolling();
+    this.refresh();
+  }
+
+  detach(): void { this.stopPolling(); this.activeWorkflowId.set(null); }
+
+  refresh(): void {
+    const workflowId = this.activeWorkflowId();
+    if (!workflowId) return;
+    this.api.getWorkflowStatus(workflowId).subscribe({ next: status => this.applyStatus(status), error: () => this.status.set('Status konnte nicht geladen werden') });
+  }
+
   signalGate(action: 'approve' | 'reject', stepId: string | null): void {
     const workflowId = this.activeWorkflowId();
     if (!workflowId || !stepId) return;
@@ -102,7 +116,7 @@ export class VpWorkflowRunnerService {
     });
   }
 
-  private startPolling(graph: WritableSignal<VpGraph>): void {
+  private startPolling(): void {
     this.stopPolling();
     this.pollStartedAt = Date.now();
     this.pollHandle = setInterval(() => {
@@ -113,30 +127,36 @@ export class VpWorkflowRunnerService {
         this.status.set('Polling-Timeout (10 min) — Workflow-Status unbekannt');
         return;
       }
-      this.api.getWorkflowStatus(workflowId).subscribe(status => {
-        this.workflowStatus.set(status);
-        const steps = (status['steps'] as any[] | undefined) ?? [];
-        this.runtimeOverlay.set({
-          workflow_id: status.workflow_id,
-          status: status.status,
-          updated_at: Date.now(),
-          steps: Object.fromEntries(steps.filter(item => item?.step_id).map(item => [item.step_id, {
-            step_id: item.step_id,
-            status: item.run_state ?? item.status ?? 'unknown',
-            selected_model_profile_id: item.selected_model_profile_id,
-            selected_provider_id: item.selected_provider_id,
-            selected_model: item.selected_model,
-            fallback_attempts: item.fallback_attempts ?? [],
-            llm_call_profile: item.llm_call_profile ?? [],
-          }])),
-        });
-        if (['done', 'failed', 'cancelled'].includes(status.status)) {
-          this.stopPolling();
-          this.activeWorkflowId.set(null);
-          this.status.set(status.status === 'done' ? 'Workflow abgeschlossen ✓' : `Workflow ${status.status}`);
-        }
-      });
+      this.api.getWorkflowStatus(workflowId).subscribe(status => this.applyStatus(status));
     }, POLL_INTERVAL_MS);
+  }
+
+  private applyStatus(status: WorkflowStatus): void {
+    this.workflowStatus.set(status);
+    const steps = (status['steps'] as any[] | undefined) ?? [];
+    const normalize = (value: string): VpRuntimeOverlay['steps'][string]['status'] => {
+      const mapped: Record<string, VpRuntimeOverlay['steps'][string]['status']> = { done:'succeeded', success:'succeeded', waiting:'pending', cancelled:'cancelled', canceled:'cancelled' };
+      const candidate = mapped[value] ?? value;
+      return ['pending','running','awaiting_approval','succeeded','failed','skipped','cancelled'].includes(candidate) ? candidate as VpRuntimeOverlay['steps'][string]['status'] : 'unknown';
+    };
+    const mappedSteps = Object.fromEntries(steps.filter(item => item?.step_id).map(item => [item.step_id, {
+      step_id: item.step_id, status: normalize(item.run_state ?? item.status ?? 'unknown'),
+      started_at: item.started_at, finished_at: item.finished_at, duration_ms: item.duration_ms, error: item.error,
+      gate: item.gate, selected_model_profile_id: item.selected_model_profile_id, selected_provider_id: item.selected_provider_id,
+      selected_model: item.selected_model, fallback_attempts: item.fallback_attempts ?? [], llm_call_profile: item.llm_call_profile ?? [],
+    }]));
+    this.runtimeOverlay.set({
+      run_id: String(status['run_id'] ?? status.workflow_id), workflow_id: status.workflow_id,
+      process_id: status['process_id'] as string | undefined, process_version: status['process_version'] as string | undefined,
+      snapshot_hash: status['snapshot_hash'] as string | undefined, overall_status: status.status,
+      current_step_ids: Object.values(mappedSteps).filter(step => ['running','awaiting_approval'].includes(step.status)).map(step => step.step_id),
+      steps: mappedSteps, started_at: status['started_at'] as number | undefined, finished_at: status['finished_at'] as number | undefined,
+      updated_at: Date.now(), error: status['error'] as string | undefined, gate: status['gate'] as Record<string, unknown> | undefined,
+    });
+    if (['done', 'failed', 'cancelled'].includes(status.status)) {
+      this.stopPolling();
+      this.status.set(status.status === 'done' ? 'Workflow abgeschlossen ✓' : `Workflow ${status.status}`);
+    }
   }
 
   private stopPolling(): void {

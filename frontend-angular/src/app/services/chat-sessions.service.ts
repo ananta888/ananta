@@ -49,10 +49,12 @@ export interface ChatSettingDefinition {
   key: string;
   label: string;
   group: string;
-  type: 'boolean' | 'integer' | 'number' | 'string';
+  type: 'boolean' | 'integer' | 'number' | 'string' | 'enum';
   default: unknown;
   scope_defaults: Record<string, unknown>;
   allowed_values: unknown[];
+  constraints?: { min?: number; max?: number; step?: number };
+  visible_when?: Record<string, unknown[]>;
   scopes: string[];
   secret: boolean;
   advanced: boolean;
@@ -268,22 +270,24 @@ export class ChatSessionsService {
     });
   }
 
-  createProfile(profile: Partial<ChatProfile> & { name: string }): void {
+  createProfile(profile: Partial<ChatProfile> & { name: string }): Observable<ChatProfile> {
     const url = this.hubUrl;
-    if (!url) return;
-    this.core.post<ChatProfile>(`${url}/api/chat/profiles`, profile, url).subscribe({
-      next: () => this.loadProfiles(),
-      error: err => this.error$.next(String(err?.message || 'Fehler beim Erstellen des Profils')),
-    });
+    return this.core.post<ChatProfile>(`${url}/api/chat/profiles`, profile, url).pipe(tap(() => this.loadProfiles()));
   }
 
-  updateProfile(profileId: string, patch: Partial<ChatProfile>): void {
+  updateProfile(profileId: string, patch: Partial<ChatProfile>): Observable<ChatProfile> {
     const url = this.hubUrl;
-    if (!url) return;
-    this.core.patch<ChatProfile>(`${url}/api/chat/profiles/${profileId}`, patch, url).subscribe({
-      next: () => { this.loadProfiles(); this.load(); },
-      error: err => this.error$.next(String(err?.message || 'Fehler beim Aktualisieren des Profils')),
-    });
+    return this.core.patch<ChatProfile>(`${url}/api/chat/profiles/${profileId}`, patch, url).pipe(tap(() => { this.loadProfiles(); this.load(); }));
+  }
+
+  discoverProfileModels(draft: Record<string, unknown>): Observable<{ ok: boolean; models: string[]; error_code?: string }> {
+    const url = this.hubUrl;
+    return this.core.post<{ ok: boolean; models: string[]; error_code?: string }>(`${url}/api/chat/profiles/models`, draft, url);
+  }
+
+  testProfileConnection(draft: Record<string, unknown>): Observable<{ ok: boolean; model_status: string; error_code?: string }> {
+    const url = this.hubUrl;
+    return this.core.post<{ ok: boolean; model_status: string; error_code?: string }>(`${url}/api/chat/profiles/test-connection`, draft, url);
   }
 
   deleteProfile(profileId: string): void {

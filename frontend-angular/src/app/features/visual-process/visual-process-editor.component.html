@@ -131,85 +131,12 @@
 <!-- ── main area ─────────────────────────────────────────────────────────── -->
 <div class="vpe-main">
 
-  <!-- SVG canvas -->
-  <div class="vpe-canvas-wrap" #canvasWrap
-       (mousedown)="onCanvasMouseDown($event)"
-       (mousemove)="onMouseMove($event)"
-       (mouseup)="onMouseUp($event)"
-       (wheel)="onWheel($event)">
-
-    <svg #svgEl class="vpe-svg">
-      <defs>
-        <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-          <polygon points="0 0, 8 3, 0 6" fill="#aaa"/>
-        </marker>
-        <marker id="arrowback" markerWidth="8" markerHeight="6" refX="0" refY="3" orient="auto">
-          <polygon points="8 0, 0 3, 8 6" fill="#7f8c8d" fill-opacity="0.8"/>
-        </marker>
-      </defs>
-
-      <g [attr.transform]="canvasTransform()">
-        <!-- edges -->
-        @for (edge of graph().edges; track edge.id) {
-          <g (click)="selectEdge(edge.id)" class="vpe-edge-g">
-            <path [attr.d]="edgePath(edge)"
-                  [class.selected]="selectedId() === edge.id"
-                  [class.back-edge]="edge.condition.kind === 'back_edge'"
-                  class="vpe-edge"
-                  [attr.marker-end]="edge.condition.kind === 'back_edge' ? '' : 'url(#arrowhead)'"
-                  [attr.marker-start]="edge.condition.kind === 'back_edge' ? 'url(#arrowback)' : ''"/>
-            @if (edge.label) {
-              <text [attr.x]="edgeMidpoint(edge).x" [attr.y]="edgeMidpoint(edge).y - 4"
-                    class="vpe-edge-label">{{ edge.label }}</text>
-            }
-          </g>
-        }
-
-        <!-- live edge being drawn -->
-        @if (drawingEdge()) {
-          <path [attr.d]="liveEdgePath()" class="vpe-edge live"/>
-        }
-
-        <!-- steps -->
-        @for (step of graph().steps; track step.id) {
-          <g [attr.transform]="'translate(' + step.position.x + ',' + step.position.y + ')'"
-             (mousedown)="onNodeMouseDown($event, step.id)"
-             (click)="selectStep(step.id)"
-             class="vpe-node-g"
-             [class.selected]="selectedId() === step.id"
-             [class.edge-source]="edgeSourceId() === step.id"
-             [class.awaiting-gate]="step.id === gateStepId()">
-
-            @if (step.kind === 'fork' || step.kind === 'join' || step.kind === 'parallel') {
-              <polygon [attr.points]="diamondPoints()"
-                       [attr.fill]="nodeColor(step)"
-                       class="vpe-node-rect vpe-diamond"/>
-            } @else {
-              <rect [attr.width]="NODE_W" [attr.height]="NODE_H" rx="7"
-                    [attr.fill]="nodeColor(step)"
-                    class="vpe-node-rect"/>
-            }
-
-            @if (step.gate) { <text x="4" y="14" class="vpe-node-icon">🔒</text> }
-            <text [attr.x]="NODE_W / 2" [attr.y]="22" class="vpe-node-label">{{ step.label }}</text>
-            <text [attr.x]="NODE_W / 2" [attr.y]="38" class="vpe-node-kind">{{ step.kind }}</text>
-
-            @if (runtimeOverlay()?.steps?.[step.id]?.status; as runState) {
-              <circle [attr.cx]="NODE_W - 10" cy="10" r="5"
-                      [attr.fill]="runStateColor(runState)"/>
-            }
-            @if (modelBadge(step)) {
-              <text x="6" [attr.y]="NODE_H - 8" class="vpe-node-kind">{{ modelBadge(step) }}</text>
-            }
-          </g>
-        }
-      </g>
-    </svg>
-
-    @if (graph().steps.length === 0) {
-      <div class="vpe-empty-hint">Klicke "+ Schritt" um zu beginnen, oder lade ein Preset.</div>
-    }
-  </div>
+  <app-visual-process-canvas
+    [graph]="graph()" [runtimeOverlay]="runtimeOverlay()" [selectedId]="selectedId()"
+    [canvasTransform]="canvasTransform()" [drawingEdge]="drawingEdge()" [edgeSourceId]="edgeSourceId()"
+    mode="full-editor" (stepSelected)="selectStep($event)" (edgeSelected)="selectEdge($event)"
+    (nodeMouseDown)="onCanvasNodeMouseDown($event)" (canvasMouseDown)="onCanvasMouseDown($event)"
+    (canvasMouseMove)="onMouseMove($event)" (canvasMouseUp)="onMouseUp($event)" (canvasWheel)="onWheel($event)" />
 
   <!-- right panel -->
   <div class="vpe-panel">
