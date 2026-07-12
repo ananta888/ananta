@@ -1,5 +1,5 @@
 import {
-  Component, OnInit, OnDestroy, inject,
+  Component, OnInit, OnDestroy, OnChanges, Input, SimpleChanges, inject,
   signal, computed, HostListener, ViewChild, ElementRef,
 } from '@angular/core';
 
@@ -30,7 +30,8 @@ import {
   templateUrl: './visual-process-editor.component.html',
   styleUrls: ['./visual-process-editor.component.scss'],
 })
-export class VisualProcessEditorComponent implements OnInit, OnDestroy {
+export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChanges {
+  @Input() graphId = '';
   private api = inject(VisualProcessApiService);
   private interaction = inject(VpCanvasInteractionService);
   private importExport = inject(VpImportExportService);
@@ -62,6 +63,7 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy {
   isDirty = signal<boolean>(false);
   activeWorkflowId = this.workflowRunner.activeWorkflowId;
   workflowStatus = this.workflowRunner.workflowStatus;
+  runtimeOverlay = this.workflowRunner.runtimeOverlay;
 
   loadPresetMenu = false;
   loadSavedMenu = false;
@@ -153,6 +155,11 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy {
         this.fallbackGroups.set({});
       },
     }));
+    if (this.graphId) this.loadSavedGraphById(this.graphId);
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['graphId'] && !changes['graphId'].firstChange && this.graphId) this.loadSavedGraphById(this.graphId);
   }
 
   ngOnDestroy(): void {

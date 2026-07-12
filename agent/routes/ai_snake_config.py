@@ -329,7 +329,9 @@ def patch_ai_snake_config():
             updates[key] = str(raw_value) if raw_value is not None else ""
     if not updates and rejected:
         return jsonify({"ok": False, "error": "no valid keys", "rejected": rejected}), 422
-    _save(updates, clear_session_overrides=True)
+    # Global defaults and live-session overrides are separate scopes. Persisting
+    # one must not silently mutate the other.
+    _save(updates)
     return jsonify({"ok": True, "saved": list(updates.keys()), "rejected": rejected})
 
 

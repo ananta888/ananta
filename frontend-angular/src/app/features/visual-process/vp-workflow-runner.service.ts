@@ -6,6 +6,7 @@ import {
   VisualProcessApiService,
   VpGraph,
   WorkflowStatus,
+  VpRuntimeOverlay,
 } from './visual-process-api.service';
 
 const POLL_INTERVAL_MS = 3000;
@@ -21,6 +22,7 @@ export class VpWorkflowRunnerService {
   readonly dryRunResult = signal<DryRunResult | null>(null);
   readonly activeWorkflowId = signal<string | null>(null);
   readonly workflowStatus = signal<WorkflowStatus | null>(null);
+  readonly runtimeOverlay = signal<VpRuntimeOverlay | null>(null);
   readonly status = signal('');
 
   destroy(): void { this.stopPolling(); }
@@ -113,28 +115,21 @@ export class VpWorkflowRunnerService {
       }
       this.api.getWorkflowStatus(workflowId).subscribe(status => {
         this.workflowStatus.set(status);
-        const steps = status['steps'] as any[] | undefined;
-        if (steps?.length) {
-          graph.update(current => ({
-            ...current,
-            steps: current.steps.map(step => {
-              const runtimeStep = steps.find(item => item.step_id === step.id);
-              if (!runtimeStep) return step;
-              return {
-                ...step,
-                run_state: runtimeStep.run_state ?? runtimeStep.status,
-                metadata: {
-                  ...(step.metadata ?? {}),
-                  selected_model_profile_id: runtimeStep.selected_model_profile_id,
-                  selected_provider_id: runtimeStep.selected_provider_id,
-                  selected_model: runtimeStep.selected_model,
-                  fallback_attempts: runtimeStep.fallback_attempts ?? [],
-                  llm_call_profile: runtimeStep.llm_call_profile ?? [],
-                },
-              };
-            }),
-          }));
-        }
+        const steps = (status['steps'] as any[] | undefined) ?? [];
+        this.runtimeOverlay.set({
+          workflow_id: status.workflow_id,
+          status: status.status,
+          updated_at: Date.now(),
+          steps: Object.fromEntries(steps.filter(item => item?.step_id).map(item => [item.step_id, {
+            step_id: item.step_id,
+            status: item.run_state ?? item.status ?? 'unknown',
+            selected_model_profile_id: item.selected_model_profile_id,
+            selected_provider_id: item.selected_provider_id,
+            selected_model: item.selected_model,
+            fallback_attempts: item.fallback_attempts ?? [],
+            llm_call_profile: item.llm_call_profile ?? [],
+          }])),
+        });
         if (['done', 'failed', 'cancelled'].includes(status.status)) {
           this.stopPolling();
           this.activeWorkflowId.set(null);

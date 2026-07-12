@@ -97,6 +97,11 @@ export interface BpmnImportResult { graph: VpGraph; warnings: string[]; validati
 export interface BpmnExportResult { bpmn_xml: string; warnings: string[]; }
 export interface WorkflowRequestResult { workflow_request: Record<string, unknown>; validation: ValidationResult; errors: string[]; }
 export interface WorkflowStatus { schema: string; backend: string; workflow_id: string; status: string; steps?: unknown[]; events?: unknown[]; [key: string]: unknown; }
+export interface VpRuntimeStepOverlay {
+  step_id: string; status: string; selected_model_profile_id?: string;
+  selected_provider_id?: string; selected_model?: string; fallback_attempts?: unknown[]; llm_call_profile?: unknown[];
+}
+export interface VpRuntimeOverlay { workflow_id: string; status: string; steps: Record<string, VpRuntimeStepOverlay>; updated_at: number; }
 export interface TaskKindInfo {
   id: string; label: string; group: string; dispatch_capable: boolean; description: string;
   // Runtime-Truth (VPRT-001) — populated from backend, may be absent in fallback

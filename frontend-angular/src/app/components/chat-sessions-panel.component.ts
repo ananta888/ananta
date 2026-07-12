@@ -16,6 +16,7 @@ import {
 } from '../services/chat-sessions.service';
 import { ChatHistoryService } from '../services/chat-history.service';
 import { ChatOrganizationDialogsComponent } from './chat-organization-dialogs.component';
+import { ChatProfileEditorComponent } from './chat-profile-editor.component';
 
 const PUG_PRESETS = {
   quiet:    { predictive_guide_dwell_ms: 5000, predictive_guide_min_confidence: 0.7,  predictive_guide_multi_candidates: 1 },
@@ -48,7 +49,7 @@ interface TreeItem {
 @Component({
   selector: 'app-chat-sessions-panel',
   standalone: true,
-  imports: [CommonModule, FormsModule, ChatOrganizationDialogsComponent],
+  imports: [CommonModule, FormsModule, ChatOrganizationDialogsComponent, ChatProfileEditorComponent],
   template: `
     <div class="sessions-panel">
 
@@ -70,37 +71,7 @@ interface TreeItem {
       </div>
 
       @if (showProfiles) {
-        <div class="profile-manager">
-          <div class="ctx-title">Wiederverwendbare Chat-Profile</div>
-          @for (profile of profiles; track profile.id) {
-            <div class="profile-row">
-              <span>{{ profile.icon || '🎯' }} {{ profile.name }}</span>
-              <span class="muted">{{ profile.builtin ? 'integriert' : profile.id }}</span>
-              @if (!profile.builtin) {
-                <button class="icon-btn" (click)="editProfile(profile)">✎</button>
-                <button class="icon-btn del" (click)="deleteProfile(profile)">✕</button>
-              }
-            </div>
-          }
-          <div class="profile-editor">
-            <input [(ngModel)]="profileIcon" placeholder="🎯" maxlength="4" />
-            <input [(ngModel)]="profileName" placeholder="Profilname" />
-            <select [(ngModel)]="profileBackend">
-              <option value="ananta-worker">ananta-worker</option>
-              <option value="opencode">opencode</option>
-              <option value="lmstudio">lmstudio</option>
-              <option value="hermes">hermes</option>
-            </select>
-            <label><input type="checkbox" [(ngModel)]="profileCodeCompass" /> CodeCompass</label>
-            <textarea [(ngModel)]="profilePrompt" rows="3" placeholder="System-Prompt"></textarea>
-            <div class="row">
-              <button (click)="saveProfile()" [disabled]="!profileName.trim()">
-                {{ editingProfileId ? 'Profil speichern' : 'Profil anlegen' }}
-              </button>
-              @if (editingProfileId) { <button (click)="resetProfileEditor()">Abbrechen</button> }
-            </div>
-          </div>
-        </div>
+        <app-chat-profile-editor />
       }
 
       <!-- ── Session + folder list ── -->
@@ -1004,12 +975,6 @@ export class ChatSessionsPanelComponent implements OnInit, OnDestroy {
   customTypeIcon = '🎯';
   customTypeName = '';
   customTypeSubtypes = '';
-  editingProfileId = '';
-  profileName = '';
-  profileIcon = '🎯';
-  profilePrompt = '';
-  profileBackend = 'ananta-worker';
-  profileCodeCompass = true;
 
   private subs: Subscription[] = [];
   private promptDebounce: ReturnType<typeof setTimeout> | null = null;
@@ -1361,45 +1326,6 @@ export class ChatSessionsPanelComponent implements OnInit, OnDestroy {
   deleteCustomType(type: ChatSessionType): void {
     if (!confirm(`Typ „${type.name}“ löschen? Verwendete Typen werden serverseitig geschützt.`)) return;
     this.svc.deleteType(type.id);
-  }
-
-  editProfile(profile: ChatProfile): void {
-    this.editingProfileId = profile.id;
-    this.profileName = profile.name;
-    this.profileIcon = profile.icon || '🎯';
-    this.profilePrompt = profile.system_prompt || '';
-    this.profileBackend = String(profile.settings?.['chat_backend'] || 'ananta-worker');
-    this.profileCodeCompass = !!profile.settings?.['chat_use_codecompass'];
-  }
-
-  saveProfile(): void {
-    const name = this.profileName.trim();
-    if (!name) return;
-    const payload = {
-      name,
-      icon: this.profileIcon || '🎯',
-      system_prompt: this.profilePrompt,
-      settings: {
-        chat_backend: this.profileBackend,
-        chat_use_codecompass: this.profileCodeCompass,
-      },
-    };
-    if (this.editingProfileId) this.svc.updateProfile(this.editingProfileId, payload);
-    else this.svc.createProfile(payload);
-    this.resetProfileEditor();
-  }
-
-  deleteProfile(profile: ChatProfile): void {
-    if (confirm(`Profil "${profile.name}" wirklich löschen?`)) this.svc.deleteProfile(profile.id);
-  }
-
-  resetProfileEditor(): void {
-    this.editingProfileId = '';
-    this.profileName = '';
-    this.profileIcon = '🎯';
-    this.profilePrompt = '';
-    this.profileBackend = 'ananta-worker';
-    this.profileCodeCompass = true;
   }
 
   activate(s: ChatSession): void {

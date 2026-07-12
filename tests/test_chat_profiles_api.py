@@ -82,3 +82,65 @@ def test_custom_profile_can_be_assigned_and_cannot_be_deleted_while_used(client)
     assert assigned.json["settings"]["chat_backend"] == "lmstudio"
     assert refreshed.json["settings"]["chat_backend"] == "lmstudio"
     assert deleted.status_code == 409
+
+
+def test_setting_schema_is_deterministic_and_scope_aware(client):
+    response = client.get("/api/chat/settings/schema")
+
+    assert response.status_code == 200
+    assert response.json["schema_version"] == 1
+    keys = [item["key"] for item in response.json["settings"]]
+    assert keys == sorted(keys)
+    backend = next(item for item in response.json["settings"] if item["key"] == "chat_backend")
+    assert backend["scopes"] == ["global", "profile", "session"]
+    assert "lmstudio" in backend["allowed_values"]
+
+
+def test_profile_settings_reject_unknown_keys_and_support_null_reset(client):
+    store, manager_patch = _store()
+    with manager_patch:
+        invalid = client.post(
+            "/api/chat/profiles",
+            json={"id": "invalid", "name": "Invalid", "settings": {"made_up_secret": "value"}},
+        )
+        created = client.post(
+            "/api/chat/profiles",
+            json={"id": "valid", "name": "Valid", "settings": {"chat_backend": "lmstudio"}},
+        )
+        reset = client.patch("/api/chat/profiles/valid", json={"settings": {"chat_backend": None}})
+
+    assert invalid.status_code == 422
+    assert invalid.json["issues"][0]["error_code"] == "unknown_setting"
+    assert created.status_code == 201
+    assert reset.status_code == 200
+    assert "chat_backend" not in reset.json["settings"]
+    assert store["chat_profiles"][0]["settings"] == {}
+
+
+def test_effective_profile_preview_reports_value_provenance(client):
+    _, manager_patch = _store()
+    with manager_patch:
+        client.post("/api/chat/profiles", json={"id": "preview", "name": "Preview", "settings": {"chat_backend": "opencode"}})
+        preview = client.get("/api/chat/profiles/preview/effective")
+
+    assert preview.status_code == 200
+    assert preview.json["effective_settings"]["chat_backend"] == "opencode"
+    assert preview.json["provenance"]["chat_backend"] == "profile"
+    assert preview.json["provenance"]["chat_max_tokens"] == "global"
+
+
+def test_profile_accepts_credential_reference_but_not_plain_secret(client):
+    _, manager_patch = _store()
+    with manager_patch:
+        accepted = client.post(
+            "/api/chat/profiles",
+            json={"id": "secure", "name": "Secure", "settings": {"chat_backend_credential_ref": "secret://providers/local"}},
+        )
+        rejected = client.post(
+            "/api/chat/profiles",
+            json={"id": "unsafe", "name": "Unsafe", "settings": {"chat_backend_api_key": "plaintext"}},
+        )
+
+    assert accepted.status_code == 201
+    assert accepted.json["settings"]["chat_backend_credential_ref"] == "secret://providers/local"
+    assert rejected.status_code == 422

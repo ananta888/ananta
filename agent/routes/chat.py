@@ -14,6 +14,13 @@ from agent.services.chat_organization_service import (
     validate_classification,
     validate_folder_parent,
 )
+from agent.services.chat_setting_catalog import (
+    PROFILE_ONLY_DEFAULTS,
+    apply_setting_patch,
+    build_setting_schema,
+    validate_setting_delta,
+)
+from agent.services.chat_process_binding import clone_graph, normalize_process_ref, resolve_effective_process
 from client_surfaces.operator_tui.chat_state import (
     DEFAULT_CHAT_TYPES,
     add_session,
@@ -91,6 +98,28 @@ def _save_custom_profiles(profiles: list[dict[str, Any]]) -> None:
     get_manager().save({"chat_profiles": profiles})
 
 
+def _chat_setting_contract() -> tuple[dict[str, Any], dict[str, list[str]]]:
+    from agent.routes.ai_snake_config import _DEFAULTS, _OPTIONS
+    from client_surfaces.operator_tui.chat_state import _DEFAULT_SESSION_SETTINGS
+
+    defaults = {**_DEFAULTS, **_DEFAULT_SESSION_SETTINGS, **PROFILE_ONLY_DEFAULTS}
+    return defaults, _OPTIONS
+
+
+def _validated_profile_settings(raw: Any, *, allow_null_reset: bool = False):
+    if not isinstance(raw, dict):
+        return None, [{"key": "settings", "error_code": "invalid_type", "expected": "object", "received": raw}]
+    defaults, options = _chat_setting_contract()
+    normalized, issues = validate_setting_delta(
+        raw,
+        defaults=defaults,
+        allowed_keys=defaults,
+        options=options,
+        allow_null_reset=allow_null_reset,
+    )
+    return normalized, [issue.as_dict() for issue in issues]
+
+
 def _load_chat_types() -> list[dict[str, Any]]:
     custom = get_manager().load().get("chat_session_types") or []
     by_id = {str(item["id"]): dict(item) for item in DEFAULT_CHAT_TYPES}
@@ -123,6 +152,20 @@ def _apply_profile(session: dict[str, Any], profile: dict[str, Any]) -> None:
 # ── Reusable chat profile CRUD ───────────────────────────────────────────────
 
 
+@chat_bp.route("/settings/schema", methods=["GET"])
+def get_chat_setting_schema():
+    from agent.routes.ai_snake_config import _DEFAULTS, _OPTIONS
+    from client_surfaces.operator_tui.chat_state import _DEFAULT_SESSION_SETTINGS
+
+    return jsonify(
+        build_setting_schema(
+            global_defaults=_DEFAULTS,
+            session_defaults=_DEFAULT_SESSION_SETTINGS,
+            options=_OPTIONS,
+        )
+    )
+
+
 @chat_bp.route("/profiles", methods=["GET"])
 def list_chat_profiles():
     builtin_ids = {str(profile.get("id") or "") for profile in default_chat_profiles()}
@@ -140,13 +183,21 @@ def create_chat_profile():
         return jsonify({"error": "valid profile id and name are required"}), 400
     if _profile_by_id(profile_id) is not None:
         return jsonify({"error": f"Profile '{profile_id}' already exists"}), 409
+    settings, issues = _validated_profile_settings(data.get("settings") or {})
+    if issues:
+        return jsonify({"error": "invalid_profile_settings", "issues": issues}), 422
+    try:
+        process_ref = normalize_process_ref(data.get("process_ref"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 422
     profile = {
         "id": profile_id,
         "name": name,
         "icon": str(data.get("icon") or "🎯"),
         "description": str(data.get("description") or ""),
         "system_prompt": str(data.get("system_prompt") or ""),
-        "settings": dict(data.get("settings") or {}),
+        "settings": settings,
+        "process_ref": process_ref,
     }
     custom = list((get_manager().load().get("chat_profiles") or []))
     custom.append(profile)
@@ -167,8 +218,16 @@ def update_chat_profile(profile_id: str):
     for key in ("name", "icon", "description", "system_prompt"):
         if key in data:
             profile[key] = str(data.get(key) or "")
-    if "settings" in data and isinstance(data["settings"], dict):
-        profile["settings"] = {**dict(profile.get("settings") or {}), **data["settings"]}
+    if "process_ref" in data:
+        try:
+            profile["process_ref"] = normalize_process_ref(data.get("process_ref"))
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 422
+    if "settings" in data:
+        settings_patch, issues = _validated_profile_settings(data["settings"], allow_null_reset=True)
+        if issues:
+            return jsonify({"error": "invalid_profile_settings", "issues": issues}), 422
+        profile["settings"] = apply_setting_patch(dict(profile.get("settings") or {}), settings_patch or {})
     _save_custom_profiles(custom)
     chat = _load_chat()
     for session in get_sessions(chat):
@@ -192,6 +251,25 @@ def delete_chat_profile(profile_id: str):
         return jsonify({"error": f"Profile '{profile_id}' not found"}), 404
     _save_custom_profiles(kept)
     return "", 204
+
+
+@chat_bp.get("/profiles/<profile_id>/effective")
+def get_effective_chat_profile(profile_id: str):
+    from client_surfaces.operator_tui.chat_state import _DEFAULT_SESSION_SETTINGS
+
+    profile = _profile_by_id(profile_id)
+    if profile is None:
+        return jsonify({"error": "profile_not_found"}), 404
+    delta = dict(profile.get("settings") or {})
+    effective = {**_DEFAULT_SESSION_SETTINGS, **delta}
+    return jsonify({
+        "profile_id": profile_id,
+        "settings_delta": delta,
+        "effective_settings": effective,
+        "provenance": {key: ("profile" if key in delta else "global") for key in effective},
+        "system_prompt": str(profile.get("system_prompt") or ""),
+        "process_ref": profile.get("process_ref"),
+    })
 
 
 # ── Conversation classification types ───────────────────────────────────────
@@ -299,6 +377,10 @@ def create_chat_session():
         settings=data.get("settings") or {},
         profile_id=profile_id,
     )
+    try:
+        new_session["process_ref"] = normalize_process_ref(data.get("process_ref"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 422
     _apply_profile(new_session, profile)
     add_session(chat, new_session)
     set_active_session(chat, session_id)
@@ -396,6 +478,11 @@ def update_chat_session(session_id: str):
         if profile is None:
             return jsonify({"error": f"Profile '{profile_id}' not found"}), 400
         _apply_profile(session, profile)
+    if "process_ref" in data:
+        try:
+            session["process_ref"] = normalize_process_ref(data.get("process_ref"))
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 422
     if "settings" in data and isinstance(data["settings"], dict):
         update_session_settings(chat, session_id, data["settings"])
 
@@ -406,6 +493,38 @@ def update_chat_session(session_id: str):
     _save_chat(chat)
     session = get_session(chat, session_id)
     return jsonify((session or {}).copy())
+
+
+@chat_bp.get("/sessions/<session_id>/process")
+def get_effective_session_process(session_id: str):
+    session = get_session(_load_chat(), session_id)
+    if session is None:
+        return jsonify({"error": "session_not_found"}), 404
+    profile = _profile_by_id(str(session.get("profile_id") or "general"))
+    result = resolve_effective_process(session, profile)
+    if result["process_ref"] and result["graph"] is None:
+        return jsonify({**result, "error": "process_graph_not_found"}), 404
+    return jsonify(result)
+
+
+@chat_bp.post("/sessions/<session_id>/process/clone")
+def clone_effective_session_process(session_id: str):
+    chat = _load_chat()
+    session = get_session(chat, session_id)
+    if session is None:
+        return jsonify({"error": "session_not_found"}), 404
+    profile = _profile_by_id(str(session.get("profile_id") or "general"))
+    effective = resolve_effective_process(session, profile)
+    graph_id = str((effective.get("process_ref") or {}).get("graph_id") or "")
+    if not graph_id:
+        return jsonify({"error": "process_not_configured"}), 409
+    try:
+        graph = clone_graph(graph_id, owner_session_id=session_id)
+    except LookupError:
+        return jsonify({"error": "process_graph_not_found"}), 404
+    session["process_ref"] = {"graph_id": graph["id"], "version": str(graph.get("version") or "1.0")}
+    _save_chat(chat)
+    return jsonify({"process_ref": session["process_ref"], "graph": graph, "source": "session"}), 201
 
 
 @chat_bp.route("/sessions/<session_id>", methods=["DELETE"])

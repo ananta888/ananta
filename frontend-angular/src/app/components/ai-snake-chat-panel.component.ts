@@ -21,11 +21,12 @@ import { ChatMessageComponent } from './chat-message.component';
 import { UiStateSyncService } from '../services/ui-state-sync.service';
 import { VisualSnakeLogComponent } from './visual-snake-log.component';
 import { SnakeOverlayService } from '../services/snake-overlay.service';
+import { AiSnakeProcessPanelComponent } from './ai-snake-process-panel.component';
 
 @Component({
   selector: 'app-ai-snake-chat-panel',
   standalone: true,
-  imports: [CommonModule, AsyncPipe, FormsModule, AiSnakeConfigPanelComponent, AiSnakeSharePanelComponent, AiSnakeTraceViewerComponent, ChatSessionsPanelComponent, ChatMessageComponent, VisualSnakeLogComponent ],
+  imports: [CommonModule, AsyncPipe, FormsModule, AiSnakeConfigPanelComponent, AiSnakeSharePanelComponent, AiSnakeTraceViewerComponent, ChatSessionsPanelComponent, ChatMessageComponent, VisualSnakeLogComponent, AiSnakeProcessPanelComponent ],
   template: `
     <div class="snake-chat-panel">
       <div class="head">
@@ -66,6 +67,8 @@ import { SnakeOverlayService } from '../services/snake-overlay.service';
         <div class="trace-shell">
           <app-ai-snake-trace-viewer />
         </div>
+      } @else if (tab === 'process') {
+        <app-ai-snake-process-panel />
       } @else if (tab === 'deprecated') {
         <div class="mode-shell">
           <div class="mode-group">
@@ -338,6 +341,7 @@ import { SnakeOverlayService } from '../services/snake-overlay.service';
       <div class="bottom-tabs">
         <button [class.active]="tab==='chat'" (click)="setTab('chat')" data-waypoint="snake.tab-chat">Chat</button>
         <button [class.active]="tab==='sessions'" (click)="setTab('sessions')" data-waypoint="snake.tab-sessions">Sessions</button>
+        <button [class.active]="tab==='process'" (click)="setTab('process')" data-waypoint="snake.tab-process">Prozess</button>
         <button [class.active]="tab==='trace'" (click)="setTab('trace')" class="trace-tab-btn" data-waypoint="snake.tab-trace">Trace</button>
         <button [class.active]="tab==='login'" (click)="setTab('login')" data-waypoint="snake.tab-ai-snake">AI-Snake</button>
         <button [class.active]="tab==='pair'" (click)="setTab('pair')" data-waypoint="snake.tab-pair">Pair Dev</button>
@@ -552,8 +556,8 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
    *  Persisted in localStorage so reconnects keep the same session. Defaults to 'ananta-settings'. */
   private _snakeSessionId: string = this.loadSnakeSession();
 
-  @Input() tab: 'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'settings' | 'deprecated' = 'chat';
-  @Output() tabChange = new EventEmitter<'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'settings' | 'deprecated'>();
+  @Input() tab: 'chat' | 'sessions' | 'process' | 'trace' | 'login' | 'pair' | 'settings' | 'deprecated' = 'chat';
+  @Output() tabChange = new EventEmitter<'chat' | 'sessions' | 'process' | 'trace' | 'login' | 'pair' | 'settings' | 'deprecated'>();
 
   get keycloakIssuer(): string {
     return `${this.keycloakBaseUrl.replace(/\/$/, '')}/realms/${this.keycloakRealm || 'ananta-e2e'}`;
@@ -831,7 +835,7 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
     return result;
   }
 
-  setTab(tab: 'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'settings' | 'deprecated'): void {
+  setTab(tab: 'chat' | 'sessions' | 'process' | 'trace' | 'login' | 'pair' | 'settings' | 'deprecated'): void {
     this.tab = tab;
     this.tabChange.emit(tab);
   }

@@ -19,6 +19,7 @@ export interface ChatSession {
   settings: Record<string, unknown>;
   settings_delta: Record<string, unknown>;
   profile_id: string;
+  process_ref?: ChatProcessRef | null;
   system_prompt_override?: string;
   created_at?: number;
   updated_at?: number;
@@ -33,6 +34,34 @@ export interface ChatProfile {
   system_prompt: string;
   settings: Record<string, unknown>;
   builtin: boolean;
+  process_ref?: ChatProcessRef | null;
+}
+
+export interface ChatProcessRef { graph_id: string; version: string; }
+export interface EffectiveChatProcess {
+  process_ref: ChatProcessRef | null;
+  source: 'session' | 'profile' | 'none';
+  graph: Record<string, unknown> | null;
+  run: Record<string, unknown> | null;
+}
+
+export interface ChatSettingDefinition {
+  key: string;
+  label: string;
+  group: string;
+  type: 'boolean' | 'integer' | 'number' | 'string';
+  default: unknown;
+  scope_defaults: Record<string, unknown>;
+  allowed_values: unknown[];
+  scopes: string[];
+  secret: boolean;
+  advanced: boolean;
+  deprecated: boolean;
+}
+
+export interface ChatSettingSchema {
+  schema_version: number;
+  settings: ChatSettingDefinition[];
 }
 
 export interface ChatSessionType {
@@ -150,6 +179,7 @@ export class ChatSessionsService {
   readonly sessions$ = new BehaviorSubject<ChatSession[]>([]);
   readonly folders$ = new BehaviorSubject<ChatFolder[]>([]);
   readonly profiles$ = new BehaviorSubject<ChatProfile[]>([]);
+  readonly settingSchema$ = new BehaviorSubject<ChatSettingSchema>({ schema_version: 1, settings: [] });
   readonly types$ = new BehaviorSubject<ChatSessionType[]>([]);
   readonly activeSessionId$ = new BehaviorSubject<string>('');
   readonly loading$ = new BehaviorSubject<boolean>(false);
@@ -180,6 +210,7 @@ export class ChatSessionsService {
     });
     this.loadFolders();
     this.loadProfiles();
+    this.loadSettingSchema();
     this.loadTypes();
   }
 
@@ -228,6 +259,15 @@ export class ChatSessionsService {
     });
   }
 
+  loadSettingSchema(): void {
+    const url = this.hubUrl;
+    if (!url) return;
+    this.core.get<ChatSettingSchema>(`${url}/api/chat/settings/schema`, url).subscribe({
+      next: schema => this.settingSchema$.next(schema),
+      error: err => this.error$.next(String(err?.message || 'Einstellungskatalog konnte nicht geladen werden')),
+    });
+  }
+
   createProfile(profile: Partial<ChatProfile> & { name: string }): void {
     const url = this.hubUrl;
     if (!url) return;
@@ -253,6 +293,18 @@ export class ChatSessionsService {
       next: () => this.loadProfiles(),
       error: err => this.error$.next(String(err?.message || 'Profil wird noch verwendet oder konnte nicht gelöscht werden')),
     });
+  }
+
+  getEffectiveProcess(sessionId: string): Observable<EffectiveChatProcess> {
+    const url = this.hubUrl;
+    return this.core.get<EffectiveChatProcess>(`${url}/api/chat/sessions/${sessionId}/process`, url);
+  }
+
+  cloneEffectiveProcess(sessionId: string): Observable<EffectiveChatProcess> {
+    const url = this.hubUrl;
+    return this.core.post<EffectiveChatProcess>(`${url}/api/chat/sessions/${sessionId}/process/clone`, {}, url).pipe(
+      tap(() => this.load()),
+    );
   }
 
   loadFolders(): void {

@@ -45,7 +45,7 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
   configPanelOpen = false;
   sharePanelOpen = false;
   snakeChatPanelOpen = false; // initialised in restoreDockState()
-  snakeChatPanelTab: 'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'settings' | 'deprecated' = 'login';
+  snakeChatPanelTab: 'chat' | 'sessions' | 'process' | 'trace' | 'login' | 'pair' | 'settings' | 'deprecated' = 'login';
   private snakeDrawHandle: number | null = null;
 
   minimized = true;
@@ -838,12 +838,12 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
 
   toggleRegionMode(): void { this.snakeOverlay.toggleRegionMode(); }
 
-  onSnakeChatTabChange(tab: 'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'settings' | 'deprecated'): void {
+  onSnakeChatTabChange(tab: 'chat' | 'sessions' | 'process' | 'trace' | 'login' | 'pair' | 'settings' | 'deprecated'): void {
     this.snakeChatPanelTab = tab;
     this.storage.persistJson('ananta.ai-snake.panel-tab.v1', tab);
   }
 
-  openSnakeChatPanelTab(tab: 'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'settings' | 'deprecated'): void {
+  openSnakeChatPanelTab(tab: 'chat' | 'sessions' | 'process' | 'trace' | 'login' | 'pair' | 'settings' | 'deprecated'): void {
     this.onSnakeChatTabChange(tab);
     this.snakeChatPanelOpen = true;
     this.storage.persistBoolean('ananta.ai-snake.panel-open.v1', true);
