@@ -1,0 +1,1 @@
+{"commands":[],"gate_id":"voice-restricted-core-2026-07-12.v1","git_sha":"9088af1e6bb302351240d3f116738a077f7decb8","groups":["angular-compose"],"pytest":{"errors":0,"failures":0,"skipped":0,"tests":1},"schema_version":"ananta.release-gate-result.v1","status":"passed","worktree_dirty":true}

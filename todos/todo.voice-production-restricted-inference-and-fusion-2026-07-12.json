@@ -2313,6 +2313,10 @@
         "Angular-Unit-Suite und Produktionsbuild sind grün; Compose-E2E prüft Scope-Vererbung, Candidate-Review, Consent und Status.",
         "UI und API blockieren dieselben Capability-invaliden Kombinationen mit demselben Reason-Code.",
         "Der Test verwendet ausschließlich das Compose-Frontend und startet keinen zusätzlichen Angular-Server."
+      ],
+      "evidence_refs": [
+        "artifacts/test-gates/voice-restricted-core-2026-07-12.json",
+        "artifacts/test-gates/voice-restricted-angular-compose-2026-07-12.json"
       ]
     },
     {
@@ -2351,6 +2355,9 @@
         "Jede optionale Capability besitzt validen, invaliden, unavailable-, Timeout- und Deaktivierungsfall.",
         "Optionaler Judge-Ausfall liefert dasselbe deterministische Basisergebnis und Strict Choice akzeptiert nur bekannte IDs.",
         "Der P0-Core-Release hängt nicht von optionaler Hardware oder diesen P2-Gates ab."
+      ],
+      "evidence_refs": [
+        "artifacts/test-gates/voice-restricted-optional-capabilities-2026-07-12.json"
       ]
     },
     {
@@ -2360,7 +2367,7 @@
       "status": "blocked",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 75.0,
+      "progress_percent": 90.0,
       "depends_on": [
         "VPRF-008",
         "VPRF-079",
@@ -2381,11 +2388,17 @@
         "Runbooks dokumentieren Modellpromotion, Offline-Installation, Streaming-Drain, OOM, Rollback, Consent-Widerruf, Löschung und Incident-Diagnose.",
         "CPU-, RTX-3080- und optionale High-End-GPU-Profile sowie hardwareabhängige Evidence-Artefakte sind reproduzierbar dokumentiert."
       ],
-      "blocker": "Release-Gates, Profile und Runbooks sind implementiert, aber saubere CPU- und NVIDIA-Promotionsläufe mit realen Image-/Modelldigests und Hardware-Evidence-Artefakten stehen noch aus.",
+      "blocker": "Core-, optionale und Angular-Compose-Gates sind lokal ohne Skip bestanden und CPU-Images besitzen SBOM-/Provenance-Evidence. Aus einem sauberen Commit reproduzierte CPU-Promotion sowie reale NVIDIA-Modell-/Hardware-Evidence stehen noch aus.",
       "remaining_evidence": [
-        "Core- und hardware-compose Gates aus einem sauberen Worktree für das CPU-Profil ausführen und unveränderliche Evidence-Artefakte sichern.",
+        "Core- und hardware-compose Gates aus einem sauberen Commit für das CPU-Profil mit realen gepinnten Modellen ausführen und unveränderliche Evidence-Artefakte sichern.",
         "Den NVIDIA-Promotionslauf mit realen Ressourcen-/Qualitätsreports, Image-/Manifestdigests und No-Network-Nachweis ausführen.",
         "Promotions- oder Rollbackentscheidung anhand der versionierten Schwellen und vollständigen Artefakte dokumentieren."
+      ],
+      "evidence_refs": [
+        "artifacts/test-gates/voice-restricted-core-2026-07-12.json",
+        "artifacts/test-gates/voice-restricted-optional-capabilities-2026-07-12.json",
+        "artifacts/test-gates/voice-restricted-angular-compose-2026-07-12.json",
+        "artifacts/test-gates/voice-restricted-sbom-2026-07-12.json"
       ]
     }
   ],
@@ -2747,17 +2760,17 @@
         "done": 0,
         "partial": 0,
         "blocked": 1,
-        "progress_percent": 75.0
+        "progress_percent": 90.0
       }
     }
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 151.0,
-    "done_weight": 148.95,
-    "remaining_weight": 2.05,
+    "done_weight": 149.25,
+    "remaining_weight": 1.75,
     "blocked_weight": 15.0,
-    "weighted_percent": 98.6
+    "weighted_percent": 98.8
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -2814,7 +2827,7 @@
         "done": 7,
         "blocked": 2,
         "count_based_percent": 77.8,
-        "weighted_percent": 96.3,
+        "weighted_percent": 98.2,
         "status": "in_progress"
       }
     }
@@ -2827,15 +2840,15 @@
     "blocked": 8,
     "done": 79,
     "count_based_percent": 90.8,
-    "weighted_percent": 98.6
+    "weighted_percent": 98.8
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-07-12T19:49:25.158884Z",
+    "generated_at": "2026-07-12T22:40:27.905476Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "23dadd09c118ec416a3b7c59c50ef79f86088e16fa95842cf2843d7efba3df8f",
+    "source_hash": "b6caa530c71073cb169e73fb155985f9f1d64e244ad23b925314414435810485",
     "is_stale": false
   }
 }

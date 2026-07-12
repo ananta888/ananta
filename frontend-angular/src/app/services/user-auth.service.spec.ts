@@ -107,8 +107,8 @@ describe('UserAuthService — setTokens encrypts hub RT (Task 0.3)', () => {
     expect(localStorage.getItem('ananta.user.token')).toBeNull();
   });
 
-  it('still writes access token in cleartext (browser constraint)', () => {
-    service.setTokens('hub-access-cleartext', 'hub-rt');
+  it('still writes access token in cleartext (browser constraint)', async () => {
+    await service.setTokens('hub-access-cleartext', 'hub-rt');
     expect(localStorage.getItem('ananta.user.token')).toBe('hub-access-cleartext');
   });
 });
@@ -163,9 +163,9 @@ describe('UserAuthService — OIDC RT encryption (Task 0.4)', () => {
     expect(await service.getOidcRefreshToken()).toBe('legacy-oidc-rt');
   });
 
-  it('clears OIDC RT on setOidcRefreshToken(null)', () => {
-    service.setOidcRefreshToken('oidc-rt');
-    service.setOidcRefreshToken(null);
+  it('clears OIDC RT on setOidcRefreshToken(null)', async () => {
+    await service.setOidcRefreshToken('oidc-rt');
+    await service.setOidcRefreshToken(null);
     expect(localStorage.getItem('ananta.oidc.refresh_token')).toBeNull();
   });
 });

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import re
+import time
 import uuid
 from dataclasses import dataclass
 from typing import Any
@@ -47,8 +48,18 @@ def _origin(url: str) -> tuple[str, str]:
 
 
 def _angular_bundle(frontend_url: str) -> str:
-    page = requests.get(frontend_url, timeout=_HTTP_TIMEOUT_SECONDS, allow_redirects=False)
-    page.raise_for_status()
+    deadline = time.monotonic() + _BUNDLE_TIMEOUT_SECONDS
+    last_error: requests.RequestException | None = None
+    while True:
+        try:
+            page = requests.get(frontend_url, timeout=_HTTP_TIMEOUT_SECONDS, allow_redirects=False)
+            page.raise_for_status()
+            break
+        except requests.RequestException as exc:
+            last_error = exc
+            if time.monotonic() >= deadline:
+                raise AssertionError("Compose frontend did not become ready before its deadline") from last_error
+            time.sleep(0.5)
     script_paths = re.findall(r'["\']([^"\']+\.js)["\']', page.text)
     assert script_paths, "Compose frontend did not reference an Angular JavaScript bundle"
     pending = [urljoin(f"{frontend_url}/", path) for path in script_paths]
@@ -409,7 +420,15 @@ def test_running_compose_serves_angular_and_completes_hub_voice_lifecycle() -> N
             )["deletion"]
             assert deletion["profile_id"] == run.profile_id
             assert deletion["snapshots_revoked"] is True
-            assert deletion["runtime_cleanup_pending"] is False
+            # This Compose smoke deliberately runs the Hub/UI stack without a
+            # model runtime. Privacy deletion must stay fail-closed: local Hub
+            # data is deleted immediately, while runtime cache cleanup remains
+            # in the durable retry outbox until the unavailable runtime returns.
+            assert deletion["runtime_cleanup_pending"] is (not capabilities["available"])
+            if capabilities["available"]:
+                assert deletion["runtime_cleanup_failed_count"] == 0
+            else:
+                assert deletion["runtime_cleanup_failed_count"] >= 1
             if lifecycle_completed:
                 assert deletion["deleted_count"] > 0
                 assert deletion["deleted_by_store"]["voice_configuration_deltas"] == 2
