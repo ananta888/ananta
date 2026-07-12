@@ -1,0 +1,2800 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "voice-production-restricted-inference-and-fusion-2026-07-12",
+  "status": "todo",
+  "priority": "P0",
+  "created": "2026-07-12",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "goal": "Eine produktionsreife, local-first Voice- und Restricted-Inference-Plattform bereitstellen, die reale klassische und moderne lokale ASR-Backends sicher ausführt, unabhängige Kandidaten parallel erzeugt, Ergebnisse deterministisch und vollständig nachvollziehbar fusioniert, optional eng begrenzte Transformer-Signale verwendet und Review sowie Personalisierung unter ausschließlicher Hub-Governance ermöglicht.",
+  "purpose": "Dieser Track ersetzt die getrennten Entwürfe für Voice-/Restricted-Transformer-Produktionsausbau und lokale Multi-Modell-Fusion. Er ordnet jede Verantwortung genau einem Subsystem zu, entfernt Doppelimplementierungen und bildet die gesamte Umsetzung als kanonische, testbare Tasks ab.",
+  "supersedes": [
+    "voice-and-restricted-transformer-production-expansion-2026-07-12",
+    "voice-local-parallel-multimodel-fusion-learning-2026-07-12"
+  ],
+  "core_decision": {
+    "hub": "Der Hub bleibt Eigentümer von Authentisierung, Policy, Taskqueue, Delegation, Routingfreigabe, Idempotenz, Consent, Review, Nutzerprofilen, Persistenz und Audit.",
+    "voice_runtime": "Die Voice-Runtime verarbeitet Audio, führt eingebettete Backends oder lokale Subprozesse innerhalb eines Hub-vorgegebenen Policy- und Ressourcen-Envelopes aus und hält keinen dauerhaften Nutzerzustand.",
+    "restricted_inference_runtime": "Schwere Transformer-Inferenz läuft in einem isolierten Worker-/Runtime-Container. Der Hub lädt keine produktiven Modellgewichte.",
+    "fusion": "Parallel-Fusion bleibt deterministisch. Jedes finale Wort muss aus einem Candidate oder einer protokollierten Edit-Operation stammen.",
+    "generation_boundary": "Restricted Inference erlaubt ausschließlich typisierte Scoring-, Classification-, Embedding-, Reranking- und Feature-Operationen mit no_generation=true. Freie Textkorrektur gehört nicht in diesen Pfad."
+  },
+  "architecture_principles": [
+    "Keine Worker-zu-Worker-Orchestrierung; Delegation und Governance laufen ausschließlich über den Hub.",
+    "Keine gemeinsam beschreibbare Registry über Containergrenzen; Subsysteme veröffentlichen versionierte Capability-Verträge.",
+    "Minimalinstallation startet ohne optionale ML-, GPU-, VAD-, Enhancement- oder Diarisierungsabhängigkeiten.",
+    "Local-first und default-deny für Downloads, Netzwerk, Remote Code, unsichere Deserialisierung und Audio-Retention.",
+    "Bestehende APIs und einfache Transkriptionspfade bleiben über additive Felder und Kompatibilitätsadapter funktionsfähig.",
+    "Recognition-, Routing-, Review- und Transportstrategie sind orthogonale Konfigurationsachsen und keine vermischte Modus-Enumeration.",
+    "Original-Audio, Roh-Candidates, Fusionsergebnis und Nutzerkorrekturen bleiben logisch getrennte und auditierbare Artefakte.",
+    "P0-Core-Tasks hängen nicht von optionalen P1- oder P2-Erweiterungen ab."
+  ],
+  "non_goals": [
+    "Keine verpflichtende Cloud-Ausführung oder automatische Cloud-Eskalation.",
+    "Keine zweite Voice-Runtime und keine zweite Transformer-Modellregistry.",
+    "Keine freie Textgenerierung im Restricted-Inference-Pfad.",
+    "Kein automatisches Fine-Tuning aus normalem Nutzerfeedback.",
+    "Keine dauerhafte Audiospeicherung ohne expliziten, versionierten Consent und vollständigen Löschpfad.",
+    "Keine direkte Angular-Kommunikation mit Voice- oder Inferenz-Runtime-Containern.",
+    "Keine produktiven Mock- oder simulierten Transkripte als Fallback."
+  ],
+  "source_analysis": {
+    "verified_baseline": [
+      "voice_runtime/config.py und voice_runtime/pipeline.py enthalten einen kompatiblen Pipeline-MVP.",
+      "voice_runtime/backends/vosk_backend.py und whisper_cpp.py existieren als optionale Adaptergrenzen.",
+      "voice_runtime/backends/voxtral.py ist derzeit ein deterministischer Simulationsadapter, keine reale Modellinferenz.",
+      "realtime_streaming ist derzeit nur als Capability beziehungsweise Batch-Pipeline-Alias vorbereitet.",
+      "Der Confidence-Rerun verarbeitet derzeit Vollaudio und ersetzt das Ergebnis statt nur unsichere Regionen zu mergen.",
+      "RestrictedModelInferenceService und Adapter für HuggingFace, sentence-transformers, ONNX und PyTorch existieren derzeit im Hub-Namespace.",
+      "Die Angular-App besitzt bereits Hub-Voice-Clients und eine Voxtral-Offline-Oberfläche, aber keine gemeinsame produktive Voice-/Fusion-Konfiguration.",
+      "Voice-Runtime-Compose existiert nur unter docker/old_way und ist noch nicht in compose-next integriert."
+    ],
+    "baseline_sources": [
+      "todos/archiv/todo.voice-runtime-hybrid-transcription-pipeline.json",
+      "todos/archiv/todo.ananta-restricted-transformer-inference-path-modes.json",
+      "todos/archiv/todo.rtipm-backend-adapters-2026-06-19.json",
+      "docs/voice-runtime-hybrid-transcription.md",
+      "docs/architecture/restricted-transformer-inference.md"
+    ]
+  },
+  "execution_order": [
+    "VPRF-M1",
+    "VPRF-M2",
+    "VPRF-M3",
+    "VPRF-M4",
+    "VPRF-M5",
+    "VPRF-M6",
+    "VPRF-M7"
+  ],
+  "definition_of_done": [
+    "Alle Tasks des Tracks sind abgeschlossen und alle abgeleiteten Summaries sind konsistent.",
+    "Der P0-Core-Release läuft vollständig über Hub, Taskqueue und isolierte Runtime-Container in docker/compose-next.",
+    "Mindestens Vosk und ein lokales Whisper-Backend laufen real und ohne Netzwerk auf derselben Audioeingabe.",
+    "Produktionsprofile können weder Mock-/Simulationsresultate noch ungepinnte oder unsicher deserialisierte Modelle verwenden.",
+    "Restricted Inference lädt keine Gewichte im Hub und no_generation ist für jede Operation automatisiert bewiesen.",
+    "Deterministische Fusion erhält alle Roh-Candidates und weist für jedes finale Wort Provenance nach.",
+    "Review, Consent, Personalisierung, Export und Löschung sind tenantgebunden, auditierbar und Hub-owned.",
+    "Angular-Konfiguration, Candidate-Vergleich und Review funktionieren ausschließlich über Hub-Endpunkte.",
+    "Security-, Privacy-, Offline-, API-Kompatibilitäts-, Angular-, Compose-, E2E- und Benchmark-Gates sind grün.",
+    "CPU-, RTX-3080- und optionale High-End-GPU-Profile sind mit Modellrevisionen, Hardware und reproduzierbaren Kommandos dokumentiert."
+  ],
+  "milestones": [
+    {
+      "id": "VPRF-M1",
+      "title": "Bestand, Verträge und Architekturgrenzen",
+      "task_ids": [
+        "VPRF-001",
+        "VPRF-002",
+        "VPRF-003",
+        "VPRF-004",
+        "VPRF-005",
+        "VPRF-006",
+        "VPRF-007",
+        "VPRF-008"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "VPRF-M2",
+      "title": "Sichere Audioeingabe und reale Voice-Backends",
+      "task_ids": [
+        "VPRF-009",
+        "VPRF-010",
+        "VPRF-011",
+        "VPRF-012",
+        "VPRF-013",
+        "VPRF-014",
+        "VPRF-015",
+        "VPRF-016",
+        "VPRF-017",
+        "VPRF-018",
+        "VPRF-019",
+        "VPRF-020",
+        "VPRF-021"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "VPRF-M3",
+      "title": "Streaming, Hub-API, Privacy und Voice-Betrieb",
+      "task_ids": [
+        "VPRF-022",
+        "VPRF-023",
+        "VPRF-024",
+        "VPRF-025",
+        "VPRF-026",
+        "VPRF-027",
+        "VPRF-028",
+        "VPRF-029",
+        "VPRF-030",
+        "VPRF-031",
+        "VPRF-032"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "VPRF-M4",
+      "title": "Isolierte Restricted-Transformer-Inferenz",
+      "task_ids": [
+        "VPRF-033",
+        "VPRF-034",
+        "VPRF-035",
+        "VPRF-036",
+        "VPRF-037",
+        "VPRF-038",
+        "VPRF-039",
+        "VPRF-040",
+        "VPRF-041",
+        "VPRF-042",
+        "VPRF-043",
+        "VPRF-044",
+        "VPRF-045",
+        "VPRF-046",
+        "VPRF-047",
+        "VPRF-048",
+        "VPRF-049"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "VPRF-M5",
+      "title": "Parallele Candidates und deterministische Fusion",
+      "task_ids": [
+        "VPRF-050",
+        "VPRF-051",
+        "VPRF-052",
+        "VPRF-053",
+        "VPRF-054",
+        "VPRF-055",
+        "VPRF-056",
+        "VPRF-057",
+        "VPRF-058",
+        "VPRF-059",
+        "VPRF-060",
+        "VPRF-061",
+        "VPRF-062",
+        "VPRF-063",
+        "VPRF-064",
+        "VPRF-065"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "VPRF-M6",
+      "title": "Hub-Review, Consent, Personalisierung und Angular",
+      "task_ids": [
+        "VPRF-066",
+        "VPRF-067",
+        "VPRF-068",
+        "VPRF-069",
+        "VPRF-070",
+        "VPRF-071",
+        "VPRF-072",
+        "VPRF-073",
+        "VPRF-074",
+        "VPRF-075",
+        "VPRF-076",
+        "VPRF-077",
+        "VPRF-078"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "VPRF-M7",
+      "title": "Security, Evaluation, E2E und Release",
+      "task_ids": [
+        "VPRF-079",
+        "VPRF-080",
+        "VPRF-081",
+        "VPRF-082",
+        "VPRF-083",
+        "VPRF-084",
+        "VPRF-085",
+        "VPRF-086",
+        "VPRF-087"
+      ],
+      "status": "todo"
+    }
+  ],
+  "critical_path_tasks": [
+    "VPRF-001",
+    "VPRF-002",
+    "VPRF-003",
+    "VPRF-004",
+    "VPRF-005",
+    "VPRF-006",
+    "VPRF-007",
+    "VPRF-008",
+    "VPRF-009",
+    "VPRF-010",
+    "VPRF-011",
+    "VPRF-012",
+    "VPRF-014",
+    "VPRF-015",
+    "VPRF-018",
+    "VPRF-019",
+    "VPRF-020",
+    "VPRF-021",
+    "VPRF-022",
+    "VPRF-023",
+    "VPRF-024",
+    "VPRF-025",
+    "VPRF-026",
+    "VPRF-027",
+    "VPRF-028",
+    "VPRF-029",
+    "VPRF-030",
+    "VPRF-032",
+    "VPRF-033",
+    "VPRF-034",
+    "VPRF-035",
+    "VPRF-036",
+    "VPRF-037",
+    "VPRF-038",
+    "VPRF-039",
+    "VPRF-040",
+    "VPRF-043",
+    "VPRF-044",
+    "VPRF-045",
+    "VPRF-048",
+    "VPRF-049",
+    "VPRF-052",
+    "VPRF-053",
+    "VPRF-054",
+    "VPRF-055",
+    "VPRF-056",
+    "VPRF-057",
+    "VPRF-058",
+    "VPRF-059",
+    "VPRF-060",
+    "VPRF-061",
+    "VPRF-066",
+    "VPRF-067",
+    "VPRF-068",
+    "VPRF-069",
+    "VPRF-070",
+    "VPRF-071",
+    "VPRF-072",
+    "VPRF-074",
+    "VPRF-075",
+    "VPRF-076",
+    "VPRF-077",
+    "VPRF-079",
+    "VPRF-080",
+    "VPRF-081",
+    "VPRF-082",
+    "VPRF-083",
+    "VPRF-084",
+    "VPRF-085",
+    "VPRF-087"
+  ],
+  "tasks": [
+    {
+      "id": "VPRF-001",
+      "title": "Konsolidierte Baseline- und Delta-Matrix erstellen",
+      "type": "analysis",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0.0,
+      "depends_on": [],
+      "source_files": [
+        "voice_runtime",
+        "agent/services/restricted_model_inference_service.py",
+        "frontend-angular/src/app/components/voxtral-offline.component.ts"
+      ],
+      "acceptance_criteria": [
+        "Eine Matrix klassifiziert alle Funktionen der beiden ersetzten Entwürfe als implemented, partial oder missing und nennt konkrete aktuelle Dateien.",
+        "Jede bestätigte Lücke ist genau einem nachfolgenden Task zugeordnet; bereits implementierte Basis wird nicht neu geplant.",
+        "Falsche Altpfade wie frontend/angular/src und voice_runtime/postprocessing.py werden durch reale Repository-Pfade ersetzt."
+      ]
+    },
+    {
+      "id": "VPRF-002",
+      "title": "Hub-, Voice-Runtime- und Inferenz-Worker-Ownership festschreiben",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-001"
+      ],
+      "source_files": [
+        "docs/voice-runtime-hybrid-transcription.md",
+        "docs/architecture/restricted-transformer-inference.md",
+        "AGENTS.md"
+      ],
+      "acceptance_criteria": [
+        "Eine Ownership-Matrix weist Policy, Queue, Delegation, Consent, Review, Persistenz und Audit ausschließlich dem Hub zu.",
+        "Audio- und Modellinferenz sind isolierten Runtime-/Worker-Komponenten zugeordnet, die keine anderen Worker orchestrieren.",
+        "Ein Architekturtest erkennt direkte Angular-Runtime-Calls, produktive ML-Imports im Hub-Ausführungspfad und Worker-zu-Worker-Delegation."
+      ]
+    },
+    {
+      "id": "VPRF-003",
+      "title": "Versionierten Capability- und Modellkatalogvertrag definieren",
+      "type": "contract",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-001",
+        "VPRF-002"
+      ],
+      "source_files": [
+        "voice_runtime/backends/base.py",
+        "agent/services/model_inference_adapter_registry.py"
+      ],
+      "acceptance_criteria": [
+        "Ein kleiner gemeinsamer Wire-Vertrag beschreibt ID, Engine, Revision, Aufgaben, Sprachen, Device, Quantisierung, Lizenz und Status ready, degraded oder unavailable.",
+        "Voice- und Transformer-spezifische Fähigkeiten sind getrennte Extensions statt eines breiten Pflichtinterfaces.",
+        "Capabilities werden über subsystemeigene Registries veröffentlicht; es entsteht kein gemeinsam beschreibbarer State über Containergrenzen."
+      ]
+    },
+    {
+      "id": "VPRF-004",
+      "title": "Voice-Candidate-, Wort-, Segment-, Varianten- und Trace-Verträge typisieren",
+      "type": "contract",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-002",
+        "VPRF-003"
+      ],
+      "source_files": [
+        "voice_runtime/backends/base.py",
+        "voice_runtime/schemas.py"
+      ],
+      "acceptance_criteria": [
+        "TranscriptionCandidate enthält stabile ID, Status, Backend, Modellrevision, Device, Audio-Variante, Text, Wörter, Segmente, Confidence, Laufzeit und Provenance.",
+        "TranscriptionResult wird additiv um Candidates, Auswahl, Strategie, Disagreements und Decision Trace erweitert; bestehende Felder bleiben unverändert lesbar.",
+        "JSON-Schema- und Roundtrip-Tests decken alte Payloads, neue Payloads und typisierte Candidate-Fehler ab."
+      ]
+    },
+    {
+      "id": "VPRF-005",
+      "title": "Orthogonale Voice-Strategien, Scope-Vererbung und Migration definieren",
+      "type": "configuration",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-002",
+        "VPRF-003",
+        "VPRF-004"
+      ],
+      "source_files": [
+        "voice_runtime/config.py",
+        "agent/routes/chat.py"
+      ],
+      "acceptance_criteria": [
+        "Konfiguration trennt transport_mode, recognition_strategy, routing_strategy, correction_policy und review_policy.",
+        "Bestehende Pipeline- und Fallback-Felder werden verlustfrei migriert; globale, Profil- und Session-Deltas besitzen klare Precedence.",
+        "manual_review ist ein Hub-Workflowzustand und kein Runtime-Transkriptionsmodus."
+      ]
+    },
+    {
+      "id": "VPRF-006",
+      "title": "Readiness-, Provenance- und Produktionsprofilvertrag festlegen",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-003",
+        "VPRF-005"
+      ],
+      "source_files": [
+        "voice_runtime/backends/voxtral.py",
+        "voice_runtime/backends/mock.py",
+        "agent/services/restricted_inference_config_service.py"
+      ],
+      "acceptance_criteria": [
+        "Produktionsprofile lehnen Mock-, Simulations- und ungepinnte Modelle bereits bei Konfigurationsaktivierung ab.",
+        "Ein fehlendes reales Modell liefert unavailable statt eines plausibel wirkenden Ersatztranskripts oder Mock-Resultats.",
+        "Jedes Ergebnis trägt Engine, Modellrevision, Manifest-Digest, synthetic-Status und Ausführungsort."
+      ]
+    },
+    {
+      "id": "VPRF-007",
+      "title": "Versioniertes Evaluations-, Datensatz- und Kalibrierungsfundament aufbauen",
+      "type": "quality",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-001",
+        "VPRF-003",
+        "VPRF-004"
+      ],
+      "source_files": [
+        "benchmarks/voice",
+        "benchmarks/restricted_inference",
+        "tests/fixtures"
+      ],
+      "acceptance_criteria": [
+        "Testdaten besitzen Herkunft, Lizenz, Prüfsumme, Sprache, Datenklasse und getrennte CI-, Hardware- und Holdout-Splits.",
+        "Metrikverträge umfassen WER, CER, Named-Entity- und Zahlengenauigkeit, Timing, ECE/Brier, RTF, Latenz, RAM/VRAM sowie Accuracy/F1 und Rankingmetriken.",
+        "Kalibrierungsartefakte sind pro Backend, Modellrevision und Datensatzversion adressierbar und werden vor Fusion implementiert."
+      ]
+    },
+    {
+      "id": "VPRF-008",
+      "title": "Feature-Flags, Kompatibilitätsmodus und Rollback-Vertrag definieren",
+      "type": "migration",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-002",
+        "VPRF-005",
+        "VPRF-006"
+      ],
+      "source_files": [
+        "voice_runtime/config.py",
+        "agent/services/restricted_inference_config_service.py"
+      ],
+      "acceptance_criteria": [
+        "Voice-Fusion, Restricted-Worker-Ausführung, Reranking, Personalisierung und optionale Modelle besitzen getrennte, standardmäßig sichere Flags.",
+        "Flag=false reproduziert bestehende einfache Voice- und CodeCompass-Flows ohne Daten- oder Konfigurationsverlust.",
+        "Rollback entfernt keine neuen Deltas und benötigt keinen Big-Bang-Downgrade."
+      ]
+    },
+    {
+      "id": "VPRF-009",
+      "title": "Audio-Upload vor Vollallokation begrenzen und validieren",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-004",
+        "VPRF-005"
+      ],
+      "source_files": [
+        "agent/routes/voice.py",
+        "voice_runtime/routes.py"
+      ],
+      "acceptance_criteria": [
+        "Uploadgröße, dekodierte PCM-Größe, Audiodauer, Kanäle, Samplerate, Samplezahl und Variantenzahl besitzen harte Limits vor Backend-Fan-out.",
+        "Leere, defekte oder Magic-Byte-widersprüchliche Eingaben starten weder Fallback noch ASR-Backend.",
+        "Grenzüberschreitungen liefern stabile invalid_input- oder resource_exhausted-Fehler ohne interne Pfade."
+      ]
+    },
+    {
+      "id": "VPRF-010",
+      "title": "Deterministischen WAV/PCM-Decoder und sicheren optionalen ffmpeg-Pfad implementieren",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-009"
+      ],
+      "source_files": [
+        "voice_runtime/audio.py",
+        "voice_runtime/preprocessing/audio_decode.py"
+      ],
+      "acceptance_criteria": [
+        "PCM-WAV wird ohne externes Programm deterministisch auf Mono-PCM und Zielsamplerate normalisiert.",
+        "ffmpeg wird argv-only ohne shell=True, mit Protokoll-Allowlist, -nostdin, Outputlimit, Timeout und deaktiviertem Netzwerk ausgeführt.",
+        "MP3/OGG funktionieren nur bei verfügbarer Dependency oder liefern unavailable; Fixture-Tests decken beschädigte und adversarielle Dateien ab."
+      ]
+    },
+    {
+      "id": "VPRF-011",
+      "title": "Ephemeren Audio-, Workspace- und Retention-Lifecycle absichern",
+      "type": "privacy",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-009",
+        "VPRF-010"
+      ],
+      "source_files": [
+        "voice_runtime/routes.py",
+        "voice_runtime/audio.py"
+      ],
+      "acceptance_criteria": [
+        "Jeder Request verwendet einen isolierten Workspace mit minimalen Rechten und begrenztem Speicher.",
+        "Erfolg, Fehler, Timeout, Cancellation und Disconnect entfernen Prozesse, Deskriptoren und alle temporären Audioartefakte.",
+        "Raw Audio wird ohne wirksamen Hub-Consent, Zweck, Retention und Löschpfad weder persistiert noch geloggt."
+      ]
+    },
+    {
+      "id": "VPRF-012",
+      "title": "Absolute Zeitachse, PCM-Slices und VAD-Strategievertrag implementieren",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-004",
+        "VPRF-010"
+      ],
+      "source_files": [
+        "voice_runtime/preprocessing/vad.py",
+        "voice_runtime/pipeline.py"
+      ],
+      "acceptance_criteria": [
+        "Jeder Slice behält absolute start_ms/end_ms; Slice- und Merge-Rundung überschreitet höchstens ein Sample.",
+        "VAD kapselt Padding, Mindestsprachdauer, Mindeststille und maximale Segmentdauer hinter einer kleinen austauschbaren Schnittstelle.",
+        "Passthrough verändert PCM und Zeitachse nicht; Tests decken Stille, Überlappung und Grenzsegmente ab."
+      ]
+    },
+    {
+      "id": "VPRF-013",
+      "title": "WebRTC- und Silero-VAD als optionale lokale Adapter ergänzen",
+      "type": "adapter",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-006",
+        "VPRF-012"
+      ],
+      "source_files": [
+        "voice_runtime/preprocessing/vad.py"
+      ],
+      "acceptance_criteria": [
+        "Beide Adapter werden lazy geladen und melden ohne Dependency oder lokales Modell unavailable.",
+        "Silero lädt ausschließlich verifizierte lokale Artefakte; implizite Downloads sind blockiert.",
+        "Offline-Tests prüfen Sprachblöcke, Framegrenzen, Sampleraten und konfigurierbare Thresholds."
+      ]
+    },
+    {
+      "id": "VPRF-014",
+      "title": "Vosk-Batchtranskription produktionsreif implementieren",
+      "type": "adapter",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-003",
+        "VPRF-006",
+        "VPRF-010",
+        "VPRF-012"
+      ],
+      "source_files": [
+        "voice_runtime/backends/vosk_backend.py"
+      ],
+      "acceptance_criteria": [
+        "Ein reales gepinntes lokales Vosk-Modell liefert Text, Wörter, absolute Zeiten und vorhandene Confidence.",
+        "Modell und Recognizer werden begrenzt und thread-sicher verwendet; fehlendes Modell liefert unavailable.",
+        "Ein Offline-E2E läuft ohne Mock, Simulation oder Netzwerk."
+      ]
+    },
+    {
+      "id": "VPRF-015",
+      "title": "whisper.cpp-Backend produktionsreif implementieren",
+      "type": "adapter",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-003",
+        "VPRF-006",
+        "VPRF-010",
+        "VPRF-012"
+      ],
+      "source_files": [
+        "voice_runtime/backends/whisper_cpp.py"
+      ],
+      "acceptance_criteria": [
+        "Binary und Modell werden gegen erlaubte Pfade, Revision und Manifest-Digest geprüft.",
+        "Threads, GPU-Layer, Beam Size, Temperatur, Sprache und Promptbudget sind typisiert; beliebige Extra-Args sind in Produktion verboten.",
+        "Bekannte JSON-Ausgabevarianten werden normalisiert; Timeout beendet den Prozess und entfernt alle Dateien."
+      ]
+    },
+    {
+      "id": "VPRF-016",
+      "title": "Faster-Whisper als optionales lokales Hochleistungsbackend ergänzen",
+      "type": "adapter",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-003",
+        "VPRF-006",
+        "VPRF-010",
+        "VPRF-012"
+      ],
+      "source_files": [
+        "voice_runtime/backends/faster_whisper.py"
+      ],
+      "acceptance_criteria": [
+        "Dependency und Modell werden lazy geladen; CPU/CUDA, compute_type, Beam Size, VAD-Filter und Wortzeiten werden validiert.",
+        "Lokale Modellpfade benötigen kein Netzwerk; Download ist nur über explizite Hub-Policy möglich.",
+        "Ein CPU-E2E und ein hardwaremarkierter CUDA-Test verwenden reale Inferenz."
+      ]
+    },
+    {
+      "id": "VPRF-017",
+      "title": "Realen lokalen Voxtral-Adapter klar von Simulation trennen",
+      "type": "adapter",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-003",
+        "VPRF-006",
+        "VPRF-010",
+        "VPRF-012"
+      ],
+      "source_files": [
+        "voice_runtime/backends/voxtral.py",
+        "frontend-angular/src/app/services/voxtral-offline.service.ts"
+      ],
+      "acceptance_criteria": [
+        "Der produktive Adapter meldet ready nur nach erfolgreichem Laden verifizierter Gewichte und einer realen Runtime-Probe.",
+        "Der bisherige Hash-/Simulationspfad bleibt ausschließlich als synthetic Testadapter verfügbar.",
+        "Audio-Text-Kontext, Modellrevision, Device und Outputschema werden capability-basiert validiert."
+      ]
+    },
+    {
+      "id": "VPRF-018",
+      "title": "Lazy Voice-Backend-Registry und leichte Health-Probes implementieren",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-003",
+        "VPRF-006",
+        "VPRF-014",
+        "VPRF-015"
+      ],
+      "source_files": [
+        "voice_runtime/backends/router.py"
+      ],
+      "acceptance_criteria": [
+        "Registry-Erstellung und Health-Abfragen laden keine schweren Gewichte und führen keine Transkription aus.",
+        "Paralleler Erstzugriff initialisiert jede Backendinstanz höchstens einmal.",
+        "Neue optionale Adapter können ohne Änderung des zentralen Routers registriert werden."
+      ]
+    },
+    {
+      "id": "VPRF-019",
+      "title": "Typisierte Fehler und kontrollierten sequentiellen Fallback implementieren",
+      "type": "reliability",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-005",
+        "VPRF-006",
+        "VPRF-018"
+      ],
+      "source_files": [
+        "voice_runtime/backends/router.py",
+        "voice_runtime/routes.py"
+      ],
+      "acceptance_criteria": [
+        "invalid_input, policy_blocked, unavailable, timeout, cancelled, model_error und resource_exhausted sind stabile Fehlerklassen.",
+        "Fallback erfolgt nur für explizit erlaubte Fehler wie unavailable oder timeout; invalid_input und Policy-Ablehnung starten keinen Fallback.",
+        "Versuchte Backends und Gründe erscheinen redigiert im Decision Trace."
+      ]
+    },
+    {
+      "id": "VPRF-020",
+      "title": "Circuit Breaker, Cooldown und Voice-Ressourcenbudgets implementieren",
+      "type": "reliability",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-018",
+        "VPRF-019"
+      ],
+      "source_files": [
+        "voice_runtime/backends/router.py",
+        "voice_runtime/config.py"
+      ],
+      "acceptance_criteria": [
+        "Fehlergrenze, Cooldown und Half-open-Recovery sind pro Backend deterministisch getestet.",
+        "Parallelität, RAM/VRAM, Audiosekunden und Queuebudgets werden vor Backendstart erzwungen.",
+        "Runtime-Entscheidungen können das unveränderliche Hub-Budget nur einschränken, niemals erweitern."
+      ]
+    },
+    {
+      "id": "VPRF-021",
+      "title": "Segmentgenauen Confidence-Rerun mit gemeinsamem Merge-Vertrag implementieren",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-012",
+        "VPRF-019",
+        "VPRF-020"
+      ],
+      "source_files": [
+        "voice_runtime/pipeline.py",
+        "voice_runtime/backends/base.py"
+      ],
+      "acceptance_criteria": [
+        "Nur Regionen unter ihrem backendbezogenen Threshold werden als verlustfreie PCM-Slices erneut verarbeitet.",
+        "Segmentzahl- und Audiozeitbudget werden vor jedem Rerun geprüft; hohe Segmente bleiben unverändert.",
+        "Fehlgeschlagene Reruns bewahren Original, Zeitachse und Provenance und nutzen später denselben Alignment-Kern wie die Fusion."
+      ]
+    },
+    {
+      "id": "VPRF-022",
+      "title": "Versioniertes Hub-vermitteltes Streaming-Protokoll definieren",
+      "type": "contract",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-002",
+        "VPRF-004",
+        "VPRF-005",
+        "VPRF-009",
+        "VPRF-012",
+        "VPRF-018"
+      ],
+      "source_files": [
+        "voice_runtime/streaming.py",
+        "voice_runtime/routes.py",
+        "agent/routes/voice.py"
+      ],
+      "acceptance_criteria": [
+        "WebSocket-Protokoll definiert Start, Audio-Chunk, Ack, End, Cancel, partial, final und error mit Version, Session-ID und Sequenznummer.",
+        "Authentisierung, Exposure Policy, Quota und Audit bleiben am Hub; die Runtime ist nicht direkt öffentlich erreichbar.",
+        "Unbekannte Versionen, Out-of-order-Chunks und ungültige Zustandsübergänge werden deterministisch behandelt."
+      ]
+    },
+    {
+      "id": "VPRF-023",
+      "title": "Inkrementelles Vosk-Streaming mit Backpressure und Cleanup implementieren",
+      "type": "streaming",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-014",
+        "VPRF-022"
+      ],
+      "source_files": [
+        "voice_runtime/streaming.py",
+        "voice_runtime/backends/vosk_backend.py"
+      ],
+      "acceptance_criteria": [
+        "Chunks werden ohne Batch-Datei an einen realen Vosk-Recognizer übergeben und liefern partial vor final.",
+        "Idle Timeout, Maximaldauer, Chunk- und Queuegrenzen werden erzwungen; doppelte Chunks sind idempotent.",
+        "Disconnect und Cancel beenden Arbeit und entfernen Sessions, Prozesse und Tempfiles."
+      ]
+    },
+    {
+      "id": "VPRF-024",
+      "title": "Voice-API-, Fehler- und Kompatibilitätsenvelope stabilisieren",
+      "type": "api",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-004",
+        "VPRF-019"
+      ],
+      "source_files": [
+        "voice_runtime/routes.py",
+        "agent/services/voice_provider.py",
+        "agent/routes/voice.py"
+      ],
+      "acceptance_criteria": [
+        "Versionierte additive Endpunkte liefern Capability-, Resultat- und Fehlerverträge mit retryable und request_id.",
+        "Alte Runtime-Payloads bleiben lesbar; vorhandene Felder werden weder entfernt noch umbenannt.",
+        "Interne stderr-Ausgaben, Hostpfade, Modellpfade, Audio und Transkript erscheinen nicht in Fehlerantworten."
+      ]
+    },
+    {
+      "id": "VPRF-025",
+      "title": "Voice-RBAC, Exposure Policy und interne Runtime-Authentisierung erzwingen",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-002",
+        "VPRF-024"
+      ],
+      "source_files": [
+        "agent/routes/voice.py",
+        "agent/services/exposure_policy_service.py",
+        "agent/services/voice_provider.py"
+      ],
+      "acceptance_criteria": [
+        "Batch, Streaming, Capabilities und administrative Modelloperationen besitzen getrennt prüfbare Berechtigungen.",
+        "Policy-Ablehnung erreicht die Runtime nicht; Runtime-Arbeitsaufrufe akzeptieren nur eine interne Hub-Service-Identität.",
+        "Audit enthält Actor, Tenant, Operation, Policyentscheidung und Request-ID, aber keine Audio- oder Transkriptinhalte."
+      ]
+    },
+    {
+      "id": "VPRF-026",
+      "title": "Tenantgebundene Idempotenz, Queue und Deadline-Propagation implementieren",
+      "type": "api",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-004",
+        "VPRF-024",
+        "VPRF-025"
+      ],
+      "source_files": [
+        "agent/services/voice_provider.py",
+        "agent/routes/voice.py"
+      ],
+      "acceptance_criteria": [
+        "Idempotency Key ist an Tenant, Actor, Operation, Payload-Hash und effektive Konfiguration gebunden.",
+        "Gleichzeitige Duplikate erzeugen innerhalb TTL genau einen Runtime-Aufruf; Queue- und Audiosekundenbudgets greifen vor Delegation.",
+        "Dieselbe Deadline umfasst Queuezeit, Modellladen und Inferenz; Timeout und Cancellation bleiben bis zum Backend korreliert."
+      ]
+    },
+    {
+      "id": "VPRF-027",
+      "title": "Voice-Metriken, Redaction und korrelierbare Traces implementieren",
+      "type": "observability",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-004",
+        "VPRF-019",
+        "VPRF-023",
+        "VPRF-024"
+      ],
+      "source_files": [
+        "voice_runtime/metrics.py",
+        "agent/services/voice_provider.py"
+      ],
+      "acceptance_criteria": [
+        "Metriken erfassen Queuezeit, Latenz, Audiosekunden, RTF, Fehler, Fallback, Rerun, Streams und Backpressure.",
+        "Labels sind kardinalitätsbegrenzt und enthalten weder Audio, Transkript, Dateinamen, Secrets noch Nutzertext.",
+        "Hub- und Runtime-Traces sind über dieselbe Request-ID korrelierbar und unterscheiden requested von effective Privacy."
+      ]
+    },
+    {
+      "id": "VPRF-028",
+      "title": "Voice-Runtime least-privilege in docker/compose-next integrieren",
+      "type": "deployment",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-006",
+        "VPRF-011",
+        "VPRF-018",
+        "VPRF-025",
+        "VPRF-027"
+      ],
+      "source_files": [
+        "docker/compose-next",
+        "docker/old_way/Dockerfile.voice-runtime",
+        "docker/old_way/docker-compose.voice-runtime.yml"
+      ],
+      "acceptance_criteria": [
+        "Runtime läuft non-root mit cap_drop, no-new-privileges, Ressourcenlimits, internem Netz und ohne veröffentlichten Produktionsport.",
+        "Modelle sind read-only; Tempdaten liegen auf begrenztem tmpfs; Hub und Runtime besitzen Healthchecks.",
+        "Minimal-, CPU- und optionale NVIDIA-Profile lassen sich reproduzierbar rendern und laden beim Start keine Gewichte herunter."
+      ]
+    },
+    {
+      "id": "VPRF-029",
+      "title": "Voice-Sicherheits- und Adversarial-Testmatrix automatisieren",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-009",
+        "VPRF-010",
+        "VPRF-011",
+        "VPRF-019",
+        "VPRF-025",
+        "VPRF-028"
+      ],
+      "source_files": [
+        "tests",
+        "tests/e2e"
+      ],
+      "acceptance_criteria": [
+        "Tests decken Path Traversal, Symlink-Escape, Argument Injection, Format-/Decode-Bomben, Oversize, Protokollmissbrauch und Tempfile-Cleanup ab.",
+        "Produktionsprofile lehnen Mock, Simulation, beliebige Args und ungepinnte Modelle ab.",
+        "Kein Negativtest hinterlässt Prozesse, Dateien, Audio, Transkript oder Secrets in Logs."
+      ]
+    },
+    {
+      "id": "VPRF-030",
+      "title": "Reale lokale Voice-E2E- und Basisbenchmarks etablieren",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-014",
+        "VPRF-015",
+        "VPRF-019",
+        "VPRF-021",
+        "VPRF-026",
+        "VPRF-028",
+        "VPRF-029"
+      ],
+      "source_files": [
+        "tests/e2e",
+        "benchmarks/voice"
+      ],
+      "acceptance_criteria": [
+        "Gepinnte Testaudios laufen offline real durch Vosk und whisper.cpp; ein kontrollierter Ausfall beweist Fallback und invalid_input beweist No-Fallback.",
+        "Streaming-E2E erhält partial vor final und prüft Backpressure, Timeout, Cancel und Disconnect ohne Reste.",
+        "Bericht enthält WER, CER, RTF, Peak-RAM/VRAM, Modellrevision, Git-SHA und Hardwareprofil."
+      ]
+    },
+    {
+      "id": "VPRF-031",
+      "title": "Reale optionale Diarisierung segment- und ausfallsicher ergänzen",
+      "type": "adapter",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-006",
+        "VPRF-012",
+        "VPRF-014"
+      ],
+      "source_files": [
+        "voice_runtime/diarization.py",
+        "voice_runtime/pipeline.py"
+      ],
+      "acceptance_criteria": [
+        "Ein explizit ausgewählter lokaler Adapter ordnet Sprecher über absolute Zeitüberlappung stabil zu.",
+        "Modellherkunft, Lizenz und Offline-Verfügbarkeit erfüllen denselben Manifestvertrag wie andere Voice-Modelle.",
+        "Integrationstests beweisen, dass Ausfall oder fehlende Dependency ASR nicht beeinträchtigt und keine Wortzeiten verändert."
+      ]
+    },
+    {
+      "id": "VPRF-032",
+      "title": "Deterministischen Edit-, Glossar- und Postprocessing-Vertrag bereitstellen",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-004",
+        "VPRF-012"
+      ],
+      "source_files": [
+        "voice_runtime/postprocessing",
+        "voice_runtime/glossary.py"
+      ],
+      "acceptance_criteria": [
+        "Jede Änderung speichert before, after, Span, Grund, Confidence und Processor und lässt den Finaltext rekonstruieren.",
+        "Regeln für Satzzeichen, Zahlen, Einheiten, Eigennamen und Glossare arbeiten segmentbewusst und ersetzen keine Teilwörter ungewollt.",
+        "Originaltext bleibt unveränderlich; Edit-Distanz- und Konfliktgrenzen erzeugen Review-Vorschläge statt stiller Änderungen."
+      ]
+    },
+    {
+      "id": "VPRF-033",
+      "title": "Restricted-Inference-Port und isolierte Worker-Grenze definieren",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-002",
+        "VPRF-003",
+        "VPRF-008"
+      ],
+      "source_files": [
+        "agent/services/restricted_model_inference_service.py",
+        "agent/services/model_inference_adapter_registry.py"
+      ],
+      "acceptance_criteria": [
+        "Hub-Services hängen an capability-spezifischen RestrictedInferencePort-Interfaces und importieren keine ML-Runtimes.",
+        "Modellladen, Tokenisierung, Forward-Pass und Ressourcenfreigabe laufen ausschließlich in einem isolierten Workerprozess.",
+        "Jeder produktive Aufruf bleibt über Hub-Task-, Request- und Run-ID korreliert; der Worker kann keine Tasks erzeugen oder delegieren."
+      ]
+    },
+    {
+      "id": "VPRF-034",
+      "title": "Versioniertes Restricted-Inference-Modellmanifest definieren",
+      "type": "contract",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-003",
+        "VPRF-006",
+        "VPRF-033"
+      ],
+      "source_files": [
+        "agent/services/restricted_inference_config_service.py",
+        "config/models"
+      ],
+      "acceptance_criteria": [
+        "Manifest enthält ID, Engine, Format, Tasks, Quelle, immutable Revision, Dateihashes/-größen, Tokenizer, Device, dtype, Quantisierung und Lizenz.",
+        "Unbekannte Engines, branchartige Remote-Revisionen, fehlende Hashes und nicht erlaubte Lizenzen werden vor Download oder Load blockiert.",
+        "Manifeständerung erzeugt einen neuen deterministischen Digest und besitzt positive sowie negative Schema-Fixtures."
+      ]
+    },
+    {
+      "id": "VPRF-035",
+      "title": "Modellquellen, Downloads und immutable Snapshots sicher verwalten",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-034"
+      ],
+      "source_files": [
+        "agent/services/restricted_inference_config_service.py",
+        "agent/services/model_inference_adapter_registry.py"
+      ],
+      "acceptance_criteria": [
+        "Remotezugriff ist default-deny und benötigt HTTPS, Host-Allowlist, explizite Hub-Berechtigung sowie SSRF-, Redirect- und DNS-Rebinding-Prüfung.",
+        "Downloads werden gestreamt, größenbegrenzt, vollständig verifiziert und erst danach atomar unter Manifest-Digest promotet.",
+        "Path Traversal, Symlink-/Hardlink-Escape, Hash-Mismatch und Teilabbruch hinterlassen keinen ladbaren Snapshot."
+      ]
+    },
+    {
+      "id": "VPRF-036",
+      "title": "Sichere Modellformate, Provenance, Lizenz und SBOM erzwingen",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-034",
+        "VPRF-035"
+      ],
+      "source_files": [
+        "pyproject.toml",
+        "requirements.lock",
+        "agent/services/model_inference_adapters"
+      ],
+      "acceptance_criteria": [
+        "Strict Production erlaubt nur freigegebene Formate wie safetensors und ONNX; beliebiges Pickle, joblib und unsicheres torch.load sind blockiert.",
+        "Jede geladene Datei besitzt Digest, Quelle, Revision, Format und Lizenzentscheidung; trust_remote_code bleibt false.",
+        "Releaseprofile erzeugen einen SBOM-/Dependency-Report und die Basisinstallation enthält keine unnötigen schweren ML-Pakete."
+      ]
+    },
+    {
+      "id": "VPRF-037",
+      "title": "Expliziten Modell-Lifecycle und lazy Registry implementieren",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-033",
+        "VPRF-035",
+        "VPRF-036"
+      ],
+      "source_files": [
+        "agent/services/model_inference_adapter_registry.py"
+      ],
+      "acceptance_criteria": [
+        "Zustände declared, verifying, loading, ready, degraded, unloading und unavailable besitzen validierte Übergänge.",
+        "Registry und Statusabfragen laden keine Gewichte; Parallel-Loads desselben Digests initialisieren genau einmal.",
+        "Ungültige Übergänge und Loadfehler geben Reservierungen und Locks vollständig frei."
+      ]
+    },
+    {
+      "id": "VPRF-038",
+      "title": "RAM-, VRAM-, Device- und In-flight-Lease-Manager implementieren",
+      "type": "reliability",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-037"
+      ],
+      "source_files": [
+        "agent/services/model_inference_adapter_registry.py",
+        "agent/services/restricted_model_inference_service.py"
+      ],
+      "acceptance_criteria": [
+        "Admission prüft Manifestbedarf, freien Speicher, reserviertes Budget, Device und maximale parallele Modelle vor großer Allokation.",
+        "Aktive Inferenz-Leases verhindern Unload; Idle-, explizites Unload und LRU-Eviction nutzen denselben Lifecycle.",
+        "OOM wird typisiert, räumt Ressourcen auf und erlaubt CPU-Fallback nur bei expliziter Hub-, Manifest- und Request-Freigabe."
+      ]
+    },
+    {
+      "id": "VPRF-039",
+      "title": "HuggingFace-Klassifikation, Features und echtes Choice-Scoring implementieren",
+      "type": "adapter",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-034",
+        "VPRF-037",
+        "VPRF-038"
+      ],
+      "source_files": [
+        "agent/services/model_inference_adapters/huggingface_transformers_adapter.py"
+      ],
+      "acceptance_criteria": [
+        "Sequence-, Token-Classification und Feature Extraction verwenden getrennte Pfade und validieren Labels gegen id2label und erlaubte Ziele.",
+        "Mehrtoken-Choices werden ausschließlich über Forward-Logits mit dokumentierter Längennormalisierung bewertet; generate wird nie aufgerufen.",
+        "Ein kleines reales Offline-Modell verifiziert Classification, Features und manuell nachgerechnete Choice-Logwahrscheinlichkeiten."
+      ]
+    },
+    {
+      "id": "VPRF-040",
+      "title": "Sentence-Transformers Bi-Encoder und CrossEncoder trennen",
+      "type": "adapter",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-034",
+        "VPRF-037",
+        "VPRF-038"
+      ],
+      "source_files": [
+        "agent/services/model_inference_adapters/sentence_transformers_adapter.py"
+      ],
+      "acceptance_criteria": [
+        "Embedding und Reranking besitzen getrennte Capabilities und Modellkonfigurationen.",
+        "Batching, max_seq_length, Device und Normalisierung werden manifestgebunden validiert; normalisierte Embeddings haben Norm 1 innerhalb Toleranz.",
+        "CrossEncoder-Ties werden stabil aufgelöst und fehlende Dependency liefert unavailable ohne Startfehler."
+      ]
+    },
+    {
+      "id": "VPRF-041",
+      "title": "ONNX-Runtime-Adapter optional produktionsreif härten",
+      "type": "adapter",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-034",
+        "VPRF-036",
+        "VPRF-037",
+        "VPRF-038"
+      ],
+      "source_files": [
+        "agent/services/model_inference_adapters/onnxruntime_adapter.py"
+      ],
+      "acceptance_criteria": [
+        "Execution Provider, Tokenizer, Inputnamen, dtypes, dynamische Shapes, Pooling und Label-Mapping werden vor ready validiert.",
+        "Externe ONNX-Datendateien können den verifizierten Snapshot nicht verlassen.",
+        "Eine kleine CPU-Fixture besteht einen Offline-Embedding- oder Classification-E2E-Test."
+      ]
+    },
+    {
+      "id": "VPRF-042",
+      "title": "PyTorch-Adapter optional auf sichere Inferenz begrenzen",
+      "type": "adapter",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-034",
+        "VPRF-036",
+        "VPRF-037",
+        "VPRF-038"
+      ],
+      "source_files": [
+        "agent/services/model_inference_adapters/pytorch_adapter.py"
+      ],
+      "acceptance_criteria": [
+        "safetensors/state_dict, freigegebene Modellfactory und HF-Checkpoint sind explizit getrennt; serialisierte Python-Module bleiben verboten.",
+        "Jede Inferenz läuft mit eval und inference_mode und erzeugt keinen Gradient-Graph.",
+        "Manipulierte Pickle-Artefakte werden vor Deserialisierung blockiert und auditierbar gemeldet."
+      ]
+    },
+    {
+      "id": "VPRF-043",
+      "title": "no_generation für alle Restricted-Operationen zentral erzwingen",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-033",
+        "VPRF-039"
+      ],
+      "source_files": [
+        "agent/services/restricted_model_inference_service.py",
+        "agent/services/model_inference_adapters"
+      ],
+      "acceptance_criteria": [
+        "Erlaubt sind ausschließlich typisierte embed-, classify-, rerank-, score_choices-, feature- und risk_score-Operationen ohne freien Completion-Endpunkt.",
+        "Jedes Ergebnis trägt no_generation=true und wird gegen seinen operationsspezifischen Outputvertrag validiert.",
+        "Quellcode- und instrumentierte Tests beweisen null generate-/Textgeneration-Aufrufe und verwerfen unbekannte Choices oder freie Adaptertexte."
+      ]
+    },
+    {
+      "id": "VPRF-044",
+      "title": "Path-Policy, Limits und unveränderlichen Execution-Envelope integrieren",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-002",
+        "VPRF-033",
+        "VPRF-043"
+      ],
+      "source_files": [
+        "agent/services/path_ai_mode_policy_service.py",
+        "agent/services/restricted_model_inference_service.py"
+      ],
+      "acceptance_criteria": [
+        "Hub entscheidet vor Delegation über Pfad, Engine, Modell, Operation, externe Quellen, Hidden States, Attention, Device und Ressourcen.",
+        "Bei mehreren Pfaden gewinnt die strengere oder blockierende Regel; der Worker kann den Envelope nur einschränken.",
+        "Zeichen, Tokens, Batch, Candidates und Outputdimensionen werden im Hub und erneut im Worker begrenzt."
+      ]
+    },
+    {
+      "id": "VPRF-045",
+      "title": "Restricted-Inference-API additiv migrieren und RBAC absichern",
+      "type": "api",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-024",
+        "VPRF-034",
+        "VPRF-043",
+        "VPRF-044"
+      ],
+      "source_files": [
+        "agent/routes/config_graph.py",
+        "agent/services/restricted_model_inference_service.py"
+      ],
+      "acceptance_criteria": [
+        "Bestehende Operationen bleiben über eine Hub-Kompatibilitätsfassade nutzbar; neue Result-Envelopes sind additiv.",
+        "Status, Config, Download, Load, Unload und Cache-GC besitzen getrennte Berechtigungen und Audit-Events.",
+        "Read-only Status lädt nichts und Antworten enthalten keine Secrets, absoluten Pfade oder unredigierten Remote-URLs."
+      ]
+    },
+    {
+      "id": "VPRF-046",
+      "title": "CodeCompass-Reranking über den Hub-gesteuerten Workerpfad integrieren",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-040",
+        "VPRF-043",
+        "VPRF-044",
+        "VPRF-045"
+      ],
+      "source_files": [
+        "agent/services/codecompass_vector_retrieval_service.py",
+        "agent/services/rag_index_embedding.py"
+      ],
+      "acceptance_criteria": [
+        "Reranking ist standardmäßig deaktiviert und delegiert nur begrenzte Top-N-Candidates.",
+        "Tests beweisen: Flag=false reproduziert die bisherige Reihenfolge; Timeout oder Modellfehler liefert sie ohne Candidate-Verlust zurück.",
+        "Trace trennt bestehende Rankingkomponenten von Transformer- und Policy-Signalen samt Manifest-Digest."
+      ]
+    },
+    {
+      "id": "VPRF-047",
+      "title": "Tenant- und revisionssicheren Inferenz-Cache ergänzen",
+      "type": "performance",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-035",
+        "VPRF-038",
+        "VPRF-046"
+      ],
+      "source_files": [
+        "agent/services/model_inference_cache.py"
+      ],
+      "acceptance_criteria": [
+        "Cache-Key enthält Tenant, Operation, Manifest-Digest, Policy-Hash, normalisierte Config und Input-Hash.",
+        "Revision-, Policy- oder Modellwechsel können keinen alten Treffer wiederverwenden; Rohtext wird nicht als Key persistiert.",
+        "TTL, Größe und Eviction sind deterministisch getestet und beschädigte Einträge werden nie ungeprüft ausgegeben."
+      ]
+    },
+    {
+      "id": "VPRF-048",
+      "title": "Restricted-Inference-Worker in compose-next isoliert deployen",
+      "type": "deployment",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-033",
+        "VPRF-035",
+        "VPRF-038",
+        "VPRF-045"
+      ],
+      "source_files": [
+        "docker/compose-next",
+        "pyproject.toml"
+      ],
+      "acceptance_criteria": [
+        "Worker läuft als eigener interner Service und verarbeitet nur authentisierte Hub-Job-Envelopes.",
+        "Modellartefakte sind read-only, Temp- und Ressourcenlimits gesetzt und kein Runtime-Port standardmäßig am Host publiziert.",
+        "Minimal-, CPU- und optionale Accelerator-Profile starten Hub und Worker ohne ML-Pakete im Hub."
+      ]
+    },
+    {
+      "id": "VPRF-049",
+      "title": "Restricted-Inference-Security-, Offline- und Recovery-Gates etablieren",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-038",
+        "VPRF-039",
+        "VPRF-040",
+        "VPRF-043",
+        "VPRF-044",
+        "VPRF-045",
+        "VPRF-048"
+      ],
+      "source_files": [
+        "tests",
+        "tests/e2e",
+        "benchmarks/restricted_inference"
+      ],
+      "acceptance_criteria": [
+        "Compose-E2E durchläuft Hub-Taskqueue, Worker und reale kleine lokale HuggingFace-/sentence-transformers-Modelle ohne Netzwerk.",
+        "Security-Gate deckt Hash, Größe, Pfad, Symlink, Redirect, DNS-Rebinding, Pickle, Remote Code und manipulierte Envelopes ab.",
+        "Last-, Cancellation-, Worker-Kill- und OOM-Tests halten Queue-/Ressourcengrenzen und beweisen, dass der Hub keine Gewichte lädt."
+      ]
+    },
+    {
+      "id": "VPRF-050",
+      "title": "Deterministische Audio-Enhancement-Pipeline und Variantenmetadaten implementieren",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-010",
+        "VPRF-012"
+      ],
+      "source_files": [
+        "voice_runtime/preprocessing/audio_enhancement.py"
+      ],
+      "acceptance_criteria": [
+        "Processor-Interface kapselt Analyse und Transformation; Bypass liefert nach Decode PCM-identische Samples.",
+        "DC-Offset, Normalisierung, Hochpass, Limiter, Kanal-Mix und Resampling besitzen isolierte Fixture-Tests.",
+        "Varianten tragen stabile IDs, Qualitätsmesswerte, Parameter, Laufzeit und Zeitachsen-Mapping."
+      ]
+    },
+    {
+      "id": "VPRF-051",
+      "title": "Optionale lokale Enhancement-Adapter lazy kapseln",
+      "type": "adapter",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-050"
+      ],
+      "source_files": [
+        "voice_runtime/preprocessing/audio_enhancement.py"
+      ],
+      "acceptance_criteria": [
+        "Nur konkret implementierte RNNoise-, WebRTC- oder DeepFilter-Adapter werden capability-basiert angeboten.",
+        "Fehlende Dependency liefert unavailable und Basispipeline bleibt nutzbar; Downloads sind default-deny.",
+        "Benchmark macht jede WER/CER-Verschlechterung sichtbar und aktiviert keinen Adapter pauschal."
+      ]
+    },
+    {
+      "id": "VPRF-052",
+      "title": "VoiceRecognitionContext und Capability-Filter definieren",
+      "type": "contract",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-003",
+        "VPRF-004",
+        "VPRF-005"
+      ],
+      "source_files": [
+        "voice_runtime/context.py",
+        "voice_runtime/backends/base.py"
+      ],
+      "acceptance_criteria": [
+        "Vertrag enthält klassischen Text, Wörter, Low-Confidence-Regionen, Glossar, Nutzerwortschatz, Sprache, Domäne und vorherigen Segmentkontext.",
+        "Jedes Backend deklariert initial_prompt, hotwords, prefix, constrained_vocabulary und transcript_reference separat.",
+        "Nicht unterstützte Felder erreichen den Adapter nicht; Tests decken leeren Kontext, Unicode und große Wortlisten ab."
+      ]
+    },
+    {
+      "id": "VPRF-053",
+      "title": "Kontextbudget, Tainting und Prompt-Injection-Schutz implementieren",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-044",
+        "VPRF-052"
+      ],
+      "source_files": [
+        "voice_runtime/context.py",
+        "agent/services/voice_provider.py"
+      ],
+      "acceptance_criteria": [
+        "Zeichen-, Wort- und Tokenlimits greifen vor Backend-Aufruf; deterministische Truncation erscheint im Trace.",
+        "Transkript bleibt als nicht vertrauenswürdiges Datenfeld gekapselt und kann keine System-, Policy- oder Tool-Anweisung erzeugen.",
+        "Maliziöse Markdown-, JSON-, Unicode- und Prompt-Fixtures verändern weder Berechtigungen noch Backend- oder Toolauswahl."
+      ]
+    },
+    {
+      "id": "VPRF-054",
+      "title": "Bounded Executor für unabhängige parallele ASR-Candidates implementieren",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-004",
+        "VPRF-006",
+        "VPRF-014",
+        "VPRF-015",
+        "VPRF-018",
+        "VPRF-020",
+        "VPRF-026"
+      ],
+      "source_files": [
+        "voice_runtime/parallel.py",
+        "voice_runtime/pipeline.py"
+      ],
+      "acceptance_criteria": [
+        "Ein Delay-Test beweist zeitliche Überlappung von mindestens Vosk und whisper.cpp auf derselben Eingabe.",
+        "Gemeinsame Deadline, Einzel-Timeouts, Cancellation, Parallelität und Hub-Ressourcenbudget werden eingehalten.",
+        "Backendfehler bleiben als Candidate-Status sichtbar und verwerfen keine erfolgreichen Candidates; der Executor ruft keine Worker auf."
+      ]
+    },
+    {
+      "id": "VPRF-055",
+      "title": "Sequenziellen classic_then_correct-Pfad explizit implementieren",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-015",
+        "VPRF-019",
+        "VPRF-052",
+        "VPRF-053"
+      ],
+      "source_files": [
+        "voice_runtime/pipeline.py",
+        "voice_runtime/context.py"
+      ],
+      "acceptance_criteria": [
+        "Der klassische Candidate ist beendet, bevor ein Context-Consumer startet; der Trace kennzeichnet den Pfad als sequenziell.",
+        "Original bleibt als unveränderlicher Candidate erhalten und Timeout des zweiten Schritts liefert weiterhin das klassische Resultat.",
+        "Ein kontextabhängiger moderner Lauf wird nie als unabhängige Stimme im Consensus gezählt."
+      ]
+    },
+    {
+      "id": "VPRF-056",
+      "title": "Candidate- und Audio-Varianten-Lineage gegen Doppelgewichtung absichern",
+      "type": "contract",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-004",
+        "VPRF-054"
+      ],
+      "source_files": [
+        "voice_runtime/backends/base.py",
+        "voice_runtime/pipeline.py"
+      ],
+      "acceptance_criteria": [
+        "Jeder abgeleitete Candidate nennt parent_candidate_ids, Audio-Variante und Transformationskette.",
+        "Candidates desselben Backends, Prompts oder Audio-Derivats werden nicht als statistisch unabhängige Stimmen behandelt.",
+        "Lineage-Validator blockiert Zyklen, fehlende Eltern und inkonsistente Modell-/Varianten-Provenance."
+      ]
+    },
+    {
+      "id": "VPRF-057",
+      "title": "Deterministisches Wort- und Segmentalignment implementieren",
+      "type": "fusion",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-007",
+        "VPRF-012",
+        "VPRF-054",
+        "VPRF-056"
+      ],
+      "source_files": [
+        "voice_runtime/fusion/alignment.py"
+      ],
+      "acceptance_criteria": [
+        "Zeitbasiertes Alignment deckt Einfügungen, Löschungen, Überlappungen und Sprachwechsel ab.",
+        "Ohne Wortzeiten greift ein deterministischer Unicode-normalisierter Textfallback mit stabilen Tie-Breakern.",
+        "Wiederholte Läufe erzeugen bitgleich dieselbe Alignment-Struktur."
+      ]
+    },
+    {
+      "id": "VPRF-058",
+      "title": "Backend-Confidence kalibrieren und versioniert anwenden",
+      "type": "quality",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-007",
+        "VPRF-014",
+        "VPRF-015",
+        "VPRF-057"
+      ],
+      "source_files": [
+        "voice_runtime/fusion/scoring.py",
+        "benchmarks/voice"
+      ],
+      "acceptance_criteria": [
+        "Kalibrator und Datensatzversion sind pro Backend und Modellrevision gespeichert; Report enthält ECE/Brier vor und nach Kalibrierung.",
+        "Unkalibrierte Scores verschiedener Engines werden nicht direkt verglichen und erzeugen degraded statt erfundener Sicherheit.",
+        "Hardware- und sprachspezifische Thresholds sind versioniert und reproduzierbar."
+      ]
+    },
+    {
+      "id": "VPRF-059",
+      "title": "Deterministisches Candidate-Scoring mit erklärbaren Teilgewichten implementieren",
+      "type": "fusion",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-007",
+        "VPRF-057",
+        "VPRF-058"
+      ],
+      "source_files": [
+        "voice_runtime/fusion/scoring.py"
+      ],
+      "acceptance_criteria": [
+        "Scoring nutzt ausschließlich versionierte Confidence-, Agreement-, Glossar-, Sprachmodell-, Audioqualitäts- und Kalibrierungssignale.",
+        "Jedes Gewicht erscheint im Decision Trace; fehlende optionale Signale erzeugen keinen impliziten Bonus.",
+        "Gleicher Input, gleiche Konfiguration und gleiche Artefakte ergeben denselben quantisierten Score."
+      ]
+    },
+    {
+      "id": "VPRF-060",
+      "title": "Consensus und Disagreement-Erkennung ohne erfundene Formen implementieren",
+      "type": "fusion",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-059"
+      ],
+      "source_files": [
+        "voice_runtime/fusion/consensus.py"
+      ],
+      "acceptance_criteria": [
+        "Identische Candidates werden unverändert übernommen; unauflösbare Konflikte wählen eine vorhandene Alternative oder Review.",
+        "DisagreementRegion enthält Zeiten, Alternativen, Quellen, Lineage und Scores.",
+        "Finaltext enthält keine dritte Wortform außer einer explizit protokollierten, erlaubten Edit-Operation."
+      ]
+    },
+    {
+      "id": "VPRF-061",
+      "title": "Finales Transkript mit vollständiger Wort-Provenance assemblieren",
+      "type": "fusion",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-004",
+        "VPRF-032",
+        "VPRF-060"
+      ],
+      "source_files": [
+        "voice_runtime/fusion/consensus.py",
+        "voice_runtime/pipeline.py"
+      ],
+      "acceptance_criteria": [
+        "Jedes finale Wort verweist auf Candidate oder protokollierte Edit-Operation; unbelegte Passagen blockieren das Ergebnis.",
+        "Original-Candidates bleiben unveränderlich und Result-Hash sowie Decision Trace sind bei Wiederholung stabil.",
+        "Segment-, Wort- und Gesamttext bleiben nach Fusion konsistent und maschinenlesbar auditierbar."
+      ]
+    },
+    {
+      "id": "VPRF-062",
+      "title": "Policy-begrenztes adaptives lokales Routing und regionale Eskalation ergänzen",
+      "type": "routing",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-020",
+        "VPRF-021",
+        "VPRF-058",
+        "VPRF-059",
+        "VPRF-061"
+      ],
+      "source_files": [
+        "voice_runtime/routing/adaptive.py"
+      ],
+      "acceptance_criteria": [
+        "Routing nutzt nur Hub-erlaubte Backends, Geräte und Budgets und kann niemals automatisch Cloud aktivieren.",
+        "Gleiche Audio-, Hardware-, Confidence- und Policy-Messwerte ergeben dieselbe Entscheidung.",
+        "Tests beweisen, dass nur kalibriert unsichere Regionen erneut verarbeitet werden und nicht betroffene Passagen unverändert bleiben."
+      ]
+    },
+    {
+      "id": "VPRF-063",
+      "title": "Restricted-Transformer-Corrector und Strict-Choice-Judge-Vertrag ergänzen",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-039",
+        "VPRF-040",
+        "VPRF-043",
+        "VPRF-053",
+        "VPRF-060"
+      ],
+      "source_files": [
+        "voice_runtime/fusion/local_judge.py",
+        "agent/services/voice_provider.py"
+      ],
+      "acceptance_criteria": [
+        "Restricted-Pfad verwendet nur Classification, Masked-Token oder bekannte Choice-IDs und bleibt no_generation=true.",
+        "Unbekannte IDs, freier Zusatztext und nicht erlaubte corrected_text-Felder werden verworfen.",
+        "Integrationstests beweisen, dass Ausfall exakt das deterministische Basisergebnis liefert und dessen Verfügbarkeit nicht verändert."
+      ]
+    },
+    {
+      "id": "VPRF-064",
+      "title": "Optionalen lokalen generativen Judge als getrennten Policy-Pfad absichern",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-025",
+        "VPRF-044",
+        "VPRF-053",
+        "VPRF-060"
+      ],
+      "source_files": [
+        "voice_runtime/fusion/local_judge.py",
+        "agent/services/voice_provider.py"
+      ],
+      "acceptance_criteria": [
+        "Generative Korrektur ist ausdrücklich kein Restricted-Inference-Resultat und benötigt ein separates Hub-Policy-Flag.",
+        "Nur allowlistete lokale Endpunkte sind erlaubt; SSRF, DNS-Rebinding, Redirects und Cloud-Fallback werden blockiert.",
+        "Integrationstests prüfen Timeout, Schemafehler und Halluzination; jeder Fall fällt auf Consensus zurück und schreibt kein Audio oder Transkript in Standardlogs."
+      ]
+    },
+    {
+      "id": "VPRF-065",
+      "title": "Multi-Modell-Streaming-Fusion als optionale Erweiterung implementieren",
+      "type": "streaming",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-023",
+        "VPRF-054",
+        "VPRF-057",
+        "VPRF-060"
+      ],
+      "source_files": [
+        "voice_runtime/streaming.py",
+        "voice_runtime/fusion"
+      ],
+      "acceptance_criteria": [
+        "Partial-Candidates und Fusionsevents besitzen monotone Versionen und ersetzen keine finalisierten Zeitbereiche still.",
+        "Backpressure und Teilausfall eines Modells lassen mindestens einen gültigen Stream weiterlaufen.",
+        "Ein Integrationstest prüft partial, disagreement, final, Cancel und deterministischen Replay-Trace."
+      ]
+    },
+    {
+      "id": "VPRF-066",
+      "title": "Hub-seitigen Review-Lifecycle und immutable Review-Artefakte implementieren",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-061"
+      ],
+      "source_files": [
+        "agent/services",
+        "agent/routes"
+      ],
+      "acceptance_criteria": [
+        "Zustände pending, accepted, corrected und rejected besitzen explizite Übergänge und Versionskonflikte.",
+        "Roh-Candidates, Fusion und Reviewentscheidung bleiben getrennte immutable Artefakte.",
+        "Die Voice-Runtime persistiert keinen Reviewstatus und erhält keine Schreibberechtigung auf Nutzerprofile."
+      ]
+    },
+    {
+      "id": "VPRF-067",
+      "title": "Tenantgebundene Review-API mit Auth, Idempotenz und Audit bereitstellen",
+      "type": "api",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-025",
+        "VPRF-026",
+        "VPRF-066"
+      ],
+      "source_files": [
+        "agent/routes",
+        "agent/services"
+      ],
+      "acceptance_criteria": [
+        "Accept, Candidate-Auswahl, manuelle Korrektur und Reject sind authentifiziert, tenantgebunden und idempotent.",
+        "Parallele Updates verwenden Versionsprüfung und überschreiben keine neuere Entscheidung.",
+        "Audit enthält Actor, IDs, Aktion und Status, aber keine Audio- oder Transkriptinhalte."
+      ]
+    },
+    {
+      "id": "VPRF-068",
+      "title": "Consent-Policy, Datenklassen und Retention modellieren",
+      "type": "privacy",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-002",
+        "VPRF-067"
+      ],
+      "source_files": [
+        "agent/services",
+        "agent/routes"
+      ],
+      "acceptance_criteria": [
+        "Consent ist explizit, versioniert, widerrufbar und pro Nutzer sowie Profil getrennt.",
+        "Text, Audioausschnitt, keyed Fingerprint, Feedback und abgeleitete Regeln besitzen getrennte Zwecke und Retention-Policies.",
+        "Ohne wirksamen Consent werden keine personenbezogenen Lernartefakte geschrieben."
+      ]
+    },
+    {
+      "id": "VPRF-069",
+      "title": "Verschlüsseltes Hub-Feedback-Repository implementieren",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-068"
+      ],
+      "source_files": [
+        "agent/services",
+        "agent/db_models"
+      ],
+      "acceptance_criteria": [
+        "Feedback, Vokabular, Regeln, negative Beispiele und Consent-Referenzen sind tenantgetrennt und versioniert.",
+        "Sensible Werte sind verschlüsselt; Schlüssel oder Inhalte erscheinen nicht in Logs und Metriken.",
+        "Repository-Port ist injizierbar und Unit-Tests beweisen Nutzer- und Profilisolation."
+      ]
+    },
+    {
+      "id": "VPRF-070",
+      "title": "Minimierte Personalisierungs-Snapshots an Voice-Runtime projizieren",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-052",
+        "VPRF-069"
+      ],
+      "source_files": [
+        "agent/services/voice_provider.py",
+        "voice_runtime/context.py"
+      ],
+      "acceptance_criteria": [
+        "Hub übergibt nur erforderliche Hotwords, Glossare und Gewichte mit Version, Ablaufzeit und Consent-Referenz.",
+        "Runtime behandelt Snapshot read-only, speichert ihn nicht dauerhaft und lehnt widerrufene oder abgelaufene Versionen ab.",
+        "Snapshot enthält keine Nutzeridentität oder Repository-Zugangsdaten."
+      ]
+    },
+    {
+      "id": "VPRF-071",
+      "title": "Deterministisches profilbezogenes Lernen aus bestätigtem Feedback implementieren",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-032",
+        "VPRF-060",
+        "VPRF-070"
+      ],
+      "source_files": [
+        "agent/services",
+        "voice_runtime/context.py"
+      ],
+      "acceptance_criteria": [
+        "Bestätigte Eigennamen, Schreibweisen und Substitutionen verbessern in einem Holdout-Test ausschließlich das richtige Profil.",
+        "Negative Beispiele nehmen falsche Regeln reproduzierbar zurück; globale Defaults und andere Nutzer bleiben unverändert.",
+        "Normales Feedback startet niemals automatisch Fine-Tuning oder Modelldownload."
+      ]
+    },
+    {
+      "id": "VPRF-072",
+      "title": "Export, Import, Widerruf, Reset und vollständige Löschung implementieren",
+      "type": "privacy",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-069",
+        "VPRF-070",
+        "VPRF-071"
+      ],
+      "source_files": [
+        "agent/routes",
+        "agent/services"
+      ],
+      "acceptance_criteria": [
+        "Export und Import sind schema-validiert, versioniert und nur für den berechtigten Tenant verfügbar.",
+        "Widerruf stoppt neue Schreibvorgänge sofort; Delete entfernt Primärdaten, Indizes, Caches, Backups gemäß Policy und aktive Snapshots.",
+        "Ein anschließender Export und eine neue Erkennung zeigen keinen Einfluss gelöschter Daten; Audit enthält nur IDs und Status."
+      ]
+    },
+    {
+      "id": "VPRF-073",
+      "title": "Expliziten Fine-Tuning-Exportjob als optionale Nicht-Automatik abgrenzen",
+      "type": "governance",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-068",
+        "VPRF-069",
+        "VPRF-071",
+        "VPRF-072"
+      ],
+      "source_files": [
+        "agent/services",
+        "agent/routes"
+      ],
+      "acceptance_criteria": [
+        "Nur ein explizit genehmigter Hub-Task kann einen minimierten Trainingsdatenexport erzeugen.",
+        "Export enthält Consent-, Zweck-, Lizenz-, Herkunfts- und Löschmetadaten und startet selbst kein Training.",
+        "Normaler Review-, Feedback- oder Importpfad kann diesen Task weder implizit erzeugen noch genehmigen."
+      ]
+    },
+    {
+      "id": "VPRF-074",
+      "title": "Kanonische schema-gesteuerte Voice-/Fusion-/Modellkonfigurations-API bereitstellen",
+      "type": "api",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-003",
+        "VPRF-005",
+        "VPRF-024",
+        "VPRF-045",
+        "VPRF-060",
+        "VPRF-068"
+      ],
+      "source_files": [
+        "agent/routes",
+        "agent/services",
+        "frontend-angular/src/app"
+      ],
+      "acceptance_criteria": [
+        "Schema beschreibt Typ, Default, Constraints, Scope, Sichtbarkeit, Secret-Referenzen und Capability-Gründe ohne duplizierte Frontendlisten.",
+        "Globale, Profil- und Session-Deltas werden streng validiert und ergeben eine redigierte Effective-Preview mit Provenance.",
+        "Administrative Modell-/Device-/Download-Felder sind nicht als normale Session-Overrides verfügbar."
+      ]
+    },
+    {
+      "id": "VPRF-075",
+      "title": "Angular-Konfiguration auf den gemeinsamen Settings-Vertrag migrieren",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-074"
+      ],
+      "source_files": [
+        "frontend-angular/src/app",
+        "frontend-angular/src/app/components/voxtral-offline.component.ts"
+      ],
+      "acceptance_criteria": [
+        "Bestehende globale, Profil- und Session-Komponenten steuern Recognition, Routing, Review, Backends, Enhancement und Restricted Models schema-getrieben.",
+        "Voxtral-Offline-Funktionalität wird integriert oder klar als Mobile-Local-Sonderpfad abgegrenzt; es entsteht keine zweite Config-Quelle.",
+        "Ungültige Kombinationen sind mit Reason-Code deaktiviert und Save/Reload/Reset bewahren Deltas."
+      ]
+    },
+    {
+      "id": "VPRF-076",
+      "title": "Angular-Candidate-Vergleich und manuelle Review integrieren",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-061",
+        "VPRF-067",
+        "VPRF-075"
+      ],
+      "source_files": [
+        "frontend-angular/src/app"
+      ],
+      "acceptance_criteria": [
+        "Candidates sind segment- und zeitachsensynchron mit Disagreements, Quelle, Variante, Confidence und Lineage vergleichbar.",
+        "Accept, Candidate-Auswahl, Korrektur und Reject verwenden ausschließlich die Hub-Review-API.",
+        "Original-Candidates bleiben nach Review sichtbar und Audiozugriff respektiert die wirksame Retention-Policy."
+      ]
+    },
+    {
+      "id": "VPRF-077",
+      "title": "Angular-Consent- und Personalisierungsverwaltung integrieren",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-068",
+        "VPRF-069",
+        "VPRF-072",
+        "VPRF-075"
+      ],
+      "source_files": [
+        "frontend-angular/src/app"
+      ],
+      "acceptance_criteria": [
+        "Lernen erfordert eine getrennte bewusste Opt-in-Aktion und zeigt Consent-Version, Zweck und Retention.",
+        "Export, Import, Widerruf, Reset und Delete besitzen bestätigte Hub-Aktionen und klare Erfolgs-/Fehlerzustände.",
+        "Normale Review-Auswahl aktiviert Lernen nicht und ein Nutzer sieht keine Daten anderer Tenants."
+      ]
+    },
+    {
+      "id": "VPRF-078",
+      "title": "Lokale Ausführung, Ressourcen und Routinggründe in Angular visualisieren",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-003",
+        "VPRF-027",
+        "VPRF-062",
+        "VPRF-075"
+      ],
+      "source_files": [
+        "frontend-angular/src/app"
+      ],
+      "acceptance_criteria": [
+        "UI zeigt Backend, Modellrevision, Local/Remote, Device, Status, Ressourcen und übersprungene Backends.",
+        "Adaptive Entscheidungen haben lesbare, redigierte Gründe und Policy-Blockierungen erscheinen nicht als generische Runtimefehler.",
+        "Component-Tests beweisen, dass Angular ausschließlich mit Hub-Endpunkten kommuniziert."
+      ]
+    },
+    {
+      "id": "VPRF-079",
+      "title": "Gemeinsame Audio-, Modell-, Netzwerk- und Privacy-Security-Suite erstellen",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-029",
+        "VPRF-035",
+        "VPRF-043",
+        "VPRF-044",
+        "VPRF-049",
+        "VPRF-053",
+        "VPRF-068",
+        "VPRF-072"
+      ],
+      "source_files": [
+        "tests",
+        "tests/e2e"
+      ],
+      "acceptance_criteria": [
+        "Suite deckt Audio-/Dateiangriffe, Modell-Supply-Chain, SSRF, DNS-Rebinding, Remote Code, Pickle, Envelope-Manipulation und Consent-/Tenant-Bypass ab.",
+        "Jeder Angriff wird vor produktiver Inferenz mit stabilem Fehlercode abgewiesen und hinterlässt keine Ressourcen oder Teilartefakte.",
+        "Security-Gate kann nicht vollständig durch Hardware-Skips umgangen werden und enthält keine sensitiven Inhalte."
+      ]
+    },
+    {
+      "id": "VPRF-080",
+      "title": "Unit-, Contract-, Conformance- und Migrationsgates vervollständigen",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-030",
+        "VPRF-049",
+        "VPRF-061",
+        "VPRF-067",
+        "VPRF-074"
+      ],
+      "source_files": [
+        "tests",
+        "frontend-angular/src/app"
+      ],
+      "acceptance_criteria": [
+        "Alle Wire-, Candidate-, Modell-, Policy-, Review- und Settings-Verträge besitzen positive, negative und alte Payload-Fixtures.",
+        "Adapter-Conformance prüft deklarierte Capabilities und null generate-Aufrufe; fehlende optionale Dependencies crashen nicht.",
+        "Migrationstests decken alte, gemischte und neue Voice-/Restricted-Konfigurationen sowie Feature-Flag-Rollback ab."
+      ]
+    },
+    {
+      "id": "VPRF-081",
+      "title": "Deterministische Fusion-Golden-Suite etablieren",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-057",
+        "VPRF-058",
+        "VPRF-059",
+        "VPRF-060",
+        "VPRF-061"
+      ],
+      "source_files": [
+        "tests/voice",
+        "tests/fixtures"
+      ],
+      "acceptance_criteria": [
+        "Golden-Suite umfasst Deutsch, Englisch und gemischte Sprache sowie Inserts, Deletes, Homophone, Zahlen, Namen, Overlaps und fehlende Zeiten.",
+        "Jede erwartete finale Passage besitzt erwartete Herkunft; unbelegte oder nicht deterministische Ergebnisse schlagen fehl.",
+        "Gleiche Fixtures erzeugen bitgleiche Alignment-, Score-, Disagreement- und Trace-Strukturen."
+      ]
+    },
+    {
+      "id": "VPRF-082",
+      "title": "Reproduzierbare Qualitäts-, Kalibrierungs- und Ressourcenregressionsgates definieren",
+      "type": "quality",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-007",
+        "VPRF-030",
+        "VPRF-049",
+        "VPRF-058",
+        "VPRF-061",
+        "VPRF-071"
+      ],
+      "source_files": [
+        "benchmarks/voice",
+        "benchmarks/restricted_inference"
+      ],
+      "acceptance_criteria": [
+        "Berichte nennen Git-SHA, Manifest-/Modellrevision, Quantisierung, Engineversion, Hardware und vollständige Konfiguration.",
+        "Versionierte Schwellen schlagen bei WER/CER-, Calibration-, Provenance-, Accuracy/F1-, Ranking-, Latenz- oder Ressourcenregression fehl.",
+        "Fusion oder Enhancement wird nur empfohlen, wenn definierte Holdout-Metriken innerhalb dokumentierter Toleranz nicht schlechter sind."
+      ]
+    },
+    {
+      "id": "VPRF-083",
+      "title": "Compose-No-Network-E2E für Voice, Restricted Inference und Fusion erstellen",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-028",
+        "VPRF-030",
+        "VPRF-048",
+        "VPRF-054",
+        "VPRF-055",
+        "VPRF-061",
+        "VPRF-074"
+      ],
+      "source_files": [
+        "docker/compose-next",
+        "tests/e2e"
+      ],
+      "acceptance_criteria": [
+        "E2E läuft über Hub, Taskqueue und interne Runtime-Container mit Vosk, whisper.cpp sowie kleinen HF-/sentence-transformers-Modellen.",
+        "Während des Laufs ist externer Netzwerkzugriff blockiert; Parallelität, Teilausfall, sequenzieller Kontext und Fusion werden geprüft.",
+        "Hub lädt keine Modellgewichte und Ergebnis enthält vollständige Candidate-, Wort-, Manifest- und Task-Provenance."
+      ]
+    },
+    {
+      "id": "VPRF-084",
+      "title": "Review-, Consent-, Personalisierungs- und Lösch-E2E erstellen",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-067",
+        "VPRF-068",
+        "VPRF-069",
+        "VPRF-070",
+        "VPRF-071",
+        "VPRF-072"
+      ],
+      "source_files": [
+        "tests/e2e",
+        "frontend-angular/tests"
+      ],
+      "acceptance_criteria": [
+        "Test deckt Review ohne Lernen, Opt-in, profilbezogene Verbesserung, Widerruf, Export und vollständige Löschung ab.",
+        "Zwei Nutzer beweisen Tenant-Isolation und doppelte Requests erzeugen keine doppelten Artefakte.",
+        "Nach Reset beeinflusst früheres Feedback keine Candidate-Bewertung und Exporte enthalten keine gelöschten Daten."
+      ]
+    },
+    {
+      "id": "VPRF-085",
+      "title": "Angular Unit-, Build- und Compose-E2E-Gate abschließen",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-075",
+        "VPRF-076",
+        "VPRF-077",
+        "VPRF-083",
+        "VPRF-084"
+      ],
+      "source_files": [
+        "frontend-angular/src/app",
+        "frontend-angular/tests"
+      ],
+      "acceptance_criteria": [
+        "Angular-Unit-Suite und Produktionsbuild sind grün; Compose-E2E prüft Scope-Vererbung, Candidate-Review, Consent und Status.",
+        "UI und API blockieren dieselben Capability-invaliden Kombinationen mit demselben Reason-Code.",
+        "Der Test verwendet ausschließlich das Compose-Frontend und startet keinen zusätzlichen Angular-Server."
+      ]
+    },
+    {
+      "id": "VPRF-086",
+      "title": "Optionale Adapter-, Judge-, Streaming- und Fine-Tuning-Exportgates ausführen",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "critical",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-013",
+        "VPRF-016",
+        "VPRF-017",
+        "VPRF-031",
+        "VPRF-041",
+        "VPRF-042",
+        "VPRF-046",
+        "VPRF-047",
+        "VPRF-050",
+        "VPRF-051",
+        "VPRF-062",
+        "VPRF-063",
+        "VPRF-064",
+        "VPRF-065",
+        "VPRF-073",
+        "VPRF-078",
+        "VPRF-082"
+      ],
+      "source_files": [
+        "tests",
+        "tests/e2e",
+        "benchmarks"
+      ],
+      "acceptance_criteria": [
+        "Jede optionale Capability besitzt validen, invaliden, unavailable-, Timeout- und Deaktivierungsfall.",
+        "Optionaler Judge-Ausfall liefert dasselbe deterministische Basisergebnis und Strict Choice akzeptiert nur bekannte IDs.",
+        "Der P0-Core-Release hängt nicht von optionaler Hardware oder diesen P2-Gates ab."
+      ]
+    },
+    {
+      "id": "VPRF-087",
+      "title": "Core-Release-Gate, Runbooks und Abschlussnachweis erstellen",
+      "type": "documentation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0.0,
+      "depends_on": [
+        "VPRF-008",
+        "VPRF-079",
+        "VPRF-080",
+        "VPRF-081",
+        "VPRF-082",
+        "VPRF-083",
+        "VPRF-084",
+        "VPRF-085"
+      ],
+      "source_files": [
+        "docs",
+        "artifacts/test-gates",
+        "docker/compose-next"
+      ],
+      "acceptance_criteria": [
+        "Release scheitert bei Security-, Privacy-, Offline-, no_generation-, Provenance-, API- oder Architekturregression.",
+        "Runbooks dokumentieren Modellpromotion, Offline-Installation, Streaming-Drain, OOM, Rollback, Consent-Widerruf, Löschung und Incident-Diagnose.",
+        "CPU-, RTX-3080- und optionale High-End-GPU-Profile sowie hardwareabhängige Evidence-Artefakte sind reproduzierbar dokumentiert."
+      ]
+    }
+  ],
+  "tasks_status_summary": {
+    "total": 87,
+    "by_status": {
+      "todo": 87,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0.0,
+    "by_priority": {
+      "P0": 70,
+      "P1": 13,
+      "P2": 4,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 4,
+      "high": 45,
+      "critical": 38
+    },
+    "critical_path": {
+      "total": 70,
+      "done": 0,
+      "remaining": 70
+    },
+    "milestones": {
+      "total": 7,
+      "todo": 7,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 87,
+    "by_type": {
+      "analysis": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "architecture": {
+        "total": 2,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "contract": {
+        "total": 6,
+        "by_status": {
+          "todo": 6,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "configuration": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "security": {
+        "total": 9,
+        "by_status": {
+          "todo": 9,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "quality": {
+        "total": 3,
+        "by_status": {
+          "todo": 3,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "migration": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "backend": {
+        "total": 13,
+        "by_status": {
+          "todo": 13,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "privacy": {
+        "total": 3,
+        "by_status": {
+          "todo": 3,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "adapter": {
+        "total": 11,
+        "by_status": {
+          "todo": 11,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "reliability": {
+        "total": 3,
+        "by_status": {
+          "todo": 3,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "streaming": {
+        "total": 2,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "api": {
+        "total": 5,
+        "by_status": {
+          "todo": 5,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "observability": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "deployment": {
+        "total": 2,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "testing": {
+        "total": 9,
+        "by_status": {
+          "todo": 9,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "integration": {
+        "total": 3,
+        "by_status": {
+          "todo": 3,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "performance": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "fusion": {
+        "total": 4,
+        "by_status": {
+          "todo": 4,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "routing": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "governance": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "frontend": {
+        "total": 4,
+        "by_status": {
+          "todo": 4,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "documentation": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      }
+    }
+  },
+  "weighted_progress_summary": {
+    "weighting_model_ref": "planning-weighting-default-v1",
+    "total_weight": 151.0,
+    "done_weight": 0.0,
+    "remaining_weight": 151.0,
+    "blocked_weight": 0.0,
+    "weighted_percent": 0.0
+  },
+  "milestone_progress_summary": {
+    "milestones": {
+      "VPRF-M1": {
+        "total_tasks": 8,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "VPRF-M2": {
+        "total_tasks": 13,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "VPRF-M3": {
+        "total_tasks": 11,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "VPRF-M4": {
+        "total_tasks": 17,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "VPRF-M5": {
+        "total_tasks": 16,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "VPRF-M6": {
+        "total_tasks": 13,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "VPRF-M7": {
+        "total_tasks": 9,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      }
+    }
+  },
+  "progress_summary": {
+    "state": "todo",
+    "todo_remaining": 87,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0,
+    "count_based_percent": 0.0,
+    "weighted_percent": 0.0
+  },
+  "derived_summary_metadata": {
+    "mode": "derived_cache",
+    "source_of_truth": "tasks",
+    "generated_at": "2026-07-12T15:24:28.841554Z",
+    "generator": "planning-summary-engine",
+    "generator_version": "1.0",
+    "source_hash": "018f19cf1909f106341303cf97c4096104dde6c9be2d356d8f0ad461edf1eec9",
+    "is_stale": false
+  }
+}
