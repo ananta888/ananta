@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from io import BytesIO
 
 import pytest
@@ -110,3 +111,20 @@ def test_voice_runtime_http_rejects_oversized_file():
 
     assert response.status_code == 413
     assert (response.json.get("error") or {}).get("code") == "validation.file_too_large"
+
+
+def test_production_health_is_unavailable_without_a_ready_backend(monkeypatch):
+    config = VoiceRuntimeConfig(
+        backend_fallback_order=("mock",),
+        backend="mock",
+        model="voxtral",
+    )
+    app = create_app(config)
+    app.config["voice_runtime_config"] = replace(config, production_profile=True)
+    monkeypatch.setattr(app.config["voice_runtime_backend"], "list_models", lambda: [])
+
+    response = app.test_client().get("/health")
+
+    assert response.status_code == 503
+    assert response.json["status"] == "degraded"
+    assert response.json["ok"] is False

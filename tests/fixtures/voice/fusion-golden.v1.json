@@ -1,0 +1,204 @@
+{
+  "schema_version": "ananta.voice-fusion-golden.v1",
+  "fixture_license": "CC0-1.0",
+  "cases": [
+    {
+      "case_id": "de-names-numbers-insert-delete",
+      "language": "de",
+      "phenomena": ["delete", "homophone", "insert", "missing_times", "name", "number"],
+      "candidates": [
+        {
+          "candidate_id": "de-a",
+          "backend": "vosk",
+          "model": "fixture-vosk",
+          "model_revision": "fixture-de-a-v1",
+          "manifest_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "text": "Anna zahlt 4 Euro heute",
+          "confidence": 0.95,
+          "duration_ms": 1000,
+          "words": [
+            {"start_ms": 0, "end_ms": 180, "text": "Anna", "confidence": 0.98},
+            {"start_ms": 180, "end_ms": 360, "text": "zahlt", "confidence": 0.96},
+            {"start_ms": 360, "end_ms": 520, "text": "4", "confidence": 0.70},
+            {"start_ms": 520, "end_ms": 720, "text": "Euro", "confidence": 0.97},
+            {"start_ms": 720, "end_ms": 1000, "text": "heute", "confidence": 0.96}
+          ]
+        },
+        {
+          "candidate_id": "de-b",
+          "backend": "whisper_cpp",
+          "model": "fixture-whisper",
+          "model_revision": "fixture-de-b-v1",
+          "manifest_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "text": "Anna zahlt vier Euro heute",
+          "confidence": 0.90,
+          "duration_ms": 1000,
+          "words": []
+        },
+        {
+          "candidate_id": "de-c",
+          "backend": "faster_whisper",
+          "model": "fixture-faster-whisper",
+          "model_revision": "fixture-de-c-v1",
+          "manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "text": "Anna zahlt vier Euro",
+          "confidence": 0.85,
+          "duration_ms": 1000,
+          "words": []
+        },
+        {
+          "candidate_id": "de-d",
+          "backend": "voxtral",
+          "model": "fixture-voxtral",
+          "model_revision": "fixture-de-d-v1",
+          "manifest_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "text": "Anja zahlt genau vier Euro heute",
+          "confidence": 0.80,
+          "duration_ms": 1000,
+          "words": []
+        }
+      ],
+      "expected": {
+        "text": "Anna zahlt vier Euro heute",
+        "selected_candidate_id": "de-b",
+        "token_provenance": [
+          {"token_index": 0, "token": "Anna", "candidate_id": "de-b", "source_token_index": 0, "lineage_id": "de-b", "operation": "copied"},
+          {"token_index": 1, "token": "zahlt", "candidate_id": "de-b", "source_token_index": 1, "lineage_id": "de-b", "operation": "copied"},
+          {"token_index": 2, "token": "vier", "candidate_id": "de-b", "source_token_index": 2, "lineage_id": "de-b", "operation": "copied"},
+          {"token_index": 3, "token": "Euro", "candidate_id": "de-b", "source_token_index": 3, "lineage_id": "de-b", "operation": "copied"},
+          {"token_index": 4, "token": "heute", "candidate_id": "de-b", "source_token_index": 4, "lineage_id": "de-b", "operation": "copied"}
+        ],
+        "projection_sha256": "8b9c69c798c0e247313c238ac256998eded1be76dcde94cfb89ec0f2242ecb42"
+      }
+    },
+    {
+      "case_id": "en-overlap-homophone-missing-times",
+      "language": "en",
+      "phenomena": ["delete", "homophone", "insert", "missing_times", "number", "overlap"],
+      "candidates": [
+        {
+          "candidate_id": "en-a",
+          "backend": "vosk",
+          "model": "fixture-vosk",
+          "model_revision": "fixture-en-a-v1",
+          "manifest_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "text": "Alice writes two reports now",
+          "confidence": 0.96,
+          "duration_ms": 1200,
+          "segments": [
+            {
+              "start_ms": 0,
+              "end_ms": 700,
+              "text": "Alice writes two",
+              "words": [
+                {"start_ms": 0, "end_ms": 220, "text": "Alice", "confidence": 0.98},
+                {"start_ms": 220, "end_ms": 440, "text": "writes", "confidence": 0.96},
+                {"start_ms": 440, "end_ms": 700, "text": "two", "confidence": 0.95}
+              ]
+            },
+            {
+              "start_ms": 650,
+              "end_ms": 1200,
+              "text": "reports now",
+              "words": [
+                {"start_ms": 650, "end_ms": 900, "text": "reports", "confidence": 0.97},
+                {"start_ms": 900, "end_ms": 1200, "text": "now", "confidence": 0.94}
+              ]
+            }
+          ]
+        },
+        {
+          "candidate_id": "en-b",
+          "backend": "whisper_cpp",
+          "model": "fixture-whisper",
+          "model_revision": "fixture-en-b-v1",
+          "manifest_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "text": "Alice rights two reports now",
+          "confidence": 0.91,
+          "duration_ms": 1200
+        },
+        {
+          "candidate_id": "en-c",
+          "backend": "faster_whisper",
+          "model": "fixture-faster-whisper",
+          "model_revision": "fixture-en-c-v1",
+          "manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "text": "Alice writes 2 reports now",
+          "confidence": 0.86,
+          "duration_ms": 1200
+        },
+        {
+          "candidate_id": "en-d",
+          "backend": "voxtral",
+          "model": "fixture-voxtral",
+          "model_revision": "fixture-en-d-v1",
+          "manifest_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "text": "Alice writes two detailed reports",
+          "confidence": 0.82,
+          "duration_ms": 1200
+        }
+      ],
+      "expected": {
+        "text": "Alice writes two reports now",
+        "selected_candidate_id": "en-a",
+        "token_provenance": [
+          {"token_index": 0, "token": "Alice", "candidate_id": "en-a", "source_token_index": 0, "lineage_id": "en-a", "operation": "copied"},
+          {"token_index": 1, "token": "writes", "candidate_id": "en-a", "source_token_index": 1, "lineage_id": "en-a", "operation": "copied"},
+          {"token_index": 2, "token": "two", "candidate_id": "en-a", "source_token_index": 2, "lineage_id": "en-a", "operation": "copied"},
+          {"token_index": 3, "token": "reports", "candidate_id": "en-a", "source_token_index": 3, "lineage_id": "en-a", "operation": "copied"},
+          {"token_index": 4, "token": "now", "candidate_id": "en-a", "source_token_index": 4, "lineage_id": "en-a", "operation": "copied"}
+        ],
+        "projection_sha256": "61200d43f1a80f70a381777106907e5742364e9c5c32451547ee4907f17dd1ce"
+      }
+    },
+    {
+      "case_id": "mixed-de-en-consensus",
+      "language": "de-en",
+      "phenomena": ["mixed_language", "name"],
+      "candidates": [
+        {
+          "candidate_id": "mix-a",
+          "backend": "vosk",
+          "model": "fixture-vosk",
+          "model_revision": "fixture-mix-a-v1",
+          "manifest_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "text": "Bitte deploy release sieben heute",
+          "confidence": 0.94,
+          "duration_ms": 1000
+        },
+        {
+          "candidate_id": "mix-b",
+          "backend": "whisper_cpp",
+          "model": "fixture-whisper",
+          "model_revision": "fixture-mix-b-v1",
+          "manifest_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "text": "Bitte deploy Release seven heute",
+          "confidence": 0.92,
+          "duration_ms": 1000
+        },
+        {
+          "candidate_id": "mix-c",
+          "backend": "faster_whisper",
+          "model": "fixture-faster-whisper",
+          "model_revision": "fixture-mix-c-v1",
+          "manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "text": "Bitte deploy Release seven heute",
+          "confidence": 0.88,
+          "duration_ms": 1000
+        }
+      ],
+      "expected": {
+        "text": "Bitte deploy Release seven heute",
+        "selected_candidate_id": "mix-b",
+        "token_provenance": [
+          {"token_index": 0, "token": "Bitte", "candidate_id": "mix-b", "source_token_index": 0, "lineage_id": "mix-b", "operation": "copied"},
+          {"token_index": 1, "token": "deploy", "candidate_id": "mix-b", "source_token_index": 1, "lineage_id": "mix-b", "operation": "copied"},
+          {"token_index": 2, "token": "Release", "candidate_id": "mix-b", "source_token_index": 2, "lineage_id": "mix-b", "operation": "copied"},
+          {"token_index": 3, "token": "seven", "candidate_id": "mix-b", "source_token_index": 3, "lineage_id": "mix-b", "operation": "copied"},
+          {"token_index": 4, "token": "heute", "candidate_id": "mix-b", "source_token_index": 4, "lineage_id": "mix-b", "operation": "copied"}
+        ],
+        "projection_sha256": "e7e0ca78f30ecaedc1b3b3c4903cc3024caafe0ca0bec900875e0e99be37762c"
+      }
+    }
+  ]
+}

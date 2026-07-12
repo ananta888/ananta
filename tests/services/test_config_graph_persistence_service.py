@@ -8,6 +8,12 @@ from agent.services.config_graph_patch_service import PatchOp
 from agent.services.config_graph_persistence_service import (
     ConfigGraphPersistenceService,
 )
+from agent.services.path_ai_mode_policy_service import (
+    AI_MODE_FULL_LLM,
+    PathAiModePolicyService,
+    get_path_ai_mode_policy_service,
+    reset_path_ai_mode_policy_service,
+)
 
 
 def _repo(tmp_path: Path) -> Path:
@@ -88,6 +94,33 @@ def test_set_data_on_path_rule_persists_to_user_json(tmp_path: Path) -> None:
     assert result.success is True
     user_json = json.loads((root / "user.json").read_text(encoding="utf-8"))
     assert user_json["path_ai_modes"][0]["blocked_ai_modes"] == ["code_gen", "full_llm"]
+
+
+def test_path_rule_persistence_reloads_the_existing_live_policy_object(tmp_path: Path) -> None:
+    root = _repo(tmp_path)
+    graph = ConfigGraphBuilderService(
+        repo_root=root,
+        user_config=json.loads((root / "user.json").read_text(encoding="utf-8")),
+    ).build()
+    live_policy = PathAiModePolicyService()
+    reset_path_ai_mode_policy_service(live_policy)
+    try:
+        result = ConfigGraphPersistenceService(repo_root=root).persist(
+            graph,
+            [
+                PatchOp(
+                    op="set_data",
+                    target="path_rule::docs/**",
+                    data={"blocked_ai_modes": [AI_MODE_FULL_LLM]},
+                )
+            ],
+        )
+
+        assert result.success is True
+        assert get_path_ai_mode_policy_service() is live_policy
+        assert live_policy.is_mode_allowed("docs/production.md", AI_MODE_FULL_LLM) is False
+    finally:
+        reset_path_ai_mode_policy_service(None)
 
 
 def test_readonly_instruction_layer_is_not_persistable(tmp_path: Path) -> None:

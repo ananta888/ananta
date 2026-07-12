@@ -3,8 +3,8 @@ from __future__ import annotations
 from agent.services.restricted_inference_config_service import (
     ENGINE_MOCK,
     ENGINE_SENTENCE_TRANSFORMERS,
-    RestrictedInferenceConfigService,
     TASK_CANDIDATE_RERANK,
+    RestrictedInferenceConfigService,
 )
 
 
@@ -67,6 +67,40 @@ def test_explicit_sentence_transformers_config_bridges_embedding_options() -> No
         "de": "deepset/gbert-base",
         "en": "all-MiniLM-L6-v2",
         "*": "intfloat/multilingual-e5-small",
+    }
+
+
+def test_legacy_embedding_fields_do_not_implicitly_enable_restricted_inference() -> None:
+    cfg = RestrictedInferenceConfigService.from_config(
+        {"embedding_model_id": "legacy/embedding-model"}
+    )
+
+    assert cfg.default_engine == ENGINE_MOCK
+    assert cfg.default_model_id == "mock-default"
+
+
+def test_mixed_restricted_config_uses_new_values_and_fills_only_missing_legacy_aliases() -> None:
+    cfg = RestrictedInferenceConfigService.from_config(
+        {
+            "embedding_model_id": "legacy/default-model",
+            "embedding_lang_detect": True,
+            "embedding_lang_model_de": "legacy/de-model",
+            "embedding_lang_model_en": "legacy/en-model",
+            "restricted_inference": {
+                "default_engine": ENGINE_SENTENCE_TRANSFORMERS,
+                "default_model_id": "canonical/default-model",
+                "lang_detect": False,
+                "lang_model_de": "canonical/de-model",
+            },
+        }
+    )
+
+    assert cfg.default_model_id == "canonical/default-model"
+    assert cfg.models[0].options["lang_detect"] is False
+    assert cfg.models[0].options["lang_model_map"] == {
+        "de": "canonical/de-model",
+        "en": "legacy/en-model",
+        "*": "canonical/default-model",
     }
 
 

@@ -18,8 +18,12 @@ if "worker_engine" not in sys.modules:
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 os.environ["CONTROLLER_URL"] = "http://mock-controller"
 os.environ["AGENT_NAME"] = "test-agent"
-os.environ["INITIAL_ADMIN_USER"] = "admin"
-os.environ["INITIAL_ADMIN_PASSWORD"] = "admin"
+os.environ.setdefault(
+    "VOICE_DELETION_LEDGER_PATH",
+    f"/tmp/ananta-voice-deletion-ledger-pytest-{os.getpid()}.jsonl",
+)
+os.environ.setdefault("INITIAL_ADMIN_USER", "admin")
+os.environ.setdefault("INITIAL_ADMIN_PASSWORD", "admin")
 
 from tests_support import admin_login_token, reset_auth_state
 
@@ -177,6 +181,15 @@ def _db_runtime() -> dict[str, Any]:
         UserInstructionProfileDB,
         UserDB,
         VerificationRecordDB,
+        VoiceConfigurationDeltaDB,
+        VoiceConsentDB,
+        VoiceDeletionTombstoneDB,
+        VoiceFeedbackDB,
+        VoiceGovernanceIdempotencyDB,
+        VoicePersonalizationProfileDB,
+        VoiceResultArtifactDB,
+        VoiceReviewDB,
+        VoiceRuntimeCleanupDB,
         WorkerJobDB,
         WorkerResultDB,
         WorkerSlotLeaseDB,
@@ -236,6 +249,15 @@ def _db_runtime() -> dict[str, Any]:
             StatsSnapshotDB,
             PolicyDecisionDB,
             VerificationRecordDB,
+            VoiceFeedbackDB,
+            VoiceDeletionTombstoneDB,
+            VoiceConfigurationDeltaDB,
+            VoicePersonalizationProfileDB,
+            VoiceReviewDB,
+            VoiceResultArtifactDB,
+            VoiceRuntimeCleanupDB,
+            VoiceConsentDB,
+            VoiceGovernanceIdempotencyDB,
             AuditLogDB,
             UserDB,
         ),
@@ -497,6 +519,10 @@ def cleanup_db_and_runtime():
                 Path(rel).unlink(missing_ok=True)
             except Exception:
                 pass
+        try:
+            Path(os.environ["VOICE_DELETION_LEDGER_PATH"]).unlink(missing_ok=True)
+        except Exception:
+            pass
         data_dir = Path(_settings().data_dir)
         for rel_dir in ("artifacts", "knowledge_indices"):
             target_dir = data_dir / rel_dir
