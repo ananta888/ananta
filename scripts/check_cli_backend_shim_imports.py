@@ -22,8 +22,8 @@ The detector excludes:
 """
 from __future__ import annotations
 
+import os
 import re
-import subprocess
 import sys
 from pathlib import Path
 
@@ -69,18 +69,34 @@ def _is_excluded(path: Path) -> bool:
 def _find_violations(root: Path) -> list[tuple[Path, int, str]]:
     """Find all ``from agent.common.sgpt_`` violations in the codebase."""
     violations: list[tuple[Path, int, str]] = []
-    for py_file in root.rglob("*.py"):
-        if _is_excluded(py_file):
-            continue
-        try:
-            text = py_file.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
-            continue
-        for lineno, line in enumerate(text.splitlines(), start=1):
-            for pattern in VIOLATION_PATTERNS:
-                if pattern.search(line):
-                    violations.append((py_file, lineno, line.rstrip()))
-                    break
+    excluded_names = {
+        ".git",
+        ".venv",
+        "venv",
+        "node_modules",
+        "__pycache__",
+        ".pytest_cache",
+        "data",
+        "artifacts",
+        "project-workspaces",
+    }
+    for current_root, dirnames, filenames in os.walk(root):
+        dirnames[:] = [name for name in dirnames if name not in excluded_names]
+        for filename in filenames:
+            if not filename.endswith(".py"):
+                continue
+            py_file = Path(current_root) / filename
+            if _is_excluded(py_file):
+                continue
+            try:
+                text = py_file.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                continue
+            for lineno, line in enumerate(text.splitlines(), start=1):
+                for pattern in VIOLATION_PATTERNS:
+                    if pattern.search(line):
+                        violations.append((py_file, lineno, line.rstrip()))
+                        break
     return violations
 
 
