@@ -1,0 +1,33 @@
+{
+  "schema_version": "restricted_model_manifest.v1",
+  "manifest_id": "example-local-classifier-v1",
+  "model_id": "example/local-classifier",
+  "engine": "huggingface-transformers",
+  "format": "safetensors",
+  "revision": "0123456789abcdef0123456789abcdef01234567",
+  "source_type": "local_snapshot",
+  "license_id": "Apache-2.0",
+  "operations": ["classify"],
+  "files": [
+    {
+      "path": "model.safetensors",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "size_bytes": 0,
+      "role": "weights"
+    }
+  ],
+  "trust_remote_code": false,
+  "tokenizer": "",
+  "device": "cpu",
+  "dtype": "float32",
+  "quantization": "none",
+  "ram_bytes": 536870912,
+  "vram_bytes": 0,
+  "max_batch_size": 8,
+  "max_sequence_length": 512,
+  "allow_cpu_fallback": false,
+  "metadata": {
+    "task": "sequence-classification",
+    "labels": ["safe", "unsafe"]
+  }
+}

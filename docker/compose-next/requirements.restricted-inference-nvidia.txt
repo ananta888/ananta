@@ -1,0 +1,7 @@
+# Optional non-generative transformer engines for the isolated NVIDIA worker.
+# This stage intentionally does not inherit the CPU-only torch installation.
+--extra-index-url https://download.pytorch.org/whl/cu124
+
+sentence-transformers==3.4.1
+torch==2.6.0+cu124
+transformers==4.48.3

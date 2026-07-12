@@ -1,0 +1,5 @@
+# Pinned CUDA 12 user-space libraries required by CTranslate2/faster-whisper.
+# The NVIDIA container runtime supplies the driver and device, not cuBLAS or
+# cuDNN. Keep this separate from the CPU dependency set.
+nvidia-cublas-cu12==12.4.5.8
+nvidia-cudnn-cu12==9.1.0.70

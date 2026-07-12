@@ -1,0 +1,5 @@
+# Optional local CPU backends.  Models are mounted separately and downloads are
+# disabled by the image and Compose environment.
+faster-whisper==1.1.1
+vosk==0.3.45
+webrtcvad-wheels==2.0.14

@@ -1,0 +1,529 @@
+# Additive production overlay for local Voice and restricted, non-generative
+# inference.  Select exactly one combined profile:
+#   voice-production-minimal | voice-production-cpu | voice-production-nvidia
+#
+# Runtime services only share a capability-specific internal network with the
+# Hub.  Voice and restricted-inference workers cannot address each other.
+
+x-runtime-hardening: &runtime-hardening
+  init: true
+  restart: unless-stopped
+  read_only: true
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  pids_limit: 256
+  stop_grace_period: 20s
+  logging:
+    driver: json-file
+    options:
+      max-file: "3"
+      max-size: 10m
+
+x-voice-runtime-common: &voice-runtime-common
+  <<: *runtime-hardening
+  user: "10001:10001"
+  working_dir: /app
+  expose:
+    - "8090"
+  environment: &voice-runtime-environment
+    HF_HOME: /tmp/model-cache
+    HF_DATASETS_OFFLINE: "1"
+    HF_HUB_OFFLINE: "1"
+    TRANSFORMERS_OFFLINE: "1"
+    VOICE_ALLOW_MODEL_DOWNLOAD: "false"
+    VOICE_ADAPTIVE_ROUTING_ENABLED: ${VOICE_ADAPTIVE_ROUTING_ENABLED:-true}
+    VOICE_AUDIO_ENHANCEMENT_ENABLED: ${VOICE_AUDIO_ENHANCEMENT_ENABLED:-false}
+    VOICE_BACKEND_FALLBACK_ORDER: whisper_cpp
+    VOICE_CANDIDATE_DEADLINE_SEC: ${VOICE_CANDIDATE_DEADLINE_SEC:-120}
+    VOICE_CALIBRATION_PATH: /models/voice/calibration/calibration.json
+    VOICE_CORRECTION_POLICY: ${VOICE_CORRECTION_POLICY:-restricted_choice}
+    VOICE_DIARIZATION_BACKEND: ${VOICE_DIARIZATION_BACKEND:-none}
+    VOICE_DIARIZATION_MODEL_ROOT: ${VOICE_DIARIZATION_MODEL_ROOT:-/models/voice/diarization}
+    VOICE_ENABLE_STREAMING: ${VOICE_ENABLE_STREAMING:-true}
+    VOICE_ENHANCEMENT_VARIANTS: ${VOICE_ENHANCEMENT_VARIANTS:-original}
+    VOICE_FASTER_WHISPER_BEAM_SIZE: ${VOICE_FASTER_WHISPER_BEAM_SIZE:-5}
+    VOICE_FASTER_WHISPER_COMPUTE_TYPE: ${VOICE_FASTER_WHISPER_COMPUTE_TYPE:-default}
+    VOICE_FASTER_WHISPER_VAD_FILTER: ${VOICE_FASTER_WHISPER_VAD_FILTER:-false}
+    VOICE_FASTER_WHISPER_VAD_MIN_SILENCE_MS: ${VOICE_FASTER_WHISPER_VAD_MIN_SILENCE_MS:-500}
+    VOICE_FALLBACK_MODEL: ${VOICE_FALLBACK_MODEL:-whisper-small}
+    VOICE_GLOSSARY_PATH: ${VOICE_GLOSSARY_PATH:-}
+    VOICE_INTERNAL_SERVICE_TOKEN: "${VOICE_INTERNAL_SERVICE_TOKEN:?VOICE_INTERNAL_SERVICE_TOKEN must be set}"
+    VOICE_MAX_AUDIO_DURATION_SEC: ${VOICE_MAX_AUDIO_DURATION_SEC:-3600}
+    VOICE_MAX_AUDIO_MB: ${VOICE_MAX_AUDIO_MB:-25}
+    VOICE_MAX_DECODED_PCM_MB: ${VOICE_MAX_DECODED_PCM_MB:-256}
+    VOICE_MAX_PARALLEL_BACKENDS: ${VOICE_MAX_PARALLEL_BACKENDS:-2}
+    VOICE_MAX_CANDIDATE_COUNT: ${VOICE_MAX_CANDIDATE_COUNT:-8}
+    VOICE_MAX_QUEUE_DEPTH: ${VOICE_MAX_QUEUE_DEPTH:-16}
+    VOICE_MODEL: ${VOICE_MODEL:-whisper-small}
+    VOICE_MODEL_MANIFEST_PATH: /models/voice/manifests/voice-models.json
+    VOICE_MODEL_ROOT: /models/voice
+    VOICE_POSTPROCESS_BACKEND: ${VOICE_POSTPROCESS_BACKEND:-rules}
+    VOICE_PYANNOTE_MANIFEST_PATH: ${VOICE_PYANNOTE_MANIFEST_PATH:-/models/voice/diarization/manifest.json}
+    VOICE_PRODUCTION_PROFILE: "true"
+    VOICE_RECOGNITION_STRATEGY: ${VOICE_RECOGNITION_STRATEGY:-single}
+    VOICE_RESTRICTED_CHOICE_HOOK_ENABLED: ${VOICE_RESTRICTED_CHOICE_HOOK_ENABLED:-true}
+    VOICE_REQUIRE_INTERNAL_AUTH: "true"
+    VOICE_RERUN_BACKEND: ${VOICE_RERUN_BACKEND:-whisper_cpp}
+    VOICE_RERUN_MAX_AUDIO_MS: ${VOICE_RERUN_MAX_AUDIO_MS:-30000}
+    VOICE_REVIEW_POLICY: ${VOICE_REVIEW_POLICY:-on_disagreement}
+    VOICE_ROUTING_STRATEGY: ${VOICE_ROUTING_STRATEGY:-fixed}
+    VOICE_RUNTIME_HOST: 0.0.0.0
+    VOICE_RUNTIME_PORT: "8090"
+    VOICE_STORE_AUDIO: "false"
+    VOICE_TIMEOUT_SEC: ${VOICE_TIMEOUT_SEC:-120}
+    VOICE_TRANSPORT_MODE: ${VOICE_TRANSPORT_MODE:-stream}
+    VOICE_VAD_BACKEND: ${VOICE_VAD_BACKEND:-webrtcvad}
+    VOICE_SILERO_VAD_MODEL_PATH: ${VOICE_SILERO_VAD_MODEL_PATH:-}
+    VOICE_SILERO_VAD_THRESHOLD: ${VOICE_SILERO_VAD_THRESHOLD:-0.5}
+    VOICE_VOSK_MODEL_PATH: /models/voice/vosk
+    VOICE_WHISPER_CPP_BIN: /models/voice/bin/whisper-cli
+    VOICE_WHISPER_CPP_BEAM_SIZE: ${VOICE_WHISPER_CPP_BEAM_SIZE:-5}
+    VOICE_WHISPER_CPP_GPU_LAYERS: ${VOICE_WHISPER_CPP_GPU_LAYERS:-0}
+    VOICE_WHISPER_CPP_MODEL_PATH: /models/voice/whisper/ggml-small.bin
+    VOICE_WHISPER_CPP_PROMPT_MAX_CHARS: ${VOICE_WHISPER_CPP_PROMPT_MAX_CHARS:-512}
+    VOICE_WHISPER_CPP_TEMPERATURE: ${VOICE_WHISPER_CPP_TEMPERATURE:-0.0}
+    VOICE_WHISPER_CPP_THREADS: ${VOICE_WHISPER_CPP_THREADS:-4}
+  volumes:
+    - type: bind
+      source: ${VOICE_MODEL_DIR:-../../models/voice}
+      target: /models/voice
+      read_only: true
+      bind:
+        create_host_path: false
+  tmpfs:
+    - /tmp:size=536870912,mode=1770,uid=10001,gid=10001,noexec,nosuid,nodev
+    - /run:size=16777216,mode=0750,uid=10001,gid=10001,noexec,nosuid,nodev
+  healthcheck:
+    test:
+      - CMD
+      - python
+      - -c
+      - import json,urllib.request; payload=json.load(urllib.request.urlopen('http://127.0.0.1:8090/health', timeout=3)); raise SystemExit(0 if payload.get('status') == 'ready' else 1)
+    interval: 15s
+    timeout: 4s
+    retries: 5
+    start_period: 20s
+
+x-restricted-inference-common: &restricted-inference-common
+  <<: *runtime-hardening
+  user: "10002:10002"
+  working_dir: /app
+  expose:
+    - "8091"
+  environment: &restricted-inference-environment
+    ANANTA_RESTRICTED_INFERENCE_HOST: 0.0.0.0
+    ANANTA_RESTRICTED_INFERENCE_MANIFEST_ROOT: /models/restricted/manifests
+    ANANTA_RESTRICTED_INFERENCE_MAX_REQUEST_BYTES: ${RESTRICTED_INFERENCE_MAX_REQUEST_BYTES:-1048576}
+    ANANTA_RESTRICTED_INFERENCE_MAX_IN_FLIGHT: ${ANANTA_RESTRICTED_INFERENCE_MAX_IN_FLIGHT:-2}
+    ANANTA_RESTRICTED_INFERENCE_MAX_LOADED_MODELS: ${ANANTA_RESTRICTED_INFERENCE_MAX_LOADED_MODELS:-2}
+    ANANTA_RESTRICTED_INFERENCE_MAX_QUEUE: ${ANANTA_RESTRICTED_INFERENCE_MAX_QUEUE:-8}
+    ANANTA_RESTRICTED_INFERENCE_MAX_RAM_BYTES: ${ANANTA_RESTRICTED_INFERENCE_MAX_RAM_BYTES:-8589934592}
+    ANANTA_RESTRICTED_INFERENCE_MAX_VRAM_BYTES: ${ANANTA_RESTRICTED_INFERENCE_MAX_VRAM_BYTES:-0}
+    ANANTA_RESTRICTED_INFERENCE_PORT: "8091"
+    ANANTA_RESTRICTED_INFERENCE_SNAPSHOT_ROOT: /models/restricted/artifacts
+    ANANTA_RESTRICTED_INFERENCE_TOKEN: "${RESTRICTED_INFERENCE_INTERNAL_TOKEN:?RESTRICTED_INFERENCE_INTERNAL_TOKEN must contain at least 24 characters}"
+    HF_HOME: /tmp/model-cache
+    HF_HUB_OFFLINE: "1"
+    RESTRICTED_INFERENCE_ALLOW_MODEL_DOWNLOAD: "false"
+    RESTRICTED_INFERENCE_HOST: 0.0.0.0
+    RESTRICTED_INFERENCE_INTERNAL_TOKEN: "${RESTRICTED_INFERENCE_INTERNAL_TOKEN:?RESTRICTED_INFERENCE_INTERNAL_TOKEN must contain at least 24 characters}"
+    RESTRICTED_INFERENCE_MANIFEST_DIR: /models/restricted/manifests
+    RESTRICTED_INFERENCE_MODEL_ROOT: /models/restricted/artifacts
+    RESTRICTED_INFERENCE_PORT: "8091"
+    RESTRICTED_INFERENCE_REQUIRE_INTERNAL_AUTH: "true"
+    RESTRICTED_INFERENCE_WORKER_ID: ${RESTRICTED_INFERENCE_WORKER_ID:-restricted-inference-1}
+    TRANSFORMERS_OFFLINE: "1"
+  volumes:
+    - type: bind
+      source: ${RESTRICTED_INFERENCE_MODEL_DIR:-../../models/restricted-inference}
+      target: /models/restricted
+      read_only: true
+      bind:
+        create_host_path: false
+  tmpfs:
+    - /tmp:size=1073741824,mode=1770,uid=10002,gid=10002,noexec,nosuid,nodev
+    - /run:size=16777216,mode=0750,uid=10002,gid=10002,noexec,nosuid,nodev
+  healthcheck:
+    test:
+      - CMD
+      - python
+      - -c
+      - "import json, urllib.request; payload=json.load(urllib.request.urlopen('http://127.0.0.1:8091/health', timeout=3)); raise SystemExit(0 if payload.get('status') == 'ready' else 1)"
+    interval: 15s
+    timeout: 4s
+    retries: 5
+    start_period: 20s
+
+x-restricted-inference-readiness: &restricted-inference-readiness
+  test:
+    - CMD
+    - python
+    - -c
+    - "import json, urllib.request; payload=json.load(urllib.request.urlopen('http://127.0.0.1:8091/health', timeout=3)); raise SystemExit(0 if payload.get('status') == 'ready' else 1)"
+  interval: 15s
+  timeout: 4s
+  retries: 5
+  start_period: 30s
+
+x-generative-judge-common: &generative-judge-common
+  <<: *runtime-hardening
+  user: "10003:10003"
+  working_dir: /app
+  expose:
+    - "8092"
+  environment:
+    GENERATIVE_JUDGE_ALLOWED_HUB_ORIGINS: http://ai-agent-hub:5000
+    GENERATIVE_JUDGE_DEVICE: cpu
+    GENERATIVE_JUDGE_ENGINE: ${GENERATIVE_JUDGE_ENGINE:-transformers}
+    GENERATIVE_JUDGE_ENGINE_MAX_RESPONSE_BYTES: ${GENERATIVE_JUDGE_ENGINE_MAX_RESPONSE_BYTES:-65536}
+    GENERATIVE_JUDGE_HOST: 0.0.0.0
+    GENERATIVE_JUDGE_INTERNAL_TOKEN: ${VOICE_GENERATIVE_JUDGE_WORKER_TOKEN:-}
+    GENERATIVE_JUDGE_LOOPBACK_ENDPOINT: ${GENERATIVE_JUDGE_LOOPBACK_ENDPOINT:-}
+    GENERATIVE_JUDGE_LOOPBACK_TOKEN: ${GENERATIVE_JUDGE_LOOPBACK_TOKEN:-}
+    GENERATIVE_JUDGE_MAX_IN_FLIGHT: ${GENERATIVE_JUDGE_MAX_IN_FLIGHT:-1}
+    GENERATIVE_JUDGE_MAX_INPUT_CHARS: ${GENERATIVE_JUDGE_MAX_INPUT_CHARS:-64000}
+    GENERATIVE_JUDGE_MAX_INPUT_TOKENS: ${GENERATIVE_JUDGE_MAX_INPUT_TOKENS:-4096}
+    GENERATIVE_JUDGE_MAX_NEW_TOKENS: ${GENERATIVE_JUDGE_MAX_NEW_TOKENS:-32}
+    GENERATIVE_JUDGE_MAX_REQUEST_BYTES: ${GENERATIVE_JUDGE_MAX_REQUEST_BYTES:-1048576}
+    GENERATIVE_JUDGE_MODEL_PATH: /models/generative-judge/model
+    GENERATIVE_JUDGE_MODEL_ROOT: /models/generative-judge
+    GENERATIVE_JUDGE_PORT: "8092"
+    HF_HOME: /tmp/model-cache
+    HF_HUB_OFFLINE: "1"
+    TRANSFORMERS_OFFLINE: "1"
+  tmpfs:
+    - /tmp:size=268435456,mode=1770,uid=10003,gid=10003,noexec,nosuid,nodev
+    - /run:size=16777216,mode=0750,uid=10003,gid=10003,noexec,nosuid,nodev
+  volumes:
+    - type: bind
+      source: ${GENERATIVE_JUDGE_MODEL_DIR:-../../models/generative-judge}
+      target: /models/generative-judge
+      read_only: true
+      bind:
+        create_host_path: false
+  cpus: ${GENERATIVE_JUDGE_CPUS:-2.0}
+  mem_limit: ${GENERATIVE_JUDGE_MEMORY:-2g}
+  deploy:
+    resources:
+      limits:
+        cpus: ${GENERATIVE_JUDGE_CPUS:-2.0}
+        memory: ${GENERATIVE_JUDGE_MEMORY:-2g}
+        pids: 256
+      reservations:
+        cpus: "0.25"
+        memory: 256m
+
+services:
+  ai-agent-hub:
+    extends:
+      file: compose.base.yml
+      service: ai-agent-hub-base
+    environment:
+      ANANTA_RESTRICTED_INFERENCE_ALLOWED_ENDPOINTS: http://restricted-inference-worker:8091/internal/v1/restricted-inference
+      ANANTA_RESTRICTED_INFERENCE_URL: http://restricted-inference-worker:8091/internal/v1/restricted-inference
+      ANANTA_RESTRICTED_INFERENCE_TOKEN: "${RESTRICTED_INFERENCE_INTERNAL_TOKEN:?RESTRICTED_INFERENCE_INTERNAL_TOKEN must contain at least 24 characters}"
+      ANANTA_RESTRICTED_INFERENCE_MANIFEST_SCORE_CHOICES: ${ANANTA_RESTRICTED_INFERENCE_MANIFEST_SCORE_CHOICES:-}
+      RESTRICTED_INFERENCE_INTERNAL_TOKEN: "${RESTRICTED_INFERENCE_INTERNAL_TOKEN:?RESTRICTED_INFERENCE_INTERNAL_TOKEN must contain at least 24 characters}"
+      RESTRICTED_INFERENCE_RUNTIME_URL: http://restricted-inference-worker:8091
+      RESTRICTED_INFERENCE_WORKER_URL: http://restricted-inference-worker:8091
+      VOICE_DIRECT_CLIENT_ACCESS: "false"
+      VOICE_DELETION_LEDGER_PATH: /app/data/voice-deletion-ledger.v1.jsonl
+      VOICE_DELETION_LEDGER_SEGMENT_RECORDS: ${VOICE_DELETION_LEDGER_SEGMENT_RECORDS:-10000}
+      VOICE_DELETION_LEDGER_MAX_RECORDS: ${VOICE_DELETION_LEDGER_MAX_RECORDS:-1000000}
+      VOICE_GENERATIVE_JUDGE_HUB_ORIGIN: http://ai-agent-hub:5000
+      VOICE_GENERATIVE_JUDGE_MAX_RESPONSE_BYTES: ${VOICE_GENERATIVE_JUDGE_MAX_RESPONSE_BYTES:-65536}
+      VOICE_GENERATIVE_JUDGE_TIMEOUT_MS: ${VOICE_GENERATIVE_JUDGE_TIMEOUT_MS:-2000}
+      VOICE_GENERATIVE_JUDGE_WORKER_ALLOWED_ENDPOINTS: http://generative-judge-worker:8092/internal/v1/generative-judge
+      VOICE_GENERATIVE_JUDGE_WORKER_TOKEN: ${VOICE_GENERATIVE_JUDGE_WORKER_TOKEN:-}
+      VOICE_GENERATIVE_JUDGE_WORKER_URL: http://generative-judge-worker:8092/internal/v1/generative-judge
+      VOICE_INTERNAL_SERVICE_TOKEN: "${VOICE_INTERNAL_SERVICE_TOKEN:?VOICE_INTERNAL_SERVICE_TOKEN must be set}"
+      VOICE_IDEMPOTENCY_TTL_SECONDS: ${VOICE_IDEMPOTENCY_TTL_SECONDS:-86400}
+      VOICE_HUB_MAX_CONCURRENT_REQUESTS: ${VOICE_HUB_MAX_CONCURRENT_REQUESTS:-2}
+      VOICE_HUB_MAX_INFLIGHT_AUDIO_SECONDS: ${VOICE_HUB_MAX_INFLIGHT_AUDIO_SECONDS:-7200}
+      VOICE_MAX_AUDIO_DURATION_SEC: ${VOICE_MAX_AUDIO_DURATION_SEC:-3600}
+      VOICE_MAX_QUEUE_DEPTH: ${VOICE_MAX_QUEUE_DEPTH:-16}
+      VOICE_PERSONALIZATION_ENCRYPTION_KEY: "${VOICE_PERSONALIZATION_ENCRYPTION_KEY:?VOICE_PERSONALIZATION_ENCRYPTION_KEY must be a Fernet key}"
+      VOICE_PROVIDER: voice-runtime
+      VOICE_RUNTIME_ALLOWED_ORIGINS: http://voice-runtime:8090
+      VOICE_RUNTIME_MAX_RESPONSE_BYTES: ${VOICE_RUNTIME_MAX_RESPONSE_BYTES:-16777216}
+      VOICE_RUNTIME_URL: http://voice-runtime:8090
+    depends_on:
+      restricted-inference-minimal:
+        condition: service_healthy
+        required: false
+      restricted-inference-cpu:
+        condition: service_healthy
+        required: false
+      restricted-inference-nvidia:
+        condition: service_healthy
+        required: false
+      generative-judge-worker:
+        condition: service_healthy
+        required: false
+      voice-runtime-minimal:
+        condition: service_healthy
+        required: false
+      voice-runtime-cpu:
+        condition: service_healthy
+        required: false
+      voice-runtime-nvidia:
+        condition: service_healthy
+        required: false
+    networks:
+      default: {}
+      generative-judge-control: {}
+      restricted-inference-control: {}
+      voice-runtime-control: {}
+
+  generative-judge-worker:
+    <<: *generative-judge-common
+    image: ${GENERATIVE_JUDGE_IMAGE:-ananta-generative-judge-worker}:${GENERATIVE_JUDGE_IMAGE_TAG:-local}
+    build:
+      context: ../..
+      dockerfile: docker/compose-next/Dockerfile.generative-judge-worker
+      target: cpu
+    profiles:
+      - voice-generative-judge
+    networks:
+      generative-judge-control:
+        aliases:
+          - generative-judge-worker
+
+  voice-runtime-minimal:
+    <<: *voice-runtime-common
+    image: ${VOICE_RUNTIME_IMAGE:-ananta-voice-runtime}:${VOICE_RUNTIME_IMAGE_TAG:-local}-minimal
+    build:
+      context: ../..
+      dockerfile: docker/compose-next/Dockerfile.voice-runtime
+      target: minimal
+    profiles:
+      - voice-minimal
+      - voice-production-minimal
+    environment:
+      <<: *voice-runtime-environment
+      VOICE_ASR_BACKEND: whisper_cpp
+      VOICE_BACKEND_FALLBACK_ORDER: whisper_cpp
+      VOICE_PRIMARY_BACKEND: whisper_cpp
+      VOICE_POLICY_ALLOWED_BACKENDS: whisper_cpp
+      VOICE_RECOGNITION_STRATEGY: single
+      VOICE_RESOURCE_MAX_CONCURRENT_BACKENDS: "1"
+      VOICE_RESOURCE_MAX_QUEUE_DEPTH: ${VOICE_MAX_QUEUE_DEPTH:-16}
+      VOICE_RESOURCE_MAX_RAM_MB: ${VOICE_MINIMAL_RESOURCE_RAM_MB:-1536}
+      VOICE_RESOURCE_MAX_VRAM_MB: "0"
+      VOICE_SECONDARY_BACKENDS: ""
+      VOICE_VAD_BACKEND: passthrough
+    cpus: ${VOICE_MINIMAL_CPUS:-2.0}
+    mem_limit: ${VOICE_MINIMAL_MEMORY:-2g}
+    deploy:
+      resources:
+        limits:
+          cpus: ${VOICE_MINIMAL_CPUS:-2.0}
+          memory: ${VOICE_MINIMAL_MEMORY:-2g}
+          pids: 256
+        reservations:
+          cpus: "0.25"
+          memory: 256m
+    networks:
+      voice-runtime-control:
+        aliases:
+          - voice-runtime
+
+  voice-runtime-cpu:
+    <<: *voice-runtime-common
+    image: ${VOICE_RUNTIME_IMAGE:-ananta-voice-runtime}:${VOICE_RUNTIME_IMAGE_TAG:-local}-cpu
+    build:
+      context: ../..
+      dockerfile: docker/compose-next/Dockerfile.voice-runtime
+      target: cpu
+    profiles:
+      - voice-cpu
+      - voice-production-cpu
+    environment:
+      <<: *voice-runtime-environment
+      VOICE_ASR_BACKEND: vosk
+      VOICE_BACKEND_FALLBACK_ORDER: vosk,whisper_cpp
+      VOICE_PRIMARY_BACKEND: vosk
+      VOICE_POLICY_ALLOWED_BACKENDS: vosk,whisper_cpp
+      VOICE_RECOGNITION_STRATEGY: ${VOICE_RECOGNITION_STRATEGY:-parallel_fusion}
+      VOICE_RESOURCE_MAX_CONCURRENT_BACKENDS: ${VOICE_MAX_PARALLEL_BACKENDS:-2}
+      VOICE_RESOURCE_MAX_QUEUE_DEPTH: ${VOICE_MAX_QUEUE_DEPTH:-16}
+      VOICE_RESOURCE_MAX_RAM_MB: ${VOICE_CPU_RESOURCE_RAM_MB:-3584}
+      VOICE_RESOURCE_MAX_VRAM_MB: "0"
+      VOICE_SECONDARY_BACKENDS: whisper_cpp
+      VOICE_VAD_BACKEND: ${VOICE_VAD_BACKEND:-webrtcvad}
+    cpus: ${VOICE_CPU_CPUS:-4.0}
+    mem_limit: ${VOICE_CPU_MEMORY:-4g}
+    deploy:
+      resources:
+        limits:
+          cpus: ${VOICE_CPU_CPUS:-4.0}
+          memory: ${VOICE_CPU_MEMORY:-4g}
+          pids: 256
+        reservations:
+          cpus: "0.50"
+          memory: 512m
+    networks:
+      voice-runtime-control:
+        aliases:
+          - voice-runtime
+
+  voice-runtime-nvidia:
+    <<: *voice-runtime-common
+    image: ${VOICE_RUNTIME_IMAGE:-ananta-voice-runtime}:${VOICE_RUNTIME_IMAGE_TAG:-local}-nvidia
+    build:
+      context: ../..
+      dockerfile: docker/compose-next/Dockerfile.voice-runtime
+      target: nvidia
+    profiles:
+      - voice-nvidia
+      - voice-production-nvidia
+    environment:
+      <<: *voice-runtime-environment
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      NVIDIA_VISIBLE_DEVICES: ${VOICE_NVIDIA_VISIBLE_DEVICES:-all}
+      VOICE_ASR_BACKEND: faster_whisper
+      VOICE_BACKEND_FALLBACK_ORDER: faster_whisper,vosk,whisper_cpp
+      VOICE_FASTER_WHISPER_MODEL_PATH: /models/voice/faster-whisper
+      VOICE_PRIMARY_BACKEND: faster_whisper
+      VOICE_POLICY_ALLOWED_BACKENDS: faster_whisper,vosk,whisper_cpp
+      VOICE_RECOGNITION_STRATEGY: ${VOICE_RECOGNITION_STRATEGY:-parallel_fusion}
+      VOICE_RESOURCE_MAX_CONCURRENT_BACKENDS: ${VOICE_MAX_PARALLEL_BACKENDS:-2}
+      VOICE_RESOURCE_MAX_QUEUE_DEPTH: ${VOICE_MAX_QUEUE_DEPTH:-16}
+      VOICE_RESOURCE_MAX_RAM_MB: ${VOICE_NVIDIA_RESOURCE_RAM_MB:-7168}
+      VOICE_RESOURCE_MAX_VRAM_MB: ${VOICE_NVIDIA_RESOURCE_VRAM_MB:-8192}
+      VOICE_RUNTIME_DEVICE: cuda
+      VOICE_SECONDARY_BACKENDS: vosk,whisper_cpp
+      VOICE_VAD_BACKEND: ${VOICE_VAD_BACKEND:-webrtcvad}
+    cpus: ${VOICE_NVIDIA_CPUS:-4.0}
+    mem_limit: ${VOICE_NVIDIA_MEMORY:-8g}
+    deploy:
+      resources:
+        limits:
+          cpus: ${VOICE_NVIDIA_CPUS:-4.0}
+          memory: ${VOICE_NVIDIA_MEMORY:-8g}
+          pids: 256
+        reservations:
+          cpus: "0.50"
+          memory: 1g
+          devices:
+            - driver: nvidia
+              count: ${VOICE_NVIDIA_DEVICE_COUNT:-1}
+              capabilities:
+                - gpu
+    networks:
+      voice-runtime-control:
+        aliases:
+          - voice-runtime
+
+  restricted-inference-minimal:
+    <<: *restricted-inference-common
+    image: ${RESTRICTED_INFERENCE_IMAGE:-ananta-restricted-inference}:${RESTRICTED_INFERENCE_IMAGE_TAG:-local}-minimal
+    build:
+      context: ../..
+      dockerfile: docker/compose-next/Dockerfile.restricted-inference
+      target: minimal
+    profiles:
+      - inference-minimal
+      - voice-production-minimal
+    environment:
+      <<: *restricted-inference-environment
+      RESTRICTED_INFERENCE_DEVICE: cpu
+      RESTRICTED_INFERENCE_ENABLED_ENGINES: ""
+    cpus: ${RESTRICTED_MINIMAL_CPUS:-1.0}
+    mem_limit: ${RESTRICTED_MINIMAL_MEMORY:-1g}
+    deploy:
+      resources:
+        limits:
+          cpus: ${RESTRICTED_MINIMAL_CPUS:-1.0}
+          memory: ${RESTRICTED_MINIMAL_MEMORY:-1g}
+          pids: 256
+        reservations:
+          cpus: "0.10"
+          memory: 128m
+    networks:
+      restricted-inference-control:
+        aliases:
+          - restricted-inference-worker
+
+  restricted-inference-cpu:
+    <<: *restricted-inference-common
+    image: ${RESTRICTED_INFERENCE_IMAGE:-ananta-restricted-inference}:${RESTRICTED_INFERENCE_IMAGE_TAG:-local}-cpu
+    build:
+      context: ../..
+      dockerfile: docker/compose-next/Dockerfile.restricted-inference
+      target: cpu
+    profiles:
+      - inference-cpu
+      - voice-production-cpu
+    environment:
+      <<: *restricted-inference-environment
+      RESTRICTED_INFERENCE_DEVICE: cpu
+      RESTRICTED_INFERENCE_ENABLED_ENGINES: sentence-transformers,onnxruntime,huggingface-transformers
+    cpus: ${RESTRICTED_CPU_CPUS:-8.0}
+    mem_limit: ${RESTRICTED_CPU_MEMORY:-12g}
+    deploy:
+      resources:
+        limits:
+          cpus: ${RESTRICTED_CPU_CPUS:-8.0}
+          memory: ${RESTRICTED_CPU_MEMORY:-12g}
+          pids: 256
+        reservations:
+          cpus: "1.0"
+          memory: 2g
+    healthcheck: *restricted-inference-readiness
+    networks:
+      restricted-inference-control:
+        aliases:
+          - restricted-inference-worker
+
+  restricted-inference-nvidia:
+    <<: *restricted-inference-common
+    image: ${RESTRICTED_INFERENCE_IMAGE:-ananta-restricted-inference}:${RESTRICTED_INFERENCE_IMAGE_TAG:-local}-nvidia
+    build:
+      context: ../..
+      dockerfile: docker/compose-next/Dockerfile.restricted-inference
+      target: nvidia
+    profiles:
+      - inference-nvidia
+      - voice-production-nvidia
+    environment:
+      <<: *restricted-inference-environment
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      NVIDIA_VISIBLE_DEVICES: ${RESTRICTED_NVIDIA_VISIBLE_DEVICES:-all}
+      RESTRICTED_INFERENCE_DEVICE: cuda
+      RESTRICTED_INFERENCE_ENABLED_ENGINES: sentence-transformers,huggingface-transformers
+    cpus: ${RESTRICTED_NVIDIA_CPUS:-8.0}
+    mem_limit: ${RESTRICTED_NVIDIA_MEMORY:-24g}
+    deploy:
+      resources:
+        limits:
+          cpus: ${RESTRICTED_NVIDIA_CPUS:-8.0}
+          memory: ${RESTRICTED_NVIDIA_MEMORY:-24g}
+          pids: 256
+        reservations:
+          cpus: "1.0"
+          memory: 4g
+          devices:
+            - driver: nvidia
+              count: ${RESTRICTED_NVIDIA_DEVICE_COUNT:-1}
+              capabilities:
+                - gpu
+    healthcheck: *restricted-inference-readiness
+    networks:
+      restricted-inference-control:
+        aliases:
+          - restricted-inference-worker
+
+networks:
+  default: {}
+  generative-judge-control:
+    internal: true
+  restricted-inference-control:
+    internal: true
+  voice-runtime-control:
+    internal: true
+
+volumes:
+  hub-data: {}

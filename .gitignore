@@ -164,7 +164,15 @@ scripts/dyndns.conf
 !/data/client_surface_post_test_cleanup_todo.json
 !/data/domain_runtime_inventory.json
 /rag-helper/out/
-/artifacts/
+# Root-level acceptance dumps are volatile, while the structured audit/gate
+# reports are intentional source artifacts (see AGENTS.md output boundary).
+/artifacts/*
+!/artifacts/domain/
+!/artifacts/domain/**
+!/artifacts/e2e/
+!/artifacts/e2e/**
+!/artifacts/test-gates/
+!/artifacts/test-gates/**
 /.claude/
 /.junie/
 /.opencode/

@@ -1,0 +1,88 @@
+FROM python:3.11.15-slim-bookworm@sha256:9c6f90801e6b68e772b7c0ca74260cbf7af9f320acec894e26fccdaccfbe3b47 AS base
+
+ARG DEBIAN_SNAPSHOT=20260406T000000Z
+
+ENV HF_HUB_DISABLE_TELEMETRY=1 \
+    HF_HUB_OFFLINE=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    TRANSFORMERS_OFFLINE=1 \
+    VOICE_ALLOW_MODEL_DOWNLOAD=false \
+    VOICE_RUNTIME_HOST=0.0.0.0 \
+    VOICE_RUNTIME_PORT=8090
+
+# The minimal image needs only the OpenMP runtime used by local whisper.cpp
+# binaries.  No compiler, shell tooling, network client, or general Ananta
+# runtime is installed.
+RUN printf 'Acquire::Check-Valid-Until "false";\n' > /etc/apt/apt.conf.d/99snapshot \
+    && printf '%s\n' \
+        'Types: deb' \
+        "URIs: http://snapshot.debian.org/archive/debian/${DEBIAN_SNAPSHOT}" \
+        'Suites: bookworm bookworm-updates' \
+        'Components: main' \
+        'Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg' \
+        '' \
+        'Types: deb' \
+        "URIs: http://snapshot.debian.org/archive/debian-security/${DEBIAN_SNAPSHOT}" \
+        'Suites: bookworm-security' \
+        'Components: main' \
+        'Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg' \
+        > /etc/apt/sources.list.d/debian.sources \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends libgomp1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 10001 ananta-runtime \
+    && useradd --uid 10001 --gid 10001 --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin ananta-runtime
+
+WORKDIR /app
+
+COPY docker/compose-next/requirements.runtime-http.txt /tmp/requirements.runtime-http.txt
+RUN pip install --no-cache-dir --requirement /tmp/requirements.runtime-http.txt \
+    && rm /tmp/requirements.runtime-http.txt
+
+COPY --chown=10001:10001 voice_runtime /app/voice_runtime
+COPY --chown=10001:10001 ananta_contracts /app/ananta_contracts
+
+USER 10001:10001
+EXPOSE 8090
+
+HEALTHCHECK --interval=15s --timeout=4s --start-period=20s --retries=5 \
+    CMD ["python", "-c", "import json,urllib.request; payload=json.load(urllib.request.urlopen('http://127.0.0.1:8090/health', timeout=3)); raise SystemExit(0 if payload.get('status') == 'ready' else 1)"]
+
+CMD ["python", "-m", "voice_runtime.app"]
+
+
+# Minimal: whisper.cpp can be supplied as a read-only local binary alongside
+# its model.  The application fails closed when the binary/model is missing.
+FROM base AS minimal
+
+
+# CPU: add real local Vosk, WebRTC-VAD and Faster-Whisper adapters.  Model files
+# are never part of the image and are never fetched at container start.
+FROM base AS cpu
+
+USER root
+COPY docker/compose-next/requirements.voice-cpu.txt /tmp/requirements.voice-cpu.txt
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir --requirement /tmp/requirements.voice-cpu.txt \
+    && rm /tmp/requirements.voice-cpu.txt
+USER 10001:10001
+
+
+# NVIDIA keeps the same Python backends but adds pinned CUDA 12 user-space
+# cuBLAS/cuDNN libraries. The NVIDIA container runtime supplies only the host
+# driver/device boundary; model execution must not depend on undeclared host
+# user-space libraries.
+FROM cpu AS nvidia
+
+USER root
+COPY docker/compose-next/requirements.voice-nvidia.txt /tmp/requirements.voice-nvidia.txt
+RUN pip install --no-cache-dir --requirement /tmp/requirements.voice-nvidia.txt \
+    && rm /tmp/requirements.voice-nvidia.txt
+ENV LD_LIBRARY_PATH=/usr/local/lib/python3.11/site-packages/nvidia/cublas/lib:/usr/local/lib/python3.11/site-packages/nvidia/cudnn/lib \
+    NVIDIA_REQUIRE_CUDA="cuda>=12.4"
+USER 10001:10001

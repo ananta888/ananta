@@ -1,0 +1,52 @@
+FROM python:3.11.15-slim-bookworm@sha256:9c6f90801e6b68e772b7c0ca74260cbf7af9f320acec894e26fccdaccfbe3b47 AS base
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    HF_HOME=/tmp/model-cache \
+    HF_HUB_DISABLE_TELEMETRY=1 \
+    HF_HUB_OFFLINE=1 \
+    TRANSFORMERS_OFFLINE=1 \
+    GENERATIVE_JUDGE_HOST=0.0.0.0 \
+    GENERATIVE_JUDGE_PORT=8092
+
+RUN groupadd --gid 10003 ananta-judge \
+    && useradd --uid 10003 --gid 10003 --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin ananta-judge
+
+WORKDIR /app
+
+COPY docker/compose-next/requirements.runtime-http.txt /tmp/requirements.runtime-http.txt
+RUN pip install --no-cache-dir --requirement /tmp/requirements.runtime-http.txt \
+    && rm /tmp/requirements.runtime-http.txt
+
+# This image intentionally contains neither the Hub nor another worker runtime.
+# The optional loopback adapter can only reach a model process in this container.
+COPY --chown=10003:10003 ananta_contracts /app/ananta_contracts
+COPY --chown=10003:10003 worker/__init__.py /app/worker/__init__.py
+COPY --chown=10003:10003 worker/runtime/__init__.py /app/worker/runtime/__init__.py
+COPY --chown=10003:10003 worker/runtime/generative_judge_engine.py /app/worker/runtime/generative_judge_engine.py
+COPY --chown=10003:10003 worker/runtime/generative_judge_app.py /app/worker/runtime/generative_judge_app.py
+
+USER 10003:10003
+EXPOSE 8092
+
+HEALTHCHECK --interval=15s --timeout=4s --start-period=10s --retries=5 \
+    CMD ["python", "-c", "import json, urllib.request; payload=json.load(urllib.request.urlopen('http://127.0.0.1:8092/health', timeout=3)); raise SystemExit(0 if payload.get('status') == 'ready' else 1)"]
+
+CMD ["python", "-m", "worker.runtime.generative_judge_app"]
+
+
+# Contract/auth-only image. It remains degraded because it has no local engine.
+FROM base AS minimal
+
+
+# Concrete optional deployment: the model is loaded offline from the immutable
+# /models/generative-judge mount by the embedded worker-process adapter.
+FROM base AS cpu
+
+USER root
+COPY docker/compose-next/requirements.generative-judge-cpu.txt /tmp/requirements.generative-judge-cpu.txt
+RUN pip install --no-cache-dir --requirement /tmp/requirements.generative-judge-cpu.txt \
+    && rm /tmp/requirements.generative-judge-cpu.txt
+USER 10003:10003

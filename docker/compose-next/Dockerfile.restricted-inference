@@ -1,0 +1,75 @@
+FROM python:3.11.15-slim-bookworm@sha256:9c6f90801e6b68e772b7c0ca74260cbf7af9f320acec894e26fccdaccfbe3b47 AS base
+
+ENV HF_HUB_DISABLE_TELEMETRY=1 \
+    HF_HUB_OFFLINE=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    ANANTA_RESTRICTED_INFERENCE_HOST=0.0.0.0 \
+    ANANTA_RESTRICTED_INFERENCE_PORT=8091 \
+    RESTRICTED_INFERENCE_ALLOW_MODEL_DOWNLOAD=false \
+    TRANSFORMERS_OFFLINE=1
+
+RUN groupadd --gid 10002 ananta-restricted \
+    && useradd --uid 10002 --gid 10002 --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin ananta-restricted
+
+WORKDIR /app
+
+COPY docker/compose-next/requirements.runtime-http.txt /tmp/requirements.runtime-http.txt
+RUN pip install --no-cache-dir --requirement /tmp/requirements.runtime-http.txt \
+    && rm /tmp/requirements.runtime-http.txt
+
+# Copy only the worker runtime and the contracts/adapters it executes.  The Hub
+# application, task queue and orchestration entrypoints are intentionally not
+# present in this image.
+COPY --chown=10002:10002 agent/__init__.py /app/agent/__init__.py
+COPY --chown=10002:10002 ananta_contracts /app/ananta_contracts
+COPY --chown=10002:10002 agent/services/__init__.py /app/agent/services/__init__.py
+COPY --chown=10002:10002 agent/services/model_inference_adapters /app/agent/services/model_inference_adapters
+COPY --chown=10002:10002 agent/services/model_inference_adapter_registry.py /app/agent/services/model_inference_adapter_registry.py
+COPY --chown=10002:10002 agent/services/restricted_inference_cache.py /app/agent/services/restricted_inference_cache.py
+COPY --chown=10002:10002 agent/services/restricted_inference_config_service.py /app/agent/services/restricted_inference_config_service.py
+COPY --chown=10002:10002 agent/services/restricted_inference_contract.py /app/agent/services/restricted_inference_contract.py
+COPY --chown=10002:10002 agent/services/restricted_inference_model_manifest.py /app/agent/services/restricted_inference_model_manifest.py
+COPY --chown=10002:10002 agent/services/restricted_inference_result_guard.py /app/agent/services/restricted_inference_result_guard.py
+COPY --chown=10002:10002 worker/__init__.py /app/worker/__init__.py
+COPY --chown=10002:10002 worker/runtime /app/worker/runtime
+
+USER 10002:10002
+EXPOSE 8091
+
+HEALTHCHECK --interval=15s --timeout=4s --start-period=20s --retries=5 \
+    CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8091/health', timeout=3).read(1)"]
+
+CMD ["python", "-m", "worker.runtime.restricted_inference_app"]
+
+
+# Minimal validates envelopes/manifests and can expose capability diagnostics,
+# but contains no heavyweight ML engine.
+FROM base AS minimal
+
+
+# CPU contains the optional local-only inference engines.  Models and tokenizers
+# remain external, immutable mounts.
+FROM base AS cpu
+
+USER root
+COPY docker/compose-next/requirements.restricted-inference-cpu.txt /tmp/requirements.restricted-inference-cpu.txt
+RUN pip install --no-cache-dir --requirement /tmp/requirements.restricted-inference-cpu.txt \
+    && rm /tmp/requirements.restricted-inference-cpu.txt
+USER 10002:10002
+
+
+# GPU dependencies are separate from the CPU stage so a CUDA deployment can
+# never accidentally retain the CPU-only torch wheel. GPU access itself is
+# granted exclusively by the Compose NVIDIA profile; the Hub never receives
+# this image or a device reservation.
+FROM base AS nvidia
+
+USER root
+COPY docker/compose-next/requirements.restricted-inference-nvidia.txt /tmp/requirements.restricted-inference-nvidia.txt
+RUN pip install --no-cache-dir --requirement /tmp/requirements.restricted-inference-nvidia.txt \
+    && rm /tmp/requirements.restricted-inference-nvidia.txt
+ENV NVIDIA_REQUIRE_CUDA="cuda>=12.4"
+USER 10002:10002

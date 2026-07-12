@@ -1,0 +1,172 @@
+{
+  "schema_version": "ananta.release-gate.v1",
+  "gate_id": "voice-restricted-core-2026-07-12.v1",
+  "groups": {
+    "architecture": {
+      "hardware": false,
+      "pytest_nodes": [
+        "tests/test_voice_restricted_architecture_boundaries.py"
+      ]
+    },
+    "security": {
+      "hardware": false,
+      "coverage": {
+        "audio_and_file_attacks": "tests/test_voice_runtime_audio_security.py",
+        "model_supply_chain": "tests/services/test_restricted_inference_model_manifest.py",
+        "ssrf_and_dns_rebinding": "tests/services/test_restricted_inference_snapshot_store.py",
+        "remote_code_and_pickle": "tests/services/test_restricted_inference_adapter_security.py",
+        "envelope_manipulation_and_no_generation": "tests/services/test_restricted_inference_contract.py",
+        "local_judge_network_boundary": "tests/services/test_generative_judge_worker_port.py",
+        "consent_and_tenant_bypass": "tests/test_voice_governance_api.py",
+        "privacy_delete_and_idempotency": "tests/test_voice_privacy_import_export.py",
+        "runtime_cleanup_restart_replay": "tests/test_voice_runtime_cleanup_service.py"
+      },
+      "pytest_nodes": [
+        "tests/test_voice_runtime_audio_security.py",
+        "tests/services/test_restricted_inference_model_manifest.py",
+        "tests/services/test_restricted_inference_snapshot_store.py",
+        "tests/services/test_restricted_inference_adapter_security.py",
+        "tests/services/test_restricted_inference_execution_policy.py",
+        "tests/services/test_restricted_inference_production_config.py",
+        "tests/services/test_restricted_inference_contract.py",
+        "tests/test_voice_runtime_optional_extensions.py::test_strict_choice_invalid_or_failed_response_is_exact_baseline",
+        "tests/services/test_generative_judge_worker_port.py",
+        "tests/test_voice_governance_api.py",
+        "tests/test_voice_privacy_import_export.py",
+        "tests/test_voice_privacy_complete_deletion.py",
+        "tests/test_voice_runtime_cleanup_service.py",
+        "tests/test_voice_personalization_holdout.py",
+        "tests/e2e/test_voice_governance_lifecycle.py",
+        "tests/test_voice_exposure_permissions.py"
+      ]
+    },
+    "contracts": {
+      "hardware": false,
+      "pytest_nodes": [
+        "tests/test_model_capability_contract.py",
+        "tests/test_voice_runtime_result_contract.py",
+        "tests/test_voice_runtime_backends_optional.py",
+        "tests/test_voice_runtime_pipeline_config.py",
+        "tests/test_voice_runtime_pipeline_variants.py",
+        "tests/services/test_restricted_inference_contract.py",
+        "tests/services/test_restricted_inference_config_service.py",
+        "tests/services/test_restricted_inference_cache.py",
+        "tests/services/test_restricted_inference_generation_boundary.py",
+        "tests/services/test_restricted_inference_manifest_runtime_policy.py",
+        "tests/services/test_restricted_inference_sentence_transformers_modes.py",
+        "tests/services/test_restricted_inference_worker_port.py",
+        "tests/services/test_restricted_inference_task_queue_port.py",
+        "tests/services/test_voice_restricted_choice_service.py",
+        "tests/services/test_model_inference_adapter_registry.py",
+        "tests/test_restricted_inference_management_api.py",
+        "tests/test_voice_configuration_api.py",
+        "tests/test_voice_hub_streaming_and_results.py",
+        "tests/test_voice_model_manifest.py",
+        "tests/test_voice_provider_deadline.py",
+        "tests/test_voice_runtime_backend_registry.py",
+        "tests/test_voice_runtime_execution_boundaries.py",
+        "tests/test_voice_websocket_protocol.py",
+        "tests/worker/test_restricted_inference_app.py",
+        "tests/worker/test_restricted_inference_app_management.py",
+        "tests/worker/test_restricted_inference_executor.py",
+        "tests/worker/test_restricted_inference_lifecycle.py",
+        "tests/worker/test_restricted_inference_real_offline_model.py::test_real_tiny_huggingface_model_runs_offline_through_worker_contract",
+        "tests/worker/test_restricted_inference_real_offline_model.py::test_multitoken_choice_scores_match_manual_forward_log_probabilities",
+        "tests/worker/test_restricted_inference_real_offline_model.py::test_real_tiny_sentence_transformers_cross_encoder_runs_offline",
+        "tests/worker/test_restricted_inference_real_offline_model.py::test_real_huggingface_feature_extraction_uses_forward_hidden_states",
+        "tests/worker/test_restricted_inference_real_offline_model.py::test_real_sentence_transformer_bi_encoder_returns_unit_norm_embedding",
+        "tests/worker/test_restricted_inference_runtime.py",
+        "tests/test_voice_restricted_release_gate_contract.py"
+      ]
+    },
+    "fusion-golden": {
+      "hardware": false,
+      "pytest_nodes": [
+        "tests/test_voice_fusion_golden.py",
+        "tests/test_voice_runtime_calibration.py",
+        "tests/test_voice_runtime_fusion.py"
+      ]
+    },
+    "evaluation": {
+      "hardware": false,
+      "pytest_nodes": [
+        "tests/test_evaluation_contracts.py",
+        "tests/test_voice_restricted_benchmark_report.py",
+        "tests/test_voice_restricted_sbom_report.py"
+      ]
+    },
+    "compose-contract": {
+      "hardware": false,
+      "pytest_nodes": [
+        "tests/test_compose_next_voice_restricted.py",
+        "tests/test_voice_restricted_compose_contract.py"
+      ]
+    },
+    "angular": {
+      "hardware": false,
+      "pytest_nodes": [
+        "tests/test_voice_restricted_architecture_boundaries.py::test_angular_voice_production_code_uses_only_the_hub_api_adapter"
+      ],
+      "commands": [
+        {"cwd": "frontend-angular", "argv": ["npm", "run", "test:unit"]},
+        {"cwd": "frontend-angular", "argv": ["npm", "run", "build", "--", "--output-path", "{gate_tmp}/angular-build"]}
+      ]
+    },
+    "optional-capabilities": {
+      "hardware": false,
+      "core": false,
+      "integration": true,
+      "pytest_nodes": [
+        "tests/test_generative_judge_worker_contract.py",
+        "tests/services/test_generative_judge_worker_port.py",
+        "tests/services/test_voice_generative_judge_service.py",
+        "tests/test_voice_runtime_optional_extensions.py",
+        "tests/test_voice_runtime_circuit_breaker.py",
+        "tests/test_voice_runtime_policy_integration.py",
+        "tests/test_voice_runtime_streaming.py",
+        "tests/test_voice_runtime_streaming_api.py",
+        "tests/test_voice_runtime_backends_optional.py",
+        "tests/worker/test_generative_judge_app.py",
+        "tests/worker/test_restricted_inference_real_offline_model.py",
+        "tests/integration/test_restricted_inference_codecompass_port.py",
+        "tests/test_voice_privacy_import_export.py::test_fine_tuning_export_is_only_an_explicit_non_training_hub_task"
+      ]
+    },
+    "angular-compose": {
+      "hardware": false,
+      "core": false,
+      "integration": true,
+      "pytest_nodes": [
+        "tests/e2e/test_voice_angular_compose_smoke.py"
+      ]
+    },
+    "hardware-compose": {
+      "hardware": true,
+      "core": false,
+      "required_environment": [
+        "ANANTA_RUN_VOICE_RESTRICTED_HARDWARE",
+        "ANANTA_VOICE_RESTRICTED_PROFILE",
+        "ANANTA_VOICE_E2E_AUDIO",
+        "ANANTA_VOICE_E2E_AUDIO_SHA256",
+        "ANANTA_VOICE_E2E_PRIMARY_BACKEND",
+        "ANANTA_VOICE_E2E_SECONDARY_BACKEND",
+        "ANANTA_RESTRICTED_INFERENCE_MANIFEST_SCORE_CHOICES",
+        "ANANTA_RESTRICTED_INFERENCE_ADMISSION_DENIED_MANIFEST_ID",
+        "ANANTA_RESTRICTED_INFERENCE_ADMISSION_REASON",
+        "ANANTA_RESTRICTED_INFERENCE_MAX_RAM_BYTES",
+        "ANANTA_RESTRICTED_INFERENCE_MAX_VRAM_BYTES",
+        "HUB_PORT",
+        "INITIAL_ADMIN_PASSWORD",
+        "VOICE_WHISPER_CPP_PROMPT_MAX_CHARS",
+        "VOICE_INTERNAL_SERVICE_TOKEN",
+        "VOICE_PERSONALIZATION_ENCRYPTION_KEY",
+        "RESTRICTED_INFERENCE_INTERNAL_TOKEN",
+        "VOICE_MODEL_DIR",
+        "RESTRICTED_INFERENCE_MODEL_DIR"
+      ],
+      "pytest_nodes": [
+        "tests/e2e/test_voice_restricted_compose_hardware_gate.py"
+      ]
+    }
+  }
+}

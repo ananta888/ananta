@@ -1,8 +1,17 @@
-# Node-Modules im Frontend nicht in den Build-Context einbeziehen
-frontend/node_modules
-frontend-angular/node_modules
+# Abhängigkeiten und lokale Tool-Zustände nie in den Build-Kontext übernehmen
+**/node_modules/
+**/.venv/
+**/venv/
+.claude/
+.codex/
+.opencode/
+.cache/
 frontend-angular/dist
 frontend-angular/.angular
+
+# Secrets bleiben auch in verschachtelten Compose-Verzeichnissen außerhalb
+**/.env
+**/.env.*
 
 # IDE/Tooling
 .idea/
@@ -18,14 +27,20 @@ __pycache__/
 *.py[cod]
 
 # Virtuelle Umgebungen
-.venv/
 env/
 
 # Datenordner, Git, Logs, etc.
-data/
+/data/
 .ollama/
 autoimport-state/
+/artifacts/
+/ci-artifacts/
+/project-workspaces/
+/models/
 test-reports/
+.test_runs/
+coverage/
+htmlcov/
 data_test_e2e/
 .ruff_cache/
 .mypy_cache/
@@ -35,6 +50,8 @@ rag-helper/.venv/
 .vscode/
 .idea/
 *.log
+*.sqlite
+*.sqlite3
 *.bak
 *.swp
 .DS_Store

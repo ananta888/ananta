@@ -1,0 +1,62 @@
+{
+  "schema_version": "ananta.voice-restricted-hardware-profiles.v1",
+  "profiles": [
+    {
+      "profile_id": "cpu",
+      "compose_profile": "voice-production-cpu",
+      "voice_backends": ["vosk", "whisper_cpp"],
+      "required_hardware": {"cpu_threads_min": 8, "ram_mb_min": 16384, "vram_mb_min": 0},
+      "resource_environment": {
+        "VOICE_CPU_CPUS": "4.0",
+        "VOICE_CPU_MEMORY": "4g",
+        "RESTRICTED_CPU_CPUS": "8.0",
+        "RESTRICTED_CPU_MEMORY": "12g",
+        "VOICE_MAX_PARALLEL_BACKENDS": "2",
+        "VOICE_WHISPER_CPP_PROMPT_MAX_CHARS": "512",
+        "ANANTA_RESTRICTED_INFERENCE_MAX_IN_FLIGHT": "2",
+        "ANANTA_RESTRICTED_INFERENCE_MAX_RAM_BYTES": "8589934592",
+        "ANANTA_RESTRICTED_INFERENCE_MAX_VRAM_BYTES": "0"
+      },
+      "intended_capabilities": ["vosk", "whisper_cpp", "sentence_transformers", "onnxruntime"],
+      "evidence_required": ["quality", "calibration", "latency", "peak_ram", "resource_admission", "worker_recovery", "restricted_no_generation", "fusion_strategies", "no_network", "provenance"]
+    },
+    {
+      "profile_id": "rtx-3080",
+      "compose_profile": "voice-production-nvidia",
+      "voice_backends": ["faster_whisper", "vosk", "whisper_cpp"],
+      "required_hardware": {"cpu_threads_min": 8, "ram_mb_min": 32768, "vram_mb_min": 10240},
+      "resource_environment": {
+        "NVIDIA_VISIBLE_DEVICES": "0",
+        "VOICE_NVIDIA_VISIBLE_DEVICES": "0",
+        "RESTRICTED_NVIDIA_VISIBLE_DEVICES": "0",
+        "VOICE_MAX_PARALLEL_BACKENDS": "2",
+        "VOICE_WHISPER_CPP_PROMPT_MAX_CHARS": "512",
+        "ANANTA_RESTRICTED_INFERENCE_MAX_IN_FLIGHT": "1",
+        "ANANTA_RESTRICTED_INFERENCE_MAX_LOADED_MODELS": "1",
+        "ANANTA_RESTRICTED_INFERENCE_MAX_RAM_BYTES": "17179869184",
+        "ANANTA_RESTRICTED_INFERENCE_MAX_VRAM_BYTES": "6442450944"
+      },
+      "intended_capabilities": ["faster_whisper", "vosk", "whisper_cpp", "sentence_transformers"],
+      "evidence_required": ["quality", "calibration", "latency", "peak_ram", "peak_vram", "resource_admission", "oom_recovery", "worker_recovery", "restricted_no_generation", "fusion_strategies", "no_network", "provenance"]
+    },
+    {
+      "profile_id": "high-end-gpu",
+      "compose_profile": "voice-production-nvidia",
+      "voice_backends": ["faster_whisper", "vosk", "whisper_cpp"],
+      "required_hardware": {"cpu_threads_min": 16, "ram_mb_min": 65536, "vram_mb_min": 24576},
+      "resource_environment": {
+        "NVIDIA_VISIBLE_DEVICES": "0",
+        "VOICE_NVIDIA_VISIBLE_DEVICES": "0",
+        "RESTRICTED_NVIDIA_VISIBLE_DEVICES": "0",
+        "VOICE_MAX_PARALLEL_BACKENDS": "3",
+        "VOICE_WHISPER_CPP_PROMPT_MAX_CHARS": "512",
+        "ANANTA_RESTRICTED_INFERENCE_MAX_IN_FLIGHT": "2",
+        "ANANTA_RESTRICTED_INFERENCE_MAX_LOADED_MODELS": "2",
+        "ANANTA_RESTRICTED_INFERENCE_MAX_RAM_BYTES": "17179869184",
+        "ANANTA_RESTRICTED_INFERENCE_MAX_VRAM_BYTES": "17179869184"
+      },
+      "intended_capabilities": ["faster_whisper", "vosk", "whisper_cpp", "sentence_transformers", "huggingface_transformers"],
+      "evidence_required": ["quality", "calibration", "latency", "peak_ram", "peak_vram", "resource_admission", "oom_recovery", "worker_recovery", "restricted_no_generation", "fusion_strategies", "no_network", "provenance"]
+    }
+  ]
+}

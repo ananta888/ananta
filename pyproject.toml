@@ -46,7 +46,6 @@ dependencies = [
     "python-docx",
     "openpyxl",
     "python-pptx",
-    "sentence-transformers",
     "langdetect",
 ]
 
@@ -116,6 +115,7 @@ rtipm-huggingface = [
 ]
 rtipm-onnxruntime = [
     "onnxruntime>=1.17,<2",
+    "onnx>=1.16,<2",
     "transformers>=4.40,<5",
 ]
 rtipm-pytorch = [
@@ -127,6 +127,7 @@ rtipm-all = [
     "transformers>=4.40,<5",
     "torch>=2.2",
     "onnxruntime>=1.17,<2",
+    "onnx>=1.16,<2",
 ]
 
 [project.scripts]
@@ -134,6 +135,7 @@ ananta = "agent.cli.main:main"
 
 [tool.setuptools]
 packages = [
+    "ananta_contracts",
     "agent",
     "agent.bootstrap",
     "agent.caseflow",
@@ -212,6 +214,7 @@ testpaths = ["tests"]
 addopts = "-v"
 markers = [
     "integration: marks tests that validate cross-component integration behavior",
+    "hardware: marks explicit local model or GPU evidence gates excluded from normal CI",
     "manual_full_scan: marks full-repository LLM full_scan tests that are never run by default or in GitHub workflows",
 ]
 filterwarnings = [

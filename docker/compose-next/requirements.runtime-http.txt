@@ -1,0 +1,11 @@
+# Minimal HTTP runtime shared by the isolated voice and restricted-inference
+# containers.  Every direct and transitive dependency is pinned so image builds
+# do not silently change when the general application lock is regenerated.
+blinker==1.9.0
+click==8.3.2
+flask==3.1.3
+itsdangerous==2.2.0
+jinja2==3.1.6
+markupsafe==3.0.3
+prometheus-client==0.25.0
+werkzeug==3.1.8
