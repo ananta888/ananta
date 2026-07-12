@@ -4,6 +4,7 @@ This module only normalizes and diagnoses configuration. Adapter construction
 and inference dispatch live in separate services, keeping config concerns
 independent from ML dependencies.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -13,11 +14,12 @@ from pathlib import Path
 from typing import Any
 
 from agent.services.model_inference_adapters import (
-    CAP_CLASSIFICATION,
     CAP_CHOICE_SCORING,
-    CAP_EMBEDDINGS,
-    CAP_FEATURE_EXTRACTION,
+    CAP_CLASSIFICATION,
     CAP_RERANK,
+)
+from agent.services.restricted_inference_endpoint_policy import (
+    require_allowlisted_restricted_inference_endpoint,
 )
 
 ENGINE_MOCK = "mock"
@@ -26,13 +28,15 @@ ENGINE_HUGGINGFACE = "huggingface-transformers"
 ENGINE_ONNXRUNTIME = "onnxruntime"
 ENGINE_PYTORCH = "pytorch"
 
-KNOWN_ENGINES = frozenset({
-    ENGINE_MOCK,
-    ENGINE_SENTENCE_TRANSFORMERS,
-    ENGINE_HUGGINGFACE,
-    ENGINE_ONNXRUNTIME,
-    ENGINE_PYTORCH,
-})
+KNOWN_ENGINES = frozenset(
+    {
+        ENGINE_MOCK,
+        ENGINE_SENTENCE_TRANSFORMERS,
+        ENGINE_HUGGINGFACE,
+        ENGINE_ONNXRUNTIME,
+        ENGINE_PYTORCH,
+    }
+)
 
 TASK_CANDIDATE_RERANK = "candidate_rerank"
 TASK_CLASSIFY = "task_classify"
@@ -41,14 +45,16 @@ TASK_RISK_SCORE = "risk_score"
 TASK_SEMANTIC_BOUNDARY_DETECTION = "semantic_boundary_detection"
 TASK_CHOICE_SCORE = "choice_score"
 
-KNOWN_TASKS = frozenset({
-    TASK_CANDIDATE_RERANK,
-    TASK_CLASSIFY,
-    TASK_PATH_DOMAIN_CLASSIFY,
-    TASK_RISK_SCORE,
-    TASK_SEMANTIC_BOUNDARY_DETECTION,
-    TASK_CHOICE_SCORE,
-})
+KNOWN_TASKS = frozenset(
+    {
+        TASK_CANDIDATE_RERANK,
+        TASK_CLASSIFY,
+        TASK_PATH_DOMAIN_CLASSIFY,
+        TASK_RISK_SCORE,
+        TASK_SEMANTIC_BOUNDARY_DETECTION,
+        TASK_CHOICE_SCORE,
+    }
+)
 
 TASK_REQUIRED_CAPABILITY = {
     TASK_CANDIDATE_RERANK: CAP_RERANK,
@@ -172,19 +178,32 @@ class RestrictedInferenceModelConfig:
             device=str(data.get("device") or "cpu"),
             enabled=bool(data.get("enabled", True)),
             tasks=[str(item) for item in (data.get("tasks") or sorted(KNOWN_TASKS))],
-            options={k: v for k, v in data.items() if k not in {
-                "id", "model_id", "engine", "model", "revision", "local_path", "device", "enabled", "tasks",
-            }},
+            options={
+                k: v
+                for k, v in data.items()
+                if k
+                not in {
+                    "id",
+                    "model_id",
+                    "engine",
+                    "model",
+                    "revision",
+                    "local_path",
+                    "device",
+                    "enabled",
+                    "tasks",
+                }
+            },
         )
 
     def as_dict(self, *, redact_secrets: bool = True) -> dict[str, Any]:
         options = _redact(self.options) if redact_secrets else dict(self.options)
         return {
-            "id": self.id,
+            "id": _redact_model_reference(self.id) if redact_secrets else self.id,
             "engine": self.engine,
-            "model": self.model,
+            "model": _redact_model_reference(self.model) if redact_secrets else self.model,
             "revision": self.revision,
-            "local_path": self.local_path,
+            "local_path": "<local-snapshot>" if redact_secrets and self.local_path else self.local_path,
             "device": self.device,
             "enabled": self.enabled,
             "tasks": list(self.tasks),
@@ -202,8 +221,16 @@ class RestrictedInferenceConfig:
     allowed_engines: list[str] = field(default_factory=lambda: sorted(KNOWN_ENGINES))
     models: list[RestrictedInferenceModelConfig] = field(default_factory=list)
     tasks: dict[str, RestrictedInferenceTaskConfig] = field(default_factory=dict)
+    execution_mode: str = "legacy_local"
+    worker_url: str = ""
+    worker_allowed_endpoints: list[str] = field(default_factory=list)
+    production_profile: bool = False
+    legacy_local_enabled: bool = True
+    allow_remote_download: bool = False
 
-    def model_for_task(self, task_id: str, allowed_engines: set[str] | None = None) -> RestrictedInferenceModelConfig | None:
+    def model_for_task(
+        self, task_id: str, allowed_engines: set[str] | None = None
+    ) -> RestrictedInferenceModelConfig | None:
         task = self.tasks.get(task_id)
         preferred = task.preferred_engine if task else self.default_engine
         engines = set(allowed_engines or self.allowed_engines)
@@ -213,7 +240,11 @@ class RestrictedInferenceConfig:
             if model.enabled and model.engine in engines and task_id in model.tasks:
                 return model
         for model in self.models:
-            if model.enabled and model.engine in set(allowed_engines or self.allowed_engines) and task_id in model.tasks:
+            if (
+                model.enabled
+                and model.engine in set(allowed_engines or self.allowed_engines)
+                and task_id in model.tasks
+            ):
                 return model
         return None
 
@@ -227,10 +258,16 @@ class RestrictedInferenceConfig:
             "allowed_engines": list(self.allowed_engines),
             "models": [model.as_dict(redact_secrets=redact_secrets) for model in self.models],
             "tasks": {task_id: task.as_dict() for task_id, task in self.tasks.items()},
+            "execution_mode": self.execution_mode,
+            "worker_url": self.worker_url,
+            "worker_allowed_endpoints": list(self.worker_allowed_endpoints),
+            "production_profile": self.production_profile,
+            "legacy_local_enabled": self.legacy_local_enabled,
+            "allow_remote_download": self.allow_remote_download,
         }
 
     def config_hash(self) -> str:
-        payload = json.dumps(self.as_dict(redact_secrets=True), sort_keys=True, separators=(",", ":"))
+        payload = json.dumps(self.as_dict(redact_secrets=False), sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
 
@@ -267,9 +304,7 @@ class RestrictedInferenceConfigService:
     def resolve(self) -> RestrictedInferenceConfig:
         raw = dict(self._global_config.get("restricted_inference") or {})
         has_explicit_restricted_config = isinstance(self._global_config.get("restricted_inference"), dict)
-        allowed_engines = [
-            str(item) for item in (raw.get("allowed_engines") or sorted(KNOWN_ENGINES))
-        ]
+        allowed_engines = [str(item) for item in (raw.get("allowed_engines") or sorted(KNOWN_ENGINES))]
         top = self._global_config
         default_engine = str(raw.get("default_engine") or ENGINE_MOCK)
 
@@ -322,20 +357,36 @@ class RestrictedInferenceConfigService:
             else:
                 model_name = default_model_id
             extra_options: dict[str, Any] = {"lang_detect": lang_detect, "lang_model_map": lang_model_map}
-            models = [RestrictedInferenceModelConfig(
-                id=default_model_id,
-                engine=default_engine,
-                model=model_name,
-                device=device,
-                tasks=sorted(KNOWN_TASKS),
-                options=extra_options,
-            )]
+            models = [
+                RestrictedInferenceModelConfig(
+                    id=default_model_id,
+                    engine=default_engine,
+                    model=model_name,
+                    device=device,
+                    tasks=sorted(KNOWN_TASKS),
+                    options=extra_options,
+                )
+            ]
 
-        raw_tasks = raw.get("tasks") if isinstance(raw.get("tasks"), dict) else {}
+        raw_tasks_value = raw.get("tasks")
+        raw_tasks: dict[str, Any] = (
+            dict(raw_tasks_value) if isinstance(raw_tasks_value, dict) else {}
+        )
         tasks = {
             task_id: RestrictedInferenceTaskConfig.from_raw(task_id, raw_tasks.get(task_id))
             for task_id in sorted(KNOWN_TASKS)
         }
+        raw_worker_allowlist = raw.get("worker_allowed_endpoints")
+        if isinstance(raw_worker_allowlist, str):
+            worker_allowed_endpoints = [
+                item.strip() for item in raw_worker_allowlist.split(",") if item.strip()
+            ]
+        elif isinstance(raw_worker_allowlist, list):
+            worker_allowed_endpoints = [
+                str(item).strip() for item in raw_worker_allowlist if str(item).strip()
+            ]
+        else:
+            worker_allowed_endpoints = []
         return RestrictedInferenceConfig(
             enabled=bool(raw.get("enabled", True)),
             default_engine=default_engine,
@@ -345,68 +396,177 @@ class RestrictedInferenceConfigService:
             allowed_engines=allowed_engines,
             models=models,
             tasks=tasks,
+            execution_mode=str(raw.get("execution_mode") or "legacy_local"),
+            worker_url=str(raw.get("worker_url") or ""),
+            worker_allowed_endpoints=worker_allowed_endpoints,
+            production_profile=bool(raw.get("production_profile", False)),
+            legacy_local_enabled=bool(raw.get("legacy_local_enabled", True)),
+            allow_remote_download=bool(raw.get("allow_remote_download", False)),
         )
 
     def diagnostics(self, *, dependency_status: dict[str, str] | None = None) -> list[RestrictedInferenceDiagnostic]:
         cfg = self.resolve()
         dep_status = dict(dependency_status or {})
         diagnostics: list[RestrictedInferenceDiagnostic] = []
+        if cfg.execution_mode not in {"legacy_local", "worker"}:
+            diagnostics.append(
+                RestrictedInferenceDiagnostic(
+                    "invalid_execution_mode",
+                    "error",
+                    f"Unknown restricted-inference execution mode: {cfg.execution_mode}",
+                )
+            )
+        if cfg.execution_mode == "worker" and not cfg.worker_url:
+            diagnostics.append(
+                RestrictedInferenceDiagnostic(
+                    "worker_url_missing",
+                    "error",
+                    "Worker execution mode requires worker_url.",
+                )
+            )
+        if cfg.execution_mode == "worker" and not cfg.worker_allowed_endpoints:
+            diagnostics.append(
+                RestrictedInferenceDiagnostic(
+                    "worker_endpoint_allowlist_missing",
+                    "error",
+                    "Worker execution mode requires an exact endpoint allowlist.",
+                )
+            )
+        if cfg.execution_mode == "worker" and cfg.worker_url and cfg.worker_allowed_endpoints:
+            try:
+                require_allowlisted_restricted_inference_endpoint(
+                    cfg.worker_url,
+                    tuple(cfg.worker_allowed_endpoints),
+                )
+            except ValueError:
+                diagnostics.append(
+                    RestrictedInferenceDiagnostic(
+                        "worker_url_not_allowlisted",
+                        "error",
+                        "Worker URL must be the exact allowlisted internal inference endpoint.",
+                    )
+                )
+        if cfg.production_profile and cfg.execution_mode != "worker":
+            diagnostics.append(
+                RestrictedInferenceDiagnostic(
+                    "production_worker_required",
+                    "error",
+                    "Production profile requires isolated worker execution.",
+                )
+            )
+        if cfg.production_profile and cfg.legacy_local_enabled:
+            diagnostics.append(
+                RestrictedInferenceDiagnostic(
+                    "legacy_local_forbidden",
+                    "error",
+                    "Production profile forbids local hub adapters.",
+                )
+            )
+        if cfg.production_profile and cfg.allow_mock_fallback:
+            diagnostics.append(
+                RestrictedInferenceDiagnostic(
+                    "mock_fallback_forbidden",
+                    "error",
+                    "Production profile forbids mock fallback.",
+                )
+            )
         allowed = set(cfg.allowed_engines)
         for engine in allowed:
             if engine not in KNOWN_ENGINES:
-                diagnostics.append(RestrictedInferenceDiagnostic(
-                    "unknown_engine", "error", f"Unknown engine configured: {engine}", engine=engine
-                ))
+                diagnostics.append(
+                    RestrictedInferenceDiagnostic(
+                        "unknown_engine", "error", f"Unknown engine configured: {engine}", engine=engine
+                    )
+                )
         for task_id, task in cfg.tasks.items():
             if task.preferred_engine not in KNOWN_ENGINES:
-                diagnostics.append(RestrictedInferenceDiagnostic(
-                    "unknown_engine", "error", f"Unknown preferred engine: {task.preferred_engine}",
-                    engine=task.preferred_engine,
-                    task_id=task_id,
-                ))
+                diagnostics.append(
+                    RestrictedInferenceDiagnostic(
+                        "unknown_engine",
+                        "error",
+                        f"Unknown preferred engine: {task.preferred_engine}",
+                        engine=task.preferred_engine,
+                        task_id=task_id,
+                    )
+                )
             if not task.enabled:
-                diagnostics.append(RestrictedInferenceDiagnostic(
-                    "task_disabled", "info", f"Task is disabled: {task_id}", task_id=task_id
-                ))
+                diagnostics.append(
+                    RestrictedInferenceDiagnostic(
+                        "task_disabled", "info", f"Task is disabled: {task_id}", task_id=task_id
+                    )
+                )
         for model in cfg.models:
             if model.engine not in KNOWN_ENGINES:
-                diagnostics.append(RestrictedInferenceDiagnostic(
-                    "unknown_engine", "error", f"Unknown engine configured: {model.engine}",
-                    model_id=model.id,
-                    engine=model.engine,
-                ))
+                diagnostics.append(
+                    RestrictedInferenceDiagnostic(
+                        "unknown_engine",
+                        "error",
+                        f"Unknown engine configured: {model.engine}",
+                        model_id=model.id,
+                        engine=model.engine,
+                    )
+                )
             if model.engine not in allowed:
-                diagnostics.append(RestrictedInferenceDiagnostic(
-                    "engine_not_allowed", "error", f"Model engine is not allowed: {model.engine}",
-                    model_id=model.id,
-                    engine=model.engine,
-                ))
+                diagnostics.append(
+                    RestrictedInferenceDiagnostic(
+                        "engine_not_allowed",
+                        "error",
+                        f"Model engine is not allowed: {model.engine}",
+                        model_id=model.id,
+                        engine=model.engine,
+                    )
+                )
             if not model.enabled:
-                diagnostics.append(RestrictedInferenceDiagnostic(
-                    "disabled_model", "info", f"Model is disabled: {model.id}",
-                    model_id=model.id,
-                    engine=model.engine,
-                ))
+                diagnostics.append(
+                    RestrictedInferenceDiagnostic(
+                        "disabled_model",
+                        "info",
+                        f"Model is disabled: {model.id}",
+                        model_id=model.id,
+                        engine=model.engine,
+                    )
+                )
             if model.local_path and not Path(model.local_path).exists():
-                diagnostics.append(RestrictedInferenceDiagnostic(
-                    "invalid_local_path", "error", f"Local model path does not exist: {model.local_path}",
-                    model_id=model.id,
-                    engine=model.engine,
-                ))
+                diagnostics.append(
+                    RestrictedInferenceDiagnostic(
+                        "invalid_local_path",
+                        "error",
+                        "Configured local model snapshot does not exist.",
+                        model_id=model.id,
+                        engine=model.engine,
+                    )
+                )
             status = dep_status.get(model.engine)
             if status in {"degraded", "unavailable"}:
-                diagnostics.append(RestrictedInferenceDiagnostic(
-                    "missing_dependency", "warning", f"Engine dependency is {status}: {model.engine}",
-                    model_id=model.id,
-                    engine=model.engine,
-                ))
+                diagnostics.append(
+                    RestrictedInferenceDiagnostic(
+                        "missing_dependency",
+                        "warning",
+                        f"Engine dependency is {status}: {model.engine}",
+                        model_id=model.id,
+                        engine=model.engine,
+                    )
+                )
             if model.engine in {ENGINE_HUGGINGFACE, ENGINE_SENTENCE_TRANSFORMERS} and not model.local_path:
-                diagnostics.append(RestrictedInferenceDiagnostic(
-                    "unsafe_external_call", "warning",
-                    "Remote model id may require network access; prefer local_path for offline operation.",
-                    model_id=model.id,
-                    engine=model.engine,
-                ))
+                diagnostics.append(
+                    RestrictedInferenceDiagnostic(
+                        "unsafe_external_call",
+                        "error" if cfg.production_profile else "warning",
+                        "Remote model id may require network access; use a verified local snapshot.",
+                        model_id=model.id,
+                        engine=model.engine,
+                    )
+                )
+            if cfg.production_profile and model.engine == ENGINE_MOCK:
+                diagnostics.append(
+                    RestrictedInferenceDiagnostic(
+                        "mock_model_forbidden",
+                        "error",
+                        "Production profile forbids mock models.",
+                        model_id=model.id,
+                        engine=model.engine,
+                    )
+                )
         return diagnostics
 
     def as_dict(self, *, redact_secrets: bool = True) -> dict[str, Any]:
@@ -424,3 +584,12 @@ def _redact(payload: dict[str, Any]) -> dict[str, Any]:
         else:
             result[key] = value
     return result
+
+
+def _redact_model_reference(value: str) -> str:
+    text = str(value)
+    if "://" in text:
+        return "<remote-model-source>"
+    if Path(text).is_absolute():
+        return "<local-model-reference>"
+    return text
