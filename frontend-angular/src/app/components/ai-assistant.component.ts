@@ -45,7 +45,7 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
   configPanelOpen = false;
   sharePanelOpen = false;
   snakeChatPanelOpen = false; // initialised in restoreDockState()
-  snakeChatPanelTab: 'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated' = 'login';
+  snakeChatPanelTab: 'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'settings' | 'deprecated' = 'login';
   private snakeDrawHandle: number | null = null;
 
   minimized = true;
@@ -594,7 +594,7 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
     if (storedOpen === 'false') localStorage.removeItem('ananta.ai-snake.panel-open.v1');
     this.snakeChatPanelOpen = this.storage.restoreBoolean('ananta.ai-snake.panel-open.v1', true);
     const savedTab = this.storage.restoreJson<string>('ananta.ai-snake.panel-tab.v1', '');
-    const validTabs = ['chat', 'sessions', 'trace', 'login', 'pair', 'mode', 'settings'];
+    const validTabs = ['chat', 'sessions', 'trace', 'login', 'pair', 'settings'];
     if (savedTab && validTabs.includes(savedTab)) {
       this.snakeChatPanelTab = savedTab as typeof this.snakeChatPanelTab;
     }
@@ -838,12 +838,12 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
 
   toggleRegionMode(): void { this.snakeOverlay.toggleRegionMode(); }
 
-  onSnakeChatTabChange(tab: 'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated'): void {
+  onSnakeChatTabChange(tab: 'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'settings' | 'deprecated'): void {
     this.snakeChatPanelTab = tab;
     this.storage.persistJson('ananta.ai-snake.panel-tab.v1', tab);
   }
 
-  openSnakeChatPanelTab(tab: 'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated'): void {
+  openSnakeChatPanelTab(tab: 'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'settings' | 'deprecated'): void {
     this.onSnakeChatTabChange(tab);
     this.snakeChatPanelOpen = true;
     this.storage.persistBoolean('ananta.ai-snake.panel-open.v1', true);

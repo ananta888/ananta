@@ -3,7 +3,6 @@ import { CommonModule, AsyncPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { AiSnakeChatService } from '../services/ai-snake-chat.service';
-import { AiSnakeConfigService } from '../services/ai-snake-config.service';
 import { OidcAuthService } from '../services/oidc-auth.service';
 import { IdentityBridge } from '../services/identity/identity-bridge';
 import {
@@ -41,29 +40,6 @@ import { SnakeOverlayService } from '../services/snake-overlay.service';
       @if (tab === 'settings') {
         <div class="settings-shell">
           <app-ai-snake-config-panel />
-        </div>
-      } @else if (tab === 'mode') {
-        <div class="mode-shell">
-          <div class="mode-group">
-            <div class="title">Chat-Modus</div>
-            <div class="mode-tabs">
-              <button [class.active]="mode() === 'snake_ask'" (click)="setMode('snake_ask')">snake_ask</button>
-              <button [class.active]="mode() === 'propose'" (click)="setMode('propose')">propose</button>
-              <button [class.active]="mode() === 'auto'" (click)="setMode('auto')">auto</button>
-            </div>
-          </div>
-          <div class="mode-group">
-            <div class="title">Backend</div>
-            <select [value]="backend()" (change)="setBackend($any($event.target).value)">
-              <option value="ananta-worker">ananta-worker</option>
-              <option value="opencode">opencode</option>
-              <option value="lmstudio">lmstudio</option>
-              <option value="hermes">hermes</option>
-            </select>
-          </div>
-          <div class="mode-group">
-            <label><input type="checkbox" [checked]="useCodeCompass()" (change)="setUseCodeCompass($any($event.target).checked)" /> CodeCompass nutzen</label>
-          </div>
         </div>
       } @else if (tab === 'pair') {
         @if (oidc.loggedIn$ | async) {
@@ -360,7 +336,6 @@ import { SnakeOverlayService } from '../services/snake-overlay.service';
         <button [class.active]="tab==='trace'" (click)="setTab('trace')" class="trace-tab-btn" data-waypoint="snake.tab-trace">Trace</button>
         <button [class.active]="tab==='login'" (click)="setTab('login')" data-waypoint="snake.tab-ai-snake">AI-Snake</button>
         <button [class.active]="tab==='pair'" (click)="setTab('pair')" data-waypoint="snake.tab-pair">Pair Dev</button>
-        <button [class.active]="tab==='mode'" (click)="setTab('mode')" data-waypoint="snake.tab-mode">Modus</button>
         <button [class.active]="tab==='settings'" (click)="setTab('settings')" data-waypoint="snake.tab-settings">Einstell.</button>
         <button class="explain-btn"
                 [class.active]="(overlayService.regionMode$ | async)"
@@ -535,7 +510,6 @@ import { SnakeOverlayService } from '../services/snake-overlay.service';
 })
 export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
   readonly svc = inject(AiSnakeChatService);
-  readonly cfg = inject(AiSnakeConfigService);
   readonly oidc = inject(OidcAuthService);
   private readonly bridge = inject(IdentityBridge);
   readonly signaling = inject(WebrtcSignalingService);
@@ -573,15 +547,14 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
    *  Persisted in localStorage so reconnects keep the same session. Defaults to 'ananta-settings'. */
   private _snakeSessionId: string = this.loadSnakeSession();
 
-  @Input() tab: 'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated' = 'chat';
-  @Output() tabChange = new EventEmitter<'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated'>();
+  @Input() tab: 'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'settings' | 'deprecated' = 'chat';
+  @Output() tabChange = new EventEmitter<'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'settings' | 'deprecated'>();
 
   get keycloakIssuer(): string {
     return `${this.keycloakBaseUrl.replace(/\/$/, '')}/realms/${this.keycloakRealm || 'ananta-e2e'}`;
   }
 
   constructor() {
-    this.cfg.load();
     this.restoreRuntimeEndpoints();
     this.sessions.load();
     // Sync localStorage session into ChatSessionsService so fallback session_id is correct
@@ -801,30 +774,6 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
     this.svc.cancelChat();
   }
 
-  mode(): string {
-    return String(this.cfg.config$.value['chat_worker_mode'] || 'snake_ask');
-  }
-
-  setMode(value: 'snake_ask' | 'propose' | 'auto'): void {
-    this.cfg.updateField('chat_worker_mode', value);
-  }
-
-  backend(): string {
-    return String(this.cfg.config$.value['chat_backend'] || 'ananta-worker');
-  }
-
-  setBackend(value: string): void {
-    this.cfg.updateField('chat_backend', value);
-  }
-
-  useCodeCompass(): boolean {
-    return !!this.cfg.config$.value['chat_use_codecompass'];
-  }
-
-  setUseCodeCompass(enabled: boolean): void {
-    this.cfg.updateField('chat_use_codecompass', enabled);
-  }
-
   activeSessionFor(id: string) {
     return (this.sessions.sessions$.value || []).find(s => s.id === id) ?? null;
   }
@@ -869,7 +818,7 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
     return result;
   }
 
-  setTab(tab: 'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'mode' | 'settings' | 'deprecated'): void {
+  setTab(tab: 'chat' | 'sessions' | 'trace' | 'login' | 'pair' | 'settings' | 'deprecated'): void {
     this.tab = tab;
     this.tabChange.emit(tab);
   }
