@@ -9,10 +9,12 @@
 - **AI Chats** → `/chats`
 - **Arbeitsbereich** → `/workspace`
 - **Aufgaben** → `/board`
+- **Classroom** → `/classroom`
 - **CodeHug** → `/codehug`
 - **Ergebnisse** → `/artifacts`
 - **Hilfe** → `/help`
 - **LLM Runtime** → `/llama-runtime`
+- **Markdown Slides** → `/markdown-slides`
 - **Vorlagen** → `/templates`
 - **Voxtral Offline** → `/voxtral-offline`
 - **Wikipedia** → `/wikipedia` _Experte_
@@ -35,11 +37,15 @@
 - **Worker Loop Diagnostik** → `/worker-loop-diagnostics` _Experte_
 - **Worker Pool** → `/worker-pool` _Experte_
 
+### CaseFlow
+- **Bewerbungen** → `/jobs`
+
 ### Konfiguration
 - **Admin-Diagnose** → `/admin-diagnostics` _Experte, Admin_
 - **Audit-Logs** → `/audit-log` _Experte, Admin_
 - **Benutzerverwaltung** → `/user-management` _Experte, Admin_
 - **Blueprint-Konfig** → `/blueprint-config` _Experte_
+- **CLI-Backends** → `/cli-backends` _Experte_
 - **Effective Workflow** → `/effective-workflow` _Experte_
 - **Einstellungen** → `/settings` _Experte_
 - **Instruction Layers** → `/instruction-layers` _Experte_
@@ -96,7 +102,6 @@ Diese Bezeichner identifizieren konkrete Schaltflächen/Bereiche in der Oberflä
   - `snake.tab-ai-snake` — AI-Snake
   - `snake.tab-chat` — Chat
   - `snake.tab-explain` — 🔲 Erklären
-  - `snake.tab-mode` — Modus
   - `snake.tab-pair` — Pair Dev
   - `snake.tab-sessions` — Sessions
   - `snake.tab-settings` — Einstell.
@@ -149,11 +154,20 @@ Folgende Dokumentationsdateien beschreiben die wichtigsten Features:
 - **CodeCompass Agent Runtime Instructions** (`codecompass-agent-runtime-instructions.md`): This document is the authoritative reference for how Ananta agents (ananta-worker,
 - **CodeCompass Architecture Query Engine** (`codecompass-architecture-query-engine.md`): Status: implementiert (CCAQE-Track, 2026-06-10)
 - **CodeCompass Domain Discovery** (`codecompass-domain-discovery.md`): Track: `todos/todo.codecompass-domain-discovery.json` (CCDD)
-- **CodeCompass Graph Viewer** (`codecompass-graph-viewer.md`): Angular feature for visualizing CodeCompass static-analysis graphs. The viewer is renderer-independent: a canonical `Gen
+- **CodeCompass Graph Viewer** (`codecompass-graph-viewer.md`): Semantic Translation Graph extensions are documented in `docs/codecompass-semantic-translation-graph.md`. The extension
+- **CodeCompass: n8n-Workflow-Verständnis** (`codecompass-n8n-workflows.md`): Stand: 2026-07-06 · Track: `codecompass-n8n-workflow-understanding`
+- **CodeCompass: Python Migration Agent Workflow** (`codecompass-python-migration-agent-workflow.md`): Version: `v1`. Track: `codecompass-python-to-java-rust-translation`.
+- **CodeCompass: Python → Java / Rust Translation** (`codecompass-python-to-java-rust-translation.md`): Version: `v1`. Track: `codecompass-python-to-java-rust-translation`.
 - **CodeCompass Relevant-Snippet Handoff** (`codecompass-relevant-snippet-handoff.md`): Dieser Artikel beschreibt, wie Ananta CodeCompass-Kontext aus `rag_helper/research-context.json` an den ananta-worker Pr
 - **CodeCompass Retrieval Profile & Source Policy** (`codecompass-retrieval-profile-source-policy.md`): Dieses Dokument beschreibt den vollständigen AI-Snake-Retrieval-Flow: vom Nutzer-Prompt bis zum grounded Prompt an den W
 - **CodeCompass Runtime Domain Scope (CCRDS)** (`codecompass-runtime-domain-scope.md`): Status: implementiert (Retrieval-Scope aktiv nutzbar, Write-Scope als
-- **CodeCompass** (`codecompass.md`): Placeholder for the CodeCompass overview.
+- **CodeCompass Semantic Translation Graph** (`codecompass-semantic-translation-graph.md`): This track adds a deterministic semantic translation layer to CodeCompass. It does not replace retrieval and it is not a
+- **CodeCompass Semantic Translation — Rule Proposal and Promotion Workflow** (`codecompass-semantic-translation-rule-workflow.md`): This document defines the lifecycle of an equivalence rule from initial proposal to stable production use.
+- **CodeCompass Semantic Translation Vocabulary v1** (`codecompass-semantic-vocabulary.v1.md`): Version: `v1`. Schema: `codecompass_semantic_translation_graph.v1`.
+- **CodeCompass Tools (M3/M6 reference)** (`codecompass-tools.md`): This document lists the public CodeCompass tool names exposed to the
+- **CodeCompass x86 Assembly Core Extension — Contract** (`codecompass-x86-assembly-core-extension.md`): **Status:** foundation contract for `codecompass-x86-assembly-core-extension`
+- **CodeCompass x86 Malware C-Analysis Lifting — Contract** (`codecompass-x86-malware-c-analysis.md`): **Status:** contract for `codecompass-x86-malware-c-analysis-lifting`
+- **CodeCompass** (`codecompass.md`): Ananta CodeCompass is the combined context layer that feeds the
 
 ### Instruction Layers
 - **Instruction Layer Authoring Guide** (`instruction-layer-authoring-guide.md`): This guide explains how to write safe and useful `user_profile` and `task_overlay` prompts.
@@ -200,13 +214,49 @@ Folgende Dokumentationsdateien beschreiben die wichtigsten Features:
   - `GET /teams/blueprints/catalog`
   - `POST /teams/blueprints/import`
 
+**caseflow.py**
+  - `GET /api/caseflow/actions/open`
+  - `POST /api/caseflow/cases`
+  - `GET /api/caseflow/cases`
+  - `GET /api/caseflow/cases/<case_id>`
+  - `PATCH /api/caseflow/cases/<case_id>`
+  - `GET /api/caseflow/cases/<case_id>/actions`
+  - `POST /api/caseflow/cases/<case_id>/actions`
+  - `GET /api/caseflow/cases/<case_id>/artifacts`
+  - `POST /api/caseflow/cases/<case_id>/artifacts`
+  - `GET /api/caseflow/cases/<case_id>/timeline`
+  - `POST /api/caseflow/cases/<case_id>/transition`
+
 **chat.py**
+  - `GET /api/chat/folders`
+  - `POST /api/chat/folders`
+  - `PATCH /api/chat/folders/<folder_id>`
+  - `DELETE /api/chat/folders/<folder_id>`
+  - `GET /api/chat/organization/history`
+  - `GET /api/chat/organization/history/<revision_id>`
+  - `POST /api/chat/organization/history/<revision_id>/revert`
+  - `GET, POST /api/chat/organization/proposals`
+  - `GET, PATCH, DELETE /api/chat/organization/proposals/<proposal_id>`
+  - `POST /api/chat/organization/proposals/<proposal_id>/apply`
+  - `POST /api/chat/organization/proposals/<proposal_id>/validate`
+  - `GET /api/chat/organization/snapshot`
+  - `GET /api/chat/profiles`
+  - `POST /api/chat/profiles`
+  - `PATCH /api/chat/profiles/<profile_id>`
+  - `DELETE /api/chat/profiles/<profile_id>`
   - `GET /api/chat/sessions`
   - `POST /api/chat/sessions`
   - `GET /api/chat/sessions/<session_id>`
   - `PUT, PATCH /api/chat/sessions/<session_id>`
   - `DELETE /api/chat/sessions/<session_id>`
   - `POST /api/chat/sessions/<session_id>/activate`
+  - `GET /api/chat/sessions/<session_id>/context-overview`
+  - `POST /api/chat/sessions/<session_id>/prompt-preview`
+  - `POST /api/chat/sessions/<session_id>/summarize`
+  - `POST /api/chat/sessions/ai-reorganize`
+  - `GET /api/chat/types`
+  - `POST /api/chat/types`
+  - `PATCH, DELETE /api/chat/types/<type_id>`
 
 **codecompass_domain_scope.py**
   - `POST /api/codecompass/domain-scope/preview`
@@ -282,6 +332,16 @@ Folgende Dokumentationsdateien beschreiben die wichtigsten Features:
 **integrations_workflows.py**
   - `POST /api/integrations/workflows/callback`
 
+**job_applications.py**
+  - `GET /api/caseflow/jobs/<case_id>`
+  - `GET /api/caseflow/jobs/<case_id>/document-bundle`
+  - `GET /api/caseflow/jobs/<case_id>/fit-score`
+  - `PUT /api/caseflow/jobs/<case_id>/fit-score`
+  - `POST /api/caseflow/jobs/<case_id>/posting`
+
+**ml_intern_training.py**
+  - `POST /api/ml-intern-training/jobs`
+
 **network_profiles.py**
   - `GET /api/network-profiles`
   - `GET /api/network-profiles/<profile_id>`
@@ -302,7 +362,7 @@ Folgende Dokumentationsdateien beschreiben die wichtigsten Features:
   - `GET /snakes/<snake_id>/messages`
   - `GET /snakes/participants`
 
-**snakes_execution_routes.py**
+**snakes_execution_handlers.py**
   - `POST /snake/ask`
   - `POST /snakes/<snake_id>/chat/ack`
   - `POST /snakes/<snake_id>/chat/cancel`
