@@ -4,19 +4,21 @@ The registry owns engine-to-factory resolution and lazy imports. It does not
 normalize configuration or dispatch operations; those responsibilities remain
 with the config and inference services.
 """
+
 from __future__ import annotations
 
+import importlib.util
 from dataclasses import dataclass, field
 from typing import Callable
 
 from agent.services.model_inference_adapters import (
-    AdapterStatus,
-    BaseInferenceAdapter,
-    CAP_CLASSIFICATION,
     CAP_CHOICE_SCORING,
+    CAP_CLASSIFICATION,
     CAP_EMBEDDINGS,
     CAP_FEATURE_EXTRACTION,
     CAP_RERANK,
+    AdapterStatus,
+    BaseInferenceAdapter,
 )
 from agent.services.restricted_inference_config_service import (
     ENGINE_HUGGINGFACE,
@@ -76,10 +78,7 @@ class ModelInferenceAdapterRegistry:
         return sorted(self._registrations)
 
     def capabilities(self) -> dict[str, list[str]]:
-        return {
-            engine: sorted(reg.capabilities)
-            for engine, reg in sorted(self._registrations.items())
-        }
+        return {engine: sorted(reg.capabilities) for engine, reg in sorted(self._registrations.items())}
 
     def build(self, model: RestrictedInferenceModelConfig) -> BaseInferenceAdapter:
         reg = self._registrations.get(model.engine)
@@ -98,41 +97,51 @@ class ModelInferenceAdapterRegistry:
         return adapters
 
     def statuses(self, models: list[RestrictedInferenceModelConfig]) -> list[AdapterStatus]:
+        """Return declaration/dependency status without constructing adapters.
+
+        Model construction can allocate weights and therefore belongs to the
+        isolated worker.  The compatibility ``build`` method remains available
+        for explicitly enabled legacy mode and worker-owned factories.
+        """
         statuses: list[AdapterStatus] = []
         seen_model_ids: set[str] = set()
         for model in models:
             if not model.enabled:
-                statuses.append(AdapterStatus(
-                    name=model.engine,
-                    engine=model.engine,
-                    status="unavailable",
-                    model_id=model.id,
-                    device=model.device,
-                    revision=model.revision,
-                    error="disabled_model",
-                ))
+                statuses.append(
+                    AdapterStatus(
+                        name=model.engine,
+                        engine=model.engine,
+                        status="unavailable",
+                        model_id=model.id,
+                        device=model.device,
+                        revision=model.revision,
+                        error="disabled_model",
+                    )
+                )
                 continue
             if model.engine not in self._registrations:
-                statuses.append(AdapterStatus(
-                    name=model.engine,
-                    engine=model.engine,
-                    status="unavailable",
-                    model_id=model.id,
-                    error="unknown_engine",
-                ))
-                continue
-            try:
-                status = self.build(model).status()
-            except Exception as exc:
-                status = AdapterStatus(
-                    name=model.engine,
-                    engine=model.engine,
-                    status="unavailable",
-                    model_id=model.id,
-                    device=model.device,
-                    revision=model.revision,
-                    error=str(exc),
+                statuses.append(
+                    AdapterStatus(
+                        name=model.engine,
+                        engine=model.engine,
+                        status="unavailable",
+                        model_id=model.id,
+                        error="unknown_engine",
+                    )
                 )
+                continue
+            dependency = _ENGINE_DEPENDENCIES.get(model.engine)
+            dependency_available = dependency is None or importlib.util.find_spec(dependency) is not None
+            status = AdapterStatus(
+                name=model.engine,
+                engine=model.engine,
+                status="declared" if dependency_available else "unavailable",
+                capabilities=self._registrations[model.engine].capabilities if dependency_available else frozenset(),
+                model_id=model.id,
+                device=model.device,
+                revision=model.revision,
+                error="" if dependency_available else "missing_dependency",
+            )
             statuses.append(status)
             seen_model_ids.add(model.id)
         if not seen_model_ids:
@@ -167,6 +176,10 @@ def _build_sentence_transformers(model: RestrictedInferenceModelConfig) -> BaseI
         device=model.device,
         lang_detect=bool(model.options.get("lang_detect", False)),
         lang_model_map=lang_model_map,
+        max_seq_length=int(model.options.get("max_seq_length") or 512),
+        normalize_embeddings=bool(model.options.get("normalize_embeddings", True)),
+        local_files_only=bool(model.options.get("local_files_only", True)),
+        mode=str(model.options.get("sentence_mode") or "bi_encoder"),
     )
 
 
@@ -177,11 +190,18 @@ def _build_huggingface(model: RestrictedInferenceModelConfig) -> BaseInferenceAd
 
     return HuggingFaceTransformersAdapter(
         model_id=model.local_path or model.model,
+        tokenizer_path=model.options.get("tokenizer_path"),
         task=str(model.options.get("task") or "sequence-classification"),
         device=model.device,
         output_hidden_states=bool(model.options.get("allow_hidden_states", False)),
         output_attentions=bool(model.options.get("allow_attention", False)),
-        revision=model.revision or "main",
+        revision=model.revision,
+        labels=[str(item) for item in (model.options.get("labels") or [])],
+        max_seq_length=int(model.options.get("max_seq_length") or 512),
+        dtype=str(model.options.get("dtype") or "float32"),
+        quantization=str(model.options.get("quantization") or "none"),
+        local_files_only=bool(model.options.get("local_files_only", True)),
+        trust_remote_code=bool(model.options.get("trust_remote_code", False)),
     )
 
 
@@ -194,6 +214,10 @@ def _build_onnxruntime(model: RestrictedInferenceModelConfig) -> BaseInferenceAd
         labels=[str(item) for item in (model.options.get("labels") or [])],
         device=model.device,
         model_id=model.id,
+        task=str(model.options.get("task") or "feature-extraction"),
+        max_seq_length=int(model.options.get("max_seq_length") or 512),
+        pooling=str(model.options.get("pooling") or "mean"),
+        allowed_external_data=[str(item) for item in (model.options.get("allowed_external_data") or [])],
     )
 
 
@@ -202,12 +226,26 @@ def _build_pytorch(model: RestrictedInferenceModelConfig) -> BaseInferenceAdapte
 
     return PyTorchAdapter(
         model_id=model.local_path or model.model,
+        tokenizer_path=model.options.get("tokenizer_path"),
         task=str(model.options.get("task") or "feature-extraction"),
         device=model.device,
         output_hidden_states=bool(model.options.get("allow_hidden_states", True)),
         output_attentions=bool(model.options.get("allow_attention", False)),
         labels=[str(item) for item in (model.options.get("labels") or [])],
+        max_seq_length=int(model.options.get("max_seq_length") or 512),
+        dtype=str(model.options.get("dtype") or "float32"),
+        source_kind=str(model.options.get("source_kind") or "hf_safetensors"),
+        factory_id=str(model.options.get("factory_id") or ""),
+        local_files_only=bool(model.options.get("local_files_only", True)),
     )
+
+
+_ENGINE_DEPENDENCIES = {
+    ENGINE_HUGGINGFACE: "transformers",
+    ENGINE_ONNXRUNTIME: "onnxruntime",
+    ENGINE_PYTORCH: "torch",
+    ENGINE_SENTENCE_TRANSFORMERS: "sentence_transformers",
+}
 
 
 _registry: ModelInferenceAdapterRegistry | None = None

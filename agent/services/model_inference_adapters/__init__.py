@@ -16,6 +16,7 @@ Adapter contract
 All operations must be pure analysis — no free text generation is returned.
 Missing optional dependencies produce ``degraded`` status, not a crash.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -31,12 +32,21 @@ CAP_RERANK = "rerank"
 CAP_FEATURE_EXTRACTION = "feature_extraction"
 CAP_CHOICE_SCORING = "choice_scoring"
 
-ALL_CAPABILITIES = frozenset({
-    CAP_EMBEDDINGS, CAP_HIDDEN_STATES, CAP_ATTENTION, CAP_LOGITS,
-    CAP_CLASSIFICATION, CAP_RERANK, CAP_FEATURE_EXTRACTION, CAP_CHOICE_SCORING,
-})
+ALL_CAPABILITIES = frozenset(
+    {
+        CAP_EMBEDDINGS,
+        CAP_HIDDEN_STATES,
+        CAP_ATTENTION,
+        CAP_LOGITS,
+        CAP_CLASSIFICATION,
+        CAP_RERANK,
+        CAP_FEATURE_EXTRACTION,
+        CAP_CHOICE_SCORING,
+    }
+)
 
 # ── Result types (shared across all adapters) ─────────────────────────────────
+
 
 @dataclass
 class ClassificationResult:
@@ -53,10 +63,11 @@ class ClassificationResult:
 class RerankResult:
     path: str
     record_id: str
-    score: float          # 0.0 – 1.0
+    score: float  # 0.0 – 1.0
     reason_code: str = ""
     model_id: str = ""
     engine: str = ""
+    manifest_digest: str = ""
     confidence: float = 1.0
     no_generation: bool = True
 
@@ -64,7 +75,7 @@ class RerankResult:
 @dataclass
 class ChoiceScore:
     choice: str
-    score: float          # higher = more likely under the model
+    score: float  # higher = more likely under the model
     model_id: str = ""
     engine: str = ""
     no_generation: bool = True
@@ -81,8 +92,8 @@ class FeatureVector:
 
 @dataclass
 class RiskScoreResult:
-    risk_score: float         # 0.0 – 1.0
-    risk_category: str = ""   # fixed enum: low / medium / high / critical
+    risk_score: float  # 0.0 – 1.0
+    risk_category: str = ""  # fixed enum: low / medium / high / critical
     confidence: float = 1.0
     model_id: str = ""
     engine: str = ""
@@ -91,11 +102,12 @@ class RiskScoreResult:
 
 # ── Adapter status ────────────────────────────────────────────────────────────
 
+
 @dataclass
 class AdapterStatus:
     name: str
     engine: str
-    status: str            # ready / degraded / unavailable
+    status: str  # ready / degraded / unavailable
     capabilities: frozenset[str] = field(default_factory=frozenset)
     model_id: str = ""
     device: str = ""
@@ -107,6 +119,7 @@ class AdapterStatus:
 
 
 # ── Abstract base ─────────────────────────────────────────────────────────────
+
 
 class BaseInferenceAdapter:
     """Abstract base for all restricted model inference adapters.

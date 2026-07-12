@@ -1,221 +1,266 @@
-"""RTIPM-004: PyTorch adapter.
+"""Safe PyTorch forward-pass adapter without pickle deserialization."""
 
-Flexible local adapter for custom models, fine-tunes and checkpoints.
-Supports: embeddings, hidden states, attention, classification, feature
-extraction. No free text generation.
-
-Optional dependency: ``torch`` (+ ``transformers`` for tokenizer).
-Degrades gracefully if not installed.
-"""
 from __future__ import annotations
 
-import logging
 import math
-import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from agent.services.model_inference_adapters import (
-    AdapterStatus,
-    BaseInferenceAdapter,
-    CAP_ATTENTION,
     CAP_CLASSIFICATION,
     CAP_EMBEDDINGS,
     CAP_FEATURE_EXTRACTION,
-    CAP_HIDDEN_STATES,
-    CAP_LOGITS,
     CAP_RERANK,
-    CAP_CHOICE_SCORING,
-    ClassificationResult,
+    AdapterStatus,
+    BaseInferenceAdapter,
     ChoiceScore,
+    ClassificationResult,
     FeatureVector,
     RerankResult,
     RiskScoreResult,
 )
 
-log = logging.getLogger(__name__)
 _ENGINE = "pytorch"
+_FORBIDDEN_SUFFIXES = frozenset({".bin", ".ckpt", ".joblib", ".pickle", ".pkl", ".pt", ".pth"})
+
+
+class SafeTorchModelFactoryRegistry:
+    """Code-owned allowlist for custom safetensors state-dict factories."""
+
+    def __init__(self) -> None:
+        self._factories: dict[str, Callable[[Path], tuple[Any, Any]]] = {}
+
+    def register(self, factory_id: str, factory: Callable[[Path], tuple[Any, Any]]) -> None:
+        if not factory_id or factory_id in self._factories:
+            raise ValueError("factory_id must be non-empty and unique")
+        self._factories[factory_id] = factory
+
+    def build(self, factory_id: str, root: Path) -> tuple[Any, Any]:
+        try:
+            factory = self._factories[factory_id]
+        except KeyError as exc:
+            raise ValueError("model_factory_unavailable") from exc
+        return factory(root)
 
 
 class PyTorchAdapter(BaseInferenceAdapter):
-    """PyTorch adapter for local models / checkpoints.
-
-    Loads via HuggingFace ``AutoModel`` or a custom ``torch.load`` checkpoint.
-    All inference is forward-pass only — ``model.generate()`` is explicitly
-    blocked.
-    """
-
     ENGINE = _ENGINE
-    CAPABILITIES: frozenset[str] = frozenset({
-        CAP_EMBEDDINGS, CAP_HIDDEN_STATES, CAP_ATTENTION, CAP_LOGITS,
-        CAP_CLASSIFICATION, CAP_FEATURE_EXTRACTION, CAP_RERANK, CAP_CHOICE_SCORING,
-    })
+    CAPABILITIES = frozenset({CAP_EMBEDDINGS, CAP_CLASSIFICATION, CAP_FEATURE_EXTRACTION, CAP_RERANK})
 
     def __init__(
         self,
         *,
-        model_id: str | Path = "",
+        model_id: str | Path,
+        tokenizer_path: str | Path | None = None,
         task: str = "feature-extraction",
         device: str = "cpu",
-        output_hidden_states: bool = True,
+        output_hidden_states: bool = False,
         output_attentions: bool = False,
         labels: list[str] | None = None,
+        max_seq_length: int = 512,
+        dtype: str = "float32",
+        source_kind: str = "hf_safetensors",
+        factory_id: str = "",
+        factory_registry: SafeTorchModelFactoryRegistry | None = None,
+        local_files_only: bool = True,
     ) -> None:
+        del output_hidden_states, output_attentions
+        self._root = Path(model_id)
         self._model_id = str(model_id)
-        self._task = task
-        self._device = device
-        self._output_hidden_states = output_hidden_states
-        self._output_attentions = output_attentions
-        self._labels = labels or []
+        self._tokenizer_path = Path(tokenizer_path) if tokenizer_path else self._root
+        self._task = str(task).lower()
+        self._device = str(device).lower()
+        self._labels = tuple(str(label) for label in (labels or ()))
+        self._max_seq_length = max(1, int(max_seq_length))
+        self._dtype = str(dtype).lower()
+        self._source_kind = str(source_kind).lower()
+        self._factory_id = str(factory_id)
+        self._factory_registry = factory_registry or SafeTorchModelFactoryRegistry()
+        self._local_files_only = bool(local_files_only)
         self._model: Any = None
         self._tokenizer: Any = None
+        self._torch: Any = None
         self._error = ""
-        self._ready = False
         self._caps: frozenset[str] = frozenset()
         self._try_load()
 
     def _try_load(self) -> None:
-        try:
-            import torch  # type: ignore[import]  # noqa: F401
-            self._torch = torch
-        except ImportError:
-            self._error = "torch not installed"
-            log.debug("PyTorchAdapter: %s", self._error)
+        if self._local_files_only and (not self._root.exists() or not self._root.is_dir()):
+            self._error = "local_snapshot_required"
             return
-
+        if self._local_files_only and not self._tokenizer_path.exists():
+            self._error = "local_tokenizer_required"
+            return
+        if any(path.suffix.lower() in _FORBIDDEN_SUFFIXES for path in self._root.rglob("*")):
+            self._error = "pickle_artifact_forbidden"
+            return
+        if self._source_kind not in {"hf_safetensors", "safetensors_state_dict"}:
+            self._error = "unsafe_pytorch_source_kind"
+            return
         try:
-            from transformers import AutoTokenizer, AutoModel  # type: ignore[import]
-            self._tokenizer = AutoTokenizer.from_pretrained(self._model_id)
-            self._model = AutoModel.from_pretrained(
-                self._model_id,
-                output_hidden_states=self._output_hidden_states,
-                output_attentions=self._output_attentions,
-            )
+            import torch  # type: ignore[import]
+
+            self._torch = torch
+            if self._source_kind == "safetensors_state_dict":
+                self._load_registered_state_dict()
+            else:
+                self._load_hf_safetensors()
+            self._model.to(self._device)
             self._model.eval()
-            self._ready = True
-            caps = {CAP_EMBEDDINGS, CAP_FEATURE_EXTRACTION, CAP_HIDDEN_STATES, CAP_RERANK}
-            if self._output_attentions:
-                caps.add(CAP_ATTENTION)
-            caps.update({CAP_LOGITS, CAP_CLASSIFICATION, CAP_CHOICE_SCORING})
-            self._caps = frozenset(caps)
+            self._caps = (
+                frozenset({CAP_CLASSIFICATION})
+                if self._task == "sequence-classification"
+                else frozenset({CAP_EMBEDDINGS, CAP_FEATURE_EXTRACTION, CAP_RERANK})
+            )
+        except ImportError:
+            self._error = "torch_or_safetensors_not_installed"
         except Exception as exc:
-            self._error = str(exc)
-            log.warning("PyTorchAdapter load error for %s: %s", self._model_id, exc)
+            self._model = None
+            self._tokenizer = None
+            self._error = _safe_error_code(exc)
+
+    def _load_hf_safetensors(self) -> None:
+        from transformers import (  # type: ignore[import]
+            AutoModel,
+            AutoModelForSequenceClassification,
+            AutoTokenizer,
+        )
+
+        self._tokenizer = AutoTokenizer.from_pretrained(
+            str(self._tokenizer_path),
+            local_files_only=True,
+            trust_remote_code=False,
+        )
+        model_class = AutoModelForSequenceClassification if self._task == "sequence-classification" else AutoModel
+        self._model = model_class.from_pretrained(
+            str(self._root),
+            local_files_only=True,
+            trust_remote_code=False,
+            use_safetensors=True,
+            torch_dtype=_torch_dtype(self._torch, self._dtype),
+        )
+
+    def _load_registered_state_dict(self) -> None:
+        from safetensors.torch import load_file  # type: ignore[import]
+
+        model, tokenizer = self._factory_registry.build(self._factory_id, self._root)
+        weights = sorted(self._root.glob("*.safetensors"))
+        if len(weights) != 1:
+            raise ValueError("state_dict_requires_one_safetensors_file")
+        state_dict = load_file(str(weights[0]), device="cpu")
+        model.load_state_dict(state_dict, strict=True)
+        self._model = model
+        self._tokenizer = tokenizer
 
     def status(self) -> AdapterStatus:
         return AdapterStatus(
             name="pytorch",
             engine=_ENGINE,
-            status="ready" if self._ready else "degraded",
+            status="ready" if self._model is not None else "degraded",
             capabilities=self._caps,
             model_id=self._model_id,
             device=self._device,
             error=self._error,
         )
 
-    def _run_forward(self, texts: list[str]) -> Any:
-        enc = self._tokenizer(texts, return_tensors="pt", padding=True, truncation=True)
-        with self._torch.no_grad():
-            out = self._model(**enc)
-        return out
+    def _forward(self, texts: list[str]) -> tuple[Any, dict[str, Any]]:
+        if self._model is None or self._tokenizer is None:
+            raise RuntimeError(f"PyTorch adapter not ready: {self._error}")
+        encoded = self._tokenizer(
+            texts,
+            return_tensors="pt",
+            padding=True,
+            truncation=True,
+            max_length=self._max_seq_length,
+        )
+        encoded = {key: value.to(self._device) for key, value in encoded.items()}
+        with self._torch.inference_mode():
+            output = self._model(**encoded)
+        return output, encoded
 
     def embed(self, texts: list[str]) -> list[list[float]]:
-        if not self._ready:
-            raise RuntimeError(f"PyTorchAdapter not ready: {self._error}")
-        out = self._run_forward(texts)
-        last_hidden = out.last_hidden_state  # (batch, seq, dim)
-        pooled = last_hidden.mean(dim=1)    # mean pool over seq
-        return [[float(x) for x in row] for row in pooled]
+        if CAP_EMBEDDINGS not in self._caps:
+            raise NotImplementedError("classification model does not expose embeddings")
+        output, encoded = self._forward(texts)
+        hidden = output.last_hidden_state
+        mask = encoded.get("attention_mask")
+        if mask is None:
+            pooled = hidden.mean(dim=1)
+        else:
+            weights = mask.unsqueeze(-1).to(hidden.dtype)
+            pooled = (hidden * weights).sum(dim=1) / weights.sum(dim=1).clamp_min(1)
+        return [[float(value) for value in row] for row in pooled.detach().float().cpu().tolist()]
 
     def extract_features(self, text: str) -> FeatureVector:
-        vec = self.embed([text])[0]
-        return FeatureVector(vector=vec, dimensions=len(vec), model_id=self._model_id, engine=_ENGINE)
+        vector = self.embed([text])[0]
+        return FeatureVector(vector=vector, dimensions=len(vector), model_id=self._model_id, engine=_ENGINE)
 
     def classify(self, text: str, labels: list[str]) -> ClassificationResult:
-        if not self._ready:
-            raise RuntimeError(f"PyTorchAdapter not ready: {self._error}")
-        t0 = time.time()
-        out = self._run_forward([text])
-        # If model has a classification head use its logits; else use pooled embedding norm
-        if hasattr(out, "logits"):
-            logits = out.logits[0]
-            exp_logits = [math.exp(float(l)) for l in logits]
-            total = sum(exp_logits) or 1.0
-            probs = [e / total for e in exp_logits]
-        else:
-            # Fallback: distance to label embeddings (labels ignored, return generic)
-            probs = [1.0 / max(len(labels), 1)] * len(labels)
-        eff_labels = labels or self._labels or [str(i) for i in range(len(probs))]
-        scores = {eff_labels[i]: probs[i] for i in range(min(len(eff_labels), len(probs)))}
-        best = max(scores, key=lambda k: scores[k])
-        return ClassificationResult(
-            label=best,
-            confidence=float(scores[best]),
-            all_scores={k: float(v) for k, v in scores.items()},
-            model_id=self._model_id,
-            engine=_ENGINE,
-            latency_ms=(time.time() - t0) * 1000,
-        )
+        if CAP_CLASSIFICATION not in self._caps:
+            raise NotImplementedError("feature model does not classify")
+        if not labels or set(labels) != set(self._labels):
+            raise ValueError("requested labels do not match manifest labels")
+        output, _encoded = self._forward([text])
+        probabilities = self._torch.softmax(output.logits[0].float(), dim=-1).detach().cpu().tolist()
+        if len(probabilities) != len(self._labels):
+            raise RuntimeError("classification output shape mismatch")
+        scores = {label: float(probabilities[index]) for index, label in enumerate(self._labels)}
+        best = min(scores, key=lambda label: (-scores[label], label))
+        return ClassificationResult(best, scores[best], scores, self._model_id, _ENGINE)
 
     def rerank(self, query: str, candidates: list[dict[str, Any]]) -> list[RerankResult]:
-        texts = [c.get("excerpt") or c.get("path") or "" for c in candidates]
-        q_vec = self.embed([query])[0]
-        c_vecs = self.embed(texts)
-        results = []
-        for c, c_vec in zip(candidates, c_vecs):
-            sim = _cosine(q_vec, c_vec)
-            results.append(RerankResult(
-                path=str(c.get("path") or ""),
-                record_id=str(c.get("record_id") or ""),
-                score=float(max(0.0, sim)),
+        query_vector = self.embed([query])[0]
+        vectors = self.embed([str(item.get("excerpt") or item.get("path") or "") for item in candidates])
+        results = [
+            RerankResult(
+                path=str(candidate.get("path") or ""),
+                record_id=str(candidate.get("record_id") or str(index)),
+                score=max(0.0, min(1.0, _cosine(query_vector, vector))),
                 reason_code="pytorch_cosine",
                 model_id=self._model_id,
                 engine=_ENGINE,
-            ))
-        results.sort(key=lambda r: r.score, reverse=True)
-        return results
-
-    def score_choices(self, prompt: str, choices: list[str]) -> list[ChoiceScore]:
-        if not self._ready:
-            raise RuntimeError(f"PyTorchAdapter not ready: {self._error}")
-        results = []
-        for choice in choices:
-            cr = self.classify(f"{prompt} [SEP] {choice}", choices)
-            results.append(ChoiceScore(
-                choice=choice,
-                score=cr.all_scores.get(choice, 0.0),
-                model_id=self._model_id,
-                engine=_ENGINE,
-            ))
-        results.sort(key=lambda r: r.score, reverse=True)
+            )
+            for index, (candidate, vector) in enumerate(zip(candidates, vectors))
+        ]
+        results.sort(key=lambda item: (-item.score, item.path, item.record_id))
         return results
 
     def risk_score(self, input_dict: dict[str, Any]) -> RiskScoreResult:
-        text = " ".join(str(v) for v in input_dict.values() if v)
-        labels = ["high_risk", "low_risk"]
-        cr = self.classify(text, labels)
-        score = cr.confidence if cr.label == "high_risk" else (1.0 - cr.confidence)
-        return RiskScoreResult(
-            risk_score=round(float(score), 4),
-            risk_category=_score_to_category(score),
-            confidence=cr.confidence,
-            model_id=self._model_id,
-            engine=_ENGINE,
-        )
+        if not set(self._labels).issubset({"low", "medium", "high", "critical"}):
+            raise ValueError("risk scoring requires fixed risk labels")
+        result = self.classify(" ".join(str(value) for value in input_dict.values()), list(self._labels))
+        weights = {"low": 0.0, "medium": 1 / 3, "high": 2 / 3, "critical": 1.0}
+        score = sum(weights[label] * value for label, value in result.all_scores.items())
+        return RiskScoreResult(score, result.label, result.confidence, self._model_id, _ENGINE)
+
+    def score_choices(self, prompt: str, choices: list[str]) -> list[ChoiceScore]:
+        raise NotImplementedError("use the HuggingFace causal-logit adapter for fixed-choice scoring")
+
+    def close(self) -> None:
+        self._model = None
+        self._tokenizer = None
+        if self._torch is not None and self._device.startswith("cuda"):
+            self._torch.cuda.empty_cache()
 
 
-def _cosine(a: list[float], b: list[float]) -> float:
-    dot = sum(x * y for x, y in zip(a, b))
-    na = math.sqrt(sum(x ** 2 for x in a))
-    nb = math.sqrt(sum(x ** 2 for x in b))
-    return dot / (na * nb) if (na and nb) else 0.0
+def _torch_dtype(torch: Any, name: str) -> Any:
+    return {"float16": torch.float16, "bfloat16": torch.bfloat16, "float32": torch.float32}.get(name, torch.float32)
 
 
-def _score_to_category(score: float) -> str:
-    if score >= 0.75:
-        return "critical"
-    if score >= 0.50:
-        return "high"
-    if score >= 0.25:
-        return "medium"
-    return "low"
+def _cosine(left: list[float], right: list[float]) -> float:
+    dot = sum(a * b for a, b in zip(left, right))
+    left_norm = math.sqrt(sum(value * value for value in left))
+    right_norm = math.sqrt(sum(value * value for value in right))
+    return dot / (left_norm * right_norm) if left_norm and right_norm else 0.0
+
+
+def _safe_error_code(exc: Exception) -> str:
+    message = str(exc)
+    if message in {
+        "model_factory_unavailable",
+        "state_dict_requires_one_safetensors_file",
+    }:
+        return message
+    if isinstance(exc, MemoryError) or "out of memory" in message.lower():
+        return "out_of_memory"
+    return "pytorch_load_failed"
