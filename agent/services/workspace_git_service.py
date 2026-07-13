@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+from agent.services.git_audit_service import record_git_activity
+
 
 class WorkspaceGitInitError(RuntimeError):
     def __init__(self, message: str, workspace_dir: Path, stderr: str = "") -> None:
@@ -44,6 +46,26 @@ def _run_git(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess:
         ) from exc
 
 
+def _audit_commit_and_push(
+    workspace_dir: Path,
+    *,
+    branch: str,
+    outcome: str,
+    task_id: str | None = None,
+    commit_sha: str = "",
+) -> None:
+    record_git_activity(
+        "workspace_git_commit_push",
+        workspace_dir=workspace_dir,
+        operation="commit_push",
+        outcome=outcome,
+        branch=branch,
+        task_id=task_id,
+        commit_sha=commit_sha,
+        summary=f"Ananta workspace commit/push: {outcome}",
+    )
+
+
 class WorkspaceGitService:
     @staticmethod
     def init_bare_repo(bare_path: Path) -> None:
@@ -65,7 +87,14 @@ class WorkspaceGitService:
             )
         logging.info("Bare git repo created at %s", bare_path)
 
-    def commit_and_push(self, workspace_dir: Path, *, branch: str, message: str) -> bool:
+    def commit_and_push(
+        self,
+        workspace_dir: Path,
+        *,
+        branch: str,
+        message: str,
+        task_id: str | None = None,
+    ) -> bool:
         """Stage all workspace changes, commit, and push to remote.
 
         Returns True if changes were pushed, False if nothing to commit.
@@ -73,11 +102,25 @@ class WorkspaceGitService:
         """
         workspace_dir = Path(workspace_dir)
         try:
-            _run_git(["add", "-A"], cwd=workspace_dir)
+            staged = _run_git(["add", "-A"], cwd=workspace_dir)
+            if staged.returncode != 0:
+                _audit_commit_and_push(
+                    workspace_dir,
+                    branch=branch,
+                    outcome="stage_failed",
+                    task_id=task_id,
+                )
+                return False
             check = _run_git(["diff", "--cached", "--quiet"], cwd=workspace_dir)
             if check.returncode == 0:
+                _audit_commit_and_push(
+                    workspace_dir,
+                    branch=branch,
+                    outcome="no_changes",
+                    task_id=task_id,
+                )
                 return False
-            _run_git(
+            commit = _run_git(
                 [
                     "-c", "user.name=ananta-worker",
                     "-c", "user.email=worker@ananta",
@@ -85,14 +128,44 @@ class WorkspaceGitService:
                 ],
                 cwd=workspace_dir,
             )
+            if commit.returncode != 0:
+                _audit_commit_and_push(
+                    workspace_dir,
+                    branch=branch,
+                    outcome="commit_failed",
+                    task_id=task_id,
+                )
+                return False
+            head = _run_git(["rev-parse", "--verify", "HEAD"], cwd=workspace_dir)
+            commit_sha = head.stdout.strip() if head.returncode == 0 else ""
             res = _run_git(["push", "origin", f"HEAD:{branch}"], cwd=workspace_dir)
             if res.returncode != 0:
                 logging.warning("git push failed for %s: %s", workspace_dir, res.stderr)
+                _audit_commit_and_push(
+                    workspace_dir,
+                    branch=branch,
+                    outcome="push_failed",
+                    task_id=task_id,
+                    commit_sha=commit_sha,
+                )
                 return False
             logging.info("git push ok: %s -> %s", workspace_dir, branch)
+            _audit_commit_and_push(
+                workspace_dir,
+                branch=branch,
+                outcome="pushed",
+                task_id=task_id,
+                commit_sha=commit_sha,
+            )
             return True
         except Exception as exc:
             logging.warning("commit_and_push error for %s: %s", workspace_dir, exc)
+            _audit_commit_and_push(
+                workspace_dir,
+                branch=branch,
+                outcome="failed",
+                task_id=task_id,
+            )
             return False
 
     def init_workspace(

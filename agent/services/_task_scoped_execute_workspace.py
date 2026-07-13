@@ -17,20 +17,19 @@ from typing import TYPE_CHECKING, Callable
 
 from flask import current_app
 
-from agent.pipeline_trace import new_pipeline_trace, append_stage
+from agent.pipeline_trace import append_stage, new_pipeline_trace
 from agent.runtime_policy import build_trace_record
-from agent.services.native_worker_runtime_service import get_native_worker_runtime_service
-from agent.services.service_registry import get_core_services
-from agent.services.worker_workspace_service import get_worker_workspace_service
-from agent.services.task_runtime_service import apply_artifact_first_completion, update_local_task_status
-from agent.utils import _log_terminal_entry
-
 from agent.services._task_scoped_citation import (
     build_flow_metrics_payload,
     extract_grounded_answer_payload,
 )
 from agent.services._task_scoped_config_policy import should_use_native_worker_runtime
-from agent.services._task_scoped_repair import is_shell_meta_blocked_failure, is_command_not_found_failure
+from agent.services._task_scoped_repair import is_command_not_found_failure, is_shell_meta_blocked_failure
+from agent.services.native_worker_runtime_service import get_native_worker_runtime_service
+from agent.services.service_registry import get_core_services
+from agent.services.task_runtime_service import apply_artifact_first_completion, update_local_task_status
+from agent.services.worker_workspace_service import get_worker_workspace_service
+from agent.utils import _log_terminal_entry
 
 if TYPE_CHECKING:
     from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
@@ -63,12 +62,15 @@ def run_execute_workspace_path(
     attempt_repaired_execute_after_meta_block: Callable,
     register_goal_artifact_outputs: Callable,
 ) -> "TaskScopedRouteResponse":
-    from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
     from agent.metrics import TASK_COMPLETED, TASK_FAILED
+    from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
 
     exec_started_at = time.time()
     workspace_ctx = get_worker_workspace_service().resolve_workspace_context(task=task)
-    lock_ok, lock_reason = get_worker_workspace_service().acquire_output_dir_lock(task=task, workspace_dir=workspace_ctx.workspace_dir)
+    lock_ok, lock_reason = get_worker_workspace_service().acquire_output_dir_lock(
+        task=task,
+        workspace_dir=workspace_ctx.workspace_dir,
+    )
     if not lock_ok:
         return TaskScopedRouteResponse(
             data={"status": "blocked", "reason_code": lock_reason or "workspace_write_conflict", "task_id": tid},
@@ -77,11 +79,14 @@ def run_execute_workspace_path(
             code=409,
         )
 
-    context_delivery_result = None
-    if workspace_ctx.context_policy is not None and getattr(workspace_ctx.context_policy, "scope_mode", "full") != "full":
+    if (
+        workspace_ctx.context_policy is not None
+        and getattr(workspace_ctx.context_policy, "scope_mode", "full") != "full"
+    ):
         try:
             from agent.services.context_delivery_service import get_context_delivery_service
-            context_delivery_result = get_context_delivery_service().deliver(task=task, workspace_ctx=workspace_ctx)
+
+            get_context_delivery_service().deliver(task=task, workspace_ctx=workspace_ctx)
         except Exception as _csd_err:
             return TaskScopedRouteResponse(
                 data={"status": "failed", "error": "context_delivery_failed", "detail": str(_csd_err), "task_id": tid},
@@ -120,7 +125,11 @@ def run_execute_workspace_path(
                 profile_source=profile_source,
                 timeout_seconds=int(execution_policy.timeout_seconds),
                 workspace_dir=workspace_ctx.workspace_dir,
-                native_runtime_payload=(proposal_meta.get("worker_context", {}).get("native_runtime") if isinstance(proposal_meta.get("worker_context", {}).get("native_runtime"), dict) else {}),
+                native_runtime_payload=(
+                    proposal_meta.get("worker_context", {}).get("native_runtime")
+                    if isinstance(proposal_meta.get("worker_context", {}).get("native_runtime"), dict)
+                    else {}
+                ),
                 agent_cfg=agent_cfg,
             )
             from agent.services.task_execution_context_builder import LocalExecutionResult
@@ -135,12 +144,16 @@ def run_execute_workspace_path(
                 loop_detection=None,
                 approval_decision=dict(native_execution.get("approval_decision") or {}),
             )
-            native_artifact_refs = [ref for ref in list(native_execution.get("artifact_refs") or []) if isinstance(ref, dict)]
+            native_artifact_refs = [
+                ref for ref in list(native_execution.get("artifact_refs") or []) if isinstance(ref, dict)
+            ]
             execution_repair_meta = {
                 "native_worker_runtime": dict(native_execution.get("native_runtime") or {}),
                 "runtime_path": "native_worker_pipeline",
             }
-            native_policy_summary = str(native_execution.get("policy_classification_summary") or "").strip().lower() or None
+            native_policy_summary = (
+                str(native_execution.get("policy_classification_summary") or "").strip().lower() or None
+            )
             if native_policy_summary:
                 policy_classification_summary = native_policy_summary
         else:
@@ -181,10 +194,14 @@ def run_execute_workspace_path(
                     execution_repair_meta = repaired_execution["repair_meta"]
 
         after_workspace_snapshot = get_worker_workspace_service().snapshot_directory(workspace_ctx.workspace_dir)
-        changed_files = get_worker_workspace_service().detect_changed_files(before_workspace_snapshot, after_workspace_snapshot)
+        changed_files = get_worker_workspace_service().detect_changed_files(
+            before_workspace_snapshot,
+            after_workspace_snapshot,
+        )
         meaningful_changed_files = get_worker_workspace_service().filter_meaningful_changed_files(changed_files)
-        from worker.core.file_change_set import diff_snapshots
         from pathlib import Path
+
+        from worker.core.file_change_set import diff_snapshots
         before_id = hashlib.sha256(str(sorted(before_workspace_snapshot.items())).encode()).hexdigest()[:16]
         after_id = hashlib.sha256(str(sorted(after_workspace_snapshot.items())).encode()).hexdigest()[:16]
         exec_id = f"exec-{tid}-{int(time.time()*1000)}"
@@ -206,6 +223,7 @@ def run_execute_workspace_path(
                     git_ctx.workspace_dir,
                     branch=git_ctx.branch,
                     message=f"task {str(tid)[:12]}: {str(task.get('title') or tid)[:60]}",
+                    task_id=str(tid),
                 ))
             except Exception as _git_push_err:
                 logging.warning("git commit+push failed for task %s: %s", tid, _git_push_err)
@@ -315,9 +333,17 @@ def run_execute_workspace_path(
             expected_paths = [
                 str(item.get("relative_path") or "").strip()
                 for item in list(worker_execution_contract.get("expected_artifacts") or [])
-                if isinstance(item, dict) and bool(item.get("required", True)) and str(item.get("relative_path") or "").strip()
+                if (
+                    isinstance(item, dict)
+                    and bool(item.get("required", True))
+                    and str(item.get("relative_path") or "").strip()
+                )
             ]
-            artifact_ids = [str(ref.get("artifact_id") or "").strip() for ref in list(combined_artifact_refs or []) if str(ref.get("artifact_id") or "").strip()]
+            artifact_ids = [
+                str(ref.get("artifact_id") or "").strip()
+                for ref in list(combined_artifact_refs or [])
+                if str(ref.get("artifact_id") or "").strip()
+            ]
             produced_paths = {
                 str(ref.get("workspace_relative_path") or "").strip()
                 for ref in list(combined_artifact_refs or [])
@@ -387,7 +413,10 @@ def run_execute_workspace_path(
                     "tool_run_refs": tool_run_refs,
                 }
             )
-            if verification_result.get("status") != "verified" and str(response_payload.get("status") or "") == "completed":
+            if (
+                verification_result.get("status") != "verified"
+                and str(response_payload.get("status") or "") == "completed"
+            ):
                 response_payload["status"] = "failed"
         else:
             answer_verification.setdefault("citation_verification_status", "not_evaluated")

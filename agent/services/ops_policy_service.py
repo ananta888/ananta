@@ -40,6 +40,84 @@ class OpsPolicyService:
             return OpsPolicyDecision("approval_required", "approval_required", metadata)
         return OpsPolicyDecision("policy_denied", "unknown_action", metadata)
 
+    def authorize(
+        self,
+        tool_name: str,
+        action: str,
+        *,
+        target_id: str = "",
+        arguments: dict[str, Any] | None = None,
+        approval_id: str | None = None,
+    ) -> OpsPolicyDecision:
+        """Evaluate an Ops call and bind an optional one-shot approval.
+
+        The approval lifecycle binds grants to the exact tool name, normalized
+        arguments and target fingerprint.  Merely knowing a request id is not
+        sufficient to authorize a different call.
+        """
+
+        decision = self.evaluate(tool_name, action, target_id=target_id)
+        if decision.decision != "approval_required" or not str(approval_id or "").strip():
+            return decision
+
+        try:
+            from agent.services.approval_request_service import get_approval_request_service
+
+            service = get_approval_request_service()
+            requested_id = str(approval_id).strip()
+            request_row = service.get_request(requested_id)
+            metadata = {**decision.metadata, "approval_id": requested_id}
+            if request_row is None:
+                return OpsPolicyDecision("policy_denied", "approval_not_found", metadata)
+            if request_row.status == "pending":
+                return OpsPolicyDecision("approval_required", "approval_pending", metadata)
+            if request_row.status != "granted":
+                return OpsPolicyDecision("policy_denied", f"approval_{request_row.status}", metadata)
+
+            task_id, goal_id = self._request_scope()
+            grant = service.resolve_grant_for_call(
+                tool_name=tool_name,
+                arguments=dict(arguments or {}),
+                task_id=task_id,
+                goal_id=goal_id,
+                target_fingerprint=str(target_id or ""),
+            )
+            if grant is None or str(grant.id) != requested_id:
+                return OpsPolicyDecision("policy_denied", "approval_digest_mismatch", metadata)
+            return OpsPolicyDecision("allow", "approval_granted", metadata)
+        except Exception:
+            return OpsPolicyDecision(
+                "policy_denied",
+                "approval_validation_failed",
+                {**decision.metadata, "approval_id": str(approval_id or "")},
+            )
+
+    @staticmethod
+    def consume_approval(approval_id: str | None) -> None:
+        """Consume a successfully used grant when one-shot grants are enabled."""
+
+        request_id = str(approval_id or "").strip()
+        if not request_id:
+            return
+        try:
+            from agent.services.approval_request_service import get_approval_request_service
+
+            service = get_approval_request_service()
+            if bool(service.get_lifecycle_config().get("grant_one_shot", True)):
+                service.consume_request(request_id)
+        except Exception:
+            # Execution already completed at this point.  Approval consumption
+            # is audited best-effort, matching the existing tool adapter path.
+            return
+
+    @staticmethod
+    def _request_scope() -> tuple[str | None, str | None]:
+        if not has_request_context():
+            return None, None
+        task_id = str(getattr(g, "task_id", "") or "").strip() or None
+        goal_id = str(getattr(g, "goal_id", "") or "").strip() or None
+        return task_id, goal_id
+
     def _config(self) -> dict[str, Any]:
         if not has_app_context():
             return {}

@@ -4,8 +4,10 @@ from __future__ import annotations
 import logging
 import uuid
 from pathlib import Path
+
 from flask import Blueprint, jsonify, request
 
+from agent.auth import check_auth
 from client_surfaces.operator_tui.diff.ai_diff_dispatch import dispatch_ai_diff_request
 from client_surfaces.operator_tui.diff.ai_diff_panel_state import (
     build_ai_diff_panel_state,
@@ -19,7 +21,6 @@ from client_surfaces.operator_tui.diff.diff_sources import (
 from client_surfaces.operator_tui.diff.three_way_diff_state import (
     build_three_way_diff_session,
     set_panel_state,
-    validate_three_way_diff_session,
 )
 
 _log = logging.getLogger(__name__)
@@ -44,11 +45,19 @@ _SESSIONS: dict[str, dict] = {}
 _VALID_AI_MODES = {"review", "explain", "risk", "tests", "patch", "chat"}
 _VALID_PANEL_IDS = {"A", "B", "C"}
 _VALID_LAYOUT_MODES = {"equal", "focus", "compact", "left-wide", "right-wide", "focus-a", "focus-b", "focus-c"}
+_VALID_GIT_DIFF_SCOPES = {"staged", "unstaged", "combined"}
+
+
+def _workspace(workspace_id: str | None):
+    from agent.services.ops_registry_service import get_ops_registry_service
+
+    return get_ops_registry_service().resolve_workspace(workspace_id)
 
 
 # ── Session management ────────────────────────────────────────────────────────
 
 @diff3_bp.route("/api/diff3/sessions", methods=["POST"])
+@check_auth
 def create_session():
     """Create a new three-way diff session.
 
@@ -61,8 +70,13 @@ def create_session():
     session_id = str(body.get("session_id") or uuid.uuid4().hex[:12])
     goal_id = str(body.get("goal_id") or "").strip() or None
     layout_mode = str(body.get("layout_mode") or "equal")
+    workspace_id = str(body.get("workspace_id") or "repo").strip() or "repo"
+    git_preset = bool(body.get("git_preset", False))
+    path_filter = str(body.get("path_filter") or "").strip()
     if layout_mode not in _VALID_LAYOUT_MODES:
         layout_mode = "equal"
+    if _workspace(workspace_id) is None:
+        return jsonify({"error": "workspace_not_allowed"}), 403
 
     try:
         session = build_three_way_diff_session(
@@ -73,17 +87,34 @@ def create_session():
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 
-    # Auto-populate panel A with the current git diff
+    session["extensions"] = {
+        **dict(session.get("extensions") or {}),
+        "git_context": {
+            "workspace_id": workspace_id,
+            "path_filter": path_filter,
+            "preset": "git" if git_preset else "current_diff",
+        },
+    }
+
+    # The Git preset makes the index boundary visible: HEAD -> index,
+    # index -> worktree and HEAD -> worktree are separate, synchronized panels.
     try:
-        source_left = build_current_diff_source_ref(path_filter="")
-        session = set_panel_state(
-            session,
-            panel_id="A",
-            panel_type="diff",
-            source_left=source_left,
-            source_right=None,
-            render_mode="unified",
-        )
+        panel_scopes = (("A", "staged"), ("B", "unstaged"), ("C", "combined")) if git_preset else (("A", "combined"),)
+        for panel_id, diff_scope in panel_scopes:
+            source_left = build_current_diff_source_ref(
+                source_ref_id=f"git-{diff_scope}",
+                path_filter=path_filter,
+                workspace_id=workspace_id,
+                diff_scope=diff_scope,
+            )
+            session = set_panel_state(
+                session,
+                panel_id=panel_id,
+                panel_type="diff",
+                source_left=source_left,
+                source_right=None,
+                render_mode="unified",
+            )
     except Exception as exc:
         _log.debug("diff3: could not auto-populate panel A: %s", exc)
 
@@ -92,6 +123,7 @@ def create_session():
 
 
 @diff3_bp.route("/api/diff3/sessions/<session_id>", methods=["GET"])
+@check_auth
 def get_session(session_id: str):
     session = _SESSIONS.get(session_id)
     if not session:
@@ -100,6 +132,7 @@ def get_session(session_id: str):
 
 
 @diff3_bp.route("/api/diff3/sessions/<session_id>", methods=["DELETE"])
+@check_auth
 def delete_session(session_id: str):
     _SESSIONS.pop(session_id, None)
     return jsonify({"ok": True})
@@ -108,6 +141,7 @@ def delete_session(session_id: str):
 # ── Panel configuration ───────────────────────────────────────────────────────
 
 @diff3_bp.route("/api/diff3/sessions/<session_id>/panels/<panel_id>", methods=["PUT"])
+@check_auth
 def update_panel(session_id: str, panel_id: str):
     """Configure a panel source.
 
@@ -130,13 +164,23 @@ def update_panel(session_id: str, panel_id: str):
     source_kind = str(body.get("source_kind") or "empty").lower()
     render_mode = str(body.get("render_mode") or "unified").lower()
     goal_id = str(body.get("goal_id") or "").strip() or None
+    git_context = dict((session.get("extensions") or {}).get("git_context") or {})
+    workspace_id = str(body.get("workspace_id") or git_context.get("workspace_id") or "repo").strip() or "repo"
+    if _workspace(workspace_id) is None:
+        return jsonify({"error": "workspace_not_allowed"}), 403
 
     source_left = None
     panel_type = "diff"
 
     if source_kind == "current_diff":
+        diff_scope = str(body.get("diff_scope") or "combined").strip().lower()
+        if diff_scope not in _VALID_GIT_DIFF_SCOPES:
+            return jsonify({"error": "invalid_git_diff_scope"}), 400
         source_left = build_current_diff_source_ref(
-            path_filter=str(body.get("path_filter") or "")
+            source_ref_id=f"git-{diff_scope}",
+            path_filter=str(body.get("path_filter") or ""),
+            workspace_id=workspace_id,
+            diff_scope=diff_scope,
         )
         panel_type = "diff"
     elif source_kind == "file_content":
@@ -186,6 +230,7 @@ def update_panel(session_id: str, panel_id: str):
 
 
 @diff3_bp.route("/api/diff3/sessions/<session_id>/focus", methods=["PUT"])
+@check_auth
 def set_focus(session_id: str):
     """Set active panel focus. Body: { "panel_id": "A"|"B"|"C" }"""
     session = _SESSIONS.get(session_id)
@@ -203,6 +248,7 @@ def set_focus(session_id: str):
 
 
 @diff3_bp.route("/api/diff3/sessions/<session_id>/layout", methods=["PUT"])
+@check_auth
 def set_layout(session_id: str):
     """Set layout mode. Body: { "layout_mode": "equal"|"left-wide"|... }"""
     session = _SESSIONS.get(session_id)
@@ -220,6 +266,7 @@ def set_layout(session_id: str):
 
 
 @diff3_bp.route("/api/diff3/sessions/<session_id>/sync", methods=["PUT"])
+@check_auth
 def set_sync(session_id: str):
     """Set sync_scroll. Body: { "sync": true|false }"""
     session = _SESSIONS.get(session_id)
@@ -237,6 +284,7 @@ def set_sync(session_id: str):
 # ── AI dispatch ───────────────────────────────────────────────────────────────
 
 @diff3_bp.route("/api/diff3/sessions/<session_id>/ai/run", methods=["POST"])
+@check_auth
 def run_ai(session_id: str):
     """Dispatch AI analysis against current session panels.
 
@@ -294,7 +342,8 @@ def run_ai(session_id: str):
         }
         status = "degraded"
 
-    import hashlib, json as _json
+    import hashlib
+    import json as _json
     completed_state = set_ai_diff_mode(
         running_state, mode=mode,
         status="degraded" if status != "success" else "completed",
@@ -302,9 +351,10 @@ def run_ai(session_id: str):
     completed_state["last_response_ref"] = str(
         result.get("output_artifact_id") or result.get("provenance_id") or ""
     )
-    completed_state["context_refs"] = [
-        f"ctx:{hashlib.sha1(_json.dumps(result.get('context_envelope') or {}, sort_keys=True).encode()).hexdigest()[:12]}"
-    ]
+    context_digest = hashlib.sha1(
+        _json.dumps(result.get("context_envelope") or {}, sort_keys=True).encode()
+    ).hexdigest()[:12]
+    completed_state["context_refs"] = [f"ctx:{context_digest}"]
     extensions["ai_panel_state"] = completed_state
     extensions["ai_last_response"] = dict(result.get("response") or {})
     extensions["ai_last_context"] = dict(result.get("context_envelope") or {})
@@ -323,6 +373,7 @@ def run_ai(session_id: str):
 # ── Panel content resolution ─────────────────────────────────────────────────
 
 @diff3_bp.route("/api/diff3/sessions/<session_id>/panels/<panel_id>/content", methods=["GET"])
+@check_auth
 def get_panel_content(session_id: str, panel_id: str):
     """Resolve a panel's source_left to its actual content via DiffSourceResolver."""
     session = _SESSIONS.get(session_id)
@@ -343,7 +394,13 @@ def get_panel_content(session_id: str, panel_id: str):
 
     try:
         from client_surfaces.operator_tui.diff.diff_source_resolver import DiffSourceResolver
-        resolver = DiffSourceResolver(repo_root=_repo_root())
+        locator = dict(source_ref.get("locator") or {})
+        git_context = dict((session.get("extensions") or {}).get("git_context") or {})
+        workspace_id = str(locator.get("workspace_id") or git_context.get("workspace_id") or "repo").strip() or "repo"
+        workspace = _workspace(workspace_id)
+        if workspace is None:
+            return jsonify({"ok": False, "reason_code": "workspace_not_allowed"}), 200
+        resolver = DiffSourceResolver(repo_root=workspace.root)
         result = resolver.resolve(source_ref, goal_id=session.get("goal_id"))
     except Exception as exc:
         _log.warning("diff3: content resolve failed for %s/%s: %s", session_id, pid, exc)
@@ -353,6 +410,7 @@ def get_panel_content(session_id: str, panel_id: str):
 
 
 @diff3_bp.route("/api/diff3/sessions/<session_id>/ai/mode", methods=["PUT"])
+@check_auth
 def set_ai_mode(session_id: str):
     """Switch AI mode without running. Body: { "mode": "review"|... }"""
     session = _SESSIONS.get(session_id)

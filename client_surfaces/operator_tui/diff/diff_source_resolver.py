@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -65,13 +66,26 @@ class DiffSourceResolver:
     def _resolve_current_diff(self, locator: dict[str, Any]) -> dict[str, Any]:
         base_ref = str(locator.get("base_ref") or "HEAD")
         path_filter = str(locator.get("path_filter") or "").strip()
-        args = ["--no-pager", "diff", "--no-ext-diff", base_ref]
+        if not self._valid_git_ref(base_ref):
+            return {"ok": False, "reason_code": "invalid_git_ref"}
+        scope = str(locator.get("diff_scope") or "combined").strip().lower()
+        if scope == "staged":
+            args = ["--no-pager", "diff", "--no-ext-diff", "--cached", base_ref]
+        elif scope == "unstaged":
+            args = ["--no-pager", "diff", "--no-ext-diff"]
+        elif scope == "combined":
+            args = ["--no-pager", "diff", "--no-ext-diff", base_ref]
+        else:
+            return {"ok": False, "reason_code": "invalid_git_diff_scope"}
         if path_filter:
-            args.extend(["--", path_filter])
+            safe_path = self._resolve_workspace_path(path_filter, require_exists=False)
+            if safe_path is None:
+                return {"ok": False, "reason_code": "path_not_allowed"}
+            args.extend(["--", safe_path.relative_to(self._repo_root).as_posix()])
         code, stdout, _ = _run_git(args, cwd=self._repo_root)
         if code != 0:
             return {"ok": False, "reason_code": "git_diff_failed"}
-        return {"ok": True, "content_type": "patch", "patch": stdout}
+        return {"ok": True, "content_type": "patch", "patch": stdout, "diff_scope": scope}
 
     def _resolve_file_vs_head(self, locator: dict[str, Any]) -> dict[str, Any]:
         rel_path = str(locator.get("path") or "").strip()
@@ -80,8 +94,10 @@ class DiffSourceResolver:
 
         # view_mode="full" → return just the working-tree content, no HEAD comparison
         if str(locator.get("view_mode") or "") == "full":
-            worktree_file = self._repo_root / rel_path
-            if not worktree_file.exists():
+            worktree_file = self._resolve_workspace_path(rel_path)
+            if worktree_file is None:
+                return {"ok": False, "reason_code": "path_not_allowed"}
+            if not worktree_file.is_file():
                 return {"ok": False, "reason_code": "source_not_found"}
             return {
                 "ok": True,
@@ -91,7 +107,11 @@ class DiffSourceResolver:
             }
 
         against = str(locator.get("against") or "HEAD")
-        worktree_file = self._repo_root / rel_path
+        if not self._valid_git_ref(against):
+            return {"ok": False, "reason_code": "invalid_git_ref"}
+        worktree_file = self._resolve_workspace_path(rel_path)
+        if worktree_file is None:
+            return {"ok": False, "reason_code": "path_not_allowed"}
         code, old_text, _ = _run_git(["show", f"{against}:{rel_path}"], cwd=self._repo_root)
         if code != 0:
             return {"ok": False, "reason_code": "git_show_failed"}
@@ -113,6 +133,12 @@ class DiffSourceResolver:
         rel_path = str(locator.get("path") or "").strip()
         if not left_ref or not right_ref or not rel_path:
             return {"ok": False, "reason_code": "left_right_path_required"}
+        if not self._valid_git_ref(left_ref) or not self._valid_git_ref(right_ref):
+            return {"ok": False, "reason_code": "invalid_git_ref"}
+        safe_path = self._resolve_workspace_path(rel_path, require_exists=False)
+        if safe_path is None:
+            return {"ok": False, "reason_code": "path_not_allowed"}
+        rel_path = safe_path.relative_to(self._repo_root).as_posix()
         code_l, left_text, _ = _run_git(["show", f"{left_ref}:{rel_path}"], cwd=self._repo_root)
         code_r, right_text, _ = _run_git(["show", f"{right_ref}:{rel_path}"], cwd=self._repo_root)
         if code_l != 0 or code_r != 0:
@@ -127,7 +153,36 @@ class DiffSourceResolver:
             "right_text": right_text,
         }
 
-    def _resolve_artifact_text(self, source_kind: str, locator: dict[str, Any], *, goal_id: str | None) -> dict[str, Any]:
+    def _resolve_workspace_path(self, rel_path: str, *, require_exists: bool = True) -> Path | None:
+        raw = str(rel_path or "").strip()
+        if not raw or Path(raw).is_absolute():
+            return None
+        candidate = (self._repo_root / raw).resolve()
+        try:
+            candidate.relative_to(self._repo_root)
+        except ValueError:
+            return None
+        if require_exists and not candidate.exists():
+            return candidate
+        return candidate
+
+    @staticmethod
+    def _valid_git_ref(ref: str) -> bool:
+        value = str(ref or "").strip()
+        return bool(
+            value
+            and len(value) <= 240
+            and not value.startswith("-")
+            and re.fullmatch(r"[A-Za-z0-9_./@{}~^+:-]+", value)
+        )
+
+    def _resolve_artifact_text(
+        self,
+        source_kind: str,
+        locator: dict[str, Any],
+        *,
+        goal_id: str | None,
+    ) -> dict[str, Any]:
         if source_kind == "inline_text":
             return {"ok": True, "content_type": "text", "text": str(locator.get("text") or "")}
         if source_kind == "goal_output_artifact":

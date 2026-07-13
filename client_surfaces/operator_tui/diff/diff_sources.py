@@ -81,14 +81,40 @@ def build_diff_panel_config(
     return payload
 
 
-def build_current_diff_source_ref(*, source_ref_id: str = "current-diff", path_filter: str = "") -> dict[str, Any]:
-    locator: dict[str, Any] = {"base_ref": "HEAD", "target": "working_tree"}
+def build_current_diff_source_ref(
+    *,
+    source_ref_id: str = "current-diff",
+    path_filter: str = "",
+    workspace_id: str = "repo",
+    diff_scope: str = "combined",
+) -> dict[str, Any]:
+    """Build a workspace-scoped Git diff source.
+
+    ``staged`` represents HEAD -> index, ``unstaged`` index -> worktree and
+    ``combined`` HEAD -> worktree.  The default remains compatible with the
+    historic current-diff source.
+    """
+
+    scope = str(diff_scope or "combined").strip().lower()
+    if scope not in {"staged", "unstaged", "combined"}:
+        raise ValueError("invalid_git_diff_scope")
+    labels = {
+        "staged": "Staged (HEAD -> Index)",
+        "unstaged": "Unstaged (Index -> Worktree)",
+        "combined": "Current Diff (HEAD -> Worktree)",
+    }
+    locator: dict[str, Any] = {
+        "base_ref": "HEAD",
+        "target": "working_tree",
+        "workspace_id": str(workspace_id or "repo").strip() or "repo",
+        "diff_scope": scope,
+    }
     if path_filter.strip():
         locator["path_filter"] = path_filter.strip()
     return build_diff_source_ref(
         source_ref_id=source_ref_id,
         source_kind="git_diff",
-        display_name="Current Diff",
+        display_name=labels[scope],
         locator=locator,
     )
 

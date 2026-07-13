@@ -2,6 +2,7 @@ from typing import Optional
 
 from flask import current_app, g, has_request_context
 
+from agent.services.git_audit_service import record_git_activity
 from agent.tools_registry import registry
 
 
@@ -25,6 +26,32 @@ def _git_cwd() -> str | None:
     return None
 
 
+def _git_task_id() -> str | None:
+    if not has_request_context():
+        return None
+    return str(getattr(g, "task_id", "") or "").strip() or None
+
+
+def _audit_legacy_git(
+    event: str,
+    *,
+    operation: str,
+    outcome: str,
+    branch: str = "",
+    summary: str = "",
+) -> None:
+    record_git_activity(
+        event,
+        workspace_dir=_git_cwd() or ".",
+        operation=operation,
+        outcome=outcome,
+        branch=branch,
+        task_id=_git_task_id(),
+        summary=summary,
+        extra={"source": "legacy_git_tool"},
+    )
+
+
 @registry.register(
     name="git_status",
     description="Zeigt den aktuellen Git-Status.",
@@ -32,7 +59,8 @@ def _git_cwd() -> str | None:
 )
 def git_status_tool():
     ok, err = _check_git_access("read")
-    if not ok: return {"error": err}
+    if not ok:
+        return {"error": err}
 
     import subprocess
     try:
@@ -55,12 +83,15 @@ def git_status_tool():
 )
 def git_diff_tool(path: Optional[str] = None, cached: bool = False):
     ok, err = _check_git_access("read")
-    if not ok: return {"error": err}
+    if not ok:
+        return {"error": err}
 
     import subprocess
     cmd = ["git", "diff"]
-    if cached: cmd.append("--cached")
-    if path: cmd.append(path)
+    if cached:
+        cmd.append("--cached")
+    if path:
+        cmd.append(path)
 
     try:
         res = subprocess.run(cmd, capture_output=True, text=True, timeout=10, cwd=_git_cwd())
@@ -81,11 +112,18 @@ def git_diff_tool(path: Optional[str] = None, cached: bool = False):
 )
 def git_log_tool(limit: int = 10):
     ok, err = _check_git_access("read")
-    if not ok: return {"error": err}
+    if not ok:
+        return {"error": err}
 
     import subprocess
     try:
-        res = subprocess.run(["git", "log", "-n", str(limit), "--oneline"], capture_output=True, text=True, timeout=10, cwd=_git_cwd())
+        res = subprocess.run(
+            ["git", "log", "-n", str(limit), "--oneline"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            cwd=_git_cwd(),
+        )
         return {"output": res.stdout}
     except Exception as e:
         return {"error": f"Git-Fehler: {e}"}
@@ -104,7 +142,8 @@ def git_log_tool(limit: int = 10):
 )
 def git_commit_tool(message: str):
     ok, err = _check_git_access("write")
-    if not ok: return {"error": err}
+    if not ok:
+        return {"error": err}
 
     try:
         from agent.services.commit_message_validator import CommitMessageValidator
@@ -116,14 +155,36 @@ def git_commit_tool(message: str):
 
     import subprocess
     try:
-        res = subprocess.run(["git", "commit", "-m", message], capture_output=True, text=True, timeout=10, cwd=_git_cwd())
+        res = subprocess.run(
+            ["git", "commit", "-m", message],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            cwd=_git_cwd(),
+        )
         if res.returncode != 0:
+            _audit_legacy_git(
+                "git_commit",
+                operation="commit",
+                outcome="failed",
+                summary="Legacy Git tool commit failed",
+            )
             return {"error": f"Commit fehlgeschlagen: {res.stderr}"}
 
-        from agent.common.audit import log_audit
-        log_audit("git_commit", {"message": message})
+        _audit_legacy_git(
+            "git_commit",
+            operation="commit",
+            outcome="success",
+            summary=message,
+        )
         return {"status": "success", "output": res.stdout}
     except Exception as e:
+        _audit_legacy_git(
+            "git_commit",
+            operation="commit",
+            outcome="failed",
+            summary="Legacy Git tool commit raised an exception",
+        )
         return {"error": f"Git-Fehler: {e}"}
 
 
@@ -134,7 +195,8 @@ def git_commit_tool(message: str):
 )
 def git_push_tool():
     ok, err = _check_git_access("write")
-    if not ok: return {"error": err}
+    if not ok:
+        return {"error": err}
 
     try:
         git_ctx = g.get("git_context") if has_request_context() else None
@@ -153,10 +215,22 @@ def git_push_tool():
             ["git", "push", "origin", branch],
             capture_output=True, text=True, timeout=30, cwd=_git_cwd()
         )
-        from agent.common.audit import log_audit
-        log_audit("git_push", {"branch": branch, "remote_url": remote_url, "returncode": res.returncode})
+        _audit_legacy_git(
+            "git_push",
+            operation="push",
+            outcome="success" if res.returncode == 0 else "failed",
+            branch=str(branch),
+            summary="Legacy Git tool push",
+        )
         if res.returncode != 0:
             return {"error": f"Push fehlgeschlagen: {res.stderr}"}
         return {"status": "success", "output": res.stdout, "branch": branch}
     except Exception as e:
+        _audit_legacy_git(
+            "git_push",
+            operation="push",
+            outcome="failed",
+            branch=str(branch),
+            summary="Legacy Git tool push raised an exception",
+        )
         return {"error": f"Git-Fehler: {e}"}
