@@ -107,7 +107,7 @@ lc-lg-all = [
     "langchain-anthropic>=0.3,<0.4",
 ]
 rtipm-sentence-transformers = [
-    "sentence-transformers>=3,<4",
+    "sentence-transformers>=5.6.0,<6",
 ]
 rtipm-huggingface = [
     "transformers>=4.40,<5",
@@ -123,7 +123,7 @@ rtipm-pytorch = [
     "transformers>=4.40,<5",
 ]
 rtipm-all = [
-    "sentence-transformers>=3,<4",
+    "sentence-transformers>=5.6.0,<6",
     "transformers>=4.40,<5",
     "torch>=2.2",
     "onnxruntime>=1.17,<2",
