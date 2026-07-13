@@ -19,12 +19,83 @@ policy gate.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, Protocol
 
-from worker.adapters.workflow_budget import WorkflowBudgetGuard
+from ananta_contracts.structured_output import StructuredOutputService
 from worker.adapters.workflow_adapter_base import WorkerError
+from worker.adapters.workflow_budget import WorkflowBudgetGuard
 
 logger = logging.getLogger(__name__)
+
+
+class TextGenerationPort(Protocol):
+    def generate_text(self, **values: Any) -> Any: ...
+
+
+class _UnavailableTextGeneration:
+    def generate_text(self, **values: Any) -> Any:
+        del values
+        raise RuntimeError("worker_text_generation_not_composed")
+
+
+_TEXT_GENERATION: TextGenerationPort = _UnavailableTextGeneration()
+
+
+def configure_text_generation(port: TextGenerationPort) -> None:
+    """Inject the Worker provider port from the role-guarded process root."""
+
+    global _TEXT_GENERATION
+    if port is None or not callable(getattr(port, "generate_text", None)):
+        raise ValueError("worker_text_generation_port_invalid")
+    _TEXT_GENERATION = port
+
+
+@dataclass(frozen=True)
+class ValidatedChainOutput:
+    value: Any
+    structured: bool
+    audit_events: tuple[dict[str, Any], ...] = ()
+
+
+def validate_chain_output(
+    output: str,
+    *,
+    payload: dict[str, Any],
+    node: dict[str, Any] | None = None,
+) -> ValidatedChainOutput:
+    """Apply the provider-neutral structured-output gate for every runner.
+
+    Framework adapters call this only after the shared provider middleware and
+    before publishing artifacts or advancing to a potentially writing node.
+    """
+
+    node_payload = dict(node or {})
+    raw_schema = node_payload.get("output_schema", payload.get("output_schema"))
+    output_format = str(
+        node_payload.get("output_format") or payload.get("output_format") or ""
+    ).lower()
+    if raw_schema is None and output_format != "json":
+        return ValidatedChainOutput(value=output, structured=False)
+    schema = raw_schema if isinstance(raw_schema, dict) else {"type": "object"}
+    result = StructuredOutputService(
+        max_repair_attempts=1 if bool(payload.get("allow_format_repair", False)) else 0
+    ).validate_json(
+        output,
+        schema,
+        allow_format_repair=bool(payload.get("allow_format_repair", False)),
+    )
+    if not result.valid:
+        reasons = ",".join(sorted({issue.reason_code for issue in result.issues}))
+        raise WorkerError(
+            "structured_output_validation_failed",
+            f"Structured output failed the shared schema gate: {reasons}",
+        )
+    return ValidatedChainOutput(
+        value=result.value,
+        structured=True,
+        audit_events=tuple(dict(event) for event in result.audit_events),
+    )
 
 
 # ── SimplexRunner ──────────────────────────────────────────────────────
@@ -49,16 +120,21 @@ class SimplexRunner:
         model_provider_ref: str,
     ) -> str:
         """Return the model response text. Raises WorkerError on failure."""
-        # Lazy import: generate_text pulls in the LLM provider stack
-        # which we don't want at module load time of the adapter.
-        from agent.llm_integration import generate_text
-
         # record_step() also enforces the timeout; pre-checking it
         # here gives a clean error before we open the LLM connection.
         budget.record_step("simplex_runner_entry")
-        model = _parse_model_ref(model_provider_ref)
+        provider, model = _bound_provider_model(
+            payload=payload,
+            model_provider_ref=model_provider_ref,
+        )
         try:
-            response = generate_text(prompt=prompt, model=model, timeout=30)
+            response = _TEXT_GENERATION.generate_text(
+                prompt=prompt,
+                provider=provider,
+                model=model,
+                timeout=30,
+                provider_context=payload.get("provider_context"),
+            )
         except Exception as exc:
             raise WorkerError(
                 "llm_call_failed",
@@ -115,12 +191,24 @@ class LangChainRunnableRunner:
         # lambda with a real chain (e.g. prompt | llm | output_parser)
         # without changing the adapter.
         def _call(input_dict: dict[str, Any]) -> str:
-            from agent.llm_integration import generate_text
-            model = _parse_model_ref(model_provider_ref)
-            response = generate_text(
+            provider, model = _bound_provider_model(
+                payload=(
+                    input_dict.get("payload", {})
+                    if isinstance(input_dict.get("payload"), dict)
+                    else {}
+                ),
+                model_provider_ref=model_provider_ref,
+            )
+            response = _TEXT_GENERATION.generate_text(
                 prompt=str(input_dict.get("prompt") or ""),
+                provider=provider,
                 model=model,
                 timeout=30,
+                provider_context=(
+                    input_dict.get("payload", {}).get("provider_context")
+                    if isinstance(input_dict.get("payload"), dict)
+                    else None
+                ),
             )
             if isinstance(response, str):
                 return response
@@ -155,3 +243,25 @@ def _parse_model_ref(model_provider_ref: str) -> str | None:
     if "." in model_provider_ref:
         return model_provider_ref.split(".", 1)[1]
     return model_provider_ref
+
+
+def _bound_provider_model(
+    *, payload: dict[str, Any], model_provider_ref: str
+) -> tuple[str | None, str | None]:
+    raw = payload.get("provider_context")
+    context = dict(raw) if isinstance(raw, dict) else {}
+    provider = str(context.get("selected_provider_id") or "").strip() or None
+    model = str(context.get("selected_model_id") or "").strip() or None
+    if bool(provider) != bool(model):
+        raise WorkerError(
+            "provider_selection_binding_incomplete",
+            "Hub provider/model selection is incomplete.",
+        )
+    if bool(context.get("require_hub_provider_budget", False)) and not provider:
+        raise WorkerError(
+            "provider_selection_binding_required",
+            "Hub provider/model selection is required for this invocation.",
+        )
+    if provider is not None and model is not None:
+        return provider, model
+    return None, _parse_model_ref(model_provider_ref)

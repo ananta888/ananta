@@ -6,7 +6,6 @@ CodeCompass is the only allowed retriever source.
 """
 from __future__ import annotations
 
-import time
 import uuid
 from typing import Any
 
@@ -14,15 +13,21 @@ from agent.providers.lc_lg import LangChainProviderConfig
 from worker.adapters.chain_runners import (
     LangChainRunnableRunner,
     SimplexRunner,
+    validate_chain_output,
 )
 from worker.adapters.workflow_adapter_base import (
-    DryRunResult, WorkerError, WorkflowAdapterDescriptor, WorkflowArtifactResult,
+    DryRunResult,
+    WorkerError,
+    WorkflowAdapterDescriptor,
+    WorkflowArtifactResult,
 )
-from worker.adapters.workflow_policy_gate import WorkflowPolicyGate
 from worker.adapters.workflow_audit import WorkflowAuditLog
 from worker.adapters.workflow_budget import WorkflowBudgetGuard
-from worker.retrieval.codecompass_retriever import CodeCompassRetriever
-
+from worker.adapters.workflow_policy_gate import WorkflowPolicyGate
+from worker.retrieval.codecompass_retriever import (
+    CodeCompassRetriever,
+    retrieval_request_from_payload,
+)
 
 _SUPPORTED_TASK_TYPES = frozenset({
     "rag_query", "summarize", "tool_chain", "code_review",
@@ -209,7 +214,13 @@ class LangChainAdapter:
         if self._config.retriever_source == "codecompass":
             query = str(payload.get("query") or payload.get("prompt") or "")
             if query:
-                ctx = self._retriever.query(query, max_results=5)
+                request = retrieval_request_from_payload(
+                    query=query,
+                    payload=payload,
+                    default_scope=self._config.embedding_provider_scope,
+                    max_results=5,
+                )
+                ctx = self._retriever.retrieve(request).to_dict()
                 context_sources = ctx.get("sources", [])
                 budget.record_step("codecompass_query")
 
@@ -239,16 +250,19 @@ class LangChainAdapter:
 
         # Produce artifact-first output (LCG-013)
         artifact_id = f"artifact-lc-{uuid.uuid4().hex[:12]}"
-        output_format = str(payload.get("output_format") or "text")
-        artifact_content: Any = output_text
+        validated_output = validate_chain_output(output_text, payload=payload)
+        artifact_content: Any = validated_output.value
         artifact_status = "created"
-        if output_format == "json":
-            import json as _json
-            try:
-                artifact_content = _json.loads(output_text)
-            except (ValueError, TypeError):
-                artifact_status = "partial"
-                # artifact_content bleibt output_text string
+        if validated_output.structured:
+            execution_trace.append(
+                {
+                    "step": "structured_output_validated",
+                    "audit_event_types": [
+                        str(event.get("event_type") or "")
+                        for event in validated_output.audit_events
+                    ],
+                }
+            )
         artifact = {
             "artifact_id": artifact_id,
             "artifact_type": task_type,
@@ -256,6 +270,7 @@ class LangChainAdapter:
             "sources": context_sources,
             "status": artifact_status,
             "runner": runner_label,
+            "structured_output_validated": validated_output.structured,
         }
         execution_trace.append({"step": "artifact_created", "artifact_id": artifact_id})
 
@@ -267,7 +282,10 @@ class LangChainAdapter:
             task_id=task_id,
             task_type=task_type,
             status="success",
-            summary=f"LangChain {task_type} completed with {len(context_sources)} CodeCompass sources (runner={runner_label})",
+            summary=(
+                f"LangChain {task_type} completed with {len(context_sources)} "
+                f"CodeCompass sources (runner={runner_label})"
+            ),
             artifacts=[artifact],
             sources=context_sources,
             execution_trace=self._audit.snapshot(),
@@ -281,9 +299,10 @@ class LangChainAdapter:
         """Return (output_text, runner_label).
 
         Runner selection:
-        - If `langchain` is importable, try real ChatModel first (LCG-038/039).
-          If a ChatModel is built via lc_chat_model_factory, use LCEL chain.
-          Otherwise fall back to LangChainRunnableRunner.
+        - If `langchain` is importable, use its Runnable wrapper around the
+          common Ananta provider entrypoint.  Direct ChatModel invocation is
+          intentionally forbidden because it would bypass egress, redaction,
+          cache and budget middleware.
         - Otherwise, use SimplexRunner (prompt + generate_text()).
           This is the v0.7 default and requires no extras.
         - Both runners go through the same generate_text() entry
@@ -291,31 +310,6 @@ class LangChainAdapter:
           wrapping changes.
         """
         if self._langchain_available():
-            # Try real ChatModel first (LCG-038)
-            try:
-                from worker.adapters.lc_chat_model_factory import build_lc_chat_model
-                chat_model = build_lc_chat_model(self._config.model_provider_ref)
-                if chat_model is not None:
-                    from langchain_core.runnables import RunnableLambda
-                    from langchain_core.messages import HumanMessage
-
-                    def _lcel_call(input_dict):
-                        msgs = [HumanMessage(content=str(input_dict.get("prompt", "")))]
-                        result = chat_model.invoke(msgs)
-                        return str(result.content) if hasattr(result, "content") else str(result)
-
-                    chain = RunnableLambda(_lcel_call)
-                    budget.record_step("langchain_chain_invoke")
-                    try:
-                        return str(chain.invoke({"prompt": prompt, "payload": payload})), "langchain_chain"
-                    except Exception as exc:
-                        raise WorkerError(
-                            "langchain_chain_failed",
-                            f"LCEL chain failed: {type(exc).__name__}: {exc}",
-                        ) from exc
-            except (ImportError, Exception):
-                pass
-            # Fallback to RunnableLambda runner
             return LangChainRunnableRunner().run(
                 prompt=prompt, payload=payload, budget=budget,
                 model_provider_ref=self._config.model_provider_ref,
@@ -335,7 +329,7 @@ class LangChainAdapter:
         without touching the runner.
         """
         try:
-            from agent.common.redaction import redact
+            from ananta_contracts.redaction import redact
             _redact = redact
         except ImportError:
             _redact = str
@@ -381,8 +375,12 @@ class LangChainAdapter:
                payload: dict[str, Any]):
         """Yield stream events for a chain execution.
 
-        Policy gate (dry_run) is checked before yielding any events.
-        Falls back to batch execute() when LCEL chain streaming is not available.
+        Policy gate (dry_run) is checked before yielding any events.  Provider
+        invocation always uses ``execute`` and therefore Ananta's shared
+        provider middleware.  A direct LangChain ChatModel stream is forbidden:
+        it would bypass Hub-owned egress, redaction, cache, retry and budget
+        reservations.  The validated artifact is chunked only after the
+        middleware-governed invocation has completed.
         """
         dry = self.dry_run(task_id=task_id, task_type=task_type, payload=payload)
         if dry.blocked:
@@ -394,48 +392,26 @@ class LangChainAdapter:
             }
             return
 
-        # Try LCEL chain streaming when langchain is available
-        if self._langchain_available() and self._config.is_live():
-            try:
-                from langchain_core.prompts import ChatPromptTemplate  # type: ignore[import]
-                from langchain_core.output_parsers import StrOutputParser  # type: ignore[import]
-                from worker.adapters.lc_chat_model_factory import build_lc_chat_model
-
-                model = build_lc_chat_model(self._config.model_provider_ref)
-                if model is not None:
-                    prompt_template = ChatPromptTemplate.from_messages([
-                        ("system", "You are a helpful assistant."),
-                        ("human", "{query}"),
-                    ])
-                    chain = prompt_template | model | StrOutputParser()
-                    query = str(payload.get("query") or payload.get("prompt") or "")
-                    for chunk in chain.stream({"query": query}):
-                        yield {
-                            "adapter_id": "adapter.langchain",
-                            "task_id": task_id,
-                            "event_type": "token",
-                            "token": chunk,
-                        }
-                    yield {
-                        "adapter_id": "adapter.langchain",
-                        "task_id": task_id,
-                        "event_type": "stream_end",
-                        "result": WorkflowArtifactResult(
-                            adapter_id="adapter.langchain",
-                            task_id=task_id,
-                            task_type=task_type,
-                            status="success",
-                            summary="LangChain stream completed",
-                            execution_trace=self._audit.snapshot(),
-                            policy_decisions=self._policy.decisions_log(),
-                        ).as_dict(),
-                    }
-                    return
-            except Exception as exc:  # noqa: BLE001
-                self._audit.log("stream_chain_failed", task_id=task_id, reason=str(exc)[:200])
-
-        # Batch fallback: execute() then yield single stream_end
         result = self.execute(task_id=task_id, task_type=task_type, payload=payload)
+        if result.status == "success" and result.artifacts:
+            content = result.artifacts[0].get("content", "")
+            if not isinstance(content, str):
+                import json
+
+                content = json.dumps(
+                    content,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    ensure_ascii=False,
+                )
+            for offset in range(0, len(content), 1024):
+                yield {
+                    "adapter_id": "adapter.langchain",
+                    "task_id": task_id,
+                    "event_type": "token",
+                    "token": content[offset : offset + 1024],
+                    "source": "provider_middleware_validated_artifact",
+                }
         yield {
             "adapter_id": "adapter.langchain",
             "task_id": task_id,

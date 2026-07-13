@@ -205,24 +205,26 @@ class ToolInvocationEnvelope(BaseModel):
         return v.strip()
 
     def validate_arguments(self, schema: dict[str, Any]) -> list[str]:
-        """Validate arguments against a JSON schema subset.
+        """Validate with the same bounded JSON-Schema gate as model output.
 
-        Returns a list of error strings; empty means valid.
-        Only checks 'required' fields — full jsonschema validation is
-        the caller's responsibility.
+        Tool schemas are closed at the top level unless they explicitly opt in
+        to additional properties. This prevents argument smuggling through
+        legacy descriptors that only declared ``properties``/``required``.
         """
-        errors: list[str] = []
-        required = schema.get("required", [])
-        properties = schema.get("properties", {})
-        for req in required:
-            if req not in self.arguments:
-                errors.append(f"missing required argument: {req!r}")
-        for key, value in self.arguments.items():
-            if key in properties:
-                prop_type = properties[key].get("type")
-                if prop_type and not _type_matches(value, prop_type):
-                    errors.append(f"argument {key!r}: expected {prop_type}, got {type(value).__name__}")
-        return errors
+
+        from ananta_contracts.structured_output import StructuredOutputService
+
+        effective_schema = dict(schema or {})
+        effective_schema.setdefault("type", "object")
+        effective_schema.setdefault("additionalProperties", False)
+        result = StructuredOutputService(max_repair_attempts=0).validate_json(
+            self.arguments,
+            effective_schema,
+        )
+        return [
+            f"{issue.path}: {issue.reason_code}: {issue.message}"
+            for issue in result.issues
+        ]
 
     def apply_output_limit(self, raw_output: str) -> tuple[str, bool]:
         """Truncate output to max_output_chars. Returns (output, was_truncated)."""
@@ -230,24 +232,6 @@ class ToolInvocationEnvelope(BaseModel):
         if len(raw_output) <= limit:
             return raw_output, False
         return raw_output[:limit], True
-
-
-def _type_matches(value: Any, json_type: str) -> bool:
-    mapping = {
-        "string": str,
-        "integer": int,
-        "number": (int, float),
-        "boolean": bool,
-        "array": list,
-        "object": dict,
-        "null": type(None),
-    }
-    expected = mapping.get(json_type)
-    if expected is None:
-        return True
-    if json_type == "integer" and isinstance(value, bool):
-        return False
-    return isinstance(value, expected)
 
 
 # ── WorkerToolEntry ───────────────────────────────────────────────────────────
@@ -275,6 +259,18 @@ class WorkerToolEntry:
             "side_effects": list(self.side_effects),
             "description": self.description,
         }
+
+    @property
+    def side_effect_class(self) -> str:
+        if not self.side_effects:
+            return "read"
+        if set(self.side_effects) & {"host_mutation", "persistent_state"}:
+            return "non_idempotent_write"
+        return "idempotent_write"
+
+    @property
+    def policy_scopes(self) -> tuple[str, ...]:
+        return tuple(sorted(set(self.capability_classes)))
 
 
 # ── WorkerToolRegistry (EW-T013) ─────────────────────────────────────────────

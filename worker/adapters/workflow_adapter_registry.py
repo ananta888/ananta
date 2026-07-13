@@ -5,7 +5,8 @@ import logging
 from typing import Any
 
 from worker.adapters.workflow_adapter_base import (
-    WorkflowAdapter, WorkflowAdapterDescriptor,
+    WorkflowAdapter,
+    WorkflowAdapterDescriptor,
 )
 
 logger = logging.getLogger(__name__)
@@ -70,7 +71,18 @@ def _load_defaults() -> None:
 
     try:
         from worker.adapters.langgraph_adapter import LangGraphAdapter
-        register_adapter(LangGraphAdapter(lg_config))
+        from worker.adapters.langgraph_checkpoint_adapter import (
+            HttpLangGraphCheckpointGateway,
+        )
+
+        try:
+            checkpoint_gateway = HttpLangGraphCheckpointGateway.from_environment()
+        except ValueError as exc:
+            checkpoint_gateway = None
+            logger.error("langgraph Hub checkpoint gateway invalid: %s", exc)
+        register_adapter(
+            LangGraphAdapter(lg_config, checkpoint_gateway=checkpoint_gateway)
+        )
     except ImportError as exc:
         logger.debug("LangGraphAdapter not loaded: %s", exc)
 

@@ -20,7 +20,7 @@ class WorkflowAuditLog:
 
     def log(self, event: str, **kwargs: Any) -> None:
         try:
-            from agent.common.redaction import redact
+            from ananta_contracts.redaction import redact
             safe_kwargs = redact(dict(kwargs))
         except ImportError:
             safe_kwargs = dict(kwargs)

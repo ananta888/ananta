@@ -1,10 +1,38 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
 from worker.core.execution_profile import file_selection_limits_for_profile, normalize_execution_profile
 from worker.retrieval.retrieval_service import HybridRetrievalService
+
+_GROUNDED_SOURCE_ID_PATTERN = re.compile(r"^(?:SRC|RUN)_[0-9]{4}$")
+
+
+def _source_provenance(
+    *,
+    source_id: object,
+    retrieval_kind: object,
+    score: object,
+    verified_source_ids: frozenset[str],
+) -> dict[str, Any]:
+    candidate = str(source_id or "").strip()
+    verified = (
+        _GROUNDED_SOURCE_ID_PATTERN.fullmatch(candidate) is not None
+        and candidate in verified_source_ids
+    )
+    return {
+        "source_id": candidate if verified else None,
+        "retrieval_kind": str(retrieval_kind or ""),
+        "score": float(score or 0.0),
+        "verification_status": "verified" if verified else "unverified",
+        "reason_code": (
+            "source_id_verified"
+            if verified
+            else ("source_id_unverified" if candidate else "source_id_missing")
+        ),
+    }
 
 
 @dataclass(frozen=True)
@@ -36,6 +64,12 @@ def select_candidate_files(
         )
     bounded_limits.validate()
     explicit = [str(item).strip() for item in list(explicit_files or []) if str(item).strip()]
+    verified_source_ids = frozenset(
+        candidate
+        for value in list(context_envelope.get("verified_source_ids") or [])
+        if (candidate := str(value or "").strip())
+        and _GROUNDED_SOURCE_ID_PATTERN.fullmatch(candidate) is not None
+    )
     retrieval_refs = [item for item in list(context_envelope.get("retrieval_refs") or []) if isinstance(item, dict)]
     file_sizes = {
         str(path).strip(): int(size)
@@ -53,11 +87,12 @@ def select_candidate_files(
                     "path": path,
                     "symbol": "",
                     "reason": "explicit_user_file",
-                    "source_provenance": {
-                        "source_id": "explicit",
-                        "retrieval_kind": "manual",
-                        "score": 1.0,
-                    },
+                    "source_provenance": _source_provenance(
+                        source_id=None,
+                        retrieval_kind="manual",
+                        score=1.0,
+                        verified_source_ids=verified_source_ids,
+                    ),
                 }
                 for path in selected_explicit
             ],
@@ -94,11 +129,13 @@ def select_candidate_files(
                 "path": path,
                 "symbol": str(ref.get("symbol") or ""),
                 "reason": str(ref.get("reason") or "rag_ranked"),
-                "source_provenance": {
-                    "source_id": str(ref.get("source_id") or "unknown"),
-                    "retrieval_kind": str(ref.get("retrieval_kind") or "codecompass_rag_helper"),
-                    "score": float(ref.get("score") or 0.0),
-                },
+                "source_provenance": _source_provenance(
+                    source_id=ref.get("source_id"),
+                    retrieval_kind=ref.get("retrieval_kind")
+                    or "codecompass_rag_helper",
+                    score=ref.get("score"),
+                    verified_source_ids=verified_source_ids,
+                ),
             }
         )
         seen_paths.add(path)
@@ -110,7 +147,12 @@ def select_candidate_files(
                 "path": path,
                 "symbol": "",
                 "reason": "explicit_user_file",
-                "source_provenance": {"source_id": "explicit", "retrieval_kind": "manual", "score": 1.0},
+                "source_provenance": _source_provenance(
+                    source_id=None,
+                    retrieval_kind="manual",
+                    score=1.0,
+                    verified_source_ids=verified_source_ids,
+                ),
             }
             for path in explicit[: bounded_limits.max_files]
         ]
@@ -159,7 +201,7 @@ def select_candidate_files_from_hybrid_retrieval(
             {
                 "path": item.get("path"),
                 "symbol": item.get("symbol_name"),
-                "source_id": f"hybrid:{item.get('channel')}",
+                "source_id": item.get("source_id"),
                 "retrieval_kind": item.get("channel"),
                 "score": item.get("final_score"),
                 "reason": "hybrid_ranked",

@@ -149,6 +149,11 @@ class HybridRetrievalService:
                     "symbol_name": str(item.get("symbol_name") or ""),
                     "content_hash": str(item.get("content_hash") or ""),
                     "channel": str(item.get("channel") or ""),
+                    "source_id": str(
+                        item.get("source_id")
+                        or (item.get("metadata") or {}).get("source_id")
+                        or ""
+                    ),
                     "final_score": float(item.get("final_score") or 0.0),
                     "channel_contributions": dict(item.get("channel_contributions") or {}),
                     "metadata": dict(item.get("metadata") or {}),

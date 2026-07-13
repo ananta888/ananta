@@ -28,6 +28,7 @@ class JsonSchemaLLMStrategy(ProposeStrategy):
         "properties": {
             "command": {"type": ["string", "null"]},
             "tool_calls": {"type": "array", "items": {"type": "object"}},
+            "reason": {"type": "string"},
         },
         "additionalProperties": False,
     }
@@ -106,16 +107,25 @@ class JsonSchemaLLMStrategy(ProposeStrategy):
             )
         if isinstance(llm_result, str):
             raw_response = llm_result
+            structured_output = None
+            structured_output_valid = False
+            structured_output_issues = []
             llm_profile = []
             llm_model = None
             llm_provider = provider
         elif isinstance(llm_result, Mapping):
             raw_response = str(llm_result.get("content") or "")
+            structured_output = llm_result.get("structured_output")
+            structured_output_valid = bool(llm_result.get("structured_output_valid", False))
+            structured_output_issues = list(llm_result.get("structured_output_issues") or [])
             llm_profile = list((llm_result.get("metadata") or {}).get("llm_call_profile") or [])
             llm_model = str(llm_result.get("model") or "").strip() or None
             llm_provider = str(llm_result.get("provider") or "").strip() or provider
         else:
             raw_response = str(llm_result or "")
+            structured_output = None
+            structured_output_valid = False
+            structured_output_issues = []
             llm_profile = []
             llm_model = None
             llm_provider = provider
@@ -127,8 +137,19 @@ class JsonSchemaLLMStrategy(ProposeStrategy):
                 metadata={"llm_call_profile": llm_profile} if llm_profile else None,
             )
 
+        if isinstance(llm_result, Mapping) and not structured_output_valid:
+            return ProposeStrategyResult.advisory(
+                "json_schema_llm",
+                advisory_text=raw_response[:300],
+                reason="structured_output_validation_failed",
+                reason_codes=["structured_output_validation_failed"],
+                metadata={
+                    "llm_call_profile": llm_profile,
+                    "structured_output_issues": structured_output_issues,
+                },
+            )
         try:
-            parsed = json.loads(raw_response)
+            parsed = structured_output if isinstance(llm_result, Mapping) else json.loads(raw_response)
         except json.JSONDecodeError:
             return ProposeStrategyResult.advisory(
                 "json_schema_llm",

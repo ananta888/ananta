@@ -22,7 +22,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-
 # ── Provider types ────────────────────────────────────────────────────────────
 
 class ProviderKind(str, Enum):
@@ -153,6 +152,25 @@ class ProviderEntry:
             "default_model": self.default_model,
             "priority": self.priority,
         }
+
+    def capability_info(self) -> dict[str, Any]:
+        """Safe Hub projection with an opaque credential locator only."""
+
+        payload = self.safe_info()
+        payload["credential_ref"] = _safe_credential_reference(self.credential_source)
+        return payload
+
+
+def _safe_credential_reference(value: str) -> str:
+    raw = str(value or "").strip()
+    scheme, separator, identifier = raw.partition(":")
+    if separator != ":" or scheme not in {"env", "keychain", "secret"}:
+        return ""
+    if not identifier or len(identifier) > 256:
+        return ""
+    if any(character.isspace() or ord(character) < 32 for character in identifier):
+        return ""
+    return f"{scheme}:{identifier}"
 
 
 # ── AuxiliaryPolicy ───────────────────────────────────────────────────────────
@@ -316,6 +334,14 @@ class WorkerProviderRegistry:
         """Provider catalog — safe (no secrets). EW-T025."""
         return [p.safe_info() for p in sorted(self._providers.values(), key=lambda e: e.id)]
 
+    def capability_info(self) -> list[dict[str, Any]]:
+        """Container-safe descriptors consumed by the Hub capability adapter."""
+
+        return [
+            provider.capability_info()
+            for provider in sorted(self._providers.values(), key=lambda entry: entry.id)
+        ]
+
 
 # ── ProviderSelectionGate (AWF-T012, AWF-T013) ───────────────────────────────
 
@@ -354,7 +380,11 @@ class AiSnakeProviderConfig:
             max_latency_ms=max(250, int(source.get("max_latency_ms") or 2000)),
             budgets=dict(budgets),
             cloud_allowed=bool(source.get("cloud_allowed", False)),
-            allowed_providers=[str(item).strip() for item in list(source.get("allowed_providers") or []) if str(item).strip()],
+            allowed_providers=[
+                str(item).strip()
+                for item in list(source.get("allowed_providers") or [])
+                if str(item).strip()
+            ],
         )
 
 
@@ -399,7 +429,9 @@ class ProviderSelectionGate:
         if policy.cloud_allowed:
             for entry in sorted(self._registry._providers.values(), key=lambda e: e.priority):
                 if entry.kind == ProviderKind.cloud:
-                    allowed = not policy.allowed_providers or entry.id.lower() in {p.lower() for p in policy.allowed_providers}
+                    allowed = not policy.allowed_providers or entry.id.lower() in {
+                        provider.lower() for provider in policy.allowed_providers
+                    }
                     if allowed:
                         return entry, "allow:cloud_fallback"
 

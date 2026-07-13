@@ -1,6 +1,7 @@
 """Timeout/budget/iterations protection for workflow adapters (LCG-019)."""
 from __future__ import annotations
 
+import threading
 import time
 from typing import Any
 
@@ -23,17 +24,21 @@ class WorkflowBudgetGuard:
         self._steps = 0
         self._tokens = 0
         self._start = time.monotonic()
+        self._lock = threading.Lock()
 
     def record_step(self, label: str = "", tokens: int = 0) -> None:
-        self._steps += 1
-        self._tokens += tokens
-        elapsed = time.monotonic() - self._start
+        with self._lock:
+            self._steps += 1
+            self._tokens += tokens
+            steps = self._steps
+            total_tokens = self._tokens
+            elapsed = time.monotonic() - self._start
 
-        if self._steps > self._max_steps:
+        if steps > self._max_steps:
             raise WorkerError(
                 "budget_steps_exceeded",
-                f"Step budget exceeded ({self._steps}/{self._max_steps}): {label}",
-                {"steps": self._steps, "max_steps": self._max_steps, "label": label},
+                f"Step budget exceeded ({steps}/{self._max_steps}): {label}",
+                {"steps": steps, "max_steps": self._max_steps, "label": label},
             )
         if elapsed > self._timeout_seconds:
             raise WorkerError(
@@ -41,16 +46,17 @@ class WorkflowBudgetGuard:
                 f"Timeout exceeded ({elapsed:.1f}s/{self._timeout_seconds}s) at step: {label}",
                 {"elapsed_seconds": elapsed, "timeout_seconds": self._timeout_seconds},
             )
-        if self._max_tokens and self._tokens > self._max_tokens:
+        if self._max_tokens and total_tokens > self._max_tokens:
             raise WorkerError(
                 "budget_tokens_exceeded",
-                f"Token budget exceeded ({self._tokens}/{self._max_tokens})",
-                {"tokens": self._tokens, "max_tokens": self._max_tokens},
+                f"Token budget exceeded ({total_tokens}/{self._max_tokens})",
+                {"tokens": total_tokens, "max_tokens": self._max_tokens},
             )
 
     def summary(self) -> dict[str, Any]:
-        return {
-            "steps": self._steps,
-            "tokens": self._tokens,
-            "elapsed_seconds": round(time.monotonic() - self._start, 3),
-        }
+        with self._lock:
+            return {
+                "steps": self._steps,
+                "tokens": self._tokens,
+                "elapsed_seconds": round(time.monotonic() - self._start, 3),
+            }

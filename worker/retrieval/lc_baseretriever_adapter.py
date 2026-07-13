@@ -3,22 +3,23 @@
 Implementiert BaseRetriever aus langchain-core, delegiert an CodeCompassRetriever.
 Nur importierbar wenn langchain-core installiert ist.
 """
+
 from __future__ import annotations
 
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     pass
 
 _IMPORT_ERROR_MSG = (
-    "langchain-core is required for LangChainCodeCompassRetriever. "
-    "Install it with: pip install 'ananta[langchain]'"
+    "langchain-core is required for LangChainCodeCompassRetriever. Install it with: pip install 'ananta[langchain]'"
 )
 
 
 def _require_langchain_core() -> Any:
     try:
         from langchain_core.retrievers import BaseRetriever  # type: ignore
+
         return BaseRetriever
     except ImportError as exc:
         raise ImportError(_IMPORT_ERROR_MSG) from exc
@@ -45,18 +46,28 @@ class LangChainCodeCompassRetriever:
                     "__init__": cls._impl_init,
                     "_get_relevant_documents": cls._impl_get_relevant_documents,
                     "_aget_relevant_documents": cls._impl_aget_relevant_documents,
-                }
+                },
             )
         instance = cls._base_class.__new__(cls._base_class)
         instance.__init__(*args, **kwargs)
         return instance  # type: ignore
 
     @staticmethod
-    def _impl_init(self: Any, scope: str = "codecompass_vector",
-                   max_results: int = 5, **kwargs: Any) -> None:
+    def _impl_init(
+        self: Any,
+        scope: str = "codecompass_vector",
+        max_results: int = 5,
+        tenant_id: str = "unbound",
+        allowed_source_ids: list[str] | tuple[str, ...] | None = None,
+        **kwargs: Any,
+    ) -> None:
         from worker.retrieval.codecompass_retriever import CodeCompassRetriever
+
         self._cc_retriever = CodeCompassRetriever(scope=scope)
         self._max_results = max_results
+        self._scope = scope
+        self._tenant_id = tenant_id
+        self._allowed_source_ids = frozenset(allowed_source_ids or ())
 
     @staticmethod
     def _impl_get_relevant_documents(self: Any, query: str, **kwargs: Any) -> list:
@@ -65,12 +76,30 @@ class LangChainCodeCompassRetriever:
         except ImportError:
             return []
         k = kwargs.get("k", self._max_results)
-        result = self._cc_retriever.query(query, max_results=k)
+        from ananta_contracts.retrieval import RetrievalRequest
+
+        result = self._cc_retriever.retrieve(
+            RetrievalRequest(
+                query=query,
+                tenant_id=self._tenant_id,
+                scope=self._scope,
+                allowed_source_ids=self._allowed_source_ids,
+                max_results=k,
+            )
+        ).to_dict()
         sources = result.get("sources", [])
         return [
             Document(
                 page_content=s.get("content", ""),
-                metadata={"path": s.get("path", ""), "score": s.get("score", 0.0)},
+                metadata={
+                    "path": s.get("path", ""),
+                    "score": s.get("score", 0.0),
+                    "source_id": s.get("source_id", ""),
+                    "source_version": s.get("source_version", ""),
+                    "tenant_id": s.get("tenant_id", ""),
+                    "scope": s.get("scope", ""),
+                    "provenance": s.get("provenance", {}),
+                },
             )
             for s in sources
         ]
@@ -78,7 +107,7 @@ class LangChainCodeCompassRetriever:
     @staticmethod
     async def _impl_aget_relevant_documents(self: Any, query: str, **kwargs: Any) -> list:
         import asyncio
+
         return await asyncio.to_thread(
-            LangChainCodeCompassRetriever._impl_get_relevant_documents,
-            self, query, **kwargs
+            LangChainCodeCompassRetriever._impl_get_relevant_documents, self, query, **kwargs
         )
