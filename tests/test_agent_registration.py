@@ -1,6 +1,8 @@
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+from flask import Flask
+
 
 def test_register_agent_success(client, app):
     """Testet die erfolgreiche Registrierung eines Agenten bei erreichbarer URL."""
@@ -112,7 +114,7 @@ def test_register_agent_exposes_validation_errors_field(client, app):
     )
     agent_repo.save(agent)
 
-    response = client.get("/agents", headers={"Authorization": "Bearer admin-token-placeholder"})
+    client.get("/agents", headers={"Authorization": "Bearer admin-token-placeholder"})
     # Directory entry includes validation_errors read-only field when auth works
     from agent.services.agent_registry_service import AgentRegistryService
 
@@ -263,8 +265,8 @@ def test_registration_runtime_state_tracks_failed_attempts(monkeypatch):
 
 
 def test_registration_runtime_state_retries_after_successful_registration(monkeypatch):
-    from agent.services.background import registration as registration_mod
     import agent.common.context
+    from agent.services.background import registration as registration_mod
 
     class _ImmediateThread:
         def __init__(self, target=None, daemon=None):
@@ -316,3 +318,55 @@ def test_registration_runtime_state_retries_after_successful_registration(monkey
     assert int(state["attempts"]) == 3
     assert state["last_success_at"] is not None
     assert sleep_calls == [60, 2, 60]
+
+
+def test_registration_uses_file_managed_service_token_and_runtime_metadata(
+    monkeypatch,
+    tmp_path,
+):
+    from agent.services.background import registration as registration_mod
+
+    class _ImmediateThread:
+        def __init__(self, target=None, daemon=None):
+            self._target = target
+            self.daemon = daemon
+
+        def start(self):
+            if self._target:
+                self._target()
+
+    token = "workflow-worker-service-token-0123456789abcdef"
+    token_file = tmp_path / "workflow-worker-token"
+    token_file.write_text(token, encoding="utf-8")
+    token_file.chmod(0o600)
+    captured = {}
+
+    def register(**values):
+        captured.update(values)
+        return True
+
+    registration_mod.reset_registration_state()
+    monkeypatch.setattr(registration_mod.settings, "role", "worker")
+    monkeypatch.setattr(registration_mod.settings, "hub_can_be_worker", False)
+    monkeypatch.setattr(registration_mod.settings, "hub_url", "http://hub:5000")
+    monkeypatch.setattr(registration_mod.settings, "port", 5001)
+    monkeypatch.setattr("agent.common.context.shutdown_requested", False)
+    monkeypatch.setattr(registration_mod, "register_with_hub", register)
+    monkeypatch.setattr(registration_mod, "_sleep_with_shutdown", lambda _seconds: False)
+    monkeypatch.setattr(registration_mod.threading, "Thread", _ImmediateThread)
+    app = Flask(__name__)
+    app.config.update(
+        AGENT_NAME="worker-alpha",
+        AGENT_TOKEN=None,
+        AGENT_TOKEN_FILE=str(token_file),
+    )
+    app.extensions["workflow_adapter_worker_registration"] = {
+        "capabilities": ["workflow.adapter.langgraph"],
+        "runtime_targets": [{"runtime_id": "langgraph"}],
+    }
+
+    registration_mod.start_registration_thread(app)
+
+    assert captured["token"] == token
+    assert captured["capabilities"] == ["workflow.adapter.langgraph"]
+    assert captured["runtime_targets"] == [{"runtime_id": "langgraph"}]

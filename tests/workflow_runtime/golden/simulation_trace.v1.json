@@ -1,0 +1,42 @@
+{
+  "events": [
+    {
+      "actor": "hub",
+      "attempt": 0,
+      "causation_id": "control-1",
+      "correlation_id": "run-1",
+      "dedupe_key": "start",
+      "event_type": "workflow.run.started",
+      "payload": {"plan_hash": "fixture"},
+      "run_id": "run-1",
+      "schema": "ananta.workflow_event.v1",
+      "sequence": 1,
+      "step_id": "",
+      "tenant_id": "tenant-a",
+      "workflow_id": "workflow-a"
+    },
+    {
+      "actor": "hub",
+      "attempt": 0,
+      "causation_id": "control-1",
+      "correlation_id": "run-1",
+      "dedupe_key": "complete",
+      "event_type": "workflow.run.completed",
+      "payload": {
+        "artifact_ids": ["report"],
+        "side_effect_operations": []
+      },
+      "run_id": "run-1",
+      "schema": "ananta.workflow_event.v1",
+      "sequence": 2,
+      "step_id": "",
+      "tenant_id": "tenant-a",
+      "workflow_id": "workflow-a"
+    }
+  ],
+  "normalized_fields": ["event_id", "occurred_at"],
+  "runtime_id": "simulation:fake-native",
+  "runtime_version": "1.0.0",
+  "schema": "ananta.workflow_golden_trace.v1",
+  "terminal_status": "completed"
+}

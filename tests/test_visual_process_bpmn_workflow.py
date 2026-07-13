@@ -127,8 +127,10 @@ def test_visual_process_bpmn_and_workflow_routes():
 
     app = Flask(__name__)
     app.config["TESTING"] = True
+    app.config["AGENT_TOKEN"] = "workflow-route-test-token-that-is-long-enough"
     app.register_blueprint(vp_bp)
     client = app.test_client()
+    auth_headers = {"Authorization": f"Bearer {app.config['AGENT_TOKEN']}"}
 
     imported = client.post("/api/visual-process/bpmn/import", json={"bpmn_xml": _simple_bpmn()})
     assert imported.status_code == 200
@@ -137,6 +139,7 @@ def test_visual_process_bpmn_and_workflow_routes():
     compiled = client.post(
         "/api/visual-process/workflow-request",
         json={"graph": graph, "policy_scope": {"source": "route-test"}},
+        headers=auth_headers,
     )
     assert compiled.status_code == 200
     payload = compiled.get_json()
@@ -145,6 +148,7 @@ def test_visual_process_bpmn_and_workflow_routes():
     started = client.post(
         "/api/visual-process/workflow/start",
         json={"workflow_request": payload["workflow_request"]},
+        headers=auth_headers,
     )
     assert started.status_code == 200
     assert started.get_json()["backend"] == "local"

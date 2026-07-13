@@ -1,0 +1,104 @@
+{
+  "schema": "ananta.temporal-failure-scenarios.v1",
+  "minimum_scenarios": 10,
+  "critical_race_minimum_repetitions": 10,
+  "release_requirements": {
+    "n_minus_one_replay": true,
+    "real_compose_gate": true,
+    "structured_artifacts": true,
+    "temporal_test_environment": true
+  },
+  "scenarios": [
+    {
+      "id": "worker_process_loss_history_replay",
+      "environment": "temporal_test_environment_and_compose",
+      "minimum_repetitions": 1,
+      "release_blocking": true,
+      "test_node": "tests/workflow_runtime/temporal/test_temporal_failure_recovery_lab.py::test_worker_crash_replacement_replays_waiting_workflow_without_state_loss"
+    },
+    {
+      "id": "hub_crash_after_task_acceptance",
+      "environment": "temporal_test_environment",
+      "minimum_repetitions": 1,
+      "release_blocking": true,
+      "test_node": "tests/workflow_runtime/temporal/test_temporal_failure_recovery_lab.py::test_hub_crash_after_task_acceptance_recovers_without_duplicate_effect"
+    },
+    {
+      "id": "temporal_server_restart_inflight_recovery",
+      "environment": "compose",
+      "minimum_repetitions": 1,
+      "release_blocking": true,
+      "test_node": ".github/workflows/quality-and-docs.yml#temporal-compose-gate"
+    },
+    {
+      "id": "activity_heartbeat_loss_retry",
+      "environment": "temporal_test_environment",
+      "minimum_repetitions": 1,
+      "release_blocking": true,
+      "test_node": "tests/workflow_runtime/temporal/test_temporal_failure_recovery_lab.py::test_heartbeat_loss_retries_idempotent_activity_in_real_test_environment"
+    },
+    {
+      "id": "activity_start_to_close_timeout",
+      "environment": "temporal_test_environment",
+      "minimum_repetitions": 1,
+      "release_blocking": true,
+      "test_node": "tests/workflow_runtime/temporal/test_temporal_failure_recovery_lab.py::test_start_to_close_timeout_fails_closed_without_confirming_state"
+    },
+    {
+      "id": "cancel_propagation_with_uncertain_activity",
+      "environment": "temporal_test_environment",
+      "minimum_repetitions": 1,
+      "release_blocking": true,
+      "test_node": "tests/workflow_runtime/temporal/test_temporal_runtime_test_environment.py::test_timeout_uncertainty_and_cancel_propagation"
+    },
+    {
+      "id": "bounded_retry_and_non_idempotent_suppression",
+      "environment": "temporal_test_environment",
+      "minimum_repetitions": 1,
+      "release_blocking": true,
+      "test_node": "tests/workflow_runtime/temporal/test_temporal_runtime_test_environment.py::test_retry_budget_and_non_idempotent_retry_suppression"
+    },
+    {
+      "id": "direct_signal_cancel_race",
+      "environment": "temporal_test_environment",
+      "minimum_repetitions": 10,
+      "release_blocking": true,
+      "test_node": "tests/workflow_runtime/temporal/test_temporal_runtime_test_environment.py::test_direct_signal_race_is_fail_closed_across_ten_repetitions"
+    },
+    {
+      "id": "n_minus_one_history_replay",
+      "environment": "temporal_test_environment",
+      "minimum_repetitions": 1,
+      "release_blocking": true,
+      "test_node": "tests/workflow_runtime/temporal/test_temporal_runtime_test_environment.py::test_n_minus_one_v0_history_replays_with_current_workflow"
+    },
+    {
+      "id": "non_idempotent_acknowledgement_uncertainty",
+      "environment": "temporal_test_environment",
+      "minimum_repetitions": 1,
+      "release_blocking": true,
+      "test_node": "tests/workflow_runtime/temporal/test_temporal_failure_recovery_lab.py::test_non_idempotent_ack_loss_is_not_retried_or_reported_completed"
+    },
+    {
+      "id": "history_threshold_fail_closed",
+      "environment": "temporal_test_environment",
+      "minimum_repetitions": 1,
+      "release_blocking": true,
+      "test_node": "tests/workflow_runtime/temporal/test_temporal_runtime_test_environment.py::test_history_limit_stops_before_all_side_effects_are_submitted"
+    },
+    {
+      "id": "state_threshold_fail_closed",
+      "environment": "temporal_test_environment",
+      "minimum_repetitions": 1,
+      "release_blocking": true,
+      "test_node": "tests/workflow_runtime/temporal/test_temporal_failure_recovery_lab.py::test_state_limit_fails_closed_before_next_side_effect_submission"
+    },
+    {
+      "id": "authorization_expiry_and_operation_binding",
+      "environment": "temporal_test_environment",
+      "minimum_repetitions": 1,
+      "release_blocking": true,
+      "test_node": "tests/workflow_runtime/temporal/test_temporal_runtime_test_environment.py::test_expired_authorization_and_operation_mismatch_fail_closed"
+    }
+  ]
+}

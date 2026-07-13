@@ -7,16 +7,23 @@ def test_file_selection_prefers_ranked_refs_with_provenance() -> None:
     result = select_candidate_files(
         context_envelope={
             "retrieval_refs": [
-                {"path": "src/a.py", "score": 0.2, "source_id": "rag", "symbol": "A"},
-                {"path": "src/b.py", "score": 0.9, "source_id": "rag", "symbol": "B"},
+                {"path": "src/a.py", "score": 0.2, "source_id": "SRC_0001", "symbol": "A"},
+                {"path": "src/b.py", "score": 0.9, "source_id": "SRC_0001", "symbol": "B"},
             ],
+            "verified_source_ids": ["SRC_0001"],
             "file_sizes": {"src/a.py": 200, "src/b.py": 300},
         },
         limits=FileSelectionLimits(max_files=2, max_bytes=1000),
     )
     assert result["status"] == "ok"
     assert [item["path"] for item in result["selected_files"]] == ["src/b.py", "src/a.py"]
-    assert result["selected_files"][0]["source_provenance"]["source_id"] == "rag"
+    assert result["selected_files"][0]["source_provenance"] == {
+        "source_id": "SRC_0001",
+        "retrieval_kind": "codecompass_rag_helper",
+        "score": 0.9,
+        "verification_status": "verified",
+        "reason_code": "source_id_verified",
+    }
 
 
 def test_file_selection_degrades_to_explicit_files_without_rag() -> None:
@@ -27,6 +34,30 @@ def test_file_selection_degrades_to_explicit_files_without_rag() -> None:
     assert result["status"] == "degraded"
     assert result["reason"] == "rag_unavailable_explicit_files_fallback"
     assert [item["path"] for item in result["selected_files"]] == ["README.md", "src/main.py"]
+    assert all(
+        item["source_provenance"]["source_id"] is None
+        and item["source_provenance"]["verification_status"] == "unverified"
+        for item in result["selected_files"]
+    )
+
+
+def test_file_selection_never_promotes_invented_or_unbound_source_ids() -> None:
+    result = select_candidate_files(
+        context_envelope={
+            "retrieval_refs": [
+                {"path": "src/a.py", "score": 0.9, "source_id": "hybrid:dense"},
+                {"path": "src/b.py", "score": 0.8, "source_id": "SRC_0002"},
+            ],
+            "verified_source_ids": ["SRC_0001"],
+            "file_sizes": {"src/a.py": 100, "src/b.py": 100},
+        },
+    )
+
+    assert all(
+        item["source_provenance"]["source_id"] is None
+        and item["source_provenance"]["reason_code"] == "source_id_unverified"
+        for item in result["selected_files"]
+    )
 
 
 def test_file_selection_respects_byte_limit() -> None:

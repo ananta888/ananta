@@ -95,7 +95,7 @@ def test_runtime_overlay_normalizes_states_and_redacts_credential_fields():
         "status": "done",
         "steps": [{"step_id": "s1", "status": "done", "credential_token": "must-not-leak"}],
     }
-    with patch("agent.services.chat_process_binding.get_workflow_backend", return_value=backend):
+    with patch("agent.services.chat_process_binding._controlled_backend", return_value=backend):
         overlay = runtime_overlay(
             {"run_id": "r", "workflow_id": "r", "process_id": "vp", "process_version": "1", "snapshot_hash": "h"}
         )

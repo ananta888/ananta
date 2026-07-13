@@ -314,7 +314,7 @@ def test_retrieval_service_supports_repo_only_source_filter():
     assert [chunk["engine"] for chunk in payload["chunks"]] == ["repository_map"]
 
 
-def test_retrieval_service_normalizes_chunk_metadata_with_source_and_citation():
+def test_retrieval_service_marks_pre_catalog_source_id_as_unverified():
     knowledge = _FakeKnowledgeIndexRetrievalService()
     service = RetrievalService(knowledge_index_retrieval_service=knowledge, memory_entry_repository=_FakeMemoryEntryRepo())
     service._orchestrator = _FakeOrchestrator()
@@ -325,11 +325,21 @@ def test_retrieval_service_normalizes_chunk_metadata_with_source_and_citation():
     for chunk in payload["chunks"]:
         metadata = dict(chunk.get("metadata") or {})
         assert metadata.get("source_type")
-        assert metadata.get("source_id")
         assert metadata.get("chunk_id")
+        assert metadata.get("source_id_verified") is False
+        verification = dict(metadata.get("source_id_verification") or {})
+        assert verification.get("status") == "unverified"
+        assert verification.get("reason_code") in {
+            "source_id_missing",
+            "source_id_unverified",
+        }
         citation = dict(metadata.get("citation") or {})
         assert citation.get("source_type") == metadata.get("source_type")
-        assert citation.get("source_id") == metadata.get("source_id")
+        assert citation.get("source_id") is None
+        assert citation.get("verification_status") == "unverified"
+
+    repo_chunk = next(chunk for chunk in payload["chunks"] if chunk["engine"] == "repository_map")
+    assert (repo_chunk.get("metadata") or {}).get("source_id") is None
 
 
 def test_retrieval_service_exposes_source_type_contributions_in_fusion_trace():

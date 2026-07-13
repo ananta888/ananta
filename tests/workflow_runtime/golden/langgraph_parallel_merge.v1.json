@@ -1,0 +1,83 @@
+{
+  "artifacts": {
+    "branch-a-result": {"branch": "a"},
+    "branch-b-result": {"branch": "b"},
+    "merged-result": [{"branch": "a"}, {"branch": "b"}]
+  },
+  "approved_gates": [],
+  "batches": [["branch-a", "branch-b"], ["merge"]],
+  "limits": {"effective": 2, "plan": 2, "tenant": 2, "worker": 2},
+  "max_observed_parallelism": 2,
+  "plan_hash": "9b04f935dc4eea7f892595199d2dba7956ef83246b704e94c76469745fe34471",
+  "reason_code": "",
+  "records": [
+    {
+      "artifacts": {"branch-a-result": {"branch": "a"}},
+      "cost_micros": 0,
+      "failed_branches": [],
+      "node_id": "branch-a",
+      "reason_code": "",
+      "status": "completed",
+      "tokens": 0,
+      "value": {"branch": "a"}
+    },
+    {
+      "artifacts": {"branch-b-result": {"branch": "b"}},
+      "cost_micros": 0,
+      "failed_branches": [],
+      "node_id": "branch-b",
+      "reason_code": "",
+      "status": "completed",
+      "tokens": 0,
+      "value": {"branch": "b"}
+    },
+    {
+      "artifacts": {"merged-result": [{"branch": "a"}, {"branch": "b"}]},
+      "cost_micros": 0,
+      "failed_branches": [],
+      "node_id": "merge",
+      "reason_code": "merge_complete",
+      "status": "completed",
+      "tokens": 0,
+      "value": [{"branch": "a"}, {"branch": "b"}]
+    }
+  ],
+  "schema": "ananta.langgraph_execution_plan_result.v1",
+  "status": "completed",
+  "trace": [
+    {
+      "event": "workflow.run.started",
+      "limits": {"effective": 2, "plan": 2, "tenant": 2, "worker": 2},
+      "plan_hash": "9b04f935dc4eea7f892595199d2dba7956ef83246b704e94c76469745fe34471"
+    },
+    {
+      "batch": 0,
+      "event": "workflow.batch.scheduled",
+      "node_ids": ["branch-a", "branch-b"]
+    },
+    {
+      "event": "workflow.step.completed",
+      "failed_branches": [],
+      "node_id": "branch-a",
+      "reason_code": ""
+    },
+    {
+      "event": "workflow.step.completed",
+      "failed_branches": [],
+      "node_id": "branch-b",
+      "reason_code": ""
+    },
+    {
+      "batch": 1,
+      "event": "workflow.batch.scheduled",
+      "node_ids": ["merge"]
+    },
+    {
+      "event": "workflow.step.completed",
+      "failed_branches": [],
+      "node_id": "merge",
+      "reason_code": "merge_complete"
+    },
+    {"event": "workflow.run.completed", "reason_code": ""}
+  ]
+}

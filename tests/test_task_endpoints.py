@@ -248,7 +248,12 @@ def test_task_execute_uses_native_worker_pipeline_without_shell_proxy(client, ap
         latest = (task.get("history") or [])[-1]
         repair_meta = dict(latest.get("execution_repair") or {})
         if repair_meta:
-            assert repair_meta.get("runtime_path") == "native_worker_pipeline"
+            assert repair_meta.get("runtime_path") == "delegated_worker_required"
+            native_boundary = dict(repair_meta.get("native_worker_runtime") or {})
+            assert (
+                native_boundary.get("reason_code")
+                == "native_worker_in_process_execution_disabled"
+            )
         metrics = ((task.get("verification_status") or {}).get("task_flow_metrics") or {})
         if metrics:
             assert metrics.get("worker_profile") == "balanced"
