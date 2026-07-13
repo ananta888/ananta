@@ -1,131 +1,2096 @@
 {
+  "$schema": "todo.track.schema.json",
+  "version": "2.0",
   "id": "todo.production-ai-workflow-runtime-ananta-native-langchain-langgraph-temporal",
-  "title": "Production-grade AI Workflow Runtime: Ananta Native, LangChain, LangGraph und Temporal gemeinsam ausbauen",
-  "status": "planned",
-  "priority": "critical",
+  "owner": "ananta-core",
+  "track": "production-ai-workflow-runtime-ananta-native-langgraph-temporal",
+  "title": "Production-grade AI Workflow Runtime: Ananta Native, LangGraph und Temporal unter Hub-Governance",
+  "status": "partial",
+  "priority": "P0",
+  "large_goal_mode": true,
+  "small_goal_mode": false,
   "created": "2026-07-13",
   "last_reviewed": "2026-07-13",
-  "owner": "ananta-core",
   "target_repository": "ananta888/ananta",
-  "tags": [
-    "ananta-native",
-    "langchain",
-    "langgraph",
-    "temporal",
-    "workflow-runtime",
-    "durable-execution",
-    "agent-runtime",
-    "checkpointing",
-    "human-in-the-loop",
-    "policy",
-    "audit",
-    "observability",
-    "conformance",
-    "provider-independence"
+  "purpose": "Den vorhandenen, fragmentierten Workflow-Unterbau zu einer sicheren, testbaren und optional durable ausfuehrbaren Plattform konsolidieren. Ananta Native, LangGraph und Temporal erhalten klar getrennte Rollen und gemeinsame Ananta-Vertraege; LangChain bleibt eine optionale Modell-, Tool-, Retriever- und Runnable-Integrationsschicht.",
+  "goal": "Der Hub bleibt alleinige Control Plane und Eigentuemer von Planung, Taskqueue, Delegation, Policy, Budgets, Approvals, Artefakten und Audit. Worker fuehren ausschliesslich hub-delegierte Arbeit aus. Runtime-Auswahl und Fallbacks sind capability-basiert, explizit, fail-closed und ueber kanonische Events nachvollziehbar.",
+  "supersedes_or_reconciles": [
+    "todos/archiv/langchain_langgraph_support.todo.json",
+    "todos/archiv/todo.langchain-langgraph-worker-adapters.json",
+    "todos/archiv/todo.temporal-workflow-backend-adapter.json",
+    "todos/archiv/todo.workflow-blueprint-bpmn-temporal-integration.json"
   ],
-  "goal": "Anantas eigene Workflow-, Agenten- und Orchestrierungswege als fachlich fuehrende Plattform erhalten und verbessern. LangChain, LangGraph und Temporal werden als optionale Referenz- und Zusatzlaufzeiten integriert. Gute Konzepte der Fremdframeworks werden systematisch in die Ananta-Native-Runtime zurueckgefuehrt, ohne Anantas Policies, Artefaktmodell, CodeCompass, Audit, Budgets, Profile, Worker-Steuerung oder Datenvertraege zu umgehen.",
+  "scope_corrections": {
+    "removed_tasks": [
+      {
+        "id": "AIR-037",
+        "reason": "Ein automatisch erzeugter Native-Learning-Backlog ist Planning-Governance und keine Voraussetzung fuer eine produktive Runtime. Das Thema darf spaeter als eigener Track geplant werden."
+      },
+      {
+        "id": "AIR-047",
+        "reason": "LangGraph innerhalb einer Temporal Activity ist fuer den ersten produktiven Umfang nicht erforderlich und wuerde ohne klare Zustandsautoritaet doppelte Checkpoints, Retries und Side Effects riskieren. Eine spaetere Aufnahme erfordert eine eigene ADR nach bestandener Standalone-Conformance."
+      },
+      {
+        "id": "AIR-048",
+        "reason": "Continue-as-new wird nicht spekulativ als Releaseaufgabe gefuehrt. History-Grenzen werden im Kern getestet; erst ein gemessener Bedarf erzeugt einen separaten Erweiterungstrack."
+      }
+    ],
+    "changed_tasks": [
+      "AIR-013 fuehrt genau einen Hub-owned WorkflowControlService, segregierte Worker-Runtime-Ports und einen Temporal DurableRunInfrastructurePort mit expliziter Bridge ein.",
+      "AIR-020 und AIR-022 konsolidieren bestehende Registries ueber Ports und Adapter; sie erzeugen keine weitere globale Registry.",
+      "AIR-044 wird vor die Runtime-Implementierungen gezogen, weil Idempotenz eine gemeinsame Sicherheitsgrundlage ist.",
+      "AIR-051 wird als Runtime-Evaluation-Read-Model mit Angular-Operationsansicht definiert und bleibt von kanonischen Events abhaengig."
+    ],
+    "new_tasks": [
+      "AIR-005 Direkte Worker-Ausfuehrung im Hub sofort fail-closed eindaemmen",
+      "AIR-006 Workflow-APIs authentisieren und fail-closed haerten",
+      "AIR-016 Signiertes RuntimeAuthorizationEnvelope einfuehren",
+      "AIR-017 Schema-Evolution und Migration definieren",
+      "AIR-018 Kanonische Events persistent projizieren",
+      "AIR-019 Abschliessendes Runtime-Conformance-Release-Gate einfuehren",
+      "AIR-026 Verteilte Run-/Step-Ownership und Recovery implementieren"
+    ]
+  },
+  "source_analysis": {
+    "verified_baseline": [
+      "agent/services/workflow_backend.py enthaelt WorkflowRequest v1 und einen schmalen start/status/cancel/signal/events-Port.",
+      "agent/services/local_workflow_backend.py ist ein fluechtiges Statusmodell und fuehrt keine Worker-Facharbeit aus.",
+      "worker/adapters/langchain_adapter.py und worker/adapters/langgraph_adapter.py bieten bereits optionale Adapter, Tests, Streaming und Teilfunktionen.",
+      "Der LangGraph-Adapter faellt bei Fehlern des kompilierten Graphen still auf einen manuellen Walker zurueck.",
+      "LangGraph-Toolnodes pruefen Policy, fuehren das Tool aber noch nicht aus; hub_owned Checkpointing ist nicht angebunden.",
+      "agent/services/temporal_workflow_backend.py ist nur ein lazy Clientadapter; Temporal Worker, Workflow-Definitionen, Activities, Compose und Tests fehlen.",
+      "Mehrere Workflow-, Provider-, Tool-, Audit- und Event-Abstraktionen existieren parallel und sind nicht konsolidiert.",
+      "agent/routes/workflow_adapters.py importiert und startet Worker-Adapter direkt im Hub-Prozess.",
+      "Die Workflow-Endpunkte in agent/routes/visual_process.py besitzen keine explizite Authentisierungs- und Autorisierungsgrenze."
+    ],
+    "status_policy": [
+      "partial bedeutet, dass konkrete wiederverwendbare Implementierung existiert, aber mindestens ein Akzeptanzkriterium offen ist.",
+      "todo bedeutet, dass nur benachbarte Grundlagen oder Platzhalter existieren.",
+      "done ist nur mit verlinkter Implementierungs-, Test- und Betriebs-Evidence erlaubt."
+    ]
+  },
   "architecture_principles": [
-    "Ananta bleibt Control Plane fuer Planung, Policy, Berechtigungen, Artefakte, Audit, Budgets, Profile, Providerwahl und Delegation.",
-    "Temporal-, LangGraph- und LangChain-Typen bleiben hinter Ports und leaken nicht in Routes, DB-Modelle oder fachliche Kernservices.",
-    "Die Ananta-Native-Runtime bleibt eine erstklassige Laufzeit und wird nicht durch stille Framework-Fallbacks ersetzt.",
-    "Fallbacks duerfen Semantik, Sicherheit, Auditierbarkeit oder Wiederaufnahmefaehigkeit nicht unbemerkt reduzieren.",
-    "Default-Deny gilt fuer Tool-, Datei-, Netzwerk-, Git-, Shell- und Providerzugriffe in jeder Runtime.",
-    "Alle Ergebnisse, Statuswechsel, Freigaben, Fehler und Seiteneffekte werden als kanonische Ananta-Artefakte und Events abgebildet.",
-    "Jede externe Framework-Faehigkeit fuehrt zu einer dokumentierten Entscheidung: extern belassen, nativ nachbauen, hybrid nutzen oder bewusst ablehnen.",
-    "Workflows sollen moeglichst gegen Ananta Native, LangGraph und Temporal ausfuehrbar und vergleichbar sein."
+    "Der Hub bleibt alleinige Control Plane und Eigentuemer von Taskqueue, Planung, Delegation, Policy, Budget, Approval, Artefakten und Audit.",
+    "Worker und Temporal Activities duerfen keine Worker direkt orchestrieren; delegierbare Arbeit wird als Hub-Task erzeugt.",
+    "WorkflowControlService, ExecutionRuntimePort und optionale Streaming-, Checkpoint- und Resume-Ports bleiben klein und klar getrennt; eine Hub-Worker-Bridge verbindet sie.",
+    "Der Hub besitzt genau einen WorkflowControlService; Native, LangGraph und Temporal implementieren nur segregierte Ausfuehrungs- oder Infrastrukturports.",
+    "Ananta-Vertraege enthalten keine LangChain-, LangGraph- oder Temporal-Typen.",
+    "LangChain ist eine optionale Integrationsschicht und keine eigene Durability- oder Orchestrierungsautoritaet.",
+    "Temporal besitzt Durable Execution, aber weder Policy- noch Taskqueue-Governance ausserhalb seiner eigenen technischen Task Queue.",
+    "Pro Run existiert genau eine technische State-Autoritaet: bei Native der Hub State/Event Store, bei Temporal die Temporal History; der Hub Event Store bleibt die kanonische fachliche und auditierbare Projektion.",
+    "Fallbacks sind explizit, capability-basiert und bei Verlust von Sicherheit, Durability, Resume oder Audit automatisch verboten.",
+    "Tool-, Datei-, Netzwerk-, Git-, Shell- und Providerzugriffe sind in jeder Runtime default-deny.",
+    "Neue Faehigkeiten werden additiv und mit versionierten Migrationen eingefuehrt; bestehende APIs bleiben kompatibel.",
+    "Angular, CLI und TUI sprechen ausschliesslich mit Hub-Endpunkten und nie direkt mit Runtime-Containern."
   ],
+  "runtime_roles": {
+    "ananta_hub": "Kompiliert Plaene, prueft Capabilities und Policies, erzeugt Tasks, genehmigt Side Effects und projiziert Runtime-Ereignisse.",
+    "ananta_native": "Fuehrt hub-delegierte runtime-neutrale Plaene ohne optionale Fremdframeworks aus und bleibt der sichere Default.",
+    "langgraph": "Optionaler Worker-seitiger Graph-Executor hinter dem ExecutionRuntimePort; keine direkte Hub- oder Tool-Governance.",
+    "temporal": "Optionale Durable Runtime fuer lange, ausfalltolerante Ausfuehrungen; Activities nutzen ausschliesslich hub-autorisierte Operationen.",
+    "langchain": "Optionale Provider-, Structured-Output-, Retriever-, Tool- und Runnable-Integration innerhalb genehmigter Worker-Schritte."
+  },
+  "state_authority": {
+    "native_run": "Der Hub State/Event Store ist technische und fachliche Autoritaet.",
+    "langgraph_run": "LangGraph verwendet den hub-owned CheckpointStore; der Hub State/Event Store bleibt Autoritaet.",
+    "temporal_run": "Temporal History ist technische Durable-Execution-Autoritaet. Der Hub Event Store ist die kanonische fachliche Auditprojektion und muss Projection-Lag oder Gaps explizit ausweisen.",
+    "projection_rule": "Eine lueckenhafte, veraltete oder nicht migrierbare Projektion wird niemals als current oder authoritative ausgegeben."
+  },
   "non_goals": [
     "Ananta durch LangChain, LangGraph oder Temporal ersetzen.",
-    "Temporal als Policy-Engine verwenden.",
-    "LangGraph direkten ungeprueften Toolzugriff geben.",
-    "LangChain als einzige Modell- oder Retrieverabstraktion fest verdrahten.",
-    "Anantas Artefakt-, Audit-, Profil- oder Budgetmodell aufgeben.",
-    "Stille automatische Fallbacks mit geringerer Sicherheit oder anderer Semantik."
+    "Temporal zu einer zweiten Ananta-Control-Plane oder Worker-Orchestrierung machen.",
+    "LangChain als eigene austauschbare Durable Runtime behandeln.",
+    "LangGraph und Temporal gleichzeitig als konkurrierende Checkpoint-Autoritaeten fuer denselben Run einsetzen.",
+    "Child Workflows oder Continue-as-new ohne nachgewiesene History- oder fachliche Isolationsanforderung einfuehren.",
+    "Eine weitere globale Provider-, Tool- oder Workflow-Registry neben den bestehenden Implementierungen einfuehren.",
+    "Stille Fallbacks, synthetische Erfolgsergebnisse oder produktive Simulationen erlauben.",
+    "Worker-zu-Worker-Kommunikation oder direkte Angular-zu-Runtime-Kommunikation einfuehren."
   ],
-  "target_architecture": {
-    "control_plane": ["Ananta Hub", "Policy Engine", "Workflow Compiler", "Provider Registry", "Artifact Store", "Audit/Event Store", "Budget Guard", "Approval Service", "CodeCompass"],
-    "execution_runtimes": ["Ananta Native Runtime", "LangGraph Runtime", "Temporal Runtime", "Temporal Activity mit LangGraph", "LangChain Runnable Runtime"],
-    "execution_model": "Workflow Descriptor -> Ananta Compiler -> runtime-neutraler Execution Plan -> ausgewaehlte Runtime -> kanonische Events, Checkpoints und Artefakte",
-    "learning_loop": "Externe Capability -> Vergleichstest -> ADR -> Native-Verbesserung oder begruendete externe Beibehaltung"
-  },
-  "phases": [
-    {"id": "PHASE-0", "title": "Bestandsaufnahme und Schutzgelaender"},
-    {"id": "PHASE-1", "title": "Gemeinsame Runtime-Vertraege und Conformance"},
-    {"id": "PHASE-2", "title": "LangChain als Provider- und Tool-Schicht"},
-    {"id": "PHASE-3", "title": "LangGraph und Ananta Native gemeinsam verbessern"},
-    {"id": "PHASE-4", "title": "Temporal als echte Durable Runtime"},
-    {"id": "PHASE-5", "title": "Observability, Evaluation und produktiver Rollout"}
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "execution_order": [
+    "AIR-M0",
+    "AIR-M1",
+    "AIR-M2",
+    "AIR-M3",
+    "AIR-M4",
+    "AIR-M5"
+  ],
+  "milestones": [
+    {
+      "id": "AIR-M0",
+      "title": "Ist-Zustand, Architekturgrenzen und sofortige Sicherheitsluecken",
+      "task_ids": [
+        "AIR-001",
+        "AIR-002",
+        "AIR-003",
+        "AIR-004",
+        "AIR-005",
+        "AIR-006"
+      ],
+      "status": "in_progress"
+    },
+    {
+      "id": "AIR-M1",
+      "title": "Runtime-neutrale Vertraege, Autorisierung und persistente History",
+      "task_ids": [
+        "AIR-010",
+        "AIR-012",
+        "AIR-011",
+        "AIR-013",
+        "AIR-016",
+        "AIR-017",
+        "AIR-018"
+      ],
+      "status": "in_progress"
+    },
+    {
+      "id": "AIR-M2",
+      "title": "Referenz-Workflows, Conformance und gemeinsame Integrationsdienste",
+      "task_ids": [
+        "AIR-014",
+        "AIR-015",
+        "AIR-020",
+        "AIR-021",
+        "AIR-044",
+        "AIR-026",
+        "AIR-022",
+        "AIR-023",
+        "AIR-024",
+        "AIR-025"
+      ],
+      "status": "in_progress"
+    },
+    {
+      "id": "AIR-M3",
+      "title": "Ananta Native und LangGraph sicher auf gemeinsame Semantik bringen",
+      "task_ids": [
+        "AIR-030",
+        "AIR-031",
+        "AIR-032",
+        "AIR-033",
+        "AIR-034",
+        "AIR-035",
+        "AIR-036"
+      ],
+      "status": "in_progress"
+    },
+    {
+      "id": "AIR-M4",
+      "title": "Temporal als echte optionale Durable Runtime",
+      "task_ids": [
+        "AIR-040",
+        "AIR-041",
+        "AIR-042",
+        "AIR-043",
+        "AIR-045",
+        "AIR-046",
+        "AIR-049"
+      ],
+      "status": "in_progress"
+    },
+    {
+      "id": "AIR-M5",
+      "title": "Observability, Security, Evaluation und produktiver Rollout",
+      "task_ids": [
+        "AIR-050",
+        "AIR-052",
+        "AIR-053",
+        "AIR-019",
+        "AIR-054",
+        "AIR-051",
+        "AIR-055",
+        "AIR-056"
+      ],
+      "status": "in_progress"
+    }
   ],
   "tasks": [
-    {"id":"AIR-001","phase":"PHASE-0","title":"Ist-Analyse aller Workflow- und Agentenlaufzeiten erstellen","status":"todo","priority":"critical","acceptance_criteria":["Alle produktiven, simulierten, degraded und Platzhalterpfade sind erfasst.","Archivierte Todos sind mit dem echten Codezustand abgeglichen.","Abweichungen werden als neue Tasks dokumentiert."]},
-    {"id":"AIR-002","phase":"PHASE-0","title":"Runtime Capability Matrix definieren","status":"todo","priority":"critical","acceptance_criteria":["Jede Runtime meldet Capability, Version, Modus und Einschraenkungen.","Planner kann Anforderungen gegen Runtimes pruefen.","Capabilities sind in CLI und WebUI sichtbar."]},
-    {"id":"AIR-003","phase":"PHASE-0","title":"Fallback-Regeln und Semantikklassen festlegen","status":"todo","priority":"critical","acceptance_criteria":["Jeder Fallback besitzt Reason Code, Quelle, Ziel und Semantikklasse.","Security-, Durability- oder Resume-Verlust blockiert automatische Fallbacks.","Der stille LangGraph-Fallback wird durch explizite Policy ersetzt."]},
-    {"id":"AIR-004","phase":"PHASE-0","title":"ADRs fuer Runtime-Grenzen erstellen","status":"todo","priority":"high","acceptance_criteria":["ADRs fuer Control Plane, Checkpointing, Event-History, Toolzugriff und Native-Parity liegen vor.","Jede ADR nennt Migration und Exit-Strategie."]},
-    {"id":"AIR-010","phase":"PHASE-1","title":"Runtime-neutral Execution Plan Schema einfuehren","status":"todo","priority":"critical","acceptance_criteria":["Plan ist versioniert und JSON-serialisierbar.","Nodes, Edges, Bedingungen, Policies, Budgets und Side-Effect-Klassen sind enthalten.","Keine Framework-Typen im Kernschema."]},
-    {"id":"AIR-011","phase":"PHASE-1","title":"Gemeinsames WorkflowState- und Checkpoint-Modell definieren","status":"todo","priority":"critical","acceptance_criteria":["State trennt Fachdaten, Runtime-Metadaten, Secrets und Artefakte.","Checkpoint ist versioniert, redigierbar und signierbar.","Resume validiert Plan-, Policy- und Schema-Version."]},
-    {"id":"AIR-012","phase":"PHASE-1","title":"Kanonisches Event- und Statusmodell erweitern","status":"todo","priority":"critical","acceptance_criteria":["Events enthalten workflow_id, run_id, step_id, attempt, correlation_id und causation_id.","Temporal History und LangGraph Node Events sind abbildbar.","Reihenfolge und Deduplizierung sind definiert."]},
-    {"id":"AIR-013","phase":"PHASE-1","title":"Runtime Adapter Port vereinheitlichen","status":"todo","priority":"critical","acceptance_criteria":["Native, LangGraph und Temporal implementieren denselben Port.","Start, Stream, Signal, Query, Resume, Cancel und History sind abgedeckt.","Contract Tests pruefen alle Implementierungen."]},
-    {"id":"AIR-014","phase":"PHASE-1","title":"Referenz-Workflows fuer Runtime-Vergleich erstellen","status":"todo","priority":"high","acceptance_criteria":["Research, Codeanalyse, Approval, Parallel-Merge und Langlauf-Workflow sind definiert.","Erwartete Events, Artefakte und Endzustaende liegen vor.","Durable Varianten laufen auch auf Temporal."]},
-    {"id":"AIR-015","phase":"PHASE-1","title":"Differential- und Conformance-Testframework bauen","status":"todo","priority":"critical","acceptance_criteria":["Status, Events, Artefakte, Policies und Side Effects werden verglichen.","Nichtdeterministische LLM-Ausgaben werden ueber Invarianten verglichen.","Native Runtime ist immer Teil der CI-Suite."]},
-    {"id":"AIR-020","phase":"PHASE-2","title":"Zentrale Modell- und Provider Registry aufbauen","status":"todo","priority":"critical","acceptance_criteria":["Native und LangChain Provider verwenden gemeinsame Vertraege.","Faehigkeiten, Kosten, Latenz und Datenschutz sind sichtbar.","Profile koennen Provider und Fallbackketten festlegen."]},
-    {"id":"AIR-021","phase":"PHASE-2","title":"Structured Output Service einfuehren","status":"todo","priority":"critical","acceptance_criteria":["JSON Schema und Pydantic-kompatible Modelle werden unterstuetzt.","Unvalidierte Antworten duerfen keine schreibenden Schritte ausloesen.","Parsing- und Validierungsfehler werden kanonisch auditiert."]},
-    {"id":"AIR-022","phase":"PHASE-2","title":"Gemeinsame Tool Registry und Tool Calling Pipeline bauen","status":"todo","priority":"critical","acceptance_criteria":["Tooldefinition, Inputschema, Side-Effect-Klasse und Policy Scope sind zentral registriert.","Jeder Tool Call durchlaeuft Policy, Budget, Redaction und Audit.","LangChain Tools koennen keine Ananta-Gates umgehen."]},
-    {"id":"AIR-023","phase":"PHASE-2","title":"Retriever Port erweitern","status":"todo","priority":"high","acceptance_criteria":["CodeCompass bleibt Default und kann per Policy erzwungen werden.","Weitere Retriever sind optional hinter demselben Port moeglich.","Quellen enthalten Provenienz, Scope und Version."]},
-    {"id":"AIR-024","phase":"PHASE-2","title":"Provider Middleware fuer Redaction, Budget, Cache und Retry","status":"todo","priority":"high","acceptance_criteria":["Redaction erfolgt vor externen Aufrufen.","Token-, Kosten- und Zeitbudgets werden aktualisiert.","Middleware funktioniert mit nativen und LangChain Providern."]},
-    {"id":"AIR-025","phase":"PHASE-2","title":"Streaming und Callback Bridge implementieren","status":"todo","priority":"medium","acceptance_criteria":["Token-, Tool-, Node- und Status-Events sind typisiert.","Backpressure und Abbruch sind definiert.","CLI, TUI und WebUI konsumieren denselben Stream."]},
-    {"id":"AIR-030","phase":"PHASE-3","title":"Ananta Native Graph Runtime formalisieren","status":"todo","priority":"critical","acceptance_criteria":["Eigener Runtime-Port, Descriptor und Capability-Bericht liegen vor.","Node-Lifecycle, Routing, Fehler und Stop-Bedingungen sind spezifiziert.","Keine implizite Nutzung als stiller LangGraph-Ersatz."]},
-    {"id":"AIR-031","phase":"PHASE-3","title":"Persistentes Checkpointing fuer Native und LangGraph","status":"todo","priority":"critical","acceptance_criteria":["SQLite und PostgreSQL sind vorgesehen.","LangGraph Checkpointer ist hinter Ananta-Port angebunden.","Crash- und Resume-Tests laufen fuer beide Runtimes."]},
-    {"id":"AIR-032","phase":"PHASE-3","title":"Interrupt- und Human-in-the-loop Semantik vereinheitlichen","status":"todo","priority":"critical","acceptance_criteria":["Approve, reject, edit und request_changes sind kanonische Signale.","Freigaben sind signiert und an Run und Step gebunden.","Native, LangGraph und Temporal verwenden dasselbe Approval-Modell."]},
-    {"id":"AIR-033","phase":"PHASE-3","title":"Parallele Nodes, Fan-out und Merge implementieren","status":"todo","priority":"high","acceptance_criteria":["Parallelitaet ist begrenzt und budgetiert.","Merge-Strategien sind deterministisch und schema-validiert.","Conformance-Tests vergleichen Native und LangGraph."]},
-    {"id":"AIR-034","phase":"PHASE-3","title":"Subgraphs und wiederverwendbare Workflow-Komponenten verbessern","status":"todo","priority":"high","acceptance_criteria":["Subgraphs haben Schemas, Policies und Versionen.","Zyklen und Tiefe werden vor Ausfuehrung geprueft.","Native und LangGraph nutzen dieselben Beschreibungen."]},
-    {"id":"AIR-035","phase":"PHASE-3","title":"Bedingungs- und Routing-Ausdruecke erweitern","status":"todo","priority":"high","acceptance_criteria":["Sichere deklarative Ausdruecke ersetzen freie Ausfuehrung.","Ausdruecke sind vorab validierbar.","Native und LangGraph erhalten dieselbe Routingsemantik."]},
-    {"id":"AIR-036","phase":"PHASE-3","title":"Deterministische Simulation und Dry-run ausbauen","status":"todo","priority":"high","acceptance_criteria":["Fake Clock, Fake Provider und Fake Tools sind vorhanden.","Retries, Timeouts, Interrupts und Teilfehler sind skriptbar.","Golden Trace Tests sind stabil."]},
-    {"id":"AIR-037","phase":"PHASE-3","title":"Native Learning Backlog automatisieren","status":"todo","priority":"medium","acceptance_criteria":["Neue externe Capabilities erzeugen Review-Eintraege.","Review entscheidet native, external, hybrid oder reject.","Native-Parity-Luecken sind sichtbar."]},
-    {"id":"AIR-040","phase":"PHASE-4","title":"Echten Temporal Worker Service implementieren","status":"todo","priority":"critical","acceptance_criteria":["Worker registriert versionierte Workflows und Activities.","Task Queue, Namespace, Build ID und Identity sind konfigurierbar.","Graceful Shutdown, Healthchecks und Compose-Setup sind vorhanden."]},
-    {"id":"AIR-041","phase":"PHASE-4","title":"AnantaWorkflow als reale Temporal Workflow-Definition bauen","status":"todo","priority":"critical","acceptance_criteria":["Workflow ist deterministisch und nutzt Activities fuer Seiteneffekte.","Start, Signal, Query, Cancel und Continue-as-new sind verarbeitet.","Replay-Tests pruefen Versionsaenderungen."]},
-    {"id":"AIR-042","phase":"PHASE-4","title":"Temporal Activity Gateway implementieren","status":"todo","priority":"critical","acceptance_criteria":["Inputs enthalten Operation ID, Policy Snapshot und Artifact References.","Jede Activity validiert Scope und Autorisierung.","Ergebnisse werden in kanonische Artefakte umgewandelt."]},
-    {"id":"AIR-043","phase":"PHASE-4","title":"Temporal Retry-, Timeout- und Heartbeat-Profile definieren","status":"todo","priority":"critical","acceptance_criteria":["Activity-Klassen haben getrennte Profile.","Nicht-idempotente Activities werden nicht blind wiederholt.","Timeout-, Retry- und Cancel-Ereignisse erscheinen im Ananta-Eventmodell."]},
-    {"id":"AIR-044","phase":"PHASE-4","title":"Idempotenz- und Side-Effect Ledger einfuehren","status":"todo","priority":"critical","acceptance_criteria":["Jeder Side Effect besitzt stabile Operation ID.","Ledger kennt planned, started, completed, failed und compensated.","Native Runtime und Temporal verwenden dasselbe Ledger."]},
-    {"id":"AIR-045","phase":"PHASE-4","title":"Temporal Signals, Queries und Updates vollstaendig anbinden","status":"todo","priority":"high","acceptance_criteria":["Approval, pause, resume, cancel und parameter_update sind definiert.","Queries liefern Status, Step, Budget und offene Gates.","CLI und WebUI bleiben Temporal-unabhaengig."]},
-    {"id":"AIR-046","phase":"PHASE-4","title":"Temporal Event-History Adapter implementieren","status":"todo","priority":"high","acceptance_criteria":["list_workflow_events liefert echte Events statt degraded Platzhalter.","History wird paginiert, inkrementell synchronisiert und dedupliziert.","Raw History bleibt fuer Diagnose referenzierbar."]},
-    {"id":"AIR-047","phase":"PHASE-4","title":"LangGraph innerhalb von Temporal sicher ausfuehren","status":"todo","priority":"high","acceptance_criteria":["LangGraph erhaelt nur kanonischen Plan und Policy Snapshot.","Checkpoints und Events sind mit Temporal und Ananta Runs korreliert.","Retry erzeugt keine doppelten ungeprueften Tool Calls."]},
-    {"id":"AIR-048","phase":"PHASE-4","title":"Child Workflows und Continue-as-new einfuehren","status":"todo","priority":"medium","acceptance_criteria":["History-Grenzwerte sind definiert.","Continue-as-new uebernimmt nur notwendigen Zustand.","Tracking zeigt Eltern-Kind-Beziehungen."]},
-    {"id":"AIR-049","phase":"PHASE-4","title":"Temporal Failure- und Replay-Testlabor bauen","status":"todo","priority":"critical","acceptance_criteria":["Temporal Test Environment wird verwendet.","Mindestens zehn Failure-Szenarien sind automatisiert.","Kein Szenario verliert Zustand oder dupliziert Side Effects."]},
-    {"id":"AIR-050","phase":"PHASE-5","title":"Runtime-uebergreifendes Tracing und Observability","status":"todo","priority":"critical","acceptance_criteria":["Trace IDs verbinden Workflow, Node, Provider, Tool, Activity und Artifact.","OpenTelemetry-kompatible Exporte sind moeglich.","Redaction gilt fuer Logs und Traces."]},
-    {"id":"AIR-051","phase":"PHASE-5","title":"Runtime-Vergleichsdashboard bauen","status":"todo","priority":"high","acceptance_criteria":["Qualitaet, Kosten, Latenz, Stabilitaet und Recovery sind vergleichbar.","Native-Parity-Luecken und Fallbacks werden hervorgehoben.","Daten stammen aus kanonischen Events und Traces."]},
-    {"id":"AIR-052","phase":"PHASE-5","title":"Workflow Evaluation Framework integrieren","status":"todo","priority":"high","acceptance_criteria":["Deterministische Regeln und LLM-as-Judge sind getrennt.","Referenzdatensaetze und Artefakte sind versioniert.","Native, LangGraph und Temporal sind vergleichbar."]},
-    {"id":"AIR-053","phase":"PHASE-5","title":"Security- und Threat-Model aktualisieren","status":"todo","priority":"critical","acceptance_criteria":["Prompt Injection, Tool Escalation, Replay Abuse und State Poisoning sind abgedeckt.","Checkpoint- und Signal-Authentizitaet wird geprueft.","Security-Tests laufen in CI."]},
-    {"id":"AIR-054","phase":"PHASE-5","title":"Profilbasierte Runtime-Auswahl einfuehren","status":"todo","priority":"high","acceptance_criteria":["Profile setzen preferred_runtime und allowed_runtimes.","Planner prueft Capabilities und Policies.","Entscheidung wird begruendet und auditiert."]},
-    {"id":"AIR-055","phase":"PHASE-5","title":"Rollout-, Migration- und Rollback-Runbook erstellen","status":"todo","priority":"high","acceptance_criteria":["Rollout pro Projekt, Profil und Workflow ist moeglich.","Shadow Runs und Vergleichslaeufe sind beschrieben.","Rollback auf Native ist getestet, sofern semantisch sicher."]},
-    {"id":"AIR-056","phase":"PHASE-5","title":"Dokumentation und Beispielprojekt erstellen","status":"todo","priority":"medium","acceptance_criteria":["Beispiel zeigt Temporal-Orchestrierung, LangGraph-Planung, LangChain-Provider und Ananta-Control-Plane.","Native-only, LangGraph und Temporal+LangGraph Varianten sind vorhanden.","Failure-, Approval- und Resume-Szenarien laufen in CI."]}
+    {
+      "id": "AIR-001",
+      "milestone_id": "AIR-M0",
+      "title": "Ist-Analyse und archivierte Completion-Claims abgleichen",
+      "type": "analysis",
+      "status": "partial",
+      "progress_percent": 70,
+      "priority": "P0",
+      "risk": "medium",
+      "depends_on": [],
+      "target_files": [
+        "docs/architecture/workflow-runtime-inventory.md",
+        "todos/archiv/"
+      ],
+      "implementation_evidence": [
+        "WorkflowBackend, LocalWorkflowBackend, LangChain-/LangGraph-Adapter und Temporal-Clientadapter wurden im Repository identifiziert.",
+        "Fehlende Temporal-Worker-, Activity-, Compose- und Testpfade sowie ueberzeichnete Archiv-TODOs wurden nachgewiesen."
+      ],
+      "acceptance_criteria": [
+        "Alle produktiven, simulierten, degraded und Platzhalterpfade sind mit Besitzer, Container und Aufrufweg dokumentiert.",
+        "Archivierte done-Claims sind gegen Code und Tests abgeglichen; Widersprueche bleiben sichtbar und werden nicht historisch umgeschrieben.",
+        "Jede Runtime-Faehigkeit besitzt Evidence, bekannten Gap und zugeordneten Folgetask."
+      ],
+      "test_expectations": [
+        "Ein deterministischer Inventory-Check erkennt nicht dokumentierte Runtime-Adapter und Backend-Auswahlwerte.",
+        "Dokumentlinks und Taskreferenzen werden in CI validiert."
+      ]
+    },
+    {
+      "id": "AIR-002",
+      "milestone_id": "AIR-M0",
+      "title": "Versionierte Runtime Capability Matrix definieren",
+      "type": "contract",
+      "status": "partial",
+      "progress_percent": 35,
+      "priority": "P0",
+      "risk": "medium",
+      "depends_on": [
+        "AIR-001"
+      ],
+      "target_files": [
+        "worker/adapters/workflow_adapter_base.py",
+        "agent/services/workflow_runtime_capability_service.py",
+        "agent/routes/workflow_runtime_capabilities.py",
+        "frontend-angular/src/app/"
+      ],
+      "implementation_evidence": [
+        "LangChain und LangGraph melden bereits Adapter-Deskriptoren und einzelne Capabilities.",
+        "Operator-TUI zeigt einen Teil des Adapterstatus."
+      ],
+      "acceptance_criteria": [
+        "Native, LangGraph und Temporal melden versionierte Capabilities, Betriebsmodus, Einschraenkungen und Gesundheitsstatus.",
+        "Der Hub kann Plananforderungen deterministisch gegen Capabilities pruefen und eine begruendete Entscheidung erzeugen.",
+        "CLI, TUI und Angular lesen dieselbe Hub-Projektion; keine Oberflaeche importiert Runtime-Typen."
+      ],
+      "test_expectations": [
+        "Contract-Tests pruefen fehlende, inkompatible und degraded Capabilities.",
+        "Angular-Komponententests pruefen ready, disabled, degraded und incompatible."
+      ]
+    },
+    {
+      "id": "AIR-003",
+      "milestone_id": "AIR-M0",
+      "title": "Explizite Fallback-Policy und Semantikklassen einfuehren",
+      "type": "security",
+      "status": "partial",
+      "progress_percent": 15,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "AIR-001",
+        "AIR-002"
+      ],
+      "target_files": [
+        "agent/services/workflow_runtime_fallback_policy.py",
+        "agent/services/workflow_backend_factory.py",
+        "worker/adapters/langgraph_adapter.py"
+      ],
+      "implementation_evidence": [
+        "Einzelne Reason Codes und Model-Fallback-Policies existieren.",
+        "Compiled LangGraph und unbekannte Backendnamen fallen derzeit semantisch still zurueck."
+      ],
+      "acceptance_criteria": [
+        "Jeder Fallback besitzt Quelle, Ziel, Reason Code, Semantikklasse und gepruefte Capability-Differenz.",
+        "Verlust von Policy, Auth, Durability, Resume, Side-Effect-Schutz oder Audit blockiert automatischen Fallback.",
+        "Unbekannte Runtime- oder Backendwerte schlagen fail-closed fehl; der LangGraph-Manual-Walker ist nur nach expliziter Policy zulaessig."
+      ],
+      "test_expectations": [
+        "Tests erzwingen Fehler statt Local-Fallback bei unbekanntem Backend.",
+        "Fault-Injection prueft, dass ein Compiled-Graph-Fehler keinen stillen Walker-Wechsel ausloest."
+      ]
+    },
+    {
+      "id": "AIR-004",
+      "milestone_id": "AIR-M0",
+      "title": "ADRs fuer Runtime-, State- und Governance-Grenzen vervollstaendigen",
+      "type": "architecture",
+      "status": "partial",
+      "progress_percent": 30,
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": [
+        "AIR-001",
+        "AIR-002",
+        "AIR-003"
+      ],
+      "target_files": [
+        "docs/decisions/",
+        "docs/architecture/"
+      ],
+      "implementation_evidence": [
+        "Eine LangChain-/LangGraph-ADR und Workflow-Backend-Dokumentation existieren.",
+        "Gemeinsame Entscheidungen fuer State, History, Temporal und Exit-Strategien fehlen."
+      ],
+      "acceptance_criteria": [
+        "ADRs decken Control Plane, beide Ports, State/Checkpoint-Autoritaet, Event-History, Toolzugriff und Runtime-Auswahl ab.",
+        "Jede ADR nennt Migration, Kompatibilitaet, Exit-Strategie und verworfene Alternativen.",
+        "Temporal Activities werden ausdruecklich als Ausfuehrer hub-autorisierter Operationen und nicht als Worker-Orchestratoren definiert."
+      ],
+      "test_expectations": [
+        "Architekturtests verbieten Framework-Typen in Hub-Kernvertraegen.",
+        "Import-Checks erkennen direkte Hub-Imports aus Worker-Runtime-Implementierungen."
+      ]
+    },
+    {
+      "id": "AIR-005",
+      "milestone_id": "AIR-M0",
+      "title": "Direkte Worker-Ausfuehrung im Hub sofort fail-closed eindaemmen",
+      "type": "architecture",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [],
+      "target_files": [
+        "agent/routes/workflow_adapters.py",
+        "worker/adapters/workflow_adapter_registry.py",
+        "tests/"
+      ],
+      "acceptance_criteria": [
+        "Direkte execute- und stream-Aufrufe konkreter Worker-Adapter aus Hub-Routes sind entfernt oder bis AIR-013 mit einem expliziten unavailable Reason Code fail-closed deaktiviert.",
+        "Der Hub importiert keine konkreten Worker-Adapter und fuehrt keine Runtime-Facharbeit im Flask-Prozess aus.",
+        "Descriptor-Discovery wird bis AIR-013 ausschliesslich read-only, authentisiert und ohne globale Adapter-Seiteneffekte angeboten.",
+        "Regressionstests beweisen, dass die Eindämmung weder einen Local-Fallback noch eine In-Process-Ausfuehrung aktiviert."
+      ],
+      "test_expectations": [
+        "Architekturtest verbietet agent.routes-Imports aus worker.adapters.",
+        "API-Tests erwarten fail-closed unavailable, solange die AIR-013-Bridge noch nicht aktiv ist."
+      ]
+    },
+    {
+      "id": "AIR-006",
+      "milestone_id": "AIR-M0",
+      "title": "Workflow-APIs authentisieren, autorisieren und fail-closed haerten",
+      "type": "security",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "AIR-004"
+      ],
+      "target_files": [
+        "agent/routes/visual_process.py",
+        "agent/routes/workflow_adapters.py",
+        "agent/auth.py",
+        "tests/test_visual_process_bpmn_workflow.py"
+      ],
+      "acceptance_criteria": [
+        "Start, Status, Events, Signal, Resume und Cancel verlangen Authentisierung sowie tenant- und rungebundene Autorisierung.",
+        "Degraded, unavailable und invalid backend werden mit passenden Nicht-2xx-Statuscodes und stabilen Reason Codes beantwortet.",
+        "Signal- und Stream-Payloads liegen nicht in URLs, werden groessenbegrenzt, validiert und redigiert.",
+        "List- und Detail-Endpunkte geben keine Runtime-, Credential- oder fremden Tenantdaten preis."
+      ],
+      "test_expectations": [
+        "Negative API-Tests decken unauthenticated, unauthorized, cross-tenant, oversized und malformed ab.",
+        "Security-Regression prueft, dass Temporal-Aktivierung keine ungeschuetzten Steuerpfade eroeffnet."
+      ]
+    },
+    {
+      "id": "AIR-010",
+      "milestone_id": "AIR-M1",
+      "title": "Runtime-neutralen ExecutionPlan v1 als Erweiterung des WorkflowRequest einfuehren",
+      "type": "contract",
+      "status": "partial",
+      "progress_percent": 35,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "AIR-004"
+      ],
+      "target_files": [
+        "agent/services/workflow_backend.py",
+        "agent/contracts/workflow_execution_plan.py",
+        "agent/visual_process/blueprint_mapper.py",
+        "todos/schemas/"
+      ],
+      "implementation_evidence": [
+        "WorkflowRequest v1 ist versioniert, serialisierbar und enthaelt Steps, Abhaengigkeiten, Policy und Artefakte.",
+        "Explizite Edges, Bedingungen, Budgets und Side-Effect-Klassen fehlen."
+      ],
+      "acceptance_criteria": [
+        "ExecutionPlan v1 ist JSON-Schema-validierbar und enthaelt Nodes, Edges, Bedingungen, Gates, Budgets, Side-Effect-Klassen und Artifact-Vertraege.",
+        "Der Compiler erzeugt ausschliesslich frameworkneutrale Typen und einen stabilen Plan-Hash.",
+        "WorkflowRequest v1 bleibt ueber einen Kompatibilitaetsadapter lesbar.",
+        "Ungueltige Zyklen, Abhaengigkeiten und Capability-Anforderungen werden vor Delegation abgelehnt."
+      ],
+      "test_expectations": [
+        "Golden-Contract-Tests pruefen Serialisierung und v1-Kompatibilitaet.",
+        "Property-Tests pruefen DAG-, Edge- und Condition-Validierung."
+      ]
+    },
+    {
+      "id": "AIR-012",
+      "milestone_id": "AIR-M1",
+      "title": "Kanonisches WorkflowEvent- und Statusmodell vereinheitlichen",
+      "type": "contract",
+      "status": "partial",
+      "progress_percent": 30,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "AIR-010"
+      ],
+      "target_files": [
+        "agent/services/workflow_backend.py",
+        "agent/services/workflow_event_service.py",
+        "agent/services/workflow_status_service.py",
+        "worker/core/trace_v2.py"
+      ],
+      "implementation_evidence": [
+        "Mehrere Workflow-, Hub- und Adapter-Eventmodelle existieren.",
+        "Das Backend-Event v1 enthaelt nicht durchgaengig run_id, step_id, attempt, correlation_id, causation_id und Sequenz."
+      ],
+      "acceptance_criteria": [
+        "Events enthalten tenant_id, workflow_id, run_id, step_id, attempt, correlation_id, causation_id, sequence und dedupe_key.",
+        "Native-, LangGraph- und Temporal-Ereignisse lassen sich verlustfrei auf kanonische Typen abbilden.",
+        "Statusuebergaenge, Ordering, Deduplizierung, Redaction und unbekannte Eventversionen sind definiert.",
+        "Read Models entstehen ausschliesslich aus kanonischen Events."
+      ],
+      "test_expectations": [
+        "Contract-Tests pruefen Eventversionen, Ordering, Dedupe und Redaction.",
+        "Projection-Tests rekonstruieren denselben Status nach mehrfacher Eventzustellung."
+      ]
+    },
+    {
+      "id": "AIR-011",
+      "milestone_id": "AIR-M1",
+      "title": "Gemeinsames WorkflowState- und Checkpoint-Modell definieren",
+      "type": "persistence",
+      "status": "partial",
+      "progress_percent": 20,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "AIR-010",
+        "AIR-012"
+      ],
+      "target_files": [
+        "agent/services/workflow_state_store.py",
+        "agent/contracts/workflow_checkpoint.py",
+        "worker/planning/checkpoint_store.py",
+        "worker/adapters/langgraph_adapter.py"
+      ],
+      "implementation_evidence": [
+        "Planner-JSON-Checkpoints, kritische Workflow-Zustaende und LangGraph MemorySaver existieren isoliert.",
+        "Kein gemeinsamer signierter, redigierbarer und restartfester State-Vertrag existiert."
+      ],
+      "acceptance_criteria": [
+        "State trennt Fachdaten, Runtime-Metadaten, Secrets, Artefaktreferenzen und offene Gates.",
+        "Checkpoint enthaelt Plan-, Policy-, Schema- und Runtime-Version, ist signiert, tenantgebunden und atomar persistierbar.",
+        "Resume validiert Signatur, Run, Task, Plan, Policy und Schema vor jeder Zustandsuebernahme.",
+        "Secrets werden nicht im Klartext in Checkpoints, Tokens oder Events gespeichert."
+      ],
+      "test_expectations": [
+        "Tamper-, Cross-tenant-, Cross-run- und stale-policy-Tests schlagen fail-closed fehl.",
+        "Crash-Restart-Tests beweisen RPO 0 fuer bestaetigte kanonische Checkpoints."
+      ]
+    },
+    {
+      "id": "AIR-013",
+      "milestone_id": "AIR-M1",
+      "title": "Hub WorkflowControlService, segregierte Runtime-Ports und Hub-Worker-Bridge konsolidieren",
+      "type": "architecture",
+      "status": "partial",
+      "progress_percent": 25,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "AIR-005",
+        "AIR-010",
+        "AIR-011",
+        "AIR-012"
+      ],
+      "target_files": [
+        "agent/services/workflow_backend.py",
+        "agent/services/workflow_execution_adapter.py",
+        "worker/adapters/workflow_adapter_base.py",
+        "agent/services/workflow_runtime_dispatch_service.py"
+      ],
+      "implementation_evidence": [
+        "WorkflowBackend, WorkflowAdapter und WorkflowExecutionAdapter existieren als ueberlappende Vertraege.",
+        "Start/status/cancel/signal/events und dry_run/execute sind auf inkompatible Ports verteilt."
+      ],
+      "acceptance_criteria": [
+        "Genau ein Hub-owned WorkflowControlService deckt Auth, Start, Query, Signal, Cancel und History fuer alle Runtimearten ab.",
+        "ExecutionRuntimePort deckt Worker-seitig Validate und Execute ab; StreamingRuntimePort, CheckpointRuntimePort und ResumableRuntimePort sind optionale segregierte Capability-Interfaces.",
+        "Temporal implementiert nur einen DurableRunInfrastructurePort fuer technische Start-, Describe-, Signal-, Cancel- und History-Operationen hinter dem WorkflowControlService.",
+        "Die Bridge transportiert nur versionierte Ananta-Vertraege ueber die Hub-Taskqueue.",
+        "Native und LangGraph implementieren nur die von ihnen gemeldeten Worker-Ports; Local oder Temporal werden nie als alternative Control Plane exponiert."
+      ],
+      "test_expectations": [
+        "Port-Contract-Tests laufen gegen jede deklarierte Implementierung.",
+        "Import- und Container-Tests pruefen die Hub-Worker-Grenze."
+      ]
+    },
+    {
+      "id": "AIR-016",
+      "milestone_id": "AIR-M1",
+      "title": "Signiertes RuntimeAuthorizationEnvelope einfuehren",
+      "type": "security",
+      "status": "partial",
+      "progress_percent": 10,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "AIR-006",
+        "AIR-010",
+        "AIR-012"
+      ],
+      "target_files": [
+        "agent/contracts/runtime_authorization.py",
+        "agent/services/runtime_authorization_service.py",
+        "agent/services/approval_policy_service.py"
+      ],
+      "implementation_evidence": [
+        "Policy scopes und Approval-Dienste existieren, sind aber nicht als signierter Runtime-Snapshot an Run und Step gebunden."
+      ],
+      "acceptance_criteria": [
+        "Envelope bindet Tenant, Run, Step, Plan-Hash, Policy-Version, erlaubte Tools, Budgets, Artefakte und Ablaufzeit kryptografisch.",
+        "Worker und Activities validieren das Envelope lokal und revalidieren schreibende Operationen beim Hub.",
+        "Widerruf, Ablauf, Key-Rotation und Redaction sind definiert.",
+        "Freie Workflow-Metadaten koennen keine Rechte oder Capabilities erweitern."
+      ],
+      "test_expectations": [
+        "Forgery-, expiry-, replay-, scope-escalation- und key-rotation-Tests sind vorhanden.",
+        "Ein Worker ohne gueltiges Envelope kann keinen Tool- oder Provideraufruf ausfuehren."
+      ]
+    },
+    {
+      "id": "AIR-017",
+      "milestone_id": "AIR-M1",
+      "title": "Schema-Evolution, Migration und Replay-Kompatibilitaet definieren",
+      "type": "architecture",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "AIR-010",
+        "AIR-011",
+        "AIR-012",
+        "AIR-016"
+      ],
+      "target_files": [
+        "agent/services/workflow_schema_migration_service.py",
+        "docs/architecture/workflow-schema-evolution.md",
+        "tests/fixtures/workflow_contracts/"
+      ],
+      "acceptance_criteria": [
+        "Plan-, State-, Checkpoint-, Event- und Authorization-Versionen besitzen additive Kompatibilitaetsregeln.",
+        "Upcaster sind rein, deterministisch, versioniert und ohne Frameworkabhaengigkeit.",
+        "Unbekannte oder nicht migrierbare Versionen werden quarantined statt teilweise ausgefuehrt.",
+        "N-1-Daten koennen gelesen, migriert und erneut projiziert werden."
+      ],
+      "test_expectations": [
+        "Deterministische Minimal-Fixtures pruefen N-1 zu N und nicht unterstuetzte Versionen.",
+        "Temporal-Replay und Native-Resume nutzen dieselben Vertrags-Fixtures."
+      ]
+    },
+    {
+      "id": "AIR-018",
+      "milestone_id": "AIR-M1",
+      "title": "Kanonische Events persistent speichern und Read Models projizieren",
+      "type": "persistence",
+      "status": "partial",
+      "progress_percent": 15,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "AIR-012",
+        "AIR-017"
+      ],
+      "target_files": [
+        "agent/services/workflow_event_store.py",
+        "agent/services/workflow_event_projection_service.py",
+        "agent/db_models/",
+        "alembic/"
+      ],
+      "implementation_evidence": [
+        "WorkflowEventService und WorkflowStatusService liefern nutzbare Teilbausteine.",
+        "Backend- und Adapterevents werden noch nicht in einer gemeinsamen persistenten Reihenfolge projiziert."
+      ],
+      "acceptance_criteria": [
+        "SQLite und PostgreSQL implementieren denselben append-only EventStore-Port.",
+        "Optimistic concurrency, stabile Sequenzen, Dedupe und tenantgebundene Abfragen sind umgesetzt.",
+        "Status-, Approval-, Budget- und Operations-Read-Models sind rebuildbar.",
+        "Retention und Redaction erhalten Auditintegritaet ohne Secrets zu konservieren."
+      ],
+      "test_expectations": [
+        "Backend-Contract-Tests laufen identisch gegen SQLite und PostgreSQL.",
+        "Rebuild-, duplicate-delivery-, concurrent-append- und retention-Tests sind vorhanden."
+      ]
+    },
+    {
+      "id": "AIR-014",
+      "milestone_id": "AIR-M2",
+      "title": "Fuenf runtime-neutrale Referenz-Workflows definieren",
+      "type": "test",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P1",
+      "risk": "low",
+      "depends_on": [
+        "AIR-010",
+        "AIR-011",
+        "AIR-012",
+        "AIR-013",
+        "AIR-016",
+        "AIR-018"
+      ],
+      "target_files": [
+        "tests/fixtures/scenarios/workflow_runtime/",
+        "docs/examples/workflow-runtime/"
+      ],
+      "acceptance_criteria": [
+        "Research, Codeanalyse, Approval, bounded Parallel-Merge und Langlauf/Resume sind als frameworkneutrale Plaene definiert.",
+        "Jeder Workflow besitzt erwartete Invarianten, Events, Artefakte, Side Effects, Gates und Endzustaende.",
+        "Eine Support-Matrix kennzeichnet die ersten vier Workflows als Ziel fuer Native und LangGraph sowie alle durable Varianten als Ziel fuer Temporal, ohne deren Implementierung in diesem Task vorauszusetzen.",
+        "Fixture-Tests beweisen, dass alle Szenarien klein, deterministisch und frei von Zeitstempeln, Zufalls-IDs und Umgebungspfaden sind."
+      ],
+      "test_expectations": [
+        "Fixture-Validator prueft Plan- und Erwartungsschema.",
+        "Jeder Workflow besitzt mindestens ein negatives Policy- und ein Failure-Szenario."
+      ]
+    },
+    {
+      "id": "AIR-015",
+      "milestone_id": "AIR-M2",
+      "title": "Runtime-Differential- und Conformance-Harness bauen",
+      "type": "test",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "medium",
+      "depends_on": [
+        "AIR-013",
+        "AIR-014",
+        "AIR-018"
+      ],
+      "target_files": [
+        "tests/workflow_runtime/conformance/",
+        "scripts/run-workflow-runtime-conformance.py"
+      ],
+      "acceptance_criteria": [
+        "Suite vergleicht Status, Eventinvarianten, Artefakte, Policies, Budgets, Gates und Side Effects.",
+        "Nichtdeterministische LLM-Ausgaben werden ueber Schema und Invarianten statt Stringgleichheit verglichen.",
+        "Unsupported Capabilities liefern explizit skipped/incompatible und niemals synthetischen Erfolg.",
+        "Das Harness laeuft gegen einen deterministischen Referenzadapter und kann unvollstaendige Runtimes als erwartbar failing oder incompatible berichten; das Bestehen realer Runtimes wird erst in AIR-019 gegatet."
+      ],
+      "test_expectations": [
+        "Jeder Referenz-Workflow laeuft im Harness mindestens zehnmal deterministisch mit Referenzadapter, Fake Provider und Fake Tools.",
+        "Differential-Fehler nennen Runtime, Invariante, Eventsequenz und minimale Reproduktion."
+      ]
+    },
+    {
+      "id": "AIR-020",
+      "milestone_id": "AIR-M2",
+      "title": "Bestehende Modell- und Provider-Registries ueber einen Capability-Port konsolidieren",
+      "type": "architecture",
+      "status": "partial",
+      "progress_percent": 40,
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "AIR-004",
+        "AIR-005"
+      ],
+      "target_files": [
+        "agent/providers/registry.py",
+        "worker/core/provider_registry.py",
+        "agent/services/model_inference_adapter_registry.py",
+        "agent/services/provider_capability_service.py"
+      ],
+      "implementation_evidence": [
+        "Mehrere produktive Provider-Registries und Profilresolver existieren bereits.",
+        "Capabilities, Kosten, Latenz, Datenschutz und Credential-Grenzen sind nicht einheitlich."
+      ],
+      "acceptance_criteria": [
+        "Ein kleiner ProviderCapabilityPort definiert Discovery und Auswahl, ohne Registries ueber Containergrenzen gemeinsam beschreibbar zu machen.",
+        "Bestehende Registries werden per Adapter eingebunden und schrittweise konsolidiert; keine neue globale Singleton-Registry entsteht.",
+        "Capabilities, Kostenklasse, Latenzklasse, Locality, Datenschutz und Credential-Referenz sind hub-seitig sichtbar.",
+        "Contract-Tests beweisen, dass LangChain-Provider dieselben Hub-Entscheidungen wie native Provider verwenden."
+      ],
+      "test_expectations": [
+        "Contract-Tests laufen gegen jeden Registry-Adapter.",
+        "Architekturtests verbieten Credentialmaterial in Capability- und UI-Payloads."
+      ]
+    },
+    {
+      "id": "AIR-021",
+      "milestone_id": "AIR-M2",
+      "title": "Gemeinsamen StructuredOutputService einfuehren",
+      "type": "implementation",
+      "status": "partial",
+      "progress_percent": 25,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "AIR-016",
+        "AIR-020"
+      ],
+      "target_files": [
+        "agent/services/structured_output_service.py",
+        "agent/services/model_invocation_service.py",
+        "worker/adapters/chain_runners.py"
+      ],
+      "implementation_evidence": [
+        "JSON-Anforderungen und Parsing existieren an mehreren Stellen, aber ohne verlaessliche gemeinsame Schemavalidierung."
+      ],
+      "acceptance_criteria": [
+        "JSON Schema und Pydantic-kompatible Modelle werden ueber einen providerneutralen Port validiert.",
+        "Unvalidierte oder partiell geparste Antworten duerfen keine schreibenden Schritte oder Side Effects ausloesen.",
+        "Repair ist begrenzt, auditiert und darf Schema oder Policy nicht lockern.",
+        "Native und LangChain verwenden denselben Validierungs- und Fehlervertrag."
+      ],
+      "test_expectations": [
+        "Malformed-, partial-, extra-field-, repair-limit- und injection-Tests sind vorhanden.",
+        "Property-Tests pruefen, dass nur schema-valide Werte den Gate passieren."
+      ]
+    },
+    {
+      "id": "AIR-044",
+      "milestone_id": "AIR-M2",
+      "title": "Runtime-uebergreifendes Idempotenz- und Side-Effect-Ledger einfuehren",
+      "type": "persistence",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "AIR-010",
+        "AIR-011",
+        "AIR-012",
+        "AIR-016",
+        "AIR-018"
+      ],
+      "target_files": [
+        "agent/services/workflow_side_effect_ledger.py",
+        "agent/db_models/",
+        "alembic/"
+      ],
+      "acceptance_criteria": [
+        "Jeder externe Side Effect besitzt eine stabile Operation ID aus Tenant, Run, Step und deklarierter Operation.",
+        "Ledger kennt planned, authorized, started, completed, failed, uncertain und compensated.",
+        "Claim und Zustandswechsel verwenden atomare Compare-and-set- oder Transaktionssemantik sowie den aktuellen Step-Fencing-Token.",
+        "Native, LangGraph-Toolpipeline und Temporal Activities verwenden denselben Hub-owned Ledger-Port.",
+        "Retry nach Crash fuehrt nie ungeprueft zu einer zweiten nicht-idempotenten Operation."
+      ],
+      "test_expectations": [
+        "Crash-before-call, crash-after-call, duplicate-delivery, timeout-uncertain und compensation werden getestet.",
+        "Paralleltests beweisen Exactly-once-Entscheidung bei at-least-once Zustellung."
+      ]
+    },
+    {
+      "id": "AIR-026",
+      "milestone_id": "AIR-M2",
+      "title": "Verteilte Run-/Step-Ownership, Fencing und Recovery implementieren",
+      "type": "implementation",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "AIR-012",
+        "AIR-016",
+        "AIR-018",
+        "AIR-044"
+      ],
+      "target_files": [
+        "agent/services/workflow_execution_ownership_service.py",
+        "agent/services/task_queue_service.py",
+        "agent/db_models/",
+        "worker/core/"
+      ],
+      "acceptance_criteria": [
+        "Jeder Step-Attempt besitzt Lease, Attempt ID, monotonen Fencing Token, Owner und Ablaufzeit aus dem Hub.",
+        "Claim, Heartbeat, Result-Acknowledgement und Abschluss sind atomar und lehnen Ergebnisse veralteter Besitzer fail-closed ab.",
+        "Orphan-Reconciliation, Dead-Letter-Recovery und manuelle Wiederaufnahme erzeugen kanonische Events und neue Attempt IDs.",
+        "Ein Hub-owned RetryBudgetOwner begrenzt die kombinierte Zahl aus Temporal-, Hub-Task-, Worker-, Tool- und Provider-Retries."
+      ],
+      "test_expectations": [
+        "Lease-expiry-, split-brain-, stale-result-, duplicate-ack-, orphan- und dead-letter-Tests sind vorhanden.",
+        "Fault-Injection beweist, dass parallele Besitzer weder denselben Side Effect ausfuehren noch das Retrybudget multiplizieren."
+      ]
+    },
+    {
+      "id": "AIR-022",
+      "milestone_id": "AIR-M2",
+      "title": "Bestehende Tool-Registries und Tool-Calling-Pipeline konsolidieren",
+      "type": "architecture",
+      "status": "partial",
+      "progress_percent": 30,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "AIR-005",
+        "AIR-016",
+        "AIR-020",
+        "AIR-044",
+        "AIR-026"
+      ],
+      "target_files": [
+        "agent/tools_registry.py",
+        "agent/services/ananta_tool_registry_service.py",
+        "worker/core/tool_registry.py",
+        "worker/adapters/lc_tool_registry.py",
+        "worker/adapters/langgraph_adapter.py"
+      ],
+      "implementation_evidence": [
+        "Mehrere Tool-Registries, Policy-Gates und LangChain-Adapter existieren.",
+        "Der LangGraph-Toolnode meldet invoked, liefert aber tool_execution_not_wired."
+      ],
+      "acceptance_criteria": [
+        "Ein kleiner ToolDescriptorPort vereinheitlicht Schema, Side-Effect-Klasse, Policy Scope und Capability ohne neue globale Registry.",
+        "Jeder Tool Call durchlaeuft AuthorizationEnvelope, Policy, Budget, Redaction, Approval, Ledger und Audit.",
+        "LangChain- und LangGraph-Tools koennen den Hub-Gate nicht umgehen.",
+        "Ein nicht angebundenes Tool liefert unsupported und niemals invoked oder success."
+      ],
+      "test_expectations": [
+        "Contract-Tests laufen gegen native, LangChain- und MCP-Tooladapter.",
+        "Security-Tests pruefen Schemaevasion, Scope-Eskalation, Replay und doppelte Side Effects."
+      ]
+    },
+    {
+      "id": "AIR-023",
+      "milestone_id": "AIR-M2",
+      "title": "Retriever-Port und Provenienz vereinheitlichen",
+      "type": "integration",
+      "status": "partial",
+      "progress_percent": 50,
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": [
+        "AIR-016",
+        "AIR-020"
+      ],
+      "target_files": [
+        "agent/services/retrieval_source_contract.py",
+        "agent/services/retrieval_source_adapters.py",
+        "worker/retrieval/codecompass_retriever.py",
+        "worker/retrieval/lc_baseretriever_adapter.py"
+      ],
+      "implementation_evidence": [
+        "Hub-orientierte Retrieval-Vertraege und CodeCompass-Adapter existieren.",
+        "LangChain und LangGraph verwenden CodeCompass teilweise direkt statt ueber denselben Port."
+      ],
+      "acceptance_criteria": [
+        "CodeCompass bleibt Default und kann per Policy erzwungen werden.",
+        "Alle Retrieverantworten enthalten Quelle, Version, Tenant, Scope und unverfaelschte Provenienz.",
+        "LangChain BaseRetriever und Worker-Retriever sind Adapter desselben Vertrags.",
+        "Negative Tests beweisen, dass unbekannte Quellen-IDs als unverified abgelehnt und niemals erfunden werden."
+      ],
+      "test_expectations": [
+        "Contract-Tests pruefen Scope, Provenienz, Dedupe und unbekannte Quellen.",
+        "Cross-tenant- und prompt-injection-Tests sind vorhanden."
+      ]
+    },
+    {
+      "id": "AIR-024",
+      "milestone_id": "AIR-M2",
+      "title": "Provider-Middleware fuer Redaction, Budget, Cache und Retry vereinheitlichen",
+      "type": "implementation",
+      "status": "partial",
+      "progress_percent": 30,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "AIR-016",
+        "AIR-020",
+        "AIR-021"
+      ],
+      "target_files": [
+        "agent/services/model_invocation_service.py",
+        "agent/services/provider_middleware.py",
+        "worker/adapters/chain_runners.py",
+        "worker/adapters/lc_chat_model_factory.py"
+      ],
+      "implementation_evidence": [
+        "Profile, Usage, Trace und einzelne Fallbacks existieren.",
+        "LangChain-/LangGraph-Runner umgehen Teile der gemeinsamen Egress-, Budget- und Retry-Pipeline."
+      ],
+      "acceptance_criteria": [
+        "Redaction und Egress-Policy laufen vor jedem externen Provideraufruf.",
+        "Token-, Kosten-, Zeit- und Retry-Budgets werden atomar aktualisiert und als Events publiziert.",
+        "Cachekeys sind tenant-, policy-, model- und promptversiongebunden.",
+        "Native und LangChain nutzen dieselbe Middleware-Semantik."
+      ],
+      "test_expectations": [
+        "Budget-race-, retry-exhaustion-, cache-isolation- und redaction-Tests sind vorhanden.",
+        "Fake-Provider-Contract-Tests laufen ohne Netzwerk."
+      ]
+    },
+    {
+      "id": "AIR-025",
+      "milestone_id": "AIR-M2",
+      "title": "Typisierte Streaming- und Callback-Bridge implementieren",
+      "type": "integration",
+      "status": "partial",
+      "progress_percent": 40,
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "AIR-006",
+        "AIR-012",
+        "AIR-013",
+        "AIR-018"
+      ],
+      "target_files": [
+        "agent/services/workflow_stream_service.py",
+        "agent/routes/workflow_adapters.py",
+        "worker/adapters/workflow_adapter_base.py",
+        "frontend-angular/src/app/"
+      ],
+      "implementation_evidence": [
+        "Adapter-Streaming und eine SSE-Route existieren.",
+        "Streaming ist nicht Teil der neutralen Bridge; Backpressure, Resume und einheitlicher Cancel fehlen."
+      ],
+      "acceptance_criteria": [
+        "Token-, Tool-, Node-, Approval-, Budget- und Status-Events verwenden kanonische Eventtypen.",
+        "Backpressure, Heartbeat, Disconnect, Cursor-Resume und Cancel sind definiert.",
+        "CLI, TUI und Angular konsumieren denselben authentisierten Hub-Stream.",
+        "API-Tests beweisen, dass Payloads nicht in GET-Query-Parametern transportiert werden."
+      ],
+      "test_expectations": [
+        "Slow-consumer-, reconnect-, duplicate-, cancel- und auth-expiry-Tests sind vorhanden.",
+        "Angular-Tests pruefen Cursor-Resume ohne doppelte Darstellung."
+      ]
+    },
+    {
+      "id": "AIR-030",
+      "milestone_id": "AIR-M3",
+      "title": "Ananta Native Graph Runtime hinter dem ExecutionRuntimePort formalisieren",
+      "type": "implementation",
+      "status": "partial",
+      "progress_percent": 15,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "AIR-013",
+        "AIR-014",
+        "AIR-015",
+        "AIR-026",
+        "AIR-022",
+        "AIR-025",
+        "AIR-044"
+      ],
+      "target_files": [
+        "worker/runtime/native_graph/",
+        "agent/services/native_worker_runtime_service.py",
+        "agent/services/local_workflow_backend.py"
+      ],
+      "implementation_evidence": [
+        "Native Command-Plan/Execute/Verify und ein Local-Statusbackend existieren.",
+        "LocalWorkflowBackend ist keine ausfuehrende Graph Runtime."
+      ],
+      "acceptance_criteria": [
+        "Native implementiert Validate, Execute, Stream, Checkpoint und Resume des ExecutionRuntimePort.",
+        "Node-Lifecycle, Routing, Gates, Fehler, Retry und Stop-Bedingungen sind deterministisch spezifiziert.",
+        "Ausfuehrbare Schritte werden ausschliesslich ueber hub-delegierte Worker-Tasks verarbeitet.",
+        "Native ist kein stiller Ersatz fuer fehlgeschlagene Fremdruntimes."
+      ],
+      "test_expectations": [
+        "Native besteht Port-Contract und alle anwendbaren Referenz-Workflows.",
+        "Hub-Neustart und Worker-Neustart werden getrennt getestet."
+      ]
+    },
+    {
+      "id": "AIR-031",
+      "milestone_id": "AIR-M3",
+      "title": "Persistentes Checkpointing fuer Native und LangGraph anbinden",
+      "type": "persistence",
+      "status": "partial",
+      "progress_percent": 15,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "AIR-011",
+        "AIR-017",
+        "AIR-018",
+        "AIR-026",
+        "AIR-030"
+      ],
+      "target_files": [
+        "agent/services/workflow_state_store.py",
+        "worker/runtime/native_graph/",
+        "worker/adapters/langgraph_adapter.py"
+      ],
+      "implementation_evidence": [
+        "LangGraph MemorySaver und lokale Planner-Checkpoints existieren.",
+        "checkpoint_policy hub_owned liefert derzeit keine Implementierung."
+      ],
+      "acceptance_criteria": [
+        "SQLite und PostgreSQL implementieren den CheckpointStore-Port.",
+        "LangGraph-Checkpointer wird ueber einen Ananta-Adapter an den hub-owned Store gebunden.",
+        "Native und LangGraph validieren denselben signierten Checkpoint-Vertrag.",
+        "Ephemeres Checkpointing ist nur als expliziter Dev-Modus sichtbar."
+      ],
+      "test_expectations": [
+        "Crash/Resume, tamper, concurrent-write, stale-version und cross-runtime rejection werden getestet.",
+        "Produktionsprofile verweigern MemorySaver und unsignierte Resume-Tokens."
+      ]
+    },
+    {
+      "id": "AIR-032",
+      "milestone_id": "AIR-M3",
+      "title": "Interrupt-, Approval- und Resume-Semantik vereinheitlichen",
+      "type": "security",
+      "status": "partial",
+      "progress_percent": 25,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "AIR-011",
+        "AIR-012",
+        "AIR-013",
+        "AIR-016",
+        "AIR-018",
+        "AIR-044",
+        "AIR-026"
+      ],
+      "target_files": [
+        "agent/services/approval_request_service.py",
+        "agent/services/human_approval_service.py",
+        "agent/contracts/workflow_signal.py",
+        "worker/adapters/langgraph_adapter.py"
+      ],
+      "implementation_evidence": [
+        "Approval-Dienste und generische Signale existieren.",
+        "LangGraph Resume nutzt derzeit unsigniertes JSON und umgeht den normalen Dry-run-Gate."
+      ],
+      "acceptance_criteria": [
+        "approve, reject, edit, request_changes, pause und resume sind versionierte kanonische Commands.",
+        "Jede Entscheidung ist signiert und an Tenant, Run, Step, Checkpoint, Plan und Policy gebunden.",
+        "Resume durchlaeuft erneut Authorization-, Policy-, Budget- und Side-Effect-Pruefungen.",
+        "Native, LangGraph und Temporal verwenden denselben Hub-owned Approval-Lifecycle."
+      ],
+      "test_expectations": [
+        "Replay-, token-forgery-, stale-approval-, cross-task- und double-submit-Tests sind vorhanden.",
+        "Edit und request_changes erzeugen nachvollziehbare neue Plan-/Checkpoint-Versionen."
+      ]
+    },
+    {
+      "id": "AIR-033",
+      "milestone_id": "AIR-M3",
+      "title": "Bounded Parallel Nodes, Fan-out und deterministischen Merge implementieren",
+      "type": "implementation",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "AIR-010",
+        "AIR-015",
+        "AIR-030",
+        "AIR-044"
+      ],
+      "target_files": [
+        "worker/runtime/native_graph/",
+        "worker/adapters/langgraph_adapter.py",
+        "agent/contracts/workflow_execution_plan.py"
+      ],
+      "acceptance_criteria": [
+        "Parallelitaet ist pro Plan, Tenant und Worker begrenzt und budgetiert.",
+        "Merge-Strategien sind deklarativ, deterministisch, schema-validiert und behandeln Teilfehler explizit.",
+        "Fan-out erzeugt Hub-Tasks; Worker starten keine weiteren Worker.",
+        "Race-Tests beweisen, dass Cancel und Approval kontrolliert zu offenen Branches propagieren."
+      ],
+      "test_expectations": [
+        "Race-, ordering-, partial-failure-, cancel- und budget-exhaustion-Tests sind vorhanden.",
+        "Native und LangGraph liefern dieselben Merge-Invarianten."
+      ]
+    },
+    {
+      "id": "AIR-034",
+      "milestone_id": "AIR-M3",
+      "title": "Versionierte Subgraphs und wiederverwendbare Workflow-Komponenten definieren",
+      "type": "implementation",
+      "status": "partial",
+      "progress_percent": 30,
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "AIR-010",
+        "AIR-015",
+        "AIR-030"
+      ],
+      "target_files": [
+        "agent/contracts/workflow_component.py",
+        "worker/runtime/native_graph/",
+        "worker/adapters/langgraph_adapter.py"
+      ],
+      "implementation_evidence": [
+        "LangGraph unterstuetzt einfache Subgraphs mit Tiefenbegrenzung.",
+        "Gemeinsame Schema-, Versions-, Policy- und vollstaendige Zyklussemantik fehlen."
+      ],
+      "acceptance_criteria": [
+        "Subgraphs besitzen Input-/Outputschema, Version, Capabilitybedarf, Policy und Artifact-Vertrag.",
+        "Vollstaendige Zyklus-, Tiefen- und Rekursionspruefung erfolgt vor Ausfuehrung.",
+        "Native und LangGraph kompilieren dieselbe Komponentenbeschreibung.",
+        "Komponenten koennen keine uebergeordneten Rechte erweitern."
+      ],
+      "test_expectations": [
+        "Cycle-, recursion-, schema-mismatch- und policy-narrowing-Tests sind vorhanden.",
+        "Kompatibilitaet von N-1-Komponentenversionen wird getestet."
+      ]
+    },
+    {
+      "id": "AIR-035",
+      "milestone_id": "AIR-M3",
+      "title": "Sichere deklarative Routing- und Bedingungssprache einfuehren",
+      "type": "implementation",
+      "status": "partial",
+      "progress_percent": 30,
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "AIR-010",
+        "AIR-015",
+        "AIR-030"
+      ],
+      "target_files": [
+        "agent/services/workflow_expression_service.py",
+        "agent/contracts/workflow_execution_plan.py",
+        "worker/adapters/langgraph_adapter.py"
+      ],
+      "implementation_evidence": [
+        "Ad-hoc-Router und Bedingungen existieren im LangGraph-Pfad.",
+        "Eine gemeinsame vorab validierbare Ausdruckssprache fehlt."
+      ],
+      "acceptance_criteria": [
+        "Ausdruecke sind deklarativ, typisiert, side-effect-frei und vor Ausfuehrung validierbar.",
+        "Freie Python-, Template- oder Shell-Ausfuehrung ist ausgeschlossen.",
+        "Unknown, null und type mismatch besitzen explizite Semantik.",
+        "Native und LangGraph verwenden denselben Evaluator oder dieselbe testbare Spezifikation."
+      ],
+      "test_expectations": [
+        "Fuzz-Tests pruefen Parser, Tiefenlimits und verbotene Konstrukte.",
+        "Differentialtests pruefen identische Branch-Entscheidungen."
+      ]
+    },
+    {
+      "id": "AIR-036",
+      "milestone_id": "AIR-M3",
+      "title": "Deterministische Simulation, Fault Injection und Golden Traces ausbauen",
+      "type": "test",
+      "status": "partial",
+      "progress_percent": 20,
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": [
+        "AIR-014",
+        "AIR-015",
+        "AIR-030",
+        "AIR-031",
+        "AIR-032",
+        "AIR-033",
+        "AIR-034",
+        "AIR-035"
+      ],
+      "target_files": [
+        "tests/workflow_runtime/fakes/",
+        "tests/workflow_runtime/golden/",
+        "agent/services/workflow_simulation_service.py"
+      ],
+      "implementation_evidence": [
+        "Runtime-spezifische Unit- und Fake-Tests existieren.",
+        "Ein gemeinsames Fake-Clock/Provider/Tool-Modell und runtimeuebergreifende Golden Traces fehlen."
+      ],
+      "acceptance_criteria": [
+        "Fake Clock, Provider, Tools, ArtifactStore, Approval und EventStore sind austauschbare Testadapter.",
+        "Retries, Timeouts, Interrupts, Crashes, Teilfehler und Reordering sind skriptbar.",
+        "Golden Traces normalisieren nur dokumentierte nichtdeterministische Felder.",
+        "Simulation wird niemals als produktiver Erfolgspfad angeboten."
+      ],
+      "test_expectations": [
+        "Golden Traces sind ueber wiederholte CI-Laeufe byte-stabil.",
+        "Mutationstests beweisen, dass relevante Event- und Side-Effect-Abweichungen erkannt werden."
+      ]
+    },
+    {
+      "id": "AIR-040",
+      "milestone_id": "AIR-M4",
+      "title": "Temporal-Infrastruktur, Worker-Shell und Compose-Profil bereitstellen",
+      "type": "implementation",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "AIR-005",
+        "AIR-006",
+        "AIR-013",
+        "AIR-016",
+        "AIR-017",
+        "AIR-018",
+        "AIR-044",
+        "AIR-026"
+      ],
+      "target_files": [
+        "worker/temporal/",
+        "docker/compose-next/compose.temporal.yml",
+        "docker/compose-next/Dockerfile.temporal-worker",
+        "pyproject.toml"
+      ],
+      "acceptance_criteria": [
+        "Ein eigener Worker-Container verbindet sich mit Temporal und registriert nur einen versionierten Probe-Workflow sowie eine side-effect-freie Probe-Activity; produktive Definitionen folgen in AIR-041 und AIR-042.",
+        "Namespace, Task Queue, Build ID, Identity, TLS/mTLS und Credential-Referenzen sind konfigurierbar.",
+        "Temporal SDK ist als gepinntes optionales Extra vorhanden; Native-only bleibt ohne Temporal startbar.",
+        "Graceful Shutdown, Readiness, Liveness und Compose-Profile sind dokumentiert und getestet."
+      ],
+      "test_expectations": [
+        "Compose-Smoke startet Server, UI und Worker und prueft Registrierung sowie Shutdown.",
+        "Minimalinstallation ohne Temporal-Extra bleibt gruen."
+      ]
+    },
+    {
+      "id": "AIR-041",
+      "milestone_id": "AIR-M4",
+      "title": "Deterministische AnantaWorkflow-Grundzustandsmaschine implementieren",
+      "type": "implementation",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "AIR-010",
+        "AIR-011",
+        "AIR-012",
+        "AIR-013",
+        "AIR-016",
+        "AIR-040",
+        "AIR-044"
+      ],
+      "target_files": [
+        "worker/temporal/workflows/ananta_workflow.py",
+        "worker/temporal/contracts.py"
+      ],
+      "acceptance_criteria": [
+        "Workflow-Code ist deterministisch und fuehrt alle I/O- und Side Effects ausschliesslich ueber Activities aus.",
+        "Die Grundzustandsmaschine verarbeitet Start, Step-Fortschritt, Activity-Ergebnis, Fehler und Cancel mit versionierten Ananta-Vertraegen.",
+        "Signal-, Query- und Update-Handler gehoeren ausschliesslich zu AIR-045; Continue-as-new bleibt bis zu einem separat belegten Erweiterungstrack ausserhalb des Umfangs.",
+        "Workflow-Code importiert weder Hub-DB noch Provider-, Tool- oder Policy-Implementierungen.",
+        "Versioning und Patch-Marker erlauben Replay von N-1-Histories."
+      ],
+      "test_expectations": [
+        "Temporal Replay-Tests laufen gegen gespeicherte N-1-Histories.",
+        "Determinismus-Checks erkennen Zeit-, Zufall-, Netzwerk- und Dateizugriffe im Workflow-Code."
+      ]
+    },
+    {
+      "id": "AIR-042",
+      "milestone_id": "AIR-M4",
+      "title": "Hub-konformes Temporal Activity Gateway implementieren",
+      "type": "integration",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "AIR-005",
+        "AIR-016",
+        "AIR-020",
+        "AIR-022",
+        "AIR-023",
+        "AIR-024",
+        "AIR-040",
+        "AIR-044",
+        "AIR-026"
+      ],
+      "target_files": [
+        "worker/temporal/activities/",
+        "agent/services/temporal_activity_gateway_service.py"
+      ],
+      "acceptance_criteria": [
+        "Activity-Input enthaelt Operation ID, AuthorizationEnvelope und Artifact-Referenzen statt roher Secrets.",
+        "Delegierbare Arbeit wird als Hub-Task erzeugt; Activities routen oder orchestrieren keine Worker direkt.",
+        "Scope und Autorisierung werden vor Start und vor schreibenden Side Effects revalidiert.",
+        "Ergebnisse werden als kanonische Artefakte und Events zurueckgefuehrt."
+      ],
+      "test_expectations": [
+        "End-to-end-Test beweist Temporal Activity zu Hub-Task zu Worker zu Artifact.",
+        "Hub-unavailable-, authorization-expired- und duplicate-activity-Tests sind vorhanden."
+      ]
+    },
+    {
+      "id": "AIR-043",
+      "milestone_id": "AIR-M4",
+      "title": "Temporal Retry-, Timeout-, Heartbeat- und Cancellation-Profile definieren",
+      "type": "implementation",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "AIR-040",
+        "AIR-041",
+        "AIR-042",
+        "AIR-044",
+        "AIR-026"
+      ],
+      "target_files": [
+        "worker/temporal/activity_profiles.py",
+        "agent/config.py",
+        "docs/operations/temporal-runtime.md"
+      ],
+      "acceptance_criteria": [
+        "Read-only, idempotent, non-idempotent und long-running Activities besitzen getrennte Profile.",
+        "Nicht-idempotente Activities werden ohne Ledgerentscheidung niemals blind wiederholt.",
+        "Temporal-, Hub-Task-, Worker-, Tool- und Provider-Retries verbrauchen ein gemeinsames Hub-owned Retrybudget und koennen sich nicht multiplikativ verschachteln.",
+        "Heartbeat-Details enthalten nur redigierte Resume-Informationen.",
+        "Timeout, Retry, Cancel und uncertain Side Effect erscheinen im kanonischen Eventmodell."
+      ],
+      "test_expectations": [
+        "Timeout-, heartbeat-loss-, cancel-race-, retry-exhaustion- und uncertain-result-Tests sind vorhanden.",
+        "Konfiguration wird gegen unendliche oder unbudgetierte Retries validiert."
+      ]
+    },
+    {
+      "id": "AIR-045",
+      "milestone_id": "AIR-M4",
+      "title": "Temporal Signals, Queries und Updates typisiert anbinden",
+      "type": "integration",
+      "status": "partial",
+      "progress_percent": 20,
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "AIR-032",
+        "AIR-040",
+        "AIR-041",
+        "AIR-042"
+      ],
+      "target_files": [
+        "agent/services/temporal_workflow_backend.py",
+        "worker/temporal/workflows/ananta_workflow.py",
+        "agent/contracts/workflow_signal.py"
+      ],
+      "implementation_evidence": [
+        "Der Clientadapter kann describe, cancel und frei benannte Signals senden.",
+        "Queries, Updates, typisierte Commands und Approval-Integration fehlen."
+      ],
+      "acceptance_criteria": [
+        "Approval, reject, pause, resume, cancel und parameter_update sind versionierte Commands.",
+        "Queries liefern redigierten Status, Step, Budget, Checkpoint und offene Gates.",
+        "Updates validieren Schema, AuthorizationEnvelope und Workflowzustand.",
+        "CLI, TUI und Angular bleiben Temporal-unabhaengig und verwenden ausschliesslich den Hub WorkflowControlService."
+      ],
+      "test_expectations": [
+        "Invalid-state-, duplicate-, stale-version-, unauthorized- und concurrent-update-Tests sind vorhanden.",
+        "Queryantworten werden auf Tenant-Isolation und Redaction getestet."
+      ]
+    },
+    {
+      "id": "AIR-046",
+      "milestone_id": "AIR-M4",
+      "title": "Temporal Event-History inkrementell in kanonische Events projizieren",
+      "type": "integration",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "AIR-012",
+        "AIR-017",
+        "AIR-018",
+        "AIR-040",
+        "AIR-041"
+      ],
+      "target_files": [
+        "agent/services/temporal_history_adapter.py",
+        "agent/services/temporal_workflow_backend.py"
+      ],
+      "acceptance_criteria": [
+        "list_workflow_events liefert echte persistierte Projektionen statt temporal_events_not_configured.",
+        "History wird paginiert, inkrementell synchronisiert und anhand stabiler Temporal Event IDs dedupliziert.",
+        "Raw History bleibt tenantgeschuetzt und redigiert fuer Diagnose referenzierbar.",
+        "Antworten enthalten Projection-Cursor, Mappingversion, Lag und consistency_state.",
+        "Bei History-Gap, Mappingfehler oder unbekannter Eventversion bleibt die Projektion fail-closed stale oder inconsistent und wird niemals als current ausgegeben.",
+        "Restart-Tests beweisen, dass Projection-Cursor und Mappingversion restartfest sind."
+      ],
+      "test_expectations": [
+        "Pagination-, reconnect-, duplicate-page-, history-gap- und mapping-upgrade-Tests sind vorhanden.",
+        "Eventprojektion bleibt nach erneutem Vollaufbau identisch."
+      ]
+    },
+    {
+      "id": "AIR-049",
+      "milestone_id": "AIR-M4",
+      "title": "Temporal Failure-, Recovery- und Replay-Testlabor bauen",
+      "type": "test",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "AIR-040",
+        "AIR-041",
+        "AIR-042",
+        "AIR-043",
+        "AIR-045",
+        "AIR-046",
+        "AIR-026"
+      ],
+      "target_files": [
+        "tests/workflow_runtime/temporal/",
+        "docker/compose-next/compose.tests.temporal.yml"
+      ],
+      "acceptance_criteria": [
+        "Temporal Test Environment und ein reales Compose-Gate werden beide verwendet.",
+        "Mindestens zehn Szenarien decken Workercrash, Hubcrash, Serverrestart, Timeout, Cancel, Retry, Signalrace, Historywechsel und Side-Effect-Unsicherheit ab.",
+        "History- und State-Grenzwerte werden gemessen; bei Ueberschreitung stoppt der produktive Pfad fail-closed und erzeugt Evidence fuer einen separaten Continue-as-new-Track.",
+        "Kein Szenario verliert bestaetigten kanonischen Zustand oder dupliziert einen ungeprueften Side Effect.",
+        "Replay von N-1 zu N ist ein verpflichtendes Release-Gate."
+      ],
+      "test_expectations": [
+        "Failure-Suite ist deterministisch, wiederholbar und erzeugt strukturierte Gate-Artefakte.",
+        "Mindestens zehn Wiederholungen pro kritischem Race-Szenario laufen in CI."
+      ]
+    },
+    {
+      "id": "AIR-050",
+      "milestone_id": "AIR-M5",
+      "title": "Runtime-uebergreifendes Tracing und OpenTelemetry-Export implementieren",
+      "type": "observability",
+      "status": "partial",
+      "progress_percent": 25,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "AIR-012",
+        "AIR-018",
+        "AIR-025",
+        "AIR-030",
+        "AIR-040",
+        "AIR-046"
+      ],
+      "target_files": [
+        "agent/pipeline_trace.py",
+        "worker/core/trace_v2.py",
+        "agent/services/workflow_observability_service.py",
+        "docker/prometheus/"
+      ],
+      "implementation_evidence": [
+        "Hub- und Worker-Traces sowie Auditdienste existieren, sind aber nicht durchgaengig korreliert."
+      ],
+      "acceptance_criteria": [
+        "Trace IDs verbinden Workflow, Run, Node, Hub-Task, Worker, Provider, Tool, Activity und Artifact.",
+        "Kanonische Events bleiben Source of Truth; OTel ist ein austauschbarer Exportadapter.",
+        "Redaction und Tenant-Isolation gelten fuer Logs, Metrics und Traces.",
+        "Cardinality- und Payloadgrenzen verhindern unkontrollierte Telemetrie."
+      ],
+      "test_expectations": [
+        "Trace-link-, redaction-, tenant-isolation- und exporter-unavailable-Tests sind vorhanden.",
+        "Observability-Ausfall beeinflusst keine fachliche Runtime-Semantik."
+      ]
+    },
+    {
+      "id": "AIR-052",
+      "milestone_id": "AIR-M5",
+      "title": "Workflow-Evaluation gegen Referenzinvarianten integrieren",
+      "type": "test",
+      "status": "partial",
+      "progress_percent": 10,
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": [
+        "AIR-014",
+        "AIR-015",
+        "AIR-036",
+        "AIR-049"
+      ],
+      "target_files": [
+        "agent/services/planning_evaluation_service.py",
+        "agent/services/workflow_evaluation_service.py",
+        "tests/workflow_runtime/evaluation/"
+      ],
+      "implementation_evidence": [
+        "Generische Evaluation und LLM-as-Judge-Bausteine existieren.",
+        "Eine runtimeuebergreifende Workflow-Evaluation fehlt."
+      ],
+      "acceptance_criteria": [
+        "Deterministische Sicherheits- und Vertragsregeln sind strikt von optionalem LLM-as-Judge getrennt.",
+        "Referenzdatensaetze, Rubrics, Modellreferenzen und Artefakte sind versioniert.",
+        "Native, LangGraph und Temporal werden nur auf gemeinsam unterstuetzten Capabilities verglichen.",
+        "Negative Tests beweisen, dass LLM-Judge-Ergebnisse kein Security- oder Policy-Gate ueberstimmen koennen."
+      ],
+      "test_expectations": [
+        "Evaluation laeuft mit deterministischen Fixtures ohne Netzwerk.",
+        "Judge-unavailable und Judge-disagreement degradieren sichtbar ohne Runtimefreigabe."
+      ]
+    },
+    {
+      "id": "AIR-053",
+      "milestone_id": "AIR-M5",
+      "title": "Workflow-Runtime-Threat-Model und Security-Gates vervollstaendigen",
+      "type": "security",
+      "status": "partial",
+      "progress_percent": 25,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "AIR-005",
+        "AIR-006",
+        "AIR-011",
+        "AIR-016",
+        "AIR-032",
+        "AIR-044",
+        "AIR-049"
+      ],
+      "target_files": [
+        "docs/security/workflow-runtime-threat-model.md",
+        "tests/security/workflow_runtime/"
+      ],
+      "implementation_evidence": [
+        "Einzelne Redaction-, Policy- und LangChain/LangGraph-Securitytests existieren.",
+        "Checkpoint-, Signal-, Replay- und Temporal-spezifische Bedrohungen sind nicht vollstaendig abgedeckt."
+      ],
+      "acceptance_criteria": [
+        "Threat Model deckt Prompt Injection, Tool Escalation, confused deputy, Replay Abuse, State Poisoning und History/Checkpoint-Tampering ab.",
+        "Trust Boundaries fuer Hub, Worker, Temporal Server, Activities, Provider und UI sind dokumentiert.",
+        "Alle kritischen Bedrohungen besitzen Prevention, Detection, Audit und automatisierten Test.",
+        "Offene kritische Findings blockieren produktive Runtime-Profile."
+      ],
+      "test_expectations": [
+        "Security-Suite laeuft als verpflichtendes CI-Gate.",
+        "Regression-Fixtures enthalten keine Secrets, volatile IDs oder Live-Daten."
+      ]
+    },
+    {
+      "id": "AIR-019",
+      "milestone_id": "AIR-M5",
+      "title": "Abschliessendes Runtime-Conformance- und Release-Gate einfuehren",
+      "type": "test",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "AIR-015",
+        "AIR-036",
+        "AIR-049",
+        "AIR-050",
+        "AIR-052",
+        "AIR-053"
+      ],
+      "target_files": [
+        "tests/workflow_runtime/release_gate/",
+        "scripts/run-workflow-runtime-release-gate.py",
+        "artifacts/test-gates/"
+      ],
+      "acceptance_criteria": [
+        "Native und LangGraph bestehen alle vier gemeinsam unterstuetzten Referenz-Workflows; Temporal besteht alle als durable markierten Varianten.",
+        "Jede Runtime besteht Port-, Security-, Recovery-, Event-, Checkpoint-, Approval-, Ledger- und Artifact-Invarianten fuer ihre gemeldeten Capabilities.",
+        "Jeder kritische deterministische Fall laeuft mindestens zehnmal; unsupported bleibt explizit incompatible und kann keine erforderliche Capability ersetzen.",
+        "Das Gate erzeugt ein stabiles strukturiertes Artefakt mit Versionen, Capability-Matrix, Abweichungen und reproduzierbaren Kommandos."
+      ],
+      "test_expectations": [
+        "Ein absichtlich fehlerhafter Referenzadapter beweist, dass das Gate relevante Semantikabweichungen erkennt.",
+        "Produktive Runtime-Auswahl und Rollout akzeptieren nur eine zum aktuellen Contract-Hash passende gruene Gate-Evidence."
+      ]
+    },
+    {
+      "id": "AIR-054",
+      "milestone_id": "AIR-M5",
+      "title": "Capability- und profilbasierte Runtime-Auswahl einfuehren",
+      "type": "implementation",
+      "status": "partial",
+      "progress_percent": 15,
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "AIR-002",
+        "AIR-003",
+        "AIR-013",
+        "AIR-019"
+      ],
+      "target_files": [
+        "agent/services/worker_runtime_selection_service.py",
+        "agent/services/workflow_runtime_selection_service.py",
+        "agent/services/config_profile_service.py"
+      ],
+      "implementation_evidence": [
+        "Worker-Runtime-Auswahl und ENV-Auswahl zwischen Local und Temporal existieren in Teilform.",
+        "preferred_runtime, allowed_runtimes und capability-basierte Begruendung fehlen."
+      ],
+      "acceptance_criteria": [
+        "Profile enthalten preferred_runtime, allowed_runtimes, required_capabilities und explicit_fallback_policy.",
+        "Der Hub prueft Capabilities, Policy, Datenlocality, Budget und Health vor jeder Auswahl.",
+        "Entscheidung und verworfene Alternativen werden mit Reason Codes auditiert.",
+        "Fehlende sichere Runtime fuehrt zu incompatible/blocked statt stillem Local-Fallback."
+      ],
+      "test_expectations": [
+        "Matrix-Tests decken Profile, Capabilitymangel, degraded Health und verbotene Fallbacks ab.",
+        "Auswahl ist fuer identische Inputs deterministisch."
+      ]
+    },
+    {
+      "id": "AIR-051",
+      "milestone_id": "AIR-M5",
+      "title": "Runtime-Evaluation-Read-Model und Angular-Operationsansicht bauen",
+      "type": "ui",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P2",
+      "risk": "medium",
+      "depends_on": [
+        "AIR-002",
+        "AIR-050",
+        "AIR-052",
+        "AIR-054"
+      ],
+      "target_files": [
+        "agent/routes/workflow_runtime_operations.py",
+        "agent/services/workflow_runtime_read_model_service.py",
+        "frontend-angular/src/app/"
+      ],
+      "acceptance_criteria": [
+        "Angular zeigt Runtime, Modus, Capabilities, Fallbacks, Kosten, Latenz, Recovery, offene Gates und Evidence aus Hub-Read-Models.",
+        "Native-Parity-Luecken, degraded Pfade und semantische Abweichungen sind sichtbar und filterbar.",
+        "Steueraktionen verwenden authentisierte Hub-Commands mit Approval und Audit.",
+        "UI spricht weder Temporal noch Worker direkt an und behauptet keinen Erfolg bei fehlender Evidence."
+      ],
+      "test_expectations": [
+        "Backend-API-, Angular-Component- und E2E-Tests decken Loading, empty, degraded, forbidden und stale ab.",
+        "Cross-tenant- und redaction-Tests pruefen Read-Model und UI."
+      ]
+    },
+    {
+      "id": "AIR-055",
+      "milestone_id": "AIR-M5",
+      "title": "Rollout-, Migration-, Shadow- und Rollback-Runbook erstellen",
+      "type": "operations",
+      "status": "partial",
+      "progress_percent": 20,
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "AIR-019",
+        "AIR-049",
+        "AIR-050",
+        "AIR-053",
+        "AIR-054"
+      ],
+      "target_files": [
+        "docs/operations/workflow-runtime-rollout.md",
+        "docs/operations/temporal-runtime.md",
+        "docker/compose-next/"
+      ],
+      "implementation_evidence": [
+        "Ein LangChain-/LangGraph-Rollout-Runbook existiert.",
+        "Temporal-Rollout, Shadow Runs und getesteter semantischer Rollback fehlen."
+      ],
+      "acceptance_criteria": [
+        "Rollout ist pro Projekt, Tenant, Profil und Workflow capability-basiert steuerbar.",
+        "Shadow Runs koennen Side Effects sicher unterdruecken und Ergebnisse vergleichbar erfassen.",
+        "Rollback ist nur erlaubt, wenn Zielruntime alle benoetigten Sicherheits- und Durability-Capabilities besitzt.",
+        "Backup, Restore, Schema-Migration, Key-Rotation und Incident-Prozeduren sind getestet."
+      ],
+      "test_expectations": [
+        "Staging-Drill prueft Enable, Shadow, Promote, Rollback und Restore.",
+        "Runbook-Kommandos und Compose-Profile werden automatisiert validiert."
+      ]
+    },
+    {
+      "id": "AIR-056",
+      "milestone_id": "AIR-M5",
+      "title": "Produktionsdokumentation und runtime-neutrales Beispielprojekt erstellen",
+      "type": "documentation",
+      "status": "partial",
+      "progress_percent": 25,
+      "priority": "P2",
+      "risk": "low",
+      "depends_on": [
+        "AIR-036",
+        "AIR-049",
+        "AIR-055"
+      ],
+      "target_files": [
+        "docs/architecture/workflow-runtime.md",
+        "docs/examples/workflow-runtime/",
+        "examples/workflow-runtime/"
+      ],
+      "implementation_evidence": [
+        "LangChain-/LangGraph-Contracts, Beispiele und Teildokumentation existieren.",
+        "Ein gemeinsames Native/LangGraph/Temporal-Beispiel mit Failure, Approval und Resume fehlt."
+      ],
+      "acceptance_criteria": [
+        "Beispiel verwendet denselben ExecutionPlan fuer Native, LangGraph und eine durable Temporal-Variante.",
+        "LangChain wird nur als optionale Provider-/Tool-/Retriever-Integration gezeigt.",
+        "Failure, Approval, Cancel, Crash und Resume laufen reproduzierbar ueber docker/compose-next.",
+        "Dokumentation nennt Sicherheitsgrenzen, optionale Dependencies und erwartete Artefakte."
+      ],
+      "test_expectations": [
+        "Beispiel laeuft in CI mit Fake Provider und in einem optionalen lokalen Live-Profil.",
+        "Dokumentationslinks, Kommandos und erwartete Events werden validiert."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "AIR-001",
+    "AIR-002",
+    "AIR-003",
+    "AIR-004",
+    "AIR-005",
+    "AIR-006",
+    "AIR-010",
+    "AIR-012",
+    "AIR-011",
+    "AIR-013",
+    "AIR-016",
+    "AIR-017",
+    "AIR-018",
+    "AIR-014",
+    "AIR-015",
+    "AIR-044",
+    "AIR-026",
+    "AIR-022",
+    "AIR-030",
+    "AIR-031",
+    "AIR-032",
+    "AIR-036",
+    "AIR-040",
+    "AIR-041",
+    "AIR-042",
+    "AIR-043",
+    "AIR-046",
+    "AIR-049",
+    "AIR-050",
+    "AIR-053",
+    "AIR-019",
+    "AIR-054",
+    "AIR-055"
   ],
   "success_metrics": [
-    "Mindestens 90 Prozent der runtime-neutralen Referenz-Workflows laufen semantisch gleich auf Ananta Native und LangGraph.",
-    "Keine zentrale Capability bleibt ohne ADR dauerhaft ausschliesslich in einer Fremdruntime.",
-    "Definierte Crash-, Retry-, Resume- und Replay-Szenarien verlieren keinen kanonischen Zustand.",
-    "100 Prozent der externen Seiteneffekte durchlaufen Policy-, Budget- und Audit-Gates.",
-    "Kein automatischer Runtime-Fallback ohne Event, Reason Code und Semantikklassifikation."
+    "Fuenf versionierte Referenz-Workflows besitzen maschinenlesbare Invarianten; die vier gemeinsam unterstuetzten Varianten bestehen Native/LangGraph-Conformance in zehn Wiederholungen ohne relevante Abweichung.",
+    "Alle bestaetigten Checkpoints und Events ueberstehen die definierten Crash-, Retry-, Resume- und Replay-Szenarien mit RPO 0.",
+    "100 Prozent der externen Side Effects besitzen AuthorizationEnvelope, Operation ID, Ledgerzustand, Policyentscheidung und Auditkorrelation.",
+    "Kein Runtime- oder Backend-Fallback erfolgt ohne Event, Reason Code, Capability-Diff und Semantikklassifikation.",
+    "Alle Workflow-Steuerendpunkte bestehen Auth-, Tenant-Isolation-, Redaction- und negative Security-Tests.",
+    "Temporal N-1-Histories bestehen Replay gegen N vor jedem produktiven Release.",
+    "Runtime-Auswahl ist fuer gleiche Inputs deterministisch und liefert bei fehlender sicherer Runtime blocked oder incompatible.",
+    "Im dokumentierten Compose-Referenzprofil liegen P95 fuer Start und Signal unter 2 Sekunden, fuer Eventprojektion unter 1 Sekunde und fuer Resume nach Worker-Neustart unter 30 Sekunden; Abweichungen blockieren den produktiven Rollout."
   ],
   "definition_of_done": [
-    "Ananta Native bleibt voll funktionsfaehig und dokumentiert.",
-    "LangChain, LangGraph und Temporal sind optionale austauschbare Integrationen.",
-    "Mindestens drei Referenz-Workflows bestehen die Conformance-Suite.",
-    "Temporal besitzt reale Worker-, Workflow-, Activity-, Signal-, Query-, History- und Replay-Implementierungen.",
-    "Kein Runtime-Pfad umgeht Policy, Budget, Redaction, Audit oder Artifact-first.",
-    "Fallbacks und Degradationen sind explizit sichtbar.",
-    "Native-Parity-Entscheidungen sind dokumentiert.",
-    "Produktiver Rollout und Rollback sind getestet."
+    "Alle Tasks sind done und besitzen Implementierungs-, Test- und Betriebs-Evidence.",
+    "Hub-Routes fuehren keine Worker-Adapter oder Runtime-Facharbeit im Hub-Prozess aus.",
+    "Ananta Native bleibt der voll funktionsfaehige, dokumentierte Default ohne optionale Frameworkdependencies.",
+    "LangGraph ist ein optionaler ExecutionRuntimePort-Adapter mit hub-owned Checkpoints, Approvals, Tools und Events.",
+    "Temporal besitzt reale Worker-, Workflow-, Activity-, Signal-, Query-, Update-, History-, Replay- und Compose-Implementierungen.",
+    "LangChain bleibt eine optionale Integrationsschicht und keine zweite Workflow-Governance.",
+    "Kein Runtime-Pfad umgeht Auth, Policy, Budget, Redaction, Approval, Ledger, Audit oder Artifact-first.",
+    "Fallbacks und Degradationen sind explizit, fail-closed und in Angular, CLI und TUI sichtbar.",
+    "Schema-Migration, Crash-Recovery, Replay, Rollout und semantisch sicherer Rollback sind getestet.",
+    "Security-, Conformance-, Compose-, Angular- und E2E-Gates sind gruen."
   ],
-  "recommended_first_iteration": [
-    "AIR-001 Ist-Analyse",
-    "AIR-002 Capability Matrix",
-    "AIR-003 Fallback-Regeln",
-    "AIR-010 Execution Plan Schema",
-    "AIR-013 Runtime Adapter Port",
-    "AIR-014 Referenz-Workflows",
-    "AIR-015 Conformance-Testframework",
-    "AIR-030 Ananta Native Runtime formalisieren",
-    "AIR-040 Temporal Worker",
-    "AIR-041 reale AnantaWorkflow-Definition"
+  "tasks_status_summary": {
+    "total": 45,
+    "by_status": {
+      "todo": 16,
+      "in_progress": 0,
+      "partial": 29,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0.0,
+    "by_priority": {
+      "P0": 28,
+      "P1": 15,
+      "P2": 2,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 2,
+      "medium": 8,
+      "high": 21,
+      "critical": 14
+    },
+    "critical_path": {
+      "total": 33,
+      "done": 0,
+      "remaining": 33
+    },
+    "milestones": {
+      "total": 6,
+      "todo": 0,
+      "in_progress": 6,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 45,
+    "by_type": {
+      "analysis": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "progress_percent": 70.0
+      },
+      "contract": {
+        "total": 3,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 3,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 3,
+        "blocked": 0,
+        "progress_percent": 33.3
+      },
+      "security": {
+        "total": 5,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 4,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 4,
+        "blocked": 0,
+        "progress_percent": 15.0
+      },
+      "architecture": {
+        "total": 6,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 4,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 4,
+        "blocked": 0,
+        "progress_percent": 20.8
+      },
+      "persistence": {
+        "total": 4,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 3,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 3,
+        "blocked": 0,
+        "progress_percent": 12.5
+      },
+      "test": {
+        "total": 6,
+        "by_status": {
+          "todo": 4,
+          "in_progress": 0,
+          "partial": 2,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 2,
+        "blocked": 0,
+        "progress_percent": 5.0
+      },
+      "implementation": {
+        "total": 11,
+        "by_status": {
+          "todo": 5,
+          "in_progress": 0,
+          "partial": 6,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 6,
+        "blocked": 0,
+        "progress_percent": 13.2
+      },
+      "integration": {
+        "total": 5,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 3,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 3,
+        "blocked": 0,
+        "progress_percent": 22.0
+      },
+      "observability": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "progress_percent": 25.0
+      },
+      "ui": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "operations": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "progress_percent": 20.0
+      },
+      "documentation": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "progress_percent": 25.0
+      }
+    }
+  },
+  "progress_summary": {
+    "state": "in_progress",
+    "todo_remaining": 16,
+    "in_progress": 0,
+    "partial": 29,
+    "blocked": 0,
+    "done": 0,
+    "count_based_percent": 0.0,
+    "weighted_percent": 17.0
+  },
+  "weighted_progress_summary": {
+    "weighting_model_ref": "planning-weighting-default-v1",
+    "total_weight": 81.0,
+    "done_weight": 13.775,
+    "remaining_weight": 67.225,
+    "blocked_weight": 0.0,
+    "weighted_percent": 17.0
+  },
+  "milestone_progress_summary": {
+    "milestones": {
+      "AIR-M0": {
+        "total_tasks": 6,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 24.7,
+        "status": "in_progress"
+      },
+      "AIR-M1": {
+        "total_tasks": 7,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 18.9,
+        "status": "in_progress"
+      },
+      "AIR-M2": {
+        "total_tasks": 10,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 21.3,
+        "status": "in_progress"
+      },
+      "AIR-M3": {
+        "total_tasks": 7,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 19.2,
+        "status": "in_progress"
+      },
+      "AIR-M4": {
+        "total_tasks": 7,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 3.1,
+        "status": "in_progress"
+      },
+      "AIR-M5": {
+        "total_tasks": 8,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 15.0,
+        "status": "in_progress"
+      }
+    }
+  },
+  "derived_summary_metadata": {
+    "mode": "derived_cache",
+    "source_of_truth": "tasks",
+    "generated_at": "2026-07-13T09:13:45.698657Z",
+    "generator": "planning-summary-engine",
+    "generator_version": "1.0",
+    "source_hash": "8ee3f53e64f2fb977698cb45f116756d526b8ee4fa7626fe77cc5188d7883bfd",
+    "is_stale": false
+  },
+  "summary_notes": [
+    "tasks ist die einzige Status- und Fortschrittsquelle; alle Summary-Bloecke werden deterministisch daraus abgeleitet.",
+    "AIR-040 und AIR-041 duerfen erst beginnen, wenn die kritischen gemeinsamen Vertrags-, Auth-, Event- und Ledger-Grundlagen abgenommen sind.",
+    "AIR-015 baut nur das Harness; erst AIR-019 bewertet die fertig implementierten Runtimes als Release-Gate.",
+    "Continue-as-new und Child Workflows sind entfernt; AIR-049 misst History-Grenzen und erzeugt bei belegtem Bedarf Evidence fuer einen separaten Erweiterungstrack.",
+    "LangGraph-in-Temporal ist bewusst nicht Teil dieses Tracks."
   ]
 }
