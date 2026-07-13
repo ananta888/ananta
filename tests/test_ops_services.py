@@ -127,9 +127,11 @@ def test_docker_container_list_uses_fake_runner_without_daemon(app):
     responses = {
         ("docker", "version", "--format", "{{json .Server}}"): CommandResult(0, '{"Version":"25.0"}', ""),
         ("docker", "compose", "version", "--format", "json"): CommandResult(0, "{}", ""),
-        ("docker", "ps", "--all", "--format", "{{json .}}"): CommandResult(
+        ("docker", "ps", "--all", "--size", "--format", "{{json .}}"): CommandResult(
             0,
-            '{"ID":"abcdef123456","Names":"hub","Image":"ananta:dev","Status":"Up 1 minute (healthy)","Ports":"8080->8080","Labels":"com.docker.compose.project=ananta","RunningFor":"1 minute"}\n',
+            '{"ID":"abcdef123456","Names":"hub","Image":"ananta:dev",'
+            '"Status":"Up 1 minute (healthy)","Ports":"8080->8080",'
+            '"Labels":"com.docker.compose.project=ananta","RunningFor":"1 minute"}\n',
             "",
         ),
     }
@@ -190,7 +192,18 @@ def test_compose_status_parses_fake_ps(app, tmp_path):
     responses = {
         ("docker", "version", "--format", "{{json .Server}}"): CommandResult(0, '{"Version":"25.0"}', ""),
         ("docker", "compose", "version", "--format", "json"): CommandResult(0, "{}", ""),
-        ("docker", "compose", "-f", str(compose_file), "ps", "--format", "json"): CommandResult(
+        (
+            "docker",
+            "compose",
+            "-f",
+            str(compose_file),
+            "--profile",
+            "dev",
+            "ps",
+            "--all",
+            "--format",
+            "json",
+        ): CommandResult(
             0,
             '{"Service":"hub","State":"running","Health":"healthy","ExitCode":0}\n',
             "",

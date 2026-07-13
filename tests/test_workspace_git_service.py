@@ -115,6 +115,28 @@ class TestCommitAndPush:
         )
         assert "task abc" in log.stdout
 
+    def test_commit_and_push_audits_internal_git_without_exposing_path(self, tmp_path, svc):
+        bare = self._make_bare(tmp_path)
+        ws = self._clone_and_file(tmp_path, bare, "result.txt", "transparent")
+
+        with patch("agent.services.git_audit_service.log_audit") as audit:
+            result = svc.commit_and_push(
+                ws,
+                branch="goal/audit",
+                message="task audit: add result",
+                task_id="task-audit",
+            )
+
+        assert result is True
+        action, details = audit.call_args.args
+        assert action == "workspace_git_commit_push"
+        assert details["outcome"] == "pushed"
+        assert details["task_id"] == "task-audit"
+        assert details["branch"] == "goal/audit"
+        assert details["operation"] == "commit_push"
+        assert len(details["workspace_fingerprint"]) == 16
+        assert str(ws) not in str(details)
+
     def test_commit_and_push_returns_false_when_nothing_to_commit(self, tmp_path, svc):
         bare = self._make_bare(tmp_path)
         ws = self._clone_and_file(tmp_path, bare, "hello.py", "print('hello')")
@@ -195,7 +217,9 @@ class TestWorkspaceContextGitIntegration:
             mock_ctx = MagicMock(spec=WorkspaceGitContext)
             mock_init.return_value = mock_ctx
             from agent.services.worker_workspace_service import WorkerWorkspaceService
-            with patch("agent.services.worker_workspace_service.WorkerWorkspaceService._resolve_workspace_dir") as mock_dir:
+            with patch(
+                "agent.services.worker_workspace_service.WorkerWorkspaceService._resolve_workspace_dir"
+            ) as mock_dir:
                 mock_dir.return_value = tmp_path
                 with test_app.app_context():
                     ws_svc = WorkerWorkspaceService()

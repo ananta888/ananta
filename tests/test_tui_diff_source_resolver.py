@@ -3,8 +3,8 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from agent.artifacts.goal_artifact_service import GoalArtifactService
 from agent.artifacts.goal_artifact_repository import GoalArtifactRepository
+from agent.artifacts.goal_artifact_service import GoalArtifactService
 from client_surfaces.operator_tui.diff.diff_engine import DiffEngine
 from client_surfaces.operator_tui.diff.diff_source_resolver import DiffSourceResolver
 
@@ -42,6 +42,55 @@ def test_resolver_loads_current_working_tree_diff(tmp_path: Path) -> None:
     assert "demo.txt" in result["patch"]
 
 
+def test_resolver_separates_staged_unstaged_and_combined_diffs(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    file_path = repo / "demo.txt"
+    file_path.write_text("line1\nstaged value\n", encoding="utf-8")
+    _run(["git", "add", "demo.txt"], cwd=repo)
+    file_path.write_text("line1\nworktree value\n", encoding="utf-8")
+    resolver = DiffSourceResolver(repo_root=repo)
+
+    def resolve(scope: str) -> dict:
+        return resolver.resolve(
+            {
+                "source_ref_id": scope,
+                "source_kind": "git_diff",
+                "display_name": scope,
+                "locator": {"base_ref": "HEAD", "diff_scope": scope, "path_filter": "demo.txt"},
+            }
+        )
+
+    staged = resolve("staged")
+    unstaged = resolve("unstaged")
+    combined = resolve("combined")
+    assert "staged value" in staged["patch"]
+    assert "worktree value" not in staged["patch"]
+    assert "staged value" in unstaged["patch"]
+    assert "worktree value" in unstaged["patch"]
+    assert "worktree value" in combined["patch"]
+    assert staged["diff_scope"] == "staged"
+
+
+def test_resolver_rejects_file_path_escape(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    resolver = DiffSourceResolver(repo_root=repo)
+    result = resolver.resolve(
+        {
+            "source_ref_id": "escape",
+            "source_kind": "file_path",
+            "display_name": "Escape",
+            "locator": {"path": "../outside.txt", "view_mode": "full"},
+        }
+    )
+    assert result == {
+        "source_ref_id": "escape",
+        "source_kind": "file_path",
+        "display_name": "Escape",
+        "ok": False,
+        "reason_code": "path_not_allowed",
+    }
+
+
 def test_resolver_loads_file_vs_head(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path)
     (repo / "demo.txt").write_text("line1\nline2 changed\n", encoding="utf-8")
@@ -65,8 +114,20 @@ def test_resolver_loads_git_ref_vs_git_ref(tmp_path: Path) -> None:
     (repo / "demo.txt").write_text("line1\nline2 changed\n", encoding="utf-8")
     _run(["git", "add", "demo.txt"], cwd=repo)
     _run(["git", "commit", "-m", "change"], cwd=repo)
-    head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=str(repo), check=True, text=True, capture_output=True).stdout.strip()
-    prev = subprocess.run(["git", "rev-parse", "HEAD~1"], cwd=str(repo), check=True, text=True, capture_output=True).stdout.strip()
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=str(repo),
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout.strip()
+    prev = subprocess.run(
+        ["git", "rev-parse", "HEAD~1"],
+        cwd=str(repo),
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout.strip()
     resolver = DiffSourceResolver(repo_root=repo)
     result = resolver.resolve(
         {
@@ -251,11 +312,21 @@ def test_output_artifact_vs_output_artifact_diff(tmp_path: Path) -> None:
         )
     resolver = DiffSourceResolver(repo_root=repo, goal_artifact_service=service)
     left = resolver.resolve(
-        {"source_ref_id": "out-a", "source_kind": "goal_output_artifact", "display_name": "A", "locator": {"output_artifact_id": "out-a"}},
+        {
+            "source_ref_id": "out-a",
+            "source_kind": "goal_output_artifact",
+            "display_name": "A",
+            "locator": {"output_artifact_id": "out-a"},
+        },
         goal_id="goal-3",
     )
     right = resolver.resolve(
-        {"source_ref_id": "out-b", "source_kind": "goal_output_artifact", "display_name": "B", "locator": {"output_artifact_id": "out-b"}},
+        {
+            "source_ref_id": "out-b",
+            "source_kind": "goal_output_artifact",
+            "display_name": "B",
+            "locator": {"output_artifact_id": "out-b"},
+        },
         goal_id="goal-3",
     )
     doc = DiffEngine().build_document(

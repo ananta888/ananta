@@ -85,3 +85,14 @@ def test_diff_panel_config_rejects_invalid_render_mode() -> None:
 def test_current_diff_source_ref_includes_path_filter() -> None:
     payload = build_current_diff_source_ref(path_filter="src/")
     assert payload["locator"]["path_filter"] == "src/"
+
+
+def test_current_diff_source_ref_describes_git_index_boundary() -> None:
+    payload = build_current_diff_source_ref(
+        workspace_id="repo",
+        diff_scope="staged",
+        path_filter="src/main.py",
+    )
+    assert payload["locator"]["workspace_id"] == "repo"
+    assert payload["locator"]["diff_scope"] == "staged"
+    assert payload["display_name"] == "Staged (HEAD -> Index)"

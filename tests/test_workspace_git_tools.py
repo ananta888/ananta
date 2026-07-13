@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
-import pytest
 from flask import Flask
 
 _test_flask_app = Flask("test_git_tools")
@@ -134,3 +133,29 @@ class TestGitPushTool:
         assert result.get("status") == "success"
         call_args = mock_run.call_args.args[0]
         assert "goal/abc123" in call_args
+
+    @patch("agent.tools._check_git_access", return_value=(True, ""))
+    @patch("subprocess.run")
+    def test_git_push_audit_uses_workspace_fingerprint_not_remote_url(self, mock_run, mock_check):
+        from flask import g
+
+        mock_run.return_value = MagicMock(returncode=0, stdout="pushed")
+        git_ctx = MagicMock()
+        git_ctx.remote_url = "https://user:secret@example.invalid/repo.git"
+        git_ctx.branch = "goal/audit"
+        with patch("agent.tools._git_cwd", return_value="/ws"):
+            with _test_flask_app.test_request_context():
+                g.git_context = git_ctx
+                with patch("agent.services.git_audit_service.log_audit") as audit:
+                    from agent.tools import git_push_tool
+                    result = git_push_tool()
+
+        assert result.get("status") == "success"
+        action, details = audit.call_args.args
+        assert action == "git_push"
+        assert details["operation"] == "push"
+        assert details["outcome"] == "success"
+        assert details["branch"] == "goal/audit"
+        assert len(details["workspace_fingerprint"]) == 16
+        assert "secret" not in str(details)
+        assert "remote_url" not in details

@@ -1,15 +1,17 @@
 """Tests for the Three-Way Flex Diff API (T01-T03)."""
 from __future__ import annotations
 
-import pytest
 import json
+
+import pytest
 
 
 @pytest.fixture
 def client():
     """Flask test client with diff3 blueprint registered."""
     from flask import Flask
-    from agent.routes.diff3 import diff3_bp, _SESSIONS
+
+    from agent.routes.diff3 import _SESSIONS, diff3_bp
     _SESSIONS.clear()
     app = Flask(__name__)
     app.register_blueprint(diff3_bp)
@@ -24,6 +26,28 @@ def _post_json(client, url, data=None):
 
 def _put_json(client, url, data=None):
     return client.put(url, data=json.dumps(data or {}), content_type="application/json")
+
+
+def test_diff3_git_content_requires_auth_when_hub_auth_is_enabled():
+    from flask import Flask
+
+    from agent.routes.diff3 import _SESSIONS, diff3_bp
+
+    _SESSIONS.clear()
+    app = Flask("diff3-auth-test")
+    app.config.update(TESTING=True, AGENT_TOKEN="diff3-test-token-with-at-least-32-bytes")
+    app.register_blueprint(diff3_bp)
+    with app.test_client() as secured_client:
+        denied = secured_client.post("/api/diff3/sessions", json={"git_preset": True})
+        allowed = secured_client.post(
+            "/api/diff3/sessions",
+            json={"git_preset": True},
+            headers={"Authorization": "Bearer diff3-test-token-with-at-least-32-bytes"},
+        )
+
+    assert denied.status_code == 401
+    assert allowed.status_code == 201
+    _SESSIONS.clear()
 
 
 # ── T01: Session model / interaction flow ────────────────────────────────────
@@ -47,6 +71,22 @@ class TestSessionFlow:
         resp = _post_json(client, "/api/diff3/sessions", {"layout_mode": "left-wide"})
         assert resp.status_code == 201
         assert resp.get_json()["layout_mode"] == "left-wide"
+
+    def test_create_session_git_preset_exposes_index_boundaries(self, client):
+        resp = _post_json(
+            client,
+            "/api/diff3/sessions",
+            {"git_preset": True, "workspace_id": "repo", "path_filter": "agent/routes/ops.py"},
+        )
+        assert resp.status_code == 201
+        data = resp.get_json()
+        scopes = [panel["source_left"]["locator"]["diff_scope"] for panel in data["panels"]]
+        assert scopes == ["staged", "unstaged", "combined"]
+        assert data["extensions"]["git_context"] == {
+            "workspace_id": "repo",
+            "path_filter": "agent/routes/ops.py",
+            "preset": "git",
+        }
 
     def test_create_session_invalid_layout_falls_back(self, client):
         resp = _post_json(client, "/api/diff3/sessions", {"layout_mode": "bogus"})
@@ -118,6 +158,16 @@ class TestPanelConfiguration:
         assert resp.status_code == 200
         panel_b = next(p for p in resp.get_json()["panels"] if p["panel_id"] == "B")
         assert panel_b["render_mode"] == "summary"
+
+    def test_set_panel_rejects_unknown_git_diff_scope(self, client):
+        sid = self._sid(client)
+        resp = _put_json(
+            client,
+            f"/api/diff3/sessions/{sid}/panels/B",
+            {"source_kind": "current_diff", "diff_scope": "everything"},
+        )
+        assert resp.status_code == 400
+        assert resp.get_json()["error"] == "invalid_git_diff_scope"
 
     def test_set_panel_output_artifact(self, client):
         sid = self._sid(client)
