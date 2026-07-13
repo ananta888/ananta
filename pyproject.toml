@@ -96,7 +96,7 @@ lc-lg-openai = [
 ]
 lc-lg-anthropic = [
     # ChatAnthropic provider — enables cloud.anthropic.* model refs.
-    "langchain-anthropic>=0.3,<0.4",
+    "langchain-anthropic>=1.4.8,<1.5",
 ]
 lc-lg-all = [
     # Full install: lc-lg + all three provider extras.
@@ -104,7 +104,7 @@ lc-lg-all = [
     "langgraph>=0.2,<0.3",
     "langchain-ollama>=0.3,<0.4",
     "langchain-openai>=0.3,<0.4",
-    "langchain-anthropic>=0.3,<0.4",
+    "langchain-anthropic>=1.4.8,<1.5",
 ]
 rtipm-sentence-transformers = [
     "sentence-transformers>=3,<4",
