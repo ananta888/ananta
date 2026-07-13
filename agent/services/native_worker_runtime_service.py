@@ -1,23 +1,38 @@
+"""Hub compatibility facade for the delegated Native Worker runtime.
+
+The Hub may prepare a bounded command-plan contract, but it must never import
+or execute Worker implementations in the Flask process.  Execution methods are
+kept for API compatibility and fail closed with an explicit delegation result.
+"""
+
 from __future__ import annotations
 
 import hashlib
 import json
+import re
+import shlex
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from worker.core.degraded import build_degraded_state
-from worker.core.execution_profile import normalize_execution_profile
-from worker.core.provider_registry import (
-    AiSnakeProviderConfig,
-    ProviderProvenanceRef,
-    ProviderSelectionGate,
-    build_default_provider_registry,
+
+_DEFAULT_ALLOWLIST = (
+    "cat",
+    "echo",
+    "git",
+    "grep",
+    "head",
+    "id",
+    "ls",
+    "pwd",
+    "pytest",
+    "python",
+    "tail",
+    "wc",
+    "whoami",
 )
-from worker.core.tool_registry import ResourceLimitEnforcer, build_default_registry
-from worker.core.verification import build_verification_artifact, validate_worker_schema_or_degraded
-from worker.shell.command_executor import execute_command_plan
-from worker.shell.command_planner import build_command_plan_artifact
-from worker.shell.command_policy import classify_command
+_DEFAULT_APPROVAL_REQUIRED = ("chmod", "chown", "mv", "rm", "sudo")
+_DEFAULT_DENYLIST = ("rm -rf /", ":(){", "mkfs")
 
 
 def _build_context_hash(*, context_bundle_id: str, task_id: str, command: str) -> str:
@@ -25,67 +40,127 @@ def _build_context_hash(*, context_bundle_id: str, task_id: str, command: str) -
     return hashlib.sha256(source).hexdigest()
 
 
-def _bounded_text(value: str, *, max_chars: int = 2400) -> str:
-    text = str(value or "")
-    if len(text) <= max_chars:
-        return text
-    return text[: max(1, max_chars - 14)].rstrip() + "\n\n[truncated]"
+def _normalized_profile(value: str | None) -> str:
+    profile = str(value or "balanced").strip().lower()
+    return profile if profile in {"fast", "balanced", "thorough"} else "balanced"
 
 
-# T011: shared resource limit enforcer — reads limits from the tool registry
-_TOOL_REGISTRY = build_default_registry()
-_RESOURCE_ENFORCER = ResourceLimitEnforcer(_TOOL_REGISTRY)
+@dataclass(frozen=True)
+class _CompatibilityResourceLimits:
+    timeout_seconds: float = 30.0
+    max_output_chars: int = 32_000
+    max_artifact_bytes: int = 10 * 1024 * 1024
+    max_files_touched: int = 50
 
-# T012/T013: shared provider registry + selection gate
-_PROVIDER_REGISTRY = build_default_provider_registry()
-_PROVIDER_GATE = ProviderSelectionGate(_PROVIDER_REGISTRY)
+
+class _CompatibilityResourceEnforcer:
+    """Read-only compatibility projection; it performs no Worker execution."""
+
+    _limits = _CompatibilityResourceLimits()
+
+    def limits_for(self, tool_id: str) -> _CompatibilityResourceLimits:
+        del tool_id
+        return self._limits
+
+    def effective_timeout(self, tool_id: str, requested_seconds: float) -> float:
+        del tool_id
+        return min(max(0.001, float(requested_seconds)), self._limits.timeout_seconds)
+
+    def bound_output(self, raw: str, tool_id: str) -> tuple[str, bool]:
+        del tool_id
+        text = str(raw or "")
+        if len(text) <= self._limits.max_output_chars:
+            return text, False
+        return text[: self._limits.max_output_chars], True
+
+
+_RESOURCE_ENFORCER = _CompatibilityResourceEnforcer()
+
+
+@dataclass(frozen=True)
+class AiSnakeProviderConfig:
+    """Compatibility DTO; provider selection remains a Worker responsibility."""
+
+    provider_preference: str = "lmstudio"
+    model: str = "ananta-smoke"
+    max_latency_ms: int = 2000
+    budgets: dict[str, Any] = field(default_factory=dict)
+    cloud_allowed: bool = False
+    allowed_providers: list[str] = field(default_factory=list)
+
+    @classmethod
+    def from_mapping(cls, payload: dict[str, Any] | None) -> "AiSnakeProviderConfig":
+        source = dict(payload or {})
+        return cls(
+            provider_preference=(
+                str(source.get("provider_preference") or "lmstudio").strip()
+                or "lmstudio"
+            ),
+            model=str(source.get("model") or "ananta-smoke").strip() or "ananta-smoke",
+            max_latency_ms=max(250, int(source.get("max_latency_ms") or 2000)),
+            budgets=dict(source.get("budgets") or {})
+            if isinstance(source.get("budgets"), dict)
+            else {},
+            cloud_allowed=bool(source.get("cloud_allowed", False)),
+            allowed_providers=[
+                str(item).strip()
+                for item in list(source.get("allowed_providers") or [])
+                if str(item).strip()
+            ],
+        )
 
 
 class NativeWorkerRuntimeService:
-    """Owns native worker command-plan/execute/verify stages for task-scoped runtime."""
+    """Prepare contracts in the Hub and reject all in-process execution."""
 
     @staticmethod
     def _native_runtime_cfg(agent_cfg: dict[str, Any] | None) -> dict[str, Any]:
-        runtime_cfg = (agent_cfg or {}).get("worker_runtime") if isinstance((agent_cfg or {}).get("worker_runtime"), dict) else {}
-        native_cfg = runtime_cfg.get("native_worker_runtime") if isinstance(runtime_cfg.get("native_worker_runtime"), dict) else {}
-        return dict(native_cfg or {})
+        runtime_cfg = (agent_cfg or {}).get("worker_runtime")
+        runtime_cfg = runtime_cfg if isinstance(runtime_cfg, dict) else {}
+        native_cfg = runtime_cfg.get("native_worker_runtime")
+        return dict(native_cfg) if isinstance(native_cfg, dict) else {}
 
     def is_enabled(self, *, agent_cfg: dict[str, Any] | None) -> bool:
         return bool(self._native_runtime_cfg(agent_cfg).get("enabled", False))
 
     def fallback_backend(self, *, agent_cfg: dict[str, Any] | None) -> str:
-        native_cfg = self._native_runtime_cfg(agent_cfg)
-        fallback = str(native_cfg.get("fallback_backend") or "sgpt").strip().lower()
-        return fallback or "sgpt"
+        value = str(
+            self._native_runtime_cfg(agent_cfg).get("fallback_backend") or "sgpt"
+        ).strip().lower()
+        return value or "sgpt"
 
     def shell_policy(self, *, agent_cfg: dict[str, Any] | None) -> dict[str, Any]:
         native_cfg = self._native_runtime_cfg(agent_cfg)
-        configured = native_cfg.get("shell_policy") if isinstance(native_cfg.get("shell_policy"), dict) else {}
-        allowlist = [
-            str(item).strip()
-            for item in list(configured.get("allowlist") or ["python", "pytest", "git", "ls", "pwd", "whoami", "id", "cat", "head", "tail", "wc", "grep", "echo"])
-            if str(item).strip()
-        ]
-        approval_required = [
-            str(item).strip()
-            for item in list(configured.get("approval_required_commands") or ["rm", "mv", "chmod", "chown", "sudo"])
-            if str(item).strip()
-        ]
-        denylist_tokens = [
-            str(item).strip()
-            for item in list(configured.get("denylist_tokens") or ["rm -rf /", ":(){", "mkfs"])
-            if str(item).strip()
-        ]
+        configured = native_cfg.get("shell_policy")
+        configured = configured if isinstance(configured, dict) else {}
+
+        def values(key: str, fallback: tuple[str, ...]) -> list[str]:
+            return sorted(
+                {
+                    str(item).strip()
+                    for item in list(configured.get(key) or fallback)
+                    if str(item).strip()
+                }
+            )
+
         return {
-            "allowlist": sorted(set(allowlist)),
-            "approval_required_commands": sorted(set(approval_required)),
-            "denylist_tokens": sorted(set(denylist_tokens)),
+            "allowlist": values("allowlist", _DEFAULT_ALLOWLIST),
+            "approval_required_commands": values(
+                "approval_required_commands",
+                _DEFAULT_APPROVAL_REQUIRED,
+            ),
+            "denylist_tokens": values("denylist_tokens", _DEFAULT_DENYLIST),
         }
 
-    def ai_snake_provider_config(self, *, agent_cfg: dict[str, Any] | None) -> AiSnakeProviderConfig:
-        runtime_cfg = (agent_cfg or {}).get("worker_runtime") if isinstance((agent_cfg or {}).get("worker_runtime"), dict) else {}
-        ai_cfg = runtime_cfg.get("ai_snake") if isinstance(runtime_cfg.get("ai_snake"), dict) else {}
-        return AiSnakeProviderConfig.from_mapping(ai_cfg)
+    def ai_snake_provider_config(
+        self,
+        *,
+        agent_cfg: dict[str, Any] | None,
+    ) -> AiSnakeProviderConfig:
+        runtime_cfg = (agent_cfg or {}).get("worker_runtime")
+        runtime_cfg = runtime_cfg if isinstance(runtime_cfg, dict) else {}
+        raw = runtime_cfg.get("ai_snake")
+        return AiSnakeProviderConfig.from_mapping(raw if isinstance(raw, dict) else {})
 
     def prepare_native_command_plan(
         self,
@@ -101,99 +176,86 @@ class NativeWorkerRuntimeService:
         agent_cfg: dict[str, Any] | None,
     ) -> dict[str, Any]:
         if not self.is_enabled(agent_cfg=agent_cfg):
-            return {"runtime_path": "sgpt_fallback_proxy", "worker_context_updates": {}}
+            return {
+                "runtime_path": "delegated_worker_not_configured",
+                "policy_classification_summary": "denied:native_worker_not_configured",
+                "worker_context_updates": {},
+            }
 
         normalized_command = str(command or "").strip()
         if not normalized_command:
             return {
                 "runtime_path": "native_worker_pipeline",
                 "policy_classification_summary": "no_command",
-                "worker_context_updates": {"native_runtime": {"runtime_path": "native_worker_pipeline", "mode": "command_plan_skipped"}},
+                "worker_context_updates": {
+                    "native_runtime": {
+                        "runtime_path": "native_worker_pipeline",
+                        "mode": "command_plan_skipped",
+                    }
+                },
             }
 
-        normalized_profile = normalize_execution_profile(worker_profile)
-        normalized_profile_source = str(profile_source or "agent_default").strip().lower() or "agent_default"
-        bundle_id = str(context_bundle_id or task.get("context_bundle_id") or f"ctx-{tid}").strip()
-        context_hash = _build_context_hash(context_bundle_id=bundle_id, task_id=tid, command=normalized_command)
-        shell_policy = self.shell_policy(agent_cfg=agent_cfg)
-
+        profile = _normalized_profile(worker_profile)
+        source = str(profile_source or "agent_default").strip().lower() or "agent_default"
+        bundle_id = str(
+            context_bundle_id or task.get("context_bundle_id") or f"ctx-{tid}"
+        ).strip()
+        context_hash = _build_context_hash(
+            context_bundle_id=bundle_id,
+            task_id=tid,
+            command=normalized_command,
+        )
+        classification, policy_reason, risk, approval_required = self._classify_plan(
+            normalized_command,
+            self.shell_policy(agent_cfg=agent_cfg),
+        )
+        command_plan = {
+            "schema": "command_plan_artifact.v1",
+            "task_id": str(tid).strip(),
+            "capability_id": "shell_plan",
+            "command": normalized_command,
+            "command_hash": hashlib.sha256(
+                normalized_command.encode("utf-8")
+            ).hexdigest(),
+            "explanation": str(reason or "Native Worker command plan.").strip(),
+            "risk_classification": risk,
+            "required_approval": approval_required,
+            "working_directory": ".",
+            "expected_effects": [
+                "Delegate bounded execution to an authenticated Worker container."
+            ],
+        }
         ingress_request = self._build_request_payload(
             tid=tid,
             goal_id=str(task.get("goal_id") or "goal-unknown"),
             trace_id=str(trace_id or f"native-plan-{tid}"),
-            capability_id="shell_plan",  # T004: canonical capability ID
+            capability_id="shell_plan",
             mode="command_plan",
             context_bundle_id=bundle_id,
             context_hash=context_hash,
-            policy_decision_ref={"decision_id": f"native-plan-{tid}", "decision": "allow", "policy_version": "native_worker_runtime_v1"},
-            worker_profile=normalized_profile,
-            profile_source=normalized_profile_source,
+            policy_decision_ref={
+                "decision_id": f"native-plan-{tid}",
+                "decision": "allow",
+                "policy_version": "native_worker_runtime_v1",
+            },
+            worker_profile=profile,
+            profile_source=source,
             requested_outputs=["command_plan_artifact", "trace_metadata"],
         )
-        ingress_ok, ingress_degraded = validate_worker_schema_or_degraded(
-            schema_name="worker_execution_request.v1",
-            payload=ingress_request,
-            direction="ingress",
-        )
-        if not ingress_ok:
-            return {
-                "runtime_path": "sgpt_fallback_proxy",
-                "policy_classification_summary": "schema_invalid:ingress",
-                "degraded": ingress_degraded,
-                "worker_context_updates": {
-                    "native_runtime": {
-                        "runtime_path": "sgpt_fallback_proxy",
-                        "degraded": ingress_degraded,
-                    }
-                },
-            }
-
-        decision = classify_command(
-            command=normalized_command,
-            policy=shell_policy,
-            hub_policy_decision="allow",
-            execution_profile=normalized_profile,
-        )
-        command_plan = build_command_plan_artifact(
-            task_id=tid,
-            capability_id="shell_plan",  # T004: canonical capability ID
-            command=normalized_command,
-            explanation=str(reason or "Native worker command plan."),
-            expected_effects=["Execute bounded command and produce verification artifact."],
-            policy=shell_policy,
-            hub_policy_decision="allow",
-            execution_profile=normalized_profile,
-        )
-        plan_ok, plan_degraded = validate_worker_schema_or_degraded(
-            schema_name="command_plan_artifact.v1",
-            payload=command_plan,
-            direction="egress",
-        )
-        if not plan_ok:
-            return {
-                "runtime_path": "sgpt_fallback_proxy",
-                "policy_classification_summary": "schema_invalid:command_plan",
-                "degraded": plan_degraded,
-                "worker_context_updates": {
-                    "native_runtime": {
-                        "runtime_path": "sgpt_fallback_proxy",
-                        "degraded": plan_degraded,
-                    }
-                },
-            }
-
-        policy_summary = f"{decision.classification}:{decision.reason}"
+        policy_summary = f"{classification}:{policy_reason}"
         return {
             "runtime_path": "native_worker_pipeline",
             "policy_classification_summary": policy_summary,
             "worker_context_updates": {
                 "native_runtime": {
+                    "schema": "ananta.native-worker-delegation.v1",
                     "runtime_path": "native_worker_pipeline",
                     "mode": "command_plan",
                     "context_hash": context_hash,
                     "ingress_request": ingress_request,
                     "command_plan_artifact": command_plan,
                     "policy_classification_summary": policy_summary,
+                    "execution_boundary": "dedicated_worker_container",
                 }
             },
         }
@@ -212,303 +274,46 @@ class NativeWorkerRuntimeService:
         native_runtime_payload: dict[str, Any] | None,
         agent_cfg: dict[str, Any] | None,
     ) -> dict[str, Any]:
-        normalized_profile = normalize_execution_profile(worker_profile)
-        normalized_profile_source = str(profile_source or "agent_default").strip().lower() or "agent_default"
-        runtime_payload = dict(native_runtime_payload or {})
-        command_plan = dict(runtime_payload.get("command_plan_artifact") or {})
-        context_hash = str(runtime_payload.get("context_hash") or "").strip()
-        if not context_hash:
-            context_hash = _build_context_hash(
-                context_bundle_id=str(
-                    ((task.get("worker_execution_context") or {}).get("context_bundle_id") or task.get("context_bundle_id") or f"ctx-{tid}")
-                ),
-                task_id=tid,
-                command=command,
-            )
-        shell_policy = self.shell_policy(agent_cfg=agent_cfg)
-
-        if not command_plan:
-            command_plan = build_command_plan_artifact(
-                task_id=tid,
-                capability_id="shell_plan",  # T004: canonical capability ID
-                command=command,
-                explanation="Native worker execute fallback plan.",
-                expected_effects=["Execute bounded command and verify output."],
-                policy=shell_policy,
-                hub_policy_decision="allow",
-                execution_profile=normalized_profile,
-            )
-
-        plan_ok, plan_degraded = validate_worker_schema_or_degraded(
-            schema_name="command_plan_artifact.v1",
-            payload=command_plan,
-            direction="ingress",
-        )
-        if not plan_ok:
-            return self._degraded_execution_outcome(
-                tid=tid,
-                trace_id=trace_id,
-                failure_type="schema_invalid",
-                degraded=plan_degraded,
-                policy_classification_summary="schema_invalid:command_plan",
-            )
-
-        ingress_request = self._build_request_payload(
+        del task, command, worker_profile, profile_source, timeout_seconds
+        del workspace_dir, native_runtime_payload, agent_cfg
+        degraded = {
+            "schema": "degraded_state_artifact.v1",
+            "state": "worker_delegation_required",
+            "machine_reason": "native_worker_in_process_execution_disabled",
+            "details": {
+                "execution_boundary": "dedicated_worker_container",
+                "task_id": str(tid),
+            },
+        }
+        return self._degraded_execution_outcome(
             tid=tid,
-            goal_id=str(task.get("goal_id") or "goal-unknown"),
             trace_id=trace_id,
-            capability_id="worker.command.execute",
-            mode="command_execute",
-            context_bundle_id=str(
-                ((task.get("worker_execution_context") or {}).get("context_bundle_id") or task.get("context_bundle_id") or f"ctx-{tid}")
-            ),
-            context_hash=context_hash,
-            policy_decision_ref={"decision_id": f"native-exec-{tid}", "decision": "allow", "policy_version": "native_worker_runtime_v1"},
-            worker_profile=normalized_profile,
-            profile_source=normalized_profile_source,
-            requested_outputs=["test_result_artifact", "verification_artifact", "trace_metadata"],
+            failure_type="runtime_failure",
+            degraded=degraded,
+            policy_classification_summary="denied:hub_in_process_execution_disabled",
         )
-        ingress_ok, ingress_degraded = validate_worker_schema_or_degraded(
-            schema_name="worker_execution_request.v1",
-            payload=ingress_request,
-            direction="ingress",
-        )
-        if not ingress_ok:
-            return self._degraded_execution_outcome(
-                tid=tid,
-                trace_id=trace_id,
-                failure_type="schema_invalid",
-                degraded=ingress_degraded,
-                policy_classification_summary="schema_invalid:ingress",
-            )
-
-        decision = classify_command(
-            command=str(command_plan.get("command") or command),
-            policy=shell_policy,
-            hub_policy_decision="allow",
-            execution_profile=normalized_profile,
-        )
-        policy_summary = f"{decision.classification}:{decision.reason}"
-
-        _exec_command = str(command_plan.get("command") or command)
-        # T011: use registry timeout limit (never exceed what the tool allows)
-        effective_timeout = _RESOURCE_ENFORCER.effective_timeout("run_shell", float(timeout_seconds))
-        try:
-            tool_result = execute_command_plan(
-                repository_root=workspace_dir,
-                command_plan_artifact=command_plan,
-                task_id=tid,
-                capability_id="shell_execute",  # T004: canonical capability ID
-                context_hash=context_hash,
-                shell_policy=shell_policy,
-                hub_policy_decision="allow",
-                approval=None,
-                timeout_seconds=int(effective_timeout),
-                execution_profile=normalized_profile,
-                tool_registry=_TOOL_REGISTRY,  # T009: registry gate
-            )
-            # T010: convert ToolResult to legacy test_result_artifact dict
-            test_result = tool_result.to_test_result_artifact(task_id=tid, command=_exec_command)
-        except PermissionError as exc:
-            return self._permission_denied_outcome(
-                tid=tid,
-                trace_id=trace_id,
-                error=str(exc),
-                policy_classification_summary=policy_summary,
-            )
-        except FileNotFoundError as exc:
-            # Command binary not found in container — treat as exit_code=127 (command_not_found),
-            # not as a degraded/fatal failure. Allows quality gate to handle it gracefully.
-            cmd_str = str(exc).replace("[Errno 2] No such file or directory: ", "").strip("'")
-            test_result = {
-                "schema": "test_result_artifact.v1",
-                "task_id": str(tid).strip(),
-                "command": cmd_str,
-                "exit_code": 127,
-                "status": "failed",
-                "stdout_ref": f"command_not_found:{cmd_str}",
-                "stderr_ref": f"command not found: {cmd_str}",
-                "output_summary": f"command_not_found: {cmd_str}",
-                "failure_hints": ["command_not_found_in_container"],
-            }
-        except Exception as exc:  # pragma: no cover - defensive branch for subprocess/environment issues
-            degraded = build_degraded_state(
-                state="unavailable_external_tool",
-                machine_reason="runtime_failure",
-                details={"error": str(exc)},
-            )
-            return self._degraded_execution_outcome(
-                tid=tid,
-                trace_id=trace_id,
-                failure_type="runtime_failure",
-                degraded=degraded,
-                policy_classification_summary=policy_summary,
-            )
-
-        test_ok, test_degraded = validate_worker_schema_or_degraded(
-            schema_name="test_result_artifact.v1",
-            payload=test_result,
-            direction="egress",
-        )
-        if not test_ok:
-            return self._degraded_execution_outcome(
-                tid=tid,
-                trace_id=trace_id,
-                failure_type="schema_invalid",
-                degraded=test_degraded,
-                policy_classification_summary=policy_summary,
-            )
-
-        verification_artifact = build_verification_artifact(task_id=tid, test_results=[test_result], patch_artifact=None)
-        verify_ok, verify_degraded = validate_worker_schema_or_degraded(
-            schema_name="verification_artifact.v1",
-            payload=verification_artifact,
-            direction="egress",
-        )
-        if not verify_ok:
-            return self._degraded_execution_outcome(
-                tid=tid,
-                trace_id=trace_id,
-                failure_type="schema_invalid",
-                degraded=verify_degraded,
-                policy_classification_summary=policy_summary,
-            )
-
-        status = "completed" if str(test_result.get("status") or "").strip().lower() == "passed" else "failed"
-        failure_type = "success" if status == "completed" else "command_failure"
-        # T011: apply registry output limit to stdout/stderr
-        max_chars = _RESOURCE_ENFORCER.limits_for("run_shell").max_output_chars
-        # T016: native worker provenance ref
-        provenance = ProviderProvenanceRef.native_worker()
-        execution_result = {
-            "schema": "worker_execution_result.v1",
-            "task_id": tid,
-            "trace_id": trace_id,
-            "capability_id": "shell_execute",  # T004: canonical
-            "context_hash": context_hash,
-            "worker_profile": normalized_profile,
-            "profile_source": normalized_profile_source,
-            "policy_decision_ref": {"decision_id": f"native-exec-{tid}", "decision": "allow", "policy_version": "native_worker_runtime_v1"},
-            "status": status,
-            "exit_code": int(test_result.get("exit_code") or 0),
-            "stdout_ref": _bounded_text(str(test_result.get("stdout_ref") or ""), max_chars=max_chars),  # T011
-            "stderr_ref": _bounded_text(str(test_result.get("stderr_ref") or ""), max_chars=max_chars),  # T011
-            "model_metadata": {
-                "provider": provenance.provider_id,           # T016
-                "model": provenance.model_id,                 # T016
-                "provider_hash": provenance.entry_hash,       # T016
-                "prompt_template_version": "native_worker_runtime_v1",
-            },
-            "artifacts": [
-                {"artifact_type": "command_plan_artifact", "artifact_ref": f"command:{str(command_plan.get('command_hash') or '')[:16]}"},
-                {"artifact_type": "test_result_artifact", "artifact_ref": f"test:{status}:{int(test_result.get('exit_code') or 0)}"},
-                {"artifact_type": "verification_artifact", "artifact_ref": f"verify:{str(verification_artifact.get('status') or 'unknown')}"},
-            ],
-        }
-        result_ok, result_degraded = validate_worker_schema_or_degraded(
-            schema_name="worker_execution_result.v1",
-            payload=execution_result,
-            direction="egress",
-        )
-        if not result_ok:
-            return self._degraded_execution_outcome(
-                tid=tid,
-                trace_id=trace_id,
-                failure_type="schema_invalid",
-                degraded=result_degraded,
-                policy_classification_summary=policy_summary,
-            )
-
-        output = "\n".join(
-            [
-                "Native worker command pipeline executed.",
-                f"command={command_plan.get('command')}",
-                f"status={status}",
-                f"exit_code={test_result.get('exit_code')}",
-                f"verification_status={verification_artifact.get('status')}",
-                _bounded_text(str(test_result.get("output_summary") or ""), max_chars=1200),
-            ]
-        )
-        return {
-            "status": status,
-            "exit_code": int(test_result.get("exit_code") or 0),
-            "failure_type": failure_type,
-            "output": output,
-            "policy_classification_summary": policy_summary,
-            "native_runtime": {
-                "runtime_path": "native_worker_pipeline",
-                "command_plan_artifact": command_plan,
-                "test_result_artifact": test_result,
-                "verification_artifact": verification_artifact,
-                "execution_result": execution_result,
-            },
-            "artifact_refs": [
-                {
-                    "kind": "native_worker_command_plan",
-                    "task_id": tid,
-                    "trace_bundle_ref": "native_worker_runtime:command_plan",
-                    "content_hash": str(command_plan.get("command_hash") or ""),
-                },
-                {
-                    "kind": "native_worker_test_result",
-                    "task_id": tid,
-                    "trace_bundle_ref": "native_worker_runtime:test_result",
-                    "content_hash": hashlib.sha256(
-                        json.dumps(test_result, ensure_ascii=False, sort_keys=True).encode("utf-8")
-                    ).hexdigest(),
-                },
-                {
-                    "kind": "native_worker_verification",
-                    "task_id": tid,
-                    "trace_bundle_ref": "native_worker_runtime:verification",
-                    "content_hash": hashlib.sha256(
-                        json.dumps(verification_artifact, ensure_ascii=False, sort_keys=True).encode("utf-8")
-                    ).hexdigest(),
-                },
-            ],
-            "approval_decision": {
-                "classification": "allow",
-                "reason_code": "native_worker_pipeline",
-            },
-        }
 
     @staticmethod
-    def _permission_denied_outcome(*, tid: str, trace_id: str, error: str, policy_classification_summary: str) -> dict[str, Any]:
-        marker = str(error or "").strip().lower()
-        if marker.startswith("approval_"):
-            degraded = build_degraded_state(
-                state="missing_approval",
-                machine_reason="missing_approval",
-                details={"error": error},
-            )
-            status = "blocked"
-            failure_type = "approval_required"
-        elif "policy_denied" in marker:
-            degraded = build_degraded_state(
-                state="denied_policy",
-                machine_reason="policy_denied",
-                details={"error": error},
-            )
-            status = "failed"
-            failure_type = "policy_denied"
-        else:
-            degraded = build_degraded_state(
-                state="unsafe_command",
-                machine_reason="unsafe_command",
-                details={"error": error},
-            )
-            status = "failed"
-            failure_type = "unsafe_command"
-        return {
-            "status": status,
-            "exit_code": 1,
-            "failure_type": failure_type,
-            "output": json.dumps({"trace_id": trace_id, "degraded": degraded}, ensure_ascii=False),
-            "policy_classification_summary": policy_classification_summary,
-            "native_runtime": {"runtime_path": "native_worker_pipeline", "degraded": degraded},
-            "artifact_refs": [{"kind": "native_worker_degraded_state", "task_id": tid, "trace_bundle_ref": "native_worker_runtime:degraded"}],
-            "approval_decision": {"classification": "blocked", "reason_code": degraded.get("machine_reason")},
-        }
+    def _classify_plan(
+        command: str,
+        policy: dict[str, Any],
+    ) -> tuple[str, str, str, bool]:
+        if any(token in command for token in policy["denylist_tokens"]):
+            return "denied", "denylist_token", "critical", True
+        try:
+            parts = shlex.split(command)
+        except ValueError:
+            return "unknown", "command_parse_failed", "high", True
+        if not parts or re.search(r"(?:&&|\|\||[|;<>])", command):
+            return "unknown", "shell_composition_not_allowed", "high", True
+        if any(".." in argument for argument in parts[1:]):
+            return "denied", "path_escape_detected", "critical", True
+        binary = parts[0]
+        if binary in set(policy["approval_required_commands"]):
+            return "approval_required", "command_requires_approval", "high", True
+        if binary in set(policy["allowlist"]):
+            return "safe", "command_allowlisted", "low", False
+        return "unknown", "command_not_classified", "medium", True
 
     @staticmethod
     def _degraded_execution_outcome(
@@ -519,16 +324,32 @@ class NativeWorkerRuntimeService:
         degraded: dict[str, Any] | None,
         policy_classification_summary: str,
     ) -> dict[str, Any]:
-        degraded_payload = dict(degraded or {})
+        payload = dict(degraded or {})
         return {
             "status": "failed",
             "exit_code": 1,
-            "failure_type": str(failure_type or "degraded"),
-            "output": json.dumps({"trace_id": trace_id, "degraded": degraded_payload}, ensure_ascii=False),
+            "failure_type": str(failure_type or "runtime_failure"),
+            "output": json.dumps(
+                {"trace_id": trace_id, "degraded": payload},
+                ensure_ascii=False,
+                sort_keys=True,
+            ),
             "policy_classification_summary": policy_classification_summary,
-            "native_runtime": {"runtime_path": "native_worker_pipeline", "degraded": degraded_payload},
-            "artifact_refs": [{"kind": "native_worker_degraded_state", "task_id": tid, "trace_bundle_ref": "native_worker_runtime:degraded"}],
-            "approval_decision": {"classification": "blocked", "reason_code": str(degraded_payload.get("machine_reason") or "degraded")},
+            "native_runtime": {
+                "runtime_path": "delegated_worker_required",
+                "degraded": payload,
+            },
+            "artifact_refs": [
+                {
+                    "kind": "native_worker_degraded_state",
+                    "task_id": tid,
+                    "trace_bundle_ref": "native_worker_runtime:delegation_required",
+                }
+            ],
+            "approval_decision": {
+                "classification": "blocked",
+                "reason_code": "native_worker_in_process_execution_disabled",
+            },
         }
 
     @staticmethod
@@ -556,12 +377,18 @@ class NativeWorkerRuntimeService:
             "context_envelope_ref": {
                 "context_bundle_id": str(context_bundle_id).strip(),
                 "context_hash": str(context_hash).strip(),
-                "retrieval_refs": [{"source_id": "task_context", "path": f"tasks/{tid}", "reason": "task_scoped_execution"}],
+                "retrieval_refs": [
+                    {
+                        "source_id": "task_context",
+                        "path": f"tasks/{tid}",
+                        "reason": "task_scoped_execution",
+                    }
+                ],
                 "context_chunk_limit": 32,
-                "context_byte_limit": 120000,
+                "context_byte_limit": 120_000,
             },
             "policy_decision_ref": dict(policy_decision_ref or {}),
-            "workspace_constraints_ref": {"constraint_id": f"workspace-{str(tid).strip()}"},
+            "workspace_constraints_ref": {"constraint_id": f"workspace-{tid}"},
             "worker_profile": str(worker_profile).strip(),
             "profile_source": str(profile_source).strip(),
             "requested_outputs": list(requested_outputs or []),
@@ -585,73 +412,23 @@ def execute_repair_procedure_plan(
     approval_ref: dict[str, Any] | None = None,
     dry_run: bool = False,
 ) -> dict[str, Any]:
-    """Route deterministic repair procedures to RepairProcedureRunner. DRR-T016.
+    """Compatibility endpoint: repairs must be delegated to a Worker."""
 
-    Detects execution_mode='deterministic_repair_*' and delegates to runner.
-    Returns RepairExecutionResult as dict or degraded response.
-    """
-    try:
-        from worker.core.execution_envelope import (
-            ApprovalRef,
-            CapabilityGrant,
-            ExecutionEnvelope,
-            RepairProcedure,
-            RepairStep,
-        )
-        from worker.repair.repair_procedure_runner import RepairProcedureRunner
+    del repair_procedure_dict, approval_ref, dry_run
+    return {
+        "schema": "ananta.repair-worker-delegation.v1",
+        "runtime_path": "delegated_worker_required",
+        "status": "degraded",
+        "reason_code": "repair_worker_in_process_execution_disabled",
+        "task_id": str(task_id),
+        "procedure_id": str(procedure_id),
+    }
 
-        steps_raw = list(repair_procedure_dict.get("steps") or [])
-        if not steps_raw:
-            return {
-                "runtime_path": "repair_runner",
-                "status": "denied",
-                "reason_code": "repair_procedure_missing_steps",
-                "procedure_id": procedure_id,
-            }
 
-        steps = [RepairStep(**s) if isinstance(s, dict) else s for s in steps_raw]
-        procedure = RepairProcedure(
-            procedure_id=procedure_id,
-            safety_class=str(repair_procedure_dict.get("safety_class") or "bounded"),
-            steps=steps,
-            diagnosis=dict(repair_procedure_dict.get("diagnosis") or {}),
-        )
-        _approval: ApprovalRef | None = None
-        if approval_ref:
-            _approval = ApprovalRef(
-                ref_id=str(approval_ref.get("ref_id") or approval_ref.get("approval_id") or ""),
-                operation=str(approval_ref.get("operation") or "admin_repair"),
-                granted_at=float(approval_ref.get("granted_at") or 0.0),
-                granted_by=str(approval_ref.get("granted_by") or "hub"),
-            )
-        caps = ["admin_repair", "deterministic_repair"]
-        envelope = ExecutionEnvelope(
-            task_id=task_id,
-            actor_ref="hub",
-            capability_grant=CapabilityGrant(capabilities=caps),
-            context_envelope_ref=f"ctx:{task_id}",
-            audit_correlation_id=f"repair:{task_id}",
-            approval_refs=[_approval] if _approval else [],
-            repair_procedure=procedure,
-        )
-        runner = RepairProcedureRunner()
-        result = runner.run_plan(envelope, dry_run=dry_run)
-        return {
-            "runtime_path": "repair_runner",
-            "status": result.status.value,
-            "procedure_id": procedure_id,
-            "plan_id": result.plan_id,
-            "completed_steps": result.completed_steps,
-            "skipped_steps": result.skipped_steps,
-            "failed_step_id": result.failed_step_id,
-            "outcome_label": result.outcome_label,
-            "artifacts": result.artifacts,
-            "repair_execution_result": result.model_dump(),
-        }
-    except Exception as exc:
-        return {
-            "runtime_path": "repair_runner",
-            "status": "degraded",
-            "reason_code": f"repair_runner_error:{exc}",
-            "procedure_id": procedure_id,
-        }
+__all__ = [
+    "AiSnakeProviderConfig",
+    "NativeWorkerRuntimeService",
+    "_RESOURCE_ENFORCER",
+    "execute_repair_procedure_plan",
+    "get_native_worker_runtime_service",
+]

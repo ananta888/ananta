@@ -25,6 +25,7 @@ class _RunState:
     status: str = "pending"
     step_status: dict[str, str] = field(default_factory=dict)
     events: list[dict[str, Any]] = field(default_factory=list)
+    revision: int = 1
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
 
@@ -82,6 +83,33 @@ class LocalWorkflowBackend:
         self._runs[request.workflow_id] = state
         return self.get_workflow_status(request.workflow_id)
 
+    def restore_workflow(self, request: WorkflowRequest, status: dict[str, Any]) -> None:
+        """Restore only the persisted Hub compatibility projection after restart."""
+
+        workflow_id = str(request.workflow_id or "").strip()
+        if not workflow_id or workflow_id in self._runs:
+            return
+        if str(status.get("workflow_id") or "") != workflow_id:
+            raise ValueError("local_workflow_restore_binding_mismatch")
+        raw_steps = status.get("steps")
+        step_status = {
+            str(item.get("step_id") or item.get("id") or ""): str(item.get("status") or "pending")
+            for item in raw_steps
+            if isinstance(item, dict) and str(item.get("step_id") or item.get("id") or "")
+        } if isinstance(raw_steps, list) else {}
+        self._runs[workflow_id] = _RunState(
+            request=request,
+            status=str(status.get("status") or "pending"),
+            step_status={
+                step.step_id: step_status.get(step.step_id, "pending")
+                for step in request.steps
+            },
+            events=[dict(item) for item in status.get("events") or () if isinstance(item, dict)],
+            revision=max(1, int(status.get("revision") or 1)),
+            created_at=float(status.get("created_at") or time.time()),
+            updated_at=float(status.get("updated_at") or time.time()),
+        )
+
     def get_workflow_status(self, workflow_id: str) -> dict[str, Any]:
         state = self._runs.get(str(workflow_id or "").strip())
         if state is None:
@@ -110,10 +138,16 @@ class LocalWorkflowBackend:
             "workflow_request_schema": request.to_dict().get("schema"),
             "workflow_id": request.workflow_id,
             "status": state.status,
-            "steps": [_status_step_dict(step, state.step_status.get(step.step_id, "pending")) for step in request.steps],
+            "steps": [
+                _status_step_dict(step, state.step_status.get(step.step_id, "pending"))
+                for step in request.steps
+            ],
             "correlation_id": request.correlation_id,
             "created_at": state.created_at,
             "updated_at": state.updated_at,
+            "revision": state.revision,
+            "checkpoint_ref": f"local:{request.workflow_id}:{state.revision}",
+            "plan_hash": str(request.metadata.get("plan_hash") or ""),
             "events": list(state.events),
         })
         return status_payload
@@ -123,6 +157,7 @@ class LocalWorkflowBackend:
         if state is None:
             return self.get_workflow_status(workflow_id)
         state.status = "cancelled"
+        state.revision += 1
         state.updated_at = time.time()
         for step_id in list(state.step_status):
             if state.step_status[step_id] not in {"completed", "failed", "cancelled"}:
@@ -151,11 +186,30 @@ class LocalWorkflowBackend:
                 if status == "waiting_for_approval":
                     state.step_status[step_id] = "pending"
             state.status = "running"
+            _activate_first_pending(state)
         elif signal.name == "reject":
             state.status = "failed"
             for step_id, status in list(state.step_status.items()):
                 if status == "waiting_for_approval":
                     state.step_status[step_id] = "failed"
+        elif signal.name == "pause" and state.status == "running":
+            state.status = "paused"
+        elif signal.name == "resume" and state.status == "paused":
+            state.status = "running"
+            _activate_first_pending(state)
+        elif signal.name == "retry" and state.status in {"failed", "cancelled"}:
+            state.step_status = {
+                step.step_id: ("waiting_for_approval" if step.gate else "pending")
+                for step in state.request.steps
+            }
+            state.status = (
+                "waiting_for_approval"
+                if any(value == "waiting_for_approval" for value in state.step_status.values())
+                else "running"
+            )
+            if state.status == "running":
+                _activate_first_pending(state)
+        state.revision += 1
         state.updated_at = time.time()
         return self.get_workflow_status(workflow_id)
 
@@ -184,3 +238,14 @@ def _status_step_dict(step, status: str) -> dict[str, Any]:
 
 
 local_workflow_backend = LocalWorkflowBackend()
+
+
+def _activate_first_pending(state: _RunState) -> None:
+    if any(value == "running" for value in state.step_status.values()):
+        return
+    first_pending = next(
+        (step.step_id for step in state.request.steps if state.step_status.get(step.step_id) == "pending"),
+        "",
+    )
+    if first_pending:
+        state.step_status[first_pending] = "running"
