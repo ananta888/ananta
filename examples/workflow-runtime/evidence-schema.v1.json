@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.invalid/schemas/workflow-runtime-example-evidence.v1.json",
+  "title": "Ananta workflow runtime example evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "classification",
+    "production_release_gate",
+    "status",
+    "plan",
+    "boundaries",
+    "security",
+    "runtimes"
+  ],
+  "properties": {
+    "schema": {
+      "const": "ananta.workflow-runtime-example-evidence.v1"
+    },
+    "classification": {
+      "const": "example_only"
+    },
+    "production_release_gate": {
+      "const": false
+    },
+    "status": {
+      "enum": [
+        "prepared",
+        "passed_example"
+      ]
+    },
+    "plan": {
+      "type": "object",
+      "required": [
+        "ref",
+        "hash"
+      ],
+      "properties": {
+        "ref": {
+          "const": "examples/workflow-runtime/execution-plan.v1.json"
+        },
+        "hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "boundaries": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "classification",
+          "production_equivalent",
+          "description"
+        ]
+      }
+    },
+    "security": {
+      "type": "object",
+      "required": [
+        "network_provider_calls",
+        "production_credentials",
+        "worker_to_worker_flows",
+        "hub_task_owner"
+      ]
+    },
+    "runtimes": {
+      "type": "object",
+      "required": [
+        "native",
+        "langgraph",
+        "temporal"
+      ]
+    }
+  }
+}

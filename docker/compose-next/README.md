@@ -19,6 +19,18 @@ Deployment-Stacks:
 - `compose.stack.distributed.yml` (PostgreSQL, Redis, Hub, vier Worker, Frontend)
 - `compose.voice-restricted.yml` (additives, intern isoliertes Voice- und
   Restricted-Inference-Overlay)
+- `compose.temporal.yml` (optionale dauerhafte Workflow-Infrastruktur mit
+  Temporal Server, UI, eigener PostgreSQL-Datenbank und Ananta-Worker)
+- `compose.temporal.production.yml` (additive produktive Hub-/Temporal-
+  Verdrahtung mit externen, read-only Compose-Secrets)
+- `compose.langgraph.production.yml` (dedizierter LangGraph-Worker mit exakt
+  gelockter Runtime, Hub-owned Checkpoints und externen read-only Secrets)
+- `compose.workflow-runtime-example.yml` (wegwerfbarer, eigenständiger
+  Native/LangGraph/Temporal-Drill ohne pytest; die erzeugte Evidence ist
+  ausdrücklich kein Production-Release-Gate)
+- `compose.workflow-runtime-example.live-provider.yml` (optionaler lokaler,
+  OpenAI-kompatibler Provider-Probe mit externer Credential-Datei; weder
+  Control Plane noch Taskqueue)
 
 Die Dev-Varianten sind für Entwicklung ausgelegt:
 
@@ -142,6 +154,82 @@ Release-Gates, Modellpromotion, Offline-Installation, Streaming-Drain, OOM,
 Rollback, Consent/Löschung und die reproduzierbaren CPU-/GPU-Profile sind im
 [`Voice/Restricted Production Runbook`](../../docs/operations/voice-restricted-production-runbook.md)
 dokumentiert. Hardware-Skips gelten dort nie als bestandener Nachweis.
+
+## LangGraph Runtime
+
+Das produktive LangGraph-Overlay ist additiv und startet genau einen dedizierten
+Worker im Profil `langgraph`. Nur Hub und dieser Worker teilen das
+`langgraph-runtime`-Netz. Der Worker veröffentlicht keinen Host-Port, erhält
+keinen Schlüsselring und verwendet das Hub-Service-Token ausschließlich aus
+einem read-only Compose-Secret. Normale Worker, Angular und Dev-Stacks erhalten
+keine LangGraph-Checkpoint-Credentials.
+
+```bash
+export ANANTA_WORKFLOW_AUTH_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-auth-keyring.json
+export ANANTA_WORKFLOW_DISPATCH_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-dispatch-keyring.json
+export ANANTA_WORKFLOW_HUB_TOKEN_SECRET_FILE=/etc/ananta/secrets/workflow-hub-service-token
+
+docker compose --env-file .env \
+  -f docker/compose-next/compose.stack.full.yml \
+  -f docker/compose-next/compose.langgraph.production.yml \
+  --profile langgraph config --quiet
+docker compose --env-file .env \
+  -f docker/compose-next/compose.stack.full.yml \
+  -f docker/compose-next/compose.langgraph.production.yml \
+  --profile langgraph up -d --build
+```
+
+Das Basis-Image bleibt ohne LangGraph. Nur das dedizierte Worker-Image setzt
+`INSTALL_LANGGRAPH_RUNTIME=1` und installiert den exakten additiven Lock. Die
+Provider-Konfiguration muss danach explizit `state_policy=hub_owned` und
+`checkpoint_policy=hub_owned` aktivieren. Details, Prüfungen, Rotation und
+Recovery stehen im
+[`LangGraph Hub-owned Checkpoint Runbook`](../../docs/operations/langgraph-hub-checkpoint-runtime.md).
+
+## Temporal Runtime
+
+Temporal ist ein additives Profil und ersetzt weder den Hub noch dessen
+Taskqueue. Der Temporal Worker registriert technische Workflows und übergibt
+ausführbare Schritte ausschließlich als autorisierte Hub-Tasks. Ohne
+Schlüsselring und Hub-Service-Token bleibt die produktive Activity fail-closed;
+der side-effect-freie Probe-Workflow funktioniert trotzdem.
+
+`compose.temporal.yml` bleibt bewusst ohne produktive Credentials und kann den
+side-effect-freien Probe-Workflow ausführen. Eine produktive Activity wird erst
+mit dem zusätzlichen `compose.temporal.production.yml` aktiviert. Die drei
+Quelldateien liegen außerhalb des Repositories und außerhalb von `.env`:
+
+```bash
+export ANANTA_WORKFLOW_AUTH_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-auth-keyring.json
+export ANANTA_WORKFLOW_DISPATCH_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-dispatch-keyring.json
+export ANANTA_WORKFLOW_HUB_TOKEN_SECRET_FILE=/etc/ananta/secrets/workflow-hub-service-token
+
+docker compose --env-file .env \
+  -f docker/compose-next/compose.stack.full.yml \
+  -f docker/compose-next/compose.temporal.yml \
+  -f docker/compose-next/compose.temporal.production.yml \
+  --profile temporal config --quiet
+docker compose --env-file .env \
+  -f docker/compose-next/compose.stack.full.yml \
+  -f docker/compose-next/compose.temporal.yml \
+  -f docker/compose-next/compose.temporal.production.yml \
+  --profile temporal up -d --build
+```
+
+Zusätzlich müssen `TEMPORAL_POSTGRES_PASSWORD`, `POSTGRES_PASSWORD` und
+`INITIAL_ADMIN_PASSWORD` wie im Full-Stack gesetzt sein. Das Overlay gibt dem
+Hub exklusiv den Dispatch-Schlüsselring. Hub und Temporal Worker teilen nur den
+Autorisierungsschlüsselring und den Hub-Service-Token als Dateimount; weder der
+Angular-App noch normalen Ananta-Workern werden diese Secrets bereitgestellt.
+
+Die Temporal UI ist standardmäßig unter `http://localhost:8233` erreichbar.
+Produktive Verbindungen konfigurieren TLS/mTLS, API-Key und Hub-Credentials
+ausschließlich als absolute Secret-Dateireferenzen. Das
+vollständige Betriebs- und Failure-Runbook liegt unter
+[`docs/operations/temporal-runtime.md`](../../docs/operations/temporal-runtime.md).
+Das One-shot-Gate in `compose.tests.temporal.yml` startet einen echten Probe-
+Workflow und beendet CI mit dessen Exit-Code; der genaue Aufruf steht im
+Runbook.
 
 ## Stop
 

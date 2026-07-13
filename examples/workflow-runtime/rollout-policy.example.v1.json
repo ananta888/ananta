@@ -1,0 +1,80 @@
+{
+  "schema": "ananta.workflow_runtime_rollout_policy.v1",
+  "policy_id": "example-runtime-rollout",
+  "merge_rule": "narrow_only",
+  "scope_precedence": [
+    "project",
+    "tenant",
+    "profile",
+    "workflow"
+  ],
+  "project": {
+    "scope_id": "example-project",
+    "mode": "shadow",
+    "preferred_runtime": "native",
+    "allowed_runtimes": [
+      "native",
+      "langgraph",
+      "temporal"
+    ],
+    "required_capabilities": [
+      "approval",
+      "audit",
+      "side_effect_guard"
+    ],
+    "explicit_fallback_policy": "equivalent-only"
+  },
+  "tenant": {
+    "scope_id": "example-tenant",
+    "mode": "shadow",
+    "allowed_runtimes": [
+      "native",
+      "temporal"
+    ],
+    "required_capabilities": [
+      "approval",
+      "audit",
+      "side_effect_guard"
+    ]
+  },
+  "profile": {
+    "scope_id": "durable-publication",
+    "mode": "shadow",
+    "preferred_runtime": "temporal",
+    "allowed_runtimes": [
+      "temporal"
+    ],
+    "required_capabilities": [
+      "approval",
+      "audit",
+      "checkpoint",
+      "durability",
+      "resume",
+      "side_effect_guard"
+    ]
+  },
+  "workflow": {
+    "scope_id": "example.runtime_neutral_publication",
+    "mode": "shadow",
+    "allowed_runtimes": [
+      "temporal"
+    ],
+    "required_capabilities": [
+      "approval",
+      "audit",
+      "checkpoint",
+      "durability",
+      "resume",
+      "side_effect_guard"
+    ],
+    "shadow": {
+      "provider": "deterministic-fake-provider",
+      "network_access": false,
+      "allowed_side_effect_classes": [
+        "none",
+        "read"
+      ],
+      "write_behavior": "suppress_and_record_intent"
+    }
+  }
+}

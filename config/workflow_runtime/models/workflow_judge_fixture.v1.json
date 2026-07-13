@@ -1,0 +1,8 @@
+{
+  "schema": "ananta.workflow_evaluation_model_ref.v1",
+  "model_ref": "model://local/workflow-judge-fixture-v1",
+  "model_version": "1.0.0",
+  "network_required": false,
+  "implementation": "injected-test-port",
+  "production_eligible": false
+}

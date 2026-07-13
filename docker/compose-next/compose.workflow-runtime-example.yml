@@ -1,0 +1,105 @@
+services:
+  workflow-runtime-example-hub:
+    build:
+      context: ../..
+      dockerfile: docker/compose-next/Dockerfile.workflow-runtime-example
+      args:
+        TEMPORALIO_VERSION: 1.30.0
+    image: ${ANANTA_WORKFLOW_RUNTIME_EXAMPLE_IMAGE:-ananta-workflow-runtime-example:local}
+    profiles: ["workflow-runtime-example"]
+    restart: unless-stopped
+    entrypoint: ["python", "/app/examples/workflow-runtime/example_hub.py"]
+    environment:
+      ANANTA_EXAMPLE_EVIDENCE_DIR: /evidence
+      ANANTA_EXAMPLE_HUB_HOST: 0.0.0.0
+      ANANTA_EXAMPLE_HUB_PORT: 8080
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=2).read()"
+      interval: 2s
+      timeout: 2s
+      retries: 20
+      start_period: 2s
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - workflow-runtime-example-evidence:/evidence
+    networks:
+      - temporal-runtime
+
+  workflow-runtime-example-temporal-worker:
+    image: ${ANANTA_WORKFLOW_RUNTIME_EXAMPLE_IMAGE:-ananta-workflow-runtime-example:local}
+    profiles: ["workflow-runtime-example"]
+    # Explicit replacement is part of the crash/replay drill.  Automatic
+    # restart would hide whether SIGKILL actually removed this worker process.
+    restart: "no"
+    entrypoint: ["python", "/app/examples/workflow-runtime/temporal_worker.py"]
+    depends_on:
+      temporal:
+        condition: service_healthy
+      workflow-runtime-example-hub:
+        condition: service_healthy
+    environment:
+      ANANTA_TEMPORAL_ADDRESS: temporal:7233
+      ANANTA_TEMPORAL_NAMESPACE: ${ANANTA_TEMPORAL_NAMESPACE:-default}
+      ANANTA_EXAMPLE_HUB_URL: http://workflow-runtime-example-hub:8080
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8088/ready', timeout=2).read()"
+      interval: 2s
+      timeout: 2s
+      retries: 30
+      start_period: 5s
+    stop_grace_period: 10s
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - temporal-runtime
+
+  workflow-runtime-example-runner:
+    image: ${ANANTA_WORKFLOW_RUNTIME_EXAMPLE_IMAGE:-ananta-workflow-runtime-example:local}
+    profiles: ["workflow-runtime-example"]
+    restart: "no"
+    depends_on:
+      temporal:
+        condition: service_healthy
+      workflow-runtime-example-hub:
+        condition: service_healthy
+      workflow-runtime-example-temporal-worker:
+        condition: service_healthy
+    environment:
+      ANANTA_TEMPORAL_ADDRESS: temporal:7233
+      ANANTA_TEMPORAL_NAMESPACE: ${ANANTA_TEMPORAL_NAMESPACE:-default}
+      ANANTA_EXAMPLE_EVIDENCE_DIR: /evidence
+    command: ["--mode", "prepare"]
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - workflow-runtime-example-evidence:/evidence
+    networks:
+      - temporal-runtime
+
+volumes:
+  workflow-runtime-example-evidence:
+
+networks:
+  temporal-runtime:
+    internal: true

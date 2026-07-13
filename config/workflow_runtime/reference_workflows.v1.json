@@ -1,0 +1,420 @@
+{
+  "schema": "ananta.reference_workflow_catalog.v1",
+  "catalog_version": "1.0.0",
+  "scenarios": [
+    {
+      "scenario_id": "research",
+      "description": "Retrieve grounded context and produce a structured report.",
+      "plan": {
+        "schema": "ananta.execution_plan.v1",
+        "tenant_id": "fixture-tenant",
+        "plan_id": "reference-research-v1",
+        "workflow_id": "reference.research",
+        "policy_version": "reference-policy-v1",
+        "capabilities": ["retrieval", "structured_output"],
+        "nodes": [
+          {
+            "node_id": "retrieve",
+            "node_type": "task",
+            "task_kind": "research",
+            "required_capabilities": ["retrieval"],
+            "allowed_tools": ["codecompass.query"],
+            "input_artifacts": [],
+            "output_artifacts": ["sources"],
+            "gate_id": "",
+            "side_effect_class": "read",
+            "budget": {"max_attempts": 1, "timeout_seconds": 30, "max_tokens": 0, "max_cost_micros": 0},
+            "metadata": {"provenance_required": true}
+          },
+          {
+            "node_id": "synthesize",
+            "node_type": "task",
+            "task_kind": "analysis",
+            "required_capabilities": ["structured_output"],
+            "allowed_tools": [],
+            "input_artifacts": ["sources"],
+            "output_artifacts": ["report"],
+            "gate_id": "",
+            "side_effect_class": "none",
+            "budget": {"max_attempts": 1, "timeout_seconds": 60, "max_tokens": 2048, "max_cost_micros": 10000},
+            "metadata": {"output_schema": "reference.report.v1"}
+          }
+        ],
+        "edges": [{"source": "retrieve", "target": "synthesize", "condition": {"op": "always"}}],
+        "gates": [],
+        "artifacts": [
+          {"artifact_id": "sources", "media_type": "application/json", "required": true, "schema_ref": "reference.sources.v1"},
+          {"artifact_id": "report", "media_type": "application/json", "required": true, "schema_ref": "reference.report.v1"}
+        ],
+        "budget": {"max_attempts": 1, "timeout_seconds": 120, "max_tokens": 2048, "max_cost_micros": 10000},
+        "metadata": {"reference_scenario": "research"}
+      },
+      "invariants": {
+        "terminal_statuses": ["completed"],
+        "required_event_types": ["workflow.run.started", "workflow.step.completed", "workflow.run.completed"],
+        "required_artifacts": ["sources", "report"],
+        "required_gates": [],
+        "side_effect_operations": [],
+        "required_policy_decisions": ["policy.allowed"],
+        "budget_limits": {"attempts": 1, "tokens": 2048, "cost_micros": 10000}
+      },
+      "support": {"native": "target", "langgraph": "target", "temporal": "target"},
+      "variants": [
+        {
+          "variant_id": "research-policy-denied",
+          "kind": "policy_denial",
+          "reason_code": "retrieval_scope_denied",
+          "terminal_status": "failed",
+          "required_event_types": ["workflow.run.started", "workflow.policy.denied", "workflow.run.failed"],
+          "side_effect_operations": []
+        },
+        {
+          "variant_id": "research-provider-failure",
+          "kind": "runtime_failure",
+          "reason_code": "structured_provider_unavailable",
+          "terminal_status": "failed",
+          "required_event_types": ["workflow.run.started", "workflow.step.failed", "workflow.run.failed"],
+          "side_effect_operations": []
+        }
+      ]
+    },
+    {
+      "scenario_id": "code-analysis",
+      "description": "Inspect source context and emit a read-only code analysis artifact.",
+      "plan": {
+        "schema": "ananta.execution_plan.v1",
+        "tenant_id": "fixture-tenant",
+        "plan_id": "reference-code-analysis-v1",
+        "workflow_id": "reference.code_analysis",
+        "policy_version": "reference-policy-v1",
+        "capabilities": ["retrieval", "structured_output"],
+        "nodes": [
+          {
+            "node_id": "inspect",
+            "node_type": "task",
+            "task_kind": "code_analysis",
+            "required_capabilities": ["retrieval"],
+            "allowed_tools": ["codecompass.query"],
+            "input_artifacts": [],
+            "output_artifacts": ["code-context"],
+            "gate_id": "",
+            "side_effect_class": "read",
+            "budget": null,
+            "metadata": {"source_ids_required": true}
+          },
+          {
+            "node_id": "analyze",
+            "node_type": "task",
+            "task_kind": "code_analysis",
+            "required_capabilities": ["structured_output"],
+            "allowed_tools": [],
+            "input_artifacts": ["code-context"],
+            "output_artifacts": ["analysis"],
+            "gate_id": "",
+            "side_effect_class": "none",
+            "budget": null,
+            "metadata": {"output_schema": "reference.code_analysis.v1"}
+          }
+        ],
+        "edges": [{"source": "inspect", "target": "analyze", "condition": {"op": "always"}}],
+        "gates": [],
+        "artifacts": [
+          {"artifact_id": "code-context", "media_type": "application/json", "required": true, "schema_ref": "reference.code_context.v1"},
+          {"artifact_id": "analysis", "media_type": "application/json", "required": true, "schema_ref": "reference.code_analysis.v1"}
+        ],
+        "budget": {"max_attempts": 1, "timeout_seconds": 120, "max_tokens": 4096, "max_cost_micros": 20000},
+        "metadata": {"reference_scenario": "code-analysis"}
+      },
+      "invariants": {
+        "terminal_statuses": ["completed"],
+        "required_event_types": ["workflow.run.started", "workflow.step.completed", "workflow.run.completed"],
+        "required_artifacts": ["code-context", "analysis"],
+        "required_gates": [],
+        "side_effect_operations": [],
+        "required_policy_decisions": ["policy.allowed"],
+        "budget_limits": {"attempts": 1, "tokens": 4096, "cost_micros": 20000}
+      },
+      "support": {"native": "target", "langgraph": "target", "temporal": "target"},
+      "variants": [
+        {
+          "variant_id": "code-analysis-policy-denied",
+          "kind": "policy_denial",
+          "reason_code": "repository_scope_denied",
+          "terminal_status": "failed",
+          "required_event_types": ["workflow.run.started", "workflow.policy.denied", "workflow.run.failed"],
+          "side_effect_operations": []
+        },
+        {
+          "variant_id": "code-analysis-retrieval-failure",
+          "kind": "runtime_failure",
+          "reason_code": "codecompass_unavailable",
+          "terminal_status": "failed",
+          "required_event_types": ["workflow.run.started", "workflow.step.failed", "workflow.run.failed"],
+          "side_effect_operations": []
+        }
+      ]
+    },
+    {
+      "scenario_id": "approval",
+      "description": "Require a bound human approval before an idempotent publication.",
+      "plan": {
+        "schema": "ananta.execution_plan.v1",
+        "tenant_id": "fixture-tenant",
+        "plan_id": "reference-approval-v1",
+        "workflow_id": "reference.approval",
+        "policy_version": "reference-policy-v1",
+        "capabilities": ["approval", "structured_output", "tool_calling"],
+        "nodes": [
+          {
+            "node_id": "draft",
+            "node_type": "task",
+            "task_kind": "analysis",
+            "required_capabilities": ["structured_output"],
+            "allowed_tools": [],
+            "input_artifacts": [],
+            "output_artifacts": ["draft"],
+            "gate_id": "",
+            "side_effect_class": "none",
+            "budget": null,
+            "metadata": {}
+          },
+          {
+            "node_id": "publish",
+            "node_type": "task",
+            "task_kind": "artifact_write",
+            "required_capabilities": ["approval", "tool_calling"],
+            "allowed_tools": ["artifact.publish"],
+            "input_artifacts": ["draft"],
+            "output_artifacts": ["published"],
+            "gate_id": "publish-approval",
+            "side_effect_class": "idempotent_write",
+            "budget": null,
+            "metadata": {"operation_name": "publish-artifact"}
+          }
+        ],
+        "edges": [{"source": "draft", "target": "publish", "condition": {"op": "always"}}],
+        "gates": [{"gate_id": "publish-approval", "gate_type": "approval", "required_roles": ["operator"], "expires_after_seconds": 3600}],
+        "artifacts": [
+          {"artifact_id": "draft", "media_type": "application/json", "required": true, "schema_ref": "reference.draft.v1"},
+          {"artifact_id": "published", "media_type": "application/json", "required": true, "schema_ref": "reference.published.v1"}
+        ],
+        "budget": {"max_attempts": 1, "timeout_seconds": 180, "max_tokens": 2048, "max_cost_micros": 10000},
+        "metadata": {"reference_scenario": "approval"}
+      },
+      "invariants": {
+        "terminal_statuses": ["completed"],
+        "required_event_types": ["workflow.run.started", "workflow.approval.granted", "workflow.side_effect.completed", "workflow.run.completed"],
+        "required_artifacts": ["draft", "published"],
+        "required_gates": ["publish-approval"],
+        "side_effect_operations": ["publish-artifact"],
+        "required_policy_decisions": ["policy.allowed"],
+        "budget_limits": {"attempts": 1, "tokens": 2048, "cost_micros": 10000}
+      },
+      "support": {"native": "target", "langgraph": "target", "temporal": "target"},
+      "variants": [
+        {
+          "variant_id": "approval-policy-denied",
+          "kind": "policy_denial",
+          "reason_code": "approval_role_denied",
+          "terminal_status": "failed",
+          "required_event_types": ["workflow.run.started", "workflow.policy.denied", "workflow.run.failed"],
+          "side_effect_operations": []
+        },
+        {
+          "variant_id": "approval-tool-failure",
+          "kind": "runtime_failure",
+          "reason_code": "publication_failed",
+          "terminal_status": "failed",
+          "required_event_types": ["workflow.run.started", "workflow.approval.granted", "workflow.side_effect.failed", "workflow.run.failed"],
+          "side_effect_operations": ["publish-artifact"]
+        }
+      ]
+    },
+    {
+      "scenario_id": "bounded-parallel-merge",
+      "description": "Run two bounded read-only branches and merge deterministically.",
+      "plan": {
+        "schema": "ananta.execution_plan.v1",
+        "tenant_id": "fixture-tenant",
+        "plan_id": "reference-bounded-parallel-v1",
+        "workflow_id": "reference.bounded_parallel_merge",
+        "policy_version": "reference-policy-v1",
+        "capabilities": ["bounded_parallel", "deterministic_merge"],
+        "nodes": [
+          {
+            "node_id": "branch-a",
+            "node_type": "task",
+            "task_kind": "analysis",
+            "required_capabilities": ["bounded_parallel"],
+            "allowed_tools": [],
+            "input_artifacts": [],
+            "output_artifacts": ["branch-a-result"],
+            "gate_id": "",
+            "side_effect_class": "none",
+            "budget": null,
+            "metadata": {"parallel_group": "analysis", "parallel_limit": 2}
+          },
+          {
+            "node_id": "branch-b",
+            "node_type": "task",
+            "task_kind": "analysis",
+            "required_capabilities": ["bounded_parallel"],
+            "allowed_tools": [],
+            "input_artifacts": [],
+            "output_artifacts": ["branch-b-result"],
+            "gate_id": "",
+            "side_effect_class": "none",
+            "budget": null,
+            "metadata": {"parallel_group": "analysis", "parallel_limit": 2}
+          },
+          {
+            "node_id": "merge",
+            "node_type": "merge",
+            "task_kind": "merge",
+            "required_capabilities": ["deterministic_merge"],
+            "allowed_tools": [],
+            "input_artifacts": ["branch-a-result", "branch-b-result"],
+            "output_artifacts": ["merged-result"],
+            "gate_id": "",
+            "side_effect_class": "none",
+            "budget": null,
+            "metadata": {"merge_strategy": "ordered-by-node-id", "partial_failure": "fail"}
+          }
+        ],
+        "edges": [
+          {"source": "branch-a", "target": "merge", "condition": {"op": "always"}},
+          {"source": "branch-b", "target": "merge", "condition": {"op": "always"}}
+        ],
+        "gates": [],
+        "artifacts": [
+          {"artifact_id": "branch-a-result", "media_type": "application/json", "required": true, "schema_ref": "reference.branch.v1"},
+          {"artifact_id": "branch-b-result", "media_type": "application/json", "required": true, "schema_ref": "reference.branch.v1"},
+          {"artifact_id": "merged-result", "media_type": "application/json", "required": true, "schema_ref": "reference.merge.v1"}
+        ],
+        "budget": {"max_attempts": 1, "timeout_seconds": 120, "max_tokens": 4096, "max_cost_micros": 20000},
+        "metadata": {"reference_scenario": "bounded-parallel-merge"}
+      },
+      "invariants": {
+        "terminal_statuses": ["completed"],
+        "required_event_types": ["workflow.run.started", "workflow.step.completed", "workflow.run.completed"],
+        "required_artifacts": ["branch-a-result", "branch-b-result", "merged-result"],
+        "required_gates": [],
+        "side_effect_operations": [],
+        "required_policy_decisions": ["policy.allowed"],
+        "budget_limits": {"attempts": 1, "tokens": 4096, "cost_micros": 20000}
+      },
+      "support": {"native": "target", "langgraph": "target", "temporal": "target"},
+      "variants": [
+        {
+          "variant_id": "bounded-parallel-policy-denied",
+          "kind": "policy_denial",
+          "reason_code": "parallel_limit_denied",
+          "terminal_status": "failed",
+          "required_event_types": ["workflow.run.started", "workflow.policy.denied", "workflow.run.failed"],
+          "side_effect_operations": []
+        },
+        {
+          "variant_id": "bounded-parallel-branch-failure",
+          "kind": "runtime_failure",
+          "reason_code": "parallel_branch_failed",
+          "terminal_status": "failed",
+          "required_event_types": ["workflow.run.started", "workflow.step.failed", "workflow.run.failed"],
+          "side_effect_operations": []
+        }
+      ]
+    },
+    {
+      "scenario_id": "long-running-resume",
+      "description": "Persist a checkpoint, pause, and resume a durable run.",
+      "plan": {
+        "schema": "ananta.execution_plan.v1",
+        "tenant_id": "fixture-tenant",
+        "plan_id": "reference-long-running-resume-v1",
+        "workflow_id": "reference.long_running_resume",
+        "policy_version": "reference-policy-v1",
+        "capabilities": ["checkpoint", "durability", "resume"],
+        "nodes": [
+          {
+            "node_id": "prepare",
+            "node_type": "task",
+            "task_kind": "analysis",
+            "required_capabilities": [],
+            "allowed_tools": [],
+            "input_artifacts": [],
+            "output_artifacts": ["prepared-state"],
+            "gate_id": "",
+            "side_effect_class": "none",
+            "budget": null,
+            "metadata": {}
+          },
+          {
+            "node_id": "checkpoint",
+            "node_type": "checkpoint",
+            "task_kind": "checkpoint",
+            "required_capabilities": ["checkpoint", "durability", "resume"],
+            "allowed_tools": [],
+            "input_artifacts": ["prepared-state"],
+            "output_artifacts": ["checkpoint-ref"],
+            "gate_id": "resume-gate",
+            "side_effect_class": "none",
+            "budget": null,
+            "metadata": {"resume_required": true}
+          },
+          {
+            "node_id": "complete",
+            "node_type": "task",
+            "task_kind": "analysis",
+            "required_capabilities": ["resume"],
+            "allowed_tools": [],
+            "input_artifacts": ["checkpoint-ref"],
+            "output_artifacts": ["durable-result"],
+            "gate_id": "",
+            "side_effect_class": "none",
+            "budget": null,
+            "metadata": {}
+          }
+        ],
+        "edges": [
+          {"source": "prepare", "target": "checkpoint", "condition": {"op": "always"}},
+          {"source": "checkpoint", "target": "complete", "condition": {"op": "always"}}
+        ],
+        "gates": [{"gate_id": "resume-gate", "gate_type": "resume", "required_roles": ["operator"], "expires_after_seconds": null}],
+        "artifacts": [
+          {"artifact_id": "prepared-state", "media_type": "application/json", "required": true, "schema_ref": "reference.prepared_state.v1"},
+          {"artifact_id": "checkpoint-ref", "media_type": "application/json", "required": true, "schema_ref": "reference.checkpoint_ref.v1"},
+          {"artifact_id": "durable-result", "media_type": "application/json", "required": true, "schema_ref": "reference.durable_result.v1"}
+        ],
+        "budget": {"max_attempts": 2, "timeout_seconds": 86400, "max_tokens": 2048, "max_cost_micros": 10000},
+        "metadata": {"reference_scenario": "long-running-resume"}
+      },
+      "invariants": {
+        "terminal_statuses": ["completed"],
+        "required_event_types": ["workflow.run.started", "workflow.checkpoint.created", "workflow.run.paused", "workflow.run.resumed", "workflow.run.completed"],
+        "required_artifacts": ["prepared-state", "checkpoint-ref", "durable-result"],
+        "required_gates": ["resume-gate"],
+        "side_effect_operations": [],
+        "required_policy_decisions": ["policy.allowed"],
+        "budget_limits": {"attempts": 2, "tokens": 2048, "cost_micros": 10000}
+      },
+      "support": {"native": "incompatible", "langgraph": "incompatible", "temporal": "target"},
+      "variants": [
+        {
+          "variant_id": "long-running-resume-policy-denied",
+          "kind": "policy_denial",
+          "reason_code": "resume_authorization_denied",
+          "terminal_status": "failed",
+          "required_event_types": ["workflow.run.started", "workflow.policy.denied", "workflow.run.failed"],
+          "side_effect_operations": []
+        },
+        {
+          "variant_id": "long-running-resume-checkpoint-failure",
+          "kind": "runtime_failure",
+          "reason_code": "checkpoint_unavailable",
+          "terminal_status": "failed",
+          "required_event_types": ["workflow.run.started", "workflow.checkpoint.failed", "workflow.run.failed"],
+          "side_effect_operations": []
+        }
+      ]
+    }
+  ]
+}

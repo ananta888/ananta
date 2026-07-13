@@ -1,0 +1,40 @@
+{
+  "schema": "ananta.fake_workflow_provider.v1",
+  "provider_id": "deterministic-fake-provider",
+  "network_access": false,
+  "responses": {
+    "draft": [
+      {
+        "attempt": 1,
+        "status": "failed",
+        "reason_code": "example_fake_transient_failure"
+      },
+      {
+        "attempt": 2,
+        "status": "completed",
+        "artifact_ref": "artifact://example/draft",
+        "value": {
+          "title": "Runtime-neutral example",
+          "body": "Deterministic offline result"
+        }
+      }
+    ],
+    "publish": [
+      {
+        "attempt": 1,
+        "status": "completed",
+        "artifact_ref": "artifact://example/published"
+      }
+    ],
+    "verify": [
+      {
+        "attempt": 1,
+        "status": "completed",
+        "artifact_ref": "artifact://example/verification",
+        "value": {
+          "valid": true
+        }
+      }
+    ]
+  }
+}

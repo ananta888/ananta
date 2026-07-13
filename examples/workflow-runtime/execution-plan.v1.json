@@ -1,0 +1,148 @@
+{
+  "schema": "ananta.execution_plan.v1",
+  "tenant_id": "example-tenant",
+  "plan_id": "runtime-neutral-publication-v1",
+  "workflow_id": "example.runtime_neutral_publication",
+  "policy_version": "example-policy-v1",
+  "plan_hash": "73606eac9bf9508e505f96789b3e9a8c556251dbf0b409e2f2443ca87d1183f8",
+  "capabilities": [
+    "approval",
+    "structured_output",
+    "tool_calling"
+  ],
+  "nodes": [
+    {
+      "node_id": "draft",
+      "node_type": "task",
+      "task_kind": "analysis",
+      "required_capabilities": [
+        "structured_output"
+      ],
+      "allowed_tools": [],
+      "input_artifacts": [],
+      "output_artifacts": [
+        "draft"
+      ],
+      "gate_id": "",
+      "side_effect_class": "none",
+      "budget": {
+        "max_attempts": 2,
+        "timeout_seconds": 30,
+        "max_tokens": 512,
+        "max_cost_micros": 1000
+      },
+      "metadata": {
+        "output_schema": "example.publication_draft.v1"
+      }
+    },
+    {
+      "node_id": "publish",
+      "node_type": "task",
+      "task_kind": "artifact_write",
+      "required_capabilities": [
+        "approval",
+        "tool_calling"
+      ],
+      "allowed_tools": [
+        "artifact.publish"
+      ],
+      "input_artifacts": [
+        "draft"
+      ],
+      "output_artifacts": [
+        "published"
+      ],
+      "gate_id": "publish-approval",
+      "side_effect_class": "idempotent_write",
+      "budget": {
+        "max_attempts": 1,
+        "timeout_seconds": 30,
+        "max_tokens": 0,
+        "max_cost_micros": 0
+      },
+      "metadata": {
+        "operation_name": "publish-example-artifact"
+      }
+    },
+    {
+      "node_id": "verify",
+      "node_type": "task",
+      "task_kind": "testing",
+      "required_capabilities": [],
+      "allowed_tools": [],
+      "input_artifacts": [
+        "published"
+      ],
+      "output_artifacts": [
+        "verification"
+      ],
+      "gate_id": "",
+      "side_effect_class": "read",
+      "budget": {
+        "max_attempts": 1,
+        "timeout_seconds": 30,
+        "max_tokens": 0,
+        "max_cost_micros": 0
+      },
+      "metadata": {
+        "verification_required": true
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "draft",
+      "target": "publish",
+      "condition": {
+        "op": "always"
+      }
+    },
+    {
+      "source": "publish",
+      "target": "verify",
+      "condition": {
+        "op": "always"
+      }
+    }
+  ],
+  "gates": [
+    {
+      "gate_id": "publish-approval",
+      "gate_type": "approval",
+      "required_roles": [
+        "operator"
+      ],
+      "expires_after_seconds": 3600
+    }
+  ],
+  "artifacts": [
+    {
+      "artifact_id": "draft",
+      "media_type": "application/json",
+      "required": true,
+      "schema_ref": "example.publication_draft.v1"
+    },
+    {
+      "artifact_id": "published",
+      "media_type": "application/json",
+      "required": true,
+      "schema_ref": "example.published_artifact.v1"
+    },
+    {
+      "artifact_id": "verification",
+      "media_type": "application/json",
+      "required": true,
+      "schema_ref": "example.publication_verification.v1"
+    }
+  ],
+  "budget": {
+    "max_attempts": 2,
+    "timeout_seconds": 300,
+    "max_tokens": 512,
+    "max_cost_micros": 1000
+  },
+  "metadata": {
+    "example": "runtime-neutral-publication",
+    "artifact_first": true
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "schema": "ananta.runtime_selection_profiles.v1",
+  "profiles": {
+    "native-safe-default": {
+      "schema": "ananta.runtime_selection_profile.v1",
+      "preferred_runtime": "ananta-native",
+      "allowed_runtimes": ["ananta-native", "langgraph"],
+      "required_capabilities": ["authorization", "audit", "policy", "side_effect_guard"],
+      "explicit_fallback_policy": {
+        "enabled": false,
+        "allowed_runtimes": [],
+        "semantic_class": "equivalent"
+      }
+    },
+    "temporal-durable": {
+      "schema": "ananta.runtime_selection_profile.v1",
+      "preferred_runtime": "temporal",
+      "allowed_runtimes": ["temporal"],
+      "required_capabilities": ["authorization", "audit", "durability", "policy", "resume", "side_effect_guard"],
+      "explicit_fallback_policy": {
+        "enabled": false,
+        "allowed_runtimes": [],
+        "semantic_class": "equivalent"
+      }
+    }
+  }
+}

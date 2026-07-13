@@ -42,6 +42,238 @@ jobs:
       - name: WFG-028 workflow-gates quality gate
         run: python scripts/check_workflow_gates.py
 
+  workflow-runtime-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.15"
+      - name: Install backend test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.lock
+          pip install -r requirements-dev.lock
+      - name: Validate runtime inventory, threat gate and example docs
+        run: python scripts/validate_workflow_runtime_docs.py
+      - name: Run mandatory workflow-runtime security regressions
+        run: >
+          pytest -q
+          tests/security/workflow_runtime/test_workflow_runtime_security_docs.py
+          tests/security/workflow_runtime/test_native_production_compose.py
+          tests/security/workflow_runtime/test_langgraph_checkpoint_production_compose.py
+          tests/security/workflow_runtime/test_workflow_runtime_production_compose.py
+          tests/test_agent_token_file_auth.py
+          tests/test_workflow_runtime_security_and_evolution.py
+          tests/test_workflow_runtime_commands_components.py
+          tests/test_workflow_runtime_event_and_checkpoint_stores.py
+          tests/test_workflow_runtime_side_effect_ledger.py
+          tests/test_workflow_hub_task_gateway_runtime.py
+          tests/test_tool_calling_pipeline.py
+          tests/test_temporal_runtime_contracts.py
+          tests/test_temporal_history_projection.py
+          tests/workflow_runtime/examples/test_workflow_runtime_example.py
+      - name: Run AIR-055 migration, restore, rollout and incident drills
+        run: |
+          mkdir -p ci-artifacts/workflow-runtime-operations
+          python scripts/run-workflow-runtime-operations-drills.py \
+            --source-revision "${GITHUB_SHA}" \
+            --output ci-artifacts/workflow-runtime-operations/evidence.json
+      - name: Upload workflow-runtime operations evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: workflow-runtime-operations-evidence
+          path: ci-artifacts/workflow-runtime-operations/evidence.json
+          retention-days: 7
+
+  workflow-runtime-example-compose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ANANTA_WORKFLOW_RUNTIME_EXAMPLE_IMAGE: ananta-workflow-runtime-example:ci
+      COMPOSE_PROJECT_NAME: ananta-runtime-example-ci
+      TEMPORAL_POSTGRES_PASSWORD: public-disposable-example-only
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+      - name: Build cached example image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+        with:
+          context: .
+          file: docker/compose-next/Dockerfile.workflow-runtime-example
+          build-args: TEMPORALIO_VERSION=1.30.0
+          tags: ananta-workflow-runtime-example:ci
+          load: true
+          cache-from: type=gha,scope=workflow-runtime-example
+          cache-to: type=gha,scope=workflow-runtime-example,mode=max
+      - name: Render bounded fake-provider drill
+        run: |
+          mkdir -p ci-artifacts/workflow-runtime-example
+          docker compose \
+            -f docker/compose-next/compose.temporal.yml \
+            -f docker/compose-next/compose.workflow-runtime-example.yml \
+            --profile temporal --profile workflow-runtime-example \
+            config --quiet
+      - name: Start disposable Temporal, example Hub and worker
+        run: |
+          timeout 240s docker compose \
+            -f docker/compose-next/compose.temporal.yml \
+            -f docker/compose-next/compose.workflow-runtime-example.yml \
+            --profile temporal --profile workflow-runtime-example \
+            up -d --no-build --wait --wait-timeout 180 \
+            temporal-db temporal workflow-runtime-example-hub \
+            workflow-runtime-example-temporal-worker
+      - name: Prepare Failure, Approval, Cancel and durable crash checkpoint
+        run: |
+          timeout 240s docker compose \
+            -f docker/compose-next/compose.temporal.yml \
+            -f docker/compose-next/compose.workflow-runtime-example.yml \
+            --profile temporal --profile workflow-runtime-example \
+            run --rm --no-deps workflow-runtime-example-runner --mode prepare \
+            | tee ci-artifacts/workflow-runtime-example/prepare.json
+      - name: Hard-kill only the Temporal example worker
+        run: |
+          worker_id="$(docker compose \
+            -f docker/compose-next/compose.temporal.yml \
+            -f docker/compose-next/compose.workflow-runtime-example.yml \
+            ps -q workflow-runtime-example-temporal-worker)"
+          test -n "${worker_id}"
+          docker compose \
+            -f docker/compose-next/compose.temporal.yml \
+            -f docker/compose-next/compose.workflow-runtime-example.yml \
+            kill -s SIGKILL workflow-runtime-example-temporal-worker
+          for _ in $(seq 1 40); do
+            state="$(docker inspect --format '{{.State.Status}}' "${worker_id}")"
+            if [ "${state}" != "running" ]; then
+              break
+            fi
+            sleep 0.25
+          done
+          docker inspect "${worker_id}" \
+            > ci-artifacts/workflow-runtime-example/worker-after-sigkill.json
+          test "$(docker inspect --format '{{.State.Status}}' "${worker_id}")" = "exited"
+          test "$(docker inspect --format '{{.State.ExitCode}}' "${worker_id}")" = "137"
+      - name: Replace worker and resume the same durable workflow
+        run: |
+          timeout 180s docker compose \
+            -f docker/compose-next/compose.temporal.yml \
+            -f docker/compose-next/compose.workflow-runtime-example.yml \
+            --profile temporal --profile workflow-runtime-example \
+            up -d --no-build --force-recreate --wait --wait-timeout 120 \
+            workflow-runtime-example-temporal-worker
+          timeout 240s docker compose \
+            -f docker/compose-next/compose.temporal.yml \
+            -f docker/compose-next/compose.workflow-runtime-example.yml \
+            --profile temporal --profile workflow-runtime-example \
+            run --rm --no-deps workflow-runtime-example-runner --mode resume \
+            | tee ci-artifacts/workflow-runtime-example/resume.json
+      - name: Validate and export example-only evidence
+        run: |
+          timeout 120s docker compose \
+            -f docker/compose-next/compose.temporal.yml \
+            -f docker/compose-next/compose.workflow-runtime-example.yml \
+            --profile temporal --profile workflow-runtime-example \
+            run --rm --no-deps workflow-runtime-example-runner \
+            --mode validate-evidence >/dev/null
+          docker compose \
+            -f docker/compose-next/compose.temporal.yml \
+            -f docker/compose-next/compose.workflow-runtime-example.yml \
+            --profile temporal --profile workflow-runtime-example \
+            run --rm --no-deps --entrypoint cat workflow-runtime-example-runner \
+            /evidence/workflow-runtime-example-v1.json \
+            > ci-artifacts/workflow-runtime-example/evidence.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          evidence = json.loads(
+              Path("ci-artifacts/workflow-runtime-example/evidence.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          temporal = evidence["runtimes"]["temporal"]["scenarios"]
+          required = {"failure", "approval", "cancel", "crash", "resume"}
+          if set(temporal) != required:
+              raise SystemExit("workflow runtime example scenarios incomplete")
+          if temporal["crash"]["status"] != "worker_sigkill_completed":
+              raise SystemExit("hard worker crash was not evidenced")
+          if temporal["resume"]["terminal_status"] != "completed":
+              raise SystemExit("durable resume did not complete")
+          if evidence["production_release_gate"] is not False:
+              raise SystemExit("example evidence must never become release evidence")
+          PY
+      - name: Collect Compose diagnostics
+        if: always()
+        run: |
+          mkdir -p ci-artifacts/workflow-runtime-example
+          docker compose \
+            -f docker/compose-next/compose.temporal.yml \
+            -f docker/compose-next/compose.workflow-runtime-example.yml \
+            --profile temporal --profile workflow-runtime-example \
+            ps -a > ci-artifacts/workflow-runtime-example/compose-ps.txt || true
+          docker compose \
+            -f docker/compose-next/compose.temporal.yml \
+            -f docker/compose-next/compose.workflow-runtime-example.yml \
+            --profile temporal --profile workflow-runtime-example \
+            logs --no-color \
+            > ci-artifacts/workflow-runtime-example/compose.log 2>&1 || true
+      - name: Upload example evidence and diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: workflow-runtime-example
+          path: ci-artifacts/workflow-runtime-example/
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Tear down disposable example
+        if: always()
+        run: |
+          timeout 120s docker compose \
+            -f docker/compose-next/compose.temporal.yml \
+            -f docker/compose-next/compose.workflow-runtime-example.yml \
+            --profile temporal --profile workflow-runtime-example \
+            down --volumes --remove-orphans
+
+  workflow-runtime-postgres-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16.13@sha256:5a65324fe84dc41709ff914e90b07f3e2f577073ed27bf917d4873aca0c9ec51
+        env:
+          POSTGRES_DB: ananta_workflow_contract
+          POSTGRES_PASSWORD: workflow-contract-password
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ananta_workflow_contract"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg2://postgres:workflow-contract-password@127.0.0.1:5432/ananta_workflow_contract
+      ANANTA_TEST_WORKFLOW_POSTGRES_URL: postgresql+psycopg2://postgres:workflow-contract-password@127.0.0.1:5432/ananta_workflow_contract
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12.3"
+      - name: Install backend test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.lock -r requirements-dev.lock
+      - name: Exercise PostgreSQL head, N-1 and head migration path
+        run: |
+          alembic upgrade head
+          alembic downgrade -1
+          alembic upgrade head
+          alembic current --check-heads
+      - name: Run identical SQLite and PostgreSQL runtime-store contracts
+        run: pytest -q tests/test_workflow_runtime_sqlalchemy_stores.py
+
   backend-smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -147,6 +379,7 @@ jobs:
     timeout-minutes: 8
     env:
       POSTGRES_PASSWORD: test-postgres-password
+      TEMPORAL_POSTGRES_PASSWORD: test-temporal-postgres-password
       INITIAL_ADMIN_PASSWORD: test123
       SECRET_KEY: test-secret-key-with-at-least-thirty-two-chars
       AGENT_TOKEN_HUB: hub-token
@@ -155,22 +388,390 @@ jobs:
       AGENT_TOKEN_GAMMA: gamma-token
       AGENT_TOKEN_DELTA: delta-token
       GRAFANA_PASSWORD: test-grafana-password
+      ANANTA_WORKFLOW_AUTH_KEYRING_SECRET_FILE: /tmp/ananta-compose-secrets/workflow-auth-keyring.json
+      ANANTA_WORKFLOW_DISPATCH_KEYRING_SECRET_FILE: /tmp/ananta-compose-secrets/workflow-dispatch-keyring.json
+      ANANTA_WORKFLOW_HUB_TOKEN_SECRET_FILE: /tmp/ananta-compose-secrets/workflow-hub-service-token
+      ANANTA_EXAMPLE_LIVE_PROVIDER_BASE_URL: http://host.docker.internal:1234/v1
+      ANANTA_EXAMPLE_LIVE_PROVIDER_MODEL: ci-local-provider-model
+      ANANTA_EXAMPLE_LIVE_PROVIDER_API_KEY_FILE: /tmp/ananta-compose-secrets/workflow-runtime-live-provider-token
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - name: Prepare compose artifact directory
         run: mkdir -p ci-artifacts/compose
+      - name: Prepare non-production Compose secret fixtures
+        run: |
+          install -d -m 0700 /tmp/ananta-compose-secrets
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path("/tmp/ananta-compose-secrets")
+          fixtures = {
+              "workflow-auth-keyring.json": json.dumps({
+                  "active_key_id": "ci-auth",
+                  "keys": {"ci-auth": "ci-auth-key-0123456789abcdef0123456789"},
+              }),
+              "workflow-dispatch-keyring.json": json.dumps({
+                  "active_key_id": "ci-dispatch",
+                  "keys": {"ci-dispatch": "Y2ktZGlzcGF0Y2gta2V5LTAxMjM0NTY3ODlhYmNkZWY="},
+              }),
+              "workflow-hub-service-token": "ci-hub-token-0123456789abcdef0123456789",
+              "workflow-runtime-live-provider-token": "ci-local-provider-token",
+          }
+          for name, value in fixtures.items():
+              path = root / name
+              path.write_text(value + "\n", encoding="utf-8")
+              path.chmod(0o600)
+          PY
       - name: Validate Compose-next quickstart config
         run: docker compose -f docker/compose-next/compose.stack.quickstart.yml config > ci-artifacts/compose/compose-next-quickstart.yml
       - name: Validate legacy GitHub CI compose config without Ollama
         run: docker compose -f docker/old_way/docker-compose.base.yml -f docker/old_way/docker-compose-lite.yml -f docker/old_way/docker-compose.github-ci.yml config > ci-artifacts/compose/compose-github-ci.yml
       - name: Validate Compose-next distributed config
         run: docker compose -f docker/compose-next/compose.stack.distributed.yml config > ci-artifacts/compose/compose-next-distributed.yml
+      - name: Validate Compose-next production Native runtime
+        run: >
+          docker compose
+          -f docker/compose-next/compose.stack.full.yml
+          -f docker/compose-next/compose.native.production.yml
+          config
+          > ci-artifacts/compose/compose-next-workflow-native-production.yml
+      - name: Validate Compose-next production LangGraph runtime
+        run: >
+          docker compose
+          -f docker/compose-next/compose.stack.full.yml
+          -f docker/compose-next/compose.langgraph.production.yml
+          --profile langgraph config
+          > ci-artifacts/compose/compose-next-workflow-langgraph-production.yml
+      - name: Validate Compose-next full stack with Temporal runtime
+        run: >
+          docker compose
+          -f docker/compose-next/compose.stack.full.yml
+          -f docker/compose-next/compose.temporal.yml
+          --profile temporal config
+          > ci-artifacts/compose/compose-next-workflow-temporal.yml
+      - name: Validate Compose-next production Temporal secret wiring
+        run: >
+          docker compose
+          -f docker/compose-next/compose.stack.full.yml
+          -f docker/compose-next/compose.temporal.yml
+          -f docker/compose-next/compose.temporal.production.yml
+          --profile temporal config
+          > ci-artifacts/compose/compose-next-workflow-temporal-production.yml
+      - name: Validate self-contained workflow-runtime example
+        run: >
+          docker compose
+          -f docker/compose-next/compose.workflow-runtime-example.yml
+          config
+          > ci-artifacts/compose/compose-next-workflow-runtime-example.yml
+      - name: Validate optional local live-provider example overlay
+        run: >
+          docker compose
+          -f docker/compose-next/compose.workflow-runtime-example.yml
+          -f docker/compose-next/compose.workflow-runtime-example.live-provider.yml
+          --profile workflow-runtime-live-provider config
+          > ci-artifacts/compose/compose-next-workflow-runtime-live-provider.yml
       - name: Upload compose config artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: ananta-compose-configs
           path: ci-artifacts/compose/*.yml
           retention-days: 3
+
+  temporal-compose-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TEMPORAL_POSTGRES_PASSWORD: test-temporal-postgres-password
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12.3"
+      - name: Install Temporal Test Environment dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.lock -r requirements-dev.lock temporalio==1.30.0
+      - name: Run mandatory Temporal SDK failure and replay gate
+        run: |
+          mkdir -p ci-artifacts/temporal-failure-gate
+          pytest -q tests/workflow_runtime/temporal \
+            --junitxml=ci-artifacts/temporal-failure-gate/test-environment.xml
+          cp tests/workflow_runtime/temporal/failure_scenarios.v1.json \
+            ci-artifacts/temporal-failure-gate/scenario-manifest.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path("ci-artifacts/temporal-failure-gate")
+          manifest = json.loads((root / "scenario-manifest.json").read_text(encoding="utf-8"))
+          summary = {
+              "schema": "ananta.temporal-test-environment-gate-summary.v1",
+              "status": "passed",
+              "scenario_count": len(manifest["scenarios"]),
+              "critical_race_minimum_repetitions": manifest[
+                  "critical_race_minimum_repetitions"
+              ],
+              "n_minus_one_replay_release_blocking": manifest["release_requirements"][
+                  "n_minus_one_replay"
+              ],
+              "result_artifact": "test-environment.xml",
+          }
+          (root / "test-environment-summary.json").write_text(
+              json.dumps(summary, sort_keys=True, separators=(",", ":")) + "\n",
+              encoding="utf-8",
+          )
+          PY
+      - name: Start real Temporal server and worker
+        run: >
+          docker compose --project-name ananta-temporal-gate
+          -f docker/compose-next/compose.temporal.yml
+          -f docker/compose-next/compose.tests.temporal.yml
+          --profile temporal --profile temporal-test
+          up -d --build --wait temporal-db temporal ananta-temporal-worker
+      - name: Run registration and task-queue probe
+        run: >
+          docker compose --project-name ananta-temporal-gate
+          -f docker/compose-next/compose.temporal.yml
+          -f docker/compose-next/compose.tests.temporal.yml
+          --profile temporal --profile temporal-test
+          run --rm temporal-smoke
+      - name: Collect Compose start and signal P95 samples
+        run: |
+          mkdir -p ci-artifacts/temporal-failure-gate
+          docker compose --project-name ananta-temporal-gate \
+            -f docker/compose-next/compose.temporal.yml \
+            -f docker/compose-next/compose.tests.temporal.yml \
+            --profile temporal --profile temporal-test \
+            run --rm temporal-performance \
+            | tee ci-artifacts/temporal-failure-gate/performance-temporal.jsonl
+      - name: Collect Hub event-projection P95 samples
+        run: |
+          python scripts/run-workflow-runtime-performance-gate.py \
+            sample-projection --count 20 \
+            --output ci-artifacts/temporal-failure-gate/performance-projection.json
+      - name: Start in-flight durable recovery probe
+        run: |
+          mkdir -p ci-artifacts/temporal-failure-gate
+          docker compose --project-name ananta-temporal-gate \
+            -f docker/compose-next/compose.temporal.yml \
+            -f docker/compose-next/compose.tests.temporal.yml \
+            --profile temporal --profile temporal-test \
+            run --rm -e ANANTA_TEMPORAL_SMOKE_MODE=start-recovery temporal-smoke \
+            | tee ci-artifacts/temporal-failure-gate/server-restart-start.jsonl
+      - name: Restart real Temporal server with workflow in flight
+        run: |
+          docker compose --project-name ananta-temporal-gate \
+            -f docker/compose-next/compose.temporal.yml \
+            -f docker/compose-next/compose.tests.temporal.yml \
+            restart temporal
+          docker compose --project-name ananta-temporal-gate \
+            -f docker/compose-next/compose.temporal.yml \
+            -f docker/compose-next/compose.tests.temporal.yml \
+            --profile temporal --profile temporal-test \
+            up -d --wait temporal ananta-temporal-worker
+      - name: Resume same workflow and confirm durable end state
+        run: |
+          docker compose --project-name ananta-temporal-gate \
+            -f docker/compose-next/compose.temporal.yml \
+            -f docker/compose-next/compose.tests.temporal.yml \
+            --profile temporal --profile temporal-test \
+            run --rm -e ANANTA_TEMPORAL_SMOKE_MODE=complete-recovery temporal-smoke \
+            | tee ci-artifacts/temporal-failure-gate/server-restart-complete.jsonl
+      - name: Start second in-flight probe before hard worker crash
+        run: |
+          docker compose --project-name ananta-temporal-gate \
+            -f docker/compose-next/compose.temporal.yml \
+            -f docker/compose-next/compose.tests.temporal.yml \
+            --profile temporal --profile temporal-test \
+            run --rm \
+            -e ANANTA_TEMPORAL_SMOKE_MODE=start-recovery \
+            -e ANANTA_TEMPORAL_RECOVERY_PROBE_ID=ananta-compose-worker-crash-probe-v1 \
+            temporal-smoke \
+            | tee ci-artifacts/temporal-failure-gate/worker-crash-start.jsonl
+      - name: Hard-kill and replace real Temporal worker container
+        run: |
+          python - <<'PY'
+          import time
+          from pathlib import Path
+          Path("ci-artifacts/temporal-failure-gate/worker-restart-start-ns").write_text(
+              str(time.time_ns()), encoding="utf-8"
+          )
+          PY
+          docker compose --project-name ananta-temporal-gate \
+            -f docker/compose-next/compose.temporal.yml \
+            -f docker/compose-next/compose.tests.temporal.yml \
+            kill -s SIGKILL ananta-temporal-worker
+          docker compose --project-name ananta-temporal-gate \
+            -f docker/compose-next/compose.temporal.yml \
+            -f docker/compose-next/compose.tests.temporal.yml \
+            --profile temporal --profile temporal-test \
+            up -d --wait ananta-temporal-worker
+      - name: Resume same workflow after hard worker replacement
+        run: |
+          docker compose --project-name ananta-temporal-gate \
+            -f docker/compose-next/compose.temporal.yml \
+            -f docker/compose-next/compose.tests.temporal.yml \
+            --profile temporal --profile temporal-test \
+            run --rm \
+            -e ANANTA_TEMPORAL_SMOKE_MODE=complete-recovery \
+            -e ANANTA_TEMPORAL_RECOVERY_PROBE_ID=ananta-compose-worker-crash-probe-v1 \
+            temporal-smoke \
+            | tee ci-artifacts/temporal-failure-gate/worker-crash-complete.jsonl
+      - name: Gate Compose P95 performance evidence
+        run: |
+          python - <<'PY'
+          import json
+          import time
+          from pathlib import Path
+
+          root = Path("ci-artifacts/temporal-failure-gate")
+          started_ns = int((root / "worker-restart-start-ns").read_text(encoding="utf-8"))
+          elapsed_ms = max(0.0, (time.time_ns() - started_ns) / 1_000_000.0)
+          component = {
+              "schema": "ananta.workflow_runtime_performance_samples.v1",
+              "component": "worker_restart_resume",
+              "runtime_id": "temporal",
+              "reference_profile": "docker-compose-temporal-reference-v1",
+              "sample_count": 1,
+              "metrics": {"worker_restart_resume": {"samples_ms": [elapsed_ms]}},
+          }
+          (root / "performance-worker-restart.json").write_text(
+              json.dumps(component, sort_keys=True, separators=(",", ":")) + "\n",
+              encoding="utf-8",
+          )
+          PY
+          python scripts/run-workflow-runtime-performance-gate.py evaluate \
+            --component ci-artifacts/temporal-failure-gate/performance-temporal.jsonl \
+            --component ci-artifacts/temporal-failure-gate/performance-projection.json \
+            --component ci-artifacts/temporal-failure-gate/performance-worker-restart.json \
+            --source-revision "${GITHUB_SHA}" \
+            --output ci-artifacts/temporal-failure-gate/compose-performance-evidence.json
+      - name: Validate and structure restart evidence
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path("ci-artifacts/temporal-failure-gate")
+
+          def evidence(name):
+              values = []
+              for line in (root / name).read_text(encoding="utf-8").splitlines():
+                  try:
+                      value = json.loads(line)
+                  except json.JSONDecodeError:
+                      continue
+                  if value.get("schema") == "ananta.temporal-compose-recovery-evidence.v1":
+                      values.append(value)
+              if len(values) != 1:
+                  raise SystemExit(f"exactly one recovery evidence record required in {name}")
+              return values[0]
+
+          def validate(scenario_id, prefix, output_name):
+              started = evidence(f"{prefix}-start.jsonl")
+              completed = evidence(f"{prefix}-complete.jsonl")
+              for key in ("workflow_id", "run_id", "request_id", "task_queue", "namespace"):
+                  if not started.get(key) or started[key] != completed.get(key):
+                      raise SystemExit(f"{scenario_id} recovery binding mismatch: {key}")
+              if started["status"] != "waiting_before_restart":
+                  raise SystemExit(f"{scenario_id} was not in flight before failure")
+              if completed["status"] != "completed_after_restart":
+                  raise SystemExit(f"{scenario_id} did not complete after recovery")
+              if started["rejected_release_count"] or completed["rejected_release_count"]:
+                  raise SystemExit(f"{scenario_id} observed an unexpected release")
+              report = {
+                  "schema": "ananta.temporal-failure-gate-evidence.v1",
+                  "scenario_id": scenario_id,
+                  "status": "passed",
+                  "started": started,
+                  "completed": completed,
+              }
+              (root / output_name).write_text(
+                  json.dumps(report, sort_keys=True, separators=(",", ":")) + "\n",
+                  encoding="utf-8",
+              )
+              return report
+
+          reports = [
+              validate(
+                  "temporal_server_restart_inflight_recovery",
+                  "server-restart",
+                  "server-restart-evidence.json",
+              ),
+              validate(
+                  "worker_process_loss_history_replay",
+                  "worker-crash",
+                  "worker-crash-evidence.json",
+              ),
+          ]
+          (root / "compose-gate-summary.json").write_text(
+              json.dumps(
+                  {
+                      "schema": "ananta.temporal-compose-failure-gate-summary.v1",
+                      "status": "passed",
+                      "scenarios": reports,
+                  },
+                  sort_keys=True,
+                  separators=(",", ":"),
+              ) + "\n",
+              encoding="utf-8",
+          )
+          PY
+      - name: Verify fresh task-queue probe after recovery
+        run: >
+          docker compose --project-name ananta-temporal-gate
+          -f docker/compose-next/compose.temporal.yml
+          -f docker/compose-next/compose.tests.temporal.yml
+          --profile temporal --profile temporal-test
+          run --rm temporal-smoke
+      - name: Upload Temporal failure-gate evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: temporal-failure-gate-evidence
+          path: ci-artifacts/temporal-failure-gate/
+          retention-days: 7
+      - name: Tear down Temporal gate
+        if: always()
+        run: >
+          docker compose --project-name ananta-temporal-gate
+          -f docker/compose-next/compose.temporal.yml
+          -f docker/compose-next/compose.tests.temporal.yml
+          --profile temporal --profile temporal-test
+          down --volumes --remove-orphans
+
+  workflow-runtime-release-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12.3"
+      - name: Install all optional workflow-runtime dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install \
+            -r requirements.lock \
+            -r requirements-dev.lock \
+            temporalio==1.30.0
+          pip install -r docker/compose-next/requirements.langgraph-worker.lock
+          python -c "from importlib.metadata import version; assert version('langgraph') == '0.2.76'; assert version('temporalio') == '1.30.0'"
+          pip check
+      - name: Run mandatory workflow-runtime release gate
+        run: |
+          mkdir -p ci-artifacts/workflow-runtime-release-gate
+          python scripts/run-workflow-runtime-release-gate.py \
+            --output ci-artifacts/workflow-runtime-release-gate/result.json
+      - name: Upload workflow-runtime release evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: workflow-runtime-release-gate
+          path: ci-artifacts/workflow-runtime-release-gate/result.json
+          if-no-files-found: error
+          retention-days: 14
 
   release-gate:
     runs-on: ubuntu-latest

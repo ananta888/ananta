@@ -1,0 +1,117 @@
+{
+  "schema": "ananta.workflow_runtime_example.v1",
+  "example_id": "runtime-neutral-publication",
+  "execution_plan_ref": "examples/workflow-runtime/execution-plan.v1.json",
+  "fake_provider_ref": "examples/workflow-runtime/fake-provider.v1.json",
+  "live_provider_profile_ref": "examples/workflow-runtime/live-provider-profile.v1.json",
+  "rollout_policy_ref": "examples/workflow-runtime/rollout-policy.example.v1.json",
+  "runtimes": {
+    "native": {
+      "execution_plan_ref": "examples/workflow-runtime/execution-plan.v1.json",
+      "mode": "executable_example",
+      "durable": false,
+      "production_equivalent": false
+    },
+    "langgraph": {
+      "execution_plan_ref": "examples/workflow-runtime/execution-plan.v1.json",
+      "mode": "executable_example",
+      "durable": false,
+      "production_equivalent": false
+    },
+    "temporal": {
+      "execution_plan_ref": "examples/workflow-runtime/execution-plan.v1.json",
+      "mode": "durable_example",
+      "durable": true,
+      "real_temporal_server": true,
+      "production_equivalent": false
+    }
+  },
+  "langchain": {
+    "optional": true,
+    "allowed_roles": [
+      "provider_adapter",
+      "retriever_adapter",
+      "tool_adapter"
+    ],
+    "control_plane": false,
+    "task_queue_owner": false
+  },
+  "scenarios": {
+    "failure": {
+      "trigger": "fake_provider_first_draft_attempt_fails",
+      "expected_events": [
+        "workflow.step.failed",
+        "workflow.step.retry_scheduled"
+      ]
+    },
+    "approval": {
+      "trigger": "publish_approval_gate",
+      "expected_events": [
+        "workflow.approval.requested",
+        "workflow.run.paused",
+        "workflow.approval.granted",
+        "workflow.run.resumed"
+      ]
+    },
+    "cancel": {
+      "trigger": "authenticated_hub_cancel_command",
+      "expected_events": [
+        "workflow.run.cancelled"
+      ]
+    },
+    "crash": {
+      "trigger": "runtime_container_killed_after_checkpoint",
+      "expected_events": [
+        "workflow.checkpoint.created"
+      ]
+    },
+    "resume": {
+      "trigger": "authenticated_hub_resume_command",
+      "expected_events": [
+        "workflow.run.resumed",
+        "workflow.run.completed"
+      ]
+    }
+  },
+  "compose": {
+    "base": "docker/compose-next/compose.stack.full.yml",
+    "durable_overlay": "docker/compose-next/compose.temporal.yml",
+    "temporal_test_overlay": "docker/compose-next/compose.tests.temporal.yml",
+    "executable_example_overlay": "docker/compose-next/compose.workflow-runtime-example.yml",
+    "optional_live_provider_overlay": "docker/compose-next/compose.workflow-runtime-example.live-provider.yml"
+  },
+  "runner": {
+    "entrypoint": "examples/workflow-runtime/run_example.py",
+    "prepare_mode": "prepare",
+    "resume_mode": "resume",
+    "requires_pytest": false,
+    "worker_crash_signal": "SIGKILL",
+    "ci_workflow": ".github/workflows/quality-and-docs.yml"
+  },
+  "evidence": {
+    "schema_ref": "examples/workflow-runtime/evidence-schema.v1.json",
+    "output_file": "artifacts/workflow-runtime-example-v1.json",
+    "classification": "example_only",
+    "production_release_gate": false
+  },
+  "expected_artifacts": [
+    "draft",
+    "published",
+    "verification",
+    "canonical_event_stream",
+    "runtime_evaluation",
+    "example_evidence",
+    "release_gate_evidence"
+  ],
+  "dependencies": {
+    "core": [
+      "ananta"
+    ],
+    "optional": {
+      "langgraph": "lc-lg",
+      "temporal": "temporal",
+      "local_live_provider": "openai-compatible endpoint plus file-mounted credential"
+    },
+    "live_provider_required": false
+  }
+}

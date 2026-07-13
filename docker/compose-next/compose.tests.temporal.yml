@@ -1,0 +1,61 @@
+services:
+  temporal-smoke:
+    build:
+      context: ../..
+      dockerfile: docker/compose-next/Dockerfile.temporal-worker
+      args:
+        TEMPORALIO_VERSION: 1.30.0
+    image: ${ANANTA_TEMPORAL_WORKER_IMAGE:-ananta-temporal-worker:local}
+    profiles: ["temporal-test"]
+    restart: "no"
+    depends_on:
+      temporal:
+        condition: service_healthy
+      ananta-temporal-worker:
+        condition: service_healthy
+    environment:
+      ANANTA_TEMPORAL_ADDRESS: temporal:7233
+      ANANTA_TEMPORAL_NAMESPACE: ${ANANTA_TEMPORAL_NAMESPACE:-default}
+      ANANTA_TEMPORAL_TASK_QUEUE: ${ANANTA_TEMPORAL_TASK_QUEUE:-ananta-workflows-v1}
+      ANANTA_TEMPORAL_SMOKE_TIMEOUT_SECONDS: ${ANANTA_TEMPORAL_SMOKE_TIMEOUT_SECONDS:-60}
+      ANANTA_TEMPORAL_SMOKE_MODE: ${ANANTA_TEMPORAL_SMOKE_MODE:-probe}
+      ANANTA_TEMPORAL_RECOVERY_PROBE_ID: ${ANANTA_TEMPORAL_RECOVERY_PROBE_ID:-ananta-compose-recovery-probe-v1}
+    entrypoint: ["python", "-m", "worker.temporal.smoke"]
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - temporal-runtime
+
+  temporal-performance:
+    build:
+      context: ../..
+      dockerfile: docker/compose-next/Dockerfile.temporal-worker
+      args:
+        TEMPORALIO_VERSION: 1.30.0
+    image: ${ANANTA_TEMPORAL_WORKER_IMAGE:-ananta-temporal-worker:local}
+    profiles: ["temporal-test"]
+    restart: "no"
+    depends_on:
+      temporal:
+        condition: service_healthy
+      ananta-temporal-worker:
+        condition: service_healthy
+    environment:
+      ANANTA_TEMPORAL_ADDRESS: temporal:7233
+      ANANTA_TEMPORAL_NAMESPACE: ${ANANTA_TEMPORAL_NAMESPACE:-default}
+      ANANTA_TEMPORAL_TASK_QUEUE: ${ANANTA_TEMPORAL_TASK_QUEUE:-ananta-workflows-v1}
+      ANANTA_TEMPORAL_SMOKE_TIMEOUT_SECONDS: ${ANANTA_TEMPORAL_SMOKE_TIMEOUT_SECONDS:-60}
+      ANANTA_TEMPORAL_PERFORMANCE_SAMPLES: ${ANANTA_TEMPORAL_PERFORMANCE_SAMPLES:-20}
+    entrypoint: ["python", "-m", "worker.temporal.performance"]
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - temporal-runtime

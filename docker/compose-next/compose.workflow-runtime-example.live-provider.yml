@@ -1,0 +1,37 @@
+services:
+  workflow-runtime-example-live-provider:
+    build:
+      context: ../..
+      dockerfile: docker/compose-next/Dockerfile.workflow-runtime-example
+      args:
+        TEMPORALIO_VERSION: 1.30.0
+    image: ${ANANTA_WORKFLOW_RUNTIME_EXAMPLE_IMAGE:-ananta-workflow-runtime-example:local}
+    profiles: ["workflow-runtime-live-provider"]
+    restart: "no"
+    entrypoint:
+      - python
+      - /app/examples/workflow-runtime/live_provider_probe.py
+    environment:
+      ANANTA_EXAMPLE_EVIDENCE_DIR: /evidence
+      ANANTA_EXAMPLE_LIVE_PROVIDER_BASE_URL: "${ANANTA_EXAMPLE_LIVE_PROVIDER_BASE_URL:?Set the local OpenAI-compatible base URL}"
+      ANANTA_EXAMPLE_LIVE_PROVIDER_MODEL: "${ANANTA_EXAMPLE_LIVE_PROVIDER_MODEL:?Set the local provider model name}"
+      ANANTA_EXAMPLE_LIVE_PROVIDER_API_KEY_FILE: /run/secrets/workflow-runtime-live-provider-api-key
+    secrets:
+      - workflow-runtime-live-provider-api-key
+    volumes:
+      - workflow-runtime-example-evidence:/evidence
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+
+secrets:
+  workflow-runtime-live-provider-api-key:
+    file: "${ANANTA_EXAMPLE_LIVE_PROVIDER_API_KEY_FILE:?Set a host path to the local provider credential file}"
+
+volumes:
+  workflow-runtime-example-evidence:

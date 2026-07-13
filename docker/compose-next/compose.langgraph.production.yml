@@ -1,0 +1,65 @@
+services:
+  ai-agent-hub:
+    environment:
+      AGENT_TOKEN_FILE: /run/secrets/workflow_hub_service_token
+      ANANTA_WORKFLOW_AUTH_KEYRING_FILE: /run/secrets/workflow_runtime_auth_keyring
+      ANANTA_WORKFLOW_DISPATCH_KEYRING_FILE: /run/secrets/workflow_runtime_dispatch_keyring
+    secrets:
+      - source: workflow_runtime_auth_keyring
+        target: workflow_runtime_auth_keyring
+        mode: 0440
+      - source: workflow_runtime_dispatch_keyring
+        target: workflow_runtime_dispatch_keyring
+        mode: 0440
+      - source: workflow_hub_service_token
+        target: workflow_hub_service_token
+        mode: 0440
+    networks:
+      - default
+      - langgraph-runtime
+
+  ai-agent-langgraph-worker:
+    extends:
+      file: compose.base.yml
+      service: ai-agent-worker-base
+    build:
+      context: ../..
+      dockerfile: docker/compose-next/Dockerfile.quickstart-no-ollama
+      args:
+        INSTALL_LANGGRAPH_RUNTIME: "1"
+    image: ${ANANTA_LANGGRAPH_WORKER_IMAGE:-ananta-langgraph-worker:local}
+    profiles: ["langgraph"]
+    environment:
+      AGENT_NAME: ${ANANTA_LANGGRAPH_WORKER_ID:-ananta-langgraph-worker-1}
+      AGENT_URL: http://ai-agent-langgraph-worker:5000
+      HUB_URL: http://ai-agent-hub:5000
+      AGENT_TOKEN_FILE: /run/secrets/workflow_hub_service_token
+      ANANTA_LANGGRAPH_HUB_URL: http://ai-agent-hub:5000
+      ANANTA_LANGGRAPH_HUB_TOKEN_FILE: /run/secrets/workflow_hub_service_token
+      ANANTA_WORKFLOW_ADAPTER_WORKER_PROFILE_FILE: /app/config/workflow_runtime/langgraph_worker_profile.v1.json
+    secrets:
+      - source: workflow_hub_service_token
+        target: workflow_hub_service_token
+        mode: 0440
+    depends_on:
+      ai-agent-hub:
+        condition: service_healthy
+    networks:
+      - langgraph-runtime
+    volumes:
+      - ../../project-workspaces:/project-workspaces:rw
+      - langgraph-worker-data:/app/data
+
+secrets:
+  workflow_runtime_auth_keyring:
+    file: "${ANANTA_WORKFLOW_AUTH_KEYRING_SECRET_FILE:?Error: auth keyring secret file must be set}"
+  workflow_runtime_dispatch_keyring:
+    file: "${ANANTA_WORKFLOW_DISPATCH_KEYRING_SECRET_FILE:?Error: dispatch keyring secret file must be set}"
+  workflow_hub_service_token:
+    file: "${ANANTA_WORKFLOW_HUB_TOKEN_SECRET_FILE:?Error: Hub service-token secret file must be set}"
+
+volumes:
+  langgraph-worker-data:
+
+networks:
+  langgraph-runtime:

@@ -1,0 +1,209 @@
+{
+  "schema": "ananta.workflow_runtime_release_input.v1",
+  "evidence_version": "1.0.0",
+  "evidence_origin": "fixture_only",
+  "fixture_only": true,
+  "contract_hash": "a85ec0b0206487c558af327f1fc367b03436f5f75b4a66f00e5bf831196c0427",
+  "runtimes": {
+    "native": {
+      "runtime_version": "1.0.0",
+      "capabilities": ["approval", "bounded_parallel", "checkpoint", "deterministic_merge", "resume", "retrieval", "structured_output", "tool_calling"],
+      "scenarios": {
+        "research": {
+          "iterations": 10,
+          "durable": false,
+          "observation": {
+            "terminal_status": "completed",
+            "event_types": ["workflow.run.started", "workflow.step.completed", "workflow.run.completed"],
+            "artifact_ids": ["sources", "report"],
+            "gate_ids": [],
+            "side_effect_operations": [],
+            "policy_decisions": ["policy.allowed"],
+            "budget_usage": {"attempts": 1, "tokens": 0, "cost_micros": 0}
+          },
+          "proofs": {"port": "passed", "security": "passed", "recovery": "passed", "event": "passed", "checkpoint": "passed", "approval": "not_applicable", "ledger": "not_applicable", "artifact": "passed"}
+        },
+        "code-analysis": {
+          "iterations": 10,
+          "durable": false,
+          "observation": {
+            "terminal_status": "completed",
+            "event_types": ["workflow.run.started", "workflow.step.completed", "workflow.run.completed"],
+            "artifact_ids": ["code-context", "analysis"],
+            "gate_ids": [],
+            "side_effect_operations": [],
+            "policy_decisions": ["policy.allowed"],
+            "budget_usage": {"attempts": 1, "tokens": 0, "cost_micros": 0}
+          },
+          "proofs": {"port": "passed", "security": "passed", "recovery": "not_applicable", "event": "passed", "checkpoint": "not_applicable", "approval": "not_applicable", "ledger": "not_applicable", "artifact": "passed"}
+        },
+        "approval": {
+          "iterations": 10,
+          "durable": false,
+          "observation": {
+            "terminal_status": "completed",
+            "event_types": ["workflow.run.started", "workflow.approval.granted", "workflow.side_effect.completed", "workflow.run.completed"],
+            "artifact_ids": ["draft", "published"],
+            "gate_ids": ["publish-approval"],
+            "side_effect_operations": ["publish-artifact"],
+            "policy_decisions": ["approval.bound", "policy.allowed"],
+            "budget_usage": {"attempts": 1, "tokens": 0, "cost_micros": 0}
+          },
+          "proofs": {"port": "passed", "security": "passed", "recovery": "not_applicable", "event": "passed", "checkpoint": "not_applicable", "approval": "passed", "ledger": "passed", "artifact": "passed"}
+        },
+        "bounded-parallel-merge": {
+          "iterations": 10,
+          "durable": false,
+          "observation": {
+            "terminal_status": "completed",
+            "event_types": ["workflow.run.started", "workflow.step.completed", "workflow.branch.completed", "workflow.merge.completed", "workflow.run.completed"],
+            "artifact_ids": ["branch-a-result", "branch-b-result", "merged-result"],
+            "gate_ids": [],
+            "side_effect_operations": [],
+            "policy_decisions": ["parallel.bound", "policy.allowed"],
+            "budget_usage": {"attempts": 1, "tokens": 0, "cost_micros": 0}
+          },
+          "proofs": {"port": "passed", "security": "passed", "recovery": "not_applicable", "event": "passed", "checkpoint": "not_applicable", "approval": "not_applicable", "ledger": "not_applicable", "artifact": "passed"}
+        }
+      }
+    },
+    "langgraph": {
+      "runtime_version": "1.0.0",
+      "capabilities": ["approval", "bounded_parallel", "checkpoint", "deterministic_merge", "resume", "retrieval", "structured_output", "tool_calling"],
+      "scenarios": {
+        "research": {
+          "iterations": 10,
+          "durable": false,
+          "observation": {
+            "terminal_status": "completed",
+            "event_types": ["workflow.run.started", "workflow.step.completed", "workflow.run.completed"],
+            "artifact_ids": ["sources", "report"],
+            "gate_ids": [],
+            "side_effect_operations": [],
+            "policy_decisions": ["policy.allowed"],
+            "budget_usage": {"attempts": 1, "tokens": 0, "cost_micros": 0}
+          },
+          "proofs": {"port": "passed", "security": "passed", "recovery": "passed", "event": "passed", "checkpoint": "passed", "approval": "not_applicable", "ledger": "not_applicable", "artifact": "passed"}
+        },
+        "code-analysis": {
+          "iterations": 10,
+          "durable": false,
+          "observation": {
+            "terminal_status": "completed",
+            "event_types": ["workflow.run.started", "workflow.step.completed", "workflow.run.completed"],
+            "artifact_ids": ["code-context", "analysis"],
+            "gate_ids": [],
+            "side_effect_operations": [],
+            "policy_decisions": ["policy.allowed"],
+            "budget_usage": {"attempts": 1, "tokens": 0, "cost_micros": 0}
+          },
+          "proofs": {"port": "passed", "security": "passed", "recovery": "not_applicable", "event": "passed", "checkpoint": "not_applicable", "approval": "not_applicable", "ledger": "not_applicable", "artifact": "passed"}
+        },
+        "approval": {
+          "iterations": 10,
+          "durable": false,
+          "observation": {
+            "terminal_status": "completed",
+            "event_types": ["workflow.run.started", "workflow.approval.granted", "workflow.side_effect.completed", "workflow.run.completed"],
+            "artifact_ids": ["draft", "published"],
+            "gate_ids": ["publish-approval"],
+            "side_effect_operations": ["publish-artifact"],
+            "policy_decisions": ["approval.bound", "policy.allowed"],
+            "budget_usage": {"attempts": 1, "tokens": 0, "cost_micros": 0}
+          },
+          "proofs": {"port": "passed", "security": "passed", "recovery": "not_applicable", "event": "passed", "checkpoint": "not_applicable", "approval": "passed", "ledger": "passed", "artifact": "passed"}
+        },
+        "bounded-parallel-merge": {
+          "iterations": 10,
+          "durable": false,
+          "observation": {
+            "terminal_status": "completed",
+            "event_types": ["workflow.run.started", "workflow.step.completed", "workflow.branch.completed", "workflow.merge.completed", "workflow.run.completed"],
+            "artifact_ids": ["branch-a-result", "branch-b-result", "merged-result"],
+            "gate_ids": [],
+            "side_effect_operations": [],
+            "policy_decisions": ["parallel.bound", "policy.allowed"],
+            "budget_usage": {"attempts": 1, "tokens": 0, "cost_micros": 0}
+          },
+          "proofs": {"port": "passed", "security": "passed", "recovery": "not_applicable", "event": "passed", "checkpoint": "not_applicable", "approval": "not_applicable", "ledger": "not_applicable", "artifact": "passed"}
+        }
+      }
+    },
+    "temporal": {
+      "runtime_version": "1.0.0",
+      "capabilities": ["approval", "bounded_parallel", "checkpoint", "deterministic_merge", "durability", "resume", "retrieval", "structured_output", "tool_calling"],
+      "scenarios": {
+        "research": {
+          "iterations": 10,
+          "durable": true,
+          "observation": {
+            "terminal_status": "completed",
+            "event_types": ["workflow.run.started", "workflow.step.completed", "workflow.run.completed"],
+            "artifact_ids": ["sources", "report"],
+            "gate_ids": [],
+            "side_effect_operations": [],
+            "policy_decisions": ["policy.allowed"],
+            "budget_usage": {"attempts": 1, "tokens": 0, "cost_micros": 0}
+          },
+          "proofs": {"port": "passed", "security": "passed", "recovery": "passed", "event": "passed", "checkpoint": "passed", "approval": "not_applicable", "ledger": "not_applicable", "artifact": "passed"}
+        },
+        "code-analysis": {
+          "iterations": 10,
+          "durable": true,
+          "observation": {
+            "terminal_status": "completed",
+            "event_types": ["workflow.run.started", "workflow.step.completed", "workflow.run.completed"],
+            "artifact_ids": ["code-context", "analysis"],
+            "gate_ids": [],
+            "side_effect_operations": [],
+            "policy_decisions": ["policy.allowed"],
+            "budget_usage": {"attempts": 1, "tokens": 0, "cost_micros": 0}
+          },
+          "proofs": {"port": "passed", "security": "passed", "recovery": "passed", "event": "passed", "checkpoint": "passed", "approval": "not_applicable", "ledger": "not_applicable", "artifact": "passed"}
+        },
+        "approval": {
+          "iterations": 10,
+          "durable": true,
+          "observation": {
+            "terminal_status": "completed",
+            "event_types": ["workflow.run.started", "workflow.approval.granted", "workflow.side_effect.completed", "workflow.run.completed"],
+            "artifact_ids": ["draft", "published"],
+            "gate_ids": ["publish-approval"],
+            "side_effect_operations": ["publish-artifact"],
+            "policy_decisions": ["approval.bound", "policy.allowed"],
+            "budget_usage": {"attempts": 1, "tokens": 0, "cost_micros": 0}
+          },
+          "proofs": {"port": "passed", "security": "passed", "recovery": "passed", "event": "passed", "checkpoint": "passed", "approval": "passed", "ledger": "passed", "artifact": "passed"}
+        },
+        "bounded-parallel-merge": {
+          "iterations": 10,
+          "durable": true,
+          "observation": {
+            "terminal_status": "completed",
+            "event_types": ["workflow.run.started", "workflow.step.completed", "workflow.branch.completed", "workflow.merge.completed", "workflow.run.completed"],
+            "artifact_ids": ["branch-a-result", "branch-b-result", "merged-result"],
+            "gate_ids": [],
+            "side_effect_operations": [],
+            "policy_decisions": ["parallel.bound", "policy.allowed"],
+            "budget_usage": {"attempts": 1, "tokens": 0, "cost_micros": 0}
+          },
+          "proofs": {"port": "passed", "security": "passed", "recovery": "passed", "event": "passed", "checkpoint": "passed", "approval": "not_applicable", "ledger": "not_applicable", "artifact": "passed"}
+        },
+        "long-running-resume": {
+          "iterations": 10,
+          "durable": true,
+          "observation": {
+            "terminal_status": "completed",
+            "event_types": ["workflow.run.started", "workflow.checkpoint.created", "workflow.run.paused", "workflow.run.resumed", "workflow.run.completed"],
+            "artifact_ids": ["prepared-state", "checkpoint-ref", "durable-result"],
+            "gate_ids": ["resume-gate"],
+            "side_effect_operations": [],
+            "policy_decisions": ["policy.allowed", "resume.authorized"],
+            "budget_usage": {"attempts": 1, "tokens": 0, "cost_micros": 0}
+          },
+          "proofs": {"port": "passed", "security": "passed", "recovery": "passed", "event": "passed", "checkpoint": "passed", "approval": "passed", "ledger": "not_applicable", "artifact": "passed"}
+        }
+      }
+    }
+  }
+}

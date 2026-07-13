@@ -1,0 +1,26 @@
+FROM python:3.11.15-slim-bookworm@sha256:9c6f90801e6b68e772b7c0ca74260cbf7af9f320acec894e26fccdaccfbe3b47
+
+ARG TEMPORALIO_VERSION=1.30.0
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app
+
+RUN groupadd --gid 10001 ananta \
+    && useradd --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin ananta
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir "temporalio==${TEMPORALIO_VERSION}"
+
+COPY ananta_contracts/ /app/ananta_contracts/
+COPY worker/__init__.py /app/worker/__init__.py
+COPY worker/temporal/ /app/worker/temporal/
+
+USER 10001:10001
+
+EXPOSE 8088
+
+ENTRYPOINT ["python", "-m", "worker.temporal"]

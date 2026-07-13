@@ -1,0 +1,32 @@
+{
+  "schema": "ananta.workflow-adapter-worker-profile.v1",
+  "worker_runtime": {
+    "native_graph": {
+      "enabled": true,
+      "allowed_task_types": [
+        "agent_workflow",
+        "analysis",
+        "coding",
+        "documentation",
+        "implementation",
+        "multi_step_plan",
+        "review",
+        "stateful_task",
+        "testing",
+        "verification"
+      ],
+      "capabilities": [
+        "approval",
+        "bounded_parallel",
+        "checkpoint",
+        "deterministic_merge",
+        "resume",
+        "retrieval",
+        "stream",
+        "structured_output",
+        "subgraphs",
+        "tool_calling"
+      ]
+    }
+  }
+}

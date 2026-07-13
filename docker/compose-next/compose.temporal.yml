@@ -1,0 +1,123 @@
+services:
+  temporal-db:
+    image: postgres:16.13@sha256:5a65324fe84dc41709ff914e90b07f3e2f577073ed27bf917d4873aca0c9ec51
+    profiles: ["temporal"]
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${TEMPORAL_POSTGRES_USER:-temporal}
+      POSTGRES_PASSWORD: "${TEMPORAL_POSTGRES_PASSWORD:?Error: TEMPORAL_POSTGRES_PASSWORD must be set}"
+      POSTGRES_DB: ${TEMPORAL_POSTGRES_DB:-temporal}
+    volumes:
+      - temporal-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${TEMPORAL_POSTGRES_USER:-temporal} -d ${TEMPORAL_POSTGRES_DB:-temporal}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - temporal-runtime
+
+  temporal:
+    image: temporalio/auto-setup:1.29.1@sha256:5b3502a3b685f9eff1b925af90c57c9e3dbeccbef367cc28a2a9712c63379312
+    profiles: ["temporal"]
+    restart: unless-stopped
+    depends_on:
+      temporal-db:
+        condition: service_healthy
+    environment:
+      DB: postgres12
+      DB_PORT: 5432
+      POSTGRES_USER: ${TEMPORAL_POSTGRES_USER:-temporal}
+      POSTGRES_PWD: "${TEMPORAL_POSTGRES_PASSWORD:?Error: TEMPORAL_POSTGRES_PASSWORD must be set}"
+      POSTGRES_SEEDS: temporal-db
+      DBNAME: ${TEMPORAL_POSTGRES_DB:-temporal}
+      VISIBILITY_DBNAME: ${TEMPORAL_VISIBILITY_POSTGRES_DB:-temporal_visibility}
+      SKIP_DEFAULT_NAMESPACE_CREATION: "false"
+      DEFAULT_NAMESPACE: ${ANANTA_TEMPORAL_NAMESPACE:-default}
+    ports:
+      # Development diagnostics stay host-local.  Remote/productive callers
+      # must use the internal network or an explicitly secured TLS endpoint.
+      - "${TEMPORAL_BIND_ADDRESS:-127.0.0.1}:${TEMPORAL_GRPC_PORT:-7233}:7233"
+    healthcheck:
+      test: ["CMD-SHELL", "tctl --address temporal:7233 cluster health >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    networks:
+      - temporal-runtime
+
+  temporal-ui:
+    image: temporalio/ui:2.43.0@sha256:5370fdfa103fc239c1c685d01dba2a027543b611813388d6dbd526c01babce49
+    profiles: ["temporal"]
+    restart: unless-stopped
+    depends_on:
+      temporal:
+        condition: service_healthy
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CORS_ORIGINS: ${TEMPORAL_CORS_ORIGINS:-http://localhost:4200}
+    ports:
+      - "${TEMPORAL_UI_BIND_ADDRESS:-127.0.0.1}:${TEMPORAL_UI_PORT:-8233}:8080"
+    networks:
+      - temporal-runtime
+
+  ananta-temporal-worker:
+    build:
+      context: ../..
+      dockerfile: docker/compose-next/Dockerfile.temporal-worker
+      args:
+        TEMPORALIO_VERSION: 1.30.0
+    image: ${ANANTA_TEMPORAL_WORKER_IMAGE:-ananta-temporal-worker:local}
+    profiles: ["temporal"]
+    restart: unless-stopped
+    depends_on:
+      temporal:
+        condition: service_healthy
+    environment:
+      ANANTA_TEMPORAL_ADDRESS: temporal:7233
+      ANANTA_TEMPORAL_NAMESPACE: ${ANANTA_TEMPORAL_NAMESPACE:-default}
+      ANANTA_TEMPORAL_TASK_QUEUE: ${ANANTA_TEMPORAL_TASK_QUEUE:-ananta-workflows-v1}
+      ANANTA_TEMPORAL_BUILD_ID: ${ANANTA_TEMPORAL_BUILD_ID:-ananta-temporal-v1}
+      ANANTA_TEMPORAL_IDENTITY: ${ANANTA_TEMPORAL_IDENTITY:-ananta-temporal-worker}
+      ANANTA_TEMPORAL_HEALTH_HOST: 0.0.0.0
+      ANANTA_TEMPORAL_HEALTH_PORT: 8088
+      ANANTA_TEMPORAL_GRACEFUL_SHUTDOWN_SECONDS: ${ANANTA_TEMPORAL_GRACEFUL_SHUTDOWN_SECONDS:-30}
+      ANANTA_TEMPORAL_USE_WORKER_VERSIONING: ${ANANTA_TEMPORAL_USE_WORKER_VERSIONING:-false}
+      ANANTA_TEMPORAL_TLS_ENABLED: ${ANANTA_TEMPORAL_TLS_ENABLED:-false}
+      ANANTA_TEMPORAL_TLS_SERVER_NAME: ${ANANTA_TEMPORAL_TLS_SERVER_NAME:-}
+      ANANTA_TEMPORAL_TLS_CA_FILE: ${ANANTA_TEMPORAL_TLS_CA_FILE:-}
+      ANANTA_TEMPORAL_TLS_CERT_FILE: ${ANANTA_TEMPORAL_TLS_CERT_FILE:-}
+      ANANTA_TEMPORAL_TLS_KEY_FILE: ${ANANTA_TEMPORAL_TLS_KEY_FILE:-}
+      ANANTA_TEMPORAL_API_KEY_FILE: ${ANANTA_TEMPORAL_API_KEY_FILE:-}
+      ANANTA_WORKFLOW_AUTH_KEYRING_FILE: ${ANANTA_WORKFLOW_AUTH_KEYRING_FILE:-}
+      ANANTA_TEMPORAL_HUB_URL: ${ANANTA_TEMPORAL_HUB_URL:-}
+      ANANTA_TEMPORAL_HUB_TOKEN_FILE: ${ANANTA_TEMPORAL_HUB_TOKEN_FILE:-}
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8088/ready', timeout=2).read()"
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 20s
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: ${ANANTA_TEMPORAL_STOP_GRACE_PERIOD:-40s}
+    networks:
+      - temporal-runtime
+      - default
+
+volumes:
+  temporal-postgres-data:
+
+networks:
+  temporal-runtime:
+    internal: true

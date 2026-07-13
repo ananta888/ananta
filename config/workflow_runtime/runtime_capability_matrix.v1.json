@@ -1,0 +1,112 @@
+{
+  "schema": "ananta.workflow_runtime_capability_matrix.v1",
+  "matrix_version": "1.0.0",
+  "runtimes": [
+    {
+      "schema": "ananta.workflow_runtime_capability.v1",
+      "runtime_id": "ananta-native",
+      "runtime_version": "1.0.0",
+      "contract_version": "ananta.execution_plan.v1",
+      "mode": "live",
+      "capabilities": [
+        "approval",
+        "audit",
+        "authorization",
+        "bounded_parallel",
+        "checkpoint",
+        "deterministic_merge",
+        "policy",
+        "resume",
+        "retrieval",
+        "side_effect_guard",
+        "structured_output",
+        "tool_calling"
+      ],
+      "restrictions": [
+        "process_local_scheduler_not_durable",
+        "runtime_restart_requires_hub_checkpoint"
+      ],
+      "health": {
+        "status": "unavailable",
+        "reason_code": "runtime_health_not_observed"
+      },
+      "data_localities": ["any", "eu", "local"],
+      "policy_versions": ["*"],
+      "max_timeout_seconds": 3600,
+      "max_tokens": 1000000,
+      "max_cost_micros": 100000000,
+      "priority": 10
+    },
+    {
+      "schema": "ananta.workflow_runtime_capability.v1",
+      "runtime_id": "langgraph",
+      "runtime_version": "1.0.0",
+      "contract_version": "ananta.execution_plan.v1",
+      "mode": "live",
+      "capabilities": [
+        "approval",
+        "audit",
+        "authorization",
+        "bounded_parallel",
+        "checkpoint",
+        "deterministic_merge",
+        "policy",
+        "resume",
+        "retrieval",
+        "side_effect_guard",
+        "structured_output",
+        "tool_calling"
+      ],
+      "restrictions": [
+        "compiled_graph_required_for_production",
+        "durable_execution_not_supported"
+      ],
+      "health": {
+        "status": "unavailable",
+        "reason_code": "runtime_health_not_observed"
+      },
+      "data_localities": ["any", "eu", "local"],
+      "policy_versions": ["*"],
+      "max_timeout_seconds": 3600,
+      "max_tokens": 1000000,
+      "max_cost_micros": 100000000,
+      "priority": 20
+    },
+    {
+      "schema": "ananta.workflow_runtime_capability.v1",
+      "runtime_id": "temporal",
+      "runtime_version": "1.0.0",
+      "contract_version": "ananta.execution_plan.v1",
+      "mode": "durable",
+      "capabilities": [
+        "approval",
+        "audit",
+        "authorization",
+        "bounded_parallel",
+        "checkpoint",
+        "deterministic_merge",
+        "durability",
+        "policy",
+        "resume",
+        "retrieval",
+        "side_effect_guard",
+        "structured_output",
+        "tool_calling"
+      ],
+      "restrictions": [
+        "temporal_cluster_required",
+        "temporal_worker_registration_required"
+      ],
+      "health": {
+        "status": "unavailable",
+        "reason_code": "runtime_health_not_observed"
+      },
+      "data_localities": ["any", "eu", "local"],
+      "policy_versions": ["*"],
+      "max_timeout_seconds": 2592000,
+      "max_tokens": 1000000,
+      "max_cost_micros": 100000000,
+      "priority": 30
+    }
+  ]
+}

@@ -7,6 +7,7 @@ FROM python:3.11.15-slim-bookworm@sha256:9c6f90801e6b68e772b7c0ca74260cbf7af9f32
 #   -t ananta-quickstart-no-ollama:local .
 
 ARG DEBIAN_SNAPSHOT=20260406T000000Z
+ARG INSTALL_LANGGRAPH_RUNTIME=0
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
@@ -63,7 +64,15 @@ RUN git config --global --add safe.directory /app
 
 # Kopiere Release-Lockdatei und installiere Python-Runtime-Pakete (Caching nutzen)
 COPY requirements.lock .
-RUN pip install --no-cache-dir -r requirements.lock
+COPY docker/compose-next/requirements.langgraph-worker.lock /tmp/requirements.langgraph-worker.lock
+RUN pip install --no-cache-dir -r requirements.lock \
+    && case "${INSTALL_LANGGRAPH_RUNTIME}" in \
+        0) ;; \
+        1) pip install --no-cache-dir -r /tmp/requirements.langgraph-worker.lock \
+            && python -c "from importlib.metadata import version; import langgraph; assert version('langgraph') == '0.2.76'; assert version('langchain-core') == '0.3.86'" \
+            && pip check ;; \
+        *) echo "INSTALL_LANGGRAPH_RUNTIME must be 0 or 1" >&2; exit 64 ;; \
+    esac
 
 # Frontend-Abhaengigkeiten im selben Image vorinstallieren.
 COPY frontend-angular/package*.json frontend-angular/

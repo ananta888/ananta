@@ -1,0 +1,21 @@
+# Production-only LangGraph Worker runtime.
+#
+# Keep every package introduced on top of the quickstart image exact. The base
+# application remains pinned by requirements.lock; this additive lock covers
+# LangGraph and the dependencies not present in that base image. packaging is
+# pinned to the newest line accepted by langchain-core 0.3.x.
+langgraph==0.2.76
+langchain-core==0.3.86
+langgraph-checkpoint==2.1.2
+langgraph-sdk==0.1.74
+langsmith==0.10.2
+jsonpatch==1.33
+jsonpointer==3.1.1
+ormsgpack==1.12.2
+orjson==3.11.9
+packaging==25.0
+requests-toolbelt==1.0.0
+uuid-utils==0.17.0
+websockets==16.1
+xxhash==3.8.1
+zstandard==0.25.0

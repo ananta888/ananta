@@ -1,0 +1,43 @@
+{
+  "schema": "ananta.workflow-adapter-worker-profile.v1",
+  "providers": {
+    "langgraph": {
+      "enabled": true,
+      "mode": "local_live",
+      "allowed_task_types": [
+        "agent_workflow",
+        "human_in_loop",
+        "multi_step_plan",
+        "review_workflow",
+        "stateful_task"
+      ],
+      "allowed_graphs": [],
+      "state_policy": "hub_owned",
+      "checkpoint_policy": "hub_owned",
+      "human_in_loop_required_for": [
+        "delete",
+        "network",
+        "patch",
+        "push",
+        "shell",
+        "write"
+      ],
+      "timeout_seconds": 300,
+      "max_iterations": 30,
+      "max_nodes": 25,
+      "max_tokens": null,
+      "plan_parallel_limit": 4,
+      "tenant_parallel_limit": 4,
+      "worker_parallel_limit": 4,
+      "external_calls_allowed": false,
+      "model_provider_ref": "local.default",
+      "embedding_provider_scope": "codecompass_vector",
+      "secret_refs": [],
+      "allowed_tools": [],
+      "artifact_first": true,
+      "metadata": {
+        "profile_id": "langgraph-production-hub-owned-v1"
+      }
+    }
+  }
+}

@@ -1,0 +1,142 @@
+{
+  "schema": "ananta.workflow_runtime_release_gate.v1",
+  "gate_id": "workflow-runtime-production",
+  "gate_version": "1.0.0",
+  "minimum_critical_iterations": 10,
+  "reference_catalog_version": "1.0.0",
+  "evaluation_suite_version": "1.0.0",
+  "runtimes": {
+    "native": {
+      "runtime_version": "1.0.0",
+      "capabilities": [
+        "approval",
+        "bounded_parallel",
+        "checkpoint",
+        "deterministic_merge",
+        "resume",
+        "retrieval",
+        "structured_output",
+        "tool_calling"
+      ],
+      "required_scenarios": [
+        "research",
+        "code-analysis",
+        "approval",
+        "bounded-parallel-merge"
+      ],
+      "durable_scenarios": []
+    },
+    "langgraph": {
+      "runtime_version": "1.0.0",
+      "capabilities": [
+        "approval",
+        "bounded_parallel",
+        "checkpoint",
+        "deterministic_merge",
+        "resume",
+        "retrieval",
+        "structured_output",
+        "tool_calling"
+      ],
+      "required_scenarios": [
+        "research",
+        "code-analysis",
+        "approval",
+        "bounded-parallel-merge"
+      ],
+      "durable_scenarios": []
+    },
+    "temporal": {
+      "runtime_version": "1.0.0",
+      "capabilities": [
+        "approval",
+        "bounded_parallel",
+        "checkpoint",
+        "deterministic_merge",
+        "durability",
+        "resume",
+        "retrieval",
+        "structured_output",
+        "tool_calling"
+      ],
+      "required_scenarios": [
+        "research",
+        "code-analysis",
+        "approval",
+        "bounded-parallel-merge",
+        "long-running-resume"
+      ],
+      "durable_scenarios": [
+        "research",
+        "code-analysis",
+        "approval",
+        "bounded-parallel-merge",
+        "long-running-resume"
+      ]
+    }
+  },
+  "verification_commands": [
+    {
+      "command_id": "native-runtime",
+      "evidence_runtime_ids": ["native"],
+      "argv": [
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_native_graph_runtime.py",
+        "tests/workflow_runtime/release_gate/test_native_reference_probes.py"
+      ]
+    },
+    {
+      "command_id": "langgraph-runtime",
+      "evidence_runtime_ids": ["langgraph"],
+      "argv": [
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/workflow_runtime/release_gate/test_runtime_probes.py",
+        "tests/test_langgraph_checkpoint_worker_adapter.py"
+      ]
+    },
+    {
+      "command_id": "temporal-runtime",
+      "evidence_runtime_ids": ["temporal"],
+      "argv": [
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/workflow_runtime/temporal/test_temporal_runtime_test_environment.py",
+        "tests/workflow_runtime/release_gate/test_temporal_reference_probes.py"
+      ]
+    },
+    {
+      "command_id": "runtime-contract-and-security",
+      "evidence_runtime_ids": [],
+      "argv": [
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/workflow_runtime/evaluation",
+        "tests/workflow_runtime/release_gate/test_release_gate.py",
+        "tests/security/workflow_runtime",
+        "tests/test_workflow_control_composition.py",
+        "tests/test_workflow_runtime_security_and_evolution.py",
+        "tests/test_workflow_runtime_side_effect_ledger.py",
+        "tests/test_workflow_runtime_ownership.py",
+        "tests/test_workflow_runtime_n_minus_one_compatibility.py",
+        "tests/test_workflow_runtime_sqlalchemy_stores.py",
+        "tests/test_workflow_shadow_comparison_service.py",
+        "tests/test_workflow_runtime_performance_gate.py",
+        "tests/workflow_runtime/test_workflow_runtime_operations_drills.py"
+      ]
+    }
+  ],
+  "artifact": {
+    "schema": "ananta.workflow_runtime_release_gate_result.v1",
+    "artifact_version": "1.0.0"
+  }
+}

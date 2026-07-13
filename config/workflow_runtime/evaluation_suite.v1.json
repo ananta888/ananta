@@ -1,0 +1,50 @@
+{
+  "schema": "ananta.workflow_evaluation_suite.v1",
+  "suite_id": "workflow-runtime-core",
+  "suite_version": "1.0.0",
+  "dataset": {
+    "dataset_id": "workflow-runtime-reference",
+    "dataset_version": "1.0.0",
+    "catalog_schema": "ananta.reference_workflow_catalog.v1",
+    "catalog_version": "1.0.0",
+    "catalog_path": "config/workflow_runtime/reference_workflows.v1.json",
+    "catalog_sha256": "8d39eeb8307c0abcfbb620fce8fac1ec55ec75b52c60244166711d4aee811bd6"
+  },
+  "rubric": {
+    "rubric_id": "workflow-runtime-invariants",
+    "rubric_version": "1.0.0",
+    "deterministic_rules": [
+      "runtime-support",
+      "capability-intersection",
+      "terminal-status",
+      "canonical-events",
+      "required-artifacts",
+      "approval-gates",
+      "side-effect-ledger",
+      "nonnegative-budget"
+    ],
+    "judge": {
+      "request_is_explicit": true,
+      "non_pass_blocks_release_when_requested": true,
+      "may_override_deterministic_gate": false
+    }
+  },
+  "models": {
+    "registry_id": "workflow-evaluation-models",
+    "registry_version": "1.0.0",
+    "allowed_model_refs": [
+      {
+        "model_ref": "model://local/workflow-judge-fixture-v1",
+        "model_version": "1.0.0",
+        "descriptor_path": "config/workflow_runtime/models/workflow_judge_fixture.v1.json",
+        "descriptor_sha256": "1145c071aba644d745d38be5be9e43cdef953b408b707d9215041791cbcac233",
+        "network_required": false,
+        "usage": "deterministic-test-fixture"
+      }
+    ]
+  },
+  "artifact": {
+    "schema": "ananta.workflow_evaluation_report.v1",
+    "artifact_version": "1.0.0"
+  }
+}

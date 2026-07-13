@@ -1,0 +1,38 @@
+{
+  "schema": "ananta.workflow_runtime_example_live_provider_profile.v1",
+  "profile_id": "local-openai-compatible-provider-adapter",
+  "classification": "optional_local_live",
+  "transport": "openai_compatible_chat_completions",
+  "configuration": {
+    "base_url_env": "ANANTA_EXAMPLE_LIVE_PROVIDER_BASE_URL",
+    "model_env": "ANANTA_EXAMPLE_LIVE_PROVIDER_MODEL",
+    "credential_file_env": "ANANTA_EXAMPLE_LIVE_PROVIDER_API_KEY_FILE",
+    "allowed_hostnames": [
+      "127.0.0.1",
+      "host.docker.internal",
+      "localhost",
+      "ollama"
+    ]
+  },
+  "limits": {
+    "timeout_seconds": 30,
+    "max_tokens": 32,
+    "maximum_response_bytes": 262144
+  },
+  "langchain": {
+    "role": "provider_adapter",
+    "allowed_roles": [
+      "provider_adapter",
+      "retriever_adapter",
+      "tool_adapter"
+    ],
+    "control_plane": false,
+    "task_queue_owner": false,
+    "workflow_scheduler": false
+  },
+  "evidence": {
+    "output_file": "workflow-runtime-live-provider-v1.json",
+    "records_raw_response": false,
+    "production_release_gate": false
+  }
+}
