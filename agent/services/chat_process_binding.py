@@ -14,7 +14,8 @@ from sqlmodel import Session
 from agent.database import engine
 from agent.db_models.visual_process import VisualProcessGraphDB
 from agent.services.workflow_backend import WorkflowSignal
-from agent.services.workflow_backend_factory import get_workflow_backend
+from agent.services.workflow_control_composition import get_workflow_backend_control_facade
+from agent.services.workflow_route_authorization_service import WorkflowRoutePrincipal
 from agent.visual_process.blueprint_mapper import graph_to_workflow_request
 from agent.visual_process.models import VisualProcessGraph
 from agent.visual_process.validator import VisualProcessValidator
@@ -89,7 +90,14 @@ def graph_snapshot_hash(graph: dict[str, Any]) -> str:
     return hashlib.sha256(json.dumps(graph, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
-def start_session_process(*, session_id: str, graph: dict[str, Any], message_id: str = "") -> dict[str, Any]:
+def start_session_process(
+    *,
+    session_id: str,
+    graph: dict[str, Any],
+    message_id: str = "",
+    tenant_id: str = "",
+    subject_id: str = "",
+) -> dict[str, Any]:
     definition = VisualProcessGraph.model_validate(graph)
     validation = VisualProcessValidator().validate(definition)
     if not validation.valid:
@@ -99,9 +107,13 @@ def start_session_process(*, session_id: str, graph: dict[str, Any], message_id:
         definition,
         workflow_type="chat_session_process",
         policy_scope={"source": "chat_session", "session_id": session_id},
-        requested_by="chat_session_hub",
+        requested_by=str(subject_id or "chat_session_hub"),
     )
-    status = get_workflow_backend().start_workflow(request)
+    principal = WorkflowRoutePrincipal(
+        tenant_id=str(tenant_id or f"chat-session:{session_id}"),
+        subject=str(subject_id or "chat_session_hub"),
+    )
+    status = get_workflow_backend_control_facade().bind(principal).start_workflow(request)
     return {
         "workflow_id": status.get("workflow_id"),
         "run_id": status.get("workflow_id"),
@@ -111,13 +123,17 @@ def start_session_process(*, session_id: str, graph: dict[str, Any], message_id:
         "graph_snapshot": copy.deepcopy(graph),
         "status": status.get("status"),
         "message_id": message_id,
+        "control_principal": {
+            "tenant_id": principal.tenant_id,
+            "subject_id": principal.subject,
+        },
         "started_at": time.time(),
     }
 
 
 def runtime_overlay(run: dict[str, Any]) -> dict[str, Any]:
     workflow_id = str(run.get("workflow_id") or "")
-    status = get_workflow_backend().get_workflow_status(workflow_id)
+    status = _controlled_backend(run).get_workflow_status(workflow_id)
     steps: dict[str, dict[str, Any]] = {}
     state_aliases = {"done": "succeeded", "success": "succeeded", "canceled": "cancelled"}
     for item in status.get("steps") or []:
@@ -159,10 +175,25 @@ def signal_session_gate(*, run: dict[str, Any], step_id: str, decision: str, act
     step = overlay["steps"].get(step_id)
     if not step or step.get("status") != "awaiting_approval":
         raise ValueError("gate_not_awaiting_approval")
-    return get_workflow_backend().signal_workflow(
+    return _controlled_backend(run).signal_workflow(
         str(run["workflow_id"]),
-        WorkflowSignal(name=decision, payload={"step_id": step_id}, actor=actor),
+        WorkflowSignal(
+            name=decision,
+            payload={"step_id": step_id, "requested_actor": str(actor)[:160]},
+            actor=actor,
+        ),
     )
+
+
+def _controlled_backend(run: dict[str, Any]):
+    raw_principal = run.get("control_principal")
+    principal = dict(raw_principal) if isinstance(raw_principal, dict) else {}
+    workflow_id = str(run.get("workflow_id") or run.get("run_id") or "")
+    route_principal = WorkflowRoutePrincipal(
+        tenant_id=str(principal.get("tenant_id") or f"chat-workflow:{workflow_id}"),
+        subject=str(principal.get("subject_id") or "chat_session_hub"),
+    )
+    return get_workflow_backend_control_facade().bind(route_principal)
 
 
 def clone_graph(graph_id: str, *, owner_session_id: str) -> dict[str, Any]:

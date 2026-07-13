@@ -1,3 +1,7 @@
+# Compatibility helpers imported below are intentionally re-exported for old
+# callers while their implementations live in focused modules.
+# ruff: noqa: F401
+
 import logging
 import time
 import uuid
@@ -8,61 +12,60 @@ from flask import current_app, g, has_app_context, has_request_context, request
 
 from agent.common.errors import PermanentError
 from agent.config import settings
-from agent.llm_strategies import get_strategy
-from agent.metrics import LLM_CALL_DURATION, RETRIES_TOTAL
-from agent.utils import _http_get, log_llm_entry, read_json, update_json, write_json, get_data_dir
-
 from agent.llm_integration_lmstudio import (
-    _sha256_text,
-    _model_identifier_tokens,
-    _model_identifier_matches,
-    _find_matching_lmstudio_candidate,
-    _load_lmstudio_history,
-    _save_lmstudio_history,
-    _touch_lmstudio_models,
-    _record_lmstudio_result,
-    _update_lmstudio_history,
-    _prepare_lmstudio_history,
-    _select_best_lmstudio_model,
-    _normalize_lmstudio_base_url,
-    _lmstudio_models_url,
-    _resolve_lmstudio_model,
+    _LMSTUDIO_HISTORY_FILE,
     _extract_lmstudio_candidates,
-    _list_lmstudio_candidates,
-    probe_lmstudio_runtime,
     _extract_lmstudio_text,
     _extract_lmstudio_usage,
-    _LMSTUDIO_HISTORY_FILE,
+    _find_matching_lmstudio_candidate,
+    _list_lmstudio_candidates,
+    _lmstudio_models_url,
+    _load_lmstudio_history,
+    _model_identifier_matches,
+    _model_identifier_tokens,
+    _normalize_lmstudio_base_url,
+    _prepare_lmstudio_history,
+    _record_lmstudio_result,
+    _resolve_lmstudio_model,
+    _save_lmstudio_history,
+    _select_best_lmstudio_model,
+    _sha256_text,
+    _touch_lmstudio_models,
+    _update_lmstudio_history,
+    probe_lmstudio_runtime,
 )
 from agent.llm_integration_ollama import (
     _find_matching_ollama_candidate,
     _normalize_ollama_base_url,
-    _ollama_tags_url,
     _ollama_ps_url,
-    resolve_ollama_model,
-    probe_ollama_runtime,
+    _ollama_tags_url,
     probe_ollama_activity,
+    probe_ollama_runtime,
+    resolve_ollama_model,
 )
 from agent.llm_resilience import (
-    CIRCUIT_BREAKER,
-    _CB_DEFAULT_THRESHOLD,
     _CB_DEFAULT_RECOVERY_TIME,
-    _RATE_LIMIT_WINDOW,
-    _RATE_LIMIT_LOCK,
+    _CB_DEFAULT_THRESHOLD,
+    _ERR_FAILURE_WINDOW,
     _ERR_RATE_LOCK,
     _ERR_SUCCESS_WINDOW,
-    _ERR_FAILURE_WINDOW,
+    _RATE_LIMIT_LOCK,
+    _RATE_LIMIT_WINDOW,
+    CIRCUIT_BREAKER,
     _cb_config,
     _check_circuit_breaker,
+    _check_rate_limit,
+    _record_llm_failure_rate,
     _report_llm_failure,
     _report_llm_success,
-    _record_llm_failure_rate,
     _rl_config,
-    _check_rate_limit,
+    get_circuit_breaker_state,
     get_provider_error_rate,
     get_rate_limit_state,
-    get_circuit_breaker_state,
 )
+from agent.llm_strategies import get_strategy
+from agent.metrics import LLM_CALL_DURATION, RETRIES_TOTAL
+from agent.utils import _http_get, get_data_dir, log_llm_entry, read_json, update_json, write_json
 
 HTTP_TIMEOUT = getattr(settings, "http_timeout", 120)
 
@@ -430,7 +433,11 @@ def resolve_preferred_local_runtime(
     fallback_provider = "ollama" if provider_name == "lmstudio" else "lmstudio"
 
     primary_url, primary_probe_fn = probes.get(provider_name, ("", None))
-    primary_probe = primary_probe_fn(primary_url, timeout=timeout) if primary_url and primary_probe_fn else {"ok": False}
+    primary_probe = (
+        primary_probe_fn(primary_url, timeout=timeout)
+        if primary_url and primary_probe_fn
+        else {"ok": False}
+    )
     if primary_probe.get("ok"):
         result = {
             "provider": provider_name,
@@ -439,7 +446,11 @@ def resolve_preferred_local_runtime(
         }
     else:
         fallback_url, fallback_probe_fn = probes.get(fallback_provider, ("", None))
-        fallback_probe = fallback_probe_fn(fallback_url, timeout=timeout) if fallback_url and fallback_probe_fn else {"ok": False}
+        fallback_probe = (
+            fallback_probe_fn(fallback_url, timeout=timeout)
+            if fallback_url and fallback_probe_fn
+            else {"ok": False}
+        )
         if fallback_probe.get("ok"):
             result = {
                 "provider": fallback_provider,
@@ -494,6 +505,7 @@ def generate_text(
     timeout: Optional[int] = None,
     trace_goal_id: Optional[str] = None,
     trace_task_id: Optional[str] = None,
+    provider_context: Any = None,
 ) -> Any:
     p = provider or _runtime_default_provider()
     m = model or _runtime_default_model()
@@ -501,7 +513,6 @@ def generate_text(
 
     actual_timeout = timeout if timeout is not None else HTTP_TIMEOUT
 
-    runtime_default_provider = _runtime_default_provider()
     effective_base_url = str(base_url or "").strip() or None
     provider_uses_runtime_url = not effective_base_url or _is_same_provider_url(p, effective_base_url, urls.get(p))
 
@@ -548,10 +559,11 @@ def generate_text(
         trace_goal_id=trace_goal_id,
         trace_task_id=trace_task_id,
         idempotency_key=idempotency_key,
+        provider_context=provider_context,
     )
 
 
-def _call_llm(
+def _call_llm(  # noqa: C901 - compatibility flow is intentionally migrated incrementally
     provider: str,
     model: str,
     prompt: str,
@@ -569,7 +581,15 @@ def _call_llm(
     trace_goal_id: Optional[str] = None,
     trace_task_id: Optional[str] = None,
     idempotency_key: Optional[str] = None,
+    provider_context: Any = None,
 ) -> Any:
+    from agent.providers.redaction import redact_provider_payload
+    from agent.services.provider_invocation_middleware import (
+        ProviderInvocationBlocked,
+        ProviderInvocationContext,
+        get_provider_invocation_middleware,
+    )
+
     if not _check_circuit_breaker(provider):
         logging.warning(f"Abbruch: Circuit Breaker für {provider} ist offen.")
         return ""
@@ -588,6 +608,19 @@ def _call_llm(
 
     if not idempotency_key:
         idempotency_key = str(uuid.uuid4())
+
+    try:
+        resolved_provider_context = ProviderInvocationContext.from_value(provider_context)
+        resolved_provider_context.assert_valid()
+    except ProviderInvocationBlocked as exc:
+        logging.error("Provider-Kontext blockiert LLM-Aufruf: %s", exc.reason_code)
+        return ""
+    safe_observability_payload = redact_provider_payload(
+        {"prompt": prompt, "history": list(history or [])},
+        secret_refs=resolved_provider_context.secret_refs,
+    )
+    prompt = str(safe_observability_payload.get("prompt") or "")
+    history = list(safe_observability_payload.get("history") or [])
 
     request_id = None
     request_path = None
@@ -612,8 +645,8 @@ def _call_llm(
 
     _prompt_trace = None
     try:
-        from agent.services.prompt_trace_service import get_prompt_trace_service
         from agent.services.context_file_selector import provider_to_llm_scope
+        from agent.services.prompt_trace_service import get_prompt_trace_service
         _trace_svc = get_prompt_trace_service()
         _goal_id = str(trace_goal_id or "").strip() or (getattr(g, "llm_goal_id", None) if has_app_context() else None)
         _task_id = str(trace_task_id or "").strip() or (getattr(g, "llm_task_id", None) if has_app_context() else None)
@@ -660,27 +693,53 @@ def _call_llm(
     except Exception as _pti_exc:
         logging.debug("PTI trace creation skipped: %s", _pti_exc)
 
+    provider_middleware = get_provider_invocation_middleware()
     for attempt in range(max_retries + 1):
         if attempt > 0:
             logging.info(f"LLM Retry Versuch {attempt}/{max_retries} für Provider {provider} (Key: {idempotency_key})")
             RETRIES_TOTAL.inc()
             time.sleep(backoff_factor**attempt)
 
+        prepared = None
         try:
+            prepared = provider_middleware.prepare(
+                context=resolved_provider_context.for_attempt(
+                    attempt,
+                    retry_id=f"{idempotency_key}:provider:{attempt}",
+                ),
+                provider=provider,
+                model=model,
+                endpoint_url=str(urls.get(provider) or ""),
+                payload={
+                    "prompt": prompt,
+                    "history": list(history or []),
+                    "temperature": temperature,
+                    "max_context_tokens": max_context_tokens,
+                    "max_output_tokens": max_output_tokens,
+                    "tools": list(tools or []),
+                    "tool_choice": tool_choice,
+                },
+            )
+            if prepared.cached_response is not None:
+                cached_text = str(prepared.cached_response.get("content") or "")
+                if cached_text:
+                    _report_llm_success(provider)
+                    return cached_text
+            safe_payload = prepared.payload
             started_at = time.time()
             res = _execute_llm_call(
                 provider=provider,
                 model=model,
-                prompt=prompt,
+                prompt=str(safe_payload.get("prompt") or ""),
                 urls=urls,
                 api_key=api_key,
                 timeout=timeout,
-                history=history,
-                temperature=temperature,
-                max_context_tokens=max_context_tokens,
-                max_output_tokens=max_output_tokens,
-                tools=tools,
-                tool_choice=tool_choice,
+                history=list(safe_payload.get("history") or []),
+                temperature=safe_payload.get("temperature"),
+                max_context_tokens=safe_payload.get("max_context_tokens"),
+                max_output_tokens=safe_payload.get("max_output_tokens"),
+                tools=list(safe_payload.get("tools") or []),
+                tool_choice=safe_payload.get("tool_choice"),
                 idempotency_key=idempotency_key,
             )
             ended_at = time.time()
@@ -716,6 +775,12 @@ def _call_llm(
                 g.llm_last_call_profile = list(getattr(g, "llm_last_call_profile", []) or []) + [success_entry]
             res = _attach_llm_call_profile(res, success_entry)
             if text_out and text_out.strip():
+                provider_middleware.complete(
+                    prepared,
+                    provider=provider,
+                    model=model,
+                    response={"content": text_out, "usage": normalized_usage},
+                )
                 _report_llm_success(provider)
                 if has_request_context():
                     g.llm_last_usage = usage
@@ -739,7 +804,23 @@ def _call_llm(
                     except Exception as _pti_exc:
                         logging.debug("PTI finalize trace skipped: %s", _pti_exc)
                 return text_out
+            provider_middleware.fail(
+                prepared,
+                provider=provider,
+                model=model,
+                reason_code="provider_empty_response",
+            )
+        except ProviderInvocationBlocked as e:
+            logging.error("Provider-Middleware blockiert LLM-Aufruf: %s", e.reason_code)
+            break
         except PermanentError as e:
+            if prepared is not None:
+                provider_middleware.fail(
+                    prepared,
+                    provider=provider,
+                    model=model,
+                    reason_code=type(e).__name__,
+                )
             ended_at = time.time()
             error_entry = _build_llm_call_profile_entry(
                 name="generate_text",
@@ -771,6 +852,13 @@ def _call_llm(
                     pass
             break
         except Exception as e:
+            if prepared is not None:
+                provider_middleware.fail(
+                    prepared,
+                    provider=provider,
+                    model=model,
+                    reason_code=type(e).__name__,
+                )
             ended_at = time.time()
             error_entry = _build_llm_call_profile_entry(
                 name="generate_text",

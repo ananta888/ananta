@@ -554,6 +554,7 @@ class KnowledgeIndexRetrievalService:
                             source=source,
                             content=record_text,
                             metadata=raw_metadata,
+                            verified_source_ids=(),
                         ),
                     )
                 )

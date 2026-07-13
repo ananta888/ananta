@@ -41,6 +41,7 @@ from agent.routes.instruction_layers import instruction_layers_bp
 from agent.routes.integrations_workflows import integrations_workflows_bp
 from agent.routes.job_applications import job_app_bp
 from agent.routes.knowledge import knowledge_bp
+from agent.routes.langgraph_checkpoint_internal import langgraph_checkpoint_internal_bp
 from agent.routes.mcp import mcp_bp
 from agent.routes.ml_intern_training import ml_intern_training_bp
 from agent.routes.network_profiles import network_profiles_bp
@@ -72,6 +73,10 @@ from agent.routes.wiki_graph import wiki_graph_bp
 from agent.routes.worker_pool import worker_pool_bp
 from agent.routes.worker_tool_loop_diagnostics import worker_tool_loop_diagnostics_bp
 from agent.routes.workflow_adapters import workflow_adapters_bp
+from agent.routes.workflow_runtime_capabilities import workflow_runtime_capabilities_bp
+from agent.routes.workflow_runtime_internal import workflow_runtime_internal_bp
+from agent.routes.workflow_runtime_operations import workflow_runtime_operations_bp
+from agent.routes.workflow_runtime_rollout import workflow_runtime_rollout_bp
 from agent.ws_terminal import register_ws_terminal
 from agent.ws_voice import register_ws_voice
 
@@ -137,6 +142,11 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(config_graph_bp)
     app.register_blueprint(effective_workflow_bp)
     app.register_blueprint(workflow_adapters_bp)
+    app.register_blueprint(workflow_runtime_capabilities_bp)
+    app.register_blueprint(langgraph_checkpoint_internal_bp)
+    app.register_blueprint(workflow_runtime_internal_bp)
+    app.register_blueprint(workflow_runtime_operations_bp)
+    app.register_blueprint(workflow_runtime_rollout_bp)
     app.register_blueprint(diff3_bp)
     app.register_blueprint(snapshot_diff_bp)
     app.register_blueprint(vp_bp)

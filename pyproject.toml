@@ -47,6 +47,7 @@ dependencies = [
     "openpyxl",
     "python-pptx",
     "langdetect",
+    "jsonschema>=4.21,<5",
 ]
 
 [project.optional-dependencies]
@@ -106,6 +107,18 @@ lc-lg-all = [
     "langchain-openai>=0.3,<0.4",
     "langchain-anthropic>=0.3,<0.4",
 ]
+temporal = [
+    # Durable runtime remains opt-in. Exact pin is shared with the dedicated
+    # Temporal worker image and deliberately absent from the native install.
+    "temporalio==1.30.0",
+]
+observability = [
+    # Export remains optional; canonical workflow events are always the source
+    # of truth even when no collector or SDK is installed.
+    "opentelemetry-api>=1.30,<2",
+    "opentelemetry-sdk>=1.30,<2",
+    "opentelemetry-exporter-otlp-proto-http>=1.30,<2",
+]
 rtipm-sentence-transformers = [
     "sentence-transformers>=3,<4",
 ]
@@ -150,6 +163,7 @@ packages = [
     "agent.routes.tasks.orchestration_policy",
     "agent.sdk",
     "agent.services",
+    "agent.services.workflow_runtime",
     "agent.services.evolution",
     "agent.sgpt",
     "agent.sgpt.handlers",
@@ -172,9 +186,12 @@ packages = [
     "worker.repair",
     "worker.retrieval",
     "worker.runtime",
+    "worker.runtime.langgraph",
+    "worker.runtime.native_graph",
     "worker.shell",
     "worker.skills",
     "worker.skills.builtin",
+    "worker.temporal",
 ]
 
 [tool.setuptools.package-dir]

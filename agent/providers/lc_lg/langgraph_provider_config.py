@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 from typing import Any, Literal
-from pydantic import BaseModel, Field, field_validator, model_validator
 
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 LangGraphMode = Literal["disabled", "dry_run", "mock_live", "local_live", "cloud_gated"]
 CheckpointPolicy = Literal["local_ephemeral", "local_ephemeral_or_hub_owned", "hub_owned", "none"]
@@ -43,12 +43,16 @@ class LangGraphProviderConfig(BaseModel):
     max_iterations: int = 30
     max_nodes: int = 25
     max_tokens: int | None = None
+    plan_parallel_limit: int = 4
+    tenant_parallel_limit: int = 4
+    worker_parallel_limit: int = 4
 
     # Security
     external_calls_allowed: bool = False
     model_provider_ref: str = "local.default"
     embedding_provider_scope: str = "codecompass_vector"
     secret_refs: list[str] = Field(default_factory=list)
+    allowed_tools: list[str] = Field(default_factory=list)
 
     artifact_first: bool = True
     metadata: dict[str, Any] = Field(default_factory=dict)
@@ -67,12 +71,25 @@ class LangGraphProviderConfig(BaseModel):
             raise ValueError("timeout_seconds must be positive")
         return v
 
-    @field_validator("max_iterations")
+    @field_validator(
+        "max_iterations",
+        "plan_parallel_limit",
+        "tenant_parallel_limit",
+        "worker_parallel_limit",
+    )
     @classmethod
     def _positive_iterations(cls, v: int) -> int:
         if v <= 0:
             raise ValueError("max_iterations must be positive")
         return v
+
+    @field_validator("allowed_tools")
+    @classmethod
+    def _normalize_allowed_tools(cls, values: list[str]) -> list[str]:
+        normalized = sorted({str(value).strip() for value in values if str(value).strip()})
+        if len(normalized) != len(values):
+            raise ValueError("allowed_tools must contain unique, non-empty tool identifiers")
+        return normalized
 
     @field_validator("max_nodes")
     @classmethod

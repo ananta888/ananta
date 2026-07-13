@@ -62,6 +62,28 @@ def _organization_error(exc: OrganizationError):
     return jsonify(exc.payload()), exc.status
 
 
+def _chat_workflow_principal() -> tuple[str, str] | None:
+    identity = getattr(g, "user", None) or getattr(g, "auth_payload", None)
+    if identity is None:
+        return ("test-user", "test-user") if current_app.testing else None
+    if isinstance(identity, dict):
+        subject = str(identity.get("sub") or identity.get("username") or "").strip()
+        tenant_id = str(
+            identity.get("tenant_id")
+            or identity.get("tenant")
+            or identity.get("organization_id")
+            or subject
+        ).strip()
+    else:
+        subject = str(getattr(identity, "username", "") or getattr(identity, "id", "")).strip()
+        tenant_id = str(
+            getattr(identity, "tenant_id", "")
+            or getattr(identity, "organization_id", "")
+            or subject
+        ).strip()
+    return (tenant_id, subject) if tenant_id and subject else None
+
+
 def _load_chat(*, persist_migration: bool = False) -> dict[str, Any]:
     """Build a minimal chat dict from persisted user.json for session operations."""
     manager = get_manager()
@@ -731,9 +753,17 @@ def start_session_process_run(session_id: str):
     if effective.get("graph") is None:
         return jsonify({"error": "process_not_configured", "error_code": "process_not_configured"}), 409
     body = request.get_json(silent=True) or {}
+    principal = _chat_workflow_principal()
+    if principal is None:
+        return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
+    tenant_id, subject_id = principal
     try:
         run = start_session_process(
-            session_id=session_id, graph=effective["graph"], message_id=str(body.get("message_id") or "")
+            session_id=session_id,
+            graph=effective["graph"],
+            message_id=str(body.get("message_id") or ""),
+            tenant_id=tenant_id,
+            subject_id=subject_id,
         )
     except ValueError as exc:
         return jsonify({"error": str(exc), "error_code": str(exc)}), 422

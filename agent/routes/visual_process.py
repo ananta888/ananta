@@ -14,6 +14,8 @@ POST /api/visual-process/bpmn/import            — BPMN XML to graph
 POST /api/visual-process/bpmn/export            — graph to BPMN XML
 POST /api/visual-process/workflow-request       — graph to canonical workflow request
 POST /api/visual-process/workflow/start         — start through configured backend
+POST /api/visual-process/workflow/<id>/resume   — resume through Hub control
+POST /api/visual-process/workflow/<id>/retry    — retry through Hub control
 POST /api/visual-process/save-blueprint         — save dry-run result as Blueprint (VPBLUEPR-001)
 
 -- Graph persistence (VPPERS-001) --
@@ -28,14 +30,25 @@ from __future__ import annotations
 
 import json
 import time
+from dataclasses import replace
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, Response, jsonify, request, stream_with_context
 from sqlmodel import Session, select
 
+from agent.auth import check_strict_auth
+from agent.common.audit import log_audit
+from agent.common.errors import api_response
+from agent.common.redaction import VisibilityLevel, redact
 from agent.database import engine
 from agent.db_models.visual_process import VisualProcessGraphDB
 from agent.services.workflow_backend import WorkflowRequest, WorkflowSignal
-from agent.services.workflow_backend_factory import get_workflow_backend
+from agent.services.workflow_route_authorization_service import workflow_route_authorization_service
+from agent.services.workflow_runtime._serialization import redact_json
+from agent.services.workflow_runtime.streaming import (
+    WorkflowStreamError,
+    WorkflowStreamRequest,
+    WorkflowStreamService,
+)
 from agent.visual_process.blueprint_mapper import graph_to_blueprint_dict, graph_to_workflow_request
 from agent.visual_process.bpmn_adapter import export_bpmn_xml, import_bpmn_xml
 from agent.visual_process.context_assembly import StepContextAssembler
@@ -47,6 +60,19 @@ from agent.visual_process.skill_profiles import get_skill_profile_registry
 from agent.visual_process.step_executor import get_step_executor
 from agent.visual_process.task_kind_registry import list_task_kinds
 from agent.visual_process.validator import VisualProcessValidator
+
+from .workflow_control_security import (
+    MAX_WORKFLOW_CANCEL_BYTES,
+    MAX_WORKFLOW_REQUEST_BYTES,
+    MAX_WORKFLOW_SIGNAL_BYTES,
+    backend_error,
+    backend_result,
+    configured_workflow_backend,
+    require_workflow_owner,
+    validate_workflow_id,
+    workflow_json_body,
+    workflow_principal,
+)
 
 vp_bp = Blueprint("visual_process", __name__, url_prefix="/api/visual-process")
 _validator = VisualProcessValidator()
@@ -495,8 +521,12 @@ def bpmn_export():
 
 
 @vp_bp.post("/workflow-request")
+@check_strict_auth
 def workflow_request():
-    body = request.get_json(silent=True) or {}
+    body, body_error = workflow_json_body(max_bytes=MAX_WORKFLOW_REQUEST_BYTES)
+    if body_error is not None:
+        return body_error
+    assert body is not None
     graph, err = _parse_graph()
     if err:
         return jsonify(err), 400
@@ -515,8 +545,12 @@ def workflow_request():
 
 
 @vp_bp.post("/workflow/start")
+@check_strict_auth
 def workflow_start():
-    body = request.get_json(silent=True) or {}
+    body, body_error = workflow_json_body(max_bytes=MAX_WORKFLOW_REQUEST_BYTES)
+    if body_error is not None:
+        return body_error
+    assert body is not None
     if "workflow_request" in body:
         try:
             workflow = WorkflowRequest.from_mapping(body.get("workflow_request") or {})
@@ -533,36 +567,345 @@ def workflow_start():
         if not validation.valid:
             return jsonify({"validation": validation.as_dict(), "error": "invalid_graph"}), 422
         workflow = _compile_workflow_request(graph, body)
-    status = get_workflow_backend().start_workflow(workflow)
-    return jsonify(status), 200 if status.get("status") != "failed" else 422
+    invalid_id = validate_workflow_id(workflow.workflow_id)
+    if invalid_id is not None:
+        return invalid_id
+    try:
+        principal = workflow_principal()
+    except ValueError:
+        return api_response(
+            status="error",
+            message="authenticated workflow principal required",
+            data={"reason_code": "workflow_principal_required"},
+            code=401,
+        )
+    backend, backend_failure = configured_workflow_backend(principal)
+    if backend_failure is not None:
+        return backend_failure
+    reservation = workflow_route_authorization_service.reserve(workflow.workflow_id, principal)
+    if reservation == "foreign":
+        return backend_error("workflow_run_not_found", code=404)
+    if reservation == "duplicate":
+        return api_response(
+            status="error",
+            message="workflow id already exists",
+            data={"reason_code": "workflow_run_already_exists"},
+            code=409,
+        )
+    if reservation != "reserved":
+        return backend_error("workflow_id_invalid", code=400)
+
+    workflow = replace(
+        workflow,
+        requested_by=principal.subject,
+        metadata={
+            **dict(workflow.metadata),
+            "authorization_scope": {
+                "tenant_id": principal.tenant_id,
+                "subject": principal.subject,
+            },
+        },
+    )
+    try:
+        status = backend.start_workflow(workflow)
+    except Exception as exc:  # noqa: BLE001
+        workflow_route_authorization_service.release(workflow.workflow_id, principal)
+        log_audit(
+            "workflow_backend_start_failed",
+            {"workflow_id": workflow.workflow_id, "exception_type": type(exc).__name__},
+        )
+        return backend_error("workflow_backend_unavailable", code=503)
+    if str(status.get("status") or "").lower() in {"failed", "degraded", "unavailable"}:
+        workflow_route_authorization_service.release(workflow.workflow_id, principal)
+    return backend_result(status)
 
 
 @vp_bp.get("/workflow/<workflow_id>/status")
+@check_strict_auth
 def workflow_status(workflow_id: str):
-    status = get_workflow_backend().get_workflow_status(workflow_id)
-    return jsonify(status), 200 if status.get("status") != "not_found" else 404
+    principal, auth_error = require_workflow_owner(workflow_id)
+    if auth_error is not None:
+        return auth_error
+    assert principal is not None
+    backend, backend_failure = configured_workflow_backend(principal)
+    if backend_failure is not None:
+        return backend_failure
+    try:
+        status = backend.get_workflow_status(workflow_id)
+    except Exception as exc:  # noqa: BLE001
+        log_audit(
+            "workflow_backend_status_failed",
+            {"workflow_id": workflow_id, "exception_type": type(exc).__name__},
+        )
+        return backend_error("workflow_backend_unavailable", code=503)
+    if str(status.get("status") or "").lower() == "not_found" and principal is not None:
+        workflow_route_authorization_service.release(workflow_id, principal)
+    return backend_result(status)
 
 
 @vp_bp.post("/workflow/<workflow_id>/cancel")
+@check_strict_auth
 def workflow_cancel(workflow_id: str):
-    body = request.get_json(silent=True) or {}
-    status = get_workflow_backend().cancel_workflow(workflow_id, reason=str(body.get("reason") or ""))
-    return jsonify(status), 200 if status.get("status") != "not_found" else 404
+    principal, auth_error = require_workflow_owner(workflow_id)
+    if auth_error is not None:
+        return auth_error
+    body, body_error = workflow_json_body(max_bytes=MAX_WORKFLOW_CANCEL_BYTES, required=False)
+    if body_error is not None:
+        return body_error
+    assert body is not None
+    reason = str(body.get("reason") or "").strip()
+    if len(reason) > 1000:
+        return api_response(
+            status="error",
+            message="cancel reason too long",
+            data={"reason_code": "workflow_cancel_reason_too_long"},
+            code=422,
+        )
+    assert principal is not None
+    backend, backend_failure = configured_workflow_backend(principal)
+    if backend_failure is not None:
+        return backend_failure
+    try:
+        status = backend.cancel_workflow(workflow_id, reason=reason)
+    except Exception as exc:  # noqa: BLE001
+        log_audit(
+            "workflow_backend_cancel_failed",
+            {"workflow_id": workflow_id, "exception_type": type(exc).__name__},
+        )
+        return backend_error("workflow_backend_unavailable", code=503)
+    return backend_result(status)
 
 
 @vp_bp.post("/workflow/<workflow_id>/signal")
+@check_strict_auth
 def workflow_signal(workflow_id: str):
-    body = request.get_json(silent=True) or {}
-    signal = WorkflowSignal.from_mapping(body)
+    principal, auth_error = require_workflow_owner(workflow_id)
+    if auth_error is not None:
+        return auth_error
+    body, body_error = workflow_json_body(max_bytes=MAX_WORKFLOW_SIGNAL_BYTES)
+    if body_error is not None:
+        return body_error
+    assert body is not None and principal is not None
+    if not isinstance(body.get("payload", {}), dict):
+        return api_response(
+            status="error",
+            message="workflow signal payload must be an object",
+            data={"reason_code": "workflow_signal_payload_invalid"},
+            code=422,
+        )
+    signal = WorkflowSignal.from_mapping(
+        {
+            **body,
+            "payload": redact_json(
+                redact(dict(body.get("payload") or {}), VisibilityLevel.PUBLIC)
+            ),
+            "actor": principal.subject,
+        }
+    )
     if not signal.name:
-        return jsonify({"error": "signal_name_required"}), 400
-    status = get_workflow_backend().signal_workflow(workflow_id, signal)
-    return jsonify(status), 200 if status.get("status") != "not_found" else 404
+        return api_response(
+            status="error",
+            message="signal name required",
+            data={"reason_code": "workflow_signal_name_required"},
+            code=400,
+        )
+    if len(signal.name) > 64 or not all(character.isalnum() or character in "._-" for character in signal.name):
+        return api_response(
+            status="error",
+            message="invalid signal name",
+            data={"reason_code": "workflow_signal_name_invalid"},
+            code=422,
+        )
+    return _dispatch_workflow_signal(workflow_id, principal, signal)
+
+
+@vp_bp.post("/workflow/<workflow_id>/resume")
+@check_strict_auth
+def workflow_resume(workflow_id: str):
+    return _named_workflow_control(workflow_id, "resume")
+
+
+@vp_bp.post("/workflow/<workflow_id>/retry")
+@check_strict_auth
+def workflow_retry(workflow_id: str):
+    return _named_workflow_control(workflow_id, "retry")
+
+
+def _named_workflow_control(workflow_id: str, command_name: str):
+    principal, auth_error = require_workflow_owner(workflow_id)
+    if auth_error is not None:
+        return auth_error
+    body, body_error = workflow_json_body(max_bytes=MAX_WORKFLOW_SIGNAL_BYTES, required=False)
+    if body_error is not None:
+        return body_error
+    assert body is not None and principal is not None
+    payload = body.get("payload", body)
+    if not isinstance(payload, dict):
+        return api_response(
+            status="error",
+            message="workflow control payload must be an object",
+            data={"reason_code": "workflow_signal_payload_invalid"},
+            code=422,
+        )
+    signal = WorkflowSignal(
+        name=command_name,
+        payload=dict(redact_json(redact(payload, VisibilityLevel.PUBLIC)) or {}),
+        actor=principal.subject,
+    )
+    return _dispatch_workflow_signal(workflow_id, principal, signal)
+
+
+def _dispatch_workflow_signal(workflow_id: str, principal, signal: WorkflowSignal):
+    backend, backend_failure = configured_workflow_backend(principal)
+    if backend_failure is not None:
+        return backend_failure
+    try:
+        status = backend.signal_workflow(workflow_id, signal)
+    except PermissionError as exc:
+        reason_code = str(exc)
+        safe_reason = (
+            reason_code
+            if reason_code in {
+                "temporal_hub_verified_command_required",
+                "workflow_control_checkpoint_binding_mismatch",
+                "workflow_control_plan_binding_mismatch",
+                "workflow_control_policy_binding_mismatch",
+                "workflow_control_principal_binding_mismatch",
+                "workflow_control_run_binding_mismatch",
+            }
+            else "workflow_control_command_denied"
+        )
+        log_audit(
+            "workflow_control_command_denied",
+            {"workflow_id": workflow_id, "reason_code": safe_reason},
+        )
+        return backend_error(safe_reason, code=409)
+    except Exception as exc:  # noqa: BLE001
+        log_audit(
+            "workflow_backend_signal_failed",
+            {"workflow_id": workflow_id, "exception_type": type(exc).__name__},
+        )
+        return backend_error("workflow_backend_unavailable", code=503)
+    return backend_result(status)
 
 
 @vp_bp.get("/workflow/<workflow_id>/events")
+@check_strict_auth
 def workflow_events(workflow_id: str):
-    return jsonify({"events": get_workflow_backend().list_workflow_events(workflow_id)}), 200
+    principal, auth_error = require_workflow_owner(workflow_id)
+    if auth_error is not None:
+        return auth_error
+    assert principal is not None
+    backend, backend_failure = configured_workflow_backend(principal)
+    if backend_failure is not None:
+        return backend_failure
+    try:
+        status = backend.get_workflow_status(workflow_id)
+        if str(status.get("status") or "").lower() in {"degraded", "unavailable", "not_found"}:
+            return backend_result(status)
+        events = backend.list_workflow_events(workflow_id)
+    except Exception as exc:  # noqa: BLE001
+        log_audit(
+            "workflow_backend_events_failed",
+            {"workflow_id": workflow_id, "exception_type": type(exc).__name__},
+        )
+        return backend_error("workflow_backend_unavailable", code=503)
+    safe_events = [dict(redact(event, VisibilityLevel.USER) or {}) for event in events if isinstance(event, dict)]
+    return jsonify({"events": safe_events}), 200
+
+
+@vp_bp.post("/workflow/events/stream")
+@check_strict_auth
+def workflow_event_stream():
+    """Return a bounded, cursor-resumable NDJSON page from the Hub stream."""
+
+    if request.args:
+        return api_response(
+            status="error",
+            message="workflow stream parameters must not be sent in a URL",
+            data={"reason_code": "workflow_stream_query_transport_forbidden"},
+            code=400,
+        )
+    body, body_error = workflow_json_body(max_bytes=8 * 1024)
+    if body_error is not None:
+        return body_error
+    try:
+        stream_request = WorkflowStreamRequest.from_mapping(body or {})
+    except WorkflowStreamError as exc:
+        return api_response(
+            status="error",
+            message="invalid workflow stream request",
+            data={"reason_code": exc.reason_code},
+            code=422,
+        )
+    principal, auth_error = require_workflow_owner(stream_request.workflow_id)
+    if auth_error is not None:
+        return auth_error
+    assert principal is not None
+    backend, backend_failure = configured_workflow_backend(principal)
+    if backend_failure is not None:
+        return backend_failure
+    try:
+        status = backend.get_workflow_status(stream_request.workflow_id)
+        if str(status.get("status") or "").lower() in {"degraded", "unavailable", "not_found"}:
+            return backend_result(status)
+        batch = WorkflowStreamService(backend).read(stream_request)
+    except WorkflowStreamError as exc:
+        return api_response(
+            status="error",
+            message="workflow stream cursor rejected",
+            data={"reason_code": exc.reason_code},
+            code=409,
+        )
+    except Exception as exc:  # noqa: BLE001
+        log_audit(
+            "workflow_stream_failed",
+            {
+                "workflow_id": stream_request.workflow_id,
+                "exception_type": type(exc).__name__,
+            },
+        )
+        return backend_error("workflow_stream_unavailable", code=503)
+
+    log_audit(
+        "workflow_stream_opened",
+        {
+            "workflow_id": stream_request.workflow_id,
+            "after_cursor": stream_request.after_cursor,
+            "frame_count": len(batch.frames),
+        },
+    )
+
+    @stream_with_context
+    def generate():
+        try:
+            for frame in batch.frames:
+                yield (
+                    json.dumps(
+                        frame.to_dict(),
+                        sort_keys=True,
+                        separators=(",", ":"),
+                        ensure_ascii=False,
+                        allow_nan=False,
+                    )
+                    + "\n"
+                )
+        finally:
+            # A disconnected client reaches this path as GeneratorExit; the
+            # cursor makes reconnect safe and no worker execution is affected.
+            log_audit(
+                "workflow_stream_closed",
+                {
+                    "workflow_id": stream_request.workflow_id,
+                    "next_cursor": batch.next_cursor,
+                },
+            )
+
+    response = Response(generate(), mimetype="application/x-ndjson")
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["X-Workflow-Next-Cursor"] = batch.next_cursor
+    response.headers["X-Workflow-Has-More"] = "true" if batch.has_more else "false"
+    return response
 
 
 # ── Mermaid (VPAD-009) ────────────────────────────────────────────────────────

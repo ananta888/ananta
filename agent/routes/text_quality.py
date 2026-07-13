@@ -105,7 +105,14 @@ def extract_criteria():
         result = ModelInvocationService.invoke_with_json_schema_result(
             prompt=kwargs["prompt"], json_schema=kwargs["schema"]
         )
-        return json.loads(str(result.get("content") or "{}"))
+        if not bool(result.get("structured_output_valid", False)):
+            issues = list(result.get("structured_output_issues") or [])
+            reason = str((issues[0] if issues else {}).get("reason_code") or "structured_output_invalid")
+            raise ValueError(reason)
+        structured = result.get("structured_output")
+        if not isinstance(structured, dict):
+            raise ValueError("structured_output_not_object")
+        return structured
 
     try:
         kind = ContentKind(str(payload.get("content_kind") or "freeform_prose"))

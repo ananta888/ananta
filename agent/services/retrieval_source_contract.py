@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+from collections.abc import Collection
 from dataclasses import dataclass
 from typing import Any, Mapping, Protocol, runtime_checkable
 
@@ -34,6 +35,19 @@ _SOURCE_ORIGIN_CLASSES = {
     "task_memory",
     "open_notebook",
 }
+_MISSING_SOURCE_ID_VALUES = frozenset({"", "unknown", "unverified", "none", "null", "n/a"})
+_GROUNDED_SOURCE_ID_PATTERN = re.compile(r"^(?:SRC|RUN)_[0-9]{4}$")
+_SOURCE_ID_KEYS_BY_TYPE: dict[str, tuple[str, ...]] = {
+    "artifact": ("artifact_id", "knowledge_index_id"),
+    "wiki": ("wiki_article_id",),
+    "task_memory": ("source_task_id", "memory_entry_id"),
+    "open_notebook": (
+        "registry_source_id",
+        "open_notebook_source_id",
+        "artifact_id",
+    ),
+    "repo": (),
+}
 
 
 @runtime_checkable
@@ -65,6 +79,26 @@ class SourceSelectionPolicy:
             "enabled": sorted(self.enabled_source_types),
             "requested": list(self.requested_source_types),
             "effective": sorted(self.effective_source_types),
+        }
+
+
+@dataclass(frozen=True)
+class SourceIdentityVerification:
+    """Catalog-bound source identity; unchecked origin IDs stay unverified."""
+
+    source_id: str
+    status: str
+    reason_code: str
+
+    @property
+    def verified(self) -> bool:
+        return self.status == "verified"
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "status": self.status,
+            "reason_code": self.reason_code,
+            "verified": self.verified,
         }
 
 
@@ -140,36 +174,64 @@ def infer_source_type(*, engine: str, metadata: Mapping[str, Any] | None) -> str
     return "repo"
 
 
+def _source_id_candidate(value: object) -> str:
+    candidate = str(value or "").strip()
+    if candidate.lower() in _MISSING_SOURCE_ID_VALUES:
+        return ""
+    return candidate
+
+
 def infer_source_id(*, source_type: str, source: str, metadata: Mapping[str, Any] | None) -> str:
+    """Extract only a provided origin ID; never synthesize one from a path.
+
+    ``source`` is retained in the signature for API compatibility and for
+    provenance display by the caller.  It is deliberately not an identity
+    fallback: paths, titles and ``unknown`` are not catalog-issued IDs.
+    """
+
+    del source
     payload = dict(metadata or {})
-    fallback = str(source or "").strip() or "unknown"
-    if source_type == "artifact":
-        return (
-            str(payload.get("artifact_id") or "").strip()
-            or str(payload.get("knowledge_index_id") or "").strip()
-            or fallback
+    explicit = _source_id_candidate(payload.get("source_id"))
+    if explicit:
+        return explicit
+    normalized_type = str(source_type or "").strip().lower()
+    for key in _SOURCE_ID_KEYS_BY_TYPE.get(normalized_type, ()):
+        candidate = _source_id_candidate(payload.get(key))
+        if candidate:
+            return candidate
+    return ""
+
+
+def resolve_source_identity(
+    *,
+    source_type: str,
+    source: str,
+    metadata: Mapping[str, Any] | None,
+    verified_source_ids: Collection[str] | None = None,
+) -> SourceIdentityVerification:
+    source_id = infer_source_id(
+        source_type=source_type,
+        source=source,
+        metadata=metadata,
+    )
+    if not source_id:
+        return SourceIdentityVerification(
+            source_id="",
+            status="unverified",
+            reason_code="source_id_missing",
         )
-    if source_type == "wiki":
-        return (
-            str(payload.get("wiki_article_id") or "").strip()
-            or str(payload.get("article_title") or "").strip()
-            or str(payload.get("wiki_article_title") or "").strip()
-            or fallback
+    verified = {candidate for value in (verified_source_ids or ()) if (candidate := _source_id_candidate(value))}
+    if source_id not in verified or _GROUNDED_SOURCE_ID_PATTERN.fullmatch(source_id) is None:
+        return SourceIdentityVerification(
+            source_id=source_id,
+            status="unverified",
+            reason_code="source_id_unverified",
         )
-    if source_type == "task_memory":
-        return (
-            str(payload.get("source_task_id") or "").strip()
-            or str(payload.get("memory_entry_id") or "").strip()
-            or fallback
-        )
-    if source_type == "open_notebook":
-        return (
-            str(payload.get("registry_source_id") or "").strip()
-            or str(payload.get("open_notebook_source_id") or "").strip()
-            or str(payload.get("artifact_id") or "").strip()
-            or fallback
-        )
-    return fallback
+    return SourceIdentityVerification(
+        source_id=source_id,
+        status="verified",
+        reason_code="source_id_verified",
+    )
 
 
 def source_scopes_for_types(source_types: set[str] | frozenset[str]) -> set[str]:
@@ -189,9 +251,20 @@ def build_citation(
     source_id: str,
     source: str,
     metadata: Mapping[str, Any] | None,
+    verification: SourceIdentityVerification | None = None,
 ) -> dict[str, Any]:
     payload = dict(metadata or {})
-    citation: dict[str, Any] = {"source_type": source_type, "source_id": source_id}
+    identity = verification or SourceIdentityVerification(
+        source_id=_source_id_candidate(source_id),
+        status="unverified",
+        reason_code="source_id_unverified" if _source_id_candidate(source_id) else "source_id_missing",
+    )
+    citation: dict[str, Any] = {
+        "source_type": source_type,
+        "source_id": identity.source_id if identity.verified else None,
+        "verification_status": identity.status,
+        "reason_code": identity.reason_code,
+    }
     if source_type == "repo":
         citation["path"] = source
     elif source_type == "artifact":
@@ -216,7 +289,9 @@ def build_citation(
     return citation
 
 
-def _build_chunk_id(*, source_type: str, source_id: str, engine: str, source: str, content: str, metadata: Mapping[str, Any]) -> str:
+def _build_chunk_id(
+    *, source_type: str, source_id: str, engine: str, source: str, content: str, metadata: Mapping[str, Any]
+) -> str:
     explicit = str(metadata.get("chunk_id") or "").strip()
     if explicit:
         return explicit
@@ -285,10 +360,17 @@ def normalize_chunk_metadata(
     source: str,
     content: str,
     metadata: Mapping[str, Any] | None,
+    verified_source_ids: Collection[str] | None = None,
 ) -> dict[str, Any]:
     payload = dict(metadata or {})
     source_type = infer_source_type(engine=engine, metadata=payload)
-    source_id = infer_source_id(source_type=source_type, source=source, metadata=payload)
+    identity = resolve_source_identity(
+        source_type=source_type,
+        source=source,
+        metadata=payload,
+        verified_source_ids=verified_source_ids,
+    )
+    source_id = identity.source_id
     chunk_id = _build_chunk_id(
         source_type=source_type,
         source_id=source_id,
@@ -298,7 +380,9 @@ def normalize_chunk_metadata(
         metadata=payload,
     )
     payload["source_type"] = source_type
-    payload["source_id"] = source_id
+    payload["source_id"] = source_id or None
+    payload["source_id_verification"] = identity.as_dict()
+    payload["source_id_verified"] = identity.verified
     payload["chunk_id"] = chunk_id
     security_metadata = normalize_security_metadata(source_type=source_type, metadata=payload)
     payload["security_metadata"] = security_metadata
@@ -308,11 +392,18 @@ def normalize_chunk_metadata(
     payload["tenancy"] = security_metadata["tenancy"]
     payload["approval_class"] = security_metadata["approval_class"]
     payload["chunk_security_tags"] = list(security_metadata["chunk_security_tags"])
-    payload["citation"] = build_citation(source_type=source_type, source_id=source_id, source=source, metadata=payload)
+    payload["citation"] = build_citation(
+        source_type=source_type,
+        source_id=source_id,
+        source=source,
+        metadata=payload,
+        verification=identity,
+    )
     payload["provenance"] = {
         "engine": str(engine or ""),
         "source": str(source or ""),
         "source_scope": str(payload.get("source_scope") or "").strip() or None,
         "record_kind": str(payload.get("record_kind") or "").strip() or None,
+        "source_id_verification": identity.as_dict(),
     }
     return payload

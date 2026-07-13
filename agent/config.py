@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     # Agent basic config
     agent_name: str = Field(default="default", validation_alias="AGENT_NAME")
     agent_token: Optional[str] = Field(default=None, validation_alias="AGENT_TOKEN")
+    agent_token_file: Optional[str] = Field(default=None, validation_alias="AGENT_TOKEN_FILE")
     port: int = Field(default=5000, validation_alias="PORT")
     role: str = Field(default="worker", validation_alias="ROLE")
     hub_can_be_worker: bool = Field(default=False, validation_alias="HUB_CAN_BE_WORKER")
@@ -897,7 +898,11 @@ try:
         try:
             with open(token_path, "r", encoding="utf-8") as f:
                 token_data = json.load(f)
-                if not settings.agent_token:  # Nur laden, wenn nicht bereits via ENV gesetzt
+                if not settings.agent_token and not settings.agent_token_file:
+                    # An explicitly configured file secret supersedes the
+                    # legacy persisted inline token. Explicit AGENT_TOKEN plus
+                    # AGENT_TOKEN_FILE is still retained and checked for an
+                    # exact match by the authentication boundary.
                     settings.agent_token = token_data.get("agent_token")
                     if settings.agent_token:
                         logger.info(f"Agent token loaded from {token_path}")

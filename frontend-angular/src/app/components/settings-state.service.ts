@@ -1,4 +1,4 @@
-import { Injectable, OnInit, inject } from '@angular/core';
+import { Directive, OnInit, inject } from '@angular/core';
 import { AgentApiService } from '../services/agent-api.service';
 import { NotificationService } from '../services/notification.service';
 import { UserAuthService } from '../services/user-auth.service';
@@ -16,7 +16,7 @@ import {
   type ProjectModelRoutingRecommendation,
 } from './settings-config.helpers';
 
-@Injectable()
+@Directive()
 export class SettingsState implements OnInit {
   private api = inject(AgentApiService);
   private system = inject(SystemFacade);

@@ -6,7 +6,7 @@ import { GraphViewerComponent } from '../../codecompass-graph/components/graph-v
 import { InternalsService } from '../services/internals.service';
 
 @Component({
-  selector: 'codehug-wiki-graph',
+  selector: 'ch-codehug-wiki-graph',
   standalone: true,
   imports: [GraphViewerComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,

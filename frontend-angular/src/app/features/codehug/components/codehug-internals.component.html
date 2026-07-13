@@ -84,7 +84,7 @@
   } <!-- /vp bar -->
 
   @if (activeTab() === 'graph') {
-    <codehug-wiki-graph />
+    <ch-codehug-wiki-graph />
   }
 
   <!-- ── VP Body ── -->
@@ -314,7 +314,7 @@
 
     <!-- Right Inspector -->
     <aside class="ch-insp">
-      <codehug-node-inspector
+      <ch-codehug-node-inspector
         [nodes]="nodes" [edges]="edges"
         [selectedNodeId]="selectedNodeId" [selectedEdgeId]="selectedEdgeId"
         [currentRoles]="currentRoles" [skillProfiles]="skillProfiles" [workers]="workers"
@@ -369,4 +369,3 @@
   } <!-- /vp body -->
 
 </div>
-  

@@ -144,7 +144,7 @@ import {
                 <div class="muted font-sm">P(Success)</div>
                 <strong [class.muted]="bayes.low_confidence">{{ bayes.posterior_success_probability | percent:'1.0-1' }}</strong>
               </div>
-              @if (bayes.posterior_quality_probability != null) {
+              @if (bayes.posterior_quality_probability !== null) {
                 <div>
                   <div class="muted font-sm">P(Qual)</div>
                   <strong [class.muted]="bayes.low_confidence">{{ bayes.posterior_quality_probability | percent:'1.0-1' }}</strong>
@@ -154,7 +154,7 @@ import {
                 <div class="muted font-sm">Evidenz (n / ok / fail)</div>
                 <strong>{{ bayes.evidence_count }} / {{ bayes.success_count }} / {{ bayes.failure_count }}</strong>
               </div>
-              @if (data[0]?.estimated_attempts_for_80_percent != null) {
+              @if (data[0]?.estimated_attempts_for_80_percent !== null) {
                 <div>
                   <div class="muted font-sm">80% in ~n Versuchen</div>
                   <strong [class.muted]="bayes.low_confidence">{{ data[0].estimated_attempts_for_80_percent }}</strong>
@@ -287,7 +287,7 @@ import {
                     }
                   </td>
                   <td [class.muted]="item.low_confidence || !item.bayesian_estimate">
-                    {{ item.estimated_attempts_for_80_percent != null ? item.estimated_attempts_for_80_percent : '-' }}
+                    {{ item.estimated_attempts_for_80_percent !== null ? item.estimated_attempts_for_80_percent : '-' }}
                   </td>
                 </tr>
               }

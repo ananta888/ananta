@@ -1,7 +1,11 @@
 import logging
+import os
 import secrets
+import stat
 import time
 from functools import wraps
+from pathlib import Path
+from typing import Any, Mapping
 
 import jwt
 from flask import current_app, g, request
@@ -12,6 +16,70 @@ from agent.config import settings
 from agent.utils import register_with_hub
 
 INVALID_TOKEN_WARN_LAST: dict[tuple[str, str], float] = {}
+_AGENT_TOKEN_FILE_MIN_BYTES = 32
+_AGENT_TOKEN_FILE_MAX_BYTES = 16_384
+
+
+class AgentTokenConfigurationError(RuntimeError):
+    """Raised when a configured file-managed service token is unsafe."""
+
+
+def _agent_token_file_reference(config: Mapping[str, Any] | None = None) -> str:
+    source = config if config is not None else current_app.config
+    configured = source.get("AGENT_TOKEN_FILE")
+    return str(configured or os.environ.get("AGENT_TOKEN_FILE") or "").strip()
+
+
+def resolve_configured_agent_token(
+    config: Mapping[str, Any] | None = None,
+) -> str | None:
+    """Resolve the agent token, preferring a bounded read-only file secret.
+
+    The file is intentionally read for every authentication attempt so an
+    atomic secret-file replacement becomes effective without caching secret
+    material in process-global state.
+    """
+
+    source = config if config is not None else current_app.config
+    inline_token = str(source.get("AGENT_TOKEN") or "")
+    raw_path = _agent_token_file_reference(source)
+    if not raw_path:
+        return inline_token or None
+
+    path = Path(raw_path)
+    if not path.is_absolute():
+        raise AgentTokenConfigurationError("agent token file reference must be absolute")
+    try:
+        metadata = path.stat()
+    except OSError as exc:
+        raise AgentTokenConfigurationError("agent token file cannot be inspected") from exc
+    if not stat.S_ISREG(metadata.st_mode):
+        raise AgentTokenConfigurationError("agent token file must be a regular file")
+    if metadata.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
+        raise AgentTokenConfigurationError("agent token file permissions are unsafe")
+
+    try:
+        with path.open("rb") as handle:
+            raw_token = handle.read(_AGENT_TOKEN_FILE_MAX_BYTES + 1)
+    except OSError as exc:
+        raise AgentTokenConfigurationError("agent token file cannot be read") from exc
+    if not raw_token or len(raw_token) > _AGENT_TOKEN_FILE_MAX_BYTES:
+        raise AgentTokenConfigurationError("agent token file size is invalid")
+    try:
+        token = raw_token.decode("utf-8").strip()
+    except UnicodeError as exc:
+        raise AgentTokenConfigurationError("agent token file encoding is invalid") from exc
+    token_bytes = token.encode("utf-8")
+    if (
+        len(token_bytes) < _AGENT_TOKEN_FILE_MIN_BYTES
+        or len(token_bytes) > _AGENT_TOKEN_FILE_MAX_BYTES
+        or "\x00" in token
+        or any(character.isspace() for character in token)
+    ):
+        raise AgentTokenConfigurationError("agent token file value is invalid")
+    if inline_token and not secrets.compare_digest(inline_token.encode("utf-8"), token_bytes):
+        raise AgentTokenConfigurationError("inline and file-managed agent tokens conflict")
+    return token
 
 
 def generate_token(payload: dict, secret: str, expires_in: int | None = None):
@@ -27,6 +95,11 @@ def _extract_token_from_request() -> str | None:
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
         return auth_header.split(" ")[1]
+    if _agent_token_file_reference():
+        # File-managed service credentials must never enter URLs, proxy logs,
+        # browser history or referrer headers. Query-token support remains a
+        # legacy-only compatibility path for inline deployments.
+        return None
     return request.args.get("token")
 
 
@@ -91,8 +164,17 @@ def _warn_auth_failure(reason: str) -> None:
         logging.debug(f"Authentifizierungsfehler (gedrosselt) von {remote}: {reason}")
 
 
-def _authenticate_request(provided_token: str | None, *, require_admin: bool = False) -> tuple[bool, str | None]:
-    agent_token = current_app.config.get("AGENT_TOKEN")
+def _authenticate_request(
+    provided_token: str | None,
+    *,
+    require_admin: bool = False,
+    allow_auth_disabled: bool = True,
+) -> tuple[bool, str | None]:
+    try:
+        agent_token = resolve_configured_agent_token()
+    except AgentTokenConfigurationError as exc:
+        logging.error("File-managed agent token configuration rejected: %s", exc)
+        return False, "agent_token_file_invalid"
     if not agent_token and not require_admin:
         # Auth-disabled legacy deployments still need to preserve the identity
         # of a valid Hub user JWT. Otherwise exposure-policy evaluation sees an
@@ -105,9 +187,11 @@ def _authenticate_request(provided_token: str | None, *, require_admin: bool = F
             if user_payload:
                 _set_user_auth_context(user_payload)
                 return True, "user_jwt"
-        logging.warning("Agent läuft OHNE Authentifizierung! Setzen Sie AGENT_TOKEN für mehr Sicherheit.")
-        _set_agent_admin_context({"auth_mode": "auth_disabled"})
-        return True, "auth_disabled"
+        if allow_auth_disabled:
+            logging.warning("Agent läuft OHNE Authentifizierung! Setzen Sie AGENT_TOKEN für mehr Sicherheit.")
+            _set_agent_admin_context({"auth_mode": "auth_disabled"})
+            return True, "auth_disabled"
+        return False, "invalid_token"
 
     if not provided_token:
         return False, "missing_token"
@@ -118,7 +202,7 @@ def _authenticate_request(provided_token: str | None, *, require_admin: bool = F
             if payload:
                 _set_agent_admin_context(payload)
                 return True, "agent_jwt"
-        elif provided_token == agent_token:
+        elif secrets.compare_digest(provided_token.encode("utf-8"), agent_token.encode("utf-8")):
             _set_agent_admin_context()
             return True, "agent_static_token"
     elif require_admin:
@@ -177,6 +261,86 @@ def check_auth(f):
             _warn_auth_failure(auth_mode or "auth_error")
             return api_response(status="error", message="unauthorized", data={"details": "Invalid token"}, code=401)
 
+        return f(*args, **kwargs)
+
+    return wrapper
+
+
+def _strict_bearer_error(*, service_only: bool):
+    """Authenticate a strict bearer and optionally require service identity."""
+
+    auth_header = str(request.headers.get("Authorization") or "")
+    if not auth_header.startswith("Bearer "):
+        return api_response(
+            status="error",
+            message="unauthorized",
+            data={"reason_code": "workflow_auth_bearer_required"},
+            code=401,
+        )
+    provided_token = auth_header.removeprefix("Bearer ").strip()
+    if not provided_token:
+        return api_response(
+            status="error",
+            message="unauthorized",
+            data={"reason_code": "workflow_auth_bearer_required"},
+            code=401,
+        )
+
+    authenticated, auth_mode = _authenticate_request(
+        provided_token,
+        require_admin=False,
+        allow_auth_disabled=False,
+    )
+    if not authenticated:
+        _warn_auth_failure(auth_mode or "invalid_token")
+        if auth_mode == "agent_token_file_invalid":
+            return api_response(
+                status="error",
+                message="service unavailable",
+                data={"reason_code": "workflow_auth_configuration_invalid"},
+                code=503,
+            )
+        return api_response(
+            status="error",
+            message="unauthorized",
+            data={"reason_code": "workflow_auth_invalid"},
+            code=401,
+        )
+    if service_only and auth_mode not in {"agent_jwt", "agent_static_token"}:
+        log_audit(
+            "workflow_service_auth_denied",
+            {"path": request.path, "method": request.method, "auth_mode": auth_mode},
+        )
+        return api_response(
+            status="error",
+            message="forbidden",
+            data={"reason_code": "workflow_service_auth_required"},
+            code=403,
+        )
+    return None
+
+
+def check_strict_auth(f):
+    """Require a real user or service bearer even in auth-disabled setups."""
+
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        error = _strict_bearer_error(service_only=False)
+        if error is not None:
+            return error
+        return f(*args, **kwargs)
+
+    return wrapper
+
+
+def check_service_auth(f):
+    """Require an agent credential; browser/user JWTs are always rejected."""
+
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        error = _strict_bearer_error(service_only=True)
+        if error is not None:
+            return error
         return f(*args, **kwargs)
 
     return wrapper
@@ -247,6 +411,10 @@ def admin_required(f):
 
 def rotate_token():
     """Generiert einen neuen Secret-Token und aktualisiert die Config sowie die Persistenz."""
+    if _agent_token_file_reference():
+        raise PermanentError(
+            "Token-Rotation wird extern verwaltet, solange AGENT_TOKEN_FILE konfiguriert ist."
+        )
     new_secret = secrets.token_urlsafe(32)
 
     # Synchronisation mit dem Hub versuchen, BEVOR wir den Token lokal festschreiben

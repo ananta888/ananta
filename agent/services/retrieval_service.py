@@ -206,6 +206,7 @@ class RetrievalService:
             source=source,
             content=content,
             metadata=dict(payload.get("metadata") or {}),
+            verified_source_ids=(),
         )
         return ContextChunk(
             engine=engine,

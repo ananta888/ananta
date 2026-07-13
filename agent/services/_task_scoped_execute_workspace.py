@@ -25,7 +25,6 @@ from agent.services._task_scoped_citation import (
 )
 from agent.services._task_scoped_config_policy import should_use_native_worker_runtime
 from agent.services._task_scoped_repair import is_command_not_found_failure, is_shell_meta_blocked_failure
-from agent.services.native_worker_runtime_service import get_native_worker_runtime_service
 from agent.services.service_registry import get_core_services
 from agent.services.task_runtime_service import apply_artifact_first_completion, update_local_task_status
 from agent.services.worker_workspace_service import get_worker_workspace_service
@@ -113,49 +112,50 @@ def run_execute_workspace_path(
             append_stage(
                 pipeline,
                 name="native_worker_execute",
-                status="ok",
-                metadata={"runtime_path": "native_worker_pipeline"},
-            )
-            native_execution = get_native_worker_runtime_service().execute_and_verify_command(
-                tid=tid,
-                task=task,
-                command=str(command or ""),
-                trace_id=str(((proposal_meta.get("trace") or {}).get("trace_id") or f"native-exec-{tid}")),
-                worker_profile=worker_profile,
-                profile_source=profile_source,
-                timeout_seconds=int(execution_policy.timeout_seconds),
-                workspace_dir=workspace_ctx.workspace_dir,
-                native_runtime_payload=(
-                    proposal_meta.get("worker_context", {}).get("native_runtime")
-                    if isinstance(proposal_meta.get("worker_context", {}).get("native_runtime"), dict)
-                    else {}
-                ),
-                agent_cfg=agent_cfg,
+                status="error",
+                metadata={
+                    "runtime_path": "delegated_worker_required",
+                    "reason_code": "native_worker_in_process_execution_disabled",
+                },
             )
             from agent.services.task_execution_context_builder import LocalExecutionResult
+
+            reason_code = "native_worker_in_process_execution_disabled"
             execution_run = LocalExecutionResult(
-                output=str(native_execution.get("output") or ""),
-                exit_code=int(native_execution.get("exit_code") or 1),
+                output=(
+                    "native_worker_runtime degraded: dedicated Worker delegation "
+                    f"required ({reason_code})"
+                ),
+                exit_code=1,
                 retries_used=0,
-                failure_type=str(native_execution.get("failure_type") or "native_worker_runtime"),
+                failure_type="runtime_failure",
                 retry_history=[],
-                status=str(native_execution.get("status") or "failed"),
+                status="failed",
                 loop_signals=[],
                 loop_detection=None,
-                approval_decision=dict(native_execution.get("approval_decision") or {}),
+                approval_decision={
+                    "classification": "blocked",
+                    "reason_code": reason_code,
+                },
             )
             native_artifact_refs = [
-                ref for ref in list(native_execution.get("artifact_refs") or []) if isinstance(ref, dict)
+                {
+                    "kind": "native_worker_degraded_state",
+                    "task_id": tid,
+                    "trace_bundle_ref": "native_worker_runtime:delegation_required",
+                }
             ]
             execution_repair_meta = {
-                "native_worker_runtime": dict(native_execution.get("native_runtime") or {}),
-                "runtime_path": "native_worker_pipeline",
+                "native_worker_runtime": {
+                    "schema": "ananta.native-worker-delegation.v1",
+                    "runtime_path": "delegated_worker_required",
+                    "reason_code": reason_code,
+                },
+                "runtime_path": "delegated_worker_required",
             }
-            native_policy_summary = (
-                str(native_execution.get("policy_classification_summary") or "").strip().lower() or None
+            policy_classification_summary = (
+                "denied:hub_in_process_execution_disabled"
             )
-            if native_policy_summary:
-                policy_classification_summary = native_policy_summary
         else:
             execution_run = get_core_services().task_execution_service.execute_local_step(
                 tid=tid,

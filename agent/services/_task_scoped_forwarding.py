@@ -301,6 +301,23 @@ def persist_forwarded_execution(*, tid: str, response: dict, task: dict, request
         verification_status["execution_artifacts"] = artifacts
     if review:
         verification_status["execution_review"] = dict(review)
+    workflow_verification = response.get("workflow_adapter_verification")
+    if isinstance(workflow_verification, dict):
+        adapter_result = workflow_verification.get("workflow_adapter_task_result")
+        if isinstance(adapter_result, dict):
+            verification_status["workflow_adapter_task_result"] = dict(adapter_result)
+            nested_result = adapter_result.get("adapter_result")
+            native_verification = (
+                nested_result.get("verification")
+                if isinstance(nested_result, dict)
+                else None
+            )
+            if isinstance(native_verification, dict) and isinstance(
+                native_verification.get("native_node_result"), dict
+            ):
+                verification_status["native_node_result"] = dict(
+                    native_verification["native_node_result"]
+                )
     history.append(
         {
             "event_type": "execution_result",

@@ -651,6 +651,7 @@ def normalize_chunks(chunks: list[ContextChunk]) -> list[ContextChunk]:
                     source=str(chunk.source or ""),
                     content=str(chunk.content or ""),
                     metadata=dict(chunk.metadata or {}),
+                    verified_source_ids=(),
                 ),
             )
         )

@@ -194,8 +194,21 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
                 "max_retries": 1,
                 "max_context_chars": 12000,
                 "default_temperature": 0.1,
-                "allowed_task_kinds": ["plan_only", "review", "summarize", "patch_propose", "research_limited"],
-                "blocked_task_kinds": ["patch_apply", "command_execute", "shell_execute", "shell_execution", "service_mutation", "config_mutation"],
+                "allowed_task_kinds": [
+                    "plan_only",
+                    "review",
+                    "summarize",
+                    "patch_propose",
+                    "research_limited",
+                ],
+                "blocked_task_kinds": [
+                    "patch_apply",
+                    "command_execute",
+                    "shell_execute",
+                    "shell_execution",
+                    "service_mutation",
+                    "config_mutation",
+                ],
                 "default_model": "z-ai/glm-4.5-air:free",
                 "task_kind_models": {
                     "plan_only": "z-ai/glm-4.5-air:free",
@@ -305,6 +318,33 @@ class ConfigProfileService:
             "overrides": dict(profile.overrides),
         }
 
+    def list_workflow_runtime_profiles(self) -> list[dict[str, Any]]:
+        """Project versioned runtime profiles without coupling to a runtime."""
+
+        from agent.services.workflow_runtime_selection_service import (
+            default_workflow_runtime_profile_service,
+        )
+
+        return [
+            profile.to_dict()
+            for profile in default_workflow_runtime_profile_service().list_profiles()
+        ]
+
+    def get_workflow_runtime_profile(self, profile_id: str | None) -> dict[str, Any] | None:
+        """Return one runtime profile or ``None`` for an unknown identifier."""
+
+        key = str(profile_id or "").strip()
+        if not key:
+            return None
+        from agent.services.workflow_runtime_selection_service import (
+            default_workflow_runtime_profile_service,
+        )
+
+        try:
+            return default_workflow_runtime_profile_service().resolve(key).to_dict()
+        except KeyError:
+            return None
+
     def validate_profile_availability(
         self,
         profile_id: str | None,
@@ -350,7 +390,10 @@ class ConfigProfileService:
                 runtime = probe.get("runtime") or {}
                 is_ok = bool(runtime.get("ok"))
                 if not is_ok:
-                    msg = f"profile '{profile_id}' requires provider '{required_provider}' which is currently unreachable"
+                    msg = (
+                        f"profile '{profile_id}' requires provider "
+                        f"'{required_provider}' which is currently unreachable"
+                    )
                     if block_on_unavailable:
                         errors.append(msg)
                     else:

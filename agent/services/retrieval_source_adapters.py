@@ -191,6 +191,7 @@ class OpenNotebookKnowledgeSourceAdapter(RetrievalSourceAdapter):
                 source=chunk.source,
                 content=chunk.content,
                 metadata=metadata,
+                verified_source_ids=(),
             )
             score = float(chunk.score or 0.0)
             if str(metadata.get("record_kind") or "") == "note":

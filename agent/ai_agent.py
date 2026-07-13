@@ -41,6 +41,69 @@ _register_request_hooks = register_request_hooks
 _start_background_services = start_background_services
 
 
+def _initialize_workflow_adapter_worker_runtime(app: Flask):
+    if settings.role != "worker":
+        app.extensions["workflow_adapter_worker_registration"] = {
+            "capabilities": [],
+            "runtime_targets": [],
+            "reason_codes": ["workflow_adapter_worker_role_required"],
+        }
+        return None
+    from agent.repository import task_repo
+    from agent.services.ananta_tool_registry_service import (
+        get_ananta_tool_registry_service,
+    )
+    from agent.services.worker_runtime_execution_adapter import (
+        get_worker_runtime_execution_adapter,
+    )
+    from agent.services.worker_workspace_service import get_worker_workspace_service
+    from worker.core.tool_descriptor_adapters import (
+        AdaptedToolDescriptorRegistry,
+        LangChainBuiltinToolCatalogSource,
+        NativeAnantaToolCatalogSource,
+    )
+    from worker.adapters.chain_runners import configure_text_generation
+    from worker.runtime.native_graph.composition import TaskScopedNativeWorkerExecutor
+    from worker.runtime.native_worker_runtime_service import (
+        get_native_worker_runtime_service,
+    )
+    from worker.runtime.workflow_adapter_runtime_composition import (
+        initialize_workflow_adapter_worker_runtime,
+    )
+    from worker.runtime.workflow_tool_pipeline_composition import (
+        WorkerRuntimeToolInvoker,
+    )
+
+    from agent import llm_integration as worker_llm_integration
+
+    class _WorkerTextGenerationAdapter:
+        @staticmethod
+        def generate_text(**values):
+            return worker_llm_integration.generate_text(**values)
+
+    workspaces = get_worker_workspace_service()
+    configure_text_generation(_WorkerTextGenerationAdapter())
+
+    return initialize_workflow_adapter_worker_runtime(
+        app,
+        tool_registry=AdaptedToolDescriptorRegistry(
+            (
+                NativeAnantaToolCatalogSource(get_ananta_tool_registry_service()),
+                LangChainBuiltinToolCatalogSource(),
+            )
+        ),
+        tool_invoker=WorkerRuntimeToolInvoker(
+            tasks=task_repo,
+            workspaces=workspaces,
+            runtime=get_worker_runtime_execution_adapter(),
+        ),
+        native_executor=TaskScopedNativeWorkerExecutor(
+            runtime=get_native_worker_runtime_service(),
+            workspaces=workspaces,
+        ),
+    )
+
+
 def _should_skip_threads_for_reloader() -> bool:
     from agent.lifecycle import BackgroundServiceManager
 
@@ -81,6 +144,8 @@ def _register_template_propose_handler(app: Flask) -> None:
 
 def _check_token_rotation(app: Flask) -> None:
     """Backward-compatible token-rotation check used by legacy tests."""
+    if str((app.config or {}).get("AGENT_TOKEN_FILE") or settings.agent_token_file or "").strip():
+        return
     token_path = str((app.config or {}).get("TOKEN_PATH") or settings.token_path or "").strip()
     if not token_path or not os.path.exists(token_path):
         return
@@ -124,6 +189,11 @@ def create_app(agent: str = "default", *, testing: bool = False) -> Flask:
     run_startup_phase("extensions", load_extensions, app)
     run_startup_phase("repository_registry", initialize_repository_registry, app)
     run_startup_phase("core_services", initialize_core_services, app)
+    run_startup_phase(
+        "workflow_adapter_worker_runtime",
+        _initialize_workflow_adapter_worker_runtime,
+        app,
+    )
     if not testing: # Skip background services in testing mode
         run_startup_phase("background_services", start_background_services, app)
 

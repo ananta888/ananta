@@ -89,6 +89,7 @@ from .teams import (
     TeamTypeDB,
     TeamTypeRoleLink,
 )
+from .temporal_runtime import TemporalHistoryProjectionDB, TemporalProjectedEventDB
 from .text_quality import TextQualityCriteriaSetDB, TextQualityEvaluationDB
 from .visual_process import VisualProcessGraphDB
 from .voice_configuration import VoiceConfigurationDeltaDB
@@ -109,6 +110,26 @@ from .workers import (
     WorkerJobDB,
     WorkerResultDB,
     WorkerSlotLeaseDB,
+)
+from .workflow_runtime import (
+    WorkflowAuthorizationGrantDB,
+    WorkflowCommandNonceDB,
+    WorkflowControlBindingDB,
+    WorkflowExecutionAttemptHistoryDB,
+    WorkflowExecutionOwnershipDB,
+    WorkflowProviderBudgetDB,
+    WorkflowProviderBudgetReservationDB,
+    WorkflowRetryBudgetDB,
+    WorkflowRetryConsumptionDB,
+    WorkflowRuntimeCapacityLockDB,
+    WorkflowRuntimeCapacityReservationDB,
+    WorkflowRuntimeCheckpointDB,
+    WorkflowRuntimeEventDB,
+    WorkflowRuntimeOutboxDB,
+    WorkflowRuntimeReadModelDB,
+    WorkflowRuntimeRolloutAuditDB,
+    WorkflowRuntimeRolloutPolicyDB,
+    WorkflowSideEffectLedgerDB,
 )
 
 __all__ = [
@@ -179,6 +200,26 @@ __all__ = [
     "TemplateDB",
     "TerminalEventDB",
     "TerminalSessionDB",
+    "TemporalHistoryProjectionDB",
+    "TemporalProjectedEventDB",
+    "WorkflowControlBindingDB",
+    "WorkflowAuthorizationGrantDB",
+    "WorkflowCommandNonceDB",
+    "WorkflowExecutionAttemptHistoryDB",
+    "WorkflowExecutionOwnershipDB",
+    "WorkflowProviderBudgetDB",
+    "WorkflowProviderBudgetReservationDB",
+    "WorkflowRetryBudgetDB",
+    "WorkflowRetryConsumptionDB",
+    "WorkflowRuntimeCheckpointDB",
+    "WorkflowRuntimeCapacityLockDB",
+    "WorkflowRuntimeCapacityReservationDB",
+    "WorkflowRuntimeEventDB",
+    "WorkflowRuntimeOutboxDB",
+    "WorkflowRuntimeReadModelDB",
+    "WorkflowRuntimeRolloutAuditDB",
+    "WorkflowRuntimeRolloutPolicyDB",
+    "WorkflowSideEffectLedgerDB",
     "ToolCallDB",
     "UserDB",
     "UserInstructionProfileDB",

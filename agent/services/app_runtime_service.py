@@ -13,6 +13,7 @@ def build_base_app_config(agent: str) -> dict[str, Any]:
     return {
         "AGENT_NAME": agent_name,
         "AGENT_TOKEN": settings.agent_token,
+        "AGENT_TOKEN_FILE": settings.agent_token_file,
         "APP_STARTED_AT": time.time(),
         "PROVIDER_URLS": {
             "ollama": settings.ollama_url,

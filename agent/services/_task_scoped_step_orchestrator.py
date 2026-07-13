@@ -279,6 +279,17 @@ def run_execute_step(
     if forwarded is not None:
         return forwarded
 
+    from agent.config import settings
+
+    if str(settings.role or "").strip().lower() == "worker":
+        from worker.runtime.workflow_adapter_task_execution import (
+            consume_delegated_workflow_task,
+        )
+
+        delegated_workflow_result = consume_delegated_workflow_task(task)
+        if delegated_workflow_result is not None:
+            return TaskScopedRouteResponse(data=delegated_workflow_result)
+
     explicit_task_kind = str(
         getattr(request_data, "task_kind", None)
         or ((task.get("last_proposal", {}) or {}).get("routing") or {}).get("task_kind")

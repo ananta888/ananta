@@ -137,7 +137,9 @@ joblib==1.5.3
 jsonpath-python==1.1.5
     # via mistralai
 jsonschema==4.26.0
-    # via flasgger
+    # via
+    #   -r requirements.txt
+    #   flasgger
 jsonschema-specifications==2025.9.1
     # via jsonschema
 llama-index==0.14.20

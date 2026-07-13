@@ -10,7 +10,7 @@ import {
 } from './codehug-canvas-types';
 
 @Component({
-  selector: 'codehug-node-inspector',
+  selector: 'ch-codehug-node-inspector',
   standalone: true,
   imports: [SlicePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,

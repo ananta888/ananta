@@ -5,7 +5,15 @@ import threading
 
 from agent.config import settings
 
-BACKGROUND_SERVICE_NAMES = ("registration", "llm_monitoring", "monitoring", "planning_learning", "housekeeping", "scheduler")
+BACKGROUND_SERVICE_NAMES = (
+    "registration",
+    "llm_monitoring",
+    "monitoring",
+    "planning_learning",
+    "housekeeping",
+    "workflow_runtime_reconciler",
+    "scheduler",
+)
 
 
 class BackgroundServiceManager:
@@ -37,6 +45,10 @@ class BackgroundServiceManager:
         if self._planning_learning_enabled():
             self._start_service("planning_learning", self._start_planning_learning)
         self._start_service("housekeeping", self._start_housekeeping)
+        self._start_service(
+            "workflow_runtime_reconciler",
+            self._start_workflow_runtime_reconciler,
+        )
         self._start_service("scheduler", self._start_scheduler)
         self._capture_active_threads()
         extensions = getattr(self.app, "extensions", None)
@@ -99,24 +111,35 @@ class BackgroundServiceManager:
 
     def _start_registration(self):
         from agent.services.background.registration import start_registration_thread
+
         start_registration_thread(self.app)
 
     def _start_llm_monitoring(self):
         from agent.services.background.llm_check import start_llm_check_thread
+
         start_llm_check_thread(self.app)
 
     def _start_monitoring(self):
         from agent.services.background.monitoring import start_monitoring_thread
+
         start_monitoring_thread(self.app)
 
     def _start_housekeeping(self):
         from agent.services.background.housekeeping import start_housekeeping_thread
+
         start_housekeeping_thread(self.app)
 
     def _start_planning_learning(self):
         from agent.services.background.planning_learning import start_planning_learning_thread
 
         start_planning_learning_thread(self.app)
+
+    def _start_workflow_runtime_reconciler(self):
+        from agent.services.background.workflow_runtime_reconciler import (
+            start_workflow_runtime_reconciler_thread,
+        )
+
+        start_workflow_runtime_reconciler_thread(self.app)
 
     def _start_scheduler(self):
         from agent.services.scheduler_service import get_scheduler_service
@@ -132,5 +155,7 @@ class BackgroundServiceManager:
         app_config = getattr(self.app, "config", {}) or {}
         agent_cfg = app_config.get("AGENT_CONFIG") or {}
         planning_policy = agent_cfg.get("planning_policy") if isinstance(agent_cfg.get("planning_policy"), dict) else {}
-        learning_loop = planning_policy.get("learning_loop") if isinstance(planning_policy.get("learning_loop"), dict) else {}
+        learning_loop = (
+            planning_policy.get("learning_loop") if isinstance(planning_policy.get("learning_loop"), dict) else {}
+        )
         return bool(learning_loop.get("enabled", False))

@@ -202,7 +202,14 @@ def update_json(path: str, update_func: Callable[[Any], Any], default: Any = Non
 
 
 def register_with_hub(
-    hub_url: str, agent_name: str, port: int, token: str, role: str = "worker", silent: bool = False
+    hub_url: str,
+    agent_name: str,
+    port: int,
+    token: str,
+    role: str = "worker",
+    silent: bool = False,
+    capabilities: list[str] | None = None,
+    runtime_targets: list[dict[str, Any]] | None = None,
 ) -> bool:
     """Backward-compatible proxy for hub registration."""
     agent_url = settings.agent_url or f"http://localhost:{port}"
@@ -210,7 +217,31 @@ def register_with_hub(
     if role == "worker":
         # Keep registration compatible with hub contract requiring worker capabilities.
         payload["worker_roles"] = ["planner", "researcher", "coder", "reviewer", "tester"]
-        payload["capabilities"] = ["planning", "analysis", "research", "coding", "implementation", "review", "testing", "verification"]
+        base_capabilities = [
+            "planning",
+            "analysis",
+            "research",
+            "coding",
+            "implementation",
+            "review",
+            "testing",
+            "verification",
+        ]
+        payload["capabilities"] = list(
+            dict.fromkeys(
+                [
+                    *base_capabilities,
+                    *(
+                        str(value).strip()
+                        for value in (capabilities or [])
+                        if str(value).strip()
+                    ),
+                ]
+            )
+        )
+        payload["runtime_targets"] = [
+            dict(value) for value in (runtime_targets or []) if isinstance(value, dict)
+        ]
         payload["execution_limits"] = {"max_parallel_tasks": 2, "max_runtime_seconds": 1800, "max_workspace_mb": 2048}
     if settings.registration_token:
         payload["registration_token"] = settings.registration_token

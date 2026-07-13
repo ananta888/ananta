@@ -25,6 +25,8 @@ def _sleep_with_shutdown(total_seconds: int) -> None:
 
 def _check_token_rotation(app):
     """Prüft, ob der Token rotiert werden muss."""
+    if str((app.config or {}).get("AGENT_TOKEN_FILE") or settings.agent_token_file or "").strip():
+        return
     token_path = settings.token_path
     if not token_path or not os.path.exists(token_path):
         return

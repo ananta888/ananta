@@ -1,4 +1,5 @@
 """ModelInvocationService — real LLM HTTP calls for propose strategies. FA-T021."""
+
 from __future__ import annotations
 
 import json
@@ -31,6 +32,16 @@ class LLMUnavailableError(Exception):
 
 class ModelInvocationService:
     """LLM invocation via OpenAI-compatible chat/completions endpoint."""
+
+    _provider_middleware: Any = None
+
+    @classmethod
+    def _get_provider_middleware(cls):
+        if cls._provider_middleware is None:
+            from agent.services.provider_invocation_middleware import get_provider_invocation_middleware
+
+            cls._provider_middleware = get_provider_invocation_middleware()
+        return cls._provider_middleware
 
     @staticmethod
     def _build_llm_call_profile_entry(
@@ -105,6 +116,7 @@ class ModelInvocationService:
     @classmethod
     def _get_settings(cls):
         from agent.config import settings
+
         return settings
 
     @classmethod
@@ -120,9 +132,14 @@ class ModelInvocationService:
             try:
                 import os
                 from pathlib import Path
-                from agent.services.model_profile_loader import ModelProfileLoader
-                from agent.services.model_profile_resolver import ModelProfileResolver, SecurityPolicyChecker, RoutingRules
+
                 from agent.services.model_master_default_service import get_global_master_default_service
+                from agent.services.model_profile_loader import ModelProfileLoader
+                from agent.services.model_profile_resolver import (
+                    ModelProfileResolver,
+                    RoutingRules,
+                    SecurityPolicyChecker,
+                )
 
                 profiles_path_env = os.environ.get("MODEL_PROFILES_PATH", "").strip()
                 if not profiles_path_env:
@@ -153,7 +170,9 @@ class ModelInvocationService:
                                 routing_rules = RoutingRules.from_dict(raw_routing)
                                 logger.info("model_invocation: loaded routing rules from %s", rp)
                         except Exception as exc:
-                            logger.warning("model_invocation: routing parse failed for %s: %s — using empty rules", rp, exc)
+                            logger.warning(
+                                "model_invocation: routing parse failed for %s: %s — using empty rules", rp, exc
+                            )
                     else:
                         logger.info("model_invocation: MODEL_ROUTING_PATH %s not found — using empty rules", rp)
                 else:
@@ -174,11 +193,13 @@ class ModelInvocationService:
                 if master_profile:
                     logger.info(
                         "model_invocation: global master default active: provider=%s model=%s",
-                        master_profile.provider_id, master_profile.model,
+                        master_profile.provider_id,
+                        master_profile.model,
                     )
 
                 # AMR-020: log deprecation warning if legacy env vars are still set
                 import os as _os
+
                 if _os.environ.get("DEFAULT_PROVIDER") or _os.environ.get("DEFAULT_MODEL"):
                     logger.warning(
                         "model_invocation: DEFAULT_PROVIDER/DEFAULT_MODEL env vars are set but "
@@ -194,6 +215,7 @@ class ModelInvocationService:
     def _provider_info_from_profile(cls, profile) -> tuple[str, str, str | None]:
         """Convert a ModelProfile to (provider_label, url, api_key)."""
         import os
+
         s = cls._get_settings()
         provider = profile.provider_id.lower()
         base_url = (profile.base_url or "").rstrip("/")
@@ -396,6 +418,7 @@ class ModelInvocationService:
         response_format: dict | None,
         attempt: dict[str, Any],
         resolution_info: dict[str, Any],
+        provider_context: Any = None,
     ) -> dict:
         provider = attempt["provider"]
         url = attempt["url"]
@@ -421,10 +444,49 @@ class ModelInvocationService:
         if response_format:
             body["response_format"] = response_format
 
+        middleware = cls._get_provider_middleware()
+        try:
+            prepared = middleware.prepare(
+                context=provider_context,
+                provider=provider,
+                model=effective_model,
+                endpoint_url=url,
+                payload=body,
+            )
+        except Exception as exc:
+            from agent.services.provider_invocation_middleware import ProviderInvocationBlocked
+
+            if not isinstance(exc, ProviderInvocationBlocked):
+                raise
+            cls._raise_llm_error(
+                message=exc.reason_code,
+                name="chat_completions",
+                backend="provider_middleware",
+                provider=provider,
+                model=effective_model,
+                started_at=time.time(),
+                error_type=exc.reason_code,
+            )
+        body = prepared.payload
+        if prepared.cached_response is not None:
+            cached_payload = dict(prepared.cached_response)
+            cached_meta = (
+                dict(cached_payload.get("metadata")) if isinstance(cached_payload.get("metadata"), dict) else {}
+            )
+            cached_meta["provider_middleware"] = {
+                "schema": "ananta.provider_middleware_result.v1",
+                "cache_key": prepared.cache_key,
+                "payload_hash": prepared.payload_hash,
+                "cache_hit": True,
+            }
+            cached_payload["metadata"] = cached_meta
+            return cached_payload
+
         prompt_trace = None
         trace_svc = None
         try:
             from flask import g, has_app_context
+
             if has_app_context():
                 from agent.services.prompt_trace_service import get_prompt_trace_service
 
@@ -440,8 +502,8 @@ class ModelInvocationService:
                     model=effective_model,
                     endpoint_kind="chat_completions",
                     request_kind="propose",
-                    messages=[m for m in list(outgoing_messages or []) if isinstance(m, dict)],
-                    tools=cls._normalize_openai_tools(tools) if send_native_tools else [],
+                    messages=[message for message in list(body.get("messages") or []) if isinstance(message, dict)],
+                    tools=(list(body.get("tools") or []) if send_native_tools else []),
                     llm_scope="task",
                     sensitivity_level="internal",
                 )
@@ -459,6 +521,12 @@ class ModelInvocationService:
             try:
                 resp = requests.post(url, json=body, headers=headers, timeout=timeout)
             except requests.exceptions.ConnectionError as exc:
+                middleware.fail(
+                    prepared,
+                    provider=provider,
+                    model=effective_model,
+                    reason_code="connection_error",
+                )
                 cls._finalize_trace_error(prompt_trace, trace_svc, "connection_error", f"{exc}")
                 cls._raise_llm_error(
                     message=f"llm_connection_failed: {exc}",
@@ -470,6 +538,12 @@ class ModelInvocationService:
                     error_type="connection_error",
                 )
             except requests.exceptions.Timeout as exc:
+                middleware.fail(
+                    prepared,
+                    provider=provider,
+                    model=effective_model,
+                    reason_code="timeout",
+                )
                 cls._finalize_trace_error(prompt_trace, trace_svc, "timeout", f"{exc}")
                 cls._raise_llm_error(
                     message=f"llm_timeout: {exc}",
@@ -482,6 +556,12 @@ class ModelInvocationService:
                 )
 
             if resp.status_code >= 500:
+                middleware.fail(
+                    prepared,
+                    provider=provider,
+                    model=effective_model,
+                    reason_code="server_error",
+                )
                 cls._finalize_trace_error(prompt_trace, trace_svc, "server_error", f"HTTP {resp.status_code}")
                 cls._raise_llm_error(
                     message=f"llm_server_error: HTTP {resp.status_code}",
@@ -493,7 +573,15 @@ class ModelInvocationService:
                     error_type="server_error",
                 )
             if resp.status_code >= 400:
-                cls._finalize_trace_error(prompt_trace, trace_svc, "client_error", f"HTTP {resp.status_code} {resp.text[:200]}")
+                middleware.fail(
+                    prepared,
+                    provider=provider,
+                    model=effective_model,
+                    reason_code="client_error",
+                )
+                cls._finalize_trace_error(
+                    prompt_trace, trace_svc, "client_error", f"HTTP {resp.status_code} {resp.text[:200]}"
+                )
                 cls._raise_llm_error(
                     message=f"llm_client_error: HTTP {resp.status_code} {resp.text[:200]}",
                     name="chat_completions",
@@ -507,6 +595,12 @@ class ModelInvocationService:
             try:
                 payload = resp.json()
             except Exception as exc:
+                middleware.fail(
+                    prepared,
+                    provider=provider,
+                    model=effective_model,
+                    reason_code="invalid_json_response",
+                )
                 cls._finalize_trace_error(prompt_trace, trace_svc, "invalid_json_response", f"{exc}")
                 cls._raise_llm_error(
                     message=f"llm_invalid_json_response: {exc}",
@@ -520,11 +614,17 @@ class ModelInvocationService:
 
             ended_at = time.time()
             usage = payload.get("usage") if isinstance(payload, dict) else {}
+            middleware_result = middleware.complete(
+                prepared,
+                provider=provider,
+                model=effective_model,
+                response=payload if isinstance(payload, dict) else {},
+            )
             if prompt_trace is not None and trace_svc is not None:
                 try:
                     msg_content = ""
                     if isinstance(payload, dict):
-                        first = ((payload.get("choices") or [{}])[0] or {})
+                        first = (payload.get("choices") or [{}])[0] or {}
                         msg = first.get("message") if isinstance(first, dict) else {}
                         msg_content = str((msg or {}).get("content") or "")
                     finalized = trace_svc.finalize_trace(
@@ -552,6 +652,7 @@ class ModelInvocationService:
                 meta = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
                 if prompt_trace is not None:
                     meta["prompt_trace_id"] = str(getattr(prompt_trace, "trace_id", "") or "")
+                meta["provider_middleware"] = middleware_result
                 meta["llm_call_profile"] = list(meta.get("llm_call_profile") or []) + [call_entry]
                 if resolution_info:
                     meta["resolution_info"] = dict(resolution_info)
@@ -571,6 +672,7 @@ class ModelInvocationService:
         model: str | None = None,
         timeout: int | None = None,
         routing_ctx: Any = None,
+        provider_context: Any = None,
     ) -> dict:
         resolver = None
         resolution_result = None
@@ -605,26 +707,34 @@ class ModelInvocationService:
         if candidate_profiles:
             for profile in candidate_profiles:
                 provider, url, api_key = cls._provider_info_from_profile(profile)
-                effective_model = profile.model if profile.model and profile.model != "auto" else cls._get_settings().default_model
-                attempts.append({
-                    "profile": profile,
-                    "provider": provider,
-                    "url": url,
-                    "api_key": api_key,
-                    "model": effective_model,
-                    "timeout": timeout if timeout is not None else profile.timeout_seconds,
-                })
+                effective_model = (
+                    profile.model if profile.model and profile.model != "auto" else cls._get_settings().default_model
+                )
+                attempts.append(
+                    {
+                        "profile": profile,
+                        "provider": provider,
+                        "url": url,
+                        "api_key": api_key,
+                        "model": effective_model,
+                        "timeout": timeout if timeout is not None else profile.timeout_seconds,
+                    }
+                )
         else:
             provider, url, api_key = cls._provider_info()
             settings = cls._get_settings()
-            attempts.append({
-                "profile": None,
-                "provider": provider,
-                "url": url,
-                "api_key": api_key,
-                "model": model if model and model != "auto" else settings.default_model,
-                "timeout": timeout if timeout is not None else int(getattr(settings, "llm_invoke_timeout_seconds", None) or 120),
-            })
+            attempts.append(
+                {
+                    "profile": None,
+                    "provider": provider,
+                    "url": url,
+                    "api_key": api_key,
+                    "model": model if model and model != "auto" else settings.default_model,
+                    "timeout": timeout
+                    if timeout is not None
+                    else int(getattr(settings, "llm_invoke_timeout_seconds", None) or 120),
+                }
+            )
             resolution_info.setdefault("resolution_source", "legacy_provider_info")
 
         from agent.services.model_fallback_policy_service import ModelFallbackPolicyService
@@ -632,7 +742,9 @@ class ModelInvocationService:
         call_profile: list[dict[str, Any]] = []
         fallback_decisions: list[dict[str, Any]] = []
         blocked = cls._blocked_candidates_as_dict(getattr(resolution_result, "blocked_candidates", []))
-        fallback_policy = ModelFallbackPolicyService(getattr(resolver, "health", None) if resolver is not None else None)
+        fallback_policy = ModelFallbackPolicyService(
+            getattr(resolver, "health", None) if resolver is not None else None
+        )
 
         for index, attempt in enumerate(attempts):
             try:
@@ -642,6 +754,7 @@ class ModelInvocationService:
                     response_format=response_format,
                     attempt=attempt,
                     resolution_info=resolution_info,
+                    provider_context=provider_context,
                 )
                 if isinstance(payload, dict):
                     meta = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
@@ -673,9 +786,7 @@ class ModelInvocationService:
         raise LLMUnavailableError("llm_unavailable:no_attempts", llm_call_profile=call_profile)
 
     @classmethod
-    def invoke_with_tools(
-        cls, prompt: str, tools: list, model: str | None = None, **kwargs
-    ) -> dict:
+    def invoke_with_tools(cls, prompt: str, tools: list, model: str | None = None, **kwargs) -> dict:
         """Call LLM with tools= parameter. Returns dict with tool_calls list and content."""
         messages = [{"role": "user", "content": prompt}]
         if kwargs.get("system_prompt"):
@@ -687,6 +798,7 @@ class ModelInvocationService:
             model=model,
             timeout=kwargs.get("timeout"),
             routing_ctx=kwargs.get("routing_ctx"),
+            provider_context=kwargs.get("provider_context"),
         )
         choice = (response.get("choices") or [{}])[0]
         msg = choice.get("message") or {}
@@ -699,11 +811,13 @@ class ModelInvocationService:
                 parsed_args = json.loads(raw_args) if isinstance(raw_args, str) else raw_args
             except json.JSONDecodeError:
                 parsed_args = {"raw": raw_args}
-            tool_calls.append({
-                "name": fn.get("name", ""),
-                "args": parsed_args,
-                "id": tc.get("id"),
-            })
+            tool_calls.append(
+                {
+                    "name": fn.get("name", ""),
+                    "args": parsed_args,
+                    "id": tc.get("id"),
+                }
+            )
         if not tool_calls and msg.get("content"):
             allowed_tools = {
                 item["function"]["name"]: item["function"].get("parameters") or {"type": "object", "properties": {}}
@@ -721,6 +835,7 @@ class ModelInvocationService:
                 if tool_name in allowed_tools and isinstance(args, dict):
                     try:
                         import jsonschema
+
                         jsonschema.validate(instance=args, schema=allowed_tools[tool_name])
                         args_valid = True
                     except ImportError:
@@ -728,13 +843,15 @@ class ModelInvocationService:
                     except Exception:
                         args_valid = False
                 if args_valid:
-                    tool_calls.append({
-                        "name": tool_name,
-                        "args": args,
-                        "id": prompt_json_call.get("id") or f"prompt-json-{len(tool_calls) + 1}",
-                        "confidence": prompt_json_call.get("confidence"),
-                        "reasoning_summary": prompt_json_call.get("reasoning_summary"),
-                    })
+                    tool_calls.append(
+                        {
+                            "name": tool_name,
+                            "args": args,
+                            "id": prompt_json_call.get("id") or f"prompt-json-{len(tool_calls) + 1}",
+                            "confidence": prompt_json_call.get("confidence"),
+                            "reasoning_summary": prompt_json_call.get("reasoning_summary"),
+                        }
+                    )
 
         metadata = response.get("metadata") if isinstance(response.get("metadata"), dict) else {}
         return {
@@ -748,16 +865,17 @@ class ModelInvocationService:
         }
 
     @classmethod
-    def invoke_with_json_schema(
-        cls, prompt: str, json_schema: dict, model: str | None = None, **kwargs
-    ) -> str:
+    def invoke_with_json_schema(cls, prompt: str, json_schema: dict, model: str | None = None, **kwargs) -> str:
         """Call LLM with response_format=json_object. Returns raw content string."""
         messages = [{"role": "user", "content": prompt}]
         if kwargs.get("system_prompt"):
             messages = [{"role": "system", "content": kwargs["system_prompt"]}] + messages
         response = cls._make_chat_call(
-            messages, response_format={"type": "json_object"}, model=model,
+            messages,
+            response_format={"type": "json_object"},
+            model=model,
             routing_ctx=kwargs.get("routing_ctx"),
+            provider_context=kwargs.get("provider_context"),
         )
         choice = (response.get("choices") or [{}])[0]
         return (choice.get("message") or {}).get("content") or ""
@@ -766,7 +884,7 @@ class ModelInvocationService:
     def invoke_with_json_schema_result(
         cls, prompt: str, json_schema: dict, model: str | None = None, **kwargs
     ) -> dict[str, Any]:
-        """Call LLM with response_format=json_object and keep metadata/usage."""
+        """Call LLM with response_format=json_object, metadata and strict validation."""
         messages = [{"role": "user", "content": prompt}]
         if kwargs.get("system_prompt"):
             messages = [{"role": "system", "content": kwargs["system_prompt"]}] + messages
@@ -776,18 +894,33 @@ class ModelInvocationService:
             model=model,
             timeout=kwargs.get("timeout"),
             routing_ctx=kwargs.get("routing_ctx"),
+            provider_context=kwargs.get("provider_context"),
         )
         choice = (response.get("choices") or [{}])[0]
         msg = choice.get("message") if isinstance(choice, dict) else {}
         metadata = response.get("metadata") if isinstance(response.get("metadata"), dict) else {}
         provider = cls._provider_info()[0]
+        content = (msg.get("content") or "") if isinstance(msg, dict) else ""
+        from agent.services.structured_output_service import StructuredOutputService
+
+        structured = StructuredOutputService(
+            max_repair_attempts=1 if bool(kwargs.get("allow_format_repair", False)) else 0
+        ).validate_json(
+            content,
+            json_schema,
+            allow_format_repair=bool(kwargs.get("allow_format_repair", False)),
+        )
         return {
-            "content": (msg.get("content") or "") if isinstance(msg, dict) else "",
+            "content": content,
             "finish_reason": choice.get("finish_reason") if isinstance(choice, dict) else None,
             "usage": response.get("usage") if isinstance(response.get("usage"), dict) else {},
             "metadata": metadata,
             "provider": provider,
             "model": response.get("model") or model,
+            "structured_output": structured.value,
+            "structured_output_valid": structured.valid,
+            "structured_output_issues": [issue.as_dict() for issue in structured.issues],
+            "structured_output_audit": [dict(item) for item in structured.audit_events],
         }
 
     @classmethod
@@ -797,8 +930,10 @@ class ModelInvocationService:
         if kwargs.get("system_prompt"):
             messages = [{"role": "system", "content": kwargs["system_prompt"]}] + messages
         response = cls._make_chat_call(
-            messages, model=model,
+            messages,
+            model=model,
             routing_ctx=kwargs.get("routing_ctx"),
+            provider_context=kwargs.get("provider_context"),
         )
         choice = (response.get("choices") or [{}])[0]
         return (choice.get("message") or {}).get("content") or ""
@@ -810,8 +945,11 @@ class ModelInvocationService:
         if kwargs.get("system_prompt"):
             messages = [{"role": "system", "content": kwargs["system_prompt"]}] + messages
         response = cls._make_chat_call(
-            messages, model=model, timeout=kwargs.get("timeout"),
+            messages,
+            model=model,
+            timeout=kwargs.get("timeout"),
             routing_ctx=kwargs.get("routing_ctx"),
+            provider_context=kwargs.get("provider_context"),
         )
         choice = (response.get("choices") or [{}])[0]
         msg = choice.get("message") if isinstance(choice, dict) else {}

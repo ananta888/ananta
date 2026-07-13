@@ -2,6 +2,7 @@ import logging
 import threading
 import time
 
+from agent.auth import AgentTokenConfigurationError, resolve_configured_agent_token
 from agent.config import settings
 from agent.utils import register_with_hub
 
@@ -83,6 +84,12 @@ def start_registration_thread(app):
         consecutive_failures = 0
         total_attempts = 0
         _update_registration_state(max_retries=max_retries)
+        workflow_registration = dict(
+            getattr(app, "extensions", {}).get(
+                "workflow_adapter_worker_registration", {}
+            )
+            or {}
+        )
 
         while not agent.common.context.shutdown_requested:
             total_attempts += 1
@@ -94,29 +101,47 @@ def start_registration_thread(app):
                 next_retry_at=None,
                 running=True,
             )
-            success = register_with_hub(
-                hub_url=settings.hub_url,
-                agent_name=registered_as,
-                port=settings.port,
-                token=app.config["AGENT_TOKEN"],
-                role="worker",
-                silent=silent,
-            )
+            failure_reason = "registration_failed"
+            try:
+                registration_token = resolve_configured_agent_token(app.config)
+            except AgentTokenConfigurationError:
+                success = False
+                failure_reason = "agent_token_configuration_invalid"
+                logging.error(
+                    "Worker registration denied: file-managed service token is invalid."
+                )
+            else:
+                success = register_with_hub(
+                    hub_url=settings.hub_url,
+                    agent_name=registered_as,
+                    port=settings.port,
+                    token=registration_token,
+                    role="worker",
+                    silent=silent,
+                    capabilities=list(workflow_registration.get("capabilities") or []),
+                    runtime_targets=list(
+                        workflow_registration.get("runtime_targets") or []
+                    ),
+                )
 
             if success:
                 consecutive_failures = 0
-                _update_registration_state(last_success_at=time.time(), next_retry_at=time.time() + refresh_interval, last_error=None)
+                _update_registration_state(
+                    last_success_at=time.time(),
+                    next_retry_at=time.time() + refresh_interval,
+                    last_error=None,
+                )
                 if not _sleep_with_shutdown(refresh_interval):
                     break
                 continue
 
             consecutive_failures += 1
             if consecutive_failures >= max_retries:
-                _update_registration_state(last_error="registration_failed", next_retry_at=None)
+                _update_registration_state(last_error=failure_reason, next_retry_at=None)
                 break
 
             delay = min(base_delay * (2 ** (consecutive_failures - 1)), 300)
-            _update_registration_state(last_error="registration_failed", next_retry_at=time.time() + delay)
+            _update_registration_state(last_error=failure_reason, next_retry_at=time.time() + delay)
             if not silent:
                 logging.warning(
                     f"Hub-Registrierung fehlgeschlagen. Retry {consecutive_failures}/{max_retries} in {delay}s..."
