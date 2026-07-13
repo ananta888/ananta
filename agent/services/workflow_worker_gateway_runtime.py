@@ -17,11 +17,40 @@ from agent.services.workflow_runtime import (
 )
 from agent.services.workflow_worker_gateway_service import (
     WorkflowToolApprovalDecision,
+    WorkflowToolDescriptor,
     WorkflowWorkerGatewayService,
 )
 
 _SERVICE: WorkflowWorkerGatewayService | None = None
 _LOCK = threading.RLock()
+
+
+class _AnantaRegistryWorkflowToolDescriptorAdapter:
+    """Map the existing Hub registry onto the segregated descriptor port."""
+
+    _COMPATIBILITY_READ_TOOLS = frozenset({"search_code", "summarize_doc"})
+    _SIDE_EFFECT_CLASS_BY_CATEGORY = {
+        "read_only": "read",
+        "controlled_execution": "non_idempotent_write",
+        "controlled_write": "idempotent_write",
+    }
+
+    def __init__(self, service: Any) -> None:
+        self._service = service
+
+    def resolve(self, tool_id: str) -> WorkflowToolDescriptor | None:
+        normalized = str(tool_id or "").strip()
+        spec = self._service.get_tool(normalized)
+        if spec is None:
+            if normalized in self._COMPATIBILITY_READ_TOOLS:
+                return WorkflowToolDescriptor(normalized, "read")
+            return None
+        side_effect_class = self._SIDE_EFFECT_CLASS_BY_CATEGORY.get(
+            str(spec.category)
+        )
+        if side_effect_class is None:
+            return None
+        return WorkflowToolDescriptor(normalized, side_effect_class)
 
 
 class _ApprovalRequestToolApprovalAdapter:
@@ -68,6 +97,9 @@ def get_workflow_worker_gateway_service() -> WorkflowWorkerGatewayService:
     with _LOCK:
         if _SERVICE is None:
             from agent.database import engine
+            from agent.services.ananta_tool_registry_service import (
+                get_ananta_tool_registry_service,
+            )
             from agent.services.approval_request_service import (
                 get_approval_request_service,
             )
@@ -93,6 +125,9 @@ def get_workflow_worker_gateway_service() -> WorkflowWorkerGatewayService:
                 ),
                 tool_approvals=_ApprovalRequestToolApprovalAdapter(
                     get_approval_request_service()
+                ),
+                tool_descriptors=_AnantaRegistryWorkflowToolDescriptorAdapter(
+                    get_ananta_tool_registry_service()
                 ),
             )
     return _SERVICE

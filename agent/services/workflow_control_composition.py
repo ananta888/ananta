@@ -119,6 +119,7 @@ from agent.services.workflow_runtime.security import (
     HmacKeyRing,
     InMemoryReplayNonceStore,
     ReplayNonceStore,
+    SignatureSigningKeyRingPort,
 )
 from agent.services.workflow_runtime_bridge_registry import (
     WorkflowRuntimeBridgeRegistry,
@@ -311,9 +312,7 @@ class ConfiguredWorkflowBackendBridge:
                     payload=dict(command.payload),
                     actor=command.actor_id,
                 )
-                status = self._mapping(
-                    self._backend.signal_workflow(binding.workflow_id, signal)
-                )
+                status = self._mapping(self._backend.signal_workflow(binding.workflow_id, signal))
         except Exception:
             self._bindings.release_command(
                 binding.workflow_id,
@@ -364,9 +363,7 @@ class ConfiguredWorkflowBackendBridge:
                 )
             else:
                 self._restore_local_binding(binding)
-                status = self._mapping(
-                    self._backend.cancel_workflow(binding.workflow_id, reason=reason)
-                )
+                status = self._mapping(self._backend.cancel_workflow(binding.workflow_id, reason=reason))
         except Exception:
             self._bindings.release_command(
                 binding.workflow_id,
@@ -408,14 +405,10 @@ class ConfiguredWorkflowBackendBridge:
             events = page.get("events") if isinstance(page, dict) else None
             if not isinstance(events, list):
                 raise TypeError("durable_run_history_invalid_response")
-            projected_events = tuple(
-                dict(event) for event in events if isinstance(event, dict)
-            )
+            projected_events = tuple(dict(event) for event in events if isinstance(event, dict))
         else:
             events = self._backend.list_workflow_events(workflow_id)
-            projected_events = tuple(
-                dict(event) for event in events[offset:] if isinstance(event, dict)
-            )
+            projected_events = tuple(dict(event) for event in events[offset:] if isinstance(event, dict))
         return projected_events
 
     def _project(
@@ -785,7 +778,7 @@ def build_workflow_backend_control_facade(
     ownership: WorkflowRouteAuthorizationService = workflow_route_authorization_service,
     bindings: WorkflowControlBindingStore | None = None,
     release_admission: WorkflowRuntimeReleaseAdmissionPort | None = None,
-    command_key_ring: HmacKeyRing | None = None,
+    command_key_ring: SignatureSigningKeyRingPort | None = None,
     command_replay_store: ReplayNonceStore | None = None,
     read_model_projector: WorkflowControlReadModelProjector | None = None,
     runtime_health: RuntimeHealthPort | None = None,
@@ -833,10 +826,7 @@ def build_workflow_backend_control_facade(
             bindings=binding_store,
             key_ring=key_ring,
             replay_store=replay_store,
-            authorization_grants=(
-                authorization_grants
-                or InMemoryWorkflowAuthorizationGrantService()
-            ),
+            authorization_grants=(authorization_grants or InMemoryWorkflowAuthorizationGrantService()),
             read_models=resolved_read_models,
         )
     else:
@@ -864,9 +854,7 @@ def build_workflow_backend_control_facade(
             bindings=binding_store,
             key_ring=key_ring,
             replay_store=replay_store,
-            authorization_grants=(
-                authorization_grants or _production_authorization_grants()
-            ),
+            authorization_grants=(authorization_grants or _production_authorization_grants()),
             read_models=resolved_read_models,
         )
     else:

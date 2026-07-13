@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import stat
 import threading
 from pathlib import Path
 from typing import Any
@@ -22,6 +23,11 @@ from agent.services.workflow_runtime import (
     SQLAlchemyEventStore,
     SQLAlchemyExecutionOwnershipStore,
     SQLAlchemySideEffectLedger,
+)
+from agent.services.workflow_runtime.security import SignatureSigningKeyRingPort
+from ananta_contracts.runtime_authorization_crypto import (
+    Ed25519SigningKeyRing,
+    RuntimeAuthorizationCryptoError,
 )
 from ananta_contracts.temporal_workflow import StepActivityInput
 
@@ -105,7 +111,7 @@ class TaskQueueHubTaskRepository(HubTaskRepositoryPort):
 
 
 _SERVICE: WorkflowHubTaskGatewayService | None = None
-_AUTH_KEY_RING: HmacKeyRing | None = None
+_AUTH_KEY_RING: SignatureSigningKeyRingPort | None = None
 _SERVICE_LOCK = threading.RLock()
 
 
@@ -126,26 +132,40 @@ def reset_workflow_hub_task_gateway_service() -> None:
         _AUTH_KEY_RING = None
 
 
-def get_workflow_authorization_key_ring() -> HmacKeyRing:
-    """Return the process-wide Hub signer used by every workflow gateway."""
+def get_workflow_authorization_key_ring() -> SignatureSigningKeyRingPort:
+    """Return the Hub-only signer; production never accepts shared HMAC."""
 
     global _AUTH_KEY_RING
     if _AUTH_KEY_RING is not None:
         return _AUTH_KEY_RING
     with _SERVICE_LOCK:
         if _AUTH_KEY_RING is None:
-            auth_config = _read_keyring_file(
-                "ANANTA_WORKFLOW_AUTH_KEYRING_FILE",
-                label="workflow authorization keyring",
-            )
-            _AUTH_KEY_RING = HmacKeyRing(
-                auth_config["keys"],
-                active_key_id=str(auth_config["active_key_id"]),
-            )
-            for key_id in auth_config.get("revoked_key_ids", ()):
-                _AUTH_KEY_RING.revoke_key(str(key_id))
-            for contract_id in auth_config.get("revoked_envelope_ids", ()):
-                _AUTH_KEY_RING.revoke_contract(str(contract_id))
+            signing_path = str(os.environ.get("ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_FILE") or "").strip()
+            if signing_path:
+                auth_config = _read_json_file(
+                    "ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_FILE",
+                    label="workflow authorization signing keyring",
+                )
+                try:
+                    _AUTH_KEY_RING = Ed25519SigningKeyRing.from_mapping(auth_config)
+                except RuntimeAuthorizationCryptoError as exc:
+                    raise WorkflowHubTaskConfigurationError(exc.reason_code) from exc
+            elif _legacy_hmac_allowed():
+                auth_config = _read_keyring_file(
+                    "ANANTA_WORKFLOW_AUTH_KEYRING_FILE",
+                    label="legacy workflow authorization keyring",
+                )
+                legacy = HmacKeyRing(
+                    auth_config["keys"],
+                    active_key_id=str(auth_config["active_key_id"]),
+                )
+                for key_id in auth_config.get("revoked_key_ids", ()):
+                    legacy.revoke_key(str(key_id))
+                for contract_id in auth_config.get("revoked_envelope_ids", ()):
+                    legacy.revoke_contract(str(contract_id))
+                _AUTH_KEY_RING = legacy
+            else:
+                raise WorkflowHubTaskConfigurationError("workflow_authorization_ed25519_signing_keyring_required")
     return _AUTH_KEY_RING
 
 
@@ -186,22 +206,9 @@ def _build_service() -> WorkflowHubTaskGatewayService:
 
 
 def _read_keyring_file(environment_name: str, *, label: str) -> dict[str, Any]:
-    raw_path = str(os.environ.get(environment_name) or "").strip()
-    path = Path(raw_path)
-    if not raw_path or not path.is_absolute():
-        raise WorkflowHubTaskConfigurationError(f"{label} file reference is required and must be absolute")
-    try:
-        raw = path.read_bytes()
-    except OSError as exc:
-        raise WorkflowHubTaskConfigurationError(f"{label} file cannot be read") from exc
-    if not raw or len(raw) > 65_536:
-        raise WorkflowHubTaskConfigurationError(f"{label} file is invalid")
-    try:
-        decoded = json.loads(raw.decode("utf-8"))
-    except (UnicodeError, json.JSONDecodeError) as exc:
-        raise WorkflowHubTaskConfigurationError(f"{label} file is not valid JSON") from exc
-    keys = decoded.get("keys") if isinstance(decoded, dict) else None
-    active_key_id = str(decoded.get("active_key_id") or "") if isinstance(decoded, dict) else ""
+    decoded = _read_json_file(environment_name, label=label)
+    keys = decoded.get("keys")
+    active_key_id = str(decoded.get("active_key_id") or "")
     if not isinstance(keys, dict) or active_key_id not in keys:
         raise WorkflowHubTaskConfigurationError(f"{label} file is incomplete")
     result: dict[str, Any] = {
@@ -216,15 +223,65 @@ def _read_keyring_file(environment_name: str, *, label: str) -> dict[str, Any]:
         if (
             not isinstance(values, list)
             or len(values) > 10_000
-            or any(
-                not isinstance(value, str)
-                or not value
-                or len(value) > 256
-                for value in values
-            )
+            or any(not isinstance(value, str) or not value or len(value) > 256 for value in values)
         ):
-            raise WorkflowHubTaskConfigurationError(
-                f"{label} {field_name} is invalid"
-            )
+            raise WorkflowHubTaskConfigurationError(f"{label} {field_name} is invalid")
         result[field_name] = list(dict.fromkeys(values))
     return result
+
+
+def _read_json_file(environment_name: str, *, label: str) -> dict[str, Any]:
+    raw_path = str(os.environ.get(environment_name) or "").strip()
+    path = Path(raw_path)
+    if not raw_path or not path.is_absolute() or "\x00" in raw_path:
+        raise WorkflowHubTaskConfigurationError(f"{label} file reference is required and must be absolute")
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(path, flags)
+    except (OSError, ValueError) as exc:
+        raise WorkflowHubTaskConfigurationError(f"{label} file cannot be read") from exc
+    try:
+        metadata = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(metadata.st_mode)
+            or metadata.st_nlink != 1
+            or metadata.st_mode & (stat.S_IWGRP | stat.S_IWOTH)
+        ):
+            raise WorkflowHubTaskConfigurationError(f"{label} file is unsafe")
+        if metadata.st_size < 1 or metadata.st_size > 65_536:
+            raise WorkflowHubTaskConfigurationError(f"{label} file is invalid")
+        chunks: list[bytes] = []
+        total = 0
+        while True:
+            chunk = os.read(descriptor, min(64 * 1024, 65_537 - total))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            total += len(chunk)
+            if total > 65_536:
+                raise WorkflowHubTaskConfigurationError(f"{label} file is invalid")
+        raw = b"".join(chunks)
+    except OSError as exc:
+        raise WorkflowHubTaskConfigurationError(f"{label} file cannot be read") from exc
+    finally:
+        os.close(descriptor)
+    if not raw:
+        raise WorkflowHubTaskConfigurationError(f"{label} file is invalid")
+    try:
+        decoded = json.loads(raw.decode("utf-8"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise WorkflowHubTaskConfigurationError(f"{label} file is not valid JSON") from exc
+    if not isinstance(decoded, dict):
+        raise WorkflowHubTaskConfigurationError(f"{label} file must be an object")
+    return {str(key): value for key, value in decoded.items()}
+
+
+def _legacy_hmac_allowed() -> bool:
+    raw = str(os.environ.get("ANANTA_WORKFLOW_ALLOW_LEGACY_HMAC_KEYRING") or "").strip().lower()
+    if not raw:
+        return False
+    if raw in {"1", "true", "yes", "on"}:
+        return True
+    if raw in {"0", "false", "no", "off"}:
+        return False
+    raise WorkflowHubTaskConfigurationError("ANANTA_WORKFLOW_ALLOW_LEGACY_HMAC_KEYRING must be boolean")

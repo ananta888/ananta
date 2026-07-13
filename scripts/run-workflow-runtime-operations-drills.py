@@ -60,11 +60,7 @@ def _source_revision(explicit: str | None) -> str:
         raise RuntimeError("workflow_operations_source_revision_unavailable")
     checked_out = completed.stdout.strip()
     content_digest = _dirty_tree_digest()
-    effective = (
-        checked_out
-        if content_digest is None
-        else f"{checked_out}+dirty.sha256.{content_digest}"
-    )
+    effective = checked_out if content_digest is None else f"{checked_out}+dirty.sha256.{content_digest}"
     if explicit and explicit.strip() and explicit.strip() != effective:
         raise RuntimeError("workflow_operations_source_revision_mismatch")
     return effective

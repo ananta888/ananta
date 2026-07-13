@@ -56,6 +56,7 @@ class TemporalWorkerConfig:
     tls_key_file: str = ""
     api_key_file: str = ""
     authorization_keyring_file: str = ""
+    allow_legacy_hmac_keyring: bool = False
     hub_url: str = ""
     hub_token_file: str = ""
     hub_poll_seconds: int = 2
@@ -64,6 +65,22 @@ class TemporalWorkerConfig:
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> "TemporalWorkerConfig":
         source = dict(os.environ if env is None else env)
+        allow_legacy_hmac = _boolean(
+            source,
+            "ANANTA_WORKFLOW_ALLOW_LEGACY_HMAC_KEYRING",
+        )
+        verification_keyring_file = (
+            _text(source, "ANANTA_TEMPORAL_AUTH_VERIFICATION_KEYRING_FILE")
+            or _text(source, "ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_FILE")
+        )
+        legacy_keyring_file = (
+            _text(source, "ANANTA_TEMPORAL_AUTH_KEYRING_FILE")
+            or _text(source, "ANANTA_WORKFLOW_AUTH_KEYRING_FILE")
+        )
+        if legacy_keyring_file and not verification_keyring_file and not allow_legacy_hmac:
+            raise TemporalWorkerConfigError(
+                "legacy HMAC authorization keyring is disabled"
+            )
         identity = _text(source, "ANANTA_TEMPORAL_IDENTITY") or f"ananta-temporal-worker@{socket.gethostname()}"
         config = cls(
             address=_text(source, "ANANTA_TEMPORAL_ADDRESS", "temporal:7233"),
@@ -92,9 +109,10 @@ class TemporalWorkerConfig:
             tls_key_file=_text(source, "ANANTA_TEMPORAL_TLS_KEY_FILE"),
             api_key_file=_text(source, "ANANTA_TEMPORAL_API_KEY_FILE"),
             authorization_keyring_file=(
-                _text(source, "ANANTA_TEMPORAL_AUTH_KEYRING_FILE")
-                or _text(source, "ANANTA_WORKFLOW_AUTH_KEYRING_FILE")
+                verification_keyring_file
+                or (legacy_keyring_file if allow_legacy_hmac else "")
             ),
+            allow_legacy_hmac_keyring=allow_legacy_hmac,
             hub_url=_text(source, "ANANTA_TEMPORAL_HUB_URL"),
             hub_token_file=_text(source, "ANANTA_TEMPORAL_HUB_TOKEN_FILE"),
             hub_poll_seconds=_integer(
@@ -153,6 +171,22 @@ class TemporalWorkerConfig:
             raise TemporalWorkerConfigError("authorization keyring file is not valid JSON") from exc
         if not isinstance(decoded, dict):
             raise TemporalWorkerConfigError("authorization keyring file must contain an object")
+        from ananta_contracts.runtime_authorization_crypto import (
+            ED25519_VERIFICATION_KEYRING_SCHEMA,
+            Ed25519VerificationKeyRing,
+            RuntimeAuthorizationCryptoError,
+        )
+
+        if str(decoded.get("schema") or "") == ED25519_VERIFICATION_KEYRING_SCHEMA:
+            try:
+                Ed25519VerificationKeyRing.from_mapping(decoded)
+            except RuntimeAuthorizationCryptoError as exc:
+                raise TemporalWorkerConfigError(exc.reason_code) from exc
+            return {str(key): value for key, value in decoded.items()}
+        if not self.allow_legacy_hmac_keyring:
+            raise TemporalWorkerConfigError(
+                "legacy HMAC authorization keyring is disabled"
+            )
         keys = decoded.get("keys")
         active_key_id = str(decoded.get("active_key_id") or "")
         if not isinstance(keys, dict) or not active_key_id or active_key_id not in keys:

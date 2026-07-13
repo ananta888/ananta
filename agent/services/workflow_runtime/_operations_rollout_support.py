@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+
 from agent.services.workflow_runtime._serialization import sha256_json
 from agent.services.workflow_runtime.events import CanonicalWorkflowEvent, InMemoryEventStore
 from agent.services.workflow_runtime.execution_plan import (
@@ -9,7 +11,10 @@ from agent.services.workflow_runtime.execution_plan import (
     ExecutionNode,
     ExecutionPlan,
 )
-from agent.services.workflow_runtime.security import HmacKeyRing
+from agent.services.workflow_runtime.security import (
+    SignatureSigningKeyRingPort,
+    SignatureVerificationKeyRingPort,
+)
 from agent.services.workflow_runtime_rollout_service import (
     WorkflowRolloutPerformanceEvidence,
     WorkflowRolloutPolicy,
@@ -31,6 +36,7 @@ from agent.services.workflow_shadow_comparison_service import (
     WorkflowShadowComparisonService,
     WorkflowShadowRuntimeIdentity,
 )
+from ananta_contracts.runtime_authorization_crypto import Ed25519SigningKeyRing
 
 
 class MissingDrillPerformanceEvidence:
@@ -89,7 +95,12 @@ class BoundDrillPerformanceEvidence:
 
 
 class BoundDrillShadowComparisonEvidence:
-    def __init__(self, comparison: WorkflowShadowComparison, *, key_ring: HmacKeyRing) -> None:
+    def __init__(
+        self,
+        comparison: WorkflowShadowComparison,
+        *,
+        key_ring: SignatureVerificationKeyRingPort,
+    ) -> None:
         self._comparison = comparison
         self._key_ring = key_ring
 
@@ -157,9 +168,9 @@ class BoundDrillPromotionApproval:
         return approval_id
 
 
-def drill_evidence_key_ring() -> HmacKeyRing:
-    return HmacKeyRing(
-        {"drill-evidence-v1": b"workflow-drill-evidence-key-v1"},
+def drill_evidence_key_ring() -> SignatureSigningKeyRingPort:
+    return Ed25519SigningKeyRing(
+        {"drill-evidence-v1": base64.b64encode(b"workflow-drill-evidence-key-v1!!")},
         active_key_id="drill-evidence-v1",
     )
 
@@ -171,15 +182,24 @@ def drill_shadow_comparison(
 ) -> WorkflowShadowComparison:
     plan = rollout_drill_plan()
     events = InMemoryEventStore()
-    _append_shadow_run_events(events, plan=plan, run_id="baseline-run")
+    scope = WorkflowRolloutScope(project_id="project-rollout-drill")
+    shadow_policy = rollout_lifecycle_policy(scope, version="shadow-v1", mode="shadow")
+    policy_hash = sha256_json(shadow_policy.to_dict())
+    _append_shadow_run_events(
+        events,
+        plan=plan,
+        run_id="baseline-run",
+        runtime_id="langgraph",
+        policy_hash=policy_hash,
+    )
     _append_shadow_run_events(
         events,
         plan=plan,
         run_id="shadow-run",
+        runtime_id="ananta-native",
+        policy_hash=policy_hash,
         semantic_drift=semantic_drift,
     )
-    scope = WorkflowRolloutScope(project_id="project-rollout-drill")
-    shadow_policy = rollout_lifecycle_policy(scope, version="shadow-v1", mode="shadow")
     key_ring = drill_evidence_key_ring()
     comparison = HubEventWorkflowShadowComparisonProducer(
         events=events,
@@ -190,7 +210,7 @@ def drill_shadow_comparison(
     ).produce(
         plan=plan,
         scope_key=scope.scope_key,
-        policy_hash=sha256_json(shadow_policy.to_dict()),
+        policy_hash=policy_hash,
         policy_version=shadow_policy.policy_version,
         policy_revision=2,
         baseline=WorkflowShadowRuntimeIdentity(
@@ -219,10 +239,24 @@ def _append_shadow_run_events(
     *,
     plan: ExecutionPlan,
     run_id: str,
+    runtime_id: str,
+    policy_hash: str,
     semantic_drift: bool = False,
 ) -> None:
     types = [
-        ("workflow.run.started", "", {"plan_hash": plan.plan_hash}),
+        (
+            "workflow.run.started",
+            "",
+            {
+                "plan_hash": plan.plan_hash,
+                "runtime_id": runtime_id,
+                "runtime_version": "operations-drill-v1",
+                "runtime_build": "operations-drill-build-v1",
+                "rollout_policy_hash": policy_hash,
+                "rollout_policy_version": "shadow-v1",
+                "rollout_policy_revision": 2,
+            },
+        ),
         ("workflow.node.completed", plan.nodes[0].node_id, {"node_id": plan.nodes[0].node_id}),
     ]
     if semantic_drift:

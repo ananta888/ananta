@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, g, jsonify, request
 from werkzeug.exceptions import RequestEntityTooLarge
 
 from agent.auth import check_strict_auth, get_request_auth_context
@@ -30,23 +30,32 @@ _COMMAND_FIELDS = frozenset({"type", "command_type", "approval_id", "evidence_re
 
 def _identity() -> tuple[str, str]:
     claims: dict[str, Any] = dict(get_request_auth_context() or {})
-    actor = str(claims.get("sub") or claims.get("username") or "hub-operator").strip()[:160]
+    if not claims and bool(getattr(g, "is_admin", False)):
+        return "system", "hub"
+    actor = str(claims.get("sub") or claims.get("username") or "").strip()[:160]
     tenant_id = str(
         claims.get("tenant_id")
         or claims.get("tenant")
         or claims.get("organization_id")
-        or actor
+        or ""
     ).strip()[:160]
-    # check_strict_auth guarantees a credential; a missing tenant claim is
-    # explicitly scoped to the authenticated subject, never to a global tenant.
+    if not actor or not tenant_id:
+        raise ValueError("workflow_runtime_identity_required")
     return tenant_id, actor
+
+
+def _identity_error():
+    return jsonify({"status": "error", "reason_code": "workflow_runtime_identity_required"}), 403
 
 
 @workflow_runtime_operations_bp.get("")
 @workflow_runtime_operations_bp.get("/")
 @check_strict_auth
 def list_runtime_operations():
-    tenant_id, _ = _identity()
+    try:
+        tenant_id, _ = _identity()
+    except ValueError:
+        return _identity_error()
     try:
         query = RuntimeOperationsQuery.from_mapping(request.args)
     except ValueError as exc:
@@ -61,7 +70,10 @@ def list_runtime_operations():
 @workflow_runtime_operations_bp.get("/runs/<run_id>")
 @check_strict_auth
 def get_runtime_operation(run_id: str):
-    tenant_id, _ = _identity()
+    try:
+        tenant_id, _ = _identity()
+    except ValueError:
+        return _identity_error()
     payload = get_workflow_runtime_read_model_service().get_run(
         tenant_id=tenant_id,
         run_id=str(run_id).strip(),
@@ -94,7 +106,10 @@ def send_runtime_operation_command(run_id: str):
     if set(body).difference(_COMMAND_FIELDS):
         return jsonify({"status": "error", "reason_code": "runtime_command_fields_forbidden"}), 400
 
-    tenant_id, actor = _identity()
+    try:
+        tenant_id, actor = _identity()
+    except ValueError:
+        return _identity_error()
     try:
         command_request = RuntimeOperationCommandRequest.from_mapping(
             body,

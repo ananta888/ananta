@@ -10,6 +10,7 @@ from worker.runtime.native_graph.node_runtime import NativeDelegatedNodeRuntime
 from worker.runtime.native_graph.ports import (
     HubAuthorizationRevalidationPort,
     HubTaskQueuePort,
+    NativeAuthorizationVerifierPort,
     NativeNodeHandlerPort,
     RuntimePolicyRevalidationPort,
     SideEffectLedgerGatewayPort,
@@ -21,6 +22,7 @@ __all__ = [
     "HubTaskQueuePort",
     "HubTaskReceipt",
     "NativeDelegatedNodeRuntime",
+    "NativeAuthorizationVerifierPort",
     "NativeExecutionRuntimeAdapter",
     "NativeGraphWorkerTaskAdapter",
     "NativeNodeCommand",

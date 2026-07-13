@@ -2,11 +2,11 @@ services:
   ai-agent-hub:
     environment:
       AGENT_TOKEN_FILE: /run/secrets/workflow_hub_service_token
-      ANANTA_WORKFLOW_AUTH_KEYRING_FILE: /run/secrets/workflow_runtime_auth_keyring
+      ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_FILE: /run/secrets/workflow_runtime_auth_signing_keyring
       ANANTA_WORKFLOW_DISPATCH_KEYRING_FILE: /run/secrets/workflow_runtime_dispatch_keyring
     secrets:
-      - source: workflow_runtime_auth_keyring
-        target: workflow_runtime_auth_keyring
+      - source: workflow_runtime_auth_signing_keyring
+        target: workflow_runtime_auth_signing_keyring
         mode: 0440
       - source: workflow_runtime_dispatch_keyring
         target: workflow_runtime_dispatch_keyring
@@ -37,7 +37,11 @@ services:
       ANANTA_LANGGRAPH_HUB_URL: http://ai-agent-hub:5000
       ANANTA_LANGGRAPH_HUB_TOKEN_FILE: /run/secrets/workflow_hub_service_token
       ANANTA_WORKFLOW_ADAPTER_WORKER_PROFILE_FILE: /app/config/workflow_runtime/langgraph_worker_profile.v1.json
+      ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_FILE: /run/secrets/workflow_runtime_auth_verification_keyring
     secrets:
+      - source: workflow_runtime_auth_verification_keyring
+        target: workflow_runtime_auth_verification_keyring
+        mode: 0440
       - source: workflow_hub_service_token
         target: workflow_hub_service_token
         mode: 0440
@@ -51,8 +55,10 @@ services:
       - langgraph-worker-data:/app/data
 
 secrets:
-  workflow_runtime_auth_keyring:
-    file: "${ANANTA_WORKFLOW_AUTH_KEYRING_SECRET_FILE:?Error: auth keyring secret file must be set}"
+  workflow_runtime_auth_signing_keyring:
+    file: "${ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_SECRET_FILE:?Error: auth signing keyring secret file must be set}"
+  workflow_runtime_auth_verification_keyring:
+    file: "${ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_SECRET_FILE:?Error: auth verification keyring file must be set}"
   workflow_runtime_dispatch_keyring:
     file: "${ANANTA_WORKFLOW_DISPATCH_KEYRING_SECRET_FILE:?Error: dispatch keyring secret file must be set}"
   workflow_hub_service_token:

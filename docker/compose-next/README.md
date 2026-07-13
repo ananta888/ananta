@@ -160,12 +160,13 @@ dokumentiert. Hardware-Skips gelten dort nie als bestandener Nachweis.
 Das produktive LangGraph-Overlay ist additiv und startet genau einen dedizierten
 Worker im Profil `langgraph`. Nur Hub und dieser Worker teilen das
 `langgraph-runtime`-Netz. Der Worker veröffentlicht keinen Host-Port, erhält
-keinen Schlüsselring und verwendet das Hub-Service-Token ausschließlich aus
-einem read-only Compose-Secret. Normale Worker, Angular und Dev-Stacks erhalten
-keine LangGraph-Checkpoint-Credentials.
+nur den öffentlichen Ed25519-Verifikationsschlüsselring und verwendet das
+Hub-Service-Token ausschließlich aus einem read-only Compose-Secret. Der
+private Signaturschlüssel bleibt ausschließlich im Hub.
 
 ```bash
-export ANANTA_WORKFLOW_AUTH_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-auth-keyring.json
+export ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-auth-signing-keyring.json
+export ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-auth-verification-keyring.json
 export ANANTA_WORKFLOW_DISPATCH_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-dispatch-keyring.json
 export ANANTA_WORKFLOW_HUB_TOKEN_SECRET_FILE=/etc/ananta/secrets/workflow-hub-service-token
 
@@ -200,7 +201,8 @@ mit dem zusätzlichen `compose.temporal.production.yml` aktiviert. Die drei
 Quelldateien liegen außerhalb des Repositories und außerhalb von `.env`:
 
 ```bash
-export ANANTA_WORKFLOW_AUTH_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-auth-keyring.json
+export ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-auth-signing-keyring.json
+export ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-auth-verification-keyring.json
 export ANANTA_WORKFLOW_DISPATCH_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-dispatch-keyring.json
 export ANANTA_WORKFLOW_HUB_TOKEN_SECRET_FILE=/etc/ananta/secrets/workflow-hub-service-token
 

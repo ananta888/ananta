@@ -15,7 +15,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-
 _DEFAULT_ALLOWLIST = (
     "cat",
     "echo",

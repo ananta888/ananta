@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from dataclasses import replace
 from typing import Any
 
 from agent.common.audit import log_audit
@@ -179,7 +180,16 @@ def build_configured_workflow_runtime_selection(
             raise ValueError(
                 "registered_runtime_capability_missing:" + ",".join(sorted(missing))
             )
-        candidates = [by_id[value] for value in registered]
+        source_build = str(
+            os.getenv("ANANTA_SOURCE_REVISION") or "development-unverified"
+        ).strip()
+        candidates = [
+            replace(
+                by_id[value],
+                build_id=by_id[value].build_id or source_build,
+            )
+            for value in registered
+        ]
     evidence = release_evidence
     if evidence is None:
         if backend_id == "local":

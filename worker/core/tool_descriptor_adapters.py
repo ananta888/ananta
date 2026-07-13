@@ -52,7 +52,9 @@ class NativeAnantaToolCatalogSource:
                 capabilities.append("approval:required")
             side_effects = () if category == "read_only" else ("native_tool_write",)
             if category == "controlled_execution":
-                side_effects = ("native_tool_execution",)
+                # Execution can have effects beyond the workspace; classify it
+                # conservatively so the Hub descriptor cannot be downgraded.
+                side_effects = ("persistent_state",)
             yield WorkerToolEntry(
                 id=str(spec.name),
                 kind="native",

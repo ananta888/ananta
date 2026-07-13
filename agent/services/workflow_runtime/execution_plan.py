@@ -376,6 +376,10 @@ class WorkflowRequestExecutionPlanAdapter:
         gates: list[ExecutionGate] = []
         artifact_ids: set[str] = set(getattr(request, "input_artifacts", ()) or ())
         request_metadata = dict(getattr(request, "metadata", {}) or {})
+        legacy_budget = request_metadata.get("execution_budget")
+        if legacy_budget is not None and not isinstance(legacy_budget, dict):
+            raise ValueError("legacy_execution_budget_invalid")
+        resolved_budget = default_budget or ExecutionBudget.from_mapping(legacy_budget)
         declared_capabilities: set[str] = set(_clean_tuple(request_metadata.get("capabilities")))
         for step in steps:
             step_id = str(getattr(step, "step_id", "")).strip()
@@ -435,7 +439,7 @@ class WorkflowRequestExecutionPlanAdapter:
             capabilities=tuple(sorted(declared_capabilities)),
             gates=tuple(gates),
             artifacts=artifacts,
-            budget=default_budget or ExecutionBudget(),
+            budget=resolved_budget,
             metadata={
                 "adapted_from": "ananta.workflow_request.v1",
                 "legacy_request_hash": sha256_json(redact_json(request_payload)),

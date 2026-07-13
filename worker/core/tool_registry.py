@@ -12,7 +12,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
-
 # ── Risk classes (mirrors capability vocabulary) ───────────────────────────────
 
 TOOL_RISK_CLASSES = frozenset({"low", "medium", "high", "critical"})
@@ -148,7 +147,11 @@ class ToolResult(dict):
             "schema": "test_result_artifact.v1",
             "task_id": task_id,
             "command": command,
-            "exit_code": self.get("exit_code") if self.get("exit_code") is not None else (0 if self.get("success") else 1),
+            "exit_code": (
+                self.get("exit_code")
+                if self.get("exit_code") is not None
+                else (0 if self.get("success") else 1)
+            ),
             "status": status,
             "stdout_ref": str(self.get("stdout") or "") or "<empty>",
             "stderr_ref": str(self.get("stderr") or "") or "<empty>",

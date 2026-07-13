@@ -13,6 +13,9 @@ from typing import Any, Protocol
 
 from agent.services.workflow_runtime._serialization import canonical_json, contains_sensitive_keys, redact_json
 from agent.services.workflow_runtime.errors import ContractValidationError, SignatureValidationError
+from ananta_contracts.runtime_authorization_crypto import (
+    RuntimeAuthorizationCryptoError,
+)
 
 AUTHORIZATION_ENVELOPE_SCHEMA = "ananta.runtime_authorization.v1"
 WORKFLOW_STATE_SCHEMA = "ananta.workflow_state.v1"
@@ -100,6 +103,31 @@ class HmacKeyRing:
             raise SignatureValidationError("signature_invalid")
 
 
+class SignatureVerificationKeyRingPort(Protocol):
+    def verify(
+        self,
+        *,
+        namespace: str,
+        payload: dict[str, Any],
+        key_id: str,
+        signature: str,
+        contract_id: str,
+    ) -> None: ...
+
+
+class SignatureSigningKeyRingPort(SignatureVerificationKeyRingPort, Protocol):
+    @property
+    def active_key_id(self) -> str: ...
+
+    def sign(
+        self,
+        *,
+        namespace: str,
+        payload: dict[str, Any],
+        key_id: str | None = None,
+    ) -> tuple[str, str]: ...
+
+
 class ReplayNonceStore(Protocol):
     def consume(self, *, tenant_id: str, nonce: str, expires_at: float) -> bool:
         ...
@@ -145,7 +173,7 @@ class RuntimeAuthorizationEnvelope:
     def issue(
         cls,
         *,
-        key_ring: HmacKeyRing,
+        key_ring: SignatureSigningKeyRingPort,
         tenant_id: str,
         workflow_id: str,
         run_id: str,
@@ -183,7 +211,8 @@ class RuntimeAuthorizationEnvelope:
         unsigned._assert_structure()
         key_id = key_ring.active_key_id
         payload = replace(unsigned, key_id=key_id)._signing_payload()
-        actual_key_id, signature = key_ring.sign(
+        actual_key_id, signature = _sign_contract(
+            key_ring,
             namespace=AUTHORIZATION_ENVELOPE_SCHEMA,
             payload=payload,
             key_id=key_id,
@@ -221,7 +250,7 @@ class RuntimeAuthorizationEnvelope:
     def verify(
         self,
         *,
-        key_ring: HmacKeyRing,
+        key_ring: SignatureVerificationKeyRingPort,
         tenant_id: str,
         workflow_id: str,
         run_id: str,
@@ -247,7 +276,8 @@ class RuntimeAuthorizationEnvelope:
             raise SignatureValidationError("authorization_not_yet_valid")
         if timestamp >= self.expires_at:
             raise SignatureValidationError("authorization_expired")
-        key_ring.verify(
+        _verify_contract(
+            key_ring,
             namespace=AUTHORIZATION_ENVELOPE_SCHEMA,
             payload=self._signing_payload(),
             key_id=self.key_id,
@@ -308,7 +338,11 @@ class RuntimeAuthorizationEnvelope:
 class AuthorizationVerifier:
     """Local scope gate with optional one-shot replay protection and hub revalidation."""
 
-    def __init__(self, key_ring: HmacKeyRing, nonce_store: ReplayNonceStore | None = None):
+    def __init__(
+        self,
+        key_ring: SignatureVerificationKeyRingPort,
+        nonce_store: ReplayNonceStore | None = None,
+    ):
         self._key_ring = key_ring
         self._nonce_store = nonce_store
 
@@ -433,7 +467,7 @@ class SignedCheckpoint:
     def issue(
         cls,
         *,
-        key_ring: HmacKeyRing,
+        key_ring: SignatureSigningKeyRingPort,
         tenant_id: str,
         workflow_id: str,
         run_id: str,
@@ -467,7 +501,8 @@ class SignedCheckpoint:
             signature="",
         )
         unsigned._assert_structure()
-        key_id, signature = key_ring.sign(
+        key_id, signature = _sign_contract(
+            key_ring,
             namespace=SIGNED_CHECKPOINT_SCHEMA,
             payload=unsigned._signing_payload(),
             key_id=unsigned.key_id,
@@ -505,7 +540,7 @@ class SignedCheckpoint:
     def verify(
         self,
         *,
-        key_ring: HmacKeyRing,
+        key_ring: SignatureVerificationKeyRingPort,
         tenant_id: str,
         workflow_id: str,
         run_id: str,
@@ -528,7 +563,8 @@ class SignedCheckpoint:
                 raise SignatureValidationError(f"checkpoint_{name}_mismatch")
         if self.fencing_token < int(min_fencing_token):
             raise SignatureValidationError("checkpoint_fencing_token_stale")
-        key_ring.verify(
+        _verify_contract(
+            key_ring,
             namespace=SIGNED_CHECKPOINT_SCHEMA,
             payload=self._signing_payload(),
             key_id=self.key_id,
@@ -589,6 +625,44 @@ class SignedCheckpoint:
 def _signature(key: bytes, *, namespace: str, payload: dict[str, Any]) -> str:
     message = f"{namespace}\n{canonical_json(payload)}".encode("utf-8")
     return hmac.new(key, message, hashlib.sha256).hexdigest()
+
+
+def _sign_contract(
+    key_ring: SignatureSigningKeyRingPort,
+    *,
+    namespace: str,
+    payload: dict[str, Any],
+    key_id: str,
+) -> tuple[str, str]:
+    try:
+        return key_ring.sign(
+            namespace=namespace,
+            payload=payload,
+            key_id=key_id,
+        )
+    except RuntimeAuthorizationCryptoError as exc:
+        raise SignatureValidationError(exc.reason_code) from exc
+
+
+def _verify_contract(
+    key_ring: SignatureVerificationKeyRingPort,
+    *,
+    namespace: str,
+    payload: dict[str, Any],
+    key_id: str,
+    signature: str,
+    contract_id: str,
+) -> None:
+    try:
+        key_ring.verify(
+            namespace=namespace,
+            payload=payload,
+            key_id=key_id,
+            signature=signature,
+            contract_id=contract_id,
+        )
+    except RuntimeAuthorizationCryptoError as exc:
+        raise SignatureValidationError(exc.reason_code) from exc
 
 
 def _clean_tuple(values: tuple[str, ...] | list[str]) -> tuple[str, ...]:

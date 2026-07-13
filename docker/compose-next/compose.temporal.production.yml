@@ -9,11 +9,11 @@ services:
       ANANTA_TEMPORAL_NAMESPACE: ${ANANTA_TEMPORAL_NAMESPACE:-default}
       ANANTA_TEMPORAL_TASK_QUEUE: ${ANANTA_TEMPORAL_TASK_QUEUE:-ananta-workflows-v1}
       ANANTA_TEMPORAL_WORKFLOW_TYPE: ${ANANTA_TEMPORAL_WORKFLOW_TYPE:-AnantaWorkflow}
-      ANANTA_WORKFLOW_AUTH_KEYRING_FILE: /run/secrets/workflow_runtime_auth_keyring
+      ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_FILE: /run/secrets/workflow_runtime_auth_signing_keyring
       ANANTA_WORKFLOW_DISPATCH_KEYRING_FILE: /run/secrets/workflow_runtime_dispatch_keyring
     secrets:
-      - source: workflow_runtime_auth_keyring
-        target: workflow_runtime_auth_keyring
+      - source: workflow_runtime_auth_signing_keyring
+        target: workflow_runtime_auth_signing_keyring
         mode: 0440
       - source: workflow_runtime_dispatch_keyring
         target: workflow_runtime_dispatch_keyring
@@ -30,12 +30,12 @@ services:
 
   ananta-temporal-worker:
     environment:
-      ANANTA_WORKFLOW_AUTH_KEYRING_FILE: /run/secrets/workflow_runtime_auth_keyring
+      ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_FILE: /run/secrets/workflow_runtime_auth_verification_keyring
       ANANTA_TEMPORAL_HUB_URL: http://ai-agent-hub:5000
       ANANTA_TEMPORAL_HUB_TOKEN_FILE: /run/secrets/workflow_hub_service_token
     secrets:
-      - source: workflow_runtime_auth_keyring
-        target: workflow_runtime_auth_keyring
+      - source: workflow_runtime_auth_verification_keyring
+        target: workflow_runtime_auth_verification_keyring
         uid: "10001"
         gid: "10001"
         mode: 0440
@@ -59,8 +59,10 @@ services:
       - "127.0.0.1:${TEMPORAL_UI_PORT:-8233}:8080"
 
 secrets:
-  workflow_runtime_auth_keyring:
-    file: "${ANANTA_WORKFLOW_AUTH_KEYRING_SECRET_FILE:?Error: auth keyring secret file must be set}"
+  workflow_runtime_auth_signing_keyring:
+    file: "${ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_SECRET_FILE:?Error: auth signing keyring secret file must be set}"
+  workflow_runtime_auth_verification_keyring:
+    file: "${ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_SECRET_FILE:?Error: auth verification keyring file must be set}"
   workflow_runtime_dispatch_keyring:
     file: "${ANANTA_WORKFLOW_DISPATCH_KEYRING_SECRET_FILE:?Error: dispatch keyring secret file must be set}"
   workflow_hub_service_token:

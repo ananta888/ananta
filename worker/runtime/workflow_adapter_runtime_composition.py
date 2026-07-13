@@ -76,6 +76,7 @@ def build_workflow_adapter_worker_runtime(
     tool_registry: Any | None = None,
     tool_invoker: Any | None = None,
     native_executor: Any | None = None,
+    native_authorization_verifier: Any | None = None,
 ) -> WorkflowAdapterWorkerRuntime:
     """Build configured adapters; missing authority/config always fails closed."""
 
@@ -118,6 +119,7 @@ def build_workflow_adapter_worker_runtime(
             client=resolved_client,
             agent_config=resolved_agent_config,
             executor=native_executor,
+            authorization_verifier=native_authorization_verifier,
         )
     except Exception as exc:  # noqa: BLE001 - composition must remain fail-closed
         reasons.append(_safe_reason(exc, "native_worker_adapter_config_invalid"))
@@ -193,6 +195,7 @@ def initialize_workflow_adapter_worker_runtime(
     tool_registry: Any | None = None,
     tool_invoker: Any | None = None,
     native_executor: Any | None = None,
+    native_authorization_verifier: Any | None = None,
 ) -> WorkflowAdapterWorkerRuntime:
     """Install the composition before Worker registration/background startup."""
 
@@ -202,6 +205,7 @@ def initialize_workflow_adapter_worker_runtime(
         tool_registry=tool_registry,
         tool_invoker=tool_invoker,
         native_executor=native_executor,
+        native_authorization_verifier=native_authorization_verifier,
     )
     app.extensions[_CONSUMER_EXTENSION] = runtime.consumer
     app.extensions[_RUNTIME_EXTENSION] = runtime

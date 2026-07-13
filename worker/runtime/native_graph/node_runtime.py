@@ -6,10 +6,10 @@ import re
 import time
 import uuid
 
-from agent.services.workflow_runtime.security import AuthorizationVerifier
 from worker.runtime.native_graph.contracts import NativeNodeCommand, NativeNodeResult
 from worker.runtime.native_graph.ports import (
     HubAuthorizationRevalidationPort,
+    NativeAuthorizationVerifierPort,
     NativeNodeHandlerPort,
     RuntimePolicyRevalidationPort,
     SideEffectLedgerGatewayPort,
@@ -26,7 +26,7 @@ class NativeDelegatedNodeRuntime:
         self,
         *,
         handler: NativeNodeHandlerPort,
-        authorization_verifier: AuthorizationVerifier,
+        authorization_verifier: NativeAuthorizationVerifierPort,
         policy: RuntimePolicyRevalidationPort,
         capabilities: frozenset[str],
         ledger: SideEffectLedgerGatewayPort | None = None,

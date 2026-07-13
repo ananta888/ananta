@@ -37,7 +37,14 @@ async def connect_client(config: TemporalWorkerConfig) -> Client:
 
 def build_activity_gateway(config: TemporalWorkerConfig) -> HubActivityGateway:
     keyring = config.read_authorization_keyring()
-    verifier = RuntimeAuthorizationVerifier.from_config_mapping(keyring) if keyring else None
+    verifier = (
+        RuntimeAuthorizationVerifier.from_config_mapping(
+            keyring,
+            allow_legacy_hmac=config.allow_legacy_hmac_keyring,
+        )
+        if keyring
+        else None
+    )
     if config.productive_gateway_configured:
         gateway = HttpHubTaskGateway(
             hub_url=config.hub_url,

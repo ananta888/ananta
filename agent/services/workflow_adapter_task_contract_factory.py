@@ -109,6 +109,10 @@ def _bound_payload(
         "external_egress_allowed": False,
         "max_attempts": max(1, submission.maximum_retries + 1),
         "max_total_tokens": submission.max_total_tokens,
+        "max_completion_tokens_per_call": _completion_token_limit(
+            safe,
+            maximum=submission.max_total_tokens,
+        ),
         "max_cost_micros": submission.max_cost_micros,
         "require_hub_retry_budget": submission.maximum_retries > 0,
         "require_hub_provider_budget": requires_provider,
@@ -132,6 +136,26 @@ def _bound_payload(
         "allowed_policy_scopes": [f"tool:{tool}" for tool in submission.allowed_tools],
         "provider_context": provider_context,
     }
+
+
+def _completion_token_limit(
+    payload: dict[str, Any],
+    *,
+    maximum: int,
+) -> int:
+    if maximum < 1:
+        return 0
+    raw = payload.get("max_output_tokens")
+    if raw is None:
+        raw = payload.get("max_completion_tokens_per_call")
+    if raw is None:
+        return min(1_024, max(1, maximum // 2))
+    if isinstance(raw, bool):
+        raise ValueError("workflow_adapter_completion_budget_invalid")
+    value = int(raw)
+    if value < 1:
+        raise ValueError("workflow_adapter_completion_budget_invalid")
+    return min(value, maximum)
 
 
 __all__ = [

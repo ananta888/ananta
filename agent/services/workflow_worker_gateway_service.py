@@ -76,6 +76,20 @@ class WorkflowToolApprovalPort(Protocol):
     def consume(self, approval_ref: str) -> bool: ...
 
 
+@dataclass(frozen=True)
+class WorkflowToolDescriptor:
+    """Hub-authoritative classification for one registered tool operation."""
+
+    tool_id: str
+    side_effect_class: str
+
+
+class WorkflowToolDescriptorPort(Protocol):
+    """Resolve classification without exposing the concrete Hub registry."""
+
+    def resolve(self, tool_id: str) -> WorkflowToolDescriptor | None: ...
+
+
 class UnavailableWorkflowToolApprovalService:
     """Fail-closed default for compositions without approval persistence."""
 
@@ -99,6 +113,14 @@ class UnavailableWorkflowToolApprovalService:
         return False
 
 
+class UnavailableWorkflowToolDescriptorService:
+    """Fail closed when the Hub descriptor registry is not composed."""
+
+    def resolve(self, tool_id: str) -> WorkflowToolDescriptor | None:
+        del tool_id
+        return None
+
+
 class WorkflowWorkerGatewayService:
     """Validate worker commands against Hub authority, ownership and ledgers."""
 
@@ -112,6 +134,7 @@ class WorkflowWorkerGatewayService:
         provider_budgets: ProviderBudgetStore | None = None,
         authorization_revalidator: HubAuthorizationRevalidationPort | None = None,
         tool_approvals: WorkflowToolApprovalPort | None = None,
+        tool_descriptors: WorkflowToolDescriptorPort | None = None,
         clock=time.time,
     ) -> None:
         self._authorization = authorization
@@ -124,6 +147,9 @@ class WorkflowWorkerGatewayService:
         )
         self._tool_approvals = (
             tool_approvals or UnavailableWorkflowToolApprovalService()
+        )
+        self._tool_descriptors = (
+            tool_descriptors or UnavailableWorkflowToolDescriptorService()
         )
         self._clock = clock
 
@@ -795,17 +821,49 @@ class WorkflowWorkerGatewayService:
             raise WorkflowWorkerGatewayError("workflow_worker_fencing_mismatch")
         return attempt_id, fencing_token
 
-    @staticmethod
     def _tool_binding(
+        self,
         binding: WorkflowWorkerBinding,
         raw: Mapping[str, Any],
     ) -> tuple[str, str, str]:
-        tool_id = WorkflowWorkerGatewayService._bounded_identifier(
+        tool_id = self._bounded_identifier(
             raw.get("tool_id"), "workflow_tool_id_invalid"
         )
-        side_effect_class = str(raw.get("side_effect_class") or "read")
-        if side_effect_class not in {"read", "idempotent_write", "non_idempotent_write"}:
+        requested_class = str(raw.get("side_effect_class") or "read")
+        if requested_class not in {
+            "none",
+            "read",
+            "idempotent_write",
+            "non_idempotent_write",
+        }:
             raise WorkflowWorkerGatewayError("side_effect_class_invalid", status_code=422)
+        try:
+            descriptor = self._tool_descriptors.resolve(tool_id)
+        except Exception as exc:  # noqa: BLE001 - registry lookup is fail-closed
+            raise WorkflowWorkerGatewayError(
+                "workflow_tool_descriptor_unavailable",
+                status_code=503,
+            ) from exc
+        if descriptor is None:
+            raise WorkflowWorkerGatewayError(
+                "workflow_tool_descriptor_unknown",
+                status_code=422,
+            )
+        if (
+            not isinstance(descriptor, WorkflowToolDescriptor)
+            or descriptor.tool_id != tool_id
+            or descriptor.side_effect_class
+            not in {"read", "idempotent_write", "non_idempotent_write"}
+        ):
+            raise WorkflowWorkerGatewayError(
+                "workflow_tool_descriptor_invalid",
+                status_code=503,
+            )
+        if requested_class != descriptor.side_effect_class:
+            raise WorkflowWorkerGatewayError(
+                "workflow_tool_side_effect_class_mismatch",
+                status_code=403,
+            )
         expected = operation_id_for(
             tenant_id=binding.tenant_id,
             run_id=binding.run_id,
@@ -815,7 +873,7 @@ class WorkflowWorkerGatewayService:
         operation_id = str(raw.get("operation_id") or "")
         if operation_id != expected:
             raise WorkflowWorkerGatewayError("tool_operation_id_mismatch", status_code=422)
-        return tool_id, operation_id, side_effect_class
+        return tool_id, operation_id, descriptor.side_effect_class
 
     @staticmethod
     def _attempt_id(raw: Mapping[str, Any]) -> str:
@@ -922,9 +980,12 @@ class WorkflowWorkerGatewayService:
 
 
 __all__ = [
+    "UnavailableWorkflowToolDescriptorService",
     "UnavailableWorkflowToolApprovalService",
     "WorkflowToolApprovalDecision",
     "WorkflowToolApprovalPort",
+    "WorkflowToolDescriptor",
+    "WorkflowToolDescriptorPort",
     "WorkflowWorkerGatewayError",
     "WorkflowWorkerGatewayService",
 ]

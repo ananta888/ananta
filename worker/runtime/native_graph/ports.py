@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any, Protocol
 
 from agent.services.workflow_runtime.native_graph_ports import HubTaskQueuePort as HubTaskQueuePort
@@ -17,6 +18,29 @@ class NativeNodeHandlerPort(Protocol):
 
 class HubAuthorizationRevalidationPort(Protocol):
     def revalidate(self, envelope: RuntimeAuthorizationEnvelope) -> bool: ...
+
+
+class NativeAuthorizationVerifierPort(Protocol):
+    """Verify Hub authority without exposing a signing interface to Workers."""
+
+    def authorize(
+        self,
+        envelope: RuntimeAuthorizationEnvelope,
+        *,
+        tenant_id: str,
+        workflow_id: str,
+        run_id: str,
+        step_id: str,
+        plan_hash: str,
+        policy_version: str,
+        tool: str = "",
+        artifact: str = "",
+        requested_budget: dict[str, int | float] | None = None,
+        consume_nonce: bool = False,
+        writing: bool = False,
+        hub_revalidator: Callable[[RuntimeAuthorizationEnvelope], bool] | None = None,
+        now: float | None = None,
+    ) -> None: ...
 
 
 class SideEffectLedgerGatewayPort(Protocol):

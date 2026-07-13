@@ -16,7 +16,22 @@ from typing import Any, Mapping, Protocol
 from agent.services.workflow_control_service import RuntimeSelection, RuntimeSelectionPort
 from agent.services.workflow_runtime._serialization import redact_json, sha256_json
 from agent.services.workflow_runtime.execution_plan import SIDE_EFFECT_CLASSES, ExecutionPlan
-from agent.services.workflow_runtime.security import HmacKeyRing
+from agent.services.workflow_runtime.security import SignatureVerificationKeyRingPort
+from agent.services.workflow_runtime_rollout_constraints import (
+    WorkflowRolloutScope,
+    assert_rollout_policy_allows_plan,
+    canonical_runtime_id,
+    rollout_scope_from_plan,
+)
+from agent.services.workflow_runtime_rollout_constraints import (
+    assert_safe_shadow_to_live_transition as _assert_safe_shadow_to_live_transition,
+)
+from agent.services.workflow_runtime_rollout_constraints import (
+    runtime_tuple as _runtime_tuple,
+)
+from agent.services.workflow_runtime_rollout_constraints import (
+    string_tuple as _string_tuple,
+)
 from agent.services.workflow_runtime_selection_service import (
     ExplicitFallbackPolicy,
     RuntimeSelectionProfile,
@@ -36,84 +51,8 @@ _MODE_NARROWING = {
     "drain": frozenset({"disabled", "drain"}),
     "live": frozenset({"disabled", "shadow", "drain", "live"}),
 }
-_RUNTIME_ALIASES = {"native": "ananta-native", "local": "ananta-native"}
 _PERFORMANCE_PROMOTION_ADMISSION = object()
 _CAPABILITY_ROLLBACK_ADMISSION = object()
-
-
-def canonical_runtime_id(value: str) -> str:
-    normalized = str(value or "").strip().lower()
-    return _RUNTIME_ALIASES.get(normalized, normalized)
-
-
-@dataclass(frozen=True)
-class WorkflowRolloutScope:
-    project_id: str
-    tenant_id: str = ""
-    profile_id: str = ""
-    workflow_id: str = ""
-
-    @classmethod
-    def from_mapping(cls, raw: Mapping[str, Any]) -> "WorkflowRolloutScope":
-        scope = cls(
-            project_id=str(raw.get("project_id") or "").strip(),
-            tenant_id=str(raw.get("tenant_id") or "").strip(),
-            profile_id=str(raw.get("profile_id") or "").strip(),
-            workflow_id=str(raw.get("workflow_id") or "").strip(),
-        )
-        scope.assert_valid()
-        return scope
-
-    @property
-    def scope_type(self) -> str:
-        if self.workflow_id:
-            return "workflow"
-        if self.profile_id:
-            return "profile"
-        if self.tenant_id:
-            return "tenant"
-        return "project"
-
-    @property
-    def scope_key(self) -> str:
-        return "wfrs-" + sha256_json(self.to_dict())
-
-    def parent(self) -> "WorkflowRolloutScope | None":
-        if self.workflow_id:
-            return replace(self, workflow_id="")
-        if self.profile_id:
-            return replace(self, profile_id="")
-        if self.tenant_id:
-            return replace(self, tenant_id="")
-        return None
-
-    def lineage(self) -> tuple["WorkflowRolloutScope", ...]:
-        result = [WorkflowRolloutScope(self.project_id)]
-        if self.tenant_id:
-            result.append(WorkflowRolloutScope(self.project_id, self.tenant_id))
-        if self.profile_id:
-            result.append(WorkflowRolloutScope(self.project_id, self.tenant_id, self.profile_id))
-        if self.workflow_id:
-            result.append(self)
-        return tuple(result)
-
-    def assert_valid(self) -> None:
-        if not self.project_id:
-            raise ValueError("workflow_rollout_project_scope_required")
-        if self.profile_id and not self.tenant_id:
-            raise ValueError("workflow_rollout_profile_parent_required")
-        if self.workflow_id and not self.profile_id:
-            raise ValueError("workflow_rollout_workflow_parent_required")
-        if any(len(value) > 160 for value in self.to_dict().values()):
-            raise ValueError("workflow_rollout_scope_identifier_too_long")
-
-    def to_dict(self) -> dict[str, str]:
-        return {
-            "project_id": self.project_id,
-            "tenant_id": self.tenant_id,
-            "profile_id": self.profile_id,
-            "workflow_id": self.workflow_id,
-        }
 
 
 @dataclass(frozen=True)
@@ -517,7 +456,9 @@ class WorkflowShadowIntent:
             raise ValueError("workflow_shadow_intent_workflow_mismatch")
         if self.intent_type == "egress" and not self.target:
             raise ValueError("workflow_shadow_egress_target_required")
-        if not self.payload_digest:
+        if len(self.payload_digest) != 64 or any(
+            character not in "0123456789abcdef" for character in self.payload_digest.lower()
+        ):
             raise ValueError("workflow_shadow_intent_payload_digest_required")
 
 
@@ -750,7 +691,7 @@ class WorkflowRuntimePromotionService:
         performance: WorkflowRolloutPerformanceEvidencePort,
         shadow_comparison: WorkflowShadowComparisonEvidencePort,
         approval: WorkflowPromotionApprovalPort | None = None,
-        evidence_keys: HmacKeyRing | None = None,
+        evidence_keys: SignatureVerificationKeyRingPort | None = None,
         expected_source_revision: str = "",
         clock=time.time,
     ) -> None:
@@ -807,12 +748,16 @@ class WorkflowRuntimePromotionService:
             )
         if not selection.runtime_version or not selection.runtime_build:
             raise RuntimeError("workflow_rollout_runtime_build_identity_unavailable")
+        if not self._expected_source_revision:
+            raise RuntimeError("workflow_rollout_source_revision_verifier_required")
         evidence = self._performance.get_evidence(
             scope=policy.scope,
             runtime_id=policy.preferred_runtime,
         )
         if evidence.runtime_id != policy.preferred_runtime:
             raise RuntimeError("workflow_rollout_performance_runtime_mismatch")
+        if evidence.source_revision != self._expected_source_revision:
+            raise RuntimeError("workflow_rollout_performance_revision_mismatch")
         evidence.assert_promotion_safe()
         shadow_policy_hash = sha256_json(current.policy.to_dict())
         shadow_evidence = self._shadow_comparison.get_evidence(
@@ -829,8 +774,6 @@ class WorkflowRuntimePromotionService:
         )
         if self._evidence_keys is None:
             raise RuntimeError("workflow_rollout_shadow_evidence_verifier_required")
-        if not self._expected_source_revision:
-            raise RuntimeError("workflow_rollout_source_revision_verifier_required")
         shadow_evidence.verify(
             key_ring=self._evidence_keys,
             now=self._clock(),
@@ -952,104 +895,6 @@ class WorkflowRuntimeRollbackService:
         return WorkflowRollbackResult(stored_policy=stored, runtime_selection=selection)
 
 
-def rollout_scope_from_plan(plan: ExecutionPlan) -> WorkflowRolloutScope:
-    """Return the mandatory scope compiled by the Hub and bind its identities.
-
-    Project/profile are selection hints.  Tenant and workflow identities always
-    come from the validated plan and can therefore never be widened or replaced
-    by caller-controlled rollout metadata.
-    """
-
-    raw = plan.metadata.get("workflow_rollout_scope")
-    if not isinstance(raw, Mapping):
-        raise ValueError("workflow_rollout_plan_scope_required")
-    values = dict(raw)
-    declared_tenant = str(values.get("tenant_id") or "").strip()
-    declared_workflow = str(values.get("workflow_id") or "").strip()
-    if declared_tenant and declared_tenant != plan.tenant_id:
-        raise ValueError("workflow_rollout_plan_tenant_mismatch")
-    if declared_workflow and declared_workflow != plan.workflow_id:
-        raise ValueError("workflow_rollout_plan_workflow_mismatch")
-    profile_id = str(values.get("profile_id") or "").strip()
-    values["tenant_id"] = plan.tenant_id
-    values["profile_id"] = profile_id
-    values["workflow_id"] = plan.workflow_id if profile_id else ""
-    try:
-        return WorkflowRolloutScope.from_mapping(values)
-    except ValueError:
-        # An explicit malformed scope must never silently widen to defaults.
-        raise ValueError("workflow_rollout_plan_scope_invalid") from None
-
-
-def assert_rollout_policy_allows_plan(
-    *,
-    policy: WorkflowRolloutPolicy,
-    plan: ExecutionPlan,
-    plan_scope: WorkflowRolloutScope | None = None,
-) -> None:
-    """Enforce scope, side-effect and egress policy before any delegation."""
-
-    plan.assert_valid()
-    resolved_scope = plan_scope or rollout_scope_from_plan(plan)
-    if policy.scope not in resolved_scope.lineage():
-        raise ValueError("workflow_rollout_plan_scope_mismatch")
-    denied_effects = sorted(
-        {node.side_effect_class for node in plan.nodes}
-        - set(policy.allowed_side_effect_classes)
-    )
-    if denied_effects:
-        raise PermissionError(
-            "workflow_rollout_plan_side_effect_denied:" + ",".join(denied_effects)
-        )
-    denied_egress = sorted(
-        set(_plan_egress_destinations(plan))
-        - set(policy.allowed_egress_destinations)
-    )
-    if denied_egress:
-        raise PermissionError("workflow_rollout_plan_egress_denied")
-
-
-def _assert_safe_shadow_to_live_transition(
-    shadow: WorkflowRolloutPolicy,
-    live: WorkflowRolloutPolicy,
-) -> None:
-    fields = (
-        "scope",
-        "preferred_runtime",
-        "allowed_runtimes",
-        "required_capabilities",
-        "allowed_side_effect_classes",
-        "allowed_egress_destinations",
-        "fallback_semantics",
-    )
-    if any(getattr(shadow, field_name) != getattr(live, field_name) for field_name in fields):
-        raise ValueError("workflow_rollout_promotion_policy_drift")
-
-
-def _plan_egress_destinations(plan: ExecutionPlan) -> tuple[str, ...]:
-    destinations: set[str] = set()
-    _collect_egress(destinations, plan.metadata, path="metadata")
-    for index, node in enumerate(plan.nodes):
-        _collect_egress(destinations, node.metadata, path=f"nodes[{index}].metadata")
-    return tuple(sorted(destinations))
-
-
-def _collect_egress(destinations: set[str], metadata: Mapping[str, Any], *, path: str) -> None:
-    singular = metadata.get("egress_destination")
-    if singular is not None:
-        if not isinstance(singular, str) or not singular.strip():
-            raise ValueError(f"workflow_rollout_egress_destination_invalid:{path}")
-        destinations.add(singular.strip())
-    plural = metadata.get("egress_destinations")
-    if plural is None:
-        return
-    if not isinstance(plural, (list, tuple, set, frozenset)) or any(
-        not isinstance(value, str) or not value.strip() for value in plural
-    ):
-        raise ValueError(f"workflow_rollout_egress_destinations_invalid:{path}")
-    destinations.update(value.strip() for value in plural)
-
-
 def _shadow_audit_identity(intent: WorkflowShadowIntent) -> dict[str, Any]:
     return {
         "intent_id": intent.intent_id,
@@ -1061,18 +906,6 @@ def _shadow_audit_identity(intent: WorkflowShadowIntent) -> dict[str, Any]:
         "side_effect_class": intent.side_effect_class,
         "payload_digest": intent.payload_digest,
     }
-
-
-def _string_tuple(values: Any) -> tuple[str, ...]:
-    if isinstance(values, (str, bytes)) or not isinstance(values, (list, tuple, set, frozenset)):
-        raise ValueError("workflow_rollout_string_list_required")
-    if any(not isinstance(value, str) for value in values):
-        raise ValueError("workflow_rollout_string_list_required")
-    return tuple(sorted({value.strip() for value in values if value.strip()}))
-
-
-def _runtime_tuple(values: Any) -> tuple[str, ...]:
-    return tuple(canonical_runtime_id(value) for value in _string_tuple(values))
 
 
 __all__ = [

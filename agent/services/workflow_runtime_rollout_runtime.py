@@ -29,7 +29,11 @@ from agent.services.workflow_runtime_selection_composition import (
     build_configured_workflow_runtime_selection,
 )
 from agent.services.workflow_shadow_comparison_service import (
+    HubEventWorkflowShadowComparisonProducer,
+    HubEventWorkflowShadowEvidenceService,
     JsonWorkflowShadowComparisonEvidenceStore,
+    OwnerOnlyJsonWorkflowShadowEvidencePublisher,
+    WorkflowShadowComparisonService,
 )
 
 
@@ -88,9 +92,7 @@ def get_workflow_runtime_promotion_service() -> WorkflowRuntimePromotionService:
                     key_ring=key_ring,
                     expected_source_revision=source_revision,
                 ),
-                approval=ApprovalRequestWorkflowPromotionApproval(
-                    get_approval_request_service()
-                ),
+                approval=ApprovalRequestWorkflowPromotionApproval(get_approval_request_service()),
                 evidence_keys=key_ring,
                 expected_source_revision=source_revision,
             )
@@ -103,6 +105,28 @@ def reset_workflow_runtime_promotion_service() -> None:
     with _LOCK:
         _SERVICE = None
         _KEY = None
+
+
+def build_workflow_shadow_evidence_service() -> HubEventWorkflowShadowEvidenceService:
+    """Compose the production Hub event store, signer, comparator and publisher."""
+
+    from agent.database import engine
+    from agent.services.workflow_hub_task_gateway_runtime import (
+        get_workflow_authorization_key_ring,
+    )
+    from agent.services.workflow_runtime.sqlalchemy_event_stores import (
+        SQLAlchemyEventStore,
+    )
+
+    key_ring = get_workflow_authorization_key_ring()
+    producer = HubEventWorkflowShadowComparisonProducer(
+        events=SQLAlchemyEventStore(engine, publish_to_outbox=False),
+        comparison=WorkflowShadowComparisonService(key_ring=key_ring),
+    )
+    return HubEventWorkflowShadowEvidenceService(
+        producer=producer,
+        publisher=OwnerOnlyJsonWorkflowShadowEvidencePublisher(_shadow_evidence_path()),
+    )
 
 
 def _evidence_path() -> Path:
@@ -123,6 +147,7 @@ def _shadow_evidence_path() -> Path:
 
 __all__ = [
     "WorkflowRuntimeRolloutConfigurationError",
+    "build_workflow_shadow_evidence_service",
     "get_workflow_runtime_promotion_service",
     "reset_workflow_runtime_promotion_service",
 ]

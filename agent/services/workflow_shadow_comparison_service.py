@@ -12,6 +12,7 @@ import json
 import os
 import stat
 import time
+import uuid
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -20,7 +21,10 @@ from typing import Any, Protocol
 from agent.services.workflow_runtime._serialization import sha256_json
 from agent.services.workflow_runtime.events import CanonicalWorkflowEvent, EventStore
 from agent.services.workflow_runtime.execution_plan import ExecutionPlan
-from agent.services.workflow_runtime.security import HmacKeyRing
+from agent.services.workflow_runtime.security import (
+    SignatureSigningKeyRingPort,
+    SignatureVerificationKeyRingPort,
+)
 
 WORKFLOW_SHADOW_OBSERVATION_SCHEMA = "ananta.workflow_shadow_observation.v2"
 WORKFLOW_SHADOW_COMPARISON_SCHEMA = "ananta.workflow_shadow_comparison.v2"
@@ -30,6 +34,7 @@ _TERMINAL_EVENTS = {
     "workflow.run.cancelled": "cancelled",
 }
 _MAX_EVIDENCE_BYTES = 1_048_576
+_MAX_SHADOW_EVENTS = 10_000
 
 
 @dataclass(frozen=True)
@@ -166,6 +171,9 @@ class WorkflowShadowComparison:
     policy_revision: int
     required_capabilities: tuple[str, ...]
     common_capabilities: tuple[str, ...]
+    event_types: tuple[str, ...]
+    artifact_contracts: tuple[tuple[str, str], ...]
+    verified_invariants: tuple[str, ...]
     status: str
     deviations: tuple[str, ...]
     source_revision: str
@@ -203,6 +211,9 @@ class WorkflowShadowComparison:
             "policy_revision": self.policy_revision,
             "required_capabilities": list(self.required_capabilities),
             "common_capabilities": list(self.common_capabilities),
+            "event_types": list(self.event_types),
+            "artifact_contracts": dict(self.artifact_contracts),
+            "verified_invariants": list(self.verified_invariants),
             "status": self.status,
             "deviations": list(self.deviations),
             "source_revision": self.source_revision,
@@ -218,7 +229,7 @@ class WorkflowShadowComparison:
     def verify(
         self,
         *,
-        key_ring: HmacKeyRing,
+        key_ring: SignatureVerificationKeyRingPort,
         now: float | None = None,
         scope_key: str = "",
         tenant_id: str = "",
@@ -287,8 +298,13 @@ class WorkflowShadowComparison:
             raise ValueError("workflow_shadow_comparison_distinct_runs_required")
         if self.issued_at <= 0 or self.expires_at <= self.issued_at:
             raise ValueError("workflow_shadow_comparison_freshness_invalid")
-        if not self.required_capabilities or not self.common_capabilities:
-            raise ValueError("workflow_shadow_comparison_capabilities_empty")
+        if (
+            not self.required_capabilities
+            or not self.common_capabilities
+            or not self.event_types
+            or not self.verified_invariants
+        ):
+            raise ValueError("workflow_shadow_comparison_evidence_empty")
         if set(self.required_capabilities) - set(self.common_capabilities):
             raise RuntimeError("workflow_shadow_comparison_incompatible")
         if not self.promotion_safe:
@@ -304,7 +320,12 @@ class WorkflowShadowComparison:
 class WorkflowShadowComparisonService:
     """Compare deterministic contracts and sign the Hub-owned result."""
 
-    def __init__(self, *, key_ring: HmacKeyRing, clock: Callable[[], float] = time.time) -> None:
+    def __init__(
+        self,
+        *,
+        key_ring: SignatureSigningKeyRingPort,
+        clock: Callable[[], float] = time.time,
+    ) -> None:
         self._key_ring = key_ring
         self._clock = clock
 
@@ -368,6 +389,9 @@ class WorkflowShadowComparisonService:
             policy_revision=int(policy_revision),
             required_capabilities=required,
             common_capabilities=common,
+            event_types=baseline.event_types,
+            artifact_contracts=baseline.artifact_contracts,
+            verified_invariants=tuple(key for key, _value in baseline.invariants),
             status=status,
             deviations=tuple(deviations),
             source_revision=revision,
@@ -409,8 +433,22 @@ class HubEventWorkflowShadowComparisonProducer:
         plan.assert_valid()
         baseline.assert_valid()
         shadow.assert_valid()
-        baseline_observation = self._observation(plan, baseline_run_id, baseline)
-        shadow_observation = self._observation(plan, shadow_run_id, shadow)
+        baseline_observation = self._observation(
+            plan,
+            baseline_run_id,
+            baseline,
+            policy_hash=policy_hash,
+            policy_version=policy_version,
+            policy_revision=policy_revision,
+        )
+        shadow_observation = self._observation(
+            plan,
+            shadow_run_id,
+            shadow,
+            policy_hash=policy_hash,
+            policy_version=policy_version,
+            policy_revision=policy_revision,
+        )
         return self._comparison.compare(
             baseline=baseline_observation,
             shadow=shadow_observation,
@@ -428,12 +466,30 @@ class HubEventWorkflowShadowComparisonProducer:
         plan: ExecutionPlan,
         run_id: str,
         runtime: WorkflowShadowRuntimeIdentity,
+        *,
+        policy_hash: str,
+        policy_version: str,
+        policy_revision: int,
     ) -> WorkflowShadowObservation:
         normalized_run_id = str(run_id).strip()
         if not normalized_run_id:
             raise ValueError("workflow_shadow_run_id_required")
-        events = self._events.list_events(tenant_id=plan.tenant_id, run_id=normalized_run_id)
-        invariants, terminal_status, artifacts = _derive_event_invariants(plan, normalized_run_id, events)
+        events = self._events.list_events(
+            tenant_id=plan.tenant_id,
+            run_id=normalized_run_id,
+            limit=_MAX_SHADOW_EVENTS + 1,
+        )
+        if len(events) > _MAX_SHADOW_EVENTS:
+            raise ValueError("workflow_shadow_event_sequence_too_large")
+        invariants, terminal_status, artifacts = _derive_event_invariants(
+            plan,
+            normalized_run_id,
+            events,
+            runtime=runtime,
+            policy_hash=policy_hash,
+            policy_version=policy_version,
+            policy_revision=policy_revision,
+        )
         return WorkflowShadowObservation.build(
             runtime_id=runtime.runtime_id,
             runtime_version=runtime.runtime_version,
@@ -461,7 +517,7 @@ class JsonWorkflowShadowComparisonEvidenceStore:
         self,
         path: str | Path,
         *,
-        key_ring: HmacKeyRing,
+        key_ring: SignatureVerificationKeyRingPort,
         expected_source_revision: str,
         clock: Callable[[], float] = time.time,
     ) -> None:
@@ -469,6 +525,8 @@ class JsonWorkflowShadowComparisonEvidenceStore:
         self._key_ring = key_ring
         self._expected_source_revision = str(expected_source_revision).strip()
         self._clock = clock
+        if not self._path.is_absolute():
+            raise ValueError("workflow_shadow_evidence_absolute_path_required")
         if not self._expected_source_revision:
             raise ValueError("workflow_shadow_expected_revision_required")
 
@@ -508,17 +566,101 @@ class JsonWorkflowShadowComparisonEvidenceStore:
         return comparison
 
 
+class OwnerOnlyJsonWorkflowShadowEvidencePublisher:
+    """Atomically publish signed Hub evidence with mode 0600."""
+
+    def __init__(self, path: str | Path) -> None:
+        self._path = Path(path)
+        if not self._path.is_absolute():
+            raise ValueError("workflow_shadow_evidence_absolute_path_required")
+
+    def publish(self, comparison: WorkflowShadowComparison) -> str:
+        if not comparison.key_id or not comparison.signature:
+            raise ValueError("workflow_shadow_signed_evidence_required")
+        payload = (json.dumps(comparison.to_dict(), indent=2, sort_keys=True) + "\n").encode("utf-8")
+        if len(payload) > _MAX_EVIDENCE_BYTES:
+            raise ValueError("workflow_shadow_comparison_evidence_size_invalid")
+        temporary = self._path.with_name(f".{self._path.name}.{uuid.uuid4().hex}.tmp")
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+        try:
+            descriptor = os.open(temporary, flags, 0o600)
+            try:
+                with os.fdopen(descriptor, "wb", closefd=True) as stream:
+                    stream.write(payload)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                descriptor = -1
+            finally:
+                if descriptor >= 0:
+                    os.close(descriptor)
+            temporary.replace(self._path)
+        except OSError as exc:
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                pass
+            raise RuntimeError("workflow_shadow_evidence_publish_failed") from exc
+        return comparison.evidence_ref
+
+
+class HubEventWorkflowShadowEvidenceService:
+    """Application service joining the event producer and secure publisher."""
+
+    def __init__(
+        self,
+        *,
+        producer: HubEventWorkflowShadowComparisonProducer,
+        publisher: OwnerOnlyJsonWorkflowShadowEvidencePublisher,
+    ) -> None:
+        self._producer = producer
+        self._publisher = publisher
+
+    def produce_and_publish(
+        self,
+        *,
+        plan: ExecutionPlan,
+        scope_key: str,
+        policy_hash: str,
+        policy_version: str,
+        policy_revision: int,
+        baseline: WorkflowShadowRuntimeIdentity,
+        baseline_run_id: str,
+        shadow: WorkflowShadowRuntimeIdentity,
+        shadow_run_id: str,
+        source_revision: str,
+        ttl_seconds: float = 3_600.0,
+    ) -> WorkflowShadowComparison:
+        comparison = self._producer.produce(
+            plan=plan,
+            scope_key=scope_key,
+            policy_hash=policy_hash,
+            policy_version=policy_version,
+            policy_revision=policy_revision,
+            baseline=baseline,
+            baseline_run_id=baseline_run_id,
+            shadow=shadow,
+            shadow_run_id=shadow_run_id,
+            source_revision=source_revision,
+            ttl_seconds=ttl_seconds,
+        )
+        self._publisher.publish(comparison)
+        return comparison
+
+
 def _derive_event_invariants(
     plan: ExecutionPlan,
     run_id: str,
     events: tuple[CanonicalWorkflowEvent, ...],
+    *,
+    runtime: WorkflowShadowRuntimeIdentity,
+    policy_hash: str,
+    policy_version: str,
+    policy_revision: int,
 ) -> tuple[dict[str, bool], str, dict[str, str]]:
     if not events:
         raise ValueError("workflow_shadow_event_sequence_empty")
     if any(
-        event.tenant_id != plan.tenant_id
-        or event.workflow_id != plan.workflow_id
-        or event.run_id != run_id
+        event.tenant_id != plan.tenant_id or event.workflow_id != plan.workflow_id or event.run_id != run_id
         for event in events
     ):
         raise ValueError("workflow_shadow_event_binding_mismatch")
@@ -527,6 +669,18 @@ def _derive_event_invariants(
     start_events = [event for event in events if event.event_type == "workflow.run.started"]
     plan_bound = bool(start_events) and all(
         str(event.payload.get("plan_hash") or "") == plan.plan_hash for event in start_events
+    )
+    runtime_bound = bool(start_events) and all(
+        str(event.payload.get("runtime_id") or "") == runtime.runtime_id
+        and str(event.payload.get("runtime_version") or "") == runtime.runtime_version
+        and str(event.payload.get("runtime_build") or "") == runtime.runtime_build
+        for event in start_events
+    )
+    policy_bound = bool(start_events) and all(
+        str(event.payload.get("rollout_policy_hash") or "") == str(policy_hash)
+        and str(event.payload.get("rollout_policy_version") or "") == str(policy_version)
+        and event.payload.get("rollout_policy_revision") == int(policy_revision)
+        for event in start_events
     )
     observed_nodes = {
         str(event.step_id or event.payload.get("node_id") or "").strip()
@@ -546,7 +700,9 @@ def _derive_event_invariants(
         "event_sequence_contiguous": contiguous,
         "plan_hash_bound_by_start_event": plan_bound,
         "planned_nodes_observed": expected_nodes.issubset(observed_nodes),
+        "rollout_policy_bound_by_start_event": policy_bound,
         "required_artifacts_present": required_artifacts.issubset(artifacts),
+        "runtime_identity_bound_by_start_event": runtime_bound,
         "terminal_success": terminal_status == "completed",
     }
     if not all(invariants.values()):
@@ -565,11 +721,21 @@ def _read_owner_only_json(path: Path) -> dict[str, Any]:
         metadata = os.fstat(descriptor)
         if not stat.S_ISREG(metadata.st_mode):
             raise ValueError("workflow_shadow_comparison_evidence_not_regular")
+        if metadata.st_uid != os.geteuid():
+            raise PermissionError("workflow_shadow_comparison_evidence_owner_mismatch")
         if stat.S_IMODE(metadata.st_mode) & 0o077:
             raise PermissionError("workflow_shadow_comparison_evidence_not_owner_only")
         if metadata.st_size < 1 or metadata.st_size > _MAX_EVIDENCE_BYTES:
             raise ValueError("workflow_shadow_comparison_evidence_size_invalid")
-        payload = os.read(descriptor, _MAX_EVIDENCE_BYTES + 1)
+        chunks: list[bytes] = []
+        remaining = _MAX_EVIDENCE_BYTES + 1
+        while remaining:
+            chunk = os.read(descriptor, min(65_536, remaining))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        payload = b"".join(chunks)
     finally:
         os.close(descriptor)
     try:
@@ -582,11 +748,22 @@ def _read_owner_only_json(path: Path) -> dict[str, Any]:
 
 
 def _comparison_from_mapping(raw: Mapping[str, Any]) -> WorkflowShadowComparison:
-    list_fields = ("required_capabilities", "common_capabilities", "deviations")
+    list_fields = (
+        "required_capabilities",
+        "common_capabilities",
+        "event_types",
+        "verified_invariants",
+        "deviations",
+    )
     if raw.get("production_eligible") is not False or any(
-        not isinstance(raw.get(field), list)
-        or not all(isinstance(value, str) and value for value in raw[field])
+        not isinstance(raw.get(field), list) or not all(isinstance(value, str) and value for value in raw[field])
         for field in list_fields
+    ):
+        raise ValueError("workflow_shadow_comparison_evidence_invalid")
+    artifact_contracts = raw.get("artifact_contracts")
+    if not isinstance(artifact_contracts, Mapping) or any(
+        not isinstance(key, str) or not key or not isinstance(value, str) or not value
+        for key, value in artifact_contracts.items()
     ):
         raise ValueError("workflow_shadow_comparison_evidence_invalid")
     try:
@@ -608,6 +785,9 @@ def _comparison_from_mapping(raw: Mapping[str, Any]) -> WorkflowShadowComparison
             policy_revision=int(raw.get("policy_revision")),
             required_capabilities=tuple(raw.get("required_capabilities") or ()),
             common_capabilities=tuple(raw.get("common_capabilities") or ()),
+            event_types=tuple(raw.get("event_types") or ()),
+            artifact_contracts=tuple(sorted((str(key), str(value)) for key, value in artifact_contracts.items())),
+            verified_invariants=tuple(raw.get("verified_invariants") or ()),
             status=str(raw.get("status") or ""),
             deviations=tuple(raw.get("deviations") or ()),
             source_revision=str(raw.get("source_revision") or ""),
@@ -625,7 +805,9 @@ __all__ = [
     "WORKFLOW_SHADOW_COMPARISON_SCHEMA",
     "WORKFLOW_SHADOW_OBSERVATION_SCHEMA",
     "HubEventWorkflowShadowComparisonProducer",
+    "HubEventWorkflowShadowEvidenceService",
     "JsonWorkflowShadowComparisonEvidenceStore",
+    "OwnerOnlyJsonWorkflowShadowEvidencePublisher",
     "WorkflowShadowComparison",
     "WorkflowShadowComparisonEvidencePort",
     "WorkflowShadowComparisonService",

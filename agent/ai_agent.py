@@ -50,6 +50,10 @@ def _initialize_workflow_adapter_worker_runtime(app: Flask):
         }
         return None
     from worker.adapters.chain_runners import configure_text_generation
+    from worker.runtime.native_graph.authorization import (
+        HubBackedNativeAuthorizationVerifier,
+        load_ed25519_native_authorization_verifier,
+    )
     from worker.runtime.native_graph.composition import TaskScopedNativeWorkerExecutor
     from worker.runtime.native_worker_runtime_service import (
         get_native_worker_runtime_service,
@@ -89,11 +93,19 @@ def _initialize_workflow_adapter_worker_runtime(app: Flask):
             runtime=get_native_worker_runtime_service(),
             workspaces=workspaces,
         )
+    try:
+        native_authorization_verifier = (
+            load_ed25519_native_authorization_verifier()
+            or HubBackedNativeAuthorizationVerifier()
+        )
+    except ValueError:
+        native_authorization_verifier = None
 
     return initialize_workflow_adapter_worker_runtime(
         app,
         client=client,
         native_executor=native_executor,
+        native_authorization_verifier=native_authorization_verifier,
     )
 
 

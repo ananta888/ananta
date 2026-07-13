@@ -6,24 +6,17 @@ import contextlib
 import contextvars
 import hashlib
 import json
-import os
 import re
-import stat
 import uuid
-from pathlib import Path
 from typing import Any, Iterator, Mapping, Protocol
 
-from agent.services.workflow_runtime.security import (
-    AuthorizationVerifier,
-    HmacKeyRing,
-    InMemoryReplayNonceStore,
-)
 from ananta_contracts.workflow_worker_gateway import (
     SideEffectGatewayReceipt,
     WorkflowWorkerBinding,
 )
 from worker.runtime.native_graph.contracts import NativeNodeCommand, NativeNodeResult
 from worker.runtime.native_graph.node_runtime import NativeDelegatedNodeRuntime
+from worker.runtime.native_graph.ports import NativeAuthorizationVerifierPort
 from worker.runtime.native_graph.task_adapter import NativeGraphWorkerTaskAdapter
 from worker.runtime.workflow_hub_gateway import (
     HttpWorkflowHubDecisionClient,
@@ -429,12 +422,17 @@ def build_native_graph_worker_task_adapter(
     client: HttpWorkflowHubDecisionClient,
     agent_config: Mapping[str, Any],
     executor: NativeWorkerCommandRuntimePort | None = None,
+    authorization_verifier: NativeAuthorizationVerifierPort | None = None,
 ) -> NativeGraphWorkerTaskAdapter | None:
     runtime_cfg = agent_config.get("worker_runtime")
     runtime_cfg = dict(runtime_cfg) if isinstance(runtime_cfg, Mapping) else {}
     native_cfg = runtime_cfg.get("native_graph")
     native_cfg = dict(native_cfg) if isinstance(native_cfg, Mapping) else {}
-    if not bool(native_cfg.get("enabled", False)) or executor is None:
+    if (
+        not bool(native_cfg.get("enabled", False))
+        or executor is None
+        or authorization_verifier is None
+    ):
         return None
     allowed_task_types = frozenset(
         str(item).strip()
@@ -457,7 +455,6 @@ def build_native_graph_worker_task_adapter(
         )
     ):
         raise ValueError("native_graph_worker_configuration_invalid")
-    verifier = _worker_authorization_verifier_from_environment()
     scope = NativeHubExecutionScope(client)
     runtime = NativeDelegatedNodeRuntime(
         handler=NativeTaskScopedNodeHandler(
@@ -465,44 +462,13 @@ def build_native_graph_worker_task_adapter(
             task_snapshots=scope,
             executor=executor,
         ),
-        authorization_verifier=verifier,
+        authorization_verifier=authorization_verifier,
         policy=ConfiguredNativeNodePolicy(allowed_task_types=allowed_task_types),
         capabilities=capabilities,
         ledger=scope,
         hub_revalidator=scope,
     )
     return NativeGraphWorkerTaskAdapter(runtime, execution_scope=scope)
-
-
-def _worker_authorization_verifier_from_environment() -> AuthorizationVerifier:
-    raw_path = str(os.environ.get("ANANTA_WORKFLOW_AUTH_KEYRING_FILE") or "").strip()
-    path = Path(raw_path)
-    if not raw_path or not path.is_absolute():
-        raise ValueError("workflow_worker_authorization_keyring_required")
-    try:
-        metadata = path.stat()
-        if not stat.S_ISREG(metadata.st_mode) or metadata.st_mode & (
-            stat.S_IWGRP | stat.S_IWOTH
-        ):
-            raise ValueError("workflow_worker_authorization_keyring_unsafe")
-        raw = path.read_bytes()
-    except OSError as exc:
-        raise ValueError("workflow_worker_authorization_keyring_unreadable") from exc
-    if not raw or len(raw) > 65_536:
-        raise ValueError("workflow_worker_authorization_keyring_invalid")
-    try:
-        decoded = json.loads(raw.decode("utf-8"))
-    except (UnicodeError, json.JSONDecodeError) as exc:
-        raise ValueError("workflow_worker_authorization_keyring_invalid") from exc
-    keys = decoded.get("keys") if isinstance(decoded, Mapping) else None
-    active_key_id = str(decoded.get("active_key_id") or "") if isinstance(decoded, Mapping) else ""
-    if not isinstance(keys, Mapping) or active_key_id not in keys:
-        raise ValueError("workflow_worker_authorization_keyring_invalid")
-    return AuthorizationVerifier(
-        HmacKeyRing(dict(keys), active_key_id=active_key_id),
-        InMemoryReplayNonceStore(),
-    )
-
 
 def _reason(value: object, fallback: str) -> str:
     text = str(getattr(value, "reason_code", value) or "").strip()

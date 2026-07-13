@@ -205,6 +205,52 @@ class WorkflowStreamClient:
             raise WorkflowStreamClientError("runtime_capability_response_invalid")
         return value
 
+    def runtime_operations(
+        self,
+        *,
+        runtime: str = "",
+        mode: str = "",
+        status: str = "",
+        health: str = "",
+        query_text: str = "",
+        limit: int = 200,
+    ) -> dict[str, Any]:
+        """Read the tenant-scoped fallback/degradation projection used by Angular."""
+
+        filters = {
+            "runtime": str(runtime).strip(),
+            "mode": str(mode).strip(),
+            "status": str(status).strip(),
+            "health": str(health).strip(),
+            "q": str(query_text).strip(),
+        }
+        if not 1 <= int(limit) <= 500 or any(len(value) > 160 for value in filters.values()):
+            raise WorkflowStreamClientError("runtime_operations_query_invalid")
+        parameters = [(key, value) for key, value in filters.items() if value]
+        parameters.append(("limit", str(int(limit))))
+        response = self._transport.get(
+            f"{self._hub_url}/api/workflow-runtime/operations?{urllib.parse.urlencode(parameters)}",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {self._token}",
+            },
+            timeout_seconds=self._timeout_seconds,
+        )
+        if response.status != 200:
+            raise WorkflowStreamClientError(f"runtime_operations_http_{response.status}")
+        try:
+            value = json.loads(response.body.decode("utf-8"))
+        except (UnicodeError, json.JSONDecodeError) as exc:
+            raise WorkflowStreamClientError("runtime_operations_response_invalid") from exc
+        if (
+            not isinstance(value, dict)
+            or value.get("schema") != "ananta.workflow_runtime_operations_list.v1"
+            or not isinstance(value.get("runs"), list)
+            or not isinstance(value.get("summary"), dict)
+        ):
+            raise WorkflowStreamClientError("runtime_operations_response_invalid")
+        return value
+
     def cancel(self, workflow_id: str, *, reason: str = "client_cancelled") -> None:
         if not str(workflow_id).strip() or len(str(workflow_id)) > 160:
             raise WorkflowStreamClientError("workflow_stream_workflow_id_invalid")

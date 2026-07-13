@@ -17,7 +17,7 @@ from agent.services.workflow_control_release_selection import (
     UnavailableWorkflowRuntimeReleaseAdmission,
     WorkflowRuntimeReleaseAdmissionPort,
 )
-from agent.services.workflow_runtime.security import HmacKeyRing, ReplayNonceStore
+from agent.services.workflow_runtime.security import ReplayNonceStore, SignatureSigningKeyRingPort
 from agent.services.workflow_runtime_rollout_service import (
     WorkflowRolloutPolicyService,
 )
@@ -42,10 +42,7 @@ def production_release_admission(
         return cast(
             WorkflowRuntimeReleaseAdmissionPort,
             WorkflowRuntimeReleaseAdmission.from_file(
-                root
-                / "artifacts"
-                / "test-gates"
-                / "workflow-runtime-production-v1.json",
+                root / "artifacts" / "test-gates" / "workflow-runtime-production-v1.json",
                 expected_contract_hash=gate.contract_hash,
                 runtime_aliases={
                     "ananta-native": "native",
@@ -93,7 +90,7 @@ def production_authorization_grants() -> WorkflowAuthorizationGrantPort:
     return SQLAlchemyWorkflowAuthorizationGrantService(engine)
 
 
-def production_command_key_ring(backend: WorkflowBackend) -> HmacKeyRing | None:
+def production_command_key_ring(backend: WorkflowBackend) -> SignatureSigningKeyRingPort | None:
     runtime_id = configured_runtime_id(str(backend.backend_id))
     if runtime_id not in {"ananta-native", "temporal"}:
         return None

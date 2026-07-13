@@ -12,6 +12,7 @@ import urllib.parse
 import urllib.request
 import uuid
 from collections.abc import Mapping
+from dataclasses import replace
 from typing import Any, Protocol
 
 from ananta_contracts.provider_invocation import (
@@ -155,6 +156,19 @@ class HubBudgetedWorkerTextGeneration:
         if not prompt or len(prompt) > _MAX_PROMPT_CHARS:
             raise ProviderInvocationBlocked("worker_provider_prompt_invalid")
         safe_prompt = str(redact(prompt, VisibilityLevel.PUBLIC))
+        estimated_prompt_tokens = max(1, (len(safe_prompt) + 3) // 4)
+        if context.max_total_tokens < 1 or context.max_completion_tokens_per_call < 1:
+            raise ProviderInvocationBlocked("worker_provider_token_budget_required")
+        completion_limit = min(
+            context.max_completion_tokens_per_call,
+            max(0, context.max_total_tokens - estimated_prompt_tokens),
+        )
+        if completion_limit < 1:
+            raise ProviderInvocationBlocked("provider_token_budget_exceeded")
+        context = replace(
+            context,
+            max_completion_tokens_per_call=completion_limit,
+        )
         timeout_seconds = max(1.0, min(float(values.get("timeout") or 60), 120.0))
         request_url, headers, payload = self._request(
             provider=provider,
@@ -166,7 +180,7 @@ class HubBudgetedWorkerTextGeneration:
         reservation_id = self._reservation_id(context, provider, model, safe_prompt)
         decision = self._budgets.reserve(
             context=context,
-            estimated_prompt_tokens=max(1, (len(safe_prompt) + 3) // 4),
+            estimated_prompt_tokens=estimated_prompt_tokens,
             reservation_id=reservation_id,
         )
         if not decision.allowed:
@@ -244,6 +258,8 @@ class HubBudgetedWorkerTextGeneration:
                 "max_tokens": max_output_tokens or 1024,
             }
         api_key = self._api_key(provider)
+        if provider not in _LOCAL_PROVIDER_IDS and not api_key:
+            raise ProviderInvocationBlocked("worker_provider_credential_missing")
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
         url = self._openai_chat_url(endpoint)
@@ -354,6 +370,7 @@ def build_hub_budgeted_worker_text_generation(
     *,
     client: HttpWorkflowHubDecisionClient,
     provider_urls: Mapping[str, object],
+    transport: WorkerProviderTransportPort | None = None,
 ) -> HubBudgetedWorkerTextGeneration:
     """Production composition; the budget adapter always calls back to Hub."""
 
@@ -362,6 +379,7 @@ def build_hub_budgeted_worker_text_generation(
     return HubBudgetedWorkerTextGeneration(
         provider_urls=provider_urls,
         budgets=HubProviderBudgetAdapter(client),
+        transport=transport,
     )
 
 

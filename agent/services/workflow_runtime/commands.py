@@ -16,7 +16,11 @@ from typing import Any
 
 from agent.services.workflow_runtime._serialization import canonical_json, contains_sensitive_keys, redact_json
 from agent.services.workflow_runtime.errors import ContractValidationError, SignatureValidationError
-from agent.services.workflow_runtime.security import HmacKeyRing, ReplayNonceStore
+from agent.services.workflow_runtime.security import (
+    ReplayNonceStore,
+    SignatureSigningKeyRingPort,
+    SignatureVerificationKeyRingPort,
+)
 
 WORKFLOW_COMMAND_SCHEMA = "ananta.workflow_command.v2"
 WORKFLOW_COMMAND_TYPES = frozenset(
@@ -60,7 +64,7 @@ class SignedWorkflowCommand:
     def issue(
         cls,
         *,
-        key_ring: HmacKeyRing,
+        key_ring: SignatureSigningKeyRingPort,
         command_type: str,
         tenant_id: str,
         workflow_id: str,
@@ -138,7 +142,7 @@ class SignedWorkflowCommand:
     def verify(
         self,
         *,
-        key_ring: HmacKeyRing,
+        key_ring: SignatureVerificationKeyRingPort,
         tenant_id: str,
         workflow_id: str,
         run_id: str,
@@ -250,7 +254,7 @@ class SignedWorkflowCommand:
 class WorkflowCommandVerifier:
     """Verify a command once; duplicate submissions fail closed."""
 
-    def __init__(self, key_ring: HmacKeyRing, replay_store: ReplayNonceStore):
+    def __init__(self, key_ring: SignatureVerificationKeyRingPort, replay_store: ReplayNonceStore):
         self._key_ring = key_ring
         self._replay_store = replay_store
 
@@ -269,7 +273,7 @@ class WorkflowCommandIssuer:
 
     def __init__(
         self,
-        key_ring: HmacKeyRing,
+        key_ring: SignatureSigningKeyRingPort,
         *,
         ttl_seconds: float = 300.0,
         clock: Callable[[], float] = time.time,

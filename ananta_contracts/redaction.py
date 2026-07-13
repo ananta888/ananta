@@ -108,12 +108,12 @@ class Redactor:
     def _compile_patterns() -> dict[SensitiveDataClass, re.Pattern[str]]:
         return {
             SensitiveDataClass.TOKEN: re.compile(
-                r"(?:api[_-]key|token|auth[_-]token)[=:\s]*([^\s,\)\"']+)"
+                r"(?:api[_-]key|token|auth[_-]token)[=:]\s*([^\s,\)\"']+)"
                 r"|(\bsk-[A-Za-z0-9_-]{20,})|(AKIA[0-9A-Z]{16})",
                 re.IGNORECASE,
             ),
             SensitiveDataClass.SECRET: re.compile(
-                r"(?:password|secret|key)[=:\s]*([^\s,\)\"']+)",
+                r"(?:password|secret|key)[=:]\s*([^\s,\)\"']+)",
                 re.IGNORECASE,
             ),
             SensitiveDataClass.CREDENTIAL: re.compile(

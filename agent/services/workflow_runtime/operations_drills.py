@@ -7,6 +7,7 @@ authorization and recovery decisions remain Hub-owned.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import os
@@ -38,8 +39,8 @@ from agent.services.workflow_runtime._operations_rollout_support import (
 from agent.services.workflow_runtime._serialization import canonical_json, sha256_json
 from agent.services.workflow_runtime.errors import SignatureValidationError
 from agent.services.workflow_runtime.security import (
-    HmacKeyRing,
     RuntimeAuthorizationEnvelope,
+    SignatureSigningKeyRingPort,
 )
 from agent.services.workflow_runtime_rollout_persistence import (
     SQLAlchemyWorkflowRolloutPolicyStore,
@@ -58,6 +59,7 @@ from agent.services.workflow_runtime_selection_service import (
     InMemoryRuntimeSelectionAudit,
     RuntimeCandidate,
 )
+from ananta_contracts.runtime_authorization_crypto import Ed25519SigningKeyRing
 
 OPERATIONS_DRILL_REPORT_SCHEMA = "ananta.workflow_runtime_operations_drill.v1"
 _TRACKED_TABLES = (
@@ -275,10 +277,16 @@ class AuthorizationKeyRotationDrill:
     """Exercise overlap, cutover and old-key revocation without key output."""
 
     def run(self) -> OperationsDrillResult:
-        ring = _disposable_key_ring("rotation-old")
-        old = _issue_envelope(ring, envelope_id="rotation-old-envelope", now=100.0)
-        _verify_envelope(old, ring, now=110.0)
-        ring.rotate(key_id="rotation-new", key=_derived_key("rotation-new"))
+        old_ring = _disposable_key_ring("rotation-old")
+        old = _issue_envelope(old_ring, envelope_id="rotation-old-envelope", now=100.0)
+        _verify_envelope(old, old_ring, now=110.0)
+        ring = Ed25519SigningKeyRing(
+            {
+                "rotation-old": _derived_key("rotation-old"),
+                "rotation-new": _derived_key("rotation-new"),
+            },
+            active_key_id="rotation-new",
+        )
         _verify_envelope(old, ring, now=111.0)
         new = _issue_envelope(ring, envelope_id="rotation-new-envelope", now=112.0)
         _verify_envelope(new, ring, now=113.0)
@@ -893,14 +901,20 @@ def _normalize_sql_value(value: Any) -> Any:
 
 
 def _derived_key(label: str) -> bytes:
-    return hashlib.sha256(f"disposable-air055:{label}".encode("utf-8")).digest()
+    raw_key = hashlib.sha256(f"disposable-air055:{label}".encode("utf-8")).digest()
+    return base64.b64encode(raw_key)
 
 
-def _disposable_key_ring(key_id: str) -> HmacKeyRing:
-    return HmacKeyRing({key_id: _derived_key(key_id)}, active_key_id=key_id)
+def _disposable_key_ring(key_id: str) -> SignatureSigningKeyRingPort:
+    return Ed25519SigningKeyRing({key_id: _derived_key(key_id)}, active_key_id=key_id)
 
 
-def _issue_envelope(ring: HmacKeyRing, *, envelope_id: str, now: float) -> RuntimeAuthorizationEnvelope:
+def _issue_envelope(
+    ring: SignatureSigningKeyRingPort,
+    *,
+    envelope_id: str,
+    now: float,
+) -> RuntimeAuthorizationEnvelope:
     return RuntimeAuthorizationEnvelope.issue(
         key_ring=ring,
         tenant_id="tenant-drill",
@@ -918,7 +932,12 @@ def _issue_envelope(ring: HmacKeyRing, *, envelope_id: str, now: float) -> Runti
     )
 
 
-def _verify_envelope(envelope: RuntimeAuthorizationEnvelope, ring: HmacKeyRing, *, now: float) -> None:
+def _verify_envelope(
+    envelope: RuntimeAuthorizationEnvelope,
+    ring: SignatureSigningKeyRingPort,
+    *,
+    now: float,
+) -> None:
     envelope.verify(
         key_ring=ring,
         tenant_id="tenant-drill",
