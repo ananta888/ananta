@@ -5,14 +5,14 @@ import { RouterLink } from '@angular/router';
 import { Subscription, interval } from 'rxjs';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { NotificationService } from '../services/notification.service';
-import { OpsApiClient, ComposeProjectSummary, DockerContainerSummary, DockerEngineStatus, GitStatus } from '../services/ops-api.client';
 import { ControlPlaneFacade } from '../features/control-plane/control-plane.facade';
+import { OperationsSurfaceComponent } from '../features/operations/operations-surface.component';
 import { UiSkeletonComponent } from './ui-skeleton.component';
 
 @Component({
   standalone: true,
   selector: 'app-operations-console',
-  imports: [CommonModule, FormsModule, RouterLink, UiSkeletonComponent],
+  imports: [CommonModule, FormsModule, RouterLink, UiSkeletonComponent, OperationsSurfaceComponent],
   template: `
     <h2>Operations Konsole</h2>
     <p class="muted">Zentrale Steuerung fuer orchestrierte Task-Abarbeitung aus UI und Agenten.</p>
@@ -122,99 +122,7 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
       </div>
 
       <div class="card card-mt">
-        <div class="row flex-between">
-          <h3 class="no-margin">Ops Control Surface</h3>
-          <button class="button-outline btn-xs" (click)="reloadOps()">Ops aktualisieren</button>
-        </div>
-        <div class="ops-tabs mt-sm" role="tablist">
-          <button type="button" [class.active]="opsTab === 'git'" (click)="opsTab = 'git'">Git</button>
-          <button type="button" [class.active]="opsTab === 'docker'" (click)="opsTab = 'docker'">Docker</button>
-          <button type="button" [class.active]="opsTab === 'compose'" (click)="opsTab = 'compose'">Compose</button>
-        </div>
-        @if (opsLoading) {
-          <div class="mt-sm"><app-ui-skeleton [count]="1" [lineCount]="4"></app-ui-skeleton></div>
-        } @else if (opsError) {
-          <div class="state-banner error mt-sm">{{ opsError }}</div>
-        } @else {
-          @if (opsTab === 'git') {
-            @if (gitStatus?.error) {
-              <div class="state-banner error mt-sm">{{ gitStatus?.error?.code }}</div>
-            } @else if (gitStatus) {
-              <div class="grid cols-4 mt-sm">
-                <div><div class="muted">Workspace</div><strong>{{ gitStatus.workspace_id }}</strong></div>
-                <div><div class="muted">Branch</div><strong>{{ gitStatus.branch || '-' }}</strong></div>
-                <div><div class="muted">Upstream</div><strong>{{ gitStatus.upstream || '-' }}</strong></div>
-                <div><div class="muted">Dirty</div><strong [class.danger]="gitStatus.dirty">{{ gitStatus.dirty ? 'yes' : 'no' }}</strong></div>
-              </div>
-              @if (gitStatus.changed_files.length) {
-                <div class="table-scroll mt-sm">
-                  <table class="table-full">
-                    <thead><tr><th>Pfad</th><th>Index</th><th>Worktree</th></tr></thead>
-                    <tbody>
-                      @for (file of gitStatus.changed_files.slice(0, 20); track file.path) {
-                        <tr><td class="font-mono-cell">{{ file.path }}</td><td>{{ file.index_status || '-' }}</td><td>{{ file.worktree_status || '-' }}</td></tr>
-                      }
-                    </tbody>
-                  </table>
-                </div>
-              } @else {
-                <div class="muted mt-sm">Keine Git-Aenderungen.</div>
-              }
-            }
-          }
-          @if (opsTab === 'docker') {
-            @if (dockerStatus?.error) {
-              <div class="state-banner error mt-sm">{{ dockerStatus?.error?.code }}</div>
-            }
-            @if (dockerStatus) {
-              <div class="grid cols-4 mt-sm">
-                <div><div class="muted">Boundary</div><strong>{{ dockerStatus.boundary }}</strong></div>
-                <div><div class="muted">Engine</div><strong [class.success]="dockerStatus.available">{{ dockerStatus.available ? 'available' : 'unavailable' }}</strong></div>
-                <div><div class="muted">Version</div><strong>{{ dockerStatus.docker_version || '-' }}</strong></div>
-                <div><div class="muted">Compose</div><strong>{{ dockerStatus.compose_available ? 'yes' : 'no' }}</strong></div>
-              </div>
-            }
-            @if (dockerContainers.length) {
-              <div class="table-scroll mt-sm">
-                <table class="table-full">
-                  <thead><tr><th>Name</th><th>Image</th><th>Status</th><th>Ports</th></tr></thead>
-                  <tbody>
-                    @for (c of dockerContainers; track c.id) {
-                      <tr><td>{{ c.name }}</td><td class="font-mono-cell">{{ c.image }}</td><td>{{ c.status }}</td><td>{{ c.ports || '-' }}</td></tr>
-                    }
-                  </tbody>
-                </table>
-              </div>
-            } @else {
-              <div class="muted mt-sm">Keine Containerdaten verfuegbar.</div>
-            }
-          }
-          @if (opsTab === 'compose') {
-            @if (composeProjects.length) {
-              <div class="table-scroll mt-sm">
-                <table class="table-full">
-                  <thead><tr><th>Projekt</th><th>Marker</th><th>Kategorie</th><th>Profiles</th><th>Datei</th></tr></thead>
-                  <tbody>
-                    @for (project of composeProjects; track project.project_id) {
-                      <tr>
-                        <td>{{ project.name }}</td>
-                        <td>{{ project.marker }}</td>
-                        <td>{{ project.category }}</td>
-                        <td>{{ project.profiles.join(', ') || '-' }}</td>
-                        <td class="font-mono-cell">{{ shortComposeFile(project) }}</td>
-                      </tr>
-                    }
-                  </tbody>
-                </table>
-              </div>
-            } @else {
-              <div class="muted mt-sm">Keine registrierten Compose-Projekte.</div>
-            }
-          }
-        }
-        <div class="muted font-sm mt-sm">
-          Mutierende Ops-Aktionen werden nur ueber Backend-Capabilities, Policy und Approval freigeschaltet.
-        </div>
+        <app-operations-surface [baseUrl]="hub.url" [refreshGeneration]="opsRefreshGeneration" />
       </div>
 
       <div class="card card-mt">
@@ -329,7 +237,6 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
 export class OperationsConsoleComponent implements OnInit, OnDestroy {
   private dir = inject(AgentDirectoryService);
   private ns = inject(NotificationService);
-  private opsApi = inject(OpsApiClient);
   readonly controlPlane = inject(ControlPlaneFacade);
   hub = this.dir.list().find((a) => a.role === 'hub');
   rm: any = null;
@@ -339,13 +246,7 @@ export class OperationsConsoleComponent implements OnInit, OnDestroy {
   autoPlannerLoading = false;
   autoPlannerRecentGoals: any[] = [];
   showArtifactFlowDetails = false;
-  opsTab: 'git' | 'docker' | 'compose' = 'git';
-  opsLoading = false;
-  opsError = '';
-  gitStatus: GitStatus | null = null;
-  dockerStatus: DockerEngineStatus | null = null;
-  dockerContainers: DockerContainerSummary[] = [];
-  composeProjects: ComposeProjectSummary[] = [];
+  opsRefreshGeneration = 0;
   private refreshSub?: Subscription;
 
   ngOnInit() {
@@ -374,51 +275,7 @@ export class OperationsConsoleComponent implements OnInit, OnDestroy {
       },
     });
     this.reloadAutoPlanner();
-    this.reloadOps();
-  }
-
-  reloadOps() {
-    if (!this.hub) return;
-    this.opsLoading = true;
-    this.opsError = '';
-    let pending = 4;
-    const done = () => {
-      pending -= 1;
-      if (pending <= 0) this.opsLoading = false;
-    };
-    this.opsApi.getGitStatus(this.hub.url).subscribe({
-      next: (status) => (this.gitStatus = status),
-      error: (err) => {
-        this.gitStatus = null;
-        this.opsError = this.opsError || err?.error?.message || 'Ops Git Status konnte nicht geladen werden';
-        done();
-      },
-      complete: done,
-    });
-    this.opsApi.getDockerStatus(this.hub.url).subscribe({
-      next: (status) => (this.dockerStatus = status),
-      error: () => {
-        this.dockerStatus = null;
-        done();
-      },
-      complete: done,
-    });
-    this.opsApi.listDockerContainers(this.hub.url).subscribe({
-      next: (data) => (this.dockerContainers = Array.isArray(data?.items) ? data.items : []),
-      error: () => {
-        this.dockerContainers = [];
-        done();
-      },
-      complete: done,
-    });
-    this.opsApi.listComposeProjects(this.hub.url).subscribe({
-      next: (data) => (this.composeProjects = Array.isArray(data?.items) ? data.items : []),
-      error: () => {
-        this.composeProjects = [];
-        done();
-      },
-      complete: done,
-    });
+    this.opsRefreshGeneration += 1;
   }
 
   reloadAutoPlanner() {
@@ -493,8 +350,4 @@ export class OperationsConsoleComponent implements OnInit, OnDestroy {
     return whySources.slice(0, 2);
   }
 
-  shortComposeFile(project: ComposeProjectSummary): string {
-    const first = project.compose_files?.[0] || '';
-    return first.split('/').slice(-3).join('/');
-  }
 }

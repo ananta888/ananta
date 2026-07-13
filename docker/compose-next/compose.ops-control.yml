@@ -1,0 +1,20 @@
+# Explicit, opt-in Docker Ops execution boundary.
+#
+# This overlay mounts the host Docker socket into the HUB ONLY. Possession of
+# that socket is equivalent to host-level container administration. Keep Hub
+# authentication/admin policy and ApprovalRequests enabled; never add this
+# mount to workers or the Angular container.
+#
+# Usage:
+#   ANANTA_DOCKER_OPS_BOUNDARY=hub_cli docker compose --env-file .env \
+#     -f docker/compose-next/compose.dev.lmstudio.yml \
+#     -f docker/compose-next/compose.ops-control.yml up -d --build
+services:
+  ai-agent-hub:
+    environment:
+      ANANTA_DOCKER_OPS_BOUNDARY: ${ANANTA_DOCKER_OPS_BOUNDARY:-hub_cli}
+      ANANTA_DOCKER_OPS_ENV_FILE: /run/ananta/compose.env
+      DOCKER_HOST: unix:///var/run/docker.sock
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${ANANTA_DOCKER_OPS_ENV_FILE_HOST:-../../.env}:/run/ananta/compose.env:ro

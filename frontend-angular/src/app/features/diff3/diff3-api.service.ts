@@ -7,6 +7,7 @@ export type PanelId = 'A' | 'B' | 'C';
 export type AiMode = 'review' | 'explain' | 'risk' | 'tests' | 'patch' | 'chat';
 export type LayoutMode = 'equal' | 'left-wide' | 'right-wide' | 'focus' | 'compact' | 'focus-a' | 'focus-b' | 'focus-c';
 export type SourceKind = 'current_diff' | 'output_artifact' | 'ai' | 'empty' | 'file_content';
+export type GitDiffScope = 'staged' | 'unstaged' | 'combined';
 
 export interface DiffSourceRef {
   schema: string;
@@ -105,10 +106,17 @@ export class Diff3ApiService {
     return this.dir.list().find(a => a.role === 'hub')?.url ?? '';
   }
 
-  createSession(goalId?: string, layoutMode: LayoutMode = 'equal'): Observable<Diff3Session> {
+  createSession(
+    goalId?: string,
+    layoutMode: LayoutMode = 'equal',
+    git?: { workspaceId?: string; pathFilter?: string; preset?: boolean },
+  ): Observable<Diff3Session> {
     return this.http.post<Diff3Session>(`${this.base}/api/diff3/sessions`, {
       goal_id: goalId ?? null,
       layout_mode: layoutMode,
+      workspace_id: git?.workspaceId ?? 'repo',
+      path_filter: git?.pathFilter ?? '',
+      git_preset: git?.preset ?? false,
     });
   }
 
@@ -128,6 +136,8 @@ export class Diff3ApiService {
     ai_mode?: AiMode;
     path_filter?: string;
     path?: string;
+    workspace_id?: string;
+    diff_scope?: GitDiffScope;
   }): Observable<Diff3Session> {
     return this.http.put<Diff3Session>(
       `${this.base}/api/diff3/sessions/${sessionId}/panels/${panelId}`, body

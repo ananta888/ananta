@@ -10,7 +10,7 @@ import { Subject, switchMap } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import {
   Diff3ApiService, Diff3Session, DiffPanel, AiMode, PanelId, LayoutMode, SourceKind,
-  AiDiffResponse, PanelContent,
+  AiDiffResponse, PanelContent, GitDiffScope,
 } from './diff3-api.service';
 
 type PanelSetup = 'empty' | 'current_diff' | 'output_artifact' | 'ai' | 'file_content' | 'local_file';
@@ -73,6 +73,16 @@ const LAYOUT_LABELS: Record<LayoutMode, string> = {
   <!-- ── Error bar ── -->
   @if (error()) {
     <div class="diff3-error">{{ error() }}</div>
+  }
+  @if (gitPreset()) {
+    <div class="git-context" role="status">
+      <strong>Git-Drei-Wege-Ansicht</strong>
+      <span>Workspace: {{ workspaceId }}</span>
+      @if (gitPath()) { <span>Datei: {{ gitPath() }}</span> }
+      <span><b>A</b> HEAD → Index</span>
+      <span><b>B</b> Index → Worktree</span>
+      <span><b>C</b> HEAD → Worktree</span>
+    </div>
   }
   @if (loading() && !session()) {
     <div class="diff3-loading">Lade Session…</div>
@@ -143,6 +153,12 @@ const LAYOUT_LABELS: Record<LayoutMode, string> = {
                   [ngModel]="filterInputs[pid]"
                   (ngModelChange)="filterInputs[pid] = $event"
                   (keydown.enter)="onCurrentDiffEnter(pid)">
+                <select class="panel-select-sm" [ngModel]="diffScopeInputs[pid]"
+                  (ngModelChange)="diffScopeInputs[pid] = $event; onCurrentDiffEnter(pid)">
+                  <option value="staged">Staged · HEAD → Index</option>
+                  <option value="unstaged">Unstaged · Index → Worktree</option>
+                  <option value="combined">Gesamt · HEAD → Worktree</option>
+                </select>
                 <select class="panel-select-sm" [ngModel]="renderModeInputs[pid]"
                   (ngModelChange)="renderModeInputs[pid] = $event">
                   <option value="unified">Unified</option>
@@ -518,6 +534,12 @@ const LAYOUT_LABELS: Record<LayoutMode, string> = {
     }
     .drop-icon { font-size: 28px; opacity: .4; }
     .drop-hint { font-size: 11px; color: #30363d; }
+    .git-context {
+      display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center;
+      padding: 8px 12px; border-bottom: 1px solid #30363d;
+      background: #0d1b2a; color: #c9d1d9; font-size: 12px;
+    }
+    .git-context strong { color: #58a6ff; }
     .btn-close-local {
       margin-left: auto; padding: 1px 5px; background: transparent;
       border: 1px solid #30363d; color: #8b949e; cursor: pointer; border-radius: 3px; font-size: 11px;
@@ -541,6 +563,8 @@ export class Diff3EditorComponent implements OnInit, OnDestroy {
   readonly aiMode      = signal<AiMode>('review');
   readonly aiRunning   = signal(false);
   readonly aiResponse  = signal<AiDiffResponse | null>(null);
+  readonly gitPreset   = signal(false);
+  readonly gitPath     = signal('');
 
   readonly panelContents = signal<Record<PanelId, PanelContent | null>>({ A: null, B: null, C: null });
   readonly panelLoadings = signal<Record<PanelId, boolean>>({ A: false, B: false, C: false });
@@ -555,6 +579,8 @@ export class Diff3EditorComponent implements OnInit, OnDestroy {
   readonly filterInputs: Record<PanelId, string>     = { A: '', B: '', C: '' };
   readonly filePathInputs: Record<PanelId, string>   = { A: '', B: '', C: '' };
   readonly renderModeInputs: Record<PanelId, string> = { A: 'unified', B: 'unified', C: 'unified' };
+  readonly diffScopeInputs: Record<PanelId, GitDiffScope> = { A: 'staged', B: 'unstaged', C: 'combined' };
+  workspaceId = 'repo';
 
   readonly localFiles    = signal<Record<PanelId, LocalFile | null>>({ A: null, B: null, C: null });
   readonly dragOverPanel = signal<PanelId | null>(null);
@@ -582,7 +608,11 @@ export class Diff3EditorComponent implements OnInit, OnDestroy {
     const params   = this.route.snapshot.queryParamMap;
     const goalId   = params.get('goal') ?? undefined;
     const filePath = params.get('file') ?? undefined;
-    this._createAndInitSession(goalId, filePath);
+    this.workspaceId = params.get('workspace')?.trim() || 'repo';
+    const preset = params.get('preset') === 'git';
+    this.gitPreset.set(preset);
+    this.gitPath.set(filePath || '');
+    this._createAndInitSession(goalId, filePath, preset);
   }
 
   ngOnDestroy(): void {
@@ -654,28 +684,42 @@ export class Diff3EditorComponent implements OnInit, OnDestroy {
   // ── Session ─────────────────────────────────────────────────────────────────
 
   newSession(goalId?: string): void {
+    const keepGitPreset = this.gitPreset();
+    const keepGitPath = this.gitPath();
     this.panelContents.set({ A: null, B: null, C: null });
     this.localFiles.set({ A: null, B: null, C: null });
-    this._panelSetups = { A: 'current_diff', B: 'empty', C: 'empty' };
+    this._panelSetups = keepGitPreset
+      ? { A: 'current_diff', B: 'current_diff', C: 'current_diff' }
+      : { A: 'current_diff', B: 'empty', C: 'empty' };
     (['A', 'B', 'C'] as PanelId[]).forEach(p => {
-      this.filterInputs[p] = '';
+      this.filterInputs[p] = keepGitPreset ? keepGitPath : '';
       this.filePathInputs[p] = '';
       this.artifactInputs[p] = '';
     });
     this.aiResponse.set(null);
-    this._createAndInitSession(goalId);
+    this._createAndInitSession(goalId, keepGitPath || undefined, keepGitPreset);
   }
 
-  private _createAndInitSession(goalId?: string, filePath?: string): void {
+  private _createAndInitSession(goalId?: string, filePath?: string, gitPreset = false): void {
     this.loading.set(true);
     this.error.set('');
-    this.api.createSession(goalId)
+    this.api.createSession(goalId, 'equal', {
+      workspaceId: this.workspaceId,
+      pathFilter: filePath,
+      preset: gitPreset,
+    })
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: s => {
           this.session.set(s);
           this.loading.set(false);
-          if (filePath) {
+          if (gitPreset) {
+            this._panelSetups = { A: 'current_diff', B: 'current_diff', C: 'current_diff' };
+            (['A', 'B', 'C'] as PanelId[]).forEach(pid => {
+              this.filterInputs[pid] = filePath || '';
+              this.fetchPanelContent(pid);
+            });
+          } else if (filePath) {
             // Panel A = Git Diff für die Datei, Panel B = vollständiger Dateiinhalt
             this.filterInputs['A'] = filePath;
             this.filePathInputs['B'] = filePath;
@@ -684,6 +728,8 @@ export class Diff3EditorComponent implements OnInit, OnDestroy {
               source_kind: 'current_diff',
               path_filter: filePath,
               render_mode: this.renderModeInputs['A'],
+              workspace_id: this.workspaceId,
+              diff_scope: 'combined',
             }).pipe(takeUntil(this.destroy$))
               .subscribe({
                 next: upd => { this.session.set(upd); this.fetchPanelContent('A'); },
@@ -760,6 +806,8 @@ export class Diff3EditorComponent implements OnInit, OnDestroy {
         source_kind: 'current_diff',
         path_filter: this.filterInputs[pid],
         render_mode: this.renderModeInputs[pid],
+        workspace_id: this.workspaceId,
+        diff_scope: this.diffScopeInputs[pid],
       }).pipe(takeUntil(this.destroy$))
         .subscribe({
           next: upd => { this.session.set(upd); this.fetchPanelContent(pid); },
@@ -797,6 +845,8 @@ export class Diff3EditorComponent implements OnInit, OnDestroy {
       source_kind: 'current_diff',
       path_filter: this.filterInputs[pid],
       render_mode: this.renderModeInputs[pid],
+      workspace_id: this.workspaceId,
+      diff_scope: this.diffScopeInputs[pid],
     }).pipe(takeUntil(this.destroy$))
       .subscribe({
         next: upd => { this.session.set(upd); this.fetchPanelContent(pid); },
