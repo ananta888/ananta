@@ -501,6 +501,7 @@ class RolloutLifecycleDrill:
             ),
             approval=approval,
             evidence_keys=evidence_keys,
+            expected_source_revision=revision,
             clock=lambda: 451.0,
         )
         try:
@@ -529,6 +530,7 @@ class RolloutLifecycleDrill:
             ),
             approval=approval,
             evidence_keys=evidence_keys,
+            expected_source_revision=revision,
             clock=lambda: 451.0,
         )
         try:
@@ -560,6 +562,7 @@ class RolloutLifecycleDrill:
             ),
             approval=approval,
             evidence_keys=evidence_keys,
+            expected_source_revision=revision,
             clock=lambda: 451.0,
         )
         try:

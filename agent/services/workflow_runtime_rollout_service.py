@@ -751,6 +751,7 @@ class WorkflowRuntimePromotionService:
         shadow_comparison: WorkflowShadowComparisonEvidencePort,
         approval: WorkflowPromotionApprovalPort | None = None,
         evidence_keys: HmacKeyRing | None = None,
+        expected_source_revision: str = "",
         clock=time.time,
     ) -> None:
         self._policies = policies
@@ -759,6 +760,7 @@ class WorkflowRuntimePromotionService:
         self._shadow_comparison = shadow_comparison
         self._approval = approval
         self._evidence_keys = evidence_keys
+        self._expected_source_revision = str(expected_source_revision).strip()
         self._clock = clock
 
     def promote(
@@ -827,6 +829,8 @@ class WorkflowRuntimePromotionService:
         )
         if self._evidence_keys is None:
             raise RuntimeError("workflow_rollout_shadow_evidence_verifier_required")
+        if not self._expected_source_revision:
+            raise RuntimeError("workflow_rollout_source_revision_verifier_required")
         shadow_evidence.verify(
             key_ring=self._evidence_keys,
             now=self._clock(),
@@ -840,6 +844,7 @@ class WorkflowRuntimePromotionService:
             policy_hash=shadow_policy_hash,
             policy_version=current.policy.policy_version,
             policy_revision=current.revision,
+            source_revision=self._expected_source_revision,
         )
         safe_policy = replace(
             policy,

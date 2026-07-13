@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from flask import Flask
 
+from agent.auth import generate_token
 from agent.routes.workflow_runtime_internal import workflow_runtime_internal_bp
 from ananta_contracts.hub_task_gateway import (
     HUB_TASK_COMMAND_SCHEMA,
@@ -104,6 +105,25 @@ def test_internal_gateway_rejects_unauthenticated_requests(monkeypatch) -> None:
     response = client.post("/api/internal/workflow-runtime/tasks", json={})
 
     assert response.status_code == 401
+
+
+def test_internal_gateway_rejects_even_admin_user_jwt(monkeypatch) -> None:
+    secret = "workflow-user-jwt-test-secret-with-at-least-32-bytes"
+    monkeypatch.setattr("agent.auth.settings.secret_key", secret)
+    client = _app(_Gateway(), monkeypatch).test_client()
+    user_token = generate_token(
+        {"sub": "admin-user", "tenant_id": "tenant-1", "role": "admin"},
+        secret,
+    )
+
+    response = client.post(
+        "/api/internal/workflow-runtime/tasks",
+        json={},
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+
+    assert response.status_code == 403
+    assert response.get_json()["data"]["reason_code"] == "workflow_service_auth_required"
 
 
 def test_internal_gateway_accepts_json_body_without_query_payload(monkeypatch) -> None:

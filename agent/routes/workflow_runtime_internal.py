@@ -5,7 +5,7 @@ from __future__ import annotations
 from flask import Blueprint, jsonify, request
 from werkzeug.exceptions import RequestEntityTooLarge
 
-from agent.auth import check_strict_auth
+from agent.auth import check_service_auth
 from agent.services.workflow_hub_task_gateway_runtime import (
     WorkflowHubTaskConfigurationError,
     get_workflow_hub_task_gateway_service,
@@ -76,7 +76,7 @@ def _worker_error(exc: WorkflowWorkerGatewayError):
 
 
 @workflow_runtime_internal_bp.post("/tasks")
-@check_strict_auth
+@check_service_auth
 def submit_workflow_task():
     try:
         return jsonify({"data": _service().submit(_body())}), 202
@@ -85,7 +85,7 @@ def submit_workflow_task():
 
 
 @workflow_runtime_internal_bp.post("/retries")
-@check_strict_auth
+@check_service_auth
 def consume_workflow_retry():
     try:
         return jsonify({"data": _service().consume_retry(_body())}), 200
@@ -94,7 +94,7 @@ def consume_workflow_retry():
 
 
 @workflow_runtime_internal_bp.post("/worker-commands")
-@check_strict_auth
+@check_service_auth
 def execute_workflow_worker_command():
     """Return one Hub-owned decision; never create or route worker tasks."""
 
@@ -108,7 +108,7 @@ def execute_workflow_worker_command():
 
 
 @workflow_runtime_internal_bp.get("/tasks/<hub_task_id>")
-@check_strict_auth
+@check_service_auth
 def get_workflow_task(hub_task_id: str):
     try:
         operation_id = str(request.args.get("operation_id") or "").strip()
@@ -120,7 +120,7 @@ def get_workflow_task(hub_task_id: str):
 
 
 @workflow_runtime_internal_bp.get("/tasks/<hub_task_id>/payload")
-@check_strict_auth
+@check_service_auth
 def get_workflow_task_payload(hub_task_id: str):
     try:
         operation_id = str(request.args.get("operation_id") or "").strip()
@@ -133,7 +133,7 @@ def get_workflow_task_payload(hub_task_id: str):
 
 
 @workflow_runtime_internal_bp.post("/tasks/<hub_task_id>/commands")
-@check_strict_auth
+@check_service_auth
 def command_workflow_task(hub_task_id: str):
     try:
         body = _body()

@@ -8,11 +8,21 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
+from agent.services.temporal_history_projection import (
+    SQLTemporalProjectionRepository,
+    TemporalHistoryProjectionService,
+    TemporalSDKHistorySource,
+)
 from agent.services.workflow_backend import (
     WORKFLOW_STATUS_SCHEMA,
     WorkflowRequest,
     WorkflowSignal,
     workflow_backend_event,
+)
+from ananta_contracts.temporal_workflow import (
+    AnantaWorkflowInput,
+    TemporalContractError,
+    WorkflowCommand,
 )
 
 
@@ -26,11 +36,14 @@ class TemporalWorkflowBackend:
         namespace: str = "default",
         task_queue: str = "ananta-workflows",
         workflow_type: str = "AnantaWorkflow",
+        projection_service: TemporalHistoryProjectionService | None = None,
     ) -> None:
         self.address = address
         self.namespace = namespace
         self.task_queue = task_queue
         self.workflow_type = workflow_type
+        self._projection_service_override = projection_service
+        self._projection_service_instance: TemporalHistoryProjectionService | None = None
 
     def start_workflow(self, request: WorkflowRequest) -> dict[str, Any]:
         unavailable = self._temporal_unavailable()
@@ -38,11 +51,47 @@ class TemporalWorkflowBackend:
             return self._degraded(request.workflow_id, unavailable, request=request)
         errors = request.validate()
         if errors:
-            return self._degraded(request.workflow_id, "invalid_workflow_request", request=request, details={"errors": errors})
+            return self._degraded(
+                request.workflow_id,
+                "invalid_workflow_request",
+                request=request,
+                details={"errors": errors},
+            )
         try:
-            handle = _run(self._start(request))
+            workflow_input = AnantaWorkflowInput.from_mapping(self._workflow_payload(request))
+        except (TemporalContractError, TypeError, ValueError) as exc:
+            reason = getattr(exc, "reason_code", type(exc).__name__)
+            return self._degraded(
+                request.workflow_id,
+                "invalid_temporal_workflow_input",
+                request=request,
+                details={"validation_reason": str(reason)},
+            )
+        try:
+            handle = _run(self._start(request, workflow_input))
         except Exception as exc:  # noqa: BLE001
             return self._degraded(request.workflow_id, f"temporal_start_failed:{type(exc).__name__}", request=request)
+        temporal_run_id = str(
+            getattr(handle, "first_execution_run_id", "")
+            or getattr(handle, "run_id", "")
+            or getattr(handle, "result_run_id", "")
+            or ""
+        )
+        try:
+            self._projection_service().bind_run(
+                tenant_id=workflow_input.tenant_id,
+                workflow_id=workflow_input.workflow_id,
+                run_id=workflow_input.run_id,
+                temporal_run_id=temporal_run_id,
+                correlation_id=workflow_input.correlation_id,
+            )
+        except Exception as exc:  # noqa: BLE001
+            return self._degraded(
+                request.workflow_id,
+                f"temporal_projection_bind_failed:{type(exc).__name__}",
+                request=request,
+                details={"temporal_run_id": temporal_run_id},
+            )
         return {
             "schema": WORKFLOW_STATUS_SCHEMA,
             "backend": self.backend_id,
@@ -50,7 +99,7 @@ class TemporalWorkflowBackend:
             "status": "running",
             "correlation_id": request.correlation_id,
             "workflow_request_schema": request.to_dict().get("schema"),
-            "temporal": self._temporal_metadata(run_id=getattr(handle, "run_id", "")),
+            "temporal": self._temporal_metadata(run_id=temporal_run_id),
             "events": [
                 workflow_backend_event(
                     workflow_id=request.workflow_id,
@@ -85,7 +134,11 @@ class TemporalWorkflowBackend:
         try:
             _run(self._cancel(workflow_id))
         except Exception as exc:  # noqa: BLE001
-            return self._degraded(workflow_id, f"temporal_cancel_failed:{type(exc).__name__}", details={"reason": reason})
+            return self._degraded(
+                workflow_id,
+                f"temporal_cancel_failed:{type(exc).__name__}",
+                details={"reason": reason},
+            )
         return {
             "schema": WORKFLOW_STATUS_SCHEMA,
             "backend": self.backend_id,
@@ -103,39 +156,91 @@ class TemporalWorkflowBackend:
         }
 
     def signal_workflow(self, workflow_id: str, signal: WorkflowSignal) -> dict[str, Any]:
-        unavailable = self._temporal_unavailable()
-        if unavailable:
-            return self._degraded(workflow_id, unavailable, details={"signal": signal.name})
-        try:
-            _run(self._signal(workflow_id, signal))
-        except Exception as exc:  # noqa: BLE001
-            return self._degraded(workflow_id, f"temporal_signal_failed:{type(exc).__name__}", details={"signal": signal.name})
-        return {
-            "schema": WORKFLOW_STATUS_SCHEMA,
-            "backend": self.backend_id,
-            "workflow_id": str(workflow_id or "").strip(),
-            "status": "signal_sent",
-            "temporal": self._temporal_metadata(),
-            "events": [
-                workflow_backend_event(
-                    workflow_id=str(workflow_id or "").strip(),
-                    event_type=f"temporal_signal:{signal.name}",
-                    status="signal_sent",
-                    actor=signal.actor,
-                    details=signal.payload,
-                )
-            ],
-        }
+        del workflow_id, signal
+        # Direct Temporal Signals cannot synchronously prove signature, replay
+        # consumption and optimistic revision checks.  All mutations use the
+        # Hub-verified ``command`` Update instead.
+        raise PermissionError("temporal_direct_signal_forbidden")
 
     def list_workflow_events(self, workflow_id: str) -> list[dict[str, Any]]:
+        page = self.list_workflow_event_page(workflow_id)
+        events = list(page.get("events") or [])
+        if events:
+            return events
         return [
             workflow_backend_event(
                 workflow_id=str(workflow_id or "").strip(),
-                event_type="temporal_backend_degraded",
-                status="degraded",
-                details={"reason": "temporal_events_not_configured"},
+                event_type="temporal_history_projection_unavailable",
+                status=str(page.get("consistency_state") or "stale"),
+                details={
+                    "reason": str(page.get("reason_code") or "temporal_history_empty"),
+                    "projection_cursor": page.get("projection_cursor"),
+                    "mapping_version": page.get("mapping_version"),
+                    "lag": page.get("lag"),
+                    "consistency_state": page.get("consistency_state"),
+                },
             )
         ]
+
+    def list_workflow_event_page(
+        self,
+        workflow_id: str,
+        *,
+        expected_tenant_id: str = "",
+        page_size: int = 500,
+        max_pages: int = 20,
+    ) -> dict[str, Any]:
+        unavailable = self._temporal_unavailable()
+        if unavailable:
+            return {
+                "schema": "ananta.temporal-history-projection-page.v1",
+                "workflow_id": str(workflow_id or "").strip(),
+                "run_id": "",
+                "events": [],
+                "projection_cursor": 0,
+                "mapping_version": "ananta.temporal-history-map.v1",
+                "lag": None,
+                "consistency_state": "stale",
+                "reason_code": unavailable,
+                "raw_history_ref": "",
+            }
+        return _run(
+            self._projection_service().synchronize(
+                str(workflow_id or "").strip(),
+                expected_tenant_id=expected_tenant_id,
+                page_size=page_size,
+                max_pages=max_pages,
+            )
+        )
+
+    def query_workflow(self, workflow_id: str, query_name: str = "status") -> dict[str, Any]:
+        unavailable = self._temporal_unavailable()
+        if unavailable:
+            return self._degraded(workflow_id, unavailable)
+        try:
+            result = _run(self._query(workflow_id, query_name))
+        except Exception as exc:  # noqa: BLE001
+            return self._degraded(workflow_id, f"temporal_query_failed:{type(exc).__name__}")
+        return dict(result) if isinstance(result, dict) else {"result": result}
+
+    def update_workflow(self, workflow_id: str, command: dict[str, Any]) -> dict[str, Any]:
+        unavailable = self._temporal_unavailable()
+        if unavailable:
+            return self._degraded(workflow_id, unavailable)
+        try:
+            typed = WorkflowCommand.from_mapping(command)
+            result = _run(self._update(workflow_id, typed.to_dict()))
+        except TemporalContractError as exc:
+            return self._degraded(
+                workflow_id,
+                "invalid_temporal_workflow_command",
+                details={"validation_reason": exc.reason_code},
+            )
+        except Exception as exc:  # noqa: BLE001
+            return self._degraded(workflow_id, f"temporal_update_failed:{type(exc).__name__}")
+        if hasattr(result, "to_dict"):
+            return dict(result.to_dict())
+        return dict(result) if isinstance(result, dict) else {"result": result}
 
     @staticmethod
     def _temporal_unavailable() -> str:
@@ -179,13 +284,20 @@ class TemporalWorkflowBackend:
     async def _client(self):
         from temporalio.client import Client
 
-        return await Client.connect(self.address, namespace=self.namespace)
+        from agent.services.temporal_client_connection import TemporalHubClientSecurity
 
-    async def _start(self, request: WorkflowRequest):
+        security = TemporalHubClientSecurity.from_env()
+        return await Client.connect(
+            self.address,
+            namespace=self.namespace,
+            **security.client_kwargs(),
+        )
+
+    async def _start(self, request: WorkflowRequest, workflow_input: AnantaWorkflowInput):
         client = await self._client()
         return await client.start_workflow(
             self.workflow_type,
-            request.to_dict(),
+            workflow_input.to_dict(),
             id=request.workflow_id,
             task_queue=self.task_queue,
         )
@@ -198,9 +310,88 @@ class TemporalWorkflowBackend:
         client = await self._client()
         await client.get_workflow_handle(str(workflow_id or "").strip()).cancel()
 
-    async def _signal(self, workflow_id: str, signal: WorkflowSignal) -> None:
+    async def _query(self, workflow_id: str, query_name: str):
         client = await self._client()
-        await client.get_workflow_handle(str(workflow_id or "").strip()).signal(signal.name, signal.payload)
+        return await client.get_workflow_handle(str(workflow_id or "").strip()).query(str(query_name or "status"))
+
+    async def _update(self, workflow_id: str, command: dict[str, Any]):
+        client = await self._client()
+        return await client.get_workflow_handle(str(workflow_id or "").strip()).execute_update(
+            "command",
+            command,
+        )
+
+    def _projection_service(self) -> TemporalHistoryProjectionService:
+        if self._projection_service_override is not None:
+            return self._projection_service_override
+        if self._projection_service_instance is None:
+            self._projection_service_instance = TemporalHistoryProjectionService(
+                namespace=self.namespace,
+                source=TemporalSDKHistorySource(
+                    address=self.address,
+                    namespace=self.namespace,
+                    client_factory=self._client,
+                ),
+                repository=SQLTemporalProjectionRepository(),
+            )
+        return self._projection_service_instance
+
+    @staticmethod
+    def _workflow_payload(request: WorkflowRequest) -> dict[str, Any]:
+        metadata = dict(request.metadata or {})
+        policy_scope = dict(request.policy_scope or {})
+        tenant_id = str(metadata.get("tenant_id") or policy_scope.get("tenant_id") or "").strip()
+        run_id = str(metadata.get("run_id") or "").strip()
+        plan_hash = str(metadata.get("plan_hash") or "").strip()
+        policy_version = str(metadata.get("policy_version") or policy_scope.get("policy_version") or "").strip()
+        envelopes = metadata.get("authorization_envelopes")
+        envelope_by_step = dict(envelopes) if isinstance(envelopes, dict) else {}
+        steps: list[dict[str, Any]] = []
+        for step in request.steps:
+            step_metadata = dict(step.metadata or {})
+            envelope = step_metadata.get("authorization_envelope") or envelope_by_step.get(step.step_id)
+            steps.append(
+                {
+                    **step.to_dict(),
+                    "schema": "ananta.temporal-workflow-step.v1",
+                    "operation_id": step_metadata.get("operation_id"),
+                    "authorization_envelope": envelope,
+                    "artifact_refs": [
+                        {"artifact_id": artifact_id, "kind": "workflow_input"}
+                        for artifact_id in step.input_artifacts
+                    ],
+                    "activity_class": step_metadata.get("activity_class")
+                    or step_metadata.get("side_effect_class")
+                    or "long_running",
+                    "required_capabilities": list(step_metadata.get("required_capabilities") or []),
+                    "node_type": step_metadata.get("node_type") or "task",
+                    "parallel_group": step_metadata.get("parallel_group") or "default",
+                    "merge_strategy": step_metadata.get("merge_strategy") or "",
+                    "partial_failure": step_metadata.get("partial_failure") or "fail",
+                }
+            )
+        retry_budget_remaining = int(metadata.get("retry_budget_remaining") or 0)
+        return {
+            "schema": "ananta.temporal-workflow-input.v1",
+            "tenant_id": tenant_id,
+            "workflow_id": request.workflow_id,
+            "run_id": run_id,
+            "correlation_id": request.correlation_id,
+            "plan_hash": plan_hash,
+            "policy_version": policy_version,
+            "steps": steps,
+            "retry_budget_remaining": retry_budget_remaining,
+            "retry_budget_maximum": int(
+                metadata.get("retry_budget_maximum", retry_budget_remaining)
+            ),
+            "mutable_parameters": list(metadata.get("mutable_parameters") or []),
+            "parameters": dict(metadata.get("parameters") or {}),
+            "max_parallel_steps": int(metadata.get("max_parallel_steps") or 1),
+            "tenant_parallel_limit": int(metadata.get("tenant_parallel_limit") or 1),
+            "worker_parallel_limit": int(metadata.get("worker_parallel_limit") or 1),
+            "max_history_events": int(metadata.get("max_history_events") or 20_000),
+            "max_state_bytes": int(metadata.get("max_state_bytes") or 512_000),
+        }
 
     def _temporal_metadata(self, *, run_id: str = "") -> dict[str, str]:
         payload = {

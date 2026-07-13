@@ -128,6 +128,79 @@ def _db_engine():
     return engine
 
 
+@pytest.fixture
+def workflow_runtime_auth_keyring_file(tmp_path, monkeypatch):
+    """Configure the persistent workflow signer used by production composition.
+
+    Route tests intentionally exercise the real Hub composition root.  They
+    therefore receive the same file-backed key configuration and observed
+    worker-directory health as a deployed Hub instead of weakening either
+    production admission guard.
+    """
+
+    keyring_path = tmp_path / "workflow-runtime-auth-keyring.json"
+    keyring_path.write_text(
+        json.dumps(
+            {
+                "active_key_id": "pytest-workflow-runtime",
+                "keys": {"pytest-workflow-runtime": "t" * 32},
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("ANANTA_WORKFLOW_AUTH_KEYRING_FILE", str(keyring_path))
+
+    import time
+
+    from sqlmodel import Session
+
+    from agent.database import engine
+    from agent.db_models import AgentInfoDB
+
+    _ensure_test_db()
+    worker_url = f"http://pytest-native-worker-{tmp_path.name}:5000"
+    with Session(engine) as session:
+        session.merge(
+            AgentInfoDB(
+                url=worker_url,
+                name=f"pytest-native-worker-{tmp_path.name}",
+                role="worker",
+                capabilities=["workflow.adapter.native"],
+                runtime_targets=[
+                    {
+                        "runtime_id": "ananta-native",
+                        "adapter_id": "native",
+                        "runtime_version": "1.0.0",
+                    }
+                ],
+                registration_validated=True,
+                validated_at=time.time(),
+                last_seen=time.time(),
+                status="online",
+            )
+        )
+        session.commit()
+
+    from agent.services.workflow_control_composition import (
+        reset_workflow_backend_control_facade,
+    )
+    from agent.services.workflow_hub_task_gateway_runtime import (
+        reset_workflow_hub_task_gateway_service,
+    )
+
+    reset_workflow_backend_control_facade()
+    reset_workflow_hub_task_gateway_service()
+    yield keyring_path
+    reset_workflow_backend_control_facade()
+    reset_workflow_hub_task_gateway_service()
+    with Session(engine) as session:
+        worker = session.get(AgentInfoDB, worker_url)
+        if worker is not None:
+            session.delete(worker)
+            session.commit()
+
+
 def _db_runtime() -> dict[str, Any]:
     _ensure_test_db()
     from sqlalchemy import inspect
@@ -193,6 +266,11 @@ def _db_runtime() -> dict[str, Any]:
         WorkerJobDB,
         WorkerResultDB,
         WorkerSlotLeaseDB,
+        WorkflowCommandNonceDB,
+        WorkflowControlBindingDB,
+        WorkflowProviderBudgetDB,
+        WorkflowProviderBudgetReservationDB,
+        WorkflowRuntimeReadModelDB,
     )
 
     return {
@@ -258,6 +336,11 @@ def _db_runtime() -> dict[str, Any]:
             VoiceRuntimeCleanupDB,
             VoiceConsentDB,
             VoiceGovernanceIdempotencyDB,
+            WorkflowRuntimeReadModelDB,
+            WorkflowProviderBudgetReservationDB,
+            WorkflowProviderBudgetDB,
+            WorkflowCommandNonceDB,
+            WorkflowControlBindingDB,
             AuditLogDB,
             UserDB,
         ),

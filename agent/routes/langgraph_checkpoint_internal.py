@@ -5,7 +5,7 @@ from __future__ import annotations
 from flask import Blueprint, jsonify, request
 from werkzeug.exceptions import RequestEntityTooLarge
 
-from agent.auth import check_strict_auth
+from agent.auth import check_service_auth
 from agent.services.langgraph_checkpoint_gateway_runtime import (
     get_langgraph_checkpoint_gateway_service,
 )
@@ -25,7 +25,7 @@ _MAX_BODY_BYTES = 262_144
 
 
 @langgraph_checkpoint_internal_bp.post("/checkpoints")
-@check_strict_auth
+@check_service_auth
 def command_langgraph_checkpoint():
     try:
         if request.args:

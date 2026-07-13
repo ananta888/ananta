@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from flask import Flask
 
+from agent.auth import generate_token
 from agent.routes.langgraph_checkpoint_internal import (
     langgraph_checkpoint_internal_bp,
 )
@@ -44,6 +45,27 @@ def test_checkpoint_api_is_authenticated_and_post_only(monkeypatch) -> None:
 
     assert missing_auth.status_code == 401
     assert get_request.status_code == 405
+    assert gateway.commands == []
+
+
+def test_checkpoint_api_rejects_user_jwt(monkeypatch) -> None:
+    secret = "langgraph-user-jwt-test-secret-with-at-least-32-bytes"
+    monkeypatch.setattr("agent.auth.settings.secret_key", secret)
+    gateway = _Gateway()
+    client = _app(gateway, monkeypatch).test_client()
+    user_token = generate_token(
+        {"sub": "admin-user", "tenant_id": "tenant-1", "role": "admin"},
+        secret,
+    )
+
+    response = client.post(
+        "/api/internal/workflow-runtime/langgraph/checkpoints",
+        json={},
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+
+    assert response.status_code == 403
+    assert response.get_json()["data"]["reason_code"] == "workflow_service_auth_required"
     assert gateway.commands == []
 
 

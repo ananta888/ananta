@@ -92,6 +92,7 @@ def get_workflow_runtime_promotion_service() -> WorkflowRuntimePromotionService:
                     get_approval_request_service()
                 ),
                 evidence_keys=key_ring,
+                expected_source_revision=source_revision,
             )
             _KEY = key
     return _SERVICE
