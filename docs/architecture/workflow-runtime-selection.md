@@ -39,6 +39,22 @@ Supplying a profile and ad-hoc runtime overrides in one start request is
 rejected as `runtime_profile_override_denied`. This prevents a caller from
 widening an administrator-owned profile.
 
+## Mandatory rollout boundary
+
+Before profile selection, `RolloutAwareRuntimeSelection` resolves a mandatory
+Hub-compiled project/tenant/profile/workflow scope. Tenant and workflow come
+from the validated `ExecutionPlan`, never from request metadata. A missing or
+conflicting scope fails closed. The effective policy must be in that plan
+scope's lineage, every node side-effect class must be allowed, and every
+declared plan/node egress destination must be allowlisted before the selector
+or Hub task bridge can be called.
+
+Shadow mode cannot become an active execution result. A separate Hub event
+producer reads the canonical event store for the baseline and shadow run,
+derives plan-based invariants, compares the observations and signs the bounded
+evidence. This keeps runtime execution, evidence derivation, approval and policy
+commit as narrow ports (SRP/DIP) while the Hub remains the only orchestrator.
+
 ## Eligibility and fallback
 
 `WorkflowRuntimeSelectionService` evaluates every registered candidate in a

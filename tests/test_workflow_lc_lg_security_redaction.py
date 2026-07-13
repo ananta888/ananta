@@ -15,13 +15,10 @@ from __future__ import annotations
 import re
 from unittest.mock import patch
 
-import pytest
-
 from agent.providers.lc_lg import LangChainProviderConfig, LangGraphProviderConfig
 from worker.adapters.langchain_adapter import LangChainAdapter
-from worker.adapters.langgraph_adapter import LangGraphAdapter
+from worker.adapters.langgraph_adapter import LangGraphAdapter, LangGraphState
 from worker.adapters.workflow_audit import WorkflowAuditLog
-
 
 _SECRET_PATTERN = re.compile(r"sk-[A-Za-z0-9]{8,}")
 
@@ -117,11 +114,9 @@ def test_lg_build_node_prompt_redacts_prior_responses():
 
     The redact() function redacts sk- tokens with 20+ chars (TOKEN regex).
     """
-    from worker.adapters.langgraph_adapter import LangGraphAdapter, _GraphState
-
     cfg = LangGraphProviderConfig(enabled=True, mode="local_live")
     adapter = LangGraphAdapter(cfg)
-    state = _GraphState(graph_id="g1", task_id="t1")
+    state = LangGraphState(graph_id="g1", task_id="t1")
     # Use a 20+ char sk- secret so the TOKEN regex fires
     secret = "sk-SUPER1234SECRET5678XY"  # 20 chars after sk-
     state.llm_responses.append({

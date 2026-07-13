@@ -386,21 +386,29 @@
         "TB-07"
       ],
       "prevention": [
-        "Production Compose mounts authorization, dispatch and Hub service credentials from required external secret files; secret values never enter Compose YAML or environment variables.",
-        "Only the Hub receives the dispatch keyring; only the Hub and dedicated Temporal worker receive the shared authorization keyring and service token.",
-        "File-managed agent tokens require an absolute bounded regular file with safe write permissions, reject inline conflicts and are never accepted from a query string."
+        "Production Compose mounts separate Hub-private Ed25519 signing, Worker-public verification, dispatch and Hub service credentials from required external files; values never enter Compose YAML or environment variables.",
+        "Only the Hub receives authorization signing and dispatch keyrings; Native, LangGraph and Temporal workers receive public verification keys that reject private or legacy symmetric fields.",
+        "File-managed agent tokens require an absolute bounded regular file with safe write permissions, reject inline conflicts and query strings; authorization keyrings use no-follow descriptor opens, fstat validation and bounded descriptor reads; internal runtime routes require an agent service credential and reject user/admin JWTs."
       ],
       "detection": [
-        "Missing, malformed, weak, conflicting or unsafely writable service-token files fail strict Hub authentication closed with a stable configuration reason.",
-        "The mandatory merged Compose-config gate proves service/network/secret targeting before a production deployment."
+        "Missing, malformed, conflicting or unsafe credentials and verification files fail closed with a stable configuration reason; legacy shared HMAC is disabled by default.",
+        "The mandatory merged Compose-config gate proves that no Worker or Temporal service mounts Hub signing material before a production deployment."
       ],
       "audit": [
         "Record only the stable authentication configuration reason and affected boundary; never record the token, keyring contents or signed envelope.",
-        "Treat any unexpected dispatch-key consumer or credential-bearing probe configuration as a release-blocking boundary violation."
+        "Treat any Worker signing-key mount, unexpected dispatch-key consumer, accepted user JWT on an internal route or credential-bearing probe as a release-blocking boundary violation."
       ],
       "tests": [
         "tests/test_agent_token_file_auth.py::test_unsafe_file_token_configuration_fails_closed",
         "tests/test_agent_token_file_auth.py::test_file_managed_service_token_is_never_accepted_from_query_string",
+        "tests/test_workflow_hub_task_gateway_runtime.py::test_production_hub_rejects_legacy_shared_hmac_without_explicit_dev_flag",
+        "tests/test_workflow_hub_task_gateway_runtime.py::test_production_hub_rejects_symlinked_signing_keyring",
+        "tests/test_workflow_hub_task_gateway_runtime.py::test_production_hub_rejects_group_or_world_writable_signing_keyring",
+        "tests/test_workflow_hub_task_gateway_runtime.py::test_production_hub_rejects_oversized_signing_keyring",
+        "tests/test_native_graph_verify_only_authorization.py::test_worker_public_key_loader_rejects_private_key_fields",
+        "tests/test_workflow_runtime_internal_api.py::test_internal_gateway_rejects_even_admin_user_jwt",
+        "tests/test_langgraph_checkpoint_internal_api.py::test_checkpoint_api_rejects_user_jwt",
+        "tests/security/workflow_runtime/test_native_production_compose.py::test_native_workers_receive_public_verification_but_never_hub_signing_key",
         "tests/security/workflow_runtime/test_workflow_runtime_production_compose.py::test_production_overlay_uses_external_file_secrets_only",
         "tests/security/workflow_runtime/test_workflow_runtime_production_compose.py::test_temporal_worker_gets_verification_and_hub_credentials_but_not_dispatch_key"
       ]

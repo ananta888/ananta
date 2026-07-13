@@ -181,6 +181,7 @@ def test_hub_queue_persists_one_signed_fenced_and_routable_contract() -> None:
         "external_egress_allowed": False,
         "max_attempts": 3,
         "max_total_tokens": 2_000,
+        "max_completion_tokens_per_call": 1_000,
         "max_cost_micros": 10_000,
         "require_hub_retry_budget": True,
         "require_hub_provider_budget": True,

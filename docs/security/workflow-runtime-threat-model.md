@@ -50,6 +50,15 @@ The following invariants are release blocking:
    heartbeats and UI read models are bounded and redacted.
 7. Runtime fallback and rollback fail closed when any required security or
    durability capability would be lost.
+8. Runtime rollout has no unscoped compatibility path: plan scope, side-effect
+   classes and egress destinations are checked before delegation.
+9. Shadow promotion evidence is derived from successful canonical Hub event
+   sequences, signed by the Hub, owner-only, fresh and bound to tenant,
+   workflow, runs, plan, policy revision, runtime builds and source revision.
+10. Authorization signing material is Hub-only. Workers may verify Ed25519
+    signatures or revalidate online at the Hub, but cannot mint an envelope.
+11. Internal runtime/checkpoint gateways accept service identities only; a
+    user or administrator JWT is never equivalent to a Worker credential.
 
 Optional OpenTelemetry export is downstream of canonical event persistence. It
 uses TLS for remote endpoints (or an internal/local Compose collector), reads
@@ -101,7 +110,7 @@ test mapping. This table is the operator summary.
 | --- | --- | --- | --- | --- |
 | WRT-001 | Prompt injection changes control flow | Hub-owned plan; provenance allowlist; strict schema; policy-gated tools | provenance/schema/tool denial reason; plan hash and redacted correlation trail | retrieval contract and tool pipeline tests |
 | WRT-002 | Tool escalation | signed allowlist and budgets; approval; fence; stable ledger operation | deny before invoker; audit operation, gate, attempt and ledger state | tool pipeline and side-effect ledger tests |
-| WRT-003 | Confused deputy | tenant/workflow/run/step/plan/policy binding; Activity returns to Hub | binding mismatch and cross-tenant access fail closed; actor and decision audit | authorization, Hub gateway and tenant API tests |
+| WRT-003 | Confused deputy | tenant/workflow/run/step/plan/policy binding; mandatory Hub rollout scope; Activity returns to Hub | binding mismatch and cross-tenant access fail closed; actor and decision audit | authorization, rollout security, Hub gateway and tenant API tests |
 | WRT-004 | Replay abuse | expiry, nonce, idempotency key, dedupe, CAS and stable operation ID | replay/dedupe conflict reason; combined retry count | command, gateway and repeated Temporal signal tests |
 | WRT-005 | State poisoning | bounded versioned contracts; secret references; pure upcasters; declarative conditions | schema/hash/sequence/quarantine reason without rejected content | state, evolution, plan and condition tests |
 | WRT-006 | History/checkpoint tampering | signed bound checkpoints; versioned deterministic projection | stale/inconsistent on gaps, loops or signature/revision mismatch | checkpoint and Temporal projection tests |
@@ -109,7 +118,8 @@ test mapping. This table is the operator summary.
 | WRT-008 | Provider egress/secret leak | default-deny egress and pre-transport redaction | destination/budget denial and content-free observation | provider middleware tests |
 | WRT-009 | UI success spoofing | Hub read model with staleness/evidence; approved commands | missing evidence degrades; stale commands denied and audited | operations API and Angular tests |
 | WRT-010 | Retry/resource amplification | combined retry budget; bounded fan-out, streams, history and payloads | explicit exhaustion/backpressure/threshold state | ownership, streaming and Temporal retry tests |
-| WRT-011 | Credential injection/runtime impersonation | external file secrets; least-privilege mounts; strict file validation; no query token | invalid wiring fails closed without logging credentials; merged Compose model is gated | file-auth and production Compose contract tests |
+| WRT-011 | Credential injection/runtime impersonation | Hub-private Ed25519 signer; Worker-public verifier; service-only internal routes; no-follow, descriptor-verified bounded secret reads; no query token | legacy/private/miswired, symlinked, writable or oversized credentials and user JWTs fail closed; merged Compose model proves secret separation | Ed25519 forge/private-field, internal-auth, file-auth and production Compose tests |
+| WRT-012 | Forged or stale shadow promotion | canonical-event-derived invariants; Hub Ed25519 signature; owner-only evidence; policy/build/revision/expiry binding; service-level approval | stable signature, binding, freshness and approval denial reasons; immutable rollout audit | shadow comparison and rollout security tests |
 
 ### Prompt injection
 
@@ -153,15 +163,20 @@ comparison; changing a status in the UI or visibility store is not recovery.
 
 ### Runtime credential isolation
 
-The production Temporal overlay consumes three deployment-owned secret files.
-Only the Hub can decrypt dispatch payloads. The Hub and dedicated Temporal
-worker share the authorization-verification keyring and the Hub service token;
-the Angular frontend and ordinary workers receive neither. The base Temporal
-and smoke overlays stay credential-free, so a probe cannot accidentally become
-a productive Activity executor. File-managed service tokens are absolute,
-bounded, checked on every request, rejected on unsafe configuration and never
-accepted in a URL query. Authentication failures expose only a stable reason
-code, not a secret value or secret-file path.
+Production uses two distinct authorization files. Only the Hub receives the
+Ed25519 private signing keyring. Native, LangGraph and Temporal workers receive
+the public verification keyring, which rejects private keys, legacy symmetric
+keys and unknown fields; Native also supports online Hub revalidation without
+any local key. Only the Hub can decrypt dispatch payloads. Shared HMAC is
+disabled by default and survives solely behind an explicit development flag.
+
+Internal runtime, tool-decision and checkpoint routes require an agent service
+credential/service JWT and reject browser user/admin JWTs. The Angular frontend
+receives no runtime credential. Base Temporal and smoke overlays stay
+credential-free, so a probe cannot become a productive Activity executor.
+File-managed service tokens are absolute, bounded, checked on every request,
+rejected on unsafe configuration and never accepted in a URL query. Failures
+expose only a stable reason code, not a key, token or secret-file path.
 
 ## Security gate and critical findings
 

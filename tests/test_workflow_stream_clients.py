@@ -217,3 +217,44 @@ def test_cli_tui_client_reads_authenticated_shared_capability_projection() -> No
     )
     assert headers["Authorization"] == "Bearer user-token"
     assert body is None
+
+
+def test_cli_tui_client_reads_fallback_and_degradation_operations_projection() -> None:
+    projection = {
+        "schema": "ananta.workflow_runtime_operations_list.v1",
+        "runs": [
+            {
+                "run_id": "run-1",
+                "degraded": True,
+                "fallbacks": [
+                    {
+                        "source_runtime": "langgraph",
+                        "target_runtime": "native",
+                        "reason_code": "capability_mismatch",
+                    }
+                ],
+            }
+        ],
+        "summary": {"degraded_runs": 1},
+    }
+    transport = _Transport(
+        WorkflowStreamHttpResponse(
+            status=200,
+            headers={},
+            body=json.dumps(projection).encode(),
+        )
+    )
+    client = WorkflowStreamClient(
+        hub_url="https://hub.test",
+        bearer_token="user-token",
+        transport=transport,
+    )
+
+    assert client.runtime_operations(runtime="langgraph", health="degraded", limit=20) == projection
+    url, headers, body, _timeout = transport.calls[0]
+    assert url == (
+        "https://hub.test/api/workflow-runtime/operations"
+        "?runtime=langgraph&health=degraded&limit=20"
+    )
+    assert headers["Authorization"] == "Bearer user-token"
+    assert body is None

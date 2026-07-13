@@ -42,6 +42,21 @@ an integration layer, not a fourth runtime or control plane.
 The exact owner, container list, entry point, code/test evidence, gap and follow-up
 task for every row are stored in the JSON inventory.
 
+## Production trust boundary
+
+Workflow authorization uses separate Ed25519 keyrings. The Hub alone mounts
+`workflow_runtime_auth_signing_keyring`; Native, LangGraph and Temporal workers
+receive only `workflow_runtime_auth_verification_keyring`, containing public
+keys and revocations. Verification loaders reject `private_keys`, legacy
+`keys`, unsafe paths and unknown fields. Shared HMAC is unavailable in
+production and can be enabled only by the explicit development-compatibility
+flag `ANANTA_WORKFLOW_ALLOW_LEGACY_HMAC_KEYRING=1`.
+
+Internal Workflow Worker, Hub task and LangGraph checkpoint gateways accept
+agent service credentials/service JWTs only. Ordinary user/admin JWTs are not
+service identities and fail closed. This keeps both signing authority and
+runtime mutation endpoints outside the Angular/browser trust boundary.
+
 ## Temporary Worker namespace compatibility facades
 
 Some framework-neutral contracts predate the dedicated contracts package and

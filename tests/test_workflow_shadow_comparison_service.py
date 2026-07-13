@@ -12,6 +12,7 @@ from agent.services.workflow_runtime.security import HmacKeyRing
 from agent.services.workflow_shadow_comparison_service import (
     HubEventWorkflowShadowComparisonProducer,
     JsonWorkflowShadowComparisonEvidenceStore,
+    OwnerOnlyJsonWorkflowShadowEvidencePublisher,
     WorkflowShadowComparisonService,
     WorkflowShadowObservation,
     WorkflowShadowRuntimeIdentity,
@@ -192,6 +193,16 @@ def test_json_store_requires_owner_only_signed_fresh_fully_bound_evidence(tmp_pa
         stale_store.get_evidence(**bindings)
 
 
+def test_evidence_publisher_is_atomic_and_owner_only(tmp_path: Path) -> None:
+    comparison = _comparison()
+    path = tmp_path / "published.json"
+
+    assert OwnerOnlyJsonWorkflowShadowEvidencePublisher(path).publish(comparison) == (comparison.evidence_ref)
+    assert path.stat().st_mode & 0o777 == 0o600
+    assert json.loads(path.read_text(encoding="utf-8"))["evidence_ref"] == (comparison.evidence_ref)
+    assert not tuple(tmp_path.glob(".*.tmp"))
+
+
 def _plan() -> ExecutionPlan:
     return ExecutionPlan(
         tenant_id="tenant-a",
@@ -203,9 +214,28 @@ def _plan() -> ExecutionPlan:
     )
 
 
-def _append_run(store: InMemoryEventStore, plan: ExecutionPlan, run_id: str, *, terminal: str = "completed") -> None:
+def _append_run(
+    store: InMemoryEventStore,
+    plan: ExecutionPlan,
+    run_id: str,
+    *,
+    runtime_id: str,
+    terminal: str = "completed",
+) -> None:
     events = (
-        ("workflow.run.started", "", {"plan_hash": plan.plan_hash}),
+        (
+            "workflow.run.started",
+            "",
+            {
+                "plan_hash": plan.plan_hash,
+                "runtime_id": runtime_id,
+                "runtime_version": "1.0.0",
+                "runtime_build": "build-a",
+                "rollout_policy_hash": "policy-a",
+                "rollout_policy_version": "shadow-v1",
+                "rollout_policy_revision": 2,
+            },
+        ),
         ("workflow.node.completed", "node-a", {"node_id": "node-a"}),
         (f"workflow.run.{terminal}", "", {}),
     )
@@ -230,8 +260,8 @@ def _append_run(store: InMemoryEventStore, plan: ExecutionPlan, run_id: str, *, 
 def test_hub_event_producer_derives_observations_and_rejects_failed_or_empty_runs() -> None:
     plan = _plan()
     events = InMemoryEventStore()
-    _append_run(events, plan, "baseline-run")
-    _append_run(events, plan, "shadow-run")
+    _append_run(events, plan, "baseline-run", runtime_id="langgraph")
+    _append_run(events, plan, "shadow-run", runtime_id="ananta-native")
     identity = WorkflowShadowRuntimeIdentity(
         runtime_id="ananta-native",
         runtime_version="1.0.0",
@@ -258,6 +288,20 @@ def test_hub_event_producer_derives_observations_and_rejects_failed_or_empty_run
     assert comparison.status == "passed"
     assert comparison.baseline_run_id == "baseline-run"
 
+    with pytest.raises(RuntimeError, match="runtime_identity_bound"):
+        producer.produce(
+            plan=plan,
+            scope_key="scope-a",
+            policy_hash="policy-a",
+            policy_version="shadow-v1",
+            policy_revision=2,
+            baseline=replace(identity, runtime_id="temporal"),
+            baseline_run_id="baseline-run",
+            shadow=identity,
+            shadow_run_id="shadow-run",
+            source_revision="revision-a",
+        )
+
     with pytest.raises(ValueError, match="event_sequence_empty"):
         producer.produce(
             plan=plan,
@@ -273,8 +317,14 @@ def test_hub_event_producer_derives_observations_and_rejects_failed_or_empty_run
         )
 
     failed_events = InMemoryEventStore()
-    _append_run(failed_events, plan, "baseline-run")
-    _append_run(failed_events, plan, "shadow-run", terminal="failed")
+    _append_run(failed_events, plan, "baseline-run", runtime_id="langgraph")
+    _append_run(
+        failed_events,
+        plan,
+        "shadow-run",
+        runtime_id="ananta-native",
+        terminal="failed",
+    )
     failed_producer = HubEventWorkflowShadowComparisonProducer(
         events=failed_events,
         comparison=WorkflowShadowComparisonService(key_ring=_keys(), clock=lambda: 1_000.0),

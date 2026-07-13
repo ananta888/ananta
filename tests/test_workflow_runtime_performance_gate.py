@@ -329,3 +329,34 @@ def test_promotion_route_rejects_cross_tenant_plan_before_service(monkeypatch) -
 
     assert response.status_code == 400
     assert response.get_json()["reason_code"] == ("workflow_rollout_promotion_tenant_mismatch")
+
+
+def test_tenant_admin_cannot_promote_project_wide_scope(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "agent.routes.workflow_runtime_rollout.get_workflow_runtime_promotion_service",
+        lambda: (_ for _ in ()).throw(AssertionError("service must not be called")),
+    )
+    app = Flask(__name__)
+    app.config.update(TESTING=True, AGENT_TOKEN=None)
+    app.register_blueprint(workflow_runtime_rollout_bp)
+    token = generate_token(
+        {"sub": "operator-a", "tenant_id": "tenant-a", "role": "admin"},
+        settings.secret_key,
+    )
+
+    response = app.test_client().post(
+        "/api/workflow-runtime/rollout/promotions",
+        json={
+            "policy": replace(_live_policy(), scope=WorkflowRolloutScope("project-a")).to_dict(),
+            "plan": _plan().to_dict(),
+            "expected_revision": 1,
+            "reason_code": "must-be-global",
+            "change_id": "promotion-project",
+            "approval_id": "approval-project",
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 403
+    assert response.headers["Cache-Control"] == "no-store"
+    assert response.get_json()["reason_code"] == ("workflow_rollout_project_scope_global_admin_required")

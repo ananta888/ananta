@@ -62,9 +62,7 @@ def test_operations_drill_script_runs_all_release_blocking_drills(tmp_path: Path
     payload = json.loads(completed.stdout)
     assert payload == json.loads(output.read_text(encoding="utf-8"))
     assert payload["status"] == "passed"
-    assert payload["source_revision"].startswith(
-        source_revision + "+dirty.sha256."
-    )
+    assert payload["source_revision"].startswith(source_revision + "+dirty.sha256.")
     assert len(payload["source_revision"].rsplit(".", 1)[-1]) == 64
     assert {result["drill_id"] for result in payload["results"]} == {
         "alembic-upgrade-downgrade-n-minus-one",

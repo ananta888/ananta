@@ -205,6 +205,54 @@ def test_flask_worker_composition_is_role_guarded_before_worker_imports() -> Non
     assert role_guard < worker_runtime_import
 
 
+def test_flask_worker_composition_has_no_concrete_hub_dependencies() -> None:
+    path = ROOT / "agent/ai_agent.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    function = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef)
+        and node.name == "_initialize_workflow_adapter_worker_runtime"
+    )
+    imported: list[str] = []
+    for node in ast.walk(function):
+        if isinstance(node, ast.ImportFrom):
+            imported.append(node.module or "")
+        elif isinstance(node, ast.Import):
+            imported.extend(alias.name for alias in node.names)
+    forbidden = (
+        "agent.llm_integration",
+        "agent.repository",
+        "agent.services.ananta_tool_registry_service",
+        "agent.services.native_worker_runtime_service",
+        "agent.services.provider_invocation_middleware",
+        "agent.services.task_runtime_service",
+        "agent.services.worker_runtime_execution_adapter",
+        "agent.services.worker_workspace_service",
+    )
+    assert not any(
+        module == prefix or module.startswith(f"{prefix}.")
+        for module in imported
+        for prefix in forbidden
+    )
+
+
+def test_native_worker_never_loads_hub_signing_material() -> None:
+    worker_files = (
+        ROOT / "worker/runtime/native_graph/composition.py",
+        ROOT / "worker/runtime/native_graph/authorization.py",
+        ROOT / "agent/ai_agent.py",
+    )
+    forbidden = (
+        "HmacKeyRing",
+        "ANANTA_WORKFLOW_AUTH_KEYRING_FILE",
+        "active_signing_key",
+    )
+    for path in worker_files:
+        source = path.read_text(encoding="utf-8")
+        assert not any(value in source for value in forbidden), path
+
+
 def test_worker_composition_imports_without_hub_database_packages() -> None:
     script = r'''
 import importlib.abc

@@ -12,7 +12,8 @@ from worker.runtime.workflow_adapter_worker_profile import (
 ROOT = Path(__file__).resolve().parents[3]
 OVERLAY = ROOT / "docker/compose-next/compose.native.production.yml"
 PROFILE = ROOT / "config/workflow_runtime/native_worker_profile.v1.json"
-AUTH_KEYRING = "workflow_runtime_auth_keyring"
+AUTH_SIGNING_KEYRING = "workflow_runtime_auth_signing_keyring"
+AUTH_VERIFICATION_KEYRING = "workflow_runtime_auth_verification_keyring"
 HUB_TOKEN = "workflow_hub_service_token"
 
 
@@ -31,28 +32,37 @@ def _secret_sources(service: dict) -> set[str]:
 
 def test_native_production_overlay_uses_read_only_external_secrets() -> None:
     overlay = _load(OVERLAY)
-    assert set(overlay["secrets"]) == {AUTH_KEYRING, HUB_TOKEN}
+    assert set(overlay["secrets"]) == {
+        AUTH_SIGNING_KEYRING,
+        AUTH_VERIFICATION_KEYRING,
+        HUB_TOKEN,
+    }
     rendered = OVERLAY.read_text(encoding="utf-8")
     assert "AGENT_TOKEN:" not in rendered
     assert "active_key_id:" not in rendered
     for service in overlay["services"].values():
-        assert _secret_sources(service) == {AUTH_KEYRING, HUB_TOKEN}
         for binding in service["secrets"]:
             assert binding["source"] == binding["target"]
             assert int(binding["mode"]) & 0o222 == 0
 
 
-def test_native_workers_share_verification_key_and_hub_service_token() -> None:
+def test_native_workers_receive_public_verification_but_never_hub_signing_key() -> None:
     services = _load(OVERLAY)["services"]
     hub = services["ai-agent-hub"]
-    assert hub["environment"]["ANANTA_WORKFLOW_AUTH_KEYRING_FILE"] == (
-        f"/run/secrets/{AUTH_KEYRING}"
+    assert _secret_sources(hub) == {AUTH_SIGNING_KEYRING, HUB_TOKEN}
+    assert hub["environment"]["ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_FILE"] == (
+        f"/run/secrets/{AUTH_SIGNING_KEYRING}"
     )
     assert hub["environment"]["AGENT_TOKEN_FILE"] == f"/run/secrets/{HUB_TOKEN}"
     for name in ("ai-agent-alpha", "ai-agent-beta"):
         environment = services[name]["environment"]
-        assert environment["ANANTA_WORKFLOW_AUTH_KEYRING_FILE"] == (
-            f"/run/secrets/{AUTH_KEYRING}"
+        assert _secret_sources(services[name]) == {
+            AUTH_VERIFICATION_KEYRING,
+            HUB_TOKEN,
+        }
+        assert AUTH_SIGNING_KEYRING not in _secret_sources(services[name])
+        assert environment["ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_FILE"] == (
+            f"/run/secrets/{AUTH_VERIFICATION_KEYRING}"
         )
         assert environment["ANANTA_WORKFLOW_HUB_TOKEN_FILE"] == (
             f"/run/secrets/{HUB_TOKEN}"

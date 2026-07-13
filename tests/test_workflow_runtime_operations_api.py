@@ -86,6 +86,21 @@ def test_operations_api_is_strictly_authenticated_and_empty_is_explicit(client):
     assert payload["summary"]["total_runs"] == 0
 
 
+def test_operations_api_rejects_authenticated_user_without_tenant_identity(client):
+    token = generate_token(
+        {"role": "admin"},
+        settings.secret_key,
+    )
+
+    response = client.get(
+        "/api/workflow-runtime/operations",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 403
+    assert response.get_json()["reason_code"] == "workflow_runtime_identity_required"
+
+
 def test_operations_read_model_filters_degraded_stale_and_never_claims_unverified_success(client):
     service = get_workflow_runtime_read_model_service()
     service.record_snapshot(

@@ -16,7 +16,8 @@ PRODUCTION_OVERLAY = ROOT / "docker" / "compose-next" / "compose.langgraph.produ
 DOCKERFILE = ROOT / "docker" / "compose-next" / "Dockerfile.quickstart-no-ollama"
 RUNTIME_LOCK = ROOT / "docker" / "compose-next" / "requirements.langgraph-worker.lock"
 
-AUTH_KEYRING = "workflow_runtime_auth_keyring"
+AUTH_SIGNING_KEYRING = "workflow_runtime_auth_signing_keyring"
+AUTH_VERIFICATION_KEYRING = "workflow_runtime_auth_verification_keyring"
 DISPATCH_KEYRING = "workflow_runtime_dispatch_keyring"
 HUB_TOKEN = "workflow_hub_service_token"
 RUNTIME_NETWORK = "langgraph-runtime"
@@ -61,7 +62,12 @@ def test_langgraph_worker_runtime_lock_and_image_are_exact_and_opt_in() -> None:
 
 def test_production_overlay_mounts_external_workflow_secrets_read_only() -> None:
     overlay = _load(PRODUCTION_OVERLAY)
-    assert set(overlay["secrets"]) == {AUTH_KEYRING, DISPATCH_KEYRING, HUB_TOKEN}
+    assert set(overlay["secrets"]) == {
+        AUTH_SIGNING_KEYRING,
+        AUTH_VERIFICATION_KEYRING,
+        DISPATCH_KEYRING,
+        HUB_TOKEN,
+    }
     for secret in overlay["secrets"].values():
         reference = str(secret["file"])
         assert reference.startswith("${ANANTA_WORKFLOW_")
@@ -78,17 +84,26 @@ def test_hub_and_only_dedicated_langgraph_worker_receive_required_secrets() -> N
     hub = services["ai-agent-hub"]
     worker = services[LANGGRAPH_WORKER]
 
-    assert _secret_sources(hub) == {AUTH_KEYRING, DISPATCH_KEYRING, HUB_TOKEN}
-    assert _secret_sources(worker) == {HUB_TOKEN}
+    assert _secret_sources(hub) == {
+        AUTH_SIGNING_KEYRING,
+        DISPATCH_KEYRING,
+        HUB_TOKEN,
+    }
+    assert _secret_sources(worker) == {AUTH_VERIFICATION_KEYRING, HUB_TOKEN}
     _assert_read_only_secret_bindings(hub)
     _assert_read_only_secret_bindings(worker)
     assert worker["environment"]["ANANTA_LANGGRAPH_HUB_URL"] == ("http://ai-agent-hub:5000")
     assert worker["environment"]["ANANTA_LANGGRAPH_HUB_TOKEN_FILE"] == (f"/run/secrets/{HUB_TOKEN}")
     assert worker["environment"]["AGENT_TOKEN_FILE"] == f"/run/secrets/{HUB_TOKEN}"
     assert hub["environment"]["AGENT_TOKEN_FILE"] == f"/run/secrets/{HUB_TOKEN}"
-    assert hub["environment"]["ANANTA_WORKFLOW_AUTH_KEYRING_FILE"] == (f"/run/secrets/{AUTH_KEYRING}")
+    assert hub["environment"]["ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_FILE"] == (
+        f"/run/secrets/{AUTH_SIGNING_KEYRING}"
+    )
+    assert worker["environment"]["ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_FILE"] == (
+        f"/run/secrets/{AUTH_VERIFICATION_KEYRING}"
+    )
     assert DISPATCH_KEYRING not in _secret_sources(worker)
-    assert AUTH_KEYRING not in _secret_sources(worker)
+    assert AUTH_SIGNING_KEYRING not in _secret_sources(worker)
 
 
 def test_langgraph_worker_has_hub_only_runtime_network_and_no_published_port() -> None:
@@ -128,7 +143,8 @@ def test_production_overlay_renders_with_docker_compose() -> None:
         "HOME": os.environ.get("HOME", ""),
         "INITIAL_ADMIN_PASSWORD": "langgraph-config-test-password",
         "POSTGRES_PASSWORD": "langgraph-config-test-password",
-        "ANANTA_WORKFLOW_AUTH_KEYRING_SECRET_FILE": "/tmp/workflow-auth.json",
+        "ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_SECRET_FILE": "/tmp/workflow-auth-signing.json",
+        "ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_SECRET_FILE": "/tmp/workflow-auth-verification.json",
         "ANANTA_WORKFLOW_DISPATCH_KEYRING_SECRET_FILE": "/tmp/workflow-dispatch.json",
         "ANANTA_WORKFLOW_HUB_TOKEN_SECRET_FILE": "/tmp/workflow-token",
     }

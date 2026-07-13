@@ -45,7 +45,8 @@ token. Authorization and dispatch keyrings remain Hub-only.
 
 Prepare three deployment-owned files outside the repository:
 
-- an authorization HMAC keyring JSON;
+- an authorization Ed25519 signing-keyring JSON for the Hub;
+- a public verification-keyring JSON for runtime verifiers;
 - a dispatch Fernet keyring JSON;
 - a random Hub service token of at least 32 bytes.
 
@@ -55,7 +56,8 @@ because both overlays intentionally use the same Hub workflow-secret contract.
 Do not put secret values in Compose YAML, `.env`, images or fixtures.
 
 ```bash
-export ANANTA_WORKFLOW_AUTH_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-auth-keyring.json
+export ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-auth-signing-keyring.json
+export ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-auth-verification-keyring.json
 export ANANTA_WORKFLOW_DISPATCH_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-dispatch-keyring.json
 export ANANTA_WORKFLOW_HUB_TOKEN_SECRET_FILE=/etc/ananta/secrets/workflow-hub-service-token
 

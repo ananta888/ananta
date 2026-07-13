@@ -1,6 +1,7 @@
+import base64
+import json
 import os
 import sys
-import json
 import types
 from pathlib import Path
 from typing import Any
@@ -111,6 +112,31 @@ def _settings():
     return settings
 
 
+@pytest.fixture(autouse=True)
+def _legacy_workflow_runner_text_generation_port(app):
+    """Keep legacy adapter tests injectable after the production Hub split.
+
+    Production composition uses the Worker-local, Hub-budgeted provider port.
+    Older unit tests still patch ``agent.llm_integration.generate_text``; this
+    test-only adapter preserves that seam without reintroducing the dependency
+    into Worker production modules.
+    """
+
+    from agent import llm_integration
+    from worker.adapters.chain_runners import configure_text_generation
+
+    class TestTextGenerationPort:
+        @staticmethod
+        def generate_text(**values):
+            return llm_integration.generate_text(**values)
+
+    configure_text_generation(TestTextGenerationPort())
+    try:
+        yield
+    finally:
+        configure_text_generation(None)
+
+
 def _ensure_test_db() -> None:
     global _TEST_DB_READY
     if _TEST_DB_READY:
@@ -139,17 +165,36 @@ def workflow_runtime_auth_keyring_file(tmp_path, monkeypatch):
     """
 
     keyring_path = tmp_path / "workflow-runtime-auth-keyring.json"
+    from ananta_contracts.runtime_authorization_crypto import (
+        ED25519_ALGORITHM,
+        ED25519_SIGNING_KEYRING_SCHEMA,
+    )
+
     keyring_path.write_text(
         json.dumps(
             {
+                "schema": ED25519_SIGNING_KEYRING_SCHEMA,
+                "algorithm": ED25519_ALGORITHM,
                 "active_key_id": "pytest-workflow-runtime",
-                "keys": {"pytest-workflow-runtime": "t" * 32},
+                "private_keys": {
+                    "pytest-workflow-runtime": base64.b64encode(b"t" * 32).decode(
+                        "ascii"
+                    )
+                },
             },
             sort_keys=True,
         ),
         encoding="utf-8",
     )
-    monkeypatch.setenv("ANANTA_WORKFLOW_AUTH_KEYRING_FILE", str(keyring_path))
+    monkeypatch.setenv(
+        "ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_FILE",
+        str(keyring_path),
+    )
+    monkeypatch.delenv("ANANTA_WORKFLOW_AUTH_KEYRING_FILE", raising=False)
+    monkeypatch.delenv(
+        "ANANTA_WORKFLOW_ALLOW_LEGACY_HMAC_KEYRING",
+        raising=False,
+    )
 
     import time
 

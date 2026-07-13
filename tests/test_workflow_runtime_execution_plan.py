@@ -111,6 +111,45 @@ def test_workflow_request_v1_is_read_through_compatibility_adapter() -> None:
     assert plan.metadata["adapted_from"] == "ananta.workflow_request.v1"
 
 
+def test_legacy_request_execution_budget_is_explicit_and_bounded() -> None:
+    request = WorkflowRequest(
+        workflow_id="workflow-budgeted",
+        steps=(WorkflowStepRequest(step_id="build"),),
+        policy_scope={"scope": "worker"},
+        metadata={
+            "execution_budget": {
+                "max_attempts": 2,
+                "timeout_seconds": 45,
+            }
+        },
+    )
+
+    plan = WorkflowRequestExecutionPlanAdapter.adapt(
+        request,
+        tenant_id="tenant-a",
+        policy_version="policy-v1",
+    )
+
+    assert plan.budget.max_attempts == 2
+    assert plan.budget.timeout_seconds == 45
+
+
+def test_legacy_request_rejects_non_object_execution_budget() -> None:
+    request = WorkflowRequest(
+        workflow_id="workflow-invalid-budget",
+        steps=(WorkflowStepRequest(step_id="build"),),
+        policy_scope={"scope": "worker"},
+        metadata={"execution_budget": "unbounded"},
+    )
+
+    with pytest.raises(ValueError, match="legacy_execution_budget_invalid"):
+        WorkflowRequestExecutionPlanAdapter.adapt(
+            request,
+            tenant_id="tenant-a",
+            policy_version="policy-v1",
+        )
+
+
 def test_unknown_dependency_in_legacy_request_fails_before_delegation() -> None:
     request = WorkflowRequest(
         workflow_id="workflow-old",

@@ -14,6 +14,9 @@ from agent.services.workflow_backend_factory import (
     WorkflowBackendConfigurationError,
     get_workflow_backend,
 )
+from agent.services.workflow_control_composition import (
+    reset_workflow_backend_control_facade,
+)
 from agent.services.workflow_route_authorization_service import workflow_route_authorization_service
 from agent.services.workflow_runtime.streaming import (
     WorkflowStreamBatch,
@@ -23,6 +26,25 @@ from agent.services.workflow_runtime_fallback_policy import (
     RuntimeFallbackRequest,
     workflow_runtime_fallback_policy,
 )
+
+
+class _AdmittedTestReleaseEvidence:
+    """Isolate route-security tests from the production release artifact."""
+
+    def evaluate(self, **_values):
+        return True, "runtime_release_test_evidence_verified"
+
+
+def _admit_test_runtime_release(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "agent.services.workflow_control_composition._production_release_admission",
+        lambda _backend: _AdmittedTestReleaseEvidence(),
+    )
+    monkeypatch.setattr(
+        "agent.services.workflow_control_composition._production_rollout_policies",
+        lambda: None,
+    )
+    reset_workflow_backend_control_facade()
 
 
 def _workflow_app(*, agent_token: str | None = None) -> Flask:
@@ -42,7 +64,7 @@ def _user_headers(*, subject: str, tenant_id: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-def _workflow_payload(workflow_id: str) -> dict:
+def _workflow_payload(workflow_id: str, *, gate: bool = False) -> dict:
     return {
         "workflow_request": {
             "workflow_id": workflow_id,
@@ -51,6 +73,7 @@ def _workflow_payload(workflow_id: str) -> dict:
                 {
                     "step_id": "step-1",
                     "task_kind": "coding",
+                    "gate": gate,
                     "policy_scope": {"source": "security-test"},
                 }
             ],
@@ -110,6 +133,7 @@ def test_workflow_run_access_is_bound_to_subject_and_tenant(
 ):
     del workflow_runtime_auth_keyring_file
     monkeypatch.setenv("ANANTA_ORCHESTRATION_BACKEND", "local")
+    _admit_test_runtime_release(monkeypatch)
     client = _workflow_app(agent_token=None).test_client()
     owner = _user_headers(subject="owner", tenant_id="tenant-a")
     foreign_tenant = _user_headers(subject="owner", tenant_id="tenant-b")
@@ -151,12 +175,13 @@ def test_workflow_signal_is_bounded_validated_and_secret_redacted(
 ):
     del workflow_runtime_auth_keyring_file
     monkeypatch.setenv("ANANTA_ORCHESTRATION_BACKEND", "local")
+    _admit_test_runtime_release(monkeypatch)
     client = _workflow_app(agent_token=None).test_client()
     owner = _user_headers(subject="signal-owner", tenant_id="tenant-signal")
     workflow_id = "wf-signal-bounds"
     started = client.post(
         "/api/visual-process/workflow/start",
-        json=_workflow_payload(workflow_id),
+        json=_workflow_payload(workflow_id, gate=True),
         headers=owner,
     )
     assert started.status_code == 200, started.get_json()
@@ -186,10 +211,14 @@ def test_workflow_signal_is_bounded_validated_and_secret_redacted(
     assert oversized.status_code == 413
     assert invalid_payload.status_code == 422
     assert accepted.status_code == 200
-    signal_event = next(event for event in accepted.get_json()["events"] if event["event_type"] == "signal:approve")
+    signal_event = next(
+        event
+        for event in accepted.get_json()["events"]
+        if event["event_type"] == "workflow.approval.granted"
+    )
     assert signal_event["actor"] == "signal-owner"
     assert "secret-value" not in str(signal_event)
-    assert "REDACTED" in str(signal_event)
+    assert "api_key" not in str(signal_event)
 
 
 def test_invalid_backend_returns_stable_503_and_releases_run_reservation(monkeypatch):

@@ -35,27 +35,43 @@ worker settings are:
 | `ANANTA_TEMPORAL_TLS_*` | TLS server name and CA/client file references |
 | `ANANTA_TEMPORAL_API_KEY_FILE` | API-key file reference |
 | `ANANTA_TEMPORAL_HUB_IDENTITY` | Separate audited Temporal SDK identity for the Hub client |
-| `ANANTA_WORKFLOW_AUTH_KEYRING_FILE` | Shared Hub/Temporal authorization-keyring file |
+| `ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_FILE` | Hub-only Ed25519 private signing-keyring file |
+| `ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_FILE` | Worker-only Ed25519 public verification-keyring file |
 | `ANANTA_WORKFLOW_DISPATCH_KEYRING_FILE` | Hub-only dispatch-encryption keyring file |
 | `ANANTA_TEMPORAL_HUB_URL` | Hub endpoint used only by the Activity gateway |
 | `ANANTA_TEMPORAL_HUB_TOKEN_FILE` | Hub service-token file reference |
 | `AGENT_TOKEN_FILE` | Hub-side source for the same service token; strict routes fail closed if invalid |
 
-The keyring file is JSON and must be mounted read-only:
+The two authorization keyring files are JSON and must be mounted read-only. The
+Hub file contains private signing seeds:
 
 ```json
 {
+  "schema": "ananta.workflow-auth-signing-keyring.v1",
+  "algorithm": "ed25519",
   "active_key_id": "runtime-2026-07",
-  "keys": {
-    "runtime-2026-07": "replace-with-at-least-16-random-characters"
+  "private_keys": {
+    "runtime-2026-07": "base64-encoded-32-byte-private-seed"
   }
 }
 ```
 
-The Hub and Temporal worker must receive the same read-only keyring through
-`ANANTA_WORKFLOW_AUTH_KEYRING_FILE`. `ANANTA_TEMPORAL_AUTH_KEYRING_FILE` remains
-an isolated worker compatibility alias during migration, but new deployments
-use the shared name so key rotation cannot drift between both verifiers.
+Temporal receives a different file containing only the matching public key:
+
+```json
+{
+  "schema": "ananta.workflow-auth-verification-keyring.v1",
+  "algorithm": "ed25519",
+  "public_keys": {
+    "runtime-2026-07": "base64-encoded-32-byte-public-key"
+  }
+}
+```
+
+The Hub must never mount the Worker file as a substitute for its signer, and a
+Worker must never mount the signing file. Verification loaders reject private
+or legacy symmetric fields. Shared HMAC is disabled by default; its explicit
+compatibility flag is for isolated development migration only.
 
 The dispatch-encryption keyring has the same JSON envelope but every value must
 be a URL-safe Fernet key. It is mounted into the Hub only. The Hub service-token
@@ -67,8 +83,8 @@ and conflicting inline `AGENT_TOKEN` values. It also rejects URL query-token
 authentication for file-managed credentials. Application token rotation is
 disabled while the token is externally file-managed.
 
-Do not place any of these secrets in Compose YAML, `.env`, images or repository
-fixtures. Generate the three source files in a deployment-owned directory. The
+Do not place any of these files in Compose YAML, `.env`, images or repository
+fixtures. Generate the four source files in a deployment-owned directory. The
 following example is verifiable and writes only beneath `/etc/ananta/secrets`:
 
 ```bash
@@ -78,14 +94,33 @@ import base64
 import json
 import os
 from pathlib import Path
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 root = Path("/etc/ananta/secrets")
 auth_id = "workflow-auth-v1"
 dispatch_id = "workflow-dispatch-v1"
+private = Ed25519PrivateKey.generate()
+private_seed = private.private_bytes(
+    serialization.Encoding.Raw,
+    serialization.PrivateFormat.Raw,
+    serialization.NoEncryption(),
+)
+public_key = private.public_key().public_bytes(
+    serialization.Encoding.Raw,
+    serialization.PublicFormat.Raw,
+)
 files = {
-    "workflow-auth-keyring.json": json.dumps({
+    "workflow-auth-signing-keyring.json": json.dumps({
+        "schema": "ananta.workflow-auth-signing-keyring.v1",
+        "algorithm": "ed25519",
         "active_key_id": auth_id,
-        "keys": {auth_id: base64.urlsafe_b64encode(os.urandom(32)).decode("ascii")},
+        "private_keys": {auth_id: base64.b64encode(private_seed).decode("ascii")},
+    }),
+    "workflow-auth-verification-keyring.json": json.dumps({
+        "schema": "ananta.workflow-auth-verification-keyring.v1",
+        "algorithm": "ed25519",
+        "public_keys": {auth_id: base64.b64encode(public_key).decode("ascii")},
     }),
     "workflow-dispatch-keyring.json": json.dumps({
         "active_key_id": dispatch_id,
@@ -104,7 +139,8 @@ Set only source-file *paths* in the deployment shell and validate the fully
 merged model before startup:
 
 ```bash
-export ANANTA_WORKFLOW_AUTH_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-auth-keyring.json
+export ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-auth-signing-keyring.json
+export ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-auth-verification-keyring.json
 export ANANTA_WORKFLOW_DISPATCH_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-dispatch-keyring.json
 export ANANTA_WORKFLOW_HUB_TOKEN_SECRET_FILE=/etc/ananta/secrets/workflow-hub-service-token
 
@@ -260,7 +296,6 @@ operations drill:
 
 ```bash
 python scripts/run-workflow-runtime-operations-drills.py \
-  --source-revision "$(git rev-parse HEAD)" \
   --output /tmp/workflow-runtime-operations-evidence.json
 ```
 
@@ -268,6 +303,8 @@ It proves the Ananta Alembic N-1 cycle, Hub database backup/restore,
 authorization-key overlap/revocation, audited incident containment, shadow
 write/egress suppression, approval/evidence-gated promotion and a
 capability-safe rollback. The local drill uses deterministic contract evidence;
+when the worktree is dirty its source identity includes a SHA-256 digest of the
+tracked diff and non-ignored untracked files rather than claiming plain `HEAD`;
 it does not migrate the Temporal database and does not replace the real
 Temporal server/worker restart, measured performance, PostgreSQL backup or
 stored-history replay gates above.

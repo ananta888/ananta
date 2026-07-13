@@ -99,6 +99,19 @@ retrieved content are untrusted data and cannot mutate the plan or authority.
 LangChain may implement a provider, retriever or tool adapter. LangGraph may
 implement worker-side graph execution. Neither is a task queue or policy owner.
 
+Hub authorization envelopes use an asymmetric Ed25519 boundary in production.
+Only the Hub mounts the private signing keyring; Native/LangGraph/Temporal
+workers may mount the public verification keyring, which rejects private and
+legacy symmetric fields. Native also revalidates authority online at the Hub.
+The old shared-HMAC loader is disabled by default and exists only behind an
+explicit development compatibility flag. A compromised Worker therefore has
+no material with which it can forge Hub envelopes.
+
+All workflow, tool-decision and LangGraph checkpoint internal routes require an
+agent service credential/service JWT. Browser/user/admin JWTs are rejected even
+when they carry an administrative role; interactive clients remain on the
+public Hub API and cannot impersonate a runtime component.
+
 ### 6. Runtime selection and fallback
 
 The Hub selects from versioned, evidenced capabilities using project, tenant,
@@ -238,6 +251,8 @@ the debt cannot grow implicitly.
 - All productive Worker runtime and adapter modules are scanned against the
   exact temporary compatibility-facade list above; broad package-prefix
   allowances are forbidden.
+- Production Compose tests prove that Hub signing material is absent from every
+  Worker/Temporal secret set and that internal gateways reject user JWTs.
 - Route tests forbid concrete worker adapters in Hub route modules.
 - Conformance/security gates validate capability truth, state/event contracts,
   replay, side effects and fail-closed fallback.

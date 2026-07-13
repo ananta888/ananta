@@ -61,27 +61,16 @@ def test_worker_composition_fails_closed_without_hub_authority(monkeypatch) -> N
 
 def test_worker_adapters_compose_without_hub_database_or_service_imports(
     monkeypatch,
-    tmp_path,
 ) -> None:
+    from worker.runtime.native_graph.authorization import (
+        HubBackedNativeAuthorizationVerifier,
+    )
     from worker.runtime.native_graph.composition import (
         build_native_graph_worker_task_adapter,
     )
     from worker.runtime.workflow_tool_pipeline_composition import (
         build_workflow_tool_pipeline,
     )
-
-    keyring = tmp_path / "workflow-keyring.json"
-    keyring.write_text(
-        json.dumps(
-            {
-                "active_key_id": "key-1",
-                "keys": {"key-1": "x" * 32},
-            }
-        ),
-        encoding="utf-8",
-    )
-    keyring.chmod(0o600)
-    monkeypatch.setenv("ANANTA_WORKFLOW_AUTH_KEYRING_FILE", str(keyring))
 
     forbidden = (
         "agent.database",
@@ -117,6 +106,7 @@ def test_worker_adapters_compose_without_hub_database_or_service_imports(
                 }
             },
             executor=object(),
+            authorization_verifier=HubBackedNativeAuthorizationVerifier(),
         )
 
     assert pipeline is not None

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import builtins
 import json
 import subprocess
@@ -14,6 +15,10 @@ from agent.services.temporal_workflow_backend import TemporalWorkflowBackend
 from agent.services.workflow_backend import WorkflowRequest, WorkflowStepRequest
 from agent.services.workflow_runtime import HmacKeyRing, RuntimeAuthorizationEnvelope
 from ananta_contracts.hub_task_gateway import HubTaskContractError
+from ananta_contracts.runtime_authorization_crypto import (
+    ED25519_VERIFICATION_KEYRING_SCHEMA,
+    Ed25519SigningKeyRing,
+)
 from ananta_contracts.temporal_workflow import (
     ActivityClass,
     AnantaWorkflowInput,
@@ -92,6 +97,40 @@ def test_temporal_authorization_rejects_tampering_and_stale_binding() -> None:
             step_id="step-1",
             plan_hash="b" * 64,
         )
+
+
+def test_temporal_worker_verifies_hub_ed25519_without_signing_material() -> None:
+    trusted = Ed25519SigningKeyRing(
+        {"runtime-key-1": base64.b64encode(b"t" * 32)},
+        active_key_id="runtime-key-1",
+    )
+    rogue = Ed25519SigningKeyRing(
+        {"runtime-key-1": base64.b64encode(b"r" * 32)},
+        active_key_id="runtime-key-1",
+    )
+
+    def issue(signer: Ed25519SigningKeyRing) -> AuthorizationEnvelopeRef:
+        return AuthorizationEnvelopeRef.from_mapping(
+            RuntimeAuthorizationEnvelope.issue(
+                key_ring=signer,
+                tenant_id="tenant-1",
+                workflow_id="wf-1",
+                run_id="run-1",
+                step_id="step-1",
+                plan_hash="a" * 64,
+                policy_version="policy-v1",
+                now=100,
+                ttl_seconds=60,
+            ).to_dict()
+        )
+
+    verifier = RuntimeAuthorizationVerifier.from_config_mapping(
+        trusted.verification_mapping()
+    )
+    verifier.verify(issue(trusted), now=101)
+    with pytest.raises(TemporalContractError) as caught:
+        verifier.verify(issue(rogue), now=101)
+    assert caught.value.reason_code == "signature_invalid"
 
 
 def test_workflow_input_is_framework_neutral_bounded_and_secret_free() -> None:
@@ -236,28 +275,52 @@ def test_heartbeat_details_are_content_free() -> None:
 
 
 def test_worker_config_requires_absolute_credential_references_and_supports_keyring(tmp_path: Path) -> None:
+    asymmetric = Ed25519SigningKeyRing(
+        {"runtime-key-1": base64.b64encode(bytes(range(32))).decode("ascii")},
+        active_key_id="runtime-key-1",
+    )
     keyring = tmp_path / "runtime-keyring.json"
     keyring.write_text(
-        json.dumps({"active_key_id": "runtime-key-1", "keys": {"runtime-key-1": SIGNING_KEY}}),
+        json.dumps(asymmetric.verification_mapping()),
         encoding="utf-8",
     )
     token = tmp_path / "hub-token"
     token.write_text("signed-hub-service-token", encoding="utf-8")
     config = TemporalWorkerConfig.from_env(
         {
-            "ANANTA_WORKFLOW_AUTH_KEYRING_FILE": str(keyring),
+            "ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_FILE": str(keyring),
             "ANANTA_TEMPORAL_HUB_URL": "http://ai-agent-hub:5000",
             "ANANTA_TEMPORAL_HUB_TOKEN_FILE": str(token),
         }
     )
     assert config.productive_gateway_configured is True
-    assert config.read_authorization_keyring()["active_key_id"] == "runtime-key-1"
+    assert (
+        config.read_authorization_keyring()["schema"]
+        == ED25519_VERIFICATION_KEYRING_SCHEMA
+    )
     assert config.read_hub_token() == "signed-hub-service-token"
 
-    compatibility = TemporalWorkerConfig.from_env(
-        {"ANANTA_TEMPORAL_AUTH_KEYRING_FILE": str(keyring)}
+    legacy = tmp_path / "legacy-runtime-keyring.json"
+    legacy.write_text(
+        json.dumps(
+            {
+                "active_key_id": "runtime-key-1",
+                "keys": {"runtime-key-1": SIGNING_KEY},
+            }
+        ),
+        encoding="utf-8",
     )
-    assert compatibility.authorization_keyring_file == str(keyring)
+    with pytest.raises(TemporalWorkerConfigError, match="legacy HMAC"):
+        TemporalWorkerConfig.from_env(
+            {"ANANTA_TEMPORAL_AUTH_KEYRING_FILE": str(legacy)}
+        )
+    compatibility = TemporalWorkerConfig.from_env(
+        {
+            "ANANTA_TEMPORAL_AUTH_KEYRING_FILE": str(legacy),
+            "ANANTA_WORKFLOW_ALLOW_LEGACY_HMAC_KEYRING": "1",
+        }
+    )
+    assert compatibility.authorization_keyring_file == str(legacy)
 
     with pytest.raises(TemporalWorkerConfigError, match="absolute"):
         TemporalWorkerConfig.from_env({"ANANTA_TEMPORAL_API_KEY_FILE": "relative-secret"})

@@ -92,7 +92,11 @@ class RecordingReleaseAdmission:
         return True, "runtime_release_gate_verified"
 
 
-def _request(workflow_id: str = "workflow-control-composition") -> WorkflowRequest:
+def _request(
+    workflow_id: str = "workflow-control-composition",
+    *,
+    max_attempts: int = 1,
+) -> WorkflowRequest:
     return WorkflowRequest(
         workflow_id=workflow_id,
         steps=(
@@ -103,6 +107,7 @@ def _request(workflow_id: str = "workflow-control-composition") -> WorkflowReque
             ),
         ),
         policy_scope={"source": "composition-test"},
+        metadata={"execution_budget": {"max_attempts": max_attempts}},
     )
 
 
@@ -298,6 +303,16 @@ def test_visual_routes_expose_resume_and_retry_through_hub_control(
 ) -> None:
     del workflow_runtime_auth_keyring_file
     monkeypatch.setenv("ANANTA_ORCHESTRATION_BACKEND", "local")
+    # This route contract test exercises resume/retry, not rollout admission.
+    # Rollout itself is covered with mandatory scopes and policies separately.
+    monkeypatch.setattr(
+        "agent.services.workflow_control_composition._production_rollout_policies",
+        lambda: None,
+    )
+    monkeypatch.setattr(
+        "agent.services.workflow_control_composition._production_release_admission",
+        lambda _backend: RecordingReleaseAdmission(),
+    )
     reset_workflow_backend_control_facade()
     workflow_route_authorization_service.clear()
     app = Flask(__name__)
@@ -314,7 +329,12 @@ def test_visual_routes_expose_resume_and_retry_through_hub_control(
     started = client.post(
         "/api/visual-process/workflow/start",
         headers=headers,
-        json={"workflow_request": _request(workflow_id).to_dict()},
+        json={
+            "workflow_request": _request(
+                workflow_id,
+                max_attempts=2,
+            ).to_dict()
+        },
     )
     paused = client.post(
         f"/api/visual-process/workflow/{workflow_id}/signal",
@@ -340,4 +360,7 @@ def test_visual_routes_expose_resume_and_retry_through_hub_control(
     assert resumed.get_json()["status"] == "running"
     assert cancelled.get_json()["status"] == "cancelled"
     assert retried.get_json()["status"] == "running"
-    assert any(event["event_type"] == "signal:retry" for event in retried.get_json()["events"])
+    assert any(
+        event["event_type"] == "workflow.run.retry_requested"
+        for event in retried.get_json()["events"]
+    )

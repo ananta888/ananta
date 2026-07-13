@@ -20,6 +20,7 @@ from agent.services.workflow_runtime import (
 )
 from agent.services.workflow_worker_gateway_service import (
     WorkflowToolApprovalDecision,
+    WorkflowToolDescriptor,
     WorkflowWorkerGatewayError,
     WorkflowWorkerGatewayService,
 )
@@ -62,6 +63,21 @@ class _DigestBoundApprovals:
     def consume(self, approval_ref: str) -> bool:
         self.consumed.append(approval_ref)
         return approval_ref == "approval-1"
+
+
+class _HubToolDescriptors:
+    _CLASSES = {
+        "apply_patch": "idempotent_write",
+        "non-idempotent-tool": "non_idempotent_write",
+        "read-tool": "read",
+        "run_shell": "idempotent_write",
+    }
+
+    def resolve(self, tool_id: str) -> WorkflowToolDescriptor | None:
+        side_effect_class = self._CLASSES.get(tool_id)
+        if side_effect_class is None:
+            return None
+        return WorkflowToolDescriptor(tool_id, side_effect_class)
 
 
 def fixture() -> tuple[
@@ -115,6 +131,7 @@ def fixture() -> tuple[
         provider_budgets=InMemoryProviderBudgetStore(),
         authorization_revalidator=grants,
         tool_approvals=approvals,
+        tool_descriptors=_HubToolDescriptors(),
         clock=lambda: now + 1,
     )
     binding = {
@@ -232,20 +249,32 @@ def test_write_tool_without_approval_binding_fails_closed() -> None:
     )
 
 
-def test_worker_cannot_downgrade_side_effect_to_read_class() -> None:
+@pytest.mark.parametrize("reported_class", ["read", "none", None])
+def test_worker_cannot_downgrade_non_idempotent_side_effect_class(
+    reported_class: str | None,
+) -> None:
     service, base, _events, ledger, _approvals = fixture()
     command = {
         **_tool_command(base),
-        "side_effect_class": "read",
+        "tool_id": "non-idempotent-tool",
+        "side_effect_class": reported_class,
         "approval_ref": "",
         "hub_task_id": "",
         "goal_id": "",
         "arguments": {},
+        "operation_id": operation_id_for(
+            tenant_id="tenant-1",
+            run_id="run-1",
+            step_id="step-1",
+            declared_operation="tool:non-idempotent-tool",
+        ),
     }
+    if reported_class is None:
+        command.pop("side_effect_class")
 
     with pytest.raises(
         WorkflowWorkerGatewayError,
-        match="side_effect_claim_requires_write_class",
+        match="workflow_tool_side_effect_class_mismatch",
     ):
         service.execute(command)
 
@@ -256,6 +285,31 @@ def test_worker_cannot_downgrade_side_effect_to_read_class() -> None:
         )
         is None
     )
+
+
+def test_unknown_tool_operation_is_rejected_before_ledger_claim() -> None:
+    service, base, _events, ledger, _approvals = fixture()
+    operation_id = operation_id_for(
+        tenant_id="tenant-1",
+        run_id="run-1",
+        step_id="step-1",
+        declared_operation="tool:unknown-operation",
+    )
+
+    with pytest.raises(
+        WorkflowWorkerGatewayError,
+        match="workflow_tool_descriptor_unknown",
+    ):
+        service.execute(
+            {
+                **_tool_command(base),
+                "tool_id": "unknown-operation",
+                "side_effect_class": "non_idempotent_write",
+                "operation_id": operation_id,
+            }
+        )
+
+    assert ledger.get(tenant_id="tenant-1", operation_id=operation_id) is None
 
 
 def test_provider_budget_reservation_and_reconciliation_are_hub_owned() -> None:

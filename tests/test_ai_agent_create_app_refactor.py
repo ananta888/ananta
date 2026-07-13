@@ -27,6 +27,50 @@ def test_hub_runtime_initializer_never_imports_worker_composition(monkeypatch):
     }
 
 
+def test_worker_runtime_initializer_never_imports_hub_implementations(
+    monkeypatch,
+    tmp_path,
+):
+    forbidden = (
+        "agent.llm_integration",
+        "agent.repository",
+        "agent.services.ananta_tool_registry_service",
+        "agent.services.native_worker_runtime_service",
+        "agent.services.provider_invocation_middleware",
+        "agent.services.task_runtime_service",
+        "agent.services.worker_runtime_execution_adapter",
+        "agent.services.worker_workspace_service",
+    )
+    original_import = builtins.__import__
+
+    def guarded_import(name, *args, **kwargs):
+        if any(
+            name == prefix or name.startswith(f"{prefix}.")
+            for prefix in forbidden
+        ):
+            raise AssertionError(f"worker startup imported Hub implementation: {name}")
+        return original_import(name, *args, **kwargs)
+
+    for name in (
+        "ANANTA_WORKFLOW_HUB_URL",
+        "ANANTA_WORKFLOW_HUB_TOKEN_FILE",
+        "ANANTA_LANGGRAPH_HUB_URL",
+        "ANANTA_LANGGRAPH_HUB_TOKEN_FILE",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(ai_agent.settings, "role", "worker")
+    monkeypatch.setattr(builtins, "__import__", guarded_import)
+    app = Flask(__name__)
+    app.config["AGENT_CONFIG"] = {
+        "worker_runtime": {"workspace_root": str(tmp_path)}
+    }
+    app.config["PROVIDER_URLS"] = {}
+
+    runtime = ai_agent._initialize_workflow_adapter_worker_runtime(app)
+
+    assert runtime.reason_codes == ("workflow_hub_gateway_not_configured",)
+
+
 def test_should_skip_threads_for_reloader(monkeypatch):
     monkeypatch.setenv("FLASK_DEBUG", "1")
     monkeypatch.delenv("WERKZEUG_RUN_MAIN", raising=False)
