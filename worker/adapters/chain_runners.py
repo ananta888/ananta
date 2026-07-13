@@ -42,10 +42,13 @@ class _UnavailableTextGeneration:
 _TEXT_GENERATION: TextGenerationPort = _UnavailableTextGeneration()
 
 
-def configure_text_generation(port: TextGenerationPort) -> None:
+def configure_text_generation(port: TextGenerationPort | None) -> None:
     """Inject the Worker provider port from the role-guarded process root."""
 
     global _TEXT_GENERATION
+    if port is None:
+        _TEXT_GENERATION = _UnavailableTextGeneration()
+        return
     if port is None or not callable(getattr(port, "generate_text", None)):
         raise ValueError("worker_text_generation_port_invalid")
     _TEXT_GENERATION = port

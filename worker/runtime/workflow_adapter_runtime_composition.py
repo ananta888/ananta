@@ -189,6 +189,7 @@ def build_workflow_adapter_worker_runtime(
 def initialize_workflow_adapter_worker_runtime(
     app: Flask,
     *,
+    client: HttpWorkflowHubDecisionClient | None = None,
     tool_registry: Any | None = None,
     tool_invoker: Any | None = None,
     native_executor: Any | None = None,
@@ -197,6 +198,7 @@ def initialize_workflow_adapter_worker_runtime(
 
     runtime = build_workflow_adapter_worker_runtime(
         agent_config=dict(app.config.get("AGENT_CONFIG") or {}),
+        client=client,
         tool_registry=tool_registry,
         tool_invoker=tool_invoker,
         native_executor=native_executor,

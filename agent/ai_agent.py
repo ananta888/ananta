@@ -49,58 +49,51 @@ def _initialize_workflow_adapter_worker_runtime(app: Flask):
             "reason_codes": ["workflow_adapter_worker_role_required"],
         }
         return None
-    from agent.repository import task_repo
-    from agent.services.ananta_tool_registry_service import (
-        get_ananta_tool_registry_service,
-    )
-    from agent.services.worker_runtime_execution_adapter import (
-        get_worker_runtime_execution_adapter,
-    )
-    from agent.services.worker_workspace_service import get_worker_workspace_service
-    from worker.core.tool_descriptor_adapters import (
-        AdaptedToolDescriptorRegistry,
-        LangChainBuiltinToolCatalogSource,
-        NativeAnantaToolCatalogSource,
-    )
     from worker.adapters.chain_runners import configure_text_generation
     from worker.runtime.native_graph.composition import TaskScopedNativeWorkerExecutor
     from worker.runtime.native_worker_runtime_service import (
         get_native_worker_runtime_service,
     )
+    from worker.runtime.provider_text_generation import (
+        build_hub_budgeted_worker_text_generation,
+    )
     from worker.runtime.workflow_adapter_runtime_composition import (
         initialize_workflow_adapter_worker_runtime,
     )
-    from worker.runtime.workflow_tool_pipeline_composition import (
-        WorkerRuntimeToolInvoker,
+    from worker.runtime.workflow_hub_gateway import HttpWorkflowHubDecisionClient
+    from worker.runtime.workspace_resolver import (
+        ConfiguredWorkerWorkspaceResolver,
+        WorkerWorkspaceResolutionError,
     )
 
-    from agent import llm_integration as worker_llm_integration
-
-    class _WorkerTextGenerationAdapter:
-        @staticmethod
-        def generate_text(**values):
-            return worker_llm_integration.generate_text(**values)
-
-    workspaces = get_worker_workspace_service()
-    configure_text_generation(_WorkerTextGenerationAdapter())
+    agent_config = dict(app.config.get("AGENT_CONFIG") or {})
+    try:
+        client = HttpWorkflowHubDecisionClient.from_environment()
+    except ValueError:
+        client = None
+    configure_text_generation(
+        build_hub_budgeted_worker_text_generation(
+            client=client,
+            provider_urls=dict(app.config.get("PROVIDER_URLS") or {}),
+        )
+        if client is not None
+        else None
+    )
+    native_executor = None
+    try:
+        workspaces = ConfiguredWorkerWorkspaceResolver(agent_config)
+    except WorkerWorkspaceResolutionError:
+        pass
+    else:
+        native_executor = TaskScopedNativeWorkerExecutor(
+            runtime=get_native_worker_runtime_service(),
+            workspaces=workspaces,
+        )
 
     return initialize_workflow_adapter_worker_runtime(
         app,
-        tool_registry=AdaptedToolDescriptorRegistry(
-            (
-                NativeAnantaToolCatalogSource(get_ananta_tool_registry_service()),
-                LangChainBuiltinToolCatalogSource(),
-            )
-        ),
-        tool_invoker=WorkerRuntimeToolInvoker(
-            tasks=task_repo,
-            workspaces=workspaces,
-            runtime=get_worker_runtime_execution_adapter(),
-        ),
-        native_executor=TaskScopedNativeWorkerExecutor(
-            runtime=get_native_worker_runtime_service(),
-            workspaces=workspaces,
-        ),
+        client=client,
+        native_executor=native_executor,
     )
 
 
