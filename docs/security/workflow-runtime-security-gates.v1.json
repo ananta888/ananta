@@ -1,0 +1,410 @@
+{
+  "schema": "ananta.workflow_runtime_security_gates.v1",
+  "version": "1.0.0",
+  "production_policy": {
+    "blocking_severities": [
+      "critical"
+    ],
+    "blocking_statuses": [
+      "open",
+      "unmitigated",
+      "unverified"
+    ],
+    "require_matching_contract_hash": true,
+    "require_all_mapped_tests": true,
+    "fail_closed": true
+  },
+  "trust_boundaries": [
+    {
+      "id": "TB-01",
+      "components": [
+        "ui",
+        "hub"
+      ],
+      "channel": "authenticated Hub HTTP API"
+    },
+    {
+      "id": "TB-02",
+      "components": [
+        "hub",
+        "hub_persistence"
+      ],
+      "channel": "transactional event, checkpoint, ownership and ledger stores"
+    },
+    {
+      "id": "TB-03",
+      "components": [
+        "hub",
+        "worker"
+      ],
+      "channel": "Hub task queue and signed delegated-step envelope"
+    },
+    {
+      "id": "TB-04",
+      "components": [
+        "worker",
+        "provider"
+      ],
+      "channel": "policy-gated model, retriever and tool egress"
+    },
+    {
+      "id": "TB-05",
+      "components": [
+        "hub",
+        "temporal_server"
+      ],
+      "channel": "authenticated Temporal client connection"
+    },
+    {
+      "id": "TB-06",
+      "components": [
+        "temporal_server",
+        "activities"
+      ],
+      "channel": "versioned Temporal task queue"
+    },
+    {
+      "id": "TB-07",
+      "components": [
+        "activities",
+        "hub"
+      ],
+      "channel": "authenticated internal Hub task gateway"
+    },
+    {
+      "id": "TB-08",
+      "components": [
+        "temporal_server",
+        "temporal_persistence"
+      ],
+      "channel": "Temporal history and visibility database"
+    }
+  ],
+  "threats": [
+    {
+      "id": "WRT-001",
+      "class": "prompt_injection",
+      "title": "Untrusted prompt or retrieval content changes control flow",
+      "severity": "critical",
+      "status": "verified",
+      "trust_boundaries": [
+        "TB-03",
+        "TB-04"
+      ],
+      "prevention": [
+        "The Hub compiles the ExecutionPlan; provider text cannot add nodes, tools, approvals or capabilities.",
+        "Retriever results require tenant-bound allowlisted source identifiers and structured output is schema validated.",
+        "Tool calls pass the authorization, policy, budget, approval and side-effect-ledger pipeline before invocation."
+      ],
+      "detection": [
+        "Unknown or missing provenance and non-allowlisted tools produce stable denial reason codes.",
+        "Structured-output and plan-validation failures are visible as failed steps, never synthetic success."
+      ],
+      "audit": [
+        "Record plan hash, policy version, allowed tool name, source identifiers and denial reason; never raw secrets or full prompts.",
+        "Link provider and tool observations to the canonical run and step correlation identifiers."
+      ],
+      "tests": [
+        "tests/test_workflow_retrieval_contract.py::test_unknown_source_id_is_rejected_not_rewritten",
+        "tests/test_workflow_retrieval_contract.py::test_missing_source_id_is_rejected_not_synthesized_from_path",
+        "tests/test_tool_calling_pipeline.py::test_unregistered_tool_is_never_reported_as_invoked"
+      ]
+    },
+    {
+      "id": "WRT-002",
+      "class": "tool_escalation",
+      "title": "A model or worker invokes an undeclared privileged tool",
+      "severity": "critical",
+      "status": "verified",
+      "trust_boundaries": [
+        "TB-03",
+        "TB-04",
+        "TB-07"
+      ],
+      "prevention": [
+        "Allowed tools, artifacts, budgets, tenant, plan, policy, run and step are signed into a short-lived authorization envelope.",
+        "Writes require Hub revalidation, approval where declared, an ownership fence and a stable side-effect operation claim.",
+        "Workers execute one delegated step and cannot delegate or orchestrate another worker."
+      ],
+      "detection": [
+        "Registry, policy, approval, budget, authorization and ledger denials stop before the invoker.",
+        "A stale fence or conflicting operation claim is rejected and an unknown outcome becomes uncertain."
+      ],
+      "audit": [
+        "Record the declared operation, stable operation identifier, fence, attempt, gate and decision reason.",
+        "Record completion only after the ledger and artifact evidence agree."
+      ],
+      "tests": [
+        "tests/test_tool_calling_pipeline.py::test_policy_denial_stops_before_ledger_and_invoker",
+        "tests/test_tool_calling_pipeline.py::test_side_effect_is_claimed_with_fencing_and_completed",
+        "tests/test_workflow_runtime_side_effect_ledger.py::test_stale_owner_cannot_finish_and_uncertain_operation_is_not_retried"
+      ]
+    },
+    {
+      "id": "WRT-003",
+      "class": "confused_deputy",
+      "title": "A runtime reuses Hub authority for another tenant, run or operation",
+      "severity": "critical",
+      "status": "verified",
+      "trust_boundaries": [
+        "TB-01",
+        "TB-03",
+        "TB-05",
+        "TB-07"
+      ],
+      "prevention": [
+        "Every user command and runtime envelope is bound to tenant, workflow, run, step, plan hash and policy version.",
+        "Temporal Activities submit only the signed delegated command to the internal Hub gateway; the Hub owns worker selection and task creation.",
+        "Read and command APIs derive tenant scope from the authenticated principal and use not-found semantics for cross-tenant identifiers."
+      ],
+      "detection": [
+        "Any binding mismatch, missing principal, operation mismatch or stale read model fails closed with a stable reason code.",
+        "Cross-tenant read attempts do not disclose whether a run exists."
+      ],
+      "audit": [
+        "Record authenticated actor, tenant scope hash, command type, plan hash and authorization decision.",
+        "Never log bearer credentials, signed envelope material or decrypted dispatch payloads."
+      ],
+      "tests": [
+        "tests/test_workflow_runtime_security_and_evolution.py::test_authorization_tamper_rotation_revocation_and_write_revalidation_fail_closed",
+        "tests/test_workflow_hub_task_gateway_service.py::test_submit_revalidates_encrypts_ledgers_and_enqueues",
+        "tests/test_workflow_runtime_operations_api.py::test_cross_tenant_detail_is_not_disclosed_and_invalid_filters_are_rejected"
+      ]
+    },
+    {
+      "id": "WRT-004",
+      "class": "replay_abuse",
+      "title": "A command, Activity or side effect is submitted more than once",
+      "severity": "critical",
+      "status": "verified",
+      "trust_boundaries": [
+        "TB-01",
+        "TB-03",
+        "TB-06",
+        "TB-07"
+      ],
+      "prevention": [
+        "Signed commands and authorization envelopes have expiry, nonce and one-shot replay storage.",
+        "Stable operation identifiers, event dedupe keys, ownership fences and ledger CAS make duplicate delivery idempotent.",
+        "Temporal updates and signals use deterministic command identifiers and bounded retries."
+      ],
+      "detection": [
+        "Nonce reuse, dedupe payload conflict, duplicate command parameters and conflicting ledger revisions are rejected.",
+        "Duplicate Temporal signals remain observable without repeating a side effect."
+      ],
+      "audit": [
+        "Record a redacted command identifier, operation identifier, duplicate decision and prior ledger state.",
+        "Count retries across Temporal, Hub task, worker, tool and provider layers."
+      ],
+      "tests": [
+        "tests/test_workflow_runtime_commands_components.py::test_commands_are_bound_signed_replay_safe_and_secret_free",
+        "tests/test_workflow_hub_task_gateway_service.py::test_duplicate_submit_is_idempotent_and_does_not_consume_nonce_twice",
+        "tests/workflow_runtime/temporal/test_temporal_runtime_test_environment.py::test_direct_signal_race_is_fail_closed_across_ten_repetitions"
+      ]
+    },
+    {
+      "id": "WRT-005",
+      "class": "state_poisoning",
+      "title": "Malformed, secret-bearing or cross-run state changes future execution",
+      "severity": "critical",
+      "status": "verified",
+      "trust_boundaries": [
+        "TB-02",
+        "TB-03",
+        "TB-06",
+        "TB-08"
+      ],
+      "prevention": [
+        "ExecutionPlan, state, event and command contracts are versioned, bounded and tenant/run scoped.",
+        "Secrets remain references; state and checkpoint serializers reject sensitive keys and arbitrary executable conditions.",
+        "Unknown schema versions are quarantined and upcasters are deterministic and pure."
+      ],
+      "detection": [
+        "Schema, content hash, binding, sequence and revision validation occurs before delegation or projection.",
+        "Unknown conditions remain explicit unknown and cannot become an implicit true branch."
+      ],
+      "audit": [
+        "Record schema version, content hash, quarantine reason, sequence and revision without rejected payload contents.",
+        "Preserve the original immutable event reference for forensic review."
+      ],
+      "tests": [
+        "tests/test_workflow_runtime_security_and_evolution.py::test_state_and_checkpoint_reject_secrets_tamper_cross_run_and_stale_fence",
+        "tests/test_workflow_runtime_security_and_evolution.py::test_upcaster_is_deterministic_and_unknown_versions_are_quarantined",
+        "tests/test_workflow_runtime_execution_plan.py::test_execution_plan_rejects_payload_tampered_after_hashing",
+        "tests/test_workflow_runtime_conditions_parallel.py::test_condition_rejects_expression_and_template_paths"
+      ]
+    },
+    {
+      "id": "WRT-006",
+      "class": "history_checkpoint_tampering",
+      "title": "Modified or incomplete history/checkpoint is accepted as current",
+      "severity": "critical",
+      "status": "verified",
+      "trust_boundaries": [
+        "TB-02",
+        "TB-05",
+        "TB-06",
+        "TB-08"
+      ],
+      "prevention": [
+        "Checkpoints are signed and bound to tenant, workflow, run, task, runtime, plan, policy, revision and fencing token.",
+        "Temporal history is projected incrementally with event-id dedupe, page-loop detection, mapping version and consistency state.",
+        "A mapping upgrade requires a full deterministic rebuild before promotion."
+      ],
+      "detection": [
+        "Signature mismatch, cross-runtime checkpoint, revision conflict, history gap or page-token loop makes state invalid, stale or inconsistent.",
+        "Read models never label stale or inconsistent history as current."
+      ],
+      "audit": [
+        "Record checkpoint reference and digest, projection cursor, mapping version and consistency reason.",
+        "Keep raw Temporal payloads out of canonical read models; retain only protected references."
+      ],
+      "tests": [
+        "tests/test_workflow_runtime_event_and_checkpoint_stores.py::test_checkpoint_store_is_atomic_revisioned_tenant_bound_and_fenced",
+        "tests/test_temporal_history_projection.py::test_projection_gap_is_fail_closed_and_never_current",
+        "tests/test_temporal_history_projection.py::test_projection_page_token_loop_is_inconsistent",
+        "tests/test_temporal_history_projection.py::test_projection_rebuild_is_deterministic"
+      ]
+    },
+    {
+      "id": "WRT-007",
+      "class": "cross_tenant_data_exposure",
+      "title": "Runtime state, provider input or UI read models disclose another tenant",
+      "severity": "critical",
+      "status": "verified",
+      "trust_boundaries": [
+        "TB-01",
+        "TB-02",
+        "TB-04",
+        "TB-08"
+      ],
+      "prevention": [
+        "Tenant scope is part of every storage key, authorization envelope, provider context and read-model query.",
+        "Provider cache keys include tenant, policy, model and prompt version; telemetry hashes tenant identifiers.",
+        "Angular receives only Hub-redacted read models and never connects to workers or Temporal directly."
+      ],
+      "detection": [
+        "Cross-tenant storage, provider, projection and API reads fail closed.",
+        "Telemetry and stream payload validators reject secret-bearing or oversized shapes."
+      ],
+      "audit": [
+        "Record tenant-safe correlation hashes and denied boundary, never raw credentials or cross-tenant object contents.",
+        "Record read-model staleness and evidence status so the UI cannot infer success."
+      ],
+      "tests": [
+        "tests/test_workflow_retrieval_contract.py::test_cross_tenant_source_is_rejected",
+        "tests/test_workflow_runtime_telemetry.py::test_telemetry_fails_closed_on_cross_tenant_context",
+        "tests/test_temporal_history_projection.py::test_projection_rejects_cross_tenant_read"
+      ]
+    },
+    {
+      "id": "WRT-008",
+      "class": "provider_egress_and_secret_exposure",
+      "title": "A runtime leaks credentials or unapproved data to an external provider",
+      "severity": "high",
+      "status": "verified",
+      "trust_boundaries": [
+        "TB-04"
+      ],
+      "prevention": [
+        "Provider middleware defaults external egress to deny and resolves secrets outside model-visible payloads.",
+        "Only redacted bounded request bodies reach provider transports."
+      ],
+      "detection": [
+        "Egress, deadline, retry, token and cost budget violations stop before transport.",
+        "Secret-like fields are redacted before trace and event export."
+      ],
+      "audit": [
+        "Record provider/model identifiers, policy decision, latency and usage, not prompt or credential content."
+      ],
+      "tests": [
+        "tests/test_provider_invocation_middleware.py::test_model_invocation_does_not_call_network_after_egress_denial",
+        "tests/test_provider_invocation_middleware.py::test_model_invocation_sends_only_middleware_redacted_payload"
+      ]
+    },
+    {
+      "id": "WRT-009",
+      "class": "ui_success_spoofing",
+      "title": "The UI presents stale or unverified runtime output as successful",
+      "severity": "high",
+      "status": "verified",
+      "trust_boundaries": [
+        "TB-01"
+      ],
+      "prevention": [
+        "The UI consumes only authenticated Hub read models with explicit staleness, degradation, gaps and evidence status.",
+        "Commands require a bound approval, verified evidence and idempotency key."
+      ],
+      "detection": [
+        "Completed runs without verified evidence are degraded and stale read models reject commands."
+      ],
+      "audit": [
+        "Record command approval, evidence references, read-model sequence and denial reason."
+      ],
+      "tests": [
+        "tests/test_workflow_runtime_operations_api.py::test_operations_read_model_filters_degraded_stale_and_never_claims_unverified_success",
+        "tests/test_workflow_runtime_operations_api.py::test_runtime_commands_require_bound_verified_evidence_and_approval"
+      ]
+    },
+    {
+      "id": "WRT-010",
+      "class": "retry_and_resource_amplification",
+      "title": "Layered retries or unbounded streams exhaust resources or repeat work",
+      "severity": "high",
+      "status": "verified",
+      "trust_boundaries": [
+        "TB-02",
+        "TB-03",
+        "TB-04",
+        "TB-06"
+      ],
+      "prevention": [
+        "One combined retry budget covers runtime, Hub task, worker, tool and provider attempts.",
+        "Fan-out, event streams, history pages, payload sizes, Activity timeouts and heartbeats are bounded."
+      ],
+      "detection": [
+        "Budget exhaustion, backpressure, history threshold and timeout uncertainty are explicit terminal or blocked states."
+      ],
+      "audit": [
+        "Record consumed attempts and budget, cursor, threshold and timeout reason without content payloads."
+      ],
+      "tests": [
+        "tests/test_workflow_runtime_ownership.py::test_retry_budget_is_combined_and_deduplicated_across_runtime_layers",
+        "tests/test_workflow_runtime_streaming.py::test_stream_maps_canonical_types_redacts_payloads_and_applies_backpressure",
+        "tests/test_temporal_runtime_contracts.py::test_temporal_retry_profiles_are_finite_and_non_idempotent_is_never_blindly_retried"
+      ]
+    },
+    {
+      "id": "WRT-011",
+      "class": "credential_injection_and_runtime_impersonation",
+      "title": "A leaked or miswired runtime credential impersonates the Hub or an Activity",
+      "severity": "critical",
+      "status": "verified",
+      "trust_boundaries": [
+        "TB-05",
+        "TB-06",
+        "TB-07"
+      ],
+      "prevention": [
+        "Production Compose mounts authorization, dispatch and Hub service credentials from required external secret files; secret values never enter Compose YAML or environment variables.",
+        "Only the Hub receives the dispatch keyring; only the Hub and dedicated Temporal worker receive the shared authorization keyring and service token.",
+        "File-managed agent tokens require an absolute bounded regular file with safe write permissions, reject inline conflicts and are never accepted from a query string."
+      ],
+      "detection": [
+        "Missing, malformed, weak, conflicting or unsafely writable service-token files fail strict Hub authentication closed with a stable configuration reason.",
+        "The mandatory merged Compose-config gate proves service/network/secret targeting before a production deployment."
+      ],
+      "audit": [
+        "Record only the stable authentication configuration reason and affected boundary; never record the token, keyring contents or signed envelope.",
+        "Treat any unexpected dispatch-key consumer or credential-bearing probe configuration as a release-blocking boundary violation."
+      ],
+      "tests": [
+        "tests/test_agent_token_file_auth.py::test_unsafe_file_token_configuration_fails_closed",
+        "tests/test_agent_token_file_auth.py::test_file_managed_service_token_is_never_accepted_from_query_string",
+        "tests/security/workflow_runtime/test_workflow_runtime_production_compose.py::test_production_overlay_uses_external_file_secrets_only",
+        "tests/security/workflow_runtime/test_workflow_runtime_production_compose.py::test_temporal_worker_gets_verification_and_hub_credentials_but_not_dispatch_key"
+      ]
+    }
+  ],
+  "open_findings": []
+}

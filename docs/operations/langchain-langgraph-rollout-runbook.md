@@ -121,11 +121,19 @@ kopiert und an die Domäne angepasst.
 2. `human_in_loop_required_for: [...]` enthält die Actions, die
    der Graph ohne menschliche Bestätigung **nicht** ausführen
    darf (Default-Set im `LangGraphProviderConfig.default_off()`)
-3. `checkpoint_policy: "local_ephemeral"` (default) — Graph-State
-   wird nur im Container gespeichert
+3. Für einen ausdrücklich ephemeren Dev-Lauf müssen
+   `checkpoint_policy: "local_ephemeral"` und `state_policy: "ephemeral"`
+   gemeinsam gesetzt sein. Dieser Modus ist nicht produktionsfähig.
 4. Erster Graph-Lauf: `dry_run` zeigt alle Knoten als
    `node:<id>`-Plan-Steps, Human-Gate-Knoten triggern
    `approval_required: true`
+
+Produktive LangGraph-Läufe verwenden ausschließlich
+`checkpoint_policy: "hub_owned"` und `state_policy: "hub_owned"` im
+dedizierten Compose-Worker. Image, Secret-Verdrahtung, Recovery und Gates sind
+im [LangGraph Hub-owned Checkpoint Runbook](langgraph-hub-checkpoint-runtime.md)
+dokumentiert. Ein fehlender Hub-Gateway oder ein unsignierter JSON-Resume-Token
+schlägt dort fail-closed fehl; es gibt keinen stillen `MemorySaver`-Fallback.
 
 ### Phase 4 — Cloud-gated (Hub-Approval erforderlich)
 
@@ -200,5 +208,6 @@ isoliert, kein Leak über Tasks hinweg
 - Setup: `docs/setup/langchain-langgraph.md`
 - Profile-Snippet: `docs/architecture/profile-snippet-langchain-langgraph.json`
 - Beispiele: `examples/langchain/*.json`, `examples/langgraph/*.json`
+- Produktion: `docs/operations/langgraph-hub-checkpoint-runtime.md`
 - Verträge: `docs/contracts/langchain-chain-descriptor.schema.json`,
   `docs/contracts/langgraph-graph-descriptor.schema.json`

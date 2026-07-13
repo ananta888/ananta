@@ -1,0 +1,402 @@
+{
+  "schema": "ananta.workflow_runtime_inventory.v1",
+  "snapshot": "repository-state-2026-07-13",
+  "documented_selectors": {
+    "workflow_backends": [
+      "local",
+      "temporal"
+    ],
+    "worker_adapters": [
+      "langchain",
+      "langgraph"
+    ],
+    "production_runtime_targets": [
+      "native",
+      "langgraph",
+      "temporal"
+    ]
+  },
+  "paths": [
+    {
+      "id": "legacy-local-workflow-backend",
+      "classification": "simulated",
+      "owner": "hub",
+      "containers": [
+        "ai-agent-hub"
+      ],
+      "entrypoint": "agent.services.workflow_backend_factory:get_workflow_backend(local)",
+      "call_path": "Compatibility-only tests may instantiate LocalWorkflowBackend; productive local selection binds the unified WorkflowControlService to the Native runtime bridge",
+      "evidence": [
+        "agent/services/local_workflow_backend.py",
+        "agent/services/workflow_control_production_composition.py",
+        "tests/test_visual_process_bpmn_workflow.py"
+      ],
+      "gap": "Intentional compatibility limitation: this simulated class is never admitted as a productive runtime and cannot satisfy execution capabilities.",
+      "followup_task": "AIR-013"
+    },
+    {
+      "id": "native-graph-runtime",
+      "classification": "live",
+      "owner": "hub-and-worker",
+      "containers": [
+        "ai-agent-hub",
+        "ai-agent-alpha-or-beta"
+      ],
+      "entrypoint": "agent.services.native_graph_production_composition:build_production_native_graph_bridge",
+      "call_path": "Unified WorkflowControlService -> Native Hub graph reconciler -> Hub task queue -> NativeDelegatedNodeRuntime executes one predelegated node -> signed SQL checkpoint and canonical projection",
+      "evidence": [
+        "agent/services/native_graph_production_composition.py",
+        "agent/services/native_graph_orchestration_service.py",
+        "worker/runtime/native_graph/node_runtime.py",
+        "tests/test_native_graph_production_bridge.py",
+        "tests/test_native_graph_runtime.py",
+        "tests/test_native_graph_task_adapters.py"
+      ],
+      "gap": "No implementation gap is hidden: productive admission remains fail-closed until release evidence, SQL migrations and deployment key material verify successfully.",
+      "followup_task": "AIR-019"
+    },
+    {
+      "id": "langchain-worker-adapter",
+      "classification": "live",
+      "owner": "worker",
+      "containers": [
+        "ai-agent-alpha-or-beta"
+      ],
+      "entrypoint": "worker.adapters.workflow_adapter_registry:langchain",
+      "call_path": "Hub-selected delegated node -> common provider/tool/retriever ports -> optional LangChain adapter in the worker; no run-control or task-routing API is exposed",
+      "evidence": [
+        "worker/adapters/langchain_adapter.py",
+        "agent/services/workflow_adapter_catalog_service.py",
+        "tests/test_workflow_lc_lg_live_integration.py"
+      ],
+      "gap": "Intentional boundary: LangChain is available only for explicitly authorized integrations and can never be selected as a runtime or control plane.",
+      "followup_task": "AIR-020"
+    },
+    {
+      "id": "langgraph-worker-runtime",
+      "classification": "live",
+      "owner": "hub-and-worker",
+      "containers": [
+        "ai-agent-hub",
+        "ai-agent-langgraph-worker"
+      ],
+      "entrypoint": "agent.services.langgraph_workflow_control_bridge:LangGraphWorkflowControlBridge",
+      "call_path": "Unified WorkflowControlService -> Hub LangGraph scheduler/checkpoint gateway -> one Hub task per ready node -> single-node LangGraph ExecutionRuntimePort -> deterministic Hub merge/projection",
+      "evidence": [
+        "agent/services/langgraph_workflow_control_bridge.py",
+        "agent/services/langgraph_checkpoint_gateway_service.py",
+        "worker/adapters/langgraph_adapter.py",
+        "worker/runtime/langgraph/",
+        "tests/test_workflow_control_composition.py",
+        "tests/test_workflow_lc_lg_live_langgraph.py"
+      ],
+      "gap": "No silent fallback is permitted; productive admission requires matching release evidence, observed health, SQL checkpoint authority and the dedicated worker profile.",
+      "followup_task": "AIR-019"
+    },
+    {
+      "id": "temporal-client-backend",
+      "classification": "live",
+      "owner": "hub",
+      "containers": [
+        "ai-agent-hub"
+      ],
+      "entrypoint": "agent.services.workflow_backend_factory:get_workflow_backend(temporal)",
+      "call_path": "Authenticated Hub workflow route -> TemporalWorkflowBackend -> Temporal SDK client -> Temporal Server",
+      "evidence": [
+        "agent/services/temporal_workflow_backend.py",
+        "tests/test_temporal_runtime_contracts.py",
+        "docker/compose-next/compose.temporal.production.yml"
+      ],
+      "gap": "It reports degraded/non-2xx through the Hub when SDK, server, binding or projection is unavailable; productive use requires deployment-provisioned external secrets and the dedicated worker.",
+      "followup_task": "AIR-049"
+    },
+    {
+      "id": "temporal-durable-runtime",
+      "classification": "live",
+      "owner": "temporal-worker-and-hub",
+      "containers": [
+        "temporal",
+        "ananta-temporal-worker",
+        "ai-agent-hub",
+        "ai-agent-alpha-or-beta"
+      ],
+      "entrypoint": "worker.temporal.workflows:AnantaWorkflow",
+      "call_path": "Temporal workflow -> HubActivityGateway Activity -> authenticated internal Hub task gateway -> Hub task queue -> selected Ananta worker",
+      "evidence": [
+        "worker/temporal/workflows.py",
+        "worker/temporal/activities.py",
+        "agent/routes/workflow_runtime_internal.py",
+        "docker/compose-next/compose.temporal.yml",
+        "docker/compose-next/compose.temporal.production.yml",
+        "tests/test_agent_token_file_auth.py",
+        "tests/security/workflow_runtime/test_workflow_runtime_production_compose.py",
+        "tests/workflow_runtime/temporal/test_temporal_runtime_test_environment.py"
+      ],
+      "gap": "Source-level production credential wiring is verified and Activities still fail closed when deployment secrets are absent or invalid; production TLS, secret provisioning, backups and deployment drills remain environment evidence.",
+      "followup_task": "AIR-055"
+    },
+    {
+      "id": "temporal-probe",
+      "classification": "simulated",
+      "owner": "temporal-worker",
+      "containers": [
+        "temporal-smoke",
+        "ananta-temporal-worker",
+        "temporal"
+      ],
+      "entrypoint": "worker.temporal.smoke",
+      "call_path": "Compose one-shot smoke -> Temporal probe workflow -> side-effect-free probe Activity",
+      "evidence": [
+        "worker/temporal/smoke.py",
+        "docker/compose-next/compose.tests.temporal.yml"
+      ],
+      "gap": "Connectivity/registration proof is not a production workflow, side-effect, cancellation or restore proof.",
+      "followup_task": "AIR-049"
+    },
+    {
+      "id": "runtime-operations-ui",
+      "classification": "live",
+      "owner": "hub-and-angular",
+      "containers": [
+        "ai-agent-hub",
+        "angular-frontend"
+      ],
+      "entrypoint": "GET /api/workflow-runtime/operations",
+      "call_path": "Angular -> authenticated Hub read-model route -> canonical event projection; approved commands -> Hub command gateway",
+      "evidence": [
+        "agent/routes/workflow_runtime_operations.py",
+        "frontend-angular/src/app/features/workflow-runtime-operations/",
+        "tests/test_workflow_runtime_operations_api.py"
+      ],
+      "gap": "Intentional operational boundary: commands remain disabled unless the Hub read model supplies current verified evidence and an approval-bound command gate.",
+      "followup_task": "AIR-051"
+    }
+  ],
+  "capabilities": [
+    {
+      "runtime": "native",
+      "capability": "approval",
+      "mode": "live-release-gated",
+      "evidence": "tests/test_native_graph_runtime.py::test_approval_is_signed_bound_replay_safe_and_write_uses_hub_ledger",
+      "gap": "Productive selection remains fail-closed when the immutable release artifact or approval key material does not match.",
+      "followup_task": "AIR-019"
+    },
+    {
+      "runtime": "native",
+      "capability": "bounded_parallel",
+      "mode": "live-release-gated",
+      "evidence": "tests/test_native_graph_runtime.py::test_bounded_parallel_fanout_and_merge_are_hub_deterministic",
+      "gap": "Deployment-specific tenant and worker capacity values remain bounded configuration and are exposed through Hub health/evidence.",
+      "followup_task": "AIR-019"
+    },
+    {
+      "runtime": "native",
+      "capability": "deterministic_merge",
+      "mode": "live-release-gated",
+      "evidence": "tests/test_native_graph_runtime.py::test_bounded_parallel_fanout_and_merge_are_hub_deterministic",
+      "gap": "Only commonly supported plans are compared; unsupported capabilities remain explicitly incompatible rather than synthetically equivalent.",
+      "followup_task": "AIR-015"
+    },
+    {
+      "runtime": "native",
+      "capability": "checkpoint",
+      "mode": "live-release-gated",
+      "evidence": "tests/test_native_graph_runtime.py::test_native_graph_delegates_each_task_and_completes_from_signed_checkpoints",
+      "gap": "The SQL store is authoritative; deployment admission still verifies the applied migration head and signing-key availability.",
+      "followup_task": "AIR-031"
+    },
+    {
+      "runtime": "native",
+      "capability": "resume",
+      "mode": "live-release-gated",
+      "evidence": "tests/test_native_graph_runtime.py::test_hub_restart_resumes_from_persisted_state_without_worker_orchestration",
+      "gap": "Each deployment must still retain its own restart/restore evidence even though Hub and worker replacement contracts are automated.",
+      "followup_task": "AIR-055"
+    },
+    {
+      "runtime": "native",
+      "capability": "stream",
+      "mode": "live-release-gated",
+      "evidence": "tests/test_workflow_runtime_streaming.py::test_stream_cursor_resume_and_heartbeat_are_stable",
+      "gap": "Consumers must use the authenticated Hub cursor; direct worker streams are intentionally unsupported.",
+      "followup_task": "AIR-025"
+    },
+    {
+      "runtime": "native",
+      "capability": "subgraphs",
+      "mode": "live-release-gated",
+      "evidence": "tests/test_workflow_runtime_commands_components.py::test_component_compiler_flattens_versioned_component_and_maps_artifacts",
+      "gap": "Only versioned, prevalidated components may be promoted; runtime-local executable component code is intentionally rejected.",
+      "followup_task": "AIR-034"
+    },
+    {
+      "runtime": "langgraph",
+      "capability": "dry_run",
+      "mode": "live-release-gated",
+      "evidence": "tests/test_workflow_lc_lg_smoke.py::test_lg_dry_run_with_human_gate_node_requires_approval",
+      "gap": "Dry-run is evidence-only and suppresses all side effects; it can never substitute for a required live capability.",
+      "followup_task": "AIR-019"
+    },
+    {
+      "runtime": "langgraph",
+      "capability": "agent_workflow",
+      "mode": "live-release-gated",
+      "evidence": "tests/test_workflow_lc_lg_live_langgraph.py::test_lg_adapter_live_path_uses_simplex_for_llm_node",
+      "gap": "The worker executes only a predelegated node; run control and task fan-out intentionally remain in the Hub.",
+      "followup_task": "AIR-013"
+    },
+    {
+      "runtime": "langgraph",
+      "capability": "multi_step_plan",
+      "mode": "live-release-gated",
+      "evidence": "tests/test_workflow_lc_lg_live_langgraph.py::test_lg_router_takes_conditional_edge_when_condition_matches",
+      "gap": "Only the shared typed side-effect-free condition language is supported; free Python/template routing is intentionally incompatible.",
+      "followup_task": "AIR-035"
+    },
+    {
+      "runtime": "langgraph",
+      "capability": "human_in_loop",
+      "mode": "live-release-gated",
+      "evidence": "tests/test_workflow_lc_lg_live_langgraph.py::test_lg_human_gate_produces_resume_token",
+      "gap": "Legacy adapter resume tokens are development-only; production accepts only signed, role-bound Hub commands and SQL checkpoints.",
+      "followup_task": "AIR-032"
+    },
+    {
+      "runtime": "langgraph",
+      "capability": "stateful_task",
+      "mode": "live-release-gated",
+      "evidence": "tests/test_workflow_lc_lg_live_langgraph.py::test_lg_adapter_llm_node_records_response_in_state",
+      "gap": "Runtime-private state remains diagnostic only and cannot override canonical Hub events or a signed Hub checkpoint.",
+      "followup_task": "AIR-031"
+    },
+    {
+      "runtime": "langgraph",
+      "capability": "review_workflow",
+      "mode": "live-release-gated",
+      "evidence": "tests/test_workflow_lc_lg_smoke.py::test_lg_dry_run_with_high_risk_tool_node_requires_approval",
+      "gap": "Review decisions remain Hub-owned and require current checkpoint, plan, policy, actor role and approval evidence bindings.",
+      "followup_task": "AIR-015"
+    },
+    {
+      "runtime": "langgraph",
+      "capability": "checkpointing",
+      "mode": "live-release-gated",
+      "evidence": "tests/test_langgraph_checkpoint_live_extra.py::test_real_langgraph_0_2_saver_persists_and_recovers_through_hub",
+      "gap": "Local MemorySaver remains an explicit development-only restriction; productive runs require the Hub-owned SQL checkpoint gateway.",
+      "followup_task": "AIR-031"
+    },
+    {
+      "runtime": "langgraph",
+      "capability": "codecompass_retriever",
+      "mode": "live-release-gated",
+      "evidence": "tests/test_workflow_retrieval_contract.py::test_extract_sources_preserves_bound_provenance",
+      "gap": "Every request remains tenant/source-allowlist bound; an absent or unknown supplied source identifier fails as unverified.",
+      "followup_task": "AIR-023"
+    },
+    {
+      "runtime": "temporal",
+      "capability": "durability",
+      "mode": "live-optional",
+      "evidence": "tests/workflow_runtime/temporal/test_temporal_runtime_test_environment.py::test_probe_happy_path_artifact_and_history_replay",
+      "gap": "Automated replay and real Compose recovery are present; each production deployment must still retain environment-specific backup/restore evidence.",
+      "followup_task": "AIR-055"
+    },
+    {
+      "runtime": "temporal",
+      "capability": "hub_activity_gateway",
+      "mode": "live-fail-closed",
+      "evidence": "tests/test_temporal_runtime_contracts.py::test_hub_receipt_requires_authorization_and_ledger_confirmation",
+      "gap": "Requires mounted keyrings, service authentication and Hub availability.",
+      "followup_task": "AIR-042"
+    },
+    {
+      "runtime": "temporal",
+      "capability": "finite_retry_and_timeout",
+      "mode": "live-optional",
+      "evidence": "tests/workflow_runtime/temporal/test_temporal_runtime_test_environment.py::test_retry_budget_and_non_idempotent_retry_suppression",
+      "gap": "Uncertain non-idempotent outcomes intentionally remain blocked until Hub ledger reconciliation resolves them.",
+      "followup_task": "AIR-043"
+    },
+    {
+      "runtime": "temporal",
+      "capability": "approval_signal_query_update",
+      "mode": "live-optional",
+      "evidence": "tests/workflow_runtime/temporal/test_temporal_runtime_test_environment.py::test_typed_updates_validate_duplicate_stale_unauthorized_and_parameters",
+      "gap": "Public control remains Hub-authenticated and tenant-bound; direct Temporal commands are unsupported.",
+      "followup_task": "AIR-045"
+    },
+    {
+      "runtime": "temporal",
+      "capability": "cancel",
+      "mode": "live-optional",
+      "evidence": "tests/workflow_runtime/temporal/test_temporal_runtime_test_environment.py::test_timeout_uncertainty_and_cancel_propagation",
+      "gap": "Cancel/write races are fenced and reconciled; unresolved external effects intentionally remain uncertain rather than reported as cancelled success.",
+      "followup_task": "AIR-049"
+    },
+    {
+      "runtime": "temporal",
+      "capability": "history_projection",
+      "mode": "live-optional",
+      "evidence": "tests/test_temporal_history_projection.py::test_projection_paginates_deduplicates_and_maps_activity_steps",
+      "gap": "Unknown versions and stale/inconsistent projections block promotion.",
+      "followup_task": "AIR-046"
+    },
+    {
+      "runtime": "temporal",
+      "capability": "replay",
+      "mode": "verified-test-environment",
+      "evidence": "tests/workflow_runtime/temporal/test_temporal_runtime_test_environment.py::test_probe_happy_path_artifact_and_history_replay",
+      "gap": "The repository N-1 corpus is release-blocking; deployment-specific histories and candidate Build IDs remain required rollout evidence.",
+      "followup_task": "AIR-049"
+    }
+  ],
+  "archived_claims": [
+    {
+      "archive": "todos/archiv/todo.temporal-workflow-backend-adapter.json",
+      "claim": "The track is completed, including Activity gateway, executable workflow, replay safety, cancellation, UI, Compose and crash tests.",
+      "historical_contradiction": "At the AIR baseline audit those concrete worker, Activity, Compose and failure-lab paths did not exist; a client adapter alone degraded when no external worker existed.",
+      "current_resolution": "The current worker/temporal, authenticated Hub gateway, real Compose recovery/performance gate and deterministic Test Environment now provide independent evidence; the archive remains historical rather than retroactive proof.",
+      "followup_tasks": [
+        "AIR-040",
+        "AIR-042",
+        "AIR-049",
+        "AIR-055"
+      ]
+    },
+    {
+      "archive": "todos/archiv/todo.workflow-blueprint-bpmn-temporal-integration.json",
+      "claim": "The entire integration is completed.",
+      "historical_contradiction": "The local backend only simulated state and the Temporal client did not prove Hub-delegated execution, durable recovery or canonical history projection.",
+      "current_resolution": "Compatibility remains behind the unified Hub control service; neutral plans/events/checkpoints, the Activity gateway and durable Temporal projection now provide current evidence. The archive remains unchanged historical input.",
+      "followup_tasks": [
+        "AIR-010",
+        "AIR-013",
+        "AIR-046",
+        "AIR-019"
+      ]
+    },
+    {
+      "archive": "todos/archiv/todo.langchain-langgraph-worker-adapters.json",
+      "claim": "The adapter track is done although its own LCG-020 item remains partial.",
+      "historical_contradiction": "Worker adapter methods and tests existed, but production Hub execution, common checkpoint authority, capability-safe fallback and complete operations UI did not follow from that claim.",
+      "current_resolution": "Discovery remains authenticated/read-only. Productive LangGraph execution now uses the unified Hub bridge, one Hub task per node, the Hub checkpoint gateway and matching conformance/release admission.",
+      "followup_tasks": [
+        "AIR-005",
+        "AIR-013",
+        "AIR-031",
+        "AIR-019"
+      ]
+    },
+    {
+      "archive": "todos/archiv/langchain_langgraph_support.todo.json",
+      "claim": "The later audit explicitly records that earlier done meant skeleton/example for some items and enumerates further implementation gaps.",
+      "historical_contradiction": "The document itself shows why archive status is not capability or production evidence.",
+      "current_resolution": "Capabilities in this inventory cite executable current tests, intentional deployment constraints and release evidence instead of inheriting archive status.",
+      "followup_tasks": [
+        "AIR-015",
+        "AIR-036",
+        "AIR-051"
+      ]
+    }
+  ]
+}
