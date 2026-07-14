@@ -1,0 +1,17 @@
+{
+  "schema_version": "ananta.generative-corrector-model-catalog.v1",
+  "models": [
+    {
+      "id": "gemma-2b-it",
+      "path": "artifacts/gemma-2b-it",
+      "revision": "replace-with-pinned-revision",
+      "family": "gemma"
+    },
+    {
+      "id": "phi-3-mini-instruct",
+      "path": "artifacts/phi-3-mini-instruct",
+      "revision": "replace-with-pinned-revision",
+      "family": "phi"
+    }
+  ]
+}

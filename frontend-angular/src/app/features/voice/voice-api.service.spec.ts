@@ -120,6 +120,41 @@ describe('VoiceApiService', () => {
     expect(form.get('language')).toBe('de');
   });
 
+  it('keeps the typed stream lifecycle on ordered Hub endpoints', async () => {
+    core.request
+      .mockReturnValueOnce(of({ stream: { session_id: 'stream/a', state: 'created', next_chunk_sequence: 0 } }))
+      .mockReturnValueOnce(of({ stream: { session_id: 'stream/a', state: 'active', next_chunk_sequence: 1 } }))
+      .mockReturnValueOnce(of({
+        stream: { session_id: 'stream/a', state: 'final', next_chunk_sequence: 1 },
+        result: { text: 'Hallo' },
+        result_ref: 'voice-result-a',
+      }))
+      .mockReturnValueOnce(of({ stream: { session_id: 'stream/a', state: 'closed' }, deleted: true }));
+    const api = TestBed.inject(VoiceApiService);
+
+    await firstValueFrom(api.createStream('http://hub.test', {
+      profile_id: 'profile-a',
+      configuration_session_id: 'session-a',
+      media_type: 'audio/pcm;rate=16000;channels=1',
+    }, 'stream-create-key'));
+    await firstValueFrom(api.pushStreamChunk(
+      'http://hub.test', 'stream/a', 0, new ArrayBuffer(8),
+    ));
+    await firstValueFrom(api.finalizeStream('http://hub.test', 'stream/a'));
+    await firstValueFrom(api.cancelStream('http://hub.test', 'stream/a'));
+
+    expect(core.request.mock.calls.map((call) => `${call[0]} ${call[1]}`)).toEqual([
+      'POST http://hub.test/v1/voice/streams',
+      'PUT http://hub.test/v1/voice/streams/stream%2Fa/chunks/0',
+      'POST http://hub.test/v1/voice/streams/stream%2Fa/finalize',
+      'DELETE http://hub.test/v1/voice/streams/stream%2Fa',
+    ]);
+    expect(core.request.mock.calls[0][3].headers).toEqual({ 'Idempotency-Key': 'stream-create-key' });
+    expect(core.request.mock.calls[1][3].headers).toEqual({
+      'Content-Type': 'audio/pcm;rate=16000;channels=1',
+    });
+  });
+
   it('keeps import, feedback reset, full privacy delete and export-task creation distinct', async () => {
     core.request
       .mockReturnValueOnce(of({ import: { profile_id: 'profile-a', imported_count: 1, version: 2 } }))

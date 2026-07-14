@@ -15,6 +15,10 @@ VOICE_DOCKERFILE = ROOT / "docker" / "compose-next" / "Dockerfile.voice-runtime"
 RESTRICTED_DOCKERFILE = ROOT / "docker" / "compose-next" / "Dockerfile.restricted-inference"
 GENERATIVE_JUDGE_DOCKERFILE = ROOT / "docker" / "compose-next" / "Dockerfile.generative-judge-worker"
 GENERATIVE_JUDGE_REQUIREMENTS = ROOT / "docker" / "compose-next" / "requirements.generative-judge-cpu.txt"
+GENERATIVE_CORRECTOR_DOCKERFILE = ROOT / "docker" / "compose-next" / "Dockerfile.generative-corrector-worker"
+GENERATIVE_CORRECTOR_REQUIREMENTS = (
+    ROOT / "docker" / "compose-next" / "requirements.generative-corrector-cpu.txt"
+)
 HARDWARE_PROFILES_FILE = ROOT / "config" / "release-gates" / "voice-restricted-hardware-profiles.v1.json"
 
 VOICE_SERVICES = {
@@ -29,6 +33,7 @@ RESTRICTED_SERVICES = {
 }
 RUNTIME_SERVICES = VOICE_SERVICES | RESTRICTED_SERVICES
 GENERATIVE_JUDGE_SERVICE = "generative-judge-worker"
+GENERATIVE_CORRECTOR_SERVICE = "generative-corrector-worker"
 
 
 @pytest.fixture(scope="module")
@@ -43,6 +48,7 @@ def test_no_network_boundary_keeps_capability_networks_internal_and_disjoint(com
     assert networks["voice-runtime-control"]["internal"] is True
     assert networks["restricted-inference-control"]["internal"] is True
     assert networks["generative-judge-control"]["internal"] is True
+    assert networks["generative-corrector-control"]["internal"] is True
 
     services = compose_document["services"]
     for name in VOICE_SERVICES:
@@ -50,10 +56,14 @@ def test_no_network_boundary_keeps_capability_networks_internal_and_disjoint(com
     for name in RESTRICTED_SERVICES:
         assert set(services[name]["networks"]) == {"restricted-inference-control"}
     assert set(services[GENERATIVE_JUDGE_SERVICE]["networks"]) == {"generative-judge-control"}
+    assert set(services[GENERATIVE_CORRECTOR_SERVICE]["networks"]) == {
+        "generative-corrector-control"
+    }
 
     hub_networks = set(services["ai-agent-hub"]["networks"])
     assert hub_networks == {
         "default",
+        "generative-corrector-control",
         "generative-judge-control",
         "voice-runtime-control",
         "restricted-inference-control",
@@ -135,6 +145,30 @@ def test_generative_judge_worker_is_optional_hardened_and_has_only_a_local_engin
     assert model_mount["bind"]["create_host_path"] is False
 
 
+def test_generative_corrector_is_optional_hardened_and_uses_local_allowlisted_catalog(
+    compose_document: dict,
+) -> None:
+    service = compose_document["services"][GENERATIVE_CORRECTOR_SERVICE]
+    environment = service["environment"]
+
+    assert service["profiles"] == ["voice-generative-corrector"]
+    assert service["read_only"] is True
+    assert service["cap_drop"] == ["ALL"]
+    assert service["security_opt"] == ["no-new-privileges:true"]
+    assert "ports" not in service
+    assert "extra_hosts" not in service
+    assert environment["GENERATIVE_CORRECTOR_ENGINE"] == "transformers"
+    assert environment["GENERATIVE_CORRECTOR_MODEL_CATALOG"] == (
+        "/models/generative-corrector/manifests/model-catalog.json"
+    )
+    assert environment["HF_HUB_OFFLINE"] == "1"
+    assert environment["TRANSFORMERS_OFFLINE"] == "1"
+    model_mount = service["volumes"][0]
+    assert model_mount["target"] == "/models/generative-corrector"
+    assert model_mount["read_only"] is True
+    assert model_mount["bind"]["create_host_path"] is False
+
+
 def test_hub_is_the_only_runtime_client_and_owns_service_credentials(compose_document: dict) -> None:
     hub = compose_document["services"]["ai-agent-hub"]
     environment = hub["environment"]
@@ -164,7 +198,17 @@ def test_hub_is_the_only_runtime_client_and_owns_service_credentials(compose_doc
         environment["VOICE_GENERATIVE_JUDGE_WORKER_URL"]
     )
     assert environment["VOICE_GENERATIVE_JUDGE_HUB_ORIGIN"] == "http://ai-agent-hub:5000"
-    assert set(hub["depends_on"]) == RUNTIME_SERVICES | {GENERATIVE_JUDGE_SERVICE}
+    assert environment["VOICE_GENERATIVE_CORRECTOR_WORKER_URL"] == (
+        "http://generative-corrector-worker:8093/internal/v1/voice-corrector"
+    )
+    assert environment["VOICE_GENERATIVE_CORRECTOR_WORKER_ALLOWED_ENDPOINTS"] == (
+        environment["VOICE_GENERATIVE_CORRECTOR_WORKER_URL"]
+    )
+    assert environment["VOICE_GENERATIVE_CORRECTOR_HUB_ORIGIN"] == "http://ai-agent-hub:5000"
+    assert set(hub["depends_on"]) == RUNTIME_SERVICES | {
+        GENERATIVE_JUDGE_SERVICE,
+        GENERATIVE_CORRECTOR_SERVICE,
+    }
     assert all(dependency["required"] is False for dependency in hub["depends_on"].values())
 
 
@@ -229,8 +273,9 @@ def test_dockerfiles_use_pinned_non_root_minimal_images() -> None:
     voice = VOICE_DOCKERFILE.read_text(encoding="utf-8")
     restricted = RESTRICTED_DOCKERFILE.read_text(encoding="utf-8")
     generative = GENERATIVE_JUDGE_DOCKERFILE.read_text(encoding="utf-8")
+    corrector = GENERATIVE_CORRECTOR_DOCKERFILE.read_text(encoding="utf-8")
 
-    for dockerfile in (voice, restricted, generative):
+    for dockerfile in (voice, restricted, generative, corrector):
         assert "python:3.11.15-slim-bookworm@sha256:" in dockerfile
         assert "HEALTHCHECK" in dockerfile
         assert "requirements.lock" not in dockerfile
@@ -261,6 +306,12 @@ def test_dockerfiles_use_pinned_non_root_minimal_images() -> None:
     assert "requirements.generative-judge-cpu.txt" in generative
     assert "agent.ai_agent" not in generative
     assert "restricted_inference_app" not in generative
+    assert "USER 10004:10004" in corrector
+    assert 'CMD ["python", "-m", "worker.runtime.generative_corrector_app"]' in corrector
+    assert "payload.get('status') == 'ready'" in corrector
+    assert "requirements.generative-corrector-cpu.txt" in corrector
+    assert "generative_judge_app" not in corrector
+    assert "restricted_inference_app" not in corrector
 
     judge_requirements = [
         line.strip()
@@ -270,6 +321,14 @@ def test_dockerfiles_use_pinned_non_root_minimal_images() -> None:
     assert all(line.startswith("--") or "==" in line for line in judge_requirements)
     assert "torch==2.6.0+cpu" in judge_requirements
     assert not any("nvidia" in line.lower() or "cuda" in line.lower() for line in judge_requirements)
+    corrector_requirements = [
+        line.strip()
+        for line in GENERATIVE_CORRECTOR_REQUIREMENTS.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    assert all(line.startswith("--") or "==" in line for line in corrector_requirements)
+    assert "torch==2.6.0+cpu" in corrector_requirements
+    assert not any("nvidia" in line.lower() or "cuda" in line.lower() for line in corrector_requirements)
 
 
 def test_hub_build_context_excludes_secrets_and_local_runtime_state() -> None:
@@ -368,3 +427,41 @@ def test_optional_generative_judge_profile_renders_only_hub_and_dedicated_worker
 
     assert completed.returncode == 0, completed.stderr
     assert set(completed.stdout.splitlines()) == {"ai-agent-hub", GENERATIVE_JUDGE_SERVICE}
+
+
+def test_optional_generative_corrector_profile_renders_only_hub_and_dedicated_worker() -> None:
+    if shutil.which("docker") is None:
+        pytest.skip("docker CLI is not installed")
+    environment = os.environ.copy()
+    environment.update(
+        {
+            "INITIAL_ADMIN_PASSWORD": "compose-config-test-password",
+            "VOICE_INTERNAL_SERVICE_TOKEN": "compose-test-voice-token-at-least-24-chars",
+            "VOICE_PERSONALIZATION_ENCRYPTION_KEY": "MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=",
+            "RESTRICTED_INFERENCE_INTERNAL_TOKEN": "compose-test-restricted-token-at-least-24-chars",
+            "VOICE_GENERATIVE_CORRECTOR_WORKER_TOKEN": (
+                "compose-test-corrector-token-at-least-24-chars"
+            ),
+        }
+    )
+    completed = subprocess.run(
+        [
+            "docker",
+            "compose",
+            "-f",
+            str(COMPOSE_FILE),
+            "--profile",
+            "voice-generative-corrector",
+            "config",
+            "--services",
+        ],
+        cwd=ROOT,
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert set(completed.stdout.splitlines()) == {"ai-agent-hub", GENERATIVE_CORRECTOR_SERVICE}

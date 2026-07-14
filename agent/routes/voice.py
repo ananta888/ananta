@@ -29,6 +29,10 @@ from agent.services.voice_delegation_task_service import (
     VoiceDelegationTask,
     get_voice_delegation_task_service,
 )
+from agent.services.voice_generative_corrector_service import (
+    generative_corrector_capabilities,
+    get_voice_generative_corrector_service,
+)
 from agent.services.voice_generative_judge_service import get_voice_generative_judge_service
 from agent.services.voice_governance_domain import (
     VoiceGovernanceError,
@@ -195,6 +199,9 @@ def _context_with_remaining_deadline(context: dict | None, remaining_seconds: fl
     if not isinstance(context, dict):
         return context
     projected = deepcopy(context)
+    # Hub-only policy is retained during orchestration but never crosses the
+    # runtime boundary. The Runtime receives only its strict execution subset.
+    projected.pop("_hub_configuration", None)
     configuration = projected.get("configuration")
     if isinstance(configuration, dict):
         configured = float(configuration.get("candidate_deadline_sec") or remaining_seconds)
@@ -345,7 +352,8 @@ def _recognition_context(
     )
     context: dict = {
         "schema_version": "ananta.voice-recognition-context.v1",
-        "configuration": configuration.effective,
+        "configuration": _runtime_voice_configuration(configuration.effective),
+        "_hub_configuration": deepcopy(configuration.effective),
     }
     if profile_id and configuration.effective["feature_flags"].get("personalization"):
         snapshot = get_voice_personalization_service().snapshot(principal, profile_id)
@@ -365,6 +373,44 @@ def _recognition_context(
             "runtime_persistence_allowed": False,
         }
     return context
+
+
+def _runtime_voice_configuration(effective: Mapping[str, Any]) -> dict[str, Any]:
+    """Project Hub-owned correction policy onto the strict Voice Runtime port."""
+
+    runtime_fields = {
+        "transport_mode",
+        "recognition_strategy",
+        "routing_strategy",
+        "correction_policy",
+        "review_policy",
+        "primary_backend",
+        "secondary_backends",
+        "max_parallel_backends",
+        "candidate_deadline_sec",
+        "confidence_threshold",
+        "enhancement_variants",
+        "diarization_backend",
+        "feature_flags",
+    }
+    projected = {
+        key: deepcopy(value)
+        for key, value in effective.items()
+        if key in runtime_fields
+    }
+    if projected.get("correction_policy") == "generative_rewrite":
+        projected["correction_policy"] = "deterministic"
+    flags = projected.get("feature_flags")
+    if isinstance(flags, dict):
+        flags.pop("generative_corrector", None)
+    return projected
+
+
+def _hub_effective_configuration(context: Mapping[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(context, Mapping):
+        return {}
+    value = context.get("_hub_configuration", context.get("configuration"))
+    return dict(value) if isinstance(value, Mapping) else {}
 
 
 def _recover_hub_voice_execution(
@@ -459,9 +505,7 @@ def _execute_hub_voice_request(
             profile_id=profile_id,
             session_id=configuration_session_id,
         )
-        effective_configuration = (
-            recognition_context.get("configuration") if isinstance(recognition_context, dict) else {}
-        )
+        effective_configuration = _hub_effective_configuration(recognition_context)
         configured_deadline = (
             float(effective_configuration.get("candidate_deadline_sec") or 120.0)
             if isinstance(effective_configuration, dict)
@@ -699,13 +743,25 @@ def capabilities():
         catalog = []
         available = False
 
+    correction_models = generative_corrector_capabilities()
     return api_response(
         data={
             "available": available,
             "provider": "voice-runtime",
             "models": models,
             "model_catalog": catalog,
-            "capabilities": ["audio_input", "transcription", "voice_command", "multimodal_audio_prompt"],
+            "correction_models": correction_models,
+            "capabilities": [
+                "audio_input",
+                "transcription",
+                "voice_command",
+                "multimodal_audio_prompt",
+                *(
+                    ["generative_transcript_correction"]
+                    if any(model.get("available") is True for model in correction_models)
+                    else []
+                ),
+            ],
             "limits": {"max_audio_mb": _max_audio_mb()},
             "privacy": _voice_privacy_state(),
             "health": health,
@@ -756,7 +812,7 @@ def transcribe():
             session_id=configuration_session_id,
         )
         deadline = _deadline_seconds()
-        effective_configuration = context.get("configuration") if isinstance(context, dict) else {}
+        effective_configuration = _hub_effective_configuration(context)
         configured_deadline = (
             float(effective_configuration.get("candidate_deadline_sec") or 120.0)
             if isinstance(effective_configuration, dict)
@@ -871,6 +927,8 @@ def transcribe():
         choice_applied = False
         choice_reason = "restricted_choice_disabled"
         choice_manifest_digest = ""
+        corrector_applied = False
+        corrector_reason = "generative_corrector_disabled"
         feature_flags = (
             effective_configuration.get("feature_flags") if isinstance(effective_configuration, dict) else None
         )
@@ -916,6 +974,24 @@ def transcribe():
             result = judge_outcome.result
             choice_applied = judge_outcome.applied
             choice_reason = judge_outcome.reason_code
+        elif (
+            isinstance(effective_configuration, dict)
+            and effective_configuration.get("correction_policy") == "generative_rewrite"
+            and isinstance(feature_flags, dict)
+            and feature_flags.get("generative_corrector") is True
+        ):
+            corrector_outcome = get_voice_generative_corrector_service().apply(
+                result,
+                effective_configuration=effective_configuration,
+                tenant_id=principal.tenant_id,
+                parent_task_id=delegation.task_id,
+                request_id=audit_id,
+                language=str(request.form.get("language") or "").strip() or None,
+                deadline_epoch_ms=delegation.deadline_epoch_ms,
+            )
+            result = corrector_outcome.result
+            corrector_applied = corrector_outcome.applied
+            corrector_reason = corrector_outcome.reason_code
         artifact = get_voice_result_artifact_service().create(
             principal,
             request_hash=request_hash,
@@ -966,6 +1042,8 @@ def transcribe():
             "restricted_choice_applied": choice_applied,
             "restricted_choice_reason": choice_reason,
             "restricted_choice_manifest_digest": choice_manifest_digest,
+            "generative_corrector_applied": corrector_applied,
+            "generative_corrector_reason": corrector_reason,
             "raw_audio_stored": _voice_privacy_state()["raw_audio_persisted"],
         },
     )
@@ -1375,9 +1453,7 @@ def create_voice_stream():
             profile_id=payload["profile_id"],
             session_id=payload["configuration_session_id"],
         )
-        effective_configuration = (
-            recognition_context.get("configuration") if isinstance(recognition_context, dict) else {}
-        )
+        effective_configuration = _hub_effective_configuration(recognition_context)
         configured_deadline = (
             float(effective_configuration.get("candidate_deadline_sec") or 120.0)
             if isinstance(effective_configuration, dict)
@@ -1496,6 +1572,10 @@ def create_voice_stream():
             deadline_seconds=remaining_deadline,
             profile_id=payload["profile_id"],
             configuration_session_id=payload["configuration_session_id"],
+            language=payload["language"],
+            effective_configuration=(
+                effective_configuration if isinstance(effective_configuration, dict) else {}
+            ),
             task_id=delegation.task_id,
             request_id=stream_request_id,
             admission_lease_id=admission_lease.lease_id,
@@ -1682,6 +1762,31 @@ def finalize_voice_stream(session_id: str):
         payload: dict[str, Any] = payload_value if isinstance(payload_value, dict) else {}
         result_value = payload.get("result")
         result: dict[str, Any] = result_value if isinstance(result_value, dict) else {}
+        snapshot_value = json.loads(session.effective_configuration_json)
+        effective_configuration = snapshot_value if isinstance(snapshot_value, dict) else {}
+        feature_flags = (
+            effective_configuration.get("feature_flags")
+            if isinstance(effective_configuration, dict)
+            else None
+        )
+        if (
+            isinstance(effective_configuration, dict)
+            and effective_configuration.get("correction_policy") == "generative_rewrite"
+            and isinstance(feature_flags, dict)
+            and feature_flags.get("generative_corrector") is True
+        ):
+            corrector_outcome = get_voice_generative_corrector_service().apply(
+                result,
+                effective_configuration=effective_configuration,
+                tenant_id=principal.tenant_id,
+                parent_task_id=session.task_id,
+                request_id=session.request_id,
+                language=session.language,
+                deadline_epoch_ms=round(session.deadline_at * 1000),
+            )
+            result = corrector_outcome.result
+            payload = {**payload, "result": result}
+            event = {**event, "payload": payload}
         artifact = get_voice_result_artifact_service().create(
             principal,
             request_hash=hashlib.sha256(f"stream:{session.session_id}".encode()).hexdigest(),

@@ -170,6 +170,34 @@ class Settings(BaseSettings):
         default=64 * 1024,
         validation_alias="VOICE_GENERATIVE_JUDGE_MAX_RESPONSE_BYTES",
     )
+    voice_generative_corrector_worker_url: str = Field(
+        default="",
+        validation_alias="VOICE_GENERATIVE_CORRECTOR_WORKER_URL",
+    )
+    voice_generative_corrector_worker_allowed_endpoints: str = Field(
+        default="",
+        validation_alias="VOICE_GENERATIVE_CORRECTOR_WORKER_ALLOWED_ENDPOINTS",
+    )
+    voice_generative_corrector_worker_token: str = Field(
+        default="",
+        validation_alias="VOICE_GENERATIVE_CORRECTOR_WORKER_TOKEN",
+    )
+    voice_generative_corrector_hub_origin: str = Field(
+        default="",
+        validation_alias="VOICE_GENERATIVE_CORRECTOR_HUB_ORIGIN",
+    )
+    voice_generative_corrector_timeout_ms: int = Field(
+        default=30_000,
+        validation_alias="VOICE_GENERATIVE_CORRECTOR_TIMEOUT_MS",
+    )
+    voice_generative_corrector_max_response_bytes: int = Field(
+        default=256 * 1024,
+        validation_alias="VOICE_GENERATIVE_CORRECTOR_MAX_RESPONSE_BYTES",
+    )
+    voice_generative_corrector_models: str = Field(
+        default="gemma-2b-it,phi-3-mini-instruct",
+        validation_alias="VOICE_GENERATIVE_CORRECTOR_MODELS",
+    )
 
     # Retry Config
     retry_count: int = Field(default=3, validation_alias="RETRY_COUNT")

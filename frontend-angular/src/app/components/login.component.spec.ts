@@ -19,7 +19,7 @@ import { NetworkProfileService } from '../services/network-profile.service';
 import { PythonRuntimeService } from '../services/python-runtime.service';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
 function buildLogin(showRegistration: boolean, showOidc = true) {
   TestBed.resetTestingModule();
@@ -101,5 +101,73 @@ describe('LoginComponent — Self-Registration-Button', () => {
     expect(reg).toBeDefined();
     reg!.click();
     expect(registerWithKeycloak).toHaveBeenCalledTimes(1);
+  });
+
+  it('verwendet auf Android einen Remote-Hub ohne den Embedded Hub zu starten', async () => {
+    const ensureEmbeddedControlPlane = vi.fn().mockRejectedValue(new Error('must-not-run'));
+    const setTokens = vi.fn().mockResolvedValue(undefined);
+    const loadProfiles = vi.fn().mockResolvedValue(undefined);
+    const navigate = vi.fn();
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      imports: [LoginComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        {
+          provide: IdentityBridge,
+          useValue: {
+            showRegistration: false,
+            showOidcLogin: false,
+            showHubDirectLogin: true,
+            hubLinkEnabled: false,
+          },
+        },
+        { provide: OidcAuthService, useValue: { registerWithKeycloak: vi.fn() } },
+        {
+          provide: UserAuthService,
+          useValue: { token: null, oidcAccessTokenValue: null, setTokens },
+        },
+        {
+          provide: AgentDirectoryService,
+          useValue: {
+            list: () => [
+              { name: 'hub', role: 'hub', url: 'https://hub.example.test', token: '' },
+            ],
+            upsert: vi.fn(),
+            get: vi.fn(),
+          },
+        },
+        {
+          provide: NetworkProfileService,
+          useValue: { current: {}, load: loadProfiles },
+        },
+        {
+          provide: PythonRuntimeService,
+          useValue: { isNative: true, ensureEmbeddedControlPlane },
+        },
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { queryParamMap: convertToParamMap({}) } },
+        },
+        { provide: Router, useValue: { navigate, navigateByUrl: vi.fn() } },
+      ],
+    });
+    const fixture = TestBed.createComponent(LoginComponent);
+    fixture.componentInstance.username = 'krusty';
+    fixture.componentInstance.password = 'secret';
+
+    const login = fixture.componentInstance.onLogin(new Event('submit'));
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne('https://hub.example.test/login').flush({
+      data: { access_token: 'hub-token', refresh_token: 'refresh-token' },
+    });
+    await login;
+
+    expect(ensureEmbeddedControlPlane).not.toHaveBeenCalled();
+    expect(setTokens).toHaveBeenCalledWith('hub-token', 'refresh-token');
+    expect(loadProfiles).toHaveBeenCalledOnce();
+    expect(navigate).toHaveBeenCalledWith(['/dashboard']);
+    http.verify();
   });
 });

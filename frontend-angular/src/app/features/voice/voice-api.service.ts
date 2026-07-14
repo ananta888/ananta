@@ -20,6 +20,11 @@ import {
   VoiceResetResult,
   VoiceReview,
   VoiceReviewDecision,
+  VoiceStreamCancelResponse,
+  VoiceStreamChunkResponse,
+  VoiceStreamCreateRequest,
+  VoiceStreamCreateResponse,
+  VoiceStreamFinalizeResponse,
   VoiceTranscriptionResult,
 } from './voice.models';
 
@@ -85,6 +90,48 @@ export class VoiceApiService {
       timeoutMs: 120_000,
       headers: payload.idempotencyKey ? mutationHeaders(payload.idempotencyKey) : undefined,
     });
+  }
+
+  createStream(
+    hubUrl: string,
+    payload: VoiceStreamCreateRequest,
+    idempotencyKey: string,
+  ): Observable<VoiceStreamCreateResponse> {
+    return this.core.request<VoiceStreamCreateResponse>(
+      'POST', `${hubUrl}/v1/voice/streams`, hubUrl,
+      { body: payload, headers: mutationHeaders(idempotencyKey) },
+    );
+  }
+
+  pushStreamChunk(
+    hubUrl: string,
+    sessionId: string,
+    chunkSequence: number,
+    pcm16Chunk: ArrayBuffer | Blob,
+  ): Observable<VoiceStreamChunkResponse> {
+    return this.core.request<VoiceStreamChunkResponse>(
+      'PUT',
+      `${hubUrl}/v1/voice/streams/${encodeURIComponent(sessionId)}/chunks/${chunkSequence}`,
+      hubUrl,
+      {
+        body: pcm16Chunk,
+        headers: { 'Content-Type': 'audio/pcm;rate=16000;channels=1' },
+        timeoutMs: 30_000,
+      },
+    );
+  }
+
+  finalizeStream(hubUrl: string, sessionId: string): Observable<VoiceStreamFinalizeResponse> {
+    return this.core.request<VoiceStreamFinalizeResponse>(
+      'POST', `${hubUrl}/v1/voice/streams/${encodeURIComponent(sessionId)}/finalize`, hubUrl,
+      { timeoutMs: 120_000 },
+    );
+  }
+
+  cancelStream(hubUrl: string, sessionId: string): Observable<VoiceStreamCancelResponse> {
+    return this.core.request<VoiceStreamCancelResponse>(
+      'DELETE', `${hubUrl}/v1/voice/streams/${encodeURIComponent(sessionId)}`, hubUrl,
+    );
   }
 
   createReview(

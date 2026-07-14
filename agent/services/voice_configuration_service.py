@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import math
 import threading
 from copy import deepcopy
 from dataclasses import dataclass
@@ -19,7 +20,13 @@ STRATEGY_ENUMS = {
     "transport_mode": ("batch", "streaming"),
     "recognition_strategy": ("single", "parallel_compare", "classic_then_correct"),
     "routing_strategy": ("fixed", "fallback", "adaptive"),
-    "correction_policy": ("none", "deterministic", "restricted_choice", "generative_local"),
+    "correction_policy": (
+        "none",
+        "deterministic",
+        "restricted_choice",
+        "generative_local",
+        "generative_rewrite",
+    ),
     "review_policy": ("automatic", "on_disagreement", "always"),
 }
 BACKENDS = ("vosk", "whisper_cpp", "faster_whisper", "voxtral")
@@ -32,6 +39,7 @@ FEATURE_FLAGS = (
     "personalization",
     "optional_models",
     "generative_judge",
+    "generative_corrector",
 )
 LEGACY_FEATURE_FLAG_ALIASES = {
     "voice_fusion_enabled": "voice_fusion",
@@ -42,6 +50,7 @@ LEGACY_FEATURE_FLAG_ALIASES = {
     "personalization_enabled": "personalization",
     "optional_models_enabled": "optional_models",
     "generative_judge_enabled": "generative_judge",
+    "generative_corrector_enabled": "generative_corrector",
 }
 LEGACY_PIPELINE_PROJECTION = {
     "simple": {"transport_mode": "batch", "recognition_strategy": "single"},
@@ -72,6 +81,8 @@ DEFAULT_CONFIGURATION: dict[str, Any] = {
     "confidence_threshold": 0.7,
     "enhancement_variants": ["original"],
     "diarization_backend": "none",
+    "generative_corrector_model": "gemma-2b-it",
+    "generative_corrector_max_edit_ratio": 0.35,
     "feature_flags": {name: False for name in FEATURE_FLAGS},
 }
 
@@ -174,6 +185,22 @@ class VoiceConfigurationService:
                     "required_capabilities": ["diarization"],
                     "capability_reason_source": "/v1/voice/capabilities/model_catalog",
                     **common_scope,
+                },
+                "generative_corrector_model": {
+                    "type": "string",
+                    "default": DEFAULT_CONFIGURATION["generative_corrector_model"],
+                    "pattern": "^$|^[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}$",
+                    "capability_reason_source": "/v1/voice/capabilities/correction_models",
+                    **common_scope,
+                },
+                "generative_corrector_max_edit_ratio": {
+                    "type": "number",
+                    "minimum": 0.01,
+                    "maximum": 1,
+                    "default": DEFAULT_CONFIGURATION["generative_corrector_max_edit_ratio"],
+                    "visibility": "advanced",
+                    "scopes": ["global", "profile", "session"],
+                    "secret_reference": False,
                 },
                 "feature_flags": {
                     "type": "object",
@@ -350,6 +377,8 @@ class VoiceConfigurationService:
             "confidence_threshold",
             "enhancement_variants",
             "diarization_backend",
+            "generative_corrector_model",
+            "generative_corrector_max_edit_ratio",
             "feature_flags",
         }
         unknown = set(raw) - allowed_fields
@@ -407,10 +436,27 @@ class VoiceConfigurationService:
                     status_code=422,
                 )
             result["diarization_backend"] = value
+        if "generative_corrector_model" in raw:
+            value = str(raw["generative_corrector_model"] or "").strip()
+            if value and (
+                len(value) > 192
+                or not value[0].isalnum()
+                or any(
+                    character not in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_.:-"
+                    for character in value
+                )
+            ):
+                raise VoiceGovernanceError(
+                    code="voice_configuration.invalid_corrector_model",
+                    message="generative_corrector_model must be a valid model identifier",
+                    status_code=422,
+                )
+            result["generative_corrector_model"] = value
         numeric_limits = {
             "max_parallel_backends": (int, 1, 4),
             "candidate_deadline_sec": (float, 1, 300),
             "confidence_threshold": (float, 0, 1),
+            "generative_corrector_max_edit_ratio": (float, 0.01, 1),
         }
         for key, (converter, minimum, maximum) in numeric_limits.items():
             if key not in raw:
@@ -421,7 +467,11 @@ class VoiceConfigurationService:
                 raise VoiceGovernanceError(
                     code="voice_configuration.invalid_value", message=f"invalid {key}", status_code=422
                 ) from exc
-            if value < minimum or value > maximum:
+            if (
+                (isinstance(value, float) and not math.isfinite(value))
+                or value < minimum
+                or value > maximum
+            ):
                 raise VoiceGovernanceError(
                     code="voice_configuration.invalid_value", message=f"invalid {key}", status_code=422
                 )
@@ -469,6 +519,14 @@ class VoiceConfigurationService:
             raise VoiceGovernanceError(
                 code="voice_configuration.duplicate_backend",
                 message="effective primary backend cannot also be a secondary backend",
+                status_code=422,
+            )
+        if effective.get("correction_policy") == "generative_rewrite" and not str(
+            effective.get("generative_corrector_model") or ""
+        ).strip():
+            raise VoiceGovernanceError(
+                code="voice_configuration.corrector_model_required",
+                message="generative_rewrite requires generative_corrector_model",
                 status_code=422,
             )
 
@@ -546,6 +604,27 @@ class VoiceConfigurationService:
                     "reason_code": "generative_judge_disabled",
                 }
             )
+        elif correction == "generative_rewrite" and not flags.get("generative_corrector", False):
+            effective["correction_policy"] = "deterministic"
+            adjustments.append(
+                {
+                    "field": "correction_policy",
+                    "requested": correction,
+                    "effective": "deterministic",
+                    "reason_code": "generative_corrector_disabled",
+                }
+            )
+        elif correction == "generative_rewrite" and effective.get("review_policy") != "always":
+            requested_review = str(effective.get("review_policy") or "")
+            effective["review_policy"] = "always"
+            adjustments.append(
+                {
+                    "field": "review_policy",
+                    "requested": requested_review,
+                    "effective": "always",
+                    "reason_code": "generative_rewrite_requires_review",
+                }
+            )
         return tuple(adjustments)
 
     @staticmethod
@@ -615,6 +694,8 @@ class VoiceConfigurationService:
             "confidence_threshold": "confidence_threshold",
             "enhancement_variants": "enhancement_variants",
             "diarization_backend": "diarization_backend",
+            "generative_corrector_model": "generative_corrector_model",
+            "generative_corrector_max_edit_ratio": "generative_corrector_max_edit_ratio",
         }
         candidate.update({target: voice[source] for source, target in aliases.items() if source in voice})
         return VoiceConfigurationService.normalize_delta(candidate) if candidate else {}

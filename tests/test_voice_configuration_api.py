@@ -29,9 +29,54 @@ def test_voice_configuration_schema_and_safe_defaults(client, user_auth_header):
         "speech_safe",
     ]
     assert schema_payload["properties"]["diarization_backend"]["enum"] == ["none", "pyannote"]
+    assert "generative_rewrite" in schema_payload["properties"]["correction_policy"]["enum"]
+    assert schema_payload["properties"]["generative_corrector_model"]["default"] == "gemma-2b-it"
+    assert schema_payload["properties"]["generative_corrector_max_edit_ratio"]["maximum"] == 1
     configuration = effective.get_json()["data"]["configuration"]
     assert configuration["effective"]["recognition_strategy"] == "single"
     assert not any(configuration["effective"]["feature_flags"].values())
+
+
+def test_generative_rewrite_requires_its_flag_and_forces_review(client, user_auth_header):
+    disabled = client.put(
+        "/v1/voice/configuration",
+        headers={**user_auth_header, "Idempotency-Key": "corrector-disabled-config"},
+        json={
+            "scope": "profile",
+            "scope_id": "corrector-disabled",
+            "delta": {
+                "correction_policy": "generative_rewrite",
+                "generative_corrector_model": "gemma-2b-it",
+            },
+        },
+    )
+    enabled = client.put(
+        "/v1/voice/configuration",
+        headers={**user_auth_header, "Idempotency-Key": "corrector-enabled-config"},
+        json={
+            "scope": "profile",
+            "scope_id": "corrector-enabled",
+            "delta": {
+                "correction_policy": "generative_rewrite",
+                "generative_corrector_model": "phi-3-mini-instruct",
+                "feature_flags": {"generative_corrector": True},
+            },
+        },
+    )
+
+    assert disabled.status_code == 200
+    assert enabled.status_code == 200
+    disabled_effective = client.get(
+        "/v1/voice/configuration?profile_id=corrector-disabled",
+        headers=user_auth_header,
+    ).get_json()["data"]["configuration"]
+    enabled_effective = client.get(
+        "/v1/voice/configuration?profile_id=corrector-enabled",
+        headers=user_auth_header,
+    ).get_json()["data"]["configuration"]
+    assert disabled_effective["effective"]["correction_policy"] == "deterministic"
+    assert enabled_effective["effective"]["correction_policy"] == "generative_rewrite"
+    assert enabled_effective["effective"]["review_policy"] == "always"
 
 
 def test_profile_and_session_deltas_follow_precedence(client, user_auth_header):

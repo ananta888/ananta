@@ -34,6 +34,30 @@ export interface VoiceLearningContext {
 })
 export class VoiceCandidateReviewComponent {
   @Input({ required: true }) hubUrl = '';
+  @Input() hideTranscriptionInput = false;
+  @Input() set embeddedProfileId(value: string) {
+    if (value?.trim()) this.profileId = value.trim();
+  }
+  @Input() set embeddedSessionId(value: string) {
+    this.sessionId = String(value || '').trim();
+  }
+  @Input() set embeddedResult(value: VoiceTranscriptionResult | null) {
+    if (!value || value === this.result) return;
+    this.result = value;
+    this.review = null;
+    this.selectedCandidateId = value.selected_candidate_id
+      || value.candidates?.find((candidate) => candidate.status === 'succeeded')?.candidate_id
+      || '';
+    const metadata = value.generative_corrector || value.correction;
+    const original = String(value.original_text || metadata?.original_text || '');
+    const corrected = String(metadata?.corrected_text || metadata?.proposed_text || value.text || '');
+    this.correctionText = original && corrected !== original ? corrected : '';
+    this.errorCode = '';
+    this.errorMessage = '';
+    this.successMessage = '';
+    this.learningContextChange.emit(null);
+    this.cdr.markForCheck();
+  }
   @Output() learningContextChange = new EventEmitter<VoiceLearningContext | null>();
 
   private readonly api = inject(VoiceApiService);

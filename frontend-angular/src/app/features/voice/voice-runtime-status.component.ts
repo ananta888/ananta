@@ -47,7 +47,14 @@ export class VoiceRuntimeStatusComponent implements OnChanges {
   }
 
   models(): VoiceModelCapability[] {
-    return this.capabilities?.models || [];
+    const values = [
+      ...(this.capabilities?.models || []),
+      ...(this.capabilities?.model_catalog || []),
+      ...(this.capabilities?.correction_models || []),
+    ];
+    return values.filter((model, index) => (
+      values.findIndex((candidate) => candidate.id === model.id && candidate.role === model.role) === index
+    ));
   }
 
   resourceRows(): Array<{ label: string; value: string }> {

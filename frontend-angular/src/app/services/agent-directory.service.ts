@@ -11,6 +11,41 @@ export interface AgentEntry {
 
 const LS_KEY = 'ananta.agents.v1';
 
+/**
+ * Builds the Android control-plane defaults without discarding a Hub that the
+ * user explicitly configured. The worker remains device-local because it is
+ * managed by the embedded Android runtime.
+ */
+export function androidRuntimeAgents(agents: readonly AgentEntry[]): AgentEntry[] {
+  const currentHub = agents.find((agent) => agent.name === 'hub')
+    ?? agents.find((agent) => agent.role === 'hub');
+  const currentWorker = agents.find((agent) => agent.name === 'worker')
+    ?? agents.find((agent) => agent.role === 'worker');
+  const configuredHubUrl = (currentHub?.url || '').trim() || 'http://127.0.0.1:5000';
+  return [
+    { name: 'hub', role: 'hub', url: configuredHubUrl, token: currentHub?.token ?? '' },
+    { name: 'worker', role: 'worker', url: 'http://127.0.0.1:5000', token: currentWorker?.token ?? '' },
+  ];
+}
+
+/** Whether the configured Android Hub is the embedded loopback control plane. */
+export function usesEmbeddedAndroidHub(url: string): boolean {
+  try {
+    const parsed = new URL(String(url || '').trim());
+    const hostname = parsed.hostname.toLowerCase();
+    return parsed.protocol === 'http:'
+      && ['127.0.0.1', 'localhost', '[::1]'].includes(hostname)
+      && parsed.port === '5000'
+      && parsed.pathname === '/'
+      && !parsed.username
+      && !parsed.password
+      && !parsed.search
+      && !parsed.hash;
+  } catch {
+    return false;
+  }
+}
+
 @Injectable({ providedIn: 'root' })
 export class AgentDirectoryService {
   private agents: AgentEntry[] = [];
@@ -117,12 +152,7 @@ export class AgentDirectoryService {
 
   private applyRuntimeDefaults() {
     if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
-      const currentHub = this.agents.find((a) => a.name === 'hub') ?? this.agents.find((a) => a.role === 'hub');
-      const currentWorker = this.agents.find((a) => a.name === 'worker') ?? this.agents.find((a) => a.role === 'worker');
-      const normalized: AgentEntry[] = [
-        { name: 'hub', role: 'hub', url: 'http://127.0.0.1:5000', token: currentHub?.token ?? '' },
-        { name: 'worker', role: 'worker', url: 'http://127.0.0.1:5000', token: currentWorker?.token ?? '' },
-      ];
+      const normalized = androidRuntimeAgents(this.agents);
       const before = JSON.stringify(this.agents);
       const after = JSON.stringify(normalized);
       if (before !== after) {

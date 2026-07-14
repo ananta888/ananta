@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import json
 import secrets
 import threading
 import time
 from dataclasses import asdict, dataclass, field
-from typing import Callable
+from typing import Any, Callable, Mapping
 
 from agent.services.voice_governance_domain import VoiceGovernanceError, VoicePrincipal, validate_identifier
 
@@ -17,6 +18,8 @@ class HubVoiceStreamSession:
     owner_subject: str
     profile_id: str
     configuration_session_id: str | None
+    language: str | None
+    effective_configuration_json: str
     task_id: str | None
     request_id: str
     admission_lease_id: str | None
@@ -39,6 +42,7 @@ class HubVoiceStreamSession:
         payload.pop("runtime_session_id", None)
         payload.pop("tenant_id", None)
         payload.pop("owner_subject", None)
+        payload.pop("effective_configuration_json", None)
         payload.pop("accepted_chunk_digests", None)
         payload.pop("inflight_chunk_sequence", None)
         payload.pop("inflight_chunk_digest", None)
@@ -93,6 +97,8 @@ class VoiceStreamSessionService:
         deadline_seconds: float,
         profile_id: str = "default",
         configuration_session_id: str | None = None,
+        language: str | None = None,
+        effective_configuration: Mapping[str, Any] | None = None,
         task_id: str | None = None,
         request_id: str = "hub-stream-legacy",
         admission_lease_id: str | None = None,
@@ -104,6 +110,25 @@ class VoiceStreamSessionService:
             raise VoiceGovernanceError(
                 code="voice_stream.invalid_audio_budget",
                 message="voice stream audio budget must be positive",
+                status_code=422,
+            )
+        try:
+            configuration_snapshot = json.dumps(
+                dict(effective_configuration or {}),
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+            )
+        except (TypeError, ValueError) as exc:
+            raise VoiceGovernanceError(
+                code="voice_stream.invalid_configuration",
+                message="voice stream configuration snapshot is invalid",
+                status_code=422,
+            ) from exc
+        if len(configuration_snapshot.encode("utf-8")) > 64 * 1024:
+            raise VoiceGovernanceError(
+                code="voice_stream.invalid_configuration",
+                message="voice stream configuration snapshot exceeds its bound",
                 status_code=422,
             )
         with self._lock:
@@ -141,6 +166,12 @@ class VoiceStreamSessionService:
                     if configuration_session_id
                     else None
                 ),
+                language=(
+                    validate_identifier(language, field="language", max_length=32)
+                    if language
+                    else None
+                ),
+                effective_configuration_json=configuration_snapshot,
                 task_id=validate_identifier(task_id, field="task_id", max_length=200) if task_id else None,
                 request_id=validate_identifier(request_id, field="request_id", max_length=200),
                 admission_lease_id=(

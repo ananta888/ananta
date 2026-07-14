@@ -3,7 +3,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet, Router } from '@angular/rou
 import { Capacitor } from '@capacitor/core';
 import { NotificationsComponent } from './components/notifications.component';
 import { ToastComponent } from './components/toast.component';
-import { AgentDirectoryService } from './services/agent-directory.service';
+import { AgentDirectoryService, usesEmbeddedAndroidHub } from './services/agent-directory.service';
 import { UserAuthService } from './services/user-auth.service';
 import { Subscription } from 'rxjs';
 import { AsyncPipe } from '@angular/common';
@@ -419,6 +419,9 @@ get isAndroidNative(): boolean {
   private async bootstrapEmbeddedRuntime(): Promise<void> {
     if (!this.mobile.isNative) return;
     this.ensureLocalMobileAgentDirectory();
+    const hub = this.dir.list().find((agent) => agent.name === 'hub')
+      ?? this.dir.list().find((agent) => agent.role === 'hub');
+    if (hub && !usesEmbeddedAndroidHub(hub.url)) return;
     try {
       await this.pythonRuntime.ensureEmbeddedControlPlane();
     } catch (error) {
@@ -436,8 +439,6 @@ get isAndroidNative(): boolean {
 
     if (!hub) {
       this.dir.upsert({ name: 'hub', role: 'hub', url: 'http://127.0.0.1:5000', token: '' });
-    } else if ((hub.url || '').trim() !== 'http://127.0.0.1:5000') {
-      this.dir.upsert({ ...hub, role: 'hub', url: 'http://127.0.0.1:5000' });
     }
 
     if (!worker) {

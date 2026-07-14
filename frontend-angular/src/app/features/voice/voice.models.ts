@@ -130,6 +130,10 @@ export interface VoiceResourceStatus {
 export interface VoiceModelCapability {
   id: string;
   backend?: string;
+  engine?: string;
+  role?: string;
+  purpose?: string;
+  model_type?: string;
   revision?: string;
   device?: string;
   available?: boolean;
@@ -146,6 +150,9 @@ export interface VoiceCapabilityStatus {
   provider: string;
   capabilities: string[];
   models: VoiceModelCapability[];
+  model_catalog?: VoiceModelCapability[];
+  /** Optional Hub-provided subset. Older Hubs expose correctors in `models`. */
+  correction_models?: VoiceModelCapability[];
   limits?: { max_audio_mb?: number; [key: string]: unknown };
   privacy?: {
     store_audio_requested?: boolean;
@@ -259,6 +266,8 @@ export interface VoiceTranscriptionResult {
   result_digest?: string;
   idempotent_replay?: boolean;
   text: string;
+  /** Original ASR text before an optional, explicitly configured rewrite. */
+  original_text?: string | null;
   language?: string | null;
   duration_ms?: number | null;
   model?: string | null;
@@ -273,6 +282,95 @@ export interface VoiceTranscriptionResult {
   decision_trace?: Record<string, unknown>;
   provenance?: Record<string, unknown>;
   provenance_valid?: boolean;
+  /** Additive generative correction metadata. Kept tolerant for mixed Hub versions. */
+  correction?: VoiceCorrectionMetadata | null;
+  generative_corrector?: VoiceCorrectionMetadata | null;
+}
+
+export interface VoiceCorrectionEdit {
+  operation?: 'insert' | 'delete' | 'replace' | 'equal' | string;
+  before?: string | null;
+  after?: string | null;
+  source_text?: string | null;
+  target_text?: string | null;
+  start?: number | null;
+  end?: number | null;
+  reason?: string | null;
+}
+
+export interface VoiceCorrectionMetadata {
+  original_text?: string | null;
+  corrected_text?: string | null;
+  proposed_text?: string | null;
+  model_id?: string | null;
+  model?: string | null;
+  model_revision?: string | null;
+  changed?: boolean;
+  review_required?: boolean;
+  edits?: VoiceCorrectionEdit[];
+  warnings?: string[];
+  [key: string]: unknown;
+}
+
+export type VoiceStreamStateName = 'created' | 'active' | 'finalizing' | 'final' | 'failed' | 'closed' | string;
+
+export interface VoiceStreamState {
+  session_id: string;
+  state: VoiceStreamStateName;
+  next_chunk_sequence: number;
+  profile_id?: string;
+  configuration_session_id?: string | null;
+  task_id?: string | null;
+  result_ref?: string | null;
+  max_audio_seconds?: number;
+  max_audio_bytes?: number;
+  [key: string]: unknown;
+}
+
+export interface VoiceStreamEvent {
+  event_type: string;
+  payload?: {
+    text?: string;
+    stable_text?: string;
+    finalized_text?: string;
+    chunk_sequence?: number;
+    next_chunk_sequence?: number;
+    result?: VoiceTranscriptionResult;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
+export interface VoiceStreamCreateRequest {
+  filename?: string;
+  language?: string;
+  profile_id: string;
+  configuration_session_id?: string;
+  media_type?: 'audio/pcm;rate=16000;channels=1' | string;
+  deadline_seconds?: number;
+  max_audio_seconds?: number;
+}
+
+export interface VoiceStreamCreateResponse {
+  stream: VoiceStreamState;
+  idempotent_replay?: boolean;
+}
+
+export interface VoiceStreamChunkResponse {
+  stream: VoiceStreamState;
+  event?: VoiceStreamEvent | null;
+}
+
+export interface VoiceStreamFinalizeResponse {
+  stream: VoiceStreamState;
+  result: VoiceTranscriptionResult;
+  result_ref: string;
+  event?: VoiceStreamEvent | null;
+}
+
+export interface VoiceStreamCancelResponse {
+  stream: VoiceStreamState;
+  deleted: boolean;
 }
 
 export interface VoiceReview {

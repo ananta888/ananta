@@ -1,0 +1,51 @@
+<section class="card mt-md voice-correction-result" data-testid="voice-correction-result">
+  <div class="row flex-between voice-wrap">
+    <h2>Transkript und Korrektur</h2>
+    <span class="voice-status" [class.voice-status-ok]="correction()?.changed !== false">
+      {{ correctionStatus() === 'fallback' ? 'LLM-Fallback' : correction() ? 'LLM-Korrektur' : 'ASR-Ergebnis' }}
+    </span>
+  </div>
+  <dl class="voice-result-metadata mt-md">
+    <div><dt>ASR-Backend</dt><dd>{{ result.raw_backend || result.candidates?.[0]?.backend || fallbackBackend }}</dd></div>
+    <div><dt>Korrekturmodell</dt><dd>{{ correctionModel() }}</dd></div>
+    <div><dt>Korrekturstatus</dt><dd>{{ correctionStatus() }}</dd></div>
+    @if (correctionReason()) {
+      <div><dt>Fallback-Grund</dt><dd><code>{{ correctionReason() }}</code></dd></div>
+    }
+    <div><dt>Review erforderlich</dt><dd>{{ correction()?.review_required ? 'ja' : 'nein' }}</dd></div>
+    <div><dt>Result-Referenz</dt><dd><code>{{ result.result_ref || result.audit_id || '–' }}</code></dd></div>
+  </dl>
+
+  <div class="voice-transcript-pair mt-md">
+    <article>
+      <h3>Vosk-/ASR-Original</h3>
+      <p class="voice-transcript">{{ originalText() || 'Kein Text.' }}</p>
+    </article>
+    <article>
+      <h3>Verbessertes Transkript</h3>
+      <p class="voice-transcript">{{ correctedText() || 'Kein Text.' }}</p>
+    </article>
+  </div>
+
+  @if (originalText() !== correctedText()) {
+    <h3 class="mt-md">Änderungsdiff</h3>
+    <p class="voice-diff" aria-label="Unterschied zwischen Original und Korrektur">
+      @for (chunk of transcriptDiff(); track $index) {
+        <span [class.voice-diff-insert]="chunk.operation === 'insert'" [class.voice-diff-delete]="chunk.operation === 'delete'">{{ chunk.text }} </span>
+      }
+    </p>
+  }
+
+  @if (correctionEdits().length) {
+    <h3 class="mt-md">Vom Hub gemeldete Änderungen</h3>
+    <ul>
+      @for (edit of correctionEdits(); track $index) {
+        <li>
+          <code>{{ edit.operation || 'change' }}</code> ·
+          {{ edit.before || edit.source_text || '∅' }} → {{ edit.after || edit.target_text || '∅' }}
+          @if (edit.reason) { <span class="muted"> · {{ edit.reason }}</span> }
+        </li>
+      }
+    </ul>
+  }
+</section>

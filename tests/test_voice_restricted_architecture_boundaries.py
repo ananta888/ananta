@@ -15,6 +15,7 @@ HUB_BOUNDARY_FILES = (
     ROOT / "agent" / "services" / "restricted_inference_contract.py",
     ROOT / "agent" / "services" / "restricted_inference_port.py",
     ROOT / "agent" / "services" / "generative_judge_worker_port.py",
+    ROOT / "agent" / "services" / "generative_corrector_worker_port.py",
 )
 ML_MODULES = frozenset({"torch", "transformers", "sentence_transformers", "onnxruntime", "vosk", "whisper"})
 
@@ -73,6 +74,16 @@ def test_hub_generative_judge_is_only_a_worker_port_not_a_loopback_engine() -> N
     assert "voice_generative_judge_allowed_endpoints" not in source
 
 
+def test_hub_generative_corrector_is_only_a_worker_port_not_an_ml_engine() -> None:
+    source = (ROOT / "agent" / "services" / "voice_generative_corrector_service.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "VoiceCorrectorWorkerPort" in source
+    assert "EmbeddedTransformersGenerativeCorrectorEngine" not in source
+    assert "127.0.0.1" not in source
+
+
 def test_importing_hub_wire_boundaries_does_not_load_ml_libraries() -> None:
     script = """
 import sys
@@ -81,6 +92,8 @@ import agent.services.restricted_inference_contract
 import agent.services.restricted_inference_port
 import agent.services.generative_judge_worker_port
 import agent.services.voice_generative_judge_service
+import agent.services.generative_corrector_worker_port
+import agent.services.voice_generative_corrector_service
 for module in ('torch', 'transformers', 'sentence_transformers', 'onnxruntime', 'vosk', 'whisper'):
     assert module not in sys.modules, module
 """
@@ -109,6 +122,10 @@ def test_execution_runtimes_cannot_import_or_address_each_other() -> None:
         for module in _imports(path):
             if module.startswith("voice_runtime") or module.startswith("agent.services.restricted_inference"):
                 violations.append(f"{path.relative_to(ROOT)}:{module}")
+    for path in sorted((ROOT / "worker" / "runtime").glob("generative_corrector*.py")):
+        for module in _imports(path):
+            if module.startswith("voice_runtime") or module.startswith("agent.services.restricted_inference"):
+                violations.append(f"{path.relative_to(ROOT)}:{module}")
     assert violations == []
 
 
@@ -126,6 +143,10 @@ def test_restricted_worker_contains_execution_not_ananta_orchestration() -> None
             if module.startswith(banned_import_prefixes):
                 violations.append(f"{path.relative_to(ROOT)}:{module}")
     for path in sorted((ROOT / "worker" / "runtime").glob("generative_judge*.py")):
+        for module in _imports(path):
+            if module.startswith(banned_import_prefixes):
+                violations.append(f"{path.relative_to(ROOT)}:{module}")
+    for path in sorted((ROOT / "worker" / "runtime").glob("generative_corrector*.py")):
         for module in _imports(path):
             if module.startswith(banned_import_prefixes):
                 violations.append(f"{path.relative_to(ROOT)}:{module}")

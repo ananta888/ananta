@@ -276,6 +276,168 @@ must use a custom judge-worker image that runs the same `GenerativeJudgeEngine`
 contract in a supervised child process and kills that child at the absolute
 deadline; they must not move execution into the Hub or another worker.
 
+## Optional isolated generative transcript-corrector worker
+
+This capability is additive and remains inactive unless a resolved Hub Voice
+configuration selects `correction_policy=generative_rewrite`, enables
+`feature_flags.generative_corrector=true` and names an allowlisted
+`generative_corrector_model`. It is a genuine text-to-text rewrite after ASR;
+it is not the deterministic postprocessor and it does not replace the
+restricted generative Judge.
+
+The Hub remains the control plane. It selects the model, creates and owns a
+correlated child task, dispatches one bounded request and persists the result.
+The corrector worker executes that single request and never creates tasks,
+addresses another worker or receives audio. For a live stream, Vosk partials
+remain uncorrected; dispatch happens only when the Hub finalizes the stream. A
+batch transcription is corrected after its ASR result is complete.
+
+### Local model catalog
+
+The stock worker loads a local `AutoModelForCausalLM` and tokenizer through the
+pinned, offline Transformers engine. Its host model root defaults to
+`${GENERATIVE_CORRECTOR_MODEL_DIR:-../../models/generative-corrector}` and is
+mounted read-only as `/models/generative-corrector`. The required catalog is
+`manifests/model-catalog.json` beneath that root. Its exact envelope and an
+example containing Gemma, Phi and another local model are documented in the
+[Voice Quickstart](../voice-quickstart.md#1-lokale-modelle-bereitstellen).
+
+Each entry contains exactly `id`, relative `path`, immutable `revision` metadata
+and `family`. Every ID exposed by the Hub in
+`VOICE_GENERATIVE_CORRECTOR_MODELS` must have an exact catalog match. Additional
+catalog IDs remain hidden from clients; keep the two sets intentionally equal
+in production for least privilege. Paths may not escape the model root;
+symlinks, Python files and Pickle/PyTorch checkpoint formats are rejected, and
+every model directory must contain Safetensors weights. Tokenizer/config files
+still have to be complete and locally compatible with the pinned engine.
+
+The catalog's `revision` field records promotion provenance but does not by
+itself hash every model file. Operators must verify the transferred bundle
+against separately retained digests and make the promoted host directory
+immutable before deployment. Do not use a mutable upstream branch name as a
+revision and do not place weights in Git.
+
+### Compose profile and environment
+
+Start the optional worker together with exactly one selected Voice production
+profile. For the stock CPU worker:
+
+```bash
+export VOICE_GENERATIVE_CORRECTOR_WORKER_TOKEN='distinct-random-secret-at-least-24-characters'
+export VOICE_GENERATIVE_CORRECTOR_MODELS='gemma-2b-it,phi-3-mini-instruct'
+export GENERATIVE_CORRECTOR_MODEL_DIR=/absolute/path/to/promoted/generative-corrector
+
+docker compose --env-file .env \
+  -f docker/compose-next/compose.stack.full.yml \
+  -f docker/compose-next/compose.voice-restricted.yml \
+  --profile voice-production-cpu \
+  --profile voice-generative-corrector \
+  up -d --build
+```
+
+The optional profile name is exactly `voice-generative-corrector`. The stock
+image target is CPU-only even when another Voice Runtime profile uses a GPU;
+do not set `GENERATIVE_CORRECTOR_DEVICE=cuda` on this image.
+
+Operator-provided or tunable values and their Compose defaults are:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `VOICE_GENERATIVE_CORRECTOR_WORKER_TOKEN` | empty/unavailable | independent Hub-to-corrector bearer secret; minimum 24 characters |
+| `VOICE_GENERATIVE_CORRECTOR_MODELS` | `gemma-2b-it,phi-3-mini-instruct` | Hub-side model-ID allowlist exposed to clients |
+| `GENERATIVE_CORRECTOR_MODEL_DIR` | `../../models/generative-corrector` | host source for the read-only worker mount |
+| `VOICE_GENERATIVE_CORRECTOR_TIMEOUT_MS` | `30000` | Hub dispatch timeout, bounded to 1–120000 ms |
+| `VOICE_GENERATIVE_CORRECTOR_MAX_RESPONSE_BYTES` | `262144` | Hub response bound, accepted range 1024–2097152 bytes |
+| `GENERATIVE_CORRECTOR_DEVICE` | `cpu` | embedded engine device; keep `cpu` for the stock image |
+| `GENERATIVE_CORRECTOR_MAX_IN_FLIGHT` | `1` | worker concurrency, accepted range 1–8 |
+| `GENERATIVE_CORRECTOR_MAX_INPUT_CHARS` | `32000` | prompt character bound, accepted range 1024–512000 |
+| `GENERATIVE_CORRECTOR_MAX_INPUT_TOKENS` | `4096` | tokenized prompt bound, accepted range 128–32768 |
+| `GENERATIVE_CORRECTOR_MAX_NEW_TOKENS` | `1024` | output generation bound, accepted range 16–4096 |
+| `GENERATIVE_CORRECTOR_MAX_REQUEST_BYTES` | `1048576` | worker request-body bound, accepted range 1024–4194304 bytes |
+| `GENERATIVE_CORRECTOR_CPUS` | `4.0` | container CPU limit |
+| `GENERATIVE_CORRECTOR_MEMORY` | `8g` | container memory limit |
+| `GENERATIVE_CORRECTOR_IMAGE` / `GENERATIVE_CORRECTOR_IMAGE_TAG` | `ananta-generative-corrector-worker` / `local` | promoted worker image reference |
+
+The overlay deliberately fixes the following boundary values; do not turn
+them into client configuration:
+
+| Consumer | Fixed value |
+| --- | --- |
+| `VOICE_GENERATIVE_CORRECTOR_WORKER_URL` and `VOICE_GENERATIVE_CORRECTOR_WORKER_ALLOWED_ENDPOINTS` | `http://generative-corrector-worker:8093/internal/v1/voice-corrector` |
+| `VOICE_GENERATIVE_CORRECTOR_HUB_ORIGIN` | `http://ai-agent-hub:5000` |
+| `GENERATIVE_CORRECTOR_ALLOWED_HUB_ORIGINS` | `http://ai-agent-hub:5000` |
+| `GENERATIVE_CORRECTOR_ENGINE` | `transformers` |
+| `GENERATIVE_CORRECTOR_HOST` / `GENERATIVE_CORRECTOR_PORT` | `0.0.0.0` / `8093` (Compose `expose`, no host `ports`) |
+| `GENERATIVE_CORRECTOR_MODEL_ROOT` | `/models/generative-corrector` |
+| `GENERATIVE_CORRECTOR_MODEL_CATALOG` | `/models/generative-corrector/manifests/model-catalog.json` |
+| `HF_HUB_OFFLINE` / `TRANSFORMERS_OFFLINE` | `1` / `1` |
+
+The bearer token is copied into the Hub as
+`VOICE_GENERATIVE_CORRECTOR_WORKER_TOKEN` and into the isolated worker as
+`GENERATIVE_CORRECTOR_INTERNAL_TOKEN`; it is never sent to Angular or Android.
+The worker exact-matches the Hub `Origin`. The Hub exact-allows the endpoint,
+resolves only private non-loopback container addresses, pins the accepted
+address for the request, disables proxy use and refuses redirects. The worker
+has only the internal `generative-corrector-control` network and cannot address
+the Voice Runtime or restricted worker.
+
+### Readiness, policy and failure behavior
+
+Render the selected profiles before starting them, then inspect readiness from
+inside the non-published worker service:
+
+```bash
+docker compose --env-file .env \
+  -f docker/compose-next/compose.stack.full.yml \
+  -f docker/compose-next/compose.voice-restricted.yml \
+  --profile voice-production-cpu \
+  --profile voice-generative-corrector \
+  config --quiet
+
+docker compose --env-file .env \
+  -f docker/compose-next/compose.stack.full.yml \
+  -f docker/compose-next/compose.voice-restricted.yml \
+  exec -T generative-corrector-worker python -c \
+  "import json,urllib.request; print(json.load(urllib.request.urlopen('http://127.0.0.1:8093/health', timeout=3)))"
+```
+
+Require `status=ready`, `auth_configured=true`,
+`origin_allowlist_configured=true`, `engine_configured=true` and the intended
+`model_ids`. Hub `/v1/voice/capabilities` performs the same bounded, pinned
+worker-health validation and marks a configured Corrector model available only
+when that ready worker reports the exact model ID. It advertises
+`generative_transcript_correction` only when at least one model passes. This
+readiness probe is still not a replacement for a real transcription smoke test,
+because model/tokenizer loading remains lazy until the first correction.
+
+The Hub configuration fields are:
+
+- `correction_policy=generative_rewrite`;
+- `feature_flags.generative_corrector=true`;
+- `generative_corrector_model=<one exact allowlisted ID>`;
+- optional `generative_corrector_max_edit_ratio`, default `0.35`, accepted range
+  `0.01`–`1.0`.
+
+Enabling this policy forces `review_policy=always`. The Hub sends at most 8000
+characters of baseline transcript and applies the shorter of the Voice request
+deadline and Corrector timeout. The worker rejects non-allowlisted models,
+expired or overlong deadlines, protected numeric/URL token changes and edits
+above the configured ratio. It returns original text, corrected text, structured
+edits, model revision, engine and prompt provenance.
+
+Any unavailable worker, timeout, invalid envelope, model mismatch, unsafe edit,
+tracking failure or generation failure preserves the exact ASR baseline and
+records a Corrector fallback reason. Never silently promote a fallback as a
+corrected transcript. Lazy first-model loading can consume much of the initial
+deadline, so benchmark both cold and warm requests on the promoted hardware.
+
+During rollback, first disable `feature_flags.generative_corrector` or change
+the profile to deterministic correction, drain active Voice streams, and only
+then stop the optional worker. Existing Vosk/batch transcription continues
+through the Hub without the generative rewrite. Changing the selected model is
+a Hub policy operation; Angular and Android clients must never receive a model
+path or worker address.
+
 ## Streaming drain and maintenance
 
 Before restart or manifest switch, prevent the Hub from admitting new Voice

@@ -4,6 +4,7 @@ import { adminGuard } from '../../guards/admin.guard';
 import { routeDataFor } from '../../models/route-metadata';
 
 export const systemRoutes: Routes = [
+  { path: 'voice', data: routeDataFor('voice'), loadComponent: () => import('../voice/voice-console.component').then(m => m.VoiceConsoleComponent) },
   { path: 'voxtral-offline', data: routeDataFor('voxtral-offline'), loadComponent: () => import('../../components/voxtral-offline.component').then(m => m.VoxtralOfflineComponent) },
   { path: 'llama-runtime', data: routeDataFor('llama-runtime'), loadComponent: () => import('../../components/llama-runtime.component').then(m => m.LlamaRuntimeComponent) },
   { path: 'python-runtime', data: routeDataFor('python-runtime'), loadComponent: () => import('../../components/python-runtime.component').then(m => m.PythonRuntimeComponent) },

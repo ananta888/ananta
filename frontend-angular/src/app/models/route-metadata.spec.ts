@@ -21,6 +21,7 @@ describe('route metadata', () => {
       '/artifacts',
       '/markdown-slides',
       '/templates',
+      '/voice',
       '/voxtral-offline',
       '/llama-runtime',
       '/help',

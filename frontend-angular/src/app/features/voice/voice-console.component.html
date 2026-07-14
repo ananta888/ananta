@@ -1,0 +1,207 @@
+<main class="voice-console" data-testid="voice-console">
+  <header class="voice-console-header">
+    <div>
+      <h1>Voice</h1>
+      <p class="muted">
+        Klassische Spracherkennung, Aufnahme und optionale LLM-Korrektur – immer über den Hub.
+      </p>
+    </div>
+    <div class="row gap-sm voice-wrap">
+      <a class="button-outline" routerLink="/settings">Erweiterte Voice-Konfiguration</a>
+      <a class="button-outline" routerLink="/voxtral-offline">Voxtral Offline</a>
+    </div>
+  </header>
+
+  @if (errorCode) {
+    <div class="card danger mt-md" role="alert"><strong>{{ errorCode }}</strong> · {{ errorMessage }}</div>
+  }
+  @if (successMessage) {
+    <div class="card card-light mt-md" role="status">{{ successMessage }}</div>
+  }
+
+  <section class="card mt-md voice-context" aria-labelledby="voice-context-title">
+    <div class="row flex-between voice-wrap">
+      <div>
+        <h2 id="voice-context-title">Erkennung und Korrektur</h2>
+        <p class="muted">Die Auswahl wird als Hub-Profil oder Session-Delta gespeichert und gilt in Web und Android gleich.</p>
+      </div>
+      <button class="button-outline" type="button" (click)="loadVoiceContext()" [disabled]="loadingConfiguration || liveActive || batchRecording">
+        {{ loadingConfiguration ? 'Lädt …' : 'Status neu laden' }}
+      </button>
+    </div>
+
+    <div class="voice-context-grid mt-md">
+      <label>Sprache
+        <input [(ngModel)]="language" placeholder="de" [disabled]="liveActive || batchRecording" autocomplete="off" />
+      </label>
+      <label>Profil-ID
+        <input [(ngModel)]="profileId" placeholder="default" [disabled]="liveActive || batchRecording" autocomplete="off" />
+      </label>
+      <label>Session-ID (optional)
+        <input [(ngModel)]="sessionId" placeholder="z. B. meeting-2026-07" [disabled]="liveActive || batchRecording" autocomplete="off" />
+      </label>
+      <label>Recognition-Modus
+        <select [(ngModel)]="selectedRecognitionStrategy" [disabled]="loadingConfiguration || liveActive || batchRecording">
+          @for (choice of recognitionStrategies(); track choice.id) {
+            <option [value]="choice.id" [disabled]="!choice.available">{{ choice.label }}</option>
+          }
+        </select>
+      </label>
+      <label>Klassisches ASR-Backend
+        <select [(ngModel)]="selectedBackend" [disabled]="loadingConfiguration || liveActive || batchRecording">
+          @for (choice of asrBackends(); track choice.id) {
+            <option [value]="choice.id" [disabled]="!choice.available" [title]="choice.reason">
+              {{ choice.label }}{{ choice.available ? '' : ' – nicht verfügbar' }}
+            </option>
+          }
+        </select>
+        @if (backendReason(selectedBackend); as reason) {
+          <small class="error-text"><code>{{ reason }}</code> · Backend ist laut Hub-Runtime nicht einsatzbereit.</small>
+        }
+      </label>
+      @if (requiresSecondaryBackend()) {
+        <label>Zweites ASR-Backend
+          <select [(ngModel)]="selectedSecondaryBackend" [disabled]="loadingConfiguration || liveActive || batchRecording">
+            <option value="">Backend auswählen</option>
+            @for (choice of asrBackends(); track choice.id) {
+              <option [value]="choice.id" [disabled]="!choice.available || choice.id === selectedBackend" [title]="choice.reason">
+                {{ choice.label }}{{ choice.id === selectedBackend ? ' – bereits primär' : '' }}
+              </option>
+            }
+          </select>
+          @if (!validBackendSelection()) {
+            <small class="error-text">Für diesen Modus werden zwei unterschiedliche, verfügbare ASR-Backends benötigt.</small>
+          }
+        </label>
+      }
+      <label class="voice-toggle">
+        <input type="checkbox" [(ngModel)]="generativeCorrection" [disabled]="liveActive || batchRecording" />
+        <span>
+          <strong>Nachträglich mit LLM verbessern</strong>
+          <small class="muted">Während Live läuft Vosk; Gemma, Phi oder ein anderes freigegebenes Modell korrigiert das finale Transkript.</small>
+        </span>
+      </label>
+      @if (generativeCorrection) {
+        <label>Korrekturmodell
+          <select [(ngModel)]="selectedCorrectorModel" [disabled]="loadingConfiguration || liveActive || batchRecording">
+            <option value="">Modell auswählen</option>
+            @for (choice of correctorModels(); track choice.id) {
+              <option [value]="choice.id" [disabled]="!choice.available" [title]="choice.reason">
+                {{ choice.label }}{{ choice.available ? '' : ' – nicht verfügbar' }}
+              </option>
+            }
+          </select>
+          @if (!validCorrectionSelection()) {
+            <small class="error-text">Der Hub meldet für diese Auswahl kein verfügbares Korrekturmodell.</small>
+          }
+          @if (correctorReason(selectedCorrectorModel); as reason) {
+            <small class="error-text"><code>{{ reason }}</code></small>
+          }
+        </label>
+      }
+      <label>Konfiguration speichern für
+        <select [(ngModel)]="configurationTarget" [disabled]="liveActive || batchRecording">
+          <option value="profile">Profil</option>
+          <option value="session" [disabled]="!sessionId.trim()">Session</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="row gap-sm mt-md voice-wrap">
+      <button type="button" (click)="saveConfiguration()"
+        [disabled]="savingConfiguration || loadingConfiguration || liveActive || batchRecording || !validBackendSelection() || !validCorrectionSelection()">
+        {{ savingConfiguration ? 'Speichert …' : 'Auswahl im Hub speichern' }}
+      </button>
+      <span class="muted font-sm">
+        Wirksam: {{ configuration?.effective?.['primary_backend'] || '–' }} ·
+        {{ configuration?.effective?.['correction_policy'] || 'keine Korrektur' }}
+      </span>
+    </div>
+  </section>
+
+  @if (hubUrl) {
+    <app-voice-runtime-status [hubUrl]="hubUrl" />
+  }
+
+  <section class="card mt-md voice-workspace">
+    <div class="voice-console-tabs" role="tablist" aria-label="Voice-Modus">
+      <button type="button" role="tab" [attr.aria-selected]="activeTab === 'live'" [class.active-toggle]="activeTab === 'live'"
+        (click)="setTab('live')" [disabled]="batchRecording">Live</button>
+      <button type="button" role="tab" [attr.aria-selected]="activeTab === 'batch'" [class.active-toggle]="activeTab === 'batch'"
+        (click)="setTab('batch')" [disabled]="liveActive">Aufnehmen → transkribieren</button>
+    </div>
+
+    @if (activeTab === 'live') {
+      <section role="tabpanel" class="voice-mode-panel">
+        <h2>Live-Transkription</h2>
+        <p class="muted">
+          Mikrofon-PCM wird in geordneten 16-kHz-Mono-Chunks zum Hub übertragen. Eine generative Korrektur läuft erst beim Finalisieren.
+        </p>
+        @if (!liveSupported) {
+          <p class="error-text">Diese Plattform stellt keinen unterstützten Mikrofon-Capture-Adapter bereit.</p>
+        }
+        <div class="row gap-sm mt-md voice-wrap">
+          <button type="button" (click)="startLive()" [disabled]="liveBusy || liveActive || !liveSupported || !profileId.trim() || !validBackendSelection() || !validCorrectionSelection()">
+            Live starten
+          </button>
+          <button class="button-outline" type="button" (click)="stopLive()" [disabled]="liveBusy || !liveActive">
+            Stoppen und verbessern
+          </button>
+          <button class="button-outline" type="button" (click)="cancelLive()" [disabled]="liveBusy || !liveActive">
+            Verwerfen
+          </button>
+        </div>
+        <dl class="voice-live-state mt-md">
+          <div><dt>Status</dt><dd>{{ liveActive ? 'nimmt auf' : liveBusy ? 'verarbeitet …' : 'bereit' }}</dd></div>
+          <div><dt>Hub-Session</dt><dd><code>{{ liveSessionId || '–' }}</code></dd></div>
+          <div><dt>Bestätigte Chunks</dt><dd>{{ liveChunkCount }}</dd></div>
+        </dl>
+        <div class="voice-live-transcript mt-md" aria-live="polite">
+          <strong>Zwischentranskript</strong>
+          <p>{{ livePartial || 'Nach dem Start erscheinen hier Hub-Partials.' }}</p>
+        </div>
+      </section>
+    } @else {
+      <section role="tabpanel" class="voice-mode-panel">
+        <h2>Aufnehmen und danach transkribieren</h2>
+        <p class="muted">Die Aufnahme bleibt bis zum Klick auf „Über Hub transkribieren“ auf dem Gerät.</p>
+        @if (!batchRecordingSupported) {
+          <p class="error-text">Auf dieser Plattform ist keine direkte Aufnahme verfügbar. Eine vorhandene Audiodatei kann trotzdem gewählt werden.</p>
+        }
+        <div class="row gap-sm mt-md voice-wrap">
+          <button type="button" (click)="startBatchRecording()" [disabled]="batchBusy || batchRecording || !batchRecordingSupported">
+            Aufnahme starten
+          </button>
+          <button class="button-outline" type="button" (click)="stopBatchRecording()" [disabled]="batchBusy || !batchRecording">
+            Aufnahme stoppen
+          </button>
+          <button type="button" (click)="transcribeBatch()" [disabled]="batchBusy || batchRecording || !batchAudio || !profileId.trim() || !validBackendSelection() || !validCorrectionSelection()">
+            Über Hub transkribieren
+          </button>
+          <button class="button-outline" type="button" (click)="clearBatchAudio()" [disabled]="batchBusy || batchRecording || !batchAudio">
+            Audio löschen
+          </button>
+        </div>
+        <label class="voice-file mt-md">Oder Audiodatei auswählen
+          <input type="file" accept="audio/*,.wav,.mp3,.ogg,.webm,.m4a" (change)="selectAudioFile($event)" [disabled]="batchBusy || batchRecording" />
+        </label>
+        <dl class="voice-live-state mt-md">
+          <div><dt>Status</dt><dd>{{ batchRecording ? 'nimmt auf' : batchBusy ? 'verarbeitet …' : 'bereit' }}</dd></div>
+          <div><dt>Audio</dt><dd>{{ batchFileName || 'noch keine Aufnahme' }}</dd></div>
+          <div><dt>Größe</dt><dd>{{ batchAudio ? (batchAudio.size / 1024).toFixed(1) + ' KiB' : '–' }}</dd></div>
+        </dl>
+      </section>
+    }
+  </section>
+
+  @if (resultForActiveTab(); as result) {
+    <app-voice-transcription-result [result]="result" [fallbackBackend]="selectedBackend" />
+
+    <app-voice-candidate-review
+      [hubUrl]="hubUrl"
+      [embeddedResult]="result"
+      [embeddedProfileId]="profileId"
+      [embeddedSessionId]="sessionId"
+      [hideTranscriptionInput]="true" />
+  }
+</main>

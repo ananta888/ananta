@@ -1,0 +1,113 @@
+@import './voice-settings.css';
+
+.voice-console {
+  margin: 0 auto;
+  max-width: 1120px;
+  padding-bottom: 3rem;
+}
+
+.voice-console-header,
+.voice-context-grid,
+.voice-live-state {
+  display: grid;
+  gap: 1rem;
+}
+
+.voice-console-header {
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.voice-console-header h1,
+.voice-mode-panel h2,
+.voice-context h2 {
+  margin-bottom: .25rem;
+}
+
+.voice-context-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.voice-context-grid > label,
+.voice-file {
+  display: grid;
+  gap: .4rem;
+  min-width: 0;
+}
+
+.voice-context-grid input,
+.voice-context-grid select,
+.voice-file input {
+  min-width: 0;
+}
+
+.voice-toggle {
+  align-items: start;
+  display: flex !important;
+  gap: .65rem !important;
+}
+
+.voice-toggle span {
+  display: grid;
+  gap: .2rem;
+}
+
+.voice-console-tabs {
+  border-bottom: 1px solid var(--border, #d7dce5);
+  display: flex;
+  gap: .5rem;
+}
+
+.voice-console-tabs button {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.voice-mode-panel {
+  padding-top: 1rem;
+}
+
+.voice-live-state {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.voice-live-state div {
+  min-width: 0;
+}
+
+.voice-live-state dt {
+  color: var(--muted, #667085);
+  font-size: .78rem;
+}
+
+.voice-live-state dd {
+  margin: .2rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.voice-live-transcript {
+  background: var(--surface-subtle, rgba(127, 127, 127, .08));
+  border-left: .25rem solid var(--primary, #315efb);
+  min-height: 5rem;
+  padding: 1rem;
+}
+
+.voice-live-transcript p {
+  margin-bottom: 0;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 900px) {
+  .voice-context-grid,
+  .voice-live-state {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 650px) {
+  .voice-console-header,
+  .voice-context-grid,
+  .voice-live-state {
+    grid-template-columns: 1fr;
+  }
+}

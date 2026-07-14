@@ -1,0 +1,54 @@
+.voice-result-metadata,
+.voice-transcript-pair {
+  display: grid;
+  gap: 1rem;
+}
+
+.voice-result-metadata {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.voice-result-metadata div {
+  min-width: 0;
+}
+
+.voice-result-metadata dt {
+  color: var(--muted, #667085);
+  font-size: .78rem;
+}
+
+.voice-result-metadata dd {
+  margin: .2rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.voice-transcript-pair {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.voice-transcript-pair article {
+  border: 1px solid var(--border, #d7dce5);
+  border-radius: .65rem;
+  min-width: 0;
+  padding: 1rem;
+}
+
+.voice-diff {
+  line-height: 1.8;
+}
+
+.voice-diff-insert {
+  background: color-mix(in srgb, #217346 22%, transparent);
+}
+
+.voice-diff-delete {
+  background: color-mix(in srgb, #b42318 18%, transparent);
+  text-decoration: line-through;
+}
+
+@media (max-width: 650px) {
+  .voice-result-metadata,
+  .voice-transcript-pair {
+    grid-template-columns: 1fr;
+  }
+}

@@ -2,22 +2,26 @@
   <h3>Candidate-Vergleich und manuelle Review</h3>
   <p class="muted">Audio wird an den Hub gesendet. Die Angular-App spricht keinen Voice- oder Inferenz-Container direkt an.</p>
 
-  <div class="grid cols-2 mt-md">
-    <label>Audio-Datei
-      <input type="file" accept="audio/*,.wav,.mp3,.ogg,.webm,.flac" (change)="selectFile($event)" />
-    </label>
-    <label>Sprache (optional)
-      <input [(ngModel)]="language" placeholder="de" />
-    </label>
-    <label>Profil-ID
-      <input [(ngModel)]="profileId" />
-    </label>
-    <label>Session-ID (optional)
-      <input [(ngModel)]="sessionId" />
-    </label>
-  </div>
+  @if (!hideTranscriptionInput) {
+    <div class="grid cols-2 mt-md">
+      <label>Audio-Datei
+        <input type="file" accept="audio/*,.wav,.mp3,.ogg,.webm,.flac" (change)="selectFile($event)" />
+      </label>
+      <label>Sprache (optional)
+        <input [(ngModel)]="language" placeholder="de" />
+      </label>
+      <label>Profil-ID
+        <input [(ngModel)]="profileId" />
+      </label>
+      <label>Session-ID (optional)
+        <input [(ngModel)]="sessionId" />
+      </label>
+    </div>
+  }
   <div class="row gap-sm mt-md voice-wrap">
-    <button type="button" (click)="transcribe()" [disabled]="busy || !file">Über Hub transkribieren</button>
+    @if (!hideTranscriptionInput) {
+      <button type="button" (click)="transcribe()" [disabled]="busy || !file">Über Hub transkribieren</button>
+    }
     @if (result) {
       <button class="button-outline" type="button" (click)="createReview()" [disabled]="busy || !canCreateReview() || !!review">Hub-Review anlegen</button>
     }

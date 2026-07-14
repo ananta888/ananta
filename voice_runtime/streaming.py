@@ -223,6 +223,65 @@ class BufferedPipelineRecognizer:
         self._context = None
 
 
+class IncrementalPrimaryPipelineRecognizer:
+    """Emit primary-backend partials while preserving Hub-policy finalization.
+
+    The native recognizer is deliberately limited to provisional output.  The
+    buffered pipeline remains the source of the final result so correction,
+    provenance, review metadata, and future policy stages keep their normal
+    contract.  A partial-recognizer failure degrades to final-only operation;
+    it must not discard an otherwise valid recording.
+    """
+
+    def __init__(
+        self,
+        partial_recognizer: IncrementalRecognizer,
+        final_recognizer: BufferedPipelineRecognizer,
+    ) -> None:
+        self._partial_recognizer: IncrementalRecognizer | None = partial_recognizer
+        self._final_recognizer = final_recognizer
+
+    def accept(self, content: bytes) -> str | IncrementalFusionUpdate | None:
+        if len(content) % 2:
+            raise StreamProtocolError(
+                "stream.invalid_pcm",
+                "PCM stream chunks must contain complete signed 16-bit samples",
+                422,
+            )
+        self._final_recognizer.accept(content)
+        recognizer = self._partial_recognizer
+        if recognizer is None:
+            return None
+        try:
+            return recognizer.accept(content)
+        except Exception:
+            # Partials are an optional projection of the authoritative buffered
+            # final.  Fail closed to final-only operation without exposing model
+            # details or losing already accepted audio.
+            self._close_partial_recognizer()
+            return None
+
+    def finish(self) -> TranscriptionResult:
+        self._close_partial_recognizer()
+        return self._final_recognizer.finish()
+
+    def tighten_deadline(self, remaining_seconds: float) -> None:
+        self._final_recognizer.tighten_deadline(remaining_seconds)
+
+    def close(self) -> None:
+        self._close_partial_recognizer()
+        self._final_recognizer.close()
+
+    def _close_partial_recognizer(self) -> None:
+        recognizer = self._partial_recognizer
+        self._partial_recognizer = None
+        if recognizer is not None:
+            try:
+                recognizer.close()
+            except Exception:
+                pass
+
+
 class ContainerPreflightRecognizer:
     """Buffer opaque containers and validate decoded duration before inference."""
 
@@ -845,11 +904,13 @@ def policy_streaming_recognizer_factory(
     backend_catalog: IncrementalBackendCatalog,
     runtime_config: VoiceRuntimeConfig,
 ) -> PolicyRecognizerFactory:
-    """Build policy-selected fusion or fall back to the bounded batch adapter.
+    """Build Hub-selected incremental execution with a bounded final fallback.
 
-    Only an effective Hub policy can enable multi-model execution.  If fewer
-    than two selected backends expose a native incremental adapter, the existing
-    pipeline finalization path remains active and no fake partial is emitted.
+    Single recognition may expose provisional output from the selected primary
+    backend, while finalization always traverses the normal Hub-policy pipeline.
+    Multi-model fusion retains its native incremental final contract.  Opaque
+    containers and unavailable incremental adapters stay on bounded batch
+    execution and never emit fake partials.
     """
 
     fallback = buffered_pipeline_recognizer_factory(pipeline)
@@ -863,13 +924,39 @@ def policy_streaming_recognizer_factory(
     ) -> IncrementalRecognizer:
         policy = VoiceExecutionPolicy.resolve(runtime_config, context.configuration)
         enabled = (
-            media_type == "audio/pcm;rate=16000;channels=1"
+            media_type == PCM_S16LE_MEDIA_TYPE
             and policy.source == "hub_context"
             and policy.transport_mode == "stream"
-            and policy.recognition_strategy in {"parallel_compare", "parallel_fusion"}
-            and bool(policy.feature_flags.get("voice_fusion", False))
         )
         if not enabled:
+            return fallback(filename, language, max_bytes, media_type, context)
+
+        if policy.recognition_strategy == "single":
+            available = backend_catalog.available_backends((policy.primary_backend,))
+            backend = available.get(policy.primary_backend)
+            factory = getattr(backend, "create_incremental_recognizer", None)
+            if callable(factory):
+                try:
+                    partial_recognizer = factory(
+                        filename=filename,
+                        language=language,
+                        max_bytes=max_bytes,
+                    )
+                except Exception:
+                    partial_recognizer = None
+                if partial_recognizer is not None:
+                    final_recognizer = fallback(filename, language, max_bytes, media_type, context)
+                    return IncrementalPrimaryPipelineRecognizer(
+                        partial_recognizer,
+                        cast(BufferedPipelineRecognizer, final_recognizer),
+                    )
+            return fallback(filename, language, max_bytes, media_type, context)
+
+        fusion_enabled = (
+            policy.recognition_strategy in {"parallel_compare", "parallel_fusion"}
+            and bool(policy.feature_flags.get("voice_fusion", False))
+        )
+        if not fusion_enabled:
             return fallback(filename, language, max_bytes, media_type, context)
 
         requested = tuple(dict.fromkeys((policy.primary_backend, *policy.secondary_backends)))[

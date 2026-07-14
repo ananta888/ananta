@@ -6,7 +6,11 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Capacitor } from '@capacitor/core';
 import { firstValueFrom, timeout } from 'rxjs';
 import { UserAuthService } from '../services/user-auth.service';
-import { AgentDirectoryService } from '../services/agent-directory.service';
+import {
+  AgentDirectoryService,
+  AgentEntry,
+  usesEmbeddedAndroidHub,
+} from '../services/agent-directory.service';
 import { PythonRuntimeService } from '../services/python-runtime.service';
 import { OidcAuthService } from '../services/oidc-auth.service';
 import { IdentityBridge } from '../services/identity/identity-bridge';
@@ -351,15 +355,15 @@ export class LoginComponent implements OnInit {
     this.error = '';
     this.forgotInfo = '';
 
+    let hub: AgentEntry | null = null;
     try {
-      if (this.pythonRuntime.isNative) {
-        await this.withTimeout(this.pythonRuntime.ensureEmbeddedControlPlane(), 5000, 'embedded_start_timeout');
-      }
-
-      const hub = this.resolveHubForLogin();
+      hub = this.resolveHubForLogin();
       if (!hub) {
         this.error = 'Kein Hub in den Einstellungen gefunden.';
         return;
+      }
+      if (this.pythonRuntime.isNative && usesEmbeddedAndroidHub(hub.url)) {
+        await this.withTimeout(this.pythonRuntime.ensureEmbeddedControlPlane(), 5000, 'embedded_start_timeout');
       }
 
       const body: any = {
@@ -399,11 +403,11 @@ export class LoginComponent implements OnInit {
         return;
       }
       if (err?.message === 'login_timeout') {
-        this.error = 'Login-Request Timeout. Bitte /python-runtime pruefen (Hub/Worker aktiv).';
+        this.error = `Login-Request Timeout für ${hub?.url || 'den konfigurierten Hub'}.`;
         return;
       }
       if (Number(err?.status) === 0) {
-        this.error = 'Embedded Hub nicht erreichbar. Bitte /python-runtime pruefen und Hub starten.';
+        this.error = `Hub nicht erreichbar: ${hub?.url || 'keine URL konfiguriert'}.`;
       } else {
         this.error = err?.error?.message || err?.error?.error || err?.error?.detail || 'Login fehlgeschlagen';
       }

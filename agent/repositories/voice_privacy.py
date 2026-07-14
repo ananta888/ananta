@@ -29,11 +29,13 @@ class VoicePrivacyRepository:
             "voice_training_export",
             "voice_transcription",
             "voice_generative_judge",
+            "voice_generative_corrector",
         }
     )
     _VOICE_CONTEXT_BY_TASK_KIND = {
         "restricted_inference": "restricted_inference",
         "voice_generative_judge": "voice_generative_judge",
+        "voice_generative_corrector": "voice_generative_corrector",
         "voice_transcription": "voice_transcription",
     }
 

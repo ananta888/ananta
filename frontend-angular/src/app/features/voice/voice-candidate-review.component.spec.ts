@@ -122,4 +122,27 @@ describe('VoiceCandidateReviewComponent', () => {
     expect((fixture.nativeElement as HTMLElement).querySelectorAll('.voice-candidate')).toHaveLength(2);
     expect(component.review?.state).toBe('corrected');
   });
+
+  it('reuses a console result and prepares the generative proposal for explicit review', () => {
+    const fixture = TestBed.createComponent(VoiceCandidateReviewComponent);
+    fixture.componentRef.setInput('hubUrl', 'http://hub.test');
+    fixture.componentRef.setInput('hideTranscriptionInput', true);
+    fixture.componentRef.setInput('embeddedProfileId', 'voice-profile');
+    fixture.componentRef.setInput('embeddedSessionId', 'voice-session');
+    fixture.componentRef.setInput('embeddedResult', {
+      ...result,
+      original_text: 'ananta baut',
+      text: 'Ananta baut.',
+      generative_corrector: {
+        original_text: 'ananta baut', corrected_text: 'Ananta baut.', changed: true, review_required: true,
+      },
+    });
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.profileId).toBe('voice-profile');
+    expect(fixture.componentInstance.sessionId).toBe('voice-session');
+    expect(fixture.componentInstance.correctionText).toBe('Ananta baut.');
+    expect((fixture.nativeElement as HTMLElement).querySelector('input[type="file"]')).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelectorAll('.voice-candidate')).toHaveLength(2);
+  });
 });

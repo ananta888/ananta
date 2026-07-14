@@ -301,6 +301,7 @@ class VoiceDeletionReconciliationRepository:
             "voice_transcription",
             "restricted_inference",
             "voice_generative_judge",
+            "voice_generative_corrector",
             "voice_training_export",
         ):
             scoped = context.get(key)

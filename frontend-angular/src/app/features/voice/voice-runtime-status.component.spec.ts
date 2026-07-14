@@ -25,6 +25,10 @@ describe('VoiceRuntimeStatusComponent', () => {
     api.getCapabilities.mockReturnValue(of({
       available: true, provider: 'voice-runtime', capabilities: [],
       models: [{ id: 'model-a', backend: 'vosk', revision: 'rev-a', local: true, device: 'cpu', status: 'ready' }],
+      correction_models: [{
+        id: 'gemma-2b-it', role: 'generative_corrector', revision: 'rev-g', local: true,
+        device: 'cpu', status: 'configured', available: true,
+      }],
       resources: { name: 'RAM', free_bytes: 4096 },
       routing_details: { reasons: [{ code: 'voice.routing.fixed' }] },
     }));
@@ -34,6 +38,7 @@ describe('VoiceRuntimeStatusComponent', () => {
 
     const text = (fixture.nativeElement as HTMLElement).textContent || '';
     expect(text).toContain('vosk / model-a');
+    expect(text).toContain('generative_corrector / gemma-2b-it');
     expect(text).toContain('rev-a');
     expect(text).toContain('Lokal');
     expect(text).toContain('RAM · free_bytes');

@@ -215,6 +215,51 @@ x-generative-judge-common: &generative-judge-common
         cpus: "0.25"
         memory: 256m
 
+x-generative-corrector-common: &generative-corrector-common
+  <<: *runtime-hardening
+  user: "10004:10004"
+  working_dir: /app
+  expose:
+    - "8093"
+  environment:
+    GENERATIVE_CORRECTOR_ALLOWED_HUB_ORIGINS: http://ai-agent-hub:5000
+    GENERATIVE_CORRECTOR_DEVICE: cpu
+    GENERATIVE_CORRECTOR_ENGINE: transformers
+    GENERATIVE_CORRECTOR_HOST: 0.0.0.0
+    GENERATIVE_CORRECTOR_INTERNAL_TOKEN: ${VOICE_GENERATIVE_CORRECTOR_WORKER_TOKEN:-}
+    GENERATIVE_CORRECTOR_MAX_IN_FLIGHT: ${GENERATIVE_CORRECTOR_MAX_IN_FLIGHT:-1}
+    GENERATIVE_CORRECTOR_MAX_INPUT_CHARS: ${GENERATIVE_CORRECTOR_MAX_INPUT_CHARS:-32000}
+    GENERATIVE_CORRECTOR_MAX_INPUT_TOKENS: ${GENERATIVE_CORRECTOR_MAX_INPUT_TOKENS:-4096}
+    GENERATIVE_CORRECTOR_MAX_NEW_TOKENS: ${GENERATIVE_CORRECTOR_MAX_NEW_TOKENS:-1024}
+    GENERATIVE_CORRECTOR_MAX_REQUEST_BYTES: ${GENERATIVE_CORRECTOR_MAX_REQUEST_BYTES:-1048576}
+    GENERATIVE_CORRECTOR_MODEL_CATALOG: /models/generative-corrector/manifests/model-catalog.json
+    GENERATIVE_CORRECTOR_MODEL_ROOT: /models/generative-corrector
+    GENERATIVE_CORRECTOR_PORT: "8093"
+    HF_HOME: /tmp/model-cache
+    HF_HUB_OFFLINE: "1"
+    TRANSFORMERS_OFFLINE: "1"
+  tmpfs:
+    - /tmp:size=536870912,mode=1770,uid=10004,gid=10004,noexec,nosuid,nodev
+    - /run:size=16777216,mode=0750,uid=10004,gid=10004,noexec,nosuid,nodev
+  volumes:
+    - type: bind
+      source: ${GENERATIVE_CORRECTOR_MODEL_DIR:-../../models/generative-corrector}
+      target: /models/generative-corrector
+      read_only: true
+      bind:
+        create_host_path: false
+  cpus: ${GENERATIVE_CORRECTOR_CPUS:-4.0}
+  mem_limit: ${GENERATIVE_CORRECTOR_MEMORY:-8g}
+  deploy:
+    resources:
+      limits:
+        cpus: ${GENERATIVE_CORRECTOR_CPUS:-4.0}
+        memory: ${GENERATIVE_CORRECTOR_MEMORY:-8g}
+        pids: 256
+      reservations:
+        cpus: "0.5"
+        memory: 1g
+
 services:
   ai-agent-hub:
     extends:
@@ -238,6 +283,13 @@ services:
       VOICE_GENERATIVE_JUDGE_WORKER_ALLOWED_ENDPOINTS: http://generative-judge-worker:8092/internal/v1/generative-judge
       VOICE_GENERATIVE_JUDGE_WORKER_TOKEN: ${VOICE_GENERATIVE_JUDGE_WORKER_TOKEN:-}
       VOICE_GENERATIVE_JUDGE_WORKER_URL: http://generative-judge-worker:8092/internal/v1/generative-judge
+      VOICE_GENERATIVE_CORRECTOR_HUB_ORIGIN: http://ai-agent-hub:5000
+      VOICE_GENERATIVE_CORRECTOR_MAX_RESPONSE_BYTES: ${VOICE_GENERATIVE_CORRECTOR_MAX_RESPONSE_BYTES:-262144}
+      VOICE_GENERATIVE_CORRECTOR_MODELS: ${VOICE_GENERATIVE_CORRECTOR_MODELS:-gemma-2b-it,phi-3-mini-instruct}
+      VOICE_GENERATIVE_CORRECTOR_TIMEOUT_MS: ${VOICE_GENERATIVE_CORRECTOR_TIMEOUT_MS:-30000}
+      VOICE_GENERATIVE_CORRECTOR_WORKER_ALLOWED_ENDPOINTS: http://generative-corrector-worker:8093/internal/v1/voice-corrector
+      VOICE_GENERATIVE_CORRECTOR_WORKER_TOKEN: ${VOICE_GENERATIVE_CORRECTOR_WORKER_TOKEN:-}
+      VOICE_GENERATIVE_CORRECTOR_WORKER_URL: http://generative-corrector-worker:8093/internal/v1/voice-corrector
       VOICE_INTERNAL_SERVICE_TOKEN: "${VOICE_INTERNAL_SERVICE_TOKEN:?VOICE_INTERNAL_SERVICE_TOKEN must be set}"
       VOICE_IDEMPOTENCY_TTL_SECONDS: ${VOICE_IDEMPOTENCY_TTL_SECONDS:-86400}
       VOICE_HUB_MAX_CONCURRENT_REQUESTS: ${VOICE_HUB_MAX_CONCURRENT_REQUESTS:-2}
@@ -262,6 +314,9 @@ services:
       generative-judge-worker:
         condition: service_healthy
         required: false
+      generative-corrector-worker:
+        condition: service_healthy
+        required: false
       voice-runtime-minimal:
         condition: service_healthy
         required: false
@@ -273,6 +328,7 @@ services:
         required: false
     networks:
       default: {}
+      generative-corrector-control: {}
       generative-judge-control: {}
       restricted-inference-control: {}
       voice-runtime-control: {}
@@ -290,6 +346,20 @@ services:
       generative-judge-control:
         aliases:
           - generative-judge-worker
+
+  generative-corrector-worker:
+    <<: *generative-corrector-common
+    image: ${GENERATIVE_CORRECTOR_IMAGE:-ananta-generative-corrector-worker}:${GENERATIVE_CORRECTOR_IMAGE_TAG:-local}
+    build:
+      context: ../..
+      dockerfile: docker/compose-next/Dockerfile.generative-corrector-worker
+      target: cpu
+    profiles:
+      - voice-generative-corrector
+    networks:
+      generative-corrector-control:
+        aliases:
+          - generative-corrector-worker
 
   voice-runtime-minimal:
     <<: *voice-runtime-common
@@ -518,6 +588,8 @@ services:
 
 networks:
   default: {}
+  generative-corrector-control:
+    internal: true
   generative-judge-control:
     internal: true
   restricted-inference-control:

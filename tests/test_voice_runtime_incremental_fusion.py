@@ -10,6 +10,7 @@ from voice_runtime.context import VoiceRecognitionContext
 from voice_runtime.execution_policy import HubVoiceConfiguration
 from voice_runtime.streaming import (
     BufferedPipelineRecognizer,
+    IncrementalPrimaryPipelineRecognizer,
     StreamProtocolError,
     StreamSessionManager,
     policy_streaming_recognizer_factory,
@@ -281,3 +282,136 @@ def test_policy_factory_requires_hub_streaming_fusion_and_two_native_models() ->
         VoiceRecognitionContext(),
     )
     assert isinstance(without_hub_policy, BufferedPipelineRecognizer)
+
+
+def test_policy_factory_streams_selected_single_primary_and_finalizes_through_pipeline() -> None:
+    native = _ScriptedRecognizer(["vosk partial"], "native final must not escape")
+    catalog_requests: list[tuple[str, ...] | None] = []
+    pipeline_calls: list[dict[str, object]] = []
+
+    class _NativeBackend:
+        def create_incremental_recognizer(self, **_kwargs):
+            return native
+
+    class _Catalog:
+        def available_backends(self, backend_ids=None):
+            catalog_requests.append(backend_ids)
+            return {"vosk": _NativeBackend()}
+
+    class _Pipeline:
+        def transcribe(self, **kwargs):
+            pipeline_calls.append(kwargs)
+            return TranscriptionResult(text="policy-corrected final", raw_backend="pipeline")
+
+    context = VoiceRecognitionContext(
+        configuration=HubVoiceConfiguration(
+            transport_mode="streaming",
+            recognition_strategy="single",
+            primary_backend="vosk",
+            secondary_backends=("whisper_cpp",),
+        )
+    )
+    factory = policy_streaming_recognizer_factory(
+        _Pipeline(),
+        _Catalog(),
+        VoiceRuntimeConfig(transport_mode="stream", enable_streaming=True),
+    )
+    recognizer = factory(
+        "speech.pcm",
+        "de",
+        1024,
+        "audio/pcm;rate=16000;channels=1",
+        context,
+    )
+
+    assert isinstance(recognizer, IncrementalPrimaryPipelineRecognizer)
+    assert recognizer.accept(b"\x00\x00") == "vosk partial"
+    result = recognizer.finish()
+
+    assert result.text == "policy-corrected final"
+    assert catalog_requests == [("vosk",)]
+    assert len(pipeline_calls) == 1
+    assert pipeline_calls[0]["filename"] == "speech.pcm.wav"
+    assert pipeline_calls[0]["context"] is context
+    assert bytes(pipeline_calls[0]["content"][:4]) == b"RIFF"
+    assert native.closed is True
+    recognizer.close()
+
+
+def test_policy_factory_single_primary_partial_failure_degrades_to_buffered_final() -> None:
+    native = _ScriptedRecognizer([RuntimeError("private model failure")], "unused")
+
+    class _NativeBackend:
+        def create_incremental_recognizer(self, **_kwargs):
+            return native
+
+    class _Catalog:
+        def available_backends(self, backend_ids=None):
+            return {"vosk": _NativeBackend()}
+
+    class _Pipeline:
+        def transcribe(self, **_kwargs):
+            return TranscriptionResult(text="safe buffered final", raw_backend="pipeline")
+
+    context = VoiceRecognitionContext(
+        configuration=HubVoiceConfiguration(
+            transport_mode="streaming",
+            recognition_strategy="single",
+            primary_backend="vosk",
+        )
+    )
+    recognizer = policy_streaming_recognizer_factory(
+        _Pipeline(),
+        _Catalog(),
+        VoiceRuntimeConfig(transport_mode="stream", enable_streaming=True),
+    )(
+        "speech.pcm",
+        "de",
+        1024,
+        "audio/pcm;rate=16000;channels=1",
+        context,
+    )
+
+    assert recognizer.accept(b"\x00\x00") is None
+    assert recognizer.accept(b"\x01\x00") is None
+    assert recognizer.finish().text == "safe buffered final"
+    assert native.closed is True
+
+
+def test_policy_factory_single_streaming_keeps_containers_and_missing_primary_buffered() -> None:
+    catalog_requests: list[tuple[str, ...] | None] = []
+
+    class _Catalog:
+        def available_backends(self, backend_ids=None):
+            catalog_requests.append(backend_ids)
+            return {}
+
+    class _Pipeline:
+        def transcribe(self, **_kwargs):
+            return TranscriptionResult(text="batch fallback")
+
+    context = VoiceRecognitionContext(
+        configuration=HubVoiceConfiguration(
+            transport_mode="streaming",
+            recognition_strategy="single",
+            primary_backend="vosk",
+        )
+    )
+    factory = policy_streaming_recognizer_factory(
+        _Pipeline(),
+        _Catalog(),
+        VoiceRuntimeConfig(transport_mode="stream", enable_streaming=True),
+    )
+
+    container = factory("speech.webm", "de", 1024, "audio/webm", context)
+    missing_primary = factory(
+        "speech.pcm",
+        "de",
+        1024,
+        "audio/pcm;rate=16000;channels=1",
+        context,
+    )
+
+    assert isinstance(container, BufferedPipelineRecognizer)
+    assert isinstance(missing_primary, BufferedPipelineRecognizer)
+    assert catalog_requests == [("vosk",)]

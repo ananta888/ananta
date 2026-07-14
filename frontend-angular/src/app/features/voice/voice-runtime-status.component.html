@@ -18,7 +18,7 @@
         <tbody>
           @for (model of models(); track model.id) {
             <tr>
-              <td>{{ model.backend || '-' }} / {{ model.id }}</td>
+              <td>{{ model.backend || model.engine || model.role || '-' }} / {{ model.id }}</td>
               <td class="font-mono font-sm">{{ model.revision || '-' }}</td>
               <td>{{ model.local === false ? 'Remote' : 'Lokal' }}</td>
               <td>{{ model.device || '-' }}</td>
