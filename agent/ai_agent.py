@@ -168,6 +168,33 @@ def _check_token_rotation(app: Flask) -> None:
         logging.error(f"Fehler bei der Prüfung der Token-Rotation: {exc}")
 
 
+def _validate_workflow_credential_boundary(app: Flask) -> None:
+    """Fail startup when a credential crosses a workflow trust boundary."""
+
+    from agent.auth import resolve_configured_agent_token
+    from agent.services.repository_registry import get_repository_registry
+    from agent.services.workflow_worker_service_auth import (
+        registered_worker_auth_required,
+        runtime_service_keyring_configured,
+        validate_workflow_credential_disjointness,
+    )
+
+    if not registered_worker_auth_required(
+        app.config
+    ) and not runtime_service_keyring_configured(app.config):
+        return
+    with app.app_context():
+        agents = get_repository_registry(app).agent_repo.get_all() or ()
+        validate_workflow_credential_disjointness(
+            user_session_secret=app.secret_key,
+            hub_service_token=resolve_configured_agent_token(app.config),
+            worker_service_tokens=(
+                str(getattr(agent, "token", "") or "") for agent in agents
+            ),
+            config=app.config,
+        )
+
+
 def create_app(agent: str = "default", *, testing: bool = False) -> Flask:
     """Erzeugt die Flask-App fuer den Agenten (API-Server)."""
     _start_perf = time.perf_counter()
@@ -193,6 +220,11 @@ def create_app(agent: str = "default", *, testing: bool = False) -> Flask:
     run_startup_phase("runtime_state", initialize_runtime_state, app)
     run_startup_phase("extensions", load_extensions, app)
     run_startup_phase("repository_registry", initialize_repository_registry, app)
+    run_startup_phase(
+        "workflow_credential_boundary",
+        _validate_workflow_credential_boundary,
+        app,
+    )
     run_startup_phase("core_services", initialize_core_services, app)
     run_startup_phase(
         "workflow_adapter_worker_runtime",

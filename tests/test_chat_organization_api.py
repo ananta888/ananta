@@ -7,6 +7,7 @@ import pytest
 from flask import Flask
 
 from agent.routes.chat import chat_bp
+from agent.services.user_session_tokens import issue_user_access_token
 from client_surfaces.operator_tui.chat_state import make_session
 
 
@@ -37,7 +38,10 @@ def api():
     app.register_blueprint(chat_bp)
     manager = MemoryManager()
     with patch("agent.routes.chat.get_manager", return_value=manager):
-        yield app.test_client(), manager
+        client = app.test_client()
+        token = issue_user_access_token(username="admin", role="admin")
+        client.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {token}"
+        yield client, manager
 
 
 def test_folder_integrity_and_non_empty_delete(api) -> None:
@@ -116,3 +120,19 @@ def test_persisted_proposal_apply_history_and_revert(api) -> None:
     assert reverted.status_code == 200
     assert manager.data["chat_sessions"][0]["folder_id"] == ""
     assert len(client.get("/api/chat/organization/history").json) == 2
+
+
+def test_global_chat_collections_require_exact_initial_admin(api) -> None:
+    client, _ = api
+    token = issue_user_access_token(username="other-admin", role="admin")
+    headers = {"Authorization": f"Bearer {token}"}
+    responses = (
+        client.get("/api/chat/folders", headers=headers),
+        client.post("/api/chat/folders", json={"name": "X"}, headers=headers),
+        client.get("/api/chat/types", headers=headers),
+        client.post("/api/chat/types", json={"id": "x", "name": "X"}, headers=headers),
+        client.get("/api/chat/organization/snapshot", headers=headers),
+        client.post("/api/chat/sessions/ai-reorganize", headers=headers),
+    )
+    assert all(response.status_code == 403 for response in responses)
+    assert all(response.json["error_code"] == "global_chat_admin_required" for response in responses)

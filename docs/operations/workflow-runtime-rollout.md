@@ -96,11 +96,23 @@ ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_SECRET_FILE=/absolute/deployment/path/workf
 ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_SECRET_FILE=/absolute/deployment/path/workflow-auth-verification-keyring.json \
 ANANTA_WORKFLOW_DISPATCH_KEYRING_SECRET_FILE=/absolute/deployment/path/workflow-dispatch-keyring.json \
 ANANTA_WORKFLOW_HUB_TOKEN_SECRET_FILE=/absolute/deployment/path/workflow-hub-service-token \
+ANANTA_HUB_SESSION_SIGNING_KEY_SECRET_FILE=/absolute/deployment/path/workflow-hub-session-signing-key \
+ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_SECRET_FILE=/absolute/deployment/path/workflow-worker-registration-keyring.json \
+ANANTA_WORKFLOW_WORKER_ALPHA_REGISTRATION_TOKEN_SECRET_FILE=/absolute/deployment/path/workflow-worker-alpha-registration-token \
+ANANTA_WORKFLOW_WORKER_BETA_REGISTRATION_TOKEN_SECRET_FILE=/absolute/deployment/path/workflow-worker-beta-registration-token \
+ANANTA_WORKFLOW_WORKER_ALPHA_SERVICE_TOKEN_SECRET_FILE=/absolute/deployment/path/workflow-worker-alpha-service-token \
+ANANTA_WORKFLOW_WORKER_BETA_SERVICE_TOKEN_SECRET_FILE=/absolute/deployment/path/workflow-worker-beta-service-token \
+ANANTA_WORKER_ALPHA_SESSION_SIGNING_KEY_SECRET_FILE=/absolute/deployment/path/workflow-worker-alpha-session-signing-key \
+ANANTA_WORKER_BETA_SESSION_SIGNING_KEY_SECRET_FILE=/absolute/deployment/path/workflow-worker-beta-session-signing-key \
+ANANTA_WORKFLOW_RUNTIME_SERVICE_KEYRING_SECRET_FILE=/absolute/deployment/path/workflow-runtime-service-keyring.json \
+ANANTA_WORKFLOW_TEMPORAL_SERVICE_TOKEN_SECRET_FILE=/absolute/deployment/path/workflow-temporal-service-token \
+CORS_ORIGINS=https://ananta.example.invalid \
 INITIAL_ADMIN_PASSWORD=compose-validation-only \
 POSTGRES_PASSWORD=compose-validation-only \
 TEMPORAL_POSTGRES_PASSWORD=compose-validation-only \
 docker compose \
   -f docker/compose-next/compose.stack.full.yml \
+  -f docker/compose-next/compose.workflow-runtime.production.yml \
   -f docker/compose-next/compose.temporal.yml \
   -f docker/compose-next/compose.temporal.production.yml \
   --profile temporal config --quiet
@@ -263,7 +275,15 @@ projection or secret-like telemetry.
    ```bash
    curl --fail --silent --show-error \
      --header "Authorization: Bearer ${ANANTA_ACCESS_TOKEN}" \
-     'http://localhost:5000/api/workflow-runtime/operations?degraded=true&stale=true'
+     'http://localhost:5000/api/workflow-runtime/operations?health=degraded'
+   ```
+
+   The same projection can be inspected without duplicating evaluation logic:
+
+   ```bash
+   ANANTA_AUTH_TOKEN="${ANANTA_ACCESS_TOKEN}" \
+     ananta runtime operations --health degraded
+   # In the Operator TUI: :ops runtime degraded
    ```
 
    Use a short-lived operator token in a private shell. Do not paste command

@@ -5,15 +5,15 @@ without breaking existing route behavior.
 """
 from __future__ import annotations
 
-import time
-import uuid
+import hashlib
 import json
 import threading
-import hashlib
+import time
+import uuid
 from typing import Any
 
-from flask import Blueprint, Response, g, request
 import jwt
+from flask import Blueprint, Response, g, request
 
 from agent.auth import check_auth
 from agent.common.audit import log_audit
@@ -23,6 +23,11 @@ from agent.db_models import AgentSessionDB, PolicySnapshotDB, TaskDB, ToolCallDB
 from agent.routes.tasks.status import normalize_task_status
 from agent.services.repository_registry import get_repository_registry
 from agent.services.share_session_service import get_share_session_service
+from agent.services.user_token_scope import (
+    CONTROL_CENTER_STREAM_TOKEN_USE,
+    control_center_stream_identity_is_bound,
+    is_control_center_stream_token,
+)
 
 control_center_api_bp = Blueprint("control_center_api", __name__, url_prefix="/api")
 
@@ -43,6 +48,11 @@ def _repos():
 def _user_id() -> str:
     user = getattr(g, "user", {}) or {}
     return str(user.get("sub") or user.get("username") or "").strip()
+
+
+def _tenant_id() -> str:
+    user = getattr(g, "user", {}) or {}
+    return str(user.get("tenant_id") or "").strip()
 
 
 def _project_item(team: Any) -> dict[str, Any]:
@@ -174,13 +184,85 @@ def _next_event_id() -> str:
     return f"cc-{int(time.time() * 1000)}-{_EVENT_SEQUENCE}"
 
 
-def _append_event(channel: str, event_type: str, timestamp: float, payload: dict[str, Any]) -> None:
+def _session_stream_scope(session: AgentSessionDB) -> dict[str, Any]:
+    owner_user_id = str(getattr(session, "owner_user_id", "") or "").strip()
+    permissions = dict(getattr(session, "permissions", None) or {})
+    persisted_scope = permissions.get("_control_center_stream_scope")
+    if not isinstance(persisted_scope, dict):
+        persisted_scope = {}
+    persisted_user_id = str(persisted_scope.get("user_id") or "").strip()
+    persisted_tenant_id = str(persisted_scope.get("tenant_id") or "").strip()
+    tenant_id = (
+        persisted_tenant_id
+        if persisted_user_id == owner_user_id and persisted_tenant_id
+        else owner_user_id
+    )
+    return {
+        "tenant_id": tenant_id,
+        "user_id": owner_user_id,
+        "project_id": str(getattr(session, "team_id", "") or "").strip(),
+        "session_ids": (str(getattr(session, "id", "") or "").strip(),),
+    }
+
+
+def _task_stream_scopes(task: TaskDB) -> tuple[dict[str, Any], ...]:
+    grouped: dict[tuple[str, str, str], set[str]] = {}
+    for session in _repos().agent_session_repo.get_by_task_id(str(task.id or "")):
+        scope = _session_stream_scope(session)
+        if not scope["tenant_id"] or not scope["user_id"]:
+            continue
+        key = (scope["tenant_id"], scope["user_id"], scope["project_id"])
+        grouped.setdefault(key, set()).update(scope["session_ids"])
+    return tuple(
+        {
+            "tenant_id": tenant_id,
+            "user_id": user_id,
+            "project_id": project_id,
+            "session_ids": tuple(sorted(session_ids)),
+        }
+        for (tenant_id, user_id, project_id), session_ids in sorted(grouped.items())
+    )
+
+
+def _policy_stream_scopes(decision: Any) -> tuple[dict[str, Any], ...]:
+    details = dict(getattr(decision, "details", None) or {})
+    session_id = str(details.get("session_id") or "").strip()
+    if session_id:
+        session = _repos().agent_session_repo.get_by_id(session_id)
+        return (_session_stream_scope(session),) if session is not None else ()
+    task_id = str(getattr(decision, "task_id", "") or "").strip()
+    task = _repos().task_repo.get_by_id(task_id) if task_id else None
+    return _task_stream_scopes(task) if task is not None else ()
+
+
+def _append_event(
+    channel: str,
+    event_type: str,
+    timestamp: float,
+    payload: dict[str, Any],
+    *,
+    scope: dict[str, Any],
+) -> None:
     event = {
         "id": _next_event_id(),
         "channel": channel,
         "type": event_type,
         "timestamp": float(timestamp),
         "payload": payload,
+        "_scope": {
+            "tenant_id": str(scope.get("tenant_id") or "").strip(),
+            "user_id": str(scope.get("user_id") or "").strip(),
+            "project_id": str(scope.get("project_id") or "").strip(),
+            "session_ids": tuple(
+                sorted(
+                    {
+                        str(item).strip()
+                        for item in scope.get("session_ids") or ()
+                        if str(item).strip()
+                    }
+                )
+            ),
+        },
     }
     with _EVENT_COND:
         _EVENT_LOG.append(event)
@@ -199,7 +281,14 @@ def _event_poll_loop() -> None:
                 updated_at = float(getattr(task, "updated_at", 0.0) or 0.0)
                 if updated_at <= _EVENT_LAST_TASK_TS:
                     continue
-                _append_event("task", "task_updated", updated_at, _task_item(task))
+                for scope in _task_stream_scopes(task):
+                    _append_event(
+                        "task",
+                        "task_updated",
+                        updated_at,
+                        _task_item(task),
+                        scope=scope,
+                    )
                 if updated_at > _EVENT_LAST_TASK_TS:
                     _EVENT_LAST_TASK_TS = updated_at
 
@@ -209,18 +298,20 @@ def _event_poll_loop() -> None:
                 if created_at <= _EVENT_LAST_POLICY_TS:
                     continue
                 details = dict(getattr(decision, "details", None) or {})
-                _append_event(
-                    "policy",
-                    "policy_decision",
-                    created_at,
-                    {
-                        "decision_id": str(getattr(decision, "id", "") or ""),
-                        "status": str(getattr(decision, "status", "") or ""),
-                        "decision_type": str(getattr(decision, "decision_type", "") or ""),
-                        "task_id": str(getattr(decision, "task_id", "") or ""),
-                        "session_id": str(details.get("session_id") or ""),
-                    },
-                )
+                for scope in _policy_stream_scopes(decision):
+                    _append_event(
+                        "policy",
+                        "policy_decision",
+                        created_at,
+                        {
+                            "decision_id": str(getattr(decision, "id", "") or ""),
+                            "status": str(getattr(decision, "status", "") or ""),
+                            "decision_type": str(getattr(decision, "decision_type", "") or ""),
+                            "task_id": str(getattr(decision, "task_id", "") or ""),
+                            "session_id": str(details.get("session_id") or ""),
+                        },
+                        scope=scope,
+                    )
                 if created_at > _EVENT_LAST_POLICY_TS:
                     _EVENT_LAST_POLICY_TS = created_at
         except Exception:
@@ -418,7 +509,11 @@ def create_task_session(task_id: str):
 
     body = request.get_json(silent=True) or {}
     device_id = str(body.get("owner_device_id") or request.headers.get("X-Ananta-Device-Id") or "web-control-center").strip()
-    permissions = body.get("permissions") if isinstance(body.get("permissions"), dict) else {"chat": True, "view_tui": True}
+    permissions = (
+        dict(body.get("permissions"))
+        if isinstance(body.get("permissions"), dict)
+        else {"chat": True, "view_tui": True}
+    )
     session = get_share_session_service().create_session(
         owner_user_id=user_id,
         owner_device_id=device_id,
@@ -440,7 +535,13 @@ def create_task_session(task_id: str):
         mode=str(session.get("mode") or "relay"),
         transport=str(session.get("transport") or "hub_relay"),
         owner_user_id=user_id,
-        permissions=dict(session.get("permissions") or permissions or {}),
+        permissions={
+            **dict(session.get("permissions") or permissions or {}),
+            "_control_center_stream_scope": {
+                "tenant_id": _tenant_id(),
+                "user_id": user_id,
+            },
+        },
         status="running",
         created_at=float(session.get("created_at") or now),
         updated_at=now,
@@ -716,31 +817,100 @@ def preview_context_scope():
     )
 
 
+def _authorize_stream_scope(
+    *,
+    tenant_id: str,
+    user_id: str,
+    project_id: str,
+    session_id: str,
+) -> tuple[bool, str, str]:
+    """Resolve a requested stream scope only from Hub-owned session records."""
+
+    if session_id:
+        session = _repos().agent_session_repo.get_by_id(session_id)
+        if session is None:
+            return False, "", ""
+        scope = _session_stream_scope(session)
+        if scope["tenant_id"] != tenant_id or scope["user_id"] != user_id:
+            return False, "", ""
+        resolved_project = str(scope["project_id"] or "")
+        if project_id and project_id != resolved_project:
+            return False, "", ""
+        return True, project_id or resolved_project, session_id
+
+    if project_id:
+        for session in _repos().agent_session_repo.get_all() or ():
+            scope = _session_stream_scope(session)
+            if (
+                scope["tenant_id"] == tenant_id
+                and scope["user_id"] == user_id
+                and scope["project_id"] == project_id
+            ):
+                return True, project_id, ""
+        return False, "", ""
+
+    # A user-wide stream is still explicitly bound to its signed user/tenant
+    # pair and sees only events projected from that user's Hub sessions.
+    return True, "", ""
+
+
+def _event_visible_to_stream_identity(
+    event: dict[str, Any],
+    *,
+    tenant_id: str,
+    user_id: str,
+    project_id: str,
+    session_id: str,
+) -> bool:
+    scope = event.get("_scope")
+    if not isinstance(scope, dict):
+        return False
+    if str(scope.get("tenant_id") or "") != tenant_id:
+        return False
+    if str(scope.get("user_id") or "") != user_id:
+        return False
+    if project_id and str(scope.get("project_id") or "") != project_id:
+        return False
+    session_ids = {
+        str(item).strip()
+        for item in scope.get("session_ids") or ()
+        if str(item).strip()
+    }
+    return not session_id or session_id in session_ids
+
+
 @control_center_api_bp.route("/events/stream", methods=["GET"])
 @check_auth
 def stream_control_center_events():
     """B17: GET /api/events/stream central SSE feed."""
     _ensure_event_poller()
     actor = _user_id()
-    project_id_filter = str(request.args.get("project_id") or "").strip()
-    session_id_filter = str(request.args.get("session_id") or "").strip()
-    claim_project = str((getattr(g, "user", {}) or {}).get("stream_project_id") or "").strip()
-    claim_session = str((getattr(g, "user", {}) or {}).get("stream_session_id") or "").strip()
-    claim_is_stream = bool((getattr(g, "user", {}) or {}).get("cc_stream") is True)
-    if claim_is_stream:
-        if project_id_filter and claim_project and project_id_filter != claim_project:
+    tenant_id = _tenant_id()
+    claims = dict(getattr(g, "user", {}) or {})
+    if not actor or not tenant_id:
+        return api_response(status="error", message="stream_identity_required", code=403)
+
+    requested_project = str(request.args.get("project_id") or "").strip()
+    requested_session = str(request.args.get("session_id") or "").strip()
+    if is_control_center_stream_token(claims):
+        if not control_center_stream_identity_is_bound(claims):
             return api_response(status="error", message="forbidden", code=403)
-        if session_id_filter and claim_session and session_id_filter != claim_session:
+        claim_project = str(claims.get("stream_project_id") or "").strip()
+        claim_session = str(claims.get("stream_session_id") or "").strip()
+        if requested_project and requested_project != claim_project:
             return api_response(status="error", message="forbidden", code=403)
-        if not project_id_filter and claim_project:
-            project_id_filter = claim_project
-        if not session_id_filter and claim_session:
-            session_id_filter = claim_session
-    if session_id_filter:
-        session = _repos().agent_session_repo.get_by_id(session_id_filter)
-        if session is None:
-            return api_response(status="error", message="session_not_found", code=404)
-        if str(getattr(session, "owner_user_id", "") or "") != actor:
+        if requested_session and requested_session != claim_session:
+            return api_response(status="error", message="forbidden", code=403)
+        project_id_filter = claim_project
+        session_id_filter = claim_session
+    else:
+        authorized, project_id_filter, session_id_filter = _authorize_stream_scope(
+            tenant_id=tenant_id,
+            user_id=actor,
+            project_id=requested_project,
+            session_id=requested_session,
+        )
+        if not authorized:
             return api_response(status="error", message="forbidden", code=403)
     last_event_id_req = str(request.headers.get("Last-Event-ID") or request.args.get("last_event_id") or "").strip()
 
@@ -765,21 +935,21 @@ def stream_control_center_events():
                     batch = _EVENT_LOG[cursor:]
                     cursor = len(_EVENT_LOG)
             for event in batch:
-                payload = dict(event.get("payload") or {})
-                if project_id_filter:
-                    if str(event.get("type") or "") == "task_updated":
-                        if str(payload.get("project_id") or "") != project_id_filter:
-                            continue
-                    elif str(event.get("type") or "") == "policy_decision":
-                        decision_task_id = str(payload.get("task_id") or "")
-                        if decision_task_id:
-                            linked_task = _repos().task_repo.get_by_id(decision_task_id)
-                            if linked_task is None or str(getattr(linked_task, "team_id", "") or "") != project_id_filter:
-                                continue
-                if session_id_filter and str(payload.get("session_id") or "") != session_id_filter:
+                if not _event_visible_to_stream_identity(
+                    event,
+                    tenant_id=tenant_id,
+                    user_id=actor,
+                    project_id=project_id_filter,
+                    session_id=session_id_filter,
+                ):
                     continue
-                yield f"id: {event['id']}\n"
-                yield f"data: {json.dumps(event)}\n\n"
+                public_event = {
+                    key: value
+                    for key, value in event.items()
+                    if not str(key).startswith("_")
+                }
+                yield f"id: {public_event['id']}\n"
+                yield f"data: {json.dumps(public_event)}\n\n"
             yield f"data: {json.dumps({'id': _next_event_id(), 'channel': 'system', 'type': 'heartbeat', 'timestamp': now, 'payload': {}})}\n\n"
 
     return Response(generate(), mimetype="text/event-stream")
@@ -790,25 +960,32 @@ def stream_control_center_events():
 def create_stream_token():
     body = request.get_json(silent=True) or {}
     actor = _user_id()
+    tenant_id = _tenant_id()
     user_payload = dict(getattr(g, "user", {}) or {})
-    if not actor or not user_payload:
+    if not actor or not tenant_id or not user_payload:
         return api_response(status="error", message="forbidden", code=403)
     project_id = str(body.get("project_id") or "").strip() or None
     session_id = str(body.get("session_id") or "").strip() or None
-    if session_id:
-        session = _repos().agent_session_repo.get_by_id(session_id)
-        if session is None:
-            return api_response(status="error", message="session_not_found", code=404)
-        if str(getattr(session, "owner_user_id", "") or "") != actor:
-            return api_response(status="error", message="forbidden", code=403)
+    authorized, resolved_project, resolved_session = _authorize_stream_scope(
+        tenant_id=tenant_id,
+        user_id=actor,
+        project_id=project_id or "",
+        session_id=session_id or "",
+    )
+    if not authorized:
+        return api_response(status="error", message="forbidden", code=403)
     issued_at = int(time.time())
     expires_at = issued_at + 120
     token_payload = {
         "sub": actor,
+        "tenant_id": tenant_id,
         "role": str(user_payload.get("role") or "user"),
+        "token_use": CONTROL_CENTER_STREAM_TOKEN_USE,
         "cc_stream": True,
-        "stream_project_id": project_id,
-        "stream_session_id": session_id,
+        "stream_user_id": actor,
+        "stream_tenant_id": tenant_id,
+        "stream_project_id": resolved_project or None,
+        "stream_session_id": resolved_session or None,
         "iat": issued_at,
         "exp": expires_at,
     }

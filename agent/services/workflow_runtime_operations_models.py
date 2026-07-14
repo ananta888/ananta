@@ -9,9 +9,10 @@ from __future__ import annotations
 
 import re
 import time
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import Any, Iterable, Mapping
 
+from agent.services.identity_validation import require_canonical_identity
 from agent.services.workflow_runtime._serialization import redact_json
 
 RUNTIME_OPERATIONS_RECORD_SCHEMA = "ananta.workflow_runtime_operations_record.v1"
@@ -34,6 +35,28 @@ def _safe_text(value: Any, *, limit: int = 500) -> str:
 
 def _safe_id(value: Any, *, limit: int = 160) -> str:
     return _safe_text(value, limit=limit)
+
+
+def _strict_identity(
+    value: Any,
+    *,
+    field_name: str,
+    required: bool = True,
+    limit: int = 160,
+) -> str:
+    """Validate persistence and authorization identities without mutation.
+
+    Truncating or trimming an identity can make two distinct tenant/run keys
+    indistinguishable. Presentation text remains bounded by ``_safe_text``;
+    security-relevant keys instead fail closed.
+    """
+
+    return require_canonical_identity(
+        value,
+        field_name=field_name,
+        required=required,
+        max_length=limit,
+    )
 
 
 def _as_float(value: Any, default: float = 0.0) -> float:
@@ -62,6 +85,33 @@ def _string_items(value: Any) -> tuple[str, ...]:
     if not isinstance(value, (list, tuple, set, frozenset)):
         return ()
     return tuple(str(item).strip() for item in value if str(item).strip())
+
+
+def _strict_identity_items(
+    value: Any,
+    *,
+    field_name: str,
+    limit: int = 160,
+) -> tuple[str, ...]:
+    if not isinstance(value, (list, tuple, set, frozenset)):
+        return ()
+    return tuple(
+        _strict_identity(
+            item,
+            field_name=field_name,
+            limit=limit,
+        )
+        for item in value
+    )
+
+
+def _identity_alias(value: Mapping[str, Any], primary: str, fallback: str) -> Any:
+    """Resolve a compatibility alias without hiding an invalid primary value."""
+
+    primary_value = value.get(primary)
+    if primary_value not in (None, ""):
+        return primary_value
+    return value.get(fallback)
 
 
 @dataclass(frozen=True)
@@ -159,12 +209,27 @@ class RuntimeGateView:
     def from_mapping(cls, value: Mapping[str, Any]) -> "RuntimeGateView":
         expires_at = value.get("expires_at")
         return cls(
-            gate_id=_safe_id(value.get("gate_id") or value.get("id")),
+            gate_id=_strict_identity(
+                _identity_alias(value, "gate_id", "id"),
+                field_name="gate_id",
+                required=False,
+            ),
             label=_safe_text(value.get("label") or value.get("gate_id") or value.get("id"), limit=200),
             status=_safe_id(value.get("status") or "open", limit=48).lower(),
-            approval_id=_safe_id(value.get("approval_id") or value.get("approval_ref")),
+            approval_id=_strict_identity(
+                _identity_alias(value, "approval_id", "approval_ref"),
+                field_name="approval_id",
+                required=False,
+            ),
             required_evidence_refs=tuple(
-                sorted({_safe_id(item) for item in _string_items(value.get("required_evidence_refs"))})
+                sorted(
+                    set(
+                        _strict_identity_items(
+                            value.get("required_evidence_refs"),
+                            field_name="evidence_ref",
+                        )
+                    )
+                )
             ),
             allowed_commands=tuple(
                 sorted({_safe_id(item, limit=64) for item in _string_items(value.get("allowed_commands"))})
@@ -196,7 +261,11 @@ class RuntimeEvidenceView:
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any]) -> "RuntimeEvidenceView":
         return cls(
-            evidence_id=_safe_id(value.get("evidence_id") or value.get("id")),
+            evidence_id=_strict_identity(
+                _identity_alias(value, "evidence_id", "id"),
+                field_name="evidence_id",
+                required=False,
+            ),
             kind=_safe_id(value.get("kind") or value.get("type") or "runtime", limit=64),
             verification_status=_safe_id(
                 value.get("verification_status") or value.get("status") or "unverified",
@@ -272,12 +341,12 @@ class WorkflowRuntimeOperationRecord:
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any]) -> "WorkflowRuntimeOperationRecord":
-        tenant_id = _safe_id(value.get("tenant_id"))
-        run_id = _safe_id(value.get("run_id"))
+        tenant_id = _strict_identity(value.get("tenant_id"), field_name="tenant_id")
+        run_id = _strict_identity(value.get("run_id"), field_name="run_id")
         runtime = _safe_id(value.get("runtime") or value.get("runtime_kind"), limit=64).lower()
         mode = _safe_id(value.get("mode") or value.get("execution_mode"), limit=64).lower()
-        if not tenant_id or not run_id or not runtime or not mode:
-            raise ValueError("tenant_id, run_id, runtime and mode are required")
+        if not runtime or not mode:
+            raise ValueError("runtime and mode are required")
 
         capability_values = value.get("capabilities") or ()
         if isinstance(capability_values, Mapping):
@@ -290,8 +359,16 @@ class WorkflowRuntimeOperationRecord:
         return cls(
             tenant_id=tenant_id,
             run_id=run_id,
-            workflow_id=_safe_id(value.get("workflow_id")),
-            task_id=_safe_id(value.get("task_id") or value.get("hub_task_id")),
+            workflow_id=_strict_identity(
+                value.get("workflow_id"),
+                field_name="workflow_id",
+                required=False,
+            ),
+            task_id=_strict_identity(
+                _identity_alias(value, "task_id", "hub_task_id"),
+                field_name="task_id",
+                required=False,
+            ),
             runtime=runtime,
             mode=mode,
             status=_safe_id(value.get("status") or "pending", limit=64).lower(),
@@ -327,6 +404,19 @@ class WorkflowRuntimeOperationRecord:
             source_sequence=max(0, _as_int(value.get("source_sequence"))),
             explicitly_degraded=bool(value.get("degraded", False)),
         )
+
+    def validated_copy(self) -> "WorkflowRuntimeOperationRecord":
+        """Rebuild the complete record through its canonical loading boundary.
+
+        Dataclass construction is intentionally convenient for internal
+        producers, but Python does not enforce its annotations. Re-entering
+        through ``from_mapping`` validates nested gate/evidence bindings as
+        well as the tenant, run, workflow, and task identities before storage.
+        """
+
+        payload = asdict(self)
+        payload["degraded"] = payload.pop("explicitly_degraded")
+        return type(self).from_mapping(payload)
 
     @property
     def verified_evidence(self) -> tuple[RuntimeEvidenceView, ...]:

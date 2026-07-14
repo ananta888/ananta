@@ -26,8 +26,15 @@ def emit_reference_run_evidence(
     side_effect_operations: Iterable[str] = (),
     policy_decisions: Iterable[str] = ("policy.allowed",),
     budget_usage: Mapping[str, int | float] | None = None,
+    proofs: Mapping[str, str],
 ) -> None:
-    """Emit only after the caller has observed and asserted the runtime result."""
+    """Emit only explicit proofs after the caller asserted their source.
+
+    The helper deliberately has no scenario- or durability-based defaults.
+    Callers must name every proof they actually established; omitted categories
+    remain ``not_applicable`` and are evaluated by the release gate's aggregate
+    capability-coverage policy.
+    """
 
     config = load_workflow_release_gate_config()
     requirement = config.requirement_for(runtime_id)
@@ -47,14 +54,15 @@ def emit_reference_run_evidence(
         raise AssertionError("release_evidence_required_side_effect_not_observed")
     if not set(scenario.invariants.required_policy_decisions).issubset(policies):
         raise AssertionError("release_evidence_required_policy_not_observed")
-    proofs = {category: "not_applicable" for category in PROOF_CATEGORIES}
-    proofs.update({"port": "passed", "security": "passed", "event": "passed", "artifact": "passed"})
-    if durable or scenario.scenario_id == "research":
-        proofs.update({"recovery": "passed", "checkpoint": "passed"})
-    if scenario.invariants.required_gates:
-        proofs["approval"] = "passed"
-    if scenario.invariants.side_effect_operations:
-        proofs["ledger"] = "passed"
+    explicit_proofs = {str(key): str(value) for key, value in proofs.items()}
+    if set(explicit_proofs) - set(PROOF_CATEGORIES):
+        raise AssertionError("release_evidence_proof_category_unknown")
+    if set(explicit_proofs.values()) - {"passed", "failed", "incompatible"}:
+        raise AssertionError("release_evidence_proof_status_invalid")
+    normalized_proofs = {
+        category: explicit_proofs.get(category, "not_applicable")
+        for category in PROOF_CATEGORIES
+    }
     observation = RuntimeObservation(
         runtime_id=runtime_id,
         terminal_status=terminal_status,
@@ -75,5 +83,5 @@ def emit_reference_run_evidence(
         capabilities=requirement.capabilities,
         durable=durable,
         observation=observation,
-        proofs=proofs,
+        proofs=normalized_proofs,
     )

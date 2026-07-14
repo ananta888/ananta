@@ -9,12 +9,12 @@ from typing import Any, Callable
 from jsonschema import Draft202012Validator
 
 from agent.artifacts.goal_artifact_service import GoalArtifactService
+from agent.services.planning_summary_engine import PlanningSummaryEngine
 from agent.services.planning_track_contract_service import (
     planning_contract_hash,
     planning_contract_ref,
     unwrap_planning_track_payload,
 )
-from agent.services.planning_summary_engine import PlanningSummaryEngine
 from agent.services.planning_utils import extract_json_payload
 
 _ROOT = Path(__file__).resolve().parents[2]
@@ -57,7 +57,9 @@ def _diff_summary_fields(before: dict[str, Any], after: dict[str, Any]) -> list[
     return fields
 
 
-def load_track_schema(*, schema_ref: str | None = None, schema_store: dict[str, dict[str, Any]] | None = None) -> dict[str, Any]:
+def load_track_schema(
+    *, schema_ref: str | None = None, schema_store: dict[str, dict[str, Any]] | None = None
+) -> dict[str, Any]:
     ref = str(schema_ref or planning_contract_ref()["schema_ref"]).strip()
     if schema_store and ref in schema_store:
         return dict(schema_store[ref])
@@ -115,6 +117,16 @@ def validate_summary_consistency(payload: dict[str, Any], *, repair_mode: bool =
     computed_progress = dict(computed_candidate.get("progress_summary") or {})
     computed_weighted = dict(computed_candidate.get("weighted_progress_summary") or {})
     computed_metadata = dict(computed_candidate.get("derived_summary_metadata") or {})
+    if (
+        provided_metadata.get("source_hash") == computed_metadata.get("source_hash")
+        and str(provided_metadata.get("generated_at") or "").strip()
+    ):
+        # A matching source hash means the cache was generated from the same
+        # source-of-truth bytes. Preserve its timestamp so validation and the
+        # migration doctor are idempotent; deterministic metadata changes
+        # (generator version, stale flag, etc.) remain visible below.
+        computed_metadata["generated_at"] = provided_metadata["generated_at"]
+        computed_candidate["derived_summary_metadata"] = computed_metadata
 
     issues: list[dict[str, str]] = []
 
@@ -166,9 +178,7 @@ def validate_summary_consistency(payload: dict[str, Any], *, repair_mode: bool =
     old_summary_hash = _stable_hash(before_blocks)
     new_summary_hash = _stable_hash(after_blocks)
     recalculation_status = (
-        "repaired"
-        if issues and repair_mode
-        else ("recalculated" if changed_fields else "not_needed")
+        "repaired" if issues and repair_mode else ("recalculated" if changed_fields else "not_needed")
     )
 
     if issues and repair_mode:
@@ -226,7 +236,18 @@ def evaluate_planning_quality_gates(
             continue
         acceptance = [str(item).strip() for item in list(task.get("acceptance_criteria") or []) if str(item).strip()]
         acceptance_text = " ".join(acceptance).lower()
-        testable_tokens = ("test", "assert", "verify", "check", "must", "should", "command", "endpoint", "file", "artifact")
+        testable_tokens = (
+            "test",
+            "assert",
+            "verify",
+            "check",
+            "must",
+            "should",
+            "command",
+            "endpoint",
+            "file",
+            "artifact",
+        )
         if not acceptance or not any(token in acceptance_text for token in testable_tokens):
             _warn(
                 "quality_p1_acceptance_not_testable",
@@ -260,10 +281,13 @@ def evaluate_planning_quality_gates(
 
 
 def build_planning_repair_prompt(*, raw_output: str, issues: list[dict[str, str]]) -> str:
-    issue_lines = "\n".join(
-        f"- path={item.get('path')} reason_code={item.get('reason_code')} message={item.get('human_message')}"
-        for item in list(issues or [])
-    ) or "- none"
+    issue_lines = (
+        "\n".join(
+            f"- path={item.get('path')} reason_code={item.get('reason_code')} message={item.get('human_message')}"
+            for item in list(issues or [])
+        )
+        or "- none"
+    )
     return (
         "Repair this planning track output.\n"
         "Return JSON only. No markdown fences.\n"
@@ -304,7 +328,11 @@ def persist_planning_track_result(
     schema_store: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     service = goal_artifact_service or GoalArtifactService()
-    artifact_refs = [str(item.get("source_ref") or item.get("artifact_ref") or "").strip() for item in list(available_artifacts or []) if isinstance(item, dict)]
+    artifact_refs = [
+        str(item.get("source_ref") or item.get("artifact_ref") or "").strip()
+        for item in list(available_artifacts or [])
+        if isinstance(item, dict)
+    ]
     context_hash = _stable_hash({"goal_id": goal_id, "artifact_refs": sorted([ref for ref in artifact_refs if ref])})
     usage_tracking = service.validate_and_record_context_usages(
         goal_id=goal_id,
@@ -325,7 +353,13 @@ def persist_planning_track_result(
             if isinstance(loaded, dict):
                 candidate = loaded
             else:
-                parse_errors.append({"path": "$", "reason_code": "invalid_shape", "human_message": "Planning output must be a JSON object."})
+                parse_errors.append(
+                    {
+                        "path": "$",
+                        "reason_code": "invalid_shape",
+                        "human_message": "Planning output must be a JSON object.",
+                    }
+                )
         except json.JSONDecodeError as exc:
             parse_errors.append({"path": "$", "reason_code": "invalid_json", "human_message": str(exc)})
 
@@ -338,14 +372,26 @@ def persist_planning_track_result(
             parsed_json = extract_json_payload(raw_output)
             parse_errors = []
             if not parsed_json:
-                parse_errors.append({"path": "$", "reason_code": "non_json_output", "human_message": "No JSON payload found after repair."})
+                parse_errors.append(
+                    {
+                        "path": "$",
+                        "reason_code": "non_json_output",
+                        "human_message": "No JSON payload found after repair.",
+                    }
+                )
             else:
                 try:
                     loaded = json.loads(parsed_json)
                     if isinstance(loaded, dict):
                         candidate = loaded
                     else:
-                        parse_errors.append({"path": "$", "reason_code": "invalid_shape", "human_message": "Planning output must be a JSON object."})
+                        parse_errors.append(
+                            {
+                                "path": "$",
+                                "reason_code": "invalid_shape",
+                                "human_message": "Planning output must be a JSON object.",
+                            }
+                        )
                 except json.JSONDecodeError as exc:
                     parse_errors.append({"path": "$", "reason_code": "invalid_json", "human_message": str(exc)})
 
@@ -375,7 +421,9 @@ def persist_planning_track_result(
             if str(item).strip()
         ]
         repaired_fields = sorted(set(repaired_fields))
-        summary_recalculation_status = str(summary_result.get("summary_recalculation_status") or summary_recalculation_status)
+        summary_recalculation_status = str(
+            summary_result.get("summary_recalculation_status") or summary_recalculation_status
+        )
         if summary_recalculation_status == "not_needed" and repaired_fields:
             summary_recalculation_status = "recalculated"
         old_summary_hash = str(summary_result.get("old_summary_hash") or "")
@@ -403,6 +451,8 @@ def persist_planning_track_result(
     output_id = f"out-{hashlib.sha1(f'{goal_id}:{task_id}:{raw_output}'.encode('utf-8')).hexdigest()[:14]}"
     payload_hash = _stable_hash(payload if payload else {"raw_output": raw_output})
     provenance_id = f"prov-{hashlib.sha1(f'{goal_id}:{task_id}:{payload_hash}'.encode('utf-8')).hexdigest()[:16]}"
+    execution_source = f"{goal_id}:{task_id}:planning-track".encode("utf-8")
+    execution_id = f"exec-{hashlib.sha1(execution_source).hexdigest()[:14]}"
 
     output_ref = output_id
     service.upsert_execution_provenance(
@@ -412,7 +462,7 @@ def persist_planning_track_result(
             "provenance_id": provenance_id,
             "goal_id": goal_id,
             "task_id": task_id,
-            "execution_id": f"exec-{hashlib.sha1(f'{goal_id}:{task_id}:planning-track'.encode('utf-8')).hexdigest()[:14]}",
+            "execution_id": execution_id,
             "worker_id": worker_id,
             "worker_kind": "planner",
             "runtime_target_ref": {"runtime_type": "ananta-worker", "location": "local"},

@@ -138,6 +138,12 @@ def test_temporal_executes_every_durable_reference_scenario_ten_times() -> None:
                         },
                         artifact_ids=required_artifacts,
                         policy_decisions=scenarios[scenario_id].invariants.required_policy_decisions,
+                        proofs={
+                            "artifact": "passed",
+                            "event": "passed",
+                            "port": "passed",
+                            "security": "passed",
+                        },
                     )
 
             for iteration in range(1, 11):
@@ -198,6 +204,14 @@ def test_temporal_executes_every_durable_reference_scenario_ten_times() -> None:
                     gate_ids={"publish-approval"},
                     side_effect_operations={"publish-artifact"},
                     policy_decisions=scenarios["approval"].invariants.required_policy_decisions,
+                    proofs={
+                        "approval": "passed",
+                        "artifact": "passed",
+                        "event": "passed",
+                        "ledger": "passed",
+                        "port": "passed",
+                        "security": "passed",
+                    },
                 )
 
             gateway.submission_delay_seconds = 0.01
@@ -252,6 +266,12 @@ def test_temporal_executes_every_durable_reference_scenario_ten_times() -> None:
                     policy_decisions=(
                         scenarios["bounded-parallel-merge"].invariants.required_policy_decisions
                     ),
+                    proofs={
+                        "artifact": "passed",
+                        "event": "passed",
+                        "port": "passed",
+                        "security": "passed",
+                    },
                 )
             assert gateway.max_active_submissions == 2
             gateway.submission_delay_seconds = 0
@@ -336,6 +356,15 @@ def test_temporal_executes_every_durable_reference_scenario_ten_times() -> None:
                     policy_decisions=(
                         scenarios["long-running-resume"].invariants.required_policy_decisions
                     ),
+                    proofs={
+                        "approval": "passed",
+                        "artifact": "passed",
+                        "checkpoint": "passed",
+                        "event": "passed",
+                        "port": "passed",
+                        "recovery": "passed",
+                        "security": "passed",
+                    },
                 )
 
     asyncio.run(scenario())

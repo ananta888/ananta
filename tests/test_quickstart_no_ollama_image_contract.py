@@ -20,6 +20,8 @@ def test_quickstart_entrypoint_supports_single_image_roles_and_openai_guard() ->
     assert "set -euo pipefail" in entrypoint
     assert "ANANTA_QUICKSTART_MODE" in entrypoint
     assert "ANANTA_QUICKSTART_ROLE" in entrypoint
+    assert "ANANTA_FRONTEND_DISABLE_HOST_CHECK" in entrypoint
+    assert "command+=(--disable-host-check)" in entrypoint
     assert "single-container" in entrypoint
     assert "agent-only" in entrypoint
     assert "evolver_bridge" in entrypoint

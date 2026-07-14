@@ -130,6 +130,7 @@ from .workflow_runtime import (
     WorkflowRuntimeRolloutAuditDB,
     WorkflowRuntimeRolloutPolicyDB,
     WorkflowSideEffectLedgerDB,
+    WorkflowWorkerAssignmentDB,
 )
 
 __all__ = [
@@ -207,6 +208,7 @@ __all__ = [
     "WorkflowCommandNonceDB",
     "WorkflowExecutionAttemptHistoryDB",
     "WorkflowExecutionOwnershipDB",
+    "WorkflowWorkerAssignmentDB",
     "WorkflowProviderBudgetDB",
     "WorkflowProviderBudgetReservationDB",
     "WorkflowRetryBudgetDB",

@@ -177,6 +177,38 @@ class WorkflowExecutionAttemptHistoryDB(SQLModel, table=True):
     ownership: dict[str, Any] = Field(sa_column=Column(sa.JSON, nullable=False))
 
 
+class WorkflowWorkerAssignmentDB(SQLModel, table=True):
+    """Hub-issued binding from one fenced lease to one registered Worker."""
+
+    __tablename__ = "workflow_worker_assignments"
+    __table_args__ = (
+        sa.UniqueConstraint(
+            "tenant_id",
+            "run_id",
+            "step_id",
+            name="uq_workflow_worker_assignment_step",
+        ),
+        sa.Index(
+            "ix_workflow_worker_assignment_worker",
+            "worker_id",
+            "worker_url",
+        ),
+    )
+
+    id: str = Field(primary_key=True)
+    tenant_id: str = Field(index=True)
+    workflow_id: str = Field(index=True)
+    run_id: str = Field(index=True)
+    step_id: str = Field(index=True)
+    attempt_id: str = Field(index=True)
+    fencing_token: int
+    hub_task_id: str = Field(index=True)
+    worker_id: str = Field(index=True)
+    worker_url: str
+    revision: int = 1
+    assigned_at: float = Field(index=True)
+
+
 class WorkflowRetryBudgetDB(SQLModel, table=True):
     """One combined retry counter for all runtime layers of a run."""
 

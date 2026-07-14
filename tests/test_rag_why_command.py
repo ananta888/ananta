@@ -19,7 +19,13 @@ def app():
 
 @pytest.fixture
 def client(app):
-    return app.test_client()
+    from agent.config import settings
+    from agent.services.user_session_tokens import issue_user_access_token
+
+    client = app.test_client()
+    token = issue_user_access_token(username=settings.initial_admin_user, role="admin")
+    client.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {token}"
+    return client
 
 
 # ── _snake_retrieval_dry_run unit tests ───────────────────────────────────────

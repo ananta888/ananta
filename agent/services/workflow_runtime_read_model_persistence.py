@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from agent.db_models.workflow_runtime import WorkflowRuntimeReadModelDB
+from agent.services.identity_validation import require_canonical_identity
 from agent.services.workflow_runtime_operations_models import WorkflowRuntimeOperationRecord
 
 
@@ -21,6 +22,7 @@ class SQLAlchemyWorkflowRuntimeReadModelRepository:
         self._engine = engine
 
     def upsert(self, record: WorkflowRuntimeOperationRecord) -> WorkflowRuntimeOperationRecord:
+        record = record.validated_copy()
         payload = _serialize(record)
         row_id = _row_id(record.tenant_id, record.run_id)
         for _ in range(2):
@@ -96,15 +98,13 @@ class SQLAlchemyWorkflowRuntimeReadModelRepository:
         raise RuntimeError("runtime_read_model_concurrent_upsert_failed")
 
     def get(self, *, tenant_id: str, run_id: str) -> WorkflowRuntimeOperationRecord | None:
-        normalized_tenant = str(tenant_id or "").strip()
-        normalized_run = str(run_id or "").strip()
-        if not normalized_tenant or not normalized_run:
-            return None
+        validated_tenant = require_canonical_identity(tenant_id, field_name="tenant_id")
+        validated_run = require_canonical_identity(run_id, field_name="run_id")
         with Session(self._engine) as session:
             row = session.exec(
                 select(WorkflowRuntimeReadModelDB).where(
-                    WorkflowRuntimeReadModelDB.tenant_id == normalized_tenant,
-                    WorkflowRuntimeReadModelDB.run_id == normalized_run,
+                    WorkflowRuntimeReadModelDB.tenant_id == validated_tenant,
+                    WorkflowRuntimeReadModelDB.run_id == validated_run,
                 )
             ).first()
             return _deserialize(row) if row is not None else None
@@ -114,13 +114,11 @@ class SQLAlchemyWorkflowRuntimeReadModelRepository:
         *,
         tenant_id: str,
     ) -> tuple[WorkflowRuntimeOperationRecord, ...]:
-        normalized = str(tenant_id or "").strip()
-        if not normalized:
-            return ()
+        validated_tenant = require_canonical_identity(tenant_id, field_name="tenant_id")
         with Session(self._engine) as session:
             rows = session.exec(
                 select(WorkflowRuntimeReadModelDB)
-                .where(WorkflowRuntimeReadModelDB.tenant_id == normalized)
+                .where(WorkflowRuntimeReadModelDB.tenant_id == validated_tenant)
                 .order_by(
                     WorkflowRuntimeReadModelDB.updated_at.desc(),
                     WorkflowRuntimeReadModelDB.run_id,

@@ -21,6 +21,10 @@ from agent.services.workflow_runtime import (
     WorkflowCommandVerifier,
     WorkflowState,
 )
+from agent.services.workflow_worker_assignment_service import (
+    InMemoryWorkflowWorkerAssignmentStore,
+    WorkflowWorkerAssignment,
+)
 from ananta_contracts.langgraph_checkpoint import (
     LANGGRAPH_CHECKPOINT_COMMAND_SCHEMA,
     LangGraphCheckpointBinding,
@@ -44,7 +48,7 @@ def checkpoint_runtime():
         workflow_id="workflow-a",
         run_id="run-a",
         step_id="task-a",
-        owner_id="worker-a",
+        owner_id="workflow-adapter-task-queue",
         lease_seconds=600,
         maximum_retries=3,
         now=clock.value,
@@ -72,6 +76,21 @@ def checkpoint_runtime():
         "authorization_envelope": envelope.to_dict(),
     }
     store = InMemoryCheckpointStore()
+    assignments = InMemoryWorkflowWorkerAssignmentStore()
+    assignments.bind(
+        WorkflowWorkerAssignment(
+            tenant_id="tenant-a",
+            workflow_id="workflow-a",
+            run_id="run-a",
+            step_id="task-a",
+            attempt_id=claim.ownership.attempt_id,
+            fencing_token=claim.ownership.fencing_token,
+            hub_task_id="workflow-adapter-task-1",
+            worker_id="worker-a",
+            worker_url="http://worker-a:5000",
+            assigned_at=clock.value,
+        )
+    )
     service = LangGraphCheckpointGatewayService(
         checkpoints=store,
         ownership=ownership,
@@ -81,6 +100,7 @@ def checkpoint_runtime():
             key_ring,
             InMemoryReplayNonceStore(clock=clock),
         ),
+        assignments=assignments,
         clock=clock,
     )
     return service, store, ownership, key_ring, clock, binding
@@ -100,6 +120,31 @@ def _command(operation: str, binding: dict, **values) -> dict:
         "binding": binding,
         **values,
     }
+
+
+def test_authenticated_langgraph_worker_must_own_checkpoint_lease(
+    checkpoint_runtime,
+) -> None:
+    service, _store, _ownership, _key_ring, _clock, binding = checkpoint_runtime
+    command = _command("get", binding, config=_config())
+
+    accepted = service.execute(
+        command,
+        authenticated_worker_id="worker-a",
+        authenticated_worker_url="http://worker-a:5000",
+    )
+    assert accepted["snapshot"] is None
+
+    with pytest.raises(LangGraphCheckpointGatewayError) as foreign:
+        service.execute(
+            command,
+            authenticated_worker_id="worker-b",
+            authenticated_worker_url="http://worker-b:5000",
+        )
+    assert foreign.value.status_code == 403
+    assert foreign.value.reason_code == (
+        "langgraph_checkpoint_authenticated_owner_mismatch"
+    )
 
 
 def _put(service, binding: dict, checkpoint_id: str, revision: int, **checkpoint_values):

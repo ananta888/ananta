@@ -21,7 +21,16 @@ def test_doctor_detects_legacy_epics_and_returns_convert_preview(tmp_path: Path)
         "risk_scale": ["low", "medium", "high"],
         "milestones": [],
         "epics": [{"id": "E1", "title": "Epic", "tasks": [{"title": "Task from epic"}]}],
-        "tasks_status_summary": {"total": 0, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
+        "tasks_status_summary": {
+            "total": 0,
+            "by_status": {
+                "todo": 0,
+                "in_progress": 0,
+                "partial": 0,
+                "blocked": 0,
+                "done": 0,
+            },
+        },
     }
     target = tmp_path / "legacy.json"
     target.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -42,7 +51,16 @@ def test_fix_converts_legacy_epics_to_flat_tasks(tmp_path: Path) -> None:
         "risk_scale": ["low", "medium", "high"],
         "milestones": [],
         "epics": [{"id": "E1", "title": "Epic", "tasks": [{"title": "Task from epic"}]}],
-        "tasks_status_summary": {"total": 0, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
+        "tasks_status_summary": {
+            "total": 0,
+            "by_status": {
+                "todo": 0,
+                "in_progress": 0,
+                "partial": 0,
+                "blocked": 0,
+                "done": 0,
+            },
+        },
     }
     target = tmp_path / "legacy.json"
     target.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -68,7 +86,16 @@ def test_migrate_track_todos_can_skip_or_convert_legacy_epics(tmp_path: Path) ->
         "risk_scale": ["low", "medium", "high"],
         "milestones": [],
         "epics": [{"id": "E1", "title": "Epic", "tasks": [{"title": "Task from epic"}]}],
-        "tasks_status_summary": {"total": 0, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
+        "tasks_status_summary": {
+            "total": 0,
+            "by_status": {
+                "todo": 0,
+                "in_progress": 0,
+                "partial": 0,
+                "blocked": 0,
+                "done": 0,
+            },
+        },
     }
     (todos / "legacy.json").write_text(json.dumps(legacy, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -82,3 +109,28 @@ def test_migrate_track_todos_can_skip_or_convert_legacy_epics(tmp_path: Path) ->
     assert converted_rows["legacy.json"]["changed"] is True
     repaired = json.loads((todos / "legacy.json").read_text(encoding="utf-8"))
     assert isinstance(repaired.get("tasks"), list) and repaired["tasks"]
+
+
+def test_migrate_track_todos_ignores_all_archive_and_kritis_directories(
+    tmp_path: Path,
+) -> None:
+    todos = tmp_path / "todos"
+    todos.mkdir(parents=True)
+    payload = _small_track_payload()
+    (todos / "active.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    for directory_name in ("archive", "archiv", "kritis"):
+        directory = todos / directory_name
+        directory.mkdir()
+        (directory / "ignored.json").write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+    report = migrate_track_todos(repo_root=tmp_path, dry_run=True)
+
+    assert report["scanned"] == 1
+    assert report["track_files"] == 1
+    assert Path(report["results"][0]["path"]).name == "active.json"

@@ -4,8 +4,12 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
 from typing import Any
+
+from ananta_contracts.file_credentials import (
+    FileCredentialConfigurationError,
+    read_file_managed_bytes,
+)
 
 from agent.services.workflow_runtime.events import CanonicalWorkflowEvent, EventStore
 from agent.services.workflow_runtime.telemetry import (
@@ -57,15 +61,24 @@ def _read_headers_file() -> dict[str, str]:
     raw_path = str(os.environ.get("ANANTA_WORKFLOW_OTEL_HEADERS_FILE") or "").strip()
     if not raw_path:
         return {}
-    path = Path(raw_path)
-    if not path.is_absolute():
+    if not os.path.isabs(raw_path):
         raise WorkflowTelemetryError("opentelemetry_headers_file_must_be_absolute")
     try:
-        raw = path.read_bytes()
-    except OSError as exc:
-        raise WorkflowTelemetryError("opentelemetry_headers_file_unreadable") from exc
-    if not raw or len(raw) > 32_768:
-        raise WorkflowTelemetryError("opentelemetry_headers_file_invalid")
+        raw = read_file_managed_bytes(
+            raw_path,
+            description="OpenTelemetry headers file",
+            max_bytes=32_768,
+        )
+    except FileCredentialConfigurationError as exc:
+        # Keep the pre-existing public reason categories stable while the shared
+        # reader enforces no-follow, single-link, trusted-owner, safe-mode,
+        # bounded-read and mutation checks without exposing the configured path.
+        reason_code = (
+            "opentelemetry_headers_file_unreadable"
+            if isinstance(exc.__cause__, (OSError, ValueError))
+            else "opentelemetry_headers_file_invalid"
+        )
+        raise WorkflowTelemetryError(reason_code) from exc
     try:
         decoded: Any = json.loads(raw.decode("utf-8"))
     except (UnicodeError, json.JSONDecodeError) as exc:

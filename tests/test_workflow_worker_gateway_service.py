@@ -18,6 +18,10 @@ from agent.services.workflow_runtime import (
     InMemorySideEffectLedger,
     RuntimeAuthorizationEnvelope,
 )
+from agent.services.workflow_worker_assignment_service import (
+    InMemoryWorkflowWorkerAssignmentStore,
+    WorkflowWorkerAssignment,
+)
 from agent.services.workflow_worker_gateway_service import (
     WorkflowToolApprovalDecision,
     WorkflowToolDescriptor,
@@ -113,7 +117,7 @@ def fixture() -> tuple[
         workflow_id="workflow-1",
         run_id="run-1",
         step_id="step-1",
-        owner_id="worker-1",
+        owner_id="hub-native:run-1:step-1",
         lease_seconds=300,
         maximum_retries=3,
         now=now,
@@ -123,6 +127,21 @@ def fixture() -> tuple[
     grants = InMemoryWorkflowAuthorizationGrantService(clock=lambda: now + 1)
     grants.grant(envelope)
     approvals = _DigestBoundApprovals()
+    assignments = InMemoryWorkflowWorkerAssignmentStore()
+    assignments.bind(
+        WorkflowWorkerAssignment(
+            tenant_id="tenant-1",
+            workflow_id="workflow-1",
+            run_id="run-1",
+            step_id="step-1",
+            attempt_id=claim.ownership.attempt_id,
+            fencing_token=claim.ownership.fencing_token,
+            hub_task_id="hub-task-1",
+            worker_id="worker-1",
+            worker_url="http://worker-1:5000",
+            assigned_at=now,
+        )
+    )
     service = WorkflowWorkerGatewayService(
         authorization=AuthorizationVerifier(key_ring, InMemoryReplayNonceStore()),
         ownership=ownership,
@@ -132,6 +151,7 @@ def fixture() -> tuple[
         authorization_revalidator=grants,
         tool_approvals=approvals,
         tool_descriptors=_HubToolDescriptors(),
+        assignments=assignments,
         clock=lambda: now + 1,
     )
     binding = {
@@ -200,6 +220,43 @@ def test_hub_authorizes_and_completes_one_fenced_tool_side_effect() -> None:
         "workflow.side_effect.started",
         "workflow.side_effect.completed",
     }
+
+
+def test_authenticated_worker_identity_must_own_the_exact_active_lease() -> None:
+    service, base, _events, _ledger, _approvals = fixture()
+    command = {
+        **base,
+        "command": "authorize_execution",
+        "adapter_kind": "native",
+    }
+
+    accepted = service.execute(
+        command,
+        authenticated_worker_id="worker-1",
+        authenticated_worker_url="http://worker-1:5000",
+    )
+    assert accepted["allowed"] is True
+
+    with pytest.raises(WorkflowWorkerGatewayError) as foreign:
+        service.execute(
+            command,
+            authenticated_worker_id="worker-2",
+            authenticated_worker_url="http://worker-2:5000",
+        )
+    assert foreign.value.status_code == 403
+    assert foreign.value.reason_code == (
+        "workflow_worker_authenticated_owner_mismatch"
+    )
+
+    with pytest.raises(WorkflowWorkerGatewayError) as incomplete:
+        service.execute(
+            command,
+            authenticated_worker_id="worker-1",
+        )
+    assert incomplete.value.status_code == 403
+    assert incomplete.value.reason_code == (
+        "workflow_worker_authenticated_identity_invalid"
+    )
 
 
 def test_write_tool_approval_is_digest_and_task_bound_before_ledger_claim() -> None:

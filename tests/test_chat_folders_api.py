@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from agent.ai_agent import create_app
+from agent.services.user_session_tokens import issue_user_access_token
 
 # ── Fixtures ──────────────────────────────────────────────────────────────
 
@@ -22,6 +23,8 @@ def app():
 @pytest.fixture
 def client(app):
     with app.test_client() as c:
+        token = issue_user_access_token(username="admin", role="admin")
+        c.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {token}"
         yield c
 
 

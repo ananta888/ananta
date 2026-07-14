@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from agent.ai_agent import create_app
+from agent.services.user_session_tokens import issue_user_access_token
 
 # ── Fixtures ──────────────────────────────────────────────────────────────
 
@@ -20,6 +21,8 @@ def app():
 @pytest.fixture
 def client(app):
     with app.test_client() as c:
+        token = issue_user_access_token(username="admin", role="admin")
+        c.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {token}"
         yield c
 
 
@@ -29,6 +32,11 @@ def client(app):
 def _default_session(session_id: str, name: str = "") -> dict:
     """Minimal session dict for tests — mirrors make_session output shape."""
     return {"id": session_id, "name": name or session_id, "settings": {}, "system_prompt": "", "icon": "💬"}
+
+
+def _auth_headers(username: str) -> dict[str, str]:
+    token = issue_user_access_token(username=username, role="admin")
+    return {"Authorization": f"Bearer {token}"}
 
 
 @contextmanager
@@ -237,3 +245,68 @@ def test_activate_session_not_found(client):
     with sessions_ctx([s1]):
         r = client.post("/api/chat/sessions/non-existent/activate")
     assert r.status_code == 404
+
+
+def test_generic_session_routes_require_user_authentication(app):
+    anonymous = app.test_client()
+    assert anonymous.get("/api/chat/sessions").status_code == 401
+    assert anonymous.post("/api/chat/sessions", json={"id": "x", "name": "X"}).status_code == 401
+    assert anonymous.get("/api/chat/sessions/x").status_code == 401
+    assert anonymous.patch("/api/chat/sessions/x", json={"name": "X"}).status_code == 401
+    assert anonymous.delete("/api/chat/sessions/x").status_code == 401
+    assert anonymous.post("/api/chat/sessions/x/activate").status_code == 401
+
+
+def test_foreign_session_is_hidden_from_every_session_control_path(client):
+    foreign = _default_session("private")
+    foreign["owner_principal"] = {"tenant_id": "owner", "subject_id": "owner"}
+    foreign["process_ref"] = {"graph_id": "foreign-graph", "version": "latest"}
+    own = _default_session("intruder-own")
+    own["owner_principal"] = {"tenant_id": "intruder", "subject_id": "intruder"}
+    headers = _auth_headers("intruder")
+    with sessions_ctx([foreign, own]):
+        listed = client.get("/api/chat/sessions", headers=headers)
+        fetched = client.get("/api/chat/sessions/private", headers=headers)
+        updated = client.patch("/api/chat/sessions/private", json={"name": "stolen"}, headers=headers)
+        activated = client.post("/api/chat/sessions/private/activate", headers=headers)
+        process = client.get("/api/chat/sessions/private/process", headers=headers)
+        context = client.get("/api/chat/sessions/private/context-overview", headers=headers)
+        summary = client.post(
+            "/api/chat/sessions/private/summarize",
+            json={"messages": [{"text": "secret"}]},
+            headers=headers,
+        )
+        preview = client.post(
+            "/api/chat/sessions/private/prompt-preview",
+            json={"message": "secret"},
+            headers=headers,
+        )
+        deleted = client.delete("/api/chat/sessions/private", headers=headers)
+    assert [item["id"] for item in listed.json] == ["intruder-own"]
+    assert all(
+        response.status_code == 404
+        for response in (fetched, updated, activated, process, context, summary, preview, deleted)
+    )
+
+
+def test_cross_tenant_session_id_reservation_is_fail_closed(client):
+    foreign = _default_session("reserved")
+    foreign["owner_principal"] = {"tenant_id": "owner", "subject_id": "owner"}
+    with sessions_ctx([foreign]):
+        response = client.post(
+            "/api/chat/sessions",
+            json={"id": "reserved", "name": "Collision"},
+            headers=_auth_headers("intruder"),
+        )
+    assert response.status_code == 409
+    assert response.json == {"error": "Session with ID 'reserved' already exists"}
+
+
+def test_session_owner_metadata_is_never_returned(client):
+    owned = _default_session("owned")
+    owned["owner_principal"] = {"tenant_id": "admin", "subject_id": "admin"}
+    with sessions_ctx([owned]):
+        listed = client.get("/api/chat/sessions")
+        fetched = client.get("/api/chat/sessions/owned")
+    assert "owner_principal" not in listed.json[0]
+    assert "owner_principal" not in fetched.json

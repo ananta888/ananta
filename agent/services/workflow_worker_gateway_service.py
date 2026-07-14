@@ -31,6 +31,9 @@ from agent.services.workflow_runtime import (
     side_effect_event,
 )
 from agent.services.workflow_runtime.errors import WorkflowRuntimeError
+from agent.services.workflow_worker_assignment_service import (
+    WorkflowWorkerAssignmentStore,
+)
 from ananta_contracts.hub_task_gateway import RETRY_BUDGET_RECEIPT_SCHEMA
 from ananta_contracts.workflow_operation import operation_id_for
 from ananta_contracts.workflow_worker_gateway import (
@@ -135,6 +138,7 @@ class WorkflowWorkerGatewayService:
         authorization_revalidator: HubAuthorizationRevalidationPort | None = None,
         tool_approvals: WorkflowToolApprovalPort | None = None,
         tool_descriptors: WorkflowToolDescriptorPort | None = None,
+        assignments: WorkflowWorkerAssignmentStore | None = None,
         clock=time.time,
     ) -> None:
         self._authorization = authorization
@@ -151,9 +155,16 @@ class WorkflowWorkerGatewayService:
         self._tool_descriptors = (
             tool_descriptors or UnavailableWorkflowToolDescriptorService()
         )
+        self._assignments = assignments
         self._clock = clock
 
-    def execute(self, raw: Mapping[str, Any]) -> dict[str, Any]:
+    def execute(
+        self,
+        raw: Mapping[str, Any],
+        *,
+        authenticated_worker_id: str = "",
+        authenticated_worker_url: str = "",
+    ) -> dict[str, Any]:
         if str(raw.get("schema") or "") != WORKFLOW_WORKER_COMMAND_SCHEMA:
             raise WorkflowWorkerGatewayError("workflow_worker_command_invalid", status_code=400)
         command = str(raw.get("command") or "")
@@ -163,6 +174,13 @@ class WorkflowWorkerGatewayService:
             binding = WorkflowWorkerBinding.from_mapping(raw.get("binding"))
         except WorkflowWorkerContractError as exc:
             raise WorkflowWorkerGatewayError(exc.reason_code, status_code=422) from exc
+
+        self._assert_authenticated_worker_owns_lease(
+            binding,
+            raw,
+            authenticated_worker_id=authenticated_worker_id,
+            authenticated_worker_url=authenticated_worker_url,
+        )
 
         try:
             if command == "consume_retry":
@@ -188,6 +206,84 @@ class WorkflowWorkerGatewayService:
             reason = str(exc) or "workflow_worker_command_denied"
             status = 422 if isinstance(exc, ValueError) and not isinstance(exc, WorkflowRuntimeError) else 409
             raise WorkflowWorkerGatewayError(reason, status_code=status) from exc
+
+    def _assert_authenticated_worker_owns_lease(
+        self,
+        binding: WorkflowWorkerBinding,
+        raw: Mapping[str, Any],
+        *,
+        authenticated_worker_id: str,
+        authenticated_worker_url: str,
+    ) -> None:
+        """Bind a scoped bearer to the Hub lease before any command decision."""
+
+        worker_id = str(authenticated_worker_id or "").strip()
+        worker_url = str(authenticated_worker_url or "").strip()
+        if not worker_id and not worker_url:
+            # Backward-compatible direct composition outside strict Worker auth.
+            return
+        if (
+            not worker_id
+            or not worker_url
+            or len(worker_id) > 256
+            or len(worker_url) > 2_048
+            or "\x00" in worker_id
+            or "\x00" in worker_url
+        ):
+            raise WorkflowWorkerGatewayError(
+                "workflow_worker_authenticated_identity_invalid",
+                status_code=403,
+            )
+        ownership = self._ownership.get(
+            tenant_id=binding.tenant_id,
+            run_id=binding.run_id,
+            step_id=binding.step_id,
+        )
+        if ownership is None:
+            raise WorkflowWorkerGatewayError(
+                "execution_ownership_not_found",
+                status_code=404,
+            )
+        try:
+            fencing_token = int(raw.get("fencing_token"))
+        except (TypeError, ValueError) as exc:
+            raise WorkflowWorkerGatewayError(
+                "workflow_worker_fencing_invalid",
+                status_code=422,
+            ) from exc
+        attempt_id = self._attempt_id(raw)
+        if (
+            ownership.workflow_id != binding.workflow_id
+            or ownership.attempt_id != attempt_id
+            or ownership.fencing_token != fencing_token
+            or ownership.status != "active"
+            or ownership.lease_expires_at <= float(self._clock())
+        ):
+            raise WorkflowWorkerGatewayError(
+                "workflow_worker_fencing_mismatch"
+            )
+        if self._assignments is None:
+            raise WorkflowWorkerGatewayError(
+                "workflow_worker_assignment_store_unavailable",
+                status_code=503,
+            )
+        assignment = self._assignments.get(
+            tenant_id=binding.tenant_id,
+            run_id=binding.run_id,
+            step_id=binding.step_id,
+        )
+        if (
+            assignment is None
+            or assignment.workflow_id != binding.workflow_id
+            or assignment.attempt_id != ownership.attempt_id
+            or assignment.fencing_token != ownership.fencing_token
+            or assignment.worker_id != worker_id
+            or assignment.worker_url != worker_url
+        ):
+            raise WorkflowWorkerGatewayError(
+                "workflow_worker_authenticated_owner_mismatch",
+                status_code=403,
+            )
 
     def _reserve_provider_budget(
         self,

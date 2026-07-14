@@ -13,6 +13,7 @@ import { AgentDirectoryService } from './agent-directory.service';
 import { SnakeGuideService, GuideStep } from './snake-guide.service';
 import { UiSnapshotService } from './ui-snapshot.service';
 import { PredictionGateService } from './prediction-gate.service';
+import { UserAuthService } from './user-auth.service';
 
 /** Static route → guide steps for proactive navigation hints. */
 const ROUTE_GUIDE_TIPS: Record<string, GuideStep[]> = {
@@ -51,6 +52,7 @@ export class UiStateSyncService implements OnDestroy {
   private snake    = inject(AiSnakeChatService);
   private dir      = inject(AgentDirectoryService);
   private http     = inject(HttpClient);
+  private auth     = inject(UserAuthService);
   private guide    = inject(SnakeGuideService);
   private snapshot = inject(UiSnapshotService);
   private gate     = inject(PredictionGateService);
@@ -76,7 +78,10 @@ export class UiStateSyncService implements OnDestroy {
       if (snakeId && hubUrl) {
         const visible = this.getVisibleWaypoints();
         const token   = this.snake.getSnakeToken();
-        const headers = new HttpHeaders().set('Authorization', `Bearer ${token}`);
+        let headers = new HttpHeaders().set('Authorization', `Bearer ${token}`);
+        if (this.auth.token) {
+          headers = headers.set('X-Ananta-User-Authorization', `Bearer ${this.auth.token}`);
+        }
         this.http.put(
           `${hubUrl}/snakes/${encodeURIComponent(snakeId)}/ui-state`,
           { route: state.route, active_surface: state.activeSurface, visible_waypoints: visible, ui_snapshot: uiSnapshot },

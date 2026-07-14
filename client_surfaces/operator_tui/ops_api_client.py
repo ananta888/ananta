@@ -24,6 +24,15 @@ class OpsApiClient:
     def compose_projects(self) -> dict[str, Any]:
         return self._get("/api/ops/compose/projects")
 
+    def workflow_runtime_operations(self, *, health: str = "") -> dict[str, Any]:
+        query = urllib.parse.urlencode({"health": health}) if health else ""
+        suffix = f"?{query}" if query else ""
+        return self._get(f"/api/workflow-runtime/operations{suffix}")
+
+    def workflow_runtime_run(self, run_id: str) -> dict[str, Any]:
+        encoded = urllib.parse.quote(str(run_id), safe="")
+        return self._get(f"/api/workflow-runtime/operations/runs/{encoded}")
+
     def snapshot(self, workspace_id: str = "repo") -> dict[str, Any]:
         git = self.git_status(workspace_id)
         docker = self.docker_status()

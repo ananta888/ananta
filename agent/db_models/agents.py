@@ -17,6 +17,11 @@ class AgentInfoDB(SQLModel, table=True):
     runtime_targets: List[dict] = Field(default=[], sa_column=Column(JSON))
     execution_limits: dict = Field(default={}, sa_column=Column(JSON))
     registration_validated: bool = True
+    registration_provenance: str = "legacy"
+    authorized_capabilities: List[str] = Field(
+        default_factory=list,
+        sa_column=Column(JSON),
+    )
     validation_errors: List[str] = Field(default=[], sa_column=Column(JSON))
     validated_at: Optional[float] = None
     last_seen: float = Field(default_factory=time.time)

@@ -59,8 +59,8 @@ def test_export_bpmn_xml_roundtrips_visual_graph():
 
 
 def test_graph_to_workflow_request_requires_policy_scope():
-    from agent.visual_process.bpmn_adapter import import_bpmn_xml
     from agent.visual_process.blueprint_mapper import graph_to_workflow_request
+    from agent.visual_process.bpmn_adapter import import_bpmn_xml
 
     graph = import_bpmn_xml(_simple_bpmn()).graph
 
@@ -81,8 +81,8 @@ def test_graph_to_workflow_request_requires_policy_scope():
 def test_local_workflow_backend_models_start_signal_and_cancel():
     from agent.services.local_workflow_backend import LocalWorkflowBackend
     from agent.services.workflow_backend import WorkflowSignal
-    from agent.visual_process.bpmn_adapter import import_bpmn_xml
     from agent.visual_process.blueprint_mapper import graph_to_workflow_request
+    from agent.visual_process.bpmn_adapter import import_bpmn_xml
 
     graph = import_bpmn_xml(_simple_bpmn()).graph
     workflow = graph_to_workflow_request(graph, policy_scope={"source": "test"})
@@ -102,8 +102,8 @@ def test_local_workflow_backend_models_start_signal_and_cancel():
 
 def test_local_workflow_backend_exposes_active_running_step():
     from agent.services.local_workflow_backend import LocalWorkflowBackend
-    from agent.visual_process.models import VisualProcessGraph, VisualProcessStep
     from agent.visual_process.blueprint_mapper import graph_to_workflow_request
+    from agent.visual_process.models import VisualProcessGraph, VisualProcessStep
 
     graph = VisualProcessGraph(
         id="wf-active",
@@ -121,9 +121,30 @@ def test_local_workflow_backend_exposes_active_running_step():
     assert any(event["event_type"] == "step_started" for event in status["events"])
 
 
-def test_visual_process_bpmn_and_workflow_routes():
+def test_visual_process_bpmn_and_workflow_routes(
+    monkeypatch,
+    workflow_runtime_auth_keyring_file,
+):
     from flask import Flask
+
     from agent.routes.visual_process import vp_bp
+    from agent.services.workflow_control_composition import (
+        reset_workflow_backend_control_facade,
+    )
+    from agent.services.workflow_route_authorization_service import (
+        workflow_route_authorization_service,
+    )
+
+    del workflow_runtime_auth_keyring_file
+    monkeypatch.setenv("ANANTA_ORCHESTRATION_BACKEND", "local")
+    # BPMN conversion and legacy route compatibility are the concern here.
+    # Dedicated rollout tests retain mandatory scopes and fail-closed policy.
+    monkeypatch.setattr(
+        "agent.services.workflow_control_composition._production_rollout_policies",
+        lambda: None,
+    )
+    reset_workflow_backend_control_facade()
+    workflow_route_authorization_service.clear()
 
     app = Flask(__name__)
     app.config["TESTING"] = True

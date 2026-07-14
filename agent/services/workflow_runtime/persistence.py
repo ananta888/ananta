@@ -8,6 +8,7 @@ import threading
 from pathlib import Path
 from typing import Protocol
 
+from agent.services.identity_validation import require_canonical_identity
 from agent.services.workflow_runtime._serialization import canonical_json
 from agent.services.workflow_runtime.errors import FencingTokenError, OptimisticConcurrencyError
 from agent.services.workflow_runtime.events import CanonicalWorkflowEvent, EventStore
@@ -17,11 +18,9 @@ from agent.services.workflow_runtime.security import SignedCheckpoint
 class CheckpointStore(Protocol):
     """Atomic state/checkpoint storage owned by the hub control plane."""
 
-    def save(self, checkpoint: SignedCheckpoint, *, expected_revision: int) -> SignedCheckpoint:
-        ...
+    def save(self, checkpoint: SignedCheckpoint, *, expected_revision: int) -> SignedCheckpoint: ...
 
-    def get_latest(self, *, tenant_id: str, run_id: str, task_id: str) -> SignedCheckpoint | None:
-        ...
+    def get_latest(self, *, tenant_id: str, run_id: str, task_id: str) -> SignedCheckpoint | None: ...
 
 
 class InMemoryCheckpointStore:
@@ -62,8 +61,7 @@ class InMemoryCheckpointStore:
     def list_history(self, *, tenant_id: str, run_id: str, task_id: str) -> tuple[SignedCheckpoint, ...]:
         with self._lock:
             return tuple(
-                _clone_checkpoint(value)
-                for value in self._history.get((str(tenant_id), str(run_id), str(task_id)), ())
+                _clone_checkpoint(value) for value in self._history.get((str(tenant_id), str(run_id), str(task_id)), ())
             )
 
 
@@ -183,12 +181,24 @@ class SQLiteEventStore(_SQLiteStore, EventStore):
         after_sequence: int = 0,
         limit: int | None = None,
     ) -> tuple[CanonicalWorkflowEvent, ...]:
+        validated_tenant_id = require_canonical_identity(
+            tenant_id,
+            field_name="tenant_id",
+        )
+        validated_run_id = require_canonical_identity(
+            run_id,
+            field_name="run_id",
+        )
         query = """
             SELECT event_json FROM workflow_runtime_events
             WHERE tenant_id = ? AND run_id = ? AND sequence > ?
             ORDER BY sequence ASC
         """
-        parameters: list[object] = [str(tenant_id), str(run_id), int(after_sequence)]
+        parameters: list[object] = [
+            validated_tenant_id,
+            validated_run_id,
+            int(after_sequence),
+        ]
         if limit is not None:
             query += " LIMIT ?"
             parameters.append(max(0, int(limit)))

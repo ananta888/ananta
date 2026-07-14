@@ -138,6 +138,8 @@ def test_http_gateway_sends_bearer_in_header_and_never_uses_query(monkeypatch) -
                 "method": request.method,
                 "url": request.full_url,
                 "authorization": request.headers.get("Authorization"),
+                "worker_id": request.headers.get("X-ananta-worker-id"),
+                "worker_url": request.headers.get("X-ananta-worker-url"),
                 "body": json.loads(bytes(request.data or b"{}").decode("utf-8")),
             }
         )
@@ -147,12 +149,16 @@ def test_http_gateway_sends_bearer_in_header_and_never_uses_query(monkeypatch) -
     gateway = HttpLangGraphCheckpointGateway(
         hub_url="http://hub:8000",
         bearer_token=_SERVICE_TOKEN,
+        worker_id="langgraph-worker-1",
+        worker_url="http://langgraph-worker:5000",
     )
 
     assert gateway.get(binding=_binding(), config=_config()) is None
     assert captured["method"] == "POST"
     assert "?" not in captured["url"]
     assert captured["authorization"] == f"Bearer {_SERVICE_TOKEN}"
+    assert captured["worker_id"] == "langgraph-worker-1"
+    assert captured["worker_url"] == "http://langgraph-worker:5000"
     assert captured["body"]["binding"]["authorization_envelope"] == {"schema": "signed-envelope"}
 
 

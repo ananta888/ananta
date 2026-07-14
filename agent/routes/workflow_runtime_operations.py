@@ -8,6 +8,7 @@ from flask import Blueprint, g, jsonify, request
 from werkzeug.exceptions import RequestEntityTooLarge
 
 from agent.auth import check_strict_auth, get_request_auth_context
+from agent.services.identity_validation import IdentityValidationError, require_canonical_identity
 from agent.services.workflow_runtime_command_service import (
     RuntimeOperationCommandError,
     RuntimeOperationCommandRequest,
@@ -25,6 +26,7 @@ workflow_runtime_operations_bp = Blueprint(
 )
 
 _MAX_COMMAND_BYTES = 16 * 1024
+_MAX_IDENTITY_LENGTH = 160
 _COMMAND_FIELDS = frozenset({"type", "command_type", "approval_id", "evidence_refs", "idempotency_key"})
 
 
@@ -32,16 +34,38 @@ def _identity() -> tuple[str, str]:
     claims: dict[str, Any] = dict(get_request_auth_context() or {})
     if not claims and bool(getattr(g, "is_admin", False)):
         return "system", "hub"
-    actor = str(claims.get("sub") or claims.get("username") or "").strip()[:160]
-    tenant_id = str(
+    raw_actor = claims.get("sub") or claims.get("username") or ""
+    raw_tenant_id = (
         claims.get("tenant_id")
         or claims.get("tenant")
         or claims.get("organization_id")
         or ""
-    ).strip()[:160]
-    if not actor or not tenant_id:
+    )
+    try:
+        actor = require_canonical_identity(
+            raw_actor,
+            field_name="actor",
+            max_length=_MAX_IDENTITY_LENGTH,
+        )
+        tenant_id = require_canonical_identity(
+            raw_tenant_id,
+            field_name="tenant_id",
+            max_length=_MAX_IDENTITY_LENGTH,
+        )
+    except IdentityValidationError:
         raise ValueError("workflow_runtime_identity_required")
     return tenant_id, actor
+
+
+def _run_identity(value: str) -> str:
+    try:
+        return require_canonical_identity(
+            value,
+            field_name="run_id",
+            max_length=_MAX_IDENTITY_LENGTH,
+        )
+    except IdentityValidationError:
+        raise ValueError("runtime_run_not_found")
 
 
 def _identity_error():
@@ -74,9 +98,13 @@ def get_runtime_operation(run_id: str):
         tenant_id, _ = _identity()
     except ValueError:
         return _identity_error()
+    try:
+        canonical_run_id = _run_identity(run_id)
+    except ValueError:
+        return jsonify({"status": "error", "reason_code": "runtime_run_not_found"}), 404
     payload = get_workflow_runtime_read_model_service().get_run(
         tenant_id=tenant_id,
-        run_id=str(run_id).strip(),
+        run_id=canonical_run_id,
     )
     if payload is None:
         # A cross-tenant identifier is intentionally indistinguishable from a
@@ -111,31 +139,38 @@ def send_runtime_operation_command(run_id: str):
     except ValueError:
         return _identity_error()
     try:
+        canonical_run_id = _run_identity(run_id)
         command_request = RuntimeOperationCommandRequest.from_mapping(
             body,
             idempotency_key=str(request.headers.get("Idempotency-Key") or ""),
         )
         command = get_workflow_runtime_command_service().dispatch(
             tenant_id=tenant_id,
-            run_id=str(run_id).strip(),
+            run_id=canonical_run_id,
             actor=actor,
             request=command_request,
         )
+    except ValueError:
+        return jsonify({"status": "error", "reason_code": "runtime_run_not_found"}), 404
     except RuntimeOperationCommandError as exc:
         return jsonify({"status": "error", "reason_code": exc.reason_code}), exc.http_status
     command_status = str(command.get("status") or "")
     if command_status == "rejected_by_policy":
-        return jsonify({
-            "status": "error",
-            "reason_code": "runtime_command_rejected_by_hub_policy",
-            "command": command,
-        }), 422
+        return jsonify(
+            {
+                "status": "error",
+                "reason_code": "runtime_command_rejected_by_hub_policy",
+                "command": command,
+            }
+        ), 422
     if command_status == "failed":
-        return jsonify({
-            "status": "error",
-            "reason_code": "runtime_command_hub_dispatch_failed",
-            "command": command,
-        }), 502
+        return jsonify(
+            {
+                "status": "error",
+                "reason_code": "runtime_command_hub_dispatch_failed",
+                "command": command,
+            }
+        ), 502
     return jsonify({"status": "ok", "command": command}), 202
 
 

@@ -168,7 +168,9 @@
       "tests": [
         "tests/test_workflow_runtime_security_and_evolution.py::test_authorization_tamper_rotation_revocation_and_write_revalidation_fail_closed",
         "tests/test_workflow_hub_task_gateway_service.py::test_submit_revalidates_encrypts_ledgers_and_enqueues",
-        "tests/test_workflow_runtime_operations_api.py::test_cross_tenant_detail_is_not_disclosed_and_invalid_filters_are_rejected"
+        "tests/test_workflow_runtime_operations_api.py::test_cross_tenant_detail_is_not_disclosed_and_invalid_filters_are_rejected",
+        "tests/security/workflow_runtime/test_workflow_worker_assignment_service.py::test_langgraph_dispatch_binds_queue_lease_and_rejects_worker_handoff",
+        "tests/security/workflow_runtime/test_workflow_worker_assignment_service.py::test_strict_runtime_reloads_hub_selected_worker_from_registry"
       ]
     },
     {
@@ -281,11 +283,13 @@
       "prevention": [
         "Tenant scope is part of every storage key, authorization envelope, provider context and read-model query.",
         "Provider cache keys include tenant, policy, model and prompt version; telemetry hashes tenant identifiers.",
-        "Angular receives only Hub-redacted read models and never connects to workers or Temporal directly."
+        "Angular receives only Hub-redacted read models and never connects to workers or Temporal directly.",
+        "Production Native and LangGraph identities receive distinct named workspace volumes instead of the Hub host bind; the Temporal Activity Worker receives no workspace mount."
       ],
       "detection": [
         "Cross-tenant storage, provider, projection and API reads fail closed.",
-        "Telemetry and stream payload validators reject secret-bearing or oversized shapes."
+        "Telemetry and stream payload validators reject secret-bearing or oversized shapes.",
+        "The mandatory merged Compose-config gate rejects a Worker host bind, a shared Worker workspace source or any Temporal workspace mount."
       ],
       "audit": [
         "Record tenant-safe correlation hashes and denied boundary, never raw credentials or cross-tenant object contents.",
@@ -294,7 +298,8 @@
       "tests": [
         "tests/test_workflow_retrieval_contract.py::test_cross_tenant_source_is_rejected",
         "tests/test_workflow_runtime_telemetry.py::test_telemetry_fails_closed_on_cross_tenant_context",
-        "tests/test_temporal_history_projection.py::test_projection_rejects_cross_tenant_read"
+        "tests/test_temporal_history_projection.py::test_projection_rejects_cross_tenant_read",
+        "tests/security/workflow_runtime/test_combined_production_compose.py::test_combined_production_runtime_stack_preserves_one_least_privilege_hub_union"
       ]
     },
     {
@@ -343,7 +348,9 @@
       ],
       "tests": [
         "tests/test_workflow_runtime_operations_api.py::test_operations_read_model_filters_degraded_stale_and_never_claims_unverified_success",
-        "tests/test_workflow_runtime_operations_api.py::test_runtime_commands_require_bound_verified_evidence_and_approval"
+        "tests/test_workflow_runtime_operations_api.py::test_runtime_commands_require_bound_verified_evidence_and_approval",
+        "tests/test_workflow_runtime_cli_tui_projection.py::test_cli_operations_reads_hub_projection_and_preserves_unverified_outcome",
+        "tests/test_workflow_runtime_cli_tui_projection.py::test_tui_runtime_operations_uses_authenticated_hub_contract"
       ]
     },
     {
@@ -381,26 +388,42 @@
       "severity": "critical",
       "status": "verified",
       "trust_boundaries": [
+        "TB-01",
+        "TB-03",
         "TB-05",
         "TB-06",
         "TB-07"
       ],
       "prevention": [
-        "Production Compose mounts separate Hub-private Ed25519 signing, Worker-public verification, dispatch and Hub service credentials from required external files; values never enter Compose YAML or environment variables.",
+        "Production Compose mounts separate Hub-private Ed25519 signing, Worker-public verification, dispatch, Hub-admin, per-Worker registration/service/session and scoped Temporal service credentials from required external files; values never enter Compose YAML or environment variables.",
         "Only the Hub receives authorization signing and dispatch keyrings; Native, LangGraph and Temporal workers receive public verification keys that reject private or legacy symmetric fields.",
-        "File-managed agent tokens require an absolute bounded regular file with safe write permissions, reject inline conflicts and query strings; authorization keyrings use no-follow descriptor opens, fstat validation and bounded descriptor reads; internal runtime routes require an agent service credential and reject user/admin JWTs."
+        "The Hub registration keyring binds Worker ID, URL, service-token fingerprint, session-key fingerprint and an explicit allowed_capabilities set; only strict_registration_keyring_v1 provenance may authenticate scoped Worker routes, while legacy database rows fail closed.",
+        "File-managed credentials require an absolute bounded regular file with one hardlink, trusted ownership and safe write permissions; inline conflicts and long-lived service credentials in query strings are rejected. The only query-token exceptions are short-lived, purpose-bound user derivatives with exact tenant/user and stream-resource binding on GET /api/events/stream and the AI-Snake event stream. Authorization keyrings and OpenTelemetry exporter headers use no-follow descriptor opens, fstat validation and bounded descriptor reads; internal runtime routes require an identity-bound scoped service credential and reject user/admin JWTs.",
+        "Strict production startup rejects wildcard or missing credentialed CORS origins and rejects reuse across Hub session, Hub service, Worker registration/service/session and runtime-service trust domains."
       ],
       "detection": [
         "Missing, malformed, conflicting or unsafe credentials and verification files fail closed with a stable configuration reason; legacy shared HMAC is disabled by default.",
-        "The mandatory merged Compose-config gate proves that no Worker or Temporal service mounts Hub signing material before a production deployment."
+        "The mandatory merged Compose-config gate proves that no Worker or Temporal service mounts Hub signing material before a production deployment.",
+        "Symlinked, hardlinked, writable, oversized or malformed OpenTelemetry header files fail before exporter construction."
       ],
       "audit": [
         "Record only the stable authentication configuration reason and affected boundary; never record the token, keyring contents or signed envelope.",
-        "Treat any Worker signing-key mount, unexpected dispatch-key consumer, accepted user JWT on an internal route or credential-bearing probe as a release-blocking boundary violation."
+        "Treat any Worker signing-key mount, unexpected dispatch-key consumer, accepted user JWT on an internal route, unsafe telemetry header file or credential-bearing probe as a release-blocking boundary violation."
       ],
       "tests": [
         "tests/test_agent_token_file_auth.py::test_unsafe_file_token_configuration_fails_closed",
         "tests/test_agent_token_file_auth.py::test_file_managed_service_token_is_never_accepted_from_query_string",
+        "tests/test_auth_scenarios.py::test_file_managed_service_auth_allows_only_bound_stream_user_query_token",
+        "tests/security/workflow_runtime/test_file_credentials.py::test_secure_file_reader_rejects_symlink_and_hardlink",
+        "tests/security/workflow_runtime/test_production_cors_policy.py::test_real_application_import_fails_closed_for_strict_wildcard_cors",
+        "tests/security/workflow_runtime/test_registered_worker_service_auth.py::test_registered_worker_token_is_identity_bound_scoped_and_never_admin",
+        "tests/security/workflow_runtime/test_registered_worker_service_auth.py::test_strict_boundary_rejects_user_session_secret_reuse_in_every_domain",
+        "tests/security/workflow_runtime/test_registered_worker_service_auth.py::test_application_startup_runs_complete_credential_boundary",
+        "tests/security/workflow_runtime/test_agent_token_file_security.py::test_agent_token_file_rejects_symlink_without_disclosing_secret",
+        "tests/security/workflow_runtime/test_secret_key_file_security.py::test_config_import_fails_closed_for_unsafe_explicit_secret_key_file",
+        "tests/security/workflow_runtime/test_workflow_telemetry_headers_file_security.py::test_otel_headers_reader_rejects_symlink_without_disclosing_secret",
+        "tests/security/workflow_runtime/test_workflow_telemetry_headers_file_security.py::test_otel_headers_reader_rejects_hardlinked_source",
+        "tests/security/workflow_runtime/test_workflow_telemetry_headers_file_security.py::test_otel_headers_reader_rejects_oversized_file_before_json_decode",
         "tests/test_workflow_hub_task_gateway_runtime.py::test_production_hub_rejects_legacy_shared_hmac_without_explicit_dev_flag",
         "tests/test_workflow_hub_task_gateway_runtime.py::test_production_hub_rejects_symlinked_signing_keyring",
         "tests/test_workflow_hub_task_gateway_runtime.py::test_production_hub_rejects_group_or_world_writable_signing_keyring",
@@ -408,9 +431,10 @@
         "tests/test_native_graph_verify_only_authorization.py::test_worker_public_key_loader_rejects_private_key_fields",
         "tests/test_workflow_runtime_internal_api.py::test_internal_gateway_rejects_even_admin_user_jwt",
         "tests/test_langgraph_checkpoint_internal_api.py::test_checkpoint_api_rejects_user_jwt",
-        "tests/security/workflow_runtime/test_native_production_compose.py::test_native_workers_receive_public_verification_but_never_hub_signing_key",
+        "tests/security/workflow_runtime/test_native_production_compose.py::test_native_hub_and_workers_have_disjoint_least_privilege_secret_matrix",
+        "tests/security/workflow_runtime/test_combined_production_compose.py::test_combined_production_runtime_stack_preserves_one_least_privilege_hub_union",
         "tests/security/workflow_runtime/test_workflow_runtime_production_compose.py::test_production_overlay_uses_external_file_secrets_only",
-        "tests/security/workflow_runtime/test_workflow_runtime_production_compose.py::test_temporal_worker_gets_verification_and_hub_credentials_but_not_dispatch_key"
+        "tests/security/workflow_runtime/test_workflow_runtime_production_compose.py::test_temporal_worker_gets_public_verification_and_scoped_service_credential"
       ]
     }
   ],

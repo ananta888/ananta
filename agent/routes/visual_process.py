@@ -35,12 +35,14 @@ from dataclasses import replace
 from flask import Blueprint, Response, jsonify, request, stream_with_context
 from sqlmodel import Session, select
 
-from agent.auth import check_strict_auth
+from agent.auth import check_strict_auth, check_user_auth, get_request_auth_context
 from agent.common.audit import log_audit
 from agent.common.errors import api_response
 from agent.common.redaction import VisibilityLevel, redact
 from agent.database import engine
 from agent.db_models.visual_process import VisualProcessGraphDB
+from agent.services.chat_process_binding import authorize_graph, bind_graph_owner, public_graph
+from agent.services.chat_session_security import ChatSessionPrincipal
 from agent.services.workflow_backend import WorkflowRequest, WorkflowSignal
 from agent.services.workflow_route_authorization_service import workflow_route_authorization_service
 from agent.services.workflow_runtime._serialization import redact_json
@@ -76,6 +78,28 @@ from .workflow_control_security import (
 
 vp_bp = Blueprint("visual_process", __name__, url_prefix="/api/visual-process")
 _validator = VisualProcessValidator()
+
+
+def _graph_principal() -> ChatSessionPrincipal | None:
+    identity = dict(get_request_auth_context() or {})
+    subject = identity.get("sub") or identity.get("username")
+    tenant_id = (
+        identity.get("tenant_id")
+        or identity.get("tenant")
+        or identity.get("organization_id")
+        or subject
+    )
+    try:
+        return ChatSessionPrincipal.from_values(tenant_id, subject)
+    except ValueError:
+        return None
+
+
+def _owned_graph_model(
+    graph: VisualProcessGraph,
+    principal: ChatSessionPrincipal,
+) -> VisualProcessGraph:
+    return VisualProcessGraph.model_validate(bind_graph_owner(graph.model_dump(), principal))
 
 
 def _next_process_version(version: str) -> str:
@@ -281,6 +305,7 @@ def validate():
 
 
 @vp_bp.post("/dry-run")
+@check_user_auth
 def dry_run():
     graph, err = _parse_graph()
     if err:
@@ -315,6 +340,7 @@ def dry_run():
 
 
 @vp_bp.post("/model-routing/validate")
+@check_user_auth
 def validate_model_routing():
     graph, err = _parse_graph()
     if err:
@@ -325,6 +351,7 @@ def validate_model_routing():
 
 
 @vp_bp.post("/model-routing/estimate-cost")
+@check_user_auth
 def estimate_model_cost():
     graph, err = _parse_graph()
     if err:
@@ -337,10 +364,15 @@ def estimate_model_cost():
 
 
 @vp_bp.post("/graphs")
+@check_user_auth
 def save_graph():
+    principal = _graph_principal()
+    if principal is None:
+        return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
     graph, err = _parse_graph()
     if err:
         return jsonify(err), 400
+    graph = _owned_graph_model(graph, principal)
     now = time.time()
     row = VisualProcessGraphDB(
         id=graph.id,
@@ -354,8 +386,16 @@ def save_graph():
     with Session(engine) as session:
         existing = session.get(VisualProcessGraphDB, graph.id)
         if existing:
+            try:
+                previous = json.loads(existing.graph_json)
+            except (TypeError, ValueError):
+                return jsonify({"error": "not_found"}), 404
+            authorized, migrated = authorize_graph(previous, principal)
+            if not authorized:
+                return jsonify({"error": "resource_id_unavailable", "error_code": "resource_id_unavailable"}), 409
+            if migrated:
+                existing.graph_json = json.dumps(previous)
             _archive_graph_revision(session, existing)
-            previous = json.loads(existing.graph_json)
             if previous != graph.model_dump():
                 graph = graph.model_copy(
                     update={"version": _next_process_version(str(previous.get("version") or graph.version))}
@@ -374,51 +414,100 @@ def save_graph():
 
 
 @vp_bp.get("/graphs")
+@check_user_auth
 def list_graphs():
+    principal = _graph_principal()
+    if principal is None:
+        return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
     with Session(engine) as session:
         rows = session.exec(select(VisualProcessGraphDB)).all()
-    rows_sorted = sorted(rows, key=lambda r: r.updated_at, reverse=True)
+        visible: list[tuple[VisualProcessGraphDB, dict]] = []
+        changed = False
+        for row in rows:
+            try:
+                graph_data = json.loads(row.graph_json)
+            except (TypeError, ValueError):
+                continue
+            authorized, migrated = authorize_graph(graph_data, principal)
+            if not authorized:
+                continue
+            if migrated:
+                row.graph_json = json.dumps(graph_data)
+                session.add(row)
+                changed = True
+            visible.append((row, graph_data))
+        if changed:
+            session.commit()
+            for row, _ in visible:
+                session.refresh(row)
+    rows_sorted = sorted(visible, key=lambda item: item[0].updated_at, reverse=True)
     return jsonify(
         [
             {
-                "id": r.id,
-                "name": r.name,
-                "description": r.description,
-                "tags": [t for t in r.tags.split(",") if t],
-                "updated_at": r.updated_at,
-                "created_at": r.created_at,
-                "version": str((json.loads(r.graph_json) if r.graph_json else {}).get("version") or "1.0"),
-                "origin": "revision" if "@" in r.id else "custom",
+                "id": row.id,
+                "name": row.name,
+                "description": row.description,
+                "tags": [tag for tag in row.tags.split(",") if tag],
+                "updated_at": row.updated_at,
+                "created_at": row.created_at,
+                "version": str(graph_data.get("version") or "1.0"),
+                "origin": "revision" if "@" in row.id else "custom",
             }
-            for r in rows_sorted
+            for row, graph_data in rows_sorted
         ]
     ), 200
 
 
 @vp_bp.get("/graphs/<graph_id>")
+@check_user_auth
 def load_graph(graph_id: str):
-    with Session(engine) as session:
-        row = session.get(VisualProcessGraphDB, graph_id)
-    if not row:
-        return jsonify({"error": "not_found"}), 404
-    try:
-        data = json.loads(row.graph_json)
-    except Exception:
-        return jsonify({"error": "corrupt_graph_json"}), 500
-    return jsonify(data), 200
-
-
-@vp_bp.put("/graphs/<graph_id>")
-def update_graph(graph_id: str):
-    graph, err = _parse_graph()
-    if err:
-        return jsonify(err), 400
+    principal = _graph_principal()
+    if principal is None:
+        return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
     with Session(engine) as session:
         row = session.get(VisualProcessGraphDB, graph_id)
         if not row:
             return jsonify({"error": "not_found"}), 404
+        try:
+            data = json.loads(row.graph_json)
+        except Exception:
+            return jsonify({"error": "corrupt_graph_json"}), 500
+        authorized, migrated = authorize_graph(data, principal)
+        if not authorized:
+            return jsonify({"error": "not_found"}), 404
+        if migrated:
+            row.graph_json = json.dumps(data)
+            session.add(row)
+            session.commit()
+    return jsonify(public_graph(data)), 200
+
+
+@vp_bp.put("/graphs/<graph_id>")
+@check_user_auth
+def update_graph(graph_id: str):
+    principal = _graph_principal()
+    if principal is None:
+        return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
+    graph, err = _parse_graph()
+    if err:
+        return jsonify(err), 400
+    if graph.id != graph_id:
+        return jsonify({"error": "graph_id_mismatch", "error_code": "graph_id_mismatch"}), 400
+    graph = _owned_graph_model(graph, principal)
+    with Session(engine) as session:
+        row = session.get(VisualProcessGraphDB, graph_id)
+        if not row:
+            return jsonify({"error": "not_found"}), 404
+        try:
+            previous = json.loads(row.graph_json)
+        except (TypeError, ValueError):
+            return jsonify({"error": "not_found"}), 404
+        authorized, migrated = authorize_graph(previous, principal)
+        if not authorized:
+            return jsonify({"error": "not_found"}), 404
+        if migrated:
+            row.graph_json = json.dumps(previous)
         _archive_graph_revision(session, row)
-        previous = json.loads(row.graph_json)
         if previous != graph.model_dump():
             graph = graph.model_copy(
                 update={"version": _next_process_version(str(previous.get("version") or graph.version))}
@@ -434,10 +523,20 @@ def update_graph(graph_id: str):
 
 
 @vp_bp.delete("/graphs/<graph_id>")
+@check_user_auth
 def delete_graph(graph_id: str):
+    principal = _graph_principal()
+    if principal is None:
+        return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
     with Session(engine) as session:
         row = session.get(VisualProcessGraphDB, graph_id)
         if not row:
+            return jsonify({"error": "not_found"}), 404
+        try:
+            data = json.loads(row.graph_json)
+        except (TypeError, ValueError):
+            return jsonify({"error": "not_found"}), 404
+        if not authorize_graph(data, principal)[0]:
             return jsonify({"error": "not_found"}), 404
         session.delete(row)
         session.commit()
@@ -448,10 +547,15 @@ def delete_graph(graph_id: str):
 
 
 @vp_bp.post("/save-blueprint")
+@check_user_auth
 def save_blueprint():
+    principal = _graph_principal()
+    if principal is None:
+        return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
     graph, err = _parse_graph()
     if err:
         return jsonify(err), 400
+    graph = _owned_graph_model(graph, principal)
     validation = _validator.validate(graph)
     if not validation.valid:
         return jsonify({"validation": validation.as_dict(), "error": "invalid_graph"}), 422
@@ -466,13 +570,25 @@ def save_blueprint():
         name=f"[Blueprint] {graph.name}",
         description=graph.description,
         tags=",".join(graph.tags),
-        graph_json=json.dumps({"graph": graph.model_dump(), "blueprint": blueprint}),
+        graph_json=json.dumps(
+            {
+                "graph": graph.model_dump(),
+                "blueprint": blueprint,
+                "metadata": {"owner_principal": principal.to_dict()},
+            }
+        ),
         created_at=now,
         updated_at=now,
     )
     with Session(engine) as session:
         existing = session.get(VisualProcessGraphDB, bp_id)
         if existing:
+            try:
+                existing_data = json.loads(existing.graph_json)
+            except (TypeError, ValueError):
+                return jsonify({"error": "not_found"}), 404
+            if not authorize_graph(existing_data, principal)[0]:
+                return jsonify({"error": "resource_id_unavailable", "error_code": "resource_id_unavailable"}), 409
             existing.graph_json = row.graph_json
             existing.updated_at = now
             session.add(existing)
@@ -583,13 +699,11 @@ def workflow_start():
     if backend_failure is not None:
         return backend_failure
     reservation = workflow_route_authorization_service.reserve(workflow.workflow_id, principal)
-    if reservation == "foreign":
-        return backend_error("workflow_run_not_found", code=404)
-    if reservation == "duplicate":
+    if reservation in {"foreign", "duplicate"}:
         return api_response(
             status="error",
-            message="workflow id already exists",
-            data={"reason_code": "workflow_run_already_exists"},
+            message="workflow id unavailable",
+            data={"reason_code": "workflow_id_unavailable"},
             code=409,
         )
     if reservation != "reserved":

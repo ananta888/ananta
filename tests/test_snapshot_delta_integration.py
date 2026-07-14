@@ -25,6 +25,15 @@ def _build_session(*, log_deltas_only: bool):
     return mgr, sess
 
 
+def _attach_admin_user_auth(client) -> None:
+    from agent.config import settings
+    from agent.services.user_session_tokens import issue_user_access_token
+
+    token = issue_user_access_token(username=settings.initial_admin_user, role="admin")
+    client.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {token}"
+    client.environ_base["HTTP_X_ANANTA_USER_AUTHORIZATION"] = f"Bearer {token}"
+
+
 @pytest.fixture
 def reset_visual_state():
     """Reset module-global state in snakes_execution_routes before AND after
@@ -51,6 +60,7 @@ def test_visual_tick_persists_delta_when_log_deltas_only_enabled(app, reset_visu
     _build_session(log_deltas_only=True)
 
     client = app.test_client()
+    _attach_admin_user_auth(client)
     s1 = _register(client, "DeltaSnake")
     headers = {"Authorization": f"Bearer {s1['token']}"}
 
@@ -95,6 +105,7 @@ def test_visual_tick_persists_only_raw_when_log_deltas_only_disabled(app, reset_
     _build_session(log_deltas_only=False)
 
     client = app.test_client()
+    _attach_admin_user_auth(client)
     s1 = _register(client, "FullSnapSnake")
     headers = {"Authorization": f"Bearer {s1['token']}"}
 

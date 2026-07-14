@@ -110,7 +110,7 @@ def test_off_mode_disables_full_scan_even_with_keywords():
     assert profile.analysis_mode in {"", "standard"}
 
 
-def test_snake_ask_debug_trace_contains_full_scan_profile(client):
+def test_snake_ask_debug_trace_contains_full_scan_profile(client, auth_header):
     with (
         patch("agent.routes.ai_snake_config._current_config", return_value=_cfg(analysis_mode="full_scan")),
         patch("agent.routes.snakes._pick_worker_for_ask", return_value=("", None)),
@@ -119,6 +119,7 @@ def test_snake_ask_debug_trace_contains_full_scan_profile(client):
     ):
         resp = client.post(
             "/snake/ask",
+            headers=auth_header,
             json={
                 "question": "Bitte erstelle ein Mermaid Diagramm zur implementierten CodeCompass Worker Handoff Architektur",
                 "debug": True,
@@ -135,7 +136,7 @@ def test_snake_ask_debug_trace_contains_full_scan_profile(client):
     assert trace["full_scan"]["reason"] == "hub_direct_fallback"
 
 
-def test_snake_ask_payload_can_disable_full_scan_profile(client):
+def test_snake_ask_payload_can_disable_full_scan_profile(client, auth_header):
     with (
         patch("agent.routes.ai_snake_config._current_config", return_value=_cfg()),
         patch("agent.routes.snakes._pick_worker_for_ask", return_value=("", None)),
@@ -143,6 +144,7 @@ def test_snake_ask_payload_can_disable_full_scan_profile(client):
     ):
         resp = client.post(
             "/snake/ask",
+            headers=auth_header,
             json={
                 "question": "Bitte erstelle ein Mermaid Diagramm zur implementierten CodeCompass Worker Handoff Architektur",
                 "debug": True,
@@ -155,7 +157,7 @@ def test_snake_ask_payload_can_disable_full_scan_profile(client):
     assert profile["analysis_mode"] == "standard"
 
 
-def test_snake_ask_payload_can_force_full_scan_profile(client):
+def test_snake_ask_payload_can_force_full_scan_profile(client, auth_header):
     with (
         patch("agent.routes.ai_snake_config._current_config", return_value=_cfg()),
         patch("agent.routes.snakes._pick_worker_for_ask", return_value=("", None)),
@@ -163,6 +165,7 @@ def test_snake_ask_payload_can_force_full_scan_profile(client):
     ):
         resp = client.post(
             "/snake/ask",
+            headers=auth_header,
             json={
                 "question": "Gib mir einen kurzen Ueberblick",
                 "debug": True,

@@ -210,6 +210,7 @@ def register_with_hub(
     silent: bool = False,
     capabilities: list[str] | None = None,
     runtime_targets: list[dict[str, Any]] | None = None,
+    registration_token: str | None = None,
 ) -> bool:
     """Backward-compatible proxy for hub registration."""
     agent_url = settings.agent_url or f"http://localhost:{port}"
@@ -243,8 +244,9 @@ def register_with_hub(
             dict(value) for value in (runtime_targets or []) if isinstance(value, dict)
         ]
         payload["execution_limits"] = {"max_parallel_tasks": 2, "max_runtime_seconds": 1800, "max_workspace_mb": 2048}
-    if settings.registration_token:
-        payload["registration_token"] = settings.registration_token
+    effective_registration_token = registration_token or settings.registration_token
+    if effective_registration_token:
+        payload["registration_token"] = effective_registration_token
     try:
         response = _http_post(f"{hub_url}/register", data=payload, silent=silent)
         if isinstance(response, dict) and "agent_token" in response:

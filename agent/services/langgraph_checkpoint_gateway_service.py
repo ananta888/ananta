@@ -29,6 +29,9 @@ from agent.services.workflow_runtime.errors import (
     SignatureValidationError,
 )
 from agent.services.workflow_runtime.ownership import ExecutionOwnership
+from agent.services.workflow_worker_assignment_service import (
+    WorkflowWorkerAssignmentStore,
+)
 from ananta_contracts.langgraph_checkpoint import (
     LANGGRAPH_CHECKPOINT_COMMAND_SCHEMA,
     LANGGRAPH_CHECKPOINT_OPERATIONS,
@@ -114,6 +117,7 @@ class LangGraphCheckpointGatewayService:
         authorization: AuthorizationVerifier,
         commands: WorkflowCommandVerifier | None = None,
         command_policy: LangGraphCommandPolicyPort | None = None,
+        assignments: WorkflowWorkerAssignmentStore | None = None,
         clock: Any = time.time,
     ) -> None:
         self._checkpoints = checkpoints
@@ -122,6 +126,7 @@ class LangGraphCheckpointGatewayService:
         self._authorization = authorization
         self._commands = commands
         self._command_policy = command_policy or BoundLangGraphCommandPolicy()
+        self._assignments = assignments
         self._clock = clock
 
     def apply_workflow_command(
@@ -258,7 +263,13 @@ class LangGraphCheckpointGatewayService:
             open_gates=tuple(sorted(gates)),
         )
 
-    def execute(self, raw: Mapping[str, Any]) -> dict[str, Any]:
+    def execute(
+        self,
+        raw: Mapping[str, Any],
+        *,
+        authenticated_worker_id: str = "",
+        authenticated_worker_url: str = "",
+    ) -> dict[str, Any]:
         try:
             if raw.get("schema") != LANGGRAPH_CHECKPOINT_COMMAND_SCHEMA:
                 self._deny("langgraph_checkpoint_command_invalid", 400)
@@ -266,6 +277,11 @@ class LangGraphCheckpointGatewayService:
             if operation not in LANGGRAPH_CHECKPOINT_OPERATIONS:
                 self._deny("langgraph_checkpoint_operation_unsupported", 422)
             binding = LangGraphCheckpointBinding.from_mapping(raw.get("binding"))
+            self._assert_authenticated_worker_owns_lease(
+                binding,
+                authenticated_worker_id=authenticated_worker_id,
+                authenticated_worker_url=authenticated_worker_url,
+            )
             writing = operation in {"put", "put_writes"}
             self._authorize(binding, writing=writing)
             if operation == "get":
@@ -289,6 +305,52 @@ class LangGraphCheckpointGatewayService:
             raise LangGraphCheckpointGatewayError(str(exc), status_code=409) from exc
         except (TypeError, ValueError) as exc:
             raise LangGraphCheckpointGatewayError("langgraph_checkpoint_command_invalid", status_code=422) from exc
+
+    def _assert_authenticated_worker_owns_lease(
+        self,
+        binding: LangGraphCheckpointBinding,
+        *,
+        authenticated_worker_id: str,
+        authenticated_worker_url: str,
+    ) -> None:
+        worker_id = str(authenticated_worker_id or "").strip()
+        worker_url = str(authenticated_worker_url or "").strip()
+        if not worker_id and not worker_url:
+            return
+        if (
+            not worker_id
+            or not worker_url
+            or len(worker_id) > 256
+            or len(worker_url) > 2_048
+            or "\x00" in worker_id
+            or "\x00" in worker_url
+        ):
+            self._deny("langgraph_checkpoint_authenticated_identity_invalid", 403)
+        ownership = self._ownership.get(
+            tenant_id=binding.tenant_id,
+            run_id=binding.run_id,
+            step_id=binding.step_id,
+        )
+        if ownership is None:
+            self._deny("langgraph_checkpoint_ownership_required", 403)
+        assert ownership is not None
+        if self._assignments is None:
+            self._deny("langgraph_checkpoint_assignment_store_unavailable", 503)
+        assert self._assignments is not None
+        assignment = self._assignments.get(
+            tenant_id=binding.tenant_id,
+            run_id=binding.run_id,
+            step_id=binding.step_id,
+        )
+        if (
+            assignment is None
+            or assignment.workflow_id != binding.workflow_id
+            or assignment.attempt_id != ownership.attempt_id
+            or assignment.fencing_token != binding.fencing_token
+            or assignment.worker_id != worker_id
+            or assignment.worker_url != worker_url
+        ):
+            self._deny("langgraph_checkpoint_authenticated_owner_mismatch", 403)
 
     def _authorize(self, binding: LangGraphCheckpointBinding, *, writing: bool) -> None:
         envelope = RuntimeAuthorizationEnvelope.from_mapping(dict(binding.authorization_envelope))

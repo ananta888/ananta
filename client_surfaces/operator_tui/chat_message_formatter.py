@@ -47,6 +47,39 @@ _SNAKE_ASK_RETRIEVAL_CONFIG_KEYS: tuple[str, ...] = (
 )
 
 
+def hub_user_auth_headers(endpoint: str) -> dict[str, str]:
+    """Resolve the configured Hub login into an Authorization header."""
+
+    raw_token = str(
+        os.environ.get("ANANTA_AUTH_TOKEN")
+        or os.environ.get("ANANTA_PASSWORD")
+        or os.environ.get("INITIAL_ADMIN_PASSWORD")
+        or ""
+    ).strip()
+    if not raw_token:
+        try:
+            from client_surfaces.operator_tui.hub_loader import _load_dotenv_fallback
+
+            dotenv = _load_dotenv_fallback()
+            raw_token = str(
+                dotenv.get("ANANTA_AUTH_TOKEN")
+                or dotenv.get("ANANTA_PASSWORD")
+                or dotenv.get("INITIAL_ADMIN_PASSWORD")
+                or ""
+            ).strip()
+        except Exception:
+            return {}
+    if not raw_token:
+        return {}
+    try:
+        from client_surfaces.operator_tui.hub_loader import resolve_token
+
+        token = resolve_token(str(endpoint or "").rstrip("/"), raw_token)
+    except Exception:
+        return {}
+    return {"Authorization": f"Bearer {token}"} if token else {}
+
+
 class ChatMessageFormatterMixin:
     """Mixin providing message formatting, streaming, and AI response methods.
 
@@ -346,6 +379,7 @@ class ChatMessageFormatterMixin:
         if backend in {"ananta-worker", "worker", "hub", "default", "auto"} or (backend in {"opencode", "hermes"} and not fallback_reason):
             endpoint_norm = str(self.state.endpoint or "http://localhost:5000").rstrip("/")
             if not (endpoint_norm.endswith("/v1") or ":1234" in endpoint_norm):
+                hub_headers = hub_user_auth_headers(endpoint_norm)
                 answered = False
                 ask_timeout = self._chat_ask_timeout_seconds()
                 if mem_settings["pass_memory_to_worker"]:
@@ -399,7 +433,7 @@ class ChatMessageFormatterMixin:
                         req = urllib.request.Request(
                             f"{endpoint_norm}/snake/ask",
                             data=v2_payload,
-                            headers={"Content-Type": "application/json"},
+                            headers={"Content-Type": "application/json", **hub_headers},
                             method="POST",
                         )
                         with urllib.request.urlopen(req, timeout=ask_timeout) as resp:
@@ -427,7 +461,7 @@ class ChatMessageFormatterMixin:
                         req = urllib.request.Request(
                             f"{endpoint_norm}/snake/ask",
                             data=v1_payload,
-                            headers={"Content-Type": "application/json"},
+                            headers={"Content-Type": "application/json", **hub_headers},
                             method="POST",
                         )
                         with urllib.request.urlopen(req, timeout=ask_timeout) as resp:

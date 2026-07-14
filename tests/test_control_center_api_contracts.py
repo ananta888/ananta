@@ -1,5 +1,10 @@
 from io import BytesIO
+
+import jwt
+
+from agent.config import settings
 from agent.repository import artifact_repo
+from agent.routes.control_center_api import _event_visible_to_stream_identity
 
 
 def test_control_center_projects_tasks_sessions_workers_contract(client, admin_auth_header):
@@ -253,9 +258,104 @@ def test_control_center_event_stream_contract(client, admin_auth_header):
     assert token_res.status_code == 200
     stream_token = token_res.get_json()['data']['stream_token']
     assert stream_token
+    stream_claims = jwt.decode(
+        stream_token,
+        settings.secret_key,
+        algorithms=['HS256'],
+    )
+    assert stream_claims['stream_user_id'] == stream_claims['sub']
+    assert stream_claims['stream_tenant_id'] == stream_claims['tenant_id']
+    assert stream_claims['stream_session_id'] == session_id
 
     # Query-token transport is implemented for browser EventSource usage.
     # Flask test-client stream context handling differs from browser EventSource;
     # contract here validates token issuance shape.
     assert isinstance(stream_token, str)
     assert len(stream_token) >= 8
+
+    forbidden = client.get(
+        '/api/projects',
+        headers={'Authorization': f'Bearer {stream_token}'},
+    )
+    assert forbidden.status_code == 403
+    assert forbidden.get_json()['data']['reason_code'] == 'user_token_scope_forbidden'
+
+
+def test_control_center_stream_scope_rejects_foreign_or_arbitrary_bindings(
+    client,
+    admin_auth_header,
+    user_auth_header,
+):
+    task_res = client.post(
+        '/api/tasks',
+        headers=admin_auth_header,
+        json={'title': 'Scoped stream task'},
+    )
+    task_id = task_res.get_json()['data']['task']['id']
+    session_res = client.post(
+        f'/api/tasks/{task_id}/sessions',
+        headers=admin_auth_header,
+        json={'title': 'Admin-owned stream session'},
+    )
+    session_id = session_res.get_json()['data']['session']['id']
+
+    foreign_session = client.post(
+        '/api/events/stream-token',
+        headers=user_auth_header,
+        json={'session_id': session_id},
+    )
+    arbitrary_project = client.post(
+        '/api/events/stream-token',
+        headers=admin_auth_header,
+        json={'project_id': 'project-without-owned-session'},
+    )
+    user_wide = client.post(
+        '/api/events/stream-token',
+        headers=user_auth_header,
+        json={},
+    )
+
+    assert foreign_session.status_code == 403
+    assert arbitrary_project.status_code == 403
+    assert user_wide.status_code == 200
+
+
+def test_control_center_stream_event_visibility_requires_exact_user_and_tenant():
+    event = {
+        'id': 'event-1',
+        '_scope': {
+            'tenant_id': 'tenant-a',
+            'user_id': 'user-a',
+            'project_id': 'project-a',
+            'session_ids': ('session-a',),
+        },
+    }
+
+    assert _event_visible_to_stream_identity(
+        event,
+        tenant_id='tenant-a',
+        user_id='user-a',
+        project_id='project-a',
+        session_id='session-a',
+    ) is True
+    assert _event_visible_to_stream_identity(
+        event,
+        tenant_id='tenant-b',
+        user_id='user-a',
+        project_id='project-a',
+        session_id='session-a',
+    ) is False
+    assert _event_visible_to_stream_identity(
+        event,
+        tenant_id='tenant-a',
+        user_id='user-b',
+        project_id='',
+        session_id='',
+    ) is False
+    assert _event_visible_to_stream_identity(
+        event,
+        tenant_id='tenant-a',
+        user_id='user-a',
+        project_id='project-b',
+        session_id='',
+    ) is False

@@ -35,15 +35,10 @@ REVISION = "revision-test"
 BUILD_ID = "build-test"
 
 
-def _proofs(*, scenario_id: str, durable: bool, has_gate: bool, has_side_effect: bool) -> dict[str, str]:
+def _proofs(*passed: str) -> dict[str, str]:
     proofs = {category: "not_applicable" for category in PROOF_CATEGORIES}
-    proofs.update({"port": "passed", "security": "passed", "event": "passed", "artifact": "passed"})
-    if durable or scenario_id == "research":
-        proofs.update({"recovery": "passed", "checkpoint": "passed"})
-    if has_gate:
-        proofs["approval"] = "passed"
-    if has_side_effect:
-        proofs["ledger"] = "passed"
+    for category in passed:
+        proofs[category] = "passed"
     return proofs
 
 
@@ -86,6 +81,30 @@ def _explicit_test_evidence(gate: WorkflowRuntimeReleaseGate) -> tuple[RuntimeRu
             scenario = scenarios[scenario_id]
             durable = scenario_id in requirement.durable_scenarios
             for iteration in range(1, 11):
+                event_types = set(scenario.invariants.required_event_types)
+                passed_proofs = {"port", "security", "event", "artifact"}
+                if scenario.invariants.required_gates:
+                    passed_proofs.add("approval")
+                if scenario.invariants.side_effect_operations:
+                    passed_proofs.add("ledger")
+                if iteration == 1 and (
+                    (
+                        requirement.runtime_id in {"native", "langgraph"}
+                        and scenario_id == "research"
+                    )
+                    or (
+                        requirement.runtime_id == "temporal"
+                        and scenario_id == "long-running-resume"
+                    )
+                ):
+                    passed_proofs.update({"checkpoint", "recovery"})
+                    if not durable:
+                        event_types.update(
+                            {
+                                "workflow.checkpoint.hub_persisted",
+                                "workflow.checkpoint.hub_restored",
+                            }
+                        )
                 records.append(
                     RuntimeRunEvidence(
                         runtime_id=requirement.runtime_id,
@@ -99,19 +118,14 @@ def _explicit_test_evidence(gate: WorkflowRuntimeReleaseGate) -> tuple[RuntimeRu
                             runtime_id=requirement.runtime_id,
                             terminal_status="completed",
                             capabilities=requirement.capabilities,
-                            event_types=scenario.invariants.required_event_types,
+                            event_types=tuple(sorted(event_types)),
                             artifact_ids=scenario.invariants.required_artifacts,
                             gate_ids=scenario.invariants.required_gates,
                             side_effect_operations=scenario.invariants.side_effect_operations,
                             policy_decisions=scenario.invariants.required_policy_decisions,
                             budget_usage={"attempts": 1, "tokens": 0, "cost_micros": 0},
                         ),
-                        proofs=_proofs(
-                            scenario_id=scenario_id,
-                            durable=durable,
-                            has_gate=bool(scenario.invariants.required_gates),
-                            has_side_effect=bool(scenario.invariants.side_effect_operations),
-                        ),
+                        proofs=_proofs(*sorted(passed_proofs)),
                         revision=REVISION,
                         build_id=BUILD_ID,
                         command_id=command.command_id,
@@ -173,6 +187,9 @@ def test_gate_passes_common_native_langgraph_and_all_durable_temporal_variants()
     assert all(item["status"] == "passed" and item["durable"] is True for item in temporal.values())
     assert all(item["iterations"] == 10 for item in temporal.values())
     assert all(status == "passed" for runtime in artifact["invariant_matrix"].values() for status in runtime.values())
+    for runtime_id in ("native", "langgraph", "temporal"):
+        assert artifact["invariant_evidence"][runtime_id]["checkpoint"]
+        assert artifact["invariant_evidence"][runtime_id]["recovery"]
 
 
 def test_gate_artifact_is_byte_stable_and_has_versions_matrix_deviations_and_commands() -> None:
@@ -195,7 +212,10 @@ def test_gate_artifact_is_byte_stable_and_has_versions_matrix_deviations_and_com
         "temporal": "1.0.0",
     }
     assert first["deviations"] == []
-    assert len(first["reproduce"]) == 4
+    assert len(first["reproduce"]) == len(gate.config.verification_commands)
+    assert {item["command_id"] for item in first["reproduce"]} == {
+        command.command_id for command in gate.config.verification_commands
+    }
     assert len(first["artifact_hash"]) == 64
 
 
@@ -251,9 +271,7 @@ def test_critical_case_accepts_more_than_ten_contiguous_iterations() -> None:
         if item.runtime_id == "langgraph" and item.scenario_id == "approval" and item.iteration == 10
     )
 
-    expanded = _rechain(
-        (*evidence, replace(source, iteration=11, run_id="langgraph-approval-11"))
-    )
+    expanded = _rechain((*evidence, replace(source, iteration=11, run_id="langgraph-approval-11")))
     result = gate.evaluate(expanded, _green_commands(gate, expanded))
 
     assert result.status == "passed"
@@ -276,6 +294,101 @@ def test_unsupported_runtime_scenario_is_incompatible_and_never_synthetic_succes
     assert result.status == "failed"
     assert result.scenario_matrix["native"]["long-running-resume"]["status"] == "incompatible"
     assert any(item.code == "incompatible_scenario_has_success_evidence" for item in result.deviations)
+
+
+def test_research_name_does_not_invent_checkpoint_or_recovery_proofs() -> None:
+    gate, evidence = _gate_and_evidence()
+    stripped = _rechain(
+        replace(
+            item,
+            proofs={
+                **item.proofs,
+                "checkpoint": "not_applicable",
+                "recovery": "not_applicable",
+            },
+        )
+        if item.runtime_id == "native"
+        else item
+        for item in evidence
+    )
+
+    result = gate.evaluate(stripped, _green_commands(gate, stripped))
+
+    assert result.status == "failed"
+    assert {
+        item.details
+        for item in result.deviations
+        if item.runtime_id == "native" and item.code == "reported_capability_not_covered"
+    } >= {("checkpoint", "checkpoint"), ("resume", "recovery")}
+    assert result.invariant_matrix["native"]["checkpoint"] == "failed"
+    assert result.invariant_matrix["native"]["recovery"] == "failed"
+
+
+def test_durable_flag_does_not_invent_checkpoint_or_recovery_proofs() -> None:
+    gate, evidence = _gate_and_evidence()
+    stripped = _rechain(
+        replace(
+            item,
+            proofs={
+                **item.proofs,
+                "checkpoint": "not_applicable",
+                "recovery": "not_applicable",
+            },
+        )
+        if item.runtime_id == "temporal"
+        else item
+        for item in evidence
+    )
+
+    result = gate.evaluate(stripped, _green_commands(gate, stripped))
+
+    assert result.status == "failed"
+    assert any(
+        item.runtime_id == "temporal"
+        and item.code == "reported_capability_not_covered"
+        and item.details == ("durability", "recovery")
+        for item in result.deviations
+    )
+
+
+def test_non_durable_local_ephemeral_events_cannot_source_production_proofs() -> None:
+    gate, evidence = _gate_and_evidence()
+    target = next(
+        item
+        for item in evidence
+        if item.runtime_id == "langgraph"
+        and item.scenario_id == "research"
+        and item.iteration == 1
+    )
+    event_types = (
+        set(target.observation.event_types)
+        - {
+            "workflow.checkpoint.hub_persisted",
+            "workflow.checkpoint.hub_restored",
+        }
+    ) | {
+        "workflow.checkpoint.created",
+        "workflow.run.resumed",
+    }
+    local_ephemeral = replace(
+        target,
+        observation=replace(
+            target.observation,
+            event_types=tuple(sorted(event_types)),
+        ),
+    )
+    mutated = _rechain(local_ephemeral if item is target else item for item in evidence)
+
+    result = gate.evaluate(mutated, _green_commands(gate, mutated))
+
+    assert result.status == "failed"
+    assert {
+        item.details
+        for item in result.deviations
+        if item.runtime_id == "langgraph" and item.code == "proof_source_missing"
+    } >= {("checkpoint",), ("recovery",)}
+    assert result.invariant_matrix["langgraph"]["checkpoint"] == "failed"
+    assert result.invariant_matrix["langgraph"]["recovery"] == "failed"
 
 
 @pytest.mark.parametrize(
@@ -352,6 +465,28 @@ def test_reference_probes_are_bound_to_release_verification_commands() -> None:
 
     assert "tests/workflow_runtime/release_gate/test_native_reference_probes.py" in commands["native-runtime"]
     assert "tests/workflow_runtime/release_gate/test_temporal_reference_probes.py" in commands["temporal-runtime"]
+    assert (
+        "tests/workflow_runtime/release_gate/test_release_gate_script.py" in commands["runtime-contract-and-security"]
+    )
+    assert {
+        "tests/test_run_control_service.py",
+        "tests/test_workflow_control_persistence.py",
+    }.issubset(commands["runtime-contract-and-security"])
+    assert {
+        "tests/test_workflow_runtime_operations_api.py",
+        "tests/test_agent_token_file_auth.py",
+        "tests/test_user_session_tokens.py",
+        "tests/test_user_token_scope.py",
+        "tests/test_auth_scenarios.py",
+        "tests/test_chat_process_binding.py",
+        "tests/test_oidc_identity_link_routes.py",
+        "tests/test_oidc_identity_link_service.py",
+        "tests/test_oidc_identity_provisioning_repository.py",
+        "tests/test_ws_terminal.py",
+        "tests/test_todo_tasks.py",
+        "tests/test_control_center_api_contracts.py",
+        "tests/test_workflow_runtime_test_support.py",
+    }.issubset(commands["runtime-user-session-security"])
 
 
 def test_ci_job_installs_all_runtimes_runs_gate_and_uploads_structured_result() -> None:
@@ -413,9 +548,7 @@ def test_explicit_manifest_is_bound_to_current_contract_hash(tmp_path: Path) -> 
 def test_runtime_evidence_sink_appends_a_bound_hash_chain(tmp_path: Path) -> None:
     gate, evidence = _gate_and_evidence()
     source, second = tuple(item for item in evidence if item.runtime_id == "native")[:2]
-    command = next(
-        item for item in gate.config.verification_commands if item.command_id == "native-runtime"
-    )
+    command = next(item for item in gate.config.verification_commands if item.command_id == "native-runtime")
     path = tmp_path / "native.jsonl"
     sink = RuntimeEvidenceSink(
         RuntimeEvidenceBinding(
@@ -458,9 +591,7 @@ def test_runtime_evidence_sink_appends_a_bound_hash_chain(tmp_path: Path) -> Non
 def test_runtime_evidence_sink_rejects_duplicate_run_ids(tmp_path: Path) -> None:
     gate, evidence = _gate_and_evidence()
     source = next(item for item in evidence if item.runtime_id == "native")
-    command = next(
-        item for item in gate.config.verification_commands if item.command_id == "native-runtime"
-    )
+    command = next(item for item in gate.config.verification_commands if item.command_id == "native-runtime")
     sink = RuntimeEvidenceSink(
         RuntimeEvidenceBinding(
             path=tmp_path / "native.jsonl",

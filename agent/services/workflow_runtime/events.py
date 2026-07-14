@@ -8,6 +8,10 @@ import uuid
 from dataclasses import dataclass, field, replace
 from typing import Any, Protocol
 
+from agent.services.identity_validation import (
+    IdentityValidationError,
+    require_canonical_identity,
+)
 from agent.services.workflow_runtime._serialization import canonical_json, redact_json, sha256_json
 from agent.services.workflow_runtime.errors import (
     ContractIssue,
@@ -56,9 +60,9 @@ class CanonicalWorkflowEvent:
     ) -> "CanonicalWorkflowEvent":
         resolved_id = str(event_id or f"wfe-{uuid.uuid4().hex}")
         event = cls(
-            tenant_id=str(tenant_id).strip(),
-            workflow_id=str(workflow_id).strip(),
-            run_id=str(run_id).strip(),
+            tenant_id=tenant_id,
+            workflow_id=workflow_id,
+            run_id=run_id,
             event_type=str(event_type).strip(),
             correlation_id=str(correlation_id).strip(),
             causation_id=str(causation_id).strip(),
@@ -81,9 +85,9 @@ class CanonicalWorkflowEvent:
 
         raw = upcast_runtime_contract_for_loading(raw, contract_type="event")
         event = cls(
-            tenant_id=str(raw.get("tenant_id") or "").strip(),
-            workflow_id=str(raw.get("workflow_id") or "").strip(),
-            run_id=str(raw.get("run_id") or "").strip(),
+            tenant_id=raw.get("tenant_id"),
+            workflow_id=raw.get("workflow_id"),
+            run_id=raw.get("run_id"),
             event_type=str(raw.get("event_type") or "").strip(),
             correlation_id=str(raw.get("correlation_id") or "").strip(),
             causation_id=str(raw.get("causation_id") or "").strip(),
@@ -107,6 +111,12 @@ class CanonicalWorkflowEvent:
             ("tenant_id", self.tenant_id),
             ("workflow_id", self.workflow_id),
             ("run_id", self.run_id),
+        ):
+            try:
+                require_canonical_identity(value, field_name=name)
+            except IdentityValidationError as exc:
+                issues.append(ContractIssue(exc.reason_code, exc.field_name))
+        for name, value in (
             ("event_type", self.event_type),
             ("correlation_id", self.correlation_id),
             ("causation_id", self.causation_id),
@@ -167,8 +177,7 @@ class CanonicalWorkflowEvent:
 class EventStore(Protocol):
     """Append-only, tenant-bound canonical event storage."""
 
-    def append(self, event: CanonicalWorkflowEvent, *, expected_sequence: int) -> CanonicalWorkflowEvent:
-        ...
+    def append(self, event: CanonicalWorkflowEvent, *, expected_sequence: int) -> CanonicalWorkflowEvent: ...
 
     def list_events(
         self,
@@ -177,8 +186,7 @@ class EventStore(Protocol):
         run_id: str,
         after_sequence: int = 0,
         limit: int | None = None,
-    ) -> tuple[CanonicalWorkflowEvent, ...]:
-        ...
+    ) -> tuple[CanonicalWorkflowEvent, ...]: ...
 
 
 class InMemoryEventStore:
@@ -217,10 +225,18 @@ class InMemoryEventStore:
         after_sequence: int = 0,
         limit: int | None = None,
     ) -> tuple[CanonicalWorkflowEvent, ...]:
+        validated_tenant_id = require_canonical_identity(
+            tenant_id,
+            field_name="tenant_id",
+        )
+        validated_run_id = require_canonical_identity(
+            run_id,
+            field_name="run_id",
+        )
         with self._lock:
             values = [
                 event
-                for event in self._events.get((str(tenant_id), str(run_id)), ())
+                for event in self._events.get((validated_tenant_id, validated_run_id), ())
                 if event.sequence > int(after_sequence)
             ]
             if limit is not None:
@@ -341,7 +357,7 @@ class LegacyWorkflowBackendEventAdapter:
         event_type = legacy_type if legacy_type.startswith("workflow.") else f"workflow.legacy.{legacy_type}"
         return CanonicalWorkflowEvent.build(
             tenant_id=tenant_id,
-            workflow_id=str(raw.get("workflow_id") or ""),
+            workflow_id=raw.get("workflow_id"),
             run_id=run_id,
             event_type=event_type,
             correlation_id=correlation_id,
@@ -351,11 +367,7 @@ class LegacyWorkflowBackendEventAdapter:
             attempt=int(details.get("attempt") or 0),
             actor=str(raw.get("actor") or "system"),
             payload={"legacy_status": raw.get("status"), **details},
-            occurred_at=float(
-                raw.get("occurred_at")
-                or raw.get("timestamp")
-                or _stable_legacy_timestamp(digest)
-            ),
+            occurred_at=float(raw.get("occurred_at") or raw.get("timestamp") or _stable_legacy_timestamp(digest)),
             event_id=str(raw.get("event_id") or f"wfe-legacy-{digest}"),
         )
 
@@ -363,9 +375,7 @@ class LegacyWorkflowBackendEventAdapter:
 def event_payload_equal(left: CanonicalWorkflowEvent, right: CanonicalWorkflowEvent) -> bool:
     """Useful for cross-runtime conformance tests without comparing sequence."""
 
-    return canonical_json({**left.to_dict(), "sequence": 0}) == canonical_json(
-        {**right.to_dict(), "sequence": 0}
-    )
+    return canonical_json({**left.to_dict(), "sequence": 0}) == canonical_json({**right.to_dict(), "sequence": 0})
 
 
 def _clone_event(event: CanonicalWorkflowEvent) -> CanonicalWorkflowEvent:

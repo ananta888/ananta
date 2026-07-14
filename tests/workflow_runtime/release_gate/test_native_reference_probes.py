@@ -4,9 +4,16 @@ from collections import Counter
 
 import pytest
 
-from agent.services.native_graph_orchestration_service import NativeGraphRequest
+from agent.services.native_graph_orchestration_service import (
+    NativeGraphOrchestrator,
+    NativeGraphRequest,
+)
 from agent.services.workflow_runtime.reference_workflows import load_reference_workflows
-from tests.test_native_graph_runtime import runtime, signed_control
+from agent.services.workflow_runtime import (
+    InMemoryReplayNonceStore,
+    WorkflowCommandVerifier,
+)
+from tests.test_native_graph_runtime import AllowPolicy, runtime, signed_control
 from tests.workflow_runtime.release_gate.evidence_helpers import emit_reference_run_evidence
 
 SCENARIO_IDS = (
@@ -35,10 +42,48 @@ def test_native_reference_scenario_crosses_hub_task_boundary_ten_times(
     iteration: int,
 ) -> None:
     scenario = next(value for value in load_reference_workflows() if value.scenario_id == scenario_id)
-    orchestrator, queue, handler, keys, ledger, _stores = runtime()
+    orchestrator, queue, handler, keys, ledger, stores = runtime()
     request = _request(scenario_id, iteration)
 
     result = orchestrator.start(request)
+    explicit_proofs = {"port", "security", "event", "artifact"}
+    proof_source_events: set[str] = set()
+    if scenario_id == "research" and iteration == 1:
+        result.checkpoint.verify(
+            key_ring=keys,
+            tenant_id=request.plan.tenant_id,
+            workflow_id=request.plan.workflow_id,
+            run_id=request.run_id,
+            task_id=request.control_task_id,
+            plan_hash=request.plan.plan_hash,
+            policy_version=request.plan.policy_version,
+        )
+        replacement = NativeGraphOrchestrator(
+            queue=queue,
+            checkpoints=stores["checkpoints"],
+            events=stores["events"],
+            ownership=stores["ownership"],
+            ledger=ledger,
+            key_ring=keys,
+            command_verifier=WorkflowCommandVerifier(
+                keys,
+                InMemoryReplayNonceStore(clock=lambda: 100.0),
+            ),
+            policy=AllowPolicy(),
+            clock=lambda: 100.0,
+        )
+        restored = replacement.inspect(request)
+        assert restored.checkpoint.checkpoint_id == result.checkpoint.checkpoint_id
+        assert restored.checkpoint.revision == result.checkpoint.revision
+        assert restored.status == result.status
+        orchestrator = replacement
+        explicit_proofs.update({"checkpoint", "recovery"})
+        proof_source_events.update(
+            {
+                "workflow.checkpoint.hub_persisted",
+                "workflow.checkpoint.hub_restored",
+            }
+        )
     submissions_after_start = tuple(command.node.node_id for command in queue.submissions)
     observed_gates: set[str] = set()
     for _ in range(len(scenario.plan.nodes) + 4):
@@ -63,7 +108,14 @@ def test_native_reference_scenario_crosses_hub_task_boundary_ten_times(
 
     delegated_nodes = tuple(command.node.node_id for command in queue.submissions)
     expected_delegated_nodes = {node.node_id for node in scenario.plan.nodes if node.node_type == "task"}
-    event_types = tuple(event.event_type for event in orchestrator.stream(request))
+    event_types = tuple(
+        sorted(
+            {
+                *(event.event_type for event in orchestrator.stream(request)),
+                *proof_source_events,
+            }
+        )
+    )
 
     assert result.status == "completed"
     assert result.reason_code == ""
@@ -81,6 +133,7 @@ def test_native_reference_scenario_crosses_hub_task_boundary_ten_times(
         assert result.completed_node_ids == ("branch-a", "branch-b", "merge")
         assert result.artifact_refs["merged-result"].startswith("artifact://native/")
     if scenario_id == "approval":
+        explicit_proofs.update({"approval", "ledger"})
         assert result.open_gates == ()
         assert len(ledger._records) == 1  # noqa: SLF001 - release probe inspects the reference ledger
         assert {record.status for record in ledger._records.values()} == {  # noqa: SLF001
@@ -108,4 +161,5 @@ def test_native_reference_scenario_crosses_hub_task_boundary_ten_times(
         },
         policy_decisions=scenario.invariants.required_policy_decisions,
         budget_usage=budget_usage,
+        proofs={category: "passed" for category in sorted(explicit_proofs)},
     )

@@ -2,7 +2,11 @@ import logging
 import threading
 import time
 
-from agent.auth import AgentTokenConfigurationError, resolve_configured_agent_token
+from agent.auth import (
+    AgentTokenConfigurationError,
+    resolve_configured_agent_token,
+    resolve_configured_registration_token,
+)
 from agent.config import settings
 from agent.utils import register_with_hub
 
@@ -103,19 +107,21 @@ def start_registration_thread(app):
             )
             failure_reason = "registration_failed"
             try:
-                registration_token = resolve_configured_agent_token(app.config)
+                service_token = resolve_configured_agent_token(app.config)
+                registration_token = resolve_configured_registration_token(app.config)
             except AgentTokenConfigurationError:
                 success = False
-                failure_reason = "agent_token_configuration_invalid"
+                failure_reason = "worker_registration_credential_configuration_invalid"
                 logging.error(
-                    "Worker registration denied: file-managed service token is invalid."
+                    "Worker registration denied: a file-managed credential is invalid."
                 )
             else:
                 success = register_with_hub(
                     hub_url=settings.hub_url,
                     agent_name=registered_as,
                     port=settings.port,
-                    token=registration_token,
+                    token=service_token,
+                    registration_token=registration_token,
                     role="worker",
                     silent=silent,
                     capabilities=list(workflow_registration.get("capabilities") or []),

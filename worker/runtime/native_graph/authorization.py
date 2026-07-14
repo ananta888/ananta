@@ -4,17 +4,19 @@ from __future__ import annotations
 
 import json
 import os
-import stat
 import threading
 import time
 from collections.abc import Callable, Mapping
-from pathlib import Path
 
 from agent.services.workflow_runtime.security import (
     AUTHORIZATION_ENVELOPE_SCHEMA,
     AuthorizationVerifier,
     InMemoryReplayNonceStore,
     RuntimeAuthorizationEnvelope,
+)
+from ananta_contracts.file_credentials import (
+    FileCredentialConfigurationError,
+    read_file_managed_bytes,
 )
 from ananta_contracts.runtime_authorization_crypto import (
     Ed25519VerificationKeyRing,
@@ -118,9 +120,7 @@ class HubBackedNativeAuthorizationVerifier:
         if now >= envelope.expires_at:
             raise ValueError("authorization_expired")
         if any(
-            isinstance(value, bool)
-            or not isinstance(value, (int, float))
-            or value < 0
+            isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0
             for value in envelope.budgets.values()
         ):
             raise ValueError("authorization_budget_invalid")
@@ -135,11 +135,7 @@ class HubBackedNativeAuthorizationVerifier:
     ) -> None:
         key = (str(tenant_id), str(nonce))
         with self._lock:
-            self._nonces = {
-                item: expiry
-                for item, expiry in self._nonces.items()
-                if expiry > now
-            }
+            self._nonces = {item: expiry for item, expiry in self._nonces.items() if expiry > now}
             if key in self._nonces:
                 raise ValueError("authorization_replay_detected")
             self._nonces[key] = float(expires_at)
@@ -151,32 +147,17 @@ def load_ed25519_native_authorization_verifier(
     """Load a public verification ring; private/symmetric fields are rejected."""
 
     source = os.environ if environment is None else environment
-    raw_path = str(
-        source.get("ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_FILE") or ""
-    ).strip()
+    raw_path = str(source.get("ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_FILE") or "").strip()
     if not raw_path:
         return None
-    path = Path(raw_path)
-    if not path.is_absolute() or "\x00" in raw_path:
-        raise ValueError("workflow_worker_verification_keyring_path_invalid")
-    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
     try:
-        descriptor = os.open(path, flags)
-    except OSError as exc:
-        raise ValueError("workflow_worker_verification_keyring_unreadable") from exc
-    try:
-        metadata = os.fstat(descriptor)
-        if not stat.S_ISREG(metadata.st_mode) or metadata.st_mode & (
-            stat.S_IWGRP | stat.S_IWOTH
-        ):
-            raise ValueError("workflow_worker_verification_keyring_unsafe")
-        if metadata.st_size < 1 or metadata.st_size > 65_536:
-            raise ValueError("workflow_worker_verification_keyring_invalid")
-        raw = os.read(descriptor, 65_537)
-    finally:
-        os.close(descriptor)
-    if len(raw) > 65_536:
-        raise ValueError("workflow_worker_verification_keyring_invalid")
+        raw = read_file_managed_bytes(
+            raw_path,
+            description="workflow Worker verification keyring file",
+            max_bytes=65_536,
+        )
+    except FileCredentialConfigurationError as exc:
+        raise ValueError("workflow_worker_verification_keyring_unsafe") from exc
     try:
         decoded = json.loads(raw.decode("utf-8"))
     except (UnicodeError, json.JSONDecodeError) as exc:

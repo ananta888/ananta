@@ -88,11 +88,16 @@ def test_worker_v2_payload_leaves_grounding_context_to_hub(monkeypatch) -> None:
     def _fake_urlopen(req, timeout=0):
         captured["url"] = req.full_url
         captured["payload"] = json.loads(req.data.decode("utf-8"))
+        captured["authorization"] = req.headers.get("Authorization")
         return _FakeResp()
 
     monkeypatch.setattr(
         "client_surfaces.operator_tui.chat_message_formatter.urllib.request.urlopen",
         _fake_urlopen,
+    )
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.chat_message_formatter.hub_user_auth_headers",
+        lambda _endpoint: {"Authorization": "Bearer hub-user-jwt"},
     )
 
     answer = tui._resolve_ask_question(
@@ -110,6 +115,7 @@ def test_worker_v2_payload_leaves_grounding_context_to_hub(monkeypatch) -> None:
 
     assert answer == "hub answer"
     assert captured["url"] == "http://localhost:5000/snake/ask"
+    assert captured["authorization"] == "Bearer hub-user-jwt"
     payload = captured["payload"]
     assert isinstance(payload, dict)
     assert payload["context"] == ""

@@ -149,9 +149,7 @@ def _workspace_revision(
         cwd=root,
     )
     untracked_paths = sorted(
-        Path(raw.decode("utf-8", errors="surrogateescape"))
-        for raw in untracked_output.split(b"\0")
-        if raw
+        Path(raw.decode("utf-8", errors="surrogateescape")) for raw in untracked_output.split(b"\0") if raw
     )
     digest = hashlib.sha256()
     digest.update(b"tracked-diff\0")
@@ -194,6 +192,18 @@ def _release_identity(
     if not revision or not build_id:
         raise ValueError("workflow_release_build_identity_missing")
     return revision, build_id
+
+
+def _assert_workspace_snapshot_unchanged(
+    expected_revision: str,
+    *,
+    root: Path = ROOT,
+    excluded_path: Path | None = None,
+) -> None:
+    """Reject evidence when checked source bytes changed during verification."""
+
+    if _workspace_revision(root, excluded_path=excluded_path) != expected_revision:
+        raise ValueError("workflow_release_workspace_changed_during_verification")
 
 
 def _write_json(path: Path, payload: dict) -> None:
@@ -242,11 +252,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         if arguments.evidence_input is not None:
             parser.error("--evidence-input cannot replace records emitted by default subprocess gates")
         try:
+            workspace_snapshot = _workspace_revision(
+                ROOT,
+                excluded_path=arguments.output,
+            )
             revision, build_id = _release_identity(output_path=arguments.output)
             command_results, evidence = _run_verification_commands(
                 gate,
                 revision=revision,
                 build_id=build_id,
+            )
+            _assert_workspace_snapshot_unchanged(
+                workspace_snapshot,
+                excluded_path=arguments.output,
             )
         except (OSError, ValueError, subprocess.SubprocessError) as exc:
             parser.error(str(exc))

@@ -1,6 +1,7 @@
 import time
 from typing import List, Optional
 
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlmodel import Session, select
 
 from agent.database import engine
@@ -11,6 +12,10 @@ from agent.db_models import (
     PasswordHistoryDB,
     RefreshTokenDB,
     UserDB,
+)
+from agent.models.oidc_identity_provisioning import (
+    OidcIdentityProvisioningResult,
+    OidcIdentityProvisioningStatus,
 )
 
 
@@ -68,6 +73,109 @@ class OidcIdentityLinkRepository:
             session.commit()
             session.refresh(link)
             return link
+
+    def provision_user_with_link(
+        self,
+        *,
+        user: UserDB,
+        issuer: str,
+        subject: str,
+    ) -> OidcIdentityProvisioningResult:
+        """Create a user and its external-identity link in one transaction.
+
+        The preliminary reads make the common outcomes explicit. Database
+        unique constraints remain the concurrency authority; an integrity race
+        is re-read in a new transaction and mapped to the same stable domain
+        result without leaving an orphaned user.
+        """
+
+        try:
+            with Session(engine) as session:
+                subject_link = session.exec(
+                    select(OidcIdentityLinkDB).where(
+                        OidcIdentityLinkDB.issuer == issuer,
+                        OidcIdentityLinkDB.subject == subject,
+                    )
+                ).first()
+                if subject_link is not None:
+                    linked_user = session.get(UserDB, subject_link.username)
+                    return OidcIdentityProvisioningResult(
+                        status=(
+                            OidcIdentityProvisioningStatus.IDENTITY_ALREADY_LINKED
+                            if linked_user is not None
+                            else OidcIdentityProvisioningStatus.LINK_CONFLICT
+                        ),
+                        username=linked_user.username if linked_user is not None else None,
+                    )
+
+                if session.get(UserDB, user.username) is not None:
+                    return OidcIdentityProvisioningResult(
+                        status=OidcIdentityProvisioningStatus.USERNAME_CONFLICT,
+                    )
+
+                session.add(user)
+                session.add(
+                    OidcIdentityLinkDB(
+                        username=user.username,
+                        issuer=issuer,
+                        subject=subject,
+                    )
+                )
+                session.commit()
+                session.refresh(user)
+                return OidcIdentityProvisioningResult(
+                    status=OidcIdentityProvisioningStatus.CREATED,
+                    username=user.username,
+                )
+        except IntegrityError:
+            try:
+                return self._classify_provisioning_integrity_conflict(
+                    username=user.username,
+                    issuer=issuer,
+                    subject=subject,
+                )
+            except SQLAlchemyError:
+                return OidcIdentityProvisioningResult(
+                    status=OidcIdentityProvisioningStatus.PERSISTENCE_UNAVAILABLE,
+                )
+        except SQLAlchemyError:
+            return OidcIdentityProvisioningResult(
+                status=OidcIdentityProvisioningStatus.PERSISTENCE_UNAVAILABLE,
+            )
+
+    @staticmethod
+    def _classify_provisioning_integrity_conflict(
+        *,
+        username: str,
+        issuer: str,
+        subject: str,
+    ) -> OidcIdentityProvisioningResult:
+        """Classify a committed concurrent winner after the failed UoW rolled back."""
+
+        with Session(engine) as session:
+            subject_link = session.exec(
+                select(OidcIdentityLinkDB).where(
+                    OidcIdentityLinkDB.issuer == issuer,
+                    OidcIdentityLinkDB.subject == subject,
+                )
+            ).first()
+            if subject_link is not None:
+                linked_user = session.get(UserDB, subject_link.username)
+                return OidcIdentityProvisioningResult(
+                    status=(
+                        OidcIdentityProvisioningStatus.IDENTITY_ALREADY_LINKED
+                        if linked_user is not None
+                        else OidcIdentityProvisioningStatus.LINK_CONFLICT
+                    ),
+                    username=linked_user.username if linked_user is not None else None,
+                )
+            if session.get(UserDB, username) is not None:
+                return OidcIdentityProvisioningResult(
+                    status=OidcIdentityProvisioningStatus.USERNAME_CONFLICT,
+                )
+        return OidcIdentityProvisioningResult(
+            status=OidcIdentityProvisioningStatus.LINK_CONFLICT,
+        )
 
     def delete_for_user(self, username: str, issuer: str) -> bool:
         with Session(engine) as session:

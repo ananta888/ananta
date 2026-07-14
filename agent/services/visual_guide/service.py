@@ -13,7 +13,6 @@ from agent.adapters import visual_guide_route_bridge as _route_bridge
 from agent.services.visual_guide.decision_service import VisualGuideDecisionService
 from agent.services.visual_guide.models import (
     VisualGuideAction,
-    VisualGuideDecision,
     VisualGuideRequest,
 )
 from agent.services.visual_guide.rule_engine import RuleEngine
@@ -119,6 +118,7 @@ class VisualGuideService:
         ui_snapshot: str,
         route: str,
         visible_waypoints: list,
+        owner_principal: dict[str, str] | None = None,
     ) -> None:
         """Store the tick, compute delta, optionally spawn an AI reply."""
         # Use module-level bridge callables — tests can patch these on this module
@@ -170,6 +170,7 @@ class VisualGuideService:
                 self._trace_svc.emit(trace_id, "action_generated", {"strategy": "rule", "tip": route_tip})
                 _self_mod._append_room_ai_message(
                     text=route_tip, session_id=_self_mod._VISUAL_SESSION_ID, visibility="room",
+                    owner_principal=owner_principal,
                 )
                 action = VisualGuideAction(
                     request_id=request.request_id,
@@ -193,6 +194,7 @@ class VisualGuideService:
             if answer:
                 _self_mod._append_room_ai_message(
                     text=answer, session_id=_self_mod._VISUAL_SESSION_ID, visibility="room",
+                    owner_principal=owner_principal,
                 )
                 _log.info("ananta-visual: reply appended (%d chars)", len(answer))
 
@@ -230,6 +232,7 @@ class VisualGuideService:
         snake_id: str,
         region_steps: list[dict],
         route: str,
+        owner_principal: dict[str, str] | None = None,
     ) -> None:
         """Validate steps, spawn AI explain reply."""
         import agent.services.visual_guide.service as _self_mod
@@ -270,6 +273,7 @@ class VisualGuideService:
                     text=f"{_summary}\n\n__GUIDE__:{guide_json}",
                     session_id=_self_mod._VISUAL_SESSION_ID,
                     visibility="room",
+                    owner_principal=owner_principal,
                 )
                 _self_mod._broadcast_snake_event(
                     snake_id, "guide",
@@ -305,6 +309,7 @@ class VisualGuideService:
                 text=f"{_summary}\n\n__GUIDE__:{guide_json}",
                 session_id=_self_mod._VISUAL_SESSION_ID,
                 visibility="room",
+                owner_principal=owner_principal,
             )
             _self_mod._broadcast_snake_event(
                 snake_id, "guide",
@@ -545,7 +550,14 @@ class VisualGuideService:
         except Exception:
             return []
 
-    def handle_manual_guide(self, snake_id: str, intent: str, snapshot: str = "", route: str = "") -> None:
+    def handle_manual_guide(
+        self,
+        snake_id: str,
+        intent: str,
+        snapshot: str = "",
+        route: str = "",
+        owner_principal: dict[str, str] | None = None,
+    ) -> None:
         """Handle a /guide chat command — spawn a guide based on explicit user intent."""
         import agent.services.visual_guide.service as _self_mod
 
@@ -567,6 +579,7 @@ class VisualGuideService:
                 text="Guide-Rate-Limit erreicht. Bitte kurz warten.",
                 session_id=_self_mod._VISUAL_SESSION_ID,
                 visibility="room",
+                owner_principal=owner_principal,
             )
             self._trace_svc.emit(trace_id, "suppressed_by_rate_limit", {"reason": "rate_limit_exceeded"})
             self._trace_svc.finish_trace(trace_id, success=False)
@@ -581,6 +594,7 @@ class VisualGuideService:
                     text=answer,
                     session_id=_self_mod._VISUAL_SESSION_ID,
                     visibility="room",
+                    owner_principal=owner_principal,
                 )
                 guide_steps = self._extract_guide_steps(answer)
                 if guide_steps:

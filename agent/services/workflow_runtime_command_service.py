@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import time
+from copy import deepcopy
 from dataclasses import dataclass
+from threading import RLock
 from typing import Any, Callable, Mapping, Protocol
 
 from agent.common.audit import log_audit
@@ -17,6 +21,33 @@ from agent.services.workflow_runtime_read_model_service import (
 RUNTIME_OPERATIONS_COMMANDS = frozenset(
     {"pause_run", "resume_run", "cancel_run", "retry_run_or_task"}
 )
+
+
+def runtime_operation_idempotency_key(
+    *,
+    tenant_id: str,
+    run_id: str,
+    client_key: str,
+) -> str:
+    """Build a bounded, collision-resistant key from structured identities.
+
+    Delimiter concatenation is ambiguous when an otherwise valid tenant, run,
+    or client key contains the delimiter.  Canonical JSON preserves those
+    boundaries; hashing also avoids disclosing tenant and run identifiers to a
+    downstream command store.
+    """
+
+    canonical = json.dumps(
+        {
+            "client_key": str(client_key),
+            "run_id": str(run_id),
+            "tenant_id": str(tenant_id),
+        },
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return f"runtime-ops:v1:{hashlib.sha256(canonical).hexdigest()}"
 
 
 class HubRuntimeCommandGateway(Protocol):
@@ -47,8 +78,126 @@ class WorkflowRuntimeGatewayError(RuntimeError):
         self.http_status = int(http_status)
 
 
+def _workflow_command_request_fingerprint(
+    *,
+    tenant_id: str,
+    command_type: str,
+    task_id: str,
+    run_id: str,
+    workflow_id: str,
+    runtime_id: str,
+    requested_by: str,
+    governance_context: Mapping[str, Any],
+) -> str:
+    """Hash the exact workflow command binding without retaining its payload."""
+
+    try:
+        canonical = json.dumps(
+            {
+                "command_type": command_type,
+                "governance_context": dict(governance_context),
+                "requested_by": requested_by,
+                "run_id": run_id,
+                "runtime_id": runtime_id,
+                "task_id": task_id,
+                "tenant_id": tenant_id,
+                "workflow_id": workflow_id,
+            },
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise WorkflowRuntimeGatewayError("runtime_command_payload_invalid", 400) from exc
+    return hashlib.sha256(canonical).hexdigest()
+
+
+@dataclass
+class _WorkflowCommandReplayEntry:
+    fingerprint: str
+    accepted_snapshot: dict[str, Any]
+    final_snapshot: dict[str, Any] | None = None
+    error_reason: str = ""
+    error_status: int = 0
+
+
+class _WorkflowCommandReplayLedger:
+    """Process-local atomic replay guard for workflow-bound Hub commands.
+
+    An exact replay while its owner is in flight receives the explicit
+    ``accepted`` snapshot.  Once complete, subsequent replays receive the
+    original final snapshot.  The lock only protects in-memory state and never
+    spans workflow, persistence, or audit I/O.
+    """
+
+    def __init__(self) -> None:
+        self._lock = RLock()
+        self._entries: dict[str, _WorkflowCommandReplayEntry] = {}
+
+    def reserve(
+        self,
+        *,
+        idempotency_key: str,
+        fingerprint: str,
+        accepted_snapshot: Mapping[str, Any],
+    ) -> tuple[bool, dict[str, Any]]:
+        if not idempotency_key:
+            return True, deepcopy(dict(accepted_snapshot))
+        with self._lock:
+            existing = self._entries.get(idempotency_key)
+            if existing is None:
+                snapshot = deepcopy(dict(accepted_snapshot))
+                self._entries[idempotency_key] = _WorkflowCommandReplayEntry(
+                    fingerprint=fingerprint,
+                    accepted_snapshot=snapshot,
+                )
+                return True, deepcopy(snapshot)
+            if existing.fingerprint != fingerprint:
+                raise WorkflowRuntimeGatewayError(
+                    "runtime_command_idempotency_conflict",
+                    409,
+                )
+            if existing.error_reason:
+                raise WorkflowRuntimeGatewayError(
+                    existing.error_reason,
+                    existing.error_status,
+                )
+            snapshot = existing.final_snapshot or existing.accepted_snapshot
+            return False, deepcopy(snapshot)
+
+    def complete(
+        self,
+        *,
+        idempotency_key: str,
+        result: Mapping[str, Any],
+    ) -> None:
+        if not idempotency_key:
+            return
+        with self._lock:
+            entry = self._entries.get(idempotency_key)
+            if entry is not None:
+                entry.final_snapshot = deepcopy(dict(result))
+
+    def fail(
+        self,
+        *,
+        idempotency_key: str,
+        error: WorkflowRuntimeGatewayError,
+    ) -> None:
+        if not idempotency_key:
+            return
+        with self._lock:
+            entry = self._entries.get(idempotency_key)
+            if entry is not None:
+                entry.error_reason = error.reason_code
+                entry.error_status = error.http_status
+
+
 class RunControlRuntimeCommandGateway:
     """Adapter to Ananta's existing Hub RunControlService."""
+
+    def __init__(self, *, service_provider: Callable[[], Any] | None = None) -> None:
+        self._service_provider = service_provider
 
     def send(
         self,
@@ -61,17 +210,42 @@ class RunControlRuntimeCommandGateway:
         idempotency_key: str,
         governance_context: Mapping[str, Any],
     ) -> Mapping[str, Any]:
-        del tenant_id
-        from agent.services.run_control_service import get_run_control_service
-
-        command = get_run_control_service().send_command(
-            command_type=command_type,
-            task_id=task_id,
-            run_id=run_id,
-            requested_by=requested_by,
-            idempotency_key=idempotency_key,
-            payload={"runtime_operations_governance": dict(governance_context)},
+        from agent.services.run_control_service import (
+            RunCommandIdempotencyConflictError,
+            RunControlAuthorizationError,
+            RunControlPrincipal,
+            get_run_control_service,
         )
+
+        service = (
+            self._service_provider()
+            if self._service_provider is not None
+            else get_run_control_service()
+        )
+        try:
+            principal = RunControlPrincipal.from_values(tenant_id, requested_by)
+            if not service.bind_resource_owners(
+                principal=principal,
+                resources=(("task", task_id), ("run", run_id)),
+            ):
+                raise WorkflowRuntimeGatewayError("runtime_run_not_found", 404)
+            command = service.send_command(
+                command_type=command_type,
+                task_id=task_id,
+                run_id=run_id,
+                requested_by=requested_by,
+                idempotency_key=idempotency_key,
+                payload={"runtime_operations_governance": dict(governance_context)},
+                tenant_id=tenant_id,
+                subject_id=requested_by,
+            )
+        except RunControlAuthorizationError as exc:
+            raise WorkflowRuntimeGatewayError("runtime_run_not_found", 404) from exc
+        except RunCommandIdempotencyConflictError as exc:
+            raise WorkflowRuntimeGatewayError(
+                "runtime_command_idempotency_conflict",
+                409,
+            ) from exc
         return dict(command.as_dict())
 
 
@@ -95,6 +269,7 @@ class WorkflowAwareRuntimeCommandGateway:
         self._bindings = bindings
         self._facade_provider = facade_provider
         self._task_gateway = task_gateway or RunControlRuntimeCommandGateway()
+        self._workflow_replays = _WorkflowCommandReplayLedger()
 
     def send(
         self,
@@ -142,13 +317,37 @@ class WorkflowAwareRuntimeCommandGateway:
                 "runtime_workflow_backend_binding_mismatch",
                 409,
             )
-        controlled = facade.bind(
-            WorkflowRoutePrincipal(
-                tenant_id=str(binding.tenant_id),
-                subject=str(binding.subject_id),
-            )
+        accepted_snapshot = {
+            "command_id": idempotency_key,
+            "type": command_type,
+            "status": "accepted",
+            "run_id": run_id,
+            "workflow_id": str(binding.workflow_id),
+        }
+        fingerprint = _workflow_command_request_fingerprint(
+            tenant_id=tenant_id,
+            command_type=command_type,
+            task_id=task_id,
+            run_id=run_id,
+            workflow_id=str(binding.workflow_id),
+            runtime_id=str(binding.runtime_id),
+            requested_by=requested_by,
+            governance_context=governance_context,
         )
+        owns_reservation, replay = self._workflow_replays.reserve(
+            idempotency_key=idempotency_key,
+            fingerprint=fingerprint,
+            accepted_snapshot=accepted_snapshot,
+        )
+        if not owns_reservation:
+            return replay
         try:
+            controlled = facade.bind(
+                WorkflowRoutePrincipal(
+                    tenant_id=str(binding.tenant_id),
+                    subject=str(binding.subject_id),
+                )
+            )
             status = controlled.command_workflow(
                 str(binding.workflow_id),
                 command_type=canonical,
@@ -158,32 +357,62 @@ class WorkflowAwareRuntimeCommandGateway:
                 },
             )
         except PermissionError as exc:
-            raise WorkflowRuntimeGatewayError(
+            error = WorkflowRuntimeGatewayError(
                 "runtime_workflow_command_denied",
                 403,
-            ) from exc
+            )
+            self._workflow_replays.fail(
+                idempotency_key=idempotency_key,
+                error=error,
+            )
+            raise error from exc
         except ValueError as exc:
-            raise WorkflowRuntimeGatewayError(
+            error = WorkflowRuntimeGatewayError(
                 "runtime_workflow_command_conflict",
                 409,
-            ) from exc
+            )
+            self._workflow_replays.fail(
+                idempotency_key=idempotency_key,
+                error=error,
+            )
+            raise error from exc
         except RuntimeError as exc:
             reason = str(exc).lower()
             is_conflict = any(
                 marker in reason
                 for marker in ("conflict", "mismatch", "revision", "replay")
             )
-            raise WorkflowRuntimeGatewayError(
+            error = WorkflowRuntimeGatewayError(
                 (
                     "runtime_workflow_command_conflict"
                     if is_conflict
                     else "runtime_workflow_command_unavailable"
                 ),
                 409 if is_conflict else 503,
-            ) from exc
+            )
+            self._workflow_replays.fail(
+                idempotency_key=idempotency_key,
+                error=error,
+            )
+            raise error from exc
+        except Exception as exc:
+            error = WorkflowRuntimeGatewayError(
+                "runtime_workflow_command_unavailable",
+                503,
+            )
+            self._workflow_replays.fail(
+                idempotency_key=idempotency_key,
+                error=error,
+            )
+            raise error from exc
         if str(status.get("status") or "") == "not_found":
-            raise WorkflowRuntimeGatewayError("runtime_run_not_found", 404)
-        return {
+            error = WorkflowRuntimeGatewayError("runtime_run_not_found", 404)
+            self._workflow_replays.fail(
+                idempotency_key=idempotency_key,
+                error=error,
+            )
+            raise error
+        result = {
             "command_id": idempotency_key,
             "type": command_type,
             "status": "accepted",
@@ -191,6 +420,11 @@ class WorkflowAwareRuntimeCommandGateway:
             "workflow_id": str(binding.workflow_id),
             "workflow_status": dict(status),
         }
+        self._workflow_replays.complete(
+            idempotency_key=idempotency_key,
+            result=result,
+        )
+        return result
 
 
 @dataclass(frozen=True)
@@ -208,23 +442,43 @@ class RuntimeOperationCommandRequest:
         idempotency_key: str = "",
     ) -> "RuntimeOperationCommandRequest":
         command_type = str(value.get("type") or value.get("command_type") or "").strip()
-        approval_id = str(value.get("approval_id") or "").strip()
+        approval_value = value.get("approval_id")
+        approval_id = approval_value if isinstance(approval_value, str) else ""
         refs_raw = value.get("evidence_refs") or ()
         if not isinstance(refs_raw, (list, tuple, set, frozenset)):
             raise RuntimeOperationCommandError("runtime_command_verified_evidence_required", 422)
-        refs = tuple(sorted({str(item).strip() for item in refs_raw if str(item).strip()}))
-        resolved_key = str(idempotency_key or value.get("idempotency_key") or "").strip()
+        if any(
+            not isinstance(item, str)
+            or not item
+            or item != item.strip()
+            or len(item) > 160
+            or any(ord(character) < 32 or ord(character) == 127 for character in item)
+            for item in refs_raw
+        ):
+            raise RuntimeOperationCommandError("runtime_command_verified_evidence_required", 422)
+        refs = tuple(sorted(set(refs_raw)))
+        key_value = idempotency_key or value.get("idempotency_key") or ""
+        resolved_key = key_value if isinstance(key_value, str) else ""
         if command_type not in RUNTIME_OPERATIONS_COMMANDS:
             raise RuntimeOperationCommandError("runtime_command_type_forbidden", 400)
-        if not approval_id:
+        if (
+            not approval_id
+            or approval_id != approval_id.strip()
+            or len(approval_id) > 160
+            or any(ord(character) < 32 or ord(character) == 127 for character in approval_id)
+        ):
             raise RuntimeOperationCommandError("runtime_command_approval_required", 422)
         if not refs or len(refs) > 20:
             raise RuntimeOperationCommandError("runtime_command_verified_evidence_required", 422)
-        if not (8 <= len(resolved_key) <= 200):
+        if (
+            not (8 <= len(resolved_key) <= 200)
+            or resolved_key != resolved_key.strip()
+            or any(ord(character) < 32 or ord(character) == 127 for character in resolved_key)
+        ):
             raise RuntimeOperationCommandError("runtime_command_idempotency_key_required", 400)
         return cls(
             command_type=command_type,
-            approval_id=approval_id[:160],
+            approval_id=approval_id,
             evidence_refs=refs,
             idempotency_key=resolved_key,
         )
@@ -290,7 +544,11 @@ class WorkflowRuntimeCommandService:
             "evidence_refs": list(request.evidence_refs),
             "read_model_sequence": record.source_sequence,
         }
-        namespaced_key = f"runtime-ops:{tenant_id}:{run_id}:{request.idempotency_key}"
+        namespaced_key = runtime_operation_idempotency_key(
+            tenant_id=tenant_id,
+            run_id=run_id,
+            client_key=request.idempotency_key,
+        )
         try:
             command = dict(
                 self._gateway.send(
@@ -406,4 +664,5 @@ __all__ = [
     "WorkflowAwareRuntimeCommandGateway",
     "WorkflowRuntimeGatewayError",
     "get_workflow_runtime_command_service",
+    "runtime_operation_idempotency_key",
 ]

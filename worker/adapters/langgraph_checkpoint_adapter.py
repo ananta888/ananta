@@ -8,15 +8,17 @@ import json
 import math
 import os
 import ssl
-import stat
 import threading
 import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Iterator, Mapping, Sequence
-from pathlib import Path
 from typing import Any, NamedTuple, Protocol
 
+from ananta_contracts.file_credentials import (
+    FileCredentialConfigurationError,
+    read_file_managed_token,
+)
 from ananta_contracts.langgraph_checkpoint import (
     LANGGRAPH_CHECKPOINT_COMMAND_SCHEMA,
     LANGGRAPH_CHECKPOINT_RESPONSE_SCHEMA,
@@ -27,6 +29,7 @@ from ananta_contracts.langgraph_checkpoint import (
     assert_json_mapping,
     assert_langgraph_config_binding,
 )
+from worker.runtime.workflow_service_identity import WorkflowServiceIdentity
 
 try:  # Optional runtime dependency; importing this module stays dependency-safe.
     from langgraph.checkpoint.base import BaseCheckpointSaver, CheckpointTuple
@@ -104,6 +107,8 @@ class HttpLangGraphCheckpointGateway:
         command_path: str = "/api/internal/workflow-runtime/langgraph/checkpoints",
         timeout_seconds: float = 15.0,
         ssl_context: ssl.SSLContext | None = None,
+        worker_id: str = "",
+        worker_url: str = "",
     ) -> None:
         parsed = urllib.parse.urlsplit(str(hub_url or "").rstrip("/"))
         if (
@@ -127,6 +132,10 @@ class HttpLangGraphCheckpointGateway:
         self._command_path = "/" + str(command_path or "").strip("/")
         self._timeout_seconds = max(1.0, min(float(timeout_seconds), 120.0))
         self._ssl_context = ssl_context
+        self._service_identity = WorkflowServiceIdentity.optional(
+            worker_id=worker_id,
+            worker_url=worker_url,
+        )
 
     @classmethod
     def from_environment(cls, env: Mapping[str, str] | None = None) -> "HttpLangGraphCheckpointGateway | None":
@@ -135,28 +144,21 @@ class HttpLangGraphCheckpointGateway:
         token_file = str(source.get("ANANTA_LANGGRAPH_HUB_TOKEN_FILE") or "").strip()
         if not hub_url and not token_file:
             return None
-        if not hub_url or not token_file or not Path(token_file).is_absolute():
+        if not hub_url or not token_file:
             raise ValueError("langgraph checkpoint Hub URL and absolute token file are required")
-        token_path = Path(token_file)
         try:
-            metadata = token_path.stat()
-        except OSError as exc:
-            raise ValueError("langgraph checkpoint bearer token file cannot be inspected") from exc
-        if not stat.S_ISREG(metadata.st_mode) or metadata.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
-            raise ValueError("langgraph checkpoint bearer token file is unsafe")
-        try:
-            with token_path.open("rb") as handle:
-                raw_token = handle.read(16_385)
-            token = raw_token.decode("utf-8").strip()
-        except (OSError, UnicodeDecodeError) as exc:
-            raise ValueError("langgraph checkpoint bearer token file cannot be read") from exc
-        if (
-            not 32 <= len(token.encode("utf-8")) <= 16_384
-            or "\x00" in token
-            or any(character.isspace() for character in token)
-        ):
-            raise ValueError("langgraph checkpoint bearer token file is invalid")
-        return cls(hub_url=hub_url, bearer_token=token)
+            token = read_file_managed_token(
+                token_file,
+                description="langgraph checkpoint bearer token file",
+            )
+        except FileCredentialConfigurationError as exc:
+            raise ValueError(str(exc)) from exc
+        return cls(
+            hub_url=hub_url,
+            bearer_token=token,
+            worker_id=str(source.get("AGENT_NAME") or "").strip(),
+            worker_url=str(source.get("AGENT_URL") or "").strip(),
+        )
 
     def get(
         self,
@@ -261,15 +263,18 @@ class HttpLangGraphCheckpointGateway:
             raise LangGraphCheckpointGatewayError("langgraph_checkpoint_json_invalid") from exc
         if len(body) > 262_144:
             raise LangGraphCheckpointGatewayError("langgraph_checkpoint_payload_too_large")
+        headers = {
+            "Accept": "application/json",
+            "Authorization": f"Bearer {self._bearer_token}",
+            "Content-Type": "application/json",
+            "User-Agent": "ananta-langgraph-worker/1",
+        }
+        if self._service_identity is not None:
+            headers.update(self._service_identity.headers())
         request = urllib.request.Request(
             self._hub_url + self._command_path,
             data=body,
-            headers={
-                "Accept": "application/json",
-                "Authorization": f"Bearer {self._bearer_token}",
-                "Content-Type": "application/json",
-                "User-Agent": "ananta-langgraph-worker/1",
-            },
+            headers=headers,
             method="POST",
         )
         try:

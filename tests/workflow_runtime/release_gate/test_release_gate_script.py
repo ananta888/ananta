@@ -5,6 +5,8 @@ import runpy
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from tests.workflow_runtime.release_gate.test_release_gate import _gate_and_evidence
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -47,10 +49,44 @@ def test_workspace_revision_binds_tracked_and_untracked_content_but_not_output(
     assert "+worktree." not in clean_revision
     assert dirty_revision != clean_revision
     assert untracked_revision != dirty_revision
-    assert module["_workspace_revision"](
-        repository,
-        excluded_path=output,
-    ) == untracked_revision
+    assert (
+        module["_workspace_revision"](
+            repository,
+            excluded_path=output,
+        )
+        == untracked_revision
+    )
+
+
+def test_release_gate_rejects_source_changes_during_verification(
+    tmp_path: Path,
+) -> None:
+    module = runpy.run_path(str(SCRIPT))
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    _git(repository, "init", "-q")
+    _git(repository, "config", "user.email", "tests@ananta.invalid")
+    _git(repository, "config", "user.name", "Ananta Tests")
+    tracked = repository / "tracked.py"
+    tracked.write_text("VALUE = 1\n", encoding="utf-8")
+    _git(repository, "add", "tracked.py")
+    _git(repository, "commit", "-q", "-m", "test: seed")
+    snapshot = module["_workspace_revision"](repository)
+
+    module["_assert_workspace_snapshot_unchanged"](
+        snapshot,
+        root=repository,
+    )
+    tracked.write_text("VALUE = 2\n", encoding="utf-8")
+
+    with pytest.raises(
+        ValueError,
+        match="workflow_release_workspace_changed_during_verification",
+    ):
+        module["_assert_workspace_snapshot_unchanged"](
+            snapshot,
+            root=repository,
+        )
 
 
 def test_no_commands_mode_is_explicitly_non_releasable(tmp_path: Path, capsys) -> None:

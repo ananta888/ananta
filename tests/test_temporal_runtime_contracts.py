@@ -291,6 +291,7 @@ def test_worker_config_requires_absolute_credential_references_and_supports_keyr
             "ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_FILE": str(keyring),
             "ANANTA_TEMPORAL_HUB_URL": "http://ai-agent-hub:5000",
             "ANANTA_TEMPORAL_HUB_TOKEN_FILE": str(token),
+            "ANANTA_WORKFLOW_SERVICE_ID": "ananta-temporal-worker",
         }
     )
     assert config.productive_gateway_configured is True
@@ -299,6 +300,14 @@ def test_worker_config_requires_absolute_credential_references_and_supports_keyr
         == ED25519_VERIFICATION_KEYRING_SCHEMA
     )
     assert config.read_hub_token() == "signed-hub-service-token"
+
+    with pytest.raises(TemporalWorkerConfigError, match="service identity"):
+        TemporalWorkerConfig.from_env(
+            {
+                "ANANTA_TEMPORAL_HUB_URL": "http://ai-agent-hub:5000",
+                "ANANTA_TEMPORAL_HUB_TOKEN_FILE": str(token),
+            }
+        )
 
     legacy = tmp_path / "legacy-runtime-keyring.json"
     legacy.write_text(

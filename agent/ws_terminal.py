@@ -8,15 +8,22 @@ import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 from urllib.parse import parse_qs
 
 import jwt
 
+from agent.auth import (
+    AgentTokenConfigurationError,
+    authenticate_provided_token,
+    get_request_auth_context,
+    resolve_configured_agent_token,
+)
 from agent.config import settings
 from agent.services.live_terminal_session_service import get_live_terminal_session_service
 from agent.services.platform_governance_service import get_platform_governance_service
 from agent.services.terminal_bridge import build_terminal_bridge
+from agent.services.user_token_scope import token_scope_allows_request
 
 try:
     from flask_sock import Sock
@@ -60,10 +67,28 @@ def _decode_token(provided_token: str, agent_token: str | None) -> dict[str, Any
         if provided_token.count(".") == 2:
             if agent_token:
                 try:
-                    return jwt.decode(provided_token, agent_token, algorithms=["HS256"], leeway=30)
+                    payload = jwt.decode(provided_token, agent_token, algorithms=["HS256"], leeway=30)
+                    return (
+                        payload
+                        if token_scope_allows_request(
+                            payload,
+                            method="GET",
+                            path="/ws/terminal",
+                        )
+                        else None
+                    )
                 except jwt.PyJWTError:
                     pass
-            return jwt.decode(provided_token, settings.secret_key, algorithms=["HS256"], leeway=30)
+            payload = jwt.decode(provided_token, settings.secret_key, algorithms=["HS256"], leeway=30)
+            return (
+                payload
+                if token_scope_allows_request(
+                    payload,
+                    method="GET",
+                    path="/ws/terminal",
+                )
+                else None
+            )
         if agent_token and provided_token == agent_token:
             return {"sub": "agent_token", "role": "admin"}
     except jwt.PyJWTError:
@@ -133,6 +158,57 @@ def _extract_ws_context(ws: Any) -> tuple[dict[str, Any], str | None, str, str |
     forward_param = (query.get("forward_param") or [None])[0]
 
     return environ, provided_token, mode or "interactive", forward_param
+
+
+def _ws_token_came_from_query(environ: dict[str, Any]) -> bool:
+    auth_header = str(environ.get("HTTP_AUTHORIZATION") or "")
+    query = parse_qs(str(environ.get("QUERY_STRING") or ""))
+    return not auth_header.startswith("Bearer ") and bool((query.get("token") or [None])[0])
+
+
+def _authenticate_terminal_token(
+    provided_token: str | None,
+    *,
+    app_config: Mapping[str, Any],
+    token_from_query: bool = False,
+) -> tuple[dict[str, Any] | None, str | None, bool]:
+    """Authenticate a terminal credential through the central Hub boundary.
+
+    Returns ``(payload, reason_or_mode, auth_required)``. File-managed service
+    credentials are deliberately header-only; signed user credentials still
+    pass through the central scope policy, which rejects stream derivatives on
+    the terminal path.
+    """
+
+    file_managed = bool(
+        str(app_config.get("AGENT_TOKEN_FILE") or os.environ.get("AGENT_TOKEN_FILE") or "").strip()
+    )
+    try:
+        configured_agent_token = resolve_configured_agent_token(app_config)
+    except AgentTokenConfigurationError:
+        LOGGER.error("Terminal WebSocket rejected an invalid AGENT_TOKEN_FILE configuration")
+        return None, "agent_token_file_invalid", True
+
+    auth_required = configured_agent_token is not None
+    if file_managed and token_from_query:
+        return None, "agent_token_query_forbidden", True
+    authenticated, auth_mode = authenticate_provided_token(
+        provided_token,
+        require_admin=False,
+    )
+    if not authenticated:
+        return None, auth_mode or "invalid_token", auth_required
+    if auth_mode == "auth_disabled":
+        return None, auth_mode, False
+
+    auth_payload = get_request_auth_context()
+    if auth_mode == "agent_static_token" and not auth_payload:
+        auth_payload = {
+            "sub": "agent_token",
+            "role": "admin",
+            "auth_mode": auth_mode,
+        }
+    return auth_payload or None, auth_mode, auth_required
 
 
 def _append_terminal_log(data_dir: str, entry: dict[str, Any]) -> None:
@@ -410,13 +486,20 @@ def register_ws_terminal(app: Any) -> None:
         session_id = f"ws-{uuid.uuid4()}"
         environ, provided_token, mode, forward_param = _extract_ws_context(ws)
         mode = mode if mode in {"interactive", "read"} else "interactive"
-        agent_token = app.config.get("AGENT_TOKEN")
         data_dir = app.config.get("DATA_DIR", settings.data_dir)
         remote_addr = environ.get("REMOTE_ADDR")
-        auth_payload = _decode_token(provided_token or "", agent_token)
+        auth_payload, auth_reason, auth_required = _authenticate_terminal_token(
+            provided_token,
+            app_config=app.config,
+            token_from_query=_ws_token_came_from_query(environ),
+        )
 
-        if agent_token and not auth_payload:
-            _send_event(ws, "error", {"message": "unauthorized"})
+        if (auth_required or provided_token) and not auth_payload and auth_reason != "auth_disabled":
+            _send_event(
+                ws,
+                "error",
+                {"message": "unauthorized", "details": auth_reason or "invalid_token"},
+            )
             return
 
         principal = (auth_payload or {}).get("sub") or "anonymous"

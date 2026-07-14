@@ -2,7 +2,27 @@
 
 from __future__ import annotations
 
+import time
+
+import jwt
 import pytest
+
+
+def _user_jwt(username: str, tenant_id: str | None = None) -> str:
+    from agent.config import settings
+
+    now = int(time.time())
+    return jwt.encode(
+        {
+            "sub": username,
+            "tenant_id": tenant_id or username,
+            "role": "user",
+            "iat": now,
+            "exp": now + 1800,
+        },
+        settings.secret_key,
+        algorithm="HS256",
+    )
 
 
 @pytest.fixture()
@@ -29,7 +49,9 @@ def app():
 
 @pytest.fixture()
 def client(app):
-    return app.test_client()
+    client = app.test_client()
+    client.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {_user_jwt('trace-owner')}"
+    return client
 
 
 def _register(client, name="TraceSnake", role="viewer"):
@@ -125,7 +147,7 @@ def test_trace_detail_returns_correct_trace(client):
     assert data["trace"]["status"] == "completed"
 
 
-def test_trace_detail_wrong_snake_returns_403(client):
+def test_trace_detail_wrong_snake_returns_non_oracular_404(client):
     import agent.routes.ai_snake_trace_store as _ts
     s1 = _register(client, "OwnerSnake")
     s2 = _register(client, "OtherSnake")
@@ -133,7 +155,7 @@ def test_trace_detail_wrong_snake_returns_403(client):
     trace_id = store.new_trace(snake_id=s1["id"])
 
     resp = client.get(f"/snakes/{s2['id']}/chat/traces/{trace_id}")
-    assert resp.status_code == 403
+    assert resp.status_code == 404
 
 
 # ── Trace events ──────────────────────────────────────────────────────────────
@@ -189,7 +211,7 @@ def test_trace_events_completed_trace(client):
     assert data["current_status"] == "completed"
 
 
-def test_trace_events_wrong_snake_returns_403(client):
+def test_trace_events_wrong_snake_returns_non_oracular_404(client):
     import agent.routes.ai_snake_trace_store as _ts
     s1 = _register(client, "Owner")
     s2 = _register(client, "Other")
@@ -197,4 +219,22 @@ def test_trace_events_wrong_snake_returns_403(client):
     trace_id = store.new_trace(snake_id=s1["id"])
 
     resp = client.get(f"/snakes/{s2['id']}/chat/traces/{trace_id}/events")
-    assert resp.status_code == 403
+    assert resp.status_code == 404
+
+
+def test_trace_routes_reject_unauthenticated_and_foreign_tenant(app):
+    owner = app.test_client()
+    owner_token = _user_jwt("shared", "tenant-a")
+    foreign_token = _user_jwt("shared", "tenant-b")
+    snake = owner.post(
+        "/snakes",
+        headers={"Authorization": f"Bearer {owner_token}"},
+        json={"name": "PrivateTraceSnake", "role": "viewer"},
+    ).get_json()
+
+    assert owner.get(f"/snakes/{snake['id']}/chat/traces").status_code == 401
+    denied = owner.get(
+        f"/snakes/{snake['id']}/chat/traces",
+        headers={"Authorization": f"Bearer {foreign_token}"},
+    )
+    assert denied.status_code == 404

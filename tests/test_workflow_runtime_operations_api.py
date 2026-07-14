@@ -1,14 +1,30 @@
 from __future__ import annotations
 
 import time
+from dataclasses import replace
 from typing import Any, Mapping
 
+import jwt
 import pytest
+from werkzeug.security import generate_password_hash
 
 from agent.auth import generate_token
 from agent.config import settings
+from agent.db_models import UserDB
+from agent.repository import user_repo
+from agent.services.run_control_service import RunControlService
+from agent.services.user_session_tokens import local_user_tenant_id
+from agent.services.workflow_runtime.errors import ContractValidationError
 from agent.services.workflow_runtime.events import CanonicalWorkflowEvent
-from agent.services.workflow_runtime_command_service import WorkflowRuntimeCommandService
+from agent.services.workflow_runtime_command_service import (
+    RunControlRuntimeCommandGateway,
+    RuntimeOperationCommandRequest,
+    WorkflowRuntimeCommandService,
+)
+from agent.services.workflow_runtime_operations_models import (
+    RuntimeGateView,
+    WorkflowRuntimeOperationRecord,
+)
 from agent.services.workflow_runtime_read_model_service import (
     InMemoryWorkflowRuntimeReadModelRepository,
     WorkflowRuntimeReadModelService,
@@ -88,7 +104,7 @@ def test_operations_api_is_strictly_authenticated_and_empty_is_explicit(client):
 
 def test_operations_api_rejects_authenticated_user_without_tenant_identity(client):
     token = generate_token(
-        {"role": "admin"},
+        {"sub": "operator-without-tenant", "role": "admin"},
         settings.secret_key,
     )
 
@@ -99,6 +115,170 @@ def test_operations_api_rejects_authenticated_user_without_tenant_identity(clien
 
     assert response.status_code == 403
     assert response.get_json()["reason_code"] == "workflow_runtime_identity_required"
+
+
+def test_operations_api_rejects_oversized_identity_instead_of_truncating(client):
+    token = generate_token(
+        {"sub": "operator", "tenant_id": "t" * 161, "role": "user"},
+        settings.secret_key,
+    )
+
+    response = client.get(
+        "/api/workflow-runtime/operations",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 403
+    assert response.get_json()["reason_code"] == "workflow_runtime_identity_required"
+
+
+@pytest.mark.parametrize("claim_name", ["sub", "tenant_id"])
+def test_operations_api_rejects_noncanonical_claim_identity(client, claim_name: str):
+    claims = {"sub": "operator", "tenant_id": "tenant-a", "role": "user"}
+    claims[claim_name] = f" {claims[claim_name]}"
+    token = generate_token(claims, settings.secret_key)
+
+    response = client.get(
+        "/api/workflow-runtime/operations",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 403
+    assert response.get_json()["reason_code"] == "workflow_runtime_identity_required"
+
+
+@pytest.mark.parametrize(
+    ("field_name", "value", "reason_code"),
+    [
+        ("tenant_id", "t" * 161, "tenant_id_too_long"),
+        ("run_id", "r" * 161, "run_id_too_long"),
+        ("tenant_id", " tenant-a", "tenant_id_not_canonical"),
+        ("run_id", "run-a\n", "run_id_not_canonical"),
+    ],
+)
+def test_read_model_rejects_noncanonical_or_oversized_security_identities(
+    field_name: str,
+    value: str,
+    reason_code: str,
+):
+    snapshot = _snapshot("run-identity")
+    snapshot[field_name] = value
+
+    with pytest.raises(ValueError, match=reason_code):
+        WorkflowRuntimeOperationRecord.from_mapping(snapshot)
+
+
+def test_read_model_repository_revalidates_direct_dataclass_records_before_upsert():
+    repository = InMemoryWorkflowRuntimeReadModelRepository()
+    valid = WorkflowRuntimeOperationRecord.from_mapping(_snapshot("run-direct-record"))
+    invalid_records = (
+        replace(valid, tenant_id=" tenant-a"),
+        replace(
+            valid,
+            gates=(RuntimeGateView(gate_id=" gate-direct", label="Invalid gate"),),
+        ),
+    )
+
+    for record in invalid_records:
+        with pytest.raises(ValueError, match="not_canonical"):
+            repository.upsert(record)
+
+    assert repository.list_for_tenant(tenant_id="tenant-a") == ()
+
+
+@pytest.mark.parametrize(
+    ("field_name", "invalid_value", "reason_code"),
+    [
+        ("tenant_id", " tenant-a", "tenant_id_not_canonical"),
+        ("tenant_id", 7, "tenant_id_not_canonical"),
+        ("tenant_id", "t" * 161, "tenant_id_too_long"),
+        ("workflow_id", "workflow-a ", "workflow_id_not_canonical"),
+        ("workflow_id", 7, "workflow_id_not_canonical"),
+        ("workflow_id", "w" * 161, "workflow_id_too_long"),
+        ("run_id", " run-a", "run_id_not_canonical"),
+        ("run_id", 7, "run_id_not_canonical"),
+        ("run_id", "r" * 161, "run_id_too_long"),
+    ],
+)
+def test_canonical_events_reject_raw_identity_aliases_without_normalizing(
+    field_name: str,
+    invalid_value: Any,
+    reason_code: str,
+):
+    kwargs: dict[str, Any] = {
+        "tenant_id": "tenant-a",
+        "workflow_id": "workflow-a",
+        "run_id": "run-a",
+        "event_type": "workflow.run.started",
+        "correlation_id": "correlation-a",
+        "causation_id": "causation-a",
+    }
+    invalid_kwargs = {**kwargs, field_name: invalid_value}
+
+    with pytest.raises(ContractValidationError) as build_error:
+        CanonicalWorkflowEvent.build(**invalid_kwargs)
+    assert reason_code in {issue.code for issue in build_error.value.issues}
+
+    raw = CanonicalWorkflowEvent.build(**kwargs).with_sequence(1).to_dict()
+    raw[field_name] = invalid_value
+    with pytest.raises(ContractValidationError) as load_error:
+        CanonicalWorkflowEvent.from_mapping(raw)
+    assert reason_code in {issue.code for issue in load_error.value.issues}
+
+
+def test_local_login_issues_explicit_tenant_and_can_read_operations(client):
+    username = "runtime-operator-local"
+    password = "LocalRuntimePassword123!"
+    user_repo.save(
+        UserDB(
+            username=username,
+            password_hash=generate_password_hash(password),
+            role="user",
+        )
+    )
+
+    login = client.post("/login", json={"username": username, "password": password})
+
+    assert login.status_code == 200
+    access_token = login.get_json()["data"]["access_token"]
+    claims = jwt.decode(access_token, settings.secret_key, algorithms=["HS256"])
+    assert claims["tenant_id"] == local_user_tenant_id(username)
+
+    operations = client.get(
+        "/api/workflow-runtime/operations",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert operations.status_code == 200
+    assert operations.get_json()["schema"] == "ananta.workflow_runtime_operations_list.v1"
+
+
+def test_local_login_rejects_legacy_username_that_would_collapse_tenant_identity(client):
+    password = "LocalRuntimePassword123!"
+    canonical_username = "runtime-operator-collision"
+    noncanonical_username = f" {canonical_username} "
+    for username in (canonical_username, noncanonical_username):
+        user_repo.save(
+            UserDB(
+                username=username,
+                password_hash=generate_password_hash(password),
+                role="user",
+            )
+        )
+
+    canonical_login = client.post(
+        "/login",
+        json={"username": canonical_username, "password": password},
+    )
+    rejected_login = client.post(
+        "/login",
+        json={"username": noncanonical_username, "password": password},
+    )
+
+    assert canonical_login.status_code == 200
+    assert rejected_login.status_code == 409
+    assert rejected_login.get_json()["message"] == "user_session_username_not_canonical"
+    assert rejected_login.get_json()["data"]["reason_code"] == "user_session_username_not_canonical"
+    assert "access_token" not in (rejected_login.get_json().get("data") or {})
 
 
 def test_operations_read_model_filters_degraded_stale_and_never_claims_unverified_success(client):
@@ -153,9 +333,7 @@ def test_operations_read_model_filters_degraded_stale_and_never_claims_unverifie
 
 
 def test_cross_tenant_detail_is_not_disclosed_and_invalid_filters_are_rejected(client):
-    get_workflow_runtime_read_model_service().record_snapshot(
-        _snapshot("run-private", tenant_id="tenant-a")
-    )
+    get_workflow_runtime_read_model_service().record_snapshot(_snapshot("run-private", tenant_id="tenant-a"))
     cross_tenant = client.get(
         "/api/workflow-runtime/operations/runs/run-private",
         headers=_headers(tenant_id="tenant-b", subject="operator-b"),
@@ -169,6 +347,18 @@ def test_cross_tenant_detail_is_not_disclosed_and_invalid_filters_are_rejected(c
     )
     assert invalid.status_code == 400
     assert invalid.get_json()["reason_code"] == "runtime_operations_health_filter_invalid"
+
+
+def test_runtime_detail_does_not_alias_noncanonical_run_path(client):
+    get_workflow_runtime_read_model_service().record_snapshot(_snapshot("run-private"))
+
+    response = client.get(
+        "/api/workflow-runtime/operations/runs/%20run-private",
+        headers=_headers(tenant_id="tenant-a"),
+    )
+
+    assert response.status_code == 404
+    assert response.get_json()["reason_code"] == "runtime_run_not_found"
 
 
 def test_read_model_rebuilds_runtime_evaluation_from_canonical_hub_events():
@@ -190,12 +380,16 @@ def test_read_model_rebuilds_runtime_evaluation_from_canonical_hub_events():
     record = service.record_from_events(
         [
             event(1, "workflow.run.started"),
-            event(2, "workflow.evidence.recorded", {
-                "evidence_id": "ev-events",
-                "kind": "acceptance",
-                "status": "verified",
-                "summary": "Hub verified",
-            }),
+            event(
+                2,
+                "workflow.evidence.recorded",
+                {
+                    "evidence_id": "ev-events",
+                    "kind": "acceptance",
+                    "status": "verified",
+                    "summary": "Hub verified",
+                },
+            ),
             event(3, "workflow.run.completed"),
         ],
         runtime_metadata={
@@ -294,12 +488,124 @@ def test_runtime_commands_require_bound_verified_evidence_and_approval(
     assert len(gateway.calls) == 1
     call = gateway.calls[0]
     assert call["task_id"] == "task-run-command"
-    assert call["idempotency_key"].startswith("runtime-ops:tenant-a:run-command:")
+    assert call["idempotency_key"].startswith("runtime-ops:v1:")
+    assert len(call["idempotency_key"]) == len("runtime-ops:v1:") + 64
     assert call["governance_context"]["evidence_refs"] == ["ev-ok"]
     assert [event[0] for event in audit_events] == [
         "workflow_runtime_operations_command_denied",
         "workflow_runtime_operations_command_submitted",
     ]
+
+
+def test_runtime_command_idempotency_namespace_preserves_identity_boundaries():
+    read_models = WorkflowRuntimeReadModelService(InMemoryWorkflowRuntimeReadModelRepository())
+    for tenant_id, run_id in (("a:b", "c"), ("a", "b:c")):
+        read_models.record_snapshot(
+            _snapshot(
+                run_id,
+                tenant_id=tenant_id,
+                evidence=[{"evidence_id": "ev-ok", "kind": "acceptance", "status": "verified"}],
+                gates=[
+                    {
+                        "gate_id": "gate-ops",
+                        "status": "approved",
+                        "approval_id": "approval-1",
+                        "required_evidence_refs": ["ev-ok"],
+                        "allowed_commands": ["cancel_run"],
+                    }
+                ],
+            )
+        )
+    gateway = _RecordingGateway()
+    service = WorkflowRuntimeCommandService(read_models=read_models, gateway=gateway)
+    request = RuntimeOperationCommandRequest.from_mapping(
+        {
+            "type": "cancel_run",
+            "approval_id": "approval-1",
+            "evidence_refs": ["ev-ok"],
+        },
+        idempotency_key="same-client-key",
+    )
+
+    service.dispatch(tenant_id="a:b", run_id="c", actor="operator", request=request)
+    service.dispatch(tenant_id="a", run_id="b:c", actor="operator", request=request)
+
+    assert gateway.calls[0]["idempotency_key"] != gateway.calls[1]["idempotency_key"]
+
+
+def test_runtime_operations_idempotency_conflict_is_409_without_second_hub_side_effect(
+    client,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    read_models = get_workflow_runtime_read_model_service()
+    read_models.record_snapshot(
+        _snapshot(
+            "run-idempotency-conflict",
+            evidence=[{"evidence_id": "ev-ok", "kind": "acceptance", "status": "verified"}],
+            gates=[
+                {
+                    "gate_id": "gate-ops",
+                    "status": "approved",
+                    "approval_id": "approval-1",
+                    "required_evidence_refs": ["ev-ok"],
+                    "allowed_commands": ["pause_run", "cancel_run"],
+                }
+            ],
+        )
+    )
+    interventions: list[tuple[str, str, str]] = []
+
+    class _TaskAdmin:
+        @staticmethod
+        def intervene_task(*, task_id: str, action: str, actor: str):
+            interventions.append((task_id, action, actor))
+            return True, "ok", {"id": task_id, "status": "paused"}
+
+    class _CoreServices:
+        task_admin_service = _TaskAdmin()
+
+    monkeypatch.setattr(
+        "agent.services.service_registry.get_core_services",
+        lambda: _CoreServices(),
+    )
+    run_control = RunControlService()
+    command_service = WorkflowRuntimeCommandService(
+        read_models=read_models,
+        gateway=RunControlRuntimeCommandGateway(service_provider=lambda: run_control),
+    )
+    monkeypatch.setattr(
+        "agent.routes.workflow_runtime_operations.get_workflow_runtime_command_service",
+        lambda: command_service,
+    )
+    headers = {
+        **_headers(tenant_id="tenant-a"),
+        "Idempotency-Key": "runtime-idempotency-key-1",
+    }
+    base_payload = {
+        "type": "pause_run",
+        "approval_id": "approval-1",
+        "evidence_refs": ["ev-ok"],
+    }
+    endpoint = "/api/workflow-runtime/operations/runs/run-idempotency-conflict/commands"
+
+    accepted = client.post(endpoint, headers=headers, json=base_payload)
+    replayed = client.post(endpoint, headers=headers, json=base_payload)
+    conflict = client.post(
+        endpoint,
+        headers=headers,
+        json={**base_payload, "type": "cancel_run"},
+    )
+
+    assert accepted.status_code == 202
+    assert replayed.status_code == 202
+    assert (
+        accepted.get_json()["command"]["command_id"]
+        == replayed.get_json()["command"]["command_id"]
+    )
+    assert conflict.status_code == 409
+    assert conflict.get_json()["reason_code"] == "runtime_command_idempotency_conflict"
+    assert interventions == [("task-run-idempotency-conflict", "pause", "operator-a")]
+    assert len(run_control._commands) == 1
 
 
 def test_runtime_command_rejects_non_array_evidence_and_oversized_payload(client):
@@ -319,6 +625,72 @@ def test_runtime_command_rejects_non_array_evidence_and_oversized_payload(client
     )
     assert oversized.status_code == 413
     assert oversized.get_json()["reason_code"] == "runtime_command_payload_too_large"
+
+
+@pytest.mark.parametrize(
+    ("payload", "header", "reason_code", "status_code"),
+    [
+        (
+            {"type": "cancel_run", "approval_id": "a" * 161, "evidence_refs": ["ev-1"]},
+            "command-shape-001",
+            "runtime_command_approval_required",
+            422,
+        ),
+        (
+            {"type": "cancel_run", "approval_id": "approval-1", "evidence_refs": [" ev-1"]},
+            "command-shape-001",
+            "runtime_command_verified_evidence_required",
+            422,
+        ),
+        (
+            {
+                "type": "cancel_run",
+                "approval_id": "approval-1",
+                "evidence_refs": ["ev-1"],
+                "idempotency_key": " command-shape-001",
+            },
+            "",
+            "runtime_command_idempotency_key_required",
+            400,
+        ),
+    ],
+)
+def test_runtime_command_rejects_noncanonical_binding_identities(
+    client,
+    payload: dict[str, Any],
+    header: str,
+    reason_code: str,
+    status_code: int,
+):
+    response = client.post(
+        "/api/workflow-runtime/operations/runs/run-1/commands",
+        headers={**_headers(tenant_id="tenant-a"), "Idempotency-Key": header},
+        json=payload,
+    )
+
+    assert response.status_code == status_code
+    assert response.get_json()["reason_code"] == reason_code
+
+
+@pytest.mark.parametrize(
+    ("field_name", "record_value", "reason_code"),
+    [
+        ("approval_id", "a" * 161, "approval_id_too_long"),
+        ("approval_id", " approval-1", "approval_id_not_canonical"),
+        ("required_evidence_refs", ["e" * 161], "evidence_ref_too_long"),
+    ],
+)
+def test_read_model_rejects_ambiguous_gate_binding_identities(
+    field_name: str,
+    record_value: Any,
+    reason_code: str,
+):
+    gate = {"gate_id": "gate-1", "status": "approved", "approval_id": "approval-1"}
+    gate[field_name] = record_value
+    snapshot = _snapshot("run-gate-identity", gates=[gate])
+
+    with pytest.raises(ValueError, match=reason_code):
+        WorkflowRuntimeOperationRecord.from_mapping(snapshot)
 
 
 def test_runtime_command_is_fail_closed_for_stale_read_model(client, monkeypatch: pytest.MonkeyPatch):

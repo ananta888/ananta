@@ -7,6 +7,7 @@ import pytest
 from flask import Flask
 
 from agent.routes.chat import chat_bp
+from agent.services.user_session_tokens import issue_user_access_token
 from client_surfaces.operator_tui.chat_state import default_sessions, make_session
 
 
@@ -14,7 +15,10 @@ from client_surfaces.operator_tui.chat_state import default_sessions, make_sessi
 def client():
     app = Flask(__name__)
     app.register_blueprint(chat_bp)
-    return app.test_client()
+    client = app.test_client()
+    token = issue_user_access_token(username="admin", role="admin")
+    client.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {token}"
+    return client
 
 
 def _store(sessions: list[dict] | None = None):
@@ -33,6 +37,11 @@ def _store(sessions: list[dict] | None = None):
 
     manager.save.side_effect = save
     return data, patch("agent.routes.chat.get_manager", return_value=manager)
+
+
+def _auth_headers(username: str) -> dict[str, str]:
+    token = issue_user_access_token(username=username, role="admin")
+    return {"Authorization": f"Bearer {token}"}
 
 
 def test_builtin_profiles_are_configs_not_default_conversations(client):
@@ -230,3 +239,55 @@ def test_v3_session_migration_preserves_unknown_delta_in_quarantine(client):
     assert migrated["legacy_settings_delta"] == {"retired_session_key": 7}
     assert migrated["process_ref"] is None and migrated["process_runs"] == []
     assert store["chat_model_version"] == 3
+
+
+def test_profile_routes_require_authentication():
+    app = Flask(__name__)
+    app.register_blueprint(chat_bp)
+    anonymous = app.test_client()
+    assert anonymous.get("/api/chat/profiles").status_code == 401
+    assert anonymous.post("/api/chat/profiles", json={"id": "p", "name": "P"}).status_code == 401
+    assert anonymous.patch("/api/chat/profiles/p", json={"name": "X"}).status_code == 401
+
+
+def test_foreign_custom_profile_is_hidden_and_immutable(client):
+    data, manager_patch = _store()
+    data["chat_profiles"] = [
+        {
+            "id": "foreign-profile",
+            "name": "Foreign",
+            "settings": {},
+            "process_ref": None,
+            "owner_principal": {"tenant_id": "owner", "subject_id": "owner"},
+        }
+    ]
+    headers = _auth_headers("intruder")
+    with manager_patch:
+        listed = client.get("/api/chat/profiles", headers=headers)
+        updated = client.patch(
+            "/api/chat/profiles/foreign-profile",
+            json={"process_ref": {"graph_id": "attacker-graph"}},
+            headers=headers,
+        )
+        effective = client.get("/api/chat/profiles/foreign-profile/effective", headers=headers)
+        deleted = client.delete("/api/chat/profiles/foreign-profile", headers=headers)
+    assert "foreign-profile" not in {profile["id"] for profile in listed.json}
+    assert updated.status_code == effective.status_code == deleted.status_code == 404
+    assert data["chat_profiles"][0]["name"] == "Foreign"
+
+
+def test_profile_owner_metadata_is_not_exposed(client):
+    data, manager_patch = _store()
+    data["chat_profiles"] = [
+        {
+            "id": "owned-profile",
+            "name": "Owned",
+            "settings": {},
+            "process_ref": None,
+            "owner_principal": {"tenant_id": "admin", "subject_id": "admin"},
+        }
+    ]
+    with manager_patch:
+        listed = client.get("/api/chat/profiles")
+    owned = next(profile for profile in listed.json if profile["id"] == "owned-profile")
+    assert "owner_principal" not in owned

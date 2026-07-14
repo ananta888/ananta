@@ -8,6 +8,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
 
+from ananta_contracts.file_credentials import (
+    FileCredentialConfigurationError,
+    read_file_managed_bytes,
+    read_file_managed_token,
+)
+
 
 class TemporalWorkerConfigError(ValueError):
     pass
@@ -59,6 +65,7 @@ class TemporalWorkerConfig:
     allow_legacy_hmac_keyring: bool = False
     hub_url: str = ""
     hub_token_file: str = ""
+    workflow_service_id: str = ""
     hub_poll_seconds: int = 2
     hub_activity_timeout_seconds: int = 1_800
 
@@ -69,18 +76,14 @@ class TemporalWorkerConfig:
             source,
             "ANANTA_WORKFLOW_ALLOW_LEGACY_HMAC_KEYRING",
         )
-        verification_keyring_file = (
-            _text(source, "ANANTA_TEMPORAL_AUTH_VERIFICATION_KEYRING_FILE")
-            or _text(source, "ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_FILE")
+        verification_keyring_file = _text(source, "ANANTA_TEMPORAL_AUTH_VERIFICATION_KEYRING_FILE") or _text(
+            source, "ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_FILE"
         )
-        legacy_keyring_file = (
-            _text(source, "ANANTA_TEMPORAL_AUTH_KEYRING_FILE")
-            or _text(source, "ANANTA_WORKFLOW_AUTH_KEYRING_FILE")
+        legacy_keyring_file = _text(source, "ANANTA_TEMPORAL_AUTH_KEYRING_FILE") or _text(
+            source, "ANANTA_WORKFLOW_AUTH_KEYRING_FILE"
         )
         if legacy_keyring_file and not verification_keyring_file and not allow_legacy_hmac:
-            raise TemporalWorkerConfigError(
-                "legacy HMAC authorization keyring is disabled"
-            )
+            raise TemporalWorkerConfigError("legacy HMAC authorization keyring is disabled")
         identity = _text(source, "ANANTA_TEMPORAL_IDENTITY") or f"ananta-temporal-worker@{socket.gethostname()}"
         config = cls(
             address=_text(source, "ANANTA_TEMPORAL_ADDRESS", "temporal:7233"),
@@ -89,18 +92,14 @@ class TemporalWorkerConfig:
             build_id=_text(source, "ANANTA_TEMPORAL_BUILD_ID", "ananta-temporal-v1"),
             identity=identity,
             health_host=_text(source, "ANANTA_TEMPORAL_HEALTH_HOST", "0.0.0.0"),
-            health_port=_integer(
-                source, "ANANTA_TEMPORAL_HEALTH_PORT", 8088, minimum=1, maximum=65_535
-            ),
+            health_port=_integer(source, "ANANTA_TEMPORAL_HEALTH_PORT", 8088, minimum=1, maximum=65_535),
             graceful_shutdown_seconds=_integer(
                 source, "ANANTA_TEMPORAL_GRACEFUL_SHUTDOWN_SECONDS", 30, minimum=1, maximum=600
             ),
             max_concurrent_workflow_tasks=_integer(
                 source, "ANANTA_TEMPORAL_MAX_WORKFLOW_TASKS", 20, minimum=1, maximum=1_000
             ),
-            max_concurrent_activities=_integer(
-                source, "ANANTA_TEMPORAL_MAX_ACTIVITIES", 20, minimum=1, maximum=1_000
-            ),
+            max_concurrent_activities=_integer(source, "ANANTA_TEMPORAL_MAX_ACTIVITIES", 20, minimum=1, maximum=1_000),
             use_worker_versioning=_boolean(source, "ANANTA_TEMPORAL_USE_WORKER_VERSIONING"),
             tls_enabled=_boolean(source, "ANANTA_TEMPORAL_TLS_ENABLED"),
             tls_server_name=_text(source, "ANANTA_TEMPORAL_TLS_SERVER_NAME"),
@@ -109,15 +108,13 @@ class TemporalWorkerConfig:
             tls_key_file=_text(source, "ANANTA_TEMPORAL_TLS_KEY_FILE"),
             api_key_file=_text(source, "ANANTA_TEMPORAL_API_KEY_FILE"),
             authorization_keyring_file=(
-                verification_keyring_file
-                or (legacy_keyring_file if allow_legacy_hmac else "")
+                verification_keyring_file or (legacy_keyring_file if allow_legacy_hmac else "")
             ),
             allow_legacy_hmac_keyring=allow_legacy_hmac,
             hub_url=_text(source, "ANANTA_TEMPORAL_HUB_URL"),
             hub_token_file=_text(source, "ANANTA_TEMPORAL_HUB_TOKEN_FILE"),
-            hub_poll_seconds=_integer(
-                source, "ANANTA_TEMPORAL_HUB_POLL_SECONDS", 2, minimum=1, maximum=60
-            ),
+            workflow_service_id=_text(source, "ANANTA_WORKFLOW_SERVICE_ID"),
+            hub_poll_seconds=_integer(source, "ANANTA_TEMPORAL_HUB_POLL_SECONDS", 2, minimum=1, maximum=60),
             hub_activity_timeout_seconds=_integer(
                 source, "ANANTA_TEMPORAL_HUB_ACTIVITY_TIMEOUT_SECONDS", 1_800, minimum=10, maximum=86_400
             ),
@@ -146,25 +143,43 @@ class TemporalWorkerConfig:
                 raise TemporalWorkerConfigError("credential references must be absolute paths")
         if bool(self.hub_url) != bool(self.hub_token_file):
             raise TemporalWorkerConfigError("hub URL and token-file reference must be configured together")
+        if self.hub_url and not self.workflow_service_id:
+            raise TemporalWorkerConfigError(
+                "workflow service identity is required with the Hub gateway"
+            )
+        if (
+            len(self.workflow_service_id.encode("utf-8")) > 256
+            or "\x00" in self.workflow_service_id
+            or "\r" in self.workflow_service_id
+            or "\n" in self.workflow_service_id
+        ):
+            raise TemporalWorkerConfigError("workflow service identity is invalid")
         if self.hub_url and not self.hub_url.startswith(("http://", "https://")):
             raise TemporalWorkerConfigError("hub URL must use HTTP or HTTPS")
 
     @property
     def productive_gateway_configured(self) -> bool:
-        return bool(self.hub_url and self.hub_token_file)
+        return bool(
+            self.hub_url
+            and self.hub_token_file
+            and self.workflow_service_id
+        )
 
     def read_api_key(self) -> str | None:
-        return _read_secret_file(self.api_key_file, "Temporal API key")
+        return _read_token_secret_file(self.api_key_file, "Temporal API key")
 
     def read_hub_token(self) -> str | None:
-        return _read_secret_file(self.hub_token_file, "hub service token")
+        return _read_token_secret_file(self.hub_token_file, "hub service token")
 
     def read_authorization_keyring(self) -> dict[str, object] | None:
         if not self.authorization_keyring_file:
             return None
         import json
 
-        raw = _read_secret_file(self.authorization_keyring_file, "authorization keyring")
+        raw = _read_text_secret_file(
+            self.authorization_keyring_file,
+            "authorization keyring",
+        )
         try:
             decoded = json.loads(str(raw))
         except json.JSONDecodeError as exc:
@@ -184,9 +199,7 @@ class TemporalWorkerConfig:
                 raise TemporalWorkerConfigError(exc.reason_code) from exc
             return {str(key): value for key, value in decoded.items()}
         if not self.allow_legacy_hmac_keyring:
-            raise TemporalWorkerConfigError(
-                "legacy HMAC authorization keyring is disabled"
-            )
+            raise TemporalWorkerConfigError("legacy HMAC authorization keyring is disabled")
         keys = decoded.get("keys")
         active_key_id = str(decoded.get("active_key_id") or "")
         if not isinstance(keys, dict) or not active_key_id or active_key_id not in keys:
@@ -203,9 +216,7 @@ class TemporalWorkerConfig:
                 or len(values) > 10_000
                 or any(not isinstance(value, str) or not value or len(value) > 256 for value in values)
             ):
-                raise TemporalWorkerConfigError(
-                    f"authorization keyring {field_name} is invalid"
-                )
+                raise TemporalWorkerConfigError(f"authorization keyring {field_name} is invalid")
             result[field_name] = list(dict.fromkeys(values))
         return result
 
@@ -224,28 +235,43 @@ class TemporalWorkerConfig:
         )
 
 
-def _read_secret_file(path: str, label: str) -> str | None:
+def _read_token_secret_file(path: str, label: str) -> str | None:
     if not path:
         return None
     try:
-        value = Path(path).read_text(encoding="utf-8").strip()
-    except OSError as exc:
-        raise TemporalWorkerConfigError(f"{label} file cannot be read") from exc
-    if not value or "\x00" in value or len(value) > 16_384:
-        raise TemporalWorkerConfigError(f"{label} file is invalid")
-    return value
+        return read_file_managed_token(
+            path,
+            description=f"{label} file",
+            min_bytes=1,
+            max_bytes=16_384,
+        )
+    except FileCredentialConfigurationError as exc:
+        raise TemporalWorkerConfigError(f"{label} file is invalid") from exc
+
+
+def _read_text_secret_file(path: str, label: str) -> str:
+    try:
+        raw = read_file_managed_bytes(
+            path,
+            description=f"{label} file",
+            max_bytes=16_384,
+        )
+        return raw.decode("utf-8")
+    except (FileCredentialConfigurationError, UnicodeError) as exc:
+        raise TemporalWorkerConfigError(f"{label} file is invalid") from exc
 
 
 def _read_optional_bytes(path: str) -> bytes | None:
     if not path:
         return None
     try:
-        value = Path(path).read_bytes()
-    except OSError as exc:
-        raise TemporalWorkerConfigError("TLS credential file cannot be read") from exc
-    if not value or len(value) > 1_048_576:
-        raise TemporalWorkerConfigError("TLS credential file is invalid")
-    return value
+        return read_file_managed_bytes(
+            path,
+            description="TLS credential file",
+            max_bytes=1_048_576,
+        )
+    except FileCredentialConfigurationError as exc:
+        raise TemporalWorkerConfigError("TLS credential file is invalid") from exc
 
 
 __all__ = ["TemporalWorkerConfig", "TemporalWorkerConfigError"]

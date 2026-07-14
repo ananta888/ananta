@@ -59,12 +59,20 @@ run_worker() {
 }
 
 run_frontend() {
-  local frontend_port frontend_poll
+  local frontend_port frontend_poll disable_host_check
+  local -a command
   frontend_port="${FRONTEND_PORT:-4200}"
   frontend_poll="${FRONTEND_POLL_MS:-2000}"
+  disable_host_check="$(normalize_lower "${ANANTA_FRONTEND_DISABLE_HOST_CHECK:-1}")"
   log "Starting frontend on port ${frontend_port}"
   cd /app/frontend-angular
-  exec npx ng serve --host 0.0.0.0 --port "${frontend_port}" --poll "${frontend_poll}" --disable-host-check
+  command=(npx ng serve --host 0.0.0.0 --port "${frontend_port}" --poll "${frontend_poll}")
+  case "${disable_host_check}" in
+    0|false|no|off) ;;
+    1|true|yes|on) command+=(--disable-host-check) ;;
+    *) error_exit "ANANTA_FRONTEND_DISABLE_HOST_CHECK must be a boolean value." ;;
+  esac
+  exec "${command[@]}"
 }
 
 run_evolver_bridge() {

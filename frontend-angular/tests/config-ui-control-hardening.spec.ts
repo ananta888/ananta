@@ -150,6 +150,11 @@ test.describe('Config + UI Control Hardening', () => {
       }, { timeout: 30000 }).toContain('fuer A');
       if (templateIdA) cleanup.trackTemplate(templateIdA);
 
+      // The API row can become visible just before Angular receives the POST
+      // response and resets the form.  Wait for that reset so a late response
+      // cannot erase the second template while the user is already typing it.
+      await expect(page.getByPlaceholder('Name')).toHaveValue('', { timeout: 30000 });
+
       await page.getByPlaceholder('Name').fill(templateNameB);
       await page.getByPlaceholder('Beschreibung').fill('created through UI control test B');
       await page.locator('textarea[placeholder*="Platzhalter"]').fill('Du bist {{agent_name}} und bearbeitest {{task_title}} fuer B.');

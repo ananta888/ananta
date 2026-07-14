@@ -8,7 +8,6 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
-from agent.config import settings
 from agent.llm_integration import generate_text
 from agent.services.rag_service import get_rag_service
 
@@ -167,7 +166,8 @@ def _fit_answer_to_chars(
 
 
 def _append_room_ai_message(*, text: str, session_id: str = "", visibility: str = "room",
-                            sender_id: str = "ai-snake", ui_snapshot: str = "") -> None:
+                            sender_id: str = "ai-snake", ui_snapshot: str = "",
+                            owner_principal: dict[str, str] | None = None) -> None:
     if not text:
         return
     msg: dict[str, Any] = {
@@ -184,9 +184,11 @@ def _append_room_ai_message(*, text: str, session_id: str = "", visibility: str 
         "policy_decision_ref": None,
         "session_id": session_id,
     }
+    if owner_principal:
+        msg["owner_principal"] = dict(owner_principal)
     if ui_snapshot:
         msg["ui_snapshot"] = ui_snapshot[:500]
-    from agent.routes.snakes_state import _room_messages, _MAX_ROOM_MSGS
+    from agent.routes.snakes_state import _MAX_ROOM_MSGS, _room_messages
     _room_messages.append(msg)
     if len(_room_messages) > _MAX_ROOM_MSGS:
         del _room_messages[:-_MAX_ROOM_MSGS]
@@ -197,15 +199,29 @@ def _build_room_conversation_history(
     snake_id: str | None,
     current_text: str,
     session_id: str = "",
+    owner_principal: dict[str, str] | None = None,
     max_messages: int = 8,
 ) -> list[dict[str, str]]:
     """Return recent room messages before the current user turn for LLM history."""
     from agent.routes.snakes_state import _room_messages
     current = str(current_text or "").strip()
     requested_session_id = str(session_id or "").strip()
+    expected_owner = dict(owner_principal or {})
+
+    def _visible_to_owner(message: dict[str, Any]) -> bool:
+        if owner_principal is None:
+            return True
+        raw_owner = message.get("owner_principal")
+        if isinstance(raw_owner, dict):
+            return raw_owner == expected_owner
+        # Legacy messages may only be reused inside an explicitly authorized
+        # session; never from the global/sessionless room.
+        return bool(requested_session_id and expected_owner)
     current_idx: int | None = None
     for idx in range(len(_room_messages) - 1, -1, -1):
         msg = _room_messages[idx]
+        if not _visible_to_owner(msg):
+            continue
         if requested_session_id and str(msg.get("session_id") or "") != requested_session_id:
             continue
         if (
@@ -222,6 +238,7 @@ def _build_room_conversation_history(
             msg for msg in prior_messages
             if str(msg.get("session_id") or "") == requested_session_id
         ]
+    prior_messages = [msg for msg in prior_messages if _visible_to_owner(msg)]
     history: list[dict[str, str]] = []
     for msg in prior_messages[-max(1, int(max_messages)) :]:
         text = str(msg.get("text") or "").strip()

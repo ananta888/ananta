@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event
 from types import SimpleNamespace
 
 import pytest
@@ -309,6 +311,71 @@ class _ForbiddenTaskGateway:
         raise AssertionError("workflow commands must not use RunControl")
 
 
+def test_workflow_aware_gateway_concurrent_replay_returns_accepted_snapshot_once() -> None:
+    side_effect_entered = Event()
+    release_side_effect = Event()
+    side_effect_count = 0
+
+    class _Bindings:
+        @staticmethod
+        def get_by_run_id(_run_id: str):
+            return SimpleNamespace(
+                tenant_id="tenant-a",
+                subject_id="owner-a",
+                runtime_id="local",
+                workflow_id="workflow-a",
+            )
+
+    class _Controlled:
+        def command_workflow(self, *_args, **_kwargs):
+            nonlocal side_effect_count
+            side_effect_count += 1
+            side_effect_entered.set()
+            assert release_side_effect.wait(timeout=2.0)
+            return {"status": "paused", "revision": 2}
+
+    class _Facade:
+        backend_id = "local"
+        registry = SimpleNamespace(runtime_ids=("local",))
+
+        @staticmethod
+        def bind(_principal):
+            return _Controlled()
+
+    gateway = WorkflowAwareRuntimeCommandGateway(
+        bindings=_Bindings(),
+        facade_provider=lambda: _Facade(),
+        task_gateway=_ForbiddenTaskGateway(),
+    )
+    request = {
+        "tenant_id": "tenant-a",
+        "command_type": "pause_run",
+        "task_id": "task-a",
+        "run_id": "run-a",
+        "requested_by": "owner-a",
+        "idempotency_key": "workflow-concurrent-key",
+        "governance_context": {"approval_id": "approval-a", "evidence_refs": ["ev-a"]},
+    }
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        owner = pool.submit(gateway.send, **request)
+        assert side_effect_entered.wait(timeout=2.0)
+        replay = pool.submit(gateway.send, **request).result(timeout=2.0)
+        assert replay == {
+            "command_id": "workflow-concurrent-key",
+            "type": "pause_run",
+            "status": "accepted",
+            "run_id": "run-a",
+            "workflow_id": "workflow-a",
+        }
+        release_side_effect.set()
+        completed = owner.result(timeout=2.0)
+
+    assert side_effect_count == 1
+    assert gateway.send(**request) == completed
+    assert side_effect_count == 1
+
+
 def test_operations_gateway_uses_workflow_control_for_persisted_workflow_runs(
     control_engine,
 ) -> None:
@@ -347,6 +414,47 @@ def test_operations_gateway_uses_workflow_control_for_persisted_workflow_runs(
     )
     assert result["status"] == "accepted"
     assert result["workflow_status"]["status"] == "paused"
+    status_after_first_effect = store.last_status("workflow-restart")
+
+    replay = gateway.send(
+        tenant_id="tenant-a",
+        command_type="pause_run",
+        task_id="run-restart",
+        run_id="run-restart",
+        requested_by="owner-a",
+        idempotency_key="runtime-ops:tenant-a:run-restart:pause-1",
+        governance_context={"approval_id": "approval-a", "evidence_refs": ["ev-a"]},
+    )
+    assert replay == result
+    assert store.last_status("workflow-restart") == status_after_first_effect
+
+    with pytest.raises(WorkflowRuntimeGatewayError) as conflict_info:
+        gateway.send(
+            tenant_id="tenant-a",
+            command_type="resume_run",
+            task_id="run-restart",
+            run_id="run-restart",
+            requested_by="owner-a",
+            idempotency_key="runtime-ops:tenant-a:run-restart:pause-1",
+            governance_context={"approval_id": "approval-a", "evidence_refs": ["ev-a"]},
+        )
+    assert conflict_info.value.reason_code == "runtime_command_idempotency_conflict"
+    assert conflict_info.value.http_status == 409
+    assert store.last_status("workflow-restart") == status_after_first_effect
+
+    with pytest.raises(WorkflowRuntimeGatewayError) as governance_conflict_info:
+        gateway.send(
+            tenant_id="tenant-a",
+            command_type="pause_run",
+            task_id="run-restart",
+            run_id="run-restart",
+            requested_by="owner-a",
+            idempotency_key="runtime-ops:tenant-a:run-restart:pause-1",
+            governance_context={"approval_id": "approval-b", "evidence_refs": ["ev-b"]},
+        )
+    assert governance_conflict_info.value.reason_code == "runtime_command_idempotency_conflict"
+    assert governance_conflict_info.value.http_status == 409
+    assert store.last_status("workflow-restart") == status_after_first_effect
 
     with pytest.raises(WorkflowRuntimeGatewayError, match="owner_required"):
         gateway.send(

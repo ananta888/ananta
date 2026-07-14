@@ -469,7 +469,7 @@ export class WorkflowRuntimeOperationsComponent implements OnInit, OnDestroy {
   }
 
   runtimeOptions(): string[] {
-    const values = new Set(['native', 'langgraph', 'temporal']);
+    const values = new Set(['ananta-native', 'langgraph', 'temporal']);
     for (const runtime of this.capabilityMatrix?.runtimes || []) values.add(runtime.runtime_id);
     for (const run of this.snapshot?.runs || []) values.add(run.runtime);
     return Array.from(values).filter(Boolean).sort();

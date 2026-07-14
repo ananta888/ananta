@@ -1,7 +1,6 @@
 services:
   ai-agent-hub:
     environment:
-      AGENT_TOKEN_FILE: /run/secrets/workflow_hub_service_token
       ANANTA_ORCHESTRATION_BACKEND: temporal
       ANANTA_WORKFLOW_BACKEND: temporal
       ANANTA_TEMPORAL_ADDRESS: temporal:7233
@@ -9,18 +8,11 @@ services:
       ANANTA_TEMPORAL_NAMESPACE: ${ANANTA_TEMPORAL_NAMESPACE:-default}
       ANANTA_TEMPORAL_TASK_QUEUE: ${ANANTA_TEMPORAL_TASK_QUEUE:-ananta-workflows-v1}
       ANANTA_TEMPORAL_WORKFLOW_TYPE: ${ANANTA_TEMPORAL_WORKFLOW_TYPE:-AnantaWorkflow}
-      ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_FILE: /run/secrets/workflow_runtime_auth_signing_keyring
-      ANANTA_WORKFLOW_DISPATCH_KEYRING_FILE: /run/secrets/workflow_runtime_dispatch_keyring
+      ANANTA_WORKFLOW_RUNTIME_SERVICE_KEYRING_FILE: /run/secrets/workflow_runtime_service_keyring
     secrets:
-      - source: workflow_runtime_auth_signing_keyring
-        target: workflow_runtime_auth_signing_keyring
-        mode: 0440
-      - source: workflow_runtime_dispatch_keyring
-        target: workflow_runtime_dispatch_keyring
-        mode: 0440
-      - source: workflow_hub_service_token
-        target: workflow_hub_service_token
-        mode: 0440
+      - source: workflow_runtime_service_keyring
+        target: workflow_runtime_service_keyring
+        mode: 0400
     depends_on:
       temporal:
         condition: service_healthy
@@ -29,24 +21,46 @@ services:
       - temporal-runtime
 
   ananta-temporal-worker:
-    environment:
+    environment: !override
+      ANANTA_TEMPORAL_ADDRESS: temporal:7233
+      ANANTA_TEMPORAL_NAMESPACE: ${ANANTA_TEMPORAL_NAMESPACE:-default}
+      ANANTA_TEMPORAL_TASK_QUEUE: ${ANANTA_TEMPORAL_TASK_QUEUE:-ananta-workflows-v1}
+      ANANTA_TEMPORAL_BUILD_ID: ${ANANTA_TEMPORAL_BUILD_ID:-ananta-temporal-v1}
+      ANANTA_TEMPORAL_IDENTITY: ${ANANTA_TEMPORAL_IDENTITY:-ananta-temporal-worker}
+      ANANTA_TEMPORAL_HEALTH_HOST: 0.0.0.0
+      ANANTA_TEMPORAL_HEALTH_PORT: "8088"
+      ANANTA_TEMPORAL_GRACEFUL_SHUTDOWN_SECONDS: ${ANANTA_TEMPORAL_GRACEFUL_SHUTDOWN_SECONDS:-30}
+      ANANTA_TEMPORAL_USE_WORKER_VERSIONING: ${ANANTA_TEMPORAL_USE_WORKER_VERSIONING:-false}
+      ANANTA_TEMPORAL_TLS_ENABLED: ${ANANTA_TEMPORAL_TLS_ENABLED:-false}
+      ANANTA_TEMPORAL_TLS_SERVER_NAME: ${ANANTA_TEMPORAL_TLS_SERVER_NAME:-}
+      ANANTA_TEMPORAL_TLS_CA_FILE: ${ANANTA_TEMPORAL_TLS_CA_FILE:-}
+      ANANTA_TEMPORAL_TLS_CERT_FILE: ${ANANTA_TEMPORAL_TLS_CERT_FILE:-}
+      ANANTA_TEMPORAL_TLS_KEY_FILE: ${ANANTA_TEMPORAL_TLS_KEY_FILE:-}
+      ANANTA_TEMPORAL_API_KEY_FILE: ${ANANTA_TEMPORAL_API_KEY_FILE:-}
       ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_FILE: /run/secrets/workflow_runtime_auth_verification_keyring
       ANANTA_TEMPORAL_HUB_URL: http://ai-agent-hub:5000
-      ANANTA_TEMPORAL_HUB_TOKEN_FILE: /run/secrets/workflow_hub_service_token
+      ANANTA_TEMPORAL_HUB_TOKEN_FILE: /run/secrets/workflow_temporal_service_token
+      ANANTA_WORKFLOW_SERVICE_ID: ananta-temporal-worker
     secrets:
       - source: workflow_runtime_auth_verification_keyring
         target: workflow_runtime_auth_verification_keyring
         uid: "10001"
         gid: "10001"
         mode: 0440
-      - source: workflow_hub_service_token
-        target: workflow_hub_service_token
+      - source: workflow_temporal_service_token
+        target: workflow_temporal_service_token
         uid: "10001"
         gid: "10001"
-        mode: 0440
+        mode: 0400
     depends_on:
       ai-agent-hub:
         condition: service_healthy
+    networks: !override
+      - temporal-runtime
+    # The Temporal activity worker has no filesystem-workspace contract. Keep
+    # the image read-only and erase any volume inherited by a future base
+    # composition instead of granting it the Hub/native Worker trees.
+    volumes: !reset []
 
   # The production overlay deliberately keeps Temporal control/diagnostic
   # ports loopback-only.  Angular and normal workers never join this network.
@@ -59,11 +73,7 @@ services:
       - "127.0.0.1:${TEMPORAL_UI_PORT:-8233}:8080"
 
 secrets:
-  workflow_runtime_auth_signing_keyring:
-    file: "${ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_SECRET_FILE:?Error: auth signing keyring secret file must be set}"
-  workflow_runtime_auth_verification_keyring:
-    file: "${ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_SECRET_FILE:?Error: auth verification keyring file must be set}"
-  workflow_runtime_dispatch_keyring:
-    file: "${ANANTA_WORKFLOW_DISPATCH_KEYRING_SECRET_FILE:?Error: dispatch keyring secret file must be set}"
-  workflow_hub_service_token:
-    file: "${ANANTA_WORKFLOW_HUB_TOKEN_SECRET_FILE:?Error: Hub service-token secret file must be set}"
+  workflow_runtime_service_keyring:
+    file: "${ANANTA_WORKFLOW_RUNTIME_SERVICE_KEYRING_SECRET_FILE:?Error: runtime service keyring secret file must be set}"
+  workflow_temporal_service_token:
+    file: "${ANANTA_WORKFLOW_TEMPORAL_SERVICE_TOKEN_SECRET_FILE:?Error: Temporal service-token secret file must be set}"

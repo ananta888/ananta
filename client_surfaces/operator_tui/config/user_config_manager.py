@@ -83,6 +83,7 @@ _SCHEMA_KEYS: frozenset[str] = frozenset(
         # snake restarts so the user doesn't lose their custom sessions.
         "chat_sessions",
         "chat_active_session_id",
+        "chat_active_session_ids",
         "chat_folders",
         "chat_profiles",
         "chat_session_types",
@@ -100,6 +101,7 @@ _SCHEMA_KEYS: frozenset[str] = frozenset(
 _DEFAULTS: dict[str, Any] = {
     "chat_sessions": [],
     "chat_active_session_id": "code-help",
+    "chat_active_session_ids": {},
     "tutorial_mode": False,
     "ai_snake_provider_preference": "lmstudio",
     "ai_visual_use_codecompass": False,
@@ -245,6 +247,15 @@ def _validated(settings: dict[str, Any]) -> dict[str, Any]:
         elif key in _COMPLEX_LIST_KEYS and isinstance(value, list):
             # Sessions, folders, and custom types are list[dict]; pass through
             out[key] = value
+        elif key == "chat_active_session_ids" and isinstance(value, dict):
+            out[key] = {
+                str(item_key): str(item_value)
+                for item_key, item_value in value.items()
+                if isinstance(item_key, str)
+                and isinstance(item_value, str)
+                and item_key
+                and item_value
+            }
     return out
 
 
@@ -263,7 +274,7 @@ def _extract_settings(settings: dict[str, Any]) -> dict[str, Any]:
     # `chat` (if extracted from game["chat_state"]).
     # For persistence we flatten them.
     for key in _SCHEMA_KEYS:
-        if key == "chat_sessions" or key == "chat_active_session_id":  # Handled below
+        if key in {"chat_sessions", "chat_active_session_id", "chat_active_session_ids"}:  # Handled below
             continue
 
         value = settings.get(key)
@@ -290,6 +301,16 @@ def _extract_settings(settings: dict[str, Any]) -> dict[str, Any]:
         out["chat_sessions"] = _sanitize_sessions(settings["chat_sessions"])
         if "chat_active_session_id" in settings and isinstance(settings["chat_active_session_id"], str):
             out["chat_active_session_id"] = settings["chat_active_session_id"]
+    raw_active_ids = settings.get("chat_active_session_ids")
+    if isinstance(raw_active_ids, dict):
+        out["chat_active_session_ids"] = {
+            str(key): str(value)
+            for key, value in raw_active_ids.items()
+            if isinstance(key, str)
+            and isinstance(value, str)
+            and key
+            and value
+        }
     # Persist structured chat collections if provided directly.  These are
     # deliberately copied as JSON values here and validated again by the
     # domain service that owns each collection.
@@ -391,9 +412,19 @@ def _sanitize_sessions(sessions: list[Any]) -> list[dict[str, Any]]:
                 records = _sanitize_json_records([value])
                 if records:
                     clean[key] = records[0]
+        raw_owner = item.get("owner_principal")
+        if isinstance(raw_owner, dict):
+            records = _sanitize_json_records([raw_owner])
+            if records:
+                clean["owner_principal"] = records[0]
         raw_runs = item.get("process_runs")
         if isinstance(raw_runs, list):
             clean["process_runs"] = _sanitize_json_records(raw_runs)[-20:]
+        raw_gate_actions = item.get("process_gate_actions")
+        if isinstance(raw_gate_actions, list):
+            # Gate reservations are the durable at-most-once ledger. Evicting
+            # an old key would make the same external signal executable again.
+            clean["process_gate_actions"] = _sanitize_json_records(raw_gate_actions)
         out.append(clean)
     return out
 

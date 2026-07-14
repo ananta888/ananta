@@ -122,8 +122,11 @@
         "-q",
         "tests/workflow_runtime/evaluation",
         "tests/workflow_runtime/release_gate/test_release_gate.py",
+        "tests/workflow_runtime/release_gate/test_release_gate_script.py",
         "tests/security/workflow_runtime",
+        "tests/test_run_control_service.py",
         "tests/test_workflow_control_composition.py",
+        "tests/test_workflow_control_persistence.py",
         "tests/test_workflow_runtime_security_and_evolution.py",
         "tests/test_workflow_runtime_side_effect_ledger.py",
         "tests/test_workflow_runtime_ownership.py",
@@ -132,6 +135,36 @@
         "tests/test_workflow_shadow_comparison_service.py",
         "tests/test_workflow_runtime_performance_gate.py",
         "tests/workflow_runtime/test_workflow_runtime_operations_drills.py"
+      ]
+    },
+    {
+      "command_id": "runtime-user-session-security",
+      "evidence_runtime_ids": [],
+      "argv": [
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_workflow_runtime_operations_api.py",
+        "tests/test_agent_token_file_auth.py",
+        "tests/test_user_session_tokens.py",
+        "tests/test_user_token_scope.py",
+        "tests/test_auth_scenarios.py",
+        "tests/test_chat_ai_endpoints_api.py",
+        "tests/test_chat_api.py",
+        "tests/test_chat_folders_api.py",
+        "tests/test_chat_organization_api.py",
+        "tests/test_chat_process_binding.py",
+        "tests/test_chat_profiles_api.py",
+        "tests/test_oidc_identity_link_routes.py",
+        "tests/test_oidc_identity_link_service.py",
+        "tests/test_oidc_identity_provisioning_repository.py",
+        "tests/test_ws_terminal.py",
+        "tests/test_todo_tasks.py",
+        "tests/test_control_center_api_contracts.py",
+        "tests/test_snakes_chat_api.py",
+        "tests/test_visual_process.py",
+        "tests/test_workflow_runtime_test_support.py"
       ]
     }
   ],

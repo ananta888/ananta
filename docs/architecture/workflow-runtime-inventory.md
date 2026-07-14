@@ -37,7 +37,8 @@ an integration layer, not a fourth runtime or control plane.
 | Temporal client backend | live optional, explicitly degraded on failure | Hub / `ai-agent-hub` | authenticated route → SDK client → Temporal; missing SDK/server/binding/projection returns degraded/non-success |
 | Temporal durable workflow | live optional, fail-closed gateway | Temporal worker + Hub + Ananta worker | Temporal workflow → Activity → authenticated Hub gateway → Hub task queue → worker; Activity never selects worker |
 | Temporal probe | simulated | Temporal smoke/worker/server | side-effect-free workflow and Activity proving registration/connectivity only |
-| Runtime operations UI | live unified read/control surface | Hub + Angular | Angular, CLI and TUI read the same authenticated Hub projections; approval/evidence-bound commands return through the single control service |
+| Production runtime security boundary | live, fail-closed | Hub plus isolated Native, LangGraph and Temporal workers | common production overlay → disjoint file-backed identities → strict registration provenance → scoped Worker authentication → Hub-owned assignment/fencing |
+| Runtime operations UI | live unified read/control surface | Hub + Angular + CLI/TUI clients | Angular, `ananta runtime operations/run` and `:ops runtime` validate and display the same authenticated Hub projection; clients never re-evaluate success |
 
 The exact owner, container list, entry point, code/test evidence, gap and follow-up
 task for every row are stored in the JSON inventory.
@@ -53,9 +54,13 @@ production and can be enabled only by the explicit development-compatibility
 flag `ANANTA_WORKFLOW_ALLOW_LEGACY_HMAC_KEYRING=1`.
 
 Internal Workflow Worker, Hub task and LangGraph checkpoint gateways accept
-agent service credentials/service JWTs only. Ordinary user/admin JWTs are not
-service identities and fail closed. This keeps both signing authority and
-runtime mutation endpoints outside the Angular/browser trust boundary.
+only a registered Worker's identity-bound service credential and exact scoped
+capabilities. Registration is bound to an allowlisted Worker URL, a one-purpose
+bootstrap token and SHA-256 fingerprints of that Worker's separate service and
+session secrets. Persisted assignment/fence rows bind each delegated run/step
+to one authenticated Worker. Ordinary user/admin JWTs are not service
+identities and fail closed. This keeps signing authority and runtime mutation
+endpoints outside the Angular/browser trust boundary.
 
 ## Temporary Worker namespace compatibility facades
 

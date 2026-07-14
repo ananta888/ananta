@@ -6,10 +6,13 @@ import logging
 import re
 import time
 import uuid
+from functools import wraps
 from typing import Any
 
-from flask import Blueprint, current_app, g, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
 
+from agent.auth import check_user_auth, get_request_auth_context
+from agent.config import settings as agent_settings
 from agent.services.chat_organization_service import (
     ChatOrganizationService,
     OrganizationError,
@@ -26,7 +29,21 @@ from agent.services.chat_process_binding import (
     signal_session_gate,
     start_session_process,
 )
+from agent.services.chat_process_binding import (
+    public_graph as public_process_graph,
+)
 from agent.services.chat_provider_probe import ChatProviderProbe
+from agent.services.chat_session_security import (
+    ChatSessionPrincipal,
+    GateCommand,
+    authorize_owned_record,
+    authorize_session,
+    chat_session_mutation_lock,
+    find_gate_action,
+    mark_stale_gate_action_for_manual_reconciliation,
+    public_owned_record,
+    public_session,
+)
 from agent.services.chat_setting_catalog import (
     SettingValidationIssue,
     apply_setting_patch,
@@ -34,6 +51,10 @@ from agent.services.chat_setting_catalog import (
     canonical_setting_schema,
     resolve_effective_settings,
     validate_setting_delta,
+)
+from agent.services.identity_validation import (
+    IdentityValidationError,
+    require_canonical_identity,
 )
 from client_surfaces.operator_tui.chat_state import (
     DEFAULT_CHAT_TYPES,
@@ -62,60 +83,193 @@ def _organization_error(exc: OrganizationError):
     return jsonify(exc.payload()), exc.status
 
 
-def _chat_workflow_principal() -> tuple[str, str] | None:
-    identity = getattr(g, "user", None) or getattr(g, "auth_payload", None)
-    if identity is None:
-        return ("test-user", "test-user") if current_app.testing else None
+def _chat_workflow_principal() -> ChatSessionPrincipal | None:
+    identity = get_request_auth_context()
+    if not identity:
+        return ChatSessionPrincipal("test-user", "test-user") if current_app.testing else None
     if isinstance(identity, dict):
-        subject = str(identity.get("sub") or identity.get("username") or "").strip()
-        tenant_id = str(
+        subject = identity.get("sub") or identity.get("username") or ""
+        tenant_id = (
             identity.get("tenant_id")
             or identity.get("tenant")
             or identity.get("organization_id")
             or subject
-        ).strip()
+        )
     else:
-        subject = str(getattr(identity, "username", "") or getattr(identity, "id", "")).strip()
-        tenant_id = str(
+        subject = getattr(identity, "username", "") or getattr(identity, "id", "")
+        tenant_id = (
             getattr(identity, "tenant_id", "")
             or getattr(identity, "organization_id", "")
             or subject
-        ).strip()
-    return (tenant_id, subject) if tenant_id and subject else None
+        )
+    try:
+        return ChatSessionPrincipal(
+            tenant_id=require_canonical_identity(tenant_id, field_name="tenant_id"),
+            subject_id=require_canonical_identity(subject, field_name="subject_id"),
+        )
+    except IdentityValidationError:
+        return None
 
 
-def _load_chat(*, persist_migration: bool = False) -> dict[str, Any]:
+def _chat_workflow_run_is_owned_by(
+    run: dict[str, Any],
+    principal: ChatSessionPrincipal,
+) -> bool:
+    """Apply one fail-closed ownership rule to every chat workflow read/control path."""
+
+    control_principal = run.get("control_principal")
+    if not isinstance(control_principal, dict):
+        return False
+    return (
+        control_principal.get("tenant_id") == principal.tenant_id
+        and control_principal.get("subject_id") == principal.subject_id
+    )
+
+
+def _public_process_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    result = copy.deepcopy(payload)
+    for key in ("graph", "graph_snapshot"):
+        graph = result.get(key)
+        if isinstance(graph, dict):
+            result[key] = public_process_graph(graph)
+    return result
+
+
+def _legacy_chat_owner() -> ChatSessionPrincipal | None:
+    """Map pre-ownership chat data to the configured original local admin."""
+
+    try:
+        return ChatSessionPrincipal.from_values(
+            agent_settings.initial_admin_user,
+            agent_settings.initial_admin_user,
+        )
+    except (IdentityValidationError, ValueError):
+        return None
+
+
+def _owned_session(
+    chat: dict[str, Any],
+    session_id: str,
+    principal: ChatSessionPrincipal,
+) -> tuple[dict[str, Any] | None, bool]:
+    session = get_session(chat, session_id)
+    if session is None:
+        return None, False
+    authorized, migrated = authorize_session(
+        session,
+        principal,
+        legacy_default_owner=_legacy_chat_owner(),
+    )
+    if authorized:
+        # Normalize only the authorized record. ``get_sessions`` performs
+        # in-place legacy migrations and must never touch another principal's
+        # records as a side effect of this request.
+        get_sessions({"ai_sessions": [session]})
+    return (session if authorized else None), migrated
+
+
+def _owned_sessions(
+    chat: dict[str, Any],
+    principal: ChatSessionPrincipal,
+) -> tuple[list[dict[str, Any]], bool]:
+    owned: list[dict[str, Any]] = []
+    migrated = False
+    raw_sessions = chat.get("ai_sessions")
+    sessions = raw_sessions if isinstance(raw_sessions, list) else []
+    for session in sessions:
+        if not isinstance(session, dict):
+            continue
+        authorized, item_migrated = authorize_session(
+            session,
+            principal,
+            legacy_default_owner=_legacy_chat_owner(),
+        )
+        migrated = migrated or item_migrated
+        if authorized:
+            get_sessions({"ai_sessions": [session]})
+            owned.append(session)
+    return owned, migrated
+
+
+def _serialized_chat_mutation(view):
+    @wraps(view)
+    def serialized(*args, **kwargs):
+        with chat_session_mutation_lock:
+            return view(*args, **kwargs)
+
+    return serialized
+
+
+def _require_global_chat_admin(view):
+    """Guard legacy global chat collections until they gain tenant storage."""
+
+    @wraps(view)
+    def authorized(*args, **kwargs):
+        principal = _chat_workflow_principal()
+        if principal is None:
+            return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
+        if principal != _legacy_chat_owner():
+            return jsonify({"error": "global_chat_admin_required", "error_code": "global_chat_admin_required"}), 403
+        return view(*args, **kwargs)
+
+    return authorized
+
+
+def _load_chat(
+    *,
+    persist_migration: bool = False,
+    principal: ChatSessionPrincipal | None = None,
+) -> dict[str, Any]:
     """Build a minimal chat dict from persisted user.json for session operations."""
     manager = get_manager()
     settings = manager.load()
     sessions = settings.get("chat_sessions") or default_conversations()
-    active_id = settings.get("chat_active_session_id") or (sessions[0]["id"] if sessions else "")
+    active_ids = settings.get("chat_active_session_ids")
+    if principal is not None:
+        # The historic global active-session pointer is not an ownership
+        # boundary and must never select another user's chat implicitly.
+        active_id = active_ids.get(principal.storage_key, "") if isinstance(active_ids, dict) else ""
+    else:
+        active_id = settings.get("chat_active_session_id") or (sessions[0].get("id", "") if sessions else "")
     chat = {"ai_sessions": sessions, "active_session_id": active_id, "channels": {}, "_preserve_session_list": True}
-    get_sessions(chat)
+    owned_sessions: list[dict[str, Any]] = []
+    owner_migrated = False
+    if principal is not None:
+        owned_sessions, owner_migrated = _owned_sessions(chat, principal)
+        if not any(str(item.get("id") or "") == active_id for item in owned_sessions):
+            chat["active_session_id"] = str(owned_sessions[0].get("id") or "") if owned_sessions else ""
     # The shared TUI migration only knows its built-in profiles. Re-resolve
     # persisted custom profiles at the HTTP persistence boundary so their
     # values cannot be replaced by compatibility defaults on reload.
-    profiles_by_id = {str(profile.get("id") or ""): profile for profile in _load_profiles()}
-    for session in chat.get("ai_sessions") or []:
-        if not isinstance(session, dict):
-            continue
+    profiles_by_id = {str(profile.get("id") or ""): profile for profile in _load_profiles(principal)}
+    for session in owned_sessions:
         profile = profiles_by_id.get(str(session.get("profile_id") or "general"))
         if profile is not None:
             _apply_profile(session, profile)
-    if _migrate_session_settings_v3(chat.get("ai_sessions") or []) and persist_migration:
+    settings_migrated = _migrate_session_settings_v3(owned_sessions)
+    if persist_migration and (owner_migrated or settings_migrated):
         manager.save({"chat_sessions": chat["ai_sessions"], "chat_model_version": 3})
     return chat
 
 
-def _save_chat(chat: dict[str, Any]) -> None:
+def _save_chat(chat: dict[str, Any], *, principal: ChatSessionPrincipal | None = None) -> bool:
     """Persist sessions back to user.json."""
-    get_manager().save(
-        {
-            "chat_sessions": chat.get("ai_sessions") or [],
-            "chat_active_session_id": chat.get("active_session_id") or "",
-            "chat_model_version": 3,
-        }
-    )
+    manager = get_manager()
+    payload: dict[str, Any] = {
+        "chat_sessions": chat.get("ai_sessions") or [],
+        "chat_active_session_id": chat.get("active_session_id") or "",
+        "chat_model_version": 3,
+    }
+    if principal is not None:
+        persisted = manager.load()
+        active_ids = dict(persisted.get("chat_active_session_ids") or {})
+        active_id = str(chat.get("active_session_id") or "")
+        if active_id:
+            active_ids[principal.storage_key] = active_id
+        else:
+            active_ids.pop(principal.storage_key, None)
+        payload["chat_active_session_ids"] = active_ids
+    return bool(manager.save(payload))
 
 
 def _load_folders() -> list[dict]:
@@ -130,20 +284,36 @@ def _save_folders(folders: list[dict]) -> None:
     get_manager().save({"chat_folders": folders})
 
 
-def _load_profiles() -> list[dict[str, Any]]:
+def _load_profiles(principal: ChatSessionPrincipal | None = None) -> list[dict[str, Any]]:
     """Load built-in and user profiles, with user profiles stored separately."""
-    manager = get_manager()
-    settings = manager.load()
-    custom = settings.get("chat_profiles") or []
-    custom = custom if isinstance(custom, list) else []
-    custom, changed = _migrate_profile_settings_v3(custom)
-    if changed:
-        manager.save({"chat_profiles": custom, "chat_model_version": 3})
-    by_id = {str(profile.get("id") or ""): profile for profile in default_chat_profiles()}
-    for profile in custom:
-        if isinstance(profile, dict) and profile.get("id"):
-            by_id[str(profile["id"])] = dict(profile)
-    return list(by_id.values())
+    with chat_session_mutation_lock:
+        manager = get_manager()
+        settings = manager.load()
+        raw_custom = settings.get("chat_profiles") or []
+        custom = list(raw_custom) if isinstance(raw_custom, list) else []
+        changed = False
+        by_id = {str(profile.get("id") or ""): profile for profile in default_chat_profiles()}
+        if principal is not None:
+            for index, profile in enumerate(custom):
+                if not isinstance(profile, dict) or not profile.get("id"):
+                    continue
+                authorized, migrated_owner = authorize_owned_record(
+                    profile,
+                    principal,
+                    legacy_default_owner=_legacy_chat_owner(),
+                )
+                changed = changed or migrated_owner
+                if not authorized:
+                    continue
+                migrated_profiles, migrated_settings = _migrate_profile_settings_v3([profile])
+                if migrated_profiles:
+                    profile = migrated_profiles[0]
+                    custom[index] = profile
+                changed = changed or migrated_settings
+                by_id[str(profile["id"])] = profile
+        if changed:
+            manager.save({"chat_profiles": custom, "chat_model_version": 3})
+        return list(by_id.values())
 
 
 def _save_custom_profiles(profiles: list[dict[str, Any]]) -> None:
@@ -244,9 +414,17 @@ def _migrate_session_settings_v3(sessions: list[Any]) -> bool:
     return changed
 
 
-def _validated_process_ref(raw: Any) -> dict[str, str] | None:
+def _validated_process_ref(
+    raw: Any,
+    principal: ChatSessionPrincipal,
+) -> dict[str, str] | None:
     ref = normalize_process_ref(raw)
-    if ref is not None and load_graph(ref["graph_id"], ref["version"]) is None:
+    if ref is not None and load_graph(
+        ref["graph_id"],
+        ref["version"],
+        tenant_id=principal.tenant_id,
+        subject_id=principal.subject_id,
+    ) is None:
         raise LookupError("process_definition_not_found")
     return ref
 
@@ -260,8 +438,14 @@ def _load_chat_types() -> list[dict[str, Any]]:
     return list(by_id.values())
 
 
-def _profile_by_id(profile_id: str) -> dict[str, Any] | None:
-    return next((profile for profile in _load_profiles() if str(profile.get("id") or "") == profile_id), None)
+def _profile_by_id(
+    profile_id: str,
+    principal: ChatSessionPrincipal | None = None,
+) -> dict[str, Any] | None:
+    return next(
+        (profile for profile in _load_profiles(principal) if str(profile.get("id") or "") == profile_id),
+        None,
+    )
 
 
 def _apply_profile(session: dict[str, Any], profile: dict[str, Any]) -> None:
@@ -289,14 +473,22 @@ def get_chat_setting_schema():
 
 
 @chat_bp.route("/profiles", methods=["GET"])
+@check_user_auth
 def list_chat_profiles():
+    principal = _chat_workflow_principal()
+    if principal is None:
+        return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
     builtin_ids = {str(profile.get("id") or "") for profile in default_chat_profiles()}
     return jsonify(
-        [{**profile, "builtin": str(profile.get("id") or "") in builtin_ids} for profile in _load_profiles()]
+        [
+            {**public_owned_record(profile), "builtin": str(profile.get("id") or "") in builtin_ids}
+            for profile in _load_profiles(principal)
+        ]
     )
 
 
 @chat_bp.post("/profiles/models")
+@check_user_auth
 def discover_chat_profile_models():
     body = request.get_json(silent=True) or {}
     result = ChatProviderProbe().probe(body, timeout_seconds=float(body.get("timeout_seconds") or 2.5))
@@ -304,6 +496,7 @@ def discover_chat_profile_models():
 
 
 @chat_bp.post("/profiles/test-connection")
+@check_user_auth
 def test_chat_profile_connection():
     body = request.get_json(silent=True) or {}
     result = ChatProviderProbe().probe(body, timeout_seconds=float(body.get("timeout_seconds") or 2.5))
@@ -315,20 +508,28 @@ def test_chat_profile_connection():
 
 
 @chat_bp.route("/profiles", methods=["POST"])
+@check_user_auth
+@_serialized_chat_mutation
 def create_chat_profile():
+    principal = _chat_workflow_principal()
+    if principal is None:
+        return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
     data = request.get_json(silent=True) or {}
     name = str(data.get("name") or "").strip()
     profile_id = str(data.get("id") or f"profile-{uuid.uuid4().hex[:12]}").strip()
     if not name or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}", profile_id):
         return jsonify({"error": "valid profile id and name are required"}), 400
-    if _profile_by_id(profile_id) is not None:
-        return jsonify({"error": f"Profile '{profile_id}' already exists"}), 409
+    custom = list((get_manager().load().get("chat_profiles") or []))
+    if profile_id in {str(profile.get("id") or "") for profile in default_chat_profiles()} or any(
+        str((profile or {}).get("id") or "") == profile_id for profile in custom
+    ):
+        return jsonify({"error": "resource_id_unavailable", "error_code": "resource_id_unavailable"}), 409
     settings, issues = _validated_profile_settings(data.get("settings") or {})
     issues.extend(_provider_setting_issues(settings or {}))
     if issues:
         return jsonify({"error": "invalid_profile_settings", "issues": issues}), 422
     try:
-        process_ref = _validated_process_ref(process_ref_from_fields({**data, **settings}))
+        process_ref = _validated_process_ref(process_ref_from_fields({**data, **settings}), principal)
     except (ValueError, LookupError) as exc:
         return jsonify({"error": str(exc), "error_code": str(exc)}), 422
     profile = {
@@ -339,22 +540,31 @@ def create_chat_profile():
         "system_prompt": str(data.get("system_prompt") or ""),
         "settings": settings,
         "process_ref": process_ref,
+        "owner_principal": principal.to_dict(),
     }
-    custom = list((get_manager().load().get("chat_profiles") or []))
     custom.append(profile)
     _save_custom_profiles(custom)
-    return jsonify({**profile, "builtin": False}), 201
+    return jsonify({**public_owned_record(profile), "builtin": False}), 201
 
 
 @chat_bp.route("/profiles/<profile_id>", methods=["PATCH"])
+@check_user_auth
+@_serialized_chat_mutation
 def update_chat_profile(profile_id: str):
+    principal = _chat_workflow_principal()
+    if principal is None:
+        return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
     builtin_ids = {str(profile.get("id") or "") for profile in default_chat_profiles()}
     if profile_id in builtin_ids:
         return jsonify({"error": "built-in profiles are read-only"}), 409
     data = request.get_json(silent=True) or {}
     custom = list((get_manager().load().get("chat_profiles") or []))
     profile = next((p for p in custom if str((p or {}).get("id") or "") == profile_id), None)
-    if profile is None:
+    if profile is None or not authorize_owned_record(
+        profile,
+        principal,
+        legacy_default_owner=_legacy_chat_owner(),
+    )[0]:
         return jsonify({"error": f"Profile '{profile_id}' not found"}), 404
     for key in ("name", "icon", "description", "system_prompt"):
         if key in data:
@@ -363,7 +573,7 @@ def update_chat_profile(profile_id: str):
         key in data for key in ("process_ref", "process_definition_id", "process_version", "process_version_policy")
     ):
         try:
-            profile["process_ref"] = _validated_process_ref(process_ref_from_fields(data))
+            profile["process_ref"] = _validated_process_ref(process_ref_from_fields(data), principal)
         except (ValueError, LookupError) as exc:
             return jsonify({"error": str(exc), "error_code": str(exc)}), 422
     if "settings" in data:
@@ -373,7 +583,7 @@ def update_chat_profile(profile_id: str):
         candidate_process_ref = process_ref_from_fields(candidate_settings)
         if candidate_process_ref:
             try:
-                _validated_process_ref(candidate_process_ref)
+                _validated_process_ref(candidate_process_ref, principal)
             except LookupError as exc:
                 issues.append(
                     {
@@ -389,35 +599,51 @@ def update_chat_profile(profile_id: str):
         if candidate_process_ref:
             profile["process_ref"] = candidate_process_ref
     _save_custom_profiles(custom)
-    chat = _load_chat()
-    for session in get_sessions(chat):
+    chat = _load_chat(principal=principal)
+    owned_sessions, _ = _owned_sessions(chat, principal)
+    for session in owned_sessions:
         if str(session.get("profile_id") or "") == profile_id:
             _apply_profile(session, profile)
-    _save_chat(chat)
-    return jsonify({**profile, "builtin": False})
+    _save_chat(chat, principal=principal)
+    return jsonify({**public_owned_record(profile), "builtin": False})
 
 
 @chat_bp.route("/profiles/<profile_id>", methods=["DELETE"])
+@check_user_auth
+@_serialized_chat_mutation
 def delete_chat_profile(profile_id: str):
+    principal = _chat_workflow_principal()
+    if principal is None:
+        return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
     builtin_ids = {str(profile.get("id") or "") for profile in default_chat_profiles()}
     if profile_id in builtin_ids:
         return jsonify({"error": "built-in profiles are read-only"}), 409
-    chat = _load_chat()
-    if any(str(session.get("profile_id") or "") == profile_id for session in get_sessions(chat)):
+    chat = _load_chat(principal=principal)
+    owned_sessions, _ = _owned_sessions(chat, principal)
+    if any(str(session.get("profile_id") or "") == profile_id for session in owned_sessions):
         return jsonify({"error": "profile is still used by chats"}), 409
     custom = list((get_manager().load().get("chat_profiles") or []))
-    kept = [p for p in custom if str((p or {}).get("id") or "") != profile_id]
-    if len(kept) == len(custom):
+    profile = next((p for p in custom if str((p or {}).get("id") or "") == profile_id), None)
+    if profile is None or not authorize_owned_record(
+        profile,
+        principal,
+        legacy_default_owner=_legacy_chat_owner(),
+    )[0]:
         return jsonify({"error": f"Profile '{profile_id}' not found"}), 404
+    kept = [p for p in custom if p is not profile]
     _save_custom_profiles(kept)
     return "", 204
 
 
 @chat_bp.get("/profiles/<profile_id>/effective")
+@check_user_auth
 def get_effective_chat_profile(profile_id: str):
     from client_surfaces.operator_tui.chat_state import _DEFAULT_SESSION_SETTINGS
 
-    profile = _profile_by_id(profile_id)
+    principal = _chat_workflow_principal()
+    if principal is None:
+        return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
+    profile = _profile_by_id(profile_id, principal)
     if profile is None:
         return jsonify({"error": "profile_not_found"}), 404
     delta = dict(profile.get("settings") or {})
@@ -435,11 +661,15 @@ def get_effective_chat_profile(profile_id: str):
 
 
 @chat_bp.post("/profiles/effective-preview")
+@check_user_auth
 def preview_effective_chat_profile():
     from client_surfaces.operator_tui.chat_state import _DEFAULT_SESSION_SETTINGS
 
     body = request.get_json(silent=True) or {}
-    profile = _profile_by_id(str(body.get("profile_id") or "general"))
+    principal = _chat_workflow_principal()
+    if principal is None:
+        return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
+    profile = _profile_by_id(str(body.get("profile_id") or "general"), principal)
     if profile is None:
         return jsonify({"error": "profile_not_found", "error_code": "profile_not_found"}), 404
     profile_delta = {**dict(profile.get("settings") or {}), **dict(body.get("profile_settings") or {})}
@@ -466,12 +696,17 @@ def preview_effective_chat_profile():
 
 
 @chat_bp.route("/types", methods=["GET"])
+@check_user_auth
+@_require_global_chat_admin
 def list_chat_types():
     builtin_ids = {str(item["id"]) for item in DEFAULT_CHAT_TYPES}
     return jsonify([{**item, "builtin": str(item.get("id") or "") in builtin_ids} for item in _load_chat_types()])
 
 
 @chat_bp.route("/types", methods=["POST"])
+@check_user_auth
+@_require_global_chat_admin
+@_serialized_chat_mutation
 def create_chat_type():
     data = request.get_json(silent=True) or {}
     name = str(data.get("name") or "").strip()
@@ -495,6 +730,9 @@ def create_chat_type():
 
 
 @chat_bp.route("/types/<type_id>", methods=["PATCH", "DELETE"])
+@check_user_auth
+@_require_global_chat_admin
+@_serialized_chat_mutation
 def mutate_chat_type(type_id: str):
     if type_id in {str(item["id"]) for item in DEFAULT_CHAT_TYPES}:
         return jsonify({"error": "built-in types are read-only"}), 409
@@ -519,15 +757,27 @@ def mutate_chat_type(type_id: str):
 
 
 @chat_bp.route("/sessions", methods=["GET"])
+@check_user_auth
 def list_chat_sessions():
-    chat = _load_chat(persist_migration=True)
-    sessions = get_sessions(chat)
-    _save_chat(chat)  # persist any newly added default sessions / backfilled fields
-    return jsonify([s.copy() for s in sessions])
+    principal = _chat_workflow_principal()
+    if principal is None:
+        return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
+    with chat_session_mutation_lock:
+        chat = _load_chat(persist_migration=True, principal=principal)
+        sessions, _ = _owned_sessions(chat, principal)
+        # Persist newly added defaults, backfilled fields and deterministic
+        # legacy ownership in the same serialized transaction.
+        _save_chat(chat, principal=principal)
+    return jsonify([public_session(session) for session in sessions])
 
 
 @chat_bp.route("/sessions", methods=["POST"])
+@check_user_auth
+@_serialized_chat_mutation
 def create_chat_session():
+    principal = _chat_workflow_principal()
+    if principal is None:
+        return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
     data = request.json
     if not data or not isinstance(data, dict):
         return jsonify({"error": "Invalid request body"}), 400
@@ -537,12 +787,12 @@ def create_chat_session():
     if not session_id or not name:
         return jsonify({"error": "Session ID and name are required"}), 400
 
-    chat = _load_chat()
+    chat = _load_chat(principal=principal)
     if get_session(chat, session_id):
-        return jsonify({"error": f"Session with ID '{session_id}' already exists"}), 409
+        return jsonify({"error": "resource_id_unavailable", "error_code": "resource_id_unavailable"}), 409
 
     profile_id = str(data.get("profile_id") or "general")
-    profile = _profile_by_id(profile_id)
+    profile = _profile_by_id(profile_id, principal)
     if profile is None:
         return jsonify({"error": f"Profile '{profile_id}' not found"}), 400
     folder_id = str(data.get("folder_id") or "")
@@ -569,30 +819,44 @@ def create_chat_session():
     )
     try:
         new_session["process_ref"] = _validated_process_ref(
-            process_ref_from_fields({**data, **dict(data.get("settings") or {})})
+            process_ref_from_fields({**data, **dict(data.get("settings") or {})}),
+            principal,
         )
     except (ValueError, LookupError) as exc:
         return jsonify({"error": str(exc), "error_code": str(exc)}), 422
     _apply_profile(new_session, profile)
+    new_session["owner_principal"] = principal.to_dict()
     add_session(chat, new_session)
     set_active_session(chat, session_id)
-    _save_chat(chat)
-    return jsonify(new_session.copy()), 201
+    _save_chat(chat, principal=principal)
+    return jsonify(public_session(new_session)), 201
 
 
 @chat_bp.route("/sessions/<session_id>", methods=["GET"])
+@check_user_auth
 def get_single_chat_session(session_id: str):
-    chat = _load_chat()
-    session = get_session(chat, session_id)
+    principal = _chat_workflow_principal()
+    if principal is None:
+        return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
+    with chat_session_mutation_lock:
+        chat = _load_chat(principal=principal)
+        session, migrated = _owned_session(chat, session_id, principal)
+        if migrated:
+            _save_chat(chat, principal=principal)
     if session is None:
         return jsonify({"error": f"Session '{session_id}' not found"}), 404
-    return jsonify(session.copy())
+    return jsonify(public_session(session))
 
 
 @chat_bp.route("/sessions/<session_id>", methods=["PUT", "PATCH"])
+@check_user_auth
+@_serialized_chat_mutation
 def update_chat_session(session_id: str):
-    chat = _load_chat()
-    session = get_session(chat, session_id)
+    principal = _chat_workflow_principal()
+    if principal is None:
+        return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
+    chat = _load_chat(principal=principal)
+    session, _ = _owned_session(chat, session_id, principal)
     if session is None:
         return jsonify({"error": f"Session '{session_id}' not found"}), 404
 
@@ -643,8 +907,8 @@ def update_chat_session(session_id: str):
             _organization_service().apply_manual(f"Conversation '{session_id}' updated", structure_operations)
         except OrganizationError as exc:
             return _organization_error(exc)
-        chat = _load_chat()
-        session = get_session(chat, session_id)
+        chat = _load_chat(principal=principal)
+        session, _ = _owned_session(chat, session_id, principal)
         if session is None:
             return jsonify({"error": f"Session '{session_id}' not found"}), 404
 
@@ -666,7 +930,7 @@ def update_chat_session(session_id: str):
         session["type_description"] = str(data["type_description"] or "")
     if "profile_id" in data:
         profile_id = str(data["profile_id"] or "general")
-        profile = _profile_by_id(profile_id)
+        profile = _profile_by_id(profile_id, principal)
         if profile is None:
             return jsonify({"error": f"Profile '{profile_id}' not found"}), 400
         _apply_profile(session, profile)
@@ -674,67 +938,117 @@ def update_chat_session(session_id: str):
         key in data for key in ("process_ref", "process_definition_id", "process_version", "process_version_policy")
     ):
         try:
-            session["process_ref"] = _validated_process_ref(process_ref_from_fields(data))
+            session["process_ref"] = _validated_process_ref(process_ref_from_fields(data), principal)
         except (ValueError, LookupError) as exc:
             return jsonify({"error": str(exc), "error_code": str(exc)}), 422
     if "settings" in data and isinstance(data["settings"], dict):
         requested_ref = process_ref_from_fields(data["settings"])
         if requested_ref:
             try:
-                _validated_process_ref(requested_ref)
+                _validated_process_ref(requested_ref, principal)
             except LookupError as exc:
                 return jsonify({"error": str(exc), "error_code": str(exc)}), 422
         update_session_settings(chat, session_id, data["settings"])
         if requested_ref:
             session["process_ref"] = requested_ref
 
-    profile = _profile_by_id(str(session.get("profile_id") or "general"))
+    profile = _profile_by_id(str(session.get("profile_id") or "general"), principal)
     if profile is not None:
         _apply_profile(session, profile)
 
-    _save_chat(chat)
-    session = get_session(chat, session_id)
-    return jsonify((session or {}).copy())
+    _save_chat(chat, principal=principal)
+    session, _ = _owned_session(chat, session_id, principal)
+    return jsonify(public_session(session or {}))
 
 
 @chat_bp.get("/sessions/<session_id>/process")
+@check_user_auth
 def get_effective_session_process(session_id: str):
-    session = get_session(_load_chat(), session_id)
+    principal = _chat_workflow_principal()
+    if principal is None:
+        return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
+    with chat_session_mutation_lock:
+        chat = _load_chat(principal=principal)
+        session, migrated = _owned_session(chat, session_id, principal)
+        if migrated:
+            _save_chat(chat, principal=principal)
     if session is None:
         return jsonify({"error": "session_not_found"}), 404
-    profile = _profile_by_id(str(session.get("profile_id") or "general"))
-    result = resolve_effective_process(session, profile)
+    profile = _profile_by_id(str(session.get("profile_id") or "general"), principal)
+    result = resolve_effective_process(
+        session,
+        profile,
+        tenant_id=principal.tenant_id,
+        subject_id=principal.subject_id,
+    )
     if result["process_ref"] and result["graph"] is None:
         return jsonify({**result, "error": "process_graph_not_found"}), 404
-    return jsonify(result)
+    return jsonify(_public_process_payload(result))
 
 
 @chat_bp.post("/sessions/<session_id>/process/clone")
+@check_user_auth
+@_serialized_chat_mutation
 def clone_effective_session_process(session_id: str):
-    chat = _load_chat()
-    session = get_session(chat, session_id)
+    principal = _chat_workflow_principal()
+    if principal is None:
+        return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
+    chat = _load_chat(principal=principal)
+    session, _ = _owned_session(chat, session_id, principal)
     if session is None:
         return jsonify({"error": "session_not_found"}), 404
-    profile = _profile_by_id(str(session.get("profile_id") or "general"))
-    effective = resolve_effective_process(session, profile)
+    profile = _profile_by_id(str(session.get("profile_id") or "general"), principal)
+    effective = resolve_effective_process(
+        session,
+        profile,
+        tenant_id=principal.tenant_id,
+        subject_id=principal.subject_id,
+    )
     graph_id = str((effective.get("process_ref") or {}).get("graph_id") or "")
     if not graph_id:
         return jsonify({"error": "process_not_configured"}), 409
     try:
-        graph = clone_graph(graph_id, owner_session_id=session_id)
+        graph = clone_graph(
+            graph_id,
+            owner_session_id=session_id,
+            tenant_id=principal.tenant_id,
+            subject_id=principal.subject_id,
+        )
     except LookupError:
         return jsonify({"error": "process_graph_not_found"}), 404
     session["process_ref"] = {"graph_id": graph["id"], "version": str(graph.get("version") or "1.0")}
-    _save_chat(chat)
-    return jsonify({"process_ref": session["process_ref"], "graph": graph, "source": "session_override"}), 201
+    _save_chat(chat, principal=principal)
+    return jsonify(
+        {
+            "process_ref": session["process_ref"],
+            "graph": public_process_graph(graph),
+            "source": "session_override",
+        }
+    ), 201
 
 
 @chat_bp.get("/sessions/<session_id>/process/runs")
+@check_user_auth
 def list_session_process_runs(session_id: str):
-    session = get_session(_load_chat(), session_id)
+    principal = _chat_workflow_principal()
+    if principal is None:
+        return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
+    with chat_session_mutation_lock:
+        chat = _load_chat(principal=principal)
+        session, migrated = _owned_session(chat, session_id, principal)
+        if migrated:
+            _save_chat(chat, principal=principal)
     if session is None:
         return jsonify({"error": "session_not_found", "error_code": "session_not_found"}), 404
-    runs = sorted(session.get("process_runs") or [], key=lambda item: item.get("started_at", 0), reverse=True)
+    runs = sorted(
+        (
+            item
+            for item in session.get("process_runs") or []
+            if isinstance(item, dict) and _chat_workflow_run_is_owned_by(item, principal)
+        ),
+        key=lambda item: item.get("started_at", 0),
+        reverse=True,
+    )
     summaries = []
     for item in runs:
         summary = {key: value for key, value in item.items() if key != "graph_snapshot"}
@@ -744,117 +1058,229 @@ def list_session_process_runs(session_id: str):
 
 
 @chat_bp.post("/sessions/<session_id>/process/runs")
+@check_user_auth
+@_serialized_chat_mutation
 def start_session_process_run(session_id: str):
-    chat = _load_chat()
-    session = get_session(chat, session_id)
-    if session is None:
-        return jsonify({"error": "session_not_found", "error_code": "session_not_found"}), 404
-    effective = resolve_effective_process(session, _profile_by_id(str(session.get("profile_id") or "general")))
-    if effective.get("graph") is None:
-        return jsonify({"error": "process_not_configured", "error_code": "process_not_configured"}), 409
-    body = request.get_json(silent=True) or {}
     principal = _chat_workflow_principal()
     if principal is None:
         return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
-    tenant_id, subject_id = principal
+    chat = _load_chat(principal=principal)
+    session, _ = _owned_session(chat, session_id, principal)
+    if session is None:
+        return jsonify({"error": "session_not_found", "error_code": "session_not_found"}), 404
+    effective = resolve_effective_process(
+        session,
+        _profile_by_id(str(session.get("profile_id") or "general"), principal),
+        tenant_id=principal.tenant_id,
+        subject_id=principal.subject_id,
+    )
+    if effective.get("graph") is None:
+        return jsonify({"error": "process_not_configured", "error_code": "process_not_configured"}), 409
+    body = request.get_json(silent=True) or {}
     try:
         run = start_session_process(
             session_id=session_id,
             graph=effective["graph"],
             message_id=str(body.get("message_id") or ""),
-            tenant_id=tenant_id,
-            subject_id=subject_id,
+            tenant_id=principal.tenant_id,
+            subject_id=principal.subject_id,
         )
     except ValueError as exc:
         return jsonify({"error": str(exc), "error_code": str(exc)}), 422
     runs = list(session.get("process_runs") or [])
     runs.append(run)
     session["process_runs"] = runs[-20:]
-    _save_chat(chat)
-    return jsonify(run), 201
+    _save_chat(chat, principal=principal)
+    return jsonify(_public_process_payload(run)), 201
 
 
 @chat_bp.get("/sessions/<session_id>/process/runs/<run_id>")
+@check_user_auth
 def get_session_process_run(session_id: str, run_id: str):
-    session = get_session(_load_chat(), session_id)
+    principal = _chat_workflow_principal()
+    if principal is None:
+        return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
+    with chat_session_mutation_lock:
+        chat = _load_chat(principal=principal)
+        session, migrated = _owned_session(chat, session_id, principal)
+        if migrated:
+            _save_chat(chat, principal=principal)
     if session is None:
         return jsonify({"error": "session_not_found", "error_code": "session_not_found"}), 404
-    run = next((item for item in session.get("process_runs") or [] if str(item.get("run_id")) == run_id), None)
+    run = next(
+        (
+            item
+            for item in session.get("process_runs") or []
+            if isinstance(item, dict)
+            and str(item.get("run_id")) == run_id
+            and _chat_workflow_run_is_owned_by(item, principal)
+        ),
+        None,
+    )
     if run is None:
         return jsonify({"error": "process_run_not_found", "error_code": "process_run_not_found"}), 404
-    return jsonify(runtime_overlay(run))
+    return jsonify(_public_process_payload(runtime_overlay(run)))
 
 
 @chat_bp.post("/sessions/<session_id>/process/runs/<run_id>/gate")
+@check_user_auth
+@_serialized_chat_mutation
 def signal_session_process_run_gate(session_id: str, run_id: str):
-    chat = _load_chat()
-    session = get_session(chat, session_id)
+    principal = _chat_workflow_principal()
+    if principal is None:
+        return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
+    chat = _load_chat(principal=principal)
+    session, _ = _owned_session(chat, session_id, principal)
     if session is None:
         return jsonify({"error": "session_not_found", "error_code": "session_not_found"}), 404
-    run = next((item for item in session.get("process_runs") or [] if str(item.get("run_id")) == run_id), None)
+    run = next(
+        (
+            item
+            for item in session.get("process_runs") or []
+            if isinstance(item, dict)
+            and str(item.get("run_id")) == run_id
+            and _chat_workflow_run_is_owned_by(item, principal)
+        ),
+        None,
+    )
     if run is None:
         return jsonify({"error": "process_run_not_found", "error_code": "process_run_not_found"}), 404
-    body = request.get_json(silent=True) or {}
-    identity = getattr(g, "user", None) or getattr(g, "auth_payload", None)
-    if identity is None and not current_app.testing:
-        return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
-    actor = str(
-        getattr(identity, "username", "") or (identity.get("sub") if isinstance(identity, dict) else "") or "test-user"
-    )
-    idempotency_key = str(request.headers.get("Idempotency-Key") or body.get("idempotency_key") or "").strip()
-    if not idempotency_key:
-        return jsonify({"error": "idempotency_key_required", "error_code": "idempotency_key_required"}), 400
-    actions = list(session.get("process_gate_actions") or [])
-    previous = next((item for item in actions if item.get("idempotency_key") == idempotency_key), None)
-    if previous is not None:
-        return jsonify({"status": "already_applied", "action": previous}), 200
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify({"error": "invalid_request_body", "error_code": "invalid_request_body"}), 400
+    raw_idempotency_key = request.headers.get("Idempotency-Key")
+    if raw_idempotency_key is None:
+        raw_idempotency_key = body.get("idempotency_key")
+    workflow_id = str(run.get("workflow_id") or "")
+    persisted_run_id = str(run.get("run_id") or workflow_id)
     try:
-        result = signal_session_gate(
-            run=run, step_id=str(body.get("step_id") or ""), decision=str(body.get("decision") or ""), actor=actor
+        command = GateCommand.from_values(
+            idempotency_key=raw_idempotency_key,
+            principal=principal,
+            session_id=session_id,
+            workflow_id=workflow_id,
+            run_id=persisted_run_id,
+            step_id=body.get("step_id"),
+            decision=body.get("decision"),
         )
     except ValueError as exc:
-        return jsonify({"error": str(exc), "error_code": str(exc)}), 409
-    action = {
-        "idempotency_key": idempotency_key,
-        "actor": actor,
-        "workflow_id": run_id,
-        "step_id": str(body.get("step_id") or ""),
-        "decision": str(body.get("decision") or ""),
-        "created_at": time.time(),
-    }
+        reason_code = str(exc)
+        return jsonify({"error": reason_code, "error_code": reason_code}), 400
+    actions = list(session.get("process_gate_actions") or [])
+    previous = find_gate_action(actions, command)
+    if previous is not None:
+        if previous.get("request_hash") != command.request_hash:
+            return jsonify({"error": "idempotency_key_reused", "error_code": "idempotency_key_reused"}), 409
+        if mark_stale_gate_action_for_manual_reconciliation(previous, now=time.time()):
+            _save_chat(chat, principal=principal)
+        state = previous.get("state")
+        if state == "applied":
+            return jsonify({"status": "already_applied", "action": previous}), 200
+        reason_code = (
+            "idempotency_request_in_progress"
+            if state == "pending"
+            else str(previous.get("error_code") or "gate_manual_reconcile_required")
+        )
+        return jsonify({"error": reason_code, "error_code": reason_code}), 409
+
+    action = command.action(state="pending", created_at=time.time())
     actions.append(action)
-    session["process_gate_actions"] = actions[-100:]
-    _save_chat(chat)
+    # This is an at-most-once ledger, not a display history. It must remain
+    # non-evicting while the owning chat exists.
+    session["process_gate_actions"] = actions
+    # Reserve the exact principal/run/payload fingerprint before the external
+    # workflow signal. A crash can leave a fail-closed pending reservation but
+    # can never make a concurrent request signal the gate twice.
+    if not _save_chat(chat, principal=principal):
+        return jsonify(
+            {
+                "error": "gate_idempotency_persistence_failed",
+                "error_code": "gate_idempotency_persistence_failed",
+            }
+        ), 503
+    try:
+        result = signal_session_gate(
+            run=run,
+            step_id=command.step_id,
+            decision=command.decision,
+            actor=principal.subject_id,
+        )
+    except ValueError as exc:
+        action["state"] = "rejected"
+        action["error_code"] = str(exc)
+        action["updated_at"] = time.time()
+        if not _save_chat(chat, principal=principal):
+            action["state"] = "manual_reconcile_required"
+            action["error_code"] = "gate_signal_outcome_unknown"
+            _save_chat(chat, principal=principal)
+            return jsonify(
+                {"error": "gate_manual_reconcile_required", "error_code": "gate_manual_reconcile_required"}
+            ), 503
+        return jsonify({"error": str(exc), "error_code": str(exc)}), 409
+    except Exception:  # noqa: BLE001 - preserve a fail-closed replay record
+        action["state"] = "failed"
+        action["error_code"] = "gate_signal_failed"
+        action["updated_at"] = time.time()
+        if not _save_chat(chat, principal=principal):
+            action["state"] = "manual_reconcile_required"
+            action["error_code"] = "gate_signal_outcome_unknown"
+            _save_chat(chat, principal=principal)
+        _log.exception("chat process gate signal failed workflow_id=%s", workflow_id)
+        return jsonify({"error": "gate_signal_failed", "error_code": "gate_signal_failed"}), 503
+    action["state"] = "applied"
+    action["updated_at"] = time.time()
+    action["result_status"] = str(result.get("status") or "") if isinstance(result, dict) else ""
+    if not _save_chat(chat, principal=principal):
+        action["state"] = "manual_reconcile_required"
+        action["error_code"] = "gate_signal_outcome_unknown"
+        action["updated_at"] = time.time()
+        _save_chat(chat, principal=principal)
+        return jsonify(
+            {"error": "gate_manual_reconcile_required", "error_code": "gate_manual_reconcile_required"}
+        ), 503
     _log.info(
-        "chat_process_gate actor=%s workflow_id=%s step_id=%s decision=%s idempotency_key=%s",
+        "chat_process_gate actor=%s workflow_id=%s step_id=%s decision=%s idempotency_key_ref=%s",
         action["actor"],
-        run_id,
+        workflow_id,
         action["step_id"],
         action["decision"],
-        idempotency_key,
+        command.idempotency_key_ref,
     )
     return jsonify(result)
 
 
 @chat_bp.route("/sessions/<session_id>", methods=["DELETE"])
+@check_user_auth
+@_serialized_chat_mutation
 def delete_chat_session(session_id: str):
-    chat = _load_chat()
-    if get_session(chat, session_id) is None:
+    principal = _chat_workflow_principal()
+    if principal is None:
+        return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
+    chat = _load_chat(principal=principal)
+    session, _ = _owned_session(chat, session_id, principal)
+    if session is None:
         return jsonify({"error": f"Session '{session_id}' not found"}), 404
-    if len(get_sessions(chat)) <= 1:
+    owned, _ = _owned_sessions(chat, principal)
+    if len(owned) <= 1:
         return jsonify({"error": "Cannot delete the last remaining session"}), 400
     delete_session(chat, session_id)
-    _save_chat(chat)
+    _save_chat(chat, principal=principal)
     return "", 204
 
 
 @chat_bp.route("/sessions/<session_id>/activate", methods=["POST"])
+@check_user_auth
+@_serialized_chat_mutation
 def activate_chat_session(session_id: str):
-    chat = _load_chat()
-    if get_session(chat, session_id) is None:
+    principal = _chat_workflow_principal()
+    if principal is None:
+        return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
+    chat = _load_chat(principal=principal)
+    session, _ = _owned_session(chat, session_id, principal)
+    if session is None:
         return jsonify({"error": f"Session '{session_id}' not found"}), 404
     set_active_session(chat, session_id)
-    _save_chat(chat)
+    _save_chat(chat, principal=principal)
     return jsonify({"message": f"Session '{session_id}' activated"}), 200
 
 
@@ -862,11 +1288,16 @@ def activate_chat_session(session_id: str):
 
 
 @chat_bp.route("/folders", methods=["GET"])
+@check_user_auth
+@_require_global_chat_admin
 def list_folders():
     return jsonify(_load_folders())
 
 
 @chat_bp.route("/folders", methods=["POST"])
+@check_user_auth
+@_require_global_chat_admin
+@_serialized_chat_mutation
 def create_folder():
     data = request.json
     if not data or not isinstance(data, dict):
@@ -909,6 +1340,9 @@ def create_folder():
 
 
 @chat_bp.route("/folders/<folder_id>", methods=["PATCH"])
+@check_user_auth
+@_require_global_chat_admin
+@_serialized_chat_mutation
 def update_folder(folder_id: str):
     folders = _load_folders()
     folder = next((f for f in folders if f.get("id") == folder_id), None)
@@ -969,6 +1403,9 @@ def update_folder(folder_id: str):
 
 
 @chat_bp.route("/folders/<folder_id>", methods=["DELETE"])
+@check_user_auth
+@_require_global_chat_admin
+@_serialized_chat_mutation
 def delete_folder(folder_id: str):
     folders = _load_folders()
     if not any(f.get("id") == folder_id for f in folders):
@@ -992,11 +1429,15 @@ def delete_folder(folder_id: str):
 
 
 @chat_bp.route("/organization/snapshot", methods=["GET"])
+@check_user_auth
+@_require_global_chat_admin
 def get_organization_snapshot():
     return jsonify(_organization_service().snapshot())
 
 
 @chat_bp.route("/organization/proposals", methods=["GET", "POST"])
+@check_user_auth
+@_require_global_chat_admin
 def organization_proposals():
     service = _organization_service()
     try:
@@ -1008,6 +1449,8 @@ def organization_proposals():
 
 
 @chat_bp.route("/organization/proposals/<proposal_id>", methods=["GET", "PATCH", "DELETE"])
+@check_user_auth
+@_require_global_chat_admin
 def organization_proposal(proposal_id: str):
     service = _organization_service()
     try:
@@ -1022,6 +1465,8 @@ def organization_proposal(proposal_id: str):
 
 
 @chat_bp.route("/organization/proposals/<proposal_id>/validate", methods=["POST"])
+@check_user_auth
+@_require_global_chat_admin
 def validate_organization_proposal(proposal_id: str):
     try:
         return jsonify(_organization_service().validate_proposal(proposal_id))
@@ -1030,6 +1475,8 @@ def validate_organization_proposal(proposal_id: str):
 
 
 @chat_bp.route("/organization/proposals/<proposal_id>/apply", methods=["POST"])
+@check_user_auth
+@_require_global_chat_admin
 def apply_organization_proposal(proposal_id: str):
     try:
         return jsonify(_organization_service().apply_proposal(proposal_id))
@@ -1038,11 +1485,15 @@ def apply_organization_proposal(proposal_id: str):
 
 
 @chat_bp.route("/organization/history", methods=["GET"])
+@check_user_auth
+@_require_global_chat_admin
 def organization_history():
     return jsonify(_organization_service().list_revisions())
 
 
 @chat_bp.route("/organization/history/<revision_id>", methods=["GET"])
+@check_user_auth
+@_require_global_chat_admin
 def organization_revision(revision_id: str):
     try:
         return jsonify(_organization_service().get_revision(revision_id))
@@ -1051,6 +1502,8 @@ def organization_revision(revision_id: str):
 
 
 @chat_bp.route("/organization/history/<revision_id>/revert", methods=["POST"])
+@check_user_auth
+@_require_global_chat_admin
 def revert_organization_revision(revision_id: str):
     try:
         return jsonify(_organization_service().revert_revision(revision_id))
@@ -1218,14 +1671,22 @@ def _llm_reorganize(
 
 
 @chat_bp.route("/sessions/ai-reorganize", methods=["POST"])
+@check_user_auth
+@_require_global_chat_admin
 def ai_reorganize_sessions():
     """Propose a folder structure based on current sessions (LLM first, heuristic fallback).
 
     Returns a proposal the user can preview and optionally accept via
     separate PATCH calls. No state is modified by this endpoint.
     """
-    chat = _load_chat()
-    sessions = get_sessions(chat)
+    principal = _chat_workflow_principal()
+    if principal is None:
+        return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
+    with chat_session_mutation_lock:
+        chat = _load_chat(principal=principal)
+        sessions, migrated = _owned_sessions(chat, principal)
+        if migrated:
+            _save_chat(chat, principal=principal)
     folders = _load_folders()
     data = request.get_json(silent=True) or {}
     input_policy = str(data.get("input_policy") or "metadata_only")
@@ -1291,10 +1752,17 @@ def ai_reorganize_sessions():
 
 
 @chat_bp.route("/sessions/<session_id>/context-overview", methods=["GET"])
+@check_user_auth
 def get_session_context_overview(session_id: str):
     """Return a breakdown of what goes into the next prompt for a given session."""
-    chat = _load_chat()
-    session = get_session(chat, session_id)
+    principal = _chat_workflow_principal()
+    if principal is None:
+        return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
+    with chat_session_mutation_lock:
+        chat = _load_chat(principal=principal)
+        session, migrated = _owned_session(chat, session_id, principal)
+        if migrated:
+            _save_chat(chat, principal=principal)
     if session is None:
         return jsonify({"error": f"Session '{session_id}' not found"}), 404
 
@@ -1331,12 +1799,19 @@ def get_session_context_overview(session_id: str):
 
 
 @chat_bp.route("/sessions/<session_id>/summarize", methods=["POST"])
+@check_user_auth
 def summarize_session_messages(session_id: str):
     """Summarize a user-selected slice of chat messages (LLM, extractive fallback)."""
     from agent.services.chat_partial_summary_service import get_chat_partial_summary_service
 
-    chat = _load_chat()
-    session = get_session(chat, session_id)
+    principal = _chat_workflow_principal()
+    if principal is None:
+        return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
+    with chat_session_mutation_lock:
+        chat = _load_chat(principal=principal)
+        session, migrated = _owned_session(chat, session_id, principal)
+        if migrated:
+            _save_chat(chat, principal=principal)
     if session is None:
         return jsonify({"error": f"Session '{session_id}' not found"}), 404
 
@@ -1380,14 +1855,21 @@ def summarize_session_messages(session_id: str):
 
 
 @chat_bp.route("/sessions/<session_id>/prompt-preview", methods=["POST"])
+@check_user_auth
 def preview_session_prompt(session_id: str):
     """Preview how the next prompt would be assembled from the session settings.
 
     Pure/read-only: mirrors the real assembly pipeline without modifying state.
     History lives client-side, so it arrives in the request body.
     """
-    chat = _load_chat()
-    session = get_session(chat, session_id)
+    principal = _chat_workflow_principal()
+    if principal is None:
+        return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
+    with chat_session_mutation_lock:
+        chat = _load_chat(principal=principal)
+        session, migrated = _owned_session(chat, session_id, principal)
+        if migrated:
+            _save_chat(chat, principal=principal)
     if session is None:
         return jsonify({"error": f"Session '{session_id}' not found"}), 404
 

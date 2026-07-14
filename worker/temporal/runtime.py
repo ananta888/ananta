@@ -49,6 +49,7 @@ def build_activity_gateway(config: TemporalWorkerConfig) -> HubActivityGateway:
         gateway = HttpHubTaskGateway(
             hub_url=config.hub_url,
             bearer_token=str(config.read_hub_token() or ""),
+            service_id=config.workflow_service_id,
         )
     else:
         gateway = UnavailableHubTaskGateway()

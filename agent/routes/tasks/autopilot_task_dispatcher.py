@@ -1,22 +1,14 @@
 from __future__ import annotations
 
-import contextlib
-import logging
 import os
 import time
-from typing import Any
+from typing import Any, Callable
 
 from agent.config import settings
 from agent.metrics import (
     STRATEGY_ATTEMPT_COUNT,
-    TASK_FAILURE_REASON_COUNT,
-    TASK_SUCCESS_RATE,
-    WORKER_BUSY_SECONDS,
     WORKER_PROPOSE_DURATION_SECONDS,
-    WORKSPACE_WRITE_CONFLICT_COUNT,
 )
-from agent.services.repository_registry import get_repository_registry
-from agent.tool_guardrails import estimate_text_tokens
 from agent.routes.tasks.autopilot_model_selector import (
     _normalize_temperature_value,
     _select_model_for_task,
@@ -27,21 +19,22 @@ from agent.routes.tasks.autopilot_strategy_candidates import (
     _safe_context_length,
     _strategy_cfg,
 )
+from agent.services.repository_registry import get_repository_registry
+from agent.tool_guardrails import estimate_text_tokens
+
 from .autopilot_task_dispatcher_helpers import (
     TaskDispatchResult,
     _current_task_status,
+    _effective_agent_cfg_for_task,
+    _ensure_llm_profile_snapshot,
     _execute_proposed_step,
     _is_terminal_status,
-    _should_terminalize_no_executable_strategy,
-    _resolve_non_executable_terminal_status,
-    _effective_agent_cfg_for_task,
-    _resolve_autonomous_repair_budget,
-    _recent_strategy_attempts,
     _is_transient_worker_transport_error,
     _merged_last_proposal_snapshot,
-    _ensure_llm_profile_snapshot,
-    _fallback_policy,
-    _maybe_recover_planned_goal_without_candidates,
+    _recent_strategy_attempts,
+    _resolve_autonomous_repair_budget,
+    _resolve_non_executable_terminal_status,
+    _should_terminalize_no_executable_strategy,
     _task_log,
 )
 
@@ -206,6 +199,51 @@ def _dispatch_one_task_inner(  # noqa: C901
                 "mode": "hub_as_worker_fallback",
                 "queue_position": queue_positions.get(task.id),
             },
+        )
+    try:
+        from agent.services.workflow_worker_assignment_runtime import (
+            bind_dispatched_workflow_task,
+        )
+
+        workflow_assignment = bind_dispatched_workflow_task(
+            task=task,
+            worker=target_worker,
+        )
+    except Exception as exc:  # fail closed before any Worker transport
+        reason_code = str(
+            getattr(
+                exc,
+                "reason_code",
+                "workflow_worker_assignment_unavailable",
+            )
+        )
+        update_local_task_status(
+            task.id,
+            "failed",
+            error=reason_code,
+            event_type="workflow_worker_assignment_failed",
+            event_actor="hub_dispatcher",
+            event_details={"reason_code": reason_code},
+            force=True,
+        )
+        append_trace_event(
+            task.id,
+            "workflow_worker_assignment_failed",
+            delegated_to=target_worker.url,
+            reason_code=reason_code,
+        )
+        result.dispatched = True
+        result.failed = True
+        result.failure_type = reason_code
+        return result
+    if workflow_assignment is not None:
+        append_trace_event(
+            task.id,
+            "workflow_worker_assignment_bound",
+            delegated_to=workflow_assignment.worker_url,
+            worker_id=workflow_assignment.worker_id,
+            attempt_id=workflow_assignment.attempt_id,
+            fencing_token=workflow_assignment.fencing_token,
         )
     append_trace_event(
         task.id,
@@ -654,7 +692,9 @@ def _dispatch_one_task_inner(  # noqa: C901
                 model_meta=model_meta if isinstance(model_meta, dict) else None,
                 preferred_profile=collected_llm_profiles,
                 allow_synthetic_fallback=bool(
-                    ((loop._agent_config() or {}).get("llm_profile_policy") or {}).get("allow_synthetic_fallback", False)
+                    ((loop._agent_config() or {}).get("llm_profile_policy") or {}).get(
+                        "allow_synthetic_fallback", False
+                    )
                 ),
             )
             update_local_task_status(

@@ -7,12 +7,15 @@ import hashlib
 import json
 import time
 import uuid
+from dataclasses import replace
 from typing import Any
 
 from sqlmodel import Session
 
+from agent.config import settings
 from agent.database import engine
 from agent.db_models.visual_process import VisualProcessGraphDB
+from agent.services.chat_session_security import ChatSessionPrincipal
 from agent.services.workflow_backend import WorkflowSignal
 from agent.services.workflow_control_composition import get_workflow_backend_control_facade
 from agent.services.workflow_route_authorization_service import WorkflowRoutePrincipal
@@ -49,7 +52,13 @@ def process_ref_from_fields(data: dict[str, Any]) -> dict[str, str] | None:
     )
 
 
-def load_graph(graph_id: str, version: str = "latest") -> dict[str, Any] | None:
+def load_graph(
+    graph_id: str,
+    version: str = "latest",
+    *,
+    tenant_id: str | None = None,
+    subject_id: str | None = None,
+) -> dict[str, Any] | None:
     lookup_id = graph_id if not version or version == "latest" else f"{graph_id}@{version}"
     with Session(engine) as db:
         row = db.get(VisualProcessGraphDB, lookup_id)
@@ -61,12 +70,34 @@ def load_graph(graph_id: str, version: str = "latest") -> dict[str, Any] | None:
                     row = current if str(current_data.get("version") or "1.0") == version else None
                 except (TypeError, ValueError):
                     row = None
-    if row is None:
-        return None
-    return json.loads(row.graph_json)
+        if row is None:
+            return None
+        try:
+            graph = json.loads(row.graph_json)
+        except (TypeError, ValueError):
+            return None
+        if tenant_id is not None or subject_id is not None:
+            try:
+                principal = ChatSessionPrincipal.from_values(tenant_id, subject_id)
+            except ValueError:
+                return None
+            owned, migrated = authorize_graph(graph, principal)
+            if not owned:
+                return None
+            if migrated:
+                row.graph_json = json.dumps(graph)
+                db.add(row)
+                db.commit()
+        return graph
 
 
-def resolve_effective_process(session: dict[str, Any], profile: dict[str, Any] | None) -> dict[str, Any]:
+def resolve_effective_process(
+    session: dict[str, Any],
+    profile: dict[str, Any] | None,
+    *,
+    tenant_id: str | None = None,
+    subject_id: str | None = None,
+) -> dict[str, Any]:
     own = session.get("process_ref") or process_ref_from_fields(dict(session.get("settings_delta") or {}))
     inherited = (profile or {}).get("process_ref") or process_ref_from_fields(
         dict((profile or {}).get("settings") or {})
@@ -74,7 +105,12 @@ def resolve_effective_process(session: dict[str, Any], profile: dict[str, Any] |
     process_ref = own if own is not None else inherited
     source = "session_override" if own is not None else "profile" if inherited is not None else "global"
     graph = (
-        load_graph(str((process_ref or {}).get("graph_id") or ""), str((process_ref or {}).get("version") or "latest"))
+        load_graph(
+            str((process_ref or {}).get("graph_id") or ""),
+            str((process_ref or {}).get("version") or "latest"),
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+        )
         if process_ref
         else None
     )
@@ -112,6 +148,14 @@ def start_session_process(
     principal = WorkflowRoutePrincipal(
         tenant_id=str(tenant_id or f"chat-session:{session_id}"),
         subject=str(subject_id or "chat_session_hub"),
+    )
+    request = replace(
+        request,
+        workflow_id=derive_chat_workflow_id(
+            tenant_id=principal.tenant_id,
+            session_id=session_id,
+            graph_id=definition.id,
+        ),
     )
     status = get_workflow_backend_control_facade().bind(principal).start_workflow(request)
     return {
@@ -196,8 +240,14 @@ def _controlled_backend(run: dict[str, Any]):
     return get_workflow_backend_control_facade().bind(route_principal)
 
 
-def clone_graph(graph_id: str, *, owner_session_id: str) -> dict[str, Any]:
-    graph = load_graph(graph_id)
+def clone_graph(
+    graph_id: str,
+    *,
+    owner_session_id: str,
+    tenant_id: str,
+    subject_id: str,
+) -> dict[str, Any]:
+    graph = load_graph(graph_id, tenant_id=tenant_id, subject_id=subject_id)
     if graph is None:
         raise LookupError("process_graph_not_found")
     clone = copy.deepcopy(graph)
@@ -205,7 +255,16 @@ def clone_graph(graph_id: str, *, owner_session_id: str) -> dict[str, Any]:
     clone["id"] = clone_id
     clone["name"] = f"{clone.get('name') or graph_id} · {owner_session_id}"
     metadata = dict(clone.get("metadata") or {})
-    metadata.update({"cloned_from": graph_id, "owner_session_id": owner_session_id})
+    metadata.update(
+        {
+            "cloned_from": graph_id,
+            "owner_session_id": owner_session_id,
+            "owner_principal": {
+                "tenant_id": tenant_id,
+                "subject_id": subject_id,
+            },
+        }
+    )
     clone["metadata"] = metadata
     now = time.time()
     row = VisualProcessGraphDB(
@@ -221,3 +280,80 @@ def clone_graph(graph_id: str, *, owner_session_id: str) -> dict[str, Any]:
         db.add(row)
         db.commit()
     return clone
+
+
+def derive_chat_workflow_id(*, tenant_id: str, session_id: str, graph_id: str) -> str:
+    """Return a tenant-bound, non-identifying and per-run workflow ID."""
+
+    scope = json.dumps(
+        {
+            "schema": "ananta.chat_workflow_scope.v1",
+            "tenant_id": tenant_id,
+            "session_id": session_id,
+            "graph_id": graph_id,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return f"chat-{hashlib.sha256(scope).hexdigest()[:24]}-{uuid.uuid4().hex[:20]}"
+
+
+def authorize_graph(
+    graph: dict[str, Any],
+    principal: ChatSessionPrincipal,
+) -> tuple[bool, bool]:
+    metadata = graph.get("metadata")
+    metadata = metadata if isinstance(metadata, dict) else {}
+    raw_owner = metadata.get("owner_principal")
+    if isinstance(raw_owner, dict):
+        try:
+            owner = ChatSessionPrincipal.from_values(
+                raw_owner.get("tenant_id"),
+                raw_owner.get("subject_id"),
+            )
+        except ValueError:
+            return False, False
+        return owner == principal, False
+    try:
+        legacy_owner = ChatSessionPrincipal.from_values(
+            settings.initial_admin_user,
+            settings.initial_admin_user,
+        )
+    except ValueError:
+        return False, False
+    if principal != legacy_owner:
+        return False, False
+    metadata["owner_principal"] = principal.to_dict()
+    graph["metadata"] = metadata
+    return True, True
+
+
+def bind_graph_owner(
+    graph: dict[str, Any],
+    principal: ChatSessionPrincipal,
+) -> dict[str, Any]:
+    """Return a copy whose owner metadata is controlled by the Hub."""
+
+    owned = copy.deepcopy(graph)
+    metadata = dict(owned.get("metadata") or {})
+    metadata["owner_principal"] = principal.to_dict()
+    owned["metadata"] = metadata
+    return owned
+
+
+def public_graph(graph: dict[str, Any]) -> dict[str, Any]:
+    """Strip server-side owner metadata from the established graph contract."""
+
+    result = copy.deepcopy(graph)
+    metadata = dict(result.get("metadata") or {})
+    metadata.pop("owner_principal", None)
+    result["metadata"] = metadata
+    nested_graph = result.get("graph")
+    if isinstance(nested_graph, dict):
+        result["graph"] = public_graph(nested_graph)
+    blueprint = result.get("blueprint")
+    if isinstance(blueprint, dict):
+        blueprint_metadata = dict(blueprint.get("metadata") or {})
+        blueprint_metadata.pop("owner_principal", None)
+        blueprint["metadata"] = blueprint_metadata
+    return result

@@ -12,6 +12,14 @@ from agent.services.worker_context_handoff_diagnostics_service import (
 from agent.services.worker_context_request_service import WorkerContextRequestService
 
 
+def _user_auth_header() -> dict[str, str]:
+    from agent.config import settings
+    from agent.services.user_session_tokens import issue_user_access_token
+
+    token = issue_user_access_token(username=settings.initial_admin_user, role="admin")
+    return {"Authorization": f"Bearer {token}"}
+
+
 def test_handoff_diagnostics_reports_missing_required_reads() -> None:
     handoff = {
         "schema": "worker_context_handoff.v3",
@@ -62,7 +70,12 @@ def test_worker_context_request_service_blocks_unsafe_request(tmp_path: Path) ->
     assert "traversal" in result["errors"][1]["error"]
 
 
-def test_worker_context_endpoint_builds_v3_payload_with_diagnostics(tmp_path: Path) -> None:
+def test_worker_context_endpoint_builds_v3_payload_with_diagnostics(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from agent.config import settings
+
     workspace = tmp_path / "workspace"
     output = tmp_path / "codecompass"
     workspace.mkdir()
@@ -78,9 +91,11 @@ def test_worker_context_endpoint_builds_v3_payload_with_diagnostics(tmp_path: Pa
     app = Flask(__name__)
     app.testing = True
     app.register_blueprint(snakes_bp)
+    monkeypatch.setattr(settings, "hub_workspace_root", str(tmp_path))
 
     response = app.test_client().post(
         "/worker-context",
+        headers=_user_auth_header(),
         json={
             "question": "Wo ist FooService?",
             "output_dir": str(output),
@@ -95,3 +110,115 @@ def test_worker_context_endpoint_builds_v3_payload_with_diagnostics(tmp_path: Pa
     assert payload["context_files"][0]["path"] == "src/foo.py"
     assert payload["diagnostics"]["context_file_count"] == 1
     assert payload["diagnostics"]["missing_required_reads"] == []
+
+
+def test_worker_context_rejects_unauthenticated_docker_bridge_caller(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from agent.config import settings
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    monkeypatch.setattr(settings, "hub_workspace_root", str(tmp_path))
+    app = Flask(__name__)
+    app.testing = True
+    app.register_blueprint(snakes_bp)
+
+    response = app.test_client().post(
+        "/worker-context",
+        environ_base={"REMOTE_ADDR": "172.18.0.5"},
+        json={
+            "question": "Where is Foo?",
+            "output_dir": str(workspace),
+        },
+    )
+
+    assert response.status_code == 401
+
+
+def test_worker_context_rejects_output_outside_hub_workspace(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from agent.config import settings
+
+    hub_root = tmp_path / "hub-owned"
+    outside = tmp_path / "caller-controlled"
+    hub_root.mkdir()
+    outside.mkdir()
+    monkeypatch.setattr(settings, "hub_workspace_root", str(hub_root))
+    app = Flask(__name__)
+    app.testing = True
+    app.register_blueprint(snakes_bp)
+
+    response = app.test_client().post(
+        "/worker-context",
+        headers=_user_auth_header(),
+        json={
+            "question": "Where is Foo?",
+            "output_dir": str(outside),
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.get_json() == {
+        "error": "worker_context_path_rejected",
+        "field": "output_dir",
+        "reason_code": "output_dir_outside_hub_workspace",
+    }
+
+
+def test_worker_context_rejects_workspace_symlink_escape(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from agent.config import settings
+
+    hub_root = tmp_path / "hub-owned"
+    output = hub_root / "output"
+    outside = tmp_path / "outside"
+    hub_root.mkdir()
+    output.mkdir()
+    outside.mkdir()
+    escape = hub_root / "escaped-workspace"
+    try:
+        escape.symlink_to(outside, target_is_directory=True)
+    except OSError:
+        return
+    monkeypatch.setattr(settings, "hub_workspace_root", str(hub_root))
+    app = Flask(__name__)
+    app.testing = True
+    app.register_blueprint(snakes_bp)
+
+    response = app.test_client().post(
+        "/worker-context",
+        headers=_user_auth_header(),
+        json={
+            "question": "Where is Foo?",
+            "output_dir": str(output),
+            "workspace_root": str(escape),
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.get_json()["reason_code"] == "workspace_root_outside_hub_workspace"
+
+
+def test_worker_context_accepts_strict_service_bearer() -> None:
+    service_token = "worker-context-service-token-with-at-least-32-bytes"
+    app = Flask(__name__)
+    app.testing = True
+    app.config["AGENT_TOKEN"] = service_token
+    app.register_blueprint(snakes_bp)
+
+    response = app.test_client().post(
+        "/worker-context",
+        headers={"Authorization": f"Bearer {service_token}"},
+        json={},
+    )
+
+    # The request crossed the strict service-auth boundary and reached input
+    # validation; an unauthenticated request would have returned 401.
+    assert response.status_code == 400
+    assert response.get_json()["error"] == "question required"

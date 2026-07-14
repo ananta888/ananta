@@ -39,8 +39,10 @@ worker settings are:
 | `ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_FILE` | Worker-only Ed25519 public verification-keyring file |
 | `ANANTA_WORKFLOW_DISPATCH_KEYRING_FILE` | Hub-only dispatch-encryption keyring file |
 | `ANANTA_TEMPORAL_HUB_URL` | Hub endpoint used only by the Activity gateway |
-| `ANANTA_TEMPORAL_HUB_TOKEN_FILE` | Hub service-token file reference |
-| `AGENT_TOKEN_FILE` | Hub-side source for the same service token; strict routes fail closed if invalid |
+| `ANANTA_TEMPORAL_HUB_TOKEN_FILE` | Temporal-only scoped service-token file reference |
+| `ANANTA_WORKFLOW_SERVICE_ID` | Audited runtime-service identity (`ananta-temporal-worker`) |
+| `ANANTA_WORKFLOW_RUNTIME_SERVICE_KEYRING_FILE` | Hub-only runtime service/key/scope mapping |
+| `AGENT_TOKEN_FILE` | Separate Hub-admin service token; never mounted into Temporal |
 
 The two authorization keyring files are JSON and must be mounted read-only. The
 Hub file contains private signing seeds:
@@ -74,23 +76,42 @@ or legacy symmetric fields. Shared HMAC is disabled by default; its explicit
 compatibility flag is for isolated development migration only.
 
 The dispatch-encryption keyring has the same JSON envelope but every value must
-be a URL-safe Fernet key. It is mounted into the Hub only. The Hub service-token
-file contains one random token of at least 32 bytes and is mounted into the Hub
-as `AGENT_TOKEN_FILE` and into the Temporal worker as
-`ANANTA_TEMPORAL_HUB_TOKEN_FILE`. The file reader rejects relative paths,
-oversized/short values, embedded whitespace, group/world-writable source files
-and conflicting inline `AGENT_TOKEN` values. It also rejects URL query-token
-authentication for file-managed credentials. Application token rotation is
-disabled while the token is externally file-managed.
+be a URL-safe Fernet key. It is mounted into the Hub only. The Hub-admin token
+is also Hub-only. Temporal gets a separate random token of at least 32 bytes;
+the Hub maps it to service ID `ananta-temporal-worker` and the sole scope
+`workflow.temporal.tasks` through this second Hub-only keyring:
+
+```json
+{
+  "schema": "ananta.workflow-runtime-service-keyring.v1",
+  "services": {
+    "ananta-temporal-worker": {
+      "token": "same-value-as-workflow-temporal-service-token-file",
+      "scopes": ["workflow.temporal.tasks"]
+    }
+  }
+}
+```
+
+The file readers reject relative paths, symlinks, hardlinks, non-regular files,
+unsafe ownership, group/world writes, oversized values and mutation during a
+read. File-managed service credentials are never accepted from URL queries.
+The only query-token exception is a short-lived, purpose-bound user derivative
+on `GET /api/events/stream`; it cannot authenticate any internal runtime route.
+Application token rotation is disabled while the Hub token is externally
+file-managed.
 
 Do not place any of these files in Compose YAML, `.env`, images or repository
-fixtures. Generate the four source files in a deployment-owned directory. The
-following example is verifiable and writes only beneath `/etc/ananta/secrets`:
+fixtures. Generate independent source files in a deployment-owned directory.
+The following Temporal/full-stack example writes only beneath
+`/etc/ananta/secrets`; customize Worker IDs in the registration keyring when
+the corresponding Compose IDs are overridden:
 
 ```bash
 sudo install -d -m 0700 /etc/ananta/secrets
 sudo python - <<'PY'
 import base64
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -100,6 +121,14 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 root = Path("/etc/ananta/secrets")
 auth_id = "workflow-auth-v1"
 dispatch_id = "workflow-dispatch-v1"
+def token():
+    return base64.urlsafe_b64encode(os.urandom(48)).decode("ascii")
+
+def digest(value):
+    # Fingerprints bind the Hub allowlist to the exact trimmed secret value
+    # consumed by the Worker without exposing that secret to the Hub.
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
 private = Ed25519PrivateKey.generate()
 private_seed = private.private_bytes(
     serialization.Encoding.Raw,
@@ -110,6 +139,20 @@ public_key = private.public_key().public_bytes(
     serialization.Encoding.Raw,
     serialization.PublicFormat.Raw,
 )
+alpha_registration = token()
+beta_registration = token()
+alpha_service = token()
+beta_service = token()
+alpha_session = token()
+beta_session = token()
+temporal_service = token()
+native_capabilities = [
+    "planning", "analysis", "research", "coding", "implementation",
+    "review", "testing", "verification", "workflow.adapter.native",
+    "approval", "bounded_parallel", "checkpoint", "deterministic_merge",
+    "resume", "retrieval", "stream", "structured_output", "subgraphs",
+    "tool_calling",
+]
 files = {
     "workflow-auth-signing-keyring.json": json.dumps({
         "schema": "ananta.workflow-auth-signing-keyring.v1",
@@ -126,14 +169,62 @@ files = {
         "active_key_id": dispatch_id,
         "keys": {dispatch_id: base64.urlsafe_b64encode(os.urandom(32)).decode("ascii")},
     }),
-    "workflow-hub-service-token": base64.urlsafe_b64encode(os.urandom(48)).decode("ascii"),
+    "workflow-hub-service-token": token(),
+    "workflow-hub-session-signing-key": token(),
+    "workflow-worker-alpha-registration-token": alpha_registration,
+    "workflow-worker-beta-registration-token": beta_registration,
+    "workflow-worker-alpha-service-token": alpha_service,
+    "workflow-worker-beta-service-token": beta_service,
+    "workflow-worker-alpha-session-signing-key": alpha_session,
+    "workflow-worker-beta-session-signing-key": beta_session,
+    "workflow-worker-registration-keyring.json": json.dumps({
+        "schema": "ananta.workflow-worker-registration-keyring.v1",
+        "workers": {
+            "ananta-worker-1": {
+                "worker_url": "http://ai-agent-alpha:5000",
+                "registration_token": alpha_registration,
+                "service_token_sha256": digest(alpha_service),
+                "session_signing_key_sha256": digest(alpha_session),
+                "allowed_capabilities": native_capabilities,
+            },
+            "ananta-worker-2": {
+                "worker_url": "http://ai-agent-beta:5000",
+                "registration_token": beta_registration,
+                "service_token_sha256": digest(beta_service),
+                "session_signing_key_sha256": digest(beta_session),
+                "allowed_capabilities": native_capabilities,
+            },
+        },
+    }),
+    "workflow-temporal-service-token": temporal_service,
+    "workflow-runtime-service-keyring.json": json.dumps({
+        "schema": "ananta.workflow-runtime-service-keyring.v1",
+        "services": {
+            "ananta-temporal-worker": {
+                "token": temporal_service,
+                "scopes": ["workflow.temporal.tasks"],
+            },
+        },
+    }),
 }
 for name, value in files.items():
     path = root / name
     path.write_text(value + "\n", encoding="utf-8")
-    path.chmod(0o600)
+    if name == "workflow-auth-verification-keyring.json":
+        path.chmod(0o444)  # public keyring; readable by root and UID 10001
+    elif name == "workflow-temporal-service-token":
+        path.chown(10001, 10001)
+        path.chmod(0o600)
+    else:
+        path.chmod(0o600)
 PY
 ```
+
+Local file-backed Compose secrets keep the host file's real owner and mode;
+the YAML `uid`, `gid` and `mode` fields do not replace them. Verify the source
+metadata before every rollout. Each file must be regular, have link count one,
+be owned by root or its consuming container UID and have no group/world write
+bits.
 
 Set only source-file *paths* in the deployment shell and validate the fully
 merged model before startup:
@@ -143,32 +234,48 @@ export ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_SECRET_FILE=/etc/ananta/secrets/work
 export ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-auth-verification-keyring.json
 export ANANTA_WORKFLOW_DISPATCH_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-dispatch-keyring.json
 export ANANTA_WORKFLOW_HUB_TOKEN_SECRET_FILE=/etc/ananta/secrets/workflow-hub-service-token
+export ANANTA_HUB_SESSION_SIGNING_KEY_SECRET_FILE=/etc/ananta/secrets/workflow-hub-session-signing-key
+export ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-worker-registration-keyring.json
+export ANANTA_WORKFLOW_WORKER_ALPHA_REGISTRATION_TOKEN_SECRET_FILE=/etc/ananta/secrets/workflow-worker-alpha-registration-token
+export ANANTA_WORKFLOW_WORKER_BETA_REGISTRATION_TOKEN_SECRET_FILE=/etc/ananta/secrets/workflow-worker-beta-registration-token
+export ANANTA_WORKFLOW_WORKER_ALPHA_SERVICE_TOKEN_SECRET_FILE=/etc/ananta/secrets/workflow-worker-alpha-service-token
+export ANANTA_WORKFLOW_WORKER_BETA_SERVICE_TOKEN_SECRET_FILE=/etc/ananta/secrets/workflow-worker-beta-service-token
+export ANANTA_WORKER_ALPHA_SESSION_SIGNING_KEY_SECRET_FILE=/etc/ananta/secrets/workflow-worker-alpha-session-signing-key
+export ANANTA_WORKER_BETA_SESSION_SIGNING_KEY_SECRET_FILE=/etc/ananta/secrets/workflow-worker-beta-session-signing-key
+export ANANTA_WORKFLOW_RUNTIME_SERVICE_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-runtime-service-keyring.json
+export ANANTA_WORKFLOW_TEMPORAL_SERVICE_TOKEN_SECRET_FILE=/etc/ananta/secrets/workflow-temporal-service-token
+export CORS_ORIGINS=https://ananta.example.org
 
 docker compose --env-file .env \
   -f docker/compose-next/compose.stack.full.yml \
+  -f docker/compose-next/compose.workflow-runtime.production.yml \
   -f docker/compose-next/compose.temporal.yml \
   -f docker/compose-next/compose.temporal.production.yml \
   --profile temporal config --quiet
 docker compose --env-file .env \
   -f docker/compose-next/compose.stack.full.yml \
+  -f docker/compose-next/compose.workflow-runtime.production.yml \
   -f docker/compose-next/compose.temporal.yml \
   -f docker/compose-next/compose.temporal.production.yml \
   --profile temporal up -d --build
 ```
 
-The production overlay connects only the Hub to Temporal's internal network,
-gives the dispatch key to the Hub only, and gives the authorization keyring and
-service token only to the Hub and dedicated Temporal worker. The Angular
-frontend and normal Ananta workers receive none of them. The base Temporal and
-probe overlays remain credential-free; the probe therefore remains safe to run
-without production secrets.
+The shared production layer keeps database/admin credentials in the Hub, gives
+normal Workers only their own registration/service/session files and removes
+all E2E credentials from Angular. The Temporal overlay connects only the Hub to
+Temporal's internal network. Temporal receives the public authorization
+keyring plus its own scoped token; it never receives the Hub-admin token,
+dispatch key, signing key or runtime-service keyring. The base Temporal and
+probe overlays remain credential-free, so the probe remains safe without
+production secrets.
 
 Rotate the active authorization key through the Hub first, distribute a
 verification keyring containing old and new keys, wait until all workers report
-the new Build ID, and only then stop issuing the previous key. Rotate the Hub
-service token by atomic replacement of its external source file followed by a
-controlled Hub/Temporal-worker recreate. A failed secret validation returns
-`workflow_auth_configuration_invalid`; do not roll back to inline tokens.
+the new Build ID, and only then stop issuing the previous key. Rotate the
+Temporal token and its Hub-only keyring entry atomically, then recreate the Hub
+and Temporal worker. Rotate the unrelated Hub-admin token separately. A failed
+secret validation returns a bounded workflow-auth configuration error; never
+roll back to inline or shared tokens.
 
 ## Health and graceful shutdown
 

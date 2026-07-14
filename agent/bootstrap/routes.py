@@ -77,6 +77,7 @@ from agent.routes.workflow_runtime_capabilities import workflow_runtime_capabili
 from agent.routes.workflow_runtime_internal import workflow_runtime_internal_bp
 from agent.routes.workflow_runtime_operations import workflow_runtime_operations_bp
 from agent.routes.workflow_runtime_rollout import workflow_runtime_rollout_bp
+from agent.routes.workflow_runtime_test_support import register_workflow_runtime_test_support
 from agent.ws_terminal import register_ws_terminal
 from agent.ws_voice import register_ws_voice
 
@@ -147,6 +148,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(workflow_runtime_internal_bp)
     app.register_blueprint(workflow_runtime_operations_bp)
     app.register_blueprint(workflow_runtime_rollout_bp)
+    register_workflow_runtime_test_support(app)
     app.register_blueprint(diff3_bp)
     app.register_blueprint(snapshot_diff_bp)
     app.register_blueprint(vp_bp)

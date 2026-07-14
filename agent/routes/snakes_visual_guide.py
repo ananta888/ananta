@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from .snakes_chat_helpers import _append_room_ai_message
 
+
 # ── Visual snake session (ananta-visual) ───────────────────────────────────────
 # VG-003: Per-snake state lives in agent.services.visual_guide.service._visual_state.
 # We re-export it here for backward compat with tests/monkeypatches that reference
@@ -31,8 +32,8 @@ def _visual_session_settings() -> dict:
     Falls back to _DEFAULT_SESSION_SETTINGS values when the session is missing
     or a key is absent. Same read-path as _visual_session_log_deltas_only so
     conftest monkeypatches on get_manager are picked up automatically."""
-    from client_surfaces.operator_tui.config.user_config_manager import get_manager
     from client_surfaces.operator_tui.chat_state import _DEFAULT_SESSION_SETTINGS
+    from client_surfaces.operator_tui.config.user_config_manager import get_manager
     defaults = {k: v for k, v in _DEFAULT_SESSION_SETTINGS.items() if k.startswith("predictive_guide_")}
     try:
         sessions = get_manager().load().get("chat_sessions") or []
@@ -50,7 +51,12 @@ def _visual_session_log_deltas_only() -> bool:
     return bool(_visual_session_settings().get("predictive_guide_log_deltas_only", True))
 
 
-def _append_visual_user_tick(*, ui_snapshot: str, snake_id: str = "") -> None:
+def _append_visual_user_tick(
+    *,
+    ui_snapshot: str,
+    snake_id: str = "",
+    owner_principal: dict[str, str] | None = None,
+) -> None:
     """Persist the incoming UI snapshot as a system message in the ananta-visual session
     so the user can later review what the visual snake observed.
 
@@ -66,6 +72,7 @@ def _append_visual_user_tick(*, ui_snapshot: str, snake_id: str = "") -> None:
         visibility="system",
         sender_id="browser",
         ui_snapshot=ui_snapshot,
+        owner_principal=owner_principal,
     )
     # ── Delta log (optional, opt-in via session setting) ──────────────────
     if not ui_snapshot:
@@ -86,6 +93,7 @@ def _append_visual_user_tick(*, ui_snapshot: str, snake_id: str = "") -> None:
                     session_id=_VISUAL_SESSION_ID,
                     visibility="system",
                     sender_id="browser",
+                    owner_principal=owner_principal,
                 )
         except Exception as exc:  # never let the delta path break the raw tick
             logging.getLogger(__name__).debug("ananta-visual delta log failed: %s", exc)
@@ -97,7 +105,11 @@ def _append_visual_user_tick(*, ui_snapshot: str, snake_id: str = "") -> None:
         state["updated_at"] = time.time()
 
 
-def _spawn_visual_reply(ui_snapshot: str, snake_id: str = "") -> None:
+def _spawn_visual_reply(
+    ui_snapshot: str,
+    snake_id: str = "",
+    owner_principal: dict[str, str] | None = None,
+) -> None:
     """Background: generate a proactive guide response for the visual snake session.
 
     VG-003: snake_id scopes reply throttle state per-snake.
@@ -115,10 +127,16 @@ def _spawn_visual_reply(ui_snapshot: str, snake_id: str = "") -> None:
         ui_snapshot=ui_snapshot,
         route="",
         visible_waypoints=[],
+        owner_principal=owner_principal,
     )
 
 
-def _spawn_region_explain_reply(region_steps: list[dict], route: str, snake_id: str = "") -> None:
+def _spawn_region_explain_reply(
+    region_steps: list[dict],
+    route: str,
+    snake_id: str = "",
+    owner_principal: dict[str, str] | None = None,
+) -> None:
     """Background: generate AI explanations for each element the user selected.
 
     VG-010/011: delegates to VisualGuideService which uses ModelInvocationService.
@@ -130,4 +148,5 @@ def _spawn_region_explain_reply(region_steps: list[dict], route: str, snake_id: 
         snake_id=snake_id,
         region_steps=region_steps,
         route=route,
+        owner_principal=owner_principal,
     )

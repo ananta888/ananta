@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import urllib.request
 
+from client_surfaces.operator_tui.chat_message_formatter import hub_user_auth_headers
 from client_surfaces.operator_tui.models import CommandResult, OperatorMode, OperatorState
 
 
@@ -61,7 +62,10 @@ def handle_rag_command(args: list[str], state: OperatorState) -> CommandResult:
         req = urllib.request.Request(
             f"{endpoint}/snake/ask",
             data=payload,
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                **hub_user_auth_headers(endpoint),
+            },
             method="POST",
         )
         with urllib.request.urlopen(req, timeout=15) as resp:

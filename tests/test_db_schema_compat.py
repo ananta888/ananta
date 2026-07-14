@@ -129,23 +129,52 @@ def test_ensure_schema_compat_backfills_legacy_agents_registration_columns(monke
     insp = inspect(temp_engine)
     columns = {c["name"] for c in insp.get_columns("agents")}
     assert "registration_validated" in columns
+    assert "registration_provenance" in columns
+    assert "authorized_capabilities" in columns
     assert "validation_errors" in columns
     assert "validated_at" in columns
 
     with temp_engine.connect() as conn:
         row = conn.execute(
             text(
-                "SELECT registration_validated, validation_errors, validated_at "
+                "SELECT registration_validated, registration_provenance, "
+                "authorized_capabilities, validation_errors, validated_at "
                 "FROM agents WHERE url = 'http://worker-a:5000'"
             )
         ).fetchone()
     assert row is not None
     assert int(row[0]) == 1
-    assert str(row[1] or "") == "[]"
-    assert row[2] is None
+    assert row[1] == "legacy"
+    assert str(row[2] or "") == "[]"
+    assert str(row[3] or "") == "[]"
+    assert row[4] is None
 
     temp_engine.dispose()
     try:
         os.remove(db_path)
     except PermissionError:
         pass
+
+
+def test_alembic_contains_strict_worker_registration_provenance_migration():
+    migration = Path(
+        "migrations/versions/"
+        "v1w2x3y4z5a6_add_agent_registration_provenance.py"
+    )
+    assert migration.exists()
+    content = migration.read_text(encoding="utf-8")
+    assert 'down_revision: str | Sequence[str] | None = "u1v2w3x4y5z6"' in content
+    assert "registration_provenance" in content
+    assert "authorized_capabilities" in content
+
+
+def test_alembic_contains_hub_worker_assignment_migration():
+    migration = Path(
+        "migrations/versions/"
+        "w1x2y3z4a5b6_add_workflow_worker_assignments.py"
+    )
+    assert migration.exists()
+    content = migration.read_text(encoding="utf-8")
+    assert 'down_revision: str | Sequence[str] | None = "v1w2x3y4z5a6"' in content
+    assert "workflow_worker_assignments" in content
+    assert "uq_workflow_worker_assignment_step" in content

@@ -17,6 +17,7 @@ from agent.routes._auth_password import (
     check_password_history,
     validate_password_complexity,
 )
+from agent.services.user_session_tokens import UserSessionIdentityError, local_user_tenant_id
 
 _log = _auth_shim._log
 _repos = _auth_shim._repos
@@ -86,6 +87,16 @@ def register_routes(auth_bp) -> None:
 
         if not username or not password:
             return api_response(status="error", message="Missing username or password", code=400)
+
+        try:
+            username = local_user_tenant_id(username)
+        except UserSessionIdentityError as exc:
+            return api_response(
+                status="error",
+                message=exc.reason_code,
+                data={"reason_code": exc.reason_code},
+                code=400,
+            )
 
         is_valid, error_msg = validate_password_complexity(password)
         if not is_valid:

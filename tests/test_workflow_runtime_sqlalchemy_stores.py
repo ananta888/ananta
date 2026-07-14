@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 
 import pytest
 from sqlalchemy.pool import StaticPool
@@ -17,13 +18,18 @@ from agent.db_models.workflow_runtime import (
     WorkflowRuntimeCheckpointDB,
     WorkflowRuntimeEventDB,
     WorkflowRuntimeOutboxDB,
+    WorkflowRuntimeReadModelDB,
     WorkflowSideEffectLedgerDB,
 )
+from agent.services.identity_validation import IdentityValidationError
 from agent.services.workflow_runtime import (
     CanonicalWorkflowEvent,
+    ContractValidationError,
     FencingTokenError,
     HmacKeyRing,
+    InMemoryEventStore,
     InvalidTransitionError,
+    LegacyWorkflowBackendEventAdapter,
     OptimisticConcurrencyError,
     ProviderBudgetError,
     ProviderBudgetLimits,
@@ -33,11 +39,20 @@ from agent.services.workflow_runtime import (
     SQLAlchemyExecutionOwnershipStore,
     SQLAlchemyProviderBudgetStore,
     SQLAlchemySideEffectLedger,
+    SQLiteEventStore,
     WorkflowState,
+)
+from agent.services.workflow_runtime_operations_models import WorkflowRuntimeOperationRecord
+from agent.services.workflow_runtime_read_model_persistence import (
+    SQLAlchemyWorkflowRuntimeReadModelRepository,
+)
+from agent.services.workflow_runtime_read_model_service import (
+    InMemoryWorkflowRuntimeReadModelRepository,
 )
 
 _TABLES = [
     WorkflowRuntimeEventDB.__table__,
+    WorkflowRuntimeReadModelDB.__table__,
     WorkflowRuntimeCheckpointDB.__table__,
     WorkflowSideEffectLedgerDB.__table__,
     WorkflowExecutionOwnershipDB.__table__,
@@ -104,9 +119,7 @@ def test_event_store_has_atomic_dedupe_sequence_tenant_and_outbox_semantics(runt
     assert messages[0].payload["event_id"] == "event-1"
     assert store.outbox.list_messages(tenant_id="tenant-b") == ()
 
-    claimed = store.outbox.claim_batch(
-        tenant_id="tenant-a", consumer_id="publisher-1", now=100, lease_seconds=10
-    )
+    claimed = store.outbox.claim_batch(tenant_id="tenant-a", consumer_id="publisher-1", now=100, lease_seconds=10)
     assert len(claimed) == 1 and claimed[0].status == "processing"
     with pytest.raises(OptimisticConcurrencyError, match="compare_and_set"):
         store.outbox.acknowledge(
@@ -144,6 +157,138 @@ def test_event_append_cas_allows_one_concurrent_next_sequence(runtime_engine) ->
     assert sum(isinstance(result, OptimisticConcurrencyError) for result in results) == 1
     assert len(store.list_events(tenant_id="tenant-a", run_id="run-1")) == 1
     assert len(store.outbox.list_messages(tenant_id="tenant-a")) == 1
+
+
+@pytest.mark.parametrize("field_name", ("tenant_id", "run_id"))
+@pytest.mark.parametrize(
+    ("invalid_value", "reason_suffix"),
+    (
+        (7, "not_canonical"),
+        (" tenant-a", "not_canonical"),
+        ("x" * 161, "too_long"),
+    ),
+    ids=("non-string", "whitespace-alias", "overlong"),
+)
+def test_event_store_implementations_share_strict_list_identity_semantics(
+    runtime_engine,
+    tmp_path,
+    field_name: str,
+    invalid_value,
+    reason_suffix: str,
+) -> None:
+    sqlite_store = SQLiteEventStore(tmp_path / "events.sqlite")
+    stores = (
+        InMemoryEventStore(),
+        sqlite_store,
+        SQLAlchemyEventStore(runtime_engine),
+    )
+    candidate = _event(dedupe="identity-delivery", event_id="identity-event")
+    expected_reason = f"{field_name}_{reason_suffix}"
+    observed_errors: list[tuple[type[Exception], str, str]] = []
+
+    try:
+        for store in stores:
+            stored = store.append(candidate, expected_sequence=0)
+            assert store.list_events(tenant_id="tenant-a", run_id="run-1") == (stored,)
+
+            query = {"tenant_id": "tenant-a", "run_id": "run-1"}
+            query[field_name] = invalid_value
+            with pytest.raises(IdentityValidationError) as raised:
+                store.list_events(**query)  # type: ignore[arg-type]
+            observed_errors.append(
+                (
+                    type(raised.value),
+                    raised.value.reason_code,
+                    raised.value.field_name,
+                )
+            )
+    finally:
+        sqlite_store.close()
+
+    assert observed_errors == [
+        (IdentityValidationError, expected_reason, field_name),
+    ] * len(stores)
+
+
+@pytest.mark.parametrize("field_name", ("tenant_id", "workflow_id", "run_id"))
+@pytest.mark.parametrize(
+    ("invalid_value", "reason_suffix"),
+    (
+        (7, "not_canonical"),
+        (" workflow-1", "not_canonical"),
+        ("x" * 161, "too_long"),
+    ),
+    ids=("non-string", "whitespace-alias", "overlong"),
+)
+def test_legacy_event_adapter_preserves_strict_canonical_identity_policy(
+    field_name: str,
+    invalid_value,
+    reason_suffix: str,
+) -> None:
+    raw = {
+        "event_id": "legacy-event-1",
+        "event_type": "step_completed",
+        "workflow_id": "workflow-1",
+        "timestamp": 100,
+        "details": {"step_id": "step-1"},
+    }
+    arguments = {
+        "tenant_id": "tenant-a",
+        "run_id": "run-1",
+        "correlation_id": "correlation-1",
+        "causation_id": "causation-1",
+    }
+    if field_name == "workflow_id":
+        raw[field_name] = invalid_value
+    else:
+        arguments[field_name] = invalid_value
+
+    with pytest.raises(ContractValidationError) as raised:
+        LegacyWorkflowBackendEventAdapter.adapt(raw, **arguments)  # type: ignore[arg-type]
+
+    assert [(issue.code, issue.path) for issue in raised.value.issues] == [
+        (f"{field_name}_{reason_suffix}", field_name)
+    ]
+
+
+def test_read_model_repositories_share_exact_fail_closed_identity_semantics(runtime_engine) -> None:
+    record = WorkflowRuntimeOperationRecord.from_mapping(
+        {
+            "tenant_id": "tenant-a",
+            "run_id": "run-a",
+            "workflow_id": "workflow-a",
+            "task_id": "task-a",
+            "runtime": "ananta-native",
+            "mode": "delegated",
+            "status": "running",
+            "source_sequence": 1,
+            "updated_at": 100.0,
+        }
+    )
+    repositories = (
+        InMemoryWorkflowRuntimeReadModelRepository(),
+        SQLAlchemyWorkflowRuntimeReadModelRepository(runtime_engine),
+    )
+
+    for repository in repositories:
+        repository.upsert(record)
+        assert repository.get(tenant_id="tenant-a", run_id="run-a") is not None
+
+        with pytest.raises(IdentityValidationError) as tenant_alias:
+            repository.get(tenant_id=" tenant-a", run_id="run-a")
+        assert tenant_alias.value.reason_code == "tenant_id_not_canonical"
+
+        with pytest.raises(IdentityValidationError) as run_type:
+            repository.get(tenant_id="tenant-a", run_id=7)  # type: ignore[arg-type]
+        assert run_type.value.reason_code == "run_id_not_canonical"
+
+        with pytest.raises(IdentityValidationError) as tenant_list_alias:
+            repository.list_for_tenant(tenant_id="tenant-a ")
+        assert tenant_list_alias.value.reason_code == "tenant_id_not_canonical"
+
+        with pytest.raises(IdentityValidationError) as direct_record:
+            repository.upsert(replace(record, run_id=7))  # type: ignore[arg-type]
+        assert direct_record.value.reason_code == "run_id_not_canonical"
 
 
 def _checkpoint(*, revision: int, fence: int, checkpoint_id: str) -> SignedCheckpoint:
@@ -193,14 +338,17 @@ def test_side_effect_ledger_enforces_exactly_once_claim_cas_and_fencing(runtime_
         declared_operation="git.push:origin/main",
         side_effect_class="non_idempotent_write",
     )
-    assert ledger.plan(
-        tenant_id="tenant-a",
-        workflow_id="workflow-1",
-        run_id="run-1",
-        step_id="step-1",
-        declared_operation="git.push:origin/main",
-        side_effect_class="non_idempotent_write",
-    ) == planned
+    assert (
+        ledger.plan(
+            tenant_id="tenant-a",
+            workflow_id="workflow-1",
+            run_id="run-1",
+            step_id="step-1",
+            declared_operation="git.push:origin/main",
+            side_effect_class="non_idempotent_write",
+        )
+        == planned
+    )
     authorized = ledger.authorize(
         planned.operation_id,
         expected_revision=planned.revision,
@@ -300,9 +448,9 @@ def test_ownership_retry_budget_recovery_fencing_history_and_tenant_isolation(ru
         now=112,
     )
     assert completed.status == "completed"
-    assert [item.fencing_token for item in store.list_history(
-        tenant_id="tenant-a", run_id="run-1", step_id="step-1"
-    )] == [1, 2, 2]
+    assert [
+        item.fencing_token for item in store.list_history(tenant_id="tenant-a", run_id="run-1", step_id="step-1")
+    ] == [1, 2, 2]
 
     first_retry = store.consume_retry(
         tenant_id="tenant-a",
@@ -366,13 +514,16 @@ def test_provider_budget_is_persistent_idempotent_reconciled_and_fail_closed(run
     )
     assert reconciled.reconciled is True
     assert reconciled.tokens == 25
-    assert store.reconcile(
-        tenant_id="tenant-a",
-        run_id="provider-run",
-        policy_version="policy-v1",
-        reservation_id="provider-call-1",
-        actual_total_tokens=25,
-    ) == reconciled
+    assert (
+        store.reconcile(
+            tenant_id="tenant-a",
+            run_id="provider-run",
+            policy_version="policy-v1",
+            reservation_id="provider-call-1",
+            actual_total_tokens=25,
+        )
+        == reconciled
+    )
 
     store.reserve(
         tenant_id="tenant-a",

@@ -55,6 +55,15 @@ describe('WorkflowRuntimeOperationsComponent', () => {
     expect(text).toContain('temporal_cluster_required');
   });
 
+  it('uses the canonical production id for the Native runtime filter', () => {
+    api.list.mockReturnValue(of(response([])));
+    const fixture = TestBed.createComponent(WorkflowRuntimeOperationsComponent);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.runtimeOptions()).toContain('ananta-native');
+    expect(fixture.componentInstance.runtimeOptions()).not.toContain('native');
+  });
+
   it.each([
     ['ready', 'compatible', 'runtime_capabilities_satisfied', []],
     ['disabled', 'blocked', 'runtime_health_disabled', []],

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import secrets
 import time
 from urllib.parse import urlparse
 
@@ -17,8 +18,11 @@ class AgentRegistryService:
 
     def validate_registration_payload(self, data: dict, *, registration_token: str | None) -> tuple[dict | None, str | None, int]:
         if registration_token:
-            provided_token = data.get("registration_token")
-            if provided_token != registration_token:
+            provided_token = str(data.get("registration_token") or "")
+            if not provided_token or not secrets.compare_digest(
+                provided_token,
+                str(registration_token),
+            ):
                 logging.warning("Abgelehnte Registrierung fuer %s: Ungueltiger Registrierungs-Token", data.get("name"))
                 return None, "Invalid or missing registration token", 401
 
@@ -80,7 +84,13 @@ class AgentRegistryService:
             return False, f"Validation failed: {str(exc)}"
         return True, None
 
-    def build_registered_agent(self, data: dict) -> AgentInfoDB:
+    def build_registered_agent(
+        self,
+        data: dict,
+        *,
+        registration_provenance: str = "legacy",
+        authorized_capabilities: tuple[str, ...] = (),
+    ) -> AgentInfoDB:
         execution_limits = dict(data.get("execution_limits") or {})
         worker_kind = str(data.get("worker_kind") or "").strip().lower() or None
         if worker_kind:
@@ -95,6 +105,8 @@ class AgentRegistryService:
             runtime_targets=list(data.get("runtime_targets") or []),
             execution_limits=execution_limits,
             registration_validated=True,
+            registration_provenance=str(registration_provenance or "legacy"),
+            authorized_capabilities=list(authorized_capabilities),
             validation_errors=[],
             validated_at=time.time(),
             last_seen=time.time(),

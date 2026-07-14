@@ -5,6 +5,7 @@ import base64
 import hashlib
 import logging
 import secrets
+import threading
 import time
 from typing import Any
 from urllib.parse import urlencode, urlsplit, urlunsplit
@@ -18,16 +19,37 @@ from agent.common.errors import api_response
 from agent.config import settings
 from agent.db_models import UserDB
 from agent.services.oidc_claims_mapper import map_claims_to_auth
-from agent.services.oidc_identity_link_service import OidcIdentityLinkService
+from agent.services.oidc_identity_link_service import (
+    OidcAccountProvisioningError,
+    OidcAccountProvisioningUnavailableError,
+    OidcIdentityLinkService,
+    OidcIdentityValidationError,
+    validate_oidc_external_identity,
+)
 from agent.services.oidc_settings import get_oidc_config, oidc_is_configured
 from agent.services.oidc_validator import validate_oidc_token
-from agent.services.user_session_tokens import issue_user_session_tokens
+from agent.services.user_session_tokens import (
+    UserSessionIdentityError,
+    issue_user_session_tokens,
+    local_user_tenant_id,
+)
 
 LOGGER = logging.getLogger("agent.auth_oidc")
 
 oidc_bp = Blueprint("auth_oidc", __name__)
 _FRONTEND_TOKEN_EXCHANGE_CODES: dict[str, dict[str, Any]] = {}
 _OIDC_LOGIN_REQUESTS: dict[str, dict[str, Any]] = {}
+_OIDC_LOGIN_REQUESTS_LOCK = threading.Lock()
+_OIDC_LOGIN_REQUEST_TTL_SECONDS = 300
+_OIDC_LOGIN_REQUEST_LIMIT = 2048
+
+
+class OidcAuthorizationFlowError(ValueError):
+    """Stable fail-closed rejection for browser-bound authorization flows."""
+
+    def __init__(self, reason_code: str) -> None:
+        super().__init__(reason_code)
+        self.reason_code = reason_code
 
 
 def _identity_link_service() -> OidcIdentityLinkService:
@@ -36,35 +58,135 @@ def _identity_link_service() -> OidcIdentityLinkService:
     repos = get_repository_registry()
     return OidcIdentityLinkService(repos.oidc_identity_link_repo, repos.user_repo)
 
+
 def _map_claims_to_auth(claims: dict[str, Any]) -> dict[str, Any]:
     return map_claims_to_auth(claims)
 
 
-def _ensure_local_user_account(auth_ctx: dict[str, Any]) -> None:
-    username = str(auth_ctx.get("username") or auth_ctx.get("email") or auth_ctx.get("sub") or "").strip()
-    if not username:
-        return
+def _first_present_identity(*values: Any) -> Any:
+    for value in values:
+        if value is not None and value != "":
+            return value
+    return ""
 
-    from agent.services.repository_registry import get_repository_registry
 
-    user_repo = get_repository_registry().user_repo
+def _validated_oidc_auth_context(claims: dict[str, Any]) -> dict[str, Any]:
+    """Map verified claims while retaining strict, uncoerced identities."""
 
-    existing = user_repo.get_by_username(username)
-    if existing:
-        return
+    identity = validate_oidc_external_identity(
+        issuer=claims.get("iss"),
+        subject=claims.get("sub"),
+    )
+    auth_ctx = _map_claims_to_auth(claims)
+    username = _first_present_identity(
+        claims.get("email"),
+        claims.get("preferred_username"),
+        identity.subject,
+    )
+    auth_ctx["sub"] = identity.subject
+    auth_ctx["issuer"] = identity.issuer
+    auth_ctx["username"] = username
+    auth_ctx["email"] = username
+    return auth_ctx
 
+
+def _validated_stored_auth_context(auth_ctx: dict[str, Any]) -> dict[str, Any]:
+    identity = validate_oidc_external_identity(
+        issuer=_first_present_identity(auth_ctx.get("issuer"), auth_ctx.get("iss")),
+        subject=auth_ctx.get("sub"),
+    )
+    validated = dict(auth_ctx)
+    validated["issuer"] = identity.issuer
+    validated["sub"] = identity.subject
+    return validated
+
+
+def _ensure_local_user_account(auth_ctx: dict[str, Any]) -> UserDB:
+    identity = validate_oidc_external_identity(
+        issuer=auth_ctx.get("issuer"),
+        subject=auth_ctx.get("sub"),
+    )
+    username = _first_present_identity(
+        auth_ctx.get("username"),
+        auth_ctx.get("email"),
+        identity.subject,
+    )
     role = str(auth_ctx.get("role") or "viewer").strip() or "viewer"
-    user_repo.save(
-        UserDB(
-            username=username,
-            password_hash=generate_password_hash(secrets.token_urlsafe(48)),
-            role=role,
-            mfa_secret=None,
-            mfa_enabled=False,
-            mfa_backup_codes=[],
-            failed_login_attempts=0,
-            lockout_until=None,
-        )
+    return _identity_link_service().resolve_or_provision(
+        username=username,
+        issuer=identity.issuer,
+        subject=identity.subject,
+        role=role,
+        password_hash=generate_password_hash(secrets.token_urlsafe(48)),
+    )
+
+
+def _oidc_identity_rejection_response(
+    exc: Exception,
+    *,
+    phase: str,
+):
+    reason_code = str(getattr(exc, "reason_code", "") or str(exc) or "oidc_identity_rejected")
+    log_audit(
+        "oidc_identity_rejected",
+        {
+            "endpoint": request.endpoint or "",
+            "phase": phase,
+            "reason_code": reason_code,
+        },
+    )
+    LOGGER.warning("OIDC identity rejected during %s: %s", phase, reason_code)
+    return api_response(
+        status="error",
+        message=reason_code,
+        data={"reason_code": reason_code},
+        code=409,
+    )
+
+
+def _oidc_authorization_flow_rejection_response(
+    exc: OidcAuthorizationFlowError,
+    *,
+    phase: str,
+):
+    reason_code = exc.reason_code
+    log_audit(
+        "oidc_authorization_flow_rejected",
+        {
+            "endpoint": request.endpoint or "",
+            "phase": phase,
+            "reason_code": reason_code,
+        },
+    )
+    LOGGER.warning("OIDC authorization flow rejected during %s: %s", phase, reason_code)
+    return api_response(
+        status="error",
+        message=reason_code,
+        data={"reason_code": reason_code},
+        code=401,
+    )
+
+
+def _oidc_provisioning_unavailable_response(
+    exc: OidcAccountProvisioningUnavailableError,
+    *,
+    phase: str,
+):
+    reason_code = exc.reason_code
+    log_audit(
+        "oidc_identity_provisioning_unavailable",
+        {
+            "endpoint": request.endpoint or "",
+            "phase": phase,
+            "reason_code": reason_code,
+        },
+    )
+    LOGGER.error("OIDC identity provisioning unavailable during %s", phase)
+    return api_response(
+        status="error",
+        message=reason_code,
+        data={"reason_code": reason_code},
+        code=503,
     )
 
 
@@ -76,7 +198,7 @@ def _fetch_oidc_discovery(issuer: str) -> dict[str, Any]:
             import json
             return json.loads(resp.read().decode())
     except Exception as exc:
-        raise RuntimeError(f"oidc_discovery_failed: {exc}") from exc
+        raise RuntimeError("oidc_discovery_failed") from exc
 
 
 def _public_authorization_endpoint(
@@ -136,17 +258,37 @@ def _store_oidc_login_request(
     nonce: str,
     code_verifier: str,
     redirect_path: str,
+    browser_session_id: str,
 ) -> None:
-    _OIDC_LOGIN_REQUESTS[state] = {
-        "nonce": nonce,
-        "code_verifier": code_verifier,
-        "redirect_path": redirect_path or "/",
-        "expires_at": time.time() + 300,
-    }
+    now = time.time()
+    with _OIDC_LOGIN_REQUESTS_LOCK:
+        expired_states = [
+            candidate_state
+            for candidate_state, payload in _OIDC_LOGIN_REQUESTS.items()
+            if float(payload.get("expires_at") or 0.0) < now
+        ]
+        for expired_state in expired_states:
+            _OIDC_LOGIN_REQUESTS.pop(expired_state, None)
+        while len(_OIDC_LOGIN_REQUESTS) >= _OIDC_LOGIN_REQUEST_LIMIT:
+            oldest_state = min(
+                _OIDC_LOGIN_REQUESTS,
+                key=lambda candidate: float(
+                    _OIDC_LOGIN_REQUESTS[candidate].get("expires_at") or 0.0
+                ),
+            )
+            _OIDC_LOGIN_REQUESTS.pop(oldest_state, None)
+        _OIDC_LOGIN_REQUESTS[state] = {
+            "nonce": nonce,
+            "code_verifier": code_verifier,
+            "redirect_path": redirect_path or "/",
+            "browser_session_id": browser_session_id,
+            "expires_at": now + _OIDC_LOGIN_REQUEST_TTL_SECONDS,
+        }
 
 
 def _consume_oidc_login_request(state: str) -> dict[str, Any] | None:
-    payload = _OIDC_LOGIN_REQUESTS.pop(state, None)
+    with _OIDC_LOGIN_REQUESTS_LOCK:
+        payload = _OIDC_LOGIN_REQUESTS.pop(state, None)
     if not payload:
         return None
     if float(payload.get("expires_at") or 0.0) < time.time():
@@ -154,7 +296,85 @@ def _consume_oidc_login_request(state: str) -> dict[str, Any] | None:
     return payload
 
 
-def _validate_id_token(token: str, *, issuer: str, audience: str, nonce: str | None = None) -> dict[str, Any]:
+def _clear_oidc_session_request() -> None:
+    for key in (
+        "oidc_state",
+        "oidc_nonce",
+        "oidc_code_verifier",
+        "oidc_redirect_path",
+        "oidc_browser_session_id",
+    ):
+        session.pop(key, None)
+
+
+def _constant_time_equal(left: str, right: str) -> bool:
+    return bool(left and right) and secrets.compare_digest(
+        left.encode("utf-8"),
+        right.encode("utf-8"),
+    )
+
+
+def _consume_browser_bound_oidc_login_request(state: str) -> dict[str, Any]:
+    """Consume one authorization request bound to this exact browser session.
+
+    State is first matched against the signed browser session. Only that
+    browser can consume the server-side record, preventing a state learned in
+    one client from becoming a cross-client compatibility escape hatch.
+    """
+
+    if not state:
+        raise OidcAuthorizationFlowError("oidc_state_missing")
+
+    session_state = session.get("oidc_state")
+    if not isinstance(session_state, str) or not session_state:
+        raise OidcAuthorizationFlowError("oidc_session_state_missing")
+    if not _constant_time_equal(state, session_state):
+        raise OidcAuthorizationFlowError("oidc_state_mismatch")
+
+    browser_session_id = session.get("oidc_browser_session_id")
+    if not isinstance(browser_session_id, str) or not browser_session_id:
+        raise OidcAuthorizationFlowError("oidc_browser_session_missing")
+
+    login_request = _consume_oidc_login_request(state)
+    session_nonce = session.get("oidc_nonce")
+    session_code_verifier = session.get("oidc_code_verifier")
+    _clear_oidc_session_request()
+
+    if login_request is None:
+        raise OidcAuthorizationFlowError("oidc_state_unknown_or_replayed")
+
+    stored_browser_session_id = login_request.get("browser_session_id")
+    if not isinstance(stored_browser_session_id, str) or not _constant_time_equal(
+        browser_session_id,
+        stored_browser_session_id,
+    ):
+        raise OidcAuthorizationFlowError("oidc_browser_session_mismatch")
+
+    stored_nonce = login_request.get("nonce")
+    if (
+        not isinstance(session_nonce, str)
+        or not session_nonce
+        or not isinstance(stored_nonce, str)
+        or not stored_nonce
+    ):
+        raise OidcAuthorizationFlowError("oidc_nonce_missing")
+    if not _constant_time_equal(session_nonce, stored_nonce):
+        raise OidcAuthorizationFlowError("oidc_nonce_mismatch")
+
+    stored_code_verifier = login_request.get("code_verifier")
+    if (
+        not isinstance(session_code_verifier, str)
+        or not session_code_verifier
+        or not isinstance(stored_code_verifier, str)
+        or not stored_code_verifier
+    ):
+        raise OidcAuthorizationFlowError("oidc_code_verifier_missing")
+    if not _constant_time_equal(session_code_verifier, stored_code_verifier):
+        raise OidcAuthorizationFlowError("oidc_code_verifier_mismatch")
+    return login_request
+
+
+def _validate_id_token(token: str, *, issuer: str, audience: str, nonce: str) -> dict[str, Any]:
     try:
         import jwt as pyjwt
     except ImportError as exc:
@@ -175,8 +395,11 @@ def _validate_id_token(token: str, *, issuer: str, audience: str, nonce: str | N
         issuer=issuer,
         options={"require": ["sub", "iss", "aud", "exp", "iat"], "leeway": 60},
     )
-    if nonce and claims.get("nonce") != nonce:
-        raise ValueError("oidc_nonce_mismatch")
+    claim_nonce = claims.get("nonce")
+    if not isinstance(claim_nonce, str) or not claim_nonce:
+        raise OidcAuthorizationFlowError("oidc_nonce_missing")
+    if not _constant_time_equal(claim_nonce, nonce):
+        raise OidcAuthorizationFlowError("oidc_nonce_mismatch")
     return claims
 
 
@@ -192,8 +415,13 @@ def oidc_login():
 
     try:
         discovery = _fetch_oidc_discovery(issuer)
-    except RuntimeError as exc:
-        return api_response(status="error", message=str(exc), code=503)
+    except RuntimeError:
+        return api_response(
+            status="error",
+            message="oidc_discovery_failed",
+            data={"reason_code": "oidc_discovery_failed"},
+            code=503,
+        )
 
     auth_endpoint = discovery.get("authorization_endpoint")
     if not auth_endpoint:
@@ -208,16 +436,23 @@ def oidc_login():
     nonce = secrets.token_urlsafe(24)
     code_verifier = secrets.token_urlsafe(48)
     code_challenge = _pkce_s256_challenge(code_verifier)
+    browser_session_id = secrets.token_urlsafe(32)
+
+    previous_state = session.get("oidc_state")
+    if isinstance(previous_state, str) and previous_state:
+        _consume_oidc_login_request(previous_state)
 
     session["oidc_state"] = state
     session["oidc_nonce"] = nonce
     session["oidc_code_verifier"] = code_verifier
+    session["oidc_browser_session_id"] = browser_session_id
     session["oidc_redirect_path"] = request.args.get("redirect_path") or "/"
     _store_oidc_login_request(
         state=state,
         nonce=nonce,
         code_verifier=code_verifier,
         redirect_path=str(session["oidc_redirect_path"] or "/"),
+        browser_session_id=browser_session_id,
     )
 
     redirect_uri = _oidc_redirect_uri()
@@ -243,19 +478,14 @@ def oidc_callback():
     code = request.args.get("code")
     error = request.args.get("error")
 
+    try:
+        login_request = _consume_browser_bound_oidc_login_request(state or "")
+    except OidcAuthorizationFlowError as exc:
+        return _oidc_authorization_flow_rejection_response(exc, phase="callback")
+
     if error:
         LOGGER.warning("OIDC error from provider: %s", error)
         return api_response(status="error", message=f"oidc_provider_error: {error}", code=401)
-
-    login_request = _consume_oidc_login_request(state) if state else None
-    session_state = str(session.get("oidc_state") or "").strip()
-    if not login_request and (not state or state != session_state):
-        LOGGER.warning(
-            "OIDC callback rejected due to state mismatch (got=%s, session_present=%s)",
-            state or "",
-            bool(session_state),
-        )
-        return api_response(status="error", message="oidc_state_mismatch", code=401)
 
     if not code:
         return api_response(status="error", message="oidc_code_missing", code=401)
@@ -265,12 +495,8 @@ def oidc_callback():
     client_secret = str(settings.terminal_oidc_client_secret or "").strip()
     # Keycloak id_token audience is the OIDC client itself, not the downstream hub JWT audience.
     audience = client_id
-    nonce = login_request.get("nonce") if login_request else session.pop("oidc_nonce", None)
-    code_verifier = login_request.get("code_verifier") if login_request else session.pop("oidc_code_verifier", None)
-    session.pop("oidc_state", None)
-    if not code_verifier:
-        LOGGER.warning("OIDC callback rejected because code_verifier is missing from the session")
-        return api_response(status="error", message="oidc_code_verifier_missing", code=401)
+    nonce = str(login_request["nonce"])
+    code_verifier = str(login_request["code_verifier"])
 
     try:
         discovery = _fetch_oidc_discovery(issuer)
@@ -300,7 +526,7 @@ def oidc_callback():
             raise ValueError("oidc_id_token_missing")
 
         claims = _validate_id_token(id_token, issuer=issuer, audience=audience, nonce=nonce)
-        auth_ctx = _map_claims_to_auth(claims)
+        auth_ctx = _validated_oidc_auth_context(claims)
         oidc_access_token = str(token_response.get("access_token") or "").strip()
 
         session["user"] = auth_ctx
@@ -308,8 +534,7 @@ def oidc_callback():
         frontend_redirect = settings.terminal_oidc_frontend_redirect.strip()
         if frontend_redirect:
             redirect_path = str(
-                (login_request or {}).get("redirect_path")
-                or session.pop("oidc_redirect_path", "/")
+                login_request.get("redirect_path")
                 or "/"
             )
             code = _store_frontend_exchange_code(auth_ctx, redirect_path)
@@ -317,17 +542,21 @@ def oidc_callback():
             return redirect(f"{frontend_redirect}{'&' if '?' in frontend_redirect else '?'}oidc_code={code}")
         return jsonify({"ok": True, "auth": auth_ctx})
 
+    except OidcAuthorizationFlowError as exc:
+        return _oidc_authorization_flow_rejection_response(exc, phase="callback")
+    except (OidcIdentityValidationError, UserSessionIdentityError) as exc:
+        return _oidc_identity_rejection_response(exc, phase="callback")
     except Exception as exc:
-        detail = ""
-        try:
-            from urllib.error import HTTPError
-            if isinstance(exc, HTTPError):
-                detail = exc.read().decode("utf-8", errors="replace")
-        except Exception:
-            detail = ""
-        print(f"OIDC callback exception: {exc!r} body={detail!r}", flush=True)
-        LOGGER.warning("OIDC callback failed: %s", exc)
-        return api_response(status="error", message=str(exc), code=401)
+        LOGGER.warning(
+            "OIDC callback failed (exception_type=%s)",
+            type(exc).__name__,
+        )
+        return api_response(
+            status="error",
+            message="oidc_callback_failed",
+            data={"reason_code": "oidc_callback_failed"},
+            code=401,
+        )
 
 
 @oidc_bp.route("/auth/oidc/exchange", methods=["GET", "POST"])
@@ -350,20 +579,37 @@ def oidc_exchange():
         claims = validate_oidc_token(direct_access_token, cfg)
         if claims is None:
             return api_response(status="error", message="invalid_oidc_token", code=401)
-        linked_user = _identity_link_service().resolve(
-            issuer=str(claims.get("iss") or ""),
-            subject=str(claims.get("sub") or ""),
-        )
+        try:
+            identity = validate_oidc_external_identity(
+                issuer=claims.get("iss"),
+                subject=claims.get("sub"),
+            )
+            linked_user = _identity_link_service().resolve(
+                issuer=identity.issuer,
+                subject=identity.subject,
+            )
+        except (OidcIdentityValidationError, UserSessionIdentityError) as exc:
+            return _oidc_identity_rejection_response(exc, phase="linked_exchange")
         if linked_user is None:
-            return api_response(status="error", message="oidc_identity_not_linked", code=409)
-        tokens = issue_user_session_tokens(
-            username=linked_user.username,
-            role=linked_user.role,
-            mfa_enabled=linked_user.mfa_enabled,
-        )
+            return _oidc_identity_rejection_response(
+                OidcAccountProvisioningError("oidc_identity_not_linked"),
+                phase="linked_exchange",
+            )
+        try:
+            tokens = issue_user_session_tokens(
+                username=linked_user.username,
+                role=linked_user.role,
+                mfa_enabled=linked_user.mfa_enabled,
+            )
+        except UserSessionIdentityError as exc:
+            return _oidc_identity_rejection_response(exc, phase="linked_exchange")
         log_audit(
             "oidc_link_session_exchanged",
-            {"username": linked_user.username, "issuer": claims.get("iss"), "subject": claims.get("sub")},
+            {
+                "username": linked_user.username,
+                "issuer": identity.issuer,
+                "subject": identity.subject,
+            },
         )
         tokens["redirect_path"] = direct_redirect_path
         return jsonify({"ok": True, "data": tokens})
@@ -373,19 +619,25 @@ def oidc_exchange():
 
     payload = _consume_frontend_exchange_code(code)
     if payload:
-        auth_ctx = payload.get("auth_ctx") or {}
-        username = str(auth_ctx.get("username") or auth_ctx.get("email") or auth_ctx.get("sub") or "").strip()
-        role = str(auth_ctx.get("role") or "viewer").strip() or "viewer"
-        if not username:
-            return api_response(status="error", message="oidc_username_missing", code=401)
-
-        _ensure_local_user_account(auth_ctx)
-
-        tokens = issue_user_session_tokens(
-            username=username,
-            role=role,
-            mfa_enabled=bool(auth_ctx.get("mfa_enabled")),
-        )
+        try:
+            auth_ctx = _validated_stored_auth_context(payload.get("auth_ctx") or {})
+            local_user = _ensure_local_user_account(auth_ctx)
+            tokens = issue_user_session_tokens(
+                username=local_user.username,
+                role=local_user.role,
+                mfa_enabled=local_user.mfa_enabled,
+            )
+        except OidcAccountProvisioningUnavailableError as exc:
+            return _oidc_provisioning_unavailable_response(
+                exc,
+                phase="frontend_exchange",
+            )
+        except (
+            OidcAccountProvisioningError,
+            OidcIdentityValidationError,
+            UserSessionIdentityError,
+        ) as exc:
+            return _oidc_identity_rejection_response(exc, phase="frontend_exchange")
         tokens["redirect_path"] = payload.get("redirect_path") or "/"
         oidc_access_token = str(payload.get("oidc_access_token") or "").strip()
         if oidc_access_token:
@@ -400,15 +652,12 @@ def oidc_exchange():
     if not issuer or not client_id:
         return api_response(status="error", message="oidc_not_configured", code=503)
 
-    session_state = str(session.get("oidc_state") or "").strip()
-    if state and session_state and state != session_state:
-        return api_response(status="error", message="oidc_state_mismatch", code=401)
-
-    nonce = session.get("oidc_nonce")
-    code_verifier = session.get("oidc_code_verifier")
-    if not code_verifier:
-        LOGGER.warning("OIDC exchange rejected because code_verifier is missing from the session")
-        return api_response(status="error", message="oidc_code_verifier_missing", code=401)
+    try:
+        login_request = _consume_browser_bound_oidc_login_request(state)
+    except OidcAuthorizationFlowError as exc:
+        return _oidc_authorization_flow_rejection_response(exc, phase="code_exchange")
+    nonce = str(login_request["nonce"])
+    code_verifier = str(login_request["code_verifier"])
 
     try:
         discovery = _fetch_oidc_discovery(issuer)
@@ -438,34 +687,44 @@ def oidc_exchange():
             raise ValueError("oidc_id_token_missing")
 
         claims = _validate_id_token(id_token, issuer=issuer, audience=audience, nonce=nonce)
-        auth_ctx = _map_claims_to_auth(claims)
-        session["user"] = auth_ctx
-        _ensure_local_user_account(auth_ctx)
-        session.pop("oidc_state", None)
-        session.pop("oidc_nonce", None)
-        session.pop("oidc_code_verifier", None)
+        auth_ctx = _validated_oidc_auth_context(claims)
+        local_user = _ensure_local_user_account(auth_ctx)
 
         LOGGER.info("OIDC code exchange successful for sub=%s role=%s", auth_ctx.get("sub"), auth_ctx.get("role"))
         tokens = issue_user_session_tokens(
-            username=str(auth_ctx.get("username") or auth_ctx.get("email") or auth_ctx.get("sub") or "").strip(),
-            role=str(auth_ctx.get("role") or "viewer").strip() or "viewer",
-            mfa_enabled=bool(auth_ctx.get("mfa_enabled")),
+            username=local_user.username,
+            role=local_user.role,
+            mfa_enabled=local_user.mfa_enabled,
         )
-        tokens["redirect_path"] = str(session.pop("oidc_redirect_path", "/") or "/")
+        session["user"] = auth_ctx
+        tokens["redirect_path"] = str(login_request.get("redirect_path") or "/")
         tokens["oidc_access_token"] = str(token_response.get("access_token") or "").strip()
         return jsonify({"ok": True, "data": tokens})
 
+    except OidcAuthorizationFlowError as exc:
+        return _oidc_authorization_flow_rejection_response(exc, phase="code_exchange")
+    except OidcAccountProvisioningUnavailableError as exc:
+        return _oidc_provisioning_unavailable_response(
+            exc,
+            phase="code_exchange",
+        )
+    except (
+        OidcAccountProvisioningError,
+        OidcIdentityValidationError,
+        UserSessionIdentityError,
+    ) as exc:
+        return _oidc_identity_rejection_response(exc, phase="code_exchange")
     except Exception as exc:
-        detail = ""
-        try:
-            from urllib.error import HTTPError
-            if isinstance(exc, HTTPError):
-                detail = exc.read().decode("utf-8", errors="replace")
-        except Exception:
-            detail = ""
-        print(f"OIDC exchange exception: {exc!r} body={detail!r}", flush=True)
-        LOGGER.warning("OIDC exchange failed: %s", exc)
-        return api_response(status="error", message=str(exc), code=401)
+        LOGGER.warning(
+            "OIDC code exchange failed (exception_type=%s)",
+            type(exc).__name__,
+        )
+        return api_response(
+            status="error",
+            message="oidc_code_exchange_failed",
+            data={"reason_code": "oidc_code_exchange_failed"},
+            code=401,
+        )
 
 
 @oidc_bp.route("/auth/oidc/link", methods=["GET", "POST", "DELETE"])
@@ -477,12 +736,20 @@ def oidc_identity_link():
         return api_response(status="error", message="oidc_linking_not_configured", code=404)
 
     cfg = get_oidc_config()
-    username = str((g.user or {}).get("sub") or (g.user or {}).get("username") or "").strip()
-    if not username:
-        return api_response(status="error", message="hub_user_missing", code=401)
+    raw_username = _first_present_identity(
+        (g.user or {}).get("sub"),
+        (g.user or {}).get("username"),
+    )
+    try:
+        username = local_user_tenant_id(raw_username)
+    except UserSessionIdentityError as exc:
+        return _oidc_identity_rejection_response(exc, phase="hub_account_link")
 
     if request.method == "GET":
-        link = _identity_link_service().status(username=username, issuer=cfg.issuer_url)
+        try:
+            link = _identity_link_service().status(username=username, issuer=cfg.issuer_url)
+        except (OidcIdentityValidationError, UserSessionIdentityError) as exc:
+            return _oidc_identity_rejection_response(exc, phase="link_status")
         return jsonify({
             "ok": True,
             "data": {
@@ -493,7 +760,10 @@ def oidc_identity_link():
         })
 
     if request.method == "DELETE":
-        removed = _identity_link_service().unlink(username=username, issuer=cfg.issuer_url)
+        try:
+            removed = _identity_link_service().unlink(username=username, issuer=cfg.issuer_url)
+        except (OidcIdentityValidationError, UserSessionIdentityError) as exc:
+            return _oidc_identity_rejection_response(exc, phase="unlink")
         if removed:
             log_audit("oidc_identity_unlinked", {"username": username, "issuer": cfg.issuer_url})
         return jsonify({"ok": True, "data": {"linked": False, "removed": removed}})
@@ -504,13 +774,19 @@ def oidc_identity_link():
     if claims is None:
         return api_response(status="error", message="invalid_oidc_token", code=401)
     try:
+        identity = validate_oidc_external_identity(
+            issuer=claims.get("iss"),
+            subject=claims.get("sub"),
+        )
         link = _identity_link_service().link(
             username=username,
-            issuer=str(claims.get("iss") or ""),
-            subject=str(claims.get("sub") or ""),
+            issuer=identity.issuer,
+            subject=identity.subject,
         )
+    except (OidcIdentityValidationError, UserSessionIdentityError) as exc:
+        return _oidc_identity_rejection_response(exc, phase="link")
     except ValueError as exc:
-        return api_response(status="error", message=str(exc), code=409)
+        return _oidc_identity_rejection_response(exc, phase="link")
     log_audit(
         "oidc_identity_linked",
         {"username": link.username, "issuer": link.issuer, "subject": link.subject},

@@ -3,12 +3,12 @@
 Mounted onto the shared ``auth_bp`` blueprint via :func:`register_routes`.
 Behavior preserved 1:1 from the original auth.py (lines 486-660).
 """
+
 from __future__ import annotations
 
 import secrets
 import time
 
-import jwt
 from flask import g, request
 from werkzeug.security import generate_password_hash
 
@@ -29,7 +29,10 @@ from agent.routes._auth_password import (
     is_rate_limited,
     notify_lockout,
     record_attempt,
-    validate_password_complexity,
+)
+from agent.services.user_session_tokens import (
+    issue_user_access_token,
+    local_user_tenant_id,
 )
 
 _log = _auth_shim._log
@@ -63,12 +66,16 @@ def register_routes(auth_bp) -> None:
             description: MFA bereits aktiviert oder Benutzer nicht gefunden
           401:
             description: Nicht authentifiziert
+          409:
+            description: Persistierte Benutzeridentität ist nicht kanonisch; es wird kein Geheimnis gespeichert
         """
         username = g.user["sub"]
         user = _repos().user_repo.get_by_username(username)
 
         if not user:
             return api_response(status="error", message="User not found", code=404)
+
+        local_user_tenant_id(user.username)
 
         if user.mfa_enabled:
             return api_response(status="error", message="MFA is already enabled. Disable it first.", code=400)
@@ -124,6 +131,10 @@ def register_routes(auth_bp) -> None:
             description: Zu viele Versuche
           401:
             description: Nicht authentifiziert
+          409:
+            description: >-
+              Persistierte Benutzeridentität ist nicht kanonisch;
+              MFA-Zustand und Backup-Codes bleiben unverändert
         """
         ip = request.remote_addr
         if is_rate_limited(ip):
@@ -143,6 +154,8 @@ def register_routes(auth_bp) -> None:
         if not user or not user.mfa_secret:
             return api_response(status="error", message="MFA not set up", code=400)
 
+        local_user_tenant_id(user.username)
+
         if verify_totp(decrypt_secret(user.mfa_secret), token):
             _repos().login_attempt_repo.delete_by_ip(ip)
             user.mfa_enabled = True
@@ -154,14 +167,11 @@ def register_routes(auth_bp) -> None:
             _repos().user_repo.save(user)
             log_audit("mfa_enabled", {"username": username})
 
-            payload = {
-                "sub": username,
-                "role": user.role,
-                "mfa_enabled": True,
-                "iat": int(time.time()),
-                "exp": int(time.time()) + settings.auth_access_token_ttl_seconds,
-            }
-            new_token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
+            new_token = issue_user_access_token(
+                username=user.username,
+                role=user.role,
+                mfa_enabled=True,
+            )
 
             return api_response(data={"status": "mfa_enabled", "access_token": new_token, "backup_codes": backup_codes})
         else:
@@ -188,24 +198,25 @@ def register_routes(auth_bp) -> None:
             description: MFA erfolgreich deaktiviert
           401:
             description: Nicht authentifiziert
+          409:
+            description: Persistierte Benutzeridentität ist nicht kanonisch; MFA bleibt aktiviert
         """
         username = g.user["sub"]
         user = _repos().user_repo.get_by_username(username)
 
         if user:
+            local_user_tenant_id(user.username)
+
             user.mfa_enabled = False
             user.mfa_secret = None
             _repos().user_repo.save(user)
             log_audit("mfa_disabled", {"username": username})
 
-            payload = {
-                "sub": username,
-                "role": user.role,
-                "mfa_enabled": False,
-                "iat": int(time.time()),
-                "exp": int(time.time()) + settings.auth_access_token_ttl_seconds,
-            }
-            new_token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
+            new_token = issue_user_access_token(
+                username=user.username,
+                role=user.role,
+                mfa_enabled=False,
+            )
 
             return api_response(data={"status": "mfa_disabled", "access_token": new_token})
 

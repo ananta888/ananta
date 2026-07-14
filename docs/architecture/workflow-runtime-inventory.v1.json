@@ -154,19 +154,50 @@
       "followup_task": "AIR-049"
     },
     {
-      "id": "runtime-operations-ui",
+      "id": "production-runtime-security-boundary",
       "classification": "live",
-      "owner": "hub-and-angular",
+      "owner": "hub",
       "containers": [
         "ai-agent-hub",
-        "angular-frontend"
+        "ai-agent-alpha",
+        "ai-agent-beta",
+        "ai-agent-langgraph-worker",
+        "ananta-temporal-worker"
+      ],
+      "entrypoint": "docker/compose-next/compose.workflow-runtime.production.yml",
+      "call_path": "Common production overlay -> disjoint file-backed Hub, Worker and runtime-service credentials -> strict registration provenance -> scoped Worker authentication -> Hub-owned assignment and fencing",
+      "evidence": [
+        "docker/compose-next/compose.workflow-runtime.production.yml",
+        "agent/services/workflow_worker_service_auth.py",
+        "agent/services/workflow_worker_assignment_service.py",
+        "migrations/versions/v1w2x3y4z5a6_add_agent_registration_provenance.py",
+        "migrations/versions/w1x2y3z4a5b6_add_workflow_worker_assignments.py",
+        "tests/security/workflow_runtime/test_registered_worker_service_auth.py",
+        "tests/security/workflow_runtime/test_workflow_worker_assignment_service.py",
+        "tests/security/workflow_runtime/test_combined_production_compose.py"
+      ],
+      "gap": "Deployment operators still provide and rotate the external secret files; missing, reused, unsafe or fingerprint-mismatched credentials prevent startup or registration.",
+      "followup_task": "AIR-053"
+    },
+    {
+      "id": "runtime-operations-ui",
+      "classification": "live",
+      "owner": "hub-and-clients",
+      "containers": [
+        "ai-agent-hub",
+        "angular-frontend",
+        "operator-cli-or-tui"
       ],
       "entrypoint": "GET /api/workflow-runtime/operations",
-      "call_path": "Angular -> authenticated Hub read-model route -> canonical event projection; approved commands -> Hub command gateway",
+      "call_path": "Angular, ananta runtime CLI and Operator TUI -> authenticated Hub read-model route -> the same canonical event projection; approved commands -> Hub command gateway",
       "evidence": [
         "agent/routes/workflow_runtime_operations.py",
         "frontend-angular/src/app/features/workflow-runtime-operations/",
-        "tests/test_workflow_runtime_operations_api.py"
+        "agent/cli/commands/runtime.py",
+        "client_surfaces/common/workflow_runtime_projection.py",
+        "client_surfaces/operator_tui/commands_ops.py",
+        "tests/test_workflow_runtime_operations_api.py",
+        "tests/test_workflow_runtime_cli_tui_projection.py"
       ],
       "gap": "Intentional operational boundary: commands remain disabled unless the Hub read model supplies current verified evidence and an approval-bound command gate.",
       "followup_task": "AIR-051"

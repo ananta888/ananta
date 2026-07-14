@@ -110,6 +110,9 @@ def get_workflow_worker_gateway_service() -> WorkflowWorkerGatewayService:
                 SQLAlchemyWorkflowCommandReplayNonceStore,
             )
             from agent.services.workflow_runtime.telemetry_runtime import configure_workflow_telemetry
+            from agent.services.workflow_worker_assignment_runtime import (
+                get_workflow_worker_assignment_store,
+            )
 
             _SERVICE = WorkflowWorkerGatewayService(
                 authorization=AuthorizationVerifier(
@@ -129,6 +132,7 @@ def get_workflow_worker_gateway_service() -> WorkflowWorkerGatewayService:
                 tool_descriptors=_AnantaRegistryWorkflowToolDescriptorAdapter(
                     get_ananta_tool_registry_service()
                 ),
+                assignments=get_workflow_worker_assignment_store(),
             )
     return _SERVICE
 

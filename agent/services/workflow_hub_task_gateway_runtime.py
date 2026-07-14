@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import json
 import os
-import stat
 import threading
-from pathlib import Path
 from typing import Any
 
 from agent.services.workflow_execution_ownership_service import (
@@ -25,6 +23,10 @@ from agent.services.workflow_runtime import (
     SQLAlchemySideEffectLedger,
 )
 from agent.services.workflow_runtime.security import SignatureSigningKeyRingPort
+from ananta_contracts.file_credentials import (
+    FileCredentialConfigurationError,
+    read_file_managed_bytes,
+)
 from ananta_contracts.runtime_authorization_crypto import (
     Ed25519SigningKeyRing,
     RuntimeAuthorizationCryptoError,
@@ -232,41 +234,23 @@ def _read_keyring_file(environment_name: str, *, label: str) -> dict[str, Any]:
 
 def _read_json_file(environment_name: str, *, label: str) -> dict[str, Any]:
     raw_path = str(os.environ.get(environment_name) or "").strip()
-    path = Path(raw_path)
-    if not raw_path or not path.is_absolute() or "\x00" in raw_path:
+    if not raw_path:
         raise WorkflowHubTaskConfigurationError(f"{label} file reference is required and must be absolute")
-    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
     try:
-        descriptor = os.open(path, flags)
-    except (OSError, ValueError) as exc:
-        raise WorkflowHubTaskConfigurationError(f"{label} file cannot be read") from exc
-    try:
-        metadata = os.fstat(descriptor)
-        if (
-            not stat.S_ISREG(metadata.st_mode)
-            or metadata.st_nlink != 1
-            or metadata.st_mode & (stat.S_IWGRP | stat.S_IWOTH)
-        ):
-            raise WorkflowHubTaskConfigurationError(f"{label} file is unsafe")
-        if metadata.st_size < 1 or metadata.st_size > 65_536:
-            raise WorkflowHubTaskConfigurationError(f"{label} file is invalid")
-        chunks: list[bytes] = []
-        total = 0
-        while True:
-            chunk = os.read(descriptor, min(64 * 1024, 65_537 - total))
-            if not chunk:
-                break
-            chunks.append(chunk)
-            total += len(chunk)
-            if total > 65_536:
-                raise WorkflowHubTaskConfigurationError(f"{label} file is invalid")
-        raw = b"".join(chunks)
-    except OSError as exc:
-        raise WorkflowHubTaskConfigurationError(f"{label} file cannot be read") from exc
-    finally:
-        os.close(descriptor)
-    if not raw:
-        raise WorkflowHubTaskConfigurationError(f"{label} file is invalid")
+        raw = read_file_managed_bytes(
+            raw_path,
+            description=f"{label} file",
+            max_bytes=65_536,
+        )
+    except FileCredentialConfigurationError as exc:
+        reason = str(exc)
+        if "size is invalid" in reason:
+            message = f"{label} file is invalid"
+        elif "cannot be opened securely" in reason or "cannot be read securely" in reason:
+            message = f"{label} file cannot be read"
+        else:
+            message = f"{label} file is unsafe"
+        raise WorkflowHubTaskConfigurationError(message) from exc
     try:
         decoded = json.loads(raw.decode("utf-8"))
     except (UnicodeError, json.JSONDecodeError) as exc:

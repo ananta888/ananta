@@ -5,14 +5,53 @@ import os
 import time
 from pathlib import Path
 from typing import Optional, Tuple, Type
+from urllib.parse import urlsplit
 
-from pydantic import AliasChoices, Field, field_validator
+from pydantic import (
+    AliasChoices,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 from pydantic_settings import (
     BaseSettings,
     JsonConfigSettingsSource,
     PydanticBaseSettingsSource,
     SettingsConfigDict,
 )
+
+from ananta_contracts.file_credentials import (
+    FileCredentialConfigurationError,
+    read_file_managed_token,
+)
+
+
+class SecretKeyConfigurationError(RuntimeError):
+    """Raised when a file-managed Flask/JWT signing key is unsafe."""
+
+
+def _resolve_file_managed_secret_key(
+    *,
+    inline_secret_key: str,
+    secret_key_file: str,
+) -> str:
+    """Resolve one stable signing key without exposing it through the environment."""
+
+    try:
+        file_secret_key = read_file_managed_token(
+            secret_key_file,
+            description="SECRET_KEY file",
+            min_bytes=32,
+            max_bytes=16_384,
+        )
+    except FileCredentialConfigurationError as exc:
+        raise SecretKeyConfigurationError("SECRET_KEY file is invalid") from exc
+    if inline_secret_key and inline_secret_key != file_secret_key:
+        raise SecretKeyConfigurationError(
+            "inline SECRET_KEY conflicts with file-managed SECRET_KEY"
+        )
+    return file_secret_key
 
 
 class Settings(BaseSettings):
@@ -207,9 +246,21 @@ class Settings(BaseSettings):
     vault_path: str = Field(default="ananta", validation_alias="VAULT_PATH")
 
     secret_key: str = Field(default="", validation_alias="SECRET_KEY")
+    secret_key_file: Optional[str] = Field(
+        default=None,
+        validation_alias="SECRET_KEY_FILE",
+    )
     mfa_encryption_key: Optional[str] = Field(default=None, validation_alias="MFA_ENCRYPTION_KEY")
     agent_token_persistence: bool = Field(default=True, validation_alias="AGENT_TOKEN_PERSISTENCE")
     cors_origins: str = Field(default="*", validation_alias="CORS_ORIGINS")
+    workflow_require_registered_worker_auth: bool = Field(
+        default=False,
+        validation_alias="ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH",
+    )
+    snake_local_dev_auth_bypass: bool = Field(
+        default=False,
+        validation_alias="ANANTA_SNAKE_LOCAL_DEV_AUTH_BYPASS",
+    )
     registration_token: Optional[str] = Field(default=None, validation_alias="REGISTRATION_TOKEN")
     token_rotation_days: int = Field(default=7, validation_alias="TOKEN_ROTATION_DAYS")
     auto_update_dotenv: bool = Field(default=False, validation_alias="AUTO_UPDATE_DOTENV")
@@ -237,6 +288,7 @@ class Settings(BaseSettings):
     auth_password_history_limit: int = Field(default=3, validation_alias="AUTH_PASSWORD_HISTORY_LIMIT")
     auth_mfa_backup_code_count: int = Field(default=10, validation_alias="AUTH_MFA_BACKUP_CODE_COUNT")
     auth_test_endpoints_enabled: bool = Field(default=False, validation_alias="AUTH_TEST_ENDPOINTS_ENABLED")
+    workflow_runtime_test_context: str = Field(default="", validation_alias="ANANTA_WORKFLOW_RUNTIME_TEST_CONTEXT")
 
     # Optional Hub↔OIDC account linking (default off).
     # Hub endpoints always require Hub-issued JWTs.  When this feature is
@@ -660,6 +712,10 @@ class Settings(BaseSettings):
     # Paths
     data_dir: str = Field(default="data", validation_alias="DATA_DIR")
     secrets_dir: str = Field(default="secrets", validation_alias="SECRETS_DIR")
+    hub_workspace_root: str = Field(
+        default="/project-workspaces",
+        validation_alias="ANANTA_WORKSPACE_ROOT",
+    )
 
     @field_validator("lmstudio_api_mode")
     @classmethod
@@ -706,6 +762,36 @@ class Settings(BaseSettings):
         if val not in allowed:
             raise ValueError(f"AUTH_PROVIDER muss einer der folgenden Werte sein: {sorted(allowed)}")
         return val
+
+    @model_validator(mode="after")
+    def validate_production_cors_allowlist(self) -> "Settings":
+        """Require explicit browser origins for the strict workflow control plane."""
+
+        if not self.workflow_require_registered_worker_auth:
+            return self
+
+        origins = [value.strip() for value in self.cors_origins.split(",") if value.strip()]
+        if not origins or "*" in origins:
+            raise ValueError(
+                "CORS_ORIGINS must be a non-empty explicit origin allowlist when "
+                "ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH is enabled"
+            )
+        for origin in origins:
+            parsed = urlsplit(origin)
+            if (
+                parsed.scheme not in {"http", "https"}
+                or not parsed.hostname
+                or parsed.username is not None
+                or parsed.password is not None
+                or parsed.path not in {"", "/"}
+                or parsed.query
+                or parsed.fragment
+            ):
+                raise ValueError(
+                    "CORS_ORIGINS entries must be complete http(s) origins without "
+                    "credentials, paths, queries, or fragments"
+                )
+        return self
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -823,6 +909,13 @@ try:
     import secrets
 
     # 1. SECRET_KEY Handling
+    if settings.secret_key_file:
+        settings.secret_key = _resolve_file_managed_secret_key(
+            inline_secret_key=settings.secret_key,
+            secret_key_file=settings.secret_key_file,
+        )
+        logger.info("SECRET_KEY loaded from the configured file-managed secret")
+
     if not settings.secret_key:
         # Versuche aus secrets_dir zu laden, falls Pydantic es nicht automatisch getan hat
         secret_key_path = Path(settings.secrets_dir) / "secret_key"
@@ -909,11 +1002,26 @@ try:
         except Exception as e:
             logger.error(f"Could not read agent token from {token_path}: {e}")
 
+except SecretKeyConfigurationError:
+    # A configured production signing key is a security boundary. Falling back
+    # to model_construct() here would silently start with an untrusted key.
+    logger = logging.getLogger("agent.config")
+    if not logging.getLogger().handlers:
+        logging.basicConfig(level=logging.INFO)
+    logger.error("File-managed SECRET_KEY configuration is invalid")
+    raise
+except ValidationError:
+    # Invalid production policy must not be replaced by unvalidated defaults.
+    logger = logging.getLogger("agent.config")
+    if not logging.getLogger().handlers:
+        logging.basicConfig(level=logging.INFO)
+    logger.error("Security-relevant application configuration is invalid")
+    raise
 except Exception as e:
-    # Sicherstellen, dass wenigstens ein Basic-Logging aktiv ist
+    # Any source or post-processing failure leaves configuration provenance
+    # unknown. Starting from model_construct() defaults would bypass policy.
     logger = logging.getLogger("agent.config")
     if not logging.getLogger().handlers:
         logging.basicConfig(level=logging.INFO)
     logger.error(f"Fehler beim Laden der Einstellungen: {e}", exc_info=True)
-    # Minimaler Fallback falls Pydantic wegen Validierung fehlschlägt
-    settings = Settings.model_construct()
+    raise

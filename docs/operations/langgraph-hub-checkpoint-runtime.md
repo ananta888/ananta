@@ -40,34 +40,58 @@ ordinary Workers and development stacks.
 
 The production overlay creates `ai-agent-langgraph-worker` on the dedicated
 `langgraph-runtime` network. Only that Worker and the Hub join this network.
-The Worker publishes no host port and receives only the read-only Hub service
-token. Authorization and dispatch keyrings remain Hub-only.
+The Worker publishes no host port and receives only the public verification
+keyring plus its own registration, service and session secrets. The Hub-admin
+token, private authorization keyring and dispatch keyring remain Hub-only.
 
-Prepare three deployment-owned files outside the repository:
+Prepare the common production credential files outside the repository:
 
 - an authorization Ed25519 signing-keyring JSON for the Hub;
 - a public verification-keyring JSON for runtime verifiers;
 - a dispatch Fernet keyring JSON;
-- a random Hub service token of at least 32 bytes.
+- separate Hub/Alpha/Beta session, registration and service files;
+- the Hub-only Worker registration keyring.
+
+Then create three independent LangGraph files: registration token, service
+token and session signing key. Each is whitespace-free, at least 32 bytes and
+must not reuse any common credential. The registration keyring entry for the
+effective LangGraph Worker ID binds that registration token to
+`http://ai-agent-langgraph-worker:5000` and includes exactly this complete
+Hub-side allowlist (the Worker cannot expand it through self-reporting):
+
+```json
+"allowed_capabilities": [
+  "planning", "analysis", "research", "coding", "implementation",
+  "review", "testing", "verification", "workflow.adapter.langgraph"
+]
+```
+
+The Hub persists `strict_registration_keyring_v1` provenance; a legacy database
+row is never an authorization source for scoped Worker routes.
 
 The formats and a safe generation example are documented in
 [Temporal Runtime Operations](temporal-runtime.md#install-and-configuration),
 because both overlays intentionally use the same Hub workflow-secret contract.
 Do not put secret values in Compose YAML, `.env`, images or fixtures.
 
+Export the common paths listed in
+[`docker/compose-next/README.md`](../../docker/compose-next/README.md#native-runtime),
+then add:
+
 ```bash
-export ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-auth-signing-keyring.json
-export ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-auth-verification-keyring.json
-export ANANTA_WORKFLOW_DISPATCH_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-dispatch-keyring.json
-export ANANTA_WORKFLOW_HUB_TOKEN_SECRET_FILE=/etc/ananta/secrets/workflow-hub-service-token
+export ANANTA_WORKFLOW_WORKER_LANGGRAPH_REGISTRATION_TOKEN_SECRET_FILE=/etc/ananta/secrets/workflow-worker-langgraph-registration-token
+export ANANTA_WORKFLOW_WORKER_LANGGRAPH_SERVICE_TOKEN_SECRET_FILE=/etc/ananta/secrets/workflow-worker-langgraph-service-token
+export ANANTA_WORKER_LANGGRAPH_SESSION_SIGNING_KEY_SECRET_FILE=/etc/ananta/secrets/workflow-worker-langgraph-session-signing-key
 
 docker compose --env-file .env \
   -f docker/compose-next/compose.stack.full.yml \
+  -f docker/compose-next/compose.workflow-runtime.production.yml \
   -f docker/compose-next/compose.langgraph.production.yml \
   --profile langgraph config --quiet
 
 docker compose --env-file .env \
   -f docker/compose-next/compose.stack.full.yml \
+  -f docker/compose-next/compose.workflow-runtime.production.yml \
   -f docker/compose-next/compose.langgraph.production.yml \
   --profile langgraph up -d --build
 ```

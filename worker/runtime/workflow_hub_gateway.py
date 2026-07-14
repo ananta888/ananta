@@ -5,14 +5,16 @@ from __future__ import annotations
 import json
 import os
 import ssl
-import stat
 import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Mapping
-from pathlib import Path
 from typing import Any
 
+from ananta_contracts.file_credentials import (
+    FileCredentialConfigurationError,
+    read_file_managed_token,
+)
 from ananta_contracts.hub_task_gateway import HubTaskContractError, RetryBudgetReceipt
 from ananta_contracts.provider_invocation import (
     ProviderBudgetDecision,
@@ -29,6 +31,7 @@ from ananta_contracts.workflow_worker_gateway import (
 from worker.core.tool_calling_pipeline import ToolCallDecision, ToolCallRequest
 from worker.core.tool_registry import WorkerToolEntry
 from worker.runtime.workflow_adapter_task_consumer import ExecutionAuthorizationDecision
+from worker.runtime.workflow_service_identity import WorkflowServiceIdentity
 
 
 class WorkflowHubDecisionError(RuntimeError):
@@ -49,6 +52,8 @@ class HttpWorkflowHubDecisionClient:
         command_path: str = "/api/internal/workflow-runtime/worker-commands",
         timeout_seconds: float = 15.0,
         ssl_context: ssl.SSLContext | None = None,
+        worker_id: str = "",
+        worker_url: str = "",
     ) -> None:
         parsed = urllib.parse.urlsplit(str(hub_url or "").rstrip("/"))
         if (
@@ -74,6 +79,10 @@ class HttpWorkflowHubDecisionClient:
         self._command_path = "/" + str(command_path or "").strip("/")
         self._timeout_seconds = max(1.0, min(float(timeout_seconds), 120.0))
         self._ssl_context = ssl_context
+        self._service_identity = WorkflowServiceIdentity.optional(
+            worker_id=worker_id,
+            worker_url=worker_url,
+        )
 
     @classmethod
     def from_environment(
@@ -98,6 +107,8 @@ class HttpWorkflowHubDecisionClient:
         return cls(
             hub_url=hub_url,
             bearer_token=_read_token_file(token_file),
+            worker_id=str(source.get("AGENT_NAME") or "").strip(),
+            worker_url=str(source.get("AGENT_URL") or "").strip(),
         )
 
     def command(self, command: str, *, binding: Mapping[str, Any], **values: Any) -> dict[str, Any]:
@@ -116,15 +127,18 @@ class HttpWorkflowHubDecisionClient:
         ).encode("utf-8")
         if len(body) > 262_144:
             raise WorkflowHubDecisionError("workflow_worker_command_too_large")
+        headers = {
+            "Accept": "application/json",
+            "Authorization": f"Bearer {self._bearer_token}",
+            "Content-Type": "application/json",
+            "User-Agent": "ananta-workflow-worker/1",
+        }
+        if self._service_identity is not None:
+            headers.update(self._service_identity.headers())
         request = urllib.request.Request(
             self._hub_url + self._command_path,
             data=body,
-            headers={
-                "Accept": "application/json",
-                "Authorization": f"Bearer {self._bearer_token}",
-                "Content-Type": "application/json",
-                "User-Agent": "ananta-workflow-worker/1",
-            },
+            headers=headers,
             method="POST",
         )
         try:
@@ -487,28 +501,13 @@ def _tool_approval_values(metadata: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _read_token_file(raw_path: str) -> str:
-    path = Path(str(raw_path or ""))
-    if not path.is_absolute():
-        raise ValueError("workflow Hub token file must be absolute")
     try:
-        metadata = path.stat()
-    except OSError as exc:
-        raise ValueError("workflow Hub token file cannot be inspected") from exc
-    if not stat.S_ISREG(metadata.st_mode) or metadata.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
-        raise ValueError("workflow Hub token file is unsafe")
-    try:
-        with path.open("rb") as handle:
-            raw = handle.read(16_385)
-        token = raw.decode("utf-8").strip()
-    except (OSError, UnicodeError) as exc:
-        raise ValueError("workflow Hub token file cannot be read") from exc
-    if (
-        not 32 <= len(token.encode("utf-8")) <= 16_384
-        or "\x00" in token
-        or any(character.isspace() for character in token)
-    ):
-        raise ValueError("workflow Hub token file is invalid")
-    return token
+        return read_file_managed_token(
+            raw_path,
+            description="workflow Hub token file",
+        )
+    except FileCredentialConfigurationError as exc:
+        raise ValueError(str(exc)) from exc
 
 
 def _http_error_reason(error: urllib.error.HTTPError) -> str:

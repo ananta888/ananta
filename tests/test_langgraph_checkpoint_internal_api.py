@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import hashlib
+import json
+from types import SimpleNamespace
+
 from flask import Flask
 
 from agent.auth import generate_token
@@ -15,9 +19,11 @@ from ananta_contracts.langgraph_checkpoint import (
 class _Gateway:
     def __init__(self) -> None:
         self.commands: list[dict] = []
+        self.identities: list[dict[str, str]] = []
 
-    def execute(self, body: dict) -> dict:
+    def execute(self, body: dict, **identity: str) -> dict:
         self.commands.append(body)
+        self.identities.append(dict(identity))
         return {"schema": LANGGRAPH_CHECKPOINT_RESPONSE_SCHEMA, "snapshot": None}
 
 
@@ -115,3 +121,84 @@ def test_checkpoint_api_rejects_oversized_or_non_json_commands(monkeypatch) -> N
     assert oversized.status_code == 413
     assert invalid.status_code == 400
     assert gateway.commands == []
+
+
+def test_strict_checkpoint_route_passes_authenticated_worker_identity(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    worker_token = "langgraph-service-token-0123456789abcdef"
+    bootstrap = "langgraph-bootstrap-token-0123456789abcdef"
+    hub_token = "hub-service-token-0123456789abcdefghijkl"
+    keyring = tmp_path / "registration-keyring.json"
+    keyring.write_text(
+        json.dumps(
+            {
+                "schema": "ananta.workflow-worker-registration-keyring.v1",
+                "workers": {
+                    "langgraph-worker-1": {
+                        "worker_url": "http://langgraph-worker:5000",
+                        "registration_token": bootstrap,
+                        "service_token_sha256": hashlib.sha256(
+                            worker_token.encode("utf-8")
+                        ).hexdigest(),
+                        "session_signing_key_sha256": hashlib.sha256(
+                            b"langgraph-session-signing-key-0123456789abcdef"
+                        ).hexdigest(),
+                        "allowed_capabilities": [
+                            "workflow.adapter.langgraph"
+                        ],
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    keyring.chmod(0o440)
+    gateway = _Gateway()
+    app = _app(gateway, monkeypatch)
+    app.config.update(
+        AGENT_TOKEN=hub_token,
+        ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH=True,
+        ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE=str(keyring),
+    )
+    app.extensions["repository_registry"] = SimpleNamespace(
+        agent_repo=SimpleNamespace(
+            get_all=lambda: [
+                SimpleNamespace(
+                    name="langgraph-worker-1",
+                    url="http://langgraph-worker:5000",
+                    token=worker_token,
+                    role="worker",
+                    capabilities=["workflow.adapter.langgraph"],
+                    authorized_capabilities=["workflow.adapter.langgraph"],
+                    registration_validated=True,
+                    registration_provenance="strict_registration_keyring_v1",
+                )
+            ]
+        )
+    )
+    monkeypatch.setattr("agent.auth.log_audit", lambda *_args, **_kwargs: None)
+
+    response = app.test_client().post(
+        "/api/internal/workflow-runtime/langgraph/checkpoints",
+        json={
+            "schema": LANGGRAPH_CHECKPOINT_COMMAND_SCHEMA,
+            "operation": "get",
+            "binding": {},
+            "config": {},
+        },
+        headers={
+            "Authorization": f"Bearer {worker_token}",
+            "X-Ananta-Worker-ID": "langgraph-worker-1",
+            "X-Ananta-Worker-URL": "http://langgraph-worker:5000",
+        },
+    )
+
+    assert response.status_code == 200
+    assert gateway.identities == [
+        {
+            "authenticated_worker_id": "langgraph-worker-1",
+            "authenticated_worker_url": "http://langgraph-worker:5000",
+        }
+    ]

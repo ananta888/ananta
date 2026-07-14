@@ -61,8 +61,16 @@ jobs:
         run: >
           pytest -q
           tests/security/workflow_runtime/test_workflow_runtime_security_docs.py
+          tests/security/workflow_runtime/test_agent_token_file_security.py
+          tests/security/workflow_runtime/test_combined_production_compose.py
+          tests/security/workflow_runtime/test_file_credentials.py
           tests/security/workflow_runtime/test_native_production_compose.py
           tests/security/workflow_runtime/test_langgraph_checkpoint_production_compose.py
+          tests/security/workflow_runtime/test_production_cors_policy.py
+          tests/security/workflow_runtime/test_registered_worker_service_auth.py
+          tests/security/workflow_runtime/test_secret_key_file_security.py
+          tests/security/workflow_runtime/test_workflow_telemetry_headers_file_security.py
+          tests/security/workflow_runtime/test_workflow_worker_assignment_service.py
           tests/security/workflow_runtime/test_workflow_runtime_production_compose.py
           tests/test_agent_token_file_auth.py
           tests/test_workflow_runtime_security_and_evolution.py
@@ -72,6 +80,7 @@ jobs:
           tests/test_workflow_hub_task_gateway_runtime.py
           tests/test_tool_calling_pipeline.py
           tests/test_temporal_runtime_contracts.py
+          tests/test_workflow_runtime_cli_tui_projection.py
           tests/test_temporal_history_projection.py
           tests/workflow_runtime/examples/test_workflow_runtime_example.py
       - name: Run AIR-055 migration, restore, rollout and incident drills
@@ -388,9 +397,25 @@ jobs:
       AGENT_TOKEN_GAMMA: gamma-token
       AGENT_TOKEN_DELTA: delta-token
       GRAFANA_PASSWORD: test-grafana-password
+      CORS_ORIGINS: https://ananta-ci.example.invalid
       ANANTA_WORKFLOW_AUTH_KEYRING_SECRET_FILE: /tmp/ananta-compose-secrets/workflow-auth-keyring.json
+      ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_SECRET_FILE: /tmp/ananta-compose-secrets/workflow-auth-signing-keyring.json
+      ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_SECRET_FILE: /tmp/ananta-compose-secrets/workflow-auth-verification-keyring.json
       ANANTA_WORKFLOW_DISPATCH_KEYRING_SECRET_FILE: /tmp/ananta-compose-secrets/workflow-dispatch-keyring.json
       ANANTA_WORKFLOW_HUB_TOKEN_SECRET_FILE: /tmp/ananta-compose-secrets/workflow-hub-service-token
+      ANANTA_HUB_SESSION_SIGNING_KEY_SECRET_FILE: /tmp/ananta-compose-secrets/workflow-hub-session-signing-key
+      ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_SECRET_FILE: /tmp/ananta-compose-secrets/workflow-worker-registration-keyring.json
+      ANANTA_WORKFLOW_WORKER_ALPHA_REGISTRATION_TOKEN_SECRET_FILE: /tmp/ananta-compose-secrets/workflow-worker-alpha-registration-token
+      ANANTA_WORKFLOW_WORKER_BETA_REGISTRATION_TOKEN_SECRET_FILE: /tmp/ananta-compose-secrets/workflow-worker-beta-registration-token
+      ANANTA_WORKFLOW_WORKER_ALPHA_SERVICE_TOKEN_SECRET_FILE: /tmp/ananta-compose-secrets/workflow-worker-alpha-service-token
+      ANANTA_WORKFLOW_WORKER_BETA_SERVICE_TOKEN_SECRET_FILE: /tmp/ananta-compose-secrets/workflow-worker-beta-service-token
+      ANANTA_WORKER_ALPHA_SESSION_SIGNING_KEY_SECRET_FILE: /tmp/ananta-compose-secrets/workflow-worker-alpha-session-signing-key
+      ANANTA_WORKER_BETA_SESSION_SIGNING_KEY_SECRET_FILE: /tmp/ananta-compose-secrets/workflow-worker-beta-session-signing-key
+      ANANTA_WORKFLOW_WORKER_LANGGRAPH_REGISTRATION_TOKEN_SECRET_FILE: /tmp/ananta-compose-secrets/workflow-worker-langgraph-registration-token
+      ANANTA_WORKFLOW_WORKER_LANGGRAPH_SERVICE_TOKEN_SECRET_FILE: /tmp/ananta-compose-secrets/workflow-worker-langgraph-service-token
+      ANANTA_WORKER_LANGGRAPH_SESSION_SIGNING_KEY_SECRET_FILE: /tmp/ananta-compose-secrets/workflow-worker-langgraph-session-signing-key
+      ANANTA_WORKFLOW_RUNTIME_SERVICE_KEYRING_SECRET_FILE: /tmp/ananta-compose-secrets/workflow-runtime-service-keyring.json
+      ANANTA_WORKFLOW_TEMPORAL_SERVICE_TOKEN_SECRET_FILE: /tmp/ananta-compose-secrets/workflow-temporal-service-token
       ANANTA_EXAMPLE_LIVE_PROVIDER_BASE_URL: http://host.docker.internal:1234/v1
       ANANTA_EXAMPLE_LIVE_PROVIDER_MODEL: ci-local-provider-model
       ANANTA_EXAMPLE_LIVE_PROVIDER_API_KEY_FILE: /tmp/ananta-compose-secrets/workflow-runtime-live-provider-token
@@ -402,10 +427,25 @@ jobs:
         run: |
           install -d -m 0700 /tmp/ananta-compose-secrets
           python - <<'PY'
+          import hashlib
           import json
           from pathlib import Path
 
           root = Path("/tmp/ananta-compose-secrets")
+          alpha_registration = "ci-alpha-registration-token-0123456789abcdef"
+          beta_registration = "ci-beta-registration-token-0123456789abcdefg"
+          langgraph_registration = "ci-langgraph-registration-token-0123456789abcdef"
+          alpha_service = "ci-alpha-service-token-0123456789abcdef"
+          beta_service = "ci-beta-service-token-0123456789abcdefg"
+          langgraph_service = "ci-langgraph-service-token-0123456789abcdef"
+          alpha_session = "ci-alpha-session-key-0123456789abcdef"
+          beta_session = "ci-beta-session-key-0123456789abcdefg"
+          langgraph_session = "ci-langgraph-session-key-0123456789abcdef"
+          temporal_service = "ci-temporal-service-token-0123456789abcdef"
+
+          def digest(value):
+              return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
           fixtures = {
               "workflow-auth-keyring.json": json.dumps({
                   "active_key_id": "ci-auth",
@@ -416,6 +456,61 @@ jobs:
                   "keys": {"ci-dispatch": "Y2ktZGlzcGF0Y2gta2V5LTAxMjM0NTY3ODlhYmNkZWY="},
               }),
               "workflow-hub-service-token": "ci-hub-token-0123456789abcdef0123456789",
+              "workflow-hub-session-signing-key": "ci-hub-session-key-0123456789abcdef012345",
+              "workflow-auth-signing-keyring.json": json.dumps({
+                  "schema": "ananta.workflow-authorization-ed25519-keyring.v1",
+                  "active_key_id": "ci-auth",
+                  "keys": {"ci-auth": "ci-render-only-signing-key"},
+              }),
+              "workflow-auth-verification-keyring.json": json.dumps({
+                  "schema": "ananta.workflow-authorization-ed25519-keyring.v1",
+                  "keys": {"ci-auth": "ci-render-only-verification-key"},
+              }),
+              "workflow-worker-alpha-registration-token": alpha_registration,
+              "workflow-worker-beta-registration-token": beta_registration,
+              "workflow-worker-langgraph-registration-token": langgraph_registration,
+              "workflow-worker-alpha-service-token": alpha_service,
+              "workflow-worker-beta-service-token": beta_service,
+              "workflow-worker-langgraph-service-token": langgraph_service,
+              "workflow-worker-alpha-session-signing-key": alpha_session,
+              "workflow-worker-beta-session-signing-key": beta_session,
+              "workflow-worker-langgraph-session-signing-key": langgraph_session,
+              "workflow-worker-registration-keyring.json": json.dumps({
+                  "schema": "ananta.workflow-worker-registration-keyring.v1",
+                  "workers": {
+                      "ananta-worker-1": {
+                          "worker_url": "http://ai-agent-alpha:5000",
+                          "registration_token": alpha_registration,
+                          "service_token_sha256": digest(alpha_service),
+                          "session_signing_key_sha256": digest(alpha_session),
+                          "allowed_capabilities": ["workflow.adapter.native"],
+                      },
+                      "ananta-worker-2": {
+                          "worker_url": "http://ai-agent-beta:5000",
+                          "registration_token": beta_registration,
+                          "service_token_sha256": digest(beta_service),
+                          "session_signing_key_sha256": digest(beta_session),
+                          "allowed_capabilities": ["workflow.adapter.native"],
+                      },
+                      "ananta-langgraph-worker-1": {
+                          "worker_url": "http://ai-agent-langgraph-worker:5000",
+                          "registration_token": langgraph_registration,
+                          "service_token_sha256": digest(langgraph_service),
+                          "session_signing_key_sha256": digest(langgraph_session),
+                          "allowed_capabilities": ["workflow.adapter.langgraph"],
+                      },
+                  },
+              }),
+              "workflow-temporal-service-token": temporal_service,
+              "workflow-runtime-service-keyring.json": json.dumps({
+                  "schema": "ananta.workflow-runtime-service-keyring.v1",
+                  "services": {
+                      "ananta-temporal-worker": {
+                          "token": temporal_service,
+                          "scopes": ["workflow.temporal.tasks"],
+                      },
+                  },
+              }),
               "workflow-runtime-live-provider-token": "ci-local-provider-token",
           }
           for name, value in fixtures.items():
@@ -433,6 +528,7 @@ jobs:
         run: >
           docker compose
           -f docker/compose-next/compose.stack.full.yml
+          -f docker/compose-next/compose.workflow-runtime.production.yml
           -f docker/compose-next/compose.native.production.yml
           config
           > ci-artifacts/compose/compose-next-workflow-native-production.yml
@@ -440,6 +536,7 @@ jobs:
         run: >
           docker compose
           -f docker/compose-next/compose.stack.full.yml
+          -f docker/compose-next/compose.workflow-runtime.production.yml
           -f docker/compose-next/compose.langgraph.production.yml
           --profile langgraph config
           > ci-artifacts/compose/compose-next-workflow-langgraph-production.yml
@@ -454,6 +551,7 @@ jobs:
         run: >
           docker compose
           -f docker/compose-next/compose.stack.full.yml
+          -f docker/compose-next/compose.workflow-runtime.production.yml
           -f docker/compose-next/compose.temporal.yml
           -f docker/compose-next/compose.temporal.production.yml
           --profile temporal config

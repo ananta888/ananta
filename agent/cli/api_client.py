@@ -38,6 +38,9 @@ def _load_dotenv_fallback() -> dict[str, str]:
 
 def _auth_token(base_url: str) -> str:
     _env = _load_dotenv_fallback()
+    explicit_token = os.environ.get("ANANTA_AUTH_TOKEN") or _env.get("ANANTA_AUTH_TOKEN")
+    if explicit_token:
+        return str(explicit_token)
     username = (
         os.environ.get("ANANTA_USER")
         or os.environ.get("INITIAL_ADMIN_USER")

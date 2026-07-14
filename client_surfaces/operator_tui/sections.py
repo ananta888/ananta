@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from client_surfaces.operator_tui.models import Section
 
-
 SECTIONS: tuple[Section, ...] = (
     Section("dashboard", "Dashboard", True, ("health", "capabilities", "task_summary"), "degraded_panel", 2.0, 10.0),
     Section("goals", "Goals", True, ("goals", "goal_modes"), "empty_or_degraded_panel", 2.0, 15.0),
@@ -12,7 +11,7 @@ SECTIONS: tuple[Section, ...] = (
     Section("config", "Config", True, ("config", "providers"), "redacted_panel", 2.0, 30.0),
     Section("templates", "Templates", True, ("blueprints", "templates"), "empty_or_degraded_panel", 2.0, 60.0),
     Section("system", "System", True, ("basic_health", "contracts", "agents"), "degraded_panel", 1.0, 5.0),
-    Section("ops", "Ops", True, ("git", "docker", "compose"), "empty_or_degraded_panel", 2.0, 15.0),
+    Section("ops", "Ops", True, ("git", "docker", "compose", "workflow_runtime"), "empty_or_degraded_panel", 2.0, 15.0),
     Section("audit", "Audit", True, ("audit_logs",), "policy_degraded_panel", 2.0, 20.0),
     Section("terminal", "Terminal", True, ("targets", "sessions"), "degraded_panel", 2.0, 10.0),
     Section("share", "Share / Teilnehmer", True, ("share_session", "device_key"), "local_only", 1.0, 30.0),

@@ -10,11 +10,12 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
-import threading
 import time
 import uuid
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol, TypedDict
+
+from agent.services.chat_session_security import chat_session_mutation_lock
 
 
 class OrganizationPersistence(Protocol):
@@ -80,7 +81,7 @@ class OrganizationError(Exception):
         return result
 
 
-_LOCK = threading.RLock()
+_LOCK = chat_session_mutation_lock
 _PROPOSAL_STATUSES = {"draft", "ready", "invalid", "applied", "discarded", "superseded"}
 _OPERATION_TYPES = {
     "folder.create",

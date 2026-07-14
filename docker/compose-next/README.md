@@ -23,6 +23,11 @@ Deployment-Stacks:
   Temporal Server, UI, eigener PostgreSQL-Datenbank und Ananta-Worker)
 - `compose.temporal.production.yml` (additive produktive Hub-/Temporal-
   Verdrahtung mit externen, read-only Compose-Secrets)
+- `compose.workflow-runtime.production.yml` (gemeinsame produktive
+  Credential-Allowlist für Hub, Native-Worker und Angular; immer vor den
+  Runtime-spezifischen Overlays laden)
+- `compose.native.production.yml` (produktiver Native-Runtime-Pfad über die
+  Hub-Taskqueue mit getrennten Signing-, Verification- und Dispatch-Secrets)
 - `compose.langgraph.production.yml` (dedizierter LangGraph-Worker mit exakt
   gelockter Runtime, Hub-owned Checkpoints und externen read-only Secrets)
 - `compose.workflow-runtime-example.yml` (wegwerfbarer, eigenständiger
@@ -155,27 +160,159 @@ Rollback, Consent/Löschung und die reproduzierbaren CPU-/GPU-Profile sind im
 [`Voice/Restricted Production Runbook`](../../docs/operations/voice-restricted-production-runbook.md)
 dokumentiert. Hardware-Skips gelten dort nie als bestandener Nachweis.
 
+## Native Runtime
+
+Alle produktiven Workflow-Runtimes verwenden zuerst
+`compose.workflow-runtime.production.yml`. Diese eine Security-Allowlist ersetzt
+die aus `compose.base.yml` geerbte Entwicklungsumgebung: nur der Hub behält
+Postgres-, Redis- und Initial-Admin-Zugang. Alpha, Beta und Angular erhalten
+weder diese Werte noch einen inline `SECRET_KEY`. Hub und Worker laden jeweils
+einen eigenen Session-/JWT-Key über `SECRET_KEY_FILE`.
+
+Alpha und Beta besitzen außerdem je ein einmaliges Registrierungs-Token und ein
+eigenes Service-Token. Das Registrierungs-Token ist ausschließlich für das
+Binden von Worker-ID und Worker-URL bestimmt; nur das danach registrierte
+Service-Token authentifiziert die eng begrenzten Workflow-Routen. Das
+Hub-Admin-Service-Token bleibt ausschließlich im Hub.
+
+Der gemeinsame Produktionslayer entfernt außerdem alle Host-Ports von
+PostgreSQL, Redis, Alpha und Beta. Nur der Hub bleibt im Stack-Datennetz; Alpha
+und Beta erreichen ihn über das getrennte `workflow-worker-control`-Netz.
+LangGraph bleibt ausschließlich in `langgraph-runtime`, der Temporal-Worker
+ausschließlich in `temporal-runtime`. So kann ein kompromittierter Worker weder
+den unauthentisierten Redis-Zustand noch PostgreSQL direkt erreichen.
+Angular erreicht ausschließlich den Hub über `workflow-ui-control`; es teilt
+weder das Daten- noch ein Worker-Netz. Der Produktionslayer entfernt außerdem
+die schreibbaren Entwicklungs-Bind-Mounts des Frontends und lässt die Host-
+Prüfung des Angular-Servers aktiviert. Die Dev-Overlays behalten Hot Reload und
+ihre Bind-Mounts unverändert bei.
+Der Layer setzt zusätzlich `ANANTA_QUICKSTART_MODE=role` und für Hub, Worker
+und Angular jeweils die explizite `ANANTA_QUICKSTART_ROLE`; das Image-Default
+`hub` darf niemals die Compose-Service-Rolle bestimmen.
+
+Die folgenden Quelldateipfade sind für den gemeinsamen Layer erforderlich:
+
+```bash
+export CORS_ORIGINS=https://ananta.example.org
+export ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-auth-signing-keyring.json
+export ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-auth-verification-keyring.json
+export ANANTA_WORKFLOW_DISPATCH_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-dispatch-keyring.json
+export ANANTA_WORKFLOW_HUB_TOKEN_SECRET_FILE=/etc/ananta/secrets/workflow-hub-service-token
+export ANANTA_HUB_SESSION_SIGNING_KEY_SECRET_FILE=/etc/ananta/secrets/workflow-hub-session-signing-key
+export ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-worker-registration-keyring.json
+export ANANTA_WORKFLOW_WORKER_ALPHA_REGISTRATION_TOKEN_SECRET_FILE=/etc/ananta/secrets/workflow-worker-alpha-registration-token
+export ANANTA_WORKFLOW_WORKER_BETA_REGISTRATION_TOKEN_SECRET_FILE=/etc/ananta/secrets/workflow-worker-beta-registration-token
+export ANANTA_WORKFLOW_WORKER_ALPHA_SERVICE_TOKEN_SECRET_FILE=/etc/ananta/secrets/workflow-worker-alpha-service-token
+export ANANTA_WORKFLOW_WORKER_BETA_SERVICE_TOKEN_SECRET_FILE=/etc/ananta/secrets/workflow-worker-beta-service-token
+export ANANTA_WORKER_ALPHA_SESSION_SIGNING_KEY_SECRET_FILE=/etc/ananta/secrets/workflow-worker-alpha-session-signing-key
+export ANANTA_WORKER_BETA_SESSION_SIGNING_KEY_SECRET_FILE=/etc/ananta/secrets/workflow-worker-beta-session-signing-key
+
+docker compose --env-file .env \
+  -f docker/compose-next/compose.stack.full.yml \
+  -f docker/compose-next/compose.workflow-runtime.production.yml \
+  -f docker/compose-next/compose.native.production.yml \
+  config --quiet
+docker compose --env-file .env \
+  -f docker/compose-next/compose.stack.full.yml \
+  -f docker/compose-next/compose.workflow-runtime.production.yml \
+  -f docker/compose-next/compose.native.production.yml \
+  up -d --build
+```
+
+`CORS_ORIGINS` ist wegen credentialed CORS und der OIDC-Session-Cookies
+verpflichtend und muss ausschließlich vertrauenswürdige, vollständige Origins
+enthalten; `*` ist für diesen Produktionslayer unzulässig.
+
+Der gemeinsame Production-Layer entfernt außerdem den Entwicklungs-Bind-Mount
+aus allen Workern. Alpha, Beta und der optionale LangGraph-Worker erhalten je
+ein eigenes `nocopy` Named Volume als vollständigen `/project-workspaces`-Root;
+der Temporal-Worker erhält keinen Workspace-Mount. Nur der Hub behält den
+operatorseitigen Projekt-Bind. Eingaben und Ergebnisse zwischen Identitäten
+müssen daher über Hub-Tasks, Kontext- und Artefaktverträge fließen. Die drei
+Worker-Volumes sind bei Backup, Tenant-Retention und `docker compose down`
+explizit zu berücksichtigen; sie dürfen nicht zwischen Worker-Identitäten
+wiederverwendet werden.
+
+Das Registrierungs-Keyring hat das Schema
+`ananta.workflow-worker-registration-keyring.v1`. Unter `workers` muss jede
+tatsächliche `AGENT_NAME` exakt auf ihre interne `worker_url` und auf den Inhalt
+der zugehörigen Registrierungs-Token-Datei zeigen. Zusätzlich sind
+`service_token_sha256` und `session_signing_key_sha256` verpflichtend. Sie sind
+die kleingeschriebenen SHA-256-Hex-Digests des jeweils getrimmten Inhalts der
+zugehörigen Worker-Service-Token- bzw. Worker-Session-Key-Datei. Der Hub erhält
+nur diese Fingerprints, niemals die beiden rohen Worker-Secrets. Beispiel für
+eine bereits erzeugte, whitespace-freie Quelldatei:
+
+```bash
+python - <<'PY'
+import hashlib
+from pathlib import Path
+
+for name in (
+    "workflow-worker-alpha-service-token",
+    "workflow-worker-alpha-session-signing-key",
+):
+    value = Path("/etc/ananta/secrets", name).read_text(encoding="utf-8").strip()
+    if not value or any(character.isspace() for character in value):
+        raise SystemExit(f"invalid secret content: {name}")
+    print(name, hashlib.sha256(value.encode("utf-8")).hexdigest())
+PY
+```
+
+Die Ausgabe wird ausschließlich in die passenden Fingerprint-Felder des
+Keyrings übernommen. Bei jeder Rotation eines Worker-Service-Tokens oder
+Session-Keys müssen Secret-Datei und Fingerprint atomar gemeinsam aktualisiert
+und Hub sowie betroffener Worker anschließend neu gestartet werden; ein
+Mischstand wird fail-closed abgelehnt. `allowed_capabilities` ist
+die vollständige Hub-Allowlist, nicht die Selbstauskunft des Workers. Alpha und
+Beta erhalten exakt `planning, analysis, research, coding, implementation,
+review, testing, verification, workflow.adapter.native, approval,
+bounded_parallel, checkpoint, deterministic_merge, resume, retrieval, stream,
+structured_output, subgraphs, tool_calling`. Der dedizierte LangGraph-Worker
+erhält nur die ersten acht Basis-Capabilities plus
+`workflow.adapter.langgraph`. Erfolgreiche strikte Registrierung wird als
+`strict_registration_keyring_v1` persistiert. Legacy-/Default-Datenbankzeilen
+mit Provenienz `legacy` dürfen niemals scoped Worker-Routen authentifizieren.
+Token und Session-Key sind jeweils eigenständig, whitespace-frei und mindestens
+32 Byte lang; keine zwei Zwecke oder Worker dürfen denselben Wert verwenden.
+Der Hub validiert diese Trennung beim Start über seinen User-Session-Key, sein
+Service-Token, alle persistierten Worker-Service-Tokens sowie Registrierungs-
+und Runtime-Keyrings. Eine Kollision beendet den Start; eine neu eingehende
+Worker-Registrierung wird ebenfalls vor der Persistierung abgelehnt.
+
+Alle Secret-Quellen sind absolute, reguläre Dateien mit genau einem Hardlink.
+Der Besitzer ist `root` oder die effektive Container-UID; Gruppen- und
+World-Schreibrechte sind verboten. Für die aktuell als root laufenden
+Hub/Agent-Container ist `root:root 0600` der Standard. Der öffentliche
+Verification-Keyring darf `root:root 0444` sein, damit auch der non-root
+Temporal-Worker ihn lesen kann. Bei lokalem Docker Compose sind `uid`, `gid`
+und `mode` am Secret-Mount keine Berechtigungsüberschreibung: maßgeblich bleiben
+Besitzer und Modus der Quelldatei auf dem Host. Ein unsicherer Pfad, Symlink,
+Hardlink, Größenfehler oder eine Änderung während des Lesens beendet den Start
+fail-closed.
+
 ## LangGraph Runtime
 
 Das produktive LangGraph-Overlay ist additiv und startet genau einen dedizierten
 Worker im Profil `langgraph`. Nur Hub und dieser Worker teilen das
 `langgraph-runtime`-Netz. Der Worker veröffentlicht keinen Host-Port, erhält
-nur den öffentlichen Ed25519-Verifikationsschlüsselring und verwendet das
-Hub-Service-Token ausschließlich aus einem read-only Compose-Secret. Der
-private Signaturschlüssel bleibt ausschließlich im Hub.
+nur den öffentlichen Ed25519-Verifikationsschlüsselring und eigene
+Registrierungs-, Service- und Session-Secrets. Der private Signaturschlüssel,
+Dispatch-Key und Hub-Admin-Token bleiben ausschließlich im Hub.
 
 ```bash
-export ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-auth-signing-keyring.json
-export ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-auth-verification-keyring.json
-export ANANTA_WORKFLOW_DISPATCH_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-dispatch-keyring.json
-export ANANTA_WORKFLOW_HUB_TOKEN_SECRET_FILE=/etc/ananta/secrets/workflow-hub-service-token
+export ANANTA_WORKFLOW_WORKER_LANGGRAPH_REGISTRATION_TOKEN_SECRET_FILE=/etc/ananta/secrets/workflow-worker-langgraph-registration-token
+export ANANTA_WORKFLOW_WORKER_LANGGRAPH_SERVICE_TOKEN_SECRET_FILE=/etc/ananta/secrets/workflow-worker-langgraph-service-token
+export ANANTA_WORKER_LANGGRAPH_SESSION_SIGNING_KEY_SECRET_FILE=/etc/ananta/secrets/workflow-worker-langgraph-session-signing-key
 
 docker compose --env-file .env \
   -f docker/compose-next/compose.stack.full.yml \
+  -f docker/compose-next/compose.workflow-runtime.production.yml \
   -f docker/compose-next/compose.langgraph.production.yml \
   --profile langgraph config --quiet
 docker compose --env-file .env \
   -f docker/compose-next/compose.stack.full.yml \
+  -f docker/compose-next/compose.workflow-runtime.production.yml \
   -f docker/compose-next/compose.langgraph.production.yml \
   --profile langgraph up -d --build
 ```
@@ -192,37 +329,60 @@ Recovery stehen im
 Temporal ist ein additives Profil und ersetzt weder den Hub noch dessen
 Taskqueue. Der Temporal Worker registriert technische Workflows und übergibt
 ausführbare Schritte ausschließlich als autorisierte Hub-Tasks. Ohne
-Schlüsselring und Hub-Service-Token bleibt die produktive Activity fail-closed;
-der side-effect-freie Probe-Workflow funktioniert trotzdem.
+Schlüsselring und scoped Runtime-Service-Token bleibt die produktive Activity
+fail-closed; der side-effect-freie Probe-Workflow funktioniert trotzdem.
 
 `compose.temporal.yml` bleibt bewusst ohne produktive Credentials und kann den
 side-effect-freien Probe-Workflow ausführen. Eine produktive Activity wird erst
-mit dem zusätzlichen `compose.temporal.production.yml` aktiviert. Die drei
-Quelldateien liegen außerhalb des Repositories und außerhalb von `.env`:
+mit dem zusätzlichen `compose.temporal.production.yml` aktiviert. Zusätzlich
+zum gemeinsamen Security-Layer sind zwei Quelldateien erforderlich:
 
 ```bash
-export ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-auth-signing-keyring.json
-export ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-auth-verification-keyring.json
-export ANANTA_WORKFLOW_DISPATCH_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-dispatch-keyring.json
-export ANANTA_WORKFLOW_HUB_TOKEN_SECRET_FILE=/etc/ananta/secrets/workflow-hub-service-token
+export ANANTA_WORKFLOW_RUNTIME_SERVICE_KEYRING_SECRET_FILE=/etc/ananta/secrets/workflow-runtime-service-keyring.json
+export ANANTA_WORKFLOW_TEMPORAL_SERVICE_TOKEN_SECRET_FILE=/etc/ananta/secrets/workflow-temporal-service-token
 
 docker compose --env-file .env \
   -f docker/compose-next/compose.stack.full.yml \
+  -f docker/compose-next/compose.workflow-runtime.production.yml \
   -f docker/compose-next/compose.temporal.yml \
   -f docker/compose-next/compose.temporal.production.yml \
   --profile temporal config --quiet
 docker compose --env-file .env \
   -f docker/compose-next/compose.stack.full.yml \
+  -f docker/compose-next/compose.workflow-runtime.production.yml \
   -f docker/compose-next/compose.temporal.yml \
   -f docker/compose-next/compose.temporal.production.yml \
   --profile temporal up -d --build
 ```
 
+Das Runtime-Service-Keyring verwendet das Schema
+`ananta.workflow-runtime-service-keyring.v1` und enthält unter `services` genau
+den Eintrag `ananta-temporal-worker` mit dem Inhalt der separaten Token-Datei
+und ausschließlich dem Scope `workflow.temporal.tasks`. Der Temporal Worker
+sendet dazu `X-Ananta-Service-ID: ananta-temporal-worker`; das Token ist weder
+ein Hub-Admin-Token noch ein registriertes Agent-Token. Die Token-Quelldatei
+muss für den Container-User `10001` lesbar sein, empfohlen ist
+`10001:10001 0600`; das Hub-only Keyring bleibt `root:root 0600`.
+
 Zusätzlich müssen `TEMPORAL_POSTGRES_PASSWORD`, `POSTGRES_PASSWORD` und
-`INITIAL_ADMIN_PASSWORD` wie im Full-Stack gesetzt sein. Das Overlay gibt dem
-Hub exklusiv den Dispatch-Schlüsselring. Hub und Temporal Worker teilen nur den
-Autorisierungsschlüsselring und den Hub-Service-Token als Dateimount; weder der
-Angular-App noch normalen Ananta-Workern werden diese Secrets bereitgestellt.
+`INITIAL_ADMIN_PASSWORD` wie im Full-Stack gesetzt sein.
+
+Alle drei Runtimes können unter demselben Hub gerendert und gestartet werden.
+Die Reihenfolge ist verbindlich: Stack, gemeinsamer Security-Layer, Native,
+LangGraph, Temporal-Basis und zuletzt Temporal-Produktion. Das letzte Overlay
+wählt Temporal als durable Orchestration-Backend; Native- und LangGraph-Worker
+bleiben weiterhin Hub-kontrollierte Ausführer:
+
+```bash
+docker compose --env-file .env \
+  -f docker/compose-next/compose.stack.full.yml \
+  -f docker/compose-next/compose.workflow-runtime.production.yml \
+  -f docker/compose-next/compose.native.production.yml \
+  -f docker/compose-next/compose.langgraph.production.yml \
+  -f docker/compose-next/compose.temporal.yml \
+  -f docker/compose-next/compose.temporal.production.yml \
+  --profile langgraph --profile temporal config --quiet
+```
 
 Die Temporal UI ist standardmäßig unter `http://localhost:8233` erreichbar.
 Produktive Verbindungen konfigurieren TLS/mTLS, API-Key und Hub-Credentials

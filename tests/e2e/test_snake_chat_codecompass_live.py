@@ -50,7 +50,13 @@ def _require_live() -> None:
         pytest.skip(f"Set {_LIVE_FLAG}=1 to run the live snake CodeCompass E2E.")
 
 
-def _api(path: str, method: str = "GET", body: dict | None = None, token: str = "") -> dict:
+def _api(
+    path: str,
+    method: str = "GET",
+    body: dict | None = None,
+    token: str = "",
+    user_token: str = "",
+) -> dict:
     url = f"{HUB_URL}/{path.lstrip('/')}"
     data = json.dumps(body).encode() if body else None
     headers: dict[str, str] = {"Accept": "application/json"}
@@ -58,6 +64,8 @@ def _api(path: str, method: str = "GET", body: dict | None = None, token: str = 
         headers["Content-Type"] = "application/json"
     if token:
         headers["Authorization"] = f"Bearer {token}"
+    if user_token:
+        headers["X-Ananta-User-Authorization"] = f"Bearer {user_token}"
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
         with urllib.request.urlopen(req, timeout=30) as r:
@@ -142,13 +150,25 @@ def _register_snake(token: str) -> tuple[str, str]:
     return snake_id, snake_token
 
 
-def _send_chat_message(snake_id: str, snake_token: str, text: str) -> None:
+def _send_chat_message(
+    snake_id: str,
+    snake_token: str,
+    user_token: str,
+    text: str,
+) -> None:
     msg_id = f"e2e-{int(time.time() * 1000)}"
     _api(
         f"/snakes/{snake_id}/chat/messages",
         "POST",
-        {"id": msg_id, "channel_type": "room", "visibility": "room", "text": text},
+        {
+            "id": msg_id,
+            "channel_type": "room",
+            "visibility": "room",
+            "text": text,
+            "session_id": "code-help",
+        },
         token=snake_token,
+        user_token=user_token,
     )
 
 
@@ -158,7 +178,7 @@ def _wait_for_ai_response(snake_id: str, user_token: str, timeout: float = 45.0)
     last_cursor = "0"
     while time.time() < deadline:
         result = _api(
-            f"/snakes/{snake_id}/chat/messages?since={last_cursor}",
+            f"/snakes/{snake_id}/chat/messages?since={last_cursor}&session_id=code-help",
             token=user_token,
         )
         messages = result.get("messages") or []
@@ -213,7 +233,7 @@ def test_snake_chat_codecompass_returns_project_context() -> None:
     try:
         # Ask something directly about indexed code
         _send_chat_message(
-            snake_id, snake_token,
+            snake_id, snake_token, token,
             "Was macht die Funktion _build_grounded_snake_prompt in snakes.py?"
         )
         response = _wait_for_ai_response(snake_id, token)
@@ -242,7 +262,7 @@ def test_snake_chat_codecompass_ananta_folder_structure() -> None:
     snake_id, snake_token = _register_snake(token)
     try:
         _send_chat_message(
-            snake_id, snake_token,
+            snake_id, snake_token, token,
             "Welche Routes gibt es im agent/routes Ordner? Nenne konkrete Dateinamen."
         )
         response = _wait_for_ai_response(snake_id, token)
@@ -268,7 +288,7 @@ def test_snake_chat_codecompass_no_context_fallback() -> None:
     snake_id, snake_token = _register_snake(token)
     try:
         _send_chat_message(
-            snake_id, snake_token,
+            snake_id, snake_token, token,
             "Was ist die Hauptstadt von Island?"
         )
         response = _wait_for_ai_response(snake_id, token)

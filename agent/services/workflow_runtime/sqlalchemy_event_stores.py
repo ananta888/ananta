@@ -14,6 +14,7 @@ from agent.db_models.workflow_runtime import (
     WorkflowRuntimeEventDB,
     WorkflowRuntimeOutboxDB,
 )
+from agent.services.identity_validation import require_canonical_identity
 from agent.services.workflow_runtime._serialization import canonical_json
 from agent.services.workflow_runtime.errors import FencingTokenError, OptimisticConcurrencyError
 from agent.services.workflow_runtime.events import CanonicalWorkflowEvent, EventStore
@@ -316,11 +317,19 @@ class SQLAlchemyEventStore(SQLAlchemyStoreSupport, EventStore):
         after_sequence: int = 0,
         limit: int | None = None,
     ) -> tuple[CanonicalWorkflowEvent, ...]:
+        validated_tenant_id = require_canonical_identity(
+            tenant_id,
+            field_name="tenant_id",
+        )
+        validated_run_id = require_canonical_identity(
+            run_id,
+            field_name="run_id",
+        )
         statement = (
             sa.select(WorkflowRuntimeEventDB)
             .where(
-                WorkflowRuntimeEventDB.tenant_id == str(tenant_id),
-                WorkflowRuntimeEventDB.run_id == str(run_id),
+                WorkflowRuntimeEventDB.tenant_id == validated_tenant_id,
+                WorkflowRuntimeEventDB.run_id == validated_run_id,
                 WorkflowRuntimeEventDB.sequence > int(after_sequence),
             )
             .order_by(WorkflowRuntimeEventDB.sequence.asc())
@@ -399,9 +408,7 @@ class SQLAlchemyCheckpointStore(SQLAlchemyStoreSupport, CheckpointStore):
             row = session.execute(statement).scalar_one_or_none()
             return SignedCheckpoint.from_mapping(dict(row.signed_checkpoint)) if row else None
 
-    def list_history(
-        self, *, tenant_id: str, run_id: str, task_id: str
-    ) -> tuple[SignedCheckpoint, ...]:
+    def list_history(self, *, tenant_id: str, run_id: str, task_id: str) -> tuple[SignedCheckpoint, ...]:
         statement = (
             sa.select(WorkflowRuntimeCheckpointDB)
             .where(
@@ -469,17 +476,13 @@ def _checkpoint_row(checkpoint: SignedCheckpoint) -> WorkflowRuntimeCheckpointDB
     )
 
 
-def _same_event_or_raise(
-    row: WorkflowRuntimeEventDB, candidate: CanonicalWorkflowEvent
-) -> CanonicalWorkflowEvent:
+def _same_event_or_raise(row: WorkflowRuntimeEventDB, candidate: CanonicalWorkflowEvent) -> CanonicalWorkflowEvent:
     if row.content_hash != candidate.content_hash:
         raise OptimisticConcurrencyError("dedupe_key_payload_conflict")
     return CanonicalWorkflowEvent.from_mapping(dict(row.canonical_event))
 
 
-def _same_checkpoint_or_raise(
-    row: WorkflowRuntimeCheckpointDB, candidate: SignedCheckpoint
-) -> SignedCheckpoint:
+def _same_checkpoint_or_raise(row: WorkflowRuntimeCheckpointDB, candidate: SignedCheckpoint) -> SignedCheckpoint:
     stored = SignedCheckpoint.from_mapping(dict(row.signed_checkpoint))
     if canonical_json(stored.to_dict()) != canonical_json(candidate.to_dict()):
         raise OptimisticConcurrencyError("checkpoint_id_payload_conflict")

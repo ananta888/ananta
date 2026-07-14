@@ -3,32 +3,32 @@ import os
 import threading
 import time
 from queue import Empty, Queue
-from urllib.parse import urlparse
 
 import psutil
 from flask import Blueprint, Response, current_app, g, jsonify, request
 
-from agent.auth import admin_required, check_auth, rotate_token
+from agent.auth import (
+    AgentTokenConfigurationError,
+    admin_required,
+    check_auth,
+    resolve_configured_agent_token,
+    rotate_token,
+)
 from agent.common.audit import log_audit
 from agent.common.errors import api_response
 from agent.common.http import get_default_client
 from agent.config import settings
-from agent.db_models import AgentInfoDB, AuditLogDB, StatsSnapshotDB
+from agent.db_models import AuditLogDB, StatsSnapshotDB
 from agent.metrics import CONTENT_TYPE_LATEST, CPU_USAGE, RAM_USAGE, generate_latest
 from agent.models import (
     AgentRegisterRequest,
-    SystemHealthReadModel,
-    TaskExecutionPolicyContract,
-    TaskStepExecuteRequest,
-    TaskStepProposeRequest,
 )
-from agent.services.repository_registry import get_repository_registry
-from agent.routes.tasks.orchestration_policy import normalize_capabilities, normalize_worker_roles
+from agent.services.provider_observer_service import get_provider_observer_service
 from agent.services.reference_profile_service import get_reference_profile_service
+from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
 from agent.services.system_contract_service import get_system_contract_service
 from agent.services.system_health_service import build_system_health_payload
-from agent.services.provider_observer_service import get_provider_observer_service
 from agent.utils import rate_limit, read_json, validate_request, write_json
 
 # Historie fÃ¼r Statistiken (wird jetzt in DB gespeichert)
@@ -238,7 +238,8 @@ def provider_observer_snapshot():
 
     force_refresh=true requires admin and triggers a live probe.
     """
-    from flask import g, request as flask_request
+    from flask import g
+    from flask import request as flask_request
     cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
     urls = current_app.config.get("PROVIDER_URLS", {}) or {}
     force_refresh_param = str(flask_request.args.get("force_refresh") or "").strip().lower()
@@ -438,14 +439,60 @@ def metrics():
 @validate_request(AgentRegisterRequest)
 def register_agent():
     data = g.validated_data.model_dump()
+    from agent.services.workflow_worker_service_auth import (
+        STRICT_WORKER_REGISTRATION_PROVENANCE,
+        WorkflowWorkerAuthConfigurationError,
+        WorkflowWorkerAuthDenied,
+        registered_worker_auth_required,
+        validate_strict_worker_registration,
+    )
+
+    strict_worker_auth = registered_worker_auth_required(current_app.config)
     normalized, error, code = _services().agent_registry_service.validate_registration_payload(
         data,
-        registration_token=settings.registration_token,
+        # Strict Native Production uses the identity-bound registration
+        # keyring below. The historic shared registration token remains only
+        # for backward-compatible deployments.
+        registration_token=None if strict_worker_auth else settings.registration_token,
     )
     if error:
         return api_response(status="error", message=error, code=code)
 
     assert normalized is not None
+    strict_credential = None
+    if strict_worker_auth:
+        try:
+            strict_credential = validate_strict_worker_registration(
+                normalized,
+                registered_agents=agent_repo.get_all() or (),
+                hub_service_token=resolve_configured_agent_token(current_app.config),
+                user_session_secret=current_app.secret_key,
+                config=current_app.config,
+            )
+        except (WorkflowWorkerAuthConfigurationError, AgentTokenConfigurationError) as exc:
+            _log().error("Strict Worker registration configuration rejected: %s", exc)
+            return api_response(
+                status="error",
+                message="workflow_worker_registration_unavailable",
+                data={"reason_code": "workflow_worker_registration_configuration_invalid"},
+                code=503,
+            )
+        except WorkflowWorkerAuthDenied as exc:
+            log_audit(
+                "workflow_worker_registration_denied",
+                {
+                    "worker_id": str(normalized.get("name") or ""),
+                    "worker_url": str(normalized.get("url") or ""),
+                    "reason_code": exc.reason_code,
+                },
+            )
+            return api_response(
+                status="error",
+                message="workflow_worker_registration_denied",
+                data={"reason_code": exc.reason_code},
+                code=exc.status_code,
+            )
+
     reachable, validation_error = _services().agent_registry_service.validate_agent_endpoint(
         url=str(normalized.get("url") or ""),
         http_client=http_client,
@@ -454,7 +501,19 @@ def register_agent():
     if not reachable:
         return api_response(status="error", message=validation_error or "agent_validation_failed", code=400)
 
-    agent = _services().agent_registry_service.build_registered_agent(normalized)
+    agent = _services().agent_registry_service.build_registered_agent(
+        normalized,
+        registration_provenance=(
+            STRICT_WORKER_REGISTRATION_PROVENANCE
+            if strict_credential is not None
+            else "legacy"
+        ),
+        authorized_capabilities=(
+            strict_credential.allowed_capabilities
+            if strict_credential is not None
+            else ()
+        ),
+    )
     agent_repo.save(agent)
     try:
         from agent.routes.tasks.autopilot import request_autopilot_wake

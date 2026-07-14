@@ -183,11 +183,14 @@ short hash bucket, at most 32 attributes are emitted and payloads above 16 KiB
 are replaced by digest/size metadata. Arbitrary payload keys must never become
 labels; this bounds payload exposure and cardinality.
 
-Angular consumes `/api/workflow-runtime/operations` from the Hub. It exposes
-runtime, mode, capability truth, fallback, cost, latency, recovery, gates,
-evidence, parity gaps and semantic deviations. Stale data and completed runs
-without verified evidence are visibly degraded. Pause/resume/cancel/retry
-commands require a current read model, bound approval, verified evidence and an
+Angular, `ananta runtime operations/run` and the Operator-TUI command
+`:ops runtime` consume `/api/workflow-runtime/operations` from the Hub. A
+shared client presentation contract validates the Hub schemas but never
+re-evaluates outcomes. All three surfaces therefore expose the same runtime,
+mode, capability truth, fallback, cost, latency, recovery, gates, evidence,
+parity gaps and semantic deviations. Stale data and completed runs without
+verified evidence remain visibly degraded. Pause/resume/cancel/retry commands
+require a current read model, bound approval, verified evidence and an
 idempotency key.
 
 ## Runtime-neutral example

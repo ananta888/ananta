@@ -54,6 +54,50 @@ DEFAULT_WORKFLOW_RELEASE_GATE_PATH = (
 )
 _ROOT = Path(__file__).resolve().parents[3]
 
+# Proofs are accepted only when the persisted observation contains a source
+# that can actually demonstrate that proof.  In particular, a non-durable
+# runtime may not turn an ephemeral framework checkpoint into production
+# checkpoint/recovery evidence.  Native and LangGraph probes therefore emit
+# the two Hub-qualified events only after asserting a persisted Hub checkpoint
+# can be loaded by a replacement runtime instance.  Temporal may use its
+# durable-history events because the record is additionally bound to a durable
+# release variant.
+_HUB_CHECKPOINT_SOURCE_EVENTS = frozenset(
+    {
+        "workflow.checkpoint.hub_persisted",
+    }
+)
+_HUB_RECOVERY_SOURCE_EVENTS = frozenset(
+    {
+        "workflow.checkpoint.hub_restored",
+        "workflow.recovery.completed",
+    }
+)
+_DURABLE_CHECKPOINT_SOURCE_EVENTS = frozenset(
+    {
+        "workflow.checkpoint.created",
+    }
+)
+_DURABLE_RECOVERY_SOURCE_EVENTS = frozenset(
+    {
+        "workflow.run.resumed",
+        "workflow.recovery.completed",
+    }
+)
+_APPROVAL_SOURCE_EVENTS = frozenset(
+    {
+        "workflow.approval.granted",
+        "workflow.run.resumed",
+    }
+)
+_LEDGER_SOURCE_EVENTS = frozenset(
+    {
+        "workflow.side_effect.completed",
+        "workflow.side_effect.failed",
+        "workflow.side_effect.uncertain",
+    }
+)
+
 
 @dataclass(frozen=True)
 class RuntimeReleaseRequirement:
@@ -255,6 +299,7 @@ class WorkflowRuntimeReleaseResult:
     capability_matrix: Mapping[str, tuple[str, ...]]
     scenario_matrix: Mapping[str, Mapping[str, Mapping[str, Any]]]
     invariant_matrix: Mapping[str, Mapping[str, str]]
+    invariant_evidence: Mapping[str, Mapping[str, Sequence[Mapping[str, Any]]]]
     deviations: tuple[ReleaseDeviation, ...]
     verification_results: tuple[VerificationCommandResult, ...]
     evidence_digest: str
@@ -279,6 +324,13 @@ class WorkflowRuntimeReleaseResult:
             },
             "invariant_matrix": {
                 key: dict(sorted(value.items())) for key, value in sorted(self.invariant_matrix.items())
+            },
+            "invariant_evidence": {
+                runtime_id: {
+                    category: [deepcopy(dict(item)) for item in records]
+                    for category, records in sorted(categories.items())
+                }
+                for runtime_id, categories in sorted(self.invariant_evidence.items())
             },
             "deviations": [item.to_dict() for item in self.deviations],
             "verification_commands": [item.to_dict() for item in self.verification_results],
@@ -333,6 +385,7 @@ class WorkflowRuntimeReleaseGate:
         scenario_by_id = {scenario.scenario_id: scenario for scenario in self._scenarios}
         scenario_matrix: dict[str, dict[str, dict[str, Any]]] = {}
         invariant_matrix: dict[str, dict[str, str]] = {}
+        invariant_evidence: dict[str, dict[str, tuple[dict[str, Any], ...]]] = {}
         capability_matrix: dict[str, tuple[str, ...]] = {}
 
         for requirement in self._config.runtimes:
@@ -381,6 +434,7 @@ class WorkflowRuntimeReleaseGate:
                     runtime_records,
                     scenario_by_id,
                     category_applicable,
+                    category_failed,
                 )
             )
             invariant_matrix[requirement.runtime_id] = {
@@ -390,6 +444,24 @@ class WorkflowRuntimeReleaseGate:
                     else "passed"
                     if category_applicable[category]
                     else "not_applicable"
+                )
+                for category in PROOF_CATEGORIES
+            }
+            invariant_evidence[requirement.runtime_id] = {
+                category: tuple(
+                    {
+                        "command_id": record.command_id,
+                        "iteration": record.iteration,
+                        "run_id": record.run_id,
+                        "scenario_id": record.scenario_id,
+                        "sources": list(_observed_proof_sources(record, category)),
+                    }
+                    for record in sorted(
+                        runtime_records,
+                        key=lambda value: (value.scenario_id, value.iteration, value.run_id),
+                    )
+                    if record.proofs[category] == "passed"
+                    and _observed_proof_sources(record, category)
                 )
                 for category in PROOF_CATEGORIES
             }
@@ -433,6 +505,7 @@ class WorkflowRuntimeReleaseGate:
             capability_matrix=capability_matrix,
             scenario_matrix=scenario_matrix,
             invariant_matrix=invariant_matrix,
+            invariant_evidence=invariant_evidence,
             deviations=ordered_deviations,
             verification_results=command_results,
             evidence_digest=evidence_digest,
@@ -618,8 +691,6 @@ class WorkflowRuntimeReleaseGate:
             )
         durable = scenario.scenario_id in requirement.durable_scenarios
         required_proofs = {"port", "security", "event", "artifact"}
-        if durable or set(scenario.plan.capabilities) & {"checkpoint", "durability", "resume"}:
-            required_proofs.update({"recovery", "checkpoint"})
         if scenario.invariants.required_gates:
             required_proofs.add("approval")
         if scenario.invariants.side_effect_operations:
@@ -676,6 +747,19 @@ class WorkflowRuntimeReleaseGate:
                     )
                 )
             for category, proof_status in record.proofs.items():
+                if proof_status != "not_applicable":
+                    category_applicable[category] = True
+                if proof_status == "passed" and not _observed_proof_sources(record, category):
+                    category_failed[category] = True
+                    deviations.append(
+                        ReleaseDeviation(
+                            requirement.runtime_id,
+                            scenario.scenario_id,
+                            record.iteration,
+                            "proof_source_missing",
+                            (category,),
+                        )
+                    )
                 if proof_status in {"failed", "incompatible"}:
                     category_failed[category] = True
                     deviations.append(
@@ -707,6 +791,7 @@ class WorkflowRuntimeReleaseGate:
         records: tuple[RuntimeRunEvidence, ...],
         scenarios: Mapping[str, ReferenceWorkflow],
         category_applicable: dict[str, bool],
+        category_failed: dict[str, bool],
     ) -> tuple[ReleaseDeviation, ...]:
         deviations: list[ReleaseDeviation] = []
         scenario_capabilities = {
@@ -722,11 +807,27 @@ class WorkflowRuntimeReleaseGate:
             "durability": "recovery",
         }
         for capability in sorted(requirement.capabilities):
-            if capability in scenario_capabilities:
-                continue
             proof = proof_capabilities.get(capability)
-            if proof and any(record.proofs[proof] == "passed" for record in records):
+            if proof:
                 category_applicable[proof] = True
+                if any(
+                    record.proofs[proof] == "passed"
+                    and _observed_proof_sources(record, proof)
+                    for record in records
+                ):
+                    continue
+                category_failed[proof] = True
+                deviations.append(
+                    ReleaseDeviation(
+                        requirement.runtime_id,
+                        "",
+                        0,
+                        "reported_capability_not_covered",
+                        (capability, proof),
+                    )
+                )
+                continue
+            if capability in scenario_capabilities:
                 continue
             deviations.append(
                 ReleaseDeviation(
@@ -738,6 +839,70 @@ class WorkflowRuntimeReleaseGate:
                 )
             )
         return tuple(deviations)
+
+
+def _observed_proof_sources(
+    record: RuntimeRunEvidence,
+    category: str,
+) -> tuple[str, ...]:
+    """Return persisted observation fields that can substantiate one proof.
+
+    A proof status by itself is intentionally insufficient.  This function is
+    also used to render the artifact's ``invariant_evidence`` links, so the
+    verifier and an operator can identify the exact command/run that supplied
+    a green invariant.
+    """
+
+    events = frozenset(str(value) for value in record.observation.event_types)
+    if category == "port":
+        if not record.observation.terminal_status:
+            return ()
+        return (
+            f"command:{record.command_id}",
+            f"terminal:{record.observation.terminal_status}",
+        )
+    if category == "security":
+        return tuple(
+            f"policy:{value}"
+            for value in sorted(record.observation.policy_decisions)
+        )
+    if category == "event":
+        return tuple(f"event:{value}" for value in sorted(events))
+    if category == "artifact":
+        return tuple(
+            f"artifact:{value}"
+            for value in sorted(record.observation.artifact_ids)
+        )
+    if category == "checkpoint":
+        allowed = set(events & _HUB_CHECKPOINT_SOURCE_EVENTS)
+        if record.durable:
+            allowed.update(events & _DURABLE_CHECKPOINT_SOURCE_EVENTS)
+        return tuple(f"event:{value}" for value in sorted(allowed))
+    if category == "recovery":
+        allowed = set(events & _HUB_RECOVERY_SOURCE_EVENTS)
+        if record.durable:
+            allowed.update(events & _DURABLE_RECOVERY_SOURCE_EVENTS)
+        return tuple(f"event:{value}" for value in sorted(allowed))
+    if category == "approval":
+        approval_events = events & _APPROVAL_SOURCE_EVENTS
+        if not approval_events or not record.observation.gate_ids:
+            return ()
+        return (
+            *(f"event:{value}" for value in sorted(approval_events)),
+            *(f"gate:{value}" for value in sorted(record.observation.gate_ids)),
+        )
+    if category == "ledger":
+        ledger_events = events & _LEDGER_SOURCE_EVENTS
+        if not ledger_events or not record.observation.side_effect_operations:
+            return ()
+        return (
+            *(f"event:{value}" for value in sorted(ledger_events)),
+            *(
+                f"operation:{value}"
+                for value in sorted(record.observation.side_effect_operations)
+            ),
+        )
+    return ()
 
 
 class WorkflowRuntimeGateEvidenceVerifier:
@@ -781,6 +946,32 @@ class WorkflowRuntimeGateEvidenceVerifier:
             for scenario_id in required_scenarios
         ):
             return False, "release_gate_scenario_incompatible"
+        invariant_matrix = artifact.get("invariant_matrix")
+        runtime_invariants = (
+            invariant_matrix.get(runtime_id)
+            if isinstance(invariant_matrix, Mapping)
+            else None
+        )
+        invariant_evidence = artifact.get("invariant_evidence")
+        runtime_invariant_evidence = (
+            invariant_evidence.get(runtime_id)
+            if isinstance(invariant_evidence, Mapping)
+            else None
+        )
+        if not isinstance(runtime_invariants, Mapping) or not isinstance(
+            runtime_invariant_evidence,
+            Mapping,
+        ):
+            return False, "release_gate_invariant_evidence_missing"
+        if any(
+            status == "passed"
+            and (
+                not isinstance(runtime_invariant_evidence.get(category), list)
+                or not runtime_invariant_evidence[category]
+            )
+            for category, status in runtime_invariants.items()
+        ):
+            return False, "release_gate_invariant_evidence_missing"
         commands = artifact.get("verification_commands")
         if (
             not isinstance(commands, list)

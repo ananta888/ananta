@@ -6,12 +6,12 @@ once during blueprint setup. The original Flask-Yaml docstrings
 and bodies are preserved verbatim so behavior and the OpenAPI spec
 stay unchanged.
 """
+
 from __future__ import annotations
 
 import secrets
 import time
 
-import jwt
 from flask import g, request
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -28,6 +28,11 @@ from agent.routes._auth_password import (
     notify_lockout,
     record_attempt,
     validate_password_complexity,
+)
+from agent.services.user_session_tokens import (
+    UserSessionIdentityError,
+    issue_user_access_token,
+    local_user_tenant_id,
 )
 
 
@@ -48,8 +53,28 @@ def _log():
     return _shim()._log()
 
 
+def _reject_noncanonical_session_identity(exc: UserSessionIdentityError):
+    log_audit(
+        "user_session_identity_rejected",
+        {
+            "endpoint": request.endpoint,
+            "reason_code": exc.reason_code,
+        },
+    )
+    return api_response(
+        status="error",
+        message=exc.reason_code,
+        data={"reason_code": exc.reason_code},
+        code=409,
+    )
+
+
 def register_routes(auth_bp) -> None:
     """Attach the public session routes to the auth blueprint."""
+    auth_bp.register_error_handler(
+        UserSessionIdentityError,
+        _reject_noncanonical_session_identity,
+    )
 
     @auth_bp.route("/login", methods=["POST"])
     def login():
@@ -95,6 +120,8 @@ def register_routes(auth_bp) -> None:
             description: Ungültige Anmeldedaten oder ungültiger MFA-Token
           403:
             description: Account gesperrt
+          409:
+            description: Persistierte Benutzeridentität ist nicht kanonisch und muss kontrolliert korrigiert werden
           429:
             description: Zu viele Versuche
         """
@@ -123,6 +150,8 @@ def register_routes(auth_bp) -> None:
                 )
 
         if user and check_password_hash(user.password_hash, password):
+            local_user_tenant_id(user.username)
+
             if user.mfa_enabled and not mfa_token:
                 return api_response(data={"mfa_required": True, "username": username})
 
@@ -161,18 +190,17 @@ def register_routes(auth_bp) -> None:
             user.lockout_until = None
             _repos().user_repo.save(user)
 
-            payload = {
-                "sub": username,
-                "role": user.role,
-                "mfa_enabled": user.mfa_enabled,
-                "iat": int(time.time()),
-                "exp": int(time.time()) + settings.auth_access_token_ttl_seconds,
-            }
-            token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
+            token = issue_user_access_token(
+                username=user.username,
+                role=user.role,
+                mfa_enabled=user.mfa_enabled,
+            )
             refresh_token = secrets.token_urlsafe(64)
             _repos().refresh_token_repo.save(
                 RefreshTokenDB(
-                    token=refresh_token, username=username, expires_at=time.time() + settings.auth_refresh_token_ttl_seconds
+                    token=refresh_token,
+                    username=username,
+                    expires_at=time.time() + settings.auth_refresh_token_ttl_seconds,
                 )
             )
 
@@ -234,6 +262,8 @@ def register_routes(auth_bp) -> None:
             description: Fehlendes Refresh Token
           401:
             description: Ungültiges oder abgelaufenes Refresh Token
+          409:
+            description: Persistierte Benutzeridentität ist nicht kanonisch; der Refresh Token bleibt unverändert
           429:
             description: Zu viele Versuche
         """
@@ -263,25 +293,31 @@ def register_routes(auth_bp) -> None:
         if not user:
             return api_response(status="error", message="User no longer exists", code=401)
 
-        payload = {
-            "sub": username,
-            "role": user.role,
-            "mfa_enabled": user.mfa_enabled,
-            "iat": int(time.time()),
-            "exp": int(time.time()) + settings.auth_access_token_ttl_seconds,
-        }
-        new_token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
+        local_user_tenant_id(user.username)
+
+        new_token = issue_user_access_token(
+            username=user.username,
+            role=user.role,
+            mfa_enabled=user.mfa_enabled,
+        )
 
         _repos().refresh_token_repo.delete(refresh_token)
         new_refresh_token = secrets.token_urlsafe(64)
         _repos().refresh_token_repo.save(
             RefreshTokenDB(
-                token=new_refresh_token, username=username, expires_at=time.time() + settings.auth_refresh_token_ttl_seconds
+                token=new_refresh_token,
+                username=username,
+                expires_at=time.time() + settings.auth_refresh_token_ttl_seconds,
             )
         )
 
         return api_response(
-            data={"access_token": new_token, "refresh_token": new_refresh_token, "username": username, "role": user.role}
+            data={
+                "access_token": new_token,
+                "refresh_token": new_refresh_token,
+                "username": username,
+                "role": user.role,
+            }
         )
 
     @auth_bp.route("/me", methods=["GET"])

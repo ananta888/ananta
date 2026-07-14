@@ -14,19 +14,23 @@ Tests cover:
 from __future__ import annotations
 
 import time
+from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
+from threading import Event, RLock
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+from agent.auth import generate_token
+from agent.config import settings
 from agent.services.run_control_service import (
     COMMAND_TYPES,
-    BranchCandidate,
-    OperatorInstruction,
-    RunCommand,
+    RunCommandIdempotencyConflictError,
+    RunControlAuthorizationError,
+    RunControlPrincipal,
     RunControlService,
     get_run_control_service,
 )
-
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -57,7 +61,12 @@ def _mock_approval_decide(*, raises=None, result_status="granted"):
         mock = MagicMock(return_value=row)
     return patch(
         "agent.services.approval_request_service.get_approval_request_service",
-        return_value=MagicMock(decide_request=mock),
+        return_value=MagicMock(
+            get_request=MagicMock(
+                return_value=MagicMock(task_id="t1", goal_id=None),
+            ),
+            decide_request=mock,
+        ),
     )
 
 
@@ -139,12 +148,170 @@ def test_resume_with_instruction_persists(svc):
 # ── Idempotency ───────────────────────────────────────────────────────────────
 
 def test_idempotency_key_prevents_duplicate(svc):
-    with _mock_intervene(ok=True, data={"id": "t1", "status": "paused"}):
-        cmd1 = svc.send_command(command_type="pause_run", task_id="t1", idempotency_key="op:t1:pause:1")
-        cmd2 = svc.send_command(command_type="pause_run", task_id="t1", idempotency_key="op:t1:pause:1")
+    payload = {
+        "runtime_operations_governance": {
+            "approval_id": "approval-1",
+            "evidence_refs": ["ev-1"],
+        }
+    }
+    with _mock_intervene(ok=True, data={"id": "t1", "status": "paused"}) as core_services:
+        cmd1 = svc.send_command(
+            command_type="pause_run",
+            task_id="t1",
+            run_id="run-1",
+            requested_by="operator-a",
+            payload=payload,
+            idempotency_key="op:t1:pause:1",
+        )
+        cmd2 = svc.send_command(
+            command_type="pause_run",
+            task_id="t1",
+            run_id="run-1",
+            requested_by="operator-a",
+            payload=deepcopy(payload),
+            idempotency_key="op:t1:pause:1",
+        )
     assert cmd1.command_id == cmd2.command_id
     # Only one entry in _commands despite two calls
     assert len(svc._commands) == 1
+    assert core_services.return_value.task_admin_service.intervene_task.call_count == 1
+
+
+def test_concurrent_idempotent_replay_is_reserved_before_the_side_effect(svc):
+    side_effect_entered = Event()
+    release_side_effect = Event()
+
+    def intervene_task(**_kwargs):
+        side_effect_entered.set()
+        assert release_side_effect.wait(timeout=2.0)
+        return True, "ok", {"id": "t1", "status": "paused"}
+
+    core_services = MagicMock(
+        task_admin_service=MagicMock(
+            intervene_task=MagicMock(side_effect=intervene_task),
+        )
+    )
+    request = {
+        "command_type": "pause_run",
+        "task_id": "t1",
+        "run_id": "run-1",
+        "requested_by": "operator-a",
+        "idempotency_key": "concurrent-operation-key",
+    }
+    with (
+        patch(
+            "agent.services.service_registry.get_core_services",
+            return_value=core_services,
+        ),
+        ThreadPoolExecutor(max_workers=2) as pool,
+    ):
+        first = pool.submit(svc.send_command, **request)
+        assert side_effect_entered.wait(timeout=2.0)
+        replay = pool.submit(svc.send_command, **request).result(timeout=2.0)
+        # Contract: an exact concurrent replay is the already-reserved command
+        # and may therefore be an explicit in-flight ``accepted`` snapshot.
+        assert replay.status == "accepted"
+        assert replay.result == {}
+        release_side_effect.set()
+        original = first.result(timeout=2.0)
+
+    assert replay.command_id == original.command_id
+    assert core_services.task_admin_service.intervene_task.call_count == 1
+    assert len(svc._commands) == 1
+
+
+@pytest.mark.parametrize(
+    ("changed_field", "changed_value", "expected_mismatch"),
+    [
+        ("command_type", "cancel_run", "command_type"),
+        ("task_id", "task-2", "task_id"),
+        ("goal_id", "goal-2", "goal_id"),
+        ("run_id", "run-2", "run_id"),
+        ("approval_id", "approval-2", "payload"),
+        ("evidence_refs", ["ev-2"], "payload"),
+        ("read_model_sequence", 8, "payload"),
+    ],
+)
+def test_idempotency_key_reuse_with_changed_request_is_auditable_conflict(
+    svc,
+    changed_field,
+    changed_value,
+    expected_mismatch,
+):
+    first_request = {
+        "command_type": "pause_run",
+        "task_id": "task-1",
+        "goal_id": "goal-1",
+        "run_id": "run-1",
+        "requested_by": "operator-a",
+        "payload": {
+            "runtime_operations_governance": {
+                "approval_id": "approval-1",
+                "evidence_refs": ["ev-1"],
+                "read_model_sequence": 7,
+            }
+        },
+        "idempotency_key": "operation-command-key",
+    }
+    replay_request = deepcopy(first_request)
+    if changed_field in {"approval_id", "evidence_refs", "read_model_sequence"}:
+        replay_request["payload"]["runtime_operations_governance"][changed_field] = changed_value
+    else:
+        replay_request[changed_field] = changed_value
+
+    class _TrackingLock:
+        def __init__(self) -> None:
+            self._lock = RLock()
+            self.held = False
+
+        def __enter__(self):
+            self._lock.acquire()
+            self.held = True
+            return self
+
+        def __exit__(self, *_args):
+            self.held = False
+            self._lock.release()
+
+    tracking_lock = _TrackingLock()
+    svc._command_lock = tracking_lock
+
+    def record_audit(*_args, **_kwargs):
+        assert tracking_lock.held is False
+
+    with (
+        _mock_intervene(ok=True, data={"id": "task-1", "status": "paused"}) as core_services,
+        patch(
+            "agent.services.run_control_service.log_audit",
+            side_effect=record_audit,
+        ) as audit,
+    ):
+        original = svc.send_command(**first_request)
+        with pytest.raises(RunCommandIdempotencyConflictError) as conflict_info:
+            svc.send_command(**replay_request)
+
+    conflict = conflict_info.value
+    assert conflict.reason_code == "run_command_idempotency_conflict"
+    assert conflict.existing_command_id == original.command_id
+    assert conflict.idempotency_key_ref.startswith("idempotency-sha256:")
+    assert first_request["idempotency_key"] not in conflict.idempotency_key_ref
+    assert expected_mismatch in conflict.mismatched_fields
+    assert len(svc._commands) == 1
+    assert core_services.return_value.task_admin_service.intervene_task.call_count == 1
+    conflict_audits = [
+        call.args[1]
+        for call in audit.call_args_list
+        if call.args[0] == "run_command_idempotency_conflict"
+    ]
+    assert len(conflict_audits) == 1
+    assert expected_mismatch in conflict_audits[0]["mismatched_fields"]
+    assert "payload" not in conflict_audits[0]
+    assert "idempotency_key" not in conflict_audits[0]
+    assert conflict_audits[0]["idempotency_key_ref"] == conflict.idempotency_key_ref
+    assert all(
+        first_request["idempotency_key"] not in repr(call.args[1])
+        for call in audit.call_args_list
+    )
 
 
 def test_different_idempotency_keys_create_separate_commands(svc):
@@ -153,6 +320,178 @@ def test_different_idempotency_keys_create_separate_commands(svc):
     with _mock_intervene(ok=True, data={"id": "t1", "status": "paused"}):
         cmd2 = svc.send_command(command_type="pause_run", task_id="t1", idempotency_key="k2")
     assert cmd1.command_id != cmd2.command_id
+
+
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "/api/runs/run-idempotency-route/commands",
+        "/api/tasks/task-idempotency-route/commands",
+        "/api/goals/goal-idempotency-route/commands",
+    ],
+)
+def test_run_control_routes_return_stable_409_without_duplicate_effect(
+    client,
+    monkeypatch: pytest.MonkeyPatch,
+    svc,
+    endpoint,
+):
+    monkeypatch.setattr(
+        "agent.routes.run_control.get_run_control_service",
+        lambda: svc,
+    )
+    monkeypatch.setattr("agent.services.run_control_service.log_audit", lambda *_args: None)
+    token = generate_token(
+        {"sub": "route-operator", "role": "user"},
+        settings.secret_key,
+    )
+    headers = {"Authorization": f"Bearer {token}"}
+    principal = RunControlPrincipal.from_values("route-operator", "route-operator")
+    if "/api/runs/" in endpoint:
+        assert svc.bind_resource_owners(
+            principal=principal,
+            resources=(("task", "run-idempotency-route"), ("run", "run-idempotency-route")),
+        )
+    elif "/api/tasks/" in endpoint:
+        assert svc.bind_resource_owner(
+            kind="task",
+            resource_id="task-idempotency-route",
+            principal=principal,
+        )
+    else:
+        assert svc.bind_resource_owner(
+            kind="goal",
+            resource_id="goal-idempotency-route",
+            principal=principal,
+        )
+    request_body = {
+        "type": "inject_instruction",
+        "idempotency_key": "raw-route-idempotency-key",
+        "payload": {"text": "Apply this once"},
+    }
+
+    accepted = client.post(endpoint, headers=headers, json=request_body)
+    replayed = client.post(endpoint, headers=headers, json=request_body)
+    conflict = client.post(
+        endpoint,
+        headers=headers,
+        json={
+            **request_body,
+            "payload": {"text": "This must not be applied"},
+        },
+    )
+
+    assert accepted.status_code == 200
+    assert replayed.status_code == 200
+    assert (
+        accepted.get_json()["command"]["command_id"]
+        == replayed.get_json()["command"]["command_id"]
+    )
+    assert conflict.status_code == 409
+    assert conflict.get_json() == {
+        "status": "error",
+        "reason_code": "runtime_command_idempotency_conflict",
+    }
+    assert len(svc._commands) == 1
+    assert len(svc._instructions) == 1
+
+
+def test_idempotency_and_resources_are_exactly_principal_scoped(svc):
+    owner = RunControlPrincipal.from_values("tenant-a", "operator")
+    intruder = RunControlPrincipal.from_values("tenant-b", "operator")
+    assert svc.bind_resource_owner(kind="task", resource_id="task-a", principal=owner)
+    assert svc.bind_resource_owner(kind="task", resource_id="task-b", principal=intruder)
+
+    first = svc.send_command(
+        command_type="inject_instruction",
+        task_id="task-a",
+        payload={"text": "owner instruction"},
+        requested_by=owner.subject_id,
+        tenant_id=owner.tenant_id,
+        subject_id=owner.subject_id,
+        idempotency_key="same-client-key",
+    )
+    independent = svc.send_command(
+        command_type="inject_instruction",
+        task_id="task-b",
+        payload={"text": "tenant-b instruction"},
+        requested_by=intruder.subject_id,
+        tenant_id=intruder.tenant_id,
+        subject_id=intruder.subject_id,
+        idempotency_key="same-client-key",
+    )
+    with pytest.raises(RunControlAuthorizationError):
+        svc.send_command(
+            command_type="inject_instruction",
+            task_id="task-a",
+            payload={"text": "must not run"},
+            requested_by=intruder.subject_id,
+            tenant_id=intruder.tenant_id,
+            subject_id=intruder.subject_id,
+            idempotency_key="same-client-key",
+        )
+
+    assert first.command_id != independent.command_id
+    assert len(svc._instructions) == 2
+
+
+def test_legacy_task_binding_is_deterministic_not_first_tenant_wins(svc):
+    task = MagicMock(
+        history=[{"event_type": "task_ingested", "actor": "shared-subject"}],
+    )
+    repositories = MagicMock()
+    repositories.task_repo.get_by_id.return_value = task
+    foreign = RunControlPrincipal.from_values("tenant-a", "shared-subject")
+    legacy_owner = RunControlPrincipal.from_values("shared-subject", "shared-subject")
+
+    with patch(
+        "agent.services.repository_registry.get_repository_registry",
+        return_value=repositories,
+    ):
+        assert not svc.authorize_resources(
+            principal=foreign,
+            task_id="legacy-task",
+        )
+        assert ("task", "legacy-task") not in svc._resource_owners
+        assert svc.authorize_resources(
+            principal=legacy_owner,
+            task_id="legacy-task",
+        )
+
+    assert svc._resource_owners[("task", "legacy-task")] == legacy_owner
+
+
+def test_run_control_route_hides_foreign_resource(client, monkeypatch, svc):
+    monkeypatch.setattr("agent.routes.run_control.get_run_control_service", lambda: svc)
+    owner = RunControlPrincipal.from_values("tenant-a", "shared-subject")
+    assert svc.bind_resource_owner(kind="task", resource_id="private-task", principal=owner)
+    owner_token = generate_token(
+        {"sub": "shared-subject", "tenant_id": "tenant-a", "role": "user"},
+        settings.secret_key,
+    )
+    foreign_token = generate_token(
+        {"sub": "shared-subject", "tenant_id": "tenant-b", "role": "user"},
+        settings.secret_key,
+    )
+
+    denied_read = client.get(
+        "/api/tasks/private-task/control-state",
+        headers={"Authorization": f"Bearer {foreign_token}"},
+    )
+    denied_write = client.post(
+        "/api/tasks/private-task/commands",
+        headers={"Authorization": f"Bearer {foreign_token}"},
+        json={"type": "inject_instruction", "payload": {"text": "foreign"}},
+    )
+    allowed = client.post(
+        "/api/tasks/private-task/commands",
+        headers={"Authorization": f"Bearer {owner_token}"},
+        json={"type": "inject_instruction", "payload": {"text": "owner"}},
+    )
+
+    assert denied_read.status_code == denied_write.status_code == 404
+    assert denied_read.get_json() == denied_write.get_json()
+    assert allowed.status_code == 200
 
 
 # ── Instruction injection ─────────────────────────────────────────────────────
@@ -192,7 +531,7 @@ def test_inject_instruction_supersedes_previous(svc):
         task_id="t1",
         payload={"text": "Alt instruction"},
     )
-    cmd2 = svc.send_command(
+    svc.send_command(
         command_type="inject_instruction",
         task_id="t1",
         payload={"text": "Neue instruction"},
@@ -209,7 +548,7 @@ def test_inject_context_note_does_not_supersede(svc):
         task_id="t1",
         payload={"text": "Main constraint"},
     )
-    cmd2 = svc.send_command(
+    svc.send_command(
         command_type="inject_instruction",
         task_id="t1",
         payload={"text": "Side note", "mode": "context_note_only"},
@@ -256,6 +595,19 @@ def test_select_branch_success_pauses_others(svc):
     assert svc._branches[b1.branch_id].status == "selected"
     assert svc._branches[b2.branch_id].status == "paused"
     assert svc._branches[b3.branch_id].status == "paused"
+
+
+def test_select_branch_rejects_same_principal_foreign_task_branch(svc):
+    branch = svc.create_branch(task_id="task-b", label="B")
+    cmd = svc.send_command(
+        command_type="select_branch",
+        task_id="task-a",
+        payload={"branch_id": branch.branch_id},
+    )
+
+    assert cmd.status == "failed"
+    assert cmd.result["error"] == "branch_not_found"
+    assert branch.status == "proposed"
 
 
 def test_select_already_selected_branch(svc):
@@ -306,6 +658,27 @@ def test_approve_gate_expired(svc):
         )
     assert cmd.status == "failed"
     assert "request_expired" in cmd.result["error"]
+
+
+def test_approve_gate_rejects_approval_from_another_task(svc):
+    approval_service = MagicMock()
+    approval_service.get_request.return_value = MagicMock(
+        task_id="task-b",
+        goal_id=None,
+    )
+    with patch(
+        "agent.services.approval_request_service.get_approval_request_service",
+        return_value=approval_service,
+    ):
+        cmd = svc.send_command(
+            command_type="approve_gate",
+            task_id="task-a",
+            payload={"approval_id": "foreign-approval"},
+        )
+
+    assert cmd.status == "failed"
+    assert cmd.result == {"error": "approval_not_found"}
+    approval_service.decide_request.assert_not_called()
 
 
 # ── Control-state read model ──────────────────────────────────────────────────

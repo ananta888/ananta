@@ -1,52 +1,8 @@
+# Native runtime selection. The shared production credential boundary lives in
+# compose.workflow-runtime.production.yml and must be loaded immediately before
+# this runtime-specific overlay.
 services:
   ai-agent-hub:
     environment:
-      AGENT_TOKEN_FILE: /run/secrets/workflow_hub_service_token
       ANANTA_ORCHESTRATION_BACKEND: local
       ANANTA_WORKFLOW_BACKEND: local
-      ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_FILE: /run/secrets/workflow_runtime_auth_signing_keyring
-    secrets:
-      - source: workflow_runtime_auth_signing_keyring
-        target: workflow_runtime_auth_signing_keyring
-        mode: 0440
-      - source: workflow_hub_service_token
-        target: workflow_hub_service_token
-        mode: 0440
-
-  ai-agent-alpha:
-    environment:
-      AGENT_TOKEN_FILE: /run/secrets/workflow_hub_service_token
-      ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_FILE: /run/secrets/workflow_runtime_auth_verification_keyring
-      ANANTA_WORKFLOW_HUB_URL: http://ai-agent-hub:5000
-      ANANTA_WORKFLOW_HUB_TOKEN_FILE: /run/secrets/workflow_hub_service_token
-      ANANTA_WORKFLOW_ADAPTER_WORKER_PROFILE_FILE: /app/config/workflow_runtime/native_worker_profile.v1.json
-    secrets:
-      - source: workflow_runtime_auth_verification_keyring
-        target: workflow_runtime_auth_verification_keyring
-        mode: 0440
-      - source: workflow_hub_service_token
-        target: workflow_hub_service_token
-        mode: 0440
-
-  ai-agent-beta:
-    environment:
-      AGENT_TOKEN_FILE: /run/secrets/workflow_hub_service_token
-      ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_FILE: /run/secrets/workflow_runtime_auth_verification_keyring
-      ANANTA_WORKFLOW_HUB_URL: http://ai-agent-hub:5000
-      ANANTA_WORKFLOW_HUB_TOKEN_FILE: /run/secrets/workflow_hub_service_token
-      ANANTA_WORKFLOW_ADAPTER_WORKER_PROFILE_FILE: /app/config/workflow_runtime/native_worker_profile.v1.json
-    secrets:
-      - source: workflow_runtime_auth_verification_keyring
-        target: workflow_runtime_auth_verification_keyring
-        mode: 0440
-      - source: workflow_hub_service_token
-        target: workflow_hub_service_token
-        mode: 0440
-
-secrets:
-  workflow_runtime_auth_signing_keyring:
-    file: "${ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_SECRET_FILE:?Error: auth signing keyring secret file must be set}"
-  workflow_runtime_auth_verification_keyring:
-    file: "${ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_SECRET_FILE:?Error: auth verification keyring file must be set}"
-  workflow_hub_service_token:
-    file: "${ANANTA_WORKFLOW_HUB_TOKEN_SECRET_FILE:?Error: Hub service-token secret file must be set}"

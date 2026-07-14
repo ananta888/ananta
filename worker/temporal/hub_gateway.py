@@ -84,6 +84,7 @@ class HttpHubTaskGateway:
         command_path: str = "/api/internal/workflow-runtime/tasks",
         timeout_seconds: float = 15.0,
         ssl_context: ssl.SSLContext | None = None,
+        service_id: str = "",
     ) -> None:
         self._hub_url = str(hub_url or "").rstrip("/")
         self._bearer_token = str(bearer_token or "")
@@ -91,10 +92,18 @@ class HttpHubTaskGateway:
         self._retry_path = f"{self._command_path.rsplit('/', 1)[0]}/retries"
         self._timeout_seconds = max(1.0, min(float(timeout_seconds), 120.0))
         self._ssl_context = ssl_context
+        self._service_id = str(service_id or "").strip()
         if not self._hub_url.startswith(("http://", "https://")):
             raise ValueError("hub_url must use HTTP or HTTPS")
         if not self._bearer_token or len(self._bearer_token) > 16_384:
             raise ValueError("hub bearer token is invalid")
+        if (
+            len(self._service_id.encode("utf-8")) > 256
+            or "\x00" in self._service_id
+            or "\r" in self._service_id
+            or "\n" in self._service_id
+        ):
+            raise ValueError("workflow runtime service ID is invalid")
 
     async def submit_authorized_task(self, request: StepActivityInput) -> HubTaskReceipt:
         payload = _activity_command(request, command="submit")
@@ -148,6 +157,8 @@ class HttpHubTaskGateway:
             "Authorization": f"Bearer {self._bearer_token}",
             "User-Agent": "ananta-temporal-worker/1",
         }
+        if self._service_id:
+            headers["X-Ananta-Service-ID"] = self._service_id
         if payload is not None:
             body = json.dumps(dict(payload), sort_keys=True, separators=(",", ":")).encode("utf-8")
             headers["Content-Type"] = "application/json"

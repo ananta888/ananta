@@ -4,7 +4,10 @@ import json
 from pathlib import Path
 from typing import Any
 
-from agent.services.planning_track_pipeline_service import validate_planning_track_with_details, validate_summary_consistency
+from agent.services.planning_track_pipeline_service import (
+    validate_planning_track_with_details,
+    validate_summary_consistency,
+)
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -54,7 +57,11 @@ def _convert_legacy_epics_preview(payload: dict[str, Any]) -> dict[str, Any]:
             {
                 "id": str(epic.get("id") or f"M{idx + 1:02d}"),
                 "title": str(epic.get("title") or epic.get("id") or f"Epic {idx + 1}"),
-                "task_ids": [str(task.get("id") or "").strip() for task in tasks if str(task.get("milestone_id") or "").strip() == str(epic.get("id") or "").strip()],
+                "task_ids": [
+                    str(task.get("id") or "").strip()
+                    for task in tasks
+                    if str(task.get("milestone_id") or "").strip() == str(epic.get("id") or "").strip()
+                ],
                 "status": "todo",
             }
             for idx, epic in enumerate(epics)
@@ -180,7 +187,7 @@ def migrate_track_todos(*, repo_root: str | Path, dry_run: bool = True, convert_
     files: list[Path] = []
     for candidate in sorted(todos_dir.rglob("*.json")):
         rel = candidate.relative_to(todos_dir)
-        if rel.parts and rel.parts[0] in {"archive", "kritis"}:
+        if rel.parts and rel.parts[0] in {"archive", "archiv", "kritis"}:
             continue
         files.append(candidate)
     results: list[dict[str, Any]] = []

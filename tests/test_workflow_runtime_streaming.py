@@ -165,6 +165,18 @@ def test_authenticated_hub_stream_uses_post_body_and_returns_resume_cursor(
 ) -> None:
     del workflow_runtime_auth_keyring_file
     monkeypatch.setenv("ANANTA_ORCHESTRATION_BACKEND", "local")
+    # This test owns the authenticated streaming contract. Rollout admission
+    # is exercised separately with mandatory Hub-compiled scopes and policies;
+    # keep the real release evidence, worker health and Hub control boundary.
+    monkeypatch.setattr(
+        "agent.services.workflow_control_composition._production_rollout_policies",
+        lambda: None,
+    )
+    from agent.services.workflow_control_composition import (
+        reset_workflow_backend_control_facade,
+    )
+
+    reset_workflow_backend_control_facade()
     app = Flask(__name__)
     app.config.update(TESTING=True, AGENT_TOKEN=None)
     app.register_blueprint(vp_bp)

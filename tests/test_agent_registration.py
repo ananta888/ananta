@@ -1,3 +1,4 @@
+import hashlib
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -339,6 +340,10 @@ def test_registration_uses_file_managed_service_token_and_runtime_metadata(
     token_file = tmp_path / "workflow-worker-token"
     token_file.write_text(token, encoding="utf-8")
     token_file.chmod(0o600)
+    bootstrap_token = "workflow-worker-registration-token-0123456789abcdef"
+    bootstrap_file = tmp_path / "workflow-worker-registration-token"
+    bootstrap_file.write_text(bootstrap_token, encoding="utf-8")
+    bootstrap_file.chmod(0o600)
     captured = {}
 
     def register(**values):
@@ -359,6 +364,7 @@ def test_registration_uses_file_managed_service_token_and_runtime_metadata(
         AGENT_NAME="worker-alpha",
         AGENT_TOKEN=None,
         AGENT_TOKEN_FILE=str(token_file),
+        REGISTRATION_TOKEN_FILE=str(bootstrap_file),
     )
     app.extensions["workflow_adapter_worker_registration"] = {
         "capabilities": ["workflow.adapter.langgraph"],
@@ -368,5 +374,161 @@ def test_registration_uses_file_managed_service_token_and_runtime_metadata(
     registration_mod.start_registration_thread(app)
 
     assert captured["token"] == token
+    assert captured["registration_token"] == bootstrap_token
+    assert captured["registration_token"] != captured["token"]
     assert captured["capabilities"] == ["workflow.adapter.langgraph"]
     assert captured["runtime_targets"] == [{"runtime_id": "langgraph"}]
+
+
+def test_strict_registration_route_binds_keyring_identity_and_service_token(
+    client,
+    app,
+    tmp_path,
+):
+    import json
+
+    from agent.services.workflow_worker_service_auth import (
+        WORKER_REGISTRATION_KEYRING_SCHEMA,
+    )
+
+    bootstrap_token = "alpha-registration-bootstrap-0123456789abcdef"
+    service_token = "alpha-workflow-service-token-0123456789abcdef"
+    keyring = tmp_path / "worker-registration-keyring.json"
+    keyring.write_text(
+        json.dumps(
+            {
+                "schema": WORKER_REGISTRATION_KEYRING_SCHEMA,
+                "workers": {
+                    "worker-alpha": {
+                        "worker_url": "http://worker-alpha:5000",
+                        "registration_token": bootstrap_token,
+                        "service_token_sha256": hashlib.sha256(
+                            service_token.encode("utf-8")
+                        ).hexdigest(),
+                        "session_signing_key_sha256": hashlib.sha256(
+                            b"alpha-session-signing-key-0123456789abcdef"
+                        ).hexdigest(),
+                        "allowed_capabilities": [
+                            "planning",
+                            "workflow.adapter.native",
+                        ],
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    keyring.chmod(0o440)
+    app.config.update(
+        AGENT_TOKEN="hub-administrator-service-token-0123456789abcdef",
+        AGENT_TOKEN_FILE="",
+        ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH=True,
+        ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE=str(keyring),
+    )
+
+    with patch("agent.routes.system.http_client.get") as mock_get:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_get.return_value = mock_response
+        with patch("agent.routes.system.agent_repo") as mock_repo:
+            mock_repo.get_all.return_value = []
+            response = client.post(
+                "/register",
+                json={
+                    "name": "worker-alpha",
+                    "url": "http://worker-alpha:5000",
+                    "role": "worker",
+                    "token": service_token,
+                    "registration_token": bootstrap_token,
+                    "capabilities": ["workflow.adapter.native"],
+                    "worker_roles": ["coder"],
+                },
+            )
+
+    assert response.status_code == 200
+    saved = mock_repo.save.call_args.args[0]
+    assert saved.name == "worker-alpha"
+    assert saved.url == "http://worker-alpha:5000"
+    assert saved.token == service_token
+    assert saved.registration_provenance == "strict_registration_keyring_v1"
+    assert saved.authorized_capabilities == [
+        "planning",
+        "workflow.adapter.native",
+    ]
+    assert saved.capabilities == ["workflow.adapter.native"]
+
+
+def test_strict_registration_route_rejects_foreign_bootstrap_identity(
+    client,
+    app,
+    tmp_path,
+):
+    import json
+
+    from agent.services.workflow_worker_service_auth import (
+        WORKER_REGISTRATION_KEYRING_SCHEMA,
+    )
+
+    alpha_bootstrap = "alpha-registration-bootstrap-0123456789abcdef"
+    beta_bootstrap = "beta-registration-bootstrap-0123456789abcdefg"
+    keyring = tmp_path / "worker-registration-keyring.json"
+    keyring.write_text(
+        json.dumps(
+            {
+                "schema": WORKER_REGISTRATION_KEYRING_SCHEMA,
+                "workers": {
+                    "worker-alpha": {
+                        "worker_url": "http://worker-alpha:5000",
+                        "registration_token": alpha_bootstrap,
+                        "service_token_sha256": hashlib.sha256(
+                            b"alpha-workflow-service-token-0123456789abcdef"
+                        ).hexdigest(),
+                        "session_signing_key_sha256": hashlib.sha256(
+                            b"alpha-session-signing-key-0123456789abcdef"
+                        ).hexdigest(),
+                        "allowed_capabilities": ["workflow.adapter.native"],
+                    },
+                    "worker-beta": {
+                        "worker_url": "http://worker-beta:5000",
+                        "registration_token": beta_bootstrap,
+                        "service_token_sha256": hashlib.sha256(
+                            b"beta-workflow-service-token-0123456789abcdefg"
+                        ).hexdigest(),
+                        "session_signing_key_sha256": hashlib.sha256(
+                            b"beta-session-signing-key-0123456789abcdefg"
+                        ).hexdigest(),
+                        "allowed_capabilities": ["workflow.adapter.langgraph"],
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    keyring.chmod(0o440)
+    app.config.update(
+        AGENT_TOKEN="hub-administrator-service-token-0123456789abcdef",
+        AGENT_TOKEN_FILE="",
+        ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH=True,
+        ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE=str(keyring),
+    )
+
+    with patch("agent.routes.system.agent_repo") as mock_repo:
+        mock_repo.get_all.return_value = []
+        response = client.post(
+            "/register",
+            json={
+                "name": "worker-alpha",
+                "url": "http://worker-alpha:5000",
+                "role": "worker",
+                "token": "alpha-workflow-service-token-0123456789abcdef",
+                "registration_token": beta_bootstrap,
+                "capabilities": ["workflow.adapter.native"],
+                "worker_roles": ["coder"],
+            },
+        )
+
+    assert response.status_code == 401
+    assert response.get_json()["data"]["reason_code"] == (
+        "workflow_worker_registration_identity_denied"
+    )
+    mock_repo.save.assert_not_called()

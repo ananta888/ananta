@@ -7,6 +7,7 @@ from agent.common.mfa import encrypt_secret
 from agent.config import settings
 from agent.database import engine, init_db
 from agent.db_models import AgentInfoDB, ConfigDB, ScheduledTaskDB, TaskDB, TeamDB, TemplateDB, UserDB
+from agent.services.user_session_tokens import UserSessionIdentityError, local_user_tenant_id
 
 
 def read_json(path, default=None):
@@ -16,18 +17,40 @@ def read_json(path, default=None):
         return json.load(f)
 
 
+def _validated_user_records(users_json):
+    if not isinstance(users_json, dict):
+        raise ValueError("invalid_users_json:expected_object")
+
+    validated = []
+    for raw_username, info in users_json.items():
+        try:
+            username = local_user_tenant_id(raw_username)
+        except UserSessionIdentityError as exc:
+            raise ValueError(
+                f"invalid_migrated_username:{exc.reason_code}"
+            ) from exc
+        if not isinstance(info, dict):
+            raise ValueError(f"invalid_migrated_user:{username}:expected_object")
+        password_hash = info.get("password")
+        if not isinstance(password_hash, str) or not password_hash:
+            raise ValueError(f"invalid_migrated_user:{username}:password_required")
+        validated.append((username, info, password_hash))
+    return validated
+
+
 def migrate_folder(folder_path, session):
     print(f"Migriere Ordner: {folder_path}")
 
     # 1. Users migration
     users_json = read_json(os.path.join(folder_path, "users.json"), {})
-    for username, info in users_json.items():
+    user_records = _validated_user_records(users_json)
+    for username, info, password_hash in user_records:
         user = session.get(UserDB, username)
         if not user:
             session.add(
                 UserDB(
                     username=username,
-                    password_hash=info["password"],
+                    password_hash=password_hash,
                     role=info.get("role", "user"),
                     mfa_secret=encrypt_secret(info.get("mfa_secret")),
                     mfa_enabled=info.get("mfa_enabled", False),

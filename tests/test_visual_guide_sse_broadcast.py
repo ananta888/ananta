@@ -127,8 +127,11 @@ class TestCandidateSelectionLogging:
 
     @pytest.fixture
     def client(self):
-        from agent.routes.snakes import _snakes, snakes_bp
         from flask import Flask
+
+        from agent.config import settings
+        from agent.routes.snakes import _snakes, snakes_bp
+        from agent.services.user_session_tokens import issue_user_access_token
 
         app = Flask(__name__)
         app.register_blueprint(snakes_bp)
@@ -140,9 +143,20 @@ class TestCandidateSelectionLogging:
             "name": "test",
             "role": "viewer",
             "color": "mint",
+            "auth_mode": "legacy_local_dev",
+            "owner_principal": {
+                "tenant_id": settings.initial_admin_user,
+                "subject_id": settings.initial_admin_user,
+            },
         }
 
-        yield app.test_client()
+        client = app.test_client()
+        user_token = issue_user_access_token(
+            username=settings.initial_admin_user,
+            role="admin",
+        )
+        client.environ_base["HTTP_X_ANANTA_USER_AUTHORIZATION"] = f"Bearer {user_token}"
+        yield client
 
         _snakes.pop("sel-snake", None)
 
@@ -197,8 +211,8 @@ class TestRegionExplainReadableSummary:
         assert "/settings" in text
 
     def test_rule_path_message_has_readable_prefix(self):
-        from agent.services.visual_guide.service import VisualGuideService
         from agent.services.visual_guide.rule_engine import RuleEngine
+        from agent.services.visual_guide.service import VisualGuideService
 
         svc = VisualGuideService()
         appended_texts: list[str] = []

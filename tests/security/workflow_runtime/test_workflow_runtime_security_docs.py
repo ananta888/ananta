@@ -8,6 +8,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import yaml
+
 from agent.services.workflow_runtime.execution_plan import ExecutionPlan
 from scripts.validate_workflow_runtime_docs import (
     _load_json,
@@ -21,6 +23,58 @@ ROOT = Path(__file__).resolve().parents[3]
 
 def test_workflow_runtime_documentation_and_security_gate_are_complete() -> None:
     assert validate_repository(ROOT) == []
+
+
+def test_ci_renders_every_production_runtime_through_common_security_boundary() -> None:
+    workflow = yaml.safe_load(
+        (ROOT / ".github/workflows/quality-and-docs.yml").read_text(
+            encoding="utf-8"
+        )
+    )
+    job = workflow["jobs"]["compose-config"]
+    steps = {step.get("name"): str(step.get("run") or "") for step in job["steps"]}
+    runtime_files = {
+        "Validate Compose-next production Native runtime": (
+            "compose.native.production.yml"
+        ),
+        "Validate Compose-next production LangGraph runtime": (
+            "compose.langgraph.production.yml"
+        ),
+        "Validate Compose-next production Temporal secret wiring": (
+            "compose.temporal.production.yml"
+        ),
+    }
+    for step_name, runtime_file in runtime_files.items():
+        command = steps[step_name]
+        common = "compose.workflow-runtime.production.yml"
+        assert common in command
+        assert runtime_file in command
+        assert command.index(common) < command.index(runtime_file)
+
+    required_environment = {
+        "CORS_ORIGINS",
+        "ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_SECRET_FILE",
+        "ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_SECRET_FILE",
+        "ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_SECRET_FILE",
+        "ANANTA_HUB_SESSION_SIGNING_KEY_SECRET_FILE",
+        "ANANTA_WORKFLOW_RUNTIME_SERVICE_KEYRING_SECRET_FILE",
+    }
+    assert required_environment <= set(job["env"])
+    fixture_source = steps["Prepare non-production Compose secret fixtures"]
+    assert "service_token_sha256" in fixture_source
+    assert "session_signing_key_sha256" in fixture_source
+
+
+def test_production_runbooks_define_worker_fingerprint_generation_and_rotation() -> None:
+    compose_runbook = (ROOT / "docker/compose-next/README.md").read_text(encoding="utf-8")
+    temporal_runbook = (ROOT / "docs/operations/temporal-runtime.md").read_text(encoding="utf-8")
+
+    for field_name in ("service_token_sha256", "session_signing_key_sha256"):
+        assert field_name in compose_runbook
+        assert field_name in temporal_runbook
+    assert "hashlib.sha256(value.encode(\"utf-8\")).hexdigest()" in compose_runbook
+    assert ".read_text(encoding=\"utf-8\").strip()" in compose_runbook
+    assert "atomar gemeinsam aktualisiert" in compose_runbook
 
 
 def test_open_critical_finding_blocks_production_policy() -> None:

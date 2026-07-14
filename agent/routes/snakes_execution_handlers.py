@@ -1,4 +1,8 @@
 """Snake execution endpoint implementations — chat API, ask, worker-context."""
+# This module is also the historical ``snakes_execution_routes`` compatibility
+# surface (see that module's ``sys.modules`` alias), so selected imports are
+# intentionally re-exported even when this implementation does not call them.
+# ruff: noqa: F401
 
 from __future__ import annotations
 
@@ -11,44 +15,37 @@ import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from flask import Blueprint, current_app, has_app_context, jsonify, request, Response
+import jwt
+from flask import Blueprint, Response, current_app, has_app_context, jsonify, request
 
 from agent.config import settings
 from agent.llm_integration import generate_text
+from agent.services.chat_session_security import (
+    ChatSessionPrincipal,
+    authorize_session,
+    chat_session_mutation_lock,
+)
 from agent.services.rag_service import get_rag_service
 from agent.services.snake_chat_cancellation import (
     cancel_chat,
     register_chat_cancel,
     unregister_chat_cancel,
 )
+from agent.services.user_token_scope import SNAKE_EVENTS_STREAM_TOKEN_USE
 
-from .snakes_state import (
-    _MAX_CHAT_MSGS,
-    _MAX_ROOM_MSGS,
-    _SCAN_CANCELS,
-    _VALID_CHANNEL_TYPES,
-    _VALID_VISIBILITY,
-    _chat_messages,
-    _is_local_request,
-    _optional_user_auth,
-    _request_device_id,
-    _room_messages,
-    _snake_bound_to_auth,
-    _snakes,
-    snakes_bp,
-)
 from .snake_event_broadcaster import (
     broadcast_snake_event,
     drop_snake_queue,
     get_snake_event,
 )
 from .snakes_chat_helpers import (
-    SnakeAskLimits,
     _ANANTA_UI_GUIDE_MAP,
+    SnakeAskLimits,
     _answer_budget_instruction,
     _answer_overflow_policy,
     _append_room_ai_message,
@@ -66,6 +63,9 @@ from .snakes_chat_helpers import (
     _trace_feature_enabled,
     _with_answer_budget_instruction,
 )
+from .snakes_full_scan import _SCAN_CANCELS as _FULL_SCAN_CANCELS
+from .snakes_full_scan import worker_chat_full_scan as _worker_chat_full_scan
+from .snakes_rag_iterative import worker_chat_rag_iterative as _worker_chat_rag_iterative
 from .snakes_retrieval_helpers import (
     _SNAKE_RETRIEVAL_CONFIG_KEYS,
     _build_local_repo_fallback_context,
@@ -74,6 +74,24 @@ from .snakes_retrieval_helpers import (
     _resolve_snake_retrieval_profile_trace,
     _snake_retrieval_config_overrides,
     _snake_retrieval_dry_run,
+)
+from .snakes_state import (
+    _MAX_CHAT_MSGS,
+    _MAX_ROOM_MSGS,
+    _SCAN_CANCELS,
+    _VALID_CHANNEL_TYPES,
+    _VALID_VISIBILITY,
+    _chat_messages,
+    _chat_principal_from_auth,
+    _check_snake_control_auth,
+    _optional_user_auth,
+    _request_device_id,
+    _room_messages,
+    _snake_bound_to_auth,
+    _snake_owner_principal,
+    _snake_stream_query_auth,
+    _snakes,
+    snakes_bp,
 )
 from .snakes_visual_guide import (
     _VISUAL_GUIDE_EXECUTOR,
@@ -93,9 +111,6 @@ from .snakes_worker_routing import (
     _verify_token,
     _worker_propose,
 )
-from .snakes_full_scan import _SCAN_CANCELS as _FULL_SCAN_CANCELS
-from .snakes_full_scan import worker_chat_full_scan as _worker_chat_full_scan
-from .snakes_rag_iterative import worker_chat_rag_iterative as _worker_chat_rag_iterative
 
 # In-memory UI state pushed by the browser via PUT /snakes/<id>/ui-state.
 # Keyed by snake_id; used to enrich LLM prompts with current navigation context.
@@ -167,6 +182,8 @@ def _spawn_ai_chat_reply(
     ui_context: dict | None = None,
     client_session_id: str = "",
     context_history: list[dict[str, str]] | None = None,
+    session_snapshot: dict[str, Any] | None = None,
+    owner_principal: dict[str, str] | None = None,
 ) -> None:
     prompt = str(user_text or "").strip()
     if not prompt:
@@ -181,11 +198,12 @@ def _spawn_ai_chat_reply(
         if prompt.startswith("/guide "):
             _intent = prompt[7:].strip()
             if _intent:
-                _eff_sess = client_session_id if client_session_id and client_session_id != "ananta-visual" else "ananta-settings"
+                _eff_sess = str((session_snapshot or {}).get("id") or "")
                 _ui_ctx_now = _snake_ui_state.get(snake_id or "") or {}
                 _append_room_ai_message(
                     text=f"Guide wird gestartet: {_intent[:100]}…",
                     session_id=_eff_sess,
+                    owner_principal=owner_principal,
                 )
                 from agent.services.visual_guide.service import _visual_guide_service as _vgs
                 _vgs.handle_manual_guide(
@@ -193,6 +211,7 @@ def _spawn_ai_chat_reply(
                     intent=_intent,
                     snapshot=str(_ui_ctx_now.get("ui_snapshot") or ""),
                     route=str(_ui_ctx_now.get("route") or ""),
+                    owner_principal=owner_principal,
                 )
             return
 
@@ -201,12 +220,15 @@ def _spawn_ai_chat_reply(
         trace_id = None
         try:
             if _trace_feature_enabled():
-                from agent.routes.ai_snake_trace_store import get_trace_store, TraceRecorder
                 from agent.routes.ai_snake_config import _current_config as _trc_cfg
+                from agent.routes.ai_snake_trace_store import TraceRecorder, get_trace_store
                 _trc_settings = _trc_cfg()
                 _max_preview = int(_trc_settings.get("ai_snake_trace_max_preview_chars") or 200000)
                 store = get_trace_store()
-                trace_id = store.new_trace(snake_id=snake_id)
+                trace_id = store.new_trace(
+                    snake_id=snake_id,
+                    session_id=client_session_id or None,
+                )
                 rec = TraceRecorder(store, trace_id, max_preview_chars=_max_preview)
                 _prompt_preview = prompt[:120] + ("…" if len(prompt) > 120 else "")
                 rec.event(
@@ -216,45 +238,24 @@ def _spawn_ai_chat_reply(
                 )
 
             conversation_history = context_history if context_history is not None else _build_room_conversation_history(
-                snake_id=snake_id, current_text=prompt, session_id=client_session_id,
+                snake_id=snake_id,
+                current_text=prompt,
+                session_id=client_session_id,
+                owner_principal=owner_principal,
             )
-            # Resolve active session's system_prompt, ID, and settings overrides
-            _active_session_prompt: str | None = None
-            _active_session_id: str = ""
-            _active_session_group: str = ""
-            _active_session_settings: dict = {}
-            _active_profile_id: str = ""
-            try:
-                from client_surfaces.operator_tui.config.user_config_manager import get_manager as _get_mgr2
-                _stored2 = _get_mgr2().load()
-                _active_sid2 = str(_stored2.get("chat_active_session_id") or "").strip()
-                _active_session_id = _active_sid2
-                if _active_sid2:
-                    for _sess2 in (_stored2.get("chat_sessions") or []):
-                        if str(_sess2.get("id") or "") == _active_sid2:
-                            _active_session_prompt = str(_sess2.get("system_prompt") or "").strip() or None
-                            _active_session_group = str(_sess2.get("group") or "").strip()
-                            _active_session_settings = dict(_sess2.get("settings") or {})
-                            _active_profile_id = str(_sess2.get("profile_id") or "")
-                            break
-            except Exception:
-                pass
-
-            # If the frontend sent an explicit session_id, use it directly (avoids user.json race conditions
-            # when the snake panel session and AI Chats page session diverge).
-            if client_session_id and client_session_id != _active_session_id:
-                _active_session_id = client_session_id
-                # Find settings for this session in user.json
-                try:
-                    for _sess2 in (_stored2.get("chat_sessions") or []):
-                        if str(_sess2.get("id") or "") == client_session_id:
-                            _active_session_prompt = str(_sess2.get("system_prompt") or "").strip() or None
-                            _active_session_group = str(_sess2.get("group") or "").strip()
-                            _active_session_settings = dict(_sess2.get("settings") or {})
-                            _active_profile_id = str(_sess2.get("profile_id") or "")
-                            break
-                except Exception:
-                    pass
+            # The request thread resolves and authorizes the exact session.
+            # Background work consumes only that immutable snapshot and never
+            # re-enters global chat state or an active-session fallback.
+            _authorized_session = deepcopy(session_snapshot) if session_snapshot else {}
+            _active_session_id = (
+                str(_authorized_session.get("id") or "")
+                if _authorized_session
+                else ""
+            )
+            _active_session_prompt = str(_authorized_session.get("system_prompt") or "").strip() or None
+            _active_session_group = str(_authorized_session.get("group") or "").strip()
+            _active_session_settings = dict(_authorized_session.get("settings") or {})
+            _active_profile_id = str(_authorized_session.get("profile_id") or "")
             logging.getLogger(__name__).info(
                 "chat session resolved: active_session_id=%r client_session_id=%r",
                 _active_session_id, client_session_id,
@@ -292,7 +293,7 @@ def _spawn_ai_chat_reply(
                     _ui_surface = _effective_ui_ctx.get("active_surface", "")
                     _ui_snapshot = str(_effective_ui_ctx.get("ui_snapshot") or "").strip()
                     _ui_ctx_block = (
-                        f"[Aktueller UI-Kontext]\n"
+                        "[Aktueller UI-Kontext]\n"
                         + (f"UI-Ansicht: {_ui_snapshot}\n" if _ui_snapshot else f"Route: {_ui_route}\n")
                         + (f"Surface: {_ui_surface}\n" if _ui_surface and not _ui_snapshot else "")
                         + (f"Waypoints: {_ui_waypoints}\n" if not _ui_snapshot else "")
@@ -381,7 +382,11 @@ def _spawn_ai_chat_reply(
                                   details=_cfg_trace)
                     if not _cfg_answer:
                         _cfg_answer = "Keine Antwort vom Konfigurations-Guide."
-                    _append_room_ai_message(text=f"{_cfg_answer}\n\n[{_cfg_summary}]{_guide_suffix}", session_id=_active_session_id)
+                    _append_room_ai_message(
+                        text=f"{_cfg_answer}\n\n[{_cfg_summary}]{_guide_suffix}",
+                        session_id=_active_session_id,
+                        owner_principal=owner_principal,
+                    )
                     if store and trace_id:
                         store.complete_trace(trace_id)
                     return
@@ -445,7 +450,11 @@ def _spawn_ai_chat_reply(
                         overflow_policy=_answer_overflow_policy(),
                         never_truncate=_chat_never_truncate_answers(),
                     )
-                    _append_room_ai_message(text=f"{answer}\n\n[{scan_summary}]{_guide_suffix}", session_id=_active_session_id)
+                    _append_room_ai_message(
+                        text=f"{answer}\n\n[{scan_summary}]{_guide_suffix}",
+                        session_id=_active_session_id,
+                        owner_principal=owner_principal,
+                    )
                     if store and trace_id:
                         store.complete_trace(trace_id)
                     return
@@ -496,7 +505,11 @@ def _spawn_ai_chat_reply(
                     if rec:
                         rec.event("answer_postprocessed", "Antwort aufbereitet", status="completed",
                                   summary=f"{len(answer)} Zeichen")
-                    _append_room_ai_message(text=f"{answer}\n\n[{scan_summary}]{_guide_suffix}", session_id=_active_session_id)
+                    _append_room_ai_message(
+                        text=f"{answer}\n\n[{scan_summary}]{_guide_suffix}",
+                        session_id=_active_session_id,
+                        owner_principal=owner_principal,
+                    )
                     if rec:
                         rec.event("chat_message_written", "Nachricht in Raum geschrieben", status="completed")
                     if store and trace_id:
@@ -547,7 +560,11 @@ def _spawn_ai_chat_reply(
                 if rec:
                     rec.event("answer_postprocessed", "Anfrage ohne Kontext abgebrochen", status="skipped",
                               summary="Kein Kontext verfügbar für konkrete Fragen")
-                _append_room_ai_message(text=f"Unklar, bitte Kontext pruefen.\n\n[{context_summary}]", session_id=_active_session_id)
+                _append_room_ai_message(
+                    text=f"Unklar, bitte Kontext pruefen.\n\n[{context_summary}]",
+                    session_id=_active_session_id,
+                    owner_principal=owner_principal,
+                )
                 if rec:
                     rec.event("chat_message_written", "Hinweis in Raum geschrieben", status="completed")
                 if store and trace_id:
@@ -611,7 +628,11 @@ def _spawn_ai_chat_reply(
                 rec.event("answer_postprocessed", "Antwort aufbereitet", status="completed",
                           summary=f"{len(text)} Zeichen, Kontext angehängt")
 
-            _append_room_ai_message(text=f"{text}{_guide_suffix}", session_id=_active_session_id)
+            _append_room_ai_message(
+                text=f"{text}{_guide_suffix}",
+                session_id=_active_session_id,
+                owner_principal=owner_principal,
+            )
 
             if rec:
                 rec.event("chat_message_written", "Nachricht in Raum geschrieben", status="completed")
@@ -627,7 +648,11 @@ def _spawn_ai_chat_reply(
                     store.complete_trace(trace_id, status="failed")
                 except Exception:
                     pass
-            _append_room_ai_message(text="AI-Snake Fehler: Antwort konnte nicht erzeugt werden.", session_id=_active_session_id)
+            _append_room_ai_message(
+                text="AI-Snake Fehler: Antwort konnte nicht erzeugt werden.",
+                session_id=_active_session_id,
+                owner_principal=owner_principal,
+            )
 
     thread = threading.Thread(target=_runner, name="snake-chat-reply", daemon=True)
     thread.start()
@@ -651,6 +676,58 @@ def _normalize_client_context_history(raw_history: Any) -> list[dict[str, str]] 
     return normalized
 
 
+def _owned_chat_session_snapshot(
+    session_id: str,
+    principal: ChatSessionPrincipal,
+) -> dict[str, Any] | None:
+    """Resolve one exact session before background execution starts."""
+
+    from client_surfaces.operator_tui.config.user_config_manager import get_manager
+
+    with chat_session_mutation_lock:
+        manager = get_manager()
+        stored = manager.load()
+        raw_sessions = stored.get("chat_sessions")
+        sessions = raw_sessions if isinstance(raw_sessions, list) else []
+        if not sessions:
+            from client_surfaces.operator_tui.chat_state import default_conversations
+
+            sessions = default_conversations()
+        session = next(
+            (
+                item
+                for item in sessions
+                if isinstance(item, dict) and str(item.get("id") or "") == session_id
+            ),
+            None,
+        )
+        if session is None:
+            return None
+        try:
+            legacy_owner = ChatSessionPrincipal.from_values(
+                settings.initial_admin_user,
+                settings.initial_admin_user,
+            )
+        except ValueError:
+            legacy_owner = None
+        authorized, migrated = authorize_session(
+            session,
+            principal,
+            legacy_default_owner=legacy_owner,
+        )
+        if not authorized:
+            return None
+        if migrated and not manager.save({"chat_sessions": sessions}):
+            return None
+        return deepcopy(session)
+
+
+def _public_snake_message(message: dict[str, Any]) -> dict[str, Any]:
+    result = dict(message)
+    result.pop("owner_principal", None)
+    return result
+
+
 # ── Route endpoints ────────────────────────────────────────────────────────────
 
 
@@ -660,11 +737,14 @@ def chat_send(snake_id: str):
     if not _verify_token(snake_id):
         return jsonify({"error": "Ungültiger Token"}), 401
     auth = _optional_user_auth()
-    if not auth and not _is_local_request():
-        return jsonify({"error": "oidc_login_required_or_local_dev_only"}), 401
+    if not auth:
+        return jsonify({"error": "user_authentication_required"}), 401
     snake = _snakes.get(snake_id) or {}
-    if auth and not _snake_bound_to_auth(snake, auth):
-        return jsonify({"error": "snake_identity_mismatch"}), 403
+    if not _snake_bound_to_auth(snake, auth):
+        return jsonify({"error": "snake_not_found", "error_code": "snake_not_found"}), 404
+    principal = _chat_principal_from_auth(auth)
+    if principal is None:
+        return jsonify({"error": "canonical_identity_required"}), 401
 
     body: dict[str, Any] = request.get_json(force=True, silent=True) or {}
     channel_type = str(body.get("channel_type") or "room")
@@ -673,6 +753,15 @@ def chat_send(snake_id: str):
     ui_context = body.get("ui_context") or {}
     # session_id sent by the frontend reflects the panel's active session, bypassing user.json race conditions
     client_session_id = str(body.get("session_id") or "").strip()
+    if channel_type in {"room", "direct"} and not client_session_id:
+        return jsonify({"error": "chat_session_required", "error_code": "chat_session_required"}), 400
+    session_snapshot = (
+        _owned_chat_session_snapshot(client_session_id, principal)
+        if client_session_id
+        else None
+    )
+    if client_session_id and session_snapshot is None:
+        return jsonify({"error": "chat_session_not_found", "error_code": "chat_session_not_found"}), 404
     try:
         context_history = _normalize_client_context_history(body.get("context_history"))
     except ValueError as exc:
@@ -697,9 +786,18 @@ def chat_send(snake_id: str):
                 "updated_at": time.time(),
             }
             # Persist the incoming tick in the ananta-visual session for later analysis
-            _append_visual_user_tick(ui_snapshot=_ui_snap, snake_id=snake_id)
+            _append_visual_user_tick(
+                ui_snapshot=_ui_snap,
+                snake_id=snake_id,
+                owner_principal=principal.to_dict(),
+            )
             # VG-053: submit to ThreadPoolExecutor instead of daemon thread
-            _VISUAL_GUIDE_EXECUTOR.submit(_spawn_visual_reply, _ui_snap, snake_id)
+            _VISUAL_GUIDE_EXECUTOR.submit(
+                _spawn_visual_reply,
+                _ui_snap,
+                snake_id,
+                principal.to_dict(),
+            )
         return jsonify({"ok": True, "id": str(body.get("id") or "")}), 202
 
     # Region-explain event: user drew a selection. Log it and spawn AI explanations.
@@ -713,6 +811,7 @@ def chat_send(snake_id: str):
                 session_id=_VISUAL_SESSION_ID,
                 visibility="system",
                 sender_id="browser",
+                owner_principal=principal.to_dict(),
             )
             return jsonify({"ok": True, "id": str(body.get("id") or "")}), 202
 
@@ -721,12 +820,19 @@ def chat_send(snake_id: str):
             session_id=_VISUAL_SESSION_ID,
             visibility="system",
             sender_id="browser",
+            owner_principal=principal.to_dict(),
         )
         _region_steps = list((ui_context or {}).get("region_steps") or [])
         _region_route = str((ui_context or {}).get("route") or "").strip()
         if _region_steps:
             # VG-053: submit to ThreadPoolExecutor instead of daemon thread
-            _VISUAL_GUIDE_EXECUTOR.submit(_spawn_region_explain_reply, _region_steps, _region_route, snake_id)
+            _VISUAL_GUIDE_EXECUTOR.submit(
+                _spawn_region_explain_reply,
+                _region_steps,
+                _region_route,
+                snake_id,
+                principal.to_dict(),
+            )
         return jsonify({"ok": True, "id": str(body.get("id") or "")}), 202
 
     if channel_type not in _VALID_CHANNEL_TYPES:
@@ -753,6 +859,7 @@ def chat_send(snake_id: str):
         "delivery_state": "received",
         "policy_decision_ref": None,
         "session_id": client_session_id,
+        "owner_principal": principal.to_dict(),
     }
 
     if channel_type == "room":
@@ -768,14 +875,17 @@ def chat_send(snake_id: str):
                 ui_context=ui_context,
                 client_session_id=client_session_id,
                 context_history=context_history,
+                session_snapshot=session_snapshot,
+                owner_principal=principal.to_dict(),
             )
     elif channel_type == "direct":
         target_ids = msg["target_ids"]
         if not target_ids:
             return jsonify({"error": "target_ids erforderlich für direct"}), 422
         target_id = str(target_ids[0])
-        if target_id not in _snakes:
-            return jsonify({"error": f"Ziel-Snake unbekannt: {target_id}"}), 422
+        target_snake = _snakes.get(target_id)
+        if target_snake is None or _snake_owner_principal(target_snake) != principal:
+            return jsonify({"error": "target_snake_not_found", "error_code": "target_snake_not_found"}), 404
         inbox = _chat_messages.setdefault(target_id, [])
         existing_ids = {m["id"] for m in inbox}
         if msg["id"] not in existing_ids:
@@ -794,30 +904,56 @@ def chat_receive(snake_id: str):
     snake = _snakes.get(snake_id)
     if not snake:
         return jsonify({"error": "Snake nicht gefunden"}), 404
+    auth = _optional_user_auth()
+    if not auth:
+        return jsonify({"error": "user_authentication_required"}), 401
+    if not _snake_bound_to_auth(snake, auth):
+        return jsonify({"error": "snake_not_found", "error_code": "snake_not_found"}), 404
+    principal = _chat_principal_from_auth(auth)
+    if principal is None:
+        return jsonify({"error": "canonical_identity_required"}), 401
 
     since_str = request.args.get("since", "")
-    since: float = float(since_str) if since_str else 0.0
+    try:
+        since = float(since_str) if since_str else 0.0
+    except (TypeError, ValueError):
+        return jsonify({"error": "invalid_cursor", "error_code": "invalid_cursor"}), 400
+    if since < 0 or since == float("inf") or since != since:
+        return jsonify({"error": "invalid_cursor", "error_code": "invalid_cursor"}), 400
     requested_session_id = str(request.args.get("session_id") or "").strip()
+    if not requested_session_id:
+        return jsonify({"error": "chat_session_required", "error_code": "chat_session_required"}), 400
+    if _owned_chat_session_snapshot(requested_session_id, principal) is None:
+        return jsonify({"error": "chat_session_not_found", "error_code": "chat_session_not_found"}), 404
 
-    direct = [m for m in _chat_messages.get(snake_id, []) if float(m.get("created_at") or 0) > since]
+    expected_owner = principal.to_dict()
+
+    def _message_is_visible(message: dict[str, Any]) -> bool:
+        if str(message.get("session_id") or "") != requested_session_id:
+            return False
+        raw_owner = message.get("owner_principal")
+        # Legacy rows are safe only after exact authorization of their globally
+        # unique session above. New rows always carry the canonical principal.
+        return raw_owner == expected_owner if isinstance(raw_owner, dict) else True
+
+    direct = [
+        m
+        for m in _chat_messages.get(snake_id, [])
+        if float(m.get("created_at") or 0) > since and _message_is_visible(m)
+    ]
     room = [
         m for m in _room_messages
         if float(m.get("created_at") or 0) > since
-        and (
-            not requested_session_id
-            or str(m.get("session_id") or "") == requested_session_id
-        )
+        and _message_is_visible(m)
     ]
 
     all_msgs = sorted(direct + room, key=lambda m: float(m.get("created_at") or 0))
 
-    if direct:
-        delivered_ids = {m["id"] for m in direct}
-        _chat_messages[snake_id] = [m for m in _chat_messages.get(snake_id, []) if m["id"] not in delivered_ids]
+    # GET is intentionally non-draining. A read by one browser/device must not
+    # destroy another authorized consumer's direct-message history.
+    new_cursor = str(max(float(m.get("created_at") or 0) for m in all_msgs)) if all_msgs else since_str
 
-    new_cursor = str(time.time()) if all_msgs else since_str
-
-    return jsonify({"messages": all_msgs, "cursor": new_cursor}), 200
+    return jsonify({"messages": [_public_snake_message(m) for m in all_msgs], "cursor": new_cursor}), 200
 
 
 @snakes_bp.route("/snakes/<snake_id>/chat/cancel", methods=["POST"])
@@ -825,6 +961,12 @@ def chat_cancel(snake_id: str):
     """POST /snakes/<id>/chat/cancel -- Laufenden AI-Snake-Chat abbrechen."""
     if not _verify_token(snake_id):
         return jsonify({"error": "Ungültiger Token"}), 401
+    auth = _optional_user_auth()
+    snake = _snakes.get(snake_id)
+    if not auth:
+        return jsonify({"error": "user_authentication_required"}), 401
+    if snake is None or not _snake_bound_to_auth(snake, auth):
+        return jsonify({"error": "snake_not_found", "error_code": "snake_not_found"}), 404
     keys = ("room", "snake_ask", snake_id)
     cancelled_keys = cancel_chat(keys)
     legacy_cancelled = False
@@ -845,9 +987,54 @@ def chat_ack(snake_id: str):
     """POST /snakes/<id>/chat/ack -- Gelesene Nachrichten bestätigen."""
     if not _verify_token(snake_id):
         return jsonify({"error": "Ungültiger Token"}), 401
+    auth = _optional_user_auth()
+    snake = _snakes.get(snake_id)
+    if not auth:
+        return jsonify({"error": "user_authentication_required"}), 401
+    if snake is None or not _snake_bound_to_auth(snake, auth):
+        return jsonify({"error": "snake_not_found", "error_code": "snake_not_found"}), 404
     body: dict[str, Any] = request.get_json(force=True, silent=True) or {}
     message_ids: list[str] = [str(i) for i in (body.get("message_ids") or [])]
     return jsonify({"ok": True, "acked": len(message_ids)}), 200
+
+
+@snakes_bp.route("/snakes/<snake_id>/events/stream-token", methods=["POST"])
+def create_snake_events_stream_token(snake_id: str):
+    """Mint a short-lived user/tenant/Snake-bound SSE credential."""
+
+    auth = _optional_user_auth()
+    snake = _snakes.get(snake_id)
+    if not auth:
+        return jsonify({"error": "user_authentication_required"}), 401
+    if snake is None or not _snake_bound_to_auth(snake, auth):
+        return jsonify({"error": "snake_not_found", "error_code": "snake_not_found"}), 404
+    principal = _chat_principal_from_auth(auth)
+    if principal is None:
+        return jsonify({"error": "canonical_identity_required"}), 401
+    issued_at = int(time.time())
+    expires_at = issued_at + 60
+    stream_token = jwt.encode(
+        {
+            "sub": principal.subject_id,
+            "tenant_id": principal.tenant_id,
+            "role": str(auth.get("role") or "user"),
+            "token_use": SNAKE_EVENTS_STREAM_TOKEN_USE,
+            "stream_user_id": principal.subject_id,
+            "stream_tenant_id": principal.tenant_id,
+            "stream_snake_id": snake_id,
+            "iat": issued_at,
+            "exp": expires_at,
+        },
+        settings.secret_key,
+        algorithm="HS256",
+    )
+    return jsonify(
+        {
+            "stream_token": stream_token,
+            "expires_at": expires_at,
+            "ttl_seconds": 60,
+        }
+    ), 201
 
 
 @snakes_bp.route("/snakes/<snake_id>/events/stream", methods=["GET"])
@@ -859,14 +1046,16 @@ def snake_events_stream(snake_id: str):
     The stream sends a keep-alive comment every ~15s and closes gracefully
     when the snake is deleted or the client disconnects.
     """
+    # Never accept the long-lived Snake bearer in URLs. Browser EventSource
+    # clients exchange their normal user JWT for a 60-second purpose token.
+    if request.args.get("token") is not None:
+        return jsonify({"error": "legacy_query_credential_forbidden"}), 401
+    auth = _optional_user_auth() or _snake_stream_query_auth(snake_id)
+    if not auth:
+        return jsonify({"error": "user_authentication_required"}), 401
     snake = _snakes.get(snake_id)
-    if not snake:
-        return jsonify({"error": "Snake nicht gefunden"}), 404
-    # Auth: same token as snake registration, but SSE uses EventSource which
-    # cannot send custom headers.  Accept token via query parameter.
-    token = request.args.get("token", "")
-    if not token or not secrets.compare_digest(str(snake.get("token") or ""), token):
-        return jsonify({"error": "Ungültiger Token"}), 401
+    if snake is None or not _snake_bound_to_auth(snake, auth):
+        return jsonify({"error": "snake_not_found", "error_code": "snake_not_found"}), 404
 
     def _event_stream():
         while True:
@@ -895,6 +1084,12 @@ def snake_ui_state_push(snake_id: str):
     """PUT /snakes/<id>/ui-state -- aktuellen UI-Zustand des Browsers speichern."""
     if not _verify_token(snake_id):
         return jsonify({"error": "Ungültiger Token"}), 401
+    auth = _optional_user_auth()
+    snake = _snakes.get(snake_id)
+    if not auth:
+        return jsonify({"error": "user_authentication_required"}), 401
+    if snake is None or not _snake_bound_to_auth(snake, auth):
+        return jsonify({"error": "snake_not_found", "error_code": "snake_not_found"}), 404
     body: dict[str, Any] = request.get_json(force=True, silent=True) or {}
     route = str(body.get("route") or "").strip()
     visible_waypoints = [str(w) for w in (body.get("visible_waypoints") or []) if w][:30]
@@ -911,6 +1106,7 @@ def snake_ui_state_push(snake_id: str):
 
 
 @snakes_bp.route("/worker-context", methods=["POST"])
+@_check_snake_control_auth
 def worker_context():
     """POST /worker-context -- CWFH-009: Build WorkerContextHandoffV3 from a question.
 
@@ -927,11 +1123,6 @@ def worker_context():
 
     Returns WorkerContextHandoffV3 dict with candidate_files + context_files.
     """
-    if not _is_local_request():
-        auth = _optional_user_auth()
-        if not auth:
-            return jsonify({"error": "oidc_login_required_or_local_dev_only"}), 401
-
     body: dict[str, Any] = request.get_json(force=True, silent=True) or {}
     question = str(body.get("question") or "").strip()[:2000]
     output_dir = str(body.get("output_dir") or "").strip()
@@ -946,29 +1137,55 @@ def worker_context():
     if not output_dir:
         return jsonify({"error": "output_dir required"}), 400
 
+    from agent.services.worker_context_path_policy import (
+        WorkerContextPathPolicy,
+        WorkerContextPathPolicyError,
+    )
+
     try:
-        from worker.retrieval.codecompass_candidate_resolver import (
-            CodeCompassCandidateResolver, ResolverConfig,
+        path_policy = WorkerContextPathPolicy.from_value(settings.hub_workspace_root)
+        resolved_output_dir = path_policy.resolve_directory(
+            output_dir,
+            field_name="output_dir",
         )
+        resolved_workspace_root = path_policy.resolve_directory(
+            workspace_root or output_dir,
+            field_name="workspace_root",
+        )
+    except WorkerContextPathPolicyError as exc:
+        return jsonify(
+            {
+                "error": "worker_context_path_rejected",
+                "reason_code": exc.reason_code,
+                "field": exc.field_name,
+            }
+        ), 400
+
+    try:
         from agent.services.context_file_reader_service import (
-            ContextFileReaderService, FileReadPolicy,
+            ContextFileReaderService,
+            FileReadPolicy,
         )
-        from agent.services.worker_contract_service import get_worker_contract_service
         from agent.services.worker_context_handoff_diagnostics_service import (
             get_worker_context_handoff_diagnostics_service,
+        )
+        from agent.services.worker_contract_service import get_worker_contract_service
+        from worker.retrieval.codecompass_candidate_resolver import (
+            CodeCompassCandidateResolver,
+            ResolverConfig,
         )
 
         resolver = CodeCompassCandidateResolver(max_candidates=max(1, min(max_candidates, 100)))
         mode = ResolverConfig.from_env()
         candidates = resolver.resolve(
             question=question,
-            output_dir=output_dir,
+            output_dir=str(resolved_output_dir),
             memory_context=memory_context,
             manifest_hash=manifest_hash,
             mode=mode,
         )
 
-        policy = FileReadPolicy(workspace_root=workspace_root or output_dir)
+        policy = FileReadPolicy(workspace_root=str(resolved_workspace_root))
         reader = ContextFileReaderService(policy=policy)
         context_files = reader.read_required_files(candidates)
 
@@ -988,6 +1205,7 @@ def worker_context():
 
 
 @snakes_bp.route("/snake/ask", methods=["POST"])
+@_check_snake_control_auth
 def snake_ask():
     """POST /snake/ask -- Synchrone AI-Antwort für den TUI ananta-worker Modus.
 
@@ -996,11 +1214,6 @@ def snake_ask():
     Antwortet mit {"answer": "..."}. Routet über einen registrierten Worker-Prozess;
     fällt auf direkten LMStudio-Aufruf zurück falls kein Worker verfügbar.
     """
-    if not _is_local_request():
-        auth = _optional_user_auth()
-        if not auth:
-            return jsonify({"error": "oidc_login_required_or_local_dev_only"}), 401
-
     body: dict[str, Any] = request.get_json(force=True, silent=True) or {}
     question = str(body.get("question") or "").strip()[:1000]
     debug = bool(body.get("debug"))
@@ -1021,7 +1234,6 @@ def snake_ask():
 
     rag_trace: dict[str, Any] = {}
     domain_scope_info: dict[str, Any] = {}
-    domain_hint = str(dict(retrieval_config_overrides or {}).get("chat_retrieval_domain_hint") or "") or None
     context = str(body.get("context") or "").strip()[:limits.context_chars]
     if context:
         grounded_prompt = f"{question}\n\nKontext:\n{context}"
@@ -1064,31 +1276,9 @@ def snake_ask():
 
         _eff_cfg = _current_config()
         _eff_cfg.update(dict(retrieval_config_overrides or {}))
-        # Resolve active session's system_prompt and apply session-level setting overrides
+        # `/snake/ask` has no authenticated chat-session binding. It therefore
+        # must not consume the process-global active session or its prompt.
         _active_session_prompt: str | None = None
-        _active_sid = ""
-        _active_profile_id = ""
-        try:
-            from client_surfaces.operator_tui.config.user_config_manager import get_manager as _get_mgr
-            _stored = _get_mgr().load()
-            _active_sid = str(_stored.get("chat_active_session_id") or "").strip()
-            if _active_sid:
-                for _sess in (_stored.get("chat_sessions") or []):
-                    if str(_sess.get("id") or "") == _active_sid:
-                        _active_session_prompt = str(_sess.get("system_prompt") or "").strip() or None
-                        _active_profile_id = str(_sess.get("profile_id") or "")
-                        break
-            if _active_profile_id == "ananta-settings" or _active_sid == "ananta-settings":
-                _eff_cfg = {
-                    **_eff_cfg,
-                    "chat_architecture_analysis_mode": False,
-                    "chat_retrieval_profile": "none",
-                    "chat_use_codecompass": False,
-                    "chat_code_questions_repo_first": False,
-                    "chat_include_local_project": False,
-                }
-        except Exception:
-            pass
         if _is_rag_iterative_intent(_eff_cfg):
             _cancel_keys = ["snake_ask"]
             _cancel_event = register_chat_cancel(_cancel_keys)
@@ -1241,12 +1431,25 @@ def snake_ask():
 # ── Trace API ──────────────────────────────────────────────────────────────────
 
 
+def _trace_owned_snake(snake_id: str):
+    auth = _optional_user_auth()
+    if not auth:
+        return None, (jsonify({"error": "user_authentication_required"}), 401)
+    snake = _snakes.get(snake_id)
+    if snake is None or not _snake_bound_to_auth(snake, auth):
+        return None, (
+            jsonify({"error": "snake_not_found", "error_code": "snake_not_found"}),
+            404,
+        )
+    return snake, None
+
+
 @snakes_bp.route("/snakes/<snake_id>/chat/traces", methods=["GET"])
 def chat_traces_list(snake_id: str):
     """GET /snakes/<id>/chat/traces -- Liste der Traces für diese Snake."""
-    snake = _snakes.get(snake_id)
-    if not snake:
-        return jsonify({"error": "Snake nicht gefunden"}), 404
+    _snake, error = _trace_owned_snake(snake_id)
+    if error is not None:
+        return error
     try:
         from agent.routes.ai_snake_trace_store import get_trace_store
         store = get_trace_store()
@@ -1261,9 +1464,9 @@ def chat_traces_list(snake_id: str):
 @snakes_bp.route("/snakes/<snake_id>/chat/traces/<trace_id>", methods=["GET"])
 def chat_trace_detail(snake_id: str, trace_id: str):
     """GET /snakes/<id>/chat/traces/<trace_id> -- Trace-Metadaten abrufen."""
-    snake = _snakes.get(snake_id)
-    if not snake:
-        return jsonify({"error": "Snake nicht gefunden"}), 404
+    _snake, error = _trace_owned_snake(snake_id)
+    if error is not None:
+        return error
     try:
         from agent.routes.ai_snake_trace_store import get_trace_store
         store = get_trace_store()
@@ -1271,7 +1474,7 @@ def chat_trace_detail(snake_id: str, trace_id: str):
         if trace is None:
             return jsonify({"error": "Trace nicht gefunden"}), 404
         if trace.get("snake_id") and trace["snake_id"] != snake_id:
-            return jsonify({"error": "Trace gehört nicht zu dieser Snake"}), 403
+            return jsonify({"error": "trace_not_found", "error_code": "trace_not_found"}), 404
         return jsonify({"trace": trace}), 200
     except Exception as exc:
         logging.getLogger(__name__).warning("chat_trace_detail failed: %s", exc)
@@ -1281,9 +1484,9 @@ def chat_trace_detail(snake_id: str, trace_id: str):
 @snakes_bp.route("/snakes/<snake_id>/chat/traces/<trace_id>/events", methods=["GET"])
 def chat_trace_events(snake_id: str, trace_id: str):
     """GET /snakes/<id>/chat/traces/<trace_id>/events?since_seq=0 -- Events inkrementell abrufen."""
-    snake = _snakes.get(snake_id)
-    if not snake:
-        return jsonify({"error": "Snake nicht gefunden"}), 404
+    _snake, error = _trace_owned_snake(snake_id)
+    if error is not None:
+        return error
     try:
         from agent.routes.ai_snake_trace_store import get_trace_store
         store = get_trace_store()
@@ -1291,7 +1494,7 @@ def chat_trace_events(snake_id: str, trace_id: str):
         if trace is None:
             return jsonify({"error": "Trace nicht gefunden"}), 404
         if trace.get("snake_id") and trace["snake_id"] != snake_id:
-            return jsonify({"error": "Trace gehört nicht zu dieser Snake"}), 403
+            return jsonify({"error": "trace_not_found", "error_code": "trace_not_found"}), 404
         since_seq = max(0, int(request.args.get("since_seq") or 0))
         events = store.get_events(trace_id, since_seq=since_seq)
         return jsonify({

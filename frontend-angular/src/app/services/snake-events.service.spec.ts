@@ -1,7 +1,10 @@
 import { TestBed } from '@angular/core/testing';
+import { HttpClient } from '@angular/common/http';
+import { of } from 'rxjs';
 import { SnakeEventsService, type Candidate } from './snake-events.service';
 import { AiSnakeChatService } from './ai-snake-chat.service';
 import { AgentDirectoryService } from './agent-directory.service';
+import { UserAuthService } from './user-auth.service';
 
 describe('SnakeEventsService', () => {
   let service: SnakeEventsService;
@@ -11,6 +14,7 @@ describe('SnakeEventsService', () => {
     getSnakeToken: ReturnType<typeof vi.fn>;
   };
   let directory: { list: ReturnType<typeof vi.fn> };
+  let http: { post: ReturnType<typeof vi.fn> };
   let eventSourceMocks: Array<{
     onopen: ((ev?: Event) => void) | null;
     onmessage: ((ev: MessageEvent<string>) => void) | null;
@@ -30,6 +34,9 @@ describe('SnakeEventsService', () => {
     directory = {
       list: vi.fn(() => [{ name: 'hub', role: 'hub', url: 'http://hub:5000' }]),
     };
+    http = {
+      post: vi.fn(() => of({ stream_token: 'scoped-stream-token' })),
+    };
 
     globalThis.EventSource = vi.fn((url: string) => {
       const mock = {
@@ -46,8 +53,10 @@ describe('SnakeEventsService', () => {
     TestBed.configureTestingModule({
       providers: [
         SnakeEventsService,
+        { provide: HttpClient, useValue: http },
         { provide: AiSnakeChatService, useValue: chat },
         { provide: AgentDirectoryService, useValue: directory },
+        { provide: UserAuthService, useValue: { token: 'hub-user-token' } },
       ],
     });
     service = TestBed.inject(SnakeEventsService);
@@ -63,7 +72,13 @@ describe('SnakeEventsService', () => {
 
     expect(globalThis.EventSource).toHaveBeenCalledTimes(1);
     expect((globalThis.EventSource as any).mock.calls[0][0]).toContain('/snakes/snake-1/events/stream');
-    expect((globalThis.EventSource as any).mock.calls[0][0]).toContain('token=token-123');
+    expect((globalThis.EventSource as any).mock.calls[0][0]).toContain('stream_token=scoped-stream-token');
+    expect((globalThis.EventSource as any).mock.calls[0][0]).not.toContain('?token=token-123');
+    expect(http.post).toHaveBeenCalledWith(
+      'http://hub:5000/snakes/snake-1/events/stream-token',
+      {},
+      expect.objectContaining({ headers: expect.anything() }),
+    );
   });
 
   it('emits guide events to guide$', () => {

@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import hashlib
+import json
+from types import SimpleNamespace
+
 from flask import Flask
 
 from agent.auth import generate_token
@@ -69,9 +73,11 @@ class _Gateway:
 class _WorkerGateway:
     def __init__(self) -> None:
         self.calls: list[dict] = []
+        self.identities: list[dict[str, str]] = []
 
-    def execute(self, body: dict) -> dict:
+    def execute(self, body: dict, **identity: str) -> dict:
         self.calls.append(body)
+        self.identities.append(dict(identity))
         return {
             "schema": "ananta.workflow-runtime-worker-decision.v1",
             "allowed": True,
@@ -255,3 +261,81 @@ def test_internal_worker_decision_is_authenticated_and_body_only(monkeypatch) ->
     assert accepted.status_code == 200
     assert accepted.get_json()["data"]["allowed"] is True
     assert worker_gateway.calls == [body]
+
+
+def test_strict_worker_route_passes_authenticated_identity_to_gateway(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    worker_token = "worker-one-service-token-0123456789abcdef"
+    bootstrap = "worker-one-bootstrap-token-0123456789abcdef"
+    hub_token = "hub-service-token-0123456789abcdefghijkl"
+    keyring = tmp_path / "registration-keyring.json"
+    keyring.write_text(
+        json.dumps(
+            {
+                "schema": "ananta.workflow-worker-registration-keyring.v1",
+                "workers": {
+                    "worker-1": {
+                        "worker_url": "http://worker-1:5000",
+                        "registration_token": bootstrap,
+                        "service_token_sha256": hashlib.sha256(
+                            worker_token.encode("utf-8")
+                        ).hexdigest(),
+                        "session_signing_key_sha256": hashlib.sha256(
+                            b"worker-one-session-signing-key-0123456789abcdef"
+                        ).hexdigest(),
+                        "allowed_capabilities": ["workflow.adapter.native"],
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    keyring.chmod(0o440)
+    worker_gateway = _WorkerGateway()
+    app = _app(_Gateway(), monkeypatch, worker_gateway)
+    app.config.update(
+        AGENT_TOKEN=hub_token,
+        ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH=True,
+        ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE=str(keyring),
+    )
+    app.extensions["repository_registry"] = SimpleNamespace(
+        agent_repo=SimpleNamespace(
+            get_all=lambda: [
+                SimpleNamespace(
+                    name="worker-1",
+                    url="http://worker-1:5000",
+                    token=worker_token,
+                    role="worker",
+                    capabilities=["workflow.adapter.native"],
+                    authorized_capabilities=["workflow.adapter.native"],
+                    registration_validated=True,
+                    registration_provenance="strict_registration_keyring_v1",
+                )
+            ]
+        )
+    )
+    monkeypatch.setattr("agent.auth.log_audit", lambda *_args, **_kwargs: None)
+
+    response = app.test_client().post(
+        "/api/internal/workflow-runtime/worker-commands",
+        json={
+            "schema": WORKFLOW_WORKER_COMMAND_SCHEMA,
+            "command": "authorize_execution",
+            "binding": {"tenant_id": "tenant-1"},
+        },
+        headers={
+            "Authorization": f"Bearer {worker_token}",
+            "X-Ananta-Worker-ID": "worker-1",
+            "X-Ananta-Worker-URL": "http://worker-1:5000",
+        },
+    )
+
+    assert response.status_code == 200
+    assert worker_gateway.identities == [
+        {
+            "authenticated_worker_id": "worker-1",
+            "authenticated_worker_url": "http://worker-1:5000",
+        }
+    ]

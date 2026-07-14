@@ -1,0 +1,18 @@
+# Explicit, test-only overlay for the private workflow-runtime fixture route.
+#
+# Load this file LAST. In particular, a production runtime overlay may enforce
+# AUTH_TEST_ENDPOINTS_ENABLED=0, and only an intentional Compose-E2E invocation
+# may reopen the endpoint together with its exact runtime-context marker:
+#
+# docker compose \
+#   -f docker/compose-next/compose.tests.lmstudio.yml \
+#   -f docker/compose-next/compose.ops-control.yml \
+#   -f docker/compose-next/compose.native.production.yml \
+#   -f docker/compose-next/compose.tests.workflow-runtime-support.yml \
+#   up --exit-code-from all-tests all-tests
+
+services:
+  ai-agent-hub:
+    environment:
+      AUTH_TEST_ENDPOINTS_ENABLED: "1"
+      ANANTA_WORKFLOW_RUNTIME_TEST_CONTEXT: "compose-e2e"

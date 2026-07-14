@@ -15,7 +15,25 @@ import threading
 import time
 from typing import Any
 
+import jwt
 import pytest
+
+
+def _user_jwt(username: str, tenant_id: str | None = None) -> str:
+    from agent.config import settings
+
+    now = int(time.time())
+    return jwt.encode(
+        {
+            "sub": username,
+            "tenant_id": tenant_id or username,
+            "role": "user",
+            "iat": now,
+            "exp": now + 1800,
+        },
+        settings.secret_key,
+        algorithm="HS256",
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -129,6 +147,11 @@ class TestSnakeEventsStreamEndpoint:
             "name": "test",
             "role": "viewer",
             "color": "mint",
+            "owner_principal": {
+                "tenant_id": "stream-tenant",
+                "subject_id": "stream-user",
+            },
+            "auth_mode": "user_jwt",
         }
 
         # Import broadcaster late to pick up the registered snake
@@ -143,14 +166,33 @@ class TestSnakeEventsStreamEndpoint:
             broadcaster._QUEUES.clear()
         _snakes.pop("test-snake", None)
 
-    def test_stream_requires_valid_token(self, client):
-        resp = client.get("/snakes/test-snake/events/stream?token=bad")
-        assert resp.status_code == 401
+    def test_stream_rejects_unauthenticated_and_long_lived_query_tokens(self, client):
+        assert client.get("/snakes/test-snake/events/stream").status_code == 401
+        snake_bearer = client.get(
+            "/snakes/test-snake/events/stream?token=secret-token"
+        )
+        assert snake_bearer.status_code == 401
+        assert snake_bearer.get_json()["error"] == "legacy_query_credential_forbidden"
+        full_user_query = client.get(
+            "/snakes/test-snake/events/stream",
+            query_string={"stream_token": _user_jwt("stream-user", "stream-tenant")},
+        )
+        assert full_user_query.status_code == 401
 
     def test_stream_returns_event_stream_mimetype(self, client):
         import agent.routes.snake_event_broadcaster as broadcaster
 
-        resp = client.get("/snakes/test-snake/events/stream?token=secret-token")
+        user_token = _user_jwt("stream-user", "stream-tenant")
+        credential = client.post(
+            "/snakes/test-snake/events/stream-token",
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        assert credential.status_code == 201
+        stream_token = credential.get_json()["stream_token"]
+        resp = client.get(
+            "/snakes/test-snake/events/stream",
+            query_string={"stream_token": stream_token},
+        )
         assert resp.status_code == 200
         assert resp.mimetype == "text/event-stream"
 
@@ -172,3 +214,23 @@ class TestSnakeEventsStreamEndpoint:
         parsed = json.loads(body.split("data: ", 1)[1].split("\n", 1)[0])
         assert parsed["type"] == "guide"
         assert parsed["payload"]["steps"][0]["waypoint"] == "x"
+
+    def test_stream_token_mint_is_exactly_tenant_and_snake_bound(self, client):
+        foreign = client.post(
+            "/snakes/test-snake/events/stream-token",
+            headers={
+                "Authorization": f"Bearer {_user_jwt('stream-user', 'foreign-tenant')}"
+            },
+        )
+        assert foreign.status_code == 404
+
+        owner_token = _user_jwt("stream-user", "stream-tenant")
+        credential = client.post(
+            "/snakes/test-snake/events/stream-token",
+            headers={"Authorization": f"Bearer {owner_token}"},
+        ).get_json()["stream_token"]
+        wrong_snake = client.get(
+            "/snakes/other-snake/events/stream",
+            query_string={"stream_token": credential},
+        )
+        assert wrong_snake.status_code == 401

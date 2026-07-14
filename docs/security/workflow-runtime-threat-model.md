@@ -101,6 +101,27 @@ or Temporal directly. The separately exposed Temporal UI is an administrative
 surface, not an Ananta user API; restrict it with its own authentication and
 network policy in production.
 
+Every full Hub user session carries an explicit `tenant_id`. Local and
+OIDC-linked Hub accounts receive a stable one-account tenant derived by the Hub
+from the persisted username; no caller-provided tenant is trusted. This keeps
+the tenant equal to the pre-existing local workflow fallback and therefore does
+not orphan earlier runs. Usernames used for new sessions must be canonical,
+bounded identifiers: leading/trailing whitespace, control characters and values
+longer than 160 characters fail closed instead of being trimmed or truncated.
+Legacy accounts that violate this invariant require an explicit,
+administrator-controlled data correction or migration before another session can be issued,
+preventing two distinct accounts from collapsing into one tenant. Ananta does
+not currently expose an in-place username-rename endpoint.
+OIDC accounts auto-provisioned before explicit issuer/subject links were
+introduced also require a controlled one-time link or migration. The Hub does
+not infer ownership from a matching email address because two external
+subjects may legitimately publish the same address.
+The tenant-strict Operations API rejects otherwise valid tokens that omit this
+identity; older full-session tokens retain the established subject-derived
+tenant on compatibility routes until login or refresh replaces them.
+Restricted derivative tokens, such as Control-Center stream tokens, do not
+inherit workflow access merely because their parent session had a tenant.
+
 ## Threat analysis and control mapping
 
 The JSON gate contains the normative, detailed prevention, detection, audit and
@@ -114,11 +135,11 @@ test mapping. This table is the operator summary.
 | WRT-004 | Replay abuse | expiry, nonce, idempotency key, dedupe, CAS and stable operation ID | replay/dedupe conflict reason; combined retry count | command, gateway and repeated Temporal signal tests |
 | WRT-005 | State poisoning | bounded versioned contracts; secret references; pure upcasters; declarative conditions | schema/hash/sequence/quarantine reason without rejected content | state, evolution, plan and condition tests |
 | WRT-006 | History/checkpoint tampering | signed bound checkpoints; versioned deterministic projection | stale/inconsistent on gaps, loops or signature/revision mismatch | checkpoint and Temporal projection tests |
-| WRT-007 | Cross-tenant exposure | tenant-bound stores/cache/provider context/read models | not-found or denial without object disclosure; tenant-safe telemetry | retrieval, telemetry, projection and API tests |
+| WRT-007 | Cross-tenant exposure | tenant-bound stores/cache/provider context/read models; identity-local production Worker volumes | not-found or denial without object disclosure; tenant-safe telemetry; merged Compose rejects shared Worker roots | retrieval, telemetry, projection, API and production Compose tests |
 | WRT-008 | Provider egress/secret leak | default-deny egress and pre-transport redaction | destination/budget denial and content-free observation | provider middleware tests |
 | WRT-009 | UI success spoofing | Hub read model with staleness/evidence; approved commands | missing evidence degrades; stale commands denied and audited | operations API and Angular tests |
 | WRT-010 | Retry/resource amplification | combined retry budget; bounded fan-out, streams, history and payloads | explicit exhaustion/backpressure/threshold state | ownership, streaming and Temporal retry tests |
-| WRT-011 | Credential injection/runtime impersonation | Hub-private Ed25519 signer; Worker-public verifier; service-only internal routes; no-follow, descriptor-verified bounded secret reads; no query token | legacy/private/miswired, symlinked, writable or oversized credentials and user JWTs fail closed; merged Compose model proves secret separation | Ed25519 forge/private-field, internal-auth, file-auth and production Compose tests |
+| WRT-011 | Credential injection/runtime impersonation | Hub-private Ed25519 signer; Worker-public verifier; scoped internal routes; per-identity registration/service tokens; Hub-provisioned capability allowlists; `strict_registration_keyring_v1` provenance; no-follow, descriptor-verified bounded secret and OTEL-header reads; file-managed service credentials excluded from URL queries; purpose-bound user SSE derivative limited to its exact route | legacy provenance, private/miswired, symlinked, hardlinked, writable, oversized or malformed credentials and user JWTs fail closed; merged Compose model proves secret separation | registration/provenance/capability, Ed25519 forge/private-field, internal-auth, file-auth, telemetry-header and production Compose tests |
 | WRT-012 | Forged or stale shadow promotion | canonical-event-derived invariants; Hub Ed25519 signature; owner-only evidence; policy/build/revision/expiry binding; service-level approval | stable signature, binding, freshness and approval denial reasons; immutable rollout audit | shadow comparison and rollout security tests |
 
 ### Prompt injection
@@ -170,13 +191,47 @@ keys and unknown fields; Native also supports online Hub revalidation without
 any local key. Only the Hub can decrypt dispatch payloads. Shared HMAC is
 disabled by default and survives solely behind an explicit development flag.
 
+The production Compose boundary also separates data-plane reachability. Only
+the Hub joins the network containing central PostgreSQL and Redis, and neither
+service publishes a host port. Native workers use the dedicated
+`workflow-worker-control` network, LangGraph uses `langgraph-runtime`, and the
+Temporal worker uses `temporal-runtime`; those workers do not join the Hub data
+network. This network control is independent of environment-variable redaction
+and prevents direct access even after a Worker process compromise.
+Angular is restricted to the separate `workflow-ui-control` network shared only
+with the Hub. The production overlay removes its writable source/cache mounts
+and keeps the development server's host validation enabled; development
+overlays retain hot reload as an explicitly non-production convenience.
+
+Filesystem reachability is isolated independently from the network boundary.
+Only the Hub retains the operator-selected `project-workspaces` host bind.
+Native Alpha, Native Beta and LangGraph each receive a different Docker named
+volume as their complete writable `/project-workspaces` root; none can mount the
+Hub tree or another Worker's tree. The Temporal Activity Worker has no workspace
+mount at all and keeps its image filesystem read-only. Cross-worker inputs and
+results therefore travel through Hub-owned task, context and artifact contracts,
+not through an implicit shared filesystem. Persistent Worker volumes remain an
+operator lifecycle concern and must be removed or archived according to the
+tenant-retention policy. Development Compose deliberately retains its shared
+bind mount for local iteration and must not be used as a production overlay.
+
 Internal runtime, tool-decision and checkpoint routes require an agent service
 credential/service JWT and reject browser user/admin JWTs. The Angular frontend
 receives no runtime credential. Base Temporal and smoke overlays stay
 credential-free, so a probe cannot become a productive Activity executor.
 File-managed service tokens are absolute, bounded, checked on every request,
-rejected on unsafe configuration and never accepted in a URL query. Failures
-expose only a stable reason code, not a key, token or secret-file path.
+rejected on unsafe configuration and never accepted in a URL query. In this
+production file-managed mode, the sole query-token exception is a short-lived,
+purpose-bound user derivative with an exact tenant/user binding. It is accepted
+only by `GET /api/events/stream` and cannot authenticate another HTTP or
+WebSocket route. Failures expose only a stable reason code, not a key, token or
+secret-file path.
+The Hub also validates credential disjointness before it starts serving: the
+user-session signing secret, Hub service token, persisted Worker service
+tokens, registration tokens and runtime service tokens must all belong to
+different trust domains and values. New Worker registration repeats this check
+before persistence, preventing a service bearer from doubling as a user-JWT
+signing key.
 
 ## Security gate and critical findings
 

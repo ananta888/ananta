@@ -14,6 +14,7 @@ import time
 from dataclasses import dataclass
 from typing import Any, Mapping, Protocol, Sequence
 
+from agent.services.identity_validation import require_canonical_identity
 from agent.services.workflow_runtime._serialization import sha256_json
 from agent.services.workflow_runtime.events import CanonicalWorkflowEvent, WorkflowRunProjection
 from agent.services.workflow_runtime_operations_models import WorkflowRuntimeOperationRecord
@@ -40,27 +41,31 @@ class InMemoryWorkflowRuntimeReadModelRepository:
         self._lock = threading.RLock()
 
     def upsert(self, record: WorkflowRuntimeOperationRecord) -> WorkflowRuntimeOperationRecord:
-        key = (record.tenant_id, record.run_id)
+        validated = record.validated_copy()
+        key = (validated.tenant_id, validated.run_id)
         with self._lock:
             current = self._records.get(key)
             if current is not None:
-                if record.source_sequence < current.source_sequence:
+                if validated.source_sequence < current.source_sequence:
                     raise ValueError("runtime_read_model_sequence_regression")
                 if (
-                    record.source_sequence == current.source_sequence
-                    and record.updated_at < current.updated_at
+                    validated.source_sequence == current.source_sequence
+                    and validated.updated_at < current.updated_at
                 ):
                     return current
-            self._records[key] = record
-            return record
+            self._records[key] = validated
+            return validated
 
     def get(self, *, tenant_id: str, run_id: str) -> WorkflowRuntimeOperationRecord | None:
+        validated_tenant = require_canonical_identity(tenant_id, field_name="tenant_id")
+        validated_run = require_canonical_identity(run_id, field_name="run_id")
         with self._lock:
-            return self._records.get((str(tenant_id), str(run_id)))
+            return self._records.get((validated_tenant, validated_run))
 
     def list_for_tenant(self, *, tenant_id: str) -> tuple[WorkflowRuntimeOperationRecord, ...]:
+        validated_tenant = require_canonical_identity(tenant_id, field_name="tenant_id")
         with self._lock:
-            values = [record for (tenant, _), record in self._records.items() if tenant == str(tenant_id)]
+            values = [record for (tenant, _), record in self._records.items() if tenant == validated_tenant]
         return tuple(sorted(values, key=lambda item: (-item.updated_at, item.run_id)))
 
     def clear(self) -> None:
@@ -120,7 +125,7 @@ class WorkflowRuntimeReadModelService:
         snapshot: WorkflowRuntimeOperationRecord | Mapping[str, Any],
     ) -> WorkflowRuntimeOperationRecord:
         record = (
-            snapshot
+            snapshot.validated_copy()
             if isinstance(snapshot, WorkflowRuntimeOperationRecord)
             else WorkflowRuntimeOperationRecord.from_mapping(snapshot)
         )

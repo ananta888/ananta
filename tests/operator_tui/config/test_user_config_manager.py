@@ -194,6 +194,7 @@ def test_save_round_trip(tmp_path):
 def test_structured_chat_domain_round_trip(tmp_path):
     mgr = UserConfigManager(cwd=tmp_path)
     payload = {
+        "chat_active_session_ids": {"a" * 64: "chat-1"},
         "chat_profiles": [{"id": "review", "name": "Review", "settings": {"chat_backend": "lmstudio"}}],
         "chat_session_types": [{"id": "work", "name": "Work", "subtypes": ["review"]}],
         "chat_folders": [{"id": "parent", "name": "Parent", "parent_id": "", "sort_order": 1}],
@@ -217,6 +218,21 @@ def test_structured_chat_domain_round_trip(tmp_path):
                         "graph_snapshot": {"id": "review-flow", "nodes": [], "edges": []},
                     }
                 ],
+                "owner_principal": {"tenant_id": "tenant-a", "subject_id": "user-a"},
+                "process_gate_actions": [
+                    {
+                        "idempotency_key": "gate-1",
+                        "request_hash": "b" * 64,
+                        "tenant_id": "tenant-a",
+                        "subject_id": "user-a",
+                        "session_id": "chat-1",
+                        "workflow_id": "workflow-1",
+                        "run_id": "run-1",
+                        "step_id": "approval",
+                        "decision": "approve",
+                        "state": "applied",
+                    }
+                ],
             }
         ],
         "chat_organization_proposals": [{"id": "proposal-1", "status": "ready", "operations": []}],
@@ -226,6 +242,34 @@ def test_structured_chat_domain_round_trip(tmp_path):
     loaded = UserConfigManager(cwd=tmp_path).load()
     for key, value in payload.items():
         assert loaded[key] == value
+
+
+def test_gate_idempotency_ledger_is_not_evicted(tmp_path):
+    mgr = UserConfigManager(cwd=tmp_path)
+    actions = [
+        {
+            "idempotency_key": f"gate-{index}",
+            "request_hash": f"hash-{index}",
+            "state": "applied",
+        }
+        for index in range(125)
+    ]
+
+    assert mgr.save(
+        {
+            "chat_sessions": [
+                {
+                    "id": "ledger-chat",
+                    "name": "Ledger",
+                    "process_gate_actions": actions,
+                }
+            ]
+        }
+    )
+    loaded = UserConfigManager(cwd=tmp_path).load()["chat_sessions"][0]["process_gate_actions"]
+
+    assert len(loaded) == 125
+    assert loaded[0]["idempotency_key"] == "gate-0"
 
 
 # ── Schema validation ─────────────────────────────────────────────────────────

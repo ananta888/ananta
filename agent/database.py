@@ -4,8 +4,7 @@ import time
 from typing import Any
 
 import portalocker
-from sqlalchemy import text
-from sqlalchemy import event, inspect
+from sqlalchemy import event, inspect, text
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.pool import NullPool, StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
@@ -162,6 +161,10 @@ def ensure_default_user():
     from werkzeug.security import generate_password_hash
 
     from agent.db_models import UserDB
+    from agent.services.user_session_tokens import (
+        UserSessionIdentityError,
+        local_user_tenant_id,
+    )
 
     if settings.disable_initial_admin:
         logging.info("Initial admin creation is disabled.")
@@ -176,13 +179,19 @@ def ensure_default_user():
         )
         return
 
+    try:
+        username = local_user_tenant_id(settings.initial_admin_user)
+    except UserSessionIdentityError as exc:
+        raise RuntimeError(
+            f"invalid_initial_admin_user:{exc.reason_code}"
+        ) from exc
+
     with Session(engine) as session:
         # Prüfen ob bereits Benutzer existieren
         statement = select(UserDB)
         existing_user = session.exec(statement).first()
 
         if not existing_user:
-            username = settings.initial_admin_user
             password = settings.initial_admin_password
 
             is_generated = False
@@ -215,7 +224,7 @@ def ensure_default_user():
             print("Role:     admin")
             print("=" * 50 + "\n")
         else:
-            logging.info(f"Database already contains users. Initial user '{settings.initial_admin_user}' not created.")
+            logging.info(f"Database already contains users. Initial user '{username}' not created.")
 
 
 def _get_ddl_default(col: Any) -> str | None:
@@ -294,6 +303,8 @@ def _sync_schema_sqlite() -> None:
             "capabilities": "TEXT NOT NULL DEFAULT '[]'",
             "execution_limits": "TEXT NOT NULL DEFAULT '{}'",
             "registration_validated": "INTEGER NOT NULL DEFAULT 1",
+            "registration_provenance": "TEXT NOT NULL DEFAULT 'legacy'",
+            "authorized_capabilities": "TEXT NOT NULL DEFAULT '[]'",
             "validation_errors": "TEXT NOT NULL DEFAULT '[]'",
             "validated_at": "REAL",
             "last_seen": "REAL NOT NULL DEFAULT 0",

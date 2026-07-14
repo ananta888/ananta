@@ -71,6 +71,14 @@ def test_summary_consistency_detects_and_repairs_mismatch() -> None:
     assert "tasks_status_summary" in list(repaired["repaired_fields"] or [])
     assert repaired["repaired_payload"]["tasks_status_summary"] == compute_tasks_status_summary(payload)
 
+    stable = validate_summary_consistency(
+        repaired["repaired_payload"],
+        repair_mode=False,
+    )
+    assert stable["valid"] is True
+    assert stable["summary_recalculation_status"] == "not_needed"
+    assert stable["repaired_fields"] == []
+
 
 def test_summary_consistency_detects_stale_source_hash() -> None:
     payload = _fixture_payload()
@@ -93,7 +101,9 @@ def test_quality_gates_flag_invalid_refs_and_allow_non_blocking_warnings() -> No
     payload["critical_path_tasks"] = ["T01", "T404"]
     payload["milestones"][0]["task_ids"] = ["T01", "T404"]
     payload["tasks"][0]["acceptance_criteria"] = ["Looks good"]
-    result = evaluate_planning_quality_gates(payload, large_goal_mode=True, small_goal_mode=False, min_tasks_large_goal=5)
+    result = evaluate_planning_quality_gates(
+        payload, large_goal_mode=True, small_goal_mode=False, min_tasks_large_goal=5
+    )
     assert result["ok"] is False
     reason_codes = {item["reason_code"] for item in list(result["blocking_issues"] or [])}
     assert "quality_critical_path_missing_task" in reason_codes
@@ -136,7 +146,11 @@ def test_persist_planning_track_result_saves_valid_artifact_and_provenance(tmp_p
     assert result["output_artifact"]["extensions"]["quality_gate_warnings"] == []
     assert result["output_artifact"]["extensions"]["source_references"]
     assert "artifact:allowed" in list(result["output_artifact"]["extensions"]["context_references"] or [])
-    assert result["output_artifact"]["extensions"]["summary_recalculation_status"] in {"not_needed", "recalculated", "repaired"}
+    assert result["output_artifact"]["extensions"]["summary_recalculation_status"] in {
+        "not_needed",
+        "recalculated",
+        "repaired",
+    }
     assert "old_summary_hash" in result["output_artifact"]["extensions"]
     assert "new_summary_hash" in result["output_artifact"]["extensions"]
 
@@ -158,7 +172,9 @@ def test_validation_rejects_task_without_acceptance_criteria() -> None:
     payload = _fixture_payload()
     payload["tasks"][0].pop("acceptance_criteria", None)
     issues = validate_planning_track_with_details(payload)
-    assert any(item["reason_code"] == "missing_required_field" and item["path"].startswith("tasks/0") for item in issues)
+    assert any(
+        item["reason_code"] == "missing_required_field" and item["path"].startswith("tasks/0") for item in issues
+    )
 
 
 def test_persist_planning_track_result_repair_pipeline_runs_once_and_recovers(tmp_path: Path) -> None:

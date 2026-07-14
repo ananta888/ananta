@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import urllib.request
 
 from ananta_contracts.hub_task_gateway import (
     HUB_TASK_RECEIPT_SCHEMA,
@@ -96,3 +98,50 @@ def test_worker_gateway_transports_reads_and_retry_bindings_only_in_post_bodies(
         assert all(body and body["operation_id"] == request.operation_id for _, _, body in gateway.calls)
 
     asyncio.run(scenario())
+
+
+def test_temporal_http_gateway_sends_scoped_runtime_service_identity(monkeypatch) -> None:
+    captured: dict[str, str | None] = {}
+
+    class _Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        @staticmethod
+        def read(_limit: int) -> bytes:
+            return json.dumps(
+                {
+                    "data": {
+                        "schema": HUB_TASK_RECEIPT_SCHEMA,
+                        "hub_task_id": "hub-task-1",
+                        "operation_id": "operation-1",
+                        "status": "created",
+                        "authorization_state": "valid",
+                        "ledger_state": "authorized",
+                        "artifact_refs": [],
+                        "canonical_event_refs": [],
+                    }
+                }
+            ).encode("utf-8")
+
+    def fake_urlopen(request: urllib.request.Request, **_kwargs):
+        captured["service_id"] = request.headers.get("X-ananta-service-id")
+        captured["authorization"] = request.headers.get("Authorization")
+        return _Response()
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    gateway = HttpHubTaskGateway(
+        hub_url="https://hub.internal",
+        bearer_token="temporal-service-token",
+        service_id="ananta-temporal-worker",
+    )
+
+    asyncio.run(gateway.submit_authorized_task(_request()))
+
+    assert captured == {
+        "authorization": "Bearer temporal-service-token",
+        "service_id": "ananta-temporal-worker",
+    }

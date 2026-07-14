@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, g, jsonify, request
 from werkzeug.exceptions import RequestEntityTooLarge
 
 from agent.auth import check_service_auth
@@ -15,6 +15,10 @@ from agent.services.workflow_worker_gateway_runtime import (
     get_workflow_worker_gateway_service,
 )
 from agent.services.workflow_worker_gateway_service import WorkflowWorkerGatewayError
+from agent.services.workflow_worker_service_auth import (
+    WORKFLOW_TEMPORAL_TASK_SCOPE,
+    WORKFLOW_WORKER_COMMAND_SCOPE,
+)
 from ananta_contracts.hub_task_gateway import HUB_TASK_COMMAND_SCHEMA
 
 workflow_runtime_internal_bp = Blueprint(
@@ -76,7 +80,7 @@ def _worker_error(exc: WorkflowWorkerGatewayError):
 
 
 @workflow_runtime_internal_bp.post("/tasks")
-@check_service_auth
+@check_service_auth(scope=WORKFLOW_TEMPORAL_TASK_SCOPE)
 def submit_workflow_task():
     try:
         return jsonify({"data": _service().submit(_body())}), 202
@@ -85,7 +89,7 @@ def submit_workflow_task():
 
 
 @workflow_runtime_internal_bp.post("/retries")
-@check_service_auth
+@check_service_auth(scope=WORKFLOW_TEMPORAL_TASK_SCOPE)
 def consume_workflow_retry():
     try:
         return jsonify({"data": _service().consume_retry(_body())}), 200
@@ -94,13 +98,34 @@ def consume_workflow_retry():
 
 
 @workflow_runtime_internal_bp.post("/worker-commands")
-@check_service_auth
+@check_service_auth(scope=WORKFLOW_WORKER_COMMAND_SCOPE)
 def execute_workflow_worker_command():
     """Return one Hub-owned decision; never create or route worker tasks."""
 
     try:
         body = _body()
-        return jsonify({"data": get_workflow_worker_gateway_service().execute(body)}), 200
+        identity = dict(getattr(g, "service_identity", {}) or {})
+        worker_id = str(identity.get("worker_id") or "")
+        worker_url = str(identity.get("worker_url") or "")
+        options = (
+            {
+                "authenticated_worker_id": worker_id,
+                "authenticated_worker_url": worker_url,
+            }
+            if worker_id or worker_url
+            else {}
+        )
+        return (
+            jsonify(
+                {
+                    "data": get_workflow_worker_gateway_service().execute(
+                        body,
+                        **options,
+                    )
+                }
+            ),
+            200,
+        )
     except WorkflowWorkerGatewayError as exc:
         return _worker_error(exc)
     except WorkflowHubTaskError as exc:
@@ -108,7 +133,7 @@ def execute_workflow_worker_command():
 
 
 @workflow_runtime_internal_bp.get("/tasks/<hub_task_id>")
-@check_service_auth
+@check_service_auth(scope=WORKFLOW_TEMPORAL_TASK_SCOPE)
 def get_workflow_task(hub_task_id: str):
     try:
         operation_id = str(request.args.get("operation_id") or "").strip()
@@ -120,7 +145,7 @@ def get_workflow_task(hub_task_id: str):
 
 
 @workflow_runtime_internal_bp.get("/tasks/<hub_task_id>/payload")
-@check_service_auth
+@check_service_auth(scope=WORKFLOW_TEMPORAL_TASK_SCOPE)
 def get_workflow_task_payload(hub_task_id: str):
     try:
         operation_id = str(request.args.get("operation_id") or "").strip()
@@ -133,7 +158,7 @@ def get_workflow_task_payload(hub_task_id: str):
 
 
 @workflow_runtime_internal_bp.post("/tasks/<hub_task_id>/commands")
-@check_service_auth
+@check_service_auth(scope=WORKFLOW_TEMPORAL_TASK_SCOPE)
 def command_workflow_task(hub_task_id: str):
     try:
         body = _body()

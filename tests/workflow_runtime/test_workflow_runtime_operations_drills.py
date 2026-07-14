@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import json
+import runpy
 import stat
 import subprocess
 import sys
@@ -62,8 +63,10 @@ def test_operations_drill_script_runs_all_release_blocking_drills(tmp_path: Path
     payload = json.loads(completed.stdout)
     assert payload == json.loads(output.read_text(encoding="utf-8"))
     assert payload["status"] == "passed"
-    assert payload["source_revision"].startswith(source_revision + "+dirty.sha256.")
-    assert len(payload["source_revision"].rsplit(".", 1)[-1]) == 64
+    reported_revision = payload["source_revision"]
+    assert reported_revision == source_revision or reported_revision.startswith(source_revision + "+dirty.sha256.")
+    if reported_revision != source_revision:
+        assert len(reported_revision.rsplit(".", 1)[-1]) == 64
     assert {result["drill_id"] for result in payload["results"]} == {
         "alembic-upgrade-downgrade-n-minus-one",
         "authorization-key-rotation",
@@ -93,6 +96,38 @@ def test_operations_drill_script_runs_all_release_blocking_drills(tmp_path: Path
     assert "disposable-air055" not in completed.stdout
     backup = workspace / "workflow-runtime.backup.sqlite"
     assert stat.S_IMODE(backup.stat().st_mode) == 0o600
+
+
+def test_operations_drill_source_revision_binds_dirty_repository_bytes(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    tracked = repository / "tracked.txt"
+    tracked.write_text("base\n", encoding="utf-8")
+    for argv in (
+        ("git", "init", "-q"),
+        ("git", "config", "user.name", "Ananta Test"),
+        ("git", "config", "user.email", "ananta-test@example.invalid"),
+        ("git", "add", "tracked.txt"),
+        ("git", "commit", "-q", "-m", "test fixture"),
+    ):
+        subprocess.run(argv, cwd=repository, check=True, capture_output=True)
+
+    namespace = runpy.run_path(str(SCRIPT), run_name="workflow_operations_drill_script")
+    dirty_tree_digest = namespace["_dirty_tree_digest"]
+    dirty_tree_digest.__globals__["REPOSITORY_ROOT"] = repository
+
+    assert dirty_tree_digest() is None
+    tracked.write_text("changed\n", encoding="utf-8")
+    tracked_digest = dirty_tree_digest()
+    assert isinstance(tracked_digest, str) and len(tracked_digest) == 64
+    assert dirty_tree_digest() == tracked_digest
+
+    (repository / "untracked.txt").write_text("untracked\n", encoding="utf-8")
+    combined_digest = dirty_tree_digest()
+    assert isinstance(combined_digest, str) and len(combined_digest) == 64
+    assert combined_digest != tracked_digest
 
 
 def test_operations_drill_script_allocates_automatic_workspace(tmp_path: Path) -> None:

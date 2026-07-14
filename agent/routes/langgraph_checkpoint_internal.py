@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, g, jsonify, request
 from werkzeug.exceptions import RequestEntityTooLarge
 
 from agent.auth import check_service_auth
@@ -15,6 +15,9 @@ from agent.services.langgraph_checkpoint_gateway_service import (
 from agent.services.workflow_hub_task_gateway_runtime import (
     WorkflowHubTaskConfigurationError,
 )
+from agent.services.workflow_worker_service_auth import (
+    WORKFLOW_LANGGRAPH_CHECKPOINT_SCOPE,
+)
 
 langgraph_checkpoint_internal_bp = Blueprint(
     "langgraph_checkpoint_internal",
@@ -25,13 +28,27 @@ _MAX_BODY_BYTES = 262_144
 
 
 @langgraph_checkpoint_internal_bp.post("/checkpoints")
-@check_service_auth
+@check_service_auth(scope=WORKFLOW_LANGGRAPH_CHECKPOINT_SCOPE)
 def command_langgraph_checkpoint():
     try:
         if request.args:
             raise LangGraphCheckpointGatewayError("langgraph_checkpoint_query_transport_forbidden", status_code=400)
         body = _body()
-        result = get_langgraph_checkpoint_gateway_service().execute(body)
+        identity = dict(getattr(g, "service_identity", {}) or {})
+        worker_id = str(identity.get("worker_id") or "")
+        worker_url = str(identity.get("worker_url") or "")
+        options = (
+            {
+                "authenticated_worker_id": worker_id,
+                "authenticated_worker_url": worker_url,
+            }
+            if worker_id or worker_url
+            else {}
+        )
+        result = get_langgraph_checkpoint_gateway_service().execute(
+            body,
+            **options,
+        )
         return jsonify({"data": result}), 200
     except LangGraphCheckpointGatewayError as exc:
         return _error(exc)

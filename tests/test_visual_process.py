@@ -1,8 +1,11 @@
 """VPAD-012: Tests for Visual Process Designer (all VPDF + VPAD backend tasks)."""
 from __future__ import annotations
 
-import json
+import uuid
+
 import pytest
+
+from agent.services.user_session_tokens import issue_user_access_token
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -30,7 +33,15 @@ def flask_client():
     app = Flask(__name__)
     app.config["TESTING"] = True
     app.register_blueprint(vp_bp)
-    return app.test_client()
+    client = app.test_client()
+    token = issue_user_access_token(username="admin", role="admin")
+    client.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {token}"
+    return client
+
+
+def _visual_auth_headers(username: str) -> dict[str, str]:
+    token = issue_user_access_token(username=username, role="admin")
+    return {"Authorization": f"Bearer {token}"}
 
 
 # ── VPAD-001 + VPDF-001: Schema ───────────────────────────────────────────────
@@ -431,6 +442,20 @@ class TestRunState:
 # ── API routes ────────────────────────────────────────────────────────────────
 
 class TestVisualProcessAPI:
+    def test_model_routing_detail_endpoints_require_user_authentication(self):
+        from flask import Flask
+
+        from agent.routes.visual_process import vp_bp
+
+        app = Flask(__name__)
+        app.testing = True
+        app.register_blueprint(vp_bp)
+        client = app.test_client()
+
+        assert client.post("/api/visual-process/dry-run", json={}).status_code == 401
+        assert client.post("/api/visual-process/model-routing/validate", json={}).status_code == 401
+        assert client.post("/api/visual-process/model-routing/estimate-cost", json={}).status_code == 401
+
     def test_list_presets(self, flask_client):
         r = flask_client.get("/api/visual-process/presets")
         assert r.status_code == 200
@@ -595,3 +620,52 @@ class TestVisualProcessAPI:
             **graph.model_dump(), "step_id": "ghost",
         })
         assert r.status_code == 404
+
+
+def test_graph_crud_is_authenticated_and_tenant_owned(flask_client, simple_graph):
+    from agent.services.chat_process_binding import load_graph
+
+    graph_id = f"graph-security-{uuid.uuid4().hex[:12]}"
+    graph = simple_graph.model_copy(update={"id": graph_id})
+    owner_headers = _visual_auth_headers("admin")
+    foreign_headers = _visual_auth_headers("foreign-admin")
+
+    anonymous_app = flask_client.application.test_client()
+    anonymous = anonymous_app.post("/api/visual-process/graphs", json=graph.model_dump())
+    assert anonymous.status_code == 401
+
+    created = flask_client.post(
+        "/api/visual-process/graphs",
+        json=graph.model_dump(),
+        headers=owner_headers,
+    )
+    assert created.status_code == 200
+    try:
+        loaded = flask_client.get(f"/api/visual-process/graphs/{graph_id}", headers=owner_headers)
+        foreign_get = flask_client.get(f"/api/visual-process/graphs/{graph_id}", headers=foreign_headers)
+        foreign_list = flask_client.get("/api/visual-process/graphs", headers=foreign_headers)
+        collision = flask_client.post(
+            "/api/visual-process/graphs",
+            json=graph.model_dump(),
+            headers=foreign_headers,
+        )
+        foreign_update = flask_client.put(
+            f"/api/visual-process/graphs/{graph_id}",
+            json=graph.model_dump(),
+            headers=foreign_headers,
+        )
+        foreign_delete = flask_client.delete(
+            f"/api/visual-process/graphs/{graph_id}",
+            headers=foreign_headers,
+        )
+
+        assert loaded.status_code == 200
+        assert "owner_principal" not in loaded.json.get("metadata", {})
+        assert foreign_get.status_code == foreign_update.status_code == foreign_delete.status_code == 404
+        assert graph_id not in {item["id"] for item in foreign_list.json}
+        assert collision.status_code == 409
+        assert load_graph(graph_id, tenant_id="foreign-admin", subject_id="foreign-admin") is None
+        assert load_graph(graph_id, tenant_id="admin", subject_id="admin") is not None
+    finally:
+        deleted = flask_client.delete(f"/api/visual-process/graphs/{graph_id}", headers=owner_headers)
+        assert deleted.status_code == 204

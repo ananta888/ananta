@@ -29,6 +29,9 @@ def get_langgraph_checkpoint_gateway_service() -> LangGraphCheckpointGatewayServ
     with _LOCK:
         if _SERVICE is None:
             from agent.database import engine
+            from agent.services.workflow_worker_assignment_runtime import (
+                get_workflow_worker_assignment_store,
+            )
 
             key_ring = get_workflow_authorization_key_ring()
             _SERVICE = LangGraphCheckpointGatewayService(
@@ -37,6 +40,7 @@ def get_langgraph_checkpoint_gateway_service() -> LangGraphCheckpointGatewayServ
                 key_ring=key_ring,
                 authorization=AuthorizationVerifier(key_ring),
                 commands=WorkflowCommandVerifier(key_ring, InMemoryReplayNonceStore()),
+                assignments=get_workflow_worker_assignment_store(),
             )
     return _SERVICE
 

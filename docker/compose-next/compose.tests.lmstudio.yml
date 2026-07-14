@@ -15,11 +15,13 @@
 #
 # Start:
 #   docker compose -f docker/compose-next/compose.tests.lmstudio.yml \
+#     -f docker/compose-next/compose.tests.workflow-runtime-support.yml \
 #     --env-file docker/compose-next/.env up --exit-code-from all-tests all-tests
 #
 # Mit OpenAI-kompatiblem Endpunkt:
 #   LIVE_LLM_PROVIDER=openai OPENAI_API_KEY=sk-... \
 #   docker compose -f docker/compose-next/compose.tests.lmstudio.yml \
+#     -f docker/compose-next/compose.tests.workflow-runtime-support.yml \
 #     --env-file docker/compose-next/.env up --exit-code-from all-tests all-tests
 
 services:
