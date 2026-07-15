@@ -43,12 +43,55 @@ def compose_document() -> dict:
     return document
 
 
-def test_no_network_boundary_keeps_capability_networks_internal_and_disjoint(compose_document: dict) -> None:
+def _render_cpu_voice_environment(overrides: dict[str, str]) -> dict[str, str]:
+    if shutil.which("docker") is None:
+        pytest.skip("docker CLI is not installed")
+    environment = os.environ.copy()
+    environment.update(
+        {
+            "INITIAL_ADMIN_PASSWORD": "compose-config-test-password",
+            "VOICE_INTERNAL_SERVICE_TOKEN": "compose-test-voice-token-at-least-24-chars",
+            "VOICE_PERSONALIZATION_ENCRYPTION_KEY": (
+                "MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA="
+            ),
+            "RESTRICTED_INFERENCE_INTERNAL_TOKEN": (
+                "compose-test-restricted-token-at-least-24-chars"
+            ),
+            **overrides,
+        }
+    )
+    completed = subprocess.run(
+        [
+            "docker",
+            "compose",
+            "-f",
+            str(COMPOSE_FILE),
+            "--profile",
+            "voice-cpu",
+            "config",
+            "--format",
+            "json",
+        ],
+        cwd=ROOT,
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert completed.returncode == 0, completed.stderr
+    return json.loads(completed.stdout)["services"]["voice-runtime-cpu"]["environment"]
+
+
+def test_network_boundaries_keep_control_planes_internal_and_workers_disjoint(
+    compose_document: dict,
+) -> None:
     networks = compose_document["networks"]
     assert networks["voice-runtime-control"]["internal"] is True
     assert networks["restricted-inference-control"]["internal"] is True
     assert networks["generative-judge-control"]["internal"] is True
     assert networks["generative-corrector-control"]["internal"] is True
+    assert networks["generative-corrector-egress"]["internal"] is False
 
     services = compose_document["services"]
     for name in VOICE_SERVICES:
@@ -56,9 +99,18 @@ def test_no_network_boundary_keeps_capability_networks_internal_and_disjoint(com
     for name in RESTRICTED_SERVICES:
         assert set(services[name]["networks"]) == {"restricted-inference-control"}
     assert set(services[GENERATIVE_JUDGE_SERVICE]["networks"]) == {"generative-judge-control"}
+    # The corrector retains its dedicated Hub control plane and uses a separate
+    # non-internal provider-egress network. It never joins the application
+    # default network or another execution service's control plane.
     assert set(services[GENERATIVE_CORRECTOR_SERVICE]["networks"]) == {
-        "generative-corrector-control"
+        "generative-corrector-control",
+        "generative-corrector-egress",
     }
+    assert {
+        name
+        for name, service in services.items()
+        if "generative-corrector-egress" in service.get("networks", {})
+    } == {GENERATIVE_CORRECTOR_SERVICE}
 
     hub_networks = set(services["ai-agent-hub"]["networks"])
     assert hub_networks == {
@@ -68,6 +120,7 @@ def test_no_network_boundary_keeps_capability_networks_internal_and_disjoint(com
         "voice-runtime-control",
         "restricted-inference-control",
     }
+    assert "generative-corrector-egress" not in hub_networks
 
 
 @pytest.mark.parametrize("service_name", sorted(RUNTIME_SERVICES))
@@ -133,6 +186,12 @@ def test_cpu_voice_profile_supports_an_explicit_vosk_only_selection(
         "${VOICE_CPU_CALIBRATION_PATH-/models/voice/calibration/calibration.json}"
     )
     assert environment["VOICE_FUSION_ENABLED"] == "${VOICE_CPU_FUSION_ENABLED:-true}"
+    assert environment["VOICE_FASTER_WHISPER_COMPUTE_TYPE"] == (
+        "${VOICE_CPU_FASTER_WHISPER_COMPUTE_TYPE:-int8}"
+    )
+    assert environment["VOICE_FASTER_WHISPER_MODEL_PATH"] == (
+        "${VOICE_CPU_FASTER_WHISPER_MODEL_PATH:-/models/voice/faster-whisper}"
+    )
     assert environment["VOICE_POLICY_ALLOWED_BACKENDS"] == (
         "${VOICE_CPU_POLICY_ALLOWED_BACKENDS:-vosk,whisper_cpp}"
     )
@@ -148,22 +207,28 @@ def test_cpu_voice_profile_supports_an_explicit_vosk_only_selection(
     assert environment["VOICE_SECONDARY_BACKENDS"] == (
         "${VOICE_CPU_SECONDARY_BACKENDS-whisper_cpp}"
     )
+    assert environment["VOICE_RUNTIME_MODEL_PATH"] == "${VOICE_CPU_VOXTRAL_MODEL_PATH:-}"
+    assert environment["VOICE_VOXTRAL_RUNNER_PATH"] == "${VOICE_CPU_VOXTRAL_RUNNER_PATH:-}"
+    assert environment["VOICE_VOXTRAL_RUNNER_STYLE"] == (
+        "${VOICE_CPU_VOXTRAL_RUNNER_STYLE:-realtime}"
+    )
+
+
+def test_cpu_voice_profile_leaves_new_gpu_switch_unset_for_legacy_layers_alias() -> None:
+    rendered = _render_cpu_voice_environment(
+        {
+            "VOICE_WHISPER_CPP_GPU_LAYERS": "12",
+            "VOICE_WHISPER_CPP_GPU_ENABLED": "",
+        }
+    )
+
+    assert rendered["VOICE_WHISPER_CPP_GPU_LAYERS"] == "12"
+    assert rendered["VOICE_WHISPER_CPP_GPU_ENABLED"] == ""
 
 
 def test_cpu_voice_profile_renders_an_explicit_vosk_only_selection() -> None:
-    if shutil.which("docker") is None:
-        pytest.skip("docker CLI is not installed")
-    environment = os.environ.copy()
-    environment.update(
+    rendered = _render_cpu_voice_environment(
         {
-            "INITIAL_ADMIN_PASSWORD": "compose-config-test-password",
-            "VOICE_INTERNAL_SERVICE_TOKEN": "compose-test-voice-token-at-least-24-chars",
-            "VOICE_PERSONALIZATION_ENCRYPTION_KEY": (
-                "MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA="
-            ),
-            "RESTRICTED_INFERENCE_INTERNAL_TOKEN": (
-                "compose-test-restricted-token-at-least-24-chars"
-            ),
             "VOICE_CPU_RECOGNITION_STRATEGY": "single",
             "VOICE_CPU_BACKEND_FALLBACK_ORDER": "vosk",
             "VOICE_CPU_CALIBRATION_PATH": "",
@@ -174,28 +239,6 @@ def test_cpu_voice_profile_renders_an_explicit_vosk_only_selection() -> None:
             "VOICE_CPU_RERUN_BACKEND": "vosk",
         }
     )
-    completed = subprocess.run(
-        [
-            "docker",
-            "compose",
-            "-f",
-            str(COMPOSE_FILE),
-            "--profile",
-            "voice-cpu",
-            "config",
-            "--format",
-            "json",
-        ],
-        cwd=ROOT,
-        env=environment,
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
-
-    assert completed.returncode == 0, completed.stderr
-    rendered = json.loads(completed.stdout)["services"]["voice-runtime-cpu"]["environment"]
     assert rendered["VOICE_RECOGNITION_STRATEGY"] == "single"
     assert rendered["VOICE_BACKEND_FALLBACK_ORDER"] == "vosk"
     assert rendered["VOICE_CALIBRATION_PATH"] == ""
@@ -204,6 +247,29 @@ def test_cpu_voice_profile_renders_an_explicit_vosk_only_selection() -> None:
     assert rendered["VOICE_POLICY_ALLOWED_RECOGNITION_STRATEGIES"] == "single"
     assert rendered["VOICE_SECONDARY_BACKENDS"] == ""
     assert rendered["VOICE_RERUN_BACKEND"] == "vosk"
+    assert rendered["VOICE_FASTER_WHISPER_MODEL_PATH"] == "/models/voice/faster-whisper"
+    assert rendered["VOICE_FASTER_WHISPER_COMPUTE_TYPE"] == "int8"
+    assert rendered["VOICE_RUNTIME_MODEL_PATH"] == ""
+    assert rendered["VOICE_VOXTRAL_RUNNER_PATH"] == ""
+    assert rendered["VOICE_VOXTRAL_RUNNER_STYLE"] == "realtime"
+
+
+def test_cpu_voice_profile_renders_optional_local_backend_overrides() -> None:
+    rendered = _render_cpu_voice_environment(
+        {
+            "VOICE_CPU_FASTER_WHISPER_MODEL_PATH": "/models/voice/faster-whisper-small",
+            "VOICE_CPU_FASTER_WHISPER_COMPUTE_TYPE": "float32",
+            "VOICE_CPU_VOXTRAL_MODEL_PATH": "/models/voice/voxtral/model.gguf",
+            "VOICE_CPU_VOXTRAL_RUNNER_PATH": "/models/voice/bin/voxtral-cli",
+            "VOICE_CPU_VOXTRAL_RUNNER_STYLE": "llama",
+        }
+    )
+
+    assert rendered["VOICE_FASTER_WHISPER_MODEL_PATH"] == "/models/voice/faster-whisper-small"
+    assert rendered["VOICE_FASTER_WHISPER_COMPUTE_TYPE"] == "float32"
+    assert rendered["VOICE_RUNTIME_MODEL_PATH"] == "/models/voice/voxtral/model.gguf"
+    assert rendered["VOICE_VOXTRAL_RUNNER_PATH"] == "/models/voice/bin/voxtral-cli"
+    assert rendered["VOICE_VOXTRAL_RUNNER_STYLE"] == "llama"
 
 
 def test_generative_judge_worker_is_optional_hardened_and_has_only_a_local_engine(
@@ -230,7 +296,7 @@ def test_generative_judge_worker_is_optional_hardened_and_has_only_a_local_engin
     assert model_mount["bind"]["create_host_path"] is False
 
 
-def test_generative_corrector_is_optional_hardened_and_uses_local_allowlisted_catalog(
+def test_generative_corrector_is_optional_hardened_and_uses_admin_configured_providers(
     compose_document: dict,
 ) -> None:
     service = compose_document["services"][GENERATIVE_CORRECTOR_SERVICE]
@@ -241,8 +307,17 @@ def test_generative_corrector_is_optional_hardened_and_uses_local_allowlisted_ca
     assert service["cap_drop"] == ["ALL"]
     assert service["security_opt"] == ["no-new-privileges:true"]
     assert "ports" not in service
-    assert "extra_hosts" not in service
-    assert environment["GENERATIVE_CORRECTOR_ENGINE"] == "transformers"
+    assert service["extra_hosts"] == ["host.docker.internal:host-gateway"]
+    assert environment["GENERATIVE_CORRECTOR_ENGINE"] == "${GENERATIVE_CORRECTOR_ENGINE:-hybrid}"
+    assert environment["GENERATIVE_CORRECTOR_EXTERNAL_PROVIDERS"] == (
+        "${VOICE_GENERATIVE_CORRECTOR_PROVIDERS:-embedded,lmstudio,ollama}"
+    )
+    assert environment["GENERATIVE_CORRECTOR_LMSTUDIO_URL"] == (
+        "${LMSTUDIO_URL:-http://host.docker.internal:1234/v1}"
+    )
+    assert environment["GENERATIVE_CORRECTOR_OLLAMA_URL"] == (
+        "${OLLAMA_URL:-http://host.docker.internal:11434/api/generate}"
+    )
     assert environment["GENERATIVE_CORRECTOR_MODEL_CATALOG"] == (
         "/models/generative-corrector/manifests/model-catalog.json"
     )
@@ -290,6 +365,9 @@ def test_hub_is_the_only_runtime_client_and_owns_service_credentials(compose_doc
         environment["VOICE_GENERATIVE_CORRECTOR_WORKER_URL"]
     )
     assert environment["VOICE_GENERATIVE_CORRECTOR_HUB_ORIGIN"] == "http://ai-agent-hub:5000"
+    assert environment["VOICE_GENERATIVE_CORRECTOR_PROVIDERS"] == (
+        "${VOICE_GENERATIVE_CORRECTOR_PROVIDERS:-embedded,lmstudio,ollama}"
+    )
     assert set(hub["depends_on"]) == RUNTIME_SERVICES | {
         GENERATIVE_JUDGE_SERVICE,
         GENERATIVE_CORRECTOR_SERVICE,

@@ -2,8 +2,12 @@
 # inference.  Select exactly one combined profile:
 #   voice-production-minimal | voice-production-cpu | voice-production-nvidia
 #
-# Runtime services only share a capability-specific internal network with the
-# Hub.  Voice and restricted-inference workers cannot address each other.
+# Execution services retain capability-specific control networks with the Hub.
+# Voice, restricted-inference, and judge workers cannot address each other.
+# The optional corrector uses a separate non-internal egress network solely to
+# call deployment-configured Ollama/LM-Studio endpoints; it does not join the
+# application default network. Its API still requires the dedicated Hub
+# credential and origin on the internal control network.
 
 x-runtime-hardening: &runtime-hardening
   init: true
@@ -81,6 +85,7 @@ x-voice-runtime-common: &voice-runtime-common
     VOICE_WHISPER_CPP_BIN: /models/voice/bin/whisper-cli
     VOICE_WHISPER_CPP_BEAM_SIZE: ${VOICE_WHISPER_CPP_BEAM_SIZE:-5}
     VOICE_WHISPER_CPP_GPU_LAYERS: ${VOICE_WHISPER_CPP_GPU_LAYERS:-0}
+    VOICE_WHISPER_CPP_GPU_ENABLED: ${VOICE_WHISPER_CPP_GPU_ENABLED:-}
     VOICE_WHISPER_CPP_MODEL_PATH: /models/voice/whisper/ggml-small.bin
     VOICE_WHISPER_CPP_PROMPT_MAX_CHARS: ${VOICE_WHISPER_CPP_PROMPT_MAX_CHARS:-512}
     VOICE_WHISPER_CPP_TEMPERATURE: ${VOICE_WHISPER_CPP_TEMPERATURE:-0.0}
@@ -224,9 +229,12 @@ x-generative-corrector-common: &generative-corrector-common
   environment:
     GENERATIVE_CORRECTOR_ALLOWED_HUB_ORIGINS: http://ai-agent-hub:5000
     GENERATIVE_CORRECTOR_DEVICE: cpu
-    GENERATIVE_CORRECTOR_ENGINE: transformers
+    GENERATIVE_CORRECTOR_ENGINE: ${GENERATIVE_CORRECTOR_ENGINE:-hybrid}
+    GENERATIVE_CORRECTOR_EXTERNAL_PROVIDERS: ${VOICE_GENERATIVE_CORRECTOR_PROVIDERS:-embedded,lmstudio,ollama}
     GENERATIVE_CORRECTOR_HOST: 0.0.0.0
     GENERATIVE_CORRECTOR_INTERNAL_TOKEN: ${VOICE_GENERATIVE_CORRECTOR_WORKER_TOKEN:-}
+    GENERATIVE_CORRECTOR_LMSTUDIO_API_KEY: ${LMSTUDIO_API_KEY:-}
+    GENERATIVE_CORRECTOR_LMSTUDIO_URL: ${LMSTUDIO_URL:-http://host.docker.internal:1234/v1}
     GENERATIVE_CORRECTOR_MAX_IN_FLIGHT: ${GENERATIVE_CORRECTOR_MAX_IN_FLIGHT:-1}
     GENERATIVE_CORRECTOR_MAX_INPUT_CHARS: ${GENERATIVE_CORRECTOR_MAX_INPUT_CHARS:-32000}
     GENERATIVE_CORRECTOR_MAX_INPUT_TOKENS: ${GENERATIVE_CORRECTOR_MAX_INPUT_TOKENS:-4096}
@@ -234,7 +242,11 @@ x-generative-corrector-common: &generative-corrector-common
     GENERATIVE_CORRECTOR_MAX_REQUEST_BYTES: ${GENERATIVE_CORRECTOR_MAX_REQUEST_BYTES:-1048576}
     GENERATIVE_CORRECTOR_MODEL_CATALOG: /models/generative-corrector/manifests/model-catalog.json
     GENERATIVE_CORRECTOR_MODEL_ROOT: /models/generative-corrector
+    GENERATIVE_CORRECTOR_OLLAMA_API_KEY: ${OLLAMA_API_KEY:-}
+    GENERATIVE_CORRECTOR_OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434/api/generate}
     GENERATIVE_CORRECTOR_PORT: "8093"
+    GENERATIVE_CORRECTOR_PROVIDER_DISCOVERY_TIMEOUT_MS: ${GENERATIVE_CORRECTOR_PROVIDER_DISCOVERY_TIMEOUT_MS:-200}
+    GENERATIVE_CORRECTOR_PROVIDER_MAX_RESPONSE_BYTES: ${GENERATIVE_CORRECTOR_PROVIDER_MAX_RESPONSE_BYTES:-1048576}
     HF_HOME: /tmp/model-cache
     HF_HUB_OFFLINE: "1"
     TRANSFORMERS_OFFLINE: "1"
@@ -286,6 +298,7 @@ services:
       VOICE_GENERATIVE_CORRECTOR_HUB_ORIGIN: http://ai-agent-hub:5000
       VOICE_GENERATIVE_CORRECTOR_MAX_RESPONSE_BYTES: ${VOICE_GENERATIVE_CORRECTOR_MAX_RESPONSE_BYTES:-262144}
       VOICE_GENERATIVE_CORRECTOR_MODELS: ${VOICE_GENERATIVE_CORRECTOR_MODELS:-gemma-2b-it,phi-3-mini-instruct}
+      VOICE_GENERATIVE_CORRECTOR_PROVIDERS: ${VOICE_GENERATIVE_CORRECTOR_PROVIDERS:-embedded,lmstudio,ollama}
       VOICE_GENERATIVE_CORRECTOR_TIMEOUT_MS: ${VOICE_GENERATIVE_CORRECTOR_TIMEOUT_MS:-30000}
       VOICE_GENERATIVE_CORRECTOR_WORKER_ALLOWED_ENDPOINTS: http://generative-corrector-worker:8093/internal/v1/voice-corrector
       VOICE_GENERATIVE_CORRECTOR_WORKER_TOKEN: ${VOICE_GENERATIVE_CORRECTOR_WORKER_TOKEN:-}
@@ -356,10 +369,13 @@ services:
       target: cpu
     profiles:
       - voice-generative-corrector
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       generative-corrector-control:
         aliases:
           - generative-corrector-worker
+      generative-corrector-egress: {}
 
   voice-runtime-minimal:
     <<: *voice-runtime-common
@@ -417,6 +433,8 @@ services:
       # Single-backend deployments can explicitly disable calibration; fusion
       # keeps the promoted calibration catalog as its safe default.
       VOICE_CALIBRATION_PATH: ${VOICE_CPU_CALIBRATION_PATH-/models/voice/calibration/calibration.json}
+      VOICE_FASTER_WHISPER_COMPUTE_TYPE: ${VOICE_CPU_FASTER_WHISPER_COMPUTE_TYPE:-int8}
+      VOICE_FASTER_WHISPER_MODEL_PATH: ${VOICE_CPU_FASTER_WHISPER_MODEL_PATH:-/models/voice/faster-whisper}
       VOICE_FUSION_ENABLED: ${VOICE_CPU_FUSION_ENABLED:-true}
       VOICE_PRIMARY_BACKEND: vosk
       VOICE_POLICY_ALLOWED_BACKENDS: ${VOICE_CPU_POLICY_ALLOWED_BACKENDS:-vosk,whisper_cpp}
@@ -431,6 +449,11 @@ services:
       # Use the non-colon expansion so Compose preserves that empty value.
       VOICE_SECONDARY_BACKENDS: ${VOICE_CPU_SECONDARY_BACKENDS-whisper_cpp}
       VOICE_VAD_BACKEND: ${VOICE_VAD_BACKEND:-webrtcvad}
+      # Voxtral remains opt-in: operators must promote both immutable artifacts
+      # into the read-only Voice model root before adding it to the allowlist.
+      VOICE_RUNTIME_MODEL_PATH: ${VOICE_CPU_VOXTRAL_MODEL_PATH:-}
+      VOICE_VOXTRAL_RUNNER_PATH: ${VOICE_CPU_VOXTRAL_RUNNER_PATH:-}
+      VOICE_VOXTRAL_RUNNER_STYLE: ${VOICE_CPU_VOXTRAL_RUNNER_STYLE:-realtime}
     cpus: ${VOICE_CPU_CPUS:-4.0}
     mem_limit: ${VOICE_CPU_MEMORY:-4g}
     deploy:
@@ -598,6 +621,8 @@ networks:
   default: {}
   generative-corrector-control:
     internal: true
+  generative-corrector-egress:
+    internal: false
   generative-judge-control:
     internal: true
   restricted-inference-control:
