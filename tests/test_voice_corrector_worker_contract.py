@@ -13,13 +13,17 @@ from ananta_contracts.voice_corrector_worker import (
 )
 
 
-def _request(*, max_edit_ratio: float = 0.5) -> VoiceCorrectorWorkerRequest:
+def _request(
+    *,
+    max_edit_ratio: float = 0.5,
+    model_id: str = "gemma-2b-it",
+) -> VoiceCorrectorWorkerRequest:
     return VoiceCorrectorWorkerRequest(
         request_id="request-1",
         task_id="task-1",
         region_id="full-transcript",
         original_text="hallo welt",
-        model_id="gemma-2b-it",
+        model_id=model_id,
         language="de",
         max_edit_ratio=max_edit_ratio,
         deadline_epoch_ms=time.time_ns() // 1_000_000 + 30_000,
@@ -50,6 +54,31 @@ def test_contract_preserves_original_and_round_trips_replayable_edits() -> None:
     assert parsed_response.original_text == "hallo welt"
     assert parsed_response.corrected_text == corrected
     assert parsed_response.to_dict()["execution_owner"] == "worker"
+
+
+@pytest.mark.parametrize("model_id", ["ollama:qwen2.5:7b", "lmstudio:org/model"])
+def test_contract_round_trips_provider_qualified_model_identifiers(model_id: str) -> None:
+    request = _request(model_id=model_id)
+    response = VoiceCorrectorWorkerResponse(
+        request_id=request.request_id,
+        task_id=request.task_id,
+        status="unchanged",
+        original_text=request.original_text,
+        corrected_text=request.original_text,
+        edits=(),
+        reason_code=None,
+        model_id=model_id,
+        model_revision="runtime-unpinned",
+        engine_id="provider-http",
+        prompt_version="prompt-v1",
+    )
+
+    parsed_request = VoiceCorrectorWorkerRequest.from_dict(request.to_dict())
+    parsed_response = VoiceCorrectorWorkerResponse.from_dict(response.to_dict())
+    parsed_response.validate_for(parsed_request)
+
+    assert parsed_request.model_id == model_id
+    assert parsed_response.model_id == model_id
 
 
 def test_contract_rejects_unbounded_or_unprovenanced_rewrites() -> None:

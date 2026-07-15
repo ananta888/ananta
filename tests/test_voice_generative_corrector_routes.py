@@ -44,12 +44,21 @@ def _corrected(result: dict, model_id: str) -> dict:
     }
 
 
-def _configure(client, headers, profile_id: str, model_id: str, *, expected_version: int | None = None):
+def _configure(
+    client,
+    headers,
+    profile_id: str,
+    model_id: str,
+    *,
+    provider_id: str = "embedded",
+    expected_version: int | None = None,
+):
     body = {
         "scope": "profile",
         "scope_id": profile_id,
         "delta": {
             "correction_policy": "generative_rewrite",
+            "generative_corrector_provider": provider_id,
             "generative_corrector_model": model_id,
             "generative_corrector_max_edit_ratio": 0.35,
             "feature_flags": {"generative_corrector": True},
@@ -182,7 +191,19 @@ def test_capability_is_not_advertised_when_configured_model_is_not_worker_ready(
     }
     with (
         patch("agent.routes.voice.get_voice_provider_service", return_value=provider),
-        patch("agent.routes.voice.generative_corrector_capabilities", return_value=[missing_model]),
+        patch(
+            "agent.routes.voice.generative_corrector_capability_bundle",
+            return_value={
+                "correction_models": [missing_model],
+                "correction_providers": [],
+                "correction_default": {
+                    "provider": "lmstudio",
+                    "model": "auto",
+                    "source": "settings.default",
+                    "available": False,
+                },
+            },
+        ),
     ):
         unavailable = client.get("/v1/voice/capabilities", headers=admin_auth_header)
 
@@ -190,3 +211,53 @@ def test_capability_is_not_advertised_when_configured_model_is_not_worker_ready(
     data = unavailable.get_json()["data"]
     assert data["correction_models"] == [missing_model]
     assert "generative_transcript_correction" not in data["capabilities"]
+
+
+def test_batch_resolves_inherit_from_general_llm_configuration_at_the_hub_boundary(
+    client,
+    admin_auth_header,
+    app,
+) -> None:
+    profile_id = f"corrector-inherit-{uuid.uuid4().hex}"
+    app.config["AGENT_CONFIG"] = {
+        **dict(app.config.get("AGENT_CONFIG") or {}),
+        "llm_config": {"provider": "ollama", "model": "qwen2.5:7b"},
+    }
+    assert _configure(
+        client,
+        admin_auth_header,
+        profile_id,
+        "",
+        provider_id="inherit",
+    ).status_code == 200
+    provider = Mock()
+    provider.transcribe.return_value = _result()
+    corrector = Mock()
+    corrector.apply.return_value = VoiceGenerativeCorrectorOutcome(
+        result=_corrected(_result(), "ollama:qwen2.5:7b"),
+        applied=True,
+        reason_code="generative_corrector_corrected",
+    )
+
+    with (
+        patch("agent.routes.voice.get_voice_provider_service", return_value=provider),
+        patch("agent.routes.voice.get_voice_generative_corrector_service", return_value=corrector),
+    ):
+        response = client.post(
+            "/v1/voice/transcribe",
+            headers=admin_auth_header,
+            data={
+                "file": (BytesIO(b"audio"), "sample.webm"),
+                "profile_id": profile_id,
+                "language": "de",
+            },
+            content_type="multipart/form-data",
+        )
+
+    assert response.status_code == 200
+    effective = corrector.apply.call_args.kwargs["effective_configuration"]
+    assert effective["generative_corrector_provider"] == "ollama"
+    assert effective["generative_corrector_model"] == "qwen2.5:7b"
+    assert effective["generative_corrector_inherited_source"] == "agent_config.llm_config"
+    runtime_context = provider.transcribe.call_args.kwargs["recognition_context"]
+    assert "generative_corrector_provider" not in runtime_context["configuration"]

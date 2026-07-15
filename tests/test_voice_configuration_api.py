@@ -79,6 +79,31 @@ def test_generative_rewrite_requires_its_flag_and_forces_review(client, user_aut
     assert enabled_effective["effective"]["review_policy"] == "always"
 
 
+def test_external_corrector_rejects_a_qualified_model_identifier_over_contract_limit(
+    client,
+    user_auth_header,
+):
+    response = client.put(
+        "/v1/voice/configuration",
+        headers={**user_auth_header, "Idempotency-Key": "corrector-qualified-id-too-long"},
+        json={
+            "scope": "profile",
+            "scope_id": "corrector-qualified-id-too-long",
+            "delta": {
+                "correction_policy": "generative_rewrite",
+                "generative_corrector_provider": "lmstudio",
+                "generative_corrector_model": "m" * 184,
+                "feature_flags": {"generative_corrector": True},
+            },
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.get_json()["data"]["error"]["code"] == (
+        "voice_configuration.invalid_corrector_model"
+    )
+
+
 def test_profile_and_session_deltas_follow_precedence(client, user_auth_header):
     profile = client.put(
         "/v1/voice/configuration",

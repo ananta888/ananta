@@ -26,6 +26,7 @@ COPY --chown=10004:10004 ananta_contracts /app/ananta_contracts
 COPY --chown=10004:10004 worker/__init__.py /app/worker/__init__.py
 COPY --chown=10004:10004 worker/runtime/__init__.py /app/worker/runtime/__init__.py
 COPY --chown=10004:10004 worker/runtime/generative_corrector_engine.py /app/worker/runtime/generative_corrector_engine.py
+COPY --chown=10004:10004 worker/runtime/generative_corrector_provider_engine.py /app/worker/runtime/generative_corrector_provider_engine.py
 COPY --chown=10004:10004 worker/runtime/generative_corrector_app.py /app/worker/runtime/generative_corrector_app.py
 
 USER 10004:10004

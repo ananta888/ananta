@@ -41,6 +41,27 @@ class _Engine:
         )
 
 
+class _SnapshotEngine(_Engine):
+    @property
+    def model_ids(self) -> tuple[str, ...]:
+        raise AssertionError("health must not split an atomic engine snapshot")
+
+    @property
+    def provider_ids(self) -> tuple[str, ...]:
+        raise AssertionError("health must not split an atomic engine snapshot")
+
+    @property
+    def ready_provider_ids(self) -> tuple[str, ...]:
+        raise AssertionError("health must not split an atomic engine snapshot")
+
+    def health_snapshot(self) -> dict[str, tuple[str, ...]]:
+        return {
+            "model_ids": ("lmstudio:org/model",),
+            "provider_ids": ("lmstudio",),
+            "ready_provider_ids": ("lmstudio",),
+        }
+
+
 def _payload(
     *,
     original_text: str = "hallo welt",
@@ -78,16 +99,32 @@ def test_worker_requires_hub_auth_and_exposes_allowlisted_models() -> None:
     client = _client(_Engine())
 
     assert client.get("/health").json["model_ids"] == ["gemma-2b-it", "phi-3-mini-instruct"]
-    assert client.post(
-        CORRECTOR_ENDPOINT,
-        json=_payload(),
-        headers={"Origin": "http://ai-agent-hub:5000"},
-    ).status_code == 401
-    assert client.post(
-        CORRECTOR_ENDPOINT,
-        json=_payload(),
-        headers={"Authorization": f"Bearer {TOKEN}", "Origin": "http://ai-agent-hub:5001"},
-    ).status_code == 403
+    assert (
+        client.post(
+            CORRECTOR_ENDPOINT,
+            json=_payload(),
+            headers={"Origin": "http://ai-agent-hub:5000"},
+        ).status_code
+        == 401
+    )
+    assert (
+        client.post(
+            CORRECTOR_ENDPOINT,
+            json=_payload(),
+            headers={"Authorization": f"Bearer {TOKEN}", "Origin": "http://ai-agent-hub:5001"},
+        ).status_code
+        == 403
+    )
+
+
+def test_worker_health_reads_one_atomic_engine_snapshot() -> None:
+    response = _client(_SnapshotEngine()).get("/health")
+
+    assert response.status_code == 200
+    assert response.json["status"] == "ready"
+    assert response.json["model_ids"] == ["lmstudio:org/model"]
+    assert response.json["provider_ids"] == ["lmstudio"]
+    assert response.json["ready_provider_ids"] == ["lmstudio"]
 
 
 def test_worker_returns_original_corrected_text_edits_and_model_provenance() -> None:

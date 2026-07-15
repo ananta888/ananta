@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import math
+import re
 import threading
 from copy import deepcopy
 from dataclasses import dataclass
@@ -67,6 +68,8 @@ LEGACY_PIPELINE_PROJECTION = {
 }
 ENHANCEMENT_VARIANTS = ("original", "bypass", "normalized", "high_pass", "speech_safe")
 DIARIZATION_BACKENDS = ("none", "pyannote")
+_CORRECTOR_PROVIDER_RE = re.compile(r"^[a-z0-9][a-z0-9_.-]{0,63}$")
+_CORRECTOR_MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:/@+-]{0,191}$")
 
 DEFAULT_CONFIGURATION: dict[str, Any] = {
     "transport_mode": "batch",
@@ -81,6 +84,7 @@ DEFAULT_CONFIGURATION: dict[str, Any] = {
     "confidence_threshold": 0.7,
     "enhancement_variants": ["original"],
     "diarization_backend": "none",
+    "generative_corrector_provider": "embedded",
     "generative_corrector_model": "gemma-2b-it",
     "generative_corrector_max_edit_ratio": 0.35,
     "feature_flags": {name: False for name in FEATURE_FLAGS},
@@ -189,8 +193,19 @@ class VoiceConfigurationService:
                 "generative_corrector_model": {
                     "type": "string",
                     "default": DEFAULT_CONFIGURATION["generative_corrector_model"],
-                    "pattern": "^$|^[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}$",
+                    "pattern": "^$|^[A-Za-z0-9][A-Za-z0-9_.:/@+-]{0,191}$",
                     "capability_reason_source": "/v1/voice/capabilities/correction_models",
+                    **common_scope,
+                },
+                "generative_corrector_provider": {
+                    "type": "string",
+                    "default": DEFAULT_CONFIGURATION["generative_corrector_provider"],
+                    "pattern": "^[a-z0-9][a-z0-9_.-]{0,63}$",
+                    "description": (
+                        "embedded nutzt den isolierten lokalen Modellkatalog; inherit übernimmt "
+                        "die allgemeine LLM-Vorgabe; weitere IDs verweisen auf zentral konfigurierte Provider."
+                    ),
+                    "capability_reason_source": "/v1/voice/capabilities/correction_providers",
                     **common_scope,
                 },
                 "generative_corrector_max_edit_ratio": {
@@ -377,6 +392,7 @@ class VoiceConfigurationService:
             "confidence_threshold",
             "enhancement_variants",
             "diarization_backend",
+            "generative_corrector_provider",
             "generative_corrector_model",
             "generative_corrector_max_edit_ratio",
             "feature_flags",
@@ -438,20 +454,22 @@ class VoiceConfigurationService:
             result["diarization_backend"] = value
         if "generative_corrector_model" in raw:
             value = str(raw["generative_corrector_model"] or "").strip()
-            if value and (
-                len(value) > 192
-                or not value[0].isalnum()
-                or any(
-                    character not in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_.:-"
-                    for character in value
-                )
-            ):
+            if value and not _CORRECTOR_MODEL_RE.fullmatch(value):
                 raise VoiceGovernanceError(
                     code="voice_configuration.invalid_corrector_model",
                     message="generative_corrector_model must be a valid model identifier",
                     status_code=422,
                 )
             result["generative_corrector_model"] = value
+        if "generative_corrector_provider" in raw:
+            value = str(raw["generative_corrector_provider"] or "").strip().lower()
+            if not _CORRECTOR_PROVIDER_RE.fullmatch(value):
+                raise VoiceGovernanceError(
+                    code="voice_configuration.invalid_corrector_provider",
+                    message="generative_corrector_provider must be a valid provider identifier",
+                    status_code=422,
+                )
+            result["generative_corrector_provider"] = value
         numeric_limits = {
             "max_parallel_backends": (int, 1, 4),
             "candidate_deadline_sec": (float, 1, 300),
@@ -521,9 +539,29 @@ class VoiceConfigurationService:
                 message="effective primary backend cannot also be a secondary backend",
                 status_code=422,
             )
-        if effective.get("correction_policy") == "generative_rewrite" and not str(
-            effective.get("generative_corrector_model") or ""
-        ).strip():
+        corrector_provider = str(effective.get("generative_corrector_provider") or "embedded").strip()
+        if not _CORRECTOR_PROVIDER_RE.fullmatch(corrector_provider):
+            raise VoiceGovernanceError(
+                code="voice_configuration.invalid_corrector_provider",
+                message="effective generative corrector provider is invalid",
+                status_code=422,
+            )
+        corrector_model = str(effective.get("generative_corrector_model") or "").strip()
+        if (
+            corrector_provider not in {"embedded", "inherit"}
+            and corrector_model
+            and len(f"{corrector_provider}:{corrector_model}") > 192
+        ):
+            raise VoiceGovernanceError(
+                code="voice_configuration.invalid_corrector_model",
+                message="qualified generative corrector model identifier exceeds 192 characters",
+                status_code=422,
+            )
+        if (
+            effective.get("correction_policy") == "generative_rewrite"
+            and corrector_provider != "inherit"
+            and not corrector_model
+        ):
             raise VoiceGovernanceError(
                 code="voice_configuration.corrector_model_required",
                 message="generative_rewrite requires generative_corrector_model",
@@ -694,6 +732,7 @@ class VoiceConfigurationService:
             "confidence_threshold": "confidence_threshold",
             "enhancement_variants": "enhancement_variants",
             "diarization_backend": "diarization_backend",
+            "generative_corrector_provider": "generative_corrector_provider",
             "generative_corrector_model": "generative_corrector_model",
             "generative_corrector_max_edit_ratio": "generative_corrector_max_edit_ratio",
         }

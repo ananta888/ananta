@@ -14,6 +14,7 @@ MAX_TEXT_CHARS = 8_000
 MAX_CORRECTED_TEXT_CHARS = 12_000
 MAX_EDITS = 2_048
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}$")
+_MODEL_IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:/@+-]{0,191}$")
 
 
 class VoiceCorrectorContractError(ValueError):
@@ -24,6 +25,19 @@ class VoiceCorrectorContractError(ValueError):
 
 def _identifier(value: object, *, field: str) -> str:
     if not isinstance(value, str) or not _IDENTIFIER_RE.fullmatch(value):
+        raise VoiceCorrectorContractError("invalid_identifier", f"{field} is invalid")
+    return value
+
+
+def _model_identifier(value: object, *, field: str = "model_id") -> str:
+    """Validate a provider model reference without weakening other identifiers.
+
+    Local runtimes commonly expose namespaced IDs such as
+    ``team/model:tag``.  Only model fields accept those extra separators;
+    request, task and language identifiers retain their narrower contract.
+    """
+
+    if not isinstance(value, str) or not _MODEL_IDENTIFIER_RE.fullmatch(value):
         raise VoiceCorrectorContractError("invalid_identifier", f"{field} is invalid")
     return value
 
@@ -172,7 +186,7 @@ class VoiceCorrectorWorkerRequest:
         _identifier(self.request_id, field="request_id")
         _identifier(self.task_id, field="task_id")
         _identifier(self.region_id, field="region_id")
-        _identifier(self.model_id, field="model_id")
+        _model_identifier(self.model_id)
         _text(self.original_text, field="original_text", maximum=MAX_TEXT_CHARS)
         if self.language is not None:
             _identifier(self.language, field="language")
@@ -228,7 +242,7 @@ class VoiceCorrectorWorkerRequest:
         task_id = _identifier(raw.get("task_id"), field="task_id")
         region_id = _identifier(raw.get("region_id"), field="region_id")
         original_text = _text(raw.get("original_text"), field="original_text", maximum=MAX_TEXT_CHARS)
-        model_id = _identifier(raw.get("model_id"), field="model_id")
+        model_id = _model_identifier(raw.get("model_id"))
         language_raw = raw.get("language")
         language = (
             _identifier(language_raw, field="language")
@@ -293,7 +307,10 @@ class VoiceCorrectorWorkerResponse:
             ("engine_id", self.engine_id),
             ("prompt_version", self.prompt_version),
         ):
-            _identifier(value, field=field)
+            if field == "model_id":
+                _model_identifier(value)
+            else:
+                _identifier(value, field=field)
         if self.reason_code is not None:
             raise VoiceCorrectorContractError("invalid_response", "completed response cannot contain an error")
         reconstructed = apply_edits(self.original_text, self.edits)
@@ -373,7 +390,9 @@ class VoiceCorrectorWorkerResponse:
 
         def optional_identifier(field: str) -> str | None:
             value = raw.get(field)
-            return _identifier(value, field=field) if value is not None else None
+            if value is None:
+                return None
+            return _model_identifier(value) if field == "model_id" else _identifier(value, field=field)
 
         return cls(
             request_id=request_id,

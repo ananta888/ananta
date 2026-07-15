@@ -71,13 +71,13 @@ class _Opener:
         )
 
 
-def _request() -> VoiceCorrectorWorkerRequest:
+def _request(model_id: str = "gemma-2b-it") -> VoiceCorrectorWorkerRequest:
     return VoiceCorrectorWorkerRequest(
         request_id="request-1",
         task_id="task-1",
         region_id="full-transcript",
         original_text="hallo welt",
-        model_id="gemma-2b-it",
+        model_id=model_id,
         language="de",
         max_edit_ratio=0.5,
         deadline_epoch_ms=time.time_ns() // 1_000_000 + 30_000,
@@ -112,6 +112,31 @@ def test_http_port_pins_execution_and_health_to_the_same_private_origin() -> Non
     )
 
 
+def test_http_port_accepts_qualified_models_and_bounded_provider_health_metadata() -> None:
+    opener = _Opener(
+        health_payload={
+            "service": "generative-corrector-worker",
+            "status": "ready",
+            "contract_version": CONTRACT_VERSION,
+            "auth_configured": True,
+            "origin_allowlist_configured": True,
+            "engine_configured": True,
+            "model_ids": ["ollama:qwen2.5:7b", "lmstudio:org/model"],
+            "provider_ids": ["ollama", "lmstudio"],
+            "ready_provider_ids": ["ollama", "lmstudio"],
+        }
+    )
+    port = _port(opener)
+
+    response = port.execute(_request("ollama:qwen2.5:7b"))
+    health = port.health()
+
+    assert response.model_id == "ollama:qwen2.5:7b"
+    assert health["model_ids"] == ["ollama:qwen2.5:7b", "lmstudio:org/model"]
+    assert health["provider_ids"] == ["ollama", "lmstudio"]
+    assert health["ready_provider_ids"] == ["ollama", "lmstudio"]
+
+
 @pytest.mark.parametrize("address", ["8.8.8.8", "127.0.0.1", "169.254.169.254"])
 def test_http_port_rejects_non_private_worker_resolution(address: str) -> None:
     with pytest.raises(GenerativeCorrectorWorkerTransportError, match="private container address"):
@@ -132,4 +157,41 @@ def test_health_contract_rejects_unversioned_or_unbounded_model_metadata() -> No
     )
 
     with pytest.raises(GenerativeCorrectorWorkerTransportError, match="health response"):
+        _port(opener).health()
+
+
+def test_health_contract_rejects_invalid_provider_metadata() -> None:
+    opener = _Opener(
+        health_payload={
+            "service": "generative-corrector-worker",
+            "status": "ready",
+            "contract_version": CONTRACT_VERSION,
+            "auth_configured": True,
+            "origin_allowlist_configured": True,
+            "engine_configured": True,
+            "model_ids": ["ollama:qwen2.5:7b"],
+            "provider_ids": ["ollama", "https://attacker.invalid"],
+        }
+    )
+
+    with pytest.raises(GenerativeCorrectorWorkerTransportError, match="provider metadata"):
+        _port(opener).health()
+
+
+def test_health_contract_rejects_ready_provider_without_configured_endpoint() -> None:
+    opener = _Opener(
+        health_payload={
+            "service": "generative-corrector-worker",
+            "status": "ready",
+            "contract_version": CONTRACT_VERSION,
+            "auth_configured": True,
+            "origin_allowlist_configured": True,
+            "engine_configured": True,
+            "model_ids": ["gemma-2b-it"],
+            "provider_ids": ["ollama"],
+            "ready_provider_ids": ["lmstudio"],
+        }
+    )
+
+    with pytest.raises(GenerativeCorrectorWorkerTransportError, match="ready-provider metadata"):
         _port(opener).health()

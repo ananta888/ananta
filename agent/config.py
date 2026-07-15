@@ -202,6 +202,10 @@ class Settings(BaseSettings):
         default="gemma-2b-it,phi-3-mini-instruct",
         validation_alias="VOICE_GENERATIVE_CORRECTOR_MODELS",
     )
+    voice_generative_corrector_providers: str = Field(
+        default="embedded,lmstudio,ollama",
+        validation_alias="VOICE_GENERATIVE_CORRECTOR_PROVIDERS",
+    )
 
     # Retry Config
     retry_count: int = Field(default=3, validation_alias="RETRY_COUNT")

@@ -18,6 +18,32 @@ from ananta_contracts.voice_corrector_worker import (
 MODEL_CATALOG_VERSION = "ananta.generative-corrector-model-catalog.v1"
 
 
+def corrector_system_message() -> str:
+    return (
+        "You correct automatic speech-recognition transcripts. "
+        "Fix spelling, punctuation, capitalization, and obvious recognition errors only. "
+        "Do not summarize, translate, add facts, remove facts, or change names, numbers, IDs, URLs, or code. "
+        "Return exactly one JSON object with this shape and no markdown: "
+        '{"schema_version":"1.0","corrected_text":"Corrected transcript goes here"}. '
+        'The schema_version value must be the JSON string "1.0", never a number.'
+    )
+
+
+def parse_corrector_output(raw_output: str) -> str:
+    try:
+        payload = json.loads(raw_output)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("generative corrector returned invalid JSON") from exc
+    if not isinstance(payload, Mapping) or set(payload) != {"schema_version", "corrected_text"}:
+        raise ValueError("generative corrector response schema is invalid")
+    if payload.get("schema_version") != "1.0" or not isinstance(payload.get("corrected_text"), str):
+        raise ValueError("generative corrector response values are invalid")
+    corrected = str(payload["corrected_text"])
+    if not corrected or len(corrected) > MAX_CORRECTED_TEXT_CHARS or "\x00" in corrected:
+        raise ValueError("generative corrector text is invalid")
+    return corrected
+
+
 @dataclass(frozen=True)
 class GenerativeCorrectorModel:
     model_id: str
@@ -99,6 +125,9 @@ class EmbeddedTransformersGenerativeCorrectorEngine:
     def model_ids(self) -> tuple[str, ...]:
         return tuple(sorted(self._models))
 
+    def supports_model(self, model_id: str) -> bool:
+        return model_id in self._models
+
     def correct(self, request: VoiceCorrectorWorkerRequest) -> GenerativeCorrectorEngineResult:
         remaining = self._remaining_seconds(request)
         model_entry = self._models.get(request.model_id)
@@ -178,14 +207,7 @@ class EmbeddedTransformersGenerativeCorrectorEngine:
         tokenizer: Any,
     ) -> tuple[str, bool]:
         language = request.language or "auto"
-        system_message = (
-            "You correct automatic speech-recognition transcripts. "
-            "Fix spelling, punctuation, capitalization, and obvious recognition errors only. "
-            "Do not summarize, translate, add facts, remove facts, or change names, numbers, IDs, URLs, or code. "
-            "Return exactly one JSON object with this shape and no markdown: "
-            '{"schema_version":"1.0","corrected_text":"Corrected transcript goes here"}. '
-            'The schema_version value must be the JSON string "1.0", never a number.'
-        )
+        system_message = corrector_system_message()
         user_message = f"Language: {language}.\nOriginal transcript:\n{request.original_text}"
         apply_chat_template = getattr(tokenizer, "apply_chat_template", None)
         chat_template = getattr(tokenizer, "chat_template", None)
@@ -212,18 +234,7 @@ class EmbeddedTransformersGenerativeCorrectorEngine:
 
     @staticmethod
     def _parse_output(raw_output: str) -> str:
-        try:
-            payload = json.loads(raw_output)
-        except (TypeError, ValueError) as exc:
-            raise ValueError("embedded corrector returned invalid JSON") from exc
-        if not isinstance(payload, Mapping) or set(payload) != {"schema_version", "corrected_text"}:
-            raise ValueError("embedded corrector response schema is invalid")
-        if payload.get("schema_version") != "1.0" or not isinstance(payload.get("corrected_text"), str):
-            raise ValueError("embedded corrector response values are invalid")
-        corrected = str(payload["corrected_text"])
-        if not corrected or len(corrected) > MAX_CORRECTED_TEXT_CHARS or "\x00" in corrected:
-            raise ValueError("embedded corrector text is invalid")
-        return corrected
+        return parse_corrector_output(raw_output)
 
 
 def _load_catalog(path: Path, *, root: Path) -> dict[str, GenerativeCorrectorModel]:

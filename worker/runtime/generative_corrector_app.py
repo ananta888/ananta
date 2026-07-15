@@ -27,6 +27,11 @@ from worker.runtime.generative_corrector_engine import (
     EmbeddedTransformersGenerativeCorrectorEngine,
     GenerativeCorrectorEngine,
 )
+from worker.runtime.generative_corrector_provider_engine import (
+    CompositeGenerativeCorrectorEngine,
+    CorrectorProviderEndpoint,
+    ProviderGenerativeCorrectorEngine,
+)
 
 DEFAULT_PORT = 8093
 CORRECTOR_ENDPOINT = "/internal/v1/voice-corrector"
@@ -36,35 +41,81 @@ _PROTECTED_TOKEN_RE = re.compile(r"https?://\S+|\b[\w.:-]*\d[\w.:-]*\b", re.UNIC
 
 def _engine_from_environment() -> GenerativeCorrectorEngine | None:
     mode = str(os.getenv("GENERATIVE_CORRECTOR_ENGINE", "")).strip().lower()
-    if mode != "transformers":
+    if mode not in {"transformers", "providers", "hybrid"}:
         return None
-    model_root = str(os.getenv("GENERATIVE_CORRECTOR_MODEL_ROOT", "")).strip()
-    catalog_path = str(os.getenv("GENERATIVE_CORRECTOR_MODEL_CATALOG", "")).strip()
-    if not model_root or not catalog_path:
-        return None
-    return EmbeddedTransformersGenerativeCorrectorEngine(
-        model_root=model_root,
-        catalog_path=catalog_path,
-        device=str(os.getenv("GENERATIVE_CORRECTOR_DEVICE", "cpu")).strip().lower(),
-        max_input_chars=_env_int(
-            "GENERATIVE_CORRECTOR_MAX_INPUT_CHARS",
-            32_000,
-            minimum=1_024,
-            maximum=512_000,
-        ),
-        max_input_tokens=_env_int(
-            "GENERATIVE_CORRECTOR_MAX_INPUT_TOKENS",
-            4_096,
-            minimum=128,
-            maximum=32_768,
-        ),
-        max_new_tokens=_env_int(
-            "GENERATIVE_CORRECTOR_MAX_NEW_TOKENS",
-            1_024,
-            minimum=16,
-            maximum=4_096,
-        ),
-    )
+    engines: list[GenerativeCorrectorEngine] = []
+    if mode in {"transformers", "hybrid"}:
+        model_root = str(os.getenv("GENERATIVE_CORRECTOR_MODEL_ROOT", "")).strip()
+        catalog_path = str(os.getenv("GENERATIVE_CORRECTOR_MODEL_CATALOG", "")).strip()
+        if model_root and catalog_path:
+            engines.append(
+                EmbeddedTransformersGenerativeCorrectorEngine(
+                    model_root=model_root,
+                    catalog_path=catalog_path,
+                    device=str(os.getenv("GENERATIVE_CORRECTOR_DEVICE", "cpu")).strip().lower(),
+                    max_input_chars=_env_int(
+                        "GENERATIVE_CORRECTOR_MAX_INPUT_CHARS", 32_000, minimum=1_024, maximum=512_000
+                    ),
+                    max_input_tokens=_env_int(
+                        "GENERATIVE_CORRECTOR_MAX_INPUT_TOKENS", 4_096, minimum=128, maximum=32_768
+                    ),
+                    max_new_tokens=_env_int("GENERATIVE_CORRECTOR_MAX_NEW_TOKENS", 1_024, minimum=16, maximum=4_096),
+                )
+            )
+    if mode in {"providers", "hybrid"}:
+        endpoints = _provider_endpoints_from_environment()
+        if endpoints:
+            engines.append(
+                ProviderGenerativeCorrectorEngine(
+                    endpoints,
+                    discovery_timeout_seconds=_env_int(
+                        "GENERATIVE_CORRECTOR_PROVIDER_DISCOVERY_TIMEOUT_MS",
+                        200,
+                        minimum=200,
+                        maximum=5_000,
+                    )
+                    / 1000.0,
+                    response_max_bytes=_env_int(
+                        "GENERATIVE_CORRECTOR_PROVIDER_MAX_RESPONSE_BYTES",
+                        1024 * 1024,
+                        minimum=4_096,
+                        maximum=2 * 1024 * 1024,
+                    ),
+                    max_output_tokens=_env_int(
+                        "GENERATIVE_CORRECTOR_MAX_NEW_TOKENS",
+                        1_024,
+                        minimum=16,
+                        maximum=4_096,
+                    ),
+                )
+            )
+    if len(engines) == 1:
+        return engines[0]
+    return CompositeGenerativeCorrectorEngine(engines) if engines else None
+
+
+def _provider_endpoints_from_environment() -> tuple[CorrectorProviderEndpoint, ...]:
+    allowed = {
+        item.strip().lower()
+        for item in str(os.getenv("GENERATIVE_CORRECTOR_EXTERNAL_PROVIDERS", "")).split(",")
+        if item.strip()
+    }
+    configured: list[CorrectorProviderEndpoint] = []
+    for provider_id, url_name, key_name in (
+        ("ollama", "GENERATIVE_CORRECTOR_OLLAMA_URL", "GENERATIVE_CORRECTOR_OLLAMA_API_KEY"),
+        ("lmstudio", "GENERATIVE_CORRECTOR_LMSTUDIO_URL", "GENERATIVE_CORRECTOR_LMSTUDIO_API_KEY"),
+    ):
+        base_url = str(os.getenv(url_name, "")).strip()
+        if provider_id not in allowed or not base_url:
+            continue
+        configured.append(
+            CorrectorProviderEndpoint(
+                provider_id=provider_id,
+                base_url=base_url,
+                api_key=str(os.getenv(key_name, "")).strip() or None,
+            )
+        )
+    return tuple(configured)
 
 
 def create_app(
@@ -116,8 +167,11 @@ def create_app(
     @app.get("/health")
     def health() -> tuple[Any, int]:
         auth_configured = len(expected_token) >= 24
-        model_ids = list(configured_engine.model_ids) if configured_engine is not None else []
-        configured = bool(configured_engine and auth_configured and origins and model_ids)
+        snapshot = _engine_health_snapshot(configured_engine)
+        model_ids = list(snapshot["model_ids"])
+        provider_ids = list(snapshot["provider_ids"])
+        ready_provider_ids = list(snapshot["ready_provider_ids"])
+        configured = bool(configured_engine and auth_configured and origins and (model_ids or ready_provider_ids))
         return jsonify(
             {
                 "service": "generative-corrector-worker",
@@ -127,6 +181,8 @@ def create_app(
                 "origin_allowlist_configured": bool(origins),
                 "engine_configured": configured_engine is not None,
                 "model_ids": model_ids,
+                "provider_ids": provider_ids,
+                "ready_provider_ids": ready_provider_ids,
             }
         ), 200
 
@@ -155,7 +211,7 @@ def create_app(
         remaining_seconds = (envelope.deadline_epoch_ms - now_ms) / 1000.0
         if remaining_seconds <= 0 or remaining_seconds > 120.0:
             return jsonify(_failure(envelope, "invalid_deadline")), 422
-        if envelope.model_id not in configured_engine.model_ids:
+        if not _engine_supports_model(configured_engine, envelope.model_id):
             return jsonify(_failure(envelope, "model_not_allowlisted")), 422
         if not slots.acquire(timeout=remaining_seconds):
             return jsonify(_failure(envelope, "queue_full")), 429
@@ -199,6 +255,31 @@ def create_app(
         return jsonify(_uncorrelated_failure("request_too_large")), 413
 
     return app
+
+
+def _engine_supports_model(engine: GenerativeCorrectorEngine, model_id: str) -> bool:
+    supports = getattr(engine, "supports_model", None)
+    return bool(supports(model_id)) if callable(supports) else model_id in engine.model_ids
+
+
+def _engine_health_snapshot(
+    engine: GenerativeCorrectorEngine | None,
+) -> dict[str, tuple[str, ...]]:
+    if engine is None:
+        return {"model_ids": (), "provider_ids": (), "ready_provider_ids": ()}
+    snapshot_reader = getattr(engine, "health_snapshot", None)
+    if callable(snapshot_reader):
+        snapshot = snapshot_reader()
+        return {
+            "model_ids": tuple(str(item) for item in snapshot.get("model_ids", ())),
+            "provider_ids": tuple(str(item) for item in snapshot.get("provider_ids", ())),
+            "ready_provider_ids": tuple(str(item) for item in snapshot.get("ready_provider_ids", ())),
+        }
+    return {
+        "model_ids": tuple(str(item) for item in engine.model_ids),
+        "provider_ids": tuple(str(item) for item in getattr(engine, "provider_ids", ())),
+        "ready_provider_ids": tuple(str(item) for item in getattr(engine, "ready_provider_ids", ())),
+    }
 
 
 def _failure(envelope: VoiceCorrectorWorkerRequest, reason_code: str) -> dict[str, object]:

@@ -20,7 +20,8 @@ from ananta_contracts.voice_corrector_worker import (
 )
 
 _WORKER_PATH = "/internal/v1/voice-corrector"
-_MODEL_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}$")
+_MODEL_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:/@+-]{0,191}$")
+_PROVIDER_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_.-]{0,63}$")
 AddressResolver = Callable[[str, int], Sequence[str]]
 
 
@@ -159,8 +160,10 @@ class HttpGenerativeCorrectorWorkerPort:
             "engine_configured",
             "model_ids",
         }
+        allowed = required | {"provider_ids", "ready_provider_ids"}
         if (
-            set(payload) != required
+            not required.issubset(payload)
+            or set(payload) - allowed
             or payload.get("service") != "generative-corrector-worker"
             or payload.get("contract_version") != CONTRACT_VERSION
             or payload.get("status") not in {"ready", "degraded"}
@@ -200,6 +203,35 @@ class HttpGenerativeCorrectorWorkerPort:
             raise GenerativeCorrectorWorkerTransportError(
                 "invalid_worker_response",
                 "generative corrector worker health model metadata is invalid",
+            )
+        provider_ids_value = payload.get("provider_ids", [])
+        if (
+            not isinstance(provider_ids_value, list)
+            or len(provider_ids_value) > 16
+            or len(set(provider_ids_value)) != len(provider_ids_value)
+            or any(
+                not isinstance(item, str) or not _PROVIDER_ID_RE.fullmatch(item)
+                for item in provider_ids_value
+            )
+        ):
+            raise GenerativeCorrectorWorkerTransportError(
+                "invalid_worker_response",
+                "generative corrector worker health provider metadata is invalid",
+            )
+        ready_provider_ids_value = payload.get("ready_provider_ids", [])
+        if (
+            not isinstance(ready_provider_ids_value, list)
+            or len(ready_provider_ids_value) > 16
+            or len(set(ready_provider_ids_value)) != len(ready_provider_ids_value)
+            or any(
+                not isinstance(item, str) or not _PROVIDER_ID_RE.fullmatch(item)
+                for item in ready_provider_ids_value
+            )
+            or not set(ready_provider_ids_value).issubset(set(provider_ids_value))
+        ):
+            raise GenerativeCorrectorWorkerTransportError(
+                "invalid_worker_response",
+                "generative corrector worker health ready-provider metadata is invalid",
             )
         return payload
 

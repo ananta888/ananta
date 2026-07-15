@@ -31,7 +31,10 @@ from agent.services.voice_delegation_task_service import (
 )
 from agent.services.voice_generative_corrector_service import (
     generative_corrector_capabilities,
+    generative_corrector_capability_bundle,
     get_voice_generative_corrector_service,
+    resolve_auto_corrector_configuration,
+    resolve_inherited_corrector_configuration,
 )
 from agent.services.voice_generative_judge_service import get_voice_generative_judge_service
 from agent.services.voice_governance_domain import (
@@ -350,10 +353,19 @@ def _recognition_context(
         profile_id=profile_id,
         session_id=session_id,
     )
+    hub_configuration = resolve_inherited_corrector_configuration(
+        configuration.effective,
+        current_app.config.get("AGENT_CONFIG", {}) or {},
+    )
+    if str(hub_configuration.get("generative_corrector_model") or "").casefold() == "auto":
+        hub_configuration = resolve_auto_corrector_configuration(
+            hub_configuration,
+            generative_corrector_capabilities(),
+        )
     context: dict = {
         "schema_version": "ananta.voice-recognition-context.v1",
         "configuration": _runtime_voice_configuration(configuration.effective),
-        "_hub_configuration": deepcopy(configuration.effective),
+        "_hub_configuration": deepcopy(hub_configuration),
     }
     if profile_id and configuration.effective["feature_flags"].get("personalization"):
         snapshot = get_voice_personalization_service().snapshot(principal, profile_id)
@@ -743,7 +755,10 @@ def capabilities():
         catalog = []
         available = False
 
-    correction_models = generative_corrector_capabilities()
+    correction_catalog = generative_corrector_capability_bundle(
+        current_app.config.get("AGENT_CONFIG", {}) or {}
+    )
+    correction_models = correction_catalog["correction_models"]
     return api_response(
         data={
             "available": available,
@@ -751,6 +766,8 @@ def capabilities():
             "models": models,
             "model_catalog": catalog,
             "correction_models": correction_models,
+            "correction_providers": correction_catalog["correction_providers"],
+            "correction_default": correction_catalog["correction_default"],
             "capabilities": [
                 "audio_input",
                 "transcription",
