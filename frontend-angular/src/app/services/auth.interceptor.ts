@@ -7,6 +7,7 @@ import { UserAuthService } from './user-auth.service';
 import { AuthTarget, resolveAuthTarget } from './auth-target.resolver';
 import { AgentJwtService } from './agent-jwt.service';
 import { AuthRefreshCoordinator } from './auth-refresh-coordinator.service';
+import { SKIP_ACCESS_TOKEN_AUTH } from './auth-request-context';
 
 @Injectable()
 export class AuthInterceptor implements HttpInterceptor {
@@ -16,9 +17,11 @@ export class AuthInterceptor implements HttpInterceptor {
   private refreshCoordinator = inject(AuthRefreshCoordinator);
 
   intercept(req: HttpRequest<unknown>, next: HttpHandler): Observable<HttpEvent<unknown>> {
-    if (req.headers.has('Authorization')) {
-      return next.handle(req);
-    }
+    // Refresh requests must never acquire the expired access token or recurse
+    // into another refresh when the refresh token itself is rejected.
+    if (req.context.get(SKIP_ACCESS_TOKEN_AUTH) || this.isRefreshRequest(req.url)) return next.handle(req);
+
+    if (req.headers.has('Authorization')) return next.handle(req);
 
     const target = resolveAuthTarget({
       agents: this.dir.list(),
@@ -64,7 +67,7 @@ export class AuthInterceptor implements HttpInterceptor {
           target.refreshOnUnauthorized &&
           error instanceof HttpErrorResponse &&
           error.status === 401 &&
-          !request.url.includes('/auth/refresh-token') &&
+          !this.isRefreshRequest(request.url) &&
           !request.url.includes('/login')
         ) {
           return this.refreshCoordinator.handleUnauthorized(
@@ -91,5 +94,16 @@ export class AuthInterceptor implements HttpInterceptor {
         Authorization: `Bearer ${token}`,
       },
     });
+  }
+
+  private isRefreshRequest(url: string): boolean {
+    const pathname = (() => {
+      try {
+        return new URL(url, globalThis.location?.origin || 'http://localhost').pathname;
+      } catch {
+        return url.split(/[?#]/, 1)[0];
+      }
+    })();
+    return /\/(?:auth\/)?refresh-token\/?$/.test(pathname);
   }
 }

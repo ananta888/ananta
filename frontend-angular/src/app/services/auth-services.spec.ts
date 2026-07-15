@@ -1,4 +1,4 @@
-import { HttpEventType, HttpRequest } from '@angular/common/http';
+import { HttpErrorResponse, HttpEventType, HttpRequest } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { firstValueFrom, of, Subject, throwError } from 'rxjs';
 
@@ -32,6 +32,7 @@ describe('agent auth services', () => {
       token$: of(null),
       refreshToken: vi.fn(() => of({ access_token: 'new-token' })),
       logout: vi.fn(),
+      logoutHub: vi.fn(),
     };
     TestBed.configureTestingModule({
       providers: [
@@ -62,6 +63,7 @@ describe('agent auth services', () => {
       token$: of(null),
       refreshToken: vi.fn(() => refresh$),
       logout: vi.fn(),
+      logoutHub: vi.fn(),
     };
     TestBed.configureTestingModule({
       providers: [
@@ -90,12 +92,13 @@ describe('agent auth services', () => {
     expect(applyToken.mock.calls.map(args => args[1])).toEqual(['shared-token', 'shared-token']);
   });
 
-  it('logs out and propagates refresh failures', async () => {
+  it('propagates transient refresh failures without ending the Hub session', async () => {
     const refreshError = new Error('refresh failed');
     const userAuth = {
       token$: of(null),
       refreshToken: vi.fn(() => throwError(() => refreshError)),
       logout: vi.fn(),
+      logoutHub: vi.fn(),
     };
     TestBed.configureTestingModule({
       providers: [
@@ -108,6 +111,32 @@ describe('agent auth services', () => {
     await expect(firstValueFrom(
       coordinator.handleUnauthorized(new HttpRequest('GET', '/api/goals'), { handle: vi.fn() }, req => req),
     )).rejects.toBe(refreshError);
-    expect(userAuth.logout).toHaveBeenCalledTimes(1);
+    expect(userAuth.logoutHub).not.toHaveBeenCalled();
+  });
+
+  it.each([500, 401])('propagates retry status %s without logout or a second refresh', async (status) => {
+    const userAuth = {
+      token$: of(null),
+      refreshToken: vi.fn(() => of({ access_token: 'new-token' })),
+      logout: vi.fn(),
+      logoutHub: vi.fn(),
+    };
+    TestBed.configureTestingModule({
+      providers: [
+        AuthRefreshCoordinator,
+        { provide: UserAuthService, useValue: userAuth },
+      ],
+    });
+    const coordinator = TestBed.inject(AuthRefreshCoordinator);
+    const retryError = new HttpErrorResponse({ status });
+
+    await expect(firstValueFrom(coordinator.handleUnauthorized(
+      new HttpRequest('PUT', '/v1/voice/live-runs/run-a/segments/0'),
+      { handle: vi.fn(() => throwError(() => retryError)) },
+      (request, token) => request.clone({ setHeaders: { Authorization: `Bearer ${token}` } }),
+    ))).rejects.toBe(retryError);
+
+    expect(userAuth.refreshToken).toHaveBeenCalledTimes(1);
+    expect(userAuth.logoutHub).not.toHaveBeenCalled();
   });
 });

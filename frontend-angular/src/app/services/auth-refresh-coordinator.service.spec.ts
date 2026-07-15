@@ -4,16 +4,22 @@ import { throwError, of } from 'rxjs';
 
 import { AuthRefreshCoordinator } from './auth-refresh-coordinator.service';
 import { UserAuthService } from './user-auth.service';
+import { HubRefreshTerminalError } from './hub-refresh-error';
 
 describe('AuthRefreshCoordinator — Welle 6 authRequired$ emission', () => {
   let coordinator: AuthRefreshCoordinator;
-  let userAuth: { refreshToken: ReturnType<typeof vi.fn>; logout: ReturnType<typeof vi.fn> };
+  let userAuth: {
+    refreshToken: ReturnType<typeof vi.fn>;
+    logout: ReturnType<typeof vi.fn>;
+    logoutHub: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(() => {
     TestBed.resetTestingModule();
     userAuth = {
       refreshToken: vi.fn(),
       logout: vi.fn(),
+      logoutHub: vi.fn(),
     };
     TestBed.configureTestingModule({
       providers: [
@@ -29,7 +35,7 @@ describe('AuthRefreshCoordinator — Welle 6 authRequired$ emission', () => {
   });
 
   it('emits "hub" when Hub refresh fails even if Pair OIDC is separate', () => {
-    userAuth.refreshToken.mockReturnValue(throwError(() => new Error('refresh failed')));
+    userAuth.refreshToken.mockReturnValue(throwError(() => new HubRefreshTerminalError('refresh failed')));
     coordinator
       .handleUnauthorized(
         { clone: () => ({}), url: '/x' } as never,
@@ -38,11 +44,11 @@ describe('AuthRefreshCoordinator — Welle 6 authRequired$ emission', () => {
       )
       .subscribe({ error: () => {} });
     expect(coordinator.authRequired$.value).toBe('hub');
-    expect(userAuth.logout).toHaveBeenCalled();
+    expect(userAuth.logoutHub).toHaveBeenCalled();
   });
 
   it('emits "hub" on refresh failure when bridge_active=false', () => {
-    userAuth.refreshToken.mockReturnValue(throwError(() => new Error('refresh failed')));
+    userAuth.refreshToken.mockReturnValue(throwError(() => new HubRefreshTerminalError('refresh failed')));
     coordinator
       .handleUnauthorized(
         { clone: () => ({}), url: '/x' } as never,

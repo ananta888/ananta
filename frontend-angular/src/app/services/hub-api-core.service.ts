@@ -36,12 +36,10 @@ export class HubApiCoreService {
       token = undefined;
     }
 
-    if (!token) {
-      const hub = agents.find(a => a.role === 'hub');
-      if (hub && resolveAgentForUrl([hub], baseUrl) && this.userAuth.token) {
-        token = this.userAuth.token;
-      }
-    }
+    // Implicit Hub user authentication belongs to AuthInterceptor. Keeping
+    // this request free of an Authorization header lets a 401 participate in
+    // the shared refresh-and-retry policy. Explicit service/foreign bearer
+    // tokens supplied by callers remain untouched below.
     if (token) headers = headers.set('Authorization', `Bearer ${token}`);
     return { headers };
   }

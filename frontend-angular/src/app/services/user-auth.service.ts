@@ -1,20 +1,48 @@
-import { Injectable, inject } from '@angular/core';
-import { BehaviorSubject, Observable, finalize, from, switchMap, tap } from 'rxjs';
-import { HttpClient } from '@angular/common/http';
+import { Injectable, InjectionToken, inject } from '@angular/core';
+import {
+  BehaviorSubject,
+  Observable,
+  catchError,
+  defer,
+  finalize,
+  from,
+  map,
+  shareReplay,
+  switchMap,
+  throwError,
+  timeout,
+} from 'rxjs';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { AgentDirectoryService } from './agent-directory.service';
 import { ApiResponse, unwrapApiResponse } from './api-envelope';
 import { SecureTokenStorage } from './secure-token-storage.service';
+import { SKIP_ACCESS_TOKEN_AUTH } from './auth-request-context';
+import {
+  HubRefreshSupersededError,
+  HubRefreshTerminalError,
+} from './hub-refresh-error';
 
 const HUB_RT_STORAGE_KEY = 'ananta.hub.refresh_token';
 const OIDC_RT_STORAGE_KEY = 'ananta.oidc.refresh_token';
 const LEGACY_HUB_RT_KEY = 'ananta.user.refresh_token';
+export const DEFAULT_HUB_REFRESH_TIMEOUT_MILLISECONDS = 30_000;
+export const HUB_REFRESH_TIMEOUT = new InjectionToken<number>('HUB_REFRESH_TIMEOUT', {
+  providedIn: 'root',
+  factory: () => DEFAULT_HUB_REFRESH_TIMEOUT_MILLISECONDS,
+});
 
 @Injectable({ providedIn: 'root' })
 export class UserAuthService {
   private http = inject(HttpClient);
   private dir = inject(AgentDirectoryService);
   private secureStorage = inject(SecureTokenStorage);
+  private hubRefreshTimeoutMilliseconds = inject(HUB_REFRESH_TIMEOUT);
   private userRefreshInFlight = false;
+  private tokenRefreshInFlight$: Observable<{
+    access_token: string;
+    refresh_token?: string;
+  }> | null = null;
+  private hubSessionGeneration = 0;
 
   private _token = new BehaviorSubject<string | null>(localStorage.getItem('ananta.user.token'));
   token$ = this._token.asObservable();
@@ -40,6 +68,23 @@ export class UserAuthService {
   get userPayload() { return this._user.value; }
 
   async setTokens(token: string | null, refreshToken?: string | null) {
+    const generation = ++this.hubSessionGeneration;
+    await this.applyHubTokens(token, refreshToken, generation);
+  }
+
+  private async applyHubTokens(
+    token: string | null,
+    refreshToken: string | null | undefined,
+    expectedGeneration: number,
+  ): Promise<boolean> {
+    let encryptedRefreshToken: string | null = null;
+    if (refreshToken) {
+      encryptedRefreshToken = await this.secureStorage.encrypt(refreshToken, HUB_RT_STORAGE_KEY);
+    }
+    // Encryption is asynchronous. Logout or a newer login during that await
+    // owns the session and fences this stale write before any storage changes.
+    if (expectedGeneration !== this.hubSessionGeneration) return false;
+
     if (token) {
       localStorage.setItem('ananta.user.token', token);
     } else {
@@ -47,8 +92,7 @@ export class UserAuthService {
     }
 
     if (refreshToken) {
-      const encrypted = await this.secureStorage.encrypt(refreshToken, HUB_RT_STORAGE_KEY);
-      localStorage.setItem(HUB_RT_STORAGE_KEY, encrypted);
+      localStorage.setItem(HUB_RT_STORAGE_KEY, encryptedRefreshToken!);
       localStorage.removeItem(LEGACY_HUB_RT_KEY);
     } else if (refreshToken === null && token === null) {
       localStorage.removeItem(HUB_RT_STORAGE_KEY);
@@ -59,6 +103,7 @@ export class UserAuthService {
     if (refreshToken !== undefined) this._refreshToken.next(refreshToken);
     this._user.next(this.decodeTokenPayload(token));
     this.refreshUserFromHub();
+    return true;
   }
 
   setOidcAccessToken(token: string | null) {
@@ -125,31 +170,57 @@ export class UserAuthService {
     this.setOidcAccessToken(null);
   }
 
-  refreshToken(): Observable<{ access_token: string; refresh_token?: string }> {
-    const hub = this.dir.list().find(a => a.role === 'hub');
-    if (!hub) {
-      this.logout();
-      throw new Error('No hub');
-    }
+  logoutHub(): void {
+    void this.setTokens(null, null);
+  }
 
-    return from(this.getHubRefreshToken()).pipe(
-      switchMap((rt) => {
-        if (!rt) {
-          this.logout();
-          throw new Error('No refresh token');
-        }
-        return this.unwrapResponse<{ access_token: string; refresh_token?: string }>(
-          this.http.post<ApiResponse<{ access_token: string; refresh_token?: string }>>(
-            `${hub.url}/refresh-token`,
-            { refresh_token: rt },
-          )
-        ).pipe(
-          tap((res) => {
-            void this.setTokens(res.access_token, res.refresh_token);
+  refreshToken(): Observable<{ access_token: string; refresh_token?: string }> {
+    // This single-flight is injector/tab-local. The Voice surface explicitly
+    // restricts long runs to one active Ananta tab; cross-tab rotating refresh
+    // tokens would otherwise require a Web-Locks/storage synchronization
+    // protocol in addition to this in-process guard.
+    if (this.tokenRefreshInFlight$) return this.tokenRefreshInFlight$;
+
+    let shared!: Observable<{ access_token: string; refresh_token?: string }>;
+    const operation = defer(() => {
+      const generation = this.hubSessionGeneration;
+      const hub = this.dir.list().find(a => a.role === 'hub');
+      if (!hub) throw new HubRefreshTerminalError('No hub');
+      return from(this.getHubRefreshToken()).pipe(
+        switchMap((rt) => {
+          if (!rt) throw new HubRefreshTerminalError('No refresh token');
+          return this.unwrapResponse<{ access_token: string; refresh_token?: string }>(
+            this.http.post<ApiResponse<{ access_token: string; refresh_token?: string }>>(
+              `${hub.url}/refresh-token`,
+              { refresh_token: rt },
+              { context: new HttpContext().set(SKIP_ACCESS_TOKEN_AUTH, true) },
+            ),
+          ).pipe(timeout(this.hubRefreshTimeoutMilliseconds));
+        }),
+        switchMap((response) => from(this.applyHubTokens(
+          response.access_token,
+          response.refresh_token,
+          generation,
+        )).pipe(
+          map((committed) => {
+            if (!committed) throw new HubRefreshSupersededError('Hub session changed during refresh');
+            return response;
           }),
-        );
+        )),
+        catchError((error) => (
+          generation !== this.hubSessionGeneration
+            ? throwError(() => new HubRefreshSupersededError('Hub session changed during refresh'))
+            : throwError(() => error)
+        )),
+      );
+    }).pipe(
+      finalize(() => {
+        if (this.tokenRefreshInFlight$ === shared) this.tokenRefreshInFlight$ = null;
       }),
     );
+    shared = operation.pipe(shareReplay({ bufferSize: 1, refCount: false }));
+    this.tokenRefreshInFlight$ = shared;
+    return shared;
   }
 
   changePassword(old_password: string, new_password: string): Observable<any> {

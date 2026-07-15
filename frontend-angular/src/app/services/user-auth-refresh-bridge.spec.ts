@@ -11,15 +11,17 @@ import { firstValueFrom } from 'rxjs';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
-import { UserAuthService } from './user-auth.service';
+import { HUB_REFRESH_TIMEOUT, UserAuthService } from './user-auth.service';
 import { SecureTokenStorage } from './secure-token-storage.service';
 import { AgentDirectoryService } from './agent-directory.service';
+import { HubRefreshSupersededError } from './hub-refresh-error';
 
 describe('UserAuthService — Hub/OIDC boundary', () => {
   let service: UserAuthService;
   let httpMock: HttpTestingController;
 
   beforeEach(() => {
+    vi.useRealTimers();
     localStorage.clear();
     globalThis.indexedDB = new IDBFactory() as unknown as IDBFactory;
     TestBed.resetTestingModule();
@@ -29,6 +31,7 @@ describe('UserAuthService — Hub/OIDC boundary', () => {
         provideHttpClientTesting(),
         UserAuthService,
         SecureTokenStorage,
+        { provide: HUB_REFRESH_TIMEOUT, useValue: 500 },
         {
           provide: AgentDirectoryService,
           useValue: { list: () => [{ role: 'hub', url: 'http://hub.test' }] },
@@ -38,6 +41,14 @@ describe('UserAuthService — Hub/OIDC boundary', () => {
     service = TestBed.inject(UserAuthService);
     httpMock = TestBed.inject(HttpTestingController);
     TestBed.inject(SecureTokenStorage)._clearCacheForTesting();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    for (const request of httpMock.match('http://hub.test/me')) {
+      if (!request.cancelled) request.flush({ status: 'success', data: { id: 'user-a' } });
+    }
+    httpMock.verify({ ignoreCancelled: true });
   });
 
   it('refreshes a Hub session only through the Hub refresh endpoint', async () => {
@@ -83,5 +94,98 @@ describe('UserAuthService — Hub/OIDC boundary', () => {
       access_token: 'new-hub-at',
       refresh_token: 'rotated-hub-rt',
     });
+  });
+
+  it('shares one HTTP rotation and persists the rotated token before all waiters resolve', async () => {
+    await service.setTokens('old-hub-at', 'hub-rt');
+
+    const first = firstValueFrom(service.refreshToken());
+    const second = firstValueFrom(service.refreshToken());
+    let request: ReturnType<HttpTestingController['expectOne']> | undefined;
+    await vi.waitFor(() => {
+      request = httpMock.expectOne('http://hub.test/refresh-token');
+    });
+    request!.flush({
+      status: 'success',
+      data: { access_token: 'new-hub-at', refresh_token: 'rotated-hub-rt' },
+    });
+
+    await Promise.all([first, second]);
+    expect(httpMock.match('http://hub.test/refresh-token')).toHaveLength(0);
+    expect(service.token).toBe('new-hub-at');
+    expect(await service.getHubRefreshToken()).toBe('rotated-hub-rt');
+  });
+
+  it('fences a late terminal refresh error after a newer Hub login', async () => {
+    await service.setTokens('old-hub-at', 'old-hub-rt');
+    const refreshing = firstValueFrom(service.refreshToken());
+    let request: ReturnType<HttpTestingController['expectOne']> | undefined;
+    await vi.waitFor(() => {
+      request = httpMock.expectOne('http://hub.test/refresh-token');
+    });
+
+    await service.setTokens('new-login-at', 'new-login-rt');
+    request!.flush({ error: 'invalid refresh' }, {
+      status: 401,
+      statusText: 'Unauthorized',
+    });
+
+    await expect(refreshing).rejects.toBeInstanceOf(HubRefreshSupersededError);
+    expect(service.token).toBe('new-login-at');
+    expect(await service.getHubRefreshToken()).toBe('new-login-rt');
+  });
+
+  it('fences a late refresh success after logout without resurrecting the Hub session', async () => {
+    await service.setTokens('old-hub-at', 'old-hub-rt');
+    const refreshing = firstValueFrom(service.refreshToken());
+    let request: ReturnType<HttpTestingController['expectOne']> | undefined;
+    await vi.waitFor(() => {
+      request = httpMock.expectOne('http://hub.test/refresh-token');
+    });
+
+    service.logoutHub();
+    request!.flush({
+      status: 'success',
+      data: { access_token: 'late-at', refresh_token: 'late-rt' },
+    });
+
+    await expect(refreshing).rejects.toBeInstanceOf(HubRefreshSupersededError);
+    expect(service.token).toBeNull();
+    expect(await service.getHubRefreshToken()).toBeNull();
+  });
+
+  it('keeps OIDC credentials when only the Hub session is logged out', async () => {
+    await service.setTokens('hub-at', 'hub-rt');
+    service.setOidcAccessToken('oidc-at');
+    await service.setOidcRefreshToken('oidc-rt');
+
+    service.logoutHub();
+
+    expect(service.token).toBeNull();
+    expect(await service.getHubRefreshToken()).toBeNull();
+    expect(service.oidcAccessTokenValue).toBe('oidc-at');
+    expect(await service.getOidcRefreshToken()).toBe('oidc-rt');
+  });
+
+  it('times out a hung refresh as transient and permits a later refresh attempt', async () => {
+    await service.setTokens('old-hub-at', 'hub-rt');
+    const hung = firstValueFrom(service.refreshToken());
+    let request: ReturnType<HttpTestingController['expectOne']> | undefined;
+    await vi.waitFor(() => {
+      request = httpMock.expectOne('http://hub.test/refresh-token');
+    });
+    const timedOut = expect(hung).rejects.toEqual(expect.objectContaining({ name: 'TimeoutError' }));
+    await timedOut;
+    expect(service.token).toBe('old-hub-at');
+    expect(await service.getHubRefreshToken()).toBe('hub-rt');
+    expect(request!.cancelled).toBe(true);
+
+    const retry = firstValueFrom(service.refreshToken());
+    let retriedRequest: ReturnType<HttpTestingController['expectOne']> | undefined;
+    await vi.waitFor(() => {
+      retriedRequest = httpMock.expectOne('http://hub.test/refresh-token');
+    });
+    retriedRequest!.flush({ status: 'success', data: { access_token: 'renewed-hub-at' } });
+    await expect(retry).resolves.toEqual({ access_token: 'renewed-hub-at' });
   });
 });

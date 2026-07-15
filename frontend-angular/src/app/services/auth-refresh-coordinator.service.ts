@@ -1,9 +1,10 @@
 import { HttpEvent, HttpHandler, HttpRequest } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { BehaviorSubject, Observable, firstValueFrom, throwError } from 'rxjs';
-import { catchError, filter, switchMap, take } from 'rxjs/operators';
+import { BehaviorSubject, Observable, defer, finalize, shareReplay, throwError } from 'rxjs';
+import { catchError, switchMap, tap } from 'rxjs/operators';
 
 import { UserAuthService } from './user-auth.service';
+import { isDefinitiveHubRefreshFailure } from './hub-refresh-error';
 
 @Injectable({ providedIn: 'root' })
 export class AuthRefreshCoordinator {
@@ -18,60 +19,53 @@ export class AuthRefreshCoordinator {
    */
   readonly authRequired$ = new BehaviorSubject<'hub' | 'oidc' | null>(null);
 
-  /** T13: Pro-active token refresh — call from AppComponent or interceptor. */
-  startSilentRefreshTimer(): void {
-    setInterval(async () => {
-      const token = this.userAuth.token;
-      if (!token) return;
-      try {
-        const parts = token.split('.');
-        if (parts.length !== 3) return;
-        const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-        const expiry = Number(payload.exp) * 1000;
-        if (expiry - Date.now() < 60_000) {
-          await firstValueFrom(this.userAuth.refreshToken());
-        }
-      } catch { /* ignore */ }
-    }, 30_000);
-  }
-
-  private isRefreshing = false;
-  private refreshTokenSubject = new BehaviorSubject<string | null>(null);
+  private refreshInFlight$: Observable<{ access_token: string; refresh_token?: string }> | null = null;
+  private failedRefresh: Observable<{ access_token: string; refresh_token?: string }> | null = null;
 
   handleUnauthorized(
     request: HttpRequest<unknown>,
     next: HttpHandler,
     applyToken: (request: HttpRequest<unknown>, token: string) => HttpRequest<unknown>,
   ): Observable<HttpEvent<unknown>> {
-    if (!this.isRefreshing) {
-      this.isRefreshing = true;
-      this.refreshTokenSubject.next(null);
-
-      return this.userAuth.refreshToken().pipe(
-        switchMap((res: { access_token: string }) => {
-          this.isRefreshing = false;
-          this.refreshTokenSubject.next(res.access_token);
-          return next.handle(applyToken(request, res.access_token));
-        }),
-        catchError((err) => {
-          this.isRefreshing = false;
-          // Welle 6: refresh failed → tell the UI to show the login mask.
-          // Which mask depends on which sphere is active.
+    const refresh = this.refreshAccessToken();
+    const guardedRefresh = refresh.pipe(
+      tap(() => {
+        if (this.failedRefresh === refresh) this.failedRefresh = null;
+      }),
+      catchError((err) => {
+        if (isDefinitiveHubRefreshFailure(err) && this.failedRefresh !== refresh) {
+          this.failedRefresh = refresh;
+          // A shared failed refresh may reject many concurrent 401 requests;
+          // authentication state and logout are changed exactly once.
           this.requireAuthentication('hub');
-          this.userAuth.logout();
-          return throwError(() => err);
-        }),
-      );
-    }
-
-    return this.refreshTokenSubject.pipe(
-      filter((token): token is string => token !== null),
-      take(1),
-      switchMap(token => next.handle(applyToken(request, token))),
+          this.userAuth.logoutHub();
+        }
+        return throwError(() => err);
+      }),
+    );
+    // Retry failures propagate as ordinary request failures. Only the refresh
+    // source above is allowed to change authentication state.
+    return guardedRefresh.pipe(
+      switchMap((res: { access_token: string }) => (
+        next.handle(applyToken(request, res.access_token))
+      )),
     );
   }
 
   requireAuthentication(sphere: 'hub' | 'oidc'): void {
     this.authRequired$.next(sphere);
+  }
+
+  private refreshAccessToken(): Observable<{ access_token: string; refresh_token?: string }> {
+    if (this.refreshInFlight$) return this.refreshInFlight$;
+    let shared!: Observable<{ access_token: string; refresh_token?: string }>;
+    const operation = defer(() => this.userAuth.refreshToken()).pipe(
+      finalize(() => {
+        if (this.refreshInFlight$ === shared) this.refreshInFlight$ = null;
+      }),
+    );
+    shared = operation.pipe(shareReplay({ bufferSize: 1, refCount: false }));
+    this.refreshInFlight$ = shared;
+    return shared;
   }
 }

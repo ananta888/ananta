@@ -44,7 +44,12 @@ export function decodeJwtPayload(token: string): { sub?: string; exp?: number; i
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
-    const payload = JSON.parse(atob(parts[1]));
+    const normalized = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+    const binary = atob(padded);
+    const payload = JSON.parse(new TextDecoder().decode(
+      Uint8Array.from(binary, (character) => character.charCodeAt(0)),
+    ));
     return payload as { sub?: string; exp?: number; iss?: string };
   } catch {
     return null;

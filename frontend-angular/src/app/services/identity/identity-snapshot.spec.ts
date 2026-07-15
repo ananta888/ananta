@@ -15,6 +15,16 @@ function makeJwt(payload: Record<string, unknown>): string {
   return `${header}.${body}.${signature}`;
 }
 
+function makeBase64UrlJwt(payload: Record<string, unknown>): string {
+  const encode = (value: Record<string, unknown>) => {
+    const bytes = new TextEncoder().encode(JSON.stringify(value));
+    let binary = '';
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  };
+  return `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode(payload)}.signature`;
+}
+
 describe('identity-snapshot helpers', () => {
   describe('buildSnapshot', () => {
     it('produces snapshot with status only when no other fields', () => {
@@ -90,6 +100,18 @@ describe('identity-snapshot helpers', () => {
       const token = makeJwt({ sub: 'user-42', exp: 1234567890, iss: 'hub' });
       const payload = decodeJwtPayload(token);
       expect(payload).toEqual({ sub: 'user-42', exp: 1234567890, iss: 'hub' });
+    });
+
+    it('decodes an unpadded base64url payload emitted by real JWT libraries', () => {
+      for (const [subject, urlSafeCharacter] of [['𐀾', '-'], ['𐀿', '_']] as const) {
+        const token = makeBase64UrlJwt({ sub: subject, exp: 2_000_000_000, iss: 'hub' });
+        const encodedPayload = token.split('.')[1];
+        expect(encodedPayload).not.toContain('=');
+        expect(encodedPayload).toContain(urlSafeCharacter);
+        expect(decodeJwtPayload(token)).toEqual({
+          sub: subject, exp: 2_000_000_000, iss: 'hub',
+        });
+      }
     });
 
     it('returns null when payload is not valid base64', () => {

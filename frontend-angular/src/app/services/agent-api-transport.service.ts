@@ -5,7 +5,6 @@ import { Observable } from 'rxjs';
 import { ApiResponse, unwrapApiResponse } from './api-envelope';
 import { AgentDirectoryService } from './agent-directory.service';
 import { resolveAgentForUrl } from './auth-target.resolver';
-import { UserAuthService } from './user-auth.service';
 
 /**
  * Gemeinsame Transport-Helfer für die fachlichen API-Clients.
@@ -18,7 +17,6 @@ import { UserAuthService } from './user-auth.service';
 export class AgentApiTransport {
   readonly http = inject(HttpClient);
   private dir = inject(AgentDirectoryService);
-  private userAuth = inject(UserAuthService);
 
   readonly timeoutMs = 15000;
   readonly retryCount = 2;
@@ -34,12 +32,8 @@ export class AgentApiTransport {
       token = undefined;
     }
 
-    if (!token) {
-      const hub = agents.find(a => a.role === 'hub');
-      if (hub && resolveAgentForUrl([hub], baseUrl) && this.userAuth.token) {
-        token = this.userAuth.token;
-      }
-    }
+    // Implicit Hub user authentication is owned by AuthInterceptor so Hub
+    // requests retain the shared refresh-and-retry policy.
     if (token) {
       headers = headers.set('Authorization', `Bearer ${token}`);
     }

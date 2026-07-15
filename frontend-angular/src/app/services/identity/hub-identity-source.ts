@@ -1,6 +1,5 @@
 import { Injectable, OnDestroy, inject } from '@angular/core';
 import { BehaviorSubject, Observable, Subscription, firstValueFrom } from 'rxjs';
-import { HttpClient } from '@angular/common/http';
 import type { IdentitySnapshot, IdentitySource } from './identity.types';
 import {
   buildSnapshot,
@@ -13,7 +12,12 @@ import {
 } from './identity-storage-layout';
 import { UserAuthService } from '../user-auth.service';
 import { AgentDirectoryService } from '../agent-directory.service';
-import { ApiResponse, unwrapApiResponse } from '../api-envelope';
+import {
+  HubRefreshSupersededError,
+  isDefinitiveHubRefreshFailure,
+} from '../hub-refresh-error';
+
+const TRANSIENT_REFRESH_RETRY_MILLISECONDS = 30_000;
 
 /**
  * HubIdentitySource — IdentitySource für die Hub-Sphäre.
@@ -31,7 +35,6 @@ export class HubIdentitySource implements IdentitySource, OnDestroy {
   private readonly _snapshot$ = new BehaviorSubject<IdentitySnapshot>({ status: 'absent' });
   readonly snapshot$: Observable<IdentitySnapshot> = this._snapshot$.asObservable();
 
-  private readonly http = inject(HttpClient);
   private readonly auth = inject(UserAuthService);
   private readonly dir = inject(AgentDirectoryService);
   private readonly tokenSubscription: Subscription;
@@ -70,6 +73,10 @@ export class HubIdentitySource implements IdentitySource, OnDestroy {
     const rt = await this.auth.getHubRefreshToken();
     const snap = snapshotFromJwt(at, rt ?? undefined, 'hub');
     this._snapshot$.next(snap);
+    if (snap.status === 'expired' && rt) {
+      await this.refresh();
+      return;
+    }
     this.scheduleRefresh();
   }
 
@@ -94,36 +101,48 @@ export class HubIdentitySource implements IdentitySource, OnDestroy {
 
   private async doRefresh(): Promise<void> {
     const current = this._snapshot$.value;
-    if (current.status !== 'ready') return;
+    if ((current.status !== 'ready' && current.status !== 'expired') || !current.token) return;
     const hub = this.dir.list().find((a) => a.role === 'hub');
     if (!hub) {
+      if (this.auth.token !== current.token) return;
+      await this.auth.setTokens(null, null);
       this._snapshot$.next(
         buildSnapshot({ status: 'expired', error: 'no hub in directory' }),
       );
       return;
     }
     const rt = await this.auth.getHubRefreshToken();
+    if (this.auth.token !== current.token) return;
     if (!rt) {
+      await this.auth.setTokens(null, null);
       this._snapshot$.next(
         buildSnapshot({ status: 'expired', error: 'no refresh token' }),
       );
       return;
     }
     try {
-      const resp = await firstValueFrom(
-        unwrapApiResponse<{ access_token: string; refresh_token?: string }>(
-          this.http.post<ApiResponse<{ access_token: string; refresh_token?: string }>>(
-            `${hub.url}/refresh-token`,
-            { refresh_token: rt },
-          ),
-        ),
-      );
-      await this.onAuthenticated(resp.access_token, resp.refresh_token);
+      // UserAuthService owns the one shared refresh operation. Proactive timer
+      // refresh and interceptor-driven 401 recovery therefore cannot rotate
+      // the same refresh token twice.
+      const response = await firstValueFrom(this.auth.refreshToken());
+      if (this.auth.token !== response.access_token) return;
+      this._snapshot$.next(snapshotFromJwt(response.access_token, response.refresh_token, 'hub'));
+      this.scheduleRefresh();
     } catch (err: unknown) {
+      if (err instanceof HubRefreshSupersededError) return;
+      if (this.auth.token !== current.token) return;
       const msg = err instanceof Error ? err.message : 'refresh failed';
-      // Mark user-auth logout so headers stop carrying stale token
-      await this.auth.setTokens(null, null);
-      this._snapshot$.next(buildSnapshot({ status: 'expired', error: msg }));
+      if (isDefinitiveHubRefreshFailure(err)) {
+        // Hub and OIDC are independent identity spheres. A definitively invalid
+        // Hub refresh clears only Hub credentials.
+        await this.auth.setTokens(null, null);
+        this._snapshot$.next(buildSnapshot({ status: 'expired', error: msg }));
+        return;
+      }
+      // Network/429/5xx failures leave the session and rotated refresh token
+      // intact, then retry proactively. Voice uploads can remain in the spool.
+      this._snapshot$.next({ ...current, error: msg });
+      this.scheduleRefreshRetry();
     }
   }
 
@@ -156,6 +175,14 @@ export class HubIdentitySource implements IdentitySource, OnDestroy {
         void this.refresh();
       }
     }, delayMs);
+  }
+
+  private scheduleRefreshRetry(): void {
+    if (this.refreshTimer) clearTimeout(this.refreshTimer);
+    this.refreshTimer = setTimeout(() => {
+      this.refreshTimer = null;
+      void this.refresh();
+    }, TRANSIENT_REFRESH_RETRY_MILLISECONDS);
   }
 
   ngOnDestroy(): void {
