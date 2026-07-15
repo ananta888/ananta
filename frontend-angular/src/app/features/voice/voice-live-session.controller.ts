@@ -1,7 +1,12 @@
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
-import { VOICE_AUDIO_CAPTURE, VOICE_PCM_MEDIA_TYPE, VoiceAudioCapturePort } from './voice-audio-capture';
+import {
+  VOICE_AUDIO_CAPTURE,
+  VOICE_PCM_MEDIA_TYPE,
+  VoiceAudioCapturePort,
+  VoiceCaptureSource,
+} from './voice-audio-capture';
 import { VoiceApiService } from './voice-api.service';
 import {
   VoiceStreamChunkResponse,
@@ -14,6 +19,8 @@ import {
 export interface VoiceLiveSessionObserver {
   event?(event: VoiceStreamEvent | null | undefined, stream: VoiceStreamState): void;
   chunkAccepted?(sequence: number, response: VoiceStreamChunkResponse): void;
+  finalizing?(reason?: string): void;
+  finalized?(response: VoiceStreamFinalizeResponse, reason?: string): void;
   error?(error: unknown): void;
 }
 
@@ -29,9 +36,20 @@ export class VoiceLiveSessionController {
   private uploadFailure: unknown = null;
   private failureCleanup: Promise<void> | null = null;
   private observer: VoiceLiveSessionObserver = {};
+  private operationGeneration = 0;
+  private starting = false;
+  private finalizing: Promise<VoiceStreamFinalizeResponse> | null = null;
 
   get supported(): boolean {
     return this.capture.supported;
+  }
+
+  supportsSource(source: VoiceCaptureSource): boolean {
+    return this.capture.supportsSource(source);
+  }
+
+  async refreshCaptureCapabilities(): Promise<void> {
+    await this.capture.refreshCapabilities?.();
   }
 
   get active(): boolean {
@@ -42,13 +60,26 @@ export class VoiceLiveSessionController {
     return this.stream?.session_id || '';
   }
 
+  async prepareCapture(source: VoiceCaptureSource): Promise<void> {
+    if (this.stream || this.starting) throw new Error('voice.stream.already_active');
+    const generation = this.operationGeneration;
+    await this.capture.prepare(source);
+    if (generation !== this.operationGeneration) {
+      await this.capture.stop().catch(() => undefined);
+      throw new Error('voice.capture.cancelled');
+    }
+  }
+
   async start(
     hubUrl: string,
     request: Omit<VoiceStreamCreateRequest, 'media_type'>,
     idempotencyKey: string,
     observer: VoiceLiveSessionObserver = {},
+    source: VoiceCaptureSource = 'microphone',
   ): Promise<VoiceStreamState> {
-    if (this.stream) throw new Error('voice.stream.already_active');
+    if (this.stream || this.starting) throw new Error('voice.stream.already_active');
+    const generation = this.operationGeneration;
+    this.starting = true;
     this.hubUrl = hubUrl;
     this.observer = observer;
     this.nextSequence = 0;
@@ -56,28 +87,44 @@ export class VoiceLiveSessionController {
     this.failureCleanup = null;
     this.uploadQueue = Promise.resolve();
 
-    const created = await firstValueFrom(this.api.createStream(hubUrl, {
-      ...request,
-      media_type: VOICE_PCM_MEDIA_TYPE,
-    }, idempotencyKey));
-    this.stream = created.stream;
-    this.nextSequence = Number(created.stream.next_chunk_sequence || 0);
     try {
+      if (!this.capture.prepared) await this.capture.prepare(source);
+      this.ensureOperation(generation);
+      const created = await firstValueFrom(this.api.createStream(hubUrl, {
+        ...request,
+        media_type: VOICE_PCM_MEDIA_TYPE,
+      }, idempotencyKey));
+      this.stream = created.stream;
+      this.ensureOperation(generation);
+      this.nextSequence = Number(created.stream.next_chunk_sequence || 0);
       await this.capture.start(
         (chunk) => this.enqueue(chunk),
-        (error) => {
-          this.uploadFailure = error;
-          this.scheduleFailureCleanup(error, true);
-        },
+        (error) => this.handleCaptureFailure(error),
+        (reason) => this.handleCaptureStopped(reason),
       );
+      this.ensureOperation(generation);
+      return created.stream;
     } catch (error) {
+      await this.capture.stop().catch(() => undefined);
       await this.cancelRemoteStream();
       throw error;
+    } finally {
+      this.starting = false;
     }
-    return created.stream;
   }
 
   async finalize(): Promise<VoiceStreamFinalizeResponse> {
+    if (this.finalizing) return this.finalizing;
+    const operation = this.finalizeOnce();
+    this.finalizing = operation;
+    try {
+      return await operation;
+    } finally {
+      if (this.finalizing === operation) this.finalizing = null;
+    }
+  }
+
+  private async finalizeOnce(): Promise<VoiceStreamFinalizeResponse> {
     const sessionId = this.requireSessionId();
     try {
       await this.capture.stop();
@@ -103,6 +150,11 @@ export class VoiceLiveSessionController {
   }
 
   async cancel(): Promise<void> {
+    if (this.finalizing) {
+      await this.finalizing.catch(() => undefined);
+      return;
+    }
+    this.operationGeneration += 1;
     let captureFailure: unknown = null;
     try {
       await this.capture.stop();
@@ -140,6 +192,29 @@ export class VoiceLiveSessionController {
     const sessionId = this.stream?.session_id;
     if (!sessionId) throw new Error('voice.stream.not_active');
     return sessionId;
+  }
+
+  private ensureOperation(generation: number): void {
+    if (generation !== this.operationGeneration) throw new Error('voice.capture.cancelled');
+  }
+
+  private handleCaptureFailure(error: unknown): void {
+    this.operationGeneration += 1;
+    this.uploadFailure = error;
+    this.scheduleFailureCleanup(error, true);
+  }
+
+  private handleCaptureStopped(reason?: string): void {
+    if (this.starting) {
+      this.handleCaptureFailure(new Error('voice.capture.source_ended'));
+      return;
+    }
+    if (this.uploadFailure || this.failureCleanup || !this.stream || this.finalizing) return;
+    const completion = this.finalize();
+    this.observer.finalizing?.(reason);
+    void completion
+      .then((response) => this.observer.finalized?.(response, reason))
+      .catch((error) => this.observer.error?.(error));
   }
 
   private async cancelRemoteStream(): Promise<void> {

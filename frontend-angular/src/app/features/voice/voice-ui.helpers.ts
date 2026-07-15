@@ -17,12 +17,38 @@ export function voiceError(error: unknown): VoiceApiError {
     ?? (error as any)?.error?.error
     ?? (error as any)?.error
     ?? error;
+  const reportedCode = String(candidate?.code || '');
+  const reportedMessage = String(candidate?.message || '');
+  const browserName = String(candidate?.name || '');
+  const localCode = reportedCode
+    || (reportedMessage.startsWith('voice.') ? reportedMessage : '')
+    || browserName;
+  const localMessage = VOICE_CAPTURE_ERROR_MESSAGES[localCode];
   return {
-    code: String(candidate?.code || 'voice.ui_request_failed'),
-    message: String(candidate?.message || 'Voice-Anfrage fehlgeschlagen.'),
+    code: reportedCode || (localCode.startsWith('voice.') ? localCode : 'voice.ui_request_failed'),
+    message: localMessage || reportedMessage || 'Voice-Anfrage fehlgeschlagen.',
     retriable: Boolean(candidate?.retriable),
   };
 }
+
+const VOICE_CAPTURE_ERROR_MESSAGES: Readonly<Record<string, string>> = {
+  'voice.capture.system_audio_not_shared': 'Die Freigabe enthält keine Audiospur. Im Systemdialog „Audio teilen“ aktivieren und erneut starten.',
+  'voice.capture.system_audio_not_supported': 'Dieser Browser oder dieses Gerät unterstützt keine direkte Systemaudio-Aufnahme.',
+  'voice.capture.source_ended': 'Die Audiofreigabe wurde beendet. Die laufende Aufnahme wurde geschlossen.',
+  'voice.capture.cancelled': 'Die Audioaufnahme wurde abgebrochen.',
+  'voice.capture.microphone_permission_required': 'Für die Mikrofonaufnahme muss die Audioberechtigung erteilt werden.',
+  'voice.capture.system_audio_permission_required': 'Für Systemaudio muss die Android-Wiedergabefreigabe erteilt werden.',
+  'voice.capture.browser_not_supported': 'Dieser Browser stellt keinen unterstützten Audio-Capture-Adapter bereit.',
+  'voice.recording.browser_not_supported': 'Dieser Browser unterstützt die lokale Audioaufnahme nicht.',
+  NotAllowedError: 'Die Audio- oder Bildschirmfreigabe wurde nicht erteilt.',
+  NotFoundError: 'Es wurde keine geeignete Audioquelle gefunden.',
+  AbortError: 'Die Auswahl der Audioquelle wurde abgebrochen.',
+  PLAYBACK_CAPTURE_UNSUPPORTED: 'Systemaudio benötigt Android 10 oder neuer.',
+  PLAYBACK_CAPTURE_RECORD_AUDIO_PERMISSION_REQUIRED: 'Android benötigt die Audioberechtigung für die Wiedergabeaufnahme.',
+  PLAYBACK_CAPTURE_CONSENT_DENIED: 'Die Android-Wiedergabefreigabe wurde nicht erteilt.',
+  PLAYBACK_CAPTURE_CONSENT_EXPIRED: 'Die Android-Wiedergabefreigabe ist abgelaufen. Bitte die Aufnahme erneut starten.',
+  PLAYBACK_CAPTURE_PREPARE_REQUIRED: 'Die Android-Wiedergabefreigabe fehlt oder ist abgelaufen. Bitte die Aufnahme erneut starten.',
+};
 
 export function validateVoiceField(field: VoiceConfigurationField, value: unknown): string | null {
   if (field.enabled === false) return field.reason_code || 'voice.configuration.field_disabled';

@@ -9,6 +9,66 @@ npm start
 
 App: `http://localhost:4200`
 
+## Voice: Mikrofon oder Lautsprecher/Systemaudio
+
+Die Route `/voice` bietet für **Live** und **Aufnehmen → transkribieren** eine
+gerätelokale Quellenwahl:
+
+- **Mikrofon** verwendet den Mikrofoneingang.
+- **Lautsprecher / Systemaudio** nimmt die vom Browser beziehungsweise von
+  Android ausdrücklich freigegebene Wiedergabe auf.
+
+Die Quellenwahl bleibt lokal im geöffneten Client und wird nicht in einem
+Hub-Profil oder Session-Delta gespeichert. Sie ändert weder die Voice-API noch
+ASR-, Korrektur- oder Routing-Auswahl. Browser und Android senden weiterhin
+ausschließlich an die bestehenden Hub-Endpunkte; kein Client ruft die
+Voice-Runtime direkt auf.
+
+### Web
+
+Bei **Lautsprecher / Systemaudio** öffnet **Live starten** oder
+**Aufnahme starten** den Browser-Freigabedialog. Dort den gewünschten Tab, das
+Fenster oder den Bildschirm wählen und **Audio teilen** aktivieren. Ohne eine
+freigegebene Audiospur wird die Aufnahme abgebrochen. Unterstützung und
+verfügbare Audioquellen hängen von Browser und Betriebssystem ab; ein sicherer
+Kontext (HTTPS oder `localhost`) ist erforderlich.
+
+Die Browser-API benötigt technisch eine Bildschirmspur für den Dialog. Ananta
+trennt davon nur die Audiospur ab. Bild und Video werden niemals aufgezeichnet,
+verarbeitet oder an den Hub übertragen. Die Freigabe muss für jede Aufnahme
+neu bestätigt werden und endet auch, wenn sie über die Browseranzeige gestoppt
+wird. In diesem Fall finalisiert Ananta eine laufende Live-Session mit dem bis
+dahin empfangenen Audio; eine Batch-Aufnahme bleibt lokal zum Absenden bereit.
+
+### Android
+
+Systemaudio steht ab Android 10 (API-Level 29) zur Verfügung. Die App verwendet
+dafür die Android-Audioberechtigung und `MediaProjection` und zeigt für jede
+Aufnahme den Systemdialog sowie während der Aufnahme den zugehörigen
+Vordergrunddienst an. Es werden nur Audiodaten übernommen; Bildschirmbilder
+werden nicht aufgezeichnet oder übertragen. Unterhalb von Android 10 lehnt die
+App den Start mit einem klaren Hinweis ab.
+
+Android kann nur Wiedergabe aus demselben Benutzerprofil aufnehmen, wenn die
+abspielende App und die konkrete Audioart Capture erlauben. App-Opt-out,
+geschützte/DRM-Inhalte, Anrufe und Telefonie können stumm bleiben; Ananta umgeht
+diese Plattformgrenzen nicht.
+
+Die native Aufnahme endet nach spätestens 120 Sekunden. Live wird dann mit dem
+bis dahin übertragenen Audio automatisch finalisiert; Batch bleibt lokal zum
+anschließenden Absenden bereit.
+
+### Übertragung
+
+- **Live:** Die gewählte Quelle wird während der Aufnahme in geordneten
+  PCM16-/16-kHz-Mono-Chunks an die Hub-Stream-API gesendet.
+- **Aufnehmen → transkribieren:** Die Aufnahme bleibt zunächst auf dem Gerät.
+  Erst **Über Hub transkribieren** sendet die Audiodatei an den bestehenden
+  Batch-Endpunkt.
+
+Ausführliche Einrichtung und Bedienung stehen im
+[Voice Quickstart](../docs/voice-quickstart.md#5-angular-im-browser-verwenden).
+
 ## E2E-Tests
 ```bash
 npm run test:e2e

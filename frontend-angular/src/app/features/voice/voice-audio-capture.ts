@@ -1,16 +1,39 @@
 import { InjectionToken } from '@angular/core';
 import { Capacitor, PluginListenerHandle, registerPlugin } from '@capacitor/core';
 
+import {
+  acquireBrowserAudioStream,
+  BrowserAudioStreamLease,
+  browserCaptureSourceSupported,
+  VoiceCaptureSource,
+} from './voice-browser-audio-source';
+
+export type { VoiceCaptureSource } from './voice-browser-audio-source';
+
 export const VOICE_PCM_MEDIA_TYPE = 'audio/pcm;rate=16000;channels=1';
 export const VOICE_PCM_SAMPLE_RATE = 16_000;
 
 export type VoicePcmChunkHandler = (chunk: ArrayBuffer) => void;
+export type VoiceCaptureStoppedHandler = (reason?: string) => void;
+
+export interface VoiceBatchRecordingObserver {
+  ended?(reason?: string): void;
+  error?(error: unknown): void;
+}
 
 /** Platform seam: Capacitor can provide a native AudioRecord implementation. */
 export interface VoiceAudioCapturePort {
   readonly supported: boolean;
   readonly active: boolean;
-  start(onChunk: VoicePcmChunkHandler, onError?: (error: unknown) => void): Promise<void>;
+  readonly prepared: boolean;
+  supportsSource(source: VoiceCaptureSource): boolean;
+  refreshCapabilities?(): Promise<void>;
+  prepare(source: VoiceCaptureSource): Promise<void>;
+  start(
+    onChunk: VoicePcmChunkHandler,
+    onError?: (error: unknown) => void,
+    onStopped?: VoiceCaptureStoppedHandler,
+  ): Promise<void>;
   stop(): Promise<void>;
 }
 
@@ -18,7 +41,9 @@ export interface VoiceAudioCapturePort {
 export interface VoiceBatchRecordingPort {
   readonly supported: boolean;
   readonly active: boolean;
-  start(): Promise<void>;
+  supportsSource(source: VoiceCaptureSource): boolean;
+  refreshCapabilities?(): Promise<void>;
+  start(source?: VoiceCaptureSource, observer?: VoiceBatchRecordingObserver): Promise<void>;
   stop(): Promise<Blob>;
   cancel(): Promise<void>;
 }
@@ -58,6 +83,28 @@ export function float32MonoToPcm16(
   return output;
 }
 
+export function float32ChannelsToPcm16(
+  channels: readonly Float32Array[],
+  sourceSampleRate: number,
+  targetSampleRate = VOICE_PCM_SAMPLE_RATE,
+): ArrayBuffer {
+  if (!channels.length) return new ArrayBuffer(0);
+  const frameCount = channels[0].length;
+  if (channels.some((channel) => channel.length !== frameCount)) {
+    throw new Error('voice.capture.channel_length_mismatch');
+  }
+  if (channels.length === 1) {
+    return float32MonoToPcm16(channels[0], sourceSampleRate, targetSampleRate);
+  }
+  const mono = new Float32Array(frameCount);
+  for (const channel of channels) {
+    for (let index = 0; index < frameCount; index += 1) mono[index] += channel[index];
+  }
+  const scale = 1 / channels.length;
+  for (let index = 0; index < frameCount; index += 1) mono[index] *= scale;
+  return float32MonoToPcm16(mono, sourceSampleRate, targetSampleRate);
+}
+
 export class Pcm16ChunkAccumulator {
   private pending = new Uint8Array(0);
 
@@ -88,7 +135,7 @@ export class Pcm16ChunkAccumulator {
 }
 
 export class BrowserVoiceAudioCaptureAdapter implements VoiceAudioCapturePort {
-  private stream: MediaStream | null = null;
+  private lease: BrowserAudioStreamLease | null = null;
   private context: AudioContext | null = null;
   private source: MediaStreamAudioSourceNode | null = null;
   private worklet: AudioWorkletNode | null = null;
@@ -97,34 +144,62 @@ export class BrowserVoiceAudioCaptureAdapter implements VoiceAudioCapturePort {
   private accumulator = new Pcm16ChunkAccumulator();
   private onChunk: VoicePcmChunkHandler | null = null;
   private onError: ((error: unknown) => void) | null = null;
+  private onStopped: VoiceCaptureStoppedHandler | null = null;
+  private removeEndedHandler: (() => void) | null = null;
+  private operationGeneration = 0;
 
   get supported(): boolean {
-    return Boolean(globalThis.navigator?.mediaDevices?.getUserMedia && globalThis.AudioContext);
+    return this.supportsSource('microphone');
   }
 
   get active(): boolean {
-    return this.stream !== null;
+    return this.context !== null;
   }
 
-  async start(onChunk: VoicePcmChunkHandler, onError?: (error: unknown) => void): Promise<void> {
+  get prepared(): boolean {
+    return this.lease !== null;
+  }
+
+  supportsSource(source: VoiceCaptureSource): boolean {
+    return Boolean(globalThis.AudioContext && browserCaptureSourceSupported(source));
+  }
+
+  async prepare(source: VoiceCaptureSource): Promise<void> {
+    if (this.active || this.prepared) throw new Error('voice.capture.already_active');
+    if (!this.supportsSource(source)) {
+      throw new Error(source === 'system_audio'
+        ? 'voice.capture.system_audio_not_supported'
+        : 'voice.capture.browser_not_supported');
+    }
+    const generation = ++this.operationGeneration;
+    const lease = await acquireBrowserAudioStream(source);
+    if (generation !== this.operationGeneration) {
+      lease.release();
+      throw new Error('voice.capture.cancelled');
+    }
+    this.lease = lease;
+  }
+
+  async start(
+    onChunk: VoicePcmChunkHandler,
+    onError?: (error: unknown) => void,
+    onStopped?: VoiceCaptureStoppedHandler,
+  ): Promise<void> {
     if (this.active) throw new Error('voice.capture.already_active');
-    if (!this.supported) throw new Error('voice.capture.browser_not_supported');
+    if (!this.lease) throw new Error('voice.capture.not_prepared');
 
     try {
+      if (this.lease.ended) throw new Error('voice.capture.source_ended');
       this.onChunk = onChunk;
       this.onError = onError || null;
+      this.onStopped = onStopped || null;
       this.accumulator = new Pcm16ChunkAccumulator();
-      this.stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-      });
       this.context = new AudioContext({ sampleRate: VOICE_PCM_SAMPLE_RATE });
       await this.context.resume();
-      this.source = this.context.createMediaStreamSource(this.stream);
+      this.source = this.context.createMediaStreamSource(this.lease.audioStream);
+      this.removeEndedHandler = this.lease.onEnded(() => {
+        this.reportStopped('source_ended');
+      });
       this.sink = this.context.createGain();
       this.sink.gain.value = 0;
       this.sink.connect(this.context.destination);
@@ -145,23 +220,27 @@ export class BrowserVoiceAudioCaptureAdapter implements VoiceAudioCapturePort {
   }
 
   async stop(): Promise<void> {
+    this.operationGeneration += 1;
     this.onError = null;
+    this.onStopped = null;
     const context = this.context;
+    this.removeEndedHandler?.();
     this.worklet?.port.close();
     this.worklet?.disconnect();
     if (this.processor) this.processor.onaudioprocess = null;
     this.processor?.disconnect();
     this.source?.disconnect();
     this.sink?.disconnect();
-    this.stream?.getTracks().forEach((track) => track.stop());
     this.flushPcm();
+    this.lease?.release();
     this.worklet = null;
     this.processor = null;
     this.source = null;
     this.sink = null;
-    this.stream = null;
+    this.lease = null;
     this.context = null;
     this.onChunk = null;
+    this.removeEndedHandler = null;
     if (context && context.state !== 'closed') await context.close();
   }
 
@@ -170,8 +249,17 @@ export class BrowserVoiceAudioCaptureAdapter implements VoiceAudioCapturePort {
     const source = `
       class AnantaVoiceCaptureProcessor extends AudioWorkletProcessor {
         process(inputs) {
-          const channel = inputs[0] && inputs[0][0];
-          if (channel && channel.length) this.port.postMessage(channel.slice(0));
+          const channels = inputs[0] || [];
+          const length = channels[0] ? channels[0].length : 0;
+          if (length) {
+            const mono = new Float32Array(length);
+            for (const channel of channels) {
+              for (let index = 0; index < length; index += 1) mono[index] += channel[index];
+            }
+            const scale = 1 / Math.max(1, channels.length);
+            for (let index = 0; index < length; index += 1) mono[index] *= scale;
+            this.port.postMessage(mono);
+          }
           return true;
         }
       }
@@ -203,11 +291,14 @@ export class BrowserVoiceAudioCaptureAdapter implements VoiceAudioCapturePort {
 
   private startScriptProcessor(onChunk: VoicePcmChunkHandler): void {
     if (!this.context || !this.source || !this.sink) return;
-    this.processor = this.context.createScriptProcessor(4096, 1, 1);
+    this.processor = this.context.createScriptProcessor(4096, 2, 1);
     this.processor.onaudioprocess = (event: AudioProcessingEvent) => {
       try {
-        const samples = event.inputBuffer.getChannelData(0);
-        const pcm = float32MonoToPcm16(samples, event.inputBuffer.sampleRate);
+        const channels = Array.from(
+          { length: event.inputBuffer.numberOfChannels },
+          (_value, index) => event.inputBuffer.getChannelData(index),
+        );
+        const pcm = float32ChannelsToPcm16(channels, event.inputBuffer.sampleRate);
         if (pcm.byteLength) this.bufferPcm(pcm, onChunk);
       } catch (error) {
         this.reportError(error);
@@ -231,6 +322,12 @@ export class BrowserVoiceAudioCaptureAdapter implements VoiceAudioCapturePort {
     this.onError = null;
     handler?.(error);
   }
+
+  private reportStopped(reason: string): void {
+    const handler = this.onStopped;
+    this.onStopped = null;
+    handler?.(reason);
+  }
 }
 
 interface NativeVoiceChunkEvent {
@@ -244,17 +341,36 @@ interface NativeVoiceChunkEvent {
   encoding: 'pcm_s16le';
 }
 
-interface NativeVoiceCapturePlugin {
-  getStatus(): Promise<{ capturing: boolean }>;
-  requestMicrophonePermission(): Promise<{ state: string }>;
+interface NativeVoiceStoppedEvent {
+  reason?: string;
+}
+
+interface NativePcmCapturePlugin {
   start(options: { sampleRate: 16000; chunkMilliseconds: number; maxSeconds: number }): Promise<unknown>;
   stop(): Promise<{ stopped?: boolean }>;
   addListener(eventName: 'voicePcmChunk', listener: (event: NativeVoiceChunkEvent) => void): Promise<PluginListenerHandle>;
-  addListener(eventName: 'voiceCaptureError', listener: (event: { message: string }) => void): Promise<PluginListenerHandle>;
-  addListener(eventName: 'voiceCaptureStopped', listener: () => void): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: 'voiceCaptureError',
+    listener: (event: { code?: string; message: string }) => void,
+  ): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: 'voiceCaptureStopped',
+    listener: (event: NativeVoiceStoppedEvent) => void,
+  ): Promise<PluginListenerHandle>;
+}
+
+interface NativeVoiceCapturePlugin extends NativePcmCapturePlugin {
+  getStatus(): Promise<{ capturing: boolean }>;
+  requestMicrophonePermission(): Promise<{ state: string }>;
+}
+
+interface NativePlaybackAudioCapturePlugin extends NativePcmCapturePlugin {
+  getStatus(): Promise<{ supported: boolean; prepared: boolean; capturing: boolean }>;
+  prepare(): Promise<{ prepared: boolean }>;
 }
 
 const NativeVoiceCapture = registerPlugin<NativeVoiceCapturePlugin>('VoiceCapture');
+const NativePlaybackAudioCapture = registerPlugin<NativePlaybackAudioCapturePlugin>('PlaybackAudioCapture');
 
 function isNativeAndroidVoiceCapture(): boolean {
   return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
@@ -270,6 +386,13 @@ function base64Pcm(base64: string): ArrayBuffer {
 export class CapacitorVoiceAudioCaptureAdapter implements VoiceAudioCapturePort {
   private listeners: PluginListenerHandle[] = [];
   private capturing = false;
+  private preparedSource: VoiceCaptureSource | null = null;
+  private preparing: { source: VoiceCaptureSource; generation: number } | null = null;
+  private operationGeneration = 0;
+  private drainingGeneration: number | null = null;
+  private stopInFlight: Promise<void> | null = null;
+  private stopRequested = false;
+  private playbackCaptureSupported = false;
 
   get supported(): boolean {
     return isNativeAndroidVoiceCapture();
@@ -279,113 +402,283 @@ export class CapacitorVoiceAudioCaptureAdapter implements VoiceAudioCapturePort 
     return this.capturing;
   }
 
-  async start(onChunk: VoicePcmChunkHandler, onError?: (error: unknown) => void): Promise<void> {
+  get prepared(): boolean {
+    return this.preparedSource !== null;
+  }
+
+  supportsSource(source: VoiceCaptureSource): boolean {
+    return this.supported && (source === 'microphone' || this.playbackCaptureSupported);
+  }
+
+  async refreshCapabilities(): Promise<void> {
+    if (!this.supported) {
+      this.playbackCaptureSupported = false;
+      return;
+    }
+    try {
+      const status = await NativePlaybackAudioCapture.getStatus();
+      this.playbackCaptureSupported = status.supported === true;
+    } catch {
+      this.playbackCaptureSupported = false;
+    }
+  }
+
+  async prepare(source: VoiceCaptureSource): Promise<void> {
+    if (this.active || this.prepared || this.preparing) throw new Error('voice.capture.already_active');
+    const generation = ++this.operationGeneration;
+    this.preparing = { source, generation };
+    try {
+      if (source === 'system_audio') {
+        await this.refreshCapabilities();
+        this.ensureNativeOperation(generation);
+      }
+      if (!this.supportsSource(source)) throw new Error('voice.capture.native_not_supported');
+      if (source === 'microphone') {
+        const permission = await NativeVoiceCapture.requestMicrophonePermission();
+        if (permission.state !== 'granted') {
+          throw new Error('voice.capture.microphone_permission_required');
+        }
+      } else {
+        const result = await NativePlaybackAudioCapture.prepare();
+        if (result.prepared !== true) throw new Error('voice.capture.system_audio_permission_required');
+      }
+      if (generation !== this.operationGeneration) {
+        if (source === 'system_audio') await NativePlaybackAudioCapture.stop().catch(() => undefined);
+        throw new Error('voice.capture.cancelled');
+      }
+      this.preparedSource = source;
+    } finally {
+      if (this.preparing?.generation === generation) this.preparing = null;
+    }
+  }
+
+  async start(
+    onChunk: VoicePcmChunkHandler,
+    onError?: (error: unknown) => void,
+    onStopped?: VoiceCaptureStoppedHandler,
+  ): Promise<void> {
     if (!this.supported) throw new Error('voice.capture.native_not_supported');
     if (this.active) throw new Error('voice.capture.already_active');
-    const permission = await NativeVoiceCapture.requestMicrophonePermission();
-    if (permission.state !== 'granted') throw new Error('voice.capture.microphone_permission_required');
-    this.listeners = [
-      await NativeVoiceCapture.addListener('voicePcmChunk', (event) => {
+    if (!this.preparedSource) throw new Error('voice.capture.not_prepared');
+    const generation = this.operationGeneration;
+    const plugin = this.preparedSource === 'system_audio'
+      ? NativePlaybackAudioCapture
+      : NativeVoiceCapture;
+    this.stopRequested = false;
+    this.listeners = [];
+    try {
+      this.listeners.push(await plugin.addListener('voicePcmChunk', (event) => {
+        if (generation !== this.operationGeneration && generation !== this.drainingGeneration) return;
         if (event.sampleRate !== VOICE_PCM_SAMPLE_RATE || event.channels !== 1 || event.encoding !== 'pcm_s16le') {
           onError?.(new Error('voice.capture.native_media_contract_mismatch'));
           return;
         }
         onChunk(base64Pcm(event.dataBase64));
-      }),
-      await NativeVoiceCapture.addListener('voiceCaptureError', (event) => {
+      }));
+      this.ensureNativeOperation(generation);
+      this.listeners.push(await plugin.addListener('voiceCaptureError', (event) => {
+        if (generation !== this.operationGeneration) return;
         this.capturing = false;
-        onError?.(new Error(event.message || 'voice.capture.native_failed'));
-      }),
-      await NativeVoiceCapture.addListener('voiceCaptureStopped', () => {
+        onError?.({
+          code: event.code || 'voice.capture.native_failed',
+          message: event.message || 'Die native Audioaufnahme ist fehlgeschlagen.',
+        });
+      }));
+      this.ensureNativeOperation(generation);
+      this.listeners.push(await plugin.addListener('voiceCaptureStopped', (event) => {
+        if (generation !== this.operationGeneration) return;
         this.capturing = false;
-      }),
-    ];
-    try {
-      await NativeVoiceCapture.start({ sampleRate: 16_000, chunkMilliseconds: 500, maxSeconds: 120 });
+        if (!this.stopRequested) onStopped?.(event.reason);
+      }));
+      this.ensureNativeOperation(generation);
+      await plugin.start({ sampleRate: 16_000, chunkMilliseconds: 500, maxSeconds: 120 });
+      if (generation !== this.operationGeneration) {
+        await this.stop().catch(() => undefined);
+        throw new Error('voice.capture.cancelled');
+      }
       this.capturing = true;
     } catch (error) {
-      await this.removeListeners();
+      await this.stop().catch(() => undefined);
       throw error;
     }
   }
 
   async stop(): Promise<void> {
+    if (this.stopInFlight) return this.stopInFlight;
+    const operation = this.stopInternal();
+    this.stopInFlight = operation;
     try {
-      if (this.supported) {
-        const result = await NativeVoiceCapture.stop();
+      await operation;
+    } finally {
+      if (this.stopInFlight === operation) this.stopInFlight = null;
+    }
+  }
+
+  private async stopInternal(): Promise<void> {
+    const stoppingGeneration = this.operationGeneration;
+    if (this.capturing) this.drainingGeneration = stoppingGeneration;
+    this.operationGeneration += 1;
+    const source = this.preparedSource || this.preparing?.source;
+    this.preparing = null;
+    this.stopRequested = true;
+    try {
+      if (this.supported && source) {
+        const plugin = source === 'system_audio'
+          ? NativePlaybackAudioCapture
+          : NativeVoiceCapture;
+        const result = await plugin.stop();
         if (result.stopped === false) throw new Error('voice.capture.native_stop_timeout');
       }
     } finally {
       this.capturing = false;
-      // Let the Capacitor bridge deliver a final chunk queued before stop resolved.
+      this.preparedSource = null;
+      // Native stop resolves only after the service queued its final partial PCM chunk.
+      // Keep that generation eligible for one JavaScript turn before removing listeners.
       await new Promise<void>((resolve) => globalThis.setTimeout(resolve, 0));
       await this.removeListeners();
+      if (this.drainingGeneration === stoppingGeneration) this.drainingGeneration = null;
     }
   }
 
   private async removeListeners(): Promise<void> {
-    await Promise.all(this.listeners.map((listener) => listener.remove()));
+    const listeners = this.listeners;
     this.listeners = [];
+    await Promise.all(listeners.map(async (listener) => {
+      await listener.remove().catch(() => undefined);
+    }));
+  }
+
+  private ensureNativeOperation(generation: number): void {
+    if (generation !== this.operationGeneration) throw new Error('voice.capture.cancelled');
   }
 }
 
 export class BrowserVoiceBatchRecordingAdapter implements VoiceBatchRecordingPort {
-  private stream: MediaStream | null = null;
+  private lease: BrowserAudioStreamLease | null = null;
   private recorder: MediaRecorder | null = null;
+  private removeEndedHandler: (() => void) | null = null;
   private chunks: Blob[] = [];
   private result: Promise<Blob> | null = null;
   private resolveResult: ((blob: Blob) => void) | null = null;
   private rejectResult: ((error: unknown) => void) | null = null;
+  private observer: VoiceBatchRecordingObserver | null = null;
+  private acquiringGeneration: number | null = null;
+  private operationGeneration = 0;
+  private endedBySource = false;
 
   get supported(): boolean {
-    return Boolean(globalThis.navigator?.mediaDevices?.getUserMedia && globalThis.MediaRecorder);
+    return this.supportsSource('microphone');
   }
 
   get active(): boolean {
     return this.recorder?.state === 'recording';
   }
 
-  async start(): Promise<void> {
-    if (this.active) throw new Error('voice.recording.already_active');
-    if (!this.supported) throw new Error('voice.recording.browser_not_supported');
-    this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    this.chunks = [];
-    const mimeType = this.preferredMimeType();
-    this.recorder = mimeType ? new MediaRecorder(this.stream, { mimeType }) : new MediaRecorder(this.stream);
-    this.result = new Promise<Blob>((resolve, reject) => {
-      this.resolveResult = resolve;
-      this.rejectResult = reject;
-    });
-    this.recorder.ondataavailable = (event) => {
-      if (event.data.size) this.chunks.push(event.data);
-    };
-    this.recorder.onerror = (event) => {
-      this.rejectResult?.(new Error((event as ErrorEvent).message || 'voice.recording.failed'));
+  supportsSource(source: VoiceCaptureSource): boolean {
+    return Boolean(globalThis.MediaRecorder && browserCaptureSourceSupported(source));
+  }
+
+  async start(
+    source: VoiceCaptureSource = 'microphone',
+    observer: VoiceBatchRecordingObserver = {},
+  ): Promise<void> {
+    if (this.active || this.result || this.lease || this.acquiringGeneration !== null) {
+      throw new Error('voice.recording.already_active');
+    }
+    if (!this.supportsSource(source)) {
+      throw new Error(source === 'system_audio'
+        ? 'voice.capture.system_audio_not_supported'
+        : 'voice.recording.browser_not_supported');
+    }
+    const generation = ++this.operationGeneration;
+    this.acquiringGeneration = generation;
+    let lease: BrowserAudioStreamLease;
+    try {
+      lease = await acquireBrowserAudioStream(source);
+    } catch (error) {
+      if (this.acquiringGeneration === generation) this.acquiringGeneration = null;
+      throw error;
+    }
+    if (generation !== this.operationGeneration) {
+      lease.release();
+      throw new Error('voice.capture.cancelled');
+    }
+    this.acquiringGeneration = null;
+    this.lease = lease;
+    this.observer = observer;
+    this.endedBySource = false;
+    try {
+      this.chunks = [];
+      const mimeType = this.preferredMimeType();
+      this.recorder = mimeType
+        ? new MediaRecorder(this.lease.audioStream, { mimeType })
+        : new MediaRecorder(this.lease.audioStream);
+      this.result = new Promise<Blob>((resolve, reject) => {
+        this.resolveResult = resolve;
+        this.rejectResult = reject;
+      });
+      this.recorder.ondataavailable = (event) => {
+        if (event.data.size) this.chunks.push(event.data);
+      };
+      this.recorder.onerror = (event) => {
+        const error = new Error((event as ErrorEvent).message || 'voice.recording.failed');
+        const currentObserver = this.observer;
+        this.rejectResult?.(error);
+        this.cleanup();
+        currentObserver?.error?.(error);
+      };
+      this.recorder.onstop = () => {
+        const type = this.recorder?.mimeType || mimeType || 'audio/webm';
+        const currentObserver = this.observer;
+        const endedBySource = this.endedBySource;
+        this.resolveResult?.(new Blob(this.chunks, { type }));
+        this.cleanup();
+        if (endedBySource) currentObserver?.ended?.('source_ended');
+      };
+      this.removeEndedHandler = this.lease.onEnded(() => {
+        this.endedBySource = true;
+        if (this.recorder?.state === 'recording') this.recorder.stop();
+      });
+      this.recorder.start(500);
+      if (this.lease.ended && this.recorder.state === 'recording') this.recorder.stop();
+    } catch (error) {
+      this.result = null;
+      this.chunks = [];
       this.cleanup();
-    };
-    this.recorder.onstop = () => {
-      const type = this.recorder?.mimeType || mimeType || 'audio/webm';
-      this.resolveResult?.(new Blob(this.chunks, { type }));
-      this.cleanup();
-    };
-    this.recorder.start(500);
+      throw error;
+    }
   }
 
   async stop(): Promise<Blob> {
-    if (!this.recorder || !this.result) throw new Error('voice.recording.not_active');
+    this.operationGeneration += 1;
+    this.acquiringGeneration = null;
+    if (!this.result) throw new Error('voice.recording.not_active');
     const result = this.result;
-    if (this.recorder.state !== 'inactive') this.recorder.stop();
-    return result;
+    if (this.recorder && this.recorder.state !== 'inactive') this.recorder.stop();
+    try {
+      return await result;
+    } finally {
+      this.result = null;
+      this.chunks = [];
+    }
   }
 
   async cancel(): Promise<void> {
-    if (!this.recorder) return;
+    this.operationGeneration += 1;
+    this.acquiringGeneration = null;
+    this.observer = null;
+    this.endedBySource = false;
+    if (!this.result && !this.lease) return;
     const result = this.result;
-    if (this.recorder.state !== 'inactive') this.recorder.stop();
+    if (this.recorder && this.recorder.state !== 'inactive') this.recorder.stop();
     try {
       await result;
     } catch {
       // Cancellation deliberately discards recorder errors and buffered audio.
+    } finally {
+      this.result = null;
+      this.chunks = [];
+      this.cleanup();
     }
   }
 
@@ -395,17 +688,22 @@ export class BrowserVoiceBatchRecordingAdapter implements VoiceBatchRecordingPor
   }
 
   private cleanup(): void {
-    this.stream?.getTracks().forEach((track) => track.stop());
-    this.stream = null;
+    this.removeEndedHandler?.();
+    this.lease?.release();
+    this.lease = null;
     this.recorder = null;
     this.resolveResult = null;
     this.rejectResult = null;
+    this.removeEndedHandler = null;
+    this.observer = null;
+    this.endedBySource = false;
   }
 }
 
 export class CapacitorVoiceBatchRecordingAdapter implements VoiceBatchRecordingPort {
   private readonly capture = new CapacitorVoiceAudioCaptureAdapter();
   private chunks: ArrayBuffer[] = [];
+  private captureFailure: unknown = null;
 
   get supported(): boolean {
     return this.capture.supported;
@@ -415,13 +713,46 @@ export class CapacitorVoiceBatchRecordingAdapter implements VoiceBatchRecordingP
     return this.capture.active;
   }
 
-  async start(): Promise<void> {
+  supportsSource(source: VoiceCaptureSource): boolean {
+    return this.capture.supportsSource(source);
+  }
+
+  async refreshCapabilities(): Promise<void> {
+    await this.capture.refreshCapabilities?.();
+  }
+
+  async start(
+    source: VoiceCaptureSource = 'microphone',
+    observer: VoiceBatchRecordingObserver = {},
+  ): Promise<void> {
     this.chunks = [];
-    await this.capture.start((chunk) => this.chunks.push(chunk));
+    this.captureFailure = null;
+    try {
+      await this.capture.prepare(source);
+      await this.capture.start(
+        (chunk) => this.chunks.push(chunk),
+        (error) => {
+          this.captureFailure = error;
+          observer.error?.(error);
+        },
+        (reason) => observer.ended?.(reason),
+      );
+    } catch (error) {
+      await this.capture.stop().catch(() => undefined);
+      this.chunks = [];
+      this.captureFailure = null;
+      throw error;
+    }
   }
 
   async stop(): Promise<Blob> {
     await this.capture.stop();
+    if (this.captureFailure) {
+      const failure = this.captureFailure;
+      this.captureFailure = null;
+      this.chunks = [];
+      throw failure;
+    }
     const bytes = this.chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
     const wav = pcm16ChunksToWav(this.chunks, bytes);
     this.chunks = [];
@@ -431,6 +762,7 @@ export class CapacitorVoiceBatchRecordingAdapter implements VoiceBatchRecordingP
   async cancel(): Promise<void> {
     await this.capture.stop();
     this.chunks = [];
+    this.captureFailure = null;
   }
 }
 

@@ -25,30 +25,30 @@
         <h2 id="voice-context-title">Erkennung und Korrektur</h2>
         <p class="muted">Die Auswahl wird als Hub-Profil oder Session-Delta gespeichert und gilt in Web und Android gleich.</p>
       </div>
-      <button class="button-outline" type="button" (click)="loadVoiceContext()" [disabled]="loadingConfiguration || liveActive || batchRecording">
+      <button class="button-outline" type="button" (click)="loadVoiceContext()" [disabled]="configurationInteractionLocked()">
         {{ loadingConfiguration ? 'Lädt …' : 'Status neu laden' }}
       </button>
     </div>
 
     <div class="voice-context-grid mt-md">
       <label>Sprache
-        <input [(ngModel)]="language" placeholder="de" [disabled]="liveActive || batchRecording" autocomplete="off" />
+        <input [(ngModel)]="language" placeholder="de" [disabled]="configurationInteractionLocked()" autocomplete="off" />
       </label>
       <label>Profil-ID
-        <input [(ngModel)]="profileId" placeholder="default" [disabled]="liveActive || batchRecording" autocomplete="off" />
+        <input [(ngModel)]="profileId" placeholder="default" [disabled]="configurationInteractionLocked()" autocomplete="off" />
       </label>
       <label>Session-ID (optional)
-        <input [(ngModel)]="sessionId" placeholder="z. B. meeting-2026-07" [disabled]="liveActive || batchRecording" autocomplete="off" />
+        <input [(ngModel)]="sessionId" placeholder="z. B. meeting-2026-07" [disabled]="configurationInteractionLocked()" autocomplete="off" />
       </label>
       <label>Recognition-Modus
-        <select [(ngModel)]="selectedRecognitionStrategy" [disabled]="loadingConfiguration || liveActive || batchRecording">
+        <select [(ngModel)]="selectedRecognitionStrategy" [disabled]="configurationInteractionLocked()">
           @for (choice of recognitionStrategies(); track choice.id) {
             <option [value]="choice.id" [disabled]="!choice.available">{{ choice.label }}</option>
           }
         </select>
       </label>
       <label>Klassisches ASR-Backend
-        <select [(ngModel)]="selectedBackend" [disabled]="loadingConfiguration || liveActive || batchRecording">
+        <select [(ngModel)]="selectedBackend" [disabled]="configurationInteractionLocked()">
           @for (choice of asrBackends(); track choice.id) {
             <option [value]="choice.id" [disabled]="!choice.available" [title]="choice.reason">
               {{ choice.label }}{{ choice.available ? '' : ' – nicht verfügbar' }}
@@ -61,7 +61,7 @@
       </label>
       @if (requiresSecondaryBackend()) {
         <label>Zweites ASR-Backend
-          <select [(ngModel)]="selectedSecondaryBackend" [disabled]="loadingConfiguration || liveActive || batchRecording">
+          <select [(ngModel)]="selectedSecondaryBackend" [disabled]="configurationInteractionLocked()">
             <option value="">Backend auswählen</option>
             @for (choice of asrBackends(); track choice.id) {
               <option [value]="choice.id" [disabled]="!choice.available || choice.id === selectedBackend" [title]="choice.reason">
@@ -75,7 +75,7 @@
         </label>
       }
       <label class="voice-toggle">
-        <input type="checkbox" [(ngModel)]="generativeCorrection" [disabled]="liveActive || batchRecording" />
+        <input type="checkbox" [(ngModel)]="generativeCorrection" [disabled]="configurationInteractionLocked()" />
         <span>
           <strong>Nachträglich mit LLM verbessern</strong>
           <small class="muted">Während Live läuft Vosk; Qwen, Gemma, Phi oder ein anderes freigegebenes Modell korrigiert das finale Transkript.</small>
@@ -84,7 +84,7 @@
       @if (generativeCorrection) {
         <label>Korrektur-Provider
           <select [ngModel]="selectedCorrectorProvider" (ngModelChange)="onCorrectorProviderChange($event)"
-            [disabled]="loadingConfiguration || liveActive || batchRecording">
+            [disabled]="configurationInteractionLocked()">
             @for (choice of correctorProviders(); track choice.id) {
               <option [value]="choice.id"
                 [disabled]="!choice.available && !correctorProviderSupportsManual(choice.id)" [title]="choice.reason">
@@ -114,7 +114,7 @@
           @if (correctorProviderSupportsManual()) {
             <label class="voice-toggle">
               <input type="checkbox" [ngModel]="manualCorrectorModel" (ngModelChange)="setManualCorrectorModel($event)"
-                [disabled]="loadingConfiguration || liveActive || batchRecording" />
+                [disabled]="configurationInteractionLocked()" />
               <span>
                 <strong>Modell-ID manuell eingeben</strong>
                 <small class="muted">Nur die Modell-ID wird gespeichert; Provider-URL und Schlüssel bleiben in der Deployment-Konfiguration des Corrector-Workers.</small>
@@ -124,14 +124,14 @@
           @if (manualCorrectorModel) {
             <label>Manuelle Korrekturmodell-ID
               <input [(ngModel)]="manualCorrectorModelId" placeholder="z. B. qwen2.5:7b"
-                [disabled]="loadingConfiguration || liveActive || batchRecording" autocomplete="off" />
+                [disabled]="configurationInteractionLocked()" autocomplete="off" />
               @if (!validCorrectionSelection()) {
                 <small class="error-text">Bitte eine gültige Modell-ID eingeben; Provider und qualifizierte ID dürfen zusammen höchstens 192 Zeichen haben.</small>
               }
             </label>
           } @else {
             <label>Korrekturmodell
-              <select [(ngModel)]="selectedCorrectorModel" [disabled]="loadingConfiguration || liveActive || batchRecording">
+              <select [(ngModel)]="selectedCorrectorModel" [disabled]="configurationInteractionLocked()">
                 <option value="">Modell auswählen</option>
                 @for (choice of correctorModels(selectedCorrectorProvider); track choice.id) {
                   <option [value]="choice.id" [disabled]="!choice.available" [title]="choice.reason">
@@ -150,7 +150,7 @@
         }
       }
       <label>Konfiguration speichern für
-        <select [(ngModel)]="configurationTarget" [disabled]="liveActive || batchRecording">
+        <select [(ngModel)]="configurationTarget" [disabled]="configurationInteractionLocked()">
           <option value="profile">Profil</option>
           <option value="session" [disabled]="!sessionId.trim()">Session</option>
         </select>
@@ -159,7 +159,7 @@
 
     <div class="row gap-sm mt-md voice-wrap">
       <button type="button" (click)="saveConfiguration()"
-        [disabled]="savingConfiguration || loadingConfiguration || liveActive || batchRecording || !validBackendSelection() || !validCorrectionSelection()">
+        [disabled]="configurationInteractionLocked() || !validBackendSelection() || !validCorrectionSelection()">
         {{ savingConfiguration ? 'Speichert …' : 'Auswahl im Hub speichern' }}
       </button>
       <span class="muted font-sm">
@@ -174,24 +174,46 @@
   }
 
   <section class="card mt-md voice-workspace">
+    <div class="voice-capture-source">
+      <label>Audioquelle
+        <select [(ngModel)]="selectedCaptureSource" [disabled]="configurationInteractionLocked()">
+          <option value="microphone" [disabled]="!captureSourceOptionSupported('microphone')">Mikrofon</option>
+          <option value="system_audio" [disabled]="!captureSourceOptionSupported('system_audio')">Lautsprecher / Systemaudio</option>
+        </select>
+      </label>
+      @if (selectedCaptureSource === 'system_audio') {
+        <p class="muted font-sm">
+          Im Browser Tab, Fenster oder Bildschirm wählen und <strong>Audio teilen</strong> aktivieren.
+          Auf Android 10+ erscheint der Systemdialog für Wiedergabeaufnahme. Das dabei technisch
+          erforderliche Bildschirmbild wird niemals aufgezeichnet oder an den Hub übertragen.
+          Geschützte Inhalte, Anrufe und Apps, die Aufnahme verbieten, können stumm bleiben.
+        </p>
+      } @else {
+        <p class="muted font-sm">Die Aufnahme verwendet ausschließlich den Mikrofoneingang.</p>
+      }
+      @if (captureSourceReason(); as reason) {
+        <p class="error-text font-sm"><code>voice.capture.source_unavailable</code> · {{ reason }}</p>
+      }
+    </div>
+
     <div class="voice-console-tabs" role="tablist" aria-label="Voice-Modus">
       <button type="button" role="tab" [attr.aria-selected]="activeTab === 'live'" [class.active-toggle]="activeTab === 'live'"
-        (click)="setTab('live')" [disabled]="batchRecording">Live</button>
+        (click)="setTab('live')" [disabled]="configurationInteractionLocked()">Live</button>
       <button type="button" role="tab" [attr.aria-selected]="activeTab === 'batch'" [class.active-toggle]="activeTab === 'batch'"
-        (click)="setTab('batch')" [disabled]="liveActive">Aufnehmen → transkribieren</button>
+        (click)="setTab('batch')" [disabled]="configurationInteractionLocked()">Aufnehmen → transkribieren</button>
     </div>
 
     @if (activeTab === 'live') {
       <section role="tabpanel" class="voice-mode-panel">
         <h2>Live-Transkription</h2>
         <p class="muted">
-          Mikrofon-PCM wird in geordneten 16-kHz-Mono-Chunks zum Hub übertragen. Eine generative Korrektur läuft erst beim Finalisieren.
+          Die gewählte Audioquelle wird in geordneten 16-kHz-Mono-Chunks zum Hub übertragen. Eine generative Korrektur läuft erst beim Finalisieren.
         </p>
-        @if (!liveSupported) {
-          <p class="error-text">Diese Plattform stellt keinen unterstützten Mikrofon-Capture-Adapter bereit.</p>
+        @if (!captureSourceSupported('live')) {
+          <p class="error-text">Diese Plattform stellt für die gewählte Audioquelle keinen unterstützten Capture-Adapter bereit.</p>
         }
         <div class="row gap-sm mt-md voice-wrap">
-          <button type="button" (click)="startLive()" [disabled]="liveBusy || liveActive || !liveSupported || !profileId.trim() || !validBackendSelection() || !validCorrectionSelection()">
+          <button type="button" (click)="startLive()" [disabled]="configurationInteractionLocked() || !captureSourceSupported('live') || !profileId.trim() || !validBackendSelection() || !validCorrectionSelection()">
             Live starten
           </button>
           <button class="button-outline" type="button" (click)="stopLive()" [disabled]="liveBusy || !liveActive">
@@ -202,7 +224,7 @@
           </button>
         </div>
         <dl class="voice-live-state mt-md">
-          <div><dt>Status</dt><dd>{{ liveActive ? 'nimmt auf' : liveBusy ? 'verarbeitet …' : 'bereit' }}</dd></div>
+          <div><dt>Status</dt><dd>{{ liveBusy ? 'verarbeitet …' : liveActive ? 'nimmt auf' : 'bereit' }}</dd></div>
           <div><dt>Hub-Session</dt><dd><code>{{ liveSessionId || '–' }}</code></dd></div>
           <div><dt>Bestätigte Chunks</dt><dd>{{ liveChunkCount }}</dd></div>
         </dl>
@@ -215,11 +237,11 @@
       <section role="tabpanel" class="voice-mode-panel">
         <h2>Aufnehmen und danach transkribieren</h2>
         <p class="muted">Die Aufnahme bleibt bis zum Klick auf „Über Hub transkribieren“ auf dem Gerät.</p>
-        @if (!batchRecordingSupported) {
+        @if (!captureSourceSupported('batch')) {
           <p class="error-text">Auf dieser Plattform ist keine direkte Aufnahme verfügbar. Eine vorhandene Audiodatei kann trotzdem gewählt werden.</p>
         }
         <div class="row gap-sm mt-md voice-wrap">
-          <button type="button" (click)="startBatchRecording()" [disabled]="batchBusy || batchRecording || !batchRecordingSupported">
+          <button type="button" (click)="startBatchRecording()" [disabled]="configurationInteractionLocked() || !captureSourceSupported('batch')">
             Aufnahme starten
           </button>
           <button class="button-outline" type="button" (click)="stopBatchRecording()" [disabled]="batchBusy || !batchRecording">

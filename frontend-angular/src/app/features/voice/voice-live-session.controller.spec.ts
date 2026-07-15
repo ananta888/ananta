@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { Subject, of } from 'rxjs';
 
 import { VOICE_AUDIO_CAPTURE, VoiceAudioCapturePort } from './voice-audio-capture';
 import { VoiceApiService } from './voice-api.service';
@@ -8,6 +8,7 @@ import { VoiceLiveSessionController } from './voice-live-session.controller';
 describe('VoiceLiveSessionController', () => {
   let chunkHandler: ((chunk: ArrayBuffer) => void) | null;
   let captureErrorHandler: ((error: unknown) => void) | null;
+  let captureStoppedHandler: ((reason?: string) => void) | null;
   let capture: VoiceAudioCapturePort;
   const api = {
     createStream: vi.fn(),
@@ -20,16 +21,23 @@ describe('VoiceLiveSessionController', () => {
     vi.clearAllMocks();
     chunkHandler = null;
     captureErrorHandler = null;
+    captureStoppedHandler = null;
     let active = false;
+    let prepared = false;
     capture = {
       supported: true,
       get active() { return active; },
-      start: vi.fn(async (handler, onError) => {
+      get prepared() { return prepared; },
+      supportsSource: vi.fn(() => true),
+      prepare: vi.fn(async () => { prepared = true; }),
+      start: vi.fn(async (handler, onError, onStopped) => {
+        if (!prepared) throw new Error('not prepared');
         chunkHandler = handler;
         captureErrorHandler = onError || null;
+        captureStoppedHandler = onStopped || null;
         active = true;
       }),
-      stop: vi.fn(async () => { active = false; }),
+      stop: vi.fn(async () => { active = false; prepared = false; }),
     };
     api.createStream.mockReturnValue(of({
       stream: { session_id: 'voice-stream-a', state: 'created', next_chunk_sequence: 0 },
@@ -76,6 +84,7 @@ describe('VoiceLiveSessionController', () => {
       configuration_session_id: 'session-a',
       media_type: 'audio/pcm;rate=16000;channels=1',
     }), 'create-key');
+    expect(capture.prepare).toHaveBeenCalledWith('microphone');
     expect(api.pushStreamChunk.mock.calls.map((call) => call[2])).toEqual([0, 1]);
     expect(api.pushStreamChunk.mock.calls.map((call) => (call[3] as ArrayBuffer).byteLength)).toEqual([4, 6]);
     expect(events).toEqual(['partial-0', 'partial-1']);
@@ -93,6 +102,103 @@ describe('VoiceLiveSessionController', () => {
       .rejects.toThrow('permission denied');
 
     expect(api.cancelStream).toHaveBeenCalledWith('http://hub.test', 'voice-stream-a');
+  });
+
+  it('prepares a selected system source before creating the Hub stream', async () => {
+    const controller = TestBed.inject(VoiceLiveSessionController);
+
+    await controller.prepareCapture('system_audio');
+    await controller.start('http://hub.test', { profile_id: 'profile-a' }, 'create-key');
+
+    expect(capture.prepare).toHaveBeenCalledWith('system_audio');
+    expect(vi.mocked(capture.prepare).mock.invocationCallOrder[0]).toBeLessThan(
+      api.createStream.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('releases a prepared source when Hub stream creation fails', async () => {
+    api.createStream.mockImplementationOnce(() => {
+      throw new Error('hub unavailable');
+    });
+    const controller = TestBed.inject(VoiceLiveSessionController);
+    await controller.prepareCapture('system_audio');
+
+    await expect(controller.start('http://hub.test', { profile_id: 'profile-a' }, 'create-key'))
+      .rejects.toThrow();
+
+    expect(capture.stop).toHaveBeenCalled();
+    expect(capture.prepared).toBe(false);
+  });
+
+  it('cancels a Hub stream that is created after the UI already cancelled startup', async () => {
+    const createResult = new Subject<any>();
+    api.createStream.mockReturnValueOnce(createResult);
+    const controller = TestBed.inject(VoiceLiveSessionController);
+    const starting = controller.start(
+      'http://hub.test',
+      { profile_id: 'profile-a' },
+      'create-key',
+      {},
+      'system_audio',
+    );
+    await vi.waitFor(() => expect(api.createStream).toHaveBeenCalled());
+
+    await controller.cancel();
+    createResult.next({
+      stream: { session_id: 'late-voice-stream', state: 'created', next_chunk_sequence: 0 },
+    });
+    createResult.complete();
+
+    await expect(starting).rejects.toThrow('voice.capture.cancelled');
+    expect(capture.prepare).toHaveBeenCalledWith('system_audio');
+    expect(capture.prepare).not.toHaveBeenCalledWith('microphone');
+    expect(capture.start).not.toHaveBeenCalled();
+    expect(api.cancelStream).toHaveBeenCalledWith('http://hub.test', 'late-voice-stream');
+  });
+
+  it('does not report startup success when the capture source ends inside start()', async () => {
+    vi.mocked(capture.start).mockImplementationOnce(async (_onChunk, _onError, onStopped) => {
+      onStopped?.('source_ended');
+    });
+    const controller = TestBed.inject(VoiceLiveSessionController);
+    await controller.prepareCapture('system_audio');
+
+    await expect(controller.start(
+      'http://hub.test',
+      { profile_id: 'profile-a' },
+      'create-key',
+      {},
+      'system_audio',
+    )).rejects.toThrow('voice.capture.cancelled');
+
+    await vi.waitFor(() => expect(api.cancelStream)
+      .toHaveBeenCalledWith('http://hub.test', 'voice-stream-a'));
+    expect(controller.sessionId).toBe('');
+  });
+
+  it('finalizes uploaded audio when the native safety limit ends an active capture', async () => {
+    const finalized: Array<{ reason?: string; text: string }> = [];
+    const finalizing: Array<string | undefined> = [];
+    const controller = TestBed.inject(VoiceLiveSessionController);
+    await controller.start('http://hub.test', { profile_id: 'profile-a' }, 'create-key', {
+      finalizing: (reason) => finalizing.push(reason),
+      finalized: (response, reason) => finalized.push({
+        reason,
+        text: response.result.text,
+      }),
+    });
+    chunkHandler!(new ArrayBuffer(4));
+
+    captureStoppedHandler?.('safety_limit');
+    const overlappingCancel = controller.cancel();
+
+    expect(finalizing).toEqual(['safety_limit']);
+    await overlappingCancel;
+    await vi.waitFor(() => expect(finalized).toEqual([{ reason: 'safety_limit', text: 'final' }]));
+    expect(api.finalizeStream).toHaveBeenCalledWith('http://hub.test', 'voice-stream-a');
+    expect(api.cancelStream).not.toHaveBeenCalled();
+    expect(capture.stop).toHaveBeenCalledTimes(1);
+    expect(controller.sessionId).toBe('');
   });
 
   it('owns capture-error cleanup and permits a fresh stream after Hub cancellation', async () => {

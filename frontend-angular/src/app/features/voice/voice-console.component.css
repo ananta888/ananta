@@ -61,6 +61,26 @@
   padding: .75rem;
 }
 
+.voice-capture-source {
+  align-items: start;
+  background: var(--surface-subtle, rgba(127, 127, 127, .08));
+  border-radius: .35rem;
+  display: grid;
+  gap: .5rem;
+  margin-bottom: 1rem;
+  padding: .75rem;
+}
+
+.voice-capture-source > label {
+  display: grid;
+  gap: .4rem;
+  max-width: 24rem;
+}
+
+.voice-capture-source p {
+  margin: 0;
+}
+
 .voice-console-tabs {
   border-bottom: 1px solid var(--border, #d7dce5);
   display: flex;

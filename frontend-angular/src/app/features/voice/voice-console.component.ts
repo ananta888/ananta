@@ -11,7 +11,11 @@ import { RouterLink } from '@angular/router';
 import { firstValueFrom, forkJoin } from 'rxjs';
 
 import { AgentDirectoryService } from '../../services/agent-directory.service';
-import { VOICE_BATCH_RECORDING, VoiceBatchRecordingPort } from './voice-audio-capture';
+import {
+  VOICE_BATCH_RECORDING,
+  VoiceBatchRecordingPort,
+  VoiceCaptureSource,
+} from './voice-audio-capture';
 import { VoiceApiService } from './voice-api.service';
 import { VoiceCandidateReviewComponent } from './voice-candidate-review.component';
 import { VoiceLiveSessionController, voicePartialText } from './voice-live-session.controller';
@@ -20,6 +24,7 @@ import {
   VoiceConfiguration,
   VoiceConfigurationSchema,
   VoiceStreamEvent,
+  VoiceStreamFinalizeResponse,
   VoiceTranscriptionResult,
 } from './voice.models';
 import {
@@ -60,9 +65,10 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
   private readonly liveSession = inject(VoiceLiveSessionController);
   private readonly batchRecorder: VoiceBatchRecordingPort = inject(VOICE_BATCH_RECORDING);
   private readonly cdr = inject(ChangeDetectorRef);
-
-  readonly batchRecordingSupported = this.batchRecorder.supported;
-  readonly liveSupported = this.liveSession.supported;
+  private destroyed = false;
+  private liveOperationGeneration = 0;
+  private batchOperationGeneration = 0;
+  private batchOperation: { generation: number; ending: boolean } | null = null;
 
   hubUrl = '';
   activeTab: VoiceConsoleTab = 'live';
@@ -84,6 +90,7 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
   selectedCorrectorModel = '';
   manualCorrectorModel = false;
   manualCorrectorModelId = '';
+  selectedCaptureSource: VoiceCaptureSource = 'microphone';
 
   liveActive = false;
   liveBusy = false;
@@ -103,6 +110,7 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
   successMessage = '';
 
   ngOnInit(): void {
+    void this.refreshCaptureCapabilities();
     const hub = this.directory.list().find((entry) => entry.role === 'hub')
       || this.directory.list().find((entry) => entry.name === 'hub');
     this.hubUrl = String(hub?.url || '').replace(/\/$/, '');
@@ -115,11 +123,15 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    if (this.liveSession.sessionId) void this.liveSession.cancel();
-    if (this.batchRecording) void this.batchRecorder.cancel();
+    this.destroyed = true;
+    this.liveOperationGeneration += 1;
+    this.batchOperationGeneration += 1;
+    void this.liveSession.cancel().catch(() => undefined);
+    void Promise.resolve(this.batchRecorder.cancel()).catch(() => undefined);
   }
 
   setTab(tab: VoiceConsoleTab): void {
+    if (this.configurationInteractionLocked()) return;
     this.activeTab = tab;
     this.clearMessages();
   }
@@ -149,6 +161,7 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
   }
 
   async saveConfiguration(): Promise<void> {
+    if (this.configurationInteractionLocked()) return;
     if (!this.validConfigurationContext() || !this.validBackendSelection() || !this.validCorrectionSelection()) return;
     this.savingConfiguration = true;
     this.clearMessages();
@@ -163,20 +176,30 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
   }
 
   async startLive(): Promise<void> {
-    if (!this.validConfigurationContext() || !this.validBackendSelection() || !this.validCorrectionSelection() || !this.liveSupported) return;
+    if (this.configurationInteractionLocked()) return;
+    if (!this.validConfigurationContext() || !this.validBackendSelection()
+      || !this.validCorrectionSelection() || !this.captureSourceSupported('live')) return;
+    const generation = ++this.liveOperationGeneration;
+    const captureSource = this.selectedCaptureSource;
     this.liveBusy = true;
     this.livePartial = '';
     this.liveResult = null;
     this.liveChunkCount = 0;
     this.clearMessages();
     try {
+      // getDisplayMedia/MediaProjection consent must be requested directly
+      // from this user gesture, before configuration or Hub network awaits.
+      await this.liveSession.prepareCapture(captureSource);
+      this.ensureLiveOperation(generation);
       await this.persistSelectedConfiguration('streaming', true);
+      this.ensureLiveOperation(generation);
       const stream = await this.liveSession.start(this.hubUrl, {
         filename: 'angular-live.pcm',
         language: this.language.trim() || undefined,
         profile_id: this.profileId.trim(),
         configuration_session_id: this.sessionId.trim() || undefined,
-        deadline_seconds: 120,
+        // Total stream lifetime includes capture plus Hub finalization/correction.
+        deadline_seconds: 300,
         max_audio_seconds: 120,
       }, voiceMutationKey('console-stream:create'), {
         event: (event, currentStream) => this.onStreamEvent(event, currentStream.session_id),
@@ -184,20 +207,27 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
           this.liveChunkCount += 1;
           this.cdr.markForCheck();
         },
+        finalizing: (reason) => this.onLiveCaptureFinalizing(reason),
+        finalized: (response, reason) => this.onLiveCaptureFinalized(response, reason),
         error: (error) => {
+          if (this.destroyed) return;
           this.liveActive = false;
           this.liveBusy = false;
           this.fail(error);
         },
-      });
+      }, captureSource);
+      this.ensureLiveOperation(generation);
       this.liveSessionId = stream.session_id;
       this.liveActive = true;
       this.liveBusy = false;
       this.successMessage = 'Live-Erkennung läuft über den Hub.';
       this.cdr.markForCheck();
     } catch (error) {
+      await this.liveSession.cancel().catch(() => undefined);
       this.liveActive = false;
-      this.fail(error, () => { this.liveBusy = false; });
+      if (this.isLiveOperationCurrent(generation)) {
+        this.fail(error, () => { this.liveBusy = false; });
+      }
     }
   }
 
@@ -207,12 +237,10 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
     this.clearMessages();
     try {
       const response = await this.liveSession.finalize();
-      this.liveResult = { ...response.result, result_ref: response.result.result_ref || response.result_ref };
-      this.livePartial = response.result.text || this.livePartial;
-      this.liveActive = false;
-      this.liveBusy = false;
-      this.successMessage = 'Live-Aufnahme finalisiert. Vosk-Original und optionale LLM-Korrektur sind unten sichtbar.';
-      this.cdr.markForCheck();
+      this.applyLiveFinalization(
+        response,
+        'Live-Aufnahme finalisiert. Vosk-Original und optionale LLM-Korrektur sind unten sichtbar.',
+      );
     } catch (error) {
       this.liveActive = false;
       this.fail(error, () => { this.liveBusy = false; });
@@ -220,6 +248,7 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
   }
 
   async cancelLive(): Promise<void> {
+    this.liveOperationGeneration += 1;
     this.liveBusy = true;
     try {
       await this.liveSession.cancel();
@@ -234,40 +263,44 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
   }
 
   async startBatchRecording(): Promise<void> {
-    if (!this.batchRecordingSupported) return;
+    if (this.configurationInteractionLocked()) return;
+    if (!this.captureSourceSupported('batch')) return;
+    const generation = ++this.batchOperationGeneration;
+    const operation = { generation, ending: false };
+    const captureSource = this.selectedCaptureSource;
+    this.batchOperation = operation;
     this.batchBusy = true;
     this.batchResult = null;
     this.batchAudio = null;
     this.batchFileName = '';
     this.clearMessages();
     try {
-      await this.batchRecorder.start();
+      await this.batchRecorder.start(captureSource, {
+        ended: (reason) => this.onBatchCaptureEnded(generation, reason),
+        error: (error) => this.onBatchCaptureError(generation, error),
+      });
+      this.ensureBatchOperation(generation);
+      if (operation.ending) return;
       this.batchRecording = true;
       this.batchBusy = false;
-      this.successMessage = 'Aufnahme läuft lokal. Erst nach dem Stoppen wird Audio an den Hub gesendet.';
+      this.successMessage = captureSource === 'system_audio'
+        ? 'Systemaudio-Aufnahme läuft lokal. Erst mit „Über Hub transkribieren“ wird Audio an den Hub gesendet.'
+        : 'Mikrofon-Aufnahme läuft lokal. Erst mit „Über Hub transkribieren“ wird Audio an den Hub gesendet.';
       this.cdr.markForCheck();
     } catch (error) {
-      this.fail(error, () => { this.batchBusy = false; });
+      if (this.isBatchOperationCurrent(generation) && !operation.ending) {
+        this.batchOperation = null;
+        this.fail(error, () => { this.batchBusy = false; });
+      }
     }
   }
 
   async stopBatchRecording(): Promise<void> {
     if (!this.batchRecording) return;
-    this.batchBusy = true;
-    try {
-      const audio = await this.batchRecorder.stop();
-      this.batchAudio = audio;
-      this.batchFileName = audio.type === 'audio/wav' ? 'voice-recording.wav'
-        : audio.type.includes('mp4') ? 'voice-recording.m4a'
-        : 'voice-recording.webm';
-      this.batchRecording = false;
-      this.batchBusy = false;
-      this.successMessage = 'Aufnahme beendet. Sie kann jetzt über den Hub transkribiert werden.';
-      this.cdr.markForCheck();
-    } catch (error) {
-      this.batchRecording = false;
-      this.fail(error, () => { this.batchBusy = false; });
-    }
+    const operation = this.batchOperation;
+    if (!operation || operation.ending) return;
+    operation.ending = true;
+    await this.finishBatchRecording(operation.generation, false);
   }
 
   selectAudioFile(event: Event): void {
@@ -305,6 +338,34 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
     this.batchAudio = null;
     this.batchFileName = '';
     this.batchResult = null;
+  }
+
+  captureSourceSupported(mode: VoiceConsoleTab = this.activeTab): boolean {
+    return this.captureSourceOptionSupported(this.selectedCaptureSource, mode);
+  }
+
+  captureSourceOptionSupported(
+    source: VoiceCaptureSource,
+    mode: VoiceConsoleTab = this.activeTab,
+  ): boolean {
+    return mode === 'live'
+      ? this.liveSession.supportsSource(source)
+      : this.batchRecorder.supportsSource(source);
+  }
+
+  captureSourceReason(): string {
+    if (this.captureSourceSupported()) return '';
+    return this.selectedCaptureSource === 'system_audio'
+      ? 'Systemaudio wird auf dieser Plattform nicht unterstützt.'
+      : 'Mikrofonaufnahme wird auf dieser Plattform nicht unterstützt.';
+  }
+
+  captureInteractionLocked(): boolean {
+    return this.liveActive || this.liveBusy || this.batchRecording || this.batchBusy;
+  }
+
+  configurationInteractionLocked(): boolean {
+    return this.captureInteractionLocked() || this.loadingConfiguration || this.savingConfiguration;
   }
 
   recognitionStrategies(): VoiceChoice[] {
@@ -555,7 +616,114 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
     return uniqueChoices(values);
   }
 
+  private onBatchCaptureEnded(generation: number, reason?: string): void {
+    const operation = this.batchOperation;
+    if (!this.isBatchOperationCurrent(generation) || !operation || operation.ending) return;
+    operation.ending = true;
+    void this.finishBatchRecording(generation, true, reason);
+  }
+
+  private onLiveCaptureFinalized(response: VoiceStreamFinalizeResponse, reason?: string): void {
+    if (this.destroyed) return;
+    const message = reason === 'safety_limit'
+      ? 'Die maximale Aufnahmedauer wurde erreicht. Das Live-Transkript wurde automatisch finalisiert.'
+      : 'Die Audioquelle wurde beendet. Das bisherige Live-Transkript wurde automatisch finalisiert.';
+    this.applyLiveFinalization(response, message);
+  }
+
+  private onLiveCaptureFinalizing(reason?: string): void {
+    if (this.destroyed) return;
+    this.liveBusy = true;
+    this.successMessage = reason === 'safety_limit'
+      ? 'Die maximale Aufnahmedauer wurde erreicht. Das Live-Transkript wird finalisiert …'
+      : 'Die Audioquelle wurde beendet. Das Live-Transkript wird finalisiert …';
+    this.cdr.markForCheck();
+  }
+
+  private applyLiveFinalization(response: VoiceStreamFinalizeResponse, message: string): void {
+    this.liveResult = { ...response.result, result_ref: response.result.result_ref || response.result_ref };
+    this.livePartial = response.result.text || this.livePartial;
+    this.liveActive = false;
+    this.liveBusy = false;
+    this.successMessage = message;
+    this.cdr.markForCheck();
+  }
+
+  private onBatchCaptureError(generation: number, _error: unknown): void {
+    const operation = this.batchOperation;
+    if (!this.isBatchOperationCurrent(generation) || !operation || operation.ending) return;
+    operation.ending = true;
+    void this.finishBatchRecording(generation, true, 'capture_error');
+  }
+
+  private async finishBatchRecording(
+    generation: number,
+    endedAutomatically: boolean,
+    stopReason?: string,
+  ): Promise<void> {
+    if (!this.isBatchOperationCurrent(generation)) return;
+    this.batchBusy = true;
+    this.batchRecording = false;
+    this.cdr.markForCheck();
+    try {
+      const audio = await this.batchRecorder.stop();
+      if (!this.isBatchOperationCurrent(generation)) return;
+      this.batchAudio = audio;
+      this.batchFileName = audio.type === 'audio/wav' ? 'voice-recording.wav'
+        : audio.type.includes('mp4') ? 'voice-recording.m4a'
+        : 'voice-recording.webm';
+      this.batchBusy = false;
+      this.batchOperation = null;
+      this.successMessage = endedAutomatically
+        ? this.batchAutomaticStopMessage(stopReason)
+        : 'Aufnahme beendet. Sie kann jetzt über den Hub transkribiert werden.';
+      this.cdr.markForCheck();
+    } catch (error) {
+      if (!this.isBatchOperationCurrent(generation)) return;
+      this.batchOperation = null;
+      this.fail(error, () => { this.batchBusy = false; });
+    }
+  }
+
+  private batchAutomaticStopMessage(reason?: string): string {
+    if (reason === 'safety_limit') {
+      return 'Die maximale Aufnahmedauer wurde erreicht. Die lokale Aufnahme kann jetzt über den Hub transkribiert werden.';
+    }
+    if (reason === 'notification_stop') {
+      return 'Die Aufnahme wurde über Android beendet. Sie kann jetzt über den Hub transkribiert werden.';
+    }
+    if (reason === 'source_ended' || reason === 'projection_revoked') {
+      return 'Die Audiofreigabe wurde beendet. Die lokale Aufnahme kann jetzt über den Hub transkribiert werden.';
+    }
+    return 'Die Aufnahme wurde automatisch beendet. Sie kann jetzt über den Hub transkribiert werden.';
+  }
+
+  private ensureLiveOperation(generation: number): void {
+    if (!this.isLiveOperationCurrent(generation)) throw new Error('voice.capture.cancelled');
+  }
+
+  private isLiveOperationCurrent(generation: number): boolean {
+    return !this.destroyed && generation === this.liveOperationGeneration;
+  }
+
+  private ensureBatchOperation(generation: number): void {
+    if (!this.isBatchOperationCurrent(generation)) throw new Error('voice.capture.cancelled');
+  }
+
+  private isBatchOperationCurrent(generation: number): boolean {
+    return !this.destroyed && generation === this.batchOperationGeneration;
+  }
+
+  private async refreshCaptureCapabilities(): Promise<void> {
+    await Promise.allSettled([
+      this.liveSession.refreshCaptureCapabilities(),
+      this.batchRecorder.refreshCapabilities?.() || Promise.resolve(),
+    ]);
+    if (!this.destroyed) this.cdr.markForCheck();
+  }
+
   private onStreamEvent(event: VoiceStreamEvent | null | undefined, sessionId: string): void {
+    if (this.destroyed) return;
     const partial = voicePartialText(event);
     if (partial) this.livePartial = partial;
     this.liveSessionId = sessionId;
@@ -588,6 +756,7 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
   }
 
   private fail(error: unknown, cleanup?: () => void): void {
+    if (this.destroyed) return;
     const detail = voiceError(error);
     cleanup?.();
     this.errorCode = detail.code;

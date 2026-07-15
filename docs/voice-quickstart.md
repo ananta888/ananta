@@ -15,11 +15,18 @@ einen laufenden Worker synchronisiert.
 
 Die beiden Bedienmodi sind:
 
-- **Live:** 16-kHz-Mono-PCM wird in geordneten Chunks an den Hub gesendet. Vosk
-  liefert während der Aufnahme Zwischentranskripte. Eine gewählte Gemma-, Phi-
-  oder andere freigegebene LLM-Variante korrigiert erst das finale Transkript.
+- **Live:** Die gewählte Audioquelle wird als 16-kHz-Mono-PCM in geordneten
+  Chunks an den Hub gesendet. Vosk liefert während der Aufnahme
+  Zwischentranskripte. Eine gewählte Gemma-, Phi- oder andere freigegebene
+  LLM-Variante korrigiert erst das finale Transkript.
 - **Aufnehmen → transkribieren:** Die Aufnahme bleibt bis zum Absenden auf dem
   Gerät und wird anschließend als eine Batch-Anfrage über den Hub verarbeitet.
+
+Für jede Aufnahme kann in `/voice` gerätelokal zwischen **Mikrofon** und
+**Lautsprecher / Systemaudio** gewählt werden. Diese Quellenwahl ist keine
+Erkennungs- oder Routing-Policy: Sie wird weder im Hub-Profil noch in einem
+Session-Delta gespeichert. Beide Quellen verwenden nach der Aufnahme dieselben
+Hub-APIs und dieselben konfigurierten ASR-/Korrekturmodelle.
 
 Eine LLM-Korrektur läuft niemals für jeden Live-Chunk. Sie ist ein begrenzter,
 nachgelagerter Text-zu-Text-Schritt beim Finalisieren oder nach der
@@ -300,23 +307,55 @@ Logs zu prüfen.
 1. Frontend öffnen, am Hub anmelden und zu `/voice` wechseln, zum Beispiel
    `http://localhost:4200/voice`.
 2. Sprache, Profil-ID und optional eine Session-ID wählen.
-3. Für den neuen klassischen Pfad `single` und `vosk` wählen.
-4. **Nachträglich mit LLM verbessern** aktivieren.
-5. Als Korrektur-Provider entweder **Allgemeine LLM-Vorgabe**, **Embedded**,
+3. Unter **Audioquelle** entweder **Mikrofon** oder
+   **Lautsprecher / Systemaudio** wählen. Die Auswahl bleibt lokal im
+   geöffneten Client und wird nicht mit dem Voice-Profil gespeichert.
+4. Für den neuen klassischen Pfad `single` und `vosk` wählen.
+5. **Nachträglich mit LLM verbessern** aktivieren.
+6. Als Korrektur-Provider entweder **Allgemeine LLM-Vorgabe**, **Embedded**,
    **Ollama** oder **LM Studio** wählen. Bei Ollama/LM Studio erscheinen die
    vom laufenden Provider gemeldeten Modelle. Falls Discovery nicht möglich
    ist, kann bei einem vom Hub freigegebenen Provider **Modell-ID manuell
    eingeben** aktiviert werden. **Allgemeine LLM-Vorgabe** erbt nur Provider
    und Modell; für Endpoint- oder Zugangsdatenänderungen die Deployment-
    Variablen aus Abschnitt 2 setzen und den Corrector-Worker neu erstellen.
-6. Die Auswahl für das Profil oder die konkrete Session speichern.
-7. **Live** für Vosk-Zwischentranskripte oder
+7. Die Erkennungs- und Korrekturauswahl für das Profil oder die konkrete
+   Session speichern.
+8. **Live** für Vosk-Zwischentranskripte oder
    **Aufnehmen → transkribieren** für eine vollständige Aufnahme verwenden.
 
 Für reine klassische Spracherkennung bleibt die LLM-Option ausgeschaltet; Vosk
 und der Hub-eigene deterministische Pfad funktionieren ohne Corrector-Worker.
 Im Browser benötigt Mikrofon-Capture einen sicheren Kontext (HTTPS oder
 `localhost`) und die erteilte Mikrofonberechtigung.
+
+### Lautsprecher/Systemaudio im Browser
+
+Bei gewähltem **Lautsprecher / Systemaudio** öffnet der Browser nach
+**Live starten** beziehungsweise **Aufnahme starten** seinen Freigabedialog:
+
+1. Den Tab, das Fenster oder den Bildschirm mit der gewünschten Wiedergabe
+   auswählen.
+2. Im Dialog **Audio teilen** aktivieren. Ohne freigegebene Audiospur bricht
+   Ananta die Aufnahme mit einem Hinweis ab.
+3. Die Wiedergabe starten und die Aufnahme anschließend in Ananta stoppen oder
+   finalisieren. Wird die Browserfreigabe vorher beendet, endet auch die
+   Audioaufnahme. Eine laufende Live-Session wird mit dem bis dahin empfangenen
+   Audio automatisch finalisiert; eine Batch-Aufnahme bleibt lokal zum
+   anschließenden Absenden bereit.
+
+Systemaudio-Capture hängt vom Browser, Betriebssystem und der gewählten
+Freigabefläche ab und benötigt ebenfalls einen sicheren Kontext. Der Browser
+fordert die Freigabe für jede Aufnahme erneut an; sie wird nicht dauerhaft
+erteilt. Die zugrunde liegende Browser-API verlangt technisch eine
+Bildschirmspur. Ananta trennt davon ausschließlich die Audiospur ab: Bild und
+Video werden weder aufgezeichnet noch verarbeitet oder an den Hub übertragen.
+
+Im **Live**-Modus werden aus der freigegebenen Audioquelle während der Aufnahme
+fortlaufend 16-kHz-Mono-Chunks über die bestehende Hub-Stream-API übertragen.
+Im Modus **Aufnehmen → transkribieren** bleibt das aufgenommene Audio zunächst
+lokal und wird erst mit **Über Hub transkribieren** als Datei an den bestehenden
+Batch-Endpunkt gesendet.
 
 Die Seite speichert bei aktivierter Korrektur den wirksamen Hub-Delta mit:
 
@@ -351,7 +390,12 @@ und der Hub kennzeichnet den Fallback.
 ## 6. Android verwenden
 
 Die Capacitor-App verwendet dieselbe Route `/voice` und dieselben Hub-Profile.
-Sie benötigt die Android-Mikrofonberechtigung:
+Für beide nativen Capture-Pfade benötigt sie die Android-Audioberechtigung.
+Für **Lautsprecher / Systemaudio** verwendet sie ab Android 10 (API-Level 29)
+zusätzlich die Android-Wiedergabeaufnahme mit `MediaProjection`. Dafür erscheint
+bei jeder Aufnahme ein Android-Systemdialog; erst nach ausdrücklicher Freigabe
+startet der sichtbare MediaProjection-Dienst. Auf älteren Android-Versionen
+weist die App beim Start darauf hin, dass Systemaudio nicht unterstützt wird.
 
 Bei der leichten APK wird der Hub nicht auf dem Telefon ausgeführt. Auf der
 Loginseite daher zuerst eine vom Gerät erreichbare **Hub-URL** speichern. Im
@@ -360,14 +404,27 @@ physisches Gerät benötigt die LAN-Adresse des Hub-Rechners und eine passende
 Firewall-Freigabe. Das Feld akzeptiert nur eine HTTP(S)-Origin ohne
 Zugangsdaten, Pfad, Query oder Fragment.
 
-- Live-Aufnahme: Der native `VoiceCapture`-Adapter erzeugt PCM16, 16 kHz, mono
-  und sendet 500-ms-Chunks in Reihenfolge an die Hub-Stream-API.
-- Batch-Aufnahme: Derselbe Capture-Adapter puffert die PCM-Chunks lokal, erzeugt
+- Mikrofon: Der native `VoiceCapture`-Adapter liest ausschließlich den
+  Mikrofoneingang.
+- Lautsprecher/Systemaudio: Der native `PlaybackAudioCapture`-Adapter liest die
+  vom Android-System freigegebene Wiedergabe anderer Apps. Es werden keine
+  Bildschirmbilder aufgezeichnet oder an den Hub übertragen.
+- Live-Aufnahme: Der jeweilige Adapter erzeugt PCM16, 16 kHz, mono und sendet
+  500-ms-Chunks in Reihenfolge an die Hub-Stream-API.
+- Batch-Aufnahme: Der jeweilige Adapter puffert die PCM-Chunks lokal, erzeugt
   beim Stoppen WAV und sendet die Datei erst nach **Über Hub transkribieren**.
 
-Der aktuelle native Capture begrenzt eine Aufnahme auf 120 Sekunden. Längere
-Aufnahmen müssen als bereits vorhandene, vom Hub akzeptierte Audiodatei über den
-Batch-Pfad eingereicht oder in mehrere Sessions aufgeteilt werden.
+Android erlaubt Wiedergabeaufnahme nur innerhalb desselben Benutzerprofils und
+nur für Apps und Audioarten, die Capture zulassen. Eine abspielende App kann
+die Aufnahme im Manifest oder zur Laufzeit verbieten. Geschützte Medien,
+Anrufe/Telefonie und andere nicht freigegebene Audioarten können deshalb stumm
+bleiben und werden von Ananta nicht umgangen.
+
+Der aktuelle native Capture begrenzt beide Audioquellen auf 120 Sekunden.
+Beim Erreichen dieser Grenze wird eine Live-Session automatisch finalisiert;
+eine Batch-Aufnahme bleibt lokal zum anschließenden Absenden bereit. Längere
+Aufnahmen müssen als bereits vorhandene, vom Hub akzeptierte Audiodatei über
+den Batch-Pfad eingereicht oder in mehrere Sessions aufgeteilt werden.
 
 Für einen Hub auf einem anderen Rechner unter `/agents` den Eintrag `hub`
 bearbeiten, seine vom Android-Gerät erreichbare URL eintragen und speichern,
@@ -389,6 +446,13 @@ Client-URL eingetragen. Browser und Android adressieren ausschließlich den Hub.
   erst nach dem expliziten Absenden. `VOICE_STORE_AUDIO=false` bleibt der
   fail-closed Default, dennoch werden Audio und Transkript zur Verarbeitung an
   den Hub übertragen.
+- Die Quellenwahl **Mikrofon** oder **Lautsprecher / Systemaudio** bleibt lokal
+  im Client und wird nur für die Audioaufnahme verwendet. Sie verändert weder
+  das Hub-Profil noch die Session-Konfiguration oder den bestehenden Hub/API-
+  Vertrag.
+- Systemaudio ist keine Umgehung von Plattform- oder Inhaltsschutz. Browser
+  und Android können je nach Freigabe, App-Opt-out, DRM oder Audioart keine
+  Audiospur liefern; insbesondere Anrufaudio ist nicht als aufnehmbar zugesagt.
 - Das ASR-Transkript wird für den aktivierten Korrekturschritt intern an den
   Corrector-Worker delegiert. Für `embedded` liest er ausschließlich den
   read-only Modellmount; für `ollama`/`lmstudio` sendet er den Text an den

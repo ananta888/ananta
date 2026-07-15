@@ -1,4 +1,9 @@
-import { Pcm16ChunkAccumulator, float32MonoToPcm16, pcm16ChunksToWav } from './voice-audio-capture';
+import {
+  Pcm16ChunkAccumulator,
+  float32ChannelsToPcm16,
+  float32MonoToPcm16,
+  pcm16ChunksToWav,
+} from './voice-audio-capture';
 
 describe('voice audio capture contract', () => {
   it('encodes signed little-endian PCM16 at the requested sample rate', () => {
@@ -19,6 +24,23 @@ describe('voice audio capture contract', () => {
 
     expect(result.byteLength).toBe(16_000 * 2);
     expect(new DataView(result).getInt16(0, true)).toBe(8192);
+  });
+
+  it('mixes browser stereo playback to mono before PCM16 encoding', () => {
+    const left = new Float32Array([1, -1, 0.5]);
+    const right = new Float32Array([-1, 1, 0.5]);
+    const result = float32ChannelsToPcm16([left, right], 16_000);
+    const view = new DataView(result);
+
+    expect([...Array(3)].map((_value, index) => view.getInt16(index * 2, true)))
+      .toEqual([0, 0, 16_384]);
+  });
+
+  it('rejects differently sized playback channels', () => {
+    expect(() => float32ChannelsToPcm16([
+      new Float32Array([0, 1]),
+      new Float32Array([0]),
+    ], 16_000)).toThrow('voice.capture.channel_length_mismatch');
   });
 
   it('rejects unsupported upsampling instead of changing the Hub media contract', () => {

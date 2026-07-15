@@ -71,6 +71,18 @@ describe('voice UI contract helpers', () => {
       .toEqual({ code: 'policy_blocked', message: 'blocked', retriable: false });
   });
 
+  it('turns browser and native capture failures into actionable German messages', () => {
+    expect(voiceError(new Error('voice.capture.system_audio_not_shared'))).toEqual({
+      code: 'voice.capture.system_audio_not_shared',
+      message: expect.stringContaining('Audio teilen'),
+      retriable: false,
+    });
+    expect(voiceError({ name: 'NotAllowedError', message: 'Permission denied' }).message)
+      .toContain('nicht erteilt');
+    expect(voiceError({ code: 'PLAYBACK_CAPTURE_UNSUPPORTED', message: 'unsupported' }).message)
+      .toContain('Android 10');
+  });
+
   it('validates portable personalization imports before they reach the Hub', () => {
     const valid = validatePersonalizationImport(JSON.stringify({
       schema_version: 'voice-personalization.v1',
