@@ -161,9 +161,15 @@ export class VoiceApiService {
   getLongRun(
     hubUrl: string,
     runId: string,
-    options: { includeText?: boolean } = {},
+    options: { includeText?: boolean; afterRevision?: number; limit?: number } = {},
   ): Observable<VoiceLongRunResponse> {
-    const query = options.includeText === false ? '?include_text=false' : '';
+    const params = new URLSearchParams();
+    if (options.includeText === false) params.set('include_text', 'false');
+    if (options.afterRevision != null) {
+      params.set('after_revision', String(Math.max(0, Math.trunc(options.afterRevision))));
+    }
+    if (options.limit != null) params.set('limit', String(Math.max(1, Math.trunc(options.limit))));
+    const query = params.size ? `?${params.toString()}` : '';
     return this.core.get<VoiceLongRunResponse>(
       `${hubUrl}/v1/voice/live-runs/${encodeURIComponent(runId)}${query}`, hubUrl, undefined, false,
     );

@@ -23,8 +23,12 @@ import { VoiceLongRunRecoveryMetadata } from './voice-long-run-recovery';
 import {
   VoiceLongRunController,
   VoiceLongRunObserver,
-  appendVoiceLongRunTranscript,
 } from './voice-long-run.controller';
+import {
+  VoiceLongRunTimelineSegment,
+  voiceLongRunRevisionLabel,
+  voiceLongRunSegmentIsGap,
+} from './voice-long-run-timeline';
 import {
   VoiceCapabilityStatus,
   VoiceConfiguration,
@@ -50,6 +54,14 @@ import { configurationFields, valueAtPath, voiceError, voiceMutationKey } from '
 
 type VoiceConsoleTab = 'live' | 'long' | 'batch';
 type VoiceConfigurationTarget = 'profile' | 'session';
+
+interface VoiceLongRunTimelineRow {
+  kind: 'segment' | 'gap';
+  sequence: number;
+  text: string;
+  stateLabel: string;
+  textState: string;
+}
 
 @Component({
   selector: 'app-voice-console',
@@ -119,6 +131,10 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
   longRunQueuedSegments = 0;
   longRunGapSequences: number[] = [];
   longRunTranscript = '';
+  longRunTimeline: readonly VoiceLongRunTimelineSegment[] = [];
+  longRunTimelineRows: readonly VoiceLongRunTimelineRow[] = [];
+  longRunProvisionalSegments = 0;
+  longRunCorrectedSegments = 0;
   longRunConnection: 'online' | 'retrying' = 'online';
   longRunRecovery: VoiceLongRunRecoveryMetadata | null = null;
   longRunStorageAvailable = true;
@@ -310,7 +326,11 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
     const generation = ++this.longRunOperationGeneration;
     this.longRunBusy = true;
     this.longRunTranscript = resume ? this.longRunTranscript : '';
+    this.longRunTimeline = resume ? this.longRunTimeline : [];
+    this.longRunProvisionalSegments = resume ? this.longRunProvisionalSegments : 0;
+    this.longRunCorrectedSegments = resume ? this.longRunCorrectedSegments : 0;
     this.longRunGapSequences = [];
+    this.rebuildLongRunTimelineRows();
     this.clearMessages();
     try {
       if (resume && !this.longRun.recoveryReadyForConsent()) {
@@ -936,6 +956,17 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
 
   private longRunObserver(): VoiceLongRunObserver {
     return {
+      timelineUpdated: (snapshot) => {
+        if (this.destroyed) return;
+        this.longRunTimeline = snapshot.segments;
+        this.longRunTranscript = snapshot.composedTranscript;
+        this.longRunProvisionalSegments = snapshot.segments
+          .filter((segment) => segment.text_state === 'provisional').length;
+        this.longRunCorrectedSegments = snapshot.segments
+          .filter((segment) => segment.correction_status === 'completed').length;
+        this.rebuildLongRunTimelineRows();
+        this.cdr.markForCheck();
+      },
       runUpdated: (response) => {
         if (this.destroyed) return;
         this.applyLongRunResponse(response);
@@ -968,6 +999,7 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
         if (this.destroyed || this.longRunGapSequences.includes(sequence)) return;
         this.longRunGapSequences = [...this.longRunGapSequences, sequence].sort((left, right) => left - right);
         this.longRunWarning = 'Der verschlüsselte Offline-Puffer war ausgelastet. Nicht bestätigte Segmente sind als Lücke markiert.';
+        this.rebuildLongRunTimelineRows();
         this.cdr.markForCheck();
       },
       connection: (state) => {
@@ -1010,20 +1042,10 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
         ...this.longRunGapSequences,
         ...response.gaps,
       ])].sort((left, right) => left - right);
+      this.rebuildLongRunTimelineRows();
     }
     const authoritative = String(response.composed_transcript || '').trim();
-    if (authoritative) {
-      this.longRunTranscript = authoritative;
-    } else {
-      const upload = response as VoiceLongRunResponse & {
-        result?: { transcript?: string; text?: string };
-        segment?: { text?: string | null };
-      };
-      const latest = String(
-        upload.result?.transcript || upload.result?.text || upload.segment?.text || '',
-      ).trim();
-      if (latest) this.longRunTranscript = appendVoiceLongRunTranscript(this.longRunTranscript, latest);
-    }
+    if (!this.longRunTimeline.length && authoritative) this.longRunTranscript = authoritative;
     const acknowledged = Number(response.resume?.acknowledged_through_sequence ?? -1);
     this.longRunUploadedSegments = Math.max(this.longRunUploadedSegments, acknowledged + 1);
     this.cdr.markForCheck();
@@ -1053,6 +1075,33 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
     const minutes = Math.floor((totalSeconds % 3_600) / 60);
     const seconds = totalSeconds % 60;
     return [hours, minutes, seconds].map((value) => String(value).padStart(2, '0')).join(':');
+  }
+
+  private rebuildLongRunTimelineRows(): void {
+    const rows = this.longRunTimeline.map((segment): VoiceLongRunTimelineRow => {
+      const isGap = voiceLongRunSegmentIsGap(segment);
+      return {
+        kind: isGap ? 'gap' : 'segment',
+        sequence: segment.sequence,
+        text: isGap
+          ? 'Nicht wiederherstellbare Segmentlücke'
+          : segment.display_text || (segment.text_state === 'none' ? 'Segment wird transkribiert …' : ''),
+        stateLabel: voiceLongRunRevisionLabel(segment),
+        textState: isGap ? 'gap' : segment.text_state,
+      };
+    });
+    const present = new Set(rows.map((row) => row.sequence));
+    for (const sequence of this.longRunGapSequences) {
+      if (present.has(sequence)) continue;
+      rows.push({
+        kind: 'gap',
+        sequence,
+        text: 'Nicht wiederherstellbare Segmentlücke',
+        stateLabel: 'Lücke',
+        textState: 'gap',
+      });
+    }
+    this.longRunTimelineRows = rows.sort((left, right) => left.sequence - right.sequence);
   }
 
   private onStreamEvent(event: VoiceStreamEvent | null | undefined, sessionId: string): void {

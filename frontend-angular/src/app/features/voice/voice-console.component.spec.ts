@@ -15,6 +15,7 @@ import { VoiceApiService } from './voice-api.service';
 import { VoiceConsoleComponent } from './voice-console.component';
 import { VOICE_LONG_RUN_RECOVERY, VoiceLongRunRecoveryMetadata } from './voice-long-run-recovery';
 import { VOICE_LONG_RUN_SPOOL } from './voice-long-run-spool';
+import { VoiceLongRunTimelineSegment } from './voice-long-run-timeline';
 
 beforeAll(async () => {
   await ɵresolveComponentResources((resource) => readFile(new URL(resource, import.meta.url), 'utf8'));
@@ -224,7 +225,10 @@ describe('VoiceConsoleComponent', () => {
     await fixture.whenStable();
     const component = fixture.componentInstance;
     component.activeTab = 'long';
-    component.longRunGapSequences = [3, 4];
+    (component as any).applyLongRunResponse({
+      run: { id: 'voice-long-run-a', status: 'active' },
+      gaps: [3, 4],
+    });
     component.longRunWarning = 'Puffer ausgelastet.';
     fixture.detectChanges();
 
@@ -232,6 +236,116 @@ describe('VoiceConsoleComponent', () => {
       .querySelector('[data-testid="voice-long-run-gap-warning"]');
     expect(warning?.textContent).toContain('Puffer ausgelastet');
     expect(warning?.textContent).toContain('3, 4');
+    const gaps = (fixture.nativeElement as HTMLElement)
+      .querySelectorAll('[data-text-state="gap"]');
+    expect([...gaps].map((item) => item.getAttribute('data-sequence'))).toEqual(['3', '4']);
+  });
+
+  it('renders a persisted failed ASR segment as one terminal gap row', async () => {
+    const fixture = TestBed.createComponent(VoiceConsoleComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const component = fixture.componentInstance;
+    component.setTab('long');
+    (component as any).longRunObserver().timelineUpdated({
+      segments: [timelineSegment({
+        sequence: 2,
+        status: 'failed',
+        revision: 0,
+        timeline_revision: 7,
+        text_state: 'none',
+        correction_status: 'not_requested',
+        text: '',
+        display_text: '',
+      })],
+      composedTranscript: '',
+      highestTimelineRevision: 7,
+      hasPendingRevisions: false,
+    });
+    (component as any).applyLongRunResponse({
+      run: { id: 'voice-long-run-a', status: 'active' },
+      gaps: [2],
+    });
+    fixture.detectChanges();
+
+    const rows = (fixture.nativeElement as HTMLElement).querySelectorAll('[data-sequence="2"]');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].getAttribute('data-text-state')).toBe('gap');
+    expect(rows[0].textContent).toContain('Lücke');
+    expect(rows[0].textContent).toContain('Nicht wiederherstellbare Segmentlücke');
+    expect(rows[0].textContent).not.toContain('wird transkribiert');
+  });
+
+  it('replaces one keyed provisional section with its corrected revision', async () => {
+    const fixture = TestBed.createComponent(VoiceConsoleComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const component = fixture.componentInstance;
+    component.setTab('long');
+    const observer = (component as any).longRunObserver();
+    observer.timelineUpdated({
+      segments: [timelineSegment({
+      sequence: 2,
+      revision: 1,
+      timeline_revision: 5,
+      text_state: 'provisional',
+      correction_status: 'pending',
+      text: 'roher Texd',
+      display_text: 'roher Texd',
+      })],
+      composedTranscript: 'roher Texd',
+      highestTimelineRevision: 5,
+      hasPendingRevisions: true,
+    });
+    fixture.detectChanges();
+
+    let section = (fixture.nativeElement as HTMLElement).querySelector('[data-sequence="2"]');
+    expect(section?.textContent).toContain('vorläufig');
+    expect(section?.textContent).toContain('roher Texd');
+
+    observer.timelineUpdated({
+      segments: [timelineSegment({
+      sequence: 2,
+      revision: 2,
+      timeline_revision: 6,
+      text_state: 'final',
+      correction_status: 'completed',
+      text: 'Korrigierter Text.',
+      display_text: 'Korrigierter Text.',
+      })],
+      composedTranscript: 'Korrigierter Text.',
+      highestTimelineRevision: 6,
+      hasPendingRevisions: false,
+    });
+    fixture.detectChanges();
+
+    section = (fixture.nativeElement as HTMLElement).querySelector('[data-sequence="2"]');
+    expect(section?.textContent).toContain('korrigiert');
+    expect(section?.textContent).toContain('Korrigierter Text.');
+    expect(section?.textContent).not.toContain('roher Texd');
+    expect((fixture.nativeElement as HTMLElement).querySelectorAll('[data-sequence="2"]')).toHaveLength(1);
+  });
+
+  it('renders transcript revisions as text instead of executable markup', async () => {
+    const fixture = TestBed.createComponent(VoiceConsoleComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.componentInstance.setTab('long');
+    (fixture.componentInstance as any).longRunObserver().timelineUpdated({
+      segments: [timelineSegment({
+        text: '<img src=x onerror=alert(1)>',
+        display_text: '<img src=x onerror=alert(1)>',
+      })],
+      composedTranscript: '<img src=x onerror=alert(1)>',
+      highestTimelineRevision: 1,
+      hasPendingRevisions: false,
+    });
+    fixture.detectChanges();
+
+    const transcript = (fixture.nativeElement as HTMLElement)
+      .querySelector('[data-testid="voice-long-run-transcript"]');
+    expect(transcript?.textContent).toContain('<img src=x onerror=alert(1)>');
+    expect(transcript?.querySelector('img')).toBeNull();
   });
 
   it('checks a recovered Hub run before requesting a fresh audio permission', async () => {
@@ -747,6 +861,22 @@ function recoveredMetadata(
     nextSequence: 0,
     timelineMilliseconds: 0,
     updatedAt: Date.now(),
+    ...overrides,
+  };
+}
+
+function timelineSegment(
+  overrides: Partial<VoiceLongRunTimelineSegment> = {},
+): VoiceLongRunTimelineSegment {
+  return {
+    sequence: 0,
+    status: 'completed',
+    revision: 2,
+    timeline_revision: 1,
+    text_state: 'final',
+    correction_status: 'completed',
+    text: 'Korrigierter Text.',
+    display_text: 'Korrigierter Text.',
     ...overrides,
   };
 }

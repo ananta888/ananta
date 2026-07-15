@@ -146,6 +146,227 @@ describe('VoiceLongRunController', () => {
     expect(capture.stop).toHaveBeenCalledTimes(1);
   });
 
+  it('polls revision deltas without overlap and replaces provisional text in place', async () => {
+    vi.useFakeTimers();
+    try {
+      const correction = new Subject<VoiceLongRunResponse>();
+      api.uploadLongRunSegment.mockReturnValueOnce(of(revisionUpload('run-a', 0, {
+        revision: 1,
+        timeline_revision: 10,
+        text_state: 'provisional',
+        correction_status: 'pending',
+        text: 'roher Texd',
+      })));
+      api.getLongRun.mockReturnValue(correction);
+      const visible: string[] = [];
+      const controller = TestBed.inject(VoiceLongRunController);
+      await controller.start('http://hub.test', createRequest(60, 600), 'create-key', {
+        timelineUpdated: (timeline) => visible.push(timeline.composedTranscript),
+      });
+
+      chunkHandler!(new ArrayBuffer(120));
+      await settleAsyncWork();
+      expect(visible.at(-1)).toBe('roher Texd');
+
+      await vi.advanceTimersByTimeAsync(1_500);
+      await settleAsyncWork();
+      expect(api.getLongRun).toHaveBeenCalledWith('http://hub.test', 'run-a', {
+        afterRevision: 10,
+        limit: 100,
+      });
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(api.getLongRun).toHaveBeenCalledTimes(1);
+
+      correction.next(revisionDelta('run-a', 11, {
+        revision: 2,
+        timeline_revision: 11,
+        text_state: 'final',
+        correction_status: 'completed',
+        text: 'Korrigierter Text.',
+      }));
+      correction.complete();
+      await settleAsyncWork();
+
+      expect(visible.at(-1)).toBe('Korrigierter Text.');
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(api.getLongRun).toHaveBeenCalledTimes(1);
+      await controller.stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not let a textless heartbeat skip an in-flight correction delta', async () => {
+    vi.useFakeTimers();
+    try {
+      const correction = new Subject<VoiceLongRunResponse>();
+      api.uploadLongRunSegment.mockReturnValueOnce(of(revisionUpload('run-a', 0, {
+        revision: 1,
+        timeline_revision: 10,
+        text_state: 'provisional',
+        correction_status: 'pending',
+        text: 'Sichtbarer Rohtext',
+      })));
+      api.getLongRun.mockReturnValue(correction);
+      api.heartbeatLongRun.mockReturnValue(of({
+        ...snapshot('run-a'),
+        run: { id: 'run-a', status: 'active', timeline_revision: 11 },
+        segments: [{
+          sequence: 0,
+          status: 'completed',
+          revision: 2,
+          timeline_revision: 11,
+          text_state: 'final',
+          correction_status: 'completed',
+          text: null,
+        }],
+      }));
+      const visible: string[] = [];
+      const controller = TestBed.inject(VoiceLongRunController);
+      await controller.start('http://hub.test', createRequest(60, 600), 'create-key', {
+        timelineUpdated: (timeline) => visible.push(timeline.composedTranscript),
+      });
+      chunkHandler!(new ArrayBuffer(120));
+      await settleAsyncWork();
+
+      await vi.advanceTimersByTimeAsync(15_000);
+      await settleAsyncWork();
+      expect(visible.at(-1)).toBe('Sichtbarer Rohtext');
+      expect(api.getLongRun).toHaveBeenCalledWith('http://hub.test', 'run-a', {
+        afterRevision: 10,
+        limit: 100,
+      });
+
+      correction.next(revisionDelta('run-a', 11, {
+        revision: 2,
+        timeline_revision: 11,
+        text_state: 'final',
+        correction_status: 'completed',
+        text: 'Korrigierter Text',
+      }));
+      correction.complete();
+      await settleAsyncWork();
+      expect(visible.at(-1)).toBe('Korrigierter Text');
+      await controller.stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('drains every bounded revision page even when the first page resolves the last pending segment', async () => {
+    vi.useFakeTimers();
+    try {
+      api.uploadLongRunSegment.mockReturnValueOnce(of(revisionUpload('run-a', 0, {
+        revision: 1,
+        timeline_revision: 10,
+        text_state: 'provisional',
+        correction_status: 'pending',
+        text: 'Rohtext',
+      })));
+      const firstPage = revisionDelta('run-a', 11, {
+        revision: 2,
+        timeline_revision: 11,
+        text_state: 'final',
+        correction_status: 'completed',
+        text: 'Finaler Text',
+      });
+      firstPage.page!.has_more = true;
+      const lastPage: VoiceLongRunResponse = {
+        ...snapshot('run-a'),
+        run: { id: 'run-a', status: 'active', timeline_revision: 11 },
+        page: {
+          after_sequence: -1,
+          next_after_sequence: -1,
+          after_revision: 11,
+          next_after_revision: 11,
+          limit: 100,
+          has_more: false,
+        },
+      };
+      api.getLongRun.mockReturnValueOnce(of(firstPage)).mockReturnValueOnce(of(lastPage));
+      const controller = TestBed.inject(VoiceLongRunController);
+      await controller.start('http://hub.test', createRequest(60, 600), 'create-key');
+      chunkHandler!(new ArrayBuffer(120));
+      await settleAsyncWork();
+
+      await vi.advanceTimersByTimeAsync(1_500);
+      await settleAsyncWork();
+      await vi.advanceTimersByTimeAsync(1);
+      await settleAsyncWork();
+
+      expect(api.getLongRun.mock.calls.map((call) => call[2].afterRevision)).toEqual([10, 11]);
+      await controller.stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('stops polling after a non-retriable revision error', async () => {
+    vi.useFakeTimers();
+    try {
+      api.uploadLongRunSegment.mockReturnValueOnce(of(revisionUpload('run-a', 0, {
+        revision: 1,
+        timeline_revision: 1,
+        text_state: 'provisional',
+        correction_status: 'pending',
+        text: 'Rohtext',
+      })));
+      const forbidden = { status: 403, error: { code: 'auth.forbidden', retriable: false } };
+      api.getLongRun.mockReturnValue(throwError(() => forbidden));
+      const errors: unknown[] = [];
+      const controller = TestBed.inject(VoiceLongRunController);
+      await controller.start('http://hub.test', createRequest(60, 600), 'create-key', {
+        error: (error) => errors.push(error),
+      });
+      chunkHandler!(new ArrayBuffer(120));
+      await settleAsyncWork();
+
+      await vi.advanceTimersByTimeAsync(1_500);
+      await settleAsyncWork();
+      await vi.advanceTimersByTimeAsync(30_000);
+
+      expect(api.getLongRun).toHaveBeenCalledTimes(1);
+      expect(errors).toContain(forbidden);
+      await controller.stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps recovery while stop waits for corrections and retries the terminal freeze', async () => {
+    vi.useFakeTimers();
+    try {
+      const inFlight = {
+        status: 409,
+        error: { code: 'voice_live_run.segments_in_flight', retriable: true },
+      };
+      api.stopLongRun
+        .mockReturnValueOnce(throwError(() => inFlight))
+        .mockReturnValueOnce(of(snapshot('run-a', 'completed')));
+      api.getLongRun.mockReturnValue(of(snapshot('run-a')));
+      const controller = TestBed.inject(VoiceLongRunController);
+      await controller.start('http://hub.test', createRequest(60, 600), 'create-key');
+
+      const stopping = controller.stop();
+      await settleAsyncWork();
+      expect(api.stopLongRun).toHaveBeenCalledTimes(1);
+      expect(controller.recoveryMetadata()?.runId).toBe('run-a');
+
+      await vi.advanceTimersByTimeAsync(2_500);
+      await settleAsyncWork();
+      await stopping;
+
+      expect(api.stopLongRun).toHaveBeenCalledTimes(2);
+      expect(api.getLongRun).toHaveBeenCalledWith('http://hub.test', 'run-a', {
+        afterRevision: 0,
+        limit: 100,
+      });
+      expect(controller.recoveryMetadata()).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('fails closed before requesting capture consent when encrypted storage is unavailable', async () => {
     vi.spyOn(spool, 'initialize').mockRejectedValueOnce(
       new Error('voice.long_run.secure_spool_unavailable'),
@@ -614,6 +835,42 @@ function uploadSnapshot(runId: string, sequence: number) {
     segment: { sequence, status: 'completed', text: null },
     result: { text: `segment-${sequence}` },
     composed_transcript: null,
+  };
+}
+
+function revisionUpload(
+  runId: string,
+  sequence: number,
+  segmentOverrides: Record<string, unknown>,
+) {
+  const response = snapshot(runId);
+  return {
+    ...response,
+    run: { ...response.run, timeline_revision: segmentOverrides['timeline_revision'] },
+    segment: { sequence, status: 'completed', ...segmentOverrides },
+    segments: [],
+    composed_transcript: null,
+    resume: { next_sequence: sequence + 1, acknowledged_through_sequence: sequence },
+  };
+}
+
+function revisionDelta(
+  runId: string,
+  timelineRevision: number,
+  segmentOverrides: Record<string, unknown>,
+): VoiceLongRunResponse {
+  return {
+    run: { id: runId, status: 'active', timeline_revision: timelineRevision },
+    segments: [{ sequence: 0, status: 'completed', ...segmentOverrides }],
+    gaps: [],
+    page: {
+      after_sequence: -1,
+      next_after_sequence: -1,
+      after_revision: timelineRevision - 1,
+      next_after_revision: timelineRevision,
+      limit: 100,
+      has_more: false,
+    },
   };
 }
 

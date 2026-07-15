@@ -190,6 +190,10 @@ describe('VoiceApiService', () => {
       last_local_sequence: 3, gaps: [1],
     }));
     await firstValueFrom(api.getLongRun('http://hub.test', 'run/a', { includeText: false }));
+    await firstValueFrom(api.getLongRun('http://hub.test', 'run/a', {
+      afterRevision: 17,
+      limit: 100,
+    }));
     await firstValueFrom(api.stopLongRun(
       'http://hub.test', 'run/a', { last_sequence: 3, reason: 'user_stop' }, 'stop-key',
     ));
@@ -214,6 +218,10 @@ describe('VoiceApiService', () => {
     expect(core.request.mock.calls[2][3].headers).toEqual({ 'Idempotency-Key': 'segment-key' });
     expect(core.get).toHaveBeenCalledWith(
       'http://hub.test/v1/voice/live-runs/run%2Fa?include_text=false',
+      'http://hub.test', undefined, false,
+    );
+    expect(core.get).toHaveBeenCalledWith(
+      'http://hub.test/v1/voice/live-runs/run%2Fa?after_revision=17&limit=100',
       'http://hub.test', undefined, false,
     );
   });

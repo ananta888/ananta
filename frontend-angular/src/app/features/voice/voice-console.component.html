@@ -322,6 +322,8 @@
           <div><dt>Hub-Run</dt><dd><code>{{ longRunId || '–' }}</code></dd></div>
           <div><dt>Laufzeit</dt><dd>{{ formatLongRunDuration(longRunCapturedMilliseconds) }}</dd></div>
           <div><dt>Bestätigte Segmente</dt><dd>{{ longRunUploadedSegments }}</dd></div>
+          <div><dt>Vorläufig sichtbar</dt><dd>{{ longRunProvisionalSegments }}</dd></div>
+          <div><dt>Korrigiert</dt><dd>{{ longRunCorrectedSegments }}</dd></div>
           <div><dt>Verschlüsselt gepuffert</dt><dd>{{ longRunQueuedSegments }}</dd></div>
           <div><dt>Verbindung</dt><dd>{{ longRunConnection === 'online' ? 'online' : 'Retry läuft' }}</dd></div>
         </dl>
@@ -331,9 +333,28 @@
             @if (longRunGapSequences.length) { <span> Sequenzen: {{ longRunGapSequences.join(', ') }}</span> }
           </div>
         }
-        <div class="voice-live-transcript mt-md" aria-live="polite">
+        <div class="voice-live-transcript mt-md" aria-live="polite" aria-atomic="false"
+          aria-relevant="additions text" data-testid="voice-long-run-transcript">
           <strong>Fortlaufendes Transkript</strong>
-          <p>{{ longRunTranscript || 'Das erste bestätigte Segment erscheint nach spätestens der gewählten Segmentdauer.' }}</p>
+          @if (longRunTimeline.length || longRunGapSequences.length) {
+            <ol class="voice-long-run-timeline" aria-label="Fortlaufende Transkriptabschnitte">
+              @for (row of longRunTimelineRows; track row.sequence) {
+                <li class="voice-long-run-segment"
+                  [class.voice-long-run-segment--provisional]="row.textState === 'provisional'"
+                  [class.voice-long-run-segment--corrected]="row.stateLabel === 'korrigiert'"
+                  [class.voice-long-run-segment--gap]="row.kind === 'gap'"
+                  [attr.data-sequence]="row.sequence"
+                  [attr.data-text-state]="row.textState">
+                  <span class="voice-long-run-revision">
+                    <span class="sr-only">Segment {{ row.sequence + 1 }}: </span>{{ row.stateLabel }}
+                  </span>
+                  <span class="voice-long-run-segment-text">{{ row.text }}</span>
+                </li>
+              }
+            </ol>
+          } @else {
+            <p>{{ longRunTranscript || 'Das erste vorläufige Segment erscheint nach spätestens der gewählten Segmentdauer.' }}</p>
+          }
         </div>
       </section>
     } @else {

@@ -413,9 +413,34 @@ export type VoiceLongRunSegmentStatus =
   | 'failed'
   | string;
 
+export type VoiceLongRunTextState =
+  | 'none'
+  | 'provisional'
+  | 'final'
+  | 'final_uncorrected'
+  | string;
+
+export type VoiceLongRunCorrectionStatus =
+  | 'not_requested'
+  | 'queued'
+  | 'pending'
+  | 'processing'
+  | 'completed'
+  | 'skipped'
+  | 'failed'
+  | string;
+
 export interface VoiceLongRunSegment {
   sequence: number;
   status: VoiceLongRunSegmentStatus;
+  /** Monotone per-segment text revision: 0=none, 1=ASR, 2=corrected/final. */
+  revision?: number;
+  /** Compatibility alias emitted by the Hub ledger. */
+  text_revision?: number;
+  /** Monotone run-wide cursor used to fetch corrections for older sequences. */
+  timeline_revision?: number;
+  text_state?: VoiceLongRunTextState;
+  correction_status?: VoiceLongRunCorrectionStatus;
   started_at_ms?: number;
   ended_at_ms?: number;
   duration_ms?: number;
@@ -453,6 +478,8 @@ export interface VoiceLongRunState {
   expires_at?: string | number | null;
   final_result_ref?: string | null;
   stop_reason?: string | null;
+  /** Latest run-wide segment revision, independent of the audio sequence. */
+  timeline_revision?: number;
 }
 
 export interface VoiceLongRunCreateRequest {
@@ -486,6 +513,8 @@ export interface VoiceLongRunResponse {
     limit: number;
     has_more: boolean;
     next_after_sequence: number;
+    after_revision?: number;
+    next_after_revision?: number;
   };
   idempotent_replay?: boolean;
 }

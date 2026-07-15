@@ -126,6 +126,46 @@
   white-space: pre-wrap;
 }
 
+.voice-long-run-timeline {
+  display: grid;
+  gap: .65rem;
+  list-style: none;
+  margin: .8rem 0 0;
+  padding: 0;
+}
+
+.voice-long-run-segment {
+  border-left: .2rem solid var(--border, #d0d5dd);
+  display: grid;
+  gap: .35rem;
+  padding: .35rem 0 .35rem .7rem;
+}
+
+.voice-long-run-segment--provisional {
+  border-left-color: var(--warning, #b7791f);
+}
+
+.voice-long-run-segment--corrected {
+  border-left-color: var(--success, #16803c);
+}
+
+.voice-long-run-segment--gap {
+  border-left-color: var(--danger, #b42318);
+  color: var(--danger, #b42318);
+}
+
+.voice-long-run-revision {
+  color: var(--muted, #667085);
+  font-size: .75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.voice-long-run-segment-text {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
 .voice-long-run-options {
   display: grid;
   gap: 1rem;
