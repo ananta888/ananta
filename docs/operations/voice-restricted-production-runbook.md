@@ -282,7 +282,8 @@ deadline; they must not move execution into the Hub or another worker.
 This capability is additive and remains inactive unless a resolved Hub Voice
 configuration selects `correction_policy=generative_rewrite`, enables
 `feature_flags.generative_corrector=true` and names an allowlisted
-`generative_corrector_model`. It is a genuine text-to-text rewrite after ASR;
+`generative_corrector_provider` plus `generative_corrector_model` (or selects
+`provider=inherit` for the general LLM default). It is a genuine text-to-text rewrite after ASR;
 it is not the deterministic postprocessor and it does not replace the
 restricted generative Judge.
 
@@ -318,6 +319,25 @@ against separately retained digests and make the promoted host directory
 immutable before deployment. Do not use a mutable upstream branch name as a
 revision and do not place weights in Git.
 
+### Deployment-configured Ollama and LM Studio
+
+The stock `hybrid` engine can additionally call deployment-configured local
+provider URLs. The Voice choice **Allgemeine LLM-Vorgabe** inherits only the
+provider and model from the Hub's general LLM settings; `/settings` does not
+rewrite a running corrector worker's endpoint or credentials.
+`VOICE_GENERATIVE_CORRECTOR_PROVIDERS` is the Hub/worker provider allowlist;
+the stock image implements `embedded`, `ollama` and `lmstudio`. The worker
+discovers Ollama models through `/api/tags` and OpenAI-compatible LM Studio
+models through `/v1/models`. A task contains only a qualified provider/model
+reference; it can never select a URL or send an API key from Angular/Android.
+
+Manual external model IDs are accepted only for a provider present in both the
+Hub allowlist and worker endpoint configuration. This supports namespaced IDs
+such as `Qwen/Qwen2.5-7B-Instruct` and tagged Ollama names such as
+`qwen2.5:7b`. Redirects are refused, responses are byte-bounded, provider
+timeouts remain inside the Voice deadline, and failure preserves the ASR
+baseline.
+
 ### Compose profile and environment
 
 Start the optional worker together with exactly one selected Voice production
@@ -326,6 +346,7 @@ profile. For the stock CPU worker:
 ```bash
 export VOICE_GENERATIVE_CORRECTOR_WORKER_TOKEN='distinct-random-secret-at-least-24-characters'
 export VOICE_GENERATIVE_CORRECTOR_MODELS='gemma-2b-it,phi-3-mini-instruct'
+export VOICE_GENERATIVE_CORRECTOR_PROVIDERS='embedded,lmstudio,ollama'
 export GENERATIVE_CORRECTOR_MODEL_DIR=/absolute/path/to/promoted/generative-corrector
 
 docker compose --env-file .env \
@@ -346,6 +367,12 @@ Operator-provided or tunable values and their Compose defaults are:
 | --- | --- | --- |
 | `VOICE_GENERATIVE_CORRECTOR_WORKER_TOKEN` | empty/unavailable | independent Hub-to-corrector bearer secret; minimum 24 characters |
 | `VOICE_GENERATIVE_CORRECTOR_MODELS` | `gemma-2b-it,phi-3-mini-instruct` | Hub-side model-ID allowlist exposed to clients |
+| `VOICE_GENERATIVE_CORRECTOR_PROVIDERS` | `embedded,lmstudio,ollama` | provider allowlist shared by Hub and corrector worker |
+| `GENERATIVE_CORRECTOR_ENGINE` | `hybrid` | embedded catalog plus configured local provider adapters; `transformers` and `providers` remain explicit alternatives |
+| `LMSTUDIO_URL` / `OLLAMA_URL` | local deployment defaults | fixed worker provider endpoints captured when the container is created; never exposed through the Voice API |
+| `LMSTUDIO_API_KEY` / `OLLAMA_API_KEY` | empty | optional deployment-secret credentials mapped into the worker environment; never returned by health or Voice APIs |
+| `GENERATIVE_CORRECTOR_PROVIDER_DISCOVERY_TIMEOUT_MS` | `200` | bounded per-provider model discovery timeout |
+| `GENERATIVE_CORRECTOR_PROVIDER_MAX_RESPONSE_BYTES` | `1048576` | discovery/inference response byte bound |
 | `GENERATIVE_CORRECTOR_MODEL_DIR` | `../../models/generative-corrector` | host source for the read-only worker mount |
 | `VOICE_GENERATIVE_CORRECTOR_TIMEOUT_MS` | `30000` | Hub dispatch timeout, bounded to 1–120000 ms |
 | `VOICE_GENERATIVE_CORRECTOR_MAX_RESPONSE_BYTES` | `262144` | Hub response bound, accepted range 1024–2097152 bytes |
@@ -367,11 +394,28 @@ them into client configuration:
 | `VOICE_GENERATIVE_CORRECTOR_WORKER_URL` and `VOICE_GENERATIVE_CORRECTOR_WORKER_ALLOWED_ENDPOINTS` | `http://generative-corrector-worker:8093/internal/v1/voice-corrector` |
 | `VOICE_GENERATIVE_CORRECTOR_HUB_ORIGIN` | `http://ai-agent-hub:5000` |
 | `GENERATIVE_CORRECTOR_ALLOWED_HUB_ORIGINS` | `http://ai-agent-hub:5000` |
-| `GENERATIVE_CORRECTOR_ENGINE` | `transformers` |
 | `GENERATIVE_CORRECTOR_HOST` / `GENERATIVE_CORRECTOR_PORT` | `0.0.0.0` / `8093` (Compose `expose`, no host `ports`) |
 | `GENERATIVE_CORRECTOR_MODEL_ROOT` | `/models/generative-corrector` |
 | `GENERATIVE_CORRECTOR_MODEL_CATALOG` | `/models/generative-corrector/manifests/model-catalog.json` |
 | `HF_HUB_OFFLINE` / `TRANSFORMERS_OFFLINE` | `1` / `1` |
+
+Changes to `LMSTUDIO_URL`, `LMSTUDIO_API_KEY`, `OLLAMA_URL` or
+`OLLAMA_API_KEY` require recreating the corrector container; `docker compose
+restart` alone does not reload container environment variables. Recreate only
+that service with the same deployment files and environment:
+
+```bash
+docker compose --env-file .env \
+  -f docker/compose-next/compose.stack.full.yml \
+  -f docker/compose-next/compose.voice-restricted.yml \
+  --profile voice-generative-corrector \
+  up -d --force-recreate generative-corrector-worker
+```
+
+See the [Voice Quickstart](../voice-quickstart.md#2-secrets-und-pfade-setzen)
+for the exact public-to-worker variable mapping. Keep credential values in the
+deployment secret store and out of shell history, Git, browser storage and
+Android resources.
 
 The bearer token is copied into the Hub as
 `VOICE_GENERATIVE_CORRECTOR_WORKER_TOKEN` and into the isolated worker as
@@ -379,8 +423,16 @@ The bearer token is copied into the Hub as
 The worker exact-matches the Hub `Origin`. The Hub exact-allows the endpoint,
 resolves only private non-loopback container addresses, pins the accepted
 address for the request, disables proxy use and refuses redirects. The worker
-has only the internal `generative-corrector-control` network and cannot address
-the Voice Runtime or restricted worker.
+retains the internal `generative-corrector-control` network and cannot call the
+Voice Runtime or restricted worker through that control plane. It does not join
+the application default network. Its separate non-internal
+`generative-corrector-egress` network supplies outbound connectivity, while the
+application invokes only the statically configured Ollama/LM-Studio URLs with
+proxy use and redirects disabled; the worker API remains unpublished and
+Hub-authenticated. A Compose bridge cannot enforce an L7 destination allowlist:
+deployments that require hard egress restriction must additionally allowlist
+the provider origins with a host firewall, container NetworkPolicy or a
+deployment-controlled egress proxy.
 
 ### Readiness, policy and failure behavior
 
@@ -403,10 +455,12 @@ docker compose --env-file .env \
 ```
 
 Require `status=ready`, `auth_configured=true`,
-`origin_allowlist_configured=true`, `engine_configured=true` and the intended
-`model_ids`. Hub `/v1/voice/capabilities` performs the same bounded, pinned
-worker-health validation and marks a configured Corrector model available only
-when that ready worker reports the exact model ID. It advertises
+`origin_allowlist_configured=true`, `engine_configured=true`, the intended
+`model_ids` and external `provider_ids`. Hub `/v1/voice/capabilities` performs
+the same bounded, pinned worker-health validation. It returns provider-aware
+`correction_models`, `correction_providers` and `correction_default`. Discovered
+models require an exact worker report; a manually entered external model still
+requires a ready, configured provider. It advertises
 `generative_transcript_correction` only when at least one model passes. This
 readiness probe is still not a replacement for a real transcription smoke test,
 because model/tokenizer loading remains lazy until the first correction.
@@ -415,7 +469,9 @@ The Hub configuration fields are:
 
 - `correction_policy=generative_rewrite`;
 - `feature_flags.generative_corrector=true`;
-- `generative_corrector_model=<one exact allowlisted ID>`;
+- `generative_corrector_provider=embedded|ollama|lmstudio|inherit`;
+- `generative_corrector_model=<one exact embedded/discovered/manual ID>`; it is
+  empty only when `provider=inherit`;
 - optional `generative_corrector_max_edit_ratio`, default `0.35`, accepted range
   `0.01`–`1.0`.
 

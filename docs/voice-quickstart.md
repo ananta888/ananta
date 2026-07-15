@@ -6,6 +6,13 @@ sprechen ausschließlich mit dem Hub. Der Hub delegiert klassische
 Spracherkennung an `voice-runtime` und die optionale Textkorrektur an den
 isolierten `generative-corrector-worker`.
 
+Der Corrector kann entweder ein eingebettetes, read-only gemountetes Modell
+oder einen lokalen Provider (`ollama` oder `lmstudio`) verwenden. Die Auswahl
+**Allgemeine LLM-Vorgabe** übernimmt aus den allgemeinen LLM-Einstellungen nur
+Provider und Modell. Provider-Endpunkt und Zugangsdaten des Corrector-Workers
+sind davon getrennt deploymentverwaltet und werden nicht aus `/settings` in
+einen laufenden Worker synchronisiert.
+
 Die beiden Bedienmodi sind:
 
 - **Live:** 16-kHz-Mono-PCM wird in geordneten Chunks an den Hub gesendet. Vosk
@@ -30,6 +37,35 @@ ressourcenschonende Installation kann derselbe Dienst explizit auf Vosk allein
 begrenzt werden; dann müssen Katalog und Modellbaum keine Whisper-Artefakte
 enthalten. Die dafür vorgesehenen `VOICE_CPU_*`-Variablen ändern die sicheren
 Produktionsdefaults nicht.
+
+Die Oberfläche bildet immer die vier unterstützten Adapter ab. Der Runtime-
+Katalog meldet für jeden policy-erlaubten Adapter einen konkreten Status und
+Grund; ein Schema-Eintrag ohne promoted Runtime-Artefakte bleibt sichtbar, aber
+nicht auswählbar. Für die CPU-Varianten gelten insbesondere:
+
+- `vosk`: benötigt `models/voice/vosk`;
+- `whisper_cpp`: benötigt das ausführbare
+  `models/voice/bin/whisper-cli` und `models/voice/whisper/ggml-small.bin`;
+- `faster_whisper`: benötigt einen vollständigen lokalen CTranslate2-Snapshot
+  unter `models/voice/faster-whisper`; das CPU-Profil verwendet standardmäßig
+  `int8`;
+- `voxtral`: bleibt opt-in und benötigt gleichzeitig einen kompatiblen,
+  ausführbaren Runner und eine gepinnte GGUF-Datei. Die separate Android-Seite
+  **Voxtral Offline** ist ein anderer, gerätelokaler Pfad und macht den Hub-
+  Runtime-Adapter nicht automatisch verfügbar.
+
+Jeder aktivierte Adapter muss vollständig im unveränderlichen Voice-Katalog
+mit SHA-256-Prüfsummen erfasst sein. Danach wird er der CPU-Policy hinzugefügt,
+zum Beispiel:
+
+```bash
+export VOICE_CPU_POLICY_ALLOWED_BACKENDS='vosk,whisper_cpp,faster_whisper'
+export VOICE_CPU_BACKEND_FALLBACK_ORDER='vosk,whisper_cpp,faster_whisper'
+```
+
+Für den leichtesten Betrieb kann Vosk weiterhin erster und einziger aktiver
+Fallback bleiben; die zusätzlich erlaubten Backends erscheinen trotzdem als
+wählbare Alternativen, sobald ihre Artefakte und Abhängigkeiten bereit sind.
 
 Der Corrector verwendet einen eigenen, read-only gemounteten Modellbaum:
 
@@ -88,12 +124,20 @@ müssen mindestens eine Safetensors-Datei enthalten. Modell und Tokenizer müsse
 von der im Worker fest gepinnten Transformers-Version lokal unterstützt werden;
 der Worker lädt keine Gewichte aus dem Netz nach.
 
-Jede ID der Hub-Allowlist `VOICE_GENERATIVE_CORRECTOR_MODELS` muss exakt im
+Jede eingebettete ID der Hub-Allowlist `VOICE_GENERATIVE_CORRECTOR_MODELS` muss exakt im
 Worker-Katalog vorkommen. Zusätzliche Katalogmodelle bleiben für Clients
 unsichtbar; für Least Privilege sollten beide Mengen in Produktion bewusst
 deckungsgleich gehalten werden. Um ein anderes Modell anzubieten, wird es daher
 sowohl in den read-only Katalog als auch in diese kommagetrennte Hub-Allowlist
 aufgenommen. Die Modellgewichte selbst gehören nicht in das Repository.
+
+Alternativ erkennt der Corrector Modelle dynamisch über das im Worker-Deployment konfigurierte
+Ollama-`/api/tags` beziehungsweise OpenAI-kompatible
+LM-Studio-`/v1/models`. Diese externen Modell-IDs werden nicht in den
+eingebetteten Katalog aufgenommen. Manuell eingegebene IDs sind nur für einen
+vom Hub freigegebenen Provider zulässig; der Client kann dabei weder URL noch
+API-Key setzen. Namen mit Namespace/Tag wie `Qwen/Qwen2.5-7B-Instruct` oder
+`qwen2.5:7b` werden unterstützt.
 
 ## 2. Secrets und Pfade setzen
 
@@ -110,6 +154,11 @@ export VOICE_INTERNAL_SERVICE_TOKEN='replace-with-a-random-voice-token'
 export RESTRICTED_INFERENCE_INTERNAL_TOKEN='replace-with-another-random-token'
 export VOICE_GENERATIVE_CORRECTOR_WORKER_TOKEN='replace-with-a-third-random-token'
 export VOICE_GENERATIVE_CORRECTOR_MODELS='gemma-2b-it,phi-3-mini-instruct,eigenes-modell'
+export VOICE_GENERATIVE_CORRECTOR_PROVIDERS='embedded,lmstudio,ollama'
+
+# Deploymentverwaltete Provider-Endpunkte des Corrector-Workers:
+export LMSTUDIO_URL='http://host.docker.internal:1234/v1'
+export OLLAMA_URL='http://host.docker.internal:11434/api/generate'
 
 export VOICE_PERSONALIZATION_ENCRYPTION_KEY="$(${PYTHON:-python3} -c \
   'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')"
@@ -118,6 +167,28 @@ export VOICE_PERSONALIZATION_ENCRYPTION_KEY="$(${PYTHON:-python3} -c \
 Secrets gehören in den Deployment-Secret-Store und niemals in Git, Browser-
 Storage, Android-Ressourcen oder URLs. Das Angular-/Android-Login verwendet ein
 normales Hub-Benutzertoken; es erhält keines der internen Runtime-Tokens.
+
+Compose übergibt `LMSTUDIO_URL` und das optionale `LMSTUDIO_API_KEY` als
+`GENERATIVE_CORRECTOR_LMSTUDIO_URL` beziehungsweise
+`GENERATIVE_CORRECTOR_LMSTUDIO_API_KEY` an den Worker. Entsprechend werden
+`OLLAMA_URL` und das optionale `OLLAMA_API_KEY` auf
+`GENERATIVE_CORRECTOR_OLLAMA_URL` beziehungsweise
+`GENERATIVE_CORRECTOR_OLLAMA_API_KEY` abgebildet. Zugangsdaten nur im
+Deployment-Secret-Store setzen; sie erscheinen weder in der Voice-Auswahl noch
+im Capability-Dokument.
+
+Eine Änderung dieser vier Deployment-Variablen wird erst mit einem neu
+erstellten Worker-Container wirksam. Ein bloßes `docker compose restart` lädt
+keine geänderte Container-Umgebung. Mit denselben Compose-Dateien wie beim
+Start kann nur der Corrector neu erstellt werden:
+
+```bash
+docker compose --env-file .env \
+  -f docker/compose-next/compose.stack.full.yml \
+  -f docker/compose-next/compose.voice-restricted.yml \
+  --profile voice-generative-corrector \
+  up -d --force-recreate generative-corrector-worker
+```
 
 ## 3. Stack starten
 
@@ -150,8 +221,9 @@ docker compose --env-file .env \
 ```
 
 Dieses Profil startet keinen Restricted-Inference-Dienst. Browser und Android
-verwenden weiterhin ausschließlich den Hub; Voice Runtime und Corrector bleiben
-in getrennten internen Netzen.
+verwenden weiterhin ausschließlich den Hub. Voice Runtime und Corrector haben
+getrennte Control-Plane-Netze; nur der Corrector darf zusätzlich die zentral
+konfigurierten lokalen LLM-Endpunkte erreichen.
 
 ### Vollständiges CPU-Produktionsprofil
 
@@ -207,6 +279,11 @@ Erwartet werden:
   `available: true`/`status: ready`, wenn der Hub den streng erlaubten
   Worker-Health-Endpunkt erreicht, der Worker `ready` meldet und dessen Katalog
   genau diese Modell-ID enthält;
+- `correction_providers` mit `embedded`, `ollama` und/oder `lmstudio` sowie
+  `supports_manual_model`; URLs und Schlüssel sind in dieser Antwort nie enthalten;
+- `correction_default` als wirksame allgemeine Provider-/Modellvorgabe für
+  die Auswahl **Allgemeine LLM-Vorgabe**; Endpunkt und Zugangsdaten stammen
+  weiterhin aus der beim Worker-Start übernommenen Deployment-Konfiguration;
 - `generative_transcript_correction` in `capabilities`, sobald mindestens ein
   Corrector-Modell auf diese Weise als bereit verifiziert wurde;
 - `privacy.raw_audio_persisted: false` mit dem Privacy-Default.
@@ -224,10 +301,16 @@ Logs zu prüfen.
    `http://localhost:4200/voice`.
 2. Sprache, Profil-ID und optional eine Session-ID wählen.
 3. Für den neuen klassischen Pfad `single` und `vosk` wählen.
-4. **Nachträglich mit LLM verbessern** aktivieren und eines der vom Hub als
-   verfügbar gemeldeten Modelle auswählen.
-5. Die Auswahl für das Profil oder die konkrete Session speichern.
-6. **Live** für Vosk-Zwischentranskripte oder
+4. **Nachträglich mit LLM verbessern** aktivieren.
+5. Als Korrektur-Provider entweder **Allgemeine LLM-Vorgabe**, **Embedded**,
+   **Ollama** oder **LM Studio** wählen. Bei Ollama/LM Studio erscheinen die
+   vom laufenden Provider gemeldeten Modelle. Falls Discovery nicht möglich
+   ist, kann bei einem vom Hub freigegebenen Provider **Modell-ID manuell
+   eingeben** aktiviert werden. **Allgemeine LLM-Vorgabe** erbt nur Provider
+   und Modell; für Endpoint- oder Zugangsdatenänderungen die Deployment-
+   Variablen aus Abschnitt 2 setzen und den Corrector-Worker neu erstellen.
+6. Die Auswahl für das Profil oder die konkrete Session speichern.
+7. **Live** für Vosk-Zwischentranskripte oder
    **Aufnehmen → transkribieren** für eine vollständige Aufnahme verwenden.
 
 Für reine klassische Spracherkennung bleibt die LLM-Option ausgeschaltet; Vosk
@@ -244,7 +327,8 @@ Die Seite speichert bei aktivierter Korrektur den wirksamen Hub-Delta mit:
   "primary_backend": "vosk",
   "correction_policy": "generative_rewrite",
   "review_policy": "always",
-  "generative_corrector_model": "qwen2.5-0.5b-instruct",
+  "generative_corrector_provider": "ollama",
+  "generative_corrector_model": "qwen2.5:7b",
   "feature_flags": {
     "generative_corrector": true
   }
@@ -306,15 +390,17 @@ Client-URL eingetragen. Browser und Android adressieren ausschließlich den Hub.
   fail-closed Default, dennoch werden Audio und Transkript zur Verarbeitung an
   den Hub übertragen.
 - Das ASR-Transkript wird für den aktivierten Korrekturschritt intern an den
-  Corrector-Worker delegiert. Dieser besitzt nur sein read-only Modellmount,
-  ein begrenztes `tmpfs` und ein internes Netz zum Hub.
+  Corrector-Worker delegiert. Für `embedded` liest er ausschließlich den
+  read-only Modellmount; für `ollama`/`lmstudio` sendet er den Text an den
+  zentral konfigurierten lokalen Provider. Ein Client kann dieses Ziel nicht
+  überschreiben.
 - Das LLM ist kein Wahrheitsprüfer. Der Worker begrenzt den Änderungsanteil und
   schützt unter anderem URLs und Token mit Ziffern; semantische Fehler sind
   weiterhin möglich. Deshalb erzwingt `generative_rewrite` den Review-Modus
   `always`.
-- Ein Modellwechsel ist eine Hub-Policy-Änderung. Clients reichen nur die
-  Profil-/Session-Auswahl ein und dürfen weder Worker-Endpunkt noch lokalen
-  Modellpfad festlegen.
+- Ein Modellwechsel ist eine Hub-Policy-Änderung. Clients reichen nur Provider-
+  und Modell-ID als Profil-/Session-Auswahl ein und dürfen weder Worker-Endpunkt,
+  Provider-URL, Schlüssel noch lokalen Modellpfad festlegen.
 
 Weiterführend:
 
