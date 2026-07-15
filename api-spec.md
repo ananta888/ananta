@@ -212,10 +212,20 @@ den Capabilities durch `transient_request_spooling=true` und
 - Statuswerte: `processing`, `completed`, `failed`; fehlende Sequenzen werden
   im Snapshot als `gap` dargestellt. `attempt_count` und `failure_code`
   unterstützen kontrollierte Retries.
-- Die Upload-Antwort enthält den aktualisierten Datensatz unter `segment`,
-  aber aus Lastgründen keinen neu zusammengesetzten Gesamttext
-  (`composed_transcript=null`). Der aktuelle Upload liefert sein normales
-  Voice-Ergebnis zusätzlich unter `result` und `result_ref`.
+- Die Upload-Antwort enthält den aktualisierten Datensatz unter `segment` und
+  das sofort sichtbare ASR-Ergebnis unter `result`. Bei angeforderter Korrektur
+  trägt das Segment zunächst `text_state=provisional`, `text_revision=1` und
+  `correction_status=queued|processing`. Die ASR-Bestätigung bleibt dabei
+  `status=completed`, damit Upload-Retry und lokaler Spool-Cursor kompatibel
+  bleiben.
+- Der Hub legt die optionale Korrektur als separaten Child-Task an. Ihr
+  Abschluss veröffentlicht für dieselbe `sequence` eine höhere
+  `timeline_revision` und `text_revision=2`; `text_state=final` bezeichnet
+  angewendete Korrektur, `final_uncorrected` einen bewusst unveränderten oder
+  fehlgeschlagenen Fallback. Der Klartext bleibt in verschlüsselten
+  Ergebnisartefakten, nicht im Segment-Ledger oder Task-Kontext.
+- Aus Lastgründen wird in der Upload-Antwort kein Gesamttext neu
+  zusammengesetzt (`composed_transcript=null`).
 
 #### `POST /v1/voice/live-runs/<run_id>/heartbeat`
 
@@ -232,14 +242,26 @@ nicht verlängert.
 
 #### `GET /v1/voice/live-runs/<run_id>`
 
-- Query: `after_sequence` (Default `-1`), `limit` (maximal 600),
-  `include_text=true|false`.
+- Query: `after_sequence` (Default `-1`), optional `after_revision`, `limit`
+  (maximal 600), `include_text=true|false`.
 - Liefert `run`, `segments`, `gaps`, `resume`, `page` und bei
   `include_text=true` den autorisiert aus verschlüsselten Segmentartefakten
   zusammengesetzten `composed_transcript`.
+- Ohne `after_revision` bleibt der sequenzbasierte Voll-/Resume-Snapshot
+  abwärtskompatibel. Mit `after_revision=N` liefert der Hub nur Segmente mit
+  einer neueren globalen `timeline_revision`, sortiert nach Revision. Der
+  nächste Cursor steht in `page.next_after_revision`; `page.has_more=true`
+  verlangt die nächste Seite mit genau diesem Cursor. Delta-Antworten tragen
+  absichtlich `composed_transcript=null`, damit nur die betroffenen
+  verschlüsselten Segmentartefakte entschlüsselt werden.
+- Clients führen die sichtbare Timeline nach `sequence` zusammen und ersetzen
+  Text ausschließlich durch eine höhere `text_revision`. Eine verspätete
+  Revision 1 darf dadurch niemals eine bereits sichtbare Revision 2
+  zurückrollen.
 - `resume.acknowledged_through_sequence` ist die höchste lückenlos
   abgeschlossene Sequenz; `resume.next_sequence` ist der erste erneut zu
-  sendende Cursor.
+  sendende Audio-Cursor. `resume.pending_correction_sequences` ist unabhängig
+  davon und enthält noch ausstehende Textrevisionen.
 
 #### `POST /v1/voice/live-runs/<run_id>/stop`
 
@@ -248,11 +270,14 @@ nicht verlängert.
 ```
 
 Stop ist idempotent und wartet nicht stillschweigend über laufende Segmente
-hinweg: frische `processing`-Segmente liefern einen retriable `409`; eine nach
-zehn Minuten abgelaufene Processing-Lease wird als Gap finalisiert. Das
-verschlüsselte Endartefakt ist ein begrenztes Manifest aus Segment-Refs und
-Lücken, kein monolithischer Acht-Stunden-Klartext. Der vollständige Text bleibt
-über den autorisierten GET-Snapshot abrufbar.
+oder Korrekturen hinweg: frische Arbeit liefert
+`voice_live_run.segments_in_flight` als retriable `409`. Eine nach zehn Minuten
+abgelaufene ASR-Processing-Lease wird als Gap finalisiert; eine nach fünf
+Minuten abgelaufene Korrektur-Lease wird als `final_uncorrected` übernommen.
+Der Angular-Client pollt Revisionen während dieses begrenzten Stop-Drains
+weiter. Das verschlüsselte Endartefakt ist ein begrenztes Manifest aus
+Segment-Refs und Lücken, kein monolithischer Acht-Stunden-Klartext. Der
+vollständige Text bleibt über den autorisierten GET-Snapshot abrufbar.
 
 Die Capture-Timeline endet spätestens nach `max_duration_seconds`. Innerhalb
 einer einstündigen Drain-/Finalisierungsfrist dürfen bereits innerhalb dieser

@@ -5,6 +5,9 @@
   Hub verdrahtet. Der Langzeitmodus ist auf acht Stunden begrenzt und keine
   Zusage für unbeaufsichtigtes 24/7: Browser-Drosselung, widerrufene
   Audiofreigaben und Android-Prozesslebenszyklen bleiben Plattformgrenzen.
+  Die UI-Projektion ist für die maximal rund 489 Segmente eines Acht-Stunden-
+  Runs ausgelegt; eine unbegrenzte 24/7-Timeline mit Archivfenstern ist nicht
+  Bestandteil dieser Freigabe.
 - `VOICE_STORE_AUDIO=true` aktiviert derzeit keine persistente Roh-Audio-Speicherung; der Hub bleibt fail-closed.
 - Docker-Smoke- und Live-Voxtral-Tests sind opt-in, damit Standard-CI ohne GPU/Model-Downloads bleibt.
 - Bei Runtime-Ausfall meldet der Hub degrade/unavailable-Metadaten statt stiller Fehler.

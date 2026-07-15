@@ -22,8 +22,10 @@ Die drei Bedienmodi sind:
 - **Langzeit bis 8 h:** Der Hub besitzt einen dauerhaften Parent-Task. Der
   Client hält genau eine Audiofreigabe offen und rotiert 60- bis
   120-sekündige Segmente. Jedes Segment wird als eigener Hub-Child-Task
-  transkribiert und optional korrigiert, während das nächste bereits
-  aufgenommen wird. Heartbeats, stabile Idempotency-Keys und ein begrenzter,
+  transkribiert, sofort vorläufig angezeigt und optional in einem separaten
+  Child-Task korrigiert, während das nächste bereits aufgenommen wird. Die
+  höhere Textrevision ersetzt genau diesen sichtbaren Abschnitt an Ort und
+  Stelle. Heartbeats, stabile Idempotency-Keys und ein begrenzter,
   verschlüsselter lokaler Puffer ermöglichen Retry und Resume.
 - **Aufnehmen → transkribieren:** Die Aufnahme bleibt bis zum Absenden auf dem
   Gerät und wird anschließend als eine Batch-Anfrage über den Hub verarbeitet.
@@ -35,9 +37,10 @@ Session-Delta gespeichert. Der Langzeit-Run zeichnet die Quellenart lediglich
 als Resume-/Audit-Metadatum in seinem Hub-Ledger auf. Beide Quellen verwenden
 dieselben konfigurierten ASR-/Korrekturmodelle.
 
-Eine LLM-Korrektur läuft niemals für jeden Live-Chunk. Sie ist ein begrenzter,
-nachgelagerter Text-zu-Text-Schritt beim Finalisieren oder nach der
-Batch-Transkription.
+Eine LLM-Korrektur läuft niemals für jeden 500-ms-Live-Chunk. Sie ist ein
+begrenzter, nachgelagerter Text-zu-Text-Schritt: beim kurzen Live-Modus nach
+dem Finalisieren, beim Batch nach der Transkription und beim Langzeitmodus
+parallel nach jedem vollständigen 60- bis 120-Sekunden-Segment.
 
 ## 1. Lokale Modelle bereitstellen
 
@@ -347,11 +350,21 @@ Audioquelle. Die Freigabe bleibt bis zum Stoppen oder bis zum konfigurierten
 Zeitlimit geöffnet.
 
 Der Hub speichert den Run als dauerhaften Parent-Task und jedes Segment als
-delegierten Child-Task. Segmentstatus, bestätigte Sequenz, Lücken,
-Zeitreferenzen und Ergebnisreferenzen werden dauerhaft gespeichert. Roh-Audio
-wird nicht in der Hub-Datenbank persistiert; Transkript-Artefakte verwenden den
-bestehenden verschlüsselten Voice-Artifact-Store. Überlappungen werden beim
-fortlaufenden Zusammensetzen des Transkripts entfernt.
+delegierten ASR-Child-Task. Sobald dessen Ergebnis vorliegt, erscheint der
+Abschnitt im fortlaufenden Transkript mit dem Status **vorläufig**. Falls im
+Voice-Profil eine Korrektur aktiviert ist, delegiert der Hub anschließend
+einen eigenen Korrektur-Child-Task. Dessen höhere Revision ersetzt nur den
+Abschnitt derselben Sequenz; Reihenfolge, Zeitposition und alle anderen
+Abschnitte bleiben bestehen. Die Oberfläche kennzeichnet angewendete
+Korrekturen als **korrigiert** und einen unveränderten oder fehlgeschlagenen
+Fallback als final beziehungsweise **Korrektur fehlgeschlagen**.
+
+Segmentstatus, bestätigte Audio-Sequenz, Textrevision, Lücken, Zeitreferenzen
+und Ergebnisreferenzen werden dauerhaft gespeichert. Roh-Audio und
+Transkript-Klartext werden nicht in der Hub-Datenbank oder in Task-Kontexten
+persistiert; Transkript-Artefakte verwenden den bestehenden verschlüsselten
+Voice-Artifact-Store. Überlappungen werden beim fortlaufenden Zusammensetzen
+des Transkripts entfernt.
 
 Noch nicht bestätigte Audiosegmente werden lokal als AES-GCM-Chiffretext in
 IndexedDB gepuffert. Der Standardspeicher ist global auf fünf Segmente und
@@ -374,6 +387,13 @@ fordert die Oberfläche keine neue Audiofreigabe mehr an. Stattdessen lädt
 **Puffer hochladen und abschließen** die bereits aufgenommenen Chiffretext-
 Segmente während der einstündigen Drain-Frist hoch und finalisiert den Run.
 Nach `expires_at` werden keine Segmente mehr angenommen.
+
+Beim Stoppen bleiben bereits sichtbare vorläufige Abschnitte stehen. Die
+Oberfläche fragt deren Revisions-Deltas weiter ab und wiederholt den
+idempotenten Stop, bis laufende Korrekturen beendet sind. Nach einem
+Hub-Abbruch wird eine fünf Minuten alte Korrektur-Lease übernommen oder als
+`final_uncorrected` abgeschlossen; das Stop-Wartefenster ist dafür auf zehn
+Minuten begrenzt. Eine ASR-Processing-Lease bleibt zehn Minuten gültig.
 
 Für einen achtstündigen Run müssen Browser beziehungsweise Android-App offen
 und der Hub sowie mindestens ein ASR-Worker dauerhaft erreichbar sein. Der
