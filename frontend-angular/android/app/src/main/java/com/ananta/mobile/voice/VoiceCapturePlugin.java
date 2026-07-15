@@ -37,7 +37,8 @@ public final class VoiceCapturePlugin extends Plugin {
     private static final int MAX_CHUNK_MILLISECONDS = 1_000;
     private static final int DEFAULT_CHUNK_MILLISECONDS = 500;
     private static final int DEFAULT_MAX_SECONDS = 120;
-    private static final int MAX_SESSION_SECONDS = 300;
+    private static final int MAX_SESSION_SECONDS = 28_800;
+    private static final long BYTES_PER_SECOND = (long) SAMPLE_RATE * BYTES_PER_SAMPLE;
 
     private final Object captureLock = new Object();
     private volatile boolean capturing;
@@ -98,12 +99,7 @@ public final class VoiceCapturePlugin extends Plugin {
                 MIN_CHUNK_MILLISECONDS,
                 MAX_CHUNK_MILLISECONDS
         );
-        int maxSeconds = bounded(
-                call.getInt("maxSeconds"),
-                DEFAULT_MAX_SECONDS,
-                1,
-                MAX_SESSION_SECONDS
-        );
+        int maxSeconds = boundedMaxSeconds(call.getData().opt("maxSeconds"));
 
         final int channelConfig = AudioFormat.CHANNEL_IN_MONO;
         final int encoding = AudioFormat.ENCODING_PCM_16BIT;
@@ -191,7 +187,7 @@ public final class VoiceCapturePlugin extends Plugin {
 
     private void captureLoop(AudioRecord activeRecorder, int chunkBytes, int maxSeconds) {
         String stopReason = "stopped";
-        long maxBytes = (long) SAMPLE_RATE * BYTES_PER_SAMPLE * maxSeconds;
+        long maxBytes = maximumCaptureBytes(maxSeconds);
         try {
             activeRecorder.startRecording();
             while (capturing && capturedBytes < maxBytes) {
@@ -261,7 +257,7 @@ public final class VoiceCapturePlugin extends Plugin {
         event.put("dataBase64", Base64.encodeToString(payload, Base64.NO_WRAP));
         event.put("byteLength", payload.length);
         event.put("capturedBytes", total);
-        event.put("capturedMilliseconds", total * 1_000L / (SAMPLE_RATE * BYTES_PER_SAMPLE));
+        event.put("capturedMilliseconds", total * 1_000L / BYTES_PER_SECOND);
         event.put("sampleRate", SAMPLE_RATE);
         event.put("channels", 1);
         event.put("encoding", "pcm_s16le");
@@ -276,7 +272,7 @@ public final class VoiceCapturePlugin extends Plugin {
             result.put("capturedBytes", capturedBytes);
             result.put(
                     "capturedMilliseconds",
-                    capturedBytes * 1_000L / (SAMPLE_RATE * BYTES_PER_SAMPLE)
+                    capturedBytes * 1_000L / BYTES_PER_SECOND
             );
         }
         return result;
@@ -289,6 +285,25 @@ public final class VoiceCapturePlugin extends Plugin {
     private static int bounded(Integer requested, int defaultValue, int minimum, int maximum) {
         int value = requested == null ? defaultValue : requested;
         return Math.max(minimum, Math.min(maximum, value));
+    }
+
+    static int boundedMaxSeconds(Object requested) {
+        if (!(requested instanceof Number)) return DEFAULT_MAX_SECONDS;
+        double value = ((Number) requested).doubleValue();
+        if (
+                Double.isNaN(value)
+                        || Double.isInfinite(value)
+                        || value <= 0
+                        || value != Math.rint(value)
+        ) {
+            return DEFAULT_MAX_SECONDS;
+        }
+        if (value >= MAX_SESSION_SECONDS) return MAX_SESSION_SECONDS;
+        return (int) value;
+    }
+
+    static long maximumCaptureBytes(int maxSeconds) {
+        return BYTES_PER_SECOND * (long) maxSeconds;
     }
 
     private static int evenBytes(int value) {

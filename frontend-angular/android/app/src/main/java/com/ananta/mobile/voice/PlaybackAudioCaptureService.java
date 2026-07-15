@@ -46,7 +46,8 @@ public final class PlaybackAudioCaptureService extends Service {
     private static final int MAX_CHUNK_MILLISECONDS = 1_000;
     private static final int DEFAULT_CHUNK_MILLISECONDS = 500;
     private static final int DEFAULT_MAX_SECONDS = 120;
-    private static final int MAX_SESSION_SECONDS = 300;
+    private static final int MAX_SESSION_SECONDS = 28_800;
+    private static final long BYTES_PER_SECOND = (long) SAMPLE_RATE * BYTES_PER_SAMPLE;
 
     private enum CaptureLifecycle {
         PREPARED,
@@ -78,7 +79,7 @@ public final class PlaybackAudioCaptureService extends Service {
         }
 
         public long capturedMilliseconds() {
-            return capturedBytes * 1_000L / (SAMPLE_RATE * BYTES_PER_SAMPLE);
+            return capturedBytes * 1_000L / BYTES_PER_SECOND;
         }
     }
 
@@ -104,7 +105,7 @@ public final class PlaybackAudioCaptureService extends Service {
         }
 
         public long capturedMilliseconds() {
-            return capturedBytes * 1_000L / (SAMPLE_RATE * BYTES_PER_SAMPLE);
+            return capturedBytes * 1_000L / BYTES_PER_SECOND;
         }
     }
 
@@ -288,12 +289,7 @@ public final class PlaybackAudioCaptureService extends Service {
                 MIN_CHUNK_MILLISECONDS,
                 MAX_CHUNK_MILLISECONDS
         );
-        int maxSeconds = bounded(
-                requestedMaxSeconds,
-                DEFAULT_MAX_SECONDS,
-                1,
-                MAX_SESSION_SECONDS
-        );
+        int maxSeconds = boundedMaxSeconds(requestedMaxSeconds);
         int minimumBuffer = AudioRecord.getMinBufferSize(
                 SAMPLE_RATE,
                 AudioFormat.CHANNEL_IN_MONO,
@@ -420,7 +416,7 @@ public final class PlaybackAudioCaptureService extends Service {
             int maxSeconds,
             long captureGeneration
     ) {
-        long maxBytes = (long) SAMPLE_RATE * BYTES_PER_SAMPLE * maxSeconds;
+        long maxBytes = maximumCaptureBytes(maxSeconds);
         try {
             activeRecorder.startRecording();
             while (capturing && capturedBytesSnapshot() < maxBytes) {
@@ -778,6 +774,14 @@ public final class PlaybackAudioCaptureService extends Service {
     private static int bounded(int requested, int defaultValue, int minimum, int maximum) {
         int value = requested <= 0 ? defaultValue : requested;
         return Math.max(minimum, Math.min(maximum, value));
+    }
+
+    static int boundedMaxSeconds(int requested) {
+        return bounded(requested, DEFAULT_MAX_SECONDS, 1, MAX_SESSION_SECONDS);
+    }
+
+    static long maximumCaptureBytes(int maxSeconds) {
+        return BYTES_PER_SECOND * (long) maxSeconds;
     }
 
     private static int evenBytes(int value) {

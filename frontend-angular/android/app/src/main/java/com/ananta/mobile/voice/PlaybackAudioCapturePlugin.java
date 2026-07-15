@@ -49,6 +49,7 @@ public final class PlaybackAudioCapturePlugin extends Plugin {
     private static final int SAMPLE_RATE = 16_000;
     private static final int DEFAULT_CHUNK_MILLISECONDS = 500;
     private static final int DEFAULT_MAX_SECONDS = 120;
+    private static final int MAX_SESSION_SECONDS = 28_800;
     private static final long SERVICE_BIND_TIMEOUT_MILLISECONDS = 5_000L;
     private static final long PREPARED_CONSENT_TIMEOUT_MILLISECONDS = 60_000L;
 
@@ -401,7 +402,7 @@ public final class PlaybackAudioCapturePlugin extends Plugin {
                     prepared.resultCode,
                     prepared.resultData,
                     call.getInt("chunkMilliseconds", DEFAULT_CHUNK_MILLISECONDS),
-                    call.getInt("maxSeconds", DEFAULT_MAX_SECONDS),
+                    boundedMaxSeconds(call.getData().opt("maxSeconds")),
                     startGeneration
             );
             connection = new GenerationServiceConnection(startGeneration);
@@ -1094,9 +1095,19 @@ public final class PlaybackAudioCapturePlugin extends Plugin {
         return Math.max(100, Math.min(1_000, value));
     }
 
-    private static int boundedMaxSeconds(int requested) {
-        int value = requested <= 0 ? DEFAULT_MAX_SECONDS : requested;
-        return Math.max(1, Math.min(300, value));
+    static int boundedMaxSeconds(Object requested) {
+        if (!(requested instanceof Number)) return DEFAULT_MAX_SECONDS;
+        double value = ((Number) requested).doubleValue();
+        if (
+                Double.isNaN(value)
+                        || Double.isInfinite(value)
+                        || value <= 0
+                        || value != Math.rint(value)
+        ) {
+            return DEFAULT_MAX_SECONDS;
+        }
+        if (value >= MAX_SESSION_SECONDS) return MAX_SESSION_SECONDS;
+        return (int) value;
     }
 
     private static final class PendingStart {
