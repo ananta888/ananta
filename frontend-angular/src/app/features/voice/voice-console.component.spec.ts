@@ -104,6 +104,7 @@ describe('VoiceConsoleComponent', () => {
     expect(text).toContain('gemma-3-4b-it');
     expect(text).toContain('phi-4-mini');
     expect(fixture.componentInstance.selectedBackend).toBe('vosk');
+    expect(fixture.componentInstance.selectedCorrectorProvider).toBe('embedded');
     expect(fixture.componentInstance.selectedCorrectorModel).toBe('gemma-3-4b-it');
     expect((fixture.nativeElement as HTMLElement).querySelector('a[href="/settings?section=voice"]')).toBeTruthy();
   });
@@ -124,6 +125,7 @@ describe('VoiceConsoleComponent', () => {
         primary_backend: 'vosk',
         correction_policy: 'generative_rewrite',
         review_policy: 'always',
+        generative_corrector_provider: 'embedded',
         generative_corrector_model: 'phi-4-mini',
         secondary_backends: [],
         feature_flags: { generative_corrector: true, voice_fusion: false },
@@ -188,6 +190,8 @@ describe('VoiceConsoleComponent', () => {
       models: [
         { id: 'vosk-de', backend: 'vosk', available: false, status: 'unavailable', reason_code: 'model_missing' },
         { id: 'whisper-small', engine: 'whisper_cpp', status: 'ready' },
+        { id: 'whisper-fast', engine: 'faster_whisper', status: 'ready' },
+        { id: 'voxtral-mini', engine: 'voxtral', status: 'unavailable', reason_code: 'model_missing' },
       ],
       model_catalog: [
         { id: 'vosk-de', engine: 'vosk', status: 'unavailable', reason_code: 'manifest_missing' },
@@ -209,7 +213,9 @@ describe('VoiceConsoleComponent', () => {
 
     expect(component.asrBackends()).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: 'vosk', available: false, reason: 'model_missing' }),
-      expect.objectContaining({ id: 'whisper_cpp', available: true }),
+      expect.objectContaining({ id: 'whisper_cpp', label: 'whisper.cpp', available: true }),
+      expect.objectContaining({ id: 'faster_whisper', label: 'faster-whisper', available: true }),
+      expect.objectContaining({ id: 'voxtral', label: 'Voxtral', available: false }),
     ]));
     expect(component.backendReason('vosk')).toBe('model_missing');
     expect(component.validBackendSelection()).toBe(false);
@@ -222,6 +228,127 @@ describe('VoiceConsoleComponent', () => {
       expect.objectContaining({ id: 'phi-4-mini', available: true }),
       expect.objectContaining({ id: 'retired-gemma', available: false, reason: 'voice.corrector.not_reported' }),
     ]));
+    expect(component.validCorrectionSelection()).toBe(false);
+  });
+
+  it('filters provider-aware models and persists inherit without endpoint material', async () => {
+    api.getCapabilities.mockReturnValue(of({
+      available: true,
+      provider: 'voice-runtime',
+      capabilities: ['generative_rewrite'],
+      models: [{ id: 'vosk-de', backend: 'vosk', available: true }],
+      correction_providers: [
+        { id: 'embedded', display_name: 'Embedded', available: true, supports_manual_model: false },
+        { id: 'ollama', display_name: 'Ollama', available: true, supports_manual_model: true },
+        { id: 'lmstudio', display_name: 'LM Studio', available: true, supports_manual_model: true },
+      ],
+      correction_default: {
+        provider: 'ollama', model: 'llama3.2:latest', source: 'default_provider/default_model', available: true,
+      },
+      correction_models: [
+        { id: 'qwen-local', provider: 'embedded', available: true, role: 'generative_corrector' },
+        { id: 'shared-model', provider: 'ollama', available: true, role: 'generative_corrector' },
+        { id: 'llama3.2:latest', provider: 'ollama', available: true, role: 'generative_corrector' },
+        { id: 'shared-model', provider: 'lmstudio', available: true, role: 'generative_corrector' },
+      ],
+    }));
+    api.getConfiguration.mockReturnValue(of({
+      schema_version: 'ananta.voice-configuration.v1',
+      effective: {
+        recognition_strategy: 'single', primary_backend: 'vosk', correction_policy: 'generative_rewrite',
+        generative_corrector_provider: 'ollama', generative_corrector_model: 'shared-model',
+        feature_flags: { generative_corrector: true },
+      },
+      sources: [], version: 1,
+    }));
+    const fixture = TestBed.createComponent(VoiceConsoleComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    expect(component.selectedCorrectorProvider).toBe('ollama');
+    expect(component.correctorModels('ollama').map((choice) => choice.id)).toEqual([
+      'shared-model', 'llama3.2:latest',
+    ]);
+    expect(component.correctorModels('lmstudio').map((choice) => choice.id)).toEqual(['shared-model']);
+    expect(component.correctorProviders()).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'inherit', label: 'Allgemeine LLM-Vorgabe', available: true }),
+      expect.objectContaining({ id: 'ollama', available: true }),
+      expect.objectContaining({ id: 'lmstudio', available: true }),
+    ]));
+    const deploymentNotice = (fixture.nativeElement as HTMLElement).textContent || '';
+    expect(deploymentNotice).toContain('übernimmt nur Provider und Modell');
+    expect(deploymentNotice).toContain('LMSTUDIO_URL');
+    expect(deploymentNotice).toContain('LMSTUDIO_API_KEY');
+    expect(deploymentNotice).toContain('OLLAMA_URL');
+    expect(deploymentNotice).toContain('OLLAMA_API_KEY');
+    expect(deploymentNotice).toContain('Neuerstellung des Corrector-Workers');
+    expect(deploymentNotice).toContain('ein bloßer Neustart lädt sie nicht neu');
+    expect(deploymentNotice).toContain('docs/voice-quickstart.md');
+    expect((fixture.nativeElement as HTMLElement).querySelector('a[href="/settings?section=llm"]')).toBeTruthy();
+
+    component.onCorrectorProviderChange('inherit');
+    expect(component.selectedCorrectorModel).toBe('');
+    expect(component.validCorrectionSelection()).toBe(true);
+    await component.saveConfiguration();
+
+    const mutation = api.saveConfiguration.mock.calls.at(-1)?.[1];
+    expect(mutation.delta).toEqual(expect.objectContaining({
+      generative_corrector_provider: 'inherit',
+      generative_corrector_model: '',
+    }));
+    expect(mutation.delta).not.toHaveProperty('base_url');
+    expect(mutation.delta).not.toHaveProperty('api_key');
+  });
+
+  it('accepts a manual model ID for a configured provider even when discovery is offline', async () => {
+    api.getCapabilities.mockReturnValue(of({
+      available: true,
+      provider: 'voice-runtime',
+      capabilities: ['generative_rewrite'],
+      models: [{ id: 'vosk-de', backend: 'vosk', available: true }],
+      correction_providers: [
+        { id: 'embedded', display_name: 'Embedded', available: true, supports_manual_model: false },
+        { id: 'vllm_local', display_name: 'vLLM Local', available: false, supports_manual_model: true },
+      ],
+      correction_models: [{
+        id: 'qwen-local', provider: 'embedded', available: true, role: 'generative_corrector',
+      }],
+    }));
+    api.getConfiguration.mockReturnValue(of({
+      schema_version: 'ananta.voice-configuration.v1',
+      effective: {
+        recognition_strategy: 'single', primary_backend: 'vosk', correction_policy: 'generative_rewrite',
+        generative_corrector_provider: 'vllm_local', generative_corrector_model: 'Qwen/Qwen2.5-7B-Instruct',
+        feature_flags: { generative_corrector: true },
+      },
+      sources: [], version: 1,
+    }));
+    const fixture = TestBed.createComponent(VoiceConsoleComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    expect(component.manualCorrectorModel).toBe(true);
+    expect(component.manualCorrectorModelId).toBe('Qwen/Qwen2.5-7B-Instruct');
+    expect(component.validCorrectionSelection()).toBe(true);
+    await component.saveConfiguration();
+    expect(api.saveConfiguration).toHaveBeenCalledWith('http://hub.test', expect.objectContaining({
+      delta: expect.objectContaining({
+        generative_corrector_provider: 'vllm_local',
+        generative_corrector_model: 'Qwen/Qwen2.5-7B-Instruct',
+      }),
+    }), expect.any(String));
+
+    vi.clearAllMocks();
+    component.manualCorrectorModelId = 'not valid model';
+    expect(component.validCorrectionSelection()).toBe(false);
+    component.manualCorrectorModelId = 'm'.repeat(182);
+    expect(component.validCorrectionSelection()).toBe(false);
+    await component.saveConfiguration();
+    expect(api.saveConfiguration).not.toHaveBeenCalled();
+
+    component.onCorrectorProviderChange('embedded');
+    component.setManualCorrectorModel(true);
+    expect(component.correctorProviderSupportsManual()).toBe(false);
     expect(component.validCorrectionSelection()).toBe(false);
   });
 });

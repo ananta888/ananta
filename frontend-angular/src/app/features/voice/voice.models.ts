@@ -129,6 +129,8 @@ export interface VoiceResourceStatus {
 
 export interface VoiceModelCapability {
   id: string;
+  provider?: string;
+  display_name?: string;
   backend?: string;
   engine?: string;
   role?: string;
@@ -145,6 +147,22 @@ export interface VoiceModelCapability {
   [key: string]: unknown;
 }
 
+export interface VoiceCorrectionProviderCapability {
+  id: string;
+  display_name: string;
+  available: boolean;
+  supports_manual_model: boolean;
+  reason_code?: string | null;
+}
+
+export interface VoiceCorrectionDefault {
+  provider: string;
+  model: string;
+  configured_model?: string;
+  source: string;
+  available: boolean;
+}
+
 export interface VoiceCapabilityStatus {
   available: boolean;
   provider: string;
@@ -153,6 +171,10 @@ export interface VoiceCapabilityStatus {
   model_catalog?: VoiceModelCapability[];
   /** Optional Hub-provided subset. Older Hubs expose correctors in `models`. */
   correction_models?: VoiceModelCapability[];
+  /** Additive provider-aware correction catalog. Missing on legacy Hubs. */
+  correction_providers?: VoiceCorrectionProviderCapability[];
+  /** Effective general LLM target used by the virtual `inherit` provider. */
+  correction_default?: VoiceCorrectionDefault | null;
   limits?: { max_audio_mb?: number; [key: string]: unknown };
   privacy?: {
     store_audio_requested?: boolean;

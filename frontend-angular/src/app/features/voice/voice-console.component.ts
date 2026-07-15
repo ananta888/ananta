@@ -19,23 +19,25 @@ import {
   VoiceCapabilityStatus,
   VoiceConfiguration,
   VoiceConfigurationSchema,
-  VoiceModelCapability,
   VoiceStreamEvent,
   VoiceTranscriptionResult,
 } from './voice.models';
+import {
+  buildCorrectorModels,
+  buildCorrectorProviders,
+  correctionDefaultLabel as describeCorrectionDefault,
+  correctorProviderSupportsManual as providerSupportsManual,
+  isReportedCorrectorModel,
+  isVoiceCorrectionModel,
+  validCorrectorModelId,
+  VoiceChoice,
+} from './voice-corrector-catalog';
 import { VoiceRuntimeStatusComponent } from './voice-runtime-status.component';
 import { VoiceTranscriptionResultComponent } from './voice-transcription-result.component';
 import { configurationFields, valueAtPath, voiceError, voiceMutationKey } from './voice-ui.helpers';
 
 type VoiceConsoleTab = 'live' | 'batch';
 type VoiceConfigurationTarget = 'profile' | 'session';
-
-interface VoiceChoice {
-  id: string;
-  label: string;
-  available: boolean;
-  reason: string;
-}
 
 @Component({
   selector: 'app-voice-console',
@@ -78,7 +80,10 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
   selectedBackend = 'vosk';
   selectedSecondaryBackend = 'whisper_cpp';
   generativeCorrection = true;
+  selectedCorrectorProvider = 'embedded';
   selectedCorrectorModel = '';
+  manualCorrectorModel = false;
+  manualCorrectorModelId = '';
 
   liveActive = false;
   liveBusy = false;
@@ -311,14 +316,17 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
     const runtimeModels = [
       ...(this.capabilities?.models || []),
       ...(this.capabilities?.model_catalog || []),
-    ].filter((model) => !isCorrectionModel(model));
+    ].filter((model) => !isVoiceCorrectionModel(model));
     const runtimeChoices = runtimeModels.map((model) => ({
       id: String(model.backend || model.engine || model.id),
       label: String(model.backend || model.engine || model.id),
       available: modelIsAvailable(model),
       reason: String(model.reason_code || (modelIsAvailable(model) ? '' : model.status || 'voice.backend.unavailable')),
     }));
-    const ids = new Set((schemaChoices.length ? schemaChoices : runtimeChoices).map((choice) => choice.id));
+    const ids = new Set([
+      ...schemaChoices.map((choice) => choice.id),
+      ...runtimeChoices.map((choice) => choice.id),
+    ]);
     return [...ids].map((id) => {
       const schema = schemaChoices.find((choice) => choice.id === id);
       const matching = runtimeChoices.filter((choice) => choice.id === id);
@@ -326,7 +334,7 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
       const unavailable = matching.find((choice) => !choice.available);
       return {
         id,
-        label: schema?.label || ready?.label || unavailable?.label || id,
+        label: asrBackendLabel(id, schema?.label || ready?.label || unavailable?.label),
         available: schema?.available !== false && Boolean(ready),
         reason: schema?.reason || ready?.reason || unavailable?.reason || 'voice.backend.not_reported',
       };
@@ -353,40 +361,69 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
     return choice && !choice.available ? choice.reason : '';
   }
 
-  correctorReason(modelId: string): string {
-    const choice = this.correctorModels().find((candidate) => candidate.id === modelId);
+  correctorProviderReason(providerId: string): string {
+    const choice = this.correctorProviders().find((candidate) => candidate.id === providerId);
     return choice && !choice.available ? choice.reason : '';
   }
 
-  correctorModels(): VoiceChoice[] {
-    const schemaChoices = this.fieldChoices('generative_corrector_model', []);
-    const capabilityModels = (this.capabilities?.correction_models || []).map((model) => ({
-      id: model.id,
-      label: `${model.id}${model.revision ? ` · ${model.revision}` : ''}`,
-      available: model.available === true,
-      reason: String(model.reason_code || (model.available === true ? '' : 'voice.corrector.unavailable')),
-    }));
-    const current = String(valueAtPath(this.configuration?.effective, 'generative_corrector_model') || '');
-    const ids = new Set([
-      ...capabilityModels.map((choice) => choice.id),
-      ...schemaChoices.map((choice) => choice.id),
-      ...(current ? [current] : []),
-    ]);
-    return [...ids].map((id) => {
-      const capability = capabilityModels.find((choice) => choice.id === id);
-      const schema = schemaChoices.find((choice) => choice.id === id);
-      return capability || {
-        id,
-        label: schema?.label || id,
-        available: false,
-        reason: schema?.reason || 'voice.corrector.not_reported',
-      };
-    });
+  correctorReason(modelId: string): string {
+    const choice = this.correctorModels(this.selectedCorrectorProvider).find((candidate) => candidate.id === modelId);
+    return choice && !choice.available ? choice.reason : '';
+  }
+
+  correctorProviders(): VoiceChoice[] {
+    return buildCorrectorProviders(this.capabilities, this.configuration);
+  }
+
+  correctorModels(providerId = this.selectedCorrectorProvider): VoiceChoice[] {
+    return buildCorrectorModels(
+      this.capabilities,
+      this.configuration,
+      this.fieldChoices('generative_corrector_model', []),
+      providerId,
+    );
+  }
+
+  onCorrectorProviderChange(providerId: string): void {
+    this.selectedCorrectorProvider = String(providerId || '').trim().toLowerCase();
+    this.manualCorrectorModel = false;
+    this.manualCorrectorModelId = '';
+    this.selectedCorrectorModel = this.selectedCorrectorProvider === 'inherit'
+      ? ''
+      : this.correctorModels(this.selectedCorrectorProvider).find((choice) => choice.available)?.id || '';
+  }
+
+  setManualCorrectorModel(enabled: boolean): void {
+    this.manualCorrectorModel = enabled;
+    if (enabled) {
+      this.manualCorrectorModelId = this.manualCorrectorModelId || this.selectedCorrectorModel;
+      return;
+    }
+    this.selectedCorrectorModel = this.correctorModels(this.selectedCorrectorProvider)
+      .find((choice) => choice.available)?.id || '';
+  }
+
+  correctorProviderSupportsManual(providerId = this.selectedCorrectorProvider): boolean {
+    return providerSupportsManual(this.capabilities, providerId);
+  }
+
+  correctionDefaultLabel(): string {
+    return describeCorrectionDefault(this.capabilities);
   }
 
   validCorrectionSelection(): boolean {
     if (!this.generativeCorrection) return true;
-    return Boolean(this.correctorModels().find((choice) => (
+    const provider = this.correctorProviders().find((choice) => (
+      choice.id === this.selectedCorrectorProvider
+    ));
+    if (!provider) return false;
+    if (this.selectedCorrectorProvider === 'inherit') return provider.available;
+    if (this.manualCorrectorModel) {
+      return this.correctorProviderSupportsManual()
+        && validCorrectorModelId(this.manualCorrectorModelId, this.selectedCorrectorProvider);
+    }
+    if (!provider.available) return false;
+    return Boolean(this.correctorModels(this.selectedCorrectorProvider).find((choice) => (
       choice.id === this.selectedCorrectorModel.trim() && choice.available
     )));
   }
@@ -403,9 +440,28 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
     this.selectedSecondaryBackend = Array.isArray(secondary) ? String(secondary[0] || '') : 'whisper_cpp';
     this.generativeCorrection = String(valueAtPath(effective, 'correction_policy') || '') === 'generative_rewrite'
       || valueAtPath(effective, 'feature_flags.generative_corrector') === true;
+    this.selectedCorrectorProvider = String(
+      valueAtPath(effective, 'generative_corrector_provider') || 'embedded',
+    ).trim().toLowerCase() || 'embedded';
     this.selectedCorrectorModel = String(valueAtPath(effective, 'generative_corrector_model') || '');
-    if (!this.selectedCorrectorModel) {
-      this.selectedCorrectorModel = this.correctorModels().find((choice) => choice.available)?.id || '';
+    this.manualCorrectorModel = false;
+    this.manualCorrectorModelId = '';
+    if (this.selectedCorrectorProvider === 'inherit') {
+      this.selectedCorrectorModel = '';
+    } else if (
+      this.selectedCorrectorModel
+      && !isReportedCorrectorModel(
+        this.capabilities,
+        this.selectedCorrectorProvider,
+        this.selectedCorrectorModel,
+      )
+      && this.correctorProviderSupportsManual(this.selectedCorrectorProvider)
+    ) {
+      this.manualCorrectorModel = true;
+      this.manualCorrectorModelId = this.selectedCorrectorModel;
+    } else if (!this.selectedCorrectorModel) {
+      this.selectedCorrectorModel = this.correctorModels(this.selectedCorrectorProvider)
+        .find((choice) => choice.available)?.id || '';
     }
   }
 
@@ -435,7 +491,14 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
         voice_fusion: this.selectedRecognitionStrategy === 'parallel_compare',
       },
     };
-    if (this.generativeCorrection) delta['generative_corrector_model'] = this.selectedCorrectorModel;
+    if (this.generativeCorrection) {
+      delta['generative_corrector_provider'] = this.selectedCorrectorProvider;
+      delta['generative_corrector_model'] = this.selectedCorrectorProvider === 'inherit'
+        ? ''
+        : this.manualCorrectorModel
+          ? this.manualCorrectorModelId.trim()
+          : this.selectedCorrectorModel;
+    }
     await firstValueFrom(this.api.saveConfiguration(this.hubUrl, {
       scope,
       scope_id: scopeId,
@@ -533,17 +596,21 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
   }
 }
 
-function isCorrectionModel(model: VoiceModelCapability): boolean {
-  const role = `${model.role || ''} ${model.purpose || ''} ${model.model_type || ''} ${model.backend || ''} ${model.engine || ''}`.toLowerCase();
-  const capabilities = (model.capabilities || []).join(' ').toLowerCase();
-  return /corrector|rewrite|text.correction|generative/.test(`${role} ${capabilities}`);
-}
-
-function modelIsAvailable(model: VoiceModelCapability): boolean {
+function modelIsAvailable(model: { available?: boolean; status?: string }): boolean {
   if (typeof model.available === 'boolean') return model.available;
   const status = String(model.status || '').toLowerCase();
   if (!status) return true;
   return ['ready', 'available', 'configured', 'loaded'].includes(status);
+}
+
+function asrBackendLabel(backendId: string, reportedLabel?: string): string {
+  const labels: Record<string, string> = {
+    vosk: 'Vosk',
+    whisper_cpp: 'whisper.cpp',
+    faster_whisper: 'faster-whisper',
+    voxtral: 'Voxtral',
+  };
+  return labels[backendId] || reportedLabel || backendId;
 }
 
 function uniqueChoices(choices: VoiceChoice[]): VoiceChoice[] {

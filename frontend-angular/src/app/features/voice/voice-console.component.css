@@ -52,6 +52,15 @@
   gap: .2rem;
 }
 
+.voice-corrector-summary {
+  align-content: start;
+  background: var(--surface-subtle, rgba(127, 127, 127, .08));
+  border-radius: .35rem;
+  display: grid;
+  gap: .35rem;
+  padding: .75rem;
+}
+
 .voice-console-tabs {
   border-bottom: 1px solid var(--border, #d7dce5);
   display: flex;

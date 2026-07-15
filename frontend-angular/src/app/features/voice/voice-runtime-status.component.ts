@@ -52,9 +52,10 @@ export class VoiceRuntimeStatusComponent implements OnChanges {
       ...(this.capabilities?.model_catalog || []),
       ...(this.capabilities?.correction_models || []),
     ];
-    return values.filter((model, index) => (
-      values.findIndex((candidate) => candidate.id === model.id && candidate.role === model.role) === index
-    ));
+    return values.filter((model, index) => {
+      const key = modelIdentity(model);
+      return values.findIndex((candidate) => modelIdentity(candidate) === key) === index;
+    });
   }
 
   resourceRows(): Array<{ label: string; value: string }> {
@@ -67,4 +68,12 @@ export class VoiceRuntimeStatusComponent implements OnChanges {
         value: String(value),
       })));
   }
+}
+
+function modelIdentity(model: VoiceModelCapability): string {
+  return [
+    model.provider || model.backend || model.engine || '',
+    model.id,
+    model.role || '',
+  ].join('\u0000');
 }

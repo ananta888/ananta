@@ -16,9 +16,9 @@
       <table class="standard-table">
         <thead><tr><th>Backend / Modell</th><th>Revision</th><th>Ort</th><th>Device</th><th>Status</th><th>Grund</th></tr></thead>
         <tbody>
-          @for (model of models(); track model.id) {
+          @for (model of models(); track (model.provider || model.backend || model.engine || '') + ':' + model.id + ':' + (model.role || '')) {
             <tr>
-              <td>{{ model.backend || model.engine || model.role || '-' }} / {{ model.id }}</td>
+              <td>{{ model.provider || model.backend || model.engine || model.role || '-' }} / {{ model.id }}</td>
               <td class="font-mono font-sm">{{ model.revision || '-' }}</td>
               <td>{{ model.local === false ? 'Remote' : 'Lokal' }}</td>
               <td>{{ model.device || '-' }}</td>
