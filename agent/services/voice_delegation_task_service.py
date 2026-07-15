@@ -115,9 +115,9 @@ class VoiceDelegationTaskService:
         return VoiceDelegationTask(task_id=task_id, deadline_epoch_ms=effective_deadline_epoch_ms)
 
     def complete(self, task: VoiceDelegationTask, *, result_ref: str) -> None:
-        from agent.services.task_runtime_service import update_local_task_status
+        from agent.services.voice_task_terminal_service import get_voice_task_terminal_service
 
-        update_local_task_status(
+        get_voice_task_terminal_service().update_existing(
             task.task_id,
             "completed",
             last_output=result_ref,
@@ -128,9 +128,9 @@ class VoiceDelegationTaskService:
         )
 
     def fail(self, task: VoiceDelegationTask, exc: BaseException) -> None:
-        from agent.services.task_runtime_service import update_local_task_status
+        from agent.services.voice_task_terminal_service import get_voice_task_terminal_service
 
-        update_local_task_status(
+        get_voice_task_terminal_service().update_existing(
             task.task_id,
             "failed",
             status_reason_code="voice_runtime_failed",
@@ -141,9 +141,9 @@ class VoiceDelegationTaskService:
         )
 
     def cancel(self, task_id: str, *, reason_code: str) -> None:
-        from agent.services.task_runtime_service import update_local_task_status
+        from agent.services.voice_task_terminal_service import get_voice_task_terminal_service
 
-        update_local_task_status(
+        get_voice_task_terminal_service().update_existing(
             task_id,
             "cancelled",
             status_reason_code=reason_code,

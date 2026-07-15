@@ -96,10 +96,10 @@ class VoiceGenerativeCorrectorTaskTracker:
 
     @staticmethod
     def finish(task_id: str, *, status: str, reason_code: str) -> None:
-        from agent.services.task_runtime_service import update_local_task_status
+        from agent.services.voice_task_terminal_service import get_voice_task_terminal_service
 
         succeeded = status in {"corrected", "unchanged"}
-        update_local_task_status(
+        get_voice_task_terminal_service().update_existing(
             task_id,
             "completed" if succeeded else "failed",
             status_reason_code=None if succeeded else reason_code,

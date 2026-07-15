@@ -13,6 +13,8 @@ from agent.db_models import (
     VoiceConsentDB,
     VoiceFeedbackDB,
     VoiceGovernanceIdempotencyDB,
+    VoiceLiveRunDB,
+    VoiceLiveRunSegmentDB,
     VoicePersonalizationProfileDB,
     VoiceResultArtifactDB,
     VoiceReviewDB,
@@ -28,6 +30,7 @@ class VoicePrivacyRepository:
             "restricted_inference",
             "voice_training_export",
             "voice_transcription",
+            "voice_live_run",
             "voice_generative_judge",
             "voice_generative_corrector",
         }
@@ -37,6 +40,7 @@ class VoicePrivacyRepository:
         "voice_generative_judge": "voice_generative_judge",
         "voice_generative_corrector": "voice_generative_corrector",
         "voice_transcription": "voice_transcription",
+        "voice_live_run": "voice_live_run",
     }
 
     def delete_profile(
@@ -95,6 +99,29 @@ class VoicePrivacyRepository:
                     )
                 ).all()
             )
+            live_runs = list(
+                session.exec(
+                    select(VoiceLiveRunDB).where(
+                        VoiceLiveRunDB.tenant_id == principal.tenant_id,
+                        VoiceLiveRunDB.owner_subject == principal.subject,
+                        VoiceLiveRunDB.profile_id == profile_id,
+                    )
+                ).all()
+            )
+            live_run_ids = {item.id for item in live_runs}
+            live_segments = (
+                list(
+                    session.exec(
+                        select(VoiceLiveRunSegmentDB).where(
+                            VoiceLiveRunSegmentDB.run_id.in_(live_run_ids),
+                            VoiceLiveRunSegmentDB.tenant_id == principal.tenant_id,
+                            VoiceLiveRunSegmentDB.owner_subject == principal.subject,
+                        )
+                    ).all()
+                )
+                if live_run_ids
+                else []
+            )
             related_session_ids = {
                 str(value)
                 for value in (
@@ -110,8 +137,33 @@ class VoicePrivacyRepository:
                 *(item.id for item in consents),
                 *(item.id for item in profiles),
                 *(item.id for item in result_artifacts),
+                *(item.id for item in live_runs),
+                *(item.id for item in live_segments),
                 *related_session_ids,
             }
+            related_session_ids.update(
+                str(item.configuration_session_id)
+                for item in live_runs
+                if item.configuration_session_id
+            )
+            related_resource_ids.update(related_session_ids)
+            if live_run_ids:
+                session.exec(
+                    delete(VoiceLiveRunSegmentDB).where(
+                        VoiceLiveRunSegmentDB.run_id.in_(live_run_ids),
+                        VoiceLiveRunSegmentDB.tenant_id == principal.tenant_id,
+                        VoiceLiveRunSegmentDB.owner_subject == principal.subject,
+                    )
+                )
+                session.exec(
+                    delete(VoiceLiveRunDB).where(
+                        VoiceLiveRunDB.id.in_(live_run_ids),
+                        VoiceLiveRunDB.tenant_id == principal.tenant_id,
+                        VoiceLiveRunDB.owner_subject == principal.subject,
+                    )
+                )
+            counts[VoiceLiveRunSegmentDB.__tablename__] = len(live_segments)
+            counts[VoiceLiveRunDB.__tablename__] = len(live_runs)
 
             for model in scoped_models:
                 predicate = (
@@ -136,7 +188,11 @@ class VoicePrivacyRepository:
                 principal=principal,
                 profile_id=profile_id,
                 artifact_ids={item.id for item in result_artifacts},
-                explicit_task_ids={str(item) for item in task_ids if item},
+                explicit_task_ids=(
+                    {str(item) for item in task_ids if item}
+                    | {item.parent_task_id for item in live_runs}
+                    | {item.task_id for item in live_segments if item.task_id}
+                ),
             )
             counts.update(task_counts)
             related_resource_ids.update(deleted_task_ids)

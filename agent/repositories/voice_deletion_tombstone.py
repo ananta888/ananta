@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import time
 from dataclasses import dataclass
 
@@ -58,6 +59,44 @@ class VoiceDeletionTombstoneRepository:
             self._project(record)
         return len(records)
 
+    def deleted_at(
+        self,
+        principal: VoicePrincipal,
+        profile_id: str,
+    ) -> float | None:
+        """Return the latest durable deletion cutoff for one pseudonymous scope."""
+
+        scope_digest = voice_scope_digest(principal, profile_id)
+        with Session(engine) as session:
+            tombstone = self._find(session, scope_digest)
+            return float(tombstone.deleted_at) if tombstone is not None else None
+
+    def generation(
+        self,
+        principal: VoicePrincipal,
+        profile_id: str,
+    ) -> str:
+        """Return a stable generation that changes for every scoped deletion."""
+
+        scope_digest = voice_scope_digest(principal, profile_id)
+        with Session(engine) as session:
+            tombstone = self._find(session, scope_digest)
+            deleted_at = float(tombstone.deleted_at).hex() if tombstone is not None else "none"
+            key_version = str(tombstone.key_version) if tombstone is not None else "none"
+            deletion_keys = (
+                sorted(str(value) for value in tombstone.idempotency_key_digests) if tombstone is not None else []
+            )
+        canonical = "\0".join(
+            (
+                "ananta.voice-deletion-generation.v1",
+                scope_digest,
+                deleted_at,
+                key_version,
+                *deletion_keys,
+            )
+        )
+        return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
     def list_page(
         self,
         *,
@@ -77,9 +116,9 @@ class VoiceDeletionTombstoneRepository:
                     )
                 )
             rows = session.exec(
-                statement
-                .order_by(VoiceDeletionTombstoneDB.deleted_at, VoiceDeletionTombstoneDB.id)
-                .limit(bounded_limit)
+                statement.order_by(VoiceDeletionTombstoneDB.deleted_at, VoiceDeletionTombstoneDB.id).limit(
+                    bounded_limit
+                )
             ).all()
             return tuple(rows)
 

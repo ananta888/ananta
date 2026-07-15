@@ -67,9 +67,7 @@ class VoiceResultArtifactService:
             if isinstance(item, dict) and item.get("candidate_id")
         ]
         policy_retention_seconds = self.retention_seconds_for(principal, normalized_profile_id)
-        requested_retention_seconds = (
-            policy_retention_seconds if retention_seconds is None else int(retention_seconds)
-        )
+        requested_retention_seconds = policy_retention_seconds if retention_seconds is None else int(retention_seconds)
         expires_at = time.time() + max(
             60,
             min(requested_retention_seconds, policy_retention_seconds, 30 * 24 * 60 * 60),
@@ -211,6 +209,29 @@ class VoiceResultArtifactService:
         normalized_profile_id = validate_identifier(profile_id, field="profile_id")
         deleted_count: int = self._repository.delete_profile(principal, normalized_profile_id)
         return deleted_count
+
+    def delete(self, principal: VoicePrincipal, artifact_id: str) -> int:
+        normalized_id = validate_identifier(artifact_id, field="result_ref", max_length=200)
+        return self._repository.delete_envelope(principal, normalized_id)
+
+    def delete_request_bundle(
+        self,
+        principal: VoicePrincipal,
+        *,
+        profile_id: str,
+        request_ref: str,
+    ) -> int:
+        normalized_profile_id = validate_identifier(profile_id, field="profile_id")
+        normalized_request_ref = validate_identifier(
+            request_ref,
+            field="request_ref",
+            max_length=200,
+        )
+        return self._repository.delete_envelope_for_request(
+            principal,
+            profile_id=normalized_profile_id,
+            request_ref=normalized_request_ref,
+        )
 
     def retention_seconds_for(self, principal: VoicePrincipal, profile_id: str) -> int:
         normalized_profile_id = validate_identifier(profile_id, field="profile_id")

@@ -37,9 +37,7 @@ class VoiceIdempotencyService:
     ) -> None:
         self._repository = repository or VoiceIdempotencyRepository()
         configured_ttl = int(
-            ttl_seconds
-            if ttl_seconds is not None
-            else os.getenv("VOICE_IDEMPOTENCY_TTL_SECONDS", "86400")
+            ttl_seconds if ttl_seconds is not None else os.getenv("VOICE_IDEMPOTENCY_TTL_SECONDS", "86400")
         )
         self._ttl_seconds = max(60, min(configured_ttl, 30 * 24 * 60 * 60))
 
@@ -114,3 +112,21 @@ class VoiceIdempotencyService:
 
     def invalidate_completed_operation(self, operation: str) -> tuple[dict[str, Any], ...]:
         return self._repository.invalidate_completed_operation(operation)
+
+    def discard(
+        self,
+        principal: VoicePrincipal,
+        claim: VoiceIdempotencyClaim | None,
+        *,
+        expected_result_ref: str | None = None,
+        expected_task_id: str | None = None,
+    ) -> bool:
+        if claim is None:
+            return False
+        return self._repository.delete_scoped_record(
+            principal,
+            claim.record_id,
+            lease_token=claim.lease_token,
+            expected_result_ref=expected_result_ref,
+            expected_task_id=expected_task_id,
+        )

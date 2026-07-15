@@ -47,17 +47,16 @@ from agent.services.voice_idempotency_service import VoiceIdempotencyClaim, Voic
 from agent.services.voice_observability import record_stream_event, record_voice_request, record_voice_result
 from agent.services.voice_personalization_service import get_voice_personalization_service
 from agent.services.voice_provider import VoiceProviderError, get_voice_provider_service
-from agent.services.voice_restricted_choice_service import (
-    get_voice_restricted_choice_service,
-    new_voice_choice_run_id,
-    voice_choice_policy_hash,
-)
+from agent.services.voice_restricted_choice_service import get_voice_restricted_choice_service
 from agent.services.voice_result_artifact_service import get_voice_result_artifact_service
 from agent.services.voice_runtime_cleanup_service import (
     VoiceRuntimeCleanupTarget,
     get_voice_runtime_cleanup_service,
 )
 from agent.services.voice_stream_session_service import get_voice_stream_session_service
+from agent.services.voice_transcription_postprocessing_service import (
+    get_voice_transcription_postprocessing_service,
+)
 
 voice_bp = Blueprint("voice", __name__)
 _VOICE_MULTIPART_OVERHEAD_BYTES = 256 * 1024
@@ -113,6 +112,17 @@ class _HubVoiceExecution:
     idempotency: VoiceIdempotencyService
     claim: VoiceIdempotencyClaim | None
     delegation: VoiceDelegationTask | None
+
+
+@dataclass(frozen=True)
+class _HubVoiceFailureContext:
+    """Opaque handles needed by an owning workflow to compensate a race."""
+
+    request_ref: str
+    result_ref: str | None
+    task_id: str | None
+    idempotency: VoiceIdempotencyService
+    claim: VoiceIdempotencyClaim | None
 
 
 def _observe(operation: str):
@@ -243,6 +253,8 @@ def _voice_privacy_state() -> dict:
         "effective_audio_retention": "none",
         "policy_hint": "raw_audio_persistence_not_wired",
         "raw_audio_persisted": False,
+        "raw_audio_persisted_after_request": False,
+        "transient_request_spooling": True,
     }
 
 
@@ -422,11 +434,7 @@ def _runtime_voice_configuration(effective: Mapping[str, Any]) -> dict[str, Any]
         "diarization_backend",
         "feature_flags",
     }
-    projected = {
-        key: deepcopy(value)
-        for key, value in effective.items()
-        if key in runtime_fields
-    }
+    projected = {key: deepcopy(value) for key, value in effective.items() if key in runtime_fields}
     if projected.get("correction_policy") == "generative_rewrite":
         projected["correction_policy"] = "deterministic"
     flags = projected.get("feature_flags")
@@ -457,11 +465,17 @@ def _recover_hub_voice_execution(
     deadline_budget: float,
     deadline_epoch_ms: int,
     defer_completion: bool,
+    parent_task_id: str | None = None,
+    completion_fence: Callable[[], None] | None = None,
+    on_delegated: Callable[[VoiceDelegationTask], None] | None = None,
+    on_artifact: Callable[[str], None] | None = None,
 ) -> _HubVoiceExecution | None:
     """Recover an artifact-first Voice request without invoking its provider."""
 
     if claim.replayed:
         return None
+    if completion_fence is not None:
+        completion_fence()
     artifact = get_voice_result_artifact_service().find_live_envelope(
         principal,
         request_ref=request_ref,
@@ -469,6 +483,10 @@ def _recover_hub_voice_execution(
     )
     if artifact is None:
         return None
+    if on_artifact is not None:
+        on_artifact(str(artifact["id"]))
+    if completion_fence is not None:
+        completion_fence()
     delegation_service = get_voice_delegation_task_service()
     delegation = delegation_service.start(
         principal,
@@ -480,15 +498,23 @@ def _recover_hub_voice_execution(
         deadline_epoch_ms=deadline_epoch_ms,
         profile_id=profile_id,
         configuration_session_id=configuration_session_id,
-        parent_task_id=None,
+        parent_task_id=parent_task_id,
         operation=operation,
     )
+    if on_delegated is not None:
+        on_delegated(delegation)
+    if completion_fence is not None:
+        completion_fence()
     if not defer_completion:
         delegation_service.complete(delegation, result_ref=str(artifact["id"]))
+        if completion_fence is not None:
+            completion_fence()
         idempotency.complete(
             claim,
             {"result_ref": artifact["id"], "task_id": delegation.task_id},
         )
+        if completion_fence is not None:
+            completion_fence()
     return _HubVoiceExecution(
         result=dict(artifact["result"]),
         result_ref=str(artifact["id"]),
@@ -514,6 +540,15 @@ def _execute_hub_voice_request(
     audit_id: str,
     request_started_epoch_ms: int,
     invoke: Callable[[float, dict | None], Mapping[str, Any]],
+    parent_task_id: str | None = None,
+    transform_result: Callable[
+        [Mapping[str, Any], Mapping[str, Any], VoiceDelegationTask],
+        Mapping[str, Any],
+    ]
+    | None = None,
+    on_delegated: Callable[[VoiceDelegationTask], None] | None = None,
+    completion_fence: Callable[[], None] | None = None,
+    on_execution_error: Callable[[_HubVoiceFailureContext], bool] | None = None,
     defer_completion: bool = False,
 ) -> _HubVoiceExecution:
     """Run one bounded provider call through Hub admission and task ownership."""
@@ -522,6 +557,7 @@ def _execute_hub_voice_request(
     claim: VoiceIdempotencyClaim | None = None
     delegation: VoiceDelegationTask | None = None
     admission_lease: VoiceAdmissionLease | None = None
+    artifact_ref: str | None = None
     admission_service = get_voice_admission_service()
     request_hash = _voice_request_ref(
         principal,
@@ -577,6 +613,8 @@ def _execute_hub_voice_request(
                 claim_id=claim.record_id,
             )
             if claim.replayed:
+                if completion_fence is not None:
+                    completion_fence()
                 result_ref = str(claim.result_metadata.get("result_ref") or "")
                 artifact = get_voice_result_artifact_service().get(principal, result_ref)
                 return _HubVoiceExecution(
@@ -589,6 +627,19 @@ def _execute_hub_voice_request(
                     claim=claim,
                     delegation=None,
                 )
+            if completion_fence is not None:
+                completion_fence()
+
+            def capture_recovered_delegation(value: VoiceDelegationTask) -> None:
+                nonlocal delegation
+                delegation = value
+                if on_delegated is not None:
+                    on_delegated(value)
+
+            def capture_recovered_artifact(value: str) -> None:
+                nonlocal artifact_ref
+                artifact_ref = value
+
             recovered = _recover_hub_voice_execution(
                 operation=operation,
                 principal=principal,
@@ -605,6 +656,10 @@ def _execute_hub_voice_request(
                 deadline_budget=deadline_budget,
                 deadline_epoch_ms=absolute_deadline_epoch_ms,
                 defer_completion=defer_completion,
+                parent_task_id=parent_task_id,
+                completion_fence=completion_fence,
+                on_delegated=capture_recovered_delegation,
+                on_artifact=capture_recovered_artifact,
             )
             if recovered is not None:
                 return recovered
@@ -631,31 +686,48 @@ def _execute_hub_voice_request(
             deadline_epoch_ms=absolute_deadline_epoch_ms,
             profile_id=profile_id,
             configuration_session_id=configuration_session_id,
-            parent_task_id=None,
+            parent_task_id=parent_task_id,
             operation=operation,
         )
+        if on_delegated is not None:
+            on_delegated(delegation)
+        if completion_fence is not None:
+            completion_fence()
         remaining_deadline = delegation_service.remaining_seconds(delegation)
         if remaining_deadline <= 0:
             raise VoiceProviderError("voice.timeout", "voice request deadline expired", 504, True)
-        result = dict(
+        result: Mapping[str, Any] = dict(
             invoke(
                 remaining_deadline,
                 _context_with_remaining_deadline(recognition_context, remaining_deadline),
             )
         )
+        if completion_fence is not None:
+            completion_fence()
+        if transform_result is not None:
+            result = transform_result(result, effective_configuration, delegation)
+        if completion_fence is not None:
+            completion_fence()
         artifact = get_voice_result_artifact_service().create(
             principal,
             request_hash=request_hash,
             result=result,
             profile_id=profile_id,
         )
+        artifact_ref = str(artifact["id"])
+        if completion_fence is not None:
+            completion_fence()
         if not defer_completion:
             delegation_service.complete(delegation, result_ref=artifact["id"])
+            if completion_fence is not None:
+                completion_fence()
             if claim is not None:
                 idempotency.complete(
                     claim,
                     {"result_ref": artifact["id"], "task_id": delegation.task_id},
                 )
+                if completion_fence is not None:
+                    completion_fence()
         return _HubVoiceExecution(
             result=result,
             result_ref=str(artifact["id"]),
@@ -667,10 +739,24 @@ def _execute_hub_voice_request(
             delegation=delegation,
         )
     except Exception as exc:
-        if delegation is not None:
-            get_voice_delegation_task_service().fail(delegation, exc)
-        if claim is not None:
-            idempotency.abandon(claim)
+        failure_handled = False
+        if on_execution_error is not None:
+            failure_handled = bool(
+                on_execution_error(
+                    _HubVoiceFailureContext(
+                        request_ref=request_hash,
+                        result_ref=artifact_ref,
+                        task_id=delegation.task_id if delegation is not None else None,
+                        idempotency=idempotency,
+                        claim=claim,
+                    )
+                )
+            )
+        if not failure_handled:
+            if delegation is not None:
+                get_voice_delegation_task_service().fail(delegation, exc)
+            if claim is not None:
+                idempotency.abandon(claim)
         raise
     finally:
         admission_service.release(admission_lease)
@@ -680,9 +766,7 @@ def _complete_deferred_hub_voice_execution(
     execution: _HubVoiceExecution,
     metadata: Mapping[str, Any] | None = None,
 ) -> None:
-    if execution.idempotent_replay and (
-        execution.claim is None or execution.claim.replayed
-    ):
+    if execution.idempotent_replay and (execution.claim is None or execution.claim.replayed):
         return
     if execution.delegation is not None:
         get_voice_delegation_task_service().complete(
@@ -704,9 +788,7 @@ def _fail_deferred_hub_voice_execution(
     execution: _HubVoiceExecution,
     exc: BaseException,
 ) -> None:
-    if execution.idempotent_replay and (
-        execution.claim is None or execution.claim.replayed
-    ):
+    if execution.idempotent_replay and (execution.claim is None or execution.claim.replayed):
         return
     if execution.delegation is not None:
         get_voice_delegation_task_service().fail(execution.delegation, exc)
@@ -772,9 +854,7 @@ def capabilities():
         catalog = []
         available = False
 
-    correction_catalog = generative_corrector_capability_bundle(
-        current_app.config.get("AGENT_CONFIG", {}) or {}
-    )
+    correction_catalog = generative_corrector_capability_bundle(current_app.config.get("AGENT_CONFIG", {}) or {})
     correction_models = correction_catalog["correction_models"]
     return api_response(
         data={
@@ -825,8 +905,7 @@ def transcribe():
     principal = _principal()
     profile_id = str(request.form.get("profile_id") or "default")
     configuration_session_id = (
-        str(request.form.get("session_id") or request.form.get("configuration_session_id") or "").strip()
-        or None
+        str(request.form.get("session_id") or request.form.get("configuration_session_id") or "").strip() or None
     )
     idempotency_key = str(request.headers.get("Idempotency-Key") or "").strip()
     request_hash = _voice_request_ref(
@@ -958,74 +1037,24 @@ def transcribe():
             request_id=audit_id,
             deadline_seconds=remaining_deadline,
         )
-        choice_applied = False
-        choice_reason = "restricted_choice_disabled"
-        choice_manifest_digest = ""
-        corrector_applied = False
-        corrector_reason = "generative_corrector_disabled"
-        feature_flags = (
-            effective_configuration.get("feature_flags") if isinstance(effective_configuration, dict) else None
+        postprocess = get_voice_transcription_postprocessing_service().apply(
+            result,
+            effective_configuration if isinstance(effective_configuration, Mapping) else {},
+            delegation,
+            principal=principal,
+            request_id=audit_id,
+            language=str(request.form.get("language") or "").strip() or None,
+            run_id=str(request.headers.get("X-Run-ID") or "").strip() or None,
+            restricted_choice_service=get_voice_restricted_choice_service(),
+            generative_judge_service=get_voice_generative_judge_service(),
+            generative_corrector_service=get_voice_generative_corrector_service(),
         )
-        if (
-            isinstance(effective_configuration, dict)
-            and effective_configuration.get("correction_policy") == "restricted_choice"
-            and isinstance(feature_flags, dict)
-            and feature_flags.get("restricted_worker") is True
-        ):
-            try:
-                choice_outcome = get_voice_restricted_choice_service().apply(
-                    result,
-                    effective_configuration=effective_configuration,
-                    tenant_id=principal.tenant_id,
-                    task_id=delegation.task_id,
-                    run_id=str(request.headers.get("X-Run-ID") or new_voice_choice_run_id()),
-                    request_id=audit_id,
-                    deadline_epoch_ms=delegation.deadline_epoch_ms,
-                    policy_hash=voice_choice_policy_hash(effective_configuration),
-                )
-                result = choice_outcome.result
-                choice_applied = choice_outcome.applied
-                choice_reason = choice_outcome.reason_code
-                choice_manifest_digest = choice_outcome.manifest_digest
-            except Exception:
-                # Strict fail-open-to-baseline semantics: provider result remains
-                # the exact object returned above when the optional hook fails.
-                choice_reason = "restricted_choice_hook_failed"
-        elif (
-            isinstance(effective_configuration, dict)
-            and effective_configuration.get("correction_policy") == "generative_local"
-            and isinstance(feature_flags, dict)
-            and feature_flags.get("generative_judge") is True
-        ):
-            judge_outcome = get_voice_generative_judge_service().apply(
-                result,
-                effective_configuration=effective_configuration,
-                tenant_id=principal.tenant_id,
-                parent_task_id=delegation.task_id,
-                request_id=audit_id,
-                deadline_epoch_ms=delegation.deadline_epoch_ms,
-            )
-            result = judge_outcome.result
-            choice_applied = judge_outcome.applied
-            choice_reason = judge_outcome.reason_code
-        elif (
-            isinstance(effective_configuration, dict)
-            and effective_configuration.get("correction_policy") == "generative_rewrite"
-            and isinstance(feature_flags, dict)
-            and feature_flags.get("generative_corrector") is True
-        ):
-            corrector_outcome = get_voice_generative_corrector_service().apply(
-                result,
-                effective_configuration=effective_configuration,
-                tenant_id=principal.tenant_id,
-                parent_task_id=delegation.task_id,
-                request_id=audit_id,
-                language=str(request.form.get("language") or "").strip() or None,
-                deadline_epoch_ms=delegation.deadline_epoch_ms,
-            )
-            result = corrector_outcome.result
-            corrector_applied = corrector_outcome.applied
-            corrector_reason = corrector_outcome.reason_code
+        result = postprocess.result
+        choice_applied = postprocess.choice_applied
+        choice_reason = postprocess.choice_reason
+        choice_manifest_digest = postprocess.choice_manifest_digest
+        corrector_applied = postprocess.corrector_applied
+        corrector_reason = postprocess.corrector_reason
         artifact = get_voice_result_artifact_service().create(
             principal,
             request_hash=request_hash,
@@ -1271,9 +1300,7 @@ def goal():
             },
         )
 
-    if execution.idempotent_replay and (
-        execution.claim is None or execution.claim.replayed
-    ):
+    if execution.idempotent_replay and (execution.claim is None or execution.claim.replayed):
         replay_goal_id = str((execution.claim.result_metadata if execution.claim else {}).get("goal_id") or "")
         if not replay_goal_id:
             return api_response(
@@ -1611,9 +1638,7 @@ def create_voice_stream():
             profile_id=payload["profile_id"],
             configuration_session_id=payload["configuration_session_id"],
             language=payload["language"],
-            effective_configuration=(
-                effective_configuration if isinstance(effective_configuration, dict) else {}
-            ),
+            effective_configuration=(effective_configuration if isinstance(effective_configuration, dict) else {}),
             task_id=delegation.task_id,
             request_id=stream_request_id,
             admission_lease_id=admission_lease.lease_id,
@@ -1803,9 +1828,7 @@ def finalize_voice_stream(session_id: str):
         snapshot_value = json.loads(session.effective_configuration_json)
         effective_configuration = snapshot_value if isinstance(snapshot_value, dict) else {}
         feature_flags = (
-            effective_configuration.get("feature_flags")
-            if isinstance(effective_configuration, dict)
-            else None
+            effective_configuration.get("feature_flags") if isinstance(effective_configuration, dict) else None
         )
         if (
             isinstance(effective_configuration, dict)

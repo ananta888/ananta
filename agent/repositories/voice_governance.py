@@ -607,6 +607,53 @@ class VoiceIdempotencyRepository:
                 session.commit()
             return metadata
 
+    def delete_scoped_record(
+        self,
+        principal: VoicePrincipal,
+        record_id: str,
+        *,
+        lease_token: float | None,
+        expected_result_ref: str | None = None,
+        expected_task_id: str | None = None,
+    ) -> bool:
+        with Session(engine) as session:
+            record = session.exec(
+                select(VoiceGovernanceIdempotencyDB).where(
+                    VoiceGovernanceIdempotencyDB.id == record_id,
+                    VoiceGovernanceIdempotencyDB.tenant_id == principal.tenant_id,
+                    VoiceGovernanceIdempotencyDB.owner_subject == principal.subject,
+                )
+            ).first()
+            if record is None:
+                return False
+            metadata = dict(record.result_metadata or {})
+            owns_pending_lease = bool(
+                record.state == "pending"
+                and lease_token is not None
+                and record.lease_expires_at == lease_token
+            )
+            owns_completed_result = bool(
+                record.state == "completed"
+                and expected_result_ref
+                and expected_task_id
+                and metadata.get("result_ref") == expected_result_ref
+                and metadata.get("task_id") == expected_task_id
+            )
+            if not owns_pending_lease and not owns_completed_result:
+                return False
+            result = session.exec(
+                delete(VoiceGovernanceIdempotencyDB).where(
+                    VoiceGovernanceIdempotencyDB.id == record_id,
+                    VoiceGovernanceIdempotencyDB.tenant_id == principal.tenant_id,
+                    VoiceGovernanceIdempotencyDB.owner_subject == principal.subject,
+                    VoiceGovernanceIdempotencyDB.state == record.state,
+                    VoiceGovernanceIdempotencyDB.lease_expires_at
+                    == record.lease_expires_at,
+                )
+            )
+            session.commit()
+            return bool(result.rowcount)
+
     def complete(
         self,
         record_id: str,

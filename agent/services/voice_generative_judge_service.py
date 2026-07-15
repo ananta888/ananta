@@ -85,10 +85,10 @@ class VoiceGenerativeJudgeTaskTracker:
 
     @staticmethod
     def finish(task_id: str, *, status: str, reason_code: str) -> None:
-        from agent.services.task_runtime_service import update_local_task_status
+        from agent.services.voice_task_terminal_service import get_voice_task_terminal_service
 
         succeeded = status == "selected"
-        update_local_task_status(
+        get_voice_task_terminal_service().update_existing(
             task_id,
             "completed" if succeeded else "failed",
             status_reason_code=None if succeeded else reason_code,
@@ -114,9 +114,7 @@ class VoiceGenerativeJudgeService:
         task_tracker: VoiceGenerativeJudgeTaskTrackerPort | None = None,
     ) -> None:
         self._worker_port = worker_port
-        self._task_tracker = (
-            task_tracker if task_tracker is not None else VoiceGenerativeJudgeTaskTracker()
-        )
+        self._task_tracker = task_tracker if task_tracker is not None else VoiceGenerativeJudgeTaskTracker()
 
     def apply(
         self,
@@ -199,9 +197,9 @@ class VoiceGenerativeJudgeService:
             self._task_tracker.finish(task_id, status=worker_response.status, reason_code=reason_code)
         except Exception:
             return self._fallback(result, "generative_judge_tracking_failed", task_id=task_id)
-        selected = {
-            candidate.choice_id: candidate.text for candidate in candidates
-        }.get(worker_response.choice_id or "")
+        selected = {candidate.choice_id: candidate.text for candidate in candidates}.get(
+            worker_response.choice_id or ""
+        )
         if worker_response.status != "selected" or selected is None:
             return self._fallback(result, reason_code, task_id=task_id)
         updated = dict(result)
@@ -272,8 +270,7 @@ def _candidate_choices(
             if len(values) >= 64:
                 break
     return tuple(
-        GenerativeJudgeCandidate(choice_id=f"candidate-{index:03d}", text=text)
-        for index, text in enumerate(values)
+        GenerativeJudgeCandidate(choice_id=f"candidate-{index:03d}", text=text) for index, text in enumerate(values)
     )
 
 

@@ -103,6 +103,7 @@ from .voice_governance import (
     VoiceReviewDB,
     VoiceRuntimeCleanupDB,
 )
+from .voice_live_runs import VoiceLiveRunDB, VoiceLiveRunSegmentDB
 from .workers import (
     EvolutionProposalDB,
     EvolutionRunDB,
@@ -236,6 +237,8 @@ __all__ = [
     "VoiceResultArtifactDB",
     "VoiceReviewDB",
     "VoiceRuntimeCleanupDB",
+    "VoiceLiveRunDB",
+    "VoiceLiveRunSegmentDB",
     "CaseFlowCaseDB",
     "CaseEventDB",
     "CaseArtifactDB",

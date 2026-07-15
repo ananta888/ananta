@@ -13,6 +13,8 @@ from agent.db_models import (
     VoiceConsentDB,
     VoiceFeedbackDB,
     VoiceGovernanceIdempotencyDB,
+    VoiceLiveRunDB,
+    VoiceLiveRunSegmentDB,
     VoicePersonalizationProfileDB,
     VoiceResultArtifactDB,
     VoiceReviewDB,
@@ -44,6 +46,14 @@ class VoiceDeletionReconciliationRepository:
             for model in self._SCOPED_MODELS:
                 rows = session.exec(select(model.tenant_id, model.owner_subject, model.profile_id).distinct()).all()
                 scopes.update((str(row[0]), str(row[1]), str(row[2])) for row in rows)
+            live_runs = session.exec(
+                select(
+                    VoiceLiveRunDB.tenant_id,
+                    VoiceLiveRunDB.owner_subject,
+                    VoiceLiveRunDB.profile_id,
+                ).distinct()
+            ).all()
+            scopes.update((str(row[0]), str(row[1]), str(row[2])) for row in live_runs)
             configurations = session.exec(
                 select(
                     VoiceConfigurationDeltaDB.tenant_id,
@@ -88,6 +98,44 @@ class VoiceDeletionReconciliationRepository:
             related_resource_ids = {str(row.id) for row in (*reviews, *result_artifacts)}
             related_session_ids = {str(row.session_id) for row in reviews if row.session_id}
             related_session_ids.update(str(item) for item in (session_ids or set()) if item)
+            live_runs = list(
+                session.exec(
+                    select(VoiceLiveRunDB).where(
+                        VoiceLiveRunDB.tenant_id == principal.tenant_id,
+                        VoiceLiveRunDB.owner_subject == principal.subject,
+                        VoiceLiveRunDB.profile_id == profile_id,
+                        VoiceLiveRunDB.created_at <= deleted_at,
+                    )
+                ).all()
+            )
+            live_run_ids = {item.id for item in live_runs}
+            live_segments = (
+                list(
+                    session.exec(
+                        select(VoiceLiveRunSegmentDB).where(
+                            VoiceLiveRunSegmentDB.run_id.in_(live_run_ids),
+                            VoiceLiveRunSegmentDB.tenant_id == principal.tenant_id,
+                            VoiceLiveRunSegmentDB.owner_subject == principal.subject,
+                            VoiceLiveRunSegmentDB.created_at <= deleted_at,
+                        )
+                    ).all()
+                )
+                if live_run_ids
+                else []
+            )
+            related_resource_ids.update(item.id for item in live_runs)
+            related_resource_ids.update(item.id for item in live_segments)
+            related_session_ids.update(
+                str(item.configuration_session_id)
+                for item in live_runs
+                if item.configuration_session_id
+            )
+            for segment in live_segments:
+                session.delete(segment)
+            for run in live_runs:
+                session.delete(run)
+            counts[VoiceLiveRunSegmentDB.__tablename__] = len(live_segments)
+            counts[VoiceLiveRunDB.__tablename__] = len(live_runs)
             for model in self._SCOPED_MODELS:
                 rows = self._old_rows(session, model, principal, profile_id, deleted_at)
                 for row in rows:
@@ -303,6 +351,7 @@ class VoiceDeletionReconciliationRepository:
             "voice_generative_judge",
             "voice_generative_corrector",
             "voice_training_export",
+            "voice_live_run",
         ):
             scoped = context.get(key)
             if isinstance(scoped, dict):

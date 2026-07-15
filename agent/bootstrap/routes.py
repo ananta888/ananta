@@ -67,6 +67,7 @@ from agent.routes.visual_process import vp_bp
 from agent.routes.voice import voice_bp
 from agent.routes.voice_configuration import voice_configuration_bp
 from agent.routes.voice_governance import voice_governance_bp
+from agent.routes.voice_live_runs import voice_live_runs_bp
 from agent.routes.webhooks import webhooks_bp
 from agent.routes.webrtc_signaling import webrtc_signaling_bp
 from agent.routes.wiki_graph import wiki_graph_bp
@@ -107,6 +108,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(voice_bp)
     app.register_blueprint(voice_configuration_bp)
     app.register_blueprint(voice_governance_bp)
+    app.register_blueprint(voice_live_runs_bp)
     app.register_blueprint(restricted_inference_management_bp)
     app.register_blueprint(mcp_bp)
     app.register_blueprint(evolution_bp)

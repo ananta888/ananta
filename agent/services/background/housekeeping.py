@@ -16,12 +16,15 @@ from agent.utils import (
 def _is_db_operational_error(exc: Exception) -> bool:
     return isinstance(exc, OperationalError) or "OperationalError" in str(exc)
 
+
 def _sleep_with_shutdown(total_seconds: int) -> None:
     import agent.common.context
+
     for _ in range(total_seconds):
         if agent.common.context.shutdown_requested:
             break
         time.sleep(1)
+
 
 def _check_token_rotation(app):
     """Prüft, ob der Token rotiert werden muss."""
@@ -40,6 +43,7 @@ def _check_token_rotation(app):
             logging.info("Token-Rotations-Intervall erreicht. Starte Rotation...")
             with app.app_context():
                 from agent.auth import rotate_token
+
                 rotate_token()
     except (OperationalError, Exception) as e:
         is_db_err = _is_db_operational_error(e)
@@ -48,9 +52,11 @@ def _check_token_rotation(app):
         else:
             logging.error(f"Fehler bei der Prüfung der Token-Rotation: {e}")
 
+
 def start_housekeeping_thread(app):
     def run_housekeeping():
         import agent.common.context
+
         logging.info("Housekeeping-Task gestartet.")
         consecutive_db_errors = 0
         while not agent.common.context.shutdown_requested:
@@ -72,6 +78,15 @@ def start_housekeeping_thread(app):
                     logging.info(
                         "Voice idempotency retention cleanup completed: expired=%s",
                         expired_idempotency,
+                    )
+                    from agent.services.voice_live_run_maintenance_service import (
+                        get_voice_live_run_maintenance_service,
+                    )
+
+                    live_run_counts = get_voice_live_run_maintenance_service().run_once()
+                    logging.info(
+                        "Voice live-run maintenance completed: %s",
+                        live_run_counts,
                     )
                     from agent.services.voice_runtime_cleanup_service import (
                         get_voice_runtime_cleanup_service,
@@ -98,5 +113,6 @@ def start_housekeeping_thread(app):
 
     t = threading.Thread(target=run_housekeeping, daemon=True)
     import agent.common.context
+
     agent.common.context.active_threads.append(t)
     t.start()

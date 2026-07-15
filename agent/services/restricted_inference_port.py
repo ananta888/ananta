@@ -87,7 +87,7 @@ class HubTaskQueueRestrictedInferencePort:
     def execute(self, request: RestrictedInferenceRequest) -> RestrictedInferenceResponse:
         from agent.common.audit import log_audit
         from agent.services.task_queue_service import get_task_queue_service
-        from agent.services.task_runtime_service import update_local_task_status
+        from agent.services.voice_task_terminal_service import get_voice_task_terminal_service
 
         tracking_id = self._tracking_task_id(request)
         from agent.services.voice_task_scope import inherited_voice_task_scope
@@ -134,7 +134,7 @@ class HubTaskQueueRestrictedInferencePort:
         try:
             response = self._delegate.execute(request)
         except Exception as exc:
-            update_local_task_status(
+            get_voice_task_terminal_service().update_existing(
                 tracking_id,
                 "failed",
                 status_reason_code="restricted_inference_failed",
@@ -156,7 +156,7 @@ class HubTaskQueueRestrictedInferencePort:
             )
             raise
         outcome = "completed" if response.status.value == "succeeded" else "failed"
-        update_local_task_status(
+        get_voice_task_terminal_service().update_existing(
             tracking_id,
             outcome,
             event_type=f"restricted_inference_{outcome}",

@@ -109,6 +109,8 @@ def test_voice_capabilities_privacy_stays_fail_closed(client, admin_auth_header)
     assert privacy.get("store_audio_requested") is True
     assert privacy.get("store_audio_effective") is False
     assert privacy.get("raw_audio_persisted") is False
+    assert privacy.get("raw_audio_persisted_after_request") is False
+    assert privacy.get("transient_request_spooling") is True
 
 
 def test_voice_transcribe_propagates_provider_error_shape(client, admin_auth_header):
@@ -253,14 +255,10 @@ def test_shared_hub_voice_helper_recovers_artifact_after_claim_completion_crash(
 
         with Session(engine) as session:
             claim = session.exec(
-                select(VoiceGovernanceIdempotencyDB).where(
-                    VoiceGovernanceIdempotencyDB.operation == "voice.command"
-                )
+                select(VoiceGovernanceIdempotencyDB).where(VoiceGovernanceIdempotencyDB.operation == "voice.command")
             ).one()
             envelope = session.exec(
-                select(VoiceResultArtifactDB).where(
-                    VoiceResultArtifactDB.artifact_kind == "result_envelope"
-                )
+                select(VoiceResultArtifactDB).where(VoiceResultArtifactDB.artifact_kind == "result_envelope")
             ).one()
             task = session.exec(select(TaskDB)).one()
             assert claim.state == "pending"
@@ -449,9 +447,7 @@ def test_voice_goal_reuses_recovered_transcript_before_resuming_goal_policy(
 
         with Session(engine) as session:
             claim = session.exec(
-                select(VoiceGovernanceIdempotencyDB).where(
-                    VoiceGovernanceIdempotencyDB.operation == "voice.goal"
-                )
+                select(VoiceGovernanceIdempotencyDB).where(VoiceGovernanceIdempotencyDB.operation == "voice.goal")
             ).one()
             task = session.exec(select(TaskDB)).one()
             assert claim.state == "pending"

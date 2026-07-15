@@ -104,6 +104,91 @@ class VoiceResultArtifactRepository:
             session.commit()
             return len(rows)
 
+    def delete_envelope(self, principal: VoicePrincipal, artifact_id: str) -> int:
+        """Delete one scoped result envelope and its direct encrypted children."""
+
+        with Session(engine) as session:
+            envelope = session.exec(
+                select(VoiceResultArtifactDB).where(
+                    VoiceResultArtifactDB.id == artifact_id,
+                    VoiceResultArtifactDB.tenant_id == principal.tenant_id,
+                    VoiceResultArtifactDB.owner_subject == principal.subject,
+                    VoiceResultArtifactDB.artifact_kind == "result_envelope",
+                )
+            ).first()
+            if envelope is None:
+                return 0
+            rows = session.exec(
+                select(VoiceResultArtifactDB.id).where(
+                    VoiceResultArtifactDB.tenant_id == principal.tenant_id,
+                    VoiceResultArtifactDB.owner_subject == principal.subject,
+                    (
+                        (VoiceResultArtifactDB.id == artifact_id)
+                        | (VoiceResultArtifactDB.parent_artifact_id == artifact_id)
+                    ),
+                )
+            ).all()
+            session.exec(
+                delete(VoiceResultArtifactDB).where(
+                    VoiceResultArtifactDB.tenant_id == principal.tenant_id,
+                    VoiceResultArtifactDB.owner_subject == principal.subject,
+                    (
+                        (VoiceResultArtifactDB.id == artifact_id)
+                        | (VoiceResultArtifactDB.parent_artifact_id == artifact_id)
+                    ),
+                )
+            )
+            session.commit()
+            return len(rows)
+
+    def delete_envelope_for_request(
+        self,
+        principal: VoicePrincipal,
+        *,
+        profile_id: str,
+        request_ref: str,
+    ) -> int:
+        """Delete the exact scoped bundle even if its create call lost its return value."""
+
+        with Session(engine) as session:
+            envelope_ids = list(
+                session.exec(
+                    select(VoiceResultArtifactDB.id).where(
+                        VoiceResultArtifactDB.tenant_id == principal.tenant_id,
+                        VoiceResultArtifactDB.owner_subject == principal.subject,
+                        VoiceResultArtifactDB.profile_id == profile_id,
+                        VoiceResultArtifactDB.request_hash == request_ref,
+                        VoiceResultArtifactDB.artifact_kind == "result_envelope",
+                    )
+                ).all()
+            )
+            if not envelope_ids:
+                return 0
+            rows = list(
+                session.exec(
+                    select(VoiceResultArtifactDB.id).where(
+                        VoiceResultArtifactDB.tenant_id == principal.tenant_id,
+                        VoiceResultArtifactDB.owner_subject == principal.subject,
+                        (
+                            VoiceResultArtifactDB.id.in_(envelope_ids)
+                            | VoiceResultArtifactDB.parent_artifact_id.in_(envelope_ids)
+                        ),
+                    )
+                ).all()
+            )
+            session.exec(
+                delete(VoiceResultArtifactDB).where(
+                    VoiceResultArtifactDB.tenant_id == principal.tenant_id,
+                    VoiceResultArtifactDB.owner_subject == principal.subject,
+                    (
+                        VoiceResultArtifactDB.id.in_(envelope_ids)
+                        | VoiceResultArtifactDB.parent_artifact_id.in_(envelope_ids)
+                    ),
+                )
+            )
+            session.commit()
+            return len(rows)
+
     def get(
         self,
         principal: VoicePrincipal,
