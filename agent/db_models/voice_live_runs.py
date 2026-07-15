@@ -53,6 +53,7 @@ class VoiceLiveRunDB(SQLModel, table=True):
     maintenance_lease_token: str | None = Field(default=None, repr=False)
     maintenance_lease_expires_at: float | None = Field(default=None, index=True)
     maintenance_reconciled_at: float | None = Field(default=None, index=True)
+    timeline_revision: int = Field(default=0, index=True)
     version: int = 1
     created_at: float = Field(default_factory=time.time)
     updated_at: float = Field(default_factory=time.time)
@@ -90,6 +91,15 @@ class VoiceLiveRunSegmentDB(SQLModel, table=True):
     audio_binding: str | None = Field(default=None, repr=False)
     task_id: str | None = Field(default=None, index=True)
     result_ref: str | None = Field(default=None, index=True)
+    provisional_result_ref: str | None = Field(default=None, index=True)
+    correction_task_id: str | None = Field(default=None, index=True)
+    correction_status: str = Field(default="not_requested", index=True)
+    correction_configuration_digest: str | None = Field(default=None, repr=False)
+    correction_spec_ref: str | None = Field(default=None, index=True, repr=False)
+    correction_attempt_count: int = 0
+    correction_failure_code: str | None = None
+    text_revision: int = 0
+    timeline_revision: int = Field(default=0, index=True)
     started_at_ms: int
     ended_at_ms: int
     duration_ms: int
@@ -99,3 +109,5 @@ class VoiceLiveRunSegmentDB(SQLModel, table=True):
     created_at: float = Field(default_factory=time.time)
     updated_at: float = Field(default_factory=time.time)
     completed_at: float | None = None
+    correction_started_at: float | None = None
+    correction_completed_at: float | None = None

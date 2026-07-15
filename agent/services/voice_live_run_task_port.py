@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import uuid
 from typing import Mapping
 
-from agent.db_models import VoiceLiveRunDB
+from agent.db_models import VoiceLiveRunDB, VoiceLiveRunSegmentDB
 from agent.services.voice_delegation_task_service import (
     VoiceDelegationTask,
     get_voice_delegation_task_service,
@@ -76,9 +77,46 @@ class VoiceLiveRunTaskPort:
             operation="live_segment_link",
         )
 
+    def create_correction_child(
+        self,
+        principal: VoicePrincipal,
+        run: VoiceLiveRunDB,
+        segment: VoiceLiveRunSegmentDB,
+        *,
+        effective_configuration: Mapping[str, object],
+        idempotency_key: str,
+    ) -> VoiceDelegationTask:
+        configuration_digest = hashlib.sha256(
+            json.dumps(
+                dict(effective_configuration),
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+            ).encode("utf-8")
+        ).hexdigest()
+        return get_voice_delegation_task_service().start(
+            principal,
+            request_id=f"voice-live-correction-{uuid.uuid4().hex}",
+            request_hash=(
+                f"voice-live-correction:{run.id}:{segment.sequence}:"
+                f"{segment.provisional_result_ref}:{configuration_digest}"
+            ),
+            effective_configuration=dict(effective_configuration),
+            deadline_seconds=120.0,
+            idempotency_key=idempotency_key,
+            profile_id=run.profile_id,
+            configuration_session_id=run.configuration_session_id,
+            parent_task_id=segment.task_id or run.parent_task_id,
+            operation="live_segment_correction",
+        )
+
     @staticmethod
     def complete_child(task: VoiceDelegationTask, *, result_ref: str) -> None:
         get_voice_delegation_task_service().complete(task, result_ref=result_ref)
+
+    @staticmethod
+    def fail_child(task: VoiceDelegationTask, exc: BaseException) -> None:
+        get_voice_delegation_task_service().fail(task, exc)
 
     @staticmethod
     def complete_parent(run: VoiceLiveRunDB, *, result_ref: str) -> None:

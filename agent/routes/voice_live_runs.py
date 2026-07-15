@@ -35,6 +35,10 @@ from agent.routes.voice_http_adapter import (
     read_audio_field as _read_audio_field,
 )
 from agent.services.voice_governance_domain import VoiceGovernanceError
+from agent.services.voice_live_run_correction_service import (
+    VoiceLiveCorrectionPreparation,
+    get_voice_live_run_correction_service,
+)
 from agent.services.voice_live_run_service import (
     VoiceLiveRunError,
     get_voice_live_run_service,
@@ -43,9 +47,6 @@ from agent.services.voice_live_run_start_lease_service import (
     get_voice_live_run_start_lease_service,
 )
 from agent.services.voice_provider import VoiceProviderError, get_voice_provider_service
-from agent.services.voice_transcription_postprocessing_service import (
-    get_voice_transcription_postprocessing_service,
-)
 
 voice_live_runs_bp = Blueprint("voice_live_runs", __name__)
 _MULTIPART_OVERHEAD_BYTES = 256 * 1024
@@ -161,6 +162,10 @@ def get_voice_live_run(run_id: str):
         return blocked
     try:
         after_sequence = int(request.args.get("after_sequence", -1))
+        after_revision_value = request.args.get("after_revision")
+        after_revision = (
+            int(after_revision_value) if after_revision_value is not None else None
+        )
         limit = int(request.args.get("limit", 600))
         include_text = str(request.args.get("include_text", "true")).strip().lower() not in {
             "0",
@@ -172,8 +177,13 @@ def get_voice_live_run(run_id: str):
             _principal(),
             run_id,
             after_sequence=after_sequence,
+            after_revision=after_revision,
             limit=limit,
             include_text=include_text,
+        )
+        get_voice_live_run_correction_service().schedule_pending(
+            _principal(),
+            run_id,
         )
         return api_response(data=snapshot)
     except (TypeError, ValueError):
@@ -183,7 +193,7 @@ def get_voice_live_run(run_id: str):
             data={
                 "error": {
                     "code": "voice_live_run.invalid_cursor",
-                    "message": "after_sequence and limit must be integers",
+                    "message": "after_sequence, after_revision and limit must be integers",
                     "retriable": False,
                 }
             },
@@ -203,6 +213,10 @@ def heartbeat_voice_live_run(run_id: str):
         return blocked
     body = _json_body()
     try:
+        get_voice_live_run_correction_service().schedule_pending(
+            _principal(),
+            run_id,
+        )
         snapshot = get_voice_live_run_service().heartbeat(
             _principal(),
             run_id,
@@ -254,7 +268,18 @@ def _put_audio_segment(run_id: str, sequence: int):
             ),
         )
         if claim.reservation.replayed:
-            snapshot = service.snapshot(principal, run_id, include_text=False)
+            snapshot = service.snapshot(
+                principal,
+                run_id,
+                after_revision=max(-1, claim.reservation.segment.timeline_revision - 1),
+                limit=1,
+                include_text=True,
+            )
+            get_voice_live_run_correction_service().schedule(
+                principal,
+                run_id,
+                sequence,
+            )
             return api_response(
                 data={
                     **snapshot,
@@ -317,19 +342,6 @@ def _put_audio_segment(run_id: str, sequence: int):
                 request_id=audit_id,
                 deadline_seconds=remaining,
             ),
-            transform_result=lambda result, configuration, delegation: (
-                get_voice_transcription_postprocessing_service()
-                .apply(
-                    result,
-                    configuration,
-                    delegation,
-                    principal=principal,
-                    request_id=audit_id,
-                    language=claim.run.language,
-                    run_id=claim.run.id,
-                )
-                .result
-            ),
             on_delegated=bind_execution_task,
             completion_fence=fence_execution,
             on_execution_error=lambda failure: service.compensate_failed_execution_if_unowned(
@@ -347,8 +359,21 @@ def _put_audio_segment(run_id: str, sequence: int):
                 idempotency_claim=failure.claim,
             ),
         )
+        correction_service = get_voice_live_run_correction_service()
         try:
-            service.complete_segment(
+            preparation = correction_service.prepare(
+                principal,
+                claim.run,
+                sequence=sequence,
+                provisional_result_ref=execution.result_ref,
+                effective_configuration=execution.effective_configuration,
+            )
+        except Exception:
+            # Correction is optional; encrypted ASR remains authoritative when
+            # a correction spec cannot be prepared.
+            preparation = VoiceLiveCorrectionPreparation(requested=False)
+        try:
+            published = service.publish_provisional(
                 principal,
                 run_id,
                 sequence=sequence,
@@ -356,8 +381,17 @@ def _put_audio_segment(run_id: str, sequence: int):
                 attempt_count=claim.reservation.segment.attempt_count,
                 task_id=execution.task_id,
                 result_ref=execution.result_ref,
+                correction_configuration_digest=preparation.configuration_digest,
+                correction_spec_ref=preparation.spec_ref,
+                correction_requested=preparation.requested,
             )
         except VoiceLiveRunError as exc:
+            correction_service.discard_preparation_if_unowned(
+                principal,
+                run_id,
+                sequence,
+                preparation,
+            )
             if service.compensate_completed_execution_if_unowned(
                 principal,
                 run_id,
@@ -391,9 +425,17 @@ def _put_audio_segment(run_id: str, sequence: int):
                     409,
                 ) from exc
             raise
-        snapshot = service.snapshot(principal, run_id, include_text=False)
+        snapshot = service.snapshot(
+            principal,
+            run_id,
+            after_revision=max(-1, published.timeline_revision - 1),
+            limit=1,
+            include_text=True,
+        )
+        if preparation.requested:
+            correction_service.schedule(principal, run_id, sequence)
         log_audit(
-            "voice_live_run_segment_completed",
+            "voice_live_run_segment_provisional_published",
             {
                 "actor": principal.subject,
                 "tenant_id": principal.tenant_id,

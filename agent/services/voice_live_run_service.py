@@ -254,29 +254,82 @@ class VoiceLiveRunService:
         run_id: str,
         *,
         after_sequence: int = -1,
+        after_revision: int | None = None,
         limit: int = _MAX_TIMELINE_ITEMS,
         include_text: bool = True,
     ) -> dict[str, Any]:
         run = self._require_active_or_terminal(principal, run_id)
         segments = self._repository.list_segments(principal, run.id)
-        result_by_sequence = self._load_segment_results(
-            principal,
-            segments,
-            include_text=include_text,
-        )
         gaps = self._gap_sequences(run, segments)
-        all_items = self._timeline_items(segments, result_by_sequence, gaps)
         bounded_limit = max(1, min(int(limit), _MAX_TIMELINE_ITEMS))
-        page = [item for item in all_items if int(item["sequence"]) > int(after_sequence)][:bounded_limit]
-        completed_texts = [
-            (
-                segment,
-                str((result_by_sequence.get(segment.sequence) or {}).get("text") or ""),
+        if after_revision is None:
+            result_by_sequence = self._load_segment_results(
+                principal,
+                segments,
+                include_text=include_text,
             )
-            for segment in segments
-            if segment.status == "completed"
-        ]
-        composed = self._compose_transcript(completed_texts)
+            all_items = self._timeline_items(
+                segments,
+                result_by_sequence,
+                gaps,
+                gap_timeline_revision=run.timeline_revision,
+            )
+            page_candidates = [
+                item for item in all_items if int(item["sequence"]) > int(after_sequence)
+            ]
+            page = page_candidates[:bounded_limit]
+            next_after_revision = None
+            completed_texts = [
+                (
+                    segment,
+                    str((result_by_sequence.get(segment.sequence) or {}).get("text") or ""),
+                )
+                for segment in segments
+                if segment.status == "completed"
+            ]
+            composed = self._compose_transcript(completed_texts)
+        else:
+            normalized_revision = max(-1, int(after_revision))
+            # Revision polling deliberately excludes synthetic gaps: the full
+            # gap set is returned separately and has no stable row identity.
+            metadata_items = self._timeline_items(
+                segments,
+                {},
+                [],
+                gap_timeline_revision=run.timeline_revision,
+            )
+            page_candidates = [
+                item
+                for item in metadata_items
+                if int(item.get("timeline_revision") or 0) > normalized_revision
+            ]
+            page_candidates.sort(
+                key=lambda item: (
+                    int(item.get("timeline_revision") or 0),
+                    int(item["sequence"]),
+                )
+            )
+            page = page_candidates[:bounded_limit]
+            selected_sequences = {int(item["sequence"]) for item in page}
+            selected_segments = tuple(
+                segment for segment in segments if segment.sequence in selected_sequences
+            )
+            result_by_sequence = self._load_segment_results(
+                principal,
+                selected_segments,
+                include_text=include_text,
+            )
+            for item in page:
+                result = result_by_sequence.get(int(item["sequence"])) or {}
+                item["text"] = result.get("text")
+                item["provider"] = result.get("provider")
+                item["model"] = result.get("model")
+            next_after_revision = (
+                max(int(item.get("timeline_revision") or normalized_revision) for item in page)
+                if page
+                else normalized_revision
+            )
+            composed = None
         acknowledged = self._acknowledged_through(segments)
         next_sequence = acknowledged + 1
         max_sequence = max(
@@ -290,7 +343,7 @@ class VoiceLiveRunService:
         return {
             "run": self._public_run(run),
             "segments": page,
-            "composed_transcript": composed if include_text else None,
+            "composed_transcript": composed if include_text and after_revision is None else None,
             "gaps": gaps,
             "resume": {
                 "acknowledged_through_sequence": acknowledged,
@@ -298,13 +351,19 @@ class VoiceLiveRunService:
                 "last_seen_sequence": max_sequence,
                 "pending_sequences": [segment.sequence for segment in segments if segment.status == "processing"],
                 "failed_sequences": [segment.sequence for segment in segments if segment.status == "failed"],
+                "pending_correction_sequences": [
+                    segment.sequence
+                    for segment in segments
+                    if segment.correction_status in {"queued", "processing"}
+                ],
             },
             "page": {
                 "after_sequence": int(after_sequence),
+                "after_revision": int(after_revision) if after_revision is not None else None,
                 "limit": bounded_limit,
-                "has_more": len([item for item in all_items if int(item["sequence"]) > int(after_sequence)])
-                > len(page),
+                "has_more": len(page_candidates) > len(page),
                 "next_after_sequence": int(page[-1]["sequence"]) if page else int(after_sequence),
+                "next_after_revision": next_after_revision,
             },
         }
 
@@ -573,6 +632,39 @@ class VoiceLiveRunService:
                 attempt_count=attempt_count,
                 task_id=task_id,
                 result_ref=result_ref,
+            )
+        except LookupError:
+            self._not_found()
+        except VoiceLiveRunRepositoryConflict as exc:
+            raise self._conflict(str(exc)) from exc
+
+    def publish_provisional(
+        self,
+        principal: VoicePrincipal,
+        run_id: str,
+        *,
+        sequence: int,
+        idempotency_key_digest: str,
+        attempt_count: int,
+        task_id: str,
+        result_ref: str,
+        correction_configuration_digest: str | None,
+        correction_spec_ref: str | None,
+        correction_requested: bool,
+    ) -> VoiceLiveRunSegmentDB:
+        try:
+            return self._repository.publish_provisional(
+                principal,
+                run_id,
+                sequence,
+                idempotency_key_digest=idempotency_key_digest,
+                attempt_count=attempt_count,
+                task_id=task_id,
+                result_ref=result_ref,
+                correction_configuration_digest=correction_configuration_digest,
+                correction_spec_ref=correction_spec_ref,
+                correction_requested=correction_requested,
+                now=self._now(),
             )
         except LookupError:
             self._not_found()
@@ -860,6 +952,15 @@ class VoiceLiveRunService:
                         self._tasks.cancel_child(
                             segment.task_id,
                             reason_code="voice_live_segment_lease_expired",
+                        )
+                    if (
+                        segment.correction_status == "failed"
+                        and segment.correction_failure_code == "correction_lease_expired"
+                        and segment.correction_task_id
+                    ):
+                        self._tasks.cancel_child(
+                            segment.correction_task_id,
+                            reason_code="voice_live_correction_lease_expired",
                         )
                 gaps = self._gap_sequences(run, segments)
                 artifact = self._get_or_create_final_artifact(
@@ -1192,6 +1293,8 @@ class VoiceLiveRunService:
         segments: tuple[VoiceLiveRunSegmentDB, ...],
         result_by_sequence: Mapping[int, Mapping[str, Any]],
         gaps: list[int],
+        *,
+        gap_timeline_revision: int,
     ) -> list[dict[str, Any]]:
         items = [
             {
@@ -1200,12 +1303,22 @@ class VoiceLiveRunService:
                 "status": segment.status,
                 "task_id": segment.task_id,
                 "result_ref": segment.result_ref,
+                "provisional_result_ref": segment.provisional_result_ref,
+                "correction_task_id": segment.correction_task_id,
+                "correction_status": segment.correction_status,
+                "correction_failure_code": segment.correction_failure_code,
+                "revision": segment.text_revision,
+                "text_revision": segment.text_revision,
+                "timeline_revision": segment.timeline_revision,
+                "text_state": VoiceLiveRunService._text_state(segment),
                 "started_at_ms": segment.started_at_ms,
                 "ended_at_ms": segment.ended_at_ms,
                 "duration_ms": segment.duration_ms,
                 "overlap_milliseconds": segment.overlap_milliseconds,
                 "attempt_count": segment.attempt_count,
                 "failure_code": segment.failure_code,
+                "correction_started_at": segment.correction_started_at,
+                "correction_completed_at": segment.correction_completed_at,
                 "text": (result_by_sequence.get(segment.sequence) or {}).get("text"),
                 "provider": (result_by_sequence.get(segment.sequence) or {}).get("provider"),
                 "model": (result_by_sequence.get(segment.sequence) or {}).get("model"),
@@ -1220,12 +1333,22 @@ class VoiceLiveRunService:
                 "status": "gap",
                 "task_id": None,
                 "result_ref": None,
+                "provisional_result_ref": None,
+                "correction_task_id": None,
+                "correction_status": "not_requested",
+                "correction_failure_code": None,
+                "revision": 0,
+                "text_revision": 0,
+                "timeline_revision": gap_timeline_revision,
+                "text_state": "none",
                 "started_at_ms": None,
                 "ended_at_ms": None,
                 "duration_ms": None,
                 "overlap_milliseconds": None,
                 "attempt_count": 0,
                 "failure_code": "segment_missing",
+                "correction_started_at": None,
+                "correction_completed_at": None,
                 "text": None,
                 "provider": None,
                 "model": None,
@@ -1234,6 +1357,16 @@ class VoiceLiveRunService:
             if sequence not in present
         )
         return sorted(items, key=lambda item: int(item["sequence"]))
+
+    @staticmethod
+    def _text_state(segment: VoiceLiveRunSegmentDB) -> str:
+        if not segment.result_ref or segment.text_revision <= 0:
+            return "none"
+        if segment.text_revision == 1:
+            return "provisional"
+        if segment.correction_status == "completed":
+            return "final"
+        return "final_uncorrected"
 
     @staticmethod
     def _gap_sequences(
@@ -1383,6 +1516,7 @@ class VoiceLiveRunService:
             "updated_at": run.updated_at,
             "stopped_at": run.stopped_at,
             "version": run.version,
+            "timeline_revision": run.timeline_revision,
         }
 
     @staticmethod

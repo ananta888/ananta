@@ -112,6 +112,7 @@ class _HubVoiceExecution:
     idempotency: VoiceIdempotencyService
     claim: VoiceIdempotencyClaim | None
     delegation: VoiceDelegationTask | None
+    effective_configuration: dict[str, Any]
 
 
 @dataclass(frozen=True)
@@ -524,6 +525,7 @@ def _recover_hub_voice_execution(
         idempotency=idempotency,
         claim=claim,
         delegation=delegation,
+        effective_configuration=dict(effective_configuration),
     )
 
 
@@ -626,6 +628,11 @@ def _execute_hub_voice_request(
                     idempotency=idempotency,
                     claim=claim,
                     delegation=None,
+                    effective_configuration=(
+                        dict(effective_configuration)
+                        if isinstance(effective_configuration, Mapping)
+                        else {}
+                    ),
                 )
             if completion_fence is not None:
                 completion_fence()
@@ -737,6 +744,11 @@ def _execute_hub_voice_request(
             idempotency=idempotency,
             claim=claim,
             delegation=delegation,
+            effective_configuration=(
+                dict(effective_configuration)
+                if isinstance(effective_configuration, Mapping)
+                else {}
+            ),
         )
     except Exception as exc:
         failure_handled = False

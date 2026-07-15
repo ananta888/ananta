@@ -192,6 +192,7 @@ class VoicePrivacyRepository:
                     {str(item) for item in task_ids if item}
                     | {item.parent_task_id for item in live_runs}
                     | {item.task_id for item in live_segments if item.task_id}
+                    | {item.correction_task_id for item in live_segments if item.correction_task_id}
                 ),
             )
             counts.update(task_counts)

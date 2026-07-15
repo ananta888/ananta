@@ -12,6 +12,9 @@ from agent.database import engine
 from agent.db_models import VoiceLiveRunDB, VoiceLiveRunSegmentDB
 from agent.services.voice_governance_domain import VoicePrincipal
 
+_SEGMENT_PROCESSING_LEASE_SECONDS = 600
+_CORRECTION_PROCESSING_LEASE_SECONDS = 300
+
 
 class VoiceLiveRunRepositoryConflict(RuntimeError):
     pass
@@ -25,6 +28,13 @@ class VoiceLiveRunRepositoryInProgress(RuntimeError):
 class VoiceLiveSegmentReservation:
     segment: VoiceLiveRunSegmentDB
     replayed: bool
+
+
+@dataclass(frozen=True)
+class VoiceLiveCorrectionClaim:
+    run: VoiceLiveRunDB
+    segment: VoiceLiveRunSegmentDB
+    claimed: bool
 
 
 class VoiceLiveRunRepository:
@@ -148,6 +158,40 @@ class VoiceLiveRunRepository:
             if run is None:
                 return None
             if run.status in {"active", "finalizing"} and run.expires_at <= now:
+                expiring_segments = list(
+                    session.exec(
+                        select(VoiceLiveRunSegmentDB).where(
+                            VoiceLiveRunSegmentDB.run_id == run_id,
+                            VoiceLiveRunSegmentDB.tenant_id == principal.tenant_id,
+                            VoiceLiveRunSegmentDB.owner_subject == principal.subject,
+                            or_(
+                                VoiceLiveRunSegmentDB.status == "processing",
+                                VoiceLiveRunSegmentDB.correction_status.in_(["queued", "processing"]),
+                            ),
+                        )
+                    ).all()
+                )
+                for segment in expiring_segments:
+                    timeline_revision = self._advance_timeline(
+                        session,
+                        principal,
+                        run_id,
+                        now=now,
+                        statuses=("active", "finalizing"),
+                    )
+                    if segment.status == "processing":
+                        segment.status = "failed"
+                        segment.failure_code = "run_expired"
+                        segment.completed_at = now
+                    if segment.correction_status in {"queued", "processing"}:
+                        segment.result_ref = segment.provisional_result_ref
+                        segment.correction_status = "failed"
+                        segment.correction_failure_code = "run_expired"
+                        segment.text_revision = 2
+                        segment.correction_completed_at = now
+                    segment.timeline_revision = timeline_revision
+                    segment.updated_at = now
+                    session.add(segment)
                 expired = session.exec(
                     update(VoiceLiveRunDB)
                     .where(
@@ -163,24 +207,9 @@ class VoiceLiveRunRepository:
                         stopped_at=now,
                         updated_at=now,
                         version=VoiceLiveRunDB.version + 1,
+                        timeline_revision=VoiceLiveRunDB.timeline_revision + 1,
                     )
                 )
-                if expired.rowcount == 1:
-                    session.exec(
-                        update(VoiceLiveRunSegmentDB)
-                        .where(
-                            VoiceLiveRunSegmentDB.run_id == run_id,
-                            VoiceLiveRunSegmentDB.tenant_id == principal.tenant_id,
-                            VoiceLiveRunSegmentDB.owner_subject == principal.subject,
-                            VoiceLiveRunSegmentDB.status == "processing",
-                        )
-                        .values(
-                            status="failed",
-                            failure_code="run_expired",
-                            completed_at=now,
-                            updated_at=now,
-                        )
-                    )
                 session.commit()
                 if expired.rowcount != 1:
                     return self._find_run(session, principal, run_id)
@@ -220,6 +249,45 @@ class VoiceLiveRunRepository:
                 ).all()
             )
             for run_id in candidate_ids:
+                candidate = session.get(VoiceLiveRunDB, run_id)
+                if candidate is None:
+                    continue
+                principal = VoicePrincipal(
+                    tenant_id=candidate.tenant_id,
+                    subject=candidate.owner_subject,
+                )
+                expiring_segments = list(
+                    session.exec(
+                        select(VoiceLiveRunSegmentDB).where(
+                            VoiceLiveRunSegmentDB.run_id == run_id,
+                            or_(
+                                VoiceLiveRunSegmentDB.status == "processing",
+                                VoiceLiveRunSegmentDB.correction_status.in_(["queued", "processing"]),
+                            ),
+                        )
+                    ).all()
+                )
+                for segment in expiring_segments:
+                    timeline_revision = self._advance_timeline(
+                        session,
+                        principal,
+                        str(run_id),
+                        now=now,
+                        statuses=("active", "finalizing", "expired"),
+                    )
+                    if segment.status == "processing":
+                        segment.status = "failed"
+                        segment.failure_code = "run_expired"
+                        segment.completed_at = now
+                    if segment.correction_status in {"queued", "processing"}:
+                        segment.result_ref = segment.provisional_result_ref
+                        segment.correction_status = "failed"
+                        segment.correction_failure_code = "run_expired"
+                        segment.text_revision = 2
+                        segment.correction_completed_at = now
+                    segment.timeline_revision = timeline_revision
+                    segment.updated_at = now
+                    session.add(segment)
                 lease_token = f"voice-live-maintenance-{uuid.uuid4()}"
                 claimed = session.exec(
                     update(VoiceLiveRunDB)
@@ -235,24 +303,11 @@ class VoiceLiveRunRepository:
                         maintenance_lease_token=lease_token,
                         maintenance_lease_expires_at=now + bounded_lease,
                         version=VoiceLiveRunDB.version + 1,
+                        timeline_revision=VoiceLiveRunDB.timeline_revision + 1,
                     )
                 )
                 if claimed.rowcount == 1:
                     claimed_ids.append(str(run_id))
-            if claimed_ids:
-                session.exec(
-                    update(VoiceLiveRunSegmentDB)
-                    .where(
-                        VoiceLiveRunSegmentDB.run_id.in_(claimed_ids),
-                        VoiceLiveRunSegmentDB.status == "processing",
-                    )
-                    .values(
-                        status="failed",
-                        failure_code="run_expired",
-                        completed_at=now,
-                        updated_at=now,
-                    )
-                )
             session.commit()
             if not claimed_ids:
                 return ()
@@ -336,7 +391,7 @@ class VoiceLiveRunRepository:
                     raise LookupError("voice live run not found")
                 if run.status != "active":
                     raise VoiceLiveRunRepositoryConflict("voice live run is not active")
-                claimed = session.exec(
+                timeline_row = session.exec(
                     update(VoiceLiveRunDB)
                     .where(
                         VoiceLiveRunDB.id == run_id,
@@ -345,15 +400,26 @@ class VoiceLiveRunRepository:
                         VoiceLiveRunDB.status == "active",
                         VoiceLiveRunDB.expires_at >= now,
                     )
-                    .values(version=VoiceLiveRunDB.version + 1, updated_at=now)
-                )
-                if claimed.rowcount != 1:
+                    .values(
+                        version=VoiceLiveRunDB.version + 1,
+                        timeline_revision=VoiceLiveRunDB.timeline_revision + 1,
+                        updated_at=now,
+                    )
+                    .returning(VoiceLiveRunDB.timeline_revision)
+                ).first()
+                if timeline_row is None:
                     session.rollback()
                     current = self._find_run(session, principal, run_id)
                     if current is None:
                         raise LookupError("voice live run not found")
                     raise VoiceLiveRunRepositoryConflict("voice live run is not active or has expired")
                 existing = self._find_segment(session, principal, run_id, sequence)
+                current_run = self._find_run(session, principal, run_id)
+                if current_run is None:
+                    session.rollback()
+                    raise LookupError("voice live run not found")
+                current_run.updated_at = now
+                session.add(current_run)
                 if existing is not None:
                     self._assert_same_segment(
                         existing,
@@ -367,12 +433,22 @@ class VoiceLiveRunRepository:
                     if existing.status == "completed":
                         return VoiceLiveSegmentReservation(existing, True)
                     if existing.status == "processing":
-                        if existing.updated_at > now - 600:
+                        if existing.updated_at > now - _SEGMENT_PROCESSING_LEASE_SECONDS:
                             raise VoiceLiveRunRepositoryInProgress("voice live segment is already processing")
                         existing.attempt_count += 1
                         existing.task_id = None
                         existing.result_ref = None
+                        existing.provisional_result_ref = None
+                        existing.correction_task_id = None
+                        existing.correction_status = "not_requested"
+                        existing.correction_configuration_digest = None
+                        existing.correction_attempt_count = 0
+                        existing.correction_failure_code = None
+                        existing.text_revision = 0
+                        existing.timeline_revision = self._returned_int(timeline_row)
                         existing.completed_at = None
+                        existing.correction_started_at = None
+                        existing.correction_completed_at = None
                         existing.updated_at = now
                         session.add(existing)
                         session.commit()
@@ -387,7 +463,17 @@ class VoiceLiveRunRepository:
                     existing.failure_code = None
                     existing.task_id = None
                     existing.result_ref = None
+                    existing.provisional_result_ref = None
+                    existing.correction_task_id = None
+                    existing.correction_status = "not_requested"
+                    existing.correction_configuration_digest = None
+                    existing.correction_attempt_count = 0
+                    existing.correction_failure_code = None
+                    existing.text_revision = 0
+                    existing.timeline_revision = self._returned_int(timeline_row)
                     existing.completed_at = None
+                    existing.correction_started_at = None
+                    existing.correction_completed_at = None
                     existing.updated_at = now
                     session.add(existing)
                     session.commit()
@@ -409,6 +495,7 @@ class VoiceLiveRunRepository:
                     ended_at_ms=ended_at_ms,
                     duration_ms=duration_ms,
                     overlap_milliseconds=overlap_milliseconds,
+                    timeline_revision=self._returned_int(timeline_row),
                     created_at=now,
                     updated_at=now,
                 )
@@ -438,7 +525,7 @@ class VoiceLiveRunRepository:
             run = self._find_run(session, principal, run_id)
             if run is None:
                 raise LookupError("voice live run not found")
-            claimed = session.exec(
+            timeline_row = session.exec(
                 update(VoiceLiveRunDB)
                 .where(
                     VoiceLiveRunDB.id == run_id,
@@ -446,9 +533,14 @@ class VoiceLiveRunRepository:
                     VoiceLiveRunDB.owner_subject == principal.subject,
                     VoiceLiveRunDB.status == "active",
                 )
-                .values(version=VoiceLiveRunDB.version + 1, updated_at=time.time())
-            )
-            if claimed.rowcount != 1:
+                .values(
+                    version=VoiceLiveRunDB.version + 1,
+                    timeline_revision=VoiceLiveRunDB.timeline_revision + 1,
+                    updated_at=time.time(),
+                )
+                .returning(VoiceLiveRunDB.timeline_revision)
+            ).first()
+            if timeline_row is None:
                 session.rollback()
                 current = self._find_run(session, principal, run_id)
                 if current is None:
@@ -470,11 +562,286 @@ class VoiceLiveRunRepository:
             if segment.task_id != task_id:
                 raise VoiceLiveRunRepositoryConflict("voice live segment task ownership changed")
             now = time.time()
+            run.updated_at = now
+            session.add(run)
             segment.status = "completed"
             segment.task_id = task_id
             segment.result_ref = result_ref
+            segment.provisional_result_ref = result_ref
+            segment.correction_status = "not_requested"
+            segment.text_revision = 2
+            segment.timeline_revision = self._returned_int(timeline_row)
             segment.failure_code = None
             segment.completed_at = now
+            segment.updated_at = now
+            session.add(segment)
+            session.commit()
+            session.refresh(segment)
+            return segment
+
+    def publish_provisional(
+        self,
+        principal: VoicePrincipal,
+        run_id: str,
+        sequence: int,
+        *,
+        idempotency_key_digest: str,
+        attempt_count: int,
+        task_id: str,
+        result_ref: str,
+        correction_configuration_digest: str | None,
+        correction_spec_ref: str | None,
+        correction_requested: bool,
+        now: float,
+    ) -> VoiceLiveRunSegmentDB:
+        """Atomically acknowledge ASR and publish its encrypted text revision."""
+
+        with Session(engine) as session:
+            run = self._find_run(session, principal, run_id)
+            segment = self._find_segment(session, principal, run_id, sequence)
+            if run is None or segment is None:
+                raise LookupError("voice live segment not found")
+            if run.status != "active":
+                raise VoiceLiveRunRepositoryConflict("voice live run is not active")
+            if segment.idempotency_key_digest != idempotency_key_digest:
+                raise VoiceLiveRunRepositoryConflict("voice live segment idempotency conflict")
+            if segment.attempt_count != attempt_count:
+                raise VoiceLiveRunRepositoryConflict("voice live segment attempt was superseded")
+            if segment.status == "completed":
+                if segment.task_id != task_id or segment.provisional_result_ref != result_ref:
+                    raise VoiceLiveRunRepositoryConflict("voice live segment provisional result conflict")
+                return segment
+            if segment.status != "processing" or segment.task_id != task_id:
+                raise VoiceLiveRunRepositoryConflict("voice live segment task ownership changed")
+            timeline_revision = self._advance_timeline(
+                session,
+                principal,
+                run_id,
+                now=now,
+            )
+            segment.status = "completed"
+            segment.task_id = task_id
+            segment.result_ref = result_ref
+            segment.provisional_result_ref = result_ref
+            segment.correction_status = "queued" if correction_requested else "not_requested"
+            segment.correction_configuration_digest = correction_configuration_digest
+            segment.correction_spec_ref = correction_spec_ref
+            segment.correction_failure_code = None
+            segment.text_revision = 1 if correction_requested else 2
+            segment.timeline_revision = timeline_revision
+            segment.failure_code = None
+            segment.completed_at = now
+            segment.updated_at = now
+            session.add(segment)
+            session.commit()
+            session.refresh(segment)
+            return segment
+
+    def claim_correction(
+        self,
+        principal: VoicePrincipal,
+        run_id: str,
+        sequence: int,
+        *,
+        provisional_result_ref: str,
+        configuration_digest: str,
+        now: float,
+        lease_seconds: int = _CORRECTION_PROCESSING_LEASE_SECONDS,
+    ) -> VoiceLiveCorrectionClaim:
+        """CAS-claim queued or stale correction work across multiple Hubs."""
+
+        with Session(engine) as session:
+            run = self._find_run(session, principal, run_id)
+            segment = self._find_segment(session, principal, run_id, sequence)
+            if run is None or segment is None:
+                raise LookupError("voice live segment not found")
+            if run.status != "active":
+                return VoiceLiveCorrectionClaim(run, segment, False)
+            if (
+                segment.status != "completed"
+                or segment.provisional_result_ref != provisional_result_ref
+                or segment.correction_configuration_digest != configuration_digest
+            ):
+                raise VoiceLiveRunRepositoryConflict("voice live correction identity changed")
+            claimable = segment.correction_status == "queued" or (
+                segment.correction_status == "processing"
+                and segment.updated_at <= now - max(30, min(int(lease_seconds), 900))
+            )
+            if not claimable:
+                return VoiceLiveCorrectionClaim(run, segment, False)
+            previous_status = segment.correction_status
+            previous_updated_at = segment.updated_at
+            claimed = session.exec(
+                update(VoiceLiveRunSegmentDB)
+                .where(
+                    VoiceLiveRunSegmentDB.id == segment.id,
+                    VoiceLiveRunSegmentDB.run_id == run_id,
+                    VoiceLiveRunSegmentDB.tenant_id == principal.tenant_id,
+                    VoiceLiveRunSegmentDB.owner_subject == principal.subject,
+                    VoiceLiveRunSegmentDB.provisional_result_ref == provisional_result_ref,
+                    VoiceLiveRunSegmentDB.correction_configuration_digest == configuration_digest,
+                    VoiceLiveRunSegmentDB.correction_status == previous_status,
+                    VoiceLiveRunSegmentDB.updated_at == previous_updated_at,
+                )
+                .values(
+                    correction_status="processing",
+                    correction_task_id=None,
+                    correction_attempt_count=VoiceLiveRunSegmentDB.correction_attempt_count + 1,
+                    correction_failure_code=None,
+                    correction_started_at=now,
+                    correction_completed_at=None,
+                    updated_at=now,
+                )
+            )
+            if claimed.rowcount != 1:
+                session.rollback()
+                current = self._find_segment(session, principal, run_id, sequence)
+                if current is None:
+                    raise LookupError("voice live segment not found")
+                return VoiceLiveCorrectionClaim(run, current, False)
+            timeline_revision = self._advance_timeline(
+                session,
+                principal,
+                run_id,
+                now=now,
+            )
+            projected = session.exec(
+                update(VoiceLiveRunSegmentDB)
+                .where(
+                    VoiceLiveRunSegmentDB.id == segment.id,
+                    VoiceLiveRunSegmentDB.correction_status == "processing",
+                    VoiceLiveRunSegmentDB.updated_at == now,
+                )
+                .values(timeline_revision=timeline_revision)
+            )
+            if projected.rowcount != 1:
+                session.rollback()
+                raise VoiceLiveRunRepositoryConflict("voice live correction projection changed")
+            session.commit()
+            current = self._find_segment(session, principal, run_id, sequence)
+            current_run = self._find_run(session, principal, run_id)
+            if current is None or current_run is None:
+                raise LookupError("voice live segment not found")
+            return VoiceLiveCorrectionClaim(current_run, current, True)
+
+    def bind_correction_task(
+        self,
+        principal: VoicePrincipal,
+        run_id: str,
+        sequence: int,
+        *,
+        provisional_result_ref: str,
+        attempt_count: int,
+        task_id: str,
+        now: float,
+    ) -> VoiceLiveRunSegmentDB:
+        with Session(engine) as session:
+            segment = self._find_segment(session, principal, run_id, sequence)
+            if segment is None:
+                raise LookupError("voice live segment not found")
+            if (
+                segment.status != "completed"
+                or segment.provisional_result_ref != provisional_result_ref
+                or segment.correction_status != "processing"
+                or segment.correction_attempt_count != attempt_count
+            ):
+                raise VoiceLiveRunRepositoryConflict("voice live correction ownership changed")
+            if segment.correction_task_id and segment.correction_task_id != task_id:
+                raise VoiceLiveRunRepositoryConflict("voice live correction task changed")
+            segment.correction_task_id = task_id
+            segment.updated_at = now
+            session.add(segment)
+            session.commit()
+            session.refresh(segment)
+            return segment
+
+    def complete_correction(
+        self,
+        principal: VoicePrincipal,
+        run_id: str,
+        sequence: int,
+        *,
+        provisional_result_ref: str,
+        attempt_count: int,
+        task_id: str,
+        result_ref: str,
+        applied: bool,
+        reason_code: str,
+        now: float,
+    ) -> VoiceLiveRunSegmentDB:
+        with Session(engine) as session:
+            run = self._find_run(session, principal, run_id)
+            segment = self._find_segment(session, principal, run_id, sequence)
+            if run is None or segment is None:
+                raise LookupError("voice live segment not found")
+            if run.status != "active":
+                raise VoiceLiveRunRepositoryConflict("voice live run is not active")
+            if (
+                segment.status != "completed"
+                or segment.provisional_result_ref != provisional_result_ref
+                or segment.correction_status != "processing"
+                or segment.correction_attempt_count != attempt_count
+                or segment.correction_task_id != task_id
+            ):
+                raise VoiceLiveRunRepositoryConflict("voice live correction ownership changed")
+            timeline_revision = self._advance_timeline(
+                session,
+                principal,
+                run_id,
+                now=now,
+            )
+            segment.result_ref = result_ref
+            segment.correction_status = "completed" if applied else "skipped"
+            segment.correction_failure_code = None if applied else str(reason_code or "correction_unchanged")[:120]
+            segment.text_revision = 2
+            segment.timeline_revision = timeline_revision
+            segment.correction_completed_at = now
+            segment.updated_at = now
+            session.add(segment)
+            session.commit()
+            session.refresh(segment)
+            return segment
+
+    def fail_correction(
+        self,
+        principal: VoicePrincipal,
+        run_id: str,
+        sequence: int,
+        *,
+        provisional_result_ref: str,
+        attempt_count: int,
+        failure_code: str,
+        task_id: str | None,
+        now: float,
+    ) -> VoiceLiveRunSegmentDB | None:
+        with Session(engine) as session:
+            run = self._find_run(session, principal, run_id)
+            segment = self._find_segment(session, principal, run_id, sequence)
+            if run is None or segment is None:
+                return None
+            if (
+                segment.provisional_result_ref != provisional_result_ref
+                or segment.correction_attempt_count != attempt_count
+                or segment.correction_status != "processing"
+                or (task_id is not None and segment.correction_task_id not in {None, task_id})
+            ):
+                return segment
+            if run.status != "active":
+                return segment
+            timeline_revision = self._advance_timeline(
+                session,
+                principal,
+                run_id,
+                now=now,
+            )
+            segment.result_ref = segment.provisional_result_ref
+            segment.correction_status = "failed"
+            segment.correction_failure_code = str(failure_code or "correction_failed")[:120]
+            if task_id:
+                segment.correction_task_id = task_id
+            segment.text_revision = 2
+            segment.timeline_revision = timeline_revision
+            segment.correction_completed_at = now
             segment.updated_at = now
             session.add(segment)
             session.commit()
@@ -522,17 +889,30 @@ class VoiceLiveRunRepository:
         task_id: str | None = None,
     ) -> VoiceLiveRunSegmentDB | None:
         with Session(engine) as session:
+            run = self._find_run(session, principal, run_id)
             segment = self._find_segment(session, principal, run_id, sequence)
-            if segment is None or segment.idempotency_key_digest != idempotency_key_digest:
+            if (
+                run is None
+                or run.status != "active"
+                or segment is None
+                or segment.idempotency_key_digest != idempotency_key_digest
+            ):
                 return None
             if attempt_count is not None and segment.attempt_count != attempt_count:
                 return segment
             if segment.status == "completed":
                 return segment
+            timeline_revision = self._advance_timeline(
+                session,
+                principal,
+                run_id,
+                now=time.time(),
+            )
             segment.status = "failed"
             segment.failure_code = str(failure_code or "segment_processing_failed")[:120]
             if task_id:
                 segment.task_id = task_id
+            segment.timeline_revision = timeline_revision
             segment.updated_at = time.time()
             session.add(segment)
             session.commit()
@@ -553,6 +933,58 @@ class VoiceLiveRunRepository:
                 raise LookupError("voice live run not found")
             if run.status in {"completed", "completed_with_gaps", "stopped", "expired"}:
                 return run, True
+            if run.status == "active":
+                processing_segments = list(
+                    session.exec(
+                        select(VoiceLiveRunSegmentDB).where(
+                            VoiceLiveRunSegmentDB.run_id == run_id,
+                            VoiceLiveRunSegmentDB.tenant_id == principal.tenant_id,
+                            VoiceLiveRunSegmentDB.owner_subject == principal.subject,
+                            VoiceLiveRunSegmentDB.status == "processing",
+                        )
+                    ).all()
+                )
+                for segment in processing_segments:
+                    if segment.updated_at > now - _SEGMENT_PROCESSING_LEASE_SECONDS:
+                        continue
+                    timeline_revision = self._advance_timeline(
+                        session,
+                        principal,
+                        run_id,
+                        now=now,
+                    )
+                    segment.status = "failed"
+                    segment.failure_code = "processing_lease_expired"
+                    segment.timeline_revision = timeline_revision
+                    segment.updated_at = now
+                    session.add(segment)
+                pending_corrections = list(
+                    session.exec(
+                        select(VoiceLiveRunSegmentDB).where(
+                            VoiceLiveRunSegmentDB.run_id == run_id,
+                            VoiceLiveRunSegmentDB.tenant_id == principal.tenant_id,
+                            VoiceLiveRunSegmentDB.owner_subject == principal.subject,
+                            VoiceLiveRunSegmentDB.correction_status.in_(["queued", "processing"]),
+                        )
+                    ).all()
+                )
+                for segment in pending_corrections:
+                    if segment.updated_at > now - _CORRECTION_PROCESSING_LEASE_SECONDS:
+                        continue
+                    timeline_revision = self._advance_timeline(
+                        session,
+                        principal,
+                        run_id,
+                        now=now,
+                    )
+                    segment.result_ref = segment.provisional_result_ref
+                    segment.correction_status = "failed"
+                    segment.correction_failure_code = "correction_lease_expired"
+                    segment.text_revision = 2 if segment.provisional_result_ref else segment.text_revision
+                    segment.timeline_revision = timeline_revision
+                    segment.correction_completed_at = now
+                    segment.updated_at = now
+                    session.add(segment)
             if run.status == "active":
                 claimed = session.exec(
                     update(VoiceLiveRunDB)
@@ -594,6 +1026,21 @@ class VoiceLiveRunRepository:
             if run is None:
                 session.rollback()
                 raise LookupError("voice live run not found")
+            correction_in_flight = list(
+                session.exec(
+                    select(VoiceLiveRunSegmentDB).where(
+                        VoiceLiveRunSegmentDB.run_id == run_id,
+                        VoiceLiveRunSegmentDB.tenant_id == principal.tenant_id,
+                        VoiceLiveRunSegmentDB.owner_subject == principal.subject,
+                        VoiceLiveRunSegmentDB.correction_status.in_(["queued", "processing"]),
+                    )
+                ).all()
+            )
+            if correction_in_flight:
+                session.rollback()
+                raise VoiceLiveRunRepositoryInProgress(
+                    "voice live run still has in-flight corrections"
+                )
             processing = list(
                 session.exec(
                     select(VoiceLiveRunSegmentDB).where(
@@ -604,16 +1051,7 @@ class VoiceLiveRunRepository:
                     )
                 ).all()
             )
-            fresh_processing: list[VoiceLiveRunSegmentDB] = []
-            for segment in processing:
-                if segment.updated_at <= now - 600:
-                    segment.status = "failed"
-                    segment.failure_code = "processing_lease_expired"
-                    segment.updated_at = now
-                    session.add(segment)
-                else:
-                    fresh_processing.append(segment)
-            if fresh_processing:
+            if processing:
                 session.rollback()
                 raise VoiceLiveRunRepositoryInProgress("voice live run still has in-flight segments")
             if expected_last_sequence is not None:
@@ -796,6 +1234,45 @@ class VoiceLiveRunRepository:
             )
             session.commit()
             return removed.rowcount == 1
+
+    @staticmethod
+    def _advance_timeline(
+        session: Session,
+        principal: VoicePrincipal,
+        run_id: str,
+        *,
+        now: float,
+        statuses: tuple[str, ...] = ("active",),
+    ) -> int:
+        """Atomically reserve one globally monotone visible timeline revision."""
+
+        row = session.exec(
+            update(VoiceLiveRunDB)
+            .where(
+                VoiceLiveRunDB.id == run_id,
+                VoiceLiveRunDB.tenant_id == principal.tenant_id,
+                VoiceLiveRunDB.owner_subject == principal.subject,
+                VoiceLiveRunDB.status.in_(statuses),
+            )
+            .values(
+                timeline_revision=VoiceLiveRunDB.timeline_revision + 1,
+                version=VoiceLiveRunDB.version + 1,
+                updated_at=now,
+            )
+            .returning(VoiceLiveRunDB.timeline_revision)
+        ).first()
+        if row is None:
+            raise VoiceLiveRunRepositoryConflict("voice live run is not active")
+        return VoiceLiveRunRepository._returned_int(row)
+
+    @staticmethod
+    def _returned_int(value: object) -> int:
+        if isinstance(value, int):
+            return value
+        try:
+            return int(value[0])  # type: ignore[index]
+        except (IndexError, TypeError, ValueError) as exc:
+            raise RuntimeError("database did not return a timeline revision") from exc
 
     @staticmethod
     def _find_run(

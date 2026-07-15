@@ -6,7 +6,7 @@ import time
 import uuid
 import wave
 from io import BytesIO
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 from sqlalchemy import create_engine
@@ -21,12 +21,21 @@ from agent.db_models import (
     VoiceResultArtifactDB,
 )
 from agent.repositories.voice_deletion_tombstone import VoiceDeletionTombstoneRepository
-from agent.repositories.voice_live_runs import VoiceLiveRunRepository
+from agent.repositories.voice_live_runs import (
+    VoiceLiveRunRepository,
+    VoiceLiveRunRepositoryConflict,
+)
 from agent.services.voice_delegation_task_service import get_voice_delegation_task_service
-from agent.services.voice_generative_corrector_service import VoiceGenerativeCorrectorTaskTracker
+from agent.services.voice_generative_corrector_service import (
+    VoiceGenerativeCorrectorOutcome,
+    VoiceGenerativeCorrectorTaskTracker,
+)
 from agent.services.voice_generative_judge_service import VoiceGenerativeJudgeTaskTracker
 from agent.services.voice_governance_domain import VoiceGovernanceError, VoicePrincipal
 from agent.services.voice_idempotency_service import VoiceIdempotencyService
+from agent.services.voice_live_run_correction_service import (
+    get_voice_live_run_correction_service,
+)
 from agent.services.voice_live_run_maintenance_service import VoiceLiveRunMaintenanceService
 from agent.services.voice_live_run_service import VoiceLiveRunError, VoiceLiveRunService
 from agent.services.voice_live_run_start_lease_service import (
@@ -132,6 +141,27 @@ def _put_audio(
             "overlap_milliseconds": str(overlap_ms),
         },
         content_type="multipart/form-data",
+    )
+
+
+def _configure_live_corrector(client, headers: dict[str, str], profile_id: str):
+    return client.put(
+        "/v1/voice/configuration",
+        headers={
+            **headers,
+            "Idempotency-Key": f"live-corrector-{profile_id}-{uuid.uuid4().hex}",
+        },
+        json={
+            "scope": "profile",
+            "scope_id": profile_id,
+            "delta": {
+                "correction_policy": "generative_rewrite",
+                "generative_corrector_provider": "embedded",
+                "generative_corrector_model": "phi-3-mini-instruct",
+                "generative_corrector_max_edit_ratio": 0.35,
+                "feature_flags": {"generative_corrector": True},
+            },
+        },
     )
 
 
@@ -1799,3 +1829,579 @@ def test_create_rejects_max_duration_shorter_than_segment(
     )
     assert response.status_code == 422
     assert response.get_json()["data"]["error"]["code"] == ("voice_live_run.invalid_max_duration_seconds")
+
+
+def test_live_segment_publishes_provisional_before_blocked_correction_and_delta_revises_it(
+    client,
+    admin_auth_header,
+):
+    profile_id = f"revisioned-live-{uuid.uuid4().hex}"
+    assert _configure_live_corrector(client, admin_auth_header, profile_id).status_code == 200
+    created = _create_run(client, admin_auth_header, profile_id=profile_id)
+    run_id = created.get_json()["data"]["run"]["id"]
+    correction_started = threading.Event()
+    release_correction = threading.Event()
+    provider = Mock()
+    provider.transcribe.return_value = _result("hallo welt")
+    corrector = Mock()
+
+    def blocked_correction(result, **_kwargs):
+        correction_started.set()
+        assert release_correction.wait(timeout=10)
+        return VoiceGenerativeCorrectorOutcome(
+            result={**dict(result), "original_text": result["text"], "text": "Hallo Welt."},
+            applied=True,
+            reason_code="generative_corrector_corrected",
+        )
+
+    corrector.apply.side_effect = blocked_correction
+    with (
+        patch(
+            "agent.routes.voice_live_runs.get_voice_provider_service",
+            return_value=provider,
+        ),
+        patch(
+            "agent.services.voice_transcription_postprocessing_service."
+            "get_voice_generative_corrector_service",
+            return_value=corrector,
+        ),
+    ):
+        uploaded = _put_audio(
+            client,
+            admin_auth_header,
+            run_id,
+            0,
+            key="revisioned-segment-zero",
+            audio=_wav(sample=31),
+            started_at_ms=0,
+            ended_at_ms=1_000,
+        )
+        assert uploaded.status_code == 200
+        provisional = uploaded.get_json()["data"]["segment"]
+        assert provisional["status"] == "completed"
+        assert provisional["text_state"] == "provisional"
+        assert provisional["correction_status"] == "queued"
+        assert provisional["revision"] == provisional["text_revision"] == 1
+        assert provisional["text"] == "hallo welt"
+        provisional_timeline_revision = provisional["timeline_revision"]
+        assert correction_started.wait(timeout=5)
+
+        blocked_stop = client.post(
+            f"/v1/voice/live-runs/{run_id}/stop",
+            headers=admin_auth_header,
+            json={"last_sequence": 0, "reason": "test_stop"},
+        )
+        assert blocked_stop.status_code == 409
+        assert blocked_stop.get_json()["data"]["error"] == {
+            "code": "voice_live_run.segments_in_flight",
+            "message": "voice live run still has in-flight corrections",
+            "retriable": True,
+        }
+
+        processing = client.get(
+            f"/v1/voice/live-runs/{run_id}?after_revision={provisional_timeline_revision}",
+            headers=admin_auth_header,
+        )
+        assert processing.status_code == 200
+        assert processing.get_json()["data"]["composed_transcript"] is None
+
+        release_correction.set()
+        assert get_voice_live_run_correction_service().wait_for_idle(timeout=10)
+
+    artifacts = get_voice_result_artifact_service()
+    with patch.object(artifacts, "get", wraps=artifacts.get) as artifact_get:
+        revised = client.get(
+            f"/v1/voice/live-runs/{run_id}?after_revision={provisional_timeline_revision}",
+            headers=admin_auth_header,
+        )
+    assert revised.status_code == 200
+    revised_data = revised.get_json()["data"]
+    assert revised_data["composed_transcript"] is None
+    assert len(revised_data["segments"]) == 1
+    final = revised_data["segments"][0]
+    assert final["sequence"] == 0
+    assert final["text_state"] == "final"
+    assert final["correction_status"] == "completed"
+    assert final["revision"] == final["text_revision"] == 2
+    assert final["text"] == "Hallo Welt."
+    assert final["timeline_revision"] > provisional_timeline_revision
+    assert artifact_get.call_count == 1
+
+    with Session(engine) as session:
+        segment = session.exec(
+            select(VoiceLiveRunSegmentDB).where(
+                VoiceLiveRunSegmentDB.run_id == run_id,
+                VoiceLiveRunSegmentDB.sequence == 0,
+            )
+        ).one()
+        task = session.get(TaskDB, segment.correction_task_id)
+        serialized_ledger = json.dumps(segment.model_dump(), default=str)
+        serialized_task = json.dumps(task.worker_execution_context, default=str)
+    assert "hallo welt" not in serialized_ledger.casefold()
+    assert "hallo welt" not in serialized_task.casefold()
+    assert segment.provisional_result_ref != segment.result_ref
+    assert segment.correction_spec_ref
+
+    stopped = client.post(
+        f"/v1/voice/live-runs/{run_id}/stop",
+        headers=admin_auth_header,
+        json={"last_sequence": 0, "reason": "test_stop"},
+    )
+    assert stopped.status_code == 200
+    assert stopped.get_json()["data"]["run"]["status"] == "completed"
+
+
+def test_stop_reclaims_stale_correction_inside_the_client_drain_window(
+    client,
+    admin_auth_header,
+):
+    profile_id = f"stale-correction-stop-{uuid.uuid4().hex}"
+    assert _configure_live_corrector(client, admin_auth_header, profile_id).status_code == 200
+    created = _create_run(client, admin_auth_header, profile_id=profile_id)
+    run_id = created.get_json()["data"]["run"]["id"]
+    provider = Mock()
+    provider.transcribe.return_value = _result("bleibt als vorläufiges Ergebnis erhalten")
+    correction_service = get_voice_live_run_correction_service()
+    with (
+        patch(
+            "agent.routes.voice_live_runs.get_voice_provider_service",
+            return_value=provider,
+        ),
+        patch.object(correction_service, "schedule", return_value=False),
+    ):
+        uploaded = _put_audio(
+            client,
+            admin_auth_header,
+            run_id,
+            0,
+            key="stale-correction-stop-segment",
+            audio=_wav(sample=35),
+            started_at_ms=0,
+            ended_at_ms=1_000,
+        )
+    assert uploaded.status_code == 200
+    assert uploaded.get_json()["data"]["segment"]["correction_status"] == "queued"
+
+    with Session(engine) as session:
+        segment = session.exec(
+            select(VoiceLiveRunSegmentDB).where(
+                VoiceLiveRunSegmentDB.run_id == run_id,
+                VoiceLiveRunSegmentDB.sequence == 0,
+            )
+        ).one()
+        segment.updated_at = time.time() - 301
+        session.add(segment)
+        session.commit()
+
+    stopped = client.post(
+        f"/v1/voice/live-runs/{run_id}/stop",
+        headers=admin_auth_header,
+        json={"last_sequence": 0, "reason": "test_stop"},
+    )
+    assert stopped.status_code == 200
+    data = stopped.get_json()["data"]
+    assert data["run"]["status"] == "completed"
+    assert data["segments"][0]["correction_status"] == "failed"
+    assert data["segments"][0]["correction_failure_code"] == "correction_lease_expired"
+    assert data["segments"][0]["text_state"] == "final_uncorrected"
+    assert data["segments"][0]["text"] == "bleibt als vorläufiges Ergebnis erhalten"
+
+
+def test_stale_correction_attempt_cannot_overwrite_new_authoritative_revision():
+    principal = VoicePrincipal(tenant_id="correction-race-tenant", subject="correction-race-owner")
+    service = VoiceLiveRunService()
+    created, _ = service.create(
+        principal,
+        idempotency_key="correction-race-create",
+        lease_token=_lease_token(principal, "correction-race-profile"),
+        source="microphone",
+        profile_id="correction-race-profile",
+        configuration_session_id=None,
+        language="de",
+        segment_duration_seconds=60,
+        max_duration_seconds=60,
+        overlap_milliseconds=0,
+    )
+    run_id = created["run"]["id"]
+    reserved = service.reserve_audio_segment(
+        principal,
+        run_id,
+        sequence=0,
+        idempotency_key="correction-race-segment",
+        audio=_wav(sample=32),
+        started_at_ms=0,
+        ended_at_ms=1_000,
+        duration_ms=1_000,
+        overlap_milliseconds=0,
+    )
+    service.bind_segment_task(
+        principal,
+        run_id,
+        sequence=0,
+        idempotency_key_digest=reserved.idempotency_key_digest,
+        attempt_count=1,
+        task_id="correction-race-asr-task",
+    )
+    service.publish_provisional(
+        principal,
+        run_id,
+        sequence=0,
+        idempotency_key_digest=reserved.idempotency_key_digest,
+        attempt_count=1,
+        task_id="correction-race-asr-task",
+        result_ref="correction-race-provisional",
+        correction_configuration_digest="a" * 64,
+        correction_spec_ref="correction-race-spec",
+        correction_requested=True,
+    )
+    repository = VoiceLiveRunRepository()
+    first = repository.claim_correction(
+        principal,
+        run_id,
+        0,
+        provisional_result_ref="correction-race-provisional",
+        configuration_digest="a" * 64,
+        now=time.time(),
+    )
+    assert first.claimed is True
+    repository.bind_correction_task(
+        principal,
+        run_id,
+        0,
+        provisional_result_ref="correction-race-provisional",
+        attempt_count=1,
+        task_id="correction-race-old-task",
+        now=time.time(),
+    )
+    with Session(engine) as session:
+        segment = session.exec(
+            select(VoiceLiveRunSegmentDB).where(
+                VoiceLiveRunSegmentDB.run_id == run_id,
+                VoiceLiveRunSegmentDB.sequence == 0,
+            )
+        ).one()
+        # Correction work has a shorter lease than ASR segment processing so
+        # the supervised client's bounded stop drain always reaches reclaim.
+        segment.updated_at = time.time() - 301
+        session.add(segment)
+        session.commit()
+    second = repository.claim_correction(
+        principal,
+        run_id,
+        0,
+        provisional_result_ref="correction-race-provisional",
+        configuration_digest="a" * 64,
+        now=time.time(),
+    )
+    assert second.claimed is True
+    assert second.segment.correction_attempt_count == 2
+    with pytest.raises(VoiceLiveRunRepositoryConflict, match="ownership changed"):
+        repository.complete_correction(
+            principal,
+            run_id,
+            0,
+            provisional_result_ref="correction-race-provisional",
+            attempt_count=1,
+            task_id="correction-race-old-task",
+            result_ref="correction-race-stale-result",
+            applied=True,
+            reason_code="corrected",
+            now=time.time(),
+        )
+    repository.bind_correction_task(
+        principal,
+        run_id,
+        0,
+        provisional_result_ref="correction-race-provisional",
+        attempt_count=2,
+        task_id="correction-race-new-task",
+        now=time.time(),
+    )
+    completed = repository.complete_correction(
+        principal,
+        run_id,
+        0,
+        provisional_result_ref="correction-race-provisional",
+        attempt_count=2,
+        task_id="correction-race-new-task",
+        result_ref="correction-race-authoritative-result",
+        applied=True,
+        reason_code="corrected",
+        now=time.time(),
+    )
+    assert completed.result_ref == "correction-race-authoritative-result"
+    assert completed.text_revision == 2
+    assert completed.timeline_revision > first.segment.timeline_revision
+
+
+def test_invalid_correction_spec_fails_terminal_and_keeps_provisional_result():
+    principal = VoicePrincipal(tenant_id="invalid-spec-tenant", subject="invalid-spec-owner")
+    service = VoiceLiveRunService()
+    created, _ = service.create(
+        principal,
+        idempotency_key="invalid-spec-create",
+        lease_token=_lease_token(principal, "invalid-spec-profile"),
+        source="microphone",
+        profile_id="invalid-spec-profile",
+        configuration_session_id=None,
+        language="de",
+        segment_duration_seconds=60,
+        max_duration_seconds=60,
+        overlap_milliseconds=0,
+    )
+    run_id = created["run"]["id"]
+    reserved = service.reserve_audio_segment(
+        principal,
+        run_id,
+        sequence=0,
+        idempotency_key="invalid-spec-segment",
+        audio=_wav(sample=33),
+        started_at_ms=0,
+        ended_at_ms=1_000,
+        duration_ms=1_000,
+        overlap_milliseconds=0,
+    )
+    service.bind_segment_task(
+        principal,
+        run_id,
+        sequence=0,
+        idempotency_key_digest=reserved.idempotency_key_digest,
+        attempt_count=1,
+        task_id="invalid-spec-asr-task",
+    )
+    service.publish_provisional(
+        principal,
+        run_id,
+        sequence=0,
+        idempotency_key_digest=reserved.idempotency_key_digest,
+        attempt_count=1,
+        task_id="invalid-spec-asr-task",
+        result_ref="invalid-spec-provisional",
+        correction_configuration_digest="b" * 64,
+        correction_spec_ref="missing-encrypted-correction-spec",
+        correction_requested=True,
+    )
+
+    corrections = get_voice_live_run_correction_service()
+    assert corrections.schedule(principal, run_id, 0) is True
+    assert corrections.wait_for_idle(timeout=10)
+    snapshot = service.snapshot(principal, run_id, include_text=False)
+    segment = snapshot["segments"][0]
+    assert segment["status"] == "completed"
+    assert segment["correction_status"] == "failed"
+    assert segment["text_state"] == "final_uncorrected"
+    assert segment["revision"] == 2
+    assert segment["result_ref"] == "invalid-spec-provisional"
+    assert snapshot["resume"]["pending_correction_sequences"] == []
+
+
+def test_profile_deletion_fences_blocked_live_correction_and_removes_late_writes(
+    client,
+    admin_auth_header,
+):
+    profile_id = f"delete-live-correction-{uuid.uuid4().hex}"
+    assert _configure_live_corrector(client, admin_auth_header, profile_id).status_code == 200
+    created = _create_run(client, admin_auth_header, profile_id=profile_id)
+    run = created.get_json()["data"]["run"]
+    correction_started = threading.Event()
+    release_correction = threading.Event()
+    provider = Mock()
+    provider.transcribe.return_value = _result("zu loeschender rohtext")
+    corrector = Mock()
+
+    def blocked_correction(result, **_kwargs):
+        correction_started.set()
+        assert release_correction.wait(timeout=10)
+        return VoiceGenerativeCorrectorOutcome(
+            result={**dict(result), "text": "Zu löschender korrigierter Text."},
+            applied=True,
+            reason_code="generative_corrector_corrected",
+        )
+
+    corrector.apply.side_effect = blocked_correction
+    with (
+        patch(
+            "agent.routes.voice_live_runs.get_voice_provider_service",
+            return_value=provider,
+        ),
+        patch(
+            "agent.services.voice_transcription_postprocessing_service."
+            "get_voice_generative_corrector_service",
+            return_value=corrector,
+        ),
+    ):
+        uploaded = _put_audio(
+            client,
+            admin_auth_header,
+            run["id"],
+            0,
+            key="delete-live-correction-segment",
+            audio=_wav(sample=34),
+            started_at_ms=0,
+            ended_at_ms=1_000,
+        )
+        assert uploaded.status_code == 200
+        assert correction_started.wait(timeout=5)
+        with Session(engine) as session:
+            segment = session.exec(
+                select(VoiceLiveRunSegmentDB).where(
+                    VoiceLiveRunSegmentDB.run_id == run["id"],
+                    VoiceLiveRunSegmentDB.sequence == 0,
+                )
+            ).one()
+            task_ids = {
+                run["parent_task_id"],
+                str(segment.task_id),
+                str(segment.correction_task_id),
+            }
+        get_voice_privacy_service().delete_profile(
+            VoicePrincipal(tenant_id="admin", subject="admin"),
+            profile_id=profile_id,
+            idempotency_key=f"delete-{profile_id}",
+        )
+        release_correction.set()
+        assert get_voice_live_run_correction_service().wait_for_idle(timeout=10)
+
+    with Session(engine) as session:
+        assert session.get(VoiceLiveRunDB, run["id"]) is None
+        assert session.exec(
+            select(VoiceLiveRunSegmentDB).where(VoiceLiveRunSegmentDB.run_id == run["id"])
+        ).first() is None
+        assert session.exec(
+            select(VoiceResultArtifactDB).where(
+                VoiceResultArtifactDB.tenant_id == "admin",
+                VoiceResultArtifactDB.owner_subject == "admin",
+                VoiceResultArtifactDB.profile_id == profile_id,
+            )
+        ).first() is None
+        assert all(session.get(TaskDB, task_id) is None for task_id in task_ids)
+
+
+def test_expiry_assigns_unique_delta_revisions_beyond_one_page():
+    principal = VoicePrincipal(tenant_id="expiry-delta-tenant", subject="expiry-delta-owner")
+    now = time.time()
+    run = VoiceLiveRunDB(
+        id=f"voice-live-run-expiry-delta-{uuid.uuid4()}",
+        tenant_id=principal.tenant_id,
+        owner_subject=principal.subject,
+        profile_id="expiry-delta-profile",
+        idempotency_key_digest=uuid.uuid4().hex,
+        parent_task_id=f"voice-live-parent-{uuid.uuid4()}",
+        source="microphone",
+        status="active",
+        segment_duration_seconds=60,
+        max_duration_seconds=28_800,
+        overlap_milliseconds=0,
+        last_local_sequence=149,
+        last_heartbeat_at=now - 100,
+        capture_deadline_at=now - 10,
+        expires_at=now - 1,
+        created_at=now - 1_000,
+        updated_at=now - 100,
+    )
+    run_id = run.id
+    with Session(engine) as session:
+        session.add(run)
+        for sequence in range(150):
+            provisional_ref = f"expiry-delta-provisional-{sequence}"
+            session.add(
+                VoiceLiveRunSegmentDB(
+                    run_id=run_id,
+                    tenant_id=principal.tenant_id,
+                    owner_subject=principal.subject,
+                    sequence=sequence,
+                    status="completed",
+                    idempotency_key_digest=uuid.uuid4().hex,
+                    result_ref=provisional_ref,
+                    provisional_result_ref=provisional_ref,
+                    correction_status="queued",
+                    correction_configuration_digest="c" * 64,
+                    correction_spec_ref=f"expiry-delta-spec-{sequence}",
+                    text_revision=1,
+                    started_at_ms=sequence * 1_000,
+                    ended_at_ms=(sequence + 1) * 1_000,
+                    duration_ms=1_000,
+                    created_at=now - 100,
+                    updated_at=now - 100,
+                )
+            )
+        session.commit()
+
+    expired = VoiceLiveRunRepository().mark_expired(principal, run_id, now=now)
+    assert expired is not None
+    assert expired.status == "expired"
+    service = VoiceLiveRunService()
+    first = service.snapshot(
+        principal,
+        run_id,
+        after_revision=-1,
+        limit=100,
+        include_text=False,
+    )
+    second = service.snapshot(
+        principal,
+        run_id,
+        after_revision=first["page"]["next_after_revision"],
+        limit=100,
+        include_text=False,
+    )
+    revisions = [
+        int(item["timeline_revision"])
+        for item in [*first["segments"], *second["segments"]]
+    ]
+    assert len(first["segments"]) == 100
+    assert first["page"]["has_more"] is True
+    assert len(second["segments"]) == 50
+    assert second["page"]["has_more"] is False
+    assert len(revisions) == len(set(revisions)) == 150
+    assert all(item["correction_status"] == "failed" for item in second["segments"])
+
+
+def test_segment_upload_and_replay_decrypt_only_the_current_revision(
+    client,
+    admin_auth_header,
+):
+    created = _create_run(
+        client,
+        admin_auth_header,
+        max_seconds=3_600,
+        overlap_ms=0,
+    )
+    run_id = created.get_json()["data"]["run"]["id"]
+    provider = Mock()
+    provider.transcribe.return_value = _result("kurzer abschnitt")
+    artifacts = get_voice_result_artifact_service()
+    with (
+        patch(
+            "agent.routes.voice_live_runs.get_voice_provider_service",
+            return_value=provider,
+        ),
+        patch.object(artifacts, "get", wraps=artifacts.get) as artifact_get,
+    ):
+        for sequence in range(20):
+            response = _put_audio(
+                client,
+                admin_auth_header,
+                run_id,
+                sequence,
+                key=f"bounded-decrypt-{sequence}",
+                audio=_wav(sample=sequence),
+                started_at_ms=sequence * 1_000,
+                ended_at_ms=(sequence + 1) * 1_000,
+            )
+            assert response.status_code == 200
+        assert artifact_get.call_count == 20
+        artifact_get.reset_mock()
+        replay = _put_audio(
+            client,
+            admin_auth_header,
+            run_id,
+            19,
+            key="bounded-decrypt-19",
+            audio=_wav(sample=19),
+            started_at_ms=19_000,
+            ended_at_ms=20_000,
+        )
+        assert replay.status_code == 200
+        assert replay.get_json()["data"]["idempotent_replay"] is True
+        assert artifact_get.call_count == 1

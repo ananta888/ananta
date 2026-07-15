@@ -48,6 +48,20 @@ def test_voice_governance_migration_up_down_and_reupgrade(tmp_path: Path) -> Non
     assert "voice_live_runs" in live_inspector.get_table_names()
     assert "voice_live_run_segments" in live_inspector.get_table_names()
     assert "reported_gap_sequences" in {item["name"] for item in live_inspector.get_columns("voice_live_runs")}
+    assert "timeline_revision" in {
+        item["name"] for item in live_inspector.get_columns("voice_live_runs")
+    }
+    live_segment_columns = {
+        item["name"] for item in live_inspector.get_columns("voice_live_run_segments")
+    }
+    assert {
+        "provisional_result_ref",
+        "correction_task_id",
+        "correction_status",
+        "correction_spec_ref",
+        "text_revision",
+        "timeline_revision",
+    } <= live_segment_columns
 
     _alembic(database, "downgrade", VOICE_PRE_TTL_REVISION)
     constraints, columns, indexes = _voice_schema(database)
