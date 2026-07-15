@@ -63,6 +63,7 @@ voice_bp = Blueprint("voice", __name__)
 _VOICE_MULTIPART_OVERHEAD_BYTES = 256 * 1024
 _VOICE_MAX_FORM_MEMORY_BYTES = 256 * 1024
 _VOICE_MAX_FORM_PARTS = 32
+_VOICE_STREAM_FINALIZATION_GRACE_SECONDS = 5.0
 
 
 @voice_bp.before_request
@@ -196,6 +197,22 @@ def _voice_admission_limits() -> VoiceAdmissionLimits:
 
 def _deadline_epoch_ms(*, request_started_epoch_ms: int, budget_seconds: float) -> int:
     return request_started_epoch_ms + max(1, round(float(budget_seconds) * 1000))
+
+
+def _stream_deadline_budget(
+    *,
+    requested_deadline_seconds: float,
+    max_audio_seconds: float,
+    candidate_deadline_seconds: float,
+) -> float:
+    """Bound total stream lifetime without treating candidate time as capture time."""
+
+    required_seconds = (
+        max(0.001, float(max_audio_seconds))
+        + max(0.1, float(candidate_deadline_seconds))
+        + _VOICE_STREAM_FINALIZATION_GRACE_SECONDS
+    )
+    return max(1.0, min(float(requested_deadline_seconds), required_seconds, 300.0))
 
 
 def _context_with_remaining_deadline(context: dict | None, remaining_seconds: float) -> dict | None:
@@ -1476,7 +1493,11 @@ def create_voice_stream():
             if isinstance(effective_configuration, dict)
             else 120.0
         )
-        deadline_budget = min(payload["deadline_seconds"], configured_deadline)
+        deadline_budget = _stream_deadline_budget(
+            requested_deadline_seconds=payload["deadline_seconds"],
+            max_audio_seconds=max_audio_seconds,
+            candidate_deadline_seconds=configured_deadline,
+        )
         absolute_deadline_epoch_ms = _deadline_epoch_ms(
             request_started_epoch_ms=request_started_epoch_ms,
             budget_seconds=deadline_budget,

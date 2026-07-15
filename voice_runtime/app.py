@@ -75,7 +75,7 @@ def create_app(config: VoiceRuntimeConfig | None = None) -> Flask:
             ),
             max_sessions=runtime_config.max_queue_depth,
             max_total_bytes=runtime_config.max_audio_mb * 1024 * 1024,
-            default_deadline_seconds=runtime_config.timeout_sec,
+            default_deadline_seconds=runtime_config.stream_timeout_sec,
             default_max_audio_seconds=runtime_config.max_audio_duration_sec,
             max_decoded_pcm_bytes=runtime_config.max_decoded_pcm_mb * 1024 * 1024,
             audio_decode_timeout_seconds=min(runtime_config.timeout_sec, 60),

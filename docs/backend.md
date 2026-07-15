@@ -37,6 +37,9 @@ Dieses Dokument beschreibt Architektur, Datenmodelle und API-Grundlagen des Back
   - `VOICE_FALLBACK_MODEL`
   - `VOICE_MAX_AUDIO_MB`
   - `VOICE_TIMEOUT_SEC`
+  - `VOICE_STREAM_TIMEOUT_SEC` (Gesamtlimit für Live-Capture plus Finalisierung;
+    muss mindestens so hoch wie die maximale Hub-Live-Stream-Frist sein,
+    standardmaessig 300 Sekunden)
   - `VOICE_DIRECT_CLIENT_ACCESS`
   - `VOICE_RUNTIME_DEVICE`
   - `VOICE_RUNTIME_MODEL_PATH`

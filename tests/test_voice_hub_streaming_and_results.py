@@ -509,6 +509,66 @@ def test_hub_stream_forwards_and_enforces_pcm_audio_budget(client, admin_auth_he
     assert deleted.status_code == 200
 
 
+def test_hub_stream_deadline_reserves_capture_and_candidate_budgets(client, admin_auth_header):
+    from agent.routes.voice import _stream_deadline_budget
+
+    assert _stream_deadline_budget(
+        requested_deadline_seconds=300,
+        max_audio_seconds=120,
+        candidate_deadline_seconds=120,
+    ) == pytest.approx(245)
+    assert _stream_deadline_budget(
+        requested_deadline_seconds=120,
+        max_audio_seconds=120,
+        candidate_deadline_seconds=120,
+    ) == pytest.approx(120)
+    assert _stream_deadline_budget(
+        requested_deadline_seconds=999,
+        max_audio_seconds=120,
+        candidate_deadline_seconds=300,
+    ) == pytest.approx(300)
+
+    profile_id = "stream-total-deadline-profile"
+    configured = client.put(
+        "/v1/voice/configuration",
+        headers={**admin_auth_header, "Idempotency-Key": "stream-total-deadline-config"},
+        json={
+            "scope": "profile",
+            "scope_id": profile_id,
+            "delta": {"candidate_deadline_sec": 20.0},
+        },
+    )
+    assert configured.status_code == 200
+
+    with patch("agent.routes.voice.get_voice_provider_service") as provider_factory:
+        provider = provider_factory.return_value
+        provider.create_stream.side_effect = _created_runtime_stream
+        provider.delete_stream.return_value = {"deleted": True}
+        created = client.post(
+            "/v1/voice/streams",
+            headers={**admin_auth_header, "Idempotency-Key": "voice-stream-total-deadline"},
+            json={
+                "filename": "deadline.pcm",
+                "media_type": "audio/pcm;rate=16000;channels=1",
+                "deadline_seconds": 100,
+                "max_audio_seconds": 30,
+                "profile_id": profile_id,
+            },
+        )
+        stream = created.get_json()["data"]["stream"]
+        deleted = client.delete(
+            f"/v1/voice/streams/{stream['session_id']}",
+            headers=admin_auth_header,
+        )
+
+    assert created.status_code == 201
+    assert 50 <= stream["deadline_at"] - stream["created_at"] <= 55
+    assert 50 <= provider.create_stream.call_args.kwargs["deadline_seconds"] <= 55
+    recognition_context = provider.create_stream.call_args.kwargs["recognition_context"]
+    assert recognition_context["configuration"]["candidate_deadline_sec"] == pytest.approx(20)
+    assert deleted.status_code == 200
+
+
 def test_hub_stream_reserves_configured_maximum_for_opaque_container(client, admin_auth_header):
     limits = VoiceAdmissionLimits(
         max_concurrent_requests=2,

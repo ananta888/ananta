@@ -85,7 +85,11 @@ Alle Voice-Endpunkte sind authentifiziert (Bearer Token).
 
 ### `POST /v1/voice/transcribe`
 - **Body:** `multipart/form-data` mit `file` plus optional `language`, `model`, `mode`
-- **Limits:** `VOICE_MAX_AUDIO_MB`, `VOICE_TIMEOUT_SEC`
+- **Limits:** `VOICE_MAX_AUDIO_MB`, `VOICE_TIMEOUT_SEC`; Live-Streams nutzen
+  zusätzlich `VOICE_STREAM_TIMEOUT_SEC` als Gesamtlimit für Capture und
+  Finalisierung. Der Runtime-Wert muss mindestens der maximalen Hub-Live-
+  Stream-Frist entsprechen (standardmäßig jeweils 300 Sekunden), da die
+  Runtime längere angeforderte Fristen auf dieses Limit kürzt.
 - **Response 200:**
   ```json
   {

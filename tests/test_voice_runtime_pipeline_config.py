@@ -20,6 +20,7 @@ def test_voice_runtime_config_reads_pipeline_env(monkeypatch):
     monkeypatch.setenv("VOICE_RESOURCE_MAX_AUDIO_SECONDS", "600")
     monkeypatch.setenv("VOICE_RESOURCE_MAX_QUEUE_DEPTH", "5")
     monkeypatch.setenv("VOICE_SILERO_VAD_THRESHOLD", "0.73")
+    monkeypatch.setenv("VOICE_STREAM_TIMEOUT_SEC", "275")
 
     config = VoiceRuntimeConfig.from_env()
 
@@ -35,6 +36,7 @@ def test_voice_runtime_config_reads_pipeline_env(monkeypatch):
     assert config.resource_max_audio_seconds == 600
     assert config.resource_max_queue_depth == 5
     assert config.silero_vad_threshold == 0.73
+    assert config.stream_timeout_sec == 275
 
 
 def test_blank_whisper_gpu_switch_preserves_legacy_positive_layers_alias(monkeypatch):
@@ -68,12 +70,18 @@ def test_voice_runtime_config_rejects_invalid_silero_threshold(monkeypatch):
         VoiceRuntimeConfig.from_env()
 
 
+def test_voice_runtime_config_rejects_invalid_stream_timeout():
+    with pytest.raises(ValueError, match="VOICE_STREAM_TIMEOUT_SEC"):
+        VoiceRuntimeConfig(stream_timeout_sec=3_601).validate()
+
+
 def test_voice_runtime_config_default_is_compatible():
     config = VoiceRuntimeConfig()
 
     assert config.transcription_pipeline == "simple"
     assert config.asr_backend == "mock"
     assert config.backend_fallback_order == ("voxtral", "mock")
+    assert config.stream_timeout_sec == 300
 
 
 def test_legacy_pipeline_and_fallback_order_project_to_canonical_runtime_axes(monkeypatch):
@@ -126,3 +134,15 @@ def test_app_composition_injects_the_configured_resource_ceiling():
         "max_audio_ms": 90_000,
         "max_queue_depth": 5,
     }
+
+
+def test_app_composition_uses_separate_total_stream_timeout():
+    app = create_app(VoiceRuntimeConfig(
+        enable_streaming=True,
+        stream_timeout_sec=245,
+        backend_fallback_order=("mock",),
+    ))
+
+    manager = app.config["voice_runtime_stream_manager"]
+
+    assert manager._default_deadline_seconds == 245

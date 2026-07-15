@@ -525,6 +525,34 @@ def test_stream_deadline_includes_recognizer_model_loading(monkeypatch):
     assert closed.is_set()
 
 
+def test_stream_manager_accepts_hub_total_deadline_beyond_candidate_timeout():
+    manager = _manager(default_deadline_seconds=300)
+
+    session = manager.create(
+        filename="audio.pcm",
+        language=None,
+        media_type="audio/pcm;rate=16000;channels=1",
+        deadline_seconds=245,
+        max_audio_seconds=120,
+    )
+
+    assert 244 <= session.deadline_monotonic - time.monotonic() <= 245
+
+
+def test_stream_manager_caps_hub_deadline_at_runtime_stream_timeout():
+    manager = _manager(default_deadline_seconds=245)
+
+    session = manager.create(
+        filename="audio.pcm",
+        language=None,
+        media_type="audio/pcm;rate=16000;channels=1",
+        deadline_seconds=300,
+        max_audio_seconds=120,
+    )
+
+    assert 244 <= session.deadline_monotonic - time.monotonic() <= 245
+
+
 def test_stream_finalization_narrows_pipeline_to_remaining_session_deadline():
     class _Pipeline:
         observed_deadline = 0.0

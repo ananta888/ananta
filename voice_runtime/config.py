@@ -70,6 +70,7 @@ class VoiceRuntimeConfig:
     model: str = "voxtral"
     fallback_model: str = "whisper-small"
     timeout_sec: int = 120
+    stream_timeout_sec: int = 300
     max_audio_mb: int = 25
     enable_streaming: bool = False
     store_audio: bool = False
@@ -208,6 +209,7 @@ class VoiceRuntimeConfig:
             model=os.getenv("VOICE_MODEL", "voxtral").strip() or "voxtral",
             fallback_model=os.getenv("VOICE_FALLBACK_MODEL", "whisper-small").strip() or "whisper-small",
             timeout_sec=max(1, _as_int(os.getenv("VOICE_TIMEOUT_SEC"), 120)),
+            stream_timeout_sec=max(1, _as_int(os.getenv("VOICE_STREAM_TIMEOUT_SEC"), 300)),
             max_audio_mb=max(1, _as_int(os.getenv("VOICE_MAX_AUDIO_MB"), 25)),
             enable_streaming=_as_bool(os.getenv("VOICE_ENABLE_STREAMING"), False),
             store_audio=_as_bool(os.getenv("VOICE_STORE_AUDIO"), False),
@@ -472,6 +474,8 @@ class VoiceRuntimeConfig:
             raise ValueError("VOICE_MAX_PARALLEL_BACKENDS must be between 1 and 32")
         if not 0.1 <= self.candidate_deadline_sec <= 3600:
             raise ValueError("VOICE_CANDIDATE_DEADLINE_SEC must be between 0.1 and 3600")
+        if not 1 <= self.stream_timeout_sec <= 3600:
+            raise ValueError("VOICE_STREAM_TIMEOUT_SEC must be between 1 and 3600")
         if self.adaptive_max_total_latency_ms <= 0 or self.adaptive_max_regional_rerun_ms < 0:
             raise ValueError("adaptive routing budgets are invalid")
         if self.rerun_max_audio_ms < 0:
