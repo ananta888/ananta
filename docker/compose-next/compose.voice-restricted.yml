@@ -315,6 +315,12 @@ services:
       VOICE_RUNTIME_ALLOWED_ORIGINS: http://voice-runtime:8090
       VOICE_RUNTIME_MAX_RESPONSE_BYTES: ${VOICE_RUNTIME_MAX_RESPONSE_BYTES:-16777216}
       VOICE_RUNTIME_URL: http://voice-runtime:8090
+    # Werkzeug may roll multipart bodies above 500 KiB into an unnamed
+    # request-scoped temporary file. Keep that transient Voice processing off
+    # the container writable layer; application-level raw-audio retention
+    # remains disabled.
+    tmpfs:
+      - /tmp:size=536870912,mode=1777,uid=0,gid=0,noexec,nosuid,nodev
     depends_on:
       restricted-inference-minimal:
         condition: service_healthy

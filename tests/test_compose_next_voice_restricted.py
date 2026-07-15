@@ -123,6 +123,17 @@ def test_network_boundaries_keep_control_planes_internal_and_workers_disjoint(
     assert "generative-corrector-egress" not in hub_networks
 
 
+def test_hub_transient_voice_spool_uses_bounded_tmpfs(compose_document: dict) -> None:
+    mounts = compose_document["services"]["ai-agent-hub"]["tmpfs"]
+
+    assert len(mounts) == 1
+    mount = mounts[0]
+    assert mount.startswith("/tmp:")
+    assert "size=536870912" in mount
+    assert "mode=1777" in mount
+    assert all(option in mount for option in ("noexec", "nosuid", "nodev"))
+
+
 @pytest.mark.parametrize("service_name", sorted(RUNTIME_SERVICES))
 def test_runtime_services_apply_least_privilege(compose_document: dict, service_name: str) -> None:
     service = compose_document["services"][service_name]
