@@ -5,6 +5,7 @@ import android.os.Bundle;
 import com.getcapacitor.BridgeActivity;
 import com.ananta.mobile.llama.LlamaCppRuntimePlugin;
 import com.ananta.mobile.python.PythonRuntimePlugin;
+import com.ananta.mobile.voice.PlaybackAudioCapturePlugin;
 import com.ananta.mobile.voice.VoiceCapturePlugin;
 import com.ananta.mobile.voxtral.VoxtralOfflinePlugin;
 
@@ -13,6 +14,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(VoxtralOfflinePlugin.class);
         registerPlugin(VoiceCapturePlugin.class);
+        registerPlugin(PlaybackAudioCapturePlugin.class);
         registerPlugin(LlamaCppRuntimePlugin.class);
         registerPlugin(PythonRuntimePlugin.class);
         super.onCreate(savedInstanceState);

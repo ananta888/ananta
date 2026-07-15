@@ -40,10 +40,19 @@
             android:enabled="true"
             android:exported="false"
             android:process=":voxtral_runner" />
+
+        <service
+            android:name=".voice.PlaybackAudioCaptureService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection"
+            android:stopWithTask="true" />
     </application>
 
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
 </manifest>

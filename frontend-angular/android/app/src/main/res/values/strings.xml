@@ -4,4 +4,9 @@
     <string name="title_activity_main">Ananta Control</string>
     <string name="package_name">com.ananta.mobile</string>
     <string name="custom_url_scheme">com.ananta.mobile</string>
+    <string name="playback_capture_channel_name">Wiedergabe-Transkription</string>
+    <string name="playback_capture_channel_description">Zeigt eine aktive Aufnahme von Geräte-Wiedergabeaudio an.</string>
+    <string name="playback_capture_notification_title">Wiedergabeaudio wird aufgenommen</string>
+    <string name="playback_capture_notification_text">Ananta erfasst das ausdrücklich freigegebene Wiedergabeaudio.</string>
+    <string name="playback_capture_notification_stop">Aufnahme stoppen</string>
 </resources>
