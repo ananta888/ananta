@@ -9,6 +9,7 @@ import { UserAuthService } from '../services/user-auth.service';
 import {
   AgentDirectoryService,
   AgentEntry,
+  normalizeHubOrigin,
   usesEmbeddedAndroidHub,
 } from '../services/agent-directory.service';
 import { PythonRuntimeService } from '../services/python-runtime.service';
@@ -32,6 +33,40 @@ template: `
         }
         @if (showHubDirect) {
           <form (submit)="onLogin($event)" aria-label="Login-Formular">
+            @if (isAndroidNative) {
+              <div class="form-group">
+                <label for="hubUrl">Hub-URL</label>
+                <input
+                  type="url"
+                  id="hubUrl"
+                  [(ngModel)]="hubUrl"
+                  name="hubUrl"
+                  required
+                  inputmode="url"
+                  autocomplete="off"
+                  autocapitalize="none"
+                  spellcheck="false"
+                  placeholder="http://10.0.2.2:5000"
+                  [attr.aria-describedby]="getHubUrlError() ? 'hub-url-error hub-url-help' : 'hub-url-help'"
+                  [attr.aria-invalid]="getHubUrlError() ? 'true' : null"
+                  aria-required="true"
+                  (blur)="hubUrlTouched = true"
+                  (ngModelChange)="hubUrlSavedInfo = ''">
+                @if (hubUrlTouched && getHubUrlError()) {
+                  <small id="hub-url-error" class="error-msg error-msg-block">{{getHubUrlError()}}</small>
+                }
+                <p id="hub-url-help" class="muted mfa-hint">
+                  Emulator: <code>http://10.0.2.2:5000</code>. Auf einem physischen Gerät die LAN-URL
+                  des Hub-Rechners verwenden. Nur HTTP(S), ohne Zugangsdaten oder zusätzlichen Pfad.
+                </p>
+                <button type="button" class="secondary btn-full" (click)="saveNativeHubUrl()" [disabled]="loading">
+                  Hub-URL speichern
+                </button>
+                @if (hubUrlSavedInfo) {
+                  <div class="hint-text text-center mt-sm" aria-live="polite">{{hubUrlSavedInfo}}</div>
+                }
+              </div>
+            }
             <div class="form-group">
               <label for="username">Benutzername</label>
               <input
@@ -240,6 +275,9 @@ export class LoginComponent implements OnInit {
   ngOnInit(): void {
     const sphere = this.route.snapshot.queryParamMap.get('sphere');
     this.requestedSphere = sphere === 'hub' || sphere === 'oidc' ? sphere : null;
+    if (this.isAndroidNative) {
+      this.hubUrl = this.findConfiguredHub()?.url ?? '';
+    }
   }
 
   loginWithKeycloak(): void {
@@ -311,6 +349,9 @@ export class LoginComponent implements OnInit {
   usernameTouched = false;
   passwordTouched = false;
   mfaTouched = false;
+  hubUrl = '';
+  hubUrlTouched = false;
+  hubUrlSavedInfo = '';
   showDebugPanel = false;
   debugBusy = false;
   debugText = '';
@@ -340,6 +381,29 @@ export class LoginComponent implements OnInit {
     return null;
   }
 
+  getHubUrlError(): string | null {
+    if (!this.hubUrl.trim()) {
+      return 'Hub-URL ist erforderlich.';
+    }
+    if (!normalizeHubOrigin(this.hubUrl)) {
+      return 'Bitte eine vollständige HTTP(S)-Origin ohne Zugangsdaten, Pfad, Query oder Fragment eingeben.';
+    }
+    return null;
+  }
+
+  saveNativeHubUrl(): void {
+    if (!this.isAndroidNative) return;
+    this.hubUrlTouched = true;
+    const hub = this.persistNativeHubUrl();
+    if (!hub) {
+      this.hubUrlSavedInfo = '';
+      this.error = this.getHubUrlError() ?? 'Hub-URL ist ungültig.';
+      return;
+    }
+    this.error = '';
+    this.hubUrlSavedInfo = `Hub-URL gespeichert: ${hub.url}`;
+  }
+
   onForgotPassword(e: Event) {
     e.preventDefault();
     this.forgotInfo = 'Passwort-Reset ist derzeit nicht verfuegbar. Bitte den Administrator kontaktieren.';
@@ -357,7 +421,16 @@ export class LoginComponent implements OnInit {
 
     let hub: AgentEntry | null = null;
     try {
-      hub = this.resolveHubForLogin();
+      if (this.isAndroidNative) {
+        this.hubUrlTouched = true;
+        hub = this.persistNativeHubUrl();
+        if (!hub) {
+          this.error = this.getHubUrlError() ?? 'Hub-URL ist ungültig.';
+          return;
+        }
+      } else {
+        hub = this.resolveHubForLogin();
+      }
       if (!hub) {
         this.error = 'Kein Hub in den Einstellungen gefunden.';
         return;
@@ -417,7 +490,7 @@ export class LoginComponent implements OnInit {
   }
 
   private resolveHubForLogin(): { name: string; url: string; role?: 'hub' | 'worker'; token?: string } | null {
-    const hub = this.dir.list().find(a => a.role === 'hub');
+    const hub = this.dir.list().find((agent) => agent.role === 'hub');
     if (!hub) return null;
     const current = String(hub.url || '').trim();
     if (!current) return hub;
@@ -425,6 +498,27 @@ export class LoginComponent implements OnInit {
     const normalized = current.replace(/^https?:\/\/localhost\b/i, 'http://127.0.0.1');
     const updated = { ...hub, url: normalized };
     this.dir.upsert(updated);
+    return updated;
+  }
+
+  private findConfiguredHub(): AgentEntry | undefined {
+    const agents = this.dir.list();
+    return agents.find((agent) => agent.role === 'hub')
+      ?? agents.find((agent) => agent.name === 'hub');
+  }
+
+  private persistNativeHubUrl(): AgentEntry | null {
+    const normalized = normalizeHubOrigin(this.hubUrl);
+    if (!normalized) return null;
+
+    const current = this.findConfiguredHub();
+    const updated: AgentEntry = {
+      name: current?.name || 'hub',
+      role: 'hub',
+      url: normalized,
+    };
+    this.dir.upsert(updated);
+    this.hubUrl = normalized;
     return updated;
   }
 

@@ -42,7 +42,8 @@ export class VoiceTranscriptionResultComponent {
 
   correctionModel(): string {
     const correction = this.correction();
-    const model = correction?.model_id || correction?.model || this.result.model;
+    if (!correction) return 'keine generative Korrektur';
+    const model = correction.model_id || correction.model;
     const revision = correction?.model_revision;
     return [model, revision].filter(Boolean).join(' · ') || 'keine generative Korrektur';
   }

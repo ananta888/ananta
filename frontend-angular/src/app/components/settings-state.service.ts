@@ -1,4 +1,5 @@
 import { Directive, OnInit, inject } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { AgentApiService } from '../services/agent-api.service';
 import { NotificationService } from '../services/notification.service';
 import { UserAuthService } from '../services/user-auth.service';
@@ -16,12 +17,20 @@ import {
   type ProjectModelRoutingRecommendation,
 } from './settings-config.helpers';
 
+export type SettingsSection = 'account' | 'llm' | 'quality' | 'voice' | 'system' | 'erweitert';
+
+export function settingsSectionFromQuery(value: string | null): SettingsSection | null {
+  const sections: SettingsSection[] = ['account', 'llm', 'quality', 'voice', 'system', 'erweitert'];
+  return sections.includes(value as SettingsSection) ? value as SettingsSection : null;
+}
+
 @Directive()
 export class SettingsState implements OnInit {
   private api = inject(AgentApiService);
   private system = inject(SystemFacade);
   private ns = inject(NotificationService);
   private auth = inject(UserAuthService);
+  private route = inject(ActivatedRoute);
   hub = this.system.resolveHubAgent();
   allAgents = this.system.listConfiguredAgents();
   config: any = createDefaultSettingsConfig();
@@ -34,7 +43,7 @@ export class SettingsState implements OnInit {
   qgMinOutputChars = 8;
   qgCodingKeywordsText = 'code, implement, fix, refactor, bug, test, feature, endpoint';
   qgMarkersText = 'test, pytest, passed, success, lint, ok';
-  selectedSection: 'account' | 'llm' | 'quality' | 'voice' | 'system' | 'erweitert' = 'llm';
+  selectedSection: SettingsSection = 'llm';
   providerCatalog: any = null;
   benchmarkConfig: any = null;
   benchmarkRetentionDays = 90;
@@ -54,6 +63,8 @@ export class SettingsState implements OnInit {
   evolutionProviderStatus: any = null;
   private systemFormDirty = false;
   ngOnInit() {
+    const requestedSection = settingsSectionFromQuery(this.route.snapshot.queryParamMap.get('section'));
+    if (requestedSection) this.selectedSection = requestedSection;
     this.auth.user$.subscribe(user => {
       this.isAdmin = user?.role === 'admin';
     });
@@ -73,7 +84,7 @@ export class SettingsState implements OnInit {
       localStorage.setItem('ananta.dark-mode', 'false');
     }
   }
-  setSection(section: 'account' | 'llm' | 'quality' | 'voice' | 'system' | 'erweitert') {
+  setSection(section: SettingsSection) {
     this.selectedSection = section;
   }
   load() {

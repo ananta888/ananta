@@ -105,6 +105,7 @@ describe('VoiceConsoleComponent', () => {
     expect(text).toContain('phi-4-mini');
     expect(fixture.componentInstance.selectedBackend).toBe('vosk');
     expect(fixture.componentInstance.selectedCorrectorModel).toBe('gemma-3-4b-it');
+    expect((fixture.nativeElement as HTMLElement).querySelector('a[href="/settings?section=voice"]')).toBeTruthy();
   });
 
   it('persists the additive Vosk plus generative rewrite profile contract', async () => {

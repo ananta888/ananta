@@ -25,6 +25,11 @@ unter `models/voice/vosk` und dem Voice-Katalog unter
 `models/voice/manifests/voice-models.json`. Details zur Voice-Modellpromotion
 stehen im
 [Production Runbook](operations/voice-restricted-production-runbook.md#model-promotion).
+Die CPU-Standardkonfiguration kombiniert Vosk mit whisper.cpp. Für eine
+ressourcenschonende Installation kann derselbe Dienst explizit auf Vosk allein
+begrenzt werden; dann müssen Katalog und Modellbaum keine Whisper-Artefakte
+enthalten. Die dafür vorgesehenen `VOICE_CPU_*`-Variablen ändern die sicheren
+Produktionsdefaults nicht.
 
 Der Corrector verwendet einen eigenen, read-only gemounteten Modellbaum:
 
@@ -116,6 +121,40 @@ normales Hub-Benutzertoken; es erhält keines der internen Runtime-Tokens.
 
 ## 3. Stack starten
 
+### Leichte Vosk-/Qwen-Variante
+
+Für einen kleinen lokalen CPU-Pfad wird nur Vosk als ASR-Backend ausgewählt.
+Ein geeigneter öffentlicher Corrector ist beispielsweise
+`Qwen/Qwen2.5-0.5B-Instruct`; sein lokaler Katalogeintrag kann die ID
+`qwen2.5-0.5b-instruct` verwenden. Modell und Katalog müssen wie oben beschrieben
+lokal und auf eine unveränderliche Revision gepinnt vorliegen.
+
+```bash
+export VOICE_CPU_RECOGNITION_STRATEGY=single
+export VOICE_CPU_BACKEND_FALLBACK_ORDER=vosk
+export VOICE_CPU_CALIBRATION_PATH=''
+export VOICE_CPU_FUSION_ENABLED=false
+export VOICE_CPU_POLICY_ALLOWED_BACKENDS=vosk
+export VOICE_CPU_POLICY_ALLOWED_RECOGNITION_STRATEGIES=single
+export VOICE_CPU_SECONDARY_BACKENDS=''
+export VOICE_CPU_RERUN_BACKEND=vosk
+export VOICE_MAX_PARALLEL_BACKENDS=1
+export VOICE_GENERATIVE_CORRECTOR_MODELS=qwen2.5-0.5b-instruct
+
+docker compose --env-file .env \
+  -f docker/compose-next/compose.stack.full.yml \
+  -f docker/compose-next/compose.voice-restricted.yml \
+  --profile voice-cpu \
+  --profile voice-generative-corrector \
+  up -d --build
+```
+
+Dieses Profil startet keinen Restricted-Inference-Dienst. Browser und Android
+verwenden weiterhin ausschließlich den Hub; Voice Runtime und Corrector bleiben
+in getrennten internen Netzen.
+
+### Vollständiges CPU-Produktionsprofil
+
 Vom Repository-Root wird zum CPU-Voice-Profil das additive Corrector-Profil
 aktiviert:
 
@@ -205,7 +244,7 @@ Die Seite speichert bei aktivierter Korrektur den wirksamen Hub-Delta mit:
   "primary_backend": "vosk",
   "correction_policy": "generative_rewrite",
   "review_policy": "always",
-  "generative_corrector_model": "gemma-2b-it",
+  "generative_corrector_model": "qwen2.5-0.5b-instruct",
   "feature_flags": {
     "generative_corrector": true
   }
@@ -229,6 +268,13 @@ und der Hub kennzeichnet den Fallback.
 
 Die Capacitor-App verwendet dieselbe Route `/voice` und dieselben Hub-Profile.
 Sie benötigt die Android-Mikrofonberechtigung:
+
+Bei der leichten APK wird der Hub nicht auf dem Telefon ausgeführt. Auf der
+Loginseite daher zuerst eine vom Gerät erreichbare **Hub-URL** speichern. Im
+Android-Standardemulator ist das in der Regel `http://10.0.2.2:5000`; ein
+physisches Gerät benötigt die LAN-Adresse des Hub-Rechners und eine passende
+Firewall-Freigabe. Das Feld akzeptiert nur eine HTTP(S)-Origin ohne
+Zugangsdaten, Pfad, Query oder Fragment.
 
 - Live-Aufnahme: Der native `VoiceCapture`-Adapter erzeugt PCM16, 16 kHz, mono
   und sendet 500-ms-Chunks in Reihenfolge an die Hub-Stream-API.

@@ -447,6 +447,7 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
       sessionId: this.sessionId.trim() || undefined,
     }));
     this.configuration = refreshed;
+    this.applyEffectiveConfiguration(refreshed);
   }
 
   private scopeDelta(scope: VoiceConfigurationTarget, scopeId: string): Record<string, unknown> {

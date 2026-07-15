@@ -6,6 +6,7 @@ import {
   normalizeModelOverrideMapValue,
   SettingsComponent,
 } from './settings.component.ts';
+import { settingsSectionFromQuery } from './settings-state.service';
 
 describe('SettingsComponent (benchmark config)', () => {
   const systemMock = {
@@ -177,6 +178,11 @@ describe('SettingsComponent (benchmark config)', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('accepts the Voice settings deep link and rejects unknown sections', () => {
+    expect(settingsSectionFromQuery('voice')).toBe('voice');
+    expect(settingsSectionFromQuery('unknown')).toBeNull();
   });
 
   it('renders provider/model precedence text from benchmark config', () => {

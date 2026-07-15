@@ -177,12 +177,30 @@ In Android Studio:
 Für den Play Store ist das empfohlene Artefakt ein `AAB`.
 
 ### Voraussetzungen (Host-System)
-- JDK 17+
+- JDK 21 (`@capacitor/android` 7.5 kompiliert mit Java 21)
 - Android Studio (inkl. Android SDK + Build Tools)
 - Akzeptierte SDK Lizenzen
 
-### Hinweis zum aktuellen Projektstatus
-Falls `npm run android:prepare` beim Angular-Build fehlschlägt, liegt es derzeit an bestehenden TypeScript-Fehlern im Frontend-Code. Capacitor selbst ist korrekt integriert; nach Behebung der TS-Fehler läuft der Android-Workflow direkt weiter.
+### Leichte Remote-Hub-APK
+
+Die kleine Variante verwendet die Angular-Voice-Oberfläche und den nativen
+Mikrofon-Adapter, führt Vosk und die optionale LLM-Korrektur aber weiterhin über
+den Hub aus. Sie enthält weder die eingebettete Python- noch die llama.cpp-Runtime:
+
+```bash
+npm run android:prepare
+cd android
+./gradlew --no-daemon \
+  -PanantaEnablePythonRuntime=false \
+  -PanantaEnableLlamaCppRuntime=false \
+  :app:assembleDebug
+```
+
+Das Ergebnis liegt unter `android/app/build/outputs/apk/debug/app-debug.apk`.
+Auf der Android-Loginseite muss ein erreichbarer Hub-Origin eingetragen werden:
+im Standard-Emulator typischerweise `http://10.0.2.2:5000`, auf einem echten
+Gerät die LAN-Adresse des Hub-Rechners. Benutzername oder Token gehören nicht
+in die URL.
 
 ## Voxtral Offline in der App
 

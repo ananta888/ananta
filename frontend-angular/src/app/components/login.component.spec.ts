@@ -9,7 +9,8 @@
  *                     AND a hub agent is registered locally.
  */
 import { TestBed } from '@angular/core/testing';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { Capacitor } from '@capacitor/core';
 import { LoginComponent } from './login.component';
 import { IdentityBridge } from '../services/identity/identity-bridge';
 import { OidcAuthService } from '../services/oidc-auth.service';
@@ -164,6 +165,156 @@ describe('LoginComponent — Self-Registration-Button', () => {
     });
     await login;
 
+    expect(ensureEmbeddedControlPlane).not.toHaveBeenCalled();
+    expect(setTokens).toHaveBeenCalledWith('hub-token', 'refresh-token');
+    expect(loadProfiles).toHaveBeenCalledOnce();
+    expect(navigate).toHaveBeenCalledWith(['/dashboard']);
+    http.verify();
+  });
+});
+
+function buildNativeLogin(hubUrl = 'http://127.0.0.1:5000') {
+  const upsert = vi.fn();
+  const ensureEmbeddedControlPlane = vi.fn().mockResolvedValue(undefined);
+  const setTokens = vi.fn().mockResolvedValue(undefined);
+  const loadProfiles = vi.fn().mockResolvedValue(undefined);
+  const navigate = vi.fn();
+  const hub = { name: 'hub', role: 'hub' as const, url: hubUrl };
+
+  vi.spyOn(Capacitor, 'getPlatform').mockReturnValue('android');
+  TestBed.resetTestingModule();
+  TestBed.configureTestingModule({
+    imports: [LoginComponent],
+    providers: [
+      provideHttpClient(),
+      provideHttpClientTesting(),
+      {
+        provide: IdentityBridge,
+        useValue: {
+          showRegistration: false,
+          showOidcLogin: false,
+          showHubDirectLogin: true,
+          hubLinkEnabled: false,
+        },
+      },
+      { provide: OidcAuthService, useValue: { registerWithKeycloak: vi.fn() } },
+      {
+        provide: UserAuthService,
+        useValue: { token: null, oidcAccessTokenValue: null, setTokens },
+      },
+      {
+        provide: AgentDirectoryService,
+        useValue: {
+          list: () => [hub],
+          upsert,
+          get: vi.fn(),
+        },
+      },
+      {
+        provide: NetworkProfileService,
+        useValue: { current: {}, load: loadProfiles },
+      },
+      {
+        provide: PythonRuntimeService,
+        useValue: { isNative: true, ensureEmbeddedControlPlane },
+      },
+      {
+        provide: ActivatedRoute,
+        useValue: { snapshot: { queryParamMap: convertToParamMap({}) } },
+      },
+      { provide: Router, useValue: { navigate, navigateByUrl: vi.fn() } },
+    ],
+  });
+
+  return {
+    fixture: TestBed.createComponent(LoginComponent),
+    upsert,
+    ensureEmbeddedControlPlane,
+    setTokens,
+    loadProfiles,
+    navigate,
+  };
+}
+
+describe('LoginComponent — Android Hub-Onboarding', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('shows the persisted Hub origin and Android connection guidance only in the native app', async () => {
+    const native = buildNativeLogin('https://hub.example.test');
+    native.fixture.detectChanges();
+    await native.fixture.whenStable();
+    native.fixture.detectChanges();
+
+    const input = native.fixture.nativeElement.querySelector('#hubUrl') as HTMLInputElement | null;
+    expect(native.fixture.componentInstance.hubUrl).toBe('https://hub.example.test');
+    expect(input?.value).toBe('https://hub.example.test');
+    expect(input?.placeholder).toBe('http://10.0.2.2:5000');
+    expect(native.fixture.nativeElement.textContent).toContain('physischen Gerät');
+
+    const browser = buildLogin(false, false);
+    browser.detectChanges();
+    expect(browser.nativeElement.querySelector('#hubUrl')).toBeNull();
+  });
+
+  it('normalizes and persists a valid origin as a Hub without URL credentials or token data', () => {
+    const { fixture, upsert } = buildNativeLogin();
+    fixture.detectChanges();
+    fixture.componentInstance.hubUrl = ' https://Hub.Example.test:443/ ';
+
+    fixture.componentInstance.saveNativeHubUrl();
+
+    expect(upsert).toHaveBeenCalledWith({
+      name: 'hub',
+      role: 'hub',
+      url: 'https://hub.example.test',
+    });
+    expect(fixture.componentInstance.hubUrl).toBe('https://hub.example.test');
+    expect(fixture.componentInstance.hubUrlSavedInfo).toContain('https://hub.example.test');
+  });
+
+  it('blocks an invalid or credential-bearing Hub URL before any login request', async () => {
+    const { fixture, upsert } = buildNativeLogin();
+    fixture.detectChanges();
+    fixture.componentInstance.hubUrl = 'https://user:secret@hub.example.test/api?token=secret';
+    fixture.componentInstance.username = 'krusty';
+    fixture.componentInstance.password = 'not-persisted';
+
+    await fixture.componentInstance.onLogin(new Event('submit'));
+
+    expect(upsert).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.error).toContain('ohne Zugangsdaten, Pfad, Query oder Fragment');
+    expect(fixture.componentInstance.loading).toBe(false);
+    TestBed.inject(HttpTestingController).expectNone(() => true);
+  });
+
+  it('persists the entered origin before login and sends the request to that normalized Hub', async () => {
+    const {
+      fixture,
+      upsert,
+      ensureEmbeddedControlPlane,
+      setTokens,
+      loadProfiles,
+      navigate,
+    } = buildNativeLogin();
+    fixture.detectChanges();
+    fixture.componentInstance.hubUrl = 'http://10.0.2.2:5000/';
+    fixture.componentInstance.username = 'krusty';
+    fixture.componentInstance.password = 'secret';
+
+    const login = fixture.componentInstance.onLogin(new Event('submit'));
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne('http://10.0.2.2:5000/login').flush({
+      data: { access_token: 'hub-token', refresh_token: 'refresh-token' },
+    });
+    await login;
+
+    expect(upsert).toHaveBeenCalledWith({
+      name: 'hub',
+      role: 'hub',
+      url: 'http://10.0.2.2:5000',
+    });
     expect(ensureEmbeddedControlPlane).not.toHaveBeenCalled();
     expect(setTokens).toHaveBeenCalledWith('hub-token', 'refresh-token');
     expect(loadProfiles).toHaveBeenCalledOnce();

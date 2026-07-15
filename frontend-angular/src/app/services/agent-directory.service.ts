@@ -12,6 +12,34 @@ export interface AgentEntry {
 const LS_KEY = 'ananta.agents.v1';
 
 /**
+ * Accepts only an HTTP(S) origin suitable as a Hub trust boundary.
+ *
+ * In particular, login data must never be smuggled into the URL and API
+ * requests must not accidentally inherit a path, query or fragment.
+ */
+export function normalizeHubOrigin(value: string): string | null {
+  const candidate = String(value || '').trim();
+  if (!candidate || candidate.includes('?') || candidate.includes('#')) return null;
+
+  try {
+    const parsed = new URL(candidate);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+    if (!parsed.hostname || parsed.username || parsed.password) return null;
+    if (parsed.pathname !== '/' || parsed.search || parsed.hash) return null;
+
+    const authorityStart = candidate.indexOf('://') + 3;
+    const authorityEnd = candidate.indexOf('/', authorityStart);
+    const authority = candidate.slice(authorityStart, authorityEnd < 0 ? undefined : authorityEnd);
+    if (authorityStart < 3 || authority.includes('@')) return null;
+    if (authorityEnd >= 0 && candidate.slice(authorityEnd) !== '/') return null;
+
+    return parsed.origin;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Builds the Android control-plane defaults without discarding a Hub that the
  * user explicitly configured. The worker remains device-local because it is
  * managed by the embedded Android runtime.

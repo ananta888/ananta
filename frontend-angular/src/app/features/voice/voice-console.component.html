@@ -7,7 +7,7 @@
       </p>
     </div>
     <div class="row gap-sm voice-wrap">
-      <a class="button-outline" routerLink="/settings">Erweiterte Voice-Konfiguration</a>
+      <a class="button-outline" routerLink="/settings" [queryParams]="{ section: 'voice' }">Erweiterte Voice-Konfiguration</a>
       <a class="button-outline" routerLink="/voxtral-offline">Voxtral Offline</a>
     </div>
   </header>
@@ -78,7 +78,7 @@
         <input type="checkbox" [(ngModel)]="generativeCorrection" [disabled]="liveActive || batchRecording" />
         <span>
           <strong>Nachträglich mit LLM verbessern</strong>
-          <small class="muted">Während Live läuft Vosk; Gemma, Phi oder ein anderes freigegebenes Modell korrigiert das finale Transkript.</small>
+          <small class="muted">Während Live läuft Vosk; Qwen, Gemma, Phi oder ein anderes freigegebenes Modell korrigiert das finale Transkript.</small>
         </span>
       </label>
       @if (generativeCorrection) {

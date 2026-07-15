@@ -57,4 +57,18 @@ describe('VoiceTranscriptionResultComponent', () => {
     expect(text).toContain('LLM-Fallback');
     expect(text).toContain('generative_corrector_protected_token_changed');
   });
+
+  it('does not label the ASR model as a correction model when no correction ran', () => {
+    const fixture = TestBed.createComponent(VoiceTranscriptionResultComponent);
+    fixture.componentRef.setInput('result', {
+      text: 'Nur ASR.',
+      model: 'vosk-model-small-de-0.15',
+      raw_backend: 'vosk',
+    });
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent || '';
+
+    expect(text).toContain('keine generative Korrektur');
+    expect(text).not.toContain('Korrekturmodellvosk-model-small-de-0.15');
+  });
 });
