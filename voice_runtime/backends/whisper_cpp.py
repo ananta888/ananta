@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import logging
 import math
 import os
 import shutil
@@ -22,6 +23,8 @@ from ..preprocessing.audio_decode import (
 from ..preprocessing.temp_workspace import temporary_audio_workspace
 from .base import ChatResult, TranscriptionResult, TranscriptionSegment, VoiceBackend
 
+_log = logging.getLogger(__name__)
+
 
 class WhisperCppBackend(VoiceBackend):
     """Local whisper.cpp adapter with allowlisted argv-only execution."""
@@ -33,11 +36,9 @@ class WhisperCppBackend(VoiceBackend):
         "-bs": (1, 20, int),
         "--threads": (1, 256, int),
         "-t": (1, 256, int),
-        "--gpu-layers": (0, 512, int),
-        "-ngl": (0, 512, int),
-        "--temperature": (0.0, 2.0, float),
+        "--temperature": (0.0, 1.0, float),
     }
-    _BOOLEAN_FLAGS = {"--no-fallback", "--split-on-word", "--flash-attn"}
+    _BOOLEAN_FLAGS = {"--no-fallback", "--split-on-word", "--flash-attn", "--no-gpu"}
 
     def __init__(
         self,
@@ -51,6 +52,7 @@ class WhisperCppBackend(VoiceBackend):
         process_runner: ProcessRunner | None = None,
         threads: int = 4,
         gpu_layers: int = 0,
+        gpu_enabled: bool | None = None,
         beam_size: int = 5,
         temperature: float = 0.0,
         prompt_max_chars: int = 512,
@@ -72,8 +74,16 @@ class WhisperCppBackend(VoiceBackend):
             raise ValueError("whisper.cpp prompt_max_chars must be between 0 and 8000")
         self._threads = int(threads)
         self._gpu_layers = int(gpu_layers)
+        self._gpu_enabled = bool(gpu_enabled) if gpu_enabled is not None else self._gpu_layers > 0
+        if gpu_enabled is None and self._gpu_layers > 0:
+            _log.warning(
+                "VOICE_WHISPER_CPP_GPU_LAYERS is deprecated with whisper.cpp v1.8; "
+                "treating a positive value as VOICE_WHISPER_CPP_GPU_ENABLED=true"
+            )
         self._beam_size = int(beam_size)
-        self._temperature = float(temperature)
+        # whisper.cpp v1.8 accepts at most 1.0. Keep older Ananta configs up
+        # to 2.0 startable and project them onto the runner's valid range.
+        self._temperature = min(float(temperature), 1.0)
         self._prompt_max_chars = int(prompt_max_chars)
         self._decode_limits = AudioDecodeLimits()
         self._decoder = decoder or SafeAudioDecoder(limits=self._decode_limits)
@@ -113,14 +123,17 @@ class WhisperCppBackend(VoiceBackend):
             [
                 "--threads",
                 str(self._threads),
-                "--gpu-layers",
-                str(self._gpu_layers),
                 "--beam-size",
                 str(self._beam_size),
                 "--temperature",
                 f"{self._temperature:g}",
             ]
         )
+        # whisper.cpp v1.8.x no longer exposes llama.cpp-style GPU layer
+        # counts. GPU enablement is explicit; the legacy layer count remains
+        # a compatibility alias in ``__init__``.
+        if not self._gpu_enabled:
+            argv.append("--no-gpu")
         prompt = self._bounded_prompt(initial_prompt)
         if prompt:
             argv.extend(["--prompt", prompt])
@@ -321,6 +334,7 @@ class WhisperCppBackend(VoiceBackend):
                 "id": self._model,
                 "display_name": "whisper.cpp local backend",
                 "status": "available" if available else "unavailable",
+                "reason_code": None if available else "whisper_cpp.runtime_unavailable",
                 "binary_configured": bool(self._binary),
                 "model_path_configured": bool(self._model_path),
                 "capabilities": [

@@ -40,6 +40,7 @@ def create_app(config: VoiceRuntimeConfig | None = None) -> Flask:
         metrics=runtime_metrics,
     )
     backend = backend_resolver.route(runtime_config.backend_fallback_order)
+    backend_catalog = backend_resolver.catalog(runtime_config.policy_allowed_backends)
     pipeline = TranscriptionPipeline(
         config=runtime_config,
         backend=backend,
@@ -55,6 +56,7 @@ def create_app(config: VoiceRuntimeConfig | None = None) -> Flask:
 
     app.config["voice_runtime_config"] = runtime_config
     app.config["voice_runtime_backend"] = backend
+    app.config["voice_runtime_backend_catalog"] = backend_catalog
     app.config["voice_runtime_backend_resolver"] = backend_resolver
     app.config["voice_runtime_pipeline"] = pipeline
     app.config["voice_runtime_metrics"] = runtime_metrics

@@ -62,6 +62,41 @@ def test_whisper_cpp_builds_argv_without_shell_string():
     assert argv[:5] == ["/usr/local/bin/whisper-cli", "-m", "/models/base.bin", "-f", "/tmp/in.wav"]
     assert "-l" in argv
     assert "--best-of" in argv
+    assert "--no-gpu" in argv
+    assert "--gpu-layers" not in argv
+
+
+def test_whisper_cpp_preserves_legacy_gpu_and_temperature_configuration(monkeypatch):
+    warnings: list[str] = []
+    monkeypatch.setattr(
+        "voice_runtime.backends.whisper_cpp._log.warning",
+        lambda message: warnings.append(message),
+    )
+    backend = WhisperCppBackend(
+        binary="/usr/local/bin/whisper-cli",
+        model_path="/models/base.bin",
+        gpu_layers=12,
+        temperature=2.0,
+    )
+
+    argv = backend.build_argv(input_path="/tmp/in.wav", output_path="/tmp/out.json", language="de")
+
+    assert "--no-gpu" not in argv
+    assert argv[argv.index("--temperature") + 1] == "1"
+    assert any("VOICE_WHISPER_CPP_GPU_LAYERS is deprecated" in item for item in warnings)
+
+
+def test_whisper_cpp_explicit_gpu_flag_overrides_the_legacy_alias():
+    backend = WhisperCppBackend(
+        binary="/usr/local/bin/whisper-cli",
+        model_path="/models/base.bin",
+        gpu_layers=12,
+        gpu_enabled=False,
+    )
+
+    argv = backend.build_argv(input_path="/tmp/in.wav", output_path="/tmp/out.json", language="de")
+
+    assert "--no-gpu" in argv
 
 
 def test_whisper_cpp_maps_bounded_runner_timeout(tmp_path):

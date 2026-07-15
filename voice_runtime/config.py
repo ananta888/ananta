@@ -97,6 +97,7 @@ class VoiceRuntimeConfig:
     whisper_cpp_extra_args: tuple[str, ...] = ()
     whisper_cpp_threads: int = 4
     whisper_cpp_gpu_layers: int = 0
+    whisper_cpp_gpu_enabled: bool | None = None
     whisper_cpp_beam_size: int = 5
     whisper_cpp_temperature: float = 0.0
     whisper_cpp_prompt_max_chars: int = 512
@@ -181,9 +182,9 @@ class VoiceRuntimeConfig:
             raw_legacy_fallback_order,
             default=("voxtral", "mock"),
         )
-        explicit_primary_backend = str(
-            os.getenv("VOICE_PRIMARY_BACKEND") or os.getenv("VOICE_ASR_BACKEND") or ""
-        ).strip().lower()
+        explicit_primary_backend = (
+            str(os.getenv("VOICE_PRIMARY_BACKEND") or os.getenv("VOICE_ASR_BACKEND") or "").strip().lower()
+        )
         projected_primary_backend = explicit_primary_backend
         if not projected_primary_backend and legacy_pipeline == "whisper_cpp":
             projected_primary_backend = "whisper_cpp"
@@ -197,9 +198,7 @@ class VoiceRuntimeConfig:
             )
         else:
             projected_secondary_backends = tuple(
-                item.strip().lower()
-                for item in str(raw_secondary_backends or "").split(",")
-                if item.strip()
+                item.strip().lower() for item in str(raw_secondary_backends or "").split(",") if item.strip()
             )
         config = cls(
             host=os.getenv("VOICE_RUNTIME_HOST", "0.0.0.0").strip() or "0.0.0.0",
@@ -265,6 +264,11 @@ class VoiceRuntimeConfig:
             ),
             whisper_cpp_threads=max(1, _as_int(os.getenv("VOICE_WHISPER_CPP_THREADS"), 4)),
             whisper_cpp_gpu_layers=max(0, _as_int(os.getenv("VOICE_WHISPER_CPP_GPU_LAYERS"), 0)),
+            whisper_cpp_gpu_enabled=(
+                _as_bool(os.getenv("VOICE_WHISPER_CPP_GPU_ENABLED"))
+                if str(os.getenv("VOICE_WHISPER_CPP_GPU_ENABLED") or "").strip()
+                else None
+            ),
             whisper_cpp_beam_size=max(1, _as_int(os.getenv("VOICE_WHISPER_CPP_BEAM_SIZE"), 5)),
             whisper_cpp_temperature=_as_float(os.getenv("VOICE_WHISPER_CPP_TEMPERATURE"), 0.0),
             whisper_cpp_prompt_max_chars=max(0, _as_int(os.getenv("VOICE_WHISPER_CPP_PROMPT_MAX_CHARS"), 512)),

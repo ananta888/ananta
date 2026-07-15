@@ -224,11 +224,18 @@ class VoskBackend(VoiceBackend):
             except OSError:
                 path_ready = False
         dependency_ready = self._vosk_module is not None or importlib.util.find_spec("vosk") is not None
+        available = path_ready and dependency_ready
+        reason_code = None
+        if not path_ready:
+            reason_code = "vosk.model_unavailable"
+        elif not dependency_ready:
+            reason_code = "vosk.dependency_unavailable"
         return [
             {
                 "id": self._model,
                 "display_name": "Vosk local backend",
-                "status": "available" if path_ready and dependency_ready else "unavailable",
+                "status": "available" if available else "unavailable",
+                "reason_code": reason_code,
                 "model_path_configured": bool(self._model_path),
                 "capabilities": ["audio_input", "transcription", "offline", "local", "word_timestamps"],
             }

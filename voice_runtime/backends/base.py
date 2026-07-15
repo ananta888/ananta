@@ -282,3 +282,9 @@ class VoiceBackendResolver(Protocol):
     """Port for resolving a policy-selected backend through runtime routing."""
 
     def resolve(self, backend_id: str) -> VoiceBackend: ...
+
+
+class VoiceBackendCatalog(Protocol):
+    """Read-only projection of configured backend readiness metadata."""
+
+    def list_models(self) -> list[dict[str, Any]]: ...

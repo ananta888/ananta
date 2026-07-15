@@ -78,9 +78,10 @@ def models() -> tuple[dict, int]:
     if unauthorized:
         return unauthorized.to_response()
     backend = current_app.config["voice_runtime_backend"]
+    backend_catalog = current_app.config["voice_runtime_backend_catalog"]
     config = current_app.config["voice_runtime_config"]
     pipeline = current_app.config["voice_runtime_pipeline"]
-    models_payload = backend.list_models()
+    models_payload = backend_catalog.list_models()
     return (
         {
             "provider": config.provider,

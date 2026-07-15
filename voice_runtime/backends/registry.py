@@ -123,6 +123,7 @@ def _build_whisper_cpp(config: VoiceRuntimeConfig, catalog: VoiceModelCatalog | 
             timeout_sec=config.timeout_sec,
             threads=config.whisper_cpp_threads,
             gpu_layers=config.whisper_cpp_gpu_layers,
+            gpu_enabled=config.whisper_cpp_gpu_enabled,
             beam_size=config.whisper_cpp_beam_size,
             temperature=config.whisper_cpp_temperature,
             prompt_max_chars=config.whisper_cpp_prompt_max_chars,

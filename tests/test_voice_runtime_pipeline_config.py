@@ -37,6 +37,16 @@ def test_voice_runtime_config_reads_pipeline_env(monkeypatch):
     assert config.silero_vad_threshold == 0.73
 
 
+def test_blank_whisper_gpu_switch_preserves_legacy_positive_layers_alias(monkeypatch):
+    monkeypatch.setenv("VOICE_WHISPER_CPP_GPU_LAYERS", "12")
+    monkeypatch.setenv("VOICE_WHISPER_CPP_GPU_ENABLED", "")
+
+    config = VoiceRuntimeConfig.from_env()
+
+    assert config.whisper_cpp_gpu_layers == 12
+    assert config.whisper_cpp_gpu_enabled is None
+
+
 def test_voice_runtime_config_rejects_unknown_pipeline(monkeypatch):
     monkeypatch.setenv("VOICE_TRANSCRIPTION_PIPELINE", "surprise")
 

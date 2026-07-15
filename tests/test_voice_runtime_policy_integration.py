@@ -611,7 +611,8 @@ def test_typed_whisper_tuning_and_faster_whisper_vad_are_forwarded(tmp_path: Pat
         initial_prompt="Ananta very long prompt",
     )
     assert argv[argv.index("--threads") + 1] == "6"
-    assert argv[argv.index("--gpu-layers") + 1] == "12"
+    assert "--gpu-layers" not in argv
+    assert "--no-gpu" not in argv
     assert argv[argv.index("--beam-size") + 1] == "3"
     assert argv[argv.index("--temperature") + 1] == "0.25"
     assert argv[argv.index("--prompt") + 1] == "Ananta v"

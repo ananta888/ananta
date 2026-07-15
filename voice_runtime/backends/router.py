@@ -11,7 +11,8 @@ from ..execution_control import BackendCancellationToken
 from ..metrics import VoiceRuntimeMetricsPort
 from ..model_manifest import VoiceModelCatalog
 from ..resources import BackendResourceRequirement, backend_resource_requirement
-from .base import ChatResult, TranscriptionResult, VoiceBackend
+from .base import ChatResult, TranscriptionResult, VoiceBackend, VoiceBackendCatalog
+from .catalog import ReadOnlyVoiceBackendCatalog
 from .registry import VoiceBackendFactoryRegistry, build_default_voice_backend_registry
 
 
@@ -425,6 +426,22 @@ class RoutedVoiceBackendResolver:
             if entry is not None and self.route((normalized,))._circuit_may_recover(normalized):
                 available[normalized] = entry.backend
         return available
+
+    def catalog(self, backend_ids: tuple[str, ...]) -> VoiceBackendCatalog:
+        """Return a read-only readiness view for an explicit policy allowlist."""
+
+        normalized_ids = tuple(
+            dict.fromkeys(str(backend_id or "").strip().lower() for backend_id in backend_ids)
+        )
+        if not normalized_ids or any(backend_id not in self._entries for backend_id in normalized_ids):
+            unknown = next(
+                (backend_id or "<empty>" for backend_id in normalized_ids if backend_id not in self._entries),
+                "<empty>",
+            )
+            raise ValueError(f"unsupported ASR backend: {unknown}")
+        return ReadOnlyVoiceBackendCatalog(
+            {backend_id: self._entries[backend_id].backend for backend_id in normalized_ids}
+        )
 
 
 def build_voice_backend_resolver(

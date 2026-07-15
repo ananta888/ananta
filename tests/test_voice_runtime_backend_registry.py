@@ -132,6 +132,59 @@ def test_routed_resolver_rejects_unknown_backend_without_fallback() -> None:
         resolver.resolve("missing")
 
 
+def test_read_only_catalog_probes_metadata_without_transcription() -> None:
+    registry = VoiceBackendFactoryRegistry()
+    backend = _ExtensionBackend()
+    registry.register("extension", lambda _config, _catalog: backend)
+    resolver = build_voice_backend_resolver(
+        VoiceRuntimeConfig(),
+        backend_ids=("extension",),
+        registry=registry,
+    )
+
+    models = resolver.catalog(("extension",)).list_models()
+
+    assert models == [
+        {
+            "id": "extension",
+            "status": "available",
+            "capabilities": ["transcription"],
+            "engine": "extension",
+        }
+    ]
+
+
+def test_models_endpoint_catalogs_policy_allowlist_independently_from_active_fallback() -> None:
+    app = create_app(
+        VoiceRuntimeConfig(
+            backend_fallback_order=("mock",),
+            primary_backend="mock",
+            asr_backend="mock",
+            rerun_backend="mock",
+            policy_allowed_backends=("vosk", "whisper_cpp", "faster_whisper", "voxtral"),
+        )
+    )
+    client = app.test_client()
+
+    response = client.get("/v1/models")
+    health = client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json["backend"] == "mock"
+    models = {item["engine"]: item for item in response.json["models"]}
+    assert set(models) == {"vosk", "whisper_cpp", "faster_whisper", "voxtral"}
+    for backend_id in models:
+        assert models[backend_id]["status"] == "unavailable"
+        assert models[backend_id]["reason_code"]
+    assert models["vosk"]["reason_code"] == "vosk.model_unavailable"
+    assert models["whisper_cpp"]["reason_code"] == "whisper_cpp.runtime_unavailable"
+    assert models["faster_whisper"]["reason_code"] == "faster_whisper.model_unavailable"
+    assert models["voxtral"]["reason_code"] == "voxtral.runtime_unavailable"
+    assert health.status_code == 200
+    assert health.json["status"] == "ready"
+    assert health.json["ready_backend_count"] == 1
+
+
 def test_resolved_and_fallback_routes_share_circuit_breaker_state() -> None:
     unavailable = _UnavailableBackend()
     registry = VoiceBackendFactoryRegistry()

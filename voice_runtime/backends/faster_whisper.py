@@ -227,11 +227,18 @@ class FasterWhisperBackend(VoiceBackend):
             except OSError:
                 model_ready = False
         dependency_ready = self._model_factory is not None or importlib.util.find_spec("faster_whisper") is not None
+        available = model_ready and dependency_ready
+        reason_code = None
+        if not model_ready:
+            reason_code = "faster_whisper.model_unavailable"
+        elif not dependency_ready:
+            reason_code = "faster_whisper.dependency_unavailable"
         return [
             {
                 "id": self._model,
                 "display_name": "Faster-Whisper local backend",
-                "status": "available" if model_ready and dependency_ready else "unavailable",
+                "status": "available" if available else "unavailable",
+                "reason_code": reason_code,
                 "model_path_configured": bool(self._model_path),
                 "download_allowed": self._allow_download,
                 "device": self._device,
