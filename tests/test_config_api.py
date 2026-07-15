@@ -518,6 +518,58 @@ def test_provider_catalog_contains_dynamic_lmstudio_block(client, admin_token):
     assert any(m["id"] == "model-x" and m["selected"] is True for m in (lmstudio.get("models") or []))
 
 
+def test_provider_catalog_discovers_ollama_tags_instead_of_static_defaults(
+    client, admin_token, app
+):
+    from agent.services.ollama_model_discovery_service import OllamaModelDiscoveryService
+    from agent.services.service_registry import get_core_services
+
+    calls: list[tuple[str, int]] = []
+
+    def _probe(base_url: str, timeout: int):
+        calls.append((base_url, timeout))
+        return {
+            "ok": True,
+            "status": "ok",
+            "models": [{"name": "qwen2.5:7b"}, {"name": "llama3.2:3b"}],
+        }
+
+    with app.app_context():
+        discovery = OllamaModelDiscoveryService(probe=_probe)
+        registry = get_core_services().integration_registry_service
+        app.config["PROVIDER_URLS"] = {
+            "ollama": "http://ollama:11434/api/generate",
+            "lmstudio": None,
+            "openai": None,
+            "codex": None,
+            "anthropic": None,
+        }
+        app.config["AGENT_CONFIG"] = {
+            **(app.config.get("AGENT_CONFIG") or {}),
+            "default_provider": "ollama",
+            "default_model": "qwen2.5:7b",
+        }
+
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    with patch.object(registry, "_ollama_model_discovery", discovery):
+        res = client.get("/providers/catalog?force_refresh=1", headers=headers)
+
+    assert res.status_code == 200
+    ollama = next(
+        item for item in res.json["data"]["providers"] if item["provider"] == "ollama"
+    )
+    assert calls == [("http://ollama:11434", 5)]
+    assert ollama["available"] is True
+    assert ollama["model_discovery"] == {
+        "status": "ok",
+        "source": "ollama_api_tags",
+        "used_configured_fallback": False,
+    }
+    assert [item["id"] for item in ollama["models"]] == ["qwen2.5:7b", "llama3.2:3b"]
+    assert all(item["source"] == "ollama_api_tags" for item in ollama["models"])
+    assert next(item for item in ollama["models"] if item["id"] == "qwen2.5:7b")["selected"] is True
+
+
 def test_provider_catalog_contains_codex_provider(client, admin_token):
     headers = {"Authorization": f"Bearer {admin_token}"}
     client.post(
@@ -606,6 +658,16 @@ def test_provider_catalog_uses_cache_and_force_refresh(client, admin_token):
     assert r2.status_code == 200
     assert r3.status_code == 200
     assert mock_candidates.call_count == 2
+
+
+def test_provider_catalog_force_refresh_requires_admin(client, user_auth_header):
+    response = client.get(
+        "/providers/catalog?force_refresh=1",
+        headers=user_auth_header,
+    )
+
+    assert response.status_code == 403
+    assert response.json["message"] == "admin_required_for_force_refresh"
 
 
 def test_provider_catalog_passes_custom_lmstudio_timeout(client, admin_token):

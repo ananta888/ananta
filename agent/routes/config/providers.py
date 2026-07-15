@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from flask import Blueprint, current_app, request
+from flask import Blueprint, current_app, g, request
 
 from agent.auth import check_auth
 from agent.common.errors import api_response
+from agent.services.ollama_model_discovery_service import OllamaModelDiscovery
 from agent.services.routing_decision_service import get_routing_decision_service
 from agent.services.service_registry import get_core_services
 from agent.services.voice_provider import VoiceProviderError, get_voice_provider_service
@@ -13,7 +14,13 @@ from . import shared
 providers_bp = Blueprint("config_providers", __name__)
 
 
-def _decorate_model(provider_id: str, model_id: str, item: dict, task_kind: str, benchmark_index: dict[str, dict]) -> dict:
+def _force_refresh_forbidden() -> bool:
+    return shared.parse_bool_query_flag(request.args.get("force_refresh")) and not bool(getattr(g, "is_admin", False))
+
+
+def _decorate_model(
+    provider_id: str, model_id: str, item: dict, task_kind: str, benchmark_index: dict[str, dict]
+) -> dict:
     enriched = dict(item)
     if not task_kind:
         return enriched
@@ -24,7 +31,14 @@ def _decorate_model(provider_id: str, model_id: str, item: dict, task_kind: str,
     return enriched
 
 
-def _catalog_entry(pid: str, url: str | None, available: bool, models: list[dict], capabilities: dict | None = None, task_kind: str = "") -> dict:
+def _catalog_entry(
+    pid: str,
+    url: str | None,
+    available: bool,
+    models: list[dict],
+    capabilities: dict | None = None,
+    task_kind: str = "",
+) -> dict:
     recommended_model = None
     if task_kind:
         ranked_models = [item for item in models if isinstance(item, dict) and item.get("recommended_rank")]
@@ -58,6 +72,33 @@ def _provider_specs(*, app_cfg: dict, urls: dict, default_provider: str, default
         default_model=default_model,
         has_openai_api_key=bool(current_app.config.get("OPENAI_API_KEY")),
         has_anthropic_api_key=bool(current_app.config.get("ANTHROPIC_API_KEY")),
+    )
+
+
+def _catalog_models_for_dynamic_backend(
+    backend: dict,
+    *,
+    timeout_seconds: int,
+    cache_ttl_seconds: int,
+    force_refresh: bool,
+) -> tuple[list[dict], OllamaModelDiscovery | None]:
+    if str(backend.get("provider") or "").strip().lower() == "ollama":
+        discovery = get_core_services().integration_registry_service.discover_ollama_models(
+            base_url=backend.get("base_url"),
+            configured_models=list(backend.get("models") or []),
+            timeout_seconds=timeout_seconds,
+            cache_ttl_seconds=cache_ttl_seconds,
+            force_refresh=force_refresh,
+        )
+        return [dict(item) for item in discovery.models], discovery
+    return (
+        shared.catalog_models_for_local_backend(
+            backend,
+            timeout_seconds=timeout_seconds,
+            cache_ttl_seconds=cache_ttl_seconds,
+            force_refresh=force_refresh,
+        ),
+        None,
     )
 
 
@@ -103,14 +144,24 @@ def _voice_runtime_catalog_entry(app_cfg: dict) -> dict:
 @providers_bp.route("/providers", methods=["GET"])
 @check_auth
 def list_providers():
+    if _force_refresh_forbidden():
+        return api_response(
+            status="error",
+            message="admin_required_for_force_refresh",
+            code=403,
+        )
     urls = current_app.config.get("PROVIDER_URLS", {})
     app_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
     provider_default = str(app_cfg.get("default_provider") or "")
     model_default = str(app_cfg.get("default_model") or "")
     providers = []
 
-    for spec in _provider_specs(app_cfg=app_cfg, urls=urls, default_provider=provider_default, default_model=model_default):
+    for spec in _provider_specs(
+        app_cfg=app_cfg, urls=urls, default_provider=provider_default, default_model=model_default
+    ):
         if not spec.get("available") and not bool((spec.get("capabilities") or {}).get("dynamic_models")):
+            continue
+        if bool((spec.get("capabilities") or {}).get("dynamic_models")):
             continue
         provider = str(spec.get("provider") or "")
         display_name = str(spec.get("display_name") or provider)
@@ -127,9 +178,15 @@ def list_providers():
             )
 
     timeout_seconds, cache_ttl_seconds, force_refresh = shared.lmstudio_catalog_runtime_options()
-    local_backends = [item for item in _provider_specs(app_cfg=app_cfg, urls=urls, default_provider=provider_default, default_model=model_default) if bool((item.get("capabilities") or {}).get("dynamic_models"))]
+    local_backends = [
+        item
+        for item in _provider_specs(
+            app_cfg=app_cfg, urls=urls, default_provider=provider_default, default_model=model_default
+        )
+        if bool((item.get("capabilities") or {}).get("dynamic_models"))
+    ]
     for backend in local_backends:
-        backend_models = shared.catalog_models_for_local_backend(
+        backend_models, _discovery = _catalog_models_for_dynamic_backend(
             backend,
             timeout_seconds=timeout_seconds,
             cache_ttl_seconds=cache_ttl_seconds,
@@ -153,7 +210,13 @@ def list_providers():
             backend_display = str(backend["display_name"])
             if str(backend.get("provider_type") or "") == "remote_ananta":
                 backend_display = f"{backend_display} (Remote Ananta)"
-            providers.append({"id": f"{backend['provider']}:model", "name": backend_display, "selected": provider_default == backend["provider"]})
+            providers.append(
+                {
+                    "id": f"{backend['provider']}:model",
+                    "name": backend_display,
+                    "selected": provider_default == backend["provider"],
+                }
+            )
 
     if not providers:
         providers = [
@@ -169,6 +232,12 @@ def list_providers():
 @providers_bp.route("/providers/catalog", methods=["GET"])
 @check_auth
 def list_provider_catalog():
+    if _force_refresh_forbidden():
+        return api_response(
+            status="error",
+            message="admin_required_for_force_refresh",
+            code=403,
+        )
     urls = current_app.config.get("PROVIDER_URLS", {})
     app_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
     default_provider = str(app_cfg.get("default_provider") or "")
@@ -178,30 +247,35 @@ def list_provider_catalog():
         task_kind = ""
 
     bench_rows, bench_db = shared.benchmark_rows_for_task(task_kind=task_kind, top_n=8 if task_kind else None)
-    benchmark_index = {str(item.get("id") or ""): {"rank": index + 1, "row": item} for index, item in enumerate(bench_rows)}
+    benchmark_index = {
+        str(item.get("id") or ""): {"rank": index + 1, "row": item} for index, item in enumerate(bench_rows)
+    }
     catalog = {"default_provider": default_provider, "default_model": default_model, "providers": []}
     available_model_ids: set[str] = set()
 
     timeout_seconds, cache_ttl_seconds, force_refresh = shared.lmstudio_catalog_runtime_options()
-    provider_specs = _provider_specs(app_cfg=app_cfg, urls=urls, default_provider=default_provider, default_model=default_model)
+    provider_specs = _provider_specs(
+        app_cfg=app_cfg, urls=urls, default_provider=default_provider, default_model=default_model
+    )
     local_backends = [item for item in provider_specs if bool((item.get("capabilities") or {}).get("dynamic_models"))]
     for backend in local_backends:
         local_models = []
-        discovered_models = list(
-            shared.catalog_models_for_local_backend(
-                backend,
-                timeout_seconds=timeout_seconds,
-                cache_ttl_seconds=cache_ttl_seconds,
-                force_refresh=force_refresh,
-            )
+        discovered_models, ollama_discovery = _catalog_models_for_dynamic_backend(
+            backend,
+            timeout_seconds=timeout_seconds,
+            cache_ttl_seconds=cache_ttl_seconds,
+            force_refresh=force_refresh,
         )
         if not discovered_models:
             discovered_models = [{"id": model_id} for model_id in list(backend.get("models") or [])]
+        backend_available = (
+            bool(ollama_discovery.available) if ollama_discovery is not None else bool(backend.get("available"))
+        )
         for item in discovered_models:
             model_id = str(item.get("id") or "").strip()
             if not model_id:
                 continue
-            if bool(backend.get("available")):
+            if backend_available:
                 available_model_ids.add(f"{backend['provider']}:{model_id}")
             local_models.append(
                 _decorate_model(
@@ -211,6 +285,8 @@ def list_provider_catalog():
                         "id": model_id,
                         "display_name": model_id,
                         "context_length": item.get("context_length"),
+                        "available": bool(item.get("available", backend_available)),
+                        "source": item.get("source"),
                         "selected": default_provider == backend["provider"] and default_model == model_id,
                     },
                     task_kind,
@@ -220,9 +296,10 @@ def list_provider_catalog():
         provider_entry = _catalog_entry(
             backend["provider"],
             backend.get("base_url"),
-            bool(backend.get("available")) and bool(local_models or list(backend.get("models") or [])),
+            backend_available and bool(local_models or list(backend.get("models") or [])),
             local_models,
             capabilities={
+                **dict(backend.get("capabilities") or {}),
                 "dynamic_models": True,
                 "supports_chat": True,
                 "openai_compatible": True,
@@ -241,6 +318,12 @@ def list_provider_catalog():
             },
             task_kind=task_kind,
         )
+        if ollama_discovery is not None:
+            provider_entry["model_discovery"] = {
+                "status": ollama_discovery.status,
+                "source": ("configured_fallback" if ollama_discovery.used_configured_fallback else "ollama_api_tags"),
+                "used_configured_fallback": ollama_discovery.used_configured_fallback,
+            }
         provider_entry["routing_decision"] = _routing_decision_for_catalog_entry(
             app_cfg=app_cfg,
             provider_entry={**provider_entry, **backend},
@@ -248,7 +331,9 @@ def list_provider_catalog():
         )
         catalog["providers"].append(provider_entry)
 
-    static_providers = [item for item in provider_specs if not bool((item.get("capabilities") or {}).get("dynamic_models"))]
+    static_providers = [
+        item for item in provider_specs if not bool((item.get("capabilities") or {}).get("dynamic_models"))
+    ]
     for provider in static_providers:
         models = []
         for model_id in provider["models"]:
@@ -304,7 +389,11 @@ def list_provider_catalog():
             }
             for row in bench_rows[:5]
         ]
-        catalog["recommendations"] = {"task_kind": task_kind, "updated_at": bench_db.get("updated_at"), "items": recommended_items}
+        catalog["recommendations"] = {
+            "task_kind": task_kind,
+            "updated_at": bench_db.get("updated_at"),
+            "items": recommended_items,
+        }
         selected = next((item for item in recommended_items if item.get("available")), None)
         if selected:
             catalog["selection"] = {

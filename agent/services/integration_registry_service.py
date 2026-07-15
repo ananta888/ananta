@@ -11,12 +11,28 @@ from agent.cli_backends.sgpt import (
 )
 from agent.local_llm_backends import get_local_openai_backends, list_openai_compatible_models
 from agent.services.exposure_policy_service import get_exposure_policy_service
+from agent.services.ollama_model_discovery_service import (
+    OllamaModelDiscovery,
+    OllamaModelDiscoveryService,
+    get_ollama_model_discovery_service,
+)
 from agent.services.platform_governance_service import get_platform_governance_service
 from agent.services.routing_decision_service import get_routing_decision_service
 
 
 class IntegrationRegistryService:
     """Central registry for provider, execution-backend and exposure-adapter metadata."""
+
+    def __init__(
+        self,
+        *,
+        ollama_model_discovery: OllamaModelDiscoveryService | None = None,
+    ) -> None:
+        self._ollama_model_discovery = (
+            ollama_model_discovery
+            if ollama_model_discovery is not None
+            else get_ollama_model_discovery_service()
+        )
 
     def list_execution_backends(self, *, include_preflight: bool = True, preflight_scope: str = "full") -> dict[str, Any]:
         payload = {
@@ -103,7 +119,17 @@ class IntegrationRegistryService:
                 "base_url": provider_urls.get("ollama"),
                 "available": bool(provider_urls.get("ollama")),
                 "models": ["llama3", "mistral"],
-                "capabilities": {"dynamic_models": False},
+                "transport_provider": "ollama",
+                "supports_tool_calls": False,
+                "provider_type": "local_openai_compatible",
+                "capabilities": {
+                    "dynamic_models": True,
+                    "supports_chat": True,
+                    "openai_compatible": True,
+                    "transport_provider": "ollama",
+                    "provider_type": "local_openai_compatible",
+                    "locality": "local",
+                },
             },
             {
                 "provider": "openai",
@@ -183,6 +209,25 @@ class IntegrationRegistryService:
             )
         return providers
 
+    def discover_ollama_models(
+        self,
+        *,
+        base_url: str | None,
+        configured_models: list[object] | tuple[object, ...] = (),
+        timeout_seconds: int = 5,
+        cache_ttl_seconds: int = 15,
+        force_refresh: bool = False,
+    ) -> OllamaModelDiscovery:
+        """Expose one injectable discovery seam to catalog projections."""
+
+        return self._ollama_model_discovery.discover(
+            base_url=base_url,
+            configured_models=configured_models,
+            timeout_seconds=timeout_seconds,
+            cache_ttl_seconds=cache_ttl_seconds,
+            force_refresh=force_refresh,
+        )
+
     def list_openai_compat_models(
         self,
         *,
@@ -206,6 +251,27 @@ class IntegrationRegistryService:
         for spec in specs:
             provider = str(spec.get("provider") or "")
             static_models = list(spec.get("models") or [])
+            if provider == "ollama":
+                discovery = self.discover_ollama_models(
+                    base_url=spec.get("base_url"),
+                    configured_models=static_models,
+                    timeout_seconds=5,
+                )
+                for item in discovery.models:
+                    model_id = str(item.get("id") or "").strip()
+                    if not model_id:
+                        continue
+                    items.append(
+                        {
+                            "id": f"{provider}:{model_id}",
+                            "object": "model",
+                            "created": now,
+                            "owned_by": "ananta",
+                            "provider": provider,
+                            "selected": default_provider == provider and default_model == model_id,
+                        }
+                    )
+                continue
             for model in static_models:
                 model_id = str(model or "").strip()
                 if not model_id:
