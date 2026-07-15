@@ -77,7 +77,9 @@ Alle Voice-Endpunkte sind authentifiziert (Bearer Token).
     "privacy": {
       "store_audio_requested": false,
       "store_audio_effective": false,
-      "raw_audio_persisted": false
+      "raw_audio_persisted": false,
+      "raw_audio_persisted_after_request": false,
+      "transient_request_spooling": true
     },
     "health": {"ok": true, "status": "ok"}
   }
@@ -127,6 +129,137 @@ Alle Voice-Endpunkte sind authentifiziert (Bearer Token).
     "requires_review": true
   }
   ```
+
+### Langzeit-Live-Transkription (bis zu 8 Stunden)
+
+Der Hub besitzt einen dauerhaften Parent-Task und legt für jedes abgeschlossene
+Segment einen Child-Task vom Typ `voice_transcription` an. Clients halten die
+Audiofreigabe offen und senden rollierende WAV-/PCM-Segmente. Roh-Audio wird
+weder im Run-Ledger noch in Tasks oder Result-Artefakten gespeichert. Der
+HTTP-Parser darf große Multipart-Bodies während genau dieses Requests temporär
+spulen; nach Request-Ende besteht keine Ananta-Roh-Audio-Retention. Das wird in
+den Capabilities durch `transient_request_spooling=true` und
+`raw_audio_persisted_after_request=false` explizit ausgewiesen.
+
+#### `POST /v1/voice/live-runs/lease`
+
+- **Body:** `{"profile_id":"default"}`; ein `Idempotency-Key` ist nicht nötig.
+- **Response 200 (`data`):**
+  ```json
+  {
+    "lease_token": "hub-signed-token",
+    "expires_at": 1760000600.0,
+    "profile_id": "default"
+  }
+  ```
+- Der Hub-signierte Start-Lease gilt zehn Minuten und ist pseudonym an
+  Principal, Profil und die aktuelle Generation des Voice-Deletion-Tombstones
+  gebunden. Er ist innerhalb dieser Frist wiederverwendbar, enthält aber keine
+  Aufnahmeberechtigung für ein anderes Profil oder einen anderen Principal.
+- Jede Profil-Löschung ändert die Generation und macht bereits ausgegebene
+  Leases ungültig. Ein nach abgeschlossener Löschung neu ausgegebener Lease
+  erlaubt eine explizite Neuanlage für dasselbe Profil.
+
+#### `POST /v1/voice/live-runs`
+
+- **Header:** `Idempotency-Key` ist erforderlich.
+- **Body:**
+  ```json
+  {
+    "lease_token": "hub-signed-token",
+    "source": "microphone|system_audio",
+    "profile_id": "default",
+    "configuration_session_id": null,
+    "language": "de",
+    "segment_duration_seconds": 60,
+    "max_duration_seconds": 28800,
+    "overlap_milliseconds": 1000
+  }
+  ```
+- `segment_duration_seconds`: 60 bis 120.
+- `max_duration_seconds`: 60 bis 28.800 (acht Stunden).
+- `max_duration_seconds` muss mindestens `segment_duration_seconds` entsprechen.
+- `overlap_milliseconds`: 0 bis 5.000 und kleiner als die Segmentdauer.
+- `lease_token` ist erforderlich. Manipulierte, abgelaufene, profilfremde oder
+  durch eine zwischenzeitliche Löschung veraltete Leases werden abgewiesen.
+  Der Hub prüft die gebundene Tombstone-Generation erneut nach Run-Persistenz,
+  nach Parent-Task-Anlage und unmittelbar vor der Antwort; bei einem Race
+  werden exakt der neue Run und sein Task-Baum kompensierend entfernt.
+- Eine Wiederholung mit demselben Schlüssel und demselben Body liefert
+  `idempotent_replay=true`; eine abweichende Konfiguration liefert `409`.
+
+#### `PUT /v1/voice/live-runs/<run_id>/segments/<sequence>`
+
+- **Header:** stabiler `Idempotency-Key` pro Run und Sequenz. Bei einem Retry
+  müssen exakt dieselben Audiodaten und Metadaten verwendet werden.
+- **Multipart-Body:** `file` als vollständiges PCM-WAV (mono, 16 Bit) oder
+  raw PCM16/16 kHz/mono sowie relative `started_at_ms`, `ended_at_ms`,
+  `duration_ms` und `overlap_milliseconds`.
+- **Alternative JSON-Registrierung:**
+  ```json
+  {
+    "result_ref": "voice-result-...",
+    "started_at_ms": 60000,
+    "ended_at_ms": 120000,
+    "duration_ms": 60000,
+    "overlap_milliseconds": 1000
+  }
+  ```
+- Der Hub bindet Audio mit einem tenant-, operation- und
+  idempotency-key-spezifischen HMAC. Das ist kein wiederverwendbarer
+  Audio-Fingerabdruck. Gleiche Sequenz mit anderem Schlüssel, Audio oder
+  Metadaten liefert `409`.
+- Statuswerte: `processing`, `completed`, `failed`; fehlende Sequenzen werden
+  im Snapshot als `gap` dargestellt. `attempt_count` und `failure_code`
+  unterstützen kontrollierte Retries.
+- Die Upload-Antwort enthält den aktualisierten Datensatz unter `segment`,
+  aber aus Lastgründen keinen neu zusammengesetzten Gesamttext
+  (`composed_transcript=null`). Der aktuelle Upload liefert sein normales
+  Voice-Ergebnis zusätzlich unter `result` und `result_ref`.
+
+#### `POST /v1/voice/live-runs/<run_id>/heartbeat`
+
+```json
+{
+  "last_local_sequence": 42,
+  "gaps": [17]
+}
+```
+
+Der Heartbeat aktualisiert nur das persistente Resume-/Gap-Ledger und
+entschlüsselt keine früheren Ergebnisartefakte. Die Hub-Frist wird dadurch
+nicht verlängert.
+
+#### `GET /v1/voice/live-runs/<run_id>`
+
+- Query: `after_sequence` (Default `-1`), `limit` (maximal 600),
+  `include_text=true|false`.
+- Liefert `run`, `segments`, `gaps`, `resume`, `page` und bei
+  `include_text=true` den autorisiert aus verschlüsselten Segmentartefakten
+  zusammengesetzten `composed_transcript`.
+- `resume.acknowledged_through_sequence` ist die höchste lückenlos
+  abgeschlossene Sequenz; `resume.next_sequence` ist der erste erneut zu
+  sendende Cursor.
+
+#### `POST /v1/voice/live-runs/<run_id>/stop`
+
+```json
+{"last_sequence": 479, "reason": "user_stop"}
+```
+
+Stop ist idempotent und wartet nicht stillschweigend über laufende Segmente
+hinweg: frische `processing`-Segmente liefern einen retriable `409`; eine nach
+zehn Minuten abgelaufene Processing-Lease wird als Gap finalisiert. Das
+verschlüsselte Endartefakt ist ein begrenztes Manifest aus Segment-Refs und
+Lücken, kein monolithischer Acht-Stunden-Klartext. Der vollständige Text bleibt
+über den autorisierten GET-Snapshot abrufbar.
+
+Die Capture-Timeline endet spätestens nach `max_duration_seconds`. Innerhalb
+einer einstündigen Drain-/Finalisierungsfrist dürfen bereits innerhalb dieser
+Timeline erfasste Offline-Segmente nachgereicht werden; danach wechselt der Run
+durabel auf `expired`. Run- und Segment-Ledger, Parent-/Child-Tasks,
+Idempotency-Daten und verschlüsselte Ergebnisartefakte werden durch
+`DELETE /v1/voice/privacy/<profile_id>` gemeinsam gelöscht.
 
 ### Fehlerformat (konsistent)
 

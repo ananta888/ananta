@@ -13,20 +13,27 @@ Provider und Modell. Provider-Endpunkt und Zugangsdaten des Corrector-Workers
 sind davon getrennt deploymentverwaltet und werden nicht aus `/settings` in
 einen laufenden Worker synchronisiert.
 
-Die beiden Bedienmodi sind:
+Die drei Bedienmodi sind:
 
 - **Live:** Die gewählte Audioquelle wird als 16-kHz-Mono-PCM in geordneten
   Chunks an den Hub gesendet. Vosk liefert während der Aufnahme
   Zwischentranskripte. Eine gewählte Gemma-, Phi- oder andere freigegebene
   LLM-Variante korrigiert erst das finale Transkript.
+- **Langzeit bis 8 h:** Der Hub besitzt einen dauerhaften Parent-Task. Der
+  Client hält genau eine Audiofreigabe offen und rotiert 60- bis
+  120-sekündige Segmente. Jedes Segment wird als eigener Hub-Child-Task
+  transkribiert und optional korrigiert, während das nächste bereits
+  aufgenommen wird. Heartbeats, stabile Idempotency-Keys und ein begrenzter,
+  verschlüsselter lokaler Puffer ermöglichen Retry und Resume.
 - **Aufnehmen → transkribieren:** Die Aufnahme bleibt bis zum Absenden auf dem
   Gerät und wird anschließend als eine Batch-Anfrage über den Hub verarbeitet.
 
 Für jede Aufnahme kann in `/voice` gerätelokal zwischen **Mikrofon** und
 **Lautsprecher / Systemaudio** gewählt werden. Diese Quellenwahl ist keine
 Erkennungs- oder Routing-Policy: Sie wird weder im Hub-Profil noch in einem
-Session-Delta gespeichert. Beide Quellen verwenden nach der Aufnahme dieselben
-Hub-APIs und dieselben konfigurierten ASR-/Korrekturmodelle.
+Session-Delta gespeichert. Der Langzeit-Run zeichnet die Quellenart lediglich
+als Resume-/Audit-Metadatum in seinem Hub-Ledger auf. Beide Quellen verwenden
+dieselben konfigurierten ASR-/Korrekturmodelle.
 
 Eine LLM-Korrektur läuft niemals für jeden Live-Chunk. Sie ist ein begrenzter,
 nachgelagerter Text-zu-Text-Schritt beim Finalisieren oder nach der
@@ -321,13 +328,77 @@ Logs zu prüfen.
    Variablen aus Abschnitt 2 setzen und den Corrector-Worker neu erstellen.
 7. Die Erkennungs- und Korrekturauswahl für das Profil oder die konkrete
    Session speichern.
-8. **Live** für Vosk-Zwischentranskripte oder
-   **Aufnehmen → transkribieren** für eine vollständige Aufnahme verwenden.
+8. **Live** für kurze Vosk-Zwischentranskripte, **Langzeit bis 8 h** für einen
+   beaufsichtigten rollierenden Run oder **Aufnehmen → transkribieren** für
+   eine vollständige Aufnahme verwenden.
 
 Für reine klassische Spracherkennung bleibt die LLM-Option ausgeschaltet; Vosk
 und der Hub-eigene deterministische Pfad funktionieren ohne Corrector-Worker.
 Im Browser benötigt Mikrofon-Capture einen sicheren Kontext (HTTPS oder
 `localhost`) und die erteilte Mikrofonberechtigung.
+
+### Beaufsichtigte Langzeit-Transkription
+
+Der dritte Tab **Langzeit bis 8 h** verwendet die Hub-Endpunkte unter
+`/v1/voice/live-runs`. Vor dem Start werden Segmentdauer (60, 90 oder 120
+Sekunden) und eine maximale Laufzeit von einer, zwei, vier oder acht Stunden
+gewählt. **Langzeit starten** öffnet die Berechtigungsabfrage für die gewählte
+Audioquelle. Die Freigabe bleibt bis zum Stoppen oder bis zum konfigurierten
+Zeitlimit geöffnet.
+
+Der Hub speichert den Run als dauerhaften Parent-Task und jedes Segment als
+delegierten Child-Task. Segmentstatus, bestätigte Sequenz, Lücken,
+Zeitreferenzen und Ergebnisreferenzen werden dauerhaft gespeichert. Roh-Audio
+wird nicht in der Hub-Datenbank persistiert; Transkript-Artefakte verwenden den
+bestehenden verschlüsselten Voice-Artifact-Store. Überlappungen werden beim
+fortlaufenden Zusammensetzen des Transkripts entfernt.
+
+Noch nicht bestätigte Audiosegmente werden lokal als AES-GCM-Chiffretext in
+IndexedDB gepuffert. Der Standardspeicher ist global auf fünf Segmente und
+24 MiB begrenzt. Nach 24 Stunden sind Segmente logisch nicht mehr lesbar und
+werden bei der nächsten Pufferoperation oder Initialisierung physisch gelöscht.
+Ein bestätigtes Segment wird sofort gelöscht. Ist der Puffer voll oder nicht
+sicher verfügbar, stoppt der Client fail-closed und markiert nicht
+wiederherstellbare Sequenzen als Lücke, statt unbegrenzt Audio im Speicher zu
+sammeln.
+
+Nach einer kurzen Netz- oder Seitenunterbrechung zeigt die Oberfläche einen
+Wiederherstellungshinweis. **Fortsetzen und Audio freigeben** übernimmt den
+bestätigten Hub-Cursor und die verschlüsselten Restsegmente; die Audiofreigabe
+muss aus Sicherheitsgründen erneut erteilt werden. **Puffer verwerfen** beendet
+den Wiederherstellungspfad und löscht die lokalen Segmente. Beim Löschen eines
+Voice-Profils wird auch dessen lokaler Langzeitpuffer entfernt.
+
+Ist nur die Capture-Frist erreicht, der Hub-Run aber noch nicht abgelaufen,
+fordert die Oberfläche keine neue Audiofreigabe mehr an. Stattdessen lädt
+**Puffer hochladen und abschließen** die bereits aufgenommenen Chiffretext-
+Segmente während der einstündigen Drain-Frist hoch und finalisiert den Run.
+Nach `expires_at` werden keine Segmente mehr angenommen.
+
+Für einen achtstündigen Run müssen Browser beziehungsweise Android-App offen
+und der Hub sowie mindestens ein ASR-Worker dauerhaft erreichbar sein. Der
+gewählte ASR-/Korrekturpfad muss ein Segment im Mittel schneller verarbeiten
+als neue Segmente entstehen; andernfalls füllt sich der absichtlich kleine
+Offline-Puffer. Außerdem muss die Hub-Anmeldung samt Refresh-Session für die
+gesamte Laufzeit gültig bleiben. Der Angular-Client erneuert kurzlebige Hub-
+Zugriffstoken automatisch und wiederholt eine wegen `401` abgewiesene Hub-
+Anfrage genau einmal nach erfolgreichem Refresh. Wird die Session widerrufen
+oder ist auch das Refresh-Token abgelaufen, ist kein zuverlässiger weiterer
+Upload möglich und es können Segmentlücken entstehen.
+
+Pro Profil und Run darf nur ein Ananta-Voice-Tab beziehungsweise eine App-
+Instanz aktiv aufnehmen. Die Token-Erneuerung ist innerhalb einer Instanz
+serialisiert; parallele Tabs werden wegen rotierender Refresh-Tokens derzeit
+nicht als zuverlässiger Langzeitbetrieb unterstützt.
+
+Diese Echtzeitfähigkeit ist vor langen produktiven Runs mit der konkreten
+CPU/GPU und dem gewählten Modell zu messen. Der Modus ist beaufsichtigt:
+Browser können Tabs drosseln, Betriebssysteme können Audiofreigaben beenden,
+und Android kann einen App-Prozess bei Display-Aus oder Speicherdruck stoppen.
+Heartbeat, Retry und Resume überbrücken begrenzte Störungen, ersetzen aber
+keinen garantierten 24/7-Aufnahmedienst. Für unbeaufsichtigtes 24/7 wären ein
+dedizierter Capture-Dienst, kontinuierliches Monitoring, Kapazitätsplanung und
+eine explizite Aufbewahrungsrichtlinie nötig.
 
 ### Lautsprecher/Systemaudio im Browser
 
@@ -411,6 +482,8 @@ Zugangsdaten, Pfad, Query oder Fragment.
   Bildschirmbilder aufgezeichnet oder an den Hub übertragen.
 - Live-Aufnahme: Der jeweilige Adapter erzeugt PCM16, 16 kHz, mono und sendet
   500-ms-Chunks in Reihenfolge an die Hub-Stream-API.
+- Langzeit-Aufnahme: Derselbe PCM-Adapter bleibt geöffnet; Angular rotiert die
+  Chunks in begrenzte WAV-Segmente und sendet sie über den Hub-Live-Run.
 - Batch-Aufnahme: Der jeweilige Adapter puffert die PCM-Chunks lokal, erzeugt
   beim Stoppen WAV und sendet die Datei erst nach **Über Hub transkribieren**.
 
@@ -420,11 +493,13 @@ die Aufnahme im Manifest oder zur Laufzeit verbieten. Geschützte Medien,
 Anrufe/Telefonie und andere nicht freigegebene Audioarten können deshalb stumm
 bleiben und werden von Ananta nicht umgangen.
 
-Der aktuelle native Capture begrenzt beide Audioquellen auf 120 Sekunden.
-Beim Erreichen dieser Grenze wird eine Live-Session automatisch finalisiert;
-eine Batch-Aufnahme bleibt lokal zum anschließenden Absenden bereit. Längere
-Aufnahmen müssen als bereits vorhandene, vom Hub akzeptierte Audiodatei über
-den Batch-Pfad eingereicht oder in mehrere Sessions aufgeteilt werden.
+Der native Capture verwendet für die kurzen Live-/Batch-Modi weiterhin den
+120-Sekunden-Default. Ausschließlich der Langzeit-Controller fordert eine
+längere Laufzeit an; der native Adapter kappt sie hart bei 28 800 Sekunden.
+Systemaudio läuft dabei in einem sichtbaren MediaProjection-Foreground-Service.
+Die Mikrofonvariante läuft derzeit im App-Prozess: Für einen beaufsichtigten
+achtstündigen Run müssen App und Gerät aktiv bleiben; zuverlässige Aufnahme im
+Hintergrund oder bei ausgeschaltetem Display wird nicht zugesagt.
 
 Für einen Hub auf einem anderen Rechner unter `/agents` den Eintrag `hub`
 bearbeiten, seine vom Android-Gerät erreichbare URL eintragen und speichern,
@@ -446,10 +521,21 @@ Client-URL eingetragen. Browser und Android adressieren ausschließlich den Hub.
   erst nach dem expliziten Absenden. `VOICE_STORE_AUDIO=false` bleibt der
   fail-closed Default, dennoch werden Audio und Transkript zur Verarbeitung an
   den Hub übertragen.
+- `raw_audio_persisted=false` bezeichnet fehlende Ananta-Retention nach dem
+  Request. Während eines Segment-Requests können Multipart-Parser und ASR-
+  Backend requestgebundene Temporary-Dateien verwenden. Das Voice-Compose-
+  Profil hält `/tmp` dafür in einem begrenzten RAM-`tmpfs`; die Dateien werden
+  beim Abschluss geschlossen und nicht als Ledger oder Artifact übernommen.
+- Im Langzeitmodus verlässt jedes vollständige Segment das Gerät fortlaufend.
+  Nur noch nicht bestätigte Segmente verbleiben zeitlich und mengenmäßig
+  begrenzt als AES-GCM-Chiffretext in IndexedDB. Hub-Ledger und Parent-/Child-
+  Tasks enthalten nur Orchestrierungsmetadaten und Ergebnisreferenzen, kein
+  Roh-Audio und keinen Transkript-Klartext.
 - Die Quellenwahl **Mikrofon** oder **Lautsprecher / Systemaudio** bleibt lokal
-  im Client und wird nur für die Audioaufnahme verwendet. Sie verändert weder
-  das Hub-Profil noch die Session-Konfiguration oder den bestehenden Hub/API-
-  Vertrag.
+  konfiguriert und verändert weder Hub-Profil noch Session-Konfiguration. Bei
+  einem Langzeit-Run wird die Quellenart als Orchestrierungsmetadatum an den
+  Hub gesendet, damit Resume und Audit den Capture-Pfad eindeutig beschreiben;
+  Bildschirm- oder Audioinhalt wird dadurch nicht zusätzlich gespeichert.
 - Systemaudio ist keine Umgehung von Plattform- oder Inhaltsschutz. Browser
   und Android können je nach Freigabe, App-Opt-out, DRM oder Audioart keine
   Audiospur liefern; insbesondere Anrufaudio ist nicht als aufnehmbar zugesagt.
