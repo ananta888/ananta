@@ -12,6 +12,12 @@ import {
   VoiceConsent,
   VoiceConsentCategory,
   VoiceFineTuningExportTaskResult,
+  VoiceLongRunCreatePayload,
+  VoiceLongRunHeartbeatRequest,
+  VoiceLongRunLease,
+  VoiceLongRunResponse,
+  VoiceLongRunSegmentUploadResponse,
+  VoiceLongRunStopRequest,
   VoicePersonalizationExport,
   VoicePersonalizationImportPayload,
   VoicePersonalizationImportResult,
@@ -131,6 +137,90 @@ export class VoiceApiService {
   cancelStream(hubUrl: string, sessionId: string): Observable<VoiceStreamCancelResponse> {
     return this.core.request<VoiceStreamCancelResponse>(
       'DELETE', `${hubUrl}/v1/voice/streams/${encodeURIComponent(sessionId)}`, hubUrl,
+    );
+  }
+
+  acquireLongRunLease(hubUrl: string, profileId: string): Observable<VoiceLongRunLease> {
+    return this.core.request<VoiceLongRunLease>(
+      'POST', `${hubUrl}/v1/voice/live-runs/lease`, hubUrl,
+      { body: { profile_id: profileId } },
+    );
+  }
+
+  createLongRun(
+    hubUrl: string,
+    payload: VoiceLongRunCreatePayload,
+    idempotencyKey: string,
+  ): Observable<VoiceLongRunResponse> {
+    return this.core.request<VoiceLongRunResponse>(
+      'POST', `${hubUrl}/v1/voice/live-runs`, hubUrl,
+      { body: payload, headers: mutationHeaders(idempotencyKey) },
+    );
+  }
+
+  getLongRun(
+    hubUrl: string,
+    runId: string,
+    options: { includeText?: boolean } = {},
+  ): Observable<VoiceLongRunResponse> {
+    const query = options.includeText === false ? '?include_text=false' : '';
+    return this.core.get<VoiceLongRunResponse>(
+      `${hubUrl}/v1/voice/live-runs/${encodeURIComponent(runId)}${query}`, hubUrl, undefined, false,
+    );
+  }
+
+  heartbeatLongRun(
+    hubUrl: string,
+    runId: string,
+    payload: VoiceLongRunHeartbeatRequest,
+  ): Observable<VoiceLongRunResponse> {
+    return this.core.request<VoiceLongRunResponse>(
+      'POST', `${hubUrl}/v1/voice/live-runs/${encodeURIComponent(runId)}/heartbeat`, hubUrl,
+      { body: payload, timeoutMs: 30_000 },
+    );
+  }
+
+  uploadLongRunSegment(
+    hubUrl: string,
+    runId: string,
+    sequence: number,
+    payload: {
+      file: Blob;
+      fileName: string;
+      startedAtMs: number;
+      endedAtMs: number;
+      durationMs: number;
+      overlapMilliseconds: number;
+    },
+    idempotencyKey: string,
+  ): Observable<VoiceLongRunSegmentUploadResponse> {
+    const form = new FormData();
+    form.append('file', payload.file, payload.fileName);
+    form.append('started_at_ms', String(payload.startedAtMs));
+    form.append('ended_at_ms', String(payload.endedAtMs));
+    form.append('duration_ms', String(payload.durationMs));
+    form.append('overlap_milliseconds', String(payload.overlapMilliseconds));
+    return this.core.request<VoiceLongRunSegmentUploadResponse>(
+      'PUT',
+      `${hubUrl}/v1/voice/live-runs/${encodeURIComponent(runId)}/segments/${sequence}`,
+      hubUrl,
+      {
+        body: form,
+        headers: mutationHeaders(idempotencyKey),
+        timeoutMs: 300_000,
+      },
+    );
+  }
+
+  stopLongRun(
+    hubUrl: string,
+    runId: string,
+    payload: VoiceLongRunStopRequest,
+    idempotencyKey: string,
+  ): Observable<VoiceLongRunResponse> {
+    return this.core.request<VoiceLongRunResponse>(
+      'POST', `${hubUrl}/v1/voice/live-runs/${encodeURIComponent(runId)}/stop`, hubUrl,
+      { body: payload, headers: mutationHeaders(idempotencyKey), timeoutMs: 300_000 },
     );
   }
 

@@ -11,6 +11,8 @@ import { FormsModule } from '@angular/forms';
 
 import { VoiceApiService } from './voice-api.service';
 import { VoiceLearningContext } from './voice-candidate-review.component';
+import { VOICE_LONG_RUN_RECOVERY, VoiceLongRunRecoveryPort } from './voice-long-run-recovery';
+import { VOICE_LONG_RUN_SPOOL, VoiceLongRunSpoolPort } from './voice-long-run-spool';
 import {
   VoiceConsent,
   VoiceConsentCategory,
@@ -42,6 +44,8 @@ export class VoicePersonalizationComponent implements OnChanges {
 
   private readonly api = inject(VoiceApiService);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly longRunSpool: VoiceLongRunSpoolPort = inject(VOICE_LONG_RUN_SPOOL);
+  private readonly longRunRecovery: VoiceLongRunRecoveryPort = inject(VOICE_LONG_RUN_RECOVERY);
 
   readonly consentChoices: ConsentChoice[] = [
     { id: 'vocabulary', label: 'Wortschatz', purpose: 'Explizit bestätigte Begriffe bei späteren Transkriptionen berücksichtigen.' },
@@ -231,6 +235,28 @@ export class VoicePersonalizationComponent implements OnChanges {
   deleteProfile(): void {
     const profileId = this.profileId.trim();
     if (!this.profileDeleteConfirmed || this.profileDeleteConfirmationText.trim() !== profileId || !profileId) return;
+    // clearProfile publishes the same-document/cross-tab fence synchronously,
+    // then queues the durable IndexedDB tombstone and ciphertext deletion. It
+    // must start before HTTP: the Hub may apply DELETE even when its response
+    // is lost.
+    let localCleanup: Promise<unknown | null>;
+    try {
+      localCleanup = this.longRunSpool.clearProfile(profileId).then(
+        () => null,
+        (error) => error,
+      );
+    } catch (error) {
+      localCleanup = Promise.resolve(error);
+    }
+    try {
+      const recovery = this.longRunRecovery.load();
+      if (recovery?.request.profile_id === profileId) {
+        this.longRunRecovery.clear(recovery.runId || undefined);
+      }
+    } catch {
+      // The durable profile tombstone remains authoritative if recovery
+      // metadata storage is unavailable.
+    }
     this.privacyDeletion = null;
     this.beginRequest();
     this.api.deleteVoiceProfile(
@@ -251,20 +277,48 @@ export class VoicePersonalizationComponent implements OnChanges {
         this.snapshot = null;
         this.exported = null;
         this.fineTuningTask = null;
-        this.busy = false;
         this.profileDeleteConfirmed = false;
         this.profileDeleteConfirmationText = '';
-        if (result.runtime_cleanup_pending) {
-          this.successMessage = '';
-          this.errorCode = 'voice_privacy.runtime_cleanup_pending';
-          this.errorMessage = `${result.deleted_count} Hub-Profildatensätze gelöscht, aber ${result.runtime_cleanup_failed_count} Runtime-Bereinigungen sind noch ausstehend. Die Löschung ist noch nicht vollständig abgeschlossen.`;
-        } else {
-          this.successMessage = `${result.deleted_count} Voice-Profildatensätze vollständig gelöscht; ${result.revoked_stream_count} Streams widerrufen; Snapshots widerrufen: ${result.snapshots_revoked ? 'ja' : 'nein'}.`;
-        }
-        this.cdr.markForCheck();
+        void this.finishProfileDeletion(result, localCleanup);
       },
-      error: (error) => this.fail(error),
+      error: (error) => void this.finishFailedProfileDeletion(error, localCleanup),
     });
+  }
+
+  private async finishProfileDeletion(
+    result: VoicePrivacyDeletionResult,
+    localCleanup: Promise<unknown | null>,
+  ): Promise<void> {
+    const localCleanupError = await localCleanup;
+    if (localCleanupError) {
+      this.busy = false;
+      this.successMessage = '';
+      this.errorCode = 'voice_privacy.local_cleanup_failed';
+      this.errorMessage = `${result.deleted_count} Hub-Profildatensätze wurden gelöscht, aber der lokale verschlüsselte Langzeit-Audiopuffer konnte nicht bereinigt werden: ${voiceError(localCleanupError).message}`;
+      this.cdr.markForCheck();
+      return;
+    }
+    this.busy = false;
+    if (result.runtime_cleanup_pending) {
+      this.successMessage = '';
+      this.errorCode = 'voice_privacy.runtime_cleanup_pending';
+      this.errorMessage = `${result.deleted_count} Hub-Profildatensätze gelöscht, aber ${result.runtime_cleanup_failed_count} Runtime-Bereinigungen sind noch ausstehend. Die Löschung ist noch nicht vollständig abgeschlossen.`;
+    } else {
+      this.successMessage = `${result.deleted_count} Voice-Profildatensätze vollständig gelöscht; ${result.revoked_stream_count} Streams widerrufen; Snapshots widerrufen: ${result.snapshots_revoked ? 'ja' : 'nein'}.`;
+    }
+    this.cdr.markForCheck();
+  }
+
+  private async finishFailedProfileDeletion(
+    serverError: unknown,
+    localCleanup: Promise<unknown | null>,
+  ): Promise<void> {
+    const localCleanupError = await localCleanup;
+    this.fail(serverError);
+    if (localCleanupError) {
+      this.errorMessage = `${this.errorMessage} Die lokale Löschabsicht wurde signalisiert, aber der verschlüsselte Langzeit-Audiopuffer konnte nicht vollständig bereinigt werden: ${voiceError(localCleanupError).message}`;
+      this.cdr.markForCheck();
+    }
   }
 
   createFineTuningExportTask(): void {

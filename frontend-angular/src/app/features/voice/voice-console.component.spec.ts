@@ -2,7 +2,7 @@ import { ɵresolveComponentResources } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { readFile } from 'node:fs/promises';
-import { Subject, of } from 'rxjs';
+import { Subject, of, throwError } from 'rxjs';
 
 import { AgentDirectoryService } from '../../services/agent-directory.service';
 import {
@@ -13,6 +13,8 @@ import {
 } from './voice-audio-capture';
 import { VoiceApiService } from './voice-api.service';
 import { VoiceConsoleComponent } from './voice-console.component';
+import { VOICE_LONG_RUN_RECOVERY, VoiceLongRunRecoveryMetadata } from './voice-long-run-recovery';
+import { VOICE_LONG_RUN_SPOOL } from './voice-long-run-spool';
 
 beforeAll(async () => {
   await ɵresolveComponentResources((resource) => readFile(new URL(resource, import.meta.url), 'utf8'));
@@ -29,6 +31,12 @@ describe('VoiceConsoleComponent', () => {
     pushStreamChunk: vi.fn(),
     finalizeStream: vi.fn(),
     cancelStream: vi.fn(),
+    acquireLongRunLease: vi.fn(),
+    createLongRun: vi.fn(),
+    getLongRun: vi.fn(),
+    heartbeatLongRun: vi.fn(),
+    uploadLongRunSegment: vi.fn(),
+    stopLongRun: vi.fn(),
     transcribe: vi.fn(),
     createReview: vi.fn(),
     decideReview: vi.fn(),
@@ -50,10 +58,29 @@ describe('VoiceConsoleComponent', () => {
     stop: vi.fn(),
     cancel: vi.fn(),
   };
+  let recoveryValue: VoiceLongRunRecoveryMetadata | null = null;
+  const recovery = {
+    load: vi.fn(() => recoveryValue),
+    save: vi.fn((value: VoiceLongRunRecoveryMetadata) => { recoveryValue = value; }),
+    clear: vi.fn(() => { recoveryValue = null; }),
+  };
+  const spool = {
+    initialize: vi.fn(async () => undefined),
+    put: vi.fn(),
+    read: vi.fn(),
+    list: vi.fn(async () => []),
+    delete: vi.fn(async () => undefined),
+    clearRun: vi.fn(async () => undefined),
+    signalProfileDeletion: vi.fn(),
+    clearProfile: vi.fn(async () => undefined),
+    allowProfile: vi.fn(async () => Date.now() || 1),
+    stats: vi.fn(async () => ({ segments: 0, bytes: 0, maxSegments: 5, maxBytes: 24 * 1024 * 1024 })),
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
     capturePrepared = false;
+    recoveryValue = null;
     api.getCapabilities.mockReturnValue(of({
       available: true,
       provider: 'voice-runtime',
@@ -88,6 +115,38 @@ describe('VoiceConsoleComponent', () => {
       schema_version: 'ananta.voice-configuration.v1',
       scope: 'profile', scope_id: 'default', delta: {}, version: 2,
     }));
+    api.acquireLongRunLease.mockReturnValue(of({
+      lease_token: 'lease-a', expires_at: Date.now() + 60_000, profile_id: 'default',
+    }));
+    api.createLongRun.mockReturnValue(of({
+      run: { id: 'voice-long-run-a', status: 'active' },
+      segments: [], gaps: [], composed_transcript: null,
+      resume: { next_sequence: 0, acknowledged_through_sequence: -1, last_seen_sequence: -1 },
+    }));
+    api.getLongRun.mockReturnValue(of({
+      run: { id: 'voice-long-run-a', status: 'active' },
+      segments: [], gaps: [], composed_transcript: null,
+      resume: { next_sequence: 0, acknowledged_through_sequence: -1, last_seen_sequence: -1 },
+    }));
+    api.heartbeatLongRun.mockReturnValue(of({
+      run: { id: 'voice-long-run-a', status: 'active' },
+      segments: [], gaps: [], composed_transcript: null,
+      resume: { next_sequence: 0, acknowledged_through_sequence: -1, last_seen_sequence: -1 },
+    }));
+    api.uploadLongRunSegment.mockImplementation(
+      (_hub: string, runId: string, sequence: number) => of({
+        run: { id: runId, status: 'active' },
+        segment: { sequence, status: 'completed', text: null },
+        result: { text: `segment-${sequence}` },
+        segments: [], gaps: [], composed_transcript: null,
+        resume: { next_sequence: sequence + 1, acknowledged_through_sequence: sequence },
+      }),
+    );
+    api.stopLongRun.mockReturnValue(of({
+      run: { id: 'voice-long-run-a', status: 'completed' },
+      segments: [], gaps: [], composed_transcript: 'Fertiges Transkript',
+      resume: { next_sequence: 0, acknowledged_through_sequence: -1 },
+    }));
 
     TestBed.configureTestingModule({
       imports: [VoiceConsoleComponent],
@@ -97,6 +156,8 @@ describe('VoiceConsoleComponent', () => {
         { provide: AgentDirectoryService, useValue: { list: () => [{ name: 'hub', role: 'hub', url: 'http://hub.test' }] } },
         { provide: VOICE_AUDIO_CAPTURE, useValue: capture },
         { provide: VOICE_BATCH_RECORDING, useValue: batch },
+        { provide: VOICE_LONG_RUN_SPOOL, useValue: spool },
+        { provide: VOICE_LONG_RUN_RECOVERY, useValue: recovery },
       ],
     });
   });
@@ -107,6 +168,7 @@ describe('VoiceConsoleComponent', () => {
     const text = fixture.nativeElement.textContent;
 
     expect(text).toContain('Live-Transkription');
+    expect(text).toContain('Langzeit bis 8 h');
     expect(text).toContain('Audioquelle');
     expect(text).toContain('Lautsprecher / Systemaudio');
     expect(text).toContain('gemma-3-4b-it');
@@ -115,6 +177,176 @@ describe('VoiceConsoleComponent', () => {
     expect(fixture.componentInstance.selectedCorrectorProvider).toBe('embedded');
     expect(fixture.componentInstance.selectedCorrectorModel).toBe('gemma-3-4b-it');
     expect((fixture.nativeElement as HTMLElement).querySelector('a[href="/settings?section=voice"]')).toBeTruthy();
+  });
+
+  it('starts one continuous supervised capture with bounded rolling-segment settings', async () => {
+    const fixture = TestBed.createComponent(VoiceConsoleComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+    component.activeTab = 'long';
+    component.selectedCaptureSource = 'system_audio';
+    component.longRunSegmentSeconds = 90;
+    component.longRunMaxHours = 8;
+
+    await component.startLongRun();
+
+    expect(capture.prepare).toHaveBeenCalledWith('system_audio');
+    expect(api.createLongRun).toHaveBeenCalledWith(
+      'http://hub.test',
+      expect.objectContaining({
+        source: 'system_audio',
+        segment_duration_seconds: 90,
+        max_duration_seconds: 28_800,
+        overlap_milliseconds: 1_000,
+      }),
+      expect.stringContaining('voice-ui:console-long-run:create:'),
+    );
+    expect(capture.start).toHaveBeenCalledTimes(1);
+    expect(capture.start).toHaveBeenCalledWith(
+      expect.any(Function), expect.any(Function), expect.any(Function),
+      { maxDurationSeconds: 28_800 },
+    );
+    expect(component.longRunActive).toBe(true);
+
+    await component.stopLongRun();
+    expect(capture.stop).toHaveBeenCalledTimes(1);
+    expect(api.stopLongRun).toHaveBeenCalledWith(
+      'http://hub.test', 'voice-long-run-a',
+      expect.objectContaining({ reason: 'user_stop' }),
+      'voice-ui:long-run-stop:voice-long-run-a',
+    );
+    expect(component.longRunTranscript).toBe('Fertiges Transkript');
+  });
+
+  it('renders a visible warning for irrecoverable encrypted-buffer gaps', async () => {
+    const fixture = TestBed.createComponent(VoiceConsoleComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const component = fixture.componentInstance;
+    component.activeTab = 'long';
+    component.longRunGapSequences = [3, 4];
+    component.longRunWarning = 'Puffer ausgelastet.';
+    fixture.detectChanges();
+
+    const warning = (fixture.nativeElement as HTMLElement)
+      .querySelector('[data-testid="voice-long-run-gap-warning"]');
+    expect(warning?.textContent).toContain('Puffer ausgelastet');
+    expect(warning?.textContent).toContain('3, 4');
+  });
+
+  it('checks a recovered Hub run before requesting a fresh audio permission', async () => {
+    recoveryValue = {
+      schemaVersion: 1,
+      runId: 'voice-long-run-a',
+      hubUrl: 'http://hub.test',
+      createIdempotencyKey: 'stable-create-key',
+      profileGeneration: Date.now(),
+      request: {
+        source: 'system_audio',
+        profile_id: 'default',
+        segment_duration_seconds: 120,
+        max_duration_seconds: 28_800,
+        overlap_milliseconds: 1_000,
+      },
+      nextSequence: 0,
+      timelineMilliseconds: 0,
+      updatedAt: Date.now(),
+    };
+    const fixture = TestBed.createComponent(VoiceConsoleComponent);
+    fixture.detectChanges();
+    await vi.waitFor(() => expect(fixture.componentInstance.longRunRecoveryReady()).toBe(true));
+    const component = fixture.componentInstance;
+    component.activeTab = 'long';
+
+    await component.startLongRun(true);
+
+    expect(api.getLongRun).toHaveBeenCalledWith(
+      'http://hub.test', 'voice-long-run-a', { includeText: false },
+    );
+    expect(api.getLongRun.mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(capture.prepare).mock.invocationCallOrder[0],
+    );
+    expect(capture.prepare).toHaveBeenCalledWith('system_audio');
+    expect(api.createLongRun).not.toHaveBeenCalled();
+    await component.stopLongRun();
+  });
+
+  it('keeps secure recovery available when the Hub status check is temporarily offline', async () => {
+    recoveryValue = recoveredMetadata();
+    api.getLongRun.mockReturnValue(throwError(() => ({ status: 0, message: 'offline' })));
+    const fixture = TestBed.createComponent(VoiceConsoleComponent);
+    fixture.detectChanges();
+    await vi.waitFor(() => expect(fixture.componentInstance.longRunWarning).toContain('Hub-Status'));
+    clickLongRunTab(fixture.nativeElement as HTMLElement);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.longRunStorageAvailable).toBe(true);
+    expect(fixture.componentInstance.longRunRecovery?.runId).toBe('voice-long-run-a');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Hub-Status prüfen');
+    expect(capture.prepare).not.toHaveBeenCalled();
+  });
+
+  it('offers drain-only recovery after the capture deadline and never reopens audio capture', async () => {
+    const generation = Date.now();
+    recoveryValue = recoveredMetadata({
+      profileGeneration: generation,
+      nextSequence: 1,
+      timelineMilliseconds: 60_000,
+      completedTimelineMilliseconds: 60_000,
+      durableNextSequence: 1,
+      durableTimelineMilliseconds: 60_000,
+    });
+    api.getLongRun.mockReturnValue(of({
+      run: {
+        id: 'voice-long-run-a', status: 'active',
+        capture_deadline_at: Date.now() - 1_000,
+        expires_at: Date.now() + 60_000,
+      },
+      segments: [], gaps: [], composed_transcript: null,
+      resume: { next_sequence: 0, acknowledged_through_sequence: -1 },
+    }));
+    const metadata = {
+      runId: 'voice-long-run-a', profileId: 'default', profileGeneration: generation,
+      sequence: 0, startedAtMs: 0, endedAtMs: 60_000, durationMs: 60_000,
+      overlapMilliseconds: 0, idempotencyKey: 'voice-ui:long-run-segment:voice-long-run-a:0',
+      byteLength: 120, createdAt: 1, expiresAt: Number.MAX_SAFE_INTEGER,
+    };
+    vi.mocked(spool.list)
+      .mockResolvedValueOnce([metadata])
+      .mockResolvedValueOnce([metadata])
+      .mockResolvedValue([]);
+    vi.mocked(spool.read).mockResolvedValueOnce({
+      ...metadata,
+      audio: new ArrayBuffer(120),
+    });
+    const fixture = TestBed.createComponent(VoiceConsoleComponent);
+    fixture.detectChanges();
+    await vi.waitFor(() => expect(fixture.componentInstance.longRunRecoveryDrainOnly()).toBe(true));
+    clickLongRunTab(fixture.nativeElement as HTMLElement);
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Puffer senden und abschließen');
+    await fixture.componentInstance.drainLongRunRecovery();
+
+    expect(api.uploadLongRunSegment).toHaveBeenCalledTimes(1);
+    expect(capture.prepare).not.toHaveBeenCalled();
+    expect(capture.start).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.longRunRecovery).toBeNull();
+    expect(fixture.componentInstance.successMessage).toContain('Puffer wurde gesendet');
+  });
+
+  it('reports an unconfirmed Hub state separately after an offline local discard', async () => {
+    recoveryValue = recoveredMetadata();
+    api.getLongRun.mockReturnValue(throwError(() => ({ status: 0, message: 'offline' })));
+    const fixture = TestBed.createComponent(VoiceConsoleComponent);
+    fixture.detectChanges();
+    await vi.waitFor(() => expect(fixture.componentInstance.longRunRecovery).toBeTruthy());
+
+    await fixture.componentInstance.discardLongRunRecovery();
+
+    expect(fixture.componentInstance.longRunRecovery).toBeNull();
+    expect(fixture.componentInstance.successMessage).toContain('Puffer wurde gelöscht');
+    expect(fixture.componentInstance.longRunWarning).toContain('Run-Status konnte nicht bestätigt');
   });
 
   it('requests system-audio consent before saving configuration or creating a live Hub stream', async () => {
@@ -495,3 +727,33 @@ describe('VoiceConsoleComponent', () => {
     expect(component.validCorrectionSelection()).toBe(false);
   });
 });
+
+function recoveredMetadata(
+  overrides: Partial<VoiceLongRunRecoveryMetadata> = {},
+): VoiceLongRunRecoveryMetadata {
+  return {
+    schemaVersion: 1,
+    runId: 'voice-long-run-a',
+    hubUrl: 'http://hub.test',
+    createIdempotencyKey: 'stable-create-key',
+    profileGeneration: Date.now(),
+    request: {
+      source: 'system_audio',
+      profile_id: 'default',
+      segment_duration_seconds: 120,
+      max_duration_seconds: 28_800,
+      overlap_milliseconds: 1_000,
+    },
+    nextSequence: 0,
+    timelineMilliseconds: 0,
+    updatedAt: Date.now(),
+    ...overrides,
+  };
+}
+
+function clickLongRunTab(element: HTMLElement): void {
+  const tab = [...element.querySelectorAll<HTMLButtonElement>('[role="tab"]')]
+    .find((candidate) => candidate.textContent?.includes('Langzeit'));
+  if (!tab) throw new Error('long-run tab missing');
+  tab.click();
+}

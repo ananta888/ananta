@@ -395,6 +395,119 @@ export interface VoiceStreamCancelResponse {
   deleted: boolean;
 }
 
+export type VoiceLongRunStatus =
+  | 'created'
+  | 'active'
+  | 'finalizing'
+  | 'completed'
+  | 'completed_with_gaps'
+  | 'expired'
+  | 'failed'
+  | 'cancelled'
+  | string;
+
+export type VoiceLongRunSegmentStatus =
+  | 'pending'
+  | 'processing'
+  | 'completed'
+  | 'failed'
+  | string;
+
+export interface VoiceLongRunSegment {
+  sequence: number;
+  status: VoiceLongRunSegmentStatus;
+  started_at_ms?: number;
+  ended_at_ms?: number;
+  duration_ms?: number;
+  overlap_milliseconds?: number | null;
+  task_id?: string | null;
+  result_ref?: string | null;
+  text?: string | null;
+  error?: VoiceCandidateError | null;
+}
+
+export interface VoiceLongRunResumeCursor {
+  next_sequence: number;
+  acknowledged_through_sequence?: number;
+  next_started_at_ms?: number;
+  last_seen_sequence?: number;
+  pending_sequences?: number[];
+  failed_sequences?: number[];
+}
+
+export interface VoiceLongRunState {
+  id: string;
+  parent_task_id?: string | null;
+  status: VoiceLongRunStatus;
+  profile_id?: string;
+  configuration_session_id?: string | null;
+  source?: 'microphone' | 'system_audio' | string;
+  segment_duration_seconds?: number;
+  max_duration_seconds?: number;
+  overlap_milliseconds?: number;
+  last_local_sequence?: number | null;
+  expected_last_sequence?: number | null;
+  started_at?: string | number | null;
+  stopped_at?: string | number | null;
+  capture_deadline_at?: string | number | null;
+  expires_at?: string | number | null;
+  final_result_ref?: string | null;
+  stop_reason?: string | null;
+}
+
+export interface VoiceLongRunCreateRequest {
+  source: 'microphone' | 'system_audio';
+  profile_id: string;
+  configuration_session_id?: string;
+  language?: string;
+  segment_duration_seconds: number;
+  max_duration_seconds: number;
+  overlap_milliseconds: number;
+}
+
+export interface VoiceLongRunLease {
+  lease_token: string;
+  expires_at: string | number;
+  profile_id: string;
+}
+
+export type VoiceLongRunCreatePayload = VoiceLongRunCreateRequest & {
+  lease_token: string;
+};
+
+export interface VoiceLongRunResponse {
+  run: VoiceLongRunState;
+  segments?: VoiceLongRunSegment[];
+  composed_transcript?: string | null;
+  gaps?: number[];
+  resume?: VoiceLongRunResumeCursor;
+  page?: {
+    after_sequence: number;
+    limit: number;
+    has_more: boolean;
+    next_after_sequence: number;
+  };
+  idempotent_replay?: boolean;
+}
+
+export interface VoiceLongRunSegmentUploadResponse extends VoiceLongRunResponse {
+  segment: VoiceLongRunSegment;
+  result?: VoiceTranscriptionResult & { transcript?: string };
+  result_ref?: string;
+  result_digest?: string;
+}
+
+export interface VoiceLongRunHeartbeatRequest {
+  client_time_ms?: number;
+  last_local_sequence: number;
+  gaps?: number[];
+}
+
+export interface VoiceLongRunStopRequest {
+  last_sequence?: number;
+  reason?: string;
+}
+
 export interface VoiceReview {
   id: string;
   profile_id: string;

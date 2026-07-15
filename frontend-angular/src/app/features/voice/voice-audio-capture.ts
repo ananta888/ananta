@@ -16,6 +16,11 @@ export const VOICE_PCM_SAMPLE_RATE = 16_000;
 export type VoicePcmChunkHandler = (chunk: ArrayBuffer) => void;
 export type VoiceCaptureStoppedHandler = (reason?: string) => void;
 
+export interface VoiceAudioCaptureOptions {
+  /** Omitted for the existing short Live mode, whose native default is 120s. */
+  maxDurationSeconds?: number;
+}
+
 export interface VoiceBatchRecordingObserver {
   ended?(reason?: string): void;
   error?(error: unknown): void;
@@ -33,6 +38,7 @@ export interface VoiceAudioCapturePort {
     onChunk: VoicePcmChunkHandler,
     onError?: (error: unknown) => void,
     onStopped?: VoiceCaptureStoppedHandler,
+    options?: VoiceAudioCaptureOptions,
   ): Promise<void>;
   stop(): Promise<void>;
 }
@@ -184,6 +190,7 @@ export class BrowserVoiceAudioCaptureAdapter implements VoiceAudioCapturePort {
     onChunk: VoicePcmChunkHandler,
     onError?: (error: unknown) => void,
     onStopped?: VoiceCaptureStoppedHandler,
+    _options?: VoiceAudioCaptureOptions,
   ): Promise<void> {
     if (this.active) throw new Error('voice.capture.already_active');
     if (!this.lease) throw new Error('voice.capture.not_prepared');
@@ -456,6 +463,7 @@ export class CapacitorVoiceAudioCaptureAdapter implements VoiceAudioCapturePort 
     onChunk: VoicePcmChunkHandler,
     onError?: (error: unknown) => void,
     onStopped?: VoiceCaptureStoppedHandler,
+    options?: VoiceAudioCaptureOptions,
   ): Promise<void> {
     if (!this.supported) throw new Error('voice.capture.native_not_supported');
     if (this.active) throw new Error('voice.capture.already_active');
@@ -491,7 +499,11 @@ export class CapacitorVoiceAudioCaptureAdapter implements VoiceAudioCapturePort 
         if (!this.stopRequested) onStopped?.(event.reason);
       }));
       this.ensureNativeOperation(generation);
-      await plugin.start({ sampleRate: 16_000, chunkMilliseconds: 500, maxSeconds: 120 });
+      const requestedMaxSeconds = options?.maxDurationSeconds;
+      const maxSeconds = requestedMaxSeconds == null
+        ? 120
+        : Math.max(1, Math.min(28_800, Math.round(requestedMaxSeconds)));
+      await plugin.start({ sampleRate: 16_000, chunkMilliseconds: 500, maxSeconds });
       if (generation !== this.operationGeneration) {
         await this.stop().catch(() => undefined);
         throw new Error('voice.capture.cancelled');

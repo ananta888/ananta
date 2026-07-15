@@ -1,10 +1,12 @@
 import { ɵresolveComponentResources } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { readFile } from 'node:fs/promises';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 
 import { VoiceApiService } from './voice-api.service';
 import { VoiceLearningContext } from './voice-candidate-review.component';
+import { VOICE_LONG_RUN_RECOVERY } from './voice-long-run-recovery';
+import { VOICE_LONG_RUN_SPOOL } from './voice-long-run-spool';
 import { VoicePersonalizationComponent } from './voice-personalization.component';
 
 beforeAll(async () => {
@@ -60,13 +62,23 @@ describe('VoicePersonalizationComponent', () => {
       task_id: 'voice-training-export-a', idempotent_replay: false,
     })),
   };
+  const longRunSpool = {
+    signalProfileDeletion: vi.fn(),
+    clearProfile: vi.fn(async () => undefined),
+    allowProfile: vi.fn(async () => Date.now() || 1),
+  };
+  const longRunRecovery = { load: vi.fn(() => null), clear: vi.fn() };
 
   beforeEach(() => {
     vi.clearAllMocks();
     api.getConsent.mockReturnValue(of(inactiveConsent));
     TestBed.configureTestingModule({
       imports: [VoicePersonalizationComponent],
-      providers: [{ provide: VoiceApiService, useValue: api }],
+      providers: [
+        { provide: VoiceApiService, useValue: api },
+        { provide: VOICE_LONG_RUN_SPOOL, useValue: longRunSpool },
+        { provide: VOICE_LONG_RUN_RECOVERY, useValue: longRunRecovery },
+      ],
     });
   });
 
@@ -164,7 +176,7 @@ describe('VoicePersonalizationComponent', () => {
     );
   });
 
-  it('keeps feedback reset separate from complete privacy deletion', () => {
+  it('keeps feedback reset separate from complete privacy deletion', async () => {
     api.getConsent.mockReturnValueOnce(of(activeConsent));
     const fixture = TestBed.createComponent(VoicePersonalizationComponent);
     fixture.componentRef.setInput('hubUrl', 'http://hub.test');
@@ -177,10 +189,14 @@ describe('VoicePersonalizationComponent', () => {
     expect(api.deleteVoiceProfile).not.toHaveBeenCalled();
     component.profileDeleteConfirmationText = 'profile-a';
     component.deleteProfile();
+    await vi.waitFor(() => expect(component.busy).toBe(false));
 
     expect(api.deleteVoiceProfile).toHaveBeenCalledWith(
       'http://hub.test', 'profile-a', expect.stringContaining('voice-ui:privacy:delete-profile:'),
     );
+    expect(longRunSpool.clearProfile).toHaveBeenCalledWith('profile-a');
+    expect(longRunSpool.clearProfile.mock.invocationCallOrder[0])
+      .toBeLessThan(api.deleteVoiceProfile.mock.invocationCallOrder[0]);
     expect(api.resetPersonalization).not.toHaveBeenCalled();
     expect(component.consent?.granted).toBe(false);
     expect(component.successMessage).toContain('vollständig gelöscht');
@@ -188,7 +204,7 @@ describe('VoicePersonalizationComponent', () => {
     expect(component.privacyDeletion?.runtime_cleanup_pending).toBe(false);
   });
 
-  it('reports pending Runtime cleanup explicitly instead of claiming complete deletion', () => {
+  it('reports pending Runtime cleanup explicitly instead of claiming complete deletion', async () => {
     api.getConsent.mockReturnValueOnce(of(activeConsent));
     api.deleteVoiceProfile.mockReturnValueOnce(of({
       profile_id: 'profile-a', deleted_count: 5, deleted_by_store: { feedback: 1 }, snapshots_revoked: true,
@@ -203,6 +219,7 @@ describe('VoicePersonalizationComponent', () => {
     component.profileDeleteConfirmed = true;
     component.profileDeleteConfirmationText = 'profile-a';
     component.deleteProfile();
+    await vi.waitFor(() => expect(component.busy).toBe(false));
     fixture.detectChanges();
 
     expect(component.successMessage).toBe('');
@@ -216,6 +233,64 @@ describe('VoicePersonalizationComponent', () => {
     expect(status?.textContent).toContain('Fehlgeschlagene Runtime-Bereinigungen: 1');
     expect(status?.querySelector('[data-reason-code]')?.getAttribute('data-reason-code'))
       .toBe('voice_privacy.runtime_cleanup_pending');
+  });
+
+  it('drops recovery metadata and reports local ciphertext cleanup failure after Hub deletion', async () => {
+    api.getConsent.mockReturnValueOnce(of(activeConsent));
+    longRunSpool.clearProfile.mockRejectedValueOnce(new Error('indexeddb blocked'));
+    longRunRecovery.load.mockReturnValueOnce({
+      runId: 'voice-long-run-a',
+      request: { profile_id: 'profile-a' },
+    } as any);
+    const fixture = TestBed.createComponent(VoicePersonalizationComponent);
+    fixture.componentRef.setInput('hubUrl', 'http://hub.test');
+    fixture.componentRef.setInput('learningContext', context);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    component.profileDeleteConfirmed = true;
+    component.profileDeleteConfirmationText = 'profile-a';
+    component.deleteProfile();
+    await vi.waitFor(() => expect(component.busy).toBe(false));
+
+    expect(component.errorCode).toBe('voice_privacy.local_cleanup_failed');
+    expect(component.errorMessage).toContain('Hub-Profildatensätze wurden gelöscht');
+    expect(component.successMessage).toBe('');
+    expect(longRunRecovery.clear).toHaveBeenCalledWith('voice-long-run-a');
+  });
+
+  it('finishes the durable local deletion when the Hub DELETE response is lost', async () => {
+    api.getConsent.mockReturnValueOnce(of(activeConsent));
+    let finishCleanup!: () => void;
+    longRunSpool.clearProfile.mockReturnValueOnce(new Promise<void>((resolve) => {
+      finishCleanup = resolve;
+    }));
+    api.deleteVoiceProfile.mockReturnValueOnce(throwError(() => ({
+      status: 0, error: { message: 'response lost' },
+    })));
+    longRunRecovery.load.mockReturnValueOnce({
+      runId: 'voice-long-run-a',
+      request: { profile_id: 'profile-a' },
+    } as any);
+    const fixture = TestBed.createComponent(VoicePersonalizationComponent);
+    fixture.componentRef.setInput('hubUrl', 'http://hub.test');
+    fixture.componentRef.setInput('learningContext', context);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+    component.profileDeleteConfirmed = true;
+    component.profileDeleteConfirmationText = 'profile-a';
+
+    component.deleteProfile();
+
+    expect(longRunSpool.clearProfile).toHaveBeenCalledWith('profile-a');
+    expect(longRunSpool.clearProfile.mock.invocationCallOrder[0])
+      .toBeLessThan(api.deleteVoiceProfile.mock.invocationCallOrder[0]);
+    expect(longRunRecovery.clear).toHaveBeenCalledWith('voice-long-run-a');
+    expect(component.busy).toBe(true);
+
+    finishCleanup();
+    await vi.waitFor(() => expect(component.busy).toBe(false));
+    expect(component.errorMessage).toContain('response lost');
   });
 
   it('creates only an explicitly confirmed non-training export task', () => {

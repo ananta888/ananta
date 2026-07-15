@@ -1,7 +1,19 @@
 import { TestBed } from '@angular/core/testing';
 import { firstValueFrom, of } from 'rxjs';
+import {
+  HTTP_INTERCEPTORS,
+  provideHttpClient,
+  withInterceptorsFromDi,
+} from '@angular/common/http';
+import {
+  HttpTestingController,
+  provideHttpClientTesting,
+} from '@angular/common/http/testing';
 
+import { AgentDirectoryService } from '../../services/agent-directory.service';
+import { AuthInterceptor } from '../../services/auth.interceptor';
 import { HubApiCoreService } from '../../services/hub-api-core.service';
+import { UserAuthService } from '../../services/user-auth.service';
 import { VoiceApiService } from './voice-api.service';
 
 describe('VoiceApiService', () => {
@@ -155,6 +167,57 @@ describe('VoiceApiService', () => {
     });
   });
 
+  it('uses the additive Hub-owned live-run contract with idempotent WAV segments', async () => {
+    core.request.mockReturnValue(of({
+      run: { id: 'run/a', status: 'active' }, segments: [], gaps: [], resume: { next_sequence: 0 },
+    }));
+    core.get.mockReturnValue(of({
+      run: { id: 'run/a', status: 'active' }, segments: [], gaps: [], resume: { next_sequence: 0 },
+    }));
+    const api = TestBed.inject(VoiceApiService);
+
+    await firstValueFrom(api.acquireLongRunLease('http://hub.test', 'profile-a'));
+    await firstValueFrom(api.createLongRun('http://hub.test', {
+      source: 'system_audio', profile_id: 'profile-a', segment_duration_seconds: 120,
+      max_duration_seconds: 28_800, overlap_milliseconds: 1_000, lease_token: 'lease-a',
+    }, 'create-key'));
+    await firstValueFrom(api.uploadLongRunSegment('http://hub.test', 'run/a', 3, {
+      file: new Blob(['wav'], { type: 'audio/wav' }), fileName: 'segment.wav',
+      startedAtMs: 357_000, endedAtMs: 477_000, durationMs: 120_000,
+      overlapMilliseconds: 1_000,
+    }, 'segment-key'));
+    await firstValueFrom(api.heartbeatLongRun('http://hub.test', 'run/a', {
+      last_local_sequence: 3, gaps: [1],
+    }));
+    await firstValueFrom(api.getLongRun('http://hub.test', 'run/a', { includeText: false }));
+    await firstValueFrom(api.stopLongRun(
+      'http://hub.test', 'run/a', { last_sequence: 3, reason: 'user_stop' }, 'stop-key',
+    ));
+
+    expect(core.request.mock.calls.map((call) => `${call[0]} ${call[1]}`)).toEqual([
+      'POST http://hub.test/v1/voice/live-runs/lease',
+      'POST http://hub.test/v1/voice/live-runs',
+      'PUT http://hub.test/v1/voice/live-runs/run%2Fa/segments/3',
+      'POST http://hub.test/v1/voice/live-runs/run%2Fa/heartbeat',
+      'POST http://hub.test/v1/voice/live-runs/run%2Fa/stop',
+    ]);
+    expect(core.request.mock.calls[0][3]).toEqual({ body: { profile_id: 'profile-a' } });
+    expect(core.request.mock.calls[1][3]).toEqual(expect.objectContaining({
+      body: expect.objectContaining({ lease_token: 'lease-a' }),
+      headers: { 'Idempotency-Key': 'create-key' },
+    }));
+    const form = core.request.mock.calls[2][3].body as FormData;
+    expect(form.get('started_at_ms')).toBe('357000');
+    expect(form.get('ended_at_ms')).toBe('477000');
+    expect(form.get('duration_ms')).toBe('120000');
+    expect(form.get('overlap_milliseconds')).toBe('1000');
+    expect(core.request.mock.calls[2][3].headers).toEqual({ 'Idempotency-Key': 'segment-key' });
+    expect(core.get).toHaveBeenCalledWith(
+      'http://hub.test/v1/voice/live-runs/run%2Fa?include_text=false',
+      'http://hub.test', undefined, false,
+    );
+  });
+
   it('keeps import, feedback reset, full privacy delete and export-task creation distinct', async () => {
     core.request
       .mockReturnValueOnce(of({ import: { profile_id: 'profile-a', imported_count: 1, version: 2 } }))
@@ -200,5 +263,83 @@ describe('VoiceApiService', () => {
       runtime_cleanup_failed_count: 0,
       runtime_cleanup_pending: false,
     }));
+  });
+});
+
+describe('VoiceApiService Hub auth integration', () => {
+  let httpMock: HttpTestingController;
+  const userAuth = {
+    token: 'old-user-token',
+    token$: of('old-user-token'),
+    refreshToken: vi.fn(() => of({ access_token: 'new-user-token' })),
+    logout: vi.fn(),
+    logoutHub: vi.fn(),
+  };
+
+  beforeEach(() => {
+    TestBed.resetTestingModule();
+    vi.clearAllMocks();
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(withInterceptorsFromDi()),
+        provideHttpClientTesting(),
+        VoiceApiService,
+        HubApiCoreService,
+        { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },
+        {
+          provide: AgentDirectoryService,
+          useValue: {
+            list: () => [{ name: 'hub', role: 'hub', url: 'http://hub.test', token: 'hub-secret' }],
+          },
+        },
+        { provide: UserAuthService, useValue: userAuth },
+      ],
+    });
+    httpMock = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => httpMock.verify());
+
+  it('refreshes one failed segment upload and retries the same payload with the new Hub token', async () => {
+    const core = TestBed.inject(HubApiCoreService);
+    expect(core.getHeaders('http://hub.test').headers.get('Authorization')).toBeNull();
+    expect(core.getHeaders('http://hub.test', 'service-token').headers.get('Authorization'))
+      .toBe('Bearer service-token');
+    const api = TestBed.inject(VoiceApiService);
+    const result = firstValueFrom(api.uploadLongRunSegment('http://hub.test', 'run-a', 4, {
+      file: new Blob(['wav'], { type: 'audio/wav' }),
+      fileName: 'segment.wav',
+      startedAtMs: 240_000,
+      endedAtMs: 300_000,
+      durationMs: 60_000,
+      overlapMilliseconds: 1_000,
+    }, 'segment-key'));
+
+    const first = httpMock.expectOne('http://hub.test/v1/voice/live-runs/run-a/segments/4');
+    expect(first.request.headers.get('Authorization')).toBe('Bearer old-user-token');
+    expect(first.request.headers.get('Idempotency-Key')).toBe('segment-key');
+    const originalBody = first.request.body;
+    first.flush({ error: 'expired' }, { status: 401, statusText: 'Unauthorized' });
+
+    const retried = httpMock.expectOne('http://hub.test/v1/voice/live-runs/run-a/segments/4');
+    expect(retried.request.headers.get('Authorization')).toBe('Bearer new-user-token');
+    expect(retried.request.headers.get('Idempotency-Key')).toBe('segment-key');
+    expect(retried.request.body).toBe(originalBody);
+    retried.flush({
+      status: 'success',
+      data: {
+        run: { id: 'run-a', status: 'active' },
+        segment: { sequence: 4, status: 'completed' },
+        segments: [],
+        gaps: [],
+        resume: { next_sequence: 5 },
+      },
+    });
+
+    await expect(result).resolves.toEqual(expect.objectContaining({
+      segment: expect.objectContaining({ sequence: 4 }),
+    }));
+    expect(userAuth.refreshToken).toHaveBeenCalledTimes(1);
+    expect(userAuth.logoutHub).not.toHaveBeenCalled();
   });
 });

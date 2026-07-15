@@ -199,6 +199,8 @@
     <div class="voice-console-tabs" role="tablist" aria-label="Voice-Modus">
       <button type="button" role="tab" [attr.aria-selected]="activeTab === 'live'" [class.active-toggle]="activeTab === 'live'"
         (click)="setTab('live')" [disabled]="configurationInteractionLocked()">Live</button>
+      <button type="button" role="tab" [attr.aria-selected]="activeTab === 'long'" [class.active-toggle]="activeTab === 'long'"
+        (click)="setTab('long')" [disabled]="configurationInteractionLocked()">Langzeit bis 8 h</button>
       <button type="button" role="tab" [attr.aria-selected]="activeTab === 'batch'" [class.active-toggle]="activeTab === 'batch'"
         (click)="setTab('batch')" [disabled]="configurationInteractionLocked()">Aufnehmen → transkribieren</button>
     </div>
@@ -231,6 +233,107 @@
         <div class="voice-live-transcript mt-md" aria-live="polite">
           <strong>Zwischentranskript</strong>
           <p>{{ livePartial || 'Nach dem Start erscheinen hier Hub-Partials.' }}</p>
+        </div>
+      </section>
+    } @else if (activeTab === 'long') {
+      <section role="tabpanel" class="voice-mode-panel" data-testid="voice-long-run">
+        <h2>Beaufsichtigte Langzeit-Transkription</h2>
+        <p class="muted">
+          Eine Audiofreigabe bleibt durchgehend geöffnet. Der Client rotiert begrenzte WAV-Segmente,
+          während der Hub vorherige Segmente als Child-Tasks transkribiert und korrigiert.
+        </p>
+        <p class="muted font-sm">
+          Noch nicht bestätigte Segmente liegen ausschließlich AES-GCM-verschlüsselt in einem begrenzten
+          lokalen Ringpuffer. Nach Hub-Bestätigung werden sie sofort gelöscht. Dieser Modus ist für eine
+          beaufsichtigte Laufzeit von höchstens acht Stunden ausgelegt, nicht für unbeaufsichtigtes 24/7.
+          Verwende dabei pro Profil/Run nur einen aktiven Ananta-Voice-Tab beziehungsweise eine
+          App-Instanz, da rotierende Hub-Sitzungen nicht instanzübergreifend koordiniert werden.
+        </p>
+        @if (longRunRecovery) {
+          <div class="voice-long-run-recovery" role="status" data-testid="voice-long-run-recovery">
+            <div>
+              <strong>{{ longRunRecovery.runId ? 'Unterbrochenen Langzeit-Run fortsetzen' : 'Unterbrochenen Start erneut versuchen' }}</strong>
+              <p class="muted font-sm">
+                {{ longRunRecovery.runId || 'Hub-ID wird mit demselben Idempotency-Key wieder abgefragt' }} ·
+                Cursor {{ longRunRecovery.nextSequence }} ·
+                {{ formatLongRunDuration(longRunRecovery.timelineMilliseconds) }}
+              </p>
+            </div>
+            <div class="row gap-sm voice-wrap">
+              @if (longRunRecovery.runId && longRunRecoveryDrainOnly()) {
+                <button type="button" (click)="drainLongRunRecovery()"
+                  [disabled]="configurationInteractionLocked() || !longRunStorageAvailable">
+                  Puffer senden und abschließen
+                </button>
+              } @else if (longRunRecovery.runId && !longRunRecoveryReady()) {
+                <button type="button" (click)="checkLongRunRecovery()"
+                  [disabled]="configurationInteractionLocked() || !longRunStorageAvailable">
+                  {{ longRunRecoveryFinalizing() ? 'Abschlussstatus prüfen' : 'Hub-Status prüfen' }}
+                </button>
+              } @else {
+                <button type="button" (click)="startLongRun(!!longRunRecovery.runId)"
+                  [disabled]="configurationInteractionLocked() || !longRunStorageAvailable">
+                  {{ longRunRecovery.runId ? 'Fortsetzen und Audio freigeben' : 'Start erneut versuchen' }}
+                </button>
+              }
+              <button class="button-outline" type="button" (click)="discardLongRunRecovery()"
+                [disabled]="configurationInteractionLocked()">
+                {{ longRunRecovery.runId ? 'Hub-Run beenden und Puffer löschen' : 'Startversuch und Puffer löschen' }}
+              </button>
+            </div>
+          </div>
+        }
+        @if (!longRunStorageAvailable) {
+          <p class="error-text" role="alert">
+            <code>voice.long_run.secure_spool_unavailable</code> ·
+            Der Langzeitmodus benötigt WebCrypto und IndexedDB und startet ohne verschlüsselten Puffer nicht.
+          </p>
+        }
+        @if (!captureSourceSupported('long')) {
+          <p class="error-text">Diese Plattform stellt für die gewählte Audioquelle keinen unterstützten Capture-Adapter bereit.</p>
+        }
+        <div class="voice-long-run-options mt-md">
+          <label>Segmentdauer
+            <select [(ngModel)]="longRunSegmentSeconds" [disabled]="configurationInteractionLocked()">
+              <option [ngValue]="60">60 Sekunden</option>
+              <option [ngValue]="90">90 Sekunden</option>
+              <option [ngValue]="120">120 Sekunden</option>
+            </select>
+          </label>
+          <label>Maximale Laufzeit
+            <select [(ngModel)]="longRunMaxHours" [disabled]="configurationInteractionLocked()">
+              <option [ngValue]="1">1 Stunde</option>
+              <option [ngValue]="2">2 Stunden</option>
+              <option [ngValue]="4">4 Stunden</option>
+              <option [ngValue]="8">8 Stunden</option>
+            </select>
+          </label>
+        </div>
+        <div class="row gap-sm mt-md voice-wrap">
+          <button type="button" (click)="startLongRun()"
+            [disabled]="configurationInteractionLocked() || !!longRunRecovery || !longRunStorageAvailable || !captureSourceSupported('long') || !profileId.trim() || !validBackendSelection() || !validCorrectionSelection()">
+            Langzeit starten
+          </button>
+          <button class="button-outline" type="button" (click)="stopLongRun()"
+            [disabled]="longRunBusy || !longRunActive">Stoppen und abschließen</button>
+        </div>
+        <dl class="voice-live-state voice-long-run-state mt-md">
+          <div><dt>Status</dt><dd>{{ longRunBusy ? 'verarbeitet …' : longRunActive ? longRunStatus : 'bereit' }}</dd></div>
+          <div><dt>Hub-Run</dt><dd><code>{{ longRunId || '–' }}</code></dd></div>
+          <div><dt>Laufzeit</dt><dd>{{ formatLongRunDuration(longRunCapturedMilliseconds) }}</dd></div>
+          <div><dt>Bestätigte Segmente</dt><dd>{{ longRunUploadedSegments }}</dd></div>
+          <div><dt>Verschlüsselt gepuffert</dt><dd>{{ longRunQueuedSegments }}</dd></div>
+          <div><dt>Verbindung</dt><dd>{{ longRunConnection === 'online' ? 'online' : 'Retry läuft' }}</dd></div>
+        </dl>
+        @if (longRunWarning || longRunGapSequences.length) {
+          <div class="card danger mt-md" role="alert" data-testid="voice-long-run-gap-warning">
+            {{ longRunWarning || 'Der Hub meldet Segmentlücken.' }}
+            @if (longRunGapSequences.length) { <span> Sequenzen: {{ longRunGapSequences.join(', ') }}</span> }
+          </div>
+        }
+        <div class="voice-live-transcript mt-md" aria-live="polite">
+          <strong>Fortlaufendes Transkript</strong>
+          <p>{{ longRunTranscript || 'Das erste bestätigte Segment erscheint nach spätestens der gewählten Segmentdauer.' }}</p>
         </div>
       </section>
     } @else {

@@ -19,12 +19,19 @@ import {
 import { VoiceApiService } from './voice-api.service';
 import { VoiceCandidateReviewComponent } from './voice-candidate-review.component';
 import { VoiceLiveSessionController, voicePartialText } from './voice-live-session.controller';
+import { VoiceLongRunRecoveryMetadata } from './voice-long-run-recovery';
+import {
+  VoiceLongRunController,
+  VoiceLongRunObserver,
+  appendVoiceLongRunTranscript,
+} from './voice-long-run.controller';
 import {
   VoiceCapabilityStatus,
   VoiceConfiguration,
   VoiceConfigurationSchema,
   VoiceStreamEvent,
   VoiceStreamFinalizeResponse,
+  VoiceLongRunResponse,
   VoiceTranscriptionResult,
 } from './voice.models';
 import {
@@ -41,7 +48,7 @@ import { VoiceRuntimeStatusComponent } from './voice-runtime-status.component';
 import { VoiceTranscriptionResultComponent } from './voice-transcription-result.component';
 import { configurationFields, valueAtPath, voiceError, voiceMutationKey } from './voice-ui.helpers';
 
-type VoiceConsoleTab = 'live' | 'batch';
+type VoiceConsoleTab = 'live' | 'long' | 'batch';
 type VoiceConfigurationTarget = 'profile' | 'session';
 
 @Component({
@@ -54,7 +61,7 @@ type VoiceConfigurationTarget = 'profile' | 'session';
     VoiceCandidateReviewComponent,
     VoiceTranscriptionResultComponent,
   ],
-  providers: [VoiceLiveSessionController],
+  providers: [VoiceLiveSessionController, VoiceLongRunController],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './voice-console.component.html',
   styleUrl: './voice-console.component.css',
@@ -63,11 +70,13 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
   private readonly directory = inject(AgentDirectoryService);
   private readonly api = inject(VoiceApiService);
   private readonly liveSession = inject(VoiceLiveSessionController);
+  private readonly longRun = inject(VoiceLongRunController);
   private readonly batchRecorder: VoiceBatchRecordingPort = inject(VOICE_BATCH_RECORDING);
   private readonly cdr = inject(ChangeDetectorRef);
   private destroyed = false;
   private liveOperationGeneration = 0;
   private batchOperationGeneration = 0;
+  private longRunOperationGeneration = 0;
   private batchOperation: { generation: number; ending: boolean } | null = null;
 
   hubUrl = '';
@@ -99,6 +108,22 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
   liveSessionId = '';
   liveResult: VoiceTranscriptionResult | null = null;
 
+  longRunActive = false;
+  longRunBusy = false;
+  longRunId = '';
+  longRunStatus = 'bereit';
+  longRunSegmentSeconds = 120;
+  longRunMaxHours = 8;
+  longRunCapturedMilliseconds = 0;
+  longRunUploadedSegments = 0;
+  longRunQueuedSegments = 0;
+  longRunGapSequences: number[] = [];
+  longRunTranscript = '';
+  longRunConnection: 'online' | 'retrying' = 'online';
+  longRunRecovery: VoiceLongRunRecoveryMetadata | null = null;
+  longRunStorageAvailable = true;
+  longRunWarning = '';
+
   batchRecording = false;
   batchBusy = false;
   batchAudio: Blob | File | null = null;
@@ -111,6 +136,8 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     void this.refreshCaptureCapabilities();
+    void this.initializeLongRun();
+    this.longRunRecovery = this.longRun.recoveryMetadata();
     const hub = this.directory.list().find((entry) => entry.role === 'hub')
       || this.directory.list().find((entry) => entry.name === 'hub');
     this.hubUrl = String(hub?.url || '').replace(/\/$/, '');
@@ -126,7 +153,9 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
     this.destroyed = true;
     this.liveOperationGeneration += 1;
     this.batchOperationGeneration += 1;
+    this.longRunOperationGeneration += 1;
     void this.liveSession.cancel().catch(() => undefined);
+    void this.longRun.dispose().catch(() => undefined);
     void Promise.resolve(this.batchRecorder.cancel()).catch(() => undefined);
   }
 
@@ -262,6 +291,157 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
     }
   }
 
+  async startLongRun(resume = false): Promise<void> {
+    if (this.configurationInteractionLocked()) return;
+    const recovery = this.longRun.recoveryMetadata();
+    const request = recovery && (!recovery.runId || resume)
+      ? recovery.request
+      : {
+          source: this.selectedCaptureSource,
+          profile_id: this.profileId.trim(),
+          configuration_session_id: this.sessionId.trim() || undefined,
+          language: this.language.trim() || undefined,
+          segment_duration_seconds: this.validLongRunSegmentSeconds(),
+          max_duration_seconds: this.validLongRunMaxHours() * 3_600,
+          overlap_milliseconds: 1_000,
+        };
+    if (!this.validConfigurationContext() || !this.validBackendSelection()
+      || !this.validCorrectionSelection() || !this.longRun.supportsSource(request.source)) return;
+    const generation = ++this.longRunOperationGeneration;
+    this.longRunBusy = true;
+    this.longRunTranscript = resume ? this.longRunTranscript : '';
+    this.longRunGapSequences = [];
+    this.clearMessages();
+    try {
+      if (resume && !this.longRun.recoveryReadyForConsent()) {
+        throw new Error('voice.long_run.recovery_check_required');
+      }
+      // The secure spool and recovery snapshot are prepared on page load. The
+      // capture permission itself remains directly tied to this user action.
+      await this.longRun.prepareCapture(request.source, request.profile_id);
+      this.ensureLongRunOperation(generation);
+      if (!resume) await this.persistSelectedConfiguration('streaming', true);
+      this.ensureLongRunOperation(generation);
+      const observer = this.longRunObserver();
+      const run = resume
+        ? await this.longRun.resumeCapture(observer)
+        : await this.longRun.start(
+            this.hubUrl,
+            request,
+            voiceMutationKey('console-long-run:create'),
+            observer,
+          );
+      this.ensureLongRunOperation(generation);
+      this.longRunId = run.id;
+      this.longRunStatus = run.status;
+      this.longRunActive = true;
+      this.longRunBusy = false;
+      this.longRunRecovery = this.longRun.recoveryMetadata();
+      this.selectedCaptureSource = request.source;
+      this.successMessage = 'Langzeit-Transkription läuft. Die Audiofreigabe bleibt bis zum Stoppen geöffnet.';
+      this.cdr.markForCheck();
+    } catch (error) {
+      if (!this.isLongRunOperationCurrent(generation)) return;
+      this.longRunActive = false;
+      this.longRunRecovery = this.longRun.recoveryMetadata();
+      this.fail(error, () => { this.longRunBusy = false; });
+    }
+  }
+
+  longRunRecoveryReady(): boolean {
+    return this.longRun.recoveryReadyForConsent();
+  }
+
+  longRunRecoveryDrainOnly(): boolean {
+    return this.longRun.recoveryDrainOnly();
+  }
+
+  longRunRecoveryFinalizing(): boolean {
+    return this.longRun.recoveryFinalizing();
+  }
+
+  async checkLongRunRecovery(): Promise<void> {
+    if (this.captureInteractionLocked()) return;
+    this.longRunBusy = true;
+    try {
+      await this.longRun.inspectRecovery();
+      this.longRunRecovery = this.longRun.recoveryMetadata();
+      this.longRunBusy = false;
+      this.successMessage = this.longRunRecoveryDrainOnly()
+        ? 'Die Aufnahmefrist ist beendet. Verschlüsselt gepufferte Segmente können noch gesendet und der Run abgeschlossen werden.'
+        : this.longRunRecoveryFinalizing()
+          ? 'Der Hub schließt den Run gerade ab. Der verschlüsselte Puffer bleibt erhalten; bitte den Status erneut prüfen.'
+        : this.longRunRecovery
+          ? 'Der Hub-Run ist aktiv. Die Audiofreigabe kann jetzt erneut erteilt werden.'
+          : 'Der frühere Langzeit-Run ist bereits beendet oder abgelaufen; sein lokaler Puffer wurde gelöscht.';
+      this.cdr.markForCheck();
+    } catch (error) {
+      this.fail(error, () => { this.longRunBusy = false; });
+    }
+  }
+
+  async drainLongRunRecovery(): Promise<void> {
+    if (this.captureInteractionLocked()) return;
+    this.longRunBusy = true;
+    this.clearMessages();
+    try {
+      const response = await this.longRun.drainRecovery(this.longRunObserver());
+      this.applyLongRunResponse(response);
+      this.longRunActive = false;
+      this.longRunBusy = false;
+      this.longRunRecovery = this.longRun.recoveryMetadata();
+      this.successMessage = this.longRunGapSequences.length
+        ? 'Der lokale Puffer wurde gesendet und der Run mit markierten Lücken abgeschlossen.'
+        : 'Der lokale Puffer wurde gesendet und der Langzeit-Run abgeschlossen.';
+      this.cdr.markForCheck();
+    } catch (error) {
+      this.longRunRecovery = this.longRun.recoveryMetadata();
+      this.fail(error, () => { this.longRunBusy = false; });
+    }
+  }
+
+  async stopLongRun(): Promise<void> {
+    if (!this.longRunActive || this.longRunBusy) return;
+    this.longRunBusy = true;
+    this.clearMessages();
+    try {
+      const response = await this.longRun.stop('user_stop');
+      this.applyLongRunResponse(response);
+      this.longRunActive = false;
+      this.longRunBusy = false;
+      this.longRunRecovery = null;
+      this.successMessage = this.longRunGapSequences.length
+        ? 'Langzeit-Run abgeschlossen. Nicht wiederherstellbare Segmentlücken sind markiert.'
+        : 'Langzeit-Run vollständig abgeschlossen.';
+      this.cdr.markForCheck();
+    } catch (error) {
+      this.fail(error, () => { this.longRunBusy = false; });
+    }
+  }
+
+  async discardLongRunRecovery(): Promise<void> {
+    if (this.captureInteractionLocked()) return;
+    const hadHubRun = Boolean(this.longRunRecovery?.runId);
+    this.longRunBusy = true;
+    this.clearMessages();
+    try {
+      const hubConfirmedEnded = await this.longRun.discardRecovery();
+      this.longRunRecovery = null;
+      this.longRunBusy = false;
+      if (hadHubRun && !hubConfirmedEnded) {
+        this.successMessage = 'Der lokale verschlüsselte Puffer wurde gelöscht.';
+        this.longRunWarning = 'Der Hub war nicht erreichbar oder finalisiert noch; sein Run-Status konnte nicht bestätigt werden.';
+      } else {
+        this.successMessage = hadHubRun
+          ? 'Der Hub-Run wurde beendet und sein lokaler verschlüsselter Puffer gelöscht.'
+          : 'Der unterbrochene Startversuch und sein lokaler verschlüsselter Puffer wurden gelöscht.';
+      }
+      this.cdr.markForCheck();
+    } catch (error) {
+      this.fail(error, () => { this.longRunBusy = false; });
+    }
+  }
+
   async startBatchRecording(): Promise<void> {
     if (this.configurationInteractionLocked()) return;
     if (!this.captureSourceSupported('batch')) return;
@@ -348,9 +528,9 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
     source: VoiceCaptureSource,
     mode: VoiceConsoleTab = this.activeTab,
   ): boolean {
-    return mode === 'live'
-      ? this.liveSession.supportsSource(source)
-      : this.batchRecorder.supportsSource(source);
+    if (mode === 'live') return this.liveSession.supportsSource(source);
+    if (mode === 'long') return this.longRun.supportsSource(source);
+    return this.batchRecorder.supportsSource(source);
   }
 
   captureSourceReason(): string {
@@ -361,7 +541,8 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
   }
 
   captureInteractionLocked(): boolean {
-    return this.liveActive || this.liveBusy || this.batchRecording || this.batchBusy;
+    return this.liveActive || this.liveBusy || this.longRunActive || this.longRunBusy
+      || this.batchRecording || this.batchBusy;
   }
 
   configurationInteractionLocked(): boolean {
@@ -490,7 +671,9 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
   }
 
   resultForActiveTab(): VoiceTranscriptionResult | null {
-    return this.activeTab === 'live' ? this.liveResult : this.batchResult;
+    return this.activeTab === 'live' ? this.liveResult
+      : this.activeTab === 'batch' ? this.batchResult
+      : null;
   }
 
   private applyEffectiveConfiguration(configuration: VoiceConfiguration): void {
@@ -717,9 +900,159 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
   private async refreshCaptureCapabilities(): Promise<void> {
     await Promise.allSettled([
       this.liveSession.refreshCaptureCapabilities(),
+      this.longRun.refreshCaptureCapabilities(),
       this.batchRecorder.refreshCapabilities?.() || Promise.resolve(),
     ]);
     if (!this.destroyed) this.cdr.markForCheck();
+  }
+
+  private async initializeLongRun(): Promise<void> {
+    try {
+      await this.longRun.initializeSecureStorage();
+    } catch (error) {
+      if (this.destroyed) return;
+      this.longRunStorageAvailable = false;
+      const detail = voiceError(error);
+      this.longRunWarning = detail.message;
+      this.cdr.markForCheck();
+      return;
+    }
+    this.longRunStorageAvailable = true;
+    const recovery = this.longRun.recoveryMetadata();
+    if (recovery?.runId) {
+      try {
+        await this.longRun.inspectRecovery();
+      } catch {
+        // The encrypted local spool is healthy. Keep recovery discoverable and
+        // let the user retry the independent Hub status check.
+        this.longRunWarning = 'Der verschlüsselte Puffer ist verfügbar, aber der Hub-Status konnte noch nicht geprüft werden.';
+      }
+    }
+    if (!this.destroyed) {
+      this.longRunRecovery = this.longRun.recoveryMetadata();
+      this.cdr.markForCheck();
+    }
+  }
+
+  private longRunObserver(): VoiceLongRunObserver {
+    return {
+      runUpdated: (response) => {
+        if (this.destroyed) return;
+        this.applyLongRunResponse(response);
+      },
+      progress: (milliseconds) => {
+        if (this.destroyed) return;
+        this.longRunCapturedMilliseconds = milliseconds;
+        this.cdr.markForCheck();
+      },
+      buffered: (_metadata, queued) => {
+        if (this.destroyed) return;
+        this.longRunQueuedSegments = queued;
+        this.cdr.markForCheck();
+      },
+      segmentUploaded: (response, queued) => {
+        if (this.destroyed) return;
+        this.longRunQueuedSegments = queued;
+        this.longRunUploadedSegments = Math.max(
+          this.longRunUploadedSegments,
+          response.segment.sequence + 1,
+        );
+        this.applyLongRunResponse(response);
+      },
+      segmentFailed: (sequence) => {
+        if (this.destroyed) return;
+        this.longRunWarning = `Segment ${sequence} konnte nicht verarbeitet werden und wurde als Lücke markiert.`;
+        this.cdr.markForCheck();
+      },
+      gap: (sequence) => {
+        if (this.destroyed || this.longRunGapSequences.includes(sequence)) return;
+        this.longRunGapSequences = [...this.longRunGapSequences, sequence].sort((left, right) => left - right);
+        this.longRunWarning = 'Der verschlüsselte Offline-Puffer war ausgelastet. Nicht bestätigte Segmente sind als Lücke markiert.';
+        this.cdr.markForCheck();
+      },
+      connection: (state) => {
+        if (this.destroyed) return;
+        this.longRunConnection = state;
+        this.cdr.markForCheck();
+      },
+      stopping: (reason) => {
+        if (this.destroyed) return;
+        this.longRunBusy = true;
+        this.longRunStatus = reason === 'safety_limit' ? '8-Stunden-Limit erreicht' : 'wird abgeschlossen';
+        this.cdr.markForCheck();
+      },
+      stopped: (response, reason) => {
+        if (this.destroyed) return;
+        this.applyLongRunResponse(response);
+        this.longRunActive = false;
+        this.longRunBusy = false;
+        this.longRunRecovery = null;
+        this.successMessage = reason === 'safety_limit'
+          ? 'Das konfigurierte Langzeit-Limit wurde erreicht und der Run automatisch abgeschlossen.'
+          : 'Langzeit-Run abgeschlossen.';
+        this.cdr.markForCheck();
+      },
+      error: (error) => {
+        if (this.destroyed) return;
+        const detail = voiceError(error);
+        this.errorCode = detail.code;
+        this.errorMessage = detail.message;
+        this.cdr.markForCheck();
+      },
+    };
+  }
+
+  private applyLongRunResponse(response: VoiceLongRunResponse): void {
+    this.longRunId = response.run.id;
+    this.longRunStatus = response.run.status;
+    if (response.gaps?.length) {
+      this.longRunGapSequences = [...new Set([
+        ...this.longRunGapSequences,
+        ...response.gaps,
+      ])].sort((left, right) => left - right);
+    }
+    const authoritative = String(response.composed_transcript || '').trim();
+    if (authoritative) {
+      this.longRunTranscript = authoritative;
+    } else {
+      const upload = response as VoiceLongRunResponse & {
+        result?: { transcript?: string; text?: string };
+        segment?: { text?: string | null };
+      };
+      const latest = String(
+        upload.result?.transcript || upload.result?.text || upload.segment?.text || '',
+      ).trim();
+      if (latest) this.longRunTranscript = appendVoiceLongRunTranscript(this.longRunTranscript, latest);
+    }
+    const acknowledged = Number(response.resume?.acknowledged_through_sequence ?? -1);
+    this.longRunUploadedSegments = Math.max(this.longRunUploadedSegments, acknowledged + 1);
+    this.cdr.markForCheck();
+  }
+
+  private validLongRunSegmentSeconds(): number {
+    const value = Math.round(Number(this.longRunSegmentSeconds));
+    return [60, 90, 120].includes(value) ? value : 120;
+  }
+
+  private validLongRunMaxHours(): number {
+    const value = Math.round(Number(this.longRunMaxHours));
+    return [1, 2, 4, 8].includes(value) ? value : 8;
+  }
+
+  private ensureLongRunOperation(generation: number): void {
+    if (!this.isLongRunOperationCurrent(generation)) throw new Error('voice.capture.cancelled');
+  }
+
+  private isLongRunOperationCurrent(generation: number): boolean {
+    return !this.destroyed && generation === this.longRunOperationGeneration;
+  }
+
+  formatLongRunDuration(milliseconds: number): string {
+    const totalSeconds = Math.max(0, Math.floor(milliseconds / 1_000));
+    const hours = Math.floor(totalSeconds / 3_600);
+    const minutes = Math.floor((totalSeconds % 3_600) / 60);
+    const seconds = totalSeconds % 60;
+    return [hours, minutes, seconds].map((value) => String(value).padStart(2, '0')).join(':');
   }
 
   private onStreamEvent(event: VoiceStreamEvent | null | undefined, sessionId: string): void {
