@@ -193,6 +193,8 @@ def test_embedded_engine_selects_only_a_catalog_model_and_parses_strict_json(tmp
     assert outcome.corrected_text == "Hallo Welt."
     assert outcome.model_revision == "sha256-fixture"
     assert "Original transcript:" in tokenizer.prompt
+    assert '{"schema_version":"1.0","corrected_text":"Corrected transcript goes here"}' in tokenizer.prompt
+    assert 'JSON string "1.0", never a number' in tokenizer.prompt
     assert tokenizer.prompt.endswith("JSON:")
     assert tokenizer.add_special_tokens is True
 
@@ -217,5 +219,8 @@ def test_embedded_engine_selects_only_a_catalog_model_and_parses_strict_json(tmp
     assert len(chat_tokenizer.messages) == 1
     assert chat_tokenizer.messages[0]["role"] == "user"
     assert "Do not summarize" in chat_tokenizer.messages[0]["content"]
+    assert 'JSON string "1.0", never a number' in chat_tokenizer.messages[0]["content"]
     with pytest.raises(ValueError, match="invalid JSON"):
         engine._parse_output("Hallo Welt.")
+    with pytest.raises(ValueError, match="response values"):
+        engine._parse_output('{"schema_version":1,"corrected_text":"Hallo Welt."}')

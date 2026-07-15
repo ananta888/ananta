@@ -26,6 +26,9 @@ def build_base_app_config(agent: str) -> dict[str, Any]:
         "ANTHROPIC_API_KEY": settings.anthropic_api_key,
         "VOICE_PROVIDER": settings.voice_provider,
         "VOICE_RUNTIME_URL": settings.voice_runtime_url,
+        # Hub-only service credential. Keep it out of AGENT_CONFIG because
+        # that configuration has user-editable and API-visible projections.
+        "VOICE_INTERNAL_SERVICE_TOKEN": settings.voice_internal_service_token,
         "VOICE_MODEL": settings.voice_model,
         "VOICE_FALLBACK_MODEL": settings.voice_fallback_model,
         "VOICE_MAX_AUDIO_MB": settings.voice_max_audio_mb,

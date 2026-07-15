@@ -147,6 +147,7 @@ scripts/dyndns.conf
 
 # Runtime workspace outputs (generated per Goal/Task execution — not source)
 /project-workspaces/
+/models/
 /artifacts/*.json
 /artifacts/*.jsonl
 # Allow intentional test fixtures under tests/fixtures/

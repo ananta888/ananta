@@ -41,8 +41,9 @@ architecture or no-network regression.
 
 The hardware gate is separate and never part of the P0 Core decision:
 
-Contract gates for optional Judge, diarization/enhancement, streaming and
-fine-tuning export are likewise explicit P2 evidence and do not block Core:
+Contract gates for optional Judge, generative transcript correction,
+diarization/enhancement, streaming and fine-tuning export are likewise
+explicit P2 evidence and do not block Core:
 
 ```bash
 python scripts/run_voice_restricted_release_gates.py --group optional-capabilities

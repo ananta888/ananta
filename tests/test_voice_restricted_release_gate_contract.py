@@ -138,6 +138,11 @@ def test_optional_capability_gate_is_explicit_and_does_not_block_core() -> None:
     assert "tests/test_generative_judge_worker_contract.py" in optional_nodes
     assert "tests/services/test_generative_judge_worker_port.py" in optional_nodes
     assert "tests/worker/test_generative_judge_app.py" in optional_nodes
+    assert "tests/test_voice_corrector_worker_contract.py" in optional_nodes
+    assert "tests/services/test_generative_corrector_worker_port.py" in optional_nodes
+    assert "tests/services/test_voice_generative_corrector_service.py" in optional_nodes
+    assert "tests/test_voice_generative_corrector_routes.py" in optional_nodes
+    assert "tests/worker/test_generative_corrector_app.py" in optional_nodes
     assert "tests/test_voice_runtime_optional_extensions.py" in optional_nodes
     assert "tests/test_voice_runtime_streaming_api.py" in optional_nodes
 

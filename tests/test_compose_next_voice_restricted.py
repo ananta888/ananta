@@ -121,6 +121,91 @@ def test_runtime_services_fail_closed_without_remote_downloads(compose_document:
         assert environment["RESTRICTED_INFERENCE_REQUIRE_INTERNAL_AUTH"] == "true"
 
 
+def test_cpu_voice_profile_supports_an_explicit_vosk_only_selection(
+    compose_document: dict,
+) -> None:
+    environment = compose_document["services"]["voice-runtime-cpu"]["environment"]
+
+    assert environment["VOICE_BACKEND_FALLBACK_ORDER"] == (
+        "${VOICE_CPU_BACKEND_FALLBACK_ORDER:-vosk,whisper_cpp}"
+    )
+    assert environment["VOICE_CALIBRATION_PATH"] == (
+        "${VOICE_CPU_CALIBRATION_PATH-/models/voice/calibration/calibration.json}"
+    )
+    assert environment["VOICE_FUSION_ENABLED"] == "${VOICE_CPU_FUSION_ENABLED:-true}"
+    assert environment["VOICE_POLICY_ALLOWED_BACKENDS"] == (
+        "${VOICE_CPU_POLICY_ALLOWED_BACKENDS:-vosk,whisper_cpp}"
+    )
+    assert environment["VOICE_POLICY_ALLOWED_RECOGNITION_STRATEGIES"] == (
+        "${VOICE_CPU_POLICY_ALLOWED_RECOGNITION_STRATEGIES:-single,parallel_compare,classic_then_correct}"
+    )
+    assert environment["VOICE_RECOGNITION_STRATEGY"] == (
+        "${VOICE_CPU_RECOGNITION_STRATEGY:-parallel_fusion}"
+    )
+    assert environment["VOICE_RERUN_BACKEND"] == "${VOICE_CPU_RERUN_BACKEND:-whisper_cpp}"
+    # No colon is intentional: an operator-provided empty value must survive
+    # Compose interpolation instead of restoring the Whisper default.
+    assert environment["VOICE_SECONDARY_BACKENDS"] == (
+        "${VOICE_CPU_SECONDARY_BACKENDS-whisper_cpp}"
+    )
+
+
+def test_cpu_voice_profile_renders_an_explicit_vosk_only_selection() -> None:
+    if shutil.which("docker") is None:
+        pytest.skip("docker CLI is not installed")
+    environment = os.environ.copy()
+    environment.update(
+        {
+            "INITIAL_ADMIN_PASSWORD": "compose-config-test-password",
+            "VOICE_INTERNAL_SERVICE_TOKEN": "compose-test-voice-token-at-least-24-chars",
+            "VOICE_PERSONALIZATION_ENCRYPTION_KEY": (
+                "MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA="
+            ),
+            "RESTRICTED_INFERENCE_INTERNAL_TOKEN": (
+                "compose-test-restricted-token-at-least-24-chars"
+            ),
+            "VOICE_CPU_RECOGNITION_STRATEGY": "single",
+            "VOICE_CPU_BACKEND_FALLBACK_ORDER": "vosk",
+            "VOICE_CPU_CALIBRATION_PATH": "",
+            "VOICE_CPU_FUSION_ENABLED": "false",
+            "VOICE_CPU_POLICY_ALLOWED_BACKENDS": "vosk",
+            "VOICE_CPU_POLICY_ALLOWED_RECOGNITION_STRATEGIES": "single",
+            "VOICE_CPU_SECONDARY_BACKENDS": "",
+            "VOICE_CPU_RERUN_BACKEND": "vosk",
+        }
+    )
+    completed = subprocess.run(
+        [
+            "docker",
+            "compose",
+            "-f",
+            str(COMPOSE_FILE),
+            "--profile",
+            "voice-cpu",
+            "config",
+            "--format",
+            "json",
+        ],
+        cwd=ROOT,
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    rendered = json.loads(completed.stdout)["services"]["voice-runtime-cpu"]["environment"]
+    assert rendered["VOICE_RECOGNITION_STRATEGY"] == "single"
+    assert rendered["VOICE_BACKEND_FALLBACK_ORDER"] == "vosk"
+    assert rendered["VOICE_CALIBRATION_PATH"] == ""
+    assert rendered["VOICE_FUSION_ENABLED"] == "false"
+    assert rendered["VOICE_POLICY_ALLOWED_BACKENDS"] == "vosk"
+    assert rendered["VOICE_POLICY_ALLOWED_RECOGNITION_STRATEGIES"] == "single"
+    assert rendered["VOICE_SECONDARY_BACKENDS"] == ""
+    assert rendered["VOICE_RERUN_BACKEND"] == "vosk"
+
+
 def test_generative_judge_worker_is_optional_hardened_and_has_only_a_local_engine(
     compose_document: dict,
 ) -> None:
@@ -250,7 +335,10 @@ def test_versioned_hardware_profiles_match_compose_voice_backend_policy(compose_
     for profile in hardware_profiles:
         suffix = "cpu" if profile["compose_profile"].endswith("cpu") else "nvidia"
         configured = compose_document["services"][f"voice-runtime-{suffix}"]["environment"]
-        assert str(configured["VOICE_POLICY_ALLOWED_BACKENDS"]).split(",") == profile["voice_backends"]
+        policy_value = str(configured["VOICE_POLICY_ALLOWED_BACKENDS"])
+        if policy_value.startswith("${") and ":-" in policy_value:
+            policy_value = policy_value.split(":-", maxsplit=1)[1].removesuffix("}")
+        assert policy_value.split(",") == profile["voice_backends"]
 
 
 @pytest.mark.parametrize("service_name", sorted(RESTRICTED_SERVICES))

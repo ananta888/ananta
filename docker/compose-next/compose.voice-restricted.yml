@@ -413,15 +413,23 @@ services:
     environment:
       <<: *voice-runtime-environment
       VOICE_ASR_BACKEND: vosk
-      VOICE_BACKEND_FALLBACK_ORDER: vosk,whisper_cpp
+      VOICE_BACKEND_FALLBACK_ORDER: ${VOICE_CPU_BACKEND_FALLBACK_ORDER:-vosk,whisper_cpp}
+      # Single-backend deployments can explicitly disable calibration; fusion
+      # keeps the promoted calibration catalog as its safe default.
+      VOICE_CALIBRATION_PATH: ${VOICE_CPU_CALIBRATION_PATH-/models/voice/calibration/calibration.json}
+      VOICE_FUSION_ENABLED: ${VOICE_CPU_FUSION_ENABLED:-true}
       VOICE_PRIMARY_BACKEND: vosk
-      VOICE_POLICY_ALLOWED_BACKENDS: vosk,whisper_cpp
-      VOICE_RECOGNITION_STRATEGY: ${VOICE_RECOGNITION_STRATEGY:-parallel_fusion}
+      VOICE_POLICY_ALLOWED_BACKENDS: ${VOICE_CPU_POLICY_ALLOWED_BACKENDS:-vosk,whisper_cpp}
+      VOICE_POLICY_ALLOWED_RECOGNITION_STRATEGIES: ${VOICE_CPU_POLICY_ALLOWED_RECOGNITION_STRATEGIES:-single,parallel_compare,classic_then_correct}
+      VOICE_RECOGNITION_STRATEGY: ${VOICE_CPU_RECOGNITION_STRATEGY:-parallel_fusion}
+      VOICE_RERUN_BACKEND: ${VOICE_CPU_RERUN_BACKEND:-whisper_cpp}
       VOICE_RESOURCE_MAX_CONCURRENT_BACKENDS: ${VOICE_MAX_PARALLEL_BACKENDS:-2}
       VOICE_RESOURCE_MAX_QUEUE_DEPTH: ${VOICE_MAX_QUEUE_DEPTH:-16}
       VOICE_RESOURCE_MAX_RAM_MB: ${VOICE_CPU_RESOURCE_RAM_MB:-3584}
       VOICE_RESOURCE_MAX_VRAM_MB: "0"
-      VOICE_SECONDARY_BACKENDS: whisper_cpp
+      # An explicitly empty value selects the lightweight Vosk-only path.
+      # Use the non-colon expansion so Compose preserves that empty value.
+      VOICE_SECONDARY_BACKENDS: ${VOICE_CPU_SECONDARY_BACKENDS-whisper_cpp}
       VOICE_VAD_BACKEND: ${VOICE_VAD_BACKEND:-webrtcvad}
     cpus: ${VOICE_CPU_CPUS:-4.0}
     mem_limit: ${VOICE_CPU_MEMORY:-4g}

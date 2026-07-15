@@ -132,6 +132,10 @@ class Settings(BaseSettings):
         default=16 * 1024 * 1024,
         validation_alias="VOICE_RUNTIME_MAX_RESPONSE_BYTES",
     )
+    voice_internal_service_token: Optional[str] = Field(
+        default=None,
+        validation_alias="VOICE_INTERNAL_SERVICE_TOKEN",
+    )
     voice_model: str = Field(default="voxtral", validation_alias="VOICE_MODEL")
     voice_fallback_model: str = Field(default="whisper-small", validation_alias="VOICE_FALLBACK_MODEL")
     voice_max_audio_mb: int = Field(default=25, validation_alias="VOICE_MAX_AUDIO_MB")

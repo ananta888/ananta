@@ -182,8 +182,9 @@ class EmbeddedTransformersGenerativeCorrectorEngine:
             "You correct automatic speech-recognition transcripts. "
             "Fix spelling, punctuation, capitalization, and obvious recognition errors only. "
             "Do not summarize, translate, add facts, remove facts, or change names, numbers, IDs, URLs, or code. "
-            "Return exactly one JSON object with keys schema_version and corrected_text and no markdown. "
-            "schema_version must be 1.0."
+            "Return exactly one JSON object with this shape and no markdown: "
+            '{"schema_version":"1.0","corrected_text":"Corrected transcript goes here"}. '
+            'The schema_version value must be the JSON string "1.0", never a number.'
         )
         user_message = f"Language: {language}.\nOriginal transcript:\n{request.original_text}"
         apply_chat_template = getattr(tokenizer, "apply_chat_template", None)

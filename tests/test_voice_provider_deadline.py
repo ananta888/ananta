@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 from flask import Flask
 
+from agent.services import app_runtime_service
 from agent.services.voice_provider import VoiceProviderService
 
 
@@ -49,6 +50,21 @@ def test_voice_provider_disables_environment_proxies_on_injected_session() -> No
     _service(session)
 
     assert session.trust_env is False
+
+
+def test_base_app_config_keeps_the_voice_service_token_in_hub_runtime_config(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        app_runtime_service.settings,
+        "voice_internal_service_token",
+        "hub-to-voice-runtime-token",
+    )
+
+    app_config = app_runtime_service.build_base_app_config("hub")
+
+    assert app_config["VOICE_INTERNAL_SERVICE_TOKEN"] == "hub-to-voice-runtime-token"
+    assert "VOICE_INTERNAL_SERVICE_TOKEN" not in app_config.get("AGENT_CONFIG", {})
 
 
 @pytest.mark.parametrize(
