@@ -17,8 +17,10 @@ from voice_runtime.backends.faster_whisper import FasterWhisperBackend
 from voice_runtime.backends.vosk_backend import VoskBackend
 from voice_runtime.backends.voxtral import VoxtralBackend
 from voice_runtime.backends.whisper_cpp import WhisperCppBackend
+from voice_runtime.config import VoiceRuntimeConfig
 from voice_runtime.errors import BackendCancelledError
 from voice_runtime.execution_control import BackendCancellationToken
+from voice_runtime.pipeline import TranscriptionPipeline
 from voice_runtime.preprocessing.audio_decode import ProcessResult
 
 
@@ -86,8 +88,15 @@ def test_vosk_runs_real_recognizer_contract_and_loads_model_once(tmp_path):
     assert first.text == "hallo welt"
     assert first.language == "de"
     assert [(segment.text, segment.start_ms, segment.end_ms) for segment in first.segments] == [
-        ("hallo", 0, 40),
-        ("welt", 40, 100),
+        ("hallo welt", 0, 100),
+    ]
+    assert first.segments[0].confidence == pytest.approx(0.7)
+    assert [
+        (word.text, word.start_ms, word.end_ms, word.confidence)
+        for word in first.segments[0].words
+    ] == [
+        ("hallo", 0, 40, 0.8),
+        ("welt", 40, 100, 0.6),
     ]
     assert first.confidence == pytest.approx(0.7)
     assert second.text == first.text
@@ -122,7 +131,41 @@ def test_vosk_incremental_recognizer_emits_partial_and_final(tmp_path):
     assert partial == "hallo"
     assert result.text == "hallo welt"
     assert result.duration_ms == 100
+    assert len(result.segments) == 1
+    assert [word.text for word in result.segments[0].words] == ["hallo", "welt"]
     recognizer.close()
+
+
+def test_vosk_utterance_is_postprocessed_as_one_sentence(tmp_path):
+    model_path = tmp_path / "vosk-model"
+    model_path.mkdir()
+    module = types.SimpleNamespace(
+        Model=lambda _path: object(),
+        KaldiRecognizer=_FakeVoskRecognizer,
+    )
+    backend = VoskBackend(model_path=str(model_path), vosk_module=module)
+    config = VoiceRuntimeConfig(
+        backend_fallback_order=("vosk",),
+        transcription_pipeline="simple",
+        asr_backend="vosk",
+        primary_backend="vosk",
+        postprocess_backend="rules",
+    )
+    pipeline = TranscriptionPipeline(config=config, backend=backend)
+
+    result = pipeline.transcribe(filename="sample.wav", content=_wav_bytes(), language="de")
+
+    assert result.text == "Hallo welt."
+    assert len(result.segments) == 1
+    assert result.segments[0].text == "Hallo welt."
+    assert [word.text for word in result.segments[0].words] == ["hallo", "welt"]
+    assert [(word.start_ms, word.end_ms) for word in result.segments[0].words] == [
+        (0, 40),
+        (40, 100),
+    ]
+    postprocess = next(stage for stage in result.stages if stage["stage"] == "postprocess")
+    assert [item["original_text"] for item in postprocess["segments"]] == ["hallo welt"]
+    assert [item["applied_text"] for item in postprocess["segments"]] == ["Hallo welt."]
 
 
 def test_whisper_cpp_rejects_unallowlisted_arguments():

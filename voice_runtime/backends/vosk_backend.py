@@ -141,6 +141,8 @@ class VoskBackend(VoiceBackend):
             words = payload.get("result")
             if not isinstance(words, list):
                 continue
+            transcription_words: list[TranscriptionWord] = []
+            utterance_confidences: list[float] = []
             for word in words:
                 if not isinstance(word, dict):
                     continue
@@ -155,23 +157,33 @@ class VoskBackend(VoiceBackend):
                 confidence = self._confidence(word.get("conf"))
                 if confidence is not None:
                     confidences.append(confidence)
-                segments.append(
-                    TranscriptionSegment(
+                    utterance_confidences.append(confidence)
+                transcription_words.append(
+                    TranscriptionWord(
                         start_ms=start_ms,
-                        end_ms=min(duration_ms, end_ms),
+                        end_ms=end_ms,
                         text=word_text,
                         confidence=confidence,
-                        backend="vosk",
-                        words=(
-                            TranscriptionWord(
-                                start_ms=start_ms,
-                                end_ms=end_ms,
-                                text=word_text,
-                                confidence=confidence,
-                            ),
-                        ),
                     )
                 )
+            if not transcription_words:
+                continue
+            utterance_text = text or " ".join(word.text for word in transcription_words)
+            utterance_confidence = (
+                sum(utterance_confidences) / len(utterance_confidences)
+                if utterance_confidences
+                else None
+            )
+            segments.append(
+                TranscriptionSegment(
+                    start_ms=min(word.start_ms for word in transcription_words),
+                    end_ms=max(word.end_ms for word in transcription_words),
+                    text=utterance_text,
+                    confidence=utterance_confidence,
+                    backend="vosk",
+                    words=tuple(transcription_words),
+                )
+            )
 
         text = " ".join(text_parts).strip()
         confidence = sum(confidences) / len(confidences) if confidences else None
