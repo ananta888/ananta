@@ -19,6 +19,9 @@ Deployment-Stacks:
 - `compose.stack.distributed.yml` (PostgreSQL, Redis, Hub, vier Worker, Frontend)
 - `compose.voice-restricted.yml` (additives, intern isoliertes Voice- und
   Restricted-Inference-Overlay)
+- `compose.lora-training.yml` (additives, intern authentifiziertes
+  LoRA-/QLoRA-Worker-Overlay; genau eines der Profile `lora-training-mock`,
+  `lora-training-cpu` oder `lora-training-nvidia` auswählen)
 - `compose.temporal.yml` (optionale dauerhafte Workflow-Infrastruktur mit
   Temporal Server, UI, eigener PostgreSQL-Datenbank und Ananta-Worker)
 - `compose.temporal.production.yml` (additive produktive Hub-/Temporal-
@@ -64,6 +67,11 @@ docker compose --env-file .env -f docker/compose-next/compose.dev.lmstudio.yml u
 INITIAL_ADMIN_PASSWORD=... POSTGRES_PASSWORD=... \
 docker compose --env-file .env -f docker/compose-next/compose.dev.ollama.yml up -d --build
 ```
+
+Das LoRA-Overlay wird ausschließlich über
+`scripts/run-lora-training-stack.sh <Profil>` gestartet. Der Wrapper bindet
+Hub-Modus, Backend-Allowlist und Ressourcenprofil an denselben Worker und
+verhindert einen versehentlichen CPU-/NVIDIA-Start mit Mock-Hub-Defaults.
 
 ## Voice und Restricted Inference
 

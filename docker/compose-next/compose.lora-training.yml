@@ -1,0 +1,198 @@
+# Additive, isolated LoRA-training overlay. Select exactly one profile:
+#   lora-training-mock | lora-training-cpu | lora-training-nvidia
+# The worker has no host port and no egress-capable network. The Hub remains
+# the only task owner and addresses the selected executor through the internal
+# control network using a dedicated bearer credential.
+
+x-lora-training-hardening: &lora-training-hardening
+  init: true
+  restart: unless-stopped
+  read_only: true
+  user: "10005:10005"
+  working_dir: /app
+  expose:
+    - "8095"
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  pids_limit: 512
+  stop_grace_period: 30s
+  logging:
+    driver: json-file
+    options:
+      max-file: "3"
+      max-size: 10m
+  environment: &lora-training-environment
+    ANANTA_LORA_TRAINING_DATASET_ROOT: /project-workspaces
+    ANANTA_LORA_TRAINING_HOST: 0.0.0.0
+    ANANTA_LORA_TRAINING_MAX_DATASET_BYTES: ${ANANTA_LORA_TRAINING_MAX_DATASET_BYTES:-4294967296}
+    ANANTA_LORA_TRAINING_MAX_DATASET_RECORDS: ${ANANTA_LORA_TRAINING_MAX_DATASET_RECORDS:-10000000}
+    ANANTA_LORA_TRAINING_MAX_QUEUE: ${ANANTA_LORA_TRAINING_MAX_QUEUE:-2}
+    ANANTA_LORA_TRAINING_MAX_REQUEST_BYTES: ${ANANTA_LORA_TRAINING_MAX_REQUEST_BYTES:-1048576}
+    ANANTA_LORA_TRAINING_MAX_WORKERS: ${ANANTA_LORA_TRAINING_MAX_WORKERS:-1}
+    ANANTA_LORA_TRAINING_ISOLATE_PROCESSES: "true"
+    ANANTA_LORA_INFERENCE_MAX_ADAPTER_BYTES: ${ANANTA_LORA_INFERENCE_MAX_ADAPTER_BYTES:-2147483648}
+    ANANTA_LORA_INFERENCE_MAX_LOADED_ADAPTERS: ${ANANTA_LORA_INFERENCE_MAX_LOADED_ADAPTERS:-1}
+    ANANTA_LORA_INFERENCE_MAX_PROMPT_CHARS: ${ANANTA_LORA_INFERENCE_MAX_PROMPT_CHARS:-1048576}
+    ANANTA_LORA_INFERENCE_MAX_RESPONSE_CHARS: ${ANANTA_LORA_INFERENCE_MAX_RESPONSE_CHARS:-4194304}
+    ANANTA_LORA_TRAINING_MODEL_ROOT: /models/base
+    ANANTA_LORA_TRAINING_PORT: "8095"
+    ANANTA_LORA_TRAINING_STATE_ROOT: /var/lib/ananta-lora
+    ANANTA_LORA_TRAINING_TOKEN: "${ANANTA_LORA_TRAINING_INTERNAL_TOKEN:?ANANTA_LORA_TRAINING_INTERNAL_TOKEN must contain at least 24 characters}"
+    ANANTA_LORA_TRAINING_TERMINATION_GRACE_SECONDS: ${ANANTA_LORA_TRAINING_TERMINATION_GRACE_SECONDS:-15}
+    ANANTA_LORA_TRAINING_WORKSPACE_ROOT: /project-workspaces
+    HF_DATASETS_OFFLINE: "1"
+    HF_HOME: /tmp/huggingface
+    HF_HUB_DISABLE_TELEMETRY: "1"
+    HF_HUB_OFFLINE: "1"
+    TRANSFORMERS_OFFLINE: "1"
+  volumes:
+    - type: bind
+      source: ../../project-workspaces
+      target: /project-workspaces
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${ANANTA_LORA_TRAINING_MODEL_DIR:?ANANTA_LORA_TRAINING_MODEL_DIR must point to local model snapshots}
+      target: /models/base
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: volume
+      source: lora-training-state
+      target: /var/lib/ananta-lora
+  tmpfs:
+    - /tmp:size=2147483648,mode=1770,uid=10005,gid=10005,noexec,nosuid,nodev
+    - /run:size=16777216,mode=0750,uid=10005,gid=10005,noexec,nosuid,nodev
+  healthcheck: &lora-training-healthcheck
+    test:
+      - CMD
+      - python
+      - -c
+      - "import json,os,urllib.request; r=urllib.request.Request('http://127.0.0.1:8095/health',headers={'Authorization':'Bearer '+os.environ['ANANTA_LORA_TRAINING_TOKEN']}); p=json.load(urllib.request.urlopen(r,timeout=3)); raise SystemExit(0 if p.get('status')=='ready' and p.get('auth_configured') is True and p.get('runtime_configured') is True else 1)"
+    interval: 15s
+    timeout: 4s
+    retries: 5
+    start_period: 30s
+
+services:
+  ai-agent-hub:
+    extends:
+      file: compose.base.yml
+      service: ai-agent-hub-base
+    environment:
+      ANANTA_LORA_TRAINING_ENABLED: "true"
+      ANANTA_LORA_TRAINING_MODE: ${ANANTA_LORA_TRAINING_MODE:?use scripts/run-lora-training-stack.sh to bind the Hub mode to the selected profile}
+      ANANTA_LORA_TRAINING_DEFAULT_BACKEND: ${ANANTA_LORA_TRAINING_DEFAULT_BACKEND:?use scripts/run-lora-training-stack.sh to bind the Hub backend to the selected profile}
+      ANANTA_LORA_TRAINING_WORKER_BACKENDS: ${ANANTA_LORA_TRAINING_WORKER_BACKENDS:?use scripts/run-lora-training-stack.sh to bind Hub capabilities to the selected worker}
+      ANANTA_LORA_TRAINING_RESOURCE_PROFILE: ${ANANTA_LORA_TRAINING_RESOURCE_PROFILE:?use scripts/run-lora-training-stack.sh to bind Hub routing to the selected worker}
+      ANANTA_LORA_TRAINING_GPU_PROFILE: ${ANANTA_LORA_TRAINING_GPU_PROFILE:?use scripts/run-lora-training-stack.sh to bind Hub limits to the selected worker}
+      ANANTA_LORA_TRAINING_WORKER_URL: http://lora-training-worker:8095/internal/v1/lora-training
+      ANANTA_LORA_TRAINING_ALLOWED_ENDPOINTS: http://lora-training-worker:8095/internal/v1/lora-training
+      ANANTA_LORA_TRAINING_TOKEN: "${ANANTA_LORA_TRAINING_INTERNAL_TOKEN:?ANANTA_LORA_TRAINING_INTERNAL_TOKEN must contain at least 24 characters}"
+      ANANTA_LORA_INFERENCE_WORKER_URL: http://lora-training-worker:8095/internal/v1/lora-training
+      ANANTA_LORA_INFERENCE_ALLOWED_ENDPOINTS: http://lora-training-worker:8095/internal/v1/lora-training
+      ANANTA_LORA_INFERENCE_TOKEN: "${ANANTA_LORA_TRAINING_INTERNAL_TOKEN:?ANANTA_LORA_TRAINING_INTERNAL_TOKEN must contain at least 24 characters}"
+      ANANTA_LORA_TRAINING_DATASET_ROOT: /project-workspaces
+      ANANTA_LORA_TRAINING_WORKSPACE_ROOT: /project-workspaces
+      ANANTA_LORA_TRAINING_ARTIFACT_ROOT: /app/data/lora-artifacts
+      ANANTA_LORA_TRAINING_MODEL_CATALOG_JSON: '${ANANTA_LORA_TRAINING_MODEL_CATALOG_JSON:?ANANTA_LORA_TRAINING_MODEL_CATALOG_JSON must map local model IDs to relative_path and snapshot_hash}'
+    depends_on:
+      lora-training-worker-mock:
+        condition: service_healthy
+        required: false
+      lora-training-worker-cpu:
+        condition: service_healthy
+        required: false
+      lora-training-worker-nvidia:
+        condition: service_healthy
+        required: false
+    networks:
+      default: {}
+      lora-training-control: {}
+
+  lora-training-worker-mock:
+    <<: *lora-training-hardening
+    image: ${ANANTA_LORA_TRAINING_IMAGE:-ananta-lora-training-worker}:${ANANTA_LORA_TRAINING_IMAGE_TAG:-local}-minimal
+    build:
+      context: ../..
+      dockerfile: docker/compose-next/Dockerfile.lora-training-worker
+      target: minimal
+    profiles:
+      - lora-training-mock
+    environment:
+      <<: *lora-training-environment
+      ANANTA_LORA_TRAINING_BACKENDS: mock
+      ANANTA_LORA_TRAINING_RESOURCE_PROFILE: mock
+    cpus: ${ANANTA_LORA_TRAINING_MOCK_CPUS:-1.0}
+    mem_limit: ${ANANTA_LORA_TRAINING_MOCK_MEMORY:-1g}
+    networks:
+      lora-training-control:
+        aliases:
+          - lora-training-worker
+
+  lora-training-worker-cpu:
+    <<: *lora-training-hardening
+    image: ${ANANTA_LORA_TRAINING_IMAGE:-ananta-lora-training-worker}:${ANANTA_LORA_TRAINING_IMAGE_TAG:-local}-cpu
+    build:
+      context: ../..
+      dockerfile: docker/compose-next/Dockerfile.lora-training-worker
+      target: cpu
+    profiles:
+      - lora-training-cpu
+    environment:
+      <<: *lora-training-environment
+      ANANTA_LORA_TRAINING_BACKENDS: peft_trl
+      ANANTA_LORA_TRAINING_RESOURCE_PROFILE: cpu
+    cpus: ${ANANTA_LORA_TRAINING_CPU_CPUS:-8.0}
+    mem_limit: ${ANANTA_LORA_TRAINING_CPU_MEMORY:-32g}
+    networks:
+      lora-training-control:
+        aliases:
+          - lora-training-worker
+
+  lora-training-worker-nvidia:
+    <<: *lora-training-hardening
+    image: ${ANANTA_LORA_TRAINING_IMAGE:-ananta-lora-training-worker}:${ANANTA_LORA_TRAINING_IMAGE_TAG:-local}-nvidia
+    build:
+      context: ../..
+      dockerfile: docker/compose-next/Dockerfile.lora-training-worker
+      target: nvidia
+    profiles:
+      - lora-training-nvidia
+    environment:
+      <<: *lora-training-environment
+      ANANTA_LORA_TRAINING_BACKENDS: peft_trl,unsloth
+      ANANTA_LORA_TRAINING_CUDA_MEMORY_FRACTION: ${ANANTA_LORA_TRAINING_CUDA_MEMORY_FRACTION:-0.90}
+      ANANTA_LORA_TRAINING_RESOURCE_PROFILE: nvidia
+    cpus: ${ANANTA_LORA_TRAINING_NVIDIA_CPUS:-8.0}
+    mem_limit: ${ANANTA_LORA_TRAINING_NVIDIA_MEMORY:-48g}
+    deploy:
+      resources:
+        limits:
+          cpus: ${ANANTA_LORA_TRAINING_NVIDIA_CPUS:-8.0}
+          memory: ${ANANTA_LORA_TRAINING_NVIDIA_MEMORY:-48g}
+          pids: 512
+        reservations:
+          cpus: "1.0"
+          memory: 4g
+          devices:
+            - driver: nvidia
+              count: ${ANANTA_LORA_TRAINING_NVIDIA_DEVICE_COUNT:-1}
+              capabilities:
+                - gpu
+    networks:
+      lora-training-control:
+        aliases:
+          - lora-training-worker
+
+networks:
+  default: {}
+  lora-training-control:
+    internal: true
+
+volumes:
+  hub-data: {}
+  lora-training-state: {}
