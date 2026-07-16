@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpEvent, HttpHeaders, HttpResponse } from '@angular/common/http';
+import { HttpClient, HttpContext, HttpEvent, HttpHeaders, HttpResponse } from '@angular/common/http';
 import { Observable, map, retry, timeout, timer } from 'rxjs';
 import { AgentDirectoryService } from './agent-directory.service';
 import { UserAuthService } from './user-auth.service';
@@ -57,6 +57,7 @@ export class HubApiCoreService {
       token?: string;
       headers?: Record<string, string>;
       timeoutMs?: number;
+      context?: HttpContext;
     } = {},
   ): Observable<T> {
     let headers = this.getHeaders(baseUrl, options.token).headers;
@@ -66,6 +67,7 @@ export class HubApiCoreService {
     const call = this.http.request<T>(method, url, {
       body: options.body,
       headers,
+      context: options.context,
     }).pipe(timeout(options.timeoutMs ?? this.timeoutMs));
     return this.unwrapResponse(call);
   }

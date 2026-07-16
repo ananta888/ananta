@@ -1,6 +1,8 @@
 import { Injectable, inject } from '@angular/core';
+import { HttpContext } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
 
+import { SUPPRESS_GLOBAL_ERROR_NOTIFICATION } from '../../services/error-request-context';
 import { HubApiCoreService } from '../../services/hub-api-core.service';
 import {
   VoiceCapabilityStatus,
@@ -226,7 +228,12 @@ export class VoiceApiService {
   ): Observable<VoiceLongRunResponse> {
     return this.core.request<VoiceLongRunResponse>(
       'POST', `${hubUrl}/v1/voice/live-runs/${encodeURIComponent(runId)}/stop`, hubUrl,
-      { body: payload, headers: mutationHeaders(idempotencyKey), timeoutMs: 300_000 },
+      {
+        body: payload,
+        headers: mutationHeaders(idempotencyKey),
+        timeoutMs: 300_000,
+        context: new HttpContext().set(SUPPRESS_GLOBAL_ERROR_NOTIFICATION, true),
+      },
     );
   }
 

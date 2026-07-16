@@ -344,8 +344,9 @@ describe('VoiceLongRunController', () => {
         .mockReturnValueOnce(throwError(() => inFlight))
         .mockReturnValueOnce(of(snapshot('run-a', 'completed')));
       api.getLongRun.mockReturnValue(of(snapshot('run-a')));
+      const error = vi.fn();
       const controller = TestBed.inject(VoiceLongRunController);
-      await controller.start('http://hub.test', createRequest(60, 600), 'create-key');
+      await controller.start('http://hub.test', createRequest(60, 600), 'create-key', { error });
 
       const stopping = controller.stop();
       await settleAsyncWork();
@@ -362,6 +363,7 @@ describe('VoiceLongRunController', () => {
         limit: 100,
       });
       expect(controller.recoveryMetadata()).toBeNull();
+      expect(error).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }

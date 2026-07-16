@@ -3,6 +3,7 @@ import { HttpInterceptor, HttpRequest, HttpHandler, HttpEvent, HttpErrorResponse
 import { Observable, throwError } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { NotificationService } from './notification.service';
+import { SUPPRESS_GLOBAL_ERROR_NOTIFICATION } from './error-request-context';
 
 @Injectable()
 export class ErrorInterceptor implements HttpInterceptor {
@@ -12,6 +13,11 @@ export class ErrorInterceptor implements HttpInterceptor {
   intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
     return next.handle(req).pipe(
       catchError((error: HttpErrorResponse) => {
+        if (req.context.get(SUPPRESS_GLOBAL_ERROR_NOTIFICATION)) {
+          (error as any).__anantaHandledByInterceptor = true;
+          return throwError(() => error);
+        }
+
         // 401 errors are handled centrally by AuthInterceptor (refresh/logout flow)
         // and/or by local login UI; avoid noisy transient overlays for users.
         if (error.status === 401) {

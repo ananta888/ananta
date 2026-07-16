@@ -12,7 +12,10 @@ import {
 
 import { AgentDirectoryService } from '../../services/agent-directory.service';
 import { AuthInterceptor } from '../../services/auth.interceptor';
+import { SUPPRESS_GLOBAL_ERROR_NOTIFICATION } from '../../services/error-request-context';
+import { ErrorInterceptor } from '../../services/error.interceptor';
 import { HubApiCoreService } from '../../services/hub-api-core.service';
+import { NotificationService } from '../../services/notification.service';
 import { UserAuthService } from '../../services/user-auth.service';
 import { VoiceApiService } from './voice-api.service';
 
@@ -224,6 +227,7 @@ describe('VoiceApiService', () => {
       'http://hub.test/v1/voice/live-runs/run%2Fa?after_revision=17&limit=100',
       'http://hub.test', undefined, false,
     );
+    expect(core.request.mock.calls[4][3].context.get(SUPPRESS_GLOBAL_ERROR_NOTIFICATION)).toBe(true);
   });
 
   it('keeps import, feedback reset, full privacy delete and export-task creation distinct', async () => {
@@ -276,6 +280,7 @@ describe('VoiceApiService', () => {
 
 describe('VoiceApiService Hub auth integration', () => {
   let httpMock: HttpTestingController;
+  const notify = vi.fn();
   const userAuth = {
     token: 'old-user-token',
     token$: of('old-user-token'),
@@ -287,6 +292,7 @@ describe('VoiceApiService Hub auth integration', () => {
   beforeEach(() => {
     TestBed.resetTestingModule();
     vi.clearAllMocks();
+    notify.mockReset();
     TestBed.configureTestingModule({
       providers: [
         provideHttpClient(withInterceptorsFromDi()),
@@ -294,6 +300,7 @@ describe('VoiceApiService Hub auth integration', () => {
         VoiceApiService,
         HubApiCoreService,
         { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },
+        { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true },
         {
           provide: AgentDirectoryService,
           useValue: {
@@ -301,6 +308,7 @@ describe('VoiceApiService Hub auth integration', () => {
           },
         },
         { provide: UserAuthService, useValue: userAuth },
+        { provide: NotificationService, useValue: { error: notify } },
       ],
     });
     httpMock = TestBed.inject(HttpTestingController);
@@ -349,5 +357,40 @@ describe('VoiceApiService Hub auth integration', () => {
     }));
     expect(userAuth.refreshToken).toHaveBeenCalledTimes(1);
     expect(userAuth.logoutHub).not.toHaveBeenCalled();
+  });
+
+  it('keeps marked live-run stop conflicts out of global notifications', async () => {
+    const api = TestBed.inject(VoiceApiService);
+    const result = firstValueFrom(api.stopLongRun(
+      'http://hub.test',
+      'run-a',
+      { last_sequence: 0, reason: 'user_stop' },
+      'stop-key',
+    ));
+
+    const request = httpMock.expectOne('http://hub.test/v1/voice/live-runs/run-a/stop');
+    expect(request.request.context.get(SUPPRESS_GLOBAL_ERROR_NOTIFICATION)).toBe(true);
+    request.flush({
+      status: 'error',
+      data: {
+        error: {
+          code: 'voice_live_run.segments_in_flight',
+          retriable: true,
+        },
+      },
+    }, { status: 409, statusText: 'Conflict' });
+
+    await expect(result).rejects.toMatchObject({
+      status: 409,
+      error: {
+        data: {
+          error: {
+            code: 'voice_live_run.segments_in_flight',
+            retriable: true,
+          },
+        },
+      },
+    });
+    expect(notify).not.toHaveBeenCalled();
   });
 });
