@@ -90,6 +90,8 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
   private batchOperationGeneration = 0;
   private longRunOperationGeneration = 0;
   private batchOperation: { generation: number; ending: boolean } | null = null;
+  private readonly confirmedLongRunSequences = new Set<number>();
+  private latestLongRunVersion: number | null = null;
 
   hubUrl = '';
   activeTab: VoiceConsoleTab = 'live';
@@ -330,6 +332,21 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
     this.longRunProvisionalSegments = resume ? this.longRunProvisionalSegments : 0;
     this.longRunCorrectedSegments = resume ? this.longRunCorrectedSegments : 0;
     this.longRunGapSequences = [];
+    if (!resume) {
+      this.confirmedLongRunSequences.clear();
+      this.latestLongRunVersion = null;
+      this.longRunCapturedMilliseconds = 0;
+      this.longRunUploadedSegments = 0;
+      this.longRunQueuedSegments = 0;
+      this.longRunConnection = 'online';
+      this.longRunWarning = '';
+      this.longRunId = '';
+      this.longRunStatus = 'bereit';
+      this.longRunRecovery = null;
+    } else if (recovery) {
+      this.longRunCapturedMilliseconds = recovery.timelineMilliseconds;
+      this.longRunRecovery = recovery;
+    }
     this.rebuildLongRunTimelineRows();
     this.clearMessages();
     try {
@@ -605,6 +622,10 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
 
   requiresSecondaryBackend(): boolean {
     return ['classic_then_correct', 'parallel_compare'].includes(this.selectedRecognitionStrategy);
+  }
+
+  longRunUsesVoskOnlyPath(): boolean {
+    return this.selectedBackend === 'vosk' && !this.requiresSecondaryBackend();
   }
 
   validBackendSelection(): boolean {
@@ -964,6 +985,10 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
           .filter((segment) => segment.text_state === 'provisional').length;
         this.longRunCorrectedSegments = snapshot.segments
           .filter((segment) => segment.correction_status === 'completed').length;
+        for (const segment of snapshot.segments) {
+          if (segment.status === 'completed') this.confirmedLongRunSequences.add(segment.sequence);
+        }
+        this.longRunUploadedSegments = this.confirmedLongRunSequences.size;
         this.rebuildLongRunTimelineRows();
         this.cdr.markForCheck();
       },
@@ -984,15 +1009,11 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
       segmentUploaded: (response, queued) => {
         if (this.destroyed) return;
         this.longRunQueuedSegments = queued;
-        this.longRunUploadedSegments = Math.max(
-          this.longRunUploadedSegments,
-          response.segment.sequence + 1,
-        );
         this.applyLongRunResponse(response);
       },
       segmentFailed: (sequence) => {
         if (this.destroyed) return;
-        this.longRunWarning = `Segment ${sequence} konnte nicht verarbeitet werden und wurde als Lücke markiert.`;
+        this.longRunWarning = `Segment ${sequence + 1} konnte nicht verarbeitet werden und wurde als Lücke markiert.`;
         this.cdr.markForCheck();
       },
       gap: (sequence) => {
@@ -1000,6 +1021,21 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
         this.longRunGapSequences = [...this.longRunGapSequences, sequence].sort((left, right) => left - right);
         this.longRunWarning = 'Der verschlüsselte Offline-Puffer war ausgelastet. Nicht bestätigte Segmente sind als Lücke markiert.';
         this.rebuildLongRunTimelineRows();
+        this.cdr.markForCheck();
+      },
+      gapsUpdated: (sequences) => {
+        if (this.destroyed) return;
+        const hadGaps = this.longRunGapSequences.length > 0;
+        this.longRunGapSequences = [...sequences];
+        if (hadGaps && !this.longRunGapSequences.length && this.isLongRunGapWarning()) {
+          this.longRunWarning = '';
+        }
+        this.rebuildLongRunTimelineRows();
+        this.cdr.markForCheck();
+      },
+      recoveryUpdated: (metadata) => {
+        if (this.destroyed) return;
+        this.longRunRecovery = { ...metadata };
         this.cdr.markForCheck();
       },
       connection: (state) => {
@@ -1035,20 +1071,46 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
   }
 
   private applyLongRunResponse(response: VoiceLongRunResponse): void {
-    this.longRunId = response.run.id;
-    this.longRunStatus = response.run.status;
-    if (response.gaps?.length) {
-      this.longRunGapSequences = [...new Set([
-        ...this.longRunGapSequences,
-        ...response.gaps,
-      ])].sort((left, right) => left - right);
-      this.rebuildLongRunTimelineRows();
+    const version = this.normalizedLongRunVersion(response.run.version);
+    const currentProjection = !(
+      (version == null && this.latestLongRunVersion != null)
+      || (version != null && this.latestLongRunVersion != null && version < this.latestLongRunVersion)
+    );
+    if (currentProjection) {
+      if (version != null) this.latestLongRunVersion = version;
+      this.longRunId = response.run.id;
+      this.longRunStatus = response.run.status;
     }
     const authoritative = String(response.composed_transcript || '').trim();
     if (!this.longRunTimeline.length && authoritative) this.longRunTranscript = authoritative;
     const acknowledged = Number(response.resume?.acknowledged_through_sequence ?? -1);
-    this.longRunUploadedSegments = Math.max(this.longRunUploadedSegments, acknowledged + 1);
+    if (Number.isInteger(acknowledged) && acknowledged >= 0) {
+      for (let sequence = 0; sequence <= acknowledged; sequence += 1) {
+        this.confirmedLongRunSequences.add(sequence);
+      }
+    }
+    const upload = response as VoiceLongRunResponse & {
+      segment?: { sequence: number; status: string };
+    };
+    for (const segment of [...(response.segments || []), ...(upload.segment ? [upload.segment] : [])]) {
+      if (segment.status === 'completed') this.confirmedLongRunSequences.add(segment.sequence);
+    }
+    this.longRunUploadedSegments = this.confirmedLongRunSequences.size;
     this.cdr.markForCheck();
+  }
+
+  formatLongRunGapSequences(): string {
+    return this.longRunGapSequences.map((sequence) => sequence + 1).join(', ');
+  }
+
+  private normalizedLongRunVersion(value: number | undefined): number | null {
+    const numeric = Number(value);
+    return Number.isInteger(numeric) && numeric >= 0 ? numeric : null;
+  }
+
+  private isLongRunGapWarning(): boolean {
+    return this.longRunWarning.startsWith('Der verschlüsselte Offline-Puffer')
+      || this.longRunWarning.startsWith('Segment ');
   }
 
   private validLongRunSegmentSeconds(): number {

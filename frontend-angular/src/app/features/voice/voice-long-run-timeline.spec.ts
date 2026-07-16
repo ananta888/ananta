@@ -1,5 +1,6 @@
 import {
   VoiceLongRunTimeline,
+  voiceLongRunCorrectionFailureLabel,
   voiceLongRunRevisionLabel,
 } from './voice-long-run-timeline';
 import { VoiceLongRunResponse, VoiceLongRunSegment } from './voice.models';
@@ -106,6 +107,35 @@ describe('VoiceLongRunTimeline', () => {
     expect(failed.composedTranscript).toBe('Verständlicher Rohtext');
     expect(failed.hasPendingRevisions).toBe(false);
     expect(voiceLongRunRevisionLabel(failed.segments[0])).toBe('final · Korrektur fehlgeschlagen');
+  });
+
+  it('renders a human-readable correction failure reason from the Hub code', () => {
+    const timeline = new VoiceLongRunTimeline();
+    const failed = timeline.apply(response(segment({
+      sequence: 0,
+      revision: 2,
+      timeline_revision: 3,
+      text_state: 'final',
+      correction_status: 'failed',
+      correction_failure_code: 'corrector_engine_failed',
+      text: 'Verständlicher Rohtext',
+    })));
+
+    expect(voiceLongRunRevisionLabel(failed.segments[0]))
+      .toBe('final · Korrektur fehlgeschlagen: Korrekturmodell fehlgeschlagen');
+  });
+
+  it.each([
+    ['corrector_provider_output_invalid', 'Korrekturmodell lieferte eine ungültige Ausgabe'],
+    ['corrector_provider_response_invalid', 'Korrektur-Provider lieferte eine ungültige Antwort'],
+    ['corrector_provider_http_error', 'Korrektur-Provider meldete einen HTTP-Fehler'],
+    ['corrector_provider_unavailable', 'Korrektur-Provider nicht verfügbar'],
+    ['corrector_provider_timeout', 'Zeitlimit des Korrektur-Providers überschritten'],
+    ['corrector_provider_request_failed', 'Anfrage an Korrektur-Provider fehlgeschlagen'],
+    ['correction_execution_failed', 'Korrekturausführung fehlgeschlagen'],
+    ['correction_execution_timeout', 'Zeitlimit der Korrekturausführung überschritten'],
+  ])('describes stable correction failure code %s', (code, expected) => {
+    expect(voiceLongRunCorrectionFailureLabel(code)).toBe(expected);
   });
 
   it('does not treat a textless heartbeat projection as a content revision', () => {

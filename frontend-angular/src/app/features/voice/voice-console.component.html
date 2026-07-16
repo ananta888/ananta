@@ -249,7 +249,15 @@
           Verwende dabei pro Profil/Run nur einen aktiven Ananta-Voice-Tab beziehungsweise eine
           App-Instanz, da rotierende Hub-Sitzungen nicht instanzübergreifend koordiniert werden.
         </p>
-        @if (longRunRecovery) {
+        @if (longRunUsesVoskOnlyPath()) {
+          <div class="card card-light mt-md" role="note" data-testid="voice-long-run-vosk-quality-hint">
+            <strong>Qualitätshinweis:</strong>
+            Vosk im Einzelmodus ist ressourcensparend, aber weniger genau. Für deutsche Langzeittranskripte
+            wird <code>whisper_cpp</code> als primäres ASR-Backend empfohlen. Eine LLM-Korrektur ersetzt
+            keine bessere ASR-Erkennung.
+          </div>
+        }
+        @if (longRunRecovery && !longRunActive) {
           <div class="voice-long-run-recovery" role="status" data-testid="voice-long-run-recovery">
             <div>
               <strong>{{ longRunRecovery.runId ? 'Unterbrochenen Langzeit-Run fortsetzen' : 'Unterbrochenen Start erneut versuchen' }}</strong>
@@ -330,7 +338,7 @@
         @if (longRunWarning || longRunGapSequences.length) {
           <div class="card danger mt-md" role="alert" data-testid="voice-long-run-gap-warning">
             {{ longRunWarning || 'Der Hub meldet Segmentlücken.' }}
-            @if (longRunGapSequences.length) { <span> Sequenzen: {{ longRunGapSequences.join(', ') }}</span> }
+            @if (longRunGapSequences.length) { <span> Segmente: {{ formatLongRunGapSequences() }}</span> }
           </div>
         }
         <div class="voice-live-transcript mt-md" aria-live="polite" aria-atomic="false"

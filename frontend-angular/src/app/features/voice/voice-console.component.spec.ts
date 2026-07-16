@@ -180,6 +180,23 @@ describe('VoiceConsoleComponent', () => {
     expect((fixture.nativeElement as HTMLElement).querySelector('a[href="/settings?section=voice"]')).toBeTruthy();
   });
 
+  it('warns about the lower-accuracy Vosk-only long-run path without blocking capture', async () => {
+    const fixture = TestBed.createComponent(VoiceConsoleComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    clickLongRunTab(fixture.nativeElement as HTMLElement);
+    fixture.detectChanges();
+
+    const hint = (fixture.nativeElement as HTMLElement)
+      .querySelector('[data-testid="voice-long-run-vosk-quality-hint"]');
+    expect(hint?.textContent).toContain('ressourcensparend, aber weniger genau');
+    expect(hint?.textContent).toContain('whisper_cpp');
+    expect(hint?.textContent).toContain('LLM-Korrektur ersetzt keine bessere ASR-Erkennung');
+    const start = [...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('button')]
+      .find((button) => button.textContent?.includes('Langzeit starten'));
+    expect(start?.disabled).toBe(false);
+  });
+
   it('starts one continuous supervised capture with bounded rolling-segment settings', async () => {
     const fixture = TestBed.createComponent(VoiceConsoleComponent);
     fixture.detectChanges();
@@ -208,6 +225,10 @@ describe('VoiceConsoleComponent', () => {
       { maxDurationSeconds: 28_800 },
     );
     expect(component.longRunActive).toBe(true);
+    fixture.detectChanges();
+    expect(component.longRunRecovery?.runId).toBe('voice-long-run-a');
+    expect((fixture.nativeElement as HTMLElement)
+      .querySelector('[data-testid="voice-long-run-recovery"]')).toBeNull();
 
     await component.stopLongRun();
     expect(capture.stop).toHaveBeenCalledTimes(1);
@@ -225,17 +246,14 @@ describe('VoiceConsoleComponent', () => {
     await fixture.whenStable();
     const component = fixture.componentInstance;
     component.activeTab = 'long';
-    (component as any).applyLongRunResponse({
-      run: { id: 'voice-long-run-a', status: 'active' },
-      gaps: [3, 4],
-    });
+    (component as any).longRunObserver().gapsUpdated([3, 4]);
     component.longRunWarning = 'Puffer ausgelastet.';
     fixture.detectChanges();
 
     const warning = (fixture.nativeElement as HTMLElement)
       .querySelector('[data-testid="voice-long-run-gap-warning"]');
     expect(warning?.textContent).toContain('Puffer ausgelastet');
-    expect(warning?.textContent).toContain('3, 4');
+    expect(warning?.textContent).toContain('Segmente: 4, 5');
     const gaps = (fixture.nativeElement as HTMLElement)
       .querySelectorAll('[data-text-state="gap"]');
     expect([...gaps].map((item) => item.getAttribute('data-sequence'))).toEqual(['3', '4']);
@@ -262,10 +280,7 @@ describe('VoiceConsoleComponent', () => {
       highestTimelineRevision: 7,
       hasPendingRevisions: false,
     });
-    (component as any).applyLongRunResponse({
-      run: { id: 'voice-long-run-a', status: 'active' },
-      gaps: [2],
-    });
+    (component as any).longRunObserver().gapsUpdated([2]);
     fixture.detectChanges();
 
     const rows = (fixture.nativeElement as HTMLElement).querySelectorAll('[data-sequence="2"]');
@@ -274,6 +289,62 @@ describe('VoiceConsoleComponent', () => {
     expect(rows[0].textContent).toContain('Lücke');
     expect(rows[0].textContent).toContain('Nicht wiederherstellbare Segmentlücke');
     expect(rows[0].textContent).not.toContain('wird transkribiert');
+  });
+
+  it('removes a healed Hub gap and counts an out-of-order confirmation exactly once', async () => {
+    const fixture = TestBed.createComponent(VoiceConsoleComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const component = fixture.componentInstance;
+    component.setTab('long');
+    const observer = (component as any).longRunObserver();
+
+    observer.gap(0);
+    observer.gapsUpdated([0]);
+    observer.gapsUpdated([]);
+    (component as any).applyLongRunResponse({
+      run: { id: 'voice-long-run-a', status: 'active', version: 3 },
+      segment: { sequence: 1, status: 'completed' },
+      segments: [],
+      gaps: [],
+      resume: { next_sequence: 0, acknowledged_through_sequence: -1 },
+    });
+    fixture.detectChanges();
+
+    expect(component.longRunGapSequences).toEqual([]);
+    expect(component.longRunUploadedSegments).toBe(1);
+    expect(component.longRunWarning).toBe('');
+    expect((fixture.nativeElement as HTMLElement)
+      .querySelector('[data-testid="voice-long-run-gap-warning"]')).toBeNull();
+  });
+
+  it('keeps recovery metadata current but only renders it after capture is interrupted', async () => {
+    const fixture = TestBed.createComponent(VoiceConsoleComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const component = fixture.componentInstance;
+    component.setTab('long');
+    component.longRunActive = true;
+    (component as any).longRunObserver().recoveryUpdated(recoveredMetadata({
+      nextSequence: 1,
+      timelineMilliseconds: 149_000,
+    }));
+    fixture.detectChanges();
+
+    expect(component.longRunRecovery).toEqual(expect.objectContaining({
+      nextSequence: 1,
+      timelineMilliseconds: 149_000,
+    }));
+    expect((fixture.nativeElement as HTMLElement)
+      .querySelector('[data-testid="voice-long-run-recovery"]')).toBeNull();
+
+    component.longRunActive = false;
+    (component as any).longRunObserver().recoveryUpdated(component.longRunRecovery!);
+    fixture.detectChanges();
+    const recoveryCard = (fixture.nativeElement as HTMLElement)
+      .querySelector('[data-testid="voice-long-run-recovery"]');
+    expect(recoveryCard?.textContent).toContain('Cursor 1');
+    expect(recoveryCard?.textContent).toContain('00:02:29');
   });
 
   it('replaces one keyed provisional section with its corrected revision', async () => {

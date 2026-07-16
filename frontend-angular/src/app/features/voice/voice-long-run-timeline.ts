@@ -124,11 +124,36 @@ export function voiceLongRunRevisionLabel(segment: VoiceLongRunTimelineSegment):
   if (segment.text_state === 'none') return 'wird transkribiert';
   if (segment.text_state === 'provisional') return 'vorläufig';
   if (segment.correction_status === 'completed') return 'korrigiert';
-  if (segment.correction_status === 'failed') return 'final · Korrektur fehlgeschlagen';
+  if (segment.correction_status === 'failed') {
+    const reason = voiceLongRunCorrectionFailureLabel(segment.correction_failure_code);
+    return reason ? `final · Korrektur fehlgeschlagen: ${reason}` : 'final · Korrektur fehlgeschlagen';
+  }
   if (segment.correction_status === 'skipped' || segment.text_state === 'final_uncorrected') {
     return 'final · unkorrigiert';
   }
   return 'final';
+}
+
+export function voiceLongRunCorrectionFailureLabel(code: string | null | undefined): string {
+  const normalized = String(code || '').trim().toLowerCase();
+  if (!normalized) return '';
+  const labels: Record<string, string> = {
+    corrector_engine_failed: 'Korrekturmodell fehlgeschlagen',
+    corrector_provider_output_invalid: 'Korrekturmodell lieferte eine ungültige Ausgabe',
+    corrector_provider_response_invalid: 'Korrektur-Provider lieferte eine ungültige Antwort',
+    corrector_provider_http_error: 'Korrektur-Provider meldete einen HTTP-Fehler',
+    corrector_provider_unavailable: 'Korrektur-Provider nicht verfügbar',
+    corrector_provider_timeout: 'Zeitlimit des Korrektur-Providers überschritten',
+    corrector_provider_request_failed: 'Anfrage an Korrektur-Provider fehlgeschlagen',
+    correction_execution_failed: 'Korrekturausführung fehlgeschlagen',
+    correction_execution_timeout: 'Zeitlimit der Korrekturausführung überschritten',
+    correction_lease_expired: 'Zeitlimit der Korrektur überschritten',
+    correction_voicelivecorrectionexecutionerror: 'Korrekturausführung fehlgeschlagen',
+    correction_worker_unavailable: 'Korrektur-Worker nicht verfügbar',
+    corrector_unavailable: 'Korrekturmodell nicht verfügbar',
+    run_expired: 'Langzeit-Run abgelaufen',
+  };
+  return labels[normalized] || `technischer Grund: ${normalized}`;
 }
 
 /** Bounded word-overlap merge for rolling audio segments. */

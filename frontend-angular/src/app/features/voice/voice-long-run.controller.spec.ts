@@ -406,6 +406,116 @@ describe('VoiceLongRunController', () => {
     firstUpload.complete();
   });
 
+  it('replaces a transient Hub gap with the healed authoritative snapshot', async () => {
+    const upload = new Subject<any>();
+    api.uploadLongRunSegment.mockReturnValueOnce(upload);
+    api.heartbeatLongRun.mockReturnValueOnce(of({
+      ...snapshot('run-a'),
+      run: { ...snapshot('run-a').run, version: 2 },
+      gaps: [0],
+    }));
+    const gapSnapshots: number[][] = [];
+    const controller = TestBed.inject(VoiceLongRunController);
+    await controller.start('http://hub.test', createRequest(60, 600), 'create-key', {
+      gapsUpdated: (sequences) => gapSnapshots.push([...sequences]),
+    });
+    chunkHandler!(new ArrayBuffer(120));
+    await vi.waitFor(() => expect(api.uploadLongRunSegment).toHaveBeenCalledTimes(1));
+
+    await (controller as any).sendHeartbeat();
+    expect(gapSnapshots.at(-1)).toEqual([0]);
+
+    upload.next({
+      ...uploadSnapshot('run-a', 0),
+      run: { ...snapshot('run-a').run, version: 3 },
+      gaps: [],
+      resume: { next_sequence: 1, acknowledged_through_sequence: 0 },
+    });
+    upload.complete();
+    await settleAsyncWork();
+
+    expect(gapSnapshots.at(-1)).toEqual([]);
+    await controller.stop();
+  });
+
+  it('ignores a delayed lower-version gap projection after upload confirmation', async () => {
+    const upload = new Subject<any>();
+    const delayedHeartbeat = new Subject<VoiceLongRunResponse>();
+    api.uploadLongRunSegment.mockReturnValueOnce(upload);
+    api.heartbeatLongRun.mockReturnValueOnce(delayedHeartbeat);
+    const gapSnapshots: number[][] = [];
+    const controller = TestBed.inject(VoiceLongRunController);
+    await controller.start('http://hub.test', createRequest(60, 600), 'create-key', {
+      gapsUpdated: (sequences) => gapSnapshots.push([...sequences]),
+    });
+    chunkHandler!(new ArrayBuffer(120));
+    await vi.waitFor(() => expect(api.uploadLongRunSegment).toHaveBeenCalledTimes(1));
+    const heartbeat = (controller as any).sendHeartbeat() as Promise<void>;
+
+    upload.next({
+      ...uploadSnapshot('run-a', 0),
+      run: { ...snapshot('run-a').run, version: 3 },
+      gaps: [],
+    });
+    upload.complete();
+    await settleAsyncWork();
+    delayedHeartbeat.next({
+      ...snapshot('run-a'),
+      run: { ...snapshot('run-a').run, version: 2 },
+      gaps: [0],
+    });
+    delayedHeartbeat.complete();
+    await heartbeat;
+
+    expect(gapSnapshots.at(-1)).toEqual([]);
+    await controller.stop();
+  });
+
+  it('removes a local gap when the Hub proves that segment completed', async () => {
+    const gapSnapshots: number[][] = [];
+    const controller = TestBed.inject(VoiceLongRunController);
+    await controller.start('http://hub.test', createRequest(60, 600), 'create-key', {
+      gapsUpdated: (sequences) => gapSnapshots.push([...sequences]),
+    });
+
+    (controller as any).reportGap(0);
+    expect(gapSnapshots.at(-1)).toEqual([0]);
+    (controller as any).publishResponse({
+      ...snapshot('run-a'),
+      run: { ...snapshot('run-a').run, version: 2, timeline_revision: 1 },
+      segments: [{
+        sequence: 0,
+        status: 'completed',
+        revision: 1,
+        timeline_revision: 1,
+        text_state: 'final_uncorrected',
+        correction_status: 'failed',
+        text: 'Nachgereichtes Segment',
+      }],
+      gaps: [],
+    });
+
+    expect(gapSnapshots.at(-1)).toEqual([]);
+    await controller.stop();
+  });
+
+  it('publishes current recovery cursors while capture remains active', async () => {
+    const recoveryUpdates: VoiceLongRunRecoveryMetadata[] = [];
+    const controller = TestBed.inject(VoiceLongRunController);
+    await controller.start('http://hub.test', createRequest(60, 600), 'create-key', {
+      recoveryUpdated: (metadata) => recoveryUpdates.push(metadata),
+    });
+
+    chunkHandler!(new ArrayBuffer(2));
+
+    expect(recoveryUpdates.at(-1)).toEqual(expect.objectContaining({
+      runId: 'run-a',
+      nextSequence: 0,
+      timelineMilliseconds: 1_000,
+    }));
+    await controller.stop();
+  });
+
   it('retries a lost create response with the same key and resumes after the Hub cursor', async () => {
     const replay = {
       ...snapshot('run-replayed'),

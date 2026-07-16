@@ -61,6 +61,8 @@ export interface VoiceLongRunObserver {
   segmentUploaded?(response: VoiceLongRunSegmentUploadResponse, queuedSegments: number): void;
   segmentFailed?(sequence: number, error: unknown): void;
   gap?(sequence: number): void;
+  gapsUpdated?(sequences: readonly number[]): void;
+  recoveryUpdated?(metadata: VoiceLongRunRecoveryMetadata): void;
   connection?(state: 'online' | 'retrying'): void;
   stopping?(reason: string): void;
   stopped?(response: VoiceLongRunResponse, reason: string): void;
@@ -87,6 +89,8 @@ export class VoiceLongRunController {
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private captureDeadlineTimer: ReturnType<typeof setTimeout> | null = null;
   private localGapSequences = new Set<number>();
+  private hubGapSequences = new Set<number>();
+  private latestRunVersion: number | null = null;
   private retryAttempt = 0;
   private lastLocalSequence = -1;
   private operationGeneration = 0;
@@ -274,7 +278,7 @@ export class VoiceLongRunController {
     this.hubUrl = hubUrl;
     this.observer = observer;
     this.resetTimelineProjection();
-    this.localGapSequences.clear();
+    this.resetGapProjection();
     this.retryAttempt = 0;
     this.lastLocalSequence = -1;
     this.pendingAutomaticStopReason = '';
@@ -329,7 +333,6 @@ export class VoiceLongRunController {
       this.ensureOperation(generation);
       const cursor = this.reconciledCursor(created, buffered);
       this.lastLocalSequence = cursor.nextSequence - 1;
-      this.localGapSequences = new Set(created.gaps || []);
       for (const sequence of cursor.gaps) this.reportGap(sequence);
       this.applyCursorState(cursor);
       this.saveRecovery(cursor.nextSequence, cursor.timelineMilliseconds);
@@ -421,6 +424,7 @@ export class VoiceLongRunController {
     this.run = snapshot.run;
     this.observer = observer;
     this.resetTimelineProjection();
+    this.resetGapProjection();
     this.currentRequest = this.requestFromRun(snapshot.run);
     this.createIdempotencyKey = descriptor?.createIdempotencyKey || '';
     const buffered = await this.spool.list(runId);
@@ -429,7 +433,7 @@ export class VoiceLongRunController {
       Number(snapshot.run.last_local_sequence ?? -1),
       ...buffered.map((item) => item.sequence),
     );
-    this.observer.runUpdated?.(snapshot);
+    if (this.updateHubGapProjection(snapshot)) this.observer.runUpdated?.(snapshot);
     await this.drainAvailable();
     this.ensureOperation(generation);
     await this.sendHeartbeat();
@@ -454,6 +458,7 @@ export class VoiceLongRunController {
     this.hubUrl = descriptor.hubUrl;
     this.observer = observer;
     this.resetTimelineProjection();
+    this.resetGapProjection();
     this.currentRequest = descriptor.request;
     this.pendingProfileId = descriptor.request.profile_id;
     this.createIdempotencyKey = descriptor.createIdempotencyKey;
@@ -487,7 +492,6 @@ export class VoiceLongRunController {
       const cursor = this.reconciledCursor(snapshot, buffered, descriptor);
       this.run = snapshot.run;
       this.lastLocalSequence = cursor.nextSequence - 1;
-      this.localGapSequences = new Set(snapshot.gaps || []);
       for (const sequence of cursor.gaps) this.reportGap(sequence);
       this.applyCursorState(cursor);
       this.segmenter = this.createSegmenter({
@@ -622,6 +626,7 @@ export class VoiceLongRunController {
       this.run = snapshot.run;
       this.observer = observer;
       this.resetTimelineProjection();
+      this.resetGapProjection();
       this.currentRequest = descriptor.request;
       this.createIdempotencyKey = descriptor.createIdempotencyKey;
       this.profileGeneration = descriptor.profileGeneration;
@@ -629,7 +634,6 @@ export class VoiceLongRunController {
       this.ensureOperation(generation);
       const cursor = this.reconciledCursor(snapshot, buffered, descriptor);
       this.lastLocalSequence = cursor.nextSequence - 1;
-      this.localGapSequences = new Set(snapshot.gaps || []);
       for (const sequence of cursor.gaps) this.reportGap(sequence);
       this.applyCursorState(cursor);
       this.saveRecovery(cursor.nextSequence, cursor.timelineMilliseconds);
@@ -785,7 +789,6 @@ export class VoiceLongRunController {
         if (generation !== this.operationGeneration) return;
         this.deferredEvictions.delete(segment.sequence);
         this.localGapSequences.delete(segment.sequence);
-        this.run = response.run;
         this.retryAttempt = 0;
         const stats = await this.spool.stats(runId);
         if (generation !== this.operationGeneration) return;
@@ -814,6 +817,7 @@ export class VoiceLongRunController {
   }
 
   private publishResponse(response: VoiceLongRunResponse): void {
+    const acceptedRunProjection = this.updateHubGapProjection(response);
     const snapshot = this.timeline.apply(response);
     this.timelineRevisionCursor = Math.max(
       this.timelineRevisionCursor,
@@ -826,7 +830,7 @@ export class VoiceLongRunController {
       && !this.revisionPollingBlocked;
     if (!this.revisionPollingNeeded) this.clearRevisionPollTimer();
     this.observer.timelineUpdated?.(snapshot);
-    this.observer.runUpdated?.(response);
+    if (acceptedRunProjection) this.observer.runUpdated?.(response);
     if (this.revisionPollingNeeded) this.scheduleRevisionPoll();
   }
 
@@ -852,7 +856,6 @@ export class VoiceLongRunController {
       }));
       if (generation !== this.operationGeneration || this.run?.id !== runId
         || globalThis.document?.visibilityState === 'hidden') return;
-      this.run = response.run;
       const hasMore = Boolean(response.page?.has_more);
       this.publishResponse(response);
       this.revisionPollFailure = 0;
@@ -938,7 +941,6 @@ export class VoiceLongRunController {
         gaps: [...this.localGapSequences].sort((left, right) => left - right),
       }));
       if (generation !== this.operationGeneration) return;
-      this.run = response.run;
       this.saveRecovery(
         this.lastLocalSequence + 1,
         this.segmenter?.capturedDurationMs || this.recovery.load()?.timelineMilliseconds || 0,
@@ -946,7 +948,7 @@ export class VoiceLongRunController {
       // Heartbeats intentionally omit transcript text. They may observe a
       // newer Hub revision, but must never advance the content cursor or
       // replace visible text before the text-bearing revision delta arrives.
-      this.observer.runUpdated?.(response);
+      if (this.updateHubGapProjection(response)) this.observer.runUpdated?.(response);
       this.kickUploader();
     } catch {
       if (generation !== this.operationGeneration) return;
@@ -988,7 +990,6 @@ export class VoiceLongRunController {
         const response = await this.stopRemote(reason);
         this.ensureOperation(generation);
         if (this.terminalRun(response.run)) return response;
-        this.run = response.run;
         this.publishResponse(response);
       } catch (error) {
         this.ensureOperation(generation);
@@ -1015,7 +1016,6 @@ export class VoiceLongRunController {
       }));
       this.ensureOperation(generation);
       if (this.run?.id !== runId) return;
-      this.run = response.run;
       this.publishResponse(response);
       this.observer.connection?.('online');
     } catch (error) {
@@ -1045,7 +1045,7 @@ export class VoiceLongRunController {
 
   private saveRecovery(nextSequence: number, timelineMilliseconds: number): void {
     if (!this.run || !this.currentRequest || !this.createIdempotencyKey) return;
-    this.recovery.save({
+    const metadata: VoiceLongRunRecoveryMetadata = {
       schemaVersion: 1,
       runId: this.run.id,
       hubUrl: this.hubUrl,
@@ -1058,7 +1058,9 @@ export class VoiceLongRunController {
       durableNextSequence: this.durableNextSequence,
       durableTimelineMilliseconds: this.durableTimelineMilliseconds,
       updatedAt: Date.now(),
-    });
+    };
+    this.recovery.save(metadata);
+    this.observer.recoveryUpdated?.(metadata);
   }
 
   private reconciledCursor(
@@ -1235,6 +1237,51 @@ export class VoiceLongRunController {
     this.timelineRevisionCursor = 0;
   }
 
+  private resetGapProjection(notify = true): void {
+    this.localGapSequences.clear();
+    this.hubGapSequences.clear();
+    this.latestRunVersion = null;
+    if (notify) this.observer.gapsUpdated?.([]);
+  }
+
+  private updateHubGapProjection(response: VoiceLongRunResponse): boolean {
+    if (this.run?.id && response.run.id !== this.run.id) return false;
+    const completed = [
+      ...(response.segments || []),
+      ...((response as VoiceLongRunSegmentUploadResponse).segment
+        ? [(response as VoiceLongRunSegmentUploadResponse).segment]
+        : []),
+    ].filter((segment) => segment.status === 'completed');
+    for (const segment of completed) this.localGapSequences.delete(segment.sequence);
+
+    const version = this.normalizedRunVersion(response.run.version);
+    if ((version == null && this.latestRunVersion != null)
+      || (version != null && this.latestRunVersion != null && version < this.latestRunVersion)) {
+      this.emitGapProjection();
+      return false;
+    }
+    if (version != null) this.latestRunVersion = version;
+    this.run = response.run;
+    const completedSequences = new Set(completed.map((segment) => segment.sequence));
+    this.hubGapSequences = new Set((response.gaps || []).filter((sequence) => (
+      Number.isInteger(sequence) && sequence >= 0 && !completedSequences.has(sequence)
+    )));
+    this.emitGapProjection();
+    return true;
+  }
+
+  private emitGapProjection(): void {
+    this.observer.gapsUpdated?.(
+      [...new Set([...this.hubGapSequences, ...this.localGapSequences])]
+        .sort((left, right) => left - right),
+    );
+  }
+
+  private normalizedRunVersion(value: number | undefined): number | null {
+    const numeric = Number(value);
+    return Number.isInteger(numeric) && numeric >= 0 ? numeric : null;
+  }
+
   private resetRuntime(): void {
     this.clearTimers();
     this.run = null;
@@ -1242,7 +1289,7 @@ export class VoiceLongRunController {
     this.uploadOperation = null;
     this.stopping = false;
     this.pendingAutomaticStopReason = '';
-    this.localGapSequences.clear();
+    this.resetGapProjection(false);
     this.retryAttempt = 0;
     this.lastLocalSequence = -1;
     this.currentRequest = null;
@@ -1287,6 +1334,7 @@ export class VoiceLongRunController {
     if (this.localGapSequences.has(sequence)) return;
     this.localGapSequences.add(sequence);
     this.observer.gap?.(sequence);
+    this.emitGapProjection();
   }
 
   private abortForProfileDeletion(): void {

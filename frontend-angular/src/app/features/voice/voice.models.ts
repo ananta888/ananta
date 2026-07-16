@@ -441,6 +441,7 @@ export interface VoiceLongRunSegment {
   timeline_revision?: number;
   text_state?: VoiceLongRunTextState;
   correction_status?: VoiceLongRunCorrectionStatus;
+  correction_failure_code?: string | null;
   started_at_ms?: number;
   ended_at_ms?: number;
   duration_ms?: number;
@@ -480,6 +481,8 @@ export interface VoiceLongRunState {
   stop_reason?: string | null;
   /** Latest run-wide segment revision, independent of the audio sequence. */
   timeline_revision?: number;
+  /** Monotone Hub-side run version used to reject delayed projections. */
+  version?: number;
 }
 
 export interface VoiceLongRunCreateRequest {
