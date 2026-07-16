@@ -13,6 +13,7 @@ import { visualProcessRoutes } from './features/visual-process/visual-process.ro
 import { diff3Routes } from './features/diff3/diff3.routes';
 import { codeHugRoutes } from './features/codehug/codehug.routes';
 import { JOB_APPLICATION_ROUTES } from './features/caseflow/job-application/job-application.routes';
+import { modelTrainingRoutes } from './features/model-training/model-training.routes';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
@@ -38,6 +39,7 @@ export const routes: Routes = [
       ...systemRoutes,
       ...taskRoutes,
       ...contextAccessPolicyRoutes,
+      ...modelTrainingRoutes,
       ...visualProcessRoutes,
       ...diff3Routes,
       ...codeHugRoutes,

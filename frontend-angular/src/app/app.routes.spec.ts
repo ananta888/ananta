@@ -1,4 +1,5 @@
 import { routes } from './app.routes';
+import { adminGuard } from './guards/admin.guard';
 
 function flattenRoutes(items: typeof routes): any[] {
   return items.flatMap((route: any) => [
@@ -37,5 +38,15 @@ describe('app routes', () => {
     expect(featureRoutes.every((route: any) => typeof route.loadComponent === 'function')).toBe(true);
     expect(featureRoutes.every((route: any) => !route.component)).toBe(true);
     expect(featureRoutes.every((route: any) => route.data?.breadcrumb && route.data?.area)).toBe(true);
+  });
+
+  it('lazy-loads the admin-guarded model training control center below the authenticated shell', () => {
+    const route = flattenRoutes(routes).find((item: any) => item.path === 'model-training');
+
+    expect(route).toBeTruthy();
+    expect(route.component).toBeUndefined();
+    expect(typeof route.loadComponent).toBe('function');
+    expect(route.canActivate).toEqual([adminGuard]);
+    expect(route.data).toEqual({ breadcrumb: 'Modelltraining', area: 'Configure' });
   });
 });

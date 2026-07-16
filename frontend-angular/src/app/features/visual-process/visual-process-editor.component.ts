@@ -18,6 +18,12 @@ import { VpStepInspectorComponent } from './vp-step-inspector.component';
 import { VpWorkflowRunnerService } from './vp-workflow-runner.service';
 import { VisualProcessCanvasComponent } from './visual-process-canvas.component';
 import { VpEditorStateFacade } from './vp-editor-state.facade';
+import { VpModelTrainingOptionsService } from './vp-model-training-options.service';
+import {
+  DatasetSummary,
+  TrainingBaseModel,
+  TrainingGpuProfile,
+} from '../model-training/model-training.models';
 
 import {
   ENCODING_MODES, FALLBACK_KINDS, NODE_H, NODE_W, RAG_CHANNELS,
@@ -40,6 +46,7 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
   private importExport = inject(VpImportExportService);
   private workflowRunner = inject(VpWorkflowRunnerService);
   private editorState = inject(VpEditorStateFacade);
+  private trainingOptions = inject(VpModelTrainingOptionsService);
   private subs = new Subscription();
 
   @ViewChild('bpmnFileInput') bpmnFileInputRef!: ElementRef<HTMLInputElement>;
@@ -56,6 +63,9 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
   savedGraphs = signal<SavedGraphSummary[]>([]);
   modelProfiles = signal<ModelProfileSummary[]>([]);
   fallbackGroups = signal<Record<string, FallbackGroupSummary>>({});
+  trainingDatasets = signal<DatasetSummary[]>([]);
+  trainingProfiles = signal<TrainingGpuProfile[]>([]);
+  trainingBaseModels = signal<TrainingBaseModel[]>([]);
   validationResult = this.editorState.validation;
   dryRunResult = this.workflowRunner.dryRunResult;
   mermaidText = signal<string>('');
@@ -159,6 +169,11 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
         this.modelProfiles.set([]);
         this.fallbackGroups.set({});
       },
+    }));
+    this.subs.add(this.trainingOptions.load().subscribe(options => {
+      this.trainingDatasets.set(options.datasets);
+      this.trainingProfiles.set(options.trainingProfiles);
+      this.trainingBaseModels.set(options.baseModels);
     }));
     if (this.graphId) this.loadSavedGraphById(this.graphId);
   }

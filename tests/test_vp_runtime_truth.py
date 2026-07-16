@@ -10,18 +10,12 @@ Verifies:
 """
 from __future__ import annotations
 
-import pytest
-
-from agent.visual_process.task_kind_registry import (
-    LEGACY_MAP,
-    get_task_kind_info,
-    list_task_kinds,
-)
-from agent.visual_process.policy_hints import _KIND_HINTS as POLICY_HINTS, HINT_LLM_CALL
+from agent.visual_process.models import StepIOContract, VisualProcessGraph, VisualProcessStep
+from agent.visual_process.policy_hints import _KIND_HINTS as POLICY_HINTS
+from agent.visual_process.policy_hints import HINT_LLM_CALL
 from agent.visual_process.step_executor import get_step_executor
-from agent.visual_process.models import VisualProcessGraph, VisualProcessStep, StepIOContract
+from agent.visual_process.task_kind_registry import LEGACY_MAP, get_task_kind_info, list_task_kinds
 from agent.visual_process.validator import GraphValidator
-
 
 _REQUIRED_RT_FIELDS = [
     "implementation_status",
@@ -290,7 +284,7 @@ def test_execution_plan_ml_intern_train_lora_vp_adapter():
     steps = [_step("ml_intern_train_lora", gate=True)]
     plan = executor.execution_plan(steps)
     assert plan[0].execution_mode == "vp_adapter"
-    assert plan[0].backend_service == "MlInternTrainingJobService.train_lora"
+    assert plan[0].backend_service == "MlInternTrainingControlService.create_job"
     assert plan[0].risk_level == "high"
     assert plan[0].requires_approval is True
 
@@ -300,7 +294,7 @@ def test_execution_plan_ml_intern_build_lora_dataset_vp_adapter():
     steps = [_step("ml_intern_build_lora_dataset")]
     plan = executor.execution_plan(steps)
     assert plan[0].execution_mode == "vp_adapter"
-    assert plan[0].backend_service == "MlInternLoraDatasetBuildService.build_dataset"
+    assert plan[0].backend_service == "MlInternDatasetCatalogService + MlInternDatasetRepositoryBridgeService"
     assert plan[0].risk_level == "medium"
     assert plan[0].deterministic is True
 
@@ -357,26 +351,59 @@ def test_vp_adapter_query_rewrite_executes():
     assert result.outputs["rewritten"] != result.outputs.get("original", "")
 
 
-def test_vp_adapter_ml_intern_train_lora_dry_run_executes(tmp_path):
+def test_vp_adapter_ml_intern_train_lora_dry_run_executes(tmp_path, monkeypatch):
+    class ControlStub:
+        @staticmethod
+        def create_job(_principal, payload, *, idempotency_key):
+            assert payload["dataset_id"] == "dataset-vp-dry-run"
+            assert payload["gpu_profile"] == "generic-safe"
+            assert idempotency_key.startswith("vp-lora-")
+            return (
+                {
+                    "id": "job-vp-dry-run",
+                    "job_type": "train_lora",
+                    "status": "queued",
+                    "phase": "queued",
+                },
+                False,
+            )
+
+    monkeypatch.setattr(
+        "agent.services.ml_intern_training_control_service.get_ml_intern_training_control_service",
+        lambda _config: ControlStub(),
+    )
     executor = get_step_executor()
     step = _step(
         "ml_intern_train_lora",
         gate=True,
         metadata={
-            "enabled": True,
             "mode": "dry_run",
             "backend": "mock",
-            "dataset_path": "train.jsonl",
+            "dataset_id": "dataset-vp-dry-run",
+            "training_profile_id": "generic-safe",
             "base_model": "qwen2.5-coder-7b",
-            "dataset_root": str(tmp_path / "datasets"),
-            "artifact_root": str(tmp_path / "artifacts"),
             "require_dataset_validation": False,
             "require_secret_scan": False,
         },
     )
-    result = executor.execute(step, artifacts={}, context={})
+    result = executor.execute(
+        step,
+        artifacts={},
+        context={
+            "visual_process_run_id": "vp-test-run",
+            "ml_intern_training": {
+                "enabled": True,
+                "mode": "dry_run",
+                "backend": "mock",
+                "dataset_root": str(tmp_path / "datasets"),
+                "artifact_root": str(tmp_path / "artifacts"),
+            },
+        },
+    )
     assert result.status == "success"
-    assert result.outputs["training_status"] == "dry_run_completed"
+    assert result.outputs["training_status"] == "queued"
+    assert result.outputs["training_phase"] == "queued"
+    assert result.outputs["job_id"] == "job-vp-dry-run"
     assert result.outputs["job_result"]["job_type"] == "train_lora"
 
 
@@ -385,35 +412,56 @@ def test_vp_adapter_ml_intern_build_lora_dataset_executes(tmp_path):
     step = _step(
         "ml_intern_build_lora_dataset",
         metadata={
-            "dataset_root": str(tmp_path),
-            "output_path": "train.jsonl",
+            "name": "Runtime truth records",
+            "dataset_root": "/deprecated/untrusted/root",
+            "output_path": "deprecated-output.jsonl",
             "format": "instruction",
-            "require_secret_scan": False,
+            "validation_ratio": 0.2,
+            "split_seed": 17,
         },
     )
     result = executor.execute(
         step,
         artifacts={
             "training_examples": [
-                {"instruction": "Erzeuge Todo JSON", "output": '{"tasks":[]}'},
+                {
+                    "instruction": f"Erzeuge Todo JSON Beispiel {index}",
+                    "output": '{"tasks":[]}',
+                }
+                for index in range(6)
             ],
         },
-        context={},
+        context={
+            "visual_process_id": "vp-runtime-truth",
+            "visual_process_run_id": f"run-{tmp_path.name}",
+            "ml_intern_training_principal": {
+                "tenant_id": f"tenant-{tmp_path.name}",
+                "subject": f"owner-{tmp_path.name}",
+            },
+            "ml_intern_training": {
+                "dataset_root": str(tmp_path / "datasets"),
+                "dataset_catalog_root": str(tmp_path / "catalog"),
+            },
+        },
     )
     assert result.status == "success"
-    assert result.outputs["dataset_path"] == "train.jsonl"
-    assert result.outputs["dataset_status"] == "completed"
+    assert result.outputs["dataset_id"]
+    assert result.outputs["dataset_status"] == "validated"
+    assert result.outputs["dataset_url"].endswith(result.outputs["dataset_id"])
+    assert result.outputs["dataset_build_result"]["trainable"] is True
+    assert "dataset_path" not in result.outputs
+    assert "absolute_dataset_path" not in result.outputs
+    assert any("dataset_root" in warning and "output_path" in warning for warning in result.warnings)
 
 
-def test_vp_adapter_ml_intern_train_lora_default_disabled(tmp_path):
+def test_vp_adapter_ml_intern_train_lora_default_disabled():
     executor = get_step_executor()
     step = _step(
         "ml_intern_train_lora",
         metadata={
-            "dataset_path": "train.jsonl",
+            "dataset_id": "dataset-vp-disabled",
+            "training_profile_id": "generic-safe",
             "base_model": "qwen2.5-coder-7b",
-            "dataset_root": str(tmp_path / "datasets"),
-            "artifact_root": str(tmp_path / "artifacts"),
         },
     )
     result = executor.execute(step, artifacts={}, context={})

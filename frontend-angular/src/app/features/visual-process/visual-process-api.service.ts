@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { AgentDirectoryService } from '../../services/agent-directory.service';
+import type { VpDatasetBuildRuntimeView, VpTrainingRuntimeView } from './vp-model-training-contract';
 
 export interface ArtifactRef { name: string; kind: string; required: boolean; description?: string; }
 export interface StepIOContract { inputs: ArtifactRef[]; outputs: ArtifactRef[]; }
@@ -102,6 +103,8 @@ export interface VpRuntimeStepOverlay {
   started_at?: number; finished_at?: number; duration_ms?: number; error?: string; gate?: Record<string, unknown>;
   selected_model_profile_id?: string;
   selected_provider_id?: string; selected_model?: string; fallback_attempts?: unknown[]; llm_call_profile?: unknown[];
+  training?: VpTrainingRuntimeView;
+  datasetBuild?: VpDatasetBuildRuntimeView;
 }
 export interface VpRuntimeOverlay {
   run_id: string; workflow_id: string; process_id?: string; process_version?: string; snapshot_hash?: string;

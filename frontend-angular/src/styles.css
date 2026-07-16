@@ -45,6 +45,7 @@ body.dark-mode {
   --surface-raised: #111827;
   --surface-soft: #0b1222;
   --tone-technical-bg: #111827;
+  --tone-success-text: #34d399;
 }
 
 html, body {
@@ -199,7 +200,7 @@ button.btn-large, .btn-large {
 
 .muted { color: var(--muted); }
 .danger { color: #f87171; }
-.success { color: #34d399; }
+.success { color: var(--tone-success-text); }
 .warning { color: var(--warning); }
 .bg-danger { background-color: #f87171 !important; }
 .bg-success { background-color: #34d399 !important; }
@@ -835,6 +836,10 @@ body.dark-mode .progress-bar {
   border-radius: 8px;
   padding: 10px 12px;
   background: var(--card-bg);
+}
+
+.shared-notice .muted {
+  color: var(--fg);
 }
 
 .shared-notice.notice-success {

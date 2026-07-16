@@ -10,6 +10,7 @@ import { VpCanvasInteractionService } from './vp-canvas-interaction.service';
 import { FALLBACK_KINDS, nodeKindColor } from './vp-editor-config';
 import { VpImportExportService } from './vp-import-export.service';
 import { VpWorkflowRunnerService } from './vp-workflow-runner.service';
+import { VpModelTrainingOptionsService } from './vp-model-training-options.service';
 
 beforeAll(async () => {
   await ɵresolveComponentResources(resource =>
@@ -64,6 +65,12 @@ describe('VisualProcessEditorComponent (FSR-T015 acceptance)', () => {
         VpWorkflowRunnerService,
         VpCanvasInteractionService,
         VpImportExportService,
+        {
+          provide: VpModelTrainingOptionsService,
+          useValue: {
+            load: vi.fn(() => of({ hubAvailable: true, datasets: [], trainingProfiles: [], baseModels: [] })),
+          },
+        },
       ],
     }).compileComponents();
   });

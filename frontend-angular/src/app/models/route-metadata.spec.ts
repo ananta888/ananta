@@ -35,7 +35,17 @@ describe('route metadata', () => {
     const userPaths = buildNavGroups('user', 'advanced').flatMap(group => group.items).map(item => item.path);
 
     expect(userPaths).not.toContain('/audit-log');
+    expect(userPaths).not.toContain('/model-training');
     expect(userPaths).toContain('/settings');
+  });
+
+  it('exposes model training only to admins in advanced navigation', () => {
+    const adminAdvanced = buildNavGroups('admin', 'advanced').flatMap(group => group.items).map(item => item.path);
+    const adminSimple = buildNavGroups('admin', 'simple').flatMap(group => group.items).map(item => item.path);
+
+    expect(adminAdvanced).toContain('/model-training');
+    expect(adminSimple).not.toContain('/model-training');
+    expect(APP_ROUTE_META['model-training']).toMatchObject({ adminOnly: true, expertOnly: true, area: 'Configure' });
   });
 
   it('shows the workflow and blueprint config workbenches next to the config graph in advanced navigation', () => {

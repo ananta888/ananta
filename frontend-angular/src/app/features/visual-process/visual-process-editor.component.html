@@ -143,8 +143,11 @@
 
     <app-vp-step-inspector
       [graph]="graph" [selectedId]="selectedId"
+      [runtimeOverlay]="runtimeOverlay()"
       [taskKindList]="taskKindList" [skillProfiles]="skillProfiles"
       [modelProfiles]="modelProfiles" [fallbackGroups]="fallbackGroups"
+      [trainingDatasets]="trainingDatasets()" [trainingProfiles]="trainingProfiles()"
+      [trainingBaseModels]="trainingBaseModels()"
       [artifactKinds]="artifactKinds" [edgeKinds]="edgeKinds"
       [encodingModes]="encodingModes" [ragChannels]="ragChannels"
       (changed)="isDirty.set(true)"

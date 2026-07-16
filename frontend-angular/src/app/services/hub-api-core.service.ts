@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpEvent, HttpHeaders, HttpResponse } from '@angular/common/http';
 import { Observable, map, retry, timeout, timer } from 'rxjs';
 import { AgentDirectoryService } from './agent-directory.service';
 import { UserAuthService } from './user-auth.service';
@@ -15,6 +15,10 @@ export class HubApiCoreService {
   readonly timeoutMs = 15000;
   readonly retryCount = 2;
   private cache = new Map<string, { ts: number; data: any }>();
+
+  currentUserToken(): string | null {
+    return this.userAuth.token;
+  }
 
   getExponentialBackoff(initialDelay: number = 2000, maxDelay: number = 60000) {
     return {
@@ -64,6 +68,37 @@ export class HubApiCoreService {
       headers,
     }).pipe(timeout(options.timeoutMs ?? this.timeoutMs));
     return this.unwrapResponse(call);
+  }
+
+  requestEvents<T>(
+    method: 'POST' | 'PUT' | 'PATCH',
+    url: string,
+    baseUrl: string,
+    options: {
+      body?: unknown;
+      token?: string;
+      headers?: Record<string, string>;
+      timeoutMs?: number;
+    } = {},
+  ): Observable<HttpEvent<T>> {
+    let headers = this.getHeaders(baseUrl, options.token).headers;
+    for (const [name, value] of Object.entries(options.headers || {})) {
+      headers = headers.set(name, value);
+    }
+    return this.http.request<T>(method, url, {
+      body: options.body,
+      headers,
+      observe: 'events',
+      reportProgress: true,
+    }).pipe(timeout(options.timeoutMs ?? this.timeoutMs));
+  }
+
+  requestBlob(url: string, baseUrl: string, timeoutMs?: number): Observable<HttpResponse<Blob>> {
+    return this.http.get(url, {
+      ...this.getHeaders(baseUrl),
+      observe: 'response',
+      responseType: 'blob',
+    }).pipe(timeout(timeoutMs ?? this.timeoutMs));
   }
 
   unwrapResponse<T>(obs: Observable<T>): Observable<T> {

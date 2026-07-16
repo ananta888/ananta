@@ -2,6 +2,12 @@ import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, Signal
 import { FormsModule } from '@angular/forms';
 
 import {
+  DatasetSummary,
+  TrainingBaseModel,
+  TrainingGpuProfile,
+} from '../model-training/model-training.models';
+
+import {
   FallbackGroupSummary,
   ModelProfileSummary,
   ModelRoutingConfig,
@@ -12,6 +18,30 @@ import {
   VpStep,
   VpRuntimeOverlay,
 } from './visual-process-api.service';
+import {
+  VpDatasetBuildRuntimeView,
+  VpTrainingRuntimeView,
+  extractVpDatasetBuildRuntime,
+  extractVpTrainingRuntime,
+  stringifyVpRuntimeResult,
+} from './vp-model-training-contract';
+
+interface LegacyTrainingField {
+  key: string;
+  value: unknown;
+}
+
+const LEGACY_TRAINING_FIELDS = [
+  'dataset_path', 'datasetPath', 'dataset_root', 'datasetRoot',
+  'source_paths', 'sourcePaths', 'output_path', 'outputPath',
+  'artifact_root', 'artifactRoot', 'gpu_profile', 'output_dir', 'outputDir',
+  'enabled', 'training_config', 'trainingConfig',
+];
+
+const LEGACY_DATASET_BUILD_FIELDS = [
+  'dataset_path', 'datasetPath', 'dataset_root', 'datasetRoot',
+  'source_paths', 'sourcePaths', 'output_path', 'outputPath',
+];
 
 @Component({
   selector: 'app-vp-step-inspector',
@@ -30,6 +60,9 @@ export class VpStepInspectorComponent {
   @Input({ required: true }) skillProfiles!: Signal<SkillProfile[]>;
   @Input({ required: true }) modelProfiles!: Signal<ModelProfileSummary[]>;
   @Input({ required: true }) fallbackGroups!: Signal<Record<string, FallbackGroupSummary>>;
+  @Input() trainingDatasets: readonly DatasetSummary[] = [];
+  @Input() trainingProfiles: readonly TrainingGpuProfile[] = [];
+  @Input() trainingBaseModels: readonly TrainingBaseModel[] = [];
   @Input({ required: true }) artifactKinds: string[] = [];
   @Input({ required: true }) edgeKinds: string[] = [];
   @Input({ required: true }) encodingModes: string[] = [];
@@ -66,6 +99,18 @@ export class VpStepInspectorComponent {
     return (raw && typeof raw === 'object' ? raw : {}) as ModelRoutingConfig;
   });
   readonly fallbackGroupIds = computed(() => Object.keys(this.fallbackGroups()));
+  readonly legacyTrainingFields = computed<LegacyTrainingField[]>(() => {
+    const metadata = this.selectedStep()?.metadata ?? {};
+    return LEGACY_TRAINING_FIELDS
+      .filter(key => Object.prototype.hasOwnProperty.call(metadata, key))
+      .map(key => ({ key, value: metadata[key] }));
+  });
+  readonly legacyDatasetBuildFields = computed<LegacyTrainingField[]>(() => {
+    const metadata = this.selectedStep()?.metadata ?? {};
+    return LEGACY_DATASET_BUILD_FIELDS
+      .filter(key => Object.prototype.hasOwnProperty.call(metadata, key))
+      .map(key => ({ key, value: metadata[key] }));
+  });
 
   kindOptionSuffix(kind: TaskKindInfo): string {
     if (kind.implementation_status === 'experimental') return ' [exp]';
@@ -107,6 +152,55 @@ export class VpStepInspectorComponent {
   setStepRole(value: string): void { this.mutateSelectedStep(step => step.role = value); }
   setStepSkillProfile(value: string): void { this.mutateSelectedStep(step => step.agent_skill_profile_id = value); }
   setStepGate(value: boolean): void { this.mutateSelectedStep(step => step.gate = value); }
+
+  trainingDatasetId(): string {
+    return String(this.stepMeta('dataset_id') ?? this.stepMeta('datasetId') ?? '').trim();
+  }
+
+  trainingProfileId(): string {
+    return String(
+      this.stepMeta('training_profile_id')
+      ?? this.stepMeta('trainingProfileId')
+      ?? this.stepMeta('training_profile')
+      ?? '',
+    ).trim();
+  }
+
+  trainingBaseModelId(): string {
+    return String(
+      this.stepMeta('base_model')
+      ?? this.stepMeta('base_model_id')
+      ?? this.stepMeta('baseModel')
+      ?? '',
+    ).trim();
+  }
+
+  hasTrainingDataset(id: string): boolean { return this.trainingDatasets.some(dataset => dataset.id === id); }
+  hasTrainingProfile(id: string): boolean { return this.trainingProfiles.some(profile => profile.id === id); }
+  hasTrainingBaseModel(id: string): boolean { return this.trainingBaseModels.some(model => model.id === id); }
+
+  trainingRuntime(stepId: string): VpTrainingRuntimeView | null {
+    const runtime = this.runtimeOverlay?.steps?.[stepId];
+    return runtime?.training ?? extractVpTrainingRuntime(runtime);
+  }
+
+  datasetBuildRuntime(stepId: string): VpDatasetBuildRuntimeView | null {
+    const runtime = this.runtimeOverlay?.steps?.[stepId];
+    return runtime?.datasetBuild ?? extractVpDatasetBuildRuntime(runtime);
+  }
+
+  trainingDatasetUrl(datasetId = this.trainingDatasetId()): string {
+    return datasetId
+      ? `/model-training?tab=datasets&dataset_id=${encodeURIComponent(datasetId)}`
+      : '/model-training?tab=datasets';
+  }
+
+  formatTrainingResult(value: unknown): string { return stringifyVpRuntimeResult(value); }
+
+  formatLegacyValue(value: unknown): string {
+    if (typeof value === 'string') return value;
+    try { return JSON.stringify(value, null, 2); } catch { return String(value); }
+  }
 
   setStepRoutingField(key: keyof ModelRoutingConfig, value: unknown): void {
     this.mutateSelectedStep(step => {

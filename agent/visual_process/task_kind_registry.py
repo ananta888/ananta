@@ -386,25 +386,27 @@ _KIND_INFO: dict[str, TaskKindInfo] = {
     "ml_intern_build_lora_dataset": {
         "id": "ml_intern_build_lora_dataset", "label": "ML-Intern: LoRA Dataset", "group": "ml", "dispatch_capable": False,
         "description": (
-            "Hub-seitiger Visual-Process-Adapter fuer MlInternLoraDatasetBuildService.build_dataset. "
-            "Normalisiert kuratierte Beispiele/JSONL-Quellen in validiertes Instruction- oder Chat-JSONL."
+            "Hub-seitiger Visual-Process-Adapter fuer den bounded Dataset-Katalog und dessen SQL-Projektion. "
+            "Kanonisch werden Dataset-ID oder Upstream-Records verwendet; relative Legacy-Quellen laufen nur "
+            "durch den quarantinierten Kompatibilitaetsadapter."
         ),
         "implementation_status": "production", "implementation_state": "wired_and_executable",
-        "backend_service": "MlInternLoraDatasetBuildService.build_dataset",
+        "backend_service": "MlInternDatasetCatalogService + MlInternDatasetRepositoryBridgeService",
         "deterministic": True, "uses_llm": False, "uses_network": False,
-        "side_effects": ["read_workspace", "write_files"], "risk_level": "medium",
+        "side_effects": ["read_workspace", "write_files", "write_database"], "risk_level": "medium",
         "legacy_aliases": [], "requires_approval": False,
     },
     "ml_intern_train_lora": {
         "id": "ml_intern_train_lora", "label": "ML-Intern: LoRA Training", "group": "ml", "dispatch_capable": False,
         "description": (
-            "Hub-seitiger Visual-Process-Adapter fuer MlInternTrainingJobService.train_lora. "
-            "Default dry_run; live nutzt agent.ml_intern_training_runner mit unsloth/peft_trl."
+            "Materialisiert aus Dataset-ID und Trainingsprofil denselben persistenten Hub-Jobvertrag wie das "
+            "Modelltraining-Control-Center. Legacy-Datasetpfade werden nur ueber den abgesicherten Dataset-Katalog "
+            "adaptiert; Live-Ausfuehrung bleibt an den LoRA-Worker delegiert."
         ),
         "implementation_status": "production", "implementation_state": "wired_and_executable",
-        "backend_service": "MlInternTrainingJobService.train_lora",
-        "deterministic": False, "uses_llm": False, "uses_network": False,
-        "side_effects": ["write_files", "shell_execution"], "risk_level": "high",
+        "backend_service": "MlInternTrainingControlService.create_job",
+        "deterministic": False, "uses_llm": False, "uses_network": True,
+        "side_effects": ["write_database", "write_files", "network_egress"], "risk_level": "high",
         "legacy_aliases": [], "requires_approval": True,
     },
 

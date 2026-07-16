@@ -8,6 +8,7 @@ import {
   WorkflowStatus,
   VpRuntimeOverlay,
 } from './visual-process-api.service';
+import { extractVpDatasetBuildRuntime, extractVpTrainingRuntime } from './vp-model-training-contract';
 
 const POLL_INTERVAL_MS = 3000;
 const POLL_MAX_MS = 10 * 60 * 1000;
@@ -144,6 +145,8 @@ export class VpWorkflowRunnerService {
       started_at: item.started_at, finished_at: item.finished_at, duration_ms: item.duration_ms, error: item.error,
       gate: item.gate, selected_model_profile_id: item.selected_model_profile_id, selected_provider_id: item.selected_provider_id,
       selected_model: item.selected_model, fallback_attempts: item.fallback_attempts ?? [], llm_call_profile: item.llm_call_profile ?? [],
+      training: extractVpTrainingRuntime(item) ?? undefined,
+      datasetBuild: extractVpDatasetBuildRuntime(item) ?? undefined,
     }]));
     this.runtimeOverlay.set({
       run_id: String(status['run_id'] ?? status.workflow_id), workflow_id: status.workflow_id,

@@ -62,6 +62,7 @@ export const APP_ROUTE_META: Record<string, AppRouteMeta> = {
   'effective-workflow': { label: 'Effective Workflow', area: 'Configure', navGroup: 'Konfiguration', navOrder: 36.5, expertOnly: true },
   'config-graph': { label: 'Konfig-Graph', area: 'Configure', navGroup: 'Konfiguration', navOrder: 37, expertOnly: true },
   'cli-backends': { label: 'CLI-Backends', area: 'Configure', navGroup: 'Konfiguration', navOrder: 37.8, expertOnly: true },
+  'model-training': { label: 'Modelltraining', area: 'Configure', navGroup: 'Konfiguration', navOrder: 38, adminOnly: true, expertOnly: true },
   'blueprint-config': { label: 'Blueprint-Konfig', area: 'Configure', navGroup: 'Konfiguration', navOrder: 37.5, expertOnly: true },
   codehug: { label: 'CodeHug', area: 'Operate', navGroup: 'Arbeiten', navOrder: 5, simpleNav: true },
   diff3: { label: 'Three-Way Diff', area: 'Operate', navGroup: 'Betrieb', navOrder: 73, expertOnly: true },

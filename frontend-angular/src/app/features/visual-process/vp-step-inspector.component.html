@@ -6,6 +6,23 @@
         <div>Status: {{ runtime.status }}</div><div>Start: {{ runtime.started_at || '–' }}</div><div>Ende: {{ runtime.finished_at || '–' }}</div>
         <div>Dauer: {{ runtime.duration_ms || '–' }} ms</div><div>Provider: {{ runtime.selected_provider_id || '–' }}</div><div>Modell: {{ runtime.selected_model || '–' }}</div>
         @if(runtime.error){<div class="err">{{runtime.error}}</div>}
+        @if (step.kind === 'ml_intern_train_lora' && trainingRuntime(step.id); as training) {
+          <div class="vpe-meta-section" data-testid="vp-training-runtime">
+            <div class="vpe-panel-title">Lokaler Trainingsjob</div>
+            <div><span class="vpe-rt-key">Job-ID:</span> {{ training.jobId }}</div>
+            <div><span class="vpe-rt-key">Trainingsstatus:</span> {{ training.status }}</div>
+            <div><span class="vpe-rt-key">Phase:</span> {{ training.phase }}</div>
+            <div><span class="vpe-rt-key">Terminal:</span> {{ training.terminal ? 'ja' : 'nein' }}</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <a class="vpe-btn-xs" [href]="training.jobUrl">Job im Control Center</a>
+              @if (training.datasetUrl) { <a class="vpe-btn-xs" [href]="training.datasetUrl">Dataset anzeigen</a> }
+            </div>
+            @if (training.terminal) {
+              <div class="vpe-rt-key">Terminales Ergebnis</div>
+              <pre class="vpe-code">{{ formatTrainingResult(training.terminalResult) }}</pre>
+            }
+          </div>
+        }
         <button (click)="traceRequested.emit({runId:runtimeOverlay!.run_id,stepId:step.id})">Trace anzeigen</button>
       }
     </div>
@@ -169,21 +186,29 @@
 
     <!-- Kind-specific meta fields -->
 
-    <!-- ml_intern_build_lora_dataset: curated examples/files -> validated JSONL -->
+    <!-- ml_intern_build_lora_dataset: bounded upstream records -> Hub dataset catalog -->
     @if (selectedStep()!.kind === 'ml_intern_build_lora_dataset') {
       <div class="vpe-meta-section">
-        <div class="vpe-info-note">LoRA-Datasets entstehen aus kuratierten Beispielen oder JSON/JSONL-Quellen. Der Step normalisiert, dedupliziert und validiert; er erzeugt keine neuen Inhalte per LLM.</div>
-        <label class="vpe-label">Dataset-Root
-          <input class="vpe-input" [ngModel]="stepMeta('dataset_root') || 'data/training/lora'"
-                 (ngModelChange)="setStepMeta('dataset_root', $event)" />
+        <div class="vpe-info-note">Dieser Hub-Step übernimmt ausschließlich eine Dataset-ID oder bounded Records aus einem Upstream-Artefakt (<code>records</code>, <code>training_examples</code>, <code>examples</code>). Erstellung, Split, Secret-Scan und Validierung laufen über denselben Dataset-Katalog wie das Modelltraining-Control-Center.</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <a class="vpe-btn-xs" href="/model-training?tab=datasets">Dataset-Control-Center</a>
+          @if (trainingDatasetId()) { <a class="vpe-btn-xs" [href]="trainingDatasetUrl()">Gewähltes Dataset öffnen</a> }
+        </div>
+        <label class="vpe-label">Vorhandenes Dataset (optional)
+          <select class="vpe-input" data-testid="vp-dataset-build-source" [ngModel]="trainingDatasetId()"
+                  (ngModelChange)="setStepMeta('dataset_id', $event)">
+            <option value="">— Upstream-Records neu katalogisieren —</option>
+            @if (trainingDatasetId() && !hasTrainingDataset(trainingDatasetId())) {
+              <option [value]="trainingDatasetId()">{{ trainingDatasetId() }} (nicht im aktuellen Katalog)</option>
+            }
+            @for (dataset of trainingDatasets; track dataset.id) {
+              <option [value]="dataset.id">{{ dataset.name }} · {{ dataset.id }}</option>
+            }
+          </select>
         </label>
-        <label class="vpe-label">Quell-Dateien
-          <input class="vpe-input" [ngModel]="stepMeta('source_paths') || ''"
-                 (ngModelChange)="setStepMeta('source_paths', $event)" placeholder="curated/examples.jsonl oder JSON-Liste" />
-        </label>
-        <label class="vpe-label">Output JSONL
-          <input class="vpe-input" [ngModel]="stepMeta('output_path') || 'vp-train.jsonl'"
-                 (ngModelChange)="setStepMeta('output_path', $event)" />
+        <label class="vpe-label">Name für neues Dataset
+          <input class="vpe-input" [ngModel]="stepMeta('name') || selectedStep()!.label"
+                 (ngModelChange)="setStepMeta('name', $event)" maxlength="160" />
         </label>
         <label class="vpe-label">Format
           <select class="vpe-input" [ngModel]="stepMeta('format') || 'instruction'"
@@ -192,40 +217,83 @@
             <option value="chat">chat</option>
           </select>
         </label>
-        <label class="vpe-label">Max Beispiele
-          <input class="vpe-input" type="number" min="1"
-                 [ngModel]="stepMeta('max_examples') ?? 1000"
-                 (ngModelChange)="setStepMeta('max_examples', +$event)" />
+        <label class="vpe-label">Validation-Anteil
+          <input class="vpe-input" type="number" min="0.05" max="0.5" step="0.01"
+                 [ngModel]="stepMeta('validation_ratio') ?? 0.1"
+                 (ngModelChange)="setStepMeta('validation_ratio', +$event)" />
         </label>
-        <label class="vpe-label">Min Instruction-Zeichen
-          <input class="vpe-input" type="number" min="1"
-                 [ngModel]="stepMeta('min_instruction_chars') ?? 4"
-                 (ngModelChange)="setStepMeta('min_instruction_chars', +$event)" />
+        <label class="vpe-label">Split-Seed
+          <input class="vpe-input" type="number" min="0" max="2147483647" step="1"
+                 [ngModel]="stepMeta('split_seed') ?? 42"
+                 (ngModelChange)="setStepMeta('split_seed', +$event)" />
         </label>
-        <label class="vpe-label">Min Output-Zeichen
-          <input class="vpe-input" type="number" min="1"
-                 [ngModel]="stepMeta('min_output_chars') ?? 1"
-                 (ngModelChange)="setStepMeta('min_output_chars', +$event)" />
+        <label class="vpe-label">Zweck
+          <input class="vpe-input" [ngModel]="stepMeta('purpose') || ''"
+                 (ngModelChange)="setStepMeta('purpose', $event)" maxlength="512" />
         </label>
-        <label class="vpe-label vpe-checkbox">
-          <input type="checkbox" [ngModel]="stepMeta('require_secret_scan') !== false"
-                 (ngModelChange)="setStepMeta('require_secret_scan', $event)" />
-          Secret-Scan erzwingen
+        <label class="vpe-label">Lizenz
+          <input class="vpe-input" [ngModel]="stepMeta('license') || ''"
+                 (ngModelChange)="setStepMeta('license', $event)" maxlength="512" />
         </label>
+        @if (trainingDatasets.length === 0) {
+          <div class="vpe-info-note">Der Dataset-Katalog ist leer oder der Hub ist nicht erreichbar. Ein Upstream-Step kann weiterhin bounded Records liefern; freie Serverpfade werden nicht erfasst.</div>
+        }
+        @if (legacyDatasetBuildFields().length > 0) {
+          <div class="vpe-warn-note" data-testid="vp-dataset-build-legacy">
+            <strong>Deprecated und nur lesbar:</strong> Legacy-Pfade werden nicht als neuer Vertrag gespeichert oder direkt ausgeführt. Eine einzelne relative Quelle darf ausschließlich über den Hub-Quarantäne-Adapter migriert werden; Root- und Output-Felder werden ignoriert.
+            @for (field of legacyDatasetBuildFields(); track field.key) {
+              <div><code>{{ field.key }}</code>: <code>{{ formatLegacyValue(field.value) }}</code></div>
+            }
+          </div>
+        }
+        @if (datasetBuildRuntime(selectedStep()!.id); as datasetBuild) {
+          <div class="vpe-rt-panel" data-testid="vp-dataset-build-runtime">
+            <div class="vpe-panel-title">Katalogisiertes Dataset</div>
+            <div><span class="vpe-rt-key">Dataset-ID:</span> {{ datasetBuild.datasetId }}</div>
+            <div><span class="vpe-rt-key">Status:</span> {{ datasetBuild.status }} / {{ datasetBuild.validationStatus || 'unbekannt' }}</div>
+            <div><span class="vpe-rt-key">Train / Validation:</span> {{ datasetBuild.trainRecordCount }} / {{ datasetBuild.validationRecordCount }}</div>
+            @if (datasetBuild.sourceMode) { <div><span class="vpe-rt-key">Quelle:</span> {{ datasetBuild.sourceMode }}</div> }
+            <a class="vpe-btn-xs" [href]="datasetBuild.datasetUrl">Dataset öffnen</a>
+          </div>
+        }
       </div>
     }
 
     <!-- ml_intern_train_lora: Hub-owned LoRA/QLoRA training job -->
     @if (selectedStep()!.kind === 'ml_intern_train_lora') {
       <div class="vpe-meta-section">
-        <div class="vpe-warn-note">⚠ LoRA-Training schreibt Artefakte und kann GPU/Shell auslösen. Dry-run ist der sichere Standard; Live-Läufe sollten gate=true nutzen.</div>
-        <label class="vpe-label">Dataset-Pfad
-          <input class="vpe-input" [ngModel]="stepMeta('dataset_path') || ''"
-                 (ngModelChange)="setStepMeta('dataset_path', $event)" placeholder="train.jsonl relativ zu dataset_root" />
+        <div class="vpe-warn-note">⚠ LoRA-Training wird als Hub-eigener Job ausgeführt und schreibt Datenbank-/Adapter-Artefakte. Dry-run ist der sichere Standard; Live-Läufe sollten gate=true nutzen.</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <a class="vpe-btn-xs" href="/model-training">Training-Control-Center</a>
+          <a class="vpe-btn-xs" [href]="trainingDatasetUrl()">Dataset-Control-Center</a>
+        </div>
+        <label class="vpe-label">Dataset-ID
+          <select class="vpe-input" data-testid="vp-training-dataset" [ngModel]="trainingDatasetId()"
+                  (ngModelChange)="setStepMeta('dataset_id', $event)">
+            <option value="">— Dataset wählen —</option>
+            @if (trainingDatasetId() && !hasTrainingDataset(trainingDatasetId())) {
+              <option [value]="trainingDatasetId()">{{ trainingDatasetId() }} (nicht im aktuellen Katalog)</option>
+            }
+            @for (dataset of trainingDatasets; track dataset.id) {
+              <option [value]="dataset.id" [disabled]="dataset.trainable === false">
+                {{ dataset.name }} · {{ dataset.id }} · {{ dataset.train_record_count }}/{{ dataset.validation_record_count }}
+              </option>
+            }
+          </select>
         </label>
         <label class="vpe-label">Basismodell
-          <input class="vpe-input" [ngModel]="stepMeta('base_model') || 'qwen2.5-coder-7b'"
-                 (ngModelChange)="setStepMeta('base_model', $event)" />
+          <select class="vpe-input" [ngModel]="trainingBaseModelId()"
+                  (ngModelChange)="setStepMeta('base_model', $event)">
+            <option value="">— lokales Basismodell wählen —</option>
+            @if (trainingBaseModelId() && !hasTrainingBaseModel(trainingBaseModelId())) {
+              <option [value]="trainingBaseModelId()">{{ trainingBaseModelId() }} (nicht in aktuellen Capabilities)</option>
+            }
+            @for (model of trainingBaseModels; track model.id) {
+              <option [value]="model.id" [disabled]="model.available === false">
+                {{ model.label || model.id }} · {{ model.local ? 'lokal' : 'nicht lokal' }}
+              </option>
+            }
+          </select>
         </label>
         <label class="vpe-label">Modus
           <select class="vpe-input" [ngModel]="stepMeta('mode') || 'dry_run'"
@@ -242,21 +310,26 @@
             <option value="peft_trl">peft_trl</option>
           </select>
         </label>
-        <label class="vpe-label">GPU-Profil
-          <select class="vpe-input" [ngModel]="stepMeta('gpu_profile') || 'rtx3080-safe'"
-                  (ngModelChange)="setStepMeta('gpu_profile', $event)">
-            <option value="rtx3080-safe">rtx3080-safe</option>
-            <option value="generic-safe">generic-safe</option>
-            <option value="none">none</option>
+        <label class="vpe-label">Trainingsprofil
+          <select class="vpe-input" data-testid="vp-training-profile" [ngModel]="trainingProfileId()"
+                  (ngModelChange)="setStepMeta('training_profile_id', $event)">
+            <option value="">— begrenztes Profil wählen —</option>
+            @if (trainingProfileId() && !hasTrainingProfile(trainingProfileId())) {
+              <option [value]="trainingProfileId()">{{ trainingProfileId() }} (nicht in aktuellen Capabilities)</option>
+            }
+            @for (profile of trainingProfiles; track profile.id) {
+              <option [value]="profile.id" [disabled]="!profile.available">
+                {{ profile.label || profile.id }}{{ profile.available ? '' : ' · nicht verfügbar' }}
+              </option>
+            }
           </select>
         </label>
-        <label class="vpe-label">Dataset-Root
-          <input class="vpe-input" [ngModel]="stepMeta('dataset_root') || 'data/training/lora'"
-                 (ngModelChange)="setStepMeta('dataset_root', $event)" />
-        </label>
-        <label class="vpe-label">Artifact-Root
-          <input class="vpe-input" [ngModel]="stepMeta('artifact_root') || 'artifacts/lora'"
-                 (ngModelChange)="setStepMeta('artifact_root', $event)" />
+        <label class="vpe-label">Methode
+          <select class="vpe-input" [ngModel]="stepMeta('method') || 'qlora'"
+                  (ngModelChange)="setStepMeta('method', $event)">
+            <option value="qlora">QLoRA</option>
+            <option value="lora">LoRA</option>
+          </select>
         </label>
         <label class="vpe-label">Max Steps
           <input class="vpe-input" type="number" min="1"
@@ -268,14 +341,9 @@
                  [ngModel]="stepMeta('lora_rank') ?? 16"
                  (ngModelChange)="setStepMeta('lora_rank', +$event)" />
         </label>
-        <label class="vpe-label">Output Dir
-          <input class="vpe-input" [ngModel]="stepMeta('output_dir') || 'vp-lora-adapter'"
-                 (ngModelChange)="setStepMeta('output_dir', $event)" />
-        </label>
-        <label class="vpe-label vpe-checkbox">
-          <input type="checkbox" [ngModel]="!!stepMeta('enabled')"
-                 (ngModelChange)="setStepMeta('enabled', $event)" />
-          Training-Service für diesen Step aktivieren
+        <label class="vpe-label">Adapter-Name
+          <input class="vpe-input" [ngModel]="stepMeta('output_name') || 'vp-lora-adapter'"
+                 (ngModelChange)="setStepMeta('output_name', $event)" />
         </label>
         <label class="vpe-label vpe-checkbox">
           <input type="checkbox" [ngModel]="stepMeta('require_dataset_validation') !== false"
@@ -287,6 +355,32 @@
                  (ngModelChange)="setStepMeta('require_secret_scan', $event)" />
           Secret-Scan erzwingen
         </label>
+        @if (trainingDatasets.length === 0 || trainingProfiles.length === 0) {
+          <div class="vpe-info-note">Dataset-Katalog oder Trainings-Capabilities sind derzeit leer bzw. der Hub ist nicht erreichbar. IDs werden nicht als freie Serverpfade erfasst.</div>
+        }
+        @if (legacyTrainingFields().length > 0) {
+          <div class="vpe-warn-note" data-testid="vp-training-legacy">
+            <strong>Deprecated:</strong> Diese Legacy-Felder bleiben zur Migration lesbar, werden hier aber nicht mehr bearbeitet. Verwende Dataset-ID, Trainingsprofil und Adapter-Name.
+            @for (field of legacyTrainingFields(); track field.key) {
+              <div><code>{{ field.key }}</code>: <code>{{ formatLegacyValue(field.value) }}</code></div>
+            }
+          </div>
+        }
+        @if (trainingRuntime(selectedStep()!.id); as training) {
+          <div class="vpe-rt-panel" data-testid="vp-training-runtime">
+            <div class="vpe-panel-title">Letzter Trainingsjob</div>
+            <div><span class="vpe-rt-key">Job-ID:</span> {{ training.jobId }}</div>
+            <div><span class="vpe-rt-key">Status / Phase:</span> {{ training.status }} / {{ training.phase }}</div>
+            <div><span class="vpe-rt-key">Terminal:</span> {{ training.terminal ? 'ja' : 'nein' }}</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <a class="vpe-btn-xs" [href]="training.jobUrl">Job öffnen</a>
+              @if (training.datasetUrl) { <a class="vpe-btn-xs" [href]="training.datasetUrl">Dataset öffnen</a> }
+            </div>
+            @if (training.terminal) {
+              <pre class="vpe-code">{{ formatTrainingResult(training.terminalResult) }}</pre>
+            }
+          </div>
+        }
       </div>
     }
 
