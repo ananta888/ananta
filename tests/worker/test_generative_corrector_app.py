@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -11,6 +12,9 @@ from worker.runtime.generative_corrector_app import CORRECTOR_ENDPOINT, create_a
 from worker.runtime.generative_corrector_engine import (
     EmbeddedTransformersGenerativeCorrectorEngine,
     GenerativeCorrectorEngineResult,
+)
+from worker.runtime.generative_corrector_provider_engine import (
+    GenerativeCorrectorProviderError,
 )
 
 TOKEN = "corrector-secret-at-least-24-characters"
@@ -164,6 +168,65 @@ def test_worker_rejects_unknown_models_large_rewrites_and_changed_numbers() -> N
     assert large.json["reason_code"] == "edit_ratio_exceeded"
     assert number.status_code == 422
     assert number.json["reason_code"] == "protected_token_changed"
+
+
+@pytest.mark.parametrize(
+    ("failure", "reason_code", "status_code"),
+    [
+        (
+            GenerativeCorrectorProviderError(
+                "corrector_provider_timeout",
+                "private provider timeout detail",
+            ),
+            "corrector_provider_timeout",
+            504,
+        ),
+        (
+            GenerativeCorrectorProviderError(
+                "corrector_provider_output_invalid",
+                "private model output detail",
+            ),
+            "corrector_provider_output_invalid",
+            422,
+        ),
+        (
+            RuntimeError("private engine detail with hallo welt"),
+            "corrector_engine_failed",
+            503,
+        ),
+    ],
+)
+def test_worker_logs_content_free_correlated_failure_metadata(
+    failure: Exception,
+    reason_code: str,
+    status_code: int,
+) -> None:
+    with patch("worker.runtime.generative_corrector_app._log.warning") as warning:
+        response = _client(_Engine(failure)).post(
+            CORRECTOR_ENDPOINT,
+            json=_payload(),
+            headers=_headers(),
+        )
+
+    assert response.status_code == status_code
+    assert response.json["reason_code"] == reason_code
+    warning.assert_called_once()
+    args, kwargs = warning.call_args
+    rendered = args[0] % args[1:]
+    assert "request_id=request-1" in rendered
+    assert "task_id=task-1" in rendered
+    assert "model_id=gemma-2b-it" in rendered
+    assert f"reason_code={reason_code}" in rendered
+    assert kwargs["extra"] == {
+        "event_name": "generative_corrector_worker_failure",
+        "voice_request_id": "request-1",
+        "voice_task_id": "task-1",
+        "voice_model_id": "gemma-2b-it",
+        "voice_reason_code": reason_code,
+        "voice_error_type": type(failure).__name__,
+    }
+    assert "hallo welt" not in rendered
+    assert "private" not in rendered
 
 
 def test_embedded_engine_selects_only_a_catalog_model_and_parses_strict_json(tmp_path: Path) -> None:

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import threading
 import time
 from concurrent.futures import Future, ThreadPoolExecutor, wait
@@ -38,7 +39,16 @@ class VoiceLiveCorrectionPreparation:
 
 
 class VoiceLiveCorrectionExecutionError(RuntimeError):
-    pass
+    """Terminal correction failure with a public, content-free reason code."""
+
+    _REASON_CODE = re.compile(r"^[a-z][a-z0-9_]{0,119}$")
+
+    def __init__(self, reason_code: str) -> None:
+        normalized = str(reason_code or "").strip().lower()
+        if not self._REASON_CODE.fullmatch(normalized):
+            normalized = "correction_execution_failed"
+        self.reason_code = normalized
+        super().__init__(normalized)
 
 
 class VoiceLiveRunCorrectionService:
@@ -333,7 +343,7 @@ class VoiceLiveRunCorrectionService:
                     segment.sequence,
                     provisional_result_ref=provisional_ref,
                     attempt_count=attempt_count,
-                    failure_code=f"correction_{type(exc).__name__.lower()}",
+                    failure_code=self._execution_failure_code(exc),
                     task_id=task.task_id if task is not None else None,
                     now=self._clock(),
                 )
@@ -382,7 +392,7 @@ class VoiceLiveRunCorrectionService:
                 failure_code=(
                     "correction_spec_invalid"
                     if configuration_error is None
-                    else f"correction_{type(configuration_error).__name__.lower()}"
+                    else self._spec_failure_code(configuration_error)
                 ),
                 task_id=None,
                 now=self._clock(),
@@ -496,6 +506,22 @@ class VoiceLiveRunCorrectionService:
                 "blocked",
             )
         )
+
+    @staticmethod
+    def _execution_failure_code(exc: BaseException) -> str:
+        if isinstance(exc, VoiceLiveCorrectionExecutionError):
+            return exc.reason_code
+        if isinstance(exc, TimeoutError):
+            return "correction_execution_timeout"
+        return "correction_execution_failed"
+
+    @staticmethod
+    def _spec_failure_code(exc: BaseException) -> str:
+        if isinstance(exc, VoiceLiveCorrectionExecutionError):
+            return exc.reason_code
+        if isinstance(exc, TimeoutError):
+            return "correction_spec_timeout"
+        return "correction_spec_invalid"
 
     def _get_or_create_corrected_artifact(
         self,

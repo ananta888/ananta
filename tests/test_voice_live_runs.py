@@ -34,6 +34,7 @@ from agent.services.voice_generative_judge_service import VoiceGenerativeJudgeTa
 from agent.services.voice_governance_domain import VoiceGovernanceError, VoicePrincipal
 from agent.services.voice_idempotency_service import VoiceIdempotencyService
 from agent.services.voice_live_run_correction_service import (
+    VoiceLiveCorrectionExecutionError,
     get_voice_live_run_correction_service,
 )
 from agent.services.voice_live_run_maintenance_service import VoiceLiveRunMaintenanceService
@@ -1949,6 +1950,79 @@ def test_live_segment_publishes_provisional_before_blocked_correction_and_delta_
     )
     assert stopped.status_code == 200
     assert stopped.get_json()["data"]["run"]["status"] == "completed"
+
+
+@pytest.mark.parametrize(
+    ("failure_mode", "expected_failure_code"),
+    [
+        ("domain_reason", "corrector_engine_failed"),
+        ("unknown_exception", "correction_execution_failed"),
+    ],
+)
+def test_live_correction_persists_safe_failure_reason_without_losing_raw_text(
+    client,
+    admin_auth_header,
+    failure_mode: str,
+    expected_failure_code: str,
+):
+    profile_id = f"failure-reason-{failure_mode}-{uuid.uuid4().hex}"
+    assert _configure_live_corrector(client, admin_auth_header, profile_id).status_code == 200
+    created = _create_run(client, admin_auth_header, profile_id=profile_id)
+    run_id = created.get_json()["data"]["run"]["id"]
+    provider = Mock()
+    provider.transcribe.return_value = _result("unverändertes rohtranskript")
+    corrector = Mock()
+
+    def fail_correction(result, **_kwargs):
+        if failure_mode == "unknown_exception":
+            raise RuntimeError("internal detail must not become a public reason code")
+        return VoiceGenerativeCorrectorOutcome(
+            result=dict(result),
+            applied=False,
+            reason_code="corrector_engine_failed",
+        )
+
+    corrector.apply.side_effect = fail_correction
+    with (
+        patch(
+            "agent.routes.voice_live_runs.get_voice_provider_service",
+            return_value=provider,
+        ),
+        patch(
+            "agent.services.voice_transcription_postprocessing_service."
+            "get_voice_generative_corrector_service",
+            return_value=corrector,
+        ),
+    ):
+        uploaded = _put_audio(
+            client,
+            admin_auth_header,
+            run_id,
+            0,
+            key=f"failure-reason-segment-{failure_mode}",
+            audio=_wav(sample=36),
+            started_at_ms=0,
+            ended_at_ms=1_000,
+        )
+        assert uploaded.status_code == 200
+        assert get_voice_live_run_correction_service().wait_for_idle(timeout=10)
+
+    snapshot = client.get(
+        f"/v1/voice/live-runs/{run_id}",
+        headers=admin_auth_header,
+    ).get_json()["data"]
+    segment = snapshot["segments"][0]
+    assert segment["correction_status"] == "failed"
+    assert segment["correction_failure_code"] == expected_failure_code
+    assert segment["text_state"] == "final_uncorrected"
+    assert segment["text"] == "unverändertes rohtranskript"
+    assert segment["result_ref"] == segment["provisional_result_ref"]
+
+
+def test_live_correction_execution_error_rejects_non_identifier_reason_codes():
+    error = VoiceLiveCorrectionExecutionError("private detail\nwith whitespace")
+
+    assert error.reason_code == "correction_execution_failed"
 
 
 def test_stop_reclaims_stale_correction_inside_the_client_drain_window(

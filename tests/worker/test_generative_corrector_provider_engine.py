@@ -13,6 +13,7 @@ from ananta_contracts.voice_corrector_worker import VoiceCorrectorWorkerRequest
 from worker.runtime.generative_corrector_app import create_app
 from worker.runtime.generative_corrector_provider_engine import (
     CorrectorProviderEndpoint,
+    GenerativeCorrectorProviderError,
     ProviderGenerativeCorrectorEngine,
 )
 
@@ -44,7 +45,7 @@ class _Session:
         self,
         *,
         get_responses: dict[str, _Response] | None = None,
-        post_response: _Response | None = None,
+        post_response: _Response | Exception | None = None,
     ) -> None:
         self.trust_env = True
         self._get_responses = dict(get_responses or {})
@@ -60,6 +61,8 @@ class _Session:
         self.post_calls.append((url, kwargs))
         if self._post_response is None:
             raise AssertionError("unexpected provider POST")
+        if isinstance(self._post_response, Exception):
+            raise self._post_response
         return self._post_response
 
 
@@ -316,8 +319,43 @@ def test_executes_a_manually_selected_qualified_ollama_model_with_strict_json() 
     assert url == "http://ollama:11434/v1/chat/completions"
     assert call["json"]["model"] == "org/model"
     assert call["json"]["stream"] is False
+    assert "response_format" not in call["json"]
     assert call["allow_redirects"] is False
     assert call["stream"] is True
+
+
+def test_lmstudio_requests_the_strict_voice_correction_json_schema() -> None:
+    session = _Session(
+        get_responses={"http://lmstudio:1234/v1/models": _Response({"data": []})},
+        post_response=_Response(
+            {"choices": [{"message": {"content": '{"schema_version":"1.0","corrected_text":"Hallo Welt."}'}}]}
+        ),
+    )
+    engine = ProviderGenerativeCorrectorEngine(
+        [CorrectorProviderEndpoint("lmstudio", "http://lmstudio:1234")],
+        session=session,  # type: ignore[arg-type]
+        discovery_ttl_seconds=3_600,
+    )
+
+    outcome = engine.correct(_request("lmstudio:org/model"))
+
+    assert outcome.corrected_text == "Hallo Welt."
+    assert session.post_calls[0][1]["json"]["response_format"] == {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "ananta_voice_correction",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "schema_version": {"type": "string", "const": "1.0"},
+                    "corrected_text": {"type": "string", "minLength": 1},
+                },
+                "required": ["schema_version", "corrected_text"],
+                "additionalProperties": False,
+            },
+        },
+    }
 
 
 @pytest.mark.parametrize(
@@ -372,8 +410,10 @@ def test_rejects_non_contract_provider_output(content: str, error: str) -> None:
         session=session,  # type: ignore[arg-type]
     )
 
-    with pytest.raises(ValueError, match=error):
+    with pytest.raises(GenerativeCorrectorProviderError) as captured:
         engine.correct(_request("lmstudio:org/model"))
+    assert captured.value.reason_code == "corrector_provider_output_invalid"
+    assert error not in str(captured.value)
 
 
 def test_forbids_execution_redirects_and_bounds_provider_responses() -> None:
@@ -383,8 +423,9 @@ def test_forbids_execution_redirects_and_bounds_provider_responses() -> None:
         session=redirect_session,  # type: ignore[arg-type]
     )
 
-    with pytest.raises(RuntimeError, match="redirect is forbidden"):
+    with pytest.raises(GenerativeCorrectorProviderError) as redirect_error:
         redirect_engine.correct(_request("lmstudio:org/model"))
+    assert redirect_error.value.reason_code == "corrector_provider_redirect_forbidden"
 
     oversized_session = _Session(post_response=_Response(body=b"x" * 4_097))
     oversized_engine = ProviderGenerativeCorrectorEngine(
@@ -393,8 +434,47 @@ def test_forbids_execution_redirects_and_bounds_provider_responses() -> None:
         response_max_bytes=4_096,
     )
 
-    with pytest.raises(ValueError, match="byte limit"):
+    with pytest.raises(GenerativeCorrectorProviderError) as oversized_error:
         oversized_engine.correct(_request("lmstudio:org/model"))
+    assert oversized_error.value.reason_code == "corrector_provider_response_invalid"
+
+
+@pytest.mark.parametrize(
+    ("provider_failure", "reason_code"),
+    [
+        (requests.Timeout("private timeout detail"), "corrector_provider_timeout"),
+        (
+            requests.ConnectionError("private connection detail"),
+            "corrector_provider_unavailable",
+        ),
+    ],
+)
+def test_provider_transport_failures_have_stable_content_free_reason_codes(
+    provider_failure: Exception,
+    reason_code: str,
+) -> None:
+    engine = ProviderGenerativeCorrectorEngine(
+        [CorrectorProviderEndpoint("lmstudio", "http://lmstudio:1234")],
+        session=_Session(post_response=provider_failure),  # type: ignore[arg-type]
+    )
+
+    with pytest.raises(GenerativeCorrectorProviderError) as captured:
+        engine.correct(_request("lmstudio:org/model"))
+
+    assert captured.value.reason_code == reason_code
+    assert "private" not in str(captured.value)
+
+
+def test_provider_http_error_has_a_stable_reason_code() -> None:
+    engine = ProviderGenerativeCorrectorEngine(
+        [CorrectorProviderEndpoint("lmstudio", "http://lmstudio:1234")],
+        session=_Session(post_response=_Response({}, status_code=503)),  # type: ignore[arg-type]
+    )
+
+    with pytest.raises(GenerativeCorrectorProviderError) as captured:
+        engine.correct(_request("lmstudio:org/model"))
+
+    assert captured.value.reason_code == "corrector_provider_http_error"
 
 
 def test_redirected_discovery_is_not_followed_or_advertised() -> None:

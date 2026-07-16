@@ -24,6 +24,14 @@ _PROVIDER_RE = re.compile(r"^[a-z0-9][a-z0-9_.-]{0,63}$")
 _QUALIFIED_MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:/@+-]{0,191}$")
 
 
+class GenerativeCorrectorProviderError(RuntimeError):
+    """Content-free provider failure safe to project across the worker API."""
+
+    def __init__(self, reason_code: str, message: str) -> None:
+        super().__init__(message)
+        self.reason_code = reason_code
+
+
 @dataclass(frozen=True)
 class CorrectorProviderEndpoint:
     provider_id: str
@@ -125,7 +133,7 @@ class ProviderGenerativeCorrectorEngine:
         headers = {"Accept": "application/json", "Content-Type": "application/json"}
         if endpoint.api_key:
             headers["Authorization"] = f"Bearer {endpoint.api_key}"
-        payload = {
+        payload: dict[str, object] = {
             "model": raw_model,
             "messages": [
                 {"role": "system", "content": corrector_system_message()},
@@ -140,29 +148,93 @@ class ProviderGenerativeCorrectorEngine:
             "max_tokens": self._max_output_tokens,
             "stream": False,
         }
+        response_format = _provider_response_format(endpoint.provider_id)
+        if response_format is not None:
+            payload["response_format"] = response_format
         session, owned_session = self._request_session()
         try:
-            response = session.post(
-                _chat_completions_url(endpoint),
-                json=payload,
-                headers=headers,
-                timeout=(min(3.0, remaining_seconds), remaining_seconds),
-                allow_redirects=False,
-                stream=True,
-            )
+            try:
+                response = session.post(
+                    _chat_completions_url(endpoint),
+                    json=payload,
+                    headers=headers,
+                    timeout=(min(3.0, remaining_seconds), remaining_seconds),
+                    allow_redirects=False,
+                    stream=True,
+                )
+            except requests.Timeout as exc:
+                raise GenerativeCorrectorProviderError(
+                    "corrector_provider_timeout",
+                    "corrector provider deadline expired",
+                ) from exc
+            except requests.ConnectionError as exc:
+                raise GenerativeCorrectorProviderError(
+                    "corrector_provider_unavailable",
+                    "corrector provider is unavailable",
+                ) from exc
+            except requests.RequestException as exc:
+                raise GenerativeCorrectorProviderError(
+                    "corrector_provider_request_failed",
+                    "corrector provider request failed",
+                ) from exc
             if 300 <= int(response.status_code) < 400:
-                raise RuntimeError("provider corrector redirect is forbidden")
-            response.raise_for_status()
-            body = _bounded_response_bytes(response, maximum=self._response_max_bytes)
+                raise GenerativeCorrectorProviderError(
+                    "corrector_provider_redirect_forbidden",
+                    "corrector provider redirect is forbidden",
+                )
+            try:
+                response.raise_for_status()
+            except requests.HTTPError as exc:
+                raise GenerativeCorrectorProviderError(
+                    "corrector_provider_http_error",
+                    "corrector provider returned an HTTP error",
+                ) from exc
+            try:
+                body = _bounded_response_bytes(response, maximum=self._response_max_bytes)
+            except requests.Timeout as exc:
+                raise GenerativeCorrectorProviderError(
+                    "corrector_provider_timeout",
+                    "corrector provider deadline expired",
+                ) from exc
+            except requests.ConnectionError as exc:
+                raise GenerativeCorrectorProviderError(
+                    "corrector_provider_unavailable",
+                    "corrector provider is unavailable",
+                ) from exc
+            except requests.RequestException as exc:
+                raise GenerativeCorrectorProviderError(
+                    "corrector_provider_request_failed",
+                    "corrector provider response failed",
+                ) from exc
+            except (OSError, TypeError, ValueError) as exc:
+                raise GenerativeCorrectorProviderError(
+                    "corrector_provider_response_invalid",
+                    "corrector provider response is invalid",
+                ) from exc
         finally:
             if owned_session:
                 session.close()
         try:
             envelope = json.loads(body)
         except (TypeError, ValueError) as exc:
-            raise ValueError("provider corrector response is not JSON") from exc
-        content = _openai_message_content(envelope)
-        corrected = parse_corrector_output(content)
+            raise GenerativeCorrectorProviderError(
+                "corrector_provider_response_invalid",
+                "corrector provider response is invalid",
+            ) from exc
+        try:
+            content = _openai_message_content(envelope)
+        except (TypeError, ValueError) as exc:
+            raise GenerativeCorrectorProviderError(
+                "corrector_provider_response_invalid",
+                "corrector provider response is invalid",
+            ) from exc
+        try:
+            corrected = parse_corrector_output(content)
+        except (TypeError, ValueError) as exc:
+            raise GenerativeCorrectorProviderError(
+                "corrector_provider_output_invalid",
+                "corrector provider model output is invalid",
+            ) from exc
         self._refresh_catalog_if_needed()
         revision = self._model_revisions.get(request.model_id, "runtime-unpinned")
         return GenerativeCorrectorEngineResult(
@@ -389,6 +461,27 @@ def _normalize_base_url(provider_id: str, value: str) -> str:
 def _chat_completions_url(endpoint: CorrectorProviderEndpoint) -> str:
     base = f"{endpoint.base_url}/v1" if endpoint.provider_id == "ollama" else endpoint.base_url
     return f"{base}/chat/completions"
+
+
+def _provider_response_format(provider_id: str) -> dict[str, object] | None:
+    if provider_id != "lmstudio":
+        return None
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "ananta_voice_correction",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "schema_version": {"type": "string", "const": "1.0"},
+                    "corrected_text": {"type": "string", "minLength": 1},
+                },
+                "required": ["schema_version", "corrected_text"],
+                "additionalProperties": False,
+            },
+        },
+    }
 
 
 def _bounded_response_bytes(response: Any, *, maximum: int) -> bytes:

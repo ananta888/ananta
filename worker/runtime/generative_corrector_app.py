@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 import secrets
@@ -30,6 +31,7 @@ from worker.runtime.generative_corrector_engine import (
 from worker.runtime.generative_corrector_provider_engine import (
     CompositeGenerativeCorrectorEngine,
     CorrectorProviderEndpoint,
+    GenerativeCorrectorProviderError,
     ProviderGenerativeCorrectorEngine,
 )
 
@@ -37,6 +39,7 @@ DEFAULT_PORT = 8093
 CORRECTOR_ENDPOINT = "/internal/v1/voice-corrector"
 _DEFAULT_MAX_REQUEST_BYTES = 1024 * 1024
 _PROTECTED_TOKEN_RE = re.compile(r"https?://\S+|\b[\w.:-]*\d[\w.:-]*\b", re.UNICODE)
+_log = logging.getLogger(__name__)
 
 
 def _engine_from_environment() -> GenerativeCorrectorEngine | None:
@@ -221,9 +224,19 @@ def create_app(
                 raise ValueError("corrector engine used a different model")
             corrected = engine_result.corrected_text
             if _protected_tokens(envelope.original_text) != _protected_tokens(corrected):
+                _log_correlated_failure(
+                    envelope,
+                    reason_code="protected_token_changed",
+                    error_type="ProtectedTokenMismatch",
+                )
                 return jsonify(_failure(envelope, "protected_token_changed")), 422
             edits = build_edits(envelope.original_text, corrected)
             if edit_ratio(envelope.original_text, edits) > envelope.max_edit_ratio + 1e-12:
+                _log_correlated_failure(
+                    envelope,
+                    reason_code="edit_ratio_exceeded",
+                    error_type="EditRatioExceeded",
+                )
                 return jsonify(_failure(envelope, "edit_ratio_exceeded")), 422
             status = "unchanged" if corrected == envelope.original_text else "corrected"
             outcome = VoiceCorrectorWorkerResponse(
@@ -241,11 +254,33 @@ def create_app(
             )
             outcome.validate_for(envelope)
             return jsonify(outcome.to_dict()), 200
-        except TimeoutError:
+        except GenerativeCorrectorProviderError as exc:
+            _log_correlated_failure(
+                envelope,
+                reason_code=exc.reason_code,
+                error_type=type(exc).__name__,
+            )
+            return jsonify(_failure(envelope, exc.reason_code)), _provider_failure_status(exc.reason_code)
+        except TimeoutError as exc:
+            _log_correlated_failure(
+                envelope,
+                reason_code="corrector_engine_timeout",
+                error_type=type(exc).__name__,
+            )
             return jsonify(_failure(envelope, "corrector_engine_timeout")), 504
         except VoiceCorrectorContractError as exc:
+            _log_correlated_failure(
+                envelope,
+                reason_code=exc.reason_code,
+                error_type=type(exc).__name__,
+            )
             return jsonify(_failure(envelope, exc.reason_code)), 422
-        except Exception:
+        except Exception as exc:
+            _log_correlated_failure(
+                envelope,
+                reason_code="corrector_engine_failed",
+                error_type=type(exc).__name__,
+            )
             return jsonify(_failure(envelope, "corrector_engine_failed")), 503
         finally:
             slots.release()
@@ -298,6 +333,40 @@ def _failure(envelope: VoiceCorrectorWorkerRequest, reason_code: str) -> dict[st
             engine_id=None,
             prompt_version=None,
         ).to_dict(),
+    )
+
+
+def _provider_failure_status(reason_code: str) -> int:
+    if reason_code == "corrector_provider_timeout":
+        return 504
+    if reason_code == "corrector_provider_output_invalid":
+        return 422
+    return 502
+
+
+def _log_correlated_failure(
+    envelope: VoiceCorrectorWorkerRequest,
+    *,
+    reason_code: str,
+    error_type: str,
+) -> None:
+    """Log correlation metadata only; transcript content is deliberately excluded."""
+
+    _log.warning(
+        "generative_corrector_worker_failure request_id=%s task_id=%s model_id=%s reason_code=%s error_type=%s",
+        envelope.request_id,
+        envelope.task_id,
+        envelope.model_id,
+        reason_code,
+        error_type,
+        extra={
+            "event_name": "generative_corrector_worker_failure",
+            "voice_request_id": envelope.request_id,
+            "voice_task_id": envelope.task_id,
+            "voice_model_id": envelope.model_id,
+            "voice_reason_code": reason_code,
+            "voice_error_type": error_type,
+        },
     )
 
 
