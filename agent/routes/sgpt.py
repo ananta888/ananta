@@ -6,7 +6,6 @@ from pathlib import Path
 from flask import Blueprint, current_app, g, request
 
 from agent.auth import check_auth
-from agent.common.errors import api_response
 from agent.cli_backends.sgpt import (
     SUPPORTED_CLI_BACKENDS,
     get_cli_backend_capabilities,
@@ -14,6 +13,7 @@ from agent.cli_backends.sgpt import (
     resolve_codex_runtime_config,
     run_llm_cli_command,
 )
+from agent.common.errors import api_response
 from agent.config import settings
 from agent.metrics import RAG_CHUNKS_SELECTED, RAG_REQUESTS_TOTAL, RAG_RETRIEVAL_DURATION
 from agent.models import (
@@ -24,14 +24,23 @@ from agent.models import (
     SgptSourceRequest,
 )
 from agent.pipeline_trace import append_stage, new_pipeline_trace
-from agent.research_backend import is_research_backend
 from agent.research_artifact import normalize_research_artifact
-from agent.runtime_policy import build_trace_record, normalize_task_kind, resolve_cli_backend, resolve_lora_adapter_routing, runtime_routing_config
+from agent.research_backend import is_research_backend
+from agent.runtime_policy import (
+    build_trace_record,
+    normalize_task_kind,
+    resolve_cli_backend,
+    resolve_lora_adapter_routing,
+    runtime_routing_config,
+)
 from agent.services.cli_session_service import get_cli_session_service
 from agent.services.context_manager_service import get_context_manager_service as _get_context_manager_service
 from agent.services.ml_intern_adapter_service import get_ml_intern_adapter_service
-from agent.services.ml_intern_lora_inference_service import LoraInferenceRequest, get_lora_inference_service
-from agent.services.ml_intern_training_config_service import normalize_lora_runtime_config
+from agent.services.ml_intern_lora_inference_service import (
+    LoraInferenceRequest,
+    LoraInferenceResult,
+    get_lora_inference_service,
+)
 from agent.services.service_registry import get_core_services
 from agent.utils import validate_request
 
@@ -74,6 +83,18 @@ def _resolve_requested_base_model(model: str | None, agent_cfg: dict) -> str:
 
 def _public_lora_provenance(provenance: dict) -> dict:
     return {k: v for k, v in dict(provenance or {}).items() if not str(k).startswith("_")}
+
+
+def _lora_registry_scope() -> dict[str, str]:
+    identity = dict(getattr(g, "user", {}) or getattr(g, "auth_payload", {}) or {})
+    subject = str(
+        identity.get("sub")
+        or identity.get("username")
+        or identity.get("agent_id")
+        or "hub-admin"
+    ).strip()
+    tenant = str(identity.get("tenant_id") or identity.get("tenant") or subject).strip()
+    return {"tenant_id": tenant, "owner_subject": subject}
 
 
 ALLOWED_BACKENDS = {*SUPPORTED_CLI_BACKENDS, "auto"}
@@ -206,7 +227,7 @@ def _resolve_source_path(source_path: str) -> Path:
 @sgpt_bp.route("/execute", methods=["POST"])
 @check_auth
 @validate_request(SgptExecuteRequest)
-def execute_sgpt():
+def execute_sgpt():  # noqa: C901 - compatibility route is migrated incrementally
     """
     Executes SGPT command.
     JSON payload: {"prompt": "...", "options": ["--shell"], "use_hybrid_context": false}
@@ -334,10 +355,12 @@ def execute_sgpt():
         )
 
         stage_started = time.time()
+        lora_scope = _lora_registry_scope()
         lora_provenance = resolve_lora_adapter_routing(
             task_kind=task_kind,
             base_model=_resolve_requested_base_model(model, agent_cfg),
             agent_cfg=agent_cfg,
+            **lora_scope,
         )
         lora_handled = False
         if effective_backend != "ml_intern" and lora_provenance.get("adapter_used"):
@@ -347,62 +370,79 @@ def execute_sgpt():
                 status="ok",
                 metadata=_public_lora_provenance(lora_provenance),
             )
-            adapter_path = str(lora_provenance.get("_adapter_path") or "").strip()
-            if not adapter_path:
+            try:
+                inference_result = get_lora_inference_service().generate(
+                    LoraInferenceRequest(
+                        prompt=effective_prompt,
+                        base_model=str(lora_provenance.get("base_model") or ""),
+                        adapter_id=str(lora_provenance.get("adapter_id") or ""),
+                        adapter_version=str(lora_provenance.get("adapter_version") or ""),
+                        task_kind=task_kind,
+                        task_id=str(data.get("task_id") or f"sgpt-{uuid.uuid4().hex}"),
+                    ),
+                    **lora_scope,
+                )
+                output = (
+                    inference_result.text
+                    if isinstance(inference_result, LoraInferenceResult)
+                    else str(inference_result)
+                )
+                returncode = 0
+                errors = ""
+                backend_used = "lora_adapter"
+                lora_handled = True
+                if isinstance(inference_result, LoraInferenceResult):
+                    lora_provenance["runtime"] = {
+                        "worker_id": inference_result.worker_id,
+                        "capability": inference_result.capability,
+                        "reason_code": inference_result.reason_code,
+                    }
+                append_stage(
+                    pipeline,
+                    name="lora_infer",
+                    status="ok",
+                    metadata={
+                        "adapter_id": lora_provenance.get("adapter_id"),
+                        "adapter_version": lora_provenance.get("adapter_version"),
+                        "reason_code": "approved_adapter_worker_dispatch",
+                    },
+                    started_at=stage_started,
+                )
+            except Exception as exc:
+                reason_code = str(getattr(exc, "reason_code", "adapter_inference_failed"))
                 append_stage(
                     pipeline,
                     name="lora_infer",
                     status="degraded",
-                    metadata={"reason": "missing_adapter_path"},
+                    metadata={"reason_code": reason_code, "error_type": type(exc).__name__},
                     started_at=stage_started,
                 )
+                degraded = True
                 if not bool(lora_provenance.get("fallback_to_base_model", True)):
+                    blocked_reason = "lora_adapter_failed_no_base_fallback"
+                    lora_provenance["reason"] = blocked_reason
+                    lora_provenance["reason_code"] = blocked_reason
+                    lora_provenance["adapter_inference_error_code"] = reason_code
+                    lora_provenance["policy_decision"] = {
+                        **dict(lora_provenance.get("policy_decision") or {}),
+                        "decision": "blocked",
+                        "reason_code": blocked_reason,
+                    }
                     return api_response(
                         status="error",
-                        message="approved lora adapter has no adapter_dir artifact path",
+                        message="approved LoRA adapter inference failed and base fallback is disabled",
                         data={"lora_provenance": _public_lora_provenance(lora_provenance)},
-                        code=500,
+                        code=503 if bool(getattr(exc, "retryable", False)) else 500,
                     )
-            else:
-                try:
-                    lora_rt = normalize_lora_runtime_config((agent_cfg or {}).get("lora_runtime") or {})
-                    output = get_lora_inference_service().generate(
-                        LoraInferenceRequest(
-                            prompt=effective_prompt,
-                            base_model=str(lora_provenance.get("base_model") or ""),
-                            adapter_path=adapter_path,
-                            external_network_allowed=bool(lora_rt.get("external_network_allowed", False)),
-                        )
-                    )
-                    returncode = 0
-                    errors = ""
-                    backend_used = "lora_adapter"
-                    lora_handled = True
-                    append_stage(
-                        pipeline,
-                        name="lora_infer",
-                        status="ok",
-                        metadata={"adapter_id": lora_provenance.get("adapter_id")},
-                        started_at=stage_started,
-                    )
-                except Exception as exc:
-                    append_stage(
-                        pipeline,
-                        name="lora_infer",
-                        status="degraded",
-                        metadata={"reason": "adapter_inference_failed", "error": str(exc)[:240]},
-                        started_at=stage_started,
-                    )
-                    degraded = True
-                    if not bool(lora_provenance.get("fallback_to_base_model", True)):
-                        return api_response(
-                            status="error",
-                            message=f"lora adapter inference failed: {exc}",
-                            data={"lora_provenance": _public_lora_provenance(lora_provenance)},
-                            code=500,
-                    )
-                    lora_provenance["reason"] = "lora_adapter_failed_fell_back_to_base_model"
-                    lora_provenance["adapter_inference_error"] = str(exc)[:240]
+                fallback_reason = "lora_adapter_failed_fell_back_to_base_model"
+                lora_provenance["reason"] = fallback_reason
+                lora_provenance["reason_code"] = fallback_reason
+                lora_provenance["adapter_inference_error_code"] = reason_code
+                lora_provenance["policy_decision"] = {
+                    **dict(lora_provenance.get("policy_decision") or {}),
+                    "decision": "base_model_fallback",
+                    "reason_code": fallback_reason,
+                }
         else:
             append_stage(
                 pipeline,
@@ -410,6 +450,25 @@ def execute_sgpt():
                 status="skipped",
                 metadata=_public_lora_provenance(lora_provenance),
             )
+            if (
+                effective_backend != "ml_intern"
+                and not bool(lora_provenance.get("adapter_used"))
+                and not bool(lora_provenance.get("fallback_to_base_model", True))
+            ):
+                blocked_reason = "no_approved_adapter_and_base_fallback_disabled"
+                lora_provenance["reason"] = blocked_reason
+                lora_provenance["reason_code"] = blocked_reason
+                lora_provenance["policy_decision"] = {
+                    **dict(lora_provenance.get("policy_decision") or {}),
+                    "decision": "blocked",
+                    "reason_code": blocked_reason,
+                }
+                return api_response(
+                    status="error",
+                    message="no approved compatible LoRA adapter is available and base fallback is disabled",
+                    data={"lora_provenance": _public_lora_provenance(lora_provenance)},
+                    code=409,
+                )
 
         if effective_backend == "ml_intern":
             invocation = get_ml_intern_adapter_service().invoke_spike(

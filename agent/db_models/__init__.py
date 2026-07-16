@@ -65,6 +65,14 @@ from .memory import (
     MemoryTreeJobDB,
     MemoryTreeNodeDB,
 )
+from .ml_intern_training import (
+    MlInternDatasetDB,
+    MlInternTrainingAttemptDB,
+    MlInternTrainingCapacityLeaseDB,
+    MlInternTrainingEventDB,
+    MlInternTrainingExecutionLeaseDB,
+    MlInternTrainingJobDB,
+)
 from .planning import (
     GoalDB,
     PlanDB,
@@ -164,6 +172,12 @@ __all__ = [
     "LoginAttemptDB",
     "OidcIdentityLinkDB",
     "MemoryEntryDB",
+    "MlInternDatasetDB",
+    "MlInternTrainingAttemptDB",
+    "MlInternTrainingCapacityLeaseDB",
+    "MlInternTrainingEventDB",
+    "MlInternTrainingExecutionLeaseDB",
+    "MlInternTrainingJobDB",
     "MemoryTreeChunkDB",
     "MemoryTreeJobDB",
     "MemoryTreeNodeDB",

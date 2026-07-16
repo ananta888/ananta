@@ -211,11 +211,24 @@ def _write_approved_lora_registry(tmp_path, *, fallback_to_base_model=True):
         base_model="qwen2.5-coder-7b",
         artifact_paths={"adapter_dir": str(adapter_dir)},
         task_kinds=["analysis"],
+        tenant_id="admin",
+        owner_subject="admin",
     )
-    registry.transition("todo-json-v1", "training")
-    registry.transition("todo-json-v1", "trained")
-    registry.set_eval_report("todo-json-v1", eval_report_ref="eval.json", eval_score=0.9)
-    registry.approve("todo-json-v1", approved_by="test", reason="good eval")
+    scope = {"tenant_id": "admin", "owner_subject": "admin"}
+    registry.transition("todo-json-v1", "training", **scope)
+    registry.transition("todo-json-v1", "trained", **scope)
+    registry.set_eval_report(
+        "todo-json-v1",
+        eval_report_ref="eval.json",
+        eval_score=0.9,
+        **scope,
+    )
+    registry.approve(
+        "todo-json-v1",
+        approved_by="test",
+        reason="good eval",
+        **scope,
+    )
     return {
         "lora_runtime": {
             "enabled": True,
@@ -289,6 +302,42 @@ def test_sgpt_execute_lora_failure_falls_back_to_base_model(client, admin_auth_h
     assert data["output"] == "base output"
     assert data["lora_provenance"]["reason"] == "lora_adapter_failed_fell_back_to_base_model"
     cli_runner.assert_called_once()
+
+
+def test_sgpt_execute_lora_failure_blocks_when_base_fallback_is_disabled(
+    client,
+    admin_auth_header,
+    app,
+    tmp_path,
+):
+    app.config["AGENT_CONFIG"] = {
+        **(app.config.get("AGENT_CONFIG") or {}),
+        **_write_approved_lora_registry(tmp_path, fallback_to_base_model=False),
+    }
+    with (
+        patch("agent.routes.sgpt.get_lora_inference_service") as lora_factory,
+        patch("agent.routes.sgpt.run_llm_cli_command") as cli_runner,
+    ):
+        lora_service = MagicMock()
+        lora_service.generate.side_effect = RuntimeError("adapter load failed")
+        lora_factory.return_value = lora_service
+        response = client.post(
+            "/api/sgpt/execute",
+            json={
+                "prompt": "make todo json",
+                "backend": "ananta-worker",
+                "model": "qwen2.5-coder-7b",
+                "task_kind": "todo_json_generation",
+            },
+            headers=admin_auth_header,
+        )
+
+    assert response.status_code == 500
+    provenance = response.json["data"]["lora_provenance"]
+    assert provenance["reason_code"] == "lora_adapter_failed_no_base_fallback"
+    assert provenance["policy_decision"]["decision"] == "blocked"
+    assert provenance["adapter_inference_error_code"] == "adapter_inference_failed"
+    cli_runner.assert_not_called()
 
 
 def test_sgpt_backends_endpoint(client, admin_auth_header):

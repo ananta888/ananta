@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/contracts/mlintern-lora-training-event.v1.schema.json",
+  "title": "Ananta LoRA Training Worker Event v1",
+  "description": "Content-free, correlated worker event. Payload keys are closed per event type; training records, prompts, outputs, paths outside artifact names, and credentials are not contract fields.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "sequence",
+    "timestamp",
+    "job_id",
+    "attempt_id",
+    "fencing_token",
+    "correlation_id",
+    "type",
+    "payload"
+  ],
+  "properties": {
+    "contract_version": {"const": "ananta.lora-training.v1"},
+    "sequence": {"type": "integer", "minimum": 1},
+    "timestamp": {"type": "number", "minimum": 0},
+    "job_id": {"$ref": "#/$defs/identifier"},
+    "attempt_id": {"$ref": "#/$defs/identifier"},
+    "fencing_token": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 57896044618658097711785492504343953926634992332820282019728792003956564819967
+    },
+    "correlation_id": {"$ref": "#/$defs/identifier"},
+    "type": {"enum": ["accepted", "status", "phase", "progress", "checkpoint", "artifact"]},
+    "payload": {"type": "object"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"type": {"const": "accepted"}}, "required": ["type"]},
+      "then": {"properties": {"payload": {"$ref": "#/$defs/acceptedPayload"}}}
+    },
+    {
+      "if": {"properties": {"type": {"const": "status"}}, "required": ["type"]},
+      "then": {"properties": {"payload": {"$ref": "#/$defs/statusPayload"}}}
+    },
+    {
+      "if": {"properties": {"type": {"const": "phase"}}, "required": ["type"]},
+      "then": {"properties": {"payload": {"$ref": "#/$defs/phasePayload"}}}
+    },
+    {
+      "if": {"properties": {"type": {"const": "progress"}}, "required": ["type"]},
+      "then": {"properties": {"payload": {"$ref": "#/$defs/progressPayload"}}}
+    },
+    {
+      "if": {"properties": {"type": {"const": "checkpoint"}}, "required": ["type"]},
+      "then": {"properties": {"payload": {"$ref": "#/$defs/checkpointPayload"}}}
+    },
+    {
+      "if": {"properties": {"type": {"const": "artifact"}}, "required": ["type"]},
+      "then": {"properties": {"payload": {"$ref": "mlintern-lora-training-artifact.v1.schema.json"}}}
+    }
+  ],
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 192,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}$"
+    },
+    "acceptedPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["backend"],
+      "properties": {"backend": {"$ref": "#/$defs/identifier"}}
+    },
+    "statusPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reason_code", "retryable"],
+      "properties": {
+        "status": {"enum": ["queued", "running", "cancel_requested", "succeeded", "failed", "cancelled"]},
+        "reason_code": {"type": "string", "maxLength": 128},
+        "retryable": {"type": "boolean"}
+      }
+    },
+    "phasePayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["phase"],
+      "properties": {
+        "phase": {"type": "string", "minLength": 1, "maxLength": 64},
+        "step": {"type": "integer", "minimum": 0, "maximum": 10000000}
+      }
+    },
+    "progressPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["step", "max_steps"],
+      "properties": {
+        "step": {"type": "integer", "minimum": 0, "maximum": 10000000},
+        "max_steps": {"type": "integer", "minimum": 1, "maximum": 10000000},
+        "epoch": {"type": ["number", "null"]},
+        "loss": {"type": ["number", "null"]},
+        "eval_loss": {"type": ["number", "null"]},
+        "learning_rate": {"type": ["number", "null"]}
+      }
+    },
+    "checkpointPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["step", "name", "sha256"],
+      "properties": {
+        "step": {"type": "integer", "minimum": 0, "maximum": 10000000},
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_./-]{0,511}$",
+          "not": {
+            "anyOf": [
+              {"pattern": "(^|/)\\.\\.(/|$)"},
+              {"pattern": "//"}
+            ]
+          }
+        },
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

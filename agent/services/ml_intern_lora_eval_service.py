@@ -8,11 +8,12 @@
 from __future__ import annotations
 
 import json
-import re
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from ananta_contracts.lora_evaluation import score_todo_track_output
 
 
 class EvalError(ValueError):
@@ -23,58 +24,7 @@ class EvalError(ValueError):
 
 def _score_todo_json(output_text: str) -> dict[str, Any]:
     """Deterministisches Scoring fuer ananta-todo-json Ausgaben."""
-    text = output_text.strip()
-    scores: dict[str, bool] = {}
-
-    # JSON-Validitaet
-    parsed = None
-    try:
-        parsed = json.loads(text)
-        scores["json_valid"] = True
-    except (json.JSONDecodeError, ValueError):
-        # Evtl. JSON innerhalb eines Textes
-        match = re.search(r'\{.*\}', text, re.DOTALL)
-        if match:
-            try:
-                parsed = json.loads(match.group())
-                scores["json_valid"] = True
-            except (json.JSONDecodeError, ValueError):
-                pass
-        if "json_valid" not in scores:
-            scores["json_valid"] = False
-
-    if parsed and isinstance(parsed, dict):
-        # Pflichtfelder Track-Ebene
-        scores["has_track"] = bool(parsed.get("track"))
-        scores["has_milestones"] = isinstance(parsed.get("milestones"), list) and len(parsed["milestones"]) > 0
-        scores["has_tasks"] = isinstance(parsed.get("tasks"), list) and len(parsed["tasks"]) > 0
-
-        # Task-Qualitaet
-        tasks = parsed.get("tasks") or []
-        task_quality: list[bool] = []
-        for t in tasks:
-            if not isinstance(t, dict):
-                continue
-            has_ac = isinstance(t.get("acceptance_criteria"), list) and len(t["acceptance_criteria"]) > 0
-            has_te = isinstance(t.get("test_expectations"), list) and len(t["test_expectations"]) > 0
-            has_required = all(t.get(k) for k in ("id", "title", "status", "priority", "risk"))
-            task_quality.append(has_ac and has_te and has_required)
-        scores["task_quality_ratio"] = (sum(task_quality) / len(task_quality)) if task_quality else 0.0
-    else:
-        scores["has_track"] = False
-        scores["has_milestones"] = False
-        scores["has_tasks"] = False
-        scores["task_quality_ratio"] = 0.0
-
-    total = (
-        int(scores["json_valid"]) * 3 +
-        int(scores.get("has_track", False)) * 1 +
-        int(scores.get("has_milestones", False)) * 1 +
-        int(scores.get("has_tasks", False)) * 1 +
-        float(scores.get("task_quality_ratio", 0.0)) * 4
-    ) / 10.0  # 0.0 .. 1.0
-
-    return {**scores, "total": round(total, 3)}
+    return score_todo_track_output(output_text)
 
 
 def _score_generic(output_text: str) -> dict[str, Any]:

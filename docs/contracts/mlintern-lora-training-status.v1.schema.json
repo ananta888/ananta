@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/contracts/mlintern-lora-training-status.v1.schema.json",
+  "title": "Ananta LoRA Training Worker Status v1",
+  "description": "Worker-owned status projection for one Hub-admitted attempt. It carries correlation and fencing data but no orchestration commands.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "job_id",
+    "attempt_id",
+    "fencing_token",
+    "correlation_id",
+    "job_type",
+    "backend",
+    "status",
+    "created_at",
+    "updated_at",
+    "heartbeat_at",
+    "progress",
+    "metrics",
+    "artifacts",
+    "resume_checkpoint",
+    "cancel_mode",
+    "error"
+  ],
+  "properties": {
+    "contract_version": {"const": "ananta.lora-training.v1"},
+    "job_id": {"$ref": "#/$defs/identifier"},
+    "attempt_id": {"$ref": "#/$defs/identifier"},
+    "fencing_token": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 57896044618658097711785492504343953926634992332820282019728792003956564819967
+    },
+    "correlation_id": {"$ref": "#/$defs/identifier"},
+    "job_type": {"enum": ["train_lora", "evaluate_existing_adapter"]},
+    "backend": {"enum": ["mock", "peft_trl", "unsloth"]},
+    "status": {"enum": ["queued", "running", "cancel_requested", "succeeded", "failed", "cancelled"]},
+    "created_at": {"type": "number", "minimum": 0},
+    "updated_at": {"type": "number", "minimum": 0},
+    "heartbeat_at": {"type": "number", "minimum": 0},
+    "progress": {"$ref": "#/$defs/progress"},
+    "metrics": {"type": "object", "maxProperties": 256},
+    "artifacts": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {"$ref": "mlintern-lora-training-artifact.v1.schema.json"}
+    },
+    "resume_checkpoint": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "mlintern-lora-training-request.v1.schema.json#/$defs/resumeCheckpoint"}
+      ]
+    },
+    "cancel_mode": {"type": ["string", "null"], "enum": [null, "graceful", "forced"]},
+    "error": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/error"}
+      ]
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 192,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}$"
+    },
+    "progress": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "step": {"type": "integer", "minimum": 0, "maximum": 10000000},
+        "max_steps": {"type": "integer", "minimum": 1, "maximum": 10000000},
+        "epoch": {"type": ["number", "null"]},
+        "loss": {"type": ["number", "null"]},
+        "eval_loss": {"type": ["number", "null"]},
+        "learning_rate": {"type": ["number", "null"]}
+      }
+    },
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message", "retryable"],
+      "properties": {
+        "code": {"$ref": "#/$defs/identifier"},
+        "message": {"type": "string", "minLength": 1, "maxLength": 512},
+        "retryable": {"type": "boolean"}
+      }
+    }
+  }
+}

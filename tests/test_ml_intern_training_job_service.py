@@ -1,9 +1,7 @@
 """Tests fuer ml_intern_training_job_service (MLLORA-011..014/023)."""
 
 import json
-import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 from agent.services.ml_intern_training_job_service import MlInternTrainingJobService
 
@@ -98,7 +96,7 @@ def test_merge_without_allow_merge_rejected(tmp_path):
         "output_dir": "merged",
     })
     assert result.status in ("validation_failed", "failed")
-    assert any("allow_merge" in e for e in result.errors)
+    assert any("allow_merge" in error or "allowed_job_types" in error for error in result.errors)
 
 
 def test_output_dir_path_traversal_blocked(tmp_path):
@@ -120,7 +118,7 @@ def test_live_dataset_validate(tmp_path):
     assert result.status in ("completed", "failed")
 
 
-def test_live_train_lora_mock_backend(tmp_path):
+def test_live_train_lora_requires_hub_worker_control_plane(tmp_path):
     name = _write_dataset(tmp_path)
     svc = _svc(tmp_path, enabled=True, mode="live", backend="mock")
     result = svc.submit_job({
@@ -129,8 +127,8 @@ def test_live_train_lora_mock_backend(tmp_path):
         "dataset_path": name,
         "output_dir": "out",
     })
-    assert result.status == "trained"
-    assert any("mock" in w for w in result.warnings)
+    assert result.status == "failed"
+    assert any("live_worker_required" in error for error in result.errors)
 
 
 def test_riskig_batch_size_warns(tmp_path):
@@ -174,52 +172,35 @@ def test_training_config_separate_from_spike_config(tmp_path):
     assert "command_template" not in training
 
 
-def test_failed_status_with_simulated_oom(tmp_path):
-    """Simulierter OOM -> status=failed, kein approved."""
+def test_legacy_hub_service_exposes_no_backend_runner(tmp_path):
     name = _write_dataset(tmp_path)
     svc = _svc(tmp_path, enabled=True, mode="live", backend="mock")
-    # Mock den Backend-Runner um OOM zu simulieren
-    with patch.object(
-        svc,
-        "_invoke_backend_runner",
-        return_value={"status": "failed", "errors": ["CUDA out of memory"], "warnings": []},
-    ):
-        result = svc.submit_job({
-            "job_type": "train_lora",
-            "base_model": "x",
-            "dataset_path": name,
-            "output_dir": "out",
-        })
+    result = svc.submit_job({
+        "job_type": "train_lora",
+        "base_model": "x",
+        "dataset_path": name,
+        "output_dir": "out",
+    })
     assert result.status == "failed"
-    assert any("out of memory" in e for e in result.errors)
+    assert not hasattr(svc, "_invoke_backend_runner")
+    assert any("live_worker_required" in error for error in result.errors)
 
 
-def test_live_train_lora_invokes_repo_runner_with_spec(tmp_path):
+def test_live_train_lora_does_not_materialize_a_hub_runner_spec(tmp_path):
     name = _write_dataset(tmp_path)
     svc = _svc(tmp_path, enabled=True, mode="live", backend="unsloth")
 
-    completed = MagicMock()
-    completed.returncode = 0
-    completed.stdout = "ok"
-    completed.stderr = ""
+    result = svc.submit_job({
+        "job_type": "train_lora",
+        "base_model": "qwen2.5-coder-7b",
+        "dataset_path": name,
+        "output_dir": "out",
+        "max_steps": 1,
+    })
 
-    with patch("agent.services.ml_intern_training_job_service.subprocess.run", return_value=completed) as run:
-        result = svc.submit_job({
-            "job_type": "train_lora",
-            "base_model": "qwen2.5-coder-7b",
-            "dataset_path": name,
-            "output_dir": "out",
-            "max_steps": 1,
-        })
-
-    assert result.status == "trained"
-    cmd = run.call_args.kwargs.get("args") or run.call_args.args[0]
-    assert cmd[:3] == [sys.executable, "-m", "agent.ml_intern_training_runner"]
-    spec_path = Path(cmd[-1])
-    spec = json.loads(spec_path.read_text(encoding="utf-8"))
-    assert spec["backend"] == "unsloth"
-    assert spec["max_steps"] == 1
-    assert spec["external_network_allowed"] is False
+    assert result.status == "failed"
+    assert not list(Path(result.artifact_dir).glob("job_spec.json"))
+    assert any("isolated worker" in error for error in result.errors)
 
 
 def test_training_job_api_submits_via_hub_route(client, admin_auth_header, app, tmp_path):
@@ -246,3 +227,36 @@ def test_training_job_api_submits_via_hub_route(client, admin_auth_header, app, 
     payload = response.get_json()
     assert payload["data"]["status"] == "dry_run_completed"
     assert payload["data"]["job_type"] == "train_lora"
+
+
+def test_legacy_dataset_path_route_cannot_start_live_hub_runner(
+    client,
+    admin_auth_header,
+    app,
+    tmp_path,
+):
+    app.config["AGENT_CONFIG"] = {
+        **(app.config.get("AGENT_CONFIG") or {}),
+        "ml_intern_training": {
+            "enabled": True,
+            "mode": "live",
+            "backend": "unsloth",
+            "artifact_root": str(tmp_path / "artifacts"),
+            "dataset_root": str(tmp_path / "datasets"),
+        },
+    }
+
+    response = client.post(
+        "/api/ml-intern-training/jobs",
+        headers=admin_auth_header,
+        json={
+            "job_type": "train_lora",
+            "mode": "live",
+            "backend": "unsloth",
+            "base_model": "x",
+            "dataset_path": "train.jsonl",
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.get_json()["data"]["error"]["code"] == "legacy_live_execution_forbidden"

@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "mlintern-training-job.schema.json",
-  "title": "MlIntern Training Job",
-  "description": "Schema fuer einen ml_intern LoRA/QLoRA Training-Job. Wird von MlInternTrainingJobService validiert.",
+  "title": "MlIntern Training Job (Legacy, deprecated)",
+  "description": "Deprecated legacy schema fuer den frueheren pfadbasierten MlInternTrainingJobService. Es bleibt aus Kompatibilitaetsgruenden unveraendert; neue Hub-Worker-Integrationen verwenden die geschlossenen mlintern-lora-training-*.v1.schema.json-Vertraege.",
   "type": "object",
   "required": ["job_type"],
   "additionalProperties": false,

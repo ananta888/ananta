@@ -1,9 +1,9 @@
 """Tests fuer ml_intern_training_config_service (MLLORA-004/023)."""
 
 from agent.services.ml_intern_training_config_service import (
-    normalize_ml_intern_training_config,
-    normalize_lora_runtime_config,
     get_gpu_profile_defaults,
+    normalize_lora_runtime_config,
+    normalize_ml_intern_training_config,
 )
 
 
@@ -16,6 +16,15 @@ def test_defaults_are_safe():
     assert cfg["require_secret_scan"] is True
     assert cfg["require_eval_before_approval"] is True
     assert cfg["external_network_allowed"] is False
+    assert cfg["max_concurrent_jobs"] == 1
+    assert cfg["max_queued_jobs"] == 32
+    assert "merge_adapter_optional" not in cfg["allowed_job_types"]
+
+
+def test_queue_capacity_is_bounded():
+    assert normalize_ml_intern_training_config({"max_queued_jobs": -1})["max_queued_jobs"] == 0
+    assert normalize_ml_intern_training_config({"max_queued_jobs": 100_000})["max_queued_jobs"] == 10_000
+    assert normalize_ml_intern_training_config({"minimum_eval_score": -0.1})["minimum_eval_score"] == 0.0
 
 
 def test_enabled_can_be_set():

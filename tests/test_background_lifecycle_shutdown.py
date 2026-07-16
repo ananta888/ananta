@@ -27,6 +27,7 @@ def test_background_manager_contains_start_failures_and_records_state(monkeypatc
     monkeypatch.setattr(manager, "_start_monitoring", lambda: None)
     monkeypatch.setattr(manager, "_start_housekeeping", lambda: None)
     monkeypatch.setattr(manager, "_start_workflow_runtime_reconciler", lambda: None)
+    monkeypatch.setattr(manager, "_start_ml_intern_training_reconciler", lambda: None)
     monkeypatch.setattr(manager, "_start_scheduler", lambda: None)
     monkeypatch.setattr(lifecycle.settings, "disable_llm_check", False)
 
@@ -37,6 +38,7 @@ def test_background_manager_contains_start_failures_and_records_state(monkeypatc
         "monitoring",
         "housekeeping",
         "workflow_runtime_reconciler",
+        "ml_intern_training_reconciler",
         "scheduler",
     ]
     assert manager.failed_services == {"llm_monitoring": "llm down"}

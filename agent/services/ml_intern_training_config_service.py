@@ -6,14 +6,17 @@ Prompt-Execution-Limits, aber genau so bounded und default-disabled.
 
 from __future__ import annotations
 
-_ALLOWED_JOB_TYPES = frozenset({
-    "dataset_validate",
-    "train_lora",
-    "evaluate_lora",
-    "register_adapter",
-    "export_adapter",
-    "merge_adapter_optional",
-})
+_ALLOWED_JOB_TYPES = frozenset(
+    {
+        "dataset_validate",
+        "train_lora",
+        "evaluate_lora",
+        "register_adapter",
+        "export_adapter",
+        "merge_adapter_optional",
+    }
+)
+_DEFAULT_JOB_TYPES = _ALLOWED_JOB_TYPES.difference({"merge_adapter_optional"})
 
 _ALLOWED_MODES = frozenset({"dry_run", "live"})
 _ALLOWED_BACKENDS = frozenset({"unsloth", "peft_trl", "mock"})
@@ -62,6 +65,22 @@ _GPU_PROFILES: dict[str, dict] = {
 _ENV_ALLOWLIST_DEFAULTS = ["HOME", "PATH", "CUDA_VISIBLE_DEVICES", "HF_HOME", "TRANSFORMERS_CACHE"]
 
 
+def _bounded_int(value: object, *, default: int, minimum: int, maximum: int) -> int:
+    try:
+        parsed = int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        parsed = default
+    return max(minimum, min(parsed, maximum))
+
+
+def _bounded_float(value: object, *, default: float, minimum: float, maximum: float) -> float:
+    try:
+        parsed = float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        parsed = default
+    return max(minimum, min(parsed, maximum))
+
+
 def normalize_ml_intern_training_config(value: dict | None) -> dict:
     """Normalisiert und bounded die ml_intern_training Config-Gruppe.
 
@@ -85,22 +104,35 @@ def normalize_ml_intern_training_config(value: dict | None) -> dict:
             {str(jt).strip().lower() for jt in raw_job_types if str(jt or "").strip().lower() in _ALLOWED_JOB_TYPES}
         )
     else:
-        allowed_job_types = sorted(_ALLOWED_JOB_TYPES)
+        allowed_job_types = sorted(_DEFAULT_JOB_TYPES)
 
     artifact_root = str(payload.get("artifact_root") or "artifacts/lora").strip()
     dataset_root = str(payload.get("dataset_root") or "data/training/lora").strip()
 
-    try:
-        timeout_seconds = int(payload.get("timeout_seconds", 3600))
-    except (TypeError, ValueError):
-        timeout_seconds = 3600
-    timeout_seconds = max(60, min(timeout_seconds, 86400))  # 1min .. 24h
-
-    try:
-        max_dataset_bytes = int(payload.get("max_dataset_bytes", 104857600))
-    except (TypeError, ValueError):
-        max_dataset_bytes = 104857600
-    max_dataset_bytes = max(1024, min(max_dataset_bytes, 10 * 1024 * 1024 * 1024))  # 1 KB .. 10 GB
+    timeout_seconds = _bounded_int(payload.get("timeout_seconds", 3600), default=3600, minimum=60, maximum=86400)
+    max_dataset_bytes = _bounded_int(
+        payload.get("max_dataset_bytes", 104857600),
+        default=104857600,
+        minimum=1024,
+        maximum=10 * 1024 * 1024 * 1024,
+    )
+    max_adapter_bytes = _bounded_int(
+        payload.get("max_adapter_bytes", 2 * 1024 * 1024 * 1024),
+        default=2 * 1024 * 1024 * 1024,
+        minimum=1024,
+        maximum=20 * 1024 * 1024 * 1024,
+    )
+    max_concurrent_jobs = _bounded_int(payload.get("max_concurrent_jobs", 1), default=1, minimum=1, maximum=16)
+    max_queued_jobs = _bounded_int(payload.get("max_queued_jobs", 32), default=32, minimum=0, maximum=10_000)
+    max_preview_records = _bounded_int(payload.get("max_preview_records", 100), default=100, minimum=1, maximum=500)
+    split_seed = _bounded_int(payload.get("split_seed", 42), default=42, minimum=0, maximum=2**31 - 1)
+    validation_ratio = _bounded_float(payload.get("validation_ratio", 0.1), default=0.1, minimum=0.05, maximum=0.5)
+    minimum_eval_score = _bounded_float(
+        payload.get("minimum_eval_score", 0.0),
+        default=0.0,
+        minimum=0.0,
+        maximum=1_000_000.0,
+    )
 
     require_dataset_validation = bool(payload.get("require_dataset_validation", True))
     require_secret_scan = bool(payload.get("require_secret_scan", True))
@@ -115,13 +147,17 @@ def normalize_ml_intern_training_config(value: dict | None) -> dict:
 
     raw_env = payload.get("env_allowlist")
     if isinstance(raw_env, list):
-        env_allowlist = sorted({
-            str(k or "").strip()
-            for k in raw_env
-            if str(k or "").strip()
-        })
+        env_allowlist = sorted({str(k or "").strip() for k in raw_env if str(k or "").strip()})
     else:
         env_allowlist = sorted(set(_ENV_ALLOWLIST_DEFAULTS))
+
+    raw_base_models = payload.get("base_models")
+    base_models = []
+    if isinstance(raw_base_models, list):
+        for value in raw_base_models[:128]:
+            model_id = str(value or "").strip()
+            if model_id and len(model_id) <= 256 and model_id not in base_models:
+                base_models.append(model_id)
 
     return {
         "enabled": enabled,
@@ -132,6 +168,14 @@ def normalize_ml_intern_training_config(value: dict | None) -> dict:
         "dataset_root": dataset_root,
         "timeout_seconds": timeout_seconds,
         "max_dataset_bytes": max_dataset_bytes,
+        "max_adapter_bytes": max_adapter_bytes,
+        "max_concurrent_jobs": max_concurrent_jobs,
+        "max_queued_jobs": max_queued_jobs,
+        "max_preview_records": max_preview_records,
+        "split_seed": split_seed,
+        "validation_ratio": validation_ratio,
+        "minimum_eval_score": minimum_eval_score,
+        "base_models": base_models,
         "require_dataset_validation": require_dataset_validation,
         "require_secret_scan": require_secret_scan,
         "require_eval_before_approval": require_eval_before_approval,
@@ -148,7 +192,9 @@ def normalize_lora_runtime_config(value: dict | None) -> dict:
     payload = dict(value or {})
     return {
         "enabled": bool(payload.get("enabled", False)),
-        "adapter_registry_path": str(payload.get("adapter_registry_path") or "artifacts/lora/adapter_registry.json").strip(),
+        "adapter_registry_path": str(
+            payload.get("adapter_registry_path") or "artifacts/lora/adapter_registry.json"
+        ).strip(),
         "routing_enabled": bool(payload.get("routing_enabled", False)),
         "fallback_to_base_model": bool(payload.get("fallback_to_base_model", True)),
         "approved_only": bool(payload.get("approved_only", True)),

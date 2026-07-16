@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/contracts/mlintern-lora-training-result.v1.schema.json",
+  "title": "Ananta LoRA Training Worker Terminal Result v1",
+  "description": "Terminal worker status validated by the Hub before any artifact admission or domain-result persistence. graceful cancellation is normalized by the Hub to cooperative; forced remains forced.",
+  "allOf": [
+    {"$ref": "mlintern-lora-training-status.v1.schema.json"},
+    {
+      "properties": {
+        "status": {"enum": ["succeeded", "failed", "cancelled"]}
+      }
+    },
+    {
+      "if": {"properties": {"status": {"const": "succeeded"}}, "required": ["status"]},
+      "then": {
+        "properties": {
+          "artifacts": {"minItems": 1},
+          "error": {"type": "null"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"status": {"const": "failed"}}, "required": ["status"]},
+      "then": {
+        "properties": {
+          "error": {"$ref": "mlintern-lora-training-status.v1.schema.json#/$defs/error"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"status": {"const": "cancelled"}}, "required": ["status"]},
+      "then": {
+        "properties": {
+          "cancel_mode": {"enum": ["graceful", "forced"]}
+        }
+      }
+    }
+  ]
+}

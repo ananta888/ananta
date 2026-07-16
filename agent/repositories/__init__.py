@@ -29,6 +29,7 @@ from .goals import GoalRepository, PlanNodeRepository, PlanRepository
 from .governance import ActionPackRepository, AuditLogRepository, PolicyDecisionRepository, VerificationRecordRepository
 from .instructions import InstructionOverlayRepository, UserInstructionProfileRepository
 from .memory import MemoryEntryRepository
+from .ml_intern_training import MlInternTrainingRepository
 from .operations import StatsRepository
 from .organization import (
     BlueprintArtifactRepository,
@@ -84,6 +85,7 @@ __all__ = [
     "LoginAttemptRepository",
     "OidcIdentityLinkRepository",
     "MemoryEntryRepository",
+    "MlInternTrainingRepository",
     "PasswordHistoryRepository",
     "PlanNodeRepository",
     "PlanRepository",

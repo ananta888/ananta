@@ -12,6 +12,7 @@ BACKGROUND_SERVICE_NAMES = (
     "planning_learning",
     "housekeeping",
     "workflow_runtime_reconciler",
+    "ml_intern_training_reconciler",
     "scheduler",
 )
 
@@ -49,6 +50,10 @@ class BackgroundServiceManager:
             "workflow_runtime_reconciler",
             self._start_workflow_runtime_reconciler,
         )
+        self._start_service(
+            "ml_intern_training_reconciler",
+            self._start_ml_intern_training_reconciler,
+        )
         self._start_service("scheduler", self._start_scheduler)
         self._capture_active_threads()
         extensions = getattr(self.app, "extensions", None)
@@ -64,6 +69,10 @@ class BackgroundServiceManager:
 
         self.shutdown_requested = True
         agent.common.context.shutdown_requested = True
+        try:
+            self._stop_ml_intern_training_reconciler()
+        except Exception as exc:
+            self.failed_services["ml_intern_training_reconciler_stop"] = str(exc)
         try:
             self._stop_scheduler()
         except Exception as exc:
@@ -140,6 +149,20 @@ class BackgroundServiceManager:
         )
 
         start_workflow_runtime_reconciler_thread(self.app)
+
+    def _start_ml_intern_training_reconciler(self):
+        from agent.services.background.ml_intern_training_reconciler import (
+            start_ml_intern_training_reconciler_thread,
+        )
+
+        start_ml_intern_training_reconciler_thread(self.app)
+
+    def _stop_ml_intern_training_reconciler(self):
+        from agent.services.background.ml_intern_training_reconciler import (
+            stop_ml_intern_training_reconciler,
+        )
+
+        stop_ml_intern_training_reconciler(self.app)
 
     def _start_scheduler(self):
         from agent.services.scheduler_service import get_scheduler_service

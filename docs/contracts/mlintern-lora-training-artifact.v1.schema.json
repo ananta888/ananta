@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/contracts/mlintern-lora-training-artifact.v1.schema.json",
+  "title": "Ananta LoRA Training Worker Artifact Metadata v1",
+  "description": "Closed metadata contract for one immutable, hash-verified worker artifact. Artifact bytes are transferred separately as a bounded stream.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "sha256", "size_bytes", "media_type"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_./-]{0,511}$",
+      "not": {
+        "anyOf": [
+          {"pattern": "(^|/)\\.\\.(/|$)"},
+          {"pattern": "//"}
+        ]
+      }
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "size_bytes": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9223372036854775807
+    },
+    "media_type": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 128,
+      "pattern": "^[^\\s/]+/[^\\s/]+$"
+    }
+  }
+}

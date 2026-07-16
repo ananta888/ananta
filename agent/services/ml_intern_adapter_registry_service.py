@@ -7,10 +7,16 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import secrets
+import tempfile
+import threading
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from agent.services.interprocess_file_transaction import InterProcessFileTransaction
 
 _VALID_TRANSITIONS: dict[str, set[str]] = {
     "created": {"training", "failed"},
@@ -25,10 +31,31 @@ _VALID_TRANSITIONS: dict[str, set[str]] = {
 
 _TERMINAL_STATUSES = frozenset({"deprecated", "failed"})
 _APPROVED_STATUS = "approved"
+_REGISTRY_LOCKS_GUARD = threading.Lock()
+_REGISTRY_LOCKS: dict[str, threading.RLock] = {}
+
+
+def _synchronized(method):
+    def wrapped(self, *args, **kwargs):
+        with self._lock:
+            with self._transaction:
+                return method(self, *args, **kwargs)
+
+    return wrapped
 
 
 class RegistryError(ValueError):
     """Fehler in der Adapter-Registry."""
+
+
+class RegistryNotFoundError(RegistryError):
+    """The adapter does not exist inside the caller's exact ownership scope."""
+
+
+class RegistryVersionConflict(RegistryError):
+    """A lifecycle mutation used a stale optimistic-lock version."""
+
+    reason_code = "adapter_version_conflict"
 
 
 @dataclass
@@ -40,9 +67,13 @@ class AdapterRecord:
     method: str
     status: str
     created_at: str
+    registry_version: int = 1
+    tenant_id: str | None = None
+    owner_subject: str | None = None
     artifact_paths: dict[str, str] = field(default_factory=dict)
     dataset_hash: str | None = None
     config_hash: str | None = None
+    artifact_sha256: str | None = None
     eval_report_ref: str | None = None
     eval_score: float | None = None
     approved_by: str | None = None
@@ -54,9 +85,12 @@ class AdapterRecord:
     notes: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {k: v for k, v in asdict(self).items() if v is not None or k in (
-            "adapter_id", "display_name", "version", "base_model", "method", "status", "created_at"
-        )}
+        return {
+            k: v
+            for k, v in asdict(self).items()
+            if v is not None
+            or k in ("adapter_id", "display_name", "version", "base_model", "method", "status", "created_at")
+        }
 
 
 class MlInternAdapterRegistryService:
@@ -64,6 +98,12 @@ class MlInternAdapterRegistryService:
 
     def __init__(self, registry_path: str | Path = "artifacts/lora/adapter_registry.json") -> None:
         self._path = Path(registry_path)
+        key = str(self._path.resolve())
+        with _REGISTRY_LOCKS_GUARD:
+            self._lock = _REGISTRY_LOCKS.setdefault(key, threading.RLock())
+        self._transaction = InterProcessFileTransaction(
+            self._path.with_name(f"{self._path.name}.lock")
+        )
 
     # --- Load / Save -------------------------------------------------------
 
@@ -83,31 +123,91 @@ class MlInternAdapterRegistryService:
     def _save(self, records: list[dict]) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)
         payload = {
-            "schema": "mlintern_adapter_registry.v1",
+            "schema": "mlintern_adapter_registry.v2",
             "adapters": records,
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
-        self._path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        temporary: Path | None = None
+        try:
+            descriptor, name = tempfile.mkstemp(prefix=".adapter-registry-", dir=str(self._path.parent))
+            temporary = Path(name)
+            os.chmod(temporary, 0o600)
+            with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+                json.dump(payload, handle, indent=2, ensure_ascii=False, allow_nan=False)
+                handle.write("\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temporary, self._path)
+            temporary = None
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
 
     # --- Public API --------------------------------------------------------
 
-    def list_adapters(self, status: str | None = None) -> list[AdapterRecord]:
+    def list_adapters(
+        self,
+        status: str | None = None,
+        *,
+        tenant_id: str | None = None,
+        owner_subject: str | None = None,
+    ) -> list[AdapterRecord]:
+        scope = _scope_key(tenant_id, owner_subject)
         records = self._load()
         result = []
         for r in records:
             if not isinstance(r, dict):
+                continue
+            if not _matches_scope(r, scope):
                 continue
             if status and r.get("status") != status:
                 continue
             result.append(self._from_dict(r))
         return result
 
-    def get(self, adapter_id: str) -> AdapterRecord | None:
+    def get(
+        self,
+        adapter_id: str,
+        *,
+        tenant_id: str | None = None,
+        owner_subject: str | None = None,
+    ) -> AdapterRecord | None:
+        scope = _scope_key(tenant_id, owner_subject)
         for r in self._load():
-            if isinstance(r, dict) and r.get("adapter_id") == adapter_id:
+            if (
+                isinstance(r, dict)
+                and r.get("adapter_id") == adapter_id
+                and _matches_scope(r, scope)
+            ):
                 return self._from_dict(r)
         return None
 
+    def get_by_scope_digest(
+        self,
+        adapter_id: str,
+        tenant_scope_digest: str,
+    ) -> AdapterRecord | None:
+        """Resolve a scoped record from the Hub's opaque worker binding.
+
+        Legacy unscoped rows deliberately never match. This keeps the worker
+        port free of raw tenant identity while preserving exact ownership.
+        """
+
+        expected = str(tenant_scope_digest or "").strip().lower()
+        if not _is_sha256(expected):
+            raise RegistryError("tenant_scope_digest must be a lowercase SHA-256 digest")
+        for raw in self._load():
+            if not isinstance(raw, dict) or raw.get("adapter_id") != adapter_id:
+                continue
+            tenant = _optional_text(raw.get("tenant_id"))
+            owner = _optional_text(raw.get("owner_subject"))
+            if tenant is None or owner is None:
+                continue
+            if secrets.compare_digest(_tenant_scope_digest(tenant, owner), expected):
+                return self._from_dict(raw)
+        return None
+
+    @_synchronized
     def register(
         self,
         *,
@@ -119,10 +219,14 @@ class MlInternAdapterRegistryService:
         artifact_paths: dict[str, str] | None = None,
         dataset_hash: str | None = None,
         config_hash: str | None = None,
+        artifact_sha256: str | None = None,
         task_kinds: list[str] | None = None,
         notes: str | None = None,
+        tenant_id: str | None = None,
+        owner_subject: str | None = None,
     ) -> AdapterRecord:
-        existing = self.get(adapter_id)
+        scope = _scope_key(tenant_id, owner_subject)
+        existing = self.get(adapter_id, tenant_id=scope[0], owner_subject=scope[1])
         if existing is not None:
             raise RegistryError(f"adapter_id {adapter_id!r} already exists")
         now = datetime.now(timezone.utc).isoformat()
@@ -134,9 +238,13 @@ class MlInternAdapterRegistryService:
             method=method,
             status="created",
             created_at=now,
+            registry_version=1,
+            tenant_id=scope[0],
+            owner_subject=scope[1],
             artifact_paths=artifact_paths or {},
             dataset_hash=dataset_hash,
             config_hash=config_hash,
+            artifact_sha256=artifact_sha256,
             task_kinds=task_kinds or [],
             notes=notes,
         )
@@ -145,12 +253,133 @@ class MlInternAdapterRegistryService:
         self._save(records)
         return record
 
-    def transition(self, adapter_id: str, new_status: str) -> AdapterRecord:
+    @_synchronized
+    def register_trained(
+        self,
+        *,
+        adapter_id: str,
+        display_name: str,
+        version: str,
+        base_model: str,
+        method: str,
+        artifact_paths: dict[str, str],
+        config_hash: str,
+        artifact_sha256: str,
+        task_kinds: list[str] | None = None,
+        notes: str | None = None,
+        tenant_id: str | None = None,
+        owner_subject: str | None = None,
+    ) -> AdapterRecord:
+        """Atomically publish or resume one already-trained imported adapter.
+
+        Unlike ``register`` followed by status transitions, this operation
+        performs at most one registry replacement. Existing records are only
+        resumable when all immutable content bindings match exactly.
+        """
+
+        if not _is_sha256(config_hash):
+            raise RegistryError("config_hash must be a lowercase SHA-256 digest")
+        if not _is_sha256(artifact_sha256):
+            raise RegistryError("artifact_sha256 must be a lowercase SHA-256 digest")
+        if not isinstance(artifact_paths, dict) or not artifact_paths or not all(
+            isinstance(key, str) and key and isinstance(value, str) and value
+            for key, value in artifact_paths.items()
+        ):
+            raise RegistryError("artifact_paths must contain non-empty string bindings")
+
+        scope = _scope_key(tenant_id, owner_subject)
+        records = self._load()
+        for index, raw in enumerate(records):
+            if (
+                not isinstance(raw, dict)
+                or raw.get("adapter_id") != adapter_id
+                or not _matches_scope(raw, scope)
+            ):
+                continue
+            existing = self._from_dict(raw)
+            immutable_bindings = {
+                "version": (existing.version, version),
+                "base_model": (existing.base_model, base_model),
+                "method": (existing.method, method),
+                "config_hash": (existing.config_hash, config_hash),
+                "artifact_sha256": (existing.artifact_sha256, artifact_sha256),
+            }
+            mismatches = [
+                name
+                for name, (actual, expected) in immutable_bindings.items()
+                if actual != expected
+            ]
+            if mismatches:
+                raise RegistryError(
+                    "adapter ID is already bound to different " + ", ".join(sorted(mismatches))
+                )
+            if existing.status not in {"created", "training", "trained", "evaluated", "approved"}:
+                raise RegistryError(
+                    f"existing adapter status {existing.status!r} cannot resume secure import"
+                )
+
+            changed = False
+            if existing.status in {"created", "training"}:
+                raw["status"] = "trained"
+                changed = True
+            if raw.get("artifact_paths") != artifact_paths:
+                # The caller verified the same artifact hash. Updating its
+                # storage reference is therefore safe and heals interrupted
+                # imports without weakening the immutable content binding.
+                raw["artifact_paths"] = dict(artifact_paths)
+                changed = True
+            if changed:
+                raw["updated_at"] = datetime.now(timezone.utc).isoformat()
+                _bump_version(raw)
+                records[index] = raw
+                self._save(records)
+                return self._from_dict(raw)
+            return existing
+
+        now = datetime.now(timezone.utc).isoformat()
+        record = AdapterRecord(
+            adapter_id=adapter_id,
+            display_name=display_name,
+            version=version,
+            base_model=base_model,
+            method=method,
+            status="trained",
+            created_at=now,
+            registry_version=1,
+            tenant_id=scope[0],
+            owner_subject=scope[1],
+            artifact_paths=dict(artifact_paths),
+            config_hash=config_hash,
+            artifact_sha256=artifact_sha256,
+            task_kinds=task_kinds or [],
+            updated_at=now,
+            notes=notes,
+        )
+        records.append(record.to_dict())
+        self._save(records)
+        return record
+
+    @_synchronized
+    def transition(
+        self,
+        adapter_id: str,
+        new_status: str,
+        *,
+        tenant_id: str | None = None,
+        owner_subject: str | None = None,
+        expected_version: int | None = None,
+    ) -> AdapterRecord:
         """Wechselt den Status eines Adapters; blockiert ungueltige Uebergaenge."""
+        scope = _scope_key(tenant_id, owner_subject)
         records = self._load()
         for i, r in enumerate(records):
-            if not isinstance(r, dict) or r.get("adapter_id") != adapter_id:
+            if (
+                not isinstance(r, dict)
+                or r.get("adapter_id") != adapter_id
+                or not _matches_scope(r, scope)
+            ):
                 continue
+            _assert_expected_version(r, expected_version)
             current = str(r.get("status") or "")
             allowed = _VALID_TRANSITIONS.get(current, set())
             if new_status not in allowed:
@@ -160,11 +389,13 @@ class MlInternAdapterRegistryService:
                 )
             r["status"] = new_status
             r["updated_at"] = datetime.now(timezone.utc).isoformat()
+            _bump_version(r)
             records[i] = r
             self._save(records)
             return self._from_dict(r)
-        raise RegistryError(f"adapter {adapter_id!r} not found")
+        raise RegistryNotFoundError(f"adapter {adapter_id!r} not found")
 
+    @_synchronized
     def approve(
         self,
         adapter_id: str,
@@ -172,77 +403,182 @@ class MlInternAdapterRegistryService:
         approved_by: str,
         reason: str,
         require_eval_report: bool = True,
+        minimum_eval_score: float | None = None,
+        tenant_id: str | None = None,
+        owner_subject: str | None = None,
+        expected_version: int | None = None,
     ) -> AdapterRecord:
         """Setzt Adapter auf approved. Blockiert ohne eval_report_ref."""
-        record = self.get(adapter_id)
-        if record is None:
-            raise RegistryError(f"adapter {adapter_id!r} not found")
-        if record.status != "evaluated":
-            raise RegistryError(
-                f"can only approve from 'evaluated' status, current: {record.status!r}"
-            )
-        if require_eval_report and not record.eval_report_ref:
-            raise RegistryError(
-                f"adapter {adapter_id!r} has no eval_report_ref; cannot approve without evaluation"
-            )
+        scope = _scope_key(tenant_id, owner_subject)
         records = self._load()
         for i, r in enumerate(records):
-            if isinstance(r, dict) and r.get("adapter_id") == adapter_id:
+            if (
+                isinstance(r, dict)
+                and r.get("adapter_id") == adapter_id
+                and _matches_scope(r, scope)
+            ):
+                _assert_expected_version(r, expected_version)
+                record = self._from_dict(r)
+                if record.status != "evaluated":
+                    raise RegistryError(
+                        f"can only approve from 'evaluated' status, current: {record.status!r}"
+                    )
+                if require_eval_report and not record.eval_report_ref:
+                    raise RegistryError(
+                        f"adapter {adapter_id!r} has no eval_report_ref; cannot approve without evaluation"
+                    )
+                if minimum_eval_score is not None and (
+                    record.eval_score is None
+                    or float(record.eval_score) < float(minimum_eval_score)
+                ):
+                    raise RegistryError(
+                        f"adapter {adapter_id!r} evaluation score does not meet the approval threshold"
+                    )
                 r["status"] = "approved"
                 r["approved_by"] = approved_by
                 r["approved_at"] = datetime.now(timezone.utc).isoformat()
                 r["approval_reason"] = reason
                 r["updated_at"] = r["approved_at"]
+                _bump_version(r)
                 records[i] = r
                 self._save(records)
                 return self._from_dict(r)
-        raise RegistryError(f"adapter {adapter_id!r} not found")
+        raise RegistryNotFoundError(f"adapter {adapter_id!r} not found")
 
-    def reject(self, adapter_id: str, *, reason: str) -> AdapterRecord:
-        record = self.get(adapter_id)
-        if record is None:
-            raise RegistryError(f"adapter {adapter_id!r} not found")
-        if record.status != "evaluated":
-            raise RegistryError(f"can only reject from 'evaluated', current: {record.status!r}")
+    @_synchronized
+    def reject(
+        self,
+        adapter_id: str,
+        *,
+        reason: str,
+        tenant_id: str | None = None,
+        owner_subject: str | None = None,
+        expected_version: int | None = None,
+    ) -> AdapterRecord:
+        scope = _scope_key(tenant_id, owner_subject)
         records = self._load()
         for i, r in enumerate(records):
-            if isinstance(r, dict) and r.get("adapter_id") == adapter_id:
+            if (
+                isinstance(r, dict)
+                and r.get("adapter_id") == adapter_id
+                and _matches_scope(r, scope)
+            ):
+                _assert_expected_version(r, expected_version)
+                record = self._from_dict(r)
+                if record.status != "evaluated":
+                    raise RegistryError(
+                        f"can only reject from 'evaluated', current: {record.status!r}"
+                    )
                 r["status"] = "rejected"
                 r["rejected_reason"] = reason
                 r["updated_at"] = datetime.now(timezone.utc).isoformat()
+                _bump_version(r)
                 records[i] = r
                 self._save(records)
                 return self._from_dict(r)
-        raise RegistryError(f"adapter {adapter_id!r} not found")
+        raise RegistryNotFoundError(f"adapter {adapter_id!r} not found")
 
-    def deprecate(self, adapter_id: str) -> AdapterRecord:
-        return self.transition(adapter_id, "deprecated")
+    def deprecate(
+        self,
+        adapter_id: str,
+        *,
+        tenant_id: str | None = None,
+        owner_subject: str | None = None,
+        expected_version: int | None = None,
+    ) -> AdapterRecord:
+        return self.transition(
+            adapter_id,
+            "deprecated",
+            tenant_id=tenant_id,
+            owner_subject=owner_subject,
+            expected_version=expected_version,
+        )
 
+    @_synchronized
     def set_eval_report(
         self,
         adapter_id: str,
         *,
         eval_report_ref: str,
         eval_score: float | None = None,
+        tenant_id: str | None = None,
+        owner_subject: str | None = None,
+        expected_version: int | None = None,
     ) -> AdapterRecord:
         """Speichert Eval-Report-Referenz und setzt Status auf evaluated."""
-        record = self.get(adapter_id)
-        if record is None:
-            raise RegistryError(f"adapter {adapter_id!r} not found")
-        if record.status != "trained":
-            raise RegistryError(f"eval can only be set from 'trained', current: {record.status!r}")
+        scope = _scope_key(tenant_id, owner_subject)
         records = self._load()
         for i, r in enumerate(records):
-            if isinstance(r, dict) and r.get("adapter_id") == adapter_id:
+            if (
+                isinstance(r, dict)
+                and r.get("adapter_id") == adapter_id
+                and _matches_scope(r, scope)
+            ):
+                _assert_expected_version(r, expected_version)
+                record = self._from_dict(r)
+                if record.status not in {"trained", "evaluated"}:
+                    raise RegistryError(
+                        "eval can only be set from 'trained' or 'evaluated', "
+                        f"current: {record.status!r}"
+                    )
                 r["eval_report_ref"] = eval_report_ref
                 if eval_score is not None:
                     r["eval_score"] = eval_score
                 r["status"] = "evaluated"
                 r["updated_at"] = datetime.now(timezone.utc).isoformat()
+                _bump_version(r)
                 records[i] = r
                 self._save(records)
                 return self._from_dict(r)
-        raise RegistryError(f"adapter {adapter_id!r} not found")
+        raise RegistryNotFoundError(f"adapter {adapter_id!r} not found")
+
+    @_synchronized
+    def rollback(
+        self,
+        adapter_id: str,
+        *,
+        tenant_id: str | None = None,
+        owner_subject: str | None = None,
+        expected_version: int | None = None,
+    ) -> tuple[AdapterRecord, AdapterRecord | None]:
+        """Deprecate the selected active adapter and resolve the prior approved target.
+
+        A missing prior target deliberately means ``base_model_only``; no
+        unapproved adapter is ever promoted implicitly.
+        """
+
+        scope = _scope_key(tenant_id, owner_subject)
+        selected = self.get(adapter_id, tenant_id=scope[0], owner_subject=scope[1])
+        if selected is None:
+            raise RegistryNotFoundError(f"adapter {adapter_id!r} not found")
+        if selected.status == "approved":
+            deprecated = self.transition(
+                adapter_id,
+                "deprecated",
+                tenant_id=scope[0],
+                owner_subject=scope[1],
+                expected_version=expected_version,
+            )
+        elif selected.status == "deprecated":
+            _assert_record_expected_version(selected, expected_version)
+            deprecated = selected
+        else:
+            raise RegistryError(
+                f"rollback requires an approved or deprecated adapter, current: {selected.status!r}"
+            )
+        candidates = [
+            record
+            for record in self.list_adapters(
+                status="approved", tenant_id=scope[0], owner_subject=scope[1]
+            )
+            if record.adapter_id != adapter_id and record.base_model == selected.base_model
+        ]
+        target = (
+            sorted(candidates, key=lambda item: item.approved_at or item.created_at, reverse=True)[0]
+            if candidates
+            else None
+        )
+        return deprecated, target
 
     def resolve_active_adapter(
         self,
@@ -250,9 +586,15 @@ class MlInternAdapterRegistryService:
         base_model: str,
         task_kind: str | None = None,
         approved_only: bool = True,
+        tenant_id: str | None = None,
+        owner_subject: str | None = None,
     ) -> AdapterRecord | None:
         """Gibt den aktiven approved Adapter fuer ein Modell/Task zurueck."""
-        adapters = self.list_adapters(status="approved" if approved_only else None)
+        adapters = self.list_adapters(
+            status="approved" if approved_only else None,
+            tenant_id=tenant_id,
+            owner_subject=owner_subject,
+        )
         candidates = []
         for a in adapters:
             if approved_only and a.status != "approved":
@@ -269,30 +611,41 @@ class MlInternAdapterRegistryService:
         # Neuesten approved Adapter bevorzugen
         return sorted(candidates, key=lambda x: x.approved_at or x.created_at, reverse=True)[0]
 
-    def to_read_model(self, approved_only: bool = False) -> dict[str, Any]:
+    def to_read_model(
+        self,
+        approved_only: bool = False,
+        *,
+        tenant_id: str | None = None,
+        owner_subject: str | None = None,
+    ) -> dict[str, Any]:
         """Gibt eine sichere, lesbare Zusammenfassung ohne sensible Pfade zurueck."""
-        adapters = self.list_adapters()
+        adapters = self.list_adapters(tenant_id=tenant_id, owner_subject=owner_subject)
         items = []
         for a in adapters:
             if approved_only and a.status != "approved":
                 continue
-            items.append({
-                "adapter_id": a.adapter_id,
-                "display_name": a.display_name,
-                "version": a.version,
-                "base_model": a.base_model,
-                "method": a.method,
-                "status": a.status,
-                "task_kinds": a.task_kinds,
-                "eval_score": a.eval_score,
-                "has_eval_report": bool(a.eval_report_ref),
-                "approved_by": a.approved_by,
-                "approved_at": a.approved_at,
-                "created_at": a.created_at,
-                "updated_at": a.updated_at,
-            })
+            items.append(
+                {
+                    "adapter_id": a.adapter_id,
+                    "display_name": a.display_name,
+                    "version": a.version,
+                    "registry_version": a.registry_version,
+                    "base_model": a.base_model,
+                    "method": a.method,
+                    "status": a.status,
+                    "task_kinds": a.task_kinds,
+                    "eval_score": a.eval_score,
+                    "sha256": a.artifact_sha256,
+                    "hash_bound": bool(a.artifact_sha256),
+                    "has_eval_report": bool(a.eval_report_ref),
+                    "approved_by": a.approved_by,
+                    "approved_at": a.approved_at,
+                    "created_at": a.created_at,
+                    "updated_at": a.updated_at,
+                }
+            )
         return {
-            "schema": "mlintern_adapter_registry.v1",
+            "schema": "mlintern_adapter_registry.v2",
             "count": len(items),
             "approved_count": sum(1 for i in items if i["status"] == "approved"),
             "items": items,
@@ -308,9 +661,13 @@ class MlInternAdapterRegistryService:
             method=str(r.get("method") or "qlora"),
             status=str(r.get("status") or "created"),
             created_at=str(r.get("created_at") or ""),
+            registry_version=_stored_version(r),
+            tenant_id=_optional_text(r.get("tenant_id")),
+            owner_subject=_optional_text(r.get("owner_subject")),
             artifact_paths=dict(r.get("artifact_paths") or {}),
             dataset_hash=r.get("dataset_hash"),
             config_hash=r.get("config_hash"),
+            artifact_sha256=r.get("artifact_sha256"),
             eval_report_ref=r.get("eval_report_ref"),
             eval_score=r.get("eval_score"),
             approved_by=r.get("approved_by"),
@@ -321,6 +678,84 @@ class MlInternAdapterRegistryService:
             updated_at=r.get("updated_at"),
             notes=r.get("notes"),
         )
+
+
+def _is_sha256(value: object) -> bool:
+    return isinstance(value, str) and len(value) == 64 and all(
+        character in "0123456789abcdef" for character in value
+    )
+
+
+def _optional_text(value: object) -> str | None:
+    normalized = str(value or "").strip()
+    return normalized or None
+
+
+def _scope_key(
+    tenant_id: str | None,
+    owner_subject: str | None,
+) -> tuple[str | None, str | None]:
+    tenant = _optional_text(tenant_id)
+    owner = _optional_text(owner_subject)
+    if (tenant is None) != (owner is None):
+        raise RegistryError("tenant_id and owner_subject must be provided together")
+    if tenant is not None and (len(tenant) > 192 or len(owner or "") > 192):
+        raise RegistryError("adapter ownership scope exceeds its supported bounds")
+    return tenant, owner
+
+
+def _tenant_scope_digest(tenant_id: str, owner_subject: str) -> str:
+    material = (
+        "ananta.ml-intern-training.scope.v1\x00"
+        f"{tenant_id}\x00{owner_subject}"
+    ).encode("utf-8")
+    return hashlib.sha256(material).hexdigest()
+
+
+def _matches_scope(
+    raw: dict[str, Any],
+    scope: tuple[str | None, str | None],
+) -> bool:
+    return (_optional_text(raw.get("tenant_id")), _optional_text(raw.get("owner_subject"))) == scope
+
+
+def _stored_version(raw: dict[str, Any]) -> int:
+    value = raw.get("registry_version", 1)
+    if isinstance(value, bool):
+        return 1
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return 1
+    return min(max(1, parsed), 2_147_483_647)
+
+
+def _bump_version(raw: dict[str, Any]) -> int:
+    current = _stored_version(raw)
+    if current >= 2_147_483_647:
+        raise RegistryError("adapter registry version is exhausted")
+    next_version = current + 1
+    raw["registry_version"] = next_version
+    return next_version
+
+
+def _assert_expected_version(raw: dict[str, Any], expected_version: int | None) -> None:
+    if expected_version is None:
+        return
+    if isinstance(expected_version, bool) or not isinstance(expected_version, int) or expected_version < 1:
+        raise RegistryVersionConflict("expected_version must be a positive integer")
+    actual = _stored_version(raw)
+    if actual != expected_version:
+        raise RegistryVersionConflict(
+            f"stale adapter registry version: expected {expected_version}, current {actual}"
+        )
+
+
+def _assert_record_expected_version(
+    record: AdapterRecord,
+    expected_version: int | None,
+) -> None:
+    _assert_expected_version({"registry_version": record.registry_version}, expected_version)
 
 
 def make_config_hash(training_config: dict) -> str:

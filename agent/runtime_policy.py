@@ -7,7 +7,6 @@ from typing import Any
 from agent.research_backend import resolve_research_backend_config
 from agent.security_risk import RISK_LEVEL_RANK, max_risk_level, normalize_risk_level
 
-
 TASK_KINDS = {"coding", "analysis", "doc", "ops", "research", "git_commit", "git_merge"}
 
 
@@ -189,55 +188,87 @@ def resolve_lora_adapter_routing(
     task_kind: str | None,
     base_model: str,
     agent_cfg: dict | None,
+    *,
+    tenant_id: str | None = None,
+    owner_subject: str | None = None,
 ) -> dict[str, Any]:
     """Optionales LoRA-Adapter-Routing (MLLORA-018).
 
     Gibt base_model_only zurueck wenn routing deaktiviert, kein passender Adapter,
     oder Security Policy blockiert.
 
-    Returns dict mit keys: adapter_used, adapter_id, adapter_version, base_model,
-        eval_report_ref, reason, fallback_to_base_model.
+    Returns a public, path-free policy decision.  Worker execution re-checks
+    the selected adapter against the registry before materializing artifacts.
     """
-    _NO_ADAPTER = {
-        "adapter_used": False,
-        "adapter_id": None,
-        "adapter_version": None,
-        "base_model": base_model,
-        "eval_report_ref": None,
-        "reason": "lora_routing_disabled",
-        "fallback_to_base_model": True,
-    }
+    def no_adapter(reason_code: str, *, fallback: bool = True) -> dict[str, Any]:
+        return {
+            "adapter_used": False,
+            "adapter_id": None,
+            "adapter_version": None,
+            "version": None,
+            "base_model": base_model,
+            "eval_report_ref": None,
+            "reason": reason_code,
+            "reason_code": reason_code,
+            "fallback_to_base_model": bool(fallback),
+            "policy_decision": {
+                "policy_version": "mlintern-lora-runtime-v2",
+                "decision": "base_model_only",
+                "reason_code": reason_code,
+                "approved_only": True,
+                "task_kind": str(task_kind or "").strip() or None,
+            },
+        }
+
+    configured_fallback = True
     try:
         from agent.services.ml_intern_training_config_service import normalize_lora_runtime_config
         lora_rt = normalize_lora_runtime_config((agent_cfg or {}).get("lora_runtime") or {})
+        configured_fallback = bool(lora_rt.get("fallback_to_base_model", True))
         if not lora_rt.get("enabled") or not lora_rt.get("routing_enabled"):
-            return {**_NO_ADAPTER, "reason": "lora_routing_disabled"}
+            return no_adapter("lora_routing_disabled")
         if not lora_rt.get("approved_only", True):
-            return {**_NO_ADAPTER, "reason": "lora_approved_only_violated"}
+            return no_adapter("lora_approved_only_violated", fallback=configured_fallback)
 
         from agent.services.ml_intern_adapter_registry_service import MlInternAdapterRegistryService
-        registry_path = lora_rt.get("adapter_registry_path", "artifacts/lora/adapter_registry.json")
+        from agent.services.ml_intern_lora_inference_service import resolve_lora_storage_config
+
+        registry_path = resolve_lora_storage_config(agent_cfg).get("registry_path")
         svc = MlInternAdapterRegistryService(registry_path)
-        adapter = svc.resolve_active_adapter(base_model=base_model, task_kind=task_kind, approved_only=True)
-        if adapter is None:
-            return {**_NO_ADAPTER, "reason": "no_approved_adapter_for_model_and_task_kind"}
-        adapter_path = (
-            adapter.artifact_paths.get("adapter_dir")
-            or adapter.artifact_paths.get("adapter_path")
-            or adapter.artifact_paths.get("output_dir")
+        adapter = svc.resolve_active_adapter(
+            base_model=base_model,
+            task_kind=task_kind,
+            approved_only=True,
+            tenant_id=tenant_id,
+            owner_subject=owner_subject,
         )
+        if adapter is None:
+            return no_adapter(
+                "no_approved_adapter_for_model_and_task_kind",
+                fallback=configured_fallback,
+            )
+        reason_code = "lora_approved_adapter_selected"
         return {
             "adapter_used": True,
             "adapter_id": adapter.adapter_id,
             "adapter_version": adapter.version,
+            "version": adapter.version,
             "base_model": adapter.base_model,
             "eval_report_ref": adapter.eval_report_ref,
-            "_adapter_path": adapter_path,
-            "reason": "lora_approved_adapter_selected",
-            "fallback_to_base_model": lora_rt.get("fallback_to_base_model", True),
+            "reason": reason_code,
+            "reason_code": reason_code,
+            "fallback_to_base_model": configured_fallback,
+            "policy_decision": {
+                "policy_version": "mlintern-lora-runtime-v2",
+                "decision": "adapter_selected",
+                "reason_code": reason_code,
+                "approved_only": True,
+                "adapter_status": adapter.status,
+                "task_kind": str(task_kind or "").strip() or None,
+            },
         }
     except Exception:
-        return {**_NO_ADAPTER, "reason": "lora_routing_error"}
+        return no_adapter("lora_routing_error", fallback=configured_fallback)
 
 
 def build_trace_record(

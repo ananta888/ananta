@@ -1,0 +1,238 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/contracts/mlintern-lora-training-request.v1.schema.json",
+  "title": "Ananta LoRA Training Worker Request v1",
+  "description": "Closed, fully materialized Hub-to-worker request. The worker executes this request and cannot delegate or select another worker.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "job_id",
+    "attempt_id",
+    "fencing_token",
+    "correlation_id",
+    "job_type",
+    "backend",
+    "resource_profile",
+    "tenant_scope_digest",
+    "workspace_ref",
+    "deadline_epoch_ms",
+    "base_model",
+    "configuration"
+  ],
+  "properties": {
+    "contract_version": {"const": "ananta.lora-training.v1"},
+    "job_id": {"$ref": "#/$defs/identifier"},
+    "attempt_id": {"$ref": "#/$defs/identifier"},
+    "fencing_token": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 57896044618658097711785492504343953926634992332820282019728792003956564819967
+    },
+    "correlation_id": {"$ref": "#/$defs/identifier"},
+    "job_type": {"enum": ["train_lora", "evaluate_existing_adapter"]},
+    "backend": {"$ref": "#/$defs/identifier"},
+    "resource_profile": {"enum": ["mock", "cpu", "nvidia"]},
+    "tenant_scope_digest": {"$ref": "#/$defs/sha256"},
+    "workspace_ref": {"$ref": "#/$defs/relativeRef"},
+    "deadline_epoch_ms": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9223372036854775807
+    },
+    "base_model": {"$ref": "#/$defs/baseModel"},
+    "dataset": {"$ref": "#/$defs/dataset"},
+    "adapter": {"$ref": "#/$defs/adapter"},
+    "validation_dataset": {"$ref": "#/$defs/validationDataset"},
+    "configuration": {
+      "oneOf": [
+        {"$ref": "#/$defs/trainingConfiguration"},
+        {"$ref": "#/$defs/evaluationConfiguration"}
+      ]
+    },
+    "resume_checkpoint": {"$ref": "#/$defs/resumeCheckpoint"}
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "job_type": {"const": "train_lora"},
+        "configuration": {"$ref": "#/$defs/trainingConfiguration"}
+      },
+      "required": ["dataset"],
+      "not": {"anyOf": [{"required": ["adapter"]}, {"required": ["validation_dataset"]}]}
+    },
+    {
+      "properties": {
+        "job_type": {"const": "evaluate_existing_adapter"},
+        "configuration": {"$ref": "#/$defs/evaluationConfiguration"}
+      },
+      "required": ["adapter", "validation_dataset"],
+      "not": {"anyOf": [{"required": ["dataset"]}, {"required": ["resume_checkpoint"]}]}
+    }
+  ],
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 192,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "relativeRef": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_./-]{0,511}$",
+      "not": {
+        "anyOf": [
+          {"pattern": "(^|/)\\.\\.(/|$)"},
+          {"pattern": "//"}
+        ]
+      }
+    },
+    "split": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relative_path", "sha256", "record_count"],
+      "properties": {
+        "relative_path": {"$ref": "#/$defs/relativeRef"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "record_count": {"type": "integer", "minimum": 1, "maximum": 10000000}
+      }
+    },
+    "dataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dataset_id", "dataset_version", "train", "validation"],
+      "properties": {
+        "dataset_id": {"$ref": "#/$defs/identifier"},
+        "dataset_version": {"$ref": "#/$defs/identifier"},
+        "train": {"$ref": "#/$defs/split"},
+        "validation": {"$ref": "#/$defs/split"}
+      }
+    },
+    "validationDataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dataset_id", "dataset_version", "validation"],
+      "properties": {
+        "dataset_id": {"$ref": "#/$defs/identifier"},
+        "dataset_version": {"$ref": "#/$defs/identifier"},
+        "validation": {"$ref": "#/$defs/split"}
+      }
+    },
+    "baseModel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model_id", "relative_path", "snapshot_hash"],
+      "properties": {
+        "model_id": {"type": "string", "minLength": 1, "maxLength": 256},
+        "relative_path": {"$ref": "#/$defs/relativeRef"},
+        "snapshot_hash": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "adapter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["adapter_id", "relative_path", "sha256"],
+      "properties": {
+        "adapter_id": {"$ref": "#/$defs/identifier"},
+        "relative_path": {"$ref": "#/$defs/relativeRef"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "trainingConfiguration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "seed",
+        "max_steps",
+        "num_train_epochs",
+        "learning_rate",
+        "train_batch_size",
+        "eval_batch_size",
+        "gradient_accumulation_steps",
+        "eval_steps",
+        "save_steps",
+        "early_stopping_patience",
+        "lora_rank",
+        "lora_alpha",
+        "lora_dropout",
+        "max_sequence_length",
+        "quantization",
+        "gradient_checkpointing",
+        "target_modules"
+      ],
+      "properties": {
+        "seed": {"type": "integer", "minimum": 0, "maximum": 2147483647},
+        "max_steps": {"type": "integer", "minimum": 1, "maximum": 10000000},
+        "num_train_epochs": {"type": "number", "minimum": 0.01, "maximum": 10000},
+        "learning_rate": {"type": "number", "minimum": 0.000000001, "maximum": 1},
+        "train_batch_size": {"type": "integer", "minimum": 1, "maximum": 65536},
+        "eval_batch_size": {"type": "integer", "minimum": 1, "maximum": 65536},
+        "gradient_accumulation_steps": {"type": "integer", "minimum": 1, "maximum": 1000000},
+        "eval_steps": {"type": "integer", "minimum": 1, "maximum": 10000000},
+        "save_steps": {"type": "integer", "minimum": 1, "maximum": 10000000},
+        "early_stopping_patience": {"type": "integer", "minimum": 0, "maximum": 10000},
+        "lora_rank": {"type": "integer", "minimum": 1, "maximum": 4096},
+        "lora_alpha": {"type": "integer", "minimum": 1, "maximum": 65536},
+        "lora_dropout": {"type": "number", "minimum": 0, "maximum": 1},
+        "max_sequence_length": {"type": "integer", "minimum": 32, "maximum": 1048576},
+        "quantization": {"enum": ["none", "4bit", "8bit"]},
+        "gradient_checkpointing": {"type": "boolean"},
+        "target_modules": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/identifier"}
+        }
+      }
+    },
+    "evaluationConfiguration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seed", "batch_size", "max_sequence_length", "max_samples", "quantization", "scorer_name"],
+      "properties": {
+        "seed": {"type": "integer", "minimum": 0, "maximum": 2147483647},
+        "batch_size": {"type": "integer", "minimum": 1, "maximum": 65536},
+        "max_sequence_length": {"type": "integer", "minimum": 32, "maximum": 1048576},
+        "max_samples": {"type": "integer", "minimum": 1, "maximum": 10000000},
+        "quantization": {"enum": ["none", "4bit", "8bit"]},
+        "scorer_name": {"enum": ["generic", "todo_json", "ananta_todo_json"]}
+      }
+    },
+    "checkpointBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "job_id",
+        "source_attempt_id",
+        "base_model_hash",
+        "dataset_hash",
+        "configuration_hash",
+        "checkpoint_sha256"
+      ],
+      "properties": {
+        "job_id": {"$ref": "#/$defs/identifier"},
+        "source_attempt_id": {"$ref": "#/$defs/identifier"},
+        "base_model_hash": {"$ref": "#/$defs/sha256"},
+        "dataset_hash": {"$ref": "#/$defs/sha256"},
+        "configuration_hash": {"$ref": "#/$defs/sha256"},
+        "checkpoint_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "resumeCheckpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relative_path", "binding"],
+      "properties": {
+        "relative_path": {"$ref": "#/$defs/relativeRef"},
+        "binding": {"$ref": "#/$defs/checkpointBinding"}
+      }
+    }
+  }
+}
