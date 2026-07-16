@@ -1,0 +1,1453 @@
+{
+  "$schema": "todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "mlintern-lora-training-control-center",
+  "status": "done",
+  "priority": "P0",
+  "created": "2026-07-16",
+  "updated": "2026-07-16",
+  "purpose": "Den vorhandenen ml_intern-LoRA-Spike zu einem vollständigen, sicheren und bedienbaren lokalen Trainingsprodukt ausbauen: Dataset-Import und -Vorschau, deterministischer Train-/Validation-Split, persistente Hub-Jobs, isolierter Training-Worker, Live-Fortschritt, echte Base-vs-Adapter-Evaluation, Adapterimport, Approval, Export, Runtime-Nutzung und eine dedizierte Angular-Verwaltung.",
+  "goal": "Ein Administrator kann ausschließlich über Hub-APIs und die Angular-App lokale Trainings- und Validierungsdaten sicher importieren, prüfen und darstellen, einen LoRA/QLoRA-Job an einen isolierten Worker delegieren, Fortschritt und Historie beobachten, den Lauf abbrechen oder nach Fehlern nachvollziehen, den Adapter gegen das Basismodell evaluieren, importieren/exportieren, freigeben und anschließend kontrolliert für lokale Inferenz nutzen.",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "supersedes_or_extends": [
+    "todos/archiv/todo.mlintern-lora-qlora-finetuning-worker.json"
+  ],
+  "source_analysis": {
+    "verified_existing": [
+      "Der Angular-Visual-Process-Editor registriert ml_intern_build_lora_dataset und ml_intern_train_lora, besitzt aber keine dedizierte Trainingsverwaltung und keine auffindbare Hauptnavigation dafür.",
+      "MlInternLoraDatasetBuildService normalisiert und dedupliziert kuratierte JSON-/JSONL-Records und erzeugt einen Validierungsreport.",
+      "MlInternDatasetValidationService validiert Instruction-/Chat-JSONL, scannt Secrets und kann Train-/Eval-Dateien auf Identität prüfen.",
+      "MlInternTrainingJobService führt Jobs synchron in der Hub-Anfrage aus; der Live-Pfad startet agent.ml_intern_training_runner per blockierendem subprocess.run.",
+      "agent.ml_intern_training_runner enthält reale Unsloth- und PEFT/TRL-Pfade, lädt aber nur einen train-Split und exportiert keine vollständigen Fortschrittsmetriken.",
+      "MlInternLoraEvalService kann Base- und Adapterausgaben bewerten, wird vom evaluate_lora-Job jedoch nicht aufgerufen.",
+      "MlInternAdapterRegistryService besitzt Statusübergänge und Approval-Regeln, während register_adapter und export_adapter im Job-Service nur Summary-Platzhalter sind.",
+      "Die Training-Route stellt nur POST /api/ml-intern-training/jobs bereit; List/Get/Cancel/Events, Dataset- und Adapter-APIs fehlen.",
+      "max_dataset_bytes wird normalisiert, aber im bestehenden Datenpfad nicht durchgesetzt; dataset_path besitzt keine vollständige Containment-Prüfung.",
+      "Die normalen Hub-/Frontend-Images deklarieren keinen reproduzierbaren LoRA-GPU-Abhängigkeitspfad."
+    ],
+    "reused_patterns": [
+      "TaskDB und WorkerJobDB bleiben Hub-owned Queue- und Delegationsnachweis.",
+      "VoiceLiveRunDB/CAS/Lease-Muster dienen als Vorlage für tenantgebundene Idempotenz, Heartbeat und Recovery.",
+      "Workflow-Runtime-Events dienen als Vorlage für persistente Sequenzen, Deduplizierung und Cursor-Streams.",
+      "Restricted-Inference-Worker und compose.voice-restricted.yml dienen als Vorlage für interne Authentisierung, Netzwerkisolation, read-only Root, non-root User und getrennte CPU-/NVIDIA-Images.",
+      "Shared Angular UI-Primitives für PageIntro, SectionCard, StatusBadge, MetricCard, TableShell und Zustandsanzeigen werden wiederverwendet."
+    ],
+    "rejected_patterns": [
+      "Kein mehrstündiges subprocess.run im Hub-Request.",
+      "Keine prozesslokale JSON-Datei oder ThreadPool-Future als alleinige Jobwahrheit.",
+      "Keine frei übergebenen absoluten Serverpfade aus der Angular-App.",
+      "Kein blindes extractall für Adapterarchive und keine Pickle-/BIN-Gewichte.",
+      "Kein automatisches Approval oder Aktivieren nach Training oder Import."
+    ]
+  },
+  "architecture_decisions": [
+    "Der Hub besitzt Admission, Taskqueue, Idempotenz, Tenant-/Owner-Bindung, Policy, Fencing, Statusprojektion, Approval und Audit.",
+    "Der LoRA-Training-Worker besitzt ausschließlich Dataset-Konsum, Modellladen, Training, Evaluation und Erzeugung typisierter Artefakte; er orchestriert keine anderen Worker.",
+    "Live-Training ist nur über einen capability-matched internen Worker erlaubt. Der Hub darf lediglich Dry-Run und deterministische Validierung selbst ausführen, wenn er explizit als Worker konfiguriert ist.",
+    "Dataset-, Job-, Event- und Adapterverträge verwenden IDs und Hashes statt unkontrollierter lokaler Pfade.",
+    "Trainingsinhalte erscheinen weder in Audit-Events noch in Joblisten oder Fortschrittsstreams; Preview-Endpunkte sind paginiert und tenantgebunden.",
+    "Bestehende APIs bleiben erhalten; neue APIs und Felder sind additiv."
+  ],
+  "non_goals": [
+    "Kein Full-Fine-Tuning kompletter Basismodellgewichte.",
+    "Kein automatisches Training aus Chat-, Voice- oder Nutzungsdaten.",
+    "Kein Worker-zu-Worker-Routing und keine Worker-eigene Approval-Entscheidung.",
+    "Kein automatischer Model-Download im Standardprofil.",
+    "Kein Merge in das Basismodell ohne separaten expliziten Hochrisikoauftrag."
+  ],
+  "definition_of_done": [
+    "Alle Tasks dieses Tracks sind done und die abgeleiteten Todo-Summaries sind konsistent.",
+    "Die Angular-App besitzt einen auffindbaren Bereich Modelltraining mit Dataset-, Job-, Evaluation- und Adapteransichten.",
+    "Upload, Preview, Split, Validierung, Training, Fortschritt, Cancel, Evaluation, Import, Approval, Export und Inferenz sind über Hub-Verträge durchgängig verbunden.",
+    "Der Hub lädt im Live-Pfad weder Torch-/Unsloth-Abhängigkeiten noch Modellgewichte und erhält kein GPU-Device.",
+    "Job-, Attempt- und Eventzustand überlebt Hub-Neustarts und verspätete Workerresultate werden durch Fencing abgewiesen.",
+    "CPU-/Mock-End-to-End-Tests, Security-Tests, Angular-Tests und Compose-Konfigurationsprüfungen sind grün; NVIDIA-Live-Test ist als explizites Hardware-Gate dokumentiert."
+  ],
+  "summary_notes": [
+    "Die vollständige LoRA-/QLoRA-Control-Center-Implementierung ist abgeschlossen; alle 33 Tasks und sechs Milestones sind umgesetzt.",
+    "Das offizielle CPU-/Mock-Gate hat 218 Tests einschließlich des gehärteten gebauten Worker-Images bestanden und weist Upload, Split, Validierung, asynchrone Delegation, Events, Cancel, Evaluation, Registry und Export nach.",
+    "Die fokussierte Backend-/Security-/Recovery-Matrix hat 399 Tests bestanden; Angular hat 993 Unit-Tests, Production-Build, fehlerfreies Lint und den Playwright-Golden-Path bestanden.",
+    "Der hardwaregebundene NVIDIA-Live-Smoke wurde auf diesem Host mangels konfiguriertem lokalem Modell nicht ausgeführt; der Report enthält deshalb not_run, local_model_not_configured und nvidia_live_proof=false und behauptet keinen Live-Nachweis."
+  ],
+  "milestones": [
+    {
+      "id": "LTF-M1",
+      "title": "Quellcode, Verträge und Sicherheitsgrenzen",
+      "task_ids": [
+        "LTF-001",
+        "LTF-002",
+        "LTF-003",
+        "LTF-004",
+        "LTF-005"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "LTF-M2",
+      "title": "Dataset- und Adapter-Eingangsdaten",
+      "task_ids": [
+        "LTF-006",
+        "LTF-007",
+        "LTF-008",
+        "LTF-009",
+        "LTF-010"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "LTF-M3",
+      "title": "Persistente Hub-Control-Plane",
+      "task_ids": [
+        "LTF-011",
+        "LTF-012",
+        "LTF-013",
+        "LTF-014",
+        "LTF-015"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "LTF-M4",
+      "title": "Isolierter Worker und echter Trainingslauf",
+      "task_ids": [
+        "LTF-016",
+        "LTF-017",
+        "LTF-018",
+        "LTF-019",
+        "LTF-020",
+        "LTF-021",
+        "LTF-022"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "LTF-M5",
+      "title": "Angular Modelltraining Control Center",
+      "task_ids": [
+        "LTF-023",
+        "LTF-024",
+        "LTF-025",
+        "LTF-026",
+        "LTF-027",
+        "LTF-028"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "LTF-M6",
+      "title": "Deployment, Verifikation und Betrieb",
+      "task_ids": [
+        "LTF-029",
+        "LTF-030",
+        "LTF-031",
+        "LTF-032",
+        "LTF-033"
+      ],
+      "status": "done"
+    }
+  ],
+  "critical_path_tasks": [
+    "LTF-001",
+    "LTF-002",
+    "LTF-003",
+    "LTF-004",
+    "LTF-005",
+    "LTF-006",
+    "LTF-008",
+    "LTF-009",
+    "LTF-011",
+    "LTF-012",
+    "LTF-013",
+    "LTF-014",
+    "LTF-016",
+    "LTF-017",
+    "LTF-018",
+    "LTF-019",
+    "LTF-020",
+    "LTF-023",
+    "LTF-024",
+    "LTF-025",
+    "LTF-026",
+    "LTF-027",
+    "LTF-029",
+    "LTF-030",
+    "LTF-031",
+    "LTF-032"
+  ],
+  "tasks": [
+    {
+      "id": "LTF-001",
+      "title": "Vorhandenen LoRA-Quellcode und den archivierten Spike gegen die Produktanforderung auditieren",
+      "type": "analysis",
+      "milestone_id": "LTF-M1",
+      "status": "done",
+      "priority": "P0",
+      "risk": "low",
+      "progress_percent": 100.0,
+      "depends_on": [],
+      "target_files": [
+        "agent/services/ml_intern_*",
+        "agent/routes/ml_intern_training.py",
+        "agent/ml_intern_training_runner.py",
+        "frontend-angular/src/app/features/visual-process",
+        "todos/archiv/todo.mlintern-lora-qlora-finetuning-worker.json"
+      ],
+      "acceptance_criteria": [
+        "Die Bestandsanalyse unterscheidet reale Implementierung, Dry-Run/Mock, Platzhalter und vollständig fehlende Produktpfade.",
+        "Blockierende Hub-Ausführung, fehlende APIs, fehlende UI, nicht angebundene Evaluation/Registry, fehlender Split und Deployment-Lücken sind source-grounded dokumentiert.",
+        "Der neue Track erweitert den archivierten Spike additiv statt erledigte Grundlagen zu duplizieren."
+      ],
+      "test_expectations": [
+        "Keine Produktionsänderung; relevante bestehende LoRA- und VP-Tests werden als Baseline ausgeführt."
+      ]
+    },
+    {
+      "id": "LTF-002",
+      "title": "Hub-, Worker-, Daten- und Artefaktverantwortung als versionierte Architekturverträge festlegen",
+      "type": "architecture",
+      "milestone_id": "LTF-M1",
+      "status": "done",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "LTF-001"
+      ],
+      "target_files": [
+        "docs/ml-intern-lora-finetuning.md",
+        "docs/contracts/mlintern-training-control.schema.json",
+        "docs/contracts/mlintern-training-event.schema.json"
+      ],
+      "acceptance_criteria": [
+        "Der Hub bleibt Eigentümer von Queue, Admission, Policy, Fencing, Approval und Audit.",
+        "Der Worker-Vertrag erlaubt ausschließlich einen vollständig materialisierten Trainings- oder Evaluationsauftrag und keine Unterdelegation.",
+        "Live-Ausführung im Hub ist default-deny; nur Dry-Run/Validierung darf über einen expliziten Hub-as-worker-Modus laufen.",
+        "Request, Status, Event, Result und Artifact-Manifest besitzen versionierte Schemas und stabile Reason-Codes."
+      ],
+      "test_expectations": [
+        "Schema-Tests akzeptieren gültige Envelopes und lehnen unbekannte kritische Felder, fehlende Korrelation und Worker-Orchestrierungsfelder ab."
+      ]
+    },
+    {
+      "id": "LTF-003",
+      "title": "Gemeinsame sichere Pfad-, Upload- und Archiv-Policy implementieren",
+      "type": "security",
+      "milestone_id": "LTF-M1",
+      "status": "done",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "LTF-002"
+      ],
+      "target_files": [
+        "agent/services/ml_intern_artifact_security_service.py",
+        "tests/test_ml_intern_artifact_security_service.py"
+      ],
+      "acceptance_criteria": [
+        "Containment basiert auf Path.resolve/relative_to und blockiert absolute Pfade, Traversal, Symlink-Escapes und Prefix-Kollisionen.",
+        "Uploads werden streamend mit Datei-, Request-, Record- und Tenant-Quota begrenzt und per SHA-256 gebunden.",
+        "ZIP/TAR-Import blockiert absolute Einträge, .., Links, doppelte Namen, Nested Archives und Compression Bombs.",
+        "Adapterimport erlaubt nur safetensors sowie bekannte JSON-/Tokenizerdateien und lehnt Pickle/BIN-Gewichte ab.",
+        "Temporärdateien werden bei Fehler und Cancel sicher entfernt."
+      ],
+      "test_expectations": [
+        "Adversarial Tests decken Zip-Slip, Symlink, Bomb-Ratio, zu große Datei, falsche Extension/MIME, Prefix-Kollision und Cleanup ab."
+      ]
+    },
+    {
+      "id": "LTF-004",
+      "title": "Persistente Training-Domainmodelle und Repository-Ports ergänzen",
+      "type": "implementation",
+      "milestone_id": "LTF-M1",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "LTF-002"
+      ],
+      "target_files": [
+        "agent/db_models/ml_intern_training.py",
+        "agent/repositories/ml_intern_training.py",
+        "agent/services/ml_intern_training_repository_port.py",
+        "tests/test_ml_intern_training_repository.py"
+      ],
+      "acceptance_criteria": [
+        "Dataset, Job, Attempt und Event sind tenant- und ownergebunden persistiert.",
+        "Jobcreate besitzt einen eindeutigen Idempotency-Digest pro Principal und Request-Digest-Konflikte werden abgewiesen.",
+        "Attempt enthält Lease-/Fencing-Token, Heartbeat, Deadline, Version, Workerbindung und terminale Resultreferenz.",
+        "Events besitzen monotone Sequenz und Dedupe-Key; Listen und Cursor sind paginiert.",
+        "CAS verhindert Doppelclaim und Late-Result-Überschreibung."
+      ],
+      "test_expectations": [
+        "Repository-Tests decken konkurrierenden Claim, CAS-Konflikt, Tenant-Isolation, Restart-Lesen und Event-Dedupe ab."
+      ]
+    },
+    {
+      "id": "LTF-005",
+      "title": "Training-Domainverträge und sichere Read-Models implementieren",
+      "type": "implementation",
+      "milestone_id": "LTF-M1",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "LTF-003",
+        "LTF-004"
+      ],
+      "target_files": [
+        "agent/services/ml_intern_training_contract.py",
+        "agent/services/ml_intern_training_read_model_service.py",
+        "tests/test_ml_intern_training_contract.py"
+      ],
+      "acceptance_criteria": [
+        "DTOs decken DatasetSummary/RecordPage/ValidationReport, JobSummary/Detail/Event, EvalReport und AdapterSummary ab.",
+        "Read-Models entfernen lokale absolute Pfade, Secrets, Tokens und Trainingsinhalte aus Listen- und Eventantworten.",
+        "Statusübergänge queued/claimed/running/cancel_requested/cancelled/completed/failed/interrupted sind zentral validiert.",
+        "Fortschritt ist monoton 0..100 und enthält phase, step/max_steps, epoch, loss und learning_rate nur als Zahlen.",
+        "Alle IDs, Limits, Filter und Cursor werden bounded validiert."
+      ],
+      "test_expectations": [
+        "Contract-Tests prüfen Rundreise, Redaction, ungültige Statusübergänge, NaN/Infinity, übergroße Seiten und unbekannte IDs."
+      ]
+    },
+    {
+      "id": "LTF-006",
+      "title": "Tenantgebundenen Dataset-Katalog mit sicheren Upload- und Build-Endpunkten implementieren",
+      "type": "implementation",
+      "milestone_id": "LTF-M2",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "LTF-003",
+        "LTF-005"
+      ],
+      "target_files": [
+        "agent/services/ml_intern_dataset_catalog_service.py",
+        "agent/routes/ml_intern_training.py",
+        "tests/test_ml_intern_training_dataset_api.py"
+      ],
+      "acceptance_criteria": [
+        "POST /datasets akzeptiert begrenztes JSON/JSONL multipart oder kuratierte Records und antwortet mit einer Dataset-ID statt Serverpfad.",
+        "GET /datasets listet nur Datasets des Principals mit Count, Hash, Bytes, Format, Split- und Validierungsstatus.",
+        "Der bestehende Dataset-Builder wird hinter dem Katalog wiederverwendet und max_dataset_bytes wird tatsächlich erzwungen.",
+        "Idempotency-Key verhindert Doppelimport; gleicher Key mit anderem Hash liefert 409.",
+        "DELETE entfernt nur unreferenzierte Datasets und protokolliert den Vorgang."
+      ],
+      "test_expectations": [
+        "API-Tests prüfen JSON/JSONL, ungültiges Multipart, Quota, Idempotenz, Tenant-Isolation, referenziertes Delete und Secret-freie Responses."
+      ]
+    },
+    {
+      "id": "LTF-007",
+      "title": "Paginierte Dataset-Vorschau und Statistikprojektion bereitstellen",
+      "type": "implementation",
+      "milestone_id": "LTF-M2",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "LTF-006"
+      ],
+      "target_files": [
+        "agent/services/ml_intern_dataset_preview_service.py",
+        "agent/routes/ml_intern_training.py",
+        "tests/test_ml_intern_dataset_preview_service.py"
+      ],
+      "acceptance_criteria": [
+        "GET /datasets/{id}/records liefert paginierte Train-/Validation-Records mit stabilem Cursor.",
+        "Preview begrenzt Feld- und Textlängen und gibt niemals fremde Tenantdaten oder lokale Pfade aus.",
+        "Statistik enthält Recordzahl, akzeptiert/abgelehnt, Duplikate, Formatverteilung und Splitgrößen.",
+        "Sehr große JSONL-Dateien werden streamend gelesen; ein Seitenabruf lädt nicht das ganze Dataset.",
+        "Leere, fehlerhafte und nicht validierte Datasets besitzen explizite Zustände."
+      ],
+      "test_expectations": [
+        "Tests prüfen Cursor, Splitfilter, Textbegrenzung, Streamingverhalten, leere Seite und Tenant-Isolation."
+      ]
+    },
+    {
+      "id": "LTF-008",
+      "title": "Deterministischen Train-/Validation-Split mit Leak-Prüfung implementieren",
+      "type": "implementation",
+      "milestone_id": "LTF-M2",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "LTF-006"
+      ],
+      "target_files": [
+        "agent/services/ml_intern_dataset_split_service.py",
+        "agent/routes/ml_intern_training.py",
+        "tests/test_ml_intern_dataset_split_service.py"
+      ],
+      "acceptance_criteria": [
+        "Ein Seed und ein bounded validation_ratio erzeugen reproduzierbare train.jsonl und validation.jsonl.",
+        "Normalisierte Record-Hashes kommen nie in beiden Splits vor; Duplikatgruppen bleiben zusammen.",
+        "Kleine Datasets erhalten verständliche Mindestgrößenfehler statt leerem Split.",
+        "Split-Manifest enthält Algorithmusversion, Seed, Ratio, Counts und Hashes.",
+        "Ein explizit hochgeladenes Validation-Dataset wird mit validate_train_eval_pair auf Identität und Überschneidung geprüft."
+      ],
+      "test_expectations": [
+        "Tests prüfen Reproduzierbarkeit, andere Seeds, keine Überschneidung, Duplikatgruppen, kleine Datasets und identische Dateien."
+      ]
+    },
+    {
+      "id": "LTF-009",
+      "title": "Dataset-Validierung, Secret-/PII-Gate und Reports vollständig an den Katalog binden",
+      "type": "security",
+      "milestone_id": "LTF-M2",
+      "status": "done",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "LTF-007",
+        "LTF-008"
+      ],
+      "target_files": [
+        "agent/services/ml_intern_dataset_validation_service.py",
+        "agent/services/ml_intern_dataset_catalog_service.py",
+        "agent/routes/ml_intern_training.py",
+        "tests/test_ml_intern_training_dataset_api.py"
+      ],
+      "acceptance_criteria": [
+        "POST /datasets/{id}/validate validiert train und validation sowie deren Paarbeziehung.",
+        "Report enthält Counts, Hashes, Format, Duplikate, Secret-/PII-Findings und stabile Reason-Codes.",
+        "Secrets und sensible Rohdaten blockieren Training default-deny; Override erfordert Admin, Reason und Audit.",
+        "Validierungsreport ist über GET abrufbar und in der Datasetübersicht zusammengefasst.",
+        "Jede Datasetänderung invalidiert Split und Validierungsfreigabe deterministisch."
+      ],
+      "test_expectations": [
+        "Tests prüfen Secrets, PII-Heuristik, Override-Audit, Paar-Leak, invalidierte Reports und trainierbar/nicht-trainierbar Read-Models."
+      ]
+    },
+    {
+      "id": "LTF-010",
+      "title": "Sicheren Import bestehender PEFT-/LoRA-Adapter als zusätzliche Datei implementieren",
+      "type": "security",
+      "milestone_id": "LTF-M2",
+      "status": "done",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "LTF-003",
+        "LTF-005"
+      ],
+      "target_files": [
+        "agent/services/ml_intern_adapter_import_service.py",
+        "agent/routes/ml_intern_training.py",
+        "tests/test_ml_intern_adapter_import_service.py"
+      ],
+      "acceptance_criteria": [
+        "POST /adapters/import akzeptiert ein begrenztes ZIP oder einzelne adapter_config.json plus adapter_model.safetensors.",
+        "Import prüft safetensors-Header, Dateihash, erlaubte Dateien, Basismodellbindung und Manifestkonsistenz ohne Gewichte in den Hub zu laden.",
+        "Import erzeugt einen Registry-Eintrag im Status trained/imported_pending_evaluation, niemals approved.",
+        "Doppelte Adapterversion oder gleicher Hash ist idempotent; Metadatenkonflikt wird abgewiesen.",
+        "Fehler hinterlassen weder Registry-Leiche noch partiell sichtbare Dateien."
+      ],
+      "test_expectations": [
+        "Tests prüfen gültigen Minimaladapter, falsches Basismodell, Pickle/BIN, manipulierte safetensors, Duplikat, Archivangriffe und atomaren Rollback."
+      ]
+    },
+    {
+      "id": "LTF-011",
+      "title": "Hub-eigene Training-Taskqueue mit Idempotenz und Capacity-Admission implementieren",
+      "type": "implementation",
+      "milestone_id": "LTF-M3",
+      "status": "done",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "LTF-004",
+        "LTF-005",
+        "LTF-009"
+      ],
+      "target_files": [
+        "agent/services/ml_intern_training_task_queue_service.py",
+        "agent/services/task_queue_service.py",
+        "tests/test_ml_intern_training_task_queue_service.py"
+      ],
+      "acceptance_criteria": [
+        "Jeder Trainingsjob materialisiert einen Hub-Task und Domainjob mit identischer Korrelation.",
+        "Create ist pro Principal/Idempotency-Key atomar; Payloadkonflikt liefert 409.",
+        "Nur validierte Dataset-IDs und erlaubte Basismodelle/Methoden werden admitted.",
+        "Capacity begrenzt parallele GPU-Jobs default auf eins und liefert stabile Queueposition.",
+        "Admission persistiert keine Trainingsrecords, Tokens oder absoluten Pfade im Task."
+      ],
+      "test_expectations": [
+        "Tests prüfen atomare Idempotenz, Parallelcreate, Dataset-Gate, Queueposition, Quota und redigierte Taskmetadaten."
+      ]
+    },
+    {
+      "id": "LTF-012",
+      "title": "Capability-basiertes Worker-Claiming, Lease-Renewal und Fencing implementieren",
+      "type": "implementation",
+      "milestone_id": "LTF-M3",
+      "status": "done",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "LTF-011"
+      ],
+      "target_files": [
+        "agent/services/ml_intern_training_worker_assignment_service.py",
+        "agent/services/worker_job_service.py",
+        "agent/services/worker_pool_scheduler_service.py",
+        "tests/test_ml_intern_training_worker_assignment_service.py"
+      ],
+      "acceptance_criteria": [
+        "Nur Worker mit lora_training und passendem backend/device/profile können claimen.",
+        "Claim erzeugt WorkerJob, Attempt, Lease und nicht erratbares Fencing-Token.",
+        "Heartbeat erneuert bounded Lease; abgelaufene Leases können sicher neu vergeben werden.",
+        "Verspätete Events/Resultate eines alten Attempts werden verworfen und auditiert.",
+        "Fairness verhindert dauerhafte Verdrängung anderer Tenantqueues."
+      ],
+      "test_expectations": [
+        "Tests prüfen Capability-Mismatch, Doppelclaim, Renewal, Stale-Reclaim, Late-Result und Queuefairness."
+      ]
+    },
+    {
+      "id": "LTF-013",
+      "title": "Authentisierten Hub-Worker-Transport und expliziten Artefaktvertrag implementieren",
+      "type": "implementation",
+      "milestone_id": "LTF-M3",
+      "status": "done",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "LTF-002",
+        "LTF-012"
+      ],
+      "target_files": [
+        "agent/services/ml_intern_training_worker_port.py",
+        "agent/services/ml_intern_training_endpoint_policy.py",
+        "tests/test_ml_intern_training_worker_port.py"
+      ],
+      "acceptance_criteria": [
+        "Transport akzeptiert nur exakt allowlistete interne HTTP-Endpunkte mit privater gepinnter Adresse und Bearer-Token.",
+        "Datasettransfer und Artifactdownload sind streamend, größenbegrenzt, hashverifiziert und korrelationsgebunden.",
+        "Redirects, Proxies, öffentliche/Loopback-Ziele außerhalb des Profils und Content-Type-Abweichungen werden abgewiesen.",
+        "Request enthält Deadline, Tenant-Scope-Digest, Attempt- und Fencing-ID, aber keine Hub-Credentials.",
+        "Workerantworten werden vor Persistenz vollständig gegen den Resultvertrag validiert."
+      ],
+      "test_expectations": [
+        "Transporttests prüfen SSRF/DNS-Rebinding, Redirect, Auth, Deadline, zu große Antwort, Hashmismatch, Korrelation und Retryable-Fehler."
+      ]
+    },
+    {
+      "id": "LTF-014",
+      "title": "Asynchrone Hub-Job-API für Create, List, Detail, Events und Cancel bereitstellen",
+      "type": "api",
+      "milestone_id": "LTF-M3",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "LTF-011",
+        "LTF-013"
+      ],
+      "target_files": [
+        "agent/routes/ml_intern_training.py",
+        "agent/services/ml_intern_training_control_service.py",
+        "tests/test_ml_intern_training_api.py"
+      ],
+      "acceptance_criteria": [
+        "POST /jobs antwortet kurzfristig mit 202, job_id, task_id, poll_url und events_url; es wartet nicht auf Training.",
+        "GET /jobs und GET /jobs/{id} sind tenantgebunden, filter- und paginierbar sowie side-effect-free.",
+        "GET /jobs/{id}/events unterstützt after_sequence/limit und optional SSE mit Heartbeat/Backpressure.",
+        "POST /jobs/{id}/cancel setzt cancel_requested; cancelled folgt erst nach Worker-Ack oder gefencetem Forced-Termination-Abschluss.",
+        "Die bestehende synchrone POST-Kompatibilität bleibt nur unter explizitem legacy/dry-run-Vertrag erhalten."
+      ],
+      "test_expectations": [
+        "API-Tests prüfen 202-Latenz, Auth/Admin, Tenant-Isolation, Pagination, Cursorresume, Cancelzustände, 404/409 und Legacy-Dry-Run."
+      ]
+    },
+    {
+      "id": "LTF-015",
+      "title": "Heartbeat-Reconcile, Restart-Recovery und Audit-Historie implementieren",
+      "type": "implementation",
+      "milestone_id": "LTF-M3",
+      "status": "done",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "LTF-012",
+        "LTF-014"
+      ],
+      "target_files": [
+        "agent/services/ml_intern_training_reconciliation_service.py",
+        "agent/services/background/ml_intern_training_reconciler.py",
+        "tests/test_ml_intern_training_reconciliation_service.py"
+      ],
+      "acceptance_criteria": [
+        "Ein bounded hub-only run_once reconciled stale queued/claimed/running/cancel_requested Jobs.",
+        "Stale Attempt wird interrupted, gefencet und Slot freigegeben; Retry/Resume folgt expliziter Policy.",
+        "Hub-Neustart verliert weder Jobliste, Eventcursor noch terminale Resultreferenz.",
+        "Audit enthält Actor, Reason-Code, Task/Job/Attempt, aber keine Trainingsinhalte oder Secrets.",
+        "Shutdown stoppt neue Claims und lässt aktive Worker-Leases auslaufen oder übergibt sie kontrolliert."
+      ],
+      "test_expectations": [
+        "Tests simulieren Restart, stale Heartbeat, Retrybudget, Resume-Checkpoint, Canceldeadline und Audit-Redaction."
+      ]
+    },
+    {
+      "id": "LTF-016",
+      "title": "Isolierte LoRA-Training-Worker-Runtime mit fail-closed interner API implementieren",
+      "type": "worker",
+      "milestone_id": "LTF-M4",
+      "status": "done",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "LTF-002",
+        "LTF-013"
+      ],
+      "target_files": [
+        "worker/runtime/lora_training_app.py",
+        "worker/training/runtime.py",
+        "worker/training/contracts.py",
+        "tests/worker/test_lora_training_app.py"
+      ],
+      "acceptance_criteria": [
+        "Worker bietet Health, Submit/Claim, Status/Heartbeat, Events, Cancel und Artifactdownload ausschließlich intern authentisiert an.",
+        "Worker kennt weder Hub-Repository noch Approval-/Routinglogik und kann keine anderen Worker adressieren.",
+        "Ohne Token, Workspace, Backend oder Ressourcenprofil meldet Health degraded und lehnt Ausführung ab.",
+        "Pro Worker läuft bounded maximal die konfigurierte Jobanzahl; Queueüberlauf liefert retryable reason_code.",
+        "Workerzustand und Checkpoints liegen im eigenen expliziten Runtime-Volume."
+      ],
+      "test_expectations": [
+        "Worker-App-Tests prüfen Auth, Größenlimit, Queuefull, unbekannten Jobtyp, Korrelation, Health-Degraded und keine Hub-Imports zur Laufzeit."
+      ]
+    },
+    {
+      "id": "LTF-017",
+      "title": "Training-Runner aus dem Hub lösen und als Worker-seitige Backend-Strategien strukturieren",
+      "type": "refactor",
+      "milestone_id": "LTF-M4",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "LTF-016"
+      ],
+      "target_files": [
+        "worker/training/backends/base.py",
+        "worker/training/backends/peft_trl.py",
+        "worker/training/backends/unsloth.py",
+        "agent/ml_intern_training_runner.py",
+        "tests/worker/test_lora_training_backends.py"
+      ],
+      "acceptance_criteria": [
+        "Backend-Port besitzt prepare/train/evaluate/save und kleine substituierbare Strategien für mock, peft_trl und unsloth.",
+        "Hub-Code importiert weder torch, transformers, peft, trl, bitsandbytes noch unsloth.",
+        "Bestehender Modulentrypoint bleibt als Kompatibilitätsshimm erhalten und delegiert an Worker-Code.",
+        "Offline/local_files_only ist Default; Download benötigt separates explizites Profil.",
+        "OOM, Timeout, fehlende Dependency und ungültiges Modell werden in stabile Reason-Codes übersetzt."
+      ],
+      "test_expectations": [
+        "Unit-Tests verwenden Fake-Backend; Importtest beweist dependency-light Hub; optionale Backend-Smokes sind sauber markiert."
+      ]
+    },
+    {
+      "id": "LTF-018",
+      "title": "Train-/Validation-Datasets, Trainer-Evaluation und reproduzierbare Seeds in den Runner integrieren",
+      "type": "implementation",
+      "milestone_id": "LTF-M4",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "LTF-008",
+        "LTF-017"
+      ],
+      "target_files": [
+        "worker/training/datasets.py",
+        "worker/training/backends/peft_trl.py",
+        "worker/training/backends/unsloth.py",
+        "tests/worker/test_lora_training_datasets.py"
+      ],
+      "acceptance_criteria": [
+        "Runner lädt getrennte train- und validation-Datasets aus dem verifizierten Manifest.",
+        "Trainer erhält eval_dataset und protokolliert train_loss/eval_loss pro konfiguriertem Intervall.",
+        "Seed, Dataset-/Config-/Basismodellhash, Libraryversionen und Hardwareprofil werden im Manifest gespeichert.",
+        "Leere Validation, Hash-/Count-Abweichung und Cross-Split-Leak blockieren vor Modellladen.",
+        "Early Stopping und best-model Auswahl sind bounded konfigurierbar und default konservativ."
+      ],
+      "test_expectations": [
+        "Fake-Trainer-Tests prüfen beide Splits, Seed, Metrics, Early-Stopping-Konfig, Leak-Gate und reproduzierbares Manifest."
+      ]
+    },
+    {
+      "id": "LTF-019",
+      "title": "Live-Fortschritt, kooperativen Cancel und Checkpoint-Resume implementieren",
+      "type": "implementation",
+      "milestone_id": "LTF-M4",
+      "status": "done",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "LTF-017",
+        "LTF-018"
+      ],
+      "target_files": [
+        "worker/training/callbacks.py",
+        "worker/training/process_control.py",
+        "worker/training/runtime.py",
+        "tests/worker/test_lora_training_process_control.py"
+      ],
+      "acceptance_criteria": [
+        "Trainer-Callback emittiert monotone step/max_steps, epoch, loss, eval_loss, learning_rate und Checkpoint-Events ohne Samples.",
+        "Cancel wird zwischen Batches/Steps kooperativ bestätigt und speichert optional einen letzten sicheren Checkpoint.",
+        "Nach Grace-Deadline beendet der Worker nur die eigene Prozessgruppe per TERM/KILL und meldet forced_cancel.",
+        "Resume akzeptiert ausschließlich einen hash- und jobgebundenen Checkpoint desselben Basismodells/Datasets/Configs.",
+        "Late Events nach Fencing oder terminalem Status werden abgewiesen."
+      ],
+      "test_expectations": [
+        "Tests prüfen Eventreihenfolge, monotone Progresswerte, cooperative/forced cancel, Prozessgruppen-Isolation, Checkpoint-Mismatch und Resume."
+      ]
+    },
+    {
+      "id": "LTF-020",
+      "title": "Echte Base-vs-Adapter-Evaluation an Job, Worker und Registry anbinden",
+      "type": "implementation",
+      "milestone_id": "LTF-M4",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "LTF-018",
+        "LTF-019"
+      ],
+      "target_files": [
+        "agent/services/ml_intern_training_job_service.py",
+        "agent/services/ml_intern_lora_eval_service.py",
+        "worker/training/evaluation.py",
+        "tests/test_ml_intern_lora_eval_integration.py"
+      ],
+      "acceptance_criteria": [
+        "evaluate_lora ruft real den Eval-Service auf und erzeugt eval_report.json statt einer Summary-Notiz.",
+        "Base und Base+Adapter laufen auf demselben Validation-Manifest mit identischen Generationseinstellungen und Seed.",
+        "Report enthält pro Sample bounded Promptreferenz, Base-/Adapterausgabe, Regelscores sowie aggregierte Delta-/Win-Metriken.",
+        "Todo-JSON-Scorer prüft das aktuelle Track-Schema einschließlich owner, Skalen, Milestones, Tasks und Acceptance Criteria.",
+        "Evaluationfehler oder schlechterer Adapter blockieren Approval und bleiben wiederholbar."
+      ],
+      "test_expectations": [
+        "Integrationtests nutzen deterministische Fake-Inferenz und prüfen Base gewinnt, Adapter gewinnt, Fehler, Reportpersistenz und Registry-Gate."
+      ]
+    },
+    {
+      "id": "LTF-021",
+      "title": "Adapter-Registry, Approval, Reject, Deprecation, Export und Rollback vollständig verdrahten",
+      "type": "implementation",
+      "milestone_id": "LTF-M4",
+      "status": "done",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "LTF-010",
+        "LTF-020"
+      ],
+      "target_files": [
+        "agent/services/ml_intern_adapter_registry_service.py",
+        "agent/services/ml_intern_training_job_service.py",
+        "agent/routes/ml_intern_training.py",
+        "tests/test_ml_intern_adapter_lifecycle_api.py"
+      ],
+      "acceptance_criteria": [
+        "Training und Import registrieren atomar einen trained Adapter mit Hashes und Artifact-IDs.",
+        "Evaluation setzt evaluated samt Reportref/Score; Approval verlangt Admin, Reason, Mindestscore und passendes Basismodell.",
+        "Reject und Deprecate bleiben auditierbar; Rollback wählt einen früher approved Adapter oder base_model_only.",
+        "Export liefert ein hashverifiziertes sicheres Bundle mit Manifest, config und safetensors.",
+        "merge_adapter_optional bleibt separater explizit bestätigter Hochrisikoauftrag und ist standardmäßig deaktiviert."
+      ],
+      "test_expectations": [
+        "API-Tests decken alle gültigen/ungültigen Übergänge, Score-Gate, Idempotenz, Exporthash, Rollback und Merge-Default-Deny ab."
+      ]
+    },
+    {
+      "id": "LTF-022",
+      "title": "Approved-Adapter-Inferenz auf Worker-Runtime umstellen und Routing absichern",
+      "type": "implementation",
+      "milestone_id": "LTF-M4",
+      "status": "done",
+      "priority": "P1",
+      "risk": "critical",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "LTF-021"
+      ],
+      "target_files": [
+        "agent/services/ml_intern_lora_inference_service.py",
+        "agent/routes/sgpt.py",
+        "worker/training/inference.py",
+        "tests/test_ml_intern_lora_runtime_routing.py"
+      ],
+      "acceptance_criteria": [
+        "Hub lädt für produktive Adapterinferenz keine Modellgewichte; er delegiert an den capability-matched Runtime-Worker.",
+        "Nur approved, nicht deprecated, basismodell- und taskkind-kompatible Adapter werden ausgewählt.",
+        "Fallback-to-base ist explizit konfigurierbar und jede Auswahl nennt reason_code, adapter_id/version und policy decision.",
+        "Adapter-Ladefehler aktiviert niemals einen anderen nicht genehmigten Adapter.",
+        "Cache-Unload und Rollback sind über Hub-Kommandos kontrollierbar."
+      ],
+      "test_expectations": [
+        "Routingtests prüfen disabled, approved-only, Mismatch, Deprecation, Workerfehler, Fallback und Hub-Importfreiheit von ML-Dependencies."
+      ]
+    },
+    {
+      "id": "LTF-023",
+      "title": "Dediziertes Angular-Feature Modelltraining mit Route, Navigation und typisierten API-DTOs anlegen",
+      "type": "frontend",
+      "milestone_id": "LTF-M5",
+      "status": "done",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "LTF-005",
+        "LTF-014"
+      ],
+      "target_files": [
+        "frontend-angular/src/app/features/model-training",
+        "frontend-angular/src/app/app.routes.ts",
+        "frontend-angular/src/app/models/route-metadata.ts"
+      ],
+      "acceptance_criteria": [
+        "Route /model-training ist admin-only, lazy geladen und in der Expertennavigation als Modelltraining auffindbar.",
+        "Feature besitzt getrennte models, api service, state/facade und fokussierte Komponenten; kein God-Component.",
+        "API-Service spricht ausschließlich den Hub an und enthält keine Worker-URL oder lokale Serverpfade.",
+        "Shared PageIntro/SectionCard/StatusBadge/MetricCard/TableShell/Loading/Error/Empty werden verwendet, wo ihre featurefreien Verträge passen.",
+        "Route und Navigation funktionieren auf Desktop und Mobile und besitzen Breadcrumb-Metadaten."
+      ],
+      "test_expectations": [
+        "Route-, Navigation-, API-Service- und Shell-Smoke-Tests prüfen lazy loading, Adminsicht, Hub-URLs und Fehlerzustände."
+      ]
+    },
+    {
+      "id": "LTF-024",
+      "title": "Angular Dataset-Upload, Katalog, Preview, Split und Validierungsansicht implementieren",
+      "type": "frontend",
+      "milestone_id": "LTF-M5",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "LTF-006",
+        "LTF-007",
+        "LTF-008",
+        "LTF-009",
+        "LTF-023"
+      ],
+      "target_files": [
+        "frontend-angular/src/app/features/model-training/datasets"
+      ],
+      "acceptance_criteria": [
+        "Admin kann JSON/JSONL wählen, Zweck/Lizenz/Privacy angeben, Uploadfortschritt sehen und Fehler verständlich erhalten.",
+        "Katalog zeigt Records, Bytes, Format, Train-/Validation-Counts, Hashkurzform und Validierungsstatus.",
+        "Preview stellt train und validation paginiert tabellarisch dar, ohne unbounded DOM oder ungefiltertes HTML.",
+        "Split-Dialog bietet Ratio/Seed, zeigt resultierende Counts und verlangt Bestätigung bei Überschreiben.",
+        "Validierungsansicht zeigt Fehler/Warnungen nach Reason-Code, Duplikate und Secret-/PII-Gate übersichtlich."
+      ],
+      "test_expectations": [
+        "Komponententests prüfen Upload, 413/422, leere/fehlerhafte Zustände, Pagination, Split, Validierungsreport, Tastatur und ARIA-Status."
+      ]
+    },
+    {
+      "id": "LTF-025",
+      "title": "Angular Trainingskonfiguration als validierten sicheren Wizard implementieren",
+      "type": "frontend",
+      "milestone_id": "LTF-M5",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "LTF-014",
+        "LTF-018",
+        "LTF-023",
+        "LTF-024"
+      ],
+      "target_files": [
+        "frontend-angular/src/app/features/model-training/training-wizard"
+      ],
+      "acceptance_criteria": [
+        "Wizard führt durch Dataset, Basismodell, Methode/Backend, GPU-Profil, Hyperparameter und Zusammenfassung.",
+        "Nicht validierte Datasets, fehlender Validation-Split und deaktivierte Runtime blockieren Live-Submit mit konkretem Grund.",
+        "Dry-run ist Default; Live und riskante Overrides verlangen explizite Bestätigung und Begründung.",
+        "Clientvalidierung spiegelt bounded Backendlimits, ersetzt aber nie serverseitige Policy.",
+        "Submit verwendet Idempotency-Key und zeigt sofort den angenommenen Queuejob statt auf Training zu warten."
+      ],
+      "test_expectations": [
+        "Wizard-Tests prüfen Schritte, Defaults, Bounds, Gate-Gründe, Overridebestätigung, Doppelclick-Idempotenz und erfolgreiche Navigation zum Job."
+      ]
+    },
+    {
+      "id": "LTF-026",
+      "title": "Angular Jobliste, Detail, Live-Fortschritt, Metriken, Logs und Cancel implementieren",
+      "type": "frontend",
+      "milestone_id": "LTF-M5",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "LTF-014",
+        "LTF-015",
+        "LTF-019",
+        "LTF-023"
+      ],
+      "target_files": [
+        "frontend-angular/src/app/features/model-training/jobs"
+      ],
+      "acceptance_criteria": [
+        "Jobliste filtert nach Status/Backend/Dataset und zeigt Queueposition, Phase, Fortschritt und Zeitstempel.",
+        "Detail aktualisiert sequenzielle Events per Cursor/SSE ohne Duplikate und fällt bei Streamfehler auf bounded Polling zurück.",
+        "Metriken zeigen step/max, epoch, train/eval loss und learning rate als Tabelle sowie zugängliche kompakte Verlaufsgrafik.",
+        "Cancel unterscheidet angefragt, kooperativ bestätigt und erzwungen; terminale Jobs bieten keinen Cancelbutton.",
+        "Logs sind begrenzt, redigiert, kopierbar und enthalten keine Trainingsrecords oder Credentials."
+      ],
+      "test_expectations": [
+        "Tests prüfen Cursorresume, Dedupe, Pollfallback, Fortschritt, Cancelbestätigung, terminale Zustände, Logredaction und Cleanup von Subscriptions."
+      ]
+    },
+    {
+      "id": "LTF-027",
+      "title": "Angular Evaluation-, Adapterimport-, Approval-, Export- und Rollback-Ansichten implementieren",
+      "type": "frontend",
+      "milestone_id": "LTF-M5",
+      "status": "done",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "LTF-010",
+        "LTF-020",
+        "LTF-021",
+        "LTF-023"
+      ],
+      "target_files": [
+        "frontend-angular/src/app/features/model-training/evaluation",
+        "frontend-angular/src/app/features/model-training/adapters"
+      ],
+      "acceptance_criteria": [
+        "Adapterliste zeigt Version, Basismodell, Methode, Status, Score, Hash und Aktivitätszustand.",
+        "Importoberfläche akzeptiert sichere Bundle-/Dateikombinationen, zeigt Validierung und behauptet nie Approval.",
+        "Evaluation vergleicht Base und Adapter pro Sample sowie aggregierte Scores und Delta übersichtlich.",
+        "Approve/Reject/Deprecate/Rollback benötigen passende Zustände, Reason und explizite Bestätigung; Serverfehler bleiben sichtbar.",
+        "Export wird nur für vorhandene hashverifizierte Artefakte angeboten."
+      ],
+      "test_expectations": [
+        "Tests prüfen Statusaktionsmatrix, Importfehler, Base-vs-Adapter-Tabelle, Approval-Gate, Rollback, Export und barrierefreie Dialoge."
+      ]
+    },
+    {
+      "id": "LTF-028",
+      "title": "Visual-Process-LoRA-Schritte mit dem Modelltraining-Control-Center verknüpfen",
+      "type": "frontend",
+      "milestone_id": "LTF-M5",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "LTF-023",
+        "LTF-024",
+        "LTF-025",
+        "LTF-026"
+      ],
+      "target_files": [
+        "frontend-angular/src/app/features/visual-process",
+        "agent/visual_process/step_adapters.py"
+      ],
+      "acceptance_criteria": [
+        "VP-Schritte wählen Dataset-ID und Trainingsprofil statt freie Root-/Serverpfade.",
+        "Ein Link öffnet Dataset oder Job im Modelltraining-Control-Center.",
+        "VP-Ausführung materialisiert denselben Hub-Jobvertrag und keine zweite Trainingspipeline.",
+        "Legacy-Pfadfelder bleiben lesbar, werden als deprecated angezeigt und sicher adaptiert.",
+        "Runtime-Overlay zeigt echte Job-ID, Phase und terminales Ergebnis."
+      ],
+      "test_expectations": [
+        "VP-Tests prüfen neue IDs, Legacyadapter, Navigation, Dry-run/Live-Jobmaterialisierung und Runtime-Overlay."
+      ]
+    },
+    {
+      "id": "LTF-029",
+      "title": "Gehärtete CPU-/NVIDIA-Training-Worker-Images und Compose-Profile bereitstellen",
+      "type": "deployment",
+      "milestone_id": "LTF-M6",
+      "status": "done",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "LTF-016",
+        "LTF-017"
+      ],
+      "target_files": [
+        "docker/compose-next/Dockerfile.lora-training-worker",
+        "docker/compose-next/requirements.lora-training-cpu.txt",
+        "docker/compose-next/requirements.lora-training-nvidia.txt",
+        "docker/compose-next/compose.lora-training.yml",
+        "docker/compose-next/README.md"
+      ],
+      "acceptance_criteria": [
+        "Worker läuft non-root, read-only root, cap_drop ALL, no-new-privileges, bounded PIDs/CPU/RAM/VRAM und internem Netzwerk ohne Host-Port.",
+        "Hub-Image besitzt weder GPU-Device, Modellmount noch schwere ML-Abhängigkeiten.",
+        "Basismodelle sind read-only; Scratch/Checkpoints/Outputs liegen in eigenem Worker-Volume und werden über Verträge exportiert.",
+        "Offline ist Default; CPU/mock und NVIDIA sind getrennte opt-in Profile mit gepinnten kompatiblen Versionen.",
+        "Healthcheck beweist Auth- und Runtimebereitschaft, nicht nur offenen Port."
+      ],
+      "test_expectations": [
+        "docker compose config, Image-Importaudit, Non-root/Read-only-Smoke, Offline-Test und fehlendes GPU-Device im Hub werden automatisiert geprüft."
+      ]
+    },
+    {
+      "id": "LTF-030",
+      "title": "Backend-, Security-, Recovery- und Contract-Testmatrix vervollständigen",
+      "type": "test",
+      "milestone_id": "LTF-M6",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "LTF-015",
+        "LTF-021",
+        "LTF-022",
+        "LTF-029"
+      ],
+      "target_files": [
+        "tests/test_ml_intern_*",
+        "tests/worker/test_lora_*",
+        "tests/security/test_ml_intern_*"
+      ],
+      "acceptance_criteria": [
+        "Tests decken Dataset/Adapter-Eingaben, Queue/Claim/Fencing, Workertransport, Progress/Cancel/Recovery, Evaluation/Approval/Export und Routing ab.",
+        "Multi-Principal- und Concurrent-Claim-Tests beweisen Isolation und atomare Idempotenz.",
+        "Adversarial Upload-/Archiv-/SSRF-/Redaction-Tests sind enthalten.",
+        "Alte ml_intern- und Visual-Process-Verträge bleiben rückwärtskompatibel grün.",
+        "Tests benötigen standardmäßig keine GPU und kein Netzwerk."
+      ],
+      "test_expectations": [
+        "Gezielte Testmatrix sowie relevante Regression-Suites laufen ohne Fehler; Flakes durch Zeit/Sleeps werden mit injizierbarer Clock/Eventsteuerung vermieden."
+      ]
+    },
+    {
+      "id": "LTF-031",
+      "title": "Angular Unit-, Accessibility- und End-to-End-Tests vervollständigen",
+      "type": "test",
+      "milestone_id": "LTF-M6",
+      "status": "done",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "LTF-024",
+        "LTF-025",
+        "LTF-026",
+        "LTF-027",
+        "LTF-028"
+      ],
+      "target_files": [
+        "frontend-angular/src/app/features/model-training/**/*.spec.ts",
+        "frontend-angular/tests/model-training.spec.ts"
+      ],
+      "acceptance_criteria": [
+        "Unit-Tests decken API-Mapping, State, Upload, Preview, Wizard, Events, Cancel, Evaluation und Registryaktionen ab.",
+        "Axe-/Keyboard-Checks bestehen für Hauptseite, Dialoge, Tabellen, Tabs und Fortschrittsanzeigen.",
+        "E2E führt einen Mock-/CPU-Dry-Run von Upload bis Evaluation/Approval/Rollback durch.",
+        "Fehlerfälle 401/403/409/413/422/503 und Streamabbruch besitzen sichtbare Recovery-Pfade.",
+        "Build, Typecheck und bestehende Angular-Regressionen bleiben grün."
+      ],
+      "test_expectations": [
+        "npm run test:unit und fokussierter Playwright-Test bestehen in reproduzierbarer Testumgebung."
+      ]
+    },
+    {
+      "id": "LTF-032",
+      "title": "CPU-/Mock-End-to-End-Gate und hardwaregebundenen NVIDIA-Live-Smoke bereitstellen",
+      "type": "verification",
+      "milestone_id": "LTF-M6",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "LTF-029",
+        "LTF-030",
+        "LTF-031"
+      ],
+      "target_files": [
+        "scripts/run-lora-training-e2e.sh",
+        "tests/e2e/test_lora_training_control_plane.py",
+        "docs/operations/lora-training.md"
+      ],
+      "acceptance_criteria": [
+        "CPU/mock Gate beweist Upload, Split, Validation, async Delegation, Events, Cancel, Evaluation, Registry und Export ohne GPU.",
+        "NVIDIA-Smoke trainiert mit kleinem lokal vorhandenem Modell/Dataset mindestens einen Step und prüft echte safetensors-/Metric-Artefakte.",
+        "Fehlende GPU oder lokales Modell ergibt klaren not-run Status und wird nicht als bestandener Live-Nachweis gezählt.",
+        "Gate-Artefakt enthält Image-/Library-/GPU-/Dataset-/Config-Hashes und reproduzierbaren Befehl.",
+        "Keine Testausgabe oder CI-Artefakte enthalten Secrets oder rohe private Trainingsdaten."
+      ],
+      "test_expectations": [
+        "CPU/mock Gate ist verpflichtend grün; NVIDIA-Gate ist explizit hardwaregebunden und liefert bei Ausführung einen verifizierten Report."
+      ]
+    },
+    {
+      "id": "LTF-033",
+      "title": "Betriebs-, Sicherheits-, Daten- und Nutzer-Dokumentation abschließen",
+      "type": "documentation",
+      "milestone_id": "LTF-M6",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "LTF-030",
+        "LTF-031",
+        "LTF-032"
+      ],
+      "target_files": [
+        "docs/ml-intern-lora-finetuning.md",
+        "docs/operations/lora-training.md",
+        "docs/backend.md",
+        "frontend-angular/src/app/features/model-training/README.md"
+      ],
+      "acceptance_criteria": [
+        "Dokumentation erklärt UI-Fluss, API, Workergrenze, Datasetformate, Split, Validierung, Training, Evaluation, Approval, Export und Rollback.",
+        "CPU-, RTX-3080- und optionale stärkere Profile nennen realistische Bounds und OOM-Recovery.",
+        "Privacy/Lizenz/Consent, Secret-/PII-Gates, Retention, Löschung und keine automatische Datennutzung sind klar beschrieben.",
+        "Troubleshooting deckt Runtime unavailable, Modell fehlt, Dependencyfehler, OOM, stale Job, Cancel und Hashmismatch ab.",
+        "Bekannte Grenzen und das hardwaregebundene Live-Nachweisverfahren werden transparent benannt."
+      ],
+      "test_expectations": [
+        "Dokumentationslinks und Beispielpayloads werden validiert; Compose- und API-Beispiele entsprechen dem implementierten Vertrag."
+      ]
+    }
+  ],
+  "tasks_status_summary": {
+    "total": 33,
+    "by_status": {
+      "todo": 0,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 33
+    },
+    "progress_percent_done": 100.0,
+    "by_priority": {
+      "P0": 29,
+      "P1": 4,
+      "P2": 0,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 1,
+      "medium": 5,
+      "high": 13,
+      "critical": 14
+    },
+    "critical_path": {
+      "total": 26,
+      "done": 26,
+      "remaining": 0
+    },
+    "milestones": {
+      "total": 6,
+      "todo": 0,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 6
+    }
+  },
+  "tasks_type_summary": {
+    "total": 33,
+    "by_type": {
+      "analysis": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "architecture": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "security": {
+        "total": 3,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 3
+        },
+        "done": 3,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "implementation": {
+        "total": 14,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 14
+        },
+        "done": 14,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "api": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "worker": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "refactor": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "frontend": {
+        "total": 6,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 6
+        },
+        "done": 6,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "deployment": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "test": {
+        "total": 2,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 2
+        },
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "verification": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "documentation": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      }
+    }
+  },
+  "weighted_progress_summary": {
+    "weighting_model_ref": "planning-weighting-default-v1",
+    "total_weight": 55.0,
+    "done_weight": 55.0,
+    "remaining_weight": 0.0,
+    "blocked_weight": 0.0,
+    "weighted_percent": 100.0
+  },
+  "milestone_progress_summary": {
+    "milestones": {
+      "LTF-M1": {
+        "total_tasks": 5,
+        "done": 5,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "LTF-M2": {
+        "total_tasks": 5,
+        "done": 5,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "LTF-M3": {
+        "total_tasks": 5,
+        "done": 5,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "LTF-M4": {
+        "total_tasks": 7,
+        "done": 7,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "LTF-M5": {
+        "total_tasks": 6,
+        "done": 6,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "LTF-M6": {
+        "total_tasks": 5,
+        "done": 5,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      }
+    }
+  },
+  "progress_summary": {
+    "state": "done",
+    "todo_remaining": 0,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 33,
+    "count_based_percent": 100.0,
+    "weighted_percent": 100.0
+  },
+  "derived_summary_metadata": {
+    "mode": "derived_cache",
+    "source_of_truth": "tasks",
+    "generated_at": "2026-07-16T12:09:32.498462Z",
+    "generator": "planning-summary-engine",
+    "generator_version": "1.0",
+    "source_hash": "d817f114b65ff9fe8e782cd5cb8d911227ad30f40f78aa61e7ae9030821ce623",
+    "is_stale": false
+  }
+}
