@@ -301,6 +301,15 @@
           <p class="error-text">Diese Plattform stellt für die gewählte Audioquelle keinen unterstützten Capture-Adapter bereit.</p>
         }
         <div class="voice-long-run-options mt-md">
+          <label>Transkriptanzeige
+            <select [value]="longRunDisplayMode"
+              (change)="onLongRunDisplayModeChange($any($event.target).value)"
+              [disabled]="configurationInteractionLocked() || !!longRunRecovery"
+              data-testid="voice-long-run-display-mode">
+              <option value="segment">Nach Segmentabschluss</option>
+              <option value="live">Direkt live (unkorrigierte Vorschau)</option>
+            </select>
+          </label>
           <label>Segmentdauer
             <select [(ngModel)]="longRunSegmentSeconds" [disabled]="configurationInteractionLocked()">
               <option [ngValue]="60">60 Sekunden</option>
@@ -317,6 +326,20 @@
             </select>
           </label>
         </div>
+        @if (longRunDisplayMode === 'live') {
+          <p class="muted font-sm" data-testid="voice-long-run-live-privacy-hint">
+            Im Direkt-live-Modus werden kleine PCM-Ausschnitte fortlaufend ausschließlich über den Hub
+            verarbeitet. Die Vorschau ist flüchtig und unkorrigiert. Nach jedem vollständigen Segment
+            ersetzt zunächst das autoritative ASR-Ergebnis und anschließend die konfigurierte Korrektur
+            diesen Rohtext.
+          </p>
+        } @else {
+          <p class="muted font-sm" data-testid="voice-long-run-segment-privacy-hint">
+            Im Segmentmodus verlässt Audio den Client erst als abgeschlossenes, zuvor lokal
+            AES-GCM-verschlüsselt gepuffertes Segment. Die Anzeige folgt nach dessen ASR und wird danach
+            segmentweise korrigiert.
+          </p>
+        }
         <div class="row gap-sm mt-md voice-wrap">
           <button type="button" (click)="startLongRun()"
             [disabled]="configurationInteractionLocked() || !!longRunRecovery || !longRunStorageAvailable || !captureSourceSupported('long') || !profileId.trim() || !validBackendSelection() || !validCorrectionSelection()">
@@ -344,6 +367,20 @@
         <div class="voice-live-transcript mt-md" aria-live="polite" aria-atomic="false"
           aria-relevant="additions text" data-testid="voice-long-run-transcript">
           <strong>Fortlaufendes Transkript</strong>
+          @if (longRunDisplayMode === 'live' && longRunActive && longRunPreviewSequence >= 0) {
+            <div class="voice-long-run-preview" data-testid="voice-long-run-live-preview"
+              [attr.data-sequence]="longRunPreviewSequence">
+              <span class="voice-long-run-revision">
+                Segment {{ longRunPreviewSequence + 1 }} · Live-Vorschau · unkorrigiert
+              </span>
+              <span class="voice-long-run-segment-text">
+                {{ longRunPreviewText || (longRunPreviewStatus === 'unavailable'
+                  ? 'Live-Vorschau nicht verfügbar – die segmentweise Verarbeitung läuft weiter.'
+                  : longRunPreviewStatus === 'connecting'
+                    ? 'Live-Erkennung wird verbunden …' : 'Sprache wird erkannt …') }}
+              </span>
+            </div>
+          }
           @if (longRunTimeline.length || longRunGapSequences.length) {
             <ol class="voice-long-run-timeline" aria-label="Fortlaufende Transkriptabschnitte">
               @for (row of longRunTimelineRows; track row.sequence) {
@@ -361,7 +398,9 @@
               }
             </ol>
           } @else {
-            <p>{{ longRunTranscript || 'Das erste vorläufige Segment erscheint nach spätestens der gewählten Segmentdauer.' }}</p>
+            <p>{{ longRunTranscript || (longRunDisplayMode === 'live'
+              ? 'Nach dem Start erscheint hier die flüchtige Live-Vorschau des aktuellen Segments.'
+              : 'Das erste vorläufige Segment erscheint nach spätestens der gewählten Segmentdauer.') }}</p>
           }
         </div>
       </section>

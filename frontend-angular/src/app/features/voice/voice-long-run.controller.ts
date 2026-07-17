@@ -9,6 +9,16 @@ import {
 } from './voice-audio-capture';
 import { VoiceApiService } from './voice-api.service';
 import {
+  DEFAULT_VOICE_LONG_RUN_DISPLAY_MODE,
+  VoiceLongRunDisplayMode,
+  normalizeVoiceLongRunDisplayMode,
+} from './voice-long-run-display-mode';
+import {
+  VOICE_LONG_RUN_LIVE_PREVIEW,
+  VoiceLongRunLivePreviewPort,
+  VoiceLongRunLivePreviewUpdate,
+} from './voice-long-run-live-preview';
+import {
   VOICE_LONG_RUN_RECOVERY,
   VoiceLongRunRecoveryMetadata,
   VoiceLongRunRecoveryPort,
@@ -63,6 +73,9 @@ export interface VoiceLongRunObserver {
   gap?(sequence: number): void;
   gapsUpdated?(sequences: readonly number[]): void;
   recoveryUpdated?(metadata: VoiceLongRunRecoveryMetadata): void;
+  livePreviewStarted?(segmentSequence: number): void;
+  livePreview?(update: VoiceLongRunLivePreviewUpdate): void;
+  livePreviewUnavailable?(error: unknown): void;
   connection?(state: 'online' | 'retrying'): void;
   stopping?(reason: string): void;
   stopped?(response: VoiceLongRunResponse, reason: string): void;
@@ -76,6 +89,7 @@ export class VoiceLongRunController {
   private readonly spool: VoiceLongRunSpoolPort = inject(VOICE_LONG_RUN_SPOOL);
   private readonly recovery: VoiceLongRunRecoveryPort = inject(VOICE_LONG_RUN_RECOVERY);
   private readonly createSegmenter: VoiceLongRunSegmenterFactory = inject(VOICE_LONG_RUN_SEGMENTER_FACTORY);
+  private readonly livePreview: VoiceLongRunLivePreviewPort = inject(VOICE_LONG_RUN_LIVE_PREVIEW);
   private readonly timeline = new VoiceLongRunTimeline();
 
   private hubUrl = '';
@@ -98,6 +112,7 @@ export class VoiceLongRunController {
   private stopping = false;
   private pendingAutomaticStopReason = '';
   private currentRequest: VoiceLongRunCreateRequest | null = null;
+  private displayMode: VoiceLongRunDisplayMode = DEFAULT_VOICE_LONG_RUN_DISPLAY_MODE;
   private createIdempotencyKey = '';
   private inFlightSequence: number | null = null;
   private deferredEvictions = new Set<number>();
@@ -269,6 +284,7 @@ export class VoiceLongRunController {
     request: VoiceLongRunCreateRequest,
     idempotencyKey: string,
     observer: VoiceLongRunObserver = {},
+    displayMode: VoiceLongRunDisplayMode = DEFAULT_VOICE_LONG_RUN_DISPLAY_MODE,
   ): Promise<VoiceLongRunState> {
     if (this.run || this.starting || this.stoppingOperation) {
       throw new Error('voice.long_run.already_active');
@@ -284,6 +300,7 @@ export class VoiceLongRunController {
     this.pendingAutomaticStopReason = '';
     this.persistenceQueue = Promise.resolve();
     this.currentRequest = request;
+    this.displayMode = normalizeVoiceLongRunDisplayMode(displayMode);
     this.pendingProfileId = request.profile_id;
     try {
       if (!this.secureStorageReady) await this.initializeSecureStorage();
@@ -313,6 +330,7 @@ export class VoiceLongRunController {
         createIdempotencyKey: this.createIdempotencyKey,
         profileGeneration: this.profileGeneration,
         request,
+        displayMode: this.displayMode,
         nextSequence: 0,
         timelineMilliseconds: 0,
         updatedAt: Date.now(),
@@ -343,6 +361,8 @@ export class VoiceLongRunController {
         initialSequence: cursor.nextSequence,
         initialTimelineMilliseconds: cursor.timelineMilliseconds,
       });
+      await this.startLivePreview(created.run, cursor.nextSequence);
+      this.ensureOperation(generation);
       this.startCaptureDeadline(created.run, request.max_duration_seconds, cursor.timelineMilliseconds);
       this.ensureOperation(generation);
       await this.capture.start(
@@ -361,6 +381,7 @@ export class VoiceLongRunController {
     } catch (error) {
       const cancelled = generation !== this.operationGeneration;
       await this.capture.stop().catch(() => undefined);
+      await this.livePreview.stop().catch(() => undefined);
       if (!cancelled && this.run) {
         const runId = this.run.id;
         if (this.run.status === 'active') {
@@ -397,6 +418,7 @@ export class VoiceLongRunController {
       return;
     }
     await this.capture.stop().catch(() => undefined);
+    await this.livePreview.dispose().catch(() => undefined);
     this.clearTimers();
   }
 
@@ -460,6 +482,7 @@ export class VoiceLongRunController {
     this.resetTimelineProjection();
     this.resetGapProjection();
     this.currentRequest = descriptor.request;
+    this.displayMode = normalizeVoiceLongRunDisplayMode(descriptor.displayMode);
     this.pendingProfileId = descriptor.request.profile_id;
     this.createIdempotencyKey = descriptor.createIdempotencyKey;
     this.profileGeneration = descriptor.profileGeneration;
@@ -503,6 +526,8 @@ export class VoiceLongRunController {
       });
       this.saveRecovery(cursor.nextSequence, cursor.timelineMilliseconds);
       this.publishResponse(snapshot);
+      await this.startLivePreview(snapshot.run, cursor.nextSequence);
+      this.ensureOperation(generation);
       this.startCaptureDeadline(
         snapshot.run,
         descriptor.request.max_duration_seconds,
@@ -521,6 +546,7 @@ export class VoiceLongRunController {
       return snapshot.run;
     } catch (error) {
       await this.capture.stop().catch(() => undefined);
+      await this.livePreview.stop().catch(() => undefined);
       this.resetRuntime();
       throw error;
     } finally {
@@ -628,6 +654,7 @@ export class VoiceLongRunController {
       this.resetTimelineProjection();
       this.resetGapProjection();
       this.currentRequest = descriptor.request;
+      this.displayMode = normalizeVoiceLongRunDisplayMode(descriptor.displayMode);
       this.createIdempotencyKey = descriptor.createIdempotencyKey;
       this.profileGeneration = descriptor.profileGeneration;
       const buffered = await this.spool.list(descriptor.runId);
@@ -651,6 +678,31 @@ export class VoiceLongRunController {
     }
   }
 
+  private async startLivePreview(run: VoiceLongRunState, initialSegmentSequence: number): Promise<void> {
+    if (this.displayMode !== 'live' || !this.currentRequest) return;
+    try {
+      await this.livePreview.start({
+        hubUrl: this.hubUrl,
+        liveRunId: run.id,
+        profileId: this.currentRequest.profile_id,
+        configurationSessionId: this.currentRequest.configuration_session_id,
+        language: this.currentRequest.language,
+        segmentDurationSeconds: this.currentRequest.segment_duration_seconds,
+        initialSegmentSequence,
+      }, {
+        segmentStarted: (segmentSequence) => (
+          this.observer.livePreviewStarted?.(segmentSequence)
+        ),
+        preview: (update) => this.observer.livePreview?.(update),
+        error: (error) => this.observer.livePreviewUnavailable?.(error),
+      });
+    } catch (error) {
+      // Preview is an explicitly non-authoritative projection. The encrypted
+      // segment spool and Hub-owned ASR/correction flow must keep running.
+      this.observer.livePreviewUnavailable?.(error);
+    }
+  }
+
   private onCaptureChunk(chunk: ArrayBuffer): void {
     // Native stop drains one final partial PCM chunk before resolving. Keep
     // accepting chunks until capture.stop() has completed and the segmenter is
@@ -663,10 +715,18 @@ export class VoiceLongRunController {
       this.requestAutomaticStop('capture_error', error);
       return;
     }
+    if (this.displayMode === 'live') this.livePreview.acceptPcm(chunk);
     this.observer.progress?.(this.segmenter.capturedDurationMs);
     this.latestTimelineMilliseconds = this.segmenter.capturedDurationMs;
     this.saveRecovery(this.lastLocalSequence + 1, this.latestTimelineMilliseconds);
-    for (const segment of ready) this.persistSegment(segment);
+    for (const segment of ready) {
+      if (this.displayMode === 'live' && this.livePreview.segmentSequence === segment.sequence) {
+        void this.livePreview.endSegment().catch((error) => {
+          this.observer.livePreviewUnavailable?.(error);
+        });
+      }
+      this.persistSegment(segment);
+    }
     if (this.segmenter.reachedLimit) this.requestAutomaticStop('safety_limit');
   }
 
@@ -892,6 +952,10 @@ export class VoiceLongRunController {
     try {
       await this.capture.stop();
       this.ensureOperation(generation);
+      await this.livePreview.stop().catch((error) => {
+        this.observer.livePreviewUnavailable?.(error);
+      });
+      this.ensureOperation(generation);
       const finalSegment = this.segmenter?.flush();
       if (finalSegment) this.persistSegment(finalSegment);
       await this.persistenceQueue;
@@ -1052,6 +1116,7 @@ export class VoiceLongRunController {
       createIdempotencyKey: this.createIdempotencyKey,
       profileGeneration: this.profileGeneration,
       request: this.currentRequest,
+      displayMode: this.displayMode,
       nextSequence,
       timelineMilliseconds,
       completedTimelineMilliseconds: this.completedTimelineMilliseconds,
@@ -1293,6 +1358,7 @@ export class VoiceLongRunController {
     this.retryAttempt = 0;
     this.lastLocalSequence = -1;
     this.currentRequest = null;
+    this.displayMode = DEFAULT_VOICE_LONG_RUN_DISPLAY_MODE;
     this.createIdempotencyKey = '';
     this.inFlightSequence = null;
     this.deferredEvictions.clear();
@@ -1354,6 +1420,7 @@ export class VoiceLongRunController {
     void (async () => {
       try {
         await this.capture.stop().catch(() => undefined);
+        await this.livePreview.dispose().catch(() => undefined);
         if (runId) await this.spool.clearRun(runId).catch(() => undefined);
         try {
           this.recovery.clear();

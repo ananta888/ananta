@@ -197,6 +197,129 @@ describe('VoiceConsoleComponent', () => {
     expect(start?.disabled).toBe(false);
   });
 
+  it('offers privacy-explicit segment and direct-live transcript display modes', async () => {
+    const fixture = TestBed.createComponent(VoiceConsoleComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const component = fixture.componentInstance;
+    component.setTab('long');
+    fixture.detectChanges();
+
+    const mode = (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLSelectElement>('[data-testid="voice-long-run-display-mode"]');
+    expect(mode?.textContent).toContain('Nach Segmentabschluss');
+    expect(mode?.textContent).toContain('Direkt live');
+    expect(component.longRunDisplayMode).toBe('segment');
+    expect((fixture.nativeElement as HTMLElement)
+      .querySelector('[data-testid="voice-long-run-segment-privacy-hint"]')?.textContent)
+      .toContain('erst als abgeschlossenes');
+
+    component.longRunDisplayMode = 'live';
+    fixture.detectChanges();
+    expect(component.longRunDisplayMode).toBe('live');
+    component.longRunActive = true;
+    const observer = (component as any).longRunObserver();
+    observer.livePreviewStarted(0);
+    observer.livePreview({
+      liveRunId: 'voice-long-run-a',
+      segmentSequence: 0,
+      streamSessionId: 'preview-a',
+      text: '<b>ungeprüfter Rohtext</b>',
+      event: { event_type: 'partial', payload: { text: '<b>ungeprüfter Rohtext</b>' } },
+    });
+    fixture.detectChanges();
+    expect(component.longRunDisplayMode).toBe('live');
+    expect(component.longRunActive).toBe(true);
+    expect(component.longRunPreviewSequence).toBe(0);
+    expect(component.activeTab).toBe('long');
+
+    const preview = (fixture.nativeElement as HTMLElement)
+      .querySelector('[data-testid="voice-long-run-live-preview"]');
+    expect(preview?.textContent).toContain('Live-Vorschau · unkorrigiert');
+    expect(preview?.textContent).toContain('<b>ungeprüfter Rohtext</b>');
+    expect(preview?.querySelector('b')).toBeNull();
+    expect((fixture.nativeElement as HTMLElement)
+      .querySelector('[data-testid="voice-long-run-live-privacy-hint"]')?.textContent)
+      .toContain('fortlaufend ausschließlich über den Hub');
+  });
+
+  it('never restores a late raw preview after authoritative segment revisions', async () => {
+    const fixture = TestBed.createComponent(VoiceConsoleComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const component = fixture.componentInstance;
+    component.activeTab = 'long';
+    component.longRunDisplayMode = 'live';
+    component.longRunActive = true;
+    const observer = (component as any).longRunObserver();
+
+    observer.livePreviewStarted(0);
+    observer.livePreview({
+      liveRunId: 'voice-long-run-a', segmentSequence: 0,
+      streamSessionId: 'preview-a', text: 'später Rohtext',
+      event: { event_type: 'partial', payload: { text: 'später Rohtext' } },
+    });
+    observer.timelineUpdated({
+      segments: [timelineSegment({
+        sequence: 0, revision: 1, timeline_revision: 1,
+        text_state: 'provisional', correction_status: 'pending',
+        text: 'Autoritatives ASR', display_text: 'Autoritatives ASR',
+      })],
+      composedTranscript: 'Autoritatives ASR',
+      highestTimelineRevision: 1,
+      hasPendingRevisions: true,
+    });
+    observer.livePreview({
+      liveRunId: 'voice-long-run-a', segmentSequence: 0,
+      streamSessionId: 'preview-a', text: 'veraltete späte Antwort',
+      event: { event_type: 'partial', payload: { text: 'veraltete späte Antwort' } },
+    });
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement)
+      .querySelector('[data-testid="voice-long-run-live-preview"]')).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Autoritatives ASR');
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('veraltete späte Antwort');
+
+    observer.timelineUpdated({
+      segments: [timelineSegment({
+        sequence: 0, revision: 2, timeline_revision: 2,
+        text_state: 'final', correction_status: 'completed',
+        text: 'Korrigierter Text.', display_text: 'Korrigierter Text.',
+      })],
+      composedTranscript: 'Korrigierter Text.',
+      highestTimelineRevision: 2,
+      hasPendingRevisions: false,
+    });
+    observer.livePreviewStarted(1);
+    fixture.detectChanges();
+
+    const preview = (fixture.nativeElement as HTMLElement)
+      .querySelector('[data-testid="voice-long-run-live-preview"]');
+    expect(preview?.textContent).toContain('Segment 2');
+    expect(preview?.textContent).toContain('Live-Erkennung wird verbunden');
+    expect((fixture.nativeElement as HTMLElement).querySelectorAll('[data-sequence="0"]')).toHaveLength(1);
+  });
+
+  it('shows a recovered live mode before resume while its selector is locked', async () => {
+    recoveryValue = recoveredMetadata({ displayMode: 'live' });
+    const fixture = TestBed.createComponent(VoiceConsoleComponent);
+    fixture.detectChanges();
+    await vi.waitFor(() => expect(fixture.componentInstance.longRunRecovery).toBeTruthy());
+    fixture.componentInstance.activeTab = 'long';
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const mode = (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLSelectElement>('[data-testid="voice-long-run-display-mode"]');
+    expect(fixture.componentInstance.longRunDisplayMode).toBe('live');
+    expect(mode?.value).toBe('live');
+    expect(mode?.disabled).toBe(true);
+    expect((fixture.nativeElement as HTMLElement)
+      .querySelector('[data-testid="voice-long-run-live-privacy-hint"]')).toBeTruthy();
+  });
+
   it('starts one continuous supervised capture with bounded rolling-segment settings', async () => {
     const fixture = TestBed.createComponent(VoiceConsoleComponent);
     fixture.detectChanges();

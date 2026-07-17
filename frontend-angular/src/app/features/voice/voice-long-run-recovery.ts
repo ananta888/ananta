@@ -1,5 +1,9 @@
 import { InjectionToken } from '@angular/core';
 
+import {
+  VoiceLongRunDisplayMode,
+  normalizeVoiceLongRunDisplayMode,
+} from './voice-long-run-display-mode';
 import { VoiceLongRunCreateRequest } from './voice.models';
 
 const RECOVERY_KEY = 'ananta.voice.long_run.recovery.v1';
@@ -11,6 +15,8 @@ export interface VoiceLongRunRecoveryMetadata {
   createIdempotencyKey: string;
   profileGeneration?: number;
   request: VoiceLongRunCreateRequest;
+  /** UI-only preference. Preview text/audio/session capabilities are never persisted. */
+  displayMode?: VoiceLongRunDisplayMode;
   nextSequence: number;
   timelineMilliseconds: number;
   completedTimelineMilliseconds?: number;
@@ -35,7 +41,10 @@ export class LocalVoiceLongRunRecoveryStore implements VoiceLongRunRecoveryPort 
         || !Number.isInteger(parsed.timelineMilliseconds) || parsed.timelineMilliseconds < 0) {
         return null;
       }
-      return parsed;
+      return {
+        ...parsed,
+        displayMode: normalizeVoiceLongRunDisplayMode(parsed.displayMode),
+      };
     } catch {
       return null;
     }

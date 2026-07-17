@@ -166,6 +166,16 @@
   white-space: pre-wrap;
 }
 
+.voice-long-run-preview {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  border: 1px dashed var(--border, #8a94a6);
+  border-radius: 0.5rem;
+  background: var(--surface-subtle, rgba(127, 127, 127, .08));
+}
+
 .voice-long-run-options {
   display: grid;
   gap: 1rem;

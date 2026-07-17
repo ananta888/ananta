@@ -4,6 +4,11 @@ import { Subject, of, throwError } from 'rxjs';
 import { VOICE_AUDIO_CAPTURE, VoiceAudioCapturePort } from './voice-audio-capture';
 import { VoiceApiService } from './voice-api.service';
 import {
+  VOICE_LONG_RUN_LIVE_PREVIEW,
+  VoiceLongRunLivePreviewObserver,
+  VoiceLongRunLivePreviewPort,
+} from './voice-long-run-live-preview';
+import {
   VOICE_LONG_RUN_RECOVERY,
   VoiceLongRunRecoveryMetadata,
   VoiceLongRunRecoveryPort,
@@ -26,6 +31,7 @@ describe('VoiceLongRunController', () => {
   let capture: VoiceAudioCapturePort;
   let spool: MemorySpool;
   let recovery: MemoryRecovery;
+  let preview: VoiceLongRunLivePreviewPort;
   const api = {
     acquireLongRunLease: vi.fn(),
     createLongRun: vi.fn(),
@@ -42,6 +48,16 @@ describe('VoiceLongRunController', () => {
     stoppedHandler = null;
     spool = new MemorySpool(5);
     recovery = new MemoryRecovery();
+    preview = {
+      active: false,
+      disabled: false,
+      segmentSequence: 0,
+      start: vi.fn(async () => undefined),
+      acceptPcm: vi.fn(),
+      endSegment: vi.fn(async () => undefined),
+      stop: vi.fn(async () => undefined),
+      dispose: vi.fn(async () => undefined),
+    };
     let active = false;
     let prepared = false;
     capture = {
@@ -77,6 +93,7 @@ describe('VoiceLongRunController', () => {
         { provide: VOICE_AUDIO_CAPTURE, useValue: capture },
         { provide: VOICE_LONG_RUN_SPOOL, useValue: spool },
         { provide: VOICE_LONG_RUN_RECOVERY, useValue: recovery },
+        { provide: VOICE_LONG_RUN_LIVE_PREVIEW, useValue: preview },
         {
           provide: VOICE_LONG_RUN_SEGMENTER_FACTORY,
           useValue: (options: ConstructorParameters<typeof VoiceLongRunPcmSegmenter>[0]) => (
@@ -144,6 +161,83 @@ describe('VoiceLongRunController', () => {
 
     await controller.stop();
     expect(capture.stop).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps segment display mode free of preview-stream work', async () => {
+    const controller = TestBed.inject(VoiceLongRunController);
+    await controller.start('http://hub.test', createRequest(60, 600), 'create-key');
+
+    chunkHandler!(new ArrayBuffer(120));
+    await settleAsyncWork();
+
+    expect(preview.start).not.toHaveBeenCalled();
+    expect(preview.acceptPcm).not.toHaveBeenCalled();
+    expect(preview.endSegment).not.toHaveBeenCalled();
+    expect(api.uploadLongRunSegment).toHaveBeenCalledTimes(1);
+    await controller.stop();
+  });
+
+  it('mirrors one capture into a disposable live preview while preserving segment ASR', async () => {
+    const updates: string[] = [];
+    const startedSequences: number[] = [];
+    let previewObserver: VoiceLongRunLivePreviewObserver | undefined;
+    vi.mocked(preview.start).mockImplementation(async (_context, observer) => {
+      previewObserver = observer;
+    });
+    const controller = TestBed.inject(VoiceLongRunController);
+    await controller.start('http://hub.test', createRequest(60, 600), 'create-key', {
+      livePreviewStarted: (sequence) => startedSequences.push(sequence),
+      livePreview: (update) => updates.push(update.text),
+    }, 'live');
+
+    expect(preview.start).toHaveBeenCalledWith(expect.objectContaining({
+      hubUrl: 'http://hub.test',
+      liveRunId: 'run-a',
+      profileId: 'default',
+      segmentDurationSeconds: 60,
+      initialSegmentSequence: 0,
+    }), expect.any(Object));
+    previewObserver?.segmentStarted?.(0);
+    previewObserver?.preview?.({
+      liveRunId: 'run-a',
+      segmentSequence: 0,
+      streamSessionId: 'preview-a',
+      text: 'laufender Rohtext',
+      event: { event_type: 'partial', payload: { text: 'laufender Rohtext' } },
+    });
+    previewObserver?.segmentStarted?.(1);
+    chunkHandler!(new ArrayBuffer(120));
+    await settleAsyncWork();
+
+    expect(updates).toEqual(['laufender Rohtext']);
+    expect(startedSequences).toEqual([0, 1]);
+    expect(preview.acceptPcm).toHaveBeenCalledTimes(1);
+    expect(preview.endSegment).toHaveBeenCalledTimes(1);
+    expect(api.uploadLongRunSegment).toHaveBeenCalledTimes(1);
+    expect(recovery.load()).toEqual(expect.objectContaining({ displayMode: 'live' }));
+
+    await controller.stop();
+    expect(preview.stop).toHaveBeenCalled();
+  });
+
+  it('degrades a failed live preview without stopping capture or creating a gap', async () => {
+    const unavailable: unknown[] = [];
+    vi.mocked(preview.start).mockImplementation(async (_context, observer) => {
+      observer?.error?.(new Error('preview offline'));
+    });
+    const controller = TestBed.inject(VoiceLongRunController);
+    await controller.start('http://hub.test', createRequest(60, 600), 'create-key', {
+      livePreviewUnavailable: (error) => unavailable.push(error),
+    }, 'live');
+
+    expect(unavailable).toHaveLength(1);
+    expect(capture.active).toBe(true);
+    chunkHandler!(new ArrayBuffer(120));
+    await settleAsyncWork();
+    expect(api.uploadLongRunSegment).toHaveBeenCalledTimes(1);
+    expect(api.stopLongRun).not.toHaveBeenCalled();
+
+    await controller.stop();
   });
 
   it('polls revision deltas without overlap and replaces provisional text in place', async () => {
@@ -810,6 +904,30 @@ describe('VoiceLongRunController', () => {
     expect(capture.start).not.toHaveBeenCalled();
     expect(controller.recoveryMetadata()).toBeNull();
     expect(await spool.list('run-a')).toEqual([]);
+  });
+
+  it('preserves live display mode when recovery drain fails after refreshing its cursor', async () => {
+    const generation = await spool.allowProfile('default');
+    recovery.save(recoveryDescriptor({
+      profileGeneration: generation,
+      displayMode: 'live',
+    }));
+    const draining = snapshot('run-a');
+    draining.run.capture_deadline_at = Date.now() - 1_000;
+    draining.run.expires_at = Date.now() + 60_000;
+    api.getLongRun.mockReturnValue(of(draining));
+    api.stopLongRun.mockReturnValue(throwError(() => ({ status: 0, message: 'offline' })));
+    const controller = TestBed.inject(VoiceLongRunController);
+
+    await expect(controller.drainRecovery()).rejects.toEqual(expect.objectContaining({
+      status: 0,
+      message: 'offline',
+    }));
+
+    expect(controller.recoveryMetadata()).toEqual(expect.objectContaining({
+      runId: 'run-a',
+      displayMode: 'live',
+    }));
   });
 
   it('retains recovery ciphertext while the Hub is finalizing', async () => {

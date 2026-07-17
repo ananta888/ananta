@@ -19,6 +19,11 @@ import {
 import { VoiceApiService } from './voice-api.service';
 import { VoiceCandidateReviewComponent } from './voice-candidate-review.component';
 import { VoiceLiveSessionController, voicePartialText } from './voice-live-session.controller';
+import {
+  DEFAULT_VOICE_LONG_RUN_DISPLAY_MODE,
+  VoiceLongRunDisplayMode,
+  normalizeVoiceLongRunDisplayMode,
+} from './voice-long-run-display-mode';
 import { VoiceLongRunRecoveryMetadata } from './voice-long-run-recovery';
 import {
   VoiceLongRunController,
@@ -128,6 +133,10 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
   longRunStatus = 'bereit';
   longRunSegmentSeconds = 120;
   longRunMaxHours = 8;
+  longRunDisplayMode: VoiceLongRunDisplayMode = DEFAULT_VOICE_LONG_RUN_DISPLAY_MODE;
+  longRunPreviewSequence = -1;
+  longRunPreviewText = '';
+  longRunPreviewStatus: 'idle' | 'connecting' | 'live' | 'unavailable' = 'idle';
   longRunCapturedMilliseconds = 0;
   longRunUploadedSegments = 0;
   longRunQueuedSegments = 0;
@@ -156,6 +165,7 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
     void this.refreshCaptureCapabilities();
     void this.initializeLongRun();
     this.longRunRecovery = this.longRun.recoveryMetadata();
+    this.restoreLongRunDisplayMode(this.longRunRecovery);
     const hub = this.directory.list().find((entry) => entry.role === 'hub')
       || this.directory.list().find((entry) => entry.name === 'hub');
     this.hubUrl = String(hub?.url || '').replace(/\/$/, '');
@@ -323,6 +333,10 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
           max_duration_seconds: this.validLongRunMaxHours() * 3_600,
           overlap_milliseconds: 1_000,
         };
+    const displayMode = normalizeVoiceLongRunDisplayMode(
+      recovery && (!recovery.runId || resume) ? recovery.displayMode : this.longRunDisplayMode,
+    );
+    this.longRunDisplayMode = displayMode;
     if (!this.validConfigurationContext() || !this.validBackendSelection()
       || !this.validCorrectionSelection() || !this.longRun.supportsSource(request.source)) return;
     const generation = ++this.longRunOperationGeneration;
@@ -340,6 +354,9 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
       this.longRunQueuedSegments = 0;
       this.longRunConnection = 'online';
       this.longRunWarning = '';
+      this.longRunPreviewSequence = -1;
+      this.longRunPreviewText = '';
+      this.longRunPreviewStatus = 'idle';
       this.longRunId = '';
       this.longRunStatus = 'bereit';
       this.longRunRecovery = null;
@@ -367,6 +384,7 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
             request,
             voiceMutationKey('console-long-run:create'),
             observer,
+            displayMode,
           );
       this.ensureLongRunOperation(generation);
       this.longRunId = run.id;
@@ -375,7 +393,9 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
       this.longRunBusy = false;
       this.longRunRecovery = this.longRun.recoveryMetadata();
       this.selectedCaptureSource = request.source;
-      this.successMessage = 'Langzeit-Transkription läuft. Die Audiofreigabe bleibt bis zum Stoppen geöffnet.';
+      this.successMessage = displayMode === 'live'
+        ? 'Langzeit-Transkription läuft. Die flüchtige Rohtext-Vorschau erscheint fortlaufend; jedes Segment wird anschließend separat transkribiert und korrigiert.'
+        : 'Langzeit-Transkription läuft. Die Audiofreigabe bleibt bis zum Stoppen geöffnet; Text erscheint segmentweise.';
       this.cdr.markForCheck();
     } catch (error) {
       if (!this.isLongRunOperationCurrent(generation)) return;
@@ -383,6 +403,10 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
       this.longRunRecovery = this.longRun.recoveryMetadata();
       this.fail(error, () => { this.longRunBusy = false; });
     }
+  }
+
+  onLongRunDisplayModeChange(value: unknown): void {
+    this.longRunDisplayMode = normalizeVoiceLongRunDisplayMode(value);
   }
 
   longRunRecoveryReady(): boolean {
@@ -971,6 +995,7 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
     }
     if (!this.destroyed) {
       this.longRunRecovery = this.longRun.recoveryMetadata();
+      this.restoreLongRunDisplayMode(this.longRunRecovery);
       this.cdr.markForCheck();
     }
   }
@@ -987,6 +1012,15 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
           .filter((segment) => segment.correction_status === 'completed').length;
         for (const segment of snapshot.segments) {
           if (segment.status === 'completed') this.confirmedLongRunSequences.add(segment.sequence);
+        }
+        if (snapshot.segments.some((segment) => (
+          segment.sequence === this.longRunPreviewSequence
+          && segment.text_state !== 'none'
+          && Boolean(segment.text)
+        ))) {
+          this.longRunPreviewSequence = -1;
+          this.longRunPreviewText = '';
+          this.longRunPreviewStatus = 'connecting';
         }
         this.longRunUploadedSegments = this.confirmedLongRunSequences.size;
         this.rebuildLongRunTimelineRows();
@@ -1036,6 +1070,30 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
       recoveryUpdated: (metadata) => {
         if (this.destroyed) return;
         this.longRunRecovery = { ...metadata };
+        this.restoreLongRunDisplayMode(this.longRunRecovery);
+        this.cdr.markForCheck();
+      },
+      livePreviewStarted: (segmentSequence) => {
+        if (this.destroyed || this.longRunDisplayMode !== 'live'
+          || this.hasAuthoritativeLongRunText(segmentSequence)) return;
+        this.longRunPreviewSequence = segmentSequence;
+        this.longRunPreviewText = '';
+        this.longRunPreviewStatus = 'connecting';
+        this.cdr.markForCheck();
+      },
+      livePreview: (update) => {
+        if (this.destroyed || this.longRunDisplayMode !== 'live'
+          || this.hasAuthoritativeLongRunText(update.segmentSequence)) return;
+        this.longRunPreviewSequence = update.segmentSequence;
+        this.longRunPreviewText = update.text;
+        this.longRunPreviewStatus = 'live';
+        this.cdr.markForCheck();
+      },
+      livePreviewUnavailable: () => {
+        if (this.destroyed || this.longRunDisplayMode !== 'live') return;
+        this.longRunPreviewStatus = 'unavailable';
+        this.longRunPreviewText = '';
+        this.longRunWarning = 'Die flüchtige Live-Vorschau ist nicht verfügbar. Aufnahme, verschlüsselter Puffer, Segment-ASR und Korrektur laufen weiter.';
         this.cdr.markForCheck();
       },
       connection: (state) => {
@@ -1055,6 +1113,9 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
         this.longRunActive = false;
         this.longRunBusy = false;
         this.longRunRecovery = null;
+        this.longRunPreviewSequence = -1;
+        this.longRunPreviewText = '';
+        this.longRunPreviewStatus = 'idle';
         this.successMessage = reason === 'safety_limit'
           ? 'Das konfigurierte Langzeit-Limit wurde erreicht und der Run automatisch abgeschlossen.'
           : 'Langzeit-Run abgeschlossen.';
@@ -1111,6 +1172,20 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
   private isLongRunGapWarning(): boolean {
     return this.longRunWarning.startsWith('Der verschlüsselte Offline-Puffer')
       || this.longRunWarning.startsWith('Segment ');
+  }
+
+  private restoreLongRunDisplayMode(metadata: VoiceLongRunRecoveryMetadata | null): void {
+    if (metadata) {
+      this.longRunDisplayMode = normalizeVoiceLongRunDisplayMode(metadata.displayMode);
+    }
+  }
+
+  private hasAuthoritativeLongRunText(sequence: number): boolean {
+    return this.longRunTimeline.some((segment) => (
+      segment.sequence === sequence
+      && segment.text_state !== 'none'
+      && Boolean(String(segment.text || '').trim())
+    ));
   }
 
   private validLongRunSegmentSeconds(): number {
