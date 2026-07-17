@@ -3,7 +3,10 @@ import { HttpInterceptor, HttpRequest, HttpHandler, HttpEvent, HttpErrorResponse
 import { Observable, throwError } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { NotificationService } from './notification.service';
-import { SUPPRESS_GLOBAL_ERROR_NOTIFICATION } from './error-request-context';
+import {
+  SUPPRESS_GLOBAL_ERROR_NOTIFICATION,
+  SUPPRESS_GLOBAL_NOT_FOUND_NOTIFICATION,
+} from './error-request-context';
 
 @Injectable()
 export class ErrorInterceptor implements HttpInterceptor {
@@ -13,6 +16,11 @@ export class ErrorInterceptor implements HttpInterceptor {
   intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
     return next.handle(req).pipe(
       catchError((error: HttpErrorResponse) => {
+        if (error.status === 404 && req.context.get(SUPPRESS_GLOBAL_NOT_FOUND_NOTIFICATION)) {
+          (error as any).__anantaHandledByInterceptor = true;
+          return throwError(() => error);
+        }
+
         if (req.context.get(SUPPRESS_GLOBAL_ERROR_NOTIFICATION)) {
           (error as any).__anantaHandledByInterceptor = true;
           return throwError(() => error);

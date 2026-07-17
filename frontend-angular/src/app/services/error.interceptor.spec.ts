@@ -5,7 +5,10 @@ import { ErrorInterceptor } from './error.interceptor';
 import { TestBed } from '@angular/core/testing';
 import { NotificationService } from './notification.service';
 import { firstValueFrom } from 'rxjs';
-import { SUPPRESS_GLOBAL_ERROR_NOTIFICATION } from './error-request-context';
+import {
+  SUPPRESS_GLOBAL_ERROR_NOTIFICATION,
+  SUPPRESS_GLOBAL_NOT_FOUND_NOTIFICATION,
+} from './error-request-context';
 
 describe('ErrorInterceptor', () => {
   let interceptor: ErrorInterceptor;
@@ -98,6 +101,62 @@ describe('ErrorInterceptor', () => {
     await expect(firstValueFrom(interceptor.intercept(request, makeHandler(err)))).rejects.toBe(err);
     expect(notify).toHaveBeenCalledTimes(1);
     expect(String(notify.mock.calls[0][0] ?? '')).toContain('API-Fehler (409)');
+  });
+
+  it('suppresses only a marked, locally handled not-found response', async () => {
+    const request = new HttpRequest(
+      'DELETE',
+      'http://hub:5000/v1/voice/streams/preview-a',
+      undefined,
+      {
+        context: new HttpContext().set(SUPPRESS_GLOBAL_NOT_FOUND_NOTIFICATION, true),
+      },
+    );
+    const err = new HttpErrorResponse({
+      status: 404,
+      statusText: 'Not Found',
+      url: request.url,
+      error: { code: 'voice_stream.not_found' },
+    });
+
+    await expect(firstValueFrom(interceptor.intercept(request, makeHandler(err)))).rejects.toBe(err);
+    expect(notify).not.toHaveBeenCalled();
+    expect((err as any).__anantaHandledByInterceptor).toBe(true);
+  });
+
+  it('still emits a global notification for other failures on a marked request', async () => {
+    const request = new HttpRequest(
+      'DELETE',
+      'http://hub:5000/v1/voice/streams/preview-a',
+      undefined,
+      {
+        context: new HttpContext().set(SUPPRESS_GLOBAL_NOT_FOUND_NOTIFICATION, true),
+      },
+    );
+    const err = new HttpErrorResponse({
+      status: 500,
+      statusText: 'Internal Server Error',
+      url: request.url,
+      error: { detail: 'cleanup failed' },
+    });
+
+    await expect(firstValueFrom(interceptor.intercept(request, makeHandler(err)))).rejects.toBe(err);
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(String(notify.mock.calls[0][0] ?? '')).toContain('API-Fehler (500)');
+  });
+
+  it('still emits a global notification for an unmarked not-found response', async () => {
+    const request = new HttpRequest('DELETE', 'http://hub:5000/v1/voice/streams/missing');
+    const err = new HttpErrorResponse({
+      status: 404,
+      statusText: 'Not Found',
+      url: request.url,
+      error: { code: 'voice_stream.not_found' },
+    });
+
+    await expect(firstValueFrom(interceptor.intercept(request, makeHandler(err)))).rejects.toBe(err);
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(String(notify.mock.calls[0][0] ?? '')).toContain('API-Fehler (404)');
   });
 
   it('does not emit notification for transient GET status-0 responses', async () => {

@@ -2,7 +2,10 @@ import { Injectable, inject } from '@angular/core';
 import { HttpContext } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
 
-import { SUPPRESS_GLOBAL_ERROR_NOTIFICATION } from '../../services/error-request-context';
+import {
+  SUPPRESS_GLOBAL_ERROR_NOTIFICATION,
+  SUPPRESS_GLOBAL_NOT_FOUND_NOTIFICATION,
+} from '../../services/error-request-context';
 import { HubApiCoreService } from '../../services/hub-api-core.service';
 import {
   VoiceCapabilityStatus,
@@ -37,6 +40,17 @@ import {
 } from './voice.models';
 
 const mutationHeaders = (idempotencyKey: string) => ({ 'Idempotency-Key': idempotencyKey });
+
+export interface VoiceStreamRequestOptions {
+  /** The caller owns recovery when Hub cleanup has already removed this ephemeral stream. */
+  missingSessionIsExpected?: boolean;
+}
+
+function streamRequestContext(options: VoiceStreamRequestOptions): HttpContext | undefined {
+  return options.missingSessionIsExpected
+    ? new HttpContext().set(SUPPRESS_GLOBAL_NOT_FOUND_NOTIFICATION, true)
+    : undefined;
+}
 
 function queryString(query: VoiceConfigurationQuery): string {
   const params = new URLSearchParams();
@@ -116,7 +130,9 @@ export class VoiceApiService {
     sessionId: string,
     chunkSequence: number,
     pcm16Chunk: ArrayBuffer | Blob,
+    options: VoiceStreamRequestOptions = {},
   ): Observable<VoiceStreamChunkResponse> {
+    const context = streamRequestContext(options);
     return this.core.request<VoiceStreamChunkResponse>(
       'PUT',
       `${hubUrl}/v1/voice/streams/${encodeURIComponent(sessionId)}/chunks/${chunkSequence}`,
@@ -125,6 +141,7 @@ export class VoiceApiService {
         body: pcm16Chunk,
         headers: { 'Content-Type': 'audio/pcm;rate=16000;channels=1' },
         timeoutMs: 30_000,
+        ...(context ? { context } : {}),
       },
     );
   }
@@ -136,9 +153,15 @@ export class VoiceApiService {
     );
   }
 
-  cancelStream(hubUrl: string, sessionId: string): Observable<VoiceStreamCancelResponse> {
+  cancelStream(
+    hubUrl: string,
+    sessionId: string,
+    options: VoiceStreamRequestOptions = {},
+  ): Observable<VoiceStreamCancelResponse> {
+    const context = streamRequestContext(options);
     return this.core.request<VoiceStreamCancelResponse>(
       'DELETE', `${hubUrl}/v1/voice/streams/${encodeURIComponent(sessionId)}`, hubUrl,
+      context ? { context } : undefined,
     );
   }
 

@@ -257,7 +257,11 @@ export class VoiceLongRunLivePreviewCoordinator implements VoiceLongRunLivePrevi
     } catch (error) {
       const sessionId = String(stream.session_id || '').trim();
       if (sessionId) {
-        await firstValueFrom(this.api.cancelStream(context.hubUrl, sessionId)).catch(() => undefined);
+        await firstValueFrom(this.api.cancelStream(
+          context.hubUrl,
+          sessionId,
+          { missingSessionIsExpected: true },
+        )).catch(() => undefined);
       }
       throw error;
     }
@@ -345,6 +349,9 @@ export class VoiceLongRunLivePreviewCoordinator implements VoiceLongRunLivePrevi
         window.sessionId,
         sequence,
         audio,
+        // The Hub may remove this capability as soon as the durable segment
+        // wins the race, including while an already-started PUT is in flight.
+        { missingSessionIsExpected: true },
       ));
       this.publishPartial(window, response);
     });
@@ -436,7 +443,11 @@ export class VoiceLongRunLivePreviewCoordinator implements VoiceLongRunLivePrevi
   private deleteWindow(window: PreviewWindow): Promise<void> {
     if (!window.deleteOperation) {
       window.deleteOperation = firstValueFrom(
-        this.api.cancelStream(window.hubUrl, window.sessionId),
+        this.api.cancelStream(
+          window.hubUrl,
+          window.sessionId,
+          { missingSessionIsExpected: true },
+        ),
       ).then(
         () => undefined,
         (error) => {

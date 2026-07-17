@@ -90,7 +90,11 @@ describe('VoiceLongRunLivePreviewCoordinator', () => {
     expect(updates).toEqual([]);
     expect(started).toEqual([4, 5]);
     expect(api.cancelStream).toHaveBeenCalledTimes(1);
-    expect(api.cancelStream).toHaveBeenCalledWith('http://hub.test', 'preview-4');
+    expect(api.cancelStream).toHaveBeenCalledWith(
+      'http://hub.test',
+      'preview-4',
+      { missingSessionIsExpected: true },
+    );
     expect(api.cancelStream.mock.invocationCallOrder[0]).toBeGreaterThan(
       api.pushStreamChunk.mock.invocationCallOrder.at(-1) || 0,
     );
@@ -287,10 +291,45 @@ describe('VoiceLongRunLivePreviewCoordinator', () => {
     expect(errors).toEqual([]);
     expect(preview.active).toBe(true);
     expect(preview.segmentSequence).toBe(1);
+    expect(api.pushStreamChunk).toHaveBeenCalledWith(
+      'http://hub.test',
+      'preview-0',
+      0,
+      expect.any(ArrayBuffer),
+      { missingSessionIsExpected: true },
+    );
     expect(api.cancelStream).toHaveBeenCalledTimes(1);
+    expect(api.cancelStream).toHaveBeenCalledWith(
+      'http://hub.test',
+      'preview-0',
+      { missingSessionIsExpected: true },
+    );
     expect(api.createStream).toHaveBeenCalledTimes(2);
     await preview.stop();
     expect(api.cancelStream).toHaveBeenCalledTimes(2);
+  });
+
+  it('still reports a missing stream while the preview window is active', async () => {
+    const missingCapability = { status: 404, error: { code: 'voice_stream.not_found' } };
+    api.pushStreamChunk.mockReturnValueOnce(throwError(() => missingCapability));
+    const errors: unknown[] = [];
+    const preview = port();
+    await preview.start(context(), { error: (error) => errors.push(error) });
+
+    preview.acceptPcm(pcm(64_000));
+
+    await vi.waitFor(() => expect(errors).toEqual([missingCapability]));
+    expect(preview.disabled).toBe(true);
+    expect(preview.active).toBe(false);
+    expect(api.pushStreamChunk).toHaveBeenCalledWith(
+      'http://hub.test',
+      'preview-0',
+      0,
+      expect.any(ArrayBuffer),
+      { missingSessionIsExpected: true },
+    );
+    await vi.waitFor(() => expect(api.cancelStream).toHaveBeenCalledTimes(1));
+    await preview.stop();
   });
 
   it('reports create failures without rejecting or affecting the long run', async () => {
@@ -322,7 +361,11 @@ describe('VoiceLongRunLivePreviewCoordinator', () => {
       message: 'voice.long_run.live_preview_invalid_audio_budget',
     }));
     expect(api.cancelStream).toHaveBeenCalledTimes(1);
-    expect(api.cancelStream).toHaveBeenCalledWith('http://hub.test', 'invalid-preview');
+    expect(api.cancelStream).toHaveBeenCalledWith(
+      'http://hub.test',
+      'invalid-preview',
+      { missingSessionIsExpected: true },
+    );
     await preview.stop();
     expect(api.cancelStream).toHaveBeenCalledTimes(1);
   });
@@ -340,7 +383,11 @@ describe('VoiceLongRunLivePreviewCoordinator', () => {
     await Promise.all([starting, disposing]);
 
     expect(api.cancelStream).toHaveBeenCalledTimes(1);
-    expect(api.cancelStream).toHaveBeenCalledWith('http://hub.test', 'late-preview');
+    expect(api.cancelStream).toHaveBeenCalledWith(
+      'http://hub.test',
+      'late-preview',
+      { missingSessionIsExpected: true },
+    );
     expect(api.pushStreamChunk).not.toHaveBeenCalled();
     expect(api.finalizeStream).not.toHaveBeenCalled();
   });

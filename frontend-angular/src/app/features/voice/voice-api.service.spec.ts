@@ -12,7 +12,10 @@ import {
 
 import { AgentDirectoryService } from '../../services/agent-directory.service';
 import { AuthInterceptor } from '../../services/auth.interceptor';
-import { SUPPRESS_GLOBAL_ERROR_NOTIFICATION } from '../../services/error-request-context';
+import {
+  SUPPRESS_GLOBAL_ERROR_NOTIFICATION,
+  SUPPRESS_GLOBAL_NOT_FOUND_NOTIFICATION,
+} from '../../services/error-request-context';
 import { ErrorInterceptor } from '../../services/error.interceptor';
 import { HubApiCoreService } from '../../services/hub-api-core.service';
 import { NotificationService } from '../../services/notification.service';
@@ -168,6 +171,40 @@ describe('VoiceApiService', () => {
     expect(core.request.mock.calls[1][3].headers).toEqual({
       'Content-Type': 'audio/pcm;rate=16000;channels=1',
     });
+    expect(core.request.mock.calls[1][3].context).toBeUndefined();
+    expect(core.request.mock.calls[3][3]).toBeUndefined();
+  });
+
+  it('marks only explicitly expected missing stream capabilities as locally handled', async () => {
+    core.request
+      .mockReturnValueOnce(of({
+        stream: { session_id: 'preview-a', state: 'active', next_chunk_sequence: 1 },
+      }))
+      .mockReturnValueOnce(of({
+        stream: { session_id: 'preview-a', state: 'closed', next_chunk_sequence: 1 },
+        deleted: true,
+      }));
+    const api = TestBed.inject(VoiceApiService);
+
+    await firstValueFrom(api.pushStreamChunk(
+      'http://hub.test',
+      'preview-a',
+      0,
+      new ArrayBuffer(8),
+      { missingSessionIsExpected: true },
+    ));
+    await firstValueFrom(api.cancelStream(
+      'http://hub.test',
+      'preview-a',
+      { missingSessionIsExpected: true },
+    ));
+
+    expect(core.request.mock.calls[0][3].context.get(
+      SUPPRESS_GLOBAL_NOT_FOUND_NOTIFICATION,
+    )).toBe(true);
+    expect(core.request.mock.calls[1][3].context.get(
+      SUPPRESS_GLOBAL_NOT_FOUND_NOTIFICATION,
+    )).toBe(true);
   });
 
   it('uses the additive Hub-owned live-run contract with idempotent WAV segments', async () => {
@@ -392,5 +429,66 @@ describe('VoiceApiService Hub auth integration', () => {
       },
     });
     expect(notify).not.toHaveBeenCalled();
+  });
+
+  it('suppresses a marked preview cleanup 404 but still reports its server failures', async () => {
+    const api = TestBed.inject(VoiceApiService);
+    const missing = firstValueFrom(api.pushStreamChunk(
+      'http://hub.test',
+      'preview-a',
+      59,
+      new ArrayBuffer(8),
+      { missingSessionIsExpected: true },
+    ));
+
+    const missingRequest = httpMock.expectOne(
+      'http://hub.test/v1/voice/streams/preview-a/chunks/59',
+    );
+    expect(missingRequest.request.context.get(
+      SUPPRESS_GLOBAL_NOT_FOUND_NOTIFICATION,
+    )).toBe(true);
+    missingRequest.flush(
+      { code: 'voice_stream.not_found' },
+      { status: 404, statusText: 'Not Found' },
+    );
+
+    await expect(missing).rejects.toMatchObject({ status: 404 });
+    expect(notify).not.toHaveBeenCalled();
+
+    const failedCleanup = firstValueFrom(api.cancelStream(
+      'http://hub.test',
+      'preview-a',
+      { missingSessionIsExpected: true },
+    ));
+    const failedCleanupRequest = httpMock.expectOne(
+      'http://hub.test/v1/voice/streams/preview-a',
+    );
+    failedCleanupRequest.flush(
+      { detail: 'cleanup failed' },
+      { status: 500, statusText: 'Internal Server Error' },
+    );
+
+    await expect(failedCleanup).rejects.toMatchObject({ status: 500 });
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(String(notify.mock.calls[0][0] ?? '')).toContain('API-Fehler (500)');
+  });
+
+  it('keeps an unmarked stream 404 globally visible', async () => {
+    const api = TestBed.inject(VoiceApiService);
+    const result = firstValueFrom(api.cancelStream('http://hub.test', 'regular-stream'));
+    const request = httpMock.expectOne(
+      'http://hub.test/v1/voice/streams/regular-stream',
+    );
+    expect(request.request.context.get(
+      SUPPRESS_GLOBAL_NOT_FOUND_NOTIFICATION,
+    )).toBe(false);
+    request.flush(
+      { code: 'voice_stream.not_found' },
+      { status: 404, statusText: 'Not Found' },
+    );
+
+    await expect(result).rejects.toMatchObject({ status: 404 });
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(String(notify.mock.calls[0][0] ?? '')).toContain('API-Fehler (404)');
   });
 });
