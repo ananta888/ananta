@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { Subject, of } from 'rxjs';
+import { Subject, of, throwError } from 'rxjs';
 
 import { VOICE_AUDIO_CAPTURE, VoiceAudioCapturePort } from './voice-audio-capture';
 import { VoiceApiService } from './voice-api.service';
@@ -40,7 +40,14 @@ describe('VoiceLiveSessionController', () => {
       stop: vi.fn(async () => { active = false; prepared = false; }),
     };
     api.createStream.mockReturnValue(of({
-      stream: { session_id: 'voice-stream-a', state: 'created', next_chunk_sequence: 0 },
+      stream: {
+        session_id: 'voice-stream-a',
+        state: 'created',
+        next_chunk_sequence: 0,
+        max_audio_seconds: 120,
+        max_audio_bytes: 3_840_000,
+        accepted_audio_bytes: 0,
+      },
     }));
     api.pushStreamChunk.mockImplementation((_hub: string, _id: string, sequence: number) => of({
       stream: { session_id: 'voice-stream-a', state: 'active', next_chunk_sequence: sequence + 1 },
@@ -199,6 +206,154 @@ describe('VoiceLiveSessionController', () => {
     expect(api.cancelStream).not.toHaveBeenCalled();
     expect(capture.stop).toHaveBeenCalledTimes(1);
     expect(controller.sessionId).toBe('');
+  });
+
+  it('stops after 240 half-second chunks without uploading sequence 240', async () => {
+    const finalized: Array<{ reason?: string; text: string }> = [];
+    const controller = TestBed.inject(VoiceLiveSessionController);
+    await controller.start('http://hub.test', {
+      profile_id: 'profile-a',
+      max_audio_seconds: 120,
+    }, 'create-key', {
+      finalized: (response, reason) => finalized.push({ reason, text: response.result.text }),
+    });
+
+    for (let sequence = 0; sequence <= 240; sequence += 1) {
+      chunkHandler!(new ArrayBuffer(16_000));
+    }
+
+    await vi.waitFor(() => expect(finalized).toEqual([{ reason: 'safety_limit', text: 'final' }]));
+    expect(api.pushStreamChunk).toHaveBeenCalledTimes(240);
+    expect(api.pushStreamChunk.mock.calls.map((call) => call[2]))
+      .toEqual(Array.from({ length: 240 }, (_value, sequence) => sequence));
+    expect(api.pushStreamChunk.mock.calls.every((call) => (
+      (call[3] as ArrayBuffer).byteLength === 16_000
+    ))).toBe(true);
+    expect(api.finalizeStream).toHaveBeenCalledWith('http://hub.test', 'voice-stream-a');
+    expect(api.cancelStream).not.toHaveBeenCalled();
+    expect(capture.start).toHaveBeenCalledWith(
+      expect.any(Function),
+      expect.any(Function),
+      expect.any(Function),
+      { maxDurationSeconds: 120 },
+    );
+  });
+
+  it('finalizes before a chunk that would exceed the seconds-derived fallback budget', async () => {
+    api.createStream.mockReturnValueOnce(of({
+      stream: {
+        session_id: 'voice-stream-a',
+        state: 'created',
+        next_chunk_sequence: 0,
+        max_audio_seconds: 10 / 32_000,
+        accepted_audio_bytes: 0,
+      },
+    }));
+    const finalized: string[] = [];
+    const controller = TestBed.inject(VoiceLiveSessionController);
+    await controller.start('http://hub.test', { profile_id: 'profile-a' }, 'create-key', {
+      finalized: (_response, reason) => finalized.push(String(reason)),
+    });
+
+    chunkHandler!(new ArrayBuffer(6));
+    chunkHandler!(new ArrayBuffer(6));
+
+    await vi.waitFor(() => expect(finalized).toEqual(['safety_limit']));
+    expect(api.pushStreamChunk).toHaveBeenCalledTimes(1);
+    expect((api.pushStreamChunk.mock.calls[0][3] as ArrayBuffer).byteLength).toBe(6);
+    expect(api.cancelStream).not.toHaveBeenCalled();
+  });
+
+  it('waits for the budget-filling upload and drops a reentrant capture-stop tail', async () => {
+    const pendingUpload = new Subject<any>();
+    api.createStream.mockReturnValueOnce(of({
+      stream: {
+        session_id: 'voice-stream-a',
+        state: 'created',
+        next_chunk_sequence: 0,
+        max_audio_seconds: 4 / 32_000,
+        max_audio_bytes: 4,
+        accepted_audio_bytes: 0,
+      },
+    }));
+    api.pushStreamChunk.mockReturnValueOnce(pendingUpload);
+    vi.mocked(capture.stop).mockImplementationOnce(async () => {
+      // Browser/native stop may synchronously flush one final PCM remainder.
+      chunkHandler?.(new ArrayBuffer(2));
+    });
+    const finalized: string[] = [];
+    const controller = TestBed.inject(VoiceLiveSessionController);
+    await controller.start('http://hub.test', { profile_id: 'profile-a' }, 'create-key', {
+      finalized: (_response, reason) => finalized.push(String(reason)),
+    });
+
+    chunkHandler!(new ArrayBuffer(4));
+    await vi.waitFor(() => expect(capture.stop).toHaveBeenCalledTimes(1));
+
+    expect(api.pushStreamChunk).toHaveBeenCalledTimes(1);
+    expect(api.finalizeStream).not.toHaveBeenCalled();
+    pendingUpload.next({
+      stream: { session_id: 'voice-stream-a', state: 'active', next_chunk_sequence: 1 },
+      event: { event_type: 'partial', payload: { text: 'partial-0' } },
+    });
+    pendingUpload.complete();
+
+    await vi.waitFor(() => expect(finalized).toEqual(['safety_limit']));
+    expect(api.finalizeStream).toHaveBeenCalledTimes(1);
+    expect(api.cancelStream).not.toHaveBeenCalled();
+  });
+
+  it('includes bytes accepted by an idempotently replayed stream in the local budget', async () => {
+    api.createStream.mockReturnValueOnce(of({
+      stream: {
+        session_id: 'voice-stream-a',
+        state: 'active',
+        next_chunk_sequence: 1,
+        max_audio_seconds: 10 / 32_000,
+        max_audio_bytes: 10,
+        accepted_audio_bytes: 6,
+      },
+      idempotent_replay: true,
+    }));
+    const finalized: string[] = [];
+    const controller = TestBed.inject(VoiceLiveSessionController);
+    await controller.start('http://hub.test', { profile_id: 'profile-a' }, 'create-key', {
+      finalized: (_response, reason) => finalized.push(String(reason)),
+    });
+
+    chunkHandler!(new ArrayBuffer(4));
+
+    await vi.waitFor(() => expect(finalized).toEqual(['safety_limit']));
+    expect(api.pushStreamChunk).toHaveBeenCalledWith(
+      'http://hub.test', 'voice-stream-a', 1, expect.any(ArrayBuffer),
+    );
+    expect(api.cancelStream).not.toHaveBeenCalled();
+  });
+
+  it('keeps an unexpected server-side 413 inside the local budget as an error', async () => {
+    const serverError = { status: 413, error: { code: 'voice_stream.audio_budget_exceeded' } };
+    api.createStream.mockReturnValueOnce(of({
+      stream: {
+        session_id: 'voice-stream-a',
+        state: 'created',
+        next_chunk_sequence: 0,
+        max_audio_seconds: 1,
+        max_audio_bytes: 32_000,
+        accepted_audio_bytes: 0,
+      },
+    }));
+    api.pushStreamChunk.mockReturnValueOnce(throwError(() => serverError));
+    const errors: unknown[] = [];
+    const controller = TestBed.inject(VoiceLiveSessionController);
+    await controller.start('http://hub.test', { profile_id: 'profile-a' }, 'create-key', {
+      error: (error) => errors.push(error),
+    });
+
+    chunkHandler!(new ArrayBuffer(4));
+
+    await vi.waitFor(() => expect(errors).toEqual([serverError]));
+    expect(api.cancelStream).toHaveBeenCalledWith('http://hub.test', 'voice-stream-a');
+    expect(api.finalizeStream).not.toHaveBeenCalled();
   });
 
   it('owns capture-error cleanup and permits a fresh stream after Hub cancellation', async () => {

@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import {
   VOICE_AUDIO_CAPTURE,
   VOICE_PCM_MEDIA_TYPE,
+  VOICE_PCM_SAMPLE_RATE,
   VoiceAudioCapturePort,
   VoiceCaptureSource,
 } from './voice-audio-capture';
@@ -24,6 +25,8 @@ export interface VoiceLiveSessionObserver {
   error?(error: unknown): void;
 }
 
+const PCM_BYTES_PER_SECOND = VOICE_PCM_SAMPLE_RATE * Int16Array.BYTES_PER_ELEMENT;
+
 @Injectable()
 export class VoiceLiveSessionController {
   private readonly api = inject(VoiceApiService);
@@ -39,6 +42,11 @@ export class VoiceLiveSessionController {
   private operationGeneration = 0;
   private starting = false;
   private finalizing: Promise<VoiceStreamFinalizeResponse> | null = null;
+  private maxAudioBytes: number | null = null;
+  private enqueuedAudioBytes = 0;
+  private captureMaxDurationSeconds: number | null = null;
+  private safetyFinalizationRequested = false;
+  private safetyFinalizationScheduled = false;
 
   get supported(): boolean {
     return this.capture.supported;
@@ -86,6 +94,11 @@ export class VoiceLiveSessionController {
     this.uploadFailure = null;
     this.failureCleanup = null;
     this.uploadQueue = Promise.resolve();
+    this.maxAudioBytes = null;
+    this.enqueuedAudioBytes = 0;
+    this.captureMaxDurationSeconds = null;
+    this.safetyFinalizationRequested = false;
+    this.safetyFinalizationScheduled = false;
 
     try {
       if (!this.capture.prepared) await this.capture.prepare(source);
@@ -97,10 +110,18 @@ export class VoiceLiveSessionController {
       this.stream = created.stream;
       this.ensureOperation(generation);
       this.nextSequence = Number(created.stream.next_chunk_sequence || 0);
+      this.configureAudioBudget(created.stream, request.max_audio_seconds);
+      if (this.maxAudioBytes != null && this.enqueuedAudioBytes >= this.maxAudioBytes) {
+        this.requestSafetyLimitFinalization();
+      }
+      const captureOptions = this.captureMaxDurationSeconds == null
+        ? undefined
+        : { maxDurationSeconds: this.captureMaxDurationSeconds };
       await this.capture.start(
         (chunk) => this.enqueue(chunk),
         (error) => this.handleCaptureFailure(error),
         (reason) => this.handleCaptureStopped(reason),
+        captureOptions,
       );
       this.ensureOperation(generation);
       return created.stream;
@@ -110,6 +131,7 @@ export class VoiceLiveSessionController {
       throw error;
     } finally {
       this.starting = false;
+      if (this.safetyFinalizationRequested) this.scheduleSafetyLimitFinalization();
     }
   }
 
@@ -168,9 +190,15 @@ export class VoiceLiveSessionController {
   }
 
   private enqueue(chunk: ArrayBuffer): void {
-    if (!chunk.byteLength || !this.stream || this.uploadFailure) return;
+    if (!chunk.byteLength || !this.stream || this.uploadFailure || this.safetyFinalizationRequested) return;
+    if (this.maxAudioBytes != null
+      && this.enqueuedAudioBytes + chunk.byteLength > this.maxAudioBytes) {
+      this.requestSafetyLimitFinalization();
+      return;
+    }
     const sequence = this.nextSequence;
     this.nextSequence += 1;
+    this.enqueuedAudioBytes += chunk.byteLength;
     const sessionId = this.stream.session_id;
     this.uploadQueue = this.uploadQueue.then(async () => {
       if (this.uploadFailure) return;
@@ -186,6 +214,61 @@ export class VoiceLiveSessionController {
         this.scheduleFailureCleanup(error, false);
       }
     });
+    if (this.maxAudioBytes != null && this.enqueuedAudioBytes >= this.maxAudioBytes) {
+      this.requestSafetyLimitFinalization();
+    }
+  }
+
+  private configureAudioBudget(stream: VoiceStreamState, requestedSeconds: number | undefined): void {
+    const reportedBytes = this.positiveInteger(stream.max_audio_bytes);
+    const reportedSeconds = this.positiveNumber(stream.max_audio_seconds);
+    const fallbackSeconds = reportedSeconds ?? this.positiveNumber(requestedSeconds);
+    this.maxAudioBytes = reportedBytes
+      ?? (fallbackSeconds == null ? null : Math.max(1, Math.floor(fallbackSeconds * PCM_BYTES_PER_SECOND)));
+    this.captureMaxDurationSeconds = reportedSeconds
+      ?? (reportedBytes == null ? fallbackSeconds : reportedBytes / PCM_BYTES_PER_SECOND);
+    this.enqueuedAudioBytes = Math.max(
+      0,
+      this.nonNegativeInteger(stream['accepted_audio_bytes']) ?? 0,
+    );
+  }
+
+  private requestSafetyLimitFinalization(): void {
+    if (this.safetyFinalizationRequested || !this.stream || this.uploadFailure) return;
+    this.safetyFinalizationRequested = true;
+    if (!this.starting) this.scheduleSafetyLimitFinalization();
+  }
+
+  private scheduleSafetyLimitFinalization(): void {
+    if (this.safetyFinalizationScheduled || !this.stream) return;
+    this.safetyFinalizationScheduled = true;
+    const generation = this.operationGeneration;
+    const sessionId = this.stream.session_id;
+    queueMicrotask(() => {
+      this.safetyFinalizationScheduled = false;
+      if (!this.safetyFinalizationRequested
+        || generation !== this.operationGeneration
+        || this.stream?.session_id !== sessionId
+        || this.uploadFailure
+        || this.failureCleanup
+        || this.finalizing) return;
+      this.handleCaptureStopped('safety_limit');
+    });
+  }
+
+  private positiveInteger(value: unknown): number | null {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) && numeric > 0 ? Math.floor(numeric) : null;
+  }
+
+  private nonNegativeInteger(value: unknown): number | null {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) && numeric >= 0 ? Math.floor(numeric) : null;
+  }
+
+  private positiveNumber(value: unknown): number | null {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
   }
 
   private requireSessionId(): string {
