@@ -371,6 +371,10 @@ export interface VoiceStreamCreateRequest {
   media_type?: 'audio/pcm;rate=16000;channels=1' | string;
   deadline_seconds?: number;
   max_audio_seconds?: number;
+  /** Optional parent live-run identity for disposable UI preview streams. */
+  live_run_id?: string;
+  /** Segment whose PCM is mirrored into this disposable preview stream. */
+  live_run_segment_sequence?: number;
 }
 
 export interface VoiceStreamCreateResponse {
