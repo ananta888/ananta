@@ -19,6 +19,7 @@ from agent.db_models import (
     VoiceLiveRunDB,
     VoiceLiveRunSegmentDB,
     VoiceResultArtifactDB,
+    VoiceRuntimeCleanupDB,
 )
 from agent.repositories.voice_deletion_tombstone import VoiceDeletionTombstoneRepository
 from agent.repositories.voice_live_runs import (
@@ -38,6 +39,10 @@ from agent.services.voice_live_run_correction_service import (
     get_voice_live_run_correction_service,
 )
 from agent.services.voice_live_run_maintenance_service import VoiceLiveRunMaintenanceService
+from agent.services.voice_live_run_preview_service import (
+    VoiceLiveRunPreviewService,
+    get_voice_live_run_preview_service,
+)
 from agent.services.voice_live_run_service import VoiceLiveRunError, VoiceLiveRunService
 from agent.services.voice_live_run_start_lease_service import (
     VoiceLiveRunStartLeaseError,
@@ -48,6 +53,8 @@ from agent.services.voice_live_run_task_port import VoiceLiveRunTaskPort
 from agent.services.voice_privacy_service import get_voice_privacy_service
 from agent.services.voice_provider import VoiceProviderError
 from agent.services.voice_result_artifact_service import get_voice_result_artifact_service
+from agent.services.voice_runtime_cleanup_service import get_voice_runtime_cleanup_service
+from agent.services.voice_stream_session_service import VoiceStreamSessionService
 
 
 def _wav(duration_ms: int = 1_000, sample: int = 0) -> bytes:
@@ -74,6 +81,14 @@ def _result(text: str) -> dict:
     }
 
 
+def _created_runtime_stream(**kwargs):
+    return {
+        "session_id": kwargs["requested_session_id"],
+        "state": "created",
+        "max_audio_seconds": kwargs.get("max_audio_seconds"),
+    }
+
+
 def _lease_token(principal: VoicePrincipal, profile_id: str) -> str:
     return (
         get_voice_live_run_start_lease_service()
@@ -94,6 +109,7 @@ def _create_run(
     segment_seconds: int = 60,
     max_seconds: int = 120,
     overlap_ms: int = 1_000,
+    configuration_session_id: str | None = None,
     lease_token: str | None = None,
 ):
     if lease_token is None:
@@ -110,6 +126,7 @@ def _create_run(
         json={
             "source": "system_audio",
             "profile_id": profile_id,
+            "configuration_session_id": configuration_session_id,
             "lease_token": lease_token,
             "language": "de",
             "segment_duration_seconds": segment_seconds,
@@ -142,6 +159,26 @@ def _put_audio(
             "overlap_milliseconds": str(overlap_ms),
         },
         content_type="multipart/form-data",
+    )
+
+
+def _create_preview(
+    client,
+    headers: dict[str, str],
+    run_id: str,
+    *,
+    key: str,
+    sequence: int = 0,
+):
+    return client.post(
+        "/v1/voice/streams",
+        headers={**headers, "Idempotency-Key": key},
+        json={
+            "filename": f"preview-{sequence}.pcm",
+            "media_type": "audio/pcm;rate=16000;channels=1",
+            "live_run_id": run_id,
+            "live_run_segment_sequence": sequence,
+        },
     )
 
 
@@ -218,6 +255,570 @@ def test_live_run_create_is_durable_idempotent_and_bounded_to_eight_hours(
     assert parent.status == "in_progress"
     assert parent.task_kind == "voice_live_run"
     assert parent.worker_execution_context["voice_live_run"]["persistence_owner"] == "hub"
+
+
+def test_live_preview_is_bound_bounded_parented_and_delete_only(
+    client,
+    admin_auth_header,
+):
+    profile_id = f"live-preview-{uuid.uuid4().hex}"
+    created_run = _create_run(
+        client,
+        admin_auth_header,
+        profile_id=profile_id,
+        segment_seconds=60,
+        max_seconds=120,
+        configuration_session_id="preview-config-session",
+    )
+    assert created_run.status_code == 201
+    run = created_run.get_json()["data"]["run"]
+
+    with patch("agent.routes.voice.get_voice_provider_service") as provider_factory:
+        provider = provider_factory.return_value
+        provider.create_stream.side_effect = _created_runtime_stream
+        provider.push_stream_chunk.return_value = {
+            "event": {"event_type": "partial", "payload": {"text": "Vorschau"}}
+        }
+        provider.delete_stream.return_value = {"deleted": True}
+        created = client.post(
+            "/v1/voice/streams",
+            headers={**admin_auth_header, "Idempotency-Key": "live-preview-create"},
+            json={
+                "filename": "preview.pcm",
+                "media_type": "audio/pcm;rate=16000;channels=1",
+                "max_audio_seconds": 240,
+                "live_run_id": run["id"],
+                "live_run_segment_sequence": 0,
+            },
+        )
+        assert created.status_code == 201
+        stream = created.get_json()["data"]["stream"]
+
+        chunk = client.put(
+            f"/v1/voice/streams/{stream['session_id']}/chunks/0",
+            headers=admin_auth_header,
+            data=b"\x00\x00" * 100,
+        )
+        finalized = client.post(
+            f"/v1/voice/streams/{stream['session_id']}/finalize",
+            headers=admin_auth_header,
+        )
+        deleted = client.delete(
+            f"/v1/voice/streams/{stream['session_id']}",
+            headers=admin_auth_header,
+        )
+
+    assert stream["live_run_id"] == run["id"]
+    assert stream["live_run_segment_sequence"] == 0
+    assert stream["profile_id"] == profile_id
+    assert stream["configuration_session_id"] == "preview-config-session"
+    assert stream["language"] == "de"
+    assert stream["max_audio_seconds"] == pytest.approx(60)
+    assert stream["max_audio_bytes"] == 60 * 16_000 * 2
+    assert provider.create_stream.call_args.kwargs["max_audio_seconds"] == pytest.approx(60)
+    assert chunk.status_code == 202
+    assert chunk.get_json()["data"]["event"]["event_type"] == "partial"
+    assert finalized.status_code == 409
+    assert (
+        finalized.get_json()["data"]["error"]["code"]
+        == "voice_stream.live_preview_finalize_forbidden"
+    )
+    provider.finalize_stream.assert_not_called()
+    assert deleted.status_code == 200
+
+    with Session(engine) as session:
+        task = session.get(TaskDB, stream["task_id"])
+        durable_run = session.get(VoiceLiveRunDB, run["id"])
+        durable_segments = session.exec(
+            select(VoiceLiveRunSegmentDB).where(
+                VoiceLiveRunSegmentDB.run_id == run["id"]
+            )
+        ).all()
+    assert task is not None
+    assert durable_run is not None
+    assert durable_segments == []
+    assert stream["session_id"] not in json.dumps(durable_run.model_dump(), default=str)
+    assert task.parent_task_id == run["parent_task_id"]
+    assert task.status == "cancelled"
+    assert task.status_reason_code == "voice_stream_cancelled"
+    task_context = task.worker_execution_context["voice_transcription"]
+    assert task_context["operation"] == "live_preview"
+    assert run["id"] not in json.dumps(task_context, sort_keys=True)
+    assert "live_run_segment_sequence" not in task_context
+
+
+def test_live_preview_requires_complete_matching_binding_and_is_unique(
+    client,
+    admin_auth_header,
+):
+    profile_id = f"live-preview-contract-{uuid.uuid4().hex}"
+    created_run = _create_run(
+        client,
+        admin_auth_header,
+        profile_id=profile_id,
+        segment_seconds=60,
+        max_seconds=120,
+    )
+    run = created_run.get_json()["data"]["run"]
+    with patch("agent.routes.voice.get_voice_provider_service") as provider_factory:
+        provider = provider_factory.return_value
+        provider.create_stream.side_effect = _created_runtime_stream
+        provider.delete_stream.return_value = {"deleted": True}
+        incomplete = client.post(
+            "/v1/voice/streams",
+            headers={**admin_auth_header, "Idempotency-Key": "live-preview-incomplete"},
+            json={"live_run_id": run["id"]},
+        )
+        mismatched = client.post(
+            "/v1/voice/streams",
+            headers={**admin_auth_header, "Idempotency-Key": "live-preview-mismatch"},
+            json={
+                "live_run_id": run["id"],
+                "live_run_segment_sequence": 0,
+                "profile_id": "other-profile",
+            },
+        )
+        session_mismatched = client.post(
+            "/v1/voice/streams",
+            headers={**admin_auth_header, "Idempotency-Key": "live-preview-session-mismatch"},
+            json={
+                "live_run_id": run["id"],
+                "live_run_segment_sequence": 0,
+                "profile_id": profile_id,
+                "configuration_session_id": "other-session",
+            },
+        )
+        language_mismatched = client.post(
+            "/v1/voice/streams",
+            headers={**admin_auth_header, "Idempotency-Key": "live-preview-language-mismatch"},
+            json={
+                "live_run_id": run["id"],
+                "live_run_segment_sequence": 0,
+                "profile_id": profile_id,
+                "language": "en",
+            },
+        )
+        first = client.post(
+            "/v1/voice/streams",
+            headers={**admin_auth_header, "Idempotency-Key": "live-preview-unique-first"},
+            json={
+                "live_run_id": run["id"],
+                "live_run_segment_sequence": 0,
+            },
+        )
+        replay = client.post(
+            "/v1/voice/streams",
+            headers={**admin_auth_header, "Idempotency-Key": "live-preview-unique-first"},
+            json={
+                "live_run_id": run["id"],
+                "live_run_segment_sequence": 0,
+            },
+        )
+        conflict = client.post(
+            "/v1/voice/streams",
+            headers={**admin_auth_header, "Idempotency-Key": "live-preview-unique-second"},
+            json={
+                "live_run_id": run["id"],
+                "live_run_segment_sequence": 0,
+            },
+        )
+        stream_id = first.get_json()["data"]["stream"]["session_id"]
+        deleted = client.delete(
+            f"/v1/voice/streams/{stream_id}",
+            headers=admin_auth_header,
+        )
+        stopped = client.post(
+            f"/v1/voice/live-runs/{run['id']}/stop",
+            headers=admin_auth_header,
+            json={"last_sequence": -1, "reason": "test_stop"},
+        )
+        inactive = _create_preview(
+            client,
+            admin_auth_header,
+            run["id"],
+            key="live-preview-inactive",
+        )
+
+    assert incomplete.status_code == 422
+    assert incomplete.get_json()["data"]["error"]["code"] == (
+        "voice_stream.live_preview_binding_incomplete"
+    )
+    assert mismatched.status_code == 409
+    assert mismatched.get_json()["data"]["error"]["code"] == (
+        "voice_stream.live_preview_context_mismatch"
+    )
+    assert session_mismatched.status_code == 409
+    assert session_mismatched.get_json()["data"]["error"]["code"] == (
+        "voice_stream.live_preview_context_mismatch"
+    )
+    assert language_mismatched.status_code == 409
+    assert language_mismatched.get_json()["data"]["error"]["code"] == (
+        "voice_stream.live_preview_context_mismatch"
+    )
+    assert first.status_code == 201
+    assert replay.status_code == 200
+    assert replay.get_json()["data"]["idempotent_replay"] is True
+    assert conflict.status_code == 409
+    assert conflict.get_json()["data"]["error"]["code"] == (
+        "voice_stream.live_preview_conflict"
+    )
+    assert provider.create_stream.call_count == 1
+    assert deleted.status_code == 200
+    assert stopped.status_code == 200
+    assert inactive.status_code == 409
+    assert inactive.get_json()["data"]["error"]["code"] == (
+        "voice_stream.live_preview_run_inactive"
+    )
+
+
+def test_live_preview_create_race_compensates_losing_runtime_task_and_outbox(
+    client,
+    admin_auth_header,
+):
+    profile_id = f"live-preview-race-{uuid.uuid4().hex}"
+    created_run = _create_run(client, admin_auth_header, profile_id=profile_id)
+    run = created_run.get_json()["data"]["run"]
+    cleanup = get_voice_runtime_cleanup_service()
+    preview_service = get_voice_live_run_preview_service()
+    with (
+        patch("agent.routes.voice.get_voice_provider_service") as provider_factory,
+        patch.object(cleanup, "_runtime_stream_delete") as runtime_delete,
+    ):
+        provider = provider_factory.return_value
+        provider.create_stream.side_effect = _created_runtime_stream
+        provider.delete_stream.return_value = {"deleted": True}
+        winner = _create_preview(
+            client,
+            admin_auth_header,
+            run["id"],
+            key="live-preview-race-winner",
+        )
+        assert winner.status_code == 201
+        winner_stream = winner.get_json()["data"]["stream"]
+
+        # Model two creates that both pass the optimistic preflight. The
+        # session-service lock remains the authoritative uniqueness fence.
+        with patch.object(preview_service, "assert_available", return_value=None):
+            loser = _create_preview(
+                client,
+                admin_auth_header,
+                run["id"],
+                key="live-preview-race-loser",
+            )
+
+        runtime_ids = [
+            call.kwargs["requested_session_id"]
+            for call in provider.create_stream.call_args_list
+        ]
+        deleted_winner = client.delete(
+            f"/v1/voice/streams/{winner_stream['session_id']}",
+            headers=admin_auth_header,
+        )
+
+    assert loser.status_code == 409
+    assert loser.get_json()["data"]["error"]["code"] == (
+        "voice_stream.live_preview_conflict"
+    )
+    assert len(runtime_ids) == 2
+    runtime_delete.assert_called_once()
+    assert runtime_delete.call_args.args[0] == runtime_ids[1]
+    assert deleted_winner.status_code == 200
+    with Session(engine) as session:
+        children = session.exec(
+            select(TaskDB).where(TaskDB.parent_task_id == run["parent_task_id"])
+        ).all()
+        cleanup_rows = session.exec(
+            select(VoiceRuntimeCleanupDB).where(
+                VoiceRuntimeCleanupDB.profile_id == profile_id
+            )
+        ).all()
+    assert sorted(task.status for task in children) == ["cancelled", "failed"]
+    assert cleanup_rows == []
+
+
+def test_audio_segment_put_cleans_bound_preview_through_durable_outbox(
+    client,
+    admin_auth_header,
+):
+    profile_id = f"live-preview-audio-{uuid.uuid4().hex}"
+    created_run = _create_run(client, admin_auth_header, profile_id=profile_id)
+    run_id = created_run.get_json()["data"]["run"]["id"]
+    cleanup = get_voice_runtime_cleanup_service()
+    with (
+        patch("agent.routes.voice.get_voice_provider_service") as provider_factory,
+        patch(
+            "agent.routes.voice_live_runs.get_voice_provider_service"
+        ) as segment_provider_factory,
+        patch.object(cleanup, "_runtime_stream_delete") as runtime_delete,
+    ):
+        provider = provider_factory.return_value
+        provider.create_stream.side_effect = _created_runtime_stream
+        segment_provider_factory.return_value.transcribe.return_value = _result(
+            "Autoritatives Segment"
+        )
+        preview = _create_preview(
+            client,
+            admin_auth_header,
+            run_id,
+            key="live-preview-audio-create",
+        )
+        assert preview.status_code == 201
+        stream = preview.get_json()["data"]["stream"]
+        runtime_session_id = provider.create_stream.call_args.kwargs[
+            "requested_session_id"
+        ]
+
+        uploaded = _put_audio(
+            client,
+            admin_auth_header,
+            run_id,
+            0,
+            key="live-preview-audio-segment",
+            audio=_wav(),
+            started_at_ms=0,
+            ended_at_ms=1_000,
+        )
+        missing = client.get(
+            f"/v1/voice/streams/{stream['session_id']}",
+            headers=admin_auth_header,
+        )
+
+    assert uploaded.status_code == 200
+    assert uploaded.get_json()["data"]["segment"]["text"] == "Autoritatives Segment"
+    assert missing.status_code == 404
+    runtime_delete.assert_called_once()
+    assert runtime_delete.call_args.args[0] == runtime_session_id
+    with Session(engine) as session:
+        preview_task = session.get(TaskDB, stream["task_id"])
+    assert preview_task is not None
+    assert preview_task.status == "cancelled"
+    assert preview_task.status_reason_code == "voice_live_preview_segment_closed"
+
+
+def test_result_reference_segment_put_cleans_bound_preview(
+    client,
+    admin_auth_header,
+):
+    principal = VoicePrincipal(tenant_id="admin", subject="admin")
+    profile_id = f"live-preview-result-{uuid.uuid4().hex}"
+    created_run = _create_run(client, admin_auth_header, profile_id=profile_id)
+    run_id = created_run.get_json()["data"]["run"]["id"]
+    artifact = get_voice_result_artifact_service().create(
+        principal,
+        request_hash=f"live-preview-linked-{uuid.uuid4().hex}",
+        result=_result("Verknüpftes Segment"),
+        profile_id=profile_id,
+    )
+    cleanup = get_voice_runtime_cleanup_service()
+    with (
+        patch("agent.routes.voice.get_voice_provider_service") as provider_factory,
+        patch.object(cleanup, "_runtime_stream_delete") as runtime_delete,
+    ):
+        provider_factory.return_value.create_stream.side_effect = _created_runtime_stream
+        preview = _create_preview(
+            client,
+            admin_auth_header,
+            run_id,
+            key="live-preview-result-create",
+        )
+        assert preview.status_code == 201
+        stream = preview.get_json()["data"]["stream"]
+        linked = client.put(
+            f"/v1/voice/live-runs/{run_id}/segments/0",
+            headers={**admin_auth_header, "Idempotency-Key": "live-preview-result-link"},
+            json={
+                "result_ref": artifact["id"],
+                "started_at_ms": 0,
+                "ended_at_ms": 1_000,
+                "duration_ms": 1_000,
+                "overlap_milliseconds": 0,
+            },
+        )
+        missing = client.get(
+            f"/v1/voice/streams/{stream['session_id']}",
+            headers=admin_auth_header,
+        )
+
+    assert linked.status_code == 200
+    assert linked.get_json()["data"]["segment"]["result_ref"] == artifact["id"]
+    assert missing.status_code == 404
+    runtime_delete.assert_called_once()
+    with Session(engine) as session:
+        preview_task = session.get(TaskDB, stream["task_id"])
+    assert preview_task is not None
+    assert preview_task.status == "cancelled"
+    assert preview_task.status_reason_code == "voice_live_preview_segment_closed"
+
+
+def test_live_run_stop_cleans_all_bound_previews_before_finalization(
+    client,
+    admin_auth_header,
+):
+    profile_id = f"live-preview-stop-{uuid.uuid4().hex}"
+    created_run = _create_run(client, admin_auth_header, profile_id=profile_id)
+    run_id = created_run.get_json()["data"]["run"]["id"]
+    cleanup = get_voice_runtime_cleanup_service()
+    with (
+        patch("agent.routes.voice.get_voice_provider_service") as provider_factory,
+        patch.object(cleanup, "_runtime_stream_delete") as runtime_delete,
+    ):
+        provider_factory.return_value.create_stream.side_effect = _created_runtime_stream
+        preview = _create_preview(
+            client,
+            admin_auth_header,
+            run_id,
+            key="live-preview-stop-create",
+        )
+        assert preview.status_code == 201
+        stream = preview.get_json()["data"]["stream"]
+        stopped = client.post(
+            f"/v1/voice/live-runs/{run_id}/stop",
+            headers=admin_auth_header,
+            json={"last_sequence": -1, "reason": "test_stop"},
+        )
+        missing = client.get(
+            f"/v1/voice/streams/{stream['session_id']}",
+            headers=admin_auth_header,
+        )
+
+    assert stopped.status_code == 200
+    assert stopped.get_json()["data"]["run"]["status"] == "completed"
+    assert missing.status_code == 404
+    runtime_delete.assert_called_once()
+    with Session(engine) as session:
+        preview_task = session.get(TaskDB, stream["task_id"])
+    assert preview_task is not None
+    assert preview_task.status == "cancelled"
+    assert preview_task.status_reason_code == "voice_live_preview_run_stopped"
+
+
+def test_live_preview_cleanup_keeps_capability_when_outbox_staging_fails():
+    principal = VoicePrincipal(tenant_id="preview-cleanup", subject="preview-owner")
+    sessions = VoiceStreamSessionService()
+    stream = sessions.create(
+        principal,
+        runtime_session_id="runtime-preview-cleanup",
+        deadline_seconds=60,
+        task_id="preview-cleanup-task",
+        live_run_id="voice-live-run-preview-cleanup",
+        live_run_segment_sequence=0,
+    )
+    runtime_cleanup = Mock()
+    runtime_cleanup.stage.side_effect = RuntimeError("outbox unavailable")
+    delegations = Mock()
+    previews = VoiceLiveRunPreviewService(
+        repository=Mock(),
+        sessions=sessions,
+        runtime_cleanup=runtime_cleanup,
+        delegations=delegations,
+        audit_sink=Mock(),
+    )
+
+    removed = previews.cleanup_segment(
+        principal,
+        "voice-live-run-preview-cleanup",
+        0,
+    )
+
+    assert removed == 0
+    assert sessions.require(principal, stream.session_id) is stream
+    assert stream.state == "failed"
+    runtime_cleanup.retry_target.assert_not_called()
+    delegations.cancel.assert_called_once_with(
+        stream.task_id,
+        reason_code="voice_live_preview_segment_closed",
+    )
+
+
+def test_preview_cleanup_failure_does_not_block_segment_or_stop(
+    client,
+    admin_auth_header,
+):
+    audio_run = _create_run(
+        client,
+        admin_auth_header,
+        profile_id=f"preview-cleanup-audio-{uuid.uuid4().hex}",
+    ).get_json()["data"]["run"]
+    stop_run = _create_run(
+        client,
+        admin_auth_header,
+        profile_id=f"preview-cleanup-stop-{uuid.uuid4().hex}",
+    ).get_json()["data"]["run"]
+    cleanup = get_voice_runtime_cleanup_service()
+    with (
+        patch("agent.routes.voice.get_voice_provider_service") as provider_factory,
+        patch(
+            "agent.routes.voice_live_runs.get_voice_provider_service"
+        ) as segment_provider_factory,
+    ):
+        provider = provider_factory.return_value
+        provider.create_stream.side_effect = _created_runtime_stream
+        provider.delete_stream.return_value = {"deleted": True}
+        segment_provider_factory.return_value.transcribe.return_value = _result(
+            "Segment trotz Cleanup-Fehler"
+        )
+        audio_preview = _create_preview(
+            client,
+            admin_auth_header,
+            audio_run["id"],
+            key="preview-cleanup-failure-audio",
+        ).get_json()["data"]["stream"]
+        stop_preview = _create_preview(
+            client,
+            admin_auth_header,
+            stop_run["id"],
+            key="preview-cleanup-failure-stop",
+        ).get_json()["data"]["stream"]
+
+        with patch.object(cleanup, "stage", side_effect=RuntimeError("outbox unavailable")):
+            uploaded = _put_audio(
+                client,
+                admin_auth_header,
+                audio_run["id"],
+                0,
+                key="preview-cleanup-failure-segment",
+                audio=_wav(),
+                started_at_ms=0,
+                ended_at_ms=1_000,
+            )
+            stopped = client.post(
+                f"/v1/voice/live-runs/{stop_run['id']}/stop",
+                headers=admin_auth_header,
+                json={"last_sequence": -1, "reason": "test_stop"},
+            )
+
+        late_audio_chunk = client.put(
+            f"/v1/voice/streams/{audio_preview['session_id']}/chunks/0",
+            headers=admin_auth_header,
+            data=b"late",
+        )
+        late_stop_chunk = client.put(
+            f"/v1/voice/streams/{stop_preview['session_id']}/chunks/0",
+            headers=admin_auth_header,
+            data=b"late",
+        )
+        deleted_audio = client.delete(
+            f"/v1/voice/streams/{audio_preview['session_id']}",
+            headers=admin_auth_header,
+        )
+        deleted_stop = client.delete(
+            f"/v1/voice/streams/{stop_preview['session_id']}",
+            headers=admin_auth_header,
+        )
+
+    assert uploaded.status_code == 200
+    assert stopped.status_code == 200
+    assert late_audio_chunk.status_code == 409
+    assert late_stop_chunk.status_code == 409
+    assert late_audio_chunk.get_json()["data"]["error"]["code"] == (
+        "voice_stream.invalid_state"
+    )
+    assert late_stop_chunk.get_json()["data"]["error"]["code"] == (
+        "voice_stream.invalid_state"
+    )
+    provider.push_stream_chunk.assert_not_called()
+    assert deleted_audio.status_code == 200
+    assert deleted_stop.status_code == 200
 
 
 def test_start_lease_contract_is_required_and_reusable_for_idempotent_create(
@@ -1631,9 +2232,18 @@ def test_expiry_maintenance_replays_after_crash_window():
     with Session(engine) as session:
         assert session.get(TaskDB, created["run"]["parent_task_id"]).status == "in_progress"
 
-    replay = VoiceLiveRunMaintenanceService(clock=lambda: now + 31).run_once()
+    previews = Mock()
+    replay = VoiceLiveRunMaintenanceService(
+        previews=previews,
+        clock=lambda: now + 31,
+    ).run_once()
 
     assert replay["expired_runs"] == 1
+    previews.cleanup_run.assert_called_once_with(
+        principal,
+        created["run"]["id"],
+        reason_code="voice_live_preview_run_expired",
+    )
     with Session(engine) as session:
         run = session.get(VoiceLiveRunDB, created["run"]["id"])
         assert run.maintenance_reconciled_at is not None

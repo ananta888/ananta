@@ -44,6 +44,11 @@ from agent.services.voice_governance_domain import (
     voice_idempotency_audio_binding,
 )
 from agent.services.voice_idempotency_service import VoiceIdempotencyClaim, VoiceIdempotencyService
+from agent.services.voice_live_run_preview_service import (
+    VoiceLiveRunPreviewBinding,
+    VoiceLiveRunPreviewService,
+    get_voice_live_run_preview_service,
+)
 from agent.services.voice_observability import record_stream_event, record_voice_request, record_voice_result
 from agent.services.voice_personalization_service import get_voice_personalization_service
 from agent.services.voice_provider import VoiceProviderError, get_voice_provider_service
@@ -224,6 +229,63 @@ def _stream_deadline_budget(
         + _VOICE_STREAM_FINALIZATION_GRACE_SECONDS
     )
     return max(1.0, min(float(requested_deadline_seconds), required_seconds, 300.0))
+
+
+def _stream_request_context(
+    body: Mapping[str, Any],
+    binding: VoiceLiveRunPreviewBinding | None,
+) -> tuple[str, str | None, str | None]:
+    """Resolve optional request values against an authoritative preview binding."""
+
+    if binding is None:
+        return (
+            str(body.get("profile_id") or "default"),
+            str(body.get("configuration_session_id") or "").strip() or None,
+            str(body.get("language") or "").strip() or None,
+        )
+    profile_id = body.get("profile_id") if "profile_id" in body else binding.profile_id
+    configuration_session_id = (
+        body.get("configuration_session_id")
+        if "configuration_session_id" in body
+        else binding.configuration_session_id
+    )
+    language = body.get("language") if "language" in body else binding.language
+    return (
+        str(profile_id or "default"),
+        str(configuration_session_id or "").strip() or None,
+        str(language or "").strip() or None,
+    )
+
+
+def _stream_preview_payload(
+    binding: VoiceLiveRunPreviewBinding | None,
+) -> dict[str, Any]:
+    if binding is None:
+        return {}
+    return {
+        "live_run_id": binding.live_run_id,
+        "live_run_segment_sequence": binding.live_run_segment_sequence,
+    }
+
+
+def _assert_stream_preview_context(
+    service: VoiceLiveRunPreviewService,
+    principal: VoicePrincipal,
+    binding: VoiceLiveRunPreviewBinding | None,
+    *,
+    profile_id: str,
+    configuration_session_id: str | None,
+    language: str | None,
+) -> None:
+    if binding is None:
+        return
+    service.assert_context(
+        binding,
+        profile_id=profile_id,
+        configuration_session_id=configuration_session_id,
+        language=language,
+    )
+    service.assert_current(principal, binding)
 
 
 def _context_with_remaining_deadline(context: dict | None, remaining_seconds: float) -> dict | None:
@@ -1468,6 +1530,15 @@ def create_voice_stream():
         )
     principal = _principal()
     idempotency = VoiceIdempotencyService()
+    preview_service = get_voice_live_run_preview_service()
+    try:
+        preview_binding = preview_service.resolve_optional(
+            principal,
+            live_run_id=body.get("live_run_id"),
+            live_run_segment_sequence=body.get("live_run_segment_sequence"),
+        )
+    except VoiceGovernanceError as exc:
+        return _governance_error(exc)
     try:
         deadline_seconds = max(1.0, min(float(body.get("deadline_seconds") or 120.0), 300.0))
     except (TypeError, ValueError):
@@ -1479,8 +1550,16 @@ def create_voice_stream():
     admission_limits = _voice_admission_limits()
     media_type = str(body.get("media_type") or "audio/pcm;rate=16000;channels=1")
     try:
+        stream_audio_limit = min(
+            admission_limits.max_audio_seconds_per_request,
+            (
+                float(preview_binding.segment_duration_seconds)
+                if preview_binding is not None
+                else admission_limits.max_audio_seconds_per_request
+            ),
+        )
         requested_audio_seconds = float(
-            admission_limits.max_audio_seconds_per_request
+            stream_audio_limit
             if body.get("max_audio_seconds") is None
             else body["max_audio_seconds"]
         )
@@ -1488,12 +1567,12 @@ def create_voice_stream():
             raise ValueError("max_audio_seconds must be positive")
         max_audio_seconds = max(
             0.001,
-            min(requested_audio_seconds, admission_limits.max_audio_seconds_per_request),
+            min(requested_audio_seconds, stream_audio_limit),
         )
         admission_audio_seconds = reserve_stream_audio_seconds(
             media_type=media_type,
             requested_audio_seconds=max_audio_seconds,
-            max_audio_seconds=admission_limits.max_audio_seconds_per_request,
+            max_audio_seconds=stream_audio_limit,
         )
     except (TypeError, ValueError):
         return api_response(
@@ -1501,15 +1580,20 @@ def create_voice_stream():
             code=422,
             data={"error": {"code": "voice_stream.invalid_audio_budget", "message": "max_audio_seconds is invalid"}},
         )
+    profile_id, configuration_session_id, language = _stream_request_context(
+        body,
+        preview_binding,
+    )
     payload: dict[str, Any] = {
         "filename": str(body.get("filename") or "stream.pcm")[:255],
-        "language": str(body.get("language") or "").strip() or None,
-        "profile_id": str(body.get("profile_id") or "default"),
-        "configuration_session_id": str(body.get("configuration_session_id") or "").strip() or None,
+        "language": language,
+        "profile_id": profile_id,
+        "configuration_session_id": configuration_session_id,
         "media_type": media_type,
         "deadline_seconds": deadline_seconds,
         "max_audio_seconds": max_audio_seconds,
     }
+    payload.update(_stream_preview_payload(preview_binding))
     claim = None
     delegation: VoiceDelegationTask | None = None
     admission_lease: VoiceAdmissionLease | None = None
@@ -1521,6 +1605,14 @@ def create_voice_stream():
     admission_service = get_voice_admission_service()
     try:
         payload["profile_id"] = validate_identifier(payload["profile_id"], field="profile_id")
+        _assert_stream_preview_context(
+            preview_service,
+            principal,
+            preview_binding,
+            profile_id=payload["profile_id"],
+            configuration_session_id=payload["configuration_session_id"],
+            language=payload["language"],
+        )
         recognition_context = _recognition_context(
             principal,
             profile_id=payload["profile_id"],
@@ -1551,6 +1643,8 @@ def create_voice_stream():
             session_id = str(claim.result_metadata.get("session_id") or "")
             session = get_voice_stream_session_service().require(principal, session_id)
             return api_response(data={"stream": session.public(), "idempotent_replay": True})
+        if preview_binding is not None:
+            preview_service.assert_available(principal, preview_binding)
         admission_lease = admission_service.acquire(
             principal,
             audio_seconds=admission_audio_seconds,
@@ -1571,7 +1665,12 @@ def create_voice_stream():
             deadline_epoch_ms=absolute_deadline_epoch_ms,
             profile_id=payload["profile_id"],
             configuration_session_id=payload["configuration_session_id"],
-            parent_task_id=None,
+            parent_task_id=(
+                preview_binding.parent_task_id
+                if preview_binding is not None
+                else None
+            ),
+            operation="live_preview" if preview_binding is not None else "transcribe",
         )
         remaining_deadline = delegation_service.remaining_seconds(delegation)
         if remaining_deadline <= 0:
@@ -1642,6 +1741,8 @@ def create_voice_stream():
                 502,
                 False,
             )
+        if preview_binding is not None:
+            preview_service.assert_current(principal, preview_binding)
         session = get_voice_stream_session_service().create(
             principal,
             runtime_session_id=runtime_session_id,
@@ -1663,6 +1764,16 @@ def create_voice_stream():
                     else _max_audio_mb() * 1024 * 1024
                 ),
             ),
+            live_run_id=(
+                preview_binding.live_run_id
+                if preview_binding is not None
+                else None
+            ),
+            live_run_segment_sequence=(
+                preview_binding.live_run_segment_sequence
+                if preview_binding is not None
+                else None
+            ),
         )
         admission_service.release_concurrency(admission_lease)
         admission_lease = None  # The stream session now owns and releases the lease.
@@ -1674,7 +1785,7 @@ def create_voice_stream():
                 "actor": principal.subject,
                 "session_id": session.session_id,
                 "tenant_id": principal.tenant_id,
-                "operation": "stream",
+                "operation": "live_preview" if preview_binding is not None else "stream",
                 "policy_decision": "allowed",
                 "request_id": str(runtime.get("request_id") or "hub-stream"),
                 "media_type": payload["media_type"],

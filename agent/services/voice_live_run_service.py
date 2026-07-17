@@ -33,6 +33,10 @@ from agent.services.voice_governance_domain import (
     voice_idempotency_key_digest,
     voice_scope_digest,
 )
+from agent.services.voice_live_run_preview_service import (
+    VoiceLiveRunPreviewService,
+    get_voice_live_run_preview_service,
+)
 from agent.services.voice_live_run_start_lease_service import (
     VoiceLiveRunStartLeaseError,
     VoiceLiveRunStartLeaseService,
@@ -87,6 +91,7 @@ class VoiceLiveRunService:
         tasks: VoiceLiveRunTaskPort | None = None,
         tombstones: VoiceDeletionTombstoneRepository | None = None,
         start_leases: VoiceLiveRunStartLeaseService | None = None,
+        previews: VoiceLiveRunPreviewService | None = None,
         now: Callable[[], float] = time.time,
     ) -> None:
         self._repository = repository or VoiceLiveRunRepository()
@@ -96,6 +101,7 @@ class VoiceLiveRunService:
         self._start_leases = start_leases or VoiceLiveRunStartLeaseService(
             tombstones=self._tombstones,
         )
+        self._previews = previews or get_voice_live_run_preview_service()
         self._now = now
 
     def create(
@@ -466,6 +472,11 @@ class VoiceLiveRunService:
             audio_binding=audio_binding,
             **metadata,
         )
+        self._previews.cleanup_segment(
+            principal,
+            run.id,
+            metadata["sequence"],
+        )
         return VoiceLiveSegmentClaim(
             run=run,
             reservation=reservation,
@@ -523,6 +534,11 @@ class VoiceLiveRunService:
                     "segment sequence is already bound to a different result",
                     409,
                 )
+            self._previews.cleanup_segment(
+                principal,
+                run.id,
+                metadata["sequence"],
+            )
             return self.snapshot(principal, run.id, include_text=False)
         task: VoiceDelegationTask | None = None
         try:
@@ -580,6 +596,11 @@ class VoiceLiveRunService:
                 attempt_count=reservation.segment.attempt_count,
                 task_id=task.task_id,
                 result_ref=normalized_ref,
+            )
+            self._previews.cleanup_segment(
+                principal,
+                run.id,
+                metadata["sequence"],
             )
         except Exception as exc:
             if task is not None:
@@ -914,6 +935,7 @@ class VoiceLiveRunService:
                 if last_sequence is not None
                 else run.last_local_sequence
             )
+            self._previews.cleanup_run(principal, run.id)
             try:
                 run, replayed = self._repository.begin_finalize(
                     principal,
@@ -1064,10 +1086,20 @@ class VoiceLiveRunService:
                 now=self._now(),
             )
             if expired is not None and expired.status == "expired":
+                self._previews.cleanup_run(
+                    principal,
+                    expired.id,
+                    reason_code="voice_live_preview_run_expired",
+                )
                 self._cancel_expired_segment_tasks(principal, expired)
                 self._tasks.expire_parent(expired)
                 run = expired
         elif run.status == "expired":
+            self._previews.cleanup_run(
+                principal,
+                run.id,
+                reason_code="voice_live_preview_run_expired",
+            )
             self._cancel_expired_segment_tasks(principal, run)
             self._tasks.expire_parent(run)
         return run

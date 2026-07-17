@@ -31,6 +31,8 @@ class HubVoiceStreamSession:
     created_at: float
     deadline_at: float
     result_ref: str | None = None
+    live_run_id: str | None = None
+    live_run_segment_sequence: int | None = None
     accepted_chunk_digests: dict[int, str] = field(default_factory=dict, repr=False)
     inflight_chunk_sequence: int | None = field(default=None, repr=False)
     inflight_chunk_digest: str | None = field(default=None, repr=False)
@@ -104,8 +106,31 @@ class VoiceStreamSessionService:
         admission_lease_id: str | None = None,
         max_audio_seconds: float = 819.2,
         max_audio_bytes: int = 25 * 1024 * 1024,
+        live_run_id: str | None = None,
+        live_run_segment_sequence: int | None = None,
     ) -> HubVoiceStreamSession:
         validate_identifier(runtime_session_id, field="runtime_session_id", max_length=200)
+        if (live_run_id is None) != (live_run_segment_sequence is None):
+            raise VoiceGovernanceError(
+                code="voice_stream.live_preview_binding_incomplete",
+                message="live_run_id and live_run_segment_sequence must be provided together",
+                status_code=422,
+            )
+        normalized_live_run_id = (
+            validate_identifier(live_run_id, field="live_run_id", max_length=200)
+            if live_run_id is not None
+            else None
+        )
+        if live_run_segment_sequence is not None and (
+            isinstance(live_run_segment_sequence, bool)
+            or not isinstance(live_run_segment_sequence, int)
+            or live_run_segment_sequence < 0
+        ):
+            raise VoiceGovernanceError(
+                code="voice_stream.invalid_live_run_segment_sequence",
+                message="live_run_segment_sequence must be a non-negative integer",
+                status_code=422,
+            )
         if float(max_audio_seconds) <= 0 or isinstance(max_audio_bytes, bool) or int(max_audio_bytes) <= 0:
             raise VoiceGovernanceError(
                 code="voice_stream.invalid_audio_budget",
@@ -133,6 +158,12 @@ class VoiceStreamSessionService:
             )
         with self._lock:
             self._purge_locked()
+            if normalized_live_run_id is not None:
+                self._assert_live_run_preview_available_locked(
+                    principal,
+                    normalized_live_run_id,
+                    live_run_segment_sequence,
+                )
             active = sum(item.state not in {"final", "failed", "closed"} for item in self._sessions.values())
             if active >= self._max_sessions:
                 raise VoiceGovernanceError(
@@ -186,6 +217,8 @@ class VoiceStreamSessionService:
                 accepted_audio_bytes=0,
                 created_at=time.time(),
                 deadline_at=time.time() + max(1.0, min(float(deadline_seconds), 300.0)),
+                live_run_id=normalized_live_run_id,
+                live_run_segment_sequence=live_run_segment_sequence,
             )
             self._sessions[session.session_id] = session
             return session
@@ -223,6 +256,31 @@ class VoiceStreamSessionService:
                     status_code=504,
                 )
             return session
+
+    def assert_live_run_preview_available(
+        self,
+        principal: VoicePrincipal,
+        run_id: str,
+        segment_sequence: int,
+    ) -> None:
+        normalized_run_id = validate_identifier(run_id, field="live_run_id", max_length=200)
+        if (
+            isinstance(segment_sequence, bool)
+            or not isinstance(segment_sequence, int)
+            or segment_sequence < 0
+        ):
+            raise VoiceGovernanceError(
+                code="voice_stream.invalid_live_run_segment_sequence",
+                message="live_run_segment_sequence must be a non-negative integer",
+                status_code=422,
+            )
+        with self._lock:
+            self._purge_locked()
+            self._assert_live_run_preview_available_locked(
+                principal,
+                normalized_run_id,
+                segment_sequence,
+            )
 
     def begin_chunk(
         self,
@@ -355,6 +413,12 @@ class VoiceStreamSessionService:
 
         with self._lock:
             session = self.require(principal, session_id)
+            if session.live_run_id is not None:
+                raise VoiceGovernanceError(
+                    code="voice_stream.live_preview_finalize_forbidden",
+                    message="bound live-run preview streams may only be deleted",
+                    status_code=409,
+                )
             if session.state not in {"created", "active"}:
                 raise VoiceGovernanceError(
                     code="voice_stream.invalid_state",
@@ -602,6 +666,94 @@ class VoiceStreamSessionService:
                 self._release_admission_locked(session)
             return deleted
 
+    def remove_live_run_previews(
+        self,
+        principal: VoicePrincipal,
+        run_id: str,
+        *,
+        segment_sequence: int | None = None,
+        before_remove: ProfileRemovalHook | None = None,
+    ) -> tuple[HubVoiceStreamSession, ...]:
+        """Remove ephemeral previews after durably staging Runtime cleanup."""
+
+        normalized_run_id = validate_identifier(run_id, field="live_run_id", max_length=200)
+        if segment_sequence is not None and (
+            isinstance(segment_sequence, bool)
+            or not isinstance(segment_sequence, int)
+            or segment_sequence < 0
+        ):
+            raise VoiceGovernanceError(
+                code="voice_stream.invalid_live_run_segment_sequence",
+                message="live_run_segment_sequence must be a non-negative integer",
+                status_code=422,
+            )
+        with self._lock:
+            removed = tuple(
+                session
+                for session in self._sessions.values()
+                if session.tenant_id == principal.tenant_id
+                and session.owner_subject == principal.subject
+                and session.live_run_id == normalized_run_id
+                and (
+                    segment_sequence is None
+                    or session.live_run_segment_sequence == segment_sequence
+                )
+            )
+            if removed and before_remove is not None:
+                before_remove(removed)
+            for session in removed:
+                self._sessions.pop(session.session_id, None)
+                session.state = "closed"
+                session.accepted_chunk_digests.clear()
+                session.inflight_chunk_sequence = None
+                session.inflight_chunk_digest = None
+                session.inflight_chunk_bytes = None
+                session.finalize_token = None
+                self._release_admission_locked(session)
+            return removed
+
+    def fail_live_run_previews(
+        self,
+        principal: VoicePrincipal,
+        run_id: str,
+        *,
+        segment_sequence: int | None = None,
+    ) -> tuple[HubVoiceStreamSession, ...]:
+        """Fence previews locally while retaining capabilities for cleanup retry."""
+
+        normalized_run_id = validate_identifier(run_id, field="live_run_id", max_length=200)
+        if segment_sequence is not None and (
+            isinstance(segment_sequence, bool)
+            or not isinstance(segment_sequence, int)
+            or segment_sequence < 0
+        ):
+            raise VoiceGovernanceError(
+                code="voice_stream.invalid_live_run_segment_sequence",
+                message="live_run_segment_sequence must be a non-negative integer",
+                status_code=422,
+            )
+        with self._lock:
+            failed = tuple(
+                session
+                for session in self._sessions.values()
+                if session.tenant_id == principal.tenant_id
+                and session.owner_subject == principal.subject
+                and session.live_run_id == normalized_run_id
+                and (
+                    segment_sequence is None
+                    or session.live_run_segment_sequence == segment_sequence
+                )
+            )
+            for session in failed:
+                session.state = "failed"
+                session.accepted_chunk_digests.clear()
+                session.inflight_chunk_sequence = None
+                session.inflight_chunk_digest = None
+                session.inflight_chunk_bytes = None
+                session.finalize_token = None
+                self._release_admission_locked(session)
+            return failed
+
     def _purge_locked(self) -> None:
         now = time.time()
         expired = tuple(session for session in self._sessions.values() if session.deadline_at <= now)
@@ -611,6 +763,31 @@ class VoiceStreamSessionService:
             if session.state == "closed":
                 self._sessions.pop(session_id, None)
                 self._release_admission_locked(session)
+
+    def _assert_live_run_preview_available_locked(
+        self,
+        principal: VoicePrincipal,
+        run_id: str,
+        segment_sequence: int | None,
+    ) -> None:
+        conflict = next(
+            (
+                session
+                for session in self._sessions.values()
+                if session.tenant_id == principal.tenant_id
+                and session.owner_subject == principal.subject
+                and session.live_run_id == run_id
+                and session.live_run_segment_sequence == segment_sequence
+                and session.state not in {"final", "failed", "closed"}
+            ),
+            None,
+        )
+        if conflict is not None:
+            raise VoiceGovernanceError(
+                code="voice_stream.live_preview_conflict",
+                message="an active preview already exists for this live run segment",
+                status_code=409,
+            )
 
     def _expire_locked(self, expired: tuple[HubVoiceStreamSession, ...]) -> None:
         """Stage external cleanup before dropping local capabilities."""

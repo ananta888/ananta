@@ -6,6 +6,10 @@ from collections.abc import Callable
 from agent.common.audit import log_audit
 from agent.repositories.voice_live_runs import VoiceLiveRunRepository
 from agent.services.voice_governance_domain import VoicePrincipal
+from agent.services.voice_live_run_preview_service import (
+    VoiceLiveRunPreviewService,
+    get_voice_live_run_preview_service,
+)
 from agent.services.voice_live_run_task_port import VoiceLiveRunTaskPort
 
 
@@ -17,11 +21,13 @@ class VoiceLiveRunMaintenanceService:
         *,
         repository: VoiceLiveRunRepository | None = None,
         tasks: VoiceLiveRunTaskPort | None = None,
+        previews: VoiceLiveRunPreviewService | None = None,
         clock: Callable[[], float] = time.time,
         audit_sink: Callable[[str, dict], None] = log_audit,
     ) -> None:
         self._repository = repository or VoiceLiveRunRepository()
         self._tasks = tasks or VoiceLiveRunTaskPort()
+        self._previews = previews or get_voice_live_run_preview_service()
         self._clock = clock
         self._audit = audit_sink
 
@@ -41,6 +47,11 @@ class VoiceLiveRunMaintenanceService:
             )
             lease_token = str(run.maintenance_lease_token or "")
             try:
+                self._previews.cleanup_run(
+                    principal,
+                    run.id,
+                    reason_code="voice_live_preview_run_expired",
+                )
                 for segment in self._repository.list_segments(principal, run.id):
                     if segment.failure_code == "run_expired" and segment.task_id:
                         self._tasks.cancel_child(
