@@ -33,6 +33,7 @@ class DummySemanticAdapter:
     language: str = "dummy"
     supported_extensions: tuple[str, ...] = (".dummy",)
     parser_strategy: str = "deterministic-dummy"
+    semantic_kinds: tuple[str, ...] = ()
     known_limits: tuple[str, ...] = ("test-only adapter",)
 
     def detect(self, path: str, content: str) -> bool:
@@ -57,26 +58,66 @@ class DummySemanticAdapter:
 class JavaSemanticAdapter:
     language = "java"
     supported_extensions = (".java",)
-    parser_strategy = "regex-java-v1"
+    parser_strategy = "tree-sitter-java-v1"
+    fallback_strategy = "regex-java-v1"
+    semantic_kinds = ("data_record", "interface_contract", "enum_value", "function_signature")
     known_limits = (
         "method bodies are not fully parsed",
-        "nested classes and complex generics may require review",
+        "cross-file generic type resolution is not performed",
         "framework-specific nullability semantics are not inferred",
+        "regex-java-v1 remains a reduced-confidence runtime fallback",
     )
 
     def detect(self, path: str, content: str) -> bool:
         return Path(path).suffix == ".java" or re.search(r"\b(class|record|enum|interface)\s+\w+", content) is not None
 
     def parse(self, path: str, content: str) -> dict:
+        from agent.codecompass.semantic_translation.java_tree_sitter import JavaTreeSitterExtractor
+
+        parser_result = JavaTreeSitterExtractor().parse(path, content)
+        if parser_result.available:
+            return {
+                "path": path,
+                "content": content,
+                "types": list(parser_result.types),
+                "imports": list(parser_result.imports),
+                "diagnostics": list(parser_result.diagnostics),
+                "parser_strategy": parser_result.parser_strategy,
+                "confidence": parser_result.confidence,
+                "fallback_reason": None,
+            }
         try:
             return {
                 "path": path,
                 "content": content,
                 "types": self._parse_types(path, content),
-                "diagnostics": [],
+                "imports": self._parse_imports(content),
+                "diagnostics": [
+                    *parser_result.diagnostics,
+                    diagnostic(
+                        "java_regex_fallback",
+                        "Java tree-sitter parsing was unavailable; reduced-confidence regex extraction was used.",
+                        path=path,
+                    ),
+                ],
+                "parser_strategy": self.fallback_strategy,
+                "confidence": 0.58,
+                "fallback_reason": "tree_sitter_unavailable_or_invalid",
             }
         except Exception as exc:
-            return {"path": path, "content": content, "types": [], "diagnostics": [diagnostic("java_parse_error", str(exc), path=path)]}
+            return {
+                "path": path,
+                "content": content,
+                "types": [],
+                "imports": [],
+                "diagnostics": [
+                    *parser_result.diagnostics,
+                    diagnostic("java_parse_error", str(exc), path=path),
+                ],
+                "parser_strategy": self.fallback_strategy,
+                "confidence": 0.0,
+                "fallback_reason": "all_java_parsers_failed",
+            }
 
     def extract_symbols(self, parsed: dict) -> list[dict]:
         symbols = []
@@ -102,8 +143,45 @@ class JavaSemanticAdapter:
         parsed = self.parse(path, content)
         nodes: list[dict] = []
         edges: list[dict] = []
+        parser_strategy = str(parsed.get("parser_strategy") or self.fallback_strategy)
+        confidence = float(parsed.get("confidence") or 0.58)
+        normalized_path = path.replace("\\", "/")
+        file_id = f"semantic:java:file:{normalized_path}"
+        for imported in parsed.get("imports") or []:
+            module_name = str(imported.get("name") or "").strip()
+            if not module_name:
+                continue
+            module_id = f"semantic:java:module:{module_name}"
+            nodes.append(
+                SemanticNode(
+                    id=module_id,
+                    kind="semantic_node",
+                    semantic_kind="module",
+                    language="java",
+                    symbol=module_name,
+                    attributes=imported,
+                    provenance=Provenance(
+                        file=path,
+                        language="java",
+                        symbol=module_name,
+                        line_start=imported.get("line_start"),
+                        line_end=imported.get("line_start"),
+                        parser=parser_strategy,
+                        confidence=confidence,
+                    ),
+                ).as_record()
+            )
+            edges.append(
+                SemanticEdge(
+                    source_id=file_id,
+                    target_id=module_id,
+                    edge_type="imports",
+                    attributes={"static": imported.get("kind") == "static_import"},
+                ).as_record()
+            )
         for item in parsed.get("types") or []:
-            type_id = f"semantic:java:{item['kind']}:{item['name']}"
+            type_name = str(item.get("qualified_name") or item["name"])
+            type_id = f"semantic:java:{item['kind']}:{type_name}"
             semantic_kind = "data_record" if item["kind"] in {"record", "class"} else "interface_contract" if item["kind"] == "interface" else "data_record"
             type_node = SemanticNode(
                 id=type_id,
@@ -118,8 +196,8 @@ class JavaSemanticAdapter:
                     symbol=item["name"],
                     line_start=item["line_start"],
                     line_end=item["line_end"],
-                    parser=self.parser_strategy,
-                    confidence=0.86,
+                    parser=parser_strategy,
+                    confidence=confidence,
                 ),
             ).as_record()
             nodes.append(type_node)
@@ -139,8 +217,8 @@ class JavaSemanticAdapter:
                             symbol=f"{item['name']}.{prop['name']}",
                             line_start=prop["line_start"],
                             line_end=prop["line_start"],
-                            parser=self.parser_strategy,
-                            confidence=0.82,
+                            parser=parser_strategy,
+                            confidence=max(0.5, confidence - 0.05),
                         ),
                     ).as_record()
                 )
@@ -155,7 +233,7 @@ class JavaSemanticAdapter:
                         language="java",
                         symbol=f"{item['name']}.{enum_value}",
                         attributes={"name": enum_value},
-                        provenance=Provenance(file=path, language="java", symbol=f"{item['name']}.{enum_value}", line_start=item["line_start"], line_end=item["line_end"], parser=self.parser_strategy, confidence=0.8),
+                        provenance=Provenance(file=path, language="java", symbol=f"{item['name']}.{enum_value}", line_start=item["line_start"], line_end=item["line_end"], parser=parser_strategy, confidence=max(0.5, confidence - 0.08)),
                     ).as_record()
                 )
                 edges.append(SemanticEdge(source_id=type_id, target_id=value_id, edge_type="declares").as_record())
@@ -169,7 +247,7 @@ class JavaSemanticAdapter:
                         language="java",
                         symbol=f"{item['name']}.{method['name']}",
                         attributes=method,
-                        provenance=Provenance(file=path, language="java", symbol=f"{item['name']}.{method['name']}", line_start=method["line_start"], line_end=method["line_start"], parser=self.parser_strategy, confidence=0.78),
+                        provenance=Provenance(file=path, language="java", symbol=f"{item['name']}.{method['name']}", line_start=method["line_start"], line_end=method["line_start"], parser=parser_strategy, confidence=max(0.5, confidence - 0.1)),
                     ).as_record()
                 )
                 edges.append(SemanticEdge(source_id=type_id, target_id=method_id, edge_type="declares").as_record())
@@ -183,11 +261,48 @@ class JavaSemanticAdapter:
                             language="java",
                             symbol=thrown,
                             attributes={"throws": thrown},
-                            provenance=Provenance(file=path, language="java", symbol=thrown, line_start=method["line_start"], line_end=method["line_start"], parser=self.parser_strategy, confidence=0.76),
+                            provenance=Provenance(file=path, language="java", symbol=thrown, line_start=method["line_start"], line_end=method["line_start"], parser=parser_strategy, confidence=max(0.5, confidence - 0.12)),
                         ).as_record()
                     )
                     edges.append(SemanticEdge(source_id=method_id, target_id=thrown_id, edge_type="throws").as_record())
-        return {"nodes": nodes, "edges": edges, "diagnostics": list(parsed.get("diagnostics") or [])}
+            if item.get("parent_type"):
+                parent_id = f"semantic:java:class:{item['parent_type']}"
+                edges.append(SemanticEdge(source_id=parent_id, target_id=type_id, edge_type="declares").as_record())
+            for base_type in item.get("extends") or []:
+                edges.append(
+                    SemanticEdge(
+                        source_id=type_id,
+                        target_id=f"semantic:java:type:{base_type}",
+                        edge_type="extends",
+                    ).as_record()
+                )
+            for interface_type in item.get("implements") or []:
+                edges.append(
+                    SemanticEdge(
+                        source_id=type_id,
+                        target_id=f"semantic:java:type:{interface_type}",
+                        edge_type="implements",
+                    ).as_record()
+                )
+        return {
+            "nodes": nodes,
+            "edges": edges,
+            "diagnostics": list(parsed.get("diagnostics") or []),
+            "parser_strategy": parsed.get("parser_strategy"),
+            "fallback_reason": parsed.get("fallback_reason"),
+        }
+
+    def _parse_imports(self, content: str) -> list[dict]:
+        imports = []
+        for match in re.finditer(r"^\s*import\s+(?P<static>static\s+)?(?P<name>[\w.*]+)\s*;", content, re.MULTILINE):
+            imports.append(
+                {
+                    "name": match.group("name"),
+                    "kind": "static_import" if match.group("static") else "import",
+                    "line_start": content.count("\n", 0, match.start()) + 1,
+                }
+            )
+        return imports
 
     def _parse_types(self, path: str, content: str) -> list[dict]:
         lines = content.splitlines()

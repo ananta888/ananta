@@ -1,422 +1,725 @@
 {
   "$schema": "todo.track.schema.json",
-  "version": "1.0",
+  "version": "2.0",
   "owner": "Peter Stuiber / Ananta",
   "track": "codecompass-file-type-language-support-expansion",
   "created": "2026-07-18",
-  "status": "todo",
+  "updated": "2026-07-18",
+  "status": "done",
   "priority": "P0",
-  "purpose": "CodeCompass um eine explizite, testbare und abgestufte Unterstuetzung fuer Quellcode-, Dokumentations-, Konfigurations-, Infrastruktur- und Datenformate erweitern. Die aktuell getrennten Listen fuer gescannte Endungen, Tree-sitter-Sprachen, semantische Adapter und Datenextraktion werden in einer kanonischen Registry zusammengefuehrt.",
-  "goal": "Jede relevante Repository-Datei wird nachvollziehbar entweder ausgeschlossen oder einer Support-Stufe zugeordnet: discovery, text_index, symbol_index, semantic_graph oder domain_parser. Coverage, Parserstrategie, bekannte Grenzen, Provenienz und Tests sind pro Dateityp sichtbar.",
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "purpose": "CodeCompass besitzt eine kanonische, testbare und abgestufte Unterstützung für Quellcode-, Dokumentations-, Konfigurations-, Infrastruktur-, Vertrags-, Daten- und Diagrammformate. Klassifikation, Fähigkeiten, Laufzeitverfügbarkeit, Coverage, Extraktion, Migration und Telemetrie werden pipelinebezogen ausgewiesen.",
+  "goal": "Jede relevante Repository-Datei wird deterministisch klassifiziert und je Pipeline als indexiert, ausgeschlossen, nicht unterstützt oder fehlgeschlagen ausgewiesen. Symbol- und Beziehungsfähigkeiten werden nur gemeldet, wenn Implementierung, Laufzeit und Testevidenz dies tatsächlich tragen.",
+  "implementation_summary": [
+    "Die Registry-Version 1.1.0 enthält 49 Formate mit exakten Namen, Mustern, Compound-Suffixen, Endungen, Shebangs, Sicherheitsklassen, Limits und unabhängigen Fähigkeiten für setup_index, rag_helper, repository_map und semantic_translation.",
+    "P0/P1-Dokument-, Konfigurations-, Web-, Infrastruktur-, Vertrags-, Daten- und Diagrammformate werden statisch und ressourcenbegrenzt im Rag-helper extrahiert; aktive Inhalte werden weder ausgeführt noch gerendert.",
+    "Python, Java sowie TypeScript/JavaScript besitzen verifizierte semantische Adapter. Weitere Sprachen melden ehrlich symbol_index oder niedrigere Fähigkeiten statt pauschalem semantic_graph.",
+    "Coverage, Manifest-Evidence, authentifizierte Support-API, Audit-CLI, Feature-Rollout, zielgerichtete Cache-Invalidierung und begrenzte Prometheus-Telemetrie sind operativ angeschlossen.",
+    "Hub und Worker bleiben getrennt: Der Hub besitzt Policy, Aktivierung und Re-Index-Planung; Worker führen delegierte Extraktion aus und orchestrieren keine weiteren Worker."
+  ],
   "current_state_findings": [
-    "agent/repository_map_engine.py definiert CODE_EXTENSIONS aktuell separat fuer .py, .js, .ts, .tsx, .jsx, .java, .go, .rs, .cpp, .c, .h, .hpp, .cs, .rb, .php, .jsonl und .json.",
-    "TREE_SITTER_LANGUAGE_BY_EXT deckt die Programmiersprachen ab, nicht jedoch JSON/JSONL; dafuer existiert nur eine einfache Schluessel-Wert-Extraktion.",
-    "Der Regex-Fallback erkennt nur wenige Python-, JavaScript- und TypeScript-nahe Deklarationsmuster.",
-    "agent/hybrid_repository_scan.py behandelt nur .json und .jsonl als zusaetzlich vom Dateisystem zu suchende Datenformate.",
-    "Python besitzt mit ast-python-v1 einen eigenen SemanticLanguageAdapter.",
-    "Java besitzt mit regex-java-v1 einen eingeschraenkten SemanticLanguageAdapter.",
-    "Andere bereits gescannte Sprachen besitzen keine gleichwertige semantische Typ-, Import- und Graphanalyse.",
-    "Markdown, YAML, HTML, SCSS, Shell, PowerShell, TOML, XML, SQL, Dockerfile und Architekturdiagramme fehlen im regulaeren Repository-Map-Support.",
-    "language_support_matrix unterscheidet derzeit nicht sauber zwischen Scan-, Text-, Symbol-, Semantik- und Domain-Support.",
-    "Supportlisten und Ausschlussregeln koennen zwischen RepositoryMapEngine, hybrid_repository_scan und Semantic Adaptern auseinanderlaufen."
+    "config/codecompass/file_type_support.v1.json ist die kanonische deklarative Quelle; schemas/codecompass/file_type_support_registry.v1.json validiert ihren Vertrag.",
+    "ananta_contracts.file_type_classifier implementiert die feste Präzedenz exact filename, pattern, compound suffix, extension, shebang und expliziter text fallback ohne Datei-I/O.",
+    "RepositoryMap verwendet tracked_registry_files als aktiven Scanpfad. CODE_EXTENSIONS und tracked_code_files bleiben ausschließlich als rückwärtskompatible Registry-Projektion beziehungsweise Fail-safe-Fallback erhalten.",
+    "KnowledgeIndexRetrievalService klassifiziert Ranking-Buckets über die injizierbare Registry statt statischer Code-, Dokumentations- und Konfigurationslisten.",
+    "setup_index indexiert alle 49 aktivierten Descriptoren begrenzt als Text und erzeugt einen vollständigen per-file Coverage-Report ohne Symbol- oder Beziehungs-Scheinclaims.",
+    "rag_helper besitzt sichere, fokussierte Extraktoren und einen CrossFileRelationResolver für Dokumentation, Konfiguration, Angular/Styles, Infrastruktur, Skripte, Verträge, Daten, Notebooks und Diagramme.",
+    "semantic_translation registriert Python, Java, TypeScript/JavaScript sowie statische Symboladapter zentral; capability claims werden aus Registry, verifizierter Evidence und Laufzeitprobe abgeleitet.",
+    "Tree-sitter-Verfügbarkeit wird durch echten Parser- und Parse-Smoke-Test statt bloßem Paketimport ermittelt.",
+    "Manifest und Worker-Reader validieren Capability-Invarianten fail-closed und speichern Registry-, Parser-, Coverage- und Provenienzinformationen additiv.",
+    "Rag-helper-Repositoryläufe speichern Source-Fingerprint, Descriptor-Hashes, effektive Format-IDs und detected_type je Datei; Registry-Änderungen invalidieren gezielt betroffene Cachepfade.",
+    "Direkte Telemetrie ist für setup_index, rag_helper, repository_map und semantic_translation angeschlossen; unbekannte repositorygesteuerte Labels werden auf other begrenzt.",
+    "Der Parser-Timeout ist bewusst kooperativ: verspätete Ausgabe wird nach Rückkehr verworfen und als parser_timeout diagnostiziert; eine harte Präemption wird nicht behauptet."
   ],
   "core_decisions": [
-    "Eine zentrale FileTypeSupportRegistry ist die kanonische Quelle fuer Endungen, exakte Dateinamen, Muster, Inhaltserkennung, Support-Stufe, Parser, Limits und Sicherheitsklasse.",
-    "Tree-sitter-Symbolerkennung darf nicht als vollstaendige semantische Analyse ausgewiesen werden.",
-    "Exakte Dateinamen wie Dockerfile, Makefile, Jenkinsfile und AGENTS.md werden neben Endungen unterstuetzt.",
-    "Parserfehler erzeugen Diagnostics und kontrollierte Fallbacks statt stiller Dateiverluste.",
-    "Binaerdateien bleiben standardmaessig ausgeschlossen; textbasierte Diagramme und drawio werden nur mit sicheren Parsern verarbeitet.",
-    "Coverage und Support-Matrix werden aus derselben Registry generiert und in CI gegen Drift geprueft."
+    "Die Registry beschreibt Klassifikation und beobachtbare Fähigkeiten, ist aber keine Autorisierung; Pfad-, Secret-, Binär-, Größen- und Tenant-Policy bleibt je Consumer vorgeschaltet.",
+    "indexed, symbols und relationships sind unabhängige Dimensionen mit configured, runtime_available, verified und effective; ein zusammengefasster level ist nur Anzeige.",
+    "Parser-backed bedeutet nicht automatisch semantic_graph. Beziehungsclaims benötigen tatsächlich erzeugte, getestete Kanten mit Provenienz.",
+    "Exakte Namen und pfadspezifische Muster unterscheiden unter anderem Dockerfile, Compose und GitHub Actions zuverlässig von generischem YAML.",
+    "Parserfehler, Ressourcenlimits und Sicherheitsblockaden erzeugen begrenzte strukturierte Diagnostics; Dateien verschwinden nicht still.",
+    "Feature-Aktivierung und Migration gehören dem Hub. Worker konsumieren den neutralen Vertrag und führen ausschließlich delegierte Arbeit aus.",
+    "Neue Sprachunterstützung wird über kleine Adapter und Registry-Descriptoren erweitert; zentrale Scanner- oder Retrieval-Sonderlisten sind kein Erweiterungspunkt."
   ],
-  "support_levels": {
-    "discovery": "Datei wird erkannt, klassifiziert und im Coverage-Report erfasst.",
-    "text_index": "Text wird sicher dekodiert, gechunkt und mit Zeilenprovenienz indexiert.",
-    "symbol_index": "Deklarationen, Ueberschriften oder strukturierte Schluessel werden als Symbole erfasst.",
-    "semantic_graph": "Typen, Funktionen, Imports, Referenzen und Beziehungen werden als Graph modelliert.",
-    "domain_parser": "Formatspezifische Strukturen wie Compose-Services, CI-Jobs, SQL-Objekte oder Diagrammkanten werden interpretiert."
+  "support_dimensions": {
+    "indexed": "Begrenzter Inhalt oder strukturierte Records gelangen in die konkrete Pipeline.",
+    "symbols": "Adressierbare Deklarationen, Überschriften, Schlüssel, Selektoren oder vergleichbare Symbole werden mit Provenienz erzeugt.",
+    "relationships": "Getypte strukturelle oder semantische Kanten werden tatsächlich erzeugt und getestet."
   },
+  "support_levels": {
+    "unsupported": "Keine wirksame Implementierungsbehauptung für die Pipeline.",
+    "text_index": "Statische, begrenzte Textindexierung ohne Symbolclaim.",
+    "symbol_index": "Verifizierte Symbolerkennung ohne behauptete vollständige Beziehungsauswertung.",
+    "semantic_graph": "Sprachsemantische Knoten und Beziehungen werden mit Provenienz erzeugt.",
+    "domain_parser": "Formatspezifische Strukturen und gegebenenfalls Beziehungen werden statisch interpretiert."
+  },
+  "effective_pipeline_summary": [
+    {"pipeline": "setup_index", "indexed_formats": 49, "symbol_formats": 0, "relationship_formats": 0},
+    {"pipeline": "rag_helper", "indexed_formats": 36, "symbol_formats": 36, "relationship_formats": 35},
+    {"pipeline": "repository_map", "indexed_formats": 8, "symbol_formats": 4, "relationship_formats": 0},
+    {"pipeline": "semantic_translation", "indexed_formats": 14, "symbol_formats": 14, "relationship_formats": 4}
+  ],
   "target_support_matrix": [
-    {"group": "existing_deep", "types": [".py"], "target": "semantic_graph", "priority": "P0"},
-    {"group": "existing_partial", "types": [".java"], "target": "semantic_graph", "priority": "P0"},
-    {"group": "existing_symbol", "types": [".js", ".jsx", ".ts", ".tsx", ".go", ".rs", ".c", ".h", ".cpp", ".hpp", ".cs", ".rb", ".php"], "target": "semantic_graph", "priority": "P1"},
-    {"group": "documentation", "types": [".md", ".mdx", ".rst", ".adoc"], "target": "domain_parser", "priority": "P0"},
-    {"group": "web", "types": [".html", ".css", ".scss", ".sass", ".less"], "target": "symbol_index", "priority": "P0"},
-    {"group": "configuration", "types": [".yaml", ".yml", ".toml", ".ini", ".cfg", ".conf", ".properties", ".xml"], "target": "domain_parser", "priority": "P0"},
-    {"group": "infrastructure", "types": ["Dockerfile", "Containerfile", "docker-compose*.yml", ".sh", ".bash", ".zsh", ".fish", ".ps1", ".psm1", "Makefile", "Jenkinsfile"], "target": "domain_parser", "priority": "P0"},
-    {"group": "contracts", "types": [".schema.json", ".graphql", ".gql", ".proto", ".sql", ".csv", ".tsv"], "target": "domain_parser", "priority": "P1"},
-    {"group": "architecture", "types": [".mmd", ".mermaid", ".puml", ".plantuml", ".dot", ".gv", ".drawio"], "target": "domain_parser", "priority": "P0"},
-    {"group": "additional", "types": [".ipynb", ".kt", ".kts", ".scala", ".swift", ".dart", ".lua", ".vue", ".svelte"], "target": "symbol_index", "priority": "P2"}
+    {
+      "group": "semantic_core",
+      "types": [".py", ".java", ".ts", ".tsx", ".js", ".jsx"],
+      "priority": "P0",
+      "setup_index": "indexed",
+      "rag_helper": "symbols_and_relationships",
+      "repository_map": "symbols_when_verified_runtime_or_fallback",
+      "semantic_translation": "symbols_and_relationships"
+    },
+    {
+      "group": "explicit_symbol_languages",
+      "types": [".go", ".rs", ".c", ".h", ".cpp", ".hpp", ".cs", ".rb", ".php", ".kt", ".kts", ".swift", ".scala", ".lua", ".dart", ".vue", ".svelte"],
+      "priority": "P1_P2",
+      "setup_index": "indexed",
+      "semantic_translation": "verified_symbol_index_without_relationship_claim"
+    },
+    {
+      "group": "documentation_configuration_web",
+      "types": [".md", ".mdx", ".rst", ".adoc", ".yaml", ".yml", ".toml", ".ini", ".cfg", ".conf", ".properties", ".xml", ".xsd", ".html", ".css", ".scss", ".sass", ".less"],
+      "priority": "P0_P1",
+      "setup_index": "indexed",
+      "rag_helper": "domain_parser"
+    },
+    {
+      "group": "infrastructure_scripts",
+      "types": ["Dockerfile", "Containerfile", "docker-compose*.yml", ".github/workflows/*.yml", "Makefile", "Jenkinsfile", ".sh", ".bash", ".zsh", ".fish", ".ps1", ".psm1", ".tf", ".tfvars"],
+      "priority": "P0_P2",
+      "setup_index": "indexed",
+      "rag_helper": "domain_parser"
+    },
+    {
+      "group": "bounded_text_only",
+      "types": [".psd1", ".txt"],
+      "priority": "P1_P2",
+      "setup_index": "indexed",
+      "rag_helper": "unsupported_without_domain_claim"
+    },
+    {
+      "group": "contracts_data_architecture",
+      "types": ["*.schema.json", ".graphql", ".gql", ".proto", ".sql", ".csv", ".tsv", ".ipynb", ".mmd", ".mermaid", ".puml", ".plantuml", ".dot", ".gv", ".drawio"],
+      "priority": "P0_P2",
+      "setup_index": "indexed",
+      "rag_helper": "domain_parser_except_tabular_relationships"
+    }
   ],
   "non_goals": [
-    "Keine Ausfuehrung von Repository-Dateien waehrend Scan oder Parsing.",
-    "Keine automatische Installation beliebiger Parser aus dem analysierten Repository.",
-    "Keine vollstaendige Compilersemantik fuer jede Sprache in der ersten Stufe.",
-    "Keine Indexierung von Secrets, Credentials, .env-Inhalten oder grossen Binaerartefakten.",
-    "Keine ungepruefte XML-Entitaetsaufloesung oder Makroausfuehrung."
+    "Keine Ausführung, Kompilierung, Containererstellung, Notebook-Ausführung, Datenbankverbindung oder aktive Diagramm-/HTML-Darstellung während Scan oder Parsing.",
+    "Keine automatische Installation beliebiger Parser aus einem analysierten Repository.",
+    "Keine Compiler-vollständige Semantik für jede Sprache; niedrigere, verifizierte Fähigkeiten werden ausdrücklich ausgewiesen.",
+    "Keine Indexierung von Secrets, Credentials, privaten Schlüsseln, .env-Inhalten oder großen Binärartefakten.",
+    "Keine implizite gemeinsame Laufzeit oder Policy zwischen Hub- und Worker-Containern.",
+    "Keine Worker-zu-Worker-Orchestrierung."
   ],
+  "critical_path_tasks": ["CFT-001", "CFT-004", "CFT-005", "CFT-018", "CFT-019", "CFT-020"],
   "milestones": [
-    {"id": "CFT-M1", "title": "Registry und Ist-Analyse", "task_ids": ["CFT-001", "CFT-002", "CFT-003"], "status": "todo"},
-    {"id": "CFT-M2", "title": "Scanner und Coverage", "task_ids": ["CFT-004", "CFT-005", "CFT-006"], "status": "todo"},
-    {"id": "CFT-M3", "title": "Dokumentation und Konfiguration", "task_ids": ["CFT-007", "CFT-008", "CFT-009", "CFT-010"], "status": "todo"},
-    {"id": "CFT-M4", "title": "Web, Infrastruktur und Daten", "task_ids": ["CFT-011", "CFT-012", "CFT-013", "CFT-014"], "status": "todo"},
-    {"id": "CFT-M5", "title": "Sprachsemantik", "task_ids": ["CFT-015", "CFT-016", "CFT-017"], "status": "todo"},
-    {"id": "CFT-M6", "title": "Qualitaet und Rollout", "task_ids": ["CFT-018", "CFT-019", "CFT-020"], "status": "todo"}
+    {"id": "CFT-M1", "title": "Registry und wahrheitsgemäße Fähigkeiten", "task_ids": ["CFT-001", "CFT-002", "CFT-003"], "status": "done"},
+    {"id": "CFT-M2", "title": "Scanner, Coverage und Support-Schnittstellen", "task_ids": ["CFT-004", "CFT-005", "CFT-006"], "status": "done"},
+    {"id": "CFT-M3", "title": "Dokumentation, Konfiguration und Diagramme", "task_ids": ["CFT-007", "CFT-008", "CFT-009", "CFT-010"], "status": "done"},
+    {"id": "CFT-M4", "title": "Web, Infrastruktur, Skripte und Daten", "task_ids": ["CFT-011", "CFT-012", "CFT-013", "CFT-014"], "status": "done"},
+    {"id": "CFT-M5", "title": "Sprachsemantik und ehrliche Symboladapter", "task_ids": ["CFT-015", "CFT-016", "CFT-017"], "status": "done"},
+    {"id": "CFT-M6", "title": "Sicherheit, Regression und operativer Rollout", "task_ids": ["CFT-018", "CFT-019", "CFT-020"], "status": "done"}
   ],
   "tasks": [
     {
       "id": "CFT-001",
-      "title": "Kanonische FileTypeSupportRegistry entwerfen",
+      "milestone_id": "CFT-M1",
+      "title": "Kanonische FileTypeSupportRegistry bereitstellen",
       "type": "architecture",
-      "status": "todo",
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
-      "dependencies": [],
-      "affected_files": ["agent/codecompass/file_type_support.py", "agent/repository_map_engine.py", "agent/hybrid_repository_scan.py"],
+      "depends_on": [],
+      "affected_files": ["config/codecompass/file_type_support.v1.json", "schemas/codecompass/file_type_support_registry.v1.json", "ananta_contracts/file_type_support.py", "ananta_contracts/file_type_classifier.py"],
       "acceptance_criteria": [
-        "Registry beschreibt extensions, exact_filenames, filename_patterns, content_hints, support_level, parser_strategy, fallback_strategy, known_limits, security_class und enabled.",
-        "CODE_EXTENSIONS, TREE_SITTER_LANGUAGE_BY_EXT und _DATA_EXTENSIONS werden daraus abgeleitet oder ersetzt.",
-        "Doppelte aktive Zuordnungen ohne explizite Prioritaet schlagen in Tests fehl.",
-        "Registry ist deterministisch sortierbar und als JSON-Supportmatrix exportierbar."
-      ]
+        "Die Registry beschreibt 49 aktive Formate mit Selector-Arten, Familie, Priorität, Sicherheitsklasse, Parser-/Fallbackstrategie, bekannten Grenzen und pipelinebezogenen Fähigkeiten.",
+        "indexed, symbols und relationships besitzen getrennte Implementierung, Producer, Evidence, Runtime-Anforderungen und Verifikationsstatus.",
+        "Die Registry wird schema-validiert, stabil gehasht und deterministisch serialisiert.",
+        "Mehrdeutige aktive Selektoren ohne eindeutige Priorität schlagen fail-closed fehl.",
+        "Die neutrale Contract-Schicht importiert weder Hub- noch Worker-Implementierungen."
+      ],
+      "evidence": {
+        "implementation": ["config/codecompass/file_type_support.v1.json", "ananta_contracts/file_type_support.py", "ananta_contracts/file_type_classifier.py"],
+        "tests": ["tests/test_file_type_support_contract.py", "tests/test_file_type_support_audit.py"],
+        "result": "met"
+      }
     },
     {
       "id": "CFT-002",
-      "title": "Aktuelle Supportstufen wahrheitsgemaess inventarisieren",
+      "milestone_id": "CFT-M1",
+      "title": "Supportstufen pipelinebezogen und wahrheitsgemäß inventarisieren",
       "type": "analysis",
-      "status": "todo",
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "medium",
-      "dependencies": ["CFT-001"],
-      "affected_files": ["agent/repository_map_engine.py", "agent/hybrid_repository_scan.py", "agent/codecompass/semantic_translation/adapters.py", "agent/codecompass/semantic_translation/python_adapter.py"],
+      "depends_on": ["CFT-001"],
+      "affected_files": ["ananta_contracts/file_type_support.py", "agent/services/file_type_support_service.py", "scripts/audit_codecompass_file_type_support.py"],
       "acceptance_criteria": [
-        "Alle aktuellen Endungen sind einer realen Support-Stufe zugeordnet.",
-        ".py wird als AST-basierter semantic_graph-Support ausgewiesen.",
-        ".java wird als regex-basierter semantic_graph-Support mit bekannten Grenzen ausgewiesen.",
-        ".json und .jsonl werden als strukturierte Datenformate ausgewiesen.",
-        "Keine Sprache meldet semantic_graph ohne Adapter, der Graphrecords erzeugt."
-      ]
+        "Konfigurierte, runtime-verfügbare, verifizierte und effektive Fähigkeiten werden getrennt ausgewiesen.",
+        "Python meldet AST-basierten semantic_graph; Java und TypeScript/JavaScript melden die tatsächlich getesteten Parser- beziehungsweise Heuristikgrade.",
+        "Go, Rust, C/C++, C#, Ruby, PHP und die P2-Adapter melden symbol_index ohne unbelegte Relationship-Claims.",
+        "Optional fehlende Tree-sitter-Grammatiken bleiben als fehlende Runtime-Anforderung sichtbar und erzeugen im Normalmodus keine falsche Fähigkeit.",
+        "Ein Audit kann alle Evidence-Pfade und Runtime-Probes reproduzierbar prüfen."
+      ],
+      "evidence": {
+        "implementation": ["agent/services/file_type_support_service.py", "scripts/audit_codecompass_file_type_support.py"],
+        "tests": ["tests/test_file_type_support_contract.py", "tests/test_file_type_support_audit.py", "tests/test_repository_map_tree_sitter_runtime.py"],
+        "checks": ["python scripts/audit_codecompass_file_type_support.py --output table"],
+        "result": "met"
+      }
     },
     {
       "id": "CFT-003",
+      "milestone_id": "CFT-M1",
       "title": "Semantic Adapter Registry vereinheitlichen",
       "type": "refactor",
-      "status": "todo",
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
-      "dependencies": ["CFT-001"],
-      "affected_files": ["agent/codecompass/semantic_translation/adapters.py", "agent/codecompass/semantic_translation/python_adapter.py", "agent/codecompass/semantic_translation/__init__.py"],
+      "depends_on": ["CFT-001"],
+      "affected_files": ["agent/codecompass/semantic_translation/registry.py", "agent/codecompass/semantic_translation/python_adapter.py", "agent/codecompass/semantic_translation/adapters.py", "agent/codecompass/semantic_translation/typescript_adapter.py"],
       "acceptance_criteria": [
-        "Python- und Java-Adapter werden ueber eine gemeinsame Registry gefunden.",
-        "Jeder Adapter deklariert Sprache, Endungen, Parserstrategie, Limits und semantic_kinds.",
-        "Nicht unterstuetzte Dateien erzeugen einen strukturierten Diagnostic.",
-        "Contract-Tests pruefen detect, parse, extract_symbols, extract_types, extract_semantics und emit_graph_records."
-      ]
+        "Python-, Java-, TypeScript/JavaScript- und statische Symboladapter werden über einen gemeinsamen Registry-Port aufgelöst.",
+        "Genau ein Adapter besitzt eine Extension; doppelte Owner werden beim Aufbau abgewiesen.",
+        "ParserLimits, Provenienz, Confidence, Parserstrategie und strukturierte Diagnostics werden zentral durchgesetzt.",
+        "Unsupported-, Limit-, Timeout- und Parserfehler liefern begrenzte Resultate statt stiller Verluste.",
+        "Adapter können isoliert per Contract- und Golden-Test ersetzt oder erweitert werden."
+      ],
+      "evidence": {
+        "implementation": ["agent/codecompass/semantic_translation/registry.py", "agent/codecompass/semantic_translation/symbol_adapters.py", "agent/codecompass/semantic_translation/static_symbol_adapters.py"],
+        "tests": ["tests/test_codecompass_semantic_adapter_registry.py", "tests/test_codecompass_parser_limits.py", "tests/test_codecompass_p2_static_symbol_adapters.py"],
+        "result": "met"
+      }
     },
     {
       "id": "CFT-004",
-      "title": "Repository-Scan auf Registry umstellen",
+      "milestone_id": "CFT-M2",
+      "title": "Repository-Scan, Retrieval und Rag-helper-Aktivierung auf Registry umstellen",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
-      "dependencies": ["CFT-001"],
-      "affected_files": ["agent/hybrid_repository_scan.py", "agent/repository_map_engine.py", "agent/config.py"],
+      "depends_on": ["CFT-001"],
+      "affected_files": ["agent/hybrid_repository_scan.py", "agent/repository_map_engine.py", "agent/services/knowledge_index_retrieval_service.py", "agent/services/rag_helper_file_type_policy.py", "scripts/setup_codecompass_index.py"],
       "acceptance_criteria": [
-        "tracked_code_files nutzt Registry-Klassifikation statt separater Endungsmenge.",
-        "Git-tracked und erlaubte untracked Dateien folgen denselben Regeln.",
-        "Dockerfile, Makefile und Jenkinsfile werden erkannt.",
-        "Bestehende Excludes bleiben wirksam.",
-        "Secrets werden vor dem Lesen ausgeschlossen.",
-        "max_files verdraengt Dokumentation und Konfiguration nicht still."
-      ]
+        "Git-tracked und erlaubte untracked Dateien werden durch dieselbe Registry-Klassifikation bewertet.",
+        "Exact filenames, filename patterns, compound suffixes, extensions und begrenzte Shebang-Erkennung greifen in der festgelegten Präzedenz.",
+        "Symlinks, Traversal, Secretpfade, Binärinhalt und bestehende Excludes werden vor Parserzugriff abgewiesen.",
+        "Ein familienweises Round-Robin verhindert, dass max_files ganze Dokumentations- oder Konfigurationsfamilien verdrängt.",
+        "Rag-helper-Rollout unterscheidet gemeinsame Endungen wie generisches YAML, Compose und GitHub Actions pfadgenau.",
+        "Retrieval-Ranking projiziert Registry-Familien auf bestehende Buckets und enthält keine eigene Dateityp-Quelle."
+      ],
+      "evidence": {
+        "implementation": ["agent/hybrid_repository_scan.py", "agent/services/rag_helper_file_type_policy.py", "agent/services/knowledge_index_retrieval_service.py"],
+        "tests": ["tests/test_hybrid_registry_scan.py", "tests/test_rag_helper_file_type_policy.py", "rag-helper/tests/test_file_type_rollout_predicate.py", "tests/test_knowledge_index_retrieval_service.py"],
+        "result": "met"
+      }
     },
     {
       "id": "CFT-005",
-      "title": "Coverage-Report pro Datei und Supportstufe implementieren",
+      "milestone_id": "CFT-M2",
+      "title": "Vollständige Coverage- und Manifest-Evidence implementieren",
       "type": "feature",
-      "status": "todo",
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "medium",
-      "dependencies": ["CFT-004"],
-      "affected_files": ["agent/repository_map_engine.py", "agent/services/rag_helper_index_service.py", "scripts/setup_codecompass_index.py"],
+      "depends_on": ["CFT-004"],
+      "affected_files": ["ananta_contracts/file_type_coverage.py", "agent/services/file_type_manifest_service.py", "scripts/setup_codecompass_index.py", "schemas/worker/codecompass_output_manifest.v1.json", "worker/retrieval/codecompass_output_reader.py"],
       "acceptance_criteria": [
-        "Pro Datei werden path, detected_type, support_level, parser_strategy, indexed, exclusion_reason, diagnostics und byte_size ausgegeben.",
-        "Aggregationen zeigen Anzahl und Anteil je Typ, Stufe, Parser, Fehler und Ausschlussgrund.",
-        "Unbekannte textartige Dateien werden separat gemeldet.",
-        "Coverage ist als JSON exportierbar.",
-        "Bekannte Ananta-Dateitypen erscheinen auch bei bewusstem Ausschluss."
-      ]
+        "Setup-Coverage weist jeden Kandidaten als indexed, excluded, unsupported oder failed mit detected_type, Strategie, Diagnostic, Grund und Bytezahl aus.",
+        "Aggregationen sind deterministisch nach Typ, Fähigkeit, Parser, Outcome, Ausschlussgrund und Diagnostic verfügbar.",
+        "Unbekannter Text und binäre beziehungsweise unklassifizierte Dateien bleiben unterscheidbar.",
+        "Das additive Manifest speichert Registry-Snapshot, vollständige Candidate-Bilanz und beobachtete Capability-Evidence.",
+        "Der Worker-Reader weist widersprüchliche, negative oder doppelte Capability-Claims fail-closed ab."
+      ],
+      "evidence": {
+        "implementation": ["ananta_contracts/file_type_coverage.py", "agent/services/file_type_manifest_service.py", "worker/retrieval/codecompass_output_reader.py"],
+        "tests": ["tests/test_file_type_coverage_contract.py", "tests/test_file_type_manifest_service.py", "tests/test_codecompass_output_manifest_schema.py", "tests/test_codecompass_file_type_manifest_projection.py"],
+        "checks": ["python scripts/setup_codecompass_index.py --dry-run --coverage-json <temporary-path>"],
+        "result": "met"
+      }
     },
     {
       "id": "CFT-006",
-      "title": "Support-Matrix API und CLI bereitstellen",
+      "milestone_id": "CFT-M2",
+      "title": "Authentifizierte Support-Matrix API und Audit-CLI bereitstellen",
       "type": "feature",
-      "status": "todo",
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "low",
-      "dependencies": ["CFT-001", "CFT-005"],
-      "affected_files": ["agent/repository_map_engine.py", "scripts/setup_codecompass_index.py"],
+      "depends_on": ["CFT-001", "CFT-005"],
+      "affected_files": ["agent/routes/knowledge.py", "agent/services/file_type_support_service.py", "scripts/audit_codecompass_file_type_support.py"],
       "acceptance_criteria": [
-        "language_support_matrix liefert support_level, parser_strategy, fallback_strategy, semantic_adapter, known_limits und enabled.",
-        "CLI kann nach Prioritaet, Stufe und fehlendem Parser filtern.",
-        "Endungen, exakte Namen und Muster werden getrennt dargestellt.",
-        "Snapshot-Tests verhindern unbeabsichtigte Herabstufungen."
-      ]
+        "GET /knowledge/file-type-support ist authentifiziert, read-only und liefert Registry-Digest sowie getrennte Selektoren und Dimensionen.",
+        "API und CLI filtern streng nach Priorität, Pipeline, Dimension, effektivem Level, Aktivierung und fehlender Runtime.",
+        "Unbekannte Queryfelder, Enumwerte und nicht boolesche Booleans liefern 400 statt stiller Interpretation.",
+        "Hub-Runtime wird als hub_process gekennzeichnet und nicht als Worker-Wahrheit ausgegeben.",
+        "Die CLI liest nur begrenzte tracked Inhalte, prüft Evidence und führt niemals Repository-Code aus."
+      ],
+      "evidence": {
+        "implementation": ["agent/routes/knowledge.py", "agent/services/file_type_support_service.py", "scripts/audit_codecompass_file_type_support.py"],
+        "tests": ["tests/test_file_type_support_api.py", "tests/test_file_type_support_audit.py"],
+        "result": "met"
+      }
     },
     {
       "id": "CFT-007",
+      "milestone_id": "CFT-M3",
       "title": "Dokumentationsformate strukturiert indexieren",
       "type": "feature",
-      "status": "todo",
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "medium",
-      "dependencies": ["CFT-004"],
-      "affected_files": ["agent/codecompass/parsers/documentation.py", "agent/services/rag_helper_index_service.py"],
+      "depends_on": ["CFT-004"],
+      "affected_files": ["rag-helper/rag_helper/extractors/documentation_extractor.py", "rag-helper/rag_helper/extractors/adoc_provenance_adapter.py", "rag-helper/rag_helper/application/cross_file_relation_resolver.py"],
       "acceptance_criteria": [
-        ".md, .mdx, .rst und .adoc werden erkannt.",
-        "Ueberschriften, Abschnitte, Codebloecke, Links, Listen und Frontmatter behalten Zeilenprovenienz.",
-        "Ueberschriften bilden hierarchische Symbole und interne Links Referenzkanten.",
-        "Codebloecke werden nicht ausgefuehrt.",
-        "AGENTS.md, README und docs/** sind in Coverage- und Retrieval-Tests enthalten."
-      ]
+        "Markdown, MDX, reStructuredText und AsciiDoc werden erkannt und behalten Zeilenprovenienz.",
+        "Überschriften, Abschnitte, Codeblöcke, Links, Listen, Directives und Frontmatter werden statisch extrahiert.",
+        "Hierarchische Symbole und sichere interne Referenzbeziehungen werden erzeugt.",
+        "Codeblöcke, Directives und Includes werden nicht ausgeführt oder außerhalb des Repositorys aufgelöst.",
+        "AGENTS.md, README und docs-Dateien sind durch Registry-, Extractor- und Retrievaltests abgedeckt."
+      ],
+      "evidence": {
+        "implementation": ["rag-helper/rag_helper/extractors/documentation_extractor.py", "rag-helper/rag_helper/application/cross_file_relation_resolver.py"],
+        "tests": ["rag-helper/tests/test_documentation_configuration_formats.py", "rag-helper/tests/test_cross_file_relation_resolver.py", "tests/test_knowledge_index_retrieval_service.py"],
+        "result": "met"
+      }
     },
     {
       "id": "CFT-008",
-      "title": "Konfigurationsformate sicher parsen",
+      "milestone_id": "CFT-M3",
+      "title": "Konfigurationsformate sicher und begrenzt parsen",
       "type": "feature",
-      "status": "todo",
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
-      "dependencies": ["CFT-004"],
-      "affected_files": ["agent/codecompass/parsers/configuration.py", "agent/hybrid_repository_scan.py"],
+      "depends_on": ["CFT-004"],
+      "affected_files": ["rag-helper/rag_helper/extractors/configuration_extractor.py", "rag-helper/rag_helper/application/processing_limits.py"],
       "acceptance_criteria": [
-        ".yaml, .yml, .toml, .ini, .cfg, .conf und .properties werden als Key-Path-Symbole indexiert.",
-        "Mehrdokument-YAML behaelt Dokumentnummer und Provenienz.",
-        "YAML-Alias-Limits verhindern Alias-Bomben.",
-        "Fehler fallen mit Diagnostic auf text_index zurueck.",
-        "Mutmassliche Secretwerte werden redigiert."
-      ]
+        "YAML/YML, TOML, INI/CFG/CONF und Properties werden als begrenzte Key-Path-Symbole indexiert.",
+        "Mehrdokument-YAML behält Dokumentnummer und Provenienz; Aliasanzahl und Strukturtiefe sind begrenzt.",
+        "Mutmaßliche Secretwerte werden vor Record-Erzeugung redigiert oder ausgelassen.",
+        "Syntax- und Limitfehler liefern strukturierte Diagnostics und einen kontrollierten statischen Fallback.",
+        "Parser verwenden weder Netzwerkzugriff noch Evaluierung von Tags, Templates oder Konfigurationsausdrücken."
+      ],
+      "evidence": {
+        "implementation": ["rag-helper/rag_helper/extractors/configuration_extractor.py", "rag-helper/rag_helper/extractors/structured_support.py"],
+        "tests": ["rag-helper/tests/test_documentation_configuration_formats.py", "rag-helper/tests/test_file_type_security_regression.py"],
+        "result": "met"
+      }
     },
     {
       "id": "CFT-009",
-      "title": "XML- und drawio-Extraktion absichern",
+      "milestone_id": "CFT-M3",
+      "title": "XML-, XSD- und draw.io-Extraktion gegen aktive Inhalte absichern",
       "type": "security",
-      "status": "todo",
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
-      "dependencies": ["CFT-004"],
-      "affected_files": ["agent/codecompass/parsers/xml_documents.py"],
+      "depends_on": ["CFT-004"],
+      "affected_files": ["rag-helper/rag_helper/domain/xml_security.py", "rag-helper/rag_helper/extractors/xml_extractor.py", "rag-helper/rag_helper/extractors/xsd_extractor.py", "rag-helper/rag_helper/extractors/diagram_extractor.py"],
       "acceptance_criteria": [
-        "Externe Entitaeten, DTD-Aufloesung und Netzwerkzugriff sind deaktiviert.",
-        "Groessen-, Tiefen- und Knotengrenzen sind konfigurierbar.",
-        "Generisches XML liefert Elementpfade, IDs, Namen und Referenzen.",
-        "drawio extrahiert Seiten, Knotenlabels und Kanten, sofern sicher dekodierbar.",
-        "Nicht dekodierbare Inhalte erzeugen Diagnostics statt Scheinerfolg."
-      ]
+        "DTD, externe Entitäten und Entity-Deklarationen werden vor Parsing abgewiesen; XInclude bleibt inert und wird niemals dereferenziert; Netzwerkzugriff findet nicht statt.",
+        "Byte-, Knoten-, Tiefen-, Attribut- und Textgrenzen werden vor und während Extraktion geprüft.",
+        "XML/XSD liefern sichere Element-, Typ-, ID- und Referenzsymbole mit Provenienz.",
+        "draw.io extrahiert Seiten, Knotenlabels und Kanten nur aus sicher dekodierbarem XML.",
+        "XXE, Entity-Bomben, übergroße oder nicht dekodierbare Inhalte liefern Diagnostics statt Scheinerfolg."
+      ],
+      "evidence": {
+        "implementation": ["rag-helper/rag_helper/domain/xml_security.py", "rag-helper/rag_helper/extractors/xml_extractor.py", "rag-helper/rag_helper/extractors/diagram_extractor.py"],
+        "tests": ["rag-helper/tests/test_xml_security.py", "rag-helper/tests/test_file_type_security_regression.py", "tests/test_codecompass_file_type_security_regression.py"],
+        "result": "met"
+      }
     },
     {
       "id": "CFT-010",
-      "title": "Architekturdiagramme semantisch erfassen",
+      "milestone_id": "CFT-M3",
+      "title": "Textbasierte Architekturdiagramme statisch erfassen",
       "type": "feature",
-      "status": "todo",
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
-      "dependencies": ["CFT-007", "CFT-009"],
-      "affected_files": ["agent/codecompass/parsers/architecture_diagrams.py"],
+      "depends_on": ["CFT-007", "CFT-009"],
+      "affected_files": ["rag-helper/rag_helper/extractors/diagram_extractor.py", "rag-helper/rag_helper/application/cross_file_relation_resolver.py"],
       "acceptance_criteria": [
-        "Mermaid, PlantUML und Graphviz extrahieren Knoten, Kanten, Labels und Subgraphs oder Packages.",
-        "Include-Pfade duerfen das Repository nicht verlassen.",
-        "Diagrammknoten koennen mit Dokumentabschnitten verknuepft werden.",
-        "Syntaxfehler liefern positionsbezogene Diagnostics bei erhaltenem text_index.",
-        "Golden Tests decken Flowchart, Sequence, Class, Component und DOT ab."
-      ]
+        "Mermaid, PlantUML und Graphviz DOT extrahieren begrenzte Knoten, Kanten, Labels und Gruppierungen mit Zeilenprovenienz.",
+        "Includes, Preprocessor-Anweisungen, HTML-artige Labels und aktive Konstrukte werden nicht ausgeführt oder extern aufgelöst.",
+        "Sichere Diagrammreferenzen können über den separaten CrossFileRelationResolver mit Dokumenten verbunden werden.",
+        "Syntaxfehler oder nicht unterstützte Konstrukte liefern begrenzte Diagnostics bei erhaltenem Textzugriff.",
+        "Golden- und Negativtests decken Mermaid-, PlantUML-, DOT- und draw.io-Varianten ab."
+      ],
+      "evidence": {
+        "implementation": ["rag-helper/rag_helper/extractors/diagram_extractor.py", "rag-helper/rag_helper/application/cross_file_relation_resolver.py"],
+        "tests": ["rag-helper/tests/test_diagram_formats.py", "rag-helper/tests/test_cross_file_relation_resolver.py"],
+        "result": "met"
+      }
     },
     {
       "id": "CFT-011",
-      "title": "Angular Templates und Styles indexieren",
+      "milestone_id": "CFT-M4",
+      "title": "Angular Templates und Styles statisch indexieren",
       "type": "feature",
-      "status": "todo",
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
-      "dependencies": ["CFT-004"],
-      "affected_files": ["agent/codecompass/parsers/angular_templates.py", "frontend-angular/src"],
+      "depends_on": ["CFT-004"],
+      "affected_files": ["rag-helper/rag_helper/extractors/angular_asset_extractor.py", "rag-helper/rag_helper/application/cross_file_relation_resolver.py", "agent/codecompass/semantic_translation/typescript_adapter.py"],
       "acceptance_criteria": [
-        ".html extrahiert Komponenten-Tags, Template-Referenzen, Inputs, Outputs, Direktiven, Pipes und Bindings ohne Ausfuehrung.",
-        "@if, @for, @switch sowie *ngIf und *ngFor werden erkannt.",
-        ".css, .scss, .sass und .less extrahieren Selektoren, Custom Properties und Imports.",
-        "Template-Tags werden zu TypeScript-Komponenten verknuepft, wenn Selector-Metadaten existieren.",
-        "Tests nutzen repraesentative Dateien aus frontend-angular/src."
-      ]
+        "HTML extrahiert Komponenten-Tags, Template-Referenzen, Inputs, Outputs, Direktiven, Pipes und Bindings ohne DOM- oder Skriptausführung.",
+        "Moderne Angular-Control-Flows sowie ngIf/ngFor werden strukturell erkannt.",
+        "CSS, SCSS, Sass und Less extrahieren Selektoren, Custom Properties, Imports und Mixins begrenzt.",
+        "Template-Tags werden nur bei vorhandener TypeScript-Selector-Evidence verknüpft.",
+        "Tests verwenden repräsentative Angular- und Stylesheet-Konstrukte einschließlich aktiver Negativfälle."
+      ],
+      "evidence": {
+        "implementation": ["rag-helper/rag_helper/extractors/angular_asset_extractor.py", "agent/codecompass/semantic_translation/typescript_adapter.py"],
+        "tests": ["rag-helper/tests/test_angular_infrastructure_formats.py", "tests/test_codecompass_semantic_adapter_registry.py"],
+        "result": "met"
+      }
     },
     {
       "id": "CFT-012",
-      "title": "Docker, Compose und CI analysieren",
+      "milestone_id": "CFT-M4",
+      "title": "Docker, Compose, GitHub Actions, Make und Jenkins analysieren",
       "type": "feature",
-      "status": "todo",
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
-      "dependencies": ["CFT-008"],
-      "affected_files": ["agent/codecompass/parsers/infrastructure.py", "docker", ".github/workflows"],
+      "depends_on": ["CFT-008"],
+      "affected_files": ["rag-helper/rag_helper/extractors/infrastructure_extractor.py", "rag-helper/rag_helper/application/cross_file_relation_resolver.py"],
       "acceptance_criteria": [
-        "Dockerfile extrahiert Stages, Base Images, COPY oder ADD, ENV-Schluessel, Ports und Entrypoints.",
-        "Compose erkennt Services, Images, Builds, Volumes, Networks, depends_on, Healthchecks und Environment-Schluessel.",
-        "GitHub Actions erkennt Jobs, Steps, uses, needs, Trigger und Secretnamen ohne Werte.",
-        "Makefile und Jenkinsfile erhalten mindestens Ziel- oder Stage-Symbole.",
-        "Graphkanten verbinden Services mit Dockerfiles, Images, Netzwerken, Volumes und Abhaengigkeiten."
-      ]
+        "Dockerfile/Containerfile extrahieren Stages, Base Images, Copy-Quellen, ENV-Schlüssel, Ports und Entrypoints ohne Build.",
+        "Compose erkennt Services, Images, Builds, Volumes, Networks, depends_on, Healthchecks und nur Environment-Schlüssel.",
+        "GitHub Actions erkennt Workflows, Trigger, Jobs, Steps, uses und needs; Secretwerte werden niemals kopiert.",
+        "Makefile und Jenkinsfile liefern Ziel- beziehungsweise Stage-Symbole ohne Make/Groovy-Ausführung.",
+        "Cross-file-Kanten verbinden nur normalisierte, repositoryinterne Docker-, Service-, Netzwerk-, Volume- und Abhängigkeitsreferenzen."
+      ],
+      "evidence": {
+        "implementation": ["rag-helper/rag_helper/extractors/infrastructure_extractor.py", "rag-helper/rag_helper/application/cross_file_relation_resolver.py"],
+        "tests": ["rag-helper/tests/test_angular_infrastructure_formats.py", "rag-helper/tests/test_cross_file_relation_resolver.py"],
+        "result": "met"
+      }
     },
     {
       "id": "CFT-013",
-      "title": "Shell- und PowerShell-Skripte unterstuetzen",
+      "milestone_id": "CFT-M4",
+      "title": "Shell- und PowerShell-Skripte inert unterstützen",
       "type": "feature",
-      "status": "todo",
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
-      "dependencies": ["CFT-004"],
-      "affected_files": ["agent/codecompass/parsers/scripts.py", "scripts", "devtools"],
+      "depends_on": ["CFT-004"],
+      "affected_files": ["rag-helper/rag_helper/extractors/script_extractor.py", "rag-helper/rag_helper/filesystem/file_filters.py"],
       "acceptance_criteria": [
-        ".sh, .bash, .zsh, .fish, .ps1 und .psm1 werden erkannt; Shebang kann Dateien ohne Endung klassifizieren.",
-        "Funktionen, Parameter, Variablen, Imports oder dot-sourcing und lokale Dateiaufrufe werden extrahiert.",
-        "Keine Command Substitution oder Skriptausfuehrung findet statt.",
-        "eval und Invoke-Expression erzeugen Sicherheitsdiagnostics.",
-        "Regex-Fallback wird mit reduzierter Confidence markiert."
-      ]
+        "sh, bash, zsh, fish, ps1 und psm1 werden durch Endung oder begrenzten Shebang klassifiziert; psd1 bleibt ehrlich auf bounded setup text begrenzt.",
+        "Funktionen, Parameter, Variablen, Imports, dot-sourcing und lokale Dateireferenzen werden statisch extrahiert.",
+        "Command substitution, Skriptcode, eval und Invoke-Expression werden niemals ausgeführt.",
+        "Gefährliche dynamische Konstrukte erzeugen Sicherheitsdiagnostics.",
+        "Heuristische Extraktion trägt reduzierte Confidence und verliert bei Syntaxfehlern nicht den ganzen Datei-Outcome."
+      ],
+      "evidence": {
+        "implementation": ["rag-helper/rag_helper/extractors/script_extractor.py", "rag-helper/rag_helper/filesystem/file_filters.py"],
+        "tests": ["rag-helper/tests/test_script_data_contract_formats.py", "rag-helper/tests/test_file_scanner_special_names.py", "rag-helper/tests/test_file_type_security_regression.py"],
+        "result": "met"
+      }
     },
     {
       "id": "CFT-014",
-      "title": "Datenvertraege, SQL und Notebooks erweitern",
+      "milestone_id": "CFT-M4",
+      "title": "Datenverträge, SQL, Terraform, Tabellen und Notebooks erweitern",
       "type": "feature",
-      "status": "todo",
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "medium",
-      "dependencies": ["CFT-004"],
-      "affected_files": ["agent/codecompass/parsers/data_contracts.py", "agent/codecompass/parsers/sql.py", "agent/codecompass/parsers/notebooks.py"],
+      "depends_on": ["CFT-004"],
+      "affected_files": ["rag-helper/rag_helper/extractors/data_contract_extractor.py", "rag-helper/rag_helper/extractors/tabular_notebook_extractor.py", "rag-helper/rag_helper/extractors/infrastructure_extractor.py"],
       "acceptance_criteria": [
-        "JSON Schema extrahiert $id, $ref, $defs oder definitions, properties, required und Kompositionsbeziehungen.",
-        "GraphQL und Protobuf extrahieren Typen, Felder, Services, Operationen und Imports.",
-        "SQL extrahiert CREATE TABLE, VIEW und INDEX, Spalten, Fremdschluessel und einfache View-Abhaengigkeiten.",
-        "CSV und TSV werden nur innerhalb Limits mit Headern und Schema-Samples indexiert.",
-        "ipynb extrahiert Markdown- und Codezellen; Outputs und Binaerdaten bleiben ausgeschlossen."
-      ]
+        "JSON Schema extrahiert id/ref/defs/properties/required und begrenzte Kompositionsbeziehungen.",
+        "GraphQL und Protobuf extrahieren Typen, Felder, Services, Operationen und Imports ohne Generatorausführung.",
+        "SQL extrahiert Tabellen, Views, Indizes, Spalten, Fremdschlüssel und einfache Abhängigkeiten ohne Datenbankverbindung.",
+        "Terraform extrahiert Blocks, Provider, Ressourcen, Variablen und statische Referenzen ohne init, plan oder expression evaluation.",
+        "CSV/TSV werden innerhalb Zeilen-, Spalten- und Bytegrenzen als Header-/Schemasample indexiert und melden keine Relationships.",
+        "ipynb extrahiert Markdown- und Codezellen begrenzt; Outputs, Anhänge, Binärdaten und Zellausführung bleiben ausgeschlossen."
+      ],
+      "evidence": {
+        "implementation": ["rag-helper/rag_helper/extractors/data_contract_extractor.py", "rag-helper/rag_helper/extractors/tabular_notebook_extractor.py", "rag-helper/rag_helper/extractors/infrastructure_extractor.py"],
+        "tests": ["rag-helper/tests/test_script_data_contract_formats.py", "rag-helper/tests/test_tabular_notebook_formats.py", "rag-helper/tests/test_file_type_security_regression.py"],
+        "result": "met"
+      }
     },
     {
       "id": "CFT-015",
-      "title": "Java-Adapter parsergestuetzt verbessern",
+      "milestone_id": "CFT-M5",
+      "title": "Java-Adapter parsergestützt mit ehrlichem Fallback verbessern",
       "type": "refactor",
-      "status": "todo",
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
-      "dependencies": ["CFT-003"],
-      "affected_files": ["agent/codecompass/semantic_translation/adapters.py"],
+      "depends_on": ["CFT-003"],
+      "affected_files": ["agent/codecompass/semantic_translation/java_tree_sitter.py", "agent/codecompass/semantic_translation/adapters.py", "agent/repository_map_tree_sitter.py"],
       "acceptance_criteria": [
-        "Java nutzt bevorzugt Tree-sitter oder einen gleichwertigen sicheren Parser.",
-        "regex-java-v1 bleibt nur als Fallback mit reduzierter Confidence.",
-        "Nested Types, Generics, Konstruktoren, Imports und Annotationen werden korrekt erfasst.",
-        "extends-, implements-, imports-, declares- und throws-Kanten werden erzeugt.",
-        "Golden Tests decken Records, Generics, Nested Classes und Annotationen ab."
-      ]
+        "Java bevorzugt eine smoke-getestete Tree-sitter-Grammatik, wenn sie in der konkreten Runtime verfügbar ist.",
+        "Der Regex-Fallback bleibt statisch, begrenzt und mit reduzierter Confidence sichtbar.",
+        "Nested Types, Records, Generics, Konstruktoren, Imports und Annotationen werden in Golden-Fällen erfasst.",
+        "extends-, implements-, imports-, declares- und throws-Beziehungen werden nur bei tatsächlich erzeugter Evidence gemeldet.",
+        "Fehlende oder inkompatible Grammatik führt kontrolliert zum verifizierten Fallback statt zu einem falschen Parserclaim."
+      ],
+      "evidence": {
+        "implementation": ["agent/codecompass/semantic_translation/java_tree_sitter.py", "agent/codecompass/semantic_translation/adapters.py", "agent/repository_map_tree_sitter.py"],
+        "tests": ["tests/test_codecompass_semantic_adapter_registry.py", "tests/test_repository_map_tree_sitter_runtime.py", "rag-helper/tests/test_java_type_resolution.py"],
+        "result": "met"
+      }
     },
     {
       "id": "CFT-016",
+      "milestone_id": "CFT-M5",
       "title": "TypeScript- und JavaScript-SemanticAdapter implementieren",
       "type": "feature",
-      "status": "todo",
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "high",
-      "dependencies": ["CFT-003", "CFT-011"],
-      "affected_files": ["agent/codecompass/semantic_translation/typescript_adapter.py"],
+      "depends_on": ["CFT-003", "CFT-011"],
+      "affected_files": ["agent/codecompass/semantic_translation/typescript_adapter.py", "agent/codecompass/semantic_translation/registry.py"],
       "acceptance_criteria": [
-        ".ts, .tsx, .js und .jsx erfassen Klassen, Interfaces, Type Aliases, Enums, Funktionen, Methoden, Imports und Exports.",
-        "extends-, implements-, imports-, exports- und declares-Kanten werden erzeugt.",
-        "TSX- und JSX-Tags werden mit Komponentenreferenzen verknuepft.",
-        "Angular-Selectoren und React-Komponenten werden als spezialisierte Semantik markiert.",
-        "Fehlende tsconfig-Datei verhindert keinen Basisscan."
-      ]
+        "ts, tsx, js und jsx erfassen Klassen, Interfaces, Type Aliases, Enums, Funktionen, Methoden, Imports und Exports statisch.",
+        "extends-, implements-, imports-, exports- und declares-Kanten enthalten Provenienz und Confidence.",
+        "TSX-/JSX-Tags sowie Angular-Selektoren und React-Komponenten werden strukturell markiert, niemals gerendert.",
+        "Fehlende tsconfig- oder Toolchain-Dateien verhindern keinen Basisscan.",
+        "Limits, Syntaxdiagnostics und nicht ausführende Parsersemantik sind durch Contract-Tests abgesichert."
+      ],
+      "evidence": {
+        "implementation": ["agent/codecompass/semantic_translation/typescript_adapter.py", "agent/codecompass/semantic_translation/registry.py"],
+        "tests": ["tests/test_codecompass_semantic_adapter_registry.py", "tests/test_codecompass_parser_limits.py"],
+        "result": "met"
+      }
     },
     {
       "id": "CFT-017",
-      "title": "Weitere Tree-sitter-Sprachen semantisch anbinden",
+      "milestone_id": "CFT-M5",
+      "title": "Weitere Sprachen mit verifizierten Symboladaptern anbinden",
       "type": "feature",
-      "status": "todo",
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "medium",
-      "dependencies": ["CFT-003"],
-      "affected_files": ["agent/codecompass/semantic_translation"],
+      "depends_on": ["CFT-003"],
+      "affected_files": ["agent/codecompass/semantic_translation/symbol_adapters.py", "agent/codecompass/semantic_translation/static_symbol_adapters.py", "config/codecompass/file_type_support.v1.json"],
       "acceptance_criteria": [
-        "Go, Rust, C oder C++, C#, Ruby und PHP besitzen Adapter oder eine explizite Begrenzung auf symbol_index.",
-        "Neue Adapter liefern Typ-, Funktions- und Importextraktion, Provenienz, Confidence und Diagnostics.",
-        "Je Sprache existiert mindestens ein Golden Test.",
-        "semantic_graph wird erst nach bestandenen Graph-Contract-Tests gemeldet.",
-        "Fehlende optionale Parser fuehren kontrolliert zu symbol_index-Fallback."
-      ]
+        "Go, Rust, C/C++, C#, Ruby und PHP besitzen verifizierte statische Symbol-Fallbacks oder runtime-probed Tree-sitter-Unterstützung.",
+        "Kotlin/KTS, Swift, Scala, Lua, Dart, Vue und Svelte besitzen deklarative, nicht ausführende Symboladapter mit Provenienz, Confidence und Diagnostics.",
+        "Vue/Svelte untersuchen nur einen geschlossenen Scriptbereich; Template und Styles bleiben inert.",
+        "Jede Sprachgruppe besitzt Golden- und Negativtests für Symbole, Kommentarfilterung, Limits und Provenienz.",
+        "Keiner dieser Adapter meldet relationships oder semantic_graph ohne entsprechende Graph-Contract-Tests."
+      ],
+      "evidence": {
+        "implementation": ["agent/codecompass/semantic_translation/symbol_adapters.py", "agent/codecompass/semantic_translation/static_symbol_adapters.py"],
+        "tests": ["tests/test_codecompass_p2_static_symbol_adapters.py", "tests/test_codecompass_semantic_adapter_registry.py"],
+        "result": "met"
+      }
     },
     {
       "id": "CFT-018",
-      "title": "Sicherheits- und Ressourcenlimits zentral durchsetzen",
+      "milestone_id": "CFT-M6",
+      "title": "Sicherheits- und Ressourcenlimits pipelineübergreifend durchsetzen",
       "type": "security",
-      "status": "todo",
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
-      "dependencies": ["CFT-004", "CFT-008", "CFT-009", "CFT-012", "CFT-013", "CFT-014"],
-      "affected_files": ["agent/codecompass/parser_limits.py", "agent/config.py"],
+      "depends_on": ["CFT-004", "CFT-008", "CFT-009", "CFT-012", "CFT-013", "CFT-014"],
+      "affected_files": ["agent/codecompass/parser_limits.py", "agent/config.py", "agent/services/rag_helper_index_service.py", "rag-helper/rag_helper/application/processing_limits.py", "rag-helper/rag_helper/application/document_extractor.py"],
       "acceptance_criteria": [
-        "Globale Limits existieren fuer Dateigroesse, Zeilen, Parserzeit, XML-Tiefe, YAML-Aliase, Notebook-Output und CSV-Zeilen.",
-        "Parser verwenden keinen Netzwerkzugriff und fuehren keinen Repository-Code aus.",
-        "Secret-Erkennung redigiert Werte fuer env, password, token, api_key und private_key.",
-        "Timeout, Limitueberschreitung und Sicherheitsblockade sind getrennte Diagnostics.",
-        "Tests decken XXE, YAML Alias Bomb, uebergrosse Dateien, Path Traversal und Script-eval ab."
-      ]
+        "Hub-Einstellungen begrenzen Bytes, Zeilen, kooperative Parserzeit, Records, XML, YAML, Notebook und Tabellen in Semantic-, RepositoryMap-, Setup- und Hub-Rag-helper-Pfaden.",
+        "Profile dürfen injizierte ProcessingLimits verschärfen, aber die Hub-Ceilings nicht erweitern; eigenständige Worker erhalten ihre Policy explizit über Containerkonfiguration.",
+        "Bytegrenzen prüfen tatsächliche UTF-8-Bytes; verspätete Parserausgabe wird verworfen und als parser_timeout gemeldet.",
+        "Netzwerk-, Code-, Template-, Makro-, Notebook-, Container- und Datenbankausführung findet in keinem neuen Parser statt.",
+        "Secret-Erkennung redigiert oder entfernt sensible Werte; Pfad- und Symlink-Prüfung erfolgt vor Dateiöffnung.",
+        "Risikobasierte Tests decken XXE, Alias-Bomben, Oversize, Binärinhalt, Traversal, eval/Invoke-Expression und aktive Markup-Konstrukte ab."
+      ],
+      "evidence": {
+        "implementation": ["agent/codecompass/parser_limits.py", "agent/services/rag_helper_index_service.py", "rag-helper/rag_helper/application/document_extractor.py"],
+        "tests": ["tests/test_codecompass_parser_limits.py", "tests/test_codecompass_file_type_security_regression.py", "rag-helper/tests/test_document_extractor_format_registration.py", "rag-helper/tests/test_file_type_security_regression.py", "rag-helper/tests/test_xml_security.py"],
+        "result": "met"
+      }
     },
     {
       "id": "CFT-019",
-      "title": "Regression-, Golden- und Coverage-Tests aufbauen",
+      "milestone_id": "CFT-M6",
+      "title": "Regression-, Golden-, Security- und Coverage-Gates abschließen",
       "type": "testing",
-      "status": "todo",
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
-      "dependencies": ["CFT-005", "CFT-007", "CFT-008", "CFT-009", "CFT-010", "CFT-011", "CFT-012", "CFT-013", "CFT-014", "CFT-015", "CFT-016"],
-      "affected_files": ["tests/test_repository_map_engine.py", "tests/test_codecompass_python_translation.py", "tests/test_codecompass_file_type_support.py"],
+      "depends_on": ["CFT-005", "CFT-007", "CFT-008", "CFT-009", "CFT-010", "CFT-011", "CFT-012", "CFT-013", "CFT-014", "CFT-015", "CFT-016", "CFT-017", "CFT-018"],
+      "affected_files": ["tests/test_file_type_support_contract.py", "tests/test_codecompass_semantic_adapter_registry.py", "tests/test_codecompass_file_type_security_regression.py", "rag-helper/tests/test_file_type_security_regression.py"],
       "acceptance_criteria": [
-        "Fuer jeden P0-Typ existiert mindestens ein gueltiger und fehlerhafter Fixture-Fall.",
-        "Golden Tests pruefen Symbole, Knoten, Kanten, Diagnostics, Provenienz und Support-Stufe.",
-        "Ein gemischtes Mini-Repository verliert keine P0-Dateikategorie still.",
-        "Registry, Scanner, Support-Matrix und Adapterlisten werden auf Drift geprueft.",
-        "Bestehende Python-, Java- und RepositoryMapEngine-Tests bleiben erfolgreich."
-      ]
+        "Golden-Tests prüfen Symbole, Knoten, Kanten, Diagnostics, Provenienz, Confidence und Capability-Claims für alle implementierten Gruppen.",
+        "Risikobasierte Negativfälle prüfen Syntaxfehler, XXE, Alias-Bomben, Binärinhalt, Oversize, Traversal, aktive Skriptkonstrukte und Ressourcenlimits.",
+        "Gemischte Mini-Repositories verlieren keine aktivierte Kategorie still; Candidate-Bilanzen bleiben vollständig.",
+        "Registry, Scanner, Support-API, Audit, Manifest, Worker-Reader, Migration, Metriken und Adapter werden auf Drift geprüft.",
+        "Bestehende Python-, Java-, RepositoryMap-, Hybrid-, Retrieval- und vollständige Rag-helper-Regressionen bleiben erfolgreich."
+      ],
+      "evidence": {
+        "tests": ["tests/test_file_type_support_contract.py", "tests/test_file_type_coverage_contract.py", "tests/test_codecompass_semantic_adapter_registry.py", "tests/test_codecompass_p2_static_symbol_adapters.py", "tests/test_repository_map_tree_sitter_runtime.py", "rag-helper/tests/test_file_type_security_regression.py"],
+        "checks": ["Final semantic translation gate: 158 passed", "Final P2, parser-limit and semantic-registry gate: 85 passed", "Final registry/setup/coverage/metrics gate: 42 passed", "Final operational integration gate: 103 passed", "Rag-helper suite: 298 passed from repository-root-compatible invocation"],
+        "result": "met"
+      }
     },
     {
       "id": "CFT-020",
-      "title": "Rollout, Migration und Metriken dokumentieren",
+      "milestone_id": "CFT-M6",
+      "title": "Rollout, zielgerichtete Migration, Metriken und Betriebsdokumentation abschließen",
       "type": "rollout",
-      "status": "todo",
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "medium",
-      "dependencies": ["CFT-006", "CFT-018", "CFT-019"],
-      "affected_files": ["docs/codecompass/file-type-support.md", "agent/services/rag_helper_index_service.py"],
+      "depends_on": ["CFT-006", "CFT-018", "CFT-019"],
+      "affected_files": ["ananta_contracts/file_type_rollout.py", "ananta_contracts/file_type_migration.py", "agent/services/rag_helper_file_type_policy.py", "agent/services/rag_helper_file_type_migration.py", "agent/services/file_type_metrics_service.py", "agent/codecompass/file_type_telemetry.py", "docs/architecture/codecompass-file-type-support.md"],
       "acceptance_criteria": [
-        "Parser sind pro Registry-Eintrag oder Kategorie per Feature Flag aktivierbar.",
-        "Indexmigration invalidiert nur betroffene Typen und speichert Registry- und Parser-Version.",
-        "Metriken erfassen Erfolg, Fallback, Diagnostics, Laufzeit, Dateigroesse und erzeugte Symbole oder Kanten je Typ.",
-        "Dokumentation erklaert Support-Stufen, Grenzen, Konfiguration und Erweiterung.",
-        "P0 wird vor P1 und P2 ausgerollt.",
-        "Abschluss: Jede relevante Repository-Datei erscheint reproduzierbar als indexiert oder mit explizitem Ausschlussgrund."
-      ]
+        "P0/P1/P2 sowie einzelne Formate sind per validierter Allow-/Deny-Policy aktivierbar; unbekannte oder überlappende Werte werden abgewiesen.",
+        "Repository-Indexläufe speichern Source-Fingerprint, Registry-Digest, Descriptor-Hashes, effektive Format-IDs, detected_type und Parser-Evidence.",
+        "Eine Registry- oder Rolloutänderung invalidiert operativ nur betroffene Manifest-/Cachepfade; fehlende Legacy-Evidence fällt sicher auf bekannte Vollinvalidierung zurück.",
+        "Setup, Rag-helper, RepositoryMap und Semantic Translation erfassen Outcomes, Fallbacks, Diagnostics, Laufzeit, Bytes, Symbole und Kanten mit begrenzten Labels.",
+        "Metrikfehler beeinflussen ein erfolgreiches Indexresultat nicht; repositorygesteuerte unbekannte Labels kollabieren auf other.",
+        "Dokumentation erklärt Supportdimensionen, Grenzen, Konfiguration, Container-Policy, Migration, Audit und Erweiterung.",
+        "Der dokumentierte Rollout erfolgt P0 vor P1 vor P2 und verlangt Audit, Golden-Tests und Coverage-Dry-run als Gates."
+      ],
+      "evidence": {
+        "implementation": ["agent/services/rag_helper_file_type_migration.py", "rag-helper/rag_helper/application/incremental_cache.py", "agent/services/file_type_metrics_service.py", "agent/codecompass/file_type_telemetry.py", "docs/architecture/codecompass-file-type-support.md"],
+        "tests": ["tests/test_file_type_rollout.py", "tests/test_file_type_migration.py", "tests/test_rag_helper_file_type_migration.py", "rag-helper/tests/test_incremental_cache_invalidation.py", "tests/test_file_type_metrics_service.py", "tests/test_file_type_coverage_contract.py", "tests/test_setup_codecompass_file_type_index.py"],
+        "result": "met"
+      }
     }
   ],
+  "tasks_status_summary": {
+    "total": 20,
+    "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 20},
+    "progress_percent_done": 100.0,
+    "by_priority": {"P0": 15, "P1": 5, "P2": 0},
+    "by_risk": {"low": 1, "medium": 6, "high": 11, "critical": 2},
+    "critical_path": {"total": 6, "done": 6, "remaining": 0},
+    "milestones": {"total": 6, "todo": 0, "in_progress": 0, "blocked": 0, "done": 6}
+  },
+  "tasks_type_summary": {
+    "total": 20,
+    "by_type": {
+      "architecture": {"total": 1, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 1}, "done": 1, "partial": 0, "blocked": 0, "progress_percent": 100.0},
+      "analysis": {"total": 1, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 1}, "done": 1, "partial": 0, "blocked": 0, "progress_percent": 100.0},
+      "refactor": {"total": 2, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 2}, "done": 2, "partial": 0, "blocked": 0, "progress_percent": 100.0},
+      "implementation": {"total": 1, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 1}, "done": 1, "partial": 0, "blocked": 0, "progress_percent": 100.0},
+      "feature": {"total": 11, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 11}, "done": 11, "partial": 0, "blocked": 0, "progress_percent": 100.0},
+      "security": {"total": 2, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 2}, "done": 2, "partial": 0, "blocked": 0, "progress_percent": 100.0},
+      "testing": {"total": 1, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 1}, "done": 1, "partial": 0, "blocked": 0, "progress_percent": 100.0},
+      "rollout": {"total": 1, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 1}, "done": 1, "partial": 0, "blocked": 0, "progress_percent": 100.0}
+    }
+  },
+  "weighted_progress_summary": {
+    "weighting_model_ref": "planning-weighting-default-v1",
+    "total_weight": 31.0,
+    "done_weight": 31.0,
+    "remaining_weight": 0.0,
+    "blocked_weight": 0.0,
+    "weighted_percent": 100.0
+  },
+  "milestone_progress_summary": {
+    "milestones": {
+      "CFT-M1": {"total_tasks": 3, "done": 3, "blocked": 0, "count_based_percent": 100.0, "weighted_percent": 100.0, "status": "done"},
+      "CFT-M2": {"total_tasks": 3, "done": 3, "blocked": 0, "count_based_percent": 100.0, "weighted_percent": 100.0, "status": "done"},
+      "CFT-M3": {"total_tasks": 4, "done": 4, "blocked": 0, "count_based_percent": 100.0, "weighted_percent": 100.0, "status": "done"},
+      "CFT-M4": {"total_tasks": 4, "done": 4, "blocked": 0, "count_based_percent": 100.0, "weighted_percent": 100.0, "status": "done"},
+      "CFT-M5": {"total_tasks": 3, "done": 3, "blocked": 0, "count_based_percent": 100.0, "weighted_percent": 100.0, "status": "done"},
+      "CFT-M6": {"total_tasks": 3, "done": 3, "blocked": 0, "count_based_percent": 100.0, "weighted_percent": 100.0, "status": "done"}
+    }
+  },
+  "progress_summary": {
+    "state": "done",
+    "todo_remaining": 0,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 20,
+    "count_based_percent": 100.0,
+    "weighted_percent": 100.0
+  },
+  "derived_summary_metadata": {
+    "mode": "derived_cache",
+    "source_of_truth": "tasks",
+    "generated_at": "2026-07-18T10:51:58.833184Z",
+    "generator": "planning-summary-engine",
+    "generator_version": "1.0",
+    "source_hash": "55d676f8350eb7e47e6f8eccc586cdffbd22ceeeb21e7c6a976162baeac04fb3",
+    "is_stale": false
+  },
   "validation": {
     "required_checks": [
-      "python -m pytest tests/test_repository_map_engine.py",
-      "python -m pytest tests/test_codecompass_python_translation.py",
-      "python -m pytest tests -k 'codecompass and (file_type or parser or support or coverage)'",
-      "JSON-Schema-Validierung aller todos/todo.*.json"
+      "python devtools/validate_todo_schema.py todos/todo.codecompass-file-type-language-support-expansion.json",
+      "python scripts/validate_todo_consistency.py --todo todos/todo.codecompass-file-type-language-support-expansion.json",
+      "python scripts/audit_codecompass_file_type_support.py --output table",
+      "python scripts/setup_codecompass_index.py --dry-run --coverage-json <temporary-path>",
+      "python -m pytest tests/test_file_type_support_contract.py tests/test_file_type_coverage_contract.py tests/test_file_type_support_api.py tests/test_file_type_support_audit.py",
+      "python -m pytest tests/test_codecompass_semantic_adapter_registry.py tests/test_codecompass_p2_static_symbol_adapters.py tests/test_repository_map_tree_sitter_runtime.py",
+      "PYTHONPATH=rag-helper python -m pytest rag-helper/tests",
+      "ruff check --ignore E501,C901 <changed Python files>",
+      "git diff --check"
+    ],
+    "observed_results": [
+      "Nicht-strikter Audit erfolgreich; optional fehlende C/C++/Go/PHP/Ruby/Rust-Grammatiken bleiben erwartete Runtime-Warnungen.",
+      "Setup-Dry-run mit dem produktiven 2.000-Dateien-Limit erfolgreich: 7.595 Kandidaten, 1.990 indexierte Dateien und 1.991 Records; alle übrigen Kandidaten besitzen einen expliziten Outcome beziehungsweise Ausschlussgrund.",
+      "Finales Semantic-Translation-Gate: 158 Tests erfolgreich.",
+      "Finales P2-/Parserlimit-/Semantic-Registry-Gate: 85 Tests erfolgreich.",
+      "Finales Registry-/Setup-/Coverage-/Metrik-Gate: 42 Tests erfolgreich.",
+      "Finales operatives Integrationsgate für Support, Manifest, Security, Migration, Rollout, Rag-helper-Service, Hybrid, RepositoryMap und Retrieval: 103 Tests erfolgreich.",
+      "Rag-helper-Gesamtsuite: 298 Tests erfolgreich bei repository-root-kompatibler Ausführung.",
+      "Ruff für alle geänderten Python-Dateien ohne neue Nicht-Zeilenlängenfehler erfolgreich.",
+      "git diff --check erfolgreich."
     ],
     "definition_of_done": [
-      "Keine produktive Supportliste driftet ausserhalb der FileTypeSupportRegistry.",
-      "Alle P0-Dateitypen besitzen mindestens text_index und die vorgesehene Zielstufe oder einen dokumentierten, getesteten Blocker.",
-      "Support-Matrix und Coverage unterscheiden Erkennung, Text, Symbole, Semantik und Domain-Parsing.",
-      "Keine Datei verschwindet ohne Reporteintrag oder Ausschlussgrund.",
-      "Parser sind ressourcenbegrenzt, fuehren keinen Code aus und redigieren sensible Werte.",
-      "CI erkennt Registry-Drift und Regressionen der P0-Coverage."
+      "Produktive Klassifikation nutzt die Registry; verbleibende statische Mengen sind begrenzte Parser-Dispatches, Sicherheitslisten oder rückwärtskompatible Fail-safe-Oberflächen und keine konkurrierende Support-Wahrheit.",
+      "Alle P0-Dateitypen besitzen mindestens verifizierte Indexierung und die dokumentierte pipelinebezogene Zielstufe.",
+      "Support-Matrix und Coverage unterscheiden Indexierung, Symbole und Beziehungen sowie configured, runtime_available, verified und effective.",
+      "Kein entdeckter Kandidat verschwindet ohne Outcome, Diagnostic oder Ausschlussgrund.",
+      "Neue Parser sind ressourcenbegrenzt, statisch, nicht ausführend und redigieren sensible Werte.",
+      "Registry-Drift, Capability-Widersprüche, Security-Regressionen und P0-Coverage-Verluste werden automatisiert erkannt.",
+      "Rollout, Migration und Metriken respektieren Hub-Kontrolle und Containergrenzen."
     ]
-  }
+  },
+  "summary_notes": [
+    "Die ursprünglich eindimensionale Zielstufe wurde entfernt, weil sie semantische Unterstützung größer erscheinen ließ als die realen Fähigkeiten. Maßgeblich sind nun die drei Pipeline-Dimensionen.",
+    "CFT-018 behauptet ausdrücklich keinen harten In-Process-Timeout; der implementierte Guard ist kooperativ und verwirft verspätete Ausgabe.",
+    "CFT-020 ist erst durch die operative Verwendung von Descriptor-Hashes, Source-Fingerprint, Manifest-detected_type und gezielter Cache-Invalidierung als done bewertet.",
+    "Optional nicht installierte Tree-sitter-Grammatiken sind kein offener Implementierungs-Task, solange deren niedrigere verifizierte Fallbackfähigkeit korrekt ausgewiesen wird."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "CFT-END-001",
+      "title": "Abschlusszustand",
+      "items": [
+        "20 von 20 Tasks und 6 von 6 Milestones sind abgeschlossen.",
+        "49 aktivierte Formate sind kanonisch klassifizierbar.",
+        "Alle vier CodeCompass-Pipelines publizieren wahrheitsgemäße Fähigkeiten und operative Telemetrie.",
+        "Die Implementierung bleibt additiv, rückwärtskompatibel und innerhalb der Hub-Worker-Architektur."
+      ]
+    }
+  ]
 }

@@ -21,6 +21,11 @@ NODE_KINDS = {
 
 EDGE_TYPES = {
     "declares",
+    "extends",
+    "implements",
+    "imports",
+    "exports",
+    "references",
     "uses",
     "calls",
     "reads",
@@ -48,6 +53,9 @@ SEMANTIC_KINDS = {
     "side_effect",
     "exception_flow",
     "interface_contract",
+    "module",
+    "type_alias",
+    "component",
     "unsupported_construct",
 }
 

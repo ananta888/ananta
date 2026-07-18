@@ -4,9 +4,9 @@ import hashlib
 from dataclasses import dataclass
 from typing import Any
 
-from agent.codecompass.semantic_translation.adapters import JavaSemanticAdapter
 from agent.codecompass.semantic_translation.equivalence_registry import EquivalenceRuleRegistry
 from agent.codecompass.semantic_translation.models import utc_now_iso
+from agent.codecompass.semantic_translation.registry import SemanticGraphExecutionPort, get_semantic_adapter_registry
 from agent.codecompass.semantic_translation.type_registry import TypeMappingRegistry
 
 
@@ -20,16 +20,26 @@ class TransformRequest:
 
 
 class DeterministicTransformEngine:
-    def __init__(self, *, type_registry: TypeMappingRegistry | None = None, rule_registry: EquivalenceRuleRegistry | None = None):
+    def __init__(
+        self,
+        *,
+        type_registry: TypeMappingRegistry | None = None,
+        rule_registry: EquivalenceRuleRegistry | None = None,
+        semantic_executor: SemanticGraphExecutionPort | None = None,
+    ) -> None:
         self.type_registry = type_registry or TypeMappingRegistry()
         self.rule_registry = rule_registry or EquivalenceRuleRegistry()
-        self.java_adapter = JavaSemanticAdapter()
+        self.semantic_executor = semantic_executor or get_semantic_adapter_registry()
 
     def transform(self, request: TransformRequest) -> dict[str, Any]:
         target_language = str(request.target_language or "").lower()
         if target_language not in {"typescript", "kotlin"}:
             return self._artifact(request, status="unsupported", target_code="", warnings=["unsupported_target_language"], nodes=[], rules=[])
-        graph = self.java_adapter.emit_graph_records(request.source_path, request.source_code)
+        graph = self.semantic_executor.emit_graph_records_for_language(
+            "java",
+            request.source_path,
+            request.source_code,
+        )
         source_types = [node for node in graph["nodes"] if (node.get("attributes") or {}).get("kind") in {"record", "class", "enum", "interface"}]
         rendered: list[str] = []
         warnings = list(_diag_codes(graph.get("diagnostics") or []))

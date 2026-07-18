@@ -28,7 +28,32 @@ from rag_helper.application.importance_scoring import score_index_records
 from rag_helper.application.incremental_cache import save_incremental_cache
 from rag_helper.application.processing_limits import ProcessingLimits
 from rag_helper.application.relation_compaction import compact_relation_records
+from rag_helper.extractors.adoc_provenance_adapter import AdocProvenanceAdapter
+from rag_helper.extractors.angular_asset_extractor import (
+    AngularTemplateExtractor,
+    StylesheetExtractor,
+)
 from rag_helper.extractors.base import FileSkipped
+from rag_helper.extractors.configuration_extractor import ConfigurationExtractor
+from rag_helper.extractors.data_contract_extractor import (
+    GraphqlExtractor,
+    JsonDocumentExtractor,
+    ProtoExtractor,
+    SqlExtractor,
+    TerraformExtractor,
+)
+from rag_helper.extractors.diagram_extractor import DiagramExtractor, DrawioExtractor
+from rag_helper.extractors.documentation_extractor import DocumentationExtractor
+from rag_helper.extractors.infrastructure_extractor import (
+    BuildScriptExtractor,
+    DockerfileExtractor,
+    YamlInfrastructureExtractor,
+)
+from rag_helper.extractors.script_extractor import PowerShellExtractor, ShellScriptExtractor
+from rag_helper.extractors.tabular_notebook_extractor import (
+    DelimitedTextExtractor,
+    NotebookExtractor,
+)
 from rag_helper.utils.ids import sha1_text
 
 
@@ -66,6 +91,9 @@ def build_extractors(
     n8n_extractor_cls=None,
     teaching_extractor_cls=None,
 ) -> dict[str, object]:
+    adoc_extractor = build_extractor(
+        adoc_extractor_cls, embedding_text_mode=limits.embedding_text_mode
+    )
     extractors = {
         "java": java_extractor_cls(
             include_code_snippets=include_code_snippets,
@@ -79,13 +107,16 @@ def build_extractors(
             resolve_framework_relations=limits.resolve_framework_relations,
             embedding_text_mode=limits.embedding_text_mode,
         ),
-        "adoc": build_extractor(
-            adoc_extractor_cls, embedding_text_mode=limits.embedding_text_mode
+        "adoc": AdocProvenanceAdapter(
+            adoc_extractor, embedding_text_mode=limits.embedding_text_mode
         ),
         "xml": build_extractor(
             xml_extractor_cls,
             include_xml_node_details=include_xml_node_details,
             max_xml_nodes=limits.max_xml_nodes,
+            max_xml_input_size_kb=limits.max_xml_input_size_kb,
+            max_xml_depth=limits.max_xml_depth,
+            max_xml_attributes=limits.max_xml_attributes,
             xml_mode=limits.xml_mode,
             index_mode=limits.xml_index_mode,
             relation_mode=limits.xml_relation_mode,
@@ -95,6 +126,9 @@ def build_extractors(
         "xsd": build_extractor(
             xsd_extractor_cls,
             max_xml_nodes=limits.max_xml_nodes,
+            max_xml_input_size_kb=limits.max_xml_input_size_kb,
+            max_xml_depth=limits.max_xml_depth,
+            max_xml_attributes=limits.max_xml_attributes,
             embedding_text_mode=limits.embedding_text_mode,
         ),
     }
@@ -127,6 +161,128 @@ def build_extractors(
                 "kts": text_extractor,
             }
         )
+
+    # Capability-specific extractors take precedence over the legacy text
+    # outline.  Each parser is static and records honest fallback diagnostics;
+    # none render templates, evaluate expressions or execute scripts.
+    documentation_extractor = DocumentationExtractor(
+        embedding_text_mode=limits.embedding_text_mode,
+        max_code_block_chars=limits.max_document_code_block_chars,
+        max_records=limits.max_parser_records_per_file,
+    )
+    configuration_extractor = ConfigurationExtractor(
+        embedding_text_mode=limits.embedding_text_mode,
+        max_aliases=limits.max_yaml_aliases,
+        max_nodes=limits.max_yaml_nodes,
+        max_depth=limits.max_parser_depth,
+        max_records=limits.max_parser_records_per_file,
+    )
+    yaml_extractor = YamlInfrastructureExtractor(
+        embedding_text_mode=limits.embedding_text_mode,
+        max_aliases=limits.max_yaml_aliases,
+        max_nodes=limits.max_yaml_nodes,
+        max_depth=limits.max_parser_depth,
+        max_records=limits.max_parser_records_per_file,
+    )
+    stylesheet_extractor = StylesheetExtractor(
+        embedding_text_mode=limits.embedding_text_mode,
+        max_records=limits.max_parser_records_per_file,
+    )
+    shell_extractor = ShellScriptExtractor(
+        embedding_text_mode=limits.embedding_text_mode,
+        max_records=limits.max_parser_records_per_file,
+    )
+    powershell_extractor = PowerShellExtractor(
+        embedding_text_mode=limits.embedding_text_mode,
+        max_records=limits.max_parser_records_per_file,
+    )
+    diagram_extractor = DiagramExtractor(
+        embedding_text_mode=limits.embedding_text_mode,
+        max_records=limits.max_parser_records_per_file,
+    )
+    build_script_extractor = BuildScriptExtractor(
+        embedding_text_mode=limits.embedding_text_mode,
+        max_records=limits.max_parser_records_per_file,
+        max_docker_instructions=limits.max_parser_records_per_file,
+    )
+    extractors.update(
+        {
+            "md": documentation_extractor,
+            "mdx": documentation_extractor,
+            "rst": documentation_extractor,
+            "yaml": yaml_extractor,
+            "yml": yaml_extractor,
+            "toml": configuration_extractor,
+            "ini": configuration_extractor,
+            "cfg": configuration_extractor,
+            "conf": configuration_extractor,
+            "properties": configuration_extractor,
+            "html": AngularTemplateExtractor(
+                embedding_text_mode=limits.embedding_text_mode,
+                max_records=limits.max_parser_records_per_file,
+            ),
+            "css": stylesheet_extractor,
+            "scss": stylesheet_extractor,
+            "sass": stylesheet_extractor,
+            "less": stylesheet_extractor,
+            "dockerfile": DockerfileExtractor(
+                embedding_text_mode=limits.embedding_text_mode,
+                max_instructions=limits.max_parser_records_per_file,
+            ),
+            "mk": build_script_extractor,
+            "makefile": build_script_extractor,
+            "jenkinsfile": build_script_extractor,
+            "": build_script_extractor,
+            "sh": shell_extractor,
+            "bash": shell_extractor,
+            "zsh": shell_extractor,
+            "fish": shell_extractor,
+            "ps1": powershell_extractor,
+            "psm1": powershell_extractor,
+            "sql": SqlExtractor(
+                embedding_text_mode=limits.embedding_text_mode,
+                max_statements=limits.max_parser_records_per_file,
+            ),
+            "proto": ProtoExtractor(embedding_text_mode=limits.embedding_text_mode),
+            "graphql": GraphqlExtractor(embedding_text_mode=limits.embedding_text_mode),
+            "gql": GraphqlExtractor(embedding_text_mode=limits.embedding_text_mode),
+            "tf": TerraformExtractor(embedding_text_mode=limits.embedding_text_mode),
+            "tfvars": TerraformExtractor(embedding_text_mode=limits.embedding_text_mode),
+            "csv": DelimitedTextExtractor(
+                embedding_text_mode=limits.embedding_text_mode,
+                max_rows=limits.max_tabular_rows,
+                sample_rows=limits.max_tabular_sample_rows,
+                max_columns=limits.max_tabular_columns,
+                max_cell_chars=limits.max_tabular_cell_chars,
+            ),
+            "tsv": DelimitedTextExtractor(
+                embedding_text_mode=limits.embedding_text_mode,
+                max_rows=limits.max_tabular_rows,
+                sample_rows=limits.max_tabular_sample_rows,
+                max_columns=limits.max_tabular_columns,
+                max_cell_chars=limits.max_tabular_cell_chars,
+            ),
+            "ipynb": NotebookExtractor(
+                embedding_text_mode=limits.embedding_text_mode,
+                max_cells=limits.max_notebook_cells,
+                max_cell_chars=limits.max_notebook_cell_chars,
+            ),
+            "mmd": diagram_extractor,
+            "mermaid": diagram_extractor,
+            "puml": diagram_extractor,
+            "plantuml": diagram_extractor,
+            "dot": diagram_extractor,
+            "gv": diagram_extractor,
+            "drawio": DrawioExtractor(
+                max_xml_nodes=limits.max_xml_nodes,
+                max_xml_input_size_kb=limits.max_xml_input_size_kb,
+                max_xml_depth=limits.max_xml_depth,
+                max_xml_attributes=limits.max_xml_attributes,
+                max_decoded_page_size_kb=limits.max_drawio_decoded_page_size_kb,
+                embedding_text_mode=limits.embedding_text_mode,
+            ),
+        }
+    )
     if obsidian_extractor_cls is not None:
         # ObsidianExtractor takes precedence over text_extractor for .md
         obs_extractor = obsidian_extractor_cls(
@@ -144,13 +300,19 @@ def build_extractors(
             max_nodes=limits.canvas_max_nodes,
         )
         extractors["canvas"] = canvas_extractor
-    if n8n_extractor_cls is not None:
-        # n8n workflow exports are JSON files; the extractor itself skips
-        # non-workflow JSON via FileSkipped("not_n8n_workflow"). Opt-in:
-        # json is deliberately NOT part of DEFAULT_EXTENSIONS.
-        extractors["json"] = build_extractor(
-            n8n_extractor_cls, embedding_text_mode=limits.embedding_text_mode
-        )
+    n8n_extractor = (
+        build_extractor(n8n_extractor_cls, embedding_text_mode=limits.embedding_text_mode)
+        if n8n_extractor_cls is not None
+        else None
+    )
+    # JSON Schema is always recognized when JSON is in the configured file
+    # set.  Non-schema JSON keeps the existing optional n8n behavior.
+    extractors["json"] = JsonDocumentExtractor(
+        fallback_extractor=n8n_extractor,
+        embedding_text_mode=limits.embedding_text_mode,
+        max_nodes=limits.max_parser_records_per_file,
+        max_depth=limits.max_parser_depth,
+    )
     if teaching_extractor_cls is not None:
         extractors["md"] = build_extractor(
             teaching_extractor_cls, embedding_text_mode=limits.embedding_text_mode
@@ -324,17 +486,25 @@ def process_snapshot(
     ext = snapshot.ext
     file_size_bytes = snapshot.size
 
-    if (
-        limits.max_file_size_kb is not None
-        and file_size_bytes > limits.max_file_size_kb * 1024
-    ):
+    file_size_ceilings = [
+        value
+        for value in (
+            limits.max_file_size_kb * 1024
+            if limits.max_file_size_kb is not None
+            else None,
+            limits.max_file_size_bytes,
+        )
+        if value is not None
+    ]
+    max_file_size_bytes = min(file_size_ceilings) if file_size_ceilings else None
+    if max_file_size_bytes is not None and file_size_bytes > max_file_size_bytes:
         manifest_entry = {
             "file": rel_path,
             "ext": ext,
             "size": file_size_bytes,
             "skipped": True,
-            "skip_reason": "max_file_size_kb_exceeded",
-            "limit": limits.max_file_size_kb,
+            "skip_reason": "max_file_size_exceeded",
+            "limit_bytes": max_file_size_bytes,
             "cache_hit": False,
             "duration_ms": round((perf_counter() - started_at) * 1000, 3),
             "output_record_count": 0,
@@ -360,6 +530,32 @@ def process_snapshot(
         }
         manifest_entry["duration_ms"] = round((perf_counter() - started_at) * 1000, 3)
         manifest_entry["output_record_count"] = 0
+        return FileProcessingResult(
+            rel_path=rel_path,
+            index=[],
+            details=[],
+            relations=[],
+            manifest_entry=manifest_entry,
+            cache_entry=build_cache_entry(
+                snapshot, options_signature, manifest_entry, [], [], [], pre_scan
+            ),
+        )
+
+    line_count = len(text.splitlines())
+    if limits.max_parser_lines is not None and line_count > limits.max_parser_lines:
+        manifest_entry = {
+            "file": rel_path,
+            "ext": ext,
+            "sha1": snapshot.sha1,
+            "size": file_size_bytes,
+            "skipped": True,
+            "skip_reason": "max_parser_lines_exceeded",
+            "observed_line_count": line_count,
+            "limit": limits.max_parser_lines,
+            "cache_hit": False,
+            "duration_ms": round((perf_counter() - started_at) * 1000, 3),
+            "output_record_count": 0,
+        }
         return FileProcessingResult(
             rel_path=rel_path,
             index=[],
@@ -463,6 +659,37 @@ def process_snapshot(
             )
         else:
             idx, det, rel, stats = extractor.parse(rel_path, text)
+
+        elapsed_ms = (perf_counter() - started_at) * 1000
+        if limits.parser_timeout_ms is not None and elapsed_ms > limits.parser_timeout_ms:
+            manifest_entry = {
+                "file": rel_path,
+                "ext": ext,
+                "sha1": snapshot.sha1,
+                "size": file_size_bytes,
+                "skipped": True,
+                "skip_reason": "parser_timeout",
+                "limit_ms": limits.parser_timeout_ms,
+                "cache_hit": False,
+                "duration_ms": round(elapsed_ms, 3),
+                "output_record_count": 0,
+            }
+            return FileProcessingResult(
+                rel_path=rel_path,
+                index=[],
+                details=[],
+                relations=[],
+                manifest_entry=manifest_entry,
+                cache_entry=build_cache_entry(
+                    snapshot,
+                    options_signature,
+                    manifest_entry,
+                    [],
+                    [],
+                    [],
+                    pre_scan,
+                ),
+            )
 
         rel, relation_compaction_stats = compact_relation_records(
             rel,

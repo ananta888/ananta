@@ -105,6 +105,41 @@ KNOWLEDGE_INDEX_DURATION_SECONDS = Histogram(
     ["scope", "profile"],
 )
 KNOWLEDGE_INDEX_ACTIVE_JOBS = Gauge("knowledge_index_active_jobs", "Number of active knowledge index jobs")
+CODECOMPASS_FILE_TYPE_FILES_TOTAL = Counter(
+    "codecompass_file_type_files_total",
+    "CodeCompass file outcomes grouped by bounded registry type",
+    ["pipeline", "format_id", "outcome"],
+)
+CODECOMPASS_FILE_TYPE_FALLBACKS_TOTAL = Counter(
+    "codecompass_file_type_fallbacks_total",
+    "CodeCompass parser fallbacks grouped by bounded reason code",
+    ["pipeline", "format_id", "reason_code"],
+)
+CODECOMPASS_FILE_TYPE_DIAGNOSTICS_TOTAL = Counter(
+    "codecompass_file_type_diagnostics_total",
+    "CodeCompass parser diagnostics grouped by bounded diagnostic code",
+    ["pipeline", "format_id", "diagnostic_code"],
+)
+CODECOMPASS_FILE_TYPE_DURATION_SECONDS = Histogram(
+    "codecompass_file_type_duration_seconds",
+    "CodeCompass parsing duration per registry type",
+    ["pipeline", "format_id", "outcome"],
+)
+CODECOMPASS_FILE_TYPE_BYTES = Histogram(
+    "codecompass_file_type_bytes",
+    "CodeCompass input bytes per registry type",
+    ["pipeline", "format_id"],
+)
+CODECOMPASS_FILE_TYPE_SYMBOLS = Histogram(
+    "codecompass_file_type_symbols",
+    "CodeCompass symbols emitted per registry type",
+    ["pipeline", "format_id"],
+)
+CODECOMPASS_FILE_TYPE_EDGES = Histogram(
+    "codecompass_file_type_edges",
+    "CodeCompass relationship edges emitted per registry type",
+    ["pipeline", "format_id"],
+)
 KNOWLEDGE_RETRIEVAL_CHUNKS = Histogram(
     "knowledge_retrieval_chunks_selected",
     "Number of knowledge index chunks selected during retrieval",

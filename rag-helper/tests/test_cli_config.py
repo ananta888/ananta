@@ -11,6 +11,58 @@ from rag_helper.cli import run_cli
 
 
 class CliConfigTests(unittest.TestCase):
+    def test_run_cli_passes_structured_format_limits_from_profile(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            base = Path(tmp_dir)
+            project_dir = base / "project"
+            project_dir.mkdir()
+            config_path = base / "rag-profile.json"
+            config_path.write_text(json.dumps({
+                "root": str(project_dir),
+                "flags": {"dry_run": True},
+                "limits": {
+                    "max_parser_lines": 501,
+                    "max_parser_records_per_file": 91,
+                    "max_parser_depth": 12,
+                    "max_document_code_block_chars": 701,
+                    "max_yaml_aliases": 4,
+                    "max_yaml_nodes": 801,
+                    "max_notebook_cells": 13,
+                    "max_notebook_cell_chars": 901,
+                    "max_tabular_rows": 17,
+                    "max_tabular_sample_rows": 7,
+                    "max_tabular_columns": 19,
+                    "max_tabular_cell_chars": 111,
+                    "max_drawio_decoded_page_size_kb": 128,
+                },
+            }), encoding="utf-8")
+            captured: dict = {}
+            with patch("sys.argv", ["rag-helper", "--config", str(config_path)]):
+                with patch("rag_helper.cli.process_project", side_effect=lambda **kwargs: captured.update(kwargs)):
+                    run_cli(
+                        default_extensions={"yaml"},
+                        default_excludes=set(),
+                        java_extractor_cls=object,
+                        adoc_extractor_cls=object,
+                        xml_extractor_cls=object,
+                        xsd_extractor_cls=object,
+                    )
+            limits = captured["limits"]
+            self.assertEqual(limits.max_file_size_kb, 1024)
+            self.assertEqual(limits.max_parser_lines, 501)
+            self.assertEqual(limits.max_parser_records_per_file, 91)
+            self.assertEqual(limits.max_parser_depth, 12)
+            self.assertEqual(limits.max_document_code_block_chars, 701)
+            self.assertEqual(limits.max_yaml_aliases, 4)
+            self.assertEqual(limits.max_yaml_nodes, 801)
+            self.assertEqual(limits.max_notebook_cells, 13)
+            self.assertEqual(limits.max_notebook_cell_chars, 901)
+            self.assertEqual(limits.max_tabular_rows, 17)
+            self.assertEqual(limits.max_tabular_sample_rows, 7)
+            self.assertEqual(limits.max_tabular_columns, 19)
+            self.assertEqual(limits.max_tabular_cell_chars, 111)
+            self.assertEqual(limits.max_drawio_decoded_page_size_kb, 128)
+
     def test_run_cli_loads_json_profile_defaults(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             base = Path(tmp_dir)
@@ -30,6 +82,9 @@ class CliConfigTests(unittest.TestCase):
                 "limits": {
                     "max_workers": 3,
                     "max_records_per_file": 25,
+                    "max_xml_input_size_kb": 512,
+                    "max_xml_depth": 16,
+                    "max_xml_attributes": 200,
                 },
                 "modes": {
                     "xml_mode": "smart",
@@ -62,6 +117,9 @@ class CliConfigTests(unittest.TestCase):
             self.assertEqual(captured["exclude_globs"], ["target/**"])
             self.assertEqual(captured["limits"].max_workers, 3)
             self.assertEqual(captured["limits"].max_records_per_file, 25)
+            self.assertEqual(captured["limits"].max_xml_input_size_kb, 512)
+            self.assertEqual(captured["limits"].max_xml_depth, 16)
+            self.assertEqual(captured["limits"].max_xml_attributes, 200)
             self.assertEqual(captured["limits"].xml_mode, "smart")
             self.assertEqual(captured["limits"].output_bundle_mode, "zip")
             self.assertEqual(captured["limits"].output_compaction_mode, "off")

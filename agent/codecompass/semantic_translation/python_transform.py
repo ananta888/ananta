@@ -1,23 +1,33 @@
 from __future__ import annotations
 
 import hashlib
-import json
-from datetime import datetime, timezone
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Any, Literal
 
-from agent.codecompass.semantic_translation.python_adapter import PythonSemanticAdapter
-from agent.codecompass.semantic_translation.python_dynamic_detector import detect_dynamic_features
-from agent.codecompass.semantic_translation.java_type_registry_python import PythonToJavaTypeRegistry
-from agent.codecompass.semantic_translation.rust_type_registry import PythonToRustTypeRegistry
 from agent.codecompass.semantic_translation.java_emitter import JavaEmitter
+from agent.codecompass.semantic_translation.java_type_registry_python import PythonToJavaTypeRegistry
+from agent.codecompass.semantic_translation.python_dynamic_detector import detect_dynamic_features
+from agent.codecompass.semantic_translation.registry import SemanticParseExecutionPort, get_semantic_adapter_registry
 from agent.codecompass.semantic_translation.rust_emitter import RustEmitter
+from agent.codecompass.semantic_translation.rust_type_registry import PythonToRustTypeRegistry
 
 _java_registry = PythonToJavaTypeRegistry()
 _rust_registry = PythonToRustTypeRegistry()
 _java_emitter = JavaEmitter()
 _rust_emitter = RustEmitter()
-_adapter = PythonSemanticAdapter()
+
+_PARSER_FAILURE_CODES = frozenset(
+    {
+        "parser_failed",
+        "parser_limit_exceeded",
+        "parser_timeout",
+        "python_parse_error",
+        "python_syntax_error",
+        "security_blocked",
+        "semantic_adapter_unsupported",
+    }
+)
 
 TransformStatus = Literal["safe_auto_transform", "needs_review", "blocked_dynamic_runtime", "unsupported"]
 VerifierStatus = Literal["verified", "verified_with_warnings", "needs_review", "failed"]
@@ -116,18 +126,30 @@ class TransformArtifact:
 
 
 class PythonTranslationPlanService:
+    def __init__(self, *, semantic_executor: SemanticParseExecutionPort | None = None) -> None:
+        self.semantic_executor = semantic_executor or get_semantic_adapter_registry()
+
     def create_plan(self, source: str, path: str = "<stdin>", target: str = "both") -> TranslationPlan:
         source_hash = hashlib.sha256(source.encode()).hexdigest()
         plan = TranslationPlan(source_path=path, source_hash=source_hash, target=target)
 
-        # Dynamic feature detection first
+        parsed = self.semantic_executor.parse_for_language("python", path, source)
+        parse_diagnostics = [
+            item
+            for item in parsed.get("diagnostics") or []
+            if isinstance(item, dict)
+        ]
+        plan.warnings.extend(str(item.get("message") or item) for item in parse_diagnostics)
+        if _PARSER_FAILURE_CODES & {
+            str(item.get("code") or "") for item in parse_diagnostics
+        }:
+            return plan
+
+        # Run the second, focused AST inspection only after bounded parsing.
         dynamic = detect_dynamic_features(source, path)
         if dynamic.has_blockers:
             plan.dynamic_blockers = [f.as_dict() for f in dynamic.features if f.severity == "blocker"]
             plan.warnings.append(f"blocked_by_dynamic_features: {', '.join(dynamic.blocker_codes)}")
-
-        parsed = _adapter.parse(path, source)
-        plan.warnings.extend(str(d.get("message") or d) for d in (parsed.get("diagnostics") or []))
 
         targets = ["java", "rust"] if target == "both" else [target]
 
@@ -248,8 +270,10 @@ class PythonTranslationPlanService:
 class PythonTransformEngine:
     """Deterministic transform engine — applies plan entries and produces trace artifacts."""
 
-    def __init__(self) -> None:
-        self._plan_service = PythonTranslationPlanService()
+    def __init__(self, *, semantic_executor: SemanticParseExecutionPort | None = None) -> None:
+        self._plan_service = PythonTranslationPlanService(
+            semantic_executor=semantic_executor,
+        )
 
     def transform(self, source: str, path: str = "<stdin>", target: str = "both") -> list[TransformArtifact]:
         source_hash = hashlib.sha256(source.encode()).hexdigest()

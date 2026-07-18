@@ -1,7 +1,9 @@
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 from agent.services.knowledge_index_retrieval_service import KnowledgeIndexRetrievalService
+from ananta_contracts.file_type_support import load_file_type_support_registry
 
 
 def test_knowledge_index_retrieval_service_reads_completed_outputs(tmp_path):
@@ -131,7 +133,10 @@ def test_knowledge_index_retrieval_prefers_structured_symbol_hits(tmp_path):
     assert len(chunks) == 2
     assert chunks[0].source == "src/payment_worker.py"
     assert chunks[0].metadata["record_kind"] == "function_symbol"
-    assert chunks[0].metadata["retrieval_score_breakdown"]["final_score"] > chunks[1].metadata["retrieval_score_breakdown"]["final_score"]
+    assert (
+        chunks[0].metadata["retrieval_score_breakdown"]["final_score"]
+        > chunks[1].metadata["retrieval_score_breakdown"]["final_score"]
+    )
 
 
 def test_knowledge_index_retrieval_task_kind_architecture_boosts_docs(tmp_path):
@@ -344,7 +349,14 @@ def test_knowledge_index_retrieval_can_filter_by_source_scope(tmp_path):
     output_dir = tmp_path / "knowledge-index"
     output_dir.mkdir()
     (output_dir / "index.jsonl").write_text(
-        json.dumps({"kind": "md_section", "file": "docs/wiki/payment.md", "title": "Payment", "content": "wiki payment timeout"}),
+        json.dumps(
+            {
+                "kind": "md_section",
+                "file": "docs/wiki/payment.md",
+                "title": "Payment",
+                "content": "wiki payment timeout",
+            }
+        ),
         encoding="utf-8",
     )
 
@@ -412,3 +424,21 @@ def test_knowledge_index_retrieval_wiki_metadata_preserves_revision_and_import_f
     assert metadata["import_revision"] == "snapshot-2026-04-23"
     citation = metadata.get("citation") or {}
     assert citation.get("revision") == "snapshot-2026-04-23"
+
+
+def test_file_kind_buckets_follow_canonical_registry_families_and_selectors():
+    registry = load_file_type_support_registry(Path(__file__).resolve().parents[1])
+    service = KnowledgeIndexRetrievalService(file_type_registry=registry)
+
+    assert {descriptor.family for descriptor in registry.descriptors} <= set(
+        service.FILE_KIND_BY_FAMILY
+    )
+    assert service._file_kind_bucket("Sources/Account.swift") == "code"
+    assert service._file_kind_bucket("frontend/UserCard.vue") == "code"
+    assert service._file_kind_bucket("scripts/deploy.ps1") == "code"
+    assert service._file_kind_bucket("Dockerfile") == "config"
+    assert service._file_kind_bucket(".github/workflows/ci.yml") == "config"
+    assert service._file_kind_bucket("schemas/order.schema.json") == "config"
+    assert service._file_kind_bucket("docs/architecture/system.mmd") == "doc"
+    assert service._file_kind_bucket("README.md") == "doc"
+    assert service._file_kind_bucket("unknown.custom") == "other"

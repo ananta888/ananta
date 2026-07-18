@@ -1,0 +1,6 @@
+"""Shared fail-closed defaults for untrusted XML/XSD processing."""
+
+DEFAULT_MAX_XML_INPUT_SIZE_KB = 10 * 1024
+DEFAULT_MAX_XML_NODES = 100_000
+DEFAULT_MAX_XML_DEPTH = 128
+DEFAULT_MAX_XML_ATTRIBUTES = 100_000

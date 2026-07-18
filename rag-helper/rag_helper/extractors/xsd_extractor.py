@@ -2,24 +2,42 @@ from __future__ import annotations
 
 from typing import Any
 
-from lxml import etree
+from rag_helper.domain.xml_security import (
+    DEFAULT_MAX_XML_ATTRIBUTES,
+    DEFAULT_MAX_XML_DEPTH,
+    DEFAULT_MAX_XML_INPUT_SIZE_KB,
+    DEFAULT_MAX_XML_NODES,
+)
+from rag_helper.extractors.xml_security import parse_untrusted_xml
 from rag_helper.utils.embedding_text import build_embedding_text, compact_list
 from rag_helper.utils.ids import safe_id
 
 
 class XsdExtractor:
-    def __init__(self, max_xml_nodes: int | None = None, embedding_text_mode: str = "verbose") -> None:
+    def __init__(
+        self,
+        max_xml_nodes: int | None = DEFAULT_MAX_XML_NODES,
+        max_xml_input_size_kb: int | None = DEFAULT_MAX_XML_INPUT_SIZE_KB,
+        max_xml_depth: int | None = DEFAULT_MAX_XML_DEPTH,
+        max_xml_attributes: int | None = DEFAULT_MAX_XML_ATTRIBUTES,
+        embedding_text_mode: str = "verbose",
+    ) -> None:
         self.max_xml_nodes = max_xml_nodes
+        self.max_xml_input_size_kb = max_xml_input_size_kb
+        self.max_xml_depth = max_xml_depth
+        self.max_xml_attributes = max_xml_attributes
         self.embedding_text_mode = embedding_text_mode
 
     def parse(self, rel_path: str, text: str) -> tuple[list[dict], list[dict], list[dict], dict]:
-        parser = etree.XMLParser(remove_comments=True, recover=True)
-        root = etree.fromstring(text.encode("utf-8", errors="ignore"), parser=parser)
-        node_count = sum(1 for elem in root.iter() if isinstance(elem.tag, str))
-        if self.max_xml_nodes is not None and node_count > self.max_xml_nodes:
-            raise ValueError(
-                f"max_xml_nodes_exceeded: {node_count} > {self.max_xml_nodes}"
-            )
+        document = parse_untrusted_xml(
+            text,
+            max_input_size_kb=self.max_xml_input_size_kb,
+            max_nodes=self.max_xml_nodes,
+            max_depth=self.max_xml_depth,
+            max_attributes=self.max_xml_attributes,
+        )
+        root = document.root
+        node_count = document.node_count
 
         namespaces = dict(root.nsmap) if root.nsmap else {}
         root_tag = self._strip_ns(root.tag)
@@ -56,6 +74,8 @@ class XsdExtractor:
             "file": rel_path,
             "root": root_tag,
             "node_count": node_count,
+            "max_depth": document.max_depth,
+            "attribute_count": document.attribute_count,
             "index_count": len(index_records),
             "detail_count": len(detail_records),
             "relation_count": len(relation_records),

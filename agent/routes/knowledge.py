@@ -5,11 +5,10 @@ from pathlib import Path
 
 from flask import Blueprint, g, request
 
-from agent.config import settings
-
 from agent.auth import check_auth
 from agent.common.audit import log_audit
 from agent.common.errors import BadRequestError, ConflictError, NotFoundError, api_response
+from agent.config import settings
 from agent.db_models import KnowledgeCollectionDB
 from agent.models import (
     KnowledgeCollectionCreateRequest,
@@ -17,14 +16,33 @@ from agent.models import (
     KnowledgeCollectionSearchRequest,
     KnowledgeSourceIndexRequest,
 )
+from agent.services.file_type_support_service import (
+    FileTypeSupportFilter,
+    FileTypeSupportFilterError,
+    get_file_type_support_service,
+    parse_optional_boolean,
+)
+from agent.services.repository_registry import get_repository_registry
 from agent.services.retrieval_orchestration_contract import build_retrieval_orchestration_contract
 from agent.services.retrieval_service import get_retrieval_service
 from agent.services.retrieval_source_contract import source_scopes_for_types
-from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
 from agent.services.wiki_import_job_service import get_wiki_import_job_service
 
 knowledge_bp = Blueprint("knowledge", __name__)
+
+_FILE_TYPE_SUPPORT_QUERY_FIELDS = frozenset(
+    {
+        "priority",
+        "support_level",
+        "level",
+        "dimension",
+        "pipeline",
+        "missing_parser",
+        "missing_runtime",
+        "enabled",
+    }
+)
 
 WIKI_IMPORT_PRESETS = [
     {
@@ -224,6 +242,40 @@ def _wiki_import_url_request() -> dict:
 def _current_username() -> str:
     user = getattr(g, "user", {}) or {}
     return str(user.get("sub") or user.get("username") or "anonymous")
+
+
+def _file_type_support_filter() -> FileTypeSupportFilter:
+    unknown_fields = sorted(set(request.args) - _FILE_TYPE_SUPPORT_QUERY_FIELDS)
+    if unknown_fields:
+        raise BadRequestError(
+            "invalid_file_type_support_filter",
+            {"unknown_fields": unknown_fields},
+        )
+    support_levels = [
+        *request.args.getlist("support_level"),
+        *request.args.getlist("level"),
+    ]
+    try:
+        return FileTypeSupportFilter.build(
+            priorities=request.args.getlist("priority"),
+            support_levels=support_levels,
+            dimensions=request.args.getlist("dimension"),
+            pipelines=request.args.getlist("pipeline"),
+            missing_parser=parse_optional_boolean(
+                request.args.get("missing_parser"),
+                field_name="missing_parser",
+            ),
+            missing_runtime=parse_optional_boolean(
+                request.args.get("missing_runtime"),
+                field_name="missing_runtime",
+            ),
+            enabled=parse_optional_boolean(
+                request.args.get("enabled"),
+                field_name="enabled",
+            ),
+        )
+    except FileTypeSupportFilterError as exc:
+        raise BadRequestError("invalid_file_type_support_filter") from exc
 
 
 def _normalize_security_metadata_patch(raw: dict) -> dict:
@@ -960,3 +1012,16 @@ def batch_update_knowledge_index_security_metadata():
 @check_auth
 def get_knowledge_orchestration_contract():
     return api_response(data=build_retrieval_orchestration_contract(entrypoint_group="knowledge"))
+
+
+@knowledge_bp.route("/knowledge/file-type-support", methods=["GET"])
+@check_auth
+def get_file_type_support():
+    """Return the Hub-owned, read-only CodeCompass support projection."""
+
+    filters = _file_type_support_filter()
+    try:
+        payload = get_file_type_support_service().support_matrix(filters)
+    except FileTypeSupportFilterError as exc:
+        raise BadRequestError("invalid_file_type_support_filter") from exc
+    return api_response(data=payload)

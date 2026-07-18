@@ -3,8 +3,14 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
-from lxml import etree
+from rag_helper.domain.xml_security import (
+    DEFAULT_MAX_XML_ATTRIBUTES,
+    DEFAULT_MAX_XML_DEPTH,
+    DEFAULT_MAX_XML_INPUT_SIZE_KB,
+    DEFAULT_MAX_XML_NODES,
+)
 from rag_helper.extractors.base import FileSkipped
+from rag_helper.extractors.xml_security import parse_untrusted_xml
 from rag_helper.utils.embedding_text import build_embedding_text, compact_list, compact_text
 from rag_helper.utils.ids import safe_id
 
@@ -13,7 +19,10 @@ class XmlExtractor:
     def __init__(
         self,
         include_xml_node_details: bool = True,
-        max_xml_nodes: int | None = None,
+        max_xml_nodes: int | None = DEFAULT_MAX_XML_NODES,
+        max_xml_input_size_kb: int | None = DEFAULT_MAX_XML_INPUT_SIZE_KB,
+        max_xml_depth: int | None = DEFAULT_MAX_XML_DEPTH,
+        max_xml_attributes: int | None = DEFAULT_MAX_XML_ATTRIBUTES,
         xml_mode: str = "all",
         index_mode: str = "tags",
         relation_mode: str = "per-node",
@@ -22,6 +31,9 @@ class XmlExtractor:
     ) -> None:
         self.include_xml_node_details = include_xml_node_details
         self.max_xml_nodes = max_xml_nodes
+        self.max_xml_input_size_kb = max_xml_input_size_kb
+        self.max_xml_depth = max_xml_depth
+        self.max_xml_attributes = max_xml_attributes
         self.xml_mode = xml_mode
         self.index_mode = index_mode
         self.relation_mode = relation_mode
@@ -29,13 +41,15 @@ class XmlExtractor:
         self.embedding_text_mode = embedding_text_mode
 
     def parse(self, rel_path: str, text: str) -> tuple[list[dict], list[dict], list[dict], dict]:
-        parser = etree.XMLParser(remove_comments=True, recover=True)
-        root = etree.fromstring(text.encode("utf-8", errors="ignore"), parser=parser)
-        node_count = sum(1 for elem in root.iter() if isinstance(elem.tag, str))
-        if self.max_xml_nodes is not None and node_count > self.max_xml_nodes:
-            raise ValueError(
-                f"max_xml_nodes_exceeded: {node_count} > {self.max_xml_nodes}"
-            )
+        document = parse_untrusted_xml(
+            text,
+            max_input_size_kb=self.max_xml_input_size_kb,
+            max_nodes=self.max_xml_nodes,
+            max_depth=self.max_xml_depth,
+            max_attributes=self.max_xml_attributes,
+        )
+        root = document.root
+        node_count = document.node_count
 
         xml_kind = self._classify_xml(rel_path, root)
         self._ensure_xml_mode_allowed(xml_kind)
@@ -79,6 +93,8 @@ class XmlExtractor:
             "root": root_tag,
             "xml_kind": xml_kind,
             "node_count": node_count,
+            "max_depth": document.max_depth,
+            "attribute_count": document.attribute_count,
             "index_count": len(index_records),
             "detail_count": len(detail_records),
             "relation_count": len(relation_records),

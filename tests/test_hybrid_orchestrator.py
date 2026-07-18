@@ -59,6 +59,22 @@ def test_tree_sitter_language_support_matrix_contains_expected_entries() -> None
     assert matrix[".py"]["tree_sitter_language"] == "python"
     assert ".rb" in matrix
     assert matrix[".rb"]["fallback"] == "regex"
+    assert matrix[".rb"]["fallback_strategy"] == "none"
+    assert matrix[".rb"]["fallback_verified"] is False
+    assert matrix[".java"]["tree_sitter_available"] is True
+    assert matrix[".java"]["tree_sitter_strategy"] == "specific_grammar:tree_sitter_java"
+    assert matrix[".java"]["effective_parser"] == matrix[".java"]["tree_sitter_strategy"]
+
+
+def test_tree_sitter_language_support_matrix_matches_runtime_resolution(tmp_path: Path) -> None:
+    engine = RepositoryMapEngine(repo_root=tmp_path)
+    matrix = engine.language_support_matrix()
+
+    for extension, support in matrix.items():
+        parser = engine._parser_for_file(tmp_path / f"sample{extension}")
+        assert (parser is not None) is support["tree_sitter_available"]
+        if parser is None:
+            assert support["effective_parser"] == support["fallback_strategy"]
 
 
 def test_parser_resolution_falls_back_for_unsupported_extension(tmp_path: Path) -> None:
@@ -182,9 +198,9 @@ def test_get_relevant_context_with_scope_filters_and_banners(tmp_path: Path) -> 
 
 def test_get_relevant_context_strict_violation_fails_closed(tmp_path: Path) -> None:
     from agent.codecompass.domain_scope import (
+        VIOLATION_UNKNOWN_DOMAIN,
         DomainScopeViolation,
         ResolvedDomainScope,
-        VIOLATION_UNKNOWN_DOMAIN,
     )
 
     (tmp_path / "module.py").write_text("def f(): pass\n", encoding="utf-8")
@@ -203,9 +219,9 @@ def test_get_relevant_context_strict_violation_fails_closed(tmp_path: Path) -> N
 
 def test_run_with_sgpt_strict_violation_skips_llm(tmp_path: Path, monkeypatch) -> None:
     from agent.codecompass.domain_scope import (
+        VIOLATION_UNKNOWN_DOMAIN,
         DomainScopeViolation,
         ResolvedDomainScope,
-        VIOLATION_UNKNOWN_DOMAIN,
     )
 
     def _no_llm(**_kwargs):
@@ -252,9 +268,9 @@ def test_scope_without_matches_offers_guidance_not_global_search(tmp_path: Path)
 
 def test_strict_violation_result_contains_guidance(tmp_path: Path) -> None:
     from agent.codecompass.domain_scope import (
+        VIOLATION_UNKNOWN_DOMAIN,
         DomainScopeViolation,
         ResolvedDomainScope,
-        VIOLATION_UNKNOWN_DOMAIN,
     )
 
     scope = ResolvedDomainScope(

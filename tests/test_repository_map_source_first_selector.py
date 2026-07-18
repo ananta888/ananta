@@ -16,14 +16,6 @@ graph (no filesystem dependency).
 from __future__ import annotations
 
 from pathlib import Path
-import sys
-import types
-
-# Stub the tree-sitter import to avoid a hard dependency for this test
-# (the engine falls back to regex-based symbol extraction when the
-# parser module is absent).
-sys.modules.setdefault("tree_sitter", types.ModuleType("tree_sitter"))
-sys.modules.setdefault("tree_sitter_python", types.ModuleType("tree_sitter_python"))
 
 from agent.hybrid_orchestrator import RepositoryMapEngine
 

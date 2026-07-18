@@ -26,14 +26,6 @@ This file covers two additional generic correctness rules:
 from __future__ import annotations
 
 from pathlib import Path
-import sys
-import types
-
-# Stub tree-sitter so the engine's import path is satisfied (the engine
-# falls back to regex-based symbol extraction when the parser module
-# is absent, which is what these tests need).
-sys.modules.setdefault("tree_sitter", types.ModuleType("tree_sitter"))
-sys.modules.setdefault("tree_sitter_python", types.ModuleType("tree_sitter_python"))
 
 from agent.hybrid_orchestrator import RepositoryMapEngine
 

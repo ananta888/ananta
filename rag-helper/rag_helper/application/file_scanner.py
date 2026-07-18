@@ -16,13 +16,19 @@ side effects beyond the returned values.
 
 from __future__ import annotations
 
+import hashlib
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
 from rag_helper.extractors.base import JavaLikeExtractor
-from rag_helper.filesystem.file_filters import exclude_gitignored_files, should_include_file
+from rag_helper.filesystem.file_filters import (
+    effective_extension,
+    exclude_gitignored_files,
+    should_include_file,
+)
 from rag_helper.filesystem.text_reader import read_text_file
 from rag_helper.utils.ids import sha1_text
 
@@ -37,17 +43,24 @@ class FileSnapshot:
     sha1: str | None
 
 
+@dataclass(frozen=True)
+class SourceFingerprint:
+    digest: str
+    file_count: int
+
+
 def collect_files(
     root: Path,
     extensions: set[str],
     excludes: set[str],
     include_globs: list[str] | None = None,
     exclude_globs: list[str] | None = None,
+    file_inclusion_predicate: Callable[[Path, str], bool] | None = None,
 ) -> list[Path]:
     files: list[Path] = []
     for p in root.rglob("*"):
         try:
-            if not p.is_file():
+            if p.is_symlink() or not p.is_file():
                 continue
         except OSError:
             continue
@@ -59,17 +72,75 @@ def collect_files(
             include_globs=include_globs,
             exclude_globs=exclude_globs,
         ):
-            files.append(p)
+            relative_path = p.relative_to(root).as_posix()
+            if file_inclusion_predicate is None or file_inclusion_predicate(p, relative_path):
+                files.append(p)
     return sorted(exclude_gitignored_files(root, files))
 
 
-def build_file_snapshots(files: list[Path], root: Path) -> list[FileSnapshot]:
+def build_source_fingerprint(
+    *,
+    root: Path,
+    extensions: set[str],
+    excludes: set[str],
+    include_globs: list[str] | None = None,
+    exclude_globs: list[str] | None = None,
+    file_inclusion_predicate: Callable[[Path, str], bool] | None = None,
+    max_file_bytes: int | None = None,
+) -> SourceFingerprint:
+    """Hash the safe scan set without parsing or executing repository files."""
+
+    files = collect_files(
+        root=root,
+        extensions=extensions,
+        excludes=excludes,
+        include_globs=include_globs,
+        exclude_globs=exclude_globs,
+        file_inclusion_predicate=file_inclusion_predicate,
+    )
+    digest = hashlib.sha256()
+    for path in files:
+        relative_path = path.relative_to(root).as_posix()
+        digest.update(relative_path.encode("utf-8"))
+        digest.update(b"\0")
+        try:
+            size = path.stat().st_size
+            digest.update(str(size).encode("ascii"))
+            digest.update(b"\0")
+            if max_file_bytes is not None and size > max_file_bytes:
+                digest.update(b"oversized\0")
+                continue
+            with path.open("rb") as handle:
+                while chunk := handle.read(64 * 1024):
+                    digest.update(chunk)
+        except OSError:
+            digest.update(b"unreadable")
+        digest.update(b"\0")
+    return SourceFingerprint(digest=digest.hexdigest(), file_count=len(files))
+
+
+def build_file_snapshots(
+    files: list[Path],
+    root: Path,
+    *,
+    max_file_size_kb: int | None = None,
+    max_file_size_bytes: int | None = None,
+) -> list[FileSnapshot]:
     snapshots: list[FileSnapshot] = []
+    ceilings = [
+        value
+        for value in (
+            max_file_size_kb * 1024 if max_file_size_kb is not None else None,
+            max_file_size_bytes,
+        )
+        if value is not None
+    ]
+    max_bytes = min(ceilings) if ceilings else None
     for path in files:
         rel_path = str(path.relative_to(root))
-        ext = path.suffix.lower().lstrip(".")
+        ext = effective_extension(path)
         size = path.stat().st_size
-        text = read_text_file(path)
+        text = read_text_file(path, max_bytes=max_bytes)
         snapshots.append(
             FileSnapshot(
                 path=path,

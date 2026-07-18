@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import json
 from collections import defaultdict
+from collections.abc import Iterable
 from pathlib import Path
-
 
 CACHE_VERSION = 2
 SHARD_DIR_SUFFIX = ".d"
@@ -56,6 +56,41 @@ def save_incremental_cache(
             "files": grouped_files.get(ext, {}),
         }
         _write_json_atomically(shard_dir / _shard_filename(ext), shard_payload)
+
+
+def invalidate_incremental_cache_paths(
+    path: Path,
+    paths: Iterable[str] | None,
+) -> dict[str, object]:
+    """Remove selected cached files while retaining unrelated type shards."""
+
+    cache = load_incremental_cache(path)
+    files = cache.get("files") if isinstance(cache.get("files"), dict) else {}
+    requested = (
+        set(files)
+        if paths is None
+        else {str(value).replace("\\", "/") for value in paths}
+    )
+    invalidated_extensions: set[str] = set()
+    invalidated_paths: list[str] = []
+    for relative_path in sorted(requested & set(files)):
+        entry = files.pop(relative_path)
+        invalidated_extensions.add(_detect_extension(relative_path, entry))
+        invalidated_paths.append(relative_path)
+    if invalidated_paths:
+        cache["files"] = files
+        save_incremental_cache(
+            path,
+            cache,
+            changed_extensions=invalidated_extensions,
+        )
+    return {
+        "strategy": "targeted_file_type_invalidation",
+        "requested_path_count": len(requested),
+        "invalidated_path_count": len(invalidated_paths),
+        "retained_path_count": len(files),
+        "invalidated_extensions": sorted(invalidated_extensions),
+    }
 
 
 def _load_sharded_cache(path: Path, shard_dir: Path) -> dict:

@@ -12,9 +12,11 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
+from rag_helper.application.cross_file_relation_resolver import resolve_cross_file_relations
 from rag_helper.application.document_extractor import (
     FileProcessingResult,
     build_extractors,
@@ -101,6 +103,7 @@ def process_project(
     csharp_extractor_cls=None,
     n8n_extractor_cls=None,
     teaching_extractor_cls=None,
+    file_inclusion_predicate: Callable[[Path, str], bool] | None = None,
 ) -> None:
     if not dry_run:
         ensure_dir(out_dir)
@@ -128,8 +131,14 @@ def process_project(
         excludes=excludes,
         include_globs=include_globs,
         exclude_globs=exclude_globs,
+        file_inclusion_predicate=file_inclusion_predicate,
     )
-    snapshots = build_file_snapshots(files, root)
+    snapshots = build_file_snapshots(
+        files,
+        root,
+        max_file_size_kb=limits.max_file_size_kb,
+        max_file_size_bytes=limits.max_file_size_bytes,
+    )
     options_signature = build_options_signature(
         include_code_snippets=include_code_snippets,
         exclude_trivial_methods=exclude_trivial_methods,
@@ -312,6 +321,12 @@ def process_project(
 
         link_material_workflow_relations(all_index, all_relations)
 
+    cross_file_resolution_stats = resolve_cross_file_relations(
+        all_index,
+        all_details,
+        all_relations,
+    )
+
     aggregates = compute_post_processing(
         all_index=all_index,
         all_details=all_details,
@@ -365,6 +380,7 @@ def process_project(
         limits=limits,
         out_dir=out_dir,
     )
+    manifest["cross_file_resolution"] = cross_file_resolution_stats
 
     domain_discovery_extras: dict | None = None
     if limits.domain_discovery_mode in {"basic", "rich"}:

@@ -5,14 +5,10 @@ import tempfile
 import threading
 import time
 import unittest
-from contextlib import redirect_stdout
-from io import StringIO
 from pathlib import Path
 
-from rag_helper.application.generated_code import detect_generated_code
 from rag_helper.application.gem_partitions import build_gem_partition_records
 from rag_helper.application.importance_scoring import compute_importance_score
-from rag_helper.application.incremental_cache import load_incremental_cache
 from rag_helper.application.manifest_stats import (
     collect_error_entries,
     collect_extension_stats,
@@ -20,7 +16,6 @@ from rag_helper.application.manifest_stats import (
     count_records_by_kind,
 )
 from rag_helper.application.output_compaction import compact_output_records
-from rag_helper.application.output_formats import build_context_records, build_embedding_records
 from rag_helper.application.processing_limits import ProcessingLimits
 from rag_helper.application.project_processor import process_project
 from rag_helper.application.xml_overview import build_xml_overview_records
@@ -471,6 +466,7 @@ class ProcessingLimitsOutputModeTests(unittest.TestCase):
                 exclude_globs=[],
                 limits=ProcessingLimits(
                     output_compaction_mode="ultra",
+                    xml_index_mode="summary",
                     gem_partition_mode="domain",
                     manifest_output_mode="compact",
                     output_bundle_mode="zip",

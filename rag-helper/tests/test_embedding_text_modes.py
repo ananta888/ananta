@@ -6,8 +6,8 @@ from rag_helper.extractors.adoc_extractor import AdocExtractor
 from rag_helper.utils.embedding_text import build_embedding_text, compact_text
 
 try:
-    from rag_helper.extractors.xsd_extractor import XsdExtractor
     from rag_helper.extractors.xml_extractor import XmlExtractor
+    from rag_helper.extractors.xsd_extractor import XsdExtractor
 except ModuleNotFoundError:  # pragma: no cover - environment dependent
     XsdExtractor = None
     XmlExtractor = None
@@ -28,7 +28,9 @@ class EmbeddingTextModeTests(unittest.TestCase):
         )
 
         self.assertIn("XML config.xml. Root root.", index_records[0]["embedding_text"])
-        self.assertIn("Attrs attr.", detail_records[0]["embedding_text"])
+        self.assertTrue(
+            any("Attrs attr." in record["embedding_text"] for record in detail_records)
+        )
 
     @unittest.skipUnless(XsdExtractor is not None, "lxml dependency missing")
     def test_xsd_extractor_compact_mode_shortens_embedding_text(self) -> None:

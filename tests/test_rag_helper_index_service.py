@@ -268,6 +268,13 @@ def test_index_repo_path_skips_if_already_completed(tmp_path):
     ki2, run2 = service.index_repo_path("skip_lib", created_by="tester")
     assert run2.status == "skipped"
     assert ki2.id == ki1.id
+    previous_fingerprint = ki2.index_metadata["source_fingerprint"]
+
+    (src / "utils.py").write_text("def noop():\n    return 1\n", encoding="utf-8")
+    ki3, run3 = service.index_repo_path("skip_lib", created_by="tester")
+
+    assert run3.status == "completed"
+    assert ki3.index_metadata["source_fingerprint"] != previous_fingerprint
 
 
 def test_index_repo_path_rejects_outside_repo(tmp_path):

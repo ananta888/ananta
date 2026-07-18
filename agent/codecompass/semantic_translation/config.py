@@ -7,9 +7,27 @@ from dataclasses import dataclass, field
 @dataclass(frozen=True)
 class SemanticTranslationConfig:
     enabled: bool = False
-    source_languages: tuple[str, ...] = ("java",)
+    source_languages: tuple[str, ...] = (
+        "c",
+        "cpp",
+        "csharp",
+        "dart",
+        "go",
+        "java",
+        "kotlin",
+        "lua",
+        "php",
+        "python",
+        "ruby",
+        "rust",
+        "scala",
+        "svelte",
+        "swift",
+        "typescript",
+        "vue",
+    )
     target_languages: tuple[str, ...] = ("typescript", "kotlin")
-    adapters: tuple[str, ...] = ("java-regex",)
+    adapters: tuple[str, ...] = ("semantic-adapter-registry-v1",)
     output_dir: str = "semantic-translation"
     max_graph_records: int = 5000
     diagnostics: tuple[str, ...] = field(default_factory=tuple)
@@ -24,9 +42,21 @@ def load_semantic_translation_config(env: dict[str, str] | None = None) -> Seman
         "yes",
         "on",
     }
-    source_languages = _csv(source.get("ANANTA_CODECOMPASS_SEMANTIC_TRANSLATION_LANGUAGES"), ("java",), diagnostics)
-    target_languages = _csv(source.get("ANANTA_CODECOMPASS_SEMANTIC_TRANSLATION_TARGETS"), ("typescript", "kotlin"), diagnostics)
-    adapters = _csv(source.get("ANANTA_CODECOMPASS_SEMANTIC_TRANSLATION_ADAPTERS"), ("java-regex",), diagnostics)
+    source_languages = _csv(
+        source.get("ANANTA_CODECOMPASS_SEMANTIC_TRANSLATION_LANGUAGES"),
+        SemanticTranslationConfig().source_languages,
+        diagnostics,
+    )
+    target_languages = _csv(
+        source.get("ANANTA_CODECOMPASS_SEMANTIC_TRANSLATION_TARGETS"),
+        ("typescript", "kotlin"),
+        diagnostics,
+    )
+    adapters = _csv(
+        source.get("ANANTA_CODECOMPASS_SEMANTIC_TRANSLATION_ADAPTERS"),
+        ("semantic-adapter-registry-v1",),
+        diagnostics,
+    )
     output_dir = str(source.get("ANANTA_CODECOMPASS_SEMANTIC_TRANSLATION_OUTPUT_DIR") or "semantic-translation").strip()
     max_graph_records = _int(source.get("ANANTA_CODECOMPASS_SEMANTIC_TRANSLATION_MAX_GRAPH_RECORDS"), 5000, diagnostics)
     return SemanticTranslationConfig(

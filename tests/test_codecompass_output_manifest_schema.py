@@ -48,6 +48,58 @@ def test_codecompass_manifest_schema_accepts_partial_outputs():
     assert errors == []
 
 
+def test_codecompass_manifest_schema_accepts_additive_file_type_evidence():
+    schema = _schema()
+    payload = _base_manifest()
+    payload["file_type_registry"] = {
+        "schema_version": "file-type-registry.v1",
+        "registry_version": "2026.07.18",
+        "snapshot_hash": "a" * 64,
+    }
+    payload["coverage"] = {
+        "manifest_candidate_count": 2,
+        "indexed": 1,
+        "excluded": 0,
+        "unsupported": 1,
+        "failed": 0,
+        "truncated": False,
+        "diagnostic_counts": {"unsupported_type": 1},
+    }
+    payload["file_type_capabilities"] = [
+        {
+            "detected_type": "text/x-python",
+            "pipeline": "repository_map",
+            "indexed": {
+                "configured": True,
+                "runtime_available": True,
+                "verified": True,
+                "effective": "structured",
+            },
+            "symbols": {
+                "configured": True,
+                "runtime_available": True,
+                "verified": True,
+                "effective": "parser_backed",
+            },
+            "relationships": {
+                "configured": True,
+                "runtime_available": True,
+                "verified": True,
+                "effective": "semantic",
+            },
+            "parser_id": "tree-sitter-python",
+            "parser_version": "1",
+            "fallback_reason": None,
+            "diagnostic_codes": [],
+            "file_count": 1,
+        }
+    ]
+
+    errors = list(Draft202012Validator(schema).iter_errors(payload))
+
+    assert errors == []
+
+
 def test_codecompass_manifest_schema_rejects_missing_output_key():
     schema = _schema()
     payload = _base_manifest()
@@ -55,3 +107,34 @@ def test_codecompass_manifest_schema_rejects_missing_output_key():
     errors = list(Draft202012Validator(schema).iter_errors(payload))
     assert errors
 
+
+def test_codecompass_manifest_schema_rejects_dimension_incompatible_effective_mode():
+    schema = _schema()
+    payload = _base_manifest()
+    payload["file_type_capabilities"] = [
+        {
+            "detected_type": "python",
+            "pipeline": "semantic_translation",
+            "indexed": {
+                "configured": True,
+                "runtime_available": True,
+                "verified": True,
+                "effective": "semantic",
+            },
+            "symbols": {
+                "configured": False,
+                "runtime_available": False,
+                "verified": False,
+                "effective": "none",
+            },
+            "relationships": {
+                "configured": False,
+                "runtime_available": False,
+                "verified": False,
+                "effective": "none",
+            },
+            "file_count": 1,
+        }
+    ]
+
+    assert list(Draft202012Validator(schema).iter_errors(payload))

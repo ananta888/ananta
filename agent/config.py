@@ -494,6 +494,81 @@ class Settings(BaseSettings):
         default="rag-helper/out/manifest.json",
         validation_alias="CODECOMPASS_VECTOR_MANIFEST_PATH",
     )
+    # Canonical file-type rollout and parser resource budgets.  Worker
+    # containers read the same explicit environment names; the Hub does not
+    # infer worker runtime availability from these values.
+    codecompass_file_type_priorities: str = Field(
+        default="P0,P1,P2",
+        validation_alias="ANANTA_CODECOMPASS_FILE_TYPE_PRIORITIES",
+    )
+    codecompass_enabled_formats: str = Field(
+        default="",
+        validation_alias="ANANTA_CODECOMPASS_ENABLED_FORMATS",
+    )
+    codecompass_disabled_formats: str = Field(
+        default="",
+        validation_alias="ANANTA_CODECOMPASS_DISABLED_FORMATS",
+    )
+    codecompass_max_file_bytes: int = Field(
+        default=1_048_576,
+        gt=0,
+        validation_alias="ANANTA_CODECOMPASS_MAX_FILE_BYTES",
+    )
+    codecompass_max_lines: int = Field(
+        default=50_000,
+        gt=0,
+        validation_alias="ANANTA_CODECOMPASS_MAX_LINES",
+    )
+    codecompass_parser_timeout_ms: int = Field(
+        default=2_000,
+        gt=0,
+        validation_alias="ANANTA_CODECOMPASS_PARSER_TIMEOUT_MS",
+    )
+    codecompass_max_output_records: int = Field(
+        default=5_000,
+        gt=0,
+        validation_alias="ANANTA_CODECOMPASS_MAX_OUTPUT_RECORDS",
+    )
+    codecompass_max_xml_nodes: int = Field(
+        default=20_000,
+        gt=0,
+        validation_alias="ANANTA_CODECOMPASS_MAX_XML_NODES",
+    )
+    codecompass_max_xml_depth: int = Field(
+        default=64,
+        gt=0,
+        validation_alias="ANANTA_CODECOMPASS_MAX_XML_DEPTH",
+    )
+    codecompass_max_yaml_aliases: int = Field(
+        default=50,
+        gt=0,
+        validation_alias="ANANTA_CODECOMPASS_MAX_YAML_ALIASES",
+    )
+    codecompass_max_notebook_cells: int = Field(
+        default=2_000,
+        gt=0,
+        validation_alias="ANANTA_CODECOMPASS_MAX_NOTEBOOK_CELLS",
+    )
+    codecompass_max_notebook_cell_chars: int = Field(
+        default=100_000,
+        gt=0,
+        validation_alias="ANANTA_CODECOMPASS_MAX_NOTEBOOK_CELL_CHARS",
+    )
+    codecompass_max_notebook_output_bytes: int = Field(
+        default=0,
+        ge=0,
+        validation_alias="ANANTA_CODECOMPASS_MAX_NOTEBOOK_OUTPUT_BYTES",
+    )
+    codecompass_max_csv_rows: int = Field(
+        default=10_000,
+        gt=0,
+        validation_alias="ANANTA_CODECOMPASS_MAX_CSV_ROWS",
+    )
+    codecompass_max_csv_columns: int = Field(
+        default=256,
+        gt=0,
+        validation_alias="ANANTA_CODECOMPASS_MAX_CSV_COLUMNS",
+    )
     codecompass_vector_embedding_text_profile: str = Field(
         default="codecompass-symbol-path-summary-v1",
         validation_alias="CODECOMPASS_VECTOR_EMBEDDING_TEXT_PROFILE",

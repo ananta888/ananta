@@ -6,18 +6,42 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from agent.codecompass.file_type_telemetry import (
+    FileTypeTelemetryPort,
+    emit_file_type_telemetry,
+    observe_file_type_parser_result,
+)
+from agent.codecompass.parser_limits import ParserGuardViolation, ParserLimits
 from agent.config import settings
-from agent.hybrid_repository_scan import tracked_code_files
+from agent.hybrid_repository_scan import tracked_code_files, tracked_registry_files
+from agent.repository_map_tree_sitter import resolve_tree_sitter_parser
 
-try:
-    from tree_sitter import Parser
-except Exception:  # pragma: no cover - optional dependency
-    Parser = None
+_LEGACY_CODE_EXTENSIONS = {
+    ".py", ".js", ".ts", ".tsx", ".jsx", ".java", ".go", ".rs",
+    ".cpp", ".c", ".h", ".hpp", ".cs", ".rb", ".php", ".jsonl", ".json",
+}
 
-try:
-    from tree_sitter_languages import get_parser
-except Exception:  # pragma: no cover - optional dependency
-    get_parser = None
+
+def _load_repository_file_type_registry(repo_root: Path):
+    try:
+        from ananta_contracts.file_type_support import load_file_type_support_registry
+
+        return load_file_type_support_registry(repo_root)
+    except Exception as exc:
+        logging.warning("CodeCompass file-type registry unavailable; using compatibility scan: %s", exc)
+        return None
+
+
+def _registry_repository_extensions() -> set[str]:
+    registry = _load_repository_file_type_registry(Path(__file__).resolve().parents[1])
+    if registry is None:
+        return set(_LEGACY_CODE_EXTENSIONS)
+    return {
+        extension
+        for descriptor in registry.descriptors
+        if descriptor.enabled and descriptor.support_for("repository_map").indexed.configured
+        for extension in descriptor.selectors.extensions
+    } or set(_LEGACY_CODE_EXTENSIONS)
 
 
 @dataclass(slots=True)
@@ -32,25 +56,9 @@ class ContextChunk:
 class RepositoryMapEngine:
     """Aider-style repository symbol map with incremental cache invalidation."""
 
-    CODE_EXTENSIONS = {
-        ".py",
-        ".js",
-        ".ts",
-        ".tsx",
-        ".jsx",
-        ".java",
-        ".go",
-        ".rs",
-        ".cpp",
-        ".c",
-        ".h",
-        ".hpp",
-        ".cs",
-        ".rb",
-        ".php",
-        ".jsonl",
-        ".json",
-    }
+    # Compatibility surface for callers/tests. The active scanner also handles
+    # exact filenames, patterns and shebangs through the same registry.
+    CODE_EXTENSIONS = _registry_repository_extensions()
     TREE_SITTER_LANGUAGE_BY_EXT = {
         ".py": "python",
         ".js": "javascript",
@@ -79,31 +87,108 @@ class RepositoryMapEngine:
         "struct_item",
         "impl_item",
     }
+    VERIFIED_REGEX_FALLBACK_EXTENSIONS = {
+        ".py",
+        ".js",
+        ".jsx",
+        ".ts",
+        ".tsx",
+    }
     def __init__(
         self,
         repo_root: str | Path,
         max_files: int = 8000,
         max_symbols_per_file: int = 80,
+        *,
+        limits: ParserLimits | None = None,
+        telemetry: FileTypeTelemetryPort | None = None,
     ) -> None:
         self.repo_root = Path(repo_root).resolve()
         self.max_files = max_files
         self.max_symbols_per_file = max_symbols_per_file
         self._symbol_graph: dict[str, list[str]] = {}
         self._file_state: dict[str, tuple[float, int]] = {}
+        self._tree_sitter_parser_cache: dict[str, object | None] = {}
+        self._file_type_registry = _load_repository_file_type_registry(self.repo_root)
+        self._limits = limits or ParserLimits.from_environment()
+        self._telemetry = telemetry or observe_file_type_parser_result
+        self._parser_diagnostics: dict[str, dict[str, object]] = {}
         self._last_scan_ts = 0.0
 
+    def parser_diagnostics(self) -> tuple[dict[str, object], ...]:
+        """Return deterministic, bounded diagnostics from the latest file states."""
+
+        return tuple(dict(self._parser_diagnostics[path]) for path in sorted(self._parser_diagnostics))
+
     @classmethod
-    def language_support_matrix(cls) -> dict[str, dict[str, str]]:
-        matrix: dict[str, dict[str, str]] = {}
+    def language_support_matrix(cls) -> dict[str, dict[str, object]]:
+        registry = _load_repository_file_type_registry(Path(__file__).resolve().parents[1])
+        descriptor_by_extension = {
+            extension: descriptor
+            for descriptor in (registry.descriptors if registry is not None else ())
+            for extension in descriptor.selectors.extensions
+        }
+        matrix: dict[str, dict[str, object]] = {}
         for ext in sorted(cls.CODE_EXTENSIONS):
             ts_lang = cls.TREE_SITTER_LANGUAGE_BY_EXT.get(ext, "")
+            resolution = resolve_tree_sitter_parser(ts_lang) if ts_lang else None
+            tree_sitter_available = bool(
+                resolution is not None and resolution.status.available
+            )
+            legacy_fallback = "json_keys" if ext in {".json", ".jsonl"} else "regex"
+            if ext in {".json", ".jsonl"}:
+                fallback_strategy = "json_keys"
+            elif ext in cls.VERIFIED_REGEX_FALLBACK_EXTENSIONS:
+                fallback_strategy = "regex_declarations_limited"
+            else:
+                fallback_strategy = "none"
             matrix[ext] = {
+                "format_id": (
+                    descriptor_by_extension[ext].format_id if ext in descriptor_by_extension else None
+                ),
+                "support_level": (
+                    "symbol_index"
+                    if ext in descriptor_by_extension
+                    and descriptor_by_extension[ext].support_for("repository_map").symbols.verified
+                    else "text_index"
+                ),
+                "parser_strategy": (
+                    descriptor_by_extension[ext].parser_strategy if ext in descriptor_by_extension else None
+                ),
+                "known_limits": (
+                    list(descriptor_by_extension[ext].known_limits) if ext in descriptor_by_extension else []
+                ),
+                "enabled": (
+                    descriptor_by_extension[ext].enabled if ext in descriptor_by_extension else True
+                ),
                 "tree_sitter_language": ts_lang or "",
-                "fallback": "regex",
+                "tree_sitter_configured": bool(ts_lang),
+                "tree_sitter_available": tree_sitter_available,
+                "tree_sitter_strategy": (
+                    resolution.status.strategy if resolution is not None else "none"
+                ),
+                "tree_sitter_diagnostics": (
+                    list(resolution.status.diagnostics) if resolution is not None else []
+                ),
+                "effective_parser": (
+                    resolution.status.strategy
+                    if tree_sitter_available
+                    else fallback_strategy
+                ),
+                "fallback": legacy_fallback,
+                "fallback_strategy": fallback_strategy,
+                "fallback_verified": fallback_strategy != "none",
             }
         return matrix
 
     def _tracked_files(self) -> list[Path]:
+        if self._file_type_registry is not None:
+            return tracked_registry_files(
+                repo_root=self.repo_root,
+                registry=self._file_type_registry,
+                pipeline="repository_map",
+                max_files=self.max_files,
+            )
         return tracked_code_files(
             repo_root=self.repo_root,
             code_extensions=self.CODE_EXTENSIONS,
@@ -111,16 +196,22 @@ class RepositoryMapEngine:
         )
 
     def _parser_for_file(self, file_path: Path):
-        if Parser is None or get_parser is None:
-            return None
-        lang = self.TREE_SITTER_LANGUAGE_BY_EXT.get(file_path.suffix.lower())
+        extension = file_path.suffix.lower()
+        if extension in self._tree_sitter_parser_cache:
+            return self._tree_sitter_parser_cache[extension]
+        lang = self.TREE_SITTER_LANGUAGE_BY_EXT.get(extension)
         if not lang:
             return None
-        try:
-            return get_parser(lang)
-        except Exception as e:
-            logging.debug(f"Tree-sitter parser init failed for language '{lang}': {e}")
-            return None
+        resolution = resolve_tree_sitter_parser(lang)
+        parser = resolution.parser if resolution.status.available else None
+        self._tree_sitter_parser_cache[extension] = parser
+        if parser is None:
+            logging.debug(
+                "Tree-sitter parser unavailable for language '%s': %s",
+                lang,
+                ",".join(resolution.status.diagnostics),
+            )
+        return parser
 
     @staticmethod
     def _decode_node_text(node, source: bytes) -> str:
@@ -318,25 +409,99 @@ class RepositoryMapEngine:
             if not force and self._file_state.get(rel) == state:
                 continue
             self._file_state[rel] = state
+            parse_started = time.perf_counter()
+            fallback_reason: str | None = None
             try:
-                text = file_path.read_text(encoding="utf-8", errors="ignore")
+                with file_path.open("rb") as handle:
+                    raw = handle.read(self._limits.max_file_bytes + 1)
+                text = raw.decode("utf-8")
+                self._limits.preflight(path=rel, content=text)
+                budget = self._limits.budget()
+                if file_path.suffix.lower() in {".jsonl", ".json"}:
+                    symbols = self._extract_symbols_jsonl(text)
+                else:
+                    symbols = self._extract_symbols_tree_sitter(file_path, text)
+                    if not symbols:
+                        symbols = self._extract_symbols_regex(text)
+                        fallback_reason = "parser_fallback"
+                budget.check_time()
+                budget.check_record_count(len(symbols))
+            except ParserGuardViolation as exc:
+                logging.debug("Skipping repository-map input '%s': %s", file_path, exc)
+                self._parser_diagnostics[rel] = exc.as_diagnostic(path=rel)
+                self._symbol_graph.pop(rel, None)
+                self._observe_parser_result(
+                    path=rel,
+                    started=parse_started,
+                    byte_size=stat.st_size,
+                    outcome=(
+                        "failed" if exc.diagnostic_code == "parser_timeout" else "excluded"
+                    ),
+                    diagnostics=(exc.diagnostic_code,),
+                )
+                continue
             except Exception as e:
                 logging.debug(f"Failed reading source file '{file_path}': {e}")
+                self._parser_diagnostics[rel] = {
+                    "severity": "warning",
+                    "code": "file_read_failed",
+                    "reason_code": type(e).__name__,
+                    "message": "Repository-map source could not be read safely.",
+                    "path": rel,
+                    "line": None,
+                }
                 self._symbol_graph.pop(rel, None)
+                self._observe_parser_result(
+                    path=rel,
+                    started=parse_started,
+                    byte_size=stat.st_size,
+                    outcome="failed",
+                    diagnostics=("file_read_failed",),
+                )
                 continue
-            if file_path.suffix.lower() in {".jsonl", ".json"}:
-                symbols = self._extract_symbols_jsonl(text)
-            else:
-                symbols = self._extract_symbols_tree_sitter(file_path, text) or self._extract_symbols_regex(text)
+            self._parser_diagnostics.pop(rel, None)
             if symbols:
                 self._symbol_graph[rel] = symbols
             else:
                 self._symbol_graph.pop(rel, None)
+            self._observe_parser_result(
+                path=rel,
+                started=parse_started,
+                byte_size=stat.st_size,
+                outcome="indexed",
+                symbol_count=len(symbols),
+                fallback_reason=fallback_reason,
+            )
 
         removed = set(self._file_state.keys()) - active
         for rel in removed:
             self._file_state.pop(rel, None)
             self._symbol_graph.pop(rel, None)
+            self._parser_diagnostics.pop(rel, None)
+
+    def _observe_parser_result(
+        self,
+        *,
+        path: str,
+        started: float,
+        byte_size: int,
+        outcome: str,
+        symbol_count: int = 0,
+        fallback_reason: str | None = None,
+        diagnostics: tuple[str, ...] = (),
+    ) -> None:
+        emit_file_type_telemetry(
+            self._telemetry,
+            pipeline="repository_map",
+            path=path,
+            outcome=outcome,
+            duration_seconds=time.perf_counter() - started,
+            byte_size=byte_size,
+            symbol_count=symbol_count,
+            edge_count=0,
+            fallback_reason=fallback_reason,
+            diagnostics=diagnostics,
+        )
 
     _REPO_STOP_TOKENS: frozenset = frozenset({
         "der", "die", "das", "den", "dem", "des", "ein", "eine", "einer",

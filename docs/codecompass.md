@@ -38,6 +38,7 @@ plumbing stay versioned and reproducible.
 * `architecture/code-review-graph-adapter.md` — CRG-001
 * `architecture/repository-intelligence-graph.md` — RIG-001
 * `architecture/codecompass-import-trust.md` — DD-017 + DD-013 + DD-016
+* `architecture/codecompass-file-type-support.md` — canonical file-type registry, capability levels, rollout and audit
 * `codecompass-tools.md` — public tool registry
 * `codecompass-n8n-workflows.md` — n8n workflow extraction (records, relations, redaction; opt-in via `--extensions json`)
 * `ci/ananta-codecompass-review.md` — CRG-011 CI workflow

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ast
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +20,7 @@ class PythonSemanticAdapter:
     language = "python"
     supported_extensions = (".py",)
     parser_strategy = "ast-python-v1"
+    semantic_kinds = ("data_record", "enum_value", "function_signature", "property")
     known_limits = (
         "method bodies are not fully analysed",
         "nested functions and lambdas are marked needs_review",

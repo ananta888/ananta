@@ -1,5 +1,29 @@
 """Small versioned wire contracts shared between isolated Ananta services."""
 
+from .file_type_classifier import (
+    FileTypeClassification,
+    FileTypeClassifier,
+    FileTypeMatchKind,
+)
+from .file_type_coverage import CoverageOutcome, FileCoverageRecord, FileTypeCoverageReport
+from .file_type_migration import (
+    FileTypeMigrationPlan,
+    affected_paths,
+    compare_file_type_registries,
+    file_type_descriptor_hashes,
+)
+from .file_type_rollout import FileTypeRolloutPolicy, FileTypeRolloutPolicyError
+from .file_type_support import (
+    CapabilityDeclaration,
+    CapabilityDimension,
+    CapabilityImplementation,
+    FileTypeDescriptor,
+    FileTypeSelectors,
+    FileTypeSupportContractError,
+    FileTypeSupportRegistry,
+    PipelineSupport,
+    load_file_type_support_registry,
+)
 from .langgraph_checkpoint import (
     LANGGRAPH_CHECKPOINT_COMMAND_SCHEMA,
     LANGGRAPH_CHECKPOINT_RESPONSE_SCHEMA,
@@ -45,6 +69,27 @@ __all__ = [
     "LangGraphCheckpointSnapshot",
     "ModelCapability",
     "ModelStatus",
+    "CapabilityDeclaration",
+    "CapabilityDimension",
+    "CapabilityImplementation",
+    "FileTypeClassification",
+    "FileTypeClassifier",
+    "CoverageOutcome",
+    "FileCoverageRecord",
+    "FileTypeCoverageReport",
+    "FileTypeMigrationPlan",
+    "FileTypeRolloutPolicy",
+    "FileTypeRolloutPolicyError",
+    "affected_paths",
+    "compare_file_type_registries",
+    "file_type_descriptor_hashes",
+    "FileTypeDescriptor",
+    "FileTypeMatchKind",
+    "FileTypeSelectors",
+    "FileTypeSupportContractError",
+    "FileTypeSupportRegistry",
+    "PipelineSupport",
+    "load_file_type_support_registry",
     "StrictChoiceJudge",
     "StrictChoiceRequest",
     "ActivityClass",

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import importlib
 import json
+import logging
 import shutil
 import sys
 import tempfile
@@ -13,9 +15,6 @@ from agent.config import settings
 from agent.db_models import KnowledgeIndexDB, KnowledgeIndexRunDB
 from agent.metrics import KNOWLEDGE_INDEX_DURATION_SECONDS, KNOWLEDGE_INDEX_RUNS_TOTAL
 from agent.repository import artifact_repo, artifact_version_repo, knowledge_index_repo, knowledge_index_run_repo
-from agent.services.rag_index_chunker import chunk_wiki_records, index_wiki_records_with_codecompass
-
-
 from agent.services._rag_helper_profile_catalog import (
     ALLOWED_OVERRIDE_KEYS,
     BOOL_OVERRIDE_KEYS,
@@ -23,6 +22,12 @@ from agent.services._rag_helper_profile_catalog import (
     PROFILE_KEY_ALIASES,
     PROFILE_SECTION_KEYS,
 )
+from agent.services.rag_helper_file_type_migration import plan_rag_helper_cache_migration
+from agent.services.rag_helper_file_type_policy import RagHelperFileTypePolicy
+from agent.services.rag_index_chunker import chunk_wiki_records, index_wiki_records_with_codecompass
+from ananta_contracts import FileTypeRolloutPolicy, load_file_type_support_registry
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class RagHelperIndexService:
@@ -30,10 +35,6 @@ class RagHelperIndexService:
 
     DEFAULT_PROFILE_NAME = "default"
     VALID_SOURCE_SCOPES = {"artifact", "wiki", "repo_path"}
-    DEFAULT_REPO_PATH_EXTENSIONS: set[str] = {
-        "py", "js", "ts", "tsx", "jsx", "java", "go", "rs", "c", "cpp", "h", "hpp",
-        "cs", "rb", "php", "md", "rst", "txt", "yaml", "yml", "json", "toml",
-    }
     INTERNAL_PROFILE_CATALOG = INTERNAL_PROFILE_CATALOG
     PROFILE_SECTION_KEYS = PROFILE_SECTION_KEYS
     PROFILE_KEY_ALIASES = PROFILE_KEY_ALIASES
@@ -45,6 +46,118 @@ class RagHelperIndexService:
 
     def _rag_helper_root(self) -> Path:
         return self._repo_root() / "rag-helper"
+
+    def _file_type_contract_root(self) -> Path:
+        """Return the immutable source root even when a scan root is injected."""
+
+        return Path(__file__).resolve().parents[2]
+
+    @staticmethod
+    def _csv_values(value: str) -> tuple[str, ...]:
+        return tuple(item.strip() for item in str(value or "").split(",") if item.strip())
+
+    def _rag_helper_file_type_policy(
+        self,
+        helper_modules: dict[str, Any],
+    ) -> RagHelperFileTypePolicy:
+        registry = load_file_type_support_registry(self._file_type_contract_root())
+        rollout = FileTypeRolloutPolicy.build(
+            registry,
+            priorities=self._csv_values(settings.codecompass_file_type_priorities),
+            enabled_format_ids=self._csv_values(settings.codecompass_enabled_formats),
+            disabled_format_ids=self._csv_values(settings.codecompass_disabled_formats),
+        )
+        return RagHelperFileTypePolicy(
+            registry=registry,
+            rollout=rollout,
+            runtime_dispatch_keys=getattr(helper_modules["codecompass"], "DEFAULT_EXTENSIONS", set()),
+            dispatch_key_resolver=helper_modules["effective_extension"],
+        )
+
+    @staticmethod
+    def _file_type_run_contract(
+        policy: RagHelperFileTypePolicy,
+        *,
+        profile: dict[str, Any],
+        dispatch_keys: set[str],
+    ) -> tuple[dict[str, Any], str]:
+        contract = {
+            **policy.as_dict(),
+            "profile_name": profile["name"],
+            "profile_extensions": list(profile.get("extensions") or []),
+            "effective_dispatch_keys": sorted(dispatch_keys),
+            "effective_format_ids": sorted(policy.effective_format_ids(dispatch_keys)),
+        }
+        digest = hashlib.sha256(
+            json.dumps(contract, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+        return contract, digest
+
+    @staticmethod
+    def _processing_limits(helper_modules: dict[str, Any], profile: dict[str, Any]) -> Any:
+        """Narrow profile settings with the shared Hub safety ceilings."""
+
+        values = dict(profile["limits"])
+
+        def narrow(name: str, ceiling: int) -> None:
+            current = values.get(name)
+            values[name] = ceiling if current is None else min(int(current), ceiling)
+
+        narrow("max_file_size_bytes", settings.codecompass_max_file_bytes)
+        narrow("max_parser_lines", settings.codecompass_max_lines)
+        narrow("parser_timeout_ms", settings.codecompass_parser_timeout_ms)
+        narrow("max_parser_records_per_file", settings.codecompass_max_output_records)
+        narrow("max_records_per_file", settings.codecompass_max_output_records)
+        narrow("max_relation_records_per_file", settings.codecompass_max_output_records)
+        narrow("max_xml_nodes", settings.codecompass_max_xml_nodes)
+        narrow("max_xml_depth", settings.codecompass_max_xml_depth)
+        narrow("max_yaml_aliases", settings.codecompass_max_yaml_aliases)
+        narrow("max_notebook_cells", settings.codecompass_max_notebook_cells)
+        narrow("max_notebook_cell_chars", settings.codecompass_max_notebook_cell_chars)
+        narrow(
+            "max_notebook_output_bytes",
+            settings.codecompass_max_notebook_output_bytes,
+        )
+        narrow("max_tabular_rows", settings.codecompass_max_csv_rows)
+        narrow("max_tabular_columns", settings.codecompass_max_csv_columns)
+        return helper_modules["ProcessingLimits"](**values)
+
+    @staticmethod
+    def _observe_rag_helper_file_type_metrics(manifest: dict[str, Any]) -> None:
+        """Emit non-functional telemetry without changing an index outcome."""
+
+        try:
+            from agent.services.file_type_metrics_service import get_file_type_metrics_service
+
+            get_file_type_metrics_service().observe_rag_helper_manifest(manifest)
+        except Exception as exc:
+            _LOGGER.warning(
+                "CodeCompass rag-helper file-type metrics could not be recorded: %s",
+                exc,
+            )
+
+    @staticmethod
+    def _enrich_rag_helper_file_type_manifest(
+        manifest_path: Path,
+        manifest: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Persist additive capability evidence in the existing manifest."""
+
+        try:
+            from agent.services.file_type_manifest_service import get_file_type_manifest_service
+
+            enriched = get_file_type_manifest_service().enrich_rag_helper_manifest(manifest)
+            manifest_path.write_text(
+                json.dumps(enriched, ensure_ascii=False, sort_keys=True),
+                encoding="utf-8",
+            )
+            return enriched
+        except Exception as exc:
+            _LOGGER.warning(
+                "CodeCompass rag-helper manifest could not be enriched with file-type evidence: %s",
+                exc,
+            )
+            return manifest
 
     def _normalize_source_scope(self, source_scope: str | None) -> str:
         normalized = str(source_scope or "artifact").strip().lower() or "artifact"
@@ -236,6 +349,11 @@ class RagHelperIndexService:
             codecompass = importlib.import_module("codecompass_rag")
             processing_limits = importlib.import_module("rag_helper.application.processing_limits")
             project_processor = importlib.import_module("rag_helper.application.project_processor")
+            file_filters = importlib.import_module("rag_helper.filesystem.file_filters")
+            file_scanner = importlib.import_module("rag_helper.application.file_scanner")
+            incremental_cache = importlib.import_module(
+                "rag_helper.application.incremental_cache"
+            )
         except Exception as exc:
             raise RuntimeError(f"rag_helper_import_failed:{exc}") from exc
         finally:
@@ -245,6 +363,11 @@ class RagHelperIndexService:
             "codecompass": codecompass,
             "ProcessingLimits": processing_limits.ProcessingLimits,
             "process_project": project_processor.process_project,
+            "effective_extension": file_filters.effective_extension,
+            "build_source_fingerprint": file_scanner.build_source_fingerprint,
+            "invalidate_incremental_cache_paths": (
+                incremental_cache.invalidate_incremental_cache_paths
+            ),
         }
 
     def _artifact_source_metadata(self, artifact_id: str) -> tuple[Path, str, set[str], dict[str, Any], Any]:
@@ -465,11 +588,33 @@ class RagHelperIndexService:
         helper_modules = self._ensure_helper_imports()
         source_path, source_filename, extensions, source_metadata, version = self._artifact_source_metadata(artifact_id)
         profile = self._resolve_profile(profile_name, profile_overrides)
-        runtime_extensions = set(extensions)
+        file_type_policy = self._rag_helper_file_type_policy(helper_modules)
+        classification = file_type_policy.classify_file(
+            source_path,
+            relative_path=source_filename,
+        )
+        runtime_extensions = (
+            set(file_type_policy.descriptor_dispatch_keys(classification.descriptor))
+            if classification is not None
+            else set()
+        )
+        if not runtime_extensions:
+            raise ValueError("artifact_file_type_disabled_or_unsupported")
         if profile.get("extensions"):
-            runtime_extensions = {ext for ext in extensions if ext in set(profile["extensions"] or [])}
+            runtime_extensions &= set(profile["extensions"] or [])
             if not runtime_extensions:
                 raise ValueError("artifact_extension_not_supported_by_profile")
+        file_type_contract, file_type_signature = self._file_type_run_contract(
+            file_type_policy,
+            profile=profile,
+            dispatch_keys=runtime_extensions,
+        )
+        source_metadata = {
+            **source_metadata,
+            "detected_file_type": classification.as_dict(),
+            "file_type_contract": file_type_contract,
+            "file_type_contract_signature": file_type_signature,
+        }
         knowledge_index = self._build_or_create_index(
             source_scope="artifact",
             scope_id=artifact_id,
@@ -523,12 +668,14 @@ class RagHelperIndexService:
             "artifact_version_id": version.id,
             "last_requested_by": created_by,
             "profile": profile,
+            "file_type_contract": file_type_contract,
+            "file_type_contract_signature": file_type_signature,
         }
         knowledge_index = knowledge_index_repo.save(knowledge_index)
 
         started = time.perf_counter()
         try:
-            limits = helper_modules["ProcessingLimits"](**profile["limits"])
+            limits = self._processing_limits(helper_modules, profile)
             with tempfile.TemporaryDirectory(prefix="ananta-rag-helper-") as staging_dir:
                 staging_root = Path(staging_dir)
                 staged_path = staging_root / source_filename
@@ -556,8 +703,12 @@ class RagHelperIndexService:
                     dry_run=False,
                     show_progress=show_progress,
                     error_log_file=error_log_file,
+                    file_inclusion_predicate=file_type_policy.allows_file,
                 )
-            manifest = self._load_manifest(manifest_path)
+            manifest = self._enrich_rag_helper_file_type_manifest(
+                manifest_path,
+                self._load_manifest(manifest_path),
+            )
             duration_ms = round((time.perf_counter() - started) * 1000, 3)
             run.status = "completed"
             run.output_dir = str(output_dir)
@@ -590,6 +741,7 @@ class RagHelperIndexService:
             KNOWLEDGE_INDEX_DURATION_SECONDS.labels(scope=source_scope, profile=profile["name"]).observe(
                 duration_ms / 1000.0
             )
+            self._observe_rag_helper_file_type_metrics(manifest)
             return knowledge_index, run
         except Exception as exc:
             duration_ms = round((time.perf_counter() - started) * 1000, 3)
@@ -636,25 +788,86 @@ class RagHelperIndexService:
 
         scope_id = str(safe_path.relative_to(repo_root))
         profile = self._resolve_profile(profile_name, None)
+        file_type_policy = self._rag_helper_file_type_policy(helper_modules)
+        runtime_extensions = set(file_type_policy.dispatch_keys())
+        if profile.get("extensions"):
+            runtime_extensions &= set(profile["extensions"] or [])
+            if not runtime_extensions:
+                raise ValueError("repo_path_file_types_not_supported_by_profile")
+        file_type_contract, file_type_signature = self._file_type_run_contract(
+            file_type_policy,
+            profile=profile,
+            dispatch_keys=runtime_extensions,
+        )
+        fingerprint = helper_modules["build_source_fingerprint"](
+            root=safe_path,
+            extensions=runtime_extensions,
+            excludes=getattr(helper_modules["codecompass"], "DEFAULT_EXCLUDES", set()),
+            include_globs=[],
+            exclude_globs=list(profile.get("filters", {}).get("exclude_globs") or []),
+            file_inclusion_predicate=file_type_policy.allows_file,
+            max_file_bytes=settings.codecompass_max_file_bytes,
+        )
         knowledge_index = self._build_or_create_index(
             source_scope="repo_path",
             scope_id=scope_id,
             created_by=created_by,
             collection_id=scope_id,
         )
-        if knowledge_index.status == "completed":
+        previous_signature = (knowledge_index.index_metadata or {}).get(
+            "file_type_contract_signature"
+        )
+        previous_fingerprint = (knowledge_index.index_metadata or {}).get(
+            "source_fingerprint"
+        )
+        if (
+            knowledge_index.status == "completed"
+            and previous_signature == file_type_signature
+            and previous_fingerprint == fingerprint.digest
+        ):
             dummy_run = knowledge_index_run_repo.save(
                 KnowledgeIndexRunDB(
                     knowledge_index_id=knowledge_index.id,
                     profile_name=profile["name"],
                     status="skipped",
                     source_path=str(safe_path),
-                    run_metadata={"reason": "already_completed"},
+                    run_metadata={
+                        "reason": "already_completed",
+                        "file_type_contract_signature": file_type_signature,
+                        "source_fingerprint": fingerprint.digest,
+                    },
                     started_at=time.time(),
                     finished_at=time.time(),
                 )
             )
             return knowledge_index, dummy_run
+
+        previous_contract = dict(
+            (knowledge_index.index_metadata or {}).get("file_type_contract") or {}
+        )
+        previous_manifest = self._load_manifest(
+            Path(knowledge_index.manifest_path)
+            if knowledge_index.manifest_path
+            else Path("__missing_previous_manifest__")
+        )
+        cache_file = (
+            self._knowledge_output_root(source_scope="repo_path")
+            / knowledge_index.id
+            / ".cache"
+            / "code_to_rag_cache.json"
+        )
+        migration_plan = plan_rag_helper_cache_migration(
+            previous_contract=previous_contract,
+            current_contract=file_type_contract,
+            previous_manifest=previous_manifest,
+            repository_path=safe_path,
+            policy=file_type_policy,
+        )
+        cache_migration = helper_modules["invalidate_incremental_cache_paths"](
+            cache_file,
+            migration_plan.affected_paths,
+        )
+        cache_migration = {**migration_plan.as_dict(), **cache_migration}
 
         run = knowledge_index_run_repo.save(
             KnowledgeIndexRunDB(
@@ -662,7 +875,16 @@ class RagHelperIndexService:
                 profile_name=profile["name"],
                 status="running",
                 source_path=str(safe_path),
-                run_metadata={"requested_by": created_by, "profile": profile, "repo_path": scope_id},
+                run_metadata={
+                    "requested_by": created_by,
+                    "profile": profile,
+                    "repo_path": scope_id,
+                    "file_type_contract": file_type_contract,
+                    "file_type_contract_signature": file_type_signature,
+                    "source_fingerprint": fingerprint.digest,
+                    "source_file_count": fingerprint.file_count,
+                    "cache_migration": cache_migration,
+                },
                 started_at=time.time(),
             )
         )
@@ -680,16 +902,21 @@ class RagHelperIndexService:
             "repo_path": scope_id,
             "last_requested_by": created_by,
             "profile": profile,
+            "file_type_contract": file_type_contract,
+            "file_type_contract_signature": file_type_signature,
+            "source_fingerprint": fingerprint.digest,
+            "source_file_count": fingerprint.file_count,
+            "cache_migration": cache_migration,
         }
         knowledge_index = knowledge_index_repo.save(knowledge_index)
 
         started = time.perf_counter()
         try:
-            limits = helper_modules["ProcessingLimits"](**profile["limits"])
+            limits = self._processing_limits(helper_modules, profile)
             helper_modules["process_project"](
                 root=safe_path,
                 out_dir=output_dir,
-                extensions=self.DEFAULT_REPO_PATH_EXTENSIONS,
+                extensions=runtime_extensions,
                 excludes=getattr(helper_modules["codecompass"], "DEFAULT_EXCLUDES", set()),
                 include_code_snippets=profile["options"]["include_code_snippets"],
                 exclude_trivial_methods=profile["options"]["exclude_trivial_methods"],
@@ -702,15 +929,19 @@ class RagHelperIndexService:
                 xml_extractor_cls=helper_modules["codecompass"].XmlExtractor,
                 xsd_extractor_cls=helper_modules["codecompass"].XsdExtractor,
                 text_extractor_cls=helper_modules["codecompass"].TextFileExtractor,
-                incremental=False,
-                rebuild=True,
+                incremental=True,
+                rebuild=False,
                 resume=False,
-                cache_file=None,
+                cache_file=cache_file,
                 dry_run=False,
                 show_progress=False,
                 error_log_file=None,
+                file_inclusion_predicate=file_type_policy.allows_file,
             )
-            manifest = self._load_manifest(manifest_path)
+            manifest = self._enrich_rag_helper_file_type_manifest(
+                manifest_path,
+                self._load_manifest(manifest_path),
+            )
             duration_ms = round((time.perf_counter() - started) * 1000, 3)
             run.status = "completed"
             run.output_dir = str(output_dir)
@@ -731,8 +962,13 @@ class RagHelperIndexService:
                     "index_record_count": manifest.get("index_record_count", 0),
                 },
             }
-            KNOWLEDGE_INDEX_RUNS_TOTAL.labels(scope="repo_path", status="completed", profile=profile["name"]).inc()
-            KNOWLEDGE_INDEX_DURATION_SECONDS.labels(scope="repo_path", profile=profile["name"]).observe(duration_ms / 1000.0)
+            KNOWLEDGE_INDEX_RUNS_TOTAL.labels(
+                scope="repo_path", status="completed", profile=profile["name"]
+            ).inc()
+            KNOWLEDGE_INDEX_DURATION_SECONDS.labels(
+                scope="repo_path", profile=profile["name"]
+            ).observe(duration_ms / 1000.0)
+            self._observe_rag_helper_file_type_metrics(manifest)
             return knowledge_index_repo.save(knowledge_index), run
         except Exception as exc:
             duration_ms = round((time.perf_counter() - started) * 1000, 3)
@@ -745,8 +981,12 @@ class RagHelperIndexService:
             knowledge_index.updated_at = time.time()
             knowledge_index.index_metadata = {**(knowledge_index.index_metadata or {}), "last_error": str(exc)[:500]}
             knowledge_index_repo.save(knowledge_index)
-            KNOWLEDGE_INDEX_RUNS_TOTAL.labels(scope="repo_path", status="failed", profile=profile["name"]).inc()
-            KNOWLEDGE_INDEX_DURATION_SECONDS.labels(scope="repo_path", profile=profile["name"]).observe(duration_ms / 1000.0)
+            KNOWLEDGE_INDEX_RUNS_TOTAL.labels(
+                scope="repo_path", status="failed", profile=profile["name"]
+            ).inc()
+            KNOWLEDGE_INDEX_DURATION_SECONDS.labels(
+                scope="repo_path", profile=profile["name"]
+            ).observe(duration_ms / 1000.0)
             raise
 
     def index_source_records(
@@ -845,7 +1085,10 @@ class RagHelperIndexService:
 
         started = time.perf_counter()
         try:
-            serialized = sorted(json.dumps(dict(record), sort_keys=True, ensure_ascii=True) for record in normalized_records)
+            serialized = sorted(
+                json.dumps(dict(record), sort_keys=True, ensure_ascii=True)
+                for record in normalized_records
+            )
             source_files = {
                 str((item or {}).get("file") or (item or {}).get("path") or "").strip()
                 for item in normalized_records
@@ -864,8 +1107,16 @@ class RagHelperIndexService:
                     "chunking": {
                         "source_scope": normalized_scope,
                         "input_record_count": len(records) if not _streaming else 0,
-                        "normalized_record_count": len(normalized_records) if not _streaming else manifest.get("index_record_count", 0),
-                        "strategy": "wiki_streaming_codecompass_prerender" if _streaming else "wiki_sentence_chunks+wiki_streaming_codecompass_prerender",
+                        "normalized_record_count": (
+                            len(normalized_records)
+                            if not _streaming
+                            else manifest.get("index_record_count", 0)
+                        ),
+                        "strategy": (
+                            "wiki_streaming_codecompass_prerender"
+                            if _streaming
+                            else "wiki_sentence_chunks+wiki_streaming_codecompass_prerender"
+                        ),
                     },
                 }
             else:
@@ -921,6 +1172,21 @@ class RagHelperIndexService:
             KNOWLEDGE_INDEX_DURATION_SECONDS.labels(scope=normalized_scope, profile=profile["name"]).observe(
                 duration_ms / 1000.0
             )
+            metric_snapshot = (source_metadata or {}).get("file_type_metrics_snapshot")
+            if isinstance(metric_snapshot, list):
+                try:
+                    from agent.services.file_type_metrics_service import get_file_type_metrics_service
+
+                    get_file_type_metrics_service().observe_snapshot(
+                        pipeline="setup_index",
+                        snapshot=metric_snapshot,
+                    )
+                except Exception as exc:
+                    # Metrics must never change the persisted index outcome.
+                    _LOGGER.warning(
+                        "CodeCompass file-type metrics snapshot could not be recorded: %s",
+                        exc,
+                    )
             return knowledge_index, run
         except Exception as exc:
             duration_ms = round((time.perf_counter() - started) * 1000, 3)
@@ -962,7 +1228,11 @@ class RagHelperIndexService:
         output_dir = Path(knowledge_index.output_dir)
         if not output_dir.exists():
             return None
-        manifest_path = Path(knowledge_index.manifest_path) if knowledge_index.manifest_path else (output_dir / "manifest.json")
+        manifest_path = (
+            Path(knowledge_index.manifest_path)
+            if knowledge_index.manifest_path
+            else output_dir / "manifest.json"
+        )
         manifest = self._load_manifest(manifest_path)
         partitioned_outputs = manifest.get("partitioned_outputs") or {}
         return {

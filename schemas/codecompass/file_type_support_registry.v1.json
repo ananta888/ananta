@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/codecompass/file_type_support_registry.v1.json",
+  "title": "CodeCompass file type support registry v1",
+  "description": "Declarative classification and truthful per-pipeline capability declarations. This registry is not an authorization policy.",
+  "type": "object",
+  "required": [
+    "schema",
+    "registry_version",
+    "support_dimensions",
+    "pipelines",
+    "formats"
+  ],
+  "properties": {
+    "schema": {
+      "const": "codecompass.file-type-support-registry.v1"
+    },
+    "registry_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "support_dimensions": {
+      "const": ["indexed", "symbols", "relationships"]
+    },
+    "pipelines": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_-]*$"
+      }
+    },
+    "formats": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/format"}
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "selectors": {
+      "type": "object",
+      "required": [
+        "exact_filenames",
+        "filename_patterns",
+        "compound_suffixes",
+        "extensions",
+        "shebang_patterns",
+        "text_fallback"
+      ],
+      "properties": {
+        "exact_filenames": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "maxLength": 255}
+        },
+        "filename_patterns": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "maxLength": 255}
+        },
+        "compound_suffixes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^\\.[a-z0-9][a-z0-9._+-]*\\.[a-z0-9][a-z0-9._+-]*$"}
+        },
+        "extensions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^\\.[a-z0-9][a-z0-9_+-]*$"}
+        },
+        "shebang_patterns": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "maxLength": 160}
+        },
+        "text_fallback": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "capability": {
+      "type": "object",
+      "required": [
+        "implementation",
+        "verified",
+        "producer",
+        "evidence",
+        "runtime_requirements"
+      ],
+      "properties": {
+        "implementation": {
+          "type": "string",
+          "enum": ["unsupported", "text_fallback", "heuristic", "parser"]
+        },
+        "verified": {"type": "boolean"},
+        "producer": {"type": ["string", "null"], "maxLength": 255},
+        "evidence": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "maxLength": 500}
+        },
+        "runtime_requirements": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^(python-module|executable|tree-sitter-language):[A-Za-z0-9_.+-]+$"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"implementation": {"const": "unsupported"}},
+            "required": ["implementation"]
+          },
+          "then": {
+            "properties": {
+              "verified": {"const": false},
+              "producer": {"const": null},
+              "evidence": {"maxItems": 0},
+              "runtime_requirements": {"maxItems": 0}
+            }
+          },
+          "else": {
+            "properties": {
+              "producer": {"type": "string", "minLength": 1},
+              "evidence": {"minItems": 1}
+            }
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "pipelineSupport": {
+      "type": "object",
+      "required": ["indexed", "symbols", "relationships"],
+      "properties": {
+        "indexed": {"$ref": "#/$defs/capability"},
+        "symbols": {"$ref": "#/$defs/capability"},
+        "relationships": {"$ref": "#/$defs/capability"}
+      },
+      "additionalProperties": false
+    },
+    "format": {
+      "type": "object",
+      "required": [
+        "format_id",
+        "display_name",
+        "family",
+        "priority",
+        "enabled",
+        "selectors",
+        "security_class",
+        "parser_strategy",
+        "fallback_strategy",
+        "known_limits",
+        "pipeline_support"
+      ],
+      "properties": {
+        "format_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]*$"
+        },
+        "display_name": {"type": "string", "minLength": 1, "maxLength": 120},
+        "family": {
+          "type": "string",
+          "enum": ["code", "template", "style", "documentation", "configuration", "build", "script", "data", "notebook", "diagram", "fallback"]
+        },
+        "priority": {"type": "string", "enum": ["P0", "P1", "P2"]},
+        "enabled": {"type": "boolean"},
+        "match_priority": {"type": "integer", "minimum": -1000, "maximum": 1000},
+        "selectors": {"$ref": "#/$defs/selectors"},
+        "security_class": {
+          "type": "string",
+          "enum": ["untrusted_text", "untrusted_structured_text", "untrusted_code"]
+        },
+        "parser_strategy": {"type": "string", "minLength": 1, "maxLength": 255},
+        "fallback_strategy": {"type": "string", "minLength": 1, "maxLength": 255},
+        "known_limits": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "maxLength": 500}
+        },
+        "pipeline_support": {
+          "type": "object",
+          "propertyNames": {"pattern": "^[a-z][a-z0-9_-]*$"},
+          "additionalProperties": {"$ref": "#/$defs/pipelineSupport"}
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

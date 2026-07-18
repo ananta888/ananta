@@ -1,8 +1,52 @@
 from __future__ import annotations
 
+import re
+import subprocess
 from fnmatch import fnmatch
 from pathlib import Path
-import subprocess
+
+
+def effective_extension(path: Path) -> str:
+    """Return the dispatch key for suffix and exact-name source files."""
+
+    name = path.name.lower()
+    if (
+        name in {"dockerfile", "containerfile"}
+        or name.startswith(("dockerfile.", "containerfile."))
+        or name.endswith((".dockerfile", ".containerfile"))
+    ):
+        return "dockerfile"
+    if name in {"makefile", "gnumakefile"}:
+        return "makefile"
+    if name == "jenkinsfile" or name.startswith("jenkinsfile."):
+        return "jenkinsfile"
+    extension = path.suffix.lower().lstrip(".")
+    if extension:
+        return extension
+    return _extensionless_script_dispatch(path)
+
+
+def _extensionless_script_dispatch(path: Path) -> str:
+    """Classify an extensionless script from one inert, bounded first line."""
+
+    try:
+        if path.is_symlink() or not path.is_file():
+            return ""
+        with path.open("rb") as handle:
+            first_line = handle.readline(512).decode("utf-8", errors="ignore").strip()
+    except OSError:
+        return ""
+    if not first_line.startswith("#!"):
+        return ""
+    if re.search(r"(?:^|[/\s])python(?:[0-9.]+)?(?:\s|$)", first_line):
+        return "py"
+    if re.search(r"(?:^|[/\s])pwsh(?:\s|$)", first_line):
+        return "ps1"
+    if re.search(r"(?:^|[/\s])fish(?:\s|$)", first_line):
+        return "fish"
+    if re.search(r"(?:^|[/\s])(?:ba|da|k|z)?sh(?:\s|$)", first_line):
+        return "sh"
+    return ""
 
 
 def should_include_file(
@@ -13,10 +57,15 @@ def should_include_file(
     include_globs: list[str] | None = None,
     exclude_globs: list[str] | None = None,
 ) -> bool:
+    try:
+        if path.is_symlink():
+            return False
+    except OSError:
+        return False
     if any(part in excluded_parts for part in path.parts):
         return False
 
-    ext = path.suffix.lower().lstrip(".")
+    ext = effective_extension(path)
     if ext not in extensions:
         return False
 

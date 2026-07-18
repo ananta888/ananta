@@ -312,8 +312,8 @@ def codecompass_expand_graph(*, workspace_dir: str, arguments: dict[str, Any], t
             error=f"graph_unavailable:{unavailable_reason}",
             warnings=["codecompass_graph_unavailable"],
         )
-    from worker.retrieval.codecompass_graph_expansion import expand_codecompass_graph
     from agent.services.codecompass_context_planner_service import get_codecompass_context_planner
+    from worker.retrieval.codecompass_graph_expansion import expand_codecompass_graph
 
     profile = str(args.get("profile") or "bugfix_local").strip() or "bugfix_local"
     expansion = expand_codecompass_graph(store=store, seed_node_ids=[node], profile=profile)
@@ -496,12 +496,16 @@ def codecompass_translation_plan(*, workspace_dir: str, arguments: dict[str, Any
     target_language = str(args.get("target_language") or "typescript").strip().lower()
     if not source_path or not source_code:
         return build_tool_result(tool_name="codecompass.translation_plan", tool_call_id=tool_call_id, status="error", error="source_required")
-    from agent.codecompass.semantic_translation.adapters import JavaSemanticAdapter
+    from agent.codecompass.semantic_translation.registry import get_semantic_adapter_registry
     from agent.codecompass.semantic_translation.transform import DeterministicTransformEngine, TransformRequest
 
-    adapter = JavaSemanticAdapter()
-    graph = adapter.emit_graph_records(source_path, source_code)
-    artifact = DeterministicTransformEngine().transform(
+    semantic_executor = get_semantic_adapter_registry()
+    graph = semantic_executor.emit_graph_records_for_language(
+        "java",
+        source_path,
+        source_code,
+    )
+    artifact = DeterministicTransformEngine(semantic_executor=semantic_executor).transform(
         TransformRequest(
             source_path=source_path,
             source_code=source_code,
@@ -747,8 +751,8 @@ def codecompass_x86_address_lookup(
             status="error",
             error="address_required",
         )
-    from agent.codecompass.x86.query import parse_address, X86Query, X86QueryEngine
     from agent.codecompass.x86.graph_extensions import build_x86_index
+    from agent.codecompass.x86.query import X86Query, X86QueryEngine, parse_address
 
     addr = parse_address(raw_addr)
     if addr is None:

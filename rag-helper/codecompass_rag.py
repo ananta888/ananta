@@ -5,8 +5,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from tree_sitter import Language, Parser
 import tree_sitter_java as tsjava
+from tree_sitter import Language, Parser
+
 try:
     import tree_sitter_c_sharp as tscsharp
 except ModuleNotFoundError:  # pragma: no cover - environment dependent
@@ -14,13 +15,14 @@ except ModuleNotFoundError:  # pragma: no cover - environment dependent
 
 from rag_helper.cli import run_cli
 from rag_helper.extractors.adoc_extractor import AdocExtractor
-from rag_helper.extractors.n8n_workflow_extractor import N8nWorkflowExtractor
-from rag_helper.extractors.teaching_material_extractor import TeachingMaterialExtractor
 from rag_helper.extractors.csharp_ast_helpers import (
     extract_namespace as extract_csharp_namespace,
+)
+from rag_helper.extractors.csharp_ast_helpers import (
     extract_usings,
 )
-from rag_helper.extractors.csharp_type_extractor import CSharpTypeContext, extract_type as extract_csharp_type
+from rag_helper.extractors.csharp_type_extractor import CSharpTypeContext
+from rag_helper.extractors.csharp_type_extractor import extract_type as extract_csharp_type
 from rag_helper.extractors.csharp_type_resolution import parse_using_map, parse_using_namespaces
 from rag_helper.extractors.java_ast_helpers import (
     extract_identifier,
@@ -29,16 +31,23 @@ from rag_helper.extractors.java_ast_helpers import (
 )
 from rag_helper.extractors.java_type_extractor import JavaTypeContext, extract_type
 from rag_helper.extractors.java_type_resolution import parse_import_map, parse_wildcard_imports
+from rag_helper.extractors.n8n_workflow_extractor import N8nWorkflowExtractor
+from rag_helper.extractors.teaching_material_extractor import TeachingMaterialExtractor
 from rag_helper.extractors.text_file_extractor import TextFileExtractor
 from rag_helper.extractors.xml_extractor import XmlExtractor
 from rag_helper.extractors.xsd_extractor import XsdExtractor
 from rag_helper.utils.embedding_text import build_embedding_text, compact_list
 from rag_helper.utils.ids import safe_id
 
-
 DEFAULT_EXTENSIONS = {
-    "java", "cs", "xml", "xsd", "adoc",
-    "properties", "yaml", "yml", "sql", "md", "py", "ts", "tsx",
+    "", "java", "cs", "xml", "xsd", "drawio", "adoc", "md", "mdx", "rst",
+    "properties", "yaml", "yml", "toml", "ini", "cfg", "conf",
+    "html", "css", "scss", "sass", "less",
+    "dockerfile", "makefile", "jenkinsfile", "mk",
+    "sh", "bash", "zsh", "fish", "ps1", "psm1",
+    "json", "sql", "proto", "graphql", "gql", "tf", "tfvars", "csv", "tsv", "ipynb",
+    "mmd", "mermaid", "puml", "plantuml", "dot", "gv",
+    "py", "ts", "tsx", "gradle", "kts",
 }
 DEFAULT_EXCLUDES = {
     ".git", ".idea", ".vscode", "target", "build", "dist", "out",

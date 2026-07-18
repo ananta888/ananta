@@ -5,11 +5,13 @@ from pathlib import Path
 
 import pytest
 
-from pathlib import Path
-
 from agent.codecompass.semantic_translation.adapters import DummySemanticAdapter, JavaSemanticAdapter
 from agent.codecompass.semantic_translation.config import load_semantic_translation_config
-from agent.codecompass.semantic_translation.equivalence_registry import EquivalenceRule, EquivalenceRuleRegistry, load_rules_from_file
+from agent.codecompass.semantic_translation.equivalence_registry import (
+    EquivalenceRule,
+    EquivalenceRuleRegistry,
+    load_rules_from_file,
+)
 from agent.codecompass.semantic_translation.expression_registry import ExpressionMappingRegistry
 from agent.codecompass.semantic_translation.models import (
     CONTROL_FLOW_KINDS,
@@ -137,6 +139,58 @@ def test_transform_and_verifier_for_record_and_enum():
     assert "export interface UserDto" in artifact["target_code"]
     assert "email?: string | undefined;" in artifact["target_code"]
     assert verification["status"] in {"verified", "verified_with_warnings"}
+
+
+def test_transform_and_verifier_use_bounded_semantic_execution_port():
+    class FailedExecutionPort:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, str]] = []
+
+        def emit_graph_records(self, path: str, content: str) -> dict:
+            raise AssertionError("explicit Java execution must use the language port")
+
+        def emit_graph_records_for_language(
+            self,
+            language: str,
+            path: str,
+            content: str,
+        ) -> dict:
+            self.calls.append((language, path))
+            return {
+                "nodes": [],
+                "edges": [],
+                "diagnostics": [
+                    {
+                        "severity": "warning",
+                        "code": "parser_failed",
+                        "message": "bounded failure",
+                        "path": path,
+                        "line": None,
+                    }
+                ],
+            }
+
+    executor = FailedExecutionPort()
+    request = TransformRequest(
+        source_path="src/Unsafe.java",
+        source_code="public record Unsafe(String value) {}",
+        target_language="typescript",
+    )
+
+    artifact = DeterministicTransformEngine(semantic_executor=executor).transform(request)
+    verification = SemanticTranslationVerifier(semantic_executor=executor).verify(
+        source_path=request.source_path,
+        source_code=request.source_code,
+        target_code="export interface Unsafe {}",
+        transform_artifact=artifact,
+    )
+
+    assert executor.calls == [("java", "src/Unsafe.java"), ("java", "src/Unsafe.java")]
+    assert artifact["status"] == "unsupported"
+    assert "parser_failed" in artifact["warnings"]
+    assert verification["status"] == "failed"
+    assert verification["errors"][0]["code"] == "source_semantic_analysis_failed"
+    assert verification["errors"][0]["reason"] == "parser_failed"
 
 
 def test_verifier_detects_missing_property_and_wrong_type():
@@ -334,7 +388,6 @@ def test_verifier_redacts_sensitive_terms_in_target():
 
 
 def test_setup_index_semantic_build_function_produces_summary(tmp_path, monkeypatch):
-    import importlib
     import sys
 
     monkeypatch.setenv("ANANTA_CODECOMPASS_SEMANTIC_TRANSLATION_ENABLED", "true")

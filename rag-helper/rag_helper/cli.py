@@ -42,10 +42,14 @@ def run_cli(
     config_defaults, config_path = load_profile_config(
         Path(config_args.config) if config_args.config else None
     )
-    config_default = lambda key, fallback=None: config_defaults.get(key, fallback)
+    def config_default(key, fallback=None):
+        return config_defaults.get(key, fallback)
 
     parser = argparse.ArgumentParser(
-        description="Convert Java/C#/XML/XSD/AsciiDoc project files into AST/structure-based RAG JSONL v3."
+        description=(
+            "Convert supported source, documentation, configuration, infrastructure, "
+            "contract and diagram files into structure-based RAG JSONL v3."
+        )
     )
     parser.add_argument("--config", help="JSON- oder YAML-Profil mit CLI-Defaults")
     parser.add_argument("root", nargs="?", default=config_default("root"), help="Projektverzeichnis")
@@ -89,14 +93,125 @@ def run_cli(
     parser.add_argument(
         "--max-file-size-kb",
         type=positive_int,
-        default=config_default("max_file_size_kb"),
+        default=config_default("max_file_size_kb", ProcessingLimits.max_file_size_kb),
         help="Dateien oberhalb dieser Größe in KB überspringen",
+    )
+    parser.add_argument(
+        "--max-parser-lines",
+        type=positive_int,
+        default=config_default("max_parser_lines", ProcessingLimits.max_parser_lines),
+        help="Textdateien oberhalb dieser Zeilenzahl vor der Format-Extraktion überspringen",
+    )
+    parser.add_argument(
+        "--max-parser-records-per-file",
+        type=positive_int,
+        default=config_default(
+            "max_parser_records_per_file", ProcessingLimits.max_parser_records_per_file
+        ),
+        help="Interne Obergrenze fuer Records eines strukturierten Formatparsers",
+    )
+    parser.add_argument(
+        "--max-parser-depth",
+        type=positive_int,
+        default=config_default("max_parser_depth", ProcessingLimits.max_parser_depth),
+        help="Maximale Verschachtelungstiefe fuer strukturierte Nicht-XML-Parser",
+    )
+    parser.add_argument(
+        "--max-document-code-block-chars",
+        type=positive_int,
+        default=config_default(
+            "max_document_code_block_chars", ProcessingLimits.max_document_code_block_chars
+        ),
+        help="Maximale inert gespeicherte Zeichenzahl pro Dokument-Codeblock",
+    )
+    parser.add_argument(
+        "--max-yaml-aliases",
+        type=positive_int,
+        default=config_default("max_yaml_aliases", ProcessingLimits.max_yaml_aliases),
+        help="Maximale Anzahl von YAML-Alias-Tokens pro Datei",
+    )
+    parser.add_argument(
+        "--max-yaml-nodes",
+        type=positive_int,
+        default=config_default("max_yaml_nodes", ProcessingLimits.max_yaml_nodes),
+        help="Maximale Anzahl eindeutig besuchter YAML-Knoten pro Datei",
+    )
+    parser.add_argument(
+        "--max-notebook-cells",
+        type=positive_int,
+        default=config_default("max_notebook_cells", ProcessingLimits.max_notebook_cells),
+        help="Maximale Anzahl indexierter Notebook-Zellen",
+    )
+    parser.add_argument(
+        "--max-notebook-cell-chars",
+        type=positive_int,
+        default=config_default(
+            "max_notebook_cell_chars", ProcessingLimits.max_notebook_cell_chars
+        ),
+        help="Maximale inert gespeicherte Zeichenzahl pro Notebook-Zelle",
+    )
+    parser.add_argument(
+        "--max-tabular-rows",
+        type=positive_int,
+        default=config_default("max_tabular_rows", ProcessingLimits.max_tabular_rows),
+        help="Maximale Zahl gelesener CSV-/TSV-Datenzeilen",
+    )
+    parser.add_argument(
+        "--max-tabular-sample-rows",
+        type=positive_int,
+        default=config_default(
+            "max_tabular_sample_rows", ProcessingLimits.max_tabular_sample_rows
+        ),
+        help="Maximale Zahl fuer die CSV-/TSV-Typinferenz verwendeter Zeilen",
+    )
+    parser.add_argument(
+        "--max-tabular-columns",
+        type=positive_int,
+        default=config_default("max_tabular_columns", ProcessingLimits.max_tabular_columns),
+        help="Maximale Zahl von CSV-/TSV-Spalten",
+    )
+    parser.add_argument(
+        "--max-tabular-cell-chars",
+        type=positive_int,
+        default=config_default(
+            "max_tabular_cell_chars", ProcessingLimits.max_tabular_cell_chars
+        ),
+        help="Maximale Zeichenzahl einer gelesenen CSV-/TSV-Zelle",
+    )
+    parser.add_argument(
+        "--max-drawio-decoded-page-size-kb",
+        type=positive_int,
+        default=config_default(
+            "max_drawio_decoded_page_size_kb",
+            ProcessingLimits.max_drawio_decoded_page_size_kb,
+        ),
+        help="Maximale sicher dekomprimierte Groesse einer draw.io-Seite in KB",
     )
     parser.add_argument(
         "--max-xml-nodes",
         type=positive_int,
-        default=config_default("max_xml_nodes"),
+        default=config_default("max_xml_nodes", ProcessingLimits.max_xml_nodes),
         help="XML/XSD-Dateien mit mehr Knoten überspringen",
+    )
+    parser.add_argument(
+        "--max-xml-input-size-kb",
+        type=positive_int,
+        default=config_default(
+            "max_xml_input_size_kb", ProcessingLimits.max_xml_input_size_kb
+        ),
+        help="XML/XSD-Eingaben oberhalb dieser Groesse in KB sicher ablehnen",
+    )
+    parser.add_argument(
+        "--max-xml-depth",
+        type=positive_int,
+        default=config_default("max_xml_depth", ProcessingLimits.max_xml_depth),
+        help="XML/XSD-Dokumente oberhalb dieser Verschachtelungstiefe ablehnen",
+    )
+    parser.add_argument(
+        "--max-xml-attributes",
+        type=positive_int,
+        default=config_default("max_xml_attributes", ProcessingLimits.max_xml_attributes),
+        help="Gesamtzahl der Attribute pro XML/XSD-Datei begrenzen",
     )
     parser.add_argument(
         "--oversized-xml-fallback",
@@ -364,7 +479,23 @@ def run_cli(
     extensions = {x.lower().lstrip(".") for x in args.extensions}
     limits = ProcessingLimits(
         max_file_size_kb=args.max_file_size_kb,
+        max_parser_lines=args.max_parser_lines,
+        max_parser_records_per_file=args.max_parser_records_per_file,
+        max_parser_depth=args.max_parser_depth,
+        max_document_code_block_chars=args.max_document_code_block_chars,
+        max_yaml_aliases=args.max_yaml_aliases,
+        max_yaml_nodes=args.max_yaml_nodes,
+        max_notebook_cells=args.max_notebook_cells,
+        max_notebook_cell_chars=args.max_notebook_cell_chars,
+        max_tabular_rows=args.max_tabular_rows,
+        max_tabular_sample_rows=args.max_tabular_sample_rows,
+        max_tabular_columns=args.max_tabular_columns,
+        max_tabular_cell_chars=args.max_tabular_cell_chars,
+        max_drawio_decoded_page_size_kb=args.max_drawio_decoded_page_size_kb,
         max_xml_nodes=args.max_xml_nodes,
+        max_xml_input_size_kb=args.max_xml_input_size_kb,
+        max_xml_depth=args.max_xml_depth,
+        max_xml_attributes=args.max_xml_attributes,
         max_methods_per_class=args.max_methods_per_class,
         max_records_per_file=args.max_records_per_file,
         max_relation_records_per_file=args.max_relation_records_per_file,

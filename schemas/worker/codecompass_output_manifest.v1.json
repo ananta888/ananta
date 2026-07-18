@@ -20,6 +20,17 @@
     "generated_at": { "type": "string", "minLength": 1 },
     "manifest_hash": { "type": "string", "minLength": 1 },
     "output_dir": { "type": "string", "minLength": 1 },
+    "file_type_registry": {
+      "$ref": "#/$defs/fileTypeRegistry"
+    },
+    "coverage": {
+      "$ref": "#/$defs/coverage"
+    },
+    "file_type_capabilities": {
+      "type": "array",
+      "maxItems": 1024,
+      "items": { "$ref": "#/$defs/fileTypeCapability" }
+    },
     "outputs": {
       "type": "object",
       "required": ["index", "details", "context", "embedding", "relations", "graph_nodes", "graph_edges"],
@@ -36,6 +47,82 @@
     }
   },
   "$defs": {
+    "fileTypeRegistry": {
+      "type": "object",
+      "required": ["schema_version", "registry_version", "snapshot_hash"],
+      "properties": {
+        "schema_version": { "type": "string", "minLength": 1 },
+        "registry_version": { "type": "string", "minLength": 1 },
+        "snapshot_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      },
+      "additionalProperties": false
+    },
+    "coverage": {
+      "type": "object",
+      "required": ["manifest_candidate_count", "indexed", "excluded", "unsupported", "failed"],
+      "properties": {
+        "manifest_candidate_count": { "type": "integer", "minimum": 0 },
+        "indexed": { "type": "integer", "minimum": 0 },
+        "excluded": { "type": "integer", "minimum": 0 },
+        "unsupported": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "truncated": { "type": "boolean" },
+        "diagnostic_counts": {
+          "type": "object",
+          "maxProperties": 256,
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "additionalProperties": false
+    },
+    "capabilityClaim": {
+      "type": "object",
+      "required": ["configured", "runtime_available", "verified", "effective"],
+      "properties": {
+        "configured": { "type": "boolean" },
+        "runtime_available": { "type": "boolean" },
+        "verified": { "type": "boolean" },
+        "effective": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "fileTypeCapability": {
+      "type": "object",
+      "required": ["detected_type", "pipeline", "indexed", "symbols", "relationships", "file_count"],
+      "properties": {
+        "detected_type": { "type": "string", "minLength": 1 },
+        "pipeline": { "type": "string", "minLength": 1 },
+        "indexed": {
+          "allOf": [
+            { "$ref": "#/$defs/capabilityClaim" },
+            { "properties": { "effective": { "enum": ["none", "plain_text", "structured"] } } }
+          ]
+        },
+        "symbols": {
+          "allOf": [
+            { "$ref": "#/$defs/capabilityClaim" },
+            { "properties": { "effective": { "enum": ["none", "heuristic", "parser_backed"] } } }
+          ]
+        },
+        "relationships": {
+          "allOf": [
+            { "$ref": "#/$defs/capabilityClaim" },
+            { "properties": { "effective": { "enum": ["none", "structural", "referential", "semantic"] } } }
+          ]
+        },
+        "parser_id": { "type": ["string", "null"] },
+        "parser_version": { "type": ["string", "null"] },
+        "fallback_reason": { "type": ["string", "null"] },
+        "diagnostic_codes": {
+          "type": "array",
+          "maxItems": 256,
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "file_count": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
     "outputFileOrNull": {
       "anyOf": [{ "$ref": "#/$defs/outputFile" }, { "type": "null" }]
     },
@@ -53,4 +140,3 @@
   },
   "additionalProperties": false
 }
-

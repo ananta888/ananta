@@ -4,8 +4,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 FIXTURE_DIR = Path(__file__).parent / "fixtures"
 
 
@@ -48,6 +46,7 @@ class TestPythonTypeModel:
 
     def test_infer_from_int_default(self):
         import ast
+
         from agent.codecompass.semantic_translation.python_type_model import infer_type_from_default
         node = ast.parse("5", mode="eval").body
         t = infer_type_from_default(node)
@@ -56,6 +55,7 @@ class TestPythonTypeModel:
 
     def test_infer_from_none_default(self):
         import ast
+
         from agent.codecompass.semantic_translation.python_type_model import infer_type_from_default
         node = ast.parse("None", mode="eval").body
         t = infer_type_from_default(node)
@@ -65,6 +65,7 @@ class TestPythonTypeModel:
 
     def test_infer_from_list_default(self):
         import ast
+
         from agent.codecompass.semantic_translation.python_type_model import infer_type_from_default
         node = ast.parse("[]", mode="eval").body
         t = infer_type_from_default(node)
@@ -716,6 +717,51 @@ class TestTranslationPlanService:
         assert entry.status in ("safe_auto_transform", "needs_review")
         assert entry.java_artifact is not None
 
+    def test_plan_uses_bounded_semantic_execution_for_python(self):
+        from agent.codecompass.parser_limits import ParserLimits
+        from agent.codecompass.semantic_translation.python_transform import PythonTranslationPlanService
+        from agent.codecompass.semantic_translation.registry import SemanticAdapterRegistry
+
+        events: list[dict] = []
+        executor = SemanticAdapterRegistry(
+            limits=ParserLimits(max_file_bytes=8),
+            telemetry=lambda **values: events.append(values),
+        )
+
+        plan = PythonTranslationPlanService(semantic_executor=executor).create_plan(
+            "@dataclass\nclass Oversized:\n    value: str",
+            "oversized.py",
+            "java",
+        )
+
+        assert plan.entries == []
+        assert any("limit" in warning.lower() for warning in plan.warnings)
+        assert events[0]["outcome"] == "excluded"
+        assert events[0]["diagnostics"] == ("parser_limit_exceeded",)
+
+    def test_named_python_execution_keeps_stdin_compatibility(self):
+        from agent.codecompass.semantic_translation.python_transform import PythonTranslationPlanService
+
+        plan = PythonTranslationPlanService().create_plan(
+            "@dataclass\nclass StdinModel:\n    value: str",
+            target="java",
+        )
+
+        assert any(entry.symbol == "StdinModel" for entry in plan.entries)
+
+    def test_python_syntax_error_stops_before_secondary_ast_inspection(self):
+        from agent.codecompass.semantic_translation.python_transform import PythonTranslationPlanService
+
+        plan = PythonTranslationPlanService().create_plan(
+            "def broken(",
+            "broken.py",
+            "java",
+        )
+
+        assert plan.entries == []
+        assert plan.dynamic_blockers == []
+        assert any("never closed" in warning for warning in plan.warnings)
+
     def test_plan_dataclass_rust(self):
         code = "@dataclass\nclass User:\n    name: str"
         plan = self._plan(code, "rust")
@@ -748,7 +794,6 @@ class TestTranslationPlanService:
 
     def test_plan_unknown_symbol(self):
         code = "@dataclass\nclass A:\n    x: int"
-        plan = self._plan(code, "java")
         # filter by symbol not present
         from agent.codecompass.semantic_translation.python_transform import PythonTranslationPlanService
         plan2 = PythonTranslationPlanService().create_plan(code, "test.py", "java")
@@ -950,7 +995,6 @@ class TestGoldenSamples:
         assert blocked
         svc = PythonTranslationPlanService()
         for s in blocked:
-            py_code = f"def fn():\n    {s['source_python'].split(':')[1].strip() if ':' in s['source_python'] else 'eval(x)'}"
             plan = svc.create_plan(s["source_python"], "sample.py", "java")
             assert plan.dynamic_blockers
 

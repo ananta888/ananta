@@ -10,6 +10,11 @@ from agent.config import settings
 from agent.hybrid_orchestrator import ContextChunk
 from agent.repository import knowledge_index_repo, knowledge_link_repo
 from agent.services.retrieval_source_contract import normalize_chunk_metadata
+from ananta_contracts.file_type_classifier import FileTypeClassifier
+from ananta_contracts.file_type_support import (
+    FileTypeSupportRegistry,
+    load_file_type_support_registry,
+)
 
 
 class KnowledgeIndexRetrievalService:
@@ -40,25 +45,19 @@ class KnowledgeIndexRetrievalService:
         "the", "and", "for", "are", "but", "not", "you", "all",
         "can", "has", "its", "was", "use", "one", "how", "our", "out",
     })
-    CODE_EXTENSIONS = {
-        ".py",
-        ".js",
-        ".ts",
-        ".tsx",
-        ".jsx",
-        ".java",
-        ".go",
-        ".rs",
-        ".c",
-        ".cpp",
-        ".h",
-        ".hpp",
-        ".cs",
-        ".rb",
-        ".php",
+    FILE_KIND_BY_FAMILY = {
+        "build": "config",
+        "code": "code",
+        "configuration": "config",
+        "data": "config",
+        "diagram": "doc",
+        "documentation": "doc",
+        "fallback": "other",
+        "notebook": "code",
+        "script": "code",
+        "style": "code",
+        "template": "code",
     }
-    DOC_EXTENSIONS = {".md", ".rst", ".txt", ".adoc"}
-    CONFIG_EXTENSIONS = {".xml", ".yaml", ".yml", ".json", ".toml", ".ini", ".cfg", ".properties", ".env"}
     CODE_KIND_MARKERS = (
         "class",
         "function",
@@ -83,9 +82,19 @@ class KnowledgeIndexRetrievalService:
     RELATION_KIND_MARKERS = ("relation", "edge", "link", "reference", "dependency", "call", "import")
     BROAD_SUMMARY_KIND_MARKERS = ("summary", "overview")
 
-    def __init__(self, knowledge_index_repository=None, knowledge_link_repository=None) -> None:
+    def __init__(
+        self,
+        knowledge_index_repository=None,
+        knowledge_link_repository=None,
+        *,
+        file_type_registry: FileTypeSupportRegistry | None = None,
+    ) -> None:
         self._knowledge_index_repository = knowledge_index_repository or knowledge_index_repo
         self._knowledge_link_repository = knowledge_link_repository or knowledge_link_repo
+        registry = file_type_registry or load_file_type_support_registry(
+            Path(__file__).resolve().parents[2]
+        )
+        self._file_type_classifier = FileTypeClassifier(registry)
 
     def _collection_metadata(self, artifact_id: str) -> tuple[list[str], list[str]]:
         if not artifact_id:
@@ -122,7 +131,12 @@ class KnowledgeIndexRetrievalService:
             },
         }
         for knowledge_index in self._iter_completed_indices():
-            scope = str(getattr(knowledge_index, "source_scope", "artifact") or "artifact").strip().lower() or "artifact"
+            scope = (
+                str(getattr(knowledge_index, "source_scope", "artifact") or "artifact")
+                .strip()
+                .lower()
+                or "artifact"
+            )
             if scope not in by_scope:
                 by_scope[scope] = {
                     "status": "degraded",
@@ -231,7 +245,12 @@ class KnowledgeIndexRetrievalService:
         tokens = self._tokenize(query)
         symbols: list[str] = []
         for token in tokens:
-            if "_" in token or any(char.isdigit() for char in token) or (len(token) >= 6 and any(char.isupper() for char in query)):
+            has_symbol_shape = (
+                "_" in token
+                or any(char.isdigit() for char in token)
+                or (len(token) >= 6 and any(char.isupper() for char in query))
+            )
+            if has_symbol_shape:
                 symbols.append(token)
         for raw in re.findall(r"[A-Za-z_][A-Za-z0-9_]{2,}", query or ""):
             parts = [part.lower() for part in self.SYMBOL_SPLIT_PATTERN.split(raw) if part]
@@ -357,14 +376,16 @@ class KnowledgeIndexRetrievalService:
         return "other"
 
     def _file_kind_bucket(self, source_hint: str) -> str:
-        suffix = Path(str(source_hint or "")).suffix.lower()
-        if suffix in self.CODE_EXTENSIONS:
-            return "code"
-        if suffix in self.DOC_EXTENSIONS:
-            return "doc"
-        if suffix in self.CONFIG_EXTENSIONS:
-            return "config"
-        return "other"
+        classification = self._file_type_classifier.classify(
+            str(source_hint or ""),
+            is_text=True,
+        )
+        if classification is None:
+            return "other"
+        return self.FILE_KIND_BY_FAMILY.get(
+            classification.descriptor.family,
+            "other",
+        )
 
     def _weighted_token_hits(self, tokens: list[str], text: str, weight: float) -> float:
         if not tokens or not text:
@@ -431,14 +452,21 @@ class KnowledgeIndexRetrievalService:
         importance_score = float(record.get("importance_score") or 0.0)
         importance_boost = min(0.45, importance_score * float(profile.get("importance_weight", 0.0)))
         record_id = str(record.get("id") or "").strip()
-        duplicate_penalty = float(profile.get("duplicate_penalty", 0.0)) if record_id and record_id in duplicate_ids else 0.0
+        duplicate_penalty = (
+            float(profile.get("duplicate_penalty", 0.0))
+            if record_id and record_id in duplicate_ids
+            else 0.0
+        )
         generated_penalty = float(profile.get("generated_penalty", 0.0)) if bool(record.get("generated_code")) else 0.0
         boilerplate_penalty = (
             float(profile.get("boilerplate_penalty", 0.0))
             if self._is_boilerplate_candidate(record, source_hint=source_hint, record_kind=record_kind)
             else 0.0
         )
-        quality_multiplier = max(0.35, 1.0 + importance_boost - duplicate_penalty - generated_penalty - boilerplate_penalty)
+        quality_multiplier = max(
+            0.35,
+            1.0 + importance_boost - duplicate_penalty - generated_penalty - boilerplate_penalty,
+        )
         score = base_score * record_multiplier * file_multiplier * quality_multiplier
         return score, {
             "base_score": round(base_score, 4),
@@ -470,7 +498,12 @@ class KnowledgeIndexRetrievalService:
         profile = self._task_profile(task_kind, retrieval_intent)
         candidates: list[ContextChunk] = []
         for knowledge_index in self._iter_completed_indices():
-            source_scope = str(getattr(knowledge_index, "source_scope", "artifact") or "artifact").strip().lower() or "artifact"
+            source_scope = (
+                str(getattr(knowledge_index, "source_scope", "artifact") or "artifact")
+                .strip()
+                .lower()
+                or "artifact"
+            )
             if source_scopes is not None and source_scope not in source_scopes:
                 continue
             artifact_id = str(getattr(knowledge_index, "artifact_id", "") or "")
@@ -488,7 +521,11 @@ class KnowledgeIndexRetrievalService:
             for filename, record in output_records:
                 if record_predicate is not None and not record_predicate(record):
                     continue
-                source = str(record.get("file") or record.get("path") or getattr(knowledge_index, "artifact_id", "knowledge-index"))
+                source = str(
+                    record.get("file")
+                    or record.get("path")
+                    or getattr(knowledge_index, "artifact_id", "knowledge-index")
+                )
                 record_text = self._record_text(record)
                 if not record_text:
                     continue

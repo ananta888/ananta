@@ -1,0 +1,4592 @@
+{
+  "schema": "codecompass.file-type-support-registry.v1",
+  "registry_version": "1.1.0",
+  "support_dimensions": [
+    "indexed",
+    "symbols",
+    "relationships"
+  ],
+  "pipelines": [
+    "repository_map",
+    "setup_index",
+    "rag_helper",
+    "semantic_translation"
+  ],
+  "formats": [
+    {
+      "format_id": "python",
+      "display_name": "Python",
+      "family": "code",
+      "priority": "P0",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [
+          ".test.py"
+        ],
+        "extensions": [
+          ".py"
+        ],
+        "shebang_patterns": [
+          "^#!(?:/usr/bin/env\\s+)?(?:/usr/bin/)?python(?:[0-9.]+)?(?:\\s|$)"
+        ],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_code",
+      "parser_strategy": "Python AST for semantic translation; Tree-sitter with regex fallback in repository map",
+      "fallback_strategy": "bounded plain-text indexing without execution",
+      "known_limits": [
+        "Repository-map Tree-sitter availability is runtime-dependent",
+        "Dynamic Python constructs are not fully resolved"
+      ],
+      "pipeline_support": {
+        "repository_map": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "agent.repository_map_engine.RepositoryMapEngine",
+            "evidence": [
+              "agent/repository_map_engine.py",
+              "tests/test_hybrid_orchestrator.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "agent.repository_map_engine.RepositoryMapEngine",
+            "evidence": [
+              "agent/repository_map_engine.py",
+              "tests/test_hybrid_orchestrator.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "rag_helper": {
+          "indexed": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.text_file_extractor.TextFileExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/text_file_extractor.py",
+              "rag-helper/tests/test_text_file_extractor.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.text_file_extractor.TextFileExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/text_file_extractor.py",
+              "rag-helper/tests/test_text_file_extractor.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.text_file_extractor.TextFileExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/text_file_extractor.py",
+              "rag-helper/tests/test_text_file_extractor.py"
+            ],
+            "runtime_requirements": []
+          }
+        },
+        "semantic_translation": {
+          "indexed": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "agent.codecompass.semantic_translation.python_adapter.PythonSemanticAdapter",
+            "evidence": [
+              "agent/codecompass/semantic_translation/python_adapter.py",
+              "tests/test_codecompass_python_translation.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "agent.codecompass.semantic_translation.python_adapter.PythonSemanticAdapter",
+            "evidence": [
+              "agent/codecompass/semantic_translation/python_adapter.py",
+              "tests/test_codecompass_python_translation.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "agent.codecompass.semantic_translation.python_adapter.PythonSemanticAdapter",
+            "evidence": [
+              "agent/codecompass/semantic_translation/python_adapter.py",
+              "tests/test_codecompass_python_translation.py"
+            ],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "java",
+      "display_name": "Java",
+      "family": "code",
+      "priority": "P0",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".java"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_code",
+      "parser_strategy": "Tree-sitter Java when available with reduced-confidence regex semantic fallback; rag-helper Java AST parser",
+      "fallback_strategy": "bounded plain-text indexing",
+      "known_limits": [
+        "Repository-map symbols require a smoke-tested Java grammar at runtime",
+        "Semantic regex fallback does not fully parse method bodies or complex malformed generics"
+      ],
+      "pipeline_support": {
+        "repository_map": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "agent.repository_map_engine.RepositoryMapEngine",
+            "evidence": [
+              "agent/repository_map_engine.py",
+              "tests/test_hybrid_orchestrator.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "agent.repository_map_engine.RepositoryMapEngine",
+            "evidence": [
+              "agent/repository_map_engine.py",
+              "agent/repository_map_tree_sitter.py",
+              "tests/test_hybrid_orchestrator.py",
+              "tests/test_repository_map_tree_sitter_runtime.py"
+            ],
+            "runtime_requirements": [
+              "tree-sitter-language:java"
+            ]
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "rag_helper": {
+          "indexed": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "codecompass_rag.JavaExtractor",
+            "evidence": [
+              "rag-helper/codecompass_rag.py",
+              "rag-helper/rag_helper/extractors/java_type_extractor.py",
+              "rag-helper/tests/test_java_type_extractor.py"
+            ],
+            "runtime_requirements": [
+              "tree-sitter-language:java"
+            ]
+          },
+          "symbols": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "codecompass_rag.JavaExtractor",
+            "evidence": [
+              "rag-helper/codecompass_rag.py",
+              "rag-helper/rag_helper/extractors/java_type_extractor.py",
+              "rag-helper/tests/test_java_type_extractor.py"
+            ],
+            "runtime_requirements": [
+              "tree-sitter-language:java"
+            ]
+          },
+          "relationships": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "codecompass_rag.JavaExtractor",
+            "evidence": [
+              "rag-helper/codecompass_rag.py",
+              "rag-helper/rag_helper/extractors/java_type_extractor.py",
+              "rag-helper/tests/test_java_type_resolution.py"
+            ],
+            "runtime_requirements": [
+              "tree-sitter-language:java"
+            ]
+          }
+        },
+        "semantic_translation": {
+          "indexed": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "agent.codecompass.semantic_translation.adapters.JavaSemanticAdapter",
+            "evidence": [
+              "agent/codecompass/semantic_translation/adapters.py",
+              "tests/test_codecompass_semantic_adapter_registry.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "agent.codecompass.semantic_translation.adapters.JavaSemanticAdapter",
+            "evidence": [
+              "agent/codecompass/semantic_translation/adapters.py",
+              "tests/test_codecompass_semantic_adapter_registry.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "agent.codecompass.semantic_translation.adapters.JavaSemanticAdapter",
+            "evidence": [
+              "agent/codecompass/semantic_translation/adapters.py",
+              "tests/test_codecompass_semantic_adapter_registry.py"
+            ],
+            "runtime_requirements": []
+          }
+        },
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "typescript",
+      "display_name": "TypeScript and TSX",
+      "family": "code",
+      "priority": "P0",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [
+          ".d.ts",
+          ".spec.ts"
+        ],
+        "extensions": [
+          ".ts",
+          ".tsx"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_code",
+      "parser_strategy": "Structural non-executing TypeScript/JavaScript adapter; repository-map Tree-sitter with declaration fallback; rag-helper outline",
+      "fallback_strategy": "bounded plain-text indexing",
+      "known_limits": [
+        "Type resolution, overload resolution and dynamic imports are not resolved without a TypeScript compiler",
+        "Decorator arguments and JSX are inspected structurally and never executed"
+      ],
+      "pipeline_support": {
+        "repository_map": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "agent.repository_map_engine.RepositoryMapEngine",
+            "evidence": [
+              "agent/repository_map_engine.py",
+              "tests/test_hybrid_orchestrator.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "agent.repository_map_engine.RepositoryMapEngine",
+            "evidence": [
+              "agent/repository_map_engine.py",
+              "tests/test_hybrid_orchestrator.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "rag_helper": {
+          "indexed": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.text_file_extractor.TextFileExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/text_file_extractor.py",
+              "rag-helper/tests/test_text_file_extractor.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.text_file_extractor.TextFileExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/text_file_extractor.py",
+              "rag-helper/tests/test_text_file_extractor.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.text_file_extractor.TextFileExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/text_file_extractor.py",
+              "rag-helper/tests/test_framework_relations.py"
+            ],
+            "runtime_requirements": []
+          }
+        },
+        "semantic_translation": {
+          "indexed": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "agent.codecompass.semantic_translation.typescript_adapter.TypeScriptSemanticAdapter",
+            "evidence": [
+              "agent/codecompass/semantic_translation/typescript_adapter.py",
+              "tests/test_codecompass_semantic_adapter_registry.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "agent.codecompass.semantic_translation.typescript_adapter.TypeScriptSemanticAdapter",
+            "evidence": [
+              "agent/codecompass/semantic_translation/typescript_adapter.py",
+              "tests/test_codecompass_semantic_adapter_registry.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "agent.codecompass.semantic_translation.typescript_adapter.TypeScriptSemanticAdapter",
+            "evidence": [
+              "agent/codecompass/semantic_translation/typescript_adapter.py",
+              "tests/test_codecompass_semantic_adapter_registry.py"
+            ],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "javascript",
+      "display_name": "JavaScript and JSX",
+      "family": "code",
+      "priority": "P0",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".js",
+          ".jsx"
+        ],
+        "shebang_patterns": [
+          "^#!(?:/usr/bin/env\\s+)?(?:/usr/bin/)?node(?:\\s|$)"
+        ],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_code",
+      "parser_strategy": "Structural non-executing TypeScript/JavaScript adapter; repository-map Tree-sitter with declaration fallback",
+      "fallback_strategy": "bounded plain-text indexing",
+      "known_limits": [
+        "Dynamic imports, computed exports and compiler-level type resolution are not resolved",
+        "JSX/component references are structural and may remain unresolved"
+      ],
+      "pipeline_support": {
+        "repository_map": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "agent.repository_map_engine.RepositoryMapEngine",
+            "evidence": [
+              "agent/repository_map_engine.py",
+              "tests/test_hybrid_orchestrator.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "agent.repository_map_engine.RepositoryMapEngine",
+            "evidence": [
+              "agent/repository_map_engine.py",
+              "tests/test_hybrid_orchestrator.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "semantic_translation": {
+          "indexed": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "agent.codecompass.semantic_translation.typescript_adapter.TypeScriptSemanticAdapter",
+            "evidence": [
+              "agent/codecompass/semantic_translation/typescript_adapter.py",
+              "tests/test_codecompass_semantic_adapter_registry.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "agent.codecompass.semantic_translation.typescript_adapter.TypeScriptSemanticAdapter",
+            "evidence": [
+              "agent/codecompass/semantic_translation/typescript_adapter.py",
+              "tests/test_codecompass_semantic_adapter_registry.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "agent.codecompass.semantic_translation.typescript_adapter.TypeScriptSemanticAdapter",
+            "evidence": [
+              "agent/codecompass/semantic_translation/typescript_adapter.py",
+              "tests/test_codecompass_semantic_adapter_registry.py"
+            ],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "markdown",
+      "display_name": "Markdown",
+      "family": "documentation",
+      "priority": "P0",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".md"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_text",
+      "parser_strategy": "Static Markdown section, link, frontmatter and inert fenced-code extraction",
+      "fallback_strategy": "bounded plain-text indexing; fenced code is never executed",
+      "known_limits": [
+        "Cross-file link targets are recorded but not dereferenced or authorized by the parser"
+      ],
+      "pipeline_support": {
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "rag_helper": {
+          "indexed": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.documentation_extractor.DocumentationExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/documentation_extractor.py",
+              "rag-helper/tests/test_documentation_configuration_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.documentation_extractor.DocumentationExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/documentation_extractor.py",
+              "rag-helper/tests/test_documentation_configuration_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.documentation_extractor.DocumentationExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/documentation_extractor.py",
+              "rag-helper/tests/test_documentation_configuration_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "asciidoc",
+      "display_name": "AsciiDoc",
+      "family": "documentation",
+      "priority": "P1",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".adoc"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_text",
+      "parser_strategy": "AsciiDoc section parser enriched by a non-dereferencing provenance adapter",
+      "fallback_strategy": "bounded plain-text indexing; code blocks are data only",
+      "known_limits": [
+        "Includes and cross-document references are recorded but never opened by the extractor"
+      ],
+      "pipeline_support": {
+        "rag_helper": {
+          "indexed": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.adoc_provenance_adapter.AdocProvenanceAdapter",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/adoc_provenance_adapter.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py",
+              "rag-helper/rag_helper/extractors/adoc_extractor.py",
+              "rag-helper/tests/test_adoc_extractor.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.adoc_provenance_adapter.AdocProvenanceAdapter",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/adoc_provenance_adapter.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py",
+              "rag-helper/rag_helper/extractors/adoc_extractor.py",
+              "rag-helper/tests/test_adoc_extractor.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.adoc_provenance_adapter.AdocProvenanceAdapter",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/adoc_provenance_adapter.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py",
+              "rag-helper/rag_helper/extractors/adoc_extractor.py",
+              "rag-helper/tests/test_adoc_extractor.py"
+            ],
+            "runtime_requirements": []
+          }
+        },
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "yaml",
+      "display_name": "YAML",
+      "family": "configuration",
+      "priority": "P0",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".yaml",
+          ".yml"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_structured_text",
+      "parser_strategy": "Safe YAML parsing with bounded alias scan and structural key provenance",
+      "fallback_strategy": "bounded plain-text indexing without constructing application objects",
+      "known_limits": [
+        "Custom YAML tags are not constructed; aliases are bounded and secret values are never emitted"
+      ],
+      "pipeline_support": {
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "rag_helper": {
+          "indexed": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.infrastructure_extractor.YamlInfrastructureExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/infrastructure_extractor.py",
+              "rag-helper/tests/test_documentation_configuration_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py",
+              "rag-helper/rag_helper/extractors/configuration_extractor.py",
+              "rag-helper/tests/test_angular_infrastructure_formats.py"
+            ],
+            "runtime_requirements": [
+              "python-module:yaml"
+            ]
+          },
+          "symbols": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.infrastructure_extractor.YamlInfrastructureExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/infrastructure_extractor.py",
+              "rag-helper/tests/test_documentation_configuration_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py",
+              "rag-helper/rag_helper/extractors/configuration_extractor.py",
+              "rag-helper/tests/test_angular_infrastructure_formats.py"
+            ],
+            "runtime_requirements": [
+              "python-module:yaml"
+            ]
+          },
+          "relationships": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.infrastructure_extractor.YamlInfrastructureExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/infrastructure_extractor.py",
+              "rag-helper/tests/test_documentation_configuration_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py",
+              "rag-helper/rag_helper/extractors/configuration_extractor.py",
+              "rag-helper/tests/test_angular_infrastructure_formats.py"
+            ],
+            "runtime_requirements": [
+              "python-module:yaml"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "format_id": "docker_compose",
+      "display_name": "Docker Compose",
+      "family": "configuration",
+      "priority": "P0",
+      "enabled": true,
+      "match_priority": 100,
+      "selectors": {
+        "exact_filenames": [
+          "compose.yaml",
+          "compose.yml",
+          "docker-compose.yaml",
+          "docker-compose.yml"
+        ],
+        "filename_patterns": [
+          "compose.*.yaml",
+          "compose.*.yml",
+          "docker-compose*.yaml",
+          "docker-compose*.yml"
+        ],
+        "compound_suffixes": [
+          ".compose.yaml",
+          ".compose.yml"
+        ],
+        "extensions": [],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_structured_text",
+      "parser_strategy": "Safe YAML Docker Compose domain extraction without command execution",
+      "fallback_strategy": "generic YAML indexing when the consumer supports it",
+      "known_limits": [
+        "References are resolved only within the current file; commands, actions and build steps are never executed"
+      ],
+      "pipeline_support": {
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "rag_helper": {
+          "indexed": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.infrastructure_extractor.YamlInfrastructureExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/infrastructure_extractor.py",
+              "rag-helper/tests/test_angular_infrastructure_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": [
+              "python-module:yaml"
+            ]
+          },
+          "symbols": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.infrastructure_extractor.YamlInfrastructureExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/infrastructure_extractor.py",
+              "rag-helper/tests/test_angular_infrastructure_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": [
+              "python-module:yaml"
+            ]
+          },
+          "relationships": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.infrastructure_extractor.YamlInfrastructureExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/infrastructure_extractor.py",
+              "rag-helper/tests/test_angular_infrastructure_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": [
+              "python-module:yaml"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "format_id": "github_actions",
+      "display_name": "GitHub Actions workflow",
+      "family": "configuration",
+      "priority": "P0",
+      "enabled": true,
+      "match_priority": 100,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [
+          ".github/workflows/*.yaml",
+          ".github/workflows/*.yml",
+          "*/.github/workflows/*.yaml",
+          "*/.github/workflows/*.yml"
+        ],
+        "compound_suffixes": [],
+        "extensions": [],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_structured_text",
+      "parser_strategy": "Safe YAML GitHub Actions domain extraction without command execution",
+      "fallback_strategy": "generic YAML indexing when the consumer supports it",
+      "known_limits": [
+        "References are resolved only within the current file; commands, actions and build steps are never executed"
+      ],
+      "pipeline_support": {
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "rag_helper": {
+          "indexed": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.infrastructure_extractor.YamlInfrastructureExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/infrastructure_extractor.py",
+              "rag-helper/tests/test_angular_infrastructure_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": [
+              "python-module:yaml"
+            ]
+          },
+          "symbols": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.infrastructure_extractor.YamlInfrastructureExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/infrastructure_extractor.py",
+              "rag-helper/tests/test_angular_infrastructure_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": [
+              "python-module:yaml"
+            ]
+          },
+          "relationships": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.infrastructure_extractor.YamlInfrastructureExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/infrastructure_extractor.py",
+              "rag-helper/tests/test_angular_infrastructure_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": [
+              "python-module:yaml"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "format_id": "xml",
+      "display_name": "XML",
+      "family": "configuration",
+      "priority": "P0",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".xml"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_structured_text",
+      "parser_strategy": "Fail-closed lxml XML parser with entity, network, node, depth, attribute and byte limits",
+      "fallback_strategy": "bounded metadata-only record",
+      "known_limits": [
+        "External entities, DTD loading and network access are denied; oversized input is rejected or explicitly summarized by policy"
+      ],
+      "pipeline_support": {
+        "rag_helper": {
+          "indexed": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.xml_extractor.XmlExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/xml_extractor.py",
+              "rag-helper/rag_helper/extractors/xml_security.py",
+              "rag-helper/tests/test_xml_security.py"
+            ],
+            "runtime_requirements": [
+              "python-module:lxml"
+            ]
+          },
+          "symbols": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.xml_extractor.XmlExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/xml_extractor.py",
+              "rag-helper/rag_helper/extractors/xml_security.py",
+              "rag-helper/tests/test_xml_security.py"
+            ],
+            "runtime_requirements": [
+              "python-module:lxml"
+            ]
+          },
+          "relationships": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.xml_extractor.XmlExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/xml_extractor.py",
+              "rag-helper/rag_helper/extractors/xml_security.py",
+              "rag-helper/tests/test_xml_security.py"
+            ],
+            "runtime_requirements": [
+              "python-module:lxml"
+            ]
+          }
+        },
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "xsd",
+      "display_name": "XML Schema",
+      "family": "configuration",
+      "priority": "P1",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".xsd"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_structured_text",
+      "parser_strategy": "Fail-closed lxml XSD parser with entity, network, node, depth, attribute and byte limits",
+      "fallback_strategy": "bounded metadata-only record",
+      "known_limits": [
+        "External entities, DTD loading and network access are denied; oversized input is rejected or explicitly summarized by policy"
+      ],
+      "pipeline_support": {
+        "rag_helper": {
+          "indexed": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.xsd_extractor.XsdExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/xsd_extractor.py",
+              "rag-helper/rag_helper/extractors/xml_security.py",
+              "rag-helper/tests/test_xml_security.py"
+            ],
+            "runtime_requirements": [
+              "python-module:lxml"
+            ]
+          },
+          "symbols": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.xsd_extractor.XsdExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/xsd_extractor.py",
+              "rag-helper/rag_helper/extractors/xml_security.py",
+              "rag-helper/tests/test_xml_security.py"
+            ],
+            "runtime_requirements": [
+              "python-module:lxml"
+            ]
+          },
+          "relationships": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.xsd_extractor.XsdExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/xsd_extractor.py",
+              "rag-helper/rag_helper/extractors/xml_security.py",
+              "rag-helper/tests/test_xml_security.py"
+            ],
+            "runtime_requirements": [
+              "python-module:lxml"
+            ]
+          }
+        },
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "properties",
+      "display_name": "Java properties",
+      "family": "configuration",
+      "priority": "P1",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".properties"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_structured_text",
+      "parser_strategy": "Static property-key extraction with value redaction",
+      "fallback_strategy": "bounded plain-text indexing",
+      "known_limits": [
+        "Interpolation and profile semantics are not resolved; values are deliberately omitted"
+      ],
+      "pipeline_support": {
+        "rag_helper": {
+          "indexed": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.configuration_extractor.ConfigurationExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/configuration_extractor.py",
+              "rag-helper/tests/test_documentation_configuration_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.configuration_extractor.ConfigurationExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/configuration_extractor.py",
+              "rag-helper/tests/test_documentation_configuration_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.configuration_extractor.ConfigurationExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/configuration_extractor.py",
+              "rag-helper/tests/test_documentation_configuration_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          }
+        },
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "sql",
+      "display_name": "SQL",
+      "family": "data",
+      "priority": "P0",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".sql"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_code",
+      "parser_strategy": "Bounded non-executing DDL lexer for tables, views, indexes and foreign keys",
+      "fallback_strategy": "plain-text indexing; statements are never executed",
+      "known_limits": [
+        "Dialect-specific procedural SQL and dynamic statements are not fully resolved"
+      ],
+      "pipeline_support": {
+        "rag_helper": {
+          "indexed": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.data_contract_extractor.SqlExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/data_contract_extractor.py",
+              "rag-helper/tests/test_script_data_contract_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.data_contract_extractor.SqlExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/data_contract_extractor.py",
+              "rag-helper/tests/test_script_data_contract_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.data_contract_extractor.SqlExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/data_contract_extractor.py",
+              "rag-helper/tests/test_script_data_contract_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          }
+        },
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "csharp",
+      "display_name": "C#",
+      "family": "code",
+      "priority": "P1",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".cs"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_code",
+      "parser_strategy": "Rag-helper C# parser; optional Tree-sitter repository map",
+      "fallback_strategy": "bounded plain-text indexing",
+      "known_limits": [
+        "Repository map does not emit relationships"
+      ],
+      "pipeline_support": {
+        "repository_map": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "agent.repository_map_engine.RepositoryMapEngine",
+            "evidence": [
+              "agent/repository_map_engine.py",
+              "tests/test_hybrid_orchestrator.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "parser",
+            "verified": false,
+            "producer": "agent.repository_map_engine.RepositoryMapEngine",
+            "evidence": [
+              "agent/repository_map_engine.py"
+            ],
+            "runtime_requirements": [
+              "tree-sitter-language:c_sharp"
+            ]
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "rag_helper": {
+          "indexed": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "codecompass_rag.CSharpExtractor",
+            "evidence": [
+              "rag-helper/codecompass_rag.py",
+              "rag-helper/rag_helper/extractors/csharp_type_extractor.py",
+              "rag-helper/tests/test_csharp_extractor.py"
+            ],
+            "runtime_requirements": [
+              "tree-sitter-language:c_sharp"
+            ]
+          },
+          "symbols": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "codecompass_rag.CSharpExtractor",
+            "evidence": [
+              "rag-helper/codecompass_rag.py",
+              "rag-helper/rag_helper/extractors/csharp_type_extractor.py",
+              "rag-helper/tests/test_csharp_extractor.py"
+            ],
+            "runtime_requirements": [
+              "tree-sitter-language:c_sharp"
+            ]
+          },
+          "relationships": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "codecompass_rag.CSharpExtractor",
+            "evidence": [
+              "rag-helper/codecompass_rag.py",
+              "rag-helper/rag_helper/extractors/csharp_type_extractor.py",
+              "rag-helper/tests/test_csharp_extractor.py"
+            ],
+            "runtime_requirements": [
+              "tree-sitter-language:c_sharp"
+            ]
+          }
+        },
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "semantic_translation": {
+          "indexed": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "agent.codecompass.semantic_translation.symbol_adapters.RegexSymbolLanguageAdapter",
+            "evidence": [
+              "agent/codecompass/semantic_translation/symbol_adapters.py",
+              "tests/test_codecompass_semantic_adapter_registry.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "agent.codecompass.semantic_translation.symbol_adapters.RegexSymbolLanguageAdapter",
+            "evidence": [
+              "agent/codecompass/semantic_translation/symbol_adapters.py",
+              "tests/test_codecompass_semantic_adapter_registry.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "json",
+      "display_name": "JSON",
+      "family": "data",
+      "priority": "P0",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".json"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_structured_text",
+      "parser_strategy": "Repository-map top-level key extraction",
+      "fallback_strategy": "bounded plain-text indexing",
+      "known_limits": [
+        "Only bounded top-level keys and short string values become repository-map symbols"
+      ],
+      "pipeline_support": {
+        "repository_map": {
+          "indexed": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "agent.repository_map_engine.RepositoryMapEngine",
+            "evidence": [
+              "agent/repository_map_engine.py",
+              "tests/test_hybrid_orchestrator.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": false,
+            "producer": "agent.repository_map_engine.RepositoryMapEngine",
+            "evidence": [
+              "agent/repository_map_engine.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "jsonl",
+      "display_name": "JSON Lines",
+      "family": "data",
+      "priority": "P1",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".jsonl"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_structured_text",
+      "parser_strategy": "Repository-map bounded record and key extraction",
+      "fallback_strategy": "bounded plain-text indexing",
+      "known_limits": [
+        "Only the first bounded records are inspected"
+      ],
+      "pipeline_support": {
+        "repository_map": {
+          "indexed": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "agent.repository_map_engine.RepositoryMapEngine",
+            "evidence": [
+              "agent/repository_map_engine.py",
+              "tests/test_hybrid_orchestrator.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": false,
+            "producer": "agent.repository_map_engine.RepositoryMapEngine",
+            "evidence": [
+              "agent/repository_map_engine.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "repository_map_languages",
+      "display_name": "Go, Rust, C, C++, Ruby and PHP",
+      "family": "code",
+      "priority": "P1",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".c",
+          ".cc",
+          ".cpp",
+          ".cxx",
+          ".go",
+          ".h",
+          ".hh",
+          ".hpp",
+          ".hxx",
+          ".php",
+          ".rb",
+          ".rs"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_code",
+      "parser_strategy": "Optional smoke-tested Tree-sitter repository-map parsers; explicit regex symbol fallbacks for semantic translation",
+      "fallback_strategy": "bounded plain-text repository-map indexing and reduced-confidence semantic symbol indexing",
+      "known_limits": [
+        "Repository-map symbol support stays unverified unless every grouped runtime grammar is available",
+        "Semantic regex adapters promise symbol_index only; complex nesting, macros and cross-file type resolution are not resolved"
+      ],
+      "pipeline_support": {
+        "repository_map": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "agent.repository_map_engine.RepositoryMapEngine",
+            "evidence": [
+              "agent/repository_map_engine.py",
+              "tests/test_hybrid_orchestrator.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "parser",
+            "verified": false,
+            "producer": "agent.repository_map_engine.RepositoryMapEngine",
+            "evidence": [
+              "agent/repository_map_engine.py"
+            ],
+            "runtime_requirements": [
+              "tree-sitter-language:c",
+              "tree-sitter-language:cpp",
+              "tree-sitter-language:go",
+              "tree-sitter-language:php",
+              "tree-sitter-language:ruby",
+              "tree-sitter-language:rust"
+            ]
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "semantic_translation": {
+          "indexed": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "agent.codecompass.semantic_translation.symbol_adapters.RegexSymbolLanguageAdapter",
+            "evidence": [
+              "agent/codecompass/semantic_translation/symbol_adapters.py",
+              "tests/test_codecompass_semantic_adapter_registry.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "agent.codecompass.semantic_translation.symbol_adapters.RegexSymbolLanguageAdapter",
+            "evidence": [
+              "agent/codecompass/semantic_translation/symbol_adapters.py",
+              "tests/test_codecompass_semantic_adapter_registry.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "html",
+      "display_name": "HTML and Angular templates",
+      "family": "template",
+      "priority": "P0",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [
+          ".component.html"
+        ],
+        "extensions": [
+          ".html"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_text",
+      "parser_strategy": "Python HTML tokenizer with Angular template binding, directive, pipe and selector extraction",
+      "fallback_strategy": "bounded plain-text indexing without rendering",
+      "known_limits": [
+        "Template expressions are tokenized but never evaluated; component selectors may remain unresolved across files"
+      ],
+      "pipeline_support": {
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "rag_helper": {
+          "indexed": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.angular_asset_extractor.AngularTemplateExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/angular_asset_extractor.py",
+              "rag-helper/tests/test_angular_infrastructure_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.angular_asset_extractor.AngularTemplateExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/angular_asset_extractor.py",
+              "rag-helper/tests/test_angular_infrastructure_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.angular_asset_extractor.AngularTemplateExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/angular_asset_extractor.py",
+              "rag-helper/tests/test_angular_infrastructure_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "stylesheets",
+      "display_name": "CSS, SCSS, Sass and Less",
+      "family": "style",
+      "priority": "P0",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [
+          ".component.scss",
+          ".component.css"
+        ],
+        "extensions": [
+          ".css",
+          ".less",
+          ".sass",
+          ".scss"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_text",
+      "parser_strategy": "Static stylesheet declaration and selector lexer for CSS, SCSS, Sass and Less",
+      "fallback_strategy": "bounded plain-text indexing without preprocessing imports",
+      "known_limits": [
+        "Preprocessors and imports are never executed; nested selector expansion remains unresolved"
+      ],
+      "pipeline_support": {
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "rag_helper": {
+          "indexed": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.angular_asset_extractor.StylesheetExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/angular_asset_extractor.py",
+              "rag-helper/tests/test_angular_infrastructure_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.angular_asset_extractor.StylesheetExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/angular_asset_extractor.py",
+              "rag-helper/tests/test_angular_infrastructure_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.angular_asset_extractor.StylesheetExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/angular_asset_extractor.py",
+              "rag-helper/tests/test_angular_infrastructure_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "dockerfile",
+      "display_name": "Dockerfile",
+      "family": "build",
+      "priority": "P0",
+      "enabled": true,
+      "match_priority": 100,
+      "selectors": {
+        "exact_filenames": [
+          "Containerfile",
+          "Dockerfile"
+        ],
+        "filename_patterns": [
+          "*.Containerfile",
+          "*.Dockerfile",
+          "Containerfile.*",
+          "Dockerfile.*"
+        ],
+        "compound_suffixes": [],
+        "extensions": [],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_code",
+      "parser_strategy": "Static Dockerfile instruction lexer for stages, images, COPY dependencies, ENV keys, ports and entrypoints",
+      "fallback_strategy": "bounded plain-text indexing; instructions are never executed",
+      "known_limits": [
+        "Build arguments and shell expansion are not evaluated; secret values are omitted"
+      ],
+      "pipeline_support": {
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "rag_helper": {
+          "indexed": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.infrastructure_extractor.DockerfileExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/infrastructure_extractor.py",
+              "rag-helper/tests/test_angular_infrastructure_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.infrastructure_extractor.DockerfileExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/infrastructure_extractor.py",
+              "rag-helper/tests/test_angular_infrastructure_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.infrastructure_extractor.DockerfileExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/infrastructure_extractor.py",
+              "rag-helper/tests/test_angular_infrastructure_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "makefile",
+      "display_name": "Makefile",
+      "family": "build",
+      "priority": "P0",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [
+          "GNUmakefile",
+          "Makefile",
+          "makefile"
+        ],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".mk"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_code",
+      "parser_strategy": "Static Make target and prerequisite lexer",
+      "fallback_strategy": "bounded plain-text indexing; recipes are never executed",
+      "known_limits": [
+        "Recipes, variables, includes and shell expansions are never executed or expanded"
+      ],
+      "pipeline_support": {
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "rag_helper": {
+          "indexed": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.infrastructure_extractor.BuildScriptExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/infrastructure_extractor.py",
+              "rag-helper/tests/test_angular_infrastructure_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.infrastructure_extractor.BuildScriptExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/infrastructure_extractor.py",
+              "rag-helper/tests/test_angular_infrastructure_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.infrastructure_extractor.BuildScriptExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/infrastructure_extractor.py",
+              "rag-helper/tests/test_angular_infrastructure_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "jenkinsfile",
+      "display_name": "Jenkinsfile",
+      "family": "build",
+      "priority": "P0",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [
+          "Jenkinsfile"
+        ],
+        "filename_patterns": [
+          "Jenkinsfile.*"
+        ],
+        "compound_suffixes": [],
+        "extensions": [],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_code",
+      "parser_strategy": "Static Jenkins stage declaration lexer",
+      "fallback_strategy": "bounded plain-text indexing; pipeline steps are never executed",
+      "known_limits": [
+        "Groovy expressions, shared libraries, agents and steps are never executed or resolved"
+      ],
+      "pipeline_support": {
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "rag_helper": {
+          "indexed": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.infrastructure_extractor.BuildScriptExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/infrastructure_extractor.py",
+              "rag-helper/tests/test_angular_infrastructure_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.infrastructure_extractor.BuildScriptExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/infrastructure_extractor.py",
+              "rag-helper/tests/test_angular_infrastructure_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.infrastructure_extractor.BuildScriptExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/infrastructure_extractor.py",
+              "rag-helper/tests/test_angular_infrastructure_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "shell",
+      "display_name": "POSIX-compatible shell",
+      "family": "script",
+      "priority": "P0",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".bash",
+          ".fish",
+          ".sh",
+          ".zsh"
+        ],
+        "shebang_patterns": [
+          "^#!(?:/usr/bin/env\\s+)?(?:/usr/bin/)?(?:ba|da|k|z)?sh(?:\\s|$)",
+          "^#!(?:/usr/bin/env\\s+)?(?:/usr/bin/)?fish(?:\\s|$)"
+        ],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_code",
+      "parser_strategy": "Static shell declaration, source/import and local-call lexer",
+      "fallback_strategy": "bounded plain-text indexing; commands are never executed",
+      "known_limits": [
+        "Commands, substitutions, functions and sourced files are never executed; dynamic command construction remains unresolved"
+      ],
+      "pipeline_support": {
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "rag_helper": {
+          "indexed": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.script_extractor.ShellScriptExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/script_extractor.py",
+              "rag-helper/tests/test_script_data_contract_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.script_extractor.ShellScriptExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/script_extractor.py",
+              "rag-helper/tests/test_script_data_contract_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.script_extractor.ShellScriptExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/script_extractor.py",
+              "rag-helper/tests/test_script_data_contract_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "powershell",
+      "display_name": "PowerShell",
+      "family": "script",
+      "priority": "P0",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".ps1",
+          ".psm1"
+        ],
+        "shebang_patterns": [
+          "^#!(?:/usr/bin/env\\s+)?(?:/usr/bin/)?pwsh(?:\\s|$)"
+        ],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_code",
+      "parser_strategy": "Static PowerShell function, class, module and local-call lexer",
+      "fallback_strategy": "bounded plain-text indexing; commands are never executed",
+      "known_limits": [
+        "Commands, pipelines, dot-sourced files and expressions are never executed; dynamic invocations remain unresolved"
+      ],
+      "pipeline_support": {
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "rag_helper": {
+          "indexed": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.script_extractor.PowerShellExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/script_extractor.py",
+              "rag-helper/tests/test_script_data_contract_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.script_extractor.PowerShellExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/script_extractor.py",
+              "rag-helper/tests/test_script_data_contract_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.script_extractor.PowerShellExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/script_extractor.py",
+              "rag-helper/tests/test_script_data_contract_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "toml",
+      "display_name": "TOML",
+      "family": "configuration",
+      "priority": "P0",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".toml"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_structured_text",
+      "parser_strategy": "Python stdlib TOML parser with secret-safe structural key records",
+      "fallback_strategy": "bounded plain-text indexing",
+      "known_limits": [
+        "Dependency semantics and interpolation are not resolved; scalar values are omitted"
+      ],
+      "pipeline_support": {
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "rag_helper": {
+          "indexed": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.configuration_extractor.ConfigurationExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/configuration_extractor.py",
+              "rag-helper/tests/test_documentation_configuration_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.configuration_extractor.ConfigurationExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/configuration_extractor.py",
+              "rag-helper/tests/test_documentation_configuration_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.configuration_extractor.ConfigurationExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/configuration_extractor.py",
+              "rag-helper/tests/test_documentation_configuration_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "mdx",
+      "display_name": "MDX",
+      "family": "documentation",
+      "priority": "P0",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".mdx"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_code",
+      "parser_strategy": "Static MDX section, link and inert code/directive extraction",
+      "fallback_strategy": "bounded plain-text indexing; embedded components are never executed",
+      "known_limits": [
+        "Embedded code, roles and directives are indexed as inert text and never executed or included"
+      ],
+      "pipeline_support": {
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "rag_helper": {
+          "indexed": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.documentation_extractor.DocumentationExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/documentation_extractor.py",
+              "rag-helper/tests/test_documentation_configuration_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.documentation_extractor.DocumentationExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/documentation_extractor.py",
+              "rag-helper/tests/test_documentation_configuration_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.documentation_extractor.DocumentationExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/documentation_extractor.py",
+              "rag-helper/tests/test_documentation_configuration_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "restructured_text",
+      "display_name": "reStructuredText",
+      "family": "documentation",
+      "priority": "P0",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".rst"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_text",
+      "parser_strategy": "Static reStructuredText section, link and inert code/directive extraction",
+      "fallback_strategy": "bounded plain-text indexing; directives are never executed",
+      "known_limits": [
+        "Embedded code, roles and directives are indexed as inert text and never executed or included"
+      ],
+      "pipeline_support": {
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "rag_helper": {
+          "indexed": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.documentation_extractor.DocumentationExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/documentation_extractor.py",
+              "rag-helper/tests/test_documentation_configuration_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.documentation_extractor.DocumentationExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/documentation_extractor.py",
+              "rag-helper/tests/test_documentation_configuration_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.documentation_extractor.DocumentationExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/documentation_extractor.py",
+              "rag-helper/tests/test_documentation_configuration_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "ini_config",
+      "display_name": "INI and generic configuration",
+      "family": "configuration",
+      "priority": "P1",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".cfg",
+          ".conf",
+          ".ini"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_structured_text",
+      "parser_strategy": "Python configparser structural section/key extraction without interpolation",
+      "fallback_strategy": "bounded plain-text indexing",
+      "known_limits": [
+        "Includes and interpolation are not resolved; scalar values are omitted"
+      ],
+      "pipeline_support": {
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "rag_helper": {
+          "indexed": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.configuration_extractor.ConfigurationExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/configuration_extractor.py",
+              "rag-helper/tests/test_documentation_configuration_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.configuration_extractor.ConfigurationExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/configuration_extractor.py",
+              "rag-helper/tests/test_documentation_configuration_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.configuration_extractor.ConfigurationExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/configuration_extractor.py",
+              "rag-helper/tests/test_documentation_configuration_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "csv",
+      "display_name": "CSV and TSV",
+      "family": "data",
+      "priority": "P1",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".csv",
+          ".tsv"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_structured_text",
+      "parser_strategy": "Bounded Python csv reader with delimiter detection, schema inference and formula neutralization",
+      "fallback_strategy": "bounded plain-text indexing with spreadsheet-formula neutralization required downstream",
+      "known_limits": [
+        "Rows and columns are bounded; cells beginning with spreadsheet formulas are neutralized; no row relationship graph is emitted"
+      ],
+      "pipeline_support": {
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "rag_helper": {
+          "indexed": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.tabular_notebook_extractor.DelimitedTextExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/tabular_notebook_extractor.py",
+              "rag-helper/tests/test_tabular_notebook_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.tabular_notebook_extractor.DelimitedTextExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/tabular_notebook_extractor.py",
+              "rag-helper/tests/test_tabular_notebook_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "notebook",
+      "display_name": "Jupyter notebook",
+      "family": "notebook",
+      "priority": "P1",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".ipynb"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_code",
+      "parser_strategy": "Bounded stdlib JSON notebook parser with inert markdown/code cells and stripped outputs",
+      "fallback_strategy": "metadata-only classification; cells and outputs are never executed or rendered",
+      "known_limits": [
+        "Cells are never executed; rich outputs and attachments are omitted and source length is bounded"
+      ],
+      "pipeline_support": {
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "rag_helper": {
+          "indexed": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.tabular_notebook_extractor.NotebookExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/tabular_notebook_extractor.py",
+              "rag-helper/tests/test_tabular_notebook_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.tabular_notebook_extractor.NotebookExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/tabular_notebook_extractor.py",
+              "rag-helper/tests/test_tabular_notebook_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.tabular_notebook_extractor.NotebookExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/tabular_notebook_extractor.py",
+              "rag-helper/tests/test_tabular_notebook_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "vue",
+      "display_name": "Vue single-file component",
+      "family": "template",
+      "priority": "P2",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".vue"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_code",
+      "parser_strategy": "Static closed-script declaration index (regex-sfc-script-symbol-v1)",
+      "fallback_strategy": "bounded plain-text indexing without rendering or executing script blocks",
+      "known_limits": [
+        "Only closed script regions are indexed; template and style bindings are not resolved",
+        "Filename-derived component symbols use confidence 0.4 and script declarations use confidence 0.45",
+        "No relationship, reference, or cross-file type resolution is advertised"
+      ],
+      "pipeline_support": {
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "semantic_translation": {
+          "indexed": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "agent.codecompass.semantic_translation.static_symbol_adapters.StaticSymbolLanguageAdapter",
+            "evidence": [
+              "agent/codecompass/semantic_translation/static_symbol_adapters.py",
+              "tests/test_codecompass_p2_static_symbol_adapters.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "agent.codecompass.semantic_translation.static_symbol_adapters.StaticSymbolLanguageAdapter",
+            "evidence": [
+              "agent/codecompass/semantic_translation/static_symbol_adapters.py",
+              "tests/test_codecompass_p2_static_symbol_adapters.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "svelte",
+      "display_name": "Svelte component",
+      "family": "template",
+      "priority": "P2",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".svelte"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_code",
+      "parser_strategy": "Static closed-script declaration index (regex-sfc-script-symbol-v1)",
+      "fallback_strategy": "bounded plain-text indexing without rendering or executing script blocks",
+      "known_limits": [
+        "Only closed script regions are indexed; template and style bindings are not resolved",
+        "Filename-derived component symbols use confidence 0.4 and script declarations use confidence 0.45",
+        "No relationship, reference, or cross-file type resolution is advertised"
+      ],
+      "pipeline_support": {
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "semantic_translation": {
+          "indexed": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "agent.codecompass.semantic_translation.static_symbol_adapters.StaticSymbolLanguageAdapter",
+            "evidence": [
+              "agent/codecompass/semantic_translation/static_symbol_adapters.py",
+              "tests/test_codecompass_p2_static_symbol_adapters.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "agent.codecompass.semantic_translation.static_symbol_adapters.StaticSymbolLanguageAdapter",
+            "evidence": [
+              "agent/codecompass/semantic_translation/static_symbol_adapters.py",
+              "tests/test_codecompass_p2_static_symbol_adapters.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "kotlin",
+      "display_name": "Kotlin",
+      "family": "code",
+      "priority": "P2",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".kt"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_code",
+      "parser_strategy": "Static Kotlin declaration index (regex-static-symbol-v1)",
+      "fallback_strategy": "bounded plain-text indexing",
+      "known_limits": [
+        "Declaration matching is static and regex-based with confidence 0.5",
+        "Complex multiline declarations, receiver ownership, and generated syntax may be omitted",
+        "No relationship, reference, or cross-file type resolution is advertised"
+      ],
+      "pipeline_support": {
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "semantic_translation": {
+          "indexed": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "agent.codecompass.semantic_translation.static_symbol_adapters.StaticSymbolLanguageAdapter",
+            "evidence": [
+              "agent/codecompass/semantic_translation/static_symbol_adapters.py",
+              "tests/test_codecompass_p2_static_symbol_adapters.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "agent.codecompass.semantic_translation.static_symbol_adapters.StaticSymbolLanguageAdapter",
+            "evidence": [
+              "agent/codecompass/semantic_translation/static_symbol_adapters.py",
+              "tests/test_codecompass_p2_static_symbol_adapters.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "kotlin_script",
+      "display_name": "Kotlin script and Gradle Kotlin DSL",
+      "family": "build",
+      "priority": "P2",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [
+          "build.gradle.kts",
+          "settings.gradle.kts"
+        ],
+        "filename_patterns": [],
+        "compound_suffixes": [
+          ".gradle.kts"
+        ],
+        "extensions": [
+          ".kts"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_code",
+      "parser_strategy": "Rag-helper Gradle Kotlin DSL outline plus static Kotlin declaration index",
+      "fallback_strategy": "bounded plain-text indexing; build logic is never executed",
+      "known_limits": [
+        "Rag-helper treats generic Kotlin scripts as Gradle-like outlines",
+        "Semantic translation indexes static declarations with confidence 0.5 but does not interpret Gradle blocks",
+        "No semantic-translation relationship, reference, or cross-file type resolution is advertised"
+      ],
+      "pipeline_support": {
+        "rag_helper": {
+          "indexed": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.text_file_extractor.TextFileExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/text_file_extractor.py",
+              "rag-helper/tests/test_text_file_extractor.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.text_file_extractor.TextFileExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/text_file_extractor.py",
+              "rag-helper/tests/test_text_file_extractor.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.text_file_extractor.TextFileExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/text_file_extractor.py",
+              "rag-helper/tests/test_text_file_extractor.py"
+            ],
+            "runtime_requirements": []
+          }
+        },
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "semantic_translation": {
+          "indexed": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "agent.codecompass.semantic_translation.static_symbol_adapters.StaticSymbolLanguageAdapter",
+            "evidence": [
+              "agent/codecompass/semantic_translation/static_symbol_adapters.py",
+              "tests/test_codecompass_p2_static_symbol_adapters.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "agent.codecompass.semantic_translation.static_symbol_adapters.StaticSymbolLanguageAdapter",
+            "evidence": [
+              "agent/codecompass/semantic_translation/static_symbol_adapters.py",
+              "tests/test_codecompass_p2_static_symbol_adapters.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "gradle",
+      "display_name": "Gradle Groovy DSL",
+      "family": "build",
+      "priority": "P1",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [
+          "build.gradle",
+          "settings.gradle"
+        ],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".gradle"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_code",
+      "parser_strategy": "Rag-helper Gradle outline",
+      "fallback_strategy": "bounded plain-text indexing; build logic is never executed",
+      "known_limits": [
+        "Dynamic Groovy evaluation and resolved dependency graphs are not available"
+      ],
+      "pipeline_support": {
+        "rag_helper": {
+          "indexed": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.text_file_extractor.TextFileExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/text_file_extractor.py",
+              "rag-helper/tests/test_text_file_extractor.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.text_file_extractor.TextFileExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/text_file_extractor.py",
+              "rag-helper/tests/test_text_file_extractor.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.text_file_extractor.TextFileExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/text_file_extractor.py",
+              "rag-helper/tests/test_text_file_extractor.py"
+            ],
+            "runtime_requirements": []
+          }
+        },
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "swift",
+      "display_name": "Swift",
+      "family": "code",
+      "priority": "P2",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".swift"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_code",
+      "parser_strategy": "Static Swift declaration index (regex-static-symbol-v1)",
+      "fallback_strategy": "bounded plain-text indexing without compiling source",
+      "known_limits": [
+        "Declaration matching is static and regex-based with confidence 0.5",
+        "Conditional compilation, synthesized declarations, complex multiline syntax, and macros may be omitted",
+        "No relationship, reference, or cross-file type resolution is advertised"
+      ],
+      "pipeline_support": {
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "semantic_translation": {
+          "indexed": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "agent.codecompass.semantic_translation.static_symbol_adapters.StaticSymbolLanguageAdapter",
+            "evidence": [
+              "agent/codecompass/semantic_translation/static_symbol_adapters.py",
+              "tests/test_codecompass_p2_static_symbol_adapters.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "agent.codecompass.semantic_translation.static_symbol_adapters.StaticSymbolLanguageAdapter",
+            "evidence": [
+              "agent/codecompass/semantic_translation/static_symbol_adapters.py",
+              "tests/test_codecompass_p2_static_symbol_adapters.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "scala",
+      "display_name": "Scala",
+      "family": "code",
+      "priority": "P2",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".scala"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_code",
+      "parser_strategy": "Static Scala declaration index (regex-static-symbol-v1)",
+      "fallback_strategy": "bounded plain-text indexing without compiling source",
+      "known_limits": [
+        "Declaration matching is static and regex-based with confidence 0.48",
+        "Scala 3 indentation scopes, givens, extension ownership, and complex multiline declarations may be omitted",
+        "No relationship, reference, or cross-file type resolution is advertised"
+      ],
+      "pipeline_support": {
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "semantic_translation": {
+          "indexed": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "agent.codecompass.semantic_translation.static_symbol_adapters.StaticSymbolLanguageAdapter",
+            "evidence": [
+              "agent/codecompass/semantic_translation/static_symbol_adapters.py",
+              "tests/test_codecompass_p2_static_symbol_adapters.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "agent.codecompass.semantic_translation.static_symbol_adapters.StaticSymbolLanguageAdapter",
+            "evidence": [
+              "agent/codecompass/semantic_translation/static_symbol_adapters.py",
+              "tests/test_codecompass_p2_static_symbol_adapters.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "lua",
+      "display_name": "Lua",
+      "family": "code",
+      "priority": "P2",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".lua"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_code",
+      "parser_strategy": "Static Lua declaration index (regex-static-symbol-v1)",
+      "fallback_strategy": "bounded plain-text indexing without loading modules",
+      "known_limits": [
+        "Declaration matching is static and regex-based with confidence 0.5",
+        "Metatables, dynamically assigned members, complex multiline declarations, and generated code may be omitted",
+        "No relationship, reference, or cross-file type resolution is advertised"
+      ],
+      "pipeline_support": {
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "semantic_translation": {
+          "indexed": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "agent.codecompass.semantic_translation.static_symbol_adapters.StaticSymbolLanguageAdapter",
+            "evidence": [
+              "agent/codecompass/semantic_translation/static_symbol_adapters.py",
+              "tests/test_codecompass_p2_static_symbol_adapters.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "agent.codecompass.semantic_translation.static_symbol_adapters.StaticSymbolLanguageAdapter",
+            "evidence": [
+              "agent/codecompass/semantic_translation/static_symbol_adapters.py",
+              "tests/test_codecompass_p2_static_symbol_adapters.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "dart",
+      "display_name": "Dart",
+      "family": "code",
+      "priority": "P2",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".dart"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_code",
+      "parser_strategy": "Static Dart declaration index (regex-static-symbol-v1)",
+      "fallback_strategy": "bounded plain-text indexing without compiling source",
+      "known_limits": [
+        "Declaration matching is static and regex-based with confidence 0.47",
+        "Constructors, getters, setters, extension ownership, and complex multiline declarations are only partially recognized",
+        "No relationship, reference, or cross-file type resolution is advertised"
+      ],
+      "pipeline_support": {
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "semantic_translation": {
+          "indexed": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "agent.codecompass.semantic_translation.static_symbol_adapters.StaticSymbolLanguageAdapter",
+            "evidence": [
+              "agent/codecompass/semantic_translation/static_symbol_adapters.py",
+              "tests/test_codecompass_p2_static_symbol_adapters.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "agent.codecompass.semantic_translation.static_symbol_adapters.StaticSymbolLanguageAdapter",
+            "evidence": [
+              "agent/codecompass/semantic_translation/static_symbol_adapters.py",
+              "tests/test_codecompass_p2_static_symbol_adapters.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "protobuf",
+      "display_name": "Protocol Buffers",
+      "family": "configuration",
+      "priority": "P2",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".proto"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_structured_text",
+      "parser_strategy": "Static protobuf package/message/field/service/import lexer without protoc",
+      "fallback_strategy": "bounded plain-text indexing without invoking protoc",
+      "known_limits": [
+        "Dynamic/generated constructs and cross-file type resolution remain unresolved; no external tool is invoked"
+      ],
+      "pipeline_support": {
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "rag_helper": {
+          "indexed": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.data_contract_extractor.ProtoExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/data_contract_extractor.py",
+              "rag-helper/tests/test_script_data_contract_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.data_contract_extractor.ProtoExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/data_contract_extractor.py",
+              "rag-helper/tests/test_script_data_contract_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.data_contract_extractor.ProtoExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/data_contract_extractor.py",
+              "rag-helper/tests/test_script_data_contract_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "graphql",
+      "display_name": "GraphQL",
+      "family": "configuration",
+      "priority": "P2",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".gql",
+          ".graphql"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_structured_text",
+      "parser_strategy": "Static GraphQL schema/operation/field/fragment/directive lexer",
+      "fallback_strategy": "bounded plain-text indexing",
+      "known_limits": [
+        "Dynamic/generated constructs and cross-file type resolution remain unresolved; no external tool is invoked"
+      ],
+      "pipeline_support": {
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "rag_helper": {
+          "indexed": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.data_contract_extractor.GraphqlExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/data_contract_extractor.py",
+              "rag-helper/tests/test_script_data_contract_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.data_contract_extractor.GraphqlExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/data_contract_extractor.py",
+              "rag-helper/tests/test_script_data_contract_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.data_contract_extractor.GraphqlExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/data_contract_extractor.py",
+              "rag-helper/tests/test_script_data_contract_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "terraform",
+      "display_name": "Terraform",
+      "family": "configuration",
+      "priority": "P2",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [
+          ".tfvars.json"
+        ],
+        "extensions": [
+          ".tf",
+          ".tfvars"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_code",
+      "parser_strategy": "Static HCL block/reference lexer without Terraform initialization or provider loading",
+      "fallback_strategy": "bounded plain-text indexing without initialization, planning, or provider loading",
+      "known_limits": [
+        "Dynamic/generated constructs and cross-file type resolution remain unresolved; no external tool is invoked"
+      ],
+      "pipeline_support": {
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "rag_helper": {
+          "indexed": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.data_contract_extractor.TerraformExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/data_contract_extractor.py",
+              "rag-helper/tests/test_script_data_contract_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.data_contract_extractor.TerraformExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/data_contract_extractor.py",
+              "rag-helper/tests/test_script_data_contract_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.data_contract_extractor.TerraformExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/data_contract_extractor.py",
+              "rag-helper/tests/test_script_data_contract_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "json_schema",
+      "display_name": "JSON Schema",
+      "family": "configuration",
+      "priority": "P1",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [
+          "*.schema.json"
+        ],
+        "compound_suffixes": [
+          ".schema.json"
+        ],
+        "extensions": [],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_structured_text",
+      "parser_strategy": "Bounded stdlib JSON Schema parser for definitions, properties, composition and references",
+      "fallback_strategy": "generic JSON remains setup-index text and repository-map data unless positively detected by the rag-helper extractor",
+      "known_limits": [
+        "Only local JSON Pointer references are resolved; remote references are recorded but never fetched"
+      ],
+      "pipeline_support": {
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "rag_helper": {
+          "indexed": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.data_contract_extractor.JsonDocumentExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/data_contract_extractor.py",
+              "rag-helper/tests/test_script_data_contract_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.data_contract_extractor.JsonDocumentExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/data_contract_extractor.py",
+              "rag-helper/tests/test_script_data_contract_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.data_contract_extractor.JsonDocumentExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/data_contract_extractor.py",
+              "rag-helper/tests/test_script_data_contract_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          }
+        }
+      },
+      "match_priority": 100
+    },
+    {
+      "format_id": "mermaid",
+      "display_name": "Mermaid diagrams",
+      "family": "diagram",
+      "priority": "P1",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".mermaid",
+          ".mmd"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_text",
+      "parser_strategy": "Static diagram node, group, edge and include lexer without rendering or include dereference",
+      "fallback_strategy": "bounded plain-text setup indexing when structured extraction is disabled",
+      "known_limits": [
+        "Includes are recorded as unresolved references and never opened; renderer-specific syntax may remain partial"
+      ],
+      "pipeline_support": {
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "rag_helper": {
+          "indexed": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.diagram_extractor.DiagramExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/diagram_extractor.py",
+              "rag-helper/tests/test_diagram_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.diagram_extractor.DiagramExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/diagram_extractor.py",
+              "rag-helper/tests/test_diagram_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.diagram_extractor.DiagramExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/diagram_extractor.py",
+              "rag-helper/tests/test_diagram_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "plantuml",
+      "display_name": "PlantUML diagrams",
+      "family": "diagram",
+      "priority": "P1",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".plantuml",
+          ".puml"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_text",
+      "parser_strategy": "Static diagram node, group, edge and include lexer without rendering or include dereference",
+      "fallback_strategy": "bounded plain-text setup indexing when structured extraction is disabled",
+      "known_limits": [
+        "Includes are recorded as unresolved references and never opened; renderer-specific syntax may remain partial"
+      ],
+      "pipeline_support": {
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "rag_helper": {
+          "indexed": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.diagram_extractor.DiagramExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/diagram_extractor.py",
+              "rag-helper/tests/test_diagram_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.diagram_extractor.DiagramExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/diagram_extractor.py",
+              "rag-helper/tests/test_diagram_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.diagram_extractor.DiagramExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/diagram_extractor.py",
+              "rag-helper/tests/test_diagram_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "graphviz_dot",
+      "display_name": "Graphviz DOT diagrams",
+      "family": "diagram",
+      "priority": "P1",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".dot",
+          ".gv"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_text",
+      "parser_strategy": "Static diagram node, group, edge and include lexer without rendering or include dereference",
+      "fallback_strategy": "bounded plain-text setup indexing when structured extraction is disabled",
+      "known_limits": [
+        "Includes are recorded as unresolved references and never opened; renderer-specific syntax may remain partial"
+      ],
+      "pipeline_support": {
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "rag_helper": {
+          "indexed": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.diagram_extractor.DiagramExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/diagram_extractor.py",
+              "rag-helper/tests/test_diagram_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.diagram_extractor.DiagramExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/diagram_extractor.py",
+              "rag-helper/tests/test_diagram_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "heuristic",
+            "verified": true,
+            "producer": "rag_helper.extractors.diagram_extractor.DiagramExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/diagram_extractor.py",
+              "rag-helper/tests/test_diagram_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py"
+            ],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "drawio",
+      "display_name": "draw.io diagrams",
+      "family": "diagram",
+      "priority": "P1",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".drawio"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_structured_text",
+      "parser_strategy": "Fail-closed XML draw.io page/node/edge parser with bounded base64/deflate decoding",
+      "fallback_strategy": "bounded plain-text setup indexing when structured extraction is disabled",
+      "known_limits": [
+        "External entities and network access are denied; decoded page size, XML nodes, depth and attributes are bounded"
+      ],
+      "pipeline_support": {
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        },
+        "rag_helper": {
+          "indexed": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.diagram_extractor.DrawioExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/diagram_extractor.py",
+              "rag-helper/tests/test_diagram_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py",
+              "rag-helper/rag_helper/extractors/xml_security.py",
+              "rag-helper/tests/test_xml_security.py"
+            ],
+            "runtime_requirements": [
+              "python-module:lxml"
+            ]
+          },
+          "symbols": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.diagram_extractor.DrawioExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/diagram_extractor.py",
+              "rag-helper/tests/test_diagram_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py",
+              "rag-helper/rag_helper/extractors/xml_security.py",
+              "rag-helper/tests/test_xml_security.py"
+            ],
+            "runtime_requirements": [
+              "python-module:lxml"
+            ]
+          },
+          "relationships": {
+            "implementation": "parser",
+            "verified": true,
+            "producer": "rag_helper.extractors.diagram_extractor.DrawioExtractor",
+            "evidence": [
+              "rag-helper/rag_helper/extractors/diagram_extractor.py",
+              "rag-helper/tests/test_diagram_formats.py",
+              "rag-helper/tests/test_document_extractor_format_registration.py",
+              "rag-helper/rag_helper/extractors/xml_security.py",
+              "rag-helper/tests/test_xml_security.py"
+            ],
+            "runtime_requirements": [
+              "python-module:lxml"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "format_id": "powershell_data",
+      "display_name": "PowerShell data file",
+      "family": "configuration",
+      "priority": "P1",
+      "enabled": true,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [
+          ".psd1"
+        ],
+        "shebang_patterns": [],
+        "text_fallback": false
+      },
+      "security_class": "untrusted_code",
+      "parser_strategy": "No PowerShell data-file semantic parser is wired",
+      "fallback_strategy": "bounded, redacted setup-index text only; data expressions are never evaluated",
+      "known_limits": [
+        "Hashtable symbols and module-manifest relationships are not yet emitted"
+      ],
+      "pipeline_support": {
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        }
+      }
+    },
+    {
+      "format_id": "plain_text",
+      "display_name": "Unclassified text",
+      "family": "fallback",
+      "priority": "P2",
+      "enabled": true,
+      "match_priority": -100,
+      "selectors": {
+        "exact_filenames": [],
+        "filename_patterns": [],
+        "compound_suffixes": [],
+        "extensions": [],
+        "shebang_patterns": [],
+        "text_fallback": true
+      },
+      "security_class": "untrusted_text",
+      "parser_strategy": "No structural parser",
+      "fallback_strategy": "bounded plain-text classification only",
+      "known_limits": [
+        "Text fallback is not proof that any pipeline will index the file"
+      ],
+      "pipeline_support": {
+        "setup_index": {
+          "indexed": {
+            "implementation": "text_fallback",
+            "verified": true,
+            "producer": "scripts.setup_codecompass_index",
+            "evidence": [
+              "scripts/setup_codecompass_index.py",
+              "tests/test_setup_codecompass_file_type_index.py"
+            ],
+            "runtime_requirements": []
+          },
+          "symbols": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          },
+          "relationships": {
+            "implementation": "unsupported",
+            "verified": false,
+            "producer": null,
+            "evidence": [],
+            "runtime_requirements": []
+          }
+        }
+      }
+    }
+  ]
+}
