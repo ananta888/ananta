@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "schema": "ananta.codecompass-graph-visualization-budgets.v1",
+  "fixture": {
+    "nodes": 5000,
+    "edges": 15000,
+    "domains": 30,
+    "hover_events": 100
+  },
+  "cache": {
+    "max_revision_profile_entries": 8
+  },
+  "operation_limits": {
+    "http_requests_per_visual_interaction": 0,
+    "score_recomputations_per_hover_burst": 0,
+    "renderer_reinitializations_per_profile_change": 0,
+    "graph_data_resets_per_profile_change": 0,
+    "projection_runs_per_animation_frame": 1
+  },
+  "browser_p95_ms": {
+    "initial_projection": 750,
+    "cached_projection": 40,
+    "hover_update": 16,
+    "profile_update": 120
+  },
+  "evidence_source_paths": [
+    "config/codecompass/graph_visualization_budgets.v1.json",
+    "frontend-angular/playwright.ccgv-graph.config.ts",
+    "frontend-angular/src/app/features/codecompass-graph/components/graph-2d-view/graph-2d-view.component.ts",
+    "frontend-angular/src/app/features/codecompass-graph/components/graph-viewer/graph-viewer.component.ts",
+    "frontend-angular/src/app/features/codecompass-graph/services/graph-metric-score.service.ts",
+    "frontend-angular/src/app/features/codecompass-graph/services/graph-visual-projection.service.ts",
+    "frontend-angular/src/app/features/codecompass-graph/testing/graph-visualization-performance.fixture.ts",
+    "frontend-angular/tests/codecompass-graph-visualization-functional.spec.ts",
+    "frontend-angular/tests/codecompass-graph-visualization-performance.spec.ts",
+    "frontend-angular/tests/helpers/codecompass-graph-visualization.ts"
+  ]
+}

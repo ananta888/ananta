@@ -1,0 +1,273 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ananta.codecompass-graph-visualization-gate.v1",
+  "title": "CodeCompass graph visualization release gate report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "gate_id",
+    "status",
+    "environment_class",
+    "budget_sha256",
+    "evidence_sha256",
+    "browser_measurements_sha256",
+    "evidence_paths",
+    "source_hashes",
+    "release_check_evidence",
+    "gates"
+  ],
+  "properties": {
+    "schema": {
+      "const": "ananta.codecompass-graph-visualization-gate.v1"
+    },
+    "gate_id": {
+      "const": "codecompass-graph-visualization"
+    },
+    "status": {
+      "$ref": "#/$defs/gateStatus"
+    },
+    "environment_class": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+    },
+    "budget_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "evidence_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "browser_measurements_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "evidence_paths": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/repositoryPath"
+      }
+    },
+    "source_hashes": {
+      "$ref": "#/$defs/sourceHashes"
+    },
+    "release_check_evidence": {
+      "$ref": "#/$defs/releaseCheckEvidence"
+    },
+    "gates": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "prefixItems": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["gate_id", "status", "measurements"],
+          "properties": {
+            "gate_id": {"const": "fixture_coverage"},
+            "status": {"$ref": "#/$defs/gateStatus"},
+            "measurements": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["nodes", "edges", "domains", "hover_events"],
+              "properties": {
+                "nodes": {"type": "integer", "minimum": 1},
+                "edges": {"type": "integer", "minimum": 1},
+                "domains": {"type": "integer", "minimum": 1},
+                "hover_events": {"type": "integer", "minimum": 1}
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["gate_id", "status", "measurements"],
+          "properties": {
+            "gate_id": {"const": "operation_counts"},
+            "status": {"$ref": "#/$defs/gateStatus"},
+            "measurements": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "http_requests_per_visual_interaction",
+                "score_recomputations_per_hover_burst",
+                "renderer_reinitializations_per_profile_change",
+                "graph_data_resets_per_profile_change",
+                "projection_runs_per_animation_frame"
+              ],
+              "properties": {
+                "http_requests_per_visual_interaction": {"$ref": "#/$defs/integerMeasurement"},
+                "score_recomputations_per_hover_burst": {"$ref": "#/$defs/integerMeasurement"},
+                "renderer_reinitializations_per_profile_change": {"$ref": "#/$defs/integerMeasurement"},
+                "graph_data_resets_per_profile_change": {"$ref": "#/$defs/integerMeasurement"},
+                "projection_runs_per_animation_frame": {"$ref": "#/$defs/integerMeasurement"}
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["gate_id", "status", "measurements_ms"],
+          "properties": {
+            "gate_id": {"const": "browser_p95"},
+            "status": {"$ref": "#/$defs/gateStatus"},
+            "measurements_ms": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["initial_projection", "cached_projection", "hover_update", "profile_update"],
+              "properties": {
+                "initial_projection": {"$ref": "#/$defs/timingMeasurement"},
+                "cached_projection": {"$ref": "#/$defs/timingMeasurement"},
+                "hover_update": {"$ref": "#/$defs/timingMeasurement"},
+                "profile_update": {"$ref": "#/$defs/timingMeasurement"}
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["gate_id", "status", "measurements"],
+          "properties": {
+            "gate_id": {"const": "cache_eviction"},
+            "status": {"$ref": "#/$defs/gateStatus"},
+            "measurements": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["entries_after_eviction", "maximum", "deterministic_lru_passed"],
+              "properties": {
+                "entries_after_eviction": {"type": "integer", "minimum": 0},
+                "maximum": {"type": "integer", "minimum": 1},
+                "deterministic_lru_passed": {"type": "boolean"}
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["gate_id", "status", "measurements"],
+          "properties": {
+            "gate_id": {"const": "release_checks"},
+            "status": {"$ref": "#/$defs/gateStatus"},
+            "measurements": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["functional", "security", "accessibility", "production_build"],
+              "properties": {
+                "functional": {"type": "boolean"},
+                "security": {"type": "boolean"},
+                "accessibility": {"type": "boolean"},
+                "production_build": {"type": "boolean"}
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["gate_id", "status", "measurements"],
+          "properties": {
+            "gate_id": {"const": "reproducibility"},
+            "status": {"const": "passed"},
+            "measurements": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["graph", "graph_repeat", "profile", "projection", "projection_repeat"],
+              "properties": {
+                "graph": {"$ref": "#/$defs/sha256"},
+                "graph_repeat": {"$ref": "#/$defs/sha256"},
+                "profile": {"$ref": "#/$defs/sha256"},
+                "projection": {"$ref": "#/$defs/sha256"},
+                "projection_repeat": {"$ref": "#/$defs/sha256"}
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "gateStatus": {
+      "type": "string",
+      "enum": ["passed", "failed"]
+    },
+    "repositoryPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240,
+      "pattern": "^[A-Za-z0-9._@+-]+(?:/[A-Za-z0-9._@+-]+)*$"
+    },
+    "sourceHashes": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {"$ref": "#/$defs/repositoryPath"},
+      "additionalProperties": {"$ref": "#/$defs/sha256"}
+    },
+    "releaseCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "evidence_path", "evidence_sha256"],
+      "properties": {
+        "status": {"$ref": "#/$defs/gateStatus"},
+        "evidence_path": {"$ref": "#/$defs/repositoryPath"},
+        "evidence_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "releaseCheckEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["functional", "security", "accessibility", "production_build"],
+      "properties": {
+        "functional": {"$ref": "#/$defs/releaseCheck"},
+        "security": {"$ref": "#/$defs/releaseCheck"},
+        "accessibility": {"$ref": "#/$defs/releaseCheck"},
+        "production_build": {"$ref": "#/$defs/releaseCheck"}
+      }
+    },
+    "releaseCheckAttestation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "check_id", "status", "source_hashes"],
+      "properties": {
+        "schema": {
+          "const": "ananta.codecompass-graph-visualization-release-check-evidence.v1"
+        },
+        "check_id": {
+          "enum": ["functional", "security", "accessibility", "production_build"]
+        },
+        "status": {
+          "$ref": "#/$defs/gateStatus"
+        },
+        "source_hashes": {
+          "$ref": "#/$defs/sourceHashes"
+        }
+      }
+    },
+    "integerMeasurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["measured", "maximum"],
+      "properties": {
+        "measured": {"type": "integer", "minimum": 0},
+        "maximum": {"type": "integer", "minimum": 0}
+      }
+    },
+    "timingMeasurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["measured", "maximum"],
+      "properties": {
+        "measured": {"type": "number", "minimum": 0},
+        "maximum": {"type": "number", "exclusiveMinimum": 0}
+      }
+    }
+  }
+}

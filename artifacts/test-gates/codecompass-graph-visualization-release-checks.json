@@ -1,0 +1,25 @@
+{
+  "schema": "ananta.codecompass-graph-visualization-release-checks.v1",
+  "checks": {
+    "functional": {
+      "status": "passed",
+      "evidence_path": "artifacts/test-gates/codecompass-graph-visualization-functional.json",
+      "evidence_sha256": "30c4595c994b068cb4bfa62686e1eef9a371caa951256addec21cb9e853d3788"
+    },
+    "security": {
+      "status": "passed",
+      "evidence_path": "artifacts/test-gates/codecompass-graph-visualization-security.json",
+      "evidence_sha256": "59c0e8296fb09ccc4853ab0fea53c674d1b4a6cba6ecb17873a55c604cb92b22"
+    },
+    "accessibility": {
+      "status": "passed",
+      "evidence_path": "artifacts/test-gates/codecompass-graph-visualization-accessibility.json",
+      "evidence_sha256": "752c67fce179eeb88dea3f66c657075d62e372d994d0ba6a554aec59c87c885d"
+    },
+    "production_build": {
+      "status": "passed",
+      "evidence_path": "artifacts/test-gates/codecompass-graph-visualization-production-build.json",
+      "evidence_sha256": "a48f81989b7f3532000c4ee7d3bbf9876e763247bba027b5f54b6b00b8a63099"
+    }
+  }
+}

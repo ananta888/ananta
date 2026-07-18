@@ -1,0 +1,17 @@
+{
+  "schema": "ananta.codecompass-graph-visualization-release-check-evidence.v1",
+  "check_id": "accessibility",
+  "status": "passed",
+  "source_hashes": {
+    "config/codecompass/graph_visualization_budgets.v1.json": "d9b2c2cdea96e1c8fa4651f6eac38102718cd165e1fda3997c07518ece63f74e",
+    "frontend-angular/playwright.ccgv-graph.config.ts": "36d18372093612b445d4e4f65c0dc79587b0ec69715d54bcb54731e554d2e1d4",
+    "frontend-angular/src/app/features/codecompass-graph/components/graph-2d-view/graph-2d-view.component.ts": "8d44505f756af987d0ab9a8e2bbe38c355575a99d6ec11ad4b2129cf2a508cb1",
+    "frontend-angular/src/app/features/codecompass-graph/components/graph-viewer/graph-viewer.component.ts": "7a897122757afd7456069bb1688a0d8df5fb4c591975aec012fdc762c42535af",
+    "frontend-angular/src/app/features/codecompass-graph/services/graph-metric-score.service.ts": "c337c37acf980c3cbe6acae1e89d450410a4bb952bc0473bdc0efb4eb49db965",
+    "frontend-angular/src/app/features/codecompass-graph/services/graph-visual-projection.service.ts": "3894ffe4decd4bb439882d30169786912175baa79639ff963ec3ddc6de7262b3",
+    "frontend-angular/src/app/features/codecompass-graph/testing/graph-visualization-performance.fixture.ts": "e72397185ee2016caf28f66d541c505531a1287a3c085b9df17745c922fc98ad",
+    "frontend-angular/tests/codecompass-graph-visualization-functional.spec.ts": "cc1c2356c5af0fef7274fa60e5111fda23ab9bf3f807246973764e110aa80c6f",
+    "frontend-angular/tests/codecompass-graph-visualization-performance.spec.ts": "345da3f5bda1bcfccb9869f6f3ecc807fb8be7e73c6c772007edd49b4564aa41",
+    "frontend-angular/tests/helpers/codecompass-graph-visualization.ts": "64700ad87d6c4e4f7841a82d63d9795accae4a54b9f96de0aef95f34b21c383c"
+  }
+}
